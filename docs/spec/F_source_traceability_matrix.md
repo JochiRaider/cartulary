@@ -13,18 +13,18 @@ It records where the content of the exploratory source artifact was carried into
 | `2. Problem framing` | Appendix A, Appendix G | Problem statement, user roles, and adoption rationale preserved as informative context. |
 | `3. Design principles and assumptions` | Core 00, Core 01, Core 03, Appendix A, Appendix G | Operating envelope and load-bearing principles promoted; rationale retained in Appendix A. |
 | `4. Recommended architecture` | Core 01, Appendix B, Appendix G | Topology, storage, projection, snapshot, and background-job contracts promoted; diagrams and explanatory notes retained. |
-| `5. Collaboration and consistency model` | Core 03, Appendix G | Optimistic concurrency, autosave, presence, and conflict semantics promoted. |
+| `5. Collaboration and consistency model` | Core 03, Appendix G | Optimistic concurrency, autosave, presence, and same-surface same-field conflict semantics promoted. |
 | `6. Domain model and schema strategy` | Core 02, Appendix G | Record types, mention/entity contract, provenance, dedupe, merge, notes, indicators, assessments, and JSONB discipline promoted. |
 | `7. Postgres schema proposal` | Core 02, Appendix C, Appendix G | Schema invariants and history rules promoted; ER diagram and DDL retained as informative reference. |
 | `8. Record lifecycle and IR workflow model` | Core 03, Appendix D, Appendix G | Lifecycle, timeline create flow, evidence attach flow, resolution flow, rollback flow, paste/import behavior, and auto-resolution policy promoted. |
 | `9. UI concepts focused on preserving the spreadsheet feel` | Core 03, Appendix D, Appendix G | Workbook interaction contract promoted; mockups and explanatory notes retained. |
-| `10. UX acceptance criteria` | Core 04, Appendix G | Rewritten as conformance criteria with base and extension profiles. |
+| `10. UX acceptance criteria` | Core 04, Appendix G | Rewritten as conformance criteria with base and extension profiles, including explicit same-field conflict-resolution checks. |
 | `11. Security, auth, and access control` | Core 04, Appendix G | Authentication, authorization, attribution, and trust boundaries promoted. |
 | `12. Deployment model` | Core 01, Core 04, Appendix G | Topology, runtime roots, and deployment variants promoted. |
 | `13. Trade-offs, risks, and rejected alternatives` | Appendix A, Appendix G | Preserved as informative rationale and risk context. |
 | `14. Comparison table` | Appendix A, Appendix G | Preserved as informative comparison context. |
 | `15. Recommended MVP and phased roadmap` | Appendix E, Appendix G | Preserved as roadmap context; mixed-status features normalized into extension profiles in core. |
-| `16. Open questions` | Appendix E, Appendix G | Preserved as non-normative open issues and editorial decision backlog. |
+| `16. Open questions` | Appendix E, Appendix G | Preserved as non-normative open issues and editorial decision backlog, with questions closed by later normative decisions marked resolved in Appendix E. |
 | `Design sanity check` | Appendix A, Appendix G | Preserved as informative validation summary. |
 
 
@@ -37,6 +37,7 @@ It records where the content of the exploratory source artifact was carried into
 | `6. Deduplication and auto-upsert rules` | Core 02 §8, Appendix G | Promoted as deterministic matching rules. |
 | `6. Merge behavior` | Core 02 §9, Appendix G | Promoted as authoritative merge semantics. |
 | `7. Additional schema requirements for rollback granularity` | Core 02 §14-15, Appendix C, Appendix G | Promoted as authoritative rollback substrate. |
+| `5. Same-field conflict resolution UX` | Core 03 §3.3, Core 04 §9.6, Appendix E | Promoted as an authoritative same-surface conflict-resolution contract and removed from the remaining MVP open questions. |
 | `8. Bulk paste/import from existing spreadsheet or clipboard` | Core 03 §11, Appendix D, Appendix G | Split into base clipboard paste and import extension profile. |
 | `8. Auto-resolution policy for typed host/account strings` | Core 03 §12, Appendix D, Appendix G | Promoted as authoritative bounded auto-resolution behavior. |
 | `9. Sorting / filtering / grouping` | Core 03 §14, Appendix D, Appendix G | Promoted as authoritative grouping and row-addressing behavior. |

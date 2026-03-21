@@ -55,7 +55,7 @@ The schema sketch needs a few explicit contract fields beyond the high-level tab
 
 - `entity_mentions` MUST store `source_field_key`, `origin_kind`, and `origin_locator`, plus resolution metadata such as `resolved_at`, `resolved_by_user_id`, and `resolution_method`.
 - Host and identity records MUST store `entity_origin` and structured provenance, including an optional seed mention reference when the entity was created from a mention.
-- `view_schemas.writeback_contract` and import mappings MUST declare `entity_binding_mode` per entity-bearing field.
+- `view_schemas.writeback_contract` and import mappings MUST declare `entity_binding_mode` per entity-bearing field. Same-field-conflict-capable write-back fields MUST also declare `conflict_resolution_class` per `field_key`.
 - Repeated mentions MUST remain separate rows; repeated entity-origin inputs MAY upsert the same entity when exact-match rules select a unique active target.
 
 ### Additional schema requirements for rollback granularity
@@ -67,6 +67,16 @@ A conformant history schema needs a mutation log in addition to row-snapshot rev
 - Mutation targets MUST include row-field edits, `record_links`, `record_tags`, `entity_mentions`, evidence associations, and merge/repoint fan-out.
 - Stable mutation target identities MUST use a canonical target-kind-specific serialization. Composite targets MUST serialize deterministically, for example `record_tag:<record_id>:<tag_id>`.
 - `record_revisions` MAY retain `before_json` / `after_json` row snapshots for audit and whole-row restore, but they MUST NOT be the sole rollback substrate.
+
+### Additional contract requirements for same-field conflict resolution
+
+The same-field conflict path needs one explicit contract hook beyond base row-versioning:
+
+- `view_schemas.writeback_contract` MUST declare `conflict_resolution_class` per write-back-capable `field_key`.
+- The closed vocabulary is `atomic_replace`, `text_compare_merge`, and `collection_review`. Unknown or omitted values MUST behave as `atomic_replace`.
+- The same-field conflict payload MUST include `conflict_token`, `record_id`, `field_key`, `conflict_resolution_class`, `base_row_version`, `current_row_version`, `client_value`, `server_value`, `server_updated_by`, and `server_updated_at`. Merge-capable conflicts MUST additionally carry either `base_value` or `base_revision_ref`.
+- Client implementations MUST keep same-field conflicts in a conflict queue keyed by the canonical composite `record_id:field_key` rather than mixing them into the transient retry queue.
+- The base profile does not require an authoritative persisted conflict-draft table. Unresolved conflict drafts remain client-local unsaved state until the analyst explicitly resolves them.
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS pgcrypto;

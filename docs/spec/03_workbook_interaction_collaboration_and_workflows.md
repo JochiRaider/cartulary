@@ -60,9 +60,9 @@ If another user has changed the row:
 - when the other change touched a different field, the server MUST auto-rebase and accept the write,
 - when the other change touched the same field, the server MUST reject the write with a conflict payload.
 
-The conflict payload MUST preserve:
+At minimum, the conflict payload MUST preserve:
 
-- the field key,
+- the stable `field_key`,
 - the client-submitted value,
 - the persisted server value,
 - the client `base_row_version`,
@@ -70,7 +70,128 @@ The conflict payload MUST preserve:
 
 A same-field conflict MUST remain unresolved until an analyst explicitly chooses a resolution. Same-field edits MUST NOT silently overwrite each other.
 
-### 3.3 Client addressing rules
+### 3.3 Analyst-facing same-field conflict resolution
+
+#### 3.3.1 Resolver surface and conflict state
+
+When a same-field conflict occurs, only the affected cell MUST enter conflict state.
+
+The conflicted cell MUST continue to display the current saved server value plus a visible conflict marker. The client MUST retain the analyst's unsaved local value separately and MUST NOT render that local value as though it were already saved.
+
+The analyst-facing resolver MUST open from the conflicted cell as a compare drawer or an equivalent same-surface panel. The main grid MUST remain visible while the resolver is open, and the row containing the conflicted cell MUST remain in view.
+
+Closing the resolver without selecting a resolution MUST leave the cell in conflict state.
+
+The workbook save-state presentation MUST remain `Conflict` until every unresolved same-field conflict local to that client has been cleared or resolved.
+
+When same-cell presence is available before the conflict occurs, the UI SHOULD show a hint equivalent to another analyst actively editing the field.
+
+The analyst MUST be able to continue editing other rows or cells while a same-field conflict on a different cell remains unresolved.
+
+After an explicit same-field conflict resolution or clear action, focus MUST return to the same cell and scroll position MUST be preserved.
+
+#### 3.3.2 Resolver contents and safety rules
+
+The resolver MUST display:
+
+- row context sufficient to identify the record without leaving the sheet,
+- the field display label and stable `field_key`,
+- the saved value plus the actor and timestamp of that saved value,
+- the analyst's unsaved local value,
+- for merge-capable fields, a diff summary against the common base,
+- direct resolution actions in plain language.
+
+The resolver SHOULD open with a message equivalent to: `This field changed before your edit was saved. Review the saved value and your unsaved value.`
+
+The resolver MUST NOT default focus to a destructive action such as `Use my unsaved value`.
+
+Initial keyboard focus MUST land on the conflict summary or an equivalent non-destructive element.
+
+Pressing Enter while the resolver first opens MUST NOT resolve the conflict.
+
+#### 3.3.3 Contract-declared resolution classes
+
+For each write-back-capable `field_key`, `view_schemas.writeback_contract` MUST declare `conflict_resolution_class`.
+
+The closed vocabulary is:
+
+| `conflict_resolution_class` | Required use | Required resolver behavior |
+| --- | --- | --- |
+| `atomic_replace` | scalar fields such as timestamps, enums, numbers, single-value identifiers, and state fields | present explicit `Keep saved value` and `Use my unsaved value` actions |
+| `text_compare_merge` | analyst-authored free text such as `summary`, `details`, note body, and description | present side-by-side comparison with change highlighting and an optional `Edit merged value` path |
+| `collection_review` | multi-value chip or set fields such as tags, Timeline Hosts, and Timeline Identities | present base, saved, and local deltas plus a final preview before commit |
+
+Unknown or omitted classes MUST behave as `atomic_replace`.
+
+For `text_compare_merge`, the merge editor MUST start from the current saved value and MUST keep the analyst's unsaved local draft visible as reference.
+
+For relationship cells that mix unresolved mention tokens and canonical entity links, the resolver MUST preserve those as different object types. It MUST NOT coerce unresolved tokens and canonical chips into plain delimited text solely for conflict presentation.
+
+#### 3.3.4 Same-field conflict transport contract
+
+A same-field conflict response MUST use `409 Conflict` or an equivalent explicit concurrency-conflict status in deployments that do not expose HTTP directly.
+
+A same-field conflict response MUST use a dedicated conflict payload rather than the normal transient retry path.
+
+The response MUST include at least:
+
+- `conflict_token`,
+- `record_id`,
+- `field_key`,
+- `conflict_resolution_class`,
+- `base_row_version`,
+- `current_row_version`,
+- `client_value`,
+- `server_value`,
+- `server_updated_by`,
+- `server_updated_at`,
+- for merge-capable fields, either `base_value` or `base_revision_ref`.
+
+The client MUST place same-field conflicts into a client-local conflict queue keyed by the canonical composite `record_id:field_key`.
+
+The client MUST keep this conflict queue separate from the transient pending-patch queue used for retryable transport failures.
+
+A same-field conflict MUST NOT auto-retry.
+
+An explicit resolution request MUST include:
+
+- `conflict_token`,
+- `resolution_kind` with one of `keep_saved`, `use_unsaved`, or `merged_value`,
+- `resolved_value` when required by the chosen `resolution_kind`.
+
+If the same field changes again before the analyst resolves the conflict, the server MUST reject the stale `conflict_token` and return a fresh same-field conflict payload. The client MUST preserve the analyst's unsaved local draft and refresh the compare surface against the newest saved value.
+
+#### 3.3.5 Local draft, history, and analytics boundary
+
+Unresolved same-field conflict drafts MUST be treated as client-local unsaved work rather than authoritative incident state.
+
+Until explicitly committed, they:
+
+- MUST NOT be broadcast to other analysts,
+- MUST NOT appear in history, search, exports, or snapshots,
+- MUST remain memory-local in the base profile.
+
+If a deployment later adds durable local draft persistence, that persistence MUST be explicitly configured and session-scoped.
+
+Selecting `Use my unsaved value` or `Edit merged value` MUST create a new attributed `change_set` and a new row-field mutation against the current row version.
+
+Selecting `Keep saved value` MUST clear the local conflict without creating a new source revision.
+
+The implementation MAY record same-field conflict analytics, but it MUST NOT persist discarded field content solely for analytics. Conflict analytics SHOULD be limited to field identifier, timing, actors, and chosen outcome.
+
+#### 3.3.6 Paste-time same-field conflicts
+
+During multi-cell paste:
+
+- non-conflicting cells MUST commit normally,
+- same-field conflicts MUST move into the same-field conflict queue,
+- the UI MUST present a grouped conflict tray or equivalent grouped navigator rather than one blocking modal per conflicted cell.
+
+When a paste produces at least one same-field conflict, the committed non-conflicting portion of the paste MUST remain one visible `change_set`. Each later per-cell conflict resolution MUST create its own attributed `change_set`.
+
+The base profile MUST NOT offer a blanket action equivalent to `Use my value for all conflicts`.
+
+### 3.4 Client addressing rules
 
 The client MUST NOT address or mutate a row by:
 
@@ -232,11 +353,13 @@ Unknown columns MUST be preserved in `raw_capture.import_columns` or equivalent 
 
 Host and identity text from pasted cells MUST follow the same `entity_binding_mode` contract as interactive edits.
 
-A single paste action MUST appear as:
+Successful non-conflicting writes from one paste action MUST appear as:
 
 - one visible `change_set`,
 - ordered mutation entries,
 - one row revision per affected record.
+
+Any same-field conflicts arising from that paste MUST remain outside that committed batch until explicitly resolved. Each later same-field conflict resolution MUST create its own attributed `change_set`.
 
 ### 11.2 Import Extension Profile
 
@@ -538,4 +661,5 @@ A conformant implementation MUST preserve all of the following:
 5. grouping remains presentation-only,
 6. grouped surfaces still mutate underlying rows by `record_id` and `row_version`,
 7. auto-resolution stays tightly bounded and reversible,
-8. the inspector enriches work but does not replace the grid.
+8. the inspector enriches work but does not replace the grid,
+9. unresolved same-field conflict drafts remain client-local until explicit resolution.
