@@ -70,6 +70,8 @@ Low-friction capture is the make-or-break requirement because IR work is lossy u
 1. **One canonical derivation layer feeds every derived surface.**
    Visualizations, report sections, framework rollups, and exports should reuse the same extraction/query logic so filters and counts do not drift between UI and output.
 
+1. **Keep live collaboration broad; apply withholding at export time.**\
+   Analysts, reviewers, and incident leads need shared visibility inside a live incident workspace. When an incident affects multiple parties, recipient-specific withholding should happen on immutable snapshots and exported artifacts through deterministic redaction policy rather than by hiding live workbook content or adding generalized record-level ACLs.
 
 ## 13. Trade-offs, risks, and rejected alternatives
 

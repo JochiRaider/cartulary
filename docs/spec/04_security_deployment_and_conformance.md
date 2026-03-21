@@ -34,6 +34,8 @@ Record access MUST inherit from incident access in the base profile.
 
 Field-level ACLs, generalized approval workflows, and generalized record-level ACL systems are out of scope for the base profile.
 
+If the Snapshot and Reporting Extension Profile is implemented, export redaction MUST NOT restrict live workbook views, search results, filters, saved views, row visibility, field visibility, or evidence visibility for authenticated incident participants. In the base profile, live workspace visibility is derived only from incident membership and the incident-level role model. In that profile, recipient-specific withholding MUST be implemented at snapshot, render, and release time rather than by hiding live workspace content.
+
 ### 2.1 Snapshot and Reporting Extension Profile release gate
 
 If the implementation claims the Snapshot and Reporting Extension Profile, it MUST provide a narrow artifact-scoped release gate for rendered outputs. This release gate MUST NOT become a generalized workflow engine for routine record editing or arbitrary record approvals.
@@ -57,7 +59,7 @@ Approval requirements are:
 
 Any change to the bound tuple or rendered bytes MUST invalidate prior approvals automatically.
 
-A narrow sensitive-evidence model MAY be added in future work. It is not a current conformance requirement.
+A narrow live sensitive-evidence model MAY be added in future work if repeated real-world incidents show that export-scoped withholding is insufficient. It is not a current conformance requirement.
 
 ## 3. Attribution and audit requirements
 
@@ -90,6 +92,8 @@ If the Snapshot and Reporting Extension Profile is implemented:
 - any `curated_narrative` block included in `external_release` MUST carry `support_refs[]`,
 - reenactment outputs MUST be marked `generated_presentation=true` and MUST NOT be released as `external_release`,
 - approval and redaction checks MUST complete successfully before an `external_release` artifact is published.
+
+In that profile, the implementation MUST support generating multiple recipient-specific artifacts from the same immutable snapshot by selecting different versioned redaction profiles and, when needed, different templates. If an incident involves multiple affected parties, an artifact prepared with one recipient-specific configuration MUST NOT disclose content whose `disclosure_partition_refs[]` are not allowed by the selected redaction profile. Manual post-render editing MAY still occur, but it MUST NOT be required for the implementation's supported recipient-specific configurations.
 
 ### 4.3 Evidence uploads
 
@@ -280,6 +284,9 @@ For this section:
 - **AC-060**: Changing `snapshot_id`, `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, `output_kind`, `release_scope`, or rendered bytes invalidates prior release approvals automatically.
 - **AC-061**: An `external_release` artifact contains no raw blob bytes or `working_material`, and any included `curated_narrative` block carries at least one `support_refs[]` entry to a supporting finding, event, evidence, assessment, or query record.
 - **AC-062**: `mermaid` and `slidev` outputs may be published as `external_release` only when every rendered block is eligible for the chosen `release_scope`, and `reenactment` outputs are visibly marked `generated_presentation=true` and rejected for `external_release`.
+- **AC-064**: Selecting or changing `redaction_profile_id` and `redaction_profile_version` changes only snapshot-derived output and release state. It does not change live workbook query results, row visibility, field visibility, or evidence visibility for the same authenticated incident participant.
+- **AC-065**: Given one immutable snapshot containing export-model fields or blocks tagged with `disclosure_partition_refs[]` for two different affected parties, rendering an `external_release` with a redaction profile that allows only one party excludes or redacts the other party's content and fails closed if mixed-partition content lacks an applicable rule.
+- **AC-066**: Two `external_release` artifacts generated from the same immutable snapshot for two supported recipient-specific configurations require no manual post-render editing to satisfy the selected redaction profiles.
 
 ### 9.4 Reference Pack Extension Profile criteria
 

@@ -343,6 +343,8 @@ Each versioned redaction profile MUST declare, at minimum:
 - per-`content_class` rules,
 - optional per-field overrides keyed by stable export-model path.
 
+When recipient-specific reporting is implemented, a versioned redaction profile MUST also be able to declare zero or more allowed stable incident-local `disclosure_partition_refs[]`.
+
 The closed vocabulary for redaction actions is:
 
 - `allow`,
@@ -355,6 +357,10 @@ The closed vocabulary for redaction actions is:
 Redaction MUST run after snapshot materialization and before template rendering.
 
 If a field or block eligible for the chosen `release_scope` appears in the canonical export model without an applicable redaction rule, rendering MUST fail closed.
+
+When a field or block carries `disclosure_partition_refs[]` that are not allowed by the selected redaction profile, the renderer MUST apply the applicable redaction rule or fail closed. If a field or block contains mixed-partition content and no applicable rule can produce a conformant result, rendering MUST fail closed.
+
+Disclosure partition metadata and redaction-profile selection MUST affect only snapshot-derived rendering and release. They MUST NOT affect live workbook queries, projections, or incident authorization.
 
 Each rendered artifact MUST emit a `redaction_manifest` keyed by stable export-model path and rule identifier, recording every field or block that was dropped, masked, truncated, hashed, or stubbed.
 

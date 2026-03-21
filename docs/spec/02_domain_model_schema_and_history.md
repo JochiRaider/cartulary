@@ -307,6 +307,8 @@ Each exportable field or block in the canonical export model MUST persist:
 - deterministic order metadata sufficient to reproduce export ordering,
 - when `content_class='curated_narrative'`, zero or more `support_refs[]`.
 
+When recipient-specific reporting is implemented, each exportable field or block MUST also be able to carry zero or more stable incident-local `disclosure_partition_refs[]`. Each `disclosure_partition_ref` names an export-only withholding boundary such as an affected party or other approved recipient partition. `disclosure_partition_refs[]` MUST be stored as snapshot or export metadata only. They MUST NOT change live workspace authorization.
+
 A release record MUST bind, at minimum:
 
 - `snapshot_id`,
@@ -370,6 +372,8 @@ The evidence model MUST support both:
 - requested or pending evidence with no blob yet attached,
 - received or available evidence with custody events and optional blob linkage.
 
+An implementation MAY persist a non-authoritative `sensitivity_class` on evidence records and MAY project that label onto exportable evidence-derived blocks. In the base profile, `sensitivity_class` is metadata for preview labeling, default export-redaction behavior, and audit or reporting only. It MUST NOT change incident authorization or hide live workspace content.
+
 ## 14. Schema invariants
 
 ### 14.1 Mention and provenance fields
@@ -418,6 +422,7 @@ If the Snapshot and Reporting Extension Profile is implemented, the schema MUST 
 
 - stable export-model paths,
 - `content_class`,
+- stable incident-local `disclosure_partition_refs[]` on exportable fields or blocks,
 - `support_refs[]` on `curated_narrative` blocks,
 - versioned template identifiers,
 - versioned redaction-profile identifiers,

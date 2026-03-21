@@ -44,6 +44,7 @@ It records where the content of the exploratory source artifact was carried into
 | `9. How denormalized timeline views are composed` | Core 03 §15, Appendix D, Appendix G | Promoted as read/write contract. |
 | `11. Reference-pack and export trust boundaries` | Core 04 §4, Appendix G | Promoted as trust-boundary requirements. |
 | `16. Open questions on snapshot release controls and generated presentation depth` | Core 01 §10, Core 02 §10.5 and §14.5, Core 04 §2.1, §4.2, and §9.3, Appendix E | Promoted as bounded snapshot release controls, explicit content-class and release-scope contracts, and an evidence-versus-generated-presentation boundary. |
+| `16. Open question on restricted evidence visibility` | Core 01 §10.5, Core 02 §10.5, §13, and §14.5, Core 04 §2, §4.2, and §9.3, Appendix E | Closed as export-scoped recipient withholding through snapshot redaction and release controls while keeping live workspace visibility incident-scoped; narrow live sensitive-evidence controls remain future-only. |
 | `16. Open question on clipboard paste versus XLSX adoption` | Core 01 §2, Core 03 §11, Core 04 §4.5 and §9.2, Appendix E | Closed as a split between base clipboard UX and bounded file-based import through a dedicated imports module. |
 ## F.3 Completeness note
 
