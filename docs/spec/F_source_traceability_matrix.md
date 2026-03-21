@@ -24,7 +24,7 @@ It records where the content of the exploratory source artifact was carried into
 | `13. Trade-offs, risks, and rejected alternatives` | Appendix A, Appendix G | Preserved as informative rationale and risk context. |
 | `14. Comparison table` | Appendix A, Appendix G | Preserved as informative comparison context. |
 | `15. Recommended MVP and phased roadmap` | Appendix E, Appendix G | Preserved as roadmap context; mixed-status features normalized into extension profiles in core. |
-| `16. Open questions` | Appendix E, Appendix G | Preserved as non-normative open issues and editorial decision backlog, with questions closed by later normative decisions marked resolved in Appendix E. |
+| `16. Open questions` | Core 01, Core 02, Core 04, Appendix E, Appendix G | Preserved as non-normative open issues and editorial decision backlog, with questions closed by later normative decisions promoted into the normative core and marked resolved in Appendix E. |
 | `Design sanity check` | Appendix A, Appendix G | Preserved as informative validation summary. |
 
 
@@ -43,6 +43,7 @@ It records where the content of the exploratory source artifact was carried into
 | `9. Sorting / filtering / grouping` | Core 03 §14, Appendix D, Appendix G | Promoted as authoritative grouping and row-addressing behavior. |
 | `9. How denormalized timeline views are composed` | Core 03 §15, Appendix D, Appendix G | Promoted as read/write contract. |
 | `11. Reference-pack and export trust boundaries` | Core 04 §4, Appendix G | Promoted as trust-boundary requirements. |
+| `16. Open questions on snapshot release controls and generated presentation depth` | Core 01 §10, Core 02 §10.5 and §14.5, Core 04 §2.1, §4.2, and §9.3, Appendix E | Promoted as bounded snapshot release controls, explicit content-class and release-scope contracts, and an evidence-versus-generated-presentation boundary. |
 ## F.3 Completeness note
 
 Every source section lands in at least one derived target and in the full-source archive. The normative core is intentionally more compact than the exploratory artifact; rationale, alternatives, mockups, diagrams, roadmap material, and unresolved questions were moved to non-normative appendices so the authoritative core can later be promoted into NLSpecs with minimal churn.

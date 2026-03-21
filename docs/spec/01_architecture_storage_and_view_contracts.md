@@ -80,7 +80,7 @@ Postgres MUST store:
 - blob metadata,
 - evidence lifecycle metadata,
 - reference-pack manifests and integrity metadata,
-- snapshot metadata and canonical export-model metadata when the Snapshot and Reporting Extension Profile is implemented.
+- snapshot metadata, canonical export-model metadata, versioned template-contract metadata, versioned redaction-profile metadata, redaction manifests, and artifact release records when the Snapshot and Reporting Extension Profile is implemented.
 
 ### 4.2 Object storage
 
@@ -120,6 +120,8 @@ The following are reference packs:
 Reference packs MUST version independently of incidents.
 
 Reference-pack manifests and integrity metadata MUST be stored in Postgres. Pack payloads MAY live on local disk or object storage behind the same abstraction, but their activation state MUST remain queryable from structured metadata.
+
+Reporting template packs MAY reuse the same integrity-verification and distribution machinery as reference packs. The template selected for a specific snapshot, the selected redaction profile, approval state, and rendered output hashes remain incident data.
 
 ## 6. View contracts
 
@@ -244,13 +246,104 @@ The **Snapshot and Reporting Extension Profile** is optional for base conformanc
 
 A reporting-capable implementation MUST treat report and presentation generation as a subsystem rather than direct ad hoc reads from live workbook tables.
 
+Each rendered artifact MUST bind to one immutable release tuple equivalent to:
+
+- `snapshot_id`,
+- `snapshot_at`,
+- `source_change_set_high_watermark` or equivalent frozen source boundary,
+- `derivation_version`,
+- `template_id` and `template_version`,
+- `redaction_profile_id` and `redaction_profile_version`,
+- `export_model_sha256`.
+
 The implementation MUST:
 
-- capture a `snapshot_at` boundary,
+- capture the `snapshot_at` boundary and frozen source boundary,
 - materialize a canonical export model such as `incident_report_model.json`,
 - render derivative outputs from that immutable snapshot rather than from mutable live tables.
 
-### 10.3 Output forms
+After the canonical export model has been materialized for a given release tuple, no renderer, template, or presentation builder MAY query live workbook tables or mutable projections for additional case content.
+
+Re-rendering from the same release tuple MUST reproduce the same canonical export model, deterministic ordering, and `export_model_sha256`.
+
+### 10.3 Export-model classification and release scopes
+
+Every exportable field or block in the canonical export model MUST carry exactly one `content_class` with one of the following values:
+
+- `source_evidence` for direct evidence references, hashes, timestamps, filenames or media labels, and exported excerpts or thumbnails,
+- `derived_analytic` for deterministic transforms such as timelines, counts, ATT&CK rollups, graphs, and relationship summaries,
+- `curated_narrative` for analyst-authored findings prose, executive summaries, recommendations, impact statements, and lessons learned,
+- `working_material` for scratch text, unresolved notes, internal comments, and unreviewed excerpts.
+
+The closed vocabulary for artifact release scope is:
+
+- `internal_draft`,
+- `internal_review`,
+- `external_release`.
+
+The snapshot and export subsystem MUST evaluate output eligibility against the chosen `release_scope` using at least the following matrix:
+
+- `internal_draft`: any `content_class` except raw blob bytes,
+- `internal_review`: any `content_class` except raw blob bytes, and any included `working_material` MUST remain visibly marked non-releasable,
+- `external_release`: `derived_analytic`, `curated_narrative`, and only selected `source_evidence` excerpts or thumbnails that are eligible for the chosen `release_scope`. Raw blob bytes and `working_material` MUST NOT appear.
+
+For `external_release`, every `curated_narrative` block MUST carry `support_refs[]` containing one or more stable identifiers to supporting findings, events, evidence records, assessments, or query records. A narrative block lacking `support_refs[]` MUST be ineligible for `external_release`.
+
+### 10.4 Template packs and rendering contract
+
+A reporting-capable implementation MUST treat report templates as versioned, integrity-checked local asset bundles or equivalent template packs.
+
+Each template contract MUST declare, at minimum:
+
+- `template_id`,
+- `template_version`,
+- supported `output_kind` values,
+- supported `release_scope` values,
+- a local asset bundle only,
+- section ordering,
+- allowed export-model bindings,
+- required fields,
+- deterministic ordering rules,
+- narrative slots that analysts MAY fill explicitly.
+
+Template bundles SHOULD reuse the same integrity-verification and activation machinery as reference packs when that machinery is available. Template activation MUST remain independent of optional reference-pack presence.
+
+A template renderer MUST:
+
+- read only from the immutable export model and declared local assets,
+- MUST NOT query live workbook tables or mutable projections,
+- MUST NOT fetch network assets,
+- MUST NOT execute arbitrary user-supplied code,
+- fail closed if the template references an undeclared binding or a missing required field.
+
+### 10.5 Redaction profiles and manifests
+
+A reporting-capable implementation MUST apply redaction to the canonical export model rather than by mutating incident records.
+
+Each versioned redaction profile MUST declare, at minimum:
+
+- `redaction_profile_id`,
+- `redaction_profile_version`,
+- a default action,
+- per-`content_class` rules,
+- optional per-field overrides keyed by stable export-model path.
+
+The closed vocabulary for redaction actions is:
+
+- `allow`,
+- `drop`,
+- `mask`,
+- `truncate`,
+- `hash`,
+- `stub`.
+
+Redaction MUST run after snapshot materialization and before template rendering.
+
+If a field or block eligible for the chosen `release_scope` appears in the canonical export model without an applicable redaction rule, rendering MUST fail closed.
+
+Each rendered artifact MUST emit a `redaction_manifest` keyed by stable export-model path and rule identifier, recording every field or block that was dropped, masked, truncated, hashed, or stubbed.
+
+### 10.6 Output forms and generated-presentation boundary
 
 A reporting-capable implementation MAY generate:
 
@@ -260,15 +353,39 @@ A reporting-capable implementation MAY generate:
 - HTML reports,
 - operator-facing reenactment outputs such as Asciinema-style walkthroughs.
 
+`output_kind` MUST use a stable closed vocabulary equivalent to:
+
+- `html`,
+- `markdown`,
+- `slidev`,
+- `mermaid`,
+- `reenactment`.
+
+Generated presentations MAY:
+
+- rearrange and visualize snapshot facts,
+- render deterministic summaries from approved export-model fields,
+- generate graphs, timelines, and deck structure,
+- include analyst-authored narrative blocks,
+- include approved evidence excerpts with provenance.
+
+Generated presentations MUST NOT:
+
+- invent new facts, timestamps, actors, or causal chains,
+- synthesize commands or terminal sessions that were not observed,
+- interpolate missing steps between observed events,
+- rewrite unreviewed working material into releasable claims,
+- present a reenactment as externally releasable observed operator activity unless the represented steps are themselves explicit evidence.
+
+`mermaid` and `slidev` outputs MAY be `external_release` only when every rendered block satisfies the selected `release_scope`.
+
+`reenactment` outputs MUST be marked `generated_presentation=true` and are limited to `internal_review` in the current profile.
+
 If such outputs are generated, the implementation MUST preserve the distinction between source evidence and generated presentation material.
 
-### 10.4 Self-contained outputs
+### 10.7 Self-contained outputs
 
-Generated report and presentation artifacts MUST be self-contained. They MUST NOT require remote JavaScript, CSS, or fonts at render time.
-
-### 10.5 Redaction boundary
-
-The snapshot and export subsystem MUST provide a stable boundary at which redaction rules can later be applied. The exact redaction controls remain an open design area preserved in Appendix E.
+Generated report and presentation artifacts MUST be self-contained. They MUST NOT require remote JavaScript, CSS, fonts, or runtime media assets at render time.
 
 ## 11. Reference Pack Extension Profile
 

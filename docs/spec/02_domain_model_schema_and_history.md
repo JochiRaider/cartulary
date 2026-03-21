@@ -68,7 +68,8 @@ The following data classes MUST remain normalized structured state:
 - canonical host and identity fields,
 - compromise assessments,
 - reference-pack manifests and type registries,
-- view schemas and saved views.
+- view schemas and saved views,
+- snapshot descriptors, canonical export-model metadata, versioned template-contract metadata, versioned redaction-profile metadata, redaction manifests, and artifact release records when the Snapshot and Reporting Extension Profile is implemented.
 
 ### 4.2 Flexible data
 
@@ -273,6 +274,39 @@ Each assessment MUST carry:
 
 Tags and notes are the starting point for analyst-work tracking. Explicit objects for tasks, hypotheses, decisions, and ownership are future areas preserved by Appendix E and are not current base-profile requirements.
 
+### 10.5 Snapshot and reporting extension objects
+
+If the Snapshot and Reporting Extension Profile is implemented, the domain model MUST also support structured metadata for:
+
+- immutable snapshot descriptors,
+- canonical export-model fields and blocks with stable export-model paths,
+- versioned redaction profiles,
+- versioned template contracts,
+- redaction manifests,
+- artifact release records.
+
+At minimum, an immutable snapshot descriptor MUST persist the release tuple defined by Core 01 §10.2.
+
+Each exportable field or block in the canonical export model MUST persist:
+
+- a stable export-model path,
+- exactly one `content_class`,
+- deterministic order metadata sufficient to reproduce export ordering,
+- when `content_class='curated_narrative'`, zero or more `support_refs[]`.
+
+A release record MUST bind, at minimum:
+
+- `snapshot_id`,
+- `template_id`,
+- `template_version`,
+- `redaction_profile_id`,
+- `redaction_profile_version`,
+- `output_kind`,
+- `release_scope`,
+- `output_sha256`.
+
+If approval state is stored, it MUST bind to the release record rather than to mutable incident rows.
+
 ## 11. Type registries and view contracts
 
 Type and icon choices MUST be driven by stable registry keys rather than hard-coded display text.
@@ -363,6 +397,20 @@ Stable mutation targets MUST use deterministic serialization. Composite targets 
 User-visible records MUST be soft-deletable. Links MUST be soft-deletable. Revisions MUST be append-only in normal operation.
 
 Blobs MAY be hard-deleted only through an explicit administrative purge or retention workflow.
+
+### 14.5 Snapshot and reporting extension fields
+
+If the Snapshot and Reporting Extension Profile is implemented, the schema MUST support:
+
+- stable export-model paths,
+- `content_class`,
+- `support_refs[]` on `curated_narrative` blocks,
+- versioned template identifiers,
+- versioned redaction-profile identifiers,
+- `release_scope`,
+- `export_model_sha256`,
+- `output_sha256`,
+- redaction-manifest entries keyed by stable export-model path and rule identifier.
 
 ## 15. History and rollback
 

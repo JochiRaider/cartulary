@@ -32,7 +32,30 @@ The base profile MUST use incident-level roles equivalent to:
 
 Record access MUST inherit from incident access in the base profile.
 
-Field-level ACLs, approval workflows, and generalized record-level ACL systems are out of scope for the base profile.
+Field-level ACLs, generalized approval workflows, and generalized record-level ACL systems are out of scope for the base profile.
+
+### 2.1 Snapshot and Reporting Extension Profile release gate
+
+If the implementation claims the Snapshot and Reporting Extension Profile, it MUST provide a narrow artifact-scoped release gate for rendered outputs. This release gate MUST NOT become a generalized workflow engine for routine record editing or arbitrary record approvals.
+
+Each release approval record MUST bind, at minimum, to:
+
+- `snapshot_id`,
+- `template_id`,
+- `template_version`,
+- `redaction_profile_id`,
+- `redaction_profile_version`,
+- `output_kind`,
+- `release_scope`,
+- `output_sha256`.
+
+Approval requirements are:
+
+- `internal_draft`: no approval required,
+- `internal_review`: one `reviewer` approval,
+- `external_release`: two distinct approvals, one from a `reviewer` attesting evidence sufficiency or claim support and one from an `admin` attesting release posture and redaction completeness.
+
+Any change to the bound tuple or rendered bytes MUST invalidate prior approvals automatically.
 
 A narrow sensitive-evidence model MAY be added in future work. It is not a current conformance requirement.
 
@@ -60,6 +83,13 @@ Reference packs MUST record version, source, and integrity metadata before activ
 ### 4.2 Export outputs
 
 Generated reports and presentations MUST embed or package required assets locally rather than pulling them from remote CDNs or runtime asset services.
+
+If the Snapshot and Reporting Extension Profile is implemented:
+
+- `external_release` outputs MUST exclude raw blob bytes and `working_material`,
+- any `curated_narrative` block included in `external_release` MUST carry `support_refs[]`,
+- reenactment outputs MUST be marked `generated_presentation=true` and MUST NOT be released as `external_release`,
+- approval and redaction checks MUST complete successfully before an `external_release` artifact is published.
 
 ### 4.3 Evidence uploads
 
@@ -242,6 +272,13 @@ For this section:
 - **AC-030**: Report generation and snapshot generation run without blocking grid editing, and the UI shows progress and cancellation within 1 second of job start.
 - **AC-031**: A generated HTML report or presentation artifact opens in a disconnected browser without fetching remote JavaScript, CSS, or fonts.
 - **AC-032**: Snapshot-derived outputs preserve stable identifiers and ordering consistent with the canonical derivation layer.
+- **AC-056**: Rendering from the same `snapshot_id`, `source_change_set_high_watermark` or equivalent frozen source boundary, `derivation_version`, `template_id`, `template_version`, `redaction_profile_id`, and `redaction_profile_version` produces the same `export_model_sha256` and deterministic export ordering.
+- **AC-057**: Rendering for a chosen `release_scope` fails closed if any rendered export-model field or block lacks an applicable redaction rule, and the rendered artifact includes a `redaction_manifest` keyed by stable export-model path and rule identifier.
+- **AC-058**: Template rendering fails closed when a template references an undeclared export-model binding or a missing required field, and no report renderer performs live workbook-table reads after the snapshot tuple has been fixed.
+- **AC-059**: For `internal_review`, exactly one `reviewer` approval is sufficient. For `external_release`, two distinct approvals are required, one `reviewer` and one `admin`. `internal_draft` requires no approval.
+- **AC-060**: Changing `snapshot_id`, `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, `output_kind`, `release_scope`, or rendered bytes invalidates prior release approvals automatically.
+- **AC-061**: An `external_release` artifact contains no raw blob bytes or `working_material`, and any included `curated_narrative` block carries at least one `support_refs[]` entry to a supporting finding, event, evidence, assessment, or query record.
+- **AC-062**: `mermaid` and `slidev` outputs may be published as `external_release` only when every rendered block is eligible for the chosen `release_scope`, and `reenactment` outputs are visibly marked `generated_presentation=true` and rejected for `external_release`.
 
 ### 9.4 Reference Pack Extension Profile criteria
 
@@ -278,7 +315,7 @@ For this section:
 The following remain explicit non-goals for current conformance:
 
 - generalized field-level ACLs,
-- approval workflows,
+- generalized approval workflows outside the bounded artifact-release gate in the Snapshot and Reporting Extension Profile,
 - full spreadsheet formula engines,
 - merged cells,
 - character-by-character Google-Sheets-style cell CRDT behavior,
