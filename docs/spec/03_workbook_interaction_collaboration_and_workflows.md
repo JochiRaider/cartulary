@@ -343,7 +343,9 @@ Rollback MUST create a new attributed revision. It MUST NOT rewrite prior histor
 
 ### 11.1 Clipboard paste
 
-Clipboard paste is base-profile functionality.
+Clipboard paste is base-profile functionality and MUST remain part of the base workbook interaction surface.
+
+Clipboard paste alone does not satisfy the Import Extension Profile and MUST NOT be used to claim file-based structured import support.
 
 Pasting TSV or CSV into the timeline sheet MUST create or update multiple rows starting from the selected cell.
 
@@ -363,15 +365,30 @@ Any same-field conflicts arising from that paste MUST remain outside that commit
 
 ### 11.2 Import Extension Profile
 
-Full XLSX import belongs to the **Import Extension Profile**.
+File-based structured import beyond clipboard paste belongs to the **Import Extension Profile**.
 
-If implemented, the import assistant MUST:
+If implemented, the file-based import path MUST be isolated behind the dedicated `imports` module defined by Core 01.
 
-- use the same mapping engine as clipboard and other structured import paths,
-- prioritize mappings for timeline, systems or hosts, accounts or identities, indicators, evidence tracker, and VERIS-like summaries when present,
-- preserve unknown columns in `raw_capture` or `custom_attrs`,
-- determine `mention_origin` versus `entity_origin` from contracts rather than sheet labels alone,
-- avoid auto-resolution of imported host or account aliases during ingest.
+The file-based import path MUST use the same stable tabular-ingest contract and shared mapping engine as clipboard-driven structured ingest.
+
+The bounded file-based import contract MUST support, at minimum:
+
+- CSV file import,
+- selected-sheet or selected-region XLSX import,
+- operator preview and header mapping before commit,
+- deterministic provenance capture for file kind, content hash, parser version, and selected sheet or region locator.
+
+The import assistant MUST prioritize mappings for timeline, systems or hosts, accounts or identities, indicators, evidence tracker, and VERIS-like summaries when present.
+
+The import path MUST preserve unknown columns in `raw_capture` or `custom_attrs`.
+
+The import path MUST determine `mention_origin` versus `entity_origin` from contracts rather than sheet labels alone.
+
+The import path MUST avoid auto-resolution of imported host or account aliases during ingest.
+
+Formula cells and other spreadsheet active content MUST be treated as inert input. The implementation MUST NOT execute workbook formulas, macros or VBA, workbook automation, or external links as live logic during import.
+
+The implementation MUST NOT promise full workbook fidelity for macros or VBA, pivot tables, charts, comments, external links, workbook protection, merged-cell layout semantics, or spreadsheet formula behavior. Unsupported features MUST be downgraded with a visible warning, preserved only as raw source metadata, or rejected as unsupported.
 
 ## 12. Auto-resolution policy
 
@@ -415,7 +432,7 @@ Auto-resolution MUST NOT occur in:
 - the inspector’s explicit resolve flow,
 - Hosts or Identities alias-edit cells,
 - merge or dedupe workflows,
-- full XLSX import,
+- file-based import through the Import Extension Profile,
 - background jobs,
 - asynchronous enrichment or cleanup,
 - any workflow that would create a new canonical host or identity or edit alias rows without explicit confirmation.

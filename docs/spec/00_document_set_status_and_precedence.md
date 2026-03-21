@@ -49,7 +49,7 @@ The source artifact mixes current-state requirements with roadmap language in se
 
 An implementation MAY additionally claim any of the following extension profiles:
 
-- **Import Extension Profile** for full XLSX import.
+- **Import Extension Profile** for file-based structured import beyond clipboard paste, including bounded CSV and XLSX onboarding.
 - **Snapshot and Reporting Extension Profile** for immutable incident snapshots and self-contained report or presentation outputs.
 - **Reference Pack Extension Profile** for reference-pack activation, refresh, and overlay behavior.
 - **Enterprise Authentication Extension Profile** for OIDC and SAML provider integration.
@@ -162,7 +162,7 @@ Cartulary implementations MUST satisfy all of the following invariants:
 
 The exploratory artifact contained several mixed-status areas, especially around:
 
-- full XLSX import,
+- the boundary between clipboard paste and file-based structured import,
 - immutable snapshot and report generation,
 - reference-pack refresh and distribution,
 - the long-term status of a dedicated Notes tab.

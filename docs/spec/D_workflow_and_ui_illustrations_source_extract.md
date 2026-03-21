@@ -125,7 +125,13 @@ Arbitrary user-selected subsets of fields from historical snapshots are not requ
 - Repeated identical mention values across different source rows remain separate mention rows with distinct source locators.
 - The entire paste is one visible `change_set`, with ordered mutation entries and one row revision per affected record.
 
-For **full XLSX import**, use the same mapping engine. The initial import assistant should prioritize sheets or regions that map to timeline, systems/hosts, accounts/identities, indicators, evidence tracker, and VERIS-like summaries when present. Unknown columns should land in `raw_capture` or `custom_attrs`, not be dropped. Mapping contracts, not sheet labels alone, decide whether a source column is `mention_origin` or `entity_origin`. It can still be a thin import assistant rather than a heavyweight ETL feature. Full XLSX import MUST NOT auto-resolve host/account aliases; imported tokens remain unresolved mentions until an analyst resolves them explicitly.
+Clipboard paste validates the hot-path grid experience. By itself it does not prove brownfield workbook migration readiness.
+
+For file-based onboarding, keep workbook interaction on the grid surface and isolate workbook parsing inside a dedicated imports module. Clipboard-driven ingest and file-based import should still share the same mapping engine and a canonical tabular source model so behavior does not drift across intake paths.
+
+For file-based import, start with a bounded contract rather than promising full spreadsheet fidelity. The first assistant should support CSV file import plus selected-sheet or selected-region XLSX import, with preview, header mapping, provenance capture, and unknown-column preservation. It should prioritize sheets or regions that map to timeline, systems/hosts, accounts/identities, indicators, evidence tracker, and VERIS-like summaries when present. Mapping contracts, not sheet labels alone, should decide whether a source column is `mention_origin` or `entity_origin`.
+
+Formulas, macros, workbook automation, external links, comments, pivot tables, charts, workbook protection, and merged-cell layout semantics should not be treated as live workbook logic. Formula cells should be imported as inert values or raw source metadata only, with visible warnings or explicit rejection when a feature is unsupported. File-based import should not auto-resolve host/account aliases; imported tokens should remain unresolved mentions until an analyst resolves them explicitly.
 
 ### Auto-resolution policy for typed host/account strings
 
@@ -155,7 +161,7 @@ Auto-resolution MUST NOT occur in:
 - the inspector's explicit resolve flow;
 - Hosts/Identities alias-edit cells;
 - merge/dedupe workflows;
-- full XLSX import;
+- file-based import through the Import Extension Profile;
 - background jobs or async enrichment/cleanup;
 - any workflow that would create a new canonical host/identity or edit alias rows without explicit analyst confirmation.
 

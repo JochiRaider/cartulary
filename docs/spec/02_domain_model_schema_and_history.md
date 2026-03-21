@@ -170,6 +170,7 @@ For every `entity_mention`, the implementation MUST persist:
 
 - `manual_entry`,
 - `clipboard_paste`,
+- `csv_import`,
 - `xlsx_import`,
 - `api_import`,
 - `extraction`,
@@ -177,7 +178,19 @@ For every `entity_mention`, the implementation MUST persist:
 
 `origin_locator` MUST identify the source position deterministically, such as sheet/row/column for import or view/field for interactive entry.
 
-### 7.2 Entity provenance
+### 7.2 File-based import provenance
+
+When a record, mention, or alias is created or updated through file-based import, the implementation MUST persist provenance sufficient to identify the import source deterministically.
+
+At minimum, file-based import provenance MUST include:
+
+- `source_file_kind`,
+- `source_content_sha256`,
+- `parser_version`.
+
+If the source is sheet-based or region-based, the provenance MUST also identify the selected sheet and rectangular region deterministically.
+
+### 7.3 Entity provenance
 
 For every host or identity record created outside direct entity sheets, the implementation MUST persist:
 
@@ -366,6 +379,7 @@ The schema MUST support:
 - `source_field_key`,
 - `origin_kind`,
 - `origin_locator`,
+- file-based import provenance fields for source file kind, source content hash, parser version, and selected sheet or region locator,
 - resolution metadata on mentions,
 - `entity_origin` and seed provenance on host and identity records,
 - `entity_binding_mode` in view write-back contracts and import mappings.

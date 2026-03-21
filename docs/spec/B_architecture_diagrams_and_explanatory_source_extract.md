@@ -51,6 +51,7 @@ flowchart TB
         Timeline[Timeline capture module]
         Entity[Entity & mention-resolution module]
         Evidence[Evidence & object module]
+        Imports[Imports & tabular-ingest module]
         Links[Link graph & tagging module]
         Revisions[Revision / rollback module]
         Projections[Projection & search module]
@@ -64,6 +65,7 @@ flowchart TB
     Browser --> Timeline
     Browser --> Entity
     Browser --> Evidence
+    Browser --> Imports
     Browser --> Links
     Browser --> Revisions
     Browser --> Collab
@@ -72,6 +74,7 @@ flowchart TB
     Entity --> PG
     Evidence --> PG
     Evidence --> OBJ
+    Imports --> PG
     Links --> PG
     Revisions --> PG
     Projections --> PG
@@ -87,6 +90,7 @@ flowchart TB
 | Timeline module             | Rapid row creation, inline edits, rough capture storage                                                |
 | Entity module               | Host/identity records, aliases, unresolved mentions, resolution workflows                              |
 | Evidence module             | Evidence lifecycle, upload finalization, object metadata, previews, linking evidence to records        |
+| Imports & tabular-ingest module | CSV/XLSX adaptation, workbook inspection, preview/header mapping, provenance capture, compatibility shims, and background import apply |
 | Link graph & tagging        | Typed relationships and lightweight labels                                                             |
 | Revision module             | Change sets, mutation-entry history, row-centric revisions, rollback                                   |
 | Projection & search         | Build `*_grid_projection` tables and search vectors for sheet-like views                               |
@@ -107,6 +111,7 @@ I would define internal module boundaries as:
 - `timeline`
 - `entities`
 - `evidence`
+- `imports`
 - `links`
 - `revisions`
 - `projections`
@@ -115,6 +120,10 @@ I would define internal module boundaries as:
 - `collaboration`
 
 These are internal packages/modules with explicit service interfaces, not separate deployables.
+
+The split worth making explicit is that clipboard interaction stays on the core workbook hot path, while file-based import sits behind a dedicated `imports` module. Clipboard, CSV, and XLSX adapters can still normalize into the same canonical `TabularSource` and shared mapping engine, but only the imports module should absorb parser drift, workbook-shape heuristics, preview/header mapping, and other spreadsheet-compatibility maintenance.
+
+A bounded import contract is more realistic than “Excel support” in the abstract. The first file-based onboarding path should focus on CSV and selected-sheet or selected-region XLSX import, preserve provenance and unknown columns, treat formulas as inert input, and warn, downgrade, or reject unsupported workbook features instead of leaking those semantics into the core workbook modules.
 
 ### Storage choices
 

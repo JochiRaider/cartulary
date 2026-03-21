@@ -23,6 +23,7 @@ The implementation MUST define internal boundaries equivalent to the following c
 - timeline capture,
 - entities and mention resolution,
 - evidence and object storage,
+- imports and tabular ingest,
 - links and tags,
 - revisions and rollback,
 - projections and search,
@@ -31,6 +32,20 @@ The implementation MUST define internal boundaries equivalent to the following c
 - collaboration and presence.
 
 These are logical module boundaries. They MUST be independently testable, but they MUST NOT require separate deployables.
+
+File-based structured import beyond clipboard paste MUST be implemented as a dedicated internal `imports` module within the modular monolith.
+
+The `imports` module MUST own, at minimum:
+
+- file-based source adapters for CSV and XLSX input,
+- workbook inspection, candidate-region selection, preview, and header mapping,
+- import job execution with progress, cancellation, retry-safe status, and diagnostics,
+- deterministic import provenance capture,
+- compatibility shims for spreadsheet-specific parser behavior and workbook-shape heuristics.
+
+Clipboard interaction remains part of the base workbook surface. When clipboard paste feeds structured ingest, it MUST use the same stable tabular-ingest contract and shared mapping engine as file-based import paths.
+
+The workbook, timeline, entities, evidence, revisions, projections, and reporting concerns MUST depend only on the stable tabular-ingest contract and shared mapping engine for structured ingest. They MUST NOT depend directly on XLSX or OpenXML parsers, workbook-specific heuristics, or Excel-specific semantics.
 
 ## 3. Client and server responsibilities
 
@@ -491,4 +506,5 @@ An implementation conforming to this core MUST preserve all of the following:
 3. optional enrichment MUST remain off the hot capture path,
 4. the object store boundary MUST remain explicit and lifecycle-aware,
 5. view behavior MUST remain contract-driven,
-6. projection tables MUST remain disposable derived state.
+6. projection tables MUST remain disposable derived state,
+7. file-based import complexity MUST remain isolated behind the imports module and stable tabular-ingest contract rather than leaking spreadsheet-specific parser behavior into workbook-domain modules.
