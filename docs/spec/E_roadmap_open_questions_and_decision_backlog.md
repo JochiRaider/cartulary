@@ -79,11 +79,49 @@ Resolved in this revision:
 - Typed host/account alias auto-resolution is no longer open for MVP. See `### Auto-resolution policy for typed host/account strings`. The system MAY auto-resolve only in interactive mention-capture flows when `auto_resolution_confidence = 100`, with same-surface disclosure, direct undo, and reversible history.
 - History granularity is no longer open for MVP. Storage MUST capture history at `change_set` plus mutation-target granularity. The reviewer UI MUST remain row-centric, expose single-entry rollback plus whole-row restore and whole-change-set rollback, and does not require arbitrary field-picker rollback from historical snapshots in MVP.
 - Same-field conflict resolution affordance is no longer open for MVP. See Core 03 §3.3 and Core 04 AC-037 through AC-042. Same-field conflicts now resolve through a same-surface compare drawer or equivalent same-surface panel anchored to the conflicted cell, with the saved value retained in the grid, the unsaved local draft kept client-local until explicit resolution, contract-declared `conflict_resolution_class`, and grouped paste conflict handling.
+- The performance envelope for large-grid and evidence-heavy incidents is no longer open for the base profile. Core 01 now requires bounded viewport virtualization, projection-backed hot-path retrieval, deterministic cursor or viewport/block access, metadata-only grid and inspector reads, and binary evidence off the hot path. Core 04 now defines two reference performance fixtures plus AC-043 through AC-047.
+
+### Performance envelope for large incidents and evidence-heavy incidents
+
+This revision closes the performance question with two reference fixtures rather than a single vague "large incident" threshold. That keeps grid pressure and evidence-path pressure separable.
+
+**Fixture A: large-grid incident**
+
+- 20,000 timeline rows
+- 1,000 host rows
+- 1,000 identity rows
+- 25 concurrently connected analyst sessions on one incident, with presence enabled and representative live row-update traffic
+- representative tags, mentions, and links, but not evidence-heavy per row
+
+**Fixture B: evidence-heavy incident**
+
+- 5,000 timeline rows
+- 10,000 evidence records
+- tens of GB of binary evidence stored in object storage
+- at least one timeline row linked to 100 evidence records
+- evidence blobs MAY be stubbed for throughput tests, but evidence metadata, counts, attachment state, and preview handles MUST be real
+
+**Immediate hot path**
+
+- selection move, focus move, and typing acknowledgment: at or below 100 ms p95 on LAN
+- blank-row creation in the timeline sheet with one non-empty user-entered value: at or below 150 ms p95 on LAN
+- row identity and selection remain anchored to `record_id` during live updates, filtering, sorting, and grouping
+
+**Short-delay interactive**
+
+- sort, filter, and grouping changes: first useful viewport at or below 250 ms p95
+- full stable viewport and result ordering: at or below 1.0 s p95
+- inspector metadata shell for a row linked to 100 evidence records: at or below 300 ms p95
+
+**Staged/background**
+
+- imports, evidence processing, projection rebuilds, snapshot generation, report generation, and reference-pack refresh remain background jobs
+- progress and cancellation appear within 1 second of job start
+- grid editing and row creation remain responsive while those jobs run
 
 Remaining open questions:
 
 1. Is the timeline-sheet grouping-key whitelist (`timeline.occurred_day`, `timeline.recorded_day`, `timeline.capture_state`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`) sufficient for GA, or does analyst testing show a need for one additional scalar grouping key?
-1. What is the acceptable performance envelope for very large evidence counts and 10k+ row incidents in the grid?
 1. Do analysts want a dedicated Notes tab, or is artifact-backed note capture from the timeline sufficient?
 1. How much incident-specific custom metadata is real, and which of those fields become common enough to deserve first-class columns?
 1. Is clipboard paste enough to validate adoption before the prioritized XLSX import assistant ships?

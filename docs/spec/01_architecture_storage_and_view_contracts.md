@@ -47,6 +47,10 @@ The browser client MUST provide:
 - a local pending-patch queue for transient network interruptions,
 - real-time presence and live row updates.
 
+The virtualized workbook grid MUST render only the visible viewport plus a bounded overscan region. It MUST NOT require full-DOM rendering of every row in a 10k+ row incident.
+
+Selection, focus, and pending-edit anchoring in the grid MUST remain bound to the selected `record_id` during live updates, sorting, filtering, and grouping.
+
 ### 3.2 Application server
 
 The application server MUST provide:
@@ -204,6 +208,18 @@ The implementation MUST provide a deterministic rebuild command or equivalent ma
 
 If a projection becomes corrupt or stale, the implementation MUST treat the projection as disposable cache state, rebuild it from authoritative source data, and preserve source-of-truth consistency.
 
+### 8.5 Hot-path retrieval and evidence boundary
+
+Hot workbook sheets MUST serve the visible viewport from projection rows and other small derived metadata. They MUST NOT synchronously scan source tables or evidence blobs to render the grid hot path.
+
+Interactive retrieval for hot workbook sheets MUST use a deterministic sort tuple and stable cursor, keyset, or viewport/block retrieval. It MUST NOT rely on deep `OFFSET` pagination for large incidents.
+
+Projection tables MUST support deterministic interactive retrieval over the default sort key and any contract-declared interactive grouping key for the view. An implementation MAY satisfy this with indexes or an equivalent mechanism that preserves the same observable latency envelope.
+
+Projection rows for hot workbook sheets MUST carry the scalar fields required for interactive sort, filter, grouping, selection anchoring, and evidence badges in the visible viewport. For the Timeline sheet, this MUST include at least `sort_ts`, day buckets equivalent to `timeline.occurred_day` and `timeline.recorded_day`, `capture_state`, `has_evidence`, `has_unresolved_mentions`, and `evidence_count`.
+
+The grid and inspector hot path MUST synchronously read only scalar fields, flags, counts, and small preview handles needed for the visible viewport or selected row. They MUST NOT synchronously fetch full attachment lists or binary blob bytes as part of grid rendering, row selection, sheet filtering, grouping, or inspector metadata open.
+
 ## 9. Canonical derivation layer
 
 Cartulary MUST maintain a single canonical derivation layer for all derived surfaces.
@@ -325,7 +341,8 @@ The implementation MUST execute the following long-running operations as backgro
 - reference-pack refresh,
 - snapshot generation,
 - report builds,
-- evidence processing.
+- projection rebuilds,
+- evidence processing, including blob hashing, scanning, preview generation, thumbnailing, and metadata extraction.
 
 Background jobs MUST expose:
 
@@ -334,7 +351,7 @@ Background jobs MUST expose:
 - retry-safe status,
 - non-blocking UI behavior.
 
-Grid editing and row creation MUST remain responsive while these jobs run.
+Grid editing and row creation MUST remain responsive while these jobs run. These jobs MUST NOT block row selection, sheet filtering, sorting, grouping, or inspector metadata open.
 
 ## 14. Runtime roots and packaging
 

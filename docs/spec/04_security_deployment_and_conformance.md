@@ -65,6 +65,43 @@ Generated reports and presentations MUST embed or package required assets locall
 
 The deployment MAY use an upload-malware-scanning sidecar or equivalent adjunct service. Such a service is optional in the current core and MUST NOT break the two-step attachment semantics.
 
+### 4.4 STRIDE threat model
+
+The implementation MUST maintain a project-local STRIDE threat model covering the current architecture, deployment profiles, and high-risk workflows.
+
+The threat model MUST be updated before any release that adds or materially changes:
+
+- an import path,
+- an export or report surface,
+- an evidence preview or rendering path,
+- an external fetch capability,
+- a credential-bearing integration,
+- a deployment profile,
+- an object-storage access pattern.
+
+At minimum, the threat model MUST cover the following assets and abuse cases:
+
+| STRIDE class | Minimum project-specific scope | Required control direction |
+| --- | --- | --- |
+| Spoofing | analyst sessions, provider-backed identities, explicit system-process actors, object-store upload/download capabilities | authenticated sessions, stable internal user mapping, explicit system actors, short-lived operation-scoped object access |
+| Tampering | incident records, revisions, object blobs, reference packs, snapshots, exports | row-versioned writes, immutable change sets, blob hashes, fail-closed integrity verification, immutable published snapshots |
+| Repudiation | edits, imports, rollbacks, pack activation, export generation, evidence lifecycle actions | attributed append-only history with actor, timestamp, source, and reversible mutation detail |
+| Information disclosure | evidence blobs, exports, previews, secrets, portable runtime roots | incident-scoped authorization, secret isolation, untrusted-content rendering rules, self-contained outputs, encrypted flyaway storage |
+| Denial of service | oversized evidence, archive bombs, pathological imports, expensive report or preview jobs | size and decompression limits, background-job isolation, cancellation, bounded hot-path retrieval |
+| Elevation of privilege | user-controlled record or blob identifiers, destructive operations, job-worker storage access | server-side authorization derived from object ownership, role gates for destructive actions, least-privilege worker credentials |
+
+### 4.5 Focused MITRE CWE constraints
+
+The implementation MUST address the following MITRE CWE entries during architecture review, code review, and conformance testing. This list is intentionally narrow and project-specific.
+
+- **CWE-79**: Incident-authored or imported content rendered in the browser UI or exported HTML MUST be treated as untrusted. Renderers MUST escape or sanitize by default and MUST block script execution, inline event handlers, `javascript:` URLs, and remote asset fetches sourced from incident data.
+- **CWE-1236**: CSV, XLSX, and clipboard exports intended for spreadsheet consumption MUST neutralize leading formula characters before write. At minimum, values beginning with `=`, `+`, `-`, `@`, tab, or carriage return MUST be emitted with a lossless neutralizing prefix such as `'`, unless an explicit raw-forensic export mode is selected with a visible danger warning.
+- **CWE-22 / CWE-73**: User-supplied filenames, archive entry names, and import paths MUST be treated as metadata, not authority. The system MUST assign storage keys, MUST reject absolute paths and parent traversal, and MUST extract archives only inside a staging root that cannot escape the declared runtime roots.
+- **CWE-353**: Reference packs and any incident import bundle format, when implemented, MUST fail closed on checksum mismatch, signature mismatch, incomplete download, or missing required integrity metadata.
+- **CWE-434**: Evidence and reference-pack uploads MUST be treated as hostile content. The application unit MUST NOT execute uploaded content, and preview generation MUST use only allowlisted non-executing transforms. Active-content types MUST remain download-only or isolated from the main application origin unless a dedicated isolated analysis path is explicitly implemented.
+- **CWE-639**: Every mutation, preview, download, and object-store URL issuance MUST re-derive authorization server-side from the target object's owning incident and the caller's current membership and role. Client-supplied incident identifiers, ownership metadata, or role claims MUST NOT determine access.
+- **CWE-312**: Deployments intended for portable or flyaway use MUST keep database storage, object storage, reference-pack storage, temporary work files that carry incident data, and export outputs on encrypted storage. Unencrypted removable media or unencrypted portable roots are non-conformant for flyaway handling.
+
 ## 5. Deployment profiles
 
 ### 5.1 Flyaway or disconnected deployment
@@ -135,6 +172,31 @@ A conformant deployment MAY additionally provide:
 
 Each criterion below is a pass/fail requirement.
 
+For performance-sensitive criteria in this section, the following reference performance fixtures apply:
+
+- **Fixture A: large-grid incident**
+  - 20,000 timeline rows
+  - 1,000 host rows
+  - 1,000 identity rows
+  - 25 concurrently connected analyst sessions on one incident, with presence enabled and representative live row-update traffic
+  - representative tags, mentions, and links, but not evidence-heavy per row
+- **Fixture B: evidence-heavy incident**
+  - 5,000 timeline rows
+  - 10,000 evidence records
+  - tens of GB of binary evidence stored in object storage
+  - at least one timeline row linked to 100 evidence records
+  - evidence blobs MAY be stubbed for throughput tests, but evidence metadata, counts, attachment state, and preview handles MUST be real
+
+Unless a criterion states otherwise, `reference incident` in this section means Fixture A.
+
+Latency measurements in this section MUST use end-user-observable completion time from the initiating user action to the required visible UI state. Any criterion expressed as p95 MUST be evaluated over at least 100 completed operations of the named interaction after one warm-up pass on the named fixture.
+
+For this section:
+
+- `first useful viewport` means the first rendered visible row window for the active sort, filter, and grouping state with stable `record_id` binding and working keyboard navigation, even if off-screen rows continue loading.
+- `stable viewport` means the visible row window and result ordering match the final deterministic order for the active sort, filter, and grouping state and no further reorder occurs without new user or server input.
+- `metadata shell` means row fields and evidence metadata needed to inspect the selected record, including counts, filenames or media-type labels, attachment state, and preview handles, but excluding binary preview bytes or full blob download.
+
 ### 9.1 Base Profile criteria
 
 - **AC-001**: An analyst can create a new timeline row by typing into a blank grid cell and pressing Enter, with no modal and no required form, and the row is saved in under 150 ms on LAN for a single-row edit.
@@ -153,6 +215,11 @@ Each criterion below is a pass/fail requirement.
 - **AC-014**: Renaming a visible column header or tab label does not change filter semantics, write-back behavior, or export semantics for a built-in or system view; those behaviors are bound to `view_schema_id`.
 - **AC-015**: An analyst can create an evidence request record without uploading a blob, later attach or replace the blob, and preserve request, receipt, custody, and storage metadata across the lifecycle.
 - **AC-016**: Evidence processing and any implemented background job start without blocking grid editing, and the UI shows progress and cancellation within 1 second of job start.
+- **AC-043**: On Fixture A, selection change, focus change, and typing acknowledgment each remain at or below 100 ms p95 on LAN, and blank-row creation in the timeline sheet with one non-empty user-entered value remains at or below 150 ms p95 on LAN.
+- **AC-044**: On Fixture A, sort, filter, and grouping changes present a first useful viewport at or below 250 ms p95 and a stable viewport at or below 1.0 s p95.
+- **AC-045**: On Fixture B, opening the inspector for a timeline row linked to 100 evidence records shows a metadata shell at or below 300 ms p95; binary preview bytes MAY continue progressively after the inspector opens.
+- **AC-046**: On either Fixture A or Fixture B, imports, evidence processing, projection rebuilds, snapshot generation, report generation, and reference-pack refresh remain background jobs, show progress and cancellation within 1 second of job start, and do not block grid editing or row creation.
+- **AC-047**: On Fixture A, scrolling, sorting, filtering, grouping, and live updates never retarget pending edits away from the selected `record_id`, and viewport stabilization does not require a full-sheet rerender.
 - **AC-017**: Indicator values imported or entered through artifact-backed flows appear in a stable system-view contract and, when export surfaces exist, in a stable export contract with consistent indicator type, indicator value, normalization, and STIX-mapping fields.
 - **AC-018**: Recording a new compromised or cleared assessment for a host or identity appends a new attributed assessment record; prior assessments remain visible in history and are not overwritten.
 - **AC-019**: Typing or pasting `WS-023?` into a Timeline Hosts cell creates an `entity_mention` and zero host records unless the analyst explicitly resolves or creates an entity.
@@ -194,6 +261,17 @@ Each criterion below is a pass/fail requirement.
 - **AC-040**: A paste containing both non-conflicting and same-field-conflicting cells commits the non-conflicting cells immediately and groups the conflicting cells into a navigable conflict queue without per-cell modal interruption.
 - **AC-041**: Unresolved local conflict drafts are not broadcast to other analysts and do not appear in search, history, exports, or snapshots unless explicitly committed.
 - **AC-042**: After resolving a conflict, focus returns to the same cell and scroll position is preserved.
+
+### 9.7 Additional Base Profile criteria for threat model and focused weakness controls
+
+- **AC-048**: The implementation maintains a STRIDE threat model for the current release that covers, at minimum, authenticated sessions, incident records and revisions, evidence blobs and previews, reference packs and import bundles, generated snapshots and exports, and portable runtime roots, and each entry maps the threat to at least one control and one verification hook.
+- **AC-049**: Rendering notes, markdown, evidence metadata, filenames, tags, and other incident-authored text in the browser UI or generated HTML does not execute script, inline event handlers, `javascript:` URLs, or remote asset fetches sourced from incident data.
+- **AC-050**: CSV, XLSX, and spreadsheet-oriented clipboard exports neutralize formula-leading characters by default. A raw export mode, if implemented, requires explicit operator opt-in and a visible unsafe-export warning.
+- **AC-051**: Upload, import, and archive-extraction paths reject absolute paths and parent traversal and do not write outside the configured runtime roots. Client-supplied filenames do not determine storage keys.
+- **AC-052**: Reference-pack activation, and incident bundle import when implemented, fail closed on checksum mismatch, signature mismatch, incomplete download, or missing required integrity metadata.
+- **AC-053**: Evidence upload and preview do not execute uploaded active content in the main application unit or browser origin. Non-previewable or active-content types remain quarantined or download-only unless an explicit isolated analysis path is configured.
+- **AC-054**: Attempting to mutate, preview, download, or issue object-store access for a `record_id`, `evidence_record_id`, `object_blob_id`, or snapshot outside the caller's incident membership is denied even when the identifier is otherwise valid.
+- **AC-055**: A deployment claiming flyaway or disconnected portability for use on portable hosts or removable media stores database, object, reference-pack, temporary-work-file, and export roots on encrypted storage. A deployment that does not do so is non-conformant for flyaway handling.
 
 ## 10. Non-goals preserved from the source artifact
 
