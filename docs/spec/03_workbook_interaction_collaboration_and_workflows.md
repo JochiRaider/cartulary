@@ -33,6 +33,8 @@ The workbook MUST support additional contract-backed system views, including ind
 
 The Indicators system view MUST surface canonical indicator rows and support pivots to source-bound observations and lifecycle history without leaving the workbook interaction model.
 
+The Compromise Assessments system view MUST surface incident-scoped assessment rows and support pivots to the assessed host or identity and that subject's prior assessment history without leaving the workbook interaction model.
+
 Such views MUST remain workbook surfaces rather than separate application modules.
 
 ### 2.3 Saved views
@@ -655,6 +657,16 @@ The inspector MUST:
 - preserve the distinction between raw indicator observation lineage and current canonical indicator links and lifecycle windows.
 
 The inspector is the enrichment surface. It MUST NOT be required for the common path of timeline row creation and editing.
+
+### 16.3 Compromise-assessment surfaces
+
+Interactive assessment-entry surfaces MUST keep `assessment_state` separate from operational-response actions such as containment, isolation, disablement, credential reset, or monitoring.
+
+Interactive assessment-entry surfaces MUST expose confidence by default as `unset`, `low`, `medium`, or `high`. They MAY additionally expose an exact integer `confidence_score` in the range `0..100` as a secondary control.
+
+When the band-first path is used, the implementation MUST persist canonical default scores of `25` for `low`, `55` for `medium`, and `85` for `high`. `unset` MUST persist `confidence_score=NULL`.
+
+Workbook filtering on compromise-assessment surfaces MUST treat `assessment_state` and `confidence_band` as separate fields.
 
 ## 17. Authorship and attribution in the UI
 

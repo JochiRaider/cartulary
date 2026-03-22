@@ -348,14 +348,52 @@ This contract MUST remain stable across import, export, reporting, and future st
 
 Compromise state MUST be modeled as incident-scoped assessment history attached to a host or identity rather than as a static property on the entity.
 
+`assessment_state` MUST use this closed vocabulary:
+
+- `unknown`: no meaningful assessment yet; evidence is insufficient or not yet reviewed.
+- `suspected`: there is credible evidence of compromise, but not enough to confirm.
+- `confirmed`: compromise is supported by sufficient evidence.
+- `disproven`: the subject was investigated and compromise is not supported for the scoped incident context.
+- `cleared`: the subject was previously suspected or confirmed compromised, and is now assessed as no longer actively compromised as of this assessment.
+
+`assessment_state` MUST represent evidentiary judgment about compromise for the subject at the time of assessment.
+
+Operational-response terms such as `contained`, `isolated`, `disabled`, `reset`, or `monitored` MUST NOT be used as assessment states. Response posture belongs in linked timeline events, evidence, tasks, decisions, or a future separate response-state model.
+
+`disproven` and `cleared` MUST remain distinct because the former records a negative investigation result and the latter records post-remediation or post-validation state after actual or plausible compromise.
+
 Each assessment MUST carry:
 
-- state,
-- timestamp,
+- `assessment_state`,
+- `assessed_at`,
 - assessor,
-- confidence,
+- nullable `confidence_score` in the range `0..100`,
 - rationale,
 - optional supporting record links.
+
+`confidence_score=NULL` means unspecified. `confidence_score` MUST express confidence in the correctness of the assessment entry itself. It MUST NOT be reused as severity, impact, priority, or urgency.
+
+Assessment history MUST be append-only. A new judgment MUST append a new assessment record for the incident-scoped subject. It MUST NOT overwrite or silently mutate prior assessments.
+
+The system MUST expose a deterministic derived `confidence_band` with the following mapping:
+
+- `unset` when `confidence_score IS NULL`,
+- `low` when `confidence_score BETWEEN 0 AND 39`,
+- `medium` when `confidence_score BETWEEN 40 AND 69`,
+- `high` when `confidence_score BETWEEN 70 AND 100`.
+
+The system MUST expose a stable compromise-assessment system-view and API contract over assessment history with fields equivalent to:
+
+- subject record and subject type,
+- `assessment_state`,
+- `confidence_score`,
+- `confidence_band`,
+- rationale,
+- assessor,
+- `assessed_at`,
+- optional supporting link counts.
+
+This contract MUST remain stable across filtering, reporting, and future storage evolution.
 
 ### 10.4 Analyst-work tracking
 
@@ -474,6 +512,7 @@ The schema MUST support:
 - resolution metadata on mentions,
 - source-bound indicator-observation fields sufficient to persist observed text, optional parsed indicator type, optional normalized candidate, deterministic source locator or span, and resolution metadata,
 - append-only indicator lifecycle interval fields separate from observation timestamps,
+- append-only compromise-assessment fields sufficient to persist closed-vocabulary `assessment_state`, `assessed_at`, assessor attribution, nullable `confidence_score`, rationale, optional supporting record references, and deterministic derivation of `confidence_band`,
 - `entity_origin` and seed provenance on host and identity records,
 - `entity_binding_mode` in view write-back contracts and import mappings.
 
@@ -496,6 +535,7 @@ The mutation-entry model MUST support, at minimum:
 - entity mentions,
 - indicator observations,
 - indicator lifecycle intervals,
+- compromise assessments,
 - evidence associations,
 - merge and repoint fan-out.
 

@@ -186,6 +186,8 @@ System views MUST follow the same `view_schema_id` contract discipline as built-
 
 The Indicators system view MUST project canonical indicator records. It MUST NOT use source artifacts or source-bound indicator observations as the primary row identity.
 
+The Compromise Assessments system view MUST project incident-scoped assessment records. It MUST NOT collapse assessment history into a mutable static property on a host or identity row.
+
 ### 7.3 Notes sheet contract
 
 The base profile MUST expose **Notes** as a built-in workbook sheet.
@@ -214,11 +216,14 @@ The implementation MUST define projection tables equivalent to:
 - `identity_grid_projection`,
 - `artifact_grid_projection`,
 - `evidence_grid_projection`,
-- `indicator_grid_projection` for the indicator system view.
+- `indicator_grid_projection` for the indicator system view,
+- `assessment_grid_projection` for the compromise-assessment system view.
 
 Each projection row MUST represent exactly one primary record in the base projection for that view.
 
 For `indicator_grid_projection`, the primary record MUST be the canonical indicator record for that row.
+
+For `assessment_grid_projection`, the primary record MUST be the assessment record for that row.
 
 ### 8.2 Projection-row identity
 
@@ -254,6 +259,8 @@ Projection rows for hot workbook sheets MUST carry the scalar fields required fo
 The grid and inspector hot path MUST synchronously read only scalar fields, flags, counts, and small preview handles needed for the visible viewport or selected row. They MUST NOT synchronously fetch full attachment lists or binary blob bytes as part of grid rendering, row selection, sheet filtering, grouping, or inspector metadata open.
 
 For the Indicators system view, exact lookup, sorting, filtering, and pivot counts over canonical indicators MUST be satisfiable from `indicator_grid_projection` and other small derived metadata. They MUST NOT require synchronous scans of raw timeline text, artifact text, or evidence blobs.
+
+For the Compromise Assessments system view, exact lookup, sorting, filtering, and pivot counts over `assessment_state` and derived `confidence_band` MUST be satisfiable from `assessment_grid_projection` and other small derived metadata. They MUST NOT require synchronous scans of raw timeline text, artifact text, or evidence blobs.
 
 ## 9. Canonical derivation layer
 

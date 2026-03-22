@@ -72,13 +72,24 @@ The schema sketch needs a few explicit fields and separations for indicators:
 - Indicator lifecycle windows MUST be stored separately from observations in append-only `indicator_state_intervals` or equivalent structured rows keyed to the canonical indicator.
 - `indicator_grid_projection` MUST be keyed by canonical indicator `record_id`, not by source artifact or observation identity.
 
+### Additional schema requirements for compromise assessments
+
+The schema sketch needs a few explicit fields and separations for compromise assessments:
+
+- `assessment_state` MUST use the closed vocabulary `unknown`, `suspected`, `confirmed`, `disproven`, and `cleared`.
+- Operational-response terms such as `contained`, `isolated`, `disabled`, `reset`, or `monitored` MUST NOT be stored in `assessment_state`.
+- Compromise assessments MUST store nullable `confidence_score` in the range `0..100` and expose deterministic derived `confidence_band` values of `unset`, `low`, `medium`, or `high`.
+- Compromise assessment history MUST remain append-only and incident-scoped to a host or identity subject rather than overwriting a mutable compromise flag on the subject row.
+- Assessor attribution MUST be preserved either on the assessment row itself or through the owning assessment record envelope.
+- `assessment_grid_projection` MUST be keyed by assessment `record_id` or equivalent stable assessment-row identity, not by a mutable subject-state overwrite.
+
 ### Additional schema requirements for rollback granularity
 
 A conformant history schema needs a mutation log in addition to row-snapshot revisions.
 
 - `change_sets` remain the attribution unit for actor, source, reason, and transaction grouping.
 - A `change_set_mutations`-style table or equivalent MUST record reversible entries at mutation-target granularity and order them deterministically within the parent `change_set`.
-- Mutation targets MUST include row-field edits, `record_links`, `record_tags`, `entity_mentions`, `indicator_observations`, `indicator_state_intervals`, evidence associations, and merge/repoint fan-out.
+- Mutation targets MUST include row-field edits, `record_links`, `record_tags`, `entity_mentions`, `indicator_observations`, `indicator_state_intervals`, compromise assessments, evidence associations, and merge/repoint fan-out.
 - Stable mutation target identities MUST use a canonical target-kind-specific serialization. Composite targets MUST serialize deterministically, for example `record_tag:<record_id>:<tag_id>`.
 - `record_revisions` MAY retain `before_json` / `after_json` row snapshots for audit and whole-row restore, but they MUST NOT be the sole rollback substrate.
 
@@ -410,9 +421,9 @@ CREATE TABLE compromise_assessments (
     subject_record_id uuid NOT NULL REFERENCES records(id) ON DELETE CASCADE,
     subject_type text NOT NULL CHECK (subject_type IN ('host','identity')),
     assessment_state text NOT NULL CHECK (
-        assessment_state IN ('unknown','suspected','confirmed','contained','cleared')
+        assessment_state IN ('unknown','suspected','confirmed','disproven','cleared')
     ),
-    confidence smallint CHECK (confidence BETWEEN 0 AND 100),
+    confidence_score smallint CHECK (confidence_score BETWEEN 0 AND 100),
     rationale text,
     supporting_record_id uuid REFERENCES records(id),
     assessed_at timestamptz NOT NULL DEFAULT now(),
