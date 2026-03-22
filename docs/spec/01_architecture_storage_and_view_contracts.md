@@ -183,9 +183,20 @@ Framework overlays such as ATT&CK, D3FEND, or VERIS MAY also be exposed as syste
 
 System views MUST follow the same `view_schema_id` contract discipline as built-in sheets.
 
-### 7.3 Notes status
+### 7.3 Notes sheet contract
 
-The current normative core treats **Notes** as a built-in sheet because the source artifact made it part of the current workbook and MVP surface. Appendix E preserves the open product question about whether this remains a built-in surface at GA. That future question does not change current conformance.
+The base profile MUST expose **Notes** as a built-in workbook sheet.
+
+The built-in Notes sheet MUST:
+
+- be declared by a stable `view_schema_id`,
+- use `artifact_grid_projection` as its base projection filtered to `artifact_type='note'`,
+- support blank-row or equivalent grid-native note creation from the sheet itself,
+- remain backed by the shared artifact model rather than a Notes-specific storage silo.
+
+The base profile MUST also expose contextual `add linked note` actions from Timeline, Hosts, Identities, and Evidence. All Notes entry paths MUST create the same underlying artifact record shape.
+
+Notes behavior MUST NOT depend on the visible tab label. If the implementation allows the built-in Notes tab to be renamed or hidden per user, write-back behavior and export semantics MUST remain unchanged because they are bound to `view_schema_id`.
 
 ## 8. Projection model
 
@@ -303,6 +314,10 @@ The snapshot and export subsystem MUST evaluate output eligibility against the c
 - `external_release`: `derived_analytic`, `curated_narrative`, and only selected `source_evidence` excerpts or thumbnails that are eligible for the chosen `release_scope`. Raw blob bytes and `working_material` MUST NOT appear.
 
 For `external_release`, every `curated_narrative` block MUST carry `support_refs[]` containing one or more stable identifiers to supporting findings, events, evidence records, assessments, or query records. A narrative block lacking `support_refs[]` MUST be ineligible for `external_release`.
+
+Content derived from ad hoc note artifacts SHOULD default to `working_material`.
+
+Such content MUST NOT appear in `external_release` unless an analyst has explicitly curated it into a separate `curated_narrative` block that independently satisfies `support_refs[]` and applicable redaction rules.
 
 ### 10.4 Template packs and rendering contract
 

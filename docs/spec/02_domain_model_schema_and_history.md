@@ -256,6 +256,12 @@ When two entities are merged:
 
 Ad hoc notes MUST be modeled as artifacts with `artifact_type='note'`.
 
+The base profile MUST NOT introduce a Notes-specific source table or Notes-only persistence model. Standalone note creation from the built-in Notes sheet and contextual `add linked note` actions MUST create the same underlying artifact record shape and use the same revision, tag, and link semantics.
+
+Lightweight free-text fields MAY remain on timeline events, hosts, identities, evidence, or other records. Text that requires standalone history, tags, search, or reuse across records MUST be modeled as an artifact with `artifact_type='note'`.
+
+Future analyst-work objects such as tasks, hypotheses, decisions, and ownership MUST use either a distinct `artifact_type` or a distinct first-class `record_type`. They MUST NOT overload `artifact_type='note'`.
+
 ### 10.2 Indicator contract
 
 The base profile MAY keep indicator storage artifact-backed. Regardless of storage realization, the system MUST expose a stable indicator projection or API contract with fields equivalent to:
@@ -351,6 +357,12 @@ A timeline event MUST be able to relate to:
 - unresolved host and account strings via entity mentions,
 - notes and other artifacts via typed record links,
 - evidence via typed record links to evidence records.
+
+Hosts, identities, and evidence records MUST also be able to relate to note artifacts through the same generic typed relationship store.
+
+When a note is created from timeline, host, identity, or evidence context, the association MUST be persisted through generic `record_links` rather than a Notes-specific foreign key on the source record.
+
+A single note artifact MAY relate to zero, one, or many source records through `record_links`.
 
 ## 13. Evidence and object metadata
 

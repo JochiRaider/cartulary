@@ -164,8 +164,7 @@ The exploratory artifact contained several mixed-status areas, especially around
 
 - the boundary between clipboard paste and file-based structured import,
 - immutable snapshot and report generation,
-- reference-pack refresh and distribution,
-- the long-term status of a dedicated Notes tab.
+- reference-pack refresh and distribution.
 
 This core resolves those areas as follows:
 
