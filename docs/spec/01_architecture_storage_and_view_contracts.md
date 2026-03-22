@@ -135,7 +135,7 @@ The following are reference packs:
 
 Reference packs MUST version independently of incidents.
 
-Reference-pack manifests and integrity metadata MUST be stored in Postgres. Pack payloads MAY live on local disk or object storage behind the same abstraction, but their activation state MUST remain queryable from structured metadata.
+Reference-pack manifests and integrity metadata MUST be stored in Postgres. Pack payloads MAY live on local disk or object storage behind the same abstraction, but their activation state and import or activation attestation MUST remain queryable from structured metadata.
 
 Reporting template packs MAY reuse the same integrity-verification and distribution machinery as reference packs. The template selected for a specific snapshot, the selected redaction profile, approval state, and rendered output hashes remain incident data.
 
@@ -461,18 +461,101 @@ Generated report and presentation artifacts MUST be self-contained. They MUST NO
 
 The **Reference Pack Extension Profile** is optional for base conformance. If implemented, it MUST satisfy this section and the corresponding criteria in Core 04.
 
-### 11.2 Activation and integrity
+### 11.2 Minimum disconnected bundle
 
-Before a reference pack becomes active, the implementation MUST verify:
+For the smallest supported flyaway or disconnected deployment that implements this profile, the deployment MUST preinstall and activate exactly the following three reference packs by default:
 
-- the pack version,
+- `type_registry.host`
+- `type_registry.evidence`
+- `type_registry.indicator`
+
+These three packs define the minimum disconnected bundle because base-profile host, evidence, and indicator semantics MUST come from versioned registries rather than hard-coded UI labels or workbook headers.
+
+The smallest supported disconnected bundle MUST NOT require or preinstall framework overlay packs. Current-profile framework add-on pack keys are:
+
+- `framework.attack`
+- `framework.d3fend`
+- `framework.veris`
+
+The smallest supported disconnected bundle MUST NOT require or preinstall enrichment packs. Current-profile enrichment add-on pack keys include:
+
+- `enrichment.tor`
+- `enrichment.cisa_kev`
+- `enrichment.ms_portals`
+- `enrichment.windows_event_ids`
+- `enrichment.entra_app_ids`
+- `enrichment.lolbas`
+- `enrichment.loldrivers`
+- `enrichment.lolesxi`
+- `enrichment.hijacklibs`
+- `enrichment.windows_sids`
+
+Other enrichment or framework pack keys MAY exist. They MUST follow the same activation, verification, and degradation rules defined by this profile.
+
+If the Snapshot and Reporting Extension Profile is implemented, template bundles MUST remain separately installable. They MUST NOT count toward the minimum disconnected reference-pack bundle.
+
+Separately distributed `view_contract` packs MAY exist in larger deployments. They MUST NOT be required for the smallest disconnected bundle.
+
+Larger supported disconnected bundles MAY preinstall additional packs, but the minimum disconnected bundle is fixed by this subsection.
+
+### 11.3 Offline import, update, and activation flow
+
+In a flyaway or disconnected deployment, reference-pack update MUST use an offline bundle import flow. The running application MUST NOT perform a live internet fetch as part of pack verification or activation.
+
+The import and update flow MUST satisfy all of the following:
+
+1. the operator supplies a pack bundle through the configured reference-pack storage root or an equivalent administrative upload path backed by that root,
+2. the system stages the bundle inside the configured temporary-work root,
+3. the system verifies the staged bundle before any extracted content becomes active,
+4. on successful verification, the system records the candidate version as `available` or an equivalent non-active state,
+5. activation requires an explicit operator action that switches the active version pointer for the target `pack_key`.
+
+At most one version of a given `pack_key` MUST be active at a time.
+
+The implementation MUST retain the previously active version for each `pack_key` until an explicit administrative removal occurs, so operator rollback does not require incident-data changes.
+
+Reference-pack import, verification, and refresh MUST execute as background jobs rather than as blocking grid actions.
+
+### 11.4 Verification and attestation
+
+Before a reference pack becomes `available` or `active`, the implementation MUST verify:
+
+- `pack_key`,
+- `pack_kind`,
+- `pack_version`,
 - the source identifier, if available,
-- the checksum,
-- signature or trusted-source metadata when available.
+- `manifest_sha256`,
+- one or more payload SHA-256 digests in deterministic member order or an equivalent canonical aggregate digest,
+- signature or trusted-source metadata when available,
+- reference-pack contract or schema compatibility with the running application,
+- safe-path validation for archive members before extraction,
+- a content allowlist that rejects executable active content at import time.
 
-Pack activation or refresh MUST fail closed on checksum mismatch, signature mismatch, incomplete download, or equivalent integrity failure.
+Pack import or activation MUST fail closed on checksum mismatch, signature mismatch, missing required integrity metadata, contract incompatibility, incomplete download or copy, path-traversal attempt, or disallowed content.
 
-### 11.3 Degradation behavior
+If verification fails, the candidate pack version MUST remain inactive, and the previously active version, if any, MUST remain active.
+
+The implementation MUST record structured, incident-external attestation metadata for pack import and pack activation. At minimum, the attestation metadata MUST persist:
+
+- `pack_key`,
+- `pack_kind`,
+- `pack_version`,
+- `manifest_sha256`,
+- `payload_sha256`,
+- `source_identifier`,
+- `verification_method`,
+- `signer_key_id` or trusted-source identifier,
+- `imported_by_user_id`,
+- `imported_at`,
+- `activated_by_user_id`,
+- `activated_at`,
+- `previous_active_version`,
+- `verification_result`,
+- optional operator note or change ticket.
+
+Attestation metadata MUST remain queryable from structured metadata without unpacking bundle contents or consulting incident data.
+
+### 11.5 Degradation behavior
 
 If optional reference packs are absent, disabled, or failed, Cartulary MUST continue to support:
 
@@ -523,7 +606,7 @@ The implementation MUST execute the following long-running operations as backgro
 
 - lookups beyond trivial inline suggestion queries,
 - imports,
-- reference-pack refresh,
+- reference-pack import, verification, and refresh,
 - snapshot generation,
 - report builds,
 - projection rebuilds,

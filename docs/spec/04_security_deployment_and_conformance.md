@@ -82,7 +82,11 @@ Security choices MUST NOT add friction to the primary capture path. MFA belongs 
 
 Optional enrichment credentials MUST live in server-side configuration or secret storage. They MUST NOT live in incident records, client-side storage, or imported pack files.
 
-Reference packs MUST record version, source, and integrity metadata before activation.
+Reference packs MUST record structured metadata before activation. Queryable metadata MUST include, at minimum, `pack_key`, `pack_kind`, `pack_version`, source identifier if available, `manifest_sha256`, one or more payload SHA-256 digests in deterministic member order or an equivalent canonical aggregate digest, `verification_method`, signer-key or trusted-source identifier, imported and activated actor attribution with timestamps, `previous_active_version`, and `verification_result`.
+
+In a flyaway or disconnected deployment, reference-pack import and activation MUST operate only on locally supplied bundles rooted under the configured reference-pack storage path or an equivalent administrative upload path that writes into that root. The running application MUST NOT require a live network fetch to verify or activate a pack.
+
+Imported pack bundles and extracted contents MUST be treated as hostile content until verification and content screening succeed.
 
 ### 4.2 Export outputs
 
@@ -150,6 +154,8 @@ The recommended disconnected deployment MUST consist of:
 - one MinIO container or equivalent S3-compatible object store.
 
 Docker Compose or Podman Compose with mounted volumes is acceptable.
+
+If the deployment claims the Reference Pack Extension Profile, the smallest supported disconnected bundle MUST preinstall only the three reference packs defined in Core 01 §11.2. Framework, enrichment, template, and separately distributed view-contract packs MUST remain separately installable offline bundles in that minimum deployment.
 
 ### 5.2 On-prem deployment
 
@@ -318,9 +324,14 @@ For this section:
 
 ### 9.4 Reference Pack Extension Profile criteria
 
-- **AC-033**: Reference-pack refresh runs without blocking grid editing, and the UI shows progress and cancellation within 1 second of job start.
+- **AC-033**: Reference-pack import, verification, and refresh run without blocking grid editing, and the UI shows progress and cancellation within 1 second of job start.
 - **AC-034**: Missing optional reference packs degrade only the affected overlay views or labels; timeline capture, entity resolution, and evidence attachment continue to function.
-- **AC-035**: Pack activation fails closed on checksum, signature, or equivalent integrity mismatch.
+- **AC-035**: Pack activation fails closed on checksum, signature, compatibility, safe-path, or equivalent integrity mismatch, and the previously active version remains active.
+- **AC-092**: In the smallest supported disconnected bundle, the only preinstalled active reference packs are `type_registry.host`, `type_registry.evidence`, and `type_registry.indicator`; the deployment remains usable without `framework.attack`, `framework.d3fend`, `framework.veris`, or any enrichment pack.
+- **AC-093**: Given an offline pack bundle placed in the configured reference-pack storage root or uploaded through the equivalent admin surface, the system stages the bundle under a temporary-work root, verifies it, records the version as `available` or equivalent non-active state on success, and does not activate it until explicit operator action.
+- **AC-094**: Given a candidate pack with checksum mismatch, signature mismatch, missing required integrity metadata, incompatible `pack_contract_version`, path-traversal attempt, or disallowed active content, import or activation fails closed, the candidate version remains inactive, and the previously active version, if any, remains active.
+- **AC-095**: Pack import and activation record structured attestation metadata queryable without unpacking bundle contents, including `pack_key`, `pack_kind`, `pack_version`, `manifest_sha256`, `payload_sha256`, `source_identifier`, `verification_method`, signer-key or trusted-source identifier, imported and activated actor attribution with timestamps, `previous_active_version`, and `verification_result`.
+- **AC-096**: In a disconnected deployment, reference-pack import or activation succeeds without outbound network access and no supported pack-activation path performs a live internet fetch.
 
 ### 9.5 Enterprise Authentication Extension Profile criteria
 

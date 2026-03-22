@@ -167,15 +167,73 @@ CREATE TABLE reference_packs (
     pack_kind text NOT NULL CHECK (
         pack_kind IN ('framework','type_registry','enrichment','view_contract')
     ),
-    source_uri text,
-    integrity_sha256 text,
+    source_identifier text,
+    manifest_sha256 text NOT NULL,
+    payload_sha256 text[] NOT NULL DEFAULT '{}'::text[],
+    pack_contract_version text,
+    verification_method text,
+    signer_key_id text,
     signature_json jsonb NOT NULL DEFAULT '{}'::jsonb,
-    status text NOT NULL DEFAULT 'available' CHECK (
-        status IN ('available','disabled','failed','missing')
+    trusted_source_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+    status text NOT NULL DEFAULT 'staged' CHECK (
+        status IN ('staged','available','disabled','failed','missing')
     ),
-    installed_at timestamptz NOT NULL DEFAULT now(),
+    imported_at timestamptz NOT NULL DEFAULT now(),
+    imported_by_user_id uuid REFERENCES users(id),
+    verification_result text NOT NULL DEFAULT 'pending' CHECK (
+        verification_result IN ('pending','passed','failed')
+    ),
     metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
     PRIMARY KEY (pack_key, version)
+);
+
+CREATE TABLE reference_pack_activation_state (
+    pack_key text PRIMARY KEY,
+    active_version text NOT NULL,
+    previous_active_version text,
+    activated_at timestamptz NOT NULL DEFAULT now(),
+    activated_by_user_id uuid REFERENCES users(id),
+    operator_note text,
+    change_ticket text,
+    CHECK (
+        previous_active_version IS NULL
+        OR previous_active_version <> active_version
+    ),
+    FOREIGN KEY (pack_key, active_version)
+        REFERENCES reference_packs(pack_key, version),
+    FOREIGN KEY (pack_key, previous_active_version)
+        REFERENCES reference_packs(pack_key, version)
+);
+
+CREATE TABLE reference_pack_attestations (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    pack_key text NOT NULL,
+    pack_version text NOT NULL,
+    pack_kind text NOT NULL CHECK (
+        pack_kind IN ('framework','type_registry','enrichment','view_contract')
+    ),
+    event_kind text NOT NULL CHECK (
+        event_kind IN ('import','activate')
+    ),
+    manifest_sha256 text NOT NULL,
+    payload_sha256 text[] NOT NULL DEFAULT '{}'::text[],
+    source_identifier text,
+    verification_method text,
+    signer_key_id text,
+    trusted_source_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+    previous_active_version text,
+    verification_result text NOT NULL CHECK (
+        verification_result IN ('passed','failed')
+    ),
+    actor_user_id uuid REFERENCES users(id),
+    occurred_at timestamptz NOT NULL DEFAULT now(),
+    operator_note text,
+    change_ticket text,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    FOREIGN KEY (pack_key, pack_version)
+        REFERENCES reference_packs(pack_key, version),
+    FOREIGN KEY (pack_key, previous_active_version)
+        REFERENCES reference_packs(pack_key, version)
 );
 
 CREATE TABLE type_registry_entries (

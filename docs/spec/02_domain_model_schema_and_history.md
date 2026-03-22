@@ -76,7 +76,7 @@ The following data classes MUST remain normalized structured state:
 - canonical host, identity, and indicator fields,
 - indicator observations and indicator lifecycle intervals,
 - compromise assessments,
-- reference-pack manifests and type registries,
+- reference-pack manifests, activation state, attestation metadata, and type registries,
 - view schemas and saved views,
 - snapshot descriptors, canonical export-model metadata, versioned template-contract metadata, versioned redaction-profile metadata, redaction manifests, and artifact release records when the Snapshot and Reporting Extension Profile is implemented.
 
@@ -669,6 +669,8 @@ The schema MUST support:
 - source-bound indicator-observation fields sufficient to persist observed text, optional parsed indicator type, optional normalized candidate, deterministic source locator or span, and resolution metadata,
 - append-only indicator lifecycle interval fields separate from observation timestamps,
 - append-only compromise-assessment fields sufficient to persist closed-vocabulary `assessment_state`, `assessed_at`, assessor attribution, nullable `confidence_score`, rationale, optional supporting record references, and deterministic derivation of `confidence_band`,
+- reference-pack manifest fields sufficient to persist `pack_key`, `pack_kind`, `pack_version`, `source_identifier`, `manifest_sha256`, one or more payload SHA-256 digests in deterministic member order or an equivalent canonical aggregate digest, declared `pack_contract_version`, signature or trusted-source metadata, `verification_method`, and non-active availability state,
+- reference-pack activation and attestation fields sufficient to persist one active-version pointer per `pack_key`, imported and activated actor attribution with timestamps, `previous_active_version`, `verification_result`, and optional operator note or change ticket,
 - `entity_origin` and seed provenance on host and identity records,
 - `entity_binding_mode` in view write-back contracts and import mappings,
 - `task_request` fields sufficient to persist `task_kind`, `status`, `owner_user_id`, `priority`, due and blocker state, and optional linked-record or linked-decision references,
@@ -800,4 +802,5 @@ A conformant implementation MUST preserve all of the following invariants:
 13. relationship semantics are typed,
 14. history is reversible at mutation-entry granularity,
 15. projection state is derived rather than authoritative,
-16. current-profile hypotheses remain artifact-backed until later promotion criteria are met.
+16. current-profile hypotheses remain artifact-backed until later promotion criteria are met,
+17. reference-pack manifests, activation state, and attestation metadata remain incident-external structured state, and at most one version per `pack_key` is active at a time.
