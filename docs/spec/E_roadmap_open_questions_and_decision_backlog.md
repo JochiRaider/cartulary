@@ -13,7 +13,6 @@ The source artifact mixed current requirements, roadmap positioning, and open qu
 | `DQ-002` | **File-based structured import** boundary | The normative core keeps clipboard paste in the base workbook surface and places file-based structured import in the **Import Extension Profile** as a dedicated imports-module boundary with a bounded CSV and selected-sheet or selected-region XLSX contract. | The source artifact defined richer XLSX-assistant behavior, but the current core intentionally defers whole-workbook fidelity and other spreadsheet-specific compatibility work. |
 | `DQ-003` | **Immutable snapshots and report exports** status | The normative core places snapshot and report generation in the **Snapshot and Reporting Extension Profile** and fixes the immutable release tuple, release scopes, template contracts, redaction profiles, and artifact release records inside that profile. | The source artifact treats snapshot-based reporting as architecturally important while also placing productized export delivery in later phases. |
 | `DQ-004` | **Reference-pack refresh and distribution** status | The normative core places refresh and integrity-checked distribution in the **Reference Pack Extension Profile** while keeping degradation semantics normative. | The source artifact makes packs optional in the base design but mixes current operational expectations with later disconnected-distribution work. |
-| `DQ-005` | **Indicator storage promotion** | The normative core fixes the indicator projection/API contract but does not require a dedicated indicator source table. | The source artifact intentionally leaves storage promotion contingent on real usage. |
 | `DQ-006` | **Restricted evidence visibility versus export-scoped withholding** | The normative core keeps live workspace visibility incident-scoped, routes recipient-specific withholding through snapshot, render, and release controls, and leaves narrow live sensitive-evidence controls to future work. | The source artifact mixed restricted-evidence questions with redaction and reporting controls; the current core separates export disclosure from live workspace authorization while preserving a future path if repeated practice proves it necessary. |
 | `DQ-007` | **Assessment vocabulary and confidence model** | The normative core preserves the current assessment-history concept and stateful record shape. | The exact vocabulary fit remains an explicit source question tied to analyst practice. |
 | `DQ-008` | **Generated presentation depth** | The normative core now fixes `content_class`, `release_scope`, `support_refs[]`, versioned template and redaction controls, and the current generated-presentation boundary, including `internal_review`-only reenactments marked `generated_presentation=true`. | Future work may still add richer authoring or visualization families without relaxing the current evidence-versus-presentation boundary. |
@@ -29,7 +28,7 @@ The MVP must include the spreadsheet-like UX on day one, or it is not an MVP for
 Must-have on day one:
 
 - browser workbook with Timeline, Hosts, Identities, Evidence, Notes tabs
-- contract-backed system views for indicators and compromise assessments, even if indicator storage is artifact-backed initially
+- contract-backed system views for indicators and compromise assessments, with canonical indicators modeled as first-class records, source-bound indicator observations, and incident-scoped lifecycle intervals while preserving raw source text in Timeline, Notes, and Evidence
 - inline grid editing with keyboard navigation
 - multi-row clipboard paste
 - blank-row quick entry
@@ -54,7 +53,6 @@ Must-have on day one:
 - incident import assistant for XLSX files, prioritizing Timeline, Systems/Hosts, Accounts/Identities, Indicators, Evidence Tracker, and VERIS-like sheets when present; preserving unknown columns in `raw_capture` or `custom_attrs`
 - immutable incident snapshots and self-contained report exports with stable identifiers, versioned recipient-specific redaction profiles, and supported templates
 - integrity-checked ATT&CK/D3FEND/VERIS/reference-pack distribution for disconnected deployments
-- first-class indicator objects if teams outgrow artifact-backed handling
 - narrow live sensitive-evidence access controls only if repeated real-world incidents show export-scoped withholding is insufficient
 
 ### Phase 3
@@ -84,6 +82,7 @@ Resolved in this revision:
 - Clipboard paste versus XLSX adoption is no longer open as a single yes-or-no question. The current core keeps clipboard paste on the base workbook interaction path and treats file-based structured import as a separate Import Extension Profile behind a dedicated imports module. Clipboard paste is therefore sufficient to validate the grid hot path, but not brownfield workbook migration readiness; bounded CSV and selected-sheet or selected-region XLSX onboarding are the current file-based bridge.
 - Restricted evidence visibility inside a single incident workspace is no longer open for the current profile. Live workbook views remain incident-scoped for authenticated incident participants. Recipient-specific withholding is handled only at snapshot, render, and release time through versioned redaction profiles and optional `disclosure_partition_refs[]`. Future live sensitive-evidence controls remain out of scope unless repeated real-world incidents show that export-scoped withholding is insufficient.
 - The dedicated Notes tab is no longer open for the current profile. Core 01 now fixes Notes as a built-in sheet keyed by stable `view_schema_id` and backed by `artifact_grid_projection` filtered to `artifact_type='note'`; Core 02 keeps note storage artifact-backed and links contextual notes through generic `record_links`; Core 04 adds acceptance criteria for direct and contextual note creation and for excluding raw note working material from `external_release`. Future analyst-work objects remain a separate question and MUST NOT overload `artifact_type='note'`. A future NLSpec MAY revisit whether Notes remains first-class only after those richer objects ship and adoption evidence shows the dedicated sheet is redundant; it is not a current-profile open question.
+- Indicator storage promotion is no longer open for the current profile. Core 01 now fixes the Indicators system view as a projection over canonical indicator records; Core 02 requires first-class canonical indicators, source-bound `indicator_observation` rows, and append-only indicator lifecycle intervals; Core 03 keeps indicator capture embedded in raw source fields and places indicator linking in the same-surface enrichment flow; Core 04 adds acceptance criteria for distinct observations, canonical dedupe, lifecycle history, and stable one-row-per-indicator system-view behavior.
 
 ### Performance envelope for large incidents and evidence-heavy incidents
 
@@ -127,7 +126,6 @@ Remaining open questions:
 
 1. Is the timeline-sheet grouping-key whitelist (`timeline.occurred_day`, `timeline.recorded_day`, `timeline.capture_state`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`) sufficient for GA, or does analyst testing show a need for one additional scalar grouping key?
 1. How much incident-specific custom metadata is real, and which of those fields become common enough to deserve first-class columns?
-1. At what point do artifact-backed indicators outgrow their storage implementation and warrant promotion to a dedicated source table, given that the indicator projection/API contract is fixed from MVP?
 1. Which assessment-state vocabulary and confidence model best match analyst practice for incident-scoped host/identity compromise assessments?
 1. When do tags and notes stop being enough, and which analyst-work concepts most need explicit modeling: tasks, hypotheses, decisions, or ownership?
 1. Which optional reference packs should ship in the smallest disconnected deployment, and what update/attestation flow is acceptable operationally?

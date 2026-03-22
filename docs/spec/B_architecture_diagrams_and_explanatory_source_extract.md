@@ -160,9 +160,9 @@ Do **not** use Postgres materialized views for hot workbook screens. Their refre
 - `identity_grid_projection`
 - `artifact_grid_projection`
 - `evidence_grid_projection`
-- `indicator_grid_projection` (artifact-backed in MVP, dedicated source later if promoted)
+- `indicator_grid_projection` over canonical indicator records, with observation-derived counts and lifecycle summaries
 
-Each projection table is **one row per primary record**, denormalized for sheet use. The app updates affected projection rows in the same transaction as the source write. Every projection row exposed to the client must carry the stable `record_id` and `row_version` used for optimistic writes; the client must not infer identity from row position or displayed values. If needed, a rebuild command can regenerate the projections.
+Each projection table is **one row per primary record**, denormalized for sheet use. For the Indicators system view, the primary record is the canonical indicator, not the source artifact or observation row. The app updates affected projection rows in the same transaction as the source write. Every projection row exposed to the client must carry the stable `record_id` and `row_version` used for optimistic writes; the client must not infer identity from row position or displayed values. If needed, a rebuild command can regenerate the projections.
 
 ### Report and presentation export direction
 

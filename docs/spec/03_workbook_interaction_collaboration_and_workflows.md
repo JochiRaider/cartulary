@@ -31,6 +31,8 @@ The workbook MUST expose these built-in tabs in the base profile:
 
 The workbook MUST support additional contract-backed system views, including indicator and compromise-assessment surfaces.
 
+The Indicators system view MUST surface canonical indicator rows and support pivots to source-bound observations and lifecycle history without leaving the workbook interaction model.
+
 Such views MUST remain workbook surfaces rather than separate application modules.
 
 ### 2.3 Saved views
@@ -265,9 +267,12 @@ At row creation time, the system MUST support:
 
 - nullable `occurred_at`,
 - summary text,
-- raw mention tokens for host and identity references.
+- raw mention tokens for host and identity references,
+- raw indicator-bearing text in summary, details, source text, or other contract-declared fields without requiring dedicated IOC columns.
 
-The system MUST NOT block row creation on missing canonical host or identity records.
+The system MUST NOT block row creation on missing canonical host, identity, or indicator records.
+
+Indicator capture from supported source fields is enrichment. Row creation MUST preserve raw field text and MUST NOT require immediate indicator extraction, resolution, or canonical indicator selection.
 
 ## 8. Evidence attachment workflow
 
@@ -299,6 +304,19 @@ The inspector MUST support:
 Resolving or creating from a selected mention MUST preserve the raw mention.
 
 Creating from a selected mention MUST create exactly one stub entity by default and resolve only the selected mention unless the user later invokes an explicit bulk action.
+
+### 9.1 Source-bound indicator workflow
+
+The inspector or an equivalent same-surface enrichment flow MUST support:
+
+- linking a selected raw source value or text span in a supported field to an existing indicator,
+- creating a canonical indicator from a selected source-bound observation,
+- dismissing or marking a selected source-bound observation as non-indicator,
+- viewing observation provenance and current lifecycle intervals for the selected indicator.
+
+Indicator capture from Timeline, Notes, Evidence, and other supported source fields MUST preserve the raw source field unchanged. It MUST NOT require dedicated IOC columns on non-indicator sheets.
+
+Direct creation or editing on the Indicators system view MUST create or update canonical indicator records. Observation creation from a source field MUST remain distinct from canonical indicator creation even when both happen in one analyst action.
 
 ## 10. Reviewer history and rollback workflow
 
@@ -611,6 +629,8 @@ The implementation MUST preserve the following write-back semantics:
 
 Reads MAY be denormalized. Write-back MUST remain intent-aware and contract-driven.
 
+Summary, details, source text, and other contract-declared source fields remain raw source fields. When the implementation supports inline indicator capture from such a field, write-back MUST preserve the raw cell text and create or update source-bound `indicator_observation` rows separately. It MUST NOT require dedicated IOC columns or rewrite the raw field to a canonical indicator label.
+
 ## 16. Entity, evidence, and inspector surfaces
 
 ### 16.1 Entity and evidence sheets
@@ -630,8 +650,9 @@ The inspector MUST:
 - remain a non-blocking drawer rather than the default primary capture surface,
 - expose details, relationships, evidence, and history views,
 - keep the main grid visible while open,
-- support mention resolution, entity creation, evidence inspection, and rollback,
-- preserve the distinction between raw mention lineage and current canonical links.
+- support mention resolution, indicator observation linking, entity and indicator creation, indicator lifecycle inspection or editing, evidence inspection, and rollback,
+- preserve the distinction between raw mention lineage and current canonical links,
+- preserve the distinction between raw indicator observation lineage and current canonical indicator links and lifecycle windows.
 
 The inspector is the enrichment surface. It MUST NOT be required for the common path of timeline row creation and editing.
 

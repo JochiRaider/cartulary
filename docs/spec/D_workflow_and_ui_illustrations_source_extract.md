@@ -192,7 +192,7 @@ Every step above writes the actor’s `user_id` into:
 
 ## 9. UI concepts focused on preserving the spreadsheet feel
 
-The UI should feel like a **workbook**, but the sheets are **saved views over projections**, not separate storage silos. The built-in tabs are intentionally few: Timeline, Hosts, Identities, Evidence, and Notes. Additional surfaces such as Indicators, Assessments, ATT&CK, or VERIS should start as contract-backed system views over those projections or related overlay projections. They only become first-class tabs if usage justifies it.
+The UI should feel like a **workbook**, but the sheets are **saved views over projections**, not separate storage silos. The built-in tabs are intentionally few: Timeline, Hosts, Identities, Evidence, and Notes. Indicators and Assessments should remain contract-backed system views over related projections even when canonical indicators or assessments are first-class records underneath. Framework overlays such as ATT&CK or VERIS should start as contract-backed system views and only become dedicated tabs if usage justifies it.
 
 ### UI concept 1: Primary workbook-style timeline view
 
@@ -374,7 +374,8 @@ This is still workbook-shaped. The “Hosts”, “Identities”, and “Evidenc
 - Identities sheet → `identity_grid_projection`
 - Evidence sheet → `evidence_grid_projection`
 - Notes sheet → `artifact_grid_projection WHERE artifact_type='note'`
-- Indicators, Assessments, ATT&CK, or VERIS views → contract-backed system views keyed by `view_schema_id`, reusing these projections or dedicated overlay projections as needed
+- Indicators view → `indicator_grid_projection` over canonical indicator records, with pivots to source-bound observations and lifecycle history
+- Assessments, ATT&CK, or VERIS views → contract-backed system views keyed by `view_schema_id`, reusing these projections or dedicated overlay projections as needed
 
 #### Inline editing behavior
 
@@ -467,8 +468,10 @@ The grid remains denormalized; writes still go back to source tables. Type chips
 The inspector is where deeper structure happens:
 
 - resolve unresolved mentions,
-- create stub/canonical host or identity,
-- add notes/artifacts,
+- create stub or canonical host or identity,
+- link a raw source value or text span to an existing indicator or create a canonical indicator,
+- inspect or edit indicator lifecycle windows,
+- add notes or artifacts,
 - inspect linked evidence,
 - run rollback.
 
@@ -488,7 +491,8 @@ The inspector is not the main paste target, but it should support copying hashes
 
 The inspector shows both:
 
-- **raw mention lineage** (“A typed `WS-023?` at row creation”), and
+- **raw mention lineage** (“A typed `WS-023?` at row creation”),
+- **raw indicator observation lineage** when a source value or span has been linked to an indicator, and
 - **current canonical links**.
 
 That distinction is important. It prevents later cleanup from erasing what was actually observed during the incident.

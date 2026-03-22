@@ -21,7 +21,7 @@ The implementation MUST define internal boundaries equivalent to the following c
 - authentication and session management,
 - incidents and memberships,
 - timeline capture,
-- entities and mention resolution,
+- entities, indicators, and observation resolution,
 - evidence and object storage,
 - imports and tabular ingest,
 - links and tags,
@@ -87,6 +87,7 @@ Postgres MUST store:
 
 - incidents, users, and memberships,
 - record envelopes and first-class records,
+- canonical indicators, indicator observations, and indicator lifecycle intervals,
 - entity aliases and entity mentions,
 - record links and record tags,
 - change sets, mutation entries, and row revisions,
@@ -183,6 +184,8 @@ Framework overlays such as ATT&CK, D3FEND, or VERIS MAY also be exposed as syste
 
 System views MUST follow the same `view_schema_id` contract discipline as built-in sheets.
 
+The Indicators system view MUST project canonical indicator records. It MUST NOT use source artifacts or source-bound indicator observations as the primary row identity.
+
 ### 7.3 Notes sheet contract
 
 The base profile MUST expose **Notes** as a built-in workbook sheet.
@@ -214,6 +217,8 @@ The implementation MUST define projection tables equivalent to:
 - `indicator_grid_projection` for the indicator system view.
 
 Each projection row MUST represent exactly one primary record in the base projection for that view.
+
+For `indicator_grid_projection`, the primary record MUST be the canonical indicator record for that row.
 
 ### 8.2 Projection-row identity
 
@@ -247,6 +252,8 @@ Projection tables MUST support deterministic interactive retrieval over the defa
 Projection rows for hot workbook sheets MUST carry the scalar fields required for interactive sort, filter, grouping, selection anchoring, and evidence badges in the visible viewport. For the Timeline sheet, this MUST include at least `sort_ts`, day buckets equivalent to `timeline.occurred_day` and `timeline.recorded_day`, `capture_state`, `has_evidence`, `has_unresolved_mentions`, and `evidence_count`.
 
 The grid and inspector hot path MUST synchronously read only scalar fields, flags, counts, and small preview handles needed for the visible viewport or selected row. They MUST NOT synchronously fetch full attachment lists or binary blob bytes as part of grid rendering, row selection, sheet filtering, grouping, or inspector metadata open.
+
+For the Indicators system view, exact lookup, sorting, filtering, and pivot counts over canonical indicators MUST be satisfiable from `indicator_grid_projection` and other small derived metadata. They MUST NOT require synchronous scans of raw timeline text, artifact text, or evidence blobs.
 
 ## 9. Canonical derivation layer
 

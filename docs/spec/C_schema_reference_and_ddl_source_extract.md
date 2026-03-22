@@ -22,11 +22,15 @@ erDiagram
     RECORDS ||--|| HOSTS : "is a"
     RECORDS ||--|| IDENTITIES : "is a"
     RECORDS ||--|| ARTIFACTS : "is a"
+    RECORDS ||--|| INDICATORS : "is a"
     RECORDS ||--|| EVIDENCE_RECORDS : "is a"
     RECORDS ||--|| COMPROMISE_ASSESSMENTS : "is a"
 
     RECORDS ||--o{ ENTITY_ALIASES : aliases
     RECORDS ||--o{ ENTITY_MENTIONS : source
+    RECORDS ||--o{ INDICATOR_OBSERVATIONS : source
+    INDICATORS ||--o{ INDICATOR_OBSERVATIONS : resolves
+    INDICATORS ||--o{ INDICATOR_STATE_INTERVALS : tracks
     RECORDS ||--o{ RECORD_LINKS : src
     RECORDS ||--o{ RECORD_LINKS : dst
     RECORDS ||--o{ RECORD_TAGS : tagged
@@ -47,7 +51,7 @@ erDiagram
 
 ### Key tables
 
-The central modeling decision is a **`records` envelope table**. Every user-visible object gets one row there. That costs an extra join but buys strong generic linking, tagging, revisions, and consistent UI routing. Built-in view behavior should live in `view_schemas` and reference-pack tables, not in visible headers or tab names.
+The central modeling decision is a **`records` envelope table**. Every user-visible object gets one row there. That costs an extra join but buys strong generic linking, tagging, revisions, and consistent UI routing. Canonical indicators fit this same envelope pattern, while source-bound `indicator_observations` remain separate structured observation rows. Built-in view behavior should live in `view_schemas` and reference-pack tables, not in visible headers or tab names.
 
 ### Additional schema requirements for mention/stub provenance
 
@@ -58,13 +62,23 @@ The schema sketch needs a few explicit contract fields beyond the high-level tab
 - `view_schemas.writeback_contract` and import mappings MUST declare `entity_binding_mode` per entity-bearing field. Same-field-conflict-capable write-back fields MUST also declare `conflict_resolution_class` per `field_key`.
 - Repeated mentions MUST remain separate rows; repeated entity-origin inputs MAY upsert the same entity when exact-match rules select a unique active target.
 
+### Additional schema requirements for canonical indicators
+
+The schema sketch needs a few explicit fields and separations for indicators:
+
+- `records.record_type` MUST include `indicator`.
+- Canonical indicators MUST store `indicator_type`, `value_kind`, canonical display value, `normalized_value` when applicable, deterministic incident-scoped `dedupe_key`, optional `defanged_value`, optional hash fields, and optional `stix_pattern`.
+- Source-bound `indicator_observations` MUST store `source_record_id`, `source_field_key`, `origin_kind`, `origin_locator`, observed text, optional parsed indicator type and normalized candidate, deterministic span or selection locator when the source is inline text, resolution metadata, and attribution.
+- Indicator lifecycle windows MUST be stored separately from observations in append-only `indicator_state_intervals` or equivalent structured rows keyed to the canonical indicator.
+- `indicator_grid_projection` MUST be keyed by canonical indicator `record_id`, not by source artifact or observation identity.
+
 ### Additional schema requirements for rollback granularity
 
 A conformant history schema needs a mutation log in addition to row-snapshot revisions.
 
 - `change_sets` remain the attribution unit for actor, source, reason, and transaction grouping.
 - A `change_set_mutations`-style table or equivalent MUST record reversible entries at mutation-target granularity and order them deterministically within the parent `change_set`.
-- Mutation targets MUST include row-field edits, `record_links`, `record_tags`, `entity_mentions`, evidence associations, and merge/repoint fan-out.
+- Mutation targets MUST include row-field edits, `record_links`, `record_tags`, `entity_mentions`, `indicator_observations`, `indicator_state_intervals`, evidence associations, and merge/repoint fan-out.
 - Stable mutation target identities MUST use a canonical target-kind-specific serialization. Composite targets MUST serialize deterministically, for example `record_tag:<record_id>:<tag_id>`.
 - `record_revisions` MAY retain `before_json` / `after_json` row snapshots for audit and whole-row restore, but they MUST NOT be the sole rollback substrate.
 
@@ -189,7 +203,7 @@ CREATE TABLE records (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     incident_id uuid NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
     record_type text NOT NULL CHECK (
-        record_type IN ('timeline_event','host','identity','artifact','evidence','assessment')
+        record_type IN ('timeline_event','host','identity','indicator','artifact','evidence','assessment')
     ),
     created_at timestamptz NOT NULL DEFAULT now(),
     created_by_user_id uuid NOT NULL REFERENCES users(id),
@@ -272,6 +286,31 @@ CREATE UNIQUE INDEX uq_identities_incident_upn
     ON identities (incident_id, lower(upn::text))
     WHERE upn IS NOT NULL AND merged_into_record_id IS NULL;
 
+CREATE TABLE indicators (
+    record_id uuid PRIMARY KEY REFERENCES records(id) ON DELETE CASCADE,
+    incident_id uuid NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+    indicator_type text NOT NULL,
+    value_kind text NOT NULL CHECK (
+        value_kind IN ('atomic','pattern','reference')
+    ),
+    display_value text NOT NULL,
+    normalized_value text,
+    dedupe_key text NOT NULL,
+    defanged_value text,
+    hash_algorithm text,
+    hash_value text,
+    stix_pattern text,
+    custom_attrs jsonb NOT NULL DEFAULT '{}'::jsonb,
+    UNIQUE (incident_id, indicator_type, dedupe_key)
+);
+
+CREATE INDEX idx_indicators_lookup
+    ON indicators (incident_id, indicator_type, dedupe_key);
+
+CREATE INDEX idx_indicators_normalized
+    ON indicators (incident_id, indicator_type, normalized_value)
+    WHERE normalized_value IS NOT NULL;
+
 CREATE TABLE entity_aliases (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     incident_id uuid NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
@@ -289,7 +328,7 @@ CREATE TABLE artifacts (
     record_id uuid PRIMARY KEY REFERENCES records(id) ON DELETE CASCADE,
     incident_id uuid NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
     artifact_type text NOT NULL CHECK (
-        artifact_type IN ('note','query','ioc','excerpt','export','other')
+        artifact_type IN ('note','query','excerpt','export','other')
     ),
     title text,
     content_text text,
@@ -383,6 +422,64 @@ CREATE TABLE compromise_assessments (
 
 CREATE INDEX idx_compromise_assessments_subject
     ON compromise_assessments (incident_id, subject_record_id, assessed_at DESC);
+
+CREATE TABLE indicator_state_intervals (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    incident_id uuid NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+    indicator_record_id uuid NOT NULL REFERENCES indicators(record_id) ON DELETE CASCADE,
+    state_key text NOT NULL,
+    valid_from timestamptz,
+    valid_to timestamptz,
+    confidence smallint CHECK (confidence BETWEEN 0 AND 100),
+    rationale text,
+    supporting_record_id uuid REFERENCES records(id),
+    created_by_user_id uuid NOT NULL REFERENCES users(id),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    supersedes_interval_id uuid REFERENCES indicator_state_intervals(id),
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX idx_indicator_state_intervals_indicator
+    ON indicator_state_intervals (incident_id, indicator_record_id, created_at DESC);
+
+CREATE TABLE indicator_observations (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    incident_id uuid NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+    source_record_id uuid NOT NULL REFERENCES records(id) ON DELETE CASCADE,
+    source_field_key text NOT NULL,
+    origin_kind text NOT NULL CHECK (
+        origin_kind IN ('manual_entry','clipboard_paste','csv_import','xlsx_import','api_import','extraction','system')
+    ),
+    origin_locator text NOT NULL,
+    observed_text text NOT NULL,
+    parsed_indicator_type text,
+    normalized_candidate text,
+    span_locator text,
+    resolution_status text NOT NULL DEFAULT 'unresolved' CHECK (
+        resolution_status IN ('unresolved','resolved','dismissed')
+    ),
+    resolved_indicator_record_id uuid REFERENCES indicators(record_id),
+    extraction_method text,
+    extraction_confidence smallint CHECK (extraction_confidence BETWEEN 0 AND 100),
+    created_by_user_id uuid NOT NULL REFERENCES users(id),
+    updated_by_user_id uuid NOT NULL REFERENCES users(id),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    row_version bigint NOT NULL DEFAULT 1,
+    deleted_at timestamptz
+);
+
+CREATE INDEX idx_indicator_observations_source
+    ON indicator_observations (source_record_id)
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_indicator_observations_resolved
+    ON indicator_observations (incident_id, resolution_status, resolved_indicator_record_id)
+    WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_indicator_observations_normalized
+    ON indicator_observations (incident_id, parsed_indicator_type, normalized_candidate)
+    WHERE deleted_at IS NULL AND normalized_candidate IS NOT NULL;
 
 CREATE TABLE entity_mentions (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -595,23 +692,37 @@ CREATE INDEX idx_timeline_grid_tags_gin
     ON timeline_grid_projection USING gin (tag_names);
 
 CREATE TABLE indicator_grid_projection (
-    source_record_id uuid PRIMARY KEY REFERENCES records(id) ON DELETE CASCADE,
+    record_id uuid PRIMARY KEY REFERENCES records(id) ON DELETE CASCADE,
     incident_id uuid NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
     indicator_type text NOT NULL,
+    value_kind text NOT NULL,
     indicator_value text NOT NULL,
     normalized_value text,
+    dedupe_key text NOT NULL,
     defanged_value text,
     hash_algorithm text,
     hash_value text,
     stix_pattern text,
+    first_observed_at timestamptz,
+    last_observed_at timestamptz,
+    current_state_key text,
+    current_valid_from timestamptz,
+    current_valid_to timestamptz,
+    observation_count integer NOT NULL DEFAULT 0,
     linked_event_count integer NOT NULL DEFAULT 0,
     linked_evidence_count integer NOT NULL DEFAULT 0,
+    linked_host_count integer NOT NULL DEFAULT 0,
+    linked_identity_count integer NOT NULL DEFAULT 0,
     row_version bigint NOT NULL,
     search_tsv tsvector
 );
 
 CREATE INDEX idx_indicator_grid_lookup
-    ON indicator_grid_projection (incident_id, indicator_type, normalized_value);
+    ON indicator_grid_projection (incident_id, indicator_type, dedupe_key);
+
+CREATE INDEX idx_indicator_grid_normalized
+    ON indicator_grid_projection (incident_id, indicator_type, normalized_value)
+    WHERE normalized_value IS NOT NULL;
 
 CREATE INDEX idx_indicator_grid_search
     ON indicator_grid_projection USING gin (search_tsv);
@@ -622,6 +733,8 @@ CREATE INDEX idx_indicator_grid_search
 - **Filtering / sorting**: b-tree on `(incident_id, occurred_at)`, `(incident_id, recorded_at)`, `(incident_id, capture_state)`, `(incident_id, record_type)`.
 - **Full-text search**: GIN on `tsvector` using the **`simple`** text search config, not English, because IR tokens like hostnames, hashes, UPNs, and account names do not stem well.
 - **Lookup by linked entities**: composite indexes on `record_links` source and destination columns.
+- **Canonical indicator lookup**: composite indexes on `(incident_id, indicator_type, dedupe_key)` and `(incident_id, indicator_type, normalized_value)` for exact and normalized indicator matching.
+- **Observation traversal**: indexes on `indicator_observations` by source record, resolution state, and normalized candidate.
 - **Fuzzy matching**: `pg_trgm` on alias text and unresolved mention text.
 - **Array containment** on projection tables: GIN for tags and denormalized label arrays when useful.
 
@@ -652,6 +765,8 @@ Mutation targets MUST include, at minimum:
 - `record_links`,
 - `record_tags`,
 - `entity_mentions` lifecycle changes, including resolve, dismiss, and restore,
+- `indicator_observations` lifecycle changes, including resolve, dismiss, and restore,
+- `indicator_state_intervals` append or supersession changes,
 - evidence association changes, including evidence-record linkage,
 - merge/repoint fan-out caused by entity merge or restore.
 

@@ -58,8 +58,8 @@ Low-friction capture is the make-or-break requirement because IR work is lossy u
 1. **Views may be denormalized; source data may not be sloppy.**\
    Spreadsheet-style sheets should be projections over disciplined source tables, not the source of truth themselves.
 
-1. **Few first-class sheets, many saved/system views.**
-   The workbook should expose a small set of core tabs and treat indicator, assessment, and framework overlays as contract-backed views until usage justifies promotion.
+1. **Few built-in sheets, many saved/system views.**
+   The workbook should expose a small set of core tabs. Indicators and assessments can remain contract-backed system views even when backed by first-class records; framework overlays should stay contract-backed views until repeated usage justifies a dedicated sheet.
 
 1. **Reference packs and enrichment are optional overlays.**
    Framework mappings, type registries, and other enrichment datasets must be versioned separately from incident data and cannot sit on the hot capture path.

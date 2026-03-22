@@ -14,7 +14,7 @@ It records where the content of the exploratory source artifact was carried into
 | `3. Design principles and assumptions` | Core 00, Core 01, Core 03, Appendix A, Appendix G | Operating envelope and load-bearing principles promoted; rationale retained in Appendix A. |
 | `4. Recommended architecture` | Core 01, Appendix B, Appendix G | Topology, storage, projection, snapshot, and background-job contracts promoted; diagrams and explanatory notes retained. |
 | `5. Collaboration and consistency model` | Core 03, Appendix G | Optimistic concurrency, autosave, presence, and same-surface same-field conflict semantics promoted. |
-| `6. Domain model and schema strategy` | Core 02, Appendix G | Record types, mention/entity contract, provenance, dedupe, merge, notes, indicators, assessments, and JSONB discipline promoted. |
+| `6. Domain model and schema strategy` | Core 02, Appendix G | Record types, mention/entity contract, indicator records and observations, provenance, dedupe, merge, notes, assessments, and JSONB discipline promoted. |
 | `7. Postgres schema proposal` | Core 02, Appendix C, Appendix G | Schema invariants and history rules promoted; ER diagram and DDL retained as informative reference. |
 | `8. Record lifecycle and IR workflow model` | Core 03, Appendix D, Appendix G | Lifecycle, timeline create flow, evidence attach flow, resolution flow, rollback flow, paste/import behavior, and auto-resolution policy promoted. |
 | `9. UI concepts focused on preserving the spreadsheet feel` | Core 03, Appendix D, Appendix G | Workbook interaction contract promoted; mockups and explanatory notes retained. |
@@ -47,6 +47,8 @@ It records where the content of the exploratory source artifact was carried into
 | `16. Open question on restricted evidence visibility` | Core 01 §10.5, Core 02 §10.5, §13, and §14.5, Core 04 §2, §4.2, and §9.3, Appendix E | Closed as export-scoped recipient withholding through snapshot redaction and release controls while keeping live workspace visibility incident-scoped; narrow live sensitive-evidence controls remain future-only. |
 | `16. Open question on clipboard paste versus XLSX adoption` | Core 01 §2, Core 03 §11, Core 04 §4.5 and §9.2, Appendix E | Closed as a split between base clipboard UX and bounded file-based import through a dedicated imports module. |
 | `16. Open question on dedicated Notes tab and note-capture shape` | Core 01 §7.1 and §7.3, Core 02 §10.1 and §12, Core 04 §9.1 and §9.3, Appendix E | Closed as Notes remaining a built-in workbook sheet in the base profile, backed by the shared artifact model and generic `record_links`, with raw note working material excluded from `external_release` unless explicitly curated. |
+| `16. Open question on indicator storage promotion` | Core 01 §7.2, §8.1, and §8.5, Core 02 §2, §7.4, §10.2, §12, and §14, Core 03 §2.2, §7, §9.1, §15, and §16.2, Core 04 §9.1, Appendix B, Appendix C, Appendix D, and Appendix E | Closed as first-class canonical indicators plus source-bound observations and append-only lifecycle intervals, while keeping Indicators as a contract-backed system view over canonical records and preserving raw source text. |
+
 ## F.3 Completeness note
 
 Every source section lands in at least one derived target and in the full-source archive. The normative core is intentionally more compact than the exploratory artifact; rationale, alternatives, mockups, diagrams, roadmap material, and unresolved questions were moved to non-normative appendices so the authoritative core can later be promoted into NLSpecs with minimal churn.

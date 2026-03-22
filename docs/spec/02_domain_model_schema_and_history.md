@@ -19,10 +19,13 @@ The base profile MUST support the following core objects:
 - **Timeline event**: primary capture unit.
 - **Host**: canonical or stub device or host record.
 - **Identity**: canonical or stub account or persona record.
-- **Artifact**: structured text object including notes, queries, excerpts, exports, and lightweight indicator capture in the artifact-backed path.
+- **Artifact**: structured text object including notes, queries, excerpts, exports, and other source-preserving analyst material.
+- **Indicator**: canonical incident-scoped linkable value or pattern.
 - **Evidence record**: user-facing evidence envelope that may later reference a blob.
 - **Object blob**: storage metadata for binary content.
 - **Entity mention**: rough textual reference captured before canonical resolution.
+- **Indicator observation**: source-bound occurrence of an indicator value or pattern inside another record field.
+- **Indicator lifecycle interval**: append-only incident-scoped state window attached to a canonical indicator.
 - **Compromise assessment**: incident-scoped assessment record about a host or identity.
 - **Record link**: typed relationship between two records.
 - **Tag**: lightweight incident-scoped label.
@@ -49,6 +52,7 @@ The base record types MUST include, at minimum:
 - `timeline_event`,
 - `host`,
 - `identity`,
+- `indicator`,
 - `artifact`,
 - `evidence`,
 - `assessment`.
@@ -65,7 +69,8 @@ The following data classes MUST remain normalized structured state:
 - tags,
 - revisions and change sets,
 - blob metadata,
-- canonical host and identity fields,
+- canonical host, identity, and indicator fields,
+- indicator observations and indicator lifecycle intervals,
 - compromise assessments,
 - reference-pack manifests and type registries,
 - view schemas and saved views,
@@ -118,6 +123,8 @@ The system MUST preserve original rough capture even after later normalization o
 An unresolved mention is **not** a low-quality entity.
 
 An `entity_mention` is an observation tied to a source record and field. A stub entity is a host or identity record with its own `record_id` and lifecycle. The implementation MUST keep these object types separate.
+
+The same source-observation-versus-canonical-record separation MUST apply to indicators. An `indicator_observation` is a source-bound occurrence tied to a record and field. A canonical `indicator` is a first-class record with its own identity and lifecycle.
 
 ### 6.2 Binding modes
 
@@ -180,7 +187,7 @@ For every `entity_mention`, the implementation MUST persist:
 
 ### 7.2 File-based import provenance
 
-When a record, mention, or alias is created or updated through file-based import, the implementation MUST persist provenance sufficient to identify the import source deterministically.
+When a record, mention, indicator observation, or alias is created or updated through file-based import, the implementation MUST persist provenance sufficient to identify the import source deterministically.
 
 At minimum, file-based import provenance MUST include:
 
@@ -205,6 +212,25 @@ For every host or identity record created outside direct entity sheets, the impl
 - `entity_import`,
 - `created_from_mention`,
 - `system_upsert`.
+
+### 7.4 Indicator observation provenance
+
+For every `indicator_observation`, the implementation MUST persist:
+
+- `source_record_id`,
+- `source_field_key`,
+- `origin_kind`,
+- `origin_locator`,
+- `observed_text`,
+- optional parsed `indicator_type`,
+- optional `normalized_candidate`,
+- when the source is inline text, a deterministic span or selection locator,
+- creator or ingest actor,
+- creation timestamp,
+- when resolved: `resolved_indicator_record_id`, `resolved_by_user_id`, `resolved_at`, and `resolution_method`,
+- when machine-assisted: extraction method or parser version and confidence.
+
+`origin_kind` MUST use the same closed vocabulary as entity mentions or an equivalent closed-vocabulary superset.
 
 ## 8. Deduplication and auto-upsert rules
 
@@ -264,17 +290,59 @@ Future analyst-work objects such as tasks, hypotheses, decisions, and ownership 
 
 ### 10.2 Indicator contract
 
-The base profile MAY keep indicator storage artifact-backed. Regardless of storage realization, the system MUST expose a stable indicator projection or API contract with fields equivalent to:
+The base profile MUST model canonical indicators as first-class `indicator` records.
+
+A canonical indicator record MUST be incident-scoped and MUST own, at minimum:
+
+- `indicator_type` as a registry key,
+- `value_kind` with behavior equivalent to `atomic`, `pattern`, or `reference`,
+- a canonical display value,
+- `normalized_value` when applicable,
+- a deterministic incident-scoped dedupe key,
+- `defanged_value` when applicable,
+- optional hash algorithm and hash value,
+- optional `stix_pattern`,
+- current `row_version` and revision lineage.
+
+Canonical indicator identity MUST be derived from the incident plus the deterministic type-specific dedupe key or an equivalent stable canonical identity. `stix_pattern` MAY be stored for interoperability or export. It MUST NOT be the source of truth for canonical identity.
+
+A canonical indicator record is not the raw source occurrence. Source-bound occurrences inside timeline, artifact, note, evidence, or other record fields MUST be stored separately as `indicator_observation` rows or an equivalent structured observation model. `indicator_observation` rows MUST remain distinct from generic `record_links`.
+
+Every `indicator_observation` MUST bind to a source record and field and MUST preserve the raw observed value or text span. It MUST be able to store, at minimum, the observed text, parsed indicator type guess, normalized parse output when available, deterministic source locator, resolution status, optional resolved indicator reference, and attribution timestamps. Repeated identical observed values across different source rows MUST remain distinct observations with distinct provenance.
+
+A source value such as a hostname or MAC address MAY participate in both the host or identity model and the indicator model. The implementation MUST NOT force one object type to subsume the other. A single source span MAY therefore yield both an `entity_mention` and an `indicator_observation`, with separate later resolution to a host or identity record and a canonical indicator record.
+
+The base profile MUST preserve raw source text when capturing or resolving indicator observations. It MUST NOT require dedicated IOC columns on Timeline or other non-indicator sheets.
+
+Indicator lifecycle state MUST be modeled as append-only incident-scoped history attached to the canonical indicator, not as an overwrite of the indicator row and not as a rewrite of the source observation. Each lifecycle interval MUST carry, at minimum:
+
+- `indicator_record_id`,
+- incident-scoped state or disposition,
+- `valid_from`,
+- `valid_to`,
+- confidence,
+- rationale,
+- optional supporting record links,
+- assessor,
+- timestamp.
+
+`first_observed_at` and `last_observed_at` are derived from indicator observations. They MUST remain distinct from lifecycle `valid_from` and `valid_to`.
+
+The system MUST expose a stable indicator system-view and API contract over canonical indicators with fields equivalent to:
 
 - `indicator_type`,
-- `indicator_value`,
+- `value_kind`,
+- canonical indicator value,
 - `normalized_value`,
+- deterministic dedupe key,
 - `defanged_value`,
 - optional hash algorithm and hash value,
 - `stix_pattern`,
+- observation-derived first and last observed timestamps,
+- lifecycle summary fields,
 - supporting link counts.
 
-This contract MUST remain stable across import, export, reporting, and any later promotion to a dedicated indicator table.
+This contract MUST remain stable across import, export, reporting, and future storage evolution.
 
 ### 10.3 Compromise assessments
 
@@ -332,9 +400,13 @@ If approval state is stored, it MUST bind to the release record rather than to m
 
 Type and icon choices MUST be driven by stable registry keys rather than hard-coded display text.
 
-Host types, evidence types, and similar display taxonomies MUST resolve through versioned registries keyed by stable IDs, with display labels, categories, icon keys, and optional local overrides.
+Host types, evidence types, indicator types, and similar display taxonomies MUST resolve through versioned registries keyed by stable IDs, with display labels, categories, icon keys, optional local overrides, and indicator-type-specific normalization or validation behavior where applicable.
+
+Indicator-type registries MUST define normalization, validation, defanging, and dedupe behavior for each indicator type. Optional STIX export or mapping data MAY be present in the registry, but it MUST NOT control canonical indicator identity.
 
 Entity-bearing columns and import mappings MUST carry stable `field_key` values and `entity_binding_mode` so that mention-versus-entity behavior never depends on a visible header such as `Host`, `User`, or `Account`.
+
+View contracts and import mappings that support structured indicator capture from source text MUST declare the eligible `field_key` values or equivalent stable field identifiers. Visible labels MUST NOT determine indicator-capture behavior.
 
 ## 12. Typed relationships
 
@@ -346,6 +418,7 @@ The relationship vocabulary MUST support, at minimum, edge types equivalent to:
 
 - `observed_on_host`,
 - `observed_as_identity`,
+- `references_indicator`,
 - `attached_evidence`,
 - `references_artifact`,
 - `derived_from`,
@@ -354,11 +427,13 @@ The relationship vocabulary MUST support, at minimum, edge types equivalent to:
 A timeline event MUST be able to relate to:
 
 - hosts and identities via typed record links,
+- canonical indicators via typed record links,
 - unresolved host and account strings via entity mentions,
+- source-bound indicator occurrences via `indicator_observation` rows,
 - notes and other artifacts via typed record links,
 - evidence via typed record links to evidence records.
 
-Hosts, identities, and evidence records MUST also be able to relate to note artifacts through the same generic typed relationship store.
+Hosts, identities, and evidence records MUST also be able to relate to note artifacts and canonical indicators through the same generic typed relationship store.
 
 When a note is created from timeline, host, identity, or evidence context, the association MUST be persisted through generic `record_links` rather than a Notes-specific foreign key on the source record.
 
@@ -388,7 +463,7 @@ An implementation MAY persist a non-authoritative `sensitivity_class` on evidenc
 
 ## 14. Schema invariants
 
-### 14.1 Mention and provenance fields
+### 14.1 Mention, indicator, and provenance fields
 
 The schema MUST support:
 
@@ -397,6 +472,8 @@ The schema MUST support:
 - `origin_locator`,
 - file-based import provenance fields for source file kind, source content hash, parser version, and selected sheet or region locator,
 - resolution metadata on mentions,
+- source-bound indicator-observation fields sufficient to persist observed text, optional parsed indicator type, optional normalized candidate, deterministic source locator or span, and resolution metadata,
+- append-only indicator lifecycle interval fields separate from observation timestamps,
 - `entity_origin` and seed provenance on host and identity records,
 - `entity_binding_mode` in view write-back contracts and import mappings.
 
@@ -417,6 +494,8 @@ The mutation-entry model MUST support, at minimum:
 - record links,
 - record tags,
 - entity mentions,
+- indicator observations,
+- indicator lifecycle intervals,
 - evidence associations,
 - merge and repoint fan-out.
 
@@ -494,8 +573,10 @@ Live mention resolutions and live links MUST NOT continue to point at a merged-a
 The source artifact included a concrete indexing strategy. The exact SQL realization MAY vary, but a conformant implementation SHOULD provide equivalent lookup behavior for:
 
 - filtering and sorting by incident and key timeline dimensions,
+- exact and normalized lookup over canonical indicator values and deterministic indicator dedupe keys,
 - full-text search using a configuration appropriate for IR tokens rather than English stemming,
 - link traversal by source and destination,
+- traversal from canonical indicators to source-bound observations and linked records,
 - fuzzy matching over alias and unresolved mention text,
 - array or equivalent containment lookups for denormalized tag and label sets.
 
@@ -508,7 +589,10 @@ A conformant implementation MUST preserve all of the following invariants:
 3. exact-match entity reuse follows a deterministic precedence,
 4. merges are explicit and auditable,
 5. notes are artifacts,
-6. assessments append rather than overwrite,
-7. relationship semantics are typed,
-8. history is reversible at mutation-entry granularity,
-9. projection state is derived rather than authoritative.
+6. canonical indicators and source-bound indicator observations are different object types,
+7. repeated indicator observations remain distinct observations,
+8. indicator lifecycle intervals append rather than overwrite and remain distinct from observation times,
+9. assessments append rather than overwrite,
+10. relationship semantics are typed,
+11. history is reversible at mutation-entry granularity,
+12. projection state is derived rather than authoritative.
