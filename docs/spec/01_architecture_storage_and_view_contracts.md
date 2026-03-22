@@ -24,7 +24,7 @@ The implementation MUST define internal boundaries equivalent to the following c
 - entities, indicators, and observation resolution,
 - evidence and object storage,
 - imports and tabular ingest,
-- links and tags,
+- links, tags, and analyst-work coordination,
 - revisions and rollback,
 - projections and search,
 - reference data,
@@ -178,7 +178,9 @@ The built-in sheets MUST be projections or saved/system views over common underl
 The base profile MUST support contract-backed system views for:
 
 - indicators,
-- compromise assessments.
+- compromise assessments,
+- task requests,
+- decisions.
 
 Framework overlays such as ATT&CK, D3FEND, or VERIS MAY also be exposed as system views when the relevant reference packs are present.
 
@@ -187,6 +189,12 @@ System views MUST follow the same `view_schema_id` contract discipline as built-
 The Indicators system view MUST project canonical indicator records. It MUST NOT use source artifacts or source-bound indicator observations as the primary row identity.
 
 The Compromise Assessments system view MUST project incident-scoped assessment records. It MUST NOT collapse assessment history into a mutable static property on a host or identity row.
+
+The Task Requests system view MUST project `task_request` records. It MUST support queue-oriented filtering and sorting over `status`, `owner_user_id`, `priority`, `due_at`, and `updated_at` without requiring synchronous scans of raw note or artifact text.
+
+The Decisions system view MUST project `decision` records. It MUST support filtering and sorting over `status`, `owner_user_id`, `decision_type`, and `decided_at` without requiring synchronous scans of raw note or artifact text.
+
+Structured coordination artifacts such as `comm_log`, `handoff`, `status_review`, and `lesson` MAY be surfaced through contract-backed system views or saved views over `artifact_grid_projection`. They MUST NOT require additional built-in sheets in the base profile.
 
 ### 7.3 Notes sheet contract
 
@@ -217,13 +225,19 @@ The implementation MUST define projection tables equivalent to:
 - `artifact_grid_projection`,
 - `evidence_grid_projection`,
 - `indicator_grid_projection` for the indicator system view,
-- `assessment_grid_projection` for the compromise-assessment system view.
+- `assessment_grid_projection` for the compromise-assessment system view,
+- `task_request_grid_projection` for the task-request system view,
+- `decision_grid_projection` for the decision system view.
 
 Each projection row MUST represent exactly one primary record in the base projection for that view.
 
 For `indicator_grid_projection`, the primary record MUST be the canonical indicator record for that row.
 
 For `assessment_grid_projection`, the primary record MUST be the assessment record for that row.
+
+For `task_request_grid_projection`, the primary record MUST be the `task_request` record for that row.
+
+For `decision_grid_projection`, the primary record MUST be the `decision` record for that row.
 
 ### 8.2 Projection-row identity
 
@@ -261,6 +275,10 @@ The grid and inspector hot path MUST synchronously read only scalar fields, flag
 For the Indicators system view, exact lookup, sorting, filtering, and pivot counts over canonical indicators MUST be satisfiable from `indicator_grid_projection` and other small derived metadata. They MUST NOT require synchronous scans of raw timeline text, artifact text, or evidence blobs.
 
 For the Compromise Assessments system view, exact lookup, sorting, filtering, and pivot counts over `assessment_state` and derived `confidence_band` MUST be satisfiable from `assessment_grid_projection` and other small derived metadata. They MUST NOT require synchronous scans of raw timeline text, artifact text, or evidence blobs.
+
+For the Task Requests system view, exact lookup, sorting, filtering, queue counts, and stale-work views over `status`, `owner_user_id`, `priority`, `due_at`, `blocked_reason`, and `updated_at` MUST be satisfiable from `task_request_grid_projection` and other small derived metadata. They MUST NOT require synchronous scans of raw note text, communications logs, or evidence blobs.
+
+For the Decisions system view, exact lookup, sorting, filtering, and review queues over `status`, `owner_user_id`, `decision_type`, `decided_at`, and supersession state MUST be satisfiable from `decision_grid_projection` and other small derived metadata. They MUST NOT require synchronous scans of raw note text, communications logs, or evidence blobs.
 
 ## 9. Canonical derivation layer
 
@@ -329,9 +347,9 @@ The snapshot and export subsystem MUST evaluate output eligibility against the c
 
 For `external_release`, every `curated_narrative` block MUST carry `support_refs[]` containing one or more stable identifiers to supporting findings, events, evidence records, assessments, or query records. A narrative block lacking `support_refs[]` MUST be ineligible for `external_release`.
 
-Content derived from ad hoc note artifacts SHOULD default to `working_material`.
+Content derived directly from ad hoc note artifacts, `task_request` records, `decision` records, `comm_log` artifacts, `handoff` artifacts, `status_review` artifacts, and `lesson` artifacts SHOULD default to `working_material`.
 
-Such content MUST NOT appear in `external_release` unless an analyst has explicitly curated it into a separate `curated_narrative` block that independently satisfies `support_refs[]` and applicable redaction rules.
+Such content MUST NOT appear in `external_release` unless an analyst has explicitly curated it into a separate export-model block that independently satisfies the selected `content_class`, `support_refs[]`, and applicable redaction rules.
 
 ### 10.4 Template packs and rendering contract
 

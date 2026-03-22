@@ -32,6 +32,8 @@ The base profile MUST use incident-level roles equivalent to:
 
 Record access MUST inherit from incident access in the base profile.
 
+`task_request`, `decision`, and coordination artifacts such as `comm_log`, `handoff`, `status_review`, and `lesson` MUST inherit the same incident-level authorization model. The base profile MUST NOT introduce record-specific ACLs or hidden sub-workspaces for these objects.
+
 Field-level ACLs, generalized approval workflows, and generalized record-level ACL systems are out of scope for the base profile.
 
 If the Snapshot and Reporting Extension Profile is implemented, export redaction MUST NOT restrict live workbook views, search results, filters, saved views, row visibility, field visibility, or evidence visibility for authenticated incident participants. In the base profile, live workspace visibility is derived only from incident membership and the incident-level role model. In that profile, recipient-specific withholding MUST be implemented at snapshot, render, and release time rather than by hiding live workspace content.
@@ -90,6 +92,7 @@ If the Snapshot and Reporting Extension Profile is implemented:
 
 - `external_release` outputs MUST exclude raw blob bytes and `working_material`,
 - any `curated_narrative` block included in `external_release` MUST carry `support_refs[]`,
+- content drawn directly from `task_request`, `decision`, `comm_log`, `handoff`, `status_review`, or `lesson` records MUST NOT be treated as inherently releasable; any `external_release` use MUST flow through the snapshot, redaction, and curation path,
 - reenactment outputs MUST be marked `generated_presentation=true` and MUST NOT be released as `external_release`,
 - approval and redaction checks MUST complete successfully before an `external_release` artifact is published.
 
@@ -265,6 +268,12 @@ For this section:
 - **AC-082**: Recording an operational response action such as device isolation, account disablement, credential reset, or monitoring does not mutate `assessment_state` unless a new explicit assessment record is appended.
 - **AC-083**: Interactive compromise-assessment entry surfaces expose confidence by default as `unset`, `low`, `medium`, or `high`; choosing those values persists `confidence_score` as `NULL`, `25`, `55`, or `85` respectively, and any supported exact-score write path accepts integers from `0` through `100`.
 - **AC-084**: The Compromise Assessments system view supports separate filters on `assessment_state` and derived `confidence_band`; `confidence_score=NULL` is rendered and filterable as `confidence_band='unset'` and is not treated as `0`.
+- **AC-085**: From a selected Notes, Timeline, Host, Identity, or Evidence context, an analyst can create a first-class `task_request` with required `task_kind`, `status`, `owner_user_id`, `priority`, `created_at`, and `updated_at`; an active task cannot be saved without an owner, and workbook filtering can show open tasks by owner, blocked state, and due status.
+- **AC-086**: Creating a `decision` record preserves `decision_type`, `status`, `owner_user_id`, `decided_at`, and `rationale`; reviewer history can reconstruct when the decision changed state, who owned it, and what `support_refs[]` were attached.
+- **AC-087**: A `comm_log` or `status_review` artifact can record the required timestamp, summary, and linked decision or task references, and a workbook surface can filter or sort those artifacts by timestamp and next-report or next-checkpoint time without rereading unrelated note text.
+- **AC-088**: A `handoff` artifact can capture outgoing owner, incoming owner, current state summary, open task IDs, and open decision IDs, and the incoming analyst can pivot directly from the handoff to the referenced open work from the same incident.
+- **AC-089**: Hypothesis tracking remains artifact-backed in the current profile, using either `artifact_type='hypothesis'` or another declared structured artifact subtype; base conformance does not require or claim a first-class `hypothesis` `record_type`.
+- **AC-090**: Creating or editing timeline rows does not require owner, approver, challenge, checklist, task, or decision fields on the timeline sheet, and ordinary row edits do not enter a generalized approval workflow.
 - **AC-019**: Typing or pasting `WS-023?` into a Timeline Hosts cell creates an `entity_mention` and zero host records unless the analyst explicitly resolves or creates an entity.
 - **AC-020**: Creating a host or identity from a selected unresolved mention creates exactly one stub entity, preserves the raw mention, resolves only the selected mention by default, and stores the seed value in alias or provenance data.
 - **AC-021**: Repeated identical unresolved mentions across different source rows remain separate mention rows with distinct provenance and are never coalesced into a single mention record.
@@ -301,6 +310,7 @@ For this section:
 - **AC-060**: Changing `snapshot_id`, `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, `output_kind`, `release_scope`, or rendered bytes invalidates prior release approvals automatically.
 - **AC-061**: An `external_release` artifact contains no raw blob bytes or `working_material`, and any included `curated_narrative` block carries at least one `support_refs[]` entry to a supporting finding, event, evidence, assessment, or query record.
 - **AC-071**: Given a snapshot containing ad hoc note artifacts and a separately curated narrative block derived from one of those notes, an `external_release` artifact excludes the raw note text while allowing only the curated narrative block that satisfies `support_refs[]` and applicable redaction rules.
+- **AC-091**: Given a snapshot containing direct text from `task_request`, `decision`, `comm_log`, `handoff`, `status_review`, or `lesson` records and a separately curated export-model block derived from some of that content, an `external_release` artifact excludes the raw coordination-record text while allowing only the curated block that satisfies `support_refs[]` and applicable redaction rules.
 - **AC-062**: `mermaid` and `slidev` outputs may be published as `external_release` only when every rendered block is eligible for the chosen `release_scope`, and `reenactment` outputs are visibly marked `generated_presentation=true` and rejected for `external_release`.
 - **AC-064**: Selecting or changing `redaction_profile_id` and `redaction_profile_version` changes only snapshot-derived output and release state. It does not change live workbook query results, row visibility, field visibility, or evidence visibility for the same authenticated incident participant.
 - **AC-065**: Given one immutable snapshot containing export-model fields or blocks tagged with `disclosure_partition_refs[]` for two different affected parties, rendering an `external_release` with a redaction profile that allows only one party excludes or redacts the other party's content and fails closed if mixed-partition content lacks an applicable rule.

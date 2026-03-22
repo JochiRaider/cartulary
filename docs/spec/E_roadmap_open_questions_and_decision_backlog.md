@@ -48,6 +48,7 @@ Must-have on day one:
 - OIDC integration
 - richer host/identity merge workflows
 - shared/private saved views with better defaults
+- first-class `task_request` and `decision` records, plus workbook-native system or saved views for owned work, decisions, communications logs, handoffs, status reviews, and lessons learned without adding new built-in sheets
 - stronger evidence previews and metadata extraction
 - incident import assistant for XLSX files, prioritizing Timeline, Systems/Hosts, Accounts/Identities, Indicators, Evidence Tracker, and VERIS-like sheets when present; preserving unknown columns in `raw_capture` or `custom_attrs`
 - immutable incident snapshots and self-contained report exports with stable identifiers, versioned recipient-specific redaction profiles, and supported templates
@@ -60,6 +61,7 @@ Must-have on day one:
 - incident export/import bundles with integrity manifest
 - duplicate detection and resolution suggestions
 - cross-record correlation helpers and graph-oriented exploration
+- promote `hypothesis` to a first-class `record_type` only if repeated use shows artifact-backed tracking is insufficient for competing explanations, support or contradiction sets, state transitions, or reviewer-visible history
 - richer presentation outputs built from immutable snapshots, with a clear boundary between source evidence and generated narrative material
 - optional integrations for ingesting external exports
 
@@ -80,9 +82,18 @@ Resolved in this revision:
 - Generated presentation depth is no longer open for the current profile. Core 01 now allows arrangement and deterministic templating over snapshot facts, forbids invented facts or synthesized unobserved operator activity, allows `mermaid` and `slidev` external release only within the chosen release scope, and keeps `reenactment` outputs internal-review-only with `generated_presentation=true`.
 - Clipboard paste versus XLSX adoption is no longer open as a single yes-or-no question. The current core keeps clipboard paste on the base workbook interaction path and treats file-based structured import as a separate Import Extension Profile behind a dedicated imports module. Clipboard paste is therefore sufficient to validate the grid hot path, but not brownfield workbook migration readiness; bounded CSV and selected-sheet or selected-region XLSX onboarding are the current file-based bridge.
 - Restricted evidence visibility inside a single incident workspace is no longer open for the current profile. Live workbook views remain incident-scoped for authenticated incident participants. Recipient-specific withholding is handled only at snapshot, render, and release time through versioned redaction profiles and optional `disclosure_partition_refs[]`. Future live sensitive-evidence controls remain out of scope unless repeated real-world incidents show that export-scoped withholding is insufficient.
-- The dedicated Notes tab is no longer open for the current profile. Core 01 now fixes Notes as a built-in sheet keyed by stable `view_schema_id` and backed by `artifact_grid_projection` filtered to `artifact_type='note'`; Core 02 keeps note storage artifact-backed and links contextual notes through generic `record_links`; Core 04 adds acceptance criteria for direct and contextual note creation and for excluding raw note working material from `external_release`. Future analyst-work objects remain a separate question and MUST NOT overload `artifact_type='note'`. A future NLSpec MAY revisit whether Notes remains first-class only after those richer objects ship and adoption evidence shows the dedicated sheet is redundant; it is not a current-profile open question.
+- The dedicated Notes tab is no longer open for the current profile. Core 01 now fixes Notes as a built-in sheet keyed by stable `view_schema_id` and backed by `artifact_grid_projection` filtered to `artifact_type='note'`; Core 02 keeps note storage artifact-backed and links contextual notes through generic `record_links`; Core 04 adds acceptance criteria for direct and contextual note creation and for excluding raw note working material from `external_release`. Current analyst-work coordination objects now use distinct `record_type`s or `artifact_type`s and MUST NOT overload `artifact_type='note'`. A future NLSpec MAY revisit whether Notes remains first-class only after those richer objects ship and adoption evidence shows the dedicated sheet is redundant; it is not a current-profile open question.
 - Indicator storage promotion is no longer open for the current profile. Core 01 now fixes the Indicators system view as a projection over canonical indicator records; Core 02 requires first-class canonical indicators, source-bound `indicator_observation` rows, and append-only indicator lifecycle intervals; Core 03 keeps indicator capture embedded in raw source fields and places indicator linking in the same-surface enrichment flow; Core 04 adds acceptance criteria for distinct observations, canonical dedupe, lifecycle history, and stable one-row-per-indicator system-view behavior.
 - Assessment vocabulary and confidence model are no longer open for the current profile. Core 01 now fixes the Compromise Assessments system view as a projection over append-only assessment records; Core 02 fixes closed compromise-assessment states `unknown`, `suspected`, `confirmed`, `disproven`, and `cleared`, separates assessment judgment from response posture, and defines nullable `confidence_score` plus derived `confidence_band`; Core 03 makes interactive assessment entry band-first and keeps filtering separate by `assessment_state` and `confidence_band`; Core 04 adds acceptance criteria for distinct `disproven` versus `cleared` behavior and for keeping response actions separate from assessment state.
+- The analyst-work tracking boundary is no longer open for the current profile. Core 00 now places `task_request`, `decision`, and structured coordination artifacts inside the current system boundary; Core 01 adds task and decision system views plus projection support while keeping communications, handoff, status-review, and lesson surfaces off the built-in-sheet set; Core 02 defines the promotion rule, first-class `task_request` and `decision` records, ownership as a field on coordination objects, artifact-backed `comm_log`, `handoff`, `status_review`, and `lesson`, and current artifact-backed `hypothesis`; Core 03 keeps routine timeline capture free of mandatory owner or approval fields while adding workbook-native coordination surfaces; Core 04 adds authorization, release-boundary, and conformance checks for these objects.
+
+### Analyst-work tracking boundary
+
+Tags and notes remain sufficient only for unassigned, non-lifecycle working material. The first analyst-work concepts promoted in the current profile are `task_request` and `decision`.
+
+Ownership remains a required field on coordination objects rather than a standalone record type or a mandatory field on every timeline row. `comm_log`, `handoff`, `status_review`, and `lesson` remain artifact-backed coordination surfaces. `hypothesis` remains artifact-backed until repeated use shows a need for first-class competing-hypothesis state, explicit support or contradiction sets, or reviewer-visible hypothesis history.
+
+Current ordering: `task_request`, `decision`, ownership on coordination objects, `comm_log`, `handoff`, `status_review`, `lesson`, and only later `hypothesis`.
 
 ### Performance envelope for large incidents and evidence-heavy incidents
 
@@ -126,5 +137,4 @@ Remaining open questions:
 
 1. Is the timeline-sheet grouping-key whitelist (`timeline.occurred_day`, `timeline.recorded_day`, `timeline.capture_state`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`) sufficient for GA, or does analyst testing show a need for one additional scalar grouping key?
 1. How much incident-specific custom metadata is real, and which of those fields become common enough to deserve first-class columns?
-1. When do tags and notes stop being enough, and which analyst-work concepts most need explicit modeling: tasks, hypotheses, decisions, or ownership?
 1. Which optional reference packs should ship in the smallest disconnected deployment, and what update/attestation flow is acceptable operationally?

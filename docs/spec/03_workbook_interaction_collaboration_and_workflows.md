@@ -29,11 +29,17 @@ The workbook MUST expose these built-in tabs in the base profile:
 
 ### 2.2 System views
 
-The workbook MUST support additional contract-backed system views, including indicator and compromise-assessment surfaces.
+The workbook MUST support additional contract-backed system views, including indicator, compromise-assessment, task-request, and decision surfaces.
 
 The Indicators system view MUST surface canonical indicator rows and support pivots to source-bound observations and lifecycle history without leaving the workbook interaction model.
 
 The Compromise Assessments system view MUST surface incident-scoped assessment rows and support pivots to the assessed host or identity and that subject's prior assessment history without leaving the workbook interaction model.
+
+The Task Requests system view MUST surface `task_request` rows and support queue-oriented filtering and sorting by `status`, `owner_user_id`, `priority`, `due_at`, `blocked_reason`, and `updated_at` without leaving the workbook interaction model.
+
+The Decisions system view MUST surface `decision` rows and support review-oriented filtering and sorting by `status`, `owner_user_id`, `decision_type`, and `decided_at` without leaving the workbook interaction model.
+
+Structured coordination artifacts such as `comm_log`, `handoff`, `status_review`, and `lesson` MAY be exposed through contract-backed system views or saved views over artifact-backed records. They MUST NOT require additional built-in tabs in the base profile.
 
 Such views MUST remain workbook surfaces rather than separate application modules.
 
@@ -668,6 +674,18 @@ When the band-first path is used, the implementation MUST persist canonical defa
 
 Workbook filtering on compromise-assessment surfaces MUST treat `assessment_state` and `confidence_band` as separate fields.
 
+### 16.4 Analyst-work coordination surfaces
+
+Task requests and decisions MUST remain workbook surfaces rather than separate application modules. The implementation MAY surface them as pinned system views, saved views, or equivalent workbook-native queues.
+
+From a selected Timeline, Host, Identity, Evidence, Notes, Task Requests, or Decisions row, the analyst MUST be able to create or link a `task_request`, `decision`, or structured coordination artifact without leaving the workbook flow.
+
+Routine timeline row creation and editing MUST NOT require task, decision, owner, approver, challenge, or checklist fields on the timeline sheet itself.
+
+Communications logs, handoffs, status reviews, and lesson artifacts SHOULD be created at milestone, shift-change, or reporting boundaries rather than on every row edit. The workbook surface MAY assist creation from the inspector or a coordination view, but it MUST NOT interrupt ordinary grid editing.
+
+Saved or system views over task requests, decisions, and coordination artifacts MUST support owner queues, blocked-work views, due or next-checkpoint views, and no-owner gap detection where applicable.
+
 ## 17. Authorship and attribution in the UI
 
 The workbook MUST surface authorship with low friction.
@@ -712,4 +730,5 @@ A conformant implementation MUST preserve all of the following:
 6. grouped surfaces still mutate underlying rows by `record_id` and `row_version`,
 7. auto-resolution stays tightly bounded and reversible,
 8. the inspector enriches work but does not replace the grid,
-9. unresolved same-field conflict drafts remain client-local until explicit resolution.
+9. unresolved same-field conflict drafts remain client-local until explicit resolution,
+10. analyst-work coordination remains workbook-native without adding required coordination fields to the routine timeline hot path.

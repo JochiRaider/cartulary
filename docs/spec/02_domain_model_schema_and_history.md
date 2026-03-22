@@ -19,7 +19,9 @@ The base profile MUST support the following core objects:
 - **Timeline event**: primary capture unit.
 - **Host**: canonical or stub device or host record.
 - **Identity**: canonical or stub account or persona record.
-- **Artifact**: structured text object including notes, queries, excerpts, exports, and other source-preserving analyst material.
+- **Artifact**: structured text object including notes, queries, excerpts, exports, hypotheses, communications logs, handoffs, status reviews, lessons, and other source-preserving analyst material.
+- **Task request**: owned unit of work or request with lifecycle state.
+- **Decision**: owned incident-scoped rationale-bearing decision record.
 - **Indicator**: canonical incident-scoped linkable value or pattern.
 - **Evidence record**: user-facing evidence envelope that may later reference a blob.
 - **Object blob**: storage metadata for binary content.
@@ -54,6 +56,8 @@ The base record types MUST include, at minimum:
 - `identity`,
 - `indicator`,
 - `artifact`,
+- `task_request`,
+- `decision`,
 - `evidence`,
 - `assessment`.
 
@@ -286,7 +290,7 @@ The base profile MUST NOT introduce a Notes-specific source table or Notes-only 
 
 Lightweight free-text fields MAY remain on timeline events, hosts, identities, evidence, or other records. Text that requires standalone history, tags, search, or reuse across records MUST be modeled as an artifact with `artifact_type='note'`.
 
-Future analyst-work objects such as tasks, hypotheses, decisions, and ownership MUST use either a distinct `artifact_type` or a distinct first-class `record_type`. They MUST NOT overload `artifact_type='note'`.
+Analyst-work objects other than ad hoc notes MUST use either a distinct `artifact_type` or a distinct first-class `record_type`. In the current profile, `task_request` and `decision` are first-class `record_type`s, while `comm_log`, `handoff`, `status_review`, `lesson`, and current `hypothesis` tracking remain artifact-backed. None of these objects MAY overload `artifact_type='note'`.
 
 ### 10.2 Indicator contract
 
@@ -397,7 +401,153 @@ This contract MUST remain stable across filtering, reporting, and future storage
 
 ### 10.4 Analyst-work tracking
 
-Tags and notes are the starting point for analyst-work tracking. Explicit objects for tasks, hypotheses, decisions, and ownership are future areas preserved by Appendix E and are not current base-profile requirements.
+Tags and notes remain sufficient only for unassigned, non-transactional working material such as rough observations, ad hoc reminders, local analytic prose, and other low-stakes annotations that do not need accountable ownership, explicit lifecycle state, handoff durability, queue-oriented views, or later reconstruction as coordination artifacts.
+
+Analyst work MUST be promoted out of tags or notes and into a structured analyst-work object when any of the following becomes true:
+
+- it needs one accountable owner,
+- it needs explicit lifecycle state,
+- it needs due-date or blocker tracking,
+- it must survive handoff or status review,
+- it must be queryable as a queue, board, or owner workload view,
+- it must explain or justify an operational action later,
+- it must link multiple records as one durable unit of work.
+
+#### 10.4.1 `task_request` record type
+
+The base profile MUST model owned work and requests as first-class `task_request` records.
+
+A `task_request` record MUST carry, at minimum:
+
+- stable `record_id`,
+- owning `incident_id`,
+- `task_kind` from a closed vocabulary equivalent to `question`, `request`, `collection`, `containment`, or `follow_up`,
+- `title`,
+- `status` from a closed vocabulary equivalent to `open`, `in_progress`, `blocked`, `done`, or `canceled`,
+- `owner_user_id`,
+- `priority` from a closed vocabulary equivalent to `low`, `normal`, `high`, or `urgent`,
+- `created_at`,
+- `updated_at`.
+
+A `task_request` record MUST also be able to persist, at minimum, the following optional fields when present:
+
+- `due_at`,
+- `blocked_reason`,
+- `linked_record_ids[]`,
+- `decision_record_id`,
+- `closure_summary`.
+
+An active `task_request` with `status` not in `done` or `canceled` MUST NOT be ownerless.
+
+If `linked_record_ids[]` or `decision_record_id` are persisted as denormalized convenience fields, authoritative cross-record association MUST still be representable through generic `record_links`.
+
+#### 10.4.2 `decision` record type
+
+The base profile MUST model rationale-bearing incident coordination choices as first-class `decision` records.
+
+A `decision` record MUST carry, at minimum:
+
+- stable `record_id`,
+- owning `incident_id`,
+- `decision_type` from a closed vocabulary equivalent to `scope`, `containment`, `communication`, `evidence`, or `reporting`,
+- `summary`,
+- `status` from a closed vocabulary equivalent to `proposed`, `approved`, `rejected`, `superseded`, or `executed`,
+- `owner_user_id`,
+- `decided_at`,
+- `rationale`.
+
+A `decision` record MUST also be able to persist, at minimum, the following optional fields when present:
+
+- `support_refs[]`,
+- `affected_record_ids[]`,
+- `supersedes_record_id`,
+- `review_class`.
+
+If `affected_record_ids[]` or `supersedes_record_id` are persisted as denormalized convenience fields, authoritative cross-record association MUST still be representable through generic `record_links`.
+
+#### 10.4.3 Ownership and hot-path boundary
+
+`ownership` is not a standalone current-profile record type.
+
+Ownership MUST instead be modeled as a required `owner_user_id` or equivalent stable assignee field on coordination objects such as `task_request`, `decision`, `status_review`, `lesson`, handoff artifacts that require accountable follow-through, and evidence-request records when the evidence model is used in request mode.
+
+Routine timeline, host, identity, note, and evidence editing MUST NOT require owner, approver, challenge, or checklist fields merely to preserve the primary capture path.
+
+The base profile MUST NOT introduce a generalized approval workflow for ordinary row edits in order to support analyst-work coordination objects.
+
+#### 10.4.4 Structured coordination artifact types
+
+The current profile MUST keep the following coordination surfaces artifact-backed rather than promoting them to first-class `record_type`s:
+
+- communications log artifacts with `artifact_type='comm_log'`,
+- handoff artifacts with `artifact_type='handoff'`,
+- status-review artifacts with `artifact_type='status_review'`,
+- lesson or follow-up artifacts with `artifact_type='lesson'`.
+
+A `comm_log` artifact MUST carry, at minimum:
+
+- `comm_id`,
+- `timestamp_utc`,
+- `audience`,
+- `channel_or_meeting`,
+- `summary`.
+
+A `comm_log` artifact MUST also be able to persist, at minimum, the following optional fields when present:
+
+- `decision_ids[]`,
+- `action_task_ids[]`,
+- `next_report_at`,
+- `privilege_tag`.
+
+A `handoff` artifact MUST carry, at minimum:
+
+- `handoff_id`,
+- `timestamp_utc`,
+- `outgoing_owner_user_id`,
+- `incoming_owner_user_id`,
+- `current_state_summary`.
+
+A `handoff` artifact MUST also be able to persist, at minimum, the following optional fields when present:
+
+- `open_task_ids[]`,
+- `open_decision_ids[]`,
+- `open_risk_refs[]`,
+- `next_checks`,
+- `acknowledged_at`.
+
+A `status_review` artifact MUST carry, at minimum:
+
+- `status_review_id`,
+- `timestamp_utc`,
+- `review_owner_user_id`,
+- `current_state_summary`.
+
+A `status_review` artifact MUST also be able to persist, at minimum, the following optional fields when present:
+
+- `blocked_task_ids[]`,
+- `pending_evidence_ids[]`,
+- `open_decision_ids[]`,
+- `active_risks_summary`,
+- `next_report_at`.
+
+A `lesson` artifact MUST carry, at minimum:
+
+- `lesson_id`,
+- `timestamp_utc`,
+- `summary`,
+- `owner_user_id`.
+
+A `lesson` artifact MUST also be able to persist, at minimum, the following optional fields when present:
+
+- `follow_up_task_ids[]`,
+- `closure_state`,
+- `evidence_refs[]`.
+
+These coordination artifact types MUST reuse the shared artifact model, revision history, tags, `record_links`, projections, and `view_schema_id` contracts. They MUST NOT introduce Notes-specific or artifact-type-specific standalone storage silos.
+
+#### 10.4.5 Hypothesis boundary
+
+Current-profile hypotheses MUST remain artifact-backed, using either `artifact_type='hypothesis'` or a structured findings subtype. Hypotheses MUST NOT be promoted to a first-class `record_type` until repeated usage demonstrates a need for explicit competing-hypothesis tracking, support and contradiction sets, state transitions, or reviewer-visible hypothesis history that artifact-backed tracking cannot satisfy.
 
 ### 10.5 Snapshot and reporting extension objects
 
@@ -477,6 +627,10 @@ When a note is created from timeline, host, identity, or evidence context, the a
 
 A single note artifact MAY relate to zero, one, or many source records through `record_links`.
 
+Task requests, decisions, and coordination artifacts MUST also be able to relate to timeline events, hosts, identities, canonical indicators, evidence records, notes, and each other through the same generic typed relationship store.
+
+The implementation MUST NOT rely on task-specific, decision-specific, or handoff-specific foreign-key columns on timeline, host, identity, or evidence rows as the only supported linkage mechanism.
+
 ## 13. Evidence and object metadata
 
 The implementation MUST store authoritative object metadata in structured storage, including:
@@ -497,11 +651,13 @@ The evidence model MUST support both:
 - requested or pending evidence with no blob yet attached,
 - received or available evidence with custody events and optional blob linkage.
 
+When an evidence record represents requested or pending evidence rather than already received material, the model MUST be able to store `owner_user_id` or an equivalent stable assignee field so accountable follow-up does not require a separate timeline field. A linked `task_request` MAY also exist.
+
 An implementation MAY persist a non-authoritative `sensitivity_class` on evidence records and MAY project that label onto exportable evidence-derived blocks. In the base profile, `sensitivity_class` is metadata for preview labeling, default export-redaction behavior, and audit or reporting only. It MUST NOT change incident authorization or hide live workspace content.
 
 ## 14. Schema invariants
 
-### 14.1 Mention, indicator, and provenance fields
+### 14.1 Mention, indicator, provenance, and coordination fields
 
 The schema MUST support:
 
@@ -514,7 +670,10 @@ The schema MUST support:
 - append-only indicator lifecycle interval fields separate from observation timestamps,
 - append-only compromise-assessment fields sufficient to persist closed-vocabulary `assessment_state`, `assessed_at`, assessor attribution, nullable `confidence_score`, rationale, optional supporting record references, and deterministic derivation of `confidence_band`,
 - `entity_origin` and seed provenance on host and identity records,
-- `entity_binding_mode` in view write-back contracts and import mappings.
+- `entity_binding_mode` in view write-back contracts and import mappings,
+- `task_request` fields sufficient to persist `task_kind`, `status`, `owner_user_id`, `priority`, due and blocker state, and optional linked-record or linked-decision references,
+- `decision` fields sufficient to persist `decision_type`, `status`, `owner_user_id`, `decided_at`, rationale, support references, affected-record references, and optional supersession linkage,
+- coordination-artifact fields sufficient to persist `artifact_type`-specific metadata for `comm_log`, `handoff`, `status_review`, `lesson`, and optional current-profile `hypothesis` tracking.
 
 ### 14.2 Rollback granularity substrate
 
@@ -617,6 +776,8 @@ The source artifact included a concrete indexing strategy. The exact SQL realiza
 - full-text search using a configuration appropriate for IR tokens rather than English stemming,
 - link traversal by source and destination,
 - traversal from canonical indicators to source-bound observations and linked records,
+- filtering and sorting over `task_request` owner, status, priority, due, blocker, and last-updated state,
+- filtering and sorting over `decision` owner, status, type, and `decided_at`,
 - fuzzy matching over alias and unresolved mention text,
 - array or equivalent containment lookups for denormalized tag and label sets.
 
@@ -629,10 +790,14 @@ A conformant implementation MUST preserve all of the following invariants:
 3. exact-match entity reuse follows a deterministic precedence,
 4. merges are explicit and auditable,
 5. notes are artifacts,
-6. canonical indicators and source-bound indicator observations are different object types,
-7. repeated indicator observations remain distinct observations,
-8. indicator lifecycle intervals append rather than overwrite and remain distinct from observation times,
-9. assessments append rather than overwrite,
-10. relationship semantics are typed,
-11. history is reversible at mutation-entry granularity,
-12. projection state is derived rather than authoritative.
+6. notes and tags remain only for unassigned, non-lifecycle working material,
+7. current-profile owned work uses structured `task_request`, `decision`, or coordination-artifact objects rather than overloading notes,
+8. current-profile ownership is a field on coordination objects rather than a standalone object,
+9. canonical indicators and source-bound indicator observations are different object types,
+10. repeated indicator observations remain distinct observations,
+11. indicator lifecycle intervals append rather than overwrite and remain distinct from observation times,
+12. assessments append rather than overwrite,
+13. relationship semantics are typed,
+14. history is reversible at mutation-entry granularity,
+15. projection state is derived rather than authoritative,
+16. current-profile hypotheses remain artifact-backed until later promotion criteria are met.
