@@ -284,6 +284,29 @@ At minimum, file-based import provenance MUST include:
 
 If the source is sheet-based or region-based, the provenance MUST also identify the selected sheet and rectangular region deterministically.
 
+### 7.2.1 Import-session, unit, and mapping identity
+
+When file-based import is implemented, the implementation MUST persist enough metadata to reconstruct which uploaded bytes, discovered source unit, and operator-approved mapping produced a given record, mention, indicator observation, or alias.
+
+At minimum, file-based import-created or file-based import-updated data MUST be attributable to:
+
+- `import_session_id`,
+- `import_unit_id`,
+- `mapping_fingerprint`,
+- `parser_profile_id`,
+- `source_file_kind`,
+- `source_content_sha256`,
+- `parser_version`,
+- `origin_locator`.
+
+For imported rows, mentions, aliases, and indicator observations, `origin_locator` MUST be derivable from the canonical import-unit locator plus deterministic row and column coordinates within that unit.
+
+An `import_unit` MUST have a semantic identity equal to the tuple `source_content_sha256 + canonical_locator + parser_version`. If the implementation stores one derived key for that identity, it MUST compute that key as the SHA-256 of the canonical JSON serialization of `{source_content_sha256, locator, parser_version}`.
+
+`mapping_fingerprint` MUST identify the operator-approved header-to-field mapping plan deterministically. The fingerprint input MUST include, at minimum, mapping contract version, target view schema identifier, header-row reference, data-start-row reference, unknown-column policy, and one ordered entry per source column containing source ordinal, raw imported header text, target field key, `entity_binding_mode`, and any declared transform or empty-value policy. The implementation MUST serialize that mapping input canonically with lexicographically sorted object keys and source columns ordered by `source_column_ordinal`, then hash the result as lower-hex SHA-256.
+
+Preserved unknown columns from file-based import MUST NOT be keyed only by visible header text. The preserved structure MUST retain, at minimum, `import_unit_id`, `source_column_ordinal`, `source_header_text`, and raw value for each retained cell or row value. Duplicate visible headers MUST remain distinguishable by ordinal and source unit.
+
 ### 7.3 Entity provenance
 
 For every host or identity record created outside direct entity sheets, the implementation MUST persist:
@@ -849,7 +872,8 @@ The schema MUST support:
 - `source_field_key`,
 - `origin_kind`,
 - `origin_locator`,
-- file-based import provenance fields for source file kind, source content hash, parser version, and selected sheet or region locator,
+- file-based import provenance fields for `import_session_id`, `import_unit_id`, `mapping_fingerprint`, `parser_profile_id`, source file kind, source content hash, parser version, and selected sheet or region locator,
+- unknown-column preservation fields sufficient to persist `import_unit_id`, source column ordinal, source header text, and raw value without conflating duplicate visible headers,
 - resolution metadata on mentions,
 - source-bound indicator-observation fields sufficient to persist observed text, optional parsed indicator type, optional normalized candidate, deterministic source locator or span, and resolution metadata,
 - append-only indicator lifecycle interval fields separate from observation timestamps,

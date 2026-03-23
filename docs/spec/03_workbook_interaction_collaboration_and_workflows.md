@@ -424,18 +424,21 @@ Any same-field conflicts arising from that paste MUST remain outside that commit
 
 File-based structured import beyond clipboard paste belongs to the **Import Extension Profile**.
 
-If implemented, the file-based import path MUST be isolated behind the dedicated `imports` module defined by Core 01.
+#### 11.2.1 Assistant boundary
 
-The file-based import path MUST use the same stable tabular-ingest contract and shared mapping engine as clipboard-driven structured ingest.
+If implemented, the file-based import path MUST be exposed as a **Phase 2 Workbook Import Assistant** for structured onboarding of CSV and XLSX sources.
 
-The bounded file-based import contract MUST support, at minimum:
+Clipboard paste remains the base hot-path ingest surface. File-based workbook import remains an extension-profile capability.
 
-- CSV file import,
-- selected-sheet or selected-region XLSX import,
-- operator preview and header mapping before commit,
-- deterministic provenance capture for file kind, content hash, parser version, and selected sheet or region locator.
+The assistant MUST be the only application surface that knows about workbook discovery, sheet heuristics, Excel tables, named ranges, parser quirks, previewing, and workbook downgrade warnings.
 
-The import assistant MUST prioritize mappings for timeline, systems or hosts, accounts or identities, indicators, evidence tracker, and VERIS-like summaries when present.
+The file-based import path MUST be isolated behind the dedicated `imports` module defined by Core 01.
+
+The file-based import path MUST use the same stable tabular-ingest contract and shared mapping engine as clipboard-driven structured ingest, including the same `entity_binding_mode` contract.
+
+Each candidate unit MUST support operator preview and header mapping before any apply step.
+
+The assistant MUST prioritize mappings for timeline, systems or hosts, accounts or identities, indicators, evidence tracker, and VERIS-like summaries when present.
 
 The import path MUST preserve unknown columns in `raw_capture` or `custom_attrs`.
 
@@ -443,9 +446,164 @@ The import path MUST determine `mention_origin` versus `entity_origin` from cont
 
 The import path MUST avoid auto-resolution of imported host or account aliases during ingest.
 
-Formula cells and other spreadsheet active content MUST be treated as inert input. The implementation MUST NOT execute workbook formulas, macros or VBA, workbook automation, or external links as live logic during import.
+#### 11.2.2 `import_session`
 
-The implementation MUST NOT promise full workbook fidelity for macros or VBA, pivot tables, charts, comments, external links, workbook protection, merged-cell layout semantics, or spreadsheet formula behavior. Unsupported features MUST be downgraded with a visible warning, preserved only as raw source metadata, or rejected as unsupported.
+An `import_session` MUST be the durable, audit-visible coordinator for one uploaded source file and one operator-driven import workflow.
+
+An `import_session` MUST persist, at minimum:
+
+- `import_session_id`,
+- `incident_id`,
+- `created_by_user_id`,
+- `created_at`,
+- `source_file_kind` with closed values `csv` or `xlsx`,
+- `original_filename`,
+- `source_content_sha256`,
+- `parser_profile_id`,
+- `parser_version`,
+- `assistant_profile`, fixed to `phase2_workbook_import_v1` for the current profile,
+- `session_status`,
+- `selected_unit_ids[]`,
+- `blocking_diagnostics[]`,
+- `nonblocking_warning_codes[]`.
+
+`session_status` MUST use the closed vocabulary `created`, `discovered`, `mapped`, `ready_to_apply`, `applying`, `partially_applied`, `applied`, `failed`, and `canceled`.
+
+`source_content_sha256` MUST be computed from the exact uploaded file bytes, not from a parsed or normalized representation.
+
+`parser_version` MUST identify the stable behavior version of the import adapter profile. It MUST NOT be limited to a raw parser-library semantic version.
+
+`nonblocking_warning_codes[]` MUST use the same closed vocabulary as `import_unit.warning_codes[]` and MAY aggregate source-level warnings that do not block preview or apply.
+
+Discovery and preview MUST be read-only against incident state. Apply MUST execute as a background job and MUST NOT block ordinary workbook editing.
+
+#### 11.2.3 `import_unit`
+
+An `import_unit` MUST be the explicit unit of structured source material selected from an `import_session`.
+
+An `import_unit` MUST persist, at minimum:
+
+- `import_unit_id`,
+- `import_session_id`,
+- `locator_kind`,
+- `locator`,
+- `source_rect_a1`,
+- `header_row_ref`,
+- `inferred_row_count`,
+- `inferred_column_count`,
+- `warning_codes[]`,
+- `mapping_fingerprint`,
+- `unit_status`.
+
+`locator_kind` MUST use the closed vocabulary `csv_file`, `xlsx_used_range`, `xlsx_table`, `xlsx_named_range`, and `xlsx_region`.
+
+`unit_status` MUST use the closed vocabulary `discovered`, `selected`, `mapped`, `ready`, `applying`, `applied`, `skipped`, `rejected`, and `failed`.
+
+The semantic identity of an `import_unit` MUST be the tuple `source_content_sha256 + canonical_locator + parser_version`. If the implementation stores one derived key for that identity, it MUST compute that key as the SHA-256 of the canonical JSON serialization of `{source_content_sha256, locator, parser_version}`.
+
+The current profile MUST use the following canonical locator shapes:
+
+- `csv_file`: one trivial single-unit locator bound to the uploaded file,
+- `xlsx_used_range`: `{sheet_name, rect_a1}`,
+- `xlsx_table`: `{sheet_name, table_name, rect_a1}`,
+- `xlsx_named_range`: `{defined_name, sheet_name, rect_a1}`,
+- `xlsx_region`: `{sheet_name, rect_a1}`.
+
+The locator MUST be a canonical contract object. It MUST NOT rely on display labels or UI-only wording.
+
+`source_rect_a1` MUST identify the deterministic rectangular extent of the imported unit. For `csv_file`, it MUST cover the full parsed rectangle of the file.
+
+`header_row_ref` MUST be a deterministic 1-based row reference within `source_rect_a1`.
+
+`mapping_fingerprint` MAY be absent while `unit_status` is `discovered` or `selected`. Once a mapping is approved, it MUST be persisted and used for duplicate-apply detection.
+
+#### 11.2.4 Discovery and batch semantics
+
+Whole-workbook import MUST mean an orchestrated batch of explicit `import_unit` objects discovered from one uploaded workbook. It MUST follow this flow:
+
+1. upload one XLSX file and create one `import_session`,
+2. discover candidate `import_unit` objects,
+3. allow operator preview, mapping, selection, or skip per unit,
+4. validate duplicate-apply and overlap constraints,
+5. apply selected units in deterministic order,
+6. record one session outcome and one apply outcome per unit.
+
+Whole-workbook import MUST NOT mean preserving workbook object identity, formula behavior, chart behavior, pivot behavior, protection behavior, merged-cell layout behavior, or general XLSX semantics outside the assistant.
+
+The current profile MUST support discovery of:
+
+- parser-resolved non-empty used ranges,
+- Excel tables using their current rectangular extent only,
+- named ranges only when they are static, single-sheet, and single-rectangle,
+- operator-selected rectangular regions from a sheet preview.
+
+Dynamic named-range formulas, external references, and multi-area named ranges MUST be rejected as unsupported.
+
+Table filters, sorts, styles, hidden states, and other presentation metadata MUST NOT change imported semantics.
+
+A whole-workbook batch MUST remain unit-atomic rather than session-atomic. Each applied unit MUST yield its own `change_set`. The session MAY end in `partially_applied`.
+
+Selected units in one batch MUST have disjoint source-cell coverage. Overlapping selected units MAY be previewed, but they MUST NOT be jointly applied until the operator reduces the selection to a disjoint set.
+
+The default apply order for selected units MUST be deterministic: workbook sheet order, then top-left rectangle position, with operator-added regions ordered by explicit session sequence when their rectangles would otherwise compare equal.
+
+#### 11.2.5 `mapping_fingerprint` and duplicate-apply detection
+
+`mapping_fingerprint` MUST be the deterministic identity of the operator-approved header-to-field plan for one `import_unit`.
+
+The fingerprint input MUST include, at minimum:
+
+- `mapping_contract_version`,
+- `target_view_schema_id`,
+- `header_row_ref`,
+- `data_start_row_ref`,
+- `unknown_column_policy`,
+- one ordered entry per source column containing `source_column_ordinal`, `source_header_text`, `field_key`, `entity_binding_mode`, and any declared `transform_id`, `transform_options`, or `empty_value_policy`.
+
+`header_row_ref` and `data_start_row_ref` MUST use the same 1-based row coordinate system within `source_rect_a1`.
+
+The implementation MUST serialize that mapping input canonically with lexicographically sorted object keys and source columns ordered by `source_column_ordinal`, then hash the result as lower-hex SHA-256.
+
+Visible labels MUST NOT affect `mapping_fingerprint` except through the raw imported `source_header_text`.
+
+The assistant MUST warn on re-applying the same `(import_unit_id, mapping_fingerprint, incident_id)` tuple and MUST default to blocking the apply until the operator explicitly chooses re-import.
+
+#### 11.2.6 Closed warning vocabulary and workbook downgrade semantics
+
+`warning_code[]` MUST use only the following closed vocabulary in the current profile:
+
+- `formula_inert`,
+- `formula_cached_value_missing`,
+- `merged_layout_downgraded`,
+- `comments_metadata_only`,
+- `pivot_ignored`,
+- `chart_ignored`,
+- `external_links_ignored`,
+- `sheet_protection_metadata_only`,
+- `workbook_protection_metadata_only`,
+- `filtered_or_hidden_state_ignored`.
+
+Hard failures MUST be reported through normal job diagnostics rather than `warning_code[]`.
+
+Formula cells and other spreadsheet active content MUST be treated as inert input. The implementation MUST NOT execute workbook formulas, macros or VBA, workbook automation, or external links as live logic during preview or apply.
+
+Encrypted or password-protected files that cannot be parsed MUST be rejected before discovery.
+
+If a stored cached value exists for a formula cell, preview and import MAY use that inert cached value and MUST emit `formula_inert`. If no cached value exists for a mapped formula cell, the unit MUST NOT enter `ready` until the operator excludes or remaps the affected column, and `formula_cached_value_missing` MUST be emitted.
+
+Merged cells MUST use only the upper-left anchor value for deterministic rectangular import. Covered cells MUST otherwise be treated as empty, and the unit MUST emit `merged_layout_downgraded`.
+
+Comments or notes MUST be preserved only as source metadata and MUST emit `comments_metadata_only` when encountered.
+
+Pivot tables, charts, and external links MUST NOT be interpreted as executable or live workbook logic and MUST emit `pivot_ignored`, `chart_ignored`, or `external_links_ignored` when encountered.
+
+Workbook or sheet protection that does not block parsing MUST be treated only as source metadata and MUST emit `workbook_protection_metadata_only` or `sheet_protection_metadata_only` as applicable.
+
+Hidden rows, hidden columns, and active filters MUST NOT change imported semantics in the current profile and MUST emit `filtered_or_hidden_state_ignored` when encountered.
+
+Unsupported workbook features MUST be downgraded with one or more declared `warning_code[]` values, preserved only as raw source metadata, or rejected as unsupported.
+
+XLSX inputs MUST be staged and parsed as hostile archive content consistent with Core 04.
 
 ## 12. Auto-resolution policy
 
