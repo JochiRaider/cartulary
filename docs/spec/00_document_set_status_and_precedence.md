@@ -51,6 +51,7 @@ An implementation MAY additionally claim any of the following extension profiles
 
 - **Import Extension Profile** for file-based structured import beyond clipboard paste, including bounded CSV and XLSX onboarding.
 - **Snapshot and Reporting Extension Profile** for immutable incident snapshots and self-contained report or presentation outputs.
+- **Incident Portability Extension Profile** for full-fidelity administrative whole-incident export/import between trusted Cartulary deployments.
 - **Reference Pack Extension Profile** for reference-pack activation, refresh, and overlay behavior.
 - **Enterprise Authentication Extension Profile** for OIDC and SAML provider integration.
 
@@ -84,7 +85,8 @@ Cartulary is within scope for:
 - revision history and rollback,
 - workbook views and saved views,
 - optional reference-pack overlays,
-- immutable snapshots and derived outputs when the Snapshot and Reporting Extension Profile is implemented.
+- immutable snapshots and derived outputs when the Snapshot and Reporting Extension Profile is implemented,
+- whole-incident export/import bundles when the Incident Portability Extension Profile is implemented.
 
 The following are out of scope for current conformance unless a later normative document adds them:
 

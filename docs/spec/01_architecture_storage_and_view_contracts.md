@@ -601,7 +601,169 @@ Projection rebuild MUST be part of restore readiness when projection contents ar
 
 ### 12.3 Incident portability
 
-The implementation SHOULD support whole-incident export/import as a manifest plus structured records archive plus referenced blobs archive. The import/export bundle details remain future specification work, but portability as a design goal is preserved.
+Whole-incident export/import beyond operational backup and restore belongs to the **Incident Portability Extension Profile**.
+
+If the implementation claims that profile, it MUST support full-fidelity administrative round-trip transfer of authoritative incident source state between trusted Cartulary deployments without depending on workbook-label semantics, live remote fetches, or deployment-local authentication configuration.
+
+Import into an existing incident, incident cloning with identifier remapping, and partial bundle merge semantics are out of scope for this profile. A conformant import MUST preserve the exported `incident_id`, `record_id`, `row_version`, change-set identifiers, and blob hashes.
+
+#### 12.3.1 Logical bundle contract
+
+The canonical portability artifact MUST be a logical bundle layout. A `.zip` or `.tar` wrapper MAY be used for transport, but the normative contract is the root directory structure and file contents after extraction.
+
+At minimum, the logical bundle root MUST contain:
+
+```text
+/
+  manifest.json
+  data/
+    incident.json
+    actors.ndjson
+    records.ndjson
+    timeline_events.ndjson
+    hosts.ndjson
+    identities.ndjson
+    entity_aliases.ndjson
+    indicators.ndjson
+    indicator_observations.ndjson
+    indicator_state_intervals.ndjson
+    artifacts.ndjson
+    task_requests.ndjson
+    decisions.ndjson
+    evidence_records.ndjson
+    evidence_custody_events.ndjson
+    object_blobs.ndjson
+    entity_mentions.ndjson
+    compromise_assessments.ndjson
+    record_links.ndjson
+    tags.ndjson
+    record_tags.ndjson
+    change_sets.ndjson
+    change_set_mutations.ndjson
+    record_revisions.ndjson
+    saved_views.ndjson
+    reference_pack_refs.json
+  blobs/sha256/<sha256-lower-hex>
+  integrity/checksums.sha256
+  integrity/signature.ed25519        # optional
+  ext/snapshots/**                   # optional
+  ext/reference_packs/**             # optional
+```
+
+Bundle member paths MUST use relative forward-slash separators. The logical bundle and any outer archive wrapper MUST reject absolute paths, `.` or `..` segments, symlinks, hard links, device nodes, and other member types outside regular files and directories.
+
+Each blob stored under `blobs/sha256/<sha256-lower-hex>` MUST contain the exact raw bytes whose SHA-256 digest matches the lowercase hex path suffix.
+
+#### 12.3.2 Authoritative-state boundary
+
+Portability export MUST serialize authoritative incident source state and blob bytes. It MUST NOT serialize derived or deployment-local runtime state.
+
+A portability bundle MUST NOT include:
+
+- projection tables or search indexes,
+- live presence state,
+- client-local draft queues or same-field-conflict queues,
+- sessions, presigned URLs, locks, temporary caches, or other ephemeral runtime files,
+- password hashes, MFA secrets, external provider configuration, or object-store credentials,
+- incident memberships, current permissions, or other deployment-local authorization state.
+
+Reference-pack attestation metadata remains incident-external state. When the Incident Portability Extension Profile embeds reference-pack payloads, the bundle MAY include only the optional embedded-pack payloads and their bundle-local descriptors, not deployment-global activation or attestation history.
+
+#### 12.3.3 Manifest and integrity contract
+
+`manifest.json` MUST be the canonical bundle manifest and MUST include, at minimum:
+
+```json
+{
+  "bundle_format": "cartulary.incident_bundle",
+  "bundle_version": 1,
+  "bundle_id": "uuid",
+  "incident_id": "uuid",
+  "incident_key": "string",
+  "exported_at": "RFC3339 timestamp",
+  "source_change_set_high_watermark": "uuid-or-sequence",
+  "history_mode": "full",
+  "blob_mode": "full",
+  "reference_pack_mode": "refs_only | embedded",
+  "optional_sections": ["snapshots", "reference_packs"],
+  "required_capabilities": [],
+  "signing_key_id": "optional key identifier",
+  "files": [
+    {"path": "data/incident.json", "sha256": "sha256:...", "bytes": 123, "required": true}
+  ]
+}
+```
+
+`manifest.json` MUST describe one immutable export boundary. `source_change_set_high_watermark` MUST identify the frozen source boundary used to build the bundle. `history_mode` and `blob_mode` MUST each equal `full` for this profile.
+
+`manifest.json.files[]` MUST enumerate every regular file in the logical bundle except `integrity/checksums.sha256` and `integrity/signature.ed25519`, sorted lexicographically by `path`. `required=true` MUST identify the files required to reconstruct the core incident state. `required=false` MAY be used only for optional embedded sections.
+
+`integrity/checksums.sha256` MUST list one lowercase SHA-256 and relative path per line for every file listed in `manifest.json.files[]`, sorted lexicographically by path, using the exact file bytes carried in the bundle.
+
+If `integrity/signature.ed25519` is present, `manifest.json.signing_key_id` MUST also be present. The signature MUST cover the exact bytes of `integrity/checksums.sha256`. If a deployment supports signature verification for portability bundles, signature failure MUST reject the bundle before any structured data becomes visible.
+
+If `required_capabilities[]` names a capability the target deployment does not implement, import MUST fail closed. Optional embedded sections MAY be ignored when unsupported unless the corresponding capability is listed in `required_capabilities[]`.
+
+#### 12.3.4 Structured formats and deterministic serialization
+
+The portability bundle MUST use JSON for singleton files and NDJSON for multi-row files. CSV, XLSX, or other workbook-shaped exports MAY exist elsewhere. They MUST NOT be the authoritative whole-incident portability format.
+
+All structured files in the bundle MUST use:
+
+- UTF-8 encoding,
+- LF line endings,
+- no BOM,
+- lexicographically sorted object keys,
+- exactly one JSON object per NDJSON line,
+- deterministic file-level row ordering.
+
+NDJSON files whose rows have a stable single-column primary key MUST sort ascending by that key. `record_tags.ndjson` MUST sort by `(record_id, tag_id)`. `change_set_mutations.ndjson` MUST sort by `(change_set_id, sequence_no)`. Files with integer primary keys such as `record_revisions.ndjson` MUST sort ascending by that integer key.
+
+The canonical JSON serialization for singleton JSON files and per-line NDJSON objects MUST be stable enough that exporting the same incident state twice without intervening mutations produces byte-identical structured files and identical `integrity/checksums.sha256`.
+
+#### 12.3.5 Portable actors and optional embedded sections
+
+`actors.ndjson` MUST preserve historical attribution without exporting portable login material. Each actor descriptor row MUST carry, at minimum:
+
+- stable `actor_id`,
+- display name,
+- non-secret match hints when available, such as normalized email or provider-subject hint.
+
+Import MUST materialize every actor referenced by imported history as either:
+
+- an inert imported actor that is not login-capable and is not automatically added to incident membership, or
+- an equivalent historical actor descriptor bound to an existing local user without rewriting the source bundle actor identifier used by imported history.
+
+`reference_pack_refs.json` MUST list the reference-pack keys and versions referenced by imported saved views, overlays, or optional embedded sections. Missing referenced packs MUST degrade only the affected overlays or saved views. They MUST NOT block import of the core incident state.
+
+If `reference_pack_mode='embedded'`, pack payloads MAY be embedded under `ext/reference_packs/**`. If `optional_sections` contains `snapshots`, immutable snapshot descriptors and rendered artifacts MAY be embedded under `ext/snapshots/**`. Unsupported or missing optional embedded sections MUST NOT block import of the core incident state unless the relevant capability is named in `required_capabilities[]`.
+
+#### 12.3.6 Export and import execution semantics
+
+Whole-incident export and import MUST execute as background jobs rather than as blocking grid actions.
+
+A conformant import MUST execute the following phases in order:
+
+1. stage the supplied outer archive or logical bundle under the configured temporary-work root,
+2. validate the outer container and every member path,
+3. verify every required checksum and any supported signature before any structured data becomes visible,
+4. stage blob bytes and verify every required blob hash,
+5. import the structured incident state,
+6. rebuild projections,
+7. mark the imported incident visible only after the structured import and projection rebuild succeed.
+
+Import MUST fail closed on any of the following:
+
+- checksum mismatch,
+- signature mismatch when signature verification is supported or required by deployment policy,
+- missing required file,
+- missing required blob or blob-hash mismatch,
+- invalid path or unsupported bundle member type,
+- unsupported `required_capabilities[]` entry,
+- duplicate `incident_id`,
+- any import path that would require a live remote fetch to complete.
+
+If import fails after staging begins, the target deployment MUST leave no partially visible incident. Staged bytes MAY be retained only in a non-visible administrative quarantine or temporary-work area.
 
 ### 12.4 Failure handling
 
@@ -618,6 +780,7 @@ The implementation MUST execute the following long-running operations as backgro
 
 - lookups beyond trivial inline suggestion queries,
 - imports,
+- incident portability export and import when the Incident Portability Extension Profile is implemented,
 - reference-pack import, verification, and refresh,
 - snapshot generation,
 - report builds,
@@ -655,4 +818,5 @@ An implementation conforming to this core MUST preserve all of the following:
 4. the object store boundary MUST remain explicit and lifecycle-aware,
 5. view behavior MUST remain contract-driven,
 6. projection tables MUST remain disposable derived state,
-7. file-based import complexity MUST remain isolated behind the imports module and stable tabular-ingest contract rather than leaking spreadsheet-specific parser behavior into workbook-domain modules.
+7. file-based import complexity MUST remain isolated behind the imports module and stable tabular-ingest contract rather than leaking spreadsheet-specific parser behavior into workbook-domain modules,
+8. whole-incident portability, when implemented, MUST export authoritative source state and referenced blob bytes rather than projections, snapshots, or deployment-local runtime state.

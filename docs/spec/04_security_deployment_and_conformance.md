@@ -102,6 +102,13 @@ If the Snapshot and Reporting Extension Profile is implemented:
 
 In that profile, the implementation MUST support generating multiple recipient-specific artifacts from the same immutable snapshot by selecting different versioned redaction profiles and, when needed, different templates. If an incident involves multiple affected parties, an artifact prepared with one recipient-specific configuration MUST NOT disclose content whose `disclosure_partition_refs[]` are not allowed by the selected redaction profile. Manual post-render editing MAY still occur, but it MUST NOT be required for the implementation's supported recipient-specific configurations.
 
+If the Incident Portability Extension Profile is implemented:
+
+- whole-incident portability bundles MUST serialize only authoritative incident source state, deterministic structured files, and referenced blob bytes, not projections or deployment-local runtime state,
+- bundle import MUST stage content under the configured temporary-work root and verify required checksums before any structured incident data becomes visible,
+- unsupported or missing optional embedded snapshot or reference-pack sections MUST NOT block import of the core incident state,
+- portability bundles, staged extracts, and emitted artifacts for flyaway or disconnected use MUST remain on encrypted storage roots.
+
 ### 4.3 Evidence uploads
 
 The deployment MAY use an upload-malware-scanning sidecar or equivalent adjunct service. Such a service is optional in the current core and MUST NOT break the two-step attachment semantics.
@@ -364,6 +371,15 @@ For this section:
 - **AC-099**: On the implementation-supported incident metadata surface, editing `tlp`, `current_phase`, and `primary_external_case_ref` persists those values as structured fields that survive reload, deterministic projection rebuild, and snapshot generation; they do not disappear into `custom_attrs`.
 - **AC-100**: The Evidence sheet can sort or filter on `requested_at`, `received_at`, `collector_party_text`, `source_party_text`, `storage_ref`, `blob_hash`, and upload or attachment state without fetching blob bytes.
 - **AC-101**: If the implementation exposes structured findings, investigative queries, or forensic keywords as workbook surfaces, their defining fields remain directly filterable and exportable as structured fields rather than JSON-only payloads.
+
+### 9.9 Incident Portability Extension Profile criteria
+
+- **AC-102**: Whole-incident export produces a bundle whose logical layout, manifest, checksum file, structured JSON or NDJSON files, and blob paths satisfy Core 01 §12.3, and the bundle excludes projections, search indexes, sessions, presigned URLs, locks, client-local drafts, memberships, permissions, password hashes, MFA secrets, external-provider configuration, and object-store credentials.
+- **AC-103**: Exporting an incident and importing that bundle into an empty deployment preserves the exported `incident_id`, `record_id`, `row_version`, change-set count, revision count, record-link count, entity-mention count, indicator-observation count, and blob hashes, and the imported incident opens normally after projection rebuild.
+- **AC-104**: If one required structured file or one required blob is missing, if any required checksum is corrupted, if `incident_id` already exists, or if a required capability is unsupported, import fails closed before the incident becomes visible and leaves no partially visible incident state.
+- **AC-105**: If a bundle contains optional embedded `snapshots` or `reference_packs` sections that the target deployment does not support, the importer ignores or degrades only those optional sections unless the relevant capability is listed in `required_capabilities[]`, and core incident import still succeeds.
+- **AC-106**: Historical actors in `actors.ndjson` that do not map to an existing local user become inert imported actors or equivalent historical actor descriptors, are not login-capable, are not automatically added to incident membership, and still remain visible as historical attribution in imported history.
+- **AC-107**: Whole-incident export and import run as background jobs, show progress and cancellation without blocking grid editing, stage bundle contents only under the configured temporary-work root, and in flyaway or disconnected deployments keep emitted bundles and staged extracts on encrypted storage.
 
 ## 10. Non-goals preserved from the source artifact
 
