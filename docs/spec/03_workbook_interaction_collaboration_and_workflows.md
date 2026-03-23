@@ -141,9 +141,11 @@ For relationship cells that mix unresolved mention tokens and canonical entity l
 
 A same-field conflict response MUST use `409 Conflict` or an equivalent explicit concurrency-conflict status in deployments that do not expose HTTP directly.
 
-A same-field conflict response MUST use a dedicated conflict payload rather than the normal transient retry path.
+A same-field conflict response MUST use the generic error envelope defined in Core 01 §3.3.6 rather than the normal transient retry path.
 
-The response MUST include at least:
+The response MUST set `error.code` to `same_field_conflict`, set `error.status` to `409`, and include an `error.conflict` object.
+
+The `error.conflict` object MUST include at least:
 
 - `conflict_token`,
 - `record_id`,
@@ -163,13 +165,15 @@ The client MUST keep this conflict queue separate from the transient pending-pat
 
 A same-field conflict MUST NOT auto-retry.
 
+When exposed over the public HTTP surface, the explicit resolution request MUST use `POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve`.
+
 An explicit resolution request MUST include:
 
 - `conflict_token`,
 - `resolution_kind` with one of `keep_saved`, `use_unsaved`, or `merged_value`,
 - `resolved_value` when required by the chosen `resolution_kind`.
 
-If the same field changes again before the analyst resolves the conflict, the server MUST reject the stale `conflict_token` and return a fresh same-field conflict payload. The client MUST preserve the analyst's unsaved local draft and refresh the compare surface against the newest saved value.
+If the same field changes again before the analyst resolves the conflict, the server MUST reject the stale `conflict_token` and return a fresh same-field conflict payload in the same generic error envelope. The client MUST preserve the analyst's unsaved local draft and refresh the compare surface against the newest saved value.
 
 #### 3.3.5 Local draft, history, and analytics boundary
 
@@ -240,6 +244,8 @@ The UI MUST provide all of the following presence indicators:
 - row-gutter indicators when another analyst is focused on a row,
 - same-cell indicators when another analyst is actively editing the same field and such a signal is available.
 
+Presence and live row updates MUST be driven by the bounded WebSocket event families defined in Core 01 §3.3.10 rather than by a second mutation API.
+
 ### 4.4 Local pending queue
 
 The client MUST maintain a small local pending-patch queue so that transient network interruptions do not lose typed data.
@@ -299,6 +305,8 @@ Binary evidence attachment MUST use a two-step flow:
 1. create a pending blob slot and return an upload target,
 2. finalize the evidence attachment after the upload completes.
 
+When exposed over the public HTTP surface, step 1 MUST use `POST /api/v1/object-blobs`. Step 2 MUST use `POST /api/v1/evidence-records/{record_id}/attach-blob` or the normal record-creation path that binds the returned `object_blob_id` during evidence-row creation.
+
 The system MUST NOT leave fake attached evidence rows for incomplete uploads.
 
 ### 8.2 Pending evidence without blob
@@ -331,6 +339,8 @@ If the system detects an inconsistent blob-versus-evidence state, it MUST block 
 ### 8.4 Evidence access
 
 Evidence preview MUST open without forcing a full-page navigation away from the grid. A bottom or side preview is acceptable.
+
+The public interface for preview or download MUST use short-lived authorization-checked preview or download handles, such as `preview-handle` or `download-handle` routes. It MUST NOT expose long-lived object-store credentials or bypass the blob-versus-evidence lifecycle checks defined above.
 
 ## 9. Mention resolution workflow
 
@@ -816,6 +826,8 @@ The following are non-goals in the base profile:
 ## 15. Timeline read and write contract
 
 The Timeline sheet MUST read from `timeline_grid_projection` or an equivalent projection.
+
+When exposed over the public HTTP surface, Timeline reads MUST use the view-shaped query route `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`. New Timeline rows MUST use `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`. Updates to existing Timeline rows MUST use `PATCH /api/v1/records/{record_id}` with `view_schema_id`, `base_row_version`, `client_txn_id`, and `changes[]` keyed by `field_key`. Group headers remain client-local presentation state and MUST NOT appear as writable API rows.
 
 The implementation MUST preserve the following write-back semantics:
 

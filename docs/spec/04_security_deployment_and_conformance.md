@@ -11,6 +11,10 @@ The base profile MUST support:
 - TOTP MFA,
 - optional WebAuthn when the environment supports it.
 
+The public API and WebSocket surface MUST use a server-managed session contract rather than a client-parsed identity token contract. Browser clients MUST authenticate with an `HttpOnly` secure cookie carrying an opaque session token. The implementation MAY additionally accept `Authorization: Bearer <opaque_session_token>` for non-browser clients or trusted automation. The public token format MUST remain opaque and MUST NOT require clients to parse JWT claims or provider assertions.
+
+State-changing HTTP requests authenticated by cookie MUST use CSRF protection that fails closed, such as a synchronizer token or an equivalent same-origin mechanism.
+
 Authentication MUST work in disconnected deployments and MUST NOT depend on enterprise infrastructure for the base profile.
 
 ### 1.2 Enterprise Authentication Extension Profile
@@ -20,6 +24,8 @@ If the implementation claims the **Enterprise Authentication Extension Profile**
 OIDC is the preferred enterprise path. SAML is the secondary enterprise path when required by the environment.
 
 External identities MUST map to the same internal user identity used for attribution so that audit semantics remain unchanged.
+
+When the Enterprise Authentication Extension Profile is implemented, successful provider authentication MUST terminate into the same server-managed session contract used by the base profile so the remaining API surface stays provider-agnostic.
 
 ## 2. Authorization model
 
@@ -31,6 +37,8 @@ The base profile MUST use incident-level roles equivalent to:
 - `admin`.
 
 Record access MUST inherit from incident access in the base profile.
+
+API routes, preview or download handle issuance, job polling, and WebSocket incident subscriptions MUST re-derive authorization from the caller's current incident membership and role at request time.
 
 `task_request`, `decision`, and coordination artifacts such as `comm_log`, `handoff`, `status_review`, and `lesson` MUST inherit the same incident-level authorization model. The base profile MUST NOT introduce record-specific ACLs or hidden sub-workspaces for these objects.
 
@@ -156,6 +164,7 @@ The implementation MUST address the following MITRE CWE entries during architect
 - **CWE-353**: Reference packs and any incident import bundle format, when implemented, MUST fail closed on checksum mismatch, signature mismatch, incomplete download, or missing required integrity metadata.
 - **CWE-434**: Evidence, reference-pack, and workbook-import uploads MUST be treated as hostile content. The application unit MUST NOT execute uploaded content, workbook formulas, macros or VBA, workbook automation, or external links during import or preview, and preview generation MUST use only allowlisted non-executing transforms. Active-content types MUST remain download-only or isolated from the main application origin unless a dedicated isolated analysis path is explicitly implemented.
 - **CWE-639**: Every mutation, preview, download, and object-store URL issuance MUST re-derive authorization server-side from the target object's owning incident and the caller's current membership and role. Client-supplied incident identifiers, ownership metadata, or role claims MUST NOT determine access.
+- **CWE-352**: State-changing HTTP routes authenticated by cookie MUST require CSRF protection that fails closed. WebSocket upgrades and any incident subscription step MUST verify the authenticated session and incident authorization before joining an incident-scoped stream.
 - **CWE-312**: Deployments intended for portable or flyaway use MUST keep database storage, object storage, reference-pack storage, temporary work files that carry incident data, and export outputs on encrypted storage. Unencrypted removable media or unencrypted portable roots are non-conformant for flyaway handling.
 
 ## 5. Deployment profiles
@@ -412,6 +421,17 @@ For this section:
 - **AC-105**: If a bundle contains optional embedded `snapshots` or `reference_packs` sections that the target deployment does not support, the importer ignores or degrades only those optional sections unless the relevant capability is listed in `required_capabilities[]`, and core incident import still succeeds.
 - **AC-106**: Historical actors in `actors.ndjson` that do not map to an existing local user become inert imported actors or equivalent historical actor descriptors, are not login-capable, are not automatically added to incident membership, and still remain visible as historical attribution in imported history.
 - **AC-107**: Whole-incident export and import run as background jobs, show progress and cancellation without blocking grid editing, stage bundle contents only under the configured temporary-work root, and in flyaway or disconnected deployments keep emitted bundles and staged extracts on encrypted storage.
+
+### 9.10 Additional Base Profile criteria for public interface surface
+
+- **AC-123**: `GET /api/v1/auth/session` returns the authenticated internal user identity, provider kind, MFA state, session expiry, and the caller's incident memberships or current incident-role context without requiring client-side token parsing.
+- **AC-124**: `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query` accepts a field-key-based sort, filter, and grouping contract and returns rows with `record_id`, `row_version`, field-key-addressable cells, and cursor metadata; group headers are not serialized as writable rows.
+- **AC-125**: View-scoped row creation and record-scoped patch operate via `view_schema_id`, `client_txn_id`, `base_row_version`, and `changes[]` keyed by `field_key`; the client can mutate one writable field without resubmitting a full row snapshot.
+- **AC-126**: Same-field conflict responses use the generic error envelope with `error.code='same_field_conflict'` and the conflict object required by Core 03 §3.3.4; a stale `conflict_token` is rejected with a fresh conflict payload rather than silently overwriting saved state.
+- **AC-127**: Potentially large list or view-query routes use opaque cursor pagination with `has_more` and `next_cursor`; replaying a cursor against a different incident, view, sort tuple, filter set, or grouping contract is rejected rather than reinterpreted.
+- **AC-128**: `POST /api/v1/object-blobs` creates a pending blob slot and returns `object_blob_id`, upload state, and a short-lived upload target; attaching that blob to incident-visible evidence, or previewing the resulting evidence surface, fails closed until the blob or evidence lifecycle reaches the states required by Core 03 §8 and Core 02 §14.1.
+- **AC-129**: Long-running operations started through the public interface return `202 Accepted` with a `job_id`; `GET /api/v1/jobs/{job_id}` exposes progress and terminal result or error summary; the incident-scoped WebSocket stream authenticates with the same session contract and emits presence, `record_changed`, and `job_progress` events without broadcasting client-local drafts or grouping UI state.
+- **AC-130**: A cookie-authenticated state-changing request with missing or invalid CSRF proof fails closed, and the same request succeeds when a valid CSRF proof accompanies an otherwise authorized session.
 
 ## 10. Non-goals preserved from the source artifact
 

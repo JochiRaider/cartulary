@@ -89,7 +89,7 @@ Selection, focus, and pending-edit anchoring in the grid MUST remain bound to th
 
 The application server MUST provide:
 
-- authenticated API endpoints,
+- authenticated HTTP+JSON API endpoints,
 - authoritative mutation validation,
 - optimistic concurrency enforcement,
 - projection maintenance,
@@ -97,6 +97,155 @@ The application server MUST provide:
 - background-job orchestration,
 - reference-pack activation verification,
 - snapshot and report generation when the Snapshot and Reporting Extension Profile is implemented.
+
+### 3.3 Public HTTP and WebSocket interface contract
+
+The base-profile client/server boundary MUST be a versioned HTTP+JSON surface plus a bounded WebSocket event stream. Internal modules MAY use any internal call form, but conformance at the browser-facing boundary MUST be evaluated against this public surface.
+
+#### 3.3.1 Versioning and compatibility
+
+The HTTP surface MUST be rooted at `/api/v1/`. The live-update stream MUST be rooted at `/ws/v1/` or an equivalent versioned WebSocket path that preserves the same observable contract.
+
+Breaking changes to route patterns, required request fields, required response fields, envelope shapes, or event semantics MUST use a new major version root. Additive response fields, additive optional request fields, and additive route families for claimed extension profiles MAY be introduced within the same major version.
+
+All public requests and responses MUST address writable surfaces by stable identifiers. The client MUST identify the incident by `incident_id`, the active view by `view_schema_id`, target rows by `record_id`, optimistic writes by `base_row_version`, writable cells by `field_key`, and multi-change user actions by `client_txn_id`. The public surface MUST NOT require clients to address mutations by visible row order, tab label, column label, projection-table name, or storage-table name.
+
+#### 3.3.2 Session and authentication routes
+
+The public authentication contract MUST be session-based. The authoritative browser-session credential MUST be a server-managed opaque session token carried in an `HttpOnly` secure cookie. The implementation MAY additionally accept `Authorization: Bearer <opaque_session_token>` for non-browser clients or trusted automation. The public token format MUST remain opaque to clients. Conformance MUST NOT require a browser or API client to parse JWT claims or provider-specific assertion contents to determine actor identity, incident scope, or expiry.
+
+The base route family MUST include:
+
+- `POST /api/v1/auth/login`,
+- `POST /api/v1/auth/logout`,
+- `GET /api/v1/auth/session`.
+
+`POST /api/v1/auth/login` MUST accept a credentials object containing local username and password plus a second-factor assertion when MFA is required. On success it MUST establish the server-managed session and return the same session resource exposed by `GET /api/v1/auth/session`.
+
+`GET /api/v1/auth/session` MUST return, at minimum, the authenticated internal user identity, display name, provider kind, MFA state, session expiry, and the caller's incident memberships or current incident-role context.
+
+If the Enterprise Authentication Extension Profile is implemented, provider-backed sign-in MUST terminate into this same session contract so the remaining API routes and WebSocket stream remain provider-agnostic.
+
+#### 3.3.3 Route families
+
+The base-profile route set MUST include stable route families for:
+
+- incident discovery and incident metadata: `GET /api/v1/incidents`, `GET /api/v1/incidents/{incident_id}`,
+- incident membership inspection: `GET /api/v1/incidents/{incident_id}/memberships`,
+- view-schema discovery: `GET /api/v1/view-schemas`, `GET /api/v1/view-schemas/{view_schema_id}`,
+- saved-view discovery and persistence: `GET /api/v1/incidents/{incident_id}/saved-views`, `POST /api/v1/incidents/{incident_id}/saved-views`, `PATCH /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}`,
+- workbook query and row creation: `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`, `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`,
+- record mutation, history, rollback, and same-field conflict resolution: `PATCH /api/v1/records/{record_id}`, `GET /api/v1/records/{record_id}/history`, `POST /api/v1/records/{record_id}/rollback`, `POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve`,
+- entity-mention resolution and equivalent surface-specific resolve actions: `POST /api/v1/entity-mentions/{entity_mention_id}/resolve`,
+- blob-slot creation and evidence access: `POST /api/v1/object-blobs`, `POST /api/v1/evidence-records/{record_id}/attach-blob`, `POST /api/v1/evidence-records/{record_id}/preview-handle`, `POST /api/v1/evidence-records/{record_id}/download-handle`,
+- background-job status and cancellation: `GET /api/v1/jobs/{job_id}`, `POST /api/v1/jobs/{job_id}/cancel`.
+
+Implementations that claim an extension profile MUST add that profile's route family under the same versioned root rather than overloading base workbook routes. This includes, at minimum, `/api/v1/import-sessions/*`, `/api/v1/reference-packs/*`, `/api/v1/snapshots/*` and `/api/v1/releases/*`, and `/api/v1/incident-bundles/*` for the corresponding claimed extension profiles.
+
+#### 3.3.4 View-shaped read contract
+
+The primary hot-path read route for workbook surfaces MUST be `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`.
+
+A view-query request MUST be view-shaped rather than table-shaped. It MUST accept:
+
+- ordered `sort[]` entries keyed by `field_key`,
+- `filters[]` entries keyed by `field_key`,
+- zero or one `group_by` value chosen from the view's declared grouping keys,
+- a bounded result size such as `limit` or `block_size`,
+- an optional opaque `cursor_token`.
+
+A view-query response MUST return:
+
+- `incident_id`,
+- `view_schema_id`,
+- `rows[]` already shaped for that view,
+- `record_id` and `row_version` on every mutable row,
+- field-key-addressable cell values,
+- scalar `group_values` needed for client-local grouping when grouping is active,
+- pagination metadata defined in §3.3.7.
+
+The server MUST NOT serialize group headers or other presentation-only grouping artifacts as writable rows.
+
+#### 3.3.5 Mutation contract
+
+New row creation MUST use `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`. The request MUST include `client_txn_id` and the initial writable values keyed by `field_key`.
+
+Existing-row edits MUST use `PATCH /api/v1/records/{record_id}`. The request MUST include:
+
+- `view_schema_id`,
+- `base_row_version`,
+- `client_txn_id`,
+- `changes[]`, with each entry keyed by `field_key` and carrying the intended write value or equivalent action payload.
+
+The public mutation surface MUST be field-key-based and partial. The client MUST NOT be required to send full projection rows, full record snapshots, or raw storage-table mutations in order to edit one field.
+
+The server MUST validate each requested change against the active view contract, enforce per-field writeability and `conflict_resolution_class`, and route the write to the authoritative source field or declared write action without exposing internal table layout.
+
+A successful create or patch response MUST return the authoritative `record_id`, resulting `row_version`, and the committed field values needed to refresh the visible row.
+
+#### 3.3.6 Success and error envelopes
+
+All successful JSON responses MUST use a common envelope with:
+
+- `data` for the primary resource, row batch, or job resource returned by the route,
+- `meta.request_id` for a server-generated correlation identifier,
+- optional `meta.warnings[]` for machine-readable or display-safe warnings,
+- optional `meta.paging` for the cursor metadata defined in §3.3.7,
+- optional `meta.query` for the applied view-query contract after server normalization.
+
+All non-success JSON responses MUST use a common error envelope with:
+
+- `error.code` as a stable machine-readable error code,
+- `error.message` as a human-readable summary,
+- `error.status` as the transport status,
+- `error.request_id` as a correlation identifier,
+- `error.retryable` as an explicit retry hint,
+- optional `error.details` for route-specific validation or state details.
+
+Same-field conflicts MUST use this same error family with `error.code = same_field_conflict` and the additional conflict object defined by Core 03 §3.3.4.
+
+Clients MUST tolerate additive response members they do not use.
+
+#### 3.3.7 Pagination and cursor contract
+
+Any list or query route that MAY exceed one response page MUST use opaque cursor pagination.
+
+A `cursor_token` MUST be bound to the route family, authenticated actor, `incident_id` when present, `view_schema_id` when present, normalized sort tuple, filter set, and grouping key. The server MUST reject a cursor that is replayed against a different query contract rather than reinterpret it.
+
+The envelope for paged responses MUST include `meta.paging.has_more` and `meta.paging.next_cursor` when another page is available. Hot workbook views MUST NOT require deep `OFFSET` pagination.
+
+#### 3.3.8 Evidence and blob routes
+
+`POST /api/v1/object-blobs` MUST create a pending blob slot and return, at minimum, `object_blob_id`, `upload_state`, a short-lived upload target, and target-expiry metadata.
+
+Blob finalization MUST occur only through an explicit follow-on call. Binding an uploaded blob to incident-visible evidence MUST either:
+
+- attach the returned `object_blob_id` to an existing evidence record through `POST /api/v1/evidence-records/{record_id}/attach-blob`, or
+- create a new evidence record through the normal view or record-creation path using that `object_blob_id` as declared input.
+
+Preview and download routes MUST return short-lived authorization-checked handles or an equivalent mediated access contract. They MUST NOT expose long-lived object-store credentials, bypass incident membership checks, or treat a `pending` blob slot as attached evidence.
+
+#### 3.3.9 Background-job routes
+
+Routes that start long-running operations MUST return `202 Accepted` with a job resource containing `job_id`, initial `status`, and a status route.
+
+`GET /api/v1/jobs/{job_id}` MUST expose, at minimum, current job status, progress, cancelability, submitted actor, timestamps, and terminal result or error summary. `POST /api/v1/jobs/{job_id}/cancel` MUST fail closed when the job is already terminal or not cancelable.
+
+#### 3.3.10 WebSocket collaboration stream
+
+The incident-scoped WebSocket route MUST be `/ws/v1/incidents/{incident_id}` or an equivalent versioned incident-scoped path.
+
+The live-update stream MUST use a bounded event family rather than a second mutation API. The base event set MUST include:
+
+- session `hello` or `resume` acknowledgement,
+- incident-scoped presence deltas,
+- `record_changed` events,
+- `job_progress` events,
+- terminal error or session-revocation events.
+
+A `record_changed` event MUST identify the `incident_id`, affected `record_id`, resulting `row_version`, the relevant `view_schema_id` or view set, and either changed `field_key[]` values or an explicit invalidate signal.
+
+The WebSocket stream MUST authenticate with the same server-managed session contract as the HTTP surface. It MUST NOT broadcast unresolved same-field local drafts, transient pending patches, expand or collapse state for grouped rows, or other client-local UI state as authoritative collaboration events.
 
 ## 4. Storage boundary
 

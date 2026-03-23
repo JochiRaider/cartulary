@@ -38,6 +38,7 @@ It records where the content of the exploratory source artifact was carried into
 | `6. Merge behavior` | Core 02 §9, Appendix G | Promoted as authoritative merge semantics. |
 | `7. Additional schema requirements for rollback granularity` | Core 02 §14-15, Appendix C, Appendix G | Promoted as authoritative rollback substrate. |
 | `5. Same-field conflict resolution UX` | Core 03 §3.3, Core 04 §9.6, Appendix E | Promoted as an authoritative same-surface conflict-resolution contract and removed from the remaining MVP open questions. |
+| Cross-cutting client/server interface surface for workbook, evidence, and jobs | Core 01 §3.3, Core 03 §3.3.4, §4.3, §8, and §15, Core 04 §1, §2, and §9.10, Appendix E | Closed as one versioned HTTP+JSON API plus a bounded incident-scoped WebSocket stream using stable identifiers, session-based auth, generic envelopes, cursor pagination, explicit blob-slot and job routes, and a narrow live-update event set. |
 | `8. Bulk paste/import from existing spreadsheet or clipboard` | Core 03 §11, Appendix D, Appendix G | Split into base clipboard workflow, bounded file-based import profile, and dedicated imports-module boundary. |
 | `8. Auto-resolution policy for typed host/account strings` | Core 03 §12, Appendix D, Appendix G | Promoted as authoritative bounded auto-resolution behavior. |
 | `9. Sorting / filtering / grouping` | Core 03 §14, Appendix D, Appendix G | Promoted as authoritative grouping and row-addressing behavior. |

@@ -125,8 +125,14 @@ The implementation MUST support the following operating assumptions:
 - **`change_set`**: immutable attribution and transaction grouping unit for one committed user or system action.
 - **mutation entry**: one reversible change target recorded within a parent `change_set`.
 - **`view_schema_id`**: stable identifier of a built-in sheet or contract-backed system view.
+- **`saved_view_id`**: stable identifier of a saved-view configuration scoped to an incident or system-owned seed.
 - **`field_key`**: stable identifier of a write-back-capable field in a view contract, import mapping, or API contract.
 - **`client_txn_id`**: client-generated identifier used to correlate a batch of mutations with the user action that produced them.
+- **`entity_mention_id`**: stable identifier of an entity-mention row captured from source text before or after explicit resolution.
+- **`object_blob_id`**: stable identifier of a stored binary blob slot or authoritative object-metadata row.
+- **`conflict_token`**: opaque server-issued token that binds one same-field conflict payload to one current saved-field version and one explicit resolution attempt.
+- **`job_id`**: stable identifier of a background job exposed through the public API or live-update stream.
+- **`cursor_token`**: opaque pagination token bound to one versioned list or view-query contract.
 
 ### 8.2 Domain terms
 
@@ -158,8 +164,9 @@ Cartulary implementations MUST satisfy all of the following invariants:
 6. The client MUST address mutable rows by `record_id` and `row_version`, never by visible row position or displayed values.
 7. Incident data and optional reference packs MUST version independently.
 8. History MUST be authoritative at `change_set` plus mutation-entry granularity rather than row-snapshot granularity alone.
-9. Optional overlays and enrichment MUST NOT block the primary capture path.
-10. If the implementation cannot stay within one interaction of spreadsheet-style row creation and editing for the primary capture flow, it fails the design objective preserved from the source artifact.
+9. The public client/server wire contract MUST be versioned and keyed by stable identifiers rather than visible labels, displayed row positions, or storage-specific table names.
+10. Optional overlays and enrichment MUST NOT block the primary capture path.
+11. If the implementation cannot stay within one interaction of spreadsheet-style row creation and editing for the primary capture flow, it fails the design objective preserved from the source artifact.
 
 ### 9.1 Lifecycle state-machine notation
 
