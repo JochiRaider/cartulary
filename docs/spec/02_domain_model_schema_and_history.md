@@ -554,11 +554,57 @@ If `status='blocked'`, `blocked_reason` MUST be non-empty.
 
 If `status='done'`, `completed_at` MUST be present and MUST NOT be earlier than `created_at`.
 
-The current profile standardizes the closed status vocabulary and the state-dependent field guards in this subsection. It does not yet require a complete legal transition matrix for `task_request.status`.
-
 An active `task_request` with `status` not in `done` or `canceled` MUST NOT be ownerless.
 
 If `linked_record_ids[]` or `decision_record_id` are persisted as denormalized convenience fields, authoritative cross-record association MUST still be representable through generic `record_links`.
+
+##### 10.4.1.1 Task-request lifecycle machine
+
+The current profile defines `task_request.status` as a normative lifecycle machine rather than only a closed vocabulary.
+
+The authoritative machine condition is determined by persisted `status` together with `blocked_reason`, `completed_at`, `owner_user_id`, and `created_at`.
+
+The machine states mean:
+
+- `open`: the task exists and is not currently being worked,
+- `in_progress`: the task is actively being worked,
+- `blocked`: the task cannot proceed until a prerequisite or dependency is resolved,
+- `done`: the task is complete,
+- `canceled`: the task is no longer being pursued.
+
+Allowed lifecycle triggers are record creation that sets an initial `status` and later record patches that change `status` or one of the guard fields above.
+
+Initial creation MAY set `status` to any value in the closed vocabulary. Interactive blank-row creation SHOULD default to `open` unless the operator explicitly chooses another allowed initial state.
+
+The legal persisted status transitions are:
+
+- `open` -> `in_progress`, `blocked`, `done`, or `canceled`,
+- `in_progress` -> `open`, `blocked`, `done`, or `canceled`,
+- `blocked` -> `open`, `in_progress`, `done`, or `canceled`,
+- `done` -> `open`, `in_progress`, or `blocked`,
+- `canceled` -> `open`, `in_progress`, or `blocked`.
+
+A write that leaves `status` unchanged MUST be treated as a legal idempotent in-state write if the resulting record still satisfies all guards in this subsection.
+
+The resulting authoritative row MUST satisfy all of the following guards:
+
+- if `status='blocked'`, `blocked_reason` MUST be non-empty,
+- if `status!='blocked'`, `blocked_reason` MUST be absent or empty,
+- if `status='done'`, `completed_at` MUST be present and MUST NOT be earlier than `created_at`,
+- if `status!='done'`, `completed_at` MUST be absent,
+- if `status` is `open`, `in_progress`, or `blocked`, `owner_user_id` MUST be present.
+
+When a successful write changes `status` away from `blocked`, the implementation MUST clear persisted `blocked_reason` before commit.
+
+When a successful write changes `status` away from `done`, the implementation MUST clear persisted `completed_at` before commit.
+
+When a successful write sets `status='done'` and the client did not supply `completed_at`, the implementation MUST set `completed_at` to the commit timestamp before commit.
+
+Any other attempted write set that would leave the resulting record outside these invariants MUST be rejected as an illegal transition.
+
+A requested transition from `done` to `canceled` or from `canceled` to `done` MUST be rejected as an illegal transition.
+
+A successful lifecycle transition MUST be committed through the ordinary record-mutation path, increment `row_version`, append a `change_set` and mutation entries, update derived projections, and emit the ordinary `record_changed` signal for that record. A rejected lifecycle transition MUST return the stable lifecycle-validation error defined by Core 01 §3.3.6 and MUST leave authoritative persisted state unchanged.
 
 #### 10.4.2 `decision` record type
 
@@ -584,9 +630,45 @@ A `decision` record MUST also be able to persist, at minimum, the following opti
 
 If `affected_record_ids[]` or `supersedes_record_id` are persisted as denormalized convenience fields, authoritative cross-record association MUST still be representable through generic `record_links`.
 
-The current profile fixes status vocabularies and state-dependent field guards for `task_request` and `decision` records. It does NOT yet define exhaustive legal transition matrices for those status vocabularies. A later profile MAY add explicit transition matrices after the reference-pack, rendered artifact, and evidence lifecycle machines are stabilized.
+##### 10.4.2.1 Decision lifecycle machine
 
-The current profile standardizes the closed status vocabulary in this subsection. It does not yet require a complete legal transition matrix for `decision.status`.
+The current profile defines `decision.status` as a normative lifecycle machine rather than only a closed vocabulary. The `approved` state is an incident-coordination state. It MUST NOT be interpreted as a generalized reviewer or administrator approval gate for ordinary row edits.
+
+The authoritative machine condition is determined by persisted `status` together with `supersedes_record_id` or an equivalent authoritative decision-to-decision link, `owner_user_id`, and `decided_at`.
+
+The machine states mean:
+
+- `proposed`: candidate decision under consideration,
+- `approved`: accepted as the current intended course of action but not necessarily yet carried out,
+- `rejected`: considered and declined,
+- `executed`: carried out,
+- `superseded`: overtaken before execution by a later accepted decision.
+
+Allowed lifecycle triggers are record creation that sets an initial `status`, later record patches that change `status`, and the explicit supersession flow that links one decision to another.
+
+Initial creation MAY set `status` to `proposed`, `approved`, `rejected`, or `executed`. Initial creation MUST NOT set `status='superseded'`.
+
+The legal direct status transitions are:
+
+- `proposed` -> `approved`, `rejected`, or `executed`,
+- `approved` -> `executed`.
+
+A direct write that leaves `status` unchanged MUST be treated as a legal idempotent in-state write if the resulting record still satisfies this subsection, except that a direct write whose requested or resulting `status` is `superseded` MUST still be rejected because `superseded` is reachable only through the explicit supersession flow.
+
+`rejected`, `superseded`, and `executed` are terminal persisted statuses for direct status writes.
+
+A direct write that would change `status` from `approved` to `rejected`, from `rejected` to `proposed`, from `executed` to any other value, or to `superseded` MUST be rejected as an illegal transition. A later contrary choice MUST be modeled as a new decision rather than as an in-place reversal of a `rejected`, `superseded`, or `executed` record.
+
+The explicit supersession flow MUST satisfy all of the following:
+
+- the superseding decision and the target decision MUST be different records in the same incident,
+- the superseding decision MUST already have `status` `approved` or `executed`,
+- the target decision MAY have `status` `proposed`, `approved`, or `executed`,
+- the committed action MUST persist the supersession relation on the superseding decision through `supersedes_record_id` or an equivalent authoritative decision link,
+- if the target decision has `status` `proposed` or `approved`, the same committed action MUST set the target decision's persisted `status` to `superseded`,
+- if the target decision has `status` `executed`, the target decision MUST remain `executed`; a projection MAY still surface `decision.is_superseded=true` for that record, but the persisted `status` MUST NOT change away from `executed`.
+
+A successful lifecycle transition or explicit supersession action MUST be committed through the ordinary record-mutation path, increment `row_version` on every changed record, append a `change_set` and mutation entries, update derived projections, and emit the ordinary `record_changed` signal for each changed record. A rejected lifecycle transition or supersession action MUST return the stable lifecycle-validation error defined by Core 01 §3.3.6 and MUST leave authoritative persisted state unchanged.
 
 #### 10.4.3 Ownership and hot-path boundary
 

@@ -204,6 +204,8 @@ All non-success JSON responses MUST use a common error envelope with:
 
 Same-field conflicts MUST use this same error family with `error.code = same_field_conflict` and the additional conflict object defined by Core 03 §3.3.4.
 
+Illegal lifecycle transitions MUST use this same error family with `error.code = illegal_transition`, `error.status = 409`, `error.details.from_status`, `error.details.to_status`, and `error.details.violated_guards[]`. `error.details.violated_guards[]` MUST be present and MAY be empty when the transition is disallowed by the legal transition matrix rather than by a failed field guard.
+
 Clients MUST tolerate additive response members they do not use.
 
 #### 3.3.7 Pagination and cursor contract
@@ -681,10 +683,10 @@ Unless explicitly overridden below:
 - `default_hidden_fields`: `record_id`, `row_version`, `task.closure_summary`, `task.linked_record_ids`, `task.decision_record_id`, `task.no_owner`
 - `default_sort`: `task.updated_at desc`, `record_id asc`
 - `filter_fields`: `task.status`, `task.owner_user_id`, `task.priority`, `task.task_kind`, `task.workstream`, `task.due_at`, `task.requester_party_text`, `task.blocked_reason`, `task.completed_at`, `task.external_ticket_ref`, `task.no_owner`
-- inline create: blank-row or equivalent grid-native creation MUST create a `task_request` record
+- inline create: blank-row or equivalent grid-native creation MUST create a `task_request` record; unless the create payload explicitly chooses another allowed initial state, interactive blank-row creation SHOULD default `task.status` to `open`
 - writable fields:
   - `task.title`: read `title`; write target the `title` field on the underlying `task_request` record; `conflict_resolution_class=text_compare_merge`
-  - `task.status`: read `status`; write target the `status` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
+  - `task.status`: read `status`; write target the `status` field on the underlying `task_request` record; legal writes MUST be validated and any required lifecycle normalization MUST be applied under Core 02 §10.4.1.1 before commit; `conflict_resolution_class=atomic_replace`
   - `task.owner_user_id`: read `owner_user_id`; write target the `owner_user_id` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
   - `task.priority`: read `priority`; write target the `priority` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
   - `task.task_kind`: read `task_kind`; write target the `task_kind` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
@@ -698,7 +700,7 @@ Unless explicitly overridden below:
   - `task.linked_record_ids`: read linked record references; write action upsert or remove linked `record_links`; `conflict_resolution_class=collection_review`
   - `task.decision_record_id`: read `decision_record_id`; write target the `decision_record_id` field on the underlying `task_request` record or an equivalent linked decision reference; `conflict_resolution_class=atomic_replace`
 - read-only computed fields: `task.linked_record_count`, `task.updated_at`, `task.no_owner`
-- state-dependent guards remain authoritative: `status='blocked'` requires `blocked_reason`, `status='done'` requires `completed_at`, and active tasks MUST NOT be ownerless.
+- task lifecycle semantics remain authoritative: any committed write set affecting `task.status`, `task.blocked_reason`, `task.completed_at`, or `task.owner_user_id` MUST produce a resulting row that satisfies Core 02 §10.4.1.1. In particular, `status='blocked'` requires `blocked_reason`, `status='done'` requires `completed_at`, active tasks MUST NOT be ownerless, a successful transition away from `blocked` or `done` MUST clear `blocked_reason` or `completed_at` respectively, and a successful write that sets `status='done'` with no explicit `completed_at` MUST fill `completed_at` from the commit timestamp.
 
 #### 7.4.9 `cartulary.view.decisions.v1`
 
@@ -712,14 +714,15 @@ Unless explicitly overridden below:
 - inline create: blank-row or equivalent grid-native creation MUST create a `decision` record
 - writable fields:
   - `decision.summary`: read `summary`; write target the `summary` field on the underlying `decision` record; `conflict_resolution_class=text_compare_merge`
-  - `decision.status`: read `status`; write target the `status` field on the underlying `decision` record; `conflict_resolution_class=atomic_replace`
+  - `decision.status`: read `status`; write target the `status` field on the underlying `decision` record; legal direct writes MUST be validated against Core 02 §10.4.2.1, and a direct write whose requested `status` is `superseded` MUST be rejected; `conflict_resolution_class=atomic_replace`
   - `decision.owner_user_id`: read `owner_user_id`; write target the `owner_user_id` field on the underlying `decision` record; `conflict_resolution_class=atomic_replace`
   - `decision.decision_type`: read `decision_type`; write target the `decision_type` field on the underlying `decision` record; `conflict_resolution_class=atomic_replace`
   - `decision.decided_at`: read `decided_at`; write target the `decided_at` field on the underlying `decision` record; `conflict_resolution_class=atomic_replace`
   - `decision.rationale`: read `rationale`; write target the `rationale` field on the underlying `decision` record; `conflict_resolution_class=text_compare_merge`
   - `decision.support_refs`: read `support_refs`; write action upsert or remove supporting `record_links` or denormalized support references; `conflict_resolution_class=collection_review`
 - read-only computed fields: `decision.affected_record_count`, `decision.supersedes_record_id`, `decision.updated_at`, `decision.is_superseded`
-- supersession remains an explicit decision-linking flow. It MUST NOT be modeled as a direct write to `decision.supersedes_record_id` in the base-profile grid.
+- supersession remains an explicit decision-linking flow. It MUST NOT be modeled as a direct write to `decision.supersedes_record_id` or as a direct write that sets `decision.status='superseded'` in the base-profile grid.
+- when the explicit supersession flow succeeds, it MUST persist the supersession relation and apply the status effects defined by Core 02 §10.4.2.1 atomically.
 
 ## 8. Projection model
 
