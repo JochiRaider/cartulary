@@ -199,7 +199,8 @@ At minimum:
 - summary MAY be null if another field or attachment exists,
 - host and account text MAY remain unresolved,
 - confidence MAY be unset,
-- details MAY remain unstructured text.
+- details MAY remain unstructured text,
+- `source_text` MAY remain unstructured text when a timeline event captures verbatim or excerpted source material.
 
 The system MUST preserve original rough capture even after later normalization or resolution.
 
@@ -393,6 +394,8 @@ When two entities are merged:
 Ad hoc notes MUST be modeled as artifacts with `artifact_type='note'`.
 
 The base profile MUST NOT introduce a Notes-specific source table or Notes-only persistence model. Standalone note creation from the built-in Notes sheet and contextual `add linked note` actions MUST create the same underlying artifact record shape and use the same revision, tag, and link semantics.
+
+A note artifact MUST be able to persist, at minimum, fields equivalent to `title` and `body`, plus generic tags through `record_tags` or an equivalent shared tag mechanism.
 
 Lightweight free-text fields MAY remain on timeline events, hosts, identities, evidence, or other records. Text that requires standalone history, tags, search, or reuse across records MUST be modeled as an artifact with `artifact_type='note'`.
 

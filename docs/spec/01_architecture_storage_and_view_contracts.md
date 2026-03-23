@@ -167,12 +167,18 @@ A `view_schema` contract MUST define, at minimum:
 - the stable `view_schema_id`,
 - source record types,
 - the base projection,
+- an ordered field registry containing one entry per visible or writable field, each with a stable `field_key`,
 - computed columns,
+- the required hidden technical fields `record_id` and `row_version`,
 - required reference packs, if any,
-- default sort key and direction,
-- filter semantics,
-- write-back semantics,
+- an ordered default sort tuple,
+- filter semantics and any allowed grouping keys,
+- per-field write-back semantics, including write target or write action, `conflict_resolution_class`, and `entity_binding_mode` where relevant,
 - metadata needed to render the view consistently.
+
+Default sort tuples MUST be deterministic and MUST include `record_id` as the final tiebreaker unless a later profile explicitly overrides that rule.
+
+A base-profile implementation MUST expose the structured base-profile view-schema registry for conformance inspection through stored `view_schema` rows or an equivalent structured export. Conformance MUST NOT depend on scraping visible tab labels, column labels, or interactive UI behavior alone.
 
 View behavior MUST bind to `view_schema_id`, not to the visible tab label, column header text, or any other display label.
 
@@ -236,6 +242,226 @@ The base profile MUST also expose contextual `add linked note` actions from Time
 
 Notes behavior MUST NOT depend on the visible tab label. If the implementation allows the built-in Notes tab to be renamed or hidden per user, write-back behavior and export semantics MUST remain unchanged because they are bound to `view_schema_id`.
 
+### 7.4 Authoritative base-profile view schema registry
+
+The base profile MUST define the following nine pack-independent `view_schema` entries as the authoritative base-profile registry:
+
+- `cartulary.view.timeline.v1`,
+- `cartulary.view.hosts.v1`,
+- `cartulary.view.identities.v1`,
+- `cartulary.view.evidence.v1`,
+- `cartulary.view.notes.v1`,
+- `cartulary.view.indicators.v1`,
+- `cartulary.view.assessments.v1`,
+- `cartulary.view.task_requests.v1`,
+- `cartulary.view.decisions.v1`.
+
+These nine entries are the contract-backed surfaces required by §7.1 and §7.2. Additional `view_schema` entries MAY exist for saved views, coordination-artifact surfaces, optional reference-pack overlays, or later profiles, but they MUST NOT change the membership or semantics of the base-profile registry defined in this subsection.
+
+Unless explicitly overridden below:
+
+- `required_reference_pack_keys` MUST be `[]`,
+- `record_id` and `row_version` MUST be present as hidden technical fields,
+- the ordered default sort tuple is normative and MUST end with `record_id asc`,
+- filter semantics MUST be type-driven unless a schema below explicitly overrides them: enum and boolean fields use exact-match inclusion, timestamp and date fields use exact or range predicates, scalar identifier text uses case-insensitive exact or prefix matching, multi-value collections use `contains_any` and `contains_all`, and declared full-text predicates use case-insensitive token search,
+- every writable field entry MUST declare `field_key`, read model, write target or write action, and `conflict_resolution_class`,
+- every entity-bearing writable field entry MUST declare `entity_binding_mode`,
+- fields not declared writable are read-only,
+- per-user hide/show or reordering MAY change presentation but MUST NOT change field identity, filter semantics, or write-back semantics.
+
+#### 7.4.1 `cartulary.view.timeline.v1`
+
+- surface: built-in `Timeline` sheet
+- source record types: `timeline_event`
+- base projection: `timeline_grid_projection`
+- `default_visible_fields`: `timeline.occurred_at`, `timeline.summary`, `timeline.host_refs`, `timeline.identity_refs`, `timeline.evidence_count`, `timeline.tags`, `timeline.edited_at`
+- `default_hidden_fields`: `record_id`, `row_version`, `timeline.details`, `timeline.source_text`, `timeline.recorded_at`, `timeline.sort_ts`, `timeline.capture_state`, `timeline.occurred_day`, `timeline.recorded_day`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`
+- `default_sort`: `timeline.sort_ts asc`, `record_id asc`. `timeline.sort_ts` MUST equal `occurred_at` when present and `recorded_at` otherwise.
+- `filter_fields`: `timeline.occurred_day`, `timeline.recorded_day`, `timeline.capture_state`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`, `timeline.tags`
+- `grouping_fields`: `timeline.occurred_day`, `timeline.recorded_day`, `timeline.capture_state`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`
+- inline create: blank-row or equivalent grid-native creation MUST create a `timeline_event` record
+- writable fields:
+  - `timeline.occurred_at`: read `occurred_at`; write target `timeline_events.occurred_at`; `conflict_resolution_class=atomic_replace`
+  - `timeline.summary`: read `summary`; write target `timeline_events.summary`; `conflict_resolution_class=text_compare_merge`
+  - `timeline.details`: read `details`; write target `timeline_events.details`; `conflict_resolution_class=text_compare_merge`
+  - `timeline.source_text`: read `source_text`; write target `timeline_events.source_text`; `conflict_resolution_class=text_compare_merge`
+  - `timeline.host_refs`: read resolved host chips plus unresolved host mentions; write action insert, update, or dismiss `entity_mentions` and resolved host `record_links` under `entity_binding_mode=mention_origin`; `conflict_resolution_class=collection_review`
+  - `timeline.identity_refs`: read resolved identity chips plus unresolved identity mentions; write action insert, update, or dismiss `entity_mentions` and resolved identity `record_links` under `entity_binding_mode=mention_origin`; `conflict_resolution_class=collection_review`
+  - `timeline.tags`: read `tag_names`; write action upsert tags and `record_tags`; `conflict_resolution_class=collection_review`
+- read-only computed fields: `timeline.evidence_count`, `timeline.capture_state`, `timeline.edited_at`, `timeline.sort_ts`, `timeline.occurred_day`, `timeline.recorded_day`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`
+
+#### 7.4.2 `cartulary.view.hosts.v1`
+
+- surface: built-in `Hosts` sheet
+- source record types: `host`
+- base projection: `host_grid_projection`
+- `default_visible_fields`: `host.display_name`, `host.hostname`, `host.aliases`, `host.host_state`, `host.linked_event_count`, `host.evidence_count`, `host.location`, `host.os_platform`, `host.business_owner`, `host.criticality`, `host.containment_status`, `host.edited_at`
+- `default_hidden_fields`: `record_id`, `row_version`
+- `default_sort`: `host.display_name asc`, `record_id asc`
+- `filter_fields`: `host.host_state`, `host.business_owner`, `host.criticality`, `host.location`, `host.os_platform`, `host.containment_status`
+- inline create: direct row creation or paste on the Hosts sheet MUST create or upsert a `host` record using `entity_binding_mode=entity_origin`
+- writable fields:
+  - `host.display_name`: read the canonical host display field; write target the canonical host display field on the underlying `host` record; `entity_binding_mode=entity_origin`; `conflict_resolution_class=atomic_replace`
+  - `host.hostname`: read `hostname`; write target the canonical hostname field on the underlying `host` record; `entity_binding_mode=entity_origin`; `conflict_resolution_class=atomic_replace`
+  - `host.aliases`: read projected alias chips; write action upsert or remove `entity_aliases`; `entity_binding_mode=entity_origin`; `conflict_resolution_class=collection_review`
+  - `host.location`: read `location`; write target the `location` field on the underlying `host` record; `conflict_resolution_class=atomic_replace`
+  - `host.os_platform`: read `os_platform`; write target the `os_platform` field on the underlying `host` record; `conflict_resolution_class=atomic_replace`
+  - `host.business_owner`: read `business_owner`; write target the `business_owner` field on the underlying `host` record; `conflict_resolution_class=atomic_replace`
+  - `host.criticality`: read `criticality`; write target the `criticality` field on the underlying `host` record; `conflict_resolution_class=atomic_replace`
+  - `host.containment_status`: read `containment_status`; write target the `containment_status` field on the underlying `host` record; `conflict_resolution_class=atomic_replace`
+- read-only computed fields: `host.host_state`, `host.linked_event_count`, `host.evidence_count`, `host.edited_at`. `host.host_state` MUST be a projection-backed state equivalent to `stub` or `canonical`.
+
+#### 7.4.3 `cartulary.view.identities.v1`
+
+- surface: built-in `Identities` sheet
+- source record types: `identity`
+- base projection: `identity_grid_projection`
+- `default_visible_fields`: `identity.display_name`, `identity.upn`, `identity.email`, `identity.sam_account_name`, `identity.aliases`, `identity.identity_state`, `identity.linked_event_count`, `identity.evidence_count`, `identity.privilege_level`, `identity.mfa_state`, `identity.reset_status`, `identity.edited_at`
+- `default_hidden_fields`: `record_id`, `row_version`
+- `default_sort`: `identity.display_name asc`, `record_id asc`
+- `filter_fields`: `identity.identity_state`, `identity.privilege_level`, `identity.mfa_state`, `identity.reset_status`
+- inline create: direct row creation or paste on the Identities sheet MUST create or upsert an `identity` record using `entity_binding_mode=entity_origin`
+- writable fields:
+  - `identity.display_name`: read the canonical identity display field; write target the canonical identity display field on the underlying `identity` record; `entity_binding_mode=entity_origin`; `conflict_resolution_class=atomic_replace`
+  - `identity.upn`: read `upn`; write target the canonical UPN field on the underlying `identity` record; `entity_binding_mode=entity_origin`; `conflict_resolution_class=atomic_replace`
+  - `identity.email`: read `email`; write target the canonical email field on the underlying `identity` record; `entity_binding_mode=entity_origin`; `conflict_resolution_class=atomic_replace`
+  - `identity.sam_account_name`: read `sam_account_name`; write target the canonical `sam_account_name` field on the underlying `identity` record; `entity_binding_mode=entity_origin`; `conflict_resolution_class=atomic_replace`
+  - `identity.aliases`: read projected alias chips; write action upsert or remove `entity_aliases`; `entity_binding_mode=entity_origin`; `conflict_resolution_class=collection_review`
+  - `identity.privilege_level`: read `privilege_level`; write target the `privilege_level` field on the underlying `identity` record; `conflict_resolution_class=atomic_replace`
+  - `identity.mfa_state`: read `mfa_state`; write target the `mfa_state` field on the underlying `identity` record; `conflict_resolution_class=atomic_replace`
+  - `identity.reset_status`: read `reset_status`; write target the `reset_status` field on the underlying `identity` record; `conflict_resolution_class=atomic_replace`
+- read-only computed fields: `identity.identity_state`, `identity.linked_event_count`, `identity.evidence_count`, `identity.edited_at`. `identity.identity_state` MUST be a projection-backed state equivalent to `stub` or `canonical`.
+
+#### 7.4.4 `cartulary.view.evidence.v1`
+
+- surface: built-in `Evidence` sheet
+- source record types: `evidence`
+- base projection: `evidence_grid_projection`
+- `default_visible_fields`: `evidence.title`, `evidence.lifecycle_state`, `evidence.requested_at`, `evidence.received_at`, `evidence.storage_ref`, `evidence.blob_hash`, `evidence.collector_party_text`, `evidence.source_party_text`, `evidence.upload_state`, `evidence.linked_record_count`, `evidence.edited_at`
+- `default_hidden_fields`: `record_id`, `row_version`
+- `default_sort`: `evidence.requested_at desc`, `record_id asc`
+- `filter_fields`: `evidence.lifecycle_state`, `evidence.upload_state`, `evidence.requested_at`, `evidence.received_at`, `evidence.collector_party_text`, `evidence.source_party_text`, `evidence.storage_ref`, `evidence.blob_hash`
+- inline create: blank-row or equivalent grid-native creation MUST create an evidence record even when no blob exists yet
+- writable fields:
+  - `evidence.title`: read the evidence title field; write target the evidence record title field; `conflict_resolution_class=text_compare_merge`
+  - `evidence.lifecycle_state`: read `lifecycle_state`; write target `evidence_records.lifecycle_state`; `conflict_resolution_class=atomic_replace`. State-dependent field guards and blob-bridge invariants from Core 02 §13 and Core 03 §8.3 apply.
+  - `evidence.requested_at`: read `requested_at`; write target `evidence_records.requested_at`; `conflict_resolution_class=atomic_replace`
+  - `evidence.received_at`: read `received_at`; write target `evidence_records.received_at`; `conflict_resolution_class=atomic_replace`
+  - `evidence.storage_ref`: read `storage_ref`; write target `evidence_records.storage_ref`; `conflict_resolution_class=atomic_replace`
+  - `evidence.collector_party_text`: read `collector_party_text`; write target `evidence_records.collector_party_text`; `conflict_resolution_class=text_compare_merge`
+  - `evidence.source_party_text`: read `source_party_text`; write target `evidence_records.source_party_text`; `conflict_resolution_class=text_compare_merge`
+- read-only computed fields: `evidence.blob_hash`, `evidence.upload_state`, `evidence.linked_record_count`, `evidence.edited_at`
+- blob attach or replacement MUST remain an explicit evidence action. It MUST NOT be modeled as a direct write to `evidence.blob_hash` or `evidence.upload_state`.
+
+#### 7.4.5 `cartulary.view.notes.v1`
+
+- surface: built-in `Notes` sheet
+- source record types: `artifact`
+- base projection: `artifact_grid_projection` filtered to `artifact_type='note'`
+- `default_visible_fields`: `note.title`, `note.body`, `note.tags`, `note.linked_record_count`, `note.updated_at`
+- `default_hidden_fields`: `record_id`, `row_version`, `note.created_by_user_id`
+- `default_sort`: `note.updated_at desc`, `record_id asc`
+- `filter_fields`: `note.tags`, `note.created_by_user_id`, `note.updated_at`, plus a contract-declared full-text predicate over `note.title` and `note.body`
+- inline create: blank-row or equivalent grid-native creation MUST create an `artifact` record with `artifact_type='note'`
+- writable fields:
+  - `note.title`: read the note title field; write target the note artifact title field; `conflict_resolution_class=text_compare_merge`
+  - `note.body`: read the note body field; write target the note artifact body field; `conflict_resolution_class=text_compare_merge`
+  - `note.tags`: read `tag_names`; write action upsert tags and `record_tags`; `conflict_resolution_class=collection_review`
+- read-only computed fields: `note.linked_record_count`, `note.updated_at`, `note.created_by_user_id`
+
+#### 7.4.6 `cartulary.view.indicators.v1`
+
+- surface: contract-backed `Indicators` system view
+- source record types: `indicator`
+- base projection: `indicator_grid_projection`
+- `default_visible_fields`: `indicator.indicator_type`, `indicator.value_kind`, `indicator.display_value`, `indicator.normalized_value`, `indicator.defanged_value`, `indicator.hash_algorithm`, `indicator.hash_value`, `indicator.stix_pattern`, `indicator.first_observed_at`, `indicator.last_observed_at`, `indicator.observation_count`, `indicator.lifecycle_summary`, `indicator.supporting_link_count`
+- `default_hidden_fields`: `record_id`, `row_version`
+- `default_sort`: `indicator.last_observed_at desc`, `indicator.display_value asc`, `record_id asc`
+- `filter_fields`: `indicator.indicator_type`, `indicator.value_kind`, `indicator.hash_algorithm`, `indicator.first_observed_at`, `indicator.last_observed_at`, `indicator.lifecycle_summary`
+- inline create: blank-row or equivalent grid-native creation MUST create a canonical `indicator` record
+- writable fields on create only:
+  - `indicator.indicator_type`: read `indicator_type`; write target the `indicator_type` field on the underlying `indicator` record; `conflict_resolution_class=atomic_replace`
+  - `indicator.value_kind`: read `value_kind`; write target the `value_kind` field on the underlying `indicator` record; `conflict_resolution_class=atomic_replace`
+  - `indicator.display_value`: read the canonical display value; write target the canonical display-value field on the underlying `indicator` record; `conflict_resolution_class=atomic_replace`
+  - `indicator.normalized_value`: read `normalized_value`; write target the `normalized_value` field on the underlying `indicator` record; `conflict_resolution_class=atomic_replace`
+  - `indicator.defanged_value`: read `defanged_value`; write target the `defanged_value` field on the underlying `indicator` record; `conflict_resolution_class=atomic_replace`
+  - `indicator.hash_algorithm`: read `hash_algorithm`; write target the `hash_algorithm` field on the underlying `indicator` record; `conflict_resolution_class=atomic_replace`
+  - `indicator.hash_value`: read `hash_value`; write target the `hash_value` field on the underlying `indicator` record; `conflict_resolution_class=atomic_replace`
+  - `indicator.stix_pattern`: read `stix_pattern`; write target the `stix_pattern` field on the underlying `indicator` record; `conflict_resolution_class=text_compare_merge`
+- read-only computed fields: `indicator.first_observed_at`, `indicator.last_observed_at`, `indicator.observation_count`, `indicator.lifecycle_summary`, `indicator.supporting_link_count`
+- grid edits to an existing indicator row MUST reject writes to `indicator.indicator_type`, `indicator.value_kind`, `indicator.display_value`, `indicator.normalized_value`, and any type-specific dedupe basis.
+
+#### 7.4.7 `cartulary.view.assessments.v1`
+
+- surface: contract-backed `Assessments` system view
+- source record types: `assessment`
+- base projection: `assessment_grid_projection`
+- `default_visible_fields`: `assessment.subject_ref`, `assessment.subject_type`, `assessment.assessment_state`, `assessment.confidence_band`, `assessment.confidence_score`, `assessment.rationale`, `assessment.assessor`, `assessment.assessed_at`, `assessment.supporting_link_count`
+- `default_hidden_fields`: `record_id`, `row_version`, `assessment.support_refs`
+- `default_sort`: `assessment.assessed_at desc`, `record_id asc`
+- `filter_fields`: `assessment.subject_type`, `assessment.assessment_state`, `assessment.confidence_band`, `assessment.assessed_at`
+- inline create: blank-row or equivalent grid-native creation MUST append a new `assessment` record
+- writable fields on create only:
+  - `assessment.subject_ref`: read the subject record reference; write target the assessment subject reference; `conflict_resolution_class=atomic_replace`
+  - `assessment.subject_type`: read the subject type; write target the assessment subject type; `conflict_resolution_class=atomic_replace`
+  - `assessment.assessment_state`: read `assessment_state`; write target the `assessment_state` field on the underlying `assessment` record; `conflict_resolution_class=atomic_replace`
+  - `assessment.confidence_score`: read `confidence_score`; write target the `confidence_score` field on the underlying `assessment` record; `conflict_resolution_class=atomic_replace`. A band-first editor MUST map `unset`, `low`, `medium`, and `high` to `NULL`, `25`, `55`, and `85` respectively.
+  - `assessment.rationale`: read `rationale`; write target the `rationale` field on the underlying `assessment` record; `conflict_resolution_class=text_compare_merge`
+  - `assessment.assessor`: read the assessor field; write target the assessor field on the underlying `assessment` record; `conflict_resolution_class=atomic_replace`
+  - `assessment.assessed_at`: read `assessed_at`; write target the `assessed_at` field on the underlying `assessment` record; `conflict_resolution_class=atomic_replace`
+  - `assessment.support_refs`: read supporting record references; write action upsert supporting `record_links` or denormalized support references; `conflict_resolution_class=collection_review`
+- read-only computed fields: `assessment.confidence_band`, `assessment.supporting_link_count`
+- grid edits to an existing assessment row MUST reject writes to `assessment.subject_ref`, `assessment.subject_type`, `assessment.assessment_state`, `assessment.confidence_score`, `assessment.rationale`, `assessment.assessor`, `assessment.assessed_at`, and `assessment.support_refs`.
+
+#### 7.4.8 `cartulary.view.task_requests.v1`
+
+- surface: contract-backed `Task Requests` system view
+- source record types: `task_request`
+- base projection: `task_request_grid_projection`
+- `default_visible_fields`: `task.title`, `task.status`, `task.owner_user_id`, `task.priority`, `task.task_kind`, `task.workstream`, `task.due_at`, `task.requester_party_text`, `task.blocked_reason`, `task.completed_at`, `task.external_ticket_ref`, `task.linked_record_count`, `task.updated_at`
+- `default_hidden_fields`: `record_id`, `row_version`, `task.closure_summary`, `task.linked_record_ids`, `task.decision_record_id`, `task.no_owner`
+- `default_sort`: `task.updated_at desc`, `record_id asc`
+- `filter_fields`: `task.status`, `task.owner_user_id`, `task.priority`, `task.task_kind`, `task.workstream`, `task.due_at`, `task.requester_party_text`, `task.blocked_reason`, `task.completed_at`, `task.external_ticket_ref`, `task.no_owner`
+- inline create: blank-row or equivalent grid-native creation MUST create a `task_request` record
+- writable fields:
+  - `task.title`: read `title`; write target the `title` field on the underlying `task_request` record; `conflict_resolution_class=text_compare_merge`
+  - `task.status`: read `status`; write target the `status` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
+  - `task.owner_user_id`: read `owner_user_id`; write target the `owner_user_id` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
+  - `task.priority`: read `priority`; write target the `priority` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
+  - `task.task_kind`: read `task_kind`; write target the `task_kind` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
+  - `task.workstream`: read `workstream`; write target the `workstream` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
+  - `task.due_at`: read `due_at`; write target the `due_at` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
+  - `task.requester_party_text`: read `requester_party_text`; write target the `requester_party_text` field on the underlying `task_request` record; `conflict_resolution_class=text_compare_merge`
+  - `task.blocked_reason`: read `blocked_reason`; write target the `blocked_reason` field on the underlying `task_request` record; `conflict_resolution_class=text_compare_merge`
+  - `task.completed_at`: read `completed_at`; write target the `completed_at` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
+  - `task.external_ticket_ref`: read `external_ticket_ref`; write target the `external_ticket_ref` field on the underlying `task_request` record; `conflict_resolution_class=atomic_replace`
+  - `task.closure_summary`: read `closure_summary`; write target the `closure_summary` field on the underlying `task_request` record; `conflict_resolution_class=text_compare_merge`
+  - `task.linked_record_ids`: read linked record references; write action upsert or remove linked `record_links`; `conflict_resolution_class=collection_review`
+  - `task.decision_record_id`: read `decision_record_id`; write target the `decision_record_id` field on the underlying `task_request` record or an equivalent linked decision reference; `conflict_resolution_class=atomic_replace`
+- read-only computed fields: `task.linked_record_count`, `task.updated_at`, `task.no_owner`
+- state-dependent guards remain authoritative: `status='blocked'` requires `blocked_reason`, `status='done'` requires `completed_at`, and active tasks MUST NOT be ownerless.
+
+#### 7.4.9 `cartulary.view.decisions.v1`
+
+- surface: contract-backed `Decisions` system view
+- source record types: `decision`
+- base projection: `decision_grid_projection`
+- `default_visible_fields`: `decision.summary`, `decision.status`, `decision.owner_user_id`, `decision.decision_type`, `decision.decided_at`, `decision.rationale`, `decision.support_refs`, `decision.affected_record_count`, `decision.supersedes_record_id`, `decision.updated_at`
+- `default_hidden_fields`: `record_id`, `row_version`, `decision.is_superseded`
+- `default_sort`: `decision.decided_at desc`, `record_id asc`
+- `filter_fields`: `decision.status`, `decision.owner_user_id`, `decision.decision_type`, `decision.decided_at`, `decision.is_superseded`
+- inline create: blank-row or equivalent grid-native creation MUST create a `decision` record
+- writable fields:
+  - `decision.summary`: read `summary`; write target the `summary` field on the underlying `decision` record; `conflict_resolution_class=text_compare_merge`
+  - `decision.status`: read `status`; write target the `status` field on the underlying `decision` record; `conflict_resolution_class=atomic_replace`
+  - `decision.owner_user_id`: read `owner_user_id`; write target the `owner_user_id` field on the underlying `decision` record; `conflict_resolution_class=atomic_replace`
+  - `decision.decision_type`: read `decision_type`; write target the `decision_type` field on the underlying `decision` record; `conflict_resolution_class=atomic_replace`
+  - `decision.decided_at`: read `decided_at`; write target the `decided_at` field on the underlying `decision` record; `conflict_resolution_class=atomic_replace`
+  - `decision.rationale`: read `rationale`; write target the `rationale` field on the underlying `decision` record; `conflict_resolution_class=text_compare_merge`
+  - `decision.support_refs`: read `support_refs`; write action upsert or remove supporting `record_links` or denormalized support references; `conflict_resolution_class=collection_review`
+- read-only computed fields: `decision.affected_record_count`, `decision.supersedes_record_id`, `decision.updated_at`, `decision.is_superseded`
+- supersession remains an explicit decision-linking flow. It MUST NOT be modeled as a direct write to `decision.supersedes_record_id` in the base-profile grid.
+
 ## 8. Projection model
 
 ### 8.1 Projection tables
@@ -291,7 +517,7 @@ Hot workbook sheets MUST serve the visible viewport from projection rows and oth
 
 Interactive retrieval for hot workbook sheets MUST use a deterministic sort tuple and stable cursor, keyset, or viewport/block retrieval. It MUST NOT rely on deep `OFFSET` pagination for large incidents.
 
-Projection tables MUST support deterministic interactive retrieval over the default sort key and any contract-declared interactive grouping key for the view. An implementation MAY satisfy this with indexes or an equivalent mechanism that preserves the same observable latency envelope.
+Projection tables MUST support deterministic interactive retrieval over the ordered default sort tuple and any contract-declared interactive grouping key for the view. An implementation MAY satisfy this with indexes or an equivalent mechanism that preserves the same observable latency envelope.
 
 Projection rows for hot workbook sheets MUST carry the scalar fields required for interactive sort, filter, grouping, selection anchoring, and evidence badges in the visible viewport. For the Timeline sheet, this MUST include at least `sort_ts`, day buckets equivalent to `timeline.occurred_day` and `timeline.recorded_day`, `capture_state`, `has_evidence`, `has_unresolved_mentions`, and `evidence_count`.
 

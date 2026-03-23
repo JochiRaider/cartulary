@@ -355,7 +355,7 @@ The inspector or an equivalent same-surface enrichment flow MUST support:
 
 Indicator capture from Timeline, Notes, Evidence, and other supported source fields MUST preserve the raw source field unchanged. It MUST NOT require dedicated IOC columns on non-indicator sheets.
 
-Direct creation or editing on the Indicators system view MUST create or update canonical indicator records. Observation creation from a source field MUST remain distinct from canonical indicator creation even when both happen in one analyst action.
+Direct row creation on the Indicators system view MUST create canonical indicator records. Grid edits to an existing indicator row MUST be limited to the fields that the active `view_schema` declares writable for existing indicator rows. In the base profile, the identity-defining fields of an existing indicator row, including `indicator_type`, `value_kind`, canonical display value, `normalized_value`, and any type-specific dedupe basis, MUST be read-only in-grid. Observation creation from a source field MUST remain distinct from canonical indicator creation even when both happen in one analyst action.
 
 ## 10. Reviewer history and rollback workflow
 
@@ -819,14 +819,18 @@ The Timeline sheet MUST read from `timeline_grid_projection` or an equivalent pr
 
 The implementation MUST preserve the following write-back semantics:
 
-| Timeline column | Read model | Required write-back behavior |
+| Timeline field or column | Read model | Required write-back behavior |
 | --- | --- | --- |
 | Time | `occurred_at` | update `timeline_events.occurred_at` |
-| Summary | `summary` | update `timeline_events.summary` and, when applicable, `details` |
+| Summary | `summary` | update `timeline_events.summary` only |
+| Details | `details` | update `timeline_events.details` only |
+| Source Text | `source_text` | update `timeline_events.source_text` only |
 | Hosts | host labels plus unresolved host tokens | if a unique exact normalized alias match qualifies for auto-resolution, insert resolved `entity_mentions` plus `record_links` with `provenance='auto_match'` and `confidence=100`; otherwise insert unresolved `entity_mentions` |
 | Identities | identity labels plus unresolved identity tokens | if a unique exact normalized alias match qualifies for auto-resolution, insert resolved `entity_mentions` plus `record_links` with `provenance='auto_match'` and `confidence=100`; otherwise insert unresolved `entity_mentions` |
 | Evidence | `evidence_count` | create `object_blob`, `evidence_record`, and `record_link` |
 | Tags | `tag_names` | upsert tags and record-tag bindings |
+
+Core 01 §7.4.1 fixes the authoritative Timeline `view_schema_id`, ordered field set, hidden technical fields, default sort tuple, filter whitelist, and grouping whitelist for the base profile.
 
 Reads MAY be denormalized. Write-back MUST remain intent-aware and contract-driven.
 
@@ -842,7 +846,9 @@ Canonical fields such as `display_name`, `hostname`, `upn`, host `location`, `os
 
 Alias cells MUST behave like chip editors.
 
-Relationship-derived columns such as linked-event counts MUST be read-only and navigable.
+Relationship-derived or machine-derived columns such as linked-event counts, evidence counts, blob-upload state, preview handles, and last-updated markers MUST be read-only and navigable.
+
+Entity normalization-state fields equivalent to `stub` or `canonical` MUST be projection-backed and read-only in-grid in the base profile. A normalization transition such as `stub -> canonical` MAY be exposed through the inspector or another explicit flow, but it MUST NOT be an ordinary cell edit on the Hosts or Identities sheet.
 
 ### 16.2 Inspector
 
@@ -863,9 +869,11 @@ Interactive assessment-entry surfaces MUST keep `assessment_state` separate from
 
 Interactive assessment-entry surfaces MUST expose confidence by default as `unset`, `low`, `medium`, or `high`. They MAY additionally expose an exact integer `confidence_score` in the range `0..100` as a secondary control.
 
-When the band-first path is used, the implementation MUST persist canonical default scores of `25` for `low`, `55` for `medium`, and `85` for `high`. `unset` MUST persist `confidence_score=NULL`.
+When the band-first path is used, the implementation MUST persist canonical default scores of `25` for `low`, `55` for `medium`, and `85` for `high`. `unset` MUST persist `confidence_score=NULL`. A band-first control MUST write `confidence_score`; `confidence_band` remains derived.
 
 Workbook filtering on compromise-assessment surfaces MUST treat `assessment_state` and `confidence_band` as separate fields.
+
+The base-profile Assessments view is append-only for semantic assessment fields. Creating a row or equivalent entry MUST append a new assessment record. In-place grid edits to an existing assessment row MUST NOT overwrite `subject_ref`, `subject_type`, `assessment_state`, `confidence_score`, `rationale`, `assessor`, `assessed_at`, or supporting-link semantics; correction or superseding flows MUST append a new assessment record instead.
 
 ### 16.4 Analyst-work coordination surfaces
 
