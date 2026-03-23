@@ -34,6 +34,8 @@ The base profile MUST support the following core objects:
 - **Reference pack**: versioned optional vocabulary, framework, or enrichment dataset.
 - **View schema**: contract for a built-in sheet or system view.
 - **Saved view**: workbook configuration over a projection or view schema.
+- **User workbook preferences**: incident-scoped per-user startup surface preference.
+- **Incident workbook preferences**: incident-wide fallback startup surface preference.
 
 ## 3. Record envelope contract
 
@@ -77,7 +79,7 @@ The following data classes MUST remain normalized structured state:
 - indicator observations and indicator lifecycle intervals,
 - compromise assessments,
 - reference-pack manifests, activation state, attestation metadata, and type registries,
-- view schemas and saved views,
+- view schemas, saved views, and workbook preference objects,
 - promoted operational fields on incident, host, identity, task-request, indicator, and evidence surfaces as defined in §4.4 and §4.5,
 - snapshot descriptors, canonical export-model metadata, versioned template-contract metadata, versioned redaction-profile metadata, redaction manifests, and artifact release records when the Snapshot and Reporting Extension Profile is implemented.
 
@@ -97,7 +99,8 @@ JSONB MAY be used for:
 - raw import remnants,
 - optional enrichment metadata,
 - low-frequency custom fields,
-- saved view layout configuration.
+- normalized saved-view query state,
+- saved-view layout configuration.
 
 JSONB MUST NOT be the authoritative storage for:
 
@@ -105,7 +108,10 @@ JSONB MUST NOT be the authoritative storage for:
 - canonical names or primary identifiers,
 - record relationships,
 - evidence metadata required for retrieval,
+- saved-view identity, scope, ownership, or startup/default surface selection,
 - any field that requires reliable filtering or indexing at operational scale.
+
+Saved-view `query_json` MAY remain in JSONB only when it is normalized against the owning `view_schema_id` and uses stable `field_key` values, ordered sort/filter entries, optional `group_by`, and normalized scalar values. Saved-view `layout_json` MAY describe presentation only. Neither `query_json` nor `layout_json` MAY be the authoritative source for saved-view identity, scope, ownership, authorization, or startup/default surface selection.
 
 Multi-valued relationships MUST NOT remain only in `custom_attrs` or other JSONB fields. They MUST use typed link rows or dedicated child tables. Scalar convenience projections MAY exist, but they MUST NOT be the authoritative relationship store.
 
@@ -853,6 +859,59 @@ Entity-bearing columns and import mappings MUST carry stable `field_key` values 
 
 View contracts and import mappings that support structured indicator capture from source text MUST declare the eligible `field_key` values or equivalent stable field identifiers. Visible labels MUST NOT determine indicator-capture behavior.
 
+### 11.1 Saved-view contract
+
+A saved view MUST be an incident-scoped configuration object over exactly one `view_schema`.
+
+A saved view MUST persist, at minimum:
+
+- stable `saved_view_id`,
+- owning `incident_id`,
+- immutable `view_schema_id`,
+- `scope` with one of `private`, `shared`, or `system`,
+- `display_name`,
+- normalized `query_json`,
+- `layout_json`,
+- `owner_user_id`,
+- `created_at`,
+- `updated_at`,
+- monotonically increasing `saved_view_version`.
+
+`owner_user_id` MUST be present for `private` and `shared` saved views. It MAY be null only for `system` saved views.
+
+`query_json` MUST preserve saved-view sort, filter, and grouping state using stable `field_key` values, stable grouping identifiers, and normalized scalar values. It MUST NOT store visible labels as the authoritative identifier for any saved sort, filter, or grouping element.
+
+A saved view created by duplicating another saved view MUST persist a full normalized copy of the source `view_schema_id`, `query_json`, and `layout_json`. The new saved view MUST NOT carry a runtime dependency on the source `saved_view_id`.
+
+The schema MUST enforce immutability of `saved_view_id`, `incident_id`, and `view_schema_id` after creation.
+
+### 11.2 Workbook startup preference objects
+
+The schema MUST support two distinct workbook-startup preference objects:
+
+- `user_workbook_preferences`, keyed by `(incident_id, user_id)`,
+- `incident_workbook_preferences`, keyed by `incident_id`.
+
+`user_workbook_preferences` MUST persist, at minimum:
+
+- `incident_id`,
+- `user_id`,
+- nullable `home_sheet_ref`,
+- `created_at`,
+- `updated_at`.
+
+`incident_workbook_preferences` MUST persist, at minimum:
+
+- `incident_id`,
+- nullable `default_sheet_ref`,
+- `created_at`,
+- `updated_at`,
+- `updated_by_user_id`.
+
+Both `home_sheet_ref` and `default_sheet_ref` MUST use the `sheet_ref` union defined by Core 01 §3.3.10.1 and MUST be nullable so the implementation can clear an invalid or unwanted pointer without deleting the preference object.
+
+The schema MUST NOT overload saved-view rows with a generic `is_default` flag or any equivalent bit that conflates per-user startup selection, incident-wide fallback selection, or system-seeded queue surfaces.
+
 ## 12. Typed relationships
 
 The implementation MUST provide a generic typed relationship store equivalent to `record_links`.
@@ -966,6 +1025,8 @@ The schema MUST support:
 - reference-pack manifest fields sufficient to persist `pack_key`, `pack_kind`, `pack_version`, `source_identifier`, `manifest_sha256`, one or more payload SHA-256 digests in deterministic member order or an equivalent canonical aggregate digest, declared `pack_contract_version`, signature or trusted-source metadata, `verification_method`, and non-active availability state,
 - reference-pack activation and attestation fields sufficient to persist one active-version pointer per `pack_key`, imported and activated actor attribution with timestamps, `previous_active_version`, `verification_result`, and optional operator note or change ticket,
 - incident fields sufficient to persist `tlp`, `current_phase`, and `primary_external_case_ref`,
+- saved-view fields sufficient to persist immutable `view_schema_id`, `scope`, `display_name`, normalized `query_json`, `layout_json`, nullable `owner_user_id`, and monotonically increasing `saved_view_version`,
+- workbook-preference fields sufficient to persist per-user `home_sheet_ref` and incident-wide `default_sheet_ref` separately without overloading a saved-view row flag,
 - `entity_origin` and seed provenance on host and identity records,
 - host fields sufficient to persist `location`, `os_platform`, `business_owner`, `criticality`, and `containment_status`,
 - identity fields sufficient to persist `privilege_level`, `mfa_state`, and `reset_status`,

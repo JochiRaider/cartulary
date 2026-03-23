@@ -133,7 +133,8 @@ The base-profile route set MUST include stable route families for:
 - incident discovery and incident metadata: `GET /api/v1/incidents`, `GET /api/v1/incidents/{incident_id}`,
 - incident membership inspection: `GET /api/v1/incidents/{incident_id}/memberships`,
 - view-schema discovery: `GET /api/v1/view-schemas`, `GET /api/v1/view-schemas/{view_schema_id}`,
-- saved-view discovery and persistence: `GET /api/v1/incidents/{incident_id}/saved-views`, `POST /api/v1/incidents/{incident_id}/saved-views`, `PATCH /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}`,
+- saved-view discovery and persistence: `GET /api/v1/incidents/{incident_id}/saved-views`, `POST /api/v1/incidents/{incident_id}/saved-views`, `PATCH /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}`, `DELETE /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}`,
+- workbook-preference discovery and persistence: `GET /api/v1/incidents/{incident_id}/workbook-preferences/me`, `PUT /api/v1/incidents/{incident_id}/workbook-preferences/me`, `GET /api/v1/incidents/{incident_id}/workbook-preferences/default`, `PUT /api/v1/incidents/{incident_id}/workbook-preferences/default`,
 - workbook query and row creation: `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`, `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`,
 - record mutation, history, rollback, and same-field conflict resolution: `PATCH /api/v1/records/{record_id}`, `GET /api/v1/records/{record_id}/history`, `POST /api/v1/records/{record_id}/rollback`, `POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve`,
 - entity-mention resolution and equivalent surface-specific resolve actions: `POST /api/v1/entity-mentions/{entity_mention_id}/resolve`,
@@ -182,6 +183,51 @@ The public mutation surface MUST be field-key-based and partial. The client MUST
 The server MUST validate each requested change against the active view contract, enforce per-field writeability and `conflict_resolution_class`, and route the write to the authoritative source field or declared write action without exposing internal table layout.
 
 A successful create or patch response MUST return the authoritative `record_id`, resulting `row_version`, and the committed field values needed to refresh the visible row.
+
+#### 3.3.5.1 Saved-view and workbook-preference contracts
+
+The saved-view route family MUST expose a saved-view resource containing, at minimum:
+
+- `saved_view_id`,
+- `incident_id`,
+- `view_schema_id`,
+- `scope`,
+- `display_name`,
+- `query_json`,
+- `layout_json`,
+- `owner_user_id`,
+- `created_at`,
+- `updated_at`,
+- `saved_view_version`.
+
+`scope` MUST use the closed vocabulary `private`, `shared`, and `system`.
+
+`owner_user_id` MUST be present for `private` and `shared` saved views. It MAY be null only for `system` saved views.
+
+`saved_view_version` MUST be monotonically increasing per `saved_view_id`.
+
+`query_json` MUST be normalized against the owning `view_schema_id` and encode saved-view sort, filter, and grouping state using stable `field_key` values, ordered `sort[]`, ordered `filters[]`, optional `group_by`, and normalized scalar values. It MUST NOT use visible tab labels, visible column labels, presentation-only group-header text, or other display-only identifiers.
+
+`layout_json` MAY encode presentation concerns such as column order, hidden fields, widths, inspector openness, and equivalent client layout state. `layout_json` MUST NOT be the authority for `saved_view_id`, `incident_id`, `view_schema_id`, `scope`, ownership, authorization, or startup/default surface selection.
+
+`GET /api/v1/incidents/{incident_id}/saved-views` MUST return only the saved-view resources visible to the caller.
+
+`POST /api/v1/incidents/{incident_id}/saved-views` MUST accept `view_schema_id`, optional `scope`, `display_name`, `query_json`, and `layout_json`. If `scope` is omitted, the server MUST treat it as `private`. The ordinary public create route MUST reject `scope='system'`.
+
+`PATCH /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}` MUST accept `base_saved_view_version` plus changed mutable fields only. It MUST reject attempted mutation of `incident_id`, `saved_view_id`, or `view_schema_id`. If the current saved-view version differs from `base_saved_view_version`, the server MUST reject the patch with an explicit conflict status rather than silently overwriting saved-view state.
+
+`DELETE /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}` MUST delete only the saved-view configuration object and MUST return the common success envelope with `data.saved_view_id` and `data.deleted=true`.
+
+The workbook-preference route family MUST expose two distinct resources:
+
+- `GET` and `PUT /api/v1/incidents/{incident_id}/workbook-preferences/me` for the authenticated caller's `user_workbook_preferences`,
+- `GET` and `PUT /api/v1/incidents/{incident_id}/workbook-preferences/default` for the incident-wide `incident_workbook_preferences`.
+
+Both workbook-preference resources MUST use the stable `sheet_ref` union defined in §3.3.10.1.
+
+`workbook-preferences/me` MUST expose, at minimum, `incident_id`, `user_id`, `home_sheet_ref`, `created_at`, and `updated_at`. `PUT /api/v1/incidents/{incident_id}/workbook-preferences/me` MUST accept a nullable `home_sheet_ref` and MUST allow any current incident member to set or clear only their own home-surface preference.
+
+`workbook-preferences/default` MUST expose, at minimum, `incident_id`, `default_sheet_ref`, `created_at`, `updated_at`, and `updated_by_user_id`. `PUT /api/v1/incidents/{incident_id}/workbook-preferences/default` MUST accept a nullable `default_sheet_ref` and MUST fail closed for callers whose current incident role is not `admin`.
 
 #### 3.3.6 Success and error envelopes
 
@@ -371,7 +417,7 @@ Postgres MUST store:
 - entity aliases and entity mentions,
 - record links and record tags,
 - change sets, mutation entries, and row revisions,
-- saved views and view schemas,
+- saved views, workbook preference objects, and view schemas,
 - projection tables,
 - blob metadata,
 - evidence lifecycle metadata,
@@ -403,6 +449,7 @@ The following are incident data:
 - evidence envelopes,
 - revisions,
 - saved views,
+- workbook preference objects,
 - immutable report snapshots.
 
 The following are reference packs:

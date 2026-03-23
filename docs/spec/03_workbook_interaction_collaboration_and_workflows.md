@@ -45,7 +45,76 @@ Such views MUST remain workbook surfaces rather than separate application module
 
 ### 2.3 Saved views
 
-Views MUST be saveable and shareable within the incident boundary according to the saved-view scope model.
+A saved view MUST be an incident-bound workbook configuration over exactly one `view_schema_id`.
+
+A saved view MUST persist, at minimum:
+
+- stable `saved_view_id`,
+- owning `incident_id`,
+- immutable `view_schema_id`,
+- `scope` with one of `private`, `shared`, or `system`,
+- `display_name`,
+- normalized `query_json`,
+- `layout_json`,
+- `owner_user_id`,
+- `created_at`,
+- `updated_at`,
+- `saved_view_version`.
+
+A saved view created from another saved view MUST persist a normalized copy of that source view's `view_schema_id`, `query_json`, and `layout_json`. After creation, the new saved view MUST NOT inherit runtime behavior from the source `saved_view_id`.
+
+`owner_user_id` MUST be present for `private` and `shared` saved views. It MAY be null only for `system` saved views.
+
+`incident_id`, `saved_view_id`, and `view_schema_id` MUST be immutable after creation.
+
+A `system` saved view is a saved-view configuration object with `scope='system'`. It is not the same object as a contract-backed system view identified by `view_schema_id`.
+
+#### 2.3.1 Scope and discoverability
+
+Saved-view scope MUST use exactly these three values:
+
+- `private`,
+- `shared`,
+- `system`.
+
+`private` means the saved-view object is visible only to its owner and incident admins. Any incident member MUST be able to create a `private` saved view for their own use.
+
+`shared` means the saved-view object is visible to all incident members. It MUST still record one owner for accountability. The owner and incident admins MUST be able to update or delete it in place. Other incident members MAY open it and duplicate it, but MUST NOT update or delete it in place through the ordinary saved-view routes.
+
+`system` means an implementation-owned or admin-seeded saved-view configuration still bound to one incident. It MUST be visible to all incident members, but it MUST be immutable through the ordinary saved-view write path. Users MAY duplicate a visible `system` saved view, but they MUST NOT edit or delete it in place through the ordinary saved-view routes.
+
+Saved-view scope controls discoverability and mutability of the saved-view object only. It MUST NOT widen or narrow access to underlying incident rows, fields, search results, export redaction behavior, or evidence visibility.
+
+#### 2.3.2 Ordinary lifecycle semantics
+
+Ordinary saved-view listing MUST return only the saved views visible to the caller.
+
+Ordinary saved-view creation MUST default `scope` to `private` when the request omits it. The ordinary public create path MUST reject `scope='system'`.
+
+Ordinary saved-view update MUST allow mutation only of `display_name`, `query_json`, `layout_json`, and, when permitted by scope rules, `scope` between `private` and `shared`. It MUST reject attempted mutation of `incident_id`, `saved_view_id`, or `view_schema_id`. Every successful in-place saved-view mutation MUST advance `saved_view_version`.
+
+Ordinary saved-view delete MUST delete only the saved-view configuration object. It MUST NOT delete or mutate underlying incident rows, links, tags, evidence records, or canonical entities.
+
+A user who can open a visible saved view MUST be able to duplicate it into a new saved view by persisting a normalized copy of its current `view_schema_id`, `query_json`, and `layout_json`.
+
+### 2.4 Startup and default surface selection
+
+Saved-view scope and startup/default surface selection MUST remain separate concerns.
+
+The per-user startup pointer MUST be `user_workbook_preferences.home_sheet_ref`. The incident-wide fallback pointer MUST be `incident_workbook_preferences.default_sheet_ref`.
+
+Both pointers MUST use the stable `sheet_ref` shape defined by Core 01 §3.3.10.1.
+
+Workbook open MUST select the starting surface in this order:
+
+1. an explicit launch `sheet_ref`, if present and still valid for the caller,
+2. the caller's `home_sheet_ref`, if present, still valid, and visible to the caller,
+3. the incident-wide `default_sheet_ref`, if present, still valid, and visible to the caller,
+4. `cartulary.view.timeline.v1`.
+
+If a referenced saved view or view schema is missing, no longer visible to the caller, or invalid because a required optional pack is unavailable, the implementation MUST clear the invalid pointer and continue to the next step in the ordered fallback chain rather than failing workbook open.
+
+Any incident member MUST be able to set or clear their own `home_sheet_ref`. Only incident admins MUST be able to set or clear `incident_workbook_preferences.default_sheet_ref`.
 
 ## 3. Collaboration and concurrency model
 
@@ -776,7 +845,7 @@ Grouping MUST NOT create, delete, or mutate:
 
 Timeline sheets MUST support `Group: None` plus exactly one active grouping key in the base profile.
 
-The active grouping key MUST be stored as a stable contract value in `saved_views.layout_json.group_by_key`, not as a visible label.
+The active grouping key MUST be stored as a stable contract value in `saved_views.query_json.group_by`, not as a visible label.
 
 The allowed grouping keys are exactly:
 
@@ -834,7 +903,7 @@ Dragging a row between groups MUST NOT be a write path.
 
 Transient expand and collapse state SHOULD remain client-local and MUST NOT be broadcast as collaborative state.
 
-Saved views MAY persist the default grouping key. They MUST NOT persist another user’s live open or closed state.
+Saved views MAY persist the default grouping key in `query_json.group_by`. They MUST NOT persist another user’s live open or closed state.
 
 ### 14.8 Grouping non-goals
 
