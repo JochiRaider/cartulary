@@ -528,6 +528,8 @@ If `status='blocked'`, `blocked_reason` MUST be non-empty.
 
 If `status='done'`, `completed_at` MUST be present and MUST NOT be earlier than `created_at`.
 
+The current profile standardizes the closed status vocabulary and the state-dependent field guards in this subsection. It does not yet require a complete legal transition matrix for `task_request.status`.
+
 An active `task_request` with `status` not in `done` or `canceled` MUST NOT be ownerless.
 
 If `linked_record_ids[]` or `decision_record_id` are persisted as denormalized convenience fields, authoritative cross-record association MUST still be representable through generic `record_links`.
@@ -555,6 +557,10 @@ A `decision` record MUST also be able to persist, at minimum, the following opti
 - `review_class`.
 
 If `affected_record_ids[]` or `supersedes_record_id` are persisted as denormalized convenience fields, authoritative cross-record association MUST still be representable through generic `record_links`.
+
+The current profile fixes status vocabularies and state-dependent field guards for `task_request` and `decision` records. It does NOT yet define exhaustive legal transition matrices for those status vocabularies. A later profile MAY add explicit transition matrices after the reference-pack, rendered artifact, and evidence lifecycle machines are stabilized.
+
+The current profile standardizes the closed status vocabulary in this subsection. It does not yet require a complete legal transition matrix for `decision.status`.
 
 #### 10.4.3 Ownership and hot-path boundary
 
@@ -687,6 +693,20 @@ If the Snapshot and Reporting Extension Profile is implemented, the domain model
 
 At minimum, an immutable snapshot descriptor MUST persist the release tuple defined by Core 01 §10.2.
 
+For rendered-output lifecycle, the authoritative persisted state MUST be artifact-scoped release records plus any bound approval records.
+
+For this lifecycle, the logical output slot is the bound release tuple excluding `output_sha256`.
+
+Each release record MUST also persist, at minimum:
+
+- `release_state` from a closed vocabulary equivalent to `pending_approval`, `approved`, `invalidated`, or `published`,
+- `approved_at`,
+- `invalidated_at`,
+- `published_at`,
+- optional `invalidation_reason`.
+
+A rendered output enters `pending_approval` when bytes and `output_sha256` exist for one immutable release tuple but the required approvals are not yet satisfied. It enters `approved` only when the required approvals are satisfied for that exact release record. It enters `published` only through an explicit publish action after approval. It enters `invalidated` when a different artifact for the same logical output slot supersedes it, when `output_sha256` changes for that slot, or when the implementation can no longer attest that the required approval set applies to that exact artifact.
+
 Each exportable field or block in the canonical export model MUST persist:
 
 - a stable export-model path,
@@ -705,7 +725,11 @@ A release record MUST bind, at minimum:
 - `redaction_profile_version`,
 - `output_kind`,
 - `release_scope`,
-- `output_sha256`.
+- `output_sha256`,
+- `release_state`,
+- `approved_at`,
+- `invalidated_at`,
+- `published_at`.
 
 If approval state is stored, it MUST bind to the release record rather than to mutable incident rows.
 
@@ -776,6 +800,29 @@ The evidence model MUST support both:
 - requested or pending evidence with no blob yet attached,
 - received or available evidence with custody events and optional blob linkage.
 
+Cartulary defines two linked but separate evidence-related lifecycle machines:
+
+- a blob-upload machine authoritative on `object_blobs.upload_state`,
+- an evidence-custody and availability machine authoritative on `evidence_records.lifecycle_state` plus append-only custody events.
+
+The blob-upload machine uses conditions equivalent to `pending`, `available`, `failed`, and `quarantined`.
+
+The evidence-custody and availability machine uses states equivalent to `requested`, `pending_receipt`, `received`, `available`, `quarantined`, and `released`.
+
+These machines MUST remain separate. `object_blobs.upload_state` MUST NOT be treated as the user-facing evidence lifecycle, and an evidence record MUST be able to exist with no blob at all.
+
+The bridge rules are:
+
+- an evidence record in `requested` or `pending_receipt` MAY have no `object_blob_id`,
+- if an evidence record has a linked `object_blob_id`, it MUST NOT enter `available` unless that blob is in `upload_state='available'`,
+- if a linked blob is `quarantined`, the evidence record MUST be `quarantined` or remain non-available,
+- a blob in `pending` or `failed` MUST NOT make an evidence record appear attached, available, previewable, or released,
+- `released` evidence MUST reference a blob in `upload_state='available'` when a blob is present.
+
+Abandoned pending uploads MUST fail closed. A blob slot left in `pending` without successful finalization MUST NOT create or imply an attached evidence record, MUST NOT increment visible evidence counts, and MUST remain eligible only for retry, timeout handling, or administrative cleanup.
+
+If structured state becomes inconsistent, such as an evidence record claiming `available` or `released` while the linked blob is `pending`, `failed`, missing, or otherwise unusable, the implementation MUST fail closed: preview and download MUST be blocked and the record MUST surface as inconsistent until repaired by an explicit corrective action or re-finalization path.
+
 An evidence record or its deterministic joined projection from authoritative object metadata MUST be able to expose, at minimum:
 
 - `requested_at`,
@@ -817,7 +864,8 @@ The schema MUST support:
 - canonical indicator fields sufficient to persist `defanged_value`, optional `hash_algorithm`, optional `hash_value`, and deterministic storage or derivation of `first_observed_at` and `last_observed_at`,
 - `task_request` fields sufficient to persist `task_kind`, `status`, `owner_user_id`, `priority`, optional `workstream`, `due_at`, `blocked_reason`, `requester_party_text`, `completed_at`, `external_ticket_ref`, and optional linked-record or linked-decision references,
 - `decision` fields sufficient to persist `decision_type`, `status`, `owner_user_id`, `decided_at`, rationale, support references, affected-record references, and optional supersession linkage,
-- evidence fields sufficient to persist `requested_at`, `received_at`, `storage_ref`, `blob_hash`, `collector_party_text`, `source_party_text`, upload state, and append-only custody events,
+- evidence fields sufficient to persist separate blob-upload state, evidence lifecycle state, the bridge between `object_blob_id` and evidence availability, `requested_at`, `received_at`, `storage_ref`, `blob_hash`, `collector_party_text`, `source_party_text`, and append-only custody events,
+- snapshot and release fields sufficient to persist artifact-scoped `release_state`, approval binding, `approved_at`, `invalidated_at`, `published_at`, optional `invalidation_reason`, and deterministic identification of the logical output slot,
 - coordination-artifact fields sufficient to persist `comm_type` and other `artifact_type`-specific metadata for `comm_log`, `handoff`, `status_review`, `lesson`, and optional current-profile `hypothesis` tracking,
 - optional structured artifact subtype fields sufficient to persist findings, investigative queries, and forensic keywords when those surfaces are implemented.
 

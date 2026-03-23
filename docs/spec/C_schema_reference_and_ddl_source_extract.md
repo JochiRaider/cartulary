@@ -103,6 +103,36 @@ The same-field conflict path needs one explicit contract hook beyond base row-ve
 - Client implementations MUST keep same-field conflicts in a conflict queue keyed by the canonical composite `record_id:field_key` rather than mixing them into the transient retry queue.
 - The base profile does not require an authoritative persisted conflict-draft table. Unresolved conflict drafts remain client-local unsaved state until the analyst explicitly resolves them.
 
+### Additional schema requirements for reference-pack lifecycle
+
+The schema sketch models reference-pack lifecycle through two linked table sets:
+
+- `reference_packs` for version-scoped verification and availability state,
+- `reference_pack_activation_state` and `reference_pack_attestations` for the active-version pointer and import or activation events.
+
+The version-scoped conditions are `staged`, `verified_available`, `disabled`, `failed`, and `missing`. `active` is derived by joining a verified available version to the current `reference_pack_activation_state.active_version` for the same `pack_key`.
+
+A candidate version MUST NOT be activatable unless `reference_packs.status='available'` and `verification_result='passed'`. A disabled, failed, or missing version MUST NOT remain the active pointer for its `pack_key`.
+
+### Additional schema requirements for snapshot artifact lifecycle
+
+The schema sketch needs artifact-scoped release metadata rather than template-scoped or row-scoped approvals.
+
+- Each release record MUST bind to one immutable release tuple and one `output_sha256`.
+- Release records SHOULD persist `release_state` with states equivalent to `pending_approval`, `approved`, `invalidated`, and `published`, plus timestamps for approval, invalidation, and publication.
+- Approval records MUST bind to the release record. They MUST NOT bind to mutable incident rows.
+- A superseding render for the same logical output slot or a byte change MUST create a new `pending_approval` candidate and MUST NOT inherit prior approval state.
+
+### Additional schema requirements for blob-upload and evidence lifecycle
+
+The schema sketch keeps blob upload and evidence lifecycle separate:
+
+- `object_blobs.upload_state` holds conditions equivalent to `pending`, `available`, `failed`, or `quarantined`,
+- `evidence_records.lifecycle_state` holds states equivalent to `requested`, `pending_receipt`, `received`, `available`, `quarantined`, or `released`,
+- the bridge between them is the optional `object_blob_id` plus custody events.
+
+A blob slot left in `pending` without successful finalization MUST NOT be treated as attached evidence. An evidence row MUST NOT surface as available, previewable, or released while its linked blob is `pending`, `failed`, or missing. If structured state becomes inconsistent, the application MUST fail closed for preview and download until repaired.
+
 ```sql
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS citext;

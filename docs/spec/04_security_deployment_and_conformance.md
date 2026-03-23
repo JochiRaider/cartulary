@@ -61,6 +61,14 @@ Approval requirements are:
 
 Any change to the bound tuple or rendered bytes MUST invalidate prior approvals automatically.
 
+For rendered-output lifecycle, the authoritative artifact state MUST be stored on the release record or an equivalent artifact-scoped record. The closed vocabulary for `release_state` is `pending_approval`, `approved`, `invalidated`, and `published`.
+
+For this lifecycle, the logical output slot is the release tuple excluding `output_sha256`.
+
+A release record enters `pending_approval` when bytes and `output_sha256` exist for one bound release tuple but the required approvals are not yet complete. It enters `approved` only when the approval requirements above are satisfied for that exact artifact. It enters `published` only through an explicit publish action after approval. It enters `invalidated` when a different artifact for the same logical output slot supersedes it, when its rendered bytes change, or when the implementation can no longer attest that the required approval set still applies to that exact artifact.
+
+A new render with a different logical output slot or different `output_sha256` MUST start as `pending_approval`. It MUST NOT inherit `approved` or `published` state from an earlier artifact.
+
 A narrow live sensitive-evidence model MAY be added in future work if repeated real-world incidents show that export-scoped withholding is insufficient. It is not a current conformance requirement.
 
 ## 3. Attribution and audit requirements
@@ -371,6 +379,19 @@ For this section:
 - **AC-099**: On the implementation-supported incident metadata surface, editing `tlp`, `current_phase`, and `primary_external_case_ref` persists those values as structured fields that survive reload, deterministic projection rebuild, and snapshot generation; they do not disappear into `custom_attrs`.
 - **AC-100**: The Evidence sheet can sort or filter on `requested_at`, `received_at`, `collector_party_text`, `source_party_text`, `storage_ref`, `blob_hash`, and upload or attachment state without fetching blob bytes.
 - **AC-101**: If the implementation exposes structured findings, investigative queries, or forensic keywords as workbook surfaces, their defining fields remain directly filterable and exportable as structured fields rather than JSON-only payloads.
+
+### 9.9 Lifecycle machine criteria
+
+- **AC-102**: A blob slot left in `pending` without successful finalization does not create or imply an attached evidence record, does not increment visible evidence counts, and remains eligible only for retry, timeout handling, or administrative cleanup.
+- **AC-103**: If an evidence record points at a blob in `pending`, `failed`, or missing state, preview and download are blocked and the row surfaces as non-available or inconsistent until explicit repair or re-finalization completes.
+- **AC-104**: Rendering a report or presentation artifact creates a release record in `pending_approval` bound to one immutable release tuple and one `output_sha256`.
+- **AC-105**: Satisfying the required approval set moves that exact release record to `approved`, and any attempted publish action on a non-approved record is rejected.
+- **AC-106**: Rendering a superseding artifact for the same logical output slot with a different bound tuple or different `output_sha256` creates a new `pending_approval` candidate and invalidates the prior current artifact rather than inheriting its approval or publication state.
+- **AC-107**: For every normative lifecycle machine claimed by the implementation, the happy-path transitions succeed only in the documented order and the persisted authoritative state matches the documented machine condition after each step.
+- **AC-108**: For every normative lifecycle machine claimed by the implementation, at least one terminal failure path moves to the documented failure or non-active state and blocks any forbidden follow-on action.
+- **AC-109**: Illegal lifecycle transitions are rejected with no partial state advancement and no false success signal.
+- **AC-110**: Retrying the last lifecycle transition after a simulated crash or duplicate delivery is idempotent or otherwise produces the documented equivalent final state without duplicating durable side effects.
+- **AC-111**: Replaying the same starting state and the same ordered inputs for a normative lifecycle machine produces the same final persisted state and the same documented observable signals.
 
 ### 9.9 Incident Portability Extension Profile criteria
 

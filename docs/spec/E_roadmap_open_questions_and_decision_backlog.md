@@ -16,6 +16,7 @@ The source artifact mixed current requirements, roadmap positioning, and open qu
 | `DQ-005` | **Incident portability contract** | The normative core now places whole-incident export/import in the **Incident Portability Extension Profile** and fixes the logical bundle layout, manifest, deterministic JSON/NDJSON serialization, portable actor descriptors, import phases, and fail-closed bundle verification rules. | Future work may still add richer migration tooling, alternative transport wrappers, or operator conveniences without changing the current portability contract. |
 | `DQ-006` | **Restricted evidence visibility versus export-scoped withholding** | The normative core keeps live workspace visibility incident-scoped, routes recipient-specific withholding through snapshot, render, and release controls, and leaves narrow live sensitive-evidence controls to future work. | The source artifact mixed restricted-evidence questions with redaction and reporting controls; the current core separates export disclosure from live workspace authorization while preserving a future path if repeated practice proves it necessary. |
 | `DQ-008` | **Generated presentation depth** | The normative core now fixes `content_class`, `release_scope`, `support_refs[]`, versioned template and redaction controls, and the current generated-presentation boundary, including `internal_review`-only reenactments marked `generated_presentation=true`. | Future work may still add richer authoring or visualization families without relaxing the current evidence-versus-presentation boundary. |
+| `DQ-009` | **`task_request` and `decision` legal transition matrices** | The normative core currently fixes closed status vocabularies and state-dependent field guards for `task_request` and `decision`, but does not yet define exhaustive legal transition matrices for those status values. | This remains second-wave work after the reference-pack, rendered-artifact release, and evidence lifecycle machines have been exercised in product workflows and conformance tests. |
 
 ## E.2 Source roadmap extract
 
@@ -99,6 +100,8 @@ Tags and notes remain sufficient only for unassigned, non-lifecycle working mate
 Ownership remains a required field on coordination objects rather than a standalone record type or a mandatory field on every timeline row. `comm_log`, `handoff`, `status_review`, and `lesson` remain artifact-backed coordination surfaces. `hypothesis` remains artifact-backed until repeated use shows a need for first-class competing-hypothesis state, explicit support or contradiction sets, or reviewer-visible hypothesis history.
 
 Current ordering: `task_request`, `decision`, ownership on coordination objects, `comm_log`, `handoff`, `status_review`, `lesson`, and only later `hypothesis`.
+
+Exhaustive legal transition matrices for `task_request` and `decision` statuses remain second-wave work. The current core fixes closed vocabularies and field-guard rules only. A later profile MAY promote those vocabularies into explicit lifecycle machines after the reference-pack, rendered-artifact release, and evidence lifecycles have been exercised.
 
 ### Performance envelope for large incidents and evidence-heavy incidents
 

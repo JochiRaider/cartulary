@@ -8,11 +8,11 @@ It preserves the workflow sequence diagrams, UI mockups, and explanatory interac
 
 ### Lifecycle
 
-A record typically moves through:
+The workflow phrase below is explanatory only. The authoritative contract is Core 03 §6.
 
 **rough capture → enriched → linked → reviewed → superseded / rolled back**
 
-The important point is that the rough capture remains recoverable. Normalization adds structure; it does not erase the original analyst input.
+In the current profile, `linked` is a derived milestone rather than a persisted `capture_state`, and `rolled back` is a reviewer-history outcome rather than a persisted lifecycle state. The important point is that the rough capture remains recoverable. Normalization adds structure; it does not erase the original analyst input.
 
 ### 1. Rapid creation of a timeline event
 
@@ -189,6 +189,79 @@ Every step above writes the actor’s `user_id` into:
 - link and tag creation metadata,
 - object blob and evidence metadata.
 
+
+### Reference-pack lifecycle sketch
+
+The diagram below is explanatory only. The authoritative contract is Core 01 §11.3 and §11.4.
+
+```mermaid
+stateDiagram-v2
+    [*] --> staged
+    staged --> verified_available: verification passed
+    staged --> failed: verification failed
+    staged --> missing: payload unavailable
+    verified_available --> active: explicit activation
+    active --> verified_available: activate different verified version
+    verified_available --> disabled: admin disable
+    active --> disabled: admin disable
+    disabled --> verified_available: re-enable / re-verify
+    verified_available --> failed: later integrity failure
+    active --> failed: later integrity failure
+    disabled --> failed: later integrity failure
+    verified_available --> missing: payload unavailable
+    active --> missing: payload unavailable
+    disabled --> missing: payload unavailable
+```
+
+### Snapshot artifact lifecycle sketch
+
+The diagram below is explanatory only. The authoritative contract is Core 01 §10.2 through §10.5 and Core 04 §2.1.
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending_approval: render complete
+    pending_approval --> approved: approvals satisfied
+    approved --> published: explicit publish
+    approved --> invalidated: superseded or approval no longer applies
+    published --> invalidated: superseded or approval no longer applies
+    invalidated --> pending_approval: new render candidate
+```
+
+### Blob-upload and evidence lifecycle sketch
+
+The diagram below is explanatory only. The authoritative contract is Core 02 §13 and Core 03 §8.
+
+```mermaid
+flowchart LR
+    subgraph B[Blob upload machine]
+        b1[pending]
+        b2[available]
+        b3[failed]
+        b4[quarantined]
+        b1 --> b2
+        b1 --> b3
+        b1 --> b4
+    end
+
+    subgraph E[Evidence lifecycle machine]
+        e1[requested]
+        e2[pending_receipt]
+        e3[received]
+        e4[available]
+        e5[quarantined]
+        e6[released]
+        e1 --> e2
+        e2 --> e3
+        e3 --> e4
+        e3 --> e5
+        e4 --> e6
+    end
+
+    b2 -. finalize attach .-> e3
+    b4 -. finalize attach as quarantined .-> e5
+    b1 -. no attached evidence .-> x[not finalized]
+    b3 -. no attached evidence .-> x
+```
 
 ## 9. UI concepts focused on preserving the spreadsheet feel
 

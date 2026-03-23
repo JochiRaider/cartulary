@@ -59,7 +59,7 @@ If an implementation claims an extension profile, it MUST satisfy the matching p
 
 ### 4.3 Unsupported future areas
 
-The source artifact mentions several future areas without defining enough detail for current conformance, including restricted evidence visibility beyond the incident-scoped workspace model, promotion of `hypothesis` to a first-class record type, generalized workflow engines beyond the bounded analyst-work coordination model defined in this core, duplicate-resolution suggestions, cross-incident analytics, and presentation automation beyond the bounded snapshot and reporting controls defined in this core. These areas are reserved for future specification work and are non-conformant claims unless later NLSpecs define them.
+The source artifact mentions several future areas without defining enough detail for current conformance, including restricted evidence visibility beyond the incident-scoped workspace model, promotion of `hypothesis` to a first-class record type, generalized workflow engines beyond the bounded analyst-work coordination model defined in this core, exhaustive legal transition matrices for `task_request` and `decision` statuses beyond the current field-guard rules, duplicate-resolution suggestions, cross-incident analytics, and presentation automation beyond the bounded snapshot and reporting controls defined in this core. These areas are reserved for future specification work and are non-conformant claims unless later NLSpecs define them.
 
 ## 5. Document map
 
@@ -160,6 +160,23 @@ Cartulary implementations MUST satisfy all of the following invariants:
 8. History MUST be authoritative at `change_set` plus mutation-entry granularity rather than row-snapshot granularity alone.
 9. Optional overlays and enrichment MUST NOT block the primary capture path.
 10. If the implementation cannot stay within one interaction of spreadsheet-style row creation and editing for the primary capture flow, it fails the design objective preserved from the source artifact.
+
+### 9.1 Lifecycle state-machine notation
+
+Cartulary MAY define an explicit lifecycle state machine only for a conformance-critical flow whose legal transitions, failure handling, or recovery semantics are not already fully determined by simpler field constraints.
+
+Explanatory workflow sequences, lifecycle arrows, and illustrative diagrams in appendices are non-normative unless the normative core restates them as an explicit machine contract.
+
+Any normative lifecycle machine MUST declare, at minimum:
+
+- the closed set of machine states or machine conditions,
+- the allowed events or transition triggers,
+- required guards or preconditions for each transition,
+- the authoritative persisted representation, including which structured fields or records determine the current state,
+- the observable signals exposed to analysts, APIs, jobs, or logs,
+- CI-verifiable conformance checks for happy path, terminal failure paths, illegal transitions, idempotent retry after simulated crash, and deterministic rerun from the same starting state.
+
+This notation is a specification pattern. It MUST NOT be read as a requirement to adopt a runtime finite-state-machine library or framework.
 
 ## 10. Source-preservation note
 

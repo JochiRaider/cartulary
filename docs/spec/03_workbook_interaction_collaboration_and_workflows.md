@@ -256,9 +256,17 @@ Short-lived server-side record locks MAY be used only for rare destructive opera
 
 ## 6. Record lifecycle
 
-The base record lifecycle MUST support this progression:
+The workflow phrase:
 
 `rough capture -> enriched -> linked -> reviewed -> superseded or rolled back`
+
+is representational in the base profile. It is a workflow note about typical analyst progress, not a persisted normative state machine.
+
+For timeline records, the authoritative persisted workflow state remains `capture_state` with the closed vocabulary `rough`, `enriched`, `reviewed`, and `superseded`.
+
+`linked` is a derived milestone meaning the record has acquired one or more typed links, resolved mentions, evidence associations, or equivalent relational structure. It MUST NOT be stored as a separate `capture_state` value in the current profile.
+
+`rolled back` is a history or reviewer action outcome, not a persisted `capture_state` value.
 
 Normalization MUST add structure without erasing the original observed input.
 
@@ -297,7 +305,30 @@ The system MUST NOT leave fake attached evidence rows for incomplete uploads.
 
 The evidence model MUST also support requested or pending evidence records with no blob yet attached, followed later by receipt, availability, custody, and optional blob attachment.
 
-### 8.3 Evidence access
+### 8.3 Blob and evidence lifecycle bridge
+
+Cartulary defines two linked but separate lifecycle machines for evidence attachment:
+
+- blob upload, authoritative on `object_blobs.upload_state`,
+- evidence custody and availability, authoritative on `evidence_records.lifecycle_state` plus custody events.
+
+The blob-upload machine uses conditions equivalent to `pending`, `available`, `failed`, and `quarantined`.
+
+The evidence machine uses states equivalent to `requested`, `pending_receipt`, `received`, `available`, `quarantined`, and `released`.
+
+The required bridge behavior is:
+
+- a `pending` blob slot MUST NOT by itself create or imply an attached evidence row,
+- finalize attachment MUST succeed only when the selected blob slot is `available` or `quarantined`,
+- an evidence record MUST NOT surface as `available`, previewable, or released while its linked blob is `pending`, `failed`, or missing,
+- if a linked blob becomes `quarantined`, normal preview and download MUST stop and the evidence surface MUST show the evidence as `quarantined` or otherwise non-available,
+- requested or pending evidence with no blob remains valid and MUST continue to support later receipt, custody, and optional blob linkage.
+
+Abandoned pending uploads MUST fail closed. A blob slot left in `pending` without successful finalization MUST NOT increment row evidence counts, MUST NOT show as attached, and MUST remain eligible only for retry, timeout handling, or administrative cleanup.
+
+If the system detects an inconsistent blob-versus-evidence state, it MUST block preview and download and surface the row as inconsistent until explicit repair or re-finalization completes.
+
+### 8.4 Evidence access
 
 Evidence preview MUST open without forcing a full-page navigation away from the grid. A bottom or side preview is acceptable.
 

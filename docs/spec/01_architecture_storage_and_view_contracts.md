@@ -336,6 +336,37 @@ After the canonical export model has been materialized for a given release tuple
 
 Re-rendering from the same release tuple MUST reproduce the same canonical export model, deterministic ordering, and `export_model_sha256`.
 
+### 10.2.1 Rendered artifact lifecycle
+
+For Snapshot and Reporting Extension Profile outputs, Cartulary defines an artifact-scoped lifecycle over each rendered output candidate.
+
+The authoritative persisted representation for this lifecycle MUST be the release record plus its bound release tuple and any bound approval records. Approval state MUST NOT bind to mutable incident rows or to template metadata outside the release record.
+
+For this lifecycle, the logical output slot is the bound release tuple excluding `output_sha256`.
+
+The closed vocabulary for `release_state` is:
+
+- `pending_approval`,
+- `approved`,
+- `invalidated`,
+- `published`.
+
+A rendered output enters `pending_approval` when render completion has produced bytes and `output_sha256` for one immutable release tuple but the required approvals for the chosen `release_scope` are not yet satisfied.
+
+A rendered output enters `approved` only when the approval requirements in Core 04 §2.1 are satisfied for that exact release record, logical output slot, and `output_sha256`.
+
+A rendered output enters `published` only through an explicit publish or release action after it is already `approved`.
+
+A rendered output enters `invalidated` when any of the following occurs after approval or publication:
+
+- a superseding render is produced for the same logical output slot with a different `output_sha256`,
+- the implementation can no longer attest that the required approval set applies to that exact artifact,
+- the implementation explicitly marks the artifact as superseded by a newly rendered candidate for the same logical output slot.
+
+Approval invalidation MUST be an explicit lifecycle transition on the artifact record. It MUST NOT be implemented only as an implicit UI rule.
+
+A new render with a different logical output slot or different `output_sha256` MUST start as a distinct `pending_approval` candidate. It MUST NOT inherit `approved` or `published` state from an earlier candidate.
+
 ### 10.3 Export-model classification and release scopes
 
 Every exportable field or block in the canonical export model MUST carry exactly one `content_class` with one of the following values:
@@ -422,6 +453,8 @@ When a field or block carries `disclosure_partition_refs[]` that are not allowed
 Disclosure partition metadata and redaction-profile selection MUST affect only snapshot-derived rendering and release. They MUST NOT affect live workbook queries, projections, or incident authorization.
 
 Each rendered artifact MUST emit a `redaction_manifest` keyed by stable export-model path and rule identifier, recording every field or block that was dropped, masked, truncated, hashed, or stubbed.
+
+A render that changes `template_id`, `template_version`, `redaction_profile_id`, or `redaction_profile_version` relative to an earlier artifact candidate MUST create a distinct `pending_approval` candidate. It MUST NOT inherit approval or publication state from the earlier artifact.
 
 ### 10.6 Output forms and generated-presentation boundary
 
@@ -522,6 +555,39 @@ The import and update flow MUST satisfy all of the following:
 4. on successful verification, the system records the candidate version as `available` or an equivalent non-active state,
 5. activation requires an explicit operator action that switches the active version pointer for the target `pack_key`.
 
+#### 11.3.1 Linked reference-pack lifecycle machines
+
+For each imported reference-pack version, Cartulary defines two linked lifecycle machines:
+
+- a verification and availability machine authoritative on `reference_packs`,
+- an activation machine authoritative on `reference_pack_activation_state` and `reference_pack_attestations`.
+
+These machines are linked but separate. Successful verification does not by itself activate a version, and activation MUST NOT bypass verification.
+
+For the verification and availability machine, the authoritative pack-version conditions are:
+
+- `staged`: `reference_packs.status='staged'` and `verification_result='pending'`,
+- `verified_available`: `reference_packs.status='available'` and `verification_result='passed'` and the version is not the active version for its `pack_key`,
+- `disabled`: `reference_packs.status='disabled'`,
+- `failed`: `reference_packs.status='failed'` or `verification_result='failed'`,
+- `missing`: `reference_packs.status='missing'`.
+
+For the activation machine, a pack version is `active` only when `reference_packs.status='available'`, `verification_result='passed'`, and `reference_pack_activation_state.active_version` for the same `pack_key` equals that `pack_version`.
+
+The allowed lifecycle transitions are:
+
+- `staged -> verified_available` only after successful verification,
+- `staged -> failed` on failed verification,
+- `staged -> missing` when the staged bundle or extracted payload is no longer available before successful verification completes,
+- `verified_available -> active` only through explicit activation,
+- `active -> verified_available` only when another verified version for the same `pack_key` is explicitly activated,
+- `verified_available -> disabled` or `active -> disabled` only through explicit administrative disablement,
+- `disabled -> verified_available` only after an explicit administrative re-enable that confirms existing verification metadata still applies or after re-verification succeeds,
+- `verified_available -> failed`, `active -> failed`, or `disabled -> failed` only when a later integrity, signature, or contract-compatibility check fails,
+- `verified_available -> missing`, `active -> missing`, or `disabled -> missing` only when required payload content is unavailable at use time.
+
+A `failed` or `missing` version MUST NOT become `active` without first returning through `staged` or `verified_available` by a new import or successful re-verification path. A `disabled`, `failed`, or `missing` version MUST NOT remain or become the active version pointer for its `pack_key`.
+
 At most one version of a given `pack_key` MUST be active at a time.
 
 The implementation MUST retain the previously active version for each `pack_key` until an explicit administrative removal occurs, so operator rollback does not require incident-data changes.
@@ -567,9 +633,17 @@ The implementation MUST record structured, incident-external attestation metadat
 
 Attestation metadata MUST remain queryable from structured metadata without unpacking bundle contents or consulting incident data.
 
+### 11.4.1 Activation safety and observability
+
+Activation MUST read only from a `verified_available` candidate and MUST emit a structured activation attestation bound to the target `pack_key` and `pack_version`.
+
+If an active version is disabled, fails a later integrity or compatibility check, or becomes missing, the implementation MUST remove or replace the active pointer in `reference_pack_activation_state` before any pack-dependent operation can continue to treat that version as active.
+
+Pack lifecycle state MUST be observable from structured metadata alone. At minimum, an operator and a CI conformance test MUST be able to determine the current pack-version condition, the active-version pointer, the previous active version, the last verification result, and the last import or activation attestation without unpacking bundle contents.
+
 ### 11.5 Degradation behavior
 
-If optional reference packs are absent, disabled, or failed, Cartulary MUST continue to support:
+If optional reference packs are absent, disabled, failed, or missing, Cartulary MUST continue to support:
 
 - timeline capture,
 - entity resolution,
