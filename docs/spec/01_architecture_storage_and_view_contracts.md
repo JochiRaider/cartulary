@@ -235,17 +235,127 @@ Routes that start long-running operations MUST return `202 Accepted` with a job 
 
 The incident-scoped WebSocket route MUST be `/ws/v1/incidents/{incident_id}` or an equivalent versioned incident-scoped path.
 
-The live-update stream MUST use a bounded event family rather than a second mutation API. The base event set MUST include:
+The live-update stream MUST use a bounded message family rather than a second mutation API. The base message set MUST include:
 
-- session `hello` or `resume` acknowledgement,
-- incident-scoped presence deltas,
+- session handshake messages and acknowledgements: `hello`, `resume`, `hello_ack`, `resume_ack`,
+- incident-scoped presence messages: `presence_snapshot`, `presence_delta`, `presence_update`,
 - `record_changed` events,
-- `job_progress` events,
-- terminal error or session-revocation events.
+- incident-scoped `job_progress` events,
+- heartbeat messages: `ping`, `pong`,
+- terminal `error` or `session_revoked` events.
 
-A `record_changed` event MUST identify the `incident_id`, affected `record_id`, resulting `row_version`, the relevant `view_schema_id` or view set, and either changed `field_key[]` values or an explicit invalidate signal.
+A replayable `record_changed` event MUST identify the `incident_id`, affected `record_id`, resulting `row_version`, and one or more affected `view_schema_id` entries, each with either deterministic field-key-addressable patch cells, an explicit `invalidate` signal, or an explicit `remove` signal.
 
 The WebSocket stream MUST authenticate with the same server-managed session contract as the HTTP surface. It MUST NOT broadcast unresolved same-field local drafts, transient pending patches, expand or collapse state for grouped rows, or other client-local UI state as authoritative collaboration events.
+
+##### 3.3.10.1 v1 collaboration wire contract
+
+A client MUST send exactly one session-establishment message as the first application message on a connection: `hello` for a fresh connection or `resume` for a reconnect. Until the server accepts one of these messages, it MUST NOT treat the socket as subscribed and MUST NOT emit replayable incident messages on that connection.
+
+A connected socket is subscribed to exactly one incident, determined by the `{incident_id}` path parameter. The protocol MUST NOT negotiate arbitrary topic subscriptions or a second mutation surface. Authoritative record creation, record mutation, rollback, conflict resolution, blob finalization, and other write actions MUST continue to use the HTTP routes defined in §3.3.3 through §3.3.9.
+
+Every application-level collaboration message MUST use one JSON envelope:
+
+```json
+{
+  "type": "record_changed",
+  "incident_id": "inc_...",
+  "event_id": "evt_...",
+  "emitted_at": "2026-03-23T20:14:31.418Z",
+  "stream_seq": 1842,
+  "payload": {}
+}
+```
+
+The envelope contract is:
+
+- `type`: required closed message-type token,
+- `incident_id`: required stable incident identifier matching the route,
+- `event_id`: required opaque server-generated event identifier on server-originated messages,
+- `emitted_at`: required RFC 3339 UTC timestamp,
+- `stream_seq`: required only on replayable server messages and forbidden on client-originated messages and ephemeral server messages,
+- `payload`: required object whose members are specific to `type`.
+
+Within `/ws/v1/`, clients MUST ignore unknown additive members. Breaking changes to required message members, required message types, or message semantics MUST use a new major version root as defined in §3.3.1.
+
+The minimum client-to-server message set MUST be:
+
+- `hello`, whose `payload` MUST include `client_instance_id` and current `presence`,
+- `resume`, whose `payload` MUST include `client_instance_id`, `resume_token`, `last_seen_stream_seq`, and current `presence`,
+- `presence_update`, whose `payload` MUST include current `presence`,
+- `pong`, whose `payload` MAY be empty.
+
+`client_instance_id` MUST remain stable for the lifetime of one browser tab or other local client instance. `resume_token` MUST be opaque to the client and MUST be bound by the server to the authenticated session, `incident_id`, and `client_instance_id`. `last_seen_stream_seq` MUST be the highest replayable `stream_seq` the client has already applied.
+
+The `presence` object MUST be shaped as:
+
+- `sheet_ref`: required stable workbook-surface reference,
+- optional `record_id`: stable target row identifier when focus is on a materialized row,
+- optional `field_key`: stable target field identifier,
+- `mode`: required one of `viewing`, `editing`, or `idle`.
+
+`sheet_ref` MUST address workbook surfaces by stable identifier rather than visible label and MUST be one of:
+
+```json
+{
+  "kind": "view_schema",
+  "id": "cartulary.view.timeline.v1"
+}
+```
+
+or
+
+```json
+{
+  "kind": "saved_view",
+  "id": "svw_..."
+}
+```
+
+When `sheet_ref.kind = view_schema`, `sheet_ref.id` MUST carry the `view_schema_id`. When `sheet_ref.kind = saved_view`, `sheet_ref.id` MUST carry the `saved_view_id`. `field_key` MUST be present only when the client is focused on a concrete writable field and `mode = editing`.
+
+The minimum server-to-client message set MUST be:
+
+- `hello_ack`,
+- `resume_ack`,
+- `presence_snapshot`,
+- `presence_delta`,
+- `record_changed`,
+- `job_progress`,
+- `ping`,
+- `error`,
+- `session_revoked`.
+
+`hello_ack.payload` MUST include `connection_id`, `resume_token`, `server_time`, `heartbeat_interval_ms`, `presence_ttl_ms`, and `resume_window_ms`. `resume_ack.payload` MUST include `status`, a fresh `resume_token`, and `server_high_water_stream_seq`. `resume_ack.payload.status` MUST be one of `replayed`, `reset_required`, or `rejected`. In the base profile, `heartbeat_interval_ms` MUST be `15000`, `presence_ttl_ms` MUST be `45000`, and `resume_window_ms` MUST be at least `300000`.
+
+`presence_snapshot.payload.presences[]` MUST contain zero or more current presence records for the subscribed incident. Each presence record MUST include `connection_id`, `user_id`, `display_name`, `sheet_ref`, `mode`, `observed_at`, and `expires_at`, and MAY include `record_id` and `field_key`. At most one current presence record MAY exist per `connection_id` within one incident.
+
+`presence_delta.payload` MUST include `delta_kind` and `presence`. `delta_kind` MUST be one of `upsert` or `remove`. On `upsert`, `presence` MUST be a full presence record. On `remove`, `presence.connection_id` MUST identify the removed record; other presence members MAY be repeated for convenience but MUST NOT be required.
+
+`record_changed.payload` MUST include `record_id`, `row_version`, `change_set_id`, `actor_user_id`, `changed_field_keys[]`, and `affected_views[]`. Each `affected_views[]` entry MUST include `view_schema_id` and `change_kind`. `change_kind` MUST be one of `patch`, `invalidate`, or `remove`. When `change_kind = patch`, the entry MUST include `patch_cells`, and `patch_cells` MUST be a view-shaped object containing `record_id`, `row_version`, and field-key-addressable cell values for that view. `affected_views[]` MUST be keyed by base `view_schema_id` values, not by visible tab labels, row order, or client-local filter state.
+
+`job_progress.payload` MUST include `job_id`, `status`, `progress`, and `updated_at`, and MAY include `cancelable`, `message`, `result_summary`, or `error_summary`. The incident-scoped stream MUST emit `job_progress` only for jobs whose observable resource or terminal result is scoped to the subscribed `incident_id`.
+
+`error.payload` MUST include `code`, `message`, and `retryable`, and MAY include `details`. `session_revoked.payload` MUST include `reason_code` and MAY include `message`.
+
+The protocol MUST define two delivery classes:
+
+- replayable ordered messages: `record_changed`, `job_progress`,
+- ephemeral non-replayable messages: `hello_ack`, `resume_ack`, `presence_snapshot`, `presence_delta`, `ping`, `error`, `session_revoked`.
+
+`stream_seq` MUST be monotonically increasing per `incident_id` across replayable messages. The server MUST assign `stream_seq` only after the underlying record mutation or incident-scoped job-state change is committed to authoritative server state. The server MUST NOT emit `record_changed` for uncommitted state.
+
+The route path determines the incident subscription. `presence_update` determines only the sender's published presence scope. `record_changed` and incident-scoped `job_progress` MUST be broadcast to all currently authorized subscribers for that incident. Clients MUST determine active-view relevance locally using stable identifiers such as `view_schema_id`, `record_id`, `field_key`, and the client's current query contract.
+
+The server MUST retain replayable messages for resume for at least 5 minutes or 10,000 replayable messages per incident, whichever is larger. After a valid `resume` whose retained replay window still covers `last_seen_stream_seq`, the server MUST send `resume_ack` with `status = replayed`, replay missed replayable messages in strict ascending `stream_seq`, and then send a fresh `presence_snapshot`.
+
+If the server cannot honor incremental replay because the token is unknown, expired, malformed, or older than the retained replay window, but the caller still has valid incident authorization, the server MUST send `resume_ack` with `status = reset_required`, send a fresh `presence_snapshot`, and emit no guessed or partial replay for the missing range. The client MUST then discard incremental assumptions and re-query current workbook state through the HTTP view route before treating the socket as fully synchronized.
+
+The server MAY use `resume_ack.payload.status = rejected` only when a `resume` message is syntactically invalid or the caller fails authentication or authorization checks. A rejected resume MUST be followed by `error` or `session_revoked` and immediate close.
+
+The protocol MUST use application-level `ping` and `pong` messages inside this JSON envelope. The server MUST emit `ping` every 15 seconds when the connection is otherwise idle. The client MUST answer with `pong` within 10 seconds. The server MUST consider the connection dead after 45 seconds without any inbound frame. On clean close, the server MUST remove the corresponding presence immediately. On abrupt disconnect, presence expiry MUST follow this heartbeat timeout rather than a longer stale timeout.
+
+For cookie-authenticated browser connections, the WebSocket upgrade and any session-establishment message MUST validate `Origin` against the configured application origin. The server MUST re-derive incident authorization on initial connect and on `resume`. If incident membership or session validity is revoked after connection establishment, the server MUST send `session_revoked` and close the socket.
 
 ## 4. Storage boundary
 

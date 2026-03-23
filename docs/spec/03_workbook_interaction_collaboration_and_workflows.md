@@ -244,7 +244,32 @@ The UI MUST provide all of the following presence indicators:
 - row-gutter indicators when another analyst is focused on a row,
 - same-cell indicators when another analyst is actively editing the same field and such a signal is available.
 
-Presence and live row updates MUST be driven by the bounded WebSocket event families defined in Core 01 §3.3.10 rather than by a second mutation API.
+Presence and live row updates MUST be driven by the bounded WebSocket message families defined in Core 01 §3.3.10 rather than by a second mutation API.
+
+#### 4.3.1 Collaboration message application
+
+The client MUST include its initial workbook presence in `hello` or `resume` and MUST send `presence_update` whenever any of the following changes:
+
+- the active workbook surface changes to a different `sheet_ref`,
+- the focused `record_id` changes,
+- same-cell editing starts or stops for a writable `field_key`,
+- the client becomes `idle` or returns from `idle`.
+
+The client MAY coalesce rapid local cursor motion, but the server-visible presence state for any stable user-visible change MUST settle within 1 second.
+
+Workbook-header presence avatars MUST be derived from `presence_snapshot` and `presence_delta` records whose `sheet_ref` exactly matches the active workbook surface. Row-gutter indicators MUST be derived from matching `record_id`. Same-cell indicators MUST be derived from matching `record_id` plus `field_key` with `mode = editing`. The client MUST key these indicators from `sheet_ref`, `record_id`, and `field_key`; it MUST NOT infer collaboration state from visible tab labels, row numbers, or column headers.
+
+Presence updates are ambient last-write-wins state. They MUST NOT change the local save state, conflict queue, or pending-patch queue.
+
+When a replayable `record_changed` message arrives, the client MUST de-duplicate it by `(incident_id, stream_seq)`. If the client detects a gap in replayable `stream_seq` or receives `resume_ack.status = reset_required`, it MUST stop incremental apply and re-query the current view through the HTTP query route before presenting the sheet as synchronized again.
+
+When the active surface's underlying `view_schema_id` appears in `record_changed.payload.affected_views[]`, the client MUST apply the matching entry as follows:
+
+- `patch`: update only the supplied field-key-addressable cells, replace the row's `row_version` with the authoritative value from the event, preserve selection and edit anchoring by `record_id`, and clear any matching local pending-patch entry only when the authoritative event covers that row and row version or a later committed row version,
+- `invalidate`: mark the row or affected visible block dirty and refresh it through the existing HTTP view-query route rather than inventing a separate WebSocket read path,
+- `remove`: remove the row from the current materialized grid or mark it absent on the next synchronized query, and if the removed row was selected, clear the selection or move it according to the normal row-removal behavior without silently rebinding the old selection to a different `record_id`.
+
+A client that originated the mutation MUST reconcile against the same echoed `record_changed` message family as every other subscriber. Incoming collaboration messages MUST NOT surface unresolved same-field local drafts as saved state or overwrite the client-local conflict queue defined in §3.3.4 and §3.3.5.
 
 ### 4.4 Local pending queue
 
