@@ -562,6 +562,10 @@ The allowed grouping keys are exactly:
 - `timeline.has_evidence`,
 - `timeline.has_unresolved_mentions`.
 
+The base-profile whitelist is frozen at these five keys for the current profile. No additional grouping key is permitted in the base profile.
+
+`timeline.event_type` MUST NOT be exposed as a base-profile grouping key.
+
 Grouping by Summary, Hosts, Identities, Tags, arbitrary custom columns, formulas, ad hoc expressions, or visible labels is out of scope for current conformance.
 
 ### 14.4 Grouping value rules

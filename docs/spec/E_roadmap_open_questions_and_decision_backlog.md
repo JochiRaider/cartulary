@@ -78,6 +78,7 @@ Resolved in this revision:
 - History granularity is no longer open for MVP. Storage MUST capture history at `change_set` plus mutation-target granularity. The reviewer UI MUST remain row-centric, expose single-entry rollback plus whole-row restore and whole-change-set rollback, and does not require arbitrary field-picker rollback from historical snapshots in MVP.
 - Same-field conflict resolution affordance is no longer open for MVP. See Core 03 §3.3 and Core 04 AC-037 through AC-042. Same-field conflicts now resolve through a same-surface compare drawer or equivalent same-surface panel anchored to the conflicted cell, with the saved value retained in the grid, the unsaved local draft kept client-local until explicit resolution, contract-declared `conflict_resolution_class`, and grouped paste conflict handling.
 - The performance envelope for large-grid and evidence-heavy incidents is no longer open for the base profile. Core 01 now requires bounded viewport virtualization, projection-backed hot-path retrieval, deterministic cursor or viewport/block access, metadata-only grid and inspector reads, and binary evidence off the hot path. Core 04 now defines two reference performance fixtures plus AC-043 through AC-047.
+- The timeline-sheet grouping-key whitelist is no longer open for the current profile. Core 03 now fixes the current five-key whitelist as sufficient for GA, forbids any sixth base-profile grouping key, and explicitly excludes raw `timeline.event_type` as a base-profile grouping key. Core 04 now makes that whitelist boundary explicit in conformance. See `### Timeline grouping-key whitelist` for the gate a future proposal must satisfy before widening the whitelist.
 - Snapshot and report release controls are no longer open for the current profile. Core 01 now fixes the immutable release tuple, `content_class`, `release_scope`, versioned template contracts, versioned redaction profiles, fail-closed redaction, `support_refs[]` on externally releasable curated narrative, and redaction manifests. Core 04 now defines the bounded artifact-release gate and approval invalidation rules.
 - Generated presentation depth is no longer open for the current profile. Core 01 now allows arrangement and deterministic templating over snapshot facts, forbids invented facts or synthesized unobserved operator activity, allows `mermaid` and `slidev` external release only within the chosen release scope, and keeps `reenactment` outputs internal-review-only with `generated_presentation=true`.
 - Clipboard paste versus XLSX adoption is no longer open as a single yes-or-no question. The current core keeps clipboard paste on the base workbook interaction path and treats file-based structured import as a separate Import Extension Profile behind a dedicated imports module. Clipboard paste is therefore sufficient to validate the grid hot path, but not brownfield workbook migration readiness; bounded CSV and selected-sheet or selected-region XLSX onboarding are the current file-based bridge.
@@ -134,7 +135,19 @@ This revision closes the performance question with two reference fixtures rather
 - progress and cancellation appear within 1 second of job start
 - grid editing and row creation remain responsive while those jobs run
 
+### Timeline grouping-key whitelist
+
+This revision closes the timeline grouping-key question by keeping the base-profile whitelist at exactly five keys: `timeline.occurred_day`, `timeline.recorded_day`, `timeline.capture_state`, `timeline.has_evidence`, and `timeline.has_unresolved_mentions`. The current whitelist is sufficient for GA.
+
+Raw `timeline.event_type` remains out of scope for base-profile grouping because it would couple grouping behavior to evolving source vocabularies and imported taxonomies. If a later revision adds one more grouping key, the next candidate should be a derived bucket such as `timeline.event_family`, not raw `timeline.event_type`.
+
+A future proposal to widen the base-profile whitelist is eligible only if all of the following gates are met:
+
+- the candidate key is a scalar contract-backed value already available from `timeline_grid_projection` or an equivalent projection, with no scan of free text, no join against blob or evidence metadata, and no dependence on visible labels
+- the candidate key uses a stable closed vocabulary or deterministic bucketization, not raw imported labels
+- analyst testing shows that sort, filter, saved views, or dedicated derived views are materially worse for the target task
+- the added key preserves the sort, filter, and grouping interaction envelope defined in Core 04
+
 Remaining open questions:
 
-1. Is the timeline-sheet grouping-key whitelist (`timeline.occurred_day`, `timeline.recorded_day`, `timeline.capture_state`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`) sufficient for GA, or does analyst testing show a need for one additional scalar grouping key?
 1. How much incident-specific custom metadata is real, and which of those fields become common enough to deserve first-class columns?
