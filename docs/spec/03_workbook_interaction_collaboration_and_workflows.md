@@ -35,7 +35,7 @@ The Indicators system view MUST surface canonical indicator rows and support piv
 
 The Compromise Assessments system view MUST surface incident-scoped assessment rows and support pivots to the assessed host or identity and that subject's prior assessment history without leaving the workbook interaction model.
 
-The Task Requests system view MUST surface `task_request` rows and support queue-oriented filtering and sorting by `status`, `owner_user_id`, `priority`, `due_at`, `blocked_reason`, and `updated_at` without leaving the workbook interaction model.
+The Task Requests system view MUST surface `task_request` rows and support queue-oriented filtering and sorting by `status`, `owner_user_id`, `priority`, `task_kind`, `workstream`, `due_at`, `requester_party_text`, `blocked_reason`, `completed_at`, `external_ticket_ref`, and `updated_at` without leaving the workbook interaction model.
 
 The Decisions system view MUST surface `decision` rows and support review-oriented filtering and sorting by `status`, `owner_user_id`, `decision_type`, and `decided_at` without leaving the workbook interaction model.
 
@@ -649,7 +649,7 @@ Summary, details, source text, and other contract-declared source fields remain 
 
 Hosts, Identities, and Evidence sheets MUST remain workbook-shaped peer sheets backed by their own projections.
 
-Canonical fields such as `display_name`, `hostname`, `upn`, and evidence `title` MUST be inline-editable where appropriate.
+Canonical fields such as `display_name`, `hostname`, `upn`, host `location`, `os_platform`, `business_owner`, `criticality`, `containment_status`, identity `privilege_level`, `mfa_state`, `reset_status`, and evidence `title`, `requested_at`, `received_at`, `storage_ref`, `collector_party_text`, and `source_party_text` MUST be inline-editable where appropriate.
 
 Alias cells MUST behave like chip editors.
 
@@ -688,7 +688,9 @@ Routine timeline row creation and editing MUST NOT require task, decision, owner
 
 Communications logs, handoffs, status reviews, and lesson artifacts SHOULD be created at milestone, shift-change, or reporting boundaries rather than on every row edit. The workbook surface MAY assist creation from the inspector or a coordination view, but it MUST NOT interrupt ordinary grid editing.
 
-Saved or system views over task requests, decisions, and coordination artifacts MUST support owner queues, blocked-work views, due or next-checkpoint views, and no-owner gap detection where applicable.
+Saved or system views over task requests, decisions, and coordination artifacts MUST support owner queues, blocked-work views, due or next-checkpoint views, workstream views, requester or audience views where applicable, external-ticket lookup, and no-owner gap detection where applicable.
+
+Promoting recurrent coordination or evidence-management fields MUST NOT add them as mandatory Timeline columns or move them into inspector-only JSON payloads.
 
 ## 17. Authorship and attribution in the UI
 

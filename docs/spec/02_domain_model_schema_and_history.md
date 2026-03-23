@@ -78,6 +78,7 @@ The following data classes MUST remain normalized structured state:
 - compromise assessments,
 - reference-pack manifests, activation state, attestation metadata, and type registries,
 - view schemas and saved views,
+- promoted operational fields on incident, host, identity, task-request, indicator, and evidence surfaces as defined in §4.4 and §4.5,
 - snapshot descriptors, canonical export-model metadata, versioned template-contract metadata, versioned redaction-profile metadata, redaction manifests, and artifact release records when the Snapshot and Reporting Extension Profile is implemented.
 
 ### 4.2 Flexible data
@@ -87,7 +88,7 @@ The following MAY remain flexible or extensible:
 - `raw_capture` on timeline events,
 - `custom_attrs` on major record types,
 - free-text details and notes,
-- low-frequency incident-specific metadata.
+- low-frequency incident-specific metadata that is not promoted by §4.4 and §4.5.
 
 ### 4.3 JSONB discipline
 
@@ -105,6 +106,88 @@ JSONB MUST NOT be the authoritative storage for:
 - record relationships,
 - evidence metadata required for retrieval,
 - any field that requires reliable filtering or indexing at operational scale.
+
+Multi-valued relationships MUST NOT remain only in `custom_attrs` or other JSONB fields. They MUST use typed link rows or dedicated child tables. Scalar convenience projections MAY exist, but they MUST NOT be the authoritative relationship store.
+
+### 4.4 Promotion rule for recurrent incident-specific fields
+
+A field MUST be promoted from `custom_attrs` or other JSONB storage to first-class structured state when both of the following are true:
+
+- the field recurs across independent SoD-style incident workbooks or equivalent real-world incident trackers,
+- analysts need the field for deterministic sort, filter, join, lifecycle tracking, dedupe, queueing, or reporting.
+
+A field SHOULD remain flexible when it is low-frequency, framework-specific, integration-specific, presentation-only, or better modeled as a typed link or child record.
+
+A promoted field MUST be available as named structured state on the authoritative record model or on a deterministic projection derived from authoritative structured inputs. It MUST NOT require JSON parsing of `custom_attrs`, scans of raw note text, or scans of raw evidence text on the hot path.
+
+### 4.5 Current-profile promoted field sets
+
+The current profile closes the incident-specific custom-metadata question with the following minimum promoted field sets. An implementation MAY add more structured fields. It MUST NOT demote these fields into JSONB-only storage.
+
+The incident record MUST expose, as structured state:
+
+- `tlp`,
+- `current_phase`,
+- `primary_external_case_ref`.
+
+The `task_request` model MUST expose, as structured state:
+
+- `priority`,
+- `task_kind`,
+- optional `workstream`,
+- optional `due_at`,
+- optional `requester_party_text`,
+- optional `blocked_reason`,
+- optional `completed_at`,
+- optional `external_ticket_ref`.
+
+The current `host` record type is the structured home for recurrent asset-scoping fields. A host record MUST expose, as structured state:
+
+- `location`,
+- `os_platform`,
+- `business_owner`,
+- `criticality`,
+- `containment_status`.
+
+An `identity` record MUST expose, as structured state:
+
+- `privilege_level`,
+- `mfa_state`,
+- `reset_status`.
+
+The canonical indicator model and indicator system-view contract MUST expose, as structured state:
+
+- observation-derived `first_observed_at`,
+- observation-derived `last_observed_at`,
+- `defanged_value` when applicable,
+- optional `hash_algorithm`,
+- optional `hash_value`.
+
+An evidence record or its deterministic joined projection from authoritative object metadata MUST expose, as structured state:
+
+- `requested_at`,
+- `received_at`,
+- `storage_ref`,
+- `blob_hash`,
+- `collector_party_text`,
+- `source_party_text`.
+
+The current profile does not standardize a standalone incident-contact record. Until such a model exists, requester, collector, and source-party promotion MUST use first-class structured text fields or an equivalent stable party reference. They MUST NOT live only in `custom_attrs`.
+
+If the implementation exposes structured findings, communications logs, investigative queries, or forensic keywords as dedicated surfaces or typed artifact subtypes, their defining fields MUST also be structured state rather than JSON-only payload:
+
+- findings: `state`, `confidence_score`, `owner_user_id`, optional `closed_at`,
+- communications logs: `comm_type`, `audience`,
+- investigative queries: `query_id`, `platform`, `purpose`, `query_text`, `created_by_user_id`,
+- forensic keywords: `keyword_id`, `pattern`, `reason`.
+
+The following SHOULD remain flexible or separately modeled unless a later profile standardizes them:
+
+- framework-specific overlays such as ATT&CK, D3FEND, VERIS, kill-chain, or procedure mapping,
+- threat-intel enrichment such as `asn`, `geo`, or `reputation`,
+- campaign, attribution, or reporting-specific metadata such as `intrusion_set`, `threat_actor_name`, `target_country`, or `target_sector`,
+- presentation-only flags such as `visual`, `pin`, or similar UI-state markers,
+- long governance or free-text metadata such as bridge details, legal-hold narrative, confidentiality narrative, working-hours text, or notification-scope text.
 
 ## 5. Partial and uncertain data
 
@@ -431,11 +514,19 @@ A `task_request` record MUST carry, at minimum:
 
 A `task_request` record MUST also be able to persist, at minimum, the following optional fields when present:
 
+- `workstream`,
 - `due_at`,
+- `requester_party_text`,
 - `blocked_reason`,
+- `completed_at`,
+- `external_ticket_ref`,
 - `linked_record_ids[]`,
 - `decision_record_id`,
 - `closure_summary`.
+
+If `status='blocked'`, `blocked_reason` MUST be non-empty.
+
+If `status='done'`, `completed_at` MUST be present and MUST NOT be earlier than `created_at`.
 
 An active `task_request` with `status` not in `done` or `canceled` MUST NOT be ownerless.
 
@@ -487,6 +578,7 @@ The current profile MUST keep the following coordination surfaces artifact-backe
 A `comm_log` artifact MUST carry, at minimum:
 
 - `comm_id`,
+- `comm_type` from a closed vocabulary equivalent to `meeting`, `notification`, `approval`, `briefing`, or `handoff`,
 - `timestamp_utc`,
 - `audience`,
 - `channel_or_meeting`,
@@ -545,9 +637,42 @@ A `lesson` artifact MUST also be able to persist, at minimum, the following opti
 
 These coordination artifact types MUST reuse the shared artifact model, revision history, tags, `record_links`, projections, and `view_schema_id` contracts. They MUST NOT introduce Notes-specific or artifact-type-specific standalone storage silos.
 
+Any `*_ids[]` fields on coordination artifacts are denormalized convenience fields only. Authoritative many-to-many association MUST remain representable through generic `record_links` or dedicated child tables when per-link metadata is required.
+
 #### 10.4.5 Hypothesis boundary
 
 Current-profile hypotheses MUST remain artifact-backed, using either `artifact_type='hypothesis'` or a structured findings subtype. Hypotheses MUST NOT be promoted to a first-class `record_type` until repeated usage demonstrates a need for explicit competing-hypothesis tracking, support and contradiction sets, state transitions, or reviewer-visible hypothesis history that artifact-backed tracking cannot satisfy.
+
+#### 10.4.6 Optional structured findings, investigative-query, and forensic-keyword surfaces
+
+The base profile does not require dedicated built-in sheets for findings, investigative queries, or forensic keywords.
+
+If the implementation exposes any of these surfaces as typed artifact subtypes, contract-backed system views, or future first-class record types, their defining fields MUST be persisted as structured state rather than only in `custom_attrs`.
+
+A structured finding or hypothesis subtype MUST be able to persist, at minimum:
+
+- `statement`,
+- `state`,
+- `confidence_score`,
+- `owner_user_id`,
+- optional `closed_at`,
+- optional supporting or contradictory record references.
+
+A structured investigative-query subtype MUST be able to persist, at minimum:
+
+- `query_id`,
+- `platform`,
+- `purpose`,
+- `query_text`,
+- `created_by_user_id`.
+
+A structured forensic-keyword subtype MUST be able to persist, at minimum:
+
+- `keyword_id`,
+- `pattern`,
+- `reason`,
+- optional regex or literal flags,
+- optional case-sensitivity flags.
 
 ### 10.5 Snapshot and reporting extension objects
 
@@ -651,9 +776,22 @@ The evidence model MUST support both:
 - requested or pending evidence with no blob yet attached,
 - received or available evidence with custody events and optional blob linkage.
 
+An evidence record or its deterministic joined projection from authoritative object metadata MUST be able to expose, at minimum:
+
+- `requested_at`,
+- `received_at`,
+- `storage_ref`,
+- `blob_hash`,
+- `collector_party_text`,
+- `source_party_text`.
+
+`requested_at` and `received_at` MUST remain first-class structured state. `storage_ref` MAY be a human-usable repository locator derived from the authoritative object-blob pointer, but it MUST be filterable and exportable without parsing `custom_attrs`.
+
 When an evidence record represents requested or pending evidence rather than already received material, the model MUST be able to store `owner_user_id` or an equivalent stable assignee field so accountable follow-up does not require a separate timeline field. A linked `task_request` MAY also exist.
 
 An implementation MAY persist a non-authoritative `sensitivity_class` on evidence records and MAY project that label onto exportable evidence-derived blocks. In the base profile, `sensitivity_class` is metadata for preview labeling, default export-redaction behavior, and audit or reporting only. It MUST NOT change incident authorization or hide live workspace content.
+
+When custody narrative or handoff commentary is preserved as authoritative workflow state, it MUST be modeled as append-only custody events or equivalent child rows. A convenience `custody_note` or similar summary field MAY exist, but it MUST NOT be the sole authoritative custody history.
 
 ## 14. Schema invariants
 
@@ -671,11 +809,17 @@ The schema MUST support:
 - append-only compromise-assessment fields sufficient to persist closed-vocabulary `assessment_state`, `assessed_at`, assessor attribution, nullable `confidence_score`, rationale, optional supporting record references, and deterministic derivation of `confidence_band`,
 - reference-pack manifest fields sufficient to persist `pack_key`, `pack_kind`, `pack_version`, `source_identifier`, `manifest_sha256`, one or more payload SHA-256 digests in deterministic member order or an equivalent canonical aggregate digest, declared `pack_contract_version`, signature or trusted-source metadata, `verification_method`, and non-active availability state,
 - reference-pack activation and attestation fields sufficient to persist one active-version pointer per `pack_key`, imported and activated actor attribution with timestamps, `previous_active_version`, `verification_result`, and optional operator note or change ticket,
+- incident fields sufficient to persist `tlp`, `current_phase`, and `primary_external_case_ref`,
 - `entity_origin` and seed provenance on host and identity records,
+- host fields sufficient to persist `location`, `os_platform`, `business_owner`, `criticality`, and `containment_status`,
+- identity fields sufficient to persist `privilege_level`, `mfa_state`, and `reset_status`,
 - `entity_binding_mode` in view write-back contracts and import mappings,
-- `task_request` fields sufficient to persist `task_kind`, `status`, `owner_user_id`, `priority`, due and blocker state, and optional linked-record or linked-decision references,
+- canonical indicator fields sufficient to persist `defanged_value`, optional `hash_algorithm`, optional `hash_value`, and deterministic storage or derivation of `first_observed_at` and `last_observed_at`,
+- `task_request` fields sufficient to persist `task_kind`, `status`, `owner_user_id`, `priority`, optional `workstream`, `due_at`, `blocked_reason`, `requester_party_text`, `completed_at`, `external_ticket_ref`, and optional linked-record or linked-decision references,
 - `decision` fields sufficient to persist `decision_type`, `status`, `owner_user_id`, `decided_at`, rationale, support references, affected-record references, and optional supersession linkage,
-- coordination-artifact fields sufficient to persist `artifact_type`-specific metadata for `comm_log`, `handoff`, `status_review`, `lesson`, and optional current-profile `hypothesis` tracking.
+- evidence fields sufficient to persist `requested_at`, `received_at`, `storage_ref`, `blob_hash`, `collector_party_text`, `source_party_text`, upload state, and append-only custody events,
+- coordination-artifact fields sufficient to persist `comm_type` and other `artifact_type`-specific metadata for `comm_log`, `handoff`, `status_review`, `lesson`, and optional current-profile `hypothesis` tracking,
+- optional structured artifact subtype fields sufficient to persist findings, investigative queries, and forensic keywords when those surfaces are implemented.
 
 ### 14.2 Rollback granularity substrate
 
