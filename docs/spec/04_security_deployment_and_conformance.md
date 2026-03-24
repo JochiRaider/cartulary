@@ -271,6 +271,8 @@ A conformant deployment MAY additionally provide:
 
 Each criterion below is a pass/fail requirement.
 
+Within this document, subsection numbers MUST be unique and strictly increasing, acceptance-criterion identifiers MUST be unique, and a retired or superseded acceptance-criterion identifier MUST NOT be reassigned or recycled.
+
 For performance-sensitive criteria in this section, the following reference performance fixtures apply:
 
 - **Fixture A: large-grid incident**
@@ -461,15 +463,6 @@ For this section:
 - **AC-144**: If an explicit supersession action targets a decision already in `executed`, the target record remains `executed`, the supersession relation still persists, and the decision view surfaces `decision.is_superseded=true` or an equivalent computed indicator for that target without rewriting its persisted `status`.
 - **AC-145**: Replaying the same legal `task_request` status change, legal `decision` status change, or legal explicit supersession action after a simulated crash or duplicate delivery is idempotent and does not duplicate durable side effects such as extra `change_set` records, extra mutation entries, projection updates, or repeated status flips.
 
-### 9.9 Incident Portability Extension Profile criteria
-
-- **AC-102**: Whole-incident export produces a bundle whose logical layout, manifest, checksum file, structured JSON or NDJSON files, and blob paths satisfy Core 01 §12.3, and the bundle excludes projections, search indexes, sessions, presigned URLs, locks, client-local drafts, memberships, permissions, password hashes, MFA secrets, external-provider configuration, and object-store credentials.
-- **AC-103**: Exporting an incident and importing that bundle into an empty deployment preserves the exported `incident_id`, `record_id`, `row_version`, change-set count, revision count, record-link count, entity-mention count, indicator-observation count, and blob hashes, and the imported incident opens normally after projection rebuild.
-- **AC-104**: If one required structured file or one required blob is missing, if any required checksum is corrupted, if `incident_id` already exists, or if a required capability is unsupported, import fails closed before the incident becomes visible and leaves no partially visible incident state.
-- **AC-105**: If a bundle contains optional embedded `snapshots` or `reference_packs` sections that the target deployment does not support, the importer ignores or degrades only those optional sections unless the relevant capability is listed in `required_capabilities[]`, and core incident import still succeeds.
-- **AC-106**: Historical actors in `actors.ndjson` that do not map to an existing local user become inert imported actors or equivalent historical actor descriptors, are not login-capable, are not automatically added to incident membership, and still remain visible as historical attribution in imported history.
-- **AC-107**: Whole-incident export and import run as background jobs, show progress and cancellation without blocking grid editing, stage bundle contents only under the configured temporary-work root, and in flyaway or disconnected deployments keep emitted bundles and staged extracts on encrypted storage.
-
 ### 9.10 Additional Base Profile criteria for public interface surface
 
 - **AC-123**: `GET /api/v1/auth/session` returns the authenticated internal user identity, provider kind, MFA state, `authenticated_at`, `idle_expires_at`, `absolute_expires_at`, and `session_expires_at`, plus the caller's incident memberships or current incident-role context, without requiring client-side token parsing; `session_expires_at` is the earlier of `idle_expires_at` and `absolute_expires_at`.
@@ -497,6 +490,15 @@ For this section:
 - **AC-161**: A `resume_token` is rejected as an HTTP authentication credential, becomes unusable after the earlier of replay-window expiry and underlying session expiry or revocation, and after session expiry or revocation a reconnect succeeds only after a new authenticated session is established and the client begins again with `hello` rather than relying on `resume` alone.
 - **AC-162**: If a user loses membership in incident A while retaining a still-valid session and access to incident B, the connection and future requests for incident A fail closed, the incident-A socket receives `session_revoked` with `reason_code='incident_access_revoked'`, and the same session can still query or subscribe to incident B if otherwise authorized.
 - **AC-163**: If session expiry or revocation occurs while the client holds queued unsent patches or unresolved same-field local drafts, the client preserves that unsaved work locally, prompts for re-authentication when required, and retries only through the normal authenticated patch or conflict-resolution paths after a new session is established; no queued draft becomes authoritative without passing the ordinary row-version, authorization, and conflict checks.
+
+### 9.11 Incident Portability Extension Profile criteria
+
+- **AC-164**: Whole-incident export produces a bundle whose logical layout, manifest, checksum file, structured JSON or NDJSON files, and blob paths satisfy Core 01 §12.3, and the bundle excludes projections, search indexes, sessions, presigned URLs, locks, client-local drafts, memberships, permissions, password hashes, MFA secrets, external-provider configuration, and object-store credentials.
+- **AC-165**: Exporting an incident and importing that bundle into an empty deployment preserves the exported `incident_id`, `record_id`, `row_version`, change-set count, revision count, record-link count, entity-mention count, indicator-observation count, and blob hashes, and the imported incident opens normally after projection rebuild.
+- **AC-166**: If one required structured file or one required blob is missing, if any required checksum is corrupted, if `incident_id` already exists, or if a required capability is unsupported, import fails closed before the incident becomes visible and leaves no partially visible incident state.
+- **AC-167**: If a bundle contains optional embedded `snapshots` or `reference_packs` sections that the target deployment does not support, the importer ignores or degrades only those optional sections unless the relevant capability is listed in `required_capabilities[]`, and core incident import still succeeds.
+- **AC-168**: Historical actors in `actors.ndjson` that do not map to an existing local user become inert imported actors or equivalent historical actor descriptors, are not login-capable, are not automatically added to incident membership, and still remain visible as historical attribution in imported history.
+- **AC-169**: Whole-incident export and import run as background jobs, show progress and cancellation without blocking grid editing, stage bundle contents only under the configured temporary-work root, and in flyaway or disconnected deployments keep emitted bundles and staged extracts on encrypted storage.
 
 ## 10. Non-goals preserved from the source artifact
 
