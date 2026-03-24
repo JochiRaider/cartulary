@@ -136,6 +136,8 @@ The incident record MUST expose, as structured state:
 - `current_phase`,
 - `primary_external_case_ref`.
 
+An incident MUST also persist a first-class `incident_key`. The deployment MUST enforce deployment-wide uniqueness on the canonical `incident_key` form produced by trimming leading and trailing Unicode whitespace and applying Unicode NFC normalization. The implementation MAY store that canonical form explicitly or derive it through an equivalent deterministic uniqueness mechanism.
+
 The `task_request` model MUST expose, as structured state:
 
 - `priority`,
@@ -1032,7 +1034,7 @@ The schema MUST support:
 - append-only compromise-assessment fields sufficient to persist closed-vocabulary `assessment_state`, `assessed_at`, assessor attribution, nullable `confidence_score`, rationale, optional supporting record references, and deterministic derivation of `confidence_band`,
 - reference-pack manifest fields sufficient to persist `pack_key`, `pack_kind`, `pack_version`, `source_identifier`, `manifest_sha256`, one or more payload SHA-256 digests in deterministic member order or an equivalent canonical aggregate digest, declared `pack_contract_version`, signature or trusted-source metadata, `verification_method`, and non-active availability state,
 - reference-pack activation and attestation fields sufficient to persist one active-version pointer per `pack_key`, imported and activated actor attribution with timestamps, `previous_active_version`, `verification_result`, and optional operator note or change ticket,
-- incident fields sufficient to persist `tlp`, `current_phase`, and `primary_external_case_ref`,
+- incident fields sufficient to persist `incident_key`, `tlp`, `current_phase`, and `primary_external_case_ref`, plus a canonical `incident_key` uniqueness form or equivalent deterministic uniqueness substrate derived by trimming leading and trailing Unicode whitespace and applying Unicode NFC normalization,
 - saved-view fields sufficient to persist immutable `view_schema_id`, `scope`, `display_name`, normalized `query_json`, `layout_json`, nullable `owner_user_id`, and monotonically increasing `saved_view_version`,
 - workbook-preference fields sufficient to persist per-user `home_sheet_ref` and incident-wide `default_sheet_ref` separately without overloading a saved-view row flag,
 - `entity_origin` and seed provenance on host and identity records,

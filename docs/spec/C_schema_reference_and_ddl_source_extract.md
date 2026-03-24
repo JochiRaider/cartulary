@@ -177,15 +177,33 @@ CREATE TABLE auth_identities (
 
 CREATE TABLE incidents (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    incident_key text NOT NULL UNIQUE,
+    incident_key text NOT NULL,
+    incident_key_canonical text NOT NULL,
     title text NOT NULL,
     description text,
     status text NOT NULL DEFAULT 'active',
     severity text,
+    tlp text,
+    current_phase text,
+    primary_external_case_ref text,
     created_by_user_id uuid NOT NULL REFERENCES users(id),
     created_at timestamptz NOT NULL DEFAULT now(),
-    closed_at timestamptz
+    closed_at timestamptz,
+    CHECK (incident_key_canonical <> ''),
+    CHECK (octet_length(convert_to(incident_key_canonical, 'UTF8')) <= 128),
+    CHECK (char_length(title) <= 512),
+    CHECK (description IS NULL OR char_length(description) <= 16384),
+    CHECK (severity IS NULL OR char_length(severity) <= 128),
+    CHECK (tlp IS NULL OR char_length(tlp) <= 128),
+    CHECK (current_phase IS NULL OR char_length(current_phase) <= 128),
+    CHECK (primary_external_case_ref IS NULL OR char_length(primary_external_case_ref) <= 128),
+    UNIQUE (incident_key_canonical)
 );
+
+-- Non-normative example: `incident_key_canonical` stores the trimmed,
+-- Unicode NFC-normalized uniqueness form used by the public create
+-- contract. A functional unique index over the same canonicalization rule
+-- is equivalent.
 
 CREATE TABLE incident_memberships (
     incident_id uuid NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,

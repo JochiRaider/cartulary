@@ -140,7 +140,7 @@ If the Enterprise Authentication Extension Profile is implemented, provider-back
 
 The base-profile route set MUST include stable route families for:
 
-- incident discovery and incident metadata: `GET /api/v1/incidents`, `GET /api/v1/incidents/{incident_id}`,
+- incident discovery, creation, and incident metadata: `POST /api/v1/incidents`, `GET /api/v1/incidents`, `GET /api/v1/incidents/{incident_id}`,
 - incident membership inspection: `GET /api/v1/incidents/{incident_id}/memberships`,
 - view-schema discovery: `GET /api/v1/view-schemas`, `GET /api/v1/view-schemas/{view_schema_id}`,
 - saved-view discovery and persistence: `GET /api/v1/incidents/{incident_id}/saved-views`, `POST /api/v1/incidents/{incident_id}/saved-views`, `PATCH /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}`, `DELETE /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}`,
@@ -238,6 +238,58 @@ Both workbook-preference resources MUST use the stable `sheet_ref` union defined
 `workbook-preferences/me` MUST expose, at minimum, `incident_id`, `user_id`, `home_sheet_ref`, `created_at`, and `updated_at`. `PUT /api/v1/incidents/{incident_id}/workbook-preferences/me` MUST accept a nullable `home_sheet_ref` and MUST allow any current incident member to set or clear only their own home-surface preference.
 
 `workbook-preferences/default` MUST expose, at minimum, `incident_id`, `default_sheet_ref`, `created_at`, `updated_at`, and `updated_by_user_id`. `PUT /api/v1/incidents/{incident_id}/workbook-preferences/default` MUST accept a nullable `default_sheet_ref` and MUST fail closed for callers whose current incident role is not `admin`.
+
+#### 3.3.5.2 Incident resource and creation contract
+
+The incident resource MUST expose, at minimum:
+
+- `incident_id`,
+- `incident_key`,
+- `title`,
+- `description`,
+- `status`,
+- `severity`,
+- `tlp`,
+- `current_phase`,
+- `primary_external_case_ref`,
+- `created_by_user_id`,
+- `created_at`,
+- `closed_at`.
+
+`POST /api/v1/incidents` MUST require an authenticated session using the same session contract as the remaining API surface. Cookie-authenticated requests MUST fail closed without valid CSRF protection.
+
+The base-profile authorization gate for `POST /api/v1/incidents` MUST be an authenticated session whose internal user account is active and not disabled. This route MUST NOT require a pre-existing incident membership because the caller is creating the workspace boundary itself.
+
+`POST /api/v1/incidents` request bodies MUST be JSON objects and MUST accept:
+
+- required `client_txn_id`,
+- required `incident_key`,
+- required `title`,
+- optional nullable `description`,
+- optional nullable `severity`,
+- optional nullable `tlp`,
+- optional nullable `current_phase`,
+- optional nullable `primary_external_case_ref`.
+
+`incident_key` MUST be trimmed of leading and trailing Unicode whitespace, Unicode NFC-normalized, non-empty, at most 128 UTF-8 bytes after that normalization, and unique within the deployment after that same normalization. `title` MUST be trimmed of leading and trailing Unicode whitespace, non-empty, and at most 512 Unicode scalar values after trimming. If present, `description` MUST be at most 16384 Unicode scalar values. If present, `severity`, `tlp`, `current_phase`, and `primary_external_case_ref` MUST each be at most 128 Unicode scalar values. The server MUST reject control characters in `incident_key` and `title`.
+
+The server MUST ignore unknown extension fields so additive optional request fields remain forward-compatible within the same major version. The server MUST reject any attempt to set server-managed fields including `incident_id`, `status`, `created_by_user_id`, `created_at`, `closed_at`, any membership object, any saved-view object, and any workbook-preference object.
+
+For idempotency comparison, the normalized request MUST include only recognized request fields after the validation and normalization rules in this section are applied. For all optional request fields in this contract, omission and an explicit JSON `null` MUST compare equal.
+
+On success, the server MUST, in one transaction:
+
+1. insert the incident with `status='active'`, `created_by_user_id` bound to the authenticated user, and `closed_at=NULL`,
+2. insert one `incident_memberships` row for the creator with `role='admin'`,
+3. create the incident-wide workbook-preference object with `default_sheet_ref=NULL`,
+4. create the creator's per-user workbook-preference object with `home_sheet_ref=NULL`,
+5. persist attributed audit history sufficient to reconstruct the initial incident state and the bootstrap membership.
+
+The base profile MUST NOT accept `initial_memberships[]` or any equivalent collaborator-seeding payload on this route. Membership management beyond creator bootstrap belongs to the separate membership-write contract.
+
+Idempotency for create MUST be keyed by `(actor_user_id, client_txn_id)`. If the same authenticated user replays the same normalized request with the same `client_txn_id`, the server MUST return `200 OK`, MUST set `Location` to `/api/v1/incidents/{incident_id}` for the originally created incident, and MUST return the common success envelope with `data` equal to the originally created incident resource. If the same authenticated user reuses `client_txn_id` with a different normalized request, the server MUST fail with `409`.
+
+A first-time successful create MUST return `201 Created`, MUST set `Location` to `/api/v1/incidents/{incident_id}`, and MUST return the common success envelope with `data` equal to the incident resource.
 
 #### 3.3.6 Success and error envelopes
 
