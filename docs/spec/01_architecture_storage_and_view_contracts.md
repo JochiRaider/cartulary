@@ -178,6 +178,134 @@ A view-query response MUST return:
 
 The server MUST NOT serialize group headers or other presentation-only grouping artifacts as writable rows.
 
+##### 3.3.4.1 Filter predicate wire contract
+
+A `filters[]` entry MUST use this shape:
+
+```json
+{
+  "field_key": "task.status",
+  "op": "eq",
+  "arg": {
+    "values": ["open", "blocked"]
+  }
+}
+```
+
+The closed v1 `op` vocabulary is:
+
+- `eq`
+- `range`
+- `contains_any`
+- `contains_all`
+- `prefix`
+- `full_text`
+
+`field_key` MUST be a stable filterable field key, or a stable synthetic predicate key, declared by the active `view_schema_id`. It MUST NOT be a visible column label, visible tab label, SQL expression, projection-table column name, or storage-table column name.
+
+`arg` MUST follow the operator-specific shape:
+
+- `eq`: exactly one of:
+  - `{ "value": <scalar-or-null> }`
+  - `{ "values": [<scalar>, ...] }`
+  `values[]` means one-of exact-match inclusion for that scalar field.
+- `range`: one or more of `gt`, `gte`, `lt`, `lte`.
+  At least one bound MUST be present.
+  `gt` and `gte` MUST NOT both be present.
+  `lt` and `lte` MUST NOT both be present.
+- `contains_any`: `{ "values": [<scalar>, ...] }`
+- `contains_all`: `{ "values": [<scalar>, ...] }`
+- `prefix`: `{ "value": <string> }`
+- `full_text`: `{ "query": <string> }`
+
+Unless a view schema explicitly overrides the rule, operator eligibility is type-driven as follows:
+
+- enum and boolean fields allow `eq`,
+- timestamp and date fields allow `eq` and `range`,
+- scalar identifier text fields allow `eq` and `prefix`,
+- multi-value collection fields allow `contains_any` and `contains_all`,
+- declared full-text predicate fields allow `full_text`.
+
+A scalar operand MUST be one of JSON `string`, `number`, `boolean`, or `null`.
+
+Date operands MUST use canonical `YYYY-MM-DD`.
+Timestamp operands MUST use RFC 3339.
+The server MUST apply the field contract's declared normalization before comparison.
+
+`filters[]` combine by conjunction.
+
+Within one filter:
+
+- `eq` with `values[]` is disjunctive across those values,
+- `contains_any` matches when any normalized member matches,
+- `contains_all` matches when all normalized members match,
+- `range` matches when all supplied bounds hold.
+
+The server MUST reject, using the common error envelope:
+
+- a `field_key` not declared filterable for the active view,
+- an `op` not allowed for that field's filter class,
+- duplicate `field_key` entries after normalization,
+- an empty `values[]`,
+- an empty `prefix.value` after trimming,
+- an empty `full_text.query` after trimming,
+- a `range` with no bounds,
+- a `range` that specifies both `gt` and `gte`,
+- a `range` that specifies both `lt` and `lte`,
+- contradictory range bounds after normalization,
+- unknown top-level members other than `field_key`, `op`, and `arg`,
+- unknown `arg` members for the selected `op`.
+
+For these failures, the server MUST return `400` and `error.code = invalid_view_query`.
+
+`error.details` MUST identify, at minimum:
+
+- `filter_index`,
+- `field_key` when present,
+- `reason_code`.
+
+The closed `reason_code` vocabulary is:
+
+- `unknown_filter_field`
+- `operator_not_allowed`
+- `invalid_filter_operand`
+- `duplicate_filter_field`
+
+Request order of `filters[]` is not semantically significant.
+
+For saved-view persistence, cursor binding, and `meta.query`, the server MUST normalize `filters[]` into canonical order by `field_key asc`, then emit or persist the exact same wire shape defined in this subsection.
+
+A declared full-text predicate that spans multiple read fields MUST have its own stable synthetic `field_key`. Clients MUST address that predicate by its declared synthetic key rather than by sending raw field lists or storage-specific search syntax.
+
+Examples:
+
+```json
+{
+  "filters": [
+    {
+      "field_key": "timeline.capture_state",
+      "op": "eq",
+      "arg": { "values": ["rough", "enriched"] }
+    },
+    {
+      "field_key": "timeline.occurred_day",
+      "op": "range",
+      "arg": { "gte": "2026-03-01", "lt": "2026-04-01" }
+    },
+    {
+      "field_key": "timeline.tags",
+      "op": "contains_any",
+      "arg": { "values": ["rough", "needs_followup"] }
+    },
+    {
+      "field_key": "identity.upn",
+      "op": "prefix",
+      "arg": { "value": "john." }
+    }
+  ]
+}
+```
+
 #### 3.3.5 Mutation contract
 
 New row creation MUST use `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`. The request MUST include `client_txn_id` and the initial writable values keyed by `field_key`.
@@ -336,7 +464,7 @@ The saved-view route family MUST expose a saved-view resource containing, at min
 
 `saved_view_version` MUST be monotonically increasing per `saved_view_id`.
 
-`query_json` MUST be normalized against the owning `view_schema_id` and encode saved-view sort, filter, and grouping state using stable `field_key` values, ordered `sort[]`, ordered `filters[]`, optional `group_by`, and normalized scalar values. It MUST NOT use visible tab labels, visible column labels, presentation-only group-header text, or other display-only identifiers.
+`query_json` MUST be normalized against the owning `view_schema_id` and encode saved-view sort, filter, and grouping state using stable `field_key` values, ordered `sort[]`, ordered `filters[]`, optional `group_by`, and normalized scalar values. It MUST NOT use visible tab labels, visible column labels, presentation-only group-header text, or other display-only identifiers. `query_json.filters[]` MUST use the exact filter predicate wire shape defined in §3.3.4.1. Persisted normalization MUST preserve the operator-specific `arg` object, normalized scalar values, and canonical `filters[]` ordering by `field_key asc`.
 
 `layout_json` MAY encode presentation concerns such as column order, hidden fields, widths, inspector openness, and equivalent client layout state. `layout_json` MUST NOT be the authority for `saved_view_id`, `incident_id`, `view_schema_id`, `scope`, ownership, authorization, or startup/default surface selection.
 
@@ -855,7 +983,8 @@ Unless explicitly overridden below:
 - `default_visible_fields`: `note.title`, `note.body`, `note.tags`, `note.linked_record_count`, `note.updated_at`
 - `default_hidden_fields`: `record_id`, `row_version`, `note.created_by_user_id`
 - `default_sort`: `note.updated_at desc`, `record_id asc`
-- `filter_fields`: `note.tags`, `note.created_by_user_id`, `note.updated_at`, plus a contract-declared full-text predicate over `note.title` and `note.body`
+- `filter_fields`: `note.tags`, `note.created_by_user_id`, `note.updated_at`, `note.full_text`
+- `note.full_text` is a filter-only synthetic predicate key declared by this view schema. It applies case-insensitive token search over `note.title` and `note.body`. It is not a writable field and need not be a visible column.
 - inline create: blank-row or equivalent grid-native creation MUST create an `artifact` record with `artifact_type='note'`
 - writable fields:
   - `note.title`: read the note title field; write target the note artifact title field; `conflict_resolution_class=text_compare_merge`

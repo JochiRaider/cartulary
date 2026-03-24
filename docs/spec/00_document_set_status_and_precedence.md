@@ -126,7 +126,7 @@ The implementation MUST support the following operating assumptions:
 - **mutation entry**: one reversible change target recorded within a parent `change_set`.
 - **`view_schema_id`**: stable identifier of a built-in sheet or contract-backed system view.
 - **`saved_view_id`**: stable identifier of a saved-view configuration scoped to an incident or system-owned seed.
-- **`field_key`**: stable identifier of a write-back-capable field in a view contract, import mapping, or API contract.
+- **`field_key`**: stable identifier of a contract-declared field in a view contract, import mapping, or API contract, or of a synthetic filter predicate declared by a view contract.
 - **`client_txn_id`**: client-generated identifier used to correlate a batch of mutations with the user action that produced them.
 - **`entity_mention_id`**: stable identifier of an entity-mention row captured from source text before or after explicit resolution.
 - **`object_blob_id`**: stable identifier of a stored binary blob slot or authoritative object-metadata row.
