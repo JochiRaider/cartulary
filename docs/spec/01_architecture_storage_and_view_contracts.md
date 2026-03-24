@@ -126,7 +126,7 @@ The base route family MUST include:
 
 The session routes MUST expose the lifecycle boundaries defined by Core 04 §1.1.1 without requiring client-side token parsing.
 
-`GET /api/v1/auth/session` MUST return, at minimum, the authenticated internal user identity, display name, provider kind, MFA state, `authenticated_at`, `idle_expires_at`, `absolute_expires_at`, `session_expires_at`, and the caller's incident memberships or current incident-role context. `session_expires_at` MUST be the earlier of `idle_expires_at` and `absolute_expires_at`.
+`GET /api/v1/auth/session` MUST return, at minimum, the authenticated internal user identity, display name, provider kind, MFA state, `is_deployment_admin`, `authenticated_at`, `idle_expires_at`, `absolute_expires_at`, `session_expires_at`, and the caller's incident memberships or current incident-role context. `session_expires_at` MUST be the earlier of `idle_expires_at` and `absolute_expires_at`.
 
 `GET /api/v1/auth/session` is an inspection route and MUST NOT by itself extend `idle_expires_at`.
 
@@ -141,7 +141,8 @@ If the Enterprise Authentication Extension Profile is implemented, provider-back
 The base-profile route set MUST include stable route families for:
 
 - incident discovery, creation, and incident metadata: `POST /api/v1/incidents`, `GET /api/v1/incidents`, `GET /api/v1/incidents/{incident_id}`,
-- incident membership inspection: `GET /api/v1/incidents/{incident_id}/memberships`,
+- deployment-local user account inspection and administration: `GET /api/v1/users`, `POST /api/v1/users`, `GET /api/v1/users/{user_id}`, `PATCH /api/v1/users/{user_id}`,
+- incident membership inspection and administration: `GET /api/v1/incidents/{incident_id}/memberships`, `POST /api/v1/incidents/{incident_id}/memberships`, `PATCH /api/v1/incidents/{incident_id}/memberships/{user_id}`, `DELETE /api/v1/incidents/{incident_id}/memberships/{user_id}`,
 - view-schema discovery: `GET /api/v1/view-schemas`, `GET /api/v1/view-schemas/{view_schema_id}`,
 - saved-view discovery and persistence: `GET /api/v1/incidents/{incident_id}/saved-views`, `POST /api/v1/incidents/{incident_id}/saved-views`, `PATCH /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}`, `DELETE /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}`,
 - workbook-preference discovery and persistence: `GET /api/v1/incidents/{incident_id}/workbook-preferences/me`, `PUT /api/v1/incidents/{incident_id}/workbook-preferences/me`, `GET /api/v1/incidents/{incident_id}/workbook-preferences/default`, `PUT /api/v1/incidents/{incident_id}/workbook-preferences/default`,
@@ -194,7 +195,102 @@ The server MUST validate each requested change against the active view contract,
 
 A successful create or patch response MUST return the authoritative `record_id`, resulting `row_version`, and the committed field values needed to refresh the visible row.
 
-#### 3.3.5.1 Saved-view and workbook-preference contracts
+#### 3.3.5.1 Deployment-local user-account and incident-membership administration contracts
+
+The base profile MUST expose two distinct mutable administrative route families:
+
+- `/api/v1/users` for deployment-local internal user accounts,
+- `/api/v1/incidents/{incident_id}/memberships` for incident-scoped membership assignments.
+
+The user-account route family MUST manage stable internal `user_id` resources. Incident memberships, audit attribution, saved-view ownership, workbook-preference ownership, and provider-backed identities MUST bind to `user_id`, not to email address, visible labels, or provider subject.
+
+The public user-account routes MUST expose only safe user-resource fields. They MUST NOT expose password hashes, TOTP secrets, WebAuthn credential material, opaque session tokens, provider assertions, or equivalent secret-bearing authentication state.
+
+The user resource MUST expose, at minimum:
+
+- `user_id`,
+- `email`,
+- `display_name`,
+- `is_active`,
+- `mfa_required`,
+- `is_deployment_admin`,
+- `created_at`,
+- `updated_at`,
+- nullable `updated_by_user_id`,
+- nullable `last_login_at`,
+- `user_version`,
+- `auth_bindings[]`.
+
+`auth_bindings[]` MUST be read-only and MUST contain only safe binding summaries such as `provider_type`, `provider_key`, optional `username`, `created_at`, and `last_auth_at`. The base profile MUST NOT require clients to interpret `auth_bindings[]` in order to authorize incident data access.
+
+`GET /api/v1/users` and `GET /api/v1/users/{user_id}` MUST fail closed unless the caller has the deployment-scoped account-administration capability defined by Core 04 §2. `GET /api/v1/users` MUST use the common success envelope with `data.users[]`, MUST use cursor pagination when more than one page is needed, and MUST return safe user resources ordered by `user_id asc`. Inert imported historical actors from incident portability are not login-capable user resources and MUST NOT be returned by this route family unless they have been explicitly mapped to a local user account.
+
+`GET /api/v1/users/{user_id}` MUST return the common success envelope with `data` equal to the requested safe user resource.
+
+`POST /api/v1/users` MUST require the same deployment-scoped account-administration capability. The route MUST accept:
+
+- required `client_txn_id`,
+- required `auth_kind`,
+- required `email`,
+- required `display_name`,
+- required `initial_password`,
+- optional `mfa_required`,
+- optional `is_deployment_admin`.
+
+In the base profile, `auth_kind` MUST be `local`. `email` MUST be trimmed of leading and trailing ASCII whitespace, MUST be non-empty after trimming, and MUST be unique within the deployment after stable case-insensitive canonicalization or an equivalent deterministic uniqueness substrate. The server MUST NOT expose `initial_password` or any equivalent secret in a response or event payload.
+
+The first deployment admin MUST be provisioned out of band at install or bootstrap time. The public API MUST NOT allow unauthenticated bootstrap of a deployment-admin user.
+
+Idempotency for user create MUST be keyed by `(actor_user_id, client_txn_id)`. If the same authenticated actor replays the same normalized request with the same `client_txn_id`, the server MUST return `200 OK` with the originally created safe user resource and MUST create no second user. If the same actor reuses `client_txn_id` with a different normalized request, the server MUST fail with `409`.
+
+A first-time successful `POST /api/v1/users` call MUST return `201 Created` and the common success envelope with `data` equal to the created safe user resource.
+
+`PATCH /api/v1/users/{user_id}` MUST require the same deployment-scoped account-administration capability. The route MUST accept `base_user_version` plus changed mutable fields only. In the base profile, mutable fields are `email`, `display_name`, `is_active`, `mfa_required`, and `is_deployment_admin`. The route MUST reject attempted mutation of `user_id`, `created_at`, `last_login_at`, or `auth_bindings[]`. If the current `user_version` differs from `base_user_version`, the server MUST fail with `409` and `error.code = user_version_conflict`.
+
+Changing `is_active` from `true` to `false` MUST revoke all active sessions for that user immediately and MUST NOT delete that user's incident memberships. A patch that would deactivate or demote the last active `is_deployment_admin=true` user MUST fail with `409` and `error.code = last_deployment_admin`.
+
+A successful `PATCH /api/v1/users/{user_id}` call MUST return the common success envelope with `data` equal to the resulting safe user resource.
+
+The membership route family MUST persist and expose stable incident membership resources. A membership resource MUST expose, at minimum:
+
+- `incident_id`,
+- `user_id`,
+- `display_name`,
+- `role`,
+- `joined_at`,
+- `added_by_user_id`,
+- `updated_at`,
+- `updated_by_user_id`,
+- `membership_version`.
+
+`display_name` on the membership resource is a read-only joined user summary. Membership state itself MUST remain keyed by `(incident_id, user_id)`.
+
+`GET /api/v1/incidents/{incident_id}/memberships` MUST require current membership in that incident and MUST return the common success envelope with `data.memberships[]` ordered by `joined_at asc, user_id asc`.
+
+`POST /api/v1/incidents/{incident_id}/memberships` MUST require the caller's current role on that incident to be `admin`. The route MUST accept:
+
+- required `client_txn_id`,
+- exactly one of `user_id` or `email`,
+- required `role`.
+
+`role` MUST use the closed vocabulary `viewer`, `editor`, `reviewer`, and `admin`. If `email` is supplied, the server MUST resolve it through the same canonical email lookup used by the user-account contract and MUST bind stored membership state to the resolved `user_id`. The base profile MUST NOT auto-create or invite a user from this route. If the target user does not exist, the server MUST fail with `404` and `error.code = user_not_found`. If the target user exists but `is_active=false`, the server MUST fail with `409` and `error.code = user_inactive`.
+
+Idempotency for membership create MUST be keyed by `(actor_user_id, incident_id, client_txn_id)`. If no current membership exists for the resolved `(incident_id, user_id)`, the server MUST create one, MUST return `201 Created`, and MUST return the common success envelope with `data` equal to the created membership resource. If a current membership already exists with the same role, the server MUST return `200 OK` with the existing membership resource and MUST create no second membership row. If a current membership already exists with a different role, the server MUST fail with `409` and `error.code = membership_exists_use_patch`.
+
+`PATCH /api/v1/incidents/{incident_id}/memberships/{user_id}` MUST require the caller's current role on that incident to be `admin`. The route MUST accept:
+
+- required `base_membership_version`,
+- required `role`.
+
+The route MUST reject attempted mutation of `incident_id`, `user_id`, `joined_at`, or `added_by_user_id`. If the current `membership_version` differs from `base_membership_version`, the server MUST fail with `409` and `error.code = membership_version_conflict`. If the requested `role` already matches the current role, the server MUST return `200 OK` with the current membership resource and MUST NOT increment `membership_version`. A successful role change MUST take effect on the next incident-scoped authorization check for that user.
+
+A successful `PATCH /api/v1/incidents/{incident_id}/memberships/{user_id}` call MUST return the common success envelope with `data` equal to the resulting membership resource.
+
+`DELETE /api/v1/incidents/{incident_id}/memberships/{user_id}` MUST require the caller's current role on that incident to be `admin`. If no current membership exists for that `(incident_id, user_id)`, the server MUST fail with `404` and `error.code = membership_not_found`. A successful delete MUST remove only that incident membership and MUST return `204 No Content`.
+
+A membership create, role change, or delete that would leave the incident without any `admin` membership MUST fail with `409` and `error.code = last_incident_admin`. Self-demotion or self-removal by an incident admin MAY succeed only when another current `admin` membership remains.
+
+#### 3.3.5.2 Saved-view and workbook-preference contracts
 
 The saved-view route family MUST expose a saved-view resource containing, at minimum:
 
@@ -239,7 +335,7 @@ Both workbook-preference resources MUST use the stable `sheet_ref` union defined
 
 `workbook-preferences/default` MUST expose, at minimum, `incident_id`, `default_sheet_ref`, `created_at`, `updated_at`, and `updated_by_user_id`. `PUT /api/v1/incidents/{incident_id}/workbook-preferences/default` MUST accept a nullable `default_sheet_ref` and MUST fail closed for callers whose current incident role is not `admin`.
 
-#### 3.3.5.2 Incident resource and creation contract
+#### 3.3.5.3 Incident resource and creation contract
 
 The incident resource MUST expose, at minimum:
 
@@ -285,7 +381,7 @@ On success, the server MUST, in one transaction:
 4. create the creator's per-user workbook-preference object with `home_sheet_ref=NULL`,
 5. persist attributed audit history sufficient to reconstruct the initial incident state and the bootstrap membership.
 
-The base profile MUST NOT accept `initial_memberships[]` or any equivalent collaborator-seeding payload on this route. Membership management beyond creator bootstrap belongs to the separate membership-write contract.
+The base profile MUST NOT accept `initial_memberships[]` or any equivalent collaborator-seeding payload on this route. Membership management beyond creator bootstrap belongs to the separate membership-write contract defined by §3.3.5.1.
 
 Idempotency for create MUST be keyed by `(actor_user_id, client_txn_id)`. If the same authenticated user replays the same normalized request with the same `client_txn_id`, the server MUST return `200 OK`, MUST set `Location` to `/api/v1/incidents/{incident_id}` for the originally created incident, and MUST return the common success envelope with `data` equal to the originally created incident resource. If the same authenticated user reuses `client_txn_id` with a different normalized request, the server MUST fail with `409`.
 
@@ -1358,8 +1454,8 @@ A portability bundle MUST NOT include:
 - live presence state,
 - client-local draft queues or same-field-conflict queues,
 - sessions, presigned URLs, locks, temporary caches, or other ephemeral runtime files,
-- password hashes, MFA secrets, external provider configuration, or object-store credentials,
-- incident memberships, current permissions, or other deployment-local authorization state.
+- login-capable local user accounts, deployment-admin flags, auth-binding state, password hashes, MFA secrets, external provider configuration, or object-store credentials,
+- incident memberships, current permissions, deployment-local administrative audit history, or other deployment-local authorization state.
 
 Reference-pack attestation metadata remains incident-external state. When the Incident Portability Extension Profile embeds reference-pack payloads, the bundle MAY include only the optional embedded-pack payloads and their bundle-local descriptors, not deployment-global activation or attestation history.
 

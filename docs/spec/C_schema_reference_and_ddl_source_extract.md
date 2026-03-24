@@ -151,9 +151,16 @@ CREATE TABLE users (
     totp_secret_enc bytea,
     webauthn_credentials jsonb NOT NULL DEFAULT '[]'::jsonb,
     is_active boolean NOT NULL DEFAULT true,
+    is_deployment_admin boolean NOT NULL DEFAULT false,
     created_at timestamptz NOT NULL DEFAULT now(),
-    last_login_at timestamptz
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    updated_by_user_id uuid REFERENCES users(id),
+    last_login_at timestamptz,
+    user_version bigint NOT NULL DEFAULT 1
 );
+
+-- Informative: the first deployment admin is provisioned out of band rather
+-- than through an unauthenticated public bootstrap route.
 
 CREATE TABLE auth_providers (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -210,8 +217,16 @@ CREATE TABLE incident_memberships (
     user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role text NOT NULL CHECK (role IN ('viewer','editor','reviewer','admin')),
     joined_at timestamptz NOT NULL DEFAULT now(),
+    added_by_user_id uuid NOT NULL REFERENCES users(id),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    updated_by_user_id uuid NOT NULL REFERENCES users(id),
+    membership_version bigint NOT NULL DEFAULT 1,
     PRIMARY KEY (incident_id, user_id)
 );
+
+-- Informative: internal users and incident memberships are deployment-local
+-- authorization state and are excluded from whole-incident portability
+-- bundles.
 
 CREATE TABLE reference_packs (
     pack_key text NOT NULL,

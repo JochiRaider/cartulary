@@ -63,6 +63,10 @@ The base record types MUST include, at minimum:
 - `evidence`,
 - `assessment`.
 
+Internal users, auth-provider identities, sessions, and incident memberships are authoritative normalized administrative state but are not user-visible first-class incident records. They MUST NOT consume `record_id` values, MUST NOT be modeled as generic record-envelope rows, and MUST NOT be the target of workbook row-mutation routes.
+
+User-account and incident-membership mutations MUST remain auditable, but they MUST use a dedicated deployment-local administrative audit substrate rather than incident `change_set` or `record_revisions` rows.
+
 ## 4. Normalized versus flexible data
 
 ### 4.1 Normalized data
@@ -1035,6 +1039,9 @@ The schema MUST support:
 - reference-pack manifest fields sufficient to persist `pack_key`, `pack_kind`, `pack_version`, `source_identifier`, `manifest_sha256`, one or more payload SHA-256 digests in deterministic member order or an equivalent canonical aggregate digest, declared `pack_contract_version`, signature or trusted-source metadata, `verification_method`, and non-active availability state,
 - reference-pack activation and attestation fields sufficient to persist one active-version pointer per `pack_key`, imported and activated actor attribution with timestamps, `previous_active_version`, `verification_result`, and optional operator note or change ticket,
 - incident fields sufficient to persist `incident_key`, `tlp`, `current_phase`, and `primary_external_case_ref`, plus a canonical `incident_key` uniqueness form or equivalent deterministic uniqueness substrate derived by trimming leading and trailing Unicode whitespace and applying Unicode NFC normalization,
+- internal-user fields sufficient to persist stable `user_id`, a canonical case-insensitive email uniqueness form or equivalent deterministic lookup substrate, `display_name`, `password_hash`, `mfa_required`, `is_active`, `is_deployment_admin`, `created_at`, `updated_at`, nullable `updated_by_user_id`, nullable `last_login_at`, and monotonically increasing `user_version`,
+- auth-binding fields sufficient to persist provider-backed or local binding data keyed to stable internal `user_id`, including `provider_key`, `provider_type`, provider subject or equivalent identity key, optional `username`, and creation and last-auth timestamps, without making incident memberships depend on provider subject,
+- incident-membership fields sufficient to persist `(incident_id, user_id)`, `role`, `joined_at`, `added_by_user_id`, `updated_at`, `updated_by_user_id`, and monotonically increasing `membership_version`,
 - saved-view fields sufficient to persist immutable `view_schema_id`, `scope`, `display_name`, normalized `query_json`, `layout_json`, nullable `owner_user_id`, and monotonically increasing `saved_view_version`,
 - workbook-preference fields sufficient to persist per-user `home_sheet_ref` and incident-wide `default_sheet_ref` separately without overloading a saved-view row flag,
 - `entity_origin` and seed provenance on host and identity records,
@@ -1048,6 +1055,8 @@ The schema MUST support:
 - snapshot and release fields sufficient to persist artifact-scoped `release_state`, approval binding, `approved_at`, `invalidated_at`, `published_at`, optional `invalidation_reason`, and deterministic identification of the logical output slot,
 - coordination-artifact fields sufficient to persist `comm_type` and other `artifact_type`-specific metadata for `comm_log`, `handoff`, `status_review`, `lesson`, and optional current-profile `hypothesis` tracking,
 - optional structured artifact subtype fields sufficient to persist findings, investigative queries, and forensic keywords when those surfaces are implemented.
+
+Internal-user and incident-membership state MUST remain deployment-local authorization state. Whole-incident portability import MAY map historical actor descriptors to existing local users, but import MUST NOT synthesize login-capable users, deployment-admin flags, or active memberships without explicit deployment-local administrative action.
 
 ### 14.2 Rollback granularity substrate
 
