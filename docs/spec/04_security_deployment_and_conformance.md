@@ -11,11 +11,39 @@ The base profile MUST support:
 - TOTP MFA,
 - optional WebAuthn when the environment supports it.
 
-The public API and WebSocket surface MUST use a server-managed session contract rather than a client-parsed identity token contract. Browser clients MUST authenticate with an `HttpOnly` secure cookie carrying an opaque session token. The implementation MAY additionally accept `Authorization: Bearer <opaque_session_token>` for non-browser clients or trusted automation. The public token format MUST remain opaque and MUST NOT require clients to parse JWT claims or provider assertions.
+The public API and WebSocket surface MUST use a server-managed session contract rather than a client-parsed identity token contract. Browser clients MUST authenticate with an `HttpOnly` `Secure` cookie carrying an opaque session token. The implementation MAY additionally accept `Authorization: Bearer <opaque_session_token>` for non-browser clients or trusted automation. The public token format MUST remain opaque and MUST NOT require clients to parse JWT claims or provider assertions.
 
 State-changing HTTP requests authenticated by cookie MUST use CSRF protection that fails closed, such as a synchronizer token or an equivalent same-origin mechanism.
 
 Authentication MUST work in disconnected deployments and MUST NOT depend on enterprise infrastructure for the base profile.
+
+#### 1.1.1 Session lifecycle boundaries
+
+The base profile MUST create one server-side session record for each login-capable session.
+
+The session credential presented by the browser or bearer client MUST identify that server-side session record and MUST be an opaque CSPRNG-generated bearer token with at least `128 bits` of unpredictability. Browser cookies carrying that token MUST be set with `HttpOnly`, `Secure`, `Path=/`, and `SameSite=Lax` or a stricter same-site policy. If bearer authentication is enabled for non-browser clients, it MUST represent the same opaque session family rather than a separate JWT or API-key contract.
+
+The base profile MUST NOT require a separate long-lived browser refresh token.
+
+Each session MUST persist `authenticated_at`, `last_qualifying_activity_at`, `idle_expires_at`, `absolute_expires_at`, and `session_expires_at`, where `session_expires_at` is the earlier of `idle_expires_at` and `absolute_expires_at`.
+
+`idle_expires_at` MUST be computed as `last_qualifying_activity_at + 30 minutes`. `absolute_expires_at` MUST be computed as `authenticated_at + 12 hours`.
+
+Qualifying activity MUST include successful authenticated user-initiated workbook or API activity. Qualifying activity MUST NOT include WebSocket `ping` or `pong`, passive server push, automatic reconnect or replay, or `GET /api/v1/auth/session`.
+
+Qualifying activity MAY slide `idle_expires_at`, but MUST NOT extend the session beyond `absolute_expires_at`.
+
+If a session expires, establishing a new session MUST require fresh primary authentication and any applicable MFA requirement.
+
+The base profile MUST cap each human user at 5 concurrently active sessions. Multiple tabs sharing one browser session count as one session for this limit. Explicit system-process actors are outside this limit.
+
+When a new login would exceed the concurrent-session cap, the server MUST revoke the least-recently-used non-current session before issuing the new session and MUST record an attributed audit event with stable reason code `concurrency_limit`.
+
+`POST /api/v1/auth/logout` MUST revoke only the current session immediately.
+
+Password change, MFA reset, account disablement, or an explicit administrative revoke-all action MUST revoke all active sessions for that user immediately.
+
+Loss of incident membership for one subscribed incident MUST terminate the affected incident WebSocket subscription and MUST cause future incident-scoped authorization checks for that incident to fail closed, but it MUST NOT by itself require revocation of otherwise valid account sessions for other authorized incidents.
 
 ### 1.2 Enterprise Authentication Extension Profile
 
@@ -444,7 +472,7 @@ For this section:
 
 ### 9.10 Additional Base Profile criteria for public interface surface
 
-- **AC-123**: `GET /api/v1/auth/session` returns the authenticated internal user identity, provider kind, MFA state, session expiry, and the caller's incident memberships or current incident-role context without requiring client-side token parsing.
+- **AC-123**: `GET /api/v1/auth/session` returns the authenticated internal user identity, provider kind, MFA state, `authenticated_at`, `idle_expires_at`, `absolute_expires_at`, and `session_expires_at`, plus the caller's incident memberships or current incident-role context, without requiring client-side token parsing; `session_expires_at` is the earlier of `idle_expires_at` and `absolute_expires_at`.
 - **AC-124**: `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query` accepts a field-key-based sort, filter, and grouping contract and returns rows with `record_id`, `row_version`, field-key-addressable cells, and cursor metadata; group headers are not serialized as writable rows.
 - **AC-125**: View-scoped row creation and record-scoped patch operate via `view_schema_id`, `client_txn_id`, `base_row_version`, and `changes[]` keyed by `field_key`; the client can mutate one writable field without resubmitting a full row snapshot.
 - **AC-151**: `GET /api/v1/incidents/{incident_id}/saved-views` returns only saved views visible to the caller, and each returned resource includes `saved_view_id`, `incident_id`, `view_schema_id`, `scope`, `display_name`, `query_json`, `layout_json`, `owner_user_id`, timestamps, and `saved_view_version`; `query_json` uses stable `field_key` and grouping identifiers rather than visible labels.
@@ -461,6 +489,14 @@ For this section:
 - **AC-134**: If a client reconnects with an expired, unknown, malformed, or too-old `resume_token`, but the caller still has valid incident authorization, the server responds with `resume_ack.status='reset_required'`, sends a fresh `presence_snapshot`, and emits no guessed or partial replay for the missing range; the client recovers only by re-querying current workbook state through the existing HTTP view route.
 - **AC-135**: Replayable WebSocket messages on one incident carry monotonically increasing `stream_seq` values assigned only after the underlying record mutation or incident-scoped job-state change is committed; clients can de-duplicate duplicates by `(incident_id, stream_seq)`, reconcile row application by `record_id` plus `row_version`, and must perform HTTP resynchronization rather than guessed incremental apply when a replayable sequence gap is observed.
 - **AC-136**: If the authenticated session expires or the caller's incident membership is revoked after connection establishment, the server sends `session_revoked`, closes the socket, and emits no further incident `presence`, `record_changed`, or `job_progress` messages to that client on that connection.
+- **AC-156**: After 30 minutes with no qualifying activity, the next request on that session to `GET /api/v1/auth/session`, query a workbook view, or submit a mutation fails with `401` or an equivalent `session_expired` error, and no mutation or job start is partially applied.
+- **AC-157**: Continuous qualifying activity can slide `idle_expires_at` but cannot keep a session alive past `authenticated_at + 12 hours`; after absolute expiry, the next authenticated request fails closed and any accepted WebSocket connection on that session receives `session_revoked` with `reason_code='session_expired'` before close.
+- **AC-158**: `GET /api/v1/auth/session`, WebSocket `ping` or `pong`, passive server events, and successful `resume` replay do not count as qualifying activity; a session that receives only those events for 30 minutes still expires on the normal idle boundary.
+- **AC-159**: A 6th concurrent human-user login revokes the least-recently-used non-current session before issuing the new session, records an attributed audit event with reason code `concurrency_limit`, and any accepted WebSocket connection on the revoked session receives `session_revoked` with `reason_code='concurrency_limit'` before close.
+- **AC-160**: `POST /api/v1/auth/logout` invalidates only the current session immediately, causes any accepted WebSocket connection on that session to receive `session_revoked` with `reason_code='session_revoked'`, and leaves other still-valid sessions for that user authorized until another revoke condition occurs; password change, MFA reset, account disablement, or an explicit administrative revoke-all action invalidates all active sessions immediately.
+- **AC-161**: A `resume_token` is rejected as an HTTP authentication credential, becomes unusable after the earlier of replay-window expiry and underlying session expiry or revocation, and after session expiry or revocation a reconnect succeeds only after a new authenticated session is established and the client begins again with `hello` rather than relying on `resume` alone.
+- **AC-162**: If a user loses membership in incident A while retaining a still-valid session and access to incident B, the connection and future requests for incident A fail closed, the incident-A socket receives `session_revoked` with `reason_code='incident_access_revoked'`, and the same session can still query or subscribe to incident B if otherwise authorized.
+- **AC-163**: If session expiry or revocation occurs while the client holds queued unsent patches or unresolved same-field local drafts, the client preserves that unsaved work locally, prompts for re-authentication when required, and retries only through the normal authenticated patch or conflict-resolution paths after a new session is established; no queued draft becomes authoritative without passing the ordinary row-version, authorization, and conflict checks.
 
 ## 10. Non-goals preserved from the source artifact
 

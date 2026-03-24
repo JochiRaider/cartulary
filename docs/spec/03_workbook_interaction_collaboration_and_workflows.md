@@ -344,6 +344,8 @@ A client that originated the mutation MUST reconcile against the same echoed `re
 
 The client MUST maintain a small local pending-patch queue so that transient network interruptions do not lose typed data.
 
+An authentication failure on a queued write, or a `session_revoked` event on the collaboration stream, MUST NOT discard unresolved same-field local drafts or queued unsent patches. The client MUST preserve that client-local unsaved work, prompt for re-authentication when required, and replay queued writes only after a new authenticated session is established. Replayed writes MUST still satisfy ordinary `base_row_version`, authorization, and same-field conflict checks before they become authoritative incident state.
+
 ## 5. Locking policy
 
 Routine inline edits MUST NOT use hard record locks.

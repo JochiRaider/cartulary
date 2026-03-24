@@ -112,7 +112,7 @@ All public requests and responses MUST address writable surfaces by stable ident
 
 #### 3.3.2 Session and authentication routes
 
-The public authentication contract MUST be session-based. The authoritative browser-session credential MUST be a server-managed opaque session token carried in an `HttpOnly` secure cookie. The implementation MAY additionally accept `Authorization: Bearer <opaque_session_token>` for non-browser clients or trusted automation. The public token format MUST remain opaque to clients. Conformance MUST NOT require a browser or API client to parse JWT claims or provider-specific assertion contents to determine actor identity, incident scope, or expiry.
+The public authentication contract MUST be session-based. The authoritative browser-session credential MUST be a server-managed opaque session token carried in an `HttpOnly` `Secure` cookie with `Path=/` and `SameSite=Lax` or a stricter same-site policy. If bearer authentication is enabled for non-browser clients or trusted automation, the implementation MAY additionally accept `Authorization: Bearer <opaque_session_token>` from the same opaque session family. The public token format MUST remain opaque to clients. Conformance MUST NOT require a browser or API client to parse JWT claims or provider-specific assertion contents to determine actor identity, incident scope, or expiry.
 
 The base route family MUST include:
 
@@ -122,7 +122,17 @@ The base route family MUST include:
 
 `POST /api/v1/auth/login` MUST accept a credentials object containing local username and password plus a second-factor assertion when MFA is required. On success it MUST establish the server-managed session and return the same session resource exposed by `GET /api/v1/auth/session`.
 
-`GET /api/v1/auth/session` MUST return, at minimum, the authenticated internal user identity, display name, provider kind, MFA state, session expiry, and the caller's incident memberships or current incident-role context.
+##### 3.3.2.1 Session resource and expiry contract
+
+The session routes MUST expose the lifecycle boundaries defined by Core 04 §1.1.1 without requiring client-side token parsing.
+
+`GET /api/v1/auth/session` MUST return, at minimum, the authenticated internal user identity, display name, provider kind, MFA state, `authenticated_at`, `idle_expires_at`, `absolute_expires_at`, `session_expires_at`, and the caller's incident memberships or current incident-role context. `session_expires_at` MUST be the earlier of `idle_expires_at` and `absolute_expires_at`.
+
+`GET /api/v1/auth/session` is an inspection route and MUST NOT by itself extend `idle_expires_at`.
+
+`POST /api/v1/auth/logout` MUST revoke the current session immediately. If that session currently owns one or more accepted WebSocket connections, the server MUST send `session_revoked` on those connections and close them.
+
+When the current session has expired, the auth route family MUST fail closed and a caller can establish a new session only by completing the login flow again with any applicable MFA requirement.
 
 If the Enterprise Authentication Extension Profile is implemented, provider-backed sign-in MUST terminate into this same session contract so the remaining API routes and WebSocket stream remain provider-agnostic.
 
@@ -337,7 +347,7 @@ The minimum client-to-server message set MUST be:
 - `presence_update`, whose `payload` MUST include current `presence`,
 - `pong`, whose `payload` MAY be empty.
 
-`client_instance_id` MUST remain stable for the lifetime of one browser tab or other local client instance. `resume_token` MUST be opaque to the client and MUST be bound by the server to the authenticated session, `incident_id`, and `client_instance_id`. `last_seen_stream_seq` MUST be the highest replayable `stream_seq` the client has already applied.
+`client_instance_id` MUST remain stable for the lifetime of one browser tab or other local client instance. `resume_token` MUST be opaque to the client, MUST be a replay token rather than an authentication token, and MUST be bound by the server to the authenticated session, `incident_id`, and `client_instance_id`. A `resume_token` MUST NOT authenticate HTTP routes or establish session identity independently of the underlying authenticated session. A `resume_token` MUST expire no later than the earlier of the configured replay window and the underlying session expiry. `last_seen_stream_seq` MUST be the highest replayable `stream_seq` the client has already applied.
 
 The `presence` object MUST be shaped as:
 
@@ -388,7 +398,7 @@ The minimum server-to-client message set MUST be:
 
 `job_progress.payload` MUST include `job_id`, `status`, `progress`, and `updated_at`, and MAY include `cancelable`, `message`, `result_summary`, or `error_summary`. The incident-scoped stream MUST emit `job_progress` only for jobs whose observable resource or terminal result is scoped to the subscribed `incident_id`.
 
-`error.payload` MUST include `code`, `message`, and `retryable`, and MAY include `details`. `session_revoked.payload` MUST include `reason_code` and MAY include `message`.
+`error.payload` MUST include `code`, `message`, and `retryable`, and MAY include `details`. `session_revoked.payload` MUST include `reason_code` and MAY include `message`. The base profile MUST support, at minimum, `reason_code` values `session_expired`, `session_revoked`, `incident_access_revoked`, and `concurrency_limit`.
 
 The protocol MUST define two delivery classes:
 
@@ -407,7 +417,7 @@ The server MAY use `resume_ack.payload.status = rejected` only when a `resume` m
 
 The protocol MUST use application-level `ping` and `pong` messages inside this JSON envelope. The server MUST emit `ping` every 15 seconds when the connection is otherwise idle. The client MUST answer with `pong` within 10 seconds. The server MUST consider the connection dead after 45 seconds without any inbound frame. On clean close, the server MUST remove the corresponding presence immediately. On abrupt disconnect, presence expiry MUST follow this heartbeat timeout rather than a longer stale timeout.
 
-For cookie-authenticated browser connections, the WebSocket upgrade and any session-establishment message MUST validate `Origin` against the configured application origin. The server MUST re-derive incident authorization on initial connect and on `resume`. If incident membership or session validity is revoked after connection establishment, the server MUST send `session_revoked` and close the socket.
+For cookie-authenticated browser connections, the WebSocket upgrade and any session-establishment message MUST validate `Origin` against the configured application origin. The server MUST re-derive incident authorization on initial connect and on `resume`. WebSocket `ping` or `pong`, passive server push, and automatic reconnect or replay MUST NOT extend session idle expiry. If incident membership or session validity is revoked after connection establishment, or if the underlying session expires while the socket remains connected, the server MUST send `session_revoked` and close the socket. After session expiry or revocation, a later connection MUST establish a new authenticated session and use `hello`; `resume` alone is insufficient.
 
 ## 4. Storage boundary
 
