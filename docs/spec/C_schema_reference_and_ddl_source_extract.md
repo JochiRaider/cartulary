@@ -131,6 +131,10 @@ The schema sketch keeps blob upload and evidence lifecycle separate:
 - `evidence_records.lifecycle_state` holds states equivalent to `requested`, `pending_receipt`, `received`, `available`, `quarantined`, or `released`,
 - the bridge between them is the optional `object_blob_id` plus custody events.
 
+The core now also requires structured timeout and cleanup fields on `object_blobs`: `target_expires_at`, `pending_expires_at`, `finalize_attempt_count`, `terminal_reason`, `failed_at`, `cleanup_due_at`, and `cleaned_up_at`.
+
+Timeout and retry exhaustion remain instances of `upload_state='failed'`; the sketch does not need a separate expired state. The base-profile blob slot behaves as a single-upload lease with a short-lived upload target and a longer pending-slot timeout.
+
 A blob slot left in `pending` without successful finalization MUST NOT be treated as attached evidence. An evidence row MUST NOT surface as available, previewable, or released while its linked blob is `pending`, `failed`, or missing. If structured state becomes inconsistent, the application MUST fail closed for preview and download until repaired.
 
 ```sql
@@ -455,6 +459,13 @@ CREATE TABLE object_blobs (
     upload_state text NOT NULL DEFAULT 'pending' CHECK (
         upload_state IN ('pending','available','failed','quarantined')
     ),
+    target_expires_at timestamptz,
+    pending_expires_at timestamptz,
+    finalize_attempt_count integer NOT NULL DEFAULT 0 CHECK (finalize_attempt_count >= 0),
+    terminal_reason text,
+    failed_at timestamptz,
+    cleanup_due_at timestamptz,
+    cleaned_up_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
     created_by_user_id uuid NOT NULL REFERENCES users(id)
 );

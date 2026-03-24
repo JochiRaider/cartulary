@@ -264,12 +264,16 @@ The envelope for paged responses MUST include `meta.paging.has_more` and `meta.p
 
 #### 3.3.8 Evidence and blob routes
 
-`POST /api/v1/object-blobs` MUST create a pending blob slot and return, at minimum, `object_blob_id`, `upload_state`, a short-lived upload target, and target-expiry metadata.
+`POST /api/v1/object-blobs` MUST create a pending blob slot and return, at minimum, `object_blob_id`, `upload_state`, a short-lived upload target, `target_expires_at`, and `pending_expires_at`.
+
+In the base profile, the upload target MUST expire 60 minutes after issuance and the pending blob slot MUST expire 24 hours after blob-slot creation. These timers MUST remain separate: target expiry governs upload-target use, while pending-slot expiry governs later finalization eligibility and cleanup.
 
 Blob finalization MUST occur only through an explicit follow-on call. Binding an uploaded blob to incident-visible evidence MUST either:
 
 - attach the returned `object_blob_id` to an existing evidence record through `POST /api/v1/evidence-records/{record_id}/attach-blob`, or
 - create a new evidence record through the normal view or record-creation path using that `object_blob_id` as declared input.
+
+The base profile MUST treat a pending blob slot as a single-upload lease. If the upload target expires before successful upload, retry MUST use a fresh `POST /api/v1/object-blobs` call. The base profile MUST NOT require same-slot upload-target refresh or resumable upload semantics.
 
 Preview and download routes MUST return short-lived authorization-checked handles or an equivalent mediated access contract. They MUST NOT expose long-lived object-store credentials, bypass incident membership checks, or treat a `pending` blob slot as attached evidence.
 
