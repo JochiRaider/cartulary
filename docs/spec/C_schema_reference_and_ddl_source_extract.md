@@ -913,6 +913,8 @@ Mutation targets MUST include, at minimum:
 - evidence association changes, including evidence-record linkage,
 - merge/repoint fan-out caused by entity merge or restore.
 
+For `entity_mentions`, ordinary dismiss and restore semantics are lifecycle transitions on the existing mention row, not delete-and-recreate operations. A dismiss transition MUST preserve `raw_text`, derived `normalized_text`, stable mention identity, and provenance, MUST clear active resolution metadata such as `resolved_record_id`, `resolved_by_user_id`, `resolved_at`, and `resolution_method`, and MUST remove or tombstone any corresponding active resolved `record_link` in the same `change_set`. An ordinary restore transition MUST return that same mention row to `unresolved` with resolution metadata null; recovering a prior resolved target is handled by rollback of the dismissal change, not by ordinary restore.
+
 The history model MUST preserve enough detail to reconstruct both the full row snapshot at any revision and the exact field/link/mention/tag/evidence delta introduced by a `change_set`. Row snapshots such as `before_json` / `after_json` SHOULD be retained for audit and fast restore, but they MUST NOT be the only rollback substrate. Projection tables MUST NOT be authoritative history; they remain derived state only.
 
 This yields a deliberate split: attribution unit = `change_set`; rollback unit = mutation entry or whole `change_set`; primary reviewer lens = row.

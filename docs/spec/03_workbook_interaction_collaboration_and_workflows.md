@@ -456,11 +456,18 @@ The inspector MUST support:
 
 - resolving a selected unresolved mention to an existing entity,
 - creating a host or identity from a selected mention,
-- dismissing a selected mention.
+- dismissing a selected mention,
+- restoring a dismissed mention to unresolved state.
 
 Resolving or creating from a selected mention MUST preserve the raw mention.
 
 Creating from a selected mention MUST create exactly one stub entity by default and resolve only the selected mention unless the user later invokes an explicit bulk action.
+
+Dismissing a selected mention MUST create a new attributed change, preserve the raw mention and source-bound mention identity, set `resolution_status='dismissed'`, clear any current resolution metadata, and remove or tombstone any corresponding active resolved `record_link` in the same `change_set`.
+
+Dismissed mentions MUST NOT remain in the default unresolved resolution queue, MUST NOT contribute to `timeline.has_unresolved_mentions`, and MUST NOT appear in the active relationship collection value for the row. They MAY remain visible through history and a secondary dismissed-mentions section or toggle in the inspector.
+
+Restoring a dismissed mention MUST create a new attributed change that returns the mention to `unresolved`, preserves the raw mention unchanged, and leaves resolution metadata empty. Ordinary restore MUST NOT silently relink to any prior resolved entity; exact pre-dismiss state recovery belongs to reviewer rollback.
 
 ### 9.1 Source-bound indicator workflow
 
@@ -977,7 +984,7 @@ The inspector MUST:
 - remain a non-blocking drawer rather than the default primary capture surface,
 - expose details, relationships, evidence, and history views,
 - keep the main grid visible while open,
-- support mention resolution, indicator observation linking, entity and indicator creation, indicator lifecycle inspection or editing, evidence inspection, and rollback,
+- support mention resolution, dismissal, and restore, indicator observation linking, entity and indicator creation, indicator lifecycle inspection or editing, evidence inspection, and rollback,
 - preserve the distinction between raw mention lineage and current canonical links,
 - preserve the distinction between raw indicator observation lineage and current canonical indicator links and lifecycle windows.
 

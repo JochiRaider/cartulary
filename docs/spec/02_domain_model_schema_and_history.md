@@ -256,6 +256,16 @@ Automatic background matching MAY suggest candidates or pre-fill a resolution UI
 
 Creating a stub from one mention MUST resolve only that selected mention by default. Bulk resolution of sibling mentions MUST be a separate explicit action.
 
+### 6.5 Entity-mention lifecycle
+
+`entity_mentions.resolution_status` MUST use the closed vocabulary `unresolved`, `resolved`, and `dismissed`.
+
+- **`unresolved`**: the mention remains a source-bound observation awaiting analyst action. It participates in unresolved-mention flags and resolution queues.
+- **`resolved`**: the mention remains a source-bound observation bound to an existing entity through resolution metadata such as `resolved_record_id`. The raw mention and normalized mention text remain preserved alongside the canonical link.
+- **`dismissed`**: the mention remains preserved for provenance and history, but it is excluded from active resolution work. A dismissed mention MUST retain `raw_text`, `normalized_text`, stable row identity, source locator, and other provenance, MUST clear active resolution metadata such as `resolved_record_id`, `resolved_by_user_id`, `resolved_at`, and `resolution_method`, and MUST NOT contribute to active relationship-cell values or unresolved-mention derived flags.
+
+Ordinary user-facing restore of a dismissed mention MUST return it to `unresolved`. Recovering the exact pre-dismiss state, including any prior resolved target, MUST be handled by rollback rather than ordinary restore.
+
 ## 7. Provenance requirements
 
 ### 7.1 Mention provenance

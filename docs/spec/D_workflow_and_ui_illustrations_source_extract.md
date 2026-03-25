@@ -328,6 +328,7 @@ The UI should feel like a **workbook**, but the sheets are **saved views over pr
   - `timeline.capture_state`
   - `timeline.has_evidence` where `evidence_count > 0`
   - `timeline.has_unresolved_mentions` where at least one `entity_mentions` row for the source record has `resolution_status='unresolved'`
+- dismissed mentions do not contribute to this derived flag, and a row whose remaining mentions are all dismissed groups under `false`
 - Grouping keys MUST be scalar, contract-backed values. Free-text columns and multi-valued relationship cells such as Hosts, Identities, and Tags are not eligible grouping keys in timeline sheets.
 - Group order MUST be deterministic:
   - `timeline.occurred_day` and `timeline.recorded_day` sort by bucket value descending, with null buckets last
@@ -540,7 +541,7 @@ The grid remains denormalized; writes still go back to source tables. Type chips
 
 The inspector is where deeper structure happens:
 
-- resolve unresolved mentions,
+- resolve, dismiss, and restore mentions,
 - create stub or canonical host or identity,
 - link a raw source value or text span to an existing indicator or create a canonical indicator,
 - inspect or edit indicator lifecycle windows,
@@ -565,10 +566,11 @@ The inspector is not the main paste target, but it should support copying hashes
 The inspector shows both:
 
 - **raw mention lineage** (“A typed `WS-023?` at row creation”),
+- **dismissed mentions** in a secondary inspector section or toggle with `Restore to unresolved`, while remaining excluded from the active relationship list,
 - **raw indicator observation lineage** when a source value or span has been linked to an indicator, and
 - **current canonical links**.
 
-That distinction is important. It prevents later cleanup from erasing what was actually observed during the incident.
+Active relationship lists and default unresolved queues exclude dismissed mentions, but dismissal must preserve inspectable lineage rather than erase it. That distinction is important. It prevents later cleanup from erasing what was actually observed during the incident.
 
 #### Authorship, version history, rollback
 
