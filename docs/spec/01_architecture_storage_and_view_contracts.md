@@ -317,9 +317,46 @@ Existing-row edits MUST use `PATCH /api/v1/records/{record_id}`. The request MUS
 - `client_txn_id`,
 - `changes[]`, with each entry keyed by `field_key` and carrying the intended write value or equivalent action payload.
 
+Each `changes[]` entry MUST contain `field_key` and exactly one of `value` or `action_payload`.
+
+A field whose active `view_schema` entry declares a direct write target MUST use `value` in `PATCH /api/v1/records/{record_id} changes[]`. A field whose active `view_schema` entry declares a write action MUST use `action_payload` in `PATCH /api/v1/records/{record_id} changes[]`.
+
+When `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` supplies initial writable values keyed directly by `field_key`, a direct-write field MUST use its direct field value as the JSON value and a write-action field MUST use the same object that a patch `changes[]` entry would carry in `action_payload`.
+
+For any field whose active `view_schema` entry declares `conflict_resolution_class=collection_review`, `action_payload.kind` MUST be `collection_actions_v1`.
+
+A `collection_actions_v1` payload MUST use this shape:
+
+```json
+{
+  "kind": "collection_actions_v1",
+  "actions": [
+    { "... field-specific action object ..." }
+  ]
+}
+```
+
+A writable `collection_review` field returned by a view query, a successful create response, a successful patch response, or a same-field conflict payload MUST use `collection_value_v1` rather than a raw string array or plain delimited text.
+
+A `collection_value_v1` payload MUST use this shape:
+
+```json
+{
+  "kind": "collection_value_v1",
+  "ordered": true,
+  "items": [
+    { "... typed item object ..." }
+  ]
+}
+```
+
+Every `collection_value_v1.items[]` entry MUST carry a stable `item_ref` suitable for later mutation targeting. The client MUST treat `item_ref` as opaque. The server MUST treat `item_ref` as opaque except when validating that it belongs to the patched `record_id`, active `field_key`, and expected collection item kind. Display-only members such as `display_text` MAY aid comparison surfaces but MUST NOT be required as mutation keys.
+
+When `ordered=true`, the server MUST serialize `items[]` in authoritative collection order. When `ordered=false`, the server MUST serialize `items[]` in canonical ascending `item_ref` order.
+
 The public mutation surface MUST be field-key-based and partial. The client MUST NOT be required to send full projection rows, full record snapshots, or raw storage-table mutations in order to edit one field.
 
-The server MUST validate each requested change against the active view contract, enforce per-field writeability and `conflict_resolution_class`, and route the write to the authoritative source field or declared write action without exposing internal table layout.
+The server MUST validate each requested change against the active view contract, enforce per-field writeability and `conflict_resolution_class`, and route the write to the authoritative source field or declared write action without exposing internal table layout. If mutation payload validation fails, the server MUST fail with `400 Bad Request` using the common error envelope and `error.code = invalid_mutation_payload`. At minimum, this applies to an unknown payload `kind`, an unknown action `op`, an action not allowed for the active `field_key`, an invalid or foreign `item_ref`, a malformed direct value, or an action object that contains unknown members for its declared `op`. For `collection_actions_v1`, the server MUST apply `actions[]` atomically and in request order within the parent field mutation. The public API surface MUST NOT require raw comma-delimited strings or blind full-collection replacement for `collection_review` fields.
 
 A successful create or patch response MUST return the authoritative `record_id`, resulting `row_version`, and the committed field values needed to refresh the visible row.
 
@@ -912,6 +949,115 @@ Unless explicitly overridden below:
   - `timeline.tags`: read `tag_names`; write action upsert tags and `record_tags`; `conflict_resolution_class=collection_review`
 - read-only computed fields: `timeline.evidence_count`, `timeline.capture_state`, `timeline.edited_at`, `timeline.sort_ts`, `timeline.occurred_day`, `timeline.recorded_day`, `timeline.has_evidence`, `timeline.has_unresolved_mentions`
 
+Collection-review wire contract for `timeline.host_refs` and `timeline.identity_refs`:
+
+- `timeline.host_refs` and `timeline.identity_refs` MUST use `collection_value_v1` with `ordered=true`.
+- The server MUST serialize `timeline.host_refs.items[]` and `timeline.identity_refs.items[]` in ascending `entity_mentions.ordinal` order and then ascending `item_ref`.
+- Each `items[]` entry MUST use one of the following shapes:
+
+```json
+{
+  "item_ref": "entity_mention:<entity_mention_id>",
+  "item_kind": "unresolved_mention",
+  "entity_type": "host",
+  "display_text": "WS-023?",
+  "raw_text": "WS-023?"
+}
+```
+
+```json
+{
+  "item_ref": "entity_mention:<entity_mention_id>",
+  "item_kind": "resolved_ref",
+  "entity_type": "host",
+  "display_text": "WS-023.corp.example",
+  "raw_text": "WS-023",
+  "resolved_record_id": "<record_id>"
+}
+```
+
+- The same shapes and action vocabulary apply to identity items, with `entity_type='identity'`.
+- Allowed actions for `timeline.host_refs` and `timeline.identity_refs` are `add_token`, `add_resolved_ref`, `resolve_item`, `revert_to_unresolved`, and `dismiss_item`.
+
+`add_token` MUST use:
+
+```json
+{ "op": "add_token", "raw_text": "WS-023?" }
+```
+
+`add_resolved_ref` MUST use:
+
+```json
+{
+  "op": "add_resolved_ref",
+  "resolved_record_id": "<record_id>",
+  "raw_text": "WS-023"
+}
+```
+
+`resolve_item` MUST use:
+
+```json
+{
+  "op": "resolve_item",
+  "item_ref": "entity_mention:<entity_mention_id>",
+  "resolved_record_id": "<record_id>"
+}
+```
+
+`revert_to_unresolved` MUST use:
+
+```json
+{
+  "op": "revert_to_unresolved",
+  "item_ref": "entity_mention:<entity_mention_id>"
+}
+```
+
+`dismiss_item` MUST use:
+
+```json
+{
+  "op": "dismiss_item",
+  "item_ref": "entity_mention:<entity_mention_id>"
+}
+```
+
+For these two fields:
+
+- the server MUST derive the target `entity_type`, any base-profile `link_type`, and storage routing from `field_key`; the client MUST NOT send `link_type`, table names, or storage-specific routing metadata,
+- `add_resolved_ref` MUST create one backing `entity_mentions` row in resolved state and MUST create or upsert the corresponding active resolved `record_link` in the same `change_set`,
+- `resolve_item` MUST preserve `raw_text`, set the targeted mention to resolved state, and MUST create or upsert the corresponding active resolved `record_link` in the same `change_set`,
+- `revert_to_unresolved` MUST preserve `raw_text`, clear `resolved_record_id`, set the targeted mention back to unresolved state, and MUST remove or tombstone any corresponding active resolved `record_link` in the same `change_set`,
+- `dismiss_item` MUST set `entity_mentions.resolution_status='dismissed'`, MUST preserve `raw_text`, and MUST remove or tombstone any corresponding active resolved `record_link` in the same `change_set`,
+- duplicate `add_token` actions with identical `raw_text` in the same or later request MUST create distinct mention rows rather than coalescing them.
+
+Collection-review wire contract for `timeline.tags`:
+
+- `timeline.tags` MUST use `collection_value_v1` with `ordered=false`.
+- Each `items[]` entry MUST use this shape:
+
+```json
+{
+  "item_ref": "record_tag:<record_id>:<tag_id>",
+  "item_kind": "tag",
+  "display_text": "rough",
+  "tag_id": "<tag_id>"
+}
+```
+
+- Allowed actions are:
+
+```json
+{ "op": "add_tag", "tag_name": "rough" }
+```
+
+```json
+{ "op": "remove_tag", "item_ref": "record_tag:<record_id>:<tag_id>" }
+```
+
+- The server MUST normalize `tag_name` by trimming leading and trailing Unicode whitespace and applying the same case-insensitive uniqueness rules as incident-scoped `tags.name`. Empty tag names after normalization MUST be rejected with `400 Bad Request` and `error.code = invalid_mutation_payload`. Duplicate adds MUST coalesce to one surviving active binding.
+
 #### 7.4.2 `cartulary.view.hosts.v1`
 
 - surface: built-in `Hosts` sheet
@@ -933,6 +1079,34 @@ Unless explicitly overridden below:
   - `host.containment_status`: read `containment_status`; write target the `containment_status` field on the underlying `host` record; `conflict_resolution_class=atomic_replace`
 - read-only computed fields: `host.host_state`, `host.linked_event_count`, `host.evidence_count`, `host.edited_at`. `host.host_state` MUST be a projection-backed state equivalent to `stub` or `canonical`.
 
+Collection-review wire contract for `host.aliases`:
+
+- `host.aliases` MUST use `collection_value_v1` with `ordered=false`.
+- Each `items[]` entry MUST use this shape:
+
+```json
+{
+  "item_ref": "entity_alias:<entity_alias_id>",
+  "item_kind": "alias",
+  "display_text": "ws023",
+  "alias_text": "ws023"
+}
+```
+
+- Allowed actions are:
+
+```json
+{ "op": "add_alias", "alias_text": "ws023" }
+```
+
+```json
+{ "op": "remove_alias", "item_ref": "entity_alias:<entity_alias_id>" }
+```
+
+- The server MUST derive any base-profile alias classification and storage routing from `field_key`; the client MUST NOT send table names, `alias_type`, or storage-specific routing metadata.
+- Alias rename in the base profile MUST be expressed as `remove_alias` plus `add_alias`. The public API surface MUST NOT require in-place alias-row update semantics.
+- Duplicate alias adds for the same canonical record and normalized `alias_text` MUST coalesce to one surviving alias row.
+
 #### 7.4.3 `cartulary.view.identities.v1`
 
 - surface: built-in `Identities` sheet
@@ -953,6 +1127,8 @@ Unless explicitly overridden below:
   - `identity.mfa_state`: read `mfa_state`; write target the `mfa_state` field on the underlying `identity` record; `conflict_resolution_class=atomic_replace`
   - `identity.reset_status`: read `reset_status`; write target the `reset_status` field on the underlying `identity` record; `conflict_resolution_class=atomic_replace`
 - read-only computed fields: `identity.identity_state`, `identity.linked_event_count`, `identity.evidence_count`, `identity.edited_at`. `identity.identity_state` MUST be a projection-backed state equivalent to `stub` or `canonical`.
+
+`identity.aliases` MUST use the same `collection_value_v1` item shape and `collection_actions_v1` action vocabulary as `host.aliases`, except the active `field_key` is `identity.aliases`.
 
 #### 7.4.4 `cartulary.view.evidence.v1`
 
@@ -991,6 +1167,8 @@ Unless explicitly overridden below:
   - `note.body`: read the note body field; write target the note artifact body field; `conflict_resolution_class=text_compare_merge`
   - `note.tags`: read `tag_names`; write action upsert tags and `record_tags`; `conflict_resolution_class=collection_review`
 - read-only computed fields: `note.linked_record_count`, `note.updated_at`, `note.created_by_user_id`
+
+`note.tags` MUST use the same `collection_value_v1` item shape and `collection_actions_v1` action vocabulary as `timeline.tags`, except the active `field_key` is `note.tags`.
 
 #### 7.4.6 `cartulary.view.indicators.v1`
 
@@ -1034,6 +1212,35 @@ Unless explicitly overridden below:
   - `assessment.assessed_at`: read `assessed_at`; write target the `assessed_at` field on the underlying `assessment` record; `conflict_resolution_class=atomic_replace`
   - `assessment.support_refs`: read supporting record references; write action upsert supporting `record_links` or denormalized support references; `conflict_resolution_class=collection_review`
 - read-only computed fields: `assessment.confidence_band`, `assessment.supporting_link_count`
+
+Collection-review wire contract for `assessment.support_refs`:
+
+- On read and conflict surfaces, `assessment.support_refs` MUST use `collection_value_v1` with `ordered=false`.
+- When row creation initializes `assessment.support_refs`, the create-time field value MUST use `collection_actions_v1`.
+- Each `items[]` entry MUST use this shape:
+
+```json
+{
+  "item_ref": "record_ref:<linked_record_id>",
+  "item_kind": "record_ref",
+  "display_text": "<linked record summary>",
+  "linked_record_id": "<record_id>"
+}
+```
+
+- Allowed actions are:
+
+```json
+{ "op": "add_record_ref", "linked_record_id": "<record_id>" }
+```
+
+```json
+{ "op": "remove_record_ref", "item_ref": "record_ref:<linked_record_id>" }
+```
+
+- The server MUST derive any base-profile `link_type` and storage routing from `field_key`; the client MUST NOT send `link_type`, table names, or storage-specific routing metadata.
+- Duplicate adds for the same patched `record_id`, `linked_record_id`, and field-derived link type MUST coalesce to one surviving logical reference binding.
+
 - grid edits to an existing assessment row MUST reject writes to `assessment.subject_ref`, `assessment.subject_type`, `assessment.assessment_state`, `assessment.confidence_score`, `assessment.rationale`, `assessment.assessor`, `assessment.assessed_at`, and `assessment.support_refs`.
 
 #### 7.4.8 `cartulary.view.task_requests.v1`
@@ -1062,6 +1269,9 @@ Unless explicitly overridden below:
   - `task.linked_record_ids`: read linked record references; write action upsert or remove linked `record_links`; `conflict_resolution_class=collection_review`
   - `task.decision_record_id`: read `decision_record_id`; write target the `decision_record_id` field on the underlying `task_request` record or an equivalent linked decision reference; `conflict_resolution_class=atomic_replace`
 - read-only computed fields: `task.linked_record_count`, `task.updated_at`, `task.no_owner`
+
+`task.linked_record_ids` MUST use the same `collection_value_v1` item shape and `collection_actions_v1` action vocabulary as `assessment.support_refs`, except the active `field_key` is `task.linked_record_ids` and the server derives the applicable `link_type` from that field key.
+
 - task lifecycle semantics remain authoritative: any committed write set affecting `task.status`, `task.blocked_reason`, `task.completed_at`, or `task.owner_user_id` MUST produce a resulting row that satisfies Core 02 §10.4.1.1. In particular, `status='blocked'` requires `blocked_reason`, `status='done'` requires `completed_at`, active tasks MUST NOT be ownerless, a successful transition away from `blocked` or `done` MUST clear `blocked_reason` or `completed_at` respectively, and a successful write that sets `status='done'` with no explicit `completed_at` MUST fill `completed_at` from the commit timestamp.
 
 #### 7.4.9 `cartulary.view.decisions.v1`
@@ -1083,6 +1293,9 @@ Unless explicitly overridden below:
   - `decision.rationale`: read `rationale`; write target the `rationale` field on the underlying `decision` record; `conflict_resolution_class=text_compare_merge`
   - `decision.support_refs`: read `support_refs`; write action upsert or remove supporting `record_links` or denormalized support references; `conflict_resolution_class=collection_review`
 - read-only computed fields: `decision.affected_record_count`, `decision.supersedes_record_id`, `decision.updated_at`, `decision.is_superseded`
+
+`decision.support_refs` MUST use the same `collection_value_v1` item shape and `collection_actions_v1` action vocabulary as `assessment.support_refs`, except the active `field_key` is `decision.support_refs` and the server derives the applicable `link_type` from that field key.
+
 - supersession remains an explicit decision-linking flow. It MUST NOT be modeled as a direct write to `decision.supersedes_record_id` or as a direct write that sets `decision.status='superseded'` in the base-profile grid.
 - when the explicit supersession flow succeeds, it MUST persist the supersession relation and apply the status effects defined by Core 02 §10.4.2.1 atomically.
 

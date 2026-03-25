@@ -228,6 +228,10 @@ The `error.conflict` object MUST include at least:
 - `server_updated_at`,
 - for merge-capable fields, either `base_value` or `base_revision_ref`.
 
+When `conflict_resolution_class='collection_review'`, the conflict object MUST include `base_value`. In that case `error.conflict.client_value`, `error.conflict.server_value`, and `error.conflict.base_value` MUST each use `collection_value_v1`. The server MUST preserve distinct item kinds in those values and MUST NOT collapse unresolved mentions, resolved entity refs, tags, aliases, or linked-record references into raw string arrays or plain delimited text for conflict transport.
+
+When `resolution_kind='merged_value'` targets `conflict_resolution_class='collection_review'`, `resolved_value` MUST use `collection_actions_v1` evaluated against the `server_value` collection carried in the same conflict object.
+
 The client MUST place same-field conflicts into a client-local conflict queue keyed by the canonical composite `record_id:field_key`.
 
 The client MUST keep this conflict queue separate from the transient pending-patch queue used for retryable transport failures.
