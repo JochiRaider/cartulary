@@ -148,6 +148,7 @@ The base-profile route set MUST include stable route families for:
 - workbook-preference discovery and persistence: `GET /api/v1/incidents/{incident_id}/workbook-preferences/me`, `PUT /api/v1/incidents/{incident_id}/workbook-preferences/me`, `GET /api/v1/incidents/{incident_id}/workbook-preferences/default`, `PUT /api/v1/incidents/{incident_id}/workbook-preferences/default`,
 - workbook query and row creation: `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`, `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`,
 - record mutation, soft-delete, restore, history, rollback, and same-field conflict resolution: `PATCH /api/v1/records/{record_id}`, `DELETE /api/v1/records/{record_id}`, `POST /api/v1/records/{record_id}/restore`, `GET /api/v1/records/{record_id}/history`, `POST /api/v1/records/{record_id}/rollback`, `POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve`,
+- entity merge initiation: `POST /api/v1/records/{survivor_record_id}/merge`,
 - entity-mention resolution and equivalent surface-specific resolve actions: `POST /api/v1/entity-mentions/{entity_mention_id}/resolve`,
 - blob-slot creation and evidence access: `POST /api/v1/object-blobs`, `POST /api/v1/evidence-records/{record_id}/attach-blob`, `POST /api/v1/evidence-records/{record_id}/preview-handle`, `POST /api/v1/evidence-records/{record_id}/download-handle`,
 - background-job status and cancellation: `GET /api/v1/jobs/{job_id}`, `POST /api/v1/jobs/{job_id}/cancel`.
@@ -575,6 +576,79 @@ The base profile MUST NOT accept `initial_memberships[]` or any equivalent colla
 Idempotency for create MUST be keyed by `(actor_user_id, client_txn_id)`. If the same authenticated user replays the same normalized request with the same `client_txn_id`, the server MUST return `200 OK`, MUST set `Location` to `/api/v1/incidents/{incident_id}` for the originally created incident, and MUST return the common success envelope with `data` equal to the originally created incident resource. If the same authenticated user reuses `client_txn_id` with a different normalized request, the server MUST fail with `409`.
 
 A first-time successful create MUST return `201 Created`, MUST set `Location` to `/api/v1/incidents/{incident_id}`, and MUST return the common success envelope with `data` equal to the incident resource.
+
+#### 3.3.5.4 Entity-merge contract
+
+`POST /api/v1/records/{survivor_record_id}/merge` MUST initiate one explicit entity merge.
+
+The route is record-scoped, not view-scoped. It MUST NOT require `incident_id` or `view_schema_id` in the path or request body, because authorization, history, and affected projections derive from the authoritative record identities involved.
+
+The request MUST be JSON and MUST include:
+
+- `loser_record_id`,
+- `survivor_base_row_version`,
+- `loser_base_row_version`,
+- `client_txn_id`.
+
+It MAY include optional `reason`. For idempotency comparison, omission and explicit JSON `null` for `reason` MUST compare equal.
+
+The route is valid only when all of the following are true:
+
+- `survivor_record_id` and `loser_record_id` are different,
+- both records exist and are visible to the caller,
+- both records belong to the same incident,
+- both records have the same `record_type`,
+- that shared `record_type` is `host` or `identity`,
+- neither record is soft-deleted,
+- neither record is already merged away.
+
+The server MUST NOT silently choose, swap, or rewrite survivor versus loser. The client MUST choose the survivor explicitly, and the survivor `record_id` MUST remain the stable anchor of the operation.
+
+`POST /api/v1/records/{survivor_record_id}/merge` MUST require current incident role `reviewer` or `admin`. A caller who lacks visibility to either record MUST receive `404`. A caller who can see both records but lacks sufficient role MUST receive `403`.
+
+Idempotency for merge MUST be keyed by `(actor_user_id, survivor_record_id, loser_record_id, client_txn_id)`. If the same authenticated actor replays the same normalized request with the same key, the server MUST return `200 OK` with the originally committed result and MUST create no second merge `change_set`. If the same actor reuses that key with a different normalized request, the server MUST fail with `409`.
+
+If either current row version differs from the supplied base version, the route MUST fail with `409` using the common error envelope and `error.code = row_version_conflict`. `error.details` MUST include at least:
+
+- `survivor_record_id`,
+- `loser_record_id`,
+- `survivor_base_row_version`,
+- `loser_base_row_version`,
+- `survivor_current_row_version`,
+- `loser_current_row_version`.
+
+If a precondition other than row-version freshness fails, the route MUST fail with `409` and `error.code = merge_precondition_failed`. `error.details.reason_code` MUST use the closed vocabulary `same_record`, `different_incident`, `record_type_mismatch`, `unsupported_record_type`, `survivor_not_mergeable`, or `loser_not_mergeable`.
+
+The server MAY acquire short-lived internal destructive-operation locks on both records while applying the merge. If such locks are used, they MUST be acquired in canonical `record_id` order and MUST NOT require a separate client-visible lock-acquire route. If either required lock is already held, the route MUST fail with `409`, `error.code = record_locked`, and `error.retryable = true`.
+
+On success, the server MUST commit the merge in one transaction. It MUST:
+
+- preserve the survivor `record_id` unchanged,
+- mark the loser as a historical row with state `merged` and `merged_into_record_id` set to the survivor,
+- repoint active `entity_mentions.resolved_record_id`, active `record_links`, active assessments, and active tags from loser to survivor in the same `change_set`, or otherwise tombstone and recreate them deterministically,
+- deduplicate duplicate links and tags created by repointing without losing revision history,
+- preserve raw mention text unchanged,
+- create one attributed `change_set` plus ordered mutation entries sufficient to reconstruct the pre-merge graph, post-merge graph, and merge fan-out,
+- update or invalidate affected projections before commit returns.
+
+In accordance with Core 02 §9, the server SHOULD copy non-conflicting aliases and seed identifiers from loser to survivor. When it does so, it MUST NOT overwrite conflicting survivor-owned values.
+
+A successful response MUST return `200 OK` using the common success envelope. `data` MUST include at least:
+
+- `incident_id`,
+- `record_type`,
+- `survivor_record_id`,
+- `loser_record_id`,
+- `survivor_row_version`,
+- `loser_row_version`,
+- `change_set_id`,
+- `merged_into_record_id`.
+
+The server SHOULD also return `merge_summary` with counts for repointed mentions, repointed links, repointed assessments, repointed tags, deduplicated links, deduplicated tags, and copied aliases.
+
+A successful merge MUST emit replayable collaboration events through the existing stream. The loser MUST leave ordinary active entity views using `change_kind = remove`. The survivor MUST refresh through `patch` or `invalidate`. Any dependent row whose chips, counts, or linked-record summaries change because of repointing MUST refresh through the ordinary collaboration mechanisms.
+
+The base profile defines no separate unmerge route. Reversal of an erroneous merge MUST use the existing rollback substrate and `POST /api/v1/records/{record_id}/rollback` against the merge `change_set`.
 
 #### 3.3.6 Success and error envelopes
 

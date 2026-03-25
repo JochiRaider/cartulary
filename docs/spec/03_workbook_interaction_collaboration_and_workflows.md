@@ -983,6 +983,8 @@ The inspector MUST:
 
 The inspector is the enrichment surface. It MUST NOT be required for the common path of timeline row creation and editing.
 
+For authorized users, the inspector MUST support explicit host and identity merge initiation. Merge MUST NOT be a bulk grid action in the base profile. The merge UI MUST require explicit survivor and loser selection and a final destructive-action confirmation that identifies both `record_id` values before submission.
+
 ### 16.3 Compromise-assessment surfaces
 
 Interactive assessment-entry surfaces MUST keep `assessment_state` separate from operational-response actions such as containment, isolation, disablement, credential reset, or monitoring.
