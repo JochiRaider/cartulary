@@ -366,13 +366,51 @@ The workflow phrase:
 
 `rough capture -> enriched -> linked -> reviewed -> superseded or rolled back`
 
-is representational in the base profile. It is a workflow note about typical analyst progress, not a persisted normative state machine.
+remains a helpful summary of typical analyst progress, but for Timeline rows the current profile also defines a normative persisted lifecycle machine on `capture_state`.
 
-For timeline records, the authoritative persisted workflow state remains `capture_state` with the closed vocabulary `rough`, `enriched`, `reviewed`, and `superseded`.
+For Timeline rows, `capture_state` is a system-managed persisted workflow state with the closed vocabulary `rough`, `enriched`, `reviewed`, and `superseded`.
+
+The authoritative machine condition is determined by the persisted `capture_state` value together with the row-creation event, the explicit reviewer actions defined below, and whether the committed `change_set` contains one or more `capture-state-material` Timeline mutations as classified in §15.
+
+The machine states mean:
+
+- `rough`: first committed capture of a Timeline row,
+- `enriched`: a Timeline row that has received at least one later `capture-state-material` mutation after creation and is not currently `reviewed` or `superseded`,
+- `reviewed`: a Timeline row whose current version has been explicitly marked reviewed by an authorized reviewer action,
+- `superseded`: a Timeline row that has been explicitly marked superseded for ordinary workflow by an authorized reviewer action.
+
+Allowed lifecycle triggers are Timeline row creation, a later committed `capture-state-material` Timeline mutation, the explicit `mark-reviewed` action, the explicit `supersede` action, and rollback of a prior change.
+
+A newly created Timeline row MUST persist with `capture_state='rough'`. This applies to blank-row creation, paste-created rows, and rows created with only an attached screenshot.
+
+The first committed `capture-state-material` mutation to a row whose current `capture_state` is `rough` MUST set `capture_state='enriched'` in the same committed `change_set`.
+
+The explicit review action MUST:
+
+- be exposed only as a non-grid action from the inspector, history surface, or an equivalent reviewer-only surface,
+- require current incident role `reviewer` or `admin`,
+- be available only when the current `capture_state` is `rough` or `enriched`,
+- set `capture_state='reviewed'` in the same committed `change_set`,
+- create an attributed change that is visible through ordinary row history.
+
+Any committed `capture-state-material` mutation to a row whose current `capture_state` is `reviewed` MUST set `capture_state='enriched'` in the same committed `change_set`. A tag-only or other non-material change MUST leave `capture_state='reviewed'` unchanged.
+
+The explicit supersede action MUST:
+
+- be exposed only as a non-grid action from the inspector, history surface, or an equivalent reviewer-only surface,
+- require current incident role `reviewer` or `admin`,
+- require a non-empty reason captured in the resulting attributed change,
+- be available only when the current `capture_state` is `rough`, `enriched`, or `reviewed`,
+- set `capture_state='superseded'` in the same committed `change_set`,
+- create an attributed change that is visible through ordinary row history.
+
+`superseded` is terminal for ordinary Timeline workflow. Ordinary Timeline patch, enrichment, and review actions MUST NOT mutate a row whose current `capture_state` is `superseded`. Leaving `superseded` MUST require rollback of the superseding change or an equivalent reviewer-only history reversal. The base profile defines no ordinary direct transition out of `superseded`.
 
 `linked` is a derived milestone meaning the record has acquired one or more typed links, resolved mentions, evidence associations, or equivalent relational structure. It MUST NOT be stored as a separate `capture_state` value in the current profile.
 
 `rolled back` is a history or reviewer action outcome, not a persisted `capture_state` value.
+
+The implementation MUST NOT re-derive `capture_state` from current link counts, evidence counts, tags, or current unresolved-mention state alone. Removing all current links or evidence from an already `enriched` row MUST NOT revert it to `rough`. `timeline.has_unresolved_mentions` remains a separate derived field from current unresolved mention rows and MUST NOT override `capture_state`.
 
 Normalization MUST add structure without erasing the original observed input.
 
@@ -495,7 +533,7 @@ In the base profile, the history panel for a selected row MUST show:
 - actor,
 - timestamp,
 - operation,
-- diff summary expanded to field, link, mention, tag, and evidence-entry units.
+- diff summary expanded to field, link, mention, tag, evidence-entry, and capture-state-transition units.
 
 ### 10.3 Rollback granularity
 
@@ -956,6 +994,14 @@ The implementation MUST preserve the following write-back semantics:
 | Identities | identity labels plus unresolved identity tokens | if a unique exact normalized alias match qualifies for auto-resolution, insert resolved `entity_mentions` plus `record_links` with `provenance='auto_match'` and `confidence=100`; otherwise insert unresolved `entity_mentions` |
 | Evidence | `evidence_count` | create `object_blob`, `evidence_record`, and `record_link` |
 | Tags | `tag_names` | upsert tags and record-tag bindings |
+
+
+For the lifecycle machine in §6, the current Timeline write surfaces and row-anchored mutation types are classified as follows:
+
+- `capture-state-material`: `timeline.occurred_at`, `timeline.summary`, `timeline.details`, `timeline.source_text`, `timeline.host_refs`, `timeline.identity_refs`, Timeline-row evidence attach or detach, and row-anchored source-bound indicator observation create, link, dismiss, or equivalent typed-link mutation initiated from the row or its inspector.
+- not `capture-state-material`: `timeline.tags`, explicit `mark-reviewed` or `supersede` lifecycle actions, selection, focus, presence, sort, filter, grouping, projection rebuild, and idempotent no-op retry.
+
+Any future Timeline writable `field_key`, dedicated Timeline action route, or row-anchored mutation surface MUST declare whether it is `capture-state-material` before it can claim base-profile conformance.
 
 Core 01 §7.4.1 fixes the authoritative Timeline `view_schema_id`, ordered field set, hidden technical fields, default sort tuple, filter whitelist, and grouping whitelist for the base profile.
 
