@@ -919,9 +919,48 @@ The schema MUST NOT overload saved-view rows with a generic `is_default` flag or
 
 The implementation MUST provide a generic typed relationship store equivalent to `record_links`.
 
+### 12.1 `record_link` object contract
+
+A `record_link` is a stable, incident-scoped, directed, soft-deletable non-record mutation target between two first-class record-envelope rows in the same incident.
+
+A `record_link` MUST include, at minimum:
+
+- stable `record_link_id`,
+- owning `incident_id`,
+- `src_record_id`,
+- `dst_record_id`,
+- `link_type` from the exact closed vocabulary defined in §18,
+- `provenance` from the exact closed vocabulary defined in §18,
+- nullable `confidence` in the range `0..100`,
+- optional `note`,
+- `created_by_user_id`,
+- `created_at`,
+- nullable `deleted_at`,
+- nullable `deleted_by_user_id`.
+
+Stable `record_link_id` values are the mutation-target identity for history, rollback, and deterministic link-level reconstruction.
+
+Both endpoints MUST reference first-class record-envelope rows. A `record_link` MUST NOT target `entity_mentions`, `indicator_observations`, or any other non-record mutation target.
+
+`src_record_id` and `dst_record_id` MUST belong to the same `incident_id` as the `record_link` row. A `record_link` MUST NOT connect a record to itself.
+
+A `record_link` is not a record-envelope row. It MUST NOT participate in the generic record-scoped delete or restore routes defined for first-class records, and it MUST NOT introduce a standalone `row_version` optimistic-concurrency contract in the current profile.
+
+There MUST be at most one non-deleted `record_link` for the same `(incident_id, src_record_id, dst_record_id, link_type)` tuple.
+
+For projection, count, and ordinary export purposes, a link is active only when the `record_link` row is not soft-deleted and both endpoint records are not soft-deleted. Soft-deleted links and links whose endpoint records are soft-deleted MUST remain reconstructible through history and rollback.
+
+Merge-time repoint semantics from §9 apply to `record_links`. Incoming and outgoing active links to a losing entity MUST be repointed or deterministically recreated on the survivor in the same `change_set`, and duplicate active tuples created by repointing MUST be deduplicated without losing history.
+
+All persisted `record_links` MUST be directed. The base profile MUST NOT require mirrored reverse rows, per-row symmetry flags, or inverse-type columns. Reverse traversal, reverse counts, and equivalent "linked from" UI affordances MUST be derived from the current directed links.
+
+`record_links` MUST remain distinct from `entity_mentions` and `indicator_observations`. Mention-origin references MUST use `entity_mentions`. Source-bound indicator occurrences MUST use `indicator_observation` rows. A canonical indicator association MAY also be represented by a `record_link` when the applicable `link_type` is `references_indicator`.
+
+### 12.2 Relationship vocabulary and canonical direction
+
 The relationship vocabulary MUST be controlled by application code or equivalent authoritative configuration. It MUST NOT be free-text user input in the UI.
 
-The relationship vocabulary MUST support, at minimum, edge types equivalent to:
+The relationship vocabulary MUST support, at minimum, the exact base-profile `link_type` tokens defined in §18:
 
 - `observed_on_host`,
 - `observed_as_identity`,
@@ -929,7 +968,47 @@ The relationship vocabulary MUST support, at minimum, edge types equivalent to:
 - `attached_evidence`,
 - `references_artifact`,
 - `derived_from`,
-- `merged_into`.
+- `merged_into`,
+- `supported_by`,
+- `references_record`,
+- `supersedes`.
+
+For persisted `record_links`, `src_record_id` and `dst_record_id` MUST use these canonical directions:
+
+- `observed_on_host`: source record -> host,
+- `observed_as_identity`: source record -> identity,
+- `references_indicator`: source record -> canonical indicator,
+- `attached_evidence`: anchor record -> evidence record,
+- `references_artifact`: anchor record -> artifact record,
+- `derived_from`: derived record -> source record,
+- `merged_into`: losing record -> survivor,
+- `supported_by`: assessment or decision -> supporting record,
+- `references_record`: task request or other coordination record -> referenced record,
+- `supersedes`: superseding decision -> superseded decision.
+
+Client-visible reverse traversal or reverse counts MUST be derived from these canonical directions. They MUST NOT imply a second persisted link.
+
+### 12.3 Link metadata semantics
+
+The exact `provenance` tokens are defined in §18. The following semantics apply:
+
+- `manual`: explicit analyst action created the link,
+- `auto_match`: the link was created by the interactive host or identity auto-resolution flow defined by Core 03 §12.3,
+- `import`: the link was created by a file or API import flow,
+- `rollback`: the link was recreated or restored by rollback,
+- `system`: the link was created by another system-managed action.
+
+`provenance` is required.
+
+`confidence` is a nullable `0..100` score about the correctness of a machine-produced link assertion. It MUST NOT be reused as evidence strength, assessment confidence, severity, impact, or priority.
+
+A link created by explicit analyst action in the base profile MUST use `provenance='manual'` unless the applicable write path is the Core 03 §12.3 auto-resolution flow.
+
+`provenance='auto_match'` is valid only for interactive host and identity auto-resolution. Such links MUST set `confidence=100`.
+
+Explicit analyst-created links SHOULD leave `confidence` null unless a later profile defines a stable machine-produced scoring contract for that write path.
+
+`note` MAY hold free text and operator context, but it MUST NOT carry conformance-critical semantics.
 
 A timeline event MUST be able to relate to:
 
@@ -1031,6 +1110,7 @@ The schema MUST support:
 - unknown-column preservation fields sufficient to persist `import_unit_id`, source column ordinal, source header text, and raw value without conflating duplicate visible headers,
 - resolution metadata on mentions,
 - source-bound indicator-observation fields sufficient to persist observed text, optional parsed indicator type, optional normalized candidate, deterministic source locator or span, and resolution metadata,
+- `record_link` fields sufficient to persist stable `record_link_id`, directed `src_record_id` and `dst_record_id`, closed-vocabulary `link_type`, closed-vocabulary `provenance`, nullable `confidence`, optional `note`, creation attribution, creation timestamp, and soft-delete attribution,
 - append-only indicator lifecycle interval fields separate from observation timestamps,
 - append-only compromise-assessment fields sufficient to persist closed-vocabulary `assessment_state`, `assessed_at`, assessor attribution, nullable `confidence_score`, rationale, optional supporting record references, and deterministic derivation of `confidence_band`,
 - reference-pack manifest fields sufficient to persist `pack_key`, `pack_kind`, `pack_version`, `source_identifier`, `manifest_sha256`, one or more payload SHA-256 digests in deterministic member order or an equivalent canonical aggregate digest, declared `pack_contract_version`, signature or trusted-source metadata, `verification_method`, and non-active availability state,
@@ -1078,7 +1158,7 @@ The mutation-entry model MUST support, at minimum:
 - evidence associations,
 - merge and repoint fan-out.
 
-Stable mutation targets MUST use deterministic serialization. Composite targets MUST serialize canonically, for example `record_tag:<record_id>:<tag_id>`.
+Stable mutation targets MUST use deterministic serialization, for example `record_link:<record_link_id>`. Composite targets MUST serialize canonically, for example `record_tag:<record_id>:<tag_id>`.
 
 ### 14.4 Soft delete
 
@@ -1201,6 +1281,8 @@ Where an earlier section also defines lifecycle rules, semantic meanings, or gua
 | `task_request.priority` | `low`, `normal`, `high`, `urgent` |
 | `decision.decision_type` | `scope`, `containment`, `communication`, `evidence`, `reporting` |
 | `decision.status` | `proposed`, `approved`, `rejected`, `superseded`, `executed` |
+| `record_links.link_type` | `observed_on_host`, `observed_as_identity`, `references_indicator`, `attached_evidence`, `references_artifact`, `derived_from`, `merged_into`, `supported_by`, `references_record`, `supersedes` |
+| `record_links.provenance` | `manual`, `auto_match`, `import`, `rollback`, `system` |
 | `artifact.comm_type` for `artifact_type='comm_log'` | `meeting`, `notification`, `approval`, `briefing`, `handoff` |
 | `release_state` | `pending_approval`, `approved`, `invalidated`, `published` |
 | `object_blobs.upload_state` | `pending`, `available`, `failed`, `quarantined` |

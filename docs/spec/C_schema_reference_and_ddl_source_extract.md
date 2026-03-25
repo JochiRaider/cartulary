@@ -661,12 +661,26 @@ CREATE INDEX idx_mentions_raw_trgm
 ```
 
 ```sql
+-- Persisted record links are directed. Reverse traversal is derived from query or projection state.
 CREATE TABLE record_links (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    record_link_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     incident_id uuid NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
     src_record_id uuid NOT NULL REFERENCES records(id) ON DELETE CASCADE,
     dst_record_id uuid NOT NULL REFERENCES records(id) ON DELETE CASCADE,
-    link_type text NOT NULL,
+    link_type text NOT NULL CHECK (
+        link_type IN (
+            'observed_on_host',
+            'observed_as_identity',
+            'references_indicator',
+            'attached_evidence',
+            'references_artifact',
+            'derived_from',
+            'merged_into',
+            'supported_by',
+            'references_record',
+            'supersedes'
+        )
+    ),
     provenance text NOT NULL DEFAULT 'manual' CHECK (
         provenance IN ('manual','auto_match','import','rollback','system')
     ),
@@ -690,6 +704,8 @@ CREATE INDEX idx_links_src
 CREATE INDEX idx_links_dst
     ON record_links (incident_id, dst_record_id, link_type)
     WHERE deleted_at IS NULL;
+
+-- Enforce the same-incident endpoint invariant with composite foreign keys or an equivalent constraint or trigger.
 
 CREATE TABLE tags (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
