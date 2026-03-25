@@ -265,12 +265,7 @@ For these failures, the server MUST return `400` and `error.code = invalid_view_
 - `field_key` when present,
 - `reason_code`.
 
-The closed `reason_code` vocabulary is:
-
-- `unknown_filter_field`
-- `operator_not_allowed`
-- `invalid_filter_operand`
-- `duplicate_filter_field`
+The canonical `invalid_view_query` `error.details.reason_code` registry is defined in §3.3.6.2.
 
 Request order of `filters[]` is not semantically significant.
 
@@ -643,7 +638,7 @@ If either current row version differs from the supplied base version, the route 
 - `survivor_current_row_version`,
 - `loser_current_row_version`.
 
-If a precondition other than row-version freshness fails, the route MUST fail with `409` and `error.code = merge_precondition_failed`. `error.details.reason_code` MUST use the closed vocabulary `same_record`, `different_incident`, `record_type_mismatch`, `unsupported_record_type`, `survivor_not_mergeable`, or `loser_not_mergeable`.
+If a precondition other than row-version freshness fails, the route MUST fail with `409` and `error.code = merge_precondition_failed`. `error.details.reason_code` MUST use the canonical `merge_precondition_failed` reason-code registry defined in §3.3.6.2.
 
 The server MAY acquire short-lived internal destructive-operation locks on both records while applying the merge. If such locks are used, they MUST be acquired in canonical `record_id` order and MUST NOT require a separate client-visible lock-acquire route. If either required lock is already held, the route MUST fail with `409`, `error.code = record_locked`, and `error.retryable = true`.
 
@@ -700,6 +695,66 @@ Same-field conflicts MUST use this same error family with `error.code = same_fie
 Illegal lifecycle transitions MUST use this same error family with `error.code = illegal_transition`, `error.status = 409`, `error.details.from_status`, `error.details.to_status`, and `error.details.violated_guards[]`. `error.details.violated_guards[]` MUST be present and MAY be empty when the transition is disallowed by the legal transition matrix rather than by a failed field guard.
 
 Clients MUST tolerate additive response members they do not use.
+
+Public `error.code` tokens and public `reason_code` tokens defined by this core are canonicalized below. Other sections MAY require one of these tokens for a specific route or conformance criterion but MUST NOT redefine its primary meaning, required transport status, or retry hint.
+
+##### 3.3.6.1 Canonical public error-code registry
+
+The public API surface defined by this core MUST use the following stable `error.code` tokens for the listed conditions. A route or conformance criterion covered by this registry MUST NOT assign a second stable token to the same condition.
+
+| `error.code` | Required `error.status` | Required `error.retryable` | Canonical meaning |
+| --- | --- | --- | --- |
+| `invalid_view_query` | `400` | `false` | The view-query request is malformed or uses a `field_key`, filter operator, or operand shape not allowed by the active `view_schema_id`. |
+| `invalid_mutation_payload` | `400` | `false` | A direct value or `action_payload` is malformed, uses an unknown `kind` or `op`, targets a field/action pair that is not allowed, or carries an invalid or foreign `item_ref`. |
+| `row_version_conflict` | `409` | `false` | The supplied `base_row_version`, or equivalent current revision token accepted for restore, is stale relative to authoritative current state. |
+| `same_field_conflict` | `409` | `false` | Another committed write touched the same writable `field_key`; the response MUST include the conflict object defined by Core 03 §3.3.4. |
+| `illegal_transition` | `409` | `false` | The requested lifecycle transition is not allowed for the current persisted state or guard condition. |
+| `record_deleted_use_restore` | `409` | `false` | The caller targeted a currently soft-deleted record with an operation that requires the record to be restored first. |
+| `record_already_deleted` | `409` | `false` | The caller attempted to soft-delete an already soft-deleted record outside an idempotent replay of the original delete. |
+| `record_not_deleted` | `409` | `false` | The caller attempted to restore a record that is not currently soft-deleted. |
+| `record_locked` | `409` | `true` | A short-lived destructive-operation lock prevents the requested restore or merge from proceeding at this time. |
+| `user_version_conflict` | `409` | `false` | The supplied `base_user_version` is stale. |
+| `last_deployment_admin` | `409` | `false` | The requested user mutation would leave the deployment with no active `is_deployment_admin=true` user. |
+| `user_not_found` | `404` | `false` | A membership-create request referenced a user that does not exist in deployment-local identity state. |
+| `user_inactive` | `409` | `false` | A membership-create request referenced a deployment-local user whose `is_active=false`. |
+| `membership_exists_use_patch` | `409` | `false` | A membership-create request conflicts with an existing membership for the same `(incident_id, user_id)` and must be expressed as a patch instead. |
+| `membership_version_conflict` | `409` | `false` | The supplied `base_membership_version` is stale. |
+| `membership_not_found` | `404` | `false` | A membership route that requires an existing current membership targeted no current membership row for the identified `(incident_id, user_id)`. |
+| `last_incident_admin` | `409` | `false` | The requested membership create, patch, or delete would leave the incident without any current `admin` membership. |
+| `merge_precondition_failed` | `409` | `false` | An entity-merge precondition other than row-version freshness failed; `error.details.reason_code` MUST use the merge-precondition registry in §3.3.6.2. |
+
+##### 3.3.6.2 Canonical public reason-code registries
+
+When the public API or collaboration stream uses a structured `reason_code` family listed below, it MUST use one of the exact tokens shown. A listed `reason_code` family MUST NOT define alternate tokens for the same meaning elsewhere in the core.
+
+`invalid_view_query` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `unknown_filter_field` | `field_key` is not declared filterable for the active `view_schema_id`. |
+| `operator_not_allowed` | `op` is not allowed for that field's declared filter class. |
+| `invalid_filter_operand` | `arg` is malformed, empty after normalization, contradictory, or otherwise invalid for the selected `op`. |
+| `duplicate_filter_field` | The request contains more than one normalized filter entry for the same `field_key`. |
+
+`merge_precondition_failed` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `same_record` | The supplied survivor and loser identify the same record. |
+| `different_incident` | The two records do not belong to the same incident. |
+| `record_type_mismatch` | The two records do not have the same `record_type`. |
+| `unsupported_record_type` | The requested `record_type` is not mergeable through the base-profile public route. |
+| `survivor_not_mergeable` | The nominated survivor is deleted, already merged away, or otherwise not eligible to survive the merge. |
+| `loser_not_mergeable` | The nominated loser is deleted, already merged away, or otherwise not eligible to lose the merge. |
+
+`/ws/v1/` `session_revoked.payload.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `session_expired` | The authenticated session ended because idle or absolute expiry was reached. |
+| `session_revoked` | The current session was explicitly logged out or otherwise deployment-revoked. |
+| `incident_access_revoked` | The session remains otherwise valid but no longer authorizes the subscribed incident. |
+| `concurrency_limit` | The session was revoked because a newer login exceeded the concurrent-session cap. |
 
 #### 3.3.7 Pagination and cursor contract
 
@@ -835,7 +890,7 @@ The minimum server-to-client message set MUST be:
 
 `job_progress.payload` MUST include `job_id`, `status`, `progress`, and `updated_at`, and MAY include `cancelable`, `message`, `result_summary`, or `error_summary`. The incident-scoped stream MUST emit `job_progress` only for jobs whose observable resource or terminal result is scoped to the subscribed `incident_id`.
 
-`error.payload` MUST include `code`, `message`, and `retryable`, and MAY include `details`. `session_revoked.payload` MUST include `reason_code` and MAY include `message`. The base profile MUST support, at minimum, `reason_code` values `session_expired`, `session_revoked`, `incident_access_revoked`, and `concurrency_limit`.
+`error.payload` MUST include `code`, `message`, and `retryable`, and MAY include `details`. `session_revoked.payload` MUST include `reason_code` and MAY include `message`. `reason_code` MUST use the canonical session-revocation registry defined in §3.3.6.2.
 
 The protocol MUST define two delivery classes:
 

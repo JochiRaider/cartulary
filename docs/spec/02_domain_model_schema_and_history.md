@@ -283,15 +283,7 @@ For every `entity_mention`, the implementation MUST persist:
 - creation timestamp,
 - when resolved: `resolved_record_id`, `resolved_by_user_id`, `resolved_at`, and `resolution_method`.
 
-`origin_kind` MUST use a closed vocabulary equivalent to:
-
-- `manual_entry`,
-- `clipboard_paste`,
-- `csv_import`,
-- `xlsx_import`,
-- `api_import`,
-- `extraction`,
-- `system`.
+`origin_kind` MUST use the exact closed vocabulary defined in §18.
 
 `origin_locator` MUST identify the source position deterministically, such as sheet/row/column for import or view/field for interactive entry.
 
@@ -339,12 +331,7 @@ For every host or identity record created outside direct entity sheets, the impl
 - seed identifier values as aliases or equivalent structured provenance,
 - full `change_set` and revision lineage.
 
-`entity_origin` MUST use a closed vocabulary equivalent to:
-
-- `entity_sheet`,
-- `entity_import`,
-- `created_from_mention`,
-- `system_upsert`.
+`entity_origin` MUST use the exact closed vocabulary defined in §18.
 
 ### 7.4 Indicator observation provenance
 
@@ -363,7 +350,7 @@ For every `indicator_observation`, the implementation MUST persist:
 - when resolved: `resolved_indicator_record_id`, `resolved_by_user_id`, `resolved_at`, and `resolution_method`,
 - when machine-assisted: extraction method or parser version and confidence.
 
-`origin_kind` MUST use the same closed vocabulary as entity mentions or an equivalent closed-vocabulary superset.
+`origin_kind` MUST use the exact closed vocabulary defined in §18.
 
 ## 8. Deduplication and auto-upsert rules
 
@@ -430,7 +417,7 @@ The base profile MUST model canonical indicators as first-class `indicator` reco
 A canonical indicator record MUST be incident-scoped and MUST own, at minimum:
 
 - `indicator_type` as a registry key,
-- `value_kind` with behavior equivalent to `atomic`, `pattern`, or `reference`,
+- `value_kind` from the exact closed vocabulary defined in §18,
 - a canonical display value,
 - `normalized_value` when applicable,
 - a deterministic incident-scoped dedupe key,
@@ -552,11 +539,11 @@ A `task_request` record MUST carry, at minimum:
 
 - stable `record_id`,
 - owning `incident_id`,
-- `task_kind` from a closed vocabulary equivalent to `question`, `request`, `collection`, `containment`, or `follow_up`,
+- `task_kind` from the exact closed vocabulary defined in §18,
 - `title`,
-- `status` from a closed vocabulary equivalent to `open`, `in_progress`, `blocked`, `done`, or `canceled`,
+- `status` from the exact closed vocabulary defined in §18,
 - `owner_user_id`,
-- `priority` from a closed vocabulary equivalent to `low`, `normal`, `high`, or `urgent`,
+- `priority` from the exact closed vocabulary defined in §18,
 - `created_at`,
 - `updated_at`.
 
@@ -636,9 +623,9 @@ A `decision` record MUST carry, at minimum:
 
 - stable `record_id`,
 - owning `incident_id`,
-- `decision_type` from a closed vocabulary equivalent to `scope`, `containment`, `communication`, `evidence`, or `reporting`,
+- `decision_type` from the exact closed vocabulary defined in §18,
 - `summary`,
-- `status` from a closed vocabulary equivalent to `proposed`, `approved`, `rejected`, `superseded`, or `executed`,
+- `status` from the exact closed vocabulary defined in §18,
 - `owner_user_id`,
 - `decided_at`,
 - `rationale`.
@@ -714,7 +701,7 @@ The current profile MUST keep the following coordination surfaces artifact-backe
 A `comm_log` artifact MUST carry, at minimum:
 
 - `comm_id`,
-- `comm_type` from a closed vocabulary equivalent to `meeting`, `notification`, `approval`, `briefing`, or `handoff`,
+- `comm_type` from the exact closed vocabulary defined in §18,
 - `timestamp_utc`,
 - `audience`,
 - `channel_or_meeting`,
@@ -829,7 +816,7 @@ For this lifecycle, the logical output slot is the bound release tuple excluding
 
 Each release record MUST also persist, at minimum:
 
-- `release_state` from a closed vocabulary equivalent to `pending_approval`, `approved`, `invalidated`, or `published`,
+- `release_state` from the exact closed vocabulary defined in §18,
 - `approved_at`,
 - `invalidated_at`,
 - `published_at`,
@@ -988,9 +975,9 @@ Cartulary defines two linked but separate evidence-related lifecycle machines:
 - a blob-upload machine authoritative on `object_blobs.upload_state`,
 - an evidence-custody and availability machine authoritative on `evidence_records.lifecycle_state` plus append-only custody events.
 
-The blob-upload machine uses conditions equivalent to `pending`, `available`, `failed`, and `quarantined`.
+The blob-upload machine uses the exact closed vocabulary defined in §18.
 
-The evidence-custody and availability machine uses states equivalent to `requested`, `pending_receipt`, `received`, `available`, `quarantined`, and `released`.
+The evidence-custody and availability machine uses the exact closed vocabulary defined in §18.
 
 These machines MUST remain separate. `object_blobs.upload_state` MUST NOT be treated as the user-facing evidence lifecycle, and an evidence record MUST be able to exist with no blob at all.
 
@@ -1195,3 +1182,28 @@ A conformant implementation MUST preserve all of the following invariants:
 15. projection state is derived rather than authoritative,
 16. current-profile hypotheses remain artifact-backed until later promotion criteria are met,
 17. reference-pack manifests, activation state, and attestation metadata remain incident-external structured state, and at most one version per `pack_key` is active at a time.
+
+## 18. Canonical closed-vocabulary registry
+
+This section owns the exact token sets for closed vocabularies that are persisted in structured state or surfaced through contract-backed views, portability bundles, or public API payloads. Earlier sections that described a vocabulary as "equivalent to" these values are resolved by this registry. A conformant implementation MUST persist and emit the exact tokens listed here.
+
+Where an earlier section also defines lifecycle rules, semantic meanings, or guard behavior for a token family, that earlier section remains authoritative for those semantics. This registry owns the exact token spellings and membership of the token set.
+
+| Structured field or token family | Exact tokens |
+| --- | --- |
+| `entity_mentions.resolution_status` | `unresolved`, `resolved`, `dismissed` |
+| `entity_mentions.origin_kind` and `indicator_observation.origin_kind` | `manual_entry`, `clipboard_paste`, `csv_import`, `xlsx_import`, `api_import`, `extraction`, `system` |
+| `host.entity_origin` and `identity.entity_origin` | `entity_sheet`, `entity_import`, `created_from_mention`, `system_upsert` |
+| `indicator.value_kind` | `atomic`, `pattern`, `reference` |
+| `assessment_state` | `unknown`, `suspected`, `confirmed`, `disproven`, `cleared` |
+| `task_request.task_kind` | `question`, `request`, `collection`, `containment`, `follow_up` |
+| `task_request.status` | `open`, `in_progress`, `blocked`, `done`, `canceled` |
+| `task_request.priority` | `low`, `normal`, `high`, `urgent` |
+| `decision.decision_type` | `scope`, `containment`, `communication`, `evidence`, `reporting` |
+| `decision.status` | `proposed`, `approved`, `rejected`, `superseded`, `executed` |
+| `artifact.comm_type` for `artifact_type='comm_log'` | `meeting`, `notification`, `approval`, `briefing`, `handoff` |
+| `release_state` | `pending_approval`, `approved`, `invalidated`, `published` |
+| `object_blobs.upload_state` | `pending`, `available`, `failed`, `quarantined` |
+| `evidence_records.lifecycle_state` | `requested`, `pending_receipt`, `received`, `available`, `quarantined`, `released` |
+
+A current-profile implementation MUST NOT persist alternate spellings, display labels, or semantically equivalent synonyms for any token listed here in authoritative structured state. Client and export presentation layers MAY map these tokens to display labels, but the canonical token value MUST remain stable in stored state and machine-readable payloads.

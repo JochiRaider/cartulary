@@ -63,10 +63,25 @@ The source artifact mentions several future areas without defining enough detail
 
 ## 5. Document map
 
-- **Core 01** defines authoritative system topology, storage boundaries, view contracts, projections, portability, failure handling, and background-job behavior.
-- **Core 02** defines authoritative record types, identifiers, mention/entity semantics, provenance, deduplication, merge rules, schema invariants, and history mechanics.
+- **Core 01** defines authoritative system topology, storage boundaries, view contracts, public success/error envelope registries, projections, portability, failure handling, and background-job behavior.
+- **Core 02** defines authoritative record types, identifiers, mention/entity semantics, canonical closed vocabularies, provenance, deduplication, merge rules, schema invariants, and history mechanics.
 - **Core 03** defines authoritative workbook interactions, collaboration semantics, workflow contracts, auto-resolution policy, grouping behavior, and write-back rules.
 - **Core 04** defines authoritative security, deployment, trust boundaries, and acceptance criteria.
+
+### 5.1 Contract-owner matrix
+
+A contract family that appears in more than one normative core document MUST have one primary owner section. Non-owner sections MAY restate the owner only to declare local consequences, UI affordances, storage realization, or conformance checks. When a non-owner restatement and the owner differ, the owner governs and the restatement is editorial drift that MUST be repaired.
+
+| Contract family | Primary owner | Allowed secondary sections | Ownership rule |
+| --- | --- | --- | --- |
+| Public success/error envelope and public error-code and reason-code registries | Core 01 §3.3.6, §3.3.6.1, and §3.3.6.2 | Core 03 §3.3.4; Core 04 §9.6, §9.9, and §9.10 | Secondary sections MAY require a specific code or payload member but MUST NOT assign a conflicting meaning, transport status, or retry hint. |
+| Session resource shape and expiry fields | Core 01 §3.3.2.1 | Core 03 §4.4; Core 04 §1.1.1 and §9.10 | Core 01 owns the authenticated-session resource fields returned to clients. |
+| Session issuance, expiry, revocation, and concurrent-session behavior | Core 04 §1.1.1 | Core 01 §3.3.2.1 and §3.3.10.1; Core 03 §4.4 | Non-owner sections MAY reference `session_expires_at`, `session_revoked`, and retry behavior but MUST NOT widen allowed lifetime or revocation semantics. |
+| Saved-view route, mutability, and authorization contract | Core 01 §3.3.5.2 | Core 02 §11.1; Core 03 §2.3-§2.4; Core 04 §9.10 | Core 02 owns persistence fields only. Core 03 owns workbook discoverability and startup interaction only. |
+| Workbook startup-preference objects | Core 02 §11.2 | Core 01 §3.3.5.2; Core 03 §2.4; Core 04 §9.10 | `home_sheet_ref` and `default_sheet_ref` semantics MUST remain separate and MUST NOT be collapsed into saved-view flags. |
+| Same-field conflict transport and `collection_review` resolver payloads | Core 03 §3.3.4 | Core 01 §3.3.5 and §3.3.6; Core 04 §9.6 and §9.10 | Core 01 owns the common envelope. Core 03 owns the conflict object, resolver semantics, and `collection_value_v1` conflict payload rules. |
+| Domain closed-vocabulary registry | Core 02 §18 | Core 01 view contracts; Core 03 workflow surfaces; Core 04 conformance criteria | Non-owner sections MAY require a subset only when they reference the exact tokens owned by Core 02. |
+| Lifecycle-machine states and legal transitions for `task_request` and `decision` | Core 02 §10.4.1.1 and §10.4.2.1 | Core 01 §3.3.6; Core 03 §6 and §16.4; Core 04 §9.9 | Core 02 owns state sets and legal transitions. Core 01 owns the common illegal-transition transport shape. Core 04 owns pass/fail verification. |
 
 ## 6. System boundary
 
