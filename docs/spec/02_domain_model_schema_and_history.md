@@ -428,7 +428,7 @@ A canonical indicator record MUST be incident-scoped and MUST own, at minimum:
 - optional `stix_pattern`,
 - current `row_version` and revision lineage.
 
-Canonical indicator identity MUST be derived from the incident plus the deterministic type-specific dedupe key or an equivalent stable canonical identity. `stix_pattern` MAY be stored for interoperability or export. It MUST NOT be the source of truth for canonical identity.
+Canonical indicator identity MUST be derived from the incident plus the deterministic type-specific dedupe key or an equivalent stable canonical identity. In the current profile, the stored field inputs to that canonical identity are `indicator_type`, `value_kind`, the canonical display value, and `normalized_value` when applicable, plus the pair `hash_algorithm` and `hash_value` when both are populated and incorporated into the canonical dedupe key for the row. `defanged_value` MAY be stored for presentation or export, and `stix_pattern` MAY be stored for interoperability or export. Neither `defanged_value` nor `stix_pattern` MAY be the source of truth for canonical identity. Any later additional stored identity-basis field MUST be introduced explicitly by a versioned schema change.
 
 A canonical indicator record is not the raw source occurrence. Source-bound occurrences inside timeline, artifact, note, evidence, or other record fields MUST be stored separately as `indicator_observation` rows or an equivalent structured observation model. `indicator_observation` rows MUST remain distinct from generic `record_links`.
 

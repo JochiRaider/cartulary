@@ -1733,7 +1733,15 @@ Collection-review wire contract for `host.aliases`:
   - `indicator.hash_value`: read `hash_value`; write target the `hash_value` field on the underlying `indicator` record; `conflict_resolution_class=atomic_replace`
   - `indicator.stix_pattern`: read `stix_pattern`; write target the `stix_pattern` field on the underlying `indicator` record; `conflict_resolution_class=text_compare_merge`
 - read-only computed fields: `indicator.first_observed_at`, `indicator.last_observed_at`, `indicator.observation_count`, `indicator.lifecycle_summary`, `indicator.supporting_link_count`
-- grid edits to an existing indicator row MUST reject writes to `indicator.indicator_type`, `indicator.value_kind`, `indicator.display_value`, `indicator.normalized_value`, and any type-specific dedupe basis.
+- existing-row writable fields: none
+- grid edits to an existing indicator row MUST reject writes to every field listed under `writable fields on create only`
+- the exact identity-defining immutable field set for this v1 schema is:
+  - always: `indicator.indicator_type`, `indicator.value_kind`, `indicator.display_value`, `indicator.normalized_value`
+  - additionally, when populated and used by the canonical dedupe key: `indicator.hash_algorithm`, `indicator.hash_value`
+- `indicator.stix_pattern` remains create-only in this view but MUST NOT be treated as identity-defining
+- `indicator.defanged_value` remains create-only in this view but MUST NOT be treated as identity-defining
+- no other additional type-specific dedupe-basis field exists in `cartulary.view.indicators.v1`
+- any future additional identity-basis field requires a new explicit stable `field_key` and a new `view_schema` version
 
 #### 7.4.7 `cartulary.view.assessments.v1`
 

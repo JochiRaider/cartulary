@@ -68,6 +68,7 @@ The schema sketch needs a few explicit fields and separations for indicators:
 
 - `records.record_type` MUST include `indicator`.
 - Canonical indicators MUST store `indicator_type`, `value_kind`, canonical display value, `normalized_value` when applicable, deterministic incident-scoped `dedupe_key`, optional `defanged_value`, optional hash fields, and optional `stix_pattern`.
+- In the current profile, the stored canonical-identity inputs are `indicator_type`, `value_kind`, canonical display value, and `normalized_value` when applicable, plus the pair `hash_algorithm` and `hash_value` when both are populated and incorporated into the canonical dedupe key; `defanged_value` and `stix_pattern` are stored fields, not canonical identity inputs.
 - Source-bound `indicator_observations` MUST store `source_record_id`, `source_field_key`, `origin_kind`, `origin_locator`, observed text, optional parsed indicator type and normalized candidate, deterministic span or selection locator when the source is inline text, resolution metadata, and attribution.
 - Indicator lifecycle windows MUST be stored separately from observations in append-only `indicator_state_intervals` or equivalent structured rows keyed to the canonical indicator.
 - `indicator_grid_projection` MUST be keyed by canonical indicator `record_id`, not by source artifact or observation identity.
