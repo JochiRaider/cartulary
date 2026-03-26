@@ -82,6 +82,7 @@ A contract family that appears in more than one normative core document MUST hav
 | Same-field conflict transport and `collection_review` resolver payloads | Core 03 §3.3.4 | Core 01 §3.3.5 and §3.3.6; Core 04 §9.6 and §9.10 | Core 01 owns the common envelope. Core 03 owns the conflict object, resolver semantics, and `collection_value_v1` conflict payload rules. |
 | Domain closed-vocabulary registry | Core 02 §18 | Core 01 view contracts; Core 03 workflow surfaces; Core 04 conformance criteria | Non-owner sections MAY require a subset only when they reference the exact tokens owned by Core 02. |
 | Lifecycle-machine states and legal transitions for `task_request` and `decision` | Core 02 §10.4.1.1 and §10.4.2.1 | Core 01 §3.3.6; Core 03 §6 and §16.4; Core 04 §9.9 | Core 02 owns state sets and legal transitions. Core 01 owns the common illegal-transition transport shape. Core 04 owns pass/fail verification. |
+| Base-profile `view_schema` registry and per-schema field registries | Core 01 §7.4 | Core 03 §14 and §16.1; Core 04 §9.1; Appendix E and Appendix F | Core 01 owns the exact base-profile `view_schema_id` set and the exhaustive per-field contracts for each schema, including stable `field_key`, default sort, filter whitelist, write target or action, `conflict_resolution_class`, and `entity_binding_mode` where applicable. Secondary sections MAY describe local interaction, conformance, or roadmap consequences only. |
 
 ## 6. System boundary
 

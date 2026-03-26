@@ -140,7 +140,7 @@ If the Enterprise Authentication Extension Profile is implemented, provider-back
 
 The base-profile route set MUST include stable route families for:
 
-- incident discovery, creation, and incident metadata: `POST /api/v1/incidents`, `GET /api/v1/incidents`, `GET /api/v1/incidents/{incident_id}`,
+- incident discovery, creation, retrieval, and incident metadata mutation: `POST /api/v1/incidents`, `GET /api/v1/incidents`, `GET /api/v1/incidents/{incident_id}`, `PATCH /api/v1/incidents/{incident_id}`,
 - deployment-local user account inspection and administration: `GET /api/v1/users`, `POST /api/v1/users`, `GET /api/v1/users/{user_id}`, `PATCH /api/v1/users/{user_id}`,
 - incident membership inspection and administration: `GET /api/v1/incidents/{incident_id}/memberships`, `POST /api/v1/incidents/{incident_id}/memberships`, `PATCH /api/v1/incidents/{incident_id}/memberships/{user_id}`, `DELETE /api/v1/incidents/{incident_id}/memberships/{user_id}`,
 - view-schema discovery: `GET /api/v1/view-schemas`, `GET /api/v1/view-schemas/{view_schema_id}`,
@@ -561,6 +561,9 @@ The incident resource MUST expose, at minimum:
 - `primary_external_case_ref`,
 - `created_by_user_id`,
 - `created_at`,
+- `updated_at`,
+- `updated_by_user_id`,
+- `incident_version`,
 - `closed_at`.
 
 `POST /api/v1/incidents` MUST require an authenticated session using the same session contract as the remaining API surface. Cookie-authenticated requests MUST fail closed without valid CSRF protection.
@@ -580,7 +583,7 @@ The base-profile authorization gate for `POST /api/v1/incidents` MUST be an auth
 
 `incident_key` MUST be trimmed of leading and trailing Unicode whitespace, Unicode NFC-normalized, non-empty, at most 128 UTF-8 bytes after that normalization, and unique within the deployment after that same normalization. `title` MUST be trimmed of leading and trailing Unicode whitespace, non-empty, and at most 512 Unicode scalar values after trimming. If present, `description` MUST be at most 16384 Unicode scalar values. If present, `severity`, `tlp`, `current_phase`, and `primary_external_case_ref` MUST each be at most 128 Unicode scalar values. The server MUST reject control characters in `incident_key` and `title`.
 
-The server MUST ignore unknown extension fields so additive optional request fields remain forward-compatible within the same major version. The server MUST reject any attempt to set server-managed fields including `incident_id`, `status`, `created_by_user_id`, `created_at`, `closed_at`, any membership object, any saved-view object, and any workbook-preference object.
+The server MUST ignore unknown extension fields so additive optional request fields remain forward-compatible within the same major version. The server MUST reject any attempt to set server-managed fields including `incident_id`, `status`, `created_by_user_id`, `created_at`, `updated_at`, `updated_by_user_id`, `incident_version`, `closed_at`, any membership object, any saved-view object, and any workbook-preference object.
 
 For idempotency comparison, the normalized request MUST include only recognized request fields after the validation and normalization rules in this section are applied. For all optional request fields in this contract, omission and an explicit JSON `null` MUST compare equal.
 
@@ -597,6 +600,42 @@ The base profile MUST NOT accept `initial_memberships[]` or any equivalent colla
 Idempotency for create MUST be keyed by `(actor_user_id, client_txn_id)`. If the same authenticated user replays the same normalized request with the same `client_txn_id`, the server MUST return `200 OK`, MUST set `Location` to `/api/v1/incidents/{incident_id}` for the originally created incident, and MUST return the common success envelope with `data` equal to the originally created incident resource. If the same authenticated user reuses `client_txn_id` with a different normalized request, the server MUST fail with `409`.
 
 A first-time successful create MUST return `201 Created`, MUST set `Location` to `/api/v1/incidents/{incident_id}`, and MUST return the common success envelope with `data` equal to the incident resource.
+
+
+##### 3.3.5.3.1 Incident retrieval and metadata patch contract
+
+`GET /api/v1/incidents/{incident_id}` MUST return the common success envelope with `data` equal to the requested incident resource. Any current incident member MAY call this route.
+
+`incident_version` MUST be monotonically increasing per `incident_id`.
+
+`PATCH /api/v1/incidents/{incident_id}` MUST be the only base-profile mutation route for incident-scoped metadata. It MUST NOT reuse `PATCH /api/v1/records/{record_id}`.
+
+This route is incident-resource-scoped, not view-scoped. It MUST NOT require `view_schema_id`, `field_key`, a row envelope, or other workbook-surface routing parameters in the path or request body.
+
+The route MUST require the caller's current role on that incident to be `reviewer` or `admin`.
+
+The request body MUST be a JSON object and MUST accept `base_incident_version` plus changed mutable fields only. In the base profile, mutable fields are `tlp`, `current_phase`, and `primary_external_case_ref`.
+
+The server MUST apply the same normalization and validation rules defined for those fields on `POST /api/v1/incidents`.
+
+For nullable mutable fields, omission means no change and explicit JSON `null` means clear the field.
+
+The route MUST reject attempted mutation of `incident_id`, `incident_key`, `title`, `description`, `status`, `severity`, `created_by_user_id`, `created_at`, `updated_at`, `updated_by_user_id`, `incident_version`, `closed_at`, any membership object, any saved-view object, and any workbook-preference object. The route MUST reject unknown top-level request members with `400` and `error.code = invalid_incident_patch`.
+
+If the current `incident_version` differs from `base_incident_version`, the server MUST fail with `409` and `error.code = incident_version_conflict`. `error.details` MUST include at least `incident_id`, `base_incident_version`, and `current_incident_version`.
+
+If the normalized request changes no effective field value, the server MUST return `200 OK` with the current incident resource and MUST NOT increment `incident_version`.
+
+On success, the server MUST, in one transaction:
+
+1. update the changed structured incident fields,
+2. set `updated_at` and `updated_by_user_id`,
+3. increment `incident_version`,
+4. persist attributed audit history sufficient to reconstruct the before and after values of each changed field.
+
+A successful `PATCH /api/v1/incidents/{incident_id}` call MUST return `200 OK` and the common success envelope with `data` equal to the updated incident resource.
+
+A caller who lacks visibility to the incident MUST receive `404`. A caller who can see the incident but lacks sufficient role MUST receive `403`.
 
 #### 3.3.5.4 Entity-merge contract
 
@@ -706,7 +745,9 @@ The public API surface defined by this core MUST use the following stable `error
 | --- | --- | --- | --- |
 | `invalid_view_query` | `400` | `false` | The view-query request is malformed or uses a `field_key`, filter operator, or operand shape not allowed by the active `view_schema_id`. |
 | `invalid_mutation_payload` | `400` | `false` | A direct value or `action_payload` is malformed, uses an unknown `kind` or `op`, targets a field/action pair that is not allowed, or carries an invalid or foreign `item_ref`. |
+| `invalid_incident_patch` | `400` | `false` | An incident-metadata patch request is malformed, omits required `base_incident_version`, attempts to mutate an immutable or server-managed incident field, or includes unknown top-level members. |
 | `row_version_conflict` | `409` | `false` | The supplied `base_row_version`, or equivalent current revision token accepted for restore, is stale relative to authoritative current state. |
+| `incident_version_conflict` | `409` | `false` | The supplied `base_incident_version` is stale. |
 | `same_field_conflict` | `409` | `false` | Another committed write touched the same writable `field_key`; the response MUST include the conflict object defined by Core 03 §3.3.4. |
 | `illegal_transition` | `409` | `false` | The requested lifecycle transition is not allowed for the current persisted state or guard condition. |
 | `record_deleted_use_restore` | `409` | `false` | The caller targeted a currently soft-deleted record with an operation that requires the record to be restored first. |
@@ -1072,6 +1113,8 @@ The base profile MUST define the following nine pack-independent `view_schema` e
 
 These nine entries are the contract-backed surfaces required by §7.1 and §7.2. Additional `view_schema` entries MAY exist for saved views, coordination-artifact surfaces, optional reference-pack overlays, or later profiles, but they MUST NOT change the membership or semantics of the base-profile registry defined in this subsection.
 
+Each schema subsection below is an exhaustive per-field registry for that `view_schema_id`, not an illustrative example. In particular, §7.4.2 through §7.4.4 close the base-profile interface contract for the built-in Hosts, Identities, and Evidence sheets. Implementations MUST NOT invent alternate base-profile writable `field_key` strings, write targets or actions, `conflict_resolution_class` assignments, or `entity_binding_mode` values for those schemas.
+
 Unless explicitly overridden below:
 
 - `required_reference_pack_keys` MUST be `[]`,
@@ -1241,6 +1284,7 @@ Collection-review wire contract for `timeline.tags`:
 - `default_sort`: `host.display_name asc`, `record_id asc`
 - `filter_fields`: `host.host_state`, `host.business_owner`, `host.criticality`, `host.location`, `host.os_platform`, `host.containment_status`
 - inline create: direct row creation or paste on the Hosts sheet MUST create or upsert a `host` record using `entity_binding_mode=entity_origin`
+- create-or-upsert reuse on the Hosts sheet MUST apply the exact-match precedence in Core 02 §8.2. Suggestion-only candidates allowed by Core 02 §8.3 MUST NOT silently auto-merge or auto-resolve a host.
 - writable fields:
   - `host.display_name`: read the canonical host display field; write target the canonical host display field on the underlying `host` record; `entity_binding_mode=entity_origin`; `conflict_resolution_class=atomic_replace`
   - `host.hostname`: read `hostname`; write target the canonical hostname field on the underlying `host` record; `entity_binding_mode=entity_origin`; `conflict_resolution_class=atomic_replace`
@@ -1290,6 +1334,7 @@ Collection-review wire contract for `host.aliases`:
 - `default_sort`: `identity.display_name asc`, `record_id asc`
 - `filter_fields`: `identity.identity_state`, `identity.privilege_level`, `identity.mfa_state`, `identity.reset_status`
 - inline create: direct row creation or paste on the Identities sheet MUST create or upsert an `identity` record using `entity_binding_mode=entity_origin`
+- create-or-upsert reuse on the Identities sheet MUST apply the exact-match precedence in Core 02 §8.2. Suggestion-only candidates allowed by Core 02 §8.3 MUST NOT silently auto-merge or auto-resolve an identity.
 - writable fields:
   - `identity.display_name`: read the canonical identity display field; write target the canonical identity display field on the underlying `identity` record; `entity_binding_mode=entity_origin`; `conflict_resolution_class=atomic_replace`
   - `identity.upn`: read `upn`; write target the canonical UPN field on the underlying `identity` record; `entity_binding_mode=entity_origin`; `conflict_resolution_class=atomic_replace`
