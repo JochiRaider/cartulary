@@ -437,6 +437,11 @@ For this section:
 - **AC-040**: A paste containing both non-conflicting and same-field-conflicting cells commits the non-conflicting cells immediately and groups the conflicting cells into a navigable conflict queue without per-cell modal interruption.
 - **AC-041**: Unresolved local conflict drafts are not broadcast to other analysts and do not appear in search, history, exports, or snapshots unless explicitly committed.
 - **AC-042**: After resolving a conflict, focus returns to the same cell and scroll position is preserved.
+- **AC-226**: When two analysts concurrently edit different lines of the same `text_compare_merge` field, the losing write fails with `409` and `error.code='same_field_conflict'`; if the server can compute a deterministic clean line merge from normalized `base_value`, `server_value`, and `client_value`, the conflict payload includes `suggested_merged_value`; no write is committed until the analyst explicitly resolves the conflict.
+- **AC-227**: When two analysts concurrently edit the same line, or both insert at the same base position, of the same `text_compare_merge` field, the losing write fails with `409` and `error.code='same_field_conflict'`, and the conflict payload omits `suggested_merged_value`.
+- **AC-228**: A same-field conflict payload for `text_compare_merge` always includes `base_value`; `client_value`, `server_value`, `base_value`, and optional `suggested_merged_value` are raw text scalars or `null`, not rendered fragments, token lists, diff scripts, or field-specific merge objects.
+- **AC-229**: For `text_compare_merge`, `POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve` with `resolution_kind='merged_value'` accepts only a final text scalar or `null` in `resolved_value`; a successful resolution creates exactly one new attributed `change_set` and MUST NOT accept a diff script, merge opcode list, AST, or field-specific merge action object.
+- **AC-230**: `text_compare_merge` conflict detection and suggestion generation operate on plain text after normalizing `CRLF` and `CR` to `LF` for merge computation, and Markdown syntax, HTML markup, entity-chip rendering, or link presentation in the field content do not change conflict detection or suggestion-generation outcomes.
 
 ### 9.7 Additional Base Profile criteria for threat model and focused weakness controls
 

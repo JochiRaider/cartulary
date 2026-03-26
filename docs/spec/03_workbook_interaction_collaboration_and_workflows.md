@@ -139,6 +139,8 @@ If another user has changed the row:
 - when the other change touched a different field, the server MUST auto-rebase and accept the write,
 - when the other change touched the same field, the server MUST reject the write with a conflict payload.
 
+For `conflict_resolution_class='text_compare_merge'`, same-field detection MUST be keyed by `field_key`, not by textual subrange. The server MUST reject the original patch with `error.code='same_field_conflict'` whenever another committed write changed that same writable `field_key` after `base_row_version`, even if a deterministic clean text merge suggestion would be possible.
+
 At minimum, the conflict payload MUST preserve:
 
 - the stable `field_key`,
@@ -202,7 +204,29 @@ The closed vocabulary is:
 
 Unknown or omitted classes MUST behave as `atomic_replace`.
 
-For `text_compare_merge`, the merge editor MUST start from the current saved value and MUST keep the analyst's unsaved local draft visible as reference.
+#### 3.3.3.1 Operational semantics for `text_compare_merge`
+
+`text_compare_merge` is a plain-text merge-capable conflict class. It MUST treat the field value as a scalar text value and MUST NOT parse or interpret Markdown structure, HTML structure, entity chips, links, or any other rendered representation.
+
+For merge computation only:
+
+- `null` MUST be treated as the empty string,
+- line endings MUST be normalized from `CRLF` or `CR` to `LF`,
+- all other code points MUST be preserved exactly.
+
+The authoritative merge unit is the line. The server MAY compute a deterministic three-way merge suggestion from `base_value`, `server_value`, and `client_value`, but the presence or absence of a clean suggestion MUST NOT change same-field conflict detection under §3.2.
+
+For this class, a changed line hunk is a maximal contiguous changed line range relative to the normalized `base_value`. A clean merge suggestion exists only when the client-side and server-side changed line hunks are disjoint in base-line coordinates and the two sides do not both insert at the same base boundary. When a clean suggestion exists, the server MUST materialize `suggested_merged_value` by applying the non-overlapping hunks to the normalized `base_value` in ascending base order.
+
+Word-level or character-level highlighting MAY be used for presentation inside changed lines, but that highlighting is non-authoritative and MUST NOT control conflict detection or merge validity.
+
+The server MUST NOT silently auto-commit, auto-accept, or auto-retry a same-field text edit. If the deterministic line merge is clean, the conflict object MAY include `suggested_merged_value`. If the merge detects overlapping changed line hunks, or competing insertions at the same base position, the conflict object MUST omit `suggested_merged_value`.
+
+The merge editor MUST start from the current saved value and MUST keep the analyst's unsaved local draft visible as reference. If `suggested_merged_value` is present, the UI MAY offer `Apply suggested merge` or equivalent, but MUST NOT apply it implicitly.
+
+For short one-line fields such as `task.title`, this line-based rule means a clean suggestion will often be absent. In that case the analyst resolves the conflict explicitly using the saved value and local draft already shown in the resolver.
+
+A later profile that needs structured Markdown, rich-text, or semantic entity-aware merge MUST define a new `conflict_resolution_class` rather than widening `text_compare_merge`.
 
 For relationship cells that mix unresolved mention tokens and canonical entity links, the resolver MUST preserve those as different object types. It MUST NOT coerce unresolved tokens and canonical chips into plain delimited text solely for conflict presentation.
 
@@ -226,7 +250,11 @@ The `error.conflict` object MUST include at least:
 - `server_value`,
 - `server_updated_by`,
 - `server_updated_at`,
-- for merge-capable fields, either `base_value` or `base_revision_ref`.
+- `base_value` for merge-capable fields, or `base_revision_ref` only when a later profile or future `conflict_resolution_class` explicitly allows it.
+
+When `conflict_resolution_class='text_compare_merge'`, the conflict object MUST include `base_value`; `base_revision_ref` alone is insufficient for the base profile. In that case `error.conflict.client_value`, `error.conflict.server_value`, and `error.conflict.base_value` MUST each be the raw text scalar for the field or `null`. The conflict object MAY additionally include `suggested_merged_value`, which, when present, MUST also be the raw text scalar for the field or `null`. The presence of `suggested_merged_value` means only that the server found a deterministic clean line merge suggestion and MUST NOT imply that the rejected write has been accepted.
+
+When `resolution_kind='merged_value'` targets `conflict_resolution_class='text_compare_merge'`, `resolved_value` MUST be the final plain-text scalar for the field or `null`. `resolved_value` MUST NOT be a diff script, markup object, token list, AST, or field-specific merge action object. The server MUST persist that value through the field's ordinary write target, subject only to ordinary field validation and the same newline canonicalization used by ordinary writes.
 
 When `conflict_resolution_class='collection_review'`, the conflict object MUST include `base_value`. In that case `error.conflict.client_value`, `error.conflict.server_value`, and `error.conflict.base_value` MUST each use `collection_value_v1`. The server MUST preserve distinct item kinds in those values and MUST NOT collapse unresolved mentions, resolved entity refs, tags, aliases, or linked-record references into raw string arrays or plain delimited text for conflict transport.
 
