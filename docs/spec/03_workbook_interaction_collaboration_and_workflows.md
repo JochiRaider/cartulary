@@ -535,6 +535,8 @@ In the base profile, the history panel for a selected row MUST show:
 - operation,
 - diff summary expanded to field, link, mention, tag, evidence-entry, and capture-state-transition units.
 
+The history surface MUST receive enough structured metadata from `GET /api/v1/records/{record_id}/history` to render only legal reviewer actions without client-side inference from visible text. At minimum, each displayed logical history item MUST expose `change_set_id`, `reversible`, `available_rollback_actions[]`, optional `history_entry_ref` when the item maps to exactly one reversible mutation target, and `revision_no` when whole-row restore is legal.
+
 ### 10.3 Rollback granularity
 
 The reviewer UI MUST allow rollback of a single logical history entry when that entry maps to one reversible mutation target, including:
@@ -558,6 +560,8 @@ Arbitrary user-selected subsets of fields from historical snapshots are not requ
 ### 10.4 Rollback semantics
 
 Rollback MUST create a new attributed revision. It MUST NOT rewrite prior history in place.
+
+The reviewer client MUST choose rollback scope only from the selectors and action metadata returned by `GET /api/v1/records/{record_id}/history`. It MUST NOT infer legal rollback scope from visible labels, diff text, or storage-specific identifiers.
 
 ## 11. Clipboard paste and import workflows
 

@@ -140,6 +140,7 @@ The implementation MUST support the following operating assumptions:
 - **`row_version`**: monotonically increasing version for a mutable record or mention row used by optimistic concurrency control.
 - **`change_set`**: immutable attribution and transaction grouping unit for one committed user or system action.
 - **mutation entry**: one reversible change target recorded within a parent `change_set`.
+- **`history_entry_ref`**: stable opaque identifier emitted by record history for one row-centric logical history item that maps to exactly one reversible mutation target. Clients MUST NOT parse or synthesize it.
 - **`view_schema_id`**: stable identifier of a built-in sheet or contract-backed system view.
 - **`saved_view_id`**: stable identifier of a saved-view configuration scoped to an incident or system-owned seed.
 - **`field_key`**: stable identifier of a contract-declared field in a view contract, import mapping, or API contract, or of a synthetic filter predicate declared by a view contract.

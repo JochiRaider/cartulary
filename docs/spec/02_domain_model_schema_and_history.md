@@ -1144,6 +1144,8 @@ A conformant history schema MUST include both:
 
 `record_revisions` MAY retain row snapshots such as `before_json` and `after_json` for audit and whole-row restore. They MUST NOT be the sole rollback substrate.
 
+Whole-row restore driven by a `record_revisions` snapshot MUST restore only authoritative row-backed fields for the selected `record_id` and revision number. It MUST NOT, by itself, recreate or delete non-row mutation targets such as `record_links`, `record_tags`, `entity_mentions`, `indicator_observations`, or evidence associations.
+
 ### 14.3 Mutation targets
 
 The mutation-entry model MUST support, at minimum:
@@ -1208,6 +1210,8 @@ Each mutation entry MUST record:
 - deterministic order within the parent `change_set`,
 - pre-change and post-change version identifiers,
 - reversible before/after values or an equivalent reversible patch.
+
+The history substrate MUST also support a stable opaque public `history_entry_ref` for any row-centric logical history item that maps to exactly one reversible mutation target. The public rollback interface MUST round-trip that reference without exposing storage-primary-key mutation-entry identifiers.
 
 ### 15.3 Reconstruction requirement
 

@@ -302,6 +302,40 @@ Examples:
 }
 ```
 
+##### 3.3.4.2 Record-history read contract
+
+`GET /api/v1/records/{record_id}/history` MUST return row-centric history for the addressed record. The route is record-scoped, not view-scoped. A caller who lacks visibility to `record_id` MUST receive `404`.
+
+The success-envelope `data` for this route MUST include at minimum:
+
+- `incident_id`,
+- `record_id`,
+- `row_version`,
+- `deleted`,
+- `items[]`.
+
+For a soft-deleted record, `row_version` MUST expose the current tombstone `row_version`, or an equivalent current revision version token accepted by `POST /api/v1/records/{record_id}/restore`.
+
+`items[]` MUST be serialized in newest-first committed order. If two logical history items derive from the same committed `change_set`, their relative order MUST remain deterministic and stable for identical history state.
+
+Each `items[]` entry MUST include at minimum:
+
+- `actor_user_id`,
+- `committed_at`,
+- `operation`,
+- `diff_summary`,
+- `change_set_id`,
+- `reversible`,
+- `available_rollback_actions[]`.
+
+`available_rollback_actions[]` MUST draw only from `history_entry`, `change_set`, and `row_restore`. The server MUST serialize `available_rollback_actions[]` in that canonical order with unavailable actions omitted. If `reversible=false`, `available_rollback_actions[]` MUST be empty.
+
+An `items[]` entry MUST include `history_entry_ref` if and only if that logical history item maps to exactly one reversible mutation target. The client MUST treat `history_entry_ref` as opaque. For the lifetime of retained history, the same logical history item MUST keep the same `history_entry_ref` across repeated reads.
+
+An `items[]` entry MUST include `revision_no` if and only if whole-row restore is a legal action for that displayed logical history item.
+
+The route MAY paginate under §3.3.7. If it does, pagination MUST preserve the item-ordering rules in this subsection and the cursor MUST remain bound to `record_id`.
+
 #### 3.3.5 Mutation contract
 
 New row creation MUST use `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`. The request MUST include `client_txn_id` and the initial writable values keyed by `field_key`.
@@ -405,6 +439,87 @@ If the same authenticated actor replays the same normalized request with the sam
 If the same authenticated actor replays the same normalized request with the same `(record_id, client_txn_id)`, the server MUST return `200 OK` with the originally committed result and MUST create no second lifecycle transition. A caller who lacks visibility to the target record MUST receive `404`. A caller who can see the record but lacks sufficient role MUST receive `403`. A stale `base_row_version` MUST fail with `409` and `error.code = row_version_conflict`. A request against a non-Timeline record, a Timeline record whose current `capture_state` is already `superseded`, or a `replacement_record_id` that is invalid for the target record MUST fail with `409` and `error.code = illegal_transition`. A request against a currently soft-deleted record MUST fail with `409` and `error.code = record_deleted_use_restore`.
 
 A successful call to either route MUST emit the ordinary replayable `record_changed` event for the affected record.
+
+#### 3.3.5.0 Rollback contract
+
+`POST /api/v1/records/{record_id}/rollback` MUST execute a reviewer-visible history reversal anchored to the row-centric history of `record_id`.
+
+The route is record-scoped, not view-scoped. `record_id` identifies the row whose history surface the caller is acting from. The request body MUST be JSON. It MUST include:
+
+- `base_row_version`,
+- `client_txn_id`,
+- `target`.
+
+It MAY include optional `reason`.
+
+Omission and explicit JSON `null` for `reason` MUST compare equal for idempotency.
+
+`target.kind` MUST use this closed vocabulary:
+
+- `history_entry`,
+- `change_set`,
+- `row_restore`.
+
+A request `target` MUST use one of these exact shapes:
+
+- `history_entry`: `{ "kind": "history_entry", "history_entry_ref": "<opaque string>" }`
+- `change_set`: `{ "kind": "change_set", "change_set_id": "<stable identifier>" }`
+- `row_restore`: `{ "kind": "row_restore", "restore_to_revision_no": <integer> }`
+
+Unknown top-level request members, unknown `target` members, a missing required selector for the chosen `kind`, or a selector whose JSON type does not match the declared shape MUST fail with `400` and `error.code = invalid_rollback_request`.
+
+Successful responses MAY include additive `target` members in later compatible revisions. Clients MUST ignore additive response members they do not use.
+
+Single-entry rollback through `history_entry_ref` MUST be available only when that history item maps to exactly one reversible mutation target.
+
+Whole-`change_set` rollback through `change_set_id` MUST reverse every reversible mutation entry in that `change_set` in reverse deterministic entry order.
+
+Whole-row restore through `restore_to_revision_no` MUST restore only the authoritative row-backed fields of `record_id` to the selected revision snapshot. It MUST NOT implicitly recreate or delete `record_links`, `record_tags`, `entity_mentions`, `indicator_observations`, or evidence associations that are not row-backed fields.
+
+`POST /api/v1/records/{record_id}/rollback` MUST require current incident role `reviewer` or `admin`.
+
+A caller who lacks visibility to `record_id` MUST receive `404`. A caller who can see `record_id` but lacks sufficient role MUST receive `403`.
+
+A caller who targets a currently soft-deleted record MUST receive `409` with `error.code = record_deleted_use_restore`.
+
+Idempotency for rollback MUST be keyed by `(actor_user_id, record_id, client_txn_id)`. If the same authenticated actor replays the same normalized request with the same key, the server MUST return `200 OK` with the originally committed result and MUST create no second rollback `change_set`. If the same actor reuses that key with a different normalized request, the server MUST fail with `409`.
+
+If the current `row_version` differs from the supplied `base_row_version`, the server MUST fail with `409` and `error.code = row_version_conflict`. `error.details` MUST include at least:
+
+- `record_id`,
+- `base_row_version`,
+- `current_row_version`.
+
+The server MAY acquire short-lived internal destructive-operation locks on all affected records while applying the rollback. If such locks are used, they MUST be acquired in canonical ascending `record_id` order and MUST NOT require a separate client-visible lock route. If another destructive operation currently holds a required lock, the server MUST fail with `409`, `error.code = record_locked`, and `error.retryable = true`.
+
+If the supplied `target` does not resolve to a visible rollback target in `GET /api/v1/records/{record_id}/history`, the server MUST fail with `404` and `error.code = rollback_target_not_found`.
+
+If the target exists but cannot be safely reversed against current authoritative state, the server MUST fail with `409` and `error.code = rollback_precondition_failed`. `error.details.reason_code` MUST use the rollback-precondition registry in §3.3.6.2.
+
+A single-entry rollback MUST succeed when later committed changes are unrelated to the same mutation target. It MUST fail with `rollback_precondition_failed` when later committed changes touched the same mutation target or otherwise make isolated reversal ambiguous.
+
+Reversal of an erroneous merge MUST use `target.kind = 'change_set'` against the merge `change_set_id`. The base profile defines no separate unmerge route.
+
+On success, the server MUST, in one transaction:
+
+- validate authorization and rollback preconditions,
+- create one attributed `change_set` with `source = 'rollback'`,
+- append ordered inverse mutation entries sufficient to reconstruct the reversal,
+- increment `row_version` on every changed first-class record,
+- append `record_revisions` entries with `operation = rollback` for every affected first-class record,
+- update or invalidate affected projections before commit returns.
+
+A successful response MUST return `200 OK` using the common success envelope. `data` MUST include at least:
+
+- `incident_id`,
+- `record_id`,
+- `row_version`,
+- `target`, using the same `kind` vocabulary and selector members accepted by the request,
+- `target_change_set_id` when known,
+- `rollback_change_set_id`,
+- `affected_record_ids[]`, serialized in canonical ascending `record_id` order.
+
+The initiating client and all subscribers MUST observe the rollback through the ordinary replayable `record_changed` stream for each affected record. The response itself MUST NOT require view-shaped row cells or introduce a special rollback-only event family.
 
 #### 3.3.5.1 Deployment-local user-account and incident-membership administration contracts
 
@@ -708,7 +823,7 @@ The server SHOULD also return `merge_summary` with counts for repointed mentions
 
 A successful merge MUST emit replayable collaboration events through the existing stream. The loser MUST leave ordinary active entity views using `change_kind = remove`. The survivor MUST refresh through `patch` or `invalidate`. Any dependent row whose chips, counts, or linked-record summaries change because of repointing MUST refresh through the ordinary collaboration mechanisms.
 
-The base profile defines no separate unmerge route. Reversal of an erroneous merge MUST use the existing rollback substrate and `POST /api/v1/records/{record_id}/rollback` against the merge `change_set`.
+The base profile defines no separate unmerge route. Reversal of an erroneous merge MUST use `POST /api/v1/records/{record_id}/rollback` with `target.kind = 'change_set'` and the merge `change_set_id`.
 
 #### 3.3.6 Success and error envelopes
 
@@ -746,6 +861,7 @@ The public API surface defined by this core MUST use the following stable `error
 | `invalid_view_query` | `400` | `false` | The view-query request is malformed or uses a `field_key`, filter operator, or operand shape not allowed by the active `view_schema_id`. |
 | `invalid_mutation_payload` | `400` | `false` | A direct value or `action_payload` is malformed, uses an unknown `kind` or `op`, targets a field/action pair that is not allowed, or carries an invalid or foreign `item_ref`. |
 | `invalid_incident_patch` | `400` | `false` | An incident-metadata patch request is malformed, omits required `base_incident_version`, attempts to mutate an immutable or server-managed incident field, or includes unknown top-level members. |
+| `invalid_rollback_request` | `400` | `false` | A rollback request is malformed, uses an unknown or unsupported `target.kind`, omits the selector required for that `kind`, includes unknown request members, or supplies a selector whose JSON type does not match the declared shape. |
 | `row_version_conflict` | `409` | `false` | The supplied `base_row_version`, or equivalent current revision token accepted for restore, is stale relative to authoritative current state. |
 | `incident_version_conflict` | `409` | `false` | The supplied `base_incident_version` is stale. |
 | `same_field_conflict` | `409` | `false` | Another committed write touched the same writable `field_key`; the response MUST include the conflict object defined by Core 03 §3.3.4. |
@@ -753,7 +869,9 @@ The public API surface defined by this core MUST use the following stable `error
 | `record_deleted_use_restore` | `409` | `false` | The caller targeted a currently soft-deleted record with an operation that requires the record to be restored first. |
 | `record_already_deleted` | `409` | `false` | The caller attempted to soft-delete an already soft-deleted record outside an idempotent replay of the original delete. |
 | `record_not_deleted` | `409` | `false` | The caller attempted to restore a record that is not currently soft-deleted. |
-| `record_locked` | `409` | `true` | A short-lived destructive-operation lock prevents the requested restore or merge from proceeding at this time. |
+| `record_locked` | `409` | `true` | A short-lived destructive-operation lock prevents the requested restore, rollback, or merge from proceeding at this time. |
+| `rollback_target_not_found` | `404` | `false` | A rollback request targeted no visible history item, `change_set_id`, or row revision that is legal for the addressed `record_id`. |
+| `rollback_precondition_failed` | `409` | `false` | A rollback target exists but cannot be safely reversed against current authoritative state; `error.details.reason_code` MUST use the rollback-precondition registry in §3.3.6.2. |
 | `user_version_conflict` | `409` | `false` | The supplied `base_user_version` is stale. |
 | `last_deployment_admin` | `409` | `false` | The requested user mutation would leave the deployment with no active `is_deployment_admin=true` user. |
 | `user_not_found` | `404` | `false` | A membership-create request referenced a user that does not exist in deployment-local identity state. |
@@ -787,6 +905,15 @@ When the public API or collaboration stream uses a structured `reason_code` fami
 | `unsupported_record_type` | The requested `record_type` is not mergeable through the base-profile public route. |
 | `survivor_not_mergeable` | The nominated survivor is deleted, already merged away, or otherwise not eligible to survive the merge. |
 | `loser_not_mergeable` | The nominated loser is deleted, already merged away, or otherwise not eligible to lose the merge. |
+
+`rollback_precondition_failed` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `target_not_reversible` | The selected history item exists but is not reversible through the requested rollback scope. |
+| `entry_requires_change_set` | The selected logical history item belongs to a multi-target or destructive change that MUST be reversed as a whole `change_set`. |
+| `dependent_later_changes` | Later committed changes touched the same mutation target, or otherwise make isolated reversal ambiguous. |
+| `stale_target` | The selected historical target exists but is no longer a legal rollback point for current authoritative state because a later reversal or equivalent committed change already superseded it. |
 
 `/ws/v1/` `session_revoked.payload.reason_code` values:
 
