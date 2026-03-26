@@ -142,6 +142,8 @@ The incident record MUST expose, as structured state:
 
 An incident MUST also persist a first-class `incident_key`. The deployment MUST enforce deployment-wide uniqueness on the canonical `incident_key` form produced by trimming leading and trailing Unicode whitespace and applying Unicode NFC normalization. The implementation MAY store that canonical form explicitly or derive it through an equivalent deterministic uniqueness mechanism.
 
+Core 01 §3.3.5.3 owns the public incident resource and create contract. That contract also fixes `title`, `description`, `status`, `severity`, attribution fields, timestamps, `incident_version`, and `closed_at` as first-class incident state. This section governs only the additional incident-specific operational fields that were open in the source artifact.
+
 The `task_request` model MUST expose, as structured state:
 
 - `priority`,
@@ -1115,7 +1117,7 @@ The schema MUST support:
 - append-only compromise-assessment fields sufficient to persist closed-vocabulary `assessment_state`, `assessed_at`, assessor attribution, nullable `confidence_score`, rationale, optional supporting record references, and deterministic derivation of `confidence_band`,
 - reference-pack manifest fields sufficient to persist `pack_key`, `pack_kind`, `pack_version`, `source_identifier`, `manifest_sha256`, one or more payload SHA-256 digests in deterministic member order or an equivalent canonical aggregate digest, declared `pack_contract_version`, signature or trusted-source metadata, `verification_method`, and non-active availability state,
 - reference-pack activation and attestation fields sufficient to persist one active-version pointer per `pack_key`, imported and activated actor attribution with timestamps, `previous_active_version`, `verification_result`, and optional operator note or change ticket,
-- incident fields sufficient to persist `incident_key`, `tlp`, `current_phase`, `primary_external_case_ref`, creation attribution, update attribution, and monotonically increasing `incident_version`, plus a canonical `incident_key` uniqueness form or equivalent deterministic uniqueness substrate derived by trimming leading and trailing Unicode whitespace and applying Unicode NFC normalization,
+- incident fields sufficient to persist `incident_key`, `title`, optional `description`, `status`, optional `severity`, optional `tlp`, optional `current_phase`, optional `primary_external_case_ref`, `created_at`, `updated_at`, nullable `closed_at`, creation attribution, update attribution, and monotonically increasing `incident_version`, plus a canonical `incident_key` uniqueness form or equivalent deterministic uniqueness substrate derived by trimming leading and trailing Unicode whitespace and applying Unicode NFC normalization,
 - internal-user fields sufficient to persist stable `user_id`, a canonical case-insensitive email uniqueness form or equivalent deterministic lookup substrate, `display_name`, `password_hash`, `mfa_required`, `is_active`, `is_deployment_admin`, `created_at`, `updated_at`, nullable `updated_by_user_id`, nullable `last_login_at`, and monotonically increasing `user_version`,
 - auth-binding fields sufficient to persist provider-backed or local binding data keyed to stable internal `user_id`, including `provider_key`, `provider_type`, provider subject or equivalent identity key, optional `username`, and creation and last-auth timestamps, without making incident memberships depend on provider subject,
 - incident-membership fields sufficient to persist `(incident_id, user_id)`, `role`, `joined_at`, `added_by_user_id`, `updated_at`, `updated_by_user_id`, and monotonically increasing `membership_version`,
@@ -1132,6 +1134,8 @@ The schema MUST support:
 - snapshot and release fields sufficient to persist artifact-scoped `release_state`, approval binding, `approved_at`, `invalidated_at`, `published_at`, optional `invalidation_reason`, and deterministic identification of the logical output slot,
 - coordination-artifact fields sufficient to persist `comm_type` and other `artifact_type`-specific metadata for `comm_log`, `handoff`, `status_review`, `lesson`, and optional current-profile `hypothesis` tracking,
 - optional structured artifact subtype fields sufficient to persist findings, investigative queries, and forensic keywords when those surfaces are implemented.
+
+For incidents created through the public base-profile route, the schema MUST support `status='active'`, `incident_version=1`, `closed_at=NULL`, and one committed create timestamp written to both `created_at` and `updated_at`; that public create route MUST bind both creation and initial update attribution to the creating local `user_id`.
 
 Internal-user and incident-membership state MUST remain deployment-local authorization state. Whole-incident portability import MAY map historical actor descriptors to existing local users, but import MUST NOT synthesize login-capable users, deployment-admin flags, or active memberships without explicit deployment-local administrative action.
 

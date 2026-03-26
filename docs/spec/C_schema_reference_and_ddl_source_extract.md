@@ -210,10 +210,17 @@ CREATE TABLE incidents (
     UNIQUE (incident_key_canonical)
 );
 
+-- Public `POST /api/v1/incidents` uses one committed create timestamp for
+-- both `created_at` and `updated_at`, initializes `incident_version` to 1,
+-- sets `status='active'`, leaves `closed_at NULL`, and binds both
+-- `created_by_user_id` and `updated_by_user_id` to the creating local user.
+--
 -- Non-normative example: `incident_key_canonical` stores the trimmed,
 -- Unicode NFC-normalized uniqueness form used by the public create
 -- contract. A functional unique index over the same canonicalization rule
--- is equivalent.
+-- is equivalent. Full Unicode whitespace trimming, NFC normalization, and
+-- control-character rejection remain service-layer validation rules rather
+-- than pure SQL checks in this illustrative sketch.
 
 CREATE TABLE incident_memberships (
     incident_id uuid NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,

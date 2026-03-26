@@ -663,6 +663,8 @@ Both workbook-preference resources MUST use the stable `sheet_ref` union defined
 
 #### 3.3.5.3 Incident resource and creation contract
 
+This subsection owns the authoritative base-profile `POST /api/v1/incidents` request and response contract. Later sections MAY reference this contract but MUST NOT redefine create-time required fields, server-managed initial values, or the base-profile boundary between create-time-only fields and later patchable fields.
+
 The incident resource MUST expose, at minimum:
 
 - `incident_id`,
@@ -681,6 +683,8 @@ The incident resource MUST expose, at minimum:
 - `incident_version`,
 - `closed_at`.
 
+In the base profile, `description`, `severity`, `tlp`, `current_phase`, `primary_external_case_ref`, and `closed_at` are nullable incident resource fields.
+
 `POST /api/v1/incidents` MUST require an authenticated session using the same session contract as the remaining API surface. Cookie-authenticated requests MUST fail closed without valid CSRF protection.
 
 The base-profile authorization gate for `POST /api/v1/incidents` MUST be an authenticated session whose internal user account is active and not disabled. This route MUST NOT require a pre-existing incident membership because the caller is creating the workspace boundary itself.
@@ -696,23 +700,31 @@ The base-profile authorization gate for `POST /api/v1/incidents` MUST be an auth
 - optional nullable `current_phase`,
 - optional nullable `primary_external_case_ref`.
 
-`incident_key` MUST be trimmed of leading and trailing Unicode whitespace, Unicode NFC-normalized, non-empty, at most 128 UTF-8 bytes after that normalization, and unique within the deployment after that same normalization. `title` MUST be trimmed of leading and trailing Unicode whitespace, non-empty, and at most 512 Unicode scalar values after trimming. If present, `description` MUST be at most 16384 Unicode scalar values. If present, `severity`, `tlp`, `current_phase`, and `primary_external_case_ref` MUST each be at most 128 Unicode scalar values. The server MUST reject control characters in `incident_key` and `title`.
+`incident_key` MUST be client-supplied. The server MUST NOT auto-generate or overwrite it. `incident_key` MUST be trimmed of leading and trailing Unicode whitespace, Unicode NFC-normalized, non-empty, at most 128 UTF-8 bytes after that normalization, and unique within the deployment after that same normalization. The incident resource returned by the public API MUST serialize `incident_key` in that trimmed Unicode-NFC-normalized form. `title` MUST be trimmed of leading and trailing Unicode whitespace, non-empty, and at most 512 Unicode scalar values after trimming. The incident resource returned by the public API MUST serialize `title` in that trimmed form. If present, `description` MUST be at most 16384 Unicode scalar values. If present, `severity`, `tlp`, `current_phase`, and `primary_external_case_ref` MUST each be at most 128 Unicode scalar values. The server MUST reject control characters in `incident_key` and `title`.
 
-The server MUST ignore unknown extension fields so additive optional request fields remain forward-compatible within the same major version. The server MUST reject any attempt to set server-managed fields including `incident_id`, `status`, `created_by_user_id`, `created_at`, `updated_at`, `updated_by_user_id`, `incident_version`, `closed_at`, any membership object, any saved-view object, and any workbook-preference object.
+If `description`, `severity`, `tlp`, `current_phase`, or `primary_external_case_ref` are omitted or explicitly `null`, the initial incident resource MUST expose that field as `null`. The base profile MUST NOT synthesize an implicit non-null default for any of those optional fields. In the base profile, `severity` is optional at create time. `status` is server-managed on create and MUST NOT be client-settable. In the base profile, `incident_key`, `title`, `description`, `status`, and `severity` are create-time-only incident fields. After create, later metadata mutation is limited to the fields defined in §3.3.5.3.1.
+
+The server MUST ignore unknown extension fields so additive optional request fields remain forward-compatible within the same major version. Unknown extension fields MUST be excluded from normalized-request comparison and MUST NOT affect persisted state, authorization, audit history, or response shaping. The server MUST reject any attempt to set server-managed fields including `incident_id`, `status`, `created_by_user_id`, `created_at`, `updated_at`, `updated_by_user_id`, `incident_version`, `closed_at`, any membership object, any saved-view object, and any workbook-preference object.
 
 For idempotency comparison, the normalized request MUST include only recognized request fields after the validation and normalization rules in this section are applied. For all optional request fields in this contract, omission and an explicit JSON `null` MUST compare equal.
 
+If the request is not a JSON object, omits required `client_txn_id`, `incident_key`, or `title`, supplies `null` for a non-nullable field, violates a field validation rule in this section, attempts to set a server-managed field, or supplies `initial_memberships[]` or an equivalent collaborator-seeding payload, the server MUST fail with `400` and `error.code = invalid_incident_create`. When the failure is attributable to one request member, `error.details.field` MUST identify that top-level member. `error.details.reason_code` MUST use the registry in §3.3.6.2.
+
+If the normalized `incident_key` conflicts with an existing incident, the server MUST fail with `409` and `error.code = incident_key_conflict`. `error.details` MUST include at least `field` with value `incident_key` and `incident_key_canonical`.
+
 On success, the server MUST, in one transaction:
 
-1. insert the incident with `status='active'`, `created_by_user_id` bound to the authenticated user, and `closed_at=NULL`,
+1. insert the incident with a freshly assigned `incident_id`, `status='active'`, `incident_version=1`, `created_by_user_id` bound to the authenticated user, `updated_by_user_id` bound to that same user, `closed_at=NULL`, and one committed create timestamp used for both `created_at` and `updated_at`,
 2. insert one `incident_memberships` row for the creator with `role='admin'`,
 3. create the incident-wide workbook-preference object with `default_sheet_ref=NULL`,
 4. create the creator's per-user workbook-preference object with `home_sheet_ref=NULL`,
 5. persist attributed audit history sufficient to reconstruct the initial incident state and the bootstrap membership.
 
+The returned incident resource for a first-time successful create and for an idempotent replay MUST therefore expose the same `incident_id`, `incident_version=1`, `status='active'`, `closed_at=null`, `created_by_user_id`, `updated_by_user_id`, and equal `created_at` and `updated_at` values.
+
 The base profile MUST NOT accept `initial_memberships[]` or any equivalent collaborator-seeding payload on this route. Membership management beyond creator bootstrap belongs to the separate membership-write contract defined by §3.3.5.1.
 
-Idempotency for create MUST be keyed by `(actor_user_id, client_txn_id)`. If the same authenticated user replays the same normalized request with the same `client_txn_id`, the server MUST return `200 OK`, MUST set `Location` to `/api/v1/incidents/{incident_id}` for the originally created incident, and MUST return the common success envelope with `data` equal to the originally created incident resource. If the same authenticated user reuses `client_txn_id` with a different normalized request, the server MUST fail with `409`.
+Idempotency for create MUST be keyed by `(actor_user_id, client_txn_id)`. If the same authenticated user replays the same normalized request with the same `client_txn_id`, the server MUST return `200 OK`, MUST set `Location` to `/api/v1/incidents/{incident_id}` for the originally created incident, and MUST return the common success envelope with `data` equal to the originally created incident resource. If the same authenticated user reuses `client_txn_id` with a different normalized request, the server MUST fail with `409` and `error.code = client_txn_conflict`. `error.details` MUST include at least `client_txn_id`.
 
 A first-time successful create MUST return `201 Created`, MUST set `Location` to `/api/v1/incidents/{incident_id}`, and MUST return the common success envelope with `data` equal to the incident resource.
 
@@ -721,7 +733,7 @@ A first-time successful create MUST return `201 Created`, MUST set `Location` to
 
 `GET /api/v1/incidents/{incident_id}` MUST return the common success envelope with `data` equal to the requested incident resource. Any current incident member MAY call this route.
 
-`incident_version` MUST be monotonically increasing per `incident_id`.
+`incident_version` MUST equal `1` on a first-time successful create and MUST be monotonically increasing per `incident_id`.
 
 `PATCH /api/v1/incidents/{incident_id}` MUST be the only base-profile mutation route for incident-scoped metadata. It MUST NOT reuse `PATCH /api/v1/records/{record_id}`.
 
@@ -729,7 +741,7 @@ This route is incident-resource-scoped, not view-scoped. It MUST NOT require `vi
 
 The route MUST require the caller's current role on that incident to be `reviewer` or `admin`.
 
-The request body MUST be a JSON object and MUST accept `base_incident_version` plus changed mutable fields only. In the base profile, mutable fields are `tlp`, `current_phase`, and `primary_external_case_ref`.
+The request body MUST be a JSON object and MUST accept `base_incident_version` plus changed mutable fields only. In the base profile, mutable fields are `tlp`, `current_phase`, and `primary_external_case_ref`. This mutable-field list is exhaustive for post-create incident-metadata mutation in the base profile.
 
 The server MUST apply the same normalization and validation rules defined for those fields on `POST /api/v1/incidents`.
 
@@ -739,7 +751,7 @@ The route MUST reject attempted mutation of `incident_id`, `incident_key`, `titl
 
 If the current `incident_version` differs from `base_incident_version`, the server MUST fail with `409` and `error.code = incident_version_conflict`. `error.details` MUST include at least `incident_id`, `base_incident_version`, and `current_incident_version`.
 
-If the normalized request changes no effective field value, the server MUST return `200 OK` with the current incident resource and MUST NOT increment `incident_version`.
+If the normalized request changes no effective field value, the server MUST return `200 OK` with the current incident resource and MUST NOT increment `incident_version`, change `updated_at`, or change `updated_by_user_id`.
 
 On success, the server MUST, in one transaction:
 
@@ -860,9 +872,12 @@ The public API surface defined by this core MUST use the following stable `error
 | --- | --- | --- | --- |
 | `invalid_view_query` | `400` | `false` | The view-query request is malformed or uses a `field_key`, filter operator, or operand shape not allowed by the active `view_schema_id`. |
 | `invalid_mutation_payload` | `400` | `false` | A direct value or `action_payload` is malformed, uses an unknown `kind` or `op`, targets a field/action pair that is not allowed, or carries an invalid or foreign `item_ref`. |
+| `invalid_incident_create` | `400` | `false` | An incident-create request is malformed, omits required members, violates create-time field validation, attempts to set server-managed state, or includes a rejected collaborator-seeding payload. |
 | `invalid_incident_patch` | `400` | `false` | An incident-metadata patch request is malformed, omits required `base_incident_version`, attempts to mutate an immutable or server-managed incident field, or includes unknown top-level members. |
 | `invalid_rollback_request` | `400` | `false` | A rollback request is malformed, uses an unknown or unsupported `target.kind`, omits the selector required for that `kind`, includes unknown request members, or supplies a selector whose JSON type does not match the declared shape. |
+| `client_txn_conflict` | `409` | `false` | The caller reused a `client_txn_id` within the same route-defined idempotency scope for a different normalized request. |
 | `row_version_conflict` | `409` | `false` | The supplied `base_row_version`, or equivalent current revision token accepted for restore, is stale relative to authoritative current state. |
+| `incident_key_conflict` | `409` | `false` | The normalized `incident_key` conflicts with an existing incident. |
 | `incident_version_conflict` | `409` | `false` | The supplied `base_incident_version` is stale. |
 | `same_field_conflict` | `409` | `false` | Another committed write touched the same writable `field_key`; the response MUST include the conflict object defined by Core 03 §3.3.4. |
 | `illegal_transition` | `409` | `false` | The requested lifecycle transition is not allowed for the current persisted state or guard condition. |
@@ -885,6 +900,19 @@ The public API surface defined by this core MUST use the following stable `error
 ##### 3.3.6.2 Canonical public reason-code registries
 
 When the public API or collaboration stream uses a structured `reason_code` family listed below, it MUST use one of the exact tokens shown. A listed `reason_code` family MUST NOT define alternate tokens for the same meaning elsewhere in the core.
+
+`invalid_incident_create` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `request_not_object` | The request body is not a JSON object. |
+| `missing_required_field` | A required incident-create field is absent. |
+| `field_not_nullable` | The request supplies `null` for a non-nullable incident-create field. |
+| `field_empty_after_normalization` | `incident_key` or `title` is empty after required normalization and trimming. |
+| `field_too_long` | A create field exceeds its declared maximum length. |
+| `control_character_not_allowed` | `incident_key` or `title` contains a rejected control character. |
+| `server_managed_field` | The request attempted to set server-managed incident state. |
+| `collaborator_seeding_not_supported` | The request supplied `initial_memberships[]` or an equivalent collaborator-seeding payload. |
 
 `invalid_view_query` `error.details.reason_code` values:
 
