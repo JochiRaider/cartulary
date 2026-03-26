@@ -108,7 +108,7 @@ The HTTP surface MUST be rooted at `/api/v1/`. The live-update stream MUST be ro
 
 Breaking changes to route patterns, required request fields, required response fields, envelope shapes, or event semantics MUST use a new major version root. Additive response fields, additive optional request fields, and additive route families for claimed extension profiles MAY be introduced within the same major version.
 
-All public requests and responses MUST address writable surfaces by stable identifiers. The client MUST identify the incident by `incident_id`, the active view by `view_schema_id`, target rows by `record_id`, optimistic writes by `base_row_version`, writable cells by `field_key`, and multi-change user actions by `client_txn_id`. The public surface MUST NOT require clients to address mutations by visible row order, tab label, column label, projection-table name, or storage-table name.
+All public requests and responses MUST address writable surfaces by stable identifiers. The client MUST identify the incident by `incident_id`, the active view by `view_schema_id`, record-scoped target rows by `record_id`, mention-scoped targets by `entity_mention_id`, record-scoped optimistic writes by `base_row_version`, mention-scoped optimistic writes by `base_mention_row_version`, writable cells by `field_key`, and multi-change user actions by `client_txn_id`. The public surface MUST NOT require clients to address mutations by visible row order, tab label, column label, projection-table name, or storage-table name.
 
 #### 3.3.2 Session and authentication routes
 
@@ -149,7 +149,7 @@ The base-profile route set MUST include stable route families for:
 - workbook query and row creation: `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`, `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`,
 - record mutation, explicit Timeline capture-state actions, soft-delete, restore, history, rollback, and same-field conflict resolution: `PATCH /api/v1/records/{record_id}`, `POST /api/v1/records/{record_id}/mark-reviewed`, `POST /api/v1/records/{record_id}/supersede`, `DELETE /api/v1/records/{record_id}`, `POST /api/v1/records/{record_id}/restore`, `GET /api/v1/records/{record_id}/history`, `POST /api/v1/records/{record_id}/rollback`, `POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve`,
 - entity merge initiation: `POST /api/v1/records/{survivor_record_id}/merge`,
-- entity-mention resolution and equivalent surface-specific resolve actions: `POST /api/v1/entity-mentions/{entity_mention_id}/resolve`,
+- entity-mention explicit action route and equivalent surface-specific single-mention actions: `POST /api/v1/entity-mentions/{entity_mention_id}/resolve`,
 - blob-slot creation and evidence access: `POST /api/v1/object-blobs`, `POST /api/v1/evidence-records/{record_id}/attach-blob`, `POST /api/v1/evidence-records/{record_id}/preview-handle`, `POST /api/v1/evidence-records/{record_id}/download-handle`,
 - background-job status and cancellation: `GET /api/v1/jobs/{job_id}`, `POST /api/v1/jobs/{job_id}/cancel`.
 
@@ -837,6 +837,173 @@ A successful merge MUST emit replayable collaboration events through the existin
 
 The base profile defines no separate unmerge route. Reversal of an erroneous merge MUST use `POST /api/v1/records/{record_id}/rollback` with `target.kind = 'change_set'` and the merge `change_set_id`.
 
+
+#### 3.3.5.5 Entity-mention action contract
+
+`POST /api/v1/entity-mentions/{entity_mention_id}/resolve` MUST apply one explicit action to one `entity_mentions` row.
+
+The stable path segment `resolve` names the route family only. The request body's `action` member determines whether the committed action resolves, dismisses, or reverts the targeted mention.
+
+The route is mention-scoped, not view-scoped. It MUST NOT require `incident_id`, `view_schema_id`, `field_key`, `link_type`, table names, or storage-routing metadata in the path or request body, because authorization, lifecycle state, and relationship routing derive from the authoritative `entity_mentions` row identified by `entity_mention_id`.
+
+In the base profile, the route MUST support mentions whose authoritative `source_field_key` is `timeline.host_refs` or `timeline.identity_refs`. Other source fields MAY reuse this route only when their field contracts declare the same explicit mention-action vocabulary and corresponding relationship semantics. If the targeted mention's current `source_field_key` does not declare that action vocabulary, the route MUST fail with `409` and `error.code = illegal_transition`.
+
+This route MUST be the public wire-contract owner for the inspector's explicit mention actions. The legal transition matrix in this subsection MUST also govern single-target `resolve_item`, `dismiss_item`, and `revert_to_unresolved` actions sent through `collection_actions_v1` for `timeline.host_refs` and `timeline.identity_refs`.
+
+The request MUST be a JSON object and MUST include:
+
+- `base_mention_row_version`,
+- `client_txn_id`,
+- `action`.
+
+The request MAY include:
+
+- `resolved_record_id`,
+- `reason`.
+
+If present, `reason` MUST be a JSON string or JSON `null`.
+
+`action` MUST use one of the exact tokens `resolve_item`, `dismiss_item`, or `revert_to_unresolved`.
+
+`resolved_record_id` is required if and only if `action='resolve_item'`. When `action` is `dismiss_item` or `revert_to_unresolved`, `resolved_record_id` MUST NOT be present, including JSON `null`.
+
+For idempotency comparison, omission and explicit JSON `null` for `reason` MUST compare equal.
+
+Unknown top-level request members MUST fail with `400` and `error.code = invalid_mutation_payload`. This includes `base_row_version`, `record_id`, `incident_id`, `view_schema_id`, `field_key`, `entity_type`, `source_record_id`, `source_field_key`, `link_type`, table names, or storage-routing metadata.
+
+This route MUST NOT create a new host or identity record. A workflow that creates a host or identity from a selected mention MUST use the ordinary entity-create or create-or-upsert contract first and then resolve the mention to the resulting `record_id`.
+
+A request example MUST use this shape:
+
+```json
+{
+  "base_mention_row_version": 7,
+  "client_txn_id": "8d6b4b48-0b7a-4d9e-9c0d-6a5d5f3f1d7a",
+  "action": "resolve_item",
+  "resolved_record_id": "0d7dd3d2-50b5-4b7a-a0d4-9f0d08b6c7e4",
+  "reason": "optional audit note"
+}
+```
+
+`POST /api/v1/entity-mentions/{entity_mention_id}/resolve` MUST require current incident role `editor`, `reviewer`, or `admin` on the source incident of the targeted mention. A caller who lacks visibility to the targeted mention, or whose `entity_mention_id` identifies a deleted mention row, MUST receive `404` and `error.code = entity_mention_not_found`. A caller who can see the mention but lacks sufficient role MUST receive `403`.
+
+Idempotency for this route MUST be keyed by `(actor_user_id, entity_mention_id, client_txn_id)`. If the same authenticated actor replays the same normalized request with the same key, the server MUST return `200 OK` with the originally committed result and MUST create no second `change_set`. If the same actor reuses that key with a different normalized request, the server MUST fail with `409` and `error.code = client_txn_conflict`.
+
+If the current mention `row_version` differs from `base_mention_row_version`, the route MUST fail with `409` using the common error envelope and `error.code = row_version_conflict`. `error.details` MUST include at least `entity_mention_id`, `base_mention_row_version`, `current_mention_row_version`, and `source_record_id`.
+
+If the source record of the targeted mention is currently soft-deleted, the route MUST fail with `409` and `error.code = record_deleted_use_restore`.
+
+When `action='resolve_item'`, `resolved_record_id` MUST identify a visible active target record in the same incident whose `record_type` matches the targeted mention's `entity_type`. If no such visible active target record exists, the route MUST fail with `404` and `error.code = resolved_record_not_found`. If a visible target record exists but fails the same-incident or `entity_type` compatibility check, the route MUST fail with `400` and `error.code = invalid_mutation_payload`.
+
+The legal transition matrix is:
+
+- `resolve_item`: current `resolution_status` MUST be `unresolved` or `resolved`; the committed state MUST be `resolved`.
+- `dismiss_item`: current `resolution_status` MUST be `unresolved` or `resolved`; the committed state MUST be `dismissed`.
+- `revert_to_unresolved`: current `resolution_status` MUST be `resolved` or `dismissed`; the committed state MUST be `unresolved`.
+
+If the current `resolution_status` does not permit the requested action under this matrix, the route MUST fail with `409` and `error.code = illegal_transition`. `error.details.from_status`, `error.details.to_status`, and `error.details.violated_guards[]` MUST follow §3.3.6. `error.details.to_status` MUST be `resolved`, `dismissed`, or `unresolved` according to the requested action.
+
+A successful `resolve_item` MUST:
+
+- preserve `raw_text`,
+- set `resolution_status='resolved'`,
+- set `resolved_record_id`,
+- set `resolved_by_user_id`,
+- set `resolved_at`,
+- set `resolution_method='explicit_resolve_route'`,
+- create or upsert the corresponding active resolved `record_link` in the same `change_set`.
+
+If the mention was previously resolved to a different target, the old active resolved link MUST be removed or tombstoned in the same committed `change_set`.
+
+A successful `dismiss_item` MUST:
+
+- preserve `raw_text`, stable mention identity, and provenance,
+- set `resolution_status='dismissed'`,
+- clear `resolved_record_id`, `resolved_by_user_id`, `resolved_at`, and `resolution_method`,
+- remove or tombstone any corresponding active resolved `record_link` in the same `change_set`.
+
+A successful `revert_to_unresolved` MUST:
+
+- preserve `raw_text`,
+- set `resolution_status='unresolved'`,
+- clear `resolved_record_id`, `resolved_by_user_id`, `resolved_at`, and `resolution_method`,
+- leave no active resolved `record_link`.
+
+If the mention was previously dismissed, ordinary `revert_to_unresolved` MUST NOT silently relink any prior resolved target. Exact pre-dismiss state recovery MUST remain a rollback operation.
+
+A successful route invocation MUST, in one transaction:
+
+- create one attributed `change_set`,
+- increment the targeted mention `row_version`,
+- increment the source record `row_version`,
+- update or invalidate affected projections before commit returns.
+
+A successful route invocation MUST emit the ordinary replayable `record_changed` event for the source record and MUST NOT introduce a mention-specific collaboration event family.
+
+A successful response MUST return `200 OK` using the common success envelope. `data` MUST include at least:
+
+- `incident_id`,
+- `entity_mention`,
+- `source_record`,
+- `change_set_id`.
+
+The returned `entity_mention` resource MUST include at least:
+
+- `entity_mention_id`,
+- `source_record_id`,
+- `source_field_key`,
+- `entity_type`,
+- `raw_text`,
+- `normalized_text`,
+- `resolution_status`,
+- `resolved_record_id`,
+- `row_version`,
+- `resolved_at`,
+- `resolved_by_user_id`,
+- `resolution_method`.
+
+When the committed state has no current resolved target, `resolved_record_id`, `resolved_at`, `resolved_by_user_id`, and `resolution_method` MUST be present and set to JSON `null`.
+
+`data.source_record` MUST include at least `record_id` and current committed `row_version`.
+
+If the committed state leaves an active resolved link, `data.active_link` MUST be present and MUST include `link_type` and `dst_record_id`. In the base profile, `link_type` MUST be derived from the targeted mention's `source_field_key` using the mapping declared in §7.4.1. If the committed state leaves no active resolved link, `data.active_link` MUST be omitted.
+
+A success example MUST use this shape:
+
+```json
+{
+  "data": {
+    "incident_id": "3dbe2d2d-9b71-4fe5-b6ee-5dd0a5d8441d",
+    "entity_mention": {
+      "entity_mention_id": "6a7d3b31-4c5c-48f2-a0dc-5b41d9a9d2a1",
+      "source_record_id": "2d7f0d4a-5e7e-4d2a-93b2-f0d9ce2b9ad4",
+      "source_field_key": "timeline.host_refs",
+      "entity_type": "host",
+      "raw_text": "WS-023?",
+      "normalized_text": "ws-023?",
+      "resolution_status": "resolved",
+      "resolved_record_id": "0d7dd3d2-50b5-4b7a-a0d4-9f0d08b6c7e4",
+      "row_version": 8,
+      "resolved_at": "2026-03-26T15:41:00Z",
+      "resolved_by_user_id": "9b5d8f8f-2d1c-4f62-8f0b-c6b4c4b5c8d1",
+      "resolution_method": "explicit_resolve_route"
+    },
+    "source_record": {
+      "record_id": "2d7f0d4a-5e7e-4d2a-93b2-f0d9ce2b9ad4",
+      "row_version": 42
+    },
+    "change_set_id": "4b2c9f50-cd12-4d3d-b6b8-c8c8ff6f0c01",
+    "active_link": {
+      "link_type": "observed_on_host",
+      "dst_record_id": "0d7dd3d2-50b5-4b7a-a0d4-9f0d08b6c7e4"
+    }
+  },
+  "meta": {
+    "request_id": "req_01..."
+  }
+}
+```
+
 #### 3.3.6 Success and error envelopes
 
 All successful JSON responses MUST use a common envelope with:
@@ -871,12 +1038,12 @@ The public API surface defined by this core MUST use the following stable `error
 | `error.code` | Required `error.status` | Required `error.retryable` | Canonical meaning |
 | --- | --- | --- | --- |
 | `invalid_view_query` | `400` | `false` | The view-query request is malformed or uses a `field_key`, filter operator, or operand shape not allowed by the active `view_schema_id`. |
-| `invalid_mutation_payload` | `400` | `false` | A direct value or `action_payload` is malformed, uses an unknown `kind` or `op`, targets a field/action pair that is not allowed, or carries an invalid or foreign `item_ref`. |
+| `invalid_mutation_payload` | `400` | `false` | A mutation request body is malformed, omits a route-required member, includes an unknown or forbidden member, uses an unknown `kind`, `op`, or `action`, targets a field/action or mention-action combination that is not allowed, or carries an invalid, foreign, or type-incompatible mutation target reference. |
 | `invalid_incident_create` | `400` | `false` | An incident-create request is malformed, omits required members, violates create-time field validation, attempts to set server-managed state, or includes a rejected collaborator-seeding payload. |
 | `invalid_incident_patch` | `400` | `false` | An incident-metadata patch request is malformed, omits required `base_incident_version`, attempts to mutate an immutable or server-managed incident field, or includes unknown top-level members. |
 | `invalid_rollback_request` | `400` | `false` | A rollback request is malformed, uses an unknown or unsupported `target.kind`, omits the selector required for that `kind`, includes unknown request members, or supplies a selector whose JSON type does not match the declared shape. |
 | `client_txn_conflict` | `409` | `false` | The caller reused a `client_txn_id` within the same route-defined idempotency scope for a different normalized request. |
-| `row_version_conflict` | `409` | `false` | The supplied `base_row_version`, or equivalent current revision token accepted for restore, is stale relative to authoritative current state. |
+| `row_version_conflict` | `409` | `false` | The supplied `base_row_version`, `base_mention_row_version`, or equivalent current revision token accepted for restore is stale relative to authoritative current state. |
 | `incident_key_conflict` | `409` | `false` | The normalized `incident_key` conflicts with an existing incident. |
 | `incident_version_conflict` | `409` | `false` | The supplied `base_incident_version` is stale. |
 | `same_field_conflict` | `409` | `false` | Another committed write touched the same writable `field_key`; the response MUST include the conflict object defined by Core 03 §3.3.4. |
@@ -885,6 +1052,8 @@ The public API surface defined by this core MUST use the following stable `error
 | `record_already_deleted` | `409` | `false` | The caller attempted to soft-delete an already soft-deleted record outside an idempotent replay of the original delete. |
 | `record_not_deleted` | `409` | `false` | The caller attempted to restore a record that is not currently soft-deleted. |
 | `record_locked` | `409` | `true` | A short-lived destructive-operation lock prevents the requested restore, rollback, or merge from proceeding at this time. |
+| `entity_mention_not_found` | `404` | `false` | An entity-mention action route targeted no visible current entity-mention row for the supplied `entity_mention_id`. |
+| `resolved_record_not_found` | `404` | `false` | A mention-resolve request supplied `resolved_record_id` that does not identify a visible active target record. |
 | `rollback_target_not_found` | `404` | `false` | A rollback request targeted no visible history item, `change_set_id`, or row revision that is legal for the addressed `record_id`. |
 | `rollback_precondition_failed` | `409` | `false` | A rollback target exists but cannot be safely reversed against current authoritative state; `error.details.reason_code` MUST use the rollback-precondition registry in §3.3.6.2. |
 | `user_version_conflict` | `409` | `false` | The supplied `base_user_version` is stale. |
@@ -1349,6 +1518,7 @@ Collection-review wire contract for `timeline.host_refs` and `timeline.identity_
 
 - The same shapes and action vocabulary apply to identity items, with `entity_type='identity'`.
 - Allowed actions for `timeline.host_refs` and `timeline.identity_refs` are `add_token`, `add_resolved_ref`, `resolve_item`, `revert_to_unresolved`, and `dismiss_item`.
+- The legal transition matrix, side effects, and explicit mention-route equivalence for `resolve_item`, `dismiss_item`, and `revert_to_unresolved` are defined in §3.3.5.5 and MUST apply equally when those actions target a single mention through `collection_actions_v1`.
 
 `add_token` MUST use:
 
