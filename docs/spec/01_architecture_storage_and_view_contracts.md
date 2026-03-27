@@ -267,10 +267,12 @@ A view-query request MUST be view-shaped rather than table-shaped. It MUST accep
 - ordered `sort[]` entries keyed by `field_key`,
 - `filters[]` entries keyed by `field_key`,
 - zero or one `group_by` value chosen from the view's declared grouping keys,
-- a bounded result size such as `limit` or `block_size`,
+- optional integer `limit` as the only v1 page-size member,
 - an optional opaque `cursor_token`.
+
+For `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`, `limit` MUST be a JSON integer in the inclusive range `1..500`. `limit=0`, negative values, non-integer values, and values greater than `500` MUST fail with `400`, `error.code=invalid_view_query`, and `error.details.reason_code=invalid_limit`. When `cursor_token` is absent, omitted `limit` MUST mean `100`. When `cursor_token` is present, omitted `limit` MUST mean reuse the cursor-bound effective `limit` from the request that produced that cursor. `limit` counts serialized `rows[]` entries only. The `/api/v1/` contract MUST NOT accept `block_size`, `page_size`, or any other alias for this member; a request that supplies such an alias MUST fail with `400`, `error.code=invalid_view_query`, and `error.details.reason_code=invalid_limit`.
 Profiles: base
-Verified by: AC-124, AC-127, AC-184, AC-185, AC-231
+Verified by: AC-124, AC-127, AC-184, AC-185, AC-231, AC-238, AC-239, AC-240, AC-243
 
 **REQ-01-036**
 A view-query response MUST return:
@@ -283,12 +285,12 @@ A view-query response MUST return:
 - scalar `group_values` needed for client-local grouping when grouping is active,
 - pagination metadata defined in §3.3.7.
 Profiles: base
-Verified by: AC-124, AC-127, AC-184, AC-185, AC-231
+Verified by: AC-124, AC-127, AC-184, AC-185, AC-231, AC-238, AC-241, AC-243
 
 **REQ-01-037**
 The server MUST NOT serialize group headers or other presentation-only grouping artifacts as writable rows.
 Profiles: base
-Verified by: AC-124, AC-127, AC-184, AC-185, AC-231
+Verified by: AC-124, AC-127, AC-184, AC-185, AC-231, AC-243
 
 ##### 3.3.4.1 Filter predicate wire contract
 
@@ -1735,11 +1737,11 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 **REQ-01-234**
 The public API surface defined by this core MUST use the following stable `error.code` tokens for the listed conditions. A route or conformance criterion covered by this registry MUST NOT assign a second stable token to the same condition.
 Profiles: base
-Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231
+Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-239, AC-240
 
 | `error.code` | Required `error.status` | Required `error.retryable` | Canonical meaning | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
-| `invalid_view_query` | `400` | `false` | The view-query request is malformed or uses a `field_key`, filter operator, or operand shape not allowed by the active `view_schema_id`. |  |  |  |
+| `invalid_view_query` | `400` | `false` | The view-query request is malformed, uses a page-size member or page-size value not allowed by the route, replays a cursor against a different bound query contract, or uses a `field_key`, filter operator, or operand shape not allowed by the active `view_schema_id`. |  |  |  |
 | `invalid_mutation_payload` | `400` | `false` | A mutation request body is malformed, omits a route-required member, includes an unknown or forbidden member, uses an unknown `kind`, `op`, or `action`, targets a field/action or mention-action combination that is not allowed, or carries an invalid, foreign, or type-incompatible mutation target reference. |  |  |  |
 | `invalid_incident_create` | `400` | `false` | An incident-create request is malformed, omits required members, violates create-time field validation, attempts to set server-managed state, or includes a rejected collaborator-seeding payload. |  |  |  |
 | `invalid_incident_patch` | `400` | `false` | An incident-metadata patch request is malformed, omits required `base_incident_version`, attempts to mutate an immutable or server-managed incident field, or includes unknown top-level members. |  |  |  |
@@ -1773,7 +1775,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 **REQ-01-238**
 When the public API or collaboration stream uses a structured `reason_code` family listed below, it MUST use one of the exact tokens shown. A listed `reason_code` family MUST NOT define alternate tokens for the same meaning elsewhere in the core.
 Profiles: base
-Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231
+Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-239, AC-240
 
 `invalid_incident_create` `error.details.reason_code` values:
 
@@ -1796,6 +1798,8 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `operator_not_allowed` | `op` is not allowed for that field's declared filter class. |
 | `invalid_filter_operand` | `arg` is malformed, empty after normalization, contradictory, or otherwise invalid for the selected `op`. |
 | `duplicate_filter_field` | The request contains more than one normalized filter entry for the same `field_key`. |
+| `invalid_limit` | The request supplies `limit` with a non-integer JSON type, a value less than `1`, a value greater than `500`, or an unsupported page-size alias such as `block_size` or `page_size`. |
+| `cursor_query_mismatch` | The supplied `cursor_token` does not match the current normalized view-query contract, including the effective `limit`. |
 
 `merge_precondition_failed` `error.details.reason_code` values:
 
@@ -1834,14 +1838,14 @@ Profiles: base
 Verified by: AC-127, AC-231
 
 **REQ-01-241**
-A `cursor_token` MUST be bound to the route family, authenticated actor, `incident_id` when present, `view_schema_id` when present, normalized sort tuple, filter set, and grouping key. The server MUST reject a cursor that is replayed against a different query contract rather than reinterpret it.
+A `cursor_token` MUST be bound to the route family, authenticated actor, `incident_id` when present, `view_schema_id` when present, normalized sort tuple, filter set, grouping key, and the effective `limit`. The server MUST reject a cursor that is replayed against a different query contract, including a different effective `limit`, rather than reinterpret it.
 Profiles: base
-Verified by: AC-127, AC-231
+Verified by: AC-127, AC-231, AC-239
 
 **REQ-01-242**
-The envelope for paged responses MUST include `meta.paging.has_more` and `meta.paging.next_cursor` when another page is available. Hot workbook views MUST NOT require deep `OFFSET` pagination.
+The envelope for paged responses MUST include `meta.paging.limit`, `meta.paging.has_more`, and `meta.paging.next_cursor`. `meta.paging.limit` MUST equal the effective page size bound to the current page. When another page is available, `meta.paging.has_more=true` and `meta.paging.next_cursor` MUST be a non-null opaque cursor. A terminal page, including a first page with zero matching rows, MUST use `meta.paging.has_more=false` and `meta.paging.next_cursor=null`. Clients MUST treat `meta.paging.has_more` and `meta.paging.next_cursor` as the authoritative continuation contract and MUST NOT infer terminal state from `rows.length < meta.paging.limit` alone. Hot workbook views MUST NOT require deep `OFFSET` pagination.
 Profiles: base
-Verified by: AC-127, AC-231
+Verified by: AC-127, AC-231, AC-238, AC-239, AC-241, AC-242
 
 #### 3.3.8 Evidence and blob routes
 

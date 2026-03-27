@@ -510,7 +510,7 @@ A Base claim selects every requirement block tagged `base`.
 Definition of Done:
 
 - requirement selector: `profile:base`
-- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-230`, `AC-231`, `AC-237`
+- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-237..AC-243`
 - **AC-231**: A Base claim is conformant only when every requirement selected by `profile:base` is implemented and every acceptance criterion listed in this manifest passes.
   - Verifies: `profile:base`
 
@@ -1028,6 +1028,18 @@ Definition of Done:
     REQ-02-163..REQ-02-185, REQ-03-247..REQ-03-249
 - **AC-127**: Potentially large list or view-query routes use opaque cursor pagination with `has_more` and `next_cursor`; replaying a cursor against a different incident, view, sort tuple, filter set, or grouping contract is rejected rather than reinterpreted.
   - Verifies: REQ-00-014, REQ-01-019..REQ-01-022, REQ-01-034..REQ-01-056, REQ-01-240..REQ-01-242
+- **AC-238**: On `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query` without `cursor_token`, omitting `limit` yields `meta.paging.limit=100`; when more rows remain, the same response uses `meta.paging.has_more=true` and a non-null `meta.paging.next_cursor`.
+  - Verifies: REQ-01-035, REQ-01-036, REQ-01-242
+- **AC-239**: Repeating the same route with a valid `cursor_token` and omitted `limit` reuses the cursor-bound effective `meta.paging.limit`; replaying that cursor with a different explicit `limit` fails with `400 error.code='invalid_view_query'` and `error.details.reason_code='cursor_query_mismatch'`.
+  - Verifies: REQ-01-035, REQ-01-234, REQ-01-238, REQ-01-241, REQ-01-242
+- **AC-240**: `limit=0`, `limit=-1`, `limit=501`, a non-integer `limit`, and use of `block_size` or `page_size` in the request each fail closed with `400 error.code='invalid_view_query'` and `error.details.reason_code='invalid_limit'`.
+  - Verifies: REQ-01-035, REQ-01-234, REQ-01-238
+- **AC-241**: A terminal page reached through cursor progression returns `meta.paging.limit`, `meta.paging.has_more=false`, and `meta.paging.next_cursor=null`; a zero-match first page uses the same terminal representation and returns `rows=[]`.
+  - Verifies: REQ-01-036, REQ-01-242
+- **AC-242**: For paged view-query responses, continuation is determined by `meta.paging.has_more` and `meta.paging.next_cursor`; conformance evidence and client continuation logic do not infer terminal state from `rows.length < meta.paging.limit` alone.
+  - Verifies: REQ-01-242
+- **AC-243**: With grouping active and `limit=1`, the response serializes exactly one data row in `rows[]`, includes no group-header pseudo-row, and still returns the `group_values` needed for client-local grouping; page-size accounting applies to serialized `rows[]` entries only.
+  - Verifies: REQ-01-035, REQ-01-036, REQ-01-037
 - **AC-128**: `POST /api/v1/object-blobs` creates a pending blob slot and returns `object_blob_id`, `upload_state`, `target_expires_at`, `pending_expires_at`, and a short-lived upload target; in the base profile the upload target expires 60 minutes after issuance, the pending slot expires 24 hours after creation, retry after target expiry uses a fresh blob slot rather than same-slot target refresh, and attaching that blob to incident-visible evidence, or previewing the resulting evidence surface, fails closed until the blob or evidence lifecycle reaches the states required by Core 03 §8 and Core 02 §14.1.
   - Verifies: REQ-00-014, REQ-01-019, REQ-01-243..REQ-01-247, REQ-01-328, REQ-01-355..REQ-01-366,
     REQ-02-186..REQ-02-204, REQ-03-116..REQ-03-119, REQ-03-121..REQ-03-128, REQ-04-048
