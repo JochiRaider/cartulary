@@ -128,6 +128,8 @@ The schema sketch needs artifact-scoped release metadata rather than template-sc
 
 ### Additional schema requirements for blob-upload and evidence lifecycle
 
+Evidence-access `media_class` and `preview_kind` are contract vocabularies that MAY be derived from authoritative object metadata and server-side inspection. This appendix does not imply that same-named physical columns are required.
+
 The schema sketch keeps blob upload and evidence lifecycle separate:
 
 - `object_blobs.upload_state` holds conditions equivalent to `pending`, `available`, `failed`, or `quarantined`,

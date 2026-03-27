@@ -1918,7 +1918,7 @@ Verified by: AC-231, AC-234
 **REQ-02-222**
 This section owns the exact token sets for closed vocabularies that are persisted in structured state or surfaced through contract-backed views, portability bundles, or public API payloads. Earlier sections that described a vocabulary as "equivalent to" these values are resolved by this registry. A conformant implementation MUST persist and emit the exact tokens listed here.
 Profiles: base, incident_portability
-Verified by: AC-076, AC-077, AC-078, AC-079, AC-080, AC-081, AC-082, AC-083, AC-084, AC-121, AC-122, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-236
+Verified by: AC-076, AC-077, AC-078, AC-079, AC-080, AC-081, AC-082, AC-083, AC-084, AC-121, AC-122, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-236, AC-252, AC-253
 
 Where an earlier section also defines lifecycle rules, semantic meanings, or guard behavior for a token family, that earlier section remains authoritative for those semantics. This registry owns the exact token spellings and membership of the token set.
 
@@ -1940,8 +1940,12 @@ Where an earlier section also defines lifecycle rules, semantic meanings, or gua
 | `release_state` | `pending_approval`, `approved`, `invalidated`, `published` |
 | `object_blobs.upload_state` | `pending`, `available`, `failed`, `quarantined` |
 | `evidence_records.lifecycle_state` | `requested`, `pending_receipt`, `received`, `available`, `quarantined`, `released` |
+| `evidence-access media_class` | `image`, `pdf`, `text`, `audio`, `video`, `archive`, `office_document`, `binary`, `active_content` |
+| `evidence-access preview_kind` | `image_inline`, `pdf_inline`, `text_inline` |
+
+A token family listed here MAY be emitted by deriving from authoritative metadata, server-side inspection, or lifecycle state rather than by persisting a same-named storage column. The presence of a token family in this registry MUST NOT be interpreted as a requirement to add a same-named column to the physical schema.
 
 **REQ-02-223**
 A current-profile implementation MUST NOT persist alternate spellings, display labels, or semantically equivalent synonyms for any token listed here in authoritative structured state. Client and export presentation layers MAY map these tokens to display labels, but the canonical token value MUST remain stable in stored state and machine-readable payloads.
 Profiles: base
-Verified by: AC-076, AC-077, AC-078, AC-079, AC-080, AC-081, AC-082, AC-083, AC-084, AC-121, AC-122, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231
+Verified by: AC-076, AC-077, AC-078, AC-079, AC-080, AC-081, AC-082, AC-083, AC-084, AC-121, AC-122, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-252, AC-253

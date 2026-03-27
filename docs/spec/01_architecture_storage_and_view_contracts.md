@@ -273,10 +273,10 @@ The base-profile route set MUST include stable route families for:
 - record mutation, explicit Timeline capture-state actions, soft-delete, restore, history, rollback, and same-field conflict resolution: `PATCH /api/v1/records/{record_id}`, `POST /api/v1/records/{record_id}/mark-reviewed`, `POST /api/v1/records/{record_id}/supersede`, `DELETE /api/v1/records/{record_id}`, `POST /api/v1/records/{record_id}/restore`, `GET /api/v1/records/{record_id}/history`, `POST /api/v1/records/{record_id}/rollback`, `POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve`,
 - entity merge initiation: `POST /api/v1/records/{survivor_record_id}/merge`,
 - entity-mention explicit action route and equivalent surface-specific single-mention actions: `POST /api/v1/entity-mentions/{entity_mention_id}/resolve`,
-- blob-slot creation and evidence access: `POST /api/v1/object-blobs`, `POST /api/v1/evidence-records/{record_id}/attach-blob`, `POST /api/v1/evidence-records/{record_id}/preview-handle`, `POST /api/v1/evidence-records/{record_id}/download-handle`,
+- blob-slot creation and evidence access: `POST /api/v1/object-blobs`, `POST /api/v1/evidence-records/{record_id}/attach-blob`, `POST /api/v1/evidence-records/{record_id}/preview-handle`, `POST /api/v1/evidence-records/{record_id}/download-handle`, `GET /api/v1/evidence-handles/{handle_token}`,
 - background-job status and cancellation: `GET /api/v1/jobs/{job_id}`, `POST /api/v1/jobs/{job_id}/cancel`.
 Profiles: base
-Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-186, AC-187, AC-231
+Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-186, AC-187, AC-231, AC-251, AC-252, AC-253, AC-254, AC-255
 
 **REQ-01-033**
 Implementations that claim an extension profile MUST add that profile's route family under the same versioned root rather than overloading base workbook routes. This includes, at minimum, `/api/v1/import-sessions/*`, `/api/v1/reference-packs/*`, `/api/v1/snapshots/*` and `/api/v1/releases/*`, and `/api/v1/incident-bundles/*` for the corresponding claimed extension profiles.
@@ -1767,13 +1767,14 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 **REQ-01-234**
 The public API surface defined by this core MUST use the following stable `error.code` tokens for the listed conditions. A route or conformance criterion covered by this registry MUST NOT assign a second stable token to the same condition.
 Profiles: base
-Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-239, AC-240, AC-245, AC-246, AC-247, AC-249, AC-250
+Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-239, AC-240, AC-245, AC-246, AC-247, AC-249, AC-250, AC-251, AC-252, AC-253, AC-254, AC-255
 
 | `error.code` | Required `error.status` | Required `error.retryable` | Canonical meaning | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
 | `invalid_view_query` | `400` | `false` | The view-query request is malformed, uses a page-size member or page-size value not allowed by the route, replays a cursor against a different bound query contract, or uses a `field_key`, filter operator, or operand shape not allowed by the active `view_schema_id`. |  |  |  |
 | `invalid_pagination_request` | `400` | `false` | A non-view pageable or singleton route uses a page-size member or page-size value not allowed by the route, replays a cursor against a different bound route contract, or supplies pagination members to a route that does not support pagination. |  |  |  |
 | `invalid_mutation_payload` | `400` | `false` | A mutation request body is malformed, omits a route-required member, includes an unknown or forbidden member, uses an unknown `kind`, `op`, or `action`, targets a field/action or mention-action combination that is not allowed, or carries an invalid, foreign, or type-incompatible mutation target reference. |  |  |  |
+| `invalid_evidence_handle_request` | `400` | `false` | A preview-handle or download-handle issuance request is malformed, uses a non-object JSON body, omits the required JSON object wrapper, or includes an unknown top-level member. |  |  |  |
 | `invalid_incident_create` | `400` | `false` | An incident-create request is malformed, omits required members, violates create-time field validation, attempts to set server-managed state, or includes a rejected collaborator-seeding payload. |  |  |  |
 | `invalid_incident_patch` | `400` | `false` | An incident-metadata patch request is malformed, omits required `base_incident_version`, attempts to mutate an immutable or server-managed incident field, or includes unknown top-level members. |  |  |  |
 | `invalid_rollback_request` | `400` | `false` | A rollback request is malformed, uses an unknown or unsupported `target.kind`, omits the selector required for that `kind`, includes unknown request members, or supplies a selector whose JSON type does not match the declared shape. |  |  |  |
@@ -1791,9 +1792,14 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `record_already_deleted` | `409` | `false` | The caller attempted to soft-delete an already soft-deleted record outside an idempotent replay of the original delete. |  |  |  |
 | `record_not_deleted` | `409` | `false` | The caller attempted to restore a record that is not currently soft-deleted. |  |  |  |
 | `record_locked` | `409` | `true` | A short-lived destructive-operation lock prevents the requested restore, rollback, or merge from proceeding at this time. |  |  |  |
+| `evidence_access_unavailable` | `409` | `false` | Preview or download cannot currently proceed because the visible evidence or linked blob is unavailable, pending, failed, missing, quarantined, inconsistent, or not previewable for the requested preview contract. |  |  |  |
 | `entity_mention_not_found` | `404` | `false` | An entity-mention action route targeted no visible current entity-mention row for the supplied `entity_mention_id`. |  |  |  |
 | `resolved_record_not_found` | `404` | `false` | A mention-resolve request supplied `resolved_record_id` that does not identify a visible active target record. |  |  |  |
 | `rollback_target_not_found` | `404` | `false` | A rollback request targeted no visible history item, `change_set_id`, or row revision that is legal for the addressed `record_id`. |  |  |  |
+| `evidence_record_not_found` | `404` | `false` | A preview-handle or download-handle issuance request targeted no visible current evidence record for the supplied `record_id`. |  |  |  |
+| `handle_not_found_or_revoked` | `404` | `false` | A handle-redeem request targeted no current opaque handle token because the token is unknown, revoked, or no longer available for redeem. |  |  |  |
+| `handle_expired` | `410` | `false` | A previously issued handle token is well-formed but no longer redeemable because its expiry time has passed. |  |  |  |
+| `handle_consumed` | `410` | `false` | A single-use handle was already consumed by a prior successful redeem and cannot be redeemed again. |  |  |  |
 | `rollback_precondition_failed` | `409` | `false` | A rollback target exists but cannot be safely reversed against current authoritative state; `error.details.reason_code` MUST use the rollback-precondition registry in §3.3.6.2. | REQ-01-236 | base | AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231 |
 | `user_version_conflict` | `409` | `false` | The supplied `base_user_version` is stale. |  |  |  |
 | `last_deployment_admin` | `409` | `false` | The requested user mutation would leave the deployment with no active `is_deployment_admin=true` user. |  |  |  |
@@ -1810,7 +1816,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 **REQ-01-238**
 When the public API or collaboration stream uses a structured `reason_code` family listed below, it MUST use one of the exact tokens shown. A listed `reason_code` family MUST NOT define alternate tokens for the same meaning elsewhere in the core.
 Profiles: base
-Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-239, AC-240
+Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-239, AC-240, AC-252, AC-255
 
 `invalid_incident_create` `error.details.reason_code` values:
 
@@ -1863,6 +1869,18 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `entry_requires_change_set` | The selected logical history item belongs to a multi-target or destructive change that MUST be reversed as a whole `change_set`. | REQ-01-239 | base | AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231 |
 | `dependent_later_changes` | Later committed changes touched the same mutation target, or otherwise make isolated reversal ambiguous. |  |  |  |
 | `stale_target` | The selected historical target exists but is no longer a legal rollback point for current authoritative state because a later reversal or equivalent committed change already superseded it. |  |  |  |
+
+`evidence_access_unavailable` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `no_visible_blob` | The evidence record is visible, but no linked blob is currently available for ordinary preview or download. |
+| `blob_pending` | A linked blob slot exists, but upload finalization or availability is not complete yet. |
+| `blob_failed` | The linked blob slot reached terminal `failed` state and cannot currently serve preview or download. |
+| `blob_missing` | The evidence metadata points at blob content that cannot currently be located or opened. |
+| `evidence_quarantined` | The evidence lifecycle or linked blob state blocks ordinary preview and download. |
+| `evidence_inconsistent` | Evidence lifecycle state and linked blob state disagree in a way that intentionally fails closed until repaired. |
+| `unsupported_preview` | The evidence is otherwise visible and downloadable when available, but the base-profile safe preview contract does not allow the requested preview representation. |
 
 `/ws/v1/` `session_revoked.payload.reason_code` values:
 
@@ -1918,7 +1936,11 @@ Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 **REQ-01-247**
 Preview and download routes MUST return short-lived authorization-checked handles or an equivalent mediated access contract. They MUST NOT expose long-lived object-store credentials, bypass incident membership checks, or treat a `pending` blob slot as attached evidence.
 Profiles: base
-Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
+Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231, AC-251, AC-252, AC-253, AC-254, AC-255
+
+##### 3.3.8.1 Evidence-access handle owner pointer
+
+This subsection declares the base route family only. Core 01 §16 is the primary owner for the preview-handle, download-handle, and redeem contract, including issuance request shape, response members, redeem semantics, lifetime, revocation, filename and disposition rules, and route-specific error use.
 
 #### 3.3.9 Background-job routes
 
@@ -3933,3 +3955,123 @@ An implementation conforming to this core MUST preserve all of the following:
 8. whole-incident portability, when implemented, MUST export authoritative source state and referenced blob bytes rather than projections, snapshots, or deployment-local runtime state.
 Profiles: base, import, snapshot_reporting, incident_portability
 Verified by: AC-231, AC-232, AC-233, AC-236
+
+
+## 16. Evidence-access handle contract
+
+**REQ-01-458**
+This section owns the base-profile public contract for `POST /api/v1/evidence-records/{record_id}/preview-handle`, `POST /api/v1/evidence-records/{record_id}/download-handle`, and `GET /api/v1/evidence-handles/{handle_token}`. A successful issuance response MUST return `data.href` as an opaque same-origin redeem URL under `GET /api/v1/evidence-handles/{handle_token}`, and clients MUST NOT synthesize or parse that token. The server MAY satisfy redeem by streaming bytes itself or by performing an internal one-time redirect after redeem-time validation, but the public contract MUST NOT expose long-lived object-store credentials, bucket names, raw object keys, or storage-backend-specific identifiers.
+Profiles: base
+Verified by: AC-231, AC-252, AC-253, AC-254
+
+**REQ-01-459**
+Both issuance routes MUST accept only a JSON object request body. `{}` MUST be legal and means issue the default contract-defined preview or download handle for the addressed evidence. A zero-length body, `null`, any non-object JSON value, or any unknown top-level member MUST fail with `400` and `error.code='invalid_evidence_handle_request'`. The base profile defines no request members for either route yet. If a future additive request member is introduced, omission MUST mean default behavior for that member, and explicit `null` MUST remain invalid unless that member explicitly allows `null`.
+Profiles: base
+Verified by: AC-231, AC-251, AC-255
+
+**REQ-01-460**
+A successful issuance response from either route MUST use the standard success envelope from §3.3.6 and include `data.incident_id`, `data.record_id`, `data.object_blob_id`, `data.handle_kind`, `data.href`, `data.method`, `data.expires_at`, `data.single_use`, `data.media_class`, `data.disposition`, `data.filename`, `data.content_type`, `data.size_bytes`, `data.sha256`, `data.evidence_lifecycle_state`, and `data.upload_state`. `data.method` MUST be `GET`. `data.media_class` MUST use the exact tokens owned by Core 02 §18. `data.sha256` MAY be `null`; all other listed members are required. Each successful issuance call MUST return a fresh handle, and the base profile MUST NOT require `client_txn_id` or issuance idempotency for these routes.
+Profiles: base
+Verified by: AC-231, AC-252, AC-253, AC-256
+
+**REQ-01-461**
+A successful preview-handle issuance MUST set `data.handle_kind='preview'`, `data.single_use=false`, `data.disposition='inline'`, and a non-null `data.preview_kind` that uses the exact tokens owned by Core 02 §18. In the base profile, preview issuance MUST succeed only when `data.preview_kind` is one of `image_inline`, `pdf_inline`, or `text_inline`. Preview handles MUST expire exactly 5 minutes after issuance and MUST be reusable until expiry, including repeated byte-range fetches made by a browser preview surface. The server MUST NOT silently downgrade preview issuance into a download contract. When the evidence is otherwise visible but the base-profile preview allowlist does not allow a safe preview, the route MUST fail with `409`, `error.code='evidence_access_unavailable'`, and `error.details.reason_code='unsupported_preview'`.
+Profiles: base
+Verified by: AC-231, AC-252
+
+Example preview-handle success payload:
+
+```json
+{
+  "data": {
+    "incident_id": "7d4cc0c6-8081-4b52-a7a8-3c2577fe5f7e",
+    "record_id": "5ad0f785-b814-4bd4-aee4-3c39769357a3",
+    "object_blob_id": "d1968f09-fd8c-4ca5-b8ea-1988931b6307",
+    "handle_kind": "preview",
+    "href": "/api/v1/evidence-handles/hdl_01JQ8Y9AB3Q4WE7K3S8M0P6A6V",
+    "method": "GET",
+    "expires_at": "2026-03-27T16:00:00Z",
+    "single_use": false,
+    "media_class": "image",
+    "preview_kind": "image_inline",
+    "disposition": "inline",
+    "filename": "signin.png",
+    "content_type": "image/png",
+    "size_bytes": 188416,
+    "sha256": "c0c4f0a4e3c49f6f07a8e8ca1d0cf1ff25ed90d0f6d619fd7f3f8ea70f58de17",
+    "evidence_lifecycle_state": "available",
+    "upload_state": "available"
+  },
+  "meta": {
+    "request_id": "req_01JQ8Y9AB3Q4WE7K3S8M0P6A6V"
+  }
+}
+```
+
+**REQ-01-462**
+A successful download-handle issuance MUST set `data.handle_kind='download'`, `data.single_use=true`, and `data.disposition='attachment'`. `data.preview_kind` MUST be absent from the response. Download handles MUST expire exactly 2 minutes after issuance. The base profile MUST NOT accept caller-controlled filename or disposition overrides on this route. A single-use download handle becomes consumed on the first successful redeem that starts byte delivery through `200`, `206`, or a validated internal redirect; a failed redeem that emits no bytes MUST NOT consume the handle. Resuming an interrupted download after a successful redeem requires a fresh download handle.
+Profiles: base
+Verified by: AC-231, AC-253, AC-254
+
+Example download-handle success payload:
+
+```json
+{
+  "data": {
+    "incident_id": "7d4cc0c6-8081-4b52-a7a8-3c2577fe5f7e",
+    "record_id": "5ad0f785-b814-4bd4-aee4-3c39769357a3",
+    "object_blob_id": "d1968f09-fd8c-4ca5-b8ea-1988931b6307",
+    "handle_kind": "download",
+    "href": "/api/v1/evidence-handles/hdl_01JQ8Y9CA9M6N8D4J1P3V5S7T9",
+    "method": "GET",
+    "expires_at": "2026-03-27T15:57:00Z",
+    "single_use": true,
+    "media_class": "image",
+    "disposition": "attachment",
+    "filename": "signin.png",
+    "content_type": "image/png",
+    "size_bytes": 188416,
+    "sha256": "c0c4f0a4e3c49f6f07a8e8ca1d0cf1ff25ed90d0f6d619fd7f3f8ea70f58de17",
+    "evidence_lifecycle_state": "available",
+    "upload_state": "available"
+  },
+  "meta": {
+    "request_id": "req_01JQ8Y9CA9M6N8D4J1P3V5S7T9"
+  }
+}
+```
+
+**REQ-01-463**
+Every redeem of `GET /api/v1/evidence-handles/{handle_token}` MUST re-check current session validity, current incident membership, current evidence or blob accessibility state, and handle freshness at redeem time. A handle MUST be bound, at minimum, to the issuing session, incident, `record_id`, `object_blob_id`, `handle_kind`, resolved `filename`, and `disposition`; preview handles MUST also bind `preview_kind`. A handle issued before logout, session expiry, incident-membership loss, blob detach or replacement, evidence delete or restore, quarantine, pending or failed blob transition, or detected evidence/blob inconsistency MUST fail closed when redeemed later.
+Profiles: base
+Verified by: AC-231, AC-254, AC-255
+
+**REQ-01-464**
+`data.filename` and any corresponding redeem header filename parameter MUST derive from authoritative object metadata, never from caller input and never from storage keys. The server MUST sanitize `/`, `\`, NUL, carriage return, and line feed, and MUST prevent path-like segments from surviving sanitization. If the authoritative filename is empty or unusable after sanitization, the fallback MUST be deterministic and use `evidence-<record_id><canonical_extension_if_known>`. Preview redeem MUST emit `Content-Disposition: inline`; download redeem MUST emit `Content-Disposition: attachment`. The actual header SHOULD include both an ASCII-safe `filename=` parameter and a Unicode-preserving `filename*=` parameter. The JSON issuance response MUST expose only `filename` and `disposition`, not a pre-rendered header string.
+Profiles: base
+Verified by: AC-231, AC-256
+
+**REQ-01-465**
+Issuance MUST use `invalid_evidence_handle_request`, `evidence_record_not_found`, and `evidence_access_unavailable` from §3.3.6.1. Redemption MUST use `handle_not_found_or_revoked`, `handle_expired`, `handle_consumed`, and `evidence_access_unavailable`. Standard authentication or session failures MUST occur before handle-specific lookup and MUST use the ordinary authentication envelope rather than a handle-specific code. Whenever `evidence_access_unavailable` is used on issuance or redemption, `error.details.reason_code` MUST use the exact `evidence_access_unavailable` registry from §3.3.6.2.
+Profiles: base
+Verified by: AC-231, AC-251, AC-252, AC-253, AC-254, AC-255
+
+Example blocked preview response:
+
+```json
+{
+  "error": {
+    "status": 409,
+    "code": "evidence_access_unavailable",
+    "message": "Preview is not available for this evidence.",
+    "retryable": false,
+    "details": {
+      "record_id": "5ad0f785-b814-4bd4-aee4-3c39769357a3",
+      "reason_code": "unsupported_preview"
+    }
+  },
+  "meta": {
+    "request_id": "req_01JQ8Y9DA1N7R2C5V4M8K6X0P2"
+  }
+}
+```

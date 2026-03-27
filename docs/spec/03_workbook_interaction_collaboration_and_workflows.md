@@ -890,15 +890,17 @@ Verified by: AC-015, AC-016, AC-103, AC-128, AC-154, AC-155, AC-231
 
 ### 8.4 Evidence access
 
+Core 01 §16 owns the evidence-access handle wire contract. This subsection owns workbook-surface invocation, layout, and blocked-state behavior only.
+
 **REQ-03-127**
-Evidence preview MUST open without forcing a full-page navigation away from the grid. A bottom or side preview is acceptable.
+Evidence preview MUST open without forcing a full-page navigation away from the grid. A bottom or side preview is acceptable. When preview is unavailable because the server returns `unsupported_preview` or another blocked evidence-access state, the grid or inspector MUST remain in place and surface that state inline rather than silently falling back to download or navigating away.
 Profiles: base
-Verified by: AC-053, AC-054, AC-103, AC-128, AC-231
+Verified by: AC-053, AC-054, AC-103, AC-128, AC-231, AC-252, AC-255
 
 **REQ-03-128**
-The public interface for preview or download MUST use short-lived authorization-checked preview or download handles, such as `preview-handle` or `download-handle` routes. It MUST NOT expose long-lived object-store credentials or bypass the blob-versus-evidence lifecycle checks defined above.
+Workbook preview and download affordances MUST invoke the Core 01 evidence-access handle contract. Clients MUST treat returned `href` values as opaque same-origin URLs and MUST NOT synthesize object-store URLs or parse handle tokens.
 Profiles: base
-Verified by: AC-053, AC-054, AC-103, AC-128, AC-231
+Verified by: AC-053, AC-054, AC-103, AC-128, AC-231, AC-252, AC-253, AC-254
 
 ## 9. Mention resolution workflow
 

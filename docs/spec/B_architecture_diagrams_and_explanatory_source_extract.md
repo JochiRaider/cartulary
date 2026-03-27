@@ -31,7 +31,8 @@ flowchart LR
     Reviewer <-- HTTPS / WebSocket --> App
 
     App <-- SQL --> PG
-    App <-- Presigned upload / download --> OBJ
+    App <-- Presigned upload --> OBJ
+    App <-- Validated preview/download handle redeem --> OBJ
     App -. future enterprise auth .-> IdP
 ```
 
@@ -89,7 +90,7 @@ flowchart TB
 | Auth module                 | Local accounts, sessions, MFA, provider mapping for future OIDC/SAML                                   |
 | Timeline module             | Rapid row creation, inline edits, rough capture storage                                                |
 | Entity module               | Host/identity records, aliases, unresolved mentions, resolution workflows                              |
-| Evidence module             | Evidence lifecycle, upload finalization, object metadata, previews, linking evidence to records        |
+| Evidence module             | Evidence lifecycle, upload finalization, object metadata, same-origin handle issuance and redemption, safe preview transforms, blocked preview states, linking evidence to records        |
 | Imports & tabular-ingest module | CSV/XLSX adaptation, workbook inspection, preview/header mapping, provenance capture, compatibility shims, and background import apply |
 | Link graph & tagging        | Typed relationships and lightweight labels                                                             |
 | Revision module             | Change sets, mutation-entry history, row-centric revisions, rollback                                   |

@@ -55,10 +55,35 @@ sequenceDiagram
     App->>PG: insert records + evidence_records + record_links + change_set_mutations + record_revisions
     App->>PG: rebuild timeline_grid_projection(row)
     PG-->>App: commit
-    App-->>UI: evidence_count=1 and preview available
+    App-->>UI: evidence_count=1 and preview affordance available when previewable
 ```
 
 Important design choice: upload is **two-step** so incomplete uploads do not leave fake evidence attached. Abandoned pending blobs are cleaned up later. The same evidence model also supports requested-but-not-yet-received evidence: an evidence record can be created in `requested` or `pending_receipt` state with no blob, then later advanced to `received` or `available` as custody events and uploads occur.
+
+### 2a. Evidence preview and download access
+
+```mermaid
+sequenceDiagram
+    participant UI as Browser grid / inspector
+    participant App as App API
+    participant PG as Postgres
+    participant OBJ as Object store
+
+    UI->>App: POST /preview-handle {} or POST /download-handle {}
+    App->>PG: validate session, incident membership, evidence/blob state
+    App-->>UI: opaque same-origin href + expires_at + single_use + preview/media metadata
+    UI->>App: GET /api/v1/evidence-handles/{handle_token}
+    App->>PG: re-check session, membership, and current evidence/blob state
+    alt redeem allowed
+        App->>OBJ: fetch source bytes or derived safe preview bytes
+        OBJ-->>App: bytes
+        App-->>UI: inline preview bytes or validated download response
+    else blocked or unsupported
+        App-->>UI: explicit error; no silent fallback
+    end
+```
+
+The handle returned to the browser is same-origin and opaque. The browser redeems it through the application, not by constructing raw object-store URLs, and blocked preview states surface explicitly instead of silently collapsing into download.
 
 ### 3. Later linkage of the event to canonical host and identity records
 
@@ -536,6 +561,7 @@ The grid remains denormalized; writes still go back to source tables. Type chips
 - Header with current record identity and quick tabs.
 - Body tabs for details, relationships, evidence, history.
 - Actions stay in-panel; the main grid remains visible.
+- `[Open preview]` issues a fresh preview handle and stays in-panel. `[Download]` issues a fresh single-use download handle. If preview is blocked or unsupported, the inspector remains in place and shows an inline explanation plus `[Download]` when allowed.
 
 #### Inline editing and linking
 

@@ -133,9 +133,9 @@ Profiles: base
 Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231
 
 **REQ-04-023**
-API routes, preview or download handle issuance, job polling, and WebSocket incident subscriptions MUST re-derive authorization from the caller's current incident membership and role at request time.
+API routes, preview or download handle issuance and redemption, job polling, and WebSocket incident subscriptions MUST re-derive authorization from the caller's current incident membership and role at request time.
 Profiles: base
-Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231
+Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-254, AC-255
 
 **REQ-04-024**
 `task_request`, `decision`, and coordination artifacts such as `comm_log`, `handoff`, `status_review`, and `lesson` MUST inherit the same incident-level authorization model. The base profile MUST NOT introduce record-specific ACLs or hidden sub-workspaces for these objects.
@@ -359,12 +359,12 @@ Verified by: AC-049, AC-050, AC-051, AC-052, AC-053, AC-054, AC-055, AC-130, AC-
 - **CWE-1236**: CSV, XLSX, and clipboard exports intended for spreadsheet consumption MUST neutralize leading formula characters before write. At minimum, values beginning with `=`, `+`, `-`, `@`, tab, or carriage return MUST be emitted with a lossless neutralizing prefix such as `'`, unless an explicit raw-forensic export mode is selected with a visible danger warning.
 - **CWE-22 / CWE-73**: User-supplied filenames, archive entry names, and import paths MUST be treated as metadata, not authority. The system MUST assign storage keys, MUST reject absolute paths and parent traversal, and MUST extract archives only inside a staging root that cannot escape the declared runtime roots.
 - **CWE-353**: Reference packs and any incident import bundle format, when implemented, MUST fail closed on checksum mismatch, signature mismatch, incomplete download, or missing required integrity metadata.
-- **CWE-434**: Evidence, reference-pack, and workbook-import uploads MUST be treated as hostile content. The application unit MUST NOT execute uploaded content, workbook formulas, macros or VBA, workbook automation, or external links during import or preview, and preview generation MUST use only allowlisted non-executing transforms. Active-content types MUST remain download-only or isolated from the main application origin unless a dedicated isolated analysis path is explicitly implemented.
-- **CWE-639**: Every mutation, preview, download, and object-store URL issuance MUST re-derive authorization server-side from the target object's owning incident and the caller's current membership and role. Client-supplied incident identifiers, ownership metadata, or role claims MUST NOT determine access.
+- **CWE-434**: Evidence, reference-pack, and workbook-import uploads MUST be treated as hostile content. The application unit MUST NOT execute uploaded content, workbook formulas, macros or VBA, workbook automation, or external links during import or preview. Preview issuance MUST succeed only for allowlisted non-executing `preview_kind` values, and preview or download redemption MUST fail closed when current blob or evidence state is pending, failed, missing, quarantined, or inconsistent. Active-content types MUST remain download-only or isolated from the main application origin unless a dedicated isolated analysis path is explicitly implemented.
+- **CWE-639**: Every mutation, preview or download handle issuance, preview or download handle redemption, and object-store URL issuance MUST re-derive authorization server-side from the target object's owning incident and the caller's current membership and role. Client-supplied incident identifiers, ownership metadata, or role claims MUST NOT determine access.
 - **CWE-352**: State-changing HTTP routes authenticated by cookie MUST require CSRF protection that fails closed. WebSocket upgrades and any incident subscription step MUST verify the authenticated session and incident authorization before joining an incident-scoped stream. Cookie-authenticated browser WebSocket connections MUST reject untrusted `Origin` values before the socket joins an incident-scoped stream.
 - **CWE-312**: Deployments intended for portable or flyaway use MUST keep database storage, object storage, reference-pack storage, temporary work files that carry incident data, and export outputs on encrypted storage. Unencrypted removable media or unencrypted portable roots are non-conformant for flyaway handling.
 Profiles: base, import, reference_pack
-Verified by: AC-049, AC-050, AC-051, AC-052, AC-053, AC-054, AC-055, AC-130, AC-131, AC-231, AC-232, AC-234
+Verified by: AC-049, AC-050, AC-051, AC-052, AC-053, AC-054, AC-055, AC-130, AC-131, AC-231, AC-232, AC-234, AC-252, AC-253, AC-254, AC-255
 
 ## 5. Deployment profiles
 
@@ -510,7 +510,7 @@ A Base claim selects every requirement block tagged `base`.
 Definition of Done:
 
 - requirement selector: `profile:base`
-- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-237..AC-250`
+- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-237..AC-256`
 - **AC-231**: A Base claim is conformant only when every requirement selected by `profile:base` is implemented and every acceptance criterion listed in this manifest passes.
   - Verifies: `profile:base`
 
@@ -973,6 +973,18 @@ Definition of Done:
   - Verifies: REQ-01-025, REQ-01-234
 - **AC-250**: `POST /api/v1/auth/login` with `client_txn_id`, `id_token`, `authorization_code`, `saml_response`, `provider_assertion`, or equivalent provider-specific assertion material returns `400 error.code='invalid_auth_request'` and is not interpreted as local login or provider-backed sign-in on that route.
   - Verifies: REQ-01-025, REQ-01-031, REQ-01-234
+- **AC-251**: `POST /api/v1/evidence-records/{record_id}/preview-handle` and `POST /api/v1/evidence-records/{record_id}/download-handle` accept `{}` as a legal request body and reject a zero-length body, `null`, any non-object JSON value, or any unknown top-level member with `400 error.code='invalid_evidence_handle_request'`.
+  - Verifies: REQ-01-032, REQ-01-234, REQ-01-459, REQ-01-465
+- **AC-252**: For previewable evidence, `POST /api/v1/evidence-records/{record_id}/preview-handle` returns the standard success envelope with `incident_id`, `record_id`, `object_blob_id`, `handle_kind='preview'`, an opaque same-origin `href`, `method='GET'`, `expires_at`, `single_use=false`, `media_class`, `preview_kind`, `disposition='inline'`, `filename`, `content_type`, `size_bytes`, `sha256`, `evidence_lifecycle_state`, and `upload_state`; `expires_at` is exactly 5 minutes after issuance; two back-to-back successful preview-handle issuances for the same evidence return distinct handles; redeeming the handle keeps preview in-panel or in an equivalent same-surface region without forcing full-page navigation; and when safe preview is not allowed, issuance fails with `409 error.code='evidence_access_unavailable'` and `error.details.reason_code='unsupported_preview'`.
+  - Verifies: REQ-01-032, REQ-01-234, REQ-01-238, REQ-01-247, REQ-01-458, REQ-01-460..REQ-01-461, REQ-01-465, REQ-02-222..REQ-02-223, REQ-03-127..REQ-03-128, REQ-04-053
+- **AC-253**: For downloadable evidence, `POST /api/v1/evidence-records/{record_id}/download-handle` returns the standard success envelope with `incident_id`, `record_id`, `object_blob_id`, `handle_kind='download'`, an opaque same-origin `href`, `method='GET'`, `expires_at`, `single_use=true`, `media_class`, `disposition='attachment'`, `filename`, `content_type`, `size_bytes`, `sha256`, `evidence_lifecycle_state`, and `upload_state`, omits `preview_kind`, and sets `expires_at` exactly 2 minutes after issuance.
+  - Verifies: REQ-01-032, REQ-01-234, REQ-01-247, REQ-01-458, REQ-01-460, REQ-01-462, REQ-01-465, REQ-02-222..REQ-02-223, REQ-03-128
+- **AC-254**: A preview handle can be redeemed multiple times before expiry, including byte-range reads; a download handle is consumed by the first successful redeem that starts byte delivery; a second redeem of that download handle fails with `410 error.code='handle_consumed'`; an expired redeem fails with `410 error.code='handle_expired'`; and a caller who loses session validity or incident membership after issuance cannot redeem the handle successfully.
+  - Verifies: REQ-01-032, REQ-01-234, REQ-01-247, REQ-01-458, REQ-01-462..REQ-01-463, REQ-01-465, REQ-03-128, REQ-04-023
+- **AC-255**: If a handle is issued before blob detach, pending or failed transition, missing backing object, quarantine, evidence delete or restore, or detected evidence/blob inconsistency, redeeming that same handle later fails closed with `409 error.code='evidence_access_unavailable'` and the correct `reason_code`; when preview is blocked for one of those reasons, the workbook remains in place and surfaces the blocked state inline rather than silently falling back to download.
+  - Verifies: REQ-01-032, REQ-01-234, REQ-01-238, REQ-01-247, REQ-01-459, REQ-01-463, REQ-01-465, REQ-03-127, REQ-04-023, REQ-04-053
+- **AC-256**: Issuance returns sanitized `filename` and `disposition`; preview redeem uses `Content-Disposition: inline`; download redeem uses `Content-Disposition: attachment`; each disposition header includes both `filename=` and `filename*=` parameters; and when the authoritative filename is empty or unusable after sanitization, the fallback name is `evidence-<record_id><canonical_extension_if_known>`.
+  - Verifies: REQ-01-460, REQ-01-464
 - **AC-124**: `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query` accepts a field-key-based sort, filter, and grouping contract and returns rows with `record_id`, `row_version`, field-key-addressable cells, and cursor metadata; group headers are not serialized as writable rows.
   - Verifies: REQ-00-014, REQ-01-019..REQ-01-022, REQ-01-034..REQ-01-056, REQ-01-285..REQ-01-290,
     REQ-01-307..REQ-01-341, REQ-03-223..REQ-03-224, REQ-03-236..REQ-03-241

@@ -114,7 +114,7 @@ Every source section lands in at least one derived target and in the full-source
 | REQ-01-029 | Core 01 §3.3.2 Session and authentication routes | base | AC-123, AC-130, AC-156..AC-162, AC-231 |
 | REQ-01-030 | Core 01 §3.3.2 Session and authentication routes | base | AC-123, AC-130, AC-156..AC-162, AC-231 |
 | REQ-01-031 | Core 01 §3.3.2 Session and authentication routes | base, enterprise_authentication | AC-123, AC-130, AC-156..AC-162, AC-231, AC-235, AC-250 |
-| REQ-01-032 | Core 01 §3.3.3 Route families | base | AC-175..AC-180, AC-186..AC-187, AC-231 |
+| REQ-01-032 | Core 01 §3.3.3 Route families | base | AC-175..AC-180, AC-186..AC-187, AC-231, AC-251..AC-255 |
 | REQ-01-033 | Core 01 §3.3.3 Route families | base, snapshot_reporting, reference_pack | AC-175..AC-180, AC-186..AC-187, AC-231, AC-233..AC-234 |
 | REQ-01-034 | Core 01 §3.3.4 View-shaped read contract | base | AC-124, AC-127, AC-184..AC-185, AC-231 |
 | REQ-01-035 | Core 01 §3.3.4 View-shaped read contract | base | AC-124, AC-127, AC-184..AC-185, AC-231, AC-238..AC-240, AC-243 |
@@ -316,11 +316,11 @@ Every source section lands in at least one derived target and in the full-source
 | REQ-01-231 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
 | REQ-01-232 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
 | REQ-01-233 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
-| REQ-01-234 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231, AC-239..AC-240, AC-245..AC-247, AC-249..AC-250 |
+| REQ-01-234 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231, AC-239..AC-240, AC-245..AC-247, AC-249..AC-256 |
 | REQ-01-235 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
 | REQ-01-236 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
 | REQ-01-237 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-187, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
-| REQ-01-238 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231, AC-239..AC-240 |
+| REQ-01-238 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231, AC-239..AC-240, AC-252, AC-255 |
 | REQ-01-239 | Core 01 §3.3.6 Success and error envelopes | base | AC-126, AC-203..AC-208, AC-211, AC-213..AC-214, AC-218..AC-219, AC-231 |
 | REQ-01-240 | Core 01 §3.3.7 Pagination and cursor contract | base | AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-238..AC-240 |
 | REQ-01-241 | Core 01 §3.3.7 Pagination and cursor contract | base | AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-239 |
@@ -329,7 +329,7 @@ Every source section lands in at least one derived target and in the full-source
 | REQ-01-244 | Core 01 §3.3.8 Evidence and blob routes | base | AC-015..AC-016, AC-102..AC-103, AC-128, AC-154..AC-155, AC-231 |
 | REQ-01-245 | Core 01 §3.3.8 Evidence and blob routes | base | AC-015..AC-016, AC-102..AC-103, AC-128, AC-154..AC-155, AC-231 |
 | REQ-01-246 | Core 01 §3.3.8 Evidence and blob routes | base | AC-015..AC-016, AC-102..AC-103, AC-128, AC-154..AC-155, AC-231 |
-| REQ-01-247 | Core 01 §3.3.8 Evidence and blob routes | base | AC-015..AC-016, AC-102..AC-103, AC-128, AC-154..AC-155, AC-231 |
+| REQ-01-247 | Core 01 §3.3.8 Evidence and blob routes | base | AC-015..AC-016, AC-102..AC-103, AC-128, AC-154..AC-155, AC-231, AC-251..AC-255 |
 | REQ-01-248 | Core 01 §3.3.9 Background-job routes | base | AC-046, AC-129, AC-231 |
 | REQ-01-249 | Core 01 §3.3.9 Background-job routes | base | AC-046, AC-129, AC-231 |
 | REQ-01-250 | Core 01 §3.3.10 WebSocket collaboration stream | base | AC-129, AC-131..AC-136, AC-156..AC-163, AC-231 |
@@ -540,6 +540,14 @@ Every source section lands in at least one derived target and in the full-source
 | REQ-01-455 | Core 01 §14 Runtime roots and packaging | base, reference_pack | AC-051, AC-055, AC-169, AC-231, AC-234 |
 | REQ-01-456 | Core 01 §14 Runtime roots and packaging | base | AC-051, AC-055, AC-169, AC-231 |
 | REQ-01-457 | Core 01 §15 Architecture invariants | base, import, snapshot_reporting, incident_portability | AC-231..AC-233, AC-236 |
+| REQ-01-458 | Core 01 §16 Evidence-access handle contract | base | AC-231, AC-252..AC-254 |
+| REQ-01-459 | Core 01 §16 Evidence-access handle contract | base | AC-231, AC-251, AC-255 |
+| REQ-01-460 | Core 01 §16 Evidence-access handle contract | base | AC-231, AC-252..AC-253, AC-256 |
+| REQ-01-461 | Core 01 §16 Evidence-access handle contract | base | AC-231, AC-252 |
+| REQ-01-462 | Core 01 §16 Evidence-access handle contract | base | AC-231, AC-253..AC-254 |
+| REQ-01-463 | Core 01 §16 Evidence-access handle contract | base | AC-231, AC-254..AC-255 |
+| REQ-01-464 | Core 01 §16 Evidence-access handle contract | base | AC-231, AC-256 |
+| REQ-01-465 | Core 01 §16 Evidence-access handle contract | base | AC-231, AC-251..AC-255 |
 | REQ-02-001 | Core 02 §1 Domain-model goals | base, reference_pack | AC-231, AC-234 |
 | REQ-02-002 | Core 02 §1 Domain-model goals | base | AC-231 |
 | REQ-02-003 | Core 02 §2 Core record types | base, reference_pack | AC-231, AC-234 |
@@ -761,8 +769,8 @@ Every source section lands in at least one derived target and in the full-source
 | REQ-02-219 | Core 02 §15.4 Entity-merge history | base | AC-023, AC-186, AC-209, AC-217, AC-231 |
 | REQ-02-220 | Core 02 §15.4 Entity-merge history | base | AC-023, AC-186, AC-209, AC-217, AC-231 |
 | REQ-02-221 | Core 02 §17 Domain invariants | base, reference_pack | AC-231, AC-234 |
-| REQ-02-222 | Core 02 §18 Canonical closed-vocabulary registry | base, incident_portability | AC-076..AC-084, AC-121..AC-122, AC-137..AC-145, AC-231, AC-236 |
-| REQ-02-223 | Core 02 §18 Canonical closed-vocabulary registry | base | AC-076..AC-084, AC-121..AC-122, AC-137..AC-145, AC-231 |
+| REQ-02-222 | Core 02 §18 Canonical closed-vocabulary registry | base, incident_portability | AC-076..AC-084, AC-121..AC-122, AC-137..AC-145, AC-231, AC-236, AC-252..AC-253 |
+| REQ-02-223 | Core 02 §18 Canonical closed-vocabulary registry | base | AC-076..AC-084, AC-121..AC-122, AC-137..AC-145, AC-231, AC-252..AC-253 |
 | REQ-03-001 | Core 03 §1 Interaction model | base | AC-001..AC-002, AC-005, AC-043, AC-231 |
 | REQ-03-002 | Core 03 §1 Interaction model | base | AC-001..AC-002, AC-005, AC-043, AC-231 |
 | REQ-03-003 | Core 03 §1 Interaction model | base | AC-001..AC-002, AC-005, AC-043, AC-231 |
@@ -889,8 +897,8 @@ Every source section lands in at least one derived target and in the full-source
 | REQ-03-124 | Core 03 §8.3 Blob and evidence lifecycle bridge | base | AC-015..AC-016, AC-103, AC-128, AC-154..AC-155, AC-231 |
 | REQ-03-125 | Core 03 §8.3 Blob and evidence lifecycle bridge | base | AC-015..AC-016, AC-103, AC-128, AC-154..AC-155, AC-231 |
 | REQ-03-126 | Core 03 §8.3 Blob and evidence lifecycle bridge | base | AC-015..AC-016, AC-103, AC-128, AC-154..AC-155, AC-231 |
-| REQ-03-127 | Core 03 §8.4 Evidence access | base | AC-053..AC-054, AC-103, AC-128, AC-231 |
-| REQ-03-128 | Core 03 §8.4 Evidence access | base | AC-053..AC-054, AC-103, AC-128, AC-231 |
+| REQ-03-127 | Core 03 §8.4 Evidence access | base | AC-053..AC-054, AC-103, AC-128, AC-231, AC-252, AC-255 |
+| REQ-03-128 | Core 03 §8.4 Evidence access | base | AC-053..AC-054, AC-103, AC-128, AC-231, AC-252..AC-254 |
 | REQ-03-129 | Core 03 §9 Mention resolution workflow | base | AC-006, AC-019..AC-021, AC-188..AC-190, AC-221..AC-225, AC-231 |
 | REQ-03-130 | Core 03 §9 Mention resolution workflow | base | AC-006, AC-019..AC-021, AC-188..AC-190, AC-221..AC-225, AC-231 |
 | REQ-03-131 | Core 03 §9 Mention resolution workflow | base | AC-006, AC-019..AC-021, AC-188..AC-190, AC-221..AC-225, AC-231 |
@@ -1050,7 +1058,7 @@ Every source section lands in at least one derived target and in the full-source
 | REQ-04-020 | Core 04 §1.2 Enterprise Authentication Extension Profile | enterprise_authentication | AC-036, AC-235 |
 | REQ-04-021 | Core 04 §2 Authorization model | base | AC-054, AC-149, AC-178..AC-180, AC-231 |
 | REQ-04-022 | Core 04 §2 Authorization model | base | AC-054, AC-149, AC-178..AC-180, AC-231 |
-| REQ-04-023 | Core 04 §2 Authorization model | base | AC-054, AC-149, AC-178..AC-180, AC-231 |
+| REQ-04-023 | Core 04 §2 Authorization model | base | AC-054, AC-149, AC-178..AC-180, AC-231, AC-254..AC-255 |
 | REQ-04-024 | Core 04 §2 Authorization model | base | AC-054, AC-149, AC-178..AC-180, AC-231 |
 | REQ-04-025 | Core 04 §2 Authorization model | base | AC-054, AC-149, AC-178..AC-180, AC-231 |
 | REQ-04-026 | Core 04 §2 Authorization model | base | AC-054, AC-149, AC-178..AC-180, AC-231 |
@@ -1080,7 +1088,7 @@ Every source section lands in at least one derived target and in the full-source
 | REQ-04-050 | Core 04 §4.4 STRIDE threat model | base | AC-048, AC-231 |
 | REQ-04-051 | Core 04 §4.4 STRIDE threat model | base | AC-048, AC-231 |
 | REQ-04-052 | Core 04 §4.5 Focused MITRE CWE constraints | base | AC-049..AC-055, AC-130..AC-131, AC-231 |
-| REQ-04-053 | Core 04 §4.5 Focused MITRE CWE constraints | base, import, reference_pack | AC-049..AC-055, AC-130..AC-131, AC-231..AC-232, AC-234 |
+| REQ-04-053 | Core 04 §4.5 Focused MITRE CWE constraints | base, import, reference_pack | AC-049..AC-055, AC-130..AC-131, AC-231..AC-232, AC-234, AC-252..AC-255 |
 | REQ-04-054 | Core 04 §5.1 Flyaway or disconnected deployment | base | AC-055, AC-092, AC-096, AC-169, AC-231 |
 | REQ-04-055 | Core 04 §5.1 Flyaway or disconnected deployment | base, reference_pack | AC-055, AC-092, AC-096, AC-169, AC-231, AC-234 |
 | REQ-04-056 | Core 04 §5.2 On-prem deployment | base | AC-231 |
@@ -1328,7 +1336,7 @@ Every source section lands in at least one derived target and in the full-source
 | AC-228 | REQ-03-048..REQ-03-076 |
 | AC-229 | REQ-03-048..REQ-03-076 |
 | AC-230 | REQ-03-048..REQ-03-076 |
-| AC-231 | REQ-00-001..REQ-00-003, REQ-00-005..REQ-00-017, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-457, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-223, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-265, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-048..REQ-04-065 |
+| AC-231 | REQ-00-001..REQ-00-003, REQ-00-005..REQ-00-017, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-465, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-223, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-265, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-048..REQ-04-065 |
 | AC-232 | REQ-00-004, REQ-01-006..REQ-01-014, REQ-01-457, REQ-02-032, REQ-02-045..REQ-02-053, REQ-02-202, REQ-03-146..REQ-03-147, REQ-03-153..REQ-03-204, REQ-03-208, REQ-04-053 |
 | AC-233 | REQ-00-004, REQ-00-015, REQ-01-004, REQ-01-018, REQ-01-033, REQ-01-068, REQ-01-078, REQ-01-098, REQ-01-251, REQ-01-263, REQ-01-265, REQ-01-270, REQ-01-273..REQ-01-274, REQ-01-278..REQ-01-279, REQ-01-368..REQ-01-398, REQ-01-452, REQ-01-457, REQ-02-009, REQ-02-112, REQ-02-139..REQ-02-146, REQ-02-200, REQ-02-202, REQ-02-206..REQ-02-207, REQ-02-211, REQ-02-217, REQ-03-021, REQ-03-078, REQ-03-094, REQ-04-027, REQ-04-031..REQ-04-035, REQ-04-044..REQ-04-047 |
 | AC-234 | REQ-00-004, REQ-00-013, REQ-00-015, REQ-01-018, REQ-01-033, REQ-01-278, REQ-01-282..REQ-01-284, REQ-01-286, REQ-01-308, REQ-01-310, REQ-01-399..REQ-01-422, REQ-01-452, REQ-01-455, REQ-02-001, REQ-02-003, REQ-02-009, REQ-02-202, REQ-02-221, REQ-04-040..REQ-04-043, REQ-04-053, REQ-04-055, REQ-04-058 |
@@ -1348,14 +1356,20 @@ Every source section lands in at least one derived target and in the full-source
 | AC-248 | REQ-01-025 |
 | AC-249 | REQ-01-025, REQ-01-234 |
 | AC-250 | REQ-01-025, REQ-01-031, REQ-01-234 |
+| AC-251 | REQ-01-032, REQ-01-234, REQ-01-459, REQ-01-465 |
+| AC-252 | REQ-01-032, REQ-01-234, REQ-01-238, REQ-01-247, REQ-01-458, REQ-01-460..REQ-01-461, REQ-01-465, REQ-02-222..REQ-02-223, REQ-03-127..REQ-03-128, REQ-04-053 |
+| AC-253 | REQ-01-032, REQ-01-234, REQ-01-247, REQ-01-458, REQ-01-460, REQ-01-462, REQ-01-465, REQ-02-222..REQ-02-223, REQ-03-128 |
+| AC-254 | REQ-01-032, REQ-01-234, REQ-01-247, REQ-01-458, REQ-01-462..REQ-01-463, REQ-01-465, REQ-03-128, REQ-04-023 |
+| AC-255 | REQ-01-032, REQ-01-234, REQ-01-238, REQ-01-247, REQ-01-459, REQ-01-463, REQ-01-465, REQ-03-127, REQ-04-023, REQ-04-053 |
+| AC-256 | REQ-01-460, REQ-01-464 |
 
 ## F.6 Profile Definition-of-Done navigation
 
 | Profile | Prerequisite claim | Required REQs | Required ACs |
 | --- | --- | --- | --- |
-| base | — | REQ-00-001..REQ-00-003, REQ-00-005..REQ-00-017, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-457, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-223, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-265, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-048..REQ-04-065 | AC-001..AC-026, AC-037..AC-055, AC-097..AC-103, AC-107..AC-112, AC-116..AC-163, AC-170..AC-231, AC-237..AC-250 |
-| import | base | REQ-00-001..REQ-00-017, REQ-01-001..REQ-01-368, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-457, REQ-02-001..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-223, REQ-03-001..REQ-03-265, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-048..REQ-04-065 | AC-001..AC-029, AC-037..AC-055, AC-063..AC-067, AC-097..AC-103, AC-107..AC-112, AC-116..AC-163, AC-170..AC-232, AC-237..AC-250 |
-| snapshot_reporting | base | REQ-00-001..REQ-00-017, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-398, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-457, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-223, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-265, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-039, REQ-04-044..REQ-04-065 | AC-001..AC-026, AC-030..AC-032, AC-037..AC-062, AC-091, AC-097..AC-163, AC-170..AC-231, AC-233, AC-237..AC-250 |
-| reference_pack | base | REQ-00-001..REQ-00-017, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-399..REQ-01-424, REQ-01-451..REQ-01-457, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-223, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-265, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-043, REQ-04-048..REQ-04-065 | AC-001..AC-026, AC-033..AC-035, AC-037..AC-055, AC-092..AC-103, AC-107..AC-112, AC-116..AC-163, AC-170..AC-231, AC-234, AC-237..AC-250 |
-| incident_portability | base | REQ-00-001..REQ-00-017, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-423..REQ-01-457, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-223, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-265, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-044..REQ-04-065 | AC-001..AC-026, AC-037..AC-055, AC-097..AC-103, AC-107..AC-112, AC-116..AC-231, AC-236..AC-250 |
-| enterprise_authentication | base | REQ-00-001..REQ-00-017, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-457, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-223, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-265, REQ-04-001..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-048..REQ-04-065 | AC-001..AC-026, AC-036..AC-055, AC-097..AC-103, AC-107..AC-112, AC-116..AC-163, AC-170..AC-231, AC-235, AC-237..AC-250 |
+| base | — | REQ-00-001..REQ-00-003, REQ-00-005..REQ-00-017, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-465, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-223, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-265, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-048..REQ-04-065 | AC-001..AC-026, AC-037..AC-055, AC-097..AC-103, AC-107..AC-112, AC-116..AC-163, AC-170..AC-231, AC-237..AC-256 |
+| import | base | REQ-00-001..REQ-00-017, REQ-01-001..REQ-01-368, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-465, REQ-02-001..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-223, REQ-03-001..REQ-03-265, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-048..REQ-04-065 | AC-001..AC-029, AC-037..AC-055, AC-063..AC-067, AC-097..AC-103, AC-107..AC-112, AC-116..AC-163, AC-170..AC-232, AC-237..AC-256 |
+| snapshot_reporting | base | REQ-00-001..REQ-00-017, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-398, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-465, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-223, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-265, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-039, REQ-04-044..REQ-04-065 | AC-001..AC-026, AC-030..AC-032, AC-037..AC-062, AC-091, AC-097..AC-163, AC-170..AC-231, AC-233, AC-237..AC-256 |
+| reference_pack | base | REQ-00-001..REQ-00-017, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-399..REQ-01-424, REQ-01-451..REQ-01-465, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-223, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-265, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-043, REQ-04-048..REQ-04-065 | AC-001..AC-026, AC-033..AC-035, AC-037..AC-055, AC-092..AC-103, AC-107..AC-112, AC-116..AC-163, AC-170..AC-231, AC-234, AC-237..AC-256 |
+| incident_portability | base | REQ-00-001..REQ-00-017, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-423..REQ-01-465, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-223, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-265, REQ-04-001..REQ-04-017, REQ-04-021..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-044..REQ-04-065 | AC-001..AC-026, AC-037..AC-055, AC-097..AC-103, AC-107..AC-112, AC-116..AC-231, AC-236..AC-256 |
+| enterprise_authentication | base | REQ-00-001..REQ-00-017, REQ-01-001..REQ-01-009, REQ-01-015..REQ-01-368, REQ-01-423..REQ-01-424, REQ-01-451..REQ-01-465, REQ-02-001..REQ-02-044, REQ-02-054..REQ-02-138, REQ-02-147..REQ-02-210, REQ-02-212..REQ-02-223, REQ-03-001..REQ-03-152, REQ-03-205..REQ-03-265, REQ-04-001..REQ-04-030, REQ-04-036..REQ-04-039, REQ-04-048..REQ-04-065 | AC-001..AC-026, AC-036..AC-055, AC-097..AC-103, AC-107..AC-112, AC-116..AC-163, AC-170..AC-231, AC-235, AC-237..AC-256 |
