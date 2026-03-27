@@ -267,10 +267,9 @@ A view-query request MUST be view-shaped rather than table-shaped. It MUST accep
 - ordered `sort[]` entries keyed by `field_key`,
 - `filters[]` entries keyed by `field_key`,
 - zero or one `group_by` value chosen from the view's declared grouping keys,
-- optional integer `limit` as the only v1 page-size member,
-- an optional opaque `cursor_token`.
+- pagination members defined by §3.3.7.
 
-For `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`, `limit` MUST be a JSON integer in the inclusive range `1..500`. `limit=0`, negative values, non-integer values, and values greater than `500` MUST fail with `400`, `error.code=invalid_view_query`, and `error.details.reason_code=invalid_limit`. When `cursor_token` is absent, omitted `limit` MUST mean `100`. When `cursor_token` is present, omitted `limit` MUST mean reuse the cursor-bound effective `limit` from the request that produced that cursor. `limit` counts serialized `rows[]` entries only. The `/api/v1/` contract MUST NOT accept `block_size`, `page_size`, or any other alias for this member; a request that supplies such an alias MUST fail with `400`, `error.code=invalid_view_query`, and `error.details.reason_code=invalid_limit`.
+For `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`, `limit` and `cursor_token` MUST appear only as JSON-body members, not as query parameters. `limit` counts serialized `rows[]` entries only. A malformed pagination member, unsupported pagination alias, or cursor replay against a different bound view-query contract MUST fail with `400`, `error.code=invalid_view_query`, and `error.details.reason_code` equal to `invalid_limit` or `cursor_query_mismatch` from §3.3.6.2, as applicable.
 Profiles: base
 Verified by: AC-124, AC-127, AC-184, AC-185, AC-231, AC-238, AC-239, AC-240, AC-243
 
@@ -502,9 +501,9 @@ Profiles: base
 Verified by: AC-124, AC-127, AC-184, AC-185, AC-231
 
 **REQ-01-056**
-The route MAY paginate under §3.3.7. If it does, pagination MUST preserve the item-ordering rules in this subsection and the cursor MUST remain bound to `record_id`.
+The route MUST accept `limit` and `cursor_token` under §3.3.7 whenever more than one page is possible. Pagination MUST preserve the item-ordering rules in this subsection and the cursor MUST remain bound to `record_id`.
 Profiles: base
-Verified by: AC-124, AC-127, AC-184, AC-185, AC-231
+Verified by: AC-124, AC-127, AC-184, AC-185, AC-215, AC-231
 
 #### 3.3.5 Mutation contract
 
@@ -900,14 +899,14 @@ Profiles: base
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
 
 **REQ-01-117**
-`GET /api/v1/users` and `GET /api/v1/users/{user_id}` MUST fail closed unless the caller has the deployment-scoped account-administration capability defined by Core 04 §2. `GET /api/v1/users` MUST use the common success envelope with `data.users[]`, MUST use cursor pagination when more than one page is needed, and MUST return safe user resources ordered by `user_id asc`. Inert imported historical actors from incident portability are not login-capable user resources and MUST NOT be returned by this route family unless they have been explicitly mapped to a local user account.
+`GET /api/v1/users` and `GET /api/v1/users/{user_id}` MUST fail closed unless the caller has the deployment-scoped account-administration capability defined by Core 04 §2. `GET /api/v1/users` MUST return safe user resources ordered by `user_id asc`, MUST use the common success envelope with `data.users[]` plus `meta.paging`, and MUST accept only `limit` and `cursor_token` under §3.3.7. Pagination failures on this route MUST fail with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code` from the `invalid_pagination_request` registry in §3.3.6.2. Inert imported historical actors from incident portability are not login-capable user resources and MUST NOT be returned by this route family unless they have been explicitly mapped to a local user account.
 Profiles: base
-Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
+Verified by: AC-127, AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
 
 **REQ-01-118**
-`GET /api/v1/users/{user_id}` MUST return the common success envelope with `data` equal to the requested safe user resource.
+`GET /api/v1/users/{user_id}` MUST return the common success envelope with `data` equal to the requested safe user resource. Because this route is singleton, it MUST reject `limit`, `cursor_token`, and pagination aliases with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=pagination_not_supported`.
 Profiles: base
-Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
+Verified by: AC-127, AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
 
 **REQ-01-119**
 `POST /api/v1/users` MUST require the same deployment-scoped account-administration capability. The route MUST accept:
@@ -978,9 +977,9 @@ Profiles: base
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
 
 **REQ-01-129**
-`GET /api/v1/incidents/{incident_id}/memberships` MUST require current membership in that incident and MUST return the common success envelope with `data.memberships[]` ordered by `joined_at asc, user_id asc`.
+`GET /api/v1/incidents/{incident_id}/memberships` MUST require current membership in that incident, MUST return the common success envelope with `data.memberships[]` plus `meta.paging` ordered by `joined_at asc, user_id asc`, and MUST accept only `limit` and `cursor_token` under §3.3.7. Pagination failures on this route MUST fail with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code` from the `invalid_pagination_request` registry in §3.3.6.2.
 Profiles: base
-Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
+Verified by: AC-127, AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
 
 **REQ-01-130**
 `POST /api/v1/incidents/{incident_id}/memberships` MUST require the caller's current role on that incident to be `admin`. The route MUST accept:
@@ -1029,7 +1028,9 @@ A membership create, role change, or delete that would leave the incident withou
 Profiles: base
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
 
-#### 3.3.5.2 Saved-view and workbook-preference contracts
+#### 3.3.5.2 View-schema, saved-view, and workbook-preference contracts
+
+The public `view_schema` discovery-route shape is owned by REQ-01-288 in §6. This subsection owns saved-view and workbook-preference resources that bind to those schemas.
 
 **REQ-01-138**
 The saved-view route family MUST expose a saved-view resource containing, at minimum:
@@ -1074,9 +1075,9 @@ Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
 
 **REQ-01-144**
-`GET /api/v1/incidents/{incident_id}/saved-views` MUST return only the saved-view resources visible to the caller.
+`GET /api/v1/incidents/{incident_id}/saved-views` MUST return only the saved-view resources visible to the caller, MUST use the common success envelope with `data.saved_views[]` plus `meta.paging`, MUST order results by `updated_at desc, saved_view_id asc`, and MUST accept only `limit` and `cursor_token` under §3.3.7. Pagination failures on this route MUST fail with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code` from the `invalid_pagination_request` registry in §3.3.6.2.
 Profiles: base
-Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
+Verified by: AC-127, AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
 
 **REQ-01-145**
 `POST /api/v1/incidents/{incident_id}/saved-views` MUST accept `view_schema_id`, optional `scope`, `display_name`, `query_json`, and `layout_json`. If `scope` is omitted, the server MUST treat it as `private`. The ordinary public create route MUST reject `scope='system'`.
@@ -1119,7 +1120,7 @@ Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-
 #### 3.3.5.3 Incident resource and creation contract
 
 **REQ-01-152**
-This subsection owns the authoritative base-profile `POST /api/v1/incidents` request and response contract. Later sections MAY reference this contract but MUST NOT redefine create-time required fields, server-managed initial values, or the base-profile boundary between create-time-only fields and later patchable fields.
+This subsection owns the authoritative base-profile `/api/v1/incidents` route family and `GET /api/v1/incidents/{incident_id}` read contract. Later sections MAY reference this contract but MUST NOT redefine base-profile collection pagination, create-time required fields, server-managed initial values, or the boundary between create-time-only fields and later patchable fields.
 Profiles: base
 Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
 
@@ -1232,12 +1233,12 @@ Profiles: base
 Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
 
 
-##### 3.3.5.3.1 Incident retrieval and metadata patch contract
+##### 3.3.5.3.1 Incident list, retrieval, and metadata patch contract
 
 **REQ-01-168**
-`GET /api/v1/incidents/{incident_id}` MUST return the common success envelope with `data` equal to the requested incident resource. Any current incident member MAY call this route.
+`GET /api/v1/incidents` MUST return only incidents for which the caller currently has membership, MUST use the common success envelope with `data.incidents[]` plus `meta.paging`, MUST order results by `updated_at desc, incident_id asc`, MUST accept only `limit` and `cursor_token` under §3.3.7, and MUST define no additional base-profile list filters. `GET /api/v1/incidents/{incident_id}` MUST return the common success envelope with `data` equal to the requested incident resource, any current incident member MAY call this route, and because it is singleton the route MUST reject `limit`, `cursor_token`, and pagination aliases with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=pagination_not_supported`.
 Profiles: base
-Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
+Verified by: AC-127, AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
 
 **REQ-01-169**
 `incident_version` MUST equal `1` on a first-time successful create and MUST be monotonically increasing per `incident_id`.
@@ -1742,6 +1743,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `error.code` | Required `error.status` | Required `error.retryable` | Canonical meaning | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
 | `invalid_view_query` | `400` | `false` | The view-query request is malformed, uses a page-size member or page-size value not allowed by the route, replays a cursor against a different bound query contract, or uses a `field_key`, filter operator, or operand shape not allowed by the active `view_schema_id`. |  |  |  |
+| `invalid_pagination_request` | `400` | `false` | A non-view pageable or singleton route uses a page-size member or page-size value not allowed by the route, replays a cursor against a different bound route contract, or supplies pagination members to a route that does not support pagination. |  |  |  |
 | `invalid_mutation_payload` | `400` | `false` | A mutation request body is malformed, omits a route-required member, includes an unknown or forbidden member, uses an unknown `kind`, `op`, or `action`, targets a field/action or mention-action combination that is not allowed, or carries an invalid, foreign, or type-incompatible mutation target reference. |  |  |  |
 | `invalid_incident_create` | `400` | `false` | An incident-create request is malformed, omits required members, violates create-time field validation, attempts to set server-managed state, or includes a rejected collaborator-seeding payload. |  |  |  |
 | `invalid_incident_patch` | `400` | `false` | An incident-metadata patch request is malformed, omits required `base_incident_version`, attempts to mutate an immutable or server-managed incident field, or includes unknown top-level members. |  |  |  |
@@ -1798,8 +1800,16 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `operator_not_allowed` | `op` is not allowed for that field's declared filter class. |
 | `invalid_filter_operand` | `arg` is malformed, empty after normalization, contradictory, or otherwise invalid for the selected `op`. |
 | `duplicate_filter_field` | The request contains more than one normalized filter entry for the same `field_key`. |
-| `invalid_limit` | The request supplies `limit` with a non-integer JSON type, a value less than `1`, a value greater than `500`, or an unsupported page-size alias such as `block_size` or `page_size`. |
+| `invalid_limit` | The request supplies `limit` with a non-integer JSON type, a value less than `1`, a value greater than `500`, or an unsupported page-size alias such as `page`, `offset`, `block_size`, or `page_size`. |
 | `cursor_query_mismatch` | The supplied `cursor_token` does not match the current normalized view-query contract, including the effective `limit`. |
+
+`invalid_pagination_request` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `invalid_limit` | The request supplies `limit` with a non-integer JSON type, a value less than `1`, a value greater than `500`, or an unsupported pagination alias such as `page`, `offset`, `block_size`, or `page_size`. |
+| `cursor_query_mismatch` | The supplied `cursor_token` does not match the current normalized route contract, including any bound route-scoping identifier, normalized sort or filter or grouping contract when present, or the effective `limit`. |
+| `pagination_not_supported` | The addressed route is not declared pageable and therefore rejects `limit`, `cursor_token`, and pagination aliases. |
 
 `merge_precondition_failed` `error.details.reason_code` values:
 
@@ -1833,19 +1843,19 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 #### 3.3.7 Pagination and cursor contract
 
 **REQ-01-240**
-Any list or query route that MAY exceed one response page MUST use opaque cursor pagination.
+Any public list or query route that MAY exceed one response page MUST use opaque cursor pagination under this subsection. In `/api/v1/`, GET routes MUST accept only `limit` and `cursor_token` as query members and POST query routes MUST accept only `limit` and `cursor_token` as JSON-body members. `limit` MUST be an integer in the inclusive range `1..500`. When `cursor_token` is absent, omitted `limit` MUST mean `100`. When `cursor_token` is present, omitted `limit` MUST mean reuse the cursor-bound effective `limit` from the request that produced that cursor. The `/api/v1/` contract MUST reject `page`, `offset`, `page_size`, `block_size`, or any other pagination alias rather than silently accepting or translating it.
 Profiles: base
-Verified by: AC-127, AC-231
+Verified by: AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-238, AC-239, AC-240
 
 **REQ-01-241**
-A `cursor_token` MUST be bound to the route family, authenticated actor, `incident_id` when present, `view_schema_id` when present, normalized sort tuple, filter set, grouping key, and the effective `limit`. The server MUST reject a cursor that is replayed against a different query contract, including a different effective `limit`, rather than reinterpret it.
+A `cursor_token` MUST be bound to the authenticated actor, route family, every route-scoping identifier present for that route, the normalized sort or filter or grouping contract when the route defines one, and the effective `limit`. This includes binding history cursors to `record_id`, membership and saved-view cursors to `incident_id`, and workbook-query cursors to `incident_id`, `view_schema_id`, and the normalized view-query contract. The server MUST reject a cursor that is replayed against a different bound route contract, including a different effective `limit`, rather than reinterpret it.
 Profiles: base
-Verified by: AC-127, AC-231, AC-239
+Verified by: AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-239
 
 **REQ-01-242**
-The envelope for paged responses MUST include `meta.paging.limit`, `meta.paging.has_more`, and `meta.paging.next_cursor`. `meta.paging.limit` MUST equal the effective page size bound to the current page. When another page is available, `meta.paging.has_more=true` and `meta.paging.next_cursor` MUST be a non-null opaque cursor. A terminal page, including a first page with zero matching rows, MUST use `meta.paging.has_more=false` and `meta.paging.next_cursor=null`. Clients MUST treat `meta.paging.has_more` and `meta.paging.next_cursor` as the authoritative continuation contract and MUST NOT infer terminal state from `rows.length < meta.paging.limit` alone. Hot workbook views MUST NOT require deep `OFFSET` pagination.
+The envelope for paged responses MUST include `meta.paging.limit`, `meta.paging.has_more`, and `meta.paging.next_cursor`. `meta.paging.limit` MUST equal the effective page size bound to the current page. When another page is available, `meta.paging.has_more=true` and `meta.paging.next_cursor` MUST be a non-null opaque cursor. A terminal page, including a first page with zero matching rows, MUST use `meta.paging.has_more=false` and `meta.paging.next_cursor=null`. Non-view routes that are not declared pageable in their owner section MUST reject `limit`, `cursor_token`, and any pagination alias with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=pagination_not_supported` rather than ignoring them. Clients MUST treat `meta.paging.has_more` and `meta.paging.next_cursor` as the authoritative continuation contract and MUST NOT infer terminal state from `rows.length < meta.paging.limit` alone. Hot workbook views MUST NOT require deep `OFFSET` pagination.
 Profiles: base
-Verified by: AC-127, AC-231, AC-238, AC-239, AC-241, AC-242
+Verified by: AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-238, AC-239, AC-241, AC-242
 
 #### 3.3.8 Evidence and blob routes
 
@@ -2211,9 +2221,9 @@ Profiles: base
 Verified by: AC-116, AC-117, AC-118, AC-119, AC-120, AC-124, AC-125, AC-231
 
 **REQ-01-288**
-A base-profile implementation MUST expose the structured base-profile view-schema registry for conformance inspection through stored `view_schema` rows or an equivalent structured export. Conformance MUST NOT depend on scraping visible tab labels, column labels, or interactive UI behavior alone.
+A base-profile implementation MUST expose the structured base-profile view-schema registry for conformance inspection through stored `view_schema` rows, the public discovery routes named in REQ-01-032, or an equivalent structured export. `GET /api/v1/view-schemas` MUST return the common success envelope with `data.view_schemas[]` plus `meta.paging`, MUST order results by `view_schema_id asc`, and MUST accept only `limit` and `cursor_token` under §3.3.7. `GET /api/v1/view-schemas/{view_schema_id}` MUST return one structured view-schema resource and MUST reject pagination members with `400`, `error.code=invalid_pagination_request`, and `error.details.reason_code=pagination_not_supported`. Conformance MUST NOT depend on scraping visible tab labels, column labels, or interactive UI behavior alone.
 Profiles: base
-Verified by: AC-116, AC-117, AC-118, AC-119, AC-120, AC-124, AC-125, AC-231
+Verified by: AC-116, AC-117, AC-118, AC-119, AC-120, AC-124, AC-125, AC-127, AC-231
 
 **REQ-01-289**
 View behavior MUST bind to `view_schema_id`, not to the visible tab label, column header text, or any other display label.
