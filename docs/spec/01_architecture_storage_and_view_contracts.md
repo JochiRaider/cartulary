@@ -193,9 +193,38 @@ Profiles: base
 Verified by: AC-123, AC-130, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-231
 
 **REQ-01-025**
-`POST /api/v1/auth/login` MUST accept a credentials object containing local username and password plus a second-factor assertion when MFA is required. On success it MUST establish the server-managed session and return the same session resource exposed by `GET /api/v1/auth/session`.
+`POST /api/v1/auth/login` MUST be the base-profile local-account login route. The request body MUST be a JSON object and MUST accept:
+
+- required `username`,
+- required `password`,
+- optional `second_factor`.
+
+`username` is the deployment-local login identifier for this route. This requirement does not define provisioning rules for that identifier. `username` MUST be trimmed of leading and trailing Unicode whitespace, MUST be non-null, and MUST be non-empty after trimming. `password` MUST be a non-null non-empty string and MUST be compared exactly as supplied after JSON decoding. The server MUST NOT trim, case-fold, or Unicode-normalize `password`.
+
+When `second_factor` is omitted, the request is a primary-credentials-only login attempt. When present, `second_factor` MUST be an object and MUST be non-null. `second_factor.kind` MUST be present and, in the base profile, MUST use the closed vocabulary `totp`. `second_factor.assertion` MUST be present, MUST be an object, and MUST be non-null. For `kind='totp'`, `second_factor.assertion` MUST use exactly this shape: `{ "code": "123456" }`. `code` MUST be a string of exactly six ASCII decimal digits with no spaces or separators.
+
+Unknown top-level request members, unknown `second_factor` members, unknown `assertion` members for the selected `kind`, a missing required member, a type mismatch, a supplied `null` where this requirement forbids `null`, a `second_factor.kind` outside the base-profile vocabulary, or any `client_txn_id`, `id_token`, `authorization_code`, `saml_response`, `provider_assertion`, or WebAuthn ceremony field sent on this route MUST fail with `400` and `error.code = invalid_auth_request`. When the failure is attributable to one request member, `error.details.field` MUST identify that member.
+
+If the local account does not require MFA, omission of `second_factor` MUST be accepted and a structurally valid `second_factor` MUST NOT by itself prevent login. If the local account requires MFA and `second_factor` is omitted, the server MUST fail with `401` and `error.code = mfa_required`; `error.details.required_second_factor_kinds` MUST equal `["totp"]` in the base profile. If the server is not willing to acknowledge that primary credentials were valid, including for unknown `username`, wrong `password`, inactive local account, or equivalent pre-MFA failure, it MUST fail with `401` and `error.code = invalid_credentials`. If primary credentials are valid and a structurally valid TOTP assertion is present but wrong or expired, the server MUST fail with `401` and `error.code = invalid_second_factor`.
+
+This route MUST NOT require or interpret `client_txn_id`. On success it MUST establish the server-managed session and return the same session resource exposed by `GET /api/v1/auth/session`. On any non-success outcome, the server MUST create no session, set no session cookie, and expose no partial or pre-authenticated session state. Transport retries after an uncertain network boundary are not idempotent and MAY create a fresh session if the client repeats the request.
 Profiles: base
-Verified by: AC-123, AC-130, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-231
+Verified by: AC-123, AC-130, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-231, AC-244, AC-245, AC-246, AC-247, AC-248, AC-249, AC-250
+
+Example request body:
+
+```json
+{
+  "username": "analyst1",
+  "password": "correct horse battery staple",
+  "second_factor": {
+    "kind": "totp",
+    "assertion": {
+      "code": "123456"
+    }
+  }
+}
+```
 
 ##### 3.3.2.1 Session resource and expiry contract
 
@@ -227,7 +256,7 @@ Verified by: AC-123, AC-130, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-
 **REQ-01-031**
 If the Enterprise Authentication Extension Profile is implemented, provider-backed sign-in MUST terminate into this same session contract so the remaining API routes and WebSocket stream remain provider-agnostic.
 Profiles: base, enterprise_authentication
-Verified by: AC-123, AC-130, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-231, AC-235
+Verified by: AC-123, AC-130, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-231, AC-235, AC-250
 
 #### 3.3.3 Route families
 
@@ -1738,7 +1767,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 **REQ-01-234**
 The public API surface defined by this core MUST use the following stable `error.code` tokens for the listed conditions. A route or conformance criterion covered by this registry MUST NOT assign a second stable token to the same condition.
 Profiles: base
-Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-239, AC-240
+Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231, AC-239, AC-240, AC-245, AC-246, AC-247, AC-249, AC-250
 
 | `error.code` | Required `error.status` | Required `error.retryable` | Canonical meaning | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -1748,6 +1777,10 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `invalid_incident_create` | `400` | `false` | An incident-create request is malformed, omits required members, violates create-time field validation, attempts to set server-managed state, or includes a rejected collaborator-seeding payload. |  |  |  |
 | `invalid_incident_patch` | `400` | `false` | An incident-metadata patch request is malformed, omits required `base_incident_version`, attempts to mutate an immutable or server-managed incident field, or includes unknown top-level members. |  |  |  |
 | `invalid_rollback_request` | `400` | `false` | A rollback request is malformed, uses an unknown or unsupported `target.kind`, omits the selector required for that `kind`, includes unknown request members, or supplies a selector whose JSON type does not match the declared shape. |  |  |  |
+| `invalid_auth_request` | `400` | `false` | A local-account login request is malformed, omits a required member, includes an unknown or forbidden member, supplies `null` where forbidden, uses an unsupported `second_factor.kind`, or carries an invalid TOTP assertion shape. |  |  |  |
+| `invalid_credentials` | `401` | `false` | The server is not willing to acknowledge that primary credentials were valid on the local-account login route, including for unknown login identifier, wrong password, inactive local account, or equivalent pre-MFA failure. |  |  |  |
+| `mfa_required` | `401` | `false` | Primary credentials are valid for a local account that requires MFA, but the login request omitted the required second-factor assertion. On the base local-account login route, `error.details.required_second_factor_kinds` lists the accepted kinds. |  |  |  |
+| `invalid_second_factor` | `401` | `false` | Primary credentials are valid and the local-account login request supplied a structurally valid second-factor assertion, but the asserted factor is wrong or expired. |  |  |  |
 | `client_txn_conflict` | `409` | `false` | The caller reused a `client_txn_id` within the same route-defined idempotency scope for a different normalized request. |  |  |  |
 | `row_version_conflict` | `409` | `false` | The supplied `base_row_version`, `base_mention_row_version`, or equivalent current revision token accepted for restore is stale relative to authoritative current state. |  |  |  |
 | `incident_key_conflict` | `409` | `false` | The normalized `incident_key` conflicts with an existing incident. |  |  |  |

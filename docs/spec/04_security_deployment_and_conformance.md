@@ -510,7 +510,7 @@ A Base claim selects every requirement block tagged `base`.
 Definition of Done:
 
 - requirement selector: `profile:base`
-- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-237..AC-243`
+- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-237..AC-250`
 - **AC-231**: A Base claim is conformant only when every requirement selected by `profile:base` is implemented and every acceptance criterion listed in this manifest passes.
   - Verifies: `profile:base`
 
@@ -959,6 +959,20 @@ Definition of Done:
 
 - **AC-123**: `GET /api/v1/auth/session` returns the authenticated internal user identity, display name, provider kind, MFA state, `is_deployment_admin`, `authenticated_at`, `idle_expires_at`, `absolute_expires_at`, and `session_expires_at`, plus the caller's incident memberships or current incident-role context, without requiring client-side token parsing; `session_expires_at` is the earlier of `idle_expires_at` and `absolute_expires_at`.
   - Verifies: REQ-00-014, REQ-01-023..REQ-01-031, REQ-04-001..REQ-04-017
+- **AC-244**: `POST /api/v1/auth/login` with valid `username` and `password` for a non-MFA local account and omitted `second_factor` succeeds, returns the same session resource exposed by `GET /api/v1/auth/session`, and requires no `client_txn_id`.
+  - Verifies: REQ-01-025
+- **AC-245**: `POST /api/v1/auth/login` with unknown `username`, wrong `password`, or an inactive local account returns `401 error.code='invalid_credentials'`, sets no session cookie, and does not expose `required_second_factor_kinds` or other evidence that primary credentials were valid.
+  - Verifies: REQ-01-025, REQ-01-234
+- **AC-246**: `POST /api/v1/auth/login` with valid primary credentials for an MFA-required local account and omitted `second_factor` returns `401 error.code='mfa_required'`, includes `error.details.required_second_factor_kinds=["totp"]`, and sets no session cookie.
+  - Verifies: REQ-01-025, REQ-01-234
+- **AC-247**: `POST /api/v1/auth/login` with `second_factor=null`, an unknown top-level member, an unknown `second_factor` or `assertion` member, `second_factor.kind='webauthn'`, or a TOTP assertion whose `code` is missing or not exactly six ASCII decimal digits returns `400 error.code='invalid_auth_request'`; when exactly one member is responsible, `error.details.field` identifies that member.
+  - Verifies: REQ-01-025, REQ-01-234
+- **AC-248**: `POST /api/v1/auth/login` with valid primary credentials plus valid `second_factor.kind='totp'` and `second_factor.assertion.code` on an MFA-required local account succeeds and returns the same session resource exposed by `GET /api/v1/auth/session`.
+  - Verifies: REQ-01-025
+- **AC-249**: `POST /api/v1/auth/login` with valid primary credentials plus a structurally valid but wrong or expired TOTP code returns `401 error.code='invalid_second_factor'` and sets no session cookie.
+  - Verifies: REQ-01-025, REQ-01-234
+- **AC-250**: `POST /api/v1/auth/login` with `client_txn_id`, `id_token`, `authorization_code`, `saml_response`, `provider_assertion`, or equivalent provider-specific assertion material returns `400 error.code='invalid_auth_request'` and is not interpreted as local login or provider-backed sign-in on that route.
+  - Verifies: REQ-01-025, REQ-01-031, REQ-01-234
 - **AC-124**: `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query` accepts a field-key-based sort, filter, and grouping contract and returns rows with `record_id`, `row_version`, field-key-addressable cells, and cursor metadata; group headers are not serialized as writable rows.
   - Verifies: REQ-00-014, REQ-01-019..REQ-01-022, REQ-01-034..REQ-01-056, REQ-01-285..REQ-01-290,
     REQ-01-307..REQ-01-341, REQ-03-223..REQ-03-224, REQ-03-236..REQ-03-241
