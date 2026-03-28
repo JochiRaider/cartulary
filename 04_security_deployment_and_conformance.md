@@ -133,9 +133,9 @@ Profiles: base
 Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231
 
 **REQ-04-023**
-API routes, preview or download handle issuance and redemption, job polling, and WebSocket incident subscriptions MUST re-derive authorization from the caller's current incident membership and role at request time.
+API routes, preview or download handle issuance and redemption, job polling, job cancellation, and WebSocket incident subscriptions MUST re-derive authorization from the caller's current scope membership and role at request time. Incident-scoped jobs MUST use current incident membership and role. Deployment-scoped jobs MUST use the owning route family's deployment-scoped authorization contract.
 Profiles: base
-Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-254, AC-255
+Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-254, AC-255, AC-257, AC-260, AC-261
 
 **REQ-04-024**
 `task_request`, `decision`, and coordination artifacts such as `comm_log`, `handoff`, `status_review`, and `lesson` MUST inherit the same incident-level authorization model. The base profile MUST NOT introduce record-specific ACLs or hidden sub-workspaces for these objects.
@@ -165,9 +165,9 @@ Profiles: base
 Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231
 
 **REQ-04-029**
-Holding `deployment_admin` MUST NOT by itself grant incident read, write, preview, download, export, job, or WebSocket access. A caller who is `deployment_admin=true` but lacks current membership in incident X MUST have no incident-data access to incident X until granted ordinary incident membership.
+Holding `deployment_admin` MUST NOT by itself grant incident read, write, preview, download, export, incident-scoped job, or incident WebSocket access. A caller who is `deployment_admin=true` but lacks current membership in incident X MUST have no incident-data or incident-scoped job access to incident X until granted ordinary incident membership.
 Profiles: base
-Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231
+Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-261
 
 **REQ-04-030**
 Incident membership create, role-change, and delete routes remain incident-scoped authorization decisions. In the base profile, those routes MUST require current incident role `admin`; `deployment_admin` alone MUST NOT bypass that requirement.
@@ -510,7 +510,7 @@ A Base claim selects every requirement block tagged `base`.
 Definition of Done:
 
 - requirement selector: `profile:base`
-- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-237..AC-256`
+- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-237..AC-261`
 - **AC-231**: A Base claim is conformant only when every requirement selected by `profile:base` is implemented and every acceptance criterion listed in this manifest passes.
   - Verifies: `profile:base`
 
@@ -1072,6 +1072,16 @@ Definition of Done:
 - **AC-129**: Long-running operations started through the public interface return `202 Accepted` with a `job_id`; `GET /api/v1/jobs/{job_id}` exposes progress and terminal result or error summary; the incident-scoped WebSocket stream authenticates with the same session contract and emits presence, `record_changed`, and `job_progress` events without broadcasting client-local drafts or grouping UI state.
   - Verifies: REQ-00-014, REQ-01-018..REQ-01-019, REQ-01-248..REQ-01-277, REQ-01-452..REQ-01-454,
     REQ-03-092..REQ-03-098
+- **AC-257**: A long-running operation started through the public interface returns `202 Accepted` with the canonical job resource in the common success envelope; `data.status` is `queued` or `running`; `data.status_route` is `/api/v1/jobs/{job_id}` for that resource; `scope.kind` is either `incident` or `deployment`; only `queued`, `running`, `cancel_requested`, `succeeded`, `failed`, and `canceled` appear as public job states; and polling `GET /api/v1/jobs/{job_id}` never observes a public state transition outside the legal state machine. Incident-scoped streams emit `job_progress` only for incident-scoped jobs, and deployment-scoped jobs do not appear on incident-scoped streams.
+  - Verifies: REQ-01-248..REQ-01-249, REQ-01-268, REQ-04-023
+- **AC-258**: Over both `GET /api/v1/jobs/{job_id}` and replayed or live `job_progress` messages, `progress` is always an object with non-negative integer `completed` and `total` equal to either a positive integer or `null`; `completed` never decreases for one job; when `total` is known, `completed <= total`; when `total = null`, the client renders indeterminate progress rather than a fake percent; and when `status='succeeded'` with known `total`, the terminal resource or event has `completed == total`.
+  - Verifies: REQ-01-249, REQ-01-268, REQ-01-453
+- **AC-259**: Non-terminal job resources carry `result_summary=null` and `error_summary=null`, and any non-terminal `job_progress` message that includes those members does the same; `succeeded` and `canceled` terminal states carry only `result_summary`; `failed` carries only `error_summary`; `started_at` is `null` until work begins; `finished_at` is `null` before terminal and non-null after terminal; and `retained_until` is `null` before terminal and non-null after terminal on the HTTP job resource and, when present, on `job_progress`.
+  - Verifies: REQ-01-249, REQ-01-268
+- **AC-260**: `POST /api/v1/jobs/{job_id}/cancel` requires a JSON object with `client_txn_id`; first success and idempotent replay both return `200 OK` with the current authoritative job resource; same-actor replay of the same normalized request with the same `(job_id, client_txn_id)` creates no second cancel transition; reuse of that scope key with a different normalized request fails with `409 error.code='client_txn_conflict'`; and rejected cancel attempts fail with `409 error.code='job_cancel_rejected'` plus exact `reason_code` equal to `already_cancel_requested`, `already_terminal`, or `not_cancelable`.
+  - Verifies: REQ-01-234, REQ-01-238, REQ-01-249, REQ-01-453, REQ-04-023
+- **AC-261**: Terminal jobs expose `retained_until >= finished_at + 7 days`; `GET /api/v1/jobs/{job_id}` succeeds before expiry and may return `404 error.code='job_not_found'` after expiry; the same `404 error.code='job_not_found'` behavior is used for absent or unauthorized job reads or cancel requests, including a caller with `deployment_admin=true` but no incident membership attempting to access an incident-scoped job; and expiring the job resource does not delete or mutate durable outputs that the job produced.
+  - Verifies: REQ-01-234, REQ-01-249, REQ-04-023, REQ-04-029
 - **AC-130**: A cookie-authenticated state-changing request with missing or invalid CSRF proof fails closed, and the same request succeeds when a valid CSRF proof accompanies an otherwise authorized session.
   - Verifies: REQ-01-023..REQ-01-031, REQ-01-154, REQ-04-001..REQ-04-004, REQ-04-052..REQ-04-053
 - **AC-131**: On `GET /ws/v1/incidents/{incident_id}`, an authorized same-origin client that sends `hello` as its first application message receives `hello_ack` containing `connection_id`, `resume_token`, `server_time`, `heartbeat_interval_ms=15000`, `presence_ttl_ms=45000`, and `resume_window_ms>=300000`, followed by `presence_snapshot`; a cookie-authenticated browser connection from an untrusted `Origin` is rejected before `hello_ack` or `presence_snapshot`, and an otherwise idle accepted connection receives application-level `ping` within 15 seconds and is closed after 45 seconds without any inbound frame or timely `pong`.
