@@ -51,14 +51,14 @@ sequenceDiagram
     App->>PG: insert pending object_blobs row
     App-->>UI: upload_target + object_blob_id + accepted_contract
     UI->>OBJ: upload binary
-    UI->>App: finalize evidence attachment(blob_id, timeline record_id)
+    UI->>App: POST /api/v1/evidence-records/{record_id}/attach-blob {object_blob_id, base_row_version, client_txn_id}
     App->>PG: insert records + evidence_records + record_links + change_set_mutations + record_revisions
     App->>PG: rebuild timeline_grid_projection(row)
     PG-->>App: commit
     App-->>UI: evidence_count=1 and preview affordance available when previewable
 ```
 
-Important design choice: upload is **two-step** so incomplete uploads do not leave fake evidence attached. The create request carries the incident anchor, an idempotency key, one declared size contract, and optional advisory or integrity hints, and the response echoes `accepted_contract` so later finalization can compare against one server-accepted contract. Replaying the same create request across a lost response returns the same slot; replay does not refresh an expired target; terminal size or expected-hash mismatch at finalization fails the slot rather than attaching evidence anyway. Abandoned pending blobs are cleaned up later. The same evidence model also supports requested-but-not-yet-received evidence: an evidence record can be created in `requested` or `pending_receipt` state with no blob, then later advanced to `received` or `available` as custody events and uploads occur.
+Important design choice: upload is **two-step** so incomplete uploads do not leave fake evidence attached. The create request carries the incident anchor, an idempotency key, one declared size contract, and optional advisory or integrity hints, and the response echoes `accepted_contract` so later finalization can compare against one server-accepted contract. When finalizing onto an existing evidence record, the public step-2 route is `POST /api/v1/evidence-records/{record_id}/attach-blob`, and that step uses record-scoped optimistic concurrency via `base_row_version` plus route-scoped `client_txn_id` idempotency. Replaying the same create request across a lost response returns the same slot; replay does not refresh an expired target; terminal size or expected-hash mismatch at finalization fails the slot rather than attaching evidence anyway. Abandoned pending blobs are cleaned up later. The same evidence model also supports requested-but-not-yet-received evidence: an evidence record can be created in `requested` or `pending_receipt` state with no blob, then later advanced to `received` or `available` as custody events and uploads occur.
 
 ### 2a. Evidence preview and download access
 
@@ -83,7 +83,7 @@ sequenceDiagram
     end
 ```
 
-The handle returned to the browser is same-origin and opaque. The browser redeems it through the application, not by constructing raw object-store URLs, and blocked preview states surface explicitly instead of silently collapsing into download.
+The handle returned to the browser is same-origin and opaque. The browser redeems it through the application, not by constructing raw object-store URLs, and blocked preview states surface explicitly instead of silently collapsing into download. Handle issuance intentionally uses `{}` only, does not take `client_txn_id`, and mints a fresh handle on each success rather than using issuance idempotency.
 
 ### 3. Later linkage of the event to canonical host and identity records
 

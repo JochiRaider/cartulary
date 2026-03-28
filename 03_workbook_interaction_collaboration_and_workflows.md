@@ -820,7 +820,7 @@ Profiles: base
 Verified by: AC-004, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
 **REQ-03-117**
-When exposed over the public HTTP surface, step 1 MUST use `POST /api/v1/object-blobs`. Step 2 MUST use `POST /api/v1/evidence-records/{record_id}/attach-blob` or the normal record-creation path that binds the returned `object_blob_id` during evidence-row creation. The client MUST treat returned `accepted_contract` as the server-approved upload contract and MUST NOT reconstruct that contract from stale local state after an uncertain network boundary.
+When exposed over the public HTTP surface, step 1 MUST use `POST /api/v1/object-blobs`. Step 2 MUST use `POST /api/v1/evidence-records/{record_id}/attach-blob` or the normal record-creation path that binds the returned `object_blob_id` during evidence-row creation. The client MUST treat returned `accepted_contract` as the server-approved upload contract and MUST NOT reconstruct that contract from stale local state after an uncertain network boundary. When step 2 targets an existing evidence record through `POST /api/v1/evidence-records/{record_id}/attach-blob`, the client MUST send `object_blob_id`, `base_row_version`, and `client_txn_id`, MUST treat the action as record-scoped optimistic finalization rather than as a blind blob mutation, and, if it cannot tell whether attach succeeded, MUST replay the same normalized attach request with the same `client_txn_id`.
 Profiles: base
 Verified by: AC-004, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
@@ -898,7 +898,7 @@ Profiles: base
 Verified by: AC-053, AC-054, AC-103, AC-128, AC-231, AC-252, AC-255
 
 **REQ-03-128**
-Workbook preview and download affordances MUST invoke the Core 01 evidence-access handle contract. Clients MUST treat returned `href` values as opaque same-origin URLs and MUST NOT synthesize object-store URLs or parse handle tokens.
+Workbook preview and download affordances MUST invoke the Core 01 evidence-access handle contract. Clients MUST treat returned `href` values as opaque same-origin URLs and MUST NOT synthesize object-store URLs or parse handle tokens. Handle issuance intentionally does not send `client_txn_id`, and each successful issuance call mints a fresh handle rather than using issuance idempotency.
 Profiles: base
 Verified by: AC-053, AC-054, AC-103, AC-128, AC-231, AC-252, AC-253, AC-254
 

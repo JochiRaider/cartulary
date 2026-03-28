@@ -1950,6 +1950,12 @@ Blob-slot creation idempotency MUST be keyed by `(actor_user_id, incident_id, cl
 
 - attach the returned `object_blob_id` to an existing evidence record through `POST /api/v1/evidence-records/{record_id}/attach-blob`, or
 - create a new evidence record through the normal view or record-creation path using that `object_blob_id` as declared input.
+
+When finalization targets an existing evidence record through `POST /api/v1/evidence-records/{record_id}/attach-blob`, the route MUST be record-scoped rather than blob-scoped. It MUST accept only a JSON object with required `object_blob_id`, required `base_row_version`, and required `client_txn_id`. The base profile defines no optional top-level members for this route. A non-object body, a missing required member, a supplied `null` for one of those required members, or any unknown top-level member MUST fail with `400` and `error.code = invalid_mutation_payload`.
+
+Attach idempotency for this route MUST be keyed by `(actor_user_id, record_id, client_txn_id)`. Normalized request comparison for this route MUST include exact `object_blob_id` and exact `base_row_version`. Because the base profile defines no nullable request members for this route, omission-versus-`null` equivalence does not apply. A first-time successful attach MUST return `200 OK`. If the same authenticated actor replays the same normalized attach request with the same key, the server MUST return `200 OK` with the original committed attach result and MUST create no second attach or replacement transition. If the same actor reuses that key with a different normalized attach request, the server MUST fail with `409` and `error.code = client_txn_conflict`. If the current evidence-row version differs from `base_row_version`, the route MUST fail with `409` and `error.code = row_version_conflict`.
+
+Fresh attach requests with a new `client_txn_id` MUST still enforce the blob and evidence lifecycle bridge owned by Core 02 §13 and Core 03 §8. A pending, failed, missing, incident-mismatched, or otherwise non-attachable blob MUST fail closed rather than partially mutating evidence state. A successful attach response MUST use the common success envelope and return the authoritative evidence-refresh payload needed to repaint the visible row, including at minimum `record_id`, `incident_id`, `row_version`, `object_blob_id`, `evidence_lifecycle_state`, `upload_state`, and `change_set_id`.
 Profiles: base
 Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
@@ -1975,7 +1981,7 @@ Profiles: base
 Verified by: AC-046, AC-129, AC-231, AC-257
 
 **REQ-01-249**
-`GET /api/v1/jobs/{job_id}` MUST return the canonical job resource defined in §3.3.9.1. `POST /api/v1/jobs/{job_id}/cancel` MUST accept only the cancel request contract defined in §3.3.9.1, MUST be idempotent within its declared scope, MUST return the current authoritative job resource on first success and idempotent replay, and MUST fail closed as defined in §3.3.9.1.
+`GET /api/v1/jobs/{job_id}` MUST return the canonical job resource defined in §3.3.9.1. `POST /api/v1/jobs/{job_id}/cancel` MUST accept only a JSON object with required `client_txn_id` and optional `reason`, with omitted `reason` and explicit JSON `null` for `reason` comparing equal for normalized request comparison. Cancel idempotency MUST be keyed by `(actor_user_id, job_id, client_txn_id)`. If the same authenticated actor replays the same normalized cancel request with the same key, the server MUST return `200 OK` with the current authoritative job resource and MUST create no second cancel transition. If the same actor reuses that key with a different normalized cancel request, the server MUST fail with `409` and `error.code = client_txn_conflict`. A fresh cancel request against an already-cancel-requested, terminal, or otherwise non-cancelable job MUST fail with `409` and `error.code = job_cancel_rejected` plus the exact `reason_code` defined in §3.3.9.1.
 Profiles: base
 Verified by: AC-046, AC-129, AC-231, AC-257, AC-258, AC-259, AC-260, AC-261
 
@@ -4011,12 +4017,12 @@ Profiles: base
 Verified by: AC-231, AC-252, AC-253, AC-254
 
 **REQ-01-459**
-Both issuance routes MUST accept only a JSON object request body. `{}` MUST be legal and means issue the default contract-defined preview or download handle for the addressed evidence. A zero-length body, `null`, any non-object JSON value, or any unknown top-level member MUST fail with `400` and `error.code='invalid_evidence_handle_request'`. The base profile defines no request members for either route yet. If a future additive request member is introduced, omission MUST mean default behavior for that member, and explicit `null` MUST remain invalid unless that member explicitly allows `null`.
+Both issuance routes MUST accept only a JSON object request body. `{}` MUST be legal and means issue the default contract-defined preview or download handle for the addressed evidence. A zero-length body, `null`, any non-object JSON value, or any unknown top-level member MUST fail with `400` and `error.code='invalid_evidence_handle_request'`. The base profile defines no request members for either route yet. Accordingly, `client_txn_id` is invalid on both issuance routes and MUST fail as an unknown top-level member rather than being interpreted as an issuance idempotency key. If a future additive request member is introduced, omission MUST mean default behavior for that member, and explicit `null` MUST remain invalid unless that member explicitly allows `null`.
 Profiles: base
 Verified by: AC-231, AC-251, AC-255
 
 **REQ-01-460**
-A successful issuance response from either route MUST use the standard success envelope from §3.3.6 and include `data.incident_id`, `data.record_id`, `data.object_blob_id`, `data.handle_kind`, `data.href`, `data.method`, `data.expires_at`, `data.single_use`, `data.media_class`, `data.disposition`, `data.filename`, `data.content_type`, `data.size_bytes`, `data.sha256`, `data.evidence_lifecycle_state`, and `data.upload_state`. `data.method` MUST be `GET`. `data.media_class` MUST use the exact tokens owned by Core 02 §18. `data.sha256` MAY be `null`; all other listed members are required. Each successful issuance call MUST return a fresh handle, and the base profile MUST NOT require `client_txn_id` or issuance idempotency for these routes.
+A successful issuance response from either route MUST use the standard success envelope from §3.3.6 and include `data.incident_id`, `data.record_id`, `data.object_blob_id`, `data.handle_kind`, `data.href`, `data.method`, `data.expires_at`, `data.single_use`, `data.media_class`, `data.disposition`, `data.filename`, `data.content_type`, `data.size_bytes`, `data.sha256`, `data.evidence_lifecycle_state`, and `data.upload_state`. `data.method` MUST be `GET`. `data.media_class` MUST use the exact tokens owned by Core 02 §18. `data.sha256` MAY be `null`; all other listed members are required. Each successful issuance call MUST return a fresh handle. Repeating the same issuance request is not idempotent replay, and the base profile MUST NOT require or interpret `client_txn_id` or any other issuance idempotency key for these routes.
 Profiles: base
 Verified by: AC-231, AC-252, AC-253, AC-256
 
