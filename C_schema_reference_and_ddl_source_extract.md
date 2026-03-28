@@ -136,11 +136,11 @@ The schema sketch keeps blob upload and evidence lifecycle separate:
 - `evidence_records.lifecycle_state` holds states equivalent to `requested`, `pending_receipt`, `received`, `available`, `quarantined`, or `released`,
 - the bridge between them is the optional `object_blob_id` plus custody events.
 
-The core now also requires structured timeout and cleanup fields on `object_blobs`: `target_expires_at`, `pending_expires_at`, `finalize_attempt_count`, `terminal_reason`, `failed_at`, `cleanup_due_at`, and `cleaned_up_at`.
+The core now also requires `object_blobs` to persist the incident anchor, the route-scoped blob-create idempotency key, the accepted upload contract, the observed object metadata used for finalization checks, and the structured timeout and cleanup fields `target_expires_at`, `pending_expires_at`, `finalize_attempt_count`, `terminal_reason`, `failed_at`, `cleanup_due_at`, and `cleaned_up_at`.
 
-Timeout and retry exhaustion remain instances of `upload_state='failed'`; the sketch does not need a separate expired state. The base-profile blob slot behaves as a single-upload lease with a short-lived upload target and a longer pending-slot timeout.
+Timeout, retry exhaustion, and terminal contract mismatch remain instances of `upload_state='failed'`; the sketch does not need a separate expired state. The base-profile blob slot behaves as a single-upload lease with a short-lived upload target and a longer pending-slot timeout.
 
-A blob slot left in `pending` without successful finalization MUST NOT be treated as attached evidence. An evidence row MUST NOT surface as available, previewable, or released while its linked blob is `pending`, `failed`, or missing. If structured state becomes inconsistent, the application MUST fail closed for preview and download until repaired.
+A blob slot left in `pending` without successful finalization MUST NOT be treated as attached evidence. A declared-size or expected-hash mismatch MUST fail finalization and leave no attached evidence. An evidence row MUST NOT surface as available, previewable, or released while its linked blob is `pending`, `failed`, or missing. If structured state becomes inconsistent, the application MUST fail closed for preview and download until repaired.
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -497,13 +497,18 @@ CREATE INDEX idx_artifacts_search
 ```sql
 CREATE TABLE object_blobs (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    incident_id uuid NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+    create_client_txn_id text NOT NULL,
     storage_backend text NOT NULL CHECK (storage_backend IN ('s3','filesystem')),
     bucket_name text NOT NULL,
     object_key text NOT NULL UNIQUE,
-    original_filename text NOT NULL,
-    content_type text NOT NULL,
-    size_bytes bigint NOT NULL,
-    sha256 text,
+    filename_hint text,
+    content_type_hint text,
+    declared_size_bytes bigint NOT NULL CHECK (declared_size_bytes >= 0),
+    expected_sha256 text,
+    observed_content_type text,
+    observed_size_bytes bigint CHECK (observed_size_bytes IS NULL OR observed_size_bytes >= 0),
+    observed_sha256 text,
     upload_state text NOT NULL DEFAULT 'pending' CHECK (
         upload_state IN ('pending','available','failed','quarantined')
     ),
@@ -515,7 +520,8 @@ CREATE TABLE object_blobs (
     cleanup_due_at timestamptz,
     cleaned_up_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
-    created_by_user_id uuid NOT NULL REFERENCES users(id)
+    created_by_user_id uuid NOT NULL REFERENCES users(id),
+    UNIQUE (incident_id, created_by_user_id, create_client_txn_id)
 );
 
 CREATE TABLE evidence_records (

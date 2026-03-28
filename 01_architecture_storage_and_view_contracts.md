@@ -1775,6 +1775,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `invalid_pagination_request` | `400` | `false` | A non-view pageable or singleton route uses a page-size member or page-size value not allowed by the route, replays a cursor against a different bound route contract, or supplies pagination members to a route that does not support pagination. |  |  |  |
 | `invalid_mutation_payload` | `400` | `false` | A mutation request body is malformed, omits a route-required member, includes an unknown or forbidden member, uses an unknown `kind`, `op`, or `action`, targets a field/action or mention-action combination that is not allowed, or carries an invalid, foreign, or type-incompatible mutation target reference. |  |  |  |
 | `invalid_evidence_handle_request` | `400` | `false` | A preview-handle or download-handle issuance request is malformed, uses a non-object JSON body, omits the required JSON object wrapper, or includes an unknown top-level member. |  |  |  |
+| `invalid_blob_create_request` | `400` | `false` | A blob-slot create request is malformed, omits required members, violates create-time field validation, attempts to set server-managed state, or includes an unknown top-level member. |  |  |  |
 | `invalid_incident_create` | `400` | `false` | An incident-create request is malformed, omits required members, violates create-time field validation, attempts to set server-managed state, or includes a rejected collaborator-seeding payload. |  |  |  |
 | `invalid_incident_patch` | `400` | `false` | An incident-metadata patch request is malformed, omits required `base_incident_version`, attempts to mutate an immutable or server-managed incident field, or includes unknown top-level members. |  |  |  |
 | `invalid_rollback_request` | `400` | `false` | A rollback request is malformed, uses an unknown or unsupported `target.kind`, omits the selector required for that `kind`, includes unknown request members, or supplies a selector whose JSON type does not match the declared shape. |  |  |  |
@@ -1832,6 +1833,19 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `control_character_not_allowed` | `incident_key` or `title` contains a rejected control character. |
 | `server_managed_field` | The request attempted to set server-managed incident state. |
 | `collaborator_seeding_not_supported` | The request supplied `initial_memberships[]` or an equivalent collaborator-seeding payload. |
+
+`invalid_blob_create_request` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `request_not_object` | The request body is not a JSON object. |
+| `missing_required_field` | A required blob-create field is absent. |
+| `field_not_nullable` | The request supplies `null` for a non-nullable blob-create field. |
+| `field_empty_after_normalization` | A required string field such as `client_txn_id` is empty after required normalization and trimming. |
+| `invalid_byte_size` | `byte_size` is not a non-negative integer. |
+| `invalid_sha256_hex` | `sha256_hex`, when present as a string, is not exactly 64 lowercase hexadecimal characters. |
+| `unknown_field` | The request includes a top-level member not declared by the blob-create contract. |
+| `server_managed_field` | The request attempted to set server-managed blob-slot state such as identifiers, lifecycle fields, accepted-contract echo fields, or upload-target fields. |
 
 `invalid_view_query` `error.details.reason_code` values:
 
@@ -1913,17 +1927,26 @@ Verified by: AC-116, AC-127, AC-151, AC-171, AC-175, AC-178, AC-215, AC-231, AC-
 #### 3.3.8 Evidence and blob routes
 
 **REQ-01-243**
-`POST /api/v1/object-blobs` MUST create a pending blob slot and return, at minimum, `object_blob_id`, `upload_state`, a short-lived upload target, `target_expires_at`, and `pending_expires_at`.
+`POST /api/v1/object-blobs` MUST accept only a JSON object request body and MUST provision exactly one incident-scoped pending blob slot for one intended upload. The request MUST accept required `incident_id`, required `client_txn_id`, and required `byte_size`. It MAY accept optional `filename_hint`, optional `content_type_hint`, and optional `sha256_hex`; each optional member MAY be omitted or set to JSON `null`. `byte_size` MUST be a non-negative integer. This route MUST create only the blob slot; it MUST NOT create or mutate evidence records, record links, preview state, release state, or workflow objects. The route MUST reject row identifiers, evidence identifiers, preview intents, release intents, workflow objects, unknown top-level members, and server-managed blob fields. If the body is not a JSON object, omits a required member, supplies `null` for a non-nullable member, violates a field validation rule in this subsection, or attempts to set server-managed state, the server MUST fail with `400` and `error.code = invalid_blob_create_request`. When the failure is attributable to one request member, `error.details.field` MUST identify that top-level member. `error.details.reason_code` MUST use the registry in §3.3.6.2.
 Profiles: base
 Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
 **REQ-01-244**
-In the base profile, the upload target MUST expire 60 minutes after issuance and the pending blob slot MUST expire 24 hours after blob-slot creation. These timers MUST remain separate: target expiry governs upload-target use, while pending-slot expiry governs later finalization eligibility and cleanup.
+For idempotency comparison and response echo, the server MUST normalize the blob-create contract as follows:
+
+- `filename_hint` and `content_type_hint` are advisory metadata only. They MUST NOT determine storage keys, authorization, portability layout, preview allowlisting, or release posture.
+- omitted and explicit JSON `null` compare equal for `filename_hint`, `content_type_hint`, and `sha256_hex`,
+- `filename_hint` and `content_type_hint` MUST be trimmed and an empty result MUST compare equal to omission,
+- `sha256_hex`, when present as a string, MUST be exactly 64 lowercase hexadecimal characters and MUST NOT be silently case-folded or repaired,
+- `byte_size` is a declared upload-contract input,
+- `sha256_hex`, when present, is an expected integrity assertion for later finalization comparison and is not authoritative stored hash metadata by itself.
+
+A successful create response MUST include `incident_id`, `object_blob_id`, `upload_state`, `target_expires_at`, `pending_expires_at`, the short-lived `upload_target`, and `accepted_contract`. `accepted_contract` MUST echo the server-accepted normalized values for `incident_id`, `byte_size`, `filename_hint`, `content_type_hint`, and `sha256_hex`. Omitted optional members MUST be serialized as explicit `null` inside `accepted_contract` rather than by field omission.
 Profiles: base
 Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
 **REQ-01-245**
-Blob finalization MUST occur only through an explicit follow-on call. Binding an uploaded blob to incident-visible evidence MUST either:
+Blob-slot creation idempotency MUST be keyed by `(actor_user_id, incident_id, client_txn_id)`. Normalized request comparison for this route MUST include `byte_size`, normalized `filename_hint`, normalized `content_type_hint`, and normalized `sha256_hex`, with omission and explicit JSON `null` treated as equal for the optional members. A first-time successful create MUST return `201 Created`. If the same authenticated actor replays the same normalized request with the same key, the server MUST return `200 OK` with the original slot payload, including the original `object_blob_id`, `target_expires_at`, `pending_expires_at`, and `accepted_contract`, and MUST create no second pending slot. If the same actor reuses that key with a different normalized request, the server MUST fail with `409` and `error.code = client_txn_conflict`. `error.details` MUST include at least `client_txn_id`. Blob finalization MUST occur only through an explicit follow-on call. Binding an uploaded blob to incident-visible evidence MUST either:
 
 - attach the returned `object_blob_id` to an existing evidence record through `POST /api/v1/evidence-records/{record_id}/attach-blob`, or
 - create a new evidence record through the normal view or record-creation path using that `object_blob_id` as declared input.
@@ -1931,7 +1954,7 @@ Profiles: base
 Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
 **REQ-01-246**
-The base profile MUST treat a pending blob slot as a single-upload lease. If the upload target expires before successful upload, retry MUST use a fresh `POST /api/v1/object-blobs` call. The base profile MUST NOT require same-slot upload-target refresh or resumable upload semantics.
+In the base profile, the upload target MUST expire 60 minutes after issuance and the pending blob slot MUST expire 24 hours after blob-slot creation. These timers MUST remain separate: target expiry governs upload-target use, while pending-slot expiry governs later finalization eligibility and cleanup. The base profile MUST treat a pending blob slot as a single-upload lease bound to one accepted create contract. If the upload target expires before successful upload, or if idempotent replay returns an already expired slot, obtaining a fresh target MUST use a fresh `POST /api/v1/object-blobs` call with a new `client_txn_id`. Idempotent replay of an expired slot MUST return that same expired slot rather than refreshing the original target. The base profile MUST NOT require same-slot upload-target refresh, same-slot lease renewal, or resumable upload semantics.
 Profiles: base
 Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 

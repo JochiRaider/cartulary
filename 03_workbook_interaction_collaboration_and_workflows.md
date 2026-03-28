@@ -814,23 +814,23 @@ Verified by: AC-001, AC-002, AC-125, AC-191, AC-193, AC-231
 **REQ-03-116**
 Binary evidence attachment MUST use a two-step flow:
 
-1. create a pending blob slot and return an upload target,
+1. create a pending blob slot for one intended upload by sending `incident_id`, `client_txn_id`, `byte_size`, and optional `filename_hint`, `content_type_hint`, and `sha256_hex`, and receive an upload target plus `accepted_contract`,
 2. finalize the evidence attachment after the upload completes.
 Profiles: base
 Verified by: AC-004, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
 **REQ-03-117**
-When exposed over the public HTTP surface, step 1 MUST use `POST /api/v1/object-blobs`. Step 2 MUST use `POST /api/v1/evidence-records/{record_id}/attach-blob` or the normal record-creation path that binds the returned `object_blob_id` during evidence-row creation.
+When exposed over the public HTTP surface, step 1 MUST use `POST /api/v1/object-blobs`. Step 2 MUST use `POST /api/v1/evidence-records/{record_id}/attach-blob` or the normal record-creation path that binds the returned `object_blob_id` during evidence-row creation. The client MUST treat returned `accepted_contract` as the server-approved upload contract and MUST NOT reconstruct that contract from stale local state after an uncertain network boundary.
 Profiles: base
 Verified by: AC-004, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
 **REQ-03-118**
-In the base profile, the upload target expires 60 minutes after issuance and the pending blob slot expires 24 hours after creation. The pending slot is a single-upload lease. If the upload target expires or the upload never completes, retry MUST use a fresh `POST /api/v1/object-blobs` call. The base profile MUST NOT require same-slot upload-target refresh or resumable upload semantics.
+If the client does not know whether blob-slot creation succeeded, it MUST replay the same normalized create request with the same `client_txn_id`. In the base profile, the upload target expires 60 minutes after issuance and the pending blob slot expires 24 hours after creation. The pending slot is a single-upload lease. If replay returns the original slot after target expiry, the client MUST request a fresh slot with a new `client_txn_id` rather than attempt same-slot upload-target refresh. The base profile MUST NOT require same-slot upload-target refresh or resumable upload semantics.
 Profiles: base
 Verified by: AC-004, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
 **REQ-03-119**
-The system MUST NOT leave fake attached evidence rows for incomplete uploads.
+The system MUST NOT leave fake attached evidence rows for incomplete uploads. The UI MUST surface expired-slot replay and terminal upload-contract failure as states that require a fresh slot rather than silently attaching evidence anyway.
 Profiles: base
 Verified by: AC-004, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
@@ -856,7 +856,7 @@ The evidence machine uses states equivalent to `requested`, `pending_receipt`, `
 The required bridge behavior is:
 
 - a `pending` blob slot MUST NOT by itself create or imply an attached evidence row,
-- finalize attachment MUST succeed only when the selected blob slot is `available` or `quarantined`,
+- finalize attachment MUST succeed only when the selected blob slot is `available` or `quarantined` and the observed bytes satisfy the accepted create contract when that contract declares size or expected-hash checks,
 - an evidence record MUST NOT surface as `available`, previewable, or released while its linked blob is `pending`, `failed`, or missing,
 - if a linked blob becomes `quarantined`, normal preview and download MUST stop and the evidence surface MUST show the evidence as `quarantined` or otherwise non-available,
 - requested or pending evidence with no blob remains valid and MUST continue to support later receipt, custody, and optional blob linkage.
@@ -864,7 +864,7 @@ Profiles: base
 Verified by: AC-015, AC-016, AC-103, AC-128, AC-154, AC-155, AC-231
 
 **REQ-03-122**
-Abandoned pending uploads MUST fail closed. A blob slot left in `pending` without successful finalization MUST NOT increment row evidence counts, MUST NOT show as attached, and MUST remain eligible only for retry, timeout handling, or administrative cleanup.
+Abandoned pending uploads and terminal upload-contract mismatches MUST fail closed. A blob slot left in `pending` without successful finalization, or failed because declared size or expected SHA-256 did not match observed bytes, MUST NOT increment row evidence counts, MUST NOT show as attached, and MUST remain eligible only for retry, timeout handling, or administrative cleanup. A content-type mismatch against advisory `content_type_hint` alone MUST update observed metadata and preview policy and MUST NOT by itself fail the slot. Filename mismatch alone MUST NOT be a terminal finalization failure in the base profile.
 Profiles: base
 Verified by: AC-015, AC-016, AC-103, AC-128, AC-154, AC-155, AC-231
 
@@ -874,7 +874,7 @@ Profiles: base
 Verified by: AC-015, AC-016, AC-103, AC-128, AC-154, AC-155, AC-231
 
 **REQ-03-124**
-The implementation MUST allow 3 failed explicit finalization attempts per pending blob slot. Only unsuccessful explicit finalization attempts count toward this limit; an idempotent replay after already-committed success MUST NOT consume retry budget. On the 4th failed finalization attempt, the slot MUST transition to `upload_state='failed'` with `terminal_reason='finalize_retry_exhausted'`. Later retry then requires a fresh blob slot.
+The implementation MUST allow 3 failed explicit finalization attempts per pending blob slot for non-terminal explicit finalization failures. Size or expected-hash mismatch is terminal on first detection and MUST NOT consume or extend this retry budget. Only other unsuccessful explicit finalization attempts count toward the limit, and an idempotent replay after already-committed success MUST NOT consume retry budget. On the 4th such failed finalization attempt, the slot MUST transition to `upload_state='failed'` with `terminal_reason='finalize_retry_exhausted'`. Later retry then requires a fresh blob slot.
 Profiles: base
 Verified by: AC-015, AC-016, AC-103, AC-128, AC-154, AC-155, AC-231
 
@@ -884,7 +884,7 @@ Profiles: base
 Verified by: AC-015, AC-016, AC-103, AC-128, AC-154, AC-155, AC-231
 
 **REQ-03-126**
-If the system detects an inconsistent blob-versus-evidence state, it MUST block preview and download and surface the row as inconsistent until explicit repair or re-finalization completes.
+If the system detects an inconsistent blob-versus-evidence state or a create-contract-versus-observed-byte mismatch state that has not yet been repaired, it MUST block preview and download and surface the row as inconsistent until explicit repair or re-finalization completes.
 Profiles: base
 Verified by: AC-015, AC-016, AC-103, AC-128, AC-154, AC-155, AC-231
 

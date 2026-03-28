@@ -47,9 +47,9 @@ sequenceDiagram
     participant PG as Postgres
 
     A->>UI: Paste or drag screenshot onto selected row
-    UI->>App: request upload slot for screenshot
+    UI->>App: create blob slot {incident_id, client_txn_id, byte_size, optional hints}
     App->>PG: insert pending object_blobs row
-    App-->>UI: presigned upload URL + blob_id
+    App-->>UI: upload_target + object_blob_id + accepted_contract
     UI->>OBJ: upload binary
     UI->>App: finalize evidence attachment(blob_id, timeline record_id)
     App->>PG: insert records + evidence_records + record_links + change_set_mutations + record_revisions
@@ -58,7 +58,7 @@ sequenceDiagram
     App-->>UI: evidence_count=1 and preview affordance available when previewable
 ```
 
-Important design choice: upload is **two-step** so incomplete uploads do not leave fake evidence attached. Abandoned pending blobs are cleaned up later. The same evidence model also supports requested-but-not-yet-received evidence: an evidence record can be created in `requested` or `pending_receipt` state with no blob, then later advanced to `received` or `available` as custody events and uploads occur.
+Important design choice: upload is **two-step** so incomplete uploads do not leave fake evidence attached. The create request carries the incident anchor, an idempotency key, one declared size contract, and optional advisory or integrity hints, and the response echoes `accepted_contract` so later finalization can compare against one server-accepted contract. Replaying the same create request across a lost response returns the same slot; replay does not refresh an expired target; terminal size or expected-hash mismatch at finalization fails the slot rather than attaching evidence anyway. Abandoned pending blobs are cleaned up later. The same evidence model also supports requested-but-not-yet-received evidence: an evidence record can be created in `requested` or `pending_receipt` state with no blob, then later advanced to `received` or `available` as custody events and uploads occur.
 
 ### 2a. Evidence preview and download access
 

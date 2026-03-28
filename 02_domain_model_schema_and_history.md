@@ -1568,21 +1568,26 @@ Verified by: AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-231
 ## 13. Evidence and object metadata
 
 **REQ-02-186**
-The implementation MUST store authoritative object metadata in structured storage, including:
+The implementation MUST store authoritative blob-slot create-contract fields and observed object metadata in structured storage, including:
 
 - blob identifier,
+- owning `incident_id`,
+- route-scoped create idempotency key,
 - storage backend,
 - bucket and key,
-- filename,
-- content type,
-- size,
-- hash,
+- accepted `filename_hint`,
+- accepted `content_type_hint`,
+- declared `byte_size`,
+- optional expected SHA-256,
+- observed content type,
+- observed size,
+- observed SHA-256,
 - upload state.
 Profiles: base
 Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
 **REQ-02-187**
-The binary content MUST live in object storage. Structured storage MUST remain the authoritative pointer and metadata source.
+The binary content MUST live in object storage. Structured storage MUST remain the authoritative pointer and metadata source. Caller-supplied `filename_hint` and `content_type_hint` are advisory accepted-contract metadata only. They MUST NOT determine storage keys, authorization, portability layout, preview allowlisting, or release posture. After upload, observed size and verified hash are authoritative object metadata, and observed media metadata drives preview policy.
 Profiles: base
 Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
@@ -1630,12 +1635,12 @@ Profiles: base
 Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
 **REQ-02-193**
-The base profile MUST treat each pending blob slot as a single-upload lease. If the upload target expires before successful upload, retry requires a fresh blob-slot creation call. The base profile MUST NOT require same-slot upload-target refresh or resumable upload semantics.
+The base profile MUST treat each pending blob slot as a single-upload lease bound to one accepted create contract. If the upload target expires before successful upload, retry requires a fresh blob-slot creation call rather than same-slot refresh or lease renewal. The base profile MUST NOT require resumable upload semantics.
 Profiles: base
 Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
 **REQ-02-194**
-The implementation MUST track `finalize_attempt_count` for explicit failed finalization attempts on a pending blob slot. Only unsuccessful explicit finalization attempts count toward this total; an idempotent replay after already-committed success MUST NOT consume retry budget. A pending blob slot MUST allow 3 failed finalization attempts. On the 4th failed attempt, it MUST transition to `upload_state='failed'`, persist `terminal_reason='finalize_retry_exhausted'`, and record `failed_at`. Later retry then requires a fresh blob slot.
+Explicit finalization MUST compare observed bytes against the accepted create contract. If observed size differs from declared `byte_size`, finalization MUST fail immediately, the slot MUST transition to `upload_state='failed'`, `terminal_reason` MUST be `declared_size_mismatch`, and `failed_at` MUST be recorded. If expected SHA-256 is present and differs from observed SHA-256, finalization MUST fail immediately, the slot MUST transition to `upload_state='failed'`, `terminal_reason` MUST be `expected_sha256_mismatch`, and `failed_at` MUST be recorded. These mismatch failures are terminal on first detection and MUST NOT consume or extend the ordinary finalization retry budget. A mismatch between observed content type and advisory `content_type_hint` alone MUST update observed metadata and preview policy and MUST NOT by itself fail the slot. Filename mismatch alone MUST NOT be a finalization failure in the base profile. For other explicit failed finalization attempts on a pending blob slot, the implementation MUST track `finalize_attempt_count`. Only unsuccessful explicit finalization attempts count toward this total; an idempotent replay after already-committed success MUST NOT consume retry budget. A pending blob slot MUST allow 3 non-terminal failed explicit finalization attempts. On the 4th such failed attempt, it MUST transition to `upload_state='failed'`, persist `terminal_reason='finalize_retry_exhausted'`, and record `failed_at`. Later retry then requires a fresh blob slot.
 Profiles: base
 Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
@@ -1713,7 +1718,7 @@ The schema MUST support:
 - canonical indicator fields sufficient to persist `defanged_value`, optional `hash_algorithm`, optional `hash_value`, and deterministic storage or derivation of `first_observed_at` and `last_observed_at`,
 - `task_request` fields sufficient to persist `task_kind`, `status`, `owner_user_id`, `priority`, optional `workstream`, `due_at`, `blocked_reason`, `requester_party_text`, `completed_at`, `external_ticket_ref`, and optional linked-record or linked-decision references,
 - `decision` fields sufficient to persist `decision_type`, `status`, `owner_user_id`, `decided_at`, rationale, support references, affected-record references, and optional supersession linkage,
-- evidence fields sufficient to persist separate blob-upload state, evidence lifecycle state, the bridge between `object_blob_id` and evidence availability, `target_expires_at`, `pending_expires_at`, `finalize_attempt_count`, `terminal_reason`, `failed_at`, `cleanup_due_at`, `cleaned_up_at`, `requested_at`, `received_at`, `storage_ref`, `blob_hash`, `collector_party_text`, `source_party_text`, and append-only custody events,
+- evidence fields sufficient to persist separate blob-upload state, evidence lifecycle state, the bridge between `object_blob_id` and evidence availability, owning `incident_id`, blob-slot create idempotency key, declared upload-contract fields for `byte_size`, advisory `filename_hint`, advisory `content_type_hint`, and optional expected SHA-256, observed object metadata for content type, size, and verified SHA-256, `target_expires_at`, `pending_expires_at`, `finalize_attempt_count`, `terminal_reason`, `failed_at`, `cleanup_due_at`, `cleaned_up_at`, `requested_at`, `received_at`, `storage_ref`, `blob_hash`, `collector_party_text`, `source_party_text`, and append-only custody events,
 - snapshot and release fields sufficient to persist artifact-scoped `release_state`, approval binding, `approved_at`, `invalidated_at`, `published_at`, optional `invalidation_reason`, and deterministic identification of the logical output slot,
 - coordination-artifact fields sufficient to persist `comm_type` and other `artifact_type`-specific metadata for `comm_log`, `handoff`, `status_review`, `lesson`, and optional current-profile `hypothesis` tracking,
 - optional structured artifact subtype fields sufficient to persist findings, investigative queries, and forensic keywords when those surfaces are implemented.
@@ -1939,6 +1944,7 @@ Where an earlier section also defines lifecycle rules, semantic meanings, or gua
 | `artifact.comm_type` for `artifact_type='comm_log'` | `meeting`, `notification`, `approval`, `briefing`, `handoff` |
 | `release_state` | `pending_approval`, `approved`, `invalidated`, `published` |
 | `object_blobs.upload_state` | `pending`, `available`, `failed`, `quarantined` |
+| `object_blobs.terminal_reason` | `pending_timeout`, `finalize_retry_exhausted`, `declared_size_mismatch`, `expected_sha256_mismatch` |
 | `evidence_records.lifecycle_state` | `requested`, `pending_receipt`, `received`, `available`, `quarantined`, `released` |
 | `evidence-access media_class` | `image`, `pdf`, `text`, `audio`, `video`, `archive`, `office_document`, `binary`, `active_content` |
 | `evidence-access preview_kind` | `image_inline`, `pdf_inline`, `text_inline` |
