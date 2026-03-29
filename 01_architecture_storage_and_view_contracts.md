@@ -280,8 +280,10 @@ Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-186, AC-187, AC-
 
 **REQ-01-033**
 Implementations that claim an extension profile MUST add that profile's route family under the same versioned root rather than overloading base workbook routes. This includes, at minimum, `/api/v1/import-sessions/*`, `/api/v1/reference-packs/*`, `/api/v1/snapshots/*` and `/api/v1/releases/*`, and `/api/v1/incident-bundles/*` for the corresponding claimed extension profiles.
-Profiles: base, snapshot_reporting, reference_pack
-Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-186, AC-187, AC-231, AC-233, AC-234
+Profiles: base, import, snapshot_reporting, incident_portability, reference_pack
+Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-186, AC-187, AC-231, AC-232, AC-233, AC-234, AC-236
+
+Core 01 §17 is the primary owner for the public route inventory, request and response defaults, omitted-versus-`null` behavior, route-scoped idempotency, family-specific error registries, and durable terminal-state representation for those extension families.
 
 #### 3.3.4 View-shaped read contract
 
@@ -1814,6 +1816,29 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `last_incident_admin` | `409` | `false` | The requested membership create, patch, or delete would leave the incident without any current `admin` membership. |  |  |  |
 | `merge_precondition_failed` | `409` | `false` | An entity-merge precondition other than row-version freshness failed; `error.details.reason_code` MUST use the merge-precondition registry in §3.3.6.2. | REQ-01-237 | base | AC-126, AC-187, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231 |
 
+| `invalid_import_request` | `400` | `false` | An import-session create, mapping, or apply request is malformed, omits a required member, uses `null` where forbidden, supplies an out-of-range row reference, or includes an unknown top-level member. |  |  |  |
+| `import_session_not_found` | `404` | `false` | No visible current import session exists for the supplied `import_session_id`. |  |  |  |
+| `import_unit_not_found` | `404` | `false` | No visible current import unit exists for the supplied `import_unit_id` within the addressed import session. |  |  |  |
+| `import_state_conflict` | `409` | `false` | The addressed import session or unit exists, but its current durable state does not allow the requested mapping or apply action. |  |  |  |
+| `import_source_unsupported` | `409` | `false` | The uploaded source file or selected import unit is intentionally unsupported by the current import profile or lacks required inert source material for a mapped apply path. `error.details.reason_code` MUST use the `import_source_unsupported` registry in §3.3.6.2. |  |  |  |
+| `import_apply_blocked` | `409` | `false` | The import apply request is structurally valid but blocked by duplicate-apply detection, overlapping selected units, or units that are not ready. `error.details.reason_code` MUST use the `import_apply_blocked` registry in §3.3.6.2. |  |  |  |
+| `invalid_snapshot_request` | `400` | `false` | A snapshot-create request is malformed, omits a required member, uses `null` where forbidden, or includes an unknown top-level member. |  |  |  |
+| `snapshot_not_found` | `404` | `false` | No visible snapshot exists for the supplied `snapshot_id`. |  |  |  |
+| `invalid_release_request` | `400` | `false` | A release-create request is malformed, omits a required member, supplies `null` where forbidden, or attempts to rely on implicit version selection rather than exact versioned identifiers. |  |  |  |
+| `release_not_found` | `404` | `false` | No visible release exists for the supplied `release_id`. |  |  |  |
+| `release_state_conflict` | `409` | `false` | The addressed release exists, but its current `release_state` does not allow the requested approve, publish, or invalidate action. `error.details.reason_code` MUST use the `release_state_conflict` registry in §3.3.6.2. |  |  |  |
+| `release_approval_rejected` | `409` | `false` | The addressed release exists, but the caller or current artifact tuple does not satisfy the approval requirements for the requested approval action. `error.details.reason_code` MUST use the `release_approval_rejected` registry in §3.3.6.2. |  |  |  |
+| `release_render_failed` | `409` | `false` | A release render request reached the render phase but failed closed because a required template binding or redaction rule was not satisfied. `error.details.reason_code` MUST use the `release_render_failed` registry in §3.3.6.2. |  |  |  |
+| `invalid_reference_pack_request` | `400` | `false` | A reference-pack import, activation, disable, reverify, or refresh request is malformed, omits a required member, uses `null` where forbidden, or includes an unknown top-level member. |  |  |  |
+| `reference_pack_not_found` | `404` | `false` | No visible reference-pack version exists for the supplied `(pack_key, pack_version)` pair. |  |  |  |
+| `reference_pack_state_conflict` | `409` | `false` | The addressed reference-pack version exists, but its current durable state does not allow the requested action. |  |  |  |
+| `reference_pack_verification_failed` | `409` | `false` | Reference-pack import, refresh, or reverify failed closed because integrity, compatibility, or content-screening checks did not pass. `error.details.reason_code` MUST use the `reference_pack_verification_failed` registry in §3.3.6.2. |  |  |  |
+| `reference_pack_activation_rejected` | `409` | `false` | Activation or disablement was rejected because the addressed version is already active or is not in a verified-available condition. `error.details.reason_code` MUST use the `reference_pack_activation_rejected` registry in §3.3.6.2. |  |  |  |
+| `invalid_incident_bundle_request` | `400` | `false` | An incident-bundle export or import request is malformed, omits a required member, uses `null` where forbidden, requests unsupported partial-history or partial-blob modes, or includes an unknown top-level member. |  |  |  |
+| `incident_bundle_not_found` | `404` | `false` | No visible export descriptor exists for the supplied `bundle_id`. |  |  |  |
+| `incident_bundle_export_rejected` | `409` | `false` | Whole-incident export could not materialize a conformant bundle because required structured files or required blobs were unavailable. `error.details.reason_code` MUST use the `incident_bundle_export_rejected` registry in §3.3.6.2. |  |  |  |
+| `incident_bundle_import_rejected` | `409` | `false` | Whole-incident import failed closed because bundle-member validation, integrity validation, incident-identity collision checks, or capability checks did not pass. `error.details.reason_code` MUST use the `incident_bundle_import_rejected` registry in §3.3.6.2. |  |  |  |
+
 ##### 3.3.6.2 Canonical public reason-code registries
 
 **REQ-01-238**
@@ -1906,6 +1931,138 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `session_revoked` | The current session was explicitly logged out or otherwise deployment-revoked. |
 | `incident_access_revoked` | The session remains otherwise valid but no longer authorizes the subscribed incident. |
 | `concurrency_limit` | The session was revoked because a newer login exceeded the concurrent-session cap. |
+
+
+`invalid_import_request` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `request_not_object` | The request metadata is not a JSON object. |
+| `missing_required_field` | A required import-route field is absent. |
+| `field_not_nullable` | The request supplies `null` for a non-nullable import-route field. |
+| `unknown_field` | The request includes a top-level member not declared by the import-route contract. |
+| `invalid_row_reference` | `header_row_ref` or `data_start_row_ref` is not a positive 1-based row coordinate within `source_rect_a1`. |
+| `invalid_selected_unit_ids` | `selected_unit_ids[]` is empty, contains duplicates, or references units outside the addressed session. |
+| `unsupported_assistant_profile` | `assistant_profile` is not `phase2_workbook_import_v1` in the current profile. |
+
+`import_source_unsupported` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `encrypted_or_unparseable_workbook` | The uploaded workbook cannot be parsed by the current profile. |
+| `unsupported_named_range` | The addressed named range is dynamic, multi-area, or otherwise unsupported by the current profile. |
+| `formula_cached_value_missing` | A mapped formula cell lacks an inert cached value and therefore cannot enter `ready`. |
+
+`import_apply_blocked` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `overlapping_units` | The selected `import_unit` rectangles overlap and therefore cannot be jointly applied. |
+| `duplicate_apply_blocked` | The same `(import_unit_id, mapping_fingerprint, incident_id)` tuple was already applied and re-import was not explicitly requested. |
+| `unit_not_ready` | One or more selected units are not yet in `ready` state. |
+
+`invalid_snapshot_request` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `request_not_object` | The request body is not a JSON object. |
+| `missing_required_field` | A required snapshot-create field is absent. |
+| `field_not_nullable` | The request supplies `null` for a non-nullable snapshot-create field. |
+| `unknown_field` | The request includes a top-level member not declared by the snapshot-create contract. |
+| `invalid_source_boundary` | `source_change_set_high_watermark`, when supplied, is not a valid committed source-boundary reference for the addressed incident. |
+
+`invalid_release_request` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `request_not_object` | The request body is not a JSON object. |
+| `missing_required_field` | A required release-create field is absent. |
+| `field_not_nullable` | The request supplies `null` for a non-nullable release-create field. |
+| `unknown_field` | The request includes a top-level member not declared by the release-create contract. |
+| `version_selector_required` | The request omitted `template_version` or `redaction_profile_version`, or otherwise attempted implicit latest-version selection. |
+
+`release_render_failed` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `missing_redaction_rule` | A renderable field or block lacked an applicable redaction rule for the chosen `release_scope`. |
+| `undeclared_template_binding` | The selected template referenced an undeclared export-model binding. |
+| `missing_required_field` | The selected template required a field not present in the frozen export model. |
+
+`release_state_conflict` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `not_approved` | The requested publish action targeted a release that is not currently `approved`. |
+| `already_published` | The requested publish or invalidate action targeted an already `published` release in a way the current route does not allow. |
+| `already_invalidated` | The requested approve, publish, or invalidate action targeted a release already in `invalidated` state. |
+
+`release_approval_rejected` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `approval_requirements_not_met` | The caller or current artifact tuple does not satisfy the approval requirements for the requested approve action. |
+
+`invalid_reference_pack_request` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `request_not_object` | The request metadata is not a JSON object. |
+| `missing_required_field` | A required reference-pack route field is absent. |
+| `field_not_nullable` | The request supplies `null` for a non-nullable reference-pack route field. |
+| `unknown_field` | The request includes a top-level member not declared by the reference-pack route contract. |
+| `pack_version_required` | The requested action requires an exact `pack_version` rather than implicit latest-version selection. |
+| `auto_activation_not_supported` | The request attempted auto-activation instead of the staged-only current-profile import contract. |
+
+`reference_pack_verification_failed` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `checksum_mismatch` | One or more declared checksums did not match the supplied bundle or extracted content. |
+| `signature_mismatch` | Signature verification failed for the supplied bundle. |
+| `missing_integrity_metadata` | Required integrity metadata is absent from the supplied bundle. |
+| `contract_incompatible` | The pack contract or schema version is not compatible with the running application. |
+| `path_traversal` | One or more archive members attempt to escape the staging root. |
+| `disallowed_content` | The bundle contains active or otherwise disallowed content. |
+| `payload_missing` | Required pack payload content is missing at verification time. |
+
+`reference_pack_activation_rejected` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `already_active` | The addressed pack version is already the active version for its `pack_key`. |
+| `not_verified_available` | The addressed pack version is not currently in `verified_available` condition. |
+
+`invalid_incident_bundle_request` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `request_not_object` | The request metadata is not a JSON object. |
+| `missing_required_field` | A required incident-bundle route field is absent. |
+| `field_not_nullable` | The request supplies `null` for a non-nullable incident-bundle route field. |
+| `unknown_field` | The request includes a top-level member not declared by the incident-bundle route contract. |
+| `history_mode_not_supported` | The request attempted to set `history_mode` to anything other than the fixed current-profile `full` behavior. |
+| `blob_mode_not_supported` | The request attempted to set `blob_mode` to anything other than the fixed current-profile `full` behavior. |
+
+`incident_bundle_export_rejected` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `missing_required_file` | One or more required structured bundle files could not be materialized. |
+| `missing_required_blob` | One or more required blob bytes could not be materialized for export. |
+
+`incident_bundle_import_rejected` `error.details.reason_code` values:
+
+| `reason_code` | Canonical meaning |
+| --- | --- |
+| `invalid_member_path` | A bundle member path is absolute, traverses parents, or otherwise violates the logical bundle path contract. |
+| `unsupported_member_type` | The bundle contains a member type outside regular files and directories. |
+| `checksum_mismatch` | A declared structured-file or bundle checksum did not match the supplied bytes. |
+| `signature_mismatch` | Bundle signature verification failed where supported or required. |
+| `blob_hash_mismatch` | One or more blob bytes did not match the required `blobs/sha256/<sha256-lower-hex>` path digest. |
+| `duplicate_incident_id` | The target deployment already contains the exported `incident_id`. |
+| `unsupported_required_capability` | The bundle requires a capability the target deployment does not implement. |
+| `remote_fetch_required` | Import would require a remote fetch, which the current profile forbids. |
 
 #### 3.3.7 Pagination and cursor contract
 
@@ -4127,3 +4284,149 @@ Example blocked preview response:
   }
 }
 ```
+
+
+## 17. Extension route-family public contracts
+
+### 17.1 Common parity rules
+
+**REQ-01-466**
+If an implementation claims the Import Extension Profile, Snapshot and Reporting Extension Profile, Reference Pack Extension Profile, or Incident Portability Extension Profile, it MUST implement that family's public route contract exactly as defined in this section in addition to the underlying model and lifecycle requirements defined elsewhere in the core.
+Profiles: import, snapshot_reporting, incident_portability, reference_pack
+Verified by: AC-262, AC-263, AC-264, AC-265, AC-266, AC-267, AC-268, AC-269, AC-270, AC-271, AC-272, AC-273, AC-274, AC-275, AC-276
+
+**REQ-01-467**
+Any extension-family action in this section that performs long-running work MUST return `202 Accepted` with the common job resource defined in §3.3.9 and §3.3.9.1. The public job-status vocabulary for those routes remains exactly `queued`, `running`, `cancel_requested`, `succeeded`, `failed`, and `canceled`. Durable family resources and durable family state fields MUST remain separate from that six-token job-status vocabulary.
+Profiles: import, snapshot_reporting, incident_portability, reference_pack
+Verified by: AC-262, AC-264, AC-266, AC-267, AC-268, AC-270, AC-271, AC-273, AC-274, AC-275
+
+**REQ-01-468**
+Extension-family list routes defined in this section MUST use the common cursor-pagination contract in §3.3.7. Extension-family singleton reads and extension-family action routes defined in this section MUST reject `limit`, `cursor_token`, and pagination aliases with `400`, `error.code = invalid_pagination_request`, and `error.details.reason_code = pagination_not_supported` rather than silently ignoring them.
+Profiles: import, snapshot_reporting, incident_portability, reference_pack
+Verified by: AC-263, AC-266, AC-270, AC-274
+
+**REQ-01-469**
+For the JSON request bodies and JSON metadata parts defined in this section, omission means the exact declared default only when this section explicitly declares a default. Otherwise a required member is missing and explicit JSON `null` is invalid unless this section explicitly allows `null` for that member. Versioned identifiers such as `template_version`, `redaction_profile_version`, and `pack_version` MUST use exact values; extension routes in this section MUST NOT accept `latest`, `current`, display-label resolution, or equivalent implicit version selectors.
+Profiles: import, snapshot_reporting, incident_portability, reference_pack
+Verified by: AC-262, AC-263, AC-264, AC-266, AC-267, AC-268, AC-270, AC-271, AC-273, AC-274, AC-275
+
+**REQ-01-470**
+Every mutating extension-family control-plane route defined in this section MUST require `client_txn_id` and MUST apply route-scoped idempotency keyed by the authenticated actor, the addressed family resource identity or incident scope, and the normalized request contract for that route.
+Profiles: import, snapshot_reporting, incident_portability, reference_pack
+Verified by: AC-262, AC-264, AC-266, AC-267, AC-268, AC-270, AC-271, AC-273, AC-275
+
+**REQ-01-471**
+Extension-family routes in this section MUST use only the family-specific `error.code` tokens and `reason_code` registries added to §3.3.6.1 and §3.3.6.2 for that family. Job terminal summaries for those routes MUST surface the same stable codes rather than ad hoc worker strings.
+Profiles: import, snapshot_reporting, incident_portability, reference_pack
+Verified by: AC-265, AC-269, AC-272, AC-276
+
+### 17.2 Import Extension Profile public contract
+
+**REQ-01-472**
+The Import Extension Profile MUST expose exactly this minimum public route surface under `/api/v1/import-sessions/*`:
+
+- `POST /api/v1/import-sessions`,
+- `GET /api/v1/import-sessions/{import_session_id}`,
+- `GET /api/v1/import-sessions/{import_session_id}/units`,
+- `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}`,
+- `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview`,
+- `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping`,
+- `POST /api/v1/import-sessions/{import_session_id}/apply`.
+Profiles: import
+Verified by: AC-262, AC-263, AC-264
+
+**REQ-01-473**
+`POST /api/v1/import-sessions` MUST accept exactly one uploaded source file plus one JSON metadata object. The source file MUST be CSV or XLSX. The metadata object MUST include required `incident_id` and required `client_txn_id`. It MAY include optional `assistant_profile`, which defaults to `phase2_workbook_import_v1` when omitted and MUST use that exact value when supplied in the current profile. The route MUST compute `source_content_sha256` from the exact uploaded file bytes, create or replay exactly one durable `import_session`, and start discovery as a background job. Normalized request comparison for idempotency MUST include `incident_id`, normalized `assistant_profile`, and the computed `source_content_sha256` from the uploaded bytes.
+Profiles: import
+Verified by: AC-262
+
+**REQ-01-474**
+`GET /api/v1/import-sessions/{import_session_id}` MUST return the durable import-session resource. `GET /api/v1/import-sessions/{import_session_id}/units` MUST return the addressed session's units under the common pagination contract. `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}` and `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview` are singleton read routes. `GET /preview` MUST remain read-only against incident state. `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping` MUST persist exactly one approved mapping plan and deterministic `mapping_fingerprint`; the request body MUST include required `client_txn_id`, required `target_view_schema_id`, required `header_row_ref`, required `data_start_row_ref`, required `unknown_column_policy`, and required `source_columns[]`. `header_row_ref` and `data_start_row_ref` MUST each be positive 1-based row references within `source_rect_a1`, and `data_start_row_ref` MUST be greater than or equal to `header_row_ref + 1`. `POST /api/v1/import-sessions/{import_session_id}/apply` MUST accept required `client_txn_id` and optional `selected_unit_ids[]`; omitted `selected_unit_ids[]` means use the session's persisted `selected_unit_ids[]`. When serialized, `nonblocking_warning_codes[]` MUST default to `[]` when empty. `mapping_fingerprint` MUST be absent until mapping approval. The import route family MUST preserve the durable session terminal states `applied`, `partially_applied`, `failed`, and `canceled`, and the durable unit terminal states `applied`, `skipped`, `rejected`, and `failed`; it MUST NOT serialize job-phase tokens as session or unit state.
+Profiles: import
+Verified by: AC-263, AC-264
+
+**REQ-01-475**
+The import route family MUST use only `invalid_import_request`, `import_session_not_found`, `import_unit_not_found`, `import_state_conflict`, `import_source_unsupported`, and `import_apply_blocked`. `import_source_unsupported` MUST use only `encrypted_or_unparseable_workbook`, `unsupported_named_range`, and `formula_cached_value_missing`. `import_apply_blocked` MUST use only `overlapping_units`, `duplicate_apply_blocked`, and `unit_not_ready`.
+Profiles: import
+Verified by: AC-265
+
+### 17.3 Snapshot and Reporting Extension Profile public contract
+
+**REQ-01-476**
+The Snapshot and Reporting Extension Profile MUST expose exactly this minimum public route surface under `/api/v1/snapshots/*` and `/api/v1/releases/*`:
+
+- `POST /api/v1/snapshots`,
+- `GET /api/v1/snapshots/{snapshot_id}`,
+- `POST /api/v1/releases`,
+- `GET /api/v1/releases/{release_id}`,
+- `POST /api/v1/releases/{release_id}/approve`,
+- `POST /api/v1/releases/{release_id}/publish`,
+- `POST /api/v1/releases/{release_id}/invalidate`.
+Profiles: snapshot_reporting
+Verified by: AC-266, AC-267, AC-268
+
+**REQ-01-477**
+`POST /api/v1/snapshots` MUST accept a JSON object with required `incident_id` and required `client_txn_id`. It MAY include optional `source_change_set_high_watermark`; omission means the current committed incident head. `POST /api/v1/releases` MUST accept a JSON object with required `snapshot_id`, required `template_id`, required `template_version`, required `redaction_profile_id`, required `redaction_profile_version`, required `output_kind`, and required `client_txn_id`. It MAY include optional `release_scope`, which defaults to `internal_draft` when omitted. Both routes MUST run as background jobs. The release-create route MUST fail closed if the request omits either version selector or otherwise attempts implicit latest-version resolution.
+Profiles: snapshot_reporting
+Verified by: AC-266, AC-267
+
+**REQ-01-478**
+`GET /api/v1/releases/{release_id}` MUST return the durable release resource. `POST /api/v1/releases/{release_id}/approve`, `POST /api/v1/releases/{release_id}/publish`, and `POST /api/v1/releases/{release_id}/invalidate` MUST each accept a JSON object with required `client_txn_id` and optional `reason`. `approve` is legal only when the current `release_state` is `pending_approval`. `publish` is legal only when the current `release_state` is `approved`. `invalidate` is legal only when the current `release_state` is `pending_approval`, `approved`, or `published`. The public `release_state` vocabulary remains exactly `pending_approval`, `approved`, `invalidated`, and `published`. Render jobs MUST NOT introduce `queued`, `running`, `rendering`, or equivalent worker-phase tokens into `release_state`. A successful internal-draft render candidate becomes `approved` immediately because the current profile requires no separate approval action for `release_scope='internal_draft'`.
+Profiles: snapshot_reporting
+Verified by: AC-268
+
+**REQ-01-479**
+The snapshot and release route family MUST use only `invalid_snapshot_request`, `snapshot_not_found`, `invalid_release_request`, `release_not_found`, `release_state_conflict`, `release_approval_rejected`, and `release_render_failed`. `release_render_failed` MUST use only `missing_redaction_rule`, `undeclared_template_binding`, and `missing_required_field`. `release_state_conflict` MUST use only `not_approved`, `already_published`, and `already_invalidated`. `release_approval_rejected` MUST use only `approval_requirements_not_met`.
+Profiles: snapshot_reporting
+Verified by: AC-269
+
+### 17.4 Reference Pack Extension Profile public contract
+
+**REQ-01-480**
+The Reference Pack Extension Profile MUST expose exactly this minimum public route surface under `/api/v1/reference-packs/*`:
+
+- `GET /api/v1/reference-packs`,
+- `GET /api/v1/reference-packs/{pack_key}/{pack_version}`,
+- `POST /api/v1/reference-packs/import`,
+- `POST /api/v1/reference-packs/{pack_key}/{pack_version}/activate`,
+- `POST /api/v1/reference-packs/{pack_key}/{pack_version}/disable`,
+- `POST /api/v1/reference-packs/{pack_key}/{pack_version}/reverify`,
+- `POST /api/v1/reference-packs/refresh`.
+Profiles: reference_pack
+Verified by: AC-270, AC-271
+
+**REQ-01-481**
+`POST /api/v1/reference-packs/import` MUST accept exactly one offline pack bundle plus one JSON metadata object containing required `client_txn_id`. It MAY include optional `activation_policy`, which defaults to `staged_only` when omitted. The current profile MUST reject any request that attempts auto-activation at import time. `POST /api/v1/reference-packs/{pack_key}/{pack_version}/activate`, `disable`, and `reverify` MUST require an exact path `pack_version`; the current profile defines no implicit latest-version action route. `POST /api/v1/reference-packs/refresh` MUST accept required `client_txn_id` and optional `pack_keys[]`; omitted `pack_keys[]` means all currently imported pack keys visible to the caller. Import, reverify, and refresh MUST run as background jobs. Activate and disable MAY complete synchronously. The durable version conditions exposed to the public surface remain exactly `staged`, `verified_available`, `disabled`, `failed`, and `missing`. `active` MUST remain a derived boolean obtained from the activation pointer for `(pack_key, pack_version)`, not an additional stored version-state token.
+Profiles: reference_pack
+Verified by: AC-270, AC-271
+
+**REQ-01-482**
+The reference-pack route family MUST use only `invalid_reference_pack_request`, `reference_pack_not_found`, `reference_pack_state_conflict`, `reference_pack_verification_failed`, and `reference_pack_activation_rejected`. `reference_pack_verification_failed` MUST use only `checksum_mismatch`, `signature_mismatch`, `missing_integrity_metadata`, `contract_incompatible`, `path_traversal`, `disallowed_content`, and `payload_missing`. `reference_pack_activation_rejected` MUST use only `already_active` and `not_verified_available`.
+Profiles: reference_pack
+Verified by: AC-272
+
+### 17.5 Incident Portability Extension Profile public contract
+
+**REQ-01-483**
+The Incident Portability Extension Profile MUST expose exactly this minimum public route surface under `/api/v1/incident-bundles/*`:
+
+- `POST /api/v1/incident-bundles/export`,
+- `GET /api/v1/incident-bundles/{bundle_id}`,
+- `POST /api/v1/incident-bundles/import`.
+Profiles: incident_portability
+Verified by: AC-273, AC-274, AC-275
+
+**REQ-01-484**
+`POST /api/v1/incident-bundles/export` MUST accept a JSON object with required `incident_id` and required `client_txn_id`. It MAY include optional `reference_pack_mode`, optional `optional_sections[]`, and optional `required_capabilities[]`. `reference_pack_mode` defaults to `refs_only` when omitted. `optional_sections[]` defaults to `[]` when omitted. `required_capabilities[]` defaults to `[]` when omitted. The current profile MUST NOT expose user-tunable partial-history or partial-blob request modes; if `history_mode` or `blob_mode` is supplied, the route MUST fail closed. Export MUST run as a background job. The durable export descriptor under `GET /api/v1/incident-bundles/{bundle_id}` MUST exist only after successful export, MUST reject pagination, and MUST expose at minimum `bundle_id`, `incident_id`, `exported_at`, `manifest_sha256`, `reference_pack_mode`, `optional_sections[]`, `required_capabilities[]`, fixed `history_mode='full'`, and fixed `blob_mode='full'`.
+Profiles: incident_portability
+Verified by: AC-273, AC-274
+
+**REQ-01-485**
+`POST /api/v1/incident-bundles/import` MUST accept exactly one bundle file plus one JSON metadata object containing required `client_txn_id`. Import MUST run as a background job. The current profile defines no durable import resource; on success the terminal job result summary MUST expose the imported `incident_id`. Import remains create-only into an empty incident namespace. The current profile MUST reject clone, merge, identifier-remap, remote-fetch, or equivalent alternative import modes.
+Profiles: incident_portability
+Verified by: AC-275
+
+**REQ-01-486**
+The incident-bundle route family MUST use only `invalid_incident_bundle_request`, `incident_bundle_not_found`, `incident_bundle_export_rejected`, and `incident_bundle_import_rejected`. `incident_bundle_export_rejected` MUST use only `missing_required_file` and `missing_required_blob`. `incident_bundle_import_rejected` MUST use only `invalid_member_path`, `unsupported_member_type`, `checksum_mismatch`, `signature_mismatch`, `blob_hash_mismatch`, `duplicate_incident_id`, `unsupported_required_capability`, and `remote_fetch_required`.
+Profiles: incident_portability
+Verified by: AC-276

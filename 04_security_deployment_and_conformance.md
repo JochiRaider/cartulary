@@ -522,7 +522,7 @@ Definition of Done:
 
 - prerequisite claim: Base
 - additional requirement selector: `profile:import`
-- additional acceptance criteria: `AC-027..AC-029`, `AC-063..AC-067`, `AC-232`, `AC-237`
+- additional acceptance criteria: `AC-027..AC-029`, `AC-063..AC-067`, `AC-232`, `AC-237`, `AC-262..AC-265`
 - **AC-232**: An Import claim is conformant only when a Base claim passes, every requirement selected by `profile:import` is implemented, and every additional acceptance criterion listed in this manifest passes.
   - Verifies: `profile:import`
 
@@ -534,7 +534,7 @@ Definition of Done:
 
 - prerequisite claim: Base
 - additional requirement selector: `profile:snapshot_reporting`
-- additional acceptance criteria: `AC-030..AC-032`, `AC-056..AC-062`, `AC-091`, `AC-104..AC-106`, `AC-113..AC-115`, `AC-233`, `AC-237`
+- additional acceptance criteria: `AC-030..AC-032`, `AC-056..AC-062`, `AC-091`, `AC-104..AC-106`, `AC-113..AC-115`, `AC-233`, `AC-237`, `AC-266..AC-269`
 - **AC-233**: A Snapshot and Reporting claim is conformant only when a Base claim passes, every requirement selected by `profile:snapshot_reporting` is implemented, and every additional acceptance criterion listed in this manifest passes.
   - Verifies: `profile:snapshot_reporting`
 
@@ -546,7 +546,7 @@ Definition of Done:
 
 - prerequisite claim: Base
 - additional requirement selector: `profile:reference_pack`
-- additional acceptance criteria: `AC-033..AC-035`, `AC-092..AC-096`, `AC-234`, `AC-237`
+- additional acceptance criteria: `AC-033..AC-035`, `AC-092..AC-096`, `AC-234`, `AC-237`, `AC-270..AC-272`
 - **AC-234**: A Reference Pack claim is conformant only when a Base claim passes, every requirement selected by `profile:reference_pack` is implemented, and every additional acceptance criterion listed in this manifest passes.
   - Verifies: `profile:reference_pack`
 
@@ -570,7 +570,7 @@ Definition of Done:
 
 - prerequisite claim: Base
 - additional requirement selector: `profile:incident_portability`
-- additional acceptance criteria: `AC-164..AC-169`, `AC-236`, `AC-237`
+- additional acceptance criteria: `AC-164..AC-169`, `AC-236`, `AC-237`, `AC-273..AC-276`
 - **AC-236**: An Incident Portability claim is conformant only when a Base claim passes, every requirement selected by `profile:incident_portability` is implemented, and every additional acceptance criterion listed in this manifest passes.
   - Verifies: `profile:incident_portability`
 
@@ -777,6 +777,16 @@ Definition of Done:
 - **AC-067**: Preview or apply of a unit containing formulas, merged cells, comments, pivots, charts, external links, hidden or filtered presentation state, or workbook or sheet protection never executes workbook behavior. The unit either emits only declared `warning_code[]` values or is rejected as unsupported, formula cells without stored cached values do not enter `ready` while mapped, and encrypted or password-protected workbooks that cannot be parsed are rejected before discovery.
   - Verifies: REQ-01-004..REQ-01-014, REQ-02-045..REQ-02-053, REQ-03-153..REQ-03-161, REQ-03-193..REQ-03-204
 
+
+- **AC-262**: `POST /api/v1/import-sessions` accepts exactly one uploaded CSV or XLSX file plus one JSON metadata object with required `incident_id` and required `client_txn_id`; omitting `assistant_profile` defaults it to `phase2_workbook_import_v1`; explicit `null` for `assistant_profile`, an unknown metadata member, or a second uploaded source file fails with `400 error.code='invalid_import_request'`; and replaying the same normalized request and file bytes by the same actor with the same `(incident_id, client_txn_id)` returns the original accepted `202` result without creating a second `import_session`.
+  - Verifies: REQ-01-033, REQ-01-466..REQ-01-473
+- **AC-263**: `GET /api/v1/import-sessions/{import_session_id}` and `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}` reject pagination members; `GET /api/v1/import-sessions/{import_session_id}/units` uses the common cursor-pagination contract; preview stays read-only against incident state; serialized `nonblocking_warning_codes[]` defaults to `[]` when empty; `mapping_fingerprint` is absent before mapping approval; and serialized `header_row_ref` plus `data_start_row_ref` are positive 1-based row references within `source_rect_a1`.
+  - Verifies: REQ-01-466..REQ-01-469, REQ-01-472, REQ-01-474
+- **AC-264**: `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping` persists one approved mapping plan and deterministic `mapping_fingerprint`; `POST /api/v1/import-sessions/{import_session_id}/apply` omitting `selected_unit_ids[]` uses the session's persisted selection; apply returns `202` with the common job resource; and the durable import-session and import-unit resources never surface job-status tokens such as `queued` or `running` as `session_status` or `unit_status`.
+  - Verifies: REQ-01-467..REQ-01-470, REQ-01-474
+- **AC-265**: Import-family routes use only `invalid_import_request`, `import_session_not_found`, `import_unit_not_found`, `import_state_conflict`, `import_source_unsupported`, and `import_apply_blocked`; unsupported source failures surface only `encrypted_or_unparseable_workbook`, `unsupported_named_range`, or `formula_cached_value_missing`; and blocked apply requests surface only `overlapping_units`, `duplicate_apply_blocked`, or `unit_not_ready`.
+  - Verifies: REQ-01-471, REQ-01-475
+
 ### 9.3 Snapshot and Reporting Extension Profile criteria
 
 - **AC-030**: Report generation and snapshot generation run without blocking grid editing, and the UI shows progress and cancellation within 1 second of job start.
@@ -818,6 +828,16 @@ Definition of Done:
   - Verifies: REQ-01-377..REQ-01-380, REQ-01-385..REQ-01-393, REQ-02-139..REQ-02-146, REQ-02-211,
     REQ-04-044..REQ-04-047
 
+
+- **AC-266**: `POST /api/v1/snapshots` accepts a JSON object with required `incident_id` and required `client_txn_id`; omitting `source_change_set_high_watermark` defaults snapshot materialization to the current committed incident head; explicit `null` or unknown members fail with `400 error.code='invalid_snapshot_request'`; the route returns `202` with the common job resource; and `GET /api/v1/snapshots/{snapshot_id}` rejects pagination members.
+  - Verifies: REQ-01-033, REQ-01-466..REQ-01-477
+- **AC-267**: `POST /api/v1/releases` requires exact `snapshot_id`, `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, `output_kind`, and `client_txn_id`; omitting `release_scope` defaults it to `internal_draft`; requests using `latest`, `current`, or missing version selectors fail closed with `400 error.code='invalid_release_request'`; and render starts as a `202` common job rather than a blocking route.
+  - Verifies: REQ-01-466..REQ-01-470, REQ-01-476..REQ-01-477
+- **AC-268**: Rendered release resources use only `pending_approval`, `approved`, `invalidated`, and `published` as `release_state`; `internal_draft` candidates become `approved` immediately on successful render; `approve`, `publish`, and `invalidate` each require `client_txn_id`, reject pagination members, and enforce their declared legal state transitions without introducing `queued`, `running`, or `rendering` into `release_state`.
+  - Verifies: REQ-01-467..REQ-01-470, REQ-01-374..REQ-01-376, REQ-01-476, REQ-01-478, REQ-04-031..REQ-04-035
+- **AC-269**: Snapshot and release routes use only `invalid_snapshot_request`, `snapshot_not_found`, `invalid_release_request`, `release_not_found`, `release_state_conflict`, `release_approval_rejected`, and `release_render_failed`; render failures surface only `missing_redaction_rule`, `undeclared_template_binding`, or `missing_required_field`; state conflicts surface only `not_approved`, `already_published`, or `already_invalidated`; and approval rejections surface only `approval_requirements_not_met`.
+  - Verifies: REQ-01-471, REQ-01-479
+
 ### 9.4 Reference Pack Extension Profile criteria
 
 - **AC-033**: Reference-pack import, verification, and refresh run without blocking grid editing, and the UI shows progress and cancellation within 1 second of job start.
@@ -836,6 +856,14 @@ Definition of Done:
   - Verifies: REQ-01-409..REQ-01-421, REQ-04-040..REQ-04-043
 - **AC-096**: In a disconnected deployment, reference-pack import or activation succeeds without outbound network access and no supported pack-activation path performs a live internet fetch.
   - Verifies: REQ-01-282..REQ-01-284, REQ-01-407..REQ-01-413, REQ-04-040..REQ-04-043, REQ-04-054..REQ-04-055
+
+
+- **AC-270**: `POST /api/v1/reference-packs/import` accepts exactly one offline bundle plus one JSON metadata object containing required `client_txn_id`; omitting `activation_policy` defaults it to `staged_only`; any request for auto-activation fails with `400 error.code='invalid_reference_pack_request'`; the import route returns `202` with the common job resource; `GET /api/v1/reference-packs` uses the common cursor-pagination contract; and `GET /api/v1/reference-packs/{pack_key}/{pack_version}` rejects pagination members.
+  - Verifies: REQ-01-033, REQ-01-466..REQ-01-470, REQ-01-480..REQ-01-481
+- **AC-271**: `POST /api/v1/reference-packs/{pack_key}/{pack_version}/activate`, `disable`, and `reverify` require an exact path `pack_version`; the public surface offers no implicit latest-version action route; `active` is derived from the activation pointer rather than stored as an additional version-state token; import, reverify, and refresh use jobs; and activate or disable preserve the durable version-state vocabulary `staged`, `verified_available`, `disabled`, `failed`, and `missing`.
+  - Verifies: REQ-01-467..REQ-01-470, REQ-01-409..REQ-01-421, REQ-01-480..REQ-01-481
+- **AC-272**: Reference-pack routes use only `invalid_reference_pack_request`, `reference_pack_not_found`, `reference_pack_state_conflict`, `reference_pack_verification_failed`, and `reference_pack_activation_rejected`; verification failures surface only `checksum_mismatch`, `signature_mismatch`, `missing_integrity_metadata`, `contract_incompatible`, `path_traversal`, `disallowed_content`, or `payload_missing`; and activation rejections surface only `already_active` or `not_verified_available`.
+  - Verifies: REQ-01-471, REQ-01-482
 
 ### 9.5 Enterprise Authentication Extension Profile criteria
 
@@ -1195,6 +1223,16 @@ Definition of Done:
 - **AC-169**: Whole-incident export and import run as background jobs, show progress and cancellation without blocking grid editing, stage bundle contents only under the configured temporary-work root, and in flyaway or disconnected deployments keep emitted bundles and staged extracts on encrypted storage.
   - Verifies: REQ-01-425..REQ-01-430, REQ-01-447..REQ-01-450, REQ-01-452..REQ-01-456, REQ-04-044..REQ-04-047,
     REQ-04-054..REQ-04-055, REQ-04-058..REQ-04-059, REQ-04-065
+
+
+- **AC-273**: `POST /api/v1/incident-bundles/export` accepts a JSON object with required `incident_id` and required `client_txn_id`; omitting `reference_pack_mode` defaults it to `refs_only`; omitting `optional_sections[]` or `required_capabilities[]` defaults each to `[]`; supplying `history_mode` or `blob_mode` fails with `400 error.code='invalid_incident_bundle_request'`; and export returns `202` with the common job resource.
+  - Verifies: REQ-01-033, REQ-01-466..REQ-01-470, REQ-01-483..REQ-01-484
+- **AC-274**: A durable incident-bundle descriptor exists only after successful export; `GET /api/v1/incident-bundles/{bundle_id}` returns that descriptor, rejects pagination members, and exposes fixed current-profile `history_mode='full'` and `blob_mode='full'` rather than user-tunable partial-export modes.
+  - Verifies: REQ-01-467..REQ-01-469, REQ-01-483..REQ-01-484
+- **AC-275**: `POST /api/v1/incident-bundles/import` accepts exactly one bundle file plus one JSON metadata object containing required `client_txn_id`, returns `202` with the common job resource, exposes the imported `incident_id` only through the terminal job result on success, and rejects clone, merge, identifier-remap, or remote-fetch modes.
+  - Verifies: REQ-01-467..REQ-01-470, REQ-01-483, REQ-01-485
+- **AC-276**: Incident-bundle routes use only `invalid_incident_bundle_request`, `incident_bundle_not_found`, `incident_bundle_export_rejected`, and `incident_bundle_import_rejected`; export rejections surface only `missing_required_file` or `missing_required_blob`; and import rejections surface only `invalid_member_path`, `unsupported_member_type`, `checksum_mismatch`, `signature_mismatch`, `blob_hash_mismatch`, `duplicate_incident_id`, `unsupported_required_capability`, or `remote_fetch_required`.
+  - Verifies: REQ-01-471, REQ-01-486
 
 ## 10. Non-goals preserved from the source artifact
 
