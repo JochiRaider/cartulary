@@ -161,7 +161,7 @@ Profiles: base
 Verified by: AC-152, AC-231
 
 **REQ-03-024**
-Ordinary saved-view update MUST allow mutation only of `display_name`, `query_json`, `layout_json`, and, when permitted by scope rules, `scope` between `private` and `shared`. It MUST reject attempted mutation of `incident_id`, `saved_view_id`, or `view_schema_id`. Every successful in-place saved-view mutation MUST advance `saved_view_version`.
+Ordinary saved-view update MUST allow mutation only of `display_name`, `query_json`, `layout_json`, and, when permitted by scope rules, `scope` between `private` and `shared`. It MUST reject attempted mutation of `incident_id`, `saved_view_id`, or `view_schema_id`. A structurally valid no-op update MUST return the current saved-view configuration without advancing `saved_view_version` or `updated_at`. Any materially changed successful in-place saved-view mutation MUST advance `saved_view_version` and refresh `updated_at`.
 Profiles: base
 Verified by: AC-152, AC-231
 

@@ -940,7 +940,7 @@ Profiles: base
 Verified by: AC-127, AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
 
 **REQ-01-119**
-`POST /api/v1/users` MUST require the same deployment-scoped account-administration capability. The route MUST accept:
+`POST /api/v1/users` MUST require the same deployment-scoped account-administration capability. The request body MUST be a JSON object. The route MUST accept:
 
 - required `client_txn_id`,
 - required `auth_kind`,
@@ -949,11 +949,13 @@ Verified by: AC-127, AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
 - required `initial_password`,
 - optional `mfa_required`,
 - optional `is_deployment_admin`.
+
+No other top-level request members are allowed. `mfa_required` and `is_deployment_admin` MUST be boolean when supplied and MUST NOT be `null`. If `mfa_required` is omitted, the server MUST default it to `true`. If `is_deployment_admin` is omitted, the server MUST default it to `false`. The create contract MUST NOT accept client-supplied `is_active`, `user_id`, `created_at`, `updated_at`, `updated_by_user_id`, `last_login_at`, `user_version`, or `auth_bindings[]`; any such member or any other unknown top-level member MUST fail with `400` and `error.code = invalid_mutation_payload`.
 Profiles: base
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
 
 **REQ-01-120**
-In the base profile, `auth_kind` MUST be `local`. `email` MUST be trimmed of leading and trailing ASCII whitespace, MUST be non-empty after trimming, and MUST be unique within the deployment after stable case-insensitive canonicalization or an equivalent deterministic uniqueness substrate. The server MUST NOT expose `initial_password` or any equivalent secret in a response or event payload.
+In the base profile, `auth_kind` MUST be `local`. `email` MUST be trimmed of leading and trailing ASCII whitespace, MUST be non-empty after trimming, and MUST be unique within the deployment after stable case-insensitive canonicalization or an equivalent deterministic uniqueness substrate. On successful create, the created user resource MUST initialize `is_active=true`. The public create contract MUST NOT permit the client to choose any different initial `is_active` state. The server MUST NOT expose `initial_password` or any equivalent secret in a response or event payload.
 Profiles: base
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
 
@@ -963,7 +965,7 @@ Profiles: base
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
 
 **REQ-01-122**
-Idempotency for user create MUST be keyed by `(actor_user_id, client_txn_id)`. If the same authenticated actor replays the same normalized request with the same `client_txn_id`, the server MUST return `200 OK` with the originally created safe user resource and MUST create no second user. If the same actor reuses `client_txn_id` with a different normalized request, the server MUST fail with `409`.
+Idempotency for user create MUST be keyed by `(actor_user_id, client_txn_id)`. For normalized request comparison, omitted `mfa_required` MUST compare equal to explicit `true`, and omitted `is_deployment_admin` MUST compare equal to explicit `false`. Requests rejected under REQ-01-119 are never part of normalized comparison. If the same authenticated actor replays the same normalized request with the same `client_txn_id`, the server MUST return `200 OK` with the originally created safe user resource and MUST create no second user. If the same actor reuses `client_txn_id` with a different normalized request, the server MUST fail with `409`.
 Profiles: base
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-231
 
@@ -1111,12 +1113,12 @@ Profiles: base
 Verified by: AC-127, AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
 
 **REQ-01-145**
-`POST /api/v1/incidents/{incident_id}/saved-views` MUST accept `view_schema_id`, optional `scope`, `display_name`, `query_json`, and `layout_json`. If `scope` is omitted, the server MUST treat it as `private`. The ordinary public create route MUST reject `scope='system'`.
+`POST /api/v1/incidents/{incident_id}/saved-views` MUST accept a JSON object containing required `view_schema_id`, required `display_name`, required `query_json`, optional `layout_json`, and optional `scope`. `display_name` MUST be non-null and MUST be non-empty after trim. `query_json` MUST be non-null. If `layout_json` is omitted, the server MUST default it to `{}`. If `layout_json` is supplied, it MUST be non-null. If `scope` is omitted, the server MUST treat it as `private`. No other top-level request members are allowed. The ordinary public create route MUST reject `scope='system'`, any supplied `null` for `display_name`, `query_json`, `layout_json`, or `scope`, and any unknown top-level member with `400` and `error.code = invalid_mutation_payload`.
 Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
 
 **REQ-01-146**
-`PATCH /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}` MUST accept `base_saved_view_version` plus changed mutable fields only. It MUST reject attempted mutation of `incident_id`, `saved_view_id`, or `view_schema_id`. If the current saved-view version differs from `base_saved_view_version`, the server MUST reject the patch with an explicit conflict status rather than silently overwriting saved-view state.
+`PATCH /api/v1/incidents/{incident_id}/saved-views/{saved_view_id}` MUST accept a JSON object containing required `base_saved_view_version` plus zero or more changed mutable fields only. Mutable fields are `display_name`, `query_json`, `layout_json`, and, when permitted by scope rules, `scope`. Omission of a mutable field means unchanged. `display_name`, `query_json`, and `layout_json` MUST be non-null when supplied, and `display_name` MUST remain non-empty after trim. No top-level request members other than `base_saved_view_version` and those mutable fields are allowed. It MUST reject attempted mutation of `incident_id`, `saved_view_id`, or `view_schema_id`. Unknown or forbidden top-level members MUST fail with `400` and `error.code = invalid_mutation_payload`. If the current saved-view version differs from `base_saved_view_version`, the server MUST reject the patch with an explicit conflict status rather than silently overwriting saved-view state. If the request is structurally valid but makes no material change after request-time normalization, the server MUST return `200 OK` with the current saved-view resource and MUST NOT change `saved_view_version` or `updated_at`. Any materially changed successful in-place mutation MUST advance `saved_view_version` and `updated_at` exactly once.
 Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
 
@@ -1139,12 +1141,12 @@ Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
 
 **REQ-01-150**
-`workbook-preferences/me` MUST expose, at minimum, `incident_id`, `user_id`, `home_sheet_ref`, `created_at`, and `updated_at`. `PUT /api/v1/incidents/{incident_id}/workbook-preferences/me` MUST accept a nullable `home_sheet_ref` and MUST allow any current incident member to set or clear only their own home-surface preference.
+`workbook-preferences/me` MUST expose, at minimum, `incident_id`, `user_id`, `home_sheet_ref`, `created_at`, and `updated_at`. `PUT /api/v1/incidents/{incident_id}/workbook-preferences/me` MUST accept only a JSON object exactly of the form `{ "home_sheet_ref": <sheet_ref|null> }`. If the preference object does not yet exist, the route MUST create it. If it already exists, the route MUST replace only `home_sheet_ref`. Unknown top-level members MUST fail with `400` and `error.code = invalid_mutation_payload`. A structurally valid no-op update MUST return `200 OK` with the current resource and MUST NOT change `updated_at`. An effective change MUST return `200 OK` with the resulting resource and MUST update `updated_at` exactly once. The route MUST allow any current incident member to set or clear only their own home-surface preference.
 Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
 
 **REQ-01-151**
-`workbook-preferences/default` MUST expose, at minimum, `incident_id`, `default_sheet_ref`, `created_at`, `updated_at`, and `updated_by_user_id`. `PUT /api/v1/incidents/{incident_id}/workbook-preferences/default` MUST accept a nullable `default_sheet_ref` and MUST fail closed for callers whose current incident role is not `admin`.
+`workbook-preferences/default` MUST expose, at minimum, `incident_id`, `default_sheet_ref`, `created_at`, `updated_at`, and `updated_by_user_id`. `PUT /api/v1/incidents/{incident_id}/workbook-preferences/default` MUST accept only a JSON object exactly of the form `{ "default_sheet_ref": <sheet_ref|null> }`. If the preference object does not yet exist, the route MUST create it. If it already exists, the route MUST replace only `default_sheet_ref`. Unknown top-level members MUST fail with `400` and `error.code = invalid_mutation_payload`. A structurally valid no-op update MUST return `200 OK` with the current resource and MUST NOT change `updated_at` or `updated_by_user_id`. An effective change MUST return `200 OK` with the resulting resource, MUST update `updated_at` exactly once, and MUST set `updated_by_user_id` to the current actor. The route MUST fail closed for callers whose current incident role is not `admin`.
 Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
 

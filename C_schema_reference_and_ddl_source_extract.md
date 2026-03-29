@@ -164,8 +164,12 @@ CREATE TABLE users (
     user_version bigint NOT NULL DEFAULT 1
 );
 
--- Informative: the first deployment admin is provisioned out of band rather
--- than through an unauthenticated public bootstrap route.
+-- Informative: public `POST /api/v1/users` treats omitted `mfa_required`
+-- as `true`, omitted `is_deployment_admin` as `false`, and always
+-- initializes `is_active` to `true`. The public create contract does not
+-- accept client-supplied `is_active`, and the first deployment admin is
+-- provisioned out of band rather than through an unauthenticated public
+-- bootstrap route.
 
 CREATE TABLE auth_providers (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -823,16 +827,48 @@ CREATE TABLE saved_views (
     incident_id uuid NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
     owner_user_id uuid REFERENCES users(id),
     view_scope text NOT NULL CHECK (view_scope IN ('private','shared','system')),
-    sheet_type text NOT NULL CHECK (
-        sheet_type IN ('timeline','hosts','identities','artifacts','evidence','notes','system')
-    ),
     view_schema_id text NOT NULL REFERENCES view_schemas(id),
-    name text NOT NULL,
-    layout_json jsonb NOT NULL,
-    is_default boolean NOT NULL DEFAULT false,
+    display_name text NOT NULL,
+    query_json jsonb NOT NULL,
+    layout_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+    saved_view_version bigint NOT NULL DEFAULT 1,
     created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now()
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CHECK (
+        (view_scope = 'system' AND owner_user_id IS NULL)
+        OR (view_scope IN ('private','shared') AND owner_user_id IS NOT NULL)
+    )
 );
+
+CREATE TABLE user_workbook_preferences (
+    incident_id uuid NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    home_sheet_ref jsonb,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (incident_id, user_id)
+);
+
+CREATE TABLE incident_workbook_preferences (
+    incident_id uuid PRIMARY KEY REFERENCES incidents(id) ON DELETE CASCADE,
+    default_sheet_ref jsonb,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    updated_by_user_id uuid REFERENCES users(id)
+);
+
+-- Informative: public `POST /api/v1/incidents/{incident_id}/saved-views`
+-- requires non-null `display_name` and `query_json`, defaults omitted
+-- `scope` to `private`, defaults omitted `layout_json` to `'{}'::jsonb`,
+-- and keeps startup/default surface selection in the separate workbook-
+-- preference objects above rather than on saved-view rows.
+--
+-- Informative: public `PUT /api/v1/incidents/{incident_id}/workbook-
+-- preferences/me` accepts only `{ "home_sheet_ref": <sheet_ref|null> }`,
+-- and the `default` route accepts only
+-- `{ "default_sheet_ref": <sheet_ref|null> }`. Both routes create the
+-- preference object if absent, replace only the named pointer if present,
+-- and leave `updated_at` unchanged on no-op updates.
 ```
 
 ```sql
