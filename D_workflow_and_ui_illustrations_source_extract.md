@@ -158,6 +158,15 @@ For file-based import, start with a bounded contract rather than promising full 
 
 Formulas, macros, workbook automation, external links, comments, pivot tables, charts, workbook protection, and merged-cell layout semantics should not be treated as live workbook logic. Formula cells should be imported as inert values or raw source metadata only, with visible warnings or explicit rejection when a feature is unsupported. File-based import should not auto-resolve host/account aliases; imported tokens should remain unresolved mentions until an analyst resolves them explicitly.
 
+### Non-Timeline create-policy examples
+
+- **Linked note from context.** Selecting a Timeline, Host, Identity, or Evidence row may preseed a linked-record reference for `add linked note`, but the note does not commit until `note.title` or `note.body` is non-empty after normalization. A linked but otherwise empty note remains an unsaved draft, not a saved record.
+- **Evidence request without a blob.** A blank-row Evidence create with no explicit lifecycle choice commits only when at least one writable evidence field is present. The committed row defaults `evidence.lifecycle_state` to `requested`, and omitted `requested_at` defaults to the commit timestamp. A create lacking both a qualifying field signal and a finalized blob leaves no evidence row.
+- **Canonical indicator create gate.** A blank-row Indicators create is refused until canonical identity is determinable from `indicator.indicator_type`, `indicator.value_kind`, `indicator.display_value`, and `indicator.normalized_value` when required. `indicator.hash_algorithm` and `indicator.hash_value` are pairwise; `defanged_value` and `stix_pattern` may be present but do not satisfy the identity gate.
+- **Assessment from selected subject.** Creating an assessment from a selected Host or Identity row may preseed `assessment.subject_ref` and `assessment.subject_type`, but the row commits only when `assessment.assessment_state` and non-empty `assessment.rationale` are also present. Omitted `assessed_at` and `assessor` default at commit time.
+- **Task request from selected records.** A task-request create flow may preseed `task.linked_record_ids` or `task.decision_record_id`, but the row commits only when `task.title` and `task.task_kind` are present. Omitted `task.status`, `task.owner_user_id`, and `task.priority` default to `open`, the current actor, and `normal`.
+- **Decision from selected support.** A decision create flow may preseed `decision.support_refs`, but the row commits only when `decision.decision_type`, `decision.summary`, and `decision.rationale` are present. Omitted `decision.status`, `decision.owner_user_id`, and `decision.decided_at` default to `proposed`, the current actor, and the commit timestamp.
+
 ### Auto-resolution policy for typed host/account strings
 
 This revision resolves the MVP policy for alias auto-resolution.

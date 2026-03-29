@@ -2928,7 +2928,11 @@ Verified by: AC-098, AC-118, AC-124, AC-125, AC-231
 - `default_hidden_fields`: `record_id`, `row_version`
 - `default_sort`: `evidence.requested_at desc`, `record_id asc`
 - `filter_fields`: `evidence.lifecycle_state`, `evidence.upload_state`, `evidence.requested_at`, `evidence.received_at`, `evidence.collector_party_text`, `evidence.source_party_text`, `evidence.storage_ref`, `evidence.blob_hash`
-- inline create: blank-row or equivalent grid-native creation MUST create an evidence record even when no blob exists yet
+- inline create: a blank zero-field create attempt MUST NOT commit. A create attempt that supplies no user-supplied non-empty writable evidence field MAY commit only when the same visible create flow successfully finalizes a blob attachment before first commit
+- minimum create signal: the first committed evidence row MUST include either at least one user-supplied non-empty writable evidence field after create-time normalization or one successfully finalized blob attachment from that same visible create flow
+- server-filled defaults and create-time derived fields MUST NOT satisfy the minimum create signal
+- if `evidence.lifecycle_state` is omitted on create, the server MUST default it to `requested`; when that defaulted create omits `evidence.requested_at`, the server MUST fill `requested_at` from the commit timestamp
+- a failed create that lacks the minimum create signal, or a create flow whose blob finalization fails before first commit, MUST leave no committed evidence row and no misleading projection update
 - writable fields:
   - `evidence.title`: read the evidence title field; write target the evidence record title field; `conflict_resolution_class=text_compare_merge`
   - `evidence.lifecycle_state`: read `lifecycle_state`; write target `evidence_records.lifecycle_state`; `conflict_resolution_class=atomic_replace`. State-dependent field guards and blob-bridge invariants from Core 02 §13 and Core 03 §8.3 apply.
@@ -2937,7 +2941,7 @@ Verified by: AC-098, AC-118, AC-124, AC-125, AC-231
   - `evidence.storage_ref`: read `storage_ref`; write target `evidence_records.storage_ref`; `conflict_resolution_class=atomic_replace`
   - `evidence.collector_party_text`: read `collector_party_text`; write target `evidence_records.collector_party_text`; `conflict_resolution_class=text_compare_merge`
   - `evidence.source_party_text`: read `source_party_text`; write target `evidence_records.source_party_text`; `conflict_resolution_class=text_compare_merge`
-- read-only computed fields: `evidence.blob_hash`, `evidence.upload_state`, `evidence.linked_record_count`, `evidence.edited_at`
+- read-only computed fields: `evidence.blob_hash`, `evidence.upload_state`, `evidence.linked_record_count`, `evidence.edited_at`. `evidence.blob_hash` and `evidence.upload_state` are derived fields and MUST NOT satisfy the minimum create signal.
 - blob attach or replacement MUST remain an explicit evidence action. It MUST NOT be modeled as a direct write to `evidence.blob_hash` or `evidence.upload_state`.
 Profiles: base
 Verified by: AC-100, AC-118, AC-124, AC-125, AC-128, AC-231
@@ -2953,7 +2957,11 @@ Verified by: AC-100, AC-118, AC-124, AC-125, AC-128, AC-231
 - `default_sort`: `note.updated_at desc`, `record_id asc`
 - `filter_fields`: `note.tags`, `note.created_by_user_id`, `note.updated_at`, `note.full_text`
 - `note.full_text` is a filter-only synthetic predicate key declared by this view schema. It applies case-insensitive token search over `note.title` and `note.body`. It is not a writable field and need not be a visible column.
-- inline create: blank-row or equivalent grid-native creation MUST create an `artifact` record with `artifact_type='note'`
+- inline create: zero-field create is forbidden
+- minimum create signal: blank-row or equivalent grid-native creation MUST commit only when at least one of `note.title` or `note.body` is non-empty after create-time normalization; whitespace-only text MUST be treated as absent
+- the server MUST fill `artifact_type='note'`, timestamps, and attribution on first commit
+- context-preseeded links from `add linked note` MUST remain editable context and MUST NOT by themselves satisfy the minimum create signal
+- `note.tags` is optional follow-on structure and MUST NOT satisfy the minimum create signal
 - writable fields:
   - `note.title`: read the note title field; write target the note artifact title field; `conflict_resolution_class=text_compare_merge`
   - `note.body`: read the note body field; write target the note artifact body field; `conflict_resolution_class=text_compare_merge`
@@ -2977,7 +2985,10 @@ Verified by: AC-068, AC-069, AC-070, AC-112, AC-118, AC-124, AC-125, AC-185, AC-
 - `default_hidden_fields`: `record_id`, `row_version`
 - `default_sort`: `indicator.last_observed_at desc`, `indicator.display_value asc`, `record_id asc`
 - `filter_fields`: `indicator.indicator_type`, `indicator.value_kind`, `indicator.hash_algorithm`, `indicator.first_observed_at`, `indicator.last_observed_at`, `indicator.lifecycle_summary`
-- inline create: blank-row or equivalent grid-native creation MUST create a canonical `indicator` record
+- inline create: zero-field create is forbidden
+- minimum create signal: blank-row or equivalent grid-native creation MUST commit only when the request supplies enough information to determine canonical identity: `indicator.indicator_type`, `indicator.value_kind`, `indicator.display_value`, and `indicator.normalized_value` whenever the type-specific normalization rule applies and the server cannot derive it deterministically from the other supplied fields
+- `indicator.hash_algorithm` and `indicator.hash_value` MUST be supplied together or omitted together on create
+- if the canonical dedupe basis is not determinable at create time, create MUST fail with no partial indicator row
 - writable fields on create only:
   - `indicator.indicator_type`: read `indicator_type`; write target the `indicator_type` field on the underlying `indicator` record; `conflict_resolution_class=atomic_replace`
   - `indicator.value_kind`: read `value_kind`; write target the `value_kind` field on the underlying `indicator` record; `conflict_resolution_class=atomic_replace`
@@ -2993,8 +3004,8 @@ Verified by: AC-068, AC-069, AC-070, AC-112, AC-118, AC-124, AC-125, AC-185, AC-
 - the exact identity-defining immutable field set for this v1 schema is:
   - always: `indicator.indicator_type`, `indicator.value_kind`, `indicator.display_value`, `indicator.normalized_value`
   - additionally, when populated and used by the canonical dedupe key: `indicator.hash_algorithm`, `indicator.hash_value`
-- `indicator.stix_pattern` remains create-only in this view but MUST NOT be treated as identity-defining
-- `indicator.defanged_value` remains create-only in this view but MUST NOT be treated as identity-defining
+- `indicator.stix_pattern` remains create-only in this view but MUST NOT be treated as identity-defining or as part of the minimum create signal
+- `indicator.defanged_value` remains create-only in this view but MUST NOT be treated as identity-defining or as part of the minimum create signal
 - no other additional type-specific dedupe-basis field exists in `cartulary.view.indicators.v1`
 - any future additional identity-basis field requires a new explicit stable `field_key` and a new `view_schema` version
 Profiles: base
@@ -3010,7 +3021,11 @@ Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-
 - `default_hidden_fields`: `record_id`, `row_version`, `assessment.support_refs`
 - `default_sort`: `assessment.assessed_at desc`, `record_id asc`
 - `filter_fields`: `assessment.subject_type`, `assessment.assessment_state`, `assessment.confidence_band`, `assessment.assessed_at`
-- inline create: blank-row or equivalent grid-native creation MUST append a new `assessment` record
+- inline create: zero-field create is forbidden
+- minimum semantic create set: blank-row or equivalent grid-native creation MUST commit only when `assessment.subject_ref`, `assessment.subject_type`, `assessment.assessment_state`, and non-empty `assessment.rationale` are present after create-time normalization
+- context-preseeded `assessment.subject_ref` and `assessment.subject_type` MAY seed the create surface, but they MUST NOT by themselves make an otherwise empty create valid
+- if omitted on create, the server MUST default `assessment.assessed_at` to the commit timestamp, `assessment.assessor` to the authenticated actor, and `assessment.confidence_score` to `NULL`
+- `assessment.support_refs` MAY be included on create but MUST NOT satisfy the minimum semantic create set
 - writable fields on create only:
   - `assessment.subject_ref`: read the subject record reference; write target the assessment subject reference; `conflict_resolution_class=atomic_replace`
   - `assessment.subject_type`: read the subject type; write target the assessment subject type; `conflict_resolution_class=atomic_replace`
@@ -3060,6 +3075,7 @@ Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-118, AC-121, AC-
 
 **REQ-01-335**
 - grid edits to an existing assessment row MUST reject writes to `assessment.subject_ref`, `assessment.subject_type`, `assessment.assessment_state`, `assessment.confidence_score`, `assessment.rationale`, `assessment.assessor`, `assessment.assessed_at`, and `assessment.support_refs`.
+- append-only semantics for semantic assessment fields begin only after a valid first commit satisfying the minimum semantic create set in `REQ-01-332`.
 Profiles: base
 Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-118, AC-121, AC-124, AC-231
 
@@ -3073,7 +3089,11 @@ Verified by: AC-018, AC-080, AC-081, AC-082, AC-083, AC-084, AC-118, AC-121, AC-
 - `default_hidden_fields`: `record_id`, `row_version`, `task.closure_summary`, `task.linked_record_ids`, `task.decision_record_id`, `task.no_owner`
 - `default_sort`: `task.updated_at desc`, `record_id asc`
 - `filter_fields`: `task.status`, `task.owner_user_id`, `task.priority`, `task.task_kind`, `task.workstream`, `task.due_at`, `task.requester_party_text`, `task.blocked_reason`, `task.completed_at`, `task.external_ticket_ref`, `task.no_owner`
-- inline create: blank-row or equivalent grid-native creation MUST create a `task_request` record; unless the create payload explicitly chooses another allowed initial state, interactive blank-row creation SHOULD default `task.status` to `open`
+- inline create: zero-field create is forbidden
+- minimum semantic create set: blank-row or equivalent grid-native creation MUST commit only when `task.title` is non-empty and `task.task_kind` is present after create-time normalization
+- when omitted on interactive blank-row or equivalent grid-native create, the server MUST default `task.status` to `open`, `task.owner_user_id` to the authenticated actor, and `task.priority` to `normal`
+- preseeded `task.linked_record_ids` or `task.decision_record_id` MAY seed the create surface, but they MUST NOT satisfy the minimum create signal
+- these defaults MUST NOT satisfy the minimum create signal
 - writable fields:
   - `task.title`: read `title`; write target the `title` field on the underlying `task_request` record; `conflict_resolution_class=text_compare_merge`
   - `task.status`: read `status`; write target the `status` field on the underlying `task_request` record; legal writes MUST be validated and any required lifecycle normalization MUST be applied under Core 02 §10.4.1.1 before commit; `conflict_resolution_class=atomic_replace`
@@ -3100,6 +3120,7 @@ Verified by: AC-085, AC-118, AC-124, AC-137, AC-138, AC-139, AC-140, AC-145, AC-
 
 **REQ-01-338**
 - task lifecycle semantics remain authoritative: any committed write set affecting `task.status`, `task.blocked_reason`, `task.completed_at`, or `task.owner_user_id` MUST produce a resulting row that satisfies Core 02 §10.4.1.1. In particular, `status='blocked'` requires `blocked_reason`, `status='done'` requires `completed_at`, active tasks MUST NOT be ownerless, a successful transition away from `blocked` or `done` MUST clear `blocked_reason` or `completed_at` respectively, and a successful write that sets `status='done'` with no explicit `completed_at` MUST fill `completed_at` from the commit timestamp.
+- interactive blank-row or equivalent grid-native create that omits `task.status` MUST commit with `task.status='open'`; this rule is mandatory, not advisory.
 Profiles: base
 Verified by: AC-085, AC-118, AC-124, AC-137, AC-138, AC-139, AC-140, AC-145, AC-231
 
@@ -3113,7 +3134,11 @@ Verified by: AC-085, AC-118, AC-124, AC-137, AC-138, AC-139, AC-140, AC-145, AC-
 - `default_hidden_fields`: `record_id`, `row_version`, `decision.is_superseded`
 - `default_sort`: `decision.decided_at desc`, `record_id asc`
 - `filter_fields`: `decision.status`, `decision.owner_user_id`, `decision.decision_type`, `decision.decided_at`, `decision.is_superseded`
-- inline create: blank-row or equivalent grid-native creation MUST create a `decision` record
+- inline create: zero-field create is forbidden
+- minimum semantic create set: blank-row or equivalent grid-native creation MUST commit only when `decision.decision_type` is present and both `decision.summary` and `decision.rationale` are non-empty after create-time normalization
+- when omitted on create, the server MUST default `decision.status` to `proposed`, `decision.owner_user_id` to the authenticated actor, and `decision.decided_at` to the commit timestamp
+- preseeded `decision.support_refs` MAY seed the create surface, but they MUST NOT satisfy the minimum create signal
+- these defaults MUST NOT satisfy the minimum create signal
 - writable fields:
   - `decision.summary`: read `summary`; write target the `summary` field on the underlying `decision` record; `conflict_resolution_class=text_compare_merge`
   - `decision.status`: read `status`; write target the `status` field on the underlying `decision` record; legal direct writes MUST be validated against Core 02 §10.4.2.1, and a direct write whose requested `status` is `superseded` MUST be rejected; `conflict_resolution_class=atomic_replace`
@@ -3133,6 +3158,7 @@ Verified by: AC-086, AC-118, AC-124, AC-141, AC-142, AC-143, AC-144, AC-145, AC-
 
 **REQ-01-341**
 - supersession remains an explicit decision-linking flow. It MUST NOT be modeled as a direct write to `decision.supersedes_record_id` or as a direct write that sets `decision.status='superseded'` in the base-profile grid.
+- initial create with `decision.status='superseded'` remains rejected under the same lifecycle rule.
 - when the explicit supersession flow succeeds, it MUST persist the supersession relation and apply the status effects defined by Core 02 §10.4.2.1 atomically.
 Profiles: base
 Verified by: AC-086, AC-118, AC-124, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231

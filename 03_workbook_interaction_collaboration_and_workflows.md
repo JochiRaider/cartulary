@@ -1854,7 +1854,7 @@ Profiles: base
 Verified by: AC-085, AC-086, AC-087, AC-088, AC-089, AC-090, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231
 
 **REQ-03-256**
-From a selected Timeline, Host, Identity, Evidence, Notes, Task Requests, or Decisions row, the analyst MUST be able to create or link a `task_request`, `decision`, or structured coordination artifact without leaving the workbook flow.
+From a selected Timeline, Host, Identity, Evidence, Notes, Task Requests, or Decisions row, the analyst MUST be able to create or link a `task_request`, `decision`, or structured coordination artifact without leaving the workbook flow. When that flow pre-seeds linked-record, decision, or support references from the selected context, those preseeded references MUST remain editable context and MUST NOT by themselves satisfy the target surface's minimum create signal.
 Profiles: base
 Verified by: AC-085, AC-086, AC-087, AC-088, AC-089, AC-090, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231
 
@@ -1929,13 +1929,15 @@ A conformant implementation MUST preserve all of the following:
 
 1. the primary capture path remains in the grid,
 2. same-field concurrent edits never silently overwrite,
-3. low-friction row creation survives incomplete information,
-4. destructive operations stay explicit and attributed,
-5. grouping remains presentation-only,
-6. grouped surfaces still mutate underlying rows by `record_id` and `row_version`,
-7. auto-resolution stays tightly bounded and reversible,
-8. the inspector enriches work but does not replace the grid,
-9. unresolved same-field conflict drafts remain client-local until explicit resolution,
-10. analyst-work coordination remains workbook-native without adding required coordination fields to the routine timeline hot path.
+3. low-friction row creation survives incomplete information, but zero-field create is reserved to surfaces whose active `view_schema` explicitly allows it,
+4. non-Timeline surfaces commit only after their active `view_schema` minimum create signal is satisfied after create-time normalization,
+5. a rejected non-Timeline create leaves no partial record row, no misleading projection row, and no misleading live-update event,
+6. destructive operations stay explicit and attributed,
+7. grouping remains presentation-only,
+8. grouped surfaces still mutate underlying rows by `record_id` and `row_version`,
+9. auto-resolution stays tightly bounded and reversible,
+10. the inspector enriches work but does not replace the grid,
+11. unresolved same-field conflict drafts remain client-local until explicit resolution,
+12. analyst-work coordination remains workbook-native without adding required coordination fields to the routine timeline hot path.
 Profiles: base
 Verified by: AC-231
