@@ -1,0 +1,19 @@
+{
+  "diagnostics": [
+    {
+      "code": "missing_required",
+      "message": "config_schema_id is required",
+      "path": "config_schema_id"
+    },
+    {
+      "code": "missing_required",
+      "message": "deployment_profile is required",
+      "path": "deployment_profile"
+    },
+    {
+      "code": "unknown_config_key",
+      "message": "unknown config key",
+      "path": "unexpected_key"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "cartulary-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": "24.15.0"
+  },
+  "scripts": {
+    "build": "pnpm --dir apps/web build",
+    "check": "pnpm --dir apps/web build",
+    "test": "pnpm --dir apps/web test --run"
+  }
+}

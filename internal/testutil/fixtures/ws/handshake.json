@@ -1,0 +1,6 @@
+{
+  "type": "handshake",
+  "payload": {
+    "mode": "replay"
+  }
+}

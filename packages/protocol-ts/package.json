@@ -1,0 +1,10 @@
+{
+  "name": "@cartulary/protocol-ts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./generated": "./src/generated/index.ts"
+  }
+}

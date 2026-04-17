@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "registry_id": "cartulary.view_schemas.bootstrap.v1",
+  "note": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.",
+  "view_schemas": []
+}

@@ -1,0 +1,174 @@
+package httptestx
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	stdhttptest "net/http/httptest"
+	"testing"
+
+	"example.com/todo/cartulary/internal/app"
+	"example.com/todo/cartulary/internal/platform/config"
+	"example.com/todo/cartulary/internal/platform/httpapi"
+	"example.com/todo/cartulary/internal/testutil/configtest"
+)
+
+type Server struct {
+	Runtime *app.Runtime
+	HTTP    *stdhttptest.Server
+}
+
+type ServerOptions struct {
+	Config           config.Config
+	Env              map[string]string
+	AdditionalRoutes []httpapi.RouteRegistrar
+}
+
+func StartServer(t testing.TB, options ServerOptions) *Server {
+	t.Helper()
+
+	cfg := options.Config
+	if cfg.ConfigSchemaID == "" {
+		cfg = configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, nil)
+	}
+
+	routes := append([]httpapi.RouteRegistrar{RegisterBootstrapRoutes()}, options.AdditionalRoutes...)
+	runtime, err := app.NewRuntime(context.Background(), cfg, app.Options{
+		Env: options.Env,
+		HTTP: httpapi.Options{
+			AdditionalRoutes: routes,
+		},
+	})
+	if err != nil {
+		t.Fatalf("start app runtime: %v", err)
+	}
+
+	server := &Server{
+		Runtime: runtime,
+		HTTP:    stdhttptest.NewServer(runtime.Handler),
+	}
+	t.Cleanup(func() {
+		server.Close()
+	})
+
+	return server
+}
+
+func (s *Server) Close() {
+	if s == nil {
+		return
+	}
+	if s.HTTP != nil {
+		s.HTTP.Close()
+	}
+	if s.Runtime != nil {
+		s.Runtime.Close()
+	}
+}
+
+func NewJSONRequest(t testing.TB, method string, url string, body any) *http.Request {
+	t.Helper()
+
+	var reader io.Reader
+	if body != nil {
+		payload, err := json.Marshal(body)
+		if err != nil {
+			t.Fatalf("marshal request body: %v", err)
+		}
+		reader = bytes.NewReader(payload)
+	}
+
+	req, err := http.NewRequest(method, url, reader)
+	if err != nil {
+		t.Fatalf("create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return req
+}
+
+func NewAuthenticatedJSONRequest(t testing.TB, method string, url string, token string, body any) *http.Request {
+	t.Helper()
+
+	req := NewJSONRequest(t, method, url, body)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	return req
+}
+
+func Do(t testing.TB, client *http.Client, req *http.Request) *http.Response {
+	t.Helper()
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("do request: %v", err)
+	}
+	return resp
+}
+
+func ReadJSONBody(t testing.TB, resp *http.Response) map[string]any {
+	t.Helper()
+	defer resp.Body.Close()
+
+	var payload map[string]any
+	decoder := json.NewDecoder(resp.Body)
+	if err := decoder.Decode(&payload); err != nil {
+		t.Fatalf("decode response body: %v", err)
+	}
+	return payload
+}
+
+func RequireStatus(t testing.TB, resp *http.Response, want int) {
+	t.Helper()
+	if resp.StatusCode != want {
+		t.Fatalf("unexpected status: got %d want %d", resp.StatusCode, want)
+	}
+}
+
+func RequireRequestID(t testing.TB, resp *http.Response) string {
+	t.Helper()
+	requestID := resp.Header.Get(httpapi.RequestIDHeader)
+	if requestID == "" {
+		t.Fatal("missing request id header")
+	}
+	return requestID
+}
+
+func RequireSuccessEnvelope(t testing.TB, resp *http.Response, wantStatus int) map[string]any {
+	t.Helper()
+	RequireStatus(t, resp, wantStatus)
+	requestID := RequireRequestID(t, resp)
+	body := ReadJSONBody(t, resp)
+
+	if body["request_id"] != requestID {
+		t.Fatalf("body request_id mismatch: got %v want %s", body["request_id"], requestID)
+	}
+	if _, ok := body["data"].(map[string]any); !ok {
+		t.Fatalf("expected success envelope data object, got %T", body["data"])
+	}
+	return body
+}
+
+func RequireErrorEnvelope(t testing.TB, resp *http.Response, wantStatus int, wantCode string) map[string]any {
+	t.Helper()
+	RequireStatus(t, resp, wantStatus)
+	requestID := RequireRequestID(t, resp)
+	body := ReadJSONBody(t, resp)
+
+	if body["request_id"] != requestID {
+		t.Fatalf("body request_id mismatch: got %v want %s", body["request_id"], requestID)
+	}
+	errorValue, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object, got %T", body["error"])
+	}
+	if errorValue["code"] != wantCode {
+		t.Fatalf("unexpected error code: got %v want %s", errorValue["code"], wantCode)
+	}
+	if _, ok := errorValue["details"].(map[string]any); !ok {
+		t.Fatalf("expected error details object, got %T", errorValue["details"])
+	}
+	return body
+}

@@ -1,0 +1,6 @@
+{
+  "type": "session_revoked",
+  "payload": {
+    "reason_code": "bootstrap_revoked"
+  }
+}

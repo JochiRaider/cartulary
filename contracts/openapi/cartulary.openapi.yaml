@@ -1,0 +1,10 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Cartulary Bootstrap HTTP Contract",
+    "version": "0.0.0-bootstrap",
+    "description": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority."
+  },
+  "paths": {},
+  "components": {}
+}

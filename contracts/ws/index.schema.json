@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.ws.bootstrap.index.v1",
+  "title": "Cartulary Bootstrap WebSocket Contract Index",
+  "description": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "messages"
+  ],
+  "default": {
+    "messages": []
+  }
+}
