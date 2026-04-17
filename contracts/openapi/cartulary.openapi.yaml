@@ -1,8 +1,8 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Cartulary Phase 2 Incident Control HTTP Contract",
-    "version": "0.2.0-phase2",
+    "title": "Cartulary Phase 3 Timeline Mutation HTTP Contract",
+    "version": "0.3.0-phase3",
     "description": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority."
   },
   "paths": {
@@ -210,6 +210,78 @@
         "summary": "Read the caller's per-incident workbook preferences row."
       }
     },
+    "/api/v1/incidents/{incident_id}/views/{view_schema_id}/query": {
+      "post": {
+        "tags": [
+          "timeline"
+        ],
+        "operationId": "queryTimelineView",
+        "summary": "Query Timeline rows from the projection-backed Phase 3 workbook surface.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimelineQueryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Timeline query response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineQueryEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incident_id}/views/{view_schema_id}/rows": {
+      "post": {
+        "tags": [
+          "timeline"
+        ],
+        "operationId": "createTimelineRow",
+        "summary": "Create one Timeline row through the Phase 3 view-scoped row-create route.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimelineCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created Timeline row refresh",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineMutationEnvelope"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Idempotent Timeline row-create replay",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineMutationEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/extensions": {
       "get": {
         "tags": [
@@ -217,6 +289,99 @@
         ],
         "operationId": "listDeploymentExtensions",
         "summary": "List the deployment-scoped reserved extension profiles and claimed route-family roots."
+      }
+    },
+    "/api/v1/records/{record_id}": {
+      "patch": {
+        "tags": [
+          "timeline"
+        ],
+        "operationId": "patchTimelineRecord",
+        "summary": "Patch one Timeline row with optimistic row_version checks and idempotent replay.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordPatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Timeline patch response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineMutationEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/records/{record_id}/mark-reviewed": {
+      "post": {
+        "tags": [
+          "timeline"
+        ],
+        "operationId": "markTimelineRecordReviewed",
+        "summary": "Explicitly transition a Timeline row to reviewed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimelineActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Timeline action response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineActionEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/records/{record_id}/supersede": {
+      "post": {
+        "tags": [
+          "timeline"
+        ],
+        "operationId": "supersedeTimelineRecord",
+        "summary": "Explicitly transition a Timeline row to superseded and optionally link a replacement row.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimelineSupersedeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Timeline supersede response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineActionEnvelope"
+                }
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -318,6 +483,312 @@
           "request_id",
           "retryable",
           "details"
+        ]
+      },
+      "TimelineQueryRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "TimelineCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "timeline.occurred_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "timeline.summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.details": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeline.source_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "RecordPatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "const": "cartulary.view.timeline.v1"
+          },
+          "base_row_version": {
+            "type": "integer"
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "changes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/RecordPatchChange"
+            }
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "base_row_version",
+          "client_txn_id",
+          "changes"
+        ]
+      },
+      "RecordPatchChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field_key": {
+            "type": "string"
+          },
+          "value": {}
+        },
+        "required": [
+          "field_key",
+          "value"
+        ]
+      },
+      "TimelineActionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_row_version": {
+            "type": "integer"
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "base_row_version",
+          "client_txn_id"
+        ]
+      },
+      "TimelineSupersedeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_row_version": {
+            "type": "integer"
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "replacement_record_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "base_row_version",
+          "client_txn_id",
+          "reason"
+        ]
+      },
+      "TimelineCell": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "value": {}
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "TimelineRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "row_version": {
+            "type": "integer"
+          },
+          "cells": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/TimelineCell"
+            }
+          }
+        },
+        "required": [
+          "record_id",
+          "row_version",
+          "cells"
+        ]
+      },
+      "TimelineQueryData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "view_schema_id": {
+            "const": "cartulary.view.timeline.v1"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimelineRow"
+            }
+          }
+        },
+        "required": [
+          "incident_id",
+          "view_schema_id",
+          "rows"
+        ]
+      },
+      "TimelineQueryEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TimelineQueryData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "TimelineMutationData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "const": "cartulary.view.timeline.v1"
+          },
+          "change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "row": {
+            "$ref": "#/components/schemas/TimelineRow"
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "change_set_id",
+          "row"
+        ]
+      },
+      "TimelineMutationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TimelineMutationData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "TimelineActionData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "row_version": {
+            "type": "integer"
+          },
+          "capture_state": {
+            "type": "string"
+          },
+          "change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "replacement_record_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "record_id",
+          "incident_id",
+          "row_version",
+          "capture_state",
+          "change_set_id",
+          "reason",
+          "replacement_record_id"
+        ]
+      },
+      "TimelineActionEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TimelineActionData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       },
       "SessionResource": {

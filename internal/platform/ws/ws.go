@@ -45,8 +45,20 @@ func RawPayload(payload any) json.RawMessage {
 }
 
 type Hub struct {
-	mu       sync.Mutex
-	sessions map[uuid.UUID]map[*registeredConn]struct{}
+	mu            sync.Mutex
+	sessions      map[uuid.UUID]map[*registeredConn]struct{}
+	recordChanges []RecordChange
+	subscribers   map[chan RecordChange]struct{}
+}
+
+type RecordChange struct {
+	IncidentID       uuid.UUID
+	RecordID         uuid.UUID
+	RowVersion       int64
+	ChangeSetID      uuid.UUID
+	ActorUserID      uuid.UUID
+	ChangedFieldKeys []string
+	ViewSchemaID     string
 }
 
 type registeredConn struct {
@@ -56,7 +68,65 @@ type registeredConn struct {
 
 func NewHub() *Hub {
 	return &Hub{
-		sessions: make(map[uuid.UUID]map[*registeredConn]struct{}),
+		sessions:    make(map[uuid.UUID]map[*registeredConn]struct{}),
+		subscribers: make(map[chan RecordChange]struct{}),
+	}
+}
+
+func (h *Hub) PublishRecordChange(change RecordChange) {
+	if h == nil {
+		return
+	}
+
+	h.mu.Lock()
+	h.recordChanges = append(h.recordChanges, change)
+	subscribers := make([]chan RecordChange, 0, len(h.subscribers))
+	for subscriber := range h.subscribers {
+		subscribers = append(subscribers, subscriber)
+	}
+	h.mu.Unlock()
+
+	for _, subscriber := range subscribers {
+		select {
+		case subscriber <- change:
+		default:
+		}
+	}
+}
+
+func (h *Hub) SnapshotRecordChanges() []RecordChange {
+	if h == nil {
+		return nil
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	snapshot := make([]RecordChange, len(h.recordChanges))
+	copy(snapshot, h.recordChanges)
+	return snapshot
+}
+
+func (h *Hub) SubscribeRecordChanges(buffer int) (<-chan RecordChange, func()) {
+	if h == nil {
+		ch := make(chan RecordChange)
+		close(ch)
+		return ch, func() {}
+	}
+	if buffer < 1 {
+		buffer = 1
+	}
+
+	ch := make(chan RecordChange, buffer)
+	h.mu.Lock()
+	h.subscribers[ch] = struct{}{}
+	h.mu.Unlock()
+
+	return ch, func() {
+		h.mu.Lock()
+		delete(h.subscribers, ch)
+		h.mu.Unlock()
+		close(ch)
 	}
 }
 

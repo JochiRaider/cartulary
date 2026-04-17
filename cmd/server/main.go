@@ -12,6 +12,7 @@ import (
 
 	"example.com/todo/cartulary/internal/app"
 	"example.com/todo/cartulary/internal/modules/auth"
+	"example.com/todo/cartulary/internal/modules/timeline"
 	"example.com/todo/cartulary/internal/platform/config"
 	"example.com/todo/cartulary/internal/platform/httpapi"
 )
@@ -34,7 +35,7 @@ func main() {
 
 	options := app.Options{}
 	if os.Getenv(enableTestRoutesEnv) == "1" {
-		options.HTTP.AdditionalRoutes = []httpapi.RouteRegistrar{auth.RegisterTestRoutes()}
+		options.HTTP.AdditionalRoutes = []httpapi.RouteRegistrar{auth.RegisterTestRoutes(), timeline.RegisterTestRoutes()}
 	}
 
 	runtime, err := app.NewRuntime(ctx, cfg, options)

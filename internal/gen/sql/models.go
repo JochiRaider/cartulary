@@ -19,6 +19,29 @@ type BootstrapToken struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
+type ChangeSet struct {
+	ChangeSetID pgtype.UUID        `json:"change_set_id"`
+	IncidentID  pgtype.UUID        `json:"incident_id"`
+	ActorUserID pgtype.UUID        `json:"actor_user_id"`
+	Source      string             `json:"source"`
+	Reason      pgtype.Text        `json:"reason"`
+	ClientTxnID pgtype.Text        `json:"client_txn_id"`
+	RequestID   pgtype.Text        `json:"request_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type ChangeSetMutation struct {
+	ChangeSetID     pgtype.UUID `json:"change_set_id"`
+	SequenceNo      int32       `json:"sequence_no"`
+	TargetKind      string      `json:"target_kind"`
+	TargetID        string      `json:"target_id"`
+	OperationKind   string      `json:"operation_kind"`
+	BeforeVersionID pgtype.Text `json:"before_version_id"`
+	AfterVersionID  pgtype.Text `json:"after_version_id"`
+	BeforeValue     []byte      `json:"before_value"`
+	AfterValue      []byte      `json:"after_value"`
+}
+
 type DeploymentAdminAuditEvent struct {
 	ID           pgtype.UUID        `json:"id"`
 	ActorUserID  pgtype.UUID        `json:"actor_user_id"`
@@ -96,6 +119,31 @@ type PendingTotpEnrollment struct {
 	ConsumedAt                pgtype.Timestamptz `json:"consumed_at"`
 }
 
+type RecordLink struct {
+	RecordLinkID    pgtype.UUID        `json:"record_link_id"`
+	IncidentID      pgtype.UUID        `json:"incident_id"`
+	SrcRecordID     pgtype.UUID        `json:"src_record_id"`
+	DstRecordID     pgtype.UUID        `json:"dst_record_id"`
+	LinkType        string             `json:"link_type"`
+	Provenance      string             `json:"provenance"`
+	Confidence      pgtype.Int4        `json:"confidence"`
+	OwnerUserID     pgtype.UUID        `json:"owner_user_id"`
+	DecidedAt       pgtype.Timestamptz `json:"decided_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	DeletedByUserID pgtype.UUID        `json:"deleted_by_user_id"`
+}
+
+type RecordRevision struct {
+	RevisionID  int64              `json:"revision_id"`
+	ChangeSetID pgtype.UUID        `json:"change_set_id"`
+	RecordID    pgtype.UUID        `json:"record_id"`
+	RowVersion  int64              `json:"row_version"`
+	BeforeJson  []byte             `json:"before_json"`
+	AfterJson   []byte             `json:"after_json"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type RouteIdempotency struct {
 	ID           pgtype.UUID        `json:"id"`
 	RouteKey     string             `json:"route_key"`
@@ -107,6 +155,45 @@ type RouteIdempotency struct {
 	StatusCode   int32              `json:"status_code"`
 	ResponseJson []byte             `json:"response_json"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type TimelineEvent struct {
+	RecordID           pgtype.UUID        `json:"record_id"`
+	IncidentID         pgtype.UUID        `json:"incident_id"`
+	OccurredAt         pgtype.Timestamptz `json:"occurred_at"`
+	Summary            pgtype.Text        `json:"summary"`
+	Details            pgtype.Text        `json:"details"`
+	SourceText         pgtype.Text        `json:"source_text"`
+	CaptureState       string             `json:"capture_state"`
+	RowVersion         int64              `json:"row_version"`
+	RecordedAt         pgtype.Timestamptz `json:"recorded_at"`
+	EditedAt           pgtype.Timestamptz `json:"edited_at"`
+	CreatedByUserID    pgtype.UUID        `json:"created_by_user_id"`
+	UpdatedByUserID    pgtype.UUID        `json:"updated_by_user_id"`
+	ReviewedByUserID   pgtype.UUID        `json:"reviewed_by_user_id"`
+	ReviewedAt         pgtype.Timestamptz `json:"reviewed_at"`
+	SupersededByUserID pgtype.UUID        `json:"superseded_by_user_id"`
+	SupersededAt       pgtype.Timestamptz `json:"superseded_at"`
+}
+
+type TimelineGridProjection struct {
+	RecordID              pgtype.UUID        `json:"record_id"`
+	IncidentID            pgtype.UUID        `json:"incident_id"`
+	RowVersion            int64              `json:"row_version"`
+	OccurredAt            pgtype.Timestamptz `json:"occurred_at"`
+	Summary               pgtype.Text        `json:"summary"`
+	Details               pgtype.Text        `json:"details"`
+	SourceText            pgtype.Text        `json:"source_text"`
+	RecordedAt            pgtype.Timestamptz `json:"recorded_at"`
+	EditedAt              pgtype.Timestamptz `json:"edited_at"`
+	SortTs                pgtype.Timestamptz `json:"sort_ts"`
+	CaptureState          string             `json:"capture_state"`
+	ReplacementRecordID   pgtype.UUID        `json:"replacement_record_id"`
+	OccurredDay           pgtype.Date        `json:"occurred_day"`
+	RecordedDay           pgtype.Date        `json:"recorded_day"`
+	EvidenceCount         int32              `json:"evidence_count"`
+	HasEvidence           bool               `json:"has_evidence"`
+	HasUnresolvedMentions bool               `json:"has_unresolved_mentions"`
 }
 
 type User struct {

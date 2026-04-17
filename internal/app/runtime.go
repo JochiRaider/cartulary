@@ -11,6 +11,7 @@ import (
 
 	"example.com/todo/cartulary/internal/modules/auth"
 	"example.com/todo/cartulary/internal/modules/incidents"
+	"example.com/todo/cartulary/internal/modules/timeline"
 	"example.com/todo/cartulary/internal/platform/config"
 	"example.com/todo/cartulary/internal/platform/httpapi"
 	"example.com/todo/cartulary/internal/platform/jobs"
@@ -39,6 +40,7 @@ type Runtime struct {
 	Postgres    *pgxpool.Pool
 	ObjectStore *minio.Client
 	Jobs        *jobs.Manager
+	WSHub       *platformws.Hub
 }
 
 func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runtime, error) {
@@ -79,9 +81,10 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 
 	runtime.Jobs = newJobsManager()
 	hub := platformws.NewHub()
+	runtime.WSHub = hub
 
 	httpOptions := options.HTTP
-	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidents.RegisterRoutes()}, httpOptions.AdditionalRoutes...)
+	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidents.RegisterRoutes(), timeline.RegisterRoutes()}, httpOptions.AdditionalRoutes...)
 	httpOptions.Dependencies = httpapi.DependencySet{
 		Config:      normalizedCfg,
 		Env:         options.Env,

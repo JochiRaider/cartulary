@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "registry_id": "cartulary.errors.phase2.v1",
+  "registry_id": "cartulary.errors.phase3.v1",
   "note": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.",
   "errors": [
     {
@@ -79,6 +79,11 @@
       "summary": "The request used unsupported pagination members or an invalid opaque cursor_token."
     },
     {
+      "code": "invalid_view_query",
+      "http_status": 400,
+      "summary": "The view query request body failed route-owned validation."
+    },
+    {
       "code": "authorization_denied",
       "http_status": 403,
       "summary": "The current authenticated session can see the incident but does not hold a sufficient incident role for the requested mutation."
@@ -117,6 +122,16 @@
       "code": "membership_version_conflict",
       "http_status": 409,
       "summary": "The incident membership patch used a stale base_membership_version."
+    },
+    {
+      "code": "row_version_conflict",
+      "http_status": 409,
+      "summary": "The record mutation used a stale base_row_version."
+    },
+    {
+      "code": "illegal_transition",
+      "http_status": 409,
+      "summary": "The requested Timeline lifecycle transition is not legal for the current row state."
     },
     {
       "code": "membership_not_found",
