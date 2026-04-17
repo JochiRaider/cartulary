@@ -7,7 +7,8 @@ import (
 )
 
 func TestLoadEffectiveFixture(t *testing.T) {
-	cfg := LoadEffectiveFixture(t, []string{"config", "valid.toml"}, nil)
+	roots := SetupTempRoots(t)
+	cfg := LoadEffectiveFixture(t, []string{"config", "valid.toml"}, roots.Paths)
 
 	if cfg.ConfigSchemaID != "cartulary.deployment_config.v1" {
 		t.Fatalf("unexpected config schema id: %q", cfg.ConfigSchemaID)
@@ -18,10 +19,16 @@ func TestLoadEffectiveFixture(t *testing.T) {
 }
 
 func TestOverlayAppliesToFixture(t *testing.T) {
-	cfg := LoadEffectiveFixture(t, []string{"config", "valid.toml"}, Overlay(
+	roots := SetupTempRoots(t)
+	overlays := roots.Paths
+	for key, value := range Overlay(
 		"CARTULARY__ROOTS__TEMPORARY_WORK__PATH", "/tmp/cartulary-test",
 		"CARTULARY__LIMITS__IMPORTS__MAX_ROWS", "42",
-	))
+	) {
+		overlays[key] = value
+	}
+
+	cfg := LoadEffectiveFixture(t, []string{"config", "valid.toml"}, overlays)
 
 	if cfg.Roots.TemporaryWork.Path != "/tmp/cartulary-test" {
 		t.Fatalf("unexpected temporary work path: %q", cfg.Roots.TemporaryWork.Path)

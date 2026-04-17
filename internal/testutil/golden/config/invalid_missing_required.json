@@ -1,19 +1,54 @@
 {
-  "diagnostics": [
-    {
-      "code": "missing_required",
-      "message": "config_schema_id is required",
-      "path": "config_schema_id"
-    },
-    {
-      "code": "missing_required",
-      "message": "deployment_profile is required",
-      "path": "deployment_profile"
-    },
-    {
-      "code": "unknown_config_key",
-      "message": "unknown config key",
-      "path": "unexpected_key"
+  "error": {
+    "code": "invalid_deployment_config",
+    "details": {
+      "items": [
+        {
+          "message": "config_schema_id is required",
+          "path": "config_schema_id",
+          "reason_code": "missing_required_key"
+        },
+        {
+          "message": "deployment_profile is required",
+          "path": "deployment_profile",
+          "reason_code": "missing_required_key"
+        },
+        {
+          "message": "required runtime root is missing",
+          "path": "roots.backup_storage",
+          "reason_code": "missing_required_key"
+        },
+        {
+          "message": "required runtime root is missing",
+          "path": "roots.database_storage",
+          "reason_code": "missing_required_key"
+        },
+        {
+          "message": "required runtime root is missing",
+          "path": "roots.export_outputs",
+          "reason_code": "missing_required_key"
+        },
+        {
+          "message": "required runtime root is missing",
+          "path": "roots.object_storage",
+          "reason_code": "missing_required_key"
+        },
+        {
+          "message": "required runtime root is missing",
+          "path": "roots.reference_pack_storage",
+          "reason_code": "missing_required_key"
+        },
+        {
+          "message": "required runtime root is missing",
+          "path": "roots.temporary_work",
+          "reason_code": "missing_required_key"
+        },
+        {
+          "message": "unknown config key",
+          "path": "unexpected_key",
+          "reason_code": "unknown_key"
+        }
+      ]
     }
-  ]
+  }
 }

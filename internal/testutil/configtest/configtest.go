@@ -90,6 +90,23 @@ func DiagnosticsJSON(t testing.TB, err error) string {
 	return ""
 }
 
+func RequireDiagnostic(t testing.TB, err error, wantPath string, wantReasonCode string) {
+	t.Helper()
+
+	diagnosticsErr, ok := err.(*config.DiagnosticsError)
+	if !ok {
+		t.Fatalf("expected diagnostics error, got %T", err)
+	}
+
+	for _, diagnostic := range diagnosticsErr.Diagnostics {
+		if diagnostic.Path == wantPath && diagnostic.ReasonCode == wantReasonCode {
+			return
+		}
+	}
+
+	t.Fatalf("missing diagnostic path=%q reason_code=%q in %#v", wantPath, wantReasonCode, diagnosticsErr.Diagnostics)
+}
+
 func SetupTempRoots(t testing.TB) TempRoots {
 	t.Helper()
 

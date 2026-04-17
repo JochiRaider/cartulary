@@ -15,6 +15,13 @@ import (
 	"example.com/todo/cartulary/internal/platform/postgres"
 )
 
+var (
+	newJobsManager   = jobs.NewManager
+	setupPostgres    = postgres.SetupWithEnv
+	setupObjectStore = objectstore.SetupWithEnv
+	newHTTPHandler   = httpapi.NewHandler
+)
+
 type Options struct {
 	Env         map[string]string
 	HTTP        httpapi.Options
@@ -31,15 +38,20 @@ type Runtime struct {
 }
 
 func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runtime, error) {
+	normalizedCfg, err := config.ValidateForStartup(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	runtime := &Runtime{
-		Config: cfg,
-		Jobs:   jobs.NewManager(),
+		Config: normalizedCfg,
+		Jobs:   newJobsManager(),
 	}
 
 	if options.Postgres != nil {
 		runtime.Postgres = options.Postgres
 	} else {
-		pool, err := postgres.SetupWithEnv(ctx, cfg, options.Env)
+		pool, err := setupPostgres(ctx, normalizedCfg, options.Env)
 		if err != nil {
 			return nil, fmt.Errorf("setup postgres: %w", err)
 		}
@@ -49,7 +61,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	if options.ObjectStore != nil {
 		runtime.ObjectStore = options.ObjectStore
 	} else {
-		client, err := objectstore.SetupWithEnv(ctx, cfg, options.Env)
+		client, err := setupObjectStore(ctx, normalizedCfg, options.Env)
 		if err != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("setup object store: %w", err)
@@ -59,13 +71,13 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 
 	httpOptions := options.HTTP
 	httpOptions.Dependencies = httpapi.DependencySet{
-		Config:      cfg,
+		Config:      normalizedCfg,
 		Postgres:    runtime.Postgres,
 		ObjectStore: runtime.ObjectStore,
 		Jobs:        runtime.Jobs,
 	}
 
-	handler, err := httpapi.NewHandler(httpOptions)
+	handler, err := newHTTPHandler(httpOptions)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("setup http handler: %w", err)

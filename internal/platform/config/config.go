@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"reflect"
 	"sort"
 	"strconv"
@@ -15,9 +14,11 @@ import (
 )
 
 const (
-	DefaultConfigPath = "/etc/cartulary/config.toml"
-	ConfigFileEnv     = "CARTULARY_CONFIG_FILE"
-	overlayPrefix     = "CARTULARY__"
+	DefaultConfigPath           = "/etc/cartulary/config.toml"
+	ConfigFileEnv               = "CARTULARY_CONFIG_FILE"
+	InvalidDeploymentConfigCode = "invalid_deployment_config"
+	overlayPrefix               = "CARTULARY__"
+	expectedConfigSchemaID      = "cartulary.deployment_config.v1"
 )
 
 type LoadOptions struct {
@@ -26,12 +27,13 @@ type LoadOptions struct {
 }
 
 type Diagnostic struct {
-	Code    string `json:"code"`
-	Path    string `json:"path,omitempty"`
-	Message string `json:"message"`
+	Path       string `json:"path,omitempty"`
+	ReasonCode string `json:"reason_code"`
+	Message    string `json:"message"`
 }
 
 type DiagnosticsError struct {
+	Code        string       `json:"code"`
 	Diagnostics []Diagnostic `json:"diagnostics"`
 }
 
@@ -106,10 +108,10 @@ func (e *DiagnosticsError) Error() string {
 	parts := make([]string, 0, len(e.Diagnostics))
 	for _, diagnostic := range e.Diagnostics {
 		if diagnostic.Path == "" {
-			parts = append(parts, diagnostic.Message)
+			parts = append(parts, fmt.Sprintf("%s: %s", diagnostic.ReasonCode, diagnostic.Message))
 			continue
 		}
-		parts = append(parts, fmt.Sprintf("%s: %s", diagnostic.Path, diagnostic.Message))
+		parts = append(parts, fmt.Sprintf("%s (%s): %s", diagnostic.Path, diagnostic.ReasonCode, diagnostic.Message))
 	}
 
 	return strings.Join(parts, "; ")
@@ -117,14 +119,31 @@ func (e *DiagnosticsError) Error() string {
 
 func (e *DiagnosticsError) JSON() string {
 	payload := struct {
-		Diagnostics []Diagnostic `json:"diagnostics"`
+		Error struct {
+			Code    string `json:"code"`
+			Details struct {
+				Items []Diagnostic `json:"items"`
+			} `json:"details"`
+		} `json:"error"`
 	}{
-		Diagnostics: e.Diagnostics,
+		Error: struct {
+			Code    string `json:"code"`
+			Details struct {
+				Items []Diagnostic `json:"items"`
+			} `json:"details"`
+		}{
+			Code: e.Code,
+			Details: struct {
+				Items []Diagnostic `json:"items"`
+			}{
+				Items: e.Diagnostics,
+			},
+		},
 	}
 
 	data, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
-		return `{"diagnostics":[{"code":"diagnostic_render_failed","message":"failed to render diagnostics"}]}`
+		return `{"error":{"code":"invalid_deployment_config","details":{"items":[{"reason_code":"diagnostic_render_failed","message":"failed to render diagnostics"}]}}}`
 	}
 
 	return string(data)
@@ -149,7 +168,7 @@ func ResolvePathWithOptions(options LoadOptions) (string, error) {
 	}
 
 	if override, ok := lookupEnv(options.Env, ConfigFileEnv); ok && override != "" {
-		if !filepath.IsAbs(override) {
+		if !isPOSIXAbsolutePath(override) {
 			return "", fmt.Errorf("%s must be an absolute path", ConfigFileEnv)
 		}
 
@@ -186,25 +205,33 @@ func loadFromOptions(options LoadOptions) (Config, error) {
 
 	data, err := os.ReadFile(options.Path)
 	if err != nil {
-		return Config{}, fmt.Errorf("read config: %w", err)
+		reasonCode := "config_parse_error"
+		if errors.Is(err, os.ErrNotExist) {
+			reasonCode = "config_file_not_found"
+		}
+		return Config{}, newDiagnosticsError([]Diagnostic{{
+			Path:       options.Path,
+			ReasonCode: reasonCode,
+			Message:    fmt.Sprintf("read config: %v", err),
+		}})
 	}
 
 	diagnostics := make([]Diagnostic, 0)
 	md, err := toml.Decode(string(data), &cfg)
 	if err != nil {
 		diagnostics = append(diagnostics, Diagnostic{
-			Code:    "invalid_toml",
-			Message: err.Error(),
+			ReasonCode: "config_parse_error",
+			Message:    err.Error(),
 		})
-		return Config{}, &DiagnosticsError{Diagnostics: diagnostics}
+		return Config{}, newDiagnosticsError(diagnostics)
 	}
 
 	if undecoded := md.Undecoded(); len(undecoded) > 0 {
 		for _, key := range undecoded {
 			diagnostics = append(diagnostics, Diagnostic{
-				Code:    "unknown_config_key",
-				Path:    strings.Join(key, "."),
-				Message: "unknown config key",
+				Path:       strings.Join(key, "."),
+				ReasonCode: "unknown_key",
+				Message:    "unknown config key",
 			})
 		}
 	}
@@ -215,26 +242,9 @@ func loadFromOptions(options LoadOptions) (Config, error) {
 		}
 	}
 
-	if cfg.ConfigSchemaID == "" {
-		diagnostics = append(diagnostics, Diagnostic{
-			Code:    "missing_required",
-			Path:    "config_schema_id",
-			Message: "config_schema_id is required",
-		})
-	}
-
-	if cfg.DeploymentProfile == "" {
-		diagnostics = append(diagnostics, Diagnostic{
-			Code:    "missing_required",
-			Path:    "deployment_profile",
-			Message: "deployment_profile is required",
-		})
-	}
-
-	// TODO: enforce full Core 04 runtime-root, binding-kind, and limit validation.
+	diagnostics = append(diagnostics, validateConfigStructure(&cfg)...)
 	if len(diagnostics) > 0 {
-		sortDiagnostics(diagnostics)
-		return Config{}, &DiagnosticsError{Diagnostics: diagnostics}
+		return Config{}, newDiagnosticsError(diagnostics)
 	}
 
 	return cfg, nil
@@ -252,9 +262,9 @@ func applyOverlay(cfg *Config, envKey string, raw string) *Diagnostic {
 		field, ok := findTaggedField(value, segment)
 		if !ok {
 			return &Diagnostic{
-				Code:    "invalid_env_overlay",
-				Path:    strings.Join(segments, "."),
-				Message: fmt.Sprintf("unknown overlay path segment %q", segment),
+				Path:       strings.Join(segments, "."),
+				ReasonCode: "unknown_key",
+				Message:    fmt.Sprintf("unknown overlay path segment %q", segment),
 			}
 		}
 		value = field
@@ -263,44 +273,45 @@ func applyOverlay(cfg *Config, envKey string, raw string) *Diagnostic {
 	field, ok := findTaggedField(value, segments[len(segments)-1])
 	if !ok {
 		return &Diagnostic{
-			Code:    "invalid_env_overlay",
-			Path:    strings.Join(segments, "."),
-			Message: fmt.Sprintf("unknown overlay target %q", segments[len(segments)-1]),
+			Path:       strings.Join(segments, "."),
+			ReasonCode: "unknown_key",
+			Message:    fmt.Sprintf("unknown overlay target %q", segments[len(segments)-1]),
 		}
 	}
 
-	if err := assignOverlayValue(field, raw); err != nil {
+	reasonCode, err := assignOverlayValue(field, raw)
+	if err != nil {
 		return &Diagnostic{
-			Code:    "invalid_env_overlay",
-			Path:    strings.Join(segments, "."),
-			Message: err.Error(),
+			Path:       strings.Join(segments, "."),
+			ReasonCode: reasonCode,
+			Message:    err.Error(),
 		}
 	}
 
 	return nil
 }
 
-func assignOverlayValue(field reflect.Value, raw string) error {
+func assignOverlayValue(field reflect.Value, raw string) (string, error) {
 	switch field.Kind() {
 	case reflect.String:
 		field.SetString(raw)
-		return nil
+		return "", nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		value, err := strconv.ParseInt(raw, 10, 64)
 		if err != nil {
-			return fmt.Errorf("parse integer overlay: %w", err)
+			return "type_mismatch", fmt.Errorf("parse integer overlay: %w", err)
 		}
 		field.SetInt(value)
-		return nil
+		return "", nil
 	case reflect.Bool:
 		value, err := strconv.ParseBool(raw)
 		if err != nil {
-			return fmt.Errorf("parse boolean overlay: %w", err)
+			return "type_mismatch", fmt.Errorf("parse boolean overlay: %w", err)
 		}
 		field.SetBool(value)
-		return nil
+		return "", nil
 	default:
-		return fmt.Errorf("unsupported overlay target kind %s", field.Kind())
+		return "type_mismatch", fmt.Errorf("unsupported overlay target kind %s", field.Kind())
 	}
 }
 
@@ -350,11 +361,19 @@ func sortDiagnostics(diagnostics []Diagnostic) {
 		if diagnostics[i].Path != diagnostics[j].Path {
 			return diagnostics[i].Path < diagnostics[j].Path
 		}
-		if diagnostics[i].Code != diagnostics[j].Code {
-			return diagnostics[i].Code < diagnostics[j].Code
+		if diagnostics[i].ReasonCode != diagnostics[j].ReasonCode {
+			return diagnostics[i].ReasonCode < diagnostics[j].ReasonCode
 		}
 		return diagnostics[i].Message < diagnostics[j].Message
 	})
+}
+
+func newDiagnosticsError(diagnostics []Diagnostic) *DiagnosticsError {
+	sortDiagnostics(diagnostics)
+	return &DiagnosticsError{
+		Code:        InvalidDeploymentConfigCode,
+		Diagnostics: diagnostics,
+	}
 }
 
 func lookupEnv(env map[string]string, key string) (string, bool) {

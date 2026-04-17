@@ -29,14 +29,25 @@ type ServerOptions struct {
 func StartServer(t testing.TB, options ServerOptions) *Server {
 	t.Helper()
 
+	env := make(map[string]string, len(options.Env))
+	for key, value := range options.Env {
+		env[key] = value
+	}
+
 	cfg := options.Config
 	if cfg.ConfigSchemaID == "" {
-		cfg = configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, nil)
+		tempRoots := configtest.SetupTempRoots(t)
+		for key, value := range tempRoots.Paths {
+			if _, exists := env[key]; !exists {
+				env[key] = value
+			}
+		}
+		cfg = configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, tempRoots.Paths)
 	}
 
 	routes := append([]httpapi.RouteRegistrar{RegisterBootstrapRoutes()}, options.AdditionalRoutes...)
 	runtime, err := app.NewRuntime(context.Background(), cfg, app.Options{
-		Env: options.Env,
+		Env: env,
 		HTTP: httpapi.Options{
 			AdditionalRoutes: routes,
 		},
