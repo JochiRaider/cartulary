@@ -13,18 +13,21 @@ import (
 
 	"example.com/todo/cartulary/internal/platform/config"
 	"example.com/todo/cartulary/internal/platform/jobs"
+	platformws "example.com/todo/cartulary/internal/platform/ws"
 )
 
 const RequestIDHeader = "X-Request-Id"
 
 type DependencySet struct {
 	Config      config.Config
+	Env         map[string]string
 	Postgres    *pgxpool.Pool
 	ObjectStore *minio.Client
 	Jobs        *jobs.Manager
+	WSHub       *platformws.Hub
 }
 
-type RouteRegistrar func(*http.ServeMux, DependencySet)
+type RouteRegistrar func(*http.ServeMux, DependencySet) error
 
 type Options struct {
 	Dependencies      DependencySet
@@ -32,21 +35,33 @@ type Options struct {
 	RequestIDSequence func() string
 }
 
+type EnvelopeMeta struct {
+	RequestID string      `json:"request_id"`
+	Paging    *PagingMeta `json:"paging,omitempty"`
+}
+
+type PagingMeta struct {
+	Limit      int     `json:"limit"`
+	HasMore    bool    `json:"has_more"`
+	NextCursor *string `json:"next_cursor"`
+}
+
 type SuccessEnvelope struct {
-	RequestID string `json:"request_id"`
-	Data      any    `json:"data"`
+	Data any          `json:"data"`
+	Meta EnvelopeMeta `json:"meta"`
 }
 
 type ErrorEnvelope struct {
-	RequestID string       `json:"request_id"`
-	Error     ErrorPayload `json:"error"`
+	Error ErrorPayload `json:"error"`
 }
 
 type ErrorPayload struct {
-	Code    string         `json:"code"`
-	Status  int            `json:"status"`
-	Message string         `json:"message,omitempty"`
-	Details map[string]any `json:"details,omitempty"`
+	Code      string         `json:"code"`
+	Status    int            `json:"status"`
+	RequestID string         `json:"request_id"`
+	Retryable bool           `json:"retryable"`
+	Message   string         `json:"message,omitempty"`
+	Details   map[string]any `json:"details"`
 }
 
 type requestIDContextKey struct{}
@@ -82,7 +97,9 @@ func NewHandler(options ...Options) (http.Handler, error) {
 
 	for _, registrar := range option.AdditionalRoutes {
 		if registrar != nil {
-			registrar(mux, option.Dependencies)
+			if err := registrar(mux, option.Dependencies); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -95,20 +112,34 @@ func RequestIDFromContext(ctx context.Context) string {
 }
 
 func WriteSuccess(w http.ResponseWriter, r *http.Request, status int, data any) error {
-	return writeJSON(w, status, SuccessEnvelope{
+	return WriteSuccessWithMeta(w, r, status, data, EnvelopeMeta{
 		RequestID: RequestIDFromContext(r.Context()),
-		Data:      data,
+	})
+}
+
+func WriteSuccessWithPaging(w http.ResponseWriter, r *http.Request, status int, data any, paging PagingMeta) error {
+	return WriteSuccessWithMeta(w, r, status, data, EnvelopeMeta{
+		RequestID: RequestIDFromContext(r.Context()),
+		Paging:    &paging,
+	})
+}
+
+func WriteSuccessWithMeta(w http.ResponseWriter, r *http.Request, status int, data any, meta EnvelopeMeta) error {
+	return writeJSON(w, status, SuccessEnvelope{
+		Data: data,
+		Meta: meta,
 	})
 }
 
 func WriteError(w http.ResponseWriter, r *http.Request, status int, code string, message string, details map[string]any) error {
 	return writeJSON(w, status, ErrorEnvelope{
-		RequestID: RequestIDFromContext(r.Context()),
 		Error: ErrorPayload{
-			Code:    code,
-			Status:  status,
-			Message: message,
-			Details: details,
+			Code:      code,
+			Status:    status,
+			RequestID: RequestIDFromContext(r.Context()),
+			Retryable: status == http.StatusConflict && code == "record_locked",
+			Message:   message,
+			Details:   details,
 		},
 	})
 }

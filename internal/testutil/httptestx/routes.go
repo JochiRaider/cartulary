@@ -11,7 +11,7 @@ import (
 )
 
 func RegisterBootstrapRoutes() httpapi.RouteRegistrar {
-	return func(mux *http.ServeMux, deps httpapi.DependencySet) {
+	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		_ = deps
 
 		mux.HandleFunc("/api/v1/test/success", func(w http.ResponseWriter, r *http.Request) {
@@ -88,5 +88,6 @@ func RegisterBootstrapRoutes() httpapi.RouteRegistrar {
 				}
 			}
 		})
+		return nil
 	}
 }

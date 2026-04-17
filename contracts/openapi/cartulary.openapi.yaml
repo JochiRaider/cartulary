@@ -1,10 +1,416 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Cartulary Bootstrap HTTP Contract",
-    "version": "0.0.0-bootstrap",
+    "title": "Cartulary Phase 1 Auth Shell HTTP Contract",
+    "version": "0.1.0-phase1",
     "description": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority."
   },
-  "paths": {},
-  "components": {}
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "loginLocalUser",
+        "summary": "Authenticate a local user and issue a base-profile session."
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "logoutCurrentSession",
+        "summary": "Revoke the current session and clear the auth cookies."
+      }
+    },
+    "/api/v1/auth/session": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "getCurrentSession",
+        "summary": "Inspect the current session without sliding idle expiry."
+      }
+    },
+    "/api/v1/auth/credential-state": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "getCredentialState",
+        "summary": "Inspect local password and TOTP credential state for the current user."
+      }
+    },
+    "/api/v1/auth/password/change": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "changeCurrentPassword",
+        "summary": "Change the current user's password and revoke all active sessions."
+      }
+    },
+    "/api/v1/auth/mfa/totp/begin": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "beginTOTPEnrollment",
+        "summary": "Begin first-time or replacement TOTP enrollment using a bootstrap_token or an active session."
+      }
+    },
+    "/api/v1/auth/mfa/totp/complete": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "completeTOTPEnrollment",
+        "summary": "Complete TOTP enrollment using a bootstrap_token or an active session."
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "tags": [
+          "deployment-users"
+        ],
+        "operationId": "listDeploymentUsers",
+        "summary": "List deployment-scoped local users."
+      },
+      "post": {
+        "tags": [
+          "deployment-users"
+        ],
+        "operationId": "createDeploymentUser",
+        "summary": "Create a deployment-scoped local user."
+      }
+    },
+    "/api/v1/users/{user_id}": {
+      "get": {
+        "tags": [
+          "deployment-users"
+        ],
+        "operationId": "getDeploymentUser",
+        "summary": "Fetch a deployment-scoped local user by identifier."
+      },
+      "patch": {
+        "tags": [
+          "deployment-users"
+        ],
+        "operationId": "patchDeploymentUser",
+        "summary": "Patch a deployment-scoped local user with optimistic version checks."
+      }
+    },
+    "/api/v1/users/{user_id}/password/reset": {
+      "post": {
+        "tags": [
+          "deployment-users"
+        ],
+        "operationId": "resetDeploymentUserPassword",
+        "summary": "Reset a local user's password and revoke all active sessions."
+      }
+    },
+    "/api/v1/users/{user_id}/mfa/totp/reset": {
+      "post": {
+        "tags": [
+          "deployment-users"
+        ],
+        "operationId": "resetDeploymentUserTOTP",
+        "summary": "Reset a local user's TOTP factor and reopen the bootstrap-token enrollment flow."
+      }
+    },
+    "/api/v1/users/{user_id}/sessions/revoke-all": {
+      "post": {
+        "tags": [
+          "deployment-users"
+        ],
+        "operationId": "revokeAllDeploymentUserSessions",
+        "summary": "Explicitly revoke all sessions for a deployment-scoped local user."
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "cartulary_session"
+      },
+      "csrfHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-Token"
+      },
+      "bearerSessionOrBootstrap": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "EnvelopeMeta": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "paging": {
+            "$ref": "#/components/schemas/PagingMeta"
+          }
+        },
+        "required": [
+          "request_id"
+        ]
+      },
+      "PagingMeta": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "type": "integer"
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "limit",
+          "next_cursor",
+          "has_more"
+        ]
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorObject"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "ErrorObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "details": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "status",
+          "code",
+          "message",
+          "request_id",
+          "retryable",
+          "details"
+        ]
+      },
+      "SessionResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "provider_type": {
+            "const": "local"
+          },
+          "mfa_state": {
+            "type": "string"
+          },
+          "is_deployment_admin": {
+            "type": "boolean"
+          },
+          "authenticated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "idle_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "absolute_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "session_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "memberships": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "user_id",
+          "display_name",
+          "provider_type",
+          "mfa_state",
+          "is_deployment_admin",
+          "authenticated_at",
+          "idle_expires_at",
+          "absolute_expires_at",
+          "session_expires_at",
+          "memberships"
+        ]
+      },
+      "CredentialStateResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "auth_kind": {
+            "const": "local"
+          },
+          "mfa_required": {
+            "type": "boolean"
+          },
+          "recovery_model": {
+            "const": "admin_assisted"
+          },
+          "password": {
+            "type": "object"
+          },
+          "totp": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "user_id",
+          "auth_kind",
+          "mfa_required",
+          "recovery_model",
+          "password",
+          "totp"
+        ]
+      },
+      "SafeUserResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "mfa_required": {
+            "type": "boolean"
+          },
+          "is_deployment_admin": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "last_login_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "user_version": {
+            "type": "integer"
+          },
+          "auth_bindings": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "user_id",
+          "email",
+          "display_name",
+          "is_active",
+          "mfa_required",
+          "is_deployment_admin",
+          "created_at",
+          "updated_at",
+          "updated_by_user_id",
+          "last_login_at",
+          "user_version",
+          "auth_bindings"
+        ]
+      },
+      "TOTPBeginResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enrollment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "totp_setup": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "enrollment_id",
+          "expires_at",
+          "totp_setup"
+        ]
+      }
+    }
+  }
 }

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.ws.bootstrap.index.v1",
-  "title": "Cartulary Bootstrap WebSocket Contract Index",
+  "$id": "cartulary.ws.phase1.index.v1",
+  "title": "Cartulary Phase 1 WebSocket Contract Index",
   "description": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.",
   "type": "object",
   "additionalProperties": false,
@@ -9,15 +9,100 @@
     "messages": {
       "type": "array",
       "items": {
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "session_revoked"
+          },
+          "version": {
+            "const": "v1"
+          },
+          "direction": {
+            "const": "server_to_client"
+          },
+          "payload_schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "object"
+              },
+              "required": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "properties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "reason_code": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "type": {
+                        "const": "string"
+                      },
+                      "enum": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "enum"
+                    ]
+                  }
+                },
+                "required": [
+                  "reason_code"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "required",
+              "properties"
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "version",
+          "direction",
+          "payload_schema"
+        ]
       },
-      "default": []
+      "default": [
+        {
+          "type": "session_revoked",
+          "version": "v1",
+          "direction": "server_to_client",
+          "payload_schema": {
+            "type": "object",
+            "required": [
+              "reason_code"
+            ],
+            "properties": {
+              "reason_code": {
+                "type": "string",
+                "enum": [
+                  "session_revoked",
+                  "session_expired",
+                  "concurrency_limit"
+                ]
+              }
+            }
+          }
+        }
+      ]
     }
   },
   "required": [
     "messages"
-  ],
-  "default": {
-    "messages": []
-  }
+  ]
 }

@@ -11,10 +11,13 @@ import (
 	"time"
 
 	"example.com/todo/cartulary/internal/app"
+	"example.com/todo/cartulary/internal/modules/auth"
 	"example.com/todo/cartulary/internal/platform/config"
+	"example.com/todo/cartulary/internal/platform/httpapi"
 )
 
 const httpAddrEnv = "CARTULARY_HTTP_ADDR"
+const enableTestRoutesEnv = "CARTULARY_ENABLE_TEST_ROUTES"
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -29,7 +32,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	runtime, err := app.NewRuntime(ctx, cfg, app.Options{})
+	options := app.Options{}
+	if os.Getenv(enableTestRoutesEnv) == "1" {
+		options.HTTP.AdditionalRoutes = []httpapi.RouteRegistrar{auth.RegisterTestRoutes()}
+	}
+
+	runtime, err := app.NewRuntime(ctx, cfg, options)
 	if err != nil {
 		writeStartupError(err, logger, "setup runtime")
 		os.Exit(1)

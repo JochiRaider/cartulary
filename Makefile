@@ -60,8 +60,8 @@ dev: frontend-toolchain
 
 generate:
 	mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
+	$(GO_RUN_ENV) $(GO) run $(SQLC_TOOL) generate
 	$(GO_RUN_ENV) $(GO) run ./tools/contractgen
-	@printf '%s\n' 'generate: sqlc skipped; no sqlc config or authored query generation inputs are present in this slice.'
 
 # Codegen drift is distinct from migration drift.
 generate-drift:

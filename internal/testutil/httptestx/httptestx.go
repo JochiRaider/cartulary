@@ -157,8 +157,12 @@ func RequireSuccessEnvelope(t testing.TB, resp *http.Response, wantStatus int) m
 	requestID := RequireRequestID(t, resp)
 	body := ReadJSONBody(t, resp)
 
-	if body["request_id"] != requestID {
-		t.Fatalf("body request_id mismatch: got %v want %s", body["request_id"], requestID)
+	metaValue, ok := body["meta"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected success envelope meta object, got %T", body["meta"])
+	}
+	if metaValue["request_id"] != requestID {
+		t.Fatalf("body meta.request_id mismatch: got %v want %s", metaValue["request_id"], requestID)
 	}
 	if _, ok := body["data"].(map[string]any); !ok {
 		t.Fatalf("expected success envelope data object, got %T", body["data"])
@@ -172,15 +176,18 @@ func RequireErrorEnvelope(t testing.TB, resp *http.Response, wantStatus int, wan
 	requestID := RequireRequestID(t, resp)
 	body := ReadJSONBody(t, resp)
 
-	if body["request_id"] != requestID {
-		t.Fatalf("body request_id mismatch: got %v want %s", body["request_id"], requestID)
-	}
 	errorValue, ok := body["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error object, got %T", body["error"])
 	}
+	if errorValue["request_id"] != requestID {
+		t.Fatalf("error.request_id mismatch: got %v want %s", errorValue["request_id"], requestID)
+	}
 	if errorValue["code"] != wantCode {
 		t.Fatalf("unexpected error code: got %v want %s", errorValue["code"], wantCode)
+	}
+	if _, ok := errorValue["retryable"].(bool); !ok {
+		t.Fatalf("expected error.retryable boolean, got %T", errorValue["retryable"])
 	}
 	if _, ok := errorValue["details"].(map[string]any); !ok {
 		t.Fatalf("expected error details object, got %T", errorValue["details"])

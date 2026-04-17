@@ -9,11 +9,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minio/minio-go/v7"
 
+	"example.com/todo/cartulary/internal/modules/auth"
 	"example.com/todo/cartulary/internal/platform/config"
 	"example.com/todo/cartulary/internal/platform/httpapi"
 	"example.com/todo/cartulary/internal/platform/jobs"
 	"example.com/todo/cartulary/internal/platform/objectstore"
 	"example.com/todo/cartulary/internal/platform/postgres"
+	platformws "example.com/todo/cartulary/internal/platform/ws"
 )
 
 var (
@@ -75,13 +77,17 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	}
 
 	runtime.Jobs = newJobsManager()
+	hub := platformws.NewHub()
 
 	httpOptions := options.HTTP
+	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes()}, httpOptions.AdditionalRoutes...)
 	httpOptions.Dependencies = httpapi.DependencySet{
 		Config:      normalizedCfg,
+		Env:         options.Env,
 		Postgres:    runtime.Postgres,
 		ObjectStore: runtime.ObjectStore,
 		Jobs:        runtime.Jobs,
+		WSHub:       hub,
 	}
 
 	handler, err := newHTTPHandler(httpOptions)
