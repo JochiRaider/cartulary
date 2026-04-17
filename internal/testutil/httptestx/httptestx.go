@@ -13,6 +13,7 @@ import (
 	"example.com/todo/cartulary/internal/platform/config"
 	"example.com/todo/cartulary/internal/platform/httpapi"
 	"example.com/todo/cartulary/internal/testutil/configtest"
+	"example.com/todo/cartulary/internal/testutil/fixtures"
 )
 
 type Server struct {
@@ -42,7 +43,10 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 				env[key] = value
 			}
 		}
-		cfg = configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, tempRoots.Paths)
+		if _, exists := env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"]; !exists {
+			env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
+		}
+		cfg = configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, env)
 	}
 
 	routes := append([]httpapi.RouteRegistrar{RegisterBootstrapRoutes()}, options.AdditionalRoutes...)

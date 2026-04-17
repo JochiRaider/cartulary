@@ -1,4 +1,0 @@
-bootstrap_admin_manifest_id = "cartulary.bootstrap_admin_manifest.v1"
-display_name = "Bootstrap Admin"
-email = "bootstrap-admin@example.test"
-initial_roles = ["deployment_admin"]

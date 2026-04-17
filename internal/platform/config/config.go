@@ -19,6 +19,25 @@ const (
 	InvalidDeploymentConfigCode = "invalid_deployment_config"
 	overlayPrefix               = "CARTULARY__"
 	expectedConfigSchemaID      = "cartulary.deployment_config.v1"
+
+	DefaultObjectBlobMaxDeclaredByteSize     int64 = 536870912
+	DefaultImportMaxCSVSourceBytes           int64 = 33554432
+	DefaultImportMaxXLSXSourceBytes          int64 = 67108864
+	DefaultImportMaxRows                     int64 = 100000
+	DefaultImportMaxColumns                  int64 = 256
+	DefaultImportMaxCells                    int64 = 5000000
+	DefaultArchiveMaxExtractedBytes          int64 = 2147483648
+	DefaultArchiveMaxCompressionRatio        int64 = 100
+	DefaultArchiveMaxMembers                 int64 = 10000
+	DefaultReferencePackMaxExtractedBytes    int64 = 536870912
+	DefaultIncidentBundleMaxExtractedBytes   int64 = 68719476736
+	DefaultPreviewMaxPreviewablePayloadBytes int64 = 33554432
+	DefaultPreviewMaxTextInlineBytes         int64 = 1048576
+
+	PublicSortLimit             = 8
+	PublicFilterLimit           = 16
+	PublicChangeLimit           = 32
+	PublicCollectionActionLimit = 64
 )
 
 type LoadOptions struct {
@@ -102,6 +121,11 @@ type IncidentBundleLimits struct {
 type PreviewLimits struct {
 	MaxPreviewablePayloadBytes int64 `toml:"max_previewable_payload_bytes"`
 	MaxTextInlineBytes         int64 `toml:"max_text_inline_bytes"`
+}
+
+type configPresence struct {
+	fileMeta     toml.MetaData
+	overlayPaths map[string]struct{}
 }
 
 func (e *DiagnosticsError) Error() string {
@@ -242,7 +266,7 @@ func loadFromOptions(options LoadOptions) (Config, error) {
 		}
 	}
 
-	diagnostics = append(diagnostics, validateConfigStructure(&cfg)...)
+	diagnostics = append(diagnostics, validateConfigStructure(&cfg, newConfigPresence(md, options.Env))...)
 	if len(diagnostics) > 0 {
 		return Config{}, newDiagnosticsError(diagnostics)
 	}
@@ -251,11 +275,7 @@ func loadFromOptions(options LoadOptions) (Config, error) {
 }
 
 func applyOverlay(cfg *Config, envKey string, raw string) *Diagnostic {
-	path := strings.TrimPrefix(envKey, overlayPrefix)
-	segments := strings.Split(path, "__")
-	for i := range segments {
-		segments[i] = strings.ToLower(segments[i])
-	}
+	segments := overlaySegments(envKey)
 
 	value := reflect.ValueOf(cfg).Elem()
 	for _, segment := range segments[:len(segments)-1] {
@@ -354,6 +374,36 @@ func sortedOverlayKeys(env map[string]string) []string {
 
 	sort.Strings(keys)
 	return keys
+}
+
+func newConfigPresence(md toml.MetaData, env map[string]string) configPresence {
+	overlayPaths := make(map[string]struct{})
+	for _, key := range sortedOverlayKeys(env) {
+		overlayPaths[strings.Join(overlaySegments(key), ".")] = struct{}{}
+	}
+
+	return configPresence{
+		fileMeta:     md,
+		overlayPaths: overlayPaths,
+	}
+}
+
+func (p configPresence) isDefined(path ...string) bool {
+	if len(path) > 0 && p.fileMeta.IsDefined(path...) {
+		return true
+	}
+
+	_, ok := p.overlayPaths[strings.Join(path, ".")]
+	return ok
+}
+
+func overlaySegments(envKey string) []string {
+	path := strings.TrimPrefix(envKey, overlayPrefix)
+	segments := strings.Split(path, "__")
+	for i := range segments {
+		segments[i] = strings.ToLower(segments[i])
+	}
+	return segments
 }
 
 func sortDiagnostics(diagnostics []Diagnostic) {

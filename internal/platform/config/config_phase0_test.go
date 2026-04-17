@@ -249,6 +249,89 @@ func TestPhase0_DisconnectedDefaults_U_0_04(t *testing.T) {
 	})
 }
 
+func TestPhase0_ResourceLimits_U_0_09(t *testing.T) {
+	t.Run("resolves omitted resource-limit keys to the exact defaults", func(t *testing.T) {
+		content := string(fixtures.MustRead("config", "valid.toml"))
+		content = stripSection(t, content, "[limits.object_blobs]")
+		content = stripSection(t, content, "[limits.imports]")
+		content = stripSection(t, content, "[limits.archives]")
+		content = stripSection(t, content, "[limits.reference_packs]")
+		content = stripSection(t, content, "[limits.incident_bundles]")
+		content = stripSection(t, content, "[limits.previews]")
+
+		cfg := mustLoadConfig(t, content, nil)
+		if cfg.Limits.ObjectBlobs.MaxDeclaredByteSize != DefaultObjectBlobMaxDeclaredByteSize {
+			t.Fatalf("unexpected object blob default: got %d want %d", cfg.Limits.ObjectBlobs.MaxDeclaredByteSize, DefaultObjectBlobMaxDeclaredByteSize)
+		}
+		if cfg.Limits.Archives.MaxCompressionRatio != DefaultArchiveMaxCompressionRatio {
+			t.Fatalf("unexpected archive compression ratio default: got %d want %d", cfg.Limits.Archives.MaxCompressionRatio, DefaultArchiveMaxCompressionRatio)
+		}
+		if cfg.Limits.Previews.MaxTextInlineBytes != DefaultPreviewMaxTextInlineBytes {
+			t.Fatalf("unexpected preview inline default: got %d want %d", cfg.Limits.Previews.MaxTextInlineBytes, DefaultPreviewMaxTextInlineBytes)
+		}
+	})
+
+	t.Run("applies explicit overrides to only the targeted declared key", func(t *testing.T) {
+		content := string(fixtures.MustRead("config", "valid.toml"))
+		content = stripSection(t, content, "[limits.object_blobs]")
+		content = stripSection(t, content, "[limits.imports]")
+		content = stripSection(t, content, "[limits.archives]")
+		content = stripSection(t, content, "[limits.reference_packs]")
+		content = stripSection(t, content, "[limits.incident_bundles]")
+		content = stripSection(t, content, "[limits.previews]")
+		content += "\n[limits.imports]\nmax_rows = 42\n"
+
+		cfg := mustLoadConfig(t, content, nil)
+		if cfg.Limits.Imports.MaxRows != 42 {
+			t.Fatalf("unexpected overridden import row limit: got %d", cfg.Limits.Imports.MaxRows)
+		}
+		if cfg.Limits.Imports.MaxColumns != DefaultImportMaxColumns {
+			t.Fatalf("unexpected import column default after override: got %d want %d", cfg.Limits.Imports.MaxColumns, DefaultImportMaxColumns)
+		}
+	})
+
+	t.Run("rejects values below the closed numeric domain minimum", func(t *testing.T) {
+		err := loadInvalidConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
+			"CARTULARY__LIMITS__ARCHIVES__MAX_COMPRESSION_RATIO": "0",
+		})
+		requireDiagnostic(t, err, "limits.archives.max_compression_ratio", "value_below_minimum")
+	})
+
+	t.Run("rejects values above the closed numeric domain maximum", func(t *testing.T) {
+		err := loadInvalidConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
+			"CARTULARY__LIMITS__ARCHIVES__MAX_COMPRESSION_RATIO": "1001",
+		})
+		requireDiagnostic(t, err, "limits.archives.max_compression_ratio", "value_above_maximum")
+	})
+
+	t.Run("rejects non-integer resource-limit forms", func(t *testing.T) {
+		err := loadInvalidConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
+			"CARTULARY__LIMITS__PREVIEWS__MAX_PREVIEWABLE_PAYLOAD_BYTES": "32MB",
+		})
+		requireDiagnostic(t, err, "limits.previews.max_previewable_payload_bytes", "type_mismatch")
+	})
+
+	t.Run("rejects undeclared pseudo resource-limit keys", func(t *testing.T) {
+		err := loadInvalidConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
+			"CARTULARY__LIMITS__VIEW_QUERY__MAX_SORT_ENTRIES": "9",
+		})
+		requireDiagnostic(t, err, "limits.view_query.max_sort_entries", "unknown_key")
+	})
+
+	t.Run("keeps fixed public ceilings deployment-invariant", func(t *testing.T) {
+		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
+			"CARTULARY__LIMITS__IMPORTS__MAX_ROWS":     "777",
+			"CARTULARY__LIMITS__ARCHIVES__MAX_MEMBERS": "123",
+		})
+		if cfg.Limits.Imports.MaxRows != 777 {
+			t.Fatalf("unexpected overridden import row limit: got %d", cfg.Limits.Imports.MaxRows)
+		}
+		if PublicSortLimit != 8 || PublicFilterLimit != 16 || PublicChangeLimit != 32 || PublicCollectionActionLimit != 64 {
+			t.Fatalf("unexpected fixed public ceilings: got sort=%d filters=%d changes=%d collection_actions=%d", PublicSortLimit, PublicFilterLimit, PublicChangeLimit, PublicCollectionActionLimit)
+		}
+	})
+}
+
 func fixtureConfigPath() string {
 	return fixtures.Path("config", "valid.toml")
 }

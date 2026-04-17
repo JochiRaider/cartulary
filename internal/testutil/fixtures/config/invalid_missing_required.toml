@@ -2,4 +2,4 @@ deployment_profile = ""
 unexpected_key = "surprise"
 
 [bootstrap]
-first_admin_manifest_path = "/etc/cartulary/bootstrap-admin.toml"
+first_admin_manifest_path = "/etc/cartulary/bootstrap-admin.json"

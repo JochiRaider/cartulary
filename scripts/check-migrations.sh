@@ -38,8 +38,8 @@ docker compose -f "$COMPOSE_FILE" exec -T postgres \
   psql -U cartulary -d postgres -c "CREATE DATABASE \"$SCRATCH_DB\";" >/dev/null
 
 if ! find "$ROOT_DIR/db/migrations" -maxdepth 1 -type f ! -name '.gitkeep' | grep -q .; then
-  echo "migration verification: no migration files present; treating empty bootstrap migration set as valid"
-  exit 0
+  echo "migration verification failed: no migration files present" >&2
+  exit 1
 fi
 
 cd "$ROOT_DIR"

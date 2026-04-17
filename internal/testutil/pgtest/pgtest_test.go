@@ -21,7 +21,7 @@ func TestHarnessStartsPostgresAndRunsCurrentMigrationPath(t *testing.T) {
 	if testDB.DSN == "" {
 		t.Fatal("expected database dsn")
 	}
-	if !status.Empty {
-		t.Fatal("expected current bootstrap migration set to be empty")
+	if status.Empty {
+		t.Fatal("expected the current bootstrap migration set to include numbered migrations")
 	}
 }

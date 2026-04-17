@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minio/minio-go/v7"
@@ -45,7 +46,6 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 
 	runtime := &Runtime{
 		Config: normalizedCfg,
-		Jobs:   newJobsManager(),
 	}
 
 	if options.Postgres != nil {
@@ -68,6 +68,13 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		}
 		runtime.ObjectStore = client
 	}
+
+	if err := bootstrapPreflight(ctx, normalizedCfg, postgresBootstrapStore{pool: runtime.Postgres}, os.ReadFile, deriveBootstrapPasswordHash); err != nil {
+		runtime.Close()
+		return nil, err
+	}
+
+	runtime.Jobs = newJobsManager()
 
 	httpOptions := options.HTTP
 	httpOptions.Dependencies = httpapi.DependencySet{

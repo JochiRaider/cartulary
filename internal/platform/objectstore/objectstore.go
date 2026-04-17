@@ -33,8 +33,6 @@ func Setup(ctx context.Context, cfg config.Config) (*minio.Client, error) {
 }
 
 func SetupWithEnv(ctx context.Context, cfg config.Config, env map[string]string) (*minio.Client, error) {
-	_ = ctx
-
 	settings, err := ResolveSettings(cfg, env)
 	if err != nil {
 		return nil, err
@@ -46,6 +44,16 @@ func SetupWithEnv(ctx context.Context, cfg config.Config, env map[string]string)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create minio client: %w", err)
+	}
+
+	exists, err := client.BucketExists(ctx, settings.Bucket)
+	if err != nil {
+		return nil, fmt.Errorf("check object store bucket %q: %w", settings.Bucket, err)
+	}
+	if !exists {
+		if err := client.MakeBucket(ctx, settings.Bucket, minio.MakeBucketOptions{}); err != nil {
+			return nil, fmt.Errorf("create object store bucket %q: %w", settings.Bucket, err)
+		}
 	}
 
 	// TODO: derive endpoint and credentials from deployment configuration instead of fixed local defaults.

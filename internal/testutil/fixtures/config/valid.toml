@@ -26,7 +26,7 @@ binding_kind = "filesystem_root"
 path = "/var/lib/cartulary/exports"
 
 [bootstrap]
-first_admin_manifest_path = "/etc/cartulary/bootstrap-admin.toml"
+first_admin_manifest_path = "/etc/cartulary/bootstrap-admin.json"
 
 [limits.object_blobs]
 max_declared_byte_size = 536870912

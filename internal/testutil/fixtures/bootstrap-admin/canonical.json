@@ -1,0 +1,7 @@
+{
+  "bootstrap_schema_id": "cartulary.bootstrap_admin.v1",
+  "bootstrap_artifact_id": "11111111-1111-1111-1111-111111111111",
+  "email": "bootstrap-admin@example.test",
+  "display_name": "Bootstrap Admin",
+  "initial_password": "BootstrapPass1!"
+}

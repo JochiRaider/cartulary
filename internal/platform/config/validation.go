@@ -15,9 +15,11 @@ type filesystemRoot struct {
 	ConfigPath string
 }
 
+const limitRegistryMaxInt64 = int64(^uint64(0) >> 1)
+
 func Validate(cfg Config) (Config, error) {
 	normalized := cfg
-	diagnostics := validateConfigStructure(&normalized)
+	diagnostics := validateConfigStructure(&normalized, configPresence{})
 	if len(diagnostics) > 0 {
 		return Config{}, newDiagnosticsError(diagnostics)
 	}
@@ -38,8 +40,10 @@ func ValidateForStartup(cfg Config) (Config, error) {
 	return normalized, nil
 }
 
-func validateConfigStructure(cfg *Config) []Diagnostic {
+func validateConfigStructure(cfg *Config, presence configPresence) []Diagnostic {
 	diagnostics := make([]Diagnostic, 0)
+
+	applyDefaultLimitValues(cfg, presence)
 
 	switch {
 	case cfg.ConfigSchemaID == "":
@@ -76,6 +80,8 @@ func validateConfigStructure(cfg *Config) []Diagnostic {
 	validateRootBinding(&cfg.Roots.ReferencePackStorage, "roots.reference_pack_storage", cfg.DeploymentProfile, false, false, &diagnostics)
 	validateRootBinding(&cfg.Roots.TemporaryWork, "roots.temporary_work", cfg.DeploymentProfile, false, false, &diagnostics)
 	validateRootBinding(&cfg.Roots.ExportOutputs, "roots.export_outputs", cfg.DeploymentProfile, false, false, &diagnostics)
+	validateBootstrapManifestPath(&cfg.Bootstrap, presence, &diagnostics)
+	validateLimitRegistry(cfg.Limits, &diagnostics)
 
 	if len(diagnostics) > 0 {
 		return diagnostics
@@ -178,11 +184,19 @@ func validateRootBinding(binding *RootBinding, path string, deploymentProfile st
 }
 
 func validateConfiguredPath(raw string, path string) (string, *Diagnostic) {
+	return validateConfiguredAbsolutePOSIXPath(raw, path, "filesystem root paths")
+}
+
+func validateConfiguredManifestPath(raw string, path string) (string, *Diagnostic) {
+	return validateConfiguredAbsolutePOSIXPath(raw, path, "bootstrap manifest path")
+}
+
+func validateConfiguredAbsolutePOSIXPath(raw string, path string, subject string) (string, *Diagnostic) {
 	if !isPOSIXAbsolutePath(raw) {
 		return "", &Diagnostic{
 			Path:       path,
 			ReasonCode: "path_not_absolute",
-			Message:    "filesystem root paths must be absolute POSIX paths",
+			Message:    subject + " must be an absolute POSIX path",
 		}
 	}
 
@@ -190,7 +204,7 @@ func validateConfiguredPath(raw string, path string) (string, *Diagnostic) {
 		return "", &Diagnostic{
 			Path:       path,
 			ReasonCode: "path_forbidden_segment",
-			Message:    "filesystem root paths must not contain NUL",
+			Message:    subject + " must not contain NUL",
 		}
 	}
 
@@ -198,7 +212,7 @@ func validateConfiguredPath(raw string, path string) (string, *Diagnostic) {
 		return "", &Diagnostic{
 			Path:       path,
 			ReasonCode: "path_forbidden_segment",
-			Message:    "filesystem root paths must not use shell expansion segments",
+			Message:    subject + " must not use shell expansion segments",
 		}
 	}
 
@@ -207,12 +221,87 @@ func validateConfiguredPath(raw string, path string) (string, *Diagnostic) {
 			return "", &Diagnostic{
 				Path:       path,
 				ReasonCode: "path_forbidden_segment",
-				Message:    "filesystem root paths must not contain . or .. segments",
+				Message:    subject + " must not contain . or .. segments",
 			}
 		}
 	}
 
 	return cleanPOSIXPath(raw), nil
+}
+
+func validateBootstrapManifestPath(bootstrap *BootstrapConfig, presence configPresence, diagnostics *[]Diagnostic) {
+	if bootstrap.FirstAdminManifestPath == "" {
+		if presence.isDefined("bootstrap", "first_admin_manifest_path") {
+			*diagnostics = append(*diagnostics, Diagnostic{
+				Path:       "bootstrap.first_admin_manifest_path",
+				ReasonCode: "path_not_absolute",
+				Message:    "bootstrap manifest path must be an absolute POSIX path when configured",
+			})
+		}
+		return
+	}
+
+	if normalized, diagnostic := validateConfiguredManifestPath(bootstrap.FirstAdminManifestPath, "bootstrap.first_admin_manifest_path"); diagnostic != nil {
+		*diagnostics = append(*diagnostics, *diagnostic)
+	} else {
+		bootstrap.FirstAdminManifestPath = normalized
+	}
+}
+
+func applyDefaultLimitValues(cfg *Config, presence configPresence) {
+	applyDefaultInt64(&cfg.Limits.ObjectBlobs.MaxDeclaredByteSize, DefaultObjectBlobMaxDeclaredByteSize, presence, "limits", "object_blobs", "max_declared_byte_size")
+	applyDefaultInt64(&cfg.Limits.Imports.MaxCSVSourceBytes, DefaultImportMaxCSVSourceBytes, presence, "limits", "imports", "max_csv_source_bytes")
+	applyDefaultInt64(&cfg.Limits.Imports.MaxXLSXSourceBytes, DefaultImportMaxXLSXSourceBytes, presence, "limits", "imports", "max_xlsx_source_bytes")
+	applyDefaultInt64(&cfg.Limits.Imports.MaxRows, DefaultImportMaxRows, presence, "limits", "imports", "max_rows")
+	applyDefaultInt64(&cfg.Limits.Imports.MaxColumns, DefaultImportMaxColumns, presence, "limits", "imports", "max_columns")
+	applyDefaultInt64(&cfg.Limits.Imports.MaxCells, DefaultImportMaxCells, presence, "limits", "imports", "max_cells")
+	applyDefaultInt64(&cfg.Limits.Archives.DefaultMaxExtractedBytes, DefaultArchiveMaxExtractedBytes, presence, "limits", "archives", "default_max_extracted_bytes")
+	applyDefaultInt64(&cfg.Limits.Archives.MaxCompressionRatio, DefaultArchiveMaxCompressionRatio, presence, "limits", "archives", "max_compression_ratio")
+	applyDefaultInt64(&cfg.Limits.Archives.MaxMembers, DefaultArchiveMaxMembers, presence, "limits", "archives", "max_members")
+	applyDefaultInt64(&cfg.Limits.ReferencePacks.MaxExtractedBytes, DefaultReferencePackMaxExtractedBytes, presence, "limits", "reference_packs", "max_extracted_bytes")
+	applyDefaultInt64(&cfg.Limits.IncidentBundles.MaxExtractedBytes, DefaultIncidentBundleMaxExtractedBytes, presence, "limits", "incident_bundles", "max_extracted_bytes")
+	applyDefaultInt64(&cfg.Limits.Previews.MaxPreviewablePayloadBytes, DefaultPreviewMaxPreviewablePayloadBytes, presence, "limits", "previews", "max_previewable_payload_bytes")
+	applyDefaultInt64(&cfg.Limits.Previews.MaxTextInlineBytes, DefaultPreviewMaxTextInlineBytes, presence, "limits", "previews", "max_text_inline_bytes")
+}
+
+func applyDefaultInt64(target *int64, defaultValue int64, presence configPresence, path ...string) {
+	if *target != 0 || presence.isDefined(path...) {
+		return
+	}
+	*target = defaultValue
+}
+
+func validateLimitRegistry(limits LimitConfig, diagnostics *[]Diagnostic) {
+	validateLimitValue(limits.ObjectBlobs.MaxDeclaredByteSize, "limits.object_blobs.max_declared_byte_size", 1, limitRegistryMaxInt64, diagnostics)
+	validateLimitValue(limits.Imports.MaxCSVSourceBytes, "limits.imports.max_csv_source_bytes", 1, limitRegistryMaxInt64, diagnostics)
+	validateLimitValue(limits.Imports.MaxXLSXSourceBytes, "limits.imports.max_xlsx_source_bytes", 1, limitRegistryMaxInt64, diagnostics)
+	validateLimitValue(limits.Imports.MaxRows, "limits.imports.max_rows", 1, limitRegistryMaxInt64, diagnostics)
+	validateLimitValue(limits.Imports.MaxColumns, "limits.imports.max_columns", 1, limitRegistryMaxInt64, diagnostics)
+	validateLimitValue(limits.Imports.MaxCells, "limits.imports.max_cells", 1, limitRegistryMaxInt64, diagnostics)
+	validateLimitValue(limits.Archives.DefaultMaxExtractedBytes, "limits.archives.default_max_extracted_bytes", 1, limitRegistryMaxInt64, diagnostics)
+	validateLimitValue(limits.Archives.MaxCompressionRatio, "limits.archives.max_compression_ratio", 1, 1000, diagnostics)
+	validateLimitValue(limits.Archives.MaxMembers, "limits.archives.max_members", 1, limitRegistryMaxInt64, diagnostics)
+	validateLimitValue(limits.ReferencePacks.MaxExtractedBytes, "limits.reference_packs.max_extracted_bytes", 1, limitRegistryMaxInt64, diagnostics)
+	validateLimitValue(limits.IncidentBundles.MaxExtractedBytes, "limits.incident_bundles.max_extracted_bytes", 1, limitRegistryMaxInt64, diagnostics)
+	validateLimitValue(limits.Previews.MaxPreviewablePayloadBytes, "limits.previews.max_previewable_payload_bytes", 1, limitRegistryMaxInt64, diagnostics)
+	validateLimitValue(limits.Previews.MaxTextInlineBytes, "limits.previews.max_text_inline_bytes", 1, limitRegistryMaxInt64, diagnostics)
+}
+
+func validateLimitValue(value int64, path string, min int64, max int64, diagnostics *[]Diagnostic) {
+	switch {
+	case value < min:
+		*diagnostics = append(*diagnostics, Diagnostic{
+			Path:       path,
+			ReasonCode: "value_below_minimum",
+			Message:    fmt.Sprintf("value must be at least %d", min),
+		})
+	case value > max:
+		*diagnostics = append(*diagnostics, Diagnostic{
+			Path:       path,
+			ReasonCode: "value_above_maximum",
+			Message:    fmt.Sprintf("value must be at most %d", max),
+		})
+	}
 }
 
 func detectFilesystemRootOverlap(roots []filesystemRoot) []Diagnostic {
