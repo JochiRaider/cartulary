@@ -1,0 +1,712 @@
+package incidents
+
+import (
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/url"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
+	"unicode"
+
+	"github.com/google/uuid"
+	"golang.org/x/text/unicode/norm"
+
+	"example.com/todo/cartulary/internal/modules/auth"
+	"example.com/todo/cartulary/internal/platform/authn"
+	"example.com/todo/cartulary/internal/platform/httpapi"
+)
+
+const (
+	defaultListLimit = 100
+	maxListLimit     = 500
+)
+
+var membershipRoles = []string{"viewer", "editor", "reviewer", "admin"}
+
+type CreateIncidentRequest struct {
+	ClientTxnID            string
+	IncidentKey            string
+	Title                  string
+	Description            *string
+	Severity               *string
+	TLP                    *string
+	CurrentPhase           *string
+	PrimaryExternalCaseRef *string
+}
+
+type MembershipCreateRequest struct {
+	ClientTxnID string
+	UserID      *uuid.UUID
+	Email       *string
+	Role        string
+}
+
+type MembershipPatchRequest struct {
+	BaseMembershipVersion int64
+	Role                  string
+}
+
+type OptionalNullableString struct {
+	Present bool
+	Value   *string
+}
+
+type IncidentPatchRequest struct {
+	BaseIncidentVersion    int64
+	TLP                    OptionalNullableString
+	CurrentPhase           OptionalNullableString
+	PrimaryExternalCaseRef OptionalNullableString
+}
+
+type incidentCursor struct {
+	Route       string    `json:"route"`
+	ActorUserID string    `json:"actor_user_id"`
+	Limit       int       `json:"limit"`
+	SnapshotAt  time.Time `json:"snapshot_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	IncidentID  string    `json:"incident_id"`
+}
+
+type membershipCursor struct {
+	Route       string    `json:"route"`
+	ActorUserID string    `json:"actor_user_id"`
+	IncidentID  string    `json:"incident_id"`
+	Limit       int       `json:"limit"`
+	SnapshotAt  time.Time `json:"snapshot_at"`
+	JoinedAt    time.Time `json:"joined_at"`
+	UserID      string    `json:"user_id"`
+}
+
+func DecodeIncidentCreateRequest(reader io.Reader) (CreateIncidentRequest, *auth.APIError) {
+	raw, apiErr := decodeObject(reader, invalidIncidentCreate)
+	if apiErr != nil {
+		return CreateIncidentRequest{}, apiErr
+	}
+
+	allowed := map[string]struct{}{
+		"client_txn_id":             {},
+		"incident_key":              {},
+		"title":                     {},
+		"description":               {},
+		"severity":                  {},
+		"tlp":                       {},
+		"current_phase":             {},
+		"primary_external_case_ref": {},
+	}
+	for key := range raw {
+		if key == "initial_memberships" {
+			return CreateIncidentRequest{}, invalidIncidentCreate(key, "initial_memberships_not_supported")
+		}
+		if _, ok := allowed[key]; !ok {
+			return CreateIncidentRequest{}, invalidIncidentCreate(key, "unknown_top_level_member")
+		}
+	}
+
+	var request CreateIncidentRequest
+	if value, ok := raw["client_txn_id"]; !ok {
+		return CreateIncidentRequest{}, invalidIncidentCreate("client_txn_id", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
+		return CreateIncidentRequest{}, invalidIncidentCreate("client_txn_id", "missing_required_field")
+	}
+
+	if value, ok := raw["incident_key"]; !ok {
+		return CreateIncidentRequest{}, invalidIncidentCreate("incident_key", "missing_required_field")
+	} else {
+		normalized, ok := normalizeLineValue(value)
+		if !ok {
+			return CreateIncidentRequest{}, invalidIncidentCreate("incident_key", "invalid_value")
+		}
+		request.IncidentKey = normalized
+	}
+
+	if value, ok := raw["title"]; !ok {
+		return CreateIncidentRequest{}, invalidIncidentCreate("title", "missing_required_field")
+	} else {
+		normalized, ok := normalizeLineValue(value)
+		if !ok {
+			return CreateIncidentRequest{}, invalidIncidentCreate("title", "invalid_value")
+		}
+		request.Title = normalized
+	}
+
+	var ok bool
+	if request.Description, ok = normalizeNullableNoteField(raw, "description"); !ok {
+		return CreateIncidentRequest{}, invalidIncidentCreate("description", "invalid_value")
+	}
+	if request.Severity, ok = normalizeNullableLineField(raw, "severity"); !ok {
+		return CreateIncidentRequest{}, invalidIncidentCreate("severity", "invalid_value")
+	}
+	if request.TLP, ok = normalizeNullableLineField(raw, "tlp"); !ok {
+		return CreateIncidentRequest{}, invalidIncidentCreate("tlp", "invalid_value")
+	}
+	if request.CurrentPhase, ok = normalizeNullableLineField(raw, "current_phase"); !ok {
+		return CreateIncidentRequest{}, invalidIncidentCreate("current_phase", "invalid_value")
+	}
+	if request.PrimaryExternalCaseRef, ok = normalizeNullableLineField(raw, "primary_external_case_ref"); !ok {
+		return CreateIncidentRequest{}, invalidIncidentCreate("primary_external_case_ref", "invalid_value")
+	}
+
+	return request, nil
+}
+
+func DecodeIncidentPatchRequest(reader io.Reader) (IncidentPatchRequest, *auth.APIError) {
+	raw, apiErr := decodeObject(reader, invalidIncidentPatch)
+	if apiErr != nil {
+		return IncidentPatchRequest{}, apiErr
+	}
+
+	allowed := map[string]struct{}{
+		"base_incident_version":     {},
+		"tlp":                       {},
+		"current_phase":             {},
+		"primary_external_case_ref": {},
+	}
+	forbidden := map[string]struct{}{
+		"incident_id":                  {},
+		"incident_key":                 {},
+		"title":                        {},
+		"description":                  {},
+		"status":                       {},
+		"severity":                     {},
+		"created_at":                   {},
+		"created_by_user_id":           {},
+		"updated_at":                   {},
+		"updated_by_user_id":           {},
+		"closed_at":                    {},
+		"incident_version":             {},
+		"memberships":                  {},
+		"saved_views":                  {},
+		"saved_view":                   {},
+		"workbook_preferences":         {},
+		"default_workbook_preferences": {},
+		"user_workbook_preferences":    {},
+	}
+	for key := range raw {
+		if _, ok := forbidden[key]; ok {
+			return IncidentPatchRequest{}, invalidIncidentPatch(key, "forbidden_field")
+		}
+		if _, ok := allowed[key]; !ok {
+			return IncidentPatchRequest{}, invalidIncidentPatch(key, "unknown_top_level_member")
+		}
+	}
+
+	var request IncidentPatchRequest
+	if value, ok := raw["base_incident_version"]; !ok {
+		return IncidentPatchRequest{}, invalidIncidentPatch("base_incident_version", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.BaseIncidentVersion); err != nil || request.BaseIncidentVersion < 1 {
+		return IncidentPatchRequest{}, invalidIncidentPatch("base_incident_version", "invalid_base_incident_version")
+	}
+
+	var ok bool
+	if request.TLP, ok = decodeOptionalNullableLineField(raw, "tlp"); !ok {
+		return IncidentPatchRequest{}, invalidIncidentPatch("tlp", "invalid_value")
+	}
+	if request.CurrentPhase, ok = decodeOptionalNullableLineField(raw, "current_phase"); !ok {
+		return IncidentPatchRequest{}, invalidIncidentPatch("current_phase", "invalid_value")
+	}
+	if request.PrimaryExternalCaseRef, ok = decodeOptionalNullableLineField(raw, "primary_external_case_ref"); !ok {
+		return IncidentPatchRequest{}, invalidIncidentPatch("primary_external_case_ref", "invalid_value")
+	}
+	return request, nil
+}
+
+func DecodeMembershipCreateRequest(reader io.Reader) (MembershipCreateRequest, *auth.APIError) {
+	raw, apiErr := decodeObject(reader, invalidMutationPayload)
+	if apiErr != nil {
+		return MembershipCreateRequest{}, apiErr
+	}
+
+	allowed := map[string]struct{}{
+		"client_txn_id": {},
+		"user_id":       {},
+		"email":         {},
+		"role":          {},
+	}
+	for key := range raw {
+		if _, ok := allowed[key]; !ok {
+			return MembershipCreateRequest{}, invalidMutationPayload(key, "unknown_field")
+		}
+	}
+
+	var request MembershipCreateRequest
+	if value, ok := raw["client_txn_id"]; !ok {
+		return MembershipCreateRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
+		return MembershipCreateRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+	}
+
+	if value, ok := raw["user_id"]; ok {
+		var parsed string
+		if err := json.Unmarshal(value, &parsed); err != nil {
+			return MembershipCreateRequest{}, invalidMutationPayload("user_id", "invalid_user_id")
+		}
+		userID, err := uuid.Parse(parsed)
+		if err != nil {
+			return MembershipCreateRequest{}, invalidMutationPayload("user_id", "invalid_user_id")
+		}
+		request.UserID = &userID
+	}
+
+	if value, ok := raw["email"]; ok {
+		var rawEmail string
+		if err := json.Unmarshal(value, &rawEmail); err != nil {
+			return MembershipCreateRequest{}, invalidMutationPayload("email", "invalid_email")
+		}
+		normalized, _, ok := authn.NormalizeEmailAddress(rawEmail)
+		if !ok {
+			return MembershipCreateRequest{}, invalidMutationPayload("email", "invalid_email")
+		}
+		request.Email = &normalized
+	}
+
+	if (request.UserID == nil && request.Email == nil) || (request.UserID != nil && request.Email != nil) {
+		return MembershipCreateRequest{}, invalidMutationPayload("user_id", "exactly_one_target_selector")
+	}
+
+	if value, ok := raw["role"]; !ok {
+		return MembershipCreateRequest{}, invalidMutationPayload("role", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.Role); err != nil || !slices.Contains(membershipRoles, request.Role) {
+		return MembershipCreateRequest{}, invalidMutationPayload("role", "invalid_role")
+	}
+
+	return request, nil
+}
+
+func DecodeMembershipPatchRequest(reader io.Reader) (MembershipPatchRequest, *auth.APIError) {
+	raw, apiErr := decodeObject(reader, invalidMutationPayload)
+	if apiErr != nil {
+		return MembershipPatchRequest{}, apiErr
+	}
+
+	allowed := map[string]struct{}{
+		"base_membership_version": {},
+		"role":                    {},
+	}
+	forbidden := map[string]struct{}{
+		"incident_id":        {},
+		"user_id":            {},
+		"joined_at":          {},
+		"added_by_user_id":   {},
+		"updated_at":         {},
+		"updated_by_user_id": {},
+		"membership_version": {},
+	}
+	for key := range raw {
+		if _, ok := forbidden[key]; ok {
+			return MembershipPatchRequest{}, invalidMutationPayload(key, "forbidden_field")
+		}
+		if _, ok := allowed[key]; !ok {
+			return MembershipPatchRequest{}, invalidMutationPayload(key, "unknown_field")
+		}
+	}
+
+	var request MembershipPatchRequest
+	if value, ok := raw["base_membership_version"]; !ok {
+		return MembershipPatchRequest{}, invalidMutationPayload("base_membership_version", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.BaseMembershipVersion); err != nil || request.BaseMembershipVersion < 1 {
+		return MembershipPatchRequest{}, invalidMutationPayload("base_membership_version", "invalid_base_membership_version")
+	}
+
+	if value, ok := raw["role"]; !ok {
+		return MembershipPatchRequest{}, invalidMutationPayload("role", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.Role); err != nil || !slices.Contains(membershipRoles, request.Role) {
+		return MembershipPatchRequest{}, invalidMutationPayload("role", "invalid_role")
+	}
+	return request, nil
+}
+
+func DecodeListQuery(query url.Values) (int, *string, *auth.APIError) {
+	for _, key := range []string{"page", "offset", "page_size", "block_size"} {
+		if _, ok := query[key]; ok {
+			return 0, nil, invalidPaginationRequest("pagination_not_supported")
+		}
+	}
+
+	limit := defaultListLimit
+	if value := query.Get("limit"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed < 1 || parsed > maxListLimit {
+			return 0, nil, invalidPaginationRequest("invalid_limit")
+		}
+		limit = parsed
+	}
+
+	var cursor *string
+	if value := query.Get("cursor_token"); value != "" {
+		cursor = &value
+	}
+	return limit, cursor, nil
+}
+
+func EncodeIncidentCursor(cursor incidentCursor) (string, error) {
+	return encodeCursor(cursor)
+}
+
+func DecodeIncidentCursor(token string, actorUserID uuid.UUID, limit int) (incidentCursor, *auth.APIError) {
+	var cursor incidentCursor
+	if err := decodeCursor(token, &cursor); err != nil {
+		return incidentCursor{}, invalidPaginationRequest("invalid_cursor_token")
+	}
+	if cursor.Route != "incidents.list" || cursor.ActorUserID != actorUserID.String() || cursor.Limit != limit {
+		return incidentCursor{}, invalidPaginationRequest("invalid_cursor_token")
+	}
+	if _, err := uuid.Parse(cursor.IncidentID); err != nil {
+		return incidentCursor{}, invalidPaginationRequest("invalid_cursor_token")
+	}
+	return cursor, nil
+}
+
+func EncodeMembershipCursor(cursor membershipCursor) (string, error) {
+	return encodeCursor(cursor)
+}
+
+func DecodeMembershipCursor(token string, actorUserID uuid.UUID, incidentID uuid.UUID, limit int) (membershipCursor, *auth.APIError) {
+	var cursor membershipCursor
+	if err := decodeCursor(token, &cursor); err != nil {
+		return membershipCursor{}, invalidPaginationRequest("invalid_cursor_token")
+	}
+	if cursor.Route != "incident.memberships.list" || cursor.ActorUserID != actorUserID.String() || cursor.IncidentID != incidentID.String() || cursor.Limit != limit {
+		return membershipCursor{}, invalidPaginationRequest("invalid_cursor_token")
+	}
+	if _, err := uuid.Parse(cursor.UserID); err != nil {
+		return membershipCursor{}, invalidPaginationRequest("invalid_cursor_token")
+	}
+	return cursor, nil
+}
+
+func BuildIncidentResource(record IncidentRecord) map[string]any {
+	return map[string]any{
+		"incident_id":               record.ID,
+		"incident_key":              record.IncidentKey,
+		"title":                     record.Title,
+		"description":               record.Description,
+		"status":                    record.Status,
+		"severity":                  record.Severity,
+		"tlp":                       record.TLP,
+		"current_phase":             record.CurrentPhase,
+		"primary_external_case_ref": record.PrimaryExternalCaseRef,
+		"created_by_user_id":        record.CreatedByUserID,
+		"created_at":                record.CreatedAt,
+		"updated_at":                record.UpdatedAt,
+		"updated_by_user_id":        record.UpdatedByUserID,
+		"incident_version":          record.IncidentVersion,
+		"closed_at":                 record.ClosedAt,
+	}
+}
+
+func BuildMembershipResource(record MembershipRecord) map[string]any {
+	return map[string]any{
+		"incident_id":        record.IncidentID,
+		"user_id":            record.UserID,
+		"display_name":       record.DisplayName,
+		"role":               record.Role,
+		"joined_at":          record.JoinedAt,
+		"added_by_user_id":   record.AddedByUserID,
+		"updated_at":         record.UpdatedAt,
+		"updated_by_user_id": record.UpdatedByUserID,
+		"membership_version": record.MembershipVersion,
+	}
+}
+
+func BuildDefaultWorkbookPreferencesResource(record IncidentWorkbookPreferencesRecord) map[string]any {
+	return map[string]any{
+		"incident_id":        record.IncidentID,
+		"default_sheet_ref":  decodeOptionalJSON(record.DefaultSheetRef),
+		"created_at":         record.CreatedAt,
+		"updated_at":         record.UpdatedAt,
+		"updated_by_user_id": record.UpdatedByUserID,
+	}
+}
+
+func BuildUserWorkbookPreferencesResource(record UserWorkbookPreferencesRecord) map[string]any {
+	return map[string]any{
+		"incident_id":    record.IncidentID,
+		"user_id":        record.UserID,
+		"home_sheet_ref": decodeOptionalJSON(record.HomeSheetRef),
+		"created_at":     record.CreatedAt,
+		"updated_at":     record.UpdatedAt,
+	}
+}
+
+func BuildExtensionResource(profile httpapi.ExtensionProfile) map[string]any {
+	return map[string]any{
+		"profile_id":     profile.ProfileID,
+		"claimed":        profile.Claimed,
+		"route_families": append([]string(nil), profile.RouteFamilies...),
+	}
+}
+
+func WouldLeaveNoIncidentAdmins(currentRole string, adminCount int, nextRole *string, deleting bool) bool {
+	if currentRole != "admin" {
+		return false
+	}
+	if !deleting && nextRole != nil && *nextRole == "admin" {
+		return false
+	}
+	return adminCount <= 1
+}
+
+func invalidIncidentCreate(field string, reasonCode string) *auth.APIError {
+	details := map[string]any{}
+	if field != "" {
+		details["field"] = field
+	}
+	if reasonCode != "" {
+		details["reason_code"] = reasonCode
+	}
+	return &auth.APIError{
+		Status:  http.StatusBadRequest,
+		Code:    "invalid_incident_create",
+		Message: "invalid incident create request",
+		Details: details,
+	}
+}
+
+func invalidIncidentPatch(field string, reasonCode string) *auth.APIError {
+	details := map[string]any{}
+	if field != "" {
+		details["field"] = field
+	}
+	if reasonCode != "" {
+		details["reason_code"] = reasonCode
+	}
+	return &auth.APIError{
+		Status:  http.StatusBadRequest,
+		Code:    "invalid_incident_patch",
+		Message: "invalid incident patch request",
+		Details: details,
+	}
+}
+
+func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
+	details := map[string]any{}
+	if field != "" {
+		details["field"] = field
+	}
+	if reasonCode != "" {
+		details["reason_code"] = reasonCode
+	}
+	return &auth.APIError{
+		Status:  http.StatusBadRequest,
+		Code:    "invalid_mutation_payload",
+		Message: "invalid mutation payload",
+		Details: details,
+	}
+}
+
+func invalidPaginationRequest(reasonCode string) *auth.APIError {
+	return &auth.APIError{
+		Status:  http.StatusBadRequest,
+		Code:    "invalid_pagination_request",
+		Message: "invalid pagination request",
+		Details: map[string]any{
+			"reason_code": reasonCode,
+		},
+	}
+}
+
+func incidentNotFoundError() *auth.APIError {
+	return &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+}
+
+func incidentKeyConflictError() *auth.APIError {
+	return &auth.APIError{Status: http.StatusConflict, Code: "incident_key_conflict", Details: map[string]any{}}
+}
+
+func incidentVersionConflictError() *auth.APIError {
+	return &auth.APIError{Status: http.StatusConflict, Code: "incident_version_conflict", Details: map[string]any{}}
+}
+
+func membershipNotFoundError() *auth.APIError {
+	return &auth.APIError{Status: http.StatusNotFound, Code: "membership_not_found", Details: map[string]any{}}
+}
+
+func membershipExistsUsePatchError() *auth.APIError {
+	return &auth.APIError{Status: http.StatusConflict, Code: "membership_exists_use_patch", Details: map[string]any{}}
+}
+
+func membershipVersionConflictError() *auth.APIError {
+	return &auth.APIError{Status: http.StatusConflict, Code: "membership_version_conflict", Details: map[string]any{}}
+}
+
+func lastIncidentAdminError() *auth.APIError {
+	return &auth.APIError{Status: http.StatusConflict, Code: "last_incident_admin", Details: map[string]any{}}
+}
+
+func userInactiveError() *auth.APIError {
+	return &auth.APIError{Status: http.StatusConflict, Code: "user_inactive", Details: map[string]any{}}
+}
+
+func authorizationDeniedError(requiredRole string) *auth.APIError {
+	details := map[string]any{}
+	if requiredRole != "" {
+		details["required_role"] = requiredRole
+	}
+	return &auth.APIError{
+		Status:  http.StatusForbidden,
+		Code:    "authorization_denied",
+		Message: "authorization denied",
+		Details: details,
+	}
+}
+
+func requiredRoleDescription(roles ...string) string {
+	if len(roles) == 0 {
+		return ""
+	}
+	if len(roles) == 1 {
+		return roles[0]
+	}
+	return strings.Join(roles, "|")
+}
+
+func hashRequestPayload(payload any) []byte {
+	data, _ := json.Marshal(payload)
+	sum := sha256.Sum256(data)
+	hash := make([]byte, len(sum))
+	copy(hash, sum[:])
+	return hash
+}
+
+func hashesEqual(left []byte, right []byte) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func decodeStoredResponse(data []byte) (map[string]any, error) {
+	var payload map[string]any
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return nil, err
+	}
+	return payload, nil
+}
+
+func encodeCursor(value any) (string, error) {
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(payload), nil
+}
+
+func decodeCursor(token string, target any) error {
+	data, err := base64.RawURLEncoding.DecodeString(token)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, target)
+}
+
+func decodeOptionalJSON(raw []byte) any {
+	if len(raw) == 0 {
+		return nil
+	}
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil
+	}
+	return value
+}
+
+func decodeObject(reader io.Reader, invalid func(string, string) *auth.APIError) (map[string]json.RawMessage, *auth.APIError) {
+	var raw map[string]json.RawMessage
+	decoder := json.NewDecoder(reader)
+	if err := decoder.Decode(&raw); err != nil {
+		return nil, invalid("", "request_not_object")
+	}
+	return raw, nil
+}
+
+func normalizeLineValue(value json.RawMessage) (string, bool) {
+	var raw string
+	if err := json.Unmarshal(value, &raw); err != nil {
+		return "", false
+	}
+	return normalizeLine(raw)
+}
+
+func normalizeNullableLineField(raw map[string]json.RawMessage, field string) (*string, bool) {
+	value, ok := raw[field]
+	if !ok || string(value) == "null" {
+		return nil, true
+	}
+	normalized, ok := normalizeLineValue(value)
+	if !ok {
+		return nil, false
+	}
+	return &normalized, true
+}
+
+func normalizeNullableNoteField(raw map[string]json.RawMessage, field string) (*string, bool) {
+	value, ok := raw[field]
+	if !ok || string(value) == "null" {
+		return nil, true
+	}
+	var note string
+	if err := json.Unmarshal(value, &note); err != nil {
+		return nil, false
+	}
+	normalized, ok := normalizeNote(note)
+	if !ok {
+		return nil, false
+	}
+	return &normalized, true
+}
+
+func decodeOptionalNullableLineField(raw map[string]json.RawMessage, field string) (OptionalNullableString, bool) {
+	value, ok := raw[field]
+	if !ok {
+		return OptionalNullableString{}, true
+	}
+	if string(value) == "null" {
+		return OptionalNullableString{Present: true, Value: nil}, true
+	}
+	normalized, ok := normalizeLineValue(value)
+	if !ok {
+		return OptionalNullableString{}, false
+	}
+	return OptionalNullableString{Present: true, Value: &normalized}, true
+}
+
+func normalizeLine(raw string) (string, bool) {
+	normalized := norm.NFC.String(strings.TrimFunc(raw, unicode.IsSpace))
+	if normalized == "" {
+		return "", false
+	}
+	for _, r := range normalized {
+		if unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r) {
+			return "", false
+		}
+	}
+	return normalized, true
+}
+
+func normalizeNote(raw string) (string, bool) {
+	normalized := norm.NFC.String(raw)
+	normalized = strings.ReplaceAll(normalized, "\r\n", "\n")
+	normalized = strings.ReplaceAll(normalized, "\r", "\n")
+	normalized = strings.TrimFunc(normalized, unicode.IsSpace)
+	if normalized == "" {
+		return "", false
+	}
+	for _, r := range normalized {
+		switch {
+		case r == '\n' || r == '\t':
+		case unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r):
+			return "", false
+		}
+	}
+	return normalized, true
+}

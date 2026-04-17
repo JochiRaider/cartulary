@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "registry_id": "cartulary.errors.phase1.v1",
+  "registry_id": "cartulary.errors.phase2.v1",
   "note": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.",
   "errors": [
     {
@@ -72,6 +72,71 @@
       "code": "last_deployment_admin",
       "http_status": 409,
       "summary": "The requested deployment-user mutation would remove the last active deployment_admin."
+    },
+    {
+      "code": "invalid_pagination_request",
+      "http_status": 400,
+      "summary": "The request used unsupported pagination members or an invalid opaque cursor_token."
+    },
+    {
+      "code": "authorization_denied",
+      "http_status": 403,
+      "summary": "The current authenticated session can see the incident but does not hold a sufficient incident role for the requested mutation."
+    },
+    {
+      "code": "incident_not_found",
+      "http_status": 404,
+      "summary": "The requested incident is not visible to the current authenticated user."
+    },
+    {
+      "code": "invalid_incident_create",
+      "http_status": 400,
+      "summary": "The incident create request body failed route-owned validation."
+    },
+    {
+      "code": "invalid_incident_patch",
+      "http_status": 400,
+      "summary": "The incident patch request body failed route-owned validation."
+    },
+    {
+      "code": "incident_key_conflict",
+      "http_status": 409,
+      "summary": "The normalized incident_key conflicts with an existing incident."
+    },
+    {
+      "code": "incident_version_conflict",
+      "http_status": 409,
+      "summary": "The incident patch used a stale base_incident_version."
+    },
+    {
+      "code": "membership_exists_use_patch",
+      "http_status": 409,
+      "summary": "The requested incident membership already exists with a different role and must be updated through PATCH."
+    },
+    {
+      "code": "membership_version_conflict",
+      "http_status": 409,
+      "summary": "The incident membership patch used a stale base_membership_version."
+    },
+    {
+      "code": "membership_not_found",
+      "http_status": 404,
+      "summary": "The requested incident membership does not exist."
+    },
+    {
+      "code": "last_incident_admin",
+      "http_status": 409,
+      "summary": "The requested membership mutation would remove the last incident admin."
+    },
+    {
+      "code": "user_inactive",
+      "http_status": 409,
+      "summary": "The requested target user exists but is inactive and cannot receive an incident membership."
+    },
+    {
+      "code": "extension_profile_not_claimed",
+      "http_status": 404,
+      "summary": "The requested reserved extension-family route belongs to an unclaimed deployment extension profile."
     },
     {
       "code": "internal_error",

@@ -1,8 +1,8 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Cartulary Phase 1 Auth Shell HTTP Contract",
-    "version": "0.1.0-phase1",
+    "title": "Cartulary Phase 2 Incident Control HTTP Contract",
+    "version": "0.2.0-phase2",
     "description": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority."
   },
   "paths": {
@@ -126,6 +126,97 @@
         ],
         "operationId": "revokeAllDeploymentUserSessions",
         "summary": "Explicitly revoke all sessions for a deployment-scoped local user."
+      }
+    },
+    "/api/v1/incidents": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "operationId": "listVisibleIncidents",
+        "summary": "List incidents for which the caller currently has membership."
+      },
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "operationId": "createIncident",
+        "summary": "Create an incident, bootstrap the creator admin membership, and bootstrap workbook preferences."
+      }
+    },
+    "/api/v1/incidents/{incident_id}": {
+      "get": {
+        "tags": [
+          "incidents"
+        ],
+        "operationId": "getIncident",
+        "summary": "Fetch one visible incident by identifier."
+      },
+      "patch": {
+        "tags": [
+          "incidents"
+        ],
+        "operationId": "patchIncident",
+        "summary": "Patch mutable incident metadata with optimistic incident_version checks."
+      }
+    },
+    "/api/v1/incidents/{incident_id}/memberships": {
+      "get": {
+        "tags": [
+          "incident-memberships"
+        ],
+        "operationId": "listIncidentMemberships",
+        "summary": "List current memberships for one visible incident."
+      },
+      "post": {
+        "tags": [
+          "incident-memberships"
+        ],
+        "operationId": "createIncidentMembership",
+        "summary": "Create or replay one incident membership without auto-inviting users."
+      }
+    },
+    "/api/v1/incidents/{incident_id}/memberships/{user_id}": {
+      "patch": {
+        "tags": [
+          "incident-memberships"
+        ],
+        "operationId": "patchIncidentMembership",
+        "summary": "Patch an incident membership role with optimistic membership_version checks."
+      },
+      "delete": {
+        "tags": [
+          "incident-memberships"
+        ],
+        "operationId": "deleteIncidentMembership",
+        "summary": "Delete an incident membership while preserving at least one incident admin."
+      }
+    },
+    "/api/v1/incidents/{incident_id}/workbook-preferences/default": {
+      "get": {
+        "tags": [
+          "workbook-preferences"
+        ],
+        "operationId": "getIncidentDefaultWorkbookPreferences",
+        "summary": "Read the incident-wide default workbook preferences row."
+      }
+    },
+    "/api/v1/incidents/{incident_id}/workbook-preferences/me": {
+      "get": {
+        "tags": [
+          "workbook-preferences"
+        ],
+        "operationId": "getCurrentUserWorkbookPreferences",
+        "summary": "Read the caller's per-incident workbook preferences row."
+      }
+    },
+    "/api/v1/extensions": {
+      "get": {
+        "tags": [
+          "extensions"
+        ],
+        "operationId": "listDeploymentExtensions",
+        "summary": "List the deployment-scoped reserved extension profiles and claimed route-family roots."
       }
     }
   },

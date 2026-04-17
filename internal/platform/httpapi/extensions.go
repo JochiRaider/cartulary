@@ -1,0 +1,120 @@
+package httpapi
+
+import "strings"
+
+type ExtensionProfile struct {
+	ProfileID     string   `json:"profile_id"`
+	Claimed       bool     `json:"claimed"`
+	RouteFamilies []string `json:"route_families"`
+}
+
+type ReservedExtensionMatch struct {
+	ProfileID   string
+	Claimed     bool
+	RouteFamily string
+}
+
+var currentProfileExtensions = []ExtensionProfile{
+	{
+		ProfileID: "enterprise_authentication",
+		Claimed:   false,
+		RouteFamilies: []string{
+			"/api/v1/auth/oidc",
+			"/api/v1/auth/providers",
+			"/api/v1/auth/saml",
+			"/api/v1/users/{user_id}/auth-bindings",
+		},
+	},
+	{
+		ProfileID: "import",
+		Claimed:   false,
+		RouteFamilies: []string{
+			"/api/v1/import-sessions",
+		},
+	},
+	{
+		ProfileID: "incident_portability",
+		Claimed:   false,
+		RouteFamilies: []string{
+			"/api/v1/incident-bundles",
+		},
+	},
+	{
+		ProfileID: "reference_pack",
+		Claimed:   false,
+		RouteFamilies: []string{
+			"/api/v1/reference-packs",
+		},
+	},
+	{
+		ProfileID: "snapshot_reporting",
+		Claimed:   false,
+		RouteFamilies: []string{
+			"/api/v1/releases",
+			"/api/v1/snapshots",
+		},
+	},
+}
+
+func CurrentExtensionProfiles() []ExtensionProfile {
+	profiles := make([]ExtensionProfile, 0, len(currentProfileExtensions))
+	for _, profile := range currentProfileExtensions {
+		families := append([]string(nil), profile.RouteFamilies...)
+		profiles = append(profiles, ExtensionProfile{
+			ProfileID:     profile.ProfileID,
+			Claimed:       profile.Claimed,
+			RouteFamilies: families,
+		})
+	}
+	return profiles
+}
+
+func MatchReservedExtensionFamily(path string) (ReservedExtensionMatch, bool) {
+	for _, profile := range currentProfileExtensions {
+		for _, routeFamily := range profile.RouteFamilies {
+			if routeFamilyMatchesPath(routeFamily, path) {
+				return ReservedExtensionMatch{
+					ProfileID:   profile.ProfileID,
+					Claimed:     profile.Claimed,
+					RouteFamily: routeFamily,
+				}, true
+			}
+		}
+	}
+	return ReservedExtensionMatch{}, false
+}
+
+func routeFamilyMatchesPath(routeFamily string, path string) bool {
+	pathSegments := splitRouteSegments(path)
+	familySegments := splitRouteSegments(routeFamily)
+	if len(pathSegments) < len(familySegments) {
+		return false
+	}
+
+	for index := range familySegments {
+		familySegment := familySegments[index]
+		if isRouteTemplateSegment(familySegment) {
+			if pathSegments[index] == "" {
+				return false
+			}
+			continue
+		}
+		if familySegment != pathSegments[index] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func splitRouteSegments(path string) []string {
+	trimmed := strings.Trim(path, "/")
+	if trimmed == "" {
+		return nil
+	}
+	return strings.Split(trimmed, "/")
+}
+
+func isRouteTemplateSegment(value string) bool {
+	return strings.HasPrefix(value, "{") && strings.HasSuffix(value, "}")
+}

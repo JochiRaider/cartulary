@@ -77,6 +77,13 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
+			if match, ok := MatchReservedExtensionFamily(r.URL.Path); ok && !match.Claimed {
+				_ = WriteError(w, r, http.StatusNotFound, "extension_profile_not_claimed", "extension profile not claimed", map[string]any{
+					"profile_id":   match.ProfileID,
+					"route_family": match.RouteFamily,
+				})
+				return
+			}
 			http.NotFound(w, r)
 			return
 		}

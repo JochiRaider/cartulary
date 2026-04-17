@@ -177,7 +177,12 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.setAuthCookies(w, sessionToken)
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, buildSessionResource(user, session))
+	resource, err := s.buildSessionResource(r.Context(), user, session)
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
 }
 
 func (s *Service) handleSession(w http.ResponseWriter, r *http.Request) {
@@ -197,7 +202,12 @@ func (s *Service) handleSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, buildSessionResource(principal.User, principal.Session))
+	resource, err := s.buildSessionResource(r.Context(), principal.User, principal.Session)
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
 }
 
 func (s *Service) handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -696,6 +706,18 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if match, ok := httpapi.MatchReservedExtensionFamily(r.URL.Path); ok && !match.Claimed {
+		writeAPIError(w, r, &APIError{
+			Status: http.StatusNotFound,
+			Code:   "extension_profile_not_claimed",
+			Details: map[string]any{
+				"profile_id":   match.ProfileID,
+				"route_family": match.RouteFamily,
+			},
+		})
+		return
+	}
+
 	if len(segments) == 1 {
 		switch r.Method {
 		case http.MethodGet:
@@ -931,7 +953,12 @@ func (s *Service) handleTouch(w http.ResponseWriter, r *http.Request) {
 	principal.Session.LastQualifyingActivityAt = sliding.LastQualifyingActivityAt
 	principal.Session.IdleExpiresAt = sliding.IdleExpiresAt
 	principal.Session.SessionExpiresAt = sliding.SessionExpiresAt
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, buildSessionResource(principal.User, principal.Session))
+	resource, err := s.buildSessionResource(r.Context(), principal.User, principal.Session)
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
 }
 
 func (s *Service) handleTestSocket(w http.ResponseWriter, r *http.Request) {
@@ -1127,10 +1154,22 @@ func (s *Service) clearAuthCookies(w http.ResponseWriter) {
 	})
 }
 
-func buildSessionResource(user authn.UserRecord, session authn.SessionRecord) map[string]any {
+func (s *Service) buildSessionResource(ctx context.Context, user authn.UserRecord, session authn.SessionRecord) (map[string]any, error) {
 	mfaState := "not_required"
 	if user.MFARequired {
 		mfaState = "satisfied"
+	}
+
+	memberships, err := s.store.ListIncidentMembershipSummaries(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	summaries := make([]map[string]any, 0, len(memberships))
+	for _, membership := range memberships {
+		summaries = append(summaries, map[string]any{
+			"incident_id": membership.IncidentID,
+			"role":        membership.Role,
+		})
 	}
 
 	return map[string]any{
@@ -1143,8 +1182,8 @@ func buildSessionResource(user authn.UserRecord, session authn.SessionRecord) ma
 		"idle_expires_at":     session.IdleExpiresAt,
 		"absolute_expires_at": session.AbsoluteExpiresAt,
 		"session_expires_at":  session.SessionExpiresAt,
-		"memberships":         []map[string]any{},
-	}
+		"memberships":         summaries,
+	}, nil
 }
 
 func (s *Service) validateActiveTOTP(user authn.UserRecord, secondFactor *SecondFactorAssertion) *APIError {

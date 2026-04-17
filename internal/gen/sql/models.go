@@ -31,6 +31,7 @@ type DeploymentAdminAuditEvent struct {
 	ReasonCode   pgtype.Text        `json:"reason_code"`
 	ClientTxnID  pgtype.Text        `json:"client_txn_id"`
 	RequestID    pgtype.Text        `json:"request_id"`
+	IncidentID   pgtype.UUID        `json:"incident_id"`
 }
 
 type DeploymentBootstrapState struct {
@@ -40,6 +41,44 @@ type DeploymentBootstrapState struct {
 	ArtifactSha256      []byte             `json:"artifact_sha256"`
 	CreatedUserID       pgtype.UUID        `json:"created_user_id"`
 	ConsumedAt          pgtype.Timestamptz `json:"consumed_at"`
+}
+
+type Incident struct {
+	ID                     pgtype.UUID        `json:"id"`
+	IncidentKey            string             `json:"incident_key"`
+	IncidentKeyCanonical   string             `json:"incident_key_canonical"`
+	Title                  string             `json:"title"`
+	Description            pgtype.Text        `json:"description"`
+	Status                 string             `json:"status"`
+	Severity               pgtype.Text        `json:"severity"`
+	Tlp                    pgtype.Text        `json:"tlp"`
+	CurrentPhase           pgtype.Text        `json:"current_phase"`
+	PrimaryExternalCaseRef pgtype.Text        `json:"primary_external_case_ref"`
+	CreatedByUserID        pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	UpdatedByUserID        pgtype.UUID        `json:"updated_by_user_id"`
+	IncidentVersion        int64              `json:"incident_version"`
+	ClosedAt               pgtype.Timestamptz `json:"closed_at"`
+}
+
+type IncidentMembership struct {
+	IncidentID        pgtype.UUID        `json:"incident_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	Role              string             `json:"role"`
+	JoinedAt          pgtype.Timestamptz `json:"joined_at"`
+	AddedByUserID     pgtype.UUID        `json:"added_by_user_id"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	UpdatedByUserID   pgtype.UUID        `json:"updated_by_user_id"`
+	MembershipVersion int64              `json:"membership_version"`
+}
+
+type IncidentWorkbookPreference struct {
+	IncidentID      pgtype.UUID        `json:"incident_id"`
+	DefaultSheetRef []byte             `json:"default_sheet_ref"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	UpdatedByUserID pgtype.UUID        `json:"updated_by_user_id"`
 }
 
 type PendingTotpEnrollment struct {
@@ -102,4 +141,12 @@ type UserSession struct {
 	RevokeReasonCode         pgtype.Text        `json:"revoke_reason_code"`
 	CreatedAt                pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UserWorkbookPreference struct {
+	IncidentID   pgtype.UUID        `json:"incident_id"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	HomeSheetRef []byte             `json:"home_sheet_ref"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }

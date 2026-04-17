@@ -93,6 +93,11 @@ type RouteIdempotencyRecord struct {
 	ResponseJSON []byte
 }
 
+type IncidentMembershipSummary struct {
+	IncidentID uuid.UUID
+	Role       string
+}
+
 type PasswordChangeResult struct {
 	PasswordChangedAt time.Time
 	RevokedSessionIDs []uuid.UUID
@@ -156,6 +161,32 @@ SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_re
 		return UserRecord{}, ErrNotFound
 	}
 	return user, err
+}
+
+func (s *Store) ListIncidentMembershipSummaries(ctx context.Context, userID uuid.UUID) ([]IncidentMembershipSummary, error) {
+	rows, err := s.pool.Query(ctx, `
+SELECT incident_id, role
+  FROM incident_memberships
+ WHERE user_id = $1
+ ORDER BY incident_id ASC
+`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list incident membership summaries: %w", err)
+	}
+	defer rows.Close()
+
+	summaries := make([]IncidentMembershipSummary, 0)
+	for rows.Next() {
+		var summary IncidentMembershipSummary
+		if err := rows.Scan(&summary.IncidentID, &summary.Role); err != nil {
+			return nil, fmt.Errorf("scan incident membership summary: %w", err)
+		}
+		summaries = append(summaries, summary)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate incident membership summaries: %w", err)
+	}
+	return summaries, nil
 }
 
 func (s *Store) GetSessionByFingerprint(ctx context.Context, fingerprint []byte) (SessionRecord, UserRecord, error) {
@@ -927,7 +958,7 @@ RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa
 		return UserCreateResult{}, err
 	}
 
-if _, err := tx.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, client_txn_id, request_id, after_json)
 VALUES ($1, $2, 'users.create', 'user_created', 'user_created', $3, $4, jsonb_build_object('user_id', $5::text))
 `, actor.ID, created.ID, clientTxnID, requestID, created.ID.String()); err != nil {
@@ -1077,7 +1108,7 @@ RETURNING id
 		}
 	}
 
-if _, err := tx.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, request_id, before_json, after_json)
 VALUES ($1, $2, 'users.patch', 'user_updated', 'user_updated', $3, jsonb_build_object('user_version', $4::bigint), jsonb_build_object('user_version', $5::bigint))
 `, actor.ID, updated.ID, requestID, target.UserVersion, updated.UserVersion); err != nil {
@@ -1225,7 +1256,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		return AdminPasswordResetResult{}, err
 	}
 
-if _, err := tx.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, client_txn_id, request_id, after_json)
 VALUES ($1, $2, 'users.password.reset', 'password_reset', 'password_reset', $3, $4, jsonb_build_object('user_version', $5::bigint))
 `, actor.ID, targetUserID, clientTxnID, requestID, updated.UserVersion); err != nil {
@@ -1317,7 +1348,7 @@ RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa
 		return UserRecord{}, nil, err
 	}
 
-if _, err := tx.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, request_id, after_json)
 VALUES ($1, $2, 'users.totp.reset', 'totp_reset', 'totp_reset', $3, jsonb_build_object('user_version', $4::bigint))
 `, actor.ID, targetUserID, requestID, updated.UserVersion); err != nil {
@@ -1359,7 +1390,7 @@ func (s *Store) AdminRevokeAllSessions(
 		return AdminRevokeAllResult{}, err
 	}
 
-if _, err := tx.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, request_id, after_json)
 VALUES ($1, $2, 'users.sessions.revoke_all', 'sessions_revoke_all', 'sessions_revoke_all', $3, jsonb_build_object('revoked_at', $4::timestamptz))
 `, actor.ID, targetUserID, requestID, revokedAt); err != nil {
