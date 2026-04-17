@@ -18,6 +18,10 @@ type Client struct {
 }
 
 func Connect(t testing.TB, serverURL string, path string) *Client {
+	return ConnectWithHeaders(t, serverURL, path, nil)
+}
+
+func ConnectWithHeaders(t testing.TB, serverURL string, path string, headers http.Header) *Client {
 	t.Helper()
 
 	target, err := websocketURL(serverURL, path)
@@ -25,7 +29,7 @@ func Connect(t testing.TB, serverURL string, path string) *Client {
 		t.Fatalf("build websocket url: %v", err)
 	}
 
-	conn, resp, err := websocket.Dial(context.Background(), target, nil)
+	conn, resp, err := websocket.Dial(context.Background(), target, &websocket.DialOptions{HTTPHeader: headers})
 	if err != nil {
 		t.Fatalf("dial websocket: %v", err)
 	}

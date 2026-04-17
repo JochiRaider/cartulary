@@ -18,10 +18,17 @@ const timelineViewSchemaId = "cartulary.view.timeline.v1";
 
 describe("Phase 3 Timeline workbook", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
+  let webSocketMock: typeof WebSocket;
 
   beforeEach(() => {
     fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
+    webSocketMock = class {
+      onmessage: ((event: MessageEvent) => void) | null = null;
+
+      close() {}
+    } as unknown as typeof WebSocket;
+    vi.stubGlobal("WebSocket", webSocketMock);
   });
 
   afterEach(() => {
@@ -66,7 +73,7 @@ describe("Phase 3 Timeline workbook", () => {
     expect(continuedRows[1]?.values.summary).toBe("");
   });
 
-  it("Phase 3 E-3-01 autosaves on Enter, Tab, and paste completion", async () => {
+  it("Phase 3 component autosaves on Enter, Tab, and paste completion", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -167,7 +174,7 @@ describe("Phase 3 Timeline workbook", () => {
     });
   });
 
-  it("Phase 3 E-3-02 shows the exact save-state labels Syncing, Saved, and Conflict", async () => {
+  it("Phase 3 component shows the exact save-state labels Syncing, Saved, and Conflict", async () => {
     const pendingPatch = deferred<Response>();
 
     fetchMock.mockResolvedValueOnce(

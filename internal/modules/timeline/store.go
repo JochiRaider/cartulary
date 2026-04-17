@@ -35,6 +35,7 @@ type Store struct {
 	revisionsStore  *revisions.Store
 	projectionStore *projections.Store
 	linkStore       *links.Store
+	hooks           StoreHooks
 }
 
 type projectedRecord struct {
@@ -89,12 +90,17 @@ type MutationResult struct {
 }
 
 func NewStore(pool *pgxpool.Pool) *Store {
+	return NewStoreWithHooks(pool, currentStoreHooks())
+}
+
+func NewStoreWithHooks(pool *pgxpool.Pool, hooks StoreHooks) *Store {
 	return &Store{
 		pool:            pool,
 		authStore:       authn.NewStore(pool),
 		revisionsStore:  revisions.NewStore(),
 		projectionStore: projections.NewStore(pool),
 		linkStore:       links.NewStore(),
+		hooks:           hooks,
 	}
 }
 
@@ -164,7 +170,7 @@ func (s *Store) CreateRow(ctx context.Context, actor authn.UserRecord, incidentI
 		Summary:         request.Summary,
 		Details:         request.Details,
 		SourceText:      request.SourceText,
-		CaptureState:    "rough",
+		CaptureState:    InitialCaptureState(),
 		RowVersion:      1,
 		RecordedAt:      now.UTC(),
 		EditedAt:        now.UTC(),
@@ -234,6 +240,9 @@ RETURNING record_id
 		if authn.IsUniqueViolation(err) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
+		return MutationResult{}, err
+	}
+	if err := s.beforeCommit(createRouteKey, current.RecordID); err != nil {
 		return MutationResult{}, err
 	}
 
@@ -309,14 +318,15 @@ func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID u
 	if !materialChanged {
 		return MutationResult{}, ErrNoEffectiveChange
 	}
-
-	if current.CaptureState == "rough" || current.CaptureState == "reviewed" {
-		next.CaptureState = "enriched"
+	nextState, err := CaptureStateAfterMaterialPatch(current.CaptureState)
+	if err != nil {
+		return MutationResult{}, err
 	}
+	next.CaptureState = nextState
 	next.RowVersion = current.RowVersion + 1
 	next.EditedAt = now.UTC()
 	next.UpdatedByUserID = actor.ID
-	if current.CaptureState == "reviewed" {
+	if current.CaptureState == captureStateReviewed {
 		next.ReviewedAt = nil
 		next.ReviewedByUserID = nil
 	}
@@ -389,6 +399,9 @@ RETURNING recorded_at
 		}
 		return MutationResult{}, err
 	}
+	if err := s.beforeCommit(patchRouteKey, recordID); err != nil {
+		return MutationResult{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return MutationResult{}, fmt.Errorf("commit timeline patch transaction: %w", err)
 	}
@@ -406,11 +419,11 @@ RETURNING recorded_at
 
 func (s *Store) MarkReviewed(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request ActionRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	return s.applyAction(ctx, actor, reviewRouteKey, recordID, request.BaseRowVersion, request.ClientTxnID, requestHash, requestID, now, request.Reason, nil, func(current sourceRecord) (sourceRecord, *links.SupersedesLink, *string, error) {
-		if current.CaptureState != "rough" && current.CaptureState != "enriched" {
+		if !CaptureStateAllowsMarkReviewed(current.CaptureState) {
 			return sourceRecord{}, nil, nil, ErrIllegalTransition
 		}
 		next := current
-		next.CaptureState = "reviewed"
+		next.CaptureState = captureStateReviewed
 		next.RowVersion = current.RowVersion + 1
 		next.EditedAt = now.UTC()
 		next.UpdatedByUserID = actor.ID
@@ -423,17 +436,15 @@ func (s *Store) MarkReviewed(ctx context.Context, actor authn.UserRecord, record
 
 func (s *Store) Supersede(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request SupersedeRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	return s.applyAction(ctx, actor, supersedeRouteKey, recordID, request.BaseRowVersion, request.ClientTxnID, requestHash, requestID, now, &request.Reason, request.ReplacementRecordID, func(current sourceRecord) (sourceRecord, *links.SupersedesLink, *string, error) {
-		if current.CaptureState != "rough" && current.CaptureState != "enriched" && current.CaptureState != "reviewed" {
+		if !CaptureStateAllowsSupersede(current.CaptureState) {
 			return sourceRecord{}, nil, nil, ErrIllegalTransition
 		}
-		if request.ReplacementRecordID != nil {
-			if *request.ReplacementRecordID == current.RecordID {
-				return sourceRecord{}, nil, nil, ErrIllegalTransition
-			}
+		if err := ValidateSupersedeReplacement(current.RecordID, current.IncidentID, request.ReplacementRecordID, nil); err != nil {
+			return sourceRecord{}, nil, nil, err
 		}
 
 		next := current
-		next.CaptureState = "superseded"
+		next.CaptureState = captureStateSuperseded
 		next.RowVersion = current.RowVersion + 1
 		next.EditedAt = now.UTC()
 		next.UpdatedByUserID = actor.ID
@@ -498,10 +509,11 @@ func (s *Store) applyAction(
 		if err != nil {
 			return MutationResult{}, err
 		}
-		if replacementRecord.IncidentID != current.IncidentID {
+		replacementID := replacementRecord.RecordID
+		replacementIncidentID := replacementRecord.IncidentID
+		if err := ValidateSupersedeReplacement(current.RecordID, current.IncidentID, &replacementID, &replacementIncidentID); err != nil {
 			return MutationResult{}, ErrIllegalTransition
 		}
-		replacementID := replacementRecord.RecordID
 		validatedReplacementID = &replacementID
 	}
 
@@ -608,6 +620,9 @@ RETURNING recorded_at
 		if authn.IsUniqueViolation(err) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
+		return MutationResult{}, err
+	}
+	if err := s.beforeCommit(routeKey, recordID); err != nil {
 		return MutationResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -774,6 +789,13 @@ func projectedRecordFromSQL(row sqlc.TimelineGridProjection) (projectedRecord, e
 		HasEvidence:           row.HasEvidence,
 		HasUnresolvedMentions: row.HasUnresolvedMentions,
 	}, nil
+}
+
+func (s *Store) beforeCommit(routeKey string, recordID uuid.UUID) error {
+	if s == nil || s.hooks.BeforeCommit == nil {
+		return nil
+	}
+	return s.hooks.BeforeCommit(routeKey, recordID)
 }
 
 func insertRouteIdempotency(ctx context.Context, tx pgx.Tx, routeKey string, scopeKey string, clientTxnID string, actorUserID uuid.UUID, requestHash []byte, statusCode int, payload map[string]any) error {

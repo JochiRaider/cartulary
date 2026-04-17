@@ -128,6 +128,9 @@ func DecodeTimelineCreateRequest(reader io.Reader) (CreateRequest, *auth.APIErro
 	if request.SourceText, ok = normalizeNullableNoteField(raw, "timeline.source_text"); !ok {
 		return CreateRequest{}, invalidMutationPayload("timeline.source_text", "invalid_value")
 	}
+	if !CreateRequestHasUserValue(request) {
+		return CreateRequest{}, invalidMutationPayload("payload", "at_least_one_value_required")
+	}
 
 	return request, nil
 }

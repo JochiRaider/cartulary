@@ -3,6 +3,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
   startTransition,
+  useCallback,
   useEffect,
   useId,
   useMemo,
@@ -11,6 +12,8 @@ import {
 } from "react";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
+const csrfCookieName = "cartulary_csrf";
+const csrfHeaderName = "X-CSRF-Token";
 
 type SaveState = "Syncing" | "Saved" | "Conflict";
 type EditableField =
@@ -53,10 +56,30 @@ type TimelineMutationEnvelope = {
   };
 };
 
+type TimelineActionEnvelope = {
+  data: {
+    record_id: string;
+    incident_id: string;
+    row_version: number;
+    capture_state: string;
+    change_set_id: string;
+    reason: string;
+    replacement_record_id: string | null;
+  };
+};
+
 type TimelineApiRow = {
   record_id: string;
   row_version: number;
   cells: Record<string, { value: unknown }>;
+};
+
+type CollaborationMessage = {
+  type: string;
+};
+
+type LoadRowsOptions = {
+  showLoading: boolean;
 };
 
 const fieldOrder: Array<{
@@ -151,6 +174,27 @@ export function ensureDraftRow(
   return [...rows, createDraftRow(nextDraftIndex)];
 }
 
+function ensureDraftRowWithFreshIndex(
+  rows: WorkbookRow[],
+  nextDraftIndex: () => number,
+): {
+  rows: WorkbookRow[];
+  draftSummaryKey: string | null;
+} {
+  if (rows.some((row) => row.recordId === null)) {
+    return {
+      rows,
+      draftSummaryKey: null,
+    };
+  }
+
+  const draftIndex = nextDraftIndex();
+  return {
+    rows: [...rows, createDraftRow(draftIndex)],
+    draftSummaryKey: `draft-${draftIndex}:summary`,
+  };
+}
+
 export function buildCreatePayload(row: WorkbookRow, clientTxnId: string) {
   const payload: Record<string, string> = {
     client_txn_id: clientTxnId,
@@ -209,6 +253,21 @@ function readEnvelope<T>(payload: unknown): T {
   return payload as T;
 }
 
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const prefix = `${name}=`;
+  for (const segment of document.cookie.split(";")) {
+    const trimmed = segment.trim();
+    if (trimmed.startsWith(prefix)) {
+      return decodeURIComponent(trimmed.slice(prefix.length));
+    }
+  }
+  return null;
+}
+
 async function fetchJSON<T>(
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -217,13 +276,22 @@ async function fetchJSON<T>(
   status: number;
   payload: T | { error?: { code?: string } };
 }> {
+  const method = (init?.method ?? "GET").toUpperCase();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+  if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+    const csrfToken = readCookie(csrfCookieName);
+    if (csrfToken !== null && csrfToken !== "") {
+      headers[csrfHeaderName] = csrfToken;
+    }
+  }
+
   const response = await fetch(input, {
     credentials: "include",
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+    headers,
   });
   const payload = (await response.json()) as T | { error?: { code?: string } };
   return { ok: response.ok, status: response.status, payload };
@@ -237,6 +305,21 @@ function apiPath(base: string | undefined, path: string): string {
   return `${trimmedBase.replace(/\/$/, "")}${path}`;
 }
 
+function websocketPath(base: string | undefined, path: string): string {
+  const trimmedBase = (base ?? "").trim();
+  if (trimmedBase === "") {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${window.location.host}${path}`;
+  }
+
+  const target = new URL(trimmedBase);
+  target.protocol = target.protocol === "https:" ? "wss:" : "ws:";
+  target.pathname = path;
+  target.search = "";
+  target.hash = "";
+  return target.toString();
+}
+
 export function TimelineWorkbook({
   incidentId,
   apiBase,
@@ -245,12 +328,21 @@ export function TimelineWorkbook({
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("Saved");
+  const [pendingFocusKey, setPendingFocusKey] = useState<string | null>(null);
+  const [replacementDrafts, setReplacementDrafts] = useState<
+    Record<string, string>
+  >({});
   const draftCounterRef = useRef(2);
   const clientTxnRef = useRef(1);
   const pendingOpsRef = useRef(0);
   const pendingSignaturesRef = useRef(new Map<string, string>());
+  const suppressedSocketMessagesRef = useRef(0);
   const saveQueueRef = useRef(Promise.resolve());
   const rowsRef = useRef(rows);
+  const loadSequenceRef = useRef(0);
+  const loadRowsRef = useRef<(options: LoadRowsOptions) => Promise<void>>(
+    async () => undefined,
+  );
   const rowInputRefs = useRef(
     new Map<string, HTMLInputElement | HTMLTextAreaElement>(),
   );
@@ -263,12 +355,28 @@ export function TimelineWorkbook({
       ),
     [apiBase, incidentId],
   );
+  const changeSocketURL = useMemo(
+    () =>
+      websocketPath(
+        apiBase,
+        `/ws/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/changes`,
+      ),
+    [apiBase, incidentId],
+  );
+  const nextDraftIndex = useCallback(() => {
+    const value = draftCounterRef.current;
+    draftCounterRef.current += 1;
+    return value;
+  }, []);
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadRows = useCallback(
+    async (options: LoadRowsOptions) => {
+      const requestSequence = loadSequenceRef.current + 1;
+      loadSequenceRef.current = requestSequence;
 
-    async function loadRows() {
-      setIsLoading(true);
+      if (options.showLoading) {
+        setIsLoading(true);
+      }
       setLoadError(null);
 
       const result = await fetchJSON<TimelineQueryEnvelope>(queryPath, {
@@ -276,7 +384,7 @@ export function TimelineWorkbook({
         body: JSON.stringify({}),
       });
 
-      if (cancelled) {
+      if (requestSequence !== loadSequenceRef.current) {
         return;
       }
 
@@ -288,34 +396,84 @@ export function TimelineWorkbook({
 
       const envelope = readEnvelope<TimelineQueryEnvelope>(result.payload);
       const projectedRows = envelope.data.rows.map(rowFromApi);
+      const hydratedRows = ensureDraftRowWithFreshIndex(
+        projectedRows,
+        nextDraftIndex,
+      ).rows;
       startTransition(() => {
-        const hydratedRows = ensureDraftRow(
-          projectedRows,
-          draftCounterRef.current,
-        );
         rowsRef.current = hydratedRows;
         setRows(hydratedRows);
       });
       setSaveState("Saved");
       setIsLoading(false);
+    },
+    [queryPath, nextDraftIndex],
+  );
+
+  loadRowsRef.current = loadRows;
+
+  useEffect(() => {
+    void loadRows({ showLoading: true });
+  }, [loadRows]);
+
+  useEffect(() => {
+    if (pendingFocusKey === null) {
+      return;
     }
 
-    void loadRows();
+    let cancelled = false;
+    const focusTarget = (attempt: number) => {
+      if (cancelled) {
+        return;
+      }
+
+      const element = rowInputRefs.current.get(pendingFocusKey);
+      if (element) {
+        element.focus();
+        if (document.activeElement === element) {
+          setPendingFocusKey((current) =>
+            current === pendingFocusKey ? null : current,
+          );
+          return;
+        }
+      }
+
+      if (attempt < 60) {
+        window.setTimeout(() => focusTarget(attempt + 1), 50);
+      }
+    };
+
+    focusTarget(0);
     return () => {
       cancelled = true;
     };
-  }, [queryPath]);
+  }, [pendingFocusKey]);
+
+  useEffect(() => {
+    if (incidentId.trim() === "") {
+      return;
+    }
+
+    const socket = new WebSocket(changeSocketURL);
+    socket.onmessage = (event) => {
+      const message = JSON.parse(event.data) as CollaborationMessage;
+      if (message.type === "record_changed") {
+        if (suppressedSocketMessagesRef.current > 0) {
+          suppressedSocketMessagesRef.current -= 1;
+          return;
+        }
+        void loadRowsRef.current({ showLoading: false });
+      }
+    };
+    return () => {
+      socket.close();
+    };
+  }, [changeSocketURL, incidentId]);
 
   function nextClientTxnId() {
     const value = clientTxnRef.current;
     clientTxnRef.current += 1;
     return `timeline-client-${value}`;
-  }
-
-  function nextDraftIndex() {
-    const value = draftCounterRef.current;
-    draftCounterRef.current += 1;
-    return value;
   }
 
   function beginSave() {
@@ -361,14 +519,6 @@ export function TimelineWorkbook({
       return;
     }
     rowInputRefs.current.set(key, element);
-  }
-
-  function focusDraftSummary() {
-    window.setTimeout(() => {
-      rowInputRefs.current
-        .get(`draft-${draftCounterRef.current - 1}:summary`)
-        ?.focus();
-    }, 0);
   }
 
   function queueRowSave(rowKey: string, focusContinuation: boolean) {
@@ -423,8 +573,6 @@ export function TimelineWorkbook({
         });
 
         if (!result.ok) {
-          const errorCode =
-            (result.payload as { error?: { code?: string } }).error?.code ?? "";
           pendingSignaturesRef.current.delete(rowKey);
           setRows((current) => {
             const nextRows = current.map((row) =>
@@ -433,29 +581,83 @@ export function TimelineWorkbook({
             rowsRef.current = nextRows;
             return nextRows;
           });
-          finishSave(
-            errorCode === "row_version_conflict" ? "Conflict" : "Conflict",
-          );
+          finishSave("Conflict");
           return;
         }
 
         const envelope = readEnvelope<TimelineMutationEnvelope>(result.payload);
         const committed = rowFromApi(envelope.data.row);
+        suppressedSocketMessagesRef.current += 1;
         pendingSignaturesRef.current.delete(rowKey);
+        const nextRows = rowsRef.current.map((row) =>
+          row.key === rowKey ? committed : row,
+        );
+        const hydrated = ensureDraftRowWithFreshIndex(nextRows, nextDraftIndex);
+        const hydratedRows = hydrated.rows;
+        const continuationDraftSummaryKey =
+          focusContinuation && snapshot.recordId === null
+            ? hydrated.draftSummaryKey
+            : null;
+
         startTransition(() => {
-          setRows((current) => {
-            const nextRows = current.map((row) =>
-              row.key === rowKey ? committed : row,
-            );
-            const hydratedRows = ensureDraftRow(nextRows, nextDraftIndex());
-            rowsRef.current = hydratedRows;
-            return hydratedRows;
-          });
+          rowsRef.current = hydratedRows;
+          setRows(hydratedRows);
         });
         finishSave("Saved");
-        if (focusContinuation && snapshot.recordId === null) {
-          focusDraftSummary();
+        if (continuationDraftSummaryKey !== null) {
+          setPendingFocusKey(continuationDraftSummaryKey);
         }
+      });
+  }
+
+  function queueAction(rowKey: string, action: "mark-reviewed" | "supersede") {
+    const snapshot = rowsRef.current.find(
+      (candidate) => candidate.key === rowKey,
+    );
+    if (
+      !snapshot ||
+      snapshot.recordId === null ||
+      snapshot.rowVersion === null ||
+      (action === "supersede" &&
+        normalizeValue(replacementDrafts[rowKey] ?? "") === "")
+    ) {
+      return;
+    }
+
+    beginSave();
+    saveQueueRef.current = saveQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const body =
+          action === "mark-reviewed"
+            ? {
+                base_row_version: snapshot.rowVersion,
+                client_txn_id: nextClientTxnId(),
+                reason: "Reviewed from workbook",
+              }
+            : {
+                base_row_version: snapshot.rowVersion,
+                client_txn_id: nextClientTxnId(),
+                reason: "Superseded from workbook",
+                replacement_record_id: normalizeValue(
+                  replacementDrafts[rowKey] ?? "",
+                ),
+              };
+        const result = await fetchJSON<TimelineActionEnvelope>(
+          apiPath(apiBase, `/api/v1/records/${snapshot.recordId}/${action}`),
+          {
+            method: "POST",
+            body: JSON.stringify(body),
+          },
+        );
+        if (!result.ok) {
+          finishSave("Conflict");
+          return;
+        }
+
+        suppressedSocketMessagesRef.current += 1;
+        await loadRowsRef.current({ showLoading: false });
+        finishSave("Saved");
       });
   }
 
@@ -468,6 +670,7 @@ export function TimelineWorkbook({
     rowKey: string,
   ) {
     if (event.key === "Enter" || event.key === "Tab") {
+      event.preventDefault();
       queueRowSave(rowKey, true);
     }
   }
@@ -509,6 +712,7 @@ export function TimelineWorkbook({
           <span style={statusLabelStyle}>Save State</span>
           <strong
             aria-live="polite"
+            data-testid="save-state"
             style={{
               ...statusValueStyle,
               color:
@@ -535,6 +739,7 @@ export function TimelineWorkbook({
                   {field.label}
                 </th>
               ))}
+              <th style={headCellStyle}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -543,8 +748,26 @@ export function TimelineWorkbook({
                 key={row.key}
                 style={row.recordId === null ? draftRowStyle : undefined}
               >
-                <td style={metaCellStyle}>{row.captureState}</td>
-                <td style={metaCellStyle}>{row.rowVersion ?? "new"}</td>
+                <td
+                  data-testid={
+                    row.recordId === null
+                      ? "draft-row-capture-state"
+                      : `row-${row.recordId}-capture-state`
+                  }
+                  style={metaCellStyle}
+                >
+                  {row.captureState}
+                </td>
+                <td
+                  data-testid={
+                    row.recordId === null
+                      ? "draft-row-version"
+                      : `row-${row.recordId}-row-version`
+                  }
+                  style={metaCellStyle}
+                >
+                  {row.rowVersion ?? "new"}
+                </td>
                 {fieldOrder.map((field) => (
                   <td key={field.fieldKey} style={bodyCellStyle}>
                     {field.multiline ? (
@@ -583,6 +806,9 @@ export function TimelineWorkbook({
                       />
                     ) : (
                       <input
+                        {...(row.recordId === null && field.key === "summary"
+                          ? { autoFocus: true }
+                          : {})}
                         aria-label={`${field.label} ${row.recordId ?? "draft row"}`}
                         data-testid={
                           row.recordId === null
@@ -618,6 +844,57 @@ export function TimelineWorkbook({
                     )}
                   </td>
                 ))}
+                <td style={actionCellStyle}>
+                  {row.recordId === null ? (
+                    <span style={bodyStyle}>Draft row</span>
+                  ) : (
+                    <div style={actionStackStyle}>
+                      <button
+                        data-testid={`row-${row.recordId}-mark-reviewed`}
+                        disabled={
+                          row.captureState === "reviewed" ||
+                          row.captureState === "superseded"
+                        }
+                        style={actionButtonStyle}
+                        type="button"
+                        onClick={() => {
+                          queueAction(row.key, "mark-reviewed");
+                        }}
+                      >
+                        Mark reviewed
+                      </button>
+                      <input
+                        data-testid={`row-${row.recordId}-replacement-id`}
+                        placeholder="Replacement record id"
+                        style={replacementInputStyle}
+                        type="text"
+                        value={replacementDrafts[row.key] ?? ""}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setReplacementDrafts((current) => ({
+                            ...current,
+                            [row.key]: value,
+                          }));
+                        }}
+                      />
+                      <button
+                        data-testid={`row-${row.recordId}-supersede`}
+                        disabled={
+                          row.captureState === "superseded" ||
+                          normalizeValue(replacementDrafts[row.key] ?? "") ===
+                            ""
+                        }
+                        style={actionButtonStyle}
+                        type="button"
+                        onClick={() => {
+                          queueAction(row.key, "supersede");
+                        }}
+                      >
+                        Supersede
+                      </button>
+                    </div>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -641,9 +918,9 @@ export function App() {
           <p style={eyebrowStyle}>Cartulary</p>
           <h1 style={headlineStyle}>Timeline workbook shell</h1>
           <p style={bodyStyle}>
-            Phase 3 is wired to the Timeline projection and record mutation
-            routes. Load an existing incident and start entering Timeline rows
-            directly in the workbook grid.
+            Phase 3 is wired to the Timeline projection, record mutation routes,
+            reviewer actions, and collaboration updates. Load an incident UUID
+            and work directly in the workbook grid.
           </p>
         </div>
 
@@ -802,7 +1079,7 @@ const gridShellStyle = {
 const tableStyle = {
   width: "100%",
   borderCollapse: "collapse" as const,
-  minWidth: "58rem",
+  minWidth: "72rem",
 };
 
 const headCellStyle = {
@@ -829,6 +1106,11 @@ const metaCellStyle = {
   fontSize: "0.9rem",
 };
 
+const actionCellStyle = {
+  ...bodyCellStyle,
+  width: "16rem",
+};
+
 const rowStyle = {
   background: "rgb(255 255 255 / 0.8)",
 };
@@ -851,4 +1133,24 @@ const textareaStyle = {
   ...inputStyle,
   resize: "vertical" as const,
   minHeight: "5.5rem",
+};
+
+const actionStackStyle = {
+  display: "grid",
+  gap: "0.5rem",
+};
+
+const actionButtonStyle = {
+  border: "none",
+  borderRadius: "999px",
+  padding: "0.7rem 0.9rem",
+  background: "rgb(29 78 70)",
+  color: "rgb(255 252 247)",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const replacementInputStyle = {
+  ...inputStyle,
+  minWidth: "14rem",
 };

@@ -2,46 +2,101 @@ package timeline
 
 import (
 	"bytes"
+	"errors"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-func TestPhase3_TimelineCreateValidation_U_3_01(t *testing.T) {
+func TestPhase3_U_3_01_CreateRequiresOneNonEmptyUserValue(t *testing.T) {
 	request, apiErr := DecodeTimelineCreateRequest(bytes.NewBufferString(`{
 		"client_txn_id": "txn-u-3-01",
-		"timeline.summary": "  First capture  ",
-		"timeline.details": " detail line ",
-		"timeline.occurred_at": "2026-04-10T10:00:00Z"
+		"timeline.summary": "  First capture  "
 	}`))
 	if apiErr != nil {
 		t.Fatalf("expected valid create request, got %#v", apiErr)
 	}
-	if request.ClientTxnID != "txn-u-3-01" {
-		t.Fatalf("unexpected client_txn_id: %#v", request)
+	requireWritableStringNormalization(t, *request.Summary, "First capture")
+
+	_, apiErr = DecodeTimelineCreateRequest(bytes.NewBufferString(`{
+		"client_txn_id": "txn-u-3-01-empty"
+	}`))
+	if apiErr == nil {
+		t.Fatal("expected empty create payload rejection")
 	}
-	if request.Summary == nil || *request.Summary != "First capture" {
-		t.Fatalf("expected normalized summary, got %#v", request.Summary)
-	}
-	if request.OccurredAt == nil || request.OccurredAt.UTC().Format(time.RFC3339) != "2026-04-10T10:00:00Z" {
-		t.Fatalf("expected normalized occurred_at, got %#v", request.OccurredAt)
-	}
+	requireClosedVocabularyRejected(t, apiErr.Code, apiErr.Details, "payload", "at_least_one_value_required")
 
 	_, apiErr = DecodeTimelineCreateRequest(bytes.NewBufferString(`{
 		"client_txn_id": "txn-u-3-01-invalid",
-		"timeline.capture_state": "rough"
+		"record_id": "11111111-1111-1111-1111-111111111111"
 	}`))
-	if apiErr == nil || apiErr.Code != "invalid_mutation_payload" {
-		t.Fatalf("expected invalid create payload for forbidden field, got %#v", apiErr)
+	if apiErr == nil {
+		t.Fatal("expected server-owned record_id rejection")
+	}
+	requireClosedVocabularyRejected(t, apiErr.Code, apiErr.Details, "record_id", "unknown_field")
+}
+
+func TestPhase3_U_3_02_UsesRoughAsInitialCaptureStateAndRejectsObsoleteTokens(t *testing.T) {
+	if InitialCaptureState() != captureStateRough {
+		t.Fatalf("unexpected initial capture state: %q", InitialCaptureState())
+	}
+	for _, supported := range []string{
+		captureStateRough,
+		captureStateEnriched,
+		captureStateReviewed,
+		captureStateSuperseded,
+	} {
+		if !IsSupportedCaptureState(supported) {
+			t.Fatalf("expected supported capture_state %q", supported)
+		}
+	}
+	for _, obsolete := range []string{"developing", "complete"} {
+		if IsSupportedCaptureState(obsolete) {
+			t.Fatalf("obsolete capture_state must be rejected: %q", obsolete)
+		}
 	}
 }
 
-func TestPhase3_TimelinePatchCanonicalization_U_3_02(t *testing.T) {
+func TestPhase3_U_3_03_FirstMaterialMutationEnrichesAndReviewRequiresReviewableState(t *testing.T) {
+	nextState, err := CaptureStateAfterMaterialPatch(captureStateRough)
+	if err != nil {
+		t.Fatalf("rough patch transition: %v", err)
+	}
+	if nextState != captureStateEnriched {
+		t.Fatalf("expected rough -> enriched, got %q", nextState)
+	}
+
+	if !CaptureStateAllowsMarkReviewed(captureStateRough) || !CaptureStateAllowsMarkReviewed(captureStateEnriched) {
+		t.Fatal("rough and enriched rows must be reviewable")
+	}
+	if CaptureStateAllowsMarkReviewed(captureStateReviewed) || CaptureStateAllowsMarkReviewed(captureStateSuperseded) {
+		t.Fatal("reviewed and superseded rows must not allow mark-reviewed")
+	}
+}
+
+func TestPhase3_U_3_04_ReviewedRowsDemoteAndSupersededRowsBecomeTerminal(t *testing.T) {
+	nextState, err := CaptureStateAfterMaterialPatch(captureStateReviewed)
+	if err != nil {
+		t.Fatalf("reviewed patch transition: %v", err)
+	}
+	if nextState != captureStateEnriched {
+		t.Fatalf("expected reviewed -> enriched on material edit, got %q", nextState)
+	}
+	if !CaptureStateAllowsSupersede(captureStateReviewed) {
+		t.Fatal("reviewed rows must allow legal supersede")
+	}
+	if _, err := CaptureStateAfterMaterialPatch(captureStateSuperseded); !errors.Is(err, ErrIllegalTransition) {
+		t.Fatalf("expected superseded rows to reject ordinary patch semantics, got %v", err)
+	}
+}
+
+func TestPhase3_U_3_06_PatchRequiresBaseVersionClientTxnAndCanonicalChanges(t *testing.T) {
 	request, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
 		"view_schema_id": "cartulary.view.timeline.v1",
 		"base_row_version": 2,
-		"client_txn_id": "txn-u-3-02",
+		"client_txn_id": "txn-u-3-06",
 		"changes": [
 			{ "field_key": "timeline.summary", "value": "B" },
 			{ "field_key": "timeline.details", "value": "A" }
@@ -50,32 +105,76 @@ func TestPhase3_TimelinePatchCanonicalization_U_3_02(t *testing.T) {
 	if apiErr != nil {
 		t.Fatalf("expected valid patch request, got %#v", apiErr)
 	}
-	if len(request.CanonicalChange) != 2 {
-		t.Fatalf("unexpected canonical changes length: %#v", request.CanonicalChange)
+	fieldKeys := []string{
+		request.CanonicalChange[0].FieldKey,
+		request.CanonicalChange[1].FieldKey,
 	}
-	if request.CanonicalChange[0].FieldKey != "timeline.details" || request.CanonicalChange[1].FieldKey != "timeline.summary" {
-		t.Fatalf("expected canonical field ordering, got %#v", request.CanonicalChange)
-	}
+	requireFieldKeyConformance(t, fieldKeys, []string{
+		"timeline.details",
+		"timeline.occurred_at",
+		"timeline.source_text",
+		"timeline.summary",
+	})
 
-	_, apiErr = DecodeTimelinePatchRequest(bytes.NewBufferString(`{
-		"view_schema_id": "cartulary.view.timeline.v1",
-		"base_row_version": 2,
-		"client_txn_id": "txn-u-3-02-duplicate",
-		"changes": [
-			{ "field_key": "timeline.summary", "value": "B" },
-			{ "field_key": "timeline.summary", "value": "C" }
-		]
-	}`))
-	if apiErr == nil || apiErr.Code != "invalid_mutation_payload" {
-		t.Fatalf("expected duplicate field rejection, got %#v", apiErr)
+	cases := []struct {
+		name   string
+		body   string
+		field  string
+		reason string
+	}{
+		{
+			name:   "missing view schema",
+			body:   `{"base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"timeline.summary","value":"x"}]}`,
+			field:  "view_schema_id",
+			reason: "missing_required_field",
+		},
+		{
+			name:   "missing base row version",
+			body:   `{"view_schema_id":"cartulary.view.timeline.v1","client_txn_id":"txn","changes":[{"field_key":"timeline.summary","value":"x"}]}`,
+			field:  "base_row_version",
+			reason: "missing_required_field",
+		},
+		{
+			name:   "missing client txn",
+			body:   `{"view_schema_id":"cartulary.view.timeline.v1","base_row_version":1,"changes":[{"field_key":"timeline.summary","value":"x"}]}`,
+			field:  "client_txn_id",
+			reason: "missing_required_field",
+		},
+		{
+			name:   "empty changes",
+			body:   `{"view_schema_id":"cartulary.view.timeline.v1","base_row_version":1,"client_txn_id":"txn","changes":[]}`,
+			field:  "changes",
+			reason: "empty_changes",
+		},
+		{
+			name:   "duplicate field key",
+			body:   `{"view_schema_id":"cartulary.view.timeline.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"timeline.summary","value":"x"},{"field_key":"timeline.summary","value":"y"}]}`,
+			field:  "changes",
+			reason: "duplicate_field_key",
+		},
+		{
+			name:   "unsupported field key",
+			body:   `{"view_schema_id":"cartulary.view.timeline.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"timeline.capture_state","value":"reviewed"}]}`,
+			field:  "field_key",
+			reason: "unsupported_field_key",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(tc.body))
+			if apiErr == nil {
+				t.Fatalf("expected validation error for %s", tc.name)
+			}
+			requireClosedVocabularyRejected(t, apiErr.Code, apiErr.Details, tc.field, tc.reason)
+		})
 	}
 }
 
-func TestPhase3_PatchReplayHashCanonicalization_U_3_06(t *testing.T) {
+func TestPhase3_U_3_07_ReplayHashesMatchNormalizedPayloadsAndRejectDivergence(t *testing.T) {
 	left, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
 		"view_schema_id": "cartulary.view.timeline.v1",
 		"base_row_version": 3,
-		"client_txn_id": "txn-u-3-06",
+		"client_txn_id": "txn-u-3-07",
 		"changes": [
 			{ "field_key": "timeline.summary", "value": "summary" },
 			{ "field_key": "timeline.details", "value": "details" }
@@ -87,7 +186,7 @@ func TestPhase3_PatchReplayHashCanonicalization_U_3_06(t *testing.T) {
 	right, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
 		"view_schema_id": "cartulary.view.timeline.v1",
 		"base_row_version": 3,
-		"client_txn_id": "txn-u-3-06",
+		"client_txn_id": "txn-u-3-07",
 		"changes": [
 			{ "field_key": "timeline.details", "value": "details" },
 			{ "field_key": "timeline.summary", "value": "summary" }
@@ -97,125 +196,151 @@ func TestPhase3_PatchReplayHashCanonicalization_U_3_06(t *testing.T) {
 		t.Fatalf("decode right patch: %#v", apiErr)
 	}
 	if !hashesEqual(TimelinePatchRequestHash(left), TimelinePatchRequestHash(right)) {
-		t.Fatal("expected canonical patch hash to ignore outer changes[] order")
+		t.Fatal("expected canonical patch replay hash to ignore outer changes[] order")
+	}
+
+	divergent := right
+	reason := "changed"
+	if hashesEqual(TimelinePatchRequestHash(left), TimelinePatchRequestHash(PatchRequest{
+		ViewSchemaID:   divergent.ViewSchemaID,
+		BaseRowVersion: divergent.BaseRowVersion,
+		ClientTxnID:    divergent.ClientTxnID,
+		CanonicalChange: []PatchChange{
+			{FieldKey: "timeline.details", TextValue: &reason},
+			{FieldKey: "timeline.summary", TextValue: right.CanonicalChange[1].TextValue},
+		},
+	})) {
+		t.Fatal("expected divergent replay hash to differ")
 	}
 }
 
-func TestPhase3_ProjectionRowShape_U_3_07(t *testing.T) {
+func TestPhase3_U_3_08_ProjectionRowsKeepStableBindingAndDerivedFields(t *testing.T) {
 	recordID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	incidentID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
-	recordedAt := time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC)
-	editedAt := recordedAt.Add(2 * time.Minute)
+	occurredAt := time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC)
+	recordedAt := occurredAt.Add(2 * time.Minute)
 	summary := "Summary"
-	row := BuildRow(projectedRecord{
-		RecordID:              recordID,
-		IncidentID:            incidentID,
-		RowVersion:            4,
-		Summary:               &summary,
-		RecordedAt:            recordedAt,
-		EditedAt:              editedAt,
-		SortTs:                recordedAt,
-		CaptureState:          "rough",
-		RecordedDay:           recordedAt,
-		EvidenceCount:         0,
-		HasEvidence:           false,
-		HasUnresolvedMentions: false,
-	})
+	projected := projectRecord(sourceRecord{
+		RecordID:        recordID,
+		IncidentID:      incidentID,
+		OccurredAt:      &occurredAt,
+		Summary:         &summary,
+		CaptureState:    captureStateEnriched,
+		RowVersion:      4,
+		RecordedAt:      recordedAt,
+		EditedAt:        recordedAt,
+		CreatedByUserID: incidentID,
+		UpdatedByUserID: incidentID,
+	}, nil)
+
+	row := BuildRow(projected)
 	if row["record_id"] != recordID.String() || row["row_version"] != int64(4) {
-		t.Fatalf("expected stable record identity, got %#v", row)
+		t.Fatalf("expected stable record identity binding, got %#v", row)
+	}
+	groupValues := row["group_values"].(map[string]any)
+	if groupValues["timeline.capture_state"] != captureStateEnriched {
+		t.Fatalf("expected derived capture_state group value, got %#v", groupValues)
 	}
 	cells := row["cells"].(map[string]any)
-	if cells["timeline.tags"].(map[string]any)["value"].(map[string]any)["kind"] != "collection_value_v1" {
-		t.Fatalf("expected collection_value_v1 for tags, got %#v", cells["timeline.tags"])
+	if cells["timeline.occurred_day"].(map[string]any)["value"] != "2026-04-10" {
+		t.Fatalf("expected derived occurred_day, got %#v", cells["timeline.occurred_day"])
 	}
 }
 
-func TestPhase3_ChangedFieldKeysAreCanonical_U_3_08(t *testing.T) {
+func TestPhase3_U_3_09_MutationPayloadsExposeRevisionIdentityAndHistoryEnvelope(t *testing.T) {
 	recordID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	incidentID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	changeSetID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
+	replacementID := uuid.MustParse("44444444-4444-4444-4444-444444444444")
 	recordedAt := time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC)
-	summary := "Before"
-	before := projectedRecord{
-		RecordID:     recordID,
-		IncidentID:   incidentID,
-		RowVersion:   1,
-		Summary:      &summary,
-		RecordedAt:   recordedAt,
-		EditedAt:     recordedAt,
-		SortTs:       recordedAt,
-		CaptureState: "rough",
-		RecordedDay:  recordedAt,
+	reason := "reviewed in workbook"
+	projected := projectedRecord{
+		RecordID:            recordID,
+		IncidentID:          incidentID,
+		RowVersion:          2,
+		RecordedAt:          recordedAt,
+		EditedAt:            recordedAt,
+		SortTs:              recordedAt,
+		CaptureState:        captureStateReviewed,
+		ReplacementRecordID: &replacementID,
+		RecordedDay:         recordedAt,
 	}
-	afterSummary := "After"
-	after := before
-	after.RowVersion = 2
-	after.Summary = &afterSummary
-	after.CaptureState = "enriched"
-	after.EditedAt = recordedAt.Add(time.Minute)
 
-	changed := ComputeChangedFieldKeys(&before, after)
-	if len(changed) == 0 {
-		t.Fatal("expected changed field keys")
+	mutationPayload := BuildMutationPayload(projected, changeSetID)
+	if mutationPayload["view_schema_id"] != TimelineViewSchemaID || mutationPayload["change_set_id"] != changeSetID.String() {
+		t.Fatalf("unexpected mutation payload: %#v", mutationPayload)
 	}
-	if changed[0] != "timeline.capture_state" {
-		t.Fatalf("expected lexicographic ordering, got %#v", changed)
+	row := mutationPayload["row"].(map[string]any)
+	if row["record_id"] != recordID.String() || row["row_version"] != int64(2) {
+		t.Fatalf("expected payload row identity/version, got %#v", row)
+	}
+
+	actionPayload := BuildActionPayload(projected, changeSetID, &reason)
+	if actionPayload["capture_state"] != captureStateReviewed || actionPayload["reason"] != reason {
+		t.Fatalf("unexpected action payload: %#v", actionPayload)
+	}
+	if actionPayload["replacement_record_id"] != replacementID.String() {
+		t.Fatalf("expected replacement record id in action payload, got %#v", actionPayload)
 	}
 }
 
-func TestPhase3_ViewQueryValidation_U_3_09(t *testing.T) {
-	_, apiErr := DecodeTimelineQueryRequest(bytes.NewBufferString(`{"sort":[]}`))
-	if apiErr == nil || apiErr.Code != "invalid_view_query" {
-		t.Fatalf("expected invalid view query rejection, got %#v", apiErr)
+func TestPhase3_U_3_10_SupersedeReplacementValidationRejectsIllegalTargetsAndHashesIdempotently(t *testing.T) {
+	recordID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	incidentID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	otherIncidentID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
+	otherRecordID := uuid.MustParse("44444444-4444-4444-4444-444444444444")
+
+	if err := ValidateSupersedeReplacement(recordID, incidentID, &recordID, &incidentID); !errors.Is(err, ErrIllegalTransition) {
+		t.Fatalf("self replacement must be rejected, got %v", err)
+	}
+	if err := ValidateSupersedeReplacement(recordID, incidentID, &otherRecordID, &otherIncidentID); !errors.Is(err, ErrIllegalTransition) {
+		t.Fatalf("cross-incident replacement must be rejected, got %v", err)
+	}
+	if err := ValidateSupersedeReplacement(recordID, incidentID, &otherRecordID, &incidentID); err != nil {
+		t.Fatalf("legal replacement should be allowed, got %v", err)
+	}
+
+	reason := "superseded"
+	left := TimelineActionRequestHash(4, "txn-u-3-10", &reason, &otherRecordID)
+	right := TimelineActionRequestHash(4, "txn-u-3-10", &reason, &otherRecordID)
+	if !hashesEqual(left, right) {
+		t.Fatal("expected identical supersede replays to hash identically")
+	}
+
+	differentReason := "superseded differently"
+	if hashesEqual(left, TimelineActionRequestHash(4, "txn-u-3-10", &differentReason, &otherRecordID)) {
+		t.Fatal("expected divergent supersede replay to hash differently")
 	}
 }
 
-func TestPhase3_MarkReviewedRequestValidation_U_3_03(t *testing.T) {
-	request, apiErr := DecodeTimelineActionRequest(bytes.NewBufferString(`{
-		"base_row_version": 2,
-		"client_txn_id": "txn-u-3-03",
-		"reason": "review note"
-	}`))
-	if apiErr != nil {
-		t.Fatalf("expected valid reviewed action request, got %#v", apiErr)
+func requireClosedVocabularyRejected(t testing.TB, code string, details map[string]any, wantField string, wantReasonCode string) {
+	t.Helper()
+	if code != "invalid_mutation_payload" && code != "invalid_view_query" {
+		t.Fatalf("unexpected rejection code: %q", code)
 	}
-	if request.BaseRowVersion != 2 || request.Reason == nil || *request.Reason != "review note" {
-		t.Fatalf("unexpected reviewed action request: %#v", request)
+	if details["field"] != wantField {
+		t.Fatalf("unexpected rejection field: got %v want %q", details["field"], wantField)
 	}
-}
-
-func TestPhase3_SupersedeRequestValidation_U_3_04(t *testing.T) {
-	request, apiErr := DecodeTimelineSupersedeRequest(bytes.NewBufferString(`{
-		"base_row_version": 4,
-		"client_txn_id": "txn-u-3-04",
-		"reason": "superseded",
-		"replacement_record_id": "33333333-3333-3333-3333-333333333333"
-	}`))
-	if apiErr != nil {
-		t.Fatalf("expected valid supersede request, got %#v", apiErr)
-	}
-	if request.ReplacementRecordID == nil || request.ReplacementRecordID.String() != "33333333-3333-3333-3333-333333333333" {
-		t.Fatalf("unexpected replacement_record_id: %#v", request)
-	}
-
-	_, apiErr = DecodeTimelineSupersedeRequest(bytes.NewBufferString(`{
-		"base_row_version": 4,
-		"client_txn_id": "txn-u-3-04-invalid",
-		"reason": ""
-	}`))
-	if apiErr == nil || apiErr.Code != "invalid_mutation_payload" {
-		t.Fatalf("expected required supersede reason validation, got %#v", apiErr)
+	if details["reason_code"] != wantReasonCode {
+		t.Fatalf("unexpected rejection reason_code: got %v want %q", details["reason_code"], wantReasonCode)
 	}
 }
 
-func TestPhase3_MaterialChangeClassification_U_3_10(t *testing.T) {
-	current := sourceRecord{}
-	next := current
-	if hasMaterialChange(current, next) {
-		t.Fatal("expected identical records to be non-material")
+func requireWritableStringNormalization(t testing.TB, got string, want string) {
+	t.Helper()
+	if got != want {
+		t.Fatalf("unexpected normalized string: got %q want %q", got, want)
 	}
-	summary := "changed"
-	next.Summary = &summary
-	if !hasMaterialChange(current, next) {
-		t.Fatal("expected summary edit to be capture-state-material")
+}
+
+func requireFieldKeyConformance(t testing.TB, fieldKeys []string, allowed []string) {
+	t.Helper()
+	if !slices.IsSorted(fieldKeys) {
+		t.Fatalf("expected sorted field keys, got %v", fieldKeys)
+	}
+	for _, fieldKey := range fieldKeys {
+		if !slices.Contains(allowed, fieldKey) {
+			t.Fatalf("unexpected field key %q not in allowed set %v", fieldKey, allowed)
+		}
 	}
 }

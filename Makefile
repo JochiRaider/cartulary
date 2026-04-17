@@ -1,4 +1,4 @@
-.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain db-up db-reset dev generate generate-drift migration-drift test lint check build
+.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift test e2e lint check build
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
 PNPM ?= $(shell if command -v pnpm >/dev/null 2>&1; then command -v pnpm; elif [ -x "$$HOME/.local/share/pnpm/pnpm" ]; then printf "$$HOME/.local/share/pnpm/pnpm"; fi)
@@ -43,6 +43,10 @@ bootstrap: frontend-toolchain
 	$(GO_RUN_ENV) $(GO) install $(SQLC_TOOL)
 	$(GO_RUN_ENV) $(GO) install $(GOOSE_TOOL)
 	$(PNPM_RUN_ENV) $(PNPM) install
+	$(MAKE) playwright-install
+
+playwright-install: frontend-toolchain
+	$(PNPM_RUN_ENV) $(PNPM) --dir apps/web exec playwright install chromium
 
 db-up:
 	docker compose -f docker-compose.dev.yml up -d postgres minio
@@ -77,6 +81,9 @@ test: frontend-toolchain
 	$(GO_RUN_ENV) $(GO) test ./...
 	$(PNPM_RUN_ENV) $(PNPM) --dir apps/web test --run --passWithNoTests
 
+e2e: frontend-toolchain
+	$(PNPM_RUN_ENV) $(PNPM) --dir apps/web test:e2e:phase3
+
 lint: frontend-toolchain
 	mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(GO_RUN_ENV) $(GO) vet ./...
@@ -89,6 +96,7 @@ check: frontend-toolchain
 	$(MAKE) migration-drift
 	$(MAKE) lint
 	$(MAKE) test
+	$(MAKE) e2e
 	$(MAKE) build
 
 build: frontend-toolchain

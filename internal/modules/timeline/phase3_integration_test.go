@@ -3,191 +3,270 @@ package timeline_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
+	"example.com/todo/cartulary/internal/modules/projections"
 	"example.com/todo/cartulary/internal/modules/timeline"
 	"example.com/todo/cartulary/internal/platform/authn"
 	"example.com/todo/cartulary/internal/testutil/fixtures"
 	"example.com/todo/cartulary/internal/testutil/httptestx"
 	"example.com/todo/cartulary/internal/testutil/pgtest"
 	"example.com/todo/cartulary/internal/testutil/s3test"
+	"example.com/todo/cartulary/internal/testutil/timelinetest"
+	"example.com/todo/cartulary/internal/testutil/wstest"
 )
 
-func TestPhase3_TimelineCreatePatchHistoryAndReplay_I_3_01(t *testing.T) {
+func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)
 
-	server, db := startPhase3Server(t, postgresHarness, s3Harness, "phase3-i-3-01")
-	defer db.Close()
+	t.Run("same replay stays single-write and divergent replay conflicts", func(t *testing.T) {
+		server, db := startPhase3Server(t, postgresHarness, s3Harness, "phase3-i-3-01-replay")
+		defer db.Close()
 
-	adminLogin, _ := provisionBootstrapAdmin(t, server)
-	incident := createIncident(t, server, adminLogin, map[string]any{
-		"client_txn_id": "txn-i-3-01-incident",
-		"incident_key":  "IR-I301",
-		"title":         "Timeline substrate",
+		adminLogin, adminID := provisionBootstrapAdmin(t, server)
+		incident := createIncident(t, server, adminLogin, map[string]any{
+			"client_txn_id": "txn-i-3-01-incident",
+			"incident_key":  "IR-I301",
+			"title":         "Timeline substrate",
+		})
+		incidentID := incident["incident_id"].(string)
+		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
+		defer socket.Close(1000, "test_complete")
+		hubChanges, unsubscribe := server.Runtime.WSHub.SubscribeRecordChanges(16)
+		defer unsubscribe()
+
+		createResp := doPhase3JSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
+			map[string]any{
+				"client_txn_id":    "txn-i-3-01-row-create",
+				"timeline.summary": "Initial capture",
+			},
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
+		createRow := createData["row"].(map[string]any)
+		recordID := createRow["record_id"].(string)
+		requireTimelineSocketChange(t, socket, recordID, 1)
+		timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second)
+
+		createAttribution := timelinetest.LookupChangeSet(t, db, createData["change_set_id"].(string))
+		httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+			ActorUserID: createAttribution.ActorUserID,
+			Source:      createAttribution.Source,
+			ClientTxnID: createAttribution.ClientTxnID,
+			RequestID:   createAttribution.RequestID,
+			CreatedAt:   createAttribution.CreatedAt,
+		}, adminID, "timeline.rows.create", "txn-i-3-01-row-create")
+
+		countersAfterCreate := timelinetest.SnapshotCounters(t, db, incidentID, recordID)
+		createReplay := doPhase3JSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
+			map[string]any{
+				"client_txn_id":    "txn-i-3-01-row-create",
+				"timeline.summary": "Initial capture",
+			},
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		createReplayData := httptestx.RequireSuccessEnvelope(t, createReplay, http.StatusOK)["data"].(map[string]any)
+		if createReplayData["change_set_id"] != createData["change_set_id"] {
+			t.Fatalf("expected create replay to return original payload, got %#v", createReplayData)
+		}
+		timelinetest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+		httptestx.RequireReplayScaffold(t, httptestx.ReplayExpectation{
+			FirstStatus:     http.StatusCreated,
+			ReplayStatus:    http.StatusOK,
+			DivergentStatus: http.StatusConflict,
+			DivergentCode:   "client_txn_conflict",
+			StableBefore: httptestx.ReplayCounts{
+				ChangeSets:   countersAfterCreate.ChangeSets,
+				MutationRows: countersAfterCreate.MutationRows,
+				Revisions:    countersAfterCreate.Revisions,
+			},
+			StableAfter: httptestx.ReplayCounts{
+				ChangeSets:   timelinetest.SnapshotCounters(t, db, incidentID, recordID).ChangeSets,
+				MutationRows: timelinetest.SnapshotCounters(t, db, incidentID, recordID).MutationRows,
+				Revisions:    timelinetest.SnapshotCounters(t, db, incidentID, recordID).Revisions,
+			},
+		})
+
+		divergentCreate := doPhase3JSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
+			map[string]any{
+				"client_txn_id":    "txn-i-3-01-row-create",
+				"timeline.summary": "Different capture",
+			},
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		httptestx.RequireErrorEnvelope(t, divergentCreate, http.StatusConflict, "client_txn_conflict")
+		timelinetest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+
+		patchResp := doPhase3JSON(
+			t,
+			http.MethodPatch,
+			server.HTTP.URL+"/api/v1/records/"+recordID,
+			map[string]any{
+				"view_schema_id":   timeline.TimelineViewSchemaID,
+				"base_row_version": 1,
+				"client_txn_id":    "txn-i-3-01-row-patch",
+				"changes": []map[string]any{
+					{"field_key": "timeline.summary", "value": "Enriched capture"},
+					{"field_key": "timeline.details", "value": "Details from patch"},
+				},
+			},
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		patchData := httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)["data"].(map[string]any)
+		patchedRow := patchData["row"].(map[string]any)
+		if patchedRow["row_version"] != float64(2) {
+			t.Fatalf("unexpected patch row_version: %#v", patchedRow)
+		}
+		requireTimelineSocketChange(t, socket, recordID, 2)
+		timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second)
+
+		patchAttribution := timelinetest.LookupChangeSet(t, db, patchData["change_set_id"].(string))
+		httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+			ActorUserID: patchAttribution.ActorUserID,
+			Source:      patchAttribution.Source,
+			ClientTxnID: patchAttribution.ClientTxnID,
+			RequestID:   patchAttribution.RequestID,
+			CreatedAt:   patchAttribution.CreatedAt,
+		}, adminID, "timeline.records.patch", "txn-i-3-01-row-patch")
+
+		countersAfterPatch := timelinetest.SnapshotCounters(t, db, incidentID, recordID)
+		patchReplay := doPhase3JSON(
+			t,
+			http.MethodPatch,
+			server.HTTP.URL+"/api/v1/records/"+recordID,
+			map[string]any{
+				"view_schema_id":   timeline.TimelineViewSchemaID,
+				"base_row_version": 1,
+				"client_txn_id":    "txn-i-3-01-row-patch",
+				"changes": []map[string]any{
+					{"field_key": "timeline.details", "value": "Details from patch"},
+					{"field_key": "timeline.summary", "value": "Enriched capture"},
+				},
+			},
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		patchReplayData := httptestx.RequireSuccessEnvelope(t, patchReplay, http.StatusOK)["data"].(map[string]any)
+		if patchReplayData["change_set_id"] != patchData["change_set_id"] {
+			t.Fatalf("expected patch replay to return original payload, got %#v", patchReplayData)
+		}
+		timelinetest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+		countersAfterPatchReplay := timelinetest.SnapshotCounters(t, db, incidentID, recordID)
+		httptestx.RequireReplayScaffold(t, httptestx.ReplayExpectation{
+			FirstStatus:     http.StatusOK,
+			ReplayStatus:    http.StatusOK,
+			DivergentStatus: http.StatusConflict,
+			DivergentCode:   "client_txn_conflict",
+			StableBefore: httptestx.ReplayCounts{
+				ChangeSets:   countersAfterPatch.ChangeSets,
+				MutationRows: countersAfterPatch.MutationRows,
+				Revisions:    countersAfterPatch.Revisions,
+			},
+			StableAfter: httptestx.ReplayCounts{
+				ChangeSets:   countersAfterPatchReplay.ChangeSets,
+				MutationRows: countersAfterPatchReplay.MutationRows,
+				Revisions:    countersAfterPatchReplay.Revisions,
+			},
+		})
+
+		divergentPatch := doPhase3JSON(
+			t,
+			http.MethodPatch,
+			server.HTTP.URL+"/api/v1/records/"+recordID,
+			map[string]any{
+				"view_schema_id":   timeline.TimelineViewSchemaID,
+				"base_row_version": 1,
+				"client_txn_id":    "txn-i-3-01-row-patch",
+				"changes": []map[string]any{
+					{"field_key": "timeline.summary", "value": "Divergent replay"},
+				},
+			},
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		httptestx.RequireErrorEnvelope(t, divergentPatch, http.StatusConflict, "client_txn_conflict")
+		timelinetest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
 	})
-	incidentID := incident["incident_id"].(string)
 
-	createResp := doPhase3JSON(
-		t,
-		http.MethodPost,
-		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
-		map[string]any{
-			"client_txn_id":    "txn-i-3-01-row-create",
-			"timeline.summary": "Initial capture",
-		},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
-	)
-	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
-	row := createData["row"].(map[string]any)
-	recordID := row["record_id"].(string)
-	if row["row_version"] != float64(1) {
-		t.Fatalf("unexpected create row_version: %#v", row)
-	}
-	createCells := row["cells"].(map[string]any)
-	if got := createCells["timeline.capture_state"].(map[string]any)["value"]; got != "rough" {
-		t.Fatalf("unexpected initial capture state: %#v", createCells["timeline.capture_state"])
-	}
-	if got := createCells["timeline.summary"].(map[string]any)["value"]; got != "Initial capture" {
-		t.Fatalf("unexpected initial summary: %#v", createCells["timeline.summary"])
-	}
-
-	if got := queryCount(t, db, `SELECT COUNT(*) FROM timeline_events WHERE incident_id::text = $1`, incidentID); got != 1 {
-		t.Fatalf("expected one timeline source row, got %d", got)
-	}
-	if got := queryCount(t, db, `SELECT COUNT(*) FROM timeline_grid_projection WHERE incident_id::text = $1`, incidentID); got != 1 {
-		t.Fatalf("expected one timeline projection row, got %d", got)
-	}
-	if got := queryCount(t, db, `SELECT COUNT(*) FROM change_sets WHERE incident_id::text = $1`, incidentID); got != 1 {
-		t.Fatalf("expected one change set, got %d", got)
-	}
-	if got := queryCount(t, db, `SELECT COUNT(*) FROM change_set_mutations`); got != 1 {
-		t.Fatalf("expected one mutation row after create, got %d", got)
-	}
-	if got := queryCount(t, db, `SELECT COUNT(*) FROM record_revisions WHERE record_id::text = $1`, recordID); got != 1 {
-		t.Fatalf("expected one record revision after create, got %d", got)
-	}
-	if got := len(server.Runtime.WSHub.SnapshotRecordChanges()); got != 1 {
-		t.Fatalf("expected one record change emission, got %d", got)
-	}
-
-	replayResp := doPhase3JSON(
-		t,
-		http.MethodPost,
-		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
-		map[string]any{
-			"client_txn_id":    "txn-i-3-01-row-create",
-			"timeline.summary": "Initial capture",
-		},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
-	)
-	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
-	if replayData["change_set_id"] != createData["change_set_id"] {
-		t.Fatalf("expected create replay to return original payload, got %#v", replayData)
-	}
-	if got := queryCount(t, db, `SELECT COUNT(*) FROM change_sets WHERE incident_id::text = $1`, incidentID); got != 1 {
-		t.Fatalf("create replay must not duplicate change_sets, got %d", got)
-	}
-	if got := len(server.Runtime.WSHub.SnapshotRecordChanges()); got != 1 {
-		t.Fatalf("create replay must not emit another record change, got %d", got)
-	}
-
-	patchResp := doPhase3JSON(
-		t,
-		http.MethodPatch,
-		server.HTTP.URL+"/api/v1/records/"+recordID,
-		map[string]any{
-			"view_schema_id":   timeline.TimelineViewSchemaID,
-			"base_row_version": 1,
-			"client_txn_id":    "txn-i-3-01-row-patch",
-			"changes": []map[string]any{
-				{"field_key": "timeline.summary", "value": "Enriched capture"},
-				{"field_key": "timeline.details", "value": "Details from patch"},
+	t.Run("late transaction failures roll back source history projection and collaboration", func(t *testing.T) {
+		restoreHooks := timeline.SetStoreHooksForTesting(timeline.StoreHooks{
+			BeforeCommit: func(routeKey string, recordID uuid.UUID) error {
+				return errors.New("forced timeline rollback")
 			},
-		},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
-	)
-	patchData := httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)["data"].(map[string]any)
-	patchedRow := patchData["row"].(map[string]any)
-	if patchedRow["row_version"] != float64(2) {
-		t.Fatalf("unexpected patch row_version: %#v", patchedRow)
-	}
-	patchedCells := patchedRow["cells"].(map[string]any)
-	if got := patchedCells["timeline.capture_state"].(map[string]any)["value"]; got != "enriched" {
-		t.Fatalf("expected rough -> enriched transition, got %#v", patchedCells["timeline.capture_state"])
-	}
-	if got := patchedCells["timeline.details"].(map[string]any)["value"]; got != "Details from patch" {
-		t.Fatalf("unexpected patched details: %#v", patchedCells["timeline.details"])
-	}
+		})
+		defer restoreHooks()
 
-	if got := queryCount(t, db, `SELECT COUNT(*) FROM change_sets WHERE incident_id::text = $1`, incidentID); got != 2 {
-		t.Fatalf("expected second change set after patch, got %d", got)
-	}
-	if got := queryCount(t, db, `SELECT COUNT(*) FROM change_set_mutations`); got != 2 {
-		t.Fatalf("expected two mutation rows after patch, got %d", got)
-	}
-	if got := queryCount(t, db, `SELECT COUNT(*) FROM record_revisions WHERE record_id::text = $1`, recordID); got != 2 {
-		t.Fatalf("expected second record revision after patch, got %d", got)
-	}
-	if got := len(server.Runtime.WSHub.SnapshotRecordChanges()); got != 2 {
-		t.Fatalf("expected one more record change emission after patch, got %d", got)
-	}
+		server, db := startPhase3Server(t, postgresHarness, s3Harness, "phase3-i-3-01-rollback")
+		defer db.Close()
 
-	patchReplay := doPhase3JSON(
-		t,
-		http.MethodPatch,
-		server.HTTP.URL+"/api/v1/records/"+recordID,
-		map[string]any{
-			"view_schema_id":   timeline.TimelineViewSchemaID,
-			"base_row_version": 1,
-			"client_txn_id":    "txn-i-3-01-row-patch",
-			"changes": []map[string]any{
-				{"field_key": "timeline.details", "value": "Details from patch"},
-				{"field_key": "timeline.summary", "value": "Enriched capture"},
+		adminLogin, _ := provisionBootstrapAdmin(t, server)
+		incident := createIncident(t, server, adminLogin, map[string]any{
+			"client_txn_id": "txn-i-3-01-rollback-incident",
+			"incident_key":  "IR-I301R",
+			"title":         "Rollback proof",
+		})
+		incidentID := incident["incident_id"].(string)
+		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
+		defer socket.Close(1000, "test_complete")
+		hubChanges, unsubscribe := server.Runtime.WSHub.SubscribeRecordChanges(4)
+		defer unsubscribe()
+
+		createResp := doPhase3JSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
+			map[string]any{
+				"client_txn_id":    "txn-i-3-01-rollback-row",
+				"timeline.summary": "Rollback row",
 			},
-		},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
-	)
-	patchReplayData := httptestx.RequireSuccessEnvelope(t, patchReplay, http.StatusOK)["data"].(map[string]any)
-	if patchReplayData["change_set_id"] != patchData["change_set_id"] {
-		t.Fatalf("expected patch replay to return original payload, got %#v", patchReplayData)
-	}
-	if got := queryCount(t, db, `SELECT COUNT(*) FROM change_sets WHERE incident_id::text = $1`, incidentID); got != 2 {
-		t.Fatalf("patch replay must not duplicate change_sets, got %d", got)
-	}
-	if got := len(server.Runtime.WSHub.SnapshotRecordChanges()); got != 2 {
-		t.Fatalf("patch replay must not emit another record change, got %d", got)
-	}
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		httptestx.RequireErrorEnvelope(t, createResp, http.StatusInternalServerError, "internal_error")
 
-	stalePatch := doPhase3JSON(
-		t,
-		http.MethodPatch,
-		server.HTTP.URL+"/api/v1/records/"+recordID,
-		map[string]any{
-			"view_schema_id":   timeline.TimelineViewSchemaID,
-			"base_row_version": 1,
-			"client_txn_id":    "txn-i-3-01-stale",
-			"changes": []map[string]any{
-				{"field_key": "timeline.summary", "value": "stale write"},
-			},
-		},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
-	)
-	httptestx.RequireErrorEnvelope(t, stalePatch, http.StatusConflict, "row_version_conflict")
+		if got := queryCount(t, db, `SELECT COUNT(*) FROM timeline_events WHERE incident_id::text = $1`, incidentID); got != 0 {
+			t.Fatalf("rollback must clear timeline_events, got %d", got)
+		}
+		if got := queryCount(t, db, `SELECT COUNT(*) FROM change_sets WHERE incident_id::text = $1`, incidentID); got != 0 {
+			t.Fatalf("rollback must clear change_sets, got %d", got)
+		}
+		if got := queryCount(t, db, `SELECT COUNT(*) FROM change_set_mutations m JOIN change_sets c ON c.change_set_id = m.change_set_id WHERE c.incident_id::text = $1`, incidentID); got != 0 {
+			t.Fatalf("rollback must clear change_set_mutations, got %d", got)
+		}
+		if got := queryCount(t, db, `SELECT COUNT(*) FROM record_revisions rr JOIN timeline_events e ON e.record_id = rr.record_id WHERE e.incident_id::text = $1`, incidentID); got != 0 {
+			t.Fatalf("rollback must clear record_revisions, got %d", got)
+		}
+		if got := queryCount(t, db, `SELECT COUNT(*) FROM timeline_grid_projection WHERE incident_id::text = $1`, incidentID); got != 0 {
+			t.Fatalf("rollback must clear timeline_grid_projection, got %d", got)
+		}
+		timelinetest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+	})
 }
 
-func TestPhase3_TimelineProjectionBackedQuery_I_3_02(t *testing.T) {
+func TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)
 
@@ -202,7 +281,7 @@ func TestPhase3_TimelineProjectionBackedQuery_I_3_02(t *testing.T) {
 	})
 	incidentID := incident["incident_id"].(string)
 
-	createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
+	first := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
 		"client_txn_id":        "txn-i-3-02-row-a",
 		"timeline.summary":     "Earlier",
 		"timeline.occurred_at": "2026-04-10T10:00:00Z",
@@ -212,6 +291,7 @@ func TestPhase3_TimelineProjectionBackedQuery_I_3_02(t *testing.T) {
 		"timeline.summary":     "Later",
 		"timeline.occurred_at": "2026-04-10T11:00:00Z",
 	})
+	_ = first
 	secondID := second["row"].(map[string]any)["record_id"].(string)
 
 	patch := doPhase3JSON(
@@ -231,38 +311,39 @@ func TestPhase3_TimelineProjectionBackedQuery_I_3_02(t *testing.T) {
 	)
 	httptestx.RequireSuccessEnvelope(t, patch, http.StatusOK)
 
-	queryResp := doPhase3JSON(
-		t,
-		http.MethodPost,
-		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/query",
-		map[string]any{},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-	)
-	queryData := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)
-	rows := queryData["rows"].([]any)
-	if len(rows) != 2 {
-		t.Fatalf("expected two projected rows, got %#v", rows)
+	beforeRows := queryTimelineRows(t, server, incidentID, adminLogin)
+	if len(beforeRows) != 2 {
+		t.Fatalf("expected two projected rows, got %#v", beforeRows)
 	}
-	firstRow := rows[0].(map[string]any)
-	secondRow := rows[1].(map[string]any)
-	if firstRow["record_id"] == secondRow["record_id"] {
-		t.Fatalf("query rows must preserve stable record identity, got %#v", rows)
+	secondRow := findRow(t, beforeRows, secondID)
+	if secondRow["row_version"] != float64(2) {
+		t.Fatalf("expected patched row_version in projection query, got %#v", secondRow)
 	}
-	firstSummary := firstRow["cells"].(map[string]any)["timeline.summary"].(map[string]any)["value"]
-	secondDetails := secondRow["cells"].(map[string]any)["timeline.details"].(map[string]any)["value"]
-	if firstSummary != "Earlier" {
-		t.Fatalf("unexpected projection-backed ordering: %#v", rows)
-	}
-	if secondDetails != "Projected details" {
-		t.Fatalf("expected query to read patched projection row, got %#v", secondRow)
+	if details := secondRow["cells"].(map[string]any)["timeline.details"].(map[string]any)["value"]; details != "Projected details" {
+		t.Fatalf("expected projection-backed details, got %#v", secondRow)
 	}
 
-	if got := queryCount(t, db, `SELECT COUNT(*) FROM timeline_grid_projection WHERE incident_id::text = $1`, incidentID); got != 2 {
-		t.Fatalf("expected two projection rows, got %d", got)
+	if _, err := db.ExecContext(context.Background(), `DELETE FROM timeline_grid_projection WHERE incident_id::text = $1`, incidentID); err != nil {
+		t.Fatalf("clear projection rows: %v", err)
+	}
+	emptyRows := queryTimelineRows(t, server, incidentID, adminLogin)
+	if len(emptyRows) != 0 {
+		t.Fatalf("query route must read projection rows, got %#v", emptyRows)
+	}
+
+	projectionStore := projections.NewStore(server.Runtime.Postgres)
+	if err := projectionStore.RebuildIncidentTimeline(context.Background(), mustUUID(t, incidentID)); err != nil {
+		t.Fatalf("rebuild timeline projection: %v", err)
+	}
+	rebuiltRows := queryTimelineRows(t, server, incidentID, adminLogin)
+	httptestx.RequireProjectionDeterminism(t, beforeRows, rebuiltRows)
+
+	if got := queryCount(t, db, `SELECT COUNT(*) FROM timeline_events WHERE incident_id::text = $1`, incidentID); got != 2 {
+		t.Fatalf("rebuild must preserve source rows, got %d", got)
 	}
 }
 
-func TestPhase3_TimelineLifecycleTransitions_I_3_03(t *testing.T) {
+func TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)
 
@@ -270,24 +351,61 @@ func TestPhase3_TimelineLifecycleTransitions_I_3_03(t *testing.T) {
 	defer db.Close()
 
 	adminLogin, _ := provisionBootstrapAdmin(t, server)
+	reviewerID := seedLocalUserFlags(t, db, "reviewer-target@example.test", "Reviewer Target", "ReviewerTargetPass1!", false, false, true)
+
 	incident := createIncident(t, server, adminLogin, map[string]any{
 		"client_txn_id": "txn-i-3-03-incident",
 		"incident_key":  "IR-I303",
 		"title":         "Lifecycle",
 	})
 	incidentID := incident["incident_id"].(string)
+	createMembership(t, server, incidentID, reviewerID, "reviewer-target@example.test", "viewer", adminLogin)
+
+	otherIncident := createIncident(t, server, adminLogin, map[string]any{
+		"client_txn_id": "txn-i-3-03-other-incident",
+		"incident_key":  "IR-I303X",
+		"title":         "Other incident",
+	})
+	otherIncidentID := otherIncident["incident_id"].(string)
 
 	replacement := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
 		"client_txn_id":    "txn-i-3-03-replacement",
 		"timeline.summary": "Replacement row",
 	})
 	replacementID := replacement["row"].(map[string]any)["record_id"].(string)
-
 	created := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
 		"client_txn_id":    "txn-i-3-03-primary",
 		"timeline.summary": "Primary row",
 	})
 	recordID := created["row"].(map[string]any)["record_id"].(string)
+	otherReplacement := createTimelineRow(t, server, otherIncidentID, adminLogin, map[string]any{
+		"client_txn_id":    "txn-i-3-03-cross-incident",
+		"timeline.summary": "Cross incident replacement",
+	})
+	otherReplacementID := otherReplacement["row"].(map[string]any)["record_id"].(string)
+
+	reviewerSession, reviewerCSRF := loginLocalUser(t, server, "reviewer-target@example.test", "ReviewerTargetPass1!")
+	socket := connectTimelineSocket(t, server, incidentID, reviewerSession.Value)
+	defer socket.Close(1000, "test_complete")
+	hubChanges, unsubscribe := server.Runtime.WSHub.SubscribeRecordChanges(16)
+	defer unsubscribe()
+
+	reviewDenied := doPhase3JSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/records/"+recordID+"/mark-reviewed",
+		map[string]any{
+			"base_row_version": 1,
+			"client_txn_id":    "txn-i-3-03-reviewed-denied",
+			"reason":           "viewer cannot review",
+		},
+		withCookies(reviewerSession, reviewerCSRF),
+		withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, reviewDenied, http.StatusForbidden, "authorization_denied")
+
+	updateMembershipRole(t, server, incidentID, reviewerID, 1, "reviewer", adminLogin)
+	beforeAuth := httptestx.AuthorizationOutcome{Status: http.StatusForbidden, Code: "authorization_denied"}
 
 	markReviewed := doPhase3JSON(
 		t,
@@ -298,13 +416,67 @@ func TestPhase3_TimelineLifecycleTransitions_I_3_03(t *testing.T) {
 			"client_txn_id":    "txn-i-3-03-reviewed-1",
 			"reason":           "Initial review",
 		},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		withCookies(reviewerSession, reviewerCSRF),
+		withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 	)
 	reviewedData := httptestx.RequireSuccessEnvelope(t, markReviewed, http.StatusOK)["data"].(map[string]any)
 	if reviewedData["capture_state"] != "reviewed" || reviewedData["row_version"] != float64(2) {
 		t.Fatalf("unexpected reviewed payload: %#v", reviewedData)
 	}
+	requireTimelineSocketChange(t, socket, recordID, 2)
+	timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second)
+	httptestx.RequireAuthorizationReDerived(t, beforeAuth, httptestx.AuthorizationOutcome{Status: http.StatusOK})
+
+	reviewCounts := timelinetest.SnapshotCounters(t, db, incidentID, recordID)
+	reviewReplay := doPhase3JSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/records/"+recordID+"/mark-reviewed",
+		map[string]any{
+			"base_row_version": 1,
+			"client_txn_id":    "txn-i-3-03-reviewed-1",
+			"reason":           "Initial review",
+		},
+		withCookies(reviewerSession, reviewerCSRF),
+		withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+	)
+	reviewReplayData := httptestx.RequireSuccessEnvelope(t, reviewReplay, http.StatusOK)["data"].(map[string]any)
+	if reviewReplayData["change_set_id"] != reviewedData["change_set_id"] {
+		t.Fatalf("expected review replay to return original payload, got %#v", reviewReplayData)
+	}
+	timelinetest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+	reviewCountsAfterReplay := timelinetest.SnapshotCounters(t, db, incidentID, recordID)
+	httptestx.RequireReplayScaffold(t, httptestx.ReplayExpectation{
+		FirstStatus:     http.StatusOK,
+		ReplayStatus:    http.StatusOK,
+		DivergentStatus: http.StatusConflict,
+		DivergentCode:   "client_txn_conflict",
+		StableBefore: httptestx.ReplayCounts{
+			ChangeSets:   reviewCounts.ChangeSets,
+			MutationRows: reviewCounts.MutationRows,
+			Revisions:    reviewCounts.Revisions,
+		},
+		StableAfter: httptestx.ReplayCounts{
+			ChangeSets:   reviewCountsAfterReplay.ChangeSets,
+			MutationRows: reviewCountsAfterReplay.MutationRows,
+			Revisions:    reviewCountsAfterReplay.Revisions,
+		},
+	})
+
+	reviewDivergent := doPhase3JSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/records/"+recordID+"/mark-reviewed",
+		map[string]any{
+			"base_row_version": 1,
+			"client_txn_id":    "txn-i-3-03-reviewed-1",
+			"reason":           "Different review reason",
+		},
+		withCookies(reviewerSession, reviewerCSRF),
+		withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, reviewDivergent, http.StatusConflict, "client_txn_conflict")
+	timelinetest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
 
 	materialEdit := doPhase3JSON(
 		t,
@@ -318,90 +490,169 @@ func TestPhase3_TimelineLifecycleTransitions_I_3_03(t *testing.T) {
 				{"field_key": "timeline.details", "value": "Material edit after review"},
 			},
 		},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		withCookies(reviewerSession, reviewerCSRF),
+		withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 	)
 	demoted := httptestx.RequireSuccessEnvelope(t, materialEdit, http.StatusOK)["data"].(map[string]any)
 	demotedRow := demoted["row"].(map[string]any)
 	if got := demotedRow["cells"].(map[string]any)["timeline.capture_state"].(map[string]any)["value"]; got != "enriched" {
 		t.Fatalf("expected reviewed row to demote back to enriched, got %#v", demotedRow)
 	}
+	requireTimelineSocketChange(t, socket, recordID, 3)
+	timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second)
 
-	reviewAgain := doPhase3JSON(
+	selfSupersede := doPhase3JSON(
 		t,
 		http.MethodPost,
-		server.HTTP.URL+"/api/v1/records/"+recordID+"/mark-reviewed",
+		server.HTTP.URL+"/api/v1/records/"+recordID+"/supersede",
 		map[string]any{
-			"base_row_version": 3,
-			"client_txn_id":    "txn-i-3-03-reviewed-2",
+			"base_row_version":      3,
+			"client_txn_id":         "txn-i-3-03-self-supersede",
+			"reason":                "self must fail",
+			"replacement_record_id": recordID,
 		},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		withCookies(reviewerSession, reviewerCSRF),
+		withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 	)
-	reviewAgainData := httptestx.RequireSuccessEnvelope(t, reviewAgain, http.StatusOK)["data"].(map[string]any)
-	if reviewAgainData["capture_state"] != "reviewed" || reviewAgainData["row_version"] != float64(4) {
-		t.Fatalf("unexpected second reviewed payload: %#v", reviewAgainData)
-	}
+	httptestx.RequireErrorEnvelope(t, selfSupersede, http.StatusConflict, "illegal_transition")
+
+	crossIncidentSupersede := doPhase3JSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/records/"+recordID+"/supersede",
+		map[string]any{
+			"base_row_version":      3,
+			"client_txn_id":         "txn-i-3-03-cross-supersede",
+			"reason":                "cross incident must fail",
+			"replacement_record_id": otherReplacementID,
+		},
+		withCookies(reviewerSession, reviewerCSRF),
+		withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, crossIncidentSupersede, http.StatusConflict, "illegal_transition")
 
 	supersede := doPhase3JSON(
 		t,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/records/"+recordID+"/supersede",
 		map[string]any{
-			"base_row_version":      4,
+			"base_row_version":      3,
 			"client_txn_id":         "txn-i-3-03-supersede",
 			"reason":                "Superseded by a better row",
 			"replacement_record_id": replacementID,
 		},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		withCookies(reviewerSession, reviewerCSRF),
+		withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 	)
 	superseded := httptestx.RequireSuccessEnvelope(t, supersede, http.StatusOK)["data"].(map[string]any)
-	if superseded["capture_state"] != "superseded" || superseded["row_version"] != float64(5) {
+	if superseded["capture_state"] != "superseded" || superseded["row_version"] != float64(4) {
 		t.Fatalf("unexpected supersede payload: %#v", superseded)
 	}
-	if superseded["replacement_record_id"] != replacementID {
-		t.Fatalf("expected replacement record id to echo, got %#v", superseded)
-	}
-
-	if got := queryCount(t, db, `SELECT COUNT(*) FROM record_links WHERE dst_record_id::text = $1 AND src_record_id::text = $2 AND link_type = 'supersedes' AND deleted_at IS NULL`, recordID, replacementID); got != 1 {
+	requireTimelineSocketChange(t, socket, recordID, 4)
+	timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second)
+	if got := queryCount(t, db, `SELECT COUNT(*) FROM record_links WHERE incident_id::text = $1 AND src_record_id::text = $2 AND dst_record_id::text = $3 AND link_type = 'supersedes' AND deleted_at IS NULL`, incidentID, replacementID, recordID); got != 1 {
 		t.Fatalf("expected one active supersedes link, got %d", got)
 	}
+	if got := queryCount(t, db, `SELECT COUNT(*) FROM change_set_mutations WHERE change_set_id::text = $1`, superseded["change_set_id"]); got != 2 {
+		t.Fatalf("expected one coupled history entry with two mutation rows, got %d", got)
+	}
+
+	supersedeCounts := timelinetest.SnapshotCounters(t, db, incidentID, recordID)
+	supersedeReplay := doPhase3JSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/records/"+recordID+"/supersede",
+		map[string]any{
+			"base_row_version":      3,
+			"client_txn_id":         "txn-i-3-03-supersede",
+			"reason":                "Superseded by a better row",
+			"replacement_record_id": replacementID,
+		},
+		withCookies(reviewerSession, reviewerCSRF),
+		withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+	)
+	supersedeReplayData := httptestx.RequireSuccessEnvelope(t, supersedeReplay, http.StatusOK)["data"].(map[string]any)
+	if supersedeReplayData["change_set_id"] != superseded["change_set_id"] {
+		t.Fatalf("expected supersede replay to return original payload, got %#v", supersedeReplayData)
+	}
+	timelinetest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+	supersedeCountsAfterReplay := timelinetest.SnapshotCounters(t, db, incidentID, recordID)
+	httptestx.RequireReplayScaffold(t, httptestx.ReplayExpectation{
+		FirstStatus:     http.StatusOK,
+		ReplayStatus:    http.StatusOK,
+		DivergentStatus: http.StatusConflict,
+		DivergentCode:   "client_txn_conflict",
+		StableBefore: httptestx.ReplayCounts{
+			ChangeSets:   supersedeCounts.ChangeSets,
+			MutationRows: supersedeCounts.MutationRows,
+			Revisions:    supersedeCounts.Revisions,
+		},
+		StableAfter: httptestx.ReplayCounts{
+			ChangeSets:   supersedeCountsAfterReplay.ChangeSets,
+			MutationRows: supersedeCountsAfterReplay.MutationRows,
+			Revisions:    supersedeCountsAfterReplay.Revisions,
+		},
+	})
+
+	supersedeDivergent := doPhase3JSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/records/"+recordID+"/supersede",
+		map[string]any{
+			"base_row_version":      3,
+			"client_txn_id":         "txn-i-3-03-supersede",
+			"reason":                "Different supersede reason",
+			"replacement_record_id": replacementID,
+		},
+		withCookies(reviewerSession, reviewerCSRF),
+		withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, supersedeDivergent, http.StatusConflict, "client_txn_conflict")
+	timelinetest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
 
 	illegalReview := doPhase3JSON(
 		t,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/records/"+recordID+"/mark-reviewed",
 		map[string]any{
-			"base_row_version": 5,
+			"base_row_version": 4,
 			"client_txn_id":    "txn-i-3-03-illegal-review",
 		},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		withCookies(reviewerSession, reviewerCSRF),
+		withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, illegalReview, http.StatusConflict, "illegal_transition")
 
-	illegalPatch := doPhase3JSON(
+	updateMembershipRole(t, server, incidentID, reviewerID, 2, "viewer", adminLogin)
+	patchDeniedAgain := doPhase3JSON(
 		t,
 		http.MethodPatch,
 		server.HTTP.URL+"/api/v1/records/"+recordID,
 		map[string]any{
 			"view_schema_id":   timeline.TimelineViewSchemaID,
-			"base_row_version": 5,
-			"client_txn_id":    "txn-i-3-03-illegal-patch",
+			"base_row_version": 4,
+			"client_txn_id":    "txn-i-3-03-post-downgrade",
 			"changes": []map[string]any{
 				{"field_key": "timeline.summary", "value": "must fail"},
 			},
 		},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		withCookies(reviewerSession, reviewerCSRF),
+		withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 	)
-	httptestx.RequireErrorEnvelope(t, illegalPatch, http.StatusConflict, "illegal_transition")
+	httptestx.RequireErrorEnvelope(t, patchDeniedAgain, http.StatusForbidden, "authorization_denied")
+	httptestx.RequireAuthorizationReDerived(t, httptestx.AuthorizationOutcome{Status: http.StatusOK}, httptestx.AuthorizationOutcome{Status: http.StatusForbidden, Code: "authorization_denied"})
 }
 
 type loginResult struct {
 	sessionCookie *http.Cookie
 	csrfCookie    *http.Cookie
+}
+
+type recordChangeSocketPayload struct {
+	RecordID         string   `json:"record_id"`
+	RowVersion       float64  `json:"row_version"`
+	ChangeSetID      string   `json:"change_set_id"`
+	ChangedFieldKeys []string `json:"changed_field_keys"`
 }
 
 func startPhase3Server(t testing.TB, postgresHarness *pgtest.Harness, s3Harness *s3test.Harness, prefix string) (*httptestx.Server, *sql.DB) {
@@ -483,6 +734,182 @@ func createTimelineRow(t testing.TB, server *httptestx.Server, incidentID string
 		withHeader(authn.CSRFHeaderName, admin.csrfCookie.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+}
+
+func createMembership(t testing.TB, server *httptestx.Server, incidentID string, userID string, email string, role string, admin loginResult) {
+	t.Helper()
+
+	resp := doPhase3JSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
+		map[string]any{
+			"client_txn_id": "txn-phase3-membership-create-" + userID,
+			"email":         email,
+			"role":          role,
+		},
+		withCookies(admin.sessionCookie, admin.csrfCookie),
+		withHeader(authn.CSRFHeaderName, admin.csrfCookie.Value),
+	)
+	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+	if body["user_id"] != userID {
+		t.Fatalf("unexpected membership create payload: %#v", body)
+	}
+}
+
+func updateMembershipRole(t testing.TB, server *httptestx.Server, incidentID string, userID string, baseVersion int, role string, admin loginResult) {
+	t.Helper()
+
+	resp := doPhase3JSON(
+		t,
+		http.MethodPatch,
+		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+userID,
+		map[string]any{
+			"base_membership_version": baseVersion,
+			"role":                    role,
+		},
+		withCookies(admin.sessionCookie, admin.csrfCookie),
+		withHeader(authn.CSRFHeaderName, admin.csrfCookie.Value),
+	)
+	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
+}
+
+func seedLocalUserFlags(t testing.TB, db *sql.DB, email string, displayName string, password string, mfaRequired bool, isDeploymentAdmin bool, isActive bool) string {
+	t.Helper()
+
+	hash, err := authn.HashPassword(password)
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
+	var userID string
+	if err := db.QueryRowContext(context.Background(), `
+INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id::text
+`, email, displayName, hash, mfaRequired, isActive, isDeploymentAdmin).Scan(&userID); err != nil {
+		t.Fatalf("seed local user with flags: %v", err)
+	}
+	return userID
+}
+
+func loginLocalUser(t testing.TB, server *httptestx.Server, username string, password string) (*http.Cookie, *http.Cookie) {
+	t.Helper()
+
+	resp := doPhase3JSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+		"username": username,
+		"password": password,
+	})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("login failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
+	}
+	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
+
+	var sessionCookie *http.Cookie
+	var csrfCookie *http.Cookie
+	for _, cookie := range resp.Cookies() {
+		switch cookie.Name {
+		case authn.SessionCookieName:
+			sessionCookie = cookie
+		case authn.CSRFCookieName:
+			csrfCookie = cookie
+		}
+	}
+	if sessionCookie == nil || csrfCookie == nil {
+		t.Fatalf("expected login to set both session and csrf cookies, got %#v", resp.Cookies())
+	}
+	return sessionCookie, csrfCookie
+}
+
+func connectTimelineSocket(t testing.TB, server *httptestx.Server, incidentID string, sessionToken string) *wstest.Client {
+	t.Helper()
+
+	headers := http.Header{}
+	headers.Set("Authorization", "Bearer "+sessionToken)
+	client := wstest.ConnectWithHeaders(t, server.HTTP.URL, "/ws/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/changes", headers)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	message, err := client.Receive(ctx)
+	if err != nil {
+		t.Fatalf("receive websocket connected message: %v", err)
+	}
+	wstest.RequireMessageType(t, message, "connected")
+	return client
+}
+
+func requireTimelineSocketChange(t testing.TB, client *wstest.Client, wantRecordID string, wantRowVersion int64) recordChangeSocketPayload {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	message, err := client.Receive(ctx)
+	if err != nil {
+		t.Fatalf("receive websocket record_changed: %v", err)
+	}
+	wstest.RequireMessageType(t, message, "record_changed")
+
+	var payload recordChangeSocketPayload
+	if err := json.Unmarshal(message.Payload, &payload); err != nil {
+		t.Fatalf("decode record_changed payload: %v", err)
+	}
+	if payload.RecordID != wantRecordID || payload.RowVersion != float64(wantRowVersion) {
+		t.Fatalf("unexpected record_changed payload: %#v", payload)
+	}
+	return payload
+}
+
+func expectNoTimelineSocketMessage(t testing.TB, client *wstest.Client) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+
+	_, err := client.Receive(ctx)
+	if err == nil {
+		t.Fatal("expected no websocket message")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected websocket receive timeout, got %v", err)
+	}
+}
+
+func queryTimelineRows(t testing.TB, server *httptestx.Server, incidentID string, login loginResult) []any {
+	t.Helper()
+
+	queryResp := doPhase3JSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/query",
+		map[string]any{},
+		withCookies(login.sessionCookie),
+	)
+	return httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
+}
+
+func findRow(t testing.TB, rows []any, recordID string) map[string]any {
+	t.Helper()
+
+	for _, candidate := range rows {
+		row := candidate.(map[string]any)
+		if row["record_id"] == recordID {
+			return row
+		}
+	}
+	t.Fatalf("record_id %s not found in rows %#v", recordID, rows)
+	return nil
+}
+
+func mustUUID(t testing.TB, raw string) uuid.UUID {
+	t.Helper()
+
+	value, err := uuid.Parse(raw)
+	if err != nil {
+		t.Fatalf("parse uuid: %v", err)
+	}
+	return value
 }
 
 func requireBootstrapLogin(t testing.TB, server *httptestx.Server, username string, password string) string {

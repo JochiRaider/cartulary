@@ -26,6 +26,8 @@
     "dev": "vite",
     "lint": "biome check .",
     "test": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:phase3": "playwright test e2e/phase3.spec.ts",
     "typecheck": "tsc --noEmit"
   }
 }
