@@ -15,6 +15,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/modules/links"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -22,16 +24,20 @@ import (
 var ErrInvalidCreateRequest = errors.New("entities: invalid create request")
 
 type Store struct {
-	pool           *pgxpool.Pool
-	authStore      *authn.Store
-	revisionsStore *revisions.Store
+	pool            *pgxpool.Pool
+	authStore       *authn.Store
+	revisionsStore  *revisions.Store
+	projectionStore *projections.Store
+	linkStore       *links.Store
 }
 
 func NewStore(pool *pgxpool.Pool) *Store {
 	return &Store{
-		pool:           pool,
-		authStore:      authn.NewStore(pool),
-		revisionsStore: revisions.NewStore(),
+		pool:            pool,
+		authStore:       authn.NewStore(pool),
+		revisionsStore:  revisions.NewStore(),
+		projectionStore: projections.NewStore(pool),
+		linkStore:       links.NewStore(),
 	}
 }
 

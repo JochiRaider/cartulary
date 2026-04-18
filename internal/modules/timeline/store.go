@@ -928,6 +928,14 @@ func applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.User
 				if _, err := entityStore.ResolveOrCreateFromMentionTx(ctx, tx, actor, recordID, change.FieldKey, mentionID, action.ResolvedRecord, now); err != nil {
 					return err
 				}
+			case "dismiss_item", "revert_to_unresolved":
+				mentionID, err := mentionIDFromItemRef(action.ItemRef)
+				if err != nil {
+					return err
+				}
+				if err := entityStore.ApplyMentionLifecycleTx(ctx, tx, actor, recordID, change.FieldKey, mentionID, action.Op, nil, now); err != nil {
+					return err
+				}
 			default:
 				return fmt.Errorf("unsupported mention action: %s", action.Op)
 			}

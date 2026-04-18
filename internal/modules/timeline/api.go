@@ -760,6 +760,19 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 				action.ResolvedRecord = &parsed
 			}
 			actions = append(actions, action)
+		case "dismiss_item", "revert_to_unresolved":
+			if len(rawAction) != 2 {
+				return nil, false
+			}
+			itemRefValue, ok := rawAction["item_ref"]
+			if !ok {
+				return nil, false
+			}
+			var itemRef string
+			if err := json.Unmarshal(itemRefValue, &itemRef); err != nil || strings.TrimSpace(itemRef) == "" {
+				return nil, false
+			}
+			actions = append(actions, CollectionAction{Op: op, ItemRef: itemRef})
 		default:
 			return nil, false
 		}

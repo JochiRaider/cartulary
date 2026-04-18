@@ -14,12 +14,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 type Service struct {
 	store         *Store
 	incidentStore *incidents.Store
 	authStore     *authn.Store
+	hub           *platformws.Hub
 	keys          authn.MasterKeys
 	now           func() time.Time
 }
@@ -32,6 +34,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		}
 		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/cartulary.view.hosts.v1/rows", service.handleHostCreate)
 		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/cartulary.view.identities.v1/rows", service.handleIdentityCreate)
+		mux.HandleFunc("POST /api/v1/entity-mentions/{entity_mention_id}/resolve", service.handleMentionAction)
 		return nil
 	}
 }
@@ -45,6 +48,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		store:         NewStore(deps.Postgres),
 		incidentStore: incidents.NewStore(deps.Postgres),
 		authStore:     authn.NewStore(deps.Postgres),
+		hub:           deps.WSHub,
 		keys:          keys,
 		now:           func() time.Time { return time.Now().UTC() },
 	}, nil
@@ -56,6 +60,81 @@ func (s *Service) handleHostCreate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) handleIdentityCreate(w http.ResponseWriter, r *http.Request) {
 	s.handleCreate(w, r, IdentitiesViewSchemaID)
+}
+
+func (s *Service) handleMentionAction(w http.ResponseWriter, r *http.Request) {
+	mentionID, ok := pathUUID(w, r, "entity_mention_id")
+	if !ok {
+		return
+	}
+
+	principal, apiErr := s.authenticateSessionRequest(r, true)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+
+	access, err := s.store.GetMentionActionAccess(r.Context(), mentionID, principal.User.ID)
+	switch {
+	case errors.Is(err, ErrEntityMentionNotFound):
+		writeAPIError(w, r, entityMentionNotFoundError())
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if !slices.Contains([]string{"editor", "reviewer", "admin"}, access.Role) {
+		writeAPIError(w, r, authorizationDeniedError(requiredRoleDescription("editor", "reviewer", "admin")))
+		return
+	}
+
+	request, apiErr := DecodeMentionActionRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+
+	result, err := s.store.ApplyMentionAction(r.Context(), principal.User, mentionID, request, MentionActionRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	var (
+		rowConflict   *MentionRowVersionConflictError
+		transitionErr *MentionTransitionError
+		targetErr     *MentionTargetValidationError
+	)
+	switch {
+	case errors.Is(err, authn.ErrClientTxnConflict):
+		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, ErrEntityMentionNotFound):
+		writeAPIError(w, r, entityMentionNotFoundError())
+		return
+	case errors.Is(err, ErrResolvedRecordNotFound):
+		writeAPIError(w, r, resolvedRecordNotFoundError())
+		return
+	case errors.As(err, &rowConflict):
+		writeAPIError(w, r, mentionRowVersionConflictError(rowConflict))
+		return
+	case errors.As(err, &transitionErr):
+		writeAPIError(w, r, mentionIllegalTransitionError(transitionErr))
+		return
+	case errors.As(err, &targetErr):
+		writeAPIError(w, r, invalidMutationPayload("resolved_record_id", "invalid_value"))
+		return
+	case errors.Is(err, ErrRecordDeletedUseRestore):
+		writeAPIError(w, r, recordDeletedUseRestoreError())
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+
+	if !result.Replayed {
+		s.publishRecordChange(result, principal.User.ID)
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
 func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request, viewSchemaID string) {
@@ -234,4 +313,21 @@ func pathUUID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID, bo
 		return uuid.UUID{}, false
 	}
 	return value, true
+}
+
+func (s *Service) publishRecordChange(result MentionActionResult, actorUserID uuid.UUID) {
+	if s.hub == nil || result.SourceRecordID == uuid.Nil || result.ChangeSetID == uuid.Nil {
+		return
+	}
+	changedKeys := append([]string(nil), result.ChangedFieldKeys...)
+	slices.Sort(changedKeys)
+	s.hub.PublishRecordChange(platformws.RecordChange{
+		IncidentID:       result.IncidentID,
+		RecordID:         result.SourceRecordID,
+		RowVersion:       result.SourceRecordRowVersion,
+		ChangeSetID:      result.ChangeSetID,
+		ActorUserID:      actorUserID,
+		ChangedFieldKeys: changedKeys,
+		ViewSchemaID:     "cartulary.view.timeline.v1",
+	})
 }

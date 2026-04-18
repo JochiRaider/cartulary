@@ -258,7 +258,11 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := s.store.PatchRow(r.Context(), principal.User, recordID, request, TimelinePatchRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
-	var entityConflict *entities.ExactMatchConflictError
+	var (
+		entityConflict       *entities.ExactMatchConflictError
+		mentionTransitionErr *entities.MentionTransitionError
+		mentionTargetErr     *entities.MentionTargetValidationError
+	)
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
@@ -272,11 +276,29 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, ErrIllegalTransition):
 		writeAPIError(w, r, illegalTransitionError("superseded_terminal"))
 		return
+	case errors.As(err, &mentionTransitionErr):
+		writeAPIError(w, r, &auth.APIError{
+			Status:  http.StatusConflict,
+			Code:    "illegal_transition",
+			Message: "illegal transition",
+			Details: map[string]any{
+				"from_status":     mentionTransitionErr.FromStatus,
+				"to_status":       mentionTransitionErr.ToStatus,
+				"violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...),
+			},
+		})
+		return
 	case errors.Is(err, ErrNoEffectiveChange):
 		writeAPIError(w, r, invalidMutationPayload("changes", "no_effective_change"))
 		return
 	case errors.As(err, &entityConflict):
 		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
+		return
+	case errors.Is(err, entities.ErrEntityMentionNotFound), errors.Is(err, entities.ErrResolvedRecordNotFound):
+		writeAPIError(w, r, invalidMutationPayload("action_payload", "invalid_value"))
+		return
+	case errors.As(err, &mentionTargetErr):
+		writeAPIError(w, r, invalidMutationPayload("action_payload", "invalid_value"))
 		return
 	case errors.Is(err, entities.ErrInvalidMentionResolution):
 		writeAPIError(w, r, invalidMutationPayload("action_payload", "invalid_value"))
