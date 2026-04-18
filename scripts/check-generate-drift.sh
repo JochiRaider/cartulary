@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
-GENERATED_DIRS=(
+GENERATED_PATHS=(
   "internal/gen/contracts"
   "internal/gen/sql"
   "packages/protocol-ts/src/generated"
@@ -10,30 +10,17 @@ GENERATED_DIRS=(
 
 cd "$ROOT_DIR"
 
-snapshot_generated_state() {
-  local dir
-  local -a files=()
-  for dir in "${GENERATED_DIRS[@]}"; do
-    if [[ -d "$dir" ]]; then
-      while IFS= read -r file; do
-        files+=("$file")
-      done < <(find "$dir" -type f | LC_ALL=C sort)
-    fi
-  done
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "generated artifact drift check must run inside a git work tree" >&2
+  exit 1
+fi
 
-  if [[ "${#files[@]}" -eq 0 ]]; then
-    return 0
-  fi
-
-  sha256sum "${files[@]}"
-}
-
-before_state="$(snapshot_generated_state)"
 make generate
-after_state="$(snapshot_generated_state)"
 
-if [[ "$before_state" != "$after_state" ]]; then
+if [[ -n "$(git status --short -- "${GENERATED_PATHS[@]}")" ]]; then
   echo "generated artifact drift detected after make generate" >&2
-  diff -u <(printf '%s\n' "$before_state") <(printf '%s\n' "$after_state") || true
+  git status --short -- "${GENERATED_PATHS[@]}" >&2
+  echo "diff excerpt (first 200 lines):" >&2
+  git --no-pager diff -- "${GENERATED_PATHS[@]}" | sed -n '1,200p' >&2 || true
   exit 1
 fi

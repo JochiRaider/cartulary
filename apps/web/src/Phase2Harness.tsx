@@ -471,8 +471,8 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
           <p style={eyebrowStyle}>Phase 2 Harness</p>
           <h1 style={headlineStyle}>Incident control envelope</h1>
           <p style={bodyStyle}>
-            Browser-visible create, discovery, patch, membership admin,
-            workbook landing, and extension-dispatch verification.
+            Browser-visible create, discovery, patch, membership admin, workbook
+            landing, and extension-dispatch verification.
           </p>
         </div>
         <div style={statusCardStyle}>
@@ -552,7 +552,7 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
             Create incident
           </button>
           <button
-            data-testid="probe-invalid-create"
+            data-testid="probe-invalid-create-initial-memberships"
             style={secondaryButtonStyle}
             type="button"
             onClick={() => {
@@ -565,14 +565,35 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
                     incident_key: "IR-PROBE-CREATE",
                     title: "Invalid",
                     initial_memberships: [],
-                    unexpected: true,
                   }),
                 },
-                "Invalid create probe complete",
+                "Invalid create initial_memberships probe complete",
               );
             }}
           >
-            Probe invalid create
+            Probe invalid create: initial_memberships
+          </button>
+          <button
+            data-testid="probe-invalid-create-unknown"
+            style={secondaryButtonStyle}
+            type="button"
+            onClick={() => {
+              void runProbe(
+                "/api/v1/incidents",
+                {
+                  method: "POST",
+                  body: JSON.stringify({
+                    client_txn_id: `phase2-ui-invalid-create-unknown-${Date.now()}`,
+                    incident_key: "IR-PROBE-CREATE",
+                    title: "Invalid",
+                    unexpected: true,
+                  }),
+                },
+                "Invalid create unknown-member probe complete",
+              );
+            }}
+          >
+            Probe invalid create: unknown member
           </button>
         </div>
       </section>
@@ -691,7 +712,7 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
                 Patch incident
               </button>
               <button
-                data-testid="probe-invalid-patch"
+                data-testid="probe-invalid-patch-title"
                 style={secondaryButtonStyle}
                 type="button"
                 onClick={() => {
@@ -700,16 +721,37 @@ export function Phase2Harness({ apiBase }: { apiBase?: string }) {
                     {
                       method: "PATCH",
                       body: JSON.stringify({
-                        base_incident_version: selectedIncident.incident_version,
+                        base_incident_version:
+                          selectedIncident.incident_version,
                         title: "forbidden",
-                        unknown: true,
                       }),
                     },
-                    "Invalid patch probe complete",
+                    "Invalid patch forbidden-title probe complete",
                   );
                 }}
               >
-                Probe invalid patch
+                Probe invalid patch: forbidden title
+              </button>
+              <button
+                data-testid="probe-invalid-patch-unknown"
+                style={secondaryButtonStyle}
+                type="button"
+                onClick={() => {
+                  void runProbe(
+                    `/api/v1/incidents/${selectedIncident.incident_id}`,
+                    {
+                      method: "PATCH",
+                      body: JSON.stringify({
+                        base_incident_version:
+                          selectedIncident.incident_version,
+                        unknown: true,
+                      }),
+                    },
+                    "Invalid patch unknown-member probe complete",
+                  );
+                }}
+              >
+                Probe invalid patch: unknown member
               </button>
             </div>
 

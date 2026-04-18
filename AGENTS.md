@@ -5,6 +5,7 @@
 - Normative behavior is owned by the Cartulary normative core under `docs/spec/00_document_set_status_and_precedence.md` through Core 04. The guides under `docs/guides/` are implementation-support inputs, not independent behavior owners.
 - repository remote: `github.com/JochiRaider/cartulary`
 - TODO: replace the temporary Go module path `example.com/todo/cartulary`.
+- TODO: choose and bind an external CI provider that invokes the repo-owned `make ci` contract entrypoint.
 - Supported toolchain baseline: `Go 1.26` with `toolchain go1.26.2`, `Node 24.15.0`, and `pnpm 10.33.0`.
 - Pinned bootstrap tools: `github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0`, `github.com/pressly/goose/v3/cmd/goose@v3.27.0`, and `github.com/testcontainers/testcontainers-go v0.42.0`.
 
@@ -34,6 +35,7 @@
 - `make test`
 - `make lint`
 - `make check`
+- `make ci`
 - `make build`
 
 ## Artifact ownership and edit rules
@@ -53,5 +55,6 @@
 - The local bootstrap server uses `configs/dev/config.toml` through `CARTULARY_CONFIG_FILE`.
 - `make bootstrap` installs the pinned Go CLI tools and workspace dependencies.
 - `make check` is the developer verification gate and runs frozen frontend install, generated-artifact drift detection, migration verification against a scratch local Postgres database, backend lint and tests, frontend lint, type-check, and tests, plus backend and frontend builds.
+- `make ci` is the provider-neutral CI enforcement entrypoint. It composes the canonical repo task surface and fails on codegen drift, migration failures, and deployable-shape drift.
 - From PowerShell, prefer repo commands through `wsl.exe -d Ubuntu-24.04 --cd /home/askahn/code/cartulary ...`; for Node/pnpm, prepend `/home/askahn/code/cartulary/tmp/node-runtime/bin` to `PATH` and use `corepack pnpm`.
 - If Git on the UNC WSL path reports dubious ownership, retry with `git -c safe.directory=//wsl.localhost/Ubuntu-24.04/home/askahn/code/cartulary ...`.

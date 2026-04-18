@@ -239,23 +239,35 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
   }, [apiBase]);
 
   const loadUser = useCallback(
-    async (userID: string) => {
+    async (
+      userID: string,
+      options?: {
+        updateProbe?: boolean;
+      },
+    ) => {
+      const updateProbeOutput = options?.updateProbe ?? true;
       if (userID.trim() === "") {
-        setSelectedUser(null);
+        if (updateProbeOutput) {
+          setSelectedUser(null);
+        }
         return null;
       }
 
       const result = await fetchJSON<{ data: UserResource }>(
         apiPath(apiBase, `/api/v1/users/${userID}`),
       );
-      updateProbe(
-        result.status,
-        result.payload,
-        "Loaded target user",
-        "Load target user failed",
-      );
+      if (updateProbeOutput) {
+        updateProbe(
+          result.status,
+          result.payload,
+          "Loaded target user",
+          "Load target user failed",
+        );
+      }
       if (!result.ok) {
-        setSelectedUser(null);
+        if (updateProbeOutput) {
+          setSelectedUser(null);
+        }
         return null;
       }
 
@@ -507,7 +519,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
       return;
     }
 
-    await loadUser(targetUserID);
+    await loadUser(targetUserID, { updateProbe: false });
   }
 
   async function handleAdminPasswordReset() {
@@ -534,7 +546,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
       return;
     }
 
-    await loadUser(targetUserID);
+    await loadUser(targetUserID, { updateProbe: false });
   }
 
   async function handleAdminTOTPReset() {
@@ -560,7 +572,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
       return;
     }
 
-    await loadUser(targetUserID);
+    await loadUser(targetUserID, { updateProbe: false });
   }
 
   async function handleAdminRevokeAll() {
@@ -581,6 +593,11 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
       "Revoked every user session",
       "Revoke-all failed",
     );
+    if (!result.ok) {
+      return;
+    }
+
+    await loadUser(targetUserID, { updateProbe: false });
   }
 
   return (

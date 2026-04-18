@@ -598,7 +598,23 @@ func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool
 		if token == "" {
 			return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: incidentUnauthorizedCode, Details: map[string]any{}}
 		}
-		return s.authenticateSessionToken(r, auth.AuthSourceBearer, token, stateChanging)
+		if principal, apiErr := s.authenticateSessionToken(r, auth.AuthSourceBearer, token, stateChanging); apiErr == nil {
+			return principal, nil
+		} else if apiErr.Code != incidentUnauthorizedCode {
+			return auth.SessionPrincipal{}, apiErr
+		}
+
+		bootstrapToken, _, err := s.authStore.GetBootstrapTokenByFingerprint(r.Context(), authn.FingerprintToken(s.keys, token))
+		if err == nil {
+			if reason := authn.BootstrapReasonCode(bootstrapToken, s.now()); reason != "" {
+				return auth.SessionPrincipal{}, auth.BootstrapRejectedError(reason)
+			}
+			return auth.SessionPrincipal{}, auth.BootstrapRejectedError("not_allowed_for_route")
+		}
+		if err != nil && !errors.Is(err, authn.ErrNotFound) {
+			return auth.SessionPrincipal{}, internalAPIError(err)
+		}
+		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: incidentUnauthorizedCode, Details: map[string]any{}}
 	}
 
 	cookie, err := r.Cookie(authn.SessionCookieName)

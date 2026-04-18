@@ -1,20 +1,17 @@
-import { createHmac } from "node:crypto";
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { expect, test, type Page } from "@playwright/test";
 
-import { expect, test, type APIResponse, type Page } from "@playwright/test";
-
-const bootstrapEmail = "dev-admin@example.test";
-const bootstrapPassword = "DevBootstrap1!";
-const sessionCookieName = "cartulary_session";
-const csrfCookieName = "cartulary_csrf";
-const csrfHeaderName = "X-CSRF-Token";
-const apiBase = "http://127.0.0.1:8080";
-const adminTotpCachePath = join(tmpdir(), "cartulary-phase2-admin-totp.txt");
-
-let adminTotpSecretBase32: string | null = null;
-let adminCookies: { session: string; csrf: string } | null = null;
+import {
+  apiBase,
+  applyCookies,
+  csrfCookieName,
+  csrfHeaders,
+  ensureAdminSession,
+  requireCookie,
+  sessionCookieName,
+  uniqueEmail,
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./helpers";
 
 test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface", async ({
   page,
@@ -138,16 +135,36 @@ test("E-2-04 rejects unknown or forbidden top-level members with route-owned err
   const incidentId = await createIncident(page, uniqueIncidentKey("E204"), "Phase 2 E-2-04");
 
   await page.goto("/");
-  await page.getByTestId("probe-invalid-create").click();
+  await page.getByTestId("probe-invalid-create-initial-memberships").click();
   await expect(page.getByTestId("last-error-code")).toHaveText("invalid_incident_create");
-  await expect(page.getByTestId("last-error-details")).toContainText(
-    "initial_memberships",
-  );
+  await expectLastErrorDetails(page, [
+    '"field": "initial_memberships"',
+    '"reason_code": "initial_memberships_not_supported"',
+  ]);
+
+  await page.getByTestId("probe-invalid-create-unknown").click();
+  await expect(page.getByTestId("last-error-code")).toHaveText("invalid_incident_create");
+  await expectLastErrorDetails(page, [
+    '"field": "unexpected"',
+    '"reason_code": "unknown_top_level_member"',
+  ]);
 
   await page.getByTestId(`select-incident-${incidentId}`).click();
-  await page.getByTestId("probe-invalid-patch").click();
+  await expect(page.getByTestId("current-incident-id")).toHaveText(incidentId);
+
+  await page.getByTestId("probe-invalid-patch-title").click();
   await expect(page.getByTestId("last-error-code")).toHaveText("invalid_incident_patch");
-  await expect(page.getByTestId("last-error-details")).toContainText("title");
+  await expectLastErrorDetails(page, [
+    '"field": "title"',
+    '"reason_code": "forbidden_field"',
+  ]);
+
+  await page.getByTestId("probe-invalid-patch-unknown").click();
+  await expect(page.getByTestId("last-error-code")).toHaveText("invalid_incident_patch");
+  await expectLastErrorDetails(page, [
+    '"field": "unknown"',
+    '"reason_code": "unknown_top_level_member"',
+  ]);
 });
 
 test("E-2-05 allows zero-membership extension discovery and rejects singleton pagination semantics", async ({
@@ -219,98 +236,6 @@ test("E-2-06 shows reserved-family 404 precedence while base and outside-reserve
   );
 });
 
-async function ensureAdminSession(page: Page) {
-  if (adminCookies !== null) {
-    await applyCookies(page, adminCookies.session, adminCookies.csrf);
-    return;
-  }
-
-  if (adminTotpSecretBase32 === null) {
-    adminTotpSecretBase32 = loadCachedAdminTotpSecret();
-  }
-
-  const loginResponse = await page.request.post(`${apiBase}/api/v1/auth/login`, {
-    data: {
-      username: bootstrapEmail,
-      password: bootstrapPassword,
-    },
-  });
-  if (loginResponse.ok()) {
-    adminCookies = {
-      session: requireCookie(loginResponse, sessionCookieName),
-      csrf: requireCookie(loginResponse, csrfCookieName),
-    };
-    await applyCookies(page, adminCookies.session, adminCookies.csrf);
-    return;
-  }
-
-  if (loginResponse.status() === 401) {
-    const loginBody = (await loginResponse.json()) as {
-      error: { code: string; details: { bootstrap_token?: string } };
-    };
-    if (loginBody.error.code === "mfa_setup_required") {
-      clearCachedAdminTotpSecret();
-      const bootstrapToken = loginBody.error.details.bootstrap_token;
-      if (!bootstrapToken) {
-        throw new Error("missing bootstrap_token");
-      }
-
-      const beginResponse = await page.request.post(
-        `${apiBase}/api/v1/auth/mfa/totp/begin`,
-        {
-          headers: { Authorization: `Bearer ${bootstrapToken}` },
-          data: { client_txn_id: uniqueTxn("phase2-totp-begin") },
-        },
-      );
-      const beginBody = (await beginResponse.json()) as {
-        data: { enrollment_id: string; totp_setup: { secret_base32: string } };
-      };
-      adminTotpSecretBase32 = beginBody.data.totp_setup.secret_base32;
-      cacheAdminTotpSecret(adminTotpSecretBase32);
-
-      const completeResponse = await page.request.post(
-        `${apiBase}/api/v1/auth/mfa/totp/complete`,
-        {
-          headers: { Authorization: `Bearer ${bootstrapToken}` },
-          data: {
-            client_txn_id: uniqueTxn("phase2-totp-complete"),
-            enrollment_id: beginBody.data.enrollment_id,
-            code: generateTotpCode(adminTotpSecretBase32),
-          },
-        },
-      );
-      expect(completeResponse.ok()).toBeTruthy();
-    }
-  }
-
-  if (adminTotpSecretBase32 === null) {
-    throw new Error("missing cached admin TOTP secret");
-  }
-
-  const secondFactorLogin = await page.request.post(`${apiBase}/api/v1/auth/login`, {
-    data: {
-      username: bootstrapEmail,
-      password: bootstrapPassword,
-      second_factor: {
-        kind: "totp",
-        assertion: {
-          code: generateTotpCode(adminTotpSecretBase32),
-        },
-      },
-    },
-  });
-  if (!secondFactorLogin.ok()) {
-    clearCachedAdminTotpSecret();
-    throw new Error(`second factor login failed: ${await secondFactorLogin.text()}`);
-  }
-
-  adminCookies = {
-    session: requireCookie(secondFactorLogin, sessionCookieName),
-    csrf: requireCookie(secondFactorLogin, csrfCookieName),
-  };
-  await applyCookies(page, adminCookies.session, adminCookies.csrf);
-}
-
 async function switchToLocalSession(page: Page, email: string, password: string) {
   await page.context().clearCookies();
   const loginResponse = await page.request.post(`${apiBase}/api/v1/auth/login`, {
@@ -366,117 +291,9 @@ async function createLocalUser(
   return ((await response.json()) as { data: { user_id: string } }).data;
 }
 
-async function csrfHeaders(page: Page) {
-  const cookies = await page.context().cookies(apiBase);
-  const csrfCookie = cookies.find((cookie) => cookie.name === csrfCookieName);
-  if (!csrfCookie) {
-    throw new Error("missing CSRF cookie");
+async function expectLastErrorDetails(page: Page, fragments: string[]) {
+  const details = page.getByTestId("last-error-details");
+  for (const fragment of fragments) {
+    await expect(details).toContainText(fragment);
   }
-  return {
-    [csrfHeaderName]: csrfCookie.value,
-  };
-}
-
-async function applyCookies(page: Page, session: string, csrf: string) {
-  await page.context().addCookies([
-    {
-      name: sessionCookieName,
-      value: session,
-      domain: "127.0.0.1",
-      path: "/",
-      httpOnly: true,
-      sameSite: "Lax",
-    },
-    {
-      name: csrfCookieName,
-      value: csrf,
-      domain: "127.0.0.1",
-      path: "/",
-      sameSite: "Lax",
-    },
-  ]);
-}
-
-function requireCookie(response: APIResponse, name: string) {
-  for (const header of response.headersArray()) {
-    if (header.name.toLowerCase() !== "set-cookie") {
-      continue;
-    }
-    const [cookiePair] = header.value.split(";", 1);
-    if (!cookiePair) {
-      continue;
-    }
-    const [cookieName, cookieValue] = cookiePair.split("=", 2);
-    if (cookieName === name && cookieValue) {
-      return cookieValue;
-    }
-  }
-  throw new Error(`missing ${name} cookie on login response`);
-}
-
-function loadCachedAdminTotpSecret() {
-  if (!existsSync(adminTotpCachePath)) {
-    return null;
-  }
-
-  const secret = readFileSync(adminTotpCachePath, "utf8").trim();
-  return secret === "" ? null : secret;
-}
-
-function cacheAdminTotpSecret(secretBase32: string) {
-  writeFileSync(adminTotpCachePath, `${secretBase32}\n`, "utf8");
-}
-
-function clearCachedAdminTotpSecret() {
-  adminTotpSecretBase32 = null;
-  if (!existsSync(adminTotpCachePath)) {
-    return;
-  }
-  unlinkSync(adminTotpCachePath);
-}
-
-function uniqueTxn(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-}
-
-function uniqueIncidentKey(prefix: string) {
-  return `IR-${prefix}-${Date.now().toString(36).toUpperCase()}`;
-}
-
-function uniqueEmail(prefix: string) {
-  return `${prefix}-${Date.now().toString(36)}@example.test`;
-}
-
-function generateTotpCode(secretBase32: string) {
-  const secret = decodeBase32(secretBase32);
-  const counter = Math.floor(Date.now() / 1000 / 30);
-  const counterBuffer = Buffer.alloc(8);
-  counterBuffer.writeBigUInt64BE(BigInt(counter));
-  const digest = createHmac("sha1", secret).update(counterBuffer).digest();
-  const offset = digest[digest.length - 1] & 0x0f;
-  const code =
-    ((digest[offset] & 0x7f) << 24) |
-    ((digest[offset + 1] & 0xff) << 16) |
-    ((digest[offset + 2] & 0xff) << 8) |
-    (digest[offset + 3] & 0xff);
-  return String(code % 1_000_000).padStart(6, "0");
-}
-
-function decodeBase32(input: string) {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  const normalized = input.replace(/=+$/u, "").toUpperCase();
-  let bits = "";
-  for (const character of normalized) {
-    const index = alphabet.indexOf(character);
-    if (index < 0) {
-      throw new Error(`invalid base32 character: ${character}`);
-    }
-    bits += index.toString(2).padStart(5, "0");
-  }
-
-  const bytes: number[] = [];
-  for (let index = 0; index + 8 <= bits.length; index += 8) {
-    bytes.push(Number.parseInt(bits.slice(index, index + 8), 2));
-  }
-  return Buffer.from(bytes);
 }
