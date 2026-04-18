@@ -20,6 +20,33 @@ func TestPhase0_ConfigDiscovery_U_0_01(t *testing.T) {
 		}
 	})
 
+	t.Run("selects an absolute CARTULARY_CONFIG_FILE override", func(t *testing.T) {
+		alternate := writeTempConfig(t, string(fixtures.MustRead("config", "valid.toml")))
+		path, err := ResolvePathWithOptions(LoadOptions{
+			Env: map[string]string{
+				ConfigFileEnv: alternate,
+			},
+		})
+		if err != nil {
+			t.Fatalf("resolve absolute selector override: %v", err)
+		}
+		if path != alternate {
+			t.Fatalf("unexpected override path: got %q want %q", path, alternate)
+		}
+
+		cfg, err := LoadWithOptions(LoadOptions{
+			Env: map[string]string{
+				ConfigFileEnv: alternate,
+			},
+		})
+		if err != nil {
+			t.Fatalf("load config from absolute selector override: %v", err)
+		}
+		if cfg.Roots.DatabaseStorage.Path != "/var/lib/cartulary/postgres" {
+			t.Fatalf("unexpected config loaded from override path: got %q", cfg.Roots.DatabaseStorage.Path)
+		}
+	})
+
 	t.Run("requires selector overrides to be absolute", func(t *testing.T) {
 		_, err := ResolvePathWithOptions(LoadOptions{
 			Env: map[string]string{
@@ -80,6 +107,12 @@ func TestPhase0_RuntimeRoots_U_0_02(t *testing.T) {
 	t.Run("requires the full runtime root registry", func(t *testing.T) {
 		err := loadInvalidConfig(t, stripSection(t, string(fixtures.MustRead("config", "valid.toml")), "[roots.export_outputs]"), nil)
 		requireDiagnostic(t, err, "roots.export_outputs", "missing_required_key")
+	})
+
+	t.Run("rejects unknown runtime root keys in the config artifact", func(t *testing.T) {
+		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[roots.archive_storage]\nbinding_kind = \"filesystem_root\"\npath = \"/var/lib/cartulary/archive\"\n"
+		err := loadInvalidConfig(t, content, nil)
+		requireDiagnostic(t, err, "roots.archive_storage.binding_kind", "unknown_key")
 	})
 
 	t.Run("rejects unknown binding kinds", func(t *testing.T) {
@@ -153,6 +186,68 @@ func TestPhase0_RuntimeRoots_U_0_02(t *testing.T) {
 			t.Fatalf("load on-prem managed services config: %v", err)
 		}
 	})
+
+	t.Run("rejects managed services for roots that are always filesystem-only", func(t *testing.T) {
+		cases := []struct {
+			name        string
+			original    string
+			replacement string
+			diagnostic  string
+		}{
+			{
+				name: "reference_pack_storage",
+				original: strings.Join([]string{
+					`[roots.reference_pack_storage]`,
+					`binding_kind = "filesystem_root"`,
+					`path = "/var/lib/cartulary/reference-packs"`,
+				}, "\n"),
+				replacement: strings.Join([]string{
+					`[roots.reference_pack_storage]`,
+					`binding_kind = "managed_service"`,
+					`service_ref = "shared-service"`,
+				}, "\n"),
+				diagnostic: "roots.reference_pack_storage.binding_kind",
+			},
+			{
+				name: "temporary_work",
+				original: strings.Join([]string{
+					`[roots.temporary_work]`,
+					`binding_kind = "filesystem_root"`,
+					`path = "/var/lib/cartulary/tmp"`,
+				}, "\n"),
+				replacement: strings.Join([]string{
+					`[roots.temporary_work]`,
+					`binding_kind = "managed_service"`,
+					`service_ref = "shared-service"`,
+				}, "\n"),
+				diagnostic: "roots.temporary_work.binding_kind",
+			},
+			{
+				name: "export_outputs",
+				original: strings.Join([]string{
+					`[roots.export_outputs]`,
+					`binding_kind = "filesystem_root"`,
+					`path = "/var/lib/cartulary/exports"`,
+				}, "\n"),
+				replacement: strings.Join([]string{
+					`[roots.export_outputs]`,
+					`binding_kind = "managed_service"`,
+					`service_ref = "shared-service"`,
+				}, "\n"),
+				diagnostic: "roots.export_outputs.binding_kind",
+			},
+		}
+
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				content := string(fixtures.MustRead("config", "valid.toml"))
+				content = strings.Replace(content, tc.original, tc.replacement, 1)
+
+				err := loadInvalidConfig(t, content, nil)
+				requireDiagnostic(t, err, tc.diagnostic, "profile_incompatible_binding")
+			})
+		}
+	})
 }
 
 func TestPhase0_FilesystemRootPaths_U_0_03(t *testing.T) {
@@ -162,9 +257,38 @@ func TestPhase0_FilesystemRootPaths_U_0_03(t *testing.T) {
 		requireDiagnostic(t, err, "roots.database_storage.path", "path_not_absolute")
 	})
 
+	t.Run("rejects empty and shell-expanded filesystem roots", func(t *testing.T) {
+		cases := []struct {
+			name   string
+			path   string
+			reason string
+		}{
+			{name: "empty", path: ``, reason: "missing_required_key"},
+			{name: "home shorthand", path: `~/cartulary/postgres`, reason: "path_not_absolute"},
+			{name: "shell variable", path: `$HOME/cartulary/postgres`, reason: "path_not_absolute"},
+			{name: "shell variable braces", path: `${HOME}/cartulary/postgres`, reason: "path_not_absolute"},
+		}
+
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				content := strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `path = "/var/lib/cartulary/postgres"`, `path = "`+tc.path+`"`)
+				err := loadInvalidConfig(t, content, nil)
+				requireDiagnostic(t, err, "roots.database_storage.path", tc.reason)
+			})
+		}
+	})
+
 	t.Run("rejects forbidden lexical path segments", func(t *testing.T) {
 		content := strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `path = "/var/lib/cartulary/postgres"`, `path = "/var/lib/cartulary/../postgres"`)
 		err := loadInvalidConfig(t, content, nil)
+		requireDiagnostic(t, err, "roots.database_storage.path", "path_forbidden_segment")
+	})
+
+	t.Run("rejects NUL bytes when the runtime can construct them", func(t *testing.T) {
+		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), nil)
+		cfg.Roots.DatabaseStorage.Path = "/var/lib/cartulary/\x00postgres"
+
+		_, err := Validate(cfg)
 		requireDiagnostic(t, err, "roots.database_storage.path", "path_forbidden_segment")
 	})
 
@@ -247,6 +371,19 @@ func TestPhase0_DisconnectedDefaults_U_0_04(t *testing.T) {
 		err := loadInvalidConfig(t, stripSection(t, string(fixtures.MustRead("config", "valid.toml")), "[roots.backup_storage]"), nil)
 		requireDiagnostic(t, err, "roots.backup_storage", "missing_required_key")
 	})
+
+	t.Run("does not let disconnected defaults mask malformed configured roots", func(t *testing.T) {
+		content := strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `path = "/var/lib/cartulary/object-store"`, `path = "relative/object-store"`)
+		err := loadInvalidConfig(t, content, nil)
+		requireDiagnostic(t, err, "roots.object_storage.path", "path_not_absolute")
+	})
+
+	t.Run("does not apply disconnected-only defaults to non-disconnected profiles", func(t *testing.T) {
+		content := strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `deployment_profile = "disconnected"`, `deployment_profile = "on_prem"`)
+		content = stripSection(t, content, "[roots.reference_pack_storage]")
+		err := loadInvalidConfig(t, content, nil)
+		requireDiagnostic(t, err, "roots.reference_pack_storage", "missing_required_key")
+	})
 }
 
 func TestPhase0_ResourceLimits_U_0_09(t *testing.T) {
@@ -312,10 +449,24 @@ func TestPhase0_ResourceLimits_U_0_09(t *testing.T) {
 	})
 
 	t.Run("rejects undeclared pseudo resource-limit keys", func(t *testing.T) {
-		err := loadInvalidConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
-			"CARTULARY__LIMITS__VIEW_QUERY__MAX_SORT_ENTRIES": "9",
-		})
-		requireDiagnostic(t, err, "limits.view_query.max_sort_entries", "unknown_key")
+		cases := []struct {
+			envKey string
+			path   string
+		}{
+			{"CARTULARY__LIMITS__VIEW_QUERY__MAX_SORT_ENTRIES", "limits.view_query.max_sort_entries"},
+			{"CARTULARY__LIMITS__VIEW_QUERY__MAX_FILTER_ENTRIES", "limits.view_query.max_filter_entries"},
+			{"CARTULARY__LIMITS__RECORDS__MAX_CHANGES", "limits.records.max_changes"},
+			{"CARTULARY__LIMITS__RECORDS__MAX_COLLECTION_ACTIONS", "limits.records.max_collection_actions"},
+		}
+
+		for _, tc := range cases {
+			t.Run(tc.path, func(t *testing.T) {
+				err := loadInvalidConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
+					tc.envKey: "9",
+				})
+				requireDiagnostic(t, err, tc.path, "unknown_key")
+			})
+		}
 	})
 
 	t.Run("keeps fixed public ceilings deployment-invariant", func(t *testing.T) {

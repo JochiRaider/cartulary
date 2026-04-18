@@ -12,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
@@ -21,11 +22,13 @@ func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
 	originalNewJobsManager := newJobsManager
 	originalSetupPostgres := setupPostgres
 	originalSetupObjectStore := setupObjectStore
+	originalNewWSHub := newWSHub
 	originalNewHTTPHandler := newHTTPHandler
 	t.Cleanup(func() {
 		newJobsManager = originalNewJobsManager
 		setupPostgres = originalSetupPostgres
 		setupObjectStore = originalSetupObjectStore
+		newWSHub = originalNewWSHub
 		newHTTPHandler = originalNewHTTPHandler
 	})
 
@@ -47,6 +50,12 @@ func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
 		return nil, nil
 	}
 
+	var wsHubCalls int
+	newWSHub = func() *platformws.Hub {
+		wsHubCalls++
+		return platformws.NewHub()
+	}
+
 	var handlerCalls int
 	newHTTPHandler = func(options ...httpapi.Options) (http.Handler, error) {
 		handlerCalls++
@@ -66,8 +75,8 @@ func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
 		t.Fatalf("unexpected diagnostics code: got %q", diagnosticsErr.Code)
 	}
 
-	if jobsCalls != 0 || postgresCalls != 0 || objectStoreCalls != 0 || handlerCalls != 0 {
-		t.Fatalf("expected fail-closed startup before any dependency wiring, got jobs=%d postgres=%d object_store=%d handler=%d", jobsCalls, postgresCalls, objectStoreCalls, handlerCalls)
+	if jobsCalls != 0 || postgresCalls != 0 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
+		t.Fatalf("expected fail-closed startup before any dependency wiring, got jobs=%d postgres=%d object_store=%d websocket=%d handler=%d", jobsCalls, postgresCalls, objectStoreCalls, wsHubCalls, handlerCalls)
 	}
 }
 

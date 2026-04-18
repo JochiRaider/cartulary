@@ -47,14 +47,81 @@ func TestPhase0_BootstrapManifestValidation_U_0_07(t *testing.T) {
 		requireBootstrapDiagnostic(t, err, "bootstrap.first_admin_manifest.unexpected", "bootstrap_manifest_schema_invalid")
 	})
 
+	t.Run("rejects missing bootstrap_schema_id", func(t *testing.T) {
+		err := parseBootstrapManifestError(t, `{"bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!"}`)
+		requireBootstrapDiagnostic(t, err, "bootstrap.first_admin_manifest.bootstrap_schema_id", "bootstrap_manifest_schema_invalid")
+	})
+
 	t.Run("rejects client-chosen deployment-admin state", func(t *testing.T) {
 		err := parseBootstrapManifestError(t, `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","is_deployment_admin":true}`)
 		requireBootstrapDiagnostic(t, err, "bootstrap.first_admin_manifest.is_deployment_admin", "bootstrap_manifest_schema_invalid")
 	})
 
+	t.Run("rejects incident membership, provider binding, and credential lifecycle fields", func(t *testing.T) {
+		cases := []struct {
+			name    string
+			content string
+			path    string
+		}{
+			{
+				name:    "incident membership",
+				content: `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","incident_memberships":[{"incident_id":"11111111-1111-1111-1111-111111111111","role":"admin"}]}`,
+				path:    "bootstrap.first_admin_manifest.incident_memberships",
+			},
+			{
+				name:    "provider identity",
+				content: `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","provider_subject":"oidc-subject"}`,
+				path:    "bootstrap.first_admin_manifest.provider_subject",
+			},
+			{
+				name:    "secret bearing extra",
+				content: `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","totp_secret_ciphertext":"opaque-secret"}`,
+				path:    "bootstrap.first_admin_manifest.totp_secret_ciphertext",
+			},
+		}
+
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				err := parseBootstrapManifestError(t, tc.content)
+				requireBootstrapDiagnostic(t, err, tc.path, "bootstrap_manifest_schema_invalid")
+			})
+		}
+	})
+
 	t.Run("rejects unsupported bootstrap schema identifiers", func(t *testing.T) {
 		err := parseBootstrapManifestError(t, `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v2","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!"}`)
 		requireBootstrapDiagnostic(t, err, "bootstrap.first_admin_manifest.bootstrap_schema_id", "bootstrap_manifest_schema_invalid")
+	})
+
+	t.Run("rejects malformed manifest field values", func(t *testing.T) {
+		cases := []struct {
+			name    string
+			content string
+			path    string
+		}{
+			{
+				name:    "email with whitespace",
+				content: `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!"}`,
+				path:    "bootstrap.first_admin_manifest.email",
+			},
+			{
+				name:    "display name empty after trim",
+				content: `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"   ","initial_password":"BootstrapPass1!"}`,
+				path:    "bootstrap.first_admin_manifest.display_name",
+			},
+			{
+				name:    "password too short",
+				content: `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"short"}`,
+				path:    "bootstrap.first_admin_manifest.initial_password",
+			},
+		}
+
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				err := parseBootstrapManifestError(t, tc.content)
+				requireBootstrapDiagnostic(t, err, tc.path, "bootstrap_manifest_schema_invalid")
+			})
+		}
 	})
 }
 
@@ -91,6 +158,33 @@ func TestPhase0_BootstrapPreflight_U_0_08(t *testing.T) {
 		}
 		if readCalls != 0 {
 			t.Fatalf("expected manifest reads to be skipped, got %d", readCalls)
+		}
+		if store.createCalls != 0 {
+			t.Fatalf("expected no bootstrap create call, got %d", store.createCalls)
+		}
+	})
+
+	t.Run("skips stale and invalid manifests when an active deployment admin already exists", func(t *testing.T) {
+		store := &bootstrapStoreStub{
+			state: bootstrapState{
+				ActiveDeploymentAdmins: 1,
+			},
+		}
+
+		var readCalls int
+		err := bootstrapPreflight(context.Background(), config.Config{
+			Bootstrap: config.BootstrapConfig{
+				FirstAdminManifestPath: "/tmp/invalid-bootstrap.json",
+			},
+		}, store, func(path string) ([]byte, error) {
+			readCalls++
+			return []byte(`{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","mfa_required":false}`), nil
+		}, deriveBootstrapPasswordHash)
+		if err != nil {
+			t.Fatalf("bootstrap preflight with existing admin and invalid manifest: %v", err)
+		}
+		if readCalls != 0 {
+			t.Fatalf("expected manifest reads to be skipped for invalid configured content, got %d", readCalls)
 		}
 		if store.createCalls != 0 {
 			t.Fatalf("expected no bootstrap create call, got %d", store.createCalls)
@@ -138,6 +232,24 @@ func TestPhase0_BootstrapPreflight_U_0_08(t *testing.T) {
 		if store.createCalls != 0 {
 			t.Fatalf("expected no bootstrap create call, got %d", store.createCalls)
 		}
+	})
+
+	t.Run("returns stable reason codes for unreadable and non-regular manifests", func(t *testing.T) {
+		store := &bootstrapStoreStub{}
+
+		err := bootstrapPreflight(context.Background(), config.Config{
+			Bootstrap: config.BootstrapConfig{
+				FirstAdminManifestPath: filepath.Join(t.TempDir(), "missing-bootstrap.json"),
+			},
+		}, store, os.ReadFile, deriveBootstrapPasswordHash)
+		requireBootstrapDiagnostic(t, err, "bootstrap.first_admin_manifest_path", "bootstrap_manifest_not_readable")
+
+		err = bootstrapPreflight(context.Background(), config.Config{
+			Bootstrap: config.BootstrapConfig{
+				FirstAdminManifestPath: t.TempDir(),
+			},
+		}, store, os.ReadFile, deriveBootstrapPasswordHash)
+		requireBootstrapDiagnostic(t, err, "bootstrap.first_admin_manifest_path", "bootstrap_manifest_not_regular_file")
 	})
 
 	t.Run("consumes the configured manifest when bootstrap is required", func(t *testing.T) {

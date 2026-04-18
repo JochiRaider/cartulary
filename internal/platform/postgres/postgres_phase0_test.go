@@ -3,8 +3,10 @@ package postgres_test
 import (
 	"context"
 	"database/sql"
+	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -14,37 +16,36 @@ import (
 )
 
 func TestPhase0_SchemaBootstrap_U_0_06(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	testDB, err := postgresHarness.NewDatabase(context.Background(), "phase0-u-0-06")
+	data, err := os.ReadFile(filepath.Join(phase0MigrationsDir(), "00001_phase0_bootstrap.sql"))
 	if err != nil {
-		t.Fatalf("prepare postgres database: %v", err)
+		t.Fatalf("read phase 0 bootstrap migration: %v", err)
 	}
-	defer func() {
-		if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop postgres database: %v", err)
+
+	sqlText := string(data)
+	requiredIdempotentStatements := []string{
+		"CREATE EXTENSION IF NOT EXISTS pgcrypto;",
+		"CREATE EXTENSION IF NOT EXISTS citext;",
+		"CREATE TABLE IF NOT EXISTS users (",
+		"CREATE TABLE IF NOT EXISTS deployment_bootstrap_state (",
+		"CREATE TABLE IF NOT EXISTS deployment_admin_audit_events (",
+	}
+	for _, statement := range requiredIdempotentStatements {
+		if !strings.Contains(sqlText, statement) {
+			t.Fatalf("bootstrap migration must keep rerun-safe DDL %q", statement)
 		}
-	}()
-
-	db, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatalf("open postgres sql handle: %v", err)
-	}
-	defer db.Close()
-
-	status, err := postgres.Migrate(db, phase0MigrationsDir(), "up")
-	if err != nil {
-		t.Fatalf("run first schema bootstrap: %v", err)
-	}
-	if status.Empty {
-		t.Fatal("expected numbered phase 0 migrations to exist")
 	}
 
-	status, err = postgres.Migrate(db, phase0MigrationsDir(), "up")
-	if err != nil {
-		t.Fatalf("run second schema bootstrap: %v", err)
+	nonIdempotentStatements := []string{
+		"CREATE EXTENSION pgcrypto;",
+		"CREATE EXTENSION citext;",
+		"CREATE TABLE users (",
+		"CREATE TABLE deployment_bootstrap_state (",
+		"CREATE TABLE deployment_admin_audit_events (",
 	}
-	if status.Empty {
-		t.Fatal("expected migration rerun to use the numbered phase 0 migrations")
+	for _, statement := range nonIdempotentStatements {
+		if strings.Contains(sqlText, statement) {
+			t.Fatalf("bootstrap migration must not use non-idempotent DDL %q", statement)
+		}
 	}
 }
 
@@ -69,6 +70,10 @@ func TestPhase0_SchemaBootstrap_I_0_01(t *testing.T) {
 	if _, err := postgres.Migrate(db, phase0MigrationsDir(), "up"); err != nil {
 		t.Fatalf("run first schema bootstrap: %v", err)
 	}
+
+	assertCount(t, db, `SELECT COUNT(*) FROM pg_extension WHERE extname IN ('pgcrypto', 'citext')`, 2)
+	assertCount(t, db, `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('users', 'deployment_bootstrap_state', 'deployment_admin_audit_events')`, 3)
+
 	if _, err := postgres.Migrate(db, phase0MigrationsDir(), "up"); err != nil {
 		t.Fatalf("run second schema bootstrap: %v", err)
 	}
@@ -78,6 +83,8 @@ func TestPhase0_SchemaBootstrap_I_0_01(t *testing.T) {
 	assertExists(t, db, `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users'`)
 	assertExists(t, db, `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'deployment_bootstrap_state'`)
 	assertExists(t, db, `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'deployment_admin_audit_events'`)
+	assertCount(t, db, `SELECT COUNT(*) FROM pg_extension WHERE extname IN ('pgcrypto', 'citext')`, 2)
+	assertCount(t, db, `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('users', 'deployment_bootstrap_state', 'deployment_admin_audit_events')`, 3)
 }
 
 func assertExists(t testing.TB, db *sql.DB, query string) {
@@ -86,6 +93,18 @@ func assertExists(t testing.TB, db *sql.DB, query string) {
 	var marker int
 	if err := db.QueryRowContext(context.Background(), query).Scan(&marker); err != nil {
 		t.Fatalf("query %q: %v", query, err)
+	}
+}
+
+func assertCount(t testing.TB, db *sql.DB, query string, want int) {
+	t.Helper()
+
+	var got int
+	if err := db.QueryRowContext(context.Background(), query).Scan(&got); err != nil {
+		t.Fatalf("query %q: %v", query, err)
+	}
+	if got != want {
+		t.Fatalf("unexpected count for %q: got %d want %d", query, got, want)
 	}
 }
 

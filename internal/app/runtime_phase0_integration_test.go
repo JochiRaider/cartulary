@@ -3,17 +3,23 @@ package app
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	"github.com/JochiRaider/cartulary/internal/testutil/crosscutting"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
@@ -42,82 +48,178 @@ func TestPhase0_InvalidConfigNeverReachesReady_I_0_03(t *testing.T) {
 		}
 	}()
 
-	env := testDB.Env()
-	for key, value := range s3Harness.Env(bucket) {
-		env[key] = value
+	env := phase0IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
+	cases := []struct {
+		name       string
+		mutate     func(config.Config) config.Config
+		path       string
+		reasonCode string
+	}{
+		{
+			name: "path-validation failure",
+			mutate: func(cfg config.Config) config.Config {
+				cfg.Roots.DatabaseStorage.Path = "relative/postgres"
+				return cfg
+			},
+			path:       "roots.database_storage.path",
+			reasonCode: "path_not_absolute",
+		},
+		{
+			name: "missing required runtime root",
+			mutate: func(cfg config.Config) config.Config {
+				cfg.Roots.ExportOutputs = config.RootBinding{}
+				return cfg
+			},
+			path:       "roots.export_outputs",
+			reasonCode: "missing_required_key",
+		},
 	}
 
-	t.Run("rejects invalid filesystem roots even when services are healthy", func(t *testing.T) {
-		cfg := phase0RuntimeConfig(t)
-		cfg.Roots.DatabaseStorage.Path = "relative/postgres"
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			counters := installPhase0StartupCounters(t)
+			cfg := tc.mutate(phase0RuntimeConfig(t))
 
-		_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
-		requireInvalidDeploymentConfig(t, err)
-	})
-
-	t.Run("rejects missing required runtime roots even when services are healthy", func(t *testing.T) {
-		cfg := phase0RuntimeConfig(t)
-		cfg.Roots.ExportOutputs = config.RootBinding{}
-
-		_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
-		requireInvalidDeploymentConfig(t, err)
-	})
+			_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
+			requireDiagnosticPathAndReason(t, err, tc.path, tc.reasonCode)
+			counters.RequireNotStarted(t)
+		})
+	}
 }
 
 func TestPhase0_FirstAdminBootstrap_I_0_04(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)
 
-	testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-bootstrap-success")
-	if err != nil {
-		t.Fatalf("prepare postgres database: %v", err)
-	}
-	defer func() {
-		if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop postgres database: %v", err)
+	t.Run("commits one deployment admin, bootstrap marker, and startup audit before readiness", func(t *testing.T) {
+		testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-bootstrap-success")
+		if err != nil {
+			t.Fatalf("prepare postgres database: %v", err)
 		}
-	}()
+		defer func() {
+			if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
+				t.Fatalf("drop postgres database: %v", err)
+			}
+		}()
 
-	bucket := phase0BucketName("phase0-bootstrap-success")
-	defer func() {
-		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-			t.Logf("cleanup bucket: %v", err)
+		db := openPhase0SQL(t, testDB.DSN)
+		defer db.Close()
+
+		bucket := phase0BucketName("phase0-bootstrap-success")
+		defer func() {
+			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
+				t.Logf("cleanup bucket: %v", err)
+			}
+		}()
+
+		env := phase0IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
+		cfg := phase0RuntimeConfig(t)
+		cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
+
+		runtime, err := NewRuntime(context.Background(), cfg, Options{Env: env})
+		if err != nil {
+			t.Fatalf("start runtime with canonical bootstrap manifest: %v", err)
 		}
-	}()
+		defer runtime.Close()
 
-	env := testDB.Env()
-	for key, value := range s3Harness.Env(bucket) {
-		env[key] = value
-	}
+		requireCountSQL(t, db, `SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true`, 1)
+		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 1)
+		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 1)
+		requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 
-	cfg := phase0RuntimeConfig(t)
-	cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
+		var userID string
+		var email string
+		var mfaRequired bool
+		var passwordHash string
+		if err := db.QueryRowContext(context.Background(), `SELECT id::text, email, mfa_required, password_hash FROM users WHERE is_active = true AND is_deployment_admin = true`).Scan(&userID, &email, &mfaRequired, &passwordHash); err != nil {
+			t.Fatalf("query bootstrap-created user: %v", err)
+		}
+		if email != "bootstrap-admin@example.test" {
+			t.Fatalf("unexpected bootstrap-created email: got %q", email)
+		}
+		if !mfaRequired {
+			t.Fatal("expected bootstrap-created user to require MFA")
+		}
+		if passwordHash == "" || strings.Contains(passwordHash, "BootstrapPass1!") {
+			t.Fatalf("expected persisted password hash without cleartext secret, got %q", passwordHash)
+		}
 
-	runtime, err := NewRuntime(context.Background(), cfg, Options{Env: env})
-	if err != nil {
-		t.Fatalf("start runtime with canonical bootstrap manifest: %v", err)
-	}
-	defer runtime.Close()
+		audit := lookupBootstrapAuditEvent(t, db)
+		crosscutting.RequireSystemMutationAttribution(t, crosscutting.SystemMutationAttribution{
+			ActorUserID: audit.ActorUserID,
+			Source:      audit.EventSource,
+			EventKind:   audit.EventKind,
+			RequestID:   audit.RequestID,
+			CreatedAt:   audit.CreatedAt,
+		}, "bootstrap_manifest", "bootstrap_admin_created")
+		if audit.TargetUserID != userID {
+			t.Fatalf("unexpected startup audit target_user_id: got %q want %q", audit.TargetUserID, userID)
+		}
+		crosscutting.RequireSecretSafePayload(t, audit.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32", "provider_subject", "provider_key"})
+		if got := audit.After["email"]; got != email {
+			t.Fatalf("unexpected startup audit email: got %v want %q", got, email)
+		}
+		if got := audit.After["mfa_required"]; got != true {
+			t.Fatalf("unexpected startup audit MFA payload: %#v", audit.After)
+		}
 
-	requireCountPool(t, runtime.Postgres, `SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true`, 1)
-	requireCountPool(t, runtime.Postgres, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 1)
-	requireCountPool(t, runtime.Postgres, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 1)
+		server := httptest.NewServer(runtime.Handler)
+		defer server.Close()
+		resp, err := http.Get(server.URL + "/readyz")
+		if err != nil {
+			t.Fatalf("probe readyz after bootstrap commit: %v", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("unexpected readyz status after bootstrap commit: got %d want %d", resp.StatusCode, http.StatusOK)
+		}
+	})
 
-	var email string
-	var mfaRequired bool
-	var passwordHash string
-	if err := runtime.Postgres.QueryRow(context.Background(), `SELECT email, mfa_required, password_hash FROM users WHERE is_active = true AND is_deployment_admin = true`).Scan(&email, &mfaRequired, &passwordHash); err != nil {
-		t.Fatalf("query bootstrap-created user: %v", err)
-	}
-	if email != "bootstrap-admin@example.test" {
-		t.Fatalf("unexpected bootstrap-created email: got %q", email)
-	}
-	if !mfaRequired {
-		t.Fatal("expected bootstrap-created user to require MFA")
-	}
-	if passwordHash == "" || strings.Contains(passwordHash, "BootstrapPass1!") {
-		t.Fatalf("expected persisted password hash without cleartext secret, got %q", passwordHash)
-	}
+	t.Run("rolls back the whole bootstrap transaction when the audit insert fails", func(t *testing.T) {
+		testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-bootstrap-rollback")
+		if err != nil {
+			t.Fatalf("prepare postgres database: %v", err)
+		}
+		defer func() {
+			if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
+				t.Fatalf("drop postgres database: %v", err)
+			}
+		}()
+
+		db := openPhase0SQL(t, testDB.DSN)
+		defer db.Close()
+		if _, err := db.ExecContext(context.Background(), `
+CREATE OR REPLACE FUNCTION phase0_fail_bootstrap_audit() RETURNS trigger AS $$
+BEGIN
+    RAISE EXCEPTION 'phase0 forced bootstrap audit failure';
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER phase0_fail_bootstrap_audit
+BEFORE INSERT ON deployment_admin_audit_events
+FOR EACH ROW
+EXECUTE FUNCTION phase0_fail_bootstrap_audit();
+`); err != nil {
+			t.Fatalf("install bootstrap rollback trigger: %v", err)
+		}
+
+		bucket := phase0BucketName("phase0-bootstrap-rollback")
+		defer func() {
+			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
+				t.Logf("cleanup bucket: %v", err)
+			}
+		}()
+
+		env := phase0IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
+		cfg := phase0RuntimeConfig(t)
+		cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
+
+		counters := installPhase0StartupCounters(t)
+		_, err = NewRuntime(context.Background(), cfg, Options{Env: env})
+		requireBootstrapReason(t, err, "bootstrap_persist_failed")
+		counters.RequireNotStarted(t)
+
+		requirePhase0NoBootstrapSideEffects(t, db)
+	})
 }
 
 func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
@@ -125,13 +227,11 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 	s3Harness := s3test.Start(t)
 
 	cases := []struct {
-		name              string
-		manifestPath      func(t *testing.T) string
-		seed              func(t *testing.T, db *sql.DB)
-		wantReasonCode    string
-		wantUserCount     int
-		wantBootstrapRows int
-		wantAuditRows     int
+		name           string
+		manifestPath   func(t *testing.T) string
+		seed           func(t *testing.T, db *sql.DB)
+		wantReasonCode string
+		wantUserCount  int
 	}{
 		{
 			name:           "missing configured bootstrap path",
@@ -161,14 +261,44 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 			wantReasonCode: "bootstrap_manifest_parse_error",
 		},
 		{
-			name: "schema invalid manifest",
+			name: "wrong schema id manifest",
 			manifestPath: func(t *testing.T) string {
-				path := filepath.Join(t.TempDir(), "bootstrap-admin.json")
-				content := `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","mfa_required":false}`
-				if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-					t.Fatalf("write invalid manifest: %v", err)
-				}
-				return path
+				return writeBootstrapManifest(t, `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v2","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!"}`)
+			},
+			wantReasonCode: "bootstrap_manifest_schema_invalid",
+		},
+		{
+			name: "explicit false mfa manifest",
+			manifestPath: func(t *testing.T) string {
+				return writeBootstrapManifest(t, `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","mfa_required":false}`)
+			},
+			wantReasonCode: "bootstrap_manifest_schema_invalid",
+		},
+		{
+			name: "unknown top level members",
+			manifestPath: func(t *testing.T) string {
+				return writeBootstrapManifest(t, `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","unexpected":"surprise"}`)
+			},
+			wantReasonCode: "bootstrap_manifest_schema_invalid",
+		},
+		{
+			name: "forbidden incident membership fields",
+			manifestPath: func(t *testing.T) string {
+				return writeBootstrapManifest(t, `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","incident_memberships":[{"incident_id":"11111111-1111-1111-1111-111111111111","role":"admin"}]}`)
+			},
+			wantReasonCode: "bootstrap_manifest_schema_invalid",
+		},
+		{
+			name: "forbidden provider binding fields",
+			manifestPath: func(t *testing.T) string {
+				return writeBootstrapManifest(t, `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","provider_subject":"oidc-subject"}`)
+			},
+			wantReasonCode: "bootstrap_manifest_schema_invalid",
+		},
+		{
+			name: "forbidden client chosen admin fields",
+			manifestPath: func(t *testing.T) string {
+				return writeBootstrapManifest(t, `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","is_deployment_admin":true}`)
 			},
 			wantReasonCode: "bootstrap_manifest_schema_invalid",
 		},
@@ -182,10 +312,8 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 					t.Fatalf("seed conflicting user: %v", err)
 				}
 			},
-			wantReasonCode:    "bootstrap_email_conflict",
-			wantUserCount:     1,
-			wantBootstrapRows: 0,
-			wantAuditRows:     0,
+			wantReasonCode: "bootstrap_email_conflict",
+			wantUserCount:  1,
 		},
 	}
 
@@ -214,22 +342,21 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 				}
 			}()
 
-			env := testDB.Env()
-			for key, value := range s3Harness.Env(bucket) {
-				env[key] = value
-			}
-
+			env := phase0IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
 			cfg := phase0RuntimeConfig(t)
 			if tc.manifestPath != nil {
 				cfg.Bootstrap.FirstAdminManifestPath = tc.manifestPath(t)
 			}
 
+			counters := installPhase0StartupCounters(t)
 			_, err = NewRuntime(context.Background(), cfg, Options{Env: env})
 			requireBootstrapReason(t, err, tc.wantReasonCode)
+			counters.RequireNotStarted(t)
 
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, tc.wantUserCount)
-			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, tc.wantBootstrapRows)
-			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, tc.wantAuditRows)
+			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 0)
+			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
+			requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 		})
 	}
 }
@@ -238,7 +365,7 @@ func TestPhase0_BootstrapSkipAndRecovery_I_0_06(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)
 
-	t.Run("existing active deployment admin skips manifest consumption", func(t *testing.T) {
+	t.Run("existing active deployment admin skips stale and invalid manifests", func(t *testing.T) {
 		testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-bootstrap-skip")
 		if err != nil {
 			t.Fatalf("prepare postgres database: %v", err)
@@ -262,23 +389,38 @@ func TestPhase0_BootstrapSkipAndRecovery_I_0_06(t *testing.T) {
 			}
 		}()
 
-		env := testDB.Env()
-		for key, value := range s3Harness.Env(bucket) {
-			env[key] = value
+		env := phase0IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
+		cases := []struct {
+			name         string
+			manifestPath string
+		}{
+			{
+				name:         "stale manifest path",
+				manifestPath: filepath.Join(t.TempDir(), "missing-bootstrap.json"),
+			},
+			{
+				name:         "invalid manifest content",
+				manifestPath: writeBootstrapManifest(t, `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","mfa_required":false}`),
+			},
 		}
 
-		cfg := phase0RuntimeConfig(t)
-		cfg.Bootstrap.FirstAdminManifestPath = filepath.Join(t.TempDir(), "missing-bootstrap.json")
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				cfg := phase0RuntimeConfig(t)
+				cfg.Bootstrap.FirstAdminManifestPath = tc.manifestPath
 
-		runtime, err := NewRuntime(context.Background(), cfg, Options{Env: env})
-		if err != nil {
-			t.Fatalf("start runtime with existing deployment admin: %v", err)
+				runtime, err := NewRuntime(context.Background(), cfg, Options{Env: env})
+				if err != nil {
+					t.Fatalf("start runtime with existing deployment admin: %v", err)
+				}
+				defer runtime.Close()
+
+				requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, 1)
+				requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 0)
+				requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
+				requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
+			})
 		}
-		defer runtime.Close()
-
-		requireCountPool(t, runtime.Postgres, `SELECT COUNT(*) FROM users`, 1)
-		requireCountPool(t, runtime.Postgres, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 0)
-		requireCountPool(t, runtime.Postgres, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
 	})
 
 	t.Run("bootstrap recovery remains fail-closed when completion state exists without an active admin", func(t *testing.T) {
@@ -310,22 +452,74 @@ func TestPhase0_BootstrapSkipAndRecovery_I_0_06(t *testing.T) {
 			}
 		}()
 
-		env := testDB.Env()
-		for key, value := range s3Harness.Env(bucket) {
-			env[key] = value
-		}
-
+		env := phase0IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
 		cfg := phase0RuntimeConfig(t)
 		cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
 
+		counters := installPhase0StartupCounters(t)
 		_, err = NewRuntime(context.Background(), cfg, Options{Env: env})
 		requireBootstrapReason(t, err, "bootstrap_recovery_not_supported")
+		counters.RequireNotStarted(t)
 
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, 1)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 1)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
+		requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true`, 0)
 	})
+}
+
+type phase0StartupCounters struct {
+	jobsManager int
+	wsHub       int
+	httpHandler int
+}
+
+type phase0AuditEvent struct {
+	ActorUserID  string
+	TargetUserID string
+	EventSource  string
+	EventKind    string
+	RequestID    string
+	CreatedAt    time.Time
+	After        map[string]any
+}
+
+func installPhase0StartupCounters(t testing.TB) *phase0StartupCounters {
+	t.Helper()
+
+	counters := &phase0StartupCounters{}
+	originalJobsManager := newJobsManager
+	originalWSHub := newWSHub
+	originalHTTPHandler := newHTTPHandler
+
+	newJobsManager = func() *jobs.Manager {
+		counters.jobsManager++
+		return originalJobsManager()
+	}
+	newWSHub = func() *platformws.Hub {
+		counters.wsHub++
+		return platformws.NewHub()
+	}
+	newHTTPHandler = func(options ...httpapi.Options) (http.Handler, error) {
+		counters.httpHandler++
+		return originalHTTPHandler(options...)
+	}
+
+	t.Cleanup(func() {
+		newJobsManager = originalJobsManager
+		newWSHub = originalWSHub
+		newHTTPHandler = originalHTTPHandler
+	})
+
+	return counters
+}
+
+func (c *phase0StartupCounters) RequireNotStarted(t testing.TB) {
+	t.Helper()
+	if c.jobsManager != 0 || c.wsHub != 0 || c.httpHandler != 0 {
+		t.Fatalf("expected listeners and job shells to remain unstarted, got jobs=%d websocket=%d handler=%d", c.jobsManager, c.wsHub, c.httpHandler)
+	}
 }
 
 func requireInvalidDeploymentConfig(t testing.TB, err error) {
@@ -338,6 +532,19 @@ func requireInvalidDeploymentConfig(t testing.TB, err error) {
 	if diagnosticsErr.Code != config.InvalidDeploymentConfigCode {
 		t.Fatalf("unexpected diagnostics code: got %q want %q", diagnosticsErr.Code, config.InvalidDeploymentConfigCode)
 	}
+}
+
+func requireDiagnosticPathAndReason(t testing.TB, err error, wantPath string, wantReasonCode string) {
+	t.Helper()
+
+	requireInvalidDeploymentConfig(t, err)
+	diagnosticsErr := err.(*config.DiagnosticsError)
+	for _, diagnostic := range diagnosticsErr.Diagnostics {
+		if diagnostic.Path == wantPath && diagnostic.ReasonCode == wantReasonCode {
+			return
+		}
+	}
+	t.Fatalf("missing diagnostic path=%q reason_code=%q in %#v", wantPath, wantReasonCode, diagnosticsErr.Diagnostics)
 }
 
 func requireBootstrapReason(t testing.TB, err error, wantReasonCode string) {
@@ -355,6 +562,78 @@ func requireBootstrapReason(t testing.TB, err error, wantReasonCode string) {
 	t.Fatalf("missing bootstrap reason_code=%q in %#v", wantReasonCode, diagnosticsErr.Diagnostics)
 }
 
+func lookupBootstrapAuditEvent(t testing.TB, db *sql.DB) phase0AuditEvent {
+	t.Helper()
+
+	var actorUserID sql.NullString
+	var targetUserID string
+	var eventSource string
+	var eventKind string
+	var requestID sql.NullString
+	var createdAt time.Time
+	var afterJSON []byte
+	if err := db.QueryRowContext(context.Background(), `
+SELECT COALESCE(actor_user_id::text, ''),
+       target_user_id::text,
+       event_source,
+       event_kind,
+       COALESCE(request_id, ''),
+       created_at,
+       after_json
+  FROM deployment_admin_audit_events
+ ORDER BY created_at ASC
+ LIMIT 1
+`).Scan(&actorUserID, &targetUserID, &eventSource, &eventKind, &requestID, &createdAt, &afterJSON); err != nil {
+		t.Fatalf("query bootstrap audit event: %v", err)
+	}
+
+	event := phase0AuditEvent{
+		ActorUserID:  actorUserID.String,
+		TargetUserID: targetUserID,
+		EventSource:  eventSource,
+		EventKind:    eventKind,
+		RequestID:    requestID.String,
+		CreatedAt:    createdAt,
+		After:        map[string]any{},
+	}
+	if len(afterJSON) > 0 {
+		if err := json.Unmarshal(afterJSON, &event.After); err != nil {
+			t.Fatalf("decode bootstrap audit after_json: %v", err)
+		}
+	}
+
+	return event
+}
+
+func requirePhase0NoBootstrapSideEffects(t testing.TB, db *sql.DB) {
+	t.Helper()
+	requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, 0)
+	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 0)
+	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
+	requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
+}
+
+func phase0IntegrationEnv(databaseEnv map[string]string, objectStoreEnv map[string]string) map[string]string {
+	env := make(map[string]string, len(databaseEnv)+len(objectStoreEnv))
+	for key, value := range databaseEnv {
+		env[key] = value
+	}
+	for key, value := range objectStoreEnv {
+		env[key] = value
+	}
+	return env
+}
+
+func writeBootstrapManifest(t testing.TB, content string) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "bootstrap-admin.json")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write bootstrap manifest: %v", err)
+	}
+	return path
+}
+
 func openPhase0SQL(t testing.TB, dsn string) *sql.DB {
 	t.Helper()
 
@@ -370,18 +649,6 @@ func requireCountSQL(t testing.TB, db *sql.DB, query string, want int) {
 
 	var got int
 	if err := db.QueryRowContext(context.Background(), query).Scan(&got); err != nil {
-		t.Fatalf("query %q: %v", query, err)
-	}
-	if got != want {
-		t.Fatalf("unexpected count for %q: got %d want %d", query, got, want)
-	}
-}
-
-func requireCountPool(t testing.TB, pool *pgxpool.Pool, query string, want int) {
-	t.Helper()
-
-	var got int
-	if err := pool.QueryRow(context.Background(), query).Scan(&got); err != nil {
 		t.Fatalf("query %q: %v", query, err)
 	}
 	if got != want {

@@ -20,9 +20,11 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/crosscutting"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
 func TestPhase0_ReadyState_E_0_01(t *testing.T) {
@@ -34,6 +36,9 @@ func TestPhase0_ReadyState_E_0_01(t *testing.T) {
 		t.Fatalf("prepare postgres database: %v", err)
 	}
 	defer dropPhase0Database(t, postgresHarness, testDB.Name)
+
+	db := openPhase0SQL(t, testDB.DSN)
+	defer db.Close()
 
 	bucket := phase0BucketName("phase0-e-0-01")
 	defer cleanupPhase0Bucket(t, s3Harness, bucket)
@@ -47,32 +52,78 @@ func TestPhase0_ReadyState_E_0_01(t *testing.T) {
 	server.WaitForReady(t)
 	server.RequireStatus(t, "/healthz", http.StatusOK)
 	server.RequireStatus(t, "/readyz", http.StatusOK)
+	requireCountSQL(t, db, `SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true`, 1)
+	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 1)
+	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 1)
+	requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
+
+	payload := []byte("phase0 ready state proof")
+	got, err := s3Harness.RoundTrip(context.Background(), bucket, "phase0-ready.txt", payload)
+	if err != nil {
+		t.Fatalf("round trip against ready deployment object store: %v", err)
+	}
+	if !bytes.Equal(got, payload) {
+		t.Fatalf("unexpected object-store payload after ready state: got %q want %q", got, payload)
+	}
 }
 
 func TestPhase0_InvalidConfigDiagnostics_E_0_02(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)
 
-	testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-e-0-02")
-	if err != nil {
-		t.Fatalf("prepare postgres database: %v", err)
+	cases := []struct {
+		name       string
+		configText string
+		env        map[string]string
+		path       string
+		reasonCode string
+	}{
+		{
+			name:       "missing required runtime roots",
+			configText: string(fixtures.MustRead("config", "invalid_missing_required.toml")),
+			path:       "deployment_profile",
+			reasonCode: "missing_required_key",
+		},
+		{
+			name:       "invalid root path shape",
+			configText: string(fixtures.MustRead("config", "valid.toml")),
+			env: map[string]string{
+				"CARTULARY__ROOTS__DATABASE_STORAGE__PATH": "relative/postgres",
+			},
+			path:       "roots.database_storage.path",
+			reasonCode: "path_not_absolute",
+		},
 	}
-	defer dropPhase0Database(t, postgresHarness, testDB.Name)
 
-	bucket := phase0BucketName("phase0-e-0-02")
-	defer cleanupPhase0Bucket(t, s3Harness, bucket)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-e-0-02")
+			if err != nil {
+				t.Fatalf("prepare postgres database: %v", err)
+			}
+			defer dropPhase0Database(t, postgresHarness, testDB.Name)
 
-	configPath := writePhase0Config(t, string(fixtures.MustRead("config", "invalid_missing_required.toml")))
-	env := phase0ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, "")
+			bucket := phase0BucketName("phase0-e-0-02")
+			defer cleanupPhase0Bucket(t, s3Harness, bucket)
 
-	server := startPhase0Server(t, env)
-	err = server.WaitForExit(t)
-	if err == nil {
-		t.Fatal("expected invalid config startup to exit non-zero")
+			configPath := writePhase0Config(t, tc.configText)
+			env := phase0ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, "")
+			for key, value := range tc.env {
+				env[key] = value
+			}
+
+			server := startPhase0Server(t, env)
+			err = server.WaitForExit(t)
+			if err == nil {
+				t.Fatal("expected invalid config startup to exit non-zero")
+			}
+			server.RequireConnectionRefused(t, "/healthz")
+			server.RequireConnectionRefused(t, "/readyz")
+			server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v1/changes")
+			server.RequireDiagnosticsCode(t, "invalid_deployment_config")
+			server.RequireDiagnosticsField(t, tc.path, tc.reasonCode)
+		})
 	}
-	server.RequireConnectionRefused(t, "/healthz")
-	server.RequireDiagnosticsCode(t, "invalid_deployment_config")
-	server.RequireDiagnosticsField(t, "deployment_profile", "missing_required_key")
 }
 
 func TestPhase0_FirstAdminBootstrap_E_0_03(t *testing.T) {
@@ -101,6 +152,17 @@ func TestPhase0_FirstAdminBootstrap_E_0_03(t *testing.T) {
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true`, 1)
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 1)
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 1)
+	requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
+
+	audit := lookupBootstrapAuditEvent(t, db)
+	crosscutting.RequireSystemMutationAttribution(t, crosscutting.SystemMutationAttribution{
+		ActorUserID: audit.ActorUserID,
+		Source:      audit.EventSource,
+		EventKind:   audit.EventKind,
+		RequestID:   audit.RequestID,
+		CreatedAt:   audit.CreatedAt,
+	}, "bootstrap_manifest", "bootstrap_admin_created")
+	crosscutting.RequireSecretSafePayload(t, audit.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32", "provider_subject", "provider_key"})
 }
 
 func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
@@ -121,13 +183,28 @@ func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
 			wantReasonCode: "bootstrap_manifest_path_missing",
 		},
 		{
-			name: "invalid bootstrap manifest",
+			name: "schema-invalid bootstrap manifest",
 			configContent: func() string {
 				return string(fixtures.MustRead("config", "valid.toml"))
 			},
 			bootstrapPath: func() string {
 				path := filepath.Join(t.TempDir(), "bootstrap-admin.json")
 				content := `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","mfa_required":false}`
+				if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+					t.Fatalf("write invalid bootstrap manifest: %v", err)
+				}
+				return path
+			}(),
+			wantReasonCode: "bootstrap_manifest_schema_invalid",
+		},
+		{
+			name: "unknown-member bootstrap manifest",
+			configContent: func() string {
+				return string(fixtures.MustRead("config", "valid.toml"))
+			},
+			bootstrapPath: func() string {
+				path := filepath.Join(t.TempDir(), "bootstrap-admin.json")
+				content := `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","unexpected":"surprise"}`
 				if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 					t.Fatalf("write invalid bootstrap manifest: %v", err)
 				}
@@ -145,6 +222,9 @@ func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
 			}
 			defer dropPhase0Database(t, postgresHarness, testDB.Name)
 
+			db := openPhase0SQL(t, testDB.DSN)
+			defer db.Close()
+
 			bucket := phase0BucketName("phase0-e-0-04")
 			defer cleanupPhase0Bucket(t, s3Harness, bucket)
 
@@ -157,8 +237,14 @@ func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
 				t.Fatal("expected bootstrap failure to exit non-zero")
 			}
 			server.RequireConnectionRefused(t, "/healthz")
+			server.RequireConnectionRefused(t, "/readyz")
+			server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v1/changes")
 			server.RequireDiagnosticsCode(t, "invalid_deployment_config")
 			server.RequireReasonCode(t, tc.wantReasonCode)
+			requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, 0)
+			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 0)
+			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
+			requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 		})
 	}
 }
@@ -167,7 +253,7 @@ func TestPhase0_BootstrapSkipAndRecovery_E_0_05(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)
 
-	t.Run("existing active deployment admin skips stale bootstrap manifest", func(t *testing.T) {
+	t.Run("existing active deployment admin skips stale and invalid bootstrap manifests", func(t *testing.T) {
 		testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-e-0-05-skip")
 		if err != nil {
 			t.Fatalf("prepare postgres database: %v", err)
@@ -183,15 +269,43 @@ func TestPhase0_BootstrapSkipAndRecovery_E_0_05(t *testing.T) {
 		bucket := phase0BucketName("phase0-e-0-05-skip")
 		defer cleanupPhase0Bucket(t, s3Harness, bucket)
 
-		configPath := writePhase0Config(t, string(fixtures.MustRead("config", "valid.toml")))
-		env := phase0ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, filepath.Join(t.TempDir(), "missing-bootstrap.json"))
+		cases := []struct {
+			name         string
+			manifestPath string
+		}{
+			{
+				name:         "stale manifest path",
+				manifestPath: filepath.Join(t.TempDir(), "missing-bootstrap.json"),
+			},
+			{
+				name: "invalid manifest content",
+				manifestPath: func() string {
+					path := filepath.Join(t.TempDir(), "invalid-bootstrap.json")
+					content := `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","mfa_required":false}`
+					if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+						t.Fatalf("write invalid bootstrap manifest: %v", err)
+					}
+					return path
+				}(),
+			},
+		}
 
-		server := startPhase0Server(t, env)
-		defer server.Stop(t)
-		server.WaitForReady(t)
-		server.RequireStatus(t, "/healthz", http.StatusOK)
-		requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, 1)
-		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 0)
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				configPath := writePhase0Config(t, string(fixtures.MustRead("config", "valid.toml")))
+				env := phase0ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, tc.manifestPath)
+
+				server := startPhase0Server(t, env)
+				defer server.Stop(t)
+				server.WaitForReady(t)
+				server.RequireStatus(t, "/healthz", http.StatusOK)
+				server.RequireStatus(t, "/readyz", http.StatusOK)
+				requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, 1)
+				requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 0)
+				requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
+				requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
+			})
+		}
 	})
 
 	t.Run("bootstrap recovery remains fail-closed", func(t *testing.T) {
@@ -224,8 +338,12 @@ func TestPhase0_BootstrapSkipAndRecovery_E_0_05(t *testing.T) {
 			t.Fatal("expected lost-admin recovery startup to exit non-zero")
 		}
 		server.RequireConnectionRefused(t, "/readyz")
+		server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v1/changes")
 		server.RequireReasonCode(t, "bootstrap_recovery_not_supported")
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true`, 0)
+		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 1)
+		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
+		requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 	})
 }
 
@@ -236,6 +354,15 @@ type phase0ServerProcess struct {
 	cmd     *exec.Cmd
 	stderr  bytes.Buffer
 	stdout  bytes.Buffer
+}
+
+type phase0AuditEvent struct {
+	ActorUserID string
+	EventSource string
+	EventKind   string
+	RequestID   string
+	CreatedAt   time.Time
+	After       map[string]any
 }
 
 func startPhase0Server(t testing.TB, env map[string]string) *phase0ServerProcess {
@@ -349,6 +476,13 @@ func (p *phase0ServerProcess) RequireConnectionRefused(t testing.TB, path string
 		resp.Body.Close()
 		t.Fatalf("expected %s to be unreachable, got HTTP %d", path, resp.StatusCode)
 	}
+}
+
+func (p *phase0ServerProcess) RequireWebsocketConnectionRefused(t testing.TB, path string) {
+	t.Helper()
+
+	_, _, err := wstest.TryConnect("http://"+p.address, path, nil)
+	wstest.RequireConnectionRefused(t, err)
 }
 
 func (p *phase0ServerProcess) RequireDiagnosticsCode(t testing.TB, wantCode string) {
@@ -529,4 +663,43 @@ func requireCountSQL(t testing.TB, db *sql.DB, query string, want int) {
 	if got != want {
 		t.Fatalf("unexpected count for %q: got %d want %d", query, got, want)
 	}
+}
+
+func lookupBootstrapAuditEvent(t testing.TB, db *sql.DB) phase0AuditEvent {
+	t.Helper()
+
+	var actorUserID string
+	var eventSource string
+	var eventKind string
+	var requestID string
+	var createdAt time.Time
+	var afterJSON []byte
+	if err := db.QueryRowContext(context.Background(), `
+SELECT COALESCE(actor_user_id::text, ''),
+       event_source,
+       event_kind,
+       COALESCE(request_id, ''),
+       created_at,
+       after_json
+  FROM deployment_admin_audit_events
+ ORDER BY created_at ASC
+ LIMIT 1
+`).Scan(&actorUserID, &eventSource, &eventKind, &requestID, &createdAt, &afterJSON); err != nil {
+		t.Fatalf("query bootstrap audit event: %v", err)
+	}
+
+	event := phase0AuditEvent{
+		ActorUserID: actorUserID,
+		EventSource: eventSource,
+		EventKind:   eventKind,
+		RequestID:   requestID,
+		CreatedAt:   createdAt,
+		After:       map[string]any{},
+	}
+	if len(afterJSON) > 0 {
+		if err := json.Unmarshal(afterJSON, &event.After); err != nil {
+			t.Fatalf("decode bootstrap audit after_json: %v", err)
+		}
+	}
+	return event
 }

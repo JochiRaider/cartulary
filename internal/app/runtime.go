@@ -24,6 +24,7 @@ var (
 	newJobsManager   = jobs.NewManager
 	setupPostgres    = postgres.SetupWithEnv
 	setupObjectStore = objectstore.SetupWithEnv
+	newWSHub         = platformws.NewHub
 	newHTTPHandler   = httpapi.NewHandler
 )
 
@@ -80,7 +81,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	}
 
 	runtime.Jobs = newJobsManager()
-	hub := platformws.NewHub()
+	hub := newWSHub()
 	runtime.WSHub = hub
 
 	httpOptions := options.HTTP

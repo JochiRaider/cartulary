@@ -24,12 +24,7 @@ func Connect(t testing.TB, serverURL string, path string) *Client {
 func ConnectWithHeaders(t testing.TB, serverURL string, path string, headers http.Header) *Client {
 	t.Helper()
 
-	target, err := websocketURL(serverURL, path)
-	if err != nil {
-		t.Fatalf("build websocket url: %v", err)
-	}
-
-	conn, resp, err := websocket.Dial(context.Background(), target, &websocket.DialOptions{HTTPHeader: headers})
+	conn, resp, err := TryConnect(serverURL, path, headers)
 	if err != nil {
 		t.Fatalf("dial websocket: %v", err)
 	}
@@ -43,6 +38,15 @@ func ConnectWithHeaders(t testing.TB, serverURL string, path string, headers htt
 	})
 
 	return client
+}
+
+func TryConnect(serverURL string, path string, headers http.Header) (*websocket.Conn, *http.Response, error) {
+	target, err := websocketURL(serverURL, path)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return websocket.Dial(context.Background(), target, &websocket.DialOptions{HTTPHeader: headers})
 }
 
 func (c *Client) Send(ctx context.Context, message platformws.Message) error {
@@ -92,6 +96,17 @@ func RequireClose(t testing.TB, err error, wantStatus websocket.StatusCode, want
 	}
 	if wantReason != "" && !strings.Contains(err.Error(), wantReason) {
 		t.Fatalf("unexpected websocket close error: %v", err)
+	}
+}
+
+func RequireConnectionRefused(t testing.TB, err error) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("expected websocket dial to fail")
+	}
+	message := strings.ToLower(err.Error())
+	if !strings.Contains(message, "connection refused") && !strings.Contains(message, "connect: cannot assign requested address") {
+		t.Fatalf("expected websocket dial to fail before listener startup, got %v", err)
 	}
 }
 

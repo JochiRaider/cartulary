@@ -191,6 +191,21 @@ func (h *Harness) Env(bucket string) map[string]string {
 	}
 }
 
+func (h *Harness) EnvForServiceRef(serviceRef string, bucket string) map[string]string {
+	keys, err := objectstore.EnvKeysForServiceRef(serviceRef)
+	if err != nil {
+		return map[string]string{}
+	}
+
+	return map[string]string{
+		keys.Endpoint:  h.Endpoint,
+		keys.AccessKey: h.AccessKey,
+		keys.SecretKey: h.SecretKey,
+		keys.Secure:    "false",
+		keys.Bucket:    bucket,
+	}
+}
+
 func (h *Harness) Close(ctx context.Context) error {
 	if h == nil || h.Container == nil {
 		return nil
