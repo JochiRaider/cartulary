@@ -26,10 +26,11 @@
     "dev": "vite",
     "lint": "biome check .",
     "test": "vitest",
-    "test:e2e": "playwright test e2e/phase1.spec.ts e2e/phase2.spec.ts e2e/phase3.spec.ts",
+    "test:e2e": "playwright test e2e/phase1.spec.ts e2e/phase2.spec.ts e2e/phase3.spec.ts e2e/phase4.spec.ts",
     "test:e2e:phase1": "playwright test e2e/phase1.spec.ts",
     "test:e2e:phase2": "playwright test e2e/phase2.spec.ts",
     "test:e2e:phase3": "playwright test e2e/phase3.spec.ts",
+    "test:e2e:phase4": "playwright test e2e/phase4.spec.ts",
     "typecheck": "tsc --noEmit"
   }
 }

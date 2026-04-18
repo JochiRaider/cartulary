@@ -121,14 +121,14 @@ test: frontend-toolchain
 
 backend-unit: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_PHASE) "backend-unit platform" -- $(GO_ENV) $(GO) test ./internal/platform/... -run '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase2_.*_U_2_|TestPhase3_.*_U_3_)'
+	$(RUN_PHASE) "backend-unit platform" -- $(GO_ENV) $(GO) test ./internal/platform/... -run '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase2_.*_U_2_|TestPhase3_.*_U_3_|TestPhase4_.*_U_4_)'
 	$(RUN_PHASE) "backend-unit configtest" -- $(GO_ENV) $(GO) test ./internal/testutil/configtest
-	$(RUN_PHASE) "backend-unit phases" -- $(GO_ENV) $(GO) test ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/timeline -run '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase2_.*_U_2_|TestPhase3_.*_U_3_)'
+	$(RUN_PHASE) "backend-unit phases" -- $(GO_ENV) $(GO) test ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline -run '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase2_.*_U_2_|TestPhase3_.*_U_3_|TestPhase4_.*_U_4_)'
 
 backend-integration: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "backend-integration testutil" -- $(GO_ENV) $(GO) test ./internal/testutil/httptestx ./internal/testutil/pgtest ./internal/testutil/s3test ./internal/testutil/wstest
-	$(RUN_PHASE) "backend-integration phases" -- $(GO_ENV) $(GO) test ./internal/platform/... ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/timeline -run '^(TestPhase0_.*_I_0_|TestPhase1_.*_I_1_|TestPhase2_.*_I_2_|TestPhase3_.*_I_3_)'
+	$(RUN_PHASE) "backend-integration phases" -- $(GO_ENV) $(GO) test ./internal/platform/... ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline -run '^(TestPhase0_.*_I_0_|TestPhase1_.*_I_1_|TestPhase2_.*_I_2_|TestPhase3_.*_I_3_|TestPhase4_.*_I_4_)'
 
 # Phase 0 process evidence is part of the developer gate and must never be direct-run only.
 backend-process: frontend-toolchain
@@ -150,7 +150,7 @@ e2e: frontend-toolchain
 	$(Q)$(MAKE) --no-print-directory browser-e2e
 
 browser-e2e: frontend-toolchain
-	$(RUN_PHASE) "browser-e2e" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec playwright test $(PLAYWRIGHT_TEST_FLAGS) e2e/phase1.spec.ts e2e/phase2.spec.ts e2e/phase3.spec.ts
+	$(RUN_PHASE) "browser-e2e" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec playwright test $(PLAYWRIGHT_TEST_FLAGS) e2e/phase1.spec.ts e2e/phase2.spec.ts e2e/phase3.spec.ts e2e/phase4.spec.ts
 
 lint: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
