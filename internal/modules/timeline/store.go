@@ -203,7 +203,7 @@ RETURNING record_id
 		return MutationResult{}, fmt.Errorf("insert timeline record: %w", err)
 	}
 
-	if err := applyCreateMentionActionsTx(ctx, tx, actor.ID, current.RecordID, request.HostRefs, request.IdentityRefs, now.UTC()); err != nil {
+	if err := applyCreateMentionActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.HostRefs, request.IdentityRefs, now.UTC()); err != nil {
 		return MutationResult{}, err
 	}
 
@@ -337,7 +337,7 @@ func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID u
 	}
 	materialChanged := hasMaterialChange(current, next)
 	if mentionChanged {
-		if err := applyPatchMentionActionsTx(ctx, tx, actor, recordID, request.CanonicalChange, now.UTC()); err != nil {
+		if err := applyPatchMentionActionsTx(ctx, tx, actor, current.IncidentID, recordID, request.CanonicalChange, now.UTC()); err != nil {
 			return MutationResult{}, err
 		}
 	}
@@ -894,17 +894,17 @@ SELECT entity_mention_id, entity_type, raw_text, resolution_status, resolved_rec
 	return nil
 }
 
-func applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, recordID uuid.UUID, hostRefs *CollectionActionPayload, identityRefs *CollectionActionPayload, now time.Time) error {
-	if err := insertMentionActionsTx(ctx, tx, actorUserID, recordID, "timeline.host_refs", "host", hostRefs, now); err != nil {
+func applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, hostRefs *CollectionActionPayload, identityRefs *CollectionActionPayload, now time.Time) error {
+	if err := insertMentionActionsTx(ctx, tx, actorUserID, incidentID, recordID, "timeline.host_refs", "host", hostRefs, now); err != nil {
 		return err
 	}
-	if err := insertMentionActionsTx(ctx, tx, actorUserID, recordID, "timeline.identity_refs", "identity", identityRefs, now); err != nil {
+	if err := insertMentionActionsTx(ctx, tx, actorUserID, incidentID, recordID, "timeline.identity_refs", "identity", identityRefs, now); err != nil {
 		return err
 	}
 	return nil
 }
 
-func applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, recordID uuid.UUID, changes []PatchChange, now time.Time) error {
+func applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) error {
 	entityStore := entities.NewStore(nil)
 	for _, change := range changes {
 		if change.ActionPayload == nil {
@@ -917,7 +917,7 @@ func applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.User
 		for _, action := range change.ActionPayload.Actions {
 			switch action.Op {
 			case "add_token", "add_resolved_ref":
-				if err := insertMentionActionsTx(ctx, tx, actor.ID, recordID, change.FieldKey, entityType, &CollectionActionPayload{Actions: []CollectionAction{action}}, now); err != nil {
+				if err := insertMentionActionsTx(ctx, tx, actor.ID, incidentID, recordID, change.FieldKey, entityType, &CollectionActionPayload{Actions: []CollectionAction{action}}, now); err != nil {
 					return err
 				}
 			case "resolve_item":
@@ -944,7 +944,7 @@ func applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.User
 	return nil
 }
 
-func insertMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, recordID uuid.UUID, fieldKey string, entityType string, payload *CollectionActionPayload, now time.Time) error {
+func insertMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, fieldKey string, entityType string, payload *CollectionActionPayload, now time.Time) error {
 	if payload == nil || len(payload.Actions) == 0 {
 		return nil
 	}
@@ -952,6 +952,7 @@ func insertMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUI
 	if err != nil {
 		return err
 	}
+	linkStore := links.NewStore()
 	for _, action := range payload.Actions {
 		if action.Op != "add_token" && action.Op != "add_resolved_ref" {
 			return fmt.Errorf("unsupported mention action: %s", action.Op)
@@ -964,6 +965,9 @@ func insertMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUI
 		if action.Op == "add_resolved_ref" {
 			if action.ResolvedRecord == nil {
 				return fmt.Errorf("missing resolved record for action: %s", action.Op)
+			}
+			if err := validateTimelineResolvedTargetTx(ctx, tx, incidentID, entityType, *action.ResolvedRecord); err != nil {
+				return err
 			}
 			resolutionStatus = "resolved"
 			resolvedRecordID = action.ResolvedRecord
@@ -994,9 +998,29 @@ VALUES ($1, $2, $3, 'interactive_cell', $4, $5, $6, $7, 1, $8, $9, $10, $11, $12
 `, recordID, entityType, fieldKey, mentionOriginLocator(recordID, fieldKey, nextOrdinal), action.RawText, action.NormalizedText, resolutionStatus, nextOrdinal, actorUserID, now.UTC(), resolvedRecordID, resolvedByUserID, resolvedAt, resolutionMethod); err != nil {
 			return fmt.Errorf("insert entity mention: %w", err)
 		}
+		if action.Op == "add_resolved_ref" {
+			linkType, ok := timelineRelationshipLinkType(fieldKey)
+			if !ok {
+				return fmt.Errorf("unsupported link field: %s", fieldKey)
+			}
+			if _, _, err := linkStore.UpsertLinkTx(ctx, tx, incidentID, recordID, *action.ResolvedRecord, linkType, "manual", nil, actorUserID, now.UTC()); err != nil {
+				return fmt.Errorf("upsert manual record link: %w", err)
+			}
+		}
 		nextOrdinal++
 	}
 	return nil
+}
+
+func timelineRelationshipLinkType(fieldKey string) (string, bool) {
+	switch fieldKey {
+	case "timeline.host_refs":
+		return "observed_on_host", true
+	case "timeline.identity_refs":
+		return "observed_as_identity", true
+	default:
+		return "", false
+	}
 }
 
 func nextMentionOrdinalTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string) (int, error) {
@@ -1010,6 +1034,42 @@ SELECT COALESCE(MAX(ordinal), 0) + 1
 		return 0, fmt.Errorf("query next mention ordinal: %w", err)
 	}
 	return nextOrdinal, nil
+}
+
+func validateTimelineResolvedTargetTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string, resolvedRecordID uuid.UUID) error {
+	var exists bool
+	switch entityType {
+	case "host":
+		if err := tx.QueryRow(ctx, `
+SELECT EXISTS (
+    SELECT 1
+      FROM hosts
+     WHERE record_id = $1
+       AND incident_id = $2
+       AND host_state IN ('stub', 'canonical')
+)
+`, resolvedRecordID, incidentID).Scan(&exists); err != nil {
+			return fmt.Errorf("validate host target: %w", err)
+		}
+	case "identity":
+		if err := tx.QueryRow(ctx, `
+SELECT EXISTS (
+    SELECT 1
+      FROM identities
+     WHERE record_id = $1
+       AND incident_id = $2
+       AND identity_state IN ('stub', 'canonical')
+)
+`, resolvedRecordID, incidentID).Scan(&exists); err != nil {
+			return fmt.Errorf("validate identity target: %w", err)
+		}
+	default:
+		return entities.ErrResolvedRecordNotFound
+	}
+	if !exists {
+		return entities.ErrResolvedRecordNotFound
+	}
+	return nil
 }
 
 func mentionOriginLocator(recordID uuid.UUID, fieldKey string, ordinal int) string {

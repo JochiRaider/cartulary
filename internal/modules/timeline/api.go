@@ -645,7 +645,7 @@ func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey 
 		return nil, false
 	}
 	for _, action := range payload.Actions {
-		if action.Op != "add_token" {
+		if action.Op != "add_token" && action.Op != "add_resolved_ref" {
 			return nil, false
 		}
 	}
@@ -657,19 +657,32 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 		return nil, false
 	}
 
-	var payload struct {
-		Kind    string                       `json:"kind"`
-		Actions []map[string]json.RawMessage `json:"actions"`
-	}
-	if err := json.Unmarshal(raw, &payload); err != nil {
+	var payloadObject map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &payloadObject); err != nil {
 		return nil, false
 	}
-	if payload.Kind != "collection_actions_v1" || len(payload.Actions) == 0 || len(payload.Actions) > maxCollectionActions {
+	if !objectHasOnlyFields(payloadObject, "kind", "actions") {
 		return nil, false
 	}
 
-	actions := make([]CollectionAction, 0, len(payload.Actions))
-	for _, rawAction := range payload.Actions {
+	var kind string
+	if err := json.Unmarshal(payloadObject["kind"], &kind); err != nil {
+		return nil, false
+	}
+	var rawActions []json.RawMessage
+	if err := json.Unmarshal(payloadObject["actions"], &rawActions); err != nil {
+		return nil, false
+	}
+	if kind != "collection_actions_v1" || len(rawActions) == 0 || len(rawActions) > maxCollectionActions {
+		return nil, false
+	}
+
+	actions := make([]CollectionAction, 0, len(rawActions))
+	for _, rawActionData := range rawActions {
+		var rawAction map[string]json.RawMessage
+		if err := json.Unmarshal(rawActionData, &rawAction); err != nil {
+			return nil, false
+		}
 		opValue, ok := rawAction["op"]
 		if !ok {
 			return nil, false
@@ -681,7 +694,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 		}
 		switch op {
 		case "add_token":
-			if len(rawAction) != 2 {
+			if !actionHasOnlyFields(rawAction, []string{"op", "raw_text"}, nil) {
 				return nil, false
 			}
 			rawTextValue, ok := rawAction["raw_text"]
@@ -702,7 +715,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 				NormalizedText: normalized,
 			})
 		case "add_resolved_ref":
-			if len(rawAction) != 3 {
+			if !actionHasOnlyFields(rawAction, []string{"op", "raw_text", "resolved_record_id"}, nil) {
 				return nil, false
 			}
 			rawTextValue, ok := rawAction["raw_text"]
@@ -736,7 +749,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 				ResolvedRecord: &parsed,
 			})
 		case "resolve_item":
-			if len(rawAction) != 2 && len(rawAction) != 3 {
+			if !actionHasOnlyFields(rawAction, []string{"op", "item_ref"}, []string{"resolved_record_id"}) {
 				return nil, false
 			}
 			itemRefValue, ok := rawAction["item_ref"]
@@ -761,7 +774,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 			}
 			actions = append(actions, action)
 		case "dismiss_item", "revert_to_unresolved":
-			if len(rawAction) != 2 {
+			if !actionHasOnlyFields(rawAction, []string{"op", "item_ref"}, nil) {
 				return nil, false
 			}
 			itemRefValue, ok := rawAction["item_ref"]
@@ -778,6 +791,31 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 		}
 	}
 	return &CollectionActionPayload{Actions: actions}, true
+}
+
+func objectHasOnlyFields(object map[string]json.RawMessage, fields ...string) bool {
+	required := make([]string, 0, len(fields))
+	required = append(required, fields...)
+	return actionHasOnlyFields(object, required, nil)
+}
+
+func actionHasOnlyFields(action map[string]json.RawMessage, required []string, optional []string) bool {
+	allowed := make(map[string]struct{}, len(required)+len(optional))
+	for _, key := range required {
+		allowed[key] = struct{}{}
+		if _, ok := action[key]; !ok {
+			return false
+		}
+	}
+	for _, key := range optional {
+		allowed[key] = struct{}{}
+	}
+	for key := range action {
+		if _, ok := allowed[key]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func collectionValue(ordered bool, items []map[string]any) map[string]any {

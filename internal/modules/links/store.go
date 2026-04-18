@@ -77,7 +77,34 @@ SELECT
 func (s *Store) UpsertLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, linkType string, provenance string, confidence *int, ownerUserID uuid.UUID, now time.Time) (RecordLink, bool, error) {
 	existing, err := s.GetActiveLinkTx(ctx, tx, incidentID, srcRecordID, dstRecordID, linkType)
 	if err == nil {
-		return existing, false, nil
+		if existing.Provenance == provenance && intPointersEqual(existing.Confidence, confidence) {
+			return existing, false, nil
+		}
+		row := tx.QueryRow(ctx, `
+UPDATE record_links
+   SET provenance = $2,
+       confidence = $3,
+       owner_user_id = $4,
+       decided_at = $5
+ WHERE record_link_id = $1
+RETURNING
+    record_link_id,
+    incident_id,
+    src_record_id,
+    dst_record_id,
+    link_type,
+    provenance,
+    confidence,
+    owner_user_id,
+    decided_at,
+    created_at,
+    deleted_at
+`, existing.RecordLinkID, provenance, confidence, ownerUserID, now.UTC())
+		record, err := scanRecordLink(row)
+		if err != nil {
+			return RecordLink{}, false, fmt.Errorf("update link: %w", err)
+		}
+		return record, false, nil
 	}
 	if !errors.Is(err, ErrRecordLinkNotFound) {
 		return RecordLink{}, false, err
@@ -200,4 +227,15 @@ func scanRecordLink(row pgx.Row) (RecordLink, error) {
 	record.DecidedAt = record.DecidedAt.UTC()
 	record.CreatedAt = record.CreatedAt.UTC()
 	return record, nil
+}
+
+func intPointersEqual(left *int, right *int) bool {
+	switch {
+	case left == nil && right == nil:
+		return true
+	case left == nil || right == nil:
+		return false
+	default:
+		return *left == *right
+	}
 }
