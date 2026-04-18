@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"example.com/todo/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 func TestPhase1_LoginRequestShape_U_1_01(t *testing.T) {

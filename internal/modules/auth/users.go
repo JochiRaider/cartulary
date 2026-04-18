@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"example.com/todo/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 const defaultUserListLimit = 100

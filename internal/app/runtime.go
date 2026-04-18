@@ -9,15 +9,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minio/minio-go/v7"
 
-	"example.com/todo/cartulary/internal/modules/auth"
-	"example.com/todo/cartulary/internal/modules/incidents"
-	"example.com/todo/cartulary/internal/modules/timeline"
-	"example.com/todo/cartulary/internal/platform/config"
-	"example.com/todo/cartulary/internal/platform/httpapi"
-	"example.com/todo/cartulary/internal/platform/jobs"
-	"example.com/todo/cartulary/internal/platform/objectstore"
-	"example.com/todo/cartulary/internal/platform/postgres"
-	platformws "example.com/todo/cartulary/internal/platform/ws"
+	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 var (

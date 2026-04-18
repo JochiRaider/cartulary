@@ -14,15 +14,15 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
-	"example.com/todo/cartulary/internal/modules/projections"
-	"example.com/todo/cartulary/internal/modules/timeline"
-	"example.com/todo/cartulary/internal/platform/authn"
-	"example.com/todo/cartulary/internal/testutil/fixtures"
-	"example.com/todo/cartulary/internal/testutil/httptestx"
-	"example.com/todo/cartulary/internal/testutil/pgtest"
-	"example.com/todo/cartulary/internal/testutil/s3test"
-	"example.com/todo/cartulary/internal/testutil/timelinetest"
-	"example.com/todo/cartulary/internal/testutil/wstest"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/timelinetest"
+	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
 func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {

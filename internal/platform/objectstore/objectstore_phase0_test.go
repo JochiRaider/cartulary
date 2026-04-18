@@ -10,9 +10,9 @@ import (
 
 	"github.com/minio/minio-go/v7"
 
-	"example.com/todo/cartulary/internal/platform/config"
-	"example.com/todo/cartulary/internal/platform/objectstore"
-	"example.com/todo/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
 func TestPhase0_ObjectStoreInitialization_I_0_02(t *testing.T) {

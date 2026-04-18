@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"example.com/todo/cartulary/internal/platform/config"
-	"example.com/todo/cartulary/internal/testutil/fixtures"
+	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
 
 func TestPhase0_BootstrapManifestValidation_U_0_07(t *testing.T) {

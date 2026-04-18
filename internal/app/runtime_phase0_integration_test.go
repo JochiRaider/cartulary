@@ -13,10 +13,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"example.com/todo/cartulary/internal/platform/config"
-	"example.com/todo/cartulary/internal/testutil/fixtures"
-	"example.com/todo/cartulary/internal/testutil/pgtest"
-	"example.com/todo/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
 func TestPhase0_InvalidConfigNeverReachesReady_I_0_03(t *testing.T) {

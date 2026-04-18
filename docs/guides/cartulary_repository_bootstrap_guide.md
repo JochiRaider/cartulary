@@ -28,12 +28,12 @@ Do not start by building forms-first CRUD. Cartulary is explicitly grid first, p
 
 ## 4. Step 1: create the repository control surface
 
-Start in an empty folder and create the control files first. Use placeholders where repository-specific truth is not yet known.
+Start in an empty folder and create the control files first. For Cartulary, the repo-control facts are already fixed and should be used directly.
 
 ```text
-TODO: choose repository remote
-TODO: choose Go module path
-TODO: choose supported Go, Node, and pnpm versions
+Repository remote: https://github.com/JochiRaider/cartulary.git
+Go module path: github.com/JochiRaider/cartulary
+Supported toolchains: Go 1.26 with toolchain go1.26.2; Node 24.15.0; pnpm 10.33.0
 ```
 
 Create these root files immediately:
@@ -56,7 +56,7 @@ Recommended first commands:
 
 ```bash
 git init
-go mod init <TODO-module-path>
+go mod init github.com/JochiRaider/cartulary
 pnpm init
 ```
 

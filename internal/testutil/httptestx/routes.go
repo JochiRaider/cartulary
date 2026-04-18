@@ -6,8 +6,8 @@ import (
 
 	"github.com/coder/websocket"
 
-	"example.com/todo/cartulary/internal/platform/httpapi"
-	platformws "example.com/todo/cartulary/internal/platform/ws"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 func RegisterBootstrapRoutes() httpapi.RouteRegistrar {

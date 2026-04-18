@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"example.com/todo/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 var sixDigitCodePattern = regexp.MustCompile(`^[0-9]{6}$`)

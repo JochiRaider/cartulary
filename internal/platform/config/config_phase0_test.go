@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"example.com/todo/cartulary/internal/testutil/fixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
 
 func TestPhase0_ConfigDiscovery_U_0_01(t *testing.T) {

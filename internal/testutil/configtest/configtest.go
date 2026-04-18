@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"testing"
 
-	"example.com/todo/cartulary/internal/platform/config"
-	"example.com/todo/cartulary/internal/testutil/fixtures"
-	"example.com/todo/cartulary/internal/testutil/golden"
+	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/golden"
 )
 
 type TempRoots struct {

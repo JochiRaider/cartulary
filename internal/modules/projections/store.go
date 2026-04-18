@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	sqlc "example.com/todo/cartulary/internal/gen/sql"
+	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"

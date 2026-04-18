@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	platformws "example.com/todo/cartulary/internal/platform/ws"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 type Counters struct {

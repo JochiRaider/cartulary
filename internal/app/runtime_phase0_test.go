@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minio/minio-go/v7"
 
-	"example.com/todo/cartulary/internal/platform/config"
-	"example.com/todo/cartulary/internal/platform/httpapi"
-	"example.com/todo/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
 func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {

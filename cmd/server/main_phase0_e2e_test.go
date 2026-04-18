@@ -19,10 +19,10 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"example.com/todo/cartulary/internal/testutil/configtest"
-	"example.com/todo/cartulary/internal/testutil/fixtures"
-	"example.com/todo/cartulary/internal/testutil/pgtest"
-	"example.com/todo/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
 func TestPhase0_ReadyState_E_0_01(t *testing.T) {

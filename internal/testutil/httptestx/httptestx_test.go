@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"example.com/todo/cartulary/internal/testutil/pgtest"
-	"example.com/todo/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
 func TestHarnessBootsServerAndAssertsEnvelopes(t *testing.T) {

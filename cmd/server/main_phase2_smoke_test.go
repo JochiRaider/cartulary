@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"example.com/todo/cartulary/internal/platform/authn"
-	"example.com/todo/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestPhase2_ProcessSmoke_IncidentCreateListAndWorkbookPrefs(t *testing.T) {

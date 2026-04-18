@@ -18,13 +18,13 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
-	incidentsmodule "example.com/todo/cartulary/internal/modules/incidents"
-	"example.com/todo/cartulary/internal/modules/timeline"
-	"example.com/todo/cartulary/internal/platform/authn"
-	"example.com/todo/cartulary/internal/testutil/fixtures"
-	"example.com/todo/cartulary/internal/testutil/httptestx"
-	"example.com/todo/cartulary/internal/testutil/pgtest"
-	"example.com/todo/cartulary/internal/testutil/s3test"
+	incidentsmodule "github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
 func TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomically(t *testing.T) {

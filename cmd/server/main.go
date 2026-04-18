@@ -10,11 +10,11 @@ import (
 	"syscall"
 	"time"
 
-	"example.com/todo/cartulary/internal/app"
-	"example.com/todo/cartulary/internal/modules/auth"
-	"example.com/todo/cartulary/internal/modules/timeline"
-	"example.com/todo/cartulary/internal/platform/config"
-	"example.com/todo/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/app"
+	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 const httpAddrEnv = "CARTULARY_HTTP_ADDR"

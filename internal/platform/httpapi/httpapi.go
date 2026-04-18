@@ -11,9 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minio/minio-go/v7"
 
-	"example.com/todo/cartulary/internal/platform/config"
-	"example.com/todo/cartulary/internal/platform/jobs"
-	platformws "example.com/todo/cartulary/internal/platform/ws"
+	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 const RequestIDHeader = "X-Request-Id"

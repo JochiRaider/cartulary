@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"example.com/todo/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 var (

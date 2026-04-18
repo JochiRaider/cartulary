@@ -13,9 +13,9 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
-	"example.com/todo/cartulary/internal/platform/authn"
-	"example.com/todo/cartulary/internal/platform/httpapi"
-	platformws "example.com/todo/cartulary/internal/platform/ws"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 const unauthorizedCode = "session_required"

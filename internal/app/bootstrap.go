@@ -19,8 +19,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/text/unicode/norm"
 
-	"example.com/todo/cartulary/internal/platform/authn"
-	"example.com/todo/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/config"
 )
 
 const (

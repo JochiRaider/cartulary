@@ -17,7 +17,7 @@ import (
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"example.com/todo/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
 
 type Harness struct {

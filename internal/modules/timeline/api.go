@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/text/unicode/norm"
 
-	"example.com/todo/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/modules/auth"
 )
 
 const (

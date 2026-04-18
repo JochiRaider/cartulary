@@ -1,6 +1,4 @@
-module example.com/todo/cartulary
-
-// TODO: replace this temporary module path once the repository remote is finalized.
+module github.com/JochiRaider/cartulary
 
 go 1.26
 

@@ -6,10 +6,10 @@ import (
 
 	"github.com/coder/websocket"
 
-	platformws "example.com/todo/cartulary/internal/platform/ws"
-	"example.com/todo/cartulary/internal/testutil/httptestx"
-	"example.com/todo/cartulary/internal/testutil/pgtest"
-	"example.com/todo/cartulary/internal/testutil/s3test"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
 func TestHarnessOpensAndClosesSocketAgainstBootstrapBoundary(t *testing.T) {

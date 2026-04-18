@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"example.com/todo/cartulary/internal/modules/auth"
-	"example.com/todo/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 type IncidentCreateBootstrap struct {

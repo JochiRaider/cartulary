@@ -4,7 +4,7 @@ Cartulary is an open-source, specification-first incident-response workbook syst
 
 The repository now includes a bounded bootstrap shell:
 
-- one root Go module with the temporary module path `example.com/todo/cartulary`;
+- one root Go module with the canonical path `github.com/JochiRaider/cartulary`;
 - one top-level pnpm workspace with a minimal Vite + React web shell;
 - local PostgreSQL and MinIO development services through `docker-compose.dev.yml`;
 - compile-only `cmd/server` and `cmd/migrate` entrypoints plus platform stubs;

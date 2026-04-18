@@ -15,11 +15,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	sqlc "example.com/todo/cartulary/internal/gen/sql"
-	"example.com/todo/cartulary/internal/modules/links"
-	"example.com/todo/cartulary/internal/modules/projections"
-	"example.com/todo/cartulary/internal/modules/revisions"
-	"example.com/todo/cartulary/internal/platform/authn"
+	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 var (

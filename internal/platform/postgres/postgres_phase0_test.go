@@ -9,8 +9,8 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"example.com/todo/cartulary/internal/platform/postgres"
-	"example.com/todo/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestPhase0_SchemaBootstrap_U_0_06(t *testing.T) {

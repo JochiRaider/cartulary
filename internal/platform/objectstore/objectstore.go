@@ -9,7 +9,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
-	"example.com/todo/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/config"
 )
 
 const (

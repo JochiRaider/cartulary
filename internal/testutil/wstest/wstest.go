@@ -9,7 +9,7 @@ import (
 
 	"github.com/coder/websocket"
 
-	platformws "example.com/todo/cartulary/internal/platform/ws"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 type Client struct {

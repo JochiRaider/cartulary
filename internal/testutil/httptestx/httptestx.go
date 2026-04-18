@@ -9,11 +9,11 @@ import (
 	stdhttptest "net/http/httptest"
 	"testing"
 
-	"example.com/todo/cartulary/internal/app"
-	"example.com/todo/cartulary/internal/platform/config"
-	"example.com/todo/cartulary/internal/platform/httpapi"
-	"example.com/todo/cartulary/internal/testutil/configtest"
-	"example.com/todo/cartulary/internal/testutil/fixtures"
+	"github.com/JochiRaider/cartulary/internal/app"
+	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
 
 type Server struct {

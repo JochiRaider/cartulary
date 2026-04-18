@@ -11,11 +11,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"example.com/todo/cartulary/internal/modules/auth"
-	"example.com/todo/cartulary/internal/modules/incidents"
-	"example.com/todo/cartulary/internal/platform/authn"
-	"example.com/todo/cartulary/internal/platform/httpapi"
-	platformws "example.com/todo/cartulary/internal/platform/ws"
+	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 type Service struct {
