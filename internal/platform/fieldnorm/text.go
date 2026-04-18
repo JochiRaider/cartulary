@@ -4,8 +4,11 @@ import (
 	"strings"
 	"unicode"
 
+	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
 )
+
+var autoResolutionCaseFolder = cases.Fold()
 
 func NormalizeLine(raw string) (string, bool) {
 	normalized := norm.NFC.String(strings.TrimFunc(raw, unicode.IsSpace))
@@ -36,6 +39,60 @@ func NormalizeNote(raw string) (string, bool) {
 		}
 	}
 	return normalized, true
+}
+
+func NormalizeMentionToken(raw string) (string, bool) {
+	normalized := norm.NFC.String(raw)
+	if normalized == "" {
+		return "", false
+	}
+
+	var builder strings.Builder
+	builder.Grow(len(normalized))
+
+	runeCount := 0
+	wroteToken := false
+	pendingSpace := false
+
+	for _, r := range normalized {
+		if unicode.Is(unicode.Cc, r) {
+			return "", false
+		}
+		if unicode.IsSpace(r) {
+			if wroteToken {
+				pendingSpace = true
+			}
+			continue
+		}
+		if pendingSpace {
+			builder.WriteByte(' ')
+			runeCount++
+			pendingSpace = false
+			if runeCount > 256 {
+				return "", false
+			}
+		}
+		builder.WriteRune(r)
+		runeCount++
+		if runeCount > 256 {
+			return "", false
+		}
+		wroteToken = true
+	}
+
+	mentionToken := builder.String()
+	if mentionToken == "" {
+		return "", false
+	}
+	return mentionToken, true
+}
+
+func AutoResolutionCandidateText(raw string) (string, bool) {
+	normalized, ok := NormalizeMentionToken(raw)
+	if !ok {
+		return "", false
+	}
+	return autoResolutionCaseFolder.String(normalized), true
 }
 
 func NormalizeIdentifier(identifierClass string, raw string) (string, bool) {

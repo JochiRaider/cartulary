@@ -830,12 +830,22 @@ type mentionQueryer interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }
 
+type projectedMentionItem struct {
+	MentionID        uuid.UUID
+	EntityType       string
+	SourceFieldKey   string
+	RawText          string
+	ResolutionStatus string
+	ResolvedRecordID *uuid.UUID
+	ResolutionMethod *string
+}
+
 func hydrateProjectedCollections(ctx context.Context, querier mentionQueryer, record *projectedRecord) error {
 	if record == nil {
 		return nil
 	}
 	rows, err := querier.Query(ctx, `
-SELECT entity_mention_id, entity_type, raw_text, resolution_status, resolved_record_id, ordinal
+SELECT entity_mention_id, entity_type, source_field_key, raw_text, resolution_status, resolved_record_id, resolution_method, ordinal
   FROM entity_mentions
  WHERE source_record_id = $1
    AND resolution_status IN ('unresolved', 'resolved')
@@ -844,61 +854,111 @@ SELECT entity_mention_id, entity_type, raw_text, resolution_status, resolved_rec
 	if err != nil {
 		return fmt.Errorf("query timeline mention collections: %w", err)
 	}
-	defer rows.Close()
 
-	hostRefs := make([]map[string]any, 0)
-	identityRefs := make([]map[string]any, 0)
-	hasUnresolved := false
+	mentions := make([]projectedMentionItem, 0)
 	for rows.Next() {
 		var (
 			mentionID        uuid.UUID
 			entityType       string
+			sourceFieldKey   string
 			rawText          string
 			resolutionStatus string
 			resolvedRecordID pgtype.UUID
+			resolutionMethod pgtype.Text
 			ordinal          int
 		)
-		if err := rows.Scan(&mentionID, &entityType, &rawText, &resolutionStatus, &resolvedRecordID, &ordinal); err != nil {
+		if err := rows.Scan(&mentionID, &entityType, &sourceFieldKey, &rawText, &resolutionStatus, &resolvedRecordID, &resolutionMethod, &ordinal); err != nil {
+			rows.Close()
 			return fmt.Errorf("scan timeline mention collection row: %w", err)
 		}
-
-		item := map[string]any{
-			"item_ref":     "entity_mention:" + mentionID.String(),
-			"entity_type":  entityType,
-			"display_text": rawText,
-			"raw_text":     rawText,
+		mention := projectedMentionItem{
+			MentionID:        mentionID,
+			EntityType:       entityType,
+			SourceFieldKey:   sourceFieldKey,
+			RawText:          rawText,
+			ResolutionStatus: resolutionStatus,
 		}
-		if resolutionStatus == "resolved" && resolvedRecordID.Valid {
-			item["item_kind"] = "resolved_ref"
+		if resolvedRecordID.Valid {
 			resolved := uuid.Must(uuid.FromBytes(resolvedRecordID.Bytes[:]))
-			item["resolved_record_id"] = resolved.String()
+			mention.ResolvedRecordID = &resolved
+		}
+		if resolutionMethod.Valid {
+			value := resolutionMethod.String
+			mention.ResolutionMethod = &value
+		}
+		mentions = append(mentions, mention)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("iterate timeline mention collection rows: %w", err)
+	}
+	rows.Close()
+
+	hostRefs := make([]map[string]any, 0)
+	identityRefs := make([]map[string]any, 0)
+	hasUnresolved := false
+	for _, mention := range mentions {
+		item := map[string]any{
+			"item_ref":     "entity_mention:" + mention.MentionID.String(),
+			"entity_type":  mention.EntityType,
+			"display_text": mention.RawText,
+			"raw_text":     mention.RawText,
+		}
+		if mention.ResolutionStatus == "resolved" && mention.ResolvedRecordID != nil {
+			item["item_kind"] = "resolved_ref"
+			item["resolved_record_id"] = mention.ResolvedRecordID.String()
+			if mention.ResolutionMethod != nil && *mention.ResolutionMethod != "" {
+				item["resolution_method"] = *mention.ResolutionMethod
+				if *mention.ResolutionMethod == autoResolutionMethod {
+					item["auto_resolved"] = true
+				}
+			}
+			if linkType, ok := timelineRelationshipLinkType(mention.SourceFieldKey); ok {
+				linkMetadata, err := loadActiveCollectionLinkMetadata(ctx, querier, record.IncidentID, record.RecordID, *mention.ResolvedRecordID, linkType)
+				if err != nil {
+					return err
+				}
+				if linkMetadata != nil {
+					item["provenance"] = linkMetadata.Provenance
+					item["confidence"] = linkMetadata.Confidence
+				}
+			}
+			if mention.ResolutionMethod != nil && *mention.ResolutionMethod == autoResolutionMethod {
+				matchedAliasText, err := lookupMatchedAliasText(ctx, querier, *mention.ResolvedRecordID, mention.EntityType, mention.RawText)
+				if err != nil {
+					return err
+				}
+				if matchedAliasText != nil {
+					item["matched_alias_text"] = *matchedAliasText
+				}
+			}
 		} else {
 			item["item_kind"] = "unresolved_mention"
 			hasUnresolved = true
 		}
 
-		switch entityType {
+		switch mention.EntityType {
 		case "host":
 			hostRefs = append(hostRefs, item)
 		case "identity":
 			identityRefs = append(identityRefs, item)
 		}
 	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("iterate timeline mention collection rows: %w", err)
-	}
-
 	record.HostRefs = hostRefs
 	record.IdentityRefs = identityRefs
 	record.HasUnresolvedMentions = hasUnresolved
 	return nil
 }
 
+type mentionInsertOptions struct {
+	allowInteractiveAutoResolution bool
+}
+
 func applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, hostRefs *CollectionActionPayload, identityRefs *CollectionActionPayload, now time.Time) error {
-	if err := insertMentionActionsTx(ctx, tx, actorUserID, incidentID, recordID, "timeline.host_refs", "host", hostRefs, now); err != nil {
+	if err := insertMentionActionsTx(ctx, tx, actorUserID, incidentID, recordID, "timeline.host_refs", "host", hostRefs, mentionInsertOptions{}, now); err != nil {
 		return err
 	}
-	if err := insertMentionActionsTx(ctx, tx, actorUserID, incidentID, recordID, "timeline.identity_refs", "identity", identityRefs, now); err != nil {
+	if err := insertMentionActionsTx(ctx, tx, actorUserID, incidentID, recordID, "timeline.identity_refs", "identity", identityRefs, mentionInsertOptions{}, now); err != nil {
 		return err
 	}
 	return nil
@@ -917,7 +977,9 @@ func applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.User
 		for _, action := range change.ActionPayload.Actions {
 			switch action.Op {
 			case "add_token", "add_resolved_ref":
-				if err := insertMentionActionsTx(ctx, tx, actor.ID, incidentID, recordID, change.FieldKey, entityType, &CollectionActionPayload{Actions: []CollectionAction{action}}, now); err != nil {
+				if err := insertMentionActionsTx(ctx, tx, actor.ID, incidentID, recordID, change.FieldKey, entityType, &CollectionActionPayload{Actions: []CollectionAction{action}}, mentionInsertOptions{
+					allowInteractiveAutoResolution: true,
+				}, now); err != nil {
 					return err
 				}
 			case "resolve_item":
@@ -944,7 +1006,7 @@ func applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.User
 	return nil
 }
 
-func insertMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, fieldKey string, entityType string, payload *CollectionActionPayload, now time.Time) error {
+func insertMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, fieldKey string, entityType string, payload *CollectionActionPayload, options mentionInsertOptions, now time.Time) error {
 	if payload == nil || len(payload.Actions) == 0 {
 		return nil
 	}
@@ -962,6 +1024,8 @@ func insertMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUI
 		var resolvedByUserID any
 		var resolvedAt any
 		var resolutionMethod any
+		linkProvenance := "manual"
+		var linkConfidence *int
 		if action.Op == "add_resolved_ref" {
 			if action.ResolvedRecord == nil {
 				return fmt.Errorf("missing resolved record for action: %s", action.Op)
@@ -974,6 +1038,21 @@ func insertMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUI
 			resolvedByUserID = actorUserID
 			resolvedAt = now.UTC()
 			resolutionMethod = action.Op
+		} else if options.allowInteractiveAutoResolution {
+			match, err := lookupInteractiveAutoResolutionMatchTx(ctx, tx, incidentID, fieldKey, action.RawText)
+			if err != nil {
+				return err
+			}
+			if match != nil {
+				resolutionStatus = "resolved"
+				resolvedRecordID = &match.RecordID
+				resolvedByUserID = actorUserID
+				resolvedAt = now.UTC()
+				resolutionMethod = autoResolutionMethod
+				linkProvenance = autoResolutionMethod
+				confidence := 100
+				linkConfidence = &confidence
+			}
 		}
 		if _, err := tx.Exec(ctx, `
 INSERT INTO entity_mentions (
@@ -998,13 +1077,13 @@ VALUES ($1, $2, $3, 'interactive_cell', $4, $5, $6, $7, 1, $8, $9, $10, $11, $12
 `, recordID, entityType, fieldKey, mentionOriginLocator(recordID, fieldKey, nextOrdinal), action.RawText, action.NormalizedText, resolutionStatus, nextOrdinal, actorUserID, now.UTC(), resolvedRecordID, resolvedByUserID, resolvedAt, resolutionMethod); err != nil {
 			return fmt.Errorf("insert entity mention: %w", err)
 		}
-		if action.Op == "add_resolved_ref" {
+		if resolvedRecordID != nil {
 			linkType, ok := timelineRelationshipLinkType(fieldKey)
 			if !ok {
 				return fmt.Errorf("unsupported link field: %s", fieldKey)
 			}
-			if _, _, err := linkStore.UpsertLinkTx(ctx, tx, incidentID, recordID, *action.ResolvedRecord, linkType, "manual", nil, actorUserID, now.UTC()); err != nil {
-				return fmt.Errorf("upsert manual record link: %w", err)
+			if _, _, err := linkStore.UpsertLinkTx(ctx, tx, incidentID, recordID, *resolvedRecordID, linkType, linkProvenance, linkConfidence, actorUserID, now.UTC()); err != nil {
+				return fmt.Errorf("upsert record link: %w", err)
 			}
 		}
 		nextOrdinal++

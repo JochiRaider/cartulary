@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -11,7 +12,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/testutil/assertx"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/golden"
@@ -19,6 +22,461 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 	"github.com/JochiRaider/cartulary/internal/testutil/timelinetest"
 )
+
+// U-4-08 / REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 / AC-205, AC-388..AC-392.
+func TestPhase4_AutoResolutionEligibility_U_4_08_Authoritative(t *testing.T) {
+	t.Run("host alias exact equality auto resolves in the same patch change set", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase4-u-4-08-host-auto-match")
+		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-u-4-08-host-incident",
+			"incident_key":  "IR-PHASE4-U408-A",
+			"title":         "Phase 4 U-4-08 host auto match",
+		})
+		incidentID := incident["incident_id"].(string)
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "Gateway record", "gateway-record-01")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "VPN Gateway")
+		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+			"client_txn_id":    "txn-phase4-u-4-08-host-row",
+			"timeline.summary": "Auto-match host row",
+		})
+		recordID := created["row"].(map[string]any)["record_id"].(string)
+		beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+
+		resp := doPhase3JSON(
+			t,
+			http.MethodPatch,
+			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
+			fixtures.TimelineCollectionPatchPayload(
+				golden.Phase4FieldTimelineHostRefs,
+				1,
+				"txn-phase4-u-4-08-host-patch",
+				fixtures.CollectionActions(
+					fixtures.AddTokenAction(" vpn   gateway "),
+				),
+			),
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
+		afterCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		assertx.RequireExactlyOneChangeSet(t, beforeCounters.ChangeSets, afterCounters.ChangeSets)
+		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
+			t.Fatalf("unexpected auto-match row_version: got %d want 2", got)
+		}
+
+		changeSet := timelinetest.LookupChangeSet(t, harness.DB, data["change_set_id"].(string))
+		assertx.RequireActorAttribution(t, changeSet.ActorUserID, adminID, changeSet.Source, "timeline.records.patch")
+		if changeSet.ClientTxnID != "txn-phase4-u-4-08-host-patch" {
+			t.Fatalf("unexpected auto-match client_txn_id: %#v", changeSet)
+		}
+
+		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.Phase4CanonicalHostRecordID, "observed_on_host")
+		assertx.RequireActiveLink(
+			t,
+			link,
+			mustUUID(t, recordID),
+			golden.Phase4CanonicalHostRecordID,
+			"observed_on_host",
+			golden.Phase4AutoMatchLinkExpectation.Provenance,
+			golden.Phase4AutoMatchLinkExpectation.Confidence,
+		)
+		if got := queryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM record_links
+ WHERE incident_id::text = $1
+   AND src_record_id::text = $2
+   AND deleted_at IS NULL
+`, incidentID, recordID); got != 1 {
+			t.Fatalf("expected exactly one active relationship link after auto-match, got %d", got)
+		}
+
+		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
+		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
+		if item["item_kind"] != "resolved_ref" {
+			t.Fatalf("expected resolved_ref item after auto-match, got %#v", item)
+		}
+		if item["raw_text"] != " vpn   gateway " {
+			t.Fatalf("expected raw_text to preserve analyst token, got %#v", item)
+		}
+		if item["resolved_record_id"] != golden.Phase4CanonicalHostRecordID.String() {
+			t.Fatalf("unexpected resolved_record_id after auto-match: %#v", item)
+		}
+		if item["resolution_method"] != golden.Phase4LinkProvenanceAutoMatch {
+			t.Fatalf("expected auto-match resolution method marker, got %#v", item)
+		}
+		if item["auto_resolved"] != true {
+			t.Fatalf("expected auto_resolved marker on resolved item, got %#v", item)
+		}
+		if item["matched_alias_text"] != "VPN Gateway" {
+			t.Fatalf("expected matched_alias_text to round-trip in refreshed row, got %#v", item)
+		}
+		if item["provenance"] != golden.Phase4LinkProvenanceAutoMatch {
+			t.Fatalf("expected auto_match provenance in refreshed row, got %#v", item)
+		}
+		if confidence, ok := item["confidence"].(float64); !ok || int(confidence) != 100 {
+			t.Fatalf("expected confidence=100 in refreshed row, got %#v", item)
+		}
+
+		mentionID := mentionIDFromItemRef(t, item["item_ref"].(string))
+		mention := lookupMention(t, harness.DB, mentionID)
+		assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusResolved)
+		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != golden.Phase4CanonicalHostRecordID {
+			t.Fatalf("expected auto-match mention to resolve to host %s, got %#v", golden.Phase4CanonicalHostRecordID, mention)
+		}
+		if mention.ResolvedByUserID == nil || *mention.ResolvedByUserID != mustUUID(t, adminID) {
+			t.Fatalf("expected auto-match attribution to current actor, got %#v", mention)
+		}
+		if mention.ResolvedAt == nil {
+			t.Fatalf("expected auto-match resolved_at attribution, got %#v", mention)
+		}
+		if mention.ResolutionMethod == nil || *mention.ResolutionMethod != golden.Phase4LinkProvenanceAutoMatch {
+			t.Fatalf("expected auto-match resolution_method, got %#v", mention)
+		}
+	})
+
+	t.Run("identity alias exact equality derives the identity link type", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase4-u-4-08-identity-auto-match")
+		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-u-4-08-identity-incident",
+			"incident_key":  "IR-PHASE4-U408-B",
+			"title":         "Phase 4 U-4-08 identity auto match",
+		})
+		incidentID := incident["incident_id"].(string)
+		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalIdentityID, "Identity record", "identity-record@example.test", "identity-record@example.test", "IDENTITYREC")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalIdentityID, "identity", "Analyst Alex")
+		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+			"client_txn_id":    "txn-phase4-u-4-08-identity-row",
+			"timeline.summary": "Auto-match identity row",
+		})
+		recordID := created["row"].(map[string]any)["record_id"].(string)
+
+		resp := doPhase3JSON(
+			t,
+			http.MethodPatch,
+			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
+			fixtures.TimelineCollectionPatchPayload(
+				golden.Phase4FieldTimelineIdentityRefs,
+				1,
+				"txn-phase4-u-4-08-identity-patch",
+				fixtures.CollectionActions(
+					fixtures.AddTokenAction(" analyst   alex "),
+				),
+			),
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
+		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
+			t.Fatalf("unexpected identity auto-match row_version: got %d want 2", got)
+		}
+
+		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.Phase4CanonicalIdentityID, "observed_as_identity")
+		assertx.RequireActiveLink(
+			t,
+			link,
+			mustUUID(t, recordID),
+			golden.Phase4CanonicalIdentityID,
+			"observed_as_identity",
+			golden.Phase4AutoMatchLinkExpectation.Provenance,
+			golden.Phase4AutoMatchLinkExpectation.Confidence,
+		)
+		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
+		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineIdentityRefs)
+		if item["matched_alias_text"] != "Analyst Alex" || item["provenance"] != golden.Phase4LinkProvenanceAutoMatch {
+			t.Fatalf("expected identity auto-match metadata in refreshed row, got %#v", item)
+		}
+	})
+
+	t.Run("suppressor and forbidden rewrite tokens remain unresolved", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase4-u-4-08-unresolved")
+		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-u-4-08-unresolved-incident",
+			"incident_key":  "IR-PHASE4-U408-C",
+			"title":         "Phase 4 U-4-08 unresolved eligibility",
+		})
+		incidentID := incident["incident_id"].(string)
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "Host record", "host-record-23")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "WS-023")
+
+		for _, rawText := range append([]string{}, golden.Phase4AutoResolutionSuppressedTokens...) {
+			t.Run(rawText, func(t *testing.T) {
+				created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+					"client_txn_id":    "txn-phase4-u-4-08-unresolved-row-" + strings.ReplaceAll(rawText, " ", "_"),
+					"timeline.summary": "Unresolved eligibility row",
+				})
+				recordID := created["row"].(map[string]any)["record_id"].(string)
+				beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+
+				resp := doPhase3JSON(
+					t,
+					http.MethodPatch,
+					harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
+					fixtures.TimelineCollectionPatchPayload(
+						golden.Phase4FieldTimelineHostRefs,
+						1,
+						"txn-phase4-u-4-08-unresolved-patch-"+strings.ReplaceAll(rawText, " ", "_"),
+						fixtures.CollectionActions(
+							fixtures.AddTokenAction(rawText),
+						),
+					),
+					withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+					withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+				)
+				data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
+				afterCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+				assertx.RequireExactlyOneChangeSet(t, beforeCounters.ChangeSets, afterCounters.ChangeSets)
+				if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
+					t.Fatalf("unexpected unresolved-path row_version for %q: got %d want 2", rawText, got)
+				}
+
+				row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
+				item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
+				if item["item_kind"] != "unresolved_mention" {
+					t.Fatalf("expected unresolved_mention item for %q, got %#v", rawText, item)
+				}
+				if item["raw_text"] != rawText {
+					t.Fatalf("expected unresolved raw_text %q to remain authoritative, got %#v", rawText, item)
+				}
+				if _, ok := item["matched_alias_text"]; ok {
+					t.Fatalf("unresolved token %q must not surface matched_alias_text, got %#v", rawText, item)
+				}
+				if _, ok := item["provenance"]; ok {
+					t.Fatalf("unresolved token %q must not surface provenance, got %#v", rawText, item)
+				}
+				if _, ok := item["confidence"]; ok {
+					t.Fatalf("unresolved token %q must not surface confidence, got %#v", rawText, item)
+				}
+
+				mentionID := mentionIDFromItemRef(t, item["item_ref"].(string))
+				mention := lookupMention(t, harness.DB, mentionID)
+				assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusUnresolved)
+				if mention.ResolvedRecordID != nil || mention.ResolutionMethod != nil {
+					t.Fatalf("expected unresolved mention for %q, got %#v", rawText, mention)
+				}
+				if got := queryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM record_links
+ WHERE incident_id::text = $1
+   AND src_record_id::text = $2
+   AND deleted_at IS NULL
+`, incidentID, recordID); got != 0 {
+					t.Fatalf("expected no active relationship link for unresolved token %q, got %d", rawText, got)
+				}
+			})
+		}
+	})
+
+	t.Run("competing alias candidates stay unresolved", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase4-u-4-08-competing")
+		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-u-4-08-competing-incident",
+			"incident_key":  "IR-PHASE4-U408-D",
+			"title":         "Phase 4 U-4-08 competing aliases",
+		})
+		incidentID := incident["incident_id"].(string)
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "Host A", "host-a")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4DuplicateHostRecordID, "Host B", "host-b")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "WS-023")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4DuplicateHostRecordID, "host", "WS-023")
+		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+			"client_txn_id":    "txn-phase4-u-4-08-competing-row",
+			"timeline.summary": "Competing auto-match row",
+		})
+		recordID := created["row"].(map[string]any)["record_id"].(string)
+
+		resp := doPhase3JSON(
+			t,
+			http.MethodPatch,
+			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
+			fixtures.TimelineCollectionPatchPayload(
+				golden.Phase4FieldTimelineHostRefs,
+				1,
+				"txn-phase4-u-4-08-competing-patch",
+				fixtures.CollectionActions(
+					fixtures.AddTokenAction("WS-023"),
+				),
+			),
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)
+
+		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
+		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
+		if item["item_kind"] != "unresolved_mention" {
+			t.Fatalf("competing alias candidates must remain unresolved, got %#v", item)
+		}
+		if got := queryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM record_links
+ WHERE incident_id::text = $1
+   AND src_record_id::text = $2
+   AND deleted_at IS NULL
+`, incidentID, recordID); got != 0 {
+			t.Fatalf("competing alias candidates must not create active links, got %d", got)
+		}
+	})
+
+	t.Run("mixed eligible and ineligible tokens stay coupled to one accepted patch", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase4-u-4-08-mixed")
+		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-u-4-08-mixed-incident",
+			"incident_key":  "IR-PHASE4-U408-E",
+			"title":         "Phase 4 U-4-08 mixed eligibility",
+		})
+		incidentID := incident["incident_id"].(string)
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "Gateway record", "gateway-record-02")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4StubHostRecordID, "Host record", "host-record-23")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "VPN Gateway")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4StubHostRecordID, "host", "WS-023")
+		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+			"client_txn_id":    "txn-phase4-u-4-08-mixed-row",
+			"timeline.summary": "Mixed auto-match row",
+		})
+		recordID := created["row"].(map[string]any)["record_id"].(string)
+		beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+
+		resp := doPhase3JSON(
+			t,
+			http.MethodPatch,
+			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
+			fixtures.TimelineCollectionPatchPayload(
+				golden.Phase4FieldTimelineHostRefs,
+				1,
+				"txn-phase4-u-4-08-mixed-patch",
+				fixtures.CollectionActions(
+					fixtures.AddTokenAction(" vpn   gateway "),
+					fixtures.AddTokenAction("WS-023?"),
+				),
+			),
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
+		afterCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		assertx.RequireExactlyOneChangeSet(t, beforeCounters.ChangeSets, afterCounters.ChangeSets)
+		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
+			t.Fatalf("unexpected mixed auto-match row_version: got %d want 2", got)
+		}
+
+		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
+		items := collectionItems(t, row, golden.Phase4FieldTimelineHostRefs)
+		if len(items) != 2 {
+			t.Fatalf("expected two host ref items after mixed patch, got %#v", items)
+		}
+		resolvedItem := requireCollectionItemByRawText(t, items, " vpn   gateway ")
+		unresolvedItem := requireCollectionItemByRawText(t, items, "WS-023?")
+		if resolvedItem["item_kind"] != "resolved_ref" || unresolvedItem["item_kind"] != "unresolved_mention" {
+			t.Fatalf("expected one resolved and one unresolved item, got resolved=%#v unresolved=%#v", resolvedItem, unresolvedItem)
+		}
+		if got := queryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM record_links
+ WHERE incident_id::text = $1
+   AND src_record_id::text = $2
+   AND deleted_at IS NULL
+`, incidentID, recordID); got != 1 {
+			t.Fatalf("expected mixed patch to create exactly one active link, got %d", got)
+		}
+	})
+
+	t.Run("late patch rollback leaves no auto-resolution side effects", func(t *testing.T) {
+		rollbackEnabled := false
+		var rollbackRecordID uuid.UUID
+		restoreHooks := timeline.SetStoreHooksForTesting(timeline.StoreHooks{
+			BeforeCommit: func(routeKey string, hookedRecordID uuid.UUID) error {
+				if rollbackEnabled && routeKey == "timeline.records.patch" && hookedRecordID == rollbackRecordID {
+					return errors.New("forced auto-match rollback")
+				}
+				return nil
+			},
+		})
+		defer restoreHooks()
+
+		harness := phase4test.StartServer(t, "phase4-u-4-08-rollback")
+		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
+		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-u-4-08-rollback-incident",
+			"incident_key":  "IR-PHASE4-U408-F",
+			"title":         "Phase 4 U-4-08 rollback",
+		})
+		incidentID := incident["incident_id"].(string)
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "Gateway record", "gateway-record-03")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "VPN Gateway")
+		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+			"client_txn_id":    "txn-phase4-u-4-08-rollback-row",
+			"timeline.summary": "Rollback row",
+		})
+		recordID := created["row"].(map[string]any)["record_id"].(string)
+		rollbackRecordID = mustUUID(t, recordID)
+		rollbackEnabled = true
+
+		beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		socket := connectTimelineSocket(t, harness.Server, incidentID, adminLogin.sessionCookie.Value)
+		defer socket.Close(1000, "test_complete")
+		hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeRecordChanges(4)
+		defer unsubscribe()
+
+		resp := doPhase3JSON(
+			t,
+			http.MethodPatch,
+			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
+			fixtures.TimelineCollectionPatchPayload(
+				golden.Phase4FieldTimelineHostRefs,
+				1,
+				"txn-phase4-u-4-08-rollback-patch",
+				fixtures.CollectionActions(
+					fixtures.AddTokenAction(" vpn   gateway "),
+				),
+			),
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		httptestx.RequireErrorEnvelope(t, resp, http.StatusInternalServerError, "internal_error")
+
+		afterCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		if afterCounters != beforeCounters {
+			t.Fatalf("rollback must leave counters unchanged, before=%+v after=%+v", beforeCounters, afterCounters)
+		}
+		if got := queryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM route_idempotency
+ WHERE route_key = $1
+   AND scope_key = $2
+   AND client_txn_id = $3
+`, "timeline.records.patch", recordID, "txn-phase4-u-4-08-rollback-patch"); got != 0 {
+			t.Fatalf("rollback must not persist patch idempotency, got %d rows", got)
+		}
+		if got := queryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM entity_mentions
+ WHERE source_record_id::text = $1
+`, recordID); got != 0 {
+			t.Fatalf("rollback must not persist auto-match mentions, got %d", got)
+		}
+		if got := queryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM record_links
+ WHERE incident_id::text = $1
+   AND src_record_id::text = $2
+   AND deleted_at IS NULL
+`, incidentID, recordID); got != 0 {
+			t.Fatalf("rollback must not persist active links, got %d", got)
+		}
+
+		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
+		if got := int64(row["row_version"].(float64)); got != 1 {
+			t.Fatalf("rollback must preserve source row_version, got %d", got)
+		}
+		timelinetest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+		expectNoTimelineSocketMessage(t, socket)
+	})
+}
 
 // U-4-09 / REQ-01-311, REQ-01-314..REQ-01-320, REQ-02-248, REQ-03-280 / AC-394, AC-396, AC-397.
 func TestPhase4_ManualTimelineConfidenceNull_U_4_09_Authoritative(t *testing.T) {
@@ -53,7 +511,7 @@ func TestPhase4_ManualTimelineConfidenceNull_U_4_09_Authoritative(t *testing.T) 
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
 		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
 			t.Fatalf("unexpected add_resolved_ref row_version: got %d want 2", got)
 		}
@@ -126,7 +584,7 @@ func TestPhase4_ManualTimelineConfidenceNull_U_4_09_Authoritative(t *testing.T) 
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
 		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
 			t.Fatalf("unexpected resolve_item row_version: got %d want 2", got)
 		}
@@ -312,17 +770,50 @@ func serializeActiveLinkRead(t testing.TB, link fixtures.LinkFixture) map[string
 	return payload
 }
 
+func requireSuccessEnvelopeWithBody(t testing.TB, resp *http.Response, wantStatus int) map[string]any {
+	t.Helper()
+
+	if resp.StatusCode != wantStatus {
+		body := httptestx.ReadJSONBody(t, resp)
+		t.Fatalf("unexpected status: got %d want %d body=%#v", resp.StatusCode, wantStatus, body)
+	}
+	return httptestx.RequireSuccessEnvelope(t, resp, wantStatus)
+}
+
 func requireSingleCollectionItem(t testing.TB, row map[string]any, fieldKey string) map[string]any {
+	t.Helper()
+
+	items := collectionItems(t, row, fieldKey)
+	if len(items) != 1 {
+		t.Fatalf("expected exactly one %s item, got %#v", fieldKey, items)
+	}
+	return items[0]
+}
+
+func collectionItems(t testing.TB, row map[string]any, fieldKey string) []map[string]any {
 	t.Helper()
 
 	cells := row["cells"].(map[string]any)
 	cell := cells[fieldKey].(map[string]any)
 	value := cell["value"].(map[string]any)
-	items := value["items"].([]any)
-	if len(items) != 1 {
-		t.Fatalf("expected exactly one %s item, got %#v", fieldKey, value)
+	rawItems := value["items"].([]any)
+	items := make([]map[string]any, 0, len(rawItems))
+	for _, rawItem := range rawItems {
+		items = append(items, rawItem.(map[string]any))
 	}
-	return items[0].(map[string]any)
+	return items
+}
+
+func requireCollectionItemByRawText(t testing.TB, items []map[string]any, rawText string) map[string]any {
+	t.Helper()
+
+	for _, item := range items {
+		if item["raw_text"] == rawText {
+			return item
+		}
+	}
+	t.Fatalf("expected collection item with raw_text=%q, got %#v", rawText, items)
+	return nil
 }
 
 func mentionIDFromItemRef(t testing.TB, itemRef string) uuid.UUID {
@@ -405,5 +896,20 @@ INSERT INTO identities (record_id, incident_id, display_name, upn, email, sam_ac
 VALUES ($1, $2, $3, $4, $5, $6, 'canonical', $7, $7)
 `, recordID, incidentID, displayName, upn, email, samAccountName, actorUserID); err != nil {
 		t.Fatalf("seed identity record: %v", err)
+	}
+}
+
+func seedEntityAlias(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, entityType string, rawText string) {
+	t.Helper()
+
+	normalized, ok := fieldnorm.NormalizeLine(rawText)
+	if !ok {
+		t.Fatalf("normalize entity alias %q", rawText)
+	}
+	if _, err := db.ExecContext(context.Background(), `
+INSERT INTO entity_aliases (incident_id, record_id, entity_type, raw_text, normalized_text, classification, created_by_user_id, created_at)
+VALUES ($1, $2, $3, $4, $5, 'suggestion_only', $6, now())
+`, incidentID, recordID, entityType, rawText, normalized, actorUserID); err != nil {
+		t.Fatalf("seed entity alias: %v", err)
 	}
 }

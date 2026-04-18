@@ -12,27 +12,64 @@ import (
 
 // U-4-08 / REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 / AC-205, AC-388..AC-392.
 func TestPhase4_AutoResolutionEligibility_U_4_08_Red(t *testing.T) {
-	payload := fixtures.TimelineCollectionPatchPayload(
-		golden.Phase4FieldTimelineHostRefs,
-		7,
-		"txn-phase4-u-4-08",
-		fixtures.CollectionActions(
-			fixtures.AddTokenAction(golden.Phase4AutoResolutionEligibleTokens[0]),
-			fixtures.AddTokenAction(golden.Phase4AutoResolutionSuppressedTokens[0]),
-		),
-	)
-	data, err := json.Marshal(payload)
-	if err != nil {
-		t.Fatalf("marshal Phase 4 collection patch payload: %v", err)
-	}
+	t.Run("mention token contract preserves raw text and collapses whitespace for comparison", func(t *testing.T) {
+		payload := fixtures.TimelineCollectionPatchPayload(
+			golden.Phase4FieldTimelineHostRefs,
+			7,
+			"txn-phase4-u-4-08-normalize",
+			fixtures.CollectionActions(
+				fixtures.AddTokenAction(" vpn   gateway "),
+			),
+		)
+		data, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatalf("marshal Phase 4 collection patch payload: %v", err)
+		}
 
-	request, apiErr := timeline.DecodeTimelinePatchRequest(bytes.NewReader(data))
-	if apiErr != nil {
-		t.Fatalf("expected Phase 4 Timeline relationship collection patch to decode for auto-resolution eligibility assertions, got %#v", apiErr)
-	}
-	if request.CanonicalChange[0].FieldKey != golden.Phase4FieldTimelineHostRefs {
-		t.Fatalf("unexpected decoded field_key: %#v", request.CanonicalChange)
-	}
+		request, apiErr := timeline.DecodeTimelinePatchRequest(bytes.NewReader(data))
+		if apiErr != nil {
+			t.Fatalf("expected Phase 4 Timeline relationship collection patch to decode for auto-resolution eligibility assertions, got %#v", apiErr)
+		}
+		if request.CanonicalChange[0].FieldKey != golden.Phase4FieldTimelineHostRefs {
+			t.Fatalf("unexpected decoded field_key: %#v", request.CanonicalChange)
+		}
+		action := request.CanonicalChange[0].ActionPayload.Actions[0]
+		if action.RawText != " vpn   gateway " {
+			t.Fatalf("expected raw token text to remain authoritative, got %#v", action)
+		}
+		if action.NormalizedText != "vpn gateway" {
+			t.Fatalf("expected mention_token_text_v1 normalization to collapse whitespace, got %#v", action)
+		}
+	})
+
+	t.Run("suppressor and forbidden rewrite tokens remain valid submitted tokens", func(t *testing.T) {
+		tokenCases := append([]string{}, golden.Phase4AutoResolutionSuppressedTokens...)
+		for _, rawText := range tokenCases {
+			t.Run(rawText, func(t *testing.T) {
+				payload := fixtures.TimelineCollectionPatchPayload(
+					golden.Phase4FieldTimelineHostRefs,
+					7,
+					"txn-phase4-u-4-08-"+rawText,
+					fixtures.CollectionActions(
+						fixtures.AddTokenAction(rawText),
+					),
+				)
+				data, err := json.Marshal(payload)
+				if err != nil {
+					t.Fatalf("marshal Phase 4 collection patch payload: %v", err)
+				}
+
+				request, apiErr := timeline.DecodeTimelinePatchRequest(bytes.NewReader(data))
+				if apiErr != nil {
+					t.Fatalf("expected suppressor/forbidden rewrite token %q to decode, got %#v", rawText, apiErr)
+				}
+				action := request.CanonicalChange[0].ActionPayload.Actions[0]
+				if action.RawText != rawText {
+					t.Fatalf("expected raw_text %q to remain authoritative, got %#v", rawText, action)
+				}
+			})
+		}
+	})
 }
 
 // U-4-09 / REQ-01-311, REQ-01-314..REQ-01-320, REQ-02-248, REQ-03-280 / AC-394, AC-396, AC-397.

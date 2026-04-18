@@ -705,7 +705,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 			if err := json.Unmarshal(rawTextValue, &rawText); err != nil {
 				return nil, false
 			}
-			normalized, ok := fieldnorm.NormalizeLine(rawText)
+			normalized, ok := fieldnorm.NormalizeMentionToken(rawText)
 			if !ok {
 				return nil, false
 			}
@@ -730,7 +730,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 			if err := json.Unmarshal(rawTextValue, &rawText); err != nil {
 				return nil, false
 			}
-			normalized, ok := fieldnorm.NormalizeLine(rawText)
+			normalized, ok := fieldnorm.NormalizeMentionToken(rawText)
 			if !ok {
 				return nil, false
 			}

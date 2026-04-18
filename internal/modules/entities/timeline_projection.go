@@ -9,7 +9,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
+
+const autoResolutionMethod = "auto_match"
 
 type timelineSourceRecord struct {
 	RecordID           uuid.UUID
@@ -54,6 +58,16 @@ type timelineProjectedRecord struct {
 
 type mentionQueryer interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
+}
+
+type projectedMentionItem struct {
+	MentionID        uuid.UUID
+	EntityType       string
+	SourceFieldKey   string
+	RawText          string
+	ResolutionStatus string
+	ResolvedRecordID *uuid.UUID
+	ResolutionMethod *string
 }
 
 func loadTimelineSourceRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (timelineSourceRecord, error) {
@@ -151,7 +165,7 @@ func hydrateTimelineMentionCollections(ctx context.Context, querier mentionQuery
 		return nil
 	}
 	rows, err := querier.Query(ctx, `
-SELECT entity_mention_id, entity_type, raw_text, resolution_status, resolved_record_id, ordinal
+SELECT entity_mention_id, entity_type, source_field_key, raw_text, resolution_status, resolved_record_id, resolution_method, ordinal
   FROM entity_mentions
  WHERE source_record_id = $1
    AND resolution_status IN ('unresolved', 'resolved')
@@ -160,50 +174,96 @@ SELECT entity_mention_id, entity_type, raw_text, resolution_status, resolved_rec
 	if err != nil {
 		return fmt.Errorf("query timeline mention collections: %w", err)
 	}
-	defer rows.Close()
 
-	hostRefs := make([]map[string]any, 0)
-	identityRefs := make([]map[string]any, 0)
-	hasUnresolved := false
+	mentions := make([]projectedMentionItem, 0)
 	for rows.Next() {
 		var (
 			mentionID        uuid.UUID
 			entityType       string
+			sourceFieldKey   string
 			rawText          string
 			resolutionStatus string
 			resolvedRecordID pgtype.UUID
+			resolutionMethod pgtype.Text
 			ordinal          int
 		)
-		if err := rows.Scan(&mentionID, &entityType, &rawText, &resolutionStatus, &resolvedRecordID, &ordinal); err != nil {
+		if err := rows.Scan(&mentionID, &entityType, &sourceFieldKey, &rawText, &resolutionStatus, &resolvedRecordID, &resolutionMethod, &ordinal); err != nil {
+			rows.Close()
 			return fmt.Errorf("scan timeline mention collection row: %w", err)
 		}
-
-		item := map[string]any{
-			"item_ref":     "entity_mention:" + mentionID.String(),
-			"entity_type":  entityType,
-			"display_text": rawText,
-			"raw_text":     rawText,
+		mention := projectedMentionItem{
+			MentionID:        mentionID,
+			EntityType:       entityType,
+			SourceFieldKey:   sourceFieldKey,
+			RawText:          rawText,
+			ResolutionStatus: resolutionStatus,
 		}
-		if resolutionStatus == "resolved" && resolvedRecordID.Valid {
-			item["item_kind"] = "resolved_ref"
+		if resolvedRecordID.Valid {
 			resolved := uuid.Must(uuid.FromBytes(resolvedRecordID.Bytes[:]))
-			item["resolved_record_id"] = resolved.String()
+			mention.ResolvedRecordID = &resolved
+		}
+		if resolutionMethod.Valid {
+			value := resolutionMethod.String
+			mention.ResolutionMethod = &value
+		}
+		mentions = append(mentions, mention)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("iterate timeline mention collection rows: %w", err)
+	}
+	rows.Close()
+
+	hostRefs := make([]map[string]any, 0)
+	identityRefs := make([]map[string]any, 0)
+	hasUnresolved := false
+	for _, mention := range mentions {
+		item := map[string]any{
+			"item_ref":     "entity_mention:" + mention.MentionID.String(),
+			"entity_type":  mention.EntityType,
+			"display_text": mention.RawText,
+			"raw_text":     mention.RawText,
+		}
+		if mention.ResolutionStatus == "resolved" && mention.ResolvedRecordID != nil {
+			item["item_kind"] = "resolved_ref"
+			item["resolved_record_id"] = mention.ResolvedRecordID.String()
+			if mention.ResolutionMethod != nil && *mention.ResolutionMethod != "" {
+				item["resolution_method"] = *mention.ResolutionMethod
+				if *mention.ResolutionMethod == autoResolutionMethod {
+					item["auto_resolved"] = true
+				}
+			}
+			if linkType, ok := mentionLinkType(mention.SourceFieldKey); ok {
+				linkMetadata, err := loadActiveTimelineCollectionLinkMetadata(ctx, querier, record.IncidentID, record.RecordID, *mention.ResolvedRecordID, linkType)
+				if err != nil {
+					return err
+				}
+				if linkMetadata != nil {
+					item["provenance"] = linkMetadata.Provenance
+					item["confidence"] = linkMetadata.Confidence
+				}
+			}
+			if mention.ResolutionMethod != nil && *mention.ResolutionMethod == autoResolutionMethod {
+				matchedAliasText, err := loadMatchedTimelineAliasText(ctx, querier, *mention.ResolvedRecordID, mention.EntityType, mention.RawText)
+				if err != nil {
+					return err
+				}
+				if matchedAliasText != nil {
+					item["matched_alias_text"] = *matchedAliasText
+				}
+			}
 		} else {
 			item["item_kind"] = "unresolved_mention"
 			hasUnresolved = true
 		}
 
-		switch entityType {
+		switch mention.EntityType {
 		case "host":
 			hostRefs = append(hostRefs, item)
 		case "identity":
 			identityRefs = append(identityRefs, item)
 		}
 	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("iterate timeline mention collection rows: %w", err)
-	}
-
 	record.HostRefs = hostRefs
 	record.IdentityRefs = identityRefs
 	record.HasUnresolvedMentions = hasUnresolved
@@ -270,4 +330,83 @@ func formatUUIDPointer(value *uuid.UUID) any {
 		return nil
 	}
 	return value.String()
+}
+
+type timelineCollectionLinkMetadata struct {
+	Provenance string
+	Confidence *int
+}
+
+func loadActiveTimelineCollectionLinkMetadata(ctx context.Context, querier mentionQueryer, incidentID uuid.UUID, sourceRecordID uuid.UUID, targetRecordID uuid.UUID, linkType string) (*timelineCollectionLinkMetadata, error) {
+	rows, err := querier.Query(ctx, `
+SELECT provenance, confidence
+  FROM record_links
+ WHERE incident_id = $1
+   AND src_record_id = $2
+   AND dst_record_id = $3
+   AND link_type = $4
+   AND deleted_at IS NULL
+ ORDER BY created_at DESC, record_link_id DESC
+ LIMIT 1
+`, incidentID, sourceRecordID, targetRecordID, linkType)
+	if err != nil {
+		return nil, fmt.Errorf("query active timeline collection link metadata: %w", err)
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("iterate active timeline collection link metadata: %w", err)
+		}
+		return nil, nil
+	}
+
+	var (
+		metadata   timelineCollectionLinkMetadata
+		confidence pgtype.Int4
+	)
+	if err := rows.Scan(&metadata.Provenance, &confidence); err != nil {
+		return nil, fmt.Errorf("scan active timeline collection link metadata: %w", err)
+	}
+	if confidence.Valid {
+		value := int(confidence.Int32)
+		metadata.Confidence = &value
+	}
+	return &metadata, nil
+}
+
+func loadMatchedTimelineAliasText(ctx context.Context, querier mentionQueryer, recordID uuid.UUID, entityType string, rawText string) (*string, error) {
+	candidateText, ok := fieldnorm.AutoResolutionCandidateText(rawText)
+	if !ok {
+		return nil, nil
+	}
+
+	rows, err := querier.Query(ctx, `
+SELECT raw_text
+  FROM entity_aliases
+ WHERE record_id = $1
+   AND entity_type = $2
+   AND deleted_at IS NULL
+ ORDER BY created_at ASC, entity_alias_id ASC
+`, recordID, entityType)
+	if err != nil {
+		return nil, fmt.Errorf("query matched timeline alias text: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var aliasText string
+		if err := rows.Scan(&aliasText); err != nil {
+			return nil, fmt.Errorf("scan matched timeline alias text: %w", err)
+		}
+		aliasCandidateText, ok := fieldnorm.AutoResolutionCandidateText(aliasText)
+		if ok && aliasCandidateText == candidateText {
+			value := aliasText
+			return &value, nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate matched timeline alias texts: %w", err)
+	}
+	return nil, nil
 }
