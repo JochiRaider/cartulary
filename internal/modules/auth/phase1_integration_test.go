@@ -41,6 +41,9 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 		if stored.revokedAt.Valid {
 			t.Fatal("new login should create one active session")
 		}
+		if !stored.sessionExpiresAt.Equal(stored.idleExpiresAt) {
+			t.Fatalf("expected initial session_expires_at to match idle_expires_at: session=%s idle=%s", stored.sessionExpiresAt, stored.idleExpiresAt)
+		}
 
 		sessionResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(sessionCookie))
 		body := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)
@@ -50,6 +53,11 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 		}
 		if got := data["provider_type"]; got != "local" {
 			t.Fatalf("unexpected provider_type: got %v", got)
+		}
+		for _, key := range []string{"authenticated_at", "idle_expires_at", "absolute_expires_at", "session_expires_at"} {
+			if got, ok := data[key].(string); !ok || got == "" {
+				t.Fatalf("expected session resource to expose %s, got %#v", key, data[key])
+			}
 		}
 		if memberships, ok := data["memberships"].([]any); !ok || memberships == nil {
 			t.Fatalf("expected memberships[] to be present, got %T", data["memberships"])
@@ -81,6 +89,36 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 		}
 		if afterLogout.revokeReasonCode.String != "session_revoked" {
 			t.Fatalf("unexpected logout revoke_reason_code: got %q", afterLogout.revokeReasonCode.String)
+		}
+	})
+
+	t.Run("idle expiry fails closed and records session_expired", func(t *testing.T) {
+		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-01-expiry")
+		defer db.Close()
+
+		userID := seedLocalUser(t, db, "idle-expiry@example.test", "Idle Expiry", "IdleExpiryPass1!", false)
+		sessionCookie, csrfCookie := loginLocalUser(t, server, "idle-expiry@example.test", "IdleExpiryPass1!", nil)
+		sessionBeforeExpiry := querySessionRow(t, db, userID)
+
+		expireResp := doJSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/test/auth/expire-current",
+			map[string]any{},
+			withCookies(sessionCookie, csrfCookie),
+			withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+		)
+		httptestx.RequireSuccessEnvelope(t, expireResp, http.StatusOK)
+
+		expiredSession := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(sessionCookie))
+		httptestx.RequireErrorEnvelope(t, expiredSession, http.StatusUnauthorized, "session_required")
+
+		sessionAfterExpiry := querySessionByID(t, db, sessionBeforeExpiry.sessionID)
+		if !sessionAfterExpiry.revokedAt.Valid {
+			t.Fatal("expected expired session to be revoked on next authenticated request")
+		}
+		if sessionAfterExpiry.revokeReasonCode.String != "session_expired" {
+			t.Fatalf("unexpected expiry revoke_reason_code: got %q", sessionAfterExpiry.revokeReasonCode.String)
 		}
 	})
 
@@ -346,9 +384,15 @@ func TestPhase1_BootstrapTokenRouteBoundaries_I_1_06(t *testing.T) {
 	seedLocalUser(t, db, "bootstrap-boundary@example.test", "Bootstrap Boundary", "BootstrapRoute123!", true)
 	bootstrapToken := requireBootstrapLogin(t, server, "bootstrap-boundary@example.test", "BootstrapRoute123!")
 
+	begin := beginTOTPEnrollment(t, server, bootstrapToken, map[string]any{
+		"client_txn_id": "txn-bootstrap-boundary-begin",
+	})
+	secretBase32 := begin["totp_setup"].(map[string]any)["secret_base32"].(string)
+
 	for _, path := range []string{
 		"/api/v1/auth/session",
 		"/api/v1/auth/credential-state",
+		"/api/v1/incidents",
 		"/api/v1/test/auth/touch",
 	} {
 		resp := doJSON(t, http.MethodGet, server.HTTP.URL+path, nil, withHeader("Authorization", "Bearer "+bootstrapToken))
@@ -383,6 +427,23 @@ func TestPhase1_BootstrapTokenRouteBoundaries_I_1_06(t *testing.T) {
 	details := body["error"].(map[string]any)["details"].(map[string]any)
 	if got := details["reason_code"]; got != "not_allowed_for_route" {
 		t.Fatalf("unexpected websocket bootstrap rejection reason: got %v want not_allowed_for_route", got)
+	}
+
+	completeInitialEnrollment(
+		t,
+		server,
+		bootstrapToken,
+		begin["enrollment_id"].(string),
+		secretBase32,
+		"txn-bootstrap-boundary-complete",
+	)
+
+	consumed := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", map[string]any{
+		"client_txn_id": "txn-bootstrap-boundary-after-complete",
+	}, withHeader("Authorization", "Bearer "+bootstrapToken))
+	consumedBody := httptestx.RequireErrorEnvelope(t, consumed, http.StatusConflict, "credential_bootstrap_rejected")
+	if got := consumedBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"]; got != "consumed" {
+		t.Fatalf("unexpected consumed bootstrap rejection reason: got %v want consumed", got)
 	}
 }
 
@@ -598,10 +659,442 @@ func TestPhase1_AdminCredentialActions_I_1_05(t *testing.T) {
 	})
 }
 
+func TestPhase1_CredentialStateTransitions_I_1_04(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	s3Harness := s3test.Start(t)
+
+	server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-04-state-transitions")
+	defer db.Close()
+
+	userID := seedLocalUser(t, db, "state-transitions@example.test", "State Transitions", "StateTransitions1!", false)
+	sessionCookie, csrfCookie := loginLocalUser(t, server, "state-transitions@example.test", "StateTransitions1!", nil)
+
+	initialStateResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/credential-state", nil, withCookies(sessionCookie))
+	initialState := httptestx.RequireSuccessEnvelope(t, initialStateResp, http.StatusOK)["data"].(map[string]any)
+	if got := initialState["user_id"]; got != userID {
+		t.Fatalf("unexpected initial credential-state user_id: got %v want %s", got, userID)
+	}
+	if got := initialState["totp"].(map[string]any)["state"]; got != "not_enrolled" {
+		t.Fatalf("unexpected initial totp.state: got %v want not_enrolled", got)
+	}
+	httptestx.RequireSecretSafePayload(t, initialState, []string{"password_hash", "bootstrap_token", "secret_base32", "otpauth_uri"})
+
+	beginResp := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/auth/mfa/totp/begin",
+		map[string]any{
+			"client_txn_id": "txn-stateful-begin",
+		},
+		withCookies(sessionCookie, csrfCookie),
+		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+	)
+	beginData := httptestx.RequireSuccessEnvelope(t, beginResp, http.StatusOK)["data"].(map[string]any)
+	enrollmentID := beginData["enrollment_id"].(string)
+	secretBase32 := beginData["totp_setup"].(map[string]any)["secret_base32"].(string)
+
+	pendingStateResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/credential-state", nil, withCookies(sessionCookie))
+	pendingState := httptestx.RequireSuccessEnvelope(t, pendingStateResp, http.StatusOK)["data"].(map[string]any)
+	if got := pendingState["totp"].(map[string]any)["state"]; got != "pending" {
+		t.Fatalf("unexpected pending totp.state: got %v want pending", got)
+	}
+
+	beginReplay := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/auth/mfa/totp/begin",
+		map[string]any{
+			"client_txn_id": "txn-stateful-begin",
+		},
+		withCookies(sessionCookie, csrfCookie),
+		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+	)
+	replayed := httptestx.RequireSuccessEnvelope(t, beginReplay, http.StatusOK)["data"].(map[string]any)
+	if replayed["enrollment_id"] != enrollmentID {
+		t.Fatalf("expected begin replay enrollment_id %s, got %v", enrollmentID, replayed["enrollment_id"])
+	}
+	if got := replayed["totp_setup"].(map[string]any)["secret_base32"]; got != secretBase32 {
+		t.Fatalf("expected begin replay secret_base32 %s, got %v", secretBase32, got)
+	}
+
+	divergentBegin := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/auth/mfa/totp/begin",
+		map[string]any{
+			"client_txn_id": "txn-stateful-begin-divergent",
+		},
+		withCookies(sessionCookie, csrfCookie),
+		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+	)
+	divergentBody := httptestx.RequireErrorEnvelope(t, divergentBegin, http.StatusConflict, "client_txn_conflict")
+	httptestx.RequireDivergentReplayRejected(t, divergentBegin.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+
+	completeResp := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/auth/mfa/totp/complete",
+		map[string]any{
+			"client_txn_id": "txn-stateful-complete",
+			"enrollment_id": enrollmentID,
+			"code":          generateTOTPCode(t, secretBase32),
+		},
+		withCookies(sessionCookie, csrfCookie),
+		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+	)
+	completeData := httptestx.RequireSuccessEnvelope(t, completeResp, http.StatusOK)["data"].(map[string]any)
+	if completeData["sessions_revoked"] != false {
+		t.Fatalf("first session-scoped enrollment must not revoke sessions, got %v", completeData["sessions_revoked"])
+	}
+
+	activeStateResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/credential-state", nil, withCookies(sessionCookie))
+	activeState := httptestx.RequireSuccessEnvelope(t, activeStateResp, http.StatusOK)["data"].(map[string]any)
+	if got := activeState["totp"].(map[string]any)["state"]; got != "active" {
+		t.Fatalf("unexpected active totp.state: got %v want active", got)
+	}
+	httptestx.RequireSecretSafePayload(t, activeState, []string{"password_hash", "bootstrap_token", "secret_base32", "otpauth_uri"})
+
+	invalidCurrent := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/auth/password/change",
+		map[string]any{
+			"client_txn_id":    "txn-stateful-password-invalid-current",
+			"current_password": "WrongCurrentPass1!",
+			"new_password":     "StateTransitionsChanged1!",
+			"second_factor": map[string]any{
+				"kind": "totp",
+				"assertion": map[string]any{
+					"code": generateTOTPCode(t, secretBase32),
+				},
+			},
+		},
+		withCookies(sessionCookie, csrfCookie),
+		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, invalidCurrent, http.StatusConflict, "invalid_current_password")
+
+	missingFactor := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/auth/password/change",
+		map[string]any{
+			"client_txn_id":    "txn-stateful-password-missing-factor",
+			"current_password": "StateTransitions1!",
+			"new_password":     "StateTransitionsChanged1!",
+		},
+		withCookies(sessionCookie, csrfCookie),
+		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, missingFactor, http.StatusUnauthorized, "invalid_second_factor")
+
+	changeResp := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/auth/password/change",
+		map[string]any{
+			"client_txn_id":    "txn-stateful-password-change",
+			"current_password": "StateTransitions1!",
+			"new_password":     "StateTransitionsChanged1!",
+			"second_factor": map[string]any{
+				"kind": "totp",
+				"assertion": map[string]any{
+					"code": generateTOTPCode(t, secretBase32),
+				},
+			},
+		},
+		withCookies(sessionCookie, csrfCookie),
+		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+	)
+	changeData := httptestx.RequireSuccessEnvelope(t, changeResp, http.StatusOK)["data"].(map[string]any)
+	if changeData["sessions_revoked"] != true {
+		t.Fatalf("password change must revoke all sessions, got %v", changeData["sessions_revoked"])
+	}
+
+	postChangeSession := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(sessionCookie))
+	httptestx.RequireErrorEnvelope(t, postChangeSession, http.StatusUnauthorized, "session_required")
+
+	oldPassword := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+		"username": "state-transitions@example.test",
+		"password": "StateTransitions1!",
+	})
+	httptestx.RequireErrorEnvelope(t, oldPassword, http.StatusUnauthorized, "invalid_credentials")
+
+	loginLocalUser(t, server, "state-transitions@example.test", "StateTransitionsChanged1!", nil)
+}
+
+func TestPhase1_BootstrapEnrollmentConsumption_I_1_04(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	s3Harness := s3test.Start(t)
+
+	server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-04-bootstrap-consumption")
+	defer db.Close()
+
+	seedLocalUser(t, db, "bootstrap-consumption@example.test", "Bootstrap Consumption", "BootstrapConsumption1!", true)
+	bootstrapToken := requireBootstrapLogin(t, server, "bootstrap-consumption@example.test", "BootstrapConsumption1!")
+
+	begin := beginTOTPEnrollment(t, server, bootstrapToken, map[string]any{
+		"client_txn_id": "txn-bootstrap-consumption-begin",
+	})
+	enrollmentID := begin["enrollment_id"].(string)
+	secretBase32 := begin["totp_setup"].(map[string]any)["secret_base32"].(string)
+
+	beginReplay := beginTOTPEnrollment(t, server, bootstrapToken, map[string]any{
+		"client_txn_id": "txn-bootstrap-consumption-begin",
+	})
+	if beginReplay["enrollment_id"] != enrollmentID {
+		t.Fatalf("expected bootstrap begin replay enrollment_id %s, got %v", enrollmentID, beginReplay["enrollment_id"])
+	}
+
+	completeResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{
+		"client_txn_id": "txn-bootstrap-consumption-complete",
+		"enrollment_id": enrollmentID,
+		"code":          generateTOTPCode(t, secretBase32),
+	}, withHeader("Authorization", "Bearer "+bootstrapToken))
+	completeData := httptestx.RequireSuccessEnvelope(t, completeResp, http.StatusOK)["data"].(map[string]any)
+	if completeData["sessions_revoked"] != false {
+		t.Fatalf("bootstrap completion must not revoke sessions, got %v", completeData["sessions_revoked"])
+	}
+	for _, cookie := range completeResp.Cookies() {
+		if cookie.Name == authn.SessionCookieName {
+			t.Fatal("bootstrap completion must not issue a session cookie")
+		}
+	}
+
+	consumed := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", map[string]any{
+		"client_txn_id": "txn-bootstrap-consumption-after-complete",
+	}, withHeader("Authorization", "Bearer "+bootstrapToken))
+	consumedBody := httptestx.RequireErrorEnvelope(t, consumed, http.StatusConflict, "credential_bootstrap_rejected")
+	if got := consumedBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"]; got != "consumed" {
+		t.Fatalf("unexpected consumed bootstrap reason_code: got %v want consumed", got)
+	}
+
+	loginWithoutFactor := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+		"username": "bootstrap-consumption@example.test",
+		"password": "BootstrapConsumption1!",
+	})
+	httptestx.RequireErrorEnvelope(t, loginWithoutFactor, http.StatusUnauthorized, "mfa_required")
+
+	_ = loginLocalUserWithSecondFactor(t, server, "bootstrap-consumption@example.test", "BootstrapConsumption1!", generateTOTPCode(t, secretBase32))
+}
+
+func TestPhase1_UserAdminAudit_I_1_03(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	s3Harness := s3test.Start(t)
+
+	server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-03-audit")
+	defer db.Close()
+
+	adminID := seedLocalUserFlags(t, db, "audit-admin@example.test", "Audit Admin", "AuditAdminPass1!", false, true, true)
+	adminSession, adminCSRF := loginLocalUser(t, server, "audit-admin@example.test", "AuditAdminPass1!", nil)
+
+	createResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users", map[string]any{
+		"client_txn_id":    "txn-user-audit-create",
+		"auth_kind":        "local",
+		"email":            "audit-target@example.test",
+		"display_name":     "Audit Target",
+		"initial_password": "AuditTargetPass1!",
+	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
+	if _, ok := createData["initial_password"]; ok {
+		t.Fatal("user create response must not echo initial_password")
+	}
+	targetUserID := createData["user_id"].(string)
+
+	patchResp := doJSON(t, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+targetUserID, map[string]any{
+		"base_user_version": 1,
+		"display_name":      "Audit Target Patched",
+		"mfa_required":      false,
+	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
+
+	events := lookupUserAuditEvents(t, db, targetUserID)
+	if len(events) < 2 {
+		t.Fatalf("expected at least create and patch audit events, got %d", len(events))
+	}
+
+	createEvent := requireAuditEventBySource(t, events, "users.create")
+	httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+		ActorUserID: createEvent.ActorUserID,
+		Source:      createEvent.EventSource,
+		ClientTxnID: createEvent.ClientTxnID,
+		RequestID:   createEvent.RequestID,
+		CreatedAt:   createEvent.CreatedAt,
+	}, adminID, "users.create", "txn-user-audit-create")
+	httptestx.RequireSecretSafePayload(t, createEvent.Before, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
+	httptestx.RequireSecretSafePayload(t, createEvent.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
+	if got := createEvent.After["user_id"]; got != targetUserID {
+		t.Fatalf("unexpected users.create audit after_json user_id: got %v want %s", got, targetUserID)
+	}
+
+	patchEvent := requireAuditEventBySource(t, events, "users.patch")
+	httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+		ActorUserID: patchEvent.ActorUserID,
+		Source:      patchEvent.EventSource,
+		ClientTxnID: patchEvent.ClientTxnID,
+		RequestID:   patchEvent.RequestID,
+		CreatedAt:   patchEvent.CreatedAt,
+	}, adminID, "users.patch", "")
+	httptestx.RequireSecretSafePayload(t, patchEvent.Before, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
+	httptestx.RequireSecretSafePayload(t, patchEvent.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
+	if got := patchEvent.Before["user_version"]; got != float64(1) {
+		t.Fatalf("unexpected users.patch before_json: %#v", patchEvent.Before)
+	}
+	if got := patchEvent.After["user_version"]; got != float64(2) {
+		t.Fatalf("unexpected users.patch after_json: %#v", patchEvent.After)
+	}
+}
+
+func TestPhase1_AdminCredentialAuditAndScope_I_1_05(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	s3Harness := s3test.Start(t)
+
+	t.Run("password reset audit is deployment-local and incident admins are denied", func(t *testing.T) {
+		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-05-audit-scope")
+		defer db.Close()
+
+		adminID := seedLocalUserFlags(t, db, "scope-admin@example.test", "Scope Admin", "ScopeAdminPass1!", false, true, true)
+		adminSession, adminCSRF := loginLocalUser(t, server, "scope-admin@example.test", "ScopeAdminPass1!", nil)
+
+		targetID := seedLocalUserWithActiveTOTP(t, db, "scope-target@example.test", "Scope Target", "ScopeTargetPass1!", true, false, "JBSWY3DPEHPK3QAC")
+		incidentAdminID := seedLocalUserFlags(t, db, "incident-admin@example.test", "Incident Admin", "IncidentAdminPass1!", false, false, true)
+		incidentAdminSession, incidentAdminCSRF := loginLocalUser(t, server, "incident-admin@example.test", "IncidentAdminPass1!", nil)
+
+		incident := createIncidentResource(t, server, adminSession, adminCSRF, map[string]any{
+			"client_txn_id": "txn-phase1-scope-incident",
+			"incident_key":  "IR-PHASE1-SCOPE",
+			"title":         "Phase 1 Scope",
+		})
+		incidentID := incident["incident_id"].(string)
+		createIncidentMembership(t, server, incidentID, adminSession, adminCSRF, map[string]any{
+			"client_txn_id": "txn-phase1-scope-membership",
+			"email":         "incident-admin@example.test",
+			"role":          "admin",
+		})
+
+		for _, path := range []string{
+			"/api/v1/users/" + targetID + "/password/reset",
+			"/api/v1/users/" + targetID + "/mfa/totp/reset",
+			"/api/v1/users/" + targetID + "/sessions/revoke-all",
+		} {
+			var body map[string]any
+			switch path {
+			case "/api/v1/users/" + targetID + "/password/reset":
+				body = map[string]any{
+					"base_user_version": 1,
+					"client_txn_id":     "txn-incident-admin-password-reset",
+					"new_password":      "ScopeTargetChanged1!",
+					"reason":            "incident admin denied",
+				}
+			case "/api/v1/users/" + targetID + "/mfa/totp/reset":
+				body = map[string]any{
+					"base_user_version": 1,
+					"client_txn_id":     "txn-incident-admin-totp-reset",
+					"reason":            "incident admin denied",
+				}
+			default:
+				body = map[string]any{
+					"client_txn_id": "txn-incident-admin-revoke-all",
+					"reason":        "incident admin denied",
+				}
+			}
+			resp := doJSON(
+				t,
+				http.MethodPost,
+				server.HTTP.URL+path,
+				body,
+				withCookies(incidentAdminSession, incidentAdminCSRF),
+				withHeader(authn.CSRFHeaderName, incidentAdminCSRF.Value),
+			)
+			httptestx.RequireErrorEnvelope(t, resp, http.StatusUnauthorized, "session_required")
+		}
+
+		passwordReset := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/password/reset", map[string]any{
+			"base_user_version": 1,
+			"client_txn_id":     "txn-phase1-admin-audit-password-reset",
+			"new_password":      "ScopeTargetChanged1!",
+			"reason":            "deployment admin reset",
+		}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+		httptestx.RequireSuccessEnvelope(t, passwordReset, http.StatusOK)
+
+		events := lookupUserAuditEvents(t, db, targetID)
+		event := requireAuditEventBySource(t, events, "users.password.reset")
+		httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+			ActorUserID: event.ActorUserID,
+			Source:      event.EventSource,
+			ClientTxnID: event.ClientTxnID,
+			RequestID:   event.RequestID,
+			CreatedAt:   event.CreatedAt,
+		}, adminID, "users.password.reset", "txn-phase1-admin-audit-password-reset")
+		httptestx.RequireSecretSafePayload(t, event.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
+		if got := event.After["user_version"]; got != float64(2) {
+			t.Fatalf("unexpected users.password.reset after_json: %#v", event.After)
+		}
+		if got := queryCount(t, db, `SELECT COUNT(*) FROM incident_memberships WHERE incident_id::text = $1 AND user_id::text = $2 AND role = 'admin'`, incidentID, incidentAdminID); got != 1 {
+			t.Fatalf("expected incident admin membership to remain incident-scoped, got %d", got)
+		}
+	})
+
+	t.Run("totp reset and revoke-all write safe deployment-admin audit records", func(t *testing.T) {
+		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-05-audit-events")
+		defer db.Close()
+
+		adminID := seedLocalUserFlags(t, db, "audit-events-admin@example.test", "Audit Events Admin", "AuditEventsAdmin1!", false, true, true)
+		adminSession, adminCSRF := loginLocalUser(t, server, "audit-events-admin@example.test", "AuditEventsAdmin1!", nil)
+
+		totpTargetID := seedLocalUserWithActiveTOTP(t, db, "audit-events-totp@example.test", "Audit Events TOTP", "AuditEventsTotp1!", true, false, "JBSWY3DPEHPK3QAD")
+		revokeTargetID := seedLocalUserWithActiveTOTP(t, db, "audit-events-revoke@example.test", "Audit Events Revoke", "AuditEventsRevoke1!", true, false, "JBSWY3DPEHPK3QAE")
+
+		totpReset := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+totpTargetID+"/mfa/totp/reset", map[string]any{
+			"base_user_version": 1,
+			"client_txn_id":     "txn-phase1-admin-audit-totp-reset",
+			"reason":            "deployment admin totp reset",
+		}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+		httptestx.RequireSuccessEnvelope(t, totpReset, http.StatusOK)
+
+		revokeAll := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+revokeTargetID+"/sessions/revoke-all", map[string]any{
+			"client_txn_id": "txn-phase1-admin-audit-revoke-all",
+			"reason":        "deployment admin revoke all",
+		}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+		httptestx.RequireSuccessEnvelope(t, revokeAll, http.StatusOK)
+
+		totpEvents := lookupUserAuditEvents(t, db, totpTargetID)
+		totpEvent := requireAuditEventBySource(t, totpEvents, "users.totp.reset")
+		httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+			ActorUserID: totpEvent.ActorUserID,
+			Source:      totpEvent.EventSource,
+			ClientTxnID: totpEvent.ClientTxnID,
+			RequestID:   totpEvent.RequestID,
+			CreatedAt:   totpEvent.CreatedAt,
+		}, adminID, "users.totp.reset", "")
+		httptestx.RequireSecretSafePayload(t, totpEvent.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
+		if got := totpEvent.After["user_version"]; got != float64(2) {
+			t.Fatalf("unexpected users.totp.reset after_json: %#v", totpEvent.After)
+		}
+
+		revokeEvents := lookupUserAuditEvents(t, db, revokeTargetID)
+		revokeEvent := requireAuditEventBySource(t, revokeEvents, "users.sessions.revoke_all")
+		httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+			ActorUserID: revokeEvent.ActorUserID,
+			Source:      revokeEvent.EventSource,
+			ClientTxnID: revokeEvent.ClientTxnID,
+			RequestID:   revokeEvent.RequestID,
+			CreatedAt:   revokeEvent.CreatedAt,
+		}, adminID, "users.sessions.revoke_all", "")
+		httptestx.RequireSecretSafePayload(t, revokeEvent.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
+		if _, ok := revokeEvent.After["revoked_at"].(string); !ok {
+			t.Fatalf("unexpected users.sessions.revoke_all after_json: %#v", revokeEvent.After)
+		}
+	})
+}
+
 type sessionRow struct {
+	authenticatedAt          time.Time
 	sessionID                string
 	lastQualifyingActivityAt time.Time
 	idleExpiresAt            time.Time
+	absoluteExpiresAt        time.Time
+	sessionExpiresAt         time.Time
 	revokedAt                sql.NullTime
 	revokeReasonCode         sql.NullString
 }
@@ -934,13 +1427,13 @@ func withHeader(key string, value string) func(*http.Request) {
 func querySessionRow(t testing.TB, db *sql.DB, userID string) sessionRow {
 	t.Helper()
 
-	row := querySingleSession(t, db, `SELECT id::text, last_qualifying_activity_at, idle_expires_at, revoked_at, revoke_reason_code FROM user_sessions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`, userID)
+	row := querySingleSession(t, db, `SELECT authenticated_at, id::text, last_qualifying_activity_at, idle_expires_at, absolute_expires_at, session_expires_at, revoked_at, revoke_reason_code FROM user_sessions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`, userID)
 	return row
 }
 
 func querySessionByID(t testing.TB, db *sql.DB, sessionID string) sessionRow {
 	t.Helper()
-	return querySingleSession(t, db, `SELECT id::text, last_qualifying_activity_at, idle_expires_at, revoked_at, revoke_reason_code FROM user_sessions WHERE id::text = $1`, sessionID)
+	return querySingleSession(t, db, `SELECT authenticated_at, id::text, last_qualifying_activity_at, idle_expires_at, absolute_expires_at, session_expires_at, revoked_at, revoke_reason_code FROM user_sessions WHERE id::text = $1`, sessionID)
 }
 
 func querySingleSession(t testing.TB, db *sql.DB, query string, args ...any) sessionRow {
@@ -948,9 +1441,12 @@ func querySingleSession(t testing.TB, db *sql.DB, query string, args ...any) ses
 
 	var row sessionRow
 	if err := db.QueryRowContext(context.Background(), query, args...).Scan(
+		&row.authenticatedAt,
 		&row.sessionID,
 		&row.lastQualifyingActivityAt,
 		&row.idleExpiresAt,
+		&row.absoluteExpiresAt,
+		&row.sessionExpiresAt,
 		&row.revokedAt,
 		&row.revokeReasonCode,
 	); err != nil {
@@ -967,4 +1463,122 @@ func queryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 		t.Fatalf("query count: %v", err)
 	}
 	return count
+}
+
+type auditEventRecord struct {
+	EventKind    string
+	ActorUserID  string
+	TargetUserID string
+	EventSource  string
+	ReasonCode   string
+	ClientTxnID  string
+	RequestID    string
+	CreatedAt    time.Time
+	Before       map[string]any
+	After        map[string]any
+}
+
+func lookupUserAuditEvents(t testing.TB, db *sql.DB, targetUserID string) []auditEventRecord {
+	t.Helper()
+
+	rows, err := db.QueryContext(context.Background(), `
+SELECT event_kind,
+       actor_user_id::text,
+       target_user_id::text,
+       event_source,
+       reason_code,
+       COALESCE(client_txn_id, ''),
+       COALESCE(request_id, ''),
+       created_at,
+       before_json,
+       after_json
+  FROM deployment_admin_audit_events
+ WHERE target_user_id::text = $1
+ ORDER BY created_at ASC
+`, targetUserID)
+	if err != nil {
+		t.Fatalf("query user audit events: %v", err)
+	}
+	defer rows.Close()
+
+	events := make([]auditEventRecord, 0, 4)
+	for rows.Next() {
+		var (
+			record     auditEventRecord
+			beforeJSON []byte
+			afterJSON  []byte
+		)
+		if err := rows.Scan(
+			&record.EventKind,
+			&record.ActorUserID,
+			&record.TargetUserID,
+			&record.EventSource,
+			&record.ReasonCode,
+			&record.ClientTxnID,
+			&record.RequestID,
+			&record.CreatedAt,
+			&beforeJSON,
+			&afterJSON,
+		); err != nil {
+			t.Fatalf("scan user audit event: %v", err)
+		}
+		record.Before = decodeJSONMap(t, beforeJSON)
+		record.After = decodeJSONMap(t, afterJSON)
+		events = append(events, record)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate user audit events: %v", err)
+	}
+	return events
+}
+
+func decodeJSONMap(t testing.TB, payload []byte) map[string]any {
+	t.Helper()
+	if len(payload) == 0 {
+		return map[string]any{}
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("decode json map: %v", err)
+	}
+	return decoded
+}
+
+func requireAuditEventBySource(t testing.TB, events []auditEventRecord, source string) auditEventRecord {
+	t.Helper()
+	for _, event := range events {
+		if event.EventSource == source {
+			return event
+		}
+	}
+	t.Fatalf("expected audit event source %q in %#v", source, events)
+	return auditEventRecord{}
+}
+
+func createIncidentResource(t testing.TB, server *httptestx.Server, sessionCookie *http.Cookie, csrfCookie *http.Cookie, body map[string]any) map[string]any {
+	t.Helper()
+
+	resp := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/incidents",
+		body,
+		withCookies(sessionCookie, csrfCookie),
+		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+	)
+	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+}
+
+func createIncidentMembership(t testing.TB, server *httptestx.Server, incidentID string, sessionCookie *http.Cookie, csrfCookie *http.Cookie, body map[string]any) map[string]any {
+	t.Helper()
+
+	resp := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
+		body,
+		withCookies(sessionCookie, csrfCookie),
+		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+	)
+	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }

@@ -117,6 +117,7 @@ func TestPhase1_CredentialStateInspection_U_1_10(t *testing.T) {
 	if got := active["recovery_model"]; got != "admin_assisted" {
 		t.Fatalf("unexpected recovery_model: got %v", got)
 	}
+	requireNoSecretKeys(t, active, "password_hash", "bootstrap_token", "secret_base32", "otpauth_uri")
 
 	apiErr := BootstrapRejectedError("not_allowed_for_route")
 	requireAPIError(t, apiErr, http.StatusConflict, "credential_bootstrap_rejected", "")
@@ -152,6 +153,12 @@ func TestPhase1_PasswordChangeRequest_U_1_11(t *testing.T) {
 		"second_factor":{"kind":"totp","assertion":{"code":"12 3456"}}
 	}`))
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_auth_request", "second_factor.assertion.code")
+
+	conflict := ClientTxnConflictError("txn-password-2")
+	requireAPIError(t, conflict, http.StatusConflict, "client_txn_conflict", "")
+	if got := conflict.Details["client_txn_id"]; got != "txn-password-2" {
+		t.Fatalf("unexpected client_txn_conflict details: got %v want txn-password-2", got)
+	}
 }
 
 func TestPhase1_TOTPBootstrapAndSetupRules_U_1_12(t *testing.T) {
@@ -187,6 +194,21 @@ func TestPhase1_TOTPBootstrapAndSetupRules_U_1_12(t *testing.T) {
 	if got := ShouldRevokeSessionsOnTOTPComplete(true); !got {
 		t.Fatal("replacement enrollment must revoke sessions on complete")
 	}
+
+	_, apiErr := DecodeTOTPBeginRequest(strings.NewReader(`{
+		"client_txn_id":"txn-totp-begin",
+		"second_factor":{"kind":"totp","assertion":{"code":"123456"}}
+	}`))
+	if apiErr != nil {
+		t.Fatalf("decode valid totp begin request: %v", apiErr)
+	}
+
+	_, apiErr = DecodeTOTPCompleteRequest(strings.NewReader(`{
+		"client_txn_id":"txn-totp-complete",
+		"enrollment_id":"10000000-0000-0000-0000-000000000001",
+		"code":"12 3456"
+	}`))
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_auth_request", "code")
 }
 
 func requireAPIError(t testing.TB, apiErr *APIError, wantStatus int, wantCode string, wantField string) {
@@ -205,5 +227,25 @@ func requireAPIError(t testing.TB, apiErr *APIError, wantStatus int, wantCode st
 	}
 	if got := apiErr.Details["field"]; got != wantField {
 		t.Fatalf("unexpected field detail: got %v want %s", got, wantField)
+	}
+}
+
+func requireNoSecretKeys(t testing.TB, value any, forbidden ...string) {
+	t.Helper()
+
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, item := range typed {
+			for _, forbiddenKey := range forbidden {
+				if key == forbiddenKey {
+					t.Fatalf("unexpected secret-bearing field %q in %#v", key, typed)
+				}
+			}
+			requireNoSecretKeys(t, item, forbidden...)
+		}
+	case []any:
+		for _, item := range typed {
+			requireNoSecretKeys(t, item, forbidden...)
+		}
 	}
 }

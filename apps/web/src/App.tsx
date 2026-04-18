@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 
+import { Phase1Harness } from "./Phase1Harness";
 import { Phase2Harness } from "./Phase2Harness";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
@@ -919,15 +920,17 @@ export function App() {
         <section style={panelStyle}>
           <div style={heroStyle}>
             <p style={eyebrowStyle}>Cartulary</p>
-            <h1 style={headlineStyle}>Phase 2 control envelope shell</h1>
+            <h1 style={headlineStyle}>Phase 1 and Phase 2 harness shell</h1>
             <p style={bodyStyle}>
-              Incident create, discovery, membership administration, workbook
-              landing, and extension-dispatch flows are available from the
-              browser harness below. Add an `incident_id` query parameter to
-              open the Timeline workbook directly.
+              Authentication, session lifecycle, deployment-local user
+              administration, incident control-envelope flows, and
+              extension-dispatch probes are available below. Add an
+              `incident_id` query parameter to open the Timeline workbook
+              directly.
             </p>
           </div>
 
+          <Phase1Harness />
           <Phase2Harness />
         </section>
       </main>

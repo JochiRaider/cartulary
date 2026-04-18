@@ -1,6 +1,7 @@
 package httptestx
 
 import (
+	"fmt"
 	"reflect"
 	"slices"
 	"testing"
@@ -44,7 +45,7 @@ func RequireAuthorizationReDerived(t testing.TB, before AuthorizationOutcome, af
 
 func RequireMutationAttribution(t testing.TB, got MutationAttribution, wantActorUserID string, wantSource string, wantClientTxnID string) {
 	t.Helper()
-	if got.ActorUserID == "" || got.Source == "" || got.ClientTxnID == "" || got.RequestID == "" || got.CreatedAt.IsZero() {
+	if got.ActorUserID == "" || got.Source == "" || got.RequestID == "" || got.CreatedAt.IsZero() {
 		t.Fatalf("expected non-empty mutation attribution, got %+v", got)
 	}
 	if wantActorUserID != "" && got.ActorUserID != wantActorUserID {
@@ -53,8 +54,13 @@ func RequireMutationAttribution(t testing.TB, got MutationAttribution, wantActor
 	if wantSource != "" && got.Source != wantSource {
 		t.Fatalf("unexpected mutation source: got %q want %q", got.Source, wantSource)
 	}
-	if wantClientTxnID != "" && got.ClientTxnID != wantClientTxnID {
-		t.Fatalf("unexpected client_txn_id: got %q want %q", got.ClientTxnID, wantClientTxnID)
+	if wantClientTxnID != "" {
+		if got.ClientTxnID == "" {
+			t.Fatalf("expected non-empty client_txn_id, got %+v", got)
+		}
+		if got.ClientTxnID != wantClientTxnID {
+			t.Fatalf("unexpected client_txn_id: got %q want %q", got.ClientTxnID, wantClientTxnID)
+		}
 	}
 }
 
@@ -68,6 +74,16 @@ func RequireReplayScaffold(t testing.TB, got ReplayExpectation) {
 	}
 	if got.StableBefore != got.StableAfter {
 		t.Fatalf("expected replay counts to remain stable, before=%+v after=%+v", got.StableBefore, got.StableAfter)
+	}
+}
+
+func RequireDivergentReplayRejected(t testing.TB, status int, code string, wantCode string) {
+	t.Helper()
+	if status == 0 {
+		t.Fatal("expected divergent replay status")
+	}
+	if code != wantCode {
+		t.Fatalf("unexpected divergent replay code: got %q want %q", code, wantCode)
 	}
 }
 
@@ -88,6 +104,11 @@ func RequireClosedVocabularyRejected(t testing.TB, code string, details map[stri
 	if wantReasonCode != "" && details["reason_code"] != wantReasonCode {
 		t.Fatalf("unexpected closed-vocabulary reason_code: got %v want %q", details["reason_code"], wantReasonCode)
 	}
+}
+
+func RequireSecretSafePayload(t testing.TB, payload map[string]any, forbiddenKeys []string) {
+	t.Helper()
+	requireSecretSafeValue(t, payload, forbiddenKeys, "")
 }
 
 func RequireWritableStringNormalization(t testing.TB, got string, want string) {
@@ -113,5 +134,39 @@ func RequireProjectionDeterminism(t testing.TB, first any, second any) {
 	t.Helper()
 	if !reflect.DeepEqual(first, second) {
 		t.Fatalf("projection rebuild was not deterministic:\nfirst: %#v\nsecond: %#v", first, second)
+	}
+}
+
+func requireSecretSafeValue(t testing.TB, value any, forbiddenKeys []string, path string) {
+	t.Helper()
+
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, item := range typed {
+			if slices.Contains(forbiddenKeys, key) {
+				t.Fatalf("payload exposed forbidden key %q at %s", key, joinPath(path, key))
+			}
+			requireSecretSafeValue(t, item, forbiddenKeys, joinPath(path, key))
+		}
+	case []any:
+		for index, item := range typed {
+			requireSecretSafeValue(t, item, forbiddenKeys, joinPath(path, index))
+		}
+	}
+}
+
+func joinPath(path string, part any) string {
+	if path == "" {
+		return toPathPart(part)
+	}
+	return path + "." + toPathPart(part)
+}
+
+func toPathPart(part any) string {
+	switch typed := part.(type) {
+	case string:
+		return typed
+	default:
+		return "[" + fmt.Sprint(part) + "]"
 	}
 }

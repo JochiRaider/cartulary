@@ -59,6 +59,7 @@ make -C "${ROOT_DIR}" db-reset
   cd "${ROOT_DIR}"
   CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
   CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
+  CARTULARY_ENABLE_TEST_ROUTES=1 \
   CARTULARY__ROOTS__DATABASE_STORAGE__PATH="${RUNTIME_ROOT_BASE}/database-storage" \
   CARTULARY__ROOTS__OBJECT_STORAGE__PATH="${RUNTIME_ROOT_BASE}/object-storage" \
   CARTULARY__ROOTS__BACKUP_STORAGE__PATH="${RUNTIME_ROOT_BASE}/backup-storage" \

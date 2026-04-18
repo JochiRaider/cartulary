@@ -69,6 +69,7 @@ func RegisterTestRoutes() httpapi.RouteRegistrar {
 		}
 
 		mux.HandleFunc("/api/v1/test/auth/touch", service.handleTouch)
+		mux.HandleFunc("/api/v1/test/auth/expire-current", service.handleExpireCurrentSession)
 		mux.HandleFunc("/ws/v1/test/session-lifecycle", service.handleTestSocket)
 		return nil
 	}
@@ -959,6 +960,29 @@ func (s *Service) handleTouch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
+}
+
+func (s *Service) handleExpireCurrentSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	principal, apiErr := s.authenticateSessionRequest(r, true)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+
+	if err := s.store.ExpireSessionForTest(r.Context(), principal.Session.ID, s.now()); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
+		"expired":    true,
+		"session_id": principal.Session.ID,
+	})
 }
 
 func (s *Service) handleTestSocket(w http.ResponseWriter, r *http.Request) {

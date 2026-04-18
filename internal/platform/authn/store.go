@@ -358,6 +358,22 @@ UPDATE user_sessions
 	return nil
 }
 
+func (s *Store) ExpireSessionForTest(ctx context.Context, sessionID uuid.UUID, now time.Time) error {
+	expiredAt := now.UTC().Add(-time.Second)
+	_, err := s.pool.Exec(ctx, `
+UPDATE user_sessions
+   SET last_qualifying_activity_at = $2,
+       idle_expires_at = $2,
+       session_expires_at = $2,
+       updated_at = $3
+ WHERE id = $1
+`, sessionID, expiredAt, now.UTC())
+	if err != nil {
+		return fmt.Errorf("expire session for test: %w", err)
+	}
+	return nil
+}
+
 func (s *Store) RevokeSession(ctx context.Context, sessionID uuid.UUID, reasonCode string, now time.Time) error {
 	_, err := s.pool.Exec(ctx, `
 UPDATE user_sessions

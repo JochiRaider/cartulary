@@ -13,8 +13,8 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
-	platformws "example.com/todo/cartulary/internal/platform/ws"
 	"example.com/todo/cartulary/internal/platform/authn"
+	platformws "example.com/todo/cartulary/internal/platform/ws"
 	"example.com/todo/cartulary/internal/testutil/fixtures"
 	"example.com/todo/cartulary/internal/testutil/httptestx"
 	"example.com/todo/cartulary/internal/testutil/pgtest"
@@ -26,7 +26,9 @@ const (
 	phase1BootstrapAdminPassword = "BootstrapPass1!"
 )
 
-func TestPhase1_LoginSessionAndLogout_E_1_01(t *testing.T) {
+// These are process-level smoke tests for the standalone server binary.
+// They are intentionally not the authoritative Phase 1 browser E2E ledger.
+func TestPhase1_LoginSessionAndLogout_ProcessSmoke(t *testing.T) {
 	server := startPhase1ServerProcess(t, "phase1-e-1-01")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -60,7 +62,7 @@ func TestPhase1_LoginSessionAndLogout_E_1_01(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, postLogout, http.StatusUnauthorized, "session_required")
 }
 
-func TestPhase1_CSRFFailClosed_E_1_02(t *testing.T) {
+func TestPhase1_CSRFFailClosed_ProcessSmoke(t *testing.T) {
 	server := startPhase1ServerProcess(t, "phase1-e-1-02")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -103,7 +105,7 @@ func TestPhase1_CSRFFailClosed_E_1_02(t *testing.T) {
 	httptestx.RequireSuccessEnvelope(t, validHeader, http.StatusOK)
 }
 
-func TestPhase1_ConcurrencyCapRevokesSocket_E_1_03(t *testing.T) {
+func TestPhase1_ConcurrencyCapRevokesSocket_ProcessSmoke(t *testing.T) {
 	server := startPhase1ServerProcess(t, "phase1-e-1-03")
 
 	initialLogin, adminSecret := phase1ProvisionBootstrapAdmin(t, server)
@@ -126,7 +128,7 @@ func TestPhase1_ConcurrencyCapRevokesSocket_E_1_03(t *testing.T) {
 	httptestx.RequireSuccessEnvelope(t, activeSession, http.StatusOK)
 }
 
-func TestPhase1_FirstEnrollmentFlow_E_1_04(t *testing.T) {
+func TestPhase1_FirstEnrollmentFlow_ProcessSmoke(t *testing.T) {
 	server := startPhase1ServerProcess(t, "phase1-e-1-04")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -165,7 +167,7 @@ func TestPhase1_FirstEnrollmentFlow_E_1_04(t *testing.T) {
 	}
 }
 
-func TestPhase1_PasswordChangeFlow_E_1_05(t *testing.T) {
+func TestPhase1_PasswordChangeFlow_ProcessSmoke(t *testing.T) {
 	server := startPhase1ServerProcess(t, "phase1-e-1-05")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -218,7 +220,7 @@ func TestPhase1_PasswordChangeFlow_E_1_05(t *testing.T) {
 	_ = phase1LoginLocalUserWithSecondFactor(t, server, "phase1-e-1-05@example.test", "Phase1E105Changed!", phase1GenerateTOTPCode(t, secretBase32))
 }
 
-func TestPhase1_UserAdminAndRevokeAll_E_1_06(t *testing.T) {
+func TestPhase1_UserAdminAndRevokeAll_ProcessSmoke(t *testing.T) {
 	server := startPhase1ServerProcess(t, "phase1-e-1-06")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -303,7 +305,7 @@ func TestPhase1_UserAdminAndRevokeAll_E_1_06(t *testing.T) {
 	_ = phase1LoginLocalUserWithSecondFactor(t, server, "phase1-e-1-06@example.test", "Phase1E106Pass!", "")
 }
 
-func TestPhase1_AdminPasswordReset_E_1_07(t *testing.T) {
+func TestPhase1_AdminPasswordReset_ProcessSmoke(t *testing.T) {
 	server := startPhase1ServerProcess(t, "phase1-e-1-07")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -352,7 +354,7 @@ func TestPhase1_AdminPasswordReset_E_1_07(t *testing.T) {
 	_ = phase1LoginLocalUserWithSecondFactor(t, server, "phase1-e-1-07@example.test", "Phase1E107Reset!", phase1GenerateTOTPCode(t, secretBase32))
 }
 
-func TestPhase1_AdminTOTPResetAndBootstrapBoundaries_E_1_08(t *testing.T) {
+func TestPhase1_AdminTOTPResetAndBootstrapBoundaries_ProcessSmoke(t *testing.T) {
 	server := startPhase1ServerProcess(t, "phase1-e-1-08")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)

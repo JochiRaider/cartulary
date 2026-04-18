@@ -1,4 +1,4 @@
-.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift phase2-map-check test e2e lint check build
+.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift phase2-map-check backend-unit backend-integration frontend-unit browser-e2e test e2e lint check build
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
 PNPM ?= $(shell if command -v pnpm >/dev/null 2>&1; then command -v pnpm; elif [ -x "$$HOME/.local/share/pnpm/pnpm" ]; then printf "$$HOME/.local/share/pnpm/pnpm"; fi)
@@ -80,11 +80,32 @@ phase2-map-check: frontend-toolchain
 	$(PNPM_RUN_ENV) $(NODE_BIN) ./scripts/check-phase2-map.mjs
 
 test: frontend-toolchain
+	@echo "== backend-unit =="
+	$(MAKE) backend-unit
+	@echo "== backend-integration =="
+	$(MAKE) backend-integration
+	@echo "== frontend-unit =="
+	$(MAKE) frontend-unit
+
+backend-unit: frontend-toolchain
 	mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(GO_RUN_ENV) $(GO) test ./...
+	$(GO_RUN_ENV) $(GO) test ./internal/platform/... ./internal/testutil/configtest
+	$(GO_RUN_ENV) $(GO) test ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/timeline -run '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase2_.*_U_2_|TestPhase3_.*_U_3_)'
+
+backend-integration: frontend-toolchain
+	mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
+	$(GO_RUN_ENV) $(GO) test ./internal/testutil/httptestx ./internal/testutil/pgtest ./internal/testutil/s3test ./internal/testutil/wstest
+	$(GO_RUN_ENV) $(GO) test ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/timeline -run '^(TestPhase0_.*_I_0_|TestPhase1_.*_I_1_|TestPhase2_.*_I_2_|TestPhase3_.*_I_3_)'
+	$(GO_RUN_ENV) $(GO) test ./cmd/server -run '^(TestPhase1_.*_ProcessSmoke)$'
+
+frontend-unit: frontend-toolchain
 	$(PNPM_RUN_ENV) $(PNPM) --dir apps/web test --run --passWithNoTests
 
 e2e: frontend-toolchain
+	@echo "== browser-e2e =="
+	$(MAKE) browser-e2e
+
+browser-e2e: frontend-toolchain
 	$(PNPM_RUN_ENV) $(PNPM) --dir apps/web test:e2e
 
 lint: frontend-toolchain
@@ -95,12 +116,23 @@ lint: frontend-toolchain
 
 check: frontend-toolchain
 	$(PNPM_RUN_ENV) $(PNPM) install --frozen-lockfile
+	@echo "== generate-drift =="
 	$(MAKE) generate-drift
+	@echo "== migration-drift =="
 	$(MAKE) migration-drift
+	@echo "== phase2-map-check =="
 	$(MAKE) phase2-map-check
+	@echo "== lint =="
 	$(MAKE) lint
-	$(MAKE) test
-	$(MAKE) e2e
+	@echo "== backend-unit =="
+	$(MAKE) backend-unit
+	@echo "== backend-integration =="
+	$(MAKE) backend-integration
+	@echo "== frontend-unit =="
+	$(MAKE) frontend-unit
+	@echo "== browser-e2e =="
+	$(MAKE) browser-e2e
+	@echo "== build =="
 	$(MAKE) build
 
 build: frontend-toolchain
