@@ -1,706 +1,1237 @@
-
 # Cartulary UI/UX Design Guide
 
+**Revision:** 2.  
 **Status:** Derived design-direction specification.  
-**Authority:** Subordinate to Cartulary Core 00 through Core 04 for current runtime behavior, and subordinate to Core 05 for claim-bearing timed or fixture-sensitive publication behavior only.  
+**Authority:** Subordinate to Cartulary Core 00 through Core 04 for current runtime behavior, subordinate to Core 05 only for claim-bearing timed or fixture-sensitive publication behavior, and subordinate to any later adopted Cartulary NLSpec.  
 **Scope:** Base-profile UI/UX direction, with explicit extension-profile and later-scope boundary notes.  
-**Interpretation:** In this guide, **MUST** and **MUST NOT** identify design-direction requirements that are necessary to implement or review the current Cartulary product correctly. **SHOULD** and **SHOULD NOT** identify strong defaults. **MAY** identifies optional behavior with explicit omission semantics. These terms govern this guide’s interpretation of Cartulary’s UX direction; they MUST NOT be read as widening or replacing the owner behavior defined by the normative core.[^1][^20]
+**Non-authority statement:** This guide does not define Base Profile or extension-profile implementation conformance. Current implementation conformance remains owned by Core 00 through Core 04. Core 05 governs claim-bearing publication only. Guide-local normative language governs design-direction interpretation and reviewer discipline only, and MUST NOT be read as widening, narrowing, or replacing owner behavior.[^1][^2][^3]
 
 ## 1. Executive Summary
 
-Cartulary’s UX thesis is precise: the product MUST feel like a serious workbook on the hot path and MUST behave like a disciplined case system underneath.[^2][^3][^6]
+Cartulary’s UX thesis is precise: the product is designed to feel like a serious workbook on the hot path and behave like a disciplined case system underneath. The product preserves the spreadsheet mental model at the view layer while rejecting spreadsheet storage, concurrency, evidence, and audit semantics where those would undermine recoverability or collaboration.[^4][^5][^6]
 
-That thesis has eight immediate consequences. The primary work surface MUST be a virtualized workbook grid. Direct typing, keyboard navigation, clipboard paste, fill-down, sort, filter, grouping, and low-friction row creation MUST remain first-class behaviors. The inspector MUST be adjacent and secondary, not the default editor. Relationship cells MUST stay text-first and support progressive normalization rather than picker-first creation. Evidence MUST be an attached object model with application-mediated preview and download, not path text or raw object-store URLs. Collaboration MUST use field-level optimistic concurrency over row-versioned records, with automatic reconciliation for different-field edits and explicit same-field resolution when analysts collide. Coordination surfaces such as Task Requests, Decisions, Communications Log, Handoff, Status Review, and Lesson MUST remain workbook-native surfaces rather than separate modules. The current implementation baseline MUST be treated as concrete: one application unit, PostgreSQL, S3-compatible object storage, a Go backend, and a React plus `react-data-grid` plus Vite browser client. File-based structured import beyond clipboard paste MUST remain separate extension-profile territory and MUST NOT define the base workbook grammar.[^2][^3][^4][^5][^20]
+Revision 2 closes the open design gaps in the previous guide by converting broad direction into observable UI contracts. It defines a closed statement-class grammar, a deterministic shell-composition model, explicit status-strip capacity, bounded visual-language defaults, keyboard and accessibility posture, cross-cutting message patterns, and reviewer-facing acceptance criteria.[^7]
 
-The product therefore does not aim to replace the spreadsheet mental model. It aims to preserve the spreadsheet mental model at the view layer while rejecting spreadsheet storage, concurrency, automation, and evidence semantics where those would undermine auditability, recoverability, or collaboration. Cartulary is workbook-first and forms-second by design, not by nostalgia.[^2][^3][^6][^9]
+The base guide’s central UI choice is that built-in tabs remain primary, required system views are reachable through an adjacent `System views` switcher, saved views belong under the active surface’s view selector, and coordination surfaces remain workbook-native. The guide rejects all-fourteen-tabs, command-palette-only access to required system views, and separate coordination modules for the base design.[^4][^5]
 
-The rest of this guide explains the resulting interface model, information architecture, state model, and design rationale in implementation-ready terms. It is written to stand on its own, so a reader can understand the product without reopening the corpus.[^1][^6]
+The guide also tightens behavioral defaults that affect implementation divergence: `Esc` is an interaction-priority ladder, `Syncing` includes paused replay waiting on recovery or re-authentication, pending queues do not survive cross-tab transfer, rollback actions MUST reveal target scope, chip states use a closed visual vocabulary, and ordinary live editing MUST NOT display per-recipient release visibility controls.[^4][^5][^6]
 
 ## 2. Reading Guide and Source Method
 
-This guide is a derived design-direction artifact, not a new owner document. The authority order for current product behavior in the provided corpus is: the Cartulary normative core for current runtime behavior, then appendices and research reports for explanation and rationale, then implementation guides for current realization direction. No adopted Cartulary NLSpec appears in the provided product corpus as a higher current product authority than Core 00 through Core 04.[^1][^20]
+### 2.1 Authority order
 
-The table below defines how this guide uses the corpus.
+Current product behavior is governed in this order:
 
-| Source class | Role in this guide | What it is allowed to decide |
+1. future adopted Cartulary NLSpecs derived from the core, once adopted;
+2. Cartulary Core 00 through Core 04 for current implementation-conformance behavior;
+3. non-normative appendices for rationale, examples, illustrations, operating guidance, and future-only context;
+4. the exploratory source artifact.[^2]
+
+Core 05 governs claim-bearing timed or fixture-sensitive publication only. It is not Base Profile or extension-profile implementation conformance, and it does not broaden ordinary runtime UI behavior.[^3]
+
+This guide MAY use the development guide, repository bootstrap guide, and progressive implementation/testing guide as implementation-support context. Those guides are subordinate to the authority order above and do not replace it.[^8]
+
+### 2.2 Source classes used by this guide
+
+The table below expands the Core 00 authority order into the source classes this guide consumes. It does not replace the Core 00 precedence order.
+
+| Source class | Role in Revision 2 | Permitted effect |
 | --- | --- | --- |
-| Core 00 through Core 04 | Runtime owner | Current base-profile behavior, boundaries, identifiers, defaults, and UI-affecting mechanics |
-| Core 05 | Publication owner only | Claim-bearing timed or fixture-sensitive publication behavior, not ordinary runtime UX |
-| Appendices A through H | Explanatory context | Rationale, illustrations, historical context, operating guidance, and future-only backlog |
-| Research reports R01 through R07 | Project-specific rationale | Why Cartulary should preserve, adapt, or reject specific interaction patterns |
-| Development, bootstrap, and testing guides | Implementation-direction context | Current stack baseline, module boundaries, and verification hooks |
+| Core 00 through Core 04 | Current behavior owner | MAY be restated as `*Core behavior.*` only. |
+| Core 05 | Publication owner only | MAY be cited for benchmark-publication consequences only. |
+| Appendices A through H | Non-normative context | MAY justify design direction, but cannot create runtime behavior. |
+| Research reports R01 through R07 | Design rationale | MAY justify design trade-offs, not conformance behavior. |
+| Development/bootstrap/testing guides | Implementation-support context | MAY shape baseline direction, not product authority. |
 
-This guide distinguishes four kinds of statements. **Current core behavior** means behavior required by the current base profile. **Design-direction consequence** means the UX implication of that core behavior. **Implementation-baseline context** means the current concrete realization direction that should shape design decisions without overriding the owner sections. **Extension or later scope** means behavior the current guide should leave room for without presenting it as part of the current base workbook contract.[^1][^3][^20]
+### 2.3 Statement classes in this guide
 
-External UI/UX sources are used selectively and only when they sharpen a Cartulary-specific decision. Direct-manipulation research is used to justify why the grid must remain the visible object of work. Table and spreadsheet-comprehension research is used to justify why context recovery, adjacent detail, and local structure matter. Latency and progressive-interface research is used to justify immediate acknowledgement, visible provisional state, and same-surface correction rather than opaque background normalization. Progressive-disclosure guidance is used only to justify the inspector as a secondary adjacent surface rather than a form-first replacement for the grid.[^12][^13][^14][^15][^16][^17][^18][^19]
+This guide uses exactly four inline statement-class markers.
 
-## 3. Cartulary’s Product and Interaction Thesis
+| Marker | Meaning | Normative language rule |
+| --- | --- | --- |
+| `*Core behavior.*` | Descriptive restatement of behavior owned by Core 00 through Core 04. | Does not issue guide-owned imperatives. Uses “Core X requires...” or “Per REQ-X...” phrasing. |
+| `*Design direction.*` | Guide-owned UI/UX direction derived from Core behavior or project rationale. | MAY use MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY as guide-local direction. |
+| `*Baseline context.*` | Current implementation-baseline direction that shapes design without owning product behavior. | MAY use guide-local normative language only for baseline-facing design constraints. |
+| `*Later scope.*` | Extension-profile or future-only territory the base guide MUST leave room for. | MAY use MAY for future scope and MUST NOT only to prevent misrepresenting later scope as base behavior. |
 
-### Design contract
+No synonym markers are allowed. `*Core requirement.*`, `*Baseline.*`, `*Future scope.*`, and similar variants are invalid in this guide.
 
-Cartulary MUST be understood as a workbook-native incident workspace whose primary interaction object is the visible row and cell, not the hidden form model behind it.[^2][^3]
+### 2.4 Marker scope
 
-The product’s core thesis can be stated in one sentence: **Cartulary MUST feel as fast and direct as a serious spreadsheet during live incident work, while making structure, evidence, attribution, revision, and concurrent editing far more explicit than a spreadsheet ever can**.[^6][^9]
+Statement-class markers apply to every prose paragraph in §§3 through 19. They also apply to standalone normative list items in those sections. For tables, a `Statement class` column is required only when rows have mixed statement classes. Otherwise, the immediately preceding marked paragraph states the class for every row in the table.
 
-That thesis resolves several design questions up front.
+Markers are not required inside headings, figure captions, code fences, source footnotes, acceptance criteria, the Revision 2 change log, or the Revision 2 editorial audit.
+
+A paragraph marked `*Core behavior.*` is descriptive. If the guide needs to state a UI consequence, that consequence appears in a separate `*Design direction.*` paragraph. This prevents owner restatements from becoming accidental new requirements.[^2][^8]
+
+### Acceptance criteria
+
+- **R2-AC-001:** §2 states the Core 00 precedence order as an authority hierarchy.
+- **R2-AC-002:** §2 states that Core 05 is publication-only and does not broaden runtime conformance.
+- **R2-AC-003:** The source-method table is framed as an expansion, not a replacement, of Core 00 §2.
+- **R2-AC-004:** No statement in §2 claims that implementation-support guides outrank Core 00 through Core 04.
+- **R2-AC-005:** The marker legend exists and defines exactly four markers.
+- **R2-AC-006:** Every marked paragraph uses exactly one marker from the closed vocabulary.
+- **R2-AC-007:** No `*Core behavior.*` paragraph contains guide-issued MUST, MUST NOT, SHOULD, or SHOULD NOT imperatives.
+- **R2-AC-008:** Any normative table either has a `Statement class` column or is introduced by a marked paragraph that applies to every row.
+- **R2-AC-009:** Acceptance criteria are not marked with statement-class prefixes and remain binary.
+
+## 3. Product and Interaction Thesis
+
+### 3.1 Thesis contract
+
+*Design direction.* Cartulary MUST be understood as a workbook-native incident workspace whose primary interaction object is the visible row, cell, chip, preview affordance, filter state, grouping state, and status state, not the hidden form model behind it.[^4][^9]
+
+*Design direction.* The base UI MUST preserve a direct-manipulation loop: the user acts on the visible workbook object, the system shows how that action was interpreted, and slower reconciliation work remains visible as semantic state rather than hidden transport state.[^9][^10]
+
+*Core behavior.* Core 03 requires Cartulary to be grid-first and forms-second, with a workbook-like grid supporting inline editing, keyboard navigation, paste, low-friction row creation, saved or system views over projections, and a collapsible inspector for enrichment, relationships, history, and destructive actions.[^4]
+
+*Design direction.* The visible workbook surface MUST remain the default locus for capture, correction, linking, filtering, grouping, sorting, preview, and same-row history access. Routine row work MUST NOT require full-page navigation or a form-first workflow.
+
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
 
 | Design question | Required answer |
 | --- | --- |
-| What is the main object of thought? | The visible workbook row, cell, chip, count, and filter state |
-| What is the main editing mode? | Direct manipulation on the grid |
-| What is the system actually storing? | Structured, relational, auditable state underneath workbook projections |
-| What is the role of secondary surfaces? | Adjacent enrichment, review, history, and destructive actions |
-| What is the collaboration target? | Reliable shared case state, not character-by-character coauthoring |
+| Main object of thought | Visible workbook row, cell, chip, count, preview, filter, grouping, and status state. |
+| Main editing mode | Direct manipulation on the grid. |
+| Storage model exposed to users | Structured, relational, auditable state projected through workbook surfaces. |
+| Secondary surfaces | Adjacent enrichment, review, history, and destructive actions. |
+| Collaboration target | Reliable shared case state, not character-by-character coauthoring. |
+| Error posture | Local, same-surface correction before modal or detached recovery. |
 
-This is not a decorative application of spreadsheet visual styling. Shneiderman’s direct-manipulation model is relevant because it describes exactly the interaction quality Cartulary needs: users work on a visible representation of the task, effects are incremental and legible, and the interface stays cognitively close to the underlying work object. For Cartulary, that means the system’s interpretation of a change MUST remain visible at the workbook surface: a typed host token remains a token until resolved, an exact-match reuse becomes a chip, an evidence attach becomes a count and preview affordance, and a same-field collision becomes a marked cell rather than a hidden transport failure.[^12][^13]
+### 3.2 Design implications
 
-The grid is therefore not a temporary intake layer before the “real application” starts. Table research shows why that would be the wrong move. Analysts continue to use tabular views because those views keep them close to the data, make reorganization cheap, and preserve human-readable detail. Cartulary extends that professional strength; it does not treat the grid as an unfortunate legacy surface to be escaped as soon as more structure exists.[^12][^16]
+*Design direction.* Cartulary MUST show semantic interpretation at the same level where the user acted. A typed host token remains a token until resolved; an exact-match reuse becomes a chip; an evidence attach becomes count, state, and preview affordance; and a same-field collision becomes a marked cell with a resolver entry point.
+
+*Design direction.* The grid MUST NOT be treated as a temporary intake surface that users graduate away from once structure exists. System views, saved views, coordination surfaces, and optional standardized artifact-backed surfaces MUST retain workbook grammar.[^4][^5]
+
+*Design direction.* The UI MUST hide transport, storage, and synchronization internals unless the user needs a semantic state to choose a next action. Valid semantic states include `Syncing`, `Saved`, `Conflict`, unresolved mention, resolved chip, auto-resolved chip, dismissed mention, queue overflow, replay blocked, and session re-authentication required.
 
 ### Acceptance criteria
 
-- A user who can describe their work as “that row,” “this host token,” or “the blocked requests due today” can complete the common path without leaving the workbook shell.[^2][^7]
-- The grid remains the default editor for capture, correction, paste, sorting, filtering, grouping, and quick relationship actions.[^2]
-- The system never requires a user to understand storage tables, object-store locations, sync queues, or internal route families in order to stay oriented while editing.[^3][^12]
+- **R2-AC-010:** §3 states that the visible workbook object is the primary interaction object.
+- **R2-AC-011:** §3 separates Core behavior from design direction.
+- **R2-AC-012:** §3 says routine capture, correction, linking, filtering, grouping, sorting, preview, and history access remain same-shell operations.
+- **R2-AC-013:** §3 names semantic user-facing states instead of implementation-layer sync internals.
 
-## 4. Why Cartulary Is Workbook-First
+## 4. Workbook-First Rationale
 
-### Design contract
+### 4.1 Operating-model rationale
 
-Cartulary MUST be workbook-first because it is replacing a real incident-response operating model, not an abstract CRUD problem.[^6][^9][^10][^11]
+*Design direction.* Cartulary MUST remain workbook-first because it replaces a real incident-response operating model, not an abstract CRUD problem.[^11][^12]
 
-The Spreadsheet of Doom persists for concrete reasons. It tolerates incomplete facts, supports direct typing, rewards paste, allows quick reshaping of working sets, and gives an incident team one shared tabular memory. Research into spreadsheet-centric DFIR practice, Aurora, and Kanvas all show the same underlying truth: responders keep returning to workbook-shaped coordination because it is operationally honest about how incident facts actually arrive.[^9][^10][^11]
+*Design direction.* The UI MUST tolerate incomplete information at capture time. The first useful row MAY contain uncertain time, rough prose, unresolved host or account strings, and a screenshot reference. The user MUST be able to capture that row before canonical structure is complete.[^6][^11]
 
-A forms-first application fails precisely where incident work is weakest. The first useful version of a fact is often “maybe jdoe on WS-023 via VPN; screenshot attached; time uncertain.” Core Cartulary behavior explicitly allows that roughness: `occurred_at` may be null, summary may be absent if another field or attachment exists, host and identity text may remain unresolved, and detail may remain unstructured. The design consequence is that the UI MUST let that row exist before the system has perfect structure.[^4][^6]
+*Core behavior.* Core 02 permits rough and uncertain input and preserves original rough capture after later normalization or resolution. Core 03 keeps low-friction row creation and progressive structuring on the workbook hot path.[^4][^6]
 
-The table below captures the design difference.
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
 
 | Criterion | Workbook-first Cartulary | Forms-first case application |
 | --- | --- | --- |
-| First useful capture | Direct row or cell entry | Create form, choose type, satisfy fields |
-| Relationship handling | Text-first, then explicit resolve/create | Picker-first or schema-first |
-| Evidence attach | Same-surface attach to current row | Detached media workflow |
-| Iteration speed | Immediate local capture, later normalization | Up-front structure before persistence |
-| Cognitive model | One visible working surface | Many record detail screens |
+| First useful capture | Direct row or cell entry. | Create form, choose type, satisfy fields. |
+| Incomplete facts | Preserved as rough structured state. | Often blocked or hidden in free-text forms. |
+| Relationship entry | Text-first, then progressive normalization. | Picker-first or mandatory canonical selection. |
+| Evidence attachment | Same-surface attach and preview. | Detached upload workflow. |
+| Review and rollback | Row-local history and scoped actions. | Separate administrative audit screen. |
+| Coordination | Workbook-native surfaces. | Separate task or workflow module. |
 
-Workbook-first also does **not** mean “just a data table.” The workbook shell is a complete interaction model: tabs and system views over projections, saved views, filters, grouping, inspector-based enrichment, ambient presence, history, evidence preview, and coordination surfaces that stay inside the same shell. The point is not to copy spreadsheet internals. The point is to preserve the workbook as the object of work.[^2][^3][^7]
+### 4.2 Spreadsheet preservation boundary
+
+*Design direction.* Cartulary SHOULD preserve spreadsheet strengths that matter during incident response: direct typing, paste, keyboard navigation, visible rows, flexible filtering, compact tabular scanning, and rapid working-set reshaping.[^9][^11]
+
+*Design direction.* Cartulary MUST reject spreadsheet behaviors that conflict with auditable incident state: row-position identity, silent overwrites, hidden formulas as business logic, evidence paths as authoritative references, unmanaged binary storage, and unversioned relationship semantics.[^4][^5][^6]
 
 ### Acceptance criteria
 
-- A user can create a timeline row that contains unresolved host or identity text, an uncertain time, and attached evidence without being forced into a record form first.[^2][^4][^7]
-- The design never assumes the user must choose a record subtype, workflow state, or relationship target before entering the first usable version of a fact.[^2][^6]
-- The grid remains the primary work surface after structure accumulates; richer structure does not cause the product to “graduate” the user into form-first operation.[^12][^16]
+- **R2-AC-014:** §4 states why rough capture MUST be allowed before complete structure exists.
+- **R2-AC-015:** §4 differentiates workbook-first design from forms-first case management.
+- **R2-AC-016:** §4 lists spreadsheet behaviors to preserve and spreadsheet behaviors to reject.
 
 ## 5. Overall Application Shell and Information Architecture
 
-### Design contract
+### 5.1 Shell regions
 
-The Cartulary shell MUST present one coherent workbook environment rather than a dashboard shell plus embedded mini-applications.[^2][^3]
+*Design direction.* The application shell MUST keep the workbook surface, active surface identity, saved-view controls, inspector, presence, save state, and status state in one continuous workspace.
 
-The shell has five regions.
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
 
-| Region | Required contents | Purpose | Must not become |
+| Region | Required contents | Boundary |
+| --- | --- | --- |
+| Top bar | Incident identity, built-in tabs, `System views` switcher, current system-view title, presence summary. | Persistent chrome, not a dashboard. |
+| View bar | Active view selector, saved-view selector, sort, group, filters, active chips. | Belongs to active surface only. |
+| Grid | Active workbook surface with `record_id`-bound rows and `field_key`-bound cells. | Primary work surface. |
+| Inspector | Details, Relationships, Evidence, History. | Adjacent and secondary. |
+| Status strip | Save state, secondary same-surface message, presence summary or overflow. | Capacity-limited working-state strip. |
+
+### 5.2 Surface composition in the shell
+
+*Core behavior.* Core 03 requires five built-in tabs in the base profile: Timeline, Hosts, Identities, Evidence, and Notes. It also requires additional contract-backed system views and keeps structured coordination artifacts workbook-native rather than separate modules.[^4]
+
+*Design direction.* The base shell MUST expose built-in tabs as always-visible primary tabs at the base viewport. Required system views MUST be reachable through an adjacent switcher with accessible name `System views`. Saved views MUST appear under the active surface’s view selector, not as primary tabs by default.
+
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
+
+| Surface family | Shell exposure | Ordering | Saved-view behavior |
 | --- | --- | --- | --- |
-| Top bar | Incident identity, workbook surfaces, presence avatars, global search entry | Stable incident and surface context | A KPI dashboard or module switchboard |
-| View bar | Saved-view selector, sort, group, filter controls | View-state control for the active surface | A second data model |
-| Grid | Rows and cells for the active surface | Primary capture and editing plane | A read-only report |
-| Inspector | Non-blocking adjacent drawer | Enrichment, detail, review, and destructive actions | The default editor |
-| Status strip | Save state, queue/conflict telemetry, keyboard hints | Operational state and confidence | A management dashboard |
+| Built-in tabs | Always-visible primary tabs at base viewport. | Timeline, Hosts, Identities, Evidence, Notes. | Saved views over a built-in tab appear in that tab’s view selector. |
+| Required system views | Adjacent switcher with accessible name `System views`. | Grouped and ordered by §5.3. | Saved views over a system view appear in that system view’s view selector. |
+| Standardized optional artifact-backed surfaces | Same switcher, shown only when implemented and exposed. | Findings, Investigative Queries, Forensic Keywords. | Saved views over these surfaces appear in that surface’s view selector. |
+| Saved views | Never primary tabs by default. | Ordered inside the active surface’s view selector by scope group, then display name. | Do not replace canonical surface identity. |
 
-The shell SHOULD include a compact bottom status strip or equivalent same-surface telemetry region. This is not a contradiction of the “not a dashboard” rule. Cartulary MUST reject KPI-console drift, but it SHOULD expose dense, domain-relevant status telemetry such as `Syncing`, `Saved`, `Conflict`, queue-overflow messages, and row-local keyboard hints because those signals directly protect analyst work on the hot path.[^2][^7]
+### 5.3 Required system-view ordering
 
-The shell MUST keep the workbook surface identity legible at all times. The active surface, active saved view if any, grouping state, filter chips, and presence state SHOULD be visible without opening a second application area. When the inspector opens, it MUST be obvious that the user is still on the same workbook surface, acting on the same selected record.[^2][^7]
+*Design direction.* The `System views` switcher MUST group required system views in the order below. The implementation MUST NOT alphabetize these required groups differently unless a later guide revision changes this table.
 
-The shell MUST also preserve same-origin continuity. Evidence preview, history, conflict resolution, row review, and workbook-native coordination actions MUST occur inside the same application surface. They MUST NOT feel like external tools launched from the grid.[^3][^5]
+| Group | Required system views in display order |
+| --- | --- |
+| Scope and assessment | Indicators; Assessments; Parties |
+| Coordination | Task Requests; Decisions; Communications Log; Handoff |
+| Review and learning | Status Review; Lesson |
+
+*Design direction.* If Findings, Investigative Queries, or Forensic Keywords are exposed, the switcher MUST add a final group named `Optional artifact surfaces` in this order: Findings, Investigative Queries, Forensic Keywords.
+
+### 5.4 Switcher behavior
+
+*Design direction.* At a base viewport of at least `1280x720` CSS pixels, the `System views` switcher trigger MUST remain visible in the top bar adjacent to the primary tab strip.
+
+*Design direction.* The visible trigger label SHOULD be `System views`. An icon-plus-label implementation MAY use a shorter visible label only when the accessible name remains exactly `System views`.
+
+*Design direction.* Selecting a system view MUST open it inside the same workbook shell. Selecting a system view MUST NOT navigate to a separate module, route family, browser tab, or dashboard shell.
+
+*Design direction.* Keyboard operation MUST support Tab focus to the trigger, Enter or Space to open, Arrow keys to move within the open menu, Enter to select, and Esc to close without changing the active surface.
+
+*Design direction.* When the menu closes without selection, focus MUST return to the switcher trigger. When a system view is selected, focus SHOULD move to the first focusable grid element on that surface unless the user invoked a saved keyboard shortcut whose defined behavior preserves prior focus.
+
+### 5.5 Rejected shell-composition alternatives
+
+*Design direction.* Revision 2 rejects three base-profile shell-composition alternatives: all fourteen required surfaces as primary tabs, command-palette-only access to required system views, and separate modules for coordination surfaces.
+
+*Design direction.* All-fourteen-tabs is rejected because it degrades scanning once the visible tab count exceeds seven. Command-palette-only access is rejected because it hides required coordination surfaces behind keyboard discovery. Separate coordination modules are rejected because they fracture the workbook-native incident working model.
+
+### 5.6 Reference wireframe
+
+*Design direction.* The following figure is illustrative but conformance-relevant for composition: it shows the required shell relationships, not pixel-perfect styling.
+
+```text
++--------------------------------------------------------------------------------+
+| Incident: INC-2026-0418   [Timeline] [Hosts] [Identities] [Evidence] [Notes]   |
+|                            [System views ▾: Task Requests]   Presence: A B +3  |
++--------------------------------------------------------------------------------+
+| View: Default ▾   Saved views ▾   Sort ▾   Group ▾   Filters: status=open x    |
++--------------------------------------------------------------------------------+
+| Grid: active workbook surface                                                  |
+| record_id-bound rows and field_key-bound cells                                 |
+|                                                                                |
+|                                                        +-------------------+   |
+|                                                        | Inspector [pin] x |   |
+|                                                        | Details           |   |
+|                                                        | Relationships     |   |
+|                                                        | Evidence          |   |
+|                                                        | History           |   |
+|                                                        +-------------------+   |
++--------------------------------------------------------------------------------+
+| Saved | Queue 0 | Presence 5 | More status ▾                                   |
++--------------------------------------------------------------------------------+
+```
+
+### 5.7 Status-strip density budget
+
+*Design direction.* The status strip MUST remain a capacity-limited working-state surface. It MUST NOT become a dashboard or management summary.
+
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
+
+| Slot | Required content | Maximum visible content |
+| --- | --- | --- |
+| Primary state | One save-state label. | Exactly one of `Syncing`, `Saved`, or `Conflict`. |
+| Secondary same-surface message | Queue overflow, replay blocked, session expiry warning, pack degradation, transient confirmation, or keyboard hint. | One message. |
+| Presence summary | Same-surface user presence summary. | Up to five visible avatars or initials, then `+N`. |
+
+*Design direction.* The secondary slot priority MUST be queue overflow, replay blocked on non-retryable failure, same-surface session expiry or re-authentication required, pack degradation affecting the active surface, transient confirmation, then keyboard hint.
+
+*Design direction.* Additional status messages MUST collapse into a same-surface overflow affordance labeled `More status` or an equivalent accessible name.
+
+*Design direction.* Persistent shell chrome and the status strip MUST NOT show incident-level KPIs, time-to-resolution counters, team throughput, external ticket counts, or management dashboard metrics. Those metrics MAY appear inside explicitly opened workbook-native coordination, reporting, or status-review surfaces when otherwise allowed.
 
 ### Acceptance criteria
 
-- A user can move from Timeline to Task Requests, open a selected row in the inspector, preview evidence, open row history, and return focus to the same grid cell without full-page navigation.[^2][^7]
-- The status strip or equivalent telemetry area exposes save/conflict state and urgent queue conditions without becoming a general dashboard surface.[^2][^7]
-- No coordination surface feels like a detached workflow module hosted inside the workbook shell.[^2][^8]
+- **R2-AC-017:** §5.2 defines primary tabs, the `System views` switcher, optional surfaces, and saved-view placement.
+- **R2-AC-018:** Built-in tabs are ordered Timeline, Hosts, Identities, Evidence, Notes.
+- **R2-AC-019:** Required system views are grouped and ordered exactly as §5.3 states.
+- **R2-AC-020:** Saved views appear in the active surface’s view selector, not as primary tabs.
+- **R2-AC-021:** The guide rejects all-fourteen-tabs, command-palette-only system-view access, and separate coordination modules for the base design.
+- **R2-AC-022:** The wireframe shows the tab strip, system-view switcher, view selector, grid, inspector toggle, and status strip.
+- **R2-AC-023:** §5.7 defines exactly three status-strip slots.
+- **R2-AC-024:** The primary slot permits exactly one save-state label.
+- **R2-AC-025:** Overflow uses a same-surface overflow affordance rather than silently dropping messages.
+- **R2-AC-026:** KPI and dashboard metrics are banned from persistent shell chrome but not over-banned from opened coordination or reporting surfaces.
 
 ## 6. Workbook Surface Model
 
 ### 6.1 Built-in tabs
 
-The current base profile has **fourteen required workbook surfaces**: five built-in tabs and nine required system views. The five built-in tabs are Timeline, Hosts, Identities, Evidence, and Notes.[^2][^3]
+*Core behavior.* Core 03 requires the base profile to expose Timeline, Hosts, Identities, Evidence, and Notes as built-in tabs.[^4]
 
-The built-in tabs are required workbook peers. They are not separate storage silos and they are not optional shell customizations.
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
 
-| Surface label | `view_schema_id` | Surface kind | Primary role |
-| --- | --- | --- | --- |
-| Timeline | `cartulary.view.timeline.v1` | Built-in tab | Primary capture surface |
-| Hosts | `cartulary.view.hosts.v1` | Built-in tab | Canonical host and stub entity surface |
-| Identities | `cartulary.view.identities.v1` | Built-in tab | Canonical identity and stub entity surface |
-| Evidence | `cartulary.view.evidence.v1` | Built-in tab | Evidence records and linked object state |
-| Notes | `cartulary.view.notes.v1` | Built-in tab | Artifact-backed notes surface |
+| Built-in tab | `view_schema_id` | UX role |
+| --- | --- | --- |
+| Timeline | `cartulary.view.timeline.v1` | Primary rough-capture and chronology surface. |
+| Hosts | `cartulary.view.hosts.v1` | Canonical and stub host records. |
+| Identities | `cartulary.view.identities.v1` | Canonical and stub identity records. |
+| Evidence | `cartulary.view.evidence.v1` | Evidence envelopes, blob attachment state, preview, and custody signals. |
+| Notes | `cartulary.view.notes.v1` | Artifact-backed note capture in the built-in tab family. |
 
-### 6.2 System views
+### 6.2 Canonical required system views
 
-The required system views are equally authoritative workbook surfaces. This guide uses **Assessments** as the default reader-facing label for `cartulary.view.assessments.v1`. The owner corpus also uses **Compromise Assessments** for the same surface. No semantic distinction is intended.[^2][^3]
+*Core behavior.* Core 03 and Core 01 close the current-profile workbook surface registry. The fourteen pack-independent base-profile surface IDs are the five built-in tabs plus nine required system views.[^4][^5]
 
-| Surface label | `view_schema_id` | Surface kind | Primary role |
-| --- | --- | --- | --- |
-| Indicators | `cartulary.view.indicators.v1` | Required system view | Canonical indicators with pivots to observations and lifecycle |
-| Assessments | `cartulary.view.assessments.v1` | Required system view | Incident-scoped assessment history |
-| Task Requests | `cartulary.view.task_requests.v1` | Required system view | Queue-oriented owned work |
-| Decisions | `cartulary.view.decisions.v1` | Required system view | Rationale-bearing decision records |
-| Parties | `cartulary.view.parties.v1` | Required system view | Stable incident-scoped coordination identities |
-| Communications Log | `cartulary.view.comm_log.v1` | Required system view | Durable communication memory |
-| Handoff | `cartulary.view.handoff.v1` | Required system view | Shift or phase continuity |
-| Status Review | `cartulary.view.status_review.v1` | Required system view | Checkpoint review and rebalancing |
-| Lesson | `cartulary.view.lesson.v1` | Required system view | Retrospective follow-through |
+*Design direction.* §6.2 is the only guide-local canonical enumeration of required system views. Later sections MAY add UX posture but MUST NOT duplicate canonical identity as an independent authority.
 
-These fourteen surfaces are the authoritative required workbook surfaces of the base profile. A saved view over one of these surfaces is additive and non-canonical. Pack-dependent overlays such as ATT&CK, D3FEND, and VERIS are **not** current workbook-native `view_schema` surfaces in the base profile or the current Reference Pack Extension Profile.[^2][^3][^5]
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
+
+| Surface label | `view_schema_id` | Primary UX role |
+| --- | --- | --- |
+| Indicators | `cartulary.view.indicators.v1` | Canonical indicators with pivots to observations and lifecycle. |
+| Assessments | `cartulary.view.assessments.v1` | Incident-scoped assessment history. |
+| Task Requests | `cartulary.view.task_requests.v1` | Queue-oriented owned work. |
+| Decisions | `cartulary.view.decisions.v1` | Rationale-bearing decision records. |
+| Parties | `cartulary.view.parties.v1` | Stable incident-scoped coordination identities. |
+| Communications Log | `cartulary.view.comm_log.v1` | Durable communication memory. |
+| Handoff | `cartulary.view.handoff.v1` | Shift or phase continuity. |
+| Status Review | `cartulary.view.status_review.v1` | Checkpoint review and rebalancing. |
+| Lesson | `cartulary.view.lesson.v1` | Retrospective follow-through. |
+
+*Design direction.* The label `Assessments` is the guide-local display label for `cartulary.view.assessments.v1`. The owner corpus MAY also use `Compromise Assessments` for the same surface. No semantic distinction is intended.
 
 ### 6.3 Optional standardized workbook surfaces
 
-Findings, Investigative Queries, and Forensic Keywords are the only additional current-profile standardized workbook surfaces beyond the fourteen required surfaces, and only when the implementation exposes them. When present, they MUST inherit the same workbook grammar: the same shell, the same row/query/filter/group/history model, and the same refusal to become separate modules.[^3][^20]
+*Core behavior.* Core 04 acceptance criteria and Core 01 registry closure allow only Findings, Investigative Queries, and Forensic Keywords as standardized optional artifact-backed workbook surfaces beyond the fourteen required surfaces when implemented.[^5]
+
+*Design direction.* When exposed, the optional standardized surfaces MUST inherit the same shell, row, query, filter, grouping, saved-view, history, and inspector grammar as other workbook surfaces.
+
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
 
 | Optional surface | `view_schema_id` | Required posture when exposed |
 | --- | --- | --- |
-| Findings | `cartulary.view.findings.v1` | Workbook-native surface, not a separate hypothesis module |
-| Investigative Queries | `cartulary.view.investigative_queries.v1` | Workbook-native surface with the same queue/filter/history grammar |
-| Forensic Keywords | `cartulary.view.forensic_keywords.v1` | Workbook-native surface with the same queue/filter/history grammar |
+| Findings | `cartulary.view.findings.v1` | Workbook-native surface, not a separate hypothesis module. |
+| Investigative Queries | `cartulary.view.investigative_queries.v1` | Workbook-native surface with the same queue, filter, and history grammar. |
+| Forensic Keywords | `cartulary.view.forensic_keywords.v1` | Workbook-native surface with the same queue, filter, and history grammar. |
 
 ### 6.4 Saved views
 
-Saved views are incident-bound workbook configurations over exactly one `view_schema_id`. They are **surface configurations**, not storage silos.[^2][^3]
+*Core behavior.* Core 03 defines saved views as incident-bound workbook configurations over exactly one `view_schema_id`. Saved-view scope controls discoverability and mutability of the saved-view object only.[^4]
 
-The scope model is closed and explicit.
+*Design direction.* Saved views are surface configurations, not storage silos and not canonical workbook-surface identities.
+
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
 
 | Scope | Discoverability | In-place mutability | Ordinary create default |
 | --- | --- | --- | --- |
-| `private` | Owner and incident admins only | Owner and incident admins | **Default** |
-| `shared` | All incident members | Owner and incident admins | Allowed on ordinary create |
-| `system` | All incident members | Immutable through ordinary paths | Not allowed on ordinary create |
+| `private` | Owner and incident admins only. | Owner and incident admins. | Default. |
+| `shared` | All incident members. | Owner and incident admins. | Allowed on ordinary create. |
+| `system` | All incident members. | Immutable through ordinary paths. | Not allowed on ordinary create. |
 
-The ordinary saved-view create path MUST default `scope` to `private`. The ordinary create path MUST reject `scope='system'`. `private` and `shared` saved views record one owner. `system` saved views are implementation-owned or admin-seeded saved-view objects and remain distinct from the canonical underlying system view itself.[^2][^3]
-
-Saved views persist only portable shared layout and query state. Selection, scroll position, focused cell, local popovers, open inspector state, preview state, and presence remain client-local and MUST NOT be persisted as part of the saved view.[^2][^3]
+*Core behavior.* Saved views persist portable shared layout and query state. Selection, scroll position, focused cell, local popover state, open inspector state, preview state, and presence remain client-local and are not saved-view state.[^4]
 
 ### 6.5 Startup and default surface behavior
 
-Workbook startup is deterministic. The starting surface is chosen in this exact order.[^2][^3]
+*Core behavior.* Core 03 defines the workbook-startup fallback chain: explicit launch `sheet_ref`, caller `home_sheet_ref`, incident `default_sheet_ref`, then Timeline.[^4]
+
+*Design direction.* All rows in the following table inherit `*Core behavior.*` because the table restates owner behavior.
 
 | Order | Startup source | Rule |
 | --- | --- | --- |
-| 1 | Explicit launch `sheet_ref` | Use it if present and still valid for the caller |
-| 2 | `user_workbook_preferences.home_sheet_ref` | Use it if valid and visible |
-| 3 | `incident_workbook_preferences.default_sheet_ref` | Use it if valid and visible |
-| 4 | Timeline | Fallback default |
+| 1 | Explicit launch `sheet_ref`. | Use if present and still valid for the caller. |
+| 2 | `user_workbook_preferences.home_sheet_ref`. | Use if present, valid, and visible. |
+| 3 | `incident_workbook_preferences.default_sheet_ref`. | Use if present, valid, and visible. |
+| 4 | Timeline. | Final fallback. |
 
-A `sheet_ref` of kind `view_schema` names the canonical required surface. A `sheet_ref` of kind `saved_view` names one distinct saved-view object over a schema. These are not interchangeable identities. If a pointer is missing, hidden, invalid, or depends on an unavailable optional pack, the implementation MUST clear the invalid pointer and continue down the fallback chain rather than failing workbook open.[^2][^3]
+*Core behavior.* A `sheet_ref` of kind `view_schema` names a canonical required surface. A `sheet_ref` of kind `saved_view` names one distinct saved-view object over a schema. If a pointer is missing, hidden, invalid, or depends on an unavailable optional pack, Core 03 clears it and continues down the fallback chain.[^4]
 
 ### Acceptance criteria
 
-- The shell exposes fourteen required workbook surfaces: exactly five built-in tabs and exactly nine required system views.[^2][^3]
-- Opening the workbook with no explicit launch target, no valid home surface, and no valid incident default always lands on Timeline.[^2]
-- Ordinary saved-view create defaults to `private`, and ordinary create never exposes `system` as a user-creatable scope.[^2]
-- Saved views persist view configuration only. Opening the same saved view on another device does not inherit prior selection, scroll position, open inspector state, preview state, or presence.[^2][^3]
-- If Findings, Investigative Queries, or Forensic Keywords are implemented, they behave like workbook surfaces rather than module escapes.[^3][^20]
+- **R2-AC-027:** §6.2 is the only guide-local canonical required-system-view enumeration.
+- **R2-AC-028:** The five built-in tabs appear with their `view_schema_id` values.
+- **R2-AC-029:** The nine required system views appear with their `view_schema_id` values.
+- **R2-AC-030:** §6.3 lists only Findings, Investigative Queries, and Forensic Keywords as optional standardized workbook surfaces.
+- **R2-AC-031:** §6.4 states that saved views are configurations, not storage silos or canonical identities.
+- **R2-AC-032:** §6.5 states the four-step startup fallback order.
 
 ## 7. Grid Editing Model
 
 ### 7.1 Direct typing
 
-Selecting a cell and typing MUST edit it immediately. The user does not enter a separate “form edit mode.” The grid is already the editor.[^2][^7]
+*Core behavior.* Core 03 requires the primary interaction surface to support inline editing, keyboard navigation, paste, low-friction row creation, and saved or system views over projections.[^4]
 
-The trailing blank row is part of that contract. Typing into it SHOULD create a real row as soon as the active surface’s minimum create signal is satisfied after create-time normalization. Timeline is the low-friction exemplar: one non-empty usable value in the row is enough to create a real record. Non-Timeline surfaces MAY require their declared minimum create signal, but they still MUST preserve same-surface inline creation rather than redirecting to a modal or form page.[^2][^3][^7]
+*Design direction.* Selecting a cell and typing MUST edit it immediately. The user MUST NOT have to enter a separate form edit mode for the common row-editing path.
 
-Relationship cells MUST accept raw typing. They MUST NOT require picker-first interaction. If the user types raw host or identity text into a relationship cell, the system should capture that text under the active field contract first and offer explicit enrichment or resolution second.[^2][^4][^7]
+*Design direction.* The trailing blank row SHOULD be part of the default grid model. Typing into it SHOULD create a real row as soon as the active surface’s minimum create signal is satisfied after create-time normalization.
+
+*Design direction.* Non-Timeline surfaces MAY require their declared minimum create signal, but they SHOULD preserve same-surface inline creation rather than redirecting to a modal or form page.
+
+*Design direction.* Relationship cells MUST accept raw typing. They MUST NOT require picker-first interaction.
 
 ### 7.2 Keyboard contract
 
-The current keyboard contract is compact and intentionally memorable.[^2][^7][^20]
+*Design direction.* The current keyboard contract is compact and intentionally memorable. All rows in the following table inherit `*Design direction.*`.
 
-| Key | Required default effect | Must not become |
+| Key | Required default effect | MUST NOT become |
 | --- | --- | --- |
-| Arrow keys | Move grid selection | A hidden macro language |
-| Enter | Commit and move vertically | A form-submit detour |
-| Shift+Enter | Reverse vertical navigation | A second editing mode |
-| Tab | Commit and move horizontally | A shell navigation shortcut |
-| `Ctrl+V` | Paste into the visible grid | An import-only gesture |
-| `Ctrl+K` | Quick link or resolve on the current cell | A full-screen workflow jump |
-| `Space` | Preview linked evidence for the selected row | A browser scroll side effect |
-| `Alt+H` | Open history for the selected row | A detached review page |
-| `Esc` | Close the inspector and return focus to the prior cell | A destructive discard shortcut |
-
-The key point is semantic consistency. `Ctrl+K` is the lightweight relationship and normalization affordance. `Space` keeps evidence preview in flow. `Alt+H` keeps history row-local. `Esc` reinforces that the inspector is an adjacent state, not another place.[^2][^7]
+| Arrow keys | Move grid selection. | A hidden macro language. |
+| Enter | Commit and move vertically. | A form-submit detour. |
+| Shift+Enter | Reverse vertical navigation. | A second editing mode. |
+| Tab | Commit and move horizontally. | A shell navigation shortcut. |
+| `Ctrl+V` | Paste into the visible grid. | An import-only gesture. |
+| `Ctrl+K` | Quick link or resolve on the current cell. | A full-screen workflow jump. |
+| `Space` | Preview linked evidence for the selected row. | A browser scroll side effect. |
+| `Alt+H` | Open history for the selected row. | A detached review page. |
+| `Esc` | Apply the focused interaction priority ladder in §7.4: editor-local popup close, unsaved cell-edit discard, inspector close, then no-op. | A hidden autosave, broad destructive discard, or cross-context escape hatch. |
 
 ### 7.3 Paste and bulk editing
 
-Multi-cell paste, fill-down, and multi-row tag assignment are required workbook behaviors. Bulk edits are mutation batches. They MUST NOT rely on hidden macro semantics.[^2][^7]
+*Design direction.* Multi-cell paste, fill-down, and multi-row tag assignment are required workbook behaviors in the base design. They MUST NOT rely on hidden macro semantics.
 
-Clipboard paste is part of the base hot path. It SHOULD accept TSV and CSV copied directly from Excel or other spreadsheet tools, create additional rows automatically when the pasted range exceeds the existing visible set, and preserve selection and row identity rather than turning paste into an import wizard.[^2][^3][^7][^20]
+*Design direction.* Clipboard paste is part of the base hot path. It SHOULD accept TSV and CSV copied directly from spreadsheet tools, create additional rows automatically when the pasted range exceeds the existing visible set, and preserve selection and row identity rather than turning paste into an import wizard.[^4][^8]
 
-### 7.4 Autosave and visible save states
+### 7.4 Autosave, save states, and `Esc`
 
-The normal grid workflow has no explicit Save button. Autosave MUST occur on Enter, Tab, blur, and paste completion.[^2]
+*Design direction.* The normal grid workflow has no explicit Save button. Autosave MUST occur on Enter, Tab, blur, and paste completion.
 
-The UI MUST expose exactly three save-state labels.
+*Core behavior.* Core 03 maps save-state presentation to exactly `Syncing`, `Saved`, and `Conflict`. Presence updates alone never change the save-state label.[^4]
+
+*Design direction.* All rows in the following table inherit `*Design direction.*` while restating owner vocabulary.
 
 | Label | Exact meaning | Required user interpretation |
 | --- | --- | --- |
-| `Syncing` | At least one mutation is in flight or the local pending queue is non-empty | The system is preserving work, but authoritative reconciliation is still underway |
-| `Saved` | No mutation is in flight, the local pending queue is empty, and no unresolved same-field local drafts exist | Current workbook state is synchronized |
-| `Conflict` | A same-field conflict is unresolved, queue overflow refused admission, or replay halted on a non-retryable failure | Analyst attention is required |
+| `Syncing` | At least one workbook mutation is in flight, the local pending queue is non-empty, or replay is paused waiting for connectivity recovery, re-authentication, or an HTTP re-query required by Core 03. | The system is preserving work, but authoritative reconciliation is still underway. |
+| `Saved` | No mutation is in flight, the local pending queue is empty, and no unresolved same-field local drafts exist. | Current workbook state is synchronized. |
+| `Conflict` | A same-field conflict is unresolved, queue overflow refused admission, or replay halted on a non-retryable failure. | Analyst attention is required. |
 
-Latency research matters here. Interactive delay changes user strategy, not just satisfaction. Cartulary’s design implication is that acknowledgement of typing, selection changes, paste completion, and save-state transitions MUST feel immediate and predictable. Local acknowledgement should happen first; authoritative truth and exception states should then be rendered clearly without stalling the user’s thought process.[^12][^15]
+*Core behavior.* The local pending queue durability boundary is defined in §9.5: it does not survive full reload, tab close, cross-tab transfer, browser or application restart, or crash.[^4]
+
+*Design direction.* `Esc` is an interaction-priority ladder, not a global discard. All rows in the following table inherit `*Design direction.*`.
+
+| Priority | Focus and state condition | Required effect |
+| --- | --- | --- |
+| 1 | A focused cell editor has an open editor-local picker, autocomplete, menu, or popover. | `Esc` closes only that editor-local popup. |
+| 2 | A focused cell editor has uncommitted text and no editor-local popup is open. | `Esc` discards only that cell editor draft and restores the pre-edit displayed cell value. |
+| 3 | Focus is outside a cell editor and the inspector is open. | `Esc` closes the inspector and returns focus to the prior grid cell when that cell still exists and is visible. |
+| 4 | None of the above conditions apply. | `Esc` is a no-op for workbook state. |
+
+*Design direction.* `Esc` is not an autosave trigger. `Esc` MUST NOT cancel already queued replay units, committed authoritative changes, or unresolved same-field conflict objects.
 
 ### Acceptance criteria
 
-- Selecting a cell and typing edits the cell immediately. No separate edit form or record detail page is required for the common path.[^2]
-- Typing into the trailing blank row creates a real row when the active surface’s minimum create signal is satisfied.[^2][^7]
-- Relationship cells accept raw typing and do not force picker-first interaction.[^2]
-- `Ctrl+V`, fill-down, and multi-row tag assignment work on the visible workbook surface and are implemented as explicit mutation batches rather than hidden automation.[^2]
-- The visible save-state labels are exactly `Syncing`, `Saved`, and `Conflict`.[^2]
+- **R2-AC-033:** Selecting a cell and typing edits the cell immediately.
+- **R2-AC-034:** Relationship cells accept raw typing and do not force picker-first interaction.
+- **R2-AC-035:** `Ctrl+V`, fill-down, and multi-row tag assignment work on the visible workbook surface.
+- **R2-AC-036:** The visible save-state labels are exactly `Syncing`, `Saved`, and `Conflict`.
+- **R2-AC-037:** §7.4 `Syncing` includes replay paused for connectivity recovery, re-authentication, or HTTP re-query.
+- **R2-AC-038:** §7.4 states that presence updates alone do not change save-state labels.
+- **R2-AC-039:** §7.2 and §7.4 define the same `Esc` behavior and priority order.
 
 ## 8. Progressive Structuring and Relational UX
 
-### 8.1 What “capture first, structure later” means
+### 8.1 Capture first, structure later
 
-“Capture first, structure later” means the UI MUST accept rough, incomplete, and uncertain input as valid first-class state, then support later normalization without erasing the original user-entered material.[^4][^6]
+*Core behavior.* Core 02 separates raw capture from canonical entities and preserves original rough capture even after later normalization or resolution.[^6]
 
-That principle governs both entity references and evidence. A timeline row can exist with unresolved host and identity text, uncertain time, and linked evidence. The row becomes relationally richer later, but the rough capture remains preserved as source-bound lineage.[^4][^7]
+*Design direction.* The UI MUST preserve a rough-capture path for timeline rows, notes, relationship cells, and evidence-adjacent text. The user MUST be able to record uncertain facts first and normalize them later.
 
-### 8.2 Binding modes and their UI consequences
+*Design direction.* The UI SHOULD expose progressive structuring as a visible state transition: raw token, unresolved chip, resolved chip, auto-resolved chip, dismissed mention, or canonical relationship value.
 
-Cartulary distinguishes `mention_origin` from `entity_origin`. The UI MUST respect that distinction because the two modes answer different questions.[^4]
+### 8.2 Binding modes and UI consequences
 
-| Context | Binding mode | Default UI result | Forbidden shortcut |
-| --- | --- | --- | --- |
-| Timeline, Notes, and other non-entity record cells that refer to hosts or identities | `mention_origin` | Preserve raw token as an `entity_mention`; show unresolved or resolved chip state later | Auto-create canonical entities silently |
-| Interactive clipboard paste into non-entity sheets | `mention_origin` | Create one mention per observed cell value and source row | Coalesce repeated mentions into one entity |
-| Hosts and Identities direct row creation | `entity_origin` | Create or exact-match reuse a host or identity record | Convert the row into a mere mention |
-| Inspector “Resolve to existing” | Explicit mention action | Preserve raw mention; add canonical link | Replace raw token with canonical text only |
-| Inspector “Create host” or “Create identity” from mention | Explicit mention action | Create one stub by default and resolve the selected mention only | Resolve sibling mentions automatically |
+*Core behavior.* Core 02 defines `mention_origin` and `entity_origin` as binding modes. Binding behavior depends on the contract, not on the visible column header.[^6]
 
-This distinction is one of the places where Cartulary most clearly diverges from spreadsheet sloppiness without sacrificing spreadsheet speed. Rough tokens on non-entity surfaces stay source-bound until explicitly resolved. Direct entity surfaces are where entity rows are created or upserted directly.[^4][^7]
+*Design direction.* All rows in the following table inherit `*Design direction.*` while restating owner-owned binding consequences.
 
-### 8.3 Chips, unresolved state, and exact-match boundaries
-
-Relationship state SHOULD be rendered as chips or equivalent compact inline state, not as indefinitely raw delimited strings. The grid needs to show relational status without turning relationship editing into a form-only experience.[^2][^7]
-
-At minimum, the UI needs three visible states.
-
-| Cell state | Visible representation | Meaning |
+| UI context | Binding mode | UI consequence |
 | --- | --- | --- |
-| Unresolved | Dotted, outlined, or otherwise marked raw token chip | A preserved source-bound mention awaiting action |
-| Resolved | Plain canonical chip | A current canonical link exists |
-| Auto-resolved | Canonical chip with inspectable auto-resolution mark | The system applied the bounded exact-match auto-resolution rule |
+| Timeline or Notes cells that reference hosts or identities. | `mention_origin`. | Raw text creates source-bound mentions and MAY show suggestions. |
+| Clipboard paste into non-entity sheets. | `mention_origin`. | Preserve one mention per observed value and source position. |
+| Inspector `Resolve` action. | `mention_origin`. | Resolve the selected mention and keep raw text inspectable. |
+| Inspector `Create host` or `Create identity` from a mention. | `mention_origin` plus explicit create. | Create or reuse a target through explicit action, then resolve the selected mention. |
+| Hosts or Identities direct row creation. | `entity_origin`. | Create or upsert a canonical or stub entity record. |
 
-Exact-match suggestion boundaries MUST remain conservative. Auto-resolution is allowed only in the current narrow scope: interactive mention capture on Timeline host and identity relationship cells during inline commit or interactive clipboard paste. It depends on exact alias equality under the declared comparison substrate and is blocked by uncertainty suppressors such as `?`, `~`, `maybe`, `prob`, `probably`, `approx`, and `approximately`. Fuzzy matching, token deletion, transliteration, stemming, punctuation rewriting, and background cleanup workflows are out of scope for auto-resolution in the current profile.[^2][^4]
+### 8.3 Chip semantics
 
-Manual linking is scoreless in the current profile. The workbook MUST NOT require analysts to enter numeric confidence for routine manual links. Unsupported attempts to supply manual link confidence are validation errors rather than silent downgrades.[^2]
+*Design direction.* The chip-state vocabulary is closed for Revision 2. §8.3 and §16.1 MUST use the same four states: `unresolved`, `resolved`, `auto_resolved`, and `dismissed`.
 
-### 8.4 Inspector contract: what it owns, and what it must not
+*Design direction.* Unresolved chips MUST be visually distinct from resolved chips through a combination of border treatment and an inline state marker. The default unresolved treatment is dashed or dotted border plus a leading `?` marker or visible `Unresolved` label. Color difference alone MUST NOT be the sole distinguishing signal.
 
-The inspector is the secondary enrichment surface. It MUST remain a non-blocking drawer, MUST keep the main grid visible while open, and MUST NOT become the default primary capture surface.[^2]
+*Design direction.* Auto-resolved chips MUST show the `auto` marker defined in §16.1 until the user explicitly changes or reverts the resolution.
 
-Its ownership boundary is explicit.
+*Design direction.* Dismissed mentions MAY appear only where they remain inspectable. When shown, they MUST carry a visible dismissed marker and accessible name.
 
-| Owned by the grid | Owned by the inspector | Not allowed |
-| --- | --- | --- |
-| Direct typing, row creation, paste, sort, filter, grouping, quick row-level navigation | Detail, relationships, evidence inspection, row history, rollback, destructive actions, explicit mention flows, indicator observation flows, party create/link/clear flows, merge initiation | Replacing routine row creation or routine field editing as the default path |
-| Immediate cell editing | Explicit enrichment and review | Blocking the grid behind a modal workflow |
-| Text-first relationship entry | Explicit resolve/create/dismiss/restore | Requiring a full-page record form |
-| Working-set navigation | Same-surface detail and review | Becoming a second application module |
+### 8.4 Inspector contract
 
-The inspector MUST support all of the following current-profile capabilities when the selected surface and row make them relevant: mention resolve, create from mention, dismiss, restore to unresolved, indicator observation link/create/dismiss flows, indicator lifecycle inspection or editing, party create-from-text, link-existing, clear-link, clear-text, clear-both, evidence inspection, rollback access, and explicit merge initiation for authorized users.[^2][^4]
+*Design direction.* The inspector is an adjacent, secondary surface for enrichment, relationships, evidence, history, and destructive actions. It MUST NOT replace direct grid editing for ordinary capture.
 
-The inspector MUST also preserve key distinctions that spreadsheets usually blur: raw mention lineage versus current canonical link, raw indicator observation lineage versus current canonical indicator and lifecycle state, visible source-preserving party text versus optional hidden linked `party_id`, and workbook context versus destructive reviewer actions.[^2][^4]
+*Design direction.* The inspector owns detail editing that would clutter the grid, relationship review, evidence preview and attachment detail, row history, rollback affordances, and destructive confirmations.
 
-This is progressive disclosure used narrowly and deliberately: deep detail, relationship review, history, and destructive actions are one move away, but the visible workbook surface remains the primary object of thought. The inspector MUST therefore add depth without stealing the center of gravity from the grid.[^12][^19]
+*Design direction.* The inspector MUST NOT become a full-page record editor, dashboard, ticketing module, release-control module, or hidden source of saved-view state.
 
-### 8.5 Auto-resolution disclosure, undo, and later correction
+### 8.5 Auto-resolution disclosure and correction
 
-Cartulary’s bounded auto-resolution behavior is only safe if it is visible and reversible. The UI MUST NOT silently auto-resolve.[^2]
+*Design direction.* Auto-resolution is useful only when disclosure and recourse are visible. Auto-resolved chips MUST remain distinguishable from manually resolved chips until the user explicitly changes or reverts them.
 
-When auto-resolution occurs, the same sheet MUST show an immediate non-modal disclosure that includes the raw token, canonical target, matched alias text, direct `Undo`, and direct `Review`. `Review` SHOULD open the current row or chip in the same-surface relationship review context without losing grid visibility or current row anchoring. For batch paste, the disclosure MUST also include the number of tokens auto-resolved in the same visible change set.[^2]
-
-The resolved chip or cell MUST remain inspectably marked as auto-resolved after the transient disclosure fades. Row history MUST preserve the raw token, matched alias text, confidence, and mutation source. `Undo` from the immediate disclosure MUST restore the raw unresolved token, remove the auto-created link, preserve focus, and preserve scroll position. After the disclosure expires, the user MUST still be able to choose `Revert to unresolved` from the chip context or row history in no more than two actions, and that later correction MUST create a new attributed revision.[^2][^4]
-
-This pattern directly expresses Cartulary’s “never silently normalize” stance. Optimistic and progressive-interface research supports staged feedback when provisionality is legible and correction remains cheap. Cartulary’s implication is concrete: exact auto-resolution can help flow, but only if the user can immediately see what happened and undo it without losing place.[^12][^18]
+*Design direction.* Batch paste MAY produce auto-resolved chips when owner contracts allow deterministic exact-match reuse. The UI MUST expose a same-surface transient confirmation and an inspectable route to review affected cells.
 
 ### Acceptance criteria
 
-- Rough capture remains valid: a row can exist with unresolved host or identity text, uncertain time, and evidence linkage.[^4][^6]
-- `mention_origin` and `entity_origin` produce visibly different default behavior on the grid.[^4]
-- The inspector keeps the grid visible and remains secondary; the common path of timeline typing does not require opening it.[^2]
-- The inspector exposes explicit mention, indicator, party, evidence, history, rollback, and merge flows without becoming the routine editor.[^2][^4]
-- Auto-resolution is never silent. The sheet shows disclosure, `Undo`, `Review`, batch counts when relevant, and later `Revert to unresolved` within two actions.[^2]
+- **R2-AC-040:** §8.3 and §16.1 use the same four chip states.
+- **R2-AC-041:** Unresolved and resolved chips differ by more than color.
+- **R2-AC-042:** Auto-resolved chips remain inspectably marked after transient disclosure fades.
+- **R2-AC-043:** Dismissed mentions, when displayed, carry a visible dismissed marker and accessible name.
+- **R2-AC-044:** The inspector is described as adjacent and secondary, not a replacement for grid editing.
 
 ## 9. Collaboration, Presence, Autosave, and Conflict Resolution
 
 ### 9.1 Collaboration model
 
-Cartulary’s collaboration model is not character-by-character coauthoring. It is field-level optimistic concurrency on top of row versioning.[^2][^3]
+*Core behavior.* Core 03 requires field-level optimistic concurrency on top of row versioning. Each visible row is bound to `record_id` and `row_version`, and every grid write includes `record_id`, `base_row_version`, and changed fields only.[^4]
 
-The server-side behavior is intentionally simple.
+*Design direction.* Collaboration presentation MUST make row identity and conflict scope legible. The UI MUST never imply that row position, sort position, visible label, or display value is the mutation target.
 
-| Situation | Required server behavior | Required UI consequence |
-| --- | --- | --- |
-| Current `base_row_version` still matches | Apply patch normally | Standard save-state progression |
-| Another user changed a different field | Auto-rebase and accept | No user-visible conflict |
-| Another user changed the same field | Reject with conflict payload | Only the affected cell enters conflict state |
+*Core behavior.* Different-field concurrent edits on the same row auto-rebase and accept. Same-field concurrent edits reject with an explicit conflict payload and remain unresolved until analyst action.[^4]
 
-The client MUST address rows by `record_id` and `base_row_version`, never by visible row number, sort position, grouped position, or displayed values. That identity discipline is what allows the UI to stay stable while live updates, sorting, filtering, and grouping continue around the active row.[^2][^3]
+*Design direction.* Same-field conflicts MUST be shown as cell-local state. A conflict on one cell MUST NOT freeze the entire row, sheet, or workbook.
 
 ### 9.2 Presence
 
-Presence is ambient, not blocking. The UI MUST provide workbook-header avatars for users on the same surface, row-gutter indicators when another analyst is focused on the same row, and same-cell indicators when another analyst is actively editing the same field and the signal is available.[^2]
+*Core behavior.* Core 03 defines presence as collaboration state and live row-update behavior. Presence is not save state.[^4]
 
-Presence MAY warn; it MUST NOT lock. It is there to reduce surprise before a collision becomes a same-field conflict, not to turn ordinary editing into a lock protocol.[^2][^7]
+*Design direction.* Presence SHOULD appear at three levels when available: header-level same-surface presence, row-gutter row focus, and cell-level same-field editing indication.
+
+*Design direction.* Presence indicators MUST NOT lock editing. Presence MAY warn of likely collision but MUST NOT become a hidden edit lock.
 
 ### 9.3 Same-field conflict resolution
 
-A same-field conflict is a cell-local problem, not a sheet-wide freeze. When one occurs, only the affected cell MUST enter conflict state. The cell continues to show the saved server value plus a visible conflict marker. The client retains the analyst’s unsaved local value separately and MUST NOT render that local value as if it were already saved.[^2]
+*Core behavior.* Core 03 requires the resolver to open from the conflicted cell, keep the main grid visible, display row context, field display label, stable `field_key`, saved value with actor and timestamp, analyst local value, and resolution actions. Initial focus does not default to a destructive action.[^4]
 
-The resolver MUST open from the conflicted cell, keep the main grid visible, and preserve row context. Closing the resolver without selecting a resolution leaves the cell in conflict state. The analyst MUST still be able to continue editing other rows or cells while the conflict remains unresolved elsewhere.[^2]
+*Design direction.* The resolver SHOULD use an adjacent drawer or same-surface panel. A modal resolver is reserved for narrow cases where the drawer cannot preserve the required context.
 
-The resolver contents are also closed and explicit. It MUST show row context, field display label and stable `field_key`, the saved value plus actor and timestamp, the analyst’s unsaved local value, diff support when the field’s conflict class supports it, and direct resolution actions in plain language. Initial focus MUST land on a non-destructive summary element. Pressing Enter on first open MUST NOT resolve the conflict accidentally.[^2]
-
-Conflict handling depends on the declared `conflict_resolution_class`.
-
-| Resolution class | Typical field family | Required resolver behavior |
-| --- | --- | --- |
-| `atomic_replace` | Scalar fields such as enums, timestamps, numbers, single-value identifiers | Explicit `Keep saved value` and `Use my unsaved value` actions |
-| `text_compare_merge` | Analyst-authored free text such as summary, details, note body, description | Side-by-side comparison with change highlighting and optional `Edit merged value` path |
-| `collection_review` | Multi-value chip or set fields such as tags, Timeline Hosts, Timeline Identities | Base, saved, and local deltas plus final preview before commit |
-
-If a field’s class is unknown or omitted, the resolver defaults to `atomic_replace` behavior.[^2]
+*Design direction.* Closing the resolver without selecting a resolution MUST leave the cell in conflict state. After an explicit resolution or clear action, focus MUST return to the same cell and scroll position SHOULD be preserved.
 
 ### 9.4 Authorship, row history, and rollback
 
-Authorship MUST be low friction. At minimum, the row surface exposes last editor and relative update time, and history is reachable in one click or one shortcut such as `Alt+H`.[^2]
+*Core behavior.* Core 01 and Core 03 define row-centric history and rollback target kinds. Available rollback actions draw only from `history_entry`, `change_set`, and `row_restore`.[^4][^5]
 
-The row history surface is newest-first and row-centric. It MUST show, at minimum, the actor, committed time, displayable operation label, diff summary, `change_set_id`, current reversibility state, and available rollback actions. The rollback action family is closed: `history_entry`, `change_set`, and `row_restore`. When whole-row restore is legal for a given displayed logical history item, the entry also includes `revision_no`. When a logical history item maps to exactly one mutation target eligible for single-entry addressing, it includes a stable opaque `history_entry_ref`.[^3][^4]
+*Core behavior.* The rollback target kinds have different reversal scopes. `history_entry` reverses one individually reversible mutation target. `change_set` reverses every reversible mutation entry in the addressed `change_set` in reverse deterministic order. `row_restore` restores only the authoritative row-backed fields of the selected record revision. Whole-row restore does not implicitly recreate, delete, or repoint non-row-backed associations such as `record_links`, `record_tags`, `entity_mentions`, `indicator_observations`, or evidence associations.[^5][^6]
 
-The design implication is that row history is not just an audit trail. It is a working review surface. The user should be able to inspect what changed, who changed it, and what can still be reversed without leaving workbook context. Rollback and restore belong to the inspector or history surface, not to ordinary cell editing.[^2][^3][^4]
-
-Delete, restore, rollback, supersede, and merge append history. They MUST NOT narrow prior retained history for an extant incident record. Current rollback eligibility may narrow over time, but history visibility must not.[^3][^4]
+*Design direction.* The history UI MUST present those three rollback target kinds as different actions, not as aliases for “restore this row.” Whole-row restore affordances MUST label the row-field-only scope before confirmation.
 
 ### 9.5 Local pending queue, overflow, and reauthentication
 
-The base-profile client-local pending queue is part of the UX contract, not a transport implementation detail. It exists so transient network interruptions do not lose typed work.[^2]
+*Core behavior.* Core 03 defines the local pending queue as a same-runtime recovery mechanism for transient transport failure, auth failure on queued write, and `session_revoked` in the same runtime. It does not define reload durability, tab-close survival, cross-tab transfer, restart survival, or crash survival.[^4]
 
-Its user-visible properties are explicit.
+*Design direction.* All rows in the following table inherit `*Design direction.*` while restating the owner boundary.
 
-| Property | Base-profile requirement |
+| Property | Base-profile UI requirement |
 | --- | --- |
-| Scope | Incident-scoped and client-instance-scoped |
-| Storage | Memory-local in the current browser runtime |
-| Durability | Survives transient transport failure, auth failure on queued write, and `session_revoked` in the same runtime; does **not** survive full reload, tab close, restart, or crash |
-| Capacity | Exactly 64 replay units per `(incident_id, client_instance_id)` |
-| Order | FIFO by original enqueue order |
-| Coalescing | Allowed only for one still-uncommitted local row create or one contiguous same-record patch run |
-| Overflow behavior | Preserve existing queue, refuse new admission, preserve current visible edit as unsaved local work, set save state to `Conflict`, show same-surface non-modal overflow message |
+| Purpose | Preserve same-runtime user work across transient replay conditions. |
+| Durability | Survives transient transport failure, auth failure on queued write, and `session_revoked` in the same runtime; does not survive full reload, tab close, cross-tab transfer, browser or application restart, or crash. |
+| Overflow | Refuses admission visibly and moves save state to `Conflict` or an equivalent attention state. |
+| Re-authentication | Preserves queued work in the same runtime while the user completes required re-authentication. |
+| Cross-tab behavior | No cross-tab replay or queue-transfer guarantee is implied. |
 
-Overflow is one of the most important trust moments in the product. The client MUST NOT silently evict older or newer queued units to make room. It MUST preserve everything already queued, refuse the new replay unit, keep the current edit visibly unsaved, and tell the user what happened on the same workbook surface.[^2]
-
-A same-surface message SHOULD use copy equivalent to: “Pending local edits are full. Keep this tab open, resolve conflicts, or wait for sync before adding more queued edits.” This is a design recommendation, not a new owner-level string constant.[^7]
-
-Queued unsent writes and unresolved same-field local drafts MUST survive reauthentication within the same browser runtime. Replay resumes only after the client re-establishes an authenticated session when required, re-derives current incident authorization, and completes any required HTTP re-query. If replay stops at a same-field conflict, the blocking unit leaves the pending queue and enters the same-field conflict queue; later queued units remain queued behind it rather than being applied out of order. If replay stops at another terminal failure, later queued units remain queued, save state remains `Conflict`, and the blocking failure is surfaced on the same sheet.[^2]
+*Design direction.* Cross-tab transfer is named explicitly because general-purpose client-state libraries often synchronize or rehydrate state across tabs. Cartulary’s base-profile pending queue MUST NOT be inferred to survive or replay through such cross-tab mechanisms.
 
 ### Acceptance criteria
 
-- Different-field concurrent edits reconcile automatically. Same-field concurrent edits do not silently overwrite; only the affected cell enters conflict state.[^2]
-- The resolver opens from the conflicted cell, keeps the grid visible, and does not default focus to a destructive action.[^2]
-- `Alt+H` opens a row-local newest-first history surface with actor, time, diff summary, rollback availability, and stable item identity where applicable.[^2][^3][^4]
-- The pending queue is memory-local, FIFO, capacity 64, survives transient transport and same-runtime reauthentication, and does not promise survival across reload.[^2]
-- Queue overflow preserves the existing queue, refuses only the new unit, keeps the current edit unsaved, sets `Conflict`, and shows a same-surface non-modal message.[^2][^7]
+- **R2-AC-045:** §9.1 states field-level optimistic concurrency over row versioning.
+- **R2-AC-046:** Same-field conflict is cell-local and does not freeze the whole workbook.
+- **R2-AC-047:** §9.4 distinguishes `history_entry`, `change_set`, and `row_restore` scopes.
+- **R2-AC-048:** Whole-row restore is described as row-backed fields only.
+- **R2-AC-049:** §7.4 and §9.5 both name cross-tab transfer as a pending-queue non-survival condition.
+- **R2-AC-050:** §9.5 states that pending queue durability is same-runtime only.
 
 ## 10. Sorting, Filtering, Grouping, and View State
 
 ### 10.1 Sorting and filtering
 
-Sorting and filtering are workbook behaviors, not separate analytical modules. Column-header sorting and inline filter chips MUST apply without leaving the active sheet, and they MUST follow the capabilities declared by the active `view_schema` rather than inferred visible labels.[^2][^3]
+*Core behavior.* Core 01 owns the view-query route, sort entries, filter predicates, canonicalization, cursor binding, and limits. The UI addresses fields by stable `field_key`, not visible labels or storage names.[^5]
 
-The UI SHOULD make the current sort, filters, and grouping state visible in the view bar. Clearing a user sort override returns the surface to schema default sort only. Clearing grouping persists omission of `group_by`; “Group: None” is not represented as JSON `null`.[^2][^3]
+*Design direction.* Sorting and filtering controls MUST expose visible labels, but their configured state MUST serialize and replay through stable contract identifiers. Renaming a column label MUST NOT change filter semantics, write-back behavior, or export semantics.
+
+*Design direction.* The UI SHOULD preserve the user’s current working context when sort or filter changes. Pending edits remain bound to `record_id`, not row position.
 
 ### 10.2 Grouping boundary
 
-Grouping is a presentation-only transform over the current filtered result set. It MUST NOT create, delete, or mutate source records, projection rows, links, or tags.[^2]
+*Core behavior.* Core 01 and Core 03 allow at most one active grouping key in the current profile. Group headers are presentation artifacts and are not writable rows.[^4][^5]
 
-The current base profile allows exactly one active grouping key or `Group: None`. For Timeline, the allowed grouping keys are closed and contract-backed.
+*Design direction.* Grouping MUST remain a view-state operation, not a data-model mutation. Dragging, expanding, or collapsing groups MUST NOT create, delete, or mutate incident records.
 
-| Timeline grouping key | Required meaning |
-| --- | --- |
-| `timeline.occurred_day` | Group by occurred-at calendar day |
-| `timeline.recorded_day` | Group by recorded-at calendar day |
-| `timeline.capture_state` | Group by capture lifecycle state |
-| `timeline.has_evidence` | Group by whether evidence is linked |
-| `timeline.has_unresolved_mentions` | Group by unresolved-mention presence |
+### 10.3 View-state layers
 
-This narrow whitelist is a design strength. It keeps grouping useful for triage, queueing, and overview while preventing grouping from drifting into a second mutation model or a free-form spreadsheet gimmick.[^2][^7]
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
 
-### 10.3 View state layers
-
-Cartulary has three distinct layers of workbook state. The UI MUST keep them conceptually separate.
-
-| Layer | What it is | Persistence rule |
+| State layer | Persistence | Examples |
 | --- | --- | --- |
-| Canonical surface identity | The base workbook surface identified by `sheet_ref.kind='view_schema'` | Stable and sharable |
-| Saved-view configuration | One incident-bound configuration over exactly one `view_schema_id` | Persisted as saved view when explicitly saved |
-| Local session state | Selection, scroll, focused cell, open inspector state, preview state, local popovers, presence | Client-local only; not persisted in saved views |
+| Contract state | Owner core. | `view_schema_id`, fields, sorting eligibility, filter eligibility, grouping keys. |
+| Saved-view state | Saved view object. | `query_json`, portable `layout_json`, display name, scope. |
+| Client-local state | Runtime only. | Selection, scroll, focused cell, open inspector, local popover, preview state, presence. |
+| User preference state | Workbook preferences. | Home surface pointer. |
+| Incident default state | Incident workbook preferences. | Default surface pointer. |
 
-This separation matters because users experience each layer differently. Surface identity tells them where they are. Saved views tell them how this surface is shaped. Local session state tells them what they are doing right now. Mixing them would make startup, sharing, and multi-device use harder to explain.[^2][^3]
+*Design direction.* The UI MUST NOT persist client-local state into saved views. Saved views are portable surface configurations, not runtime snapshots.
 
 ### Acceptance criteria
 
-- Column-header sorts and inline filter chips operate on the active workbook surface without navigating away.[^2]
-- Grouping never mutates source state, and there is never more than one active grouping key in the current base profile.[^2]
-- Timeline exposes only the five allowed grouping keys plus `Group: None`.[^2]
-- Saved views preserve surface configuration but not selection, scroll position, focused cell, open inspector state, preview state, or presence.[^2][^3]
+- **R2-AC-051:** §10 states that sorting and filtering serialize through stable field identifiers.
+- **R2-AC-052:** §10 states that grouping is view state and not a data mutation.
+- **R2-AC-053:** §10.3 separates contract, saved-view, client-local, user preference, and incident default state.
+- **R2-AC-054:** §10 says client-local state is not saved-view state.
 
 ## 11. Coordination Surfaces as Workbook-Native UX
 
-### 11.1 Why they belong in the workbook
+### 11.1 Why coordination belongs in the workbook
 
-Task Requests, Decisions, Communications Log, Handoff, Status Review, and Lesson MUST remain workbook-native surfaces because they are part of the same incident-working grammar as Timeline, entities, and evidence. Analysts move between facts, actions, decisions, communication, and follow-through continuously. Requiring a module change would fracture the common operating picture the workbook is supposed to preserve.[^2][^8][^21]
+*Core behavior.* Core 03 requires Task Requests, Decisions, Communications Log, Handoff, Status Review, and Lesson to remain workbook-native surfaces rather than separate application modules.[^4]
 
-The core rule is simple: coordination belongs **inside** the workbook shell but **off** the routine timeline hot path. Ordinary row capture MUST NOT require task, decision, owner, approver, challenge, or checklist fields on the Timeline sheet itself. Communications logs, handoffs, status reviews, and lessons remain explicit workbook-native actions, but the system MUST NOT interrupt ordinary row editing to solicit them.[^2][^8]
+*Design direction.* The design reason is operational continuity: incident coordination is part of the shared case state and MUST stay visible next to the facts, evidence, and history that drive it.[^12][^13]
+
+*Baseline context.* Operating-model guidance recommends using these surfaces for tracker hygiene, handoff quality, status-review cadence, workload redistribution, debrief follow-through, and challenge or escalation practice. That guidance does not define implementation conformance.[^13]
 
 ### 11.2 Surface roles
 
-| Surface | Primary purpose | Required UX posture | Must not become |
-| --- | --- | --- | --- |
-| Task Requests | Owned units of work with queue, due, blocked, and requester semantics | Queue-oriented workbook surface with sort, filter, group, and link-back behavior | A detached ticketing subsystem |
-| Decisions | Rationale-bearing incident decisions | Review-oriented workbook surface with clear status and supersession | A generic approval engine |
-| Communications Log | Durable communication memory | Same-shell communication history with linked decisions and tasks | A chat replacement |
-| Handoff | Shift or phase continuity artifact | Explicit continuity artifact linked to open work and risks | A mandatory per-edit ritual |
-| Status Review | Checkpoint review and workload rebalance | Cadence artifact for blockers, risks, and next report timing | A dashboard KPI page |
-| Lesson | Follow-through on retrospective findings | Workbook-native learning artifact linked to tasks and evidence | A free-text graveyard |
+*Design direction.* For the canonical surface-identity list and primary role, see §6.2. This table adds UX posture and must-not-become direction for coordination surfaces.
 
-Task Requests and Decisions are required base surfaces. Communications Log, Handoff, Status Review, and Lesson are artifact-backed coordination surfaces with workbook-native identities. All six use the same shell, the same query/filter/group/history logic, and the same expectation that the selected row remains the user’s anchor of work.[^2][^3][^8]
+| Surface reference | UX posture | MUST NOT become |
+| --- | --- | --- |
+| Task Requests | Queue-oriented grid with owner, status, priority, due, blocked, and follow-through views. | A separate ticketing product. |
+| Decisions | Review-oriented grid for rationale, owner, status, supersession, and decided-at posture. | A generalized approval engine. |
+| Communications Log | Durable communication memory with party references and action links. | A chat client. |
+| Handoff | Continuity record for shift or phase boundaries. | A mandatory ritual for every row edit. |
+| Status Review | Checkpoint and rebalancing surface. | Persistent dashboard chrome. |
+| Lesson | Retrospective follow-through surface with linked tasks and evidence. | A detached knowledge-base editor. |
 
 ### 11.3 Same-surface creation and linking
 
-From a selected Timeline, Host, Identity, Evidence, Notes, Task Requests, or Decisions row, the analyst MUST be able to create or link a task request, decision, coordination artifact, or party reference without leaving workbook flow. Preseeded linked-record or party context is editable context only; it does not satisfy minimum create signal by itself.[^2]
+*Design direction.* The UI SHOULD allow row-anchored creation or linking of coordination records without losing the active grid context. A selected Timeline row MAY spawn a related Task Request, Decision, Handoff reference, Communication Log reference, or Lesson follow-up when the user has permission and the target contract allows it.
 
-Task Requests and Evidence remain text-first on the grid when they expose requester, collector, or source semantics. Party linking is same-surface enrichment from the inspector or Parties view. It MUST NOT block row creation, row commit, or later text editing.[^2][^4]
+*Design direction.* Coordination creation MUST NOT become a mandatory step in ordinary row capture. Handoff, status review, challenge, escalation, and debrief practices belong at operational boundaries, not on every edit.[^13]
 
-Exact-match reuse for parties is deliberately narrower than for ordinary text suggestions. Create-from-text or link-existing MAY reuse the same incident-scoped party only on a unique exact match of normalized `primary_email` or `external_ref`. Raw requester or source text remains preserved alongside any linked `party_id`. Display name, organization, role, and phone-like text are suggestion inputs, not auto-link keys.[^2][^4][^20]
+### 11.4 Operating guidance boundary
 
-### 11.4 Operating-model guidance versus product behavior
-
-The workbook-native coordination surfaces are the durable product contract. Tracker hygiene, handoff quality, status-review cadence, workload redistribution, and challenge or escalation practice remain operating-model guidance rather than runtime workflow requirements. Cartulary should support those practices with explicit surfaces and saved views, but it MUST NOT turn routine row capture into a mandatory ceremony.[^1][^8][^21]
+*Later scope.* Future operating-model guides MAY define recommended cadences or playbook practices for teams, but those practices MUST NOT be represented as Base Profile implementation-conformance requirements unless restated in Core 00 through Core 04.[^2][^13]
 
 ### Acceptance criteria
 
-- Task Requests, Decisions, Communications Log, Handoff, Status Review, and Lesson appear and behave as workbook surfaces rather than separate application modules.[^2][^20]
-- Timeline row capture does not require coordination-only fields or ritual checkpoints.[^2]
-- From a selected workbook row, a user can create or link a task, decision, coordination artifact, or party reference without losing row context or leaving the workbook shell.[^2]
-- Party create, link, unlink, and clear actions preserve visible text-plus-link independence and keep the originating row context, focus, and scroll position.[^2]
+- **R2-AC-055:** §11.2 adds only UX posture and must-not-become direction, not a duplicate canonical surface registry.
+- **R2-AC-056:** §11 states that coordination surfaces remain workbook-native.
+- **R2-AC-057:** §11 rejects separate ticketing, chat, dashboard, approval-engine, and per-edit ritual interpretations.
+- **R2-AC-058:** §11 separates operating-model guidance from implementation conformance.
 
 ## 12. Evidence Interaction Design
 
 ### 12.1 Evidence is not a cell path
 
-Evidence in Cartulary is a user-facing record family with attached object state behind it. It is not a file path in a cell, and it is not raw object-store URL UX.[^3][^5]
+*Core behavior.* Core 01 and Core 04 treat evidence access as application-mediated object access through authoritative incident membership and current evidence/blob state. User-supplied filenames and storage hints are metadata, not authority.[^5][^7]
 
-This separation produces visible design rules. Evidence counts reflect committed evidence state, not upload intent. Preview and download are redeemed through same-origin opaque handles issued by the application. The browser MUST treat those handles as opaque and MUST NOT synthesize or store raw object-store URLs as supported evidence-access state.[^3][^5]
+*Design direction.* Evidence cells MUST NOT be raw object-store URLs, local file paths, or user-editable storage keys. The grid MAY show title, state, count, preview affordance, and linked evidence chips, but the access path remains application-mediated.
 
 ### 12.2 Two-step attachment and visible state
 
-The attach flow is explicitly two-step: create a blob slot, upload bytes, then attach the blob to an evidence record. Pending or failed upload slots MUST NOT look like committed evidence. Evidence counts, `has evidence` flags, and preview affordances update only after successful finalization.[^2][^3][^7]
+*Core behavior.* The evidence flow uses a two-step attachment model so incomplete uploads do not leave fake evidence attached. Attachment state remains visible through record and projection state.[^5][^14]
 
-The base user-visible states are:
+*Design direction.* Evidence attachment SHOULD feel like a workbook action: paste or drag onto selected row, visible pending or attached state, and same-surface preview when allowed. The UI MUST NOT navigate away from the grid for ordinary screenshot attachment.
 
-| Evidence or blob condition | Grid meaning | Preview or download consequence |
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
+
+| State | Required user interpretation | UI posture |
 | --- | --- | --- |
-| Requested or pending receipt, no blob yet | Valid evidence row exists without bytes | No preview; row remains first-class evidence |
-| Pending unattached blob slot | Upload in progress or awaiting finalization | Does not increment evidence count; not yet attached |
-| Available attached blob | Committed evidence is present | Preview or download as allowed by current preview policy |
-| Unsupported or blocked preview | Evidence exists but inline preview is not currently allowed | Surface the blocked state inline; do not silently fall back |
-| Failed, inconsistent, quarantined, or missing blob state | Evidence or blob state needs repair or retry | Preview and download fail closed until state is repaired |
-
-Cartulary MUST also allow evidence rows to exist before bytes do. Requested or pending-receipt evidence is still real evidence. That matters for incident work, because teams often know that a collection has been requested, staged, or promised before they actually have the file.[^4][^7]
+| Requested | Evidence is needed but not yet received. | Show request state and owner/party context when present. |
+| Pending upload | Blob slot exists but evidence is not final. | Show pending state, not attached-as-complete. |
+| Available | Evidence is attached and access is requestable. | Show preview/download affordance when allowed. |
+| Preview blocked | Evidence exists but preview is unsafe or unavailable. | Show explicit blocked state; do not silently collapse into download. |
+| Failed or inconsistent | Evidence state cannot be trusted for access. | Show error and require corrective action. |
 
 ### 12.3 Preview and download without leaving the workbook
 
-Evidence preview MUST open without forcing full-page navigation away from the grid. A side or bottom preview is acceptable. When preview is unavailable or blocked, the grid or inspector MUST remain in place and surface the state inline rather than silently falling back to download or navigating away.[^2][^5]
+*Design direction.* Preview opens in the inspector, an adjacent preview pane, or an equivalent same-shell surface. Download uses an application-mediated handle. The browser MUST NOT construct raw object-store URLs.
 
-The `Space` shortcut is important because it makes evidence preview an in-flow workbook action rather than a page change. Dragging or pasting a screenshot onto the selected row SHOULD feel like a workbook gesture, not like entering a media-management module.[^2][^7]
+*Design direction.* Preview and download failures MUST be explicit. Unsupported, pending, quarantined, missing, failed, or inconsistent evidence state MUST NOT silently become a raw download path.
 
 ### 12.4 Reporting and release consequences
 
-Evidence UX in the live workbook and evidence behavior in rendered outputs are intentionally different concerns. Live workbook visibility is governed by incident membership. Recipient-specific withholding belongs to snapshot-derived rendering and release time, not to hiding live workbook content from incident participants. This distinction is essential to keeping the workbook usable while still allowing disciplined release outputs later.[^3][^5]
+*Core behavior.* If the Snapshot and Reporting Extension Profile is implemented, recipient-specific withholding is applied at snapshot, render, and release time rather than by hiding live workspace content from authenticated incident participants.[^7]
+
+*Design direction.* The live workbook MUST NOT present per-recipient visibility affordances such as disclosure-partition chips, recipient-selector controls, or release-scope badges during ordinary editing. Recipient-specific visibility is a snapshot, render, and release-time concern only. Moving those controls into the base live-editing surface would move extension-profile visibility controls into the base workbook.
 
 ### Acceptance criteria
 
-- Evidence counts and `has evidence` indicators update only after successful blob finalization and attachment.[^2][^3]
-- Preview and download use application-mediated same-origin handles, not raw object-store URLs.[^3][^5]
-- Preview opens without full-page navigation, and blocked or unsupported states are surfaced inline.[^2]
-- Evidence rows may exist before binary bytes are present, and that state remains first-class rather than “not yet evidence.”[^4][^7]
+- **R2-AC-059:** §12 states that evidence cells are not raw paths or raw object-store URLs.
+- **R2-AC-060:** §12 defines visible attachment states for requested, pending, available, preview blocked, and failed or inconsistent evidence.
+- **R2-AC-061:** §12 states that preview and download remain application-mediated.
+- **R2-AC-062:** §12.4 prohibits per-recipient visibility affordances in ordinary live workbook editing.
 
-## 13. Excel Inspiration: Preserve / Adapt / Reject
+## 13. Excel Inspiration: Preserve, Adapt, Reject
 
 ### 13.1 Preserve
 
-The spreadsheet behaviors below MUST be preserved because they are the behaviors that make the workbook operationally valuable in incident work.[^6][^9][^12]
+*Design direction.* Cartulary SHOULD preserve the Excel-like behaviors that directly support incident work: direct typing, keyboard navigation, paste, fill-down, visible rows and columns, quick sorting and filtering, familiar grid scanning, and low ceremony for partial facts.[^9][^11]
 
-| Behavior | Required treatment | Product problem solved |
-| --- | --- | --- |
-| Direct typing into visible cells | Keep as the default editing mode | Low-ceremony capture under time pressure |
-| Keyboard navigation | Keep as first-class shell behavior | Fast movement through the working set |
-| Clipboard paste | Keep on the base hot path | Fast ingestion from existing tools |
-| Fill-down and bulk editing | Keep as explicit workbook operations | Repeated incident work without repetition tax |
-| Fast local sorting and filtering | Keep in-surface | Rapid triage and working-set reshaping |
-| Visible tabular working surface | Keep central | Shared operational memory |
-| Quick row creation with minimal ceremony | Keep central | Capture facts before they are lost |
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
+
+| Preserve | Required Cartulary interpretation |
+| --- | --- |
+| Direct typing | Grid cells remain ordinary editing targets. |
+| Paste | Clipboard paste is a hot-path workbook action. |
+| Sort and filter | Contract-backed operations over stable `field_key` values. |
+| Familiar tabular scan | Few primary tabs, surface-specific saved views, and compact density. |
+| Incomplete facts | Rough capture remains valid and inspectable. |
 
 ### 13.2 Adapt
 
-The spreadsheet behaviors below SHOULD be adapted rather than copied literally because Cartulary needs stronger semantics underneath the same visible grammar.[^2][^3][^4][^7]
+*Design direction.* Spreadsheet metaphors that would otherwise be ambiguous MUST be adapted to Cartulary’s auditable source model.
 
-| Behavior | Required adaptation | Product problem solved |
-| --- | --- | --- |
-| Workbook tabs | Built-in tabs plus saved and system views over shared state | Preserve workbook feel without storage silos |
-| Relationship cells | Chips, unresolved tokens, and explicit resolution actions | Make relational state visible and correctable |
-| Evidence | Attached object records with preview and same-origin handles | Replace path-in-cell fragility |
-| Saved views and grouping | Contract-backed workbook behavior | Make view state portable and deterministic |
-| Presence, autosave, and conflict state | Explicit same-surface collaboration telemetry | Make multi-analyst editing legible |
-| Coordination surfaces | Workbook-native surfaces | Keep facts, work, and decisions in one shell |
-| Progressive normalization | Exact-match reuse, explicit create/resolve flows, preserved raw text | Add structure without blocking capture |
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
+
+| Spreadsheet pattern | Cartulary adaptation |
+| --- | --- |
+| Cell identity | Bound to `record_id` plus `field_key`, never position alone. |
+| Sheet tabs | Built-in tabs plus system-view switcher, not unlimited primary tabs. |
+| Formula-like derivation | Contract-backed projections and derived fields. |
+| Sheet sharing | Incident membership, role model, WebSocket presence, and row-versioned writes. |
+| Undo | Row history and scoped rollback, not opaque local undo stack. |
 
 ### 13.3 Reject
 
-The spreadsheet behaviors below MUST be rejected because preserving them would directly undermine Cartulary’s purpose.[^2][^3][^5][^6]
+*Design direction.* Cartulary MUST reject spreadsheet behaviors that undermine case integrity.
 
-| Behavior | Required rejection | Product problem avoided |
-| --- | --- | --- |
-| Formulas, macros, merged-cell semantics, workbook automation | Not part of the product model | Hidden logic, security risk, unrecoverable semantics |
-| Hidden macro semantics for bulk actions | Not allowed | Invisible mutation behavior |
-| Raw object-store URLs as evidence UX | Not supported | Storage leakage and broken authorization boundaries |
-| Forms-first CRUD as default interaction | Not allowed | Structure before facts are ready |
-| Generic workflow-engine logic on the hot path | Not allowed | Ceremony replacing flow |
-| Character-by-character collaborative cell editing as primary target | Not the design center | Complexity spent in the wrong place |
-| Import/storage/module boundaries that mimic Excel internals | Not allowed | Spreadsheet internals leaking below the view layer |
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
+
+| Reject | Reason |
+| --- | --- |
+| Row-position mutation targeting | Sorting and filtering would corrupt writes. |
+| Silent same-cell overwrite | Collaboration MUST preserve attribution and explicit conflict resolution. |
+| Evidence paths in cells | Evidence access MUST be authorized and application-mediated. |
+| Hidden formulas as business logic | Behavior MUST follow explicit contracts. |
+| Per-user private truth | Shared incident facts MUST be authoritative and auditable. |
+| Dashboard chrome in the workbook shell | Persistent chrome MUST preserve hot-path work, not management reporting. |
 
 ### Acceptance criteria
 
-- The product still feels like a workbook for direct typing, paste, keyboard navigation, sorting, filtering, and row creation.[^2][^6]
-- The product does **not** inherit formulas, macros, merged-cell semantics, hidden automation, or raw object-store URLs as supported behavior.[^3][^5]
-- Relationship cells, saved views, grouping, evidence interaction, collaboration, and coordination surfaces all preserve the workbook mental model while making underlying state explicit and auditable.[^2][^3][^4]
+- **R2-AC-063:** §13 contains Preserve, Adapt, and Reject subsections.
+- **R2-AC-064:** §13 rejects row-position mutation targeting, silent same-cell overwrite, raw evidence paths, hidden formulas as business logic, per-user private truth, and dashboard chrome.
 
 ## 14. Design Implications of the Current Implementation Baseline
 
-### 14.1 Baseline and UX consequences
+### 14.1 Baseline scope
 
-The current implementation direction is concrete enough to shape design. The browser-facing baseline is React plus `react-data-grid` plus Vite. The backend baseline is Go. The deployment baseline is one application unit plus PostgreSQL and S3-compatible object storage. The browser runtime uses native `fetch`, `WebSocket`, Clipboard, and keyboard APIs. Exact package versions remain owned by repo-control files, but these stack families are the current design baseline.[^20]
+*Baseline context.* The current implementation baseline is one application unit, PostgreSQL, S3-compatible object storage, a Go backend, and a React plus `react-data-grid` plus Vite browser client.[^5][^8]
 
-The table below states the main UX consequences.
+*Baseline context.* This section contains implementation-baseline consequences only. It does not restate canonical surface identity, saved-view scope, grouping keys, or Core behavior except by reference to owner sections.
 
-| Boundary | Current baseline | UX consequence | The design must not depend on |
-| --- | --- | --- | --- |
-| Deployable shape | One application unit plus PostgreSQL plus S3-compatible object storage | Same-origin integrated shell, no service seam in the user’s mental model | Multi-service choreography exposed in the UI |
-| Browser grid | React plus `react-data-grid` | Virtualization, cell renderers, keyboard editing, paste, grouping, `record_id` anchoring | Enterprise-grid-only affordances |
-| Browser APIs | Native `fetch`, `WebSocket`, Clipboard, Keyboard | Direct paste, same-origin collaboration stream, explicit focus and selection management | Wrapper-library semantics as product requirements |
-| Row identity | Projection-backed rows with stable `record_id` and `row_version` | Focus, selection, and edits stay anchored to the record, not row index | Index-based identity |
-| Evidence access | Application-mediated opaque handles | Explicit preview/download states and same-origin redemption | Raw object-store URL construction |
-| Collaboration state | Explicit conflict, presence, and pending-queue semantics in application code | User-visible trust signals stay domain-specific | Generic client-state libraries owning product semantics |
-| License envelope | Permissive-licensed OSS baseline; no AG Grid Enterprise | Design assumes OSS grid capabilities rather than commercial magic | Features that require an enterprise-only grid |
+*Baseline context.* All rows in the following table inherit `*Baseline context.*`.
 
-The permissive-license constraint matters. The UX should assume an open-source grid capability envelope and SHOULD NOT promise enterprise-grid features the current baseline intentionally excludes. That constraint is not a weakness if the design keeps its complexity budget on row identity, mutation semantics, evidence handles, history, and conflict resolution, which is where Cartulary actually differentiates.[^20]
+| Baseline choice | UX consequence |
+| --- | --- |
+| React browser client | The shell, grid, inspector, popovers, and status strip SHOULD be implemented as one browser workspace. |
+| `react-data-grid` | Grid-first editing, keyboard, paste, virtualization, and custom renderers stay within a permissive-license baseline. |
+| Vite | The browser bundle SHOULD remain self-contained for deployed runtime assets. |
+| Go application unit | Evidence preview, download handles, API, WebSocket, and background jobs stay same-origin from the browser perspective. |
+| PostgreSQL | Authoritative structured state remains server-side, relational, and auditable. |
+| S3-compatible object storage | Binary evidence remains outside PostgreSQL and is accessed through application-mediated handles. |
+| Permissive-license envelope | Design MUST avoid assuming commercial-grid features. |
+| No AG Grid Enterprise baseline | Required UX MUST be implementable without enterprise-only grid behavior. |
 
 ### 14.2 Optional-pack degradation
 
-Optional reference packs are overlays, not preconditions for the core workbook. If optional packs are absent, disabled, failed, or missing, Cartulary MUST continue to support timeline capture, entity resolution, evidence attachment, and core editing. Only affected overlay labels, enrichment semantics, non-canonical analytical widgets, or snapshot/report derivations may degrade.[^3][^5]
+*Baseline context.* Optional reference-pack activation MAY enrich labels, type registries, and overlays, but the base workbook MUST remain usable when optional packs are absent.[^5][^7]
 
-The UX implication is straightforward. The base workbook MUST never require ATT&CK, D3FEND, VERIS, or other framework overlays to stay usable. A smallest supported disconnected deployment is still usable without those packs. Missing packs may remove overlay labels or enrichment affordances, but they MUST NOT create or remove current-profile workbook surfaces and MUST NOT break capture, linking, or evidence workflows.[^3][^5]
+*Design direction.* Pack degradation SHOULD appear as same-surface informational state. It MUST NOT block ordinary rough capture, grid editing, or base workbook navigation.
 
-### 14.3 Snapshot/reporting boundary
+### 14.3 Clipboard hot path versus file-based import
 
-Snapshot and reporting behavior is extension-profile scope, but the current workbook UX MUST leave room for it without pretending it already exists in the base hot path.[^1][^3]
+*Core behavior.* Clipboard paste is part of the base workbook surface. File-based structured import beyond clipboard paste belongs to the Import Extension Profile and dedicated internal imports module.[^5][^8]
 
-When snapshot/reporting is present, it operates on immutable snapshots and a canonical export model rather than live workbook state. `release_scope` is a narrow artifact-scoped concept with a default of `internal_draft`. It does **not** belong on ordinary row editing surfaces. The live workbook therefore MUST distinguish clearly between source evidence, derived analytic material, curated narrative, and working material, even if only the reporting extension turns that distinction into rendered output rules later.[^3][^5]
-
-The workbook-side consequences are concrete: generated outputs must be self-contained, narrative released externally must carry support references, direct-source coordination text defaults to working material unless explicitly curated, and recipient-specific withholding happens at snapshot/render/release time rather than by hiding live workbook content from incident members.[^3][^5]
-
-### 14.4 Clipboard hot path versus file-based import
-
-Clipboard paste is base-profile behavior. File-based structured import beyond clipboard paste belongs to a dedicated `imports` module and the Import Extension Profile. The base workbook shell MUST therefore stay isolated from import-assistant choices.[^3][^20]
-
-The mapping engine may be shared between clipboard paste and file import. The base shell grammar must not be. The default workbook surface MUST NOT grow import wizards, mapping confirmation dialogs, workbook-inspection chrome, or import status bars as permanent shell furniture. Those belong to import workflows when the Import Extension Profile is claimed, not to the base workbook experience.[^3][^20]
+*Design direction.* The UI MUST NOT route ordinary clipboard paste through a file-import wizard. A file-import assistant MAY exist only under the Import Extension Profile and MUST NOT redefine the base workbook grammar.
 
 ### Acceptance criteria
 
-- The design assumes the current concrete baseline of React plus `react-data-grid` plus Vite on the browser side and one Go application unit plus PostgreSQL plus S3-compatible object storage on the backend side.[^20]
-- Focus, selection, pending edits, and live updates remain anchored by `record_id` and `row_version`, not by row index or current sort position.[^2][^3][^20]
-- Missing optional reference packs degrade overlays and enrichment only; the core workbook remains usable and no current-profile workbook surfaces appear or disappear because of missing framework packs.[^3][^5]
-- Snapshot/reporting rules remain artifact-scoped and extension-scoped; they do not colonize live workbook editing.[^1][^3][^5]
-- File-based import beyond clipboard paste remains separate module and extension territory; the base workbook shell does not become an import wizard.[^3][^20]
+- **R2-AC-065:** §14 contains only baseline-consequence content and cross-references non-baseline sections.
+- **R2-AC-066:** §14 names React, `react-data-grid`, Vite, Go, PostgreSQL, S3-compatible object storage, permissive licensing, and absence of AG Grid Enterprise assumptions.
+- **R2-AC-067:** §14 states that optional-pack degradation does not block rough capture or base workbook navigation.
+- **R2-AC-068:** §14 states that clipboard paste is not a file-import wizard.
 
-## 15. Risks, Non-Goals, and UX Failure Modes
+## 15. Risks, Non-Goals, and Positive Patterns
 
-### 15.1 Primary risk: false equivalence
+### 15.1 Primary risk
 
-The dominant UX failure mode is **false equivalence**: a design that looks spreadsheet-like while quietly moving the real work elsewhere.[^6]
+*Design direction.* The primary UX risk is false equivalence: either building a spreadsheet clone without stronger guarantees or building a structured case tool that loses the speed and directness of the workbook model.[^11][^12]
 
-The pattern usually looks like this: the grid remains visible, but the real editor is the inspector; relationship cells appear text-first, but the practical path is picker-first; the workbook shell remains present, but tasking, decisions, or evidence preview actually happen in detached modules; or low-friction capture exists in demos, but implementation shortcuts gradually turn forms and background automation into the real product. That is the failure mode this guide is designed to prevent.[^2][^6]
+*Design direction.* Reviewers SHOULD treat design proposals as suspect when they hide grid work behind forms, convert coordination surfaces into modules, convert status strip into a dashboard, or treat unresolved text as invalid input.
 
 ### 15.2 Concrete failure modes and guardrails
 
-| Failure mode | What it looks like | Why it fails | Required guardrail |
-| --- | --- | --- | --- |
-| Inspector-first drift | Users must open the inspector to do ordinary row creation or routine field editing | The grid stops being the primary work surface | Keep the inspector secondary and adjacent |
-| Silent normalization | Tokens become entities without clear disclosure or cheap reversal | Analyst trust collapses | Use explicit exact-match boundaries, disclosure, `Undo`, and later `Revert to unresolved` |
-| Queue invisibility | Work is queued or blocked but the user cannot tell | Users do not know whether the system protected their edits | Keep save-state and overflow states visible on the same surface |
-| Grouping as data model | Dragging or regrouping implies mutation | View state and source state become confused | Keep grouping presentation-only |
-| Evidence storage leakage | The UI treats object-store paths or raw handles as evidence identity | Authorization and preview semantics become fragile | Keep evidence application-mediated |
-| Coordination module drift | Tasks and decisions feel like a second application | The common operating picture fractures | Keep coordination workbook-native |
-| Dashboard drift | The shell fills with KPIs, charts, and management chrome | The product stops being a working surface | Limit shell telemetry to state needed for the current incident surface |
-| Import colonization | The default shell grows wizard chrome and mapping UI | Base workbook flow is slowed by non-base workflows | Keep file import separate from clipboard hot-path grammar |
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
+
+| Failure mode | Guardrail |
+| --- | --- |
+| Forms-first drift | Common capture and correction remain on the grid. |
+| Picker-first capture loss | Relationship cells accept text before canonical selection. |
+| Sheet-wide conflict freeze | Same-field conflict stays cell-local. |
+| Hidden sync failure | Save-state labels remain visible on the hot path. |
+| Dashboard sprawl | Persistent chrome and status strip stay capacity-limited. |
+| Module fragmentation | Coordination surfaces remain workbook-native. |
+| Release-control leakage | Per-recipient controls stay out of ordinary live editing. |
+| Client-state overreach | Pending queue remains same-runtime only. |
 
 ### 15.3 Non-goals
 
-Cartulary is not trying to be any of the following in the current profile.[^1][^5][^6]
+*Later scope.* The base UI guide does not claim a mobile-first or touch-first product profile, a dedicated design-token package, a component-library artifact, a Figma source of truth, or extension-profile-specific UX documents.
 
-- It is not a dashboard product.
-- It is not a generic ticketing system.
-- It is not an Excel clone with formulas, macros, merged cells, and workbook automation.
-- It is not a raw telemetry repository.
-- It is not a generic approval engine for ordinary edits.
-- It is not a multi-master local-first collaboration platform in the current profile.
-- It is not primarily optimizing for several users typing into the same cell character by character.
-- It is not using file-based structured import to define the base workbook interaction model.
-- It is not using live recipient-specific withholding to narrow what incident members can see in the workbook.
+*Later scope.* The base UI guide does not define field-level ACL UX, generalized approval workflows, cross-incident analytics, workflow-engine UX, generalized ticketing UX, or pack-dependent framework overlays as workbook-native base surfaces.
+
+### 15.4 Positive patterns
+
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
+
+| Positive pattern | Required reviewer question | Protected failure mode |
+| --- | --- | --- |
+| Grid-primary with inspector-secondary | Does the common path remain on the grid? | Forms-first drift. |
+| Text-first relationship cells with chip progression | Can rough text be captured before canonical selection? | Picker-first capture loss. |
+| Same-surface evidence preview | Can the user preview without leaving the workbook shell? | Detached media workflow. |
+| Visible save state on the hot path | Does the user know whether work is syncing, saved, or conflicted? | Hidden sync failure. |
+| Cell-local same-field conflict | Is only the affected cell in conflict state? | Sheet-wide freeze. |
+| Workbook-native coordination | Do tasks, decisions, handoffs, and lessons remain surfaces inside the shell? | Module fragmentation. |
+| Narrow contract-backed grouping | Is grouping governed by declared keys and one active key? | Dashboard/report drift. |
+| Row-anchored coordination action | Can a user create or link coordination records from a selected row without losing context? | Context loss during coordination. |
 
 ### Acceptance criteria
 
-- Reviewers can identify whether a design change preserves the grid as the primary capture surface and the inspector as a secondary enrichment surface.[^2][^6]
-- Reviewers can reject any proposal that silently normalizes rough tokens, hides queue or conflict state, or turns grouping into mutation semantics.[^2][^6]
-- Reviewers can distinguish legitimate shell telemetry from KPI-dashboard drift and legitimate coordination surfaces from detached workflow modules.[^2][^8]
+- **R2-AC-069:** §15 names false equivalence as the primary UX risk.
+- **R2-AC-070:** §15.2 includes failure modes and guardrails for forms-first drift, picker-first capture loss, sheet-wide conflict freeze, hidden sync failure, dashboard sprawl, module fragmentation, release-control leakage, and client-state overreach.
+- **R2-AC-071:** §15.4 exists with at least the eight required positive patterns.
+- **R2-AC-072:** Each positive-pattern row names both a reviewer question and the failure mode it protects against.
 
-## 16. Conclusion
+## 16. Visual Language Direction
 
-Cartulary should be built and reviewed as a workbook-native caseworking system, not as a form-heavy case application that happens to render a grid.[^2][^6]
+### 16.1 Chip states
 
-That conclusion is not rhetorical. It drives concrete design choices: a virtualized grid as the primary interaction surface; text-first relationship entry with progressive normalization; a non-blocking inspector with a sharply bounded ownership model; same-surface evidence preview through application-mediated handles; field-level optimistic concurrency with cell-local same-field conflict resolution; workbook-native coordination surfaces; contract-backed sorting, filtering, grouping, saved views, and startup rules; and a concrete implementation baseline that favors an integrated browser experience over distributed-service spectacle.[^2][^3][^4][^5][^20]
+*Design direction.* The chip-state vocabulary is closed for Revision 2. All rows in the following table inherit `*Design direction.*`.
 
-If Cartulary holds those lines, it can replace the Spreadsheet of Doom without forgetting why the workbook was valuable in the first place. If it does not, it will either become a spreadsheet clone without stronger guarantees or a structured case tool that quietly abandoned the speed and directness incident work actually needs.[^6][^9][^10][^11]
+| State | Border | Required visible marker | Accessible name pattern | Notes |
+| --- | --- | --- | --- | --- |
+| `unresolved` | Dashed or dotted border. | Leading `?` marker or visible `Unresolved` label. | `Unresolved <entity type> mention: <raw text>`. | MUST differ from ordinary text cells and resolved chips. |
+| `resolved` | Solid border. | No unresolved marker. | `Resolved <entity type>: <display name>`. | Shows canonical target while preserving inspection path to raw mention. |
+| `auto_resolved` | Solid border plus auto marker. | Visible `auto` marker. | `Auto-resolved <entity type>: <display name>; matched <alias text>`. | MUST remain inspectably marked after transient disclosure fades. |
+| `dismissed` | Low-emphasis chip or token treatment plus dismissed marker. | Visible `dismissed` marker. | `Dismissed mention: <raw text>`. | Display only where inspectable; excluded from active relationship values. |
+
+*Design direction.* Color difference alone MUST NOT distinguish any pair of chip states.
+
+### 16.2 Save, conflict, and presence presentation
+
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
+
+| Element | Required placement or marker | Bounds |
+| --- | --- | --- |
+| Save-state label | Primary status-strip slot. | Exactly one visible label. |
+| Same-field conflict marker | Cell-local marker at the affected cell. | MUST include visible shape marker and accessible name; color alone is insufficient. |
+| Conflict resolver entry | From conflicted cell. | Grid remains visible; affected row remains in view where possible. |
+| Queue overflow banner | Same-surface non-modal banner or secondary status message. | MUST NOT block grid editing. |
+| Header presence | Top bar. | Show up to five visible avatars or initials, then `+N`. |
+| Row presence | Row gutter. | Show up to three visible indicators, then `+N`. |
+| Cell presence | Cell-level indicator when same-field editing signal is available. | MUST NOT lock editing. |
+
+*Design direction.* The default cell conflict marker is a corner triangle or equivalent shape marker plus accessible name `Conflict on <field label>`. If the implementation uses a different shape, it MUST still be visible without relying on color.
+
+### 16.3 Inspector drawer
+
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
+
+| Property | Default and bounds |
+| --- | --- |
+| Default width | `420px`. |
+| Minimum width | `360px`. |
+| Maximum width | `min(560px, 45vw)`. |
+| Resize | User MAY resize within min/max bounds. |
+| Pinning | Client-local only; not persisted in saved views. |
+| Section order | Details, Relationships, Evidence, History. |
+| Grid visibility | At base viewport, the grid remains visible whenever the inspector is open. |
+| Close affordance | Visible close control with accessible name `Close inspector`. |
+| Pin affordance | Visible pin control with accessible name `Pin inspector` or `Unpin inspector`. |
+
+*Design direction.* If the viewport cannot preserve both the minimum grid width and the minimum inspector width, §17 narrow-viewport behavior applies.
+
+### 16.4 Typography and density
+
+*Design direction.* All rows in the following type table inherit `*Design direction.*`.
+
+| Token role | Default minimum |
+| --- | --- |
+| Metadata text | `12px` CSS font size. |
+| Grid cell text | `14px` CSS font size. |
+| Section heading | `16px` CSS font size. |
+| Surface title | `18px` CSS font size. |
+
+*Design direction.* All rows in the following density table inherit `*Design direction.*`.
+
+| Density | Row height | Cell padding |
+| --- | --- | --- |
+| Compact | `28px`. | `3px` vertical, `6px` horizontal. |
+| Default | `36px`. | `4px` vertical, `8px` horizontal. |
+| Comfortable | `44px`. | `6px` vertical, `10px` horizontal. |
+
+*Design direction.* The default density is `Default`. Timeline, Hosts, Identities, Evidence, Notes, and required system views MUST share the same active density class. Each surface MUST NOT invent a separate density model.
+
+### 16.5 Color and contrast
+
+*Design direction.* The base guide uses only semantic color roles for state: `info`, `success`, `caution`, `conflict`, `presence-self`, and `presence-other`.
+
+*Design direction.* Every state represented by color MUST also be represented by shape, text, or accessible name. State-bearing text and controls MUST meet WCAG 2.2 AA contrast against the surrounding surface.
+
+### 16.6 Icon and affordance conventions
+
+*Design direction.* Mention chip actions, evidence preview, evidence download, history, rollback, merge initiation, party link, party unlink, inspector close, inspector pin, and system-view switcher SHOULD use one icon family.
+
+*Design direction.* The guide does not select the icon family. The implementation MUST use exactly one icon family for those affordances within the base workbook shell. Icon-only controls MUST have accessible names and visible focus indicators.
+
+### 16.7 Reference figures
+
+*Design direction.* The figures below are schematic and define relative semantics, not colors or exact pixel layout.
+
+```text
+Chip state examples
+[? Unresolved host: WS-023?]   [Resolved host: WS-023]   [auto WS-023]   [dismissed WS-023?]
+ dashed + ? marker              solid resolved chip        auto marker    dismissed marker
+```
+
+```text
+Save/conflict/status placement
+Top bar:       [System views ▾] [Presence A B +3]
+Grid cell:     timeline.summary  "VPN logon..."  ◢ Conflict on Summary
+Status strip:  Conflict | Queue 0 | More status ▾
+```
+
+```text
+Inspector drawer
++-----------------------------+
+| Inspector        [pin] [x]  |
+| Details                     |
+| Relationships               |
+| Evidence                    |
+| History                     |
++-----------------------------+
+```
+
+```text
+Presence levels
+Header: Presence A B C +2
+Row gutter: row rec_123  A B +1
+Cell: timeline.summary  B editing
+```
+
+### Acceptance criteria
+
+- **R2-AC-073:** §16 exists with chip states, save/conflict/presence, inspector, typography/density, color/contrast, and icon subsections.
+- **R2-AC-074:** §16 defines inspector width defaults and min/max bounds.
+- **R2-AC-075:** §16 defines row-height and cell-padding density values.
+- **R2-AC-076:** §16 defines maximum visible presence indicators before `+N` overflow.
+- **R2-AC-077:** §16 defines semantic color roles and the non-color-only rule.
+- **R2-AC-078:** §16 requires one icon family for named workbook affordances.
+- **R2-AC-079:** §16 includes four schematic figures.
+
+## 17. Input, Viewport, and Accessibility Posture
+
+### 17.1 Primary target
+
+*Design direction.* The base guide targets desktop browser operation with keyboard and pointer input.
+
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
+
+| Property | Value |
+| --- | --- |
+| Width | At least `1280` CSS pixels. |
+| Height | At least `720` CSS pixels. |
+| Browser zoom | `100%`. |
+| Device scale factor | Not specified by the guide unless a benchmark profile supplies it. |
+
+*Design direction.* At the base viewport, the active surface identity, primary tabs, system-view switcher, grid, save-state label, and status-strip primary state MUST remain visible.
+
+### 17.2 Narrow viewport
+
+*Design direction.* Below `1280` CSS pixels wide, the shell SHOULD preserve the grid as the primary work surface.
+
+*Design direction.* In narrow viewport behavior, the inspector MAY collapse to a bottom sheet, modal drawer, or full-height overlay. Primary tabs MAY condense, but the active surface identity MUST remain visible. The save-state label MUST remain reachable without opening settings or a different module. The system-view switcher MUST remain reachable by pointer and keyboard.
+
+*Later scope.* The base guide does not claim a responsive mobile experience. Touch-input support MAY exist. Omission of touch-specific gestures is conformant. If touch support exists, it MUST NOT replace keyboard or pointer paths for any base hot-path operation.
+
+### 17.3 Keyboard-first operation
+
+*Design direction.* Every hot-path operation named in §7.2 MUST be reachable by keyboard. Every destructive or enrichment action exposed in the inspector MUST be reachable by keyboard. Focus return MUST be specified for every dialog, drawer, popover, or resolver introduced by this guide.
+
+### 17.4 Screen-reader direction
+
+*Design direction.* The UI MUST expose save-state label changes, same-field conflict state, queue overflow, replay blocked, presence state, chip state, auto-resolution disclosure, and inspector open and close through accessible names, roles, or live-region announcements where appropriate.
+
+*Design direction.* Row accessibility MUST bind DOM or accessibility-tree identity to stable `record_id`. The spoken row label MAY use the surface title and primary display fields. It SHOULD NOT expose raw `record_id` as the only human-facing row name.
+
+### 17.5 Color and contrast
+
+*Design direction.* Every state-bearing visual element MUST meet WCAG 2.2 AA contrast against the surrounding surface. Color MUST NOT be the sole carrier of state.
+
+### 17.6 Deferred accessibility and locale work
+
+*Later scope.* Revision 2 defers internationalization beyond locale-independent core behavior, right-to-left layout, a dedicated high-contrast theme, and reduced-motion preference-specific design.
+
+*Design direction.* The deferral does not permit color-only state, motion-only state, inaccessible focus, or contrast below the §17.5 floor.
+
+### Acceptance criteria
+
+- **R2-AC-080:** §17 defines the base viewport as `1280x720` CSS pixels at `100%` zoom.
+- **R2-AC-081:** §17 states that the base profile targets desktop keyboard and pointer input.
+- **R2-AC-082:** §17 defines omission semantics for touch support.
+- **R2-AC-083:** §17 requires keyboard reachability for all §7.2 hot-path operations.
+- **R2-AC-084:** §17 requires accessible names or announcements for save, conflict, queue, presence, and chip states.
+- **R2-AC-085:** §17 separates stable `record_id` binding from human-readable spoken row labels.
+- **R2-AC-086:** §17 sets WCAG 2.2 AA as the contrast floor.
+
+## 18. Cross-Cutting UX Patterns
+
+### 18.1 Loading states
+
+*Design direction.* Workbook first paint MUST show, at minimum, primary tab strip, system-view switcher, active surface identity, view bar shell, and in-place grid skeleton.
+
+*Design direction.* If the first useful viewport is not available after `2 seconds`, the grid skeleton MUST show an explicit delayed-state message. The message MUST NOT navigate away from the workbook shell.
+
+*Design direction.* Inspector first paint on row selection MUST show a metadata shell before binary preview bytes or full blob content load.
+
+### 18.2 Empty states
+
+*Design direction.* Every required surface MUST define an empty state. The empty state MUST name the minimum create signal for that surface and offer an in-place create affordance when the caller has create permission.
+
+*Design direction.* Empty states MUST NOT suggest actions that leave the workbook shell.
+
+### 18.3 Error presentation
+
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
+
+| Error origin | Default placement | Blocking rule |
+| --- | --- | --- |
+| Grid mutation, field-local | Cell-level inline error. | MUST NOT block the entire grid. |
+| Grid mutation, row-level | Row-level inline error or row banner. | MUST NOT navigate away. |
+| Destructive inspector action | In-drawer error near the action. | MUST NOT silently retry. |
+| Collaboration stream interruption | Status strip secondary slot. | MAY add banner only if persistent. |
+| Queue overflow | Status strip secondary slot plus same-surface non-modal message. | MUST NOT silently evict. |
+| Session expiry or re-auth required | Status strip secondary slot; MAY use banner. | MUST preserve local pending work in the same runtime. |
+
+*Design direction.* If multiple error classes are active, the UI MUST use the status-strip priority in §5.7.
+
+### 18.4 Banner, toast, and inline messages
+
+*Design direction.* All rows in the following table inherit `*Design direction.*`.
+
+| Pattern | Purpose | Default duration | Dismissal |
+| --- | --- | --- | --- |
+| Banner | Persistent same-surface state. | Until the underlying state clears. | Not dismissible while the state remains true. |
+| Toast | Transient confirmation. | Auto-dismiss after `5 seconds`. | Pauses while hovered, focused, or containing an action. |
+| Inline message | Cell-local, row-local, or action-local state. | Until corrected or replaced. | Dismissible only when informational. |
+| Modal dialog | Confirmation where confirmation is the point. | Until explicit action or cancel. | `Esc` cancels only when cancellation is safe. |
+
+*Design direction.* Banners are reserved for overflow, session expiry, persistent collaboration degradation, and pack degradation affecting the active surface. Toasts are reserved for transient confirmation such as auto-resolution disclosure after batch paste or save success after a long queue. Inline messages carry cell-local or row-local state.
+
+### 18.5 Dialog versus drawer
+
+*Design direction.* The inspector is the default drawer. Routine enrichment MUST NOT use modal dialogs.
+
+*Design direction.* Dialogs are reserved for destructive-action confirmation, merge initiation confirmation, rollback confirmation, same-field conflict resolution only when a drawer or same-surface panel cannot preserve required context, and release-scope-change acknowledgment when the Snapshot and Reporting Extension Profile is implemented.
+
+*Design direction.* Dialog initial focus MUST land on a non-destructive summary or the safest action. `Esc` cancels only when cancellation is safe and leaves state unchanged. After close, focus MUST return to the invoking cell, row, or control when still present.
+
+### 18.6 Truncation and overflow
+
+*Design direction.* Chip labels, cell values, saved-view names, system-view labels, and filter chips MUST truncate with end ellipsis when they exceed their container. The full value MUST be available on hover and keyboard focus through a tooltip, popover, or accessible description.
+
+*Design direction.* Tab-strip overflow beyond the visible strip SHOULD use end-anchored overflow, not horizontal scroll, at the base viewport. Long system-view lists use the ordering defined in §5.3, not ad hoc sorting.
+
+### Acceptance criteria
+
+- **R2-AC-087:** §18 exists with loading, empty, error, message, dialog, and truncation subsections.
+- **R2-AC-088:** §18.1 defines first-paint minimum elements and the `2 seconds` delayed-state threshold.
+- **R2-AC-089:** §18.2 requires empty states with minimum create signal and in-place create affordance.
+- **R2-AC-090:** §18.3 defines placement for grid, inspector, collaboration, queue, and session errors.
+- **R2-AC-091:** §18.4 defines banner, toast, inline, and modal defaults.
+- **R2-AC-092:** §18.5 defines dialog focus and `Esc` behavior.
+- **R2-AC-093:** §18.6 defines truncation, full-value disclosure, and overflow behavior.
+
+## 19. Deferred Scope
+
+*Later scope.* Revision 2 defers the component library and design-token artifact, Figma source, claimed mobile or touch-first profile, internationalization and right-to-left layout, dedicated high-contrast theme, reduced-motion preference-specific design, repo-specific design-system linkage, and extension-profile UX documents for Import, Snapshot and Reporting, Incident Portability, Reference Pack, and Enterprise Authentication.
+
+*Later scope.* Deferred items MAY be specified in later guides or NLSpecs. They MUST NOT be represented as completed Revision 2 design requirements or Base Profile runtime behavior.
+
+### Acceptance criteria
+
+- **R2-AC-094:** §19 names all deferred scope items.
+- **R2-AC-095:** Deferred scope is marked as `*Later scope.*`.
+- **R2-AC-096:** Deferred items do not appear as completed change-log items.
+
+## 20. Revision 2 Verification Matrix
+
+| Area | Required pass condition |
+| --- | --- |
+| Authority | §2 directly states Core 00 precedence and subordinate implementation-support context. |
+| Statement classes | §§3 through 19 use the four closed markers. |
+| Core restatements | `*Core behavior.*` paragraphs are descriptive and do not issue guide-owned imperatives. |
+| Shell composition | §5.2 defines tabs, switcher, ordering, optional surfaces, saved-view placement, keyboard behavior, and rejected alternatives. |
+| Status strip | §5.7 defines three slots, priority, overflow, and KPI exclusion boundary. |
+| `Esc` behavior | §7.2 and §7.4 define the same priority ladder. |
+| Save state | §7.4 includes replay-paused `Syncing` and presence non-effect. |
+| Queue durability | §7.4 and §9.5 both name cross-tab transfer as non-survival. |
+| Chip states | §8.3 and §16.1 use the same state table. |
+| Rollback | §9.4 distinguishes `history_entry`, `change_set`, and row-backed-only `row_restore`. |
+| Snapshot boundary | §12.4 prohibits per-recipient ordinary live-editing controls. |
+| Coordination coherence | §6.2 owns surface enumeration; §11.2 owns posture only. |
+| Baseline coherence | §14 contains only baseline-consequence content. |
+| Positive patterns | §15.4 exists with required positive-pattern rows. |
+| Visual language | §16 exists with bounds, state treatment, figures, and icon-family rule. |
+| Accessibility | §17 defines viewport, input, keyboard, screen-reader, contrast, touch omission, and deferred scope. |
+| Cross-cutting patterns | §18 defines loading, empty, error, message, dialog, and truncation defaults. |
+| Acceptance criteria | All acceptance criteria blocks use the heading `### Acceptance criteria` and remain binary. |
+| Citations | Citations support claims actually present in the revised section. |
+| Change log | Revision 2 change log is deterministic and complete. |
+| Editorial audit | Temporary audit lists guide-issued MUST and MUST NOT statements only. |
+
+## Revision 2 change log
+
+| Item ID | Priority | Target section | Statement class affected | Change kind | Summary | Verification hook |
+| --- | --- | --- | --- | --- | --- | --- |
+| P0-1 | P0 | §2 | Core behavior | normative-accuracy | Repaired authority order and Core 05 runtime boundary. | R2-AC-001..R2-AC-004 |
+| P0-2 | P0 | §7.4, §9.5 | Core behavior, Design direction | normative-accuracy | Added cross-tab transfer as pending-queue non-survival condition. | R2-AC-049..R2-AC-050 |
+| P0-3 | P0 | §7.4 | Core behavior, Design direction | normative-accuracy | Added replay-paused cases to `Syncing` and stated presence non-effect. | R2-AC-037..R2-AC-038 |
+| P0-4 | P0 | §7.2, §7.4 | Design direction | normative-accuracy | Replaced broad `Esc` behavior with a priority ladder. | R2-AC-039 |
+| P0-5 | P0 | §9.4 | Core behavior, Design direction | normative-accuracy | Clarified rollback target scope and row-backed-only restore. | R2-AC-047..R2-AC-048 |
+| P0-6 | P0 | §12.4 | Design direction | normative-accuracy | Prohibited per-recipient visibility controls in ordinary live editing. | R2-AC-062 |
+| P1-1 | P1 | §2, §§3-19 | Core behavior, Design direction, Baseline context, Later scope | design-direction | Added closed statement-class grammar and marker scope. | R2-AC-005..R2-AC-009 |
+| P1-2 | P1 | §5 | Design direction | design-direction | Closed shell composition, switcher ordering, keyboard behavior, saved-view placement, and rejected alternatives. | R2-AC-017..R2-AC-022 |
+| P1-3 | P1 | §16 | Design direction | design-direction | Added visual-language bounds for chips, conflict, presence, inspector, typography, density, color, and icons. | R2-AC-073..R2-AC-079 |
+| P2-1 | P2 | §6 | Design direction | coherence | Made §6.2 the only guide-local canonical surface enumeration. | R2-AC-027..R2-AC-032 |
+| P2-2 | P2 | §11 | Design direction | coherence | Reduced coordination section to UX posture and must-not-become guidance. | R2-AC-055..R2-AC-058 |
+| P2-3 | P2 | §14 | Baseline context | baseline-context | Reshaped implementation baseline into baseline consequences only. | R2-AC-065..R2-AC-068 |
+| P3-1 | P3 | §8.3, §16.1 | Design direction | design-direction | Added one shared chip-state table. | R2-AC-040..R2-AC-043 |
+| P3-2 | P3 | §17 | Design direction, Later scope | design-direction | Added viewport, keyboard, screen-reader, touch, and contrast posture. | R2-AC-080..R2-AC-086 |
+| P3-3 | P3 | §18 | Design direction | design-direction | Added loading, empty, error, banner, toast, dialog, and truncation defaults. | R2-AC-087..R2-AC-093 |
+| P3-4 | P3 | §15.4 | Design direction | design-direction | Added positive-pattern reviewer table. | R2-AC-071..R2-AC-072 |
+| P3-5 | P3 | §5.7 | Design direction | design-direction | Added numeric status-strip capacity and KPI exclusion boundary. | R2-AC-023..R2-AC-026 |
+| P4-1 | P4 | Revision 2 editorial audit | N/A | editorial | Added temporary normative-voice audit. | Verification matrix, audit table |
+| P4-2 | P4 | All acceptance criteria | N/A | editorial | Normalized acceptance-criteria heading and binary style. | R2-AC-001..R2-AC-096 |
+| P4-3 | P4 | Sources | N/A | editorial | Cleaned citations to load-bearing source groups. | Sources block |
+
+## Revision 2 editorial audit
+
+The audit is temporary reviewer scaffolding, not product direction. It SHOULD be removed in Revision 3 or later after voice discipline is established. It lists guide-issued MUST and MUST NOT statements and excludes descriptive `*Core behavior.*` restatements.
+
+| Section | Statement excerpt | Statement class | Reason retained | Owner-boundary note |
+| --- | --- | --- | --- | --- |
+| §3.1 | The base UI MUST preserve a direct-manipulation loop: the user acts on the visible workbook object, the system shows how that action was interpreted, and slower reconciliation work remains visible as semantic state rather than hidden transport state. | Design direction | Defines UI posture. | Does not alter Core interaction mechanics. |
+| §3.1 | The visible workbook surface MUST remain the default locus for capture, correction, linking, filtering, grouping, sorting, preview, and same-row history access. | Design direction | Prevents form-first drift. | Implements UI consequence of Core 03. |
+| §3.1 | Routine row work MUST NOT require full-page navigation or a form-first workflow. | Design direction | Keeps hot path workbook-native. | Does not add API behavior. |
+| §4.1 | Cartulary MUST remain workbook-first because it replaces a real incident-response operating model, not an abstract CRUD problem. | Design direction | Fixes design center. | Does not define conformance. |
+| §4.2 | Cartulary MUST reject spreadsheet behaviors that conflict with auditable incident state: row-position identity, silent overwrites, hidden formulas as business logic, evidence paths as authoritative references, unmanaged binary storage, and unversioned relationship semantics. | Design direction | Defines rejection boundary. | Restates UI implications of owner contracts. |
+| §5.2 | The base shell MUST expose built-in tabs as always-visible primary tabs at the base viewport. | Design direction | Closes IA decision. | Does not change required surface inventory. |
+| §5.2 | Required system views MUST be reachable through an adjacent switcher with accessible name `System views`. | Design direction | Closes IA decision. | Does not change surface identity. |
+| §5.2 | Saved views MUST appear under the active surface’s view selector, not as primary tabs by default. | Design direction | Prevents saved-view identity drift. | Uses Core saved-view model. |
+| §5.3 | The `System views` switcher MUST group required system views in the order below. | Design direction | Defines deterministic ordering. | UI ordering only. |
+| §5.3 | The implementation MUST NOT alphabetize these required groups differently unless a later guide revision changes this table. | Design direction | Prevents divergent shells. | UI ordering only. |
+| §5.3 | If Findings, Investigative Queries, or Forensic Keywords are exposed, the switcher MUST add a final group named `Optional artifact surfaces` in this order: Findings, Investigative Queries, Forensic Keywords. | Design direction | Defines optional-surface placement. | Conditional on owner-allowed surfaces. |
+| §5.4 | At a base viewport of at least `1280x720` CSS pixels, the `System views` switcher trigger MUST remain visible in the top bar adjacent to the primary tab strip. | Design direction | Defines viewport-visible IA. | UI presentation only. |
+| §5.4 | Selecting a system view MUST open it inside the same workbook shell. | Design direction | Prevents module fragmentation. | Restates Core workbook-native consequence. |
+| §5.4 | Selecting a system view MUST NOT navigate to a separate module, route family, browser tab, or dashboard shell. | Design direction | Prevents shell drift. | UI route presentation only. |
+| §5.4 | Keyboard operation MUST support Tab focus to the trigger, Enter or Space to open, Arrow keys to move within the open menu, Enter to select, and Esc to close without changing the active surface. | Design direction | Defines accessible switcher behavior. | Does not alter Core keyboard contracts. |
+| §5.4 | When the menu closes without selection, focus MUST return to the switcher trigger. | Design direction | Defines focus return. | UI-only requirement. |
+| §5.7 | The status strip MUST remain a capacity-limited working-state surface. | Design direction | Prevents dashboard sprawl. | UI chrome only. |
+| §5.7 | It MUST NOT become a dashboard or management summary. | Design direction | Prevents dashboard sprawl. | UI chrome only. |
+| §5.7 | Additional status messages MUST collapse into a same-surface overflow affordance labeled `More status` or an equivalent accessible name. | Design direction | Defines overflow behavior. | UI-only requirement. |
+| §5.7 | Persistent shell chrome and the status strip MUST NOT show incident-level KPIs, time-to-resolution counters, team throughput, external ticket counts, or management dashboard metrics. | Design direction | Prevents dashboard sprawl. | Does not ban metrics inside opened surfaces. |
+| §6.3 | When exposed, the optional standardized surfaces MUST inherit the same shell, row, query, filter, grouping, saved-view, history, and inspector grammar as other workbook surfaces. | Design direction | Keeps optional surfaces workbook-native. | Conditional on owner-allowed optional surfaces. |
+| §7.1 | Selecting a cell and typing MUST edit it immediately. | Design direction | Defines direct edit posture. | UI behavior only. |
+| §7.1 | The user MUST NOT have to enter a separate form edit mode for the common row-editing path. | Design direction | Prevents form-first drift. | UI behavior only. |
+| §7.1 | Relationship cells MUST accept raw typing. | Design direction | Preserves text-first capture. | UI consequence of binding contracts. |
+| §7.1 | They MUST NOT require picker-first interaction. | Design direction | Prevents picker-first capture loss. | UI consequence only. |
+| §7.3 | Multi-cell paste, fill-down, and multi-row tag assignment are required workbook behaviors in the base design. They MUST NOT rely on hidden macro semantics. | Design direction | Defines bulk-edit posture. | Does not define mutation wire beyond owner contracts. |
+| §7.4 | Autosave MUST occur on Enter, Tab, blur, and paste completion. | Design direction | Defines save UX trigger posture. | UI trigger posture, not storage owner. |
+| §7.4 | `Esc` MUST NOT cancel already queued replay units, committed authoritative changes, or unresolved same-field conflict objects. | Design direction | Closes destructive shortcut ambiguity. | Does not alter owner replay or history. |
+| §8.3 | §8.3 and §16.1 MUST use the same four states: `unresolved`, `resolved`, `auto_resolved`, and `dismissed`. | Design direction | Prevents vocabulary drift. | Visual vocabulary only. |
+| §8.3 | Unresolved chips MUST be visually distinct from resolved chips through a combination of border treatment and an inline state marker. | Design direction | Ensures observable state. | Visual presentation only. |
+| §8.3 | Color difference alone MUST NOT be the sole distinguishing signal. | Design direction | Accessibility and state clarity. | Visual presentation only. |
+| §8.3 | Auto-resolved chips MUST show the `auto` marker defined in §16.1 until the user explicitly changes or reverts the resolution. | Design direction | Preserves auto-resolution disclosure. | Visual presentation only. |
+| §8.3 | When shown, they MUST carry a visible dismissed marker and accessible name. | Design direction | Preserves dismissed-state inspection. | Visual presentation only. |
+| §8.4 | It MUST NOT replace direct grid editing for ordinary capture. | Design direction | Prevents inspector overreach. | UI posture only. |
+| §8.4 | The inspector MUST NOT become a full-page record editor, dashboard, ticketing module, release-control module, or hidden source of saved-view state. | Design direction | Prevents shell drift. | UI posture only. |
+| §8.5 | Auto-resolved chips MUST remain distinguishable from manually resolved chips until the user explicitly changes or reverts them. | Design direction | Preserves disclosure. | UI presentation only. |
+| §8.5 | The UI MUST expose a same-surface transient confirmation and an inspectable route to review affected cells. | Design direction | Defines auto-resolution recourse. | UI behavior only. |
+| §9.1 | The UI MUST never imply that row position, sort position, visible label, or display value is the mutation target. | Design direction | Prevents identity drift. | UI presentation of owner identity rule. |
+| §9.1 | Same-field conflicts MUST be shown as cell-local state. | Design direction | Prevents sheet-wide freeze. | UI consequence of Core 03. |
+| §9.1 | A conflict on one cell MUST NOT freeze the entire row, sheet, or workbook. | Design direction | Prevents overblocking. | UI consequence only. |
+| §9.2 | Presence indicators MUST NOT lock editing. | Design direction | Keeps presence advisory. | Does not alter concurrency owner behavior. |
+| §9.3 | Closing the resolver without selecting a resolution MUST leave the cell in conflict state. | Design direction | Defines resolver behavior. | Restates UI consequence of Core 03. |
+| §9.3 | After an explicit resolution or clear action, focus MUST return to the same cell and scroll position SHOULD be preserved. | Design direction | Defines focus recovery. | UI behavior only. |
+| §9.4 | The history UI MUST present those three rollback target kinds as different actions, not as aliases for “restore this row.” | Design direction | Prevents rollback ambiguity. | Presents Core 01 scope. |
+| §9.4 | Whole-row restore affordances MUST label the row-field-only scope before confirmation. | Design direction | Prevents destructive misunderstanding. | UI consequence only. |
+| §9.5 | Cartulary’s base-profile pending queue MUST NOT be inferred to survive or replay through such cross-tab mechanisms. | Design direction | Closes client-state ambiguity. | Does not alter Core 03 queue contract. |
+| §10.2 | Grouping MUST remain a view-state operation, not a data-model mutation. | Design direction | Prevents grouping/write confusion. | UI consequence of Core 01. |
+| §10.2 | Dragging, expanding, or collapsing groups MUST NOT create, delete, or mutate incident records. | Design direction | Prevents accidental mutation semantics. | UI consequence only. |
+| §10.3 | The UI MUST NOT persist client-local state into saved views. | Design direction | Prevents saved-view drift. | Restates Core saved-view state boundary. |
+| §11.3 | Coordination creation MUST NOT become a mandatory step in ordinary row capture. | Design direction | Prevents per-edit ritual. | Maintains Core hot path. |
+| §11.4 | Future operating-model guides MAY define recommended cadences or playbook practices for teams, but those practices MUST NOT be represented as Base Profile implementation-conformance requirements unless restated in Core 00 through Core 04. | Later scope | Preserves owner boundary. | Matches Core 00 supporting-guidance boundary. |
+| §12.1 | Evidence cells MUST NOT be raw object-store URLs, local file paths, or user-editable storage keys. | Design direction | Prevents unsafe evidence semantics. | UI consequence of Core evidence contracts. |
+| §12.2 | The UI MUST NOT navigate away from the grid for ordinary screenshot attachment. | Design direction | Preserves evidence hot path. | UI behavior only. |
+| §12.4 | The live workbook MUST NOT present per-recipient visibility affordances such as disclosure-partition chips, recipient-selector controls, or release-scope badges during ordinary editing. | Design direction | Prevents snapshot boundary drift. | Restates Core 04 release-time boundary. |
+| §13.3 | Cartulary MUST reject spreadsheet behaviors that undermine case integrity. | Design direction | Defines rejection boundary. | UI interpretation only. |
+| §14.2 | It MUST NOT block ordinary rough capture, grid editing, or base workbook navigation. | Design direction | Defines pack-degradation UX. | Does not alter pack owner behavior. |
+| §14.3 | The UI MUST NOT route ordinary clipboard paste through a file-import wizard. | Design direction | Keeps paste hot path. | UI behavior only. |
+| §15.3 | They MUST NOT be represented as completed Revision 2 design requirements or Base Profile runtime behavior. | Later scope | Maintains deferred-scope boundary. | Does not define runtime behavior. |
+| §16.1 | Color difference alone MUST NOT distinguish any pair of chip states. | Design direction | Accessibility and state clarity. | Visual presentation only. |
+| §16.2 | If the implementation uses a different shape, it MUST still be visible without relying on color. | Design direction | Accessibility and state clarity. | Visual presentation only. |
+| §16.4 | Timeline, Hosts, Identities, Evidence, Notes, and required system views MUST share the same active density class. | Design direction | Prevents density drift. | UI presentation only. |
+| §16.4 | Each surface MUST NOT invent a separate density model. | Design direction | Prevents density drift. | UI presentation only. |
+| §16.5 | Every state represented by color MUST also be represented by shape, text, or accessible name. | Design direction | Accessibility and state clarity. | Visual presentation only. |
+| §16.5 | State-bearing text and controls MUST meet WCAG 2.2 AA contrast against the surrounding surface. | Design direction | Sets accessibility floor. | UI presentation only. |
+| §16.6 | The implementation MUST use exactly one icon family for those affordances within the base workbook shell. | Design direction | Prevents affordance drift. | UI presentation only. |
+| §16.6 | Icon-only controls MUST have accessible names and visible focus indicators. | Design direction | Accessibility requirement. | UI presentation only. |
+| §17.1 | At the base viewport, the active surface identity, primary tabs, system-view switcher, grid, save-state label, and status-strip primary state MUST remain visible. | Design direction | Defines base viewport behavior. | UI presentation only. |
+| §17.2 | Primary tabs MAY condense, but the active surface identity MUST remain visible. | Design direction | Defines narrow behavior. | UI presentation only. |
+| §17.2 | The save-state label MUST remain reachable without opening settings or a different module. | Design direction | Defines narrow behavior. | UI presentation only. |
+| §17.2 | The system-view switcher MUST remain reachable by pointer and keyboard. | Design direction | Defines narrow behavior. | UI presentation only. |
+| §17.2 | If touch support exists, it MUST NOT replace keyboard or pointer paths for any base hot-path operation. | Later scope | Defines touch omission semantics. | Does not claim touch profile. |
+| §17.3 | Every hot-path operation named in §7.2 MUST be reachable by keyboard. | Design direction | Accessibility and input contract. | UI behavior only. |
+| §17.3 | Every destructive or enrichment action exposed in the inspector MUST be reachable by keyboard. | Design direction | Accessibility and input contract. | UI behavior only. |
+| §17.3 | Focus return MUST be specified for every dialog, drawer, popover, or resolver introduced by this guide. | Design direction | Accessibility and input contract. | UI behavior only. |
+| §17.4 | The UI MUST expose save-state label changes, same-field conflict state, queue overflow, replay blocked, presence state, chip state, auto-resolution disclosure, and inspector open and close through accessible names, roles, or live-region announcements where appropriate. | Design direction | Accessibility and state clarity. | UI presentation only. |
+| §17.4 | Row accessibility MUST bind DOM or accessibility-tree identity to stable `record_id`. | Design direction | Stable accessibility association. | UI presentation of owner identity rule. |
+| §17.5 | Every state-bearing visual element MUST meet WCAG 2.2 AA contrast against the surrounding surface. | Design direction | Sets accessibility floor. | UI presentation only. |
+| §17.5 | Color MUST NOT be the sole carrier of state. | Design direction | Accessibility and state clarity. | UI presentation only. |
+| §18.1 | Workbook first paint MUST show, at minimum, primary tab strip, system-view switcher, active surface identity, view bar shell, and in-place grid skeleton. | Design direction | Defines loading baseline. | UI behavior only. |
+| §18.1 | If the first useful viewport is not available after `2 seconds`, the grid skeleton MUST show an explicit delayed-state message. | Design direction | Defines delayed loading behavior. | UI behavior only. |
+| §18.1 | The message MUST NOT navigate away from the workbook shell. | Design direction | Prevents loading detour. | UI behavior only. |
+| §18.1 | Inspector first paint on row selection MUST show a metadata shell before binary preview bytes or full blob content load. | Design direction | Defines inspector loading behavior. | UI behavior only. |
+| §18.2 | Every required surface MUST define an empty state. | Design direction | Defines empty-state completeness. | UI behavior only. |
+| §18.2 | The empty state MUST name the minimum create signal for that surface and offer an in-place create affordance when the caller has create permission. | Design direction | Defines empty-state action. | UI behavior only. |
+| §18.2 | Empty states MUST NOT suggest actions that leave the workbook shell. | Design direction | Prevents module detour. | UI behavior only. |
+| §18.3 | If multiple error classes are active, the UI MUST use the status-strip priority in §5.7. | Design direction | Defines error precedence. | UI behavior only. |
+| §18.5 | Routine enrichment MUST NOT use modal dialogs. | Design direction | Prevents modal drift. | UI behavior only. |
+| §18.5 | Dialog initial focus MUST land on a non-destructive summary or the safest action. | Design direction | Defines modal safety. | UI behavior only. |
+| §18.5 | After close, focus MUST return to the invoking cell, row, or control when still present. | Design direction | Defines focus return. | UI behavior only. |
+| §18.6 | Chip labels, cell values, saved-view names, system-view labels, and filter chips MUST truncate with end ellipsis when they exceed their container. | Design direction | Defines overflow behavior. | UI presentation only. |
+| §18.6 | The full value MUST be available on hover and keyboard focus through a tooltip, popover, or accessible description. | Design direction | Defines accessible disclosure. | UI presentation only. |
 
 ## Sources
 
-[^1]: `00_document_set_status_and_precedence.md`; `05_claim_publication_and_benchmark_reproducibility.md`.
-[^2]: `03_workbook_interaction_collaboration_and_workflows.md`.
-[^3]: `01_architecture_storage_and_view_contracts.md`.
-[^4]: `02_domain_model_schema_and_history.md`.
-[^5]: `04_security_deployment_and_conformance.md`.
-[^6]: `A_problem_framing_rationale_tradeoffs_and_sanity_check.md`; `G_source_archive_exploratory_design_artifact.md`.
-[^7]: `D_workflow_and_ui_illustrations_source_extract.md`.
-[^8]: `H_operating_model_supporting_guidance.md`.
-[^9]: `R06-spreadsheet_of_doom_dfir_research_report.md`; `R07-spreadsheet-of-doom-sod-report.cr.md`.
-[^10]: `R01-aurora_incident_response_report.md`.
-[^11]: `R03-Kanvas_technical_research_report.md`.
-[^12]: `R04-responsive_browser_spreadsheet_ui_research_memo.md`; `R05-responsive-interface-design-report.cr.md`.
-[^13]: Ben Shneiderman, “Direct Manipulation: A Step Beyond Programming Languages,” *IEEE Computer* 16(8), 1983.
-[^14]: Sruti Srinivasa Ragavan, Advait Sarkar, and Andrew D. Gordon, “Spreadsheet Comprehension: Guesswork, Giving Up and Going Back to the Author,” CHI 2021.
-[^15]: Zhicheng Liu and Jeffrey Heer, “The Effects of Interactive Latency on Exploratory Visual Analysis,” *IEEE Transactions on Visualization and Computer Graphics* 20(12), 2014.
-[^16]: Lyn Bartram, Michael Correll, and Melanie Tory, “Untidy Data: The Unreasonable Effectiveness of Tables,” arXiv:2106.15005.
-[^17]: George Chalhoub and Advait Sarkar, “It’s Freedom to Put Things Where My Mind Wants: Understanding and Improving the User Experience of Structuring Data in Spreadsheets,” CHI 2022.
-[^18]: Danyel Fisher et al., “Trust Me, I’m Partially Right: Incremental Visualization Lets Analysts Explore Large Datasets Faster,” CHI 2012; Dominik Moritz et al., “Trust, but Verify: Optimistic Visualizations of Approximate Queries for Exploring Big Data,” CHI 2017.
-[^19]: Jakob Nielsen, “Progressive Disclosure,” Nielsen Norman Group, 2006.
-[^20]: `cartulary-dev-guide.md`; `cartulary_repository_bootstrap_guide.md`; `cartulary_implementation_testing_guide.md`.
-[^21]: `R02-cartulary_crm_tem_dfir_research_report.md`.
+[^1]: `cartulary-ui-ux-design-guide.md`, previous revision, especially §§1-16.
+[^2]: `00_document_set_status_and_precedence.md`, especially §§1-5.1 and REQ-00-051.
+[^3]: `05_claim_publication_and_benchmark_reproducibility.md`, especially §1.
+[^4]: `03_workbook_interaction_collaboration_and_workflows.md`, especially §§1-4, §§7-16, and requirements for built-in tabs, system views, saved views, collaboration, save states, pending queue, and same-field conflicts.
+[^5]: `01_architecture_storage_and_view_contracts.md`, especially §§1-3.3.5, §7.4, and workbook/view/rollback contracts.
+[^6]: `02_domain_model_schema_and_history.md`, especially §§1-7 and history, mention, entity, party, and provenance requirements.
+[^7]: `04_security_deployment_and_conformance.md`, especially §§2, 4.2, 9.0, and 9.1.
+[^8]: `cartulary-dev-guide.md`; `cartulary_repository_bootstrap_guide.md`; `cartulary_implementation_testing_guide.md`.
+[^9]: `R04-responsive_browser_spreadsheet_ui_research_memo.md`; `R05-responsive-interface-design-report.cr.md`.
+[^10]: Ben Shneiderman, “Direct Manipulation: A Step Beyond Programming Languages,” *IEEE Computer* 16(8), 1983; Zhicheng Liu and Jeffrey Heer, “The Effects of Interactive Latency on Exploratory Visual Analysis,” *IEEE Transactions on Visualization and Computer Graphics* 20(12), 2014; Danyel Fisher et al., “Trust Me, I’m Partially Right: Incremental Visualization Lets Analysts Explore Large Datasets Faster,” CHI 2012; Dominik Moritz et al., “Trust, but Verify: Optimistic Visualizations of Approximate Queries for Exploring Big Data,” CHI 2017.
+[^11]: `A_problem_framing_rationale_tradeoffs_and_sanity_check.md`; `G_source_archive_exploratory_design_artifact.md`.
+[^12]: `R06-spreadsheet_of_doom_dfir_research_report.md`; `R07-spreadsheet-of-doom-sod-report.cr.md`; `R01-aurora_incident_response_report.md`; `R03-Kanvas_technical_research_report.md`.
+[^13]: `H_operating_model_supporting_guidance.md`; `R02-cartulary_crm_tem_dfir_research_report.md`.
+[^14]: `D_workflow_and_ui_illustrations_source_extract.md`; `B_architecture_diagrams_and_explanatory_source_extract.md`; `C_schema_reference_and_ddl_source_extract.md`; `E_roadmap_open_questions_and_decision_backlog.md`; `F_source_traceability_matrix.md`.
