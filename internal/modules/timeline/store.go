@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
+	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -336,7 +337,7 @@ func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID u
 	}
 	materialChanged := hasMaterialChange(current, next)
 	if mentionChanged {
-		if err := applyPatchMentionActionsTx(ctx, tx, actor.ID, recordID, request.CanonicalChange, now.UTC()); err != nil {
+		if err := applyPatchMentionActionsTx(ctx, tx, actor, recordID, request.CanonicalChange, now.UTC()); err != nil {
 			return MutationResult{}, err
 		}
 	}
@@ -903,19 +904,32 @@ func applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uui
 	return nil
 }
 
-func applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) error {
+func applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, recordID uuid.UUID, changes []PatchChange, now time.Time) error {
+	entityStore := entities.NewStore(nil)
 	for _, change := range changes {
 		if change.ActionPayload == nil {
 			continue
 		}
-		switch change.FieldKey {
-		case "timeline.host_refs":
-			if err := insertMentionActionsTx(ctx, tx, actorUserID, recordID, change.FieldKey, "host", change.ActionPayload, now); err != nil {
-				return err
-			}
-		case "timeline.identity_refs":
-			if err := insertMentionActionsTx(ctx, tx, actorUserID, recordID, change.FieldKey, "identity", change.ActionPayload, now); err != nil {
-				return err
+		entityType := "host"
+		if change.FieldKey == "timeline.identity_refs" {
+			entityType = "identity"
+		}
+		for _, action := range change.ActionPayload.Actions {
+			switch action.Op {
+			case "add_token", "add_resolved_ref":
+				if err := insertMentionActionsTx(ctx, tx, actor.ID, recordID, change.FieldKey, entityType, &CollectionActionPayload{Actions: []CollectionAction{action}}, now); err != nil {
+					return err
+				}
+			case "resolve_item":
+				mentionID, err := mentionIDFromItemRef(action.ItemRef)
+				if err != nil {
+					return err
+				}
+				if _, err := entityStore.ResolveOrCreateFromMentionTx(ctx, tx, actor, recordID, change.FieldKey, mentionID, action.ResolvedRecord, now); err != nil {
+					return err
+				}
+			default:
+				return fmt.Errorf("unsupported mention action: %s", action.Op)
 			}
 		}
 	}
@@ -931,8 +945,23 @@ func insertMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUI
 		return err
 	}
 	for _, action := range payload.Actions {
-		if action.Op != "add_token" {
+		if action.Op != "add_token" && action.Op != "add_resolved_ref" {
 			return fmt.Errorf("unsupported mention action: %s", action.Op)
+		}
+		resolutionStatus := "unresolved"
+		var resolvedRecordID *uuid.UUID
+		var resolvedByUserID any
+		var resolvedAt any
+		var resolutionMethod any
+		if action.Op == "add_resolved_ref" {
+			if action.ResolvedRecord == nil {
+				return fmt.Errorf("missing resolved record for action: %s", action.Op)
+			}
+			resolutionStatus = "resolved"
+			resolvedRecordID = action.ResolvedRecord
+			resolvedByUserID = actorUserID
+			resolvedAt = now.UTC()
+			resolutionMethod = action.Op
 		}
 		if _, err := tx.Exec(ctx, `
 INSERT INTO entity_mentions (
@@ -953,8 +982,8 @@ INSERT INTO entity_mentions (
     resolved_at,
     resolution_method
 )
-VALUES ($1, $2, $3, 'interactive_cell', $4, $5, $6, 'unresolved', 1, $7, $8, $9, NULL, NULL, NULL, NULL)
-`, recordID, entityType, fieldKey, mentionOriginLocator(recordID, fieldKey, nextOrdinal), action.RawText, action.NormalizedText, nextOrdinal, actorUserID, now.UTC()); err != nil {
+VALUES ($1, $2, $3, 'interactive_cell', $4, $5, $6, $7, 1, $8, $9, $10, $11, $12, $13, $14)
+`, recordID, entityType, fieldKey, mentionOriginLocator(recordID, fieldKey, nextOrdinal), action.RawText, action.NormalizedText, resolutionStatus, nextOrdinal, actorUserID, now.UTC(), resolvedRecordID, resolvedByUserID, resolvedAt, resolutionMethod); err != nil {
 			return fmt.Errorf("insert entity mention: %w", err)
 		}
 		nextOrdinal++
@@ -977,6 +1006,18 @@ SELECT COALESCE(MAX(ordinal), 0) + 1
 
 func mentionOriginLocator(recordID uuid.UUID, fieldKey string, ordinal int) string {
 	return fmt.Sprintf("view:%s/record:%s/cell:%s/item:%d", TimelineViewSchemaID, recordID.String(), fieldKey, ordinal)
+}
+
+func mentionIDFromItemRef(itemRef string) (uuid.UUID, error) {
+	const prefix = "entity_mention:"
+	if !strings.HasPrefix(itemRef, prefix) {
+		return uuid.UUID{}, fmt.Errorf("invalid mention item_ref: %s", itemRef)
+	}
+	mentionID, err := uuid.Parse(strings.TrimPrefix(itemRef, prefix))
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("parse mention item_ref: %w", err)
+	}
+	return mentionID, nil
 }
 
 func (s *Store) beforeCommit(routeKey string, recordID uuid.UUID) error {

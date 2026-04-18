@@ -37,3 +37,18 @@ func NormalizeNote(raw string) (string, bool) {
 	}
 	return normalized, true
 }
+
+func NormalizeIdentifier(identifierClass string, raw string) (string, bool) {
+	normalized, ok := NormalizeLine(raw)
+	if !ok {
+		return "", false
+	}
+	switch identifierClass {
+	case "aad_device_id", "fqdn", "hostname", "aad_object_id", "upn", "email", "sam_account_name":
+		return strings.ToLower(normalized), true
+	case "sid":
+		return strings.ToUpper(normalized), true
+	default:
+		return normalized, true
+	}
+}

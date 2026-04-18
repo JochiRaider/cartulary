@@ -26,7 +26,9 @@
   ],
   "default_hidden_fields": [
     "record_id",
-    "row_version"
+    "row_version",
+    "host.aad_device_id",
+    "host.fqdn"
   ],
   "default_sort": [
     {
@@ -83,6 +85,24 @@
       "writable": true,
       "read_model": "hostname",
       "write_target": "hosts.hostname",
+      "entity_binding_mode": "entity_origin",
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "host.aad_device_id",
+      "label": "AAD Device ID",
+      "writable": true,
+      "read_model": "aad_device_id",
+      "write_target": "hosts.aad_device_id",
+      "entity_binding_mode": "entity_origin",
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "host.fqdn",
+      "label": "FQDN",
+      "writable": true,
+      "read_model": "fqdn",
+      "write_target": "hosts.fqdn",
       "entity_binding_mode": "entity_origin",
       "conflict_resolution_class": "atomic_replace"
     },

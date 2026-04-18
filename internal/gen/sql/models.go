@@ -66,6 +66,19 @@ type DeploymentBootstrapState struct {
 	ConsumedAt          pgtype.Timestamptz `json:"consumed_at"`
 }
 
+type EntityAlias struct {
+	EntityAliasID   pgtype.UUID        `json:"entity_alias_id"`
+	IncidentID      pgtype.UUID        `json:"incident_id"`
+	RecordID        pgtype.UUID        `json:"record_id"`
+	EntityType      string             `json:"entity_type"`
+	RawText         string             `json:"raw_text"`
+	NormalizedText  string             `json:"normalized_text"`
+	Classification  string             `json:"classification"`
+	CreatedByUserID pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type EntityMention struct {
 	EntityMentionID  pgtype.UUID        `json:"entity_mention_id"`
 	SourceRecordID   pgtype.UUID        `json:"source_record_id"`
@@ -86,17 +99,35 @@ type EntityMention struct {
 	ResolutionMethod pgtype.Text        `json:"resolution_method"`
 }
 
+type EntityPreservedIdentifier struct {
+	EntityPreservedIdentifierID pgtype.UUID        `json:"entity_preserved_identifier_id"`
+	IncidentID                  pgtype.UUID        `json:"incident_id"`
+	RecordID                    pgtype.UUID        `json:"record_id"`
+	EntityType                  string             `json:"entity_type"`
+	IdentifierType              string             `json:"identifier_type"`
+	RawValue                    string             `json:"raw_value"`
+	NormalizedValue             string             `json:"normalized_value"`
+	Classification              string             `json:"classification"`
+	CreatedByUserID             pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	DeletedAt                   pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type Host struct {
-	RecordID        pgtype.UUID        `json:"record_id"`
-	IncidentID      pgtype.UUID        `json:"incident_id"`
-	DisplayName     string             `json:"display_name"`
-	Hostname        pgtype.Text        `json:"hostname"`
-	HostState       string             `json:"host_state"`
-	RowVersion      int64              `json:"row_version"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-	CreatedByUserID pgtype.UUID        `json:"created_by_user_id"`
-	UpdatedByUserID pgtype.UUID        `json:"updated_by_user_id"`
+	RecordID            pgtype.UUID        `json:"record_id"`
+	IncidentID          pgtype.UUID        `json:"incident_id"`
+	DisplayName         string             `json:"display_name"`
+	Hostname            pgtype.Text        `json:"hostname"`
+	HostState           string             `json:"host_state"`
+	RowVersion          int64              `json:"row_version"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	CreatedByUserID     pgtype.UUID        `json:"created_by_user_id"`
+	UpdatedByUserID     pgtype.UUID        `json:"updated_by_user_id"`
+	AadDeviceID         pgtype.Text        `json:"aad_device_id"`
+	Fqdn                pgtype.Text        `json:"fqdn"`
+	EntityOrigin        string             `json:"entity_origin"`
+	SeedEntityMentionID pgtype.UUID        `json:"seed_entity_mention_id"`
 }
 
 type HostGridProjection struct {
@@ -117,18 +148,22 @@ type HostGridProjection struct {
 }
 
 type Identity struct {
-	RecordID        pgtype.UUID        `json:"record_id"`
-	IncidentID      pgtype.UUID        `json:"incident_id"`
-	DisplayName     string             `json:"display_name"`
-	Upn             pgtype.Text        `json:"upn"`
-	Email           pgtype.Text        `json:"email"`
-	SamAccountName  pgtype.Text        `json:"sam_account_name"`
-	IdentityState   string             `json:"identity_state"`
-	RowVersion      int64              `json:"row_version"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-	CreatedByUserID pgtype.UUID        `json:"created_by_user_id"`
-	UpdatedByUserID pgtype.UUID        `json:"updated_by_user_id"`
+	RecordID            pgtype.UUID        `json:"record_id"`
+	IncidentID          pgtype.UUID        `json:"incident_id"`
+	DisplayName         string             `json:"display_name"`
+	Upn                 pgtype.Text        `json:"upn"`
+	Email               pgtype.Text        `json:"email"`
+	SamAccountName      pgtype.Text        `json:"sam_account_name"`
+	IdentityState       string             `json:"identity_state"`
+	RowVersion          int64              `json:"row_version"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	CreatedByUserID     pgtype.UUID        `json:"created_by_user_id"`
+	UpdatedByUserID     pgtype.UUID        `json:"updated_by_user_id"`
+	AadObjectID         pgtype.Text        `json:"aad_object_id"`
+	Sid                 pgtype.Text        `json:"sid"`
+	EntityOrigin        string             `json:"entity_origin"`
+	SeedEntityMentionID pgtype.UUID        `json:"seed_entity_mention_id"`
 }
 
 type IdentityGridProjection struct {

@@ -22,39 +22,51 @@ const (
 
 	hostCreateRouteKey     = "entities.hosts.rows.create"
 	identityCreateRouteKey = "entities.identities.rows.create"
+	maxCollectionActions   = 64
 )
 
 type CreateRequest struct {
 	ClientTxnID string
 	Values      map[string]string
+	AliasAdds   map[string][]CollectionAction
 }
 
 type HostRecord struct {
-	RecordID      uuid.UUID
-	IncidentID    uuid.UUID
-	DisplayName   string
-	Hostname      *string
-	HostState     string
-	RowVersion    int64
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	CreatedByUser uuid.UUID
-	UpdatedByUser uuid.UUID
+	RecordID              uuid.UUID
+	IncidentID            uuid.UUID
+	DisplayName           string
+	AADDeviceID           *string
+	FQDN                  *string
+	Hostname              *string
+	HostState             string
+	EntityOrigin          string
+	SeedMentionID         *uuid.UUID
+	SuggestionOnlyAliases []string
+	RowVersion            int64
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	CreatedByUser         uuid.UUID
+	UpdatedByUser         uuid.UUID
 }
 
 type IdentityRecord struct {
-	RecordID       uuid.UUID
-	IncidentID     uuid.UUID
-	DisplayName    string
-	UPN            *string
-	Email          *string
-	SamAccountName *string
-	IdentityState  string
-	RowVersion     int64
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	CreatedByUser  uuid.UUID
-	UpdatedByUser  uuid.UUID
+	RecordID              uuid.UUID
+	IncidentID            uuid.UUID
+	DisplayName           string
+	AADObjectID           *string
+	SID                   *string
+	UPN                   *string
+	Email                 *string
+	SamAccountName        *string
+	IdentityState         string
+	EntityOrigin          string
+	SeedMentionID         *uuid.UUID
+	SuggestionOnlyAliases []string
+	RowVersion            int64
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	CreatedByUser         uuid.UUID
+	UpdatedByUser         uuid.UUID
 }
 
 type MutationResult struct {
@@ -64,6 +76,12 @@ type MutationResult struct {
 	RecordID    uuid.UUID
 	ChangeSetID uuid.UUID
 	RowVersion  int64
+}
+
+type CollectionAction struct {
+	Op             string
+	RawText        string
+	NormalizedText string
 }
 
 func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, *auth.APIError) {
@@ -97,6 +115,7 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 	}
 
 	request.Values = make(map[string]string)
+	request.AliasAdds = make(map[string][]CollectionAction)
 	for fieldKey, field := range schema.Fields() {
 		value, ok := raw[fieldKey]
 		if !ok {
@@ -109,7 +128,12 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 			return CreateRequest{}, invalidMutationPayload(fieldKey, "unsupported_field_key")
 		}
 		if field.ConflictResolutionClass == "collection_review" {
-			return CreateRequest{}, invalidMutationPayload(fieldKey, "unsupported_field_key")
+			actions, ok := decodeAliasActionPayload(fieldKey, value)
+			if !ok {
+				return CreateRequest{}, invalidMutationPayload(fieldKey, "invalid_value")
+			}
+			request.AliasAdds[fieldKey] = actions
+			continue
 		}
 
 		var rawValue string
@@ -123,7 +147,7 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 		request.Values[fieldKey] = normalized
 	}
 
-	if len(request.Values) == 0 && !schema.PermitsZeroFieldCreate {
+	if len(request.Values) == 0 && len(request.AliasAdds) == 0 && !schema.PermitsZeroFieldCreate {
 		return CreateRequest{}, invalidMutationPayload("payload", "at_least_one_value_required")
 	}
 
@@ -144,6 +168,19 @@ func CreateRequestHash(viewSchemaID string, request CreateRequest) []byte {
 	for _, key := range keys {
 		payload[key] = request.Values[key]
 	}
+	aliasKeys := make([]string, 0, len(request.AliasAdds))
+	for key := range request.AliasAdds {
+		aliasKeys = append(aliasKeys, key)
+	}
+	slices.Sort(aliasKeys)
+	for _, key := range aliasKeys {
+		values := make([]string, 0, len(request.AliasAdds[key]))
+		for _, action := range request.AliasAdds[key] {
+			values = append(values, action.NormalizedText)
+		}
+		slices.Sort(values)
+		payload[key] = values
+	}
 	data, _ := json.Marshal(payload)
 	sum := sha256.Sum256(data)
 	hash := make([]byte, len(sum))
@@ -157,8 +194,10 @@ func BuildHostRow(record HostRecord) map[string]any {
 		"row_version": record.RowVersion,
 		"cells": map[string]any{
 			"host.display_name":       map[string]any{"value": record.DisplayName},
+			"host.aad_device_id":      map[string]any{"value": derefString(record.AADDeviceID)},
+			"host.fqdn":               map[string]any{"value": derefString(record.FQDN)},
 			"host.hostname":           map[string]any{"value": derefString(record.Hostname)},
-			"host.aliases":            map[string]any{"value": collectionValue(false, nil)},
+			"host.aliases":            map[string]any{"value": collectionValue(false, aliasCollectionItems(record.SuggestionOnlyAliases))},
 			"host.host_state":         map[string]any{"value": record.HostState},
 			"host.linked_event_count": map[string]any{"value": 0},
 			"host.evidence_count":     map[string]any{"value": 0},
@@ -184,10 +223,12 @@ func BuildIdentityRow(record IdentityRecord) map[string]any {
 		"row_version": record.RowVersion,
 		"cells": map[string]any{
 			"identity.display_name":       map[string]any{"value": record.DisplayName},
+			"identity.aad_object_id":      map[string]any{"value": derefString(record.AADObjectID)},
+			"identity.sid":                map[string]any{"value": derefString(record.SID)},
 			"identity.upn":                map[string]any{"value": derefString(record.UPN)},
 			"identity.email":              map[string]any{"value": derefString(record.Email)},
 			"identity.sam_account_name":   map[string]any{"value": derefString(record.SamAccountName)},
-			"identity.aliases":            map[string]any{"value": collectionValue(false, nil)},
+			"identity.aliases":            map[string]any{"value": collectionValue(false, aliasCollectionItems(record.SuggestionOnlyAliases))},
 			"identity.identity_state":     map[string]any{"value": record.IdentityState},
 			"identity.linked_event_count": map[string]any{"value": 0},
 			"identity.evidence_count":     map[string]any{"value": 0},
@@ -256,6 +297,27 @@ func internalAPIError(err error) *auth.APIError {
 	}
 }
 
+func exactMatchConflictError(entityType string, identifierClass string, candidateRecordIDs []uuid.UUID) *auth.APIError {
+	details := map[string]any{
+		"reason_code":      "merge_required",
+		"entity_type":      entityType,
+		"identifier_class": identifierClass,
+	}
+	if len(candidateRecordIDs) > 0 {
+		ids := make([]string, 0, len(candidateRecordIDs))
+		for _, recordID := range candidateRecordIDs {
+			ids = append(ids, recordID.String())
+		}
+		details["candidate_record_ids"] = ids
+	}
+	return &auth.APIError{
+		Status:  http.StatusConflict,
+		Code:    "entity_match_conflict",
+		Message: "entity match conflict",
+		Details: details,
+	}
+}
+
 func requiredRoleDescription(roles ...string) string {
 	if len(roles) == 0 {
 		return ""
@@ -273,6 +335,48 @@ func decodeObject(reader io.Reader) (map[string]json.RawMessage, *auth.APIError)
 		return nil, invalidMutationPayload("", "request_not_object")
 	}
 	return raw, nil
+}
+
+func decodeAliasActionPayload(fieldKey string, value json.RawMessage) ([]CollectionAction, bool) {
+	if fieldKey != "host.aliases" && fieldKey != "identity.aliases" {
+		return nil, false
+	}
+
+	var payload struct {
+		Kind    string                       `json:"kind"`
+		Actions []map[string]json.RawMessage `json:"actions"`
+	}
+	if err := json.Unmarshal(value, &payload); err != nil {
+		return nil, false
+	}
+	if payload.Kind != "collection_actions_v1" || len(payload.Actions) == 0 || len(payload.Actions) > maxCollectionActions {
+		return nil, false
+	}
+
+	actions := make([]CollectionAction, 0, len(payload.Actions))
+	for _, rawAction := range payload.Actions {
+		if len(rawAction) != 2 {
+			return nil, false
+		}
+		var op string
+		if err := json.Unmarshal(rawAction["op"], &op); err != nil || op != "add_token" {
+			return nil, false
+		}
+		var rawText string
+		if err := json.Unmarshal(rawAction["raw_text"], &rawText); err != nil {
+			return nil, false
+		}
+		normalized, ok := fieldnorm.NormalizeLine(rawText)
+		if !ok {
+			return nil, false
+		}
+		actions = append(actions, CollectionAction{
+			Op:             op,
+			RawText:        rawText,
+			NormalizedText: normalized,
+		})
+	}
+	return actions, true
 }
 
 func collectionValue(ordered bool, items []map[string]any) map[string]any {
@@ -295,4 +399,32 @@ func derefString(value *string) any {
 		return nil
 	}
 	return *value
+}
+
+func stringPointer(value string) *string {
+	cloned := value
+	return &cloned
+}
+
+func cloneStringPointer(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
+}
+
+func aliasCollectionItems(values []string) []map[string]any {
+	if len(values) == 0 {
+		return nil
+	}
+	items := make([]map[string]any, 0, len(values))
+	for _, value := range values {
+		items = append(items, map[string]any{
+			"item_kind":    "suggestion_only_alias",
+			"display_text": value,
+			"raw_text":     value,
+		})
+	}
+	return items
 }

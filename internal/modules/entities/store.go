@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -90,7 +90,11 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 	afterRow := BuildHostRow(record)
 	var beforeVersionID *string
 	if beforeRow != nil {
-		value := entityVersionID("host", record.RecordID, record.RowVersion-1)
+		beforeVersion := record.RowVersion
+		if !reflect.DeepEqual(beforeRow, afterRow) && record.RowVersion > 1 {
+			beforeVersion = record.RowVersion - 1
+		}
+		value := entityVersionID("host", record.RecordID, beforeVersion)
 		beforeVersionID = &value
 	}
 	afterVersionID := entityVersionID("host", record.RecordID, record.RowVersion)
@@ -183,7 +187,11 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 	afterRow := BuildIdentityRow(record)
 	var beforeVersionID *string
 	if beforeRow != nil {
-		value := entityVersionID("identity", record.RecordID, record.RowVersion-1)
+		beforeVersion := record.RowVersion
+		if !reflect.DeepEqual(beforeRow, afterRow) && record.RowVersion > 1 {
+			beforeVersion = record.RowVersion - 1
+		}
+		value := entityVersionID("identity", record.RecordID, beforeVersion)
 		beforeVersionID = &value
 	}
 	afterVersionID := entityVersionID("identity", record.RecordID, record.RowVersion)
@@ -221,121 +229,23 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 	}, nil
 }
 
-func (s *Store) upsertHostTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, now time.Time) (HostRecord, map[string]any, string, int, error) {
-	displayName := request.Values["host.display_name"]
-	hostname := optionalValue(request.Values, "host.hostname")
-	if strings.TrimSpace(displayName) == "" {
-		if hostname == nil {
-			return HostRecord{}, nil, "", 0, ErrInvalidCreateRequest
-		}
-		displayName = *hostname
-	}
-
-	if hostname != nil {
-		current, err := loadHostByHostnameTx(ctx, tx, incidentID, *hostname)
-		switch {
-		case err == nil:
-			beforeRow := BuildHostRow(current)
-			next := current
-			next.DisplayName = displayName
-			next.Hostname = hostname
-			next.HostState = "stub"
-			next.RowVersion = current.RowVersion + 1
-			next.UpdatedAt = now.UTC()
-			next.UpdatedByUser = actor.ID
-			if err := updateHostTx(ctx, tx, next); err != nil {
-				return HostRecord{}, nil, "", 0, err
-			}
-			return next, beforeRow, "patch", http.StatusOK, nil
-		case !errors.Is(err, pgx.ErrNoRows):
-			return HostRecord{}, nil, "", 0, fmt.Errorf("lookup host exact match: %w", err)
-		}
-	}
-
-	record := HostRecord{
-		IncidentID:    incidentID,
-		DisplayName:   displayName,
-		Hostname:      hostname,
-		HostState:     "stub",
-		RowVersion:    1,
-		CreatedAt:     now.UTC(),
-		UpdatedAt:     now.UTC(),
-		CreatedByUser: actor.ID,
-		UpdatedByUser: actor.ID,
-	}
-	if err := insertHostTx(ctx, tx, &record); err != nil {
-		return HostRecord{}, nil, "", 0, err
-	}
-	return record, nil, "create", http.StatusCreated, nil
-}
-
-func (s *Store) upsertIdentityTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, now time.Time) (IdentityRecord, map[string]any, string, int, error) {
-	displayName := request.Values["identity.display_name"]
-	upn := optionalValue(request.Values, "identity.upn")
-	email := optionalValue(request.Values, "identity.email")
-	samAccountName := optionalValue(request.Values, "identity.sam_account_name")
-	if strings.TrimSpace(displayName) == "" {
-		switch {
-		case email != nil:
-			displayName = *email
-		case upn != nil:
-			displayName = *upn
-		case samAccountName != nil:
-			displayName = *samAccountName
-		default:
-			return IdentityRecord{}, nil, "", 0, ErrInvalidCreateRequest
-		}
-	}
-
-	if email != nil {
-		current, err := loadIdentityByEmailTx(ctx, tx, incidentID, *email)
-		switch {
-		case err == nil:
-			beforeRow := BuildIdentityRow(current)
-			next := current
-			next.DisplayName = displayName
-			next.UPN = upn
-			next.Email = email
-			next.SamAccountName = samAccountName
-			next.IdentityState = "stub"
-			next.RowVersion = current.RowVersion + 1
-			next.UpdatedAt = now.UTC()
-			next.UpdatedByUser = actor.ID
-			if err := updateIdentityTx(ctx, tx, next); err != nil {
-				return IdentityRecord{}, nil, "", 0, err
-			}
-			return next, beforeRow, "patch", http.StatusOK, nil
-		case !errors.Is(err, pgx.ErrNoRows):
-			return IdentityRecord{}, nil, "", 0, fmt.Errorf("lookup identity exact match: %w", err)
-		}
-	}
-
-	record := IdentityRecord{
-		IncidentID:     incidentID,
-		DisplayName:    displayName,
-		UPN:            upn,
-		Email:          email,
-		SamAccountName: samAccountName,
-		IdentityState:  "stub",
-		RowVersion:     1,
-		CreatedAt:      now.UTC(),
-		UpdatedAt:      now.UTC(),
-		CreatedByUser:  actor.ID,
-		UpdatedByUser:  actor.ID,
-	}
-	if err := insertIdentityTx(ctx, tx, &record); err != nil {
-		return IdentityRecord{}, nil, "", 0, err
-	}
-	return record, nil, "create", http.StatusCreated, nil
-}
-
 func loadHostByHostnameTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, hostname string) (HostRecord, error) {
-	var (
-		record      HostRecord
-		rawHostname pgtype.Text
-	)
-	err := tx.QueryRow(ctx, `
-SELECT record_id, incident_id, display_name, hostname, host_state, row_version, created_at, updated_at, created_by_user_id, updated_by_user_id
+	record, err := scanHostRecord(tx.QueryRow(ctx, `
+SELECT
+    record_id,
+    incident_id,
+    display_name,
+    aad_device_id,
+    fqdn,
+    hostname,
+    host_state,
+    entity_origin,
+    seed_entity_mention_id,
+    row_version,
+    created_at,
+    updated_at,
+    created_by_user_id,
+    updated_by_user_id
   FROM hosts
  WHERE incident_id = $1
    AND hostname = $2
@@ -343,24 +253,7 @@ SELECT record_id, incident_id, display_name, hostname, host_state, row_version, 
  ORDER BY updated_at DESC, record_id DESC
  LIMIT 1
  FOR UPDATE
-`, incidentID, hostname).Scan(
-		&record.RecordID,
-		&record.IncidentID,
-		&record.DisplayName,
-		&rawHostname,
-		&record.HostState,
-		&record.RowVersion,
-		&record.CreatedAt,
-		&record.UpdatedAt,
-		&record.CreatedByUser,
-		&record.UpdatedByUser,
-	)
-	if rawHostname.Valid {
-		value := rawHostname.String
-		record.Hostname = &value
-	} else {
-		record.Hostname = nil
-	}
+`, incidentID, hostname))
 	return record, err
 }
 
@@ -369,30 +262,36 @@ func insertHostTx(ctx context.Context, tx pgx.Tx, record *HostRecord) error {
 INSERT INTO hosts (
     incident_id,
     display_name,
+    aad_device_id,
+    fqdn,
     hostname,
     host_state,
+    entity_origin,
+    seed_entity_mention_id,
     row_version,
     created_at,
     updated_at,
     created_by_user_id,
     updated_by_user_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $7)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11, $11)
 RETURNING record_id
-`, record.IncidentID, record.DisplayName, record.Hostname, record.HostState, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
+`, record.IncidentID, record.DisplayName, record.AADDeviceID, record.FQDN, record.Hostname, record.HostState, record.EntityOrigin, record.SeedMentionID, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
 }
 
 func updateHostTx(ctx context.Context, tx pgx.Tx, record HostRecord) error {
 	_, err := tx.Exec(ctx, `
 UPDATE hosts
    SET display_name = $2,
-       hostname = $3,
-       host_state = $4,
-       row_version = $5,
-       updated_at = $6,
-       updated_by_user_id = $7
+       aad_device_id = $3,
+       fqdn = $4,
+       hostname = $5,
+       host_state = $6,
+       row_version = $7,
+       updated_at = $8,
+       updated_by_user_id = $9
  WHERE record_id = $1
-`, record.RecordID, record.DisplayName, record.Hostname, record.HostState, record.RowVersion, record.UpdatedAt.UTC(), record.UpdatedByUser)
+`, record.RecordID, record.DisplayName, record.AADDeviceID, record.FQDN, record.Hostname, record.HostState, record.RowVersion, record.UpdatedAt.UTC(), record.UpdatedByUser)
 	if err != nil {
 		return fmt.Errorf("update host: %w", err)
 	}
@@ -433,14 +332,24 @@ SET incident_id = EXCLUDED.incident_id,
 }
 
 func loadIdentityByEmailTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, email string) (IdentityRecord, error) {
-	var (
-		record            IdentityRecord
-		rawUPN            pgtype.Text
-		rawEmail          pgtype.Text
-		rawSamAccountName pgtype.Text
-	)
-	err := tx.QueryRow(ctx, `
-SELECT record_id, incident_id, display_name, upn, email::text, sam_account_name, identity_state, row_version, created_at, updated_at, created_by_user_id, updated_by_user_id
+	record, err := scanIdentityRecord(tx.QueryRow(ctx, `
+SELECT
+    record_id,
+    incident_id,
+    display_name,
+    aad_object_id,
+    sid,
+    upn,
+    email::text,
+    sam_account_name,
+    identity_state,
+    entity_origin,
+    seed_entity_mention_id,
+    row_version,
+    created_at,
+    updated_at,
+    created_by_user_id,
+    updated_by_user_id
   FROM identities
  WHERE incident_id = $1
    AND email = $2
@@ -448,38 +357,7 @@ SELECT record_id, incident_id, display_name, upn, email::text, sam_account_name,
  ORDER BY updated_at DESC, record_id DESC
  LIMIT 1
  FOR UPDATE
-`, incidentID, email).Scan(
-		&record.RecordID,
-		&record.IncidentID,
-		&record.DisplayName,
-		&rawUPN,
-		&rawEmail,
-		&rawSamAccountName,
-		&record.IdentityState,
-		&record.RowVersion,
-		&record.CreatedAt,
-		&record.UpdatedAt,
-		&record.CreatedByUser,
-		&record.UpdatedByUser,
-	)
-	if rawUPN.Valid {
-		value := rawUPN.String
-		record.UPN = &value
-	} else {
-		record.UPN = nil
-	}
-	if rawEmail.Valid {
-		value := rawEmail.String
-		record.Email = &value
-	} else {
-		record.Email = nil
-	}
-	if rawSamAccountName.Valid {
-		value := rawSamAccountName.String
-		record.SamAccountName = &value
-	} else {
-		record.SamAccountName = nil
-	}
+`, incidentID, email))
 	return record, err
 }
 
@@ -488,34 +366,40 @@ func insertIdentityTx(ctx context.Context, tx pgx.Tx, record *IdentityRecord) er
 INSERT INTO identities (
     incident_id,
     display_name,
+    aad_object_id,
+    sid,
     upn,
     email,
     sam_account_name,
     identity_state,
+    entity_origin,
+    seed_entity_mention_id,
     row_version,
     created_at,
     updated_at,
     created_by_user_id,
     updated_by_user_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9, $9)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12, $13, $13)
 RETURNING record_id
-`, record.IncidentID, record.DisplayName, record.UPN, record.Email, record.SamAccountName, record.IdentityState, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
+`, record.IncidentID, record.DisplayName, record.AADObjectID, record.SID, record.UPN, record.Email, record.SamAccountName, record.IdentityState, record.EntityOrigin, record.SeedMentionID, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
 }
 
 func updateIdentityTx(ctx context.Context, tx pgx.Tx, record IdentityRecord) error {
 	_, err := tx.Exec(ctx, `
 UPDATE identities
    SET display_name = $2,
-       upn = $3,
-       email = $4,
-       sam_account_name = $5,
-       identity_state = $6,
-       row_version = $7,
-       updated_at = $8,
-       updated_by_user_id = $9
+       aad_object_id = $3,
+       sid = $4,
+       upn = $5,
+       email = $6,
+       sam_account_name = $7,
+       identity_state = $8,
+       row_version = $9,
+       updated_at = $10,
+       updated_by_user_id = $11
  WHERE record_id = $1
-`, record.RecordID, record.DisplayName, record.UPN, record.Email, record.SamAccountName, record.IdentityState, record.RowVersion, record.UpdatedAt.UTC(), record.UpdatedByUser)
+`, record.RecordID, record.DisplayName, record.AADObjectID, record.SID, record.UPN, record.Email, record.SamAccountName, record.IdentityState, record.RowVersion, record.UpdatedAt.UTC(), record.UpdatedByUser)
 	if err != nil {
 		return fmt.Errorf("update identity: %w", err)
 	}

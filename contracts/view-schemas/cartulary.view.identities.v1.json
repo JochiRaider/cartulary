@@ -26,7 +26,9 @@
   ],
   "default_hidden_fields": [
     "record_id",
-    "row_version"
+    "row_version",
+    "identity.aad_object_id",
+    "identity.sid"
   ],
   "default_sort": [
     {
@@ -73,6 +75,24 @@
       "writable": true,
       "read_model": "display_name",
       "write_target": "identities.display_name",
+      "entity_binding_mode": "entity_origin",
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "identity.aad_object_id",
+      "label": "AAD Object ID",
+      "writable": true,
+      "read_model": "aad_object_id",
+      "write_target": "identities.aad_object_id",
+      "entity_binding_mode": "entity_origin",
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "identity.sid",
+      "label": "SID",
+      "writable": true,
+      "read_model": "sid",
+      "write_target": "identities.sid",
       "entity_binding_mode": "entity_origin",
       "conflict_resolution_class": "atomic_replace"
     },

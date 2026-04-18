@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -257,6 +258,7 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := s.store.PatchRow(r.Context(), principal.User, recordID, request, TimelinePatchRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	var entityConflict *entities.ExactMatchConflictError
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
@@ -272,6 +274,12 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request) {
 		return
 	case errors.Is(err, ErrNoEffectiveChange):
 		writeAPIError(w, r, invalidMutationPayload("changes", "no_effective_change"))
+		return
+	case errors.As(err, &entityConflict):
+		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
+		return
+	case errors.Is(err, entities.ErrInvalidMentionResolution):
+		writeAPIError(w, r, invalidMutationPayload("action_payload", "invalid_value"))
 		return
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))

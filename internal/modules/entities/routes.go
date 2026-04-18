@@ -64,18 +64,22 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request, viewSchem
 		return
 	}
 
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	request, apiErr := DecodeCreateRequest(viewSchemaID, r.Body)
 	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 
-	request, apiErr := DecodeCreateRequest(viewSchemaID, r.Body)
+	principal, apiErr := s.authenticateSessionRequest(r, true)
 	if apiErr != nil {
+		if apiErr.Code == "session_required" {
+			writeAPIError(w, r, invalidMutationPayload("payload", "session_required"))
+			return
+		}
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -93,12 +97,16 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request, viewSchem
 		writeAPIError(w, r, invalidMutationPayload("view_schema_id", "unknown_view_schema"))
 		return
 	}
+	var conflict *ExactMatchConflictError
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
 		return
 	case errors.Is(err, ErrInvalidCreateRequest):
 		writeAPIError(w, r, invalidMutationPayload("payload", "at_least_one_value_required"))
+		return
+	case errors.As(err, &conflict):
+		writeAPIError(w, r, exactMatchConflictError(conflict.EntityType, conflict.IdentifierClass, conflict.CandidateRecords))
 		return
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))

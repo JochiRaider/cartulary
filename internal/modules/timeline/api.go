@@ -68,6 +68,8 @@ type CollectionAction struct {
 	Op             string
 	RawText        string
 	NormalizedText string
+	ItemRef        string
+	ResolvedRecord *uuid.UUID
 }
 
 type ActionRequest struct {
@@ -497,6 +499,27 @@ func illegalTransitionError(reasonCode string) *auth.APIError {
 	}
 }
 
+func entityMatchConflictError(entityType string, identifierClass string, candidateRecordIDs []uuid.UUID) *auth.APIError {
+	details := map[string]any{
+		"reason_code":      "merge_required",
+		"entity_type":      entityType,
+		"identifier_class": identifierClass,
+	}
+	if len(candidateRecordIDs) > 0 {
+		ids := make([]string, 0, len(candidateRecordIDs))
+		for _, recordID := range candidateRecordIDs {
+			ids = append(ids, recordID.String())
+		}
+		details["candidate_record_ids"] = ids
+	}
+	return &auth.APIError{
+		Status:  http.StatusConflict,
+		Code:    "entity_match_conflict",
+		Message: "entity match conflict",
+		Details: details,
+	}
+}
+
 func authorizationDeniedError(requiredRole string) *auth.APIError {
 	details := map[string]any{}
 	if requiredRole != "" {
@@ -617,7 +640,16 @@ func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey 
 	if !ok {
 		return nil, true
 	}
-	return decodeCollectionActionPayload(fieldKey, value)
+	payload, ok := decodeCollectionActionPayload(fieldKey, value)
+	if !ok {
+		return nil, false
+	}
+	for _, action := range payload.Actions {
+		if action.Op != "add_token" {
+			return nil, false
+		}
+	}
+	return payload, true
 }
 
 func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*CollectionActionPayload, bool) {
@@ -638,35 +670,99 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 
 	actions := make([]CollectionAction, 0, len(payload.Actions))
 	for _, rawAction := range payload.Actions {
-		if len(rawAction) != 2 {
-			return nil, false
-		}
 		opValue, ok := rawAction["op"]
-		if !ok {
-			return nil, false
-		}
-		rawTextValue, ok := rawAction["raw_text"]
 		if !ok {
 			return nil, false
 		}
 
 		var op string
-		if err := json.Unmarshal(opValue, &op); err != nil || op != "add_token" {
+		if err := json.Unmarshal(opValue, &op); err != nil {
 			return nil, false
 		}
-		var rawText string
-		if err := json.Unmarshal(rawTextValue, &rawText); err != nil {
+		switch op {
+		case "add_token":
+			if len(rawAction) != 2 {
+				return nil, false
+			}
+			rawTextValue, ok := rawAction["raw_text"]
+			if !ok {
+				return nil, false
+			}
+			var rawText string
+			if err := json.Unmarshal(rawTextValue, &rawText); err != nil {
+				return nil, false
+			}
+			normalized, ok := fieldnorm.NormalizeLine(rawText)
+			if !ok {
+				return nil, false
+			}
+			actions = append(actions, CollectionAction{
+				Op:             op,
+				RawText:        rawText,
+				NormalizedText: normalized,
+			})
+		case "add_resolved_ref":
+			if len(rawAction) != 3 {
+				return nil, false
+			}
+			rawTextValue, ok := rawAction["raw_text"]
+			if !ok {
+				return nil, false
+			}
+			resolvedRecordValue, ok := rawAction["resolved_record_id"]
+			if !ok {
+				return nil, false
+			}
+			var rawText string
+			if err := json.Unmarshal(rawTextValue, &rawText); err != nil {
+				return nil, false
+			}
+			normalized, ok := fieldnorm.NormalizeLine(rawText)
+			if !ok {
+				return nil, false
+			}
+			var resolvedRecordID string
+			if err := json.Unmarshal(resolvedRecordValue, &resolvedRecordID); err != nil {
+				return nil, false
+			}
+			parsed, err := uuid.Parse(resolvedRecordID)
+			if err != nil {
+				return nil, false
+			}
+			actions = append(actions, CollectionAction{
+				Op:             op,
+				RawText:        rawText,
+				NormalizedText: normalized,
+				ResolvedRecord: &parsed,
+			})
+		case "resolve_item":
+			if len(rawAction) != 2 && len(rawAction) != 3 {
+				return nil, false
+			}
+			itemRefValue, ok := rawAction["item_ref"]
+			if !ok {
+				return nil, false
+			}
+			var itemRef string
+			if err := json.Unmarshal(itemRefValue, &itemRef); err != nil || strings.TrimSpace(itemRef) == "" {
+				return nil, false
+			}
+			action := CollectionAction{Op: op, ItemRef: itemRef}
+			if resolvedRecordValue, ok := rawAction["resolved_record_id"]; ok {
+				var resolvedRecordID string
+				if err := json.Unmarshal(resolvedRecordValue, &resolvedRecordID); err != nil {
+					return nil, false
+				}
+				parsed, err := uuid.Parse(resolvedRecordID)
+				if err != nil {
+					return nil, false
+				}
+				action.ResolvedRecord = &parsed
+			}
+			actions = append(actions, action)
+		default:
 			return nil, false
 		}
-		normalized, ok := fieldnorm.NormalizeLine(rawText)
-		if !ok {
-			return nil, false
-		}
-		actions = append(actions, CollectionAction{
-			Op:             op,
-			RawText:        rawText,
-			NormalizedText: normalized,
-		})
 	}
 	return &CollectionActionPayload{Actions: actions}, true
 }
@@ -695,10 +791,17 @@ func canonicalCollectionActionPayload(payload *CollectionActionPayload) any {
 	}
 	actions := make([]map[string]any, 0, len(payload.Actions))
 	for _, action := range payload.Actions {
-		actions = append(actions, map[string]any{
-			"op":       action.Op,
-			"raw_text": action.NormalizedText,
-		})
+		entry := map[string]any{"op": action.Op}
+		if action.RawText != "" {
+			entry["raw_text"] = action.NormalizedText
+		}
+		if action.ItemRef != "" {
+			entry["item_ref"] = action.ItemRef
+		}
+		if action.ResolvedRecord != nil {
+			entry["resolved_record_id"] = action.ResolvedRecord.String()
+		}
+		actions = append(actions, entry)
 	}
 	return map[string]any{
 		"kind":    "collection_actions_v1",
