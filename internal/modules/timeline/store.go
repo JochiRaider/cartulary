@@ -56,6 +56,8 @@ type projectedRecord struct {
 	EvidenceCount         int
 	HasEvidence           bool
 	HasUnresolvedMentions bool
+	HostRefs              []map[string]any
+	IdentityRefs          []map[string]any
 }
 
 type sourceRecord struct {
@@ -124,6 +126,9 @@ func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID) ([]map[stri
 	for _, row := range rows {
 		projected, err := projectedRecordFromSQL(row)
 		if err != nil {
+			return nil, err
+		}
+		if err := hydrateProjectedCollections(ctx, s.pool, &projected); err != nil {
 			return nil, err
 		}
 		result = append(result, BuildRow(projected))
@@ -197,7 +202,14 @@ RETURNING record_id
 		return MutationResult{}, fmt.Errorf("insert timeline record: %w", err)
 	}
 
+	if err := applyCreateMentionActionsTx(ctx, tx, actor.ID, current.RecordID, request.HostRefs, request.IdentityRefs, now.UTC()); err != nil {
+		return MutationResult{}, err
+	}
+
 	projected := projectRecord(current, nil)
+	if err := hydrateProjectedCollections(ctx, tx, &projected); err != nil {
+		return MutationResult{}, err
+	}
 	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
@@ -300,6 +312,7 @@ func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID u
 	}
 
 	next := current
+	mentionChanged := false
 	for _, change := range request.CanonicalChange {
 		switch change.FieldKey {
 		case "timeline.occurred_at":
@@ -310,12 +323,24 @@ func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID u
 			next.Details = change.TextValue
 		case "timeline.source_text":
 			next.SourceText = change.TextValue
+		case "timeline.host_refs", "timeline.identity_refs":
+			if change.ActionPayload != nil && len(change.ActionPayload.Actions) > 0 {
+				mentionChanged = true
+			}
 		}
 	}
 
 	beforeProjected := projectRecord(current, nil)
+	if err := hydrateProjectedCollections(ctx, tx, &beforeProjected); err != nil {
+		return MutationResult{}, err
+	}
 	materialChanged := hasMaterialChange(current, next)
-	if !materialChanged {
+	if mentionChanged {
+		if err := applyPatchMentionActionsTx(ctx, tx, actor.ID, recordID, request.CanonicalChange, now.UTC()); err != nil {
+			return MutationResult{}, err
+		}
+	}
+	if !materialChanged && !mentionChanged {
 		return MutationResult{}, ErrNoEffectiveChange
 	}
 	nextState, err := CaptureStateAfterMaterialPatch(current.CaptureState)
@@ -350,6 +375,9 @@ RETURNING recorded_at
 	}
 
 	afterProjected := projectRecord(next, nil)
+	if err := hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
+		return MutationResult{}, err
+	}
 	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
 		IncidentID:  current.IncidentID,
 		ActorUserID: actor.ID,
@@ -523,6 +551,9 @@ func (s *Store) applyAction(
 	}
 
 	beforeProjected := projectRecord(current, nil)
+	if err := hydrateProjectedCollections(ctx, tx, &beforeProjected); err != nil {
+		return MutationResult{}, err
+	}
 	if err := tx.QueryRow(ctx, `
 UPDATE timeline_events
    SET capture_state = $2,
@@ -552,6 +583,9 @@ RETURNING recorded_at
 	}
 
 	afterProjected := projectRecord(next, validatedReplacementID)
+	if err := hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
+		return MutationResult{}, err
+	}
 	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
 		IncidentID:  current.IncidentID,
 		ActorUserID: actor.ID,
@@ -789,6 +823,160 @@ func projectedRecordFromSQL(row sqlc.TimelineGridProjection) (projectedRecord, e
 		HasEvidence:           row.HasEvidence,
 		HasUnresolvedMentions: row.HasUnresolvedMentions,
 	}, nil
+}
+
+type mentionQueryer interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+}
+
+func hydrateProjectedCollections(ctx context.Context, querier mentionQueryer, record *projectedRecord) error {
+	if record == nil {
+		return nil
+	}
+	rows, err := querier.Query(ctx, `
+SELECT entity_mention_id, entity_type, raw_text, resolution_status, resolved_record_id, ordinal
+  FROM entity_mentions
+ WHERE source_record_id = $1
+   AND resolution_status IN ('unresolved', 'resolved')
+ ORDER BY ordinal ASC, entity_mention_id ASC
+`, record.RecordID)
+	if err != nil {
+		return fmt.Errorf("query timeline mention collections: %w", err)
+	}
+	defer rows.Close()
+
+	hostRefs := make([]map[string]any, 0)
+	identityRefs := make([]map[string]any, 0)
+	hasUnresolved := false
+	for rows.Next() {
+		var (
+			mentionID        uuid.UUID
+			entityType       string
+			rawText          string
+			resolutionStatus string
+			resolvedRecordID pgtype.UUID
+			ordinal          int
+		)
+		if err := rows.Scan(&mentionID, &entityType, &rawText, &resolutionStatus, &resolvedRecordID, &ordinal); err != nil {
+			return fmt.Errorf("scan timeline mention collection row: %w", err)
+		}
+
+		item := map[string]any{
+			"item_ref":     "entity_mention:" + mentionID.String(),
+			"entity_type":  entityType,
+			"display_text": rawText,
+			"raw_text":     rawText,
+		}
+		if resolutionStatus == "resolved" && resolvedRecordID.Valid {
+			item["item_kind"] = "resolved_ref"
+			resolved := uuid.Must(uuid.FromBytes(resolvedRecordID.Bytes[:]))
+			item["resolved_record_id"] = resolved.String()
+		} else {
+			item["item_kind"] = "unresolved_mention"
+			hasUnresolved = true
+		}
+
+		switch entityType {
+		case "host":
+			hostRefs = append(hostRefs, item)
+		case "identity":
+			identityRefs = append(identityRefs, item)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate timeline mention collection rows: %w", err)
+	}
+
+	record.HostRefs = hostRefs
+	record.IdentityRefs = identityRefs
+	record.HasUnresolvedMentions = hasUnresolved
+	return nil
+}
+
+func applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, recordID uuid.UUID, hostRefs *CollectionActionPayload, identityRefs *CollectionActionPayload, now time.Time) error {
+	if err := insertMentionActionsTx(ctx, tx, actorUserID, recordID, "timeline.host_refs", "host", hostRefs, now); err != nil {
+		return err
+	}
+	if err := insertMentionActionsTx(ctx, tx, actorUserID, recordID, "timeline.identity_refs", "identity", identityRefs, now); err != nil {
+		return err
+	}
+	return nil
+}
+
+func applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) error {
+	for _, change := range changes {
+		if change.ActionPayload == nil {
+			continue
+		}
+		switch change.FieldKey {
+		case "timeline.host_refs":
+			if err := insertMentionActionsTx(ctx, tx, actorUserID, recordID, change.FieldKey, "host", change.ActionPayload, now); err != nil {
+				return err
+			}
+		case "timeline.identity_refs":
+			if err := insertMentionActionsTx(ctx, tx, actorUserID, recordID, change.FieldKey, "identity", change.ActionPayload, now); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func insertMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, recordID uuid.UUID, fieldKey string, entityType string, payload *CollectionActionPayload, now time.Time) error {
+	if payload == nil || len(payload.Actions) == 0 {
+		return nil
+	}
+	nextOrdinal, err := nextMentionOrdinalTx(ctx, tx, recordID, fieldKey)
+	if err != nil {
+		return err
+	}
+	for _, action := range payload.Actions {
+		if action.Op != "add_token" {
+			return fmt.Errorf("unsupported mention action: %s", action.Op)
+		}
+		if _, err := tx.Exec(ctx, `
+INSERT INTO entity_mentions (
+    source_record_id,
+    entity_type,
+    source_field_key,
+    origin_kind,
+    origin_locator,
+    raw_text,
+    normalized_text,
+    resolution_status,
+    row_version,
+    ordinal,
+    created_by_user_id,
+    created_at,
+    resolved_record_id,
+    resolved_by_user_id,
+    resolved_at,
+    resolution_method
+)
+VALUES ($1, $2, $3, 'interactive_cell', $4, $5, $6, 'unresolved', 1, $7, $8, $9, NULL, NULL, NULL, NULL)
+`, recordID, entityType, fieldKey, mentionOriginLocator(recordID, fieldKey, nextOrdinal), action.RawText, action.NormalizedText, nextOrdinal, actorUserID, now.UTC()); err != nil {
+			return fmt.Errorf("insert entity mention: %w", err)
+		}
+		nextOrdinal++
+	}
+	return nil
+}
+
+func nextMentionOrdinalTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string) (int, error) {
+	var nextOrdinal int
+	if err := tx.QueryRow(ctx, `
+SELECT COALESCE(MAX(ordinal), 0) + 1
+  FROM entity_mentions
+ WHERE source_record_id = $1
+   AND source_field_key = $2
+`, recordID, fieldKey).Scan(&nextOrdinal); err != nil {
+		return 0, fmt.Errorf("query next mention ordinal: %w", err)
+	}
+	return nextOrdinal, nil
+}
+
+func mentionOriginLocator(recordID uuid.UUID, fieldKey string, ordinal int) string {
+	return fmt.Sprintf("view:%s/record:%s/cell:%s/item:%d", TimelineViewSchemaID, recordID.String(), fieldKey, ordinal)
 }
 
 func (s *Store) beforeCommit(routeKey string, recordID uuid.UUID) error {

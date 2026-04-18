@@ -147,7 +147,12 @@ SELECT
     e.recorded_at::date AS recorded_day,
     0::integer AS evidence_count,
     false::boolean AS has_evidence,
-    false::boolean AS has_unresolved_mentions
+    EXISTS (
+        SELECT 1
+        FROM entity_mentions em
+        WHERE em.source_record_id = e.record_id
+          AND em.resolution_status = 'unresolved'
+    ) AS has_unresolved_mentions
 FROM timeline_events e
 WHERE e.incident_id = $1
 ORDER BY COALESCE(e.occurred_at, e.recorded_at) ASC, e.record_id ASC

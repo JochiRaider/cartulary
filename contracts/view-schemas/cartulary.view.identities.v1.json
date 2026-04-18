@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "view_schema_id": "cartulary.view.identities.v1",
+  "title": "Identities",
+  "surface_kind": "built_in_sheet",
+  "source_record_types": [
+    "identity"
+  ],
+  "technical_fields": [
+    "record_id",
+    "row_version"
+  ],
+  "default_visible_fields": [
+    "identity.display_name",
+    "identity.upn",
+    "identity.email",
+    "identity.sam_account_name",
+    "identity.aliases",
+    "identity.identity_state",
+    "identity.linked_event_count",
+    "identity.evidence_count",
+    "identity.privilege_level",
+    "identity.mfa_state",
+    "identity.reset_status",
+    "identity.edited_at"
+  ],
+  "default_hidden_fields": [
+    "record_id",
+    "row_version"
+  ],
+  "default_sort": [
+    {
+      "field_key": "identity.display_name",
+      "direction": "asc"
+    },
+    {
+      "field_key": "record_id",
+      "direction": "asc"
+    }
+  ],
+  "sort_fields": [
+    "identity.display_name",
+    "identity.upn",
+    "identity.email",
+    "identity.sam_account_name",
+    "identity.identity_state",
+    "identity.linked_event_count",
+    "identity.evidence_count",
+    "identity.privilege_level",
+    "identity.mfa_state",
+    "identity.reset_status",
+    "identity.edited_at"
+  ],
+  "filter_fields": [
+    "identity.identity_state",
+    "identity.privilege_level",
+    "identity.mfa_state",
+    "identity.reset_status"
+  ],
+  "grouping_fields": [
+    "identity.identity_state",
+    "identity.privilege_level",
+    "identity.mfa_state",
+    "identity.reset_status"
+  ],
+  "inline_create": {
+    "permits_zero_field_create": false
+  },
+  "fields": [
+    {
+      "field_key": "identity.display_name",
+      "label": "Display Name",
+      "writable": true,
+      "read_model": "display_name",
+      "write_target": "identities.display_name",
+      "entity_binding_mode": "entity_origin",
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "identity.upn",
+      "label": "UPN",
+      "writable": true,
+      "read_model": "upn",
+      "write_target": "identities.upn",
+      "entity_binding_mode": "entity_origin",
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "identity.email",
+      "label": "Email",
+      "writable": true,
+      "read_model": "email",
+      "write_target": "identities.email",
+      "entity_binding_mode": "entity_origin",
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "identity.sam_account_name",
+      "label": "SAM Account Name",
+      "writable": true,
+      "read_model": "sam_account_name",
+      "write_target": "identities.sam_account_name",
+      "entity_binding_mode": "entity_origin",
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "identity.aliases",
+      "label": "Aliases",
+      "writable": true,
+      "read_model": "suggestion_only_aliases",
+      "write_action": "identity suggestion-only alias collection actions",
+      "entity_binding_mode": "entity_origin",
+      "conflict_resolution_class": "collection_review"
+    },
+    {
+      "field_key": "identity.identity_state",
+      "label": "State",
+      "writable": false,
+      "read_model": "identity_state",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "identity.linked_event_count",
+      "label": "Linked Events",
+      "writable": false,
+      "read_model": "linked_event_count",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "identity.evidence_count",
+      "label": "Evidence",
+      "writable": false,
+      "read_model": "evidence_count",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "identity.privilege_level",
+      "label": "Privilege",
+      "writable": false,
+      "read_model": "privilege_level",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "identity.mfa_state",
+      "label": "MFA",
+      "writable": false,
+      "read_model": "mfa_state",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "identity.reset_status",
+      "label": "Reset",
+      "writable": false,
+      "read_model": "reset_status",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "identity.edited_at",
+      "label": "Edited",
+      "writable": false,
+      "read_model": "edited_at",
+      "entity_binding_mode": null
+    }
+  ]
+}

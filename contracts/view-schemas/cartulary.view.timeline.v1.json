@@ -82,6 +82,7 @@
       "header_sort_field_key": "timeline.sort_ts",
       "direct_scalar_contract_id": "timestamp_instant_v1",
       "clearable": true,
+      "entity_binding_mode": null,
       "conflict_resolution_class": "atomic_replace"
     },
     {
@@ -90,6 +91,7 @@
       "writable": true,
       "read_model": "summary",
       "write_target": "timeline_events.summary",
+      "entity_binding_mode": null,
       "conflict_resolution_class": "text_compare_merge"
     },
     {
@@ -98,6 +100,7 @@
       "writable": true,
       "read_model": "details",
       "write_target": "timeline_events.details",
+      "entity_binding_mode": null,
       "conflict_resolution_class": "text_compare_merge"
     },
     {
@@ -106,6 +109,7 @@
       "writable": true,
       "read_model": "source_text",
       "write_target": "timeline_events.source_text",
+      "entity_binding_mode": null,
       "conflict_resolution_class": "text_compare_merge"
     },
     {
@@ -130,7 +134,8 @@
       "field_key": "timeline.evidence_count",
       "label": "Evidence",
       "writable": false,
-      "read_model": "evidence_count"
+      "read_model": "evidence_count",
+      "entity_binding_mode": null
     },
     {
       "field_key": "timeline.tags",
@@ -138,61 +143,71 @@
       "writable": true,
       "read_model": "tag_names",
       "write_action": "record_tags collection actions",
+      "entity_binding_mode": null,
       "conflict_resolution_class": "collection_review"
     },
     {
       "field_key": "timeline.edited_at",
       "label": "Edited",
       "writable": false,
-      "read_model": "edited_at"
+      "read_model": "edited_at",
+      "entity_binding_mode": null
     },
     {
       "field_key": "timeline.recorded_at",
       "label": "Recorded",
       "writable": false,
-      "read_model": "recorded_at"
+      "read_model": "recorded_at",
+      "entity_binding_mode": null
     },
     {
       "field_key": "timeline.sort_ts",
       "label": "Sort Time",
       "writable": false,
-      "read_model": "sort_ts"
+      "read_model": "sort_ts",
+      "entity_binding_mode": null
     },
     {
       "field_key": "timeline.capture_state",
       "label": "Capture State",
       "writable": false,
-      "read_model": "capture_state"
+      "read_model": "capture_state",
+      "entity_binding_mode": null
     },
     {
       "field_key": "timeline.replacement_record_id",
       "label": "Replacement",
       "writable": false,
-      "read_model": "replacement_record_id"
+      "read_model": "replacement_record_id",
+      "entity_binding_mode": null
     },
     {
       "field_key": "timeline.occurred_day",
       "label": "Occurred Day",
       "writable": false,
-      "read_model": "occurred_day"
+      "read_model": "occurred_day",
+      "entity_binding_mode": null
     },
     {
       "field_key": "timeline.recorded_day",
       "label": "Recorded Day",
       "writable": false,
-      "read_model": "recorded_day"
+      "read_model": "recorded_day",
+      "entity_binding_mode": null
     },
     {
       "field_key": "timeline.has_evidence",
       "label": "Has Evidence",
       "writable": false,
-      "read_model": "has_evidence"
+      "read_model": "has_evidence",
+      "entity_binding_mode": null
     },
     {
       "field_key": "timeline.has_unresolved_mentions",
       "label": "Has Unresolved Mentions",
       "writable": false,
-      "read_model": "has_unresolved_mentions"
+      "read_model": "has_unresolved_mentions",
+      "entity_binding_mode": null
     }
   ]
 }

@@ -66,6 +66,88 @@ type DeploymentBootstrapState struct {
 	ConsumedAt          pgtype.Timestamptz `json:"consumed_at"`
 }
 
+type EntityMention struct {
+	EntityMentionID  pgtype.UUID        `json:"entity_mention_id"`
+	SourceRecordID   pgtype.UUID        `json:"source_record_id"`
+	EntityType       string             `json:"entity_type"`
+	SourceFieldKey   string             `json:"source_field_key"`
+	OriginKind       string             `json:"origin_kind"`
+	OriginLocator    string             `json:"origin_locator"`
+	RawText          string             `json:"raw_text"`
+	NormalizedText   string             `json:"normalized_text"`
+	ResolutionStatus string             `json:"resolution_status"`
+	RowVersion       int64              `json:"row_version"`
+	Ordinal          int32              `json:"ordinal"`
+	CreatedByUserID  pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	ResolvedRecordID pgtype.UUID        `json:"resolved_record_id"`
+	ResolvedByUserID pgtype.UUID        `json:"resolved_by_user_id"`
+	ResolvedAt       pgtype.Timestamptz `json:"resolved_at"`
+	ResolutionMethod pgtype.Text        `json:"resolution_method"`
+}
+
+type Host struct {
+	RecordID        pgtype.UUID        `json:"record_id"`
+	IncidentID      pgtype.UUID        `json:"incident_id"`
+	DisplayName     string             `json:"display_name"`
+	Hostname        pgtype.Text        `json:"hostname"`
+	HostState       string             `json:"host_state"`
+	RowVersion      int64              `json:"row_version"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	CreatedByUserID pgtype.UUID        `json:"created_by_user_id"`
+	UpdatedByUserID pgtype.UUID        `json:"updated_by_user_id"`
+}
+
+type HostGridProjection struct {
+	RecordID          pgtype.UUID        `json:"record_id"`
+	IncidentID        pgtype.UUID        `json:"incident_id"`
+	RowVersion        int64              `json:"row_version"`
+	DisplayName       string             `json:"display_name"`
+	Hostname          pgtype.Text        `json:"hostname"`
+	HostState         string             `json:"host_state"`
+	LinkedEventCount  int32              `json:"linked_event_count"`
+	EvidenceCount     int32              `json:"evidence_count"`
+	Location          pgtype.Text        `json:"location"`
+	OsPlatform        pgtype.Text        `json:"os_platform"`
+	BusinessOwner     pgtype.Text        `json:"business_owner"`
+	Criticality       pgtype.Text        `json:"criticality"`
+	ContainmentStatus pgtype.Text        `json:"containment_status"`
+	EditedAt          pgtype.Timestamptz `json:"edited_at"`
+}
+
+type Identity struct {
+	RecordID        pgtype.UUID        `json:"record_id"`
+	IncidentID      pgtype.UUID        `json:"incident_id"`
+	DisplayName     string             `json:"display_name"`
+	Upn             pgtype.Text        `json:"upn"`
+	Email           pgtype.Text        `json:"email"`
+	SamAccountName  pgtype.Text        `json:"sam_account_name"`
+	IdentityState   string             `json:"identity_state"`
+	RowVersion      int64              `json:"row_version"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	CreatedByUserID pgtype.UUID        `json:"created_by_user_id"`
+	UpdatedByUserID pgtype.UUID        `json:"updated_by_user_id"`
+}
+
+type IdentityGridProjection struct {
+	RecordID         pgtype.UUID        `json:"record_id"`
+	IncidentID       pgtype.UUID        `json:"incident_id"`
+	RowVersion       int64              `json:"row_version"`
+	DisplayName      string             `json:"display_name"`
+	Upn              pgtype.Text        `json:"upn"`
+	Email            pgtype.Text        `json:"email"`
+	SamAccountName   pgtype.Text        `json:"sam_account_name"`
+	IdentityState    string             `json:"identity_state"`
+	LinkedEventCount int32              `json:"linked_event_count"`
+	EvidenceCount    int32              `json:"evidence_count"`
+	PrivilegeLevel   pgtype.Text        `json:"privilege_level"`
+	MfaState         pgtype.Text        `json:"mfa_state"`
+	ResetStatus      pgtype.Text        `json:"reset_status"`
+	EditedAt         pgtype.Timestamptz `json:"edited_at"`
+}
+
 type Incident struct {
 	ID                     pgtype.UUID        `json:"id"`
 	IncidentKey            string             `json:"incident_key"`

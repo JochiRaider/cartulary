@@ -10,12 +10,12 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/google/uuid"
-	"golang.org/x/text/unicode/norm"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 const (
@@ -26,9 +26,10 @@ const (
 	reviewRouteKey        = "timeline.records.mark_reviewed"
 	supersedeRouteKey     = "timeline.records.supersede"
 	maxPatchChanges       = 32
+	maxCollectionActions  = 64
 )
 
-var writableFieldKeys = map[string]struct{}{
+var directWritableFieldKeys = map[string]struct{}{
 	"timeline.occurred_at": {},
 	"timeline.summary":     {},
 	"timeline.details":     {},
@@ -36,11 +37,13 @@ var writableFieldKeys = map[string]struct{}{
 }
 
 type CreateRequest struct {
-	ClientTxnID string
-	OccurredAt  *time.Time
-	Summary     *string
-	Details     *string
-	SourceText  *string
+	ClientTxnID  string
+	OccurredAt   *time.Time
+	Summary      *string
+	Details      *string
+	SourceText   *string
+	HostRefs     *CollectionActionPayload
+	IdentityRefs *CollectionActionPayload
 }
 
 type PatchRequest struct {
@@ -51,9 +54,20 @@ type PatchRequest struct {
 }
 
 type PatchChange struct {
-	FieldKey   string
-	OccurredAt *time.Time
-	TextValue  *string
+	FieldKey      string
+	OccurredAt    *time.Time
+	TextValue     *string
+	ActionPayload *CollectionActionPayload
+}
+
+type CollectionActionPayload struct {
+	Actions []CollectionAction
+}
+
+type CollectionAction struct {
+	Op             string
+	RawText        string
+	NormalizedText string
 }
 
 type ActionRequest struct {
@@ -96,11 +110,13 @@ func DecodeTimelineCreateRequest(reader io.Reader) (CreateRequest, *auth.APIErro
 	}
 
 	allowed := map[string]struct{}{
-		"client_txn_id":        {},
-		"timeline.occurred_at": {},
-		"timeline.summary":     {},
-		"timeline.details":     {},
-		"timeline.source_text": {},
+		"client_txn_id":          {},
+		"timeline.occurred_at":   {},
+		"timeline.summary":       {},
+		"timeline.details":       {},
+		"timeline.source_text":   {},
+		"timeline.host_refs":     {},
+		"timeline.identity_refs": {},
 	}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
@@ -127,6 +143,12 @@ func DecodeTimelineCreateRequest(reader io.Reader) (CreateRequest, *auth.APIErro
 	}
 	if request.SourceText, ok = normalizeNullableNoteField(raw, "timeline.source_text"); !ok {
 		return CreateRequest{}, invalidMutationPayload("timeline.source_text", "invalid_value")
+	}
+	if request.HostRefs, ok = decodeCreateCollectionActionField(raw, "timeline.host_refs"); !ok {
+		return CreateRequest{}, invalidMutationPayload("timeline.host_refs", "invalid_value")
+	}
+	if request.IdentityRefs, ok = decodeCreateCollectionActionField(raw, "timeline.identity_refs"); !ok {
+		return CreateRequest{}, invalidMutationPayload("timeline.identity_refs", "invalid_value")
 	}
 	if !CreateRequestHasUserValue(request) {
 		return CreateRequest{}, invalidMutationPayload("payload", "at_least_one_value_required")
@@ -302,11 +324,13 @@ func DecodeTimelineSupersedeRequest(reader io.Reader) (SupersedeRequest, *auth.A
 
 func TimelineCreateRequestHash(request CreateRequest) []byte {
 	payload := map[string]any{
-		"client_txn_id":        request.ClientTxnID,
-		"timeline.occurred_at": formatTimestampPointer(request.OccurredAt),
-		"timeline.summary":     derefString(request.Summary),
-		"timeline.details":     derefString(request.Details),
-		"timeline.source_text": derefString(request.SourceText),
+		"client_txn_id":          request.ClientTxnID,
+		"timeline.occurred_at":   formatTimestampPointer(request.OccurredAt),
+		"timeline.summary":       derefString(request.Summary),
+		"timeline.details":       derefString(request.Details),
+		"timeline.source_text":   derefString(request.SourceText),
+		"timeline.host_refs":     canonicalCollectionActionPayload(request.HostRefs),
+		"timeline.identity_refs": canonicalCollectionActionPayload(request.IdentityRefs),
 	}
 	return hashRequestPayload(payload)
 }
@@ -314,10 +338,13 @@ func TimelineCreateRequestHash(request CreateRequest) []byte {
 func TimelinePatchRequestHash(request PatchRequest) []byte {
 	changes := make([]map[string]any, 0, len(request.CanonicalChange))
 	for _, change := range request.CanonicalChange {
-		changes = append(changes, map[string]any{
-			"field_key": change.FieldKey,
-			"value":     canonicalChangeValue(change),
-		})
+		entry := map[string]any{"field_key": change.FieldKey}
+		if change.ActionPayload != nil {
+			entry["action_payload"] = canonicalCollectionActionPayload(change.ActionPayload)
+		} else {
+			entry["value"] = canonicalChangeValue(change)
+		}
+		changes = append(changes, entry)
 	}
 	return hashRequestPayload(map[string]any{
 		"view_schema_id":   request.ViewSchemaID,
@@ -346,10 +373,10 @@ func BuildRow(record projectedRecord) map[string]any {
 		"timeline.summary":                 map[string]any{"value": derefString(record.Summary)},
 		"timeline.details":                 map[string]any{"value": derefString(record.Details)},
 		"timeline.source_text":             map[string]any{"value": derefString(record.SourceText)},
-		"timeline.host_refs":               map[string]any{"value": collectionValue(true)},
-		"timeline.identity_refs":           map[string]any{"value": collectionValue(true)},
+		"timeline.host_refs":               map[string]any{"value": collectionValue(true, record.HostRefs)},
+		"timeline.identity_refs":           map[string]any{"value": collectionValue(true, record.IdentityRefs)},
 		"timeline.evidence_count":          map[string]any{"value": record.EvidenceCount},
-		"timeline.tags":                    map[string]any{"value": collectionValue(false)},
+		"timeline.tags":                    map[string]any{"value": collectionValue(false, nil)},
 		"timeline.edited_at":               map[string]any{"value": formatTimestamp(record.EditedAt)},
 		"timeline.recorded_at":             map[string]any{"value": formatTimestamp(record.RecordedAt)},
 		"timeline.sort_ts":                 map[string]any{"value": formatTimestamp(record.SortTs)},
@@ -509,8 +536,9 @@ func decodePatchChange(raw json.RawMessage) (PatchChange, *auth.APIError) {
 	}
 
 	allowed := map[string]struct{}{
-		"field_key": {},
-		"value":     {},
+		"field_key":      {},
+		"value":          {},
+		"action_payload": {},
 	}
 	for key := range object {
 		if _, ok := allowed[key]; !ok {
@@ -526,16 +554,33 @@ func decodePatchChange(raw json.RawMessage) (PatchChange, *auth.APIError) {
 	if err := json.Unmarshal(fieldValue, &fieldKey); err != nil {
 		return PatchChange{}, invalidMutationPayload("field_key", "invalid_value")
 	}
-	if _, ok := writableFieldKeys[fieldKey]; !ok {
+	field, ok := viewschema.LookupField(TimelineViewSchemaID, fieldKey)
+	if !ok || !field.Writable {
 		return PatchChange{}, invalidMutationPayload("field_key", "unsupported_field_key")
 	}
 
-	value, ok := object["value"]
-	if !ok {
-		return PatchChange{}, invalidMutationPayload("value", "missing_required_field")
+	change := PatchChange{FieldKey: fieldKey}
+	value, hasValue := object["value"]
+	actionPayload, hasActionPayload := object["action_payload"]
+	if hasValue == hasActionPayload {
+		return PatchChange{}, invalidMutationPayload("changes", "invalid_change")
 	}
 
-	change := PatchChange{FieldKey: fieldKey}
+	if field.ConflictResolutionClass == "collection_review" {
+		if !hasActionPayload {
+			return PatchChange{}, invalidMutationPayload("action_payload", "missing_required_field")
+		}
+		payload, ok := decodeCollectionActionPayload(fieldKey, actionPayload)
+		if !ok {
+			return PatchChange{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		change.ActionPayload = payload
+		return change, nil
+	}
+
+	if !hasValue {
+		return PatchChange{}, invalidMutationPayload("value", "missing_required_field")
+	}
 	switch fieldKey {
 	case "timeline.occurred_at":
 		timestamp, ok := normalizeNullableTimestampValue(value)
@@ -544,6 +589,9 @@ func decodePatchChange(raw json.RawMessage) (PatchChange, *auth.APIError) {
 		}
 		change.OccurredAt = timestamp
 	default:
+		if _, ok := directWritableFieldKeys[fieldKey]; !ok {
+			return PatchChange{}, invalidMutationPayload("field_key", "unsupported_field_key")
+		}
 		textValue, ok := normalizeFieldTextValue(fieldKey, value)
 		if !ok {
 			return PatchChange{}, invalidMutationPayload(fieldKey, "invalid_value")
@@ -564,11 +612,73 @@ func normalizeFieldTextValue(fieldKey string, value json.RawMessage) (*string, b
 	}
 }
 
-func collectionValue(ordered bool) map[string]any {
+func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey string) (*CollectionActionPayload, bool) {
+	value, ok := raw[fieldKey]
+	if !ok {
+		return nil, true
+	}
+	return decodeCollectionActionPayload(fieldKey, value)
+}
+
+func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*CollectionActionPayload, bool) {
+	if fieldKey != "timeline.host_refs" && fieldKey != "timeline.identity_refs" {
+		return nil, false
+	}
+
+	var payload struct {
+		Kind    string                       `json:"kind"`
+		Actions []map[string]json.RawMessage `json:"actions"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return nil, false
+	}
+	if payload.Kind != "collection_actions_v1" || len(payload.Actions) == 0 || len(payload.Actions) > maxCollectionActions {
+		return nil, false
+	}
+
+	actions := make([]CollectionAction, 0, len(payload.Actions))
+	for _, rawAction := range payload.Actions {
+		if len(rawAction) != 2 {
+			return nil, false
+		}
+		opValue, ok := rawAction["op"]
+		if !ok {
+			return nil, false
+		}
+		rawTextValue, ok := rawAction["raw_text"]
+		if !ok {
+			return nil, false
+		}
+
+		var op string
+		if err := json.Unmarshal(opValue, &op); err != nil || op != "add_token" {
+			return nil, false
+		}
+		var rawText string
+		if err := json.Unmarshal(rawTextValue, &rawText); err != nil {
+			return nil, false
+		}
+		normalized, ok := fieldnorm.NormalizeLine(rawText)
+		if !ok {
+			return nil, false
+		}
+		actions = append(actions, CollectionAction{
+			Op:             op,
+			RawText:        rawText,
+			NormalizedText: normalized,
+		})
+	}
+	return &CollectionActionPayload{Actions: actions}, true
+}
+
+func collectionValue(ordered bool, items []map[string]any) map[string]any {
+	if items == nil {
+		items = []map[string]any{}
+	}
 	return map[string]any{
 		"kind":    "collection_value_v1",
 		"ordered": ordered,
-		"items":   []any{},
+		"items":   items,
 	}
 }
 
@@ -577,6 +687,23 @@ func canonicalChangeValue(change PatchChange) any {
 		return formatTimestampPointer(change.OccurredAt)
 	}
 	return derefString(change.TextValue)
+}
+
+func canonicalCollectionActionPayload(payload *CollectionActionPayload) any {
+	if payload == nil {
+		return nil
+	}
+	actions := make([]map[string]any, 0, len(payload.Actions))
+	for _, action := range payload.Actions {
+		actions = append(actions, map[string]any{
+			"op":       action.Op,
+			"raw_text": action.NormalizedText,
+		})
+	}
+	return map[string]any{
+		"kind":    "collection_actions_v1",
+		"actions": actions,
+	}
 }
 
 func hashRequestPayload(payload any) []byte {
@@ -695,34 +822,11 @@ func normalizeNoteValue(value json.RawMessage) (string, bool) {
 }
 
 func normalizeLine(raw string) (string, bool) {
-	normalized := norm.NFC.String(strings.TrimFunc(raw, unicode.IsSpace))
-	if normalized == "" {
-		return "", false
-	}
-	for _, r := range normalized {
-		if unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r) {
-			return "", false
-		}
-	}
-	return normalized, true
+	return fieldnorm.NormalizeLine(raw)
 }
 
 func normalizeNote(raw string) (string, bool) {
-	normalized := norm.NFC.String(raw)
-	normalized = strings.ReplaceAll(normalized, "\r\n", "\n")
-	normalized = strings.ReplaceAll(normalized, "\r", "\n")
-	normalized = strings.TrimFunc(normalized, unicode.IsSpace)
-	if normalized == "" {
-		return "", false
-	}
-	for _, r := range normalized {
-		switch {
-		case r == '\n' || r == '\t':
-		case unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r):
-			return "", false
-		}
-	}
-	return normalized, true
+	return fieldnorm.NormalizeNote(raw)
 }
 
 func formatTimestamp(value time.Time) string {

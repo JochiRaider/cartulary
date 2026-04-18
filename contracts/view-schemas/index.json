@@ -11,6 +11,24 @@
         "timeline_event"
       ],
       "artifact_path": "contracts/view-schemas/cartulary.view.timeline.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.hosts.v1",
+      "title": "Hosts",
+      "surface_kind": "built_in_sheet",
+      "source_record_types": [
+        "host"
+      ],
+      "artifact_path": "contracts/view-schemas/cartulary.view.hosts.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.identities.v1",
+      "title": "Identities",
+      "surface_kind": "built_in_sheet",
+      "source_record_types": [
+        "identity"
+      ],
+      "artifact_path": "contracts/view-schemas/cartulary.view.identities.v1.json"
     }
   ]
 }

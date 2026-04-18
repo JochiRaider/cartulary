@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "view_schema_id": "cartulary.view.hosts.v1",
+  "title": "Hosts",
+  "surface_kind": "built_in_sheet",
+  "source_record_types": [
+    "host"
+  ],
+  "technical_fields": [
+    "record_id",
+    "row_version"
+  ],
+  "default_visible_fields": [
+    "host.display_name",
+    "host.hostname",
+    "host.aliases",
+    "host.host_state",
+    "host.linked_event_count",
+    "host.evidence_count",
+    "host.location",
+    "host.os_platform",
+    "host.business_owner",
+    "host.criticality",
+    "host.containment_status",
+    "host.edited_at"
+  ],
+  "default_hidden_fields": [
+    "record_id",
+    "row_version"
+  ],
+  "default_sort": [
+    {
+      "field_key": "host.display_name",
+      "direction": "asc"
+    },
+    {
+      "field_key": "record_id",
+      "direction": "asc"
+    }
+  ],
+  "sort_fields": [
+    "host.display_name",
+    "host.hostname",
+    "host.host_state",
+    "host.linked_event_count",
+    "host.evidence_count",
+    "host.location",
+    "host.os_platform",
+    "host.business_owner",
+    "host.criticality",
+    "host.containment_status",
+    "host.edited_at"
+  ],
+  "filter_fields": [
+    "host.host_state",
+    "host.location",
+    "host.os_platform",
+    "host.business_owner",
+    "host.criticality",
+    "host.containment_status"
+  ],
+  "grouping_fields": [
+    "host.host_state",
+    "host.criticality",
+    "host.containment_status"
+  ],
+  "inline_create": {
+    "permits_zero_field_create": false
+  },
+  "fields": [
+    {
+      "field_key": "host.display_name",
+      "label": "Display Name",
+      "writable": true,
+      "read_model": "display_name",
+      "write_target": "hosts.display_name",
+      "entity_binding_mode": "entity_origin",
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "host.hostname",
+      "label": "Hostname",
+      "writable": true,
+      "read_model": "hostname",
+      "write_target": "hosts.hostname",
+      "entity_binding_mode": "entity_origin",
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "host.aliases",
+      "label": "Aliases",
+      "writable": true,
+      "read_model": "suggestion_only_aliases",
+      "write_action": "host suggestion-only alias collection actions",
+      "entity_binding_mode": "entity_origin",
+      "conflict_resolution_class": "collection_review"
+    },
+    {
+      "field_key": "host.host_state",
+      "label": "State",
+      "writable": false,
+      "read_model": "host_state",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "host.linked_event_count",
+      "label": "Linked Events",
+      "writable": false,
+      "read_model": "linked_event_count",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "host.evidence_count",
+      "label": "Evidence",
+      "writable": false,
+      "read_model": "evidence_count",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "host.location",
+      "label": "Location",
+      "writable": false,
+      "read_model": "location",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "host.os_platform",
+      "label": "OS Platform",
+      "writable": false,
+      "read_model": "os_platform",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "host.business_owner",
+      "label": "Business Owner",
+      "writable": false,
+      "read_model": "business_owner",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "host.criticality",
+      "label": "Criticality",
+      "writable": false,
+      "read_model": "criticality",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "host.containment_status",
+      "label": "Containment",
+      "writable": false,
+      "read_model": "containment_status",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "host.edited_at",
+      "label": "Edited",
+      "writable": false,
+      "read_model": "edited_at",
+      "entity_binding_mode": null
+    }
+  ]
+}

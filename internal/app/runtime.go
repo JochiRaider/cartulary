@@ -10,6 +10,7 @@ import (
 	"github.com/minio/minio-go/v7"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
@@ -85,7 +86,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	runtime.WSHub = hub
 
 	httpOptions := options.HTTP
-	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidents.RegisterRoutes(), timeline.RegisterRoutes()}, httpOptions.AdditionalRoutes...)
+	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidents.RegisterRoutes(), entities.RegisterRoutes(), timeline.RegisterRoutes()}, httpOptions.AdditionalRoutes...)
 	httpOptions.Dependencies = httpapi.DependencySet{
 		Config:      normalizedCfg,
 		Env:         options.Env,
