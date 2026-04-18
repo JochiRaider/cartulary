@@ -56,5 +56,6 @@
 - `make bootstrap` installs the pinned Go CLI tools and workspace dependencies.
 - `make check` is the developer verification gate and runs frozen frontend install, generated-artifact drift detection, migration verification against a scratch local Postgres database, backend lint and tests, frontend lint, type-check, and tests, plus backend and frontend builds.
 - `make ci` is the provider-neutral CI enforcement entrypoint. It composes the canonical repo task surface and fails on codegen drift, migration failures, and deployable-shape drift.
+- For coding agents or other token-sensitive automation, prefer `CARTULARY_OUTPUT_MODE=quiet make check` and `CARTULARY_OUTPUT_MODE=quiet make ci`; use `VERBOSE=1` or `CI_VERBOSE=1` when you need the full streaming logs for investigation.
 - From PowerShell, prefer repo commands through `wsl.exe -d Ubuntu-24.04 --cd /home/askahn/code/cartulary ...`; for Node/pnpm, prepend `/home/askahn/code/cartulary/tmp/node-runtime/bin` to `PATH` and use `corepack pnpm`.
 - If Git on the UNC WSL path reports dubious ownership, retry with `git -c safe.directory=//wsl.localhost/Ubuntu-24.04/home/askahn/code/cartulary ...`.
