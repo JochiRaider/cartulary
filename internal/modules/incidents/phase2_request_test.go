@@ -1,7 +1,10 @@
 package incidents
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -13,11 +16,11 @@ import (
 	"example.com/todo/cartulary/internal/platform/httpapi"
 )
 
-func TestPhase2_IncidentCreateContracts_U_2_01(t *testing.T) {
+func TestPhase2_U_2_01_IncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey(t *testing.T) {
 	request, apiErr := DecodeIncidentCreateRequest(strings.NewReader(`{
-		"client_txn_id":"txn-incident-1",
-		"incident_key":"  IR-2026-\u00a0001  ",
-		"title":"  Incident \u00c9xample  ",
+		"client_txn_id":"txn-u-2-01",
+		"incident_key":"  I\u0052-\u0032\u0030\u0032\u0036\u002d\u0030\u0030\u0031  ",
+		"title":"  Incident \u00C9xample  ",
 		"description":"  First line\r\nSecond line  ",
 		"severity":"  high  ",
 		"tlp":"  amber  ",
@@ -27,34 +30,85 @@ func TestPhase2_IncidentCreateContracts_U_2_01(t *testing.T) {
 	if apiErr != nil {
 		t.Fatalf("decode valid incident create request: %v", apiErr)
 	}
-	if request.IncidentKey != "IR-2026-\u00a0001" {
-		t.Fatalf("unexpected normalized incident_key: %q", request.IncidentKey)
+	requireWritableStringNormalization(t, request.IncidentKey, "IR-2026-001")
+	requireWritableStringNormalization(t, request.Title, "Incident \u00C9xample")
+	if request.Description == nil {
+		t.Fatal("expected normalized description")
 	}
-	if request.Title != "Incident Éxample" {
-		t.Fatalf("unexpected normalized title: %q", request.Title)
-	}
-	if request.Description == nil || *request.Description != "First line\nSecond line" {
-		t.Fatalf("unexpected normalized description: %#v", request.Description)
-	}
+	requireWritableStringNormalization(t, *request.Description, "First line\nSecond line")
 
 	_, apiErr = DecodeIncidentCreateRequest(strings.NewReader(`{
-		"client_txn_id":"txn-incident-2",
-		"incident_key":"IR-2",
+		"client_txn_id":"txn-u-2-01-invalid-memberships",
+		"incident_key":"IR-2026-002",
 		"title":"Example",
 		"initial_memberships":[]
 	}`))
-	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", "initial_memberships")
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", "initial_memberships", "initial_memberships_not_supported")
 
 	_, apiErr = DecodeIncidentCreateRequest(strings.NewReader(`{
-		"client_txn_id":"txn-incident-3",
-		"incident_key":"IR-3",
+		"client_txn_id":"txn-u-2-01-invalid-top-level",
+		"incident_key":"IR-2026-003",
 		"title":"Example",
 		"unexpected":true
 	}`))
-	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", "unexpected")
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", "unexpected", "unknown_top_level_member")
 }
 
-func TestPhase2_IncidentPatchContracts_U_2_02(t *testing.T) {
+func TestPhase2_U_2_02_IncidentCreateBootstrapsCreatorAndWorkbookPreferences(t *testing.T) {
+	bootstrap := DefaultIncidentCreateBootstrap()
+	if bootstrap.CreatorRole != "admin" {
+		t.Fatalf("unexpected creator bootstrap role: got %q want admin", bootstrap.CreatorRole)
+	}
+	if !bootstrap.CreatesIncidentWorkbookPreferences || !bootstrap.CreatesUserWorkbookPreferences {
+		t.Fatalf("incident bootstrap must create both workbook preference rows: %#v", bootstrap)
+	}
+}
+
+func TestPhase2_U_2_03_IncidentCreateReturnsStableLocationHeader(t *testing.T) {
+	incidentID := uuid.MustParse("00000000-0000-0000-0000-000000000901")
+	if got := incidentLocation(incidentID); got != "/api/v1/incidents/00000000-0000-0000-0000-000000000901" {
+		t.Fatalf("unexpected incident Location path: got %q", got)
+	}
+}
+
+func TestPhase2_U_2_04_IncidentCreateIdempotencyUsesActorAndNormalizedReplay(t *testing.T) {
+	first, apiErr := DecodeIncidentCreateRequest(strings.NewReader(`{
+		"client_txn_id":"txn-u-2-04",
+		"incident_key":"  IR-2026-004  ",
+		"title":"  Replay Incident  "
+	}`))
+	if apiErr != nil {
+		t.Fatalf("decode first create request: %v", apiErr)
+	}
+	replay, apiErr := DecodeIncidentCreateRequest(strings.NewReader(`{
+		"client_txn_id":"txn-u-2-04",
+		"incident_key":"IR-2026-004",
+		"title":"Replay Incident"
+	}`))
+	if apiErr != nil {
+		t.Fatalf("decode replay request: %v", apiErr)
+	}
+	divergent, apiErr := DecodeIncidentCreateRequest(strings.NewReader(`{
+		"client_txn_id":"txn-u-2-04",
+		"incident_key":"IR-2026-004",
+		"title":"Different title"
+	}`))
+	if apiErr != nil {
+		t.Fatalf("decode divergent request: %v", apiErr)
+	}
+
+	firstHash := incidentCreateHash(first)
+	replayHash := incidentCreateHash(replay)
+	divergentHash := incidentCreateHash(divergent)
+	if !hashesEqual(firstHash, replayHash) {
+		t.Fatalf("normalized replay must hash identically: first=%x replay=%x", firstHash, replayHash)
+	}
+	if hashesEqual(firstHash, divergentHash) {
+		t.Fatalf("divergent replay must not hash identically: first=%x divergent=%x", firstHash, divergentHash)
+	}
+}
+
+func TestPhase2_U_2_05_IncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable(t *testing.T) {
 	request, apiErr := DecodeIncidentPatchRequest(strings.NewReader(`{
 		"base_incident_version":7,
 		"tlp":null,
@@ -73,66 +127,131 @@ func TestPhase2_IncidentPatchContracts_U_2_02(t *testing.T) {
 		t.Fatalf("unexpected omitted field to be marked present: %#v", request.PrimaryExternalCaseRef)
 	}
 
+	current := IncidentRecord{
+		ID:                     uuid.MustParse("00000000-0000-0000-0000-000000000905"),
+		TLP:                    stringRef("amber"),
+		CurrentPhase:           stringRef("containment"),
+		PrimaryExternalCaseRef: stringRef("CASE-1"),
+		UpdatedAt:              timeRef(2026, 4, 17, 12, 0),
+		IncidentVersion:        7,
+	}
+	noOp, changed := ApplyIncidentPatch(current, IncidentPatchRequest{BaseIncidentVersion: 7}, uuid.MustParse("00000000-0000-0000-0000-000000000777"), timeRef(2026, 4, 17, 13, 0))
+	if changed {
+		t.Fatalf("expected structurally valid no-op patch to remain version-stable: %#v", noOp)
+	}
+	if noOp.IncidentVersion != current.IncidentVersion || !noOp.UpdatedAt.Equal(current.UpdatedAt) {
+		t.Fatalf("no-op patch must keep version and updated_at stable: before=%#v after=%#v", current, noOp)
+	}
+
+	material, changed := ApplyIncidentPatch(current, IncidentPatchRequest{
+		BaseIncidentVersion:    7,
+		TLP:                    OptionalNullableString{Present: true, Value: stringRef("green")},
+		PrimaryExternalCaseRef: OptionalNullableString{Present: true, Value: nil},
+	}, uuid.MustParse("00000000-0000-0000-0000-000000000777"), timeRef(2026, 4, 17, 13, 0))
+	if !changed {
+		t.Fatal("expected material patch to change promoted fields")
+	}
+	if material.IncidentVersion != 8 || material.TLP == nil || *material.TLP != "green" || material.PrimaryExternalCaseRef != nil {
+		t.Fatalf("unexpected material patch projection: %#v", material)
+	}
+
 	_, apiErr = DecodeIncidentPatchRequest(strings.NewReader(`{
 		"base_incident_version":7,
 		"title":"forbidden"
 	}`))
-	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "title")
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "title", "forbidden_field")
 
 	_, apiErr = DecodeIncidentPatchRequest(strings.NewReader(`{
-		"base_incident_version":7,
+		"tlp":"amber"
+	}`))
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "base_incident_version", "missing_required_field")
+
+	_, apiErr = DecodeIncidentPatchRequest(strings.NewReader(`{
 		"unknown":"field"
 	}`))
-	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "unknown")
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "unknown", "unknown_top_level_member")
 }
 
-func TestPhase2_MembershipCreateContracts_U_2_03(t *testing.T) {
+func TestPhase2_U_2_06_MembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFields(t *testing.T) {
 	request, apiErr := DecodeMembershipCreateRequest(strings.NewReader(`{
-		"client_txn_id":"txn-membership-1",
+		"client_txn_id":"txn-u-2-06-email",
 		"email":"  Analyst@Example.Test  ",
 		"role":"reviewer"
 	}`))
 	if apiErr != nil {
 		t.Fatalf("decode valid membership create request: %v", apiErr)
 	}
-	if request.Email == nil || *request.Email != "Analyst@Example.Test" {
-		t.Fatalf("unexpected normalized email: %#v", request.Email)
+	if request.Email == nil {
+		t.Fatal("expected normalized email target")
+	}
+	requireWritableStringNormalization(t, *request.Email, "Analyst@Example.Test")
+
+	userOnly, apiErr := DecodeMembershipCreateRequest(strings.NewReader(`{
+		"client_txn_id":"txn-u-2-06-user",
+		"user_id":"00000000-0000-0000-0000-000000000601",
+		"role":"viewer"
+	}`))
+	if apiErr != nil {
+		t.Fatalf("decode user-target membership create request: %v", apiErr)
+	}
+	if userOnly.UserID == nil || userOnly.Email != nil {
+		t.Fatalf("expected user_id-only membership target, got %#v", userOnly)
 	}
 
 	_, apiErr = DecodeMembershipCreateRequest(strings.NewReader(`{
-		"client_txn_id":"txn-membership-2",
-		"user_id":"00000000-0000-0000-0000-000000000001",
+		"client_txn_id":"txn-u-2-06-missing-target",
+		"role":"viewer"
+	}`))
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_mutation_payload", "user_id", "exactly_one_target_selector")
+
+	_, apiErr = DecodeMembershipCreateRequest(strings.NewReader(`{
+		"client_txn_id":"txn-u-2-06-dual-target",
+		"user_id":"00000000-0000-0000-0000-000000000602",
 		"email":"dual@example.test",
 		"role":"viewer"
 	}`))
-	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_mutation_payload", "user_id")
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_mutation_payload", "user_id", "exactly_one_target_selector")
 
 	_, apiErr = DecodeMembershipCreateRequest(strings.NewReader(`{
-		"client_txn_id":"txn-membership-3",
+		"client_txn_id":"txn-u-2-06-invalid-role",
 		"email":"solo@example.test",
 		"role":"owner"
 	}`))
-	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_mutation_payload", "role")
+	requireClosedVocabularyRejected(t, apiErr, "role", "invalid_role")
+
+	_, apiErr = DecodeMembershipCreateRequest(strings.NewReader(`{
+		"client_txn_id":"txn-u-2-06-no-invite",
+		"email":"solo@example.test",
+		"role":"viewer",
+		"invitation_email":"new@example.test"
+	}`))
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_mutation_payload", "invitation_email", "unknown_field")
 }
 
-func TestPhase2_MembershipPatchAndAdminGuard_U_2_04(t *testing.T) {
-	request, apiErr := DecodeMembershipPatchRequest(strings.NewReader(`{
+func TestPhase2_U_2_07_MembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuard(t *testing.T) {
+	patchRequest, apiErr := DecodeMembershipPatchRequest(strings.NewReader(`{
 		"base_membership_version":5,
 		"role":"admin"
 	}`))
 	if apiErr != nil {
 		t.Fatalf("decode valid membership patch request: %v", apiErr)
 	}
-	if request.BaseMembershipVersion != 5 || request.Role != "admin" {
-		t.Fatalf("unexpected membership patch request: %#v", request)
+	if patchRequest.BaseMembershipVersion != 5 || patchRequest.Role != "admin" {
+		t.Fatalf("unexpected membership patch request: %#v", patchRequest)
 	}
 
-	_, apiErr = DecodeMembershipPatchRequest(strings.NewReader(`{
-		"base_membership_version":5,
-		"user_id":"00000000-0000-0000-0000-000000000001",
-		"role":"admin"
+	deleteRequest, apiErr := DecodeMembershipDeleteRequest(strings.NewReader(`{
+		"base_membership_version":5
 	}`))
-	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_mutation_payload", "user_id")
+	if apiErr != nil {
+		t.Fatalf("decode valid membership delete request: %v", apiErr)
+	}
+	if deleteRequest.BaseMembershipVersion != 5 {
+		t.Fatalf("unexpected membership delete request: %#v", deleteRequest)
+	}
+
+	_, apiErr = DecodeMembershipDeleteRequest(strings.NewReader(`{}`))
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_mutation_payload", "base_membership_version", "missing_required_field")
 
 	nextRole := "reviewer"
 	if !WouldLeaveNoIncidentAdmins("admin", 1, &nextRole, false) {
@@ -146,55 +265,155 @@ func TestPhase2_MembershipPatchAndAdminGuard_U_2_04(t *testing.T) {
 	}
 }
 
-func TestPhase2_ExtensionDiscoveryAndDispatch_U_2_05(t *testing.T) {
+func TestPhase2_U_2_08_DeploymentAdminAloneDoesNotGrantIncidentRouteOrSocketAccess(t *testing.T) {
+	surfaces := []struct {
+		name          string
+		requiredRoles []string
+		wantCode      string
+	}{
+		{name: "incident read", requiredRoles: nil, wantCode: "incident_not_found"},
+		{name: "incident write", requiredRoles: []string{"reviewer", "admin"}, wantCode: "incident_not_found"},
+		{name: "incident job", requiredRoles: []string{"admin"}, wantCode: "incident_not_found"},
+		{name: "incident preview", requiredRoles: nil, wantCode: "incident_not_found"},
+		{name: "incident download", requiredRoles: nil, wantCode: "incident_not_found"},
+		{name: "incident websocket", requiredRoles: nil, wantCode: "incident_not_found"},
+	}
+
+	for _, surface := range surfaces {
+		surface := surface
+		t.Run(surface.name, func(t *testing.T) {
+			apiErr := IncidentAccessError(nil, true, surface.requiredRoles...)
+			requireAPIError(t, apiErr, http.StatusNotFound, surface.wantCode, "", "")
+		})
+	}
+}
+
+func TestPhase2_U_2_09_ExtensionDiscoveryReturnsExactSingletonProfileShape(t *testing.T) {
 	query := url.Values{"cursor_token": []string{"opaque"}}
 	apiErr := auth.ValidateSingletonReadQuery(query)
-	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_pagination_request", "")
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_pagination_request", "", "pagination_not_supported")
 
-	profiles := httpapi.CurrentExtensionProfiles()
-	if len(profiles) != 5 {
-		t.Fatalf("unexpected extension profile count: got %d", len(profiles))
+	data := BuildExtensionsResponseData(httpapi.CurrentExtensionProfiles())
+	extensions, ok := data["extensions"].([]map[string]any)
+	if !ok {
+		t.Fatalf("unexpected extensions response data: %#v", data)
 	}
-	if profiles[0].ProfileID != "enterprise_authentication" || profiles[len(profiles)-1].ProfileID != "snapshot_reporting" {
-		t.Fatalf("unexpected extension profile ordering: %#v", profiles)
+	if len(extensions) != 5 {
+		t.Fatalf("unexpected extension profile count: got %d", len(extensions))
 	}
 
-	match, ok := httpapi.MatchReservedExtensionFamily("/api/v1/import-sessions")
-	if !ok || match.ProfileID != "import" || match.RouteFamily != "/api/v1/import-sessions" {
-		t.Fatalf("unexpected reserved import dispatch match: %#v ok=%v", match, ok)
+	wantProfiles := []struct {
+		profileID string
+		families  []string
+	}{
+		{"enterprise_authentication", []string{"/api/v1/auth/oidc", "/api/v1/auth/providers", "/api/v1/auth/saml", "/api/v1/users/{user_id}/auth-bindings"}},
+		{"import", []string{"/api/v1/import-sessions"}},
+		{"incident_portability", []string{"/api/v1/incident-bundles"}},
+		{"reference_pack", []string{"/api/v1/reference-packs"}},
+		{"snapshot_reporting", []string{"/api/v1/releases", "/api/v1/snapshots"}},
 	}
-	match, ok = httpapi.MatchReservedExtensionFamily("/api/v1/users/" + uuid.NewString() + "/auth-bindings/provider")
-	if !ok || match.ProfileID != "enterprise_authentication" || match.RouteFamily != "/api/v1/users/{user_id}/auth-bindings" {
-		t.Fatalf("unexpected nested auth-bindings dispatch match: %#v ok=%v", match, ok)
+	for index, want := range wantProfiles {
+		got := extensions[index]
+		if len(got) != 3 {
+			t.Fatalf("extension resource must expose only profile_id, claimed, and route_families: %#v", got)
+		}
+		if got["profile_id"] != want.profileID || got["claimed"] != false {
+			t.Fatalf("unexpected extension resource at index %d: %#v", index, got)
+		}
+		if families := toStrings(t, got["route_families"]); !equalStringSlices(families, want.families) {
+			t.Fatalf("unexpected route_families at index %d: got %v want %v", index, families, want.families)
+		}
 	}
 }
 
-func TestPhase2_ListCursorBinding_U_2_06(t *testing.T) {
-	actorID := uuid.MustParse("00000000-0000-0000-0000-000000000111")
-	incidentID := uuid.MustParse("00000000-0000-0000-0000-000000000222")
-	snapshotAt := timeRef(2026, 4, 17, 12, 0)
-	updatedAt := timeRef(2026, 4, 17, 11, 59)
-
-	token, err := EncodeIncidentCursor(incidentCursor{
-		Route:       "incidents.list",
-		ActorUserID: actorID.String(),
-		Limit:       50,
-		SnapshotAt:  snapshotAt,
-		UpdatedAt:   updatedAt,
-		IncidentID:  incidentID.String(),
-	})
+func TestPhase2_U_2_10_ReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallback(t *testing.T) {
+	baseHandler, err := httpapi.NewHandler(httpapi.Options{})
 	if err != nil {
-		t.Fatalf("encode incident cursor: %v", err)
+		t.Fatalf("build base handler: %v", err)
 	}
-	if _, apiErr := DecodeIncidentCursor(token, actorID, 50); apiErr != nil {
-		t.Fatalf("decode valid incident cursor: %v", apiErr)
+	ready := performRequest(t, baseHandler, http.MethodGet, "/readyz", nil)
+	if ready.Code != http.StatusOK || !strings.Contains(ready.Body.String(), "ready") {
+		t.Fatalf("expected base route to retain precedence, got status=%d body=%q", ready.Code, ready.Body.String())
 	}
-	if _, apiErr := DecodeIncidentCursor(token, actorID, 25); apiErr == nil {
-		t.Fatal("cursor limit binding mismatch must fail")
+
+	restoreClaimed := httpapi.SetCurrentExtensionProfilesForTesting([]httpapi.ExtensionProfile{
+		{
+			ProfileID:     "import",
+			Claimed:       true,
+			RouteFamilies: []string{"/api/v1/import-sessions"},
+		},
+	})
+	claimedHandler, err := httpapi.NewHandler(httpapi.Options{
+		AdditionalRoutes: []httpapi.RouteRegistrar{
+			func(mux *http.ServeMux, deps httpapi.DependencySet) error {
+				mux.HandleFunc("/api/v1/import-sessions", func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusNoContent)
+				})
+				mux.HandleFunc("/api/v1/import-sessions/children", func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusAccepted)
+				})
+				return nil
+			},
+		},
+	})
+	restoreClaimed()
+	if err != nil {
+		t.Fatalf("build claimed handler: %v", err)
+	}
+	if got := performRequest(t, claimedHandler, http.MethodGet, "/api/v1/import-sessions", nil); got.Code != http.StatusNoContent {
+		t.Fatalf("claimed family root must dispatch to the registered route, got %d", got.Code)
+	}
+	if got := performRequest(t, claimedHandler, http.MethodGet, "/api/v1/import-sessions/children", nil); got.Code != http.StatusAccepted {
+		t.Fatalf("claimed family descendant must dispatch to the registered route, got %d", got.Code)
+	}
+
+	restoreUnclaimed := httpapi.SetCurrentExtensionProfilesForTesting([]httpapi.ExtensionProfile{
+		{
+			ProfileID:     "import",
+			Claimed:       false,
+			RouteFamilies: []string{"/api/v1/import-sessions"},
+		},
+		{
+			ProfileID:     "enterprise_authentication",
+			Claimed:       false,
+			RouteFamilies: []string{"/api/v1/users/{user_id}/auth-bindings"},
+		},
+	})
+	defer restoreUnclaimed()
+	unclaimedHandler, err := httpapi.NewHandler(httpapi.Options{})
+	if err != nil {
+		t.Fatalf("build unclaimed handler: %v", err)
+	}
+
+	rootReserved := performRequest(t, unclaimedHandler, http.MethodGet, "/api/v1/import-sessions", nil)
+	rootBody := readJSONMap(t, rootReserved.Body.String())
+	errorBody := rootBody["error"].(map[string]any)
+	if rootReserved.Code != http.StatusNotFound || errorBody["code"] != "extension_profile_not_claimed" {
+		t.Fatalf("unexpected reserved root response: status=%d body=%#v", rootReserved.Code, rootBody)
+	}
+	rootDetails := errorBody["details"].(map[string]any)
+	if rootDetails["profile_id"] != "import" || rootDetails["route_family"] != "/api/v1/import-sessions" {
+		t.Fatalf("unexpected reserved root details: %#v", rootDetails)
+	}
+
+	descendantReserved := performRequest(t, unclaimedHandler, http.MethodGet, "/api/v1/users/"+uuid.NewString()+"/auth-bindings/provider", nil)
+	descendantBody := readJSONMap(t, descendantReserved.Body.String())
+	descendantError := descendantBody["error"].(map[string]any)
+	if descendantReserved.Code != http.StatusNotFound || descendantError["code"] != "extension_profile_not_claimed" {
+		t.Fatalf("unexpected reserved descendant response: status=%d body=%#v", descendantReserved.Code, descendantBody)
+	}
+	descendantDetails := descendantError["details"].(map[string]any)
+	if descendantDetails["profile_id"] != "enterprise_authentication" || descendantDetails["route_family"] != "/api/v1/users/{user_id}/auth-bindings" {
+		t.Fatalf("unexpected reserved descendant details: %#v", descendantDetails)
+	}
+
+	outsideReserved := performRequest(t, unclaimedHandler, http.MethodGet, "/api/v1/outside-reserved-families", nil)
+	if outsideReserved.Code != http.StatusNotFound || strings.Contains(outsideReserved.Body.String(), "extension_profile_not_claimed") {
+		t.Fatalf("ordinary unknown paths must keep ordinary not-found handling: status=%d body=%q", outsideReserved.Code, outsideReserved.Body.String())
 	}
 }
 
-func requireAPIError(t testing.TB, apiErr *auth.APIError, wantStatus int, wantCode string, wantField string) {
+func requireAPIError(t testing.TB, apiErr *auth.APIError, wantStatus int, wantCode string, wantField string, wantReasonCode string) {
 	t.Helper()
 	if apiErr == nil {
 		t.Fatal("expected api error")
@@ -205,14 +424,111 @@ func requireAPIError(t testing.TB, apiErr *auth.APIError, wantStatus int, wantCo
 	if apiErr.Code != wantCode {
 		t.Fatalf("unexpected code: got %q want %q", apiErr.Code, wantCode)
 	}
-	if wantField == "" {
-		return
+	if wantField != "" {
+		if got := apiErr.Details["field"]; got != wantField {
+			t.Fatalf("unexpected field detail: got %v want %s", got, wantField)
+		}
 	}
-	if got := apiErr.Details["field"]; got != wantField {
-		t.Fatalf("unexpected field detail: got %v want %s", got, wantField)
+	if wantReasonCode != "" {
+		if got := apiErr.Details["reason_code"]; got != wantReasonCode {
+			t.Fatalf("unexpected reason_code detail: got %v want %s", got, wantReasonCode)
+		}
 	}
 }
 
-func timeRef(year int, month int, day int, hour int, minute int) (value time.Time) {
+func requireClosedVocabularyRejected(t testing.TB, apiErr *auth.APIError, wantField string, wantReasonCode string) {
+	t.Helper()
+	if apiErr == nil {
+		t.Fatal("expected api error")
+	}
+	if apiErr.Code != "invalid_mutation_payload" && apiErr.Code != "invalid_view_query" {
+		t.Fatalf("unexpected closed-vocabulary rejection code: %q", apiErr.Code)
+	}
+	if apiErr.Details == nil {
+		t.Fatal("expected closed-vocabulary rejection details")
+	}
+	if apiErr.Details["field"] != wantField {
+		t.Fatalf("unexpected closed-vocabulary field: got %v want %q", apiErr.Details["field"], wantField)
+	}
+	if apiErr.Details["reason_code"] != wantReasonCode {
+		t.Fatalf("unexpected closed-vocabulary reason_code: got %v want %q", apiErr.Details["reason_code"], wantReasonCode)
+	}
+}
+
+func requireWritableStringNormalization(t testing.TB, got string, want string) {
+	t.Helper()
+	if got != want {
+		t.Fatalf("unexpected normalized string: got %q want %q", got, want)
+	}
+}
+
+func incidentCreateHash(request CreateIncidentRequest) []byte {
+	return hashRequestPayload(map[string]any{
+		"client_txn_id":             request.ClientTxnID,
+		"incident_key":              request.IncidentKey,
+		"title":                     request.Title,
+		"description":               request.Description,
+		"severity":                  request.Severity,
+		"tlp":                       request.TLP,
+		"current_phase":             request.CurrentPhase,
+		"primary_external_case_ref": request.PrimaryExternalCaseRef,
+	})
+}
+
+func stringRef(value string) *string {
+	return &value
+}
+
+func performRequest(t testing.TB, handler http.Handler, method string, target string, body io.Reader) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(method, target, body)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	return recorder
+}
+
+func readJSONMap(t testing.TB, body string) map[string]any {
+	t.Helper()
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(body), &payload); err != nil {
+		t.Fatalf("decode JSON body: %v", err)
+	}
+	return payload
+}
+
+func toStrings(t testing.TB, raw any) []string {
+	t.Helper()
+	items, ok := raw.([]string)
+	if ok {
+		return append([]string(nil), items...)
+	}
+	interfaces, ok := raw.([]any)
+	if !ok {
+		t.Fatalf("unexpected string slice payload: %T", raw)
+	}
+	values := make([]string, 0, len(interfaces))
+	for _, item := range interfaces {
+		value, ok := item.(string)
+		if !ok {
+			t.Fatalf("unexpected string item payload: %T", item)
+		}
+		values = append(values, value)
+	}
+	return values
+}
+
+func equalStringSlices(left []string, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func timeRef(year int, month int, day int, hour int, minute int) time.Time {
 	return time.Date(year, time.Month(month), day, hour, minute, 0, 0, time.UTC)
 }

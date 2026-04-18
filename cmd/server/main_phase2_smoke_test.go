@@ -8,7 +8,7 @@ import (
 	"example.com/todo/cartulary/internal/testutil/httptestx"
 )
 
-func TestPhase2_IncidentCreateListAndWorkbookPrefs_E_2_01(t *testing.T) {
+func TestPhase2_ProcessSmoke_IncidentCreateListAndWorkbookPrefs(t *testing.T) {
 	server := startPhase1ServerProcess(t, "phase2-e-2-01")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -46,7 +46,7 @@ func TestPhase2_IncidentCreateListAndWorkbookPrefs_E_2_01(t *testing.T) {
 	}
 }
 
-func TestPhase2_IncidentValidationAndPatch_E_2_02(t *testing.T) {
+func TestPhase2_ProcessSmoke_IncidentValidationAndPatch(t *testing.T) {
 	server := startPhase1ServerProcess(t, "phase2-e-2-02")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -107,7 +107,7 @@ func TestPhase2_IncidentValidationAndPatch_E_2_02(t *testing.T) {
 	}
 }
 
-func TestPhase2_MembershipAdminFlow_E_2_03(t *testing.T) {
+func TestPhase2_ProcessSmoke_MembershipAdminFlow(t *testing.T) {
 	server := startPhase1ServerProcess(t, "phase2-e-2-03")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -166,7 +166,7 @@ func TestPhase2_MembershipAdminFlow_E_2_03(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, nonAdminCreate, http.StatusForbidden, "authorization_denied")
 }
 
-func TestPhase2_MembershipPatchDeleteAndLastAdmin_E_2_04(t *testing.T) {
+func TestPhase2_ProcessSmoke_MembershipPatchDeleteAndLastAdmin(t *testing.T) {
 	server := startPhase1ServerProcess(t, "phase2-e-2-04")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -227,7 +227,9 @@ func TestPhase2_MembershipPatchDeleteAndLastAdmin_E_2_04(t *testing.T) {
 		server,
 		http.MethodDelete,
 		"/api/v1/incidents/"+incidentID+"/memberships/"+userID,
-		nil,
+		map[string]any{
+			"base_membership_version": patchMembershipBody["membership_version"],
+		},
 		withCookies(adminSession, adminCSRF),
 		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
@@ -238,14 +240,16 @@ func TestPhase2_MembershipPatchDeleteAndLastAdmin_E_2_04(t *testing.T) {
 		server,
 		http.MethodDelete,
 		"/api/v1/incidents/"+incidentID+"/memberships/"+adminUserID,
-		nil,
+		map[string]any{
+			"base_membership_version": 1,
+		},
 		withCookies(adminSession, adminCSRF),
 		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, lastAdminGuard, http.StatusConflict, "last_incident_admin")
 }
 
-func TestPhase2_ExtensionDiscoveryAndReservedRoutes_E_2_05(t *testing.T) {
+func TestPhase2_ProcessSmoke_ExtensionDiscoveryAndReservedRoutes(t *testing.T) {
 	server := startPhase1ServerProcess(t, "phase2-e-2-05")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -277,7 +281,7 @@ func TestPhase2_ExtensionDiscoveryAndReservedRoutes_E_2_05(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, nestedReserved, http.StatusNotFound, "extension_profile_not_claimed")
 }
 
-func TestPhase2_DeploymentAdminBoundary_E_2_06(t *testing.T) {
+func TestPhase2_ProcessSmoke_DeploymentAdminBoundary(t *testing.T) {
 	server := startPhase1ServerProcess(t, "phase2-e-2-06")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)

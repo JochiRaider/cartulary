@@ -1,4 +1,4 @@
-.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift test e2e lint check build
+.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift phase2-map-check test e2e lint check build
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
 PNPM ?= $(shell if command -v pnpm >/dev/null 2>&1; then command -v pnpm; elif [ -x "$$HOME/.local/share/pnpm/pnpm" ]; then printf "$$HOME/.local/share/pnpm/pnpm"; fi)
@@ -76,13 +76,16 @@ generate-drift:
 migration-drift:
 	GO=$(GO) CONFIG_FILE=$(CONFIG_FILE) GOCACHE=$(GO_CACHE_DIR) GOMODCACHE=$(GO_MOD_CACHE_DIR) ./scripts/check-migrations.sh
 
+phase2-map-check: frontend-toolchain
+	$(PNPM_RUN_ENV) $(NODE_BIN) ./scripts/check-phase2-map.mjs
+
 test: frontend-toolchain
 	mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(GO_RUN_ENV) $(GO) test ./...
 	$(PNPM_RUN_ENV) $(PNPM) --dir apps/web test --run --passWithNoTests
 
 e2e: frontend-toolchain
-	$(PNPM_RUN_ENV) $(PNPM) --dir apps/web test:e2e:phase3
+	$(PNPM_RUN_ENV) $(PNPM) --dir apps/web test:e2e
 
 lint: frontend-toolchain
 	mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
@@ -94,6 +97,7 @@ check: frontend-toolchain
 	$(PNPM_RUN_ENV) $(PNPM) install --frozen-lockfile
 	$(MAKE) generate-drift
 	$(MAKE) migration-drift
+	$(MAKE) phase2-map-check
 	$(MAKE) lint
 	$(MAKE) test
 	$(MAKE) e2e

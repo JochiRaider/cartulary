@@ -51,6 +51,10 @@ type MembershipPatchRequest struct {
 	Role                  string
 }
 
+type MembershipDeleteRequest struct {
+	BaseMembershipVersion int64
+}
+
 type OptionalNullableString struct {
 	Present bool
 	Value   *string
@@ -316,6 +320,30 @@ func DecodeMembershipPatchRequest(reader io.Reader) (MembershipPatchRequest, *au
 		return MembershipPatchRequest{}, invalidMutationPayload("role", "missing_required_field")
 	} else if err := json.Unmarshal(value, &request.Role); err != nil || !slices.Contains(membershipRoles, request.Role) {
 		return MembershipPatchRequest{}, invalidMutationPayload("role", "invalid_role")
+	}
+	return request, nil
+}
+
+func DecodeMembershipDeleteRequest(reader io.Reader) (MembershipDeleteRequest, *auth.APIError) {
+	raw, apiErr := decodeObject(reader, invalidMutationPayload)
+	if apiErr != nil {
+		return MembershipDeleteRequest{}, apiErr
+	}
+
+	allowed := map[string]struct{}{
+		"base_membership_version": {},
+	}
+	for key := range raw {
+		if _, ok := allowed[key]; !ok {
+			return MembershipDeleteRequest{}, invalidMutationPayload(key, "unknown_field")
+		}
+	}
+
+	var request MembershipDeleteRequest
+	if value, ok := raw["base_membership_version"]; !ok {
+		return MembershipDeleteRequest{}, invalidMutationPayload("base_membership_version", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.BaseMembershipVersion); err != nil || request.BaseMembershipVersion < 1 {
+		return MembershipDeleteRequest{}, invalidMutationPayload("base_membership_version", "invalid_base_membership_version")
 	}
 	return request, nil
 }

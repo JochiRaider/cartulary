@@ -1,6 +1,9 @@
 package httpapi
 
-import "strings"
+import (
+	"strings"
+	"sync"
+)
 
 type ExtensionProfile struct {
 	ProfileID     string   `json:"profile_id"`
@@ -14,62 +17,60 @@ type ReservedExtensionMatch struct {
 	RouteFamily string
 }
 
-var currentProfileExtensions = []ExtensionProfile{
-	{
-		ProfileID: "enterprise_authentication",
-		Claimed:   false,
-		RouteFamilies: []string{
-			"/api/v1/auth/oidc",
-			"/api/v1/auth/providers",
-			"/api/v1/auth/saml",
-			"/api/v1/users/{user_id}/auth-bindings",
+var (
+	extensionProfilesMu      = sync.RWMutex{}
+	currentProfileExtensions = []ExtensionProfile{
+		{
+			ProfileID: "enterprise_authentication",
+			Claimed:   false,
+			RouteFamilies: []string{
+				"/api/v1/auth/oidc",
+				"/api/v1/auth/providers",
+				"/api/v1/auth/saml",
+				"/api/v1/users/{user_id}/auth-bindings",
+			},
 		},
-	},
-	{
-		ProfileID: "import",
-		Claimed:   false,
-		RouteFamilies: []string{
-			"/api/v1/import-sessions",
+		{
+			ProfileID: "import",
+			Claimed:   false,
+			RouteFamilies: []string{
+				"/api/v1/import-sessions",
+			},
 		},
-	},
-	{
-		ProfileID: "incident_portability",
-		Claimed:   false,
-		RouteFamilies: []string{
-			"/api/v1/incident-bundles",
+		{
+			ProfileID: "incident_portability",
+			Claimed:   false,
+			RouteFamilies: []string{
+				"/api/v1/incident-bundles",
+			},
 		},
-	},
-	{
-		ProfileID: "reference_pack",
-		Claimed:   false,
-		RouteFamilies: []string{
-			"/api/v1/reference-packs",
+		{
+			ProfileID: "reference_pack",
+			Claimed:   false,
+			RouteFamilies: []string{
+				"/api/v1/reference-packs",
+			},
 		},
-	},
-	{
-		ProfileID: "snapshot_reporting",
-		Claimed:   false,
-		RouteFamilies: []string{
-			"/api/v1/releases",
-			"/api/v1/snapshots",
+		{
+			ProfileID: "snapshot_reporting",
+			Claimed:   false,
+			RouteFamilies: []string{
+				"/api/v1/releases",
+				"/api/v1/snapshots",
+			},
 		},
-	},
-}
+	}
+)
 
 func CurrentExtensionProfiles() []ExtensionProfile {
-	profiles := make([]ExtensionProfile, 0, len(currentProfileExtensions))
-	for _, profile := range currentProfileExtensions {
-		families := append([]string(nil), profile.RouteFamilies...)
-		profiles = append(profiles, ExtensionProfile{
-			ProfileID:     profile.ProfileID,
-			Claimed:       profile.Claimed,
-			RouteFamilies: families,
-		})
-	}
-	return profiles
+	extensionProfilesMu.RLock()
+	defer extensionProfilesMu.RUnlock()
+	return cloneExtensionProfiles(currentProfileExtensions)
 }
 
 func MatchReservedExtensionFamily(path string) (ReservedExtensionMatch, bool) {
+	extensionProfilesMu.RLock()
+	defer extensionProfilesMu.RUnlock()
 	for _, profile := range currentProfileExtensions {
 		for _, routeFamily := range profile.RouteFamilies {
 			if routeFamilyMatchesPath(routeFamily, path) {
@@ -82,6 +83,19 @@ func MatchReservedExtensionFamily(path string) (ReservedExtensionMatch, bool) {
 		}
 	}
 	return ReservedExtensionMatch{}, false
+}
+
+func SetCurrentExtensionProfilesForTesting(profiles []ExtensionProfile) func() {
+	extensionProfilesMu.Lock()
+	previous := cloneExtensionProfiles(currentProfileExtensions)
+	currentProfileExtensions = cloneExtensionProfiles(profiles)
+	extensionProfilesMu.Unlock()
+
+	return func() {
+		extensionProfilesMu.Lock()
+		currentProfileExtensions = previous
+		extensionProfilesMu.Unlock()
+	}
 }
 
 func routeFamilyMatchesPath(routeFamily string, path string) bool {
@@ -117,4 +131,16 @@ func splitRouteSegments(path string) []string {
 
 func isRouteTemplateSegment(value string) bool {
 	return strings.HasPrefix(value, "{") && strings.HasSuffix(value, "}")
+}
+
+func cloneExtensionProfiles(profiles []ExtensionProfile) []ExtensionProfile {
+	cloned := make([]ExtensionProfile, 0, len(profiles))
+	for _, profile := range profiles {
+		cloned = append(cloned, ExtensionProfile{
+			ProfileID:     profile.ProfileID,
+			Claimed:       profile.Claimed,
+			RouteFamilies: append([]string(nil), profile.RouteFamilies...),
+		})
+	}
+	return cloned
 }

@@ -29,6 +29,7 @@ var (
 type Store struct {
 	pool      *pgxpool.Pool
 	authStore *authn.Store
+	hooks     StoreHooks
 }
 
 type IncidentRecord struct {
@@ -91,9 +92,14 @@ type MembershipCreateResult struct {
 }
 
 func NewStore(pool *pgxpool.Pool) *Store {
+	return NewStoreWithHooks(pool, currentStoreHooks())
+}
+
+func NewStoreWithHooks(pool *pgxpool.Pool, hooks StoreHooks) *Store {
 	return &Store{
 		pool:      pool,
 		authStore: authn.NewStore(pool),
+		hooks:     hooks,
 	}
 }
 
@@ -302,6 +308,7 @@ func (s *Store) CreateIncident(ctx context.Context, actor authn.UserRecord, requ
 		_ = tx.Rollback(ctx)
 	}()
 
+	bootstrap := DefaultIncidentCreateBootstrap()
 	var incident IncidentRecord
 	if err := tx.QueryRow(ctx, `
 INSERT INTO incidents (
@@ -339,9 +346,9 @@ RETURNING id, incident_key, title, description, status, severity, tlp, current_p
 INSERT INTO incident_memberships (
     incident_id, user_id, role, joined_at, added_by_user_id, updated_at, updated_by_user_id, membership_version
 )
-VALUES ($1, $2, 'admin', $3, $2, $3, $2, 1)
-RETURNING incident_id, user_id, $4::text AS display_name, role, joined_at, added_by_user_id, updated_at, updated_by_user_id, membership_version
-`, incident.ID, actor.ID, now.UTC(), actor.DisplayName).Scan(
+VALUES ($1, $2, $4, $3, $2, $3, $2, 1)
+RETURNING incident_id, user_id, $5::text AS display_name, role, joined_at, added_by_user_id, updated_at, updated_by_user_id, membership_version
+`, incident.ID, actor.ID, now.UTC(), bootstrap.CreatorRole, actor.DisplayName).Scan(
 		&membership.IncidentID,
 		&membership.UserID,
 		&membership.DisplayName,
@@ -355,18 +362,22 @@ RETURNING incident_id, user_id, $4::text AS display_name, role, joined_at, added
 		return CreateIncidentResult{}, fmt.Errorf("insert bootstrap membership: %w", err)
 	}
 
-	if _, err := tx.Exec(ctx, `
+	if bootstrap.CreatesIncidentWorkbookPreferences {
+		if _, err := tx.Exec(ctx, `
 INSERT INTO incident_workbook_preferences (incident_id, default_sheet_ref, created_at, updated_at, updated_by_user_id)
 VALUES ($1, NULL, $2, $2, $3)
 `, incident.ID, now.UTC(), actor.ID); err != nil {
-		return CreateIncidentResult{}, fmt.Errorf("insert incident workbook preferences: %w", err)
+			return CreateIncidentResult{}, fmt.Errorf("insert incident workbook preferences: %w", err)
+		}
 	}
 
-	if _, err := tx.Exec(ctx, `
+	if bootstrap.CreatesUserWorkbookPreferences {
+		if _, err := tx.Exec(ctx, `
 INSERT INTO user_workbook_preferences (incident_id, user_id, home_sheet_ref, created_at, updated_at)
 VALUES ($1, $2, NULL, $3, $3)
 `, incident.ID, actor.ID, now.UTC()); err != nil {
-		return CreateIncidentResult{}, fmt.Errorf("insert user workbook preferences: %w", err)
+			return CreateIncidentResult{}, fmt.Errorf("insert user workbook preferences: %w", err)
+		}
 	}
 
 	incidentPayload := BuildIncidentResource(incident)
@@ -412,6 +423,9 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		return CreateIncidentResult{}, fmt.Errorf("insert incident idempotency: %w", err)
 	}
 
+	if err := s.beforeCommit("incidents.create", incident.ID); err != nil {
+		return CreateIncidentResult{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return CreateIncidentResult{}, fmt.Errorf("commit incident create transaction: %w", err)
 	}
@@ -450,29 +464,14 @@ SELECT id, incident_key, title, description, status, severity, tlp, current_phas
 		return IncidentRecord{}, false, ErrIncidentVersionConflict
 	}
 
-	nextTLP := current.TLP
-	nextCurrentPhase := current.CurrentPhase
-	nextPrimaryExternalCaseRef := current.PrimaryExternalCaseRef
-	if request.TLP.Present {
-		nextTLP = request.TLP.Value
-	}
-	if request.CurrentPhase.Present {
-		nextCurrentPhase = request.CurrentPhase.Value
-	}
-	if request.PrimaryExternalCaseRef.Present {
-		nextPrimaryExternalCaseRef = request.PrimaryExternalCaseRef.Value
-	}
-
-	if stringPointersEqual(current.TLP, nextTLP) &&
-		stringPointersEqual(current.CurrentPhase, nextCurrentPhase) &&
-		stringPointersEqual(current.PrimaryExternalCaseRef, nextPrimaryExternalCaseRef) {
+	next, changed := ApplyIncidentPatch(current, request, actor.ID, now)
+	if !changed {
 		if err := tx.Commit(ctx); err != nil {
 			return IncidentRecord{}, false, fmt.Errorf("commit incident no-op patch transaction: %w", err)
 		}
 		return current, false, nil
 	}
 
-	updatedAt := now.UTC()
 	var updated IncidentRecord
 	if err := tx.QueryRow(ctx, `
 UPDATE incidents
@@ -485,7 +484,7 @@ UPDATE incidents
  WHERE id = $1
 RETURNING id, incident_key, title, description, status, severity, tlp, current_phase, primary_external_case_ref,
           created_by_user_id, created_at, updated_at, updated_by_user_id, incident_version, closed_at
-`, incidentID, nextTLP, nextCurrentPhase, nextPrimaryExternalCaseRef, updatedAt, actor.ID).Scan(
+`, incidentID, next.TLP, next.CurrentPhase, next.PrimaryExternalCaseRef, next.UpdatedAt, actor.ID).Scan(
 		&updated.ID,
 		&updated.IncidentKey,
 		&updated.Title,
@@ -518,6 +517,9 @@ RETURNING id, incident_key, title, description, status, severity, tlp, current_p
 		return IncidentRecord{}, false, err
 	}
 
+	if err := s.beforeCommit("incidents.patch", incidentID); err != nil {
+		return IncidentRecord{}, false, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return IncidentRecord{}, false, fmt.Errorf("commit incident patch transaction: %w", err)
 	}
@@ -627,6 +629,9 @@ RETURNING incident_id, user_id, $6::text AS display_name, role, joined_at, added
 		return MembershipCreateResult{}, err
 	}
 
+	if err := s.beforeCommit("incident.memberships.create", incidentID); err != nil {
+		return MembershipCreateResult{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return MembershipCreateResult{}, fmt.Errorf("commit membership create transaction: %w", err)
 	}
@@ -729,13 +734,16 @@ RETURNING incident_id, user_id, $6::text AS display_name, role, joined_at, added
 		return MembershipRecord{}, false, err
 	}
 
+	if err := s.beforeCommit("incident.memberships.patch", incidentID); err != nil {
+		return MembershipRecord{}, false, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return MembershipRecord{}, false, fmt.Errorf("commit membership patch transaction: %w", err)
 	}
 	return updated, true, nil
 }
 
-func (s *Store) DeleteMembership(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, userID uuid.UUID, requestID string) error {
+func (s *Store) DeleteMembership(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, userID uuid.UUID, request MembershipDeleteRequest, requestID string) error {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("begin membership delete transaction: %w", err)
@@ -759,6 +767,9 @@ SELECT m.incident_id, m.user_id, u.display_name, m.role, m.joined_at, m.added_by
 	}
 	if err != nil {
 		return fmt.Errorf("query membership for delete: %w", err)
+	}
+	if current.MembershipVersion != request.BaseMembershipVersion {
+		return ErrMembershipVersionConflict
 	}
 
 	adminCount, err := countIncidentAdminsTx(ctx, tx, incidentID)
@@ -791,6 +802,9 @@ DELETE FROM incident_memberships
 		return err
 	}
 
+	if err := s.beforeCommit("incident.memberships.delete", incidentID); err != nil {
+		return err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit membership delete transaction: %w", err)
 	}
@@ -854,6 +868,13 @@ SELECT COUNT(*)
 
 func incidentLocation(incidentID uuid.UUID) string {
 	return "/api/v1/incidents/" + incidentID.String()
+}
+
+func (s *Store) beforeCommit(routeKey string, incidentID uuid.UUID) error {
+	if s == nil || s.hooks.BeforeCommit == nil {
+		return nil
+	}
+	return s.hooks.BeforeCommit(routeKey, incidentID)
 }
 
 func jsonOrNil(value any) any {

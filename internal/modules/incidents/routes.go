@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 
@@ -68,16 +67,11 @@ func (s *Service) handleExtensionsCollection(w http.ResponseWriter, r *http.Requ
 	}
 
 	profiles := httpapi.CurrentExtensionProfiles()
-	extensions := make([]map[string]any, 0, len(profiles))
-	for _, profile := range profiles {
-		extensions = append(extensions, BuildExtensionResource(profile))
-	}
-
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{"extensions": extensions})
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildExtensionsResponseData(profiles))
 }
 
 func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Request) {
@@ -453,10 +447,18 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if err := s.store.DeleteMembership(r.Context(), principal.User, incidentID, userID, httpapi.RequestIDFromContext(r.Context())); err != nil {
+		request, apiErr := DecodeMembershipDeleteRequest(r.Body)
+		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		if err := s.store.DeleteMembership(r.Context(), principal.User, incidentID, userID, request, httpapi.RequestIDFromContext(r.Context())); err != nil {
 			switch {
 			case errors.Is(err, ErrMembershipNotFound):
 				writeAPIError(w, r, membershipNotFoundError())
+				return
+			case errors.Is(err, ErrMembershipVersionConflict):
+				writeAPIError(w, r, membershipVersionConflictError())
 				return
 			case errors.Is(err, ErrLastIncidentAdmin):
 				writeAPIError(w, r, lastIncidentAdminError())
@@ -548,7 +550,7 @@ func (s *Service) handleIncidentWorkbookPreferencesMe(w http.ResponseWriter, r *
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (MembershipRecord, *auth.APIError) {
 	record, err := s.store.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, ErrMembershipNotFound) {
-		return MembershipRecord{}, incidentNotFoundError()
+		return MembershipRecord{}, IncidentAccessError(nil, false)
 	}
 	if err != nil {
 		return MembershipRecord{}, internalAPIError(err)
@@ -561,8 +563,8 @@ func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 	if apiErr != nil {
 		return MembershipRecord{}, apiErr
 	}
-	if !slices.Contains(roles, record.Role) {
-		return MembershipRecord{}, authorizationDeniedError(requiredRoleDescription(roles...))
+	if apiErr := IncidentAccessError(&record, false, roles...); apiErr != nil {
+		return MembershipRecord{}, apiErr
 	}
 	return record, nil
 }

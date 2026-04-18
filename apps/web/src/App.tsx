@@ -11,6 +11,8 @@ import {
   useState,
 } from "react";
 
+import { Phase2Harness } from "./Phase2Harness";
+
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 const csrfCookieName = "cartulary_csrf";
 const csrfHeaderName = "X-CSRF-Token";
@@ -911,6 +913,27 @@ export function App() {
   const [incidentDraft, setIncidentDraft] = useState(initialIncidentId);
   const [activeIncidentId, setActiveIncidentId] = useState(initialIncidentId);
 
+  if (activeIncidentId === "") {
+    return (
+      <main style={pageStyle}>
+        <section style={panelStyle}>
+          <div style={heroStyle}>
+            <p style={eyebrowStyle}>Cartulary</p>
+            <h1 style={headlineStyle}>Phase 2 control envelope shell</h1>
+            <p style={bodyStyle}>
+              Incident create, discovery, membership administration, workbook
+              landing, and extension-dispatch flows are available from the
+              browser harness below. Add an `incident_id` query parameter to
+              open the Timeline workbook directly.
+            </p>
+          </div>
+
+          <Phase2Harness />
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main style={pageStyle}>
       <section style={panelStyle}>
@@ -948,14 +971,7 @@ export function App() {
           </button>
         </div>
 
-        {activeIncidentId !== "" ? (
-          <TimelineWorkbook incidentId={activeIncidentId} />
-        ) : (
-          <p style={bodyStyle}>
-            Enter an existing incident UUID to load the projection-backed
-            Timeline sheet.
-          </p>
-        )}
+        <TimelineWorkbook incidentId={activeIncidentId} />
       </section>
     </main>
   );

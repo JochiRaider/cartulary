@@ -1,0 +1,118 @@
+{
+  "unit": [
+    {
+      "id": "U-2-01",
+      "file": "internal/modules/incidents/phase2_request_test.go",
+      "symbol": "TestPhase2_U_2_01_IncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey"
+    },
+    {
+      "id": "U-2-02",
+      "file": "internal/modules/incidents/phase2_request_test.go",
+      "symbol": "TestPhase2_U_2_02_IncidentCreateBootstrapsCreatorAndWorkbookPreferences"
+    },
+    {
+      "id": "U-2-03",
+      "file": "internal/modules/incidents/phase2_request_test.go",
+      "symbol": "TestPhase2_U_2_03_IncidentCreateReturnsStableLocationHeader"
+    },
+    {
+      "id": "U-2-04",
+      "file": "internal/modules/incidents/phase2_request_test.go",
+      "symbol": "TestPhase2_U_2_04_IncidentCreateIdempotencyUsesActorAndNormalizedReplay"
+    },
+    {
+      "id": "U-2-05",
+      "file": "internal/modules/incidents/phase2_request_test.go",
+      "symbol": "TestPhase2_U_2_05_IncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable"
+    },
+    {
+      "id": "U-2-06",
+      "file": "internal/modules/incidents/phase2_request_test.go",
+      "symbol": "TestPhase2_U_2_06_MembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFields"
+    },
+    {
+      "id": "U-2-07",
+      "file": "internal/modules/incidents/phase2_request_test.go",
+      "symbol": "TestPhase2_U_2_07_MembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuard"
+    },
+    {
+      "id": "U-2-08",
+      "file": "internal/modules/incidents/phase2_request_test.go",
+      "symbol": "TestPhase2_U_2_08_DeploymentAdminAloneDoesNotGrantIncidentRouteOrSocketAccess"
+    },
+    {
+      "id": "U-2-09",
+      "file": "internal/modules/incidents/phase2_request_test.go",
+      "symbol": "TestPhase2_U_2_09_ExtensionDiscoveryReturnsExactSingletonProfileShape"
+    },
+    {
+      "id": "U-2-10",
+      "file": "internal/modules/incidents/phase2_request_test.go",
+      "symbol": "TestPhase2_U_2_10_ReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallback"
+    }
+  ],
+  "integration": [
+    {
+      "id": "I-2-01",
+      "file": "internal/modules/incidents/phase2_integration_test.go",
+      "symbol": "TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomically"
+    },
+    {
+      "id": "I-2-02",
+      "file": "internal/modules/incidents/phase2_integration_test.go",
+      "symbol": "TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState"
+    },
+    {
+      "id": "I-2-03",
+      "file": "internal/modules/incidents/phase2_integration_test.go",
+      "symbol": "TestPhase2_I_2_03_MembershipChangesReDeriveAuthorizationImmediately"
+    },
+    {
+      "id": "I-2-04",
+      "file": "internal/modules/incidents/phase2_integration_test.go",
+      "symbol": "TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange"
+    },
+    {
+      "id": "I-2-05",
+      "file": "internal/modules/incidents/phase2_integration_test.go",
+      "symbol": "TestPhase2_I_2_05_ExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutLeaks"
+    },
+    {
+      "id": "I-2-06",
+      "file": "internal/modules/incidents/phase2_integration_test.go",
+      "symbol": "TestPhase2_I_2_06_UnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot"
+    }
+  ],
+  "e2e": [
+    {
+      "id": "E-2-01",
+      "file": "apps/web/e2e/phase2.spec.ts",
+      "title": "E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface"
+    },
+    {
+      "id": "E-2-02",
+      "file": "apps/web/e2e/phase2.spec.ts",
+      "title": "E-2-02 shows incident discovery, direct retrieval, and promoted-field-only patching"
+    },
+    {
+      "id": "E-2-03",
+      "file": "apps/web/e2e/phase2.spec.ts",
+      "title": "E-2-03 lets admins manage memberships and denies the same actions to non-admin members"
+    },
+    {
+      "id": "E-2-04",
+      "file": "apps/web/e2e/phase2.spec.ts",
+      "title": "E-2-04 rejects unknown or forbidden top-level members with route-owned errors"
+    },
+    {
+      "id": "E-2-05",
+      "file": "apps/web/e2e/phase2.spec.ts",
+      "title": "E-2-05 allows zero-membership extension discovery and rejects singleton pagination semantics"
+    },
+    {
+      "id": "E-2-06",
+      "file": "apps/web/e2e/phase2.spec.ts",
+      "title": "E-2-06 shows reserved-family 404 precedence while base and outside-reserved paths keep their ordinary dispatch"
+    }
+  ]
+}
