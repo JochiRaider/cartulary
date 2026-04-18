@@ -383,6 +383,37 @@
           }
         }
       }
+    },
+    "/api/v1/records/{survivor_record_id}/merge": {
+      "post": {
+        "tags": [
+          "entities"
+        ],
+        "operationId": "mergeEntityRecord",
+        "summary": "Explicitly merge one Host or Identity record into a path-scoped survivor with idempotent replay.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordMergeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Entity merge response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordMergeEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -616,6 +647,177 @@
           "base_row_version",
           "client_txn_id",
           "reason"
+        ]
+      },
+      "RecordMergeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "loser_record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "survivor_base_row_version": {
+            "type": "integer"
+          },
+          "loser_base_row_version": {
+            "type": "integer"
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "loser_record_id",
+          "survivor_base_row_version",
+          "loser_base_row_version",
+          "client_txn_id"
+        ]
+      },
+      "RecordMergeExactMatchClassSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "identifier_class": {
+            "type": "string"
+          },
+          "promoted_count": {
+            "type": "integer"
+          },
+          "carried_count": {
+            "type": "integer"
+          },
+          "duplicate_noop_count": {
+            "type": "integer"
+          },
+          "blocked_conflict_count": {
+            "type": "integer"
+          },
+          "provenance_only_count": {
+            "type": "integer"
+          },
+          "suggestion_only_count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "identifier_class",
+          "promoted_count",
+          "carried_count",
+          "duplicate_noop_count",
+          "blocked_conflict_count",
+          "provenance_only_count",
+          "suggestion_only_count"
+        ]
+      },
+      "RecordMergeSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "record_type": {
+            "type": "string"
+          },
+          "repointed_mention_resolution_count": {
+            "type": "integer"
+          },
+          "repointed_link_count": {
+            "type": "integer"
+          },
+          "deduped_link_count": {
+            "type": "integer"
+          },
+          "repointed_tag_count": {
+            "type": "integer"
+          },
+          "deduped_tag_count": {
+            "type": "integer"
+          },
+          "repointed_assessment_count": {
+            "type": "integer"
+          },
+          "exact_match_classes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordMergeExactMatchClassSummary"
+            }
+          }
+        },
+        "required": [
+          "record_type",
+          "repointed_mention_resolution_count",
+          "repointed_link_count",
+          "deduped_link_count",
+          "repointed_tag_count",
+          "deduped_tag_count",
+          "repointed_assessment_count",
+          "exact_match_classes"
+        ]
+      },
+      "RecordMergeData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "survivor_record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "loser_record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "survivor_row_version": {
+            "type": "integer"
+          },
+          "loser_row_version": {
+            "type": "integer"
+          },
+          "change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "merged_into_record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "merge_summary": {
+            "$ref": "#/components/schemas/RecordMergeSummary"
+          }
+        },
+        "required": [
+          "incident_id",
+          "survivor_record_id",
+          "loser_record_id",
+          "survivor_row_version",
+          "loser_row_version",
+          "change_set_id",
+          "merged_into_record_id",
+          "merge_summary"
+        ]
+      },
+      "RecordMergeEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RecordMergeData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       },
       "TimelineCell": {

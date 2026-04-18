@@ -42,6 +42,21 @@ type ChangeSetMutation struct {
 	AfterValue      []byte      `json:"after_value"`
 }
 
+type CompromiseAssessment struct {
+	CompromiseAssessmentID pgtype.UUID        `json:"compromise_assessment_id"`
+	IncidentID             pgtype.UUID        `json:"incident_id"`
+	SubjectID              pgtype.UUID        `json:"subject_id"`
+	SubjectType            string             `json:"subject_type"`
+	State                  string             `json:"state"`
+	Confidence             pgtype.Int4        `json:"confidence"`
+	AssessedByUserID       pgtype.UUID        `json:"assessed_by_user_id"`
+	AssessedAt             pgtype.Timestamptz `json:"assessed_at"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt              pgtype.Timestamptz `json:"deleted_at"`
+	DeletedByUserID        pgtype.UUID        `json:"deleted_by_user_id"`
+}
+
 type DeploymentAdminAuditEvent struct {
 	ID           pgtype.UUID        `json:"id"`
 	ActorUserID  pgtype.UUID        `json:"actor_user_id"`
@@ -128,6 +143,7 @@ type Host struct {
 	Fqdn                pgtype.Text        `json:"fqdn"`
 	EntityOrigin        string             `json:"entity_origin"`
 	SeedEntityMentionID pgtype.UUID        `json:"seed_entity_mention_id"`
+	MergedIntoRecordID  pgtype.UUID        `json:"merged_into_record_id"`
 }
 
 type HostGridProjection struct {
@@ -164,6 +180,7 @@ type Identity struct {
 	Sid                 pgtype.Text        `json:"sid"`
 	EntityOrigin        string             `json:"entity_origin"`
 	SeedEntityMentionID pgtype.UUID        `json:"seed_entity_mention_id"`
+	MergedIntoRecordID  pgtype.UUID        `json:"merged_into_record_id"`
 }
 
 type IdentityGridProjection struct {
@@ -259,6 +276,19 @@ type RecordRevision struct {
 	BeforeJson  []byte             `json:"before_json"`
 	AfterJson   []byte             `json:"after_json"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type RecordTag struct {
+	RecordTagID       pgtype.UUID        `json:"record_tag_id"`
+	IncidentID        pgtype.UUID        `json:"incident_id"`
+	RecordID          pgtype.UUID        `json:"record_id"`
+	TagName           string             `json:"tag_name"`
+	NormalizedTagName string             `json:"normalized_tag_name"`
+	CreatedByUserID   pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	DeletedByUserID   pgtype.UUID        `json:"deleted_by_user_id"`
 }
 
 type RouteIdempotency struct {

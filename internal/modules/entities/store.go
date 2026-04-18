@@ -245,6 +245,7 @@ SELECT
     fqdn,
     hostname,
     host_state,
+    merged_into_record_id,
     entity_origin,
     seed_entity_mention_id,
     row_version,
@@ -293,11 +294,12 @@ UPDATE hosts
        fqdn = $4,
        hostname = $5,
        host_state = $6,
-       row_version = $7,
-       updated_at = $8,
-       updated_by_user_id = $9
+       merged_into_record_id = $7,
+       row_version = $8,
+       updated_at = $9,
+       updated_by_user_id = $10
  WHERE record_id = $1
-`, record.RecordID, record.DisplayName, record.AADDeviceID, record.FQDN, record.Hostname, record.HostState, record.RowVersion, record.UpdatedAt.UTC(), record.UpdatedByUser)
+`, record.RecordID, record.DisplayName, record.AADDeviceID, record.FQDN, record.Hostname, record.HostState, record.MergedIntoRecordID, record.RowVersion, record.UpdatedAt.UTC(), record.UpdatedByUser)
 	if err != nil {
 		return fmt.Errorf("update host: %w", err)
 	}
@@ -349,6 +351,7 @@ SELECT
     email::text,
     sam_account_name,
     identity_state,
+    merged_into_record_id,
     entity_origin,
     seed_entity_mention_id,
     row_version,
@@ -401,11 +404,12 @@ UPDATE identities
        email = $6,
        sam_account_name = $7,
        identity_state = $8,
-       row_version = $9,
-       updated_at = $10,
-       updated_by_user_id = $11
+       merged_into_record_id = $9,
+       row_version = $10,
+       updated_at = $11,
+       updated_by_user_id = $12
  WHERE record_id = $1
-`, record.RecordID, record.DisplayName, record.AADObjectID, record.SID, record.UPN, record.Email, record.SamAccountName, record.IdentityState, record.RowVersion, record.UpdatedAt.UTC(), record.UpdatedByUser)
+`, record.RecordID, record.DisplayName, record.AADObjectID, record.SID, record.UPN, record.Email, record.SamAccountName, record.IdentityState, record.MergedIntoRecordID, record.RowVersion, record.UpdatedAt.UTC(), record.UpdatedByUser)
 	if err != nil {
 		return fmt.Errorf("update identity: %w", err)
 	}

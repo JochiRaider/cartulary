@@ -129,6 +129,16 @@
       "summary": "The record mutation used a stale base_row_version."
     },
     {
+      "code": "merge_precondition_failed",
+      "http_status": 409,
+      "summary": "The requested record merge failed a route-owned merge eligibility or conflict precondition."
+    },
+    {
+      "code": "record_locked",
+      "http_status": 409,
+      "summary": "A destructive-operation lock is already held for one of the requested records."
+    },
+    {
       "code": "illegal_transition",
       "http_status": 409,
       "summary": "The requested Timeline lifecycle transition is not legal for the current row state."

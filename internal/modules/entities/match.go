@@ -558,6 +558,7 @@ SELECT
     fqdn,
     hostname,
     host_state,
+    merged_into_record_id,
     entity_origin,
     seed_entity_mention_id,
     row_version,
@@ -601,6 +602,7 @@ SELECT
     email::text,
     sam_account_name,
     identity_state,
+    merged_into_record_id,
     entity_origin,
     seed_entity_mention_id,
     row_version,
@@ -633,15 +635,45 @@ SELECT
 }
 
 func loadActivePreservedIdentifiersTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string) ([]preservedIdentifierRecord, error) {
-	rows, err := tx.Query(ctx, `
-SELECT record_id, entity_type, identifier_type, normalized_value, classification
-  FROM entity_preserved_identifiers
- WHERE incident_id = $1
-   AND entity_type = $2
-   AND deleted_at IS NULL
-   AND classification = 'exact_match_reuse'
- FOR UPDATE
-`, incidentID, entityType)
+	query := `
+SELECT epi.record_id, epi.entity_type, epi.identifier_type, epi.normalized_value, epi.classification
+  FROM entity_preserved_identifiers epi
+`
+	switch entityType {
+	case "host":
+		query += `
+  JOIN hosts h
+    ON h.record_id = epi.record_id
+   AND h.incident_id = epi.incident_id
+`
+	case "identity":
+		query += `
+  JOIN identities i
+    ON i.record_id = epi.record_id
+   AND i.incident_id = epi.incident_id
+`
+	default:
+		return nil, fmt.Errorf("load preserved identifiers: unsupported entity type %q", entityType)
+	}
+	query += `
+ WHERE epi.incident_id = $1
+   AND epi.entity_type = $2
+   AND epi.deleted_at IS NULL
+   AND epi.classification = 'exact_match_reuse'
+`
+	switch entityType {
+	case "host":
+		query += `
+   AND h.host_state IN ('stub', 'canonical')
+ FOR UPDATE OF epi, h
+`
+	case "identity":
+		query += `
+   AND i.identity_state IN ('stub', 'canonical')
+ FOR UPDATE OF epi, i
+`
+	}
+	rows, err := tx.Query(ctx, query, incidentID, entityType)
 	if err != nil {
 		return nil, fmt.Errorf("load preserved identifiers: %w", err)
 	}
@@ -882,6 +914,7 @@ func scanHostRecord(scanner interface {
 		rawAADDeviceID pgtype.Text
 		rawFQDN        pgtype.Text
 		rawHostname    pgtype.Text
+		rawMergedInto  pgtype.UUID
 		rawSeedMention pgtype.UUID
 	)
 	if err := scanner.Scan(
@@ -892,6 +925,7 @@ func scanHostRecord(scanner interface {
 		&rawFQDN,
 		&rawHostname,
 		&record.HostState,
+		&rawMergedInto,
 		&record.EntityOrigin,
 		&rawSeedMention,
 		&record.RowVersion,
@@ -905,6 +939,7 @@ func scanHostRecord(scanner interface {
 	record.AADDeviceID = textPointer(rawAADDeviceID)
 	record.FQDN = textPointer(rawFQDN)
 	record.Hostname = textPointer(rawHostname)
+	record.MergedIntoRecordID = uuidPointerFromPG(rawMergedInto)
 	record.SeedMentionID = uuidPointerFromPG(rawSeedMention)
 	return record, nil
 }
@@ -919,6 +954,7 @@ func scanIdentityRecord(scanner interface {
 		rawUPN            pgtype.Text
 		rawEmail          pgtype.Text
 		rawSamAccountName pgtype.Text
+		rawMergedInto     pgtype.UUID
 		rawSeedMention    pgtype.UUID
 	)
 	if err := scanner.Scan(
@@ -931,6 +967,7 @@ func scanIdentityRecord(scanner interface {
 		&rawEmail,
 		&rawSamAccountName,
 		&record.IdentityState,
+		&rawMergedInto,
 		&record.EntityOrigin,
 		&rawSeedMention,
 		&record.RowVersion,
@@ -946,6 +983,7 @@ func scanIdentityRecord(scanner interface {
 	record.UPN = textPointer(rawUPN)
 	record.Email = textPointer(rawEmail)
 	record.SamAccountName = textPointer(rawSamAccountName)
+	record.MergedIntoRecordID = uuidPointerFromPG(rawMergedInto)
 	record.SeedMentionID = uuidPointerFromPG(rawSeedMention)
 	return record, nil
 }

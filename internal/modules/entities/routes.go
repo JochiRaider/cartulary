@@ -34,6 +34,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		}
 		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/cartulary.view.hosts.v1/rows", service.handleHostCreate)
 		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/cartulary.view.identities.v1/rows", service.handleIdentityCreate)
+		mux.HandleFunc("POST /api/v1/records/{survivor_record_id}/merge", service.handleMerge)
 		mux.HandleFunc("POST /api/v1/entity-mentions/{entity_mention_id}/resolve", service.handleMentionAction)
 		return nil
 	}
@@ -60,6 +61,75 @@ func (s *Service) handleHostCreate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) handleIdentityCreate(w http.ResponseWriter, r *http.Request) {
 	s.handleCreate(w, r, IdentitiesViewSchemaID)
+}
+
+func (s *Service) handleMerge(w http.ResponseWriter, r *http.Request) {
+	survivorRecordID, ok := pathUUID(w, r, "survivor_record_id")
+	if !ok {
+		return
+	}
+
+	principal, apiErr := s.authenticateSessionRequest(r, true)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+
+	incidentID, err := s.store.GetMergeRouteIncident(r.Context(), survivorRecordID)
+	if errors.Is(err, ErrMergeTargetNotFound) {
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	}
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "reviewer", "admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+
+	request, apiErr := DecodeMergeRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+
+	result, err := s.store.MergeEntity(r.Context(), principal.User, survivorRecordID, request, MergeRequestHash(survivorRecordID, request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	var (
+		preconditionErr *MergePreconditionError
+		rowConflictErr  *MergeRowVersionConflictError
+		recordLockedErr *MergeRecordLockedError
+	)
+	switch {
+	case errors.Is(err, authn.ErrClientTxnConflict):
+		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, ErrMergeTargetNotFound):
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case errors.As(err, &preconditionErr):
+		writeAPIError(w, r, mergePreconditionFailedError(preconditionErr))
+		return
+	case errors.As(err, &rowConflictErr):
+		writeAPIError(w, r, mergeRowVersionConflictError(rowConflictErr))
+		return
+	case errors.As(err, &recordLockedErr):
+		writeAPIError(w, r, recordLockedError(recordLockedErr))
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+
+	if !result.Replayed {
+		s.publishMergeChanges(result, principal.User.ID)
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
 func (s *Service) handleMentionAction(w http.ResponseWriter, r *http.Request) {
@@ -330,4 +400,54 @@ func (s *Service) publishRecordChange(result MentionActionResult, actorUserID uu
 		ChangedFieldKeys: changedKeys,
 		ViewSchemaID:     "cartulary.view.timeline.v1",
 	})
+}
+
+func (s *Service) publishMergeChanges(result MergeResult, actorUserID uuid.UUID) {
+	if s.hub == nil || result.ChangeSetID == uuid.Nil {
+		return
+	}
+
+	viewSchemaID := IdentitiesViewSchemaID
+	survivorKeys := []string{"identity.identity_state", "identity.edited_at", "identity.aliases", "identity.aad_object_id", "identity.sid", "identity.upn", "identity.email", "identity.sam_account_name"}
+	loserKeys := []string{"identity.identity_state", "identity.edited_at"}
+	if result.RecordType == "host" {
+		viewSchemaID = HostsViewSchemaID
+		survivorKeys = []string{"host.host_state", "host.edited_at", "host.aliases", "host.aad_device_id", "host.fqdn", "host.hostname"}
+		loserKeys = []string{"host.host_state", "host.edited_at"}
+	}
+	slices.Sort(survivorKeys)
+	slices.Sort(loserKeys)
+
+	s.hub.PublishRecordChange(platformws.RecordChange{
+		IncidentID:       result.IncidentID,
+		RecordID:         result.SurvivorRecordID,
+		RowVersion:       result.SurvivorRowVersion,
+		ChangeSetID:      result.ChangeSetID,
+		ActorUserID:      actorUserID,
+		ChangedFieldKeys: append([]string(nil), survivorKeys...),
+		ViewSchemaID:     viewSchemaID,
+	})
+	s.hub.PublishRecordChange(platformws.RecordChange{
+		IncidentID:       result.IncidentID,
+		RecordID:         result.LoserRecordID,
+		RowVersion:       result.LoserRowVersion,
+		ChangeSetID:      result.ChangeSetID,
+		ActorUserID:      actorUserID,
+		ChangedFieldKeys: append([]string(nil), loserKeys...),
+		ViewSchemaID:     viewSchemaID,
+	})
+
+	for _, invalidation := range result.TimelineInvalidations {
+		changedKeys := append([]string(nil), invalidation.ChangedFieldKeys...)
+		slices.Sort(changedKeys)
+		s.hub.PublishRecordChange(platformws.RecordChange{
+			IncidentID:       result.IncidentID,
+			RecordID:         invalidation.RecordID,
+			RowVersion:       invalidation.RowVersion,
+			ChangeSetID:      result.ChangeSetID,
+			ActorUserID:      actorUserID,
+			ChangedFieldKeys: changedKeys,
+			ViewSchemaID:     "cartulary.view.timeline.v1",
+		})
+	}
 }

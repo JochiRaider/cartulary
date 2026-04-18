@@ -39,6 +39,7 @@ type HostRecord struct {
 	FQDN                  *string
 	Hostname              *string
 	HostState             string
+	MergedIntoRecordID    *uuid.UUID
 	EntityOrigin          string
 	SeedMentionID         *uuid.UUID
 	SuggestionOnlyAliases []string
@@ -59,6 +60,7 @@ type IdentityRecord struct {
 	Email                 *string
 	SamAccountName        *string
 	IdentityState         string
+	MergedIntoRecordID    *uuid.UUID
 	EntityOrigin          string
 	SeedMentionID         *uuid.UUID
 	SuggestionOnlyAliases []string
