@@ -22,94 +22,590 @@ import (
 )
 
 // I-4-01 / REQ-01-196..REQ-01-227, REQ-02-039..REQ-02-044 / AC-188..AC-190, AC-221..AC-225.
-func TestPhase4_ResolveRoute_I_4_01_Red(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase4-i-4-01")
-	phase4test.RequireRouteSurface(
-		t,
-		"I-4-01",
-		harness.Server,
-		http.MethodPost,
-		"/api/v1/entity-mentions/"+golden.Phase4HostMentionID.String()+"/resolve",
-		fixtures.MentionResolveRoutePayload(7, "txn-phase4-i-4-01", golden.Phase4MentionActionResolve, uuidPointer(golden.Phase4CanonicalHostRecordID), nil),
-	)
+func TestPhase4_ResolveRoute_I_4_01(t *testing.T) {
+	t.Run("resolve_item persists durable state, replays idempotently, and emits websocket invalidation", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase4-i-4-01-resolve")
+		adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-i-4-01-resolve-incident",
+			"incident_key":  "IR-I401-R",
+			"title":         "Phase 4 I-4-01 resolve route",
+		})
+		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+		phase4test.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4TimelineRecordID)
+		phase4test.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4CanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		phase4test.SeedMention(t, harness.DB, adminUserID, golden.Phase4HostMentionID, golden.Phase4TimelineRecordID, golden.Phase4FieldTimelineHostRefs, "host", "WS-023", "unresolved", nil, nil)
+
+		socket := phase4test.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.Phase4TimelineViewSchemaID, adminLogin.SessionCookie.Value)
+		defer socket.Close(1000, "test_complete")
+
+		payload := fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-resolve", golden.Phase4MentionActionResolve, uuidPointer(golden.Phase4CanonicalHostRecordID), nil)
+		resp := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.Phase4HostMentionID.String()+"/resolve",
+			payload,
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		data := phase4test.RequireSuccessData(t, resp, http.StatusOK)
+		if data["incident_id"] != incidentID.String() {
+			t.Fatalf("unexpected incident_id in mention action payload: %#v", data)
+		}
+		if got := int64(data["source_record"].(map[string]any)["row_version"].(float64)); got != 2 {
+			t.Fatalf("expected source record row_version=2 after resolve_item, got %#v", data)
+		}
+
+		mention := phase4test.LookupMention(t, harness.DB, golden.Phase4HostMentionID)
+		assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusResolved)
+		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != golden.Phase4CanonicalHostRecordID {
+			t.Fatalf("expected resolve_item to point mention at the target record, got %#v", mention)
+		}
+		if mention.ResolutionMethod == nil || *mention.ResolutionMethod != "explicit_resolve_route" {
+			t.Fatalf("expected resolve route provenance marker, got %#v", mention)
+		}
+		link := phase4test.LookupActiveLink(t, harness.DB, incidentID, golden.Phase4TimelineRecordID, golden.Phase4CanonicalHostRecordID, "observed_on_host")
+		assertx.RequireActiveLink(t, link, golden.Phase4TimelineRecordID, golden.Phase4CanonicalHostRecordID, "observed_on_host", "manual", nil)
+
+		socketPayload := phase4test.RequireRecordChanged(t, socket, golden.Phase4TimelineRecordID.String(), 2)
+		if socketPayload.ChangeSetID != data["change_set_id"] {
+			t.Fatalf("expected websocket to carry the mention action change_set_id, got payload=%#v response=%#v", socketPayload, data)
+		}
+
+		replayResp := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.Phase4HostMentionID.String()+"/resolve",
+			payload,
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		replayData := phase4test.RequireSuccessData(t, replayResp, http.StatusOK)
+		if replayData["change_set_id"] != data["change_set_id"] {
+			t.Fatalf("expected replay to reuse the original payload, got %#v %#v", data, replayData)
+		}
+		if got := phase4test.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM route_idempotency
+ WHERE route_key = $1
+   AND client_txn_id = $2
+`, "entities.entity_mentions.resolve", "txn-phase4-i-4-01-resolve"); got != 1 {
+			t.Fatalf("expected one route idempotency row for a replayed mention action, got %d", got)
+		}
+
+		divergentResp := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.Phase4HostMentionID.String()+"/resolve",
+			fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-resolve", "dismiss_item", nil, nil),
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		phase4test.RequireErrorBody(t, divergentResp, http.StatusConflict, "client_txn_conflict")
+	})
+
+	t.Run("dismiss_item removes active links and fails closed on stale or illegal transitions", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase4-i-4-01-dismiss")
+		adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-i-4-01-dismiss-incident",
+			"incident_key":  "IR-I401-D",
+			"title":         "Phase 4 I-4-01 dismiss route",
+		})
+		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+		phase4test.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4TimelineRecordID)
+		phase4test.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4CanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		phase4test.SeedResolvedMention(t, harness.DB, adminUserID, golden.Phase4HostMentionID, golden.Phase4TimelineRecordID, golden.Phase4CanonicalHostRecordID, golden.Phase4FieldTimelineHostRefs, "host", "WS-023")
+		phase4test.SeedRecordLink(t, harness.DB, incidentID, adminUserID, golden.Phase4ManualLinkID, golden.Phase4TimelineRecordID, golden.Phase4CanonicalHostRecordID, "observed_on_host", "manual", nil)
+
+		socket := phase4test.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.Phase4TimelineViewSchemaID, adminLogin.SessionCookie.Value)
+		defer socket.Close(1000, "test_complete")
+
+		resp := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.Phase4HostMentionID.String()+"/resolve",
+			fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-dismiss", "dismiss_item", nil, nil),
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		data := phase4test.RequireSuccessData(t, resp, http.StatusOK)
+		if got := int64(data["entity_mention"].(map[string]any)["row_version"].(float64)); got != 2 {
+			t.Fatalf("expected mention row_version=2 after dismiss_item, got %#v", data)
+		}
+
+		dismissed := phase4test.LookupMention(t, harness.DB, golden.Phase4HostMentionID)
+		assertx.RequireMentionStatus(t, dismissed, golden.Phase4MentionStatusDismissed)
+		if got := phase4test.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM record_links
+ WHERE incident_id = $1
+   AND src_record_id = $2
+   AND dst_record_id = $3
+   AND link_type = 'observed_on_host'
+   AND deleted_at IS NULL
+`, incidentID, golden.Phase4TimelineRecordID, golden.Phase4CanonicalHostRecordID); got != 0 {
+			t.Fatalf("expected dismiss_item to remove the active link, got %d active rows", got)
+		}
+		phase4test.RequireRecordChanged(t, socket, golden.Phase4TimelineRecordID.String(), 2)
+
+		staleResp := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.Phase4HostMentionID.String()+"/resolve",
+			fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-stale", "revert_to_unresolved", nil, nil),
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		staleBody := phase4test.RequireErrorBody(t, staleResp, http.StatusConflict, "row_version_conflict")
+		if staleBody["error"].(map[string]any)["details"].(map[string]any)["current_mention_row_version"] != float64(2) {
+			t.Fatalf("expected current_mention_row_version=2 on stale update, got %#v", staleBody)
+		}
+
+		illegalResp := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.Phase4HostMentionID.String()+"/resolve",
+			fixtures.MentionResolveRoutePayload(2, "txn-phase4-i-4-01-illegal", "dismiss_item", nil, nil),
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		illegalBody := phase4test.RequireErrorBody(t, illegalResp, http.StatusConflict, "illegal_transition")
+		if illegalBody["error"].(map[string]any)["details"].(map[string]any)["from_status"] != "dismissed" {
+			t.Fatalf("expected illegal transition details to report the dismissed source status, got %#v", illegalBody)
+		}
+	})
+
+	t.Run("revert_to_unresolved restores unresolved mention state and emits websocket invalidation", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase4-i-4-01-revert")
+		adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-i-4-01-revert-incident",
+			"incident_key":  "IR-I401-U",
+			"title":         "Phase 4 I-4-01 revert route",
+		})
+		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+		phase4test.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4TimelineRecordID)
+		phase4test.SeedMention(t, harness.DB, adminUserID, golden.Phase4HostMentionID, golden.Phase4TimelineRecordID, golden.Phase4FieldTimelineHostRefs, "host", "WS-023", "dismissed", nil, nil)
+
+		socket := phase4test.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.Phase4TimelineViewSchemaID, adminLogin.SessionCookie.Value)
+		defer socket.Close(1000, "test_complete")
+
+		resp := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.Phase4HostMentionID.String()+"/resolve",
+			fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-revert", "revert_to_unresolved", nil, nil),
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		data := phase4test.RequireSuccessData(t, resp, http.StatusOK)
+		if got := int64(data["source_record"].(map[string]any)["row_version"].(float64)); got != 2 {
+			t.Fatalf("expected source record row_version=2 after revert_to_unresolved, got %#v", data)
+		}
+
+		mention := phase4test.LookupMention(t, harness.DB, golden.Phase4HostMentionID)
+		assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusUnresolved)
+		if mention.RawText != "WS-023" || mention.ResolvedRecordID != nil || mention.ResolutionMethod != nil {
+			t.Fatalf("expected revert_to_unresolved to preserve raw_text and clear resolution metadata, got %#v", mention)
+		}
+		phase4test.RequireRecordChanged(t, socket, golden.Phase4TimelineRecordID.String(), 2)
+	})
+
+	t.Run("authorization and target validation are re-derived from live state", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase4-i-4-01-access")
+		adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-i-4-01-access-incident",
+			"incident_key":  "IR-I401-A",
+			"title":         "Phase 4 I-4-01 access checks",
+		})
+		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+		phase4test.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4TimelineRecordID)
+		phase4test.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4CanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		phase4test.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4CanonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
+		phase4test.SeedMention(t, harness.DB, adminUserID, golden.Phase4HostMentionID, golden.Phase4TimelineRecordID, golden.Phase4FieldTimelineHostRefs, "host", "WS-023", "unresolved", nil, nil)
+
+		if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE incident_memberships
+   SET role = 'viewer',
+       updated_at = now(),
+       updated_by_user_id = $3
+ WHERE incident_id = $1
+   AND user_id = $2
+`, incidentID, adminUserID, adminUserID); err != nil {
+			t.Fatalf("demote incident membership: %v", err)
+		}
+		deniedResp := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.Phase4HostMentionID.String()+"/resolve",
+			fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-denied", "resolve_item", uuidPointer(golden.Phase4CanonicalHostRecordID), nil),
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		phase4test.RequireErrorBody(t, deniedResp, http.StatusForbidden, "authorization_denied")
+
+		if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE incident_memberships
+   SET role = 'admin',
+       updated_at = now(),
+       updated_by_user_id = $3
+ WHERE incident_id = $1
+   AND user_id = $2
+`, incidentID, adminUserID, adminUserID); err != nil {
+			t.Fatalf("restore incident membership: %v", err)
+		}
+
+		otherActor := phase4test.SeedLocalUserFlags(t, harness.DB, "phase4-i401-other@example.test", "Phase4 I401 Other", "Phase4I401OtherPass1!", false, false, true)
+		otherIncident := phase4test.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-phase4-i-4-01-hidden-incident", "IR-I401-H", "Phase 4 I-4-01 hidden")
+		phase4test.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, golden.Phase4DuplicateHostRecordID, "Hidden WS-023", "HIDDEN-WS-023", "", "")
+
+		hiddenResp := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.Phase4HostMentionID.String()+"/resolve",
+			fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-hidden", "resolve_item", uuidPointer(golden.Phase4DuplicateHostRecordID), nil),
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		phase4test.RequireErrorBody(t, hiddenResp, http.StatusNotFound, "resolved_record_not_found")
+
+		otherVisibleIncident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-i-4-01-visible-incident",
+			"incident_key":  "IR-I401-V",
+			"title":         "Phase 4 I-4-01 visible other incident",
+		})
+		otherVisibleIncidentID := phase4test.MustUUID(t, otherVisibleIncident["incident_id"].(string))
+		phase4test.SeedHostRecord(t, harness.DB, otherVisibleIncidentID, adminUserID, golden.Phase4StubHostRecordID, "Visible WS-023", "VISIBLE-WS-023", "", "")
+
+		crossIncidentResp := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.Phase4HostMentionID.String()+"/resolve",
+			fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-cross", "resolve_item", uuidPointer(golden.Phase4StubHostRecordID), nil),
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		phase4test.RequireErrorBody(t, crossIncidentResp, http.StatusBadRequest, "invalid_mutation_payload")
+
+		wrongTypeResp := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+golden.Phase4HostMentionID.String()+"/resolve",
+			fixtures.MentionResolveRoutePayload(1, "txn-phase4-i-4-01-wrong-type", "resolve_item", uuidPointer(golden.Phase4CanonicalIdentityID), nil),
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		phase4test.RequireErrorBody(t, wrongTypeResp, http.StatusBadRequest, "invalid_mutation_payload")
+
+		mention := phase4test.LookupMention(t, harness.DB, golden.Phase4HostMentionID)
+		assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusUnresolved)
+		assertx.RequireRowVersionStable(t, 1, mention.RowVersion)
+		if got := phase4test.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM record_links
+ WHERE incident_id = $1
+   AND src_record_id = $2
+   AND deleted_at IS NULL
+`, incidentID, golden.Phase4TimelineRecordID); got != 0 {
+			t.Fatalf("expected invalid or unauthorized target attempts to leave record links untouched, got %d active rows", got)
+		}
+	})
 }
 
 // I-4-02 / REQ-02-035..REQ-02-036, REQ-02-054..REQ-02-055, REQ-02-059..REQ-02-063 / AC-022, AC-186.
-func TestPhase4_EntityOriginUpsert_I_4_02_Red(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase4-i-4-02")
-	resp := phase4test.RequireRouteSurface(
-		t,
-		"I-4-02",
-		harness.Server,
-		http.MethodPost,
-		"/api/v1/incidents/"+golden.Phase4IncidentID.String()+"/views/"+golden.Phase4HostsViewSchemaID+"/rows",
-		fixtures.HostCreatePayload("txn-phase4-i-4-02"),
-	)
-	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
-	details := body["error"].(map[string]any)["details"].(map[string]any)
-	if details["reason_code"] == "unknown_view_schema" {
-		t.Fatalf("Phase 4 I-4-02 expected Hosts entity_origin surface %s to be active, got reason_code=%v", golden.Phase4HostsViewSchemaID, details["reason_code"])
-	}
+func TestPhase4_EntityOriginUpsert_I_4_02(t *testing.T) {
+	t.Run("host create covers direct create, preserved exact-match reuse, alias-only non-reuse, and conflict handling", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase4-i-4-02-host")
+		adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-i-4-02-host-incident",
+			"incident_key":  "IR-I402-H",
+			"title":         "Phase 4 I-4-02 host create",
+		})
+		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 
-	adminLogin, _ := provisionBootstrapAdmin(t, harness.Server)
-	incident := createIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase4-i-4-02-incident",
-		"incident_key":  "IR-I402",
-		"title":         "Entity origin query",
+		hostCreate := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.Phase4HostsViewSchemaID+"/rows",
+			map[string]any{
+				"client_txn_id":     "txn-phase4-i-4-02-host-create",
+				"host.display_name": "Gateway record",
+				"host.hostname":     "GATEWAY-01",
+				"host.fqdn":         "gateway-01.corp.example",
+				"host.aliases": map[string]any{
+					"kind": "collection_actions_v1",
+					"actions": []map[string]any{
+						{"op": "add_token", "raw_text": "VPN Gateway"},
+					},
+				},
+			},
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		hostCreateData := phase4test.RequireSuccessData(t, hostCreate, http.StatusCreated)
+		hostRow := hostCreateData["row"].(map[string]any)
+		hostRecordID := phase4test.MustUUID(t, hostRow["record_id"].(string))
+
+		var (
+			hostState        string
+			entityOrigin     string
+			seedMentionID    sql.NullString
+			displayName      string
+			hostname         string
+			fqdn             sql.NullString
+			suggestionAliasN int
+		)
+		if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT
+    host_state,
+    entity_origin,
+    seed_entity_mention_id::text,
+    display_name,
+    hostname,
+    fqdn,
+    (
+      SELECT COUNT(*)
+        FROM entity_aliases
+       WHERE incident_id = h.incident_id
+         AND record_id = h.record_id
+         AND entity_type = 'host'
+         AND classification = 'suggestion_only'
+         AND deleted_at IS NULL
+    )
+  FROM hosts h
+ WHERE record_id = $1
+`, hostRecordID).Scan(&hostState, &entityOrigin, &seedMentionID, &displayName, &hostname, &fqdn, &suggestionAliasN); err != nil {
+			t.Fatalf("lookup created host row: %v", err)
+		}
+		if hostState != "stub" || entityOrigin != "direct_create" || seedMentionID.Valid {
+			t.Fatalf("expected direct_create host provenance without seed mention, got state=%q origin=%q seed=%v", hostState, entityOrigin, seedMentionID)
+		}
+		if displayName != "Gateway record" || hostname != "GATEWAY-01" || !fqdn.Valid || fqdn.String != "gateway-01.corp.example" || suggestionAliasN != 1 {
+			t.Fatalf("unexpected created host state: display=%q hostname=%q fqdn=%v aliases=%d", displayName, hostname, fqdn, suggestionAliasN)
+		}
+		if got := phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, hostRecordID); got != 0 {
+			t.Fatalf("entity-origin host create must not synthesize mentions, got %d rows", got)
+		}
+
+		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE hosts SET fqdn = NULL WHERE record_id = $1`, hostRecordID); err != nil {
+			t.Fatalf("clear host fqdn to force preserved-identifier reuse: %v", err)
+		}
+		hostReuse := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.Phase4HostsViewSchemaID+"/rows",
+			map[string]any{
+				"client_txn_id":     "txn-phase4-i-4-02-host-reuse",
+				"host.display_name": "Gateway reused",
+				"host.fqdn":         "gateway-01.corp.example",
+			},
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		hostReuseData := phase4test.RequireSuccessData(t, hostReuse, http.StatusOK)
+		if got := phase4test.MustUUID(t, hostReuseData["row"].(map[string]any)["record_id"].(string)); got != hostRecordID {
+			t.Fatalf("expected preserved exact-match reuse to return the original host record, got %#v", hostReuseData)
+		}
+		if state, mergedInto, rowVersion, restoredFQDN := phase4test.LookupHostState(t, harness.DB, hostRecordID); state != "stub" || mergedInto != nil || rowVersion != 2 || restoredFQDN != "gateway-01.corp.example" {
+			t.Fatalf("unexpected reused host state: state=%s merged_into=%v row_version=%d fqdn=%q", state, mergedInto, rowVersion, restoredFQDN)
+		}
+
+		aliasOnly := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.Phase4HostsViewSchemaID+"/rows",
+			map[string]any{
+				"client_txn_id":     "txn-phase4-i-4-02-host-alias-only",
+				"host.display_name": "VPN Gateway",
+			},
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		aliasOnlyData := phase4test.RequireSuccessData(t, aliasOnly, http.StatusCreated)
+		if got := phase4test.MustUUID(t, aliasOnlyData["row"].(map[string]any)["record_id"].(string)); got == hostRecordID {
+			t.Fatalf("expected alias-only create to remain suggestion-only, got %#v", aliasOnlyData)
+		}
+
+		phase4test.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4CanonicalHostRecordID, "Conflict Host A", "COLLISION-01", "", "")
+		phase4test.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4DuplicateHostRecordID, "Conflict Host B", "COLLISION-01", "", "")
+		conflictResp := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.Phase4HostsViewSchemaID+"/rows",
+			map[string]any{
+				"client_txn_id":     "txn-phase4-i-4-02-host-conflict",
+				"host.display_name": "Conflict Host",
+				"host.hostname":     "COLLISION-01",
+			},
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		conflictBody := phase4test.RequireErrorBody(t, conflictResp, http.StatusConflict, "entity_match_conflict")
+		details := conflictBody["error"].(map[string]any)["details"].(map[string]any)
+		if details["reason_code"] != "merge_required" || details["entity_type"] != "host" || details["identifier_class"] != "hostname" {
+			t.Fatalf("unexpected host conflict details: %#v", details)
+		}
+		candidateIDs := details["candidate_record_ids"].([]any)
+		if len(candidateIDs) != 2 {
+			t.Fatalf("expected two conflict candidates, got %#v", details)
+		}
+		if got := phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, hostRecordID); got != 0 {
+			t.Fatalf("conflicted host create must not synthesize mentions, got %d rows", got)
+		}
 	})
-	incidentID := incident["incident_id"].(string)
 
-	hostCreate := doEntitiesJSON(
-		t,
-		http.MethodPost,
-		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+golden.Phase4HostsViewSchemaID+"/rows",
-		fixtures.HostCreatePayload("txn-phase4-i-4-02-host"),
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
-	)
-	hostRow := httptestx.RequireSuccessEnvelope(t, hostCreate, http.StatusCreated)["data"].(map[string]any)["row"].(map[string]any)
-	hostQuery := doEntitiesJSON(
-		t,
-		http.MethodPost,
-		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+golden.Phase4HostsViewSchemaID+"/query",
-		map[string]any{},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-	)
-	hostRows := httptestx.RequireSuccessEnvelope(t, hostQuery, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
-	if len(hostRows) != 1 {
-		t.Fatalf("expected one queried host row, got %#v", hostRows)
-	}
-	if hostRows[0].(map[string]any)["record_id"] != hostRow["record_id"] {
-		t.Fatalf("expected queried host row to match created record, got %#v", hostRows[0])
-	}
+	t.Run("identity create covers direct create, preserved exact-match reuse, alias-only non-reuse, and conflict handling", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase4-i-4-02-identity")
+		adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-i-4-02-identity-incident",
+			"incident_key":  "IR-I402-I",
+			"title":         "Phase 4 I-4-02 identity create",
+		})
+		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 
-	identityCreate := doEntitiesJSON(
-		t,
-		http.MethodPost,
-		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+golden.Phase4IdentitiesViewSchemaID+"/rows",
-		fixtures.IdentityCreatePayload("txn-phase4-i-4-02-identity"),
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
-	)
-	identityRow := httptestx.RequireSuccessEnvelope(t, identityCreate, http.StatusCreated)["data"].(map[string]any)["row"].(map[string]any)
-	identityQuery := doEntitiesJSON(
-		t,
-		http.MethodPost,
-		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+golden.Phase4IdentitiesViewSchemaID+"/query",
-		map[string]any{},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-	)
-	identityRows := httptestx.RequireSuccessEnvelope(t, identityQuery, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
-	if len(identityRows) != 1 {
-		t.Fatalf("expected one queried identity row, got %#v", identityRows)
-	}
-	if identityRows[0].(map[string]any)["record_id"] != identityRow["record_id"] {
-		t.Fatalf("expected queried identity row to match created record, got %#v", identityRows[0])
-	}
+		identityCreate := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.Phase4IdentitiesViewSchemaID+"/rows",
+			map[string]any{
+				"client_txn_id":             "txn-phase4-i-4-02-identity-create",
+				"identity.display_name":     "Alex Analyst",
+				"identity.email":            "alex.analyst@example.test",
+				"identity.sam_account_name": "ALEXA",
+				"identity.aliases": map[string]any{
+					"kind": "collection_actions_v1",
+					"actions": []map[string]any{
+						{"op": "add_token", "raw_text": "Case Owner"},
+					},
+				},
+			},
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		identityCreateData := phase4test.RequireSuccessData(t, identityCreate, http.StatusCreated)
+		identityRecordID := phase4test.MustUUID(t, identityCreateData["row"].(map[string]any)["record_id"].(string))
+
+		var (
+			identityState   string
+			entityOrigin    string
+			seedMentionID   sql.NullString
+			displayName     string
+			email           sql.NullString
+			samAccountName  sql.NullString
+			suggestionCount int
+		)
+		if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT
+    identity_state,
+    entity_origin,
+    seed_entity_mention_id::text,
+    display_name,
+    email::text,
+    sam_account_name,
+    (
+      SELECT COUNT(*)
+        FROM entity_aliases
+       WHERE incident_id = i.incident_id
+         AND record_id = i.record_id
+         AND entity_type = 'identity'
+         AND classification = 'suggestion_only'
+         AND deleted_at IS NULL
+    )
+  FROM identities i
+ WHERE record_id = $1
+`, identityRecordID).Scan(&identityState, &entityOrigin, &seedMentionID, &displayName, &email, &samAccountName, &suggestionCount); err != nil {
+			t.Fatalf("lookup created identity row: %v", err)
+		}
+		if identityState != "stub" || entityOrigin != "direct_create" || seedMentionID.Valid {
+			t.Fatalf("expected direct_create identity provenance without seed mention, got state=%q origin=%q seed=%v", identityState, entityOrigin, seedMentionID)
+		}
+		if displayName != "Alex Analyst" || !email.Valid || email.String != "alex.analyst@example.test" || !samAccountName.Valid || samAccountName.String != "ALEXA" || suggestionCount != 1 {
+			t.Fatalf("unexpected created identity state: display=%q email=%v sam=%v aliases=%d", displayName, email, samAccountName, suggestionCount)
+		}
+		if got := phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, identityRecordID); got != 0 {
+			t.Fatalf("entity-origin identity create must not synthesize mentions, got %d rows", got)
+		}
+
+		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE identities SET email = NULL WHERE record_id = $1`, identityRecordID); err != nil {
+			t.Fatalf("clear identity email to force preserved-identifier reuse: %v", err)
+		}
+		identityReuse := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.Phase4IdentitiesViewSchemaID+"/rows",
+			map[string]any{
+				"client_txn_id":         "txn-phase4-i-4-02-identity-reuse",
+				"identity.display_name": "Alex Analyst Reused",
+				"identity.email":        "alex.analyst@example.test",
+			},
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		identityReuseData := phase4test.RequireSuccessData(t, identityReuse, http.StatusOK)
+		if got := phase4test.MustUUID(t, identityReuseData["row"].(map[string]any)["record_id"].(string)); got != identityRecordID {
+			t.Fatalf("expected preserved exact-match reuse to return the original identity record, got %#v", identityReuseData)
+		}
+		if got := phase4test.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM identities
+ WHERE incident_id = $1
+   AND record_id = $2
+   AND row_version = 2
+   AND email = 'alex.analyst@example.test'
+`, incidentID, identityRecordID); got != 1 {
+			t.Fatalf("expected preserved-identifier reuse to restore the canonical email and increment row_version, got %d rows", got)
+		}
+
+		aliasOnly := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.Phase4IdentitiesViewSchemaID+"/rows",
+			map[string]any{
+				"client_txn_id":         "txn-phase4-i-4-02-identity-alias-only",
+				"identity.display_name": "Case Owner",
+			},
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		aliasOnlyData := phase4test.RequireSuccessData(t, aliasOnly, http.StatusCreated)
+		if got := phase4test.MustUUID(t, aliasOnlyData["row"].(map[string]any)["record_id"].(string)); got == identityRecordID {
+			t.Fatalf("expected alias-only identity create to remain suggestion-only, got %#v", aliasOnlyData)
+		}
+
+		phase4test.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4CanonicalIdentityID, "Conflict Identity A", "collision@example.test", "collision@example.test", "COLLISION-A")
+		phase4test.SeedIdentityRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4DuplicateIdentityID, "Conflict Identity B", "collision@example.test", "collision@example.test", "COLLISION-B")
+		conflictResp := phase4test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.Phase4IdentitiesViewSchemaID+"/rows",
+			map[string]any{
+				"client_txn_id":         "txn-phase4-i-4-02-identity-conflict",
+				"identity.display_name": "Conflict Identity",
+				"identity.email":        "collision@example.test",
+			},
+			phase4test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			phase4test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		)
+		conflictBody := phase4test.RequireErrorBody(t, conflictResp, http.StatusConflict, "entity_match_conflict")
+		details := conflictBody["error"].(map[string]any)["details"].(map[string]any)
+		if details["reason_code"] != "merge_required" || details["entity_type"] != "identity" || details["identifier_class"] != "email" {
+			t.Fatalf("unexpected identity conflict details: %#v", details)
+		}
+		if got := len(details["candidate_record_ids"].([]any)); got != 2 {
+			t.Fatalf("expected two identity conflict candidates, got %#v", details)
+		}
+		if got := phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, identityRecordID); got != 0 {
+			t.Fatalf("conflicted identity create must not synthesize mentions, got %d rows", got)
+		}
+	})
 }
 
 // I-4-03 / REQ-01-181..REQ-01-195, REQ-02-064..REQ-02-066 / AC-023, AC-186, AC-209.
-func TestPhase4_ExplicitMergeRoute_I_4_03_Red(t *testing.T) {
+func TestPhase4_ExplicitMergeRoute_I_4_03(t *testing.T) {
 	t.Run("host merge repoints live fan-out and preserves survivor reuse", func(t *testing.T) {
 		harness := phase4test.StartServer(t, "phase4-i-4-03")
 		phase4test.RequireSchemaTables(t, harness.DB, "I-4-03", "hosts", "identities", "entity_mentions", "record_tags", "compromise_assessments")
@@ -121,8 +617,8 @@ func TestPhase4_ExplicitMergeRoute_I_4_03_Red(t *testing.T) {
 			"title":         "Entity merge",
 		})
 		incidentID := mustUUID(t, incident["incident_id"].(string))
-		hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeRecordChanges(16)
-		defer unsubscribe()
+		timelineSocket := phase4test.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.Phase4TimelineViewSchemaID, adminLogin.sessionCookie.Value)
+		defer timelineSocket.Close(1000, "test_complete")
 
 		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4CanonicalHostRecordID, "WS-023", "WS-023", "", "")
 		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4DuplicateHostRecordID, "WS-023 duplicate", "WS-023-DUP", "ws-023.corp.example.test", "")
@@ -246,6 +742,46 @@ SELECT COUNT(*)
 			t.Fatalf("expected loser assessment to repoint to survivor, got %s", got)
 		}
 
+		timelineChange := phase4test.RequireRecordChanged(t, timelineSocket, golden.Phase4TimelineRecordID.String(), 1)
+		if timelineChange.ChangeSetID != mergeData["change_set_id"] {
+			t.Fatalf("expected websocket invalidation to carry the merge change_set_id, got timeline=%#v merge=%#v", timelineChange, mergeData)
+		}
+
+		replayResp := doEntitiesJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/records/"+golden.Phase4CanonicalHostRecordID.String()+"/merge",
+			map[string]any{
+				"loser_record_id":           golden.Phase4DuplicateHostRecordID.String(),
+				"survivor_base_row_version": 1,
+				"loser_base_row_version":    1,
+				"client_txn_id":             "txn-phase4-i-4-03-merge",
+				"reason":                    "  merge duplicate host  ",
+			},
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
+		if replayData["change_set_id"] != mergeData["change_set_id"] {
+			t.Fatalf("expected replayed merge to return the stored payload, got %#v %#v", mergeData, replayData)
+		}
+
+		divergentResp := doEntitiesJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/records/"+golden.Phase4CanonicalHostRecordID.String()+"/merge",
+			map[string]any{
+				"loser_record_id":           golden.Phase4DuplicateHostRecordID.String(),
+				"survivor_base_row_version": 1,
+				"loser_base_row_version":    1,
+				"client_txn_id":             "txn-phase4-i-4-03-merge",
+				"reason":                    "different replay payload",
+			},
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
+
 		createResp := doEntitiesJSON(
 			t,
 			http.MethodPost,
@@ -262,12 +798,46 @@ SELECT COUNT(*)
 		if row["record_id"] != golden.Phase4CanonicalHostRecordID.String() {
 			t.Fatalf("expected carried-forward exact match to reuse survivor, got %#v", createData)
 		}
-
-		changes := collectRecordChanges(t, hubChanges, 3, 5*time.Second)
-		requireRecordChange(t, changes, golden.Phase4CanonicalHostRecordID, golden.Phase4HostsViewSchemaID)
-		requireRecordChange(t, changes, golden.Phase4DuplicateHostRecordID, golden.Phase4HostsViewSchemaID)
-		requireRecordChange(t, changes, golden.Phase4TimelineRecordID, golden.Phase4TimelineViewSchemaID)
 		_ = link
+	})
+
+	t.Run("merge authorization re-derives current incident role", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase4-i-4-03-authz")
+		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
+		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-i-4-03-authz-incident",
+			"incident_key":  "IR-I403-A",
+			"title":         "Entity merge authz",
+		})
+		incidentID := mustUUID(t, incident["incident_id"].(string))
+		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4CanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4DuplicateHostRecordID, "WS-023 duplicate", "WS-023-DUP", "", "")
+
+		if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE incident_memberships
+   SET role = 'viewer',
+       updated_at = now(),
+       updated_by_user_id = $3
+ WHERE incident_id = $1
+   AND user_id = $2
+`, incidentID, adminUserID, adminUserID); err != nil {
+			t.Fatalf("demote merge actor membership: %v", err)
+		}
+
+		resp := doEntitiesJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/records/"+golden.Phase4CanonicalHostRecordID.String()+"/merge",
+			map[string]any{
+				"loser_record_id":           golden.Phase4DuplicateHostRecordID.String(),
+				"survivor_base_row_version": 1,
+				"loser_base_row_version":    1,
+				"client_txn_id":             "txn-phase4-i-4-03-authz-merge",
+			},
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		httptestx.RequireErrorEnvelope(t, resp, http.StatusForbidden, "authorization_denied")
 	})
 }
 

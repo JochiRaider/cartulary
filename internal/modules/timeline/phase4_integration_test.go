@@ -24,7 +24,7 @@ import (
 )
 
 // U-4-08 / REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 / AC-205, AC-388..AC-392.
-func TestPhase4_AutoResolutionEligibility_U_4_08_Authoritative(t *testing.T) {
+func TestPhase4_AutoResolutionEligibility_I_4_08(t *testing.T) {
 	t.Run("host alias exact equality auto resolves in the same patch change set", func(t *testing.T) {
 		harness := phase4test.StartServer(t, "phase4-u-4-08-host-auto-match")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
@@ -479,7 +479,7 @@ SELECT COUNT(*)
 }
 
 // U-4-09 / REQ-01-311, REQ-01-314..REQ-01-320, REQ-02-248, REQ-03-280 / AC-394, AC-396, AC-397.
-func TestPhase4_ManualTimelineConfidenceNull_U_4_09_Authoritative(t *testing.T) {
+func TestPhase4_ManualTimelineConfidenceNull_I_4_09(t *testing.T) {
 	t.Run("add_resolved_ref persists manual host link with null confidence", func(t *testing.T) {
 		harness := phase4test.StartServer(t, "phase4-u-4-09-add-resolved-ref")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
@@ -526,14 +526,6 @@ func TestPhase4_ManualTimelineConfidenceNull_U_4_09_Authoritative(t *testing.T) 
 			golden.Phase4ManualLinkExpectation.Provenance,
 			golden.Phase4ManualLinkExpectation.Confidence,
 		)
-		readLink := serializeActiveLinkRead(t, link)
-		if confidence, ok := readLink["confidence"]; !ok || confidence != nil {
-			t.Fatalf("expected serialized helper read to preserve confidence:null, got %#v", readLink)
-		}
-		if readLink["provenance"] != golden.Phase4ManualLinkExpectation.Provenance {
-			t.Fatalf("unexpected serialized link provenance: %#v", readLink)
-		}
-
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
 		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
 		if item["item_kind"] != "resolved_ref" {
@@ -544,6 +536,12 @@ func TestPhase4_ManualTimelineConfidenceNull_U_4_09_Authoritative(t *testing.T) 
 		}
 		if item["raw_text"] != "WS-023" {
 			t.Fatalf("expected raw_text to remain authoritative in current-state read, got %#v", item)
+		}
+		if confidence, ok := item["confidence"]; !ok || confidence != nil {
+			t.Fatalf("expected current-state read to preserve confidence:null, got %#v", item)
+		}
+		if item["provenance"] != golden.Phase4ManualLinkExpectation.Provenance {
+			t.Fatalf("unexpected current-state link provenance: %#v", item)
 		}
 	})
 
@@ -599,11 +597,6 @@ func TestPhase4_ManualTimelineConfidenceNull_U_4_09_Authoritative(t *testing.T) 
 			golden.Phase4ManualLinkExpectation.Provenance,
 			golden.Phase4ManualLinkExpectation.Confidence,
 		)
-		readLink := serializeActiveLinkRead(t, link)
-		if confidence, ok := readLink["confidence"]; !ok || confidence != nil {
-			t.Fatalf("expected serialized helper read to preserve confidence:null, got %#v", readLink)
-		}
-
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
 		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineIdentityRefs)
 		if item["item_kind"] != "resolved_ref" {
@@ -614,6 +607,12 @@ func TestPhase4_ManualTimelineConfidenceNull_U_4_09_Authoritative(t *testing.T) 
 		}
 		if item["raw_text"] != beforeMention.RawText {
 			t.Fatalf("expected resolve_item to preserve raw_text, before=%q after=%#v", beforeMention.RawText, item)
+		}
+		if confidence, ok := item["confidence"]; !ok || confidence != nil {
+			t.Fatalf("expected current-state read to preserve confidence:null, got %#v", item)
+		}
+		if item["provenance"] != golden.Phase4ManualLinkExpectation.Provenance {
+			t.Fatalf("unexpected current-state link provenance: %#v", item)
 		}
 	})
 
