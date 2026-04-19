@@ -28,8 +28,7 @@ import (
 )
 
 func TestPhase0_ReadyState_E_0_01(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
 	testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-e-0-01")
 	if err != nil {
@@ -68,8 +67,7 @@ func TestPhase0_ReadyState_E_0_01(t *testing.T) {
 }
 
 func TestPhase0_InvalidConfigDiagnostics_E_0_02(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
 	cases := []struct {
 		name       string
@@ -127,8 +125,7 @@ func TestPhase0_InvalidConfigDiagnostics_E_0_02(t *testing.T) {
 }
 
 func TestPhase0_FirstAdminBootstrap_E_0_03(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
 	testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-e-0-03")
 	if err != nil {
@@ -166,8 +163,7 @@ func TestPhase0_FirstAdminBootstrap_E_0_03(t *testing.T) {
 }
 
 func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
 	cases := []struct {
 		name           string
@@ -250,8 +246,7 @@ func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
 }
 
 func TestPhase0_BootstrapSkipAndRecovery_E_0_05(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
 	t.Run("existing active deployment admin skips stale and invalid bootstrap manifests", func(t *testing.T) {
 		testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-e-0-05-skip")

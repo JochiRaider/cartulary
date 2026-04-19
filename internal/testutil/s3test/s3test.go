@@ -33,7 +33,21 @@ type Harness struct {
 func Start(t testing.TB) *Harness {
 	t.Helper()
 
-	ctx := context.Background()
+	harness, err := StartShared(context.Background())
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	t.Cleanup(func() {
+		if err := harness.Close(context.Background()); err != nil {
+			t.Fatalf("terminate minio testcontainer: %v", err)
+		}
+	})
+
+	return harness
+}
+
+func StartShared(ctx context.Context) (*Harness, error) {
 	req := testcontainers.ContainerRequest{
 		Image:        "minio/minio:latest",
 		ExposedPorts: []string{"9000/tcp", "9001/tcp"},
@@ -50,17 +64,19 @@ func Start(t testing.TB) *Harness {
 		Started:          true,
 	})
 	if err != nil {
-		t.Fatalf("start minio testcontainer: %v", err)
+		return nil, fmt.Errorf("start minio testcontainer: %w", err)
 	}
 
 	host, err := container.Host(ctx)
 	if err != nil {
-		t.Fatalf("resolve minio host: %v", err)
+		_ = container.Terminate(ctx)
+		return nil, fmt.Errorf("resolve minio host: %w", err)
 	}
 
 	port, err := container.MappedPort(ctx, "9000/tcp")
 	if err != nil {
-		t.Fatalf("resolve minio mapped port: %v", err)
+		_ = container.Terminate(ctx)
+		return nil, fmt.Errorf("resolve minio mapped port: %w", err)
 	}
 
 	harness := &Harness{
@@ -73,16 +89,10 @@ func Start(t testing.TB) *Harness {
 
 	if err := harness.WaitReady(ctx); err != nil {
 		_ = harness.Close(ctx)
-		t.Fatalf("wait for minio readiness: %v", err)
+		return nil, fmt.Errorf("wait for minio readiness: %w", err)
 	}
 
-	t.Cleanup(func() {
-		if err := harness.Close(context.Background()); err != nil {
-			t.Fatalf("terminate minio testcontainer: %v", err)
-		}
-	})
-
-	return harness
+	return harness, nil
 }
 
 func (h *Harness) WaitReady(ctx context.Context) error {

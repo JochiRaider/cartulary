@@ -76,7 +76,8 @@ test("E-3-02 shows Syncing, Saved, and Conflict across Enter, Tab, blur, and pas
   await expect(page.getByTestId("save-state")).toHaveText("Saved");
 
   await detailsInput.fill("Blur details");
-  await page.getByTestId("timeline-blur-surface").click();
+  await detailsInput.blur();
+  await expect(page.getByTestId("save-state")).toHaveText("Syncing");
   await expect(page.getByTestId(`row-${recordId}-row-version`)).toHaveText("4");
   await expect(page.getByTestId("save-state")).toHaveText("Saved");
 
@@ -105,7 +106,7 @@ test("E-3-02 shows Syncing, Saved, and Conflict across Enter, Tab, blur, and pas
   });
 
   await summaryInput.fill("Conflict value");
-  await page.getByTestId("timeline-blur-surface").click();
+  await summaryInput.blur();
   await expect(page.getByTestId("save-state")).toHaveText("Conflict");
 });
 

@@ -10,6 +10,8 @@ GO_MOD_CACHE_DIR ?= /tmp/cartulary-go-mod
 GO_RUN_ENV := GOCACHE=$(GO_CACHE_DIR) GOMODCACHE=$(GO_MOD_CACHE_DIR)
 NODE_VERSION ?= 24.15.0
 PNPM_VERSION ?= 10.33.0
+CHECK_JOBS ?= 4
+PLAYWRIGHT_WORKERS ?= 2
 NODE_RUNTIME_DIR ?= $(CURDIR)/tmp/node-runtime
 NODE_BIN ?= $(NODE_RUNTIME_DIR)/bin/node
 PNPM_RUN_ENV := PATH=$(NODE_RUNTIME_DIR)/bin:$$PATH
@@ -104,7 +106,7 @@ generate-drift:
 migration-drift:
 	$(RUN_PHASE) "migration-drift" -- env GO=$(GO) CONFIG_FILE=$(CONFIG_FILE) GOCACHE=$(GO_CACHE_DIR) GOMODCACHE=$(GO_MOD_CACHE_DIR) ./scripts/check-migrations.sh
 
-deployable-shape:
+deployable-shape: build
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "deployable-shape" -- ./scripts/ci/check-deployable-shape.sh
 
 phase2-map-check: frontend-toolchain
@@ -141,7 +143,7 @@ phase0-process-e2e:
 
 phase1-process-smoke:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_PHASE) "phase1-process-smoke" -- $(GO_ENV) $(GO) test ./cmd/server -run '^(TestPhase1_.*_ProcessSmoke)$$'
+	$(RUN_PHASE) "phase1-process-smoke" -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4 -run '^(TestPhase1_.*_ProcessSmoke)$$'
 
 frontend-unit: frontend-toolchain
 	$(RUN_PHASE) "frontend-unit" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec vitest run --passWithNoTests $(VITEST_FLAGS)
@@ -150,7 +152,7 @@ e2e: frontend-toolchain
 	$(Q)$(MAKE) --no-print-directory browser-e2e
 
 browser-e2e: frontend-toolchain
-	$(RUN_PHASE) "browser-e2e" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec playwright test $(PLAYWRIGHT_TEST_FLAGS) e2e/phase1.spec.ts e2e/phase2.spec.ts e2e/phase3.spec.ts e2e/phase4.spec.ts
+	$(RUN_PHASE) "browser-e2e" -- env PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" $(PNPM) --dir apps/web exec playwright test $(PLAYWRIGHT_TEST_FLAGS) e2e/phase1.spec.ts e2e/phase2.spec.ts e2e/phase3.spec.ts e2e/phase4.spec.ts
 
 lint: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
@@ -162,16 +164,9 @@ check: frontend-toolchain
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "check frontend install" -- $(PNPM_ENV) $(PNPM) install --frozen-lockfile $(PNPM_INSTALL_FLAGS)
 	$(Q)$(MAKE) --no-print-directory run-phase-smoke
 	$(Q)$(MAKE) --no-print-directory generate-drift
-	$(Q)$(MAKE) --no-print-directory migration-drift
 	$(Q)$(MAKE) --no-print-directory phase2-map-check
-	$(Q)$(MAKE) --no-print-directory lint
-	$(Q)$(MAKE) --no-print-directory backend-unit
-	$(Q)$(MAKE) --no-print-directory backend-integration
-	$(Q)$(MAKE) --no-print-directory backend-process
-	$(Q)$(MAKE) --no-print-directory frontend-unit
+	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(CHECK_JOBS) migration-drift lint backend-unit backend-integration backend-process frontend-unit deployable-shape
 	$(Q)$(MAKE) --no-print-directory browser-e2e
-	$(Q)$(MAKE) --no-print-directory build
-	$(Q)$(MAKE) --no-print-directory deployable-shape
 
 ci:
 	$(Q)./scripts/ci/verify.sh

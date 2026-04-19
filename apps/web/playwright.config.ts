@@ -4,11 +4,19 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "@playwright/test";
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
+const configuredWorkers = Number.parseInt(
+  process.env.PLAYWRIGHT_WORKERS ?? "2",
+  10,
+);
 
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
-  workers: 1,
+  globalSetup: path.resolve(currentDirectory, "e2e", "global-setup.ts"),
+  workers:
+    Number.isNaN(configuredWorkers) || configuredWorkers < 1
+      ? 1
+      : configuredWorkers,
   timeout: 60_000,
   use: {
     baseURL: "http://127.0.0.1:4173",

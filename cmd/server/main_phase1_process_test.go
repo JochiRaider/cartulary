@@ -17,8 +17,6 @@ import (
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
-	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
 const (
@@ -29,6 +27,8 @@ const (
 // These are process-level smoke tests for the standalone server binary.
 // They are intentionally not the authoritative Phase 1 browser E2E ledger.
 func TestPhase1_LoginSessionAndLogout_ProcessSmoke(t *testing.T) {
+	t.Parallel()
+
 	server := startPhase1ServerProcess(t, "phase1-e-1-01")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -63,6 +63,8 @@ func TestPhase1_LoginSessionAndLogout_ProcessSmoke(t *testing.T) {
 }
 
 func TestPhase1_CSRFFailClosed_ProcessSmoke(t *testing.T) {
+	t.Parallel()
+
 	server := startPhase1ServerProcess(t, "phase1-e-1-02")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -106,6 +108,8 @@ func TestPhase1_CSRFFailClosed_ProcessSmoke(t *testing.T) {
 }
 
 func TestPhase1_ConcurrencyCapRevokesSocket_ProcessSmoke(t *testing.T) {
+	t.Parallel()
+
 	server := startPhase1ServerProcess(t, "phase1-e-1-03")
 
 	initialLogin, adminSecret := phase1ProvisionBootstrapAdmin(t, server)
@@ -129,6 +133,8 @@ func TestPhase1_ConcurrencyCapRevokesSocket_ProcessSmoke(t *testing.T) {
 }
 
 func TestPhase1_FirstEnrollmentFlow_ProcessSmoke(t *testing.T) {
+	t.Parallel()
+
 	server := startPhase1ServerProcess(t, "phase1-e-1-04")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -168,6 +174,8 @@ func TestPhase1_FirstEnrollmentFlow_ProcessSmoke(t *testing.T) {
 }
 
 func TestPhase1_PasswordChangeFlow_ProcessSmoke(t *testing.T) {
+	t.Parallel()
+
 	server := startPhase1ServerProcess(t, "phase1-e-1-05")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -221,6 +229,8 @@ func TestPhase1_PasswordChangeFlow_ProcessSmoke(t *testing.T) {
 }
 
 func TestPhase1_UserAdminAndRevokeAll_ProcessSmoke(t *testing.T) {
+	t.Parallel()
+
 	server := startPhase1ServerProcess(t, "phase1-e-1-06")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -306,6 +316,8 @@ func TestPhase1_UserAdminAndRevokeAll_ProcessSmoke(t *testing.T) {
 }
 
 func TestPhase1_AdminPasswordReset_ProcessSmoke(t *testing.T) {
+	t.Parallel()
+
 	server := startPhase1ServerProcess(t, "phase1-e-1-07")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -355,6 +367,8 @@ func TestPhase1_AdminPasswordReset_ProcessSmoke(t *testing.T) {
 }
 
 func TestPhase1_AdminTOTPResetAndBootstrapBoundaries_ProcessSmoke(t *testing.T) {
+	t.Parallel()
+
 	server := startPhase1ServerProcess(t, "phase1-e-1-08")
 
 	adminLogin, _ := phase1ProvisionBootstrapAdmin(t, server)
@@ -421,8 +435,7 @@ type loginResult struct {
 func startPhase1ServerProcess(t testing.TB, prefix string) *phase0ServerProcess {
 	t.Helper()
 
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
 	testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), prefix)
 	if err != nil {

@@ -39,10 +39,7 @@ test("E-2-02 shows incident discovery, direct retrieval, and promoted-field-only
   const incidentKey = uniqueIncidentKey("E202");
   const incidentId = await createIncident(page, incidentKey, "Phase 2 E-2-02");
 
-  await page.goto("/");
-  await expect(page.getByTestId(`incident-row-${incidentId}`)).toHaveText(incidentKey);
-  await page.getByTestId(`select-incident-${incidentId}`).click();
-  await expect(page.getByTestId("current-incident-id")).toHaveText(incidentId);
+  await openIncidentFromList(page, incidentId, incidentKey);
   await expect(page.getByTestId("current-incident-title")).toHaveText("Phase 2 E-2-02");
 
   await page.getByTestId("patch-tlp").fill("amber");
@@ -69,15 +66,15 @@ test("E-2-03 lets admins manage memberships and denies the same actions to non-a
   await ensureAdminSession(page);
   const targetEmail = uniqueEmail("phase2-e203-member");
   const targetPassword = "Phase2E203Pass!";
+  const incidentKey = uniqueIncidentKey("E203");
   const targetUser = await createLocalUser(page, {
     email: targetEmail,
     display_name: "Phase 2 E203 Member",
     initial_password: targetPassword,
   });
-  const incidentId = await createIncident(page, uniqueIncidentKey("E203"), "Phase 2 E-2-03");
+  const incidentId = await createIncident(page, incidentKey, "Phase 2 E-2-03");
 
-  await page.goto("/");
-  await page.getByTestId(`select-incident-${incidentId}`).click();
+  await openIncidentFromList(page, incidentId, incidentKey);
   await page.getByTestId("membership-email").fill(targetEmail);
   await page.getByTestId("membership-role").selectOption("viewer");
   await page.getByTestId("create-membership").click();
@@ -99,8 +96,7 @@ test("E-2-03 lets admins manage memberships and denies the same actions to non-a
   const memberContext = await browser.newContext();
   const memberPage = await memberContext.newPage();
   await switchToLocalSession(memberPage, targetEmail, targetPassword);
-  await memberPage.goto("/");
-  await memberPage.getByTestId(`select-incident-${incidentId}`).click();
+  await openIncidentFromList(memberPage, incidentId, incidentKey);
 
   await memberPage.getByTestId("membership-email").fill(uniqueEmail("phase2-e203-denied"));
   await memberPage.getByTestId("membership-role").selectOption("viewer");
@@ -132,7 +128,8 @@ test("E-2-04 rejects unknown or forbidden top-level members with route-owned err
   page,
 }) => {
   await ensureAdminSession(page);
-  const incidentId = await createIncident(page, uniqueIncidentKey("E204"), "Phase 2 E-2-04");
+  const incidentKey = uniqueIncidentKey("E204");
+  const incidentId = await createIncident(page, incidentKey, "Phase 2 E-2-04");
 
   await page.goto("/");
   await page.getByTestId("probe-invalid-create-initial-memberships").click();
@@ -149,8 +146,7 @@ test("E-2-04 rejects unknown or forbidden top-level members with route-owned err
     '"reason_code": "unknown_top_level_member"',
   ]);
 
-  await page.getByTestId(`select-incident-${incidentId}`).click();
-  await expect(page.getByTestId("current-incident-id")).toHaveText(incidentId);
+  await openIncidentFromList(page, incidentId, incidentKey);
 
   await page.getByTestId("probe-invalid-patch-title").click();
   await expect(page.getByTestId("last-error-code")).toHaveText("invalid_incident_patch");
@@ -264,6 +260,32 @@ async function createIncident(page: Page, incidentKey: string, title: string) {
   expect(response.ok()).toBeTruthy();
   const body = (await response.json()) as { data: { incident_id: string } };
   return body.data.incident_id;
+}
+
+async function openIncidentFromList(
+  page: Page,
+  incidentId: string,
+  incidentKey: string,
+) {
+  await expect
+    .poll(async () => {
+      const response = await page.request.get(`${apiBase}/api/v1/incidents`);
+      expect(response.ok()).toBeTruthy();
+      const body = (await response.json()) as {
+        data: { incidents: Array<{ incident_id: string }> };
+      };
+      return body.data.incidents.some(
+        (incident) => incident.incident_id === incidentId,
+      );
+    })
+    .toBe(true);
+
+  await page.goto("/");
+  await expect(page.getByTestId(`incident-row-${incidentId}`)).toHaveText(
+    incidentKey,
+  );
+  await page.getByTestId(`select-incident-${incidentId}`).click();
+  await expect(page.getByTestId("current-incident-id")).toHaveText(incidentId);
 }
 
 async function createLocalUser(

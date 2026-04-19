@@ -3,12 +3,13 @@ import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { type APIResponse, expect, type Page, request } from "@playwright/test";
-
-type SessionCookies = {
-  session: string;
-  csrf: string;
-};
+import {
+  type APIRequestContext,
+  type APIResponse,
+  expect,
+  type Page,
+  request,
+} from "@playwright/test";
 
 export const bootstrapEmail = "dev-admin@example.test";
 export const bootstrapPassword = "DevBootstrap1!";
@@ -17,123 +18,54 @@ export const csrfCookieName = "cartulary_csrf";
 export const csrfHeaderName = "X-CSRF-Token";
 export const apiBase = "http://127.0.0.1:8080";
 
-const adminTotpCachePath = join(tmpdir(), "cartulary-admin-totp.txt");
+const suiteAdminTotpStatePath = join(
+  tmpdir(),
+  "cartulary-playwright-admin-totp.txt",
+);
 
 let rememberedAdminTotpSecretBase32: string | null = null;
-let rememberedAdminCookies: SessionCookies | null = null;
 
 export async function ensureAdminSession(page: Page) {
-  if (rememberedAdminCookies !== null) {
-    await applyCookies(
-      page,
-      rememberedAdminCookies.session,
-      rememberedAdminCookies.csrf,
-    );
-    return;
+  if (rememberedAdminTotpSecretBase32 === null) {
+    rememberedAdminTotpSecretBase32 = loadSuiteAdminTotpSecret();
+  }
+  if (rememberedAdminTotpSecretBase32 === null) {
+    throw new Error("missing suite admin TOTP state; global setup did not run");
   }
 
-  if (rememberedAdminTotpSecretBase32 === null) {
-    rememberedAdminTotpSecretBase32 = loadCachedAdminTotpSecret();
+  await waitForPageRequestAPIReady(page);
+  const loginResponse = await page.request.post(`${apiBase}/api/v1/auth/login`, {
+    data: {
+      username: bootstrapEmail,
+      password: bootstrapPassword,
+      second_factor: {
+        kind: "totp",
+        assertion: {
+          code: generateTotpCode(rememberedAdminTotpSecretBase32),
+        },
+      },
+    },
+  });
+  if (!loginResponse.ok()) {
+    throw new Error(`admin login failed: ${await loginResponse.text()}`);
   }
+
+  await applyCookies(
+    page,
+    requireCookie(loginResponse, sessionCookieName),
+    requireCookie(loginResponse, csrfCookieName),
+  );
+}
+
+export async function prepareSuiteAdminState() {
+  rememberedAdminTotpSecretBase32 = null;
+  clearSuiteAdminTotpSecret();
 
   const authRequests = await request.newContext({ baseURL: apiBase });
   try {
     await waitForAPIReady(authRequests);
-    const loginResponse = await authRequests.post("/api/v1/auth/login", {
-      data: {
-        username: bootstrapEmail,
-        password: bootstrapPassword,
-      },
-    });
-    if (loginResponse.ok()) {
-      rememberedAdminCookies = {
-        session: requireCookie(loginResponse, sessionCookieName),
-        csrf: requireCookie(loginResponse, csrfCookieName),
-      };
-      await applyCookies(
-        page,
-        rememberedAdminCookies.session,
-        rememberedAdminCookies.csrf,
-      );
-      return;
-    }
-
-    if (loginResponse.status() !== 401) {
-      throw new Error(`unexpected login status: ${loginResponse.status()}`);
-    }
-
-    const loginBody = (await loginResponse.json()) as {
-      error: { code: string; details: { bootstrap_token?: string } };
-    };
-    if (loginBody.error.code === "mfa_setup_required") {
-      clearCachedAdminTotpSecret();
-      const bootstrapToken = loginBody.error.details.bootstrap_token;
-      if (!bootstrapToken) {
-        throw new Error("missing bootstrap_token");
-      }
-
-      const beginResponse = await authRequests.post(
-        "/api/v1/auth/mfa/totp/begin",
-        {
-          headers: { Authorization: `Bearer ${bootstrapToken}` },
-          data: { client_txn_id: uniqueTxn("admin-totp-begin") },
-        },
-      );
-      expect(beginResponse.ok()).toBeTruthy();
-      const beginBody = (await beginResponse.json()) as {
-        data: { enrollment_id: string; totp_setup: { secret_base32: string } };
-      };
-      rememberedAdminTotpSecretBase32 = beginBody.data.totp_setup.secret_base32;
-      cacheAdminTotpSecret(rememberedAdminTotpSecretBase32);
-
-      const completeResponse = await authRequests.post(
-        "/api/v1/auth/mfa/totp/complete",
-        {
-          headers: { Authorization: `Bearer ${bootstrapToken}` },
-          data: {
-            client_txn_id: uniqueTxn("admin-totp-complete"),
-            enrollment_id: beginBody.data.enrollment_id,
-            code: generateTotpCode(rememberedAdminTotpSecretBase32),
-          },
-        },
-      );
-      expect(completeResponse.ok()).toBeTruthy();
-    } else if (loginBody.error.code !== "mfa_required") {
-      throw new Error(`unexpected login error: ${JSON.stringify(loginBody)}`);
-    }
-
-    if (rememberedAdminTotpSecretBase32 === null) {
-      throw new Error("missing cached admin TOTP secret");
-    }
-
-    const secondFactorLogin = await authRequests.post("/api/v1/auth/login", {
-      data: {
-        username: bootstrapEmail,
-        password: bootstrapPassword,
-        second_factor: {
-          kind: "totp",
-          assertion: {
-            code: generateTotpCode(rememberedAdminTotpSecretBase32),
-          },
-        },
-      },
-    });
-    if (!secondFactorLogin.ok()) {
-      clearCachedAdminTotpSecret();
-      throw new Error(
-        `second factor login failed: ${await secondFactorLogin.text()}`,
-      );
-    }
-
-    rememberedAdminCookies = {
-      session: requireCookie(secondFactorLogin, sessionCookieName),
-      csrf: requireCookie(secondFactorLogin, csrfCookieName),
-    };
-    await applyCookies(
-      page,
-      rememberedAdminCookies.session,
-      rememberedAdminCookies.csrf,
-    );
+    const secretBase32 = await provisionBootstrapAdminTotp(authRequests);
+    writeSuiteAdminTotpSecret(secretBase32);
   } finally {
     await authRequests.dispose();
   }
@@ -142,48 +74,8 @@ export async function ensureAdminSession(page: Page) {
 export async function enrollTotpViaBootstrap(email: string, password: string) {
   const authRequests = await request.newContext({ baseURL: apiBase });
   try {
-    const loginResponse = await authRequests.post("/api/v1/auth/login", {
-      data: {
-        username: email,
-        password,
-      },
-    });
-    expect(loginResponse.status()).toBe(401);
-    const loginBody = (await loginResponse.json()) as {
-      error: { code: string; details: { bootstrap_token?: string } };
-    };
-    expect(loginBody.error.code).toBe("mfa_setup_required");
-
-    const bootstrapToken = loginBody.error.details.bootstrap_token;
-    if (!bootstrapToken) {
-      throw new Error("missing bootstrap_token");
-    }
-
-    const beginResponse = await authRequests.post(
-      "/api/v1/auth/mfa/totp/begin",
-      {
-        headers: { Authorization: `Bearer ${bootstrapToken}` },
-        data: { client_txn_id: uniqueTxn("bootstrap-begin") },
-      },
-    );
-    expect(beginResponse.ok()).toBeTruthy();
-    const beginBody = (await beginResponse.json()) as {
-      data: { enrollment_id: string; totp_setup: { secret_base32: string } };
-    };
-    const secretBase32 = beginBody.data.totp_setup.secret_base32;
-
-    const completeResponse = await authRequests.post(
-      "/api/v1/auth/mfa/totp/complete",
-      {
-        headers: { Authorization: `Bearer ${bootstrapToken}` },
-        data: {
-          client_txn_id: uniqueTxn("bootstrap-complete"),
-          enrollment_id: beginBody.data.enrollment_id,
-          code: generateTotpCode(secretBase32),
-        },
-      },
-    );
-    expect(completeResponse.ok()).toBeTruthy();
+    await waitForAPIReady(authRequests);
+    const secretBase32 = await provisionUserTotp(authRequests, email, password);
     return secretBase32;
   } finally {
     await authRequests.dispose();
@@ -191,7 +83,7 @@ export async function enrollTotpViaBootstrap(email: string, password: string) {
 }
 
 export function resetRememberedAdminSession() {
-  rememberedAdminCookies = null;
+  // Each test performs its own login; no worker-shared session should persist.
 }
 
 export async function applyCookies(page: Page, session: string, csrf: string) {
@@ -408,30 +300,7 @@ export function generateTotpCode(secretBase32: string) {
   return String(code % 1_000_000).padStart(6, "0");
 }
 
-function loadCachedAdminTotpSecret() {
-  if (!existsSync(adminTotpCachePath)) {
-    return null;
-  }
-
-  const secret = readFileSync(adminTotpCachePath, "utf8").trim();
-  return secret === "" ? null : secret;
-}
-
-function cacheAdminTotpSecret(secretBase32: string) {
-  writeFileSync(adminTotpCachePath, `${secretBase32}\n`, "utf8");
-}
-
-function clearCachedAdminTotpSecret() {
-  rememberedAdminTotpSecretBase32 = null;
-  if (!existsSync(adminTotpCachePath)) {
-    return;
-  }
-  unlinkSync(adminTotpCachePath);
-}
-
-async function waitForAPIReady(
-  authRequests: Awaited<ReturnType<typeof request.newContext>>,
-) {
+async function waitForAPIReady(authRequests: APIRequestContext) {
   for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
       const response = await authRequests.get("/readyz");
@@ -492,4 +361,81 @@ function decodeBase32(input: string) {
     bytes.push(Number.parseInt(bits.slice(index, index + 8), 2));
   }
   return Buffer.from(bytes);
+}
+
+async function provisionBootstrapAdminTotp(authRequests: APIRequestContext) {
+  const secretBase32 = await provisionUserTotp(
+    authRequests,
+    bootstrapEmail,
+    bootstrapPassword,
+  );
+  rememberedAdminTotpSecretBase32 = secretBase32;
+  return secretBase32;
+}
+
+async function provisionUserTotp(
+  authRequests: APIRequestContext,
+  email: string,
+  password: string,
+) {
+  const loginResponse = await authRequests.post("/api/v1/auth/login", {
+    data: {
+      username: email,
+      password,
+    },
+  });
+  expect(loginResponse.status()).toBe(401);
+  const loginBody = (await loginResponse.json()) as {
+    error: { code: string; details: { bootstrap_token?: string } };
+  };
+  expect(loginBody.error.code).toBe("mfa_setup_required");
+
+  const bootstrapToken = loginBody.error.details.bootstrap_token;
+  if (!bootstrapToken) {
+    throw new Error("missing bootstrap_token");
+  }
+
+  const beginResponse = await authRequests.post("/api/v1/auth/mfa/totp/begin", {
+    headers: { Authorization: `Bearer ${bootstrapToken}` },
+    data: { client_txn_id: uniqueTxn("bootstrap-begin") },
+  });
+  expect(beginResponse.ok()).toBeTruthy();
+  const beginBody = (await beginResponse.json()) as {
+    data: { enrollment_id: string; totp_setup: { secret_base32: string } };
+  };
+  const secretBase32 = beginBody.data.totp_setup.secret_base32;
+
+  const completeResponse = await authRequests.post(
+    "/api/v1/auth/mfa/totp/complete",
+    {
+      headers: { Authorization: `Bearer ${bootstrapToken}` },
+      data: {
+        client_txn_id: uniqueTxn("bootstrap-complete"),
+        enrollment_id: beginBody.data.enrollment_id,
+        code: generateTotpCode(secretBase32),
+      },
+    },
+  );
+  expect(completeResponse.ok()).toBeTruthy();
+  return secretBase32;
+}
+
+function loadSuiteAdminTotpSecret() {
+  if (!existsSync(suiteAdminTotpStatePath)) {
+    return null;
+  }
+
+  const secret = readFileSync(suiteAdminTotpStatePath, "utf8").trim();
+  return secret === "" ? null : secret;
+}
+
+function writeSuiteAdminTotpSecret(secretBase32: string) {
+  writeFileSync(suiteAdminTotpStatePath, `${secretBase32}\n`, "utf8");
+}
+
+function clearSuiteAdminTotpSecret() {
+  if (!existsSync(suiteAdminTotpStatePath)) {
+    return;
+  }
+  unlinkSync(suiteAdminTotpStatePath);
 }
