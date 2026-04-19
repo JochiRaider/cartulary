@@ -652,6 +652,7 @@ type recordChangeSocketPayload struct {
 	RecordID         string   `json:"record_id"`
 	RowVersion       float64  `json:"row_version"`
 	ChangeSetID      string   `json:"change_set_id"`
+	ClientTxnID      string   `json:"client_txn_id"`
 	ChangedFieldKeys []string `json:"changed_field_keys"`
 }
 
@@ -857,6 +858,9 @@ func requireTimelineSocketChange(t testing.TB, client *wstest.Client, wantRecord
 	}
 	if payload.RecordID != wantRecordID || payload.RowVersion != float64(wantRowVersion) {
 		t.Fatalf("unexpected record_changed payload: %#v", payload)
+	}
+	if payload.ClientTxnID == "" {
+		t.Fatalf("expected websocket payload client_txn_id, got %#v", payload)
 	}
 	return payload
 }

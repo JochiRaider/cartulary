@@ -87,6 +87,7 @@ type MutationResult struct {
 	IncidentID       uuid.UUID
 	RecordID         uuid.UUID
 	ChangeSetID      uuid.UUID
+	ClientTxnID      string
 	RowVersion       int64
 	ChangedFieldKeys []string
 	Row              projectedRecord
@@ -268,6 +269,7 @@ RETURNING record_id
 		IncidentID:       incidentID,
 		RecordID:         current.RecordID,
 		ChangeSetID:      changeSetID,
+		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       projected.RowVersion,
 		ChangedFieldKeys: ComputeChangedFieldKeys(nil, projected),
 		Row:              projected,
@@ -440,6 +442,7 @@ RETURNING recorded_at
 		IncidentID:       current.IncidentID,
 		RecordID:         recordID,
 		ChangeSetID:      changeSetID,
+		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       afterProjected.RowVersion,
 		ChangedFieldKeys: ComputeChangedFieldKeys(&beforeProjected, afterProjected),
 		Row:              afterProjected,
@@ -669,6 +672,7 @@ RETURNING recorded_at
 		IncidentID:       current.IncidentID,
 		RecordID:         recordID,
 		ChangeSetID:      changeSetID,
+		ClientTxnID:      clientTxnID,
 		RowVersion:       afterProjected.RowVersion,
 		ChangedFieldKeys: ComputeChangedFieldKeys(&beforeProjected, afterProjected),
 		Row:              afterProjected,

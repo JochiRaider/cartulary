@@ -19,12 +19,21 @@ const timelineViewSchemaId = "cartulary.view.timeline.v1";
 describe("Phase 3 Timeline workbook", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   let webSocketMock: typeof WebSocket;
+  let webSocketInstance: {
+    onmessage: ((event: MessageEvent) => void) | null;
+    close: () => void;
+  } | null;
 
   beforeEach(() => {
     fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
+    webSocketInstance = null;
     webSocketMock = class {
       onmessage: ((event: MessageEvent) => void) | null = null;
+
+      constructor() {
+        webSocketInstance = this;
+      }
 
       close() {}
     } as unknown as typeof WebSocket;
@@ -233,6 +242,79 @@ describe("Phase 3 Timeline workbook", () => {
       expect(screen.getByText("Conflict")).toBeTruthy();
     });
   });
+
+  it("Phase 3 component suppresses self-originated websocket invalidations without refocusing the draft row", async () => {
+    const pendingPatch = deferred<Response>();
+
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockReturnValueOnce(pendingPatch.promise);
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+
+    const summaryInput = (await screen.findByTestId(
+      "row-record-1-summary",
+    )) as HTMLInputElement;
+    summaryInput.focus();
+    fireEvent.change(summaryInput, { target: { value: "Alpha enter" } });
+    fireEvent.keyDown(summaryInput, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    emitRecordChanged(webSocketInstance, {
+      record_id: "record-1",
+      row_version: 2,
+      change_set_id: "change-set-socket",
+      client_txn_id: "timeline-client-1",
+      actor_user_id: "user-1",
+      changed_field_keys: ["timeline.summary"],
+      affected_views: [
+        {
+          view_schema_id: timelineViewSchemaId,
+          change_kind: "invalidate",
+        },
+      ],
+    });
+
+    pendingPatch.resolve(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-2",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "Alpha enter",
+          captureState: "enriched",
+        }),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "2",
+      );
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(document.activeElement).not.toBe(
+      screen.getByTestId("draft-row-summary"),
+    );
+  });
 });
 
 function deferred<T>() {
@@ -245,6 +327,34 @@ function deferred<T>() {
   });
 
   return { promise, resolve, reject };
+}
+
+function emitRecordChanged(
+  socket:
+    | {
+        onmessage: ((event: MessageEvent) => void) | null;
+      }
+    | null
+    | undefined,
+  payload: {
+    record_id: string;
+    row_version: number;
+    change_set_id: string;
+    client_txn_id: string;
+    actor_user_id: string;
+    changed_field_keys: string[];
+    affected_views: Array<{
+      view_schema_id: string;
+      change_kind: string;
+    }>;
+  },
+) {
+  socket?.onmessage?.({
+    data: JSON.stringify({
+      type: "record_changed",
+      payload,
+    }),
+  } as MessageEvent);
 }
 
 function extractBody(fetchSpy: ReturnType<typeof vi.fn>, index: number) {

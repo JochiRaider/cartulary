@@ -21,6 +21,7 @@ import (
 
 type Service struct {
 	store         *Store
+	entityStore   *entities.Store
 	incidentStore *incidents.Store
 	authStore     *authn.Store
 	hub           *platformws.Hub
@@ -63,6 +64,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	}
 	return &Service{
 		store:         NewStore(deps.Postgres),
+		entityStore:   entities.NewStore(deps.Postgres),
 		incidentStore: incidents.NewStore(deps.Postgres),
 		authStore:     authn.NewStore(deps.Postgres),
 		hub:           deps.WSHub,
@@ -72,10 +74,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 }
 
 func (s *Service) handleTimelineQuery(w http.ResponseWriter, r *http.Request) {
-	if r.PathValue("view_schema_id") != TimelineViewSchemaID {
-		writeAPIError(w, r, invalidViewQuery("view_schema_id", "unknown_view_schema"))
-		return
-	}
+	viewSchemaID := r.PathValue("view_schema_id")
 	incidentID, ok := pathUUID(w, r, "incident_id")
 	if !ok {
 		return
@@ -95,7 +94,21 @@ func (s *Service) handleTimelineQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := s.store.QueryRows(r.Context(), incidentID)
+	var (
+		rows []map[string]any
+		err  error
+	)
+	switch viewSchemaID {
+	case TimelineViewSchemaID:
+		rows, err = s.store.QueryRows(r.Context(), incidentID)
+	case entities.HostsViewSchemaID:
+		rows, err = s.entityStore.QueryHostRows(r.Context(), incidentID)
+	case entities.IdentitiesViewSchemaID:
+		rows, err = s.entityStore.QueryIdentityRows(r.Context(), incidentID)
+	default:
+		writeAPIError(w, r, invalidViewQuery("view_schema_id", "unknown_view_schema"))
+		return
+	}
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -106,7 +119,7 @@ func (s *Service) handleTimelineQuery(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
 		"incident_id":    incidentID.String(),
-		"view_schema_id": TimelineViewSchemaID,
+		"view_schema_id": viewSchemaID,
 		"rows":           rows,
 	})
 }
@@ -489,6 +502,7 @@ func (s *Service) publishRecordChange(result MutationResult, actorUserID uuid.UU
 		RecordID:         result.RecordID,
 		RowVersion:       result.RowVersion,
 		ChangeSetID:      result.ChangeSetID,
+		ClientTxnID:      result.ClientTxnID,
 		ActorUserID:      actorUserID,
 		ChangedFieldKeys: changedKeys,
 		ViewSchemaID:     TimelineViewSchemaID,
@@ -500,6 +514,7 @@ func recordChangePayload(change platformws.RecordChange) map[string]any {
 		"record_id":          change.RecordID.String(),
 		"row_version":        change.RowVersion,
 		"change_set_id":      change.ChangeSetID.String(),
+		"client_txn_id":      change.ClientTxnID,
 		"actor_user_id":      change.ActorUserID.String(),
 		"changed_field_keys": append([]string(nil), change.ChangedFieldKeys...),
 		"affected_views": []map[string]any{

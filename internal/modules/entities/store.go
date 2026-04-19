@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -39,6 +40,112 @@ func NewStore(pool *pgxpool.Pool) *Store {
 		projectionStore: projections.NewStore(pool),
 		linkStore:       links.NewStore(),
 	}
+}
+
+func (s *Store) QueryHostRows(ctx context.Context, incidentID uuid.UUID) ([]map[string]any, error) {
+	if s.pool == nil {
+		return nil, fmt.Errorf("query host rows: store pool is nil")
+	}
+
+	rows, err := s.pool.Query(ctx, `
+SELECT
+    record_id,
+    incident_id,
+    display_name,
+    aad_device_id,
+    fqdn,
+    hostname,
+    host_state,
+    merged_into_record_id,
+    entity_origin,
+    seed_entity_mention_id,
+    row_version,
+    created_at,
+    updated_at,
+    created_by_user_id,
+    updated_by_user_id
+  FROM hosts
+ WHERE incident_id = $1
+   AND host_state IN ('stub', 'canonical')
+ ORDER BY display_name ASC, record_id ASC
+`, incidentID)
+	if err != nil {
+		return nil, fmt.Errorf("query host rows: %w", err)
+	}
+	defer rows.Close()
+
+	aliasesByRecord, err := loadEntityAliasesByRecord(ctx, s.pool, incidentID, "host")
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]map[string]any, 0)
+	for rows.Next() {
+		record, err := scanHostRecord(rows)
+		if err != nil {
+			return nil, err
+		}
+		record.SuggestionOnlyAliases = aliasesByRecord[record.RecordID]
+		result = append(result, BuildHostRow(record))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate host rows: %w", err)
+	}
+	return result, nil
+}
+
+func (s *Store) QueryIdentityRows(ctx context.Context, incidentID uuid.UUID) ([]map[string]any, error) {
+	if s.pool == nil {
+		return nil, fmt.Errorf("query identity rows: store pool is nil")
+	}
+
+	rows, err := s.pool.Query(ctx, `
+SELECT
+    record_id,
+    incident_id,
+    display_name,
+    aad_object_id,
+    sid,
+    upn,
+    email,
+    sam_account_name,
+    identity_state,
+    merged_into_record_id,
+    entity_origin,
+    seed_entity_mention_id,
+    row_version,
+    created_at,
+    updated_at,
+    created_by_user_id,
+    updated_by_user_id
+  FROM identities
+ WHERE incident_id = $1
+   AND identity_state IN ('stub', 'canonical')
+ ORDER BY display_name ASC, record_id ASC
+`, incidentID)
+	if err != nil {
+		return nil, fmt.Errorf("query identity rows: %w", err)
+	}
+	defer rows.Close()
+
+	aliasesByRecord, err := loadEntityAliasesByRecord(ctx, s.pool, incidentID, "identity")
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]map[string]any, 0)
+	for rows.Next() {
+		record, err := scanIdentityRecord(rows)
+		if err != nil {
+			return nil, err
+		}
+		record.SuggestionOnlyAliases = aliasesByRecord[record.RecordID]
+		result = append(result, BuildIdentityRow(record))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate identity rows: %w", err)
+	}
+	return result, nil
 }
 
 func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
@@ -513,4 +620,44 @@ func optionalValue(values map[string]string, key string) *string {
 	}
 	cloned := value
 	return &cloned
+}
+
+type entityAliasQueryer interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+}
+
+func loadEntityAliasesByRecord(ctx context.Context, querier entityAliasQueryer, incidentID uuid.UUID, entityType string) (map[uuid.UUID][]string, error) {
+	rows, err := querier.Query(ctx, `
+SELECT record_id, raw_text
+  FROM entity_aliases
+ WHERE incident_id = $1
+   AND entity_type = $2
+   AND deleted_at IS NULL
+ ORDER BY record_id ASC, normalized_text ASC, created_at ASC, entity_alias_id ASC
+`, incidentID, entityType)
+	if err != nil {
+		return nil, fmt.Errorf("query entity aliases by record: %w", err)
+	}
+	defer rows.Close()
+
+	aliasesByRecord := make(map[uuid.UUID][]string)
+	for rows.Next() {
+		var (
+			recordID uuid.UUID
+			rawText  string
+		)
+		if err := rows.Scan(&recordID, &rawText); err != nil {
+			return nil, fmt.Errorf("scan entity alias by record: %w", err)
+		}
+		aliasesByRecord[recordID] = append(aliasesByRecord[recordID], rawText)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate entity aliases by record: %w", err)
+	}
+
+	for recordID, aliases := range aliasesByRecord {
+		slices.Sort(aliases)
+		aliasesByRecord[recordID] = aliases
+	}
+	return aliasesByRecord, nil
 }

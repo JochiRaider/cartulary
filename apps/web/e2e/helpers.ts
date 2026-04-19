@@ -3,12 +3,7 @@ import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-  expect,
-  request,
-  type APIResponse,
-  type Page,
-} from "@playwright/test";
+import { type APIResponse, expect, type Page, request } from "@playwright/test";
 
 type SessionCookies = {
   session: string;
@@ -43,6 +38,7 @@ export async function ensureAdminSession(page: Page) {
 
   const authRequests = await request.newContext({ baseURL: apiBase });
   try {
+    await waitForAPIReady(authRequests);
     const loginResponse = await authRequests.post("/api/v1/auth/login", {
       data: {
         username: bootstrapEmail,
@@ -76,16 +72,18 @@ export async function ensureAdminSession(page: Page) {
         throw new Error("missing bootstrap_token");
       }
 
-      const beginResponse = await authRequests.post("/api/v1/auth/mfa/totp/begin", {
-        headers: { Authorization: `Bearer ${bootstrapToken}` },
-        data: { client_txn_id: uniqueTxn("admin-totp-begin") },
-      });
+      const beginResponse = await authRequests.post(
+        "/api/v1/auth/mfa/totp/begin",
+        {
+          headers: { Authorization: `Bearer ${bootstrapToken}` },
+          data: { client_txn_id: uniqueTxn("admin-totp-begin") },
+        },
+      );
       expect(beginResponse.ok()).toBeTruthy();
       const beginBody = (await beginResponse.json()) as {
         data: { enrollment_id: string; totp_setup: { secret_base32: string } };
       };
-      rememberedAdminTotpSecretBase32 =
-        beginBody.data.totp_setup.secret_base32;
+      rememberedAdminTotpSecretBase32 = beginBody.data.totp_setup.secret_base32;
       cacheAdminTotpSecret(rememberedAdminTotpSecretBase32);
 
       const completeResponse = await authRequests.post(
@@ -141,10 +139,7 @@ export async function ensureAdminSession(page: Page) {
   }
 }
 
-export async function enrollTotpViaBootstrap(
-  email: string,
-  password: string,
-) {
+export async function enrollTotpViaBootstrap(email: string, password: string) {
   const authRequests = await request.newContext({ baseURL: apiBase });
   try {
     const loginResponse = await authRequests.post("/api/v1/auth/login", {
@@ -164,10 +159,13 @@ export async function enrollTotpViaBootstrap(
       throw new Error("missing bootstrap_token");
     }
 
-    const beginResponse = await authRequests.post("/api/v1/auth/mfa/totp/begin", {
-      headers: { Authorization: `Bearer ${bootstrapToken}` },
-      data: { client_txn_id: uniqueTxn("bootstrap-begin") },
-    });
+    const beginResponse = await authRequests.post(
+      "/api/v1/auth/mfa/totp/begin",
+      {
+        headers: { Authorization: `Bearer ${bootstrapToken}` },
+        data: { client_txn_id: uniqueTxn("bootstrap-begin") },
+      },
+    );
     expect(beginResponse.ok()).toBeTruthy();
     const beginBody = (await beginResponse.json()) as {
       data: { enrollment_id: string; totp_setup: { secret_base32: string } };
@@ -225,6 +223,145 @@ export async function csrfHeaders(page: Page) {
   return {
     [csrfHeaderName]: csrfCookie.value,
   };
+}
+
+export async function loginLocalSession(
+  page: Page,
+  email: string,
+  password: string,
+) {
+  await page.context().clearCookies();
+  await waitForPageRequestAPIReady(page);
+  const response = await page.request.post(`${apiBase}/api/v1/auth/login`, {
+    data: {
+      username: email,
+      password,
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  await applyCookies(
+    page,
+    requireCookie(response, sessionCookieName),
+    requireCookie(response, csrfCookieName),
+  );
+}
+
+export async function createIncident(
+  page: Page,
+  incidentKey: string,
+  title: string,
+) {
+  const response = await page.request.post(`${apiBase}/api/v1/incidents`, {
+    headers: await csrfHeaders(page),
+    data: {
+      client_txn_id: uniqueTxn("incident"),
+      incident_key: incidentKey,
+      title,
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  const body = (await response.json()) as { data: { incident_id: string } };
+  return body.data.incident_id;
+}
+
+export async function createLocalUser(
+  page: Page,
+  options: {
+    email: string;
+    display_name: string;
+    initial_password: string;
+    mfa_required?: boolean;
+    is_deployment_admin?: boolean;
+  },
+) {
+  const response = await page.request.post(`${apiBase}/api/v1/users`, {
+    headers: await csrfHeaders(page),
+    data: {
+      client_txn_id: uniqueTxn("user"),
+      auth_kind: "local",
+      email: options.email,
+      display_name: options.display_name,
+      initial_password: options.initial_password,
+      mfa_required: options.mfa_required ?? false,
+      is_deployment_admin: options.is_deployment_admin ?? false,
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  return ((await response.json()) as { data: { user_id: string } }).data;
+}
+
+export async function createIncidentMembership(
+  page: Page,
+  incidentId: string,
+  email: string,
+  role: string,
+) {
+  const response = await page.request.post(
+    `${apiBase}/api/v1/incidents/${incidentId}/memberships`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        client_txn_id: uniqueTxn("membership"),
+        email,
+        role,
+      },
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+}
+
+export async function createViewRow(
+  page: Page,
+  incidentId: string,
+  viewSchemaId: string,
+  payload: Record<string, unknown>,
+) {
+  const response = await page.request.post(
+    `${apiBase}/api/v1/incidents/${incidentId}/views/${viewSchemaId}/rows`,
+    {
+      headers: await csrfHeaders(page),
+      data: payload,
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+  return ((await response.json()) as { data: { row: Record<string, unknown> } })
+    .data.row;
+}
+
+export async function queryViewRows(
+  page: Page,
+  incidentId: string,
+  viewSchemaId: string,
+) {
+  const response = await page.request.post(
+    `${apiBase}/api/v1/incidents/${incidentId}/views/${viewSchemaId}/query`,
+    {
+      data: {},
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+  return (
+    (await response.json()) as {
+      data: { rows: Array<Record<string, unknown>> };
+    }
+  ).data.rows;
+}
+
+export async function patchTimelineRecord(
+  page: Page,
+  recordId: string,
+  payload: Record<string, unknown>,
+) {
+  const response = await page.request.patch(
+    `${apiBase}/api/v1/records/${recordId}`,
+    {
+      headers: await csrfHeaders(page),
+      data: payload,
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+  return ((await response.json()) as { data: { row: Record<string, unknown> } })
+    .data.row;
 }
 
 export function requireCookie(response: APIResponse, name: string) {
@@ -290,6 +427,52 @@ function clearCachedAdminTotpSecret() {
     return;
   }
   unlinkSync(adminTotpCachePath);
+}
+
+async function waitForAPIReady(
+  authRequests: Awaited<ReturnType<typeof request.newContext>>,
+) {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    try {
+      const response = await authRequests.get("/readyz");
+      if (response.ok()) {
+        return;
+      }
+    } catch (error) {
+      if (!isConnectionRefused(error)) {
+        throw error;
+      }
+    }
+    await sleep(500);
+  }
+  throw new Error(`timed out waiting for API readiness at ${apiBase}/readyz`);
+}
+
+async function waitForPageRequestAPIReady(page: Page) {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    try {
+      const response = await page.request.get(`${apiBase}/readyz`);
+      if (response.ok()) {
+        return;
+      }
+    } catch (error) {
+      if (!isConnectionRefused(error)) {
+        throw error;
+      }
+    }
+    await sleep(500);
+  }
+  throw new Error(`timed out waiting for API readiness at ${apiBase}/readyz`);
+}
+
+function isConnectionRefused(error: unknown) {
+  return error instanceof Error && error.message.includes("ECONNREFUSED");
+}
+
+function sleep(milliseconds: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
 }
 
 function decodeBase32(input: string) {

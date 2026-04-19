@@ -50,6 +50,62 @@ func TestPhase4_EntityOriginUpsert_I_4_02_Red(t *testing.T) {
 	if details["reason_code"] == "unknown_view_schema" {
 		t.Fatalf("Phase 4 I-4-02 expected Hosts entity_origin surface %s to be active, got reason_code=%v", golden.Phase4HostsViewSchemaID, details["reason_code"])
 	}
+
+	adminLogin, _ := provisionBootstrapAdmin(t, harness.Server)
+	incident := createIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase4-i-4-02-incident",
+		"incident_key":  "IR-I402",
+		"title":         "Entity origin query",
+	})
+	incidentID := incident["incident_id"].(string)
+
+	hostCreate := doEntitiesJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+golden.Phase4HostsViewSchemaID+"/rows",
+		fixtures.HostCreatePayload("txn-phase4-i-4-02-host"),
+		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+	)
+	hostRow := httptestx.RequireSuccessEnvelope(t, hostCreate, http.StatusCreated)["data"].(map[string]any)["row"].(map[string]any)
+	hostQuery := doEntitiesJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+golden.Phase4HostsViewSchemaID+"/query",
+		map[string]any{},
+		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+	)
+	hostRows := httptestx.RequireSuccessEnvelope(t, hostQuery, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
+	if len(hostRows) != 1 {
+		t.Fatalf("expected one queried host row, got %#v", hostRows)
+	}
+	if hostRows[0].(map[string]any)["record_id"] != hostRow["record_id"] {
+		t.Fatalf("expected queried host row to match created record, got %#v", hostRows[0])
+	}
+
+	identityCreate := doEntitiesJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+golden.Phase4IdentitiesViewSchemaID+"/rows",
+		fixtures.IdentityCreatePayload("txn-phase4-i-4-02-identity"),
+		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+	)
+	identityRow := httptestx.RequireSuccessEnvelope(t, identityCreate, http.StatusCreated)["data"].(map[string]any)["row"].(map[string]any)
+	identityQuery := doEntitiesJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+golden.Phase4IdentitiesViewSchemaID+"/query",
+		map[string]any{},
+		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+	)
+	identityRows := httptestx.RequireSuccessEnvelope(t, identityQuery, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
+	if len(identityRows) != 1 {
+		t.Fatalf("expected one queried identity row, got %#v", identityRows)
+	}
+	if identityRows[0].(map[string]any)["record_id"] != identityRow["record_id"] {
+		t.Fatalf("expected queried identity row to match created record, got %#v", identityRows[0])
+	}
 }
 
 // I-4-03 / REQ-01-181..REQ-01-195, REQ-02-064..REQ-02-066 / AC-023, AC-186, AC-209.

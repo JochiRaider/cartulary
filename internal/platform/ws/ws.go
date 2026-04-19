@@ -56,6 +56,7 @@ type RecordChange struct {
 	RecordID         uuid.UUID
 	RowVersion       int64
 	ChangeSetID      uuid.UUID
+	ClientTxnID      string
 	ActorUserID      uuid.UUID
 	ChangedFieldKeys []string
 	ViewSchemaID     string
