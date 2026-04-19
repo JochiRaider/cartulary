@@ -224,6 +224,63 @@ type loginResult struct {
 	csrfCookie    *http.Cookie
 }
 
+type indicatorRecordRow struct {
+	RecordID        uuid.UUID
+	IncidentID      uuid.UUID
+	IndicatorType   string
+	ValueKind       string
+	DisplayValue    string
+	NormalizedValue *string
+	DedupeKey       string
+	DefangedValue   *string
+	HashAlgorithm   *string
+	HashValue       *string
+	STIXPattern     *string
+	RowVersion      int64
+	CreatedByUser   uuid.UUID
+	UpdatedByUser   uuid.UUID
+}
+
+type indicatorProjectionRow struct {
+	RecordID            uuid.UUID
+	RowVersion          int64
+	IndicatorType       string
+	ValueKind           string
+	DisplayValue        string
+	NormalizedValue     *string
+	DefangedValue       *string
+	HashAlgorithm       *string
+	HashValue           *string
+	STIXPattern         *string
+	FirstObservedAt     *time.Time
+	LastObservedAt      *time.Time
+	ObservationCount    int
+	LifecycleSummary    *string
+	SupportingLinkCount int
+}
+
+type indicatorObservationRow struct {
+	ObservationID             uuid.UUID
+	SourceRecordID            uuid.UUID
+	SourceFieldKey            string
+	OriginKind                string
+	OriginLocator             string
+	ObservedText              string
+	ParsedIndicatorType       *string
+	NormalizedCandidate       *string
+	ResolutionStatus          string
+	ResolvedIndicatorRecordID *uuid.UUID
+	RowVersion                int64
+}
+
+type indicatorLifecycleIntervalRow struct {
+	IntervalID     uuid.UUID
+	IndicatorID    uuid.UUID
+	LifecycleState string
+	ValidFrom      time.Time
+	ValidTo        *time.Time
+}
+
 func provisionBootstrapAdmin(t testing.TB, server *httptestx.Server) (loginResult, uuid.UUID) {
 	t.Helper()
 
@@ -626,6 +683,209 @@ func requireRecordChange(t testing.TB, changes []platformws.RecordChange, record
 	t.Fatalf("expected record change for record=%s view=%s, got %s", recordID, viewSchemaID, string(payload))
 }
 
+func httptestSuccess(t testing.TB, resp *http.Response, wantStatus int) map[string]any {
+	t.Helper()
+	if resp.StatusCode != wantStatus {
+		t.Fatalf("unexpected status: got %d want %d body=%#v", resp.StatusCode, wantStatus, httptestx.ReadJSONBody(t, resp))
+	}
+	return httptestx.RequireSuccessEnvelope(t, resp, wantStatus)["data"].(map[string]any)
+}
+
+func httptestError(t testing.TB, resp *http.Response, wantStatus int, wantCode string) map[string]any {
+	t.Helper()
+	return httptestx.RequireErrorEnvelope(t, resp, wantStatus, wantCode)
+}
+
+func requireIndicatorCellValue(t testing.TB, row map[string]any, fieldKey string, want any) {
+	t.Helper()
+	cells := row["cells"].(map[string]any)
+	cell, ok := cells[fieldKey].(map[string]any)
+	if !ok {
+		t.Fatalf("missing indicator cell %s in %#v", fieldKey, row)
+	}
+	if got := cell["value"]; got != want {
+		t.Fatalf("unexpected indicator cell %s: got %#v want %#v", fieldKey, got, want)
+	}
+}
+
+func lookupIndicatorRecord(t testing.TB, db *sql.DB, recordID uuid.UUID) indicatorRecordRow {
+	t.Helper()
+
+	var (
+		row             indicatorRecordRow
+		recordIDRaw     string
+		incidentIDRaw   string
+		normalizedValue sql.NullString
+		defangedValue   sql.NullString
+		hashAlgorithm   sql.NullString
+		hashValue       sql.NullString
+		stixPattern     sql.NullString
+		createdByRaw    string
+		updatedByRaw    string
+	)
+	if err := db.QueryRowContext(context.Background(), `
+SELECT
+    record_id::text,
+    incident_id::text,
+    indicator_type,
+    value_kind,
+    display_value,
+    normalized_value,
+    dedupe_key,
+    defanged_value,
+    hash_algorithm,
+    hash_value,
+    stix_pattern,
+    row_version,
+    created_by_user_id::text,
+    updated_by_user_id::text
+  FROM indicators
+ WHERE record_id = $1
+`, recordID).Scan(&recordIDRaw, &incidentIDRaw, &row.IndicatorType, &row.ValueKind, &row.DisplayValue, &normalizedValue, &row.DedupeKey, &defangedValue, &hashAlgorithm, &hashValue, &stixPattern, &row.RowVersion, &createdByRaw, &updatedByRaw); err != nil {
+		t.Fatalf("lookup indicator record: %v", err)
+	}
+	row.RecordID = mustUUID(t, recordIDRaw)
+	row.IncidentID = mustUUID(t, incidentIDRaw)
+	row.NormalizedValue = nullStringPointer(normalizedValue)
+	row.DefangedValue = nullStringPointer(defangedValue)
+	row.HashAlgorithm = nullStringPointer(hashAlgorithm)
+	row.HashValue = nullStringPointer(hashValue)
+	row.STIXPattern = nullStringPointer(stixPattern)
+	row.CreatedByUser = mustUUID(t, createdByRaw)
+	row.UpdatedByUser = mustUUID(t, updatedByRaw)
+	return row
+}
+
+func lookupIndicatorProjection(t testing.TB, db *sql.DB, recordID uuid.UUID) indicatorProjectionRow {
+	t.Helper()
+
+	var (
+		row              indicatorProjectionRow
+		recordIDRaw      string
+		normalizedValue  sql.NullString
+		defangedValue    sql.NullString
+		hashAlgorithm    sql.NullString
+		hashValue        sql.NullString
+		stixPattern      sql.NullString
+		firstObservedAt  sql.NullTime
+		lastObservedAt   sql.NullTime
+		lifecycleSummary sql.NullString
+	)
+	if err := db.QueryRowContext(context.Background(), `
+SELECT
+    record_id::text,
+    row_version,
+    indicator_type,
+    value_kind,
+    display_value,
+    normalized_value,
+    defanged_value,
+    hash_algorithm,
+    hash_value,
+    stix_pattern,
+    first_observed_at,
+    last_observed_at,
+    observation_count,
+    lifecycle_summary,
+    supporting_link_count
+  FROM indicator_grid_projection
+ WHERE record_id = $1
+`, recordID).Scan(&recordIDRaw, &row.RowVersion, &row.IndicatorType, &row.ValueKind, &row.DisplayValue, &normalizedValue, &defangedValue, &hashAlgorithm, &hashValue, &stixPattern, &firstObservedAt, &lastObservedAt, &row.ObservationCount, &lifecycleSummary, &row.SupportingLinkCount); err != nil {
+		t.Fatalf("lookup indicator projection: %v", err)
+	}
+	row.RecordID = mustUUID(t, recordIDRaw)
+	row.NormalizedValue = nullStringPointer(normalizedValue)
+	row.DefangedValue = nullStringPointer(defangedValue)
+	row.HashAlgorithm = nullStringPointer(hashAlgorithm)
+	row.HashValue = nullStringPointer(hashValue)
+	row.STIXPattern = nullStringPointer(stixPattern)
+	row.FirstObservedAt = nullTimePointer(firstObservedAt)
+	row.LastObservedAt = nullTimePointer(lastObservedAt)
+	row.LifecycleSummary = nullStringPointer(lifecycleSummary)
+	return row
+}
+
+func listIndicatorObservations(t testing.TB, db *sql.DB, incidentID uuid.UUID) []indicatorObservationRow {
+	t.Helper()
+
+	rows, err := db.QueryContext(context.Background(), `
+SELECT
+    indicator_observation_id::text,
+    source_record_id::text,
+    source_field_key,
+    origin_kind,
+    origin_locator,
+    observed_text,
+    parsed_indicator_type,
+    normalized_candidate,
+    resolution_status,
+    resolved_indicator_record_id::text,
+    row_version
+  FROM indicator_observations
+ WHERE incident_id = $1
+ ORDER BY created_at ASC, indicator_observation_id ASC
+`, incidentID)
+	if err != nil {
+		t.Fatalf("list indicator observations: %v", err)
+	}
+	defer rows.Close()
+
+	result := make([]indicatorObservationRow, 0)
+	for rows.Next() {
+		var (
+			row               indicatorObservationRow
+			observationIDRaw  string
+			sourceRecordIDRaw string
+			parsedType        sql.NullString
+			normalized        sql.NullString
+			resolvedID        sql.NullString
+		)
+		if err := rows.Scan(&observationIDRaw, &sourceRecordIDRaw, &row.SourceFieldKey, &row.OriginKind, &row.OriginLocator, &row.ObservedText, &parsedType, &normalized, &row.ResolutionStatus, &resolvedID, &row.RowVersion); err != nil {
+			t.Fatalf("scan indicator observation: %v", err)
+		}
+		row.ObservationID = mustUUID(t, observationIDRaw)
+		row.SourceRecordID = mustUUID(t, sourceRecordIDRaw)
+		row.ParsedIndicatorType = nullStringPointer(parsedType)
+		row.NormalizedCandidate = nullStringPointer(normalized)
+		if resolvedID.Valid {
+			value := mustUUID(t, resolvedID.String)
+			row.ResolvedIndicatorRecordID = &value
+		}
+		result = append(result, row)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate indicator observations: %v", err)
+	}
+	return result
+}
+
+func lookupIndicatorLifecycleInterval(t testing.TB, db *sql.DB, intervalID uuid.UUID) indicatorLifecycleIntervalRow {
+	t.Helper()
+
+	var (
+		row            indicatorLifecycleIntervalRow
+		intervalIDRaw  string
+		indicatorIDRaw string
+		validTo        sql.NullTime
+	)
+	if err := db.QueryRowContext(context.Background(), `
+SELECT
+    indicator_state_interval_id::text,
+    indicator_record_id::text,
+    lifecycle_state,
+    valid_from,
+    valid_to
+  FROM indicator_state_intervals
+ WHERE indicator_state_interval_id = $1
+`, intervalID).Scan(&intervalIDRaw, &indicatorIDRaw, &row.LifecycleState, &row.ValidFrom, &validTo); err != nil {
+		t.Fatalf("lookup indicator lifecycle interval: %v", err)
+	}
+	row.IntervalID = mustUUID(t, intervalIDRaw)
+	row.IndicatorID = mustUUID(t, indicatorIDRaw)
+	row.ValidTo = nullTimePointer(validTo)
+	return row
+}
+
 func queryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 	t.Helper()
 
@@ -644,4 +904,27 @@ func mustUUID(t testing.TB, value string) uuid.UUID {
 		t.Fatalf("parse uuid %q: %v", value, err)
 	}
 	return parsed
+}
+
+func nullStringPointer(value sql.NullString) *string {
+	if !value.Valid {
+		return nil
+	}
+	text := value.String
+	return &text
+}
+
+func nullTimePointer(value sql.NullTime) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	utc := value.Time.UTC()
+	return &utc
+}
+
+func derefStringPointer(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }

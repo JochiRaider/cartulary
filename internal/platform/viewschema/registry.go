@@ -12,6 +12,7 @@ type Field struct {
 	FieldKey                string  `json:"field_key"`
 	Label                   string  `json:"label"`
 	Writable                bool    `json:"writable"`
+	CreateWritable          bool    `json:"create_writable"`
 	ConflictResolutionClass string  `json:"conflict_resolution_class"`
 	EntityBindingMode       *string `json:"entity_binding_mode"`
 	WriteTarget             *string `json:"write_target"`

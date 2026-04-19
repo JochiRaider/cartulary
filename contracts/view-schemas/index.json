@@ -29,6 +29,15 @@
         "identity"
       ],
       "artifact_path": "contracts/view-schemas/cartulary.view.identities.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.indicators.v1",
+      "title": "Indicators",
+      "surface_kind": "system_view",
+      "source_record_types": [
+        "indicator"
+      ],
+      "artifact_path": "contracts/view-schemas/cartulary.view.indicators.v1.json"
     }
   ]
 }

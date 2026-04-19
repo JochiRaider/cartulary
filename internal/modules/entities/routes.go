@@ -34,6 +34,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		}
 		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/cartulary.view.hosts.v1/rows", service.handleHostCreate)
 		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/cartulary.view.identities.v1/rows", service.handleIdentityCreate)
+		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/cartulary.view.indicators.v1/rows", service.handleIndicatorCreate)
 		mux.HandleFunc("POST /api/v1/records/{survivor_record_id}/merge", service.handleMerge)
 		mux.HandleFunc("POST /api/v1/entity-mentions/{entity_mention_id}/resolve", service.handleMentionAction)
 		return nil
@@ -61,6 +62,10 @@ func (s *Service) handleHostCreate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) handleIdentityCreate(w http.ResponseWriter, r *http.Request) {
 	s.handleCreate(w, r, IdentitiesViewSchemaID)
+}
+
+func (s *Service) handleIndicatorCreate(w http.ResponseWriter, r *http.Request) {
+	s.handleCreate(w, r, IndicatorsViewSchemaID)
 }
 
 func (s *Service) handleMerge(w http.ResponseWriter, r *http.Request) {
@@ -242,17 +247,23 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request, viewSchem
 		result, err = s.store.CreateHostRow(r.Context(), principal.User, incidentID, request, CreateRequestHash(viewSchemaID, request), httpapi.RequestIDFromContext(r.Context()), s.now())
 	case IdentitiesViewSchemaID:
 		result, err = s.store.CreateIdentityRow(r.Context(), principal.User, incidentID, request, CreateRequestHash(viewSchemaID, request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	case IndicatorsViewSchemaID:
+		result, err = s.store.CreateIndicatorRow(r.Context(), principal.User, incidentID, request, CreateRequestHash(viewSchemaID, request), httpapi.RequestIDFromContext(r.Context()), s.now())
 	default:
 		writeAPIError(w, r, invalidMutationPayload("view_schema_id", "unknown_view_schema"))
 		return
 	}
 	var conflict *ExactMatchConflictError
+	var createValidationErr *IndicatorCreateValidationError
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
 		return
 	case errors.Is(err, ErrInvalidCreateRequest):
 		writeAPIError(w, r, invalidMutationPayload("payload", "at_least_one_value_required"))
+		return
+	case errors.As(err, &createValidationErr):
+		writeAPIError(w, r, invalidMutationPayload(createValidationErr.Field, createValidationErr.ReasonCode))
 		return
 	case errors.As(err, &conflict):
 		writeAPIError(w, r, exactMatchConflictError(conflict.EntityType, conflict.IdentifierClass, conflict.CandidateRecords))

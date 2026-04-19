@@ -238,6 +238,85 @@ type IncidentWorkbookPreference struct {
 	UpdatedByUserID pgtype.UUID        `json:"updated_by_user_id"`
 }
 
+type Indicator struct {
+	RecordID        pgtype.UUID        `json:"record_id"`
+	IncidentID      pgtype.UUID        `json:"incident_id"`
+	IndicatorType   string             `json:"indicator_type"`
+	ValueKind       string             `json:"value_kind"`
+	DisplayValue    string             `json:"display_value"`
+	NormalizedValue pgtype.Text        `json:"normalized_value"`
+	DedupeKey       string             `json:"dedupe_key"`
+	DefangedValue   pgtype.Text        `json:"defanged_value"`
+	HashAlgorithm   pgtype.Text        `json:"hash_algorithm"`
+	HashValue       pgtype.Text        `json:"hash_value"`
+	StixPattern     pgtype.Text        `json:"stix_pattern"`
+	RowVersion      int64              `json:"row_version"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	CreatedByUserID pgtype.UUID        `json:"created_by_user_id"`
+	UpdatedByUserID pgtype.UUID        `json:"updated_by_user_id"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	DeletedByUserID pgtype.UUID        `json:"deleted_by_user_id"`
+}
+
+type IndicatorGridProjection struct {
+	RecordID            pgtype.UUID        `json:"record_id"`
+	IncidentID          pgtype.UUID        `json:"incident_id"`
+	RowVersion          int64              `json:"row_version"`
+	IndicatorType       string             `json:"indicator_type"`
+	ValueKind           string             `json:"value_kind"`
+	DisplayValue        string             `json:"display_value"`
+	NormalizedValue     pgtype.Text        `json:"normalized_value"`
+	DedupeKey           string             `json:"dedupe_key"`
+	DefangedValue       pgtype.Text        `json:"defanged_value"`
+	HashAlgorithm       pgtype.Text        `json:"hash_algorithm"`
+	HashValue           pgtype.Text        `json:"hash_value"`
+	StixPattern         pgtype.Text        `json:"stix_pattern"`
+	FirstObservedAt     pgtype.Timestamptz `json:"first_observed_at"`
+	LastObservedAt      pgtype.Timestamptz `json:"last_observed_at"`
+	ObservationCount    int32              `json:"observation_count"`
+	LifecycleSummary    pgtype.Text        `json:"lifecycle_summary"`
+	SupportingLinkCount int32              `json:"supporting_link_count"`
+	EditedAt            pgtype.Timestamptz `json:"edited_at"`
+}
+
+type IndicatorObservation struct {
+	IndicatorObservationID    pgtype.UUID        `json:"indicator_observation_id"`
+	IncidentID                pgtype.UUID        `json:"incident_id"`
+	SourceRecordID            pgtype.UUID        `json:"source_record_id"`
+	SourceFieldKey            string             `json:"source_field_key"`
+	OriginKind                string             `json:"origin_kind"`
+	OriginLocator             string             `json:"origin_locator"`
+	ObservedText              string             `json:"observed_text"`
+	ParsedIndicatorType       pgtype.Text        `json:"parsed_indicator_type"`
+	NormalizedCandidate       pgtype.Text        `json:"normalized_candidate"`
+	ResolutionStatus          string             `json:"resolution_status"`
+	ResolvedIndicatorRecordID pgtype.UUID        `json:"resolved_indicator_record_id"`
+	RowVersion                int64              `json:"row_version"`
+	CreatedByUserID           pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
+	ResolvedByUserID          pgtype.UUID        `json:"resolved_by_user_id"`
+	ResolvedAt                pgtype.Timestamptz `json:"resolved_at"`
+	ResolutionMethod          pgtype.Text        `json:"resolution_method"`
+}
+
+type IndicatorStateInterval struct {
+	IndicatorStateIntervalID pgtype.UUID        `json:"indicator_state_interval_id"`
+	IncidentID               pgtype.UUID        `json:"incident_id"`
+	IndicatorRecordID        pgtype.UUID        `json:"indicator_record_id"`
+	LifecycleState           string             `json:"lifecycle_state"`
+	ValidFrom                pgtype.Timestamptz `json:"valid_from"`
+	ValidTo                  pgtype.Timestamptz `json:"valid_to"`
+	Confidence               pgtype.Int4        `json:"confidence"`
+	Rationale                pgtype.Text        `json:"rationale"`
+	SupportRefs              []byte             `json:"support_refs"`
+	Assessor                 pgtype.Text        `json:"assessor"`
+	AssessedAt               pgtype.Timestamptz `json:"assessed_at"`
+	RowVersion               int64              `json:"row_version"`
+	CreatedByUserID          pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+}
+
 type PendingTotpEnrollment struct {
 	ID                        pgtype.UUID        `json:"id"`
 	UserID                    pgtype.UUID        `json:"user_id"`

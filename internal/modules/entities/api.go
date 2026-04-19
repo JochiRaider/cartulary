@@ -19,10 +19,12 @@ import (
 const (
 	HostsViewSchemaID      = "cartulary.view.hosts.v1"
 	IdentitiesViewSchemaID = "cartulary.view.identities.v1"
+	IndicatorsViewSchemaID = "cartulary.view.indicators.v1"
 
-	hostCreateRouteKey     = "entities.hosts.rows.create"
-	identityCreateRouteKey = "entities.identities.rows.create"
-	maxCollectionActions   = 64
+	hostCreateRouteKey      = "entities.hosts.rows.create"
+	identityCreateRouteKey  = "entities.identities.rows.create"
+	indicatorCreateRouteKey = "entities.indicators.rows.create"
+	maxCollectionActions    = 64
 )
 
 type CreateRequest struct {
@@ -71,6 +73,36 @@ type IdentityRecord struct {
 	UpdatedByUser         uuid.UUID
 }
 
+type IndicatorRecord struct {
+	RecordID        uuid.UUID
+	IncidentID      uuid.UUID
+	IndicatorType   string
+	ValueKind       string
+	DisplayValue    string
+	NormalizedValue *string
+	DedupeKey       string
+	DefangedValue   *string
+	HashAlgorithm   *string
+	HashValue       *string
+	STIXPattern     *string
+	RowVersion      int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	CreatedByUser   uuid.UUID
+	UpdatedByUser   uuid.UUID
+	DeletedAt       *time.Time
+	DeletedByUserID *uuid.UUID
+}
+
+type IndicatorProjectionRecord struct {
+	IndicatorRecord
+	FirstObservedAt   *time.Time
+	LastObservedAt    *time.Time
+	ObservationCount  int
+	LifecycleSummary  *string
+	SupportingLinkCnt int
+}
+
 type MutationResult struct {
 	Payload     map[string]any
 	StatusCode  int
@@ -99,7 +131,7 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 
 	allowed := map[string]struct{}{"client_txn_id": {}}
 	for fieldKey, field := range schema.Fields() {
-		if field.Writable {
+		if field.Writable || field.CreateWritable {
 			allowed[fieldKey] = struct{}{}
 		}
 	}
@@ -123,11 +155,8 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 		if !ok {
 			continue
 		}
-		if !field.Writable {
+		if !field.Writable && !field.CreateWritable {
 			return CreateRequest{}, invalidMutationPayload(fieldKey, "readonly_field")
-		}
-		if field.EntityBindingMode == nil || *field.EntityBindingMode != "entity_origin" {
-			return CreateRequest{}, invalidMutationPayload(fieldKey, "unsupported_field_key")
 		}
 		if field.ConflictResolutionClass == "collection_review" {
 			actions, ok := decodeAliasActionPayload(fieldKey, value)
@@ -245,6 +274,36 @@ func BuildIdentityRow(record IdentityRecord) map[string]any {
 		"identity.privilege_level": nil,
 		"identity.mfa_state":       nil,
 		"identity.reset_status":    nil,
+	}
+	return row
+}
+
+func BuildIndicatorRow(record IndicatorProjectionRecord) map[string]any {
+	row := map[string]any{
+		"record_id":   record.RecordID.String(),
+		"row_version": record.RowVersion,
+		"cells": map[string]any{
+			"indicator.indicator_type":    map[string]any{"value": record.IndicatorType},
+			"indicator.value_kind":        map[string]any{"value": record.ValueKind},
+			"indicator.display_value":     map[string]any{"value": record.DisplayValue},
+			"indicator.normalized_value":  map[string]any{"value": derefString(record.NormalizedValue)},
+			"indicator.defanged_value":    map[string]any{"value": derefString(record.DefangedValue)},
+			"indicator.hash_algorithm":    map[string]any{"value": derefString(record.HashAlgorithm)},
+			"indicator.hash_value":        map[string]any{"value": derefString(record.HashValue)},
+			"indicator.stix_pattern":      map[string]any{"value": derefString(record.STIXPattern)},
+			"indicator.first_observed_at": map[string]any{"value": formatTimestampPointer(record.FirstObservedAt)},
+			"indicator.last_observed_at":  map[string]any{"value": formatTimestampPointer(record.LastObservedAt)},
+			"indicator.observation_count": map[string]any{"value": record.ObservationCount},
+			"indicator.lifecycle_summary": map[string]any{"value": derefString(record.LifecycleSummary)},
+			"indicator.supporting_link_count": map[string]any{
+				"value": record.SupportingLinkCnt,
+			},
+		},
+	}
+	row["group_values"] = map[string]any{
+		"indicator.indicator_type":    record.IndicatorType,
+		"indicator.value_kind":        record.ValueKind,
+		"indicator.lifecycle_summary": derefString(record.LifecycleSummary),
 	}
 	return row
 }

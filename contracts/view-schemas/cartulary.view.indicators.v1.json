@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "view_schema_id": "cartulary.view.indicators.v1",
+  "title": "Indicators",
+  "surface_kind": "system_view",
+  "source_record_types": [
+    "indicator"
+  ],
+  "technical_fields": [
+    "record_id",
+    "row_version"
+  ],
+  "default_visible_fields": [
+    "indicator.indicator_type",
+    "indicator.value_kind",
+    "indicator.display_value",
+    "indicator.normalized_value",
+    "indicator.defanged_value",
+    "indicator.hash_algorithm",
+    "indicator.hash_value",
+    "indicator.stix_pattern",
+    "indicator.first_observed_at",
+    "indicator.last_observed_at",
+    "indicator.observation_count",
+    "indicator.lifecycle_summary",
+    "indicator.supporting_link_count"
+  ],
+  "default_hidden_fields": [
+    "record_id",
+    "row_version"
+  ],
+  "default_sort": [
+    {
+      "field_key": "indicator.indicator_type",
+      "direction": "asc"
+    },
+    {
+      "field_key": "indicator.display_value",
+      "direction": "asc"
+    },
+    {
+      "field_key": "record_id",
+      "direction": "asc"
+    }
+  ],
+  "sort_fields": [
+    "indicator.indicator_type",
+    "indicator.value_kind",
+    "indicator.display_value",
+    "indicator.normalized_value",
+    "indicator.defanged_value",
+    "indicator.hash_algorithm",
+    "indicator.hash_value",
+    "indicator.stix_pattern",
+    "indicator.first_observed_at",
+    "indicator.last_observed_at",
+    "indicator.observation_count",
+    "indicator.lifecycle_summary",
+    "indicator.supporting_link_count"
+  ],
+  "filter_fields": [
+    "indicator.indicator_type",
+    "indicator.value_kind",
+    "indicator.hash_algorithm",
+    "indicator.first_observed_at",
+    "indicator.last_observed_at",
+    "indicator.lifecycle_summary"
+  ],
+  "grouping_fields": [
+    "indicator.indicator_type",
+    "indicator.value_kind",
+    "indicator.lifecycle_summary"
+  ],
+  "inline_create": {
+    "permits_zero_field_create": false
+  },
+  "fields": [
+    {
+      "field_key": "indicator.indicator_type",
+      "label": "Indicator Type",
+      "writable": false,
+      "create_writable": true,
+      "read_model": "indicator_type",
+      "write_target": "indicators.indicator_type",
+      "entity_binding_mode": null,
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "indicator.value_kind",
+      "label": "Value Kind",
+      "writable": false,
+      "create_writable": true,
+      "read_model": "value_kind",
+      "write_target": "indicators.value_kind",
+      "entity_binding_mode": null,
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "indicator.display_value",
+      "label": "Display Value",
+      "writable": false,
+      "create_writable": true,
+      "read_model": "display_value",
+      "write_target": "indicators.display_value",
+      "entity_binding_mode": null,
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "indicator.normalized_value",
+      "label": "Normalized Value",
+      "writable": false,
+      "create_writable": true,
+      "read_model": "normalized_value",
+      "write_target": "indicators.normalized_value",
+      "entity_binding_mode": null,
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "indicator.defanged_value",
+      "label": "Defanged Value",
+      "writable": false,
+      "create_writable": true,
+      "read_model": "defanged_value",
+      "write_target": "indicators.defanged_value",
+      "entity_binding_mode": null,
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "indicator.hash_algorithm",
+      "label": "Hash Algorithm",
+      "writable": false,
+      "create_writable": true,
+      "read_model": "hash_algorithm",
+      "write_target": "indicators.hash_algorithm",
+      "entity_binding_mode": null,
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "indicator.hash_value",
+      "label": "Hash Value",
+      "writable": false,
+      "create_writable": true,
+      "read_model": "hash_value",
+      "write_target": "indicators.hash_value",
+      "entity_binding_mode": null,
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "indicator.stix_pattern",
+      "label": "STIX Pattern",
+      "writable": false,
+      "create_writable": true,
+      "read_model": "stix_pattern",
+      "write_target": "indicators.stix_pattern",
+      "entity_binding_mode": null,
+      "conflict_resolution_class": "atomic_replace"
+    },
+    {
+      "field_key": "indicator.first_observed_at",
+      "label": "First Observed",
+      "writable": false,
+      "read_model": "first_observed_at",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "indicator.last_observed_at",
+      "label": "Last Observed",
+      "writable": false,
+      "read_model": "last_observed_at",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "indicator.observation_count",
+      "label": "Observation Count",
+      "writable": false,
+      "read_model": "observation_count",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "indicator.lifecycle_summary",
+      "label": "Lifecycle",
+      "writable": false,
+      "read_model": "lifecycle_summary",
+      "entity_binding_mode": null
+    },
+    {
+      "field_key": "indicator.supporting_link_count",
+      "label": "Supporting Links",
+      "writable": false,
+      "read_model": "supporting_link_count",
+      "entity_binding_mode": null
+    }
+  ]
+}
