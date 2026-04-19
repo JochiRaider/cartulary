@@ -34,18 +34,21 @@ export async function ensureAdminSession(page: Page) {
   }
 
   await waitForPageRequestAPIReady(page);
-  const loginResponse = await page.request.post(`${apiBase}/api/v1/auth/login`, {
-    data: {
-      username: bootstrapEmail,
-      password: bootstrapPassword,
-      second_factor: {
-        kind: "totp",
-        assertion: {
-          code: generateTotpCode(rememberedAdminTotpSecretBase32),
+  const loginResponse = await page.request.post(
+    `${apiBase}/api/v1/auth/login`,
+    {
+      data: {
+        username: bootstrapEmail,
+        password: bootstrapPassword,
+        second_factor: {
+          kind: "totp",
+          assertion: {
+            code: generateTotpCode(rememberedAdminTotpSecretBase32),
+          },
         },
       },
     },
-  });
+  );
   if (!loginResponse.ok()) {
     throw new Error(`admin login failed: ${await loginResponse.text()}`);
   }
@@ -239,6 +242,83 @@ export async function queryViewRows(
   ).data.rows;
 }
 
+export async function fetchTimelineRecordSubstrate(
+  page: Page,
+  recordId: string,
+) {
+  const response = await page.request.get(
+    `${apiBase}/api/v1/test/timeline/records/${recordId}/substrate`,
+  );
+  expect(response.ok()).toBeTruthy();
+  return (
+    (await response.json()) as {
+      data: {
+        record_id: string;
+        row_version: number;
+        capture_state: string;
+        replacement_record_id: string | null;
+        record_revision_count: number;
+      };
+    }
+  ).data;
+}
+
+export async function fetchTimelineRecordChangeCount(
+  page: Page,
+  recordId: string,
+) {
+  const response = await page.request.get(
+    `${apiBase}/api/v1/test/timeline/record-changes`,
+  );
+  expect(response.ok()).toBeTruthy();
+  const body = (await response.json()) as {
+    data: {
+      record_changes: Array<{ record_id: string }>;
+    };
+  };
+  return body.data.record_changes.filter(
+    (change) => change.record_id === recordId,
+  ).length;
+}
+
+export async function measureTypingAck(
+  page: Page,
+  testId: string,
+  appendedCharacter: string,
+) {
+  const input = page.getByTestId(testId);
+  const currentValue = await input.inputValue();
+  const completion = waitForInputValue(page, {
+    testId,
+    expectedValue: `${currentValue}${appendedCharacter}`,
+    requireFocus: true,
+    timeoutMs: 5_000,
+  });
+  await input.press(appendedCharacter);
+  return completion;
+}
+
+export async function measureBlankRowCreate(
+  page: Page,
+  expectedSummary: string,
+) {
+  const completion = waitForCommittedRowSummary(page, {
+    expectedSummary,
+    timeoutMs: 5_000,
+  });
+  await page.getByTestId("draft-row-summary").press("Enter");
+  return completion;
+}
+
+export function percentile95(samples: number[]) {
+  if (samples.length === 0) {
+    throw new Error("cannot compute percentile95 for an empty sample set");
+  }
+  const sorted = [...samples].sort((left, right) => left - right);
+  const index = Math.max(0, Math.ceil(sorted.length * 0.95) - 1);
+  return sorted[index] ?? sorted[sorted.length - 1];
+}
+
 export async function patchTimelineRecord(
   page: Page,
   recordId: string,
@@ -361,6 +441,121 @@ function decodeBase32(input: string) {
     bytes.push(Number.parseInt(bits.slice(index, index + 8), 2));
   }
   return Buffer.from(bytes);
+}
+
+async function waitForInputValue(
+  page: Page,
+  options: {
+    testId: string;
+    expectedValue: string;
+    requireFocus: boolean;
+    timeoutMs: number;
+  },
+) {
+  const start = await page.evaluate(() => performance.now());
+  return page.evaluate(
+    ({ expectedValue, requireFocus, startMark, testId, timeoutMs }) =>
+      new Promise<number>((resolve, reject) => {
+        const deadline = startMark + timeoutMs;
+        const selector = `[data-testid="${CSS.escape(testId)}"]`;
+        const tick = () => {
+          const element = document.querySelector(selector);
+          const isTextInput =
+            element instanceof HTMLInputElement ||
+            element instanceof HTMLTextAreaElement;
+          if (
+            isTextInput &&
+            element.value === expectedValue &&
+            (!requireFocus || document.activeElement === element)
+          ) {
+            resolve(performance.now() - startMark);
+            return;
+          }
+          if (performance.now() > deadline) {
+            reject(
+              new Error(
+                `timed out waiting for ${testId} to reach ${expectedValue}`,
+              ),
+            );
+            return;
+          }
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+    {
+      expectedValue: options.expectedValue,
+      requireFocus: options.requireFocus,
+      startMark: start,
+      testId: options.testId,
+      timeoutMs: options.timeoutMs,
+    },
+  );
+}
+
+async function waitForCommittedRowSummary(
+  page: Page,
+  options: {
+    expectedSummary: string;
+    timeoutMs: number;
+  },
+) {
+  const start = await page.evaluate(() => performance.now());
+  return page.evaluate(
+    ({ expectedSummary, startMark, timeoutMs }) =>
+      new Promise<number>((resolve, reject) => {
+        const deadline = startMark + timeoutMs;
+        const tick = () => {
+          const candidates = document.querySelectorAll(
+            'input[data-testid$="-summary"], textarea[data-testid$="-summary"]',
+          );
+          for (const candidate of candidates) {
+            if (
+              !(
+                candidate instanceof HTMLInputElement ||
+                candidate instanceof HTMLTextAreaElement
+              )
+            ) {
+              continue;
+            }
+            const testId = candidate.getAttribute("data-testid") ?? "";
+            if (
+              !testId.startsWith("row-") ||
+              !testId.endsWith("-summary") ||
+              candidate.value !== expectedSummary
+            ) {
+              continue;
+            }
+            const recordId = testId.slice(4, -"-summary".length);
+            const versionSelector = `[data-testid="${CSS.escape(`row-${recordId}-row-version`)}"]`;
+            const versionElement = document.querySelector(versionSelector);
+            if (
+              versionElement instanceof HTMLElement &&
+              versionElement.textContent?.trim() &&
+              versionElement.textContent.trim() !== "new"
+            ) {
+              resolve(performance.now() - startMark);
+              return;
+            }
+          }
+          if (performance.now() > deadline) {
+            reject(
+              new Error(
+                `timed out waiting for committed row summary ${expectedSummary}`,
+              ),
+            );
+            return;
+          }
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+    {
+      expectedSummary: options.expectedSummary,
+      startMark: start,
+      timeoutMs: options.timeoutMs,
+    },
+  );
 }
 
 async function provisionBootstrapAdminTotp(authRequests: APIRequestContext) {

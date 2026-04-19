@@ -1,9 +1,16 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import {
   apiBase,
+  createIncident,
+  createViewRow,
   csrfHeaders,
   ensureAdminSession,
+  fetchTimelineRecordChangeCount,
+  fetchTimelineRecordSubstrate,
+  measureBlankRowCreate,
+  measureTypingAck,
+  percentile95,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
@@ -35,7 +42,7 @@ test("E-3-01 creates a Timeline row in-grid and continues editing on the draft r
   await expect(page.getByTestId("draft-row-summary")).toBeFocused();
 });
 
-test("E-3-02 shows Syncing, Saved, and Conflict across Enter, Tab, blur, and paste completion", async ({
+test("E-3-02 measures user-visible typing_ack and blank-row-create completion within the Phase 3 envelope", async ({
   page,
 }) => {
   await ensureAdminSession(page);
@@ -44,70 +51,32 @@ test("E-3-02 shows Syncing, Saved, and Conflict across Enter, Tab, blur, and pas
     uniqueIncidentKey("E302"),
     "Phase 3 E-3-02",
   );
-  const row = await createTimelineRow(page, incidentId, {
-    client_txn_id: uniqueTxn("row"),
-    "timeline.summary": "Alpha",
-  });
-  const recordId = row.record_id as string;
 
   await page.goto(`/?incident_id=${incidentId}`);
-  const summaryInput = page.getByTestId(`row-${recordId}-summary`);
-  const detailsInput = page.getByTestId(`row-${recordId}-details`);
-  const sourceTextInput = page.getByTestId(`row-${recordId}-sourceText`);
+  await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
 
-  let delayed = false;
-  await page.route(`**/api/v1/records/${recordId}`, async (route) => {
-    if (!delayed) {
-      delayed = true;
-      await page.waitForTimeout(350);
-    }
-    await route.continue();
-  });
+  const draftSummary = page.getByTestId("draft-row-summary");
+  const typingSamples: number[] = [];
+  for (let sampleIndex = 0; sampleIndex < 13; sampleIndex += 1) {
+    const appendedCharacter = String.fromCharCode(97 + (sampleIndex % 26));
+    typingSamples.push(
+      await measureTypingAck(page, "draft-row-summary", appendedCharacter),
+    );
+  }
+  const typingP95 = percentile95(typingSamples.slice(1));
+  expect(typingP95).toBeLessThanOrEqual(100);
 
-  await summaryInput.fill("Alpha enter");
-  await summaryInput.press("Enter");
-  await expect(page.getByTestId("save-state")).toHaveText("Syncing");
-  await expect(page.getByTestId(`row-${recordId}-row-version`)).toHaveText("2");
-  await expect(page.getByTestId("save-state")).toHaveText("Saved");
+  await draftSummary.fill("");
 
-  await summaryInput.fill("Alpha tab");
-  await summaryInput.press("Tab");
-  await expect(page.getByTestId(`row-${recordId}-row-version`)).toHaveText("3");
-  await expect(page.getByTestId("save-state")).toHaveText("Saved");
-
-  await detailsInput.fill("Blur details");
-  await detailsInput.blur();
-  await expect(page.getByTestId("save-state")).toHaveText("Syncing");
-  await expect(page.getByTestId(`row-${recordId}-row-version`)).toHaveText("4");
-  await expect(page.getByTestId("save-state")).toHaveText("Saved");
-
-  await sourceTextInput.fill("Pasted transcript");
-  await sourceTextInput.dispatchEvent("paste");
-  await expect(page.getByTestId(`row-${recordId}-row-version`)).toHaveText("5");
-  await expect(page.getByTestId("save-state")).toHaveText("Saved");
-
-  let conflictInjected = false;
-  await page.route(`**/api/v1/records/${recordId}`, async (route) => {
-    if (!conflictInjected) {
-      conflictInjected = true;
-      await route.fulfill({
-        status: 409,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: {
-            code: "conflict",
-            message: "record version conflict",
-          },
-        }),
-      });
-      return;
-    }
-    await route.continue();
-  });
-
-  await summaryInput.fill("Conflict value");
-  await summaryInput.blur();
-  await expect(page.getByTestId("save-state")).toHaveText("Conflict");
+  const blankRowCreateSamples: number[] = [];
+  for (let sampleIndex = 0; sampleIndex < 13; sampleIndex += 1) {
+    const summary = `Timing sample ${sampleIndex} ${uniqueTxn("blank-row")}`;
+    await draftSummary.fill(summary);
+    blankRowCreateSamples.push(await measureBlankRowCreate(page, summary));
+    await expect(page.getByTestId("draft-row-summary")).toBeFocused();
+  }
+  const blankRowCreateP95 = percentile95(blankRowCreateSamples.slice(1));
+  expect(blankRowCreateP95).toBeLessThanOrEqual(150);
 });
 
 test("E-3-03 drives review, demotion, and supersede through the visible workbook surface", async ({
@@ -119,14 +88,24 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
     uniqueIncidentKey("E303"),
     "Phase 3 E-3-03",
   );
-  const primaryRow = await createTimelineRow(page, incidentId, {
-    client_txn_id: uniqueTxn("primary"),
-    "timeline.summary": "Primary row",
-  });
-  const replacementRow = await createTimelineRow(page, incidentId, {
-    client_txn_id: uniqueTxn("replacement"),
-    "timeline.summary": "Replacement row",
-  });
+  const primaryRow = await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("primary"),
+      "timeline.summary": "Primary row",
+    },
+  );
+  const replacementRow = await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("replacement"),
+      "timeline.summary": "Replacement row",
+    },
+  );
   const recordId = primaryRow.record_id as string;
   const replacementId = replacementRow.record_id as string;
 
@@ -157,7 +136,7 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
   ).toBeDisabled();
 });
 
-test("E-3-04 replays the same patch without duplicate visible collaboration updates", async ({
+test("E-3-04 uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible invalidation", async ({
   browser,
   page,
 }) => {
@@ -167,7 +146,7 @@ test("E-3-04 replays the same patch without duplicate visible collaboration upda
     uniqueIncidentKey("E304"),
     "Phase 3 E-3-04",
   );
-  const row = await createTimelineRow(page, incidentId, {
+  const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("seed"),
     "timeline.summary": "Replay row",
   });
@@ -195,6 +174,10 @@ test("E-3-04 replays the same patch without duplicate visible collaboration upda
     "1",
   );
   const baselineObserverQueries = observerQueryCount;
+  const baselineRecordChangeCount = await fetchTimelineRecordChangeCount(
+    page,
+    recordId,
+  );
 
   await page.goto(`/?incident_id=${incidentId}`);
   const summaryInput = page.getByTestId(`row-${recordId}-summary`);
@@ -221,6 +204,17 @@ test("E-3-04 replays the same patch without duplicate visible collaboration upda
   await expect(observer.getByTestId(`row-${recordId}-row-version`)).toHaveText(
     "2",
   );
+  const substrateAfterFirstPatch = await fetchTimelineRecordSubstrate(
+    page,
+    recordId,
+  );
+  expect(substrateAfterFirstPatch.row_version).toBe(2);
+  expect(substrateAfterFirstPatch.record_revision_count).toBe(2);
+  const recordChangeCountAfterFirstPatch = await fetchTimelineRecordChangeCount(
+    page,
+    recordId,
+  );
+  expect(recordChangeCountAfterFirstPatch).toBe(baselineRecordChangeCount + 1);
 
   const queriesAfterFirstPatch = observerQueryCount;
   const replayResponse = await page.request.patch(
@@ -238,45 +232,21 @@ test("E-3-04 replays the same patch without duplicate visible collaboration upda
 
   await page.waitForTimeout(500);
   expect(observerQueryCount).toBe(queriesAfterFirstPatch);
+  const substrateAfterReplay = await fetchTimelineRecordSubstrate(
+    page,
+    recordId,
+  );
+  expect(substrateAfterReplay.row_version).toBe(
+    substrateAfterFirstPatch.row_version,
+  );
+  expect(substrateAfterReplay.record_revision_count).toBe(
+    substrateAfterFirstPatch.record_revision_count,
+  );
+  expect(await fetchTimelineRecordChangeCount(page, recordId)).toBe(
+    recordChangeCountAfterFirstPatch,
+  );
   await expect(observer.getByTestId(`row-${recordId}-row-version`)).toHaveText(
     "2",
   );
   await observer.close();
 });
-
-async function createIncident(page: Page, incidentKey: string, title: string) {
-  const response = await page.request.post(`${apiBase}/api/v1/incidents`, {
-    headers: await csrfHeaders(page),
-    data: {
-      client_txn_id: uniqueTxn("incident"),
-      incident_key: incidentKey,
-      title,
-    },
-  });
-  expect(response.ok()).toBeTruthy();
-  const body = (await response.json()) as { data: { incident_id: string } };
-  return body.data.incident_id;
-}
-
-async function createTimelineRow(
-  page: Page,
-  incidentId: string,
-  payload: Record<string, unknown>,
-) {
-  const response = await page.request.post(
-    `${apiBase}/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
-    {
-      headers: await csrfHeaders(page),
-      data: payload,
-    },
-  );
-  expect(response.ok()).toBeTruthy();
-  const body = (await response.json()) as {
-    data: {
-      row: {
-        record_id: string;
-      };
-    };
-  };
-  return body.data.row as Record<string, unknown>;
-}

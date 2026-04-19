@@ -105,20 +105,30 @@ func DecodeTimelineQueryRequest(reader io.Reader) (map[string]json.RawMessage, *
 	return raw, nil
 }
 
+func DefaultViewQueryMeta(viewSchemaID string) any {
+	schema, ok := viewschema.Lookup(viewSchemaID)
+	if !ok {
+		return nil
+	}
+	return schema.DefaultQueryMeta()
+}
+
 func DecodeTimelineCreateRequest(reader io.Reader) (CreateRequest, *auth.APIError) {
+	schema, found := viewschema.Lookup(TimelineViewSchemaID)
+	if !found {
+		return CreateRequest{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
+	}
+
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return CreateRequest{}, apiErr
 	}
 
-	allowed := map[string]struct{}{
-		"client_txn_id":          {},
-		"timeline.occurred_at":   {},
-		"timeline.summary":       {},
-		"timeline.details":       {},
-		"timeline.source_text":   {},
-		"timeline.host_refs":     {},
-		"timeline.identity_refs": {},
+	allowed := map[string]struct{}{"client_txn_id": {}}
+	for fieldKey, field := range schema.Fields() {
+		if field.Writable || field.CreateWritable {
+			allowed[fieldKey] = struct{}{}
+		}
 	}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
@@ -152,7 +162,7 @@ func DecodeTimelineCreateRequest(reader io.Reader) (CreateRequest, *auth.APIErro
 	if request.IdentityRefs, ok = decodeCreateCollectionActionField(raw, "timeline.identity_refs"); !ok {
 		return CreateRequest{}, invalidMutationPayload("timeline.identity_refs", "invalid_value")
 	}
-	if !CreateRequestHasUserValue(request) {
+	if !schema.PermitsZeroFieldCreate && !CreateRequestHasUserValue(request) {
 		return CreateRequest{}, invalidMutationPayload("payload", "at_least_one_value_required")
 	}
 

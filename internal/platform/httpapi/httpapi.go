@@ -38,6 +38,7 @@ type Options struct {
 type EnvelopeMeta struct {
 	RequestID string      `json:"request_id"`
 	Paging    *PagingMeta `json:"paging,omitempty"`
+	Query     any         `json:"query,omitempty"`
 }
 
 type PagingMeta struct {

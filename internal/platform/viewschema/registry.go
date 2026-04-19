@@ -19,12 +19,24 @@ type Field struct {
 	WriteAction             *string `json:"write_action"`
 }
 
+type SortEntry struct {
+	FieldKey  string `json:"field_key"`
+	Direction string `json:"direction"`
+}
+
+type QueryMeta struct {
+	Filters []any       `json:"filters"`
+	Sort    []SortEntry `json:"sort"`
+	GroupBy *string     `json:"group_by,omitempty"`
+}
+
 type inlineCreate struct {
 	PermitsZeroFieldCreate bool `json:"permits_zero_field_create"`
 }
 
 type schemaDocument struct {
 	ViewSchemaID string       `json:"view_schema_id"`
+	DefaultSort  []SortEntry  `json:"default_sort"`
 	InlineCreate inlineCreate `json:"inline_create"`
 	Fields       []Field      `json:"fields"`
 }
@@ -32,6 +44,7 @@ type schemaDocument struct {
 type Schema struct {
 	ViewSchemaID           string
 	PermitsZeroFieldCreate bool
+	defaultSort            []SortEntry
 	fields                 map[string]Field
 }
 
@@ -41,6 +54,19 @@ func (s Schema) Fields() map[string]Field {
 		cloned[key] = field
 	}
 	return cloned
+}
+
+func (s Schema) DefaultSort() []SortEntry {
+	cloned := make([]SortEntry, len(s.defaultSort))
+	copy(cloned, s.defaultSort)
+	return cloned
+}
+
+func (s Schema) DefaultQueryMeta() QueryMeta {
+	return QueryMeta{
+		Filters: []any{},
+		Sort:    s.DefaultSort(),
+	}
 }
 
 var (
@@ -87,6 +113,7 @@ func loadRegistry() {
 			schemas[document.ViewSchemaID] = Schema{
 				ViewSchemaID:           document.ViewSchemaID,
 				PermitsZeroFieldCreate: document.InlineCreate.PermitsZeroFieldCreate,
+				defaultSort:            append([]SortEntry(nil), document.DefaultSort...),
 				fields:                 fieldIndex,
 			}
 		}

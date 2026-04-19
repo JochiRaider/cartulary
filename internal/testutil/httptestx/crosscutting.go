@@ -6,6 +6,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 type AuthorizationOutcome struct {
@@ -134,6 +136,57 @@ func RequireProjectionDeterminism(t testing.TB, first any, second any) {
 	t.Helper()
 	if !reflect.DeepEqual(first, second) {
 		t.Fatalf("projection rebuild was not deterministic:\nfirst: %#v\nsecond: %#v", first, second)
+	}
+}
+
+func RequireDefaultQueryMeta(t testing.TB, body map[string]any, viewSchemaID string) {
+	t.Helper()
+
+	metaValue, ok := body["meta"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected success envelope meta object, got %T", body["meta"])
+	}
+	queryValue, ok := metaValue["query"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected meta.query object, got %T", metaValue["query"])
+	}
+
+	schema, ok := viewschema.Lookup(viewSchemaID)
+	if !ok {
+		t.Fatalf("view schema %q not registered", viewSchemaID)
+	}
+	expected := schema.DefaultQueryMeta()
+
+	filters, ok := queryValue["filters"].([]any)
+	if !ok {
+		t.Fatalf("expected meta.query.filters array, got %T", queryValue["filters"])
+	}
+	if !reflect.DeepEqual(filters, expected.Filters) {
+		t.Fatalf("unexpected meta.query.filters: got %#v want %#v", filters, expected.Filters)
+	}
+
+	sortValue, ok := queryValue["sort"].([]any)
+	if !ok {
+		t.Fatalf("expected meta.query.sort array, got %T", queryValue["sort"])
+	}
+	gotSort := make([]viewschema.SortEntry, 0, len(sortValue))
+	for _, item := range sortValue {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			t.Fatalf("expected sort entry object, got %T", item)
+		}
+		fieldKey, _ := entry["field_key"].(string)
+		direction, _ := entry["direction"].(string)
+		gotSort = append(gotSort, viewschema.SortEntry{
+			FieldKey:  fieldKey,
+			Direction: direction,
+		})
+	}
+	if !reflect.DeepEqual(gotSort, expected.Sort) {
+		t.Fatalf("unexpected meta.query.sort: got %#v want %#v", gotSort, expected.Sort)
+	}
+	if _, exists := queryValue["group_by"]; exists {
+		t.Fatalf("expected default query meta to omit group_by, got %#v", queryValue["group_by"])
 	}
 }
 

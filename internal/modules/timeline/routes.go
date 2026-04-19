@@ -52,6 +52,7 @@ func RegisterTestRoutes() httpapi.RouteRegistrar {
 			return err
 		}
 		mux.HandleFunc("/api/v1/test/timeline/record-changes", service.handleRecordChangeSnapshot)
+		mux.HandleFunc("GET /api/v1/test/timeline/records/{record_id}/substrate", service.handleRecordSubstrateSnapshot)
 		mux.HandleFunc("/ws/v1/test/record-changes", service.handleRecordChangeSocket)
 		return nil
 	}
@@ -117,10 +118,13 @@ func (s *Service) handleTimelineQuery(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
+	_ = httpapi.WriteSuccessWithMeta(w, r, http.StatusOK, map[string]any{
 		"incident_id":    incidentID.String(),
 		"view_schema_id": viewSchemaID,
 		"rows":           rows,
+	}, httpapi.EnvelopeMeta{
+		RequestID: httpapi.RequestIDFromContext(r.Context()),
+		Query:     DefaultViewQueryMeta(viewSchemaID),
 	})
 }
 
@@ -441,6 +445,31 @@ func (s *Service) handleRecordChangeSnapshot(w http.ResponseWriter, r *http.Requ
 		items = append(items, recordChangePayload(change))
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{"record_changes": items})
+}
+
+func (s *Service) handleRecordSubstrateSnapshot(w http.ResponseWriter, r *http.Request) {
+	recordID, ok := pathUUID(w, r, "record_id")
+	if !ok {
+		return
+	}
+
+	snapshot, err := s.store.SnapshotRecordSubstrate(r.Context(), recordID)
+	switch {
+	case errors.Is(err, ErrRecordNotFound):
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
+		"record_id":             snapshot.RecordID.String(),
+		"row_version":           snapshot.RowVersion,
+		"capture_state":         snapshot.CaptureState,
+		"replacement_record_id": formatUUIDPointer(snapshot.ReplacementRecordID),
+		"record_revision_count": snapshot.RecordRevisionCount,
+	})
 }
 
 func (s *Service) handleRecordChangeSocket(w http.ResponseWriter, r *http.Request) {

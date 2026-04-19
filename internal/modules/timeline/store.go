@@ -93,6 +93,14 @@ type MutationResult struct {
 	Row              projectedRecord
 }
 
+type RecordSubstrateSnapshot struct {
+	RecordID            uuid.UUID
+	RowVersion          int64
+	CaptureState        string
+	ReplacementRecordID *uuid.UUID
+	RecordRevisionCount int
+}
+
 func NewStore(pool *pgxpool.Pool) *Store {
 	return NewStoreWithHooks(pool, currentStoreHooks())
 }
@@ -136,6 +144,33 @@ func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID) ([]map[stri
 		result = append(result, BuildRow(projected))
 	}
 	return result, nil
+}
+
+func (s *Store) SnapshotRecordSubstrate(ctx context.Context, recordID uuid.UUID) (RecordSubstrateSnapshot, error) {
+	row, err := sqlc.New(s.pool).GetTimelineProjectionRow(ctx, pgUUID(recordID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return RecordSubstrateSnapshot{}, ErrRecordNotFound
+		}
+		return RecordSubstrateSnapshot{}, fmt.Errorf("get timeline projection row: %w", err)
+	}
+	projected, err := projectedRecordFromSQL(row)
+	if err != nil {
+		return RecordSubstrateSnapshot{}, err
+	}
+
+	var revisionCount int
+	if err := s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, recordID).Scan(&revisionCount); err != nil {
+		return RecordSubstrateSnapshot{}, fmt.Errorf("count record revisions: %w", err)
+	}
+
+	return RecordSubstrateSnapshot{
+		RecordID:            projected.RecordID,
+		RowVersion:          projected.RowVersion,
+		CaptureState:        projected.CaptureState,
+		ReplacementRecordID: projected.ReplacementRecordID,
+		RecordRevisionCount: revisionCount,
+	}, nil
 }
 
 func (s *Store) CreateRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {

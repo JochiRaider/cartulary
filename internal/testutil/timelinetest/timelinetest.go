@@ -24,6 +24,12 @@ type ChangeSetRow struct {
 	CreatedAt   time.Time
 }
 
+type ProjectionRow struct {
+	RowVersion          int64
+	CaptureState        string
+	ReplacementRecordID *string
+}
+
 func SnapshotCounters(t testing.TB, db *sql.DB, incidentID string, recordID string) Counters {
 	t.Helper()
 
@@ -45,6 +51,39 @@ FROM change_sets
 WHERE change_set_id::text = $1
 `, changeSetID).Scan(&row.ActorUserID, &row.Source, &row.ClientTxnID, &row.RequestID, &row.CreatedAt); err != nil {
 		t.Fatalf("lookup change set: %v", err)
+	}
+	return row
+}
+
+func CountChangeSetMutations(t testing.TB, db *sql.DB, changeSetID string) int {
+	t.Helper()
+	return queryCount(t, db, `SELECT COUNT(*) FROM change_set_mutations WHERE change_set_id::text = $1`, changeSetID)
+}
+
+func CountRecordRevisions(t testing.TB, db *sql.DB, recordID string) int {
+	t.Helper()
+	return queryCount(t, db, `SELECT COUNT(*) FROM record_revisions WHERE record_id::text = $1`, recordID)
+}
+
+func CountActiveSupersedesLinks(t testing.TB, db *sql.DB, incidentID string, replacementRecordID string, supersededRecordID string) int {
+	t.Helper()
+	return queryCount(t, db, `SELECT COUNT(*) FROM record_links WHERE incident_id::text = $1 AND src_record_id::text = $2 AND dst_record_id::text = $3 AND link_type = 'supersedes' AND deleted_at IS NULL`, incidentID, replacementRecordID, supersededRecordID)
+}
+
+func LookupProjectionRow(t testing.TB, db *sql.DB, recordID string) ProjectionRow {
+	t.Helper()
+
+	var row ProjectionRow
+	var replacement sql.NullString
+	if err := db.QueryRowContext(context.Background(), `
+SELECT row_version, capture_state, replacement_record_id::text
+FROM timeline_grid_projection
+WHERE record_id::text = $1
+`, recordID).Scan(&row.RowVersion, &row.CaptureState, &replacement); err != nil {
+		t.Fatalf("lookup projection row: %v", err)
+	}
+	if replacement.Valid {
+		row.ReplacementRecordID = &replacement.String
 	}
 	return row
 }
