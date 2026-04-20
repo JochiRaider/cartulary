@@ -2,21 +2,16 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
-	"net/url"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/coder/websocket"
-	"github.com/pquerna/otp"
-	"github.com/pquerna/otp/totp"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/phase1test"
+	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
 const (
@@ -120,7 +115,7 @@ func TestPhase1_ConcurrencyCapRevokesSocket_ProcessSmoke(t *testing.T) {
 	}
 
 	socket := phase1ConnectSessionSocket(t, server, sessions[0].sessionCookie.Value)
-	defer socket.CloseNow()
+	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
 	sessions = append(sessions, phase1LoginLocalUserWithSecondFactor(t, server, phase1BootstrapAdminEmail, phase1BootstrapAdminPassword, phase1GenerateTOTPCode(t, adminSecret)))
 	phase1ExpectSessionRevoked(t, socket, authn.ConcurrencyLimitReasonCode)
@@ -185,7 +180,7 @@ func TestPhase1_PasswordChangeFlow_ProcessSmoke(t *testing.T) {
 
 	userLogin := phase1LoginLocalUserWithSecondFactor(t, server, "phase1-e-1-05@example.test", "Phase1E105Pass!", phase1GenerateTOTPCode(t, secretBase32))
 	socket := phase1ConnectSessionSocket(t, server, userLogin.sessionCookie.Value)
-	defer socket.CloseNow()
+	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
 	changeResp := phase1DoJSON(
 		t,
@@ -292,7 +287,7 @@ func TestPhase1_UserAdminAndRevokeAll_ProcessSmoke(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, nonAdminAction, http.StatusUnauthorized, "session_required")
 
 	socket := phase1ConnectSessionSocket(t, server, userLogin.sessionCookie.Value)
-	defer socket.CloseNow()
+	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
 	revokeResp := phase1DoJSON(
 		t,
@@ -328,7 +323,7 @@ func TestPhase1_AdminPasswordReset_ProcessSmoke(t *testing.T) {
 
 	targetLogin := phase1LoginLocalUserWithSecondFactor(t, server, "phase1-e-1-07@example.test", "Phase1E107Pass!", phase1GenerateTOTPCode(t, secretBase32))
 	socket := phase1ConnectSessionSocket(t, server, targetLogin.sessionCookie.Value)
-	defer socket.CloseNow()
+	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
 	resetResp := phase1DoJSON(
 		t,
@@ -379,7 +374,7 @@ func TestPhase1_AdminTOTPResetAndBootstrapBoundaries_ProcessSmoke(t *testing.T) 
 
 	targetLogin := phase1LoginLocalUserWithSecondFactor(t, server, "phase1-e-1-08@example.test", "Phase1E108Pass!", phase1GenerateTOTPCode(t, secretBase32))
 	socket := phase1ConnectSessionSocket(t, server, targetLogin.sessionCookie.Value)
-	defer socket.CloseNow()
+	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
 	resetResp := phase1DoJSON(
 		t,
@@ -468,78 +463,27 @@ func phase1ServerURL(server *phase0ServerProcess) string {
 
 func phase1DoJSON(t testing.TB, server *phase0ServerProcess, method string, path string, body any, options ...func(*http.Request)) *http.Response {
 	t.Helper()
-
-	req := httptestx.NewJSONRequest(t, method, phase1ServerURL(server)+path, body)
-	for _, option := range options {
-		option(req)
-	}
-	return httptestx.Do(t, http.DefaultClient, req)
+	return phase1test.DoJSON(t, method, phase1ServerURL(server)+path, body, options...)
 }
 
 func phase1LoginLocalUser(t testing.TB, server *phase0ServerProcess, username string, password string) (*http.Cookie, *http.Cookie) {
 	t.Helper()
-
-	login := phase1LoginLocalUserWithSecondFactor(t, server, username, password, "")
-	return login.sessionCookie, login.csrfCookie
+	return phase1test.LoginLocalUser(t, phase1ServerURL(server), username, password, nil)
 }
 
 func phase1LoginLocalUserWithSecondFactor(t testing.TB, server *phase0ServerProcess, username string, password string, code string) loginResult {
 	t.Helper()
-
-	body := map[string]any{
-		"username": username,
-		"password": password,
+	if code == "" {
+		sessionCookie, csrfCookie := phase1test.LoginLocalUser(t, phase1ServerURL(server), username, password, nil)
+		return loginResult{sessionCookie: sessionCookie, csrfCookie: csrfCookie}
 	}
-	if strings.TrimSpace(code) != "" {
-		body["second_factor"] = map[string]any{
-			"kind": "totp",
-			"assertion": map[string]any{
-				"code": code,
-			},
-		}
-	}
-
-	resp := phase1DoJSON(t, server, http.MethodPost, "/api/v1/auth/login", body)
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("login failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
-	}
-
-	var sessionCookie *http.Cookie
-	var csrfCookie *http.Cookie
-	for _, cookie := range resp.Cookies() {
-		switch cookie.Name {
-		case authn.SessionCookieName:
-			sessionCookie = cookie
-		case authn.CSRFCookieName:
-			csrfCookie = cookie
-		}
-	}
-	if sessionCookie == nil || csrfCookie == nil {
-		t.Fatalf("expected session and csrf cookies, got %#v", resp.Cookies())
-	}
-	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-	return loginResult{sessionCookie: sessionCookie, csrfCookie: csrfCookie}
+	login := phase1test.LoginLocalUserWithSecondFactor(t, phase1ServerURL(server), username, password, code)
+	return loginResult{sessionCookie: login.SessionCookie, csrfCookie: login.CSRFCookie}
 }
 
 func phase1RequireBootstrapLogin(t testing.TB, server *phase0ServerProcess, username string, password string) string {
 	t.Helper()
-
-	resp := phase1DoJSON(t, server, http.MethodPost, "/api/v1/auth/login", map[string]any{
-		"username": username,
-		"password": password,
-	})
-	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusUnauthorized, "mfa_setup_required")
-	details := body["error"].(map[string]any)["details"].(map[string]any)
-	token, _ := details["bootstrap_token"].(string)
-	if token == "" {
-		t.Fatalf("expected bootstrap_token on setup-required response, got %#v", details)
-	}
-	for _, cookie := range resp.Cookies() {
-		if cookie.Name == authn.SessionCookieName {
-			t.Fatal("bootstrap login response must not set a session cookie")
-		}
-	}
-	return token
+	return phase1test.RequireBootstrapLogin(t, phase1ServerURL(server), username, password)
 }
 
 func phase1CreateUser(t testing.TB, server *phase0ServerProcess, adminSession *http.Cookie, adminCSRF *http.Cookie, body map[string]any) map[string]any {
@@ -590,152 +534,38 @@ func phase1ProvisionTOTPUser(t testing.TB, server *phase0ServerProcess, adminSes
 
 func phase1BeginTOTPEnrollment(t testing.TB, server *phase0ServerProcess, bootstrapToken string, body map[string]any) map[string]any {
 	t.Helper()
-
-	resp := phase1DoJSON(
-		t,
-		server,
-		http.MethodPost,
-		"/api/v1/auth/mfa/totp/begin",
-		body,
-		withHeader("Authorization", "Bearer "+bootstrapToken),
-	)
-	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	return phase1test.BeginTOTPEnrollment(t, phase1ServerURL(server), bootstrapToken, body)
 }
 
 func phase1CompleteTOTPEnrollment(t testing.TB, server *phase0ServerProcess, bootstrapToken string, enrollmentID string, secretBase32 string, clientTxnID string) {
 	t.Helper()
-
-	resp := phase1DoJSON(
-		t,
-		server,
-		http.MethodPost,
-		"/api/v1/auth/mfa/totp/complete",
-		map[string]any{
-			"client_txn_id": clientTxnID,
-			"enrollment_id": enrollmentID,
-			"code":          phase1GenerateTOTPCode(t, secretBase32),
-		},
-		withHeader("Authorization", "Bearer "+bootstrapToken),
-	)
-	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
+	phase1test.CompleteInitialEnrollment(t, phase1ServerURL(server), bootstrapToken, enrollmentID, secretBase32, clientTxnID)
 }
 
 func phase1GenerateTOTPCode(t testing.TB, secretBase32 string) string {
 	t.Helper()
-
-	code, err := totp.GenerateCodeCustom(secretBase32, time.Now().UTC(), totp.ValidateOpts{
-		Period:    30,
-		Skew:      1,
-		Digits:    otp.DigitsSix,
-		Algorithm: otp.AlgorithmSHA1,
-	})
-	if err != nil {
-		t.Fatalf("generate totp code: %v", err)
-	}
-	return code
+	return phase1test.GenerateTOTPCode(t, secretBase32)
 }
 
-func phase1ConnectSessionSocket(t testing.TB, server *phase0ServerProcess, sessionToken string) *websocket.Conn {
+func phase1ConnectSessionSocket(t testing.TB, server *phase0ServerProcess, sessionToken string) *wstest.Client {
 	t.Helper()
-
-	target, err := url.Parse(phase1ServerURL(server))
-	if err != nil {
-		t.Fatalf("parse server url: %v", err)
-	}
-	target.Scheme = strings.Replace(target.Scheme, "http", "ws", 1)
-	target.Path = "/ws/v1/test/session-lifecycle"
-
-	header := http.Header{}
-	header.Set("Authorization", "Bearer "+sessionToken)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	conn, _, err := websocket.Dial(ctx, target.String(), &websocket.DialOptions{HTTPHeader: header})
-	if err != nil {
-		t.Fatalf("dial websocket: %v", err)
-	}
-
-	var connected platformws.Message
-	if err := platformws.ReadJSON(ctx, conn, &connected); err != nil {
-		t.Fatalf("read connected websocket message: %v", err)
-	}
-	if connected.Type != "connected" {
-		t.Fatalf("unexpected first websocket message: %#v", connected)
-	}
-	return conn
+	return phase1test.ConnectSessionSocket(t, phase1ServerURL(server), sessionToken)
 }
 
-func phase1ExpectSessionRevoked(t testing.TB, conn *websocket.Conn, wantReasonCode string) {
+func phase1ExpectSessionRevoked(t testing.TB, conn *wstest.Client, wantReasonCode string) {
 	t.Helper()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	var revoked platformws.Message
-	if err := platformws.ReadJSON(ctx, conn, &revoked); err != nil {
-		t.Fatalf("read session_revoked: %v", err)
-	}
-	if revoked.Type != "session_revoked" {
-		t.Fatalf("unexpected websocket event: got %q want session_revoked", revoked.Type)
-	}
-
-	var payload map[string]any
-	if err := json.Unmarshal(revoked.Payload, &payload); err != nil {
-		t.Fatalf("decode session_revoked payload: %v", err)
-	}
-	if payload["reason_code"] != wantReasonCode {
-		t.Fatalf("unexpected session_revoked payload: %#v", payload)
-	}
-
-	var trailing platformws.Message
-	if err := platformws.ReadJSON(ctx, conn, &trailing); websocket.CloseStatus(err) != websocket.StatusPolicyViolation {
-		t.Fatalf("expected websocket close after session_revoked, got err=%v status=%v", err, websocket.CloseStatus(err))
-	}
+	phase1test.ExpectSessionRevoked(t, conn, wantReasonCode)
 }
 
 func phase1RequireBootstrapWebsocketRejected(t testing.TB, server *phase0ServerProcess, bootstrapToken string) {
 	t.Helper()
-
-	target, err := url.Parse(phase1ServerURL(server))
-	if err != nil {
-		t.Fatalf("parse server url: %v", err)
-	}
-	target.Scheme = strings.Replace(target.Scheme, "http", "ws", 1)
-	target.Path = "/ws/v1/test/session-lifecycle"
-
-	header := http.Header{}
-	header.Set("Authorization", "Bearer "+bootstrapToken)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, resp, err := websocket.Dial(ctx, target.String(), &websocket.DialOptions{HTTPHeader: header})
-	if err == nil {
-		t.Fatal("expected bootstrap-token websocket dial to fail")
-	}
-	if resp == nil {
-		t.Fatalf("expected HTTP rejection response for bootstrap-token websocket dial, err=%v", err)
-	}
-	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "credential_bootstrap_rejected")
-	details := body["error"].(map[string]any)["details"].(map[string]any)
-	if details["reason_code"] != "not_allowed_for_route" {
-		t.Fatalf("unexpected websocket bootstrap rejection: %#v", details)
-	}
+	phase1test.RequireBootstrapWebsocketRejected(t, phase1ServerURL(server), bootstrapToken)
 }
 
 func withCookies(cookies ...*http.Cookie) func(*http.Request) {
-	return func(req *http.Request) {
-		for _, cookie := range cookies {
-			if cookie != nil {
-				req.AddCookie(cookie)
-			}
-		}
-	}
+	return phase1test.WithCookies(cookies...)
 }
 
 func withHeader(key string, value string) func(*http.Request) {
-	return func(req *http.Request) {
-		req.Header.Set(key, value)
-	}
+	return phase1test.WithHeader(key, value)
 }

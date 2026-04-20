@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape phase2-map-check run-phase-smoke backend-unit backend-integration backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e test e2e lint check ci build
+.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape phase2-map-check phase-test-name-check run-phase-smoke backend-unit backend-integration backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e test-fast test e2e lint check ci build
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
 PNPM ?= $(shell if command -v pnpm >/dev/null 2>&1; then command -v pnpm; elif [ -x "$$HOME/.local/share/pnpm/pnpm" ]; then printf "$$HOME/.local/share/pnpm/pnpm"; fi)
@@ -115,11 +115,18 @@ phase2-map-check: frontend-toolchain
 run-phase-smoke:
 	$(RUN_PHASE) "run-phase-smoke" -- ./scripts/test-run-phase.sh
 
-test: frontend-toolchain
+phase-test-name-check:
+	$(RUN_PHASE) "phase-test-name-check" -- ./scripts/check-phase-test-names.sh
+
+test-fast: frontend-toolchain
 	$(Q)$(MAKE) --no-print-directory backend-unit
 	$(Q)$(MAKE) --no-print-directory backend-integration
 	$(Q)$(MAKE) --no-print-directory backend-process
 	$(Q)$(MAKE) --no-print-directory frontend-unit
+
+test: frontend-toolchain
+	$(Q)$(MAKE) --no-print-directory test-fast
+	$(Q)$(MAKE) --no-print-directory browser-e2e
 
 backend-unit: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
@@ -168,6 +175,7 @@ lint: frontend-toolchain
 check: frontend-toolchain
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "check frontend install" -- $(PNPM_ENV) $(PNPM) install --frozen-lockfile $(PNPM_INSTALL_FLAGS)
 	$(Q)$(MAKE) --no-print-directory run-phase-smoke
+	$(Q)$(MAKE) --no-print-directory phase-test-name-check
 	$(Q)$(MAKE) --no-print-directory generate-drift
 	$(Q)$(MAKE) --no-print-directory phase2-map-check
 	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(CHECK_JOBS) migration-drift lint backend-unit backend-integration backend-process frontend-unit deployable-shape

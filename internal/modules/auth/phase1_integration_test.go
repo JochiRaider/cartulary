@@ -6,7 +6,6 @@ import (
 	"encoding/base32"
 	"encoding/json"
 	"net/http"
-	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -19,11 +18,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/phase1test"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
 func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
@@ -167,33 +167,8 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 
 	seedLocalUser(t, db, "socket-owner@example.test", "Socket Owner", "SocketPass123!", false)
 	sessionCookie, csrfCookie := loginLocalUser(t, server, "socket-owner@example.test", "SocketPass123!", nil)
-
-	socketURL, err := url.Parse(server.HTTP.URL)
-	if err != nil {
-		t.Fatalf("parse server url: %v", err)
-	}
-	socketURL.Scheme = strings.Replace(socketURL.Scheme, "http", "ws", 1)
-	socketURL.Path = "/ws/v1/test/session-lifecycle"
-
-	header := http.Header{}
-	header.Set("Authorization", "Bearer "+sessionCookie.Value)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	conn, _, err := websocket.Dial(ctx, socketURL.String(), &websocket.DialOptions{HTTPHeader: header})
-	if err != nil {
-		t.Fatalf("dial websocket: %v", err)
-	}
-	defer conn.CloseNow()
-
-	var connected platformws.Message
-	if err := platformws.ReadJSON(ctx, conn, &connected); err != nil {
-		t.Fatalf("read connected message: %v", err)
-	}
-	if connected.Type != "connected" {
-		t.Fatalf("unexpected first websocket message type: got %q want %q", connected.Type, "connected")
-	}
+	socket := connectSessionSocket(t, server, sessionCookie.Value)
+	defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
 	logoutResp := doJSON(
 		t,
@@ -204,28 +179,7 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, logoutResp, http.StatusOK)
-
-	var revoked platformws.Message
-	if err := platformws.ReadJSON(ctx, conn, &revoked); err != nil {
-		t.Fatalf("read session_revoked message: %v", err)
-	}
-	if revoked.Type != "session_revoked" {
-		t.Fatalf("unexpected revocation message type: got %q want %q", revoked.Type, "session_revoked")
-	}
-
-	var payload map[string]any
-	if err := json.Unmarshal(revoked.Payload, &payload); err != nil {
-		t.Fatalf("decode session_revoked payload: %v", err)
-	}
-	if got := payload["reason_code"]; got != "session_revoked" {
-		t.Fatalf("unexpected session_revoked reason_code: got %v want %q", got, "session_revoked")
-	}
-
-	var trailing platformws.Message
-	err = platformws.ReadJSON(ctx, conn, &trailing)
-	if status := websocket.CloseStatus(err); status != websocket.StatusPolicyViolation {
-		t.Fatalf("expected websocket close after session_revoked, got err=%v status=%v", err, status)
-	}
+	expectSessionRevoked(t, socket, "session_revoked")
 }
 
 func TestPhase1_CredentialStateAndBootstrapFlows_I_1_04(t *testing.T) {
@@ -403,31 +357,7 @@ func TestPhase1_BootstrapTokenRouteBoundaries_I_1_06(t *testing.T) {
 		}
 	}
 
-	socketURL, err := url.Parse(server.HTTP.URL)
-	if err != nil {
-		t.Fatalf("parse server url: %v", err)
-	}
-	socketURL.Scheme = strings.Replace(socketURL.Scheme, "http", "ws", 1)
-	socketURL.Path = "/ws/v1/test/session-lifecycle"
-
-	header := http.Header{}
-	header.Set("Authorization", "Bearer "+bootstrapToken)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, resp, err := websocket.Dial(ctx, socketURL.String(), &websocket.DialOptions{HTTPHeader: header})
-	if err == nil {
-		t.Fatal("expected websocket dial with bootstrap_token to fail")
-	}
-	if resp == nil {
-		t.Fatalf("expected non-upgrade HTTP response for bootstrap_token websocket dial, err=%v", err)
-	}
-	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "credential_bootstrap_rejected")
-	details := body["error"].(map[string]any)["details"].(map[string]any)
-	if got := details["reason_code"]; got != "not_allowed_for_route" {
-		t.Fatalf("unexpected websocket bootstrap rejection reason: got %v want not_allowed_for_route", got)
-	}
+	phase1test.RequireBootstrapWebsocketRejected(t, server.HTTP.URL, bootstrapToken)
 
 	completeInitialEnrollment(
 		t,
@@ -560,7 +490,7 @@ func TestPhase1_AdminCredentialActions_I_1_05(t *testing.T) {
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-reset@example.test", "Target Reset", "TargetResetPass123!", true, false, targetSecret)
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-reset@example.test", "TargetResetPass123!", generateTOTPCode(t, targetSecret))
 		targetSocket := connectSessionSocket(t, server, targetLogin.sessionCookie.Value)
-		defer targetSocket.CloseNow()
+		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
 		resetResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/password/reset", map[string]any{
 			"base_user_version": 1,
@@ -604,7 +534,7 @@ func TestPhase1_AdminCredentialActions_I_1_05(t *testing.T) {
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-totp-reset@example.test", "Target TOTP Reset", "TargetTotpPass123!", true, false, targetSecret)
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-totp-reset@example.test", "TargetTotpPass123!", generateTOTPCode(t, targetSecret))
 		targetSocket := connectSessionSocket(t, server, targetLogin.sessionCookie.Value)
-		defer targetSocket.CloseNow()
+		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
 		resetResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/mfa/totp/reset", map[string]any{
 			"base_user_version": 1,
@@ -639,7 +569,7 @@ func TestPhase1_AdminCredentialActions_I_1_05(t *testing.T) {
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-revoke-all@example.test", "Target Revoke All", "TargetRevokePass123!", true, false, targetSecret)
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-revoke-all@example.test", "TargetRevokePass123!", generateTOTPCode(t, targetSecret))
 		targetSocket := connectSessionSocket(t, server, targetLogin.sessionCookie.Value)
-		defer targetSocket.CloseNow()
+		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
 		revokeResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/sessions/revoke-all", map[string]any{
 			"client_txn_id": "txn-admin-revoke-all-1",
@@ -1088,6 +1018,410 @@ func TestPhase1_AdminCredentialAuditAndScope_I_1_05(t *testing.T) {
 	})
 }
 
+func TestPhase1_UserCreateReplayReturnsOriginalCommittedResource_I_1_03(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	s3Harness := s3test.Start(t)
+
+	server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-03-create-replay")
+	defer db.Close()
+
+	adminID := seedLocalUserFlags(t, db, "create-replay-admin@example.test", "Create Replay Admin", "CreateReplayAdmin1!", false, true, true)
+	adminSession, adminCSRF := loginLocalUser(t, server, "create-replay-admin@example.test", "CreateReplayAdmin1!", nil)
+
+	createRequest := map[string]any{
+		"client_txn_id":    "txn-user-create-replay",
+		"auth_kind":        "local",
+		"email":            "create-replay-target@example.test",
+		"display_name":     "Create Replay Target",
+		"initial_password": "CreateReplayTarget1!",
+		"mfa_required":     false,
+	}
+	createResp := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/users",
+		createRequest,
+		withCookies(adminSession, adminCSRF),
+		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+	)
+	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
+	targetUserID := createData["user_id"].(string)
+
+	requireArgon2PasswordHash(t, queryUserPasswordHash(t, db, targetUserID), "CreateReplayTarget1!", "WrongCreateReplay1!")
+
+	idempotency := lookupRouteIdempotency(t, db, "users.create", adminID, "txn-user-create-replay")
+	if idempotency.StatusCode != http.StatusCreated {
+		t.Fatalf("unexpected users.create idempotency status_code: got %d want %d", idempotency.StatusCode, http.StatusCreated)
+	}
+	requireJSONEquivalent(t, idempotency.Response, createData)
+	httptestx.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
+
+	replayResp := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/users",
+		createRequest,
+		withCookies(adminSession, adminCSRF),
+		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+	)
+	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
+	requireJSONEquivalent(t, replayData, createData)
+
+	divergentResp := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/users",
+		map[string]any{
+			"client_txn_id":    "txn-user-create-replay",
+			"auth_kind":        "local",
+			"email":            "create-replay-target@example.test",
+			"display_name":     "Create Replay Target Divergent",
+			"initial_password": "CreateReplayTarget1!",
+			"mfa_required":     false,
+		},
+		withCookies(adminSession, adminCSRF),
+		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+	)
+	divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
+	httptestx.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+
+	patchResp := doJSON(
+		t,
+		http.MethodPatch,
+		server.HTTP.URL+"/api/v1/users/"+targetUserID,
+		map[string]any{
+			"base_user_version": 1,
+			"display_name":      "Create Replay Mutated",
+		},
+		withCookies(adminSession, adminCSRF),
+		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+	)
+	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
+
+	replayAfterPatchResp := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/users",
+		createRequest,
+		withCookies(adminSession, adminCSRF),
+		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+	)
+	replayAfterPatchData := httptestx.RequireSuccessEnvelope(t, replayAfterPatchResp, http.StatusOK)["data"].(map[string]any)
+	requireJSONEquivalent(t, replayAfterPatchData, createData)
+
+	if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND scope_key = $2 AND client_txn_id = $3`, "users.create", adminID, "txn-user-create-replay"); got != 1 {
+		t.Fatalf("expected one users.create route_idempotency row, got %d", got)
+	}
+	if got := queryCount(t, db, `SELECT COUNT(*) FROM users WHERE email = $1`, "create-replay-target@example.test"); got != 1 {
+		t.Fatalf("expected one created user row, got %d", got)
+	}
+}
+
+func TestPhase1_PasswordChangeReplayAndStoredPayload_I_1_04(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	s3Harness := s3test.Start(t)
+
+	server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-04-password-change-replay")
+	defer db.Close()
+
+	userID := seedLocalUserWithActiveTOTP(t, db, "password-replay@example.test", "Password Replay", "PasswordReplay1!", true, false, "JBSWY3DPEHPK3QBA")
+	initialLogin := loginLocalUserWithSecondFactor(t, server, "password-replay@example.test", "PasswordReplay1!", generateTOTPCode(t, "JBSWY3DPEHPK3QBA"))
+	sessionCookie := initialLogin.sessionCookie
+	csrfCookie := initialLogin.csrfCookie
+
+	changeRequest := map[string]any{
+		"client_txn_id":    "txn-password-change-replay",
+		"current_password": "PasswordReplay1!",
+		"new_password":     "PasswordReplayChanged1!",
+		"second_factor": map[string]any{
+			"kind": "totp",
+			"assertion": map[string]any{
+				"code": generateTOTPCode(t, "JBSWY3DPEHPK3QBA"),
+			},
+		},
+	}
+	changeResp := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/auth/password/change",
+		changeRequest,
+		withCookies(sessionCookie, csrfCookie),
+		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+	)
+	changeData := httptestx.RequireSuccessEnvelope(t, changeResp, http.StatusOK)["data"].(map[string]any)
+
+	requireArgon2PasswordHash(t, queryUserPasswordHash(t, db, userID), "PasswordReplayChanged1!", "PasswordReplay1!")
+
+	idempotency := lookupRouteIdempotency(t, db, "auth.password.change", userID, "txn-password-change-replay")
+	if idempotency.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected auth.password.change idempotency status_code: got %d want %d", idempotency.StatusCode, http.StatusOK)
+	}
+	requireJSONEquivalent(t, idempotency.Response, changeData)
+	httptestx.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
+
+	replayLogin := loginLocalUserWithSecondFactor(t, server, "password-replay@example.test", "PasswordReplayChanged1!", generateTOTPCode(t, "JBSWY3DPEHPK3QBA"))
+	replayResp := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/auth/password/change",
+		changeRequest,
+		withCookies(replayLogin.sessionCookie, replayLogin.csrfCookie),
+		withHeader(authn.CSRFHeaderName, replayLogin.csrfCookie.Value),
+	)
+	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
+	requireJSONEquivalent(t, replayData, changeData)
+
+	divergentLogin := loginLocalUserWithSecondFactor(t, server, "password-replay@example.test", "PasswordReplayChanged1!", generateTOTPCode(t, "JBSWY3DPEHPK3QBA"))
+	divergentResp := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/auth/password/change",
+		map[string]any{
+			"client_txn_id":    "txn-password-change-replay",
+			"current_password": "PasswordReplay1!",
+			"new_password":     "PasswordReplayChanged2!",
+			"second_factor": map[string]any{
+				"kind": "totp",
+				"assertion": map[string]any{
+					"code": generateTOTPCode(t, "JBSWY3DPEHPK3QBA"),
+				},
+			},
+		},
+		withCookies(divergentLogin.sessionCookie, divergentLogin.csrfCookie),
+		withHeader(authn.CSRFHeaderName, divergentLogin.csrfCookie.Value),
+	)
+	divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
+	httptestx.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+
+	if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND scope_key = $2 AND client_txn_id = $3`, "auth.password.change", userID, "txn-password-change-replay"); got != 1 {
+		t.Fatalf("expected one auth.password.change route_idempotency row, got %d", got)
+	}
+}
+
+func TestPhase1_AdminPasswordResetReplayReturnsOriginalCommittedResource_I_1_05(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	s3Harness := s3test.Start(t)
+
+	server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-05-password-reset-replay")
+	defer db.Close()
+
+	adminID := seedLocalUserFlags(t, db, "admin-password-replay@example.test", "Admin Password Replay", "AdminPasswordReplay1!", false, true, true)
+	adminSession, adminCSRF := loginLocalUser(t, server, "admin-password-replay@example.test", "AdminPasswordReplay1!", nil)
+	targetUserID := seedLocalUser(t, db, "target-password-replay@example.test", "Target Password Replay", "TargetPasswordReplay1!", false)
+	scopeKey := adminID + ":" + targetUserID
+
+	resetRequest := map[string]any{
+		"base_user_version": 1,
+		"client_txn_id":     "txn-admin-password-replay",
+		"new_password":      "TargetPasswordReplayChanged1!",
+		"reason":            "admin reset replay",
+	}
+	resetResp := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/users/"+targetUserID+"/password/reset",
+		resetRequest,
+		withCookies(adminSession, adminCSRF),
+		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+	)
+	resetData := httptestx.RequireSuccessEnvelope(t, resetResp, http.StatusOK)["data"].(map[string]any)
+
+	requireArgon2PasswordHash(t, queryUserPasswordHash(t, db, targetUserID), "TargetPasswordReplayChanged1!", "TargetPasswordReplay1!")
+
+	idempotency := lookupRouteIdempotency(t, db, "users.password.reset", scopeKey, "txn-admin-password-replay")
+	if idempotency.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected users.password.reset idempotency status_code: got %d want %d", idempotency.StatusCode, http.StatusOK)
+	}
+	requireJSONEquivalent(t, idempotency.Response, resetData)
+	httptestx.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
+
+	replayResp := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/users/"+targetUserID+"/password/reset",
+		resetRequest,
+		withCookies(adminSession, adminCSRF),
+		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+	)
+	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
+	requireJSONEquivalent(t, replayData, resetData)
+
+	divergentResp := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/users/"+targetUserID+"/password/reset",
+		map[string]any{
+			"base_user_version": 1,
+			"client_txn_id":     "txn-admin-password-replay",
+			"new_password":      "TargetPasswordReplayChanged2!",
+			"reason":            "admin reset replay divergent",
+		},
+		withCookies(adminSession, adminCSRF),
+		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+	)
+	divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
+	httptestx.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+
+	patchResp := doJSON(
+		t,
+		http.MethodPatch,
+		server.HTTP.URL+"/api/v1/users/"+targetUserID,
+		map[string]any{
+			"base_user_version": 2,
+			"display_name":      "Target Password Replay Mutated",
+		},
+		withCookies(adminSession, adminCSRF),
+		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+	)
+	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
+
+	replayAfterPatchResp := doJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/users/"+targetUserID+"/password/reset",
+		resetRequest,
+		withCookies(adminSession, adminCSRF),
+		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+	)
+	replayAfterPatchData := httptestx.RequireSuccessEnvelope(t, replayAfterPatchResp, http.StatusOK)["data"].(map[string]any)
+	requireJSONEquivalent(t, replayAfterPatchData, resetData)
+
+	if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND scope_key = $2 AND client_txn_id = $3`, "users.password.reset", scopeKey, "txn-admin-password-replay"); got != 1 {
+		t.Fatalf("expected one users.password.reset route_idempotency row, got %d", got)
+	}
+}
+
+func TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	s3Harness := s3test.Start(t)
+
+	t.Run("totp reset replays the original response and rejects divergent reuse", func(t *testing.T) {
+		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-05-totp-reset-replay")
+		defer db.Close()
+
+		adminID := seedLocalUserFlags(t, db, "admin-totp-replay@example.test", "Admin TOTP Replay", "AdminTotpReplay1!", false, true, true)
+		adminSession, adminCSRF := loginLocalUser(t, server, "admin-totp-replay@example.test", "AdminTotpReplay1!", nil)
+		targetUserID := seedLocalUserWithActiveTOTP(t, db, "target-totp-replay@example.test", "Target TOTP Replay", "TargetTotpReplay1!", true, false, "JBSWY3DPEHPK3QBB")
+		scopeKey := adminID + ":" + targetUserID
+
+		resetRequest := map[string]any{
+			"base_user_version": 1,
+			"client_txn_id":     "txn-admin-totp-replay",
+			"reason":            "admin totp replay",
+		}
+		resetResp := doJSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/users/"+targetUserID+"/mfa/totp/reset",
+			resetRequest,
+			withCookies(adminSession, adminCSRF),
+			withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		)
+		resetData := httptestx.RequireSuccessEnvelope(t, resetResp, http.StatusOK)["data"].(map[string]any)
+
+		idempotency := lookupRouteIdempotency(t, db, "users.totp.reset", scopeKey, "txn-admin-totp-replay")
+		if idempotency.StatusCode != http.StatusOK {
+			t.Fatalf("unexpected users.totp.reset idempotency status_code: got %d want %d", idempotency.StatusCode, http.StatusOK)
+		}
+		requireJSONEquivalent(t, idempotency.Response, resetData)
+		httptestx.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
+
+		replayResp := doJSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/users/"+targetUserID+"/mfa/totp/reset",
+			resetRequest,
+			withCookies(adminSession, adminCSRF),
+			withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		)
+		replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
+		requireJSONEquivalent(t, replayData, resetData)
+
+		divergentResp := doJSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/users/"+targetUserID+"/mfa/totp/reset",
+			map[string]any{
+				"base_user_version": 1,
+				"client_txn_id":     "txn-admin-totp-replay",
+				"reason":            "admin totp replay divergent",
+			},
+			withCookies(adminSession, adminCSRF),
+			withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		)
+		divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
+		httptestx.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+
+		if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND scope_key = $2 AND client_txn_id = $3`, "users.totp.reset", scopeKey, "txn-admin-totp-replay"); got != 1 {
+			t.Fatalf("expected one users.totp.reset route_idempotency row, got %d", got)
+		}
+	})
+
+	t.Run("revoke-all replays the original response and rejects divergent reuse", func(t *testing.T) {
+		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-05-revoke-all-replay")
+		defer db.Close()
+
+		adminID := seedLocalUserFlags(t, db, "admin-revoke-replay@example.test", "Admin Revoke Replay", "AdminRevokeReplay1!", false, true, true)
+		adminSession, adminCSRF := loginLocalUser(t, server, "admin-revoke-replay@example.test", "AdminRevokeReplay1!", nil)
+		targetUserID := seedLocalUser(t, db, "target-revoke-replay@example.test", "Target Revoke Replay", "TargetRevokeReplay1!", false)
+		targetSession, _ := loginLocalUser(t, server, "target-revoke-replay@example.test", "TargetRevokeReplay1!", nil)
+		if targetSession == nil {
+			t.Fatal("expected target session cookie before revoke-all")
+		}
+		scopeKey := adminID + ":" + targetUserID
+
+		revokeRequest := map[string]any{
+			"client_txn_id": "txn-admin-revoke-replay",
+			"reason":        "admin revoke replay",
+		}
+		revokeResp := doJSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/users/"+targetUserID+"/sessions/revoke-all",
+			revokeRequest,
+			withCookies(adminSession, adminCSRF),
+			withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		)
+		revokeData := httptestx.RequireSuccessEnvelope(t, revokeResp, http.StatusOK)["data"].(map[string]any)
+
+		idempotency := lookupRouteIdempotency(t, db, "users.sessions.revoke_all", scopeKey, "txn-admin-revoke-replay")
+		if idempotency.StatusCode != http.StatusOK {
+			t.Fatalf("unexpected users.sessions.revoke_all idempotency status_code: got %d want %d", idempotency.StatusCode, http.StatusOK)
+		}
+		requireJSONEquivalent(t, idempotency.Response, revokeData)
+		httptestx.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
+
+		replayResp := doJSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/users/"+targetUserID+"/sessions/revoke-all",
+			revokeRequest,
+			withCookies(adminSession, adminCSRF),
+			withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		)
+		replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
+		requireJSONEquivalent(t, replayData, revokeData)
+
+		divergentResp := doJSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/users/"+targetUserID+"/sessions/revoke-all",
+			map[string]any{
+				"client_txn_id": "txn-admin-revoke-replay",
+				"reason":        "admin revoke replay divergent",
+			},
+			withCookies(adminSession, adminCSRF),
+			withHeader(authn.CSRFHeaderName, adminCSRF.Value),
+		)
+		divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
+		httptestx.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+
+		if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND scope_key = $2 AND client_txn_id = $3`, "users.sessions.revoke_all", scopeKey, "txn-admin-revoke-replay"); got != 1 {
+			t.Fatalf("expected one users.sessions.revoke_all route_idempotency row, got %d", got)
+		}
+	})
+}
+
 type sessionRow struct {
 	authenticatedAt          time.Time
 	sessionID                string
@@ -1339,63 +1673,14 @@ func generateTOTPCode(t testing.TB, secretBase32 string) string {
 	return code
 }
 
-func connectSessionSocket(t testing.TB, server *httptestx.Server, sessionToken string) *websocket.Conn {
+func connectSessionSocket(t testing.TB, server *httptestx.Server, sessionToken string) *wstest.Client {
 	t.Helper()
-
-	socketURL, err := url.Parse(server.HTTP.URL)
-	if err != nil {
-		t.Fatalf("parse server url: %v", err)
-	}
-	socketURL.Scheme = strings.Replace(socketURL.Scheme, "http", "ws", 1)
-	socketURL.Path = "/ws/v1/test/session-lifecycle"
-
-	header := http.Header{}
-	header.Set("Authorization", "Bearer "+sessionToken)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	conn, _, err := websocket.Dial(ctx, socketURL.String(), &websocket.DialOptions{HTTPHeader: header})
-	if err != nil {
-		t.Fatalf("dial websocket: %v", err)
-	}
-
-	var connected platformws.Message
-	if err := platformws.ReadJSON(ctx, conn, &connected); err != nil {
-		t.Fatalf("read connected websocket message: %v", err)
-	}
-	if connected.Type != "connected" {
-		t.Fatalf("unexpected first websocket message type: got %q want %q", connected.Type, "connected")
-	}
-	return conn
+	return phase1test.ConnectSessionSocket(t, server.HTTP.URL, sessionToken)
 }
 
-func expectSessionRevoked(t testing.TB, conn *websocket.Conn, wantReasonCode string) {
+func expectSessionRevoked(t testing.TB, conn *wstest.Client, wantReasonCode string) {
 	t.Helper()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	var revoked platformws.Message
-	if err := platformws.ReadJSON(ctx, conn, &revoked); err != nil {
-		t.Fatalf("read session_revoked message: %v", err)
-	}
-	if revoked.Type != "session_revoked" {
-		t.Fatalf("unexpected revocation message type: got %q want %q", revoked.Type, "session_revoked")
-	}
-
-	var payload map[string]any
-	if err := json.Unmarshal(revoked.Payload, &payload); err != nil {
-		t.Fatalf("decode session_revoked payload: %v", err)
-	}
-	if got := payload["reason_code"]; got != wantReasonCode {
-		t.Fatalf("unexpected session_revoked reason_code: got %v want %q", got, wantReasonCode)
-	}
-
-	var trailing platformws.Message
-	if err := platformws.ReadJSON(ctx, conn, &trailing); websocket.CloseStatus(err) != websocket.StatusPolicyViolation {
-		t.Fatalf("expected websocket close after session_revoked, got err=%v status=%v", err, websocket.CloseStatus(err))
-	}
+	phase1test.ExpectSessionRevoked(t, conn, wantReasonCode)
 }
 
 func doJSON(t testing.TB, method string, url string, body any, options ...func(*http.Request)) *http.Response {
@@ -1581,4 +1866,93 @@ func createIncidentMembership(t testing.TB, server *httptestx.Server, incidentID
 		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+}
+
+type routeIdempotencyRecord struct {
+	StatusCode int
+	Response   map[string]any
+}
+
+func lookupRouteIdempotency(t testing.TB, db *sql.DB, routeKey string, scopeKey string, clientTxnID string) routeIdempotencyRecord {
+	t.Helper()
+
+	var (
+		record       routeIdempotencyRecord
+		responseJSON []byte
+	)
+	if err := db.QueryRowContext(context.Background(), `
+SELECT status_code, response_json
+  FROM route_idempotency
+ WHERE route_key = $1
+   AND scope_key = $2
+   AND client_txn_id = $3
+`, routeKey, scopeKey, clientTxnID).Scan(&record.StatusCode, &responseJSON); err != nil {
+		t.Fatalf("lookup route idempotency: %v", err)
+	}
+	record.Response = decodeJSONMap(t, responseJSON)
+	return record
+}
+
+func queryUserPasswordHash(t testing.TB, db *sql.DB, userID string) string {
+	t.Helper()
+
+	var passwordHash string
+	if err := db.QueryRowContext(context.Background(), `
+SELECT password_hash
+  FROM users
+ WHERE id::text = $1
+`, userID).Scan(&passwordHash); err != nil {
+		t.Fatalf("query user password hash: %v", err)
+	}
+	return passwordHash
+}
+
+func requireArgon2PasswordHash(t testing.TB, passwordHash string, acceptedPassword string, rejectedPassword string) {
+	t.Helper()
+
+	if !strings.HasPrefix(passwordHash, "argon2id$v=19$m=65536,t=1,p=4$") {
+		t.Fatalf("expected argon2id password hash, got %q", passwordHash)
+	}
+	accepted, err := authn.VerifyPasswordHash(passwordHash, acceptedPassword)
+	if err != nil {
+		t.Fatalf("verify accepted password hash: %v", err)
+	}
+	if !accepted {
+		t.Fatalf("expected password hash to accept %q", acceptedPassword)
+	}
+	rejected, err := authn.VerifyPasswordHash(passwordHash, rejectedPassword)
+	if err != nil {
+		t.Fatalf("verify rejected password hash: %v", err)
+	}
+	if rejected {
+		t.Fatalf("expected password hash to reject %q", rejectedPassword)
+	}
+}
+
+func requireJSONEquivalent(t testing.TB, got any, want any) {
+	t.Helper()
+
+	gotJSON, err := json.Marshal(got)
+	if err != nil {
+		t.Fatalf("marshal got json: %v", err)
+	}
+	wantJSON, err := json.Marshal(want)
+	if err != nil {
+		t.Fatalf("marshal want json: %v", err)
+	}
+	if string(gotJSON) != string(wantJSON) {
+		t.Fatalf("unexpected json payload:\n got: %s\nwant: %s", gotJSON, wantJSON)
+	}
+}
+
+func forbiddenSecretKeys() []string {
+	return []string{
+		"password_hash",
+		"initial_password",
+		"current_password",
+		"new_password",
+		"bootstrap_token",
+		"secret_base32",
+		"otpauth_uri",
+	}
 }

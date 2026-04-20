@@ -259,6 +259,7 @@ Implement the root `Makefile` next. It should expose the baseline human-facing t
 - `make db-reset`
 - `make dev`
 - `make generate`
+- `make test-fast`
 - `make test`
 - `make lint`
 - `make check`
@@ -271,7 +272,8 @@ Repository-local recommended meanings:
 - `make db-reset`: recreate the local database and apply migrations.
 - `make dev`: run the Go server and, once present, the Vite dev server.
 - `make generate`: regenerate `sqlc` outputs and contract-derived outputs.
-- `make test`: run all backend tests and any active frontend test suites.
+- `make test-fast`: run the narrower backend unit, backend integration, backend process, and frontend unit loop.
+- `make test`: run the authoritative full corpus, including browser E2E.
 - `make lint`: run Go vet or lint plus frontend lint and type-check.
 - `make check`: run the full developer gate.
 - `make build`: build the application artifact and, later, embed the frontend assets into it.

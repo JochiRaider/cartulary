@@ -41,6 +41,16 @@ type AuthenticatedRequestContext = {
   storageState: StorageState;
 };
 
+export type UserResource = {
+  user_id: string;
+  email: string;
+  display_name: string;
+  user_version: number;
+  is_active: boolean;
+  mfa_required: boolean;
+  is_deployment_admin: boolean;
+};
+
 export async function prepareWorkerAdminSuite(workerCount: number) {
   clearWorkerAdminSuiteState();
   ensureWorkerAdminCleanupMarkerDirectory();
@@ -245,6 +255,100 @@ export async function revokeAllSessions(
       `revoke-all failed for ${userId}: ${await response.text()}`,
     );
   }
+}
+
+export async function createLocalUser(
+  authRequests: APIRequestContext,
+  options: {
+    email: string;
+    display_name: string;
+    initial_password: string;
+    mfa_required?: boolean;
+    is_deployment_admin?: boolean;
+  },
+) {
+  const response = await authRequests.post(`${apiBase}/api/v1/users`, {
+    data: {
+      client_txn_id: uniqueTxn("phase1-user"),
+      auth_kind: "local",
+      email: options.email,
+      display_name: options.display_name,
+      initial_password: options.initial_password,
+      mfa_required: options.mfa_required ?? true,
+      is_deployment_admin: options.is_deployment_admin ?? false,
+    },
+  });
+  if (!response.ok()) {
+    throw new Error(`create local user failed: ${await response.text()}`);
+  }
+  return ((await response.json()) as { data: UserResource }).data;
+}
+
+export async function listUsers(authRequests: APIRequestContext) {
+  const response = await authRequests.get(`${apiBase}/api/v1/users`);
+  if (!response.ok()) {
+    throw new Error(`list users failed: ${await response.text()}`);
+  }
+  return ((await response.json()) as { data: { users: UserResource[] } }).data
+    .users;
+}
+
+export async function loadUser(
+  authRequests: APIRequestContext,
+  userId: string,
+) {
+  const response = await authRequests.get(`${apiBase}/api/v1/users/${userId}`);
+  if (!response.ok()) {
+    throw new Error(`load user ${userId} failed: ${await response.text()}`);
+  }
+  return ((await response.json()) as { data: UserResource }).data;
+}
+
+export async function patchUser(
+  authRequests: APIRequestContext,
+  userId: string,
+  body: {
+    base_user_version: number;
+    display_name?: string;
+    is_active?: boolean;
+    mfa_required?: boolean;
+    is_deployment_admin?: boolean;
+  },
+) {
+  const response = await authRequests.patch(
+    `${apiBase}/api/v1/users/${userId}`,
+    {
+      data: body,
+    },
+  );
+  if (!response.ok()) {
+    throw new Error(`patch user ${userId} failed: ${await response.text()}`);
+  }
+  return ((await response.json()) as { data: UserResource }).data;
+}
+
+export async function resetUserTotp(
+  authRequests: APIRequestContext,
+  userId: string,
+  baseUserVersion: number,
+  reason: string,
+) {
+  const response = await authRequests.post(
+    `${apiBase}/api/v1/users/${userId}/mfa/totp/reset`,
+    {
+      data: {
+        base_user_version: baseUserVersion,
+        client_txn_id: uniqueTxn("playwright-admin-totp-reset"),
+        reason,
+      },
+    },
+  );
+  if (!response.ok()) {
+    throw new Error(
+      `reset user TOTP failed for ${userId}: ${await response.text()}`,
+    );
+  }
+  return ((await response.json()) as { data: UserResource }).data;
 }
 
 export async function verifyRevokedSession(snapshot: TrackedSessionSnapshot) {

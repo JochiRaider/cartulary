@@ -125,10 +125,18 @@ type AdminPasswordResetResult struct {
 	Replayed          bool
 }
 
+type AdminTOTPResetResult struct {
+	User              UserRecord
+	RevokedSessionIDs []uuid.UUID
+	ResponseJSON      []byte
+	Replayed          bool
+}
+
 type AdminRevokeAllResult struct {
 	RevokedAt         time.Time
 	RevokedSessionIDs []uuid.UUID
 	ResponseJSON      []byte
+	Replayed          bool
 }
 
 func NewStore(pool *pgxpool.Pool) *Store {
@@ -919,16 +927,7 @@ func (s *Store) CreateUser(
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return UserCreateResult{}, ErrClientTxnConflict
 		}
-		userID := gjsonString(existing.ResponseJSON, "user_id")
-		if userID == "" {
-			return UserCreateResult{}, fmt.Errorf("decode replayed user-create response")
-		}
-		user, err := s.GetUserByID(ctx, uuid.MustParse(userID))
-		if err != nil {
-			return UserCreateResult{}, err
-		}
 		return UserCreateResult{
-			User:         user,
 			ResponseJSON: existing.ResponseJSON,
 			Replayed:     true,
 			StatusCode:   http.StatusOK,
@@ -1153,13 +1152,7 @@ func (s *Store) AdminResetPassword(
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return AdminPasswordResetResult{}, ErrClientTxnConflict
 		}
-		userID := gjsonString(existing.ResponseJSON, "user_id")
-		user, err := s.GetUserByID(ctx, uuid.MustParse(userID))
-		if err != nil {
-			return AdminPasswordResetResult{}, err
-		}
 		return AdminPasswordResetResult{
-			User:         user,
 			ResponseJSON: existing.ResponseJSON,
 			Replayed:     true,
 		}, nil
@@ -1290,12 +1283,27 @@ func (s *Store) AdminResetTOTP(
 	actor UserRecord,
 	targetUserID uuid.UUID,
 	baseUserVersion int64,
+	clientTxnID string,
+	requestHash []byte,
 	requestID string,
 	now time.Time,
-) (UserRecord, []uuid.UUID, error) {
+) (AdminTOTPResetResult, error) {
+	scopeKey := actor.ID.String() + ":" + targetUserID.String()
+	if existing, err := s.GetRouteIdempotency(ctx, "users.totp.reset", scopeKey, clientTxnID); err == nil {
+		if !bytes.Equal(existing.RequestHash, requestHash) {
+			return AdminTOTPResetResult{}, ErrClientTxnConflict
+		}
+		return AdminTOTPResetResult{
+			ResponseJSON: existing.ResponseJSON,
+			Replayed:     true,
+		}, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return AdminTOTPResetResult{}, err
+	}
+
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return UserRecord{}, nil, err
+		return AdminTOTPResetResult{}, err
 	}
 	defer func() {
 		_ = tx.Rollback(ctx)
@@ -1303,10 +1311,10 @@ func (s *Store) AdminResetTOTP(
 
 	target, err := fetchUserForUpdate(ctx, tx, targetUserID)
 	if err != nil {
-		return UserRecord{}, nil, err
+		return AdminTOTPResetResult{}, err
 	}
 	if target.UserVersion != baseUserVersion {
-		return UserRecord{}, nil, ErrUserVersionConflict
+		return AdminTOTPResetResult{}, ErrUserVersionConflict
 	}
 
 	changedAt := now.UTC()
@@ -1314,7 +1322,7 @@ func (s *Store) AdminResetTOTP(
 DELETE FROM pending_totp_enrollments
  WHERE user_id = $1
 `, targetUserID); err != nil {
-		return UserRecord{}, nil, err
+		return AdminTOTPResetResult{}, err
 	}
 	if _, err := tx.Exec(ctx, `
 UPDATE bootstrap_tokens
@@ -1323,7 +1331,7 @@ UPDATE bootstrap_tokens
    AND consumed_at IS NULL
    AND superseded_at IS NULL
 `, targetUserID, changedAt); err != nil {
-		return UserRecord{}, nil, err
+		return AdminTOTPResetResult{}, err
 	}
 
 	var updated UserRecord
@@ -1356,34 +1364,70 @@ RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa
 		&updated.TOTPSecretCiphertext,
 		&updated.TOTPSecretNonce,
 	); err != nil {
-		return UserRecord{}, nil, err
+		return AdminTOTPResetResult{}, err
 	}
 
 	revoked, err := revokeAllSessionsTx(ctx, tx, targetUserID, changedAt)
 	if err != nil {
-		return UserRecord{}, nil, err
+		return AdminTOTPResetResult{}, err
+	}
+
+	responseJSON, err := json.Marshal(safeUserResponse(updated))
+	if err != nil {
+		return AdminTOTPResetResult{}, err
 	}
 
 	if _, err := tx.Exec(ctx, `
-INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, request_id, after_json)
-VALUES ($1, $2, 'users.totp.reset', 'totp_reset', 'totp_reset', $3, jsonb_build_object('user_version', $4::bigint))
-`, actor.ID, targetUserID, requestID, updated.UserVersion); err != nil {
-		return UserRecord{}, nil, err
+INSERT INTO route_idempotency (
+    route_key, scope_key, client_txn_id, actor_user_id, target_user_id, request_hash, status_code, response_json
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+`, "users.totp.reset", scopeKey, clientTxnID, actor.ID, targetUserID, requestHash, http.StatusOK, responseJSON); err != nil {
+		if IsUniqueViolation(err) {
+			return AdminTOTPResetResult{}, ErrClientTxnConflict
+		}
+		return AdminTOTPResetResult{}, err
+	}
+
+	if _, err := tx.Exec(ctx, `
+INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, client_txn_id, request_id, after_json)
+VALUES ($1, $2, 'users.totp.reset', 'totp_reset', 'totp_reset', $3, $4, jsonb_build_object('user_version', $5::bigint))
+`, actor.ID, targetUserID, clientTxnID, requestID, updated.UserVersion); err != nil {
+		return AdminTOTPResetResult{}, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return UserRecord{}, nil, err
+		return AdminTOTPResetResult{}, err
 	}
-	return updated, revoked, nil
+	return AdminTOTPResetResult{
+		User:              updated,
+		RevokedSessionIDs: revoked,
+		ResponseJSON:      responseJSON,
+	}, nil
 }
 
 func (s *Store) AdminRevokeAllSessions(
 	ctx context.Context,
 	actor UserRecord,
 	targetUserID uuid.UUID,
+	clientTxnID string,
+	requestHash []byte,
 	requestID string,
 	now time.Time,
 ) (AdminRevokeAllResult, error) {
+	scopeKey := actor.ID.String() + ":" + targetUserID.String()
+	if existing, err := s.GetRouteIdempotency(ctx, "users.sessions.revoke_all", scopeKey, clientTxnID); err == nil {
+		if !bytes.Equal(existing.RequestHash, requestHash) {
+			return AdminRevokeAllResult{}, ErrClientTxnConflict
+		}
+		return AdminRevokeAllResult{
+			ResponseJSON: existing.ResponseJSON,
+			Replayed:     true,
+		}, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return AdminRevokeAllResult{}, err
+	}
+
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return AdminRevokeAllResult{}, err
@@ -1407,9 +1451,21 @@ func (s *Store) AdminRevokeAllSessions(
 	}
 
 	if _, err := tx.Exec(ctx, `
-INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, request_id, after_json)
-VALUES ($1, $2, 'users.sessions.revoke_all', 'sessions_revoke_all', 'sessions_revoke_all', $3, jsonb_build_object('revoked_at', $4::timestamptz))
-`, actor.ID, targetUserID, requestID, revokedAt); err != nil {
+INSERT INTO route_idempotency (
+    route_key, scope_key, client_txn_id, actor_user_id, target_user_id, request_hash, status_code, response_json
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+`, "users.sessions.revoke_all", scopeKey, clientTxnID, actor.ID, targetUserID, requestHash, http.StatusOK, responseJSON); err != nil {
+		if IsUniqueViolation(err) {
+			return AdminRevokeAllResult{}, ErrClientTxnConflict
+		}
+		return AdminRevokeAllResult{}, err
+	}
+
+	if _, err := tx.Exec(ctx, `
+INSERT INTO deployment_admin_audit_events (actor_user_id, target_user_id, event_source, event_kind, reason_code, client_txn_id, request_id, after_json)
+VALUES ($1, $2, 'users.sessions.revoke_all', 'sessions_revoke_all', 'sessions_revoke_all', $3, $4, jsonb_build_object('revoked_at', $5::timestamptz))
+`, actor.ID, targetUserID, clientTxnID, requestID, revokedAt); err != nil {
 		return AdminRevokeAllResult{}, err
 	}
 
@@ -1568,15 +1624,6 @@ func safeUserResponse(user UserRecord) map[string]any {
 			},
 		},
 	}
-}
-
-func gjsonString(document []byte, key string) string {
-	var payload map[string]any
-	if err := json.Unmarshal(document, &payload); err != nil {
-		return ""
-	}
-	value, _ := payload[key].(string)
-	return value
 }
 
 func IsUniqueViolation(err error) bool {

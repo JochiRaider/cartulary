@@ -10,7 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/phase2test"
 )
 
-func TestPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T) {
+func TestPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict_I_2_11(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-membership-replay")
 
@@ -95,7 +95,7 @@ func TestPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict(t *tes
 	}
 }
 
-func TestPhase2_IncidentPatchWritesAuditBeforeAfter(t *testing.T) {
+func TestPhase2_IncidentPatchWritesAuditBeforeAfter_I_2_12(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-incident-audit")
 
@@ -136,7 +136,7 @@ func TestPhase2_IncidentPatchWritesAuditBeforeAfter(t *testing.T) {
 	}
 }
 
-func TestPhase2_MembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
+func TestPhase2_MembershipMutationsWriteAuditBeforeAfter_I_2_13(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-membership-audit")
 
@@ -214,7 +214,7 @@ func TestPhase2_MembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 	}
 }
 
-func TestPhase2_IncidentCreateTreatsComposedAndDecomposedIncidentKeysAsEqual(t *testing.T) {
+func TestPhase2_IncidentCreateTreatsComposedAndDecomposedIncidentKeysAsEqual_I_2_14(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-nfc-incident-key")
 

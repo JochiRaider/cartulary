@@ -30,6 +30,7 @@
 - `make db-reset`
 - `make dev`
 - `make generate`
+- `make test-fast`
 - `make test`
 - `make lint`
 - `make check`
@@ -52,7 +53,8 @@
 - Then run `make dev`.
 - The local bootstrap server uses `configs/dev/config.toml` through `CARTULARY_CONFIG_FILE`.
 - `make bootstrap` installs the pinned Go CLI tools and workspace dependencies.
-- `make test` runs the backend unit, backend integration, backend process or E2E, and frontend unit suites. The Phase 0 process evidence under `cmd/server` is part of this surface and is not a direct-only command.
+- `make test-fast` runs the backend unit, backend integration, backend process or E2E, and frontend unit suites for the narrower local loop.
+- `make test` is the authoritative full-corpus test surface and runs `make test-fast` plus browser E2E. The Phase 0 process evidence under `cmd/server` is part of this surface and is not a direct-only command.
 - `make check` is the developer verification gate and runs frozen frontend install, generated-artifact drift detection, migration verification against a scratch local Postgres database, backend lint and tests, frontend lint, type-check, and tests, plus backend and frontend builds.
 - `make ci` is the provider-neutral CI enforcement entrypoint. It composes the canonical repo task surface and fails on codegen drift, migration failures, and deployable-shape drift.
 - `make check` and `make ci` quiet output is the default. Use `VERBOSE=1` when you need the full streaming logs for investigation.

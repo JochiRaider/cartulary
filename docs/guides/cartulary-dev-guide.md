@@ -626,7 +626,8 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make db-reset` | Recreate the database and run migrations |
 | `make dev` | Start the Go server and Vite dev server |
 | `make generate` | Regenerate Go and TypeScript artifacts derived from `/db/queries/*` and `/contracts/*` |
-| `make test` | Run backend and frontend tests |
+| `make test-fast` | Run the narrower backend and frontend unit/process loop |
+| `make test` | Run the authoritative full test corpus, including browser E2E |
 | `make lint` | Run backend vet/lint and frontend lint/type checks |
 | `make check` | Developer verification gate |
 | `make build` | Produce the app build with embedded frontend assets |
@@ -637,7 +638,7 @@ If the repository uses both a root task-surface `Makefile` and `AGENTS.md`, both
 
 | Verification tier | Required checks | Blocking condition |
 | --- | --- | --- |
-| Developer verification | formatting, lint or vet, Go build, Go tests, TypeScript build or type check, Vitest, selected Playwright coverage, `make generate` drift check, migration application check | Any failure blocks ordinary development completion |
+| Developer verification | formatting, lint or vet, Go build, Go tests, TypeScript build or type check, Vitest, browser E2E coverage, `make generate` drift check, migration application check | Any failure blocks ordinary development completion |
 | Release verification | all developer verification checks, dependency license report, SBOM generation, release-artifact smoke build, any profile-specific release checks for claimed extensions | Any failure blocks release publication |
 
 `make check` is the required developer gate. It MUST include contract-generation drift detection and migration verification.

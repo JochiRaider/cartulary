@@ -21,10 +21,40 @@ import (
 const unauthorizedCode = "session_required"
 
 type Service struct {
-	store *authn.Store
-	hub   *platformws.Hub
+	store authStore
+	hub   sessionHub
 	keys  authn.MasterKeys
 	now   func() time.Time
+}
+
+type authStore interface {
+	GetUserByNormalizedEmail(context.Context, string) (authn.UserRecord, error)
+	GetUserByID(context.Context, uuid.UUID) (authn.UserRecord, error)
+	ListIncidentMembershipSummaries(context.Context, uuid.UUID) ([]authn.IncidentMembershipSummary, error)
+	GetSessionByFingerprint(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error)
+	CreateSessionWithConcurrency(context.Context, authn.UserRecord, []byte, authn.SessionTiming, string) (authn.SessionRecord, *authn.SessionRecord, error)
+	SlideSession(context.Context, uuid.UUID, authn.SessionTiming) error
+	ExpireSessionForTest(context.Context, uuid.UUID, time.Time) error
+	RevokeSession(context.Context, uuid.UUID, string, time.Time) error
+	IssueBootstrapToken(context.Context, uuid.UUID, []byte, time.Time) (authn.BootstrapTokenRecord, error)
+	GetBootstrapTokenByFingerprint(context.Context, []byte) (authn.BootstrapTokenRecord, authn.UserRecord, error)
+	GetPendingTOTPEnrollmentForUser(context.Context, uuid.UUID, time.Time) (*authn.PendingTOTPEnrollmentRecord, error)
+	GetPendingTOTPEnrollmentByID(context.Context, uuid.UUID) (*authn.PendingTOTPEnrollmentRecord, error)
+	BeginTOTPEnrollment(context.Context, uuid.UUID, string, *uuid.UUID, *uuid.UUID, string, []byte, []byte, bool, time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error)
+	ActivateTOTPEnrollment(context.Context, authn.UserRecord, uuid.UUID, string, *uuid.UUID, *uuid.UUID, time.Time) (authn.TOTPCompleteResult, error)
+	GetRouteIdempotency(context.Context, string, string, string) (authn.RouteIdempotencyRecord, error)
+	ChangePassword(context.Context, authn.UserRecord, string, []byte, string, string, time.Time) (authn.PasswordChangeResult, error)
+	ListUsers(context.Context, int, *uuid.UUID) ([]authn.UserRecord, *string, error)
+	CreateUser(context.Context, authn.UserRecord, string, string, string, bool, bool, string, []byte, string, time.Time) (authn.UserCreateResult, error)
+	UpdateUser(context.Context, authn.UserRecord, uuid.UUID, int64, *string, *string, *bool, *bool, *bool, string, time.Time) (authn.UserRecord, []uuid.UUID, error)
+	AdminResetPassword(context.Context, authn.UserRecord, uuid.UUID, int64, string, string, []byte, string, time.Time) (authn.AdminPasswordResetResult, error)
+	AdminResetTOTP(context.Context, authn.UserRecord, uuid.UUID, int64, string, []byte, string, time.Time) (authn.AdminTOTPResetResult, error)
+	AdminRevokeAllSessions(context.Context, authn.UserRecord, uuid.UUID, string, []byte, string, time.Time) (authn.AdminRevokeAllResult, error)
+}
+
+type sessionHub interface {
+	RegisterSession(uuid.UUID, *websocket.Conn) func()
+	RevokeSession(uuid.UUID, string)
 }
 
 type SessionPrincipal struct {
@@ -289,10 +319,9 @@ func (s *Service) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 	}
 
 	requestHash := hashRequestPayload(map[string]any{
-		"client_txn_id":    request.ClientTxnID,
-		"current_password": request.CurrentPassword,
-		"new_password":     request.NewPassword,
-		"second_factor":    request.SecondFactor,
+		"current_password": requestSecretFingerprint(s.keys, request.CurrentPassword),
+		"new_password":     requestSecretFingerprint(s.keys, request.NewPassword),
+		"second_factor":    requestSecondFactorHashPayload(s.keys, request.SecondFactor),
 	})
 	if existing, err := s.store.GetRouteIdempotency(r.Context(), "auth.password.change", principal.User.ID.String(), request.ClientTxnID); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
@@ -653,7 +682,7 @@ func (s *Service) handleUsersCollection(w http.ResponseWriter, r *http.Request) 
 			"auth_kind":           request.AuthKind,
 			"email":               request.Email,
 			"display_name":        request.DisplayName,
-			"initial_password":    request.InitialPassword,
+			"initial_password":    requestSecretFingerprint(s.keys, request.InitialPassword),
 			"mfa_required":        request.MFARequired,
 			"is_deployment_admin": request.IsDeploymentAdmin,
 		})
@@ -687,7 +716,11 @@ func (s *Service) handleUsersCollection(w http.ResponseWriter, r *http.Request) 
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		payload := BuildSafeUserResource(result.User)
+		payload, err := decodeStoredResponse(result.ResponseJSON)
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
 		_ = httpapi.WriteSuccess(w, r, result.StatusCode, payload)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -828,7 +861,7 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 		}
 		requestHash := hashRequestPayload(map[string]any{
 			"base_user_version": request.BaseUserVersion,
-			"new_password":      request.NewPassword,
+			"new_password":      requestSecretFingerprint(s.keys, request.NewPassword),
 			"reason":            request.Reason,
 		})
 		passwordHash, err := authn.HashPassword(request.NewPassword)
@@ -864,22 +897,36 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 				s.clearAuthCookies(w)
 			}
 		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildSafeUserResource(result.User))
+		payload, err := decodeStoredResponse(result.ResponseJSON)
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		_ = httpapi.WriteSuccess(w, r, http.StatusOK, payload)
 	case "mfa/totp/reset":
 		request, apiErr := DecodeAdminTOTPResetRequest(r.Body)
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		user, revokedSessions, err := s.store.AdminResetTOTP(
+		requestHash := hashRequestPayload(map[string]any{
+			"base_user_version": request.BaseUserVersion,
+			"reason":            request.Reason,
+		})
+		result, err := s.store.AdminResetTOTP(
 			r.Context(),
 			principal.User,
 			userID,
 			request.BaseUserVersion,
+			request.ClientTxnID,
+			requestHash,
 			httpapi.RequestIDFromContext(r.Context()),
 			s.now(),
 		)
 		switch {
+		case errors.Is(err, authn.ErrClientTxnConflict):
+			writeAPIError(w, r, ClientTxnConflictError(request.ClientTxnID))
+			return
 		case errors.Is(err, authn.ErrUserVersionConflict):
 			writeAPIError(w, r, &APIError{Status: http.StatusConflict, Code: "user_version_conflict", Details: map[string]any{}})
 			return
@@ -887,26 +934,41 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		for _, sessionID := range revokedSessions {
+		for _, sessionID := range result.RevokedSessionIDs {
 			s.hub.RevokeSession(sessionID, "session_revoked")
 			if sessionID == principal.Session.ID {
 				s.clearAuthCookies(w)
 			}
 		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildSafeUserResource(user))
+		payload, err := decodeStoredResponse(result.ResponseJSON)
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		_ = httpapi.WriteSuccess(w, r, http.StatusOK, payload)
 	case "sessions/revoke-all":
-		if _, apiErr := DecodeAdminRevokeAllRequest(r.Body); apiErr != nil {
+		request, apiErr := DecodeAdminRevokeAllRequest(r.Body)
+		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
+		requestHash := hashRequestPayload(map[string]any{
+			"reason": request.Reason,
+		})
 		result, err := s.store.AdminRevokeAllSessions(
 			r.Context(),
 			principal.User,
 			userID,
+			request.ClientTxnID,
+			requestHash,
 			httpapi.RequestIDFromContext(r.Context()),
 			s.now(),
 		)
-		if err != nil {
+		switch {
+		case errors.Is(err, authn.ErrClientTxnConflict):
+			writeAPIError(w, r, ClientTxnConflictError(request.ClientTxnID))
+			return
+		case err != nil:
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
@@ -1245,6 +1307,20 @@ func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *SessionPr
 	principal.Session.IdleExpiresAt = sliding.IdleExpiresAt
 	principal.Session.SessionExpiresAt = sliding.SessionExpiresAt
 	return nil
+}
+
+func requestSecretFingerprint(keys authn.MasterKeys, value string) []byte {
+	return authn.FingerprintRequestValue(keys, value)
+}
+
+func requestSecondFactorHashPayload(keys authn.MasterKeys, secondFactor *SecondFactorAssertion) any {
+	if secondFactor == nil {
+		return nil
+	}
+	return map[string]any{
+		"kind": secondFactor.Kind,
+		"code": requestSecretFingerprint(keys, secondFactor.Code),
+	}
 }
 
 func hashRequestPayload(payload any) []byte {

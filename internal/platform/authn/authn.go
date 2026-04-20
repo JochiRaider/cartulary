@@ -81,9 +81,10 @@ const (
 )
 
 type MasterKeys struct {
-	tokenFingerprintKey [32]byte
-	csrfKey             [32]byte
-	secretEncryptionKey [32]byte
+	tokenFingerprintKey   [32]byte
+	csrfKey               [32]byte
+	secretEncryptionKey   [32]byte
+	requestFingerprintKey [32]byte
 }
 
 type BootstrapTokenStatus int
@@ -310,14 +311,19 @@ func LoadMasterKeys(env map[string]string) (MasterKeys, error) {
 	}
 
 	return MasterKeys{
-		tokenFingerprintKey: deriveKey(decoded, "token-fingerprint"),
-		csrfKey:             deriveKey(decoded, "csrf"),
-		secretEncryptionKey: deriveKey(decoded, "totp-secret"),
+		tokenFingerprintKey:   deriveKey(decoded, "token-fingerprint"),
+		csrfKey:               deriveKey(decoded, "csrf"),
+		secretEncryptionKey:   deriveKey(decoded, "totp-secret"),
+		requestFingerprintKey: deriveKey(decoded, "request-fingerprint"),
 	}, nil
 }
 
 func FingerprintToken(keys MasterKeys, token string) []byte {
 	return hmacSHA256(keys.tokenFingerprintKey[:], token)
+}
+
+func FingerprintRequestValue(keys MasterKeys, value string) []byte {
+	return hmacSHA256(keys.requestFingerprintKey[:], value)
 }
 
 func CSRFTokenForSessionToken(keys MasterKeys, sessionToken string) string {
