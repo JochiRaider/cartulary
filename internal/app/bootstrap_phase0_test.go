@@ -11,6 +11,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/phase0test"
 )
 
 func TestPhase0_BootstrapManifestValidation_U_0_07(t *testing.T) {
@@ -236,10 +237,11 @@ func TestPhase0_BootstrapPreflight_U_0_08(t *testing.T) {
 
 	t.Run("returns stable reason codes for unreadable and non-regular manifests", func(t *testing.T) {
 		store := &bootstrapStoreStub{}
+		unreadableManifestPath := phase0test.WriteUnreadableRegularFile(t, t.TempDir(), "bootstrap-admin.json", fixtures.MustRead("bootstrap-admin", "canonical.json"))
 
 		err := bootstrapPreflight(context.Background(), config.Config{
 			Bootstrap: config.BootstrapConfig{
-				FirstAdminManifestPath: filepath.Join(t.TempDir(), "missing-bootstrap.json"),
+				FirstAdminManifestPath: unreadableManifestPath,
 			},
 		}, store, os.ReadFile, deriveBootstrapPasswordHash)
 		requireBootstrapDiagnostic(t, err, "bootstrap.first_admin_manifest_path", "bootstrap_manifest_not_readable")

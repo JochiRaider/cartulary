@@ -23,6 +23,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/crosscutting"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/phase0test"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
@@ -151,6 +152,13 @@ func TestPhase0_FirstAdminBootstrap_E_0_03(t *testing.T) {
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 1)
 	requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
 
+	var userID string
+	var email string
+	if err := db.QueryRowContext(context.Background(), `SELECT id::text, email FROM users WHERE is_active = true AND is_deployment_admin = true`).Scan(&userID, &email); err != nil {
+		t.Fatalf("query bootstrap-created user: %v", err)
+	}
+	phase0test.RequireBootstrapUserLocalAuthOnly(t, testDB.DSN, userID, email)
+
 	audit := lookupBootstrapAuditEvent(t, db)
 	crosscutting.RequireSystemMutationAttribution(t, crosscutting.SystemMutationAttribution{
 		ActorUserID: audit.ActorUserID,
@@ -177,6 +185,16 @@ func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
 				return stripConfigSection(t, string(fixtures.MustRead("config", "valid.toml")), "[bootstrap]")
 			},
 			wantReasonCode: "bootstrap_manifest_path_missing",
+		},
+		{
+			name: "unreadable regular bootstrap manifest",
+			configContent: func() string {
+				return string(fixtures.MustRead("config", "valid.toml"))
+			},
+			bootstrapPath: func() string {
+				return phase0test.WriteUnreadableRegularFile(t, t.TempDir(), "bootstrap-admin.json", fixtures.MustRead("bootstrap-admin", "canonical.json"))
+			}(),
+			wantReasonCode: "bootstrap_manifest_not_readable",
 		},
 		{
 			name: "schema-invalid bootstrap manifest",

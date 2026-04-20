@@ -22,6 +22,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/crosscutting"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/phase0test"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
@@ -143,6 +144,7 @@ func TestPhase0_FirstAdminBootstrap_I_0_04(t *testing.T) {
 		if passwordHash == "" || strings.Contains(passwordHash, "BootstrapPass1!") {
 			t.Fatalf("expected persisted password hash without cleartext secret, got %q", passwordHash)
 		}
+		phase0test.RequireBootstrapUserLocalAuthOnly(t, testDB.DSN, userID, email)
 
 		audit := lookupBootstrapAuditEvent(t, db)
 		crosscutting.RequireSystemMutationAttribution(t, crosscutting.SystemMutationAttribution{
@@ -238,8 +240,10 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 			wantReasonCode: "bootstrap_manifest_path_missing",
 		},
 		{
-			name:           "unreadable bootstrap file",
-			manifestPath:   func(t *testing.T) string { return filepath.Join(t.TempDir(), "missing-bootstrap.json") },
+			name: "unreadable regular bootstrap file",
+			manifestPath: func(t *testing.T) string {
+				return phase0test.WriteUnreadableRegularFile(t, t.TempDir(), "bootstrap-admin.json", fixtures.MustRead("bootstrap-admin", "canonical.json"))
+			},
 			wantReasonCode: "bootstrap_manifest_not_readable",
 		},
 		{

@@ -1,5 +1,32 @@
 {
   "note": "Phase 2 traceability inventory only. Behavioral evidence lives in the mapped tests and their declared evidence_layer values.",
+  "expected_ids": [
+    "U-2-01",
+    "U-2-02",
+    "U-2-03",
+    "U-2-04",
+    "U-2-05",
+    "U-2-06",
+    "U-2-07",
+    "U-2-08",
+    "U-2-09",
+    "U-2-10",
+    "I-2-01",
+    "I-2-02",
+    "I-2-03",
+    "I-2-04",
+    "I-2-05",
+    "I-2-06",
+    "E-2-01",
+    "E-2-02",
+    "E-2-03",
+    "E-2-04",
+    "E-2-05",
+    "E-2-06"
+  ],
+  "forbidden_id_files": [
+    "cmd/server/main_phase2_smoke_test.go"
+  ],
   "unit": [
     {
       "id": "U-2-01",

@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape phase2-map-check phase-test-name-check run-phase-smoke backend-unit backend-integration backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e test-fast test e2e lint check ci build
+.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape phase0-map-check phase2-map-check phase-test-name-check run-phase-smoke backend-unit backend-integration backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e test-fast test e2e lint check ci build
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
 PNPM ?= $(shell if command -v pnpm >/dev/null 2>&1; then command -v pnpm; elif [ -x "$$HOME/.local/share/pnpm/pnpm" ]; then printf "$$HOME/.local/share/pnpm/pnpm"; fi)
@@ -19,7 +19,9 @@ GO_ENV := env $(GO_RUN_ENV)
 PNPM_ENV := env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH"
 Q := @
 RUN_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-phase.sh
+RUN_GO_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-go-phase.sh
 RUN_PHASE = $(Q)$(RUN_PHASE_SCRIPT)
+RUN_GO_PHASE = $(Q)$(RUN_GO_PHASE_SCRIPT)
 RUN_PHASE_ALLOW_SUCCESS_LOG = $(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT)
 
 CARTULARY_OUTPUT_MODE ?= quiet
@@ -109,8 +111,11 @@ migration-drift:
 deployable-shape: build
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "deployable-shape" -- ./scripts/ci/check-deployable-shape.sh
 
+phase0-map-check: frontend-toolchain
+	$(RUN_PHASE) "phase0-map-check" -- $(PNPM_ENV) $(NODE_BIN) ./scripts/check-phase-map.mjs phase0
+
 phase2-map-check: frontend-toolchain
-	$(RUN_PHASE) "phase2-map-check" -- $(PNPM_ENV) $(NODE_BIN) ./scripts/check-phase2-map.mjs
+	$(RUN_PHASE) "phase2-map-check" -- $(PNPM_ENV) $(NODE_BIN) ./scripts/check-phase-map.mjs phase2
 
 run-phase-smoke:
 	$(RUN_PHASE) "run-phase-smoke" -- ./scripts/test-run-phase.sh
@@ -130,14 +135,14 @@ test: frontend-toolchain
 
 backend-unit: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_PHASE) "backend-unit platform" -- $(GO_ENV) $(GO) test ./internal/platform/... -run '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase2_.*_U_2_|TestPhase3_.*_U_3_|TestPhase4_.*_U_4_)'
+	$(RUN_GO_PHASE) "backend-unit platform" '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase2_.*_U_2_|TestPhase3_.*_U_3_|TestPhase4_.*_U_4_)' -- $(GO_ENV) $(GO) test ./internal/platform/...
 	$(RUN_PHASE) "backend-unit configtest" -- $(GO_ENV) $(GO) test ./internal/testutil/configtest
-	$(RUN_PHASE) "backend-unit phases" -- $(GO_ENV) $(GO) test ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline -run '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase2_.*_U_2_|TestPhase3_.*_U_3_|TestPhase4_.*_U_4_)'
+	$(RUN_GO_PHASE) "backend-unit phases" '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase2_.*_U_2_|TestPhase3_.*_U_3_|TestPhase4_.*_U_4_)' -- $(GO_ENV) $(GO) test ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline
 
 backend-integration: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "backend-integration testutil" -- $(GO_ENV) $(GO) test ./internal/testutil/httptestx ./internal/testutil/pgtest ./internal/testutil/s3test ./internal/testutil/wstest
-	$(RUN_PHASE) "backend-integration phases" -- $(GO_ENV) $(GO) test ./internal/platform/... ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline -run '^(TestPhase0_.*_I_0_|TestPhase1_.*_I_1_|TestPhase2_.*_I_2_|TestPhase3_.*_I_3_|TestPhase4_.*_I_4_)'
+	$(RUN_GO_PHASE) "backend-integration phases" '^(TestPhase0_.*_I_0_|TestPhase1_.*_I_1_|TestPhase2_.*_I_2_|TestPhase3_.*_I_3_|TestPhase4_.*_I_4_)' -- $(GO_ENV) $(GO) test ./internal/platform/... ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline
 
 # Phase 0 process evidence is part of the developer gate and must never be direct-run only.
 backend-process: frontend-toolchain
@@ -147,15 +152,15 @@ backend-process: frontend-toolchain
 
 phase0-process-e2e:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_PHASE) "phase0-process-e2e" -- $(GO_ENV) $(GO) test ./cmd/server -run '^(TestPhase0_.*_E_0_)$$'
+	$(RUN_GO_PHASE) "phase0-process-e2e" '^(TestPhase0_.*_E_0_)$$' -- $(GO_ENV) $(GO) test ./cmd/server
 
 phase1-process-smoke:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_PHASE) "phase1-process-smoke" -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4 -run '^(TestPhase1_.*_ProcessSmoke)$$'
+	$(RUN_GO_PHASE) "phase1-process-smoke" '^(TestPhase1_.*_ProcessSmoke)$$' -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4
 
 phase2-process-smoke:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_PHASE) "phase2-process-smoke" -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4 -run '^(TestPhase2_ProcessSmoke_)'
+	$(RUN_GO_PHASE) "phase2-process-smoke" '^(TestPhase2_ProcessSmoke_)' -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4
 
 frontend-unit: frontend-toolchain
 	$(RUN_PHASE) "frontend-unit" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec vitest run --passWithNoTests $(VITEST_FLAGS)
@@ -177,6 +182,7 @@ check: frontend-toolchain
 	$(Q)$(MAKE) --no-print-directory run-phase-smoke
 	$(Q)$(MAKE) --no-print-directory phase-test-name-check
 	$(Q)$(MAKE) --no-print-directory generate-drift
+	$(Q)$(MAKE) --no-print-directory phase0-map-check
 	$(Q)$(MAKE) --no-print-directory phase2-map-check
 	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(CHECK_JOBS) migration-drift lint backend-unit backend-integration backend-process frontend-unit deployable-shape
 	$(Q)$(MAKE) --no-print-directory browser-e2e

@@ -1,0 +1,144 @@
+{
+  "note": "Phase 0 traceability inventory only. Behavioral evidence lives in the mapped tests and their declared evidence layers.",
+  "expected_ids": [
+    "U-0-01",
+    "U-0-02",
+    "U-0-03",
+    "U-0-04",
+    "U-0-05",
+    "U-0-07",
+    "U-0-08",
+    "U-0-09",
+    "I-0-01",
+    "I-0-02",
+    "I-0-03",
+    "I-0-04",
+    "I-0-05",
+    "I-0-06",
+    "E-0-01",
+    "E-0-02",
+    "E-0-03",
+    "E-0-04",
+    "E-0-05"
+  ],
+  "unit": [
+    {
+      "id": "U-0-01",
+      "file": "internal/platform/config/config_phase0_test.go",
+      "symbol": "TestPhase0_ConfigDiscovery_U_0_01",
+      "evidence_layer": "config_validation"
+    },
+    {
+      "id": "U-0-02",
+      "file": "internal/platform/config/config_phase0_test.go",
+      "symbol": "TestPhase0_RuntimeRoots_U_0_02",
+      "evidence_layer": "config_validation"
+    },
+    {
+      "id": "U-0-03",
+      "file": "internal/platform/config/config_phase0_test.go",
+      "symbol": "TestPhase0_FilesystemRootPaths_U_0_03",
+      "evidence_layer": "path_validation"
+    },
+    {
+      "id": "U-0-04",
+      "file": "internal/platform/config/config_phase0_test.go",
+      "symbol": "TestPhase0_DisconnectedDefaults_U_0_04",
+      "evidence_layer": "config_defaults"
+    },
+    {
+      "id": "U-0-05",
+      "file": "internal/app/runtime_phase0_test.go",
+      "symbol": "TestPhase0_FailClosedStartup_U_0_05",
+      "evidence_layer": "startup_fail_closed"
+    },
+    {
+      "id": "U-0-07",
+      "file": "internal/app/bootstrap_phase0_test.go",
+      "symbol": "TestPhase0_BootstrapManifestValidation_U_0_07",
+      "evidence_layer": "bootstrap_manifest_validation"
+    },
+    {
+      "id": "U-0-08",
+      "file": "internal/app/bootstrap_phase0_test.go",
+      "symbol": "TestPhase0_BootstrapPreflight_U_0_08",
+      "evidence_layer": "bootstrap_preflight"
+    },
+    {
+      "id": "U-0-09",
+      "file": "internal/platform/config/config_phase0_test.go",
+      "symbol": "TestPhase0_ResourceLimits_U_0_09",
+      "evidence_layer": "resource_limit_validation"
+    }
+  ],
+  "integration": [
+    {
+      "id": "I-0-01",
+      "file": "internal/platform/postgres/postgres_phase0_test.go",
+      "symbol": "TestPhase0_SchemaBootstrap_I_0_01",
+      "evidence_layer": "postgres_integration"
+    },
+    {
+      "id": "I-0-02",
+      "file": "internal/platform/objectstore/objectstore_phase0_test.go",
+      "symbol": "TestPhase0_ObjectStoreInitialization_I_0_02",
+      "evidence_layer": "object_store_integration"
+    },
+    {
+      "id": "I-0-03",
+      "file": "internal/app/runtime_phase0_integration_test.go",
+      "symbol": "TestPhase0_InvalidConfigNeverReachesReady_I_0_03",
+      "evidence_layer": "runtime_integration"
+    },
+    {
+      "id": "I-0-04",
+      "file": "internal/app/runtime_phase0_integration_test.go",
+      "symbol": "TestPhase0_FirstAdminBootstrap_I_0_04",
+      "evidence_layer": "bootstrap_integration"
+    },
+    {
+      "id": "I-0-05",
+      "file": "internal/app/runtime_phase0_integration_test.go",
+      "symbol": "TestPhase0_BootstrapFailures_I_0_05",
+      "evidence_layer": "bootstrap_failure_integration"
+    },
+    {
+      "id": "I-0-06",
+      "file": "internal/app/runtime_phase0_integration_test.go",
+      "symbol": "TestPhase0_BootstrapSkipAndRecovery_I_0_06",
+      "evidence_layer": "bootstrap_recovery_integration"
+    }
+  ],
+  "e2e": [
+    {
+      "id": "E-0-01",
+      "file": "cmd/server/main_phase0_e2e_test.go",
+      "symbol": "TestPhase0_ReadyState_E_0_01",
+      "evidence_layer": "process_e2e"
+    },
+    {
+      "id": "E-0-02",
+      "file": "cmd/server/main_phase0_e2e_test.go",
+      "symbol": "TestPhase0_InvalidConfigDiagnostics_E_0_02",
+      "evidence_layer": "process_e2e"
+    },
+    {
+      "id": "E-0-03",
+      "file": "cmd/server/main_phase0_e2e_test.go",
+      "symbol": "TestPhase0_FirstAdminBootstrap_E_0_03",
+      "evidence_layer": "process_e2e"
+    },
+    {
+      "id": "E-0-04",
+      "file": "cmd/server/main_phase0_e2e_test.go",
+      "symbol": "TestPhase0_BootstrapFailures_E_0_04",
+      "evidence_layer": "process_e2e"
+    },
+    {
+      "id": "E-0-05",
+      "file": "cmd/server/main_phase0_e2e_test.go",
+      "symbol": "TestPhase0_BootstrapSkipAndRecovery_E_0_05",
+      "evidence_layer": "process_e2e"
+    }
+  ]
+}
