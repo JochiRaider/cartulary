@@ -1,14 +1,10 @@
-import { type APIResponse, expect, type Page, test } from "@playwright/test";
+import type { APIResponse, Page } from "@playwright/test";
 
 import { contractArtifactIndex } from "../../../packages/protocol-ts/src/generated/contracts";
+import { expect, test } from "./fixtures";
 import {
   apiBase,
-  applyCookies,
-  csrfCookieName,
   csrfHeaders,
-  ensureAdminSession,
-  requireCookie,
-  sessionCookieName,
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
@@ -27,7 +23,6 @@ type ExtensionProfileContract = {
 test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface", async ({
   page,
 }) => {
-  await ensureAdminSession(page);
   await page.goto("/");
 
   const incidentKey = uniqueIncidentKey("E201");
@@ -73,7 +68,6 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
 test("E-2-02 shows incident discovery, direct retrieval, and promoted-field-only patching", async ({
   page,
 }) => {
-  await ensureAdminSession(page);
   const incidentKey = uniqueIncidentKey("E202");
   const incidentId = await createIncident(page, incidentKey, "Phase 2 E-2-02");
 
@@ -119,8 +113,8 @@ test("E-2-02 shows incident discovery, direct retrieval, and promoted-field-only
 test("E-2-03 lets admins manage memberships and denies the same actions to non-admin members", async ({
   browser,
   page,
+  sessionTracker,
 }) => {
-  await ensureAdminSession(page);
   const targetEmail = uniqueEmail("phase2-e203-member");
   const targetPassword = "Phase2E203Pass!";
   const incidentKey = uniqueIncidentKey("E203");
@@ -176,7 +170,13 @@ test("E-2-03 lets admins manage memberships and denies the same actions to non-a
 
   const memberContext = await browser.newContext();
   const memberPage = await memberContext.newPage();
-  await switchToLocalSession(memberPage, targetEmail, targetPassword);
+  await sessionTracker.loginTrackedUser(memberPage, {
+    createdBy: "phase2 member denied context",
+    email: targetEmail,
+    password: targetPassword,
+    purpose: "phase2 e203 member login",
+    userId: targetUser.user_id,
+  });
   await openIncidentFromLanding(memberPage, incidentId);
 
   await expectAPIError(
@@ -242,7 +242,6 @@ test("E-2-03 lets admins manage memberships and denies the same actions to non-a
 test("E-2-04 rejects unknown or forbidden top-level members with route-owned errors", async ({
   page,
 }) => {
-  await ensureAdminSession(page);
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E204"),
@@ -316,17 +315,23 @@ test("E-2-04 rejects unknown or forbidden top-level members with route-owned err
 
 test("E-2-05 allows zero-membership extension discovery and rejects singleton pagination semantics", async ({
   page,
+  sessionTracker,
 }) => {
-  await ensureAdminSession(page);
   const zeroMemberEmail = uniqueEmail("phase2-e205");
   const zeroMemberPassword = "Phase2E205Pass!";
-  await createLocalUser(page, {
+  const zeroMemberUser = await createLocalUser(page, {
     email: zeroMemberEmail,
     display_name: "Phase 2 E205 User",
     initial_password: zeroMemberPassword,
   });
 
-  await switchToLocalSession(page, zeroMemberEmail, zeroMemberPassword);
+  await sessionTracker.loginTrackedUser(page, {
+    createdBy: "phase2 zero-member landing",
+    email: zeroMemberEmail,
+    password: zeroMemberPassword,
+    purpose: "phase2 e205 zero-member login",
+    userId: zeroMemberUser.user_id,
+  });
   await page.goto("/");
   await expect(page.getByTestId("landing-empty-state")).toBeVisible();
 
@@ -362,17 +367,23 @@ test("E-2-05 allows zero-membership extension discovery and rejects singleton pa
 
 test("E-2-06 shows reserved-family 404 precedence while base and outside-reserved paths keep their ordinary dispatch", async ({
   page,
+  sessionTracker,
 }) => {
-  await ensureAdminSession(page);
   const zeroMemberEmail = uniqueEmail("phase2-e206");
   const zeroMemberPassword = "Phase2E206Pass!";
-  await createLocalUser(page, {
+  const zeroMemberUser = await createLocalUser(page, {
     email: zeroMemberEmail,
     display_name: "Phase 2 E206 User",
     initial_password: zeroMemberPassword,
   });
 
-  await switchToLocalSession(page, zeroMemberEmail, zeroMemberPassword);
+  await sessionTracker.loginTrackedUser(page, {
+    createdBy: "phase2 reserved-family zero-member",
+    email: zeroMemberEmail,
+    password: zeroMemberPassword,
+    purpose: "phase2 e206 zero-member login",
+    userId: zeroMemberUser.user_id,
+  });
   await page.goto("/");
   await expect(page.getByTestId("landing-empty-state")).toBeVisible();
 
@@ -410,29 +421,6 @@ test("E-2-06 shows reserved-family 404 precedence while base and outside-reserve
     "extension_profile_not_claimed",
   );
 });
-
-async function switchToLocalSession(
-  page: Page,
-  email: string,
-  password: string,
-) {
-  await page.context().clearCookies();
-  const loginResponse = await page.request.post(
-    `${apiBase}/api/v1/auth/login`,
-    {
-      data: {
-        username: email,
-        password,
-      },
-    },
-  );
-  expect(loginResponse.ok()).toBeTruthy();
-  await applyCookies(
-    page,
-    requireCookie(loginResponse, sessionCookieName),
-    requireCookie(loginResponse, csrfCookieName),
-  );
-}
 
 async function createIncident(page: Page, incidentKey: string, title: string) {
   const response = await page.request.post(`${apiBase}/api/v1/incidents`, {

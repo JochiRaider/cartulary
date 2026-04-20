@@ -13,6 +13,7 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
   globalSetup: path.resolve(currentDirectory, "e2e", "global-setup.ts"),
+  globalTeardown: path.resolve(currentDirectory, "e2e", "global-teardown.ts"),
   workers:
     Number.isNaN(configuredWorkers) || configuredWorkers < 1
       ? 1

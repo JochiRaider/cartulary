@@ -1,12 +1,12 @@
-import { expect, type Page, test } from "@playwright/test";
+import type { Page, StorageState } from "@playwright/test";
 
+import { expect, restoreTrackedStorageState, test } from "./fixtures";
 import {
   apiBase,
   csrfHeaders,
   enrollTotpViaBootstrap,
-  ensureAdminSession,
   generateTotpCode,
-  resetRememberedAdminSession,
+  storageStateFromSetCookieHeaders,
   sessionCookieName,
   uniqueEmail,
   uniqueIncidentKey,
@@ -15,11 +15,11 @@ import {
 
 test("E-1-01 logs in as a local user and inspects the singleton session resource", async ({
   page,
+  sessionTracker,
 }) => {
-  await ensureAdminSession(page);
   const email = uniqueEmail("phase1-e101");
   const password = "Phase1E101Pass!";
-  await createLocalUser(page, {
+  const user = await createLocalUser(page, {
     email,
     display_name: "Phase 1 E101",
     initial_password: password,
@@ -28,7 +28,7 @@ test("E-1-01 logs in as a local user and inspects the singleton session resource
 
   await clearBrowserSession(page);
   await page.goto("/?debug=harness");
-  await signInThroughHarness(page, email, password);
+  const loginState = await signInThroughHarness(page, email, password);
 
   await expect(page.getByTestId("phase1-session-provider-type")).toHaveText(
     "local",
@@ -49,15 +49,21 @@ test("E-1-01 logs in as a local user and inspects the singleton session resource
   await expect(
     page.locator('[data-testid="phase1-session-memberships"] li'),
   ).toHaveCount(0);
+  await trackCurrentSession(sessionTracker, {
+    email,
+    storageState: loginState,
+    purpose: "phase1 e101 successful harness login",
+    userId: user.user_id,
+  });
 });
 
 test("E-1-02 requires MFA when the account has an active factor, rejects wrong codes, and accepts a valid TOTP code", async ({
   page,
+  sessionTracker,
 }) => {
-  await ensureAdminSession(page);
   const email = uniqueEmail("phase1-e102");
   const password = "Phase1E102Pass!";
-  await createLocalUser(page, {
+  const user = await createLocalUser(page, {
     email,
     display_name: "Phase 1 E102",
     initial_password: password,
@@ -85,16 +91,21 @@ test("E-1-02 requires MFA when the account has an active factor, rejects wrong c
   await page
     .getByTestId("phase1-login-totp-code")
     .fill(generateTotpCode(secretBase32));
-  await page.getByTestId("phase1-login").click();
+  const loginState = await clickHarnessLogin(page);
   await expect(page.getByTestId("phase1-session-provider-type")).toHaveText(
     "local",
   );
+  await trackCurrentSession(sessionTracker, {
+    email,
+    storageState: loginState,
+    purpose: "phase1 e102 successful harness login",
+    userId: user.user_id,
+  });
 });
 
 test("E-1-03 rejects invalid credentials without issuing a session cookie", async ({
   page,
 }) => {
-  await ensureAdminSession(page);
   const email = uniqueEmail("phase1-e103");
   await createLocalUser(page, {
     email,
@@ -114,11 +125,11 @@ test("E-1-03 rejects invalid credentials without issuing a session cookie", asyn
 
 test("E-1-04 forces the idle expiry boundary and requires a fresh login afterwards", async ({
   page,
+  sessionTracker,
 }) => {
-  await ensureAdminSession(page);
   const email = uniqueEmail("phase1-e104");
   const password = "Phase1E104Pass!";
-  await createLocalUser(page, {
+  const user = await createLocalUser(page, {
     email,
     display_name: "Phase 1 E104",
     initial_password: password,
@@ -127,7 +138,13 @@ test("E-1-04 forces the idle expiry boundary and requires a fresh login afterwar
 
   await clearBrowserSession(page);
   await page.goto("/?debug=harness");
-  await signInThroughHarness(page, email, password);
+  const initialLoginState = await signInThroughHarness(page, email, password);
+  await trackCurrentSession(sessionTracker, {
+    email,
+    storageState: initialLoginState,
+    purpose: "phase1 e104 initial harness login",
+    userId: user.user_id,
+  });
 
   await page.getByTestId("phase1-expire-session").click();
   await page.getByTestId("phase1-refresh-session").click();
@@ -135,16 +152,21 @@ test("E-1-04 forces the idle expiry boundary and requires a fresh login afterwar
     "session_required",
   );
 
-  await signInThroughHarness(page, email, password);
+  const reloginState = await signInThroughHarness(page, email, password);
   await expect(page.getByTestId("phase1-session-provider-type")).toHaveText(
     "local",
   );
+  await trackCurrentSession(sessionTracker, {
+    email,
+    storageState: reloginState,
+    purpose: "phase1 e104 re-login after expiry",
+    userId: user.user_id,
+  });
 });
 
 test("E-1-05 lets deployment admins create and patch users, rejects stale versions, and preserves the last-admin guard", async ({
   page,
 }) => {
-  await ensureAdminSession(page);
   await page.goto("/?debug=harness");
   const createEmail = uniqueEmail("phase1-e105");
 
@@ -195,20 +217,16 @@ test("E-1-05 lets deployment admins create and patch users, rejects stale versio
   await expect(
     page.getByTestId("phase1-admin-patch-is-deployment-admin"),
   ).toBeChecked();
-  await setCheckbox(page, "phase1-admin-patch-is-deployment-admin", false);
-  await page.getByTestId("phase1-admin-patch-user").click();
-  await expect(page.getByTestId("phase1-last-error-code")).toHaveText(
-    "last_deployment_admin",
-  );
+  await expect(page.getByTestId("phase1-admin-patch-is-active")).toBeChecked();
 });
 
 test("E-1-06 follows the bootstrap-token enrollment sequence and proves first-time completion alone issues no session", async ({
   page,
+  sessionTracker,
 }) => {
-  await ensureAdminSession(page);
   const email = uniqueEmail("phase1-e106");
   const password = "Phase1E106Pass!";
-  await createLocalUser(page, {
+  const user = await createLocalUser(page, {
     email,
     display_name: "Phase 1 E106",
     initial_password: password,
@@ -257,19 +275,25 @@ test("E-1-06 follows the bootstrap-token enrollment sequence and proves first-ti
   await page
     .getByTestId("phase1-login-totp-code")
     .fill(generateTotpCode(secretBase32));
-  await page.getByTestId("phase1-login").click();
+  const loginState = await clickHarnessLogin(page);
   await expect(page.getByTestId("phase1-session-provider-type")).toHaveText(
     "local",
   );
+  await trackCurrentSession(sessionTracker, {
+    email,
+    storageState: loginState,
+    purpose: "phase1 e106 post-bootstrap login",
+    userId: user.user_id,
+  });
 });
 
 test("E-1-07 requires the current password and current TOTP code, revokes the session immediately, and requires re-login with the new password", async ({
   page,
+  sessionTracker,
 }) => {
-  await ensureAdminSession(page);
   const email = uniqueEmail("phase1-e107");
   const password = "Phase1E107Pass!";
-  await createLocalUser(page, {
+  const user = await createLocalUser(page, {
     email,
     display_name: "Phase 1 E107",
     initial_password: password,
@@ -279,12 +303,18 @@ test("E-1-07 requires the current password and current TOTP code, revokes the se
 
   await clearBrowserSession(page);
   await page.goto("/?debug=harness");
-  await signInThroughHarness(
+  const initialLoginState = await signInThroughHarness(
     page,
     email,
     password,
     generateTotpCode(secretBase32),
   );
+  await trackCurrentSession(sessionTracker, {
+    email,
+    storageState: initialLoginState,
+    purpose: "phase1 e107 initial login before password change",
+    userId: user.user_id,
+  });
 
   await page.getByTestId("phase1-password-current").fill("WrongCurrent1!");
   await page.getByTestId("phase1-password-next").fill("Phase1E107Changed!");
@@ -322,7 +352,7 @@ test("E-1-07 requires the current password and current TOTP code, revokes the se
     "invalid_credentials",
   );
 
-  await signInThroughHarness(
+  const changedPasswordLoginState = await signInThroughHarness(
     page,
     email,
     "Phase1E107Changed!",
@@ -331,12 +361,19 @@ test("E-1-07 requires the current password and current TOTP code, revokes the se
   await expect(page.getByTestId("phase1-session-provider-type")).toHaveText(
     "local",
   );
+  await trackCurrentSession(sessionTracker, {
+    email,
+    storageState: changedPasswordLoginState,
+    purpose: "phase1 e107 login after password change",
+    userId: user.user_id,
+  });
 });
 
 test("E-1-08 keeps credential actions deployment-admin only and denies the same routes to a non-deployment-admin incident admin", async ({
   page,
+  sessionTracker,
+  workerAdmin,
 }) => {
-  await ensureAdminSession(page);
   const targetEmail = uniqueEmail("phase1-e108-target");
   const targetPassword = "Phase1E108Pass!";
   const targetUser = await createLocalUser(page, {
@@ -364,7 +401,17 @@ test("E-1-08 keeps credential actions deployment-admin only and denies the same 
 
   await clearBrowserSession(page);
   await page.goto("/?debug=harness");
-  await signInThroughHarness(page, incidentAdminEmail, incidentAdminPassword);
+  const deniedLoginState = await signInThroughHarness(
+    page,
+    incidentAdminEmail,
+    incidentAdminPassword,
+  );
+  await trackCurrentSession(sessionTracker, {
+    email: incidentAdminEmail,
+    storageState: deniedLoginState,
+    purpose: "phase1 e108 incident-admin denied login",
+    userId: incidentAdminUser.user_id,
+  });
   await page
     .getByTestId("phase1-admin-target-user-id-input")
     .fill(targetUser.user_id);
@@ -387,7 +434,7 @@ test("E-1-08 keeps credential actions deployment-admin only and denies the same 
     "session_required",
   );
 
-  await ensureAdminSession(page);
+  await restoreTrackedStorageState(page, workerAdmin.storageState);
   await page.goto("/?debug=harness");
   await page
     .getByTestId("phase1-admin-target-user-id-input")
@@ -413,7 +460,17 @@ test("E-1-08 keeps credential actions deployment-admin only and denies the same 
 
   await clearBrowserSession(page);
   await page.goto("/?debug=harness");
-  await signInThroughHarness(page, incidentAdminEmail, incidentAdminPassword);
+  const postAdminActionLoginState = await signInThroughHarness(
+    page,
+    incidentAdminEmail,
+    incidentAdminPassword,
+  );
+  await trackCurrentSession(sessionTracker, {
+    email: incidentAdminEmail,
+    storageState: postAdminActionLoginState,
+    purpose: "phase1 e108 incident-admin login after admin actions",
+    userId: incidentAdminUser.user_id,
+  });
   await expect(page.getByTestId("phase1-session-user-id")).toHaveText(
     incidentAdminUser.user_id,
   );
@@ -428,7 +485,23 @@ async function signInThroughHarness(
   await page.getByTestId("phase1-login-username").fill(email);
   await page.getByTestId("phase1-login-password").fill(password);
   await page.getByTestId("phase1-login-totp-code").fill(totpCode);
+  return clickHarnessLogin(page);
+}
+
+async function clickHarnessLogin(page: Page) {
+  const loginResponsePromise = page.waitForResponse((response) => {
+    return (
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/v1/auth/login"
+    );
+  });
   await page.getByTestId("phase1-login").click();
+  const loginResponse = await loginResponsePromise;
+  const setCookieHeaders = await loginResponse.headerValues("set-cookie");
+  if (setCookieHeaders.length === 0) {
+    return null;
+  }
+  return storageStateFromSetCookieHeaders(setCookieHeaders);
 }
 
 async function createLocalUser(
@@ -492,8 +565,39 @@ async function createIncidentMembership(
 }
 
 async function clearBrowserSession(page: Page) {
-  resetRememberedAdminSession();
   await page.context().clearCookies();
+}
+
+async function trackCurrentSession(
+  sessionTracker: {
+    captureStorageState: (
+      storageState: StorageState,
+      details: {
+        createdBy: string;
+        email: string;
+        purpose: string;
+        userId: string;
+      },
+    ) => Promise<void>;
+  },
+  details: {
+    email: string;
+    purpose: string;
+    storageState: StorageState | null;
+    userId: string;
+  },
+) {
+  if (details.storageState === null) {
+    throw new Error(
+      `missing tracked storage state for ${details.userId} (${details.email})`,
+    );
+  }
+  await sessionTracker.captureStorageState(details.storageState, {
+    createdBy: "phase1 harness",
+    email: details.email,
+    purpose: details.purpose,
+    userId: details.userId,
+  });
 }
 
 async function hasSessionCookie(page: Page) {

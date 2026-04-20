@@ -1,9 +1,9 @@
-import { expect, type Page, type Response, test } from "@playwright/test";
+import type { Page, Response } from "@playwright/test";
 
+import { expect, test } from "./fixtures";
 import {
   createIncident,
   createViewRow,
-  ensureAdminSession,
   patchTimelineRecord,
   queryViewRows,
   uniqueIncidentKey,
@@ -47,7 +47,6 @@ type CollectionItem = Record<string, unknown>;
 test("E-4-01 resolves and creates entities from Timeline mentions in the inspector", async ({
   page,
 }) => {
-  await ensureAdminSession(page);
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E401"),
@@ -234,7 +233,6 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
 test("E-4-02 dismisses and ordinarily restores a mention without relinking", async ({
   page,
 }) => {
-  await ensureAdminSession(page);
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E402"),
@@ -371,7 +369,6 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
 test("E-4-03 merges duplicate entities from the inspector and preserves survivor identity", async ({
   page,
 }) => {
-  await ensureAdminSession(page);
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E403"),
@@ -507,7 +504,6 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
 test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
   page,
 }) => {
-  await ensureAdminSession(page);
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E404"),

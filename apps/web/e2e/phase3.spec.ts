@@ -1,11 +1,10 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 import {
   apiBase,
   createIncident,
   createViewRow,
   csrfHeaders,
-  ensureAdminSession,
   fetchTimelineRecordChangeCount,
   fetchTimelineRecordSubstrate,
   measureBlankRowCreate,
@@ -20,7 +19,6 @@ const timelineViewSchemaId = "cartulary.view.timeline.v1";
 test("E-3-01 creates a Timeline row in-grid and continues editing on the draft row", async ({
   page,
 }) => {
-  await ensureAdminSession(page);
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E301"),
@@ -45,7 +43,6 @@ test("E-3-01 creates a Timeline row in-grid and continues editing on the draft r
 test("E-3-02 measures user-visible typing_ack and blank-row-create completion within the Phase 3 envelope", async ({
   page,
 }) => {
-  await ensureAdminSession(page);
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E302"),
@@ -82,7 +79,6 @@ test("E-3-02 measures user-visible typing_ack and blank-row-create completion wi
 test("E-3-03 drives review, demotion, and supersede through the visible workbook surface", async ({
   page,
 }) => {
-  await ensureAdminSession(page);
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E303"),
@@ -139,8 +135,8 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
 test("E-3-04 uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible invalidation", async ({
   browser,
   page,
+  sessionTracker,
 }) => {
-  await ensureAdminSession(page);
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E304"),
@@ -152,9 +148,11 @@ test("E-3-04 uses a disclosed hybrid replay harness to prove replay avoids dupli
   });
   const recordId = row.record_id as string;
 
-  const observer = await browser.newPage({
-    storageState: await page.context().storageState(),
-  });
+  const observerContext = await sessionTracker.newTrackedContext(
+    browser,
+    await page.context().storageState(),
+  );
+  const observer = await observerContext.newPage();
   let observerQueryCount = 0;
   observer.on("requestfinished", (request) => {
     if (
@@ -248,5 +246,5 @@ test("E-3-04 uses a disclosed hybrid replay harness to prove replay avoids dupli
   await expect(observer.getByTestId(`row-${recordId}-row-version`)).toHaveText(
     "2",
   );
-  await observer.close();
+  await observerContext.close();
 });

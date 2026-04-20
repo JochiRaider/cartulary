@@ -27,6 +27,7 @@ export default defineConfig({
       "src/**/*.test.tsx",
       "src/**/*.spec.ts",
       "src/**/*.spec.tsx",
+      "e2e/**/*.test.ts",
     ],
   },
 });
