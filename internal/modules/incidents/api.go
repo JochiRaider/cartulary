@@ -2,15 +2,11 @@ package incidents
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
-	"net/url"
 	"slices"
-	"strconv"
 	"strings"
-	"time"
 	"unicode"
 
 	"github.com/google/uuid"
@@ -19,11 +15,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-)
-
-const (
-	defaultListLimit = 100
-	maxListLimit     = 500
 )
 
 var membershipRoles = []string{"viewer", "editor", "reviewer", "admin"}
@@ -65,25 +56,6 @@ type IncidentPatchRequest struct {
 	TLP                    OptionalNullableString
 	CurrentPhase           OptionalNullableString
 	PrimaryExternalCaseRef OptionalNullableString
-}
-
-type incidentCursor struct {
-	Route       string    `json:"route"`
-	ActorUserID string    `json:"actor_user_id"`
-	Limit       int       `json:"limit"`
-	SnapshotAt  time.Time `json:"snapshot_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	IncidentID  string    `json:"incident_id"`
-}
-
-type membershipCursor struct {
-	Route       string    `json:"route"`
-	ActorUserID string    `json:"actor_user_id"`
-	IncidentID  string    `json:"incident_id"`
-	Limit       int       `json:"limit"`
-	SnapshotAt  time.Time `json:"snapshot_at"`
-	JoinedAt    time.Time `json:"joined_at"`
-	UserID      string    `json:"user_id"`
 }
 
 func DecodeIncidentCreateRequest(reader io.Reader) (CreateIncidentRequest, *auth.APIError) {
@@ -348,65 +320,6 @@ func DecodeMembershipDeleteRequest(reader io.Reader) (MembershipDeleteRequest, *
 	return request, nil
 }
 
-func DecodeListQuery(query url.Values) (int, *string, *auth.APIError) {
-	for _, key := range []string{"page", "offset", "page_size", "block_size"} {
-		if _, ok := query[key]; ok {
-			return 0, nil, invalidPaginationRequest("pagination_not_supported")
-		}
-	}
-
-	limit := defaultListLimit
-	if value := query.Get("limit"); value != "" {
-		parsed, err := strconv.Atoi(value)
-		if err != nil || parsed < 1 || parsed > maxListLimit {
-			return 0, nil, invalidPaginationRequest("invalid_limit")
-		}
-		limit = parsed
-	}
-
-	var cursor *string
-	if value := query.Get("cursor_token"); value != "" {
-		cursor = &value
-	}
-	return limit, cursor, nil
-}
-
-func EncodeIncidentCursor(cursor incidentCursor) (string, error) {
-	return encodeCursor(cursor)
-}
-
-func DecodeIncidentCursor(token string, actorUserID uuid.UUID, limit int) (incidentCursor, *auth.APIError) {
-	var cursor incidentCursor
-	if err := decodeCursor(token, &cursor); err != nil {
-		return incidentCursor{}, invalidPaginationRequest("invalid_cursor_token")
-	}
-	if cursor.Route != "incidents.list" || cursor.ActorUserID != actorUserID.String() || cursor.Limit != limit {
-		return incidentCursor{}, invalidPaginationRequest("invalid_cursor_token")
-	}
-	if _, err := uuid.Parse(cursor.IncidentID); err != nil {
-		return incidentCursor{}, invalidPaginationRequest("invalid_cursor_token")
-	}
-	return cursor, nil
-}
-
-func EncodeMembershipCursor(cursor membershipCursor) (string, error) {
-	return encodeCursor(cursor)
-}
-
-func DecodeMembershipCursor(token string, actorUserID uuid.UUID, incidentID uuid.UUID, limit int) (membershipCursor, *auth.APIError) {
-	var cursor membershipCursor
-	if err := decodeCursor(token, &cursor); err != nil {
-		return membershipCursor{}, invalidPaginationRequest("invalid_cursor_token")
-	}
-	if cursor.Route != "incident.memberships.list" || cursor.ActorUserID != actorUserID.String() || cursor.IncidentID != incidentID.String() || cursor.Limit != limit {
-		return membershipCursor{}, invalidPaginationRequest("invalid_cursor_token")
-	}
-	if _, err := uuid.Parse(cursor.UserID); err != nil {
-		return membershipCursor{}, invalidPaginationRequest("invalid_cursor_token")
-	}
-	return cursor, nil
-}
-
 func BuildIncidentResource(record IncidentRecord) map[string]any {
 	return map[string]any{
 		"incident_id":               record.ID,
@@ -619,22 +532,6 @@ func decodeStoredResponse(data []byte) (map[string]any, error) {
 		return nil, err
 	}
 	return payload, nil
-}
-
-func encodeCursor(value any) (string, error) {
-	payload, err := json.Marshal(value)
-	if err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(payload), nil
-}
-
-func decodeCursor(token string, target any) error {
-	data, err := base64.RawURLEncoding.DecodeString(token)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(data, target)
 }
 
 func decodeOptionalJSON(raw []byte) any {

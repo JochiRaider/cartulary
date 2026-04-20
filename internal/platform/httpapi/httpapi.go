@@ -14,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
@@ -26,6 +27,7 @@ type DependencySet struct {
 	ObjectStore *minio.Client
 	Jobs        *jobs.Manager
 	WSHub       *platformws.Hub
+	Pagination  *pagination.Registry
 	Now         func() time.Time
 }
 

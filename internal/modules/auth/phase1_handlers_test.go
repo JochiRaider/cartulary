@@ -17,6 +17,7 @@ import (
 	"github.com/pquerna/otp/totp"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 )
 
 func TestPhase1_LoginCreatesSessionAndResource_U_1_03(t *testing.T) {
@@ -1799,7 +1800,7 @@ type authStoreStub struct {
 	activateTOTPEnrollmentFunc          func(context.Context, authn.UserRecord, uuid.UUID, string, *uuid.UUID, *uuid.UUID, time.Time) (authn.TOTPCompleteResult, error)
 	getRouteIdempotencyFunc             func(context.Context, string, string, string) (authn.RouteIdempotencyRecord, error)
 	changePasswordFunc                  func(context.Context, authn.UserRecord, string, []byte, string, string, time.Time) (authn.PasswordChangeResult, error)
-	listUsersFunc                       func(context.Context, int, *uuid.UUID) ([]authn.UserRecord, *string, error)
+	listUsersFunc                       func(context.Context) ([]authn.UserRecord, error)
 	createUserFunc                      func(context.Context, authn.UserRecord, string, string, string, bool, bool, string, []byte, string, time.Time) (authn.UserCreateResult, error)
 	updateUserFunc                      func(context.Context, authn.UserRecord, uuid.UUID, int64, *string, *string, *bool, *bool, *bool, string, time.Time) (authn.UserRecord, []uuid.UUID, error)
 	adminResetPasswordFunc              func(context.Context, authn.UserRecord, uuid.UUID, int64, string, string, []byte, string, time.Time) (authn.AdminPasswordResetResult, error)
@@ -1867,8 +1868,12 @@ func (s *authStoreStub) ChangePassword(ctx context.Context, user authn.UserRecor
 	return callStub6(s.changePasswordFunc, ctx, user, clientTxnID, requestHash, newPasswordHash, requestID, now)
 }
 
-func (s *authStoreStub) ListUsers(ctx context.Context, limit int, cursor *uuid.UUID) ([]authn.UserRecord, *string, error) {
-	return callStub2Result2(s.listUsersFunc, ctx, limit, cursor)
+func (s *authStoreStub) ListUsers(ctx context.Context) ([]authn.UserRecord, error) {
+	if s.listUsersFunc == nil {
+		var zero []authn.UserRecord
+		return zero, nil
+	}
+	return s.listUsersFunc(ctx)
 }
 
 func (s *authStoreStub) CreateUser(ctx context.Context, actor authn.UserRecord, email string, displayName string, passwordHash string, mfaRequired bool, isDeploymentAdmin bool, clientTxnID string, requestHash []byte, requestID string, now time.Time) (authn.UserCreateResult, error) {
@@ -1911,10 +1916,11 @@ func (h *hubStub) RevokeSession(sessionID uuid.UUID, reasonCode string) {
 func newUnitService(t testing.TB, store authStore, hub sessionHub, keys authn.MasterKeys, now time.Time) *Service {
 	t.Helper()
 	return &Service{
-		store: store,
-		hub:   hub,
-		keys:  keys,
-		now:   func() time.Time { return now },
+		store:      store,
+		hub:        hub,
+		keys:       keys,
+		pagination: pagination.NewRegistry(),
+		now:        func() time.Time { return now },
 	}
 }
 

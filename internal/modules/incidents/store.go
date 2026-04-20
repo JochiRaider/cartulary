@@ -103,58 +103,33 @@ func NewStoreWithHooks(pool *pgxpool.Pool, hooks StoreHooks) *Store {
 	}
 }
 
-func (s *Store) ListVisibleIncidents(ctx context.Context, userID uuid.UUID, snapshotAt time.Time, afterUpdatedAt *time.Time, afterIncidentID *uuid.UUID, limit int) ([]IncidentRecord, *incidentCursor, error) {
-	query := `
+func (s *Store) ListVisibleIncidents(ctx context.Context, userID uuid.UUID) ([]IncidentRecord, error) {
+	rows, err := s.pool.Query(ctx, `
 SELECT i.id, i.incident_key, i.title, i.description, i.status, i.severity, i.tlp, i.current_phase,
        i.primary_external_case_ref, i.created_by_user_id, i.created_at, i.updated_at, i.updated_by_user_id,
        i.incident_version, i.closed_at
   FROM incidents i
   JOIN incident_memberships m ON m.incident_id = i.id
  WHERE m.user_id = $1
-   AND i.updated_at <= $2
-`
-	args := []any{userID, snapshotAt.UTC()}
-	if afterUpdatedAt != nil && afterIncidentID != nil {
-		query += `
-   AND (i.updated_at < $3 OR (i.updated_at = $3 AND i.id > $4))
-`
-		args = append(args, afterUpdatedAt.UTC(), *afterIncidentID)
-	}
-	query += fmt.Sprintf(" ORDER BY i.updated_at DESC, i.id ASC LIMIT $%d", len(args)+1)
-	args = append(args, limit+1)
-
-	rows, err := s.pool.Query(ctx, query, args...)
+ ORDER BY i.updated_at DESC, i.id ASC
+`, userID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("list visible incidents: %w", err)
+		return nil, fmt.Errorf("list visible incidents: %w", err)
 	}
 	defer rows.Close()
 
-	records := make([]IncidentRecord, 0, limit+1)
+	records := make([]IncidentRecord, 0, 32)
 	for rows.Next() {
 		record, err := scanIncident(rows)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		records = append(records, record)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, nil, fmt.Errorf("iterate visible incidents: %w", err)
+		return nil, fmt.Errorf("iterate visible incidents: %w", err)
 	}
-
-	var next *incidentCursor
-	if len(records) > limit {
-		last := records[limit-1]
-		next = &incidentCursor{
-			Route:       "incidents.list",
-			ActorUserID: userID.String(),
-			Limit:       limit,
-			SnapshotAt:  snapshotAt.UTC(),
-			UpdatedAt:   last.UpdatedAt,
-			IncidentID:  last.ID.String(),
-		}
-		records = records[:limit]
-	}
-	return records, next, nil
+	return records, nil
 }
 
 func (s *Store) GetVisibleIncident(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (IncidentRecord, error) {
@@ -190,58 +165,32 @@ SELECT m.incident_id, m.user_id, u.display_name, m.role, m.joined_at, m.added_by
 	return record, err
 }
 
-func (s *Store) ListMemberships(ctx context.Context, incidentID uuid.UUID, snapshotAt time.Time, afterJoinedAt *time.Time, afterUserID *uuid.UUID, limit int) ([]MembershipRecord, *membershipCursor, error) {
-	query := `
+func (s *Store) ListMemberships(ctx context.Context, incidentID uuid.UUID) ([]MembershipRecord, error) {
+	rows, err := s.pool.Query(ctx, `
 SELECT m.incident_id, m.user_id, u.display_name, m.role, m.joined_at, m.added_by_user_id,
        m.updated_at, m.updated_by_user_id, m.membership_version
   FROM incident_memberships m
   JOIN users u ON u.id = m.user_id
  WHERE m.incident_id = $1
-   AND m.joined_at <= $2
-`
-	args := []any{incidentID, snapshotAt.UTC()}
-	if afterJoinedAt != nil && afterUserID != nil {
-		query += `
-   AND (m.joined_at > $3 OR (m.joined_at = $3 AND m.user_id > $4))
-`
-		args = append(args, afterJoinedAt.UTC(), *afterUserID)
-	}
-	query += fmt.Sprintf(" ORDER BY m.joined_at ASC, m.user_id ASC LIMIT $%d", len(args)+1)
-	args = append(args, limit+1)
-
-	rows, err := s.pool.Query(ctx, query, args...)
+ ORDER BY m.joined_at ASC, m.user_id ASC
+`, incidentID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("list memberships: %w", err)
+		return nil, fmt.Errorf("list memberships: %w", err)
 	}
 	defer rows.Close()
 
-	records := make([]MembershipRecord, 0, limit+1)
+	records := make([]MembershipRecord, 0, 16)
 	for rows.Next() {
 		record, err := scanMembership(rows)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		records = append(records, record)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, nil, fmt.Errorf("iterate memberships: %w", err)
+		return nil, fmt.Errorf("iterate memberships: %w", err)
 	}
-
-	var next *membershipCursor
-	if len(records) > limit {
-		last := records[limit-1]
-		next = &membershipCursor{
-			Route:       "incident.memberships.list",
-			ActorUserID: "",
-			IncidentID:  incidentID.String(),
-			Limit:       limit,
-			SnapshotAt:  snapshotAt.UTC(),
-			JoinedAt:    last.JoinedAt,
-			UserID:      last.UserID.String(),
-		}
-		records = records[:limit]
-	}
-	return records, next, nil
+	return records, nil
 }
 
 func (s *Store) GetIncidentWorkbookPreferences(ctx context.Context, incidentID uuid.UUID) (IncidentWorkbookPreferencesRecord, error) {

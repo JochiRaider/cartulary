@@ -851,46 +851,30 @@ SELECT COUNT(*)
 	return count, nil
 }
 
-func (s *Store) ListUsers(ctx context.Context, limit int, cursor *uuid.UUID) ([]UserRecord, *string, error) {
-	query := `
+func (s *Store) ListUsers(ctx context.Context) ([]UserRecord, error) {
+	rows, err := s.pool.Query(ctx, `
 SELECT id, email::text, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
        created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce
   FROM users
-`
-	args := []any{}
-	if cursor != nil {
-		query += " WHERE id > $1"
-		args = append(args, *cursor)
-	}
-	orderArg := len(args) + 1
-	query += fmt.Sprintf(" ORDER BY id ASC LIMIT $%d", orderArg)
-	args = append(args, limit+1)
-
-	rows, err := s.pool.Query(ctx, query, args...)
+ ORDER BY id ASC
+`)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	defer rows.Close()
 
-	users := make([]UserRecord, 0, limit+1)
+	users := make([]UserRecord, 0, 32)
 	for rows.Next() {
 		user, err := scanUser(rows)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		users = append(users, user)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-
-	var nextCursor *string
-	if len(users) > limit {
-		cursorValue := users[limit-1].ID.String()
-		nextCursor = &cursorValue
-		users = users[:limit]
-	}
-	return users, nextCursor, nil
+	return users, nil
 }
 
 func (s *Store) CreateUser(

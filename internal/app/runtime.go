@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
@@ -86,6 +87,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	runtime.Jobs = newJobsManager()
 	hub := newWSHub()
 	runtime.WSHub = hub
+	paginator := pagination.NewRegistry()
 
 	httpOptions := options.HTTP
 	now := options.Now
@@ -100,6 +102,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		ObjectStore: runtime.ObjectStore,
 		Jobs:        runtime.Jobs,
 		WSHub:       hub,
+		Pagination:  paginator,
 		Now:         now,
 	}
 

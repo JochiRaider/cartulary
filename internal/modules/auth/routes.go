@@ -15,16 +15,18 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 const unauthorizedCode = "session_required"
 
 type Service struct {
-	store authStore
-	hub   sessionHub
-	keys  authn.MasterKeys
-	now   func() time.Time
+	store      authStore
+	hub        sessionHub
+	keys       authn.MasterKeys
+	pagination *pagination.Registry
+	now        func() time.Time
 }
 
 type authStore interface {
@@ -43,7 +45,7 @@ type authStore interface {
 	ActivateTOTPEnrollment(context.Context, authn.UserRecord, uuid.UUID, string, *uuid.UUID, *uuid.UUID, time.Time) (authn.TOTPCompleteResult, error)
 	GetRouteIdempotency(context.Context, string, string, string) (authn.RouteIdempotencyRecord, error)
 	ChangePassword(context.Context, authn.UserRecord, string, []byte, string, string, time.Time) (authn.PasswordChangeResult, error)
-	ListUsers(context.Context, int, *uuid.UUID) ([]authn.UserRecord, *string, error)
+	ListUsers(context.Context) ([]authn.UserRecord, error)
 	CreateUser(context.Context, authn.UserRecord, string, string, string, bool, bool, string, []byte, string, time.Time) (authn.UserCreateResult, error)
 	UpdateUser(context.Context, authn.UserRecord, uuid.UUID, int64, *string, *string, *bool, *bool, *bool, string, time.Time) (authn.UserRecord, []uuid.UUID, error)
 	AdminResetPassword(context.Context, authn.UserRecord, uuid.UUID, int64, string, string, []byte, string, time.Time) (authn.AdminPasswordResetResult, error)
@@ -112,12 +114,17 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
+	paginator := deps.Pagination
+	if paginator == nil {
+		paginator = pagination.NewRegistry()
+	}
 
 	return &Service{
-		store: authn.NewStore(deps.Postgres),
-		hub:   deps.WSHub,
-		keys:  keys,
-		now:   now,
+		store:      authn.NewStore(deps.Postgres),
+		hub:        deps.WSHub,
+		keys:       keys,
+		pagination: paginator,
+		now:        now,
 	}, nil
 }
 
@@ -625,45 +632,72 @@ func (s *Service) handleUsersCollection(w http.ResponseWriter, r *http.Request) 
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		limit, cursorToken, apiErr := DecodeUserListQuery(r.URL.Query())
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
+		binding, cursor, reasonCode := pagination.ResolveRequest(
+			r.URL.Query(),
+			"users.list",
+			principal.User.ID.String(),
+			nil,
+		)
+		if reasonCode != "" {
+			writeAPIError(w, r, userPaginationError(reasonCode))
 			return
 		}
-		var cursor *uuid.UUID
-		if cursorToken != nil {
-			parsed, err := uuid.Parse(*cursorToken)
-			if err != nil {
-				writeAPIError(w, r, &APIError{
-					Status: http.StatusBadRequest,
-					Code:   "invalid_pagination_request",
-					Details: map[string]any{
-						"reason_code": "pagination_not_supported",
-					},
-				})
+
+		var (
+			rows       []json.RawMessage
+			nextCursor *pagination.Cursor
+			err        error
+		)
+		if cursor == nil {
+			users, listErr := s.store.ListUsers(r.Context())
+			if listErr != nil {
+				writeAPIError(w, r, internalAPIError(listErr))
 				return
 			}
-			cursor = &parsed
-		}
-		users, nextCursor, err := s.store.ListUsers(r.Context(), limit, cursor)
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
+			resources := make([]map[string]any, 0, len(users))
+			for _, user := range users {
+				resources = append(resources, BuildSafeUserResource(user))
+			}
+			rows, err = pagination.MarshalResources(resources)
+			if err != nil {
+				writeAPIError(w, r, internalAPIError(err))
+				return
+			}
+			rows, nextCursor = s.pagination.Start(binding, rows)
+		} else {
+			rows, nextCursor, err = s.pagination.Continue(binding, *cursor)
+			switch {
+			case errors.Is(err, pagination.ErrCursorSnapshotExpired):
+				writeAPIError(w, r, userPaginationError(pagination.ReasonCursorSnapshotUnavailable))
+				return
+			case errors.Is(err, pagination.ErrInvalidCursorToken):
+				writeAPIError(w, r, userPaginationError(pagination.ReasonInvalidCursorToken))
+				return
+			case err != nil:
+				writeAPIError(w, r, internalAPIError(err))
+				return
+			}
 		}
 		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		resources := make([]map[string]any, 0, len(users))
-		for _, user := range users {
-			resources = append(resources, BuildSafeUserResource(user))
+
+		var nextCursorToken *string
+		if nextCursor != nil {
+			token, err := pagination.EncodeCursor(*nextCursor)
+			if err != nil {
+				writeAPIError(w, r, internalAPIError(err))
+				return
+			}
+			nextCursorToken = &token
 		}
 		_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{
-			"users": resources,
+			"users": rows,
 		}, httpapi.PagingMeta{
-			Limit:      limit,
-			HasMore:    nextCursor != nil,
-			NextCursor: nextCursor,
+			Limit:      binding.Limit,
+			HasMore:    nextCursorToken != nil,
+			NextCursor: nextCursorToken,
 		})
 	case http.MethodPost:
 		principal, apiErr := s.authenticateSessionRequest(r, true)

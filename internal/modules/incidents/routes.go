@@ -2,6 +2,7 @@ package incidents
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -12,15 +13,17 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 )
 
 const incidentUnauthorizedCode = "session_required"
 
 type Service struct {
-	store     *Store
-	authStore *authn.Store
-	keys      authn.MasterKeys
-	now       func() time.Time
+	store      *Store
+	authStore  *authn.Store
+	keys       authn.MasterKeys
+	pagination *pagination.Registry
+	now        func() time.Time
 }
 
 func RegisterRoutes() httpapi.RouteRegistrar {
@@ -46,11 +49,16 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
+	paginator := deps.Pagination
+	if paginator == nil {
+		paginator = pagination.NewRegistry()
+	}
 	return &Service{
-		store:     NewStore(deps.Postgres),
-		authStore: authn.NewStore(deps.Postgres),
-		keys:      keys,
-		now:       now,
+		store:      NewStore(deps.Postgres),
+		authStore:  authn.NewStore(deps.Postgres),
+		keys:       keys,
+		pagination: paginator,
+		now:        now,
 	}, nil
 }
 
@@ -86,53 +94,68 @@ func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		limit, cursorToken, apiErr := DecodeListQuery(r.URL.Query())
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
+		binding, cursor, reasonCode := pagination.ResolveRequest(
+			r.URL.Query(),
+			"incidents.list",
+			principal.User.ID.String(),
+			nil,
+		)
+		if reasonCode != "" {
+			writeAPIError(w, r, invalidPaginationRequest(reasonCode))
 			return
 		}
 
-		snapshotAt := s.now()
-		var afterUpdatedAt *time.Time
-		var afterIncidentID *uuid.UUID
-		if cursorToken != nil {
-			cursor, apiErr := DecodeIncidentCursor(*cursorToken, principal.User.ID, limit)
-			if apiErr != nil {
-				writeAPIError(w, r, apiErr)
+		var (
+			rows       []json.RawMessage
+			nextCursor *pagination.Cursor
+			err        error
+		)
+		if cursor == nil {
+			records, listErr := s.store.ListVisibleIncidents(r.Context(), principal.User.ID)
+			if listErr != nil {
+				writeAPIError(w, r, internalAPIError(listErr))
 				return
 			}
-			snapshotAt = cursor.SnapshotAt
-			afterUpdatedAt = &cursor.UpdatedAt
-			parsedID := uuid.MustParse(cursor.IncidentID)
-			afterIncidentID = &parsedID
+			incidents := make([]map[string]any, 0, len(records))
+			for _, record := range records {
+				incidents = append(incidents, BuildIncidentResource(record))
+			}
+			rows, err = pagination.MarshalResources(incidents)
+			if err != nil {
+				writeAPIError(w, r, internalAPIError(err))
+				return
+			}
+			rows, nextCursor = s.pagination.Start(binding, rows)
+		} else {
+			rows, nextCursor, err = s.pagination.Continue(binding, *cursor)
+			switch {
+			case errors.Is(err, pagination.ErrCursorSnapshotExpired):
+				writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonCursorSnapshotUnavailable))
+				return
+			case errors.Is(err, pagination.ErrInvalidCursorToken):
+				writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
+				return
+			case err != nil:
+				writeAPIError(w, r, internalAPIError(err))
+				return
+			}
 		}
-
-		records, next, err := s.store.ListVisibleIncidents(r.Context(), principal.User.ID, snapshotAt, afterUpdatedAt, afterIncidentID, limit)
-		if err != nil {
+		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		incidents := make([]map[string]any, 0, len(records))
-		for _, record := range records {
-			incidents = append(incidents, BuildIncidentResource(record))
-		}
 
 		var nextToken *string
-		if next != nil {
-			next.ActorUserID = principal.User.ID.String()
-			token, err := EncodeIncidentCursor(*next)
+		if nextCursor != nil {
+			token, err := pagination.EncodeCursor(*nextCursor)
 			if err != nil {
 				writeAPIError(w, r, internalAPIError(err))
 				return
 			}
 			nextToken = &token
 		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"incidents": incidents}, httpapi.PagingMeta{
-			Limit:      limit,
+		_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"incidents": rows}, httpapi.PagingMeta{
+			Limit:      binding.Limit,
 			HasMore:    nextToken != nil,
 			NextCursor: nextToken,
 		})
@@ -292,53 +315,68 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		limit, cursorToken, apiErr := DecodeListQuery(r.URL.Query())
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
+		binding, cursor, reasonCode := pagination.ResolveRequest(
+			r.URL.Query(),
+			"incident.memberships.list",
+			principal.User.ID.String(),
+			map[string]string{"incident_id": incidentID.String()},
+		)
+		if reasonCode != "" {
+			writeAPIError(w, r, invalidPaginationRequest(reasonCode))
 			return
 		}
 
-		snapshotAt := s.now()
-		var afterJoinedAt *time.Time
-		var afterUserID *uuid.UUID
-		if cursorToken != nil {
-			cursor, apiErr := DecodeMembershipCursor(*cursorToken, principal.User.ID, incidentID, limit)
-			if apiErr != nil {
-				writeAPIError(w, r, apiErr)
+		var (
+			rows       []json.RawMessage
+			nextCursor *pagination.Cursor
+			err        error
+		)
+		if cursor == nil {
+			records, listErr := s.store.ListMemberships(r.Context(), incidentID)
+			if listErr != nil {
+				writeAPIError(w, r, internalAPIError(listErr))
 				return
 			}
-			snapshotAt = cursor.SnapshotAt
-			afterJoinedAt = &cursor.JoinedAt
-			parsedID := uuid.MustParse(cursor.UserID)
-			afterUserID = &parsedID
+			memberships := make([]map[string]any, 0, len(records))
+			for _, record := range records {
+				memberships = append(memberships, BuildMembershipResource(record))
+			}
+			rows, err = pagination.MarshalResources(memberships)
+			if err != nil {
+				writeAPIError(w, r, internalAPIError(err))
+				return
+			}
+			rows, nextCursor = s.pagination.Start(binding, rows)
+		} else {
+			rows, nextCursor, err = s.pagination.Continue(binding, *cursor)
+			switch {
+			case errors.Is(err, pagination.ErrCursorSnapshotExpired):
+				writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonCursorSnapshotUnavailable))
+				return
+			case errors.Is(err, pagination.ErrInvalidCursorToken):
+				writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
+				return
+			case err != nil:
+				writeAPIError(w, r, internalAPIError(err))
+				return
+			}
 		}
-
-		records, next, err := s.store.ListMemberships(r.Context(), incidentID, snapshotAt, afterJoinedAt, afterUserID, limit)
-		if err != nil {
+		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		memberships := make([]map[string]any, 0, len(records))
-		for _, record := range records {
-			memberships = append(memberships, BuildMembershipResource(record))
-		}
 
 		var nextToken *string
-		if next != nil {
-			next.ActorUserID = principal.User.ID.String()
-			token, err := EncodeMembershipCursor(*next)
+		if nextCursor != nil {
+			token, err := pagination.EncodeCursor(*nextCursor)
 			if err != nil {
 				writeAPIError(w, r, internalAPIError(err))
 				return
 			}
 			nextToken = &token
 		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"memberships": memberships}, httpapi.PagingMeta{
-			Limit:      limit,
+		_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"memberships": rows}, httpapi.PagingMeta{
+			Limit:      binding.Limit,
 			HasMore:    nextToken != nil,
 			NextCursor: nextToken,
 		})

@@ -4,14 +4,10 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
-
-const defaultUserListLimit = 100
 
 type UserCreateDefaults struct {
 	MFARequired       bool
@@ -407,39 +403,14 @@ func DecodeAdminRevokeAllRequest(reader io.Reader) (AdminRevokeAllRequest, *APIE
 	return request, nil
 }
 
-func DecodeUserListQuery(query url.Values) (int, *string, *APIError) {
-	for _, key := range []string{"page", "offset", "page_size", "block_size"} {
-		if _, ok := query[key]; ok {
-			return 0, nil, &APIError{
-				Status: http.StatusBadRequest,
-				Code:   "invalid_pagination_request",
-				Details: map[string]any{
-					"reason_code": "pagination_not_supported",
-				},
-			}
-		}
+func userPaginationError(reasonCode string) *APIError {
+	return &APIError{
+		Status: http.StatusBadRequest,
+		Code:   "invalid_pagination_request",
+		Details: map[string]any{
+			"reason_code": reasonCode,
+		},
 	}
-
-	limit := defaultUserListLimit
-	if value := query.Get("limit"); value != "" {
-		parsed, err := strconv.Atoi(value)
-		if err != nil || parsed < 1 || parsed > defaultUserListLimit {
-			return 0, nil, &APIError{
-				Status: http.StatusBadRequest,
-				Code:   "invalid_pagination_request",
-				Details: map[string]any{
-					"reason_code": "pagination_not_supported",
-				},
-			}
-		}
-		limit = parsed
-	}
-
-	var cursor *string
-	if value := query.Get("cursor_token"); value != "" {
-		cursor = &value
-	}
-	return limit, cursor, nil
 }
 
 func invalidMutationPayload(field string, reasonCode string) *APIError {
