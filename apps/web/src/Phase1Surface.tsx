@@ -23,7 +23,7 @@ type RefreshOptions = {
 };
 
 type Phase1AuthSurfaceProps = {
-  isLoading: boolean;
+  isCheckingSession: boolean;
   message: string;
   onAuthenticated: () => Promise<void> | void;
 };
@@ -41,7 +41,7 @@ type Phase1AdminPanelProps = {
 };
 
 export function Phase1AuthSurface({
-  isLoading,
+  isCheckingSession,
   message,
   onAuthenticated,
 }: Phase1AuthSurfaceProps) {
@@ -147,7 +147,7 @@ export function Phase1AuthSurface({
           <div style={statusCardStyle}>
             <span style={labelStyle}>Status</span>
             <strong data-testid="auth-status">
-              {isLoading ? "Checking current session…" : statusText}
+              {isCheckingSession ? "Checking current session…" : statusText}
             </strong>
           </div>
         </header>

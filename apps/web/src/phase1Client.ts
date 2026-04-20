@@ -53,12 +53,31 @@ type TotpBeginResponse = {
   };
 };
 
+type ShellGetOptions = {
+  apiBase?: string | undefined;
+  signal?: AbortSignal;
+};
+
 function apiPath(base: string | undefined, path: string): string {
   const trimmedBase = (base ?? "").trim();
   if (trimmedBase === "") {
     return path;
   }
   return `${trimmedBase.replace(/\/$/, "")}${path}`;
+}
+
+function resolveShellGetOptions(
+  apiBaseOrOptions?: string | ShellGetOptions,
+): ShellGetOptions {
+  if (
+    typeof apiBaseOrOptions === "undefined" ||
+    typeof apiBaseOrOptions === "string"
+  ) {
+    return {
+      apiBase: apiBaseOrOptions,
+    };
+  }
+  return apiBaseOrOptions;
 }
 
 function secondFactorPayload(code: string) {
@@ -73,15 +92,45 @@ function secondFactorPayload(code: string) {
   };
 }
 
-export function loadSession(apiBase?: string) {
+export function loadSession(
+  apiBase?: string,
+): Promise<APIResult<DataEnvelope<SessionData>>>;
+export function loadSession(
+  options?: ShellGetOptions,
+): Promise<APIResult<DataEnvelope<SessionData>>>;
+export function loadSession(apiBaseOrOptions?: string | ShellGetOptions) {
+  const options = resolveShellGetOptions(apiBaseOrOptions);
+  const requestInit =
+    typeof options.signal === "undefined"
+      ? undefined
+      : {
+          signal: options.signal,
+        };
   return fetchJSON<DataEnvelope<SessionData>>(
-    apiPath(apiBase, "/api/v1/auth/session"),
+    apiPath(options.apiBase, "/api/v1/auth/session"),
+    requestInit,
   );
 }
 
-export function loadCredentialState(apiBase?: string) {
+export function loadCredentialState(
+  apiBase?: string,
+): Promise<APIResult<DataEnvelope<CredentialState>>>;
+export function loadCredentialState(
+  options?: ShellGetOptions,
+): Promise<APIResult<DataEnvelope<CredentialState>>>;
+export function loadCredentialState(
+  apiBaseOrOptions?: string | ShellGetOptions,
+) {
+  const options = resolveShellGetOptions(apiBaseOrOptions);
+  const requestInit =
+    typeof options.signal === "undefined"
+      ? undefined
+      : {
+          signal: options.signal,
+        };
   return fetchJSON<DataEnvelope<CredentialState>>(
-    apiPath(apiBase, "/api/v1/auth/credential-state"),
+    apiPath(options.apiBase, "/api/v1/auth/credential-state"),
+    requestInit,
   );
 }
 

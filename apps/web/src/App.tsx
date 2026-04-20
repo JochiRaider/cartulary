@@ -4,6 +4,7 @@ import {
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -51,13 +52,23 @@ type RouteState = {
   debugHarness: boolean;
 };
 
+type ShellRefreshOptions = {
+  anonymousMessage?: string;
+  landingNotice?: string | null;
+  routeSnapshot: RouteState;
+};
+
+type AuthShellState = "checking_session" | "anonymous" | "authenticated";
+
+type LandingRefreshState = "idle" | "loading" | "failed";
+
 type IncidentLandingProps = {
   createIncidentKey: string;
   createIncidentTitle: string;
   currentUserLabel: string;
   error: APIError | null;
   incidents: IncidentData[];
-  isLoading: boolean;
+  isRefreshing: boolean;
   onCreate: () => Promise<void> | void;
   onCreateIncidentKeyChange: (value: string) => void;
   onCreateIncidentTitleChange: (value: string) => void;
@@ -65,6 +76,13 @@ type IncidentLandingProps = {
   onRefresh: () => Promise<void> | void;
   statusText: string;
 };
+
+const defaultAuthPrompt =
+  "Sign in with your local account to open incidents, manage account security, and administer deployment users.";
+const defaultStaleIncidentMessage =
+  "The requested incident is no longer visible.";
+const accessLostLandingNotice =
+  "The current incident is no longer visible. Returned to the landing screen.";
 
 function readRouteState(): RouteState {
   const params = new URLSearchParams(window.location.search);
@@ -97,12 +115,6 @@ function writeRouteState(next: RouteState, mode: "push" | "replace") {
   window.history.replaceState({}, "", url);
 }
 
-function incidentSummaryText(incident: IncidentData): string {
-  return [incident.title, incident.incident_key]
-    .filter((segment) => segment.trim() !== "")
-    .join(" · ");
-}
-
 function upsertIncident(incidents: IncidentData[], nextIncident: IncidentData) {
   const existingIndex = incidents.findIndex(
     (incident) => incident.incident_id === nextIncident.incident_id,
@@ -116,13 +128,25 @@ function upsertIncident(incidents: IncidentData[], nextIncident: IncidentData) {
   return next;
 }
 
+function isAbortError(error: unknown): boolean {
+  if (typeof DOMException !== "undefined" && error instanceof DOMException) {
+    return error.name === "AbortError";
+  }
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    (error as { name?: unknown }).name === "AbortError"
+  );
+}
+
 export function IncidentLanding({
   createIncidentKey,
   createIncidentTitle,
   currentUserLabel,
   error,
   incidents,
-  isLoading,
+  isRefreshing,
   onCreate,
   onCreateIncidentKeyChange,
   onCreateIncidentTitleChange,
@@ -225,13 +249,13 @@ export function IncidentLanding({
           </p>
         </div>
 
-        {isLoading ? (
+        {isRefreshing ? (
           <p data-testid="landing-loading" style={landingBodyStyle}>
             Loading visible incidents…
           </p>
         ) : null}
 
-        {!isLoading && !hasIncidents ? (
+        {!isRefreshing && !hasIncidents ? (
           <p data-testid="landing-empty-state" style={landingBodyStyle}>
             No incidents are visible for this session yet.
           </p>
@@ -283,51 +307,101 @@ export function IncidentLanding({
 }
 
 export function App() {
-  const defaultAuthPrompt =
-    "Sign in with your local account to open incidents, manage account security, and administer deployment users.";
   const [route, setRoute] = useState<RouteState>(() => readRouteState());
   const [session, setSession] = useState<SessionData | null>(null);
   const [credentialState, setCredentialState] =
     useState<CredentialState | null>(null);
   const [credentialError, setCredentialError] = useState<APIError | null>(null);
   const [incidents, setIncidents] = useState<IncidentData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [statusText, setStatusText] = useState("Loading visible incidents…");
-  const [pinnedStatusText, setPinnedStatusText] = useState<string | null>(null);
+  const [authShellState, setAuthShellState] =
+    useState<AuthShellState>("checking_session");
+  const [landingRefreshState, setLandingRefreshState] =
+    useState<LandingRefreshState>("idle");
+  const [landingNotice, setLandingNotice] = useState<string | null>(null);
   const [error, setError] = useState<APIError | null>(null);
   const [authPrompt, setAuthPrompt] = useState(defaultAuthPrompt);
   const [createIncidentKey, setCreateIncidentKey] = useState("");
   const [createIncidentTitle, setCreateIncidentTitle] = useState("");
+  const routeRef = useRef(route);
+  const sessionRef = useRef(session);
+  const activeRefreshRef = useRef<{
+    controller: AbortController | null;
+    requestID: number;
+  }>({
+    controller: null,
+    requestID: 0,
+  });
 
-  const loadLanding = useCallback(
-    async (options?: { anonymousMessage?: string; staleMessage?: string }) => {
-      setIsLoading(true);
+  routeRef.current = route;
+  sessionRef.current = session;
 
-      const sessionResult = await loadSession();
+  const refreshShell = useCallback(async (options: ShellRefreshOptions) => {
+    const requestID = activeRefreshRef.current.requestID + 1;
+    const previousController = activeRefreshRef.current.controller;
+    const controller = new AbortController();
+    activeRefreshRef.current = {
+      controller,
+      requestID,
+    };
+    previousController?.abort();
+
+    const canCommit = () =>
+      activeRefreshRef.current.requestID === requestID &&
+      activeRefreshRef.current.controller === controller &&
+      !controller.signal.aborted;
+
+    if (sessionRef.current === null) {
+      setAuthShellState("checking_session");
+      setLandingRefreshState("idle");
+    } else {
+      setAuthShellState("authenticated");
+      setLandingRefreshState("loading");
+    }
+    setError(null);
+    setLandingNotice(options.landingNotice ?? null);
+
+    try {
+      const sessionResult = await loadSession({
+        signal: controller.signal,
+      });
+      if (!canCommit()) {
+        return;
+      }
+
       if (!sessionResult.ok) {
         setSession(null);
         setCredentialState(null);
         setCredentialError(null);
         setIncidents([]);
+        setLandingNotice(null);
         setError(null);
-        setStatusText(
-          options?.anonymousMessage ??
-            "Sign in required for the incident shell.",
-        );
-        setAuthPrompt(options?.anonymousMessage ?? defaultAuthPrompt);
-        setIsLoading(false);
+        setAuthPrompt(options.anonymousMessage ?? defaultAuthPrompt);
+        setAuthShellState("anonymous");
+        setLandingRefreshState("idle");
         return;
       }
 
       const [credentialResult, incidentsResult] = await Promise.all([
-        loadCredentialState(),
-        fetchJSON<{ data: { incidents: IncidentData[] } }>("/api/v1/incidents"),
+        loadCredentialState({
+          signal: controller.signal,
+        }),
+        fetchJSON<{ data: { incidents: IncidentData[] } }>(
+          "/api/v1/incidents",
+          {
+            signal: controller.signal,
+          },
+        ),
       ]);
+      if (!canCommit()) {
+        return;
+      }
 
       const incidentsError = extractError(incidentsResult.payload);
       const nextCredentialError = extractError(credentialResult.payload);
+      const nextSession = (sessionResult.payload as { data: SessionData }).data;
+
       if (!incidentsResult.ok) {
-        setSession((sessionResult.payload as { data: SessionData }).data);
+        setSession(nextSession);
         setCredentialState(
           credentialResult.ok
             ? (credentialResult.payload as { data: CredentialState }).data
@@ -335,13 +409,14 @@ export function App() {
         );
         setCredentialError(nextCredentialError);
         setIncidents([]);
+        setLandingNotice(options.landingNotice ?? null);
         setError(incidentsError);
-        setStatusText("Failed to load visible incidents.");
-        setIsLoading(false);
+        setAuthPrompt(defaultAuthPrompt);
+        setAuthShellState("authenticated");
+        setLandingRefreshState("failed");
         return;
       }
 
-      const nextSession = (sessionResult.payload as { data: SessionData }).data;
       const nextCredentialState = credentialResult.ok
         ? (credentialResult.payload as { data: CredentialState }).data
         : null;
@@ -349,49 +424,74 @@ export function App() {
         incidentsResult.payload as { data: { incidents: IncidentData[] } }
       ).data.incidents;
       const requestedIncidentStillVisible =
-        route.incidentId === "" ||
+        options.routeSnapshot.incidentId === "" ||
         nextIncidents.some(
-          (incident) => incident.incident_id === route.incidentId,
+          (incident) =>
+            incident.incident_id === options.routeSnapshot.incidentId,
         );
+      const nextRoute = requestedIncidentStillVisible
+        ? null
+        : {
+            incidentId: "",
+            debugHarness: options.routeSnapshot.debugHarness,
+          };
+      const nextLandingNotice =
+        nextRoute !== null
+          ? (options.landingNotice ?? defaultStaleIncidentMessage)
+          : (options.landingNotice ?? null);
 
       setSession(nextSession);
       setCredentialState(nextCredentialState);
       setCredentialError(nextCredentialError);
       setIncidents(nextIncidents);
+      setLandingNotice(nextLandingNotice);
       setError(null);
       setAuthPrompt(defaultAuthPrompt);
-      setIsLoading(false);
+      setAuthShellState("authenticated");
+      setLandingRefreshState("idle");
 
-      if (!requestedIncidentStillVisible) {
-        const nextRoute = { incidentId: "", debugHarness: route.debugHarness };
-        const staleMessage =
-          options?.staleMessage ??
-          "The requested incident is no longer visible.";
+      if (nextRoute !== null) {
         writeRouteState(nextRoute, "replace");
         startTransition(() => {
           setRoute(nextRoute);
         });
-        setPinnedStatusText(staleMessage);
-        setStatusText(staleMessage);
+      }
+    } catch (error) {
+      if (isAbortError(error) || !canCommit()) {
+        return;
+      }
+      if (sessionRef.current === null) {
+        setSession(null);
+        setCredentialState(null);
+        setCredentialError(null);
+        setIncidents([]);
+        setLandingNotice(null);
+        setError(null);
+        setAuthPrompt(options.anonymousMessage ?? defaultAuthPrompt);
+        setAuthShellState("anonymous");
+        setLandingRefreshState("idle");
         return;
       }
 
-      if (options?.staleMessage) {
-        setPinnedStatusText(options.staleMessage);
-        setStatusText(options.staleMessage);
-        return;
-      }
-      if (pinnedStatusText !== null) {
-        setStatusText(pinnedStatusText);
-        return;
-      }
-      setStatusText(
-        nextIncidents.length === 0
-          ? "No visible incidents yet."
-          : `Loaded ${nextIncidents.length} visible incident${nextIncidents.length === 1 ? "" : "s"}.`,
-      );
-    },
-    [pinnedStatusText, route.debugHarness, route.incidentId],
+      setError(null);
+      setAuthPrompt(defaultAuthPrompt);
+      setAuthShellState("authenticated");
+      setLandingRefreshState("failed");
+    }
+  }, []);
+
+  const refreshCurrentShell = useCallback(
+    (options?: { anonymousMessage?: string }) =>
+      refreshShell({
+        routeSnapshot: routeRef.current,
+        landingNotice: null,
+        ...(typeof options?.anonymousMessage === "string"
+          ? {
+              anonymousMessage: options.anonymousMessage,
+            }
+          : {}),
+      }),
+    [refreshShell],
   );
 
   useEffect(() => {
@@ -405,8 +505,21 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    void loadLanding();
-  }, [loadLanding]);
+    return () => {
+      activeRefreshRef.current.controller?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (route.debugHarness) {
+      activeRefreshRef.current.controller?.abort();
+      return;
+    }
+    void refreshShell({
+      routeSnapshot: routeRef.current,
+      landingNotice: null,
+    });
+  }, [route.debugHarness, refreshShell]);
 
   const currentUserLabel = useMemo(() => {
     if (session === null) {
@@ -414,16 +527,24 @@ export function App() {
     }
     return `${session.display_name}${session.is_deployment_admin ? " · deployment admin" : ""}`;
   }, [session]);
+  const landingStatusText =
+    landingNotice ??
+    (landingRefreshState === "loading"
+      ? "Loading visible incidents…"
+      : landingRefreshState === "failed" || error !== null
+        ? "Failed to load visible incidents."
+        : incidents.length === 0
+          ? "No visible incidents yet."
+          : `Loaded ${incidents.length} visible incident${incidents.length === 1 ? "" : "s"}.`);
 
   const openIncident = useCallback(
     (incidentId: string) => {
       const nextRoute = { incidentId, debugHarness: route.debugHarness };
-      setPinnedStatusText(null);
+      setLandingNotice(null);
       writeRouteState(nextRoute, "push");
       startTransition(() => {
         setRoute(nextRoute);
       });
-      setStatusText("Opened workbook.");
     },
     [route.debugHarness],
   );
@@ -432,11 +553,12 @@ export function App() {
     const incidentKey = createIncidentKey.trim();
     const title = createIncidentTitle.trim();
     if (incidentKey === "" || title === "") {
-      setStatusText("Incident key and title are required.");
+      setLandingNotice("Incident key and title are required.");
       return;
     }
 
-    setPinnedStatusText(null);
+    setLandingNotice(null);
+    setError(null);
     const response = await fetchJSON<{ data: IncidentData }>(
       "/api/v1/incidents",
       {
@@ -450,7 +572,7 @@ export function App() {
     );
     if (!response.ok) {
       setError(extractError(response.payload));
-      setStatusText("Incident create failed.");
+      setLandingNotice("Incident create failed.");
       return;
     }
 
@@ -458,17 +580,17 @@ export function App() {
     setCreateIncidentKey("");
     setCreateIncidentTitle("");
     setIncidents((current) => upsertIncident(current, incident));
+    setLandingNotice(null);
     setError(null);
-    setStatusText(`Created incident ${incidentSummaryText(incident)}.`);
     openIncident(incident.incident_id);
   }, [createIncidentKey, createIncidentTitle, openIncident]);
 
   const handleIncidentAccessLost = useCallback(() => {
-    void loadLanding({
-      staleMessage:
-        "The current incident is no longer visible. Returned to the landing screen.",
+    void refreshShell({
+      routeSnapshot: routeRef.current,
+      landingNotice: accessLostLandingNotice,
     });
-  }, [loadLanding]);
+  }, [refreshShell]);
 
   const handleIncidentSnapshot = useCallback((incident: IncidentData) => {
     setIncidents((current) => upsertIncident(current, incident));
@@ -497,11 +619,11 @@ export function App() {
                   incidentId: "",
                   debugHarness: route.debugHarness,
                 };
+                setLandingNotice("Returned to incident landing.");
                 writeRouteState(nextRoute, "push");
                 startTransition(() => {
                   setRoute(nextRoute);
                 });
-                setStatusText("Returned to incident landing.");
               }}
             >
               Incident landing
@@ -542,11 +664,13 @@ export function App() {
   if (session === null) {
     return (
       <Phase1AuthSurface
-        isLoading={isLoading}
+        isCheckingSession={authShellState === "checking_session"}
         message={authPrompt}
         onAuthenticated={async () => {
-          setPinnedStatusText(null);
-          await loadLanding();
+          await refreshShell({
+            routeSnapshot: routeRef.current,
+            landingNotice: null,
+          });
         }}
       />
     );
@@ -561,25 +685,30 @@ export function App() {
           currentUserLabel={currentUserLabel}
           error={error}
           incidents={incidents}
-          isLoading={isLoading}
+          isRefreshing={landingRefreshState === "loading"}
           onCreate={handleCreateIncident}
           onCreateIncidentKeyChange={setCreateIncidentKey}
           onCreateIncidentTitleChange={setCreateIncidentTitle}
           onOpenIncident={openIncident}
           onRefresh={() => {
-            setPinnedStatusText(null);
-            void loadLanding();
+            void refreshShell({
+              routeSnapshot: routeRef.current,
+              landingNotice: null,
+            });
           }}
-          statusText={statusText}
+          statusText={landingStatusText}
         />
         <section style={supportPanelGridStyle}>
           <Phase1AccountPanel
             credentialState={credentialState}
             credentialStateError={credentialError}
-            onRefreshShell={loadLanding}
+            onRefreshShell={refreshCurrentShell}
             session={session}
           />
-          <Phase1AdminPanel onRefreshShell={loadLanding} session={session} />
+          <Phase1AdminPanel
+            onRefreshShell={refreshCurrentShell}
+            session={session}
+          />
         </section>
       </div>
     </main>

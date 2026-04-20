@@ -34,7 +34,15 @@ vi.mock("./WorkbookShell", () => ({
   TimelineWorkbook: vi.fn(),
 }));
 
-import { App } from "./App";
+vi.mock("./Phase1Harness", () => ({
+  Phase1Harness: () => <section data-testid="mock-phase1-harness" />,
+}));
+
+vi.mock("./Phase2Harness", () => ({
+  Phase2Harness: () => <section data-testid="mock-phase2-harness" />,
+}));
+
+import { AppRoot } from "./AppRoot";
 
 describe("Incident landing", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -79,7 +87,7 @@ describe("Incident landing", () => {
       throw new Error(`unexpected fetch: ${String(input)}`);
     });
 
-    render(<App />);
+    renderApp();
 
     expect(
       (await screen.findByTestId("landing-empty-state")).textContent,
@@ -88,6 +96,7 @@ describe("Incident landing", () => {
     expect(screen.getByTestId("landing-current-user").textContent).toBe(
       "Bootstrap Admin · deployment admin",
     );
+    await expectStableFetchCount(fetchMock, 3);
   });
 
   it("renders one or many visible incidents on the landing screen", async () => {
@@ -121,7 +130,7 @@ describe("Incident landing", () => {
       throw new Error(`unexpected fetch: ${String(input)}`);
     });
 
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByTestId("landing-incident-list")).toBeTruthy();
     expect(screen.getByTestId("landing-incidents-count").textContent).toBe("2");
@@ -131,6 +140,7 @@ describe("Incident landing", () => {
     expect(
       screen.getByTestId("landing-incident-incident-2").textContent,
     ).toContain("Second Incident");
+    await expectStableFetchCount(fetchMock, 3);
   });
 
   it("navigates into the workbook after create succeeds", async () => {
@@ -192,7 +202,7 @@ describe("Incident landing", () => {
       throw new Error(`unexpected fetch: ${method} ${url}`);
     });
 
-    render(<App />);
+    renderApp();
 
     await screen.findByTestId("landing-empty-state");
     fireEvent.change(screen.getByTestId("landing-incident-key"), {
@@ -241,13 +251,60 @@ describe("Incident landing", () => {
       throw new Error(`unexpected fetch: ${String(input)}`);
     });
 
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByTestId("landing-incident-list")).toBeTruthy();
     expect(screen.getByTestId("landing-status").textContent).toContain(
       "no longer visible",
     );
     expect(window.location.search).not.toContain("incident_id=");
+    await expectStableFetchCount(fetchMock, 3);
+  });
+
+  it("renders the workbook directly from an authenticated incident route under StrictMode", async () => {
+    window.history.replaceState({}, "", "/?incident_id=incident-5");
+    fetchMock.mockImplementation((input) => {
+      if (String(input) === "/api/v1/auth/session") {
+        return Promise.resolve(
+          jsonResponse({
+            data: sessionResource({
+              display_name: "Operator",
+              memberships: [
+                {
+                  incident_id: "incident-5",
+                  role: "admin",
+                },
+              ],
+            }),
+          }),
+        );
+      }
+      if (String(input) === "/api/v1/auth/credential-state") {
+        return Promise.resolve(
+          jsonResponse({ data: credentialStateResource() }),
+        );
+      }
+      if (String(input) === "/api/v1/incidents") {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              incidents: [
+                incidentResource("incident-5", "IR-205", "Visible Incident"),
+              ],
+            },
+          }),
+        );
+      }
+      throw new Error(`unexpected fetch: ${String(input)}`);
+    });
+
+    renderApp();
+
+    expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
+    expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
+      "incident-5",
+    );
+    await expectStableFetchCount(fetchMock, 3);
   });
 
   it("returns to the landing screen when workbook access is lost", async () => {
@@ -296,9 +353,10 @@ describe("Incident landing", () => {
       throw new Error(`unexpected fetch: ${String(input)}`);
     });
 
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
+    await expectStableFetchCount(fetchMock, 3);
     accessLost = true;
     fireEvent.click(screen.getByTestId("mock-access-lost"));
 
@@ -309,8 +367,123 @@ describe("Incident landing", () => {
       "no longer visible",
     );
     expect(window.location.search).not.toContain("incident_id=");
+    await expectStableFetchCount(fetchMock, 6);
+  });
+
+  it("cancels an in-flight shell refresh when the app unmounts", async () => {
+    const abortedSignals: AbortSignal[] = [];
+    fetchMock.mockImplementation((input, init) => {
+      if (String(input) === "/api/v1/auth/session") {
+        const signal = init?.signal as AbortSignal | undefined;
+        return new Promise<Response>((_, reject) => {
+          const abort = () => {
+            if (signal) {
+              abortedSignals.push(signal);
+            }
+            reject(new DOMException("Aborted", "AbortError"));
+          };
+          if (signal?.aborted) {
+            abort();
+            return;
+          }
+          signal?.addEventListener("abort", abort, { once: true });
+        });
+      }
+      throw new Error(`unexpected fetch: ${String(input)}`);
+    });
+
+    const view = renderApp();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+    view.unmount();
+
+    await waitFor(() => {
+      expect(abortedSignals).toHaveLength(1);
+    });
+    await flushMicrotasks();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("aborts an in-flight refresh when entering the debug harness and loads the ordinary shell after leaving it", async () => {
+    const abortedSignals: AbortSignal[] = [];
+    let readyToLoad = false;
+    fetchMock.mockImplementation((input, init) => {
+      if (String(input) === "/api/v1/auth/session") {
+        if (!readyToLoad) {
+          const signal = init?.signal as AbortSignal | undefined;
+          return new Promise<Response>((_, reject) => {
+            const abort = () => {
+              if (signal) {
+                abortedSignals.push(signal);
+              }
+              reject(new DOMException("Aborted", "AbortError"));
+            };
+            if (signal?.aborted) {
+              abort();
+              return;
+            }
+            signal?.addEventListener("abort", abort, { once: true });
+          });
+        }
+        return Promise.resolve(
+          jsonResponse({
+            data: sessionResource({
+              display_name: "Operator",
+            }),
+          }),
+        );
+      }
+      if (String(input) === "/api/v1/auth/credential-state") {
+        return Promise.resolve(
+          jsonResponse({ data: credentialStateResource() }),
+        );
+      }
+      if (String(input) === "/api/v1/incidents") {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              incidents: [],
+            },
+          }),
+        );
+      }
+      throw new Error(`unexpected fetch: ${String(input)}`);
+    });
+
+    renderApp();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByTestId("auth-status").textContent).toBe(
+      "Checking current session…",
+    );
+
+    window.history.pushState({}, "", "/?debug=harness");
+    fireEvent.popState(window);
+
+    expect(await screen.findByText("Debug harness shell")).toBeTruthy();
+    await waitFor(() => {
+      expect(abortedSignals).toHaveLength(1);
+    });
+
+    readyToLoad = true;
+    window.history.pushState({}, "", "/");
+    fireEvent.popState(window);
+
+    expect(await screen.findByTestId("landing-empty-state")).toBeTruthy();
+    expect(screen.getByTestId("landing-current-user").textContent).toBe(
+      "Operator",
+    );
+    await expectStableFetchCount(fetchMock, 4);
   });
 });
+
+function renderApp() {
+  return render(<AppRoot />);
+}
 
 function incidentResource(
   incidentId: string,
@@ -380,4 +553,20 @@ function jsonResponse(payload: unknown, status = 200) {
       "Content-Type": "application/json",
     },
   });
+}
+
+async function expectStableFetchCount(
+  fetchMock: ReturnType<typeof vi.fn>,
+  expectedCount: number,
+) {
+  await waitFor(() => {
+    expect(fetchMock).toHaveBeenCalledTimes(expectedCount);
+  });
+  await flushMicrotasks();
+  expect(fetchMock).toHaveBeenCalledTimes(expectedCount);
+}
+
+async function flushMicrotasks() {
+  await Promise.resolve();
+  await Promise.resolve();
 }

@@ -15,7 +15,7 @@ vi.mock("./WorkbookShell", () => ({
   TimelineWorkbook: vi.fn(),
 }));
 
-import { App } from "./App";
+import { AppRoot } from "./AppRoot";
 
 describe("Phase 1 ordinary app shell", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -43,12 +43,18 @@ describe("Phase 1 ordinary app shell", () => {
       throw new Error(`unexpected fetch: ${String(input)}`);
     });
 
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByTestId("auth-login-username")).toBeTruthy();
     expect(screen.getByTestId("auth-shell-message").textContent).toContain(
       "Sign in with your local account",
     );
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-status").textContent).toBe(
+        "Ready to sign in.",
+      );
+    });
+    await expectStableFetchCount(fetchMock, 1);
   });
 
   it("signs in through the ordinary shell and renders account plus denied admin panels", async () => {
@@ -98,7 +104,7 @@ describe("Phase 1 ordinary app shell", () => {
       throw new Error(`unexpected fetch: ${method} ${url}`);
     });
 
-    render(<App />);
+    renderApp();
 
     await screen.findByTestId("auth-login-username");
     fireEvent.change(screen.getByTestId("auth-login-username"), {
@@ -120,6 +126,7 @@ describe("Phase 1 ordinary app shell", () => {
     expect(screen.getByTestId("admin-access-note").textContent).toContain(
       "Deployment admin access is required",
     );
+    await expectStableFetchCount(fetchMock, 5);
   });
 
   it("shows the bootstrap enrollment flow on the ordinary login shell", async () => {
@@ -155,7 +162,7 @@ describe("Phase 1 ordinary app shell", () => {
       throw new Error(`unexpected fetch: ${method} ${url}`);
     });
 
-    render(<App />);
+    renderApp();
 
     await screen.findByTestId("auth-login-username");
     fireEvent.change(screen.getByTestId("auth-login-username"), {
@@ -252,7 +259,7 @@ describe("Phase 1 ordinary app shell", () => {
       throw new Error(`unexpected fetch: ${method} ${url}`);
     });
 
-    render(<App />);
+    renderApp();
 
     await screen.findByTestId("landing-current-user");
     fireEvent.change(screen.getByTestId("admin-create-email"), {
@@ -287,6 +294,10 @@ describe("Phase 1 ordinary app shell", () => {
     });
   });
 });
+
+function renderApp() {
+  return render(<AppRoot />);
+}
 
 function sessionResource(
   overrides?: Partial<{
@@ -361,6 +372,22 @@ function jsonResponse(payload: unknown, status = 200) {
       "Content-Type": "application/json",
     },
   });
+}
+
+async function expectStableFetchCount(
+  fetchMock: ReturnType<typeof vi.fn>,
+  expectedCount: number,
+) {
+  await waitFor(() => {
+    expect(fetchMock).toHaveBeenCalledTimes(expectedCount);
+  });
+  await flushMicrotasks();
+  expect(fetchMock).toHaveBeenCalledTimes(expectedCount);
+}
+
+async function flushMicrotasks() {
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 function errorResponse(
