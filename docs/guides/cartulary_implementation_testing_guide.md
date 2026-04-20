@@ -299,6 +299,8 @@ This is the first phase where record-row history exists at all. Phase 7 will lat
 | E-3-03 | A reviewer marks a row as reviewed, later edits demote it to enriched when material, and a legal supersede action moves it to `superseded`. | REQ-01-083..REQ-01-088, REQ-03-103..REQ-03-110 | AC-107..AC-111 |
 | E-3-04 | Replaying the same patch request with the same `client_txn_id` returns the original committed result and does not create duplicate history or duplicate visible updates. | REQ-01-058, REQ-01-069..REQ-01-070 | AC-299 |
 
+Browser tests bound to Core 05 measurement predicates or p95 fixture-sensitive envelope checks are isolated-run evidence. They must execute through the measurement browser suite and not inside the parallel heavy verification block used for functional gate work.
+
 ---
 
 ## 6. Phase 4 — Entities, mentions, resolution, merge, and canonical-indicator foundations

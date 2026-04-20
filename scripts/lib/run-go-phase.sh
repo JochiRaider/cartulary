@@ -26,68 +26,67 @@ if [[ "$#" -eq 0 ]]; then
 fi
 
 command=("$@")
-list_command=("${command[@]}" -list "$pattern")
-run_command=("${command[@]}" -run "$pattern")
+test_index=-1
+for i in "${!command[@]}"; do
+  if [[ "${command[$i]}" == "test" ]]; then
+    test_index="$i"
+    break
+  fi
+done
 
-set +e
-list_output="$("${list_command[@]}" 2>&1)"
-list_status=$?
-set -e
+if [[ "$test_index" -lt 1 ]]; then
+  echo "usage: run-go-phase.sh \"<label>\" \"<pattern>\" -- <go test command...>" >&2
+  echo "expected a go test command after --" >&2
+  exit 2
+fi
+
+prefix=("${command[@]:0:$test_index}")
+suffix=("${command[@]:$((test_index + 1))}")
+run_command=("${prefix[@]}" test -json -run "$pattern" "${suffix[@]}")
+log_file="$(mktemp -t cartulary-phase-XXXX.log)"
+inventory_command=("${prefix[@]}" run ./tools/gotestinventory "$log_file")
+output_mode="$(resolve_output_mode)"
 
 echo "== ${phase} =="
 
-if [[ "$list_status" -ne 0 ]]; then
+set +e
+if [[ "$output_mode" != "quiet" ]]; then
+  "${run_command[@]}" > >(tee "$log_file") 2>&1
+  run_status=$?
+else
+  "${run_command[@]}" >"$log_file" 2>&1
+  run_status=$?
+fi
+set -e
+
+set +e
+inventory_output="$("${inventory_command[@]}" 2>&1)"
+inventory_status=$?
+set -e
+
+if [[ -n "$inventory_output" ]]; then
+  if [[ "$inventory_status" -eq 0 ]]; then
+    printf '%s\n' "$inventory_output"
+  else
+    printf '%s\n' "$inventory_output" >&2
+  fi
+fi
+
+if [[ "$inventory_status" -ne 0 && "$run_status" -eq 0 ]]; then
   echo "phase failed: ${phase} inventory" >&2
-  echo "failing command: $(render_command "${list_command[@]}")" >&2
-  echo "----- phase output begin -----" >&2
-  printf '%s\n' "$list_output" >&2
-  echo "----- phase output end -----" >&2
-  exit "$list_status"
+  echo "failing command: $(render_command "${inventory_command[@]}")" >&2
+  echo "phase log: $log_file" >&2
+  show_phase_log_excerpt "$log_file"
+  exit "$inventory_status"
 fi
 
-matched_packages=0
-matched_tests=0
-inventory=""
-pending_tests=()
-
-while IFS= read -r line; do
-  if [[ "$line" =~ ^(Test|Benchmark|Fuzz) ]]; then
-    pending_tests+=("$line")
-    continue
-  fi
-
-  if [[ "$line" =~ ^(ok|\?|FAIL)[[:space:]]+([^[:space:]]+) ]]; then
-    if [[ ${#pending_tests[@]} -eq 0 ]]; then
-      continue
-    fi
-
-    pkg="${BASH_REMATCH[2]}"
-    matched_packages=$((matched_packages + 1))
-    inventory+=$'  '"$pkg"$'\n'
-    for test_name in "${pending_tests[@]}"; do
-      matched_tests=$((matched_tests + 1))
-      inventory+=$'    '"$test_name"$'\n'
-    done
-    pending_tests=()
-  fi
-done <<<"$list_output"
-
-if [[ ${#pending_tests[@]} -ne 0 ]]; then
-  echo "phase inventory parse failed: unmatched test names remained without a package status line" >&2
-  echo "inventory command: $(render_command "${list_command[@]}")" >&2
-  echo "----- phase output begin -----" >&2
-  printf '%s\n' "$list_output" >&2
-  echo "----- phase output end -----" >&2
-  exit 1
+if [[ "$run_status" -eq 0 ]]; then
+  rm -f "$log_file"
+  exit 0
 fi
 
-if [[ "$matched_tests" -eq 0 ]]; then
-  echo "phase matched zero tests" >&2
-  echo "inventory command: $(render_command "${list_command[@]}")" >&2
-  exit 1
+if [[ "$output_mode" == "quiet" ]]; then
+  emit_phase_failure "$phase" "$log_file" "${run_command[@]}"
 fi
 
-echo "matched go tests: ${matched_tests} across ${matched_packages} packages"
-printf '%s' "$inventory"
-
-RUN_PHASE_SHOW_BANNER=0 run_phase_command "$phase" "${run_command[@]}"
+exit "$run_status"

@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 COMPOSE_FILE="$ROOT_DIR/docker-compose.dev.yml"
 GO_BIN="${GO:-go}"
+MIGRATE_BIN="${CARTULARY_MIGRATE_BIN:-}"
 CONFIG_FILE="${CONFIG_FILE:-$ROOT_DIR/configs/dev/config.toml}"
 export GOCACHE="${GOCACHE:-/tmp/cartulary-go-build}"
 export GOMODCACHE="${GOMODCACHE:-/tmp/cartulary-go-mod}"
@@ -56,9 +57,13 @@ run_migrate() {
   local command="$2"
   (
     cd "$ROOT_DIR"
-    CARTULARY_CONFIG_FILE="$CONFIG_FILE" \
-    CARTULARY_POSTGRES_DSN="postgres://cartulary:cartulary@localhost:5432/$db_name?sslmode=disable" \
+    export CARTULARY_CONFIG_FILE="$CONFIG_FILE"
+    export CARTULARY_POSTGRES_DSN="postgres://cartulary:cartulary@localhost:5432/$db_name?sslmode=disable"
+    if [[ -n "$MIGRATE_BIN" && -x "$MIGRATE_BIN" ]]; then
+      "$MIGRATE_BIN" "$command"
+    else
       "$GO_BIN" run ./cmd/migrate "$command"
+    fi
   )
 }
 

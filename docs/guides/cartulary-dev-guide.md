@@ -1112,6 +1112,8 @@ Unless an owner criterion declares another benchmark profile explicitly, the cur
 
 The implementation baseline SHOULD mirror these fixtures in local and CI performance harnesses where practical. That mirroring is informative engineering validation only unless the run also satisfies Core 05 claim-publication requirements.
 
+When repo task orchestration separates functional browser checks from timing-sensitive browser evidence, any browser test bound to Core 05 measurement predicates or other p95 fixture-sensitive envelope criteria SHOULD run in the isolated measurement suite after heavy backend verification has quiesced. These rows are not parallel-safe gate work because the fixture definition assumes a stable harness rather than incidental contention from unrelated verification tasks.
+
 ### 14.2 Guide acceptance criteria
 
 This guide rewrite is complete only when all of the following are true:

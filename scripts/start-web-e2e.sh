@@ -3,6 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_FILE="${ROOT_DIR}/docker-compose.dev.yml"
+GO_BIN="${GO:-go}"
+SERVER_BIN="${CARTULARY_SERVER_BIN:-}"
+MIGRATE_BIN="${CARTULARY_MIGRATE_BIN:-}"
 RUNTIME_ROOT_BASE="$(mktemp -d /tmp/cartulary-web-e2e-runtime-XXXXXX)"
 E2E_DB="cartulary_web_e2e_$$"
 E2E_DSN="postgres://cartulary:cartulary@localhost:5432/${E2E_DB}?sslmode=disable"
@@ -85,6 +88,24 @@ wait_for_minio() {
   return 1
 }
 
+run_migrate() {
+  if [[ -n "${MIGRATE_BIN}" && -x "${MIGRATE_BIN}" ]]; then
+    "${MIGRATE_BIN}" "$@"
+    return
+  fi
+
+  "${GO_BIN}" run ./cmd/migrate "$@"
+}
+
+run_server() {
+  if [[ -n "${SERVER_BIN}" && -x "${SERVER_BIN}" ]]; then
+    "${SERVER_BIN}" "$@"
+    return
+  fi
+
+  "${GO_BIN}" run ./cmd/server "$@"
+}
+
 make -C "${ROOT_DIR}" frontend-toolchain
 docker compose -f "${COMPOSE_FILE}" up -d postgres minio >/dev/null
 wait_for_postgres
@@ -100,7 +121,7 @@ docker compose -f "${COMPOSE_FILE}" exec -T postgres \
   CARTULARY_POSTGRES_DSN="${E2E_DSN}" \
   GOCACHE=/tmp/cartulary-go-build \
   GOMODCACHE=/tmp/cartulary-go-mod \
-  go run ./cmd/migrate up
+  run_migrate up
 )
 
 (
@@ -117,7 +138,7 @@ docker compose -f "${COMPOSE_FILE}" exec -T postgres \
   CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH="${RUNTIME_ROOT_BASE}/export-outputs" \
   GOCACHE=/tmp/cartulary-go-build \
   GOMODCACHE=/tmp/cartulary-go-mod \
-  go run ./cmd/server
+  run_server
 ) >"${SERVER_LOG}" 2>&1 &
 SERVER_PID=$!
 

@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape phase-map-check phase-test-name-check run-phase-smoke backend-unit backend-integration backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e test-fast test e2e lint check ci build
+.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-test-name-check run-phase-smoke backend-unit backend-integration backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e browser-e2e-functional browser-e2e-measurement test-fast test e2e lint lint-go lint-biome lint-typecheck check check-preflight check-heavy check-isolated ci build build-server build-migrate build-web
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
 PNPM ?= $(shell if command -v pnpm >/dev/null 2>&1; then command -v pnpm; elif [ -x "$$HOME/.local/share/pnpm/pnpm" ]; then printf "$$HOME/.local/share/pnpm/pnpm"; fi)
@@ -14,6 +14,8 @@ CHECK_JOBS ?= 4
 PLAYWRIGHT_WORKERS ?= 2
 NODE_RUNTIME_DIR ?= $(CURDIR)/tmp/node-runtime
 NODE_BIN ?= $(NODE_RUNTIME_DIR)/bin/node
+SERVER_BIN ?= $(CURDIR)/server
+MIGRATE_BIN ?= $(CURDIR)/migrate
 PNPM_RUN_ENV := PATH=$(NODE_RUNTIME_DIR)/bin:$$PATH
 GO_ENV := env $(GO_RUN_ENV)
 PNPM_ENV := env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH"
@@ -105,10 +107,12 @@ generate-drift:
 
 # Migration drift covers schema-affecting changes not represented in /db/migrations
 # or migrations that fail to apply cleanly in CI.
-migration-drift:
-	$(RUN_PHASE) "migration-drift" -- env GO=$(GO) CONFIG_FILE=$(CONFIG_FILE) GOCACHE=$(GO_CACHE_DIR) GOMODCACHE=$(GO_MOD_CACHE_DIR) ./scripts/check-migrations.sh
+migration-drift: build-migrate
+	$(RUN_PHASE) "migration-drift" -- env GO=$(GO) CONFIG_FILE=$(CONFIG_FILE) GOCACHE=$(GO_CACHE_DIR) GOMODCACHE=$(GO_MOD_CACHE_DIR) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/check-migrations.sh
 
-deployable-shape: build
+deployable-shape: deployable-shape-verify
+
+deployable-shape-verify: build-server build-migrate build-web
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "deployable-shape" -- ./scripts/ci/check-deployable-shape.sh
 
 phase-map-check: frontend-toolchain
@@ -143,10 +147,10 @@ backend-integration: frontend-toolchain
 
 # Phase 0 process evidence is part of the developer gate and must never be direct-run only.
 backend-process: frontend-toolchain
-	$(Q)$(MAKE) --no-print-directory phase0-process-e2e
-	$(Q)$(MAKE) --no-print-directory phase1-process-smoke
-	$(Q)$(MAKE) --no-print-directory phase2-process-smoke
+	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
+	$(RUN_GO_PHASE) "backend-process" '^(TestPhase0_.*_E_0_[0-9]+|TestPhase1_.*_ProcessSmoke|TestPhase2_ProcessSmoke_)$$' -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4
 
+# Phase 0 process evidence is part of the developer gate and must never be direct-run only.
 phase0-process-e2e:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_GO_PHASE) "phase0-process-e2e" '^(TestPhase0_.*_E_0_[0-9]+)$$' -- $(GO_ENV) $(GO) test ./cmd/server
@@ -166,28 +170,56 @@ e2e: frontend-toolchain
 	$(Q)$(MAKE) --no-print-directory browser-e2e
 
 browser-e2e: frontend-toolchain
-	$(RUN_PHASE) "browser-e2e" -- env PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" $(PNPM) --dir apps/web exec playwright test $(PLAYWRIGHT_TEST_FLAGS) e2e/phase1.spec.ts e2e/phase2.spec.ts e2e/phase3.spec.ts e2e/phase4.spec.ts
+	$(Q)$(MAKE) --no-print-directory browser-e2e-functional
+	$(Q)$(MAKE) --no-print-directory browser-e2e-measurement
 
-lint: frontend-toolchain
+browser-e2e-functional: frontend-toolchain build-server build-migrate
+	$(RUN_PHASE) "browser-e2e-functional" -- env PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) $(PNPM) --dir apps/web exec playwright test $(PLAYWRIGHT_TEST_FLAGS) e2e/phase1.spec.ts e2e/phase2.spec.ts e2e/phase3.spec.ts e2e/phase4.spec.ts
+
+# Core 05-bound timing evidence is not parallel-safe with the heavy backend gate.
+browser-e2e-measurement: frontend-toolchain build-server build-migrate
+	$(RUN_PHASE) "browser-e2e-measurement" -- env PLAYWRIGHT_WORKERS=1 PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) $(PNPM) --dir apps/web exec playwright test $(PLAYWRIGHT_TEST_FLAGS) e2e/measurement/phase3_measurement.spec.ts
+
+lint: lint-go lint-biome lint-typecheck
+
+lint-go:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "lint go-vet" -- $(GO_ENV) $(GO) vet ./...
+
+lint-biome: frontend-toolchain
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "lint biome" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec biome check src $(BIOME_CHECK_FLAGS)
+
+lint-typecheck: frontend-toolchain
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "lint typecheck" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec tsc --noEmit $(TSC_FLAGS)
 
-check: frontend-toolchain
+check-preflight: frontend-toolchain
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "check frontend install" -- $(PNPM_ENV) $(PNPM) install --frozen-lockfile $(PNPM_INSTALL_FLAGS)
 	$(Q)$(MAKE) --no-print-directory run-phase-smoke
 	$(Q)$(MAKE) --no-print-directory phase-test-name-check
 	$(Q)$(MAKE) --no-print-directory generate-drift
 	$(Q)$(MAKE) --no-print-directory phase-map-check
-	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(CHECK_JOBS) migration-drift lint backend-unit backend-integration backend-process frontend-unit deployable-shape
-	$(Q)$(MAKE) --no-print-directory browser-e2e
+
+# Keep only parallel-safe work here; measurement-sensitive browser evidence runs after this block.
+check-heavy: migration-drift lint-go lint-biome lint-typecheck backend-unit backend-integration backend-process frontend-unit browser-e2e-functional deployable-shape-verify
+
+check-isolated: browser-e2e-measurement
+
+check: check-preflight
+	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(CHECK_JOBS) check-heavy
+	$(Q)$(MAKE) --no-print-directory check-isolated
 
 ci:
 	$(Q)./scripts/ci/verify.sh
 
-build: frontend-toolchain
+build: build-server build-migrate build-web
+
+build-server:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "build server" -- $(GO_ENV) $(GO) build ./cmd/server
+
+build-migrate:
+	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "build migrate" -- $(GO_ENV) $(GO) build ./cmd/migrate
+
+build-web: frontend-toolchain
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "build web" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec vite build $(VITE_BUILD_FLAGS)

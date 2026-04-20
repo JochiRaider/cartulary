@@ -17,6 +17,37 @@ resolve_output_mode() {
   printf '%s\n' "$output_mode"
 }
 
+show_phase_log_excerpt() {
+  local log_file="$1"
+  local line_count
+  line_count="$(wc -l <"$log_file")"
+
+  if [[ "$line_count" -le 200 ]]; then
+    echo "----- phase output begin -----" >&2
+    cat "$log_file" >&2
+    echo "----- phase output end -----" >&2
+    return
+  fi
+
+  echo "----- phase output first 40 lines begin -----" >&2
+  sed -n '1,40p' "$log_file" >&2
+  echo "----- phase output first 40 lines end -----" >&2
+  echo "----- phase output last 160 lines begin -----" >&2
+  tail -n 160 "$log_file" >&2
+  echo "----- phase output last 160 lines end -----" >&2
+}
+
+emit_phase_failure() {
+  local phase="$1"
+  local log_file="$2"
+  shift 2
+
+  echo "phase failed: ${phase}" >&2
+  echo "failing command: $(render_command "$@")" >&2
+  echo "phase log: $log_file" >&2
+  show_phase_log_excerpt "$log_file"
+}
+
 run_phase_command() {
   if [[ "$#" -lt 2 ]]; then
     echo "run_phase_command requires <label> <command...>" >&2
@@ -57,25 +88,7 @@ run_phase_command() {
     return 0
   fi
 
-  local line_count
-  line_count="$(wc -l <"$log_file")"
-
-  echo "phase failed: ${phase}" >&2
-  echo "failing command: $(render_command "$@")" >&2
-  echo "phase log: $log_file" >&2
-
-  if [[ "$line_count" -le 200 ]]; then
-    echo "----- phase output begin -----" >&2
-    cat "$log_file" >&2
-    echo "----- phase output end -----" >&2
-  else
-    echo "----- phase output first 40 lines begin -----" >&2
-    sed -n '1,40p' "$log_file" >&2
-    echo "----- phase output first 40 lines end -----" >&2
-    echo "----- phase output last 160 lines begin -----" >&2
-    tail -n 160 "$log_file" >&2
-    echo "----- phase output last 160 lines end -----" >&2
-  fi
+  emit_phase_failure "$phase" "$log_file" "$@"
 
   return "$status"
 }
