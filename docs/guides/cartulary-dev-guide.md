@@ -626,7 +626,8 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make db-reset` | Recreate the database and run migrations |
 | `make dev` | Start the Go server and Vite dev server |
 | `make generate` | Regenerate Go and TypeScript artifacts derived from `/db/queries/*` and `/contracts/*` |
-| `make test-fast` | Run the narrower backend and frontend unit/process loop |
+| `make backend-store` | Run service-backed store-domain `U-*` backend evidence that keeps unit-layer IDs while using real Postgres |
+| `make test-fast` | Run the narrower pure-unit, service-backed backend, and frontend unit/process loop |
 | `make test` | Run the authoritative full test corpus, including manifest-verified browser E2E plus explicit support suites |
 | `make lint` | Run backend vet/lint and frontend lint/type checks |
 | `make check` | Developer verification gate |
@@ -651,6 +652,13 @@ The repository MUST distinguish **codegen drift** from **migration drift**:
 
 Browser verification MUST also distinguish shared-stack functional browser work from isolated browser classes. Stateful browser suites and fixture-sensitive measurement suites remain isolated after the heavy parallel block; ordinary web-server-backed browser suites belong to one serialized shared-stack orchestration path.
 
+Backend verification MUST distinguish phase evidence from execution dependency. The repository now uses two axes:
+
+- evidence layer: `U-*`, `I-*`, and `E-*` remain the authoritative phase IDs and must not be reclassified only because a harness uses real services,
+- execution dependency: pure unit, service-backed store-domain, service-backed runtime, process, and isolated browser work.
+
+`backend-unit` is reserved for pure backend tests with no `pgtest`, `s3test`, or real runtime startup. `backend-store` owns the service-backed store-domain `U-*` slice, while `backend-integration`, `backend-process`, and browser suites continue to own runtime, process, and browser-backed evidence respectively.
+
 ### 7.3 Local development loop
 
 The default local loop is:
@@ -664,6 +672,8 @@ Production packaging MUST embed the built frontend assets into the application d
 ### 7.4 Test strategy
 
 **Backend unit tests** cover module-local behavior with no external service dependency.
+
+**Backend store tests** keep `U-*` evidence where the owner contract is still store-domain behavior, but they run against real Postgres rather than stubs. These tests execute through `make backend-store`, not `make backend-unit`.
 
 **Backend integration tests** use real Postgres and MinIO through `testcontainers-go` or an equivalent real-service harness. Integration tests MUST exercise:
 

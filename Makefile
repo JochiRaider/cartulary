@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-test-name-check browser-e2e-task-surface-check run-phase-smoke backend-unit backend-integration backend-integration-support backend-process backend-process-support phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-measurement test-fast test e2e lint lint-go lint-biome lint-typecheck check check-preflight check-heavy check-isolated ci build build-server build-migrate build-web
+.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-test-name-check browser-e2e-task-surface-check backend-task-surface-check service-backed-unit-check run-phase-smoke backend-unit backend-store backend-integration backend-integration-support backend-process backend-process-support phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-measurement test-fast test e2e lint lint-go lint-biome lint-typecheck check check-preflight check-heavy check-service-backed check-isolated ci build build-server build-migrate build-web
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
 PNPM ?= $(shell if command -v pnpm >/dev/null 2>&1; then command -v pnpm; elif [ -x "$$HOME/.local/share/pnpm/pnpm" ]; then printf "$$HOME/.local/share/pnpm/pnpm"; fi)
@@ -11,6 +11,7 @@ GO_RUN_ENV := GOCACHE=$(GO_CACHE_DIR) GOMODCACHE=$(GO_MOD_CACHE_DIR)
 NODE_VERSION ?= 24.15.0
 PNPM_VERSION ?= 10.33.0
 CHECK_JOBS ?= 4
+GO_TEST_SERVICE_PACKAGE_PARALLELISM ?= 1
 PLAYWRIGHT_WORKERS ?= 2
 NODE_RUNTIME_DIR ?= $(CURDIR)/tmp/node-runtime
 NODE_BIN ?= $(NODE_RUNTIME_DIR)/bin/node
@@ -131,8 +132,15 @@ phase-test-name-check:
 browser-e2e-task-surface-check:
 	$(RUN_PHASE) "browser-e2e-task-surface-check" -- ./scripts/check-browser-e2e-task-surface.sh
 
+backend-task-surface-check:
+	$(RUN_PHASE) "backend-task-surface-check" -- ./scripts/check-backend-task-surface.sh
+
+service-backed-unit-check:
+	$(RUN_PHASE) "service-backed-unit-check" -- ./scripts/check-service-backed-unit-tests.sh
+
 test-fast: frontend-toolchain
 	$(Q)$(MAKE) --no-print-directory backend-unit
+	$(Q)$(MAKE) --no-print-directory backend-store
 	$(Q)$(MAKE) --no-print-directory backend-integration
 	$(Q)$(MAKE) --no-print-directory backend-integration-support
 	$(Q)$(MAKE) --no-print-directory backend-process
@@ -147,13 +155,17 @@ backend-unit: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_GO_PHASE) "backend-unit platform" '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase3_.*_U_3_|TestPhase4_.*_U_4_)' -- $(GO_ENV) $(GO) test ./internal/platform/...
 	$(RUN_PHASE) "backend-unit configtest" -- $(GO_ENV) $(GO) test ./internal/testutil/configtest
-	$(RUN_GO_PHASE) "backend-unit phases" '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase3_.*_U_3_|TestPhase4_.*_U_4_)' -- $(GO_ENV) $(GO) test ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline
+	$(RUN_GO_PHASE) "backend-unit phases" '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase3_.*_U_3_|TestPhase4_.*_U_4_0[89])' -- $(GO_ENV) $(GO) test ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline
 	$(RUN_GO_MANIFEST_PHASE) "backend-unit phase2 authoritative" phase2 unit authoritative -- $(GO_ENV) $(GO) test ./internal/modules/incidents
+
+backend-store: frontend-toolchain
+	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
+	$(RUN_GO_PHASE) "backend-store" '^(TestPhase4_.*_U_4_0[1-7])' -- $(GO_ENV) $(GO) test -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./internal/modules/entities ./internal/modules/timeline
 
 backend-integration: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_PHASE) "backend-integration testutil" -- $(GO_ENV) $(GO) test ./internal/testutil/httptestx ./internal/testutil/pgtest ./internal/testutil/s3test ./internal/testutil/wstest
-	$(RUN_GO_PHASE) "backend-integration phases" '^(TestPhase0_.*_I_0_|TestPhase1_.*_I_1_|TestPhase3_.*_I_3_|TestPhase4_.*_I_4_)' -- $(GO_ENV) $(GO) test ./internal/platform/... ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline
+	$(RUN_PHASE) "backend-integration testutil" -- $(GO_ENV) $(GO) test -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./internal/testutil/httptestx ./internal/testutil/pgtest ./internal/testutil/s3test ./internal/testutil/wstest
+	$(RUN_GO_PHASE) "backend-integration phases" '^(TestPhase0_.*_I_0_|TestPhase1_.*_I_1_|TestPhase3_.*_I_3_|TestPhase4_.*_I_4_)' -- $(GO_ENV) $(GO) test -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./internal/platform/... ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline
 	$(RUN_GO_MANIFEST_PHASE) "backend-integration phase2 authoritative" phase2 integration authoritative -- $(GO_ENV) $(GO) test ./internal/modules/incidents
 
 backend-integration-support: frontend-toolchain
@@ -227,17 +239,28 @@ check-preflight: frontend-toolchain
 	$(Q)$(MAKE) --no-print-directory run-phase-smoke
 	$(Q)$(MAKE) --no-print-directory phase-test-name-check
 	$(Q)$(MAKE) --no-print-directory browser-e2e-task-surface-check
+	$(Q)$(MAKE) --no-print-directory backend-task-surface-check
+	$(Q)$(MAKE) --no-print-directory service-backed-unit-check
 	$(Q)$(MAKE) --no-print-directory generate-drift
 	$(Q)$(MAKE) --no-print-directory phase-map-check
 
-# Keep only parallel-safe work here; web-server-backed browser suites run under one
-# owned stack, and measurement-sensitive browser evidence runs after this block.
-check-heavy: migration-drift lint-go lint-biome lint-typecheck backend-unit backend-integration backend-integration-support backend-process backend-process-support frontend-unit browser-e2e-webserver-backed deployable-shape-verify
+# Keep only parallel-safe work here. Service-backed Go phases and owned-stack
+# browser suites run after this block under serialized orchestration.
+check-heavy: migration-drift lint-go lint-biome lint-typecheck backend-unit frontend-unit deployable-shape-verify
+
+check-service-backed: frontend-toolchain
+	$(Q)$(MAKE) --no-print-directory backend-store
+	$(Q)$(MAKE) --no-print-directory backend-integration
+	$(Q)$(MAKE) --no-print-directory backend-integration-support
+	$(Q)$(MAKE) --no-print-directory backend-process
+	$(Q)$(MAKE) --no-print-directory backend-process-support
+	$(Q)$(MAKE) --no-print-directory browser-e2e-webserver-backed
 
 check-isolated: browser-e2e-stateful browser-e2e-measurement
 
 check: check-preflight
 	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(CHECK_JOBS) check-heavy
+	$(Q)$(MAKE) --no-print-directory check-service-backed
 	$(Q)$(MAKE) --no-print-directory check-isolated
 
 ci:

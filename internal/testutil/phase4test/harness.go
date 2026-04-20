@@ -26,34 +26,51 @@ type ServerHarness struct {
 	DB     *sql.DB
 }
 
+type RuntimeHarness struct {
+	Postgres *pgtest.Harness
+	S3       *s3test.Harness
+}
+
 func StartServer(t testing.TB, prefix string) *ServerHarness {
 	t.Helper()
 
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	return StartRuntime(t).StartServer(t, prefix)
+}
 
-	testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), prefix)
+func StartRuntime(t testing.TB) *RuntimeHarness {
+	t.Helper()
+
+	return &RuntimeHarness{
+		Postgres: pgtest.Start(t),
+		S3:       s3test.Start(t),
+	}
+}
+
+func (h *RuntimeHarness) StartServer(t testing.TB, prefix string) *ServerHarness {
+	t.Helper()
+
+	testDB, _, err := h.Postgres.PrepareDatabase(context.Background(), prefix)
 	if err != nil {
 		t.Fatalf("prepare postgres database: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
+		if err := h.Postgres.DropDatabase(context.Background(), testDB.Name); err != nil {
 			t.Fatalf("drop postgres database: %v", err)
 		}
 	})
 
-	bucket, err := s3Harness.BootstrapBucket(context.Background(), prefix)
+	bucket, err := h.S3.BootstrapBucket(context.Background(), prefix)
 	if err != nil {
 		t.Fatalf("bootstrap bucket: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
+		if err := h.S3.CleanupBucket(context.Background(), bucket); err != nil {
 			t.Logf("cleanup bucket: %v", err)
 		}
 	})
 
 	env := testDB.Env()
-	for key, value := range s3Harness.Env(bucket) {
+	for key, value := range h.S3.Env(bucket) {
 		env[key] = value
 	}
 	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")

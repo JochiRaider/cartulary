@@ -332,6 +332,8 @@ This phase introduces progressive normalization and exact-match entity behavior:
 
 ### 6.4.3 Unit tests
 
+Execution dependency is distinct from evidence layer in this phase. `U-4-01..U-4-07` are service-backed store-domain tests that execute through `make backend-store`; `U-4-08..U-4-09` remain pure decoder tests that execute through `make backend-unit`.
+
 | ID | Test | Exact REQs | Exact ACs |
 |---|---|---|---|
 | U-4-01 | A `mention_origin` write creates `entity_mention` rows and never implicitly creates a host or identity record. An `entity_origin` write creates or upserts an entity row and does not synthesize mentions. | REQ-02-028..REQ-02-036 | AC-019, AC-020, AC-022 |

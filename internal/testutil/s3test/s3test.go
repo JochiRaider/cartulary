@@ -5,10 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -25,8 +25,6 @@ const (
 	minioImage                = "minio/minio:RELEASE.2025-09-07T16-13-09Z"
 	minioAPIPort              = "9000/tcp"
 	minioConsolePort          = "9001/tcp"
-	minioLivenessPath         = "/minio/health/live"
-	minioReadinessPath        = "/minio/health/ready"
 	minioStartupTimeout       = 2 * time.Minute
 	minioHealthPollInterval   = 500 * time.Millisecond
 	minioClientReadyTimeout   = 60 * time.Second
@@ -41,7 +39,13 @@ type Harness struct {
 	Secure    bool
 
 	counter uint64
+	shared  bool
 }
+
+var (
+	sharedHarnessMu sync.Mutex
+	sharedHarness   *Harness
+)
 
 func Start(t testing.TB) *Harness {
 	t.Helper()
@@ -51,16 +55,27 @@ func Start(t testing.TB) *Harness {
 		t.Fatalf("%v", err)
 	}
 
-	t.Cleanup(func() {
-		if err := harness.Close(context.Background()); err != nil {
-			t.Fatalf("terminate minio testcontainer: %v", err)
-		}
-	})
-
 	return harness
 }
 
 func StartShared(ctx context.Context) (*Harness, error) {
+	sharedHarnessMu.Lock()
+	defer sharedHarnessMu.Unlock()
+
+	if sharedHarness != nil {
+		return sharedHarness, nil
+	}
+
+	harness, err := startHarness(ctx)
+	if err != nil {
+		return nil, err
+	}
+	harness.shared = true
+	sharedHarness = harness
+	return harness, nil
+}
+
+func startHarness(ctx context.Context) (*Harness, error) {
 	req := testcontainers.ContainerRequest{
 		Image:        minioImage,
 		ExposedPorts: []string{minioAPIPort, minioConsolePort},
@@ -69,18 +84,7 @@ func StartShared(ctx context.Context) (*Harness, error) {
 			"MINIO_ROOT_USER":     "minioadmin",
 			"MINIO_ROOT_PASSWORD": "minioadmin",
 		},
-		WaitingFor: wait.ForAll(
-			wait.ForHTTP(minioLivenessPath).
-				WithPort(minioAPIPort).
-				WithForcedIPv4LocalHost().
-				WithStatusCodeMatcher(func(status int) bool { return status == http.StatusOK }).
-				WithPollInterval(minioHealthPollInterval),
-			wait.ForHTTP(minioReadinessPath).
-				WithPort(minioAPIPort).
-				WithForcedIPv4LocalHost().
-				WithStatusCodeMatcher(func(status int) bool { return status == http.StatusOK }).
-				WithPollInterval(minioHealthPollInterval),
-		).WithDeadline(minioStartupTimeout),
+		WaitingFor: wait.ForListeningPort(minioAPIPort).WithStartupTimeout(minioStartupTimeout),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -256,6 +260,9 @@ func (h *Harness) EnvForServiceRef(serviceRef string, bucket string) map[string]
 
 func (h *Harness) Close(ctx context.Context) error {
 	if h == nil || h.Container == nil {
+		return nil
+	}
+	if h.shared {
 		return nil
 	}
 

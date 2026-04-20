@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -27,12 +28,18 @@ type Harness struct {
 
 	adminDSN string
 	counter  uint64
+	shared   bool
 }
 
 type TestDatabase struct {
 	Name string
 	DSN  string
 }
+
+var (
+	sharedHarnessMu sync.Mutex
+	sharedHarness   *Harness
+)
 
 func Start(t testing.TB) *Harness {
 	t.Helper()
@@ -42,16 +49,27 @@ func Start(t testing.TB) *Harness {
 		t.Fatalf("%v", err)
 	}
 
-	t.Cleanup(func() {
-		if err := harness.Close(context.Background()); err != nil {
-			t.Fatalf("terminate postgres testcontainer: %v", err)
-		}
-	})
-
 	return harness
 }
 
 func StartShared(ctx context.Context) (*Harness, error) {
+	sharedHarnessMu.Lock()
+	defer sharedHarnessMu.Unlock()
+
+	if sharedHarness != nil {
+		return sharedHarness, nil
+	}
+
+	harness, err := startHarness(ctx)
+	if err != nil {
+		return nil, err
+	}
+	harness.shared = true
+	sharedHarness = harness
+	return harness, nil
+}
+
+func startHarness(ctx context.Context) (*Harness, error) {
 	req := testcontainers.ContainerRequest{
 		Image:        "postgres:16-alpine",
 		ExposedPorts: []string{"5432/tcp"},
@@ -177,6 +195,9 @@ func (h *Harness) DropDatabase(ctx context.Context, name string) error {
 
 func (h *Harness) Close(ctx context.Context) error {
 	if h == nil || h.Container == nil {
+		return nil
+	}
+	if h.shared {
 		return nil
 	}
 
