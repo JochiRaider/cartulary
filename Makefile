@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-test-name-check run-phase-smoke backend-unit backend-integration backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e browser-e2e-functional browser-e2e-measurement test-fast test e2e lint lint-go lint-biome lint-typecheck check check-preflight check-heavy check-isolated ci build build-server build-migrate build-web
+.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-test-name-check run-phase-smoke backend-unit backend-integration backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e browser-e2e-functional browser-e2e-stateful browser-e2e-measurement test-fast test e2e lint lint-go lint-biome lint-typecheck check check-preflight check-heavy check-isolated ci build build-server build-migrate build-web
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
 PNPM ?= $(shell if command -v pnpm >/dev/null 2>&1; then command -v pnpm; elif [ -x "$$HOME/.local/share/pnpm/pnpm" ]; then printf "$$HOME/.local/share/pnpm/pnpm"; fi)
@@ -171,10 +171,15 @@ e2e: frontend-toolchain
 
 browser-e2e: frontend-toolchain
 	$(Q)$(MAKE) --no-print-directory browser-e2e-functional
+	$(Q)$(MAKE) --no-print-directory browser-e2e-stateful
 	$(Q)$(MAKE) --no-print-directory browser-e2e-measurement
 
 browser-e2e-functional: frontend-toolchain build-server build-migrate
 	$(RUN_PHASE) "browser-e2e-functional" -- env PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) $(PNPM) --dir apps/web exec playwright test $(PLAYWRIGHT_TEST_FLAGS) e2e/phase1.spec.ts e2e/phase2.spec.ts e2e/phase3.spec.ts e2e/phase4.spec.ts
+
+# Browser evidence that mutates process-global backend state belongs here.
+browser-e2e-stateful: frontend-toolchain build-server build-migrate
+	$(RUN_PHASE) "browser-e2e-stateful" -- env PLAYWRIGHT_WORKERS=1 PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) $(PNPM) --dir apps/web exec playwright test $(PLAYWRIGHT_TEST_FLAGS) e2e/phase1.clock.spec.ts
 
 # Core 05-bound timing evidence is not parallel-safe with the heavy backend gate.
 browser-e2e-measurement: frontend-toolchain build-server build-migrate
@@ -202,7 +207,7 @@ check-preflight: frontend-toolchain
 # Keep only parallel-safe work here; measurement-sensitive browser evidence runs after this block.
 check-heavy: migration-drift lint-go lint-biome lint-typecheck backend-unit backend-integration backend-process frontend-unit browser-e2e-functional deployable-shape-verify
 
-check-isolated: browser-e2e-measurement
+check-isolated: browser-e2e-stateful browser-e2e-measurement
 
 check: check-preflight
 	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(CHECK_JOBS) check-heavy

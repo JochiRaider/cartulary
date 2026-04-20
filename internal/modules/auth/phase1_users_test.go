@@ -10,7 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-func TestPhase1_UserCreateDefaultsAndSafeShape_U_1_07(t *testing.T) {
+func TestPhase1_UserCreateDefaultsAndSafeShape_U_1_Support(t *testing.T) {
 	defaults := ApplyUserCreateDefaults(nil, nil)
 	if !defaults.MFARequired {
 		t.Fatal("omitted mfa_required must default to true")

@@ -34,7 +34,6 @@ type authStore interface {
 	GetSessionByFingerprint(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error)
 	CreateSessionWithConcurrency(context.Context, authn.UserRecord, []byte, authn.SessionTiming, string) (authn.SessionRecord, *authn.SessionRecord, error)
 	SlideSession(context.Context, uuid.UUID, authn.SessionTiming) error
-	ExpireSessionForTest(context.Context, uuid.UUID, time.Time) error
 	RevokeSession(context.Context, uuid.UUID, string, time.Time) error
 	IssueBootstrapToken(context.Context, uuid.UUID, []byte, time.Time) (authn.BootstrapTokenRecord, error)
 	GetBootstrapTokenByFingerprint(context.Context, []byte) (authn.BootstrapTokenRecord, authn.UserRecord, error)
@@ -99,7 +98,6 @@ func RegisterTestRoutes() httpapi.RouteRegistrar {
 		}
 
 		mux.HandleFunc("/api/v1/test/auth/touch", service.handleTouch)
-		mux.HandleFunc("/api/v1/test/auth/expire-current", service.handleExpireCurrentSession)
 		mux.HandleFunc("/ws/v1/test/session-lifecycle", service.handleTestSocket)
 		return nil
 	}
@@ -110,12 +108,16 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
 	}
+	now := deps.Now
+	if now == nil {
+		now = func() time.Time { return time.Now().UTC() }
+	}
 
 	return &Service{
 		store: authn.NewStore(deps.Postgres),
 		hub:   deps.WSHub,
 		keys:  keys,
-		now:   func() time.Time { return time.Now().UTC() },
+		now:   now,
 	}, nil
 }
 
@@ -1022,29 +1024,6 @@ func (s *Service) handleTouch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
-}
-
-func (s *Service) handleExpireCurrentSession(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	principal, apiErr := s.authenticateSessionRequest(r, true)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-
-	if err := s.store.ExpireSessionForTest(r.Context(), principal.Session.ID, s.now()); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-		"expired":    true,
-		"session_id": principal.Session.ID,
-	})
 }
 
 func (s *Service) handleTestSocket(w http.ResponseWriter, r *http.Request) {

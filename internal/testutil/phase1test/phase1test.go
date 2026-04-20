@@ -73,6 +73,48 @@ func WithHeader(key string, value string) func(*http.Request) {
 	}
 }
 
+func SetClockOffset(
+	t testing.TB,
+	baseURL string,
+	offsetSeconds int64,
+	options ...func(*http.Request),
+) map[string]any {
+	t.Helper()
+
+	resp := DoJSON(
+		t,
+		http.MethodPost,
+		baseURL+"/api/v1/test/clock/set",
+		map[string]any{
+			"offset_seconds": offsetSeconds,
+		},
+		options...,
+	)
+	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+}
+
+func ResetClockOffset(
+	t testing.TB,
+	baseURL string,
+	options ...func(*http.Request),
+) {
+	t.Helper()
+	SetClockOffset(t, baseURL, 0, options...)
+}
+
+func WithClockOffset(
+	t testing.TB,
+	baseURL string,
+	offsetSeconds int64,
+	options ...func(*http.Request),
+) {
+	t.Helper()
+	SetClockOffset(t, baseURL, offsetSeconds, options...)
+	t.Cleanup(func() {
+		ResetClockOffset(t, baseURL, options...)
+	})
+}
+
 func SeedLocalUser(t testing.TB, db *sql.DB, email string, displayName string, password string, mfaRequired bool) string {
 	t.Helper()
 	return SeedLocalUserFlags(t, db, email, displayName, password, mfaRequired, false, true)

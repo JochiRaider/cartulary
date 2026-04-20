@@ -221,8 +221,5 @@ export async function restoreTrackedStorageState(
 export { expect };
 
 async function pageAuthStorageState(page: Page): Promise<StorageState> {
-  return {
-    cookies: await page.context().cookies(apiBase),
-    origins: [],
-  };
+  return page.context().storageState();
 }

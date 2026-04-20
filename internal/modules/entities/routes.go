@@ -46,13 +46,17 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	now := deps.Now
+	if now == nil {
+		now = func() time.Time { return time.Now().UTC() }
+	}
 	return &Service{
 		store:         NewStore(deps.Postgres),
 		incidentStore: incidents.NewStore(deps.Postgres),
 		authStore:     authn.NewStore(deps.Postgres),
 		hub:           deps.WSHub,
 		keys:          keys,
-		now:           func() time.Time { return time.Now().UTC() },
+		now:           now,
 	}, nil
 }
 

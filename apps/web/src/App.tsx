@@ -7,8 +7,25 @@ import {
   useState,
 } from "react";
 
+import {
+  type APIError,
+  clientTxnID,
+  extractError,
+  fetchJSON,
+} from "./browserApi";
 import { Phase1Harness } from "./Phase1Harness";
+import {
+  Phase1AccountPanel,
+  Phase1AdminPanel,
+  Phase1AuthSurface,
+} from "./Phase1Surface";
 import { Phase2Harness } from "./Phase2Harness";
+import {
+  type CredentialState,
+  loadCredentialState,
+  loadSession,
+  type SessionData,
+} from "./phase1Client";
 import {
   buildCreatePayload,
   createDraftRow,
@@ -16,18 +33,6 @@ import {
   TimelineWorkbook,
   WorkbookShell,
 } from "./WorkbookShell";
-
-type SessionMembership = {
-  incident_id: string;
-  role: string;
-};
-
-type SessionData = {
-  user_id: string;
-  display_name: string;
-  is_deployment_admin: boolean;
-  memberships: SessionMembership[];
-};
 
 type IncidentData = {
   incident_id: string;
@@ -39,14 +44,6 @@ type IncidentData = {
   current_phase: string | null;
   primary_external_case_ref: string | null;
   incident_version: number;
-};
-
-type APIError = {
-  code: string;
-  details?: Record<string, unknown>;
-  message?: string;
-  request_id?: string;
-  status?: number;
 };
 
 type RouteState = {
@@ -68,63 +65,6 @@ type IncidentLandingProps = {
   onRefresh: () => Promise<void> | void;
   statusText: string;
 };
-
-const csrfCookieName = "cartulary_csrf";
-const csrfHeaderName = "X-CSRF-Token";
-
-function readCookie(name: string): string | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const prefix = `${name}=`;
-  for (const segment of document.cookie.split(";")) {
-    const trimmed = segment.trim();
-    if (trimmed.startsWith(prefix)) {
-      return decodeURIComponent(trimmed.slice(prefix.length));
-    }
-  }
-  return null;
-}
-
-async function fetchJSON<T>(
-  input: RequestInfo | URL,
-  init?: RequestInit,
-): Promise<{
-  ok: boolean;
-  status: number;
-  payload: T | { error?: APIError };
-}> {
-  const method = (init?.method ?? "GET").toUpperCase();
-  const headers: Record<string, string> = {
-    ...(init?.headers as Record<string, string> | undefined),
-  };
-  if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
-    headers["Content-Type"] = "application/json";
-    const csrfToken = readCookie(csrfCookieName);
-    if (csrfToken !== null && csrfToken !== "") {
-      headers[csrfHeaderName] = csrfToken;
-    }
-  }
-
-  const response = await fetch(input, {
-    credentials: "include",
-    ...init,
-    headers,
-  });
-  const contentType = response.headers.get("Content-Type") ?? "";
-  const payload = contentType.includes("application/json")
-    ? ((await response.json()) as T | { error?: APIError })
-    : ((await response.text()) as unknown as T | { error?: APIError });
-  return { ok: response.ok, status: response.status, payload };
-}
-
-function extractError(payload: unknown): APIError | null {
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
-  return ((payload as { error?: APIError }).error ?? null) as APIError | null;
-}
 
 function readRouteState(): RouteState {
   const params = new URLSearchParams(window.location.search);
@@ -155,16 +95,6 @@ function writeRouteState(next: RouteState, mode: "push" | "replace") {
     return;
   }
   window.history.replaceState({}, "", url);
-}
-
-function clientTxnID(prefix: string): string {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return `${prefix}-${crypto.randomUUID()}`;
-  }
-  return `${prefix}-${Date.now()}`;
 }
 
 function incidentSummaryText(incident: IncidentData): string {
@@ -340,37 +270,57 @@ export function IncidentLanding({
 }
 
 export function App() {
+  const defaultAuthPrompt =
+    "Sign in with your local account to open incidents, manage account security, and administer deployment users.";
   const [route, setRoute] = useState<RouteState>(() => readRouteState());
   const [session, setSession] = useState<SessionData | null>(null);
+  const [credentialState, setCredentialState] =
+    useState<CredentialState | null>(null);
+  const [credentialError, setCredentialError] = useState<APIError | null>(null);
   const [incidents, setIncidents] = useState<IncidentData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusText, setStatusText] = useState("Loading visible incidents…");
   const [pinnedStatusText, setPinnedStatusText] = useState<string | null>(null);
   const [error, setError] = useState<APIError | null>(null);
+  const [authPrompt, setAuthPrompt] = useState(defaultAuthPrompt);
   const [createIncidentKey, setCreateIncidentKey] = useState("");
   const [createIncidentTitle, setCreateIncidentTitle] = useState("");
 
   const loadLanding = useCallback(
-    async (options?: { staleMessage?: string }) => {
+    async (options?: { anonymousMessage?: string; staleMessage?: string }) => {
       setIsLoading(true);
 
-      const [sessionResult, incidentsResult] = await Promise.all([
-        fetchJSON<{ data: SessionData }>("/api/v1/auth/session"),
-        fetchJSON<{ data: { incidents: IncidentData[] } }>("/api/v1/incidents"),
-      ]);
-
-      const sessionError = extractError(sessionResult.payload);
-      const incidentsError = extractError(incidentsResult.payload);
+      const sessionResult = await loadSession();
       if (!sessionResult.ok) {
         setSession(null);
+        setCredentialState(null);
+        setCredentialError(null);
         setIncidents([]);
-        setError(sessionError);
-        setStatusText("Session required.");
+        setError(null);
+        setStatusText(
+          options?.anonymousMessage ??
+            "Sign in required for the incident shell.",
+        );
+        setAuthPrompt(options?.anonymousMessage ?? defaultAuthPrompt);
         setIsLoading(false);
         return;
       }
+
+      const [credentialResult, incidentsResult] = await Promise.all([
+        loadCredentialState(),
+        fetchJSON<{ data: { incidents: IncidentData[] } }>("/api/v1/incidents"),
+      ]);
+
+      const incidentsError = extractError(incidentsResult.payload);
+      const nextCredentialError = extractError(credentialResult.payload);
       if (!incidentsResult.ok) {
         setSession((sessionResult.payload as { data: SessionData }).data);
+        setCredentialState(
+          credentialResult.ok
+            ? (credentialResult.payload as { data: CredentialState }).data
+            : null,
+        );
+        setCredentialError(nextCredentialError);
         setIncidents([]);
         setError(incidentsError);
         setStatusText("Failed to load visible incidents.");
@@ -379,6 +329,9 @@ export function App() {
       }
 
       const nextSession = (sessionResult.payload as { data: SessionData }).data;
+      const nextCredentialState = credentialResult.ok
+        ? (credentialResult.payload as { data: CredentialState }).data
+        : null;
       const nextIncidents = (
         incidentsResult.payload as { data: { incidents: IncidentData[] } }
       ).data.incidents;
@@ -389,8 +342,11 @@ export function App() {
         );
 
       setSession(nextSession);
+      setCredentialState(nextCredentialState);
+      setCredentialError(nextCredentialError);
       setIncidents(nextIncidents);
       setError(null);
+      setAuthPrompt(defaultAuthPrompt);
       setIsLoading(false);
 
       if (!requestedIncidentStillVisible) {
@@ -500,7 +456,7 @@ export function App() {
     });
   }, [loadLanding]);
 
-  if (route.incidentId !== "") {
+  if (route.incidentId !== "" && session !== null) {
     return (
       <main style={pageStyle}>
         <section style={workbookFrameStyle}>
@@ -564,25 +520,49 @@ export function App() {
     );
   }
 
+  if (session === null) {
+    return (
+      <Phase1AuthSurface
+        isLoading={isLoading}
+        message={authPrompt}
+        onAuthenticated={async () => {
+          setPinnedStatusText(null);
+          await loadLanding();
+        }}
+      />
+    );
+  }
+
   return (
     <main style={pageStyle}>
-      <IncidentLanding
-        createIncidentKey={createIncidentKey}
-        createIncidentTitle={createIncidentTitle}
-        currentUserLabel={currentUserLabel}
-        error={error}
-        incidents={incidents}
-        isLoading={isLoading}
-        onCreate={handleCreateIncident}
-        onCreateIncidentKeyChange={setCreateIncidentKey}
-        onCreateIncidentTitleChange={setCreateIncidentTitle}
-        onOpenIncident={openIncident}
-        onRefresh={() => {
-          setPinnedStatusText(null);
-          void loadLanding();
-        }}
-        statusText={statusText}
-      />
+      <div style={shellStackStyle}>
+        <IncidentLanding
+          createIncidentKey={createIncidentKey}
+          createIncidentTitle={createIncidentTitle}
+          currentUserLabel={currentUserLabel}
+          error={error}
+          incidents={incidents}
+          isLoading={isLoading}
+          onCreate={handleCreateIncident}
+          onCreateIncidentKeyChange={setCreateIncidentKey}
+          onCreateIncidentTitleChange={setCreateIncidentTitle}
+          onOpenIncident={openIncident}
+          onRefresh={() => {
+            setPinnedStatusText(null);
+            void loadLanding();
+          }}
+          statusText={statusText}
+        />
+        <section style={supportPanelGridStyle}>
+          <Phase1AccountPanel
+            credentialState={credentialState}
+            credentialStateError={credentialError}
+            onRefreshShell={loadLanding}
+            session={session}
+          />
+          <Phase1AdminPanel onRefreshShell={loadLanding} session={session} />
+        </section>
+      </div>
     </main>
   );
 }
@@ -610,6 +590,20 @@ const landingPanelStyle = {
 const workbookFrameStyle = {
   width: "min(96rem, 100%)",
   margin: "0 auto",
+};
+
+const shellStackStyle = {
+  width: "min(96rem, 100%)",
+  margin: "0 auto",
+  display: "grid",
+  gap: "1.5rem",
+};
+
+const supportPanelGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(22rem, 1fr))",
+  gap: "1.5rem",
+  alignItems: "start",
 };
 
 const landingHeroStyle = {

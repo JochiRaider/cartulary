@@ -1,0 +1,203 @@
+{
+  "note": "Phase 1 traceability inventory only. Authoritative evidence lives in the mapped tests and their declared evidence layers; support-only harness and smoke tests remain outside this manifest.",
+  "expected_ids": [
+    "U-1-01",
+    "U-1-02",
+    "U-1-03",
+    "U-1-04",
+    "U-1-05",
+    "U-1-06",
+    "U-1-07",
+    "U-1-08",
+    "U-1-09",
+    "U-1-10",
+    "U-1-11",
+    "U-1-12",
+    "U-1-13",
+    "I-1-01",
+    "I-1-02",
+    "I-1-03",
+    "I-1-04",
+    "I-1-05",
+    "I-1-06",
+    "E-1-01",
+    "E-1-02",
+    "E-1-03",
+    "E-1-04",
+    "E-1-05",
+    "E-1-06",
+    "E-1-07",
+    "E-1-08"
+  ],
+  "forbidden_id_files": [
+    "cmd/server/main_phase1_process_test.go"
+  ],
+  "unit": [
+    {
+      "id": "U-1-01",
+      "file": "internal/modules/auth/phase1_request_test.go",
+      "symbol": "TestPhase1_LoginRequestShape_U_1_01",
+      "evidence_layer": "decoder"
+    },
+    {
+      "id": "U-1-02",
+      "file": "internal/platform/authn/phase1_primitives_test.go",
+      "symbol": "TestPhase1_LoginNormalizationAndPasswordExactness_U_1_02",
+      "evidence_layer": "auth_primitives"
+    },
+    {
+      "id": "U-1-03",
+      "file": "internal/modules/auth/phase1_handlers_test.go",
+      "symbol": "TestPhase1_LoginCreatesSessionAndResource_U_1_03",
+      "evidence_layer": "http_conformance"
+    },
+    {
+      "id": "U-1-04",
+      "file": "internal/modules/auth/phase1_handlers_test.go",
+      "symbol": "TestPhase1_SessionInspectionRoute_U_1_04",
+      "evidence_layer": "http_conformance"
+    },
+    {
+      "id": "U-1-05",
+      "file": "internal/platform/authn/phase1_primitives_test.go",
+      "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05",
+      "evidence_layer": "auth_primitives"
+    },
+    {
+      "id": "U-1-06",
+      "file": "internal/modules/auth/phase1_handlers_test.go",
+      "symbol": "TestPhase1_RouteRevocationConsequences_U_1_06",
+      "evidence_layer": "http_conformance"
+    },
+    {
+      "id": "U-1-07",
+      "file": "internal/modules/auth/phase1_handlers_test.go",
+      "symbol": "TestPhase1_UserCreateRouteDefaults_U_1_07",
+      "evidence_layer": "http_conformance"
+    },
+    {
+      "id": "U-1-08",
+      "file": "internal/modules/auth/phase1_users_test.go",
+      "symbol": "TestPhase1_UserPatchAndLastAdminGuard_U_1_08",
+      "evidence_layer": "store_domain"
+    },
+    {
+      "id": "U-1-09",
+      "file": "internal/modules/auth/phase1_handlers_test.go",
+      "symbol": "TestPhase1_CSRFProtectionRoutes_U_1_09",
+      "evidence_layer": "http_conformance"
+    },
+    {
+      "id": "U-1-10",
+      "file": "internal/modules/auth/phase1_handlers_test.go",
+      "symbol": "TestPhase1_CredentialStateRoute_U_1_10",
+      "evidence_layer": "http_conformance"
+    },
+    {
+      "id": "U-1-11",
+      "file": "internal/modules/auth/phase1_handlers_test.go",
+      "symbol": "TestPhase1_PasswordChangeRouteContracts_U_1_11",
+      "evidence_layer": "http_conformance"
+    },
+    {
+      "id": "U-1-12",
+      "file": "internal/modules/auth/phase1_handlers_test.go",
+      "symbol": "TestPhase1_TOTPRouteContracts_U_1_12",
+      "evidence_layer": "http_conformance"
+    },
+    {
+      "id": "U-1-13",
+      "file": "internal/modules/auth/phase1_handlers_test.go",
+      "symbol": "TestPhase1_AdminCredentialActionGuards_U_1_13",
+      "evidence_layer": "http_conformance"
+    }
+  ],
+  "integration": [
+    {
+      "id": "I-1-01",
+      "file": "internal/modules/auth/phase1_integration_test.go",
+      "symbol": "TestPhase1_LoginSessionLifecycle_I_1_01",
+      "evidence_layer": "integration"
+    },
+    {
+      "id": "I-1-02",
+      "file": "internal/modules/auth/phase1_integration_test.go",
+      "symbol": "TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02",
+      "evidence_layer": "integration"
+    },
+    {
+      "id": "I-1-03",
+      "file": "internal/modules/auth/phase1_integration_test.go",
+      "symbol": "TestPhase1_UserAdminLifecycle_I_1_03",
+      "evidence_layer": "integration"
+    },
+    {
+      "id": "I-1-04",
+      "file": "internal/modules/auth/phase1_integration_test.go",
+      "symbol": "TestPhase1_CredentialStateTransitions_I_1_04",
+      "evidence_layer": "integration"
+    },
+    {
+      "id": "I-1-05",
+      "file": "internal/modules/auth/phase1_integration_test.go",
+      "symbol": "TestPhase1_AdminCredentialActions_I_1_05",
+      "evidence_layer": "integration"
+    },
+    {
+      "id": "I-1-06",
+      "file": "internal/modules/auth/phase1_integration_test.go",
+      "symbol": "TestPhase1_BootstrapTokenRouteBoundaries_I_1_06",
+      "evidence_layer": "integration"
+    }
+  ],
+  "e2e": [
+    {
+      "id": "E-1-01",
+      "file": "apps/web/e2e/phase1.spec.ts",
+      "title": "E-1-01 signs in as a local user and inspects the ordinary session surface",
+      "evidence_layer": "browser"
+    },
+    {
+      "id": "E-1-02",
+      "file": "apps/web/e2e/phase1.spec.ts",
+      "title": "E-1-02 requires MFA on the ordinary login surface, rejects wrong codes, and accepts a valid TOTP code",
+      "evidence_layer": "browser"
+    },
+    {
+      "id": "E-1-03",
+      "file": "apps/web/e2e/phase1.spec.ts",
+      "title": "E-1-03 rejects invalid credentials without issuing a session cookie",
+      "evidence_layer": "browser"
+    },
+    {
+      "id": "E-1-04",
+      "file": "apps/web/e2e/phase1.clock.spec.ts",
+      "title": "E-1-04 advances the shared clock past idle expiry and requires a fresh login afterwards",
+      "evidence_layer": "browser"
+    },
+    {
+      "id": "E-1-05",
+      "file": "apps/web/e2e/phase1.spec.ts",
+      "title": "E-1-05 lets deployment admins create and patch users, rejects stale versions, and shows the last-admin guard on the ordinary shell",
+      "evidence_layer": "browser"
+    },
+    {
+      "id": "E-1-06",
+      "file": "apps/web/e2e/phase1.spec.ts",
+      "title": "E-1-06 follows the bootstrap-token enrollment sequence on the ordinary login shell and proves completion alone issues no session",
+      "evidence_layer": "browser"
+    },
+    {
+      "id": "E-1-07",
+      "file": "apps/web/e2e/phase1.spec.ts",
+      "title": "E-1-07 requires the current password and current TOTP code, revokes the session immediately, and requires re-login with the new password",
+      "evidence_layer": "browser"
+    },
+    {
+      "id": "E-1-08",
+      "file": "apps/web/e2e/phase1.spec.ts",
+      "title": "E-1-08 keeps deployment-user administration on deployment-admin sessions and hides it from an incident admin on the ordinary shell",
+      "evidence_layer": "browser"
+    }
+  ]
+}

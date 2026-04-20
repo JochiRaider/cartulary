@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minio/minio-go/v7"
@@ -34,6 +35,7 @@ type Options struct {
 	HTTP        httpapi.Options
 	Postgres    *pgxpool.Pool
 	ObjectStore *minio.Client
+	Now         func() time.Time
 }
 
 type Runtime struct {
@@ -86,6 +88,10 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	runtime.WSHub = hub
 
 	httpOptions := options.HTTP
+	now := options.Now
+	if now == nil {
+		now = func() time.Time { return time.Now().UTC() }
+	}
 	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidents.RegisterRoutes(), entities.RegisterRoutes(), timeline.RegisterRoutes()}, httpOptions.AdditionalRoutes...)
 	httpOptions.Dependencies = httpapi.DependencySet{
 		Config:      normalizedCfg,
@@ -94,6 +100,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		ObjectStore: runtime.ObjectStore,
 		Jobs:        runtime.Jobs,
 		WSHub:       hub,
+		Now:         now,
 	}
 
 	handler, err := newHTTPHandler(httpOptions)

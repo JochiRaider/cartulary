@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync/atomic"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minio/minio-go/v7"
@@ -25,6 +26,7 @@ type DependencySet struct {
 	ObjectStore *minio.Client
 	Jobs        *jobs.Manager
 	WSHub       *platformws.Hub
+	Now         func() time.Time
 }
 
 type RouteRegistrar func(*http.ServeMux, DependencySet) error

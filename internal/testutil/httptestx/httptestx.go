@@ -19,6 +19,7 @@ import (
 type Server struct {
 	Runtime *app.Runtime
 	HTTP    *stdhttptest.Server
+	Clock   *httpapi.TestClock
 }
 
 type ServerOptions struct {
@@ -49,9 +50,11 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		cfg = configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, env)
 	}
 
-	routes := append([]httpapi.RouteRegistrar{RegisterBootstrapRoutes()}, options.AdditionalRoutes...)
+	clock := httpapi.NewTestClock()
+	routes := append([]httpapi.RouteRegistrar{RegisterBootstrapRoutes(), httpapi.RegisterTestClockRoutes(clock)}, options.AdditionalRoutes...)
 	runtime, err := app.NewRuntime(context.Background(), cfg, app.Options{
 		Env: env,
+		Now: clock.Now,
 		HTTP: httpapi.Options{
 			AdditionalRoutes: routes,
 		},
@@ -63,6 +66,7 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	server := &Server{
 		Runtime: runtime,
 		HTTP:    stdhttptest.NewServer(runtime.Handler),
+		Clock:   clock,
 	}
 	t.Cleanup(func() {
 		server.Close()

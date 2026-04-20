@@ -122,7 +122,7 @@ export async function applyStorageState(
 }
 
 export async function csrfHeaders(page: Page) {
-  const cookies = await page.context().cookies(apiBase);
+  const cookies = await page.context().cookies();
   const csrfCookie = cookies.find((cookie) => cookie.name === csrfCookieName);
   if (!csrfCookie) {
     throw new Error("missing CSRF cookie");

@@ -97,18 +97,14 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 		defer db.Close()
 
 		userID := seedLocalUser(t, db, "idle-expiry@example.test", "Idle Expiry", "IdleExpiryPass1!", false)
-		sessionCookie, csrfCookie := loginLocalUser(t, server, "idle-expiry@example.test", "IdleExpiryPass1!", nil)
+		sessionCookie, _ := loginLocalUser(t, server, "idle-expiry@example.test", "IdleExpiryPass1!", nil)
 		sessionBeforeExpiry := querySessionRow(t, db, userID)
 
-		expireResp := doJSON(
+		phase1test.WithClockOffset(
 			t,
-			http.MethodPost,
-			server.HTTP.URL+"/api/v1/test/auth/expire-current",
-			map[string]any{},
-			withCookies(sessionCookie, csrfCookie),
-			withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+			server.HTTP.URL,
+			int64((30*time.Minute/time.Second)+1),
 		)
-		httptestx.RequireSuccessEnvelope(t, expireResp, http.StatusOK)
 
 		expiredSession := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(sessionCookie))
 		httptestx.RequireErrorEnvelope(t, expiredSession, http.StatusUnauthorized, "session_required")

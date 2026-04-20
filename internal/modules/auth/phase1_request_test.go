@@ -41,7 +41,7 @@ func TestPhase1_LoginRequestShape_U_1_01(t *testing.T) {
 	})
 }
 
-func TestPhase1_SessionInspectionContracts_U_1_04(t *testing.T) {
+func TestPhase1_SessionInspectionHelpers_U_1_Support(t *testing.T) {
 	query := url.Values{
 		"limit": []string{"10"},
 	}
@@ -59,7 +59,7 @@ func TestPhase1_SessionInspectionContracts_U_1_04(t *testing.T) {
 	}
 }
 
-func TestPhase1_CSRFFailClosed_U_1_09(t *testing.T) {
+func TestPhase1_CSRFHelpers_U_1_Support(t *testing.T) {
 	if apiErr := ValidateCSRF(http.MethodPost, AuthSourceCookie, "csrf-cookie", ""); apiErr == nil {
 		t.Fatal("expected missing csrf header to fail for cookie-authenticated state change")
 	}
@@ -77,7 +77,7 @@ func TestPhase1_CSRFFailClosed_U_1_09(t *testing.T) {
 	}
 }
 
-func TestPhase1_CredentialStateInspection_U_1_10(t *testing.T) {
+func TestPhase1_CredentialStateBuilders_U_1_Support(t *testing.T) {
 	userID := uuid.MustParse("20000000-0000-0000-0000-000000000001")
 	changedAt := time.Date(2026, time.April, 17, 12, 30, 0, 0, time.UTC)
 	enrolledAt := time.Date(2026, time.April, 17, 13, 0, 0, 0, time.UTC)
@@ -126,7 +126,7 @@ func TestPhase1_CredentialStateInspection_U_1_10(t *testing.T) {
 	}
 }
 
-func TestPhase1_PasswordChangeRequest_U_1_11(t *testing.T) {
+func TestPhase1_PasswordChangeDecode_U_1_Support(t *testing.T) {
 	request, apiErr := DecodePasswordChangeRequest(strings.NewReader(`{
 		"client_txn_id":"txn-password-1",
 		"current_password":"  Exact Current  ",
@@ -161,7 +161,7 @@ func TestPhase1_PasswordChangeRequest_U_1_11(t *testing.T) {
 	}
 }
 
-func TestPhase1_TOTPBootstrapAndSetupRules_U_1_12(t *testing.T) {
+func TestPhase1_TOTPBootstrapHelpers_U_1_Support(t *testing.T) {
 	if !AllowsBootstrapTokenRoute("/api/v1/auth/mfa/totp/begin") {
 		t.Fatal("totp/begin must accept bootstrap_token")
 	}

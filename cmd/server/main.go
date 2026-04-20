@@ -35,7 +35,13 @@ func main() {
 
 	options := app.Options{}
 	if os.Getenv(enableTestRoutesEnv) == "1" {
-		options.HTTP.AdditionalRoutes = []httpapi.RouteRegistrar{auth.RegisterTestRoutes(), timeline.RegisterTestRoutes()}
+		testClock := httpapi.NewTestClock()
+		options.Now = testClock.Now
+		options.HTTP.AdditionalRoutes = []httpapi.RouteRegistrar{
+			httpapi.RegisterTestClockRoutes(testClock),
+			auth.RegisterTestRoutes(),
+			timeline.RegisterTestRoutes(),
+		}
 	}
 
 	runtime, err := app.NewRuntime(ctx, cfg, options)

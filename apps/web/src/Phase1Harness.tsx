@@ -1,145 +1,32 @@
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
 
-const csrfCookieName = "cartulary_csrf";
-const csrfHeaderName = "X-CSRF-Token";
-
-type APIError = {
-  code: string;
-  details?: Record<string, unknown>;
-  message?: string;
-  request_id?: string;
-  status?: number;
-};
+import { type APIError, extractError } from "./browserApi";
+import {
+  adminResetPassword,
+  adminResetTotp,
+  adminRevokeAllSessions,
+  beginTotpEnrollment,
+  type CredentialState,
+  changePassword,
+  completeTotpEnrollment,
+  createLocalUser,
+  loadCredentialState as loadCredentialStateRequest,
+  loadSession as loadSessionRequest,
+  loadUser as loadUserRequest,
+  loginLocal,
+  logoutCurrentSession,
+  patchLocalUser,
+  type SessionData,
+  type UserResource,
+} from "./phase1Client";
 
 type ProbeResult = {
   status: number;
   body: unknown;
 };
 
-type SessionMembership = {
-  incident_id: string;
-  role: string;
-};
-
-type SessionData = {
-  user_id: string;
-  display_name: string;
-  provider_type: string;
-  mfa_state: string;
-  is_deployment_admin: boolean;
-  authenticated_at: string;
-  idle_expires_at: string;
-  absolute_expires_at: string;
-  session_expires_at: string;
-  memberships: SessionMembership[];
-};
-
-type CredentialState = {
-  user_id: string;
-  auth_kind: string;
-  recovery_model: string;
-  password_changed_at: string | null;
-  totp: {
-    state: string;
-    enrolled_at?: string | null;
-    pending_expires_at?: string | null;
-  };
-};
-
-type UserResource = {
-  user_id: string;
-  email: string;
-  display_name: string;
-  user_version: number;
-  is_active: boolean;
-  mfa_required: boolean;
-  is_deployment_admin: boolean;
-};
-
-function readCookie(name: string): string | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const prefix = `${name}=`;
-  for (const segment of document.cookie.split(";")) {
-    const trimmed = segment.trim();
-    if (trimmed.startsWith(prefix)) {
-      return decodeURIComponent(trimmed.slice(prefix.length));
-    }
-  }
-  return null;
-}
-
-async function fetchJSON<T>(
-  input: RequestInfo | URL,
-  init?: RequestInit,
-): Promise<{
-  ok: boolean;
-  status: number;
-  payload: T | { error?: APIError };
-}> {
-  const method = (init?.method ?? "GET").toUpperCase();
-  const headers: Record<string, string> = {
-    ...(init?.headers as Record<string, string> | undefined),
-  };
-  if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
-    headers["Content-Type"] = "application/json";
-    const csrfToken = readCookie(csrfCookieName);
-    if (
-      (init?.credentials ?? "include") === "include" &&
-      csrfToken !== null &&
-      csrfToken !== ""
-    ) {
-      headers[csrfHeaderName] = csrfToken;
-    }
-  }
-
-  const response = await fetch(input, {
-    credentials: "include",
-    ...init,
-    headers,
-  });
-  const contentType = response.headers.get("Content-Type") ?? "";
-  const payload = contentType.includes("application/json")
-    ? ((await response.json()) as T | { error?: APIError })
-    : ((await response.text()) as unknown as T | { error?: APIError });
-  return { ok: response.ok, status: response.status, payload };
-}
-
-function apiPath(base: string | undefined, path: string): string {
-  const trimmedBase = (base ?? "").trim();
-  if (trimmedBase === "") {
-    return path;
-  }
-  return `${trimmedBase.replace(/\/$/, "")}${path}`;
-}
-
-function extractError(payload: unknown): APIError | null {
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
-  return (payload as { error?: APIError }).error ?? null;
-}
-
 function prettyJSON(value: unknown): string {
   return JSON.stringify(value, null, 2);
-}
-
-function uniqueTxn(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-}
-
-function secondFactorPayload(code: string) {
-  if (code.trim() === "") {
-    return undefined;
-  }
-  return {
-    kind: "totp",
-    assertion: {
-      code,
-    },
-  };
 }
 
 export function Phase1Harness({ apiBase }: { apiBase?: string }) {
@@ -207,9 +94,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
   );
 
   const loadSession = useCallback(async () => {
-    const result = await fetchJSON<{ data: SessionData }>(
-      apiPath(apiBase, "/api/v1/auth/session"),
-    );
+    const result = await loadSessionRequest(apiBase);
     const error = extractError(result.payload);
     if (!result.ok) {
       setSession(null);
@@ -223,9 +108,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
   }, [apiBase]);
 
   const loadCredentialState = useCallback(async () => {
-    const result = await fetchJSON<{ data: CredentialState }>(
-      apiPath(apiBase, "/api/v1/auth/credential-state"),
-    );
+    const result = await loadCredentialStateRequest(apiBase);
     const error = extractError(result.payload);
     if (!result.ok) {
       setCredentialState(null);
@@ -253,9 +136,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
         return null;
       }
 
-      const result = await fetchJSON<{ data: UserResource }>(
-        apiPath(apiBase, `/api/v1/users/${userID}`),
-      );
+      const result = await loadUserRequest({ apiBase, userId: userID });
       if (updateProbeOutput) {
         updateProbe(
           result.status,
@@ -291,17 +172,12 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
 
   async function handleLogin() {
     setStatusText("Signing in");
-    const result = await fetchJSON<{ data: SessionData }>(
-      apiPath(apiBase, "/api/v1/auth/login"),
-      {
-        method: "POST",
-        body: JSON.stringify({
-          username: loginUsername,
-          password: loginPassword,
-          second_factor: secondFactorPayload(loginTotpCode),
-        }),
-      },
-    );
+    const result = await loginLocal({
+      apiBase,
+      username: loginUsername,
+      password: loginPassword,
+      secondFactorCode: loginTotpCode,
+    });
     const error = updateProbe(
       result.status,
       result.payload,
@@ -327,61 +203,21 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
 
   async function handleLogout() {
     setStatusText("Signing out");
-    const result = await fetchJSON(apiPath(apiBase, "/api/v1/auth/logout"), {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
+    const result = await logoutCurrentSession(apiBase);
     updateProbe(result.status, result.payload, "Signed out", "Sign out failed");
     await loadSession();
     await loadCredentialState();
   }
 
-  async function handleExpireCurrentSession() {
-    setStatusText("Expiring current session");
-    const result = await fetchJSON(
-      apiPath(apiBase, "/api/v1/test/auth/expire-current"),
-      {
-        method: "POST",
-        body: JSON.stringify({}),
-      },
-    );
-    updateProbe(
-      result.status,
-      result.payload,
-      "Current session expired",
-      "Expire current session failed",
-    );
-    await loadSession();
-  }
-
   async function handleBeginTOTP() {
     setStatusText("Beginning TOTP enrollment");
-    const body: Record<string, unknown> = {
-      client_txn_id: uniqueTxn("phase1-ui-totp-begin"),
-    };
-    if (totpAuthMode === "session") {
-      body.current_password = totpCurrentPassword;
-      body.second_factor = secondFactorPayload(totpCurrentFactorCode);
-    }
-
-    const headers =
-      totpAuthMode === "bootstrap" && bootstrapToken.trim() !== ""
-        ? { Authorization: `Bearer ${bootstrapToken}` }
-        : undefined;
-    const requestInit: RequestInit = {
-      method: "POST",
-      credentials: totpAuthMode === "bootstrap" ? "omit" : "include",
-      body: JSON.stringify(body),
-    };
-    if (headers) {
-      requestInit.headers = headers;
-    }
-    const result = await fetchJSON<{
-      data: {
-        enrollment_id: string;
-        totp_setup: { secret_base32: string };
-      };
-    }>(apiPath(apiBase, "/api/v1/auth/mfa/totp/begin"), requestInit);
+    const result = await beginTotpEnrollment({
+      apiBase,
+      authMode: totpAuthMode,
+      bootstrapToken,
+      currentPassword: totpCurrentPassword,
+      currentFactorCode: totpCurrentFactorCode,
+    });
     updateProbe(
       result.status,
       result.payload,
@@ -403,26 +239,13 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
 
   async function handleCompleteTOTP() {
     setStatusText("Completing TOTP enrollment");
-    const headers =
-      totpAuthMode === "bootstrap" && bootstrapToken.trim() !== ""
-        ? { Authorization: `Bearer ${bootstrapToken}` }
-        : undefined;
-    const requestInit: RequestInit = {
-      method: "POST",
-      credentials: totpAuthMode === "bootstrap" ? "omit" : "include",
-      body: JSON.stringify({
-        client_txn_id: uniqueTxn("phase1-ui-totp-complete"),
-        enrollment_id: totpEnrollmentId,
-        code: totpCompleteCode,
-      }),
-    };
-    if (headers) {
-      requestInit.headers = headers;
-    }
-    const result = await fetchJSON(
-      apiPath(apiBase, "/api/v1/auth/mfa/totp/complete"),
-      requestInit,
-    );
+    const result = await completeTotpEnrollment({
+      apiBase,
+      authMode: totpAuthMode,
+      bootstrapToken,
+      enrollmentId: totpEnrollmentId,
+      code: totpCompleteCode,
+    });
     updateProbe(
       result.status,
       result.payload,
@@ -435,18 +258,12 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
 
   async function handlePasswordChange() {
     setStatusText("Changing password");
-    const result = await fetchJSON(
-      apiPath(apiBase, "/api/v1/auth/password/change"),
-      {
-        method: "POST",
-        body: JSON.stringify({
-          client_txn_id: uniqueTxn("phase1-ui-password-change"),
-          current_password: passwordCurrent,
-          new_password: passwordNext,
-          second_factor: secondFactorPayload(passwordFactorCode),
-        }),
-      },
-    );
+    const result = await changePassword({
+      apiBase,
+      currentPassword: passwordCurrent,
+      newPassword: passwordNext,
+      secondFactorCode: passwordFactorCode,
+    });
     updateProbe(
       result.status,
       result.payload,
@@ -459,21 +276,14 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
 
   async function handleCreateUser() {
     setStatusText("Creating local user");
-    const result = await fetchJSON<{ data: UserResource }>(
-      apiPath(apiBase, "/api/v1/users"),
-      {
-        method: "POST",
-        body: JSON.stringify({
-          client_txn_id: uniqueTxn("phase1-ui-user-create"),
-          auth_kind: "local",
-          email: createEmail,
-          display_name: createDisplayName,
-          initial_password: createInitialPassword,
-          mfa_required: createMFARequired,
-          is_deployment_admin: createIsDeploymentAdmin,
-        }),
-      },
-    );
+    const result = await createLocalUser({
+      apiBase,
+      email: createEmail,
+      displayName: createDisplayName,
+      initialPassword: createInitialPassword,
+      mfaRequired: createMFARequired,
+      isDeploymentAdmin: createIsDeploymentAdmin,
+    });
     updateProbe(
       result.status,
       result.payload,
@@ -496,19 +306,15 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
 
   async function handlePatchUser() {
     setStatusText("Patching local user");
-    const result = await fetchJSON<{ data: UserResource }>(
-      apiPath(apiBase, `/api/v1/users/${targetUserID}`),
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          base_user_version: Number.parseInt(targetBaseVersion, 10),
-          display_name: patchDisplayName,
-          mfa_required: patchMFARequired,
-          is_active: patchIsActive,
-          is_deployment_admin: patchIsDeploymentAdmin,
-        }),
-      },
-    );
+    const result = await patchLocalUser({
+      apiBase,
+      userId: targetUserID,
+      baseUserVersion: Number.parseInt(targetBaseVersion, 10),
+      displayName: patchDisplayName,
+      mfaRequired: patchMFARequired,
+      isActive: patchIsActive,
+      isDeploymentAdmin: patchIsDeploymentAdmin,
+    });
     updateProbe(
       result.status,
       result.payload,
@@ -524,18 +330,13 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
 
   async function handleAdminPasswordReset() {
     setStatusText("Resetting user password");
-    const result = await fetchJSON<{ data: UserResource }>(
-      apiPath(apiBase, `/api/v1/users/${targetUserID}/password/reset`),
-      {
-        method: "POST",
-        body: JSON.stringify({
-          base_user_version: Number.parseInt(targetBaseVersion, 10),
-          client_txn_id: uniqueTxn("phase1-ui-password-reset"),
-          new_password: adminNewPassword,
-          reason: adminReason,
-        }),
-      },
-    );
+    const result = await adminResetPassword({
+      apiBase,
+      userId: targetUserID,
+      baseUserVersion: Number.parseInt(targetBaseVersion, 10),
+      newPassword: adminNewPassword,
+      reason: adminReason,
+    });
     updateProbe(
       result.status,
       result.payload,
@@ -551,17 +352,12 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
 
   async function handleAdminTOTPReset() {
     setStatusText("Resetting user TOTP");
-    const result = await fetchJSON<{ data: UserResource }>(
-      apiPath(apiBase, `/api/v1/users/${targetUserID}/mfa/totp/reset`),
-      {
-        method: "POST",
-        body: JSON.stringify({
-          base_user_version: Number.parseInt(targetBaseVersion, 10),
-          client_txn_id: uniqueTxn("phase1-ui-totp-reset"),
-          reason: adminReason,
-        }),
-      },
-    );
+    const result = await adminResetTotp({
+      apiBase,
+      userId: targetUserID,
+      baseUserVersion: Number.parseInt(targetBaseVersion, 10),
+      reason: adminReason,
+    });
     updateProbe(
       result.status,
       result.payload,
@@ -577,16 +373,11 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
 
   async function handleAdminRevokeAll() {
     setStatusText("Revoking every user session");
-    const result = await fetchJSON(
-      apiPath(apiBase, `/api/v1/users/${targetUserID}/sessions/revoke-all`),
-      {
-        method: "POST",
-        body: JSON.stringify({
-          client_txn_id: uniqueTxn("phase1-ui-revoke-all"),
-          reason: adminReason,
-        }),
-      },
-    );
+    const result = await adminRevokeAllSessions({
+      apiBase,
+      userId: targetUserID,
+      reason: adminReason,
+    });
     updateProbe(
       result.status,
       result.payload,
@@ -702,16 +493,6 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             }}
           >
             Refresh session
-          </button>
-          <button
-            data-testid="phase1-expire-session"
-            style={secondaryButtonStyle}
-            type="button"
-            onClick={() => {
-              void handleExpireCurrentSession();
-            }}
-          >
-            Force idle expiry
           </button>
         </div>
         {session ? (

@@ -140,6 +140,505 @@ func TestPhase1_LoginCreatesSessionAndResource_U_1_03(t *testing.T) {
 	requireCookieValue(t, recorder.Result().Cookies(), authn.CSRFCookieName)
 }
 
+func TestPhase1_SessionInspectionRoute_U_1_04(t *testing.T) {
+	now := time.Date(2026, time.April, 17, 12, 15, 0, 0, time.UTC)
+	keys := loadUnitMasterKeys(t)
+
+	t.Run("returns the singleton session resource without sliding idle expiry", func(t *testing.T) {
+		userID := uuid.MustParse("10000000-0000-0000-0000-000000000104")
+		sessionID := uuid.MustParse("10000000-0000-0000-0000-000000000105")
+		incidentID := uuid.MustParse("10000000-0000-0000-0000-000000000106")
+		token := "session-inspection-token"
+
+		sessionLookups := 0
+		slideCalls := 0
+		store := &authStoreStub{
+			getSessionByFingerprintFunc: func(_ context.Context, fingerprint []byte) (authn.SessionRecord, authn.UserRecord, error) {
+				sessionLookups++
+				if !bytes.Equal(fingerprint, authn.FingerprintToken(keys, token)) {
+					t.Fatal("session inspection used the wrong session fingerprint")
+				}
+				user := activeUserRecord(userID, "inspection@example.test")
+				user.DisplayName = "Inspector"
+				return activeSessionRecord(sessionID, userID, now), user, nil
+			},
+			listIncidentMembershipSummariesFunc: func(_ context.Context, gotUserID uuid.UUID) ([]authn.IncidentMembershipSummary, error) {
+				if gotUserID != userID {
+					t.Fatalf("unexpected membership lookup user: got %s want %s", gotUserID, userID)
+				}
+				return []authn.IncidentMembershipSummary{
+					{IncidentID: incidentID, Role: "viewer"},
+				}, nil
+			},
+			slideSessionFunc: func(context.Context, uuid.UUID, authn.SessionTiming) error {
+				slideCalls++
+				return nil
+			},
+		}
+		service := newUnitService(t, store, &hubStub{}, keys, now)
+
+		recorder := httptest.NewRecorder()
+		request := newJSONRequest(t, http.MethodGet, "/api/v1/auth/session", "")
+		addSessionCookiesOnly(request, keys, token)
+		service.handleSession(recorder, request)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("unexpected session inspection status: got %d want %d", recorder.Code, http.StatusOK)
+		}
+		if sessionLookups != 1 {
+			t.Fatalf("expected one session lookup, got %d", sessionLookups)
+		}
+		if slideCalls != 0 {
+			t.Fatalf("session inspection must not slide idle expiry, got %d slide calls", slideCalls)
+		}
+
+		data := decodeSuccessData(t, recorder)
+		if got := data["user_id"]; got != userID.String() {
+			t.Fatalf("unexpected session user_id: got %v want %s", got, userID)
+		}
+		if got := data["display_name"]; got != "Inspector" {
+			t.Fatalf("unexpected session display_name: got %v", got)
+		}
+		if got := data["provider_type"]; got != "local" {
+			t.Fatalf("unexpected session provider_type: got %v", got)
+		}
+		if got := data["idle_expires_at"]; got != now.Add(30*time.Minute).Format(time.RFC3339Nano) {
+			t.Fatalf("unexpected idle_expires_at: got %v", got)
+		}
+		if got := data["session_expires_at"]; got != now.Add(30*time.Minute).Format(time.RFC3339Nano) {
+			t.Fatalf("unexpected session_expires_at: got %v", got)
+		}
+		memberships, ok := data["memberships"].([]any)
+		if !ok || len(memberships) != 1 {
+			t.Fatalf("expected one membership summary, got %#v", data["memberships"])
+		}
+		member, ok := memberships[0].(map[string]any)
+		if !ok || member["incident_id"] != incidentID.String() || member["role"] != "viewer" {
+			t.Fatalf("unexpected membership summary: %#v", memberships[0])
+		}
+	})
+
+	t.Run("rejects pagination members on the actual route before session lookup", func(t *testing.T) {
+		sessionLookups := 0
+		store := &authStoreStub{
+			getSessionByFingerprintFunc: func(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error) {
+				sessionLookups++
+				return authn.SessionRecord{}, authn.UserRecord{}, nil
+			},
+		}
+		service := newUnitService(t, store, &hubStub{}, keys, now)
+
+		recorder := httptest.NewRecorder()
+		request := newJSONRequest(t, http.MethodGet, "/api/v1/auth/session?limit=10", "")
+		service.handleSession(recorder, request)
+
+		requireErrorEnvelope(t, recorder, http.StatusBadRequest, "invalid_pagination_request", "")
+		if sessionLookups != 0 {
+			t.Fatalf("session lookup must not run after pagination rejection, got %d lookups", sessionLookups)
+		}
+	})
+}
+
+func TestPhase1_UserCreateRouteDefaults_U_1_07(t *testing.T) {
+	now := time.Date(2026, time.April, 17, 12, 20, 0, 0, time.UTC)
+	keys := loadUnitMasterKeys(t)
+
+	t.Run("rejects client-driven is_active before the create path runs", func(t *testing.T) {
+		adminID := uuid.MustParse("10000000-0000-0000-0000-000000000107")
+		sessionID := uuid.MustParse("10000000-0000-0000-0000-000000000108")
+		token := "user-create-invalid-field-token"
+
+		createCalls := 0
+		store := &authStoreStub{
+			getSessionByFingerprintFunc: func(_ context.Context, fingerprint []byte) (authn.SessionRecord, authn.UserRecord, error) {
+				if !bytes.Equal(fingerprint, authn.FingerprintToken(keys, token)) {
+					t.Fatal("user create used the wrong session fingerprint")
+				}
+				return activeSessionRecord(sessionID, adminID, now), deploymentAdminUserRecord(adminID, "admin@example.test"), nil
+			},
+			createUserFunc: func(context.Context, authn.UserRecord, string, string, string, bool, bool, string, []byte, string, time.Time) (authn.UserCreateResult, error) {
+				createCalls++
+				return authn.UserCreateResult{}, nil
+			},
+		}
+		service := newUnitService(t, store, &hubStub{}, keys, now)
+
+		recorder := httptest.NewRecorder()
+		request := newJSONRequest(t, http.MethodPost, "/api/v1/users", `{
+			"client_txn_id":"txn-user-create-invalid-field",
+			"auth_kind":"local",
+			"email":"phase1-invalid@example.test",
+			"display_name":"Phase 1 Invalid",
+			"initial_password":"Phase1InvalidPass!",
+			"is_active":false
+		}`)
+		addSessionAuth(request, keys, token, true)
+		service.handleUsersCollection(recorder, request)
+
+		requireErrorEnvelope(t, recorder, http.StatusBadRequest, "invalid_mutation_payload", "is_active")
+		if createCalls != 0 {
+			t.Fatalf("CreateUser must not run for client-driven is_active, got %d calls", createCalls)
+		}
+	})
+
+	t.Run("applies defaults and returns a secret-safe resource", func(t *testing.T) {
+		adminID := uuid.MustParse("10000000-0000-0000-0000-000000000109")
+		sessionID := uuid.MustParse("10000000-0000-0000-0000-000000000110")
+		userID := uuid.MustParse("10000000-0000-0000-0000-00000000010b")
+		token := "user-create-defaults-token"
+		initialPassword := "Phase1DefaultsPass!"
+		responseCreatedAt := now.Add(time.Minute)
+
+		var capturedPasswordHash string
+		var capturedRequestHash []byte
+		store := &authStoreStub{
+			getSessionByFingerprintFunc: func(_ context.Context, fingerprint []byte) (authn.SessionRecord, authn.UserRecord, error) {
+				if !bytes.Equal(fingerprint, authn.FingerprintToken(keys, token)) {
+					t.Fatal("user create used the wrong session fingerprint")
+				}
+				return activeSessionRecord(sessionID, adminID, now), deploymentAdminUserRecord(adminID, "admin@example.test"), nil
+			},
+			createUserFunc: func(_ context.Context, actor authn.UserRecord, email string, displayName string, passwordHash string, mfaRequired bool, isDeploymentAdmin bool, clientTxnID string, requestHash []byte, requestID string, createdAt time.Time) (authn.UserCreateResult, error) {
+				if actor.ID != adminID || !actor.IsDeploymentAdmin {
+					t.Fatalf("unexpected create actor: %#v", actor)
+				}
+				if email != "phase1-create@example.test" {
+					t.Fatalf("unexpected create email: got %q", email)
+				}
+				if displayName != "Phase 1 Create" {
+					t.Fatalf("unexpected create display_name: got %q", displayName)
+				}
+				if !mfaRequired {
+					t.Fatal("omitted mfa_required must default to true")
+				}
+				if isDeploymentAdmin {
+					t.Fatal("omitted is_deployment_admin must default to false")
+				}
+				if clientTxnID != "txn-user-create-defaults" {
+					t.Fatalf("unexpected create client_txn_id: got %q", clientTxnID)
+				}
+				if requestID != "" {
+					t.Fatalf("unexpected request id in direct handler test: got %q", requestID)
+				}
+				if !createdAt.Equal(now) {
+					t.Fatalf("unexpected create time: got %s want %s", createdAt, now)
+				}
+				capturedPasswordHash = passwordHash
+				capturedRequestHash = append([]byte(nil), requestHash...)
+				return authn.UserCreateResult{
+					StatusCode: http.StatusCreated,
+					ResponseJSON: mustJSON(t, map[string]any{
+						"user_id":             userID,
+						"email":               email,
+						"display_name":        displayName,
+						"is_active":           true,
+						"mfa_required":        true,
+						"is_deployment_admin": false,
+						"user_version":        1,
+						"created_at":          responseCreatedAt,
+						"updated_at":          responseCreatedAt,
+						"auth_bindings": []map[string]any{
+							{
+								"provider_type": "local",
+								"provider_key":  "local",
+								"username":      email,
+								"created_at":    responseCreatedAt,
+							},
+						},
+					}),
+				}, nil
+			},
+		}
+		service := newUnitService(t, store, &hubStub{}, keys, now)
+
+		recorder := httptest.NewRecorder()
+		request := newJSONRequest(t, http.MethodPost, "/api/v1/users", `{
+			"client_txn_id":"txn-user-create-defaults",
+			"auth_kind":"local",
+			"email":" phase1-create@example.test ",
+			"display_name":" Phase 1 Create ",
+			"initial_password":"Phase1DefaultsPass!"
+		}`)
+		addSessionAuth(request, keys, token, true)
+		service.handleUsersCollection(recorder, request)
+
+		if recorder.Code != http.StatusCreated {
+			t.Fatalf("unexpected create status: got %d want %d", recorder.Code, http.StatusCreated)
+		}
+		if ok, err := authn.VerifyPasswordHash(capturedPasswordHash, initialPassword); err != nil || !ok {
+			t.Fatalf("captured password hash must verify initial password, ok=%v err=%v", ok, err)
+		}
+		expectedHash := hashRequestPayload(map[string]any{
+			"auth_kind":           "local",
+			"email":               "phase1-create@example.test",
+			"display_name":        "Phase 1 Create",
+			"initial_password":    requestSecretFingerprint(keys, initialPassword),
+			"mfa_required":        true,
+			"is_deployment_admin": false,
+		})
+		if !hashesEqual(capturedRequestHash, expectedHash) {
+			t.Fatalf("unexpected create request hash: got %x want %x", capturedRequestHash, expectedHash)
+		}
+
+		data := decodeSuccessData(t, recorder)
+		if data["is_active"] != true || data["mfa_required"] != true || data["is_deployment_admin"] != false {
+			t.Fatalf("unexpected create response defaults: %#v", data)
+		}
+		requireNoSecretKeys(t, data, "password_hash", "initial_password", "bootstrap_token", "secret_base32")
+	})
+}
+
+func TestPhase1_CSRFProtectionRoutes_U_1_09(t *testing.T) {
+	now := time.Date(2026, time.April, 17, 12, 40, 0, 0, time.UTC)
+	keys := loadUnitMasterKeys(t)
+	userID := uuid.MustParse("10000000-0000-0000-0000-000000000124")
+	sessionID := uuid.MustParse("10000000-0000-0000-0000-000000000125")
+	token := "csrf-password-change-token"
+	passwordHash, err := authn.HashPassword("Phase1CSRFCurrent!")
+	if err != nil {
+		t.Fatalf("hash csrf current password: %v", err)
+	}
+
+	for _, tc := range []struct {
+		name       string
+		headerName string
+		headerVal  string
+	}{
+		{
+			name: "missing csrf header",
+		},
+		{
+			name:       "invalid csrf header",
+			headerName: authn.CSRFHeaderName,
+			headerVal:  "wrong-csrf-token",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sessionLookups := 0
+			idempotencyLookups := 0
+			changeCalls := 0
+			revokeCalls := 0
+			store := &authStoreStub{
+				getSessionByFingerprintFunc: func(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error) {
+					sessionLookups++
+					return activeSessionRecord(sessionID, userID, now), authn.UserRecord{
+						ID:           userID,
+						Email:        "csrf@example.test",
+						DisplayName:  "CSRF",
+						PasswordHash: passwordHash,
+						IsActive:     true,
+					}, nil
+				},
+				getRouteIdempotencyFunc: func(context.Context, string, string, string) (authn.RouteIdempotencyRecord, error) {
+					idempotencyLookups++
+					return authn.RouteIdempotencyRecord{}, authn.ErrNotFound
+				},
+				changePasswordFunc: func(context.Context, authn.UserRecord, string, []byte, string, string, time.Time) (authn.PasswordChangeResult, error) {
+					changeCalls++
+					return authn.PasswordChangeResult{}, nil
+				},
+				revokeSessionFunc: func(context.Context, uuid.UUID, string, time.Time) error {
+					revokeCalls++
+					return nil
+				},
+			}
+			hub := &hubStub{}
+			service := newUnitService(t, store, hub, keys, now)
+
+			recorder := httptest.NewRecorder()
+			request := newJSONRequest(t, http.MethodPost, "/api/v1/auth/password/change", `{
+				"client_txn_id":"txn-password-csrf",
+				"current_password":"Phase1CSRFCurrent!",
+				"new_password":"Phase1CSRFFresh!"
+			}`)
+			addSessionCookiesOnly(request, keys, token)
+			if tc.headerName != "" {
+				request.Header.Set(tc.headerName, tc.headerVal)
+			}
+			service.handlePasswordChange(recorder, request)
+
+			requireErrorEnvelope(t, recorder, http.StatusForbidden, "csrf_verification_failed", "")
+			if sessionLookups != 0 || idempotencyLookups != 0 || changeCalls != 0 || revokeCalls != 0 {
+				t.Fatalf("csrf failure must leave mutation paths untouched: session=%d idempotency=%d change=%d revoke=%d", sessionLookups, idempotencyLookups, changeCalls, revokeCalls)
+			}
+			if len(hub.revocations) != 0 {
+				t.Fatalf("csrf failure must not publish revocations, got %#v", hub.revocations)
+			}
+		})
+	}
+}
+
+func TestPhase1_CredentialStateRoute_U_1_10(t *testing.T) {
+	now := time.Date(2026, time.April, 17, 12, 50, 0, 0, time.UTC)
+	keys := loadUnitMasterKeys(t)
+
+	t.Run("returns the safe credential-state resource for each declared totp.state", func(t *testing.T) {
+		userID := uuid.MustParse("10000000-0000-0000-0000-000000000126")
+		sessionID := uuid.MustParse("10000000-0000-0000-0000-000000000127")
+		token := "credential-state-token"
+		changedAt := now.Add(-2 * time.Hour)
+		enrolledAt := now.Add(-time.Hour)
+		pendingExpiresAt := now.Add(5 * time.Minute)
+
+		for _, tc := range []struct {
+			name            string
+			user            authn.UserRecord
+			pending         *authn.PendingTOTPEnrollmentRecord
+			wantState       string
+			wantPendingText string
+		}{
+			{
+				name: "not enrolled",
+				user: authn.UserRecord{
+					ID:                userID,
+					Email:             "state-not-enrolled@example.test",
+					DisplayName:       "Not Enrolled",
+					IsActive:          true,
+					MFARequired:       true,
+					PasswordChangedAt: changedAt,
+				},
+				wantState: "not_enrolled",
+			},
+			{
+				name: "pending",
+				user: authn.UserRecord{
+					ID:                userID,
+					Email:             "state-pending@example.test",
+					DisplayName:       "Pending",
+					IsActive:          true,
+					MFARequired:       true,
+					PasswordChangedAt: changedAt,
+				},
+				pending: &authn.PendingTOTPEnrollmentRecord{
+					ID:        uuid.MustParse("10000000-0000-0000-0000-000000000128"),
+					UserID:    userID,
+					ExpiresAt: pendingExpiresAt,
+				},
+				wantState:       "pending",
+				wantPendingText: pendingExpiresAt.Format(time.RFC3339Nano),
+			},
+			{
+				name: "active",
+				user: authn.UserRecord{
+					ID:                userID,
+					Email:             "state-active@example.test",
+					DisplayName:       "Active",
+					IsActive:          true,
+					MFARequired:       true,
+					PasswordChangedAt: changedAt,
+					TOTPEnrolledAt:    &enrolledAt,
+				},
+				wantState: "active",
+			},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				slideCalls := 0
+				store := &authStoreStub{
+					getSessionByFingerprintFunc: func(_ context.Context, fingerprint []byte) (authn.SessionRecord, authn.UserRecord, error) {
+						if !bytes.Equal(fingerprint, authn.FingerprintToken(keys, token)) {
+							t.Fatal("credential state used the wrong session fingerprint")
+						}
+						return activeSessionRecord(sessionID, userID, now), tc.user, nil
+					},
+					slideSessionFunc: func(_ context.Context, gotSessionID uuid.UUID, timing authn.SessionTiming) error {
+						slideCalls++
+						if gotSessionID != sessionID {
+							t.Fatalf("unexpected slide session id: got %s want %s", gotSessionID, sessionID)
+						}
+						if !timing.LastQualifyingActivityAt.Equal(now) {
+							t.Fatalf("unexpected slide last_qualifying_activity_at: got %s want %s", timing.LastQualifyingActivityAt, now)
+						}
+						return nil
+					},
+					getPendingTOTPEnrollmentForUserFunc: func(_ context.Context, gotUserID uuid.UUID, current time.Time) (*authn.PendingTOTPEnrollmentRecord, error) {
+						if gotUserID != userID {
+							t.Fatalf("unexpected pending-enrollment user: got %s want %s", gotUserID, userID)
+						}
+						if !current.Equal(now) {
+							t.Fatalf("unexpected pending-enrollment time: got %s want %s", current, now)
+						}
+						return tc.pending, nil
+					},
+				}
+				service := newUnitService(t, store, &hubStub{}, keys, now)
+
+				recorder := httptest.NewRecorder()
+				request := newJSONRequest(t, http.MethodGet, "/api/v1/auth/credential-state", "")
+				addSessionCookiesOnly(request, keys, token)
+				service.handleCredentialState(recorder, request)
+
+				if recorder.Code != http.StatusOK {
+					t.Fatalf("unexpected credential-state status: got %d want %d", recorder.Code, http.StatusOK)
+				}
+				if slideCalls != 1 {
+					t.Fatalf("credential-state inspection must slide idle expiry once, got %d calls", slideCalls)
+				}
+
+				data := decodeSuccessData(t, recorder)
+				if got := data["auth_kind"]; got != "local" {
+					t.Fatalf("unexpected auth_kind: got %v", got)
+				}
+				if got := data["user_id"]; got != userID.String() {
+					t.Fatalf("unexpected credential-state user_id: got %v want %s", got, userID)
+				}
+				if got := data["recovery_model"]; got != "admin_assisted" {
+					t.Fatalf("unexpected recovery_model: got %v", got)
+				}
+				totpState := data["totp"].(map[string]any)
+				if got := totpState["state"]; got != tc.wantState {
+					t.Fatalf("unexpected totp.state: got %v want %s", got, tc.wantState)
+				}
+				if tc.wantPendingText == "" {
+					if pendingValue, ok := totpState["pending_expires_at"]; ok && pendingValue != nil {
+						t.Fatalf("unexpected pending_expires_at for %s: %#v", tc.wantState, pendingValue)
+					}
+				} else if got := totpState["pending_expires_at"]; got != tc.wantPendingText {
+					t.Fatalf("unexpected pending_expires_at: got %v want %s", got, tc.wantPendingText)
+				}
+				requireNoSecretKeys(t, data, "password_hash", "bootstrap_token", "secret_base32", "otpauth_uri")
+			})
+		}
+	})
+
+	t.Run("rejects bootstrap-token auth on the ordinary credential-state route", func(t *testing.T) {
+		userID := uuid.MustParse("10000000-0000-0000-0000-000000000129")
+		bootstrapTokenID := uuid.MustParse("10000000-0000-0000-0000-00000000012a")
+		bootstrapToken := "credential-state-bootstrap-token"
+
+		store := &authStoreStub{
+			getSessionByFingerprintFunc: func(_ context.Context, fingerprint []byte) (authn.SessionRecord, authn.UserRecord, error) {
+				if !bytes.Equal(fingerprint, authn.FingerprintToken(keys, bootstrapToken)) {
+					t.Fatal("unexpected bearer fingerprint during credential-state bootstrap rejection")
+				}
+				return authn.SessionRecord{}, authn.UserRecord{}, authn.ErrNotFound
+			},
+			getBootstrapTokenByFingerprintFunc: func(_ context.Context, fingerprint []byte) (authn.BootstrapTokenRecord, authn.UserRecord, error) {
+				if !bytes.Equal(fingerprint, authn.FingerprintToken(keys, bootstrapToken)) {
+					t.Fatal("unexpected bootstrap fingerprint during credential-state bootstrap rejection")
+				}
+				return authn.BootstrapTokenRecord{
+					ID:        bootstrapTokenID,
+					UserID:    userID,
+					IssuedAt:  now.Add(-time.Minute),
+					ExpiresAt: now.Add(9 * time.Minute),
+				}, activeUserRecord(userID, "bootstrap-rejected@example.test"), nil
+			},
+		}
+		service := newUnitService(t, store, &hubStub{}, keys, now)
+
+		recorder := httptest.NewRecorder()
+		request := newJSONRequest(t, http.MethodGet, "/api/v1/auth/credential-state", "")
+		request.Header.Set("Authorization", "Bearer "+bootstrapToken)
+		service.handleCredentialState(recorder, request)
+
+		requireErrorEnvelope(t, recorder, http.StatusConflict, "credential_bootstrap_rejected", "")
+		details := decodeErrorDetails(t, recorder)
+		if got := details["reason_code"]; got != "not_allowed_for_route" {
+			t.Fatalf("unexpected bootstrap rejection reason_code: got %v want not_allowed_for_route", got)
+		}
+	})
+}
+
 func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 	now := time.Date(2026, time.April, 17, 12, 30, 0, 0, time.UTC)
 	keys := loadUnitMasterKeys(t)
@@ -447,6 +946,87 @@ func TestPhase1_PasswordChangeRouteContracts_U_1_11(t *testing.T) {
 		if data["sessions_revoked"] != true {
 			t.Fatalf("unexpected password change response: %#v", data)
 		}
+		requireNoSecretKeys(t, data, "password_hash", "current_password", "new_password", "secret_base32", "bootstrap_token")
+		requireCookieCleared(t, recorder.Result().Cookies(), authn.SessionCookieName)
+		requireCookieCleared(t, recorder.Result().Cookies(), authn.CSRFCookieName)
+	})
+
+	t.Run("replay returns the original secret-safe stored payload without mutating again", func(t *testing.T) {
+		userID := uuid.MustParse("10000000-0000-0000-0000-000000000154")
+		sessionID := uuid.MustParse("10000000-0000-0000-0000-000000000155")
+		token := "password-change-replay-token"
+		currentPassword := "Replay Current Password!"
+		newPassword := "Replay Replacement Password!"
+		passwordHash, err := authn.HashPassword(currentPassword)
+		if err != nil {
+			t.Fatalf("hash replay current password: %v", err)
+		}
+
+		replayPayload := map[string]any{
+			"user_id":          userID,
+			"password":         map[string]any{"changed_at": now},
+			"sessions_revoked": true,
+		}
+		expectedHash := hashRequestPayload(map[string]any{
+			"current_password": requestSecretFingerprint(keys, currentPassword),
+			"new_password":     requestSecretFingerprint(keys, newPassword),
+			"second_factor":    requestSecondFactorHashPayload(keys, nil),
+		})
+		idempotencyLookups := 0
+		changeCalls := 0
+		store := &authStoreStub{
+			getSessionByFingerprintFunc: func(_ context.Context, fingerprint []byte) (authn.SessionRecord, authn.UserRecord, error) {
+				if !bytes.Equal(fingerprint, authn.FingerprintToken(keys, token)) {
+					t.Fatal("password-change replay used the wrong session fingerprint")
+				}
+				return activeSessionRecord(sessionID, userID, now), authn.UserRecord{
+					ID:           userID,
+					Email:        "replay@example.test",
+					DisplayName:  "Replay",
+					PasswordHash: passwordHash,
+					IsActive:     true,
+				}, nil
+			},
+			getRouteIdempotencyFunc: func(_ context.Context, routeKey string, scopeKey string, clientTxnID string) (authn.RouteIdempotencyRecord, error) {
+				idempotencyLookups++
+				if routeKey != "auth.password.change" || scopeKey != userID.String() || clientTxnID != "txn-password-replay" {
+					t.Fatalf("unexpected idempotency lookup: route=%q scope=%q txn=%q", routeKey, scopeKey, clientTxnID)
+				}
+				return authn.RouteIdempotencyRecord{
+					RequestHash:  expectedHash,
+					ResponseJSON: mustJSON(t, replayPayload),
+				}, nil
+			},
+			changePasswordFunc: func(context.Context, authn.UserRecord, string, []byte, string, string, time.Time) (authn.PasswordChangeResult, error) {
+				changeCalls++
+				return authn.PasswordChangeResult{}, nil
+			},
+		}
+		service := newUnitService(t, store, &hubStub{}, keys, now)
+
+		recorder := httptest.NewRecorder()
+		request := newJSONRequest(t, http.MethodPost, "/api/v1/auth/password/change", `{
+			"client_txn_id":"txn-password-replay",
+			"current_password":"Replay Current Password!",
+			"new_password":"Replay Replacement Password!"
+		}`)
+		addSessionAuth(request, keys, token, true)
+		service.handlePasswordChange(recorder, request)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("unexpected replay password-change status: got %d want %d", recorder.Code, http.StatusOK)
+		}
+		if idempotencyLookups != 1 {
+			t.Fatalf("expected one idempotency lookup, got %d", idempotencyLookups)
+		}
+		if changeCalls != 0 {
+			t.Fatalf("ChangePassword must not run for an exact replay, got %d calls", changeCalls)
+		}
+		data := decodeSuccessData(t, recorder)
+		if data["sessions_revoked"] != true {
+			t.Fatalf("unexpected replay password-change response: %#v", data)
+		}
+		requireNoSecretKeys(t, data, "password_hash", "current_password", "new_password", "secret_base32", "bootstrap_token")
 		requireCookieCleared(t, recorder.Result().Cookies(), authn.SessionCookieName)
 		requireCookieCleared(t, recorder.Result().Cookies(), authn.CSRFCookieName)
 	})
@@ -596,6 +1176,108 @@ func TestPhase1_TOTPRouteContracts_U_1_12(t *testing.T) {
 		}
 	})
 
+	t.Run("begin replays within one auth scope and rejects divergent replay conflicts", func(t *testing.T) {
+		userID := uuid.MustParse("10000000-0000-0000-0000-000000000174")
+		bootstrapTokenID := uuid.MustParse("10000000-0000-0000-0000-000000000175")
+		bootstrapToken := "totp-begin-replay-bootstrap-token"
+		enrollmentID := uuid.MustParse("10000000-0000-0000-0000-000000000176")
+		beginCalls := 0
+		var storedCiphertext []byte
+		var storedNonce []byte
+		store := &authStoreStub{
+			getSessionByFingerprintFunc: func(_ context.Context, fingerprint []byte) (authn.SessionRecord, authn.UserRecord, error) {
+				if bytes.Equal(fingerprint, authn.FingerprintToken(keys, bootstrapToken)) {
+					return authn.SessionRecord{}, authn.UserRecord{}, authn.ErrNotFound
+				}
+				t.Fatal("unexpected session fingerprint during replay begin")
+				return authn.SessionRecord{}, authn.UserRecord{}, authn.ErrNotFound
+			},
+			getBootstrapTokenByFingerprintFunc: func(_ context.Context, fingerprint []byte) (authn.BootstrapTokenRecord, authn.UserRecord, error) {
+				if !bytes.Equal(fingerprint, authn.FingerprintToken(keys, bootstrapToken)) {
+					t.Fatal("unexpected bootstrap fingerprint during replay begin")
+				}
+				return authn.BootstrapTokenRecord{
+					ID:        bootstrapTokenID,
+					UserID:    userID,
+					IssuedAt:  now.Add(-time.Minute),
+					ExpiresAt: now.Add(9 * time.Minute),
+				}, activeUserRecord(userID, "replay-begin@example.test"), nil
+			},
+			beginTOTPEnrollmentFunc: func(_ context.Context, gotUserID uuid.UUID, authScopeKind string, sessionID *uuid.UUID, gotBootstrapTokenID *uuid.UUID, clientTxnID string, secretCiphertext []byte, secretNonce []byte, replacesActive bool, createdAt time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error) {
+				beginCalls++
+				if gotUserID != userID || authScopeKind != "bootstrap_token" || sessionID != nil {
+					t.Fatalf("unexpected replay begin scope: user=%s scope=%q session=%v", gotUserID, authScopeKind, sessionID)
+				}
+				if gotBootstrapTokenID == nil || *gotBootstrapTokenID != bootstrapTokenID {
+					t.Fatalf("unexpected replay begin bootstrap token scope: got %v want %s", gotBootstrapTokenID, bootstrapTokenID)
+				}
+				if replacesActive {
+					t.Fatal("bootstrap replay begin must not mark replacement enrollment")
+				}
+				if !createdAt.Equal(now) {
+					t.Fatalf("unexpected replay begin time: got %s want %s", createdAt, now)
+				}
+				switch clientTxnID {
+				case "txn-begin-replay":
+					if beginCalls == 1 {
+						storedCiphertext = append([]byte(nil), secretCiphertext...)
+						storedNonce = append([]byte(nil), secretNonce...)
+					}
+					return authn.PendingTOTPEnrollmentRecord{
+						ID:                        enrollmentID,
+						UserID:                    userID,
+						AuthScopeKind:             "bootstrap_token",
+						AuthScopeBootstrapTokenID: &bootstrapTokenID,
+						ClientTxnID:               clientTxnID,
+						SecretCiphertext:          storedCiphertext,
+						SecretNonce:               storedNonce,
+						CreatedAt:                 now,
+						ExpiresAt:                 now.Add(10 * time.Minute),
+					}, beginCalls > 1, nil
+				case "txn-begin-conflict":
+					return authn.PendingTOTPEnrollmentRecord{}, false, authn.ErrClientTxnConflict
+				default:
+					t.Fatalf("unexpected begin client_txn_id: got %q", clientTxnID)
+					return authn.PendingTOTPEnrollmentRecord{}, false, nil
+				}
+			},
+		}
+		service := newUnitService(t, store, &hubStub{}, keys, now)
+
+		firstRecorder := httptest.NewRecorder()
+		firstRequest := newJSONRequest(t, http.MethodPost, "/api/v1/auth/mfa/totp/begin", `{"client_txn_id":"txn-begin-replay"}`)
+		firstRequest.Header.Set("Authorization", "Bearer "+bootstrapToken)
+		service.handleTOTPBegin(firstRecorder, firstRequest)
+		if firstRecorder.Code != http.StatusOK {
+			t.Fatalf("unexpected first replay-begin status: got %d want %d", firstRecorder.Code, http.StatusOK)
+		}
+		firstData := decodeSuccessData(t, firstRecorder)
+		firstSetup := firstData["totp_setup"].(map[string]any)
+
+		secondRecorder := httptest.NewRecorder()
+		secondRequest := newJSONRequest(t, http.MethodPost, "/api/v1/auth/mfa/totp/begin", `{"client_txn_id":"txn-begin-replay"}`)
+		secondRequest.Header.Set("Authorization", "Bearer "+bootstrapToken)
+		service.handleTOTPBegin(secondRecorder, secondRequest)
+		if secondRecorder.Code != http.StatusOK {
+			t.Fatalf("unexpected second replay-begin status: got %d want %d", secondRecorder.Code, http.StatusOK)
+		}
+		secondData := decodeSuccessData(t, secondRecorder)
+		secondSetup := secondData["totp_setup"].(map[string]any)
+
+		if firstData["enrollment_id"] != secondData["enrollment_id"] {
+			t.Fatalf("begin replay must return the original enrollment_id: first=%v second=%v", firstData["enrollment_id"], secondData["enrollment_id"])
+		}
+		if firstSetup["secret_base32"] != secondSetup["secret_base32"] {
+			t.Fatalf("begin replay must return the original setup secret: first=%v second=%v", firstSetup["secret_base32"], secondSetup["secret_base32"])
+		}
+
+		conflictRecorder := httptest.NewRecorder()
+		conflictRequest := newJSONRequest(t, http.MethodPost, "/api/v1/auth/mfa/totp/begin", `{"client_txn_id":"txn-begin-conflict"}`)
+		conflictRequest.Header.Set("Authorization", "Bearer "+bootstrapToken)
+		service.handleTOTPBegin(conflictRecorder, conflictRequest)
+		requireErrorEnvelope(t, conflictRecorder, http.StatusConflict, "client_txn_conflict", "")
+	})
+
 	t.Run("complete omits setup material and preserves bootstrap scope for first enrollment", func(t *testing.T) {
 		userID := uuid.MustParse("10000000-0000-0000-0000-000000000181")
 		bootstrapTokenID := uuid.MustParse("10000000-0000-0000-0000-000000000182")
@@ -689,6 +1371,103 @@ func TestPhase1_TOTPRouteContracts_U_1_12(t *testing.T) {
 		}
 		if _, ok := data["totp_setup"]; ok {
 			t.Fatalf("totp complete must not return setup material, got %#v", data)
+		}
+	})
+
+	t.Run("successful bootstrap completion consumes the bootstrap token for later requests", func(t *testing.T) {
+		userID := uuid.MustParse("10000000-0000-0000-0000-000000000184")
+		bootstrapTokenID := uuid.MustParse("10000000-0000-0000-0000-000000000185")
+		enrollmentID := uuid.MustParse("10000000-0000-0000-0000-000000000186")
+		bootstrapToken := "totp-complete-consume-bootstrap-token"
+		secretBytes := []byte("klmnopqrst0123456789")
+		secretBase32 := authn.EncodeSecretBase32(secretBytes)
+		ciphertext, nonce, err := authn.EncryptSecret(keys, secretBytes)
+		if err != nil {
+			t.Fatalf("encrypt bootstrap-consumption secret: %v", err)
+		}
+		code := generateTOTPCodeAt(t, secretBase32, now)
+
+		bootstrapLookups := 0
+		store := &authStoreStub{
+			getSessionByFingerprintFunc: func(_ context.Context, fingerprint []byte) (authn.SessionRecord, authn.UserRecord, error) {
+				if bytes.Equal(fingerprint, authn.FingerprintToken(keys, bootstrapToken)) {
+					return authn.SessionRecord{}, authn.UserRecord{}, authn.ErrNotFound
+				}
+				t.Fatal("unexpected session fingerprint during bootstrap-consumption test")
+				return authn.SessionRecord{}, authn.UserRecord{}, authn.ErrNotFound
+			},
+			getBootstrapTokenByFingerprintFunc: func(_ context.Context, fingerprint []byte) (authn.BootstrapTokenRecord, authn.UserRecord, error) {
+				if !bytes.Equal(fingerprint, authn.FingerprintToken(keys, bootstrapToken)) {
+					t.Fatal("unexpected bootstrap fingerprint during bootstrap-consumption test")
+				}
+				bootstrapLookups++
+				record := authn.BootstrapTokenRecord{
+					ID:        bootstrapTokenID,
+					UserID:    userID,
+					IssuedAt:  now.Add(-time.Minute),
+					ExpiresAt: now.Add(9 * time.Minute),
+				}
+				if bootstrapLookups > 1 {
+					consumedAt := now
+					record.ConsumedAt = &consumedAt
+				}
+				return record, activeUserRecord(userID, "consume-bootstrap@example.test"), nil
+			},
+			getPendingTOTPEnrollmentByIDFunc: func(_ context.Context, gotEnrollmentID uuid.UUID) (*authn.PendingTOTPEnrollmentRecord, error) {
+				if gotEnrollmentID != enrollmentID {
+					t.Fatalf("unexpected bootstrap-consumption enrollment lookup: got %s want %s", gotEnrollmentID, enrollmentID)
+				}
+				return &authn.PendingTOTPEnrollmentRecord{
+					ID:                        enrollmentID,
+					UserID:                    userID,
+					AuthScopeKind:             "bootstrap_token",
+					AuthScopeBootstrapTokenID: &bootstrapTokenID,
+					ClientTxnID:               "txn-complete-consume",
+					SecretCiphertext:          ciphertext,
+					SecretNonce:               nonce,
+					CreatedAt:                 now,
+					ExpiresAt:                 now.Add(10 * time.Minute),
+				}, nil
+			},
+			activateTOTPEnrollmentFunc: func(_ context.Context, user authn.UserRecord, gotEnrollmentID uuid.UUID, authScopeKind string, sessionID *uuid.UUID, gotBootstrapTokenID *uuid.UUID, completedAt time.Time) (authn.TOTPCompleteResult, error) {
+				if user.ID != userID || gotEnrollmentID != enrollmentID || authScopeKind != "bootstrap_token" || sessionID != nil {
+					t.Fatalf("unexpected bootstrap-consumption activation scope: user=%s enrollment=%s scope=%q session=%v", user.ID, gotEnrollmentID, authScopeKind, sessionID)
+				}
+				if gotBootstrapTokenID == nil || *gotBootstrapTokenID != bootstrapTokenID {
+					t.Fatalf("unexpected bootstrap-consumption token scope: got %v want %s", gotBootstrapTokenID, bootstrapTokenID)
+				}
+				if !completedAt.Equal(now) {
+					t.Fatalf("unexpected bootstrap-consumption complete time: got %s want %s", completedAt, now)
+				}
+				return authn.TOTPCompleteResult{
+					EnrolledAt:      completedAt,
+					SessionsRevoked: false,
+				}, nil
+			},
+		}
+		service := newUnitService(t, store, &hubStub{}, keys, now)
+
+		completeRecorder := httptest.NewRecorder()
+		completeRequest := newJSONRequest(t, http.MethodPost, "/api/v1/auth/mfa/totp/complete", `{
+			"client_txn_id":"txn-complete-consume",
+			"enrollment_id":"`+enrollmentID.String()+`",
+			"code":"`+code+`"
+		}`)
+		completeRequest.Header.Set("Authorization", "Bearer "+bootstrapToken)
+		service.handleTOTPComplete(completeRecorder, completeRequest)
+		if completeRecorder.Code != http.StatusOK {
+			t.Fatalf("unexpected bootstrap-consumption complete status: got %d want %d", completeRecorder.Code, http.StatusOK)
+		}
+
+		beginRecorder := httptest.NewRecorder()
+		beginRequest := newJSONRequest(t, http.MethodPost, "/api/v1/auth/mfa/totp/begin", `{"client_txn_id":"txn-begin-after-consume"}`)
+		beginRequest.Header.Set("Authorization", "Bearer "+bootstrapToken)
+		service.handleTOTPBegin(beginRecorder, beginRequest)
+
+		requireErrorEnvelope(t, beginRecorder, http.StatusConflict, "credential_bootstrap_rejected", "")
+		details := decodeErrorDetails(t, beginRecorder)
+		if got := details["reason_code"]; got != "consumed" {
+			t.Fatalf("unexpected bootstrap-consumption reason_code: got %v want consumed", got)
 		}
 	})
 
@@ -1011,7 +1790,6 @@ type authStoreStub struct {
 	getSessionByFingerprintFunc         func(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error)
 	createSessionWithConcurrencyFunc    func(context.Context, authn.UserRecord, []byte, authn.SessionTiming, string) (authn.SessionRecord, *authn.SessionRecord, error)
 	slideSessionFunc                    func(context.Context, uuid.UUID, authn.SessionTiming) error
-	expireSessionForTestFunc            func(context.Context, uuid.UUID, time.Time) error
 	revokeSessionFunc                   func(context.Context, uuid.UUID, string, time.Time) error
 	issueBootstrapTokenFunc             func(context.Context, uuid.UUID, []byte, time.Time) (authn.BootstrapTokenRecord, error)
 	getBootstrapTokenByFingerprintFunc  func(context.Context, []byte) (authn.BootstrapTokenRecord, authn.UserRecord, error)
@@ -1051,10 +1829,6 @@ func (s *authStoreStub) CreateSessionWithConcurrency(ctx context.Context, user a
 
 func (s *authStoreStub) SlideSession(ctx context.Context, sessionID uuid.UUID, timing authn.SessionTiming) error {
 	return callStubNoResult2(s.slideSessionFunc, ctx, sessionID, timing)
-}
-
-func (s *authStoreStub) ExpireSessionForTest(ctx context.Context, sessionID uuid.UUID, now time.Time) error {
-	return callStubNoResult2(s.expireSessionForTestFunc, ctx, sessionID, now)
 }
 
 func (s *authStoreStub) RevokeSession(ctx context.Context, sessionID uuid.UUID, reasonCode string, now time.Time) error {
@@ -1206,6 +1980,19 @@ func requireErrorEnvelope(t testing.TB, recorder *httptest.ResponseRecorder, wan
 	if got := envelope.Error.Details["field"]; got != wantField {
 		t.Fatalf("unexpected error field: got %v want %s", got, wantField)
 	}
+}
+
+func decodeErrorDetails(t testing.TB, recorder *httptest.ResponseRecorder) map[string]any {
+	t.Helper()
+	var envelope struct {
+		Error struct {
+			Details map[string]any `json:"details"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &envelope); err != nil {
+		t.Fatalf("decode error envelope details: %v", err)
+	}
+	return envelope.Error.Details
 }
 
 func requireCookieValue(t testing.TB, cookies []*http.Cookie, name string) {

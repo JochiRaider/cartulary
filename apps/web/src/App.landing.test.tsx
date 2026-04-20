@@ -55,13 +55,16 @@ describe("Incident landing", () => {
       if (String(input) === "/api/v1/auth/session") {
         return Promise.resolve(
           jsonResponse({
-            data: {
-              user_id: "user-1",
+            data: sessionResource({
               display_name: "Bootstrap Admin",
               is_deployment_admin: true,
-              memberships: [],
-            },
+            }),
           }),
+        );
+      }
+      if (String(input) === "/api/v1/auth/credential-state") {
+        return Promise.resolve(
+          jsonResponse({ data: credentialStateResource() }),
         );
       }
       if (String(input) === "/api/v1/incidents") {
@@ -92,13 +95,15 @@ describe("Incident landing", () => {
       if (String(input) === "/api/v1/auth/session") {
         return Promise.resolve(
           jsonResponse({
-            data: {
-              user_id: "user-1",
+            data: sessionResource({
               display_name: "Operator",
-              is_deployment_admin: false,
-              memberships: [],
-            },
+            }),
           }),
+        );
+      }
+      if (String(input) === "/api/v1/auth/credential-state") {
+        return Promise.resolve(
+          jsonResponse({ data: credentialStateResource() }),
         );
       }
       if (String(input) === "/api/v1/incidents") {
@@ -136,10 +141,8 @@ describe("Incident landing", () => {
       if (url === "/api/v1/auth/session") {
         return Promise.resolve(
           jsonResponse({
-            data: {
-              user_id: "user-1",
+            data: sessionResource({
               display_name: "Operator",
-              is_deployment_admin: false,
               memberships: created
                 ? [
                     {
@@ -148,8 +151,13 @@ describe("Incident landing", () => {
                     },
                   ]
                 : [],
-            },
+            }),
           }),
+        );
+      }
+      if (url === "/api/v1/auth/credential-state") {
+        return Promise.resolve(
+          jsonResponse({ data: credentialStateResource() }),
         );
       }
       if (url === "/api/v1/incidents" && method === "GET") {
@@ -208,13 +216,15 @@ describe("Incident landing", () => {
       if (String(input) === "/api/v1/auth/session") {
         return Promise.resolve(
           jsonResponse({
-            data: {
-              user_id: "user-1",
+            data: sessionResource({
               display_name: "Operator",
-              is_deployment_admin: false,
-              memberships: [],
-            },
+            }),
           }),
+        );
+      }
+      if (String(input) === "/api/v1/auth/credential-state") {
+        return Promise.resolve(
+          jsonResponse({ data: credentialStateResource() }),
         );
       }
       if (String(input) === "/api/v1/incidents") {
@@ -247,10 +257,8 @@ describe("Incident landing", () => {
       if (String(input) === "/api/v1/auth/session") {
         return Promise.resolve(
           jsonResponse({
-            data: {
-              user_id: "user-1",
+            data: sessionResource({
               display_name: "Operator",
-              is_deployment_admin: false,
               memberships: accessLost
                 ? []
                 : [
@@ -259,8 +267,13 @@ describe("Incident landing", () => {
                       role: "admin",
                     },
                   ],
-            },
+            }),
           }),
+        );
+      }
+      if (String(input) === "/api/v1/auth/credential-state") {
+        return Promise.resolve(
+          jsonResponse({ data: credentialStateResource() }),
         );
       }
       if (String(input) === "/api/v1/incidents") {
@@ -314,6 +327,49 @@ function incidentResource(
     current_phase: null,
     primary_external_case_ref: null,
     incident_version: 1,
+  };
+}
+
+function sessionResource(
+  overrides?: Partial<{
+    absolute_expires_at: string;
+    authenticated_at: string;
+    display_name: string;
+    idle_expires_at: string;
+    is_deployment_admin: boolean;
+    memberships: Array<{ incident_id: string; role: string }>;
+    mfa_state: string;
+    provider_type: string;
+    session_expires_at: string;
+    user_id: string;
+  }>,
+) {
+  return {
+    user_id: "user-1",
+    display_name: "Operator",
+    provider_type: "local",
+    mfa_state: "single_factor",
+    is_deployment_admin: false,
+    authenticated_at: "2026-04-20T12:00:00Z",
+    idle_expires_at: "2026-04-20T12:30:00Z",
+    absolute_expires_at: "2026-04-20T20:00:00Z",
+    session_expires_at: "2026-04-20T12:30:00Z",
+    memberships: [],
+    ...overrides,
+  };
+}
+
+function credentialStateResource() {
+  return {
+    user_id: "user-1",
+    auth_kind: "local",
+    recovery_model: "deployment_admin_reset",
+    password_changed_at: "2026-04-20T12:00:00Z",
+    totp: {
+      state: "not_enrolled",
+      enrolled_at: null,
+      pending_expires_at: null,
+    },
   };
 }
 

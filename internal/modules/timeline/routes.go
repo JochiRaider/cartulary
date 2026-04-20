@@ -63,6 +63,10 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
 	}
+	now := deps.Now
+	if now == nil {
+		now = func() time.Time { return time.Now().UTC() }
+	}
 	return &Service{
 		store:         NewStore(deps.Postgres),
 		entityStore:   entities.NewStore(deps.Postgres),
@@ -70,7 +74,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		authStore:     authn.NewStore(deps.Postgres),
 		hub:           deps.WSHub,
 		keys:          keys,
-		now:           func() time.Time { return time.Now().UTC() },
+		now:           now,
 	}, nil
 }
 
