@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "registry_id": "cartulary.extensions.phase2.v1",
+  "note": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.",
+  "profiles": [
+    {
+      "profile_id": "enterprise_authentication",
+      "route_families": [
+        "/api/v1/auth/oidc",
+        "/api/v1/auth/providers",
+        "/api/v1/auth/saml",
+        "/api/v1/users/{user_id}/auth-bindings"
+      ]
+    },
+    {
+      "profile_id": "import",
+      "route_families": [
+        "/api/v1/import-sessions"
+      ]
+    },
+    {
+      "profile_id": "incident_portability",
+      "route_families": [
+        "/api/v1/incident-bundles"
+      ]
+    },
+    {
+      "profile_id": "reference_pack",
+      "route_families": [
+        "/api/v1/reference-packs"
+      ]
+    },
+    {
+      "profile_id": "snapshot_reporting",
+      "route_families": [
+        "/api/v1/releases",
+        "/api/v1/snapshots"
+      ]
+    }
+  ]
+}

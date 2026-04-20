@@ -119,6 +119,11 @@
       "summary": "The requested incident membership already exists with a different role and must be updated through PATCH."
     },
     {
+      "code": "user_not_found",
+      "http_status": 404,
+      "summary": "A membership-create request referenced a user that does not exist in deployment-local identity state."
+    },
+    {
       "code": "membership_version_conflict",
       "http_status": 409,
       "summary": "The incident membership patch used a stale base_membership_version."

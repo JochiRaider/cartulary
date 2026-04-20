@@ -5,15 +5,12 @@ import {
   startTransition,
   useCallback,
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 
-import { Phase1Harness } from "./Phase1Harness";
-import { Phase2Harness } from "./Phase2Harness";
 import {
   buildAutoResolutionNotices,
   buildInspectorMentions,
@@ -92,6 +89,7 @@ type TimelineWorkbookProps = {
 type WorkbookShellProps = {
   incidentId: string;
   apiBase?: string | undefined;
+  onIncidentAccessLost?: (() => void) | undefined;
 };
 
 type TimelineQueryEnvelope = {
@@ -2775,7 +2773,11 @@ function EntityWorkbookSurface({
   );
 }
 
-function WorkbookShell({ incidentId, apiBase }: WorkbookShellProps) {
+export function WorkbookShell({
+  incidentId,
+  apiBase,
+  onIncidentAccessLost,
+}: WorkbookShellProps) {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const initialSurface = (params.get("surface") ?? "timeline") as SurfaceKind;
   const [surface, setSurface] = useState<SurfaceKind>(
@@ -2803,6 +2805,7 @@ function WorkbookShell({ incidentId, apiBase }: WorkbookShellProps) {
     );
     if (!result.ok) {
       setCurrentIncidentRole("");
+      onIncidentAccessLost?.();
       return;
     }
     const envelope = readEnvelope<SessionEnvelope>(result.payload);
@@ -2810,8 +2813,11 @@ function WorkbookShell({ incidentId, apiBase }: WorkbookShellProps) {
       envelope.data.memberships.find(
         (entry) => entry.incident_id === incidentId,
       ) ?? null;
+    if (membership === null) {
+      onIncidentAccessLost?.();
+    }
     setCurrentIncidentRole(membership?.role ?? "");
-  }, [apiBase, incidentId]);
+  }, [apiBase, incidentId, onIncidentAccessLost]);
 
   const queryEntityView = useCallback(
     async (viewSchemaId: string, entityType: EntityRow["entityType"]) => {
@@ -2844,11 +2850,18 @@ function WorkbookShell({ incidentId, apiBase }: WorkbookShellProps) {
       setHostRows(nextHosts);
       setIdentityRows(nextIdentities);
     } catch (error) {
-      setEntityLoadError(
-        error instanceof Error ? error.message : "Entity load failed.",
-      );
+      const message =
+        error instanceof Error ? error.message : "Entity load failed.";
+      if (
+        typeof message === "string" &&
+        (message.includes("incident_not_found") ||
+          message.includes("authorization_denied"))
+      ) {
+        onIncidentAccessLost?.();
+      }
+      setEntityLoadError(message);
     }
-  }, [queryEntityView]);
+  }, [onIncidentAccessLost, queryEntityView]);
 
   useEffect(() => {
     void Promise.all([loadEntities(), loadSessionRole()]);
@@ -2950,79 +2963,6 @@ function WorkbookShell({ incidentId, apiBase }: WorkbookShellProps) {
     </section>
   );
 }
-
-export function App() {
-  const incidentFieldId = useId();
-  const params = new URLSearchParams(window.location.search);
-  const initialIncidentId = params.get("incident_id") ?? "";
-  const [incidentDraft, setIncidentDraft] = useState(initialIncidentId);
-  const [activeIncidentId, setActiveIncidentId] = useState(initialIncidentId);
-
-  if (activeIncidentId === "") {
-    return (
-      <main style={pageStyle}>
-        <section style={panelStyle}>
-          <div style={heroStyle}>
-            <p style={eyebrowStyle}>Cartulary</p>
-            <h1 style={headlineStyle}>Phase 1 and Phase 2 harness shell</h1>
-            <p style={bodyStyle}>
-              Authentication, session lifecycle, deployment-local user
-              administration, incident control-envelope flows, and
-              extension-dispatch probes are available below. Add an
-              `incident_id` query parameter to open the Timeline workbook
-              directly.
-            </p>
-          </div>
-
-          <Phase1Harness />
-          <Phase2Harness />
-        </section>
-      </main>
-    );
-  }
-
-  return (
-    <main style={pageStyle}>
-      <section style={panelStyle}>
-        <label htmlFor={incidentFieldId} style={labelStyle}>
-          Incident ID
-        </label>
-        <div style={launcherStyle}>
-          <input
-            id={incidentFieldId}
-            style={launcherInputStyle}
-            value={incidentDraft}
-            onChange={(event) => {
-              setIncidentDraft(event.target.value);
-            }}
-            placeholder="00000000-0000-0000-0000-000000000000"
-          />
-          <button
-            style={launcherButtonStyle}
-            type="button"
-            onClick={() => {
-              setActiveIncidentId(incidentDraft.trim());
-            }}
-          >
-            Open Timeline
-          </button>
-        </div>
-
-        <WorkbookShell incidentId={activeIncidentId} />
-      </section>
-    </main>
-  );
-}
-
-const pageStyle = {
-  minHeight: "100vh",
-  margin: 0,
-  padding: "2rem",
-  background:
-    "radial-gradient(circle at top left, rgb(244 229 213), rgb(245 246 238) 40%, rgb(223 232 226) 100%)",
-  color: "rgb(23 37 34)",
-  fontFamily: '"IBM Plex Sans", "Segoe UI", sans-serif',
-};
 
 const panelStyle = {
   width: "min(96rem, 100%)",
@@ -3211,27 +3151,11 @@ const selectedRowStyle = {
   background: "rgb(232 244 239)",
 };
 
-const launcherStyle = {
-  display: "flex",
-  gap: "0.75rem",
-  alignItems: "center",
-};
-
 const labelStyle = {
   display: "grid",
   gap: "0.4rem",
   fontSize: "0.95rem",
   color: "rgb(52 79 72)",
-};
-
-const launcherInputStyle = {
-  ...inputStyle,
-  maxWidth: "26rem",
-};
-
-const launcherButtonStyle = {
-  ...actionButtonStyle,
-  minWidth: "9rem",
 };
 
 const inspectorShellStyle = {

@@ -1,118 +1,141 @@
 {
+  "note": "Phase 2 traceability inventory only. Behavioral evidence lives in the mapped tests and their declared evidence_layer values.",
   "unit": [
     {
       "id": "U-2-01",
       "file": "internal/modules/incidents/phase2_request_test.go",
-      "symbol": "TestPhase2_U_2_01_IncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey"
+      "symbol": "TestPhase2_U_2_01_IncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey",
+      "evidence_layer": "decoder_normalization"
     },
     {
       "id": "U-2-02",
-      "file": "internal/modules/incidents/phase2_request_test.go",
-      "symbol": "TestPhase2_U_2_02_IncidentCreateBootstrapsCreatorAndWorkbookPreferences"
+      "file": "internal/modules/incidents/phase2_http_conformance_test.go",
+      "symbol": "TestPhase2_U_2_02_IncidentCreateBootstrapsCreatorAndWorkbookPreferences",
+      "evidence_layer": "http_conformance"
     },
     {
       "id": "U-2-03",
-      "file": "internal/modules/incidents/phase2_request_test.go",
-      "symbol": "TestPhase2_U_2_03_IncidentCreateReturnsStableLocationHeader"
+      "file": "internal/modules/incidents/phase2_http_conformance_test.go",
+      "symbol": "TestPhase2_U_2_03_IncidentCreateReturnsStableLocationHeader",
+      "evidence_layer": "http_conformance"
     },
     {
       "id": "U-2-04",
-      "file": "internal/modules/incidents/phase2_request_test.go",
-      "symbol": "TestPhase2_U_2_04_IncidentCreateIdempotencyUsesActorAndNormalizedReplay"
+      "file": "internal/modules/incidents/phase2_http_conformance_test.go",
+      "symbol": "TestPhase2_U_2_04_IncidentCreateIdempotencyUsesActorAndNormalizedReplay",
+      "evidence_layer": "http_conformance"
     },
     {
       "id": "U-2-05",
       "file": "internal/modules/incidents/phase2_request_test.go",
-      "symbol": "TestPhase2_U_2_05_IncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable"
+      "symbol": "TestPhase2_U_2_05_IncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable",
+      "evidence_layer": "decoder_projection"
     },
     {
       "id": "U-2-06",
-      "file": "internal/modules/incidents/phase2_request_test.go",
-      "symbol": "TestPhase2_U_2_06_MembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFields"
+      "file": "internal/modules/incidents/phase2_http_conformance_test.go",
+      "symbol": "TestPhase2_U_2_06_MembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFields",
+      "evidence_layer": "http_conformance"
     },
     {
       "id": "U-2-07",
-      "file": "internal/modules/incidents/phase2_request_test.go",
-      "symbol": "TestPhase2_U_2_07_MembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuard"
+      "file": "internal/modules/incidents/phase2_http_conformance_test.go",
+      "symbol": "TestPhase2_U_2_07_MembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuard",
+      "evidence_layer": "http_conformance"
     },
     {
       "id": "U-2-08",
-      "file": "internal/modules/incidents/phase2_request_test.go",
-      "symbol": "TestPhase2_U_2_08_DeploymentAdminAloneDoesNotGrantIncidentRouteOrSocketAccess"
+      "file": "internal/modules/incidents/phase2_http_conformance_test.go",
+      "symbol": "TestPhase2_U_2_08_DeploymentAdminAloneDoesNotGrantIncidentRouteOrSocketAccess",
+      "evidence_layer": "http_conformance"
     },
     {
       "id": "U-2-09",
       "file": "internal/modules/incidents/phase2_request_test.go",
-      "symbol": "TestPhase2_U_2_09_ExtensionDiscoveryReturnsExactSingletonProfileShape"
+      "symbol": "TestPhase2_U_2_09_ExtensionDiscoveryReturnsExactSingletonProfileShape",
+      "evidence_layer": "contract_dispatch"
     },
     {
       "id": "U-2-10",
       "file": "internal/modules/incidents/phase2_request_test.go",
-      "symbol": "TestPhase2_U_2_10_ReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallback"
+      "symbol": "TestPhase2_U_2_10_ReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallback",
+      "evidence_layer": "contract_dispatch"
     }
   ],
   "integration": [
     {
       "id": "I-2-01",
       "file": "internal/modules/incidents/phase2_integration_test.go",
-      "symbol": "TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomically"
+      "symbol": "TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomically",
+      "evidence_layer": "integration"
     },
     {
       "id": "I-2-02",
       "file": "internal/modules/incidents/phase2_integration_test.go",
-      "symbol": "TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState"
+      "symbol": "TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState",
+      "evidence_layer": "integration"
     },
     {
       "id": "I-2-03",
       "file": "internal/modules/incidents/phase2_integration_test.go",
-      "symbol": "TestPhase2_I_2_03_MembershipChangesReDeriveAuthorizationImmediately"
+      "symbol": "TestPhase2_I_2_03_MembershipChangesReDeriveAuthorizationImmediately",
+      "evidence_layer": "integration"
     },
     {
       "id": "I-2-04",
       "file": "internal/modules/incidents/phase2_integration_test.go",
-      "symbol": "TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange"
+      "symbol": "TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange",
+      "evidence_layer": "integration"
     },
     {
       "id": "I-2-05",
       "file": "internal/modules/incidents/phase2_integration_test.go",
-      "symbol": "TestPhase2_I_2_05_ExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutLeaks"
+      "symbol": "TestPhase2_I_2_05_ExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutLeaks",
+      "evidence_layer": "integration"
     },
     {
       "id": "I-2-06",
       "file": "internal/modules/incidents/phase2_integration_test.go",
-      "symbol": "TestPhase2_I_2_06_UnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot"
+      "symbol": "TestPhase2_I_2_06_UnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot",
+      "evidence_layer": "integration"
     }
   ],
   "e2e": [
     {
       "id": "E-2-01",
       "file": "apps/web/e2e/phase2.spec.ts",
-      "title": "E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface"
+      "title": "E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface",
+      "evidence_layer": "browser"
     },
     {
       "id": "E-2-02",
       "file": "apps/web/e2e/phase2.spec.ts",
-      "title": "E-2-02 shows incident discovery, direct retrieval, and promoted-field-only patching"
+      "title": "E-2-02 shows incident discovery, direct retrieval, and promoted-field-only patching",
+      "evidence_layer": "browser"
     },
     {
       "id": "E-2-03",
       "file": "apps/web/e2e/phase2.spec.ts",
-      "title": "E-2-03 lets admins manage memberships and denies the same actions to non-admin members"
+      "title": "E-2-03 lets admins manage memberships and denies the same actions to non-admin members",
+      "evidence_layer": "browser"
     },
     {
       "id": "E-2-04",
       "file": "apps/web/e2e/phase2.spec.ts",
-      "title": "E-2-04 rejects unknown or forbidden top-level members with route-owned errors"
+      "title": "E-2-04 rejects unknown or forbidden top-level members with route-owned errors",
+      "evidence_layer": "browser_request"
     },
     {
       "id": "E-2-05",
       "file": "apps/web/e2e/phase2.spec.ts",
-      "title": "E-2-05 allows zero-membership extension discovery and rejects singleton pagination semantics"
+      "title": "E-2-05 allows zero-membership extension discovery and rejects singleton pagination semantics",
+      "evidence_layer": "browser_request"
     },
     {
       "id": "E-2-06",
       "file": "apps/web/e2e/phase2.spec.ts",
-      "title": "E-2-06 shows reserved-family 404 precedence while base and outside-reserved paths keep their ordinary dispatch"
+      "title": "E-2-06 shows reserved-family 404 precedence while base and outside-reserved paths keep their ordinary dispatch",
+      "evidence_layer": "browser_request"
     }
   ]
 }

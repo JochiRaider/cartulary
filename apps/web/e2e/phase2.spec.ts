@@ -1,5 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { type APIResponse, expect, type Page, test } from "@playwright/test";
 
+import { contractArtifactIndex } from "../../../packages/protocol-ts/src/generated/contracts";
 import {
   apiBase,
   applyCookies,
@@ -13,6 +14,16 @@ import {
   uniqueTxn,
 } from "./helpers";
 
+type ErrorContract = {
+  code: string;
+  http_status: number;
+};
+
+type ExtensionProfileContract = {
+  profile_id: string;
+  route_families: string[];
+};
+
 test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface", async ({
   page,
 }) => {
@@ -20,16 +31,43 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   await page.goto("/");
 
   const incidentKey = uniqueIncidentKey("E201");
-  await page.getByTestId("create-incident-key").fill(incidentKey);
-  await page.getByTestId("create-incident-title").fill("Phase 2 E-2-01");
-  await page.getByTestId("create-incident").click();
+  await page.getByTestId("landing-incident-key").fill(incidentKey);
+  await page.getByTestId("landing-incident-title").fill("Phase 2 E-2-01");
+  await page.getByTestId("landing-create-button").click();
 
-  await expect(page.getByTestId("phase2-status")).toHaveText("Created incident");
-  await expect(page.getByTestId("current-incident-key")).toHaveText(incidentKey);
-  await expect(page.getByTestId("current-incident-version")).toHaveText("1");
-  await expect(page.getByTestId("session-memberships")).toContainText("admin");
-  await expect(page.getByTestId("default-workbook-pref")).toHaveText("null");
-  await expect(page.getByTestId("user-workbook-pref")).toHaveText("null");
+  await expect(page).toHaveURL(/incident_id=/);
+  await expect(page.getByTestId("surface-tab-timeline")).toBeVisible();
+  await expect(page.getByText("Current incident role: admin")).toBeVisible();
+
+  const incidentId = currentIncidentId(page.url());
+  const sessionResponse = await page.request.get(
+    `${apiBase}/api/v1/auth/session`,
+  );
+  const sessionBody = (await sessionResponse.json()) as {
+    data: { memberships: Array<{ incident_id: string; role: string }> };
+  };
+  expect(
+    sessionBody.data.memberships.some(
+      (membership) =>
+        membership.incident_id === incidentId && membership.role === "admin",
+    ),
+  ).toBeTruthy();
+
+  const defaultPrefsResponse = await page.request.get(
+    `${apiBase}/api/v1/incidents/${incidentId}/workbook-preferences/default`,
+  );
+  const defaultPrefsBody = (await defaultPrefsResponse.json()) as {
+    data: { default_sheet_ref: string | null };
+  };
+  expect(defaultPrefsBody.data.default_sheet_ref).toBeNull();
+
+  const userPrefsResponse = await page.request.get(
+    `${apiBase}/api/v1/incidents/${incidentId}/workbook-preferences/me`,
+  );
+  const userPrefsBody = (await userPrefsResponse.json()) as {
+    data: { home_sheet_ref: string | null };
+  };
+  expect(userPrefsBody.data.home_sheet_ref).toBeNull();
 });
 
 test("E-2-02 shows incident discovery, direct retrieval, and promoted-field-only patching", async ({
@@ -39,24 +77,43 @@ test("E-2-02 shows incident discovery, direct retrieval, and promoted-field-only
   const incidentKey = uniqueIncidentKey("E202");
   const incidentId = await createIncident(page, incidentKey, "Phase 2 E-2-02");
 
-  await openIncidentFromList(page, incidentId, incidentKey);
-  await expect(page.getByTestId("current-incident-title")).toHaveText("Phase 2 E-2-02");
+  await openIncidentFromLanding(page, incidentId);
+  await expect(page.getByTestId("surface-tab-timeline")).toBeVisible();
 
-  await page.getByTestId("patch-tlp").fill("amber");
-  await page.getByTestId("patch-current-phase").fill("containment");
-  await page
-    .getByTestId("patch-primary-external-case-ref")
-    .fill("CASE-E202");
-  await page.getByTestId("patch-incident").click();
-
-  await expect(page.getByTestId("phase2-status")).toHaveText("Patched incident");
-  await expect(page.getByTestId("current-incident-version")).toHaveText("2");
-  await expect(page.getByTestId("patch-tlp")).toHaveValue("amber");
-  await expect(page.getByTestId("patch-current-phase")).toHaveValue("containment");
-  await expect(page.getByTestId("patch-primary-external-case-ref")).toHaveValue(
-    "CASE-E202",
+  const patchResponse = await page.request.patch(
+    `${apiBase}/api/v1/incidents/${incidentId}`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        base_incident_version: 1,
+        tlp: "amber",
+        current_phase: "containment",
+        primary_external_case_ref: "CASE-E202",
+      },
+    },
   );
-  await expect(page.getByTestId("current-incident-title")).toHaveText("Phase 2 E-2-02");
+  expect(patchResponse.ok()).toBeTruthy();
+
+  const incidentResponse = await page.request.get(
+    `${apiBase}/api/v1/incidents/${incidentId}`,
+  );
+  expect(incidentResponse.ok()).toBeTruthy();
+  const incidentBody = (await incidentResponse.json()) as {
+    data: {
+      incident_key: string;
+      title: string;
+      tlp: string | null;
+      current_phase: string | null;
+      primary_external_case_ref: string | null;
+      incident_version: number;
+    };
+  };
+  expect(incidentBody.data.incident_key).toBe(incidentKey);
+  expect(incidentBody.data.title).toBe("Phase 2 E-2-02");
+  expect(incidentBody.data.tlp).toBe("amber");
+  expect(incidentBody.data.current_phase).toBe("containment");
+  expect(incidentBody.data.primary_external_case_ref).toBe("CASE-E202");
+  expect(incidentBody.data.incident_version).toBe(2);
 });
 
 test("E-2-03 lets admins manage memberships and denies the same actions to non-admin members", async ({
@@ -74,93 +131,187 @@ test("E-2-03 lets admins manage memberships and denies the same actions to non-a
   });
   const incidentId = await createIncident(page, incidentKey, "Phase 2 E-2-03");
 
-  await openIncidentFromList(page, incidentId, incidentKey);
-  await page.getByTestId("membership-email").fill(targetEmail);
-  await page.getByTestId("membership-role").selectOption("viewer");
-  await page.getByTestId("create-membership").click();
-
-  await expect(page.getByTestId("phase2-status")).toHaveText("Created membership");
-  await expect(page.getByTestId(`membership-row-${targetUser.user_id}`)).toContainText(
-    "Phase 2 E203 Member",
+  await openIncidentFromLanding(page, incidentId);
+  const createResponse = await page.request.post(
+    `${apiBase}/api/v1/incidents/${incidentId}/memberships`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        client_txn_id: uniqueTxn("phase2-membership"),
+        email: targetEmail,
+        role: "viewer",
+      },
+    },
   );
+  expect(createResponse.status()).toBe(201);
 
-  await page
-    .getByTestId(`membership-role-input-${targetUser.user_id}`)
-    .selectOption("reviewer");
-  await page.getByTestId(`patch-membership-${targetUser.user_id}`).click();
-  await expect(page.getByTestId("phase2-status")).toHaveText("Patched membership");
-  await expect(page.getByTestId(`membership-version-${targetUser.user_id}`)).toHaveText(
-    "2",
+  let memberships = await listMemberships(page, incidentId);
+  expect(
+    memberships.find((membership) => membership.user_id === targetUser.user_id),
+  ).toMatchObject({
+    role: "viewer",
+    user_id: targetUser.user_id,
+  });
+
+  const patchResponse = await page.request.patch(
+    `${apiBase}/api/v1/incidents/${incidentId}/memberships/${targetUser.user_id}`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        base_membership_version: 1,
+        role: "reviewer",
+      },
+    },
   );
+  expect(patchResponse.ok()).toBeTruthy();
+
+  memberships = await listMemberships(page, incidentId);
+  expect(
+    memberships.find((membership) => membership.user_id === targetUser.user_id),
+  ).toMatchObject({
+    role: "reviewer",
+    membership_version: 2,
+    user_id: targetUser.user_id,
+  });
 
   const memberContext = await browser.newContext();
   const memberPage = await memberContext.newPage();
   await switchToLocalSession(memberPage, targetEmail, targetPassword);
-  await openIncidentFromList(memberPage, incidentId, incidentKey);
+  await openIncidentFromLanding(memberPage, incidentId);
 
-  await memberPage.getByTestId("membership-email").fill(uniqueEmail("phase2-e203-denied"));
-  await memberPage.getByTestId("membership-role").selectOption("viewer");
-  await memberPage.getByTestId("create-membership").click();
-  await expect(memberPage.getByTestId("last-error-code")).toHaveText(
+  await expectAPIError(
+    await memberPage.request.post(
+      `${apiBase}/api/v1/incidents/${incidentId}/memberships`,
+      {
+        headers: await csrfHeaders(memberPage),
+        data: {
+          client_txn_id: uniqueTxn("phase2-member-denied"),
+          email: uniqueEmail("phase2-e203-denied"),
+          role: "viewer",
+        },
+      },
+    ),
     "authorization_denied",
   );
 
-  await memberPage
-    .getByTestId(`membership-role-input-${targetUser.user_id}`)
-    .selectOption("admin");
-  await memberPage.getByTestId(`patch-membership-${targetUser.user_id}`).click();
-  await expect(memberPage.getByTestId("last-error-code")).toHaveText(
+  await expectAPIError(
+    await memberPage.request.patch(
+      `${apiBase}/api/v1/incidents/${incidentId}/memberships/${targetUser.user_id}`,
+      {
+        headers: await csrfHeaders(memberPage),
+        data: {
+          base_membership_version: 2,
+          role: "admin",
+        },
+      },
+    ),
     "authorization_denied",
   );
 
-  await memberPage.getByTestId(`delete-membership-${targetUser.user_id}`).click();
-  await expect(memberPage.getByTestId("last-error-code")).toHaveText(
+  await expectAPIError(
+    await memberPage.request.delete(
+      `${apiBase}/api/v1/incidents/${incidentId}/memberships/${targetUser.user_id}`,
+      {
+        headers: await csrfHeaders(memberPage),
+        data: {
+          base_membership_version: 2,
+        },
+      },
+    ),
     "authorization_denied",
   );
   await memberContext.close();
 
-  await page.getByTestId(`delete-membership-${targetUser.user_id}`).click();
-  await expect(page.getByTestId("phase2-status")).toHaveText("Deleted membership");
-  await expect(page.getByTestId(`membership-row-${targetUser.user_id}`)).toHaveCount(0);
+  const deleteResponse = await page.request.delete(
+    `${apiBase}/api/v1/incidents/${incidentId}/memberships/${targetUser.user_id}`,
+    {
+      headers: await csrfHeaders(page),
+      data: {
+        base_membership_version: 2,
+      },
+    },
+  );
+  expect(deleteResponse.status()).toBe(204);
+
+  memberships = await listMemberships(page, incidentId);
+  expect(
+    memberships.some((membership) => membership.user_id === targetUser.user_id),
+  ).toBeFalsy();
 });
 
 test("E-2-04 rejects unknown or forbidden top-level members with route-owned errors", async ({
   page,
 }) => {
   await ensureAdminSession(page);
-  const incidentKey = uniqueIncidentKey("E204");
-  const incidentId = await createIncident(page, incidentKey, "Phase 2 E-2-04");
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E204"),
+    "Phase 2 E-2-04",
+  );
 
-  await page.goto("/");
-  await page.getByTestId("probe-invalid-create-initial-memberships").click();
-  await expect(page.getByTestId("last-error-code")).toHaveText("invalid_incident_create");
-  await expectLastErrorDetails(page, [
-    '"field": "initial_memberships"',
-    '"reason_code": "initial_memberships_not_supported"',
-  ]);
+  await expectAPIError(
+    await page.request.post(`${apiBase}/api/v1/incidents`, {
+      headers: await csrfHeaders(page),
+      data: {
+        client_txn_id: uniqueTxn("phase2-invalid-create-memberships"),
+        incident_key: uniqueIncidentKey("E204INVALID"),
+        title: "Invalid create",
+        initial_memberships: [],
+      },
+    }),
+    "invalid_incident_create",
+    {
+      field: "initial_memberships",
+      reason_code: "initial_memberships_not_supported",
+    },
+  );
 
-  await page.getByTestId("probe-invalid-create-unknown").click();
-  await expect(page.getByTestId("last-error-code")).toHaveText("invalid_incident_create");
-  await expectLastErrorDetails(page, [
-    '"field": "unexpected"',
-    '"reason_code": "unknown_top_level_member"',
-  ]);
+  await expectAPIError(
+    await page.request.post(`${apiBase}/api/v1/incidents`, {
+      headers: await csrfHeaders(page),
+      data: {
+        client_txn_id: uniqueTxn("phase2-invalid-create-unknown"),
+        incident_key: uniqueIncidentKey("E204UNKNOWN"),
+        title: "Invalid create",
+        unexpected: true,
+      },
+    }),
+    "invalid_incident_create",
+    {
+      field: "unexpected",
+      reason_code: "unknown_top_level_member",
+    },
+  );
 
-  await openIncidentFromList(page, incidentId, incidentKey);
+  await expectAPIError(
+    await page.request.patch(`${apiBase}/api/v1/incidents/${incidentId}`, {
+      headers: await csrfHeaders(page),
+      data: {
+        base_incident_version: 1,
+        title: "forbidden",
+      },
+    }),
+    "invalid_incident_patch",
+    {
+      field: "title",
+      reason_code: "forbidden_field",
+    },
+  );
 
-  await page.getByTestId("probe-invalid-patch-title").click();
-  await expect(page.getByTestId("last-error-code")).toHaveText("invalid_incident_patch");
-  await expectLastErrorDetails(page, [
-    '"field": "title"',
-    '"reason_code": "forbidden_field"',
-  ]);
-
-  await page.getByTestId("probe-invalid-patch-unknown").click();
-  await expect(page.getByTestId("last-error-code")).toHaveText("invalid_incident_patch");
-  await expectLastErrorDetails(page, [
-    '"field": "unknown"',
-    '"reason_code": "unknown_top_level_member"',
-  ]);
+  await expectAPIError(
+    await page.request.patch(`${apiBase}/api/v1/incidents/${incidentId}`, {
+      headers: await csrfHeaders(page),
+      data: {
+        base_incident_version: 1,
+        unknown: "field",
+      },
+    }),
+    "invalid_incident_patch",
+    {
+      field: "unknown",
+      reason_code: "unknown_top_level_member",
+    },
+  );
 });
 
 test("E-2-05 allows zero-membership extension discovery and rejects singleton pagination semantics", async ({
@@ -177,18 +328,36 @@ test("E-2-05 allows zero-membership extension discovery and rejects singleton pa
 
   await switchToLocalSession(page, zeroMemberEmail, zeroMemberPassword);
   await page.goto("/");
+  await expect(page.getByTestId("landing-empty-state")).toBeVisible();
 
-  const extensionRows = page.locator('[data-testid^="extension-"]');
-  await expect(extensionRows).toHaveCount(5);
-  await expect(extensionRows.nth(0)).toHaveText("enterprise_authentication");
-  await expect(extensionRows.nth(1)).toHaveText("import");
-  await expect(extensionRows.nth(4)).toHaveText("snapshot_reporting");
-
-  await page.getByTestId("probe-extensions-pagination").click();
-  await expect(page.getByTestId("last-error-code")).toHaveText(
-    "invalid_pagination_request",
+  const extensionsResponse = await page.request.get(
+    `${apiBase}/api/v1/extensions`,
   );
-  await expect(page.getByTestId("last-probe-status")).toHaveText("400");
+  expect(extensionsResponse.ok()).toBeTruthy();
+  const extensionsBody = (await extensionsResponse.json()) as {
+    data: {
+      extensions: Array<{
+        profile_id: string;
+        claimed: boolean;
+        route_families: string[];
+      }>;
+    };
+  };
+  expect(extensionsBody.data.extensions).toEqual(
+    extensionRegistry().map((profile) => ({
+      profile_id: profile.profile_id,
+      claimed: false,
+      route_families: profile.route_families,
+    })),
+  );
+
+  await expectAPIError(
+    await page.request.get(`${apiBase}/api/v1/extensions?cursor_token=opaque`),
+    "invalid_pagination_request",
+    {
+      reason_code: "pagination_not_supported",
+    },
+  );
 });
 
 test("E-2-06 shows reserved-family 404 precedence while base and outside-reserved paths keep their ordinary dispatch", async ({
@@ -205,41 +374,58 @@ test("E-2-06 shows reserved-family 404 precedence while base and outside-reserve
 
   await switchToLocalSession(page, zeroMemberEmail, zeroMemberPassword);
   await page.goto("/");
+  await expect(page.getByTestId("landing-empty-state")).toBeVisible();
 
-  await page.getByTestId("probe-base-route").click();
-  await expect(page.getByTestId("last-probe-status")).toHaveText("200");
-  await expect(page.getByTestId("last-probe-payload")).toContainText("ready");
+  const readyResponse = await page.request.get(`${apiBase}/readyz`);
+  expect(readyResponse.ok()).toBeTruthy();
+  expect(await readyResponse.text()).toContain("ready");
 
-  await page.getByTestId("probe-reserved-root").click();
-  await expect(page.getByTestId("last-error-code")).toHaveText(
+  const importProfile = extensionProfile("import");
+  await expectAPIError(
+    await page.request.get(`${apiBase}${importProfile.route_families[0]}`),
     "extension_profile_not_claimed",
+    {
+      profile_id: importProfile.profile_id,
+      route_family: importProfile.route_families[0],
+    },
   );
-  await expect(page.getByTestId("last-probe-payload")).toContainText("import");
 
-  await page.getByTestId("probe-reserved-descendant").click();
-  await expect(page.getByTestId("last-error-code")).toHaveText(
+  const enterpriseProfile = extensionProfile("enterprise_authentication");
+  await expectAPIError(
+    await page.request.get(
+      `${apiBase}${enterpriseProfile.route_families[0].replace("{user_id}", "00000000-0000-0000-0000-000000000001")}/provider`,
+    ),
     "extension_profile_not_claimed",
-  );
-  await expect(page.getByTestId("last-probe-payload")).toContainText(
-    "enterprise_authentication",
+    {
+      profile_id: enterpriseProfile.profile_id,
+      route_family: enterpriseProfile.route_families[0],
+    },
   );
 
-  await page.getByTestId("probe-outside-reserved").click();
-  await expect(page.getByTestId("last-probe-status")).toHaveText("404");
-  await expect(page.getByTestId("last-error-code")).toHaveText("");
-  await expect(page.getByTestId("last-probe-payload")).not.toContainText(
+  const outsideReserved = await page.request.get(
+    `${apiBase}/api/v1/outside-reserved-families`,
+  );
+  expect(outsideReserved.status()).toBe(404);
+  expect(await outsideReserved.text()).not.toContain(
     "extension_profile_not_claimed",
   );
 });
 
-async function switchToLocalSession(page: Page, email: string, password: string) {
+async function switchToLocalSession(
+  page: Page,
+  email: string,
+  password: string,
+) {
   await page.context().clearCookies();
-  const loginResponse = await page.request.post(`${apiBase}/api/v1/auth/login`, {
-    data: {
-      username: email,
-      password,
+  const loginResponse = await page.request.post(
+    `${apiBase}/api/v1/auth/login`,
+    {
+      data: {
+        username: email,
+        password,
+      },
     },
-  });
+  );
   expect(loginResponse.ok()).toBeTruthy();
   await applyCookies(
     page,
@@ -262,11 +448,7 @@ async function createIncident(page: Page, incidentKey: string, title: string) {
   return body.data.incident_id;
 }
 
-async function openIncidentFromList(
-  page: Page,
-  incidentId: string,
-  incidentKey: string,
-) {
+async function openIncidentFromLanding(page: Page, incidentId: string) {
   await expect
     .poll(async () => {
       const response = await page.request.get(`${apiBase}/api/v1/incidents`);
@@ -281,11 +463,11 @@ async function openIncidentFromList(
     .toBe(true);
 
   await page.goto("/");
-  await expect(page.getByTestId(`incident-row-${incidentId}`)).toHaveText(
-    incidentKey,
-  );
-  await page.getByTestId(`select-incident-${incidentId}`).click();
-  await expect(page.getByTestId("current-incident-id")).toHaveText(incidentId);
+  await expect(
+    page.getByTestId(`landing-incident-${incidentId}`),
+  ).toBeVisible();
+  await page.getByTestId(`landing-open-${incidentId}`).click();
+  await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
 }
 
 async function createLocalUser(
@@ -313,9 +495,79 @@ async function createLocalUser(
   return ((await response.json()) as { data: { user_id: string } }).data;
 }
 
-async function expectLastErrorDetails(page: Page, fragments: string[]) {
-  const details = page.getByTestId("last-error-details");
-  for (const fragment of fragments) {
-    await expect(details).toContainText(fragment);
+async function listMemberships(page: Page, incidentId: string) {
+  const response = await page.request.get(
+    `${apiBase}/api/v1/incidents/${incidentId}/memberships`,
+  );
+  expect(response.ok()).toBeTruthy();
+  return (
+    (await response.json()) as {
+      data: {
+        memberships: Array<{
+          user_id: string;
+          role: string;
+          membership_version: number;
+        }>;
+      };
+    }
+  ).data.memberships;
+}
+
+async function expectAPIError(
+  response: APIResponse,
+  code: string,
+  details?: Record<string, unknown>,
+) {
+  const contract = errorContract(code);
+  expect(response.status()).toBe(contract.http_status);
+  const body = (await response.json()) as {
+    error: { code: string; details: Record<string, unknown> };
+  };
+  expect(body.error.code).toBe(code);
+  if (details) {
+    expect(body.error.details).toMatchObject(details);
   }
+  return body.error;
+}
+
+function currentIncidentId(urlText: string): string {
+  const url = new URL(urlText);
+  const incidentId = url.searchParams.get("incident_id");
+  if (!incidentId) {
+    throw new Error(`missing incident_id in ${urlText}`);
+  }
+  return incidentId;
+}
+
+function errorContract(code: string): ErrorContract {
+  const registry = JSON.parse(
+    contractArtifactIndex["contracts/errors/index.json"].json,
+  ) as {
+    errors: ErrorContract[];
+  };
+  const match = registry.errors.find((candidate) => candidate.code === code);
+  if (!match) {
+    throw new Error(`missing error contract for ${code}`);
+  }
+  return match;
+}
+
+function extensionRegistry(): ExtensionProfileContract[] {
+  return (
+    JSON.parse(
+      contractArtifactIndex["contracts/extensions/index.json"].json,
+    ) as {
+      profiles: ExtensionProfileContract[];
+    }
+  ).profiles;
+}
+
+function extensionProfile(profileID: string): ExtensionProfileContract {
+  const match = extensionRegistry().find(
+    (profile) => profile.profile_id === profileID,
+  );
+  if (!match) {
+    throw new Error(`missing extension profile contract for ${profileID}`);
+  }
+  return match;
 }

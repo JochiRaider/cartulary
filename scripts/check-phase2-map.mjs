@@ -53,4 +53,4 @@ for (const id of expected) {
   }
 }
 
-console.log("phase2 test map verified");
+console.log("phase2 traceability map verified");

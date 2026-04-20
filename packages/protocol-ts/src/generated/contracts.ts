@@ -6,6 +6,16 @@ export type Artifact = {
   readonly sha256: string;
 };
 
+function indexArtifacts(
+  artifacts: readonly Artifact[],
+): Readonly<Record<string, Artifact>> {
+  return Object.freeze(
+    Object.fromEntries(
+      artifacts.map((artifact) => [artifact.path, artifact]),
+    ) as Record<string, Artifact>,
+  );
+}
+
 export const openAPIArtifacts: readonly Artifact[] = [
   {
     path: "contracts/openapi/cartulary.openapi.yaml",
@@ -14,6 +24,8 @@ export const openAPIArtifacts: readonly Artifact[] = [
   },
 ];
 
+export const openAPIArtifactsIndex = indexArtifacts(openAPIArtifacts);
+
 export const wsArtifacts: readonly Artifact[] = [
   {
     path: "contracts/ws/index.schema.json",
@@ -21,6 +33,8 @@ export const wsArtifacts: readonly Artifact[] = [
     sha256: "f7e896ff69c1a157179130efd271b4a18003ec980e75e8ddcedce95563b10fa0",
   },
 ];
+
+export const wsArtifactsIndex = indexArtifacts(wsArtifacts);
 
 export const viewSchemaArtifacts: readonly Artifact[] = [
   {
@@ -50,17 +64,40 @@ export const viewSchemaArtifacts: readonly Artifact[] = [
   },
 ];
 
+export const viewSchemaArtifactsIndex = indexArtifacts(viewSchemaArtifacts);
+
 export const errorArtifacts: readonly Artifact[] = [
   {
     path: "contracts/errors/index.json",
-    json: "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"errors\":[{\"code\":\"session_required\",\"http_status\":401,\"summary\":\"A valid base-profile session is required for the requested route.\"},{\"code\":\"invalid_credentials\",\"http_status\":401,\"summary\":\"The supplied local username or password is not valid.\"},{\"code\":\"mfa_required\",\"http_status\":401,\"summary\":\"The local credential pair is valid but an active TOTP assertion is still required.\"},{\"code\":\"mfa_setup_required\",\"http_status\":401,\"summary\":\"The local credential pair is valid but the user must finish TOTP enrollment with a bootstrap_token.\"},{\"code\":\"invalid_second_factor\",\"http_status\":401,\"summary\":\"The supplied TOTP assertion is not valid.\"},{\"code\":\"csrf_verification_failed\",\"http_status\":403,\"summary\":\"A cookie-authenticated state-changing request failed the CSRF double-submit check.\"},{\"code\":\"invalid_mutation_payload\",\"http_status\":400,\"summary\":\"The request body failed route-owned validation.\"},{\"code\":\"invalid_auth_request\",\"http_status\":400,\"summary\":\"The authentication request body failed route-owned validation.\"},{\"code\":\"credential_bootstrap_rejected\",\"http_status\":409,\"summary\":\"A bootstrap_token was presented on a route outside the Phase 1 bootstrap boundary or with the wrong subject.\"},{\"code\":\"totp_setup_not_pending\",\"http_status\":409,\"summary\":\"The requested TOTP enrollment is not pending for the current subject.\"},{\"code\":\"invalid_current_password\",\"http_status\":409,\"summary\":\"The supplied current password does not match the active local credential.\"},{\"code\":\"client_txn_conflict\",\"http_status\":409,\"summary\":\"The client_txn_id was replayed with a different request payload.\"},{\"code\":\"user_version_conflict\",\"http_status\":409,\"summary\":\"The requested deployment-user mutation used a stale base_user_version.\"},{\"code\":\"last_deployment_admin\",\"http_status\":409,\"summary\":\"The requested deployment-user mutation would remove the last active deployment_admin.\"},{\"code\":\"invalid_pagination_request\",\"http_status\":400,\"summary\":\"The request used unsupported pagination members or an invalid opaque cursor_token.\"},{\"code\":\"invalid_view_query\",\"http_status\":400,\"summary\":\"The view query request body failed route-owned validation.\"},{\"code\":\"authorization_denied\",\"http_status\":403,\"summary\":\"The current authenticated session can see the incident but does not hold a sufficient incident role for the requested mutation.\"},{\"code\":\"incident_not_found\",\"http_status\":404,\"summary\":\"The requested incident is not visible to the current authenticated user.\"},{\"code\":\"invalid_incident_create\",\"http_status\":400,\"summary\":\"The incident create request body failed route-owned validation.\"},{\"code\":\"invalid_incident_patch\",\"http_status\":400,\"summary\":\"The incident patch request body failed route-owned validation.\"},{\"code\":\"incident_key_conflict\",\"http_status\":409,\"summary\":\"The normalized incident_key conflicts with an existing incident.\"},{\"code\":\"incident_version_conflict\",\"http_status\":409,\"summary\":\"The incident patch used a stale base_incident_version.\"},{\"code\":\"membership_exists_use_patch\",\"http_status\":409,\"summary\":\"The requested incident membership already exists with a different role and must be updated through PATCH.\"},{\"code\":\"membership_version_conflict\",\"http_status\":409,\"summary\":\"The incident membership patch used a stale base_membership_version.\"},{\"code\":\"row_version_conflict\",\"http_status\":409,\"summary\":\"The record mutation used a stale base_row_version.\"},{\"code\":\"merge_precondition_failed\",\"http_status\":409,\"summary\":\"The requested record merge failed a route-owned merge eligibility or conflict precondition.\"},{\"code\":\"record_locked\",\"http_status\":409,\"summary\":\"A destructive-operation lock is already held for one of the requested records.\"},{\"code\":\"illegal_transition\",\"http_status\":409,\"summary\":\"The requested Timeline lifecycle transition is not legal for the current row state.\"},{\"code\":\"membership_not_found\",\"http_status\":404,\"summary\":\"The requested incident membership does not exist.\"},{\"code\":\"last_incident_admin\",\"http_status\":409,\"summary\":\"The requested membership mutation would remove the last incident admin.\"},{\"code\":\"user_inactive\",\"http_status\":409,\"summary\":\"The requested target user exists but is inactive and cannot receive an incident membership.\"},{\"code\":\"extension_profile_not_claimed\",\"http_status\":404,\"summary\":\"The requested reserved extension-family route belongs to an unclaimed deployment extension profile.\"},{\"code\":\"internal_error\",\"http_status\":500,\"summary\":\"The server could not complete the request.\"}],\"note\":\"Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.\",\"registry_id\":\"cartulary.errors.phase3.v1\"}",
-    sha256: "bfd6b0f392e41b8986bcd649aa429ca1c06223086178f5b1acc258991b4b6319",
+    json: "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"errors\":[{\"code\":\"session_required\",\"http_status\":401,\"summary\":\"A valid base-profile session is required for the requested route.\"},{\"code\":\"invalid_credentials\",\"http_status\":401,\"summary\":\"The supplied local username or password is not valid.\"},{\"code\":\"mfa_required\",\"http_status\":401,\"summary\":\"The local credential pair is valid but an active TOTP assertion is still required.\"},{\"code\":\"mfa_setup_required\",\"http_status\":401,\"summary\":\"The local credential pair is valid but the user must finish TOTP enrollment with a bootstrap_token.\"},{\"code\":\"invalid_second_factor\",\"http_status\":401,\"summary\":\"The supplied TOTP assertion is not valid.\"},{\"code\":\"csrf_verification_failed\",\"http_status\":403,\"summary\":\"A cookie-authenticated state-changing request failed the CSRF double-submit check.\"},{\"code\":\"invalid_mutation_payload\",\"http_status\":400,\"summary\":\"The request body failed route-owned validation.\"},{\"code\":\"invalid_auth_request\",\"http_status\":400,\"summary\":\"The authentication request body failed route-owned validation.\"},{\"code\":\"credential_bootstrap_rejected\",\"http_status\":409,\"summary\":\"A bootstrap_token was presented on a route outside the Phase 1 bootstrap boundary or with the wrong subject.\"},{\"code\":\"totp_setup_not_pending\",\"http_status\":409,\"summary\":\"The requested TOTP enrollment is not pending for the current subject.\"},{\"code\":\"invalid_current_password\",\"http_status\":409,\"summary\":\"The supplied current password does not match the active local credential.\"},{\"code\":\"client_txn_conflict\",\"http_status\":409,\"summary\":\"The client_txn_id was replayed with a different request payload.\"},{\"code\":\"user_version_conflict\",\"http_status\":409,\"summary\":\"The requested deployment-user mutation used a stale base_user_version.\"},{\"code\":\"last_deployment_admin\",\"http_status\":409,\"summary\":\"The requested deployment-user mutation would remove the last active deployment_admin.\"},{\"code\":\"invalid_pagination_request\",\"http_status\":400,\"summary\":\"The request used unsupported pagination members or an invalid opaque cursor_token.\"},{\"code\":\"invalid_view_query\",\"http_status\":400,\"summary\":\"The view query request body failed route-owned validation.\"},{\"code\":\"authorization_denied\",\"http_status\":403,\"summary\":\"The current authenticated session can see the incident but does not hold a sufficient incident role for the requested mutation.\"},{\"code\":\"incident_not_found\",\"http_status\":404,\"summary\":\"The requested incident is not visible to the current authenticated user.\"},{\"code\":\"invalid_incident_create\",\"http_status\":400,\"summary\":\"The incident create request body failed route-owned validation.\"},{\"code\":\"invalid_incident_patch\",\"http_status\":400,\"summary\":\"The incident patch request body failed route-owned validation.\"},{\"code\":\"incident_key_conflict\",\"http_status\":409,\"summary\":\"The normalized incident_key conflicts with an existing incident.\"},{\"code\":\"incident_version_conflict\",\"http_status\":409,\"summary\":\"The incident patch used a stale base_incident_version.\"},{\"code\":\"membership_exists_use_patch\",\"http_status\":409,\"summary\":\"The requested incident membership already exists with a different role and must be updated through PATCH.\"},{\"code\":\"user_not_found\",\"http_status\":404,\"summary\":\"A membership-create request referenced a user that does not exist in deployment-local identity state.\"},{\"code\":\"membership_version_conflict\",\"http_status\":409,\"summary\":\"The incident membership patch used a stale base_membership_version.\"},{\"code\":\"row_version_conflict\",\"http_status\":409,\"summary\":\"The record mutation used a stale base_row_version.\"},{\"code\":\"merge_precondition_failed\",\"http_status\":409,\"summary\":\"The requested record merge failed a route-owned merge eligibility or conflict precondition.\"},{\"code\":\"record_locked\",\"http_status\":409,\"summary\":\"A destructive-operation lock is already held for one of the requested records.\"},{\"code\":\"illegal_transition\",\"http_status\":409,\"summary\":\"The requested Timeline lifecycle transition is not legal for the current row state.\"},{\"code\":\"membership_not_found\",\"http_status\":404,\"summary\":\"The requested incident membership does not exist.\"},{\"code\":\"last_incident_admin\",\"http_status\":409,\"summary\":\"The requested membership mutation would remove the last incident admin.\"},{\"code\":\"user_inactive\",\"http_status\":409,\"summary\":\"The requested target user exists but is inactive and cannot receive an incident membership.\"},{\"code\":\"extension_profile_not_claimed\",\"http_status\":404,\"summary\":\"The requested reserved extension-family route belongs to an unclaimed deployment extension profile.\"},{\"code\":\"internal_error\",\"http_status\":500,\"summary\":\"The server could not complete the request.\"}],\"note\":\"Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.\",\"registry_id\":\"cartulary.errors.phase3.v1\"}",
+    sha256: "02a8d79c8861cc0a07dbbad2ddbef4618afd6ad701575c344d2e143d9382d7ff",
   },
 ];
+
+export const errorArtifactsIndex = indexArtifacts(errorArtifacts);
+
+export const extensionArtifacts: readonly Artifact[] = [
+  {
+    path: "contracts/extensions/index.json",
+    json: "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"note\":\"Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.\",\"profiles\":[{\"profile_id\":\"enterprise_authentication\",\"route_families\":[\"/api/v1/auth/oidc\",\"/api/v1/auth/providers\",\"/api/v1/auth/saml\",\"/api/v1/users/{user_id}/auth-bindings\"]},{\"profile_id\":\"import\",\"route_families\":[\"/api/v1/import-sessions\"]},{\"profile_id\":\"incident_portability\",\"route_families\":[\"/api/v1/incident-bundles\"]},{\"profile_id\":\"reference_pack\",\"route_families\":[\"/api/v1/reference-packs\"]},{\"profile_id\":\"snapshot_reporting\",\"route_families\":[\"/api/v1/releases\",\"/api/v1/snapshots\"]}],\"registry_id\":\"cartulary.extensions.phase2.v1\"}",
+    sha256: "b8292cc083fbed4e6256d01d8b1bbc8c2e7d9687fcc84cc61860e6a5b574a5d2",
+  },
+];
+
+export const extensionArtifactsIndex = indexArtifacts(extensionArtifacts);
 
 export const contractArtifacts = {
   openAPIArtifacts,
   wsArtifacts,
   viewSchemaArtifacts,
   errorArtifacts,
+  extensionArtifacts,
 } as const;
+
+export const contractArtifactIndex = Object.freeze({
+  ...openAPIArtifactsIndex,
+  ...wsArtifactsIndex,
+  ...viewSchemaArtifactsIndex,
+  ...errorArtifactsIndex,
+  ...extensionArtifactsIndex,
+}) as Readonly<Record<string, Artifact>>;

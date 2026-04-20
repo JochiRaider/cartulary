@@ -1,10 +1,10 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 import {
   apiBase,
   csrfHeaders,
-  ensureAdminSession,
   enrollTotpViaBootstrap,
+  ensureAdminSession,
   generateTotpCode,
   resetRememberedAdminSession,
   sessionCookieName,
@@ -27,7 +27,7 @@ test("E-1-01 logs in as a local user and inspects the singleton session resource
   });
 
   await clearBrowserSession(page);
-  await page.goto("/");
+  await page.goto("/?debug=harness");
   await signInThroughHarness(page, email, password);
 
   await expect(page.getByTestId("phase1-session-provider-type")).toHaveText(
@@ -66,7 +66,7 @@ test("E-1-02 requires MFA when the account has an active factor, rejects wrong c
   const secretBase32 = await enrollTotpViaBootstrap(email, password);
 
   await clearBrowserSession(page);
-  await page.goto("/");
+  await page.goto("/?debug=harness");
 
   await page.getByTestId("phase1-login-username").fill(email);
   await page.getByTestId("phase1-login-password").fill(password);
@@ -104,7 +104,7 @@ test("E-1-03 rejects invalid credentials without issuing a session cookie", asyn
   });
 
   await clearBrowserSession(page);
-  await page.goto("/");
+  await page.goto("/?debug=harness");
   await signInThroughHarness(page, email, "WrongPassword1!");
   await expect(page.getByTestId("phase1-last-error-code")).toHaveText(
     "invalid_credentials",
@@ -126,7 +126,7 @@ test("E-1-04 forces the idle expiry boundary and requires a fresh login afterwar
   });
 
   await clearBrowserSession(page);
-  await page.goto("/");
+  await page.goto("/?debug=harness");
   await signInThroughHarness(page, email, password);
 
   await page.getByTestId("phase1-expire-session").click();
@@ -145,7 +145,7 @@ test("E-1-05 lets deployment admins create and patch users, rejects stale versio
   page,
 }) => {
   await ensureAdminSession(page);
-  await page.goto("/");
+  await page.goto("/?debug=harness");
   const createEmail = uniqueEmail("phase1-e105");
 
   await page.getByTestId("phase1-admin-create-email").fill(createEmail);
@@ -216,7 +216,7 @@ test("E-1-06 follows the bootstrap-token enrollment sequence and proves first-ti
   });
 
   await clearBrowserSession(page);
-  await page.goto("/");
+  await page.goto("/?debug=harness");
   await page.getByTestId("phase1-login-username").fill(email);
   await page.getByTestId("phase1-login-password").fill(password);
   await page.getByTestId("phase1-login-totp-code").fill("");
@@ -278,7 +278,7 @@ test("E-1-07 requires the current password and current TOTP code, revokes the se
   const secretBase32 = await enrollTotpViaBootstrap(email, password);
 
   await clearBrowserSession(page);
-  await page.goto("/");
+  await page.goto("/?debug=harness");
   await signInThroughHarness(
     page,
     email,
@@ -363,7 +363,7 @@ test("E-1-08 keeps credential actions deployment-admin only and denies the same 
   await createIncidentMembership(page, incidentId, incidentAdminEmail, "admin");
 
   await clearBrowserSession(page);
-  await page.goto("/");
+  await page.goto("/?debug=harness");
   await signInThroughHarness(page, incidentAdminEmail, incidentAdminPassword);
   await page
     .getByTestId("phase1-admin-target-user-id-input")
@@ -388,7 +388,7 @@ test("E-1-08 keeps credential actions deployment-admin only and denies the same 
   );
 
   await ensureAdminSession(page);
-  await page.goto("/");
+  await page.goto("/?debug=harness");
   await page
     .getByTestId("phase1-admin-target-user-id-input")
     .fill(targetUser.user_id);
@@ -412,7 +412,7 @@ test("E-1-08 keeps credential actions deployment-admin only and denies the same 
   );
 
   await clearBrowserSession(page);
-  await page.goto("/");
+  await page.goto("/?debug=harness");
   await signInThroughHarness(page, incidentAdminEmail, incidentAdminPassword);
   await expect(page.getByTestId("phase1-session-user-id")).toHaveText(
     incidentAdminUser.user_id,
@@ -504,7 +504,7 @@ async function hasSessionCookie(page: Page) {
 async function requireText(page: Page, testId: string) {
   const locator = page.getByTestId(testId);
   await expect
-    .poll(async () => ((await locator.textContent())?.trim() ?? ""))
+    .poll(async () => (await locator.textContent())?.trim() ?? "")
     .not.toBe("");
   const value = (await locator.textContent())?.trim() ?? "";
   if (value === "") {

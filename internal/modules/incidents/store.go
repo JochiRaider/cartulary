@@ -543,7 +543,7 @@ func (s *Store) CreateMembership(ctx context.Context, actor authn.UserRecord, in
 		return MembershipCreateResult{
 			Membership: record,
 			Payload:    payload,
-			StatusCode: existing.StatusCode,
+			StatusCode: http.StatusOK,
 		}, nil
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return MembershipCreateResult{}, fmt.Errorf("query membership create idempotency: %w", err)
