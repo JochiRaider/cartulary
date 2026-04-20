@@ -188,6 +188,8 @@ This phase establishes incident-scoped administration and the first stable incid
 
 This phase does **not** yet complete record-row history for workbook records. It does establish the expectation that every new mutating route from this point forward must already satisfy its route-owned validation, idempotency, versioning, authorization, audit, and route-family discovery contracts.[^base-manifest][^core01-routes]
 
+Repository execution for this phase is manifest-driven. `tools/phase2_test_map.json` is the executable authoritative inventory for Phase 2 completion, and `make test`, `make check`, and `make ci` must both select and verify every mapped authoritative row. Runtime-backed HTTP conformance checks, extra regressions, browser-authenticated request probes, and Phase 2 process smoke remain valuable support coverage, but they are supplemental evidence and must not borrow authoritative Phase 2 IDs.
+
 ### 4.2.2 Primary owner sections
 
 - Core 01 §3.3.1 versioning and compatibility
@@ -210,7 +212,7 @@ This phase does **not** yet complete record-row history for workbook records. It
 | U-2-05 | Incident patch accepts only `tlp`, `current_phase`, and `primary_external_case_ref`, requires `base_incident_version`, and treats a structurally valid no-op as version-stable. | REQ-01-168..REQ-01-180, REQ-02-015 | AC-170..AC-174, AC-211..AC-214 |
 | U-2-06 | Membership create requires exactly one of `user_id` or `email`, uses the closed role vocabulary, and never auto-creates a user or invitation. | REQ-01-127..REQ-01-132 | AC-175..AC-180 |
 | U-2-07 | Membership patch and delete enforce `base_membership_version` and the `last_incident_admin` guard. | REQ-01-133..REQ-01-137 | AC-178..AC-180 |
-| U-2-08 | `deployment_admin` alone does not grant incident read, incident write, incident job, preview, download, or WebSocket access. | REQ-04-028..REQ-04-030 | AC-178..AC-180, AC-261 |
+| U-2-08 | `deployment_admin` alone does not grant incident read, incident write, membership administration, workbook-preference, current incident-scoped route, or incident WebSocket access without incident membership. | REQ-04-028..REQ-04-030 | AC-178..AC-180, AC-261 |
 | U-2-09 | `GET /api/v1/extensions` is a singleton deployment-scoped discovery route that returns the exact current-profile `profile_id` set, exact `claimed` plus `route_families[]` item shapes, canonical ordering, and `invalid_pagination_request` on pagination members. | REQ-01-542..REQ-01-545, REQ-04-105 | AC-370 |
 | U-2-10 | Reserved-extension dispatch uses the required precedence: base routes first, claimed extension families second, reserved-but-unclaimed families return `extension_profile_not_claimed` before family-specific authorization or policy evaluation, and ordinary unknown-route handling applies only outside reserved families. | REQ-01-546..REQ-01-548 | AC-371 |
 
@@ -229,12 +231,11 @@ This phase does **not** yet complete record-row history for workbook records. It
 
 | ID | Test | Exact REQs | Exact ACs |
 |---|---|---|---|
-| E-2-01 | An authenticated user creates an incident, is bootstrapped as incident `admin`, and lands on a valid workbook surface for that incident. | REQ-01-154..REQ-01-160, REQ-04-021..REQ-04-026 | AC-170..AC-174 |
-| E-2-02 | The same incident appears in incident discovery, can be retrieved directly, and can be patched only through the allowed promoted fields. | REQ-01-168..REQ-01-180, REQ-02-015 | AC-170..AC-174, AC-211..AC-214 |
-| E-2-03 | An incident admin adds, changes, and removes memberships. A non-admin incident member cannot perform the same actions in place. | REQ-01-127..REQ-01-137, REQ-04-021..REQ-04-030 | AC-175..AC-180 |
-| E-2-04 | Unknown or forbidden top-level members on incident create or patch are rejected with the route-owned error contract. | REQ-01-021, REQ-01-154..REQ-01-180 | AC-219, AC-220 |
-| E-2-05 | An authenticated user with zero incident memberships can read `GET /api/v1/extensions`, receives the ordered current-profile extension set and canonical reserved family roots, and cannot induce pagination semantics on that singleton route. | REQ-01-542..REQ-01-545, REQ-04-105 | AC-370 |
-| E-2-06 | Probing an unclaimed extension family returns `404 error.code='extension_profile_not_claimed'` before family-specific authorization or policy evaluation, while base routes and claimed extension families use their ordinary dispatch paths. | REQ-01-546..REQ-01-548 | AC-371 |
+| E-2-01 | An authenticated user creates an incident, is bootstrapped as incident `admin`, and lands on the ordinary workbook shell with visible workbook-preference bootstrap state. | REQ-01-154..REQ-01-160, REQ-04-021..REQ-04-026 | AC-170..AC-174 |
+| E-2-02 | The same incident appears in incident discovery, is retrieved into the ordinary incident shell, and patches only the allowed promoted fields through visible default-path controls. | REQ-01-168..REQ-01-180, REQ-02-015 | AC-170..AC-174, AC-211..AC-214 |
+| E-2-03 | An incident admin adds, changes, and removes memberships on the ordinary shell. A non-admin incident member sees the same membership state but not the admin controls. | REQ-01-127..REQ-01-137, REQ-04-021..REQ-04-030 | AC-175..AC-180 |
+
+Phase 2 still keeps browser-authenticated request probes for route-owned validation errors, extension singleton discovery semantics, and reserved-family precedence, but those belong to supplemental browser support coverage rather than the authoritative E2E completion map.
 
 ---
 
@@ -874,7 +875,7 @@ Each extension claim still requires the **base profile first**. The AC groups li
 
 ## 14. Shared cross-cutting harnesses
 
-These harnesses apply across phases and should be implemented once, then reused. The harness list is intentionally small and tied to current owner sections.
+These harnesses apply across phases and should be implemented once, then reused. The harness list is intentionally small and tied to current owner sections. When a phase introduces multiple public routes under the same surface, the harnesses should run from a shared route inventory rather than from scattered one-off assertions; Phase 2 is the first phase where that route-inventory discipline is required in the repo task surface. The same task-surface rule applies to browser harness ownership: when multiple browser suites depend on the same real Playwright web-server bootstrap, the repo gate must orchestrate them under one owned shared stack instead of racing multiple startup attempts on the same fixed ports.
 
 ### 14.1 Envelope consistency harness
 
@@ -965,7 +966,7 @@ Conformance evidence must prove that the application remains one deployable unit
 
 A phase is complete only when all of the following are true:
 
-1. Every row in that phase’s test tables passes in the intended test layer.
+1. Every row in that phase’s executable authoritative manifest passes in the intended test layer, and the default task surface verifies that those rows actually executed rather than only matching names or symbols. Browser rows that share one real web-server bootstrap must also respect the task-surface orchestration contract rather than relying on incidental startup races.
 2. The shared harnesses in §14 pass for every route, event class, and mutation path introduced or materially changed by the phase.
 3. All earlier phases still pass after the phase lands.
 4. Any new view surface introduced in the phase is covered for:

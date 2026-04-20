@@ -24,6 +24,23 @@ func DefaultIncidentCreateBootstrap() IncidentCreateBootstrap {
 	}
 }
 
+func IncidentCreateIdempotencyScope(actorUserID uuid.UUID) string {
+	return actorUserID.String()
+}
+
+func IncidentCreateRequestHash(request CreateIncidentRequest) []byte {
+	return hashRequestPayload(map[string]any{
+		"client_txn_id":             request.ClientTxnID,
+		"incident_key":              request.IncidentKey,
+		"title":                     request.Title,
+		"description":               request.Description,
+		"severity":                  request.Severity,
+		"tlp":                       request.TLP,
+		"current_phase":             request.CurrentPhase,
+		"primary_external_case_ref": request.PrimaryExternalCaseRef,
+	})
+}
+
 func ApplyIncidentPatch(current IncidentRecord, request IncidentPatchRequest, actorUserID uuid.UUID, updatedAt time.Time) (IncidentRecord, bool) {
 	next := current
 	if request.TLP.Present {

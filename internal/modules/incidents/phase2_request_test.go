@@ -119,7 +119,7 @@ func TestPhase2_U_2_05_IncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStabl
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "unknown", "unknown_top_level_member")
 }
 
-func TestPhase2_MembershipCreateDecodeRejectsInvalidSelectorsAndInvitationFields_U_2_06(t *testing.T) {
+func TestPhase2_U_2_06_MembershipCreateDecodeRejectsInvalidSelectorsAndInvitationFields(t *testing.T) {
 	request, apiErr := DecodeMembershipCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-email",
 		"email":"  Analyst@Example.Test  ",
@@ -175,7 +175,7 @@ func TestPhase2_MembershipCreateDecodeRejectsInvalidSelectorsAndInvitationFields
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_mutation_payload", "invitation_email", "unknown_field")
 }
 
-func TestPhase2_MembershipPatchAndDeleteDecodeEnforceBaseVersionAndLastAdminGuard_U_2_07(t *testing.T) {
+func TestPhase2_U_2_07_MembershipPatchAndDeleteDecodeEnforceBaseVersionAndLastAdminGuard(t *testing.T) {
 	patchRequest, apiErr := DecodeMembershipPatchRequest(strings.NewReader(`{
 		"base_membership_version":5,
 		"role":"admin"

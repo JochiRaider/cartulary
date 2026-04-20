@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-test-name-check run-phase-smoke backend-unit backend-integration backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e browser-e2e-functional browser-e2e-stateful browser-e2e-measurement test-fast test e2e lint lint-go lint-biome lint-typecheck check check-preflight check-heavy check-isolated ci build build-server build-migrate build-web
+.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-test-name-check browser-e2e-task-surface-check run-phase-smoke backend-unit backend-integration backend-integration-support backend-process backend-process-support phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-measurement test-fast test e2e lint lint-go lint-biome lint-typecheck check check-preflight check-heavy check-isolated ci build build-server build-migrate build-web
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
 PNPM ?= $(shell if command -v pnpm >/dev/null 2>&1; then command -v pnpm; elif [ -x "$$HOME/.local/share/pnpm/pnpm" ]; then printf "$$HOME/.local/share/pnpm/pnpm"; fi)
@@ -22,8 +22,12 @@ PNPM_ENV := env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH"
 Q := @
 RUN_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-phase.sh
 RUN_GO_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-go-phase.sh
+RUN_GO_MANIFEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-go-manifest-phase.sh
+RUN_PLAYWRIGHT_MANIFEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-playwright-manifest-phase.sh
 RUN_PHASE = $(Q)$(RUN_PHASE_SCRIPT)
 RUN_GO_PHASE = $(Q)$(RUN_GO_PHASE_SCRIPT)
+RUN_GO_MANIFEST_PHASE = $(Q)NODE_BIN=$(NODE_BIN) $(RUN_GO_MANIFEST_PHASE_SCRIPT)
+RUN_PLAYWRIGHT_MANIFEST_PHASE = $(Q)NODE_BIN=$(NODE_BIN) $(RUN_PLAYWRIGHT_MANIFEST_PHASE_SCRIPT)
 RUN_PHASE_ALLOW_SUCCESS_LOG = $(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT)
 
 CARTULARY_OUTPUT_MODE ?= quiet
@@ -119,15 +123,20 @@ phase-map-check: frontend-toolchain
 	$(RUN_PHASE) "phase-map-check" -- $(PNPM_ENV) env NODE_BIN=$(NODE_BIN) ./scripts/check-phase-maps.sh
 
 run-phase-smoke:
-	$(RUN_PHASE) "run-phase-smoke" -- ./scripts/test-run-phase.sh
+	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-run-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh'
 
 phase-test-name-check:
 	$(RUN_PHASE) "phase-test-name-check" -- ./scripts/check-phase-test-names.sh
 
+browser-e2e-task-surface-check:
+	$(RUN_PHASE) "browser-e2e-task-surface-check" -- ./scripts/check-browser-e2e-task-surface.sh
+
 test-fast: frontend-toolchain
 	$(Q)$(MAKE) --no-print-directory backend-unit
 	$(Q)$(MAKE) --no-print-directory backend-integration
+	$(Q)$(MAKE) --no-print-directory backend-integration-support
 	$(Q)$(MAKE) --no-print-directory backend-process
+	$(Q)$(MAKE) --no-print-directory backend-process-support
 	$(Q)$(MAKE) --no-print-directory frontend-unit
 
 test: frontend-toolchain
@@ -136,19 +145,28 @@ test: frontend-toolchain
 
 backend-unit: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_GO_PHASE) "backend-unit platform" '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase2_.*_U_2_|TestPhase3_.*_U_3_|TestPhase4_.*_U_4_)' -- $(GO_ENV) $(GO) test ./internal/platform/...
+	$(RUN_GO_PHASE) "backend-unit platform" '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase3_.*_U_3_|TestPhase4_.*_U_4_)' -- $(GO_ENV) $(GO) test ./internal/platform/...
 	$(RUN_PHASE) "backend-unit configtest" -- $(GO_ENV) $(GO) test ./internal/testutil/configtest
-	$(RUN_GO_PHASE) "backend-unit phases" '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase2_.*_U_2_|TestPhase3_.*_U_3_|TestPhase4_.*_U_4_)' -- $(GO_ENV) $(GO) test ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline
+	$(RUN_GO_PHASE) "backend-unit phases" '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase3_.*_U_3_|TestPhase4_.*_U_4_)' -- $(GO_ENV) $(GO) test ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline
+	$(RUN_GO_MANIFEST_PHASE) "backend-unit phase2 authoritative" phase2 unit authoritative -- $(GO_ENV) $(GO) test ./internal/modules/incidents
 
 backend-integration: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "backend-integration testutil" -- $(GO_ENV) $(GO) test ./internal/testutil/httptestx ./internal/testutil/pgtest ./internal/testutil/s3test ./internal/testutil/wstest
-	$(RUN_GO_PHASE) "backend-integration phases" '^(TestPhase0_.*_I_0_|TestPhase1_.*_I_1_|TestPhase2_.*_I_2_|TestPhase3_.*_I_3_|TestPhase4_.*_I_4_)' -- $(GO_ENV) $(GO) test ./internal/platform/... ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline
+	$(RUN_GO_PHASE) "backend-integration phases" '^(TestPhase0_.*_I_0_|TestPhase1_.*_I_1_|TestPhase3_.*_I_3_|TestPhase4_.*_I_4_)' -- $(GO_ENV) $(GO) test ./internal/platform/... ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline
+	$(RUN_GO_MANIFEST_PHASE) "backend-integration phase2 authoritative" phase2 integration authoritative -- $(GO_ENV) $(GO) test ./internal/modules/incidents
+
+backend-integration-support: frontend-toolchain
+	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
+	$(RUN_PHASE) "backend-integration support phase2" -- $(GO_ENV) $(GO) test ./internal/modules/incidents -run '^(TestSupportPhase2_)'
 
 # Phase 0 process evidence is part of the developer gate and must never be direct-run only.
 backend-process: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_GO_PHASE) "backend-process" '^(TestPhase0_.*_E_0_[0-9]+|TestPhase1_.*_ProcessSmoke|TestPhase2_ProcessSmoke_)$$' -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4
+	$(RUN_GO_PHASE) "backend-process" '^(TestPhase0_.*_E_0_[0-9]+|TestPhase1_.*_ProcessSmoke)$$' -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4
+
+backend-process-support:
+	$(Q)$(MAKE) --no-print-directory phase2-process-smoke
 
 # Phase 0 process evidence is part of the developer gate and must never be direct-run only.
 phase0-process-e2e:
@@ -170,12 +188,19 @@ e2e: frontend-toolchain
 	$(Q)$(MAKE) --no-print-directory browser-e2e
 
 browser-e2e: frontend-toolchain
-	$(Q)$(MAKE) --no-print-directory browser-e2e-functional
+	$(Q)$(MAKE) --no-print-directory browser-e2e-webserver-backed
 	$(Q)$(MAKE) --no-print-directory browser-e2e-stateful
 	$(Q)$(MAKE) --no-print-directory browser-e2e-measurement
 
+browser-e2e-webserver-backed: frontend-toolchain build-server build-migrate
+	$(RUN_PHASE) "browser-e2e-webserver-backed" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-webserver-backed.sh
+
 browser-e2e-functional: frontend-toolchain build-server build-migrate
-	$(RUN_PHASE) "browser-e2e-functional" -- env PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) $(PNPM) --dir apps/web exec playwright test $(PLAYWRIGHT_TEST_FLAGS) e2e/phase1.spec.ts e2e/phase2.spec.ts e2e/phase3.spec.ts e2e/phase4.spec.ts
+	$(RUN_PHASE) "browser-e2e-functional other phases" -- env PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) $(PNPM) --dir apps/web exec playwright test e2e/phase1.spec.ts e2e/phase3.spec.ts e2e/phase4.spec.ts
+	$(RUN_PLAYWRIGHT_MANIFEST_PHASE) "browser-e2e-functional phase2 authoritative" phase2 authoritative -- env PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) $(PNPM) --dir apps/web exec playwright test
+
+browser-e2e-support: frontend-toolchain build-server build-migrate
+	$(RUN_PHASE) "browser-e2e-support phase2" -- env PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) $(PNPM) --dir apps/web exec playwright test e2e/phase2.support.spec.ts
 
 # Browser evidence that mutates process-global backend state belongs here.
 browser-e2e-stateful: frontend-toolchain build-server build-migrate
@@ -201,11 +226,13 @@ check-preflight: frontend-toolchain
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "check frontend install" -- $(PNPM_ENV) $(PNPM) install --frozen-lockfile $(PNPM_INSTALL_FLAGS)
 	$(Q)$(MAKE) --no-print-directory run-phase-smoke
 	$(Q)$(MAKE) --no-print-directory phase-test-name-check
+	$(Q)$(MAKE) --no-print-directory browser-e2e-task-surface-check
 	$(Q)$(MAKE) --no-print-directory generate-drift
 	$(Q)$(MAKE) --no-print-directory phase-map-check
 
-# Keep only parallel-safe work here; measurement-sensitive browser evidence runs after this block.
-check-heavy: migration-drift lint-go lint-biome lint-typecheck backend-unit backend-integration backend-process frontend-unit browser-e2e-functional deployable-shape-verify
+# Keep only parallel-safe work here; web-server-backed browser suites run under one
+# owned stack, and measurement-sensitive browser evidence runs after this block.
+check-heavy: migration-drift lint-go lint-biome lint-typecheck backend-unit backend-integration backend-integration-support backend-process backend-process-support frontend-unit browser-e2e-webserver-backed deployable-shape-verify
 
 check-isolated: browser-e2e-stateful browser-e2e-measurement
 

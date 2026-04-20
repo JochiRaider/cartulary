@@ -263,6 +263,7 @@ Implement the root `Makefile` next. It should expose the baseline human-facing t
 - `make test`
 - `make lint`
 - `make check`
+- `make ci`
 - `make build`
 
 Repository-local recommended meanings:
@@ -272,10 +273,11 @@ Repository-local recommended meanings:
 - `make db-reset`: recreate the local database and apply migrations.
 - `make dev`: run the Go server and, once present, the Vite dev server.
 - `make generate`: regenerate `sqlc` outputs and contract-derived outputs.
-- `make test-fast`: run the narrower backend unit, backend integration, backend process, and frontend unit loop.
-- `make test`: run the authoritative full corpus, including browser E2E.
+- `make test-fast`: run the narrower backend unit loop plus the authoritative backend integration manifest, explicit support integration and process-smoke coverage, and frontend unit tests.
+- `make test`: run the authoritative full corpus, including manifest-verified browser E2E and explicit supplemental support suites. Web-server-backed browser suites should be orchestrated under one owned stack rather than started in parallel.
 - `make lint`: run Go vet or lint plus frontend lint and type-check.
-- `make check`: run the full developer gate.
+- `make check`: run the full developer gate and fail if any authoritative phase-manifest row is absent from execution. Web-server-backed browser suites must remain serialized under one owned stack inside the gate, while stateful or timing-sensitive browser suites stay isolated.
+- `make ci`: run the provider-neutral CI gate that composes the canonical task surface and enforces execution truth, codegen drift, migration verification, and deployable-shape checks.
 - `make build`: build the application artifact and, later, embed the frontend assets into it.
 
 `make check` is not optional. It is the required developer verification gate and must include codegen drift detection and migration verification.[^6]
@@ -432,16 +434,12 @@ Do not implement Timeline as temporary CRUD. The testing guide is explicit that 
 
 ## 14. Step 11: wire CI at the same time as local development
 
-As soon as the root task surface exists, wire CI to run at least:
-
-- `make generate`
-- `make test`
-- `make lint`
-- `make check`
+As soon as the root task surface exists, wire CI around `make ci` rather than a handwritten subset of local commands. The provider-neutral entrypoint must already compose generation drift detection, authoritative and support test execution, migration verification, and deployable-shape checks.
 
 The green condition is not just passing tests. CI must also prove that:
 
 - `make generate` leaves a clean diff.
+- every authoritative phase-manifest row actually executed in the intended layer.
 - migrations apply successfully on an empty database and on an upgrade path.
 - the repository still builds as one application artifact rather than drifting toward separate deployables.[^6][^24]
 

@@ -7,19 +7,36 @@ GO_BIN="${GO:-go}"
 SERVER_BIN="${CARTULARY_SERVER_BIN:-}"
 MIGRATE_BIN="${CARTULARY_MIGRATE_BIN:-}"
 RUNTIME_ROOT_BASE="$(mktemp -d /tmp/cartulary-web-e2e-runtime-XXXXXX)"
+PLAYWRIGHT_STATE_DIR="${RUNTIME_ROOT_BASE}/playwright-state"
 E2E_DB="cartulary_web_e2e_$$"
 E2E_DSN="postgres://cartulary:cartulary@localhost:5432/${E2E_DB}?sslmode=disable"
 SERVER_LOG="/tmp/cartulary-e2e-server-$$.log"
 WEB_LOG="/tmp/cartulary-e2e-web-$$.log"
 MINIO_READY_URL="http://127.0.0.1:9000/minio/health/ready"
+child_command=()
+
+if [[ "$#" -gt 0 ]]; then
+  if [[ "$1" != "--" ]]; then
+    echo "usage: start-web-e2e.sh [-- <command...>]" >&2
+    exit 2
+  fi
+  shift
+  if [[ "$#" -eq 0 ]]; then
+    echo "usage: start-web-e2e.sh [-- <command...>]" >&2
+    exit 2
+  fi
+  child_command=("$@")
+fi
 
 mkdir -p \
   "${RUNTIME_ROOT_BASE}/database-storage" \
   "${RUNTIME_ROOT_BASE}/object-storage" \
+  "${PLAYWRIGHT_STATE_DIR}" \
   "${RUNTIME_ROOT_BASE}/backup-storage" \
   "${RUNTIME_ROOT_BASE}/reference-pack-storage" \
   "${RUNTIME_ROOT_BASE}/temporary-work" \
   "${RUNTIME_ROOT_BASE}/export-outputs"
+export CARTULARY_PLAYWRIGHT_STATE_DIR="${PLAYWRIGHT_STATE_DIR}"
 
 cleanup() {
   if [[ -n "${VITE_PID:-}" ]]; then
@@ -88,6 +105,21 @@ wait_for_minio() {
   return 1
 }
 
+assert_port_free() {
+  local port="$1"
+  local name="$2"
+
+  if ! command -v ss >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if ss -ltn "sport = :${port}" | tail -n +2 | grep -q .; then
+    echo "${name} port ${port} is already in use; stop the existing listener before browser e2e" >&2
+    ss -ltnp "sport = :${port}" >&2 || true
+    return 1
+  fi
+}
+
 run_migrate() {
   if [[ -n "${MIGRATE_BIN}" && -x "${MIGRATE_BIN}" ]]; then
     "${MIGRATE_BIN}" "$@"
@@ -110,6 +142,8 @@ make -C "${ROOT_DIR}" frontend-toolchain
 docker compose -f "${COMPOSE_FILE}" up -d postgres minio >/dev/null
 wait_for_postgres
 wait_for_minio
+assert_port_free 8080 "backend"
+assert_port_free 4173 "frontend"
 docker compose -f "${COMPOSE_FILE}" exec -T postgres \
   psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null
 docker compose -f "${COMPOSE_FILE}" exec -T postgres \
@@ -151,5 +185,13 @@ VITE_PID=$!
 
 wait_for_http "http://127.0.0.1:8080/readyz" "backend"
 wait_for_http "http://127.0.0.1:4173" "frontend"
+
+if [[ "${#child_command[@]}" -gt 0 ]]; then
+  set +e
+  "${child_command[@]}"
+  child_status=$?
+  set -e
+  exit "$child_status"
+fi
 
 wait

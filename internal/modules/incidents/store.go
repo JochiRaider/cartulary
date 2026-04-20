@@ -278,7 +278,8 @@ SELECT incident_id, user_id, home_sheet_ref, created_at, updated_at
 }
 
 func (s *Store) CreateIncident(ctx context.Context, actor authn.UserRecord, request CreateIncidentRequest, requestHash []byte, requestID string, now time.Time) (CreateIncidentResult, error) {
-	if existing, err := s.authStore.GetRouteIdempotency(ctx, "incidents.create", actor.ID.String(), request.ClientTxnID); err == nil {
+	scopeKey := IncidentCreateIdempotencyScope(actor.ID)
+	if existing, err := s.authStore.GetRouteIdempotency(ctx, "incidents.create", scopeKey, request.ClientTxnID); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
 			return CreateIncidentResult{}, authn.ErrClientTxnConflict
 		}
@@ -416,7 +417,7 @@ INSERT INTO route_idempotency (
     route_key, scope_key, client_txn_id, actor_user_id, target_user_id, request_hash, status_code, response_json
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-`, "incidents.create", actor.ID.String(), request.ClientTxnID, actor.ID, actor.ID, requestHash, http.StatusCreated, responseJSON); err != nil {
+`, "incidents.create", scopeKey, request.ClientTxnID, actor.ID, actor.ID, requestHash, http.StatusCreated, responseJSON); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return CreateIncidentResult{}, authn.ErrClientTxnConflict
 		}

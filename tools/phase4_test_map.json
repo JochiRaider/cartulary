@@ -1,5 +1,5 @@
 {
-  "note": "Phase 4 traceability inventory only. Authoritative evidence lives in the mapped tests and their declared evidence layers; support-only harness tests remain outside this manifest.",
+  "note": "Phase 4 authoritative execution manifest. Support-only harness coverage stays outside this map.",
   "expected_ids": [
     "U-4-01",
     "U-4-02",
@@ -28,54 +28,81 @@
   "unit": [
     {
       "id": "U-4-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/timeline",
       "file": "internal/modules/timeline/phase4_unit_test.go",
       "symbol": "TestPhase4_BindingMode_U_4_01",
       "evidence_layer": "store_domain"
     },
     {
       "id": "U-4-02",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/timeline",
       "file": "internal/modules/timeline/phase4_unit_test.go",
       "symbol": "TestPhase4_DuplicateMentionProvenance_U_4_02",
       "evidence_layer": "store_domain"
     },
     {
       "id": "U-4-03",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_unit_test.go",
       "symbol": "TestPhase4_CreateFromMention_U_4_03",
       "evidence_layer": "store_domain"
     },
     {
       "id": "U-4-04",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_unit_test.go",
       "symbol": "TestPhase4_DismissRestoreMentionLifecycle_U_4_04",
       "evidence_layer": "store_domain"
     },
     {
       "id": "U-4-05",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_unit_test.go",
       "symbol": "TestPhase4_ExactMatchPrecedence_U_4_05",
       "evidence_layer": "store_domain"
     },
     {
       "id": "U-4-06",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_unit_test.go",
       "symbol": "TestPhase4_ExplicitEntityMerge_U_4_06",
       "evidence_layer": "store_domain"
     },
     {
       "id": "U-4-07",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_unit_test.go",
       "symbol": "TestPhase4_IndicatorObservationSeparation_U_4_07",
       "evidence_layer": "store_domain"
     },
     {
       "id": "U-4-08",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/timeline",
       "file": "internal/modules/timeline/phase4_request_test.go",
       "symbol": "TestPhase4_AutoResolutionEligibility_U_4_08",
       "evidence_layer": "decoder"
     },
     {
       "id": "U-4-09",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/timeline",
       "file": "internal/modules/timeline/phase4_request_test.go",
       "symbol": "TestPhase4_ManualTimelineConfidenceNull_U_4_09",
       "evidence_layer": "decoder"
@@ -84,36 +111,54 @@
   "integration": [
     {
       "id": "I-4-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_integration_test.go",
       "symbol": "TestPhase4_ResolveRoute_I_4_01",
       "evidence_layer": "http_runtime"
     },
     {
       "id": "I-4-02",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_integration_test.go",
       "symbol": "TestPhase4_EntityOriginUpsert_I_4_02",
       "evidence_layer": "http_runtime"
     },
     {
       "id": "I-4-03",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_integration_test.go",
       "symbol": "TestPhase4_ExplicitMergeRoute_I_4_03",
       "evidence_layer": "http_runtime"
     },
     {
       "id": "I-4-07",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_integration_test.go",
       "symbol": "TestPhase4_IndicatorsRoute_I_4_07",
       "evidence_layer": "http_runtime"
     },
     {
       "id": "I-4-08",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/timeline",
       "file": "internal/modules/timeline/phase4_integration_test.go",
       "symbol": "TestPhase4_AutoResolutionEligibility_I_4_08",
       "evidence_layer": "http_runtime"
     },
     {
       "id": "I-4-09",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/timeline",
       "file": "internal/modules/timeline/phase4_integration_test.go",
       "symbol": "TestPhase4_ManualTimelineConfidenceNull_I_4_09",
       "evidence_layer": "http_runtime"
@@ -122,24 +167,32 @@
   "e2e": [
     {
       "id": "E-4-01",
+      "coverage": "authoritative",
+      "runner": "playwright",
       "file": "apps/web/e2e/phase4.spec.ts",
       "title": "E-4-01 resolves and creates entities from Timeline mentions in the inspector",
       "evidence_layer": "browser"
     },
     {
       "id": "E-4-02",
+      "coverage": "authoritative",
+      "runner": "playwright",
       "file": "apps/web/e2e/phase4.spec.ts",
       "title": "E-4-02 dismisses and ordinarily restores a mention without relinking",
       "evidence_layer": "browser"
     },
     {
       "id": "E-4-03",
+      "coverage": "authoritative",
+      "runner": "playwright",
       "file": "apps/web/e2e/phase4.spec.ts",
       "title": "E-4-03 merges duplicate entities from the inspector and preserves survivor identity",
       "evidence_layer": "browser"
     },
     {
       "id": "E-4-04",
+      "coverage": "authoritative",
+      "runner": "playwright",
       "file": "apps/web/e2e/phase4.spec.ts",
       "title": "E-4-04 auto-resolves only eligible exact-match Timeline tokens",
       "evidence_layer": "browser"

@@ -1,7 +1,5 @@
 import { createHmac } from "node:crypto";
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 
 import {
   type APIRequestContext,
@@ -12,6 +10,12 @@ import {
   type StorageState,
 } from "@playwright/test";
 
+import {
+  isExternalServerHarnessMode,
+  sharedPlaywrightStateDir,
+  resolvePlaywrightStateFile,
+} from "./harnessState";
+
 export const bootstrapEmail = "dev-admin@example.test";
 export const bootstrapPassword = "DevBootstrap1!";
 export const sessionCookieName = "cartulary_session";
@@ -19,10 +23,31 @@ export const csrfCookieName = "cartulary_csrf";
 export const csrfHeaderName = "X-CSRF-Token";
 export const apiBase = "http://127.0.0.1:8080";
 
-const suiteAdminTotpStatePath = join(
-  tmpdir(),
+const suiteAdminTotpStatePath = resolvePlaywrightStateFile(
   "cartulary-playwright-admin-totp.txt",
 );
+
+export type LocalLoginResult =
+  | {
+      kind: "success";
+    }
+  | {
+      kind: "error";
+      status: number;
+      code: string;
+      details: Record<string, unknown>;
+    };
+
+export type SuiteAdminAuthClient = {
+  loginLocal: (secondFactorCode?: string | null) => Promise<LocalLoginResult>;
+  provisionTotpFromBootstrap: (bootstrapToken: string) => Promise<string>;
+};
+
+export type SuiteAdminStateContext = {
+  externalServerMode: boolean;
+  sharedStateDir: string | null;
+  stateFilePath: string;
+};
 
 let rememberedAdminTotpSecretBase32: string | null = null;
 
@@ -63,12 +88,15 @@ export async function ensureAdminSession(page: Page) {
 
 export async function prepareSuiteAdminState() {
   rememberedAdminTotpSecretBase32 = null;
-  clearSuiteAdminTotpSecret();
 
   const authRequests = await request.newContext({ baseURL: apiBase });
   try {
     await waitForAPIReady(authRequests);
-    const secretBase32 = await provisionBootstrapAdminTotp(authRequests);
+    const secretBase32 = await reconcileSuiteAdminTotpState(
+      suiteAdminAuthClient(authRequests),
+      loadSuiteAdminTotpSecret(),
+    );
+    rememberedAdminTotpSecretBase32 = secretBase32;
     writeSuiteAdminTotpSecret(secretBase32);
   } finally {
     await authRequests.dispose();
@@ -549,6 +577,64 @@ export async function waitForPageRequestAPIReady(page: Page) {
   throw new Error(`timed out waiting for API readiness at ${apiBase}/readyz`);
 }
 
+export function currentSuiteAdminStateContext(): SuiteAdminStateContext {
+  return {
+    externalServerMode: isExternalServerHarnessMode(),
+    sharedStateDir: sharedPlaywrightStateDir(),
+    stateFilePath: suiteAdminTotpStatePath,
+  };
+}
+
+export async function reconcileSuiteAdminTotpState(
+  client: SuiteAdminAuthClient,
+  storedSecretBase32: string | null,
+  context: SuiteAdminStateContext = currentSuiteAdminStateContext(),
+) {
+  const normalizedStoredSecret = storedSecretBase32?.trim() ?? "";
+  if (normalizedStoredSecret !== "") {
+    const loginWithStoredSecret = await client.loginLocal(
+      generateTotpCode(normalizedStoredSecret),
+    );
+    if (loginWithStoredSecret.kind === "success") {
+      return normalizedStoredSecret;
+    }
+    if (loginWithStoredSecret.code === "mfa_setup_required") {
+      return provisionSuiteAdminTotp(
+        client,
+        loginWithStoredSecret.details,
+        context,
+      );
+    }
+    throw suiteAdminStateError(
+      `stored suite admin TOTP secret no longer matches the current backend state (login code ${loginWithStoredSecret.code})`,
+      context,
+    );
+  }
+
+  const loginWithoutSecondFactor = await client.loginLocal();
+  if (loginWithoutSecondFactor.kind === "success") {
+    throw new Error(
+      "suite admin login unexpectedly succeeded without MFA during harness setup",
+    );
+  }
+  if (loginWithoutSecondFactor.code === "mfa_setup_required") {
+    return provisionSuiteAdminTotp(
+      client,
+      loginWithoutSecondFactor.details,
+      context,
+    );
+  }
+  if (loginWithoutSecondFactor.code === "mfa_required") {
+    throw suiteAdminStateError(
+      "suite admin MFA is already active but no stored harness TOTP secret is available",
+      context,
+    );
+  }
+  throw new Error(
+    `suite admin harness login failed with ${loginWithoutSecondFactor.code}`,
+  );
+}
+
 function isConnectionRefused(error: unknown) {
   return error instanceof Error && error.message.includes("ECONNREFUSED");
 }
@@ -693,16 +779,6 @@ async function waitForCommittedRowSummary(
   );
 }
 
-async function provisionBootstrapAdminTotp(authRequests: APIRequestContext) {
-  const secretBase32 = await provisionUserTotp(
-    authRequests,
-    bootstrapEmail,
-    bootstrapPassword,
-  );
-  rememberedAdminTotpSecretBase32 = secretBase32;
-  return secretBase32;
-}
-
 async function provisionUserTotp(
   authRequests: APIRequestContext,
   email: string,
@@ -714,17 +790,111 @@ async function provisionUserTotp(
       password,
     },
   });
-  expect(loginResponse.status()).toBe(401);
-  const loginBody = (await loginResponse.json()) as {
-    error: { code: string; details: { bootstrap_token?: string } };
-  };
-  expect(loginBody.error.code).toBe("mfa_setup_required");
+  const loginResult = await readLocalLoginResult(loginResponse);
+  if (
+    loginResult.kind !== "error" ||
+    loginResult.status !== 401 ||
+    loginResult.code !== "mfa_setup_required"
+  ) {
+    throw new Error(
+      `expected mfa_setup_required while provisioning TOTP for ${email}, got ${formatLocalLoginResult(loginResult)}`,
+    );
+  }
+  return provisionTotpFromBootstrap(
+    authRequests,
+    requireBootstrapToken(
+      loginResult.details,
+      currentSuiteAdminStateContext(),
+    ),
+  );
+}
 
-  const bootstrapToken = loginBody.error.details.bootstrap_token;
-  if (!bootstrapToken) {
-    throw new Error("missing bootstrap_token");
+export function loadSuiteAdminTotpSecret() {
+  if (!existsSync(suiteAdminTotpStatePath)) {
+    return null;
   }
 
+  const secret = readFileSync(suiteAdminTotpStatePath, "utf8").trim();
+  return secret === "" ? null : secret;
+}
+
+export function writeSuiteAdminTotpSecret(secretBase32: string) {
+  writeFileSync(suiteAdminTotpStatePath, `${secretBase32}\n`, "utf8");
+}
+
+export function clearSuiteAdminTotpSecret() {
+  if (!existsSync(suiteAdminTotpStatePath)) {
+    return;
+  }
+  unlinkSync(suiteAdminTotpStatePath);
+}
+
+function suiteAdminAuthClient(
+  authRequests: APIRequestContext,
+): SuiteAdminAuthClient {
+  return {
+    loginLocal: async (secondFactorCode) => {
+      const response = await loginLocalAPIContext(authRequests, {
+        email: bootstrapEmail,
+        password: bootstrapPassword,
+        secondFactorCode,
+      });
+      return readLocalLoginResult(response);
+    },
+    provisionTotpFromBootstrap: async (bootstrapToken) =>
+      provisionTotpFromBootstrap(authRequests, bootstrapToken),
+  };
+}
+
+async function readLocalLoginResult(
+  response: APIResponse,
+): Promise<LocalLoginResult> {
+  if (response.ok()) {
+    return { kind: "success" };
+  }
+  const body = await readErrorEnvelope(response);
+  return {
+    kind: "error",
+    status: response.status(),
+    code: body.error?.code ?? "unknown_error",
+    details: toErrorDetails(body.error?.details),
+  };
+}
+
+async function readErrorEnvelope(response: APIResponse) {
+  return (await response.json()) as {
+    error?: { code?: string; details?: unknown };
+  };
+}
+
+function formatLocalLoginResult(result: LocalLoginResult) {
+  if (result.kind === "success") {
+    return "success";
+  }
+  return `${result.status} ${result.code}`;
+}
+
+function toErrorDetails(value: unknown) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
+async function provisionSuiteAdminTotp(
+  client: SuiteAdminAuthClient,
+  details: Record<string, unknown>,
+  context: SuiteAdminStateContext,
+) {
+  return client.provisionTotpFromBootstrap(
+    requireBootstrapToken(details, context),
+  );
+}
+
+async function provisionTotpFromBootstrap(
+  authRequests: APIRequestContext,
+  bootstrapToken: string,
+) {
   const beginResponse = await authRequests.post("/api/v1/auth/mfa/totp/begin", {
     headers: { Authorization: `Bearer ${bootstrapToken}` },
     data: { client_txn_id: uniqueTxn("bootstrap-begin") },
@@ -750,22 +920,30 @@ async function provisionUserTotp(
   return secretBase32;
 }
 
-export function loadSuiteAdminTotpSecret() {
-  if (!existsSync(suiteAdminTotpStatePath)) {
-    return null;
+function requireBootstrapToken(
+  details: Record<string, unknown>,
+  context: SuiteAdminStateContext,
+) {
+  const bootstrapToken = details.bootstrap_token;
+  if (typeof bootstrapToken === "string" && bootstrapToken.trim() !== "") {
+    return bootstrapToken;
   }
-
-  const secret = readFileSync(suiteAdminTotpStatePath, "utf8").trim();
-  return secret === "" ? null : secret;
+  throw suiteAdminStateError(
+    "suite admin login did not return a bootstrap_token for TOTP enrollment",
+    context,
+  );
 }
 
-export function writeSuiteAdminTotpSecret(secretBase32: string) {
-  writeFileSync(suiteAdminTotpStatePath, `${secretBase32}\n`, "utf8");
-}
-
-export function clearSuiteAdminTotpSecret() {
-  if (!existsSync(suiteAdminTotpStatePath)) {
-    return;
-  }
-  unlinkSync(suiteAdminTotpStatePath);
+function suiteAdminStateError(
+  message: string,
+  context: SuiteAdminStateContext,
+) {
+  const stateLocation =
+    context.sharedStateDir === null
+      ? context.stateFilePath
+      : `${context.stateFilePath} (CARTULARY_PLAYWRIGHT_STATE_DIR=${context.sharedStateDir})`;
+  const ownership = context.externalServerMode
+    ? "The reused external-server stack owns this state for its full lifetime."
+    : "The harness expected to provision this state during Playwright global setup.";
+  return new Error(`${message}. Expected harness state at ${stateLocation}. ${ownership}`);
 }

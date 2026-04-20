@@ -23,9 +23,12 @@ import {
 } from "./helpers";
 import {
   buildWorkerAdminBlueprints,
-  clearWorkerAdminSuiteState,
+  clearWorkerAdminCleanupMarkers,
   ensureWorkerAdminCleanupMarkerDirectory,
+  loadWorkerAdminManifestIfPresent,
   loadWorkerAdminManifest,
+  type WorkerAdminBlueprint,
+  type WorkerAdminManifest,
   type TrackedSessionSnapshot,
   type WorkerAdminEntry,
   workerAdminNeedsJanitor,
@@ -51,43 +54,46 @@ export type UserResource = {
   is_deployment_admin: boolean;
 };
 
+type PatchUserBody = {
+  base_user_version: number;
+  display_name?: string;
+  is_active?: boolean;
+  mfa_required?: boolean;
+  is_deployment_admin?: boolean;
+};
+
+export type WorkerAdminControlPlane = {
+  canLogin: (email: string, password: string) => Promise<boolean>;
+  createUser: (blueprint: WorkerAdminBlueprint) => Promise<UserResource>;
+  listUsers: () => Promise<UserResource[]>;
+  patchUser: (userId: string, body: PatchUserBody) => Promise<UserResource>;
+  resetUserPassword: (
+    userId: string,
+    baseUserVersion: number,
+    nextPassword: string,
+    reason: string,
+  ) => Promise<UserResource>;
+  revokeAllSessions: (userId: string, reason: string) => Promise<void>;
+};
+
 export async function prepareWorkerAdminSuite(workerCount: number) {
-  clearWorkerAdminSuiteState();
   ensureWorkerAdminCleanupMarkerDirectory();
 
   const controlPlane = await loginBootstrapControlPlaneContext();
   try {
-    const workerAdmins: WorkerAdminEntry[] = [];
-    for (const blueprint of buildWorkerAdminBlueprints(workerCount)) {
-      const createResponse = await controlPlane.request.post("/api/v1/users", {
-        data: {
-          client_txn_id: uniqueTxn(
-            `playwright-worker-admin-${blueprint.parallelIndex}`,
-          ),
-          auth_kind: "local",
-          email: blueprint.email,
-          display_name: blueprint.displayName,
-          initial_password: blueprint.password,
-          mfa_required: false,
-          is_deployment_admin: true,
-        },
-      });
-      if (!createResponse.ok()) {
-        throw new Error(
-          `create worker admin ${blueprint.parallelIndex} failed: ${await createResponse.text()}`,
-        );
-      }
-      const body = (await createResponse.json()) as {
-        data: { user_id: string };
-      };
-      workerAdmins.push({
-        parallel_index: blueprint.parallelIndex,
-        user_id: body.data.user_id,
-        email: blueprint.email,
-        password: blueprint.password,
-      });
+    const existingManifest = loadWorkerAdminManifestIfPresent();
+    if (existingManifest !== null) {
+      await janitorStaleWorkerAdmins(controlPlane.request, existingManifest);
     }
-    writeWorkerAdminManifest({ worker_admins: workerAdmins });
+    clearWorkerAdminCleanupMarkers();
+    ensureWorkerAdminCleanupMarkerDirectory();
+    writeWorkerAdminManifest(
+      await reconcileWorkerAdminManifest(
+        controlPlaneClient(controlPlane.request),
+        buildWorkerAdminBlueprints(workerCount),
+        existingManifest,
+      ),
+    );
   } finally {
     await logoutAndVerify(
       controlPlane.request,
@@ -101,22 +107,9 @@ export async function prepareWorkerAdminSuite(workerCount: number) {
 export async function cleanupWorkerAdminSuite() {
   try {
     const manifest = loadWorkerAdminManifest();
-    const staleEntries = manifest.worker_admins.filter((entry) =>
-      workerAdminNeedsJanitor(entry.parallel_index),
-    );
-    if (staleEntries.length === 0) {
-      return;
-    }
-
     const controlPlane = await loginBootstrapControlPlaneContext();
     try {
-      for (const entry of staleEntries) {
-        await revokeAllSessions(
-          controlPlane.request,
-          entry.user_id,
-          `playwright global janitor worker=${entry.parallel_index}`,
-        );
-      }
+      await janitorStaleWorkerAdmins(controlPlane.request, manifest);
     } finally {
       await logoutAndVerify(
         controlPlane.request,
@@ -133,8 +126,6 @@ export async function cleanupWorkerAdminSuite() {
       return;
     }
     throw error;
-  } finally {
-    clearWorkerAdminSuiteState();
   }
 }
 
@@ -284,6 +275,32 @@ export async function createLocalUser(
   return ((await response.json()) as { data: UserResource }).data;
 }
 
+export async function resetUserPassword(
+  authRequests: APIRequestContext,
+  userId: string,
+  baseUserVersion: number,
+  newPassword: string,
+  reason: string,
+) {
+  const response = await authRequests.post(
+    `${apiBase}/api/v1/users/${userId}/password/reset`,
+    {
+      data: {
+        base_user_version: baseUserVersion,
+        client_txn_id: uniqueTxn("playwright-admin-password-reset"),
+        new_password: newPassword,
+        reason,
+      },
+    },
+  );
+  if (!response.ok()) {
+    throw new Error(
+      `reset user password failed for ${userId}: ${await response.text()}`,
+    );
+  }
+  return ((await response.json()) as { data: UserResource }).data;
+}
+
 export async function listUsers(authRequests: APIRequestContext) {
   const response = await authRequests.get(`${apiBase}/api/v1/users`);
   if (!response.ok()) {
@@ -400,4 +417,148 @@ async function authenticatedRequestContext(storageState: StorageState) {
     baseURL: apiBase,
     extraHTTPHeaders: authHeadersForStorageState(storageState),
   });
+}
+
+export async function reconcileWorkerAdminManifest(
+  controlPlane: WorkerAdminControlPlane,
+  blueprints: WorkerAdminBlueprint[],
+  existingManifest: WorkerAdminManifest | null,
+) {
+  const existingByIndex = new Map(
+    (existingManifest?.worker_admins ?? []).map((entry) => [
+      entry.parallel_index,
+      entry,
+    ]),
+  );
+  const usersByEmail = new Map(
+    (await controlPlane.listUsers()).map((user) => [user.email, user]),
+  );
+  const usersByID = new Map(
+    [...usersByEmail.values()].map((user) => [user.user_id, user]),
+  );
+  const nextEntries: WorkerAdminEntry[] = [];
+
+  for (const blueprint of blueprints) {
+    const manifestEntry = existingByIndex.get(blueprint.parallelIndex) ?? null;
+    const manifestUser =
+      manifestEntry !== null
+        ? usersByID.get(manifestEntry.user_id) ?? null
+        : null;
+    let user =
+      usersByEmail.get(blueprint.email) ??
+      (manifestUser?.email === blueprint.email ? manifestUser : null) ??
+      null;
+
+    if (user === null) {
+      user = await controlPlane.createUser(blueprint);
+    } else {
+      const patchBody = patchBodyForWorkerAdmin(blueprint, user);
+      if (patchBody !== null) {
+        user = await controlPlane.patchUser(user.user_id, patchBody);
+      }
+    }
+
+    if (!(await controlPlane.canLogin(blueprint.email, blueprint.password))) {
+      user = await controlPlane.resetUserPassword(
+        user.user_id,
+        user.user_version,
+        blueprint.password,
+        `playwright worker admin password reconcile worker=${blueprint.parallelIndex}`,
+      );
+      if (!(await controlPlane.canLogin(blueprint.email, blueprint.password))) {
+        throw new Error(
+          `worker admin ${blueprint.parallelIndex} could not authenticate after password reconciliation`,
+        );
+      }
+    }
+
+    usersByEmail.set(user.email, user);
+    usersByID.set(user.user_id, user);
+    nextEntries.push({
+      parallel_index: blueprint.parallelIndex,
+      user_id: user.user_id,
+      email: blueprint.email,
+      password: blueprint.password,
+    });
+  }
+
+  return { worker_admins: nextEntries } satisfies WorkerAdminManifest;
+}
+
+function patchBodyForWorkerAdmin(
+  blueprint: WorkerAdminBlueprint,
+  user: UserResource,
+): PatchUserBody | null {
+  const patchBody: PatchUserBody = {
+    base_user_version: user.user_version,
+  };
+  if (user.display_name !== blueprint.displayName) {
+    patchBody.display_name = blueprint.displayName;
+  }
+  if (!user.is_active) {
+    patchBody.is_active = true;
+  }
+  if (user.mfa_required) {
+    patchBody.mfa_required = false;
+  }
+  if (!user.is_deployment_admin) {
+    patchBody.is_deployment_admin = true;
+  }
+  return Object.keys(patchBody).length === 1 ? null : patchBody;
+}
+
+async function janitorStaleWorkerAdmins(
+  controlPlane: APIRequestContext,
+  manifest: WorkerAdminManifest,
+) {
+  const staleEntries = manifest.worker_admins.filter((entry) =>
+    workerAdminNeedsJanitor(entry.parallel_index),
+  );
+  for (const entry of staleEntries) {
+    await revokeAllSessions(
+      controlPlane,
+      entry.user_id,
+      `playwright global janitor worker=${entry.parallel_index}`,
+    );
+  }
+}
+
+function controlPlaneClient(
+  authRequests: APIRequestContext,
+): WorkerAdminControlPlane {
+  return {
+    canLogin: async (email, password) => {
+      const anonymousRequests = await request.newContext({ baseURL: apiBase });
+      try {
+        await waitForAPIReady(anonymousRequests);
+        const response = await loginLocalAPIContext(anonymousRequests, {
+          email,
+          password,
+        });
+        return response.ok();
+      } finally {
+        await anonymousRequests.dispose();
+      }
+    },
+    createUser: async (blueprint) =>
+      createLocalUser(authRequests, {
+        email: blueprint.email,
+        display_name: blueprint.displayName,
+        initial_password: blueprint.password,
+        is_deployment_admin: true,
+        mfa_required: false,
+      }),
+    listUsers: async () => listUsers(authRequests),
+    patchUser: async (userId, body) => patchUser(authRequests, userId, body),
+    resetUserPassword: async (userId, baseUserVersion, nextPassword, reason) =>
+      resetUserPassword(
+        authRequests,
+        userId,
+        baseUserVersion,
+        nextPassword,
+        reason,
+      ),
+    revokeAllSessions: async (userId, reason) =>
+      revokeAllSessions(authRequests, userId, reason),
+  };
 }

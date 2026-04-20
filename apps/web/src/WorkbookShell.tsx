@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
-
+import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import {
   buildAutoResolutionNotices,
   buildInspectorMentions,
@@ -89,6 +89,19 @@ type TimelineWorkbookProps = {
 type WorkbookShellProps = {
   incidentId: string;
   apiBase?: string | undefined;
+  onIncidentSnapshot?:
+    | ((incident: {
+        incident_id: string;
+        incident_key: string;
+        title: string;
+        description: string | null;
+        severity: string | null;
+        tlp: string | null;
+        current_phase: string | null;
+        primary_external_case_ref: string | null;
+        incident_version: number;
+      }) => void)
+    | undefined;
   onIncidentAccessLost?: (() => void) | undefined;
 };
 
@@ -2776,6 +2789,7 @@ function EntityWorkbookSurface({
 export function WorkbookShell({
   incidentId,
   apiBase,
+  onIncidentSnapshot,
   onIncidentAccessLost,
 }: WorkbookShellProps) {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -2932,6 +2946,15 @@ export function WorkbookShell({
           Current incident role: {currentIncidentRole || "viewer"}
         </div>
       </div>
+
+      <IncidentAdminPanel
+        apiBase={apiBase}
+        currentIncidentRole={currentIncidentRole}
+        incidentId={incidentId}
+        onIncidentAccessLost={onIncidentAccessLost}
+        onIncidentSnapshot={onIncidentSnapshot}
+        onSessionRoleChange={loadSessionRole}
+      />
 
       {entityLoadError ? (
         <p data-testid="entity-load-error" style={bodyStyle}>

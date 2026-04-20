@@ -45,7 +45,7 @@ done
 
 if [[ ${#invalid[@]} -gt 0 ]]; then
   {
-    echo "Phase test names must carry their layer token so Makefile phase filters can execute the full corpus."
+    echo "Phase test names must carry their layer token so the repo keeps a stable naming contract alongside the executable phase manifests."
     echo "Invalid names:"
     printf '  %s\n' "${invalid[@]}"
   } >&2

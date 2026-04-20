@@ -10,7 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/phase2test"
 )
 
-func TestPhase2_U_2_02_IncidentCreateBootstrapsCreatorAndWorkbookPreferences(t *testing.T) {
+func TestSupportPhase2_IncidentCreateBootstrapsCreatorAndWorkbookPreferencesHTTPConformance(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-u-2-02")
 
@@ -54,7 +54,7 @@ func TestPhase2_U_2_02_IncidentCreateBootstrapsCreatorAndWorkbookPreferences(t *
 	}
 }
 
-func TestPhase2_U_2_03_IncidentCreateReturnsStableLocationHeader(t *testing.T) {
+func TestSupportPhase2_IncidentCreateReturnsStableLocationHeaderHTTPConformance(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-u-2-03")
 
@@ -78,7 +78,7 @@ func TestPhase2_U_2_03_IncidentCreateReturnsStableLocationHeader(t *testing.T) {
 	}
 }
 
-func TestPhase2_U_2_04_IncidentCreateIdempotencyUsesActorAndNormalizedReplay(t *testing.T) {
+func TestSupportPhase2_IncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-u-2-04")
 
@@ -149,7 +149,7 @@ func TestPhase2_U_2_04_IncidentCreateIdempotencyUsesActorAndNormalizedReplay(t *
 	httptestx.RequireErrorEnvelope(t, divergent, http.StatusConflict, "client_txn_conflict")
 }
 
-func TestPhase2_U_2_06_MembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFields(t *testing.T) {
+func TestSupportPhase2_MembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTPConformance(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-u-2-06")
 
@@ -257,7 +257,7 @@ func TestPhase2_U_2_06_MembershipCreateRequiresOneSelectorClosedRolesAndNoInvita
 	httptestx.RequireErrorEnvelope(t, inactiveUser, http.StatusConflict, "user_inactive")
 }
 
-func TestPhase2_U_2_07_MembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuard(t *testing.T) {
+func TestSupportPhase2_MembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConformance(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-u-2-07")
 
@@ -366,7 +366,7 @@ func TestPhase2_U_2_07_MembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGua
 	httptestx.RequireErrorEnvelope(t, lastAdmin, http.StatusConflict, "last_incident_admin")
 }
 
-func TestPhase2_U_2_08_DeploymentAdminAloneDoesNotGrantIncidentRouteOrSocketAccess(t *testing.T) {
+func TestSupportPhase2_DeploymentAdminAloneDoesNotGrantIncidentRouteOrSocketAccessHTTPConformance(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-u-2-08")
 

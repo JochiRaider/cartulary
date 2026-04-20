@@ -15,6 +15,7 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -84,6 +85,20 @@ func CreateIncident(t testing.TB, server *httptestx.Server, actor LoginResult, b
 		t,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/incidents",
+		body,
+		WithCookies(actor.SessionCookie, actor.CSRFCookie),
+		WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
+	)
+	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+}
+
+func CreateTimelineRow(t testing.TB, server *httptestx.Server, actor LoginResult, incidentID string, body map[string]any) map[string]any {
+	t.Helper()
+
+	resp := DoJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 		body,
 		WithCookies(actor.SessionCookie, actor.CSRFCookie),
 		WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),

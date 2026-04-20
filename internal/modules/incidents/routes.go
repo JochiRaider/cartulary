@@ -149,17 +149,7 @@ func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
-		requestHash := hashRequestPayload(map[string]any{
-			"client_txn_id":             request.ClientTxnID,
-			"incident_key":              request.IncidentKey,
-			"title":                     request.Title,
-			"description":               request.Description,
-			"severity":                  request.Severity,
-			"tlp":                       request.TLP,
-			"current_phase":             request.CurrentPhase,
-			"primary_external_case_ref": request.PrimaryExternalCaseRef,
-		})
-		result, err := s.store.CreateIncident(r.Context(), principal.User, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+		result, err := s.store.CreateIncident(r.Context(), principal.User, request, IncidentCreateRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
 		switch {
 		case errors.Is(err, authn.ErrClientTxnConflict):
 			writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))

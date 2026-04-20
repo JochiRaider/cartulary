@@ -103,6 +103,19 @@ function incidentSummaryText(incident: IncidentData): string {
     .join(" · ");
 }
 
+function upsertIncident(incidents: IncidentData[], nextIncident: IncidentData) {
+  const existingIndex = incidents.findIndex(
+    (incident) => incident.incident_id === nextIncident.incident_id,
+  );
+  if (existingIndex === -1) {
+    return [nextIncident, ...incidents];
+  }
+
+  const next = [...incidents];
+  next[existingIndex] = nextIncident;
+  return next;
+}
+
 export function IncidentLanding({
   createIncidentKey,
   createIncidentTitle,
@@ -444,6 +457,7 @@ export function App() {
     const incident = (response.payload as { data: IncidentData }).data;
     setCreateIncidentKey("");
     setCreateIncidentTitle("");
+    setIncidents((current) => upsertIncident(current, incident));
     setError(null);
     setStatusText(`Created incident ${incidentSummaryText(incident)}.`);
     openIncident(incident.incident_id);
@@ -455,6 +469,10 @@ export function App() {
         "The current incident is no longer visible. Returned to the landing screen.",
     });
   }, [loadLanding]);
+
+  const handleIncidentSnapshot = useCallback((incident: IncidentData) => {
+    setIncidents((current) => upsertIncident(current, incident));
+  }, []);
 
   if (route.incidentId !== "" && session !== null) {
     return (
@@ -493,6 +511,7 @@ export function App() {
           <WorkbookShell
             incidentId={route.incidentId}
             onIncidentAccessLost={handleIncidentAccessLost}
+            onIncidentSnapshot={handleIncidentSnapshot}
           />
         </section>
       </main>

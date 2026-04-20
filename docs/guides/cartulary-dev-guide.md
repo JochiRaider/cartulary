@@ -627,9 +627,10 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make dev` | Start the Go server and Vite dev server |
 | `make generate` | Regenerate Go and TypeScript artifacts derived from `/db/queries/*` and `/contracts/*` |
 | `make test-fast` | Run the narrower backend and frontend unit/process loop |
-| `make test` | Run the authoritative full test corpus, including browser E2E |
+| `make test` | Run the authoritative full test corpus, including manifest-verified browser E2E plus explicit support suites |
 | `make lint` | Run backend vet/lint and frontend lint/type checks |
 | `make check` | Developer verification gate |
+| `make ci` | Provider-neutral CI enforcement entrypoint |
 | `make build` | Produce the app build with embedded frontend assets |
 
 If the repository uses both a root task-surface `Makefile` and `AGENTS.md`, both MUST be updated together when this task surface changes.
@@ -641,12 +642,14 @@ If the repository uses both a root task-surface `Makefile` and `AGENTS.md`, both
 | Developer verification | formatting, lint or vet, Go build, Go tests, TypeScript build or type check, Vitest, browser E2E coverage, `make generate` drift check, migration application check | Any failure blocks ordinary development completion |
 | Release verification | all developer verification checks, dependency license report, SBOM generation, release-artifact smoke build, any profile-specific release checks for claimed extensions | Any failure blocks release publication |
 
-`make check` is the required developer gate. It MUST include contract-generation drift detection and migration verification.
+`make check` is the required developer gate. It MUST include contract-generation drift detection, migration verification, and a failure condition when any authoritative phase-manifest row is absent from actual execution. When browser suites depend on the real Playwright web-server bootstrap, the gate must run those suites under one owned shared stack rather than parallelizing multiple independent startup attempts. `make ci` composes the same execution-truth guarantee into the provider-neutral CI surface.
 
 The repository MUST distinguish **codegen drift** from **migration drift**:
 
 - **codegen drift** means generated outputs change after `make generate`,
 - **migration drift** means schema-affecting behavior or query changes are not represented in the numbered migration path or migrations do not apply cleanly in CI.
+
+Browser verification MUST also distinguish shared-stack functional browser work from isolated browser classes. Stateful browser suites and fixture-sensitive measurement suites remain isolated after the heavy parallel block; ordinary web-server-backed browser suites belong to one serialized shared-stack orchestration path.
 
 ### 7.3 Local development loop
 

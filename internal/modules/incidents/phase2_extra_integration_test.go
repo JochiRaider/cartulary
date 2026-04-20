@@ -10,7 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/phase2test"
 )
 
-func TestPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict_I_2_11(t *testing.T) {
+func TestSupportPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-membership-replay")
 
@@ -95,7 +95,7 @@ func TestPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict_I_2_11
 	}
 }
 
-func TestPhase2_IncidentPatchWritesAuditBeforeAfter_I_2_12(t *testing.T) {
+func TestSupportPhase2_IncidentPatchWritesAuditBeforeAfter(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-incident-audit")
 
@@ -136,7 +136,7 @@ func TestPhase2_IncidentPatchWritesAuditBeforeAfter_I_2_12(t *testing.T) {
 	}
 }
 
-func TestPhase2_MembershipMutationsWriteAuditBeforeAfter_I_2_13(t *testing.T) {
+func TestSupportPhase2_MembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-membership-audit")
 
@@ -214,7 +214,7 @@ func TestPhase2_MembershipMutationsWriteAuditBeforeAfter_I_2_13(t *testing.T) {
 	}
 }
 
-func TestPhase2_IncidentCreateTreatsComposedAndDecomposedIncidentKeysAsEqual_I_2_14(t *testing.T) {
+func TestSupportPhase2_IncidentCreateTreatsComposedAndDecomposedIncidentKeysAsEqual(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-nfc-incident-key")
 
@@ -253,6 +253,69 @@ func TestPhase2_IncidentCreateTreatsComposedAndDecomposedIncidentKeysAsEqual_I_2
 
 	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, "IR-É-900"); got != 1 {
 		t.Fatalf("expected composed and decomposed keys to collapse to one canonical incident, got %d rows", got)
+	}
+}
+
+func TestSupportPhase2_DeploymentAdminBoundaryRouteInventory(t *testing.T) {
+	runtime := phase2test.StartRuntime(t)
+	harness := runtime.StartServer(t, "phase2-boundary-inventory")
+
+	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-support-phase2-boundary-incident",
+		"incident_key":  "IR-BOUNDARY",
+		"title":         "Boundary Inventory",
+	})
+	incidentID := incident["incident_id"].(string)
+
+	primaryRow := phase2test.CreateTimelineRow(t, harness.Server, adminLogin, incidentID, map[string]any{
+		"client_txn_id":    "txn-support-phase2-boundary-primary",
+		"timeline.summary": "Primary boundary row",
+	})
+	replacementRow := phase2test.CreateTimelineRow(t, harness.Server, adminLogin, incidentID, map[string]any{
+		"client_txn_id":    "txn-support-phase2-boundary-replacement",
+		"timeline.summary": "Replacement boundary row",
+	})
+
+	deploymentEmail := "phase2-boundary-deployment@example.test"
+	phase2test.SeedLocalUserFlags(t, harness.DB, deploymentEmail, "Phase 2 Boundary Deployment", "Phase2Boundary1!", false, true, true)
+	deploymentSession, deploymentCSRF := phase2test.LoginLocalUser(t, harness.Server, deploymentEmail, "Phase2Boundary1!")
+
+	fixture := phase2test.RouteInventoryFixture{
+		IncidentID:            incidentID,
+		AdminUserID:           adminID,
+		PrimaryRecordID:       primaryRow["row"].(map[string]any)["record_id"].(string),
+		ReplacementRecordID:   replacementRow["row"].(map[string]any)["record_id"].(string),
+		BaseRecordVersion:     1,
+		BaseMembershipVersion: 1,
+	}
+
+	for _, route := range phase2test.DeploymentAdminBoundaryInventory() {
+		t.Run(route.Name, func(t *testing.T) {
+			if route.Transport == phase2test.RouteTransportWebSocket {
+				phase2test.RequireTimelineSocketRejected(t, harness.Server.HTTP.URL, fixture.IncidentID, deploymentSession.Value, http.StatusNotFound, "incident_not_found")
+				return
+			}
+
+			options := []func(*http.Request){phase2test.WithCookies(deploymentSession)}
+			if route.RequiresCSRF {
+				options = append(options, phase2test.WithCookies(deploymentCSRF))
+				options = append(options, phase2test.WithHeader(authn.CSRFHeaderName, deploymentCSRF.Value))
+			}
+			var body any
+			if route.Body != nil {
+				body = route.Body(fixture)
+			}
+
+			resp := phase2test.DoJSON(
+				t,
+				route.Method,
+				harness.Server.HTTP.URL+phase2test.BuildRoutePath(route.Template, fixture),
+				body,
+				options...,
+			)
+			httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "incident_not_found")
+		})
 	}
 }
 

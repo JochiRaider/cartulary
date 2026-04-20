@@ -5,12 +5,15 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { StorageState } from "@playwright/test";
 
 import { cookieValueFromStorageState, sessionCookieName } from "./helpers";
+import {
+  resolvePlaywrightStateDirectory,
+  resolvePlaywrightStateFile,
+} from "./harnessState";
 
 export type WorkerAdminBlueprint = {
   parallelIndex: number;
@@ -45,13 +48,11 @@ export type SessionTrackerDependencies = {
   verifyRevokedSession: (snapshot: TrackedSessionSnapshot) => Promise<void>;
 };
 
-const workerAdminManifestFilePath = join(
-  tmpdir(),
+const workerAdminManifestFilePath = resolvePlaywrightStateFile(
   "cartulary-playwright-worker-admins.json",
 );
 
-const workerAdminCleanupMarkerDirectory = join(
-  tmpdir(),
+const workerAdminCleanupMarkerDirectory = resolvePlaywrightStateDirectory(
   "cartulary-playwright-worker-admin-cleanup",
 );
 
@@ -83,8 +84,19 @@ export function loadWorkerAdminManifest() {
   ) as WorkerAdminManifest;
 }
 
+export function loadWorkerAdminManifestIfPresent() {
+  if (!existsSync(workerAdminManifestFilePath)) {
+    return null;
+  }
+  return loadWorkerAdminManifest();
+}
+
 export function clearWorkerAdminSuiteState() {
   rmSync(workerAdminManifestFilePath, { force: true });
+  rmSync(workerAdminCleanupMarkerDirectory, { force: true, recursive: true });
+}
+
+export function clearWorkerAdminCleanupMarkers() {
   rmSync(workerAdminCleanupMarkerDirectory, { force: true, recursive: true });
 }
 
