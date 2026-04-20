@@ -123,7 +123,7 @@ phase-map-check: frontend-toolchain
 	$(RUN_PHASE) "phase-map-check" -- $(PNPM_ENV) env NODE_BIN=$(NODE_BIN) ./scripts/check-phase-maps.sh
 
 run-phase-smoke:
-	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-run-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh'
+	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-run-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh'
 
 phase-test-name-check:
 	$(RUN_PHASE) "phase-test-name-check" -- ./scripts/check-phase-test-names.sh
@@ -193,7 +193,7 @@ browser-e2e: frontend-toolchain
 	$(Q)$(MAKE) --no-print-directory browser-e2e-measurement
 
 browser-e2e-webserver-backed: frontend-toolchain build-server build-migrate
-	$(RUN_PHASE) "browser-e2e-webserver-backed" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-webserver-backed.sh
+	$(RUN_PHASE) "browser-e2e-webserver-backed" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-webserver-backed.sh
 
 browser-e2e-functional: frontend-toolchain build-server build-migrate
 	$(RUN_PHASE) "browser-e2e-functional other phases" -- env PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) $(PNPM) --dir apps/web exec playwright test e2e/phase1.spec.ts e2e/phase3.spec.ts e2e/phase4.spec.ts
@@ -204,11 +204,11 @@ browser-e2e-support: frontend-toolchain build-server build-migrate
 
 # Browser evidence that mutates process-global backend state belongs here.
 browser-e2e-stateful: frontend-toolchain build-server build-migrate
-	$(RUN_PHASE) "browser-e2e-stateful" -- env PLAYWRIGHT_WORKERS=1 PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) $(PNPM) --dir apps/web exec playwright test $(PLAYWRIGHT_TEST_FLAGS) e2e/phase1.clock.spec.ts
+	$(RUN_PHASE) "browser-e2e-stateful" -- env PLAYWRIGHT_WORKERS=1 PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-owned-stack.sh $(PLAYWRIGHT_TEST_FLAGS) e2e/phase1.clock.spec.ts
 
 # Core 05-bound timing evidence is not parallel-safe with the heavy backend gate.
 browser-e2e-measurement: frontend-toolchain build-server build-migrate
-	$(RUN_PHASE) "browser-e2e-measurement" -- env PLAYWRIGHT_WORKERS=1 PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) $(PNPM) --dir apps/web exec playwright test $(PLAYWRIGHT_TEST_FLAGS) e2e/measurement/phase3_measurement.spec.ts
+	$(RUN_PHASE) "browser-e2e-measurement" -- env PLAYWRIGHT_WORKERS=1 PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-owned-stack.sh $(PLAYWRIGHT_TEST_FLAGS) e2e/measurement/phase3_measurement.spec.ts
 
 lint: lint-go lint-biome lint-typecheck
 

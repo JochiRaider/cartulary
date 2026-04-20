@@ -44,6 +44,7 @@ prefix=("${command[@]:0:$test_index}")
 suffix=("${command[@]:$((test_index + 1))}")
 run_command=("${prefix[@]}" test -json -run "$pattern" "${suffix[@]}")
 log_file="$(mktemp -t cartulary-phase-XXXX.log)"
+stderr_file="$(mktemp -t cartulary-phase-XXXX.stderr.log)"
 inventory_command=("${prefix[@]}" run ./tools/gotestinventory "$log_file")
 output_mode="$(resolve_output_mode)"
 
@@ -51,10 +52,10 @@ echo "== ${phase} =="
 
 set +e
 if [[ "$output_mode" != "quiet" ]]; then
-  "${run_command[@]}" > >(tee "$log_file") 2>&1
+  "${run_command[@]}" > >(tee "$log_file") 2> >(tee "$stderr_file" >&2)
   run_status=$?
 else
-  "${run_command[@]}" >"$log_file" 2>&1
+  "${run_command[@]}" >"$log_file" 2>"$stderr_file"
   run_status=$?
 fi
 set -e
@@ -76,17 +77,28 @@ if [[ "$inventory_status" -ne 0 && "$run_status" -eq 0 ]]; then
   echo "phase failed: ${phase} inventory" >&2
   echo "failing command: $(render_command "${inventory_command[@]}")" >&2
   echo "phase log: $log_file" >&2
+  if [[ -s "$stderr_file" ]]; then
+    echo "phase stderr log: $stderr_file" >&2
+  else
+    rm -f "$stderr_file"
+  fi
   show_phase_log_excerpt "$log_file"
   exit "$inventory_status"
 fi
 
 if [[ "$run_status" -eq 0 ]]; then
   rm -f "$log_file"
+  rm -f "$stderr_file"
   exit 0
 fi
 
 if [[ "$output_mode" == "quiet" ]]; then
   emit_phase_failure "$phase" "$log_file" "${run_command[@]}"
+  if [[ -s "$stderr_file" ]]; then
+    echo "phase stderr: $stderr_file" >&2
+  else
+    rm -f "$stderr_file"
+  fi
 fi
 
 exit "$run_status"

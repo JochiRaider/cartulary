@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${ROOT_DIR}/scripts/lib/web-e2e-lifecycle.sh"
 COMPOSE_FILE="${ROOT_DIR}/docker-compose.dev.yml"
 GO_BIN="${GO:-go}"
 SERVER_BIN="${CARTULARY_SERVER_BIN:-}"
@@ -13,7 +14,12 @@ E2E_DSN="postgres://cartulary:cartulary@localhost:5432/${E2E_DB}?sslmode=disable
 SERVER_LOG="/tmp/cartulary-e2e-server-$$.log"
 WEB_LOG="/tmp/cartulary-e2e-web-$$.log"
 MINIO_READY_URL="http://127.0.0.1:9000/minio/health/ready"
+POSTGRES_READY_TIMEOUT_SECONDS="${CARTULARY_POSTGRES_READY_TIMEOUT_SECONDS:-180}"
 child_command=()
+SERVER_PGID=""
+VITE_PGID=""
+CHILD_PGID=""
+cleanup_done=0
 
 if [[ "$#" -gt 0 ]]; then
   if [[ "$1" != "--" ]]; then
@@ -38,20 +44,80 @@ mkdir -p \
   "${RUNTIME_ROOT_BASE}/export-outputs"
 export CARTULARY_PLAYWRIGHT_STATE_DIR="${PLAYWRIGHT_STATE_DIR}"
 
+port_in_use() {
+  local port="$1"
+
+  if ! command -v ss >/dev/null 2>&1; then
+    return 1
+  fi
+
+  ss -ltn "sport = :${port}" | tail -n +2 | grep -q .
+}
+
+wait_for_port_release() {
+  local port="$1"
+  local name="$2"
+
+  if ! command -v ss >/dev/null 2>&1; then
+    return 0
+  fi
+
+  for _ in $(seq 1 50); do
+    if ! port_in_use "${port}"; then
+      return 0
+    fi
+    sleep 0.2
+  done
+
+  echo "${name} port ${port} remained in use after browser e2e cleanup" >&2
+  ss -ltnp "sport = :${port}" >&2 || true
+  return 1
+}
+
+stop_owned_process_group() {
+  local group_id="$1"
+  local port="$2"
+  local name="$3"
+
+  if [[ -z "${group_id}" ]]; then
+    wait_for_port_release "${port}" "${name}" || true
+    return 0
+  fi
+
+  stop_process_group "${group_id}" || true
+  wait_for_port_release "${port}" "${name}" || true
+}
+
 cleanup() {
-  if [[ -n "${VITE_PID:-}" ]]; then
-    kill "${VITE_PID}" >/dev/null 2>&1 || true
+  if [[ "${cleanup_done}" -eq 1 ]]; then
+    return 0
   fi
-  if [[ -n "${SERVER_PID:-}" ]]; then
-    kill "${SERVER_PID}" >/dev/null 2>&1 || true
+  cleanup_done=1
+
+  if [[ -n "${CHILD_PGID:-}" ]]; then
+    stop_process_group "${CHILD_PGID}" || true
   fi
-  wait >/dev/null 2>&1 || true
+  stop_owned_process_group "${VITE_PGID:-}" 4173 "frontend"
+  stop_owned_process_group "${SERVER_PGID:-}" 8080 "backend"
   docker compose -f "${COMPOSE_FILE}" exec -T postgres \
     psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null 2>&1 || true
   rm -rf "${RUNTIME_ROOT_BASE}"
 }
 
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+lifecycle_reset_shutdown_state
+lifecycle_install_signal_traps
+
+exit_for_requested_shutdown() {
+  local context="$1"
+
+  if ! lifecycle_shutdown_requested; then
+    return 0
+  fi
+
+  echo "received $(lifecycle_signal_name) during ${context}; shutting down browser e2e stack" >&2
+  return "$(lifecycle_signal_exit_status)"
+}
 
 wait_for_http() {
   local url="$1"
@@ -61,12 +127,17 @@ wait_for_http() {
     if curl -fsS "$url" >/dev/null 2>&1; then
       return 0
     fi
-    if [[ -n "${SERVER_PID:-}" ]] && ! kill -0 "${SERVER_PID}" >/dev/null 2>&1; then
+    if exit_for_requested_shutdown "${name} readiness"; then
+      :
+    else
+      return "$?"
+    fi
+    if [[ -n "${SERVER_PGID:-}" ]] && ! process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
       echo "backend exited before ${name} readiness" >&2
       cat "${SERVER_LOG}" >&2 || true
       return 1
     fi
-    if [[ -n "${VITE_PID:-}" ]] && ! kill -0 "${VITE_PID}" >/dev/null 2>&1; then
+    if [[ -n "${VITE_PGID:-}" ]] && ! process_group_running "${VITE_PGID}" >/dev/null 2>&1; then
       echo "frontend exited before ${name} readiness" >&2
       cat "${WEB_LOG}" >&2 || true
       return 1
@@ -81,21 +152,56 @@ wait_for_http() {
 }
 
 wait_for_postgres() {
-  for _ in $(seq 1 30); do
+  local start_time="$SECONDS"
+  local container_id=""
+  local state="unknown"
+  local health="unknown"
+  local shutdown_status=0
+
+  while (( SECONDS - start_time < POSTGRES_READY_TIMEOUT_SECONDS )); do
     if docker compose -f "${COMPOSE_FILE}" exec -T postgres pg_isready -U cartulary -d postgres >/dev/null 2>&1; then
       return 0
     fi
+
+    if exit_for_requested_shutdown "postgres readiness"; then
+      :
+    else
+      shutdown_status=$?
+      return "${shutdown_status}"
+    fi
+
+    container_id="$(docker compose -f "${COMPOSE_FILE}" ps -q postgres 2>/dev/null || true)"
+    if [[ -n "${container_id}" ]]; then
+      state="$(docker inspect -f '{{.State.Status}}' "${container_id}" 2>/dev/null || printf 'unknown')"
+      health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "${container_id}" 2>/dev/null || printf 'unknown')"
+      if [[ "${state}" == "exited" || "${state}" == "dead" ]]; then
+        echo "postgres container is ${state} during browser e2e startup (health=${health})" >&2
+        docker compose -f "${COMPOSE_FILE}" logs --no-color --tail 120 postgres >&2 || true
+        return 1
+      fi
+    fi
+
     sleep 1
   done
 
-  echo "postgres did not become ready for browser e2e" >&2
+  echo "postgres did not become ready for browser e2e after ${POSTGRES_READY_TIMEOUT_SECONDS}s (state=${state} health=${health})" >&2
+  docker compose -f "${COMPOSE_FILE}" logs --no-color --tail 120 postgres >&2 || true
   return 1
 }
 
 wait_for_minio() {
+  local shutdown_status=0
+
   for _ in $(seq 1 120); do
     if curl -fsS "${MINIO_READY_URL}" >/dev/null 2>&1; then
       return 0
+    fi
+
+    if exit_for_requested_shutdown "minio readiness"; then
+      :
+    else
+      shutdown_status=$?
+      return "${shutdown_status}"
     fi
     sleep 1
   done
@@ -138,12 +244,69 @@ run_server() {
   "${GO_BIN}" run ./cmd/server "$@"
 }
 
+wait_for_process_status() {
+  local group_id="$1"
+  local status=0
+
+  if wait "${group_id}"; then
+    status=0
+  else
+    status=$?
+  fi
+
+  printf '%s\n' "${status}"
+}
+
+supervise_stack() {
+  local child_status=0
+  local shutdown_status=0
+  local server_status=0
+  local vite_status=0
+
+  while true; do
+    if exit_for_requested_shutdown "browser e2e supervision"; then
+      :
+    else
+      shutdown_status=$?
+      return "${shutdown_status}"
+    fi
+
+    if ! process_group_running "${SERVER_PGID}"; then
+      server_status="$(wait_for_process_status "${SERVER_PGID}")"
+      echo "backend exited unexpectedly during browser e2e supervision (status=${server_status})" >&2
+      cat "${SERVER_LOG}" >&2 || true
+      if [[ -n "${CHILD_PGID:-}" ]]; then
+        stop_process_group "${CHILD_PGID}" || true
+      fi
+      return 1
+    fi
+
+    if ! process_group_running "${VITE_PGID}"; then
+      vite_status="$(wait_for_process_status "${VITE_PGID}")"
+      echo "frontend exited unexpectedly during browser e2e supervision (status=${vite_status})" >&2
+      cat "${WEB_LOG}" >&2 || true
+      if [[ -n "${CHILD_PGID:-}" ]]; then
+        stop_process_group "${CHILD_PGID}" || true
+      fi
+      return 1
+    fi
+
+    if [[ -n "${CHILD_PGID:-}" ]] && ! process_group_running "${CHILD_PGID}"; then
+      child_status="$(wait_for_process_status "${CHILD_PGID}")"
+      return "${child_status}"
+    fi
+
+    sleep 1
+  done
+}
+
 make -C "${ROOT_DIR}" frontend-toolchain
 docker compose -f "${COMPOSE_FILE}" up -d postgres minio >/dev/null
 wait_for_postgres
 wait_for_minio
 assert_port_free 8080 "backend"
 assert_port_free 4173 "frontend"
+cd "${ROOT_DIR}"
 docker compose -f "${COMPOSE_FILE}" exec -T postgres \
   psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null
 docker compose -f "${COMPOSE_FILE}" exec -T postgres \
@@ -158,8 +321,14 @@ docker compose -f "${COMPOSE_FILE}" exec -T postgres \
   run_migrate up
 )
 
-(
-  cd "${ROOT_DIR}"
+if [[ -n "${SERVER_BIN}" && -x "${SERVER_BIN}" ]]; then
+  SERVER_COMMAND=("${SERVER_BIN}")
+else
+  SERVER_COMMAND=("${GO_BIN}" run ./cmd/server)
+fi
+
+start_process_group SERVER_PGID "${SERVER_LOG}" \
+  env \
   CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
   CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
   CARTULARY_POSTGRES_DSN="${E2E_DSN}" \
@@ -172,26 +341,18 @@ docker compose -f "${COMPOSE_FILE}" exec -T postgres \
   CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH="${RUNTIME_ROOT_BASE}/export-outputs" \
   GOCACHE=/tmp/cartulary-go-build \
   GOMODCACHE=/tmp/cartulary-go-mod \
-  run_server
-) >"${SERVER_LOG}" 2>&1 &
-SERVER_PID=$!
+  "${SERVER_COMMAND[@]}"
 
-(
-  cd "${ROOT_DIR}"
-  export PATH="${ROOT_DIR}/tmp/node-runtime/bin:${PATH}"
+start_process_group VITE_PGID "${WEB_LOG}" \
+  env \
+  PATH="${ROOT_DIR}/tmp/node-runtime/bin:${PATH}" \
   corepack pnpm --dir apps/web dev --host 127.0.0.1 --port 4173 --strictPort
-) >"${WEB_LOG}" 2>&1 &
-VITE_PID=$!
 
 wait_for_http "http://127.0.0.1:8080/readyz" "backend"
 wait_for_http "http://127.0.0.1:4173" "frontend"
 
 if [[ "${#child_command[@]}" -gt 0 ]]; then
-  set +e
-  "${child_command[@]}"
-  child_status=$?
-  set -e
-  exit "$child_status"
+  start_process_group CHILD_PGID "" "${child_command[@]}"
 fi
 
-wait
+supervise_stack

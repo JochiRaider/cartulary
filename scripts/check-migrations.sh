@@ -8,9 +8,9 @@ MIGRATE_BIN="${CARTULARY_MIGRATE_BIN:-}"
 CONFIG_FILE="${CONFIG_FILE:-$ROOT_DIR/configs/dev/config.toml}"
 export GOCACHE="${GOCACHE:-/tmp/cartulary-go-build}"
 export GOMODCACHE="${GOMODCACHE:-/tmp/cartulary-go-mod}"
+POSTGRES_READY_TIMEOUT_SECONDS="${CARTULARY_POSTGRES_READY_TIMEOUT_SECONDS:-180}"
 EMPTY_DB="cartulary_migration_empty_$$"
 UPGRADE_DB="cartulary_migration_upgrade_$$"
-READY=0
 
 cleanup() {
   local db_name
@@ -22,20 +22,39 @@ cleanup() {
 
 trap cleanup EXIT
 
+wait_for_postgres() {
+  local start_time="$SECONDS"
+  local container_id=""
+  local state="unknown"
+  local health="unknown"
+
+  while (( SECONDS - start_time < POSTGRES_READY_TIMEOUT_SECONDS )); do
+    if docker compose -f "$COMPOSE_FILE" exec -T postgres \
+      pg_isready -U cartulary -d postgres >/dev/null 2>&1; then
+      return 0
+    fi
+
+    container_id="$(docker compose -f "$COMPOSE_FILE" ps -q postgres 2>/dev/null || true)"
+    if [[ -n "$container_id" ]]; then
+      state="$(docker inspect -f '{{.State.Status}}' "$container_id" 2>/dev/null || printf 'unknown')"
+      health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id" 2>/dev/null || printf 'unknown')"
+      if [[ "$state" == "exited" || "$state" == "dead" ]]; then
+        echo "postgres container is ${state} during migration verification (health=${health})" >&2
+        docker compose -f "$COMPOSE_FILE" logs --no-color --tail 120 postgres >&2 || true
+        return 1
+      fi
+    fi
+
+    sleep 1
+  done
+
+  echo "postgres did not become ready for migration verification after ${POSTGRES_READY_TIMEOUT_SECONDS}s (state=${state} health=${health})" >&2
+  docker compose -f "$COMPOSE_FILE" logs --no-color --tail 120 postgres >&2 || true
+  return 1
+}
+
 docker compose -f "$COMPOSE_FILE" up -d postgres >/dev/null
-
-for _ in $(seq 1 30); do
-  if docker compose -f "$COMPOSE_FILE" exec -T postgres pg_isready -U cartulary -d postgres >/dev/null 2>&1; then
-    READY=1
-    break
-  fi
-  sleep 1
-done
-
-if [ "$READY" -ne 1 ]; then
-  echo "postgres did not become ready for migration verification" >&2
-  exit 1
-fi
+wait_for_postgres
 
 mapfile -t MIGRATION_FILES < <(find "$ROOT_DIR/db/migrations" -maxdepth 1 -type f -name '*.sql' | LC_ALL=C sort)
 MIGRATION_COUNT="${#MIGRATION_FILES[@]}"
