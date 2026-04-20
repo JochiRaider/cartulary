@@ -5,6 +5,11 @@ const phase = process.argv[2];
 if (!phase) {
   throw new Error("usage: check-phase-map.mjs <phase>");
 }
+const phaseMatch = /^phase(\d+)$/.exec(phase);
+if (!phaseMatch) {
+  throw new Error(`invalid phase name ${phase}; expected phase<number>`);
+}
+const phaseNumber = phaseMatch[1];
 
 const root = process.cwd();
 const manifestPath = path.join(root, "tools", `${phase}_test_map.json`);
@@ -25,6 +30,9 @@ for (const [section, prefix] of sections) {
   for (const entry of manifest[section] ?? []) {
     if (typeof entry.id !== "string" || !entry.id.startsWith(prefix)) {
       throw new Error(`manifest entry in ${section} has invalid id: ${JSON.stringify(entry)}`);
+    }
+    if (!new RegExp(`^${prefix}${phaseNumber}-\\d{2}$`).test(entry.id)) {
+      throw new Error(`manifest entry ${entry.id} does not belong to ${phase}`);
     }
     entries.push(entry);
   }
@@ -59,10 +67,14 @@ for (const entry of entries) {
 
 for (const target of manifest.forbidden_id_files ?? []) {
   const source = readFileSync(path.join(root, target), "utf8");
-  for (const id of expected) {
-    if (source.includes(id) || source.includes(id.replaceAll("-", "_"))) {
-      throw new Error(`${target} must not claim phase id ${id}`);
-    }
+  const hyphenMatches = source.match(new RegExp(String.raw`\b[UIE]-${phaseNumber}-\d{2}\b`, "g")) ?? [];
+  const underscoreMatches = source.match(new RegExp(String.raw`\b[UIE]_${phaseNumber}_\d{2}\b`, "g")) ?? [];
+  const claimedIDs = new Set([
+    ...hyphenMatches,
+    ...underscoreMatches.map((value) => value.replaceAll("_", "-")),
+  ]);
+  if (claimedIDs.size > 0) {
+    throw new Error(`${target} must not claim ${phase} authoritative ids: ${Array.from(claimedIDs).sort().join(", ")}`);
   }
 }
 

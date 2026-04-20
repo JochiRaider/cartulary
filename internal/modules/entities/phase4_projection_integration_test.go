@@ -15,14 +15,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
 
-// I-4-04 / projection rebuild determinism for Phase 4 entity projections.
-func TestPhase4_ProjectionRebuild_I_4_04(t *testing.T) {
+// Support-only projection rebuild determinism for Phase 4 entity projections.
+func TestProjectionRebuildSupport_Phase4(t *testing.T) {
 	t.Run("host and identity projection rows rebuild deterministically after entity upserts", func(t *testing.T) {
-		harness := phase4test.StartStore(t, "phase4-i-4-04-entity-projections")
+		harness := phase4test.StartStore(t, "phase4-projection-support-entity-projections")
 		store := entities.NewStore(harness.Pool)
 		projectionStore := projections.NewStore(harness.Pool)
-		actor := phase4test.SeedLocalUserFlags(t, harness.DB, "phase4-i404@example.test", "Phase4 I404", "Phase4I404Pass1!", false, false, true)
-		incident := phase4test.CreateIncidentInStore(t, harness.Pool, actor, "txn-phase4-i-4-04-incident", "IR-I404", "Phase 4 I-4-04")
+		actor := phase4test.SeedLocalUserFlags(t, harness.DB, "phase4-projection-support@example.test", "Phase4 Projection Support", "Phase4ProjectionSupportPass1!", false, false, true)
+		incident := phase4test.CreateIncidentInStore(t, harness.Pool, actor, "txn-phase4-projection-support-incident", "IR-P4SUP-01", "Phase 4 projection support")
 
 		hostResult, err := store.CreateHostRow(context.Background(), actor, incident.ID, entities.CreateRequest{
 			ClientTxnID: "txn-phase4-i-4-04-host",
@@ -75,21 +75,21 @@ func TestPhase4_ProjectionRebuild_I_4_04(t *testing.T) {
 	})
 
 	t.Run("indicator projection rows rebuild deterministically after observation and lifecycle fan-in", func(t *testing.T) {
-		harness := phase4test.StartStore(t, "phase4-i-4-04-indicator-projections")
+		harness := phase4test.StartStore(t, "phase4-projection-support-indicator-projections")
 		store := entities.NewStore(harness.Pool)
 		projectionStore := projections.NewStore(harness.Pool)
-		actor := phase4test.SeedLocalUserFlags(t, harness.DB, "phase4-i404-indicator@example.test", "Phase4 I404 Indicator", "Phase4I404IndicatorPass1!", false, false, true)
-		incident := phase4test.CreateIncidentInStore(t, harness.Pool, actor, "txn-phase4-i-4-04-indicator-incident", "IR-I404-B", "Phase 4 I-4-04 indicator")
+		actor := phase4test.SeedLocalUserFlags(t, harness.DB, "phase4-projection-support-indicator@example.test", "Phase4 Projection Support Indicator", "Phase4ProjectionSupportIndicatorPass1!", false, false, true)
+		incident := phase4test.CreateIncidentInStore(t, harness.Pool, actor, "txn-phase4-projection-support-indicator-incident", "IR-P4SUP-02", "Phase 4 projection support indicator")
 
 		created, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, entities.CreateRequest{
-			ClientTxnID: "txn-phase4-i-4-04-indicator-create",
+			ClientTxnID: "txn-phase4-projection-support-indicator-create",
 			Values: map[string]string{
 				"indicator.indicator_type":   golden.Phase4IndicatorExamples[0].IndicatorType,
 				"indicator.value_kind":       golden.Phase4IndicatorExamples[0].ValueKind,
 				"indicator.display_value":    golden.Phase4IndicatorExamples[0].DisplayValue,
 				"indicator.normalized_value": golden.Phase4IndicatorExamples[0].NormalizedValue,
 			},
-		}, []byte("txn-phase4-i-4-04-indicator-create"), "req-phase4-i-4-04-indicator-create", golden.Phase4BaseTime)
+		}, []byte("txn-phase4-projection-support-indicator-create"), "req-phase4-projection-support-indicator-create", golden.Phase4BaseTime)
 		if err != nil {
 			t.Fatalf("create indicator row: %v", err)
 		}

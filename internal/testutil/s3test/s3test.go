@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -18,6 +19,18 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+)
+
+const (
+	minioImage                = "minio/minio:RELEASE.2025-09-07T16-13-09Z"
+	minioAPIPort              = "9000/tcp"
+	minioConsolePort          = "9001/tcp"
+	minioLivenessPath         = "/minio/health/live"
+	minioReadinessPath        = "/minio/health/ready"
+	minioStartupTimeout       = 2 * time.Minute
+	minioHealthPollInterval   = 500 * time.Millisecond
+	minioClientReadyTimeout   = 60 * time.Second
+	minioClientAttemptTimeout = 5 * time.Second
 )
 
 type Harness struct {
@@ -49,14 +62,25 @@ func Start(t testing.TB) *Harness {
 
 func StartShared(ctx context.Context) (*Harness, error) {
 	req := testcontainers.ContainerRequest{
-		Image:        "minio/minio:latest",
-		ExposedPorts: []string{"9000/tcp", "9001/tcp"},
+		Image:        minioImage,
+		ExposedPorts: []string{minioAPIPort, minioConsolePort},
 		Cmd:          []string{"server", "/data", "--console-address", ":9001"},
 		Env: map[string]string{
 			"MINIO_ROOT_USER":     "minioadmin",
 			"MINIO_ROOT_PASSWORD": "minioadmin",
 		},
-		WaitingFor: wait.ForListeningPort("9000/tcp").WithStartupTimeout(60 * time.Second),
+		WaitingFor: wait.ForAll(
+			wait.ForHTTP(minioLivenessPath).
+				WithPort(minioAPIPort).
+				WithForcedIPv4LocalHost().
+				WithStatusCodeMatcher(func(status int) bool { return status == http.StatusOK }).
+				WithPollInterval(minioHealthPollInterval),
+			wait.ForHTTP(minioReadinessPath).
+				WithPort(minioAPIPort).
+				WithForcedIPv4LocalHost().
+				WithStatusCodeMatcher(func(status int) bool { return status == http.StatusOK }).
+				WithPollInterval(minioHealthPollInterval),
+		).WithDeadline(minioStartupTimeout),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -73,7 +97,7 @@ func StartShared(ctx context.Context) (*Harness, error) {
 		return nil, fmt.Errorf("resolve minio host: %w", err)
 	}
 
-	port, err := container.MappedPort(ctx, "9000/tcp")
+	port, err := container.MappedPort(ctx, minioAPIPort)
 	if err != nil {
 		_ = container.Terminate(ctx)
 		return nil, fmt.Errorf("resolve minio mapped port: %w", err)
@@ -96,19 +120,33 @@ func StartShared(ctx context.Context) (*Harness, error) {
 }
 
 func (h *Harness) WaitReady(ctx context.Context) error {
-	deadline := time.Now().Add(30 * time.Second)
+	readyCtx, cancel := context.WithTimeout(ctx, minioClientReadyTimeout)
+	defer cancel()
+
+	ticker := time.NewTicker(minioHealthPollInterval)
+	defer ticker.Stop()
+
+	var lastErr error
 	for {
-		client, err := h.Client(ctx)
+		attemptCtx, attemptCancel := context.WithTimeout(readyCtx, minioClientAttemptTimeout)
+		client, err := h.Client(attemptCtx)
 		if err == nil {
-			_, err = client.ListBuckets(ctx)
+			_, err = client.ListBuckets(attemptCtx)
 		}
+		attemptCancel()
 		if err == nil {
 			return nil
 		}
-		if time.Now().After(deadline) {
-			return fmt.Errorf("minio did not become ready: %w", err)
+
+		lastErr = err
+		select {
+		case <-readyCtx.Done():
+			if lastErr == nil {
+				lastErr = readyCtx.Err()
+			}
+			return fmt.Errorf("minio did not become ready via authenticated api: %w", lastErr)
+		case <-ticker.C:
 		}
-		time.Sleep(250 * time.Millisecond)
 	}
 }
 

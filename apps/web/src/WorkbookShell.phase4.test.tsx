@@ -15,6 +15,8 @@ import {
   readCollectionItems,
 } from "./workbookShellPhase4";
 
+// Support-only mocked component coverage for Phase 4 workbook helpers.
+// This file is not authoritative route or browser evidence.
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 
 describe("Phase 4 workbook helpers", () => {

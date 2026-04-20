@@ -3,12 +3,13 @@ set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 HELPER="$ROOT_DIR/scripts/lib/run-phase.sh"
+GO_HELPER="$ROOT_DIR/scripts/lib/run-go-phase.sh"
 cleanup_paths=()
 
 cleanup() {
   local path
   for path in "${cleanup_paths[@]}"; do
-    rm -f "$path"
+    rm -rf "$path"
   done
 }
 
@@ -109,3 +110,40 @@ verbose_override_output="$(
 )"
 assert_contains "$verbose_override_output" "== verbose override ==" "verbose override banner"
 assert_contains "$verbose_override_output" "verbose-stream" "verbose override output"
+
+mkdir -p "$ROOT_DIR/tmp"
+go_smoke_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-phase-smoke.XXXXXX")"
+cleanup_paths+=("$go_smoke_dir")
+cat >"$go_smoke_dir/run_go_phase_smoke_test.go" <<'EOF'
+package rungophasesmoke
+
+import "testing"
+
+func TestPhase0_RunGoPhase_E_0_01(t *testing.T) {}
+func TestPhase0_RunGoPhase_E_0_02(t *testing.T) {}
+func TestUnrelatedRunGoPhase(t *testing.T)    {}
+EOF
+
+go_smoke_rel="./${go_smoke_dir#"$ROOT_DIR"/}"
+go_bin="${GO:-go}"
+go_success_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+    "$GO_HELPER" "run-go-phase smoke" '^(TestPhase0_.*_E_0_[0-9]+)$' -- "$go_bin" test "$go_smoke_rel"
+)"
+assert_contains "$go_success_output" "== run-go-phase smoke ==" "run-go-phase success banner"
+assert_contains "$go_success_output" "matched go tests: 2 across 1 packages" "run-go-phase matched count"
+assert_contains "$go_success_output" "TestPhase0_RunGoPhase_E_0_01" "run-go-phase matched first numeric suffix test"
+assert_contains "$go_success_output" "TestPhase0_RunGoPhase_E_0_02" "run-go-phase matched second numeric suffix test"
+
+set +e
+go_zero_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+    "$GO_HELPER" "run-go-phase zero-match" '^(TestPhase0_.*_E_0_)$' -- "$go_bin" test "$go_smoke_rel" \
+    2>&1
+)"
+go_zero_status=$?
+set -e
+if [[ "$go_zero_status" -eq 0 ]]; then
+  fail "run-go-phase zero-match: expected non-zero exit status"
+fi
+assert_contains "$go_zero_output" "phase matched zero tests" "run-go-phase zero-match output"

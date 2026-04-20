@@ -106,6 +106,8 @@ func (s *Service) handleTimelineQuery(w http.ResponseWriter, r *http.Request) {
 		rows, err = s.entityStore.QueryHostRows(r.Context(), incidentID)
 	case entities.IdentitiesViewSchemaID:
 		rows, err = s.entityStore.QueryIdentityRows(r.Context(), incidentID)
+	case entities.IndicatorsViewSchemaID:
+		rows, err = s.entityStore.QueryIndicatorRows(r.Context(), incidentID)
 	default:
 		writeAPIError(w, r, invalidViewQuery("view_schema_id", "unknown_view_schema"))
 		return

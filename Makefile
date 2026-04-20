@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape phase0-map-check phase2-map-check phase-test-name-check run-phase-smoke backend-unit backend-integration backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e test-fast test e2e lint check ci build
+.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape phase-map-check phase-test-name-check run-phase-smoke backend-unit backend-integration backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e test-fast test e2e lint check ci build
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
 PNPM ?= $(shell if command -v pnpm >/dev/null 2>&1; then command -v pnpm; elif [ -x "$$HOME/.local/share/pnpm/pnpm" ]; then printf "$$HOME/.local/share/pnpm/pnpm"; fi)
@@ -111,11 +111,8 @@ migration-drift:
 deployable-shape: build
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "deployable-shape" -- ./scripts/ci/check-deployable-shape.sh
 
-phase0-map-check: frontend-toolchain
-	$(RUN_PHASE) "phase0-map-check" -- $(PNPM_ENV) $(NODE_BIN) ./scripts/check-phase-map.mjs phase0
-
-phase2-map-check: frontend-toolchain
-	$(RUN_PHASE) "phase2-map-check" -- $(PNPM_ENV) $(NODE_BIN) ./scripts/check-phase-map.mjs phase2
+phase-map-check: frontend-toolchain
+	$(RUN_PHASE) "phase-map-check" -- $(PNPM_ENV) env NODE_BIN=$(NODE_BIN) ./scripts/check-phase-maps.sh
 
 run-phase-smoke:
 	$(RUN_PHASE) "run-phase-smoke" -- ./scripts/test-run-phase.sh
@@ -152,7 +149,7 @@ backend-process: frontend-toolchain
 
 phase0-process-e2e:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_GO_PHASE) "phase0-process-e2e" '^(TestPhase0_.*_E_0_)$$' -- $(GO_ENV) $(GO) test ./cmd/server
+	$(RUN_GO_PHASE) "phase0-process-e2e" '^(TestPhase0_.*_E_0_[0-9]+)$$' -- $(GO_ENV) $(GO) test ./cmd/server
 
 phase1-process-smoke:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
@@ -163,7 +160,7 @@ phase2-process-smoke:
 	$(RUN_GO_PHASE) "phase2-process-smoke" '^(TestPhase2_ProcessSmoke_)' -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4
 
 frontend-unit: frontend-toolchain
-	$(RUN_PHASE) "frontend-unit" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec vitest run --passWithNoTests $(VITEST_FLAGS)
+	$(RUN_PHASE) "frontend-unit" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec vitest run $(VITEST_FLAGS)
 
 e2e: frontend-toolchain
 	$(Q)$(MAKE) --no-print-directory browser-e2e
@@ -182,8 +179,7 @@ check: frontend-toolchain
 	$(Q)$(MAKE) --no-print-directory run-phase-smoke
 	$(Q)$(MAKE) --no-print-directory phase-test-name-check
 	$(Q)$(MAKE) --no-print-directory generate-drift
-	$(Q)$(MAKE) --no-print-directory phase0-map-check
-	$(Q)$(MAKE) --no-print-directory phase2-map-check
+	$(Q)$(MAKE) --no-print-directory phase-map-check
 	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(CHECK_JOBS) migration-drift lint backend-unit backend-integration backend-process frontend-unit deployable-shape
 	$(Q)$(MAKE) --no-print-directory browser-e2e
 

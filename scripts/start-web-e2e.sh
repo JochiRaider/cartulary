@@ -8,6 +8,7 @@ E2E_DB="cartulary_web_e2e_$$"
 E2E_DSN="postgres://cartulary:cartulary@localhost:5432/${E2E_DB}?sslmode=disable"
 SERVER_LOG="/tmp/cartulary-e2e-server-$$.log"
 WEB_LOG="/tmp/cartulary-e2e-web-$$.log"
+MINIO_READY_URL="http://127.0.0.1:9000/minio/health/ready"
 
 mkdir -p \
   "${RUNTIME_ROOT_BASE}/database-storage" \
@@ -71,9 +72,23 @@ wait_for_postgres() {
   return 1
 }
 
+wait_for_minio() {
+  for _ in $(seq 1 120); do
+    if curl -fsS "${MINIO_READY_URL}" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "minio did not become ready for browser e2e" >&2
+  docker compose -f "${COMPOSE_FILE}" logs --no-color minio >&2 || true
+  return 1
+}
+
 make -C "${ROOT_DIR}" frontend-toolchain
-docker compose -f "${COMPOSE_FILE}" up -d postgres >/dev/null
+docker compose -f "${COMPOSE_FILE}" up -d postgres minio >/dev/null
 wait_for_postgres
+wait_for_minio
 docker compose -f "${COMPOSE_FILE}" exec -T postgres \
   psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null
 docker compose -f "${COMPOSE_FILE}" exec -T postgres \

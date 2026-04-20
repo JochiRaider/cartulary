@@ -10,7 +10,9 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	. "github.com/JochiRaider/cartulary/internal/modules/entities"
+	timeline "github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/testutil/assertx"
 	"github.com/JochiRaider/cartulary/internal/testutil/golden"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
@@ -126,26 +128,53 @@ SELECT identity_state, entity_origin, seed_entity_mention_id::text, display_name
 func TestPhase4_DismissRestoreMentionLifecycle_U_4_04(t *testing.T) {
 	harness := phase4test.StartStore(t, "phase4-u-4-04")
 	store := NewStore(harness.Pool)
+	timelineStore := timeline.NewStore(harness.Pool)
 	actor := phase4test.SeedLocalUserFlags(t, harness.DB, "u404@example.test", "U404", "U404Phase4Pass1!", false, false, true)
 	incident := phase4test.CreateIncidentInStore(t, harness.Pool, actor, "txn-phase4-u-4-04-incident", "IR-U404", "Phase 4 U-4-04")
 
-	phase4test.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, golden.Phase4TimelineRecordID)
 	phase4test.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.Phase4CanonicalHostRecordID, "WS-023", "WS-023", "", "")
-	phase4test.SeedResolvedMention(t, harness.DB, actor.ID, golden.Phase4HostMentionID, golden.Phase4TimelineRecordID, golden.Phase4CanonicalHostRecordID, golden.Phase4FieldTimelineHostRefs, "host", "WS-023")
-	phase4test.SeedRecordLink(t, harness.DB, incident.ID, actor.ID, golden.Phase4ManualLinkID, golden.Phase4TimelineRecordID, golden.Phase4CanonicalHostRecordID, "observed_on_host", "manual", nil)
+	normalizedHostToken, ok := fieldnorm.NormalizeMentionToken("WS-023")
+	if !ok {
+		t.Fatal("normalize mention token")
+	}
+	summary := "dismiss and restore relationship row"
+	created, err := timelineStore.CreateRow(context.Background(), actor, incident.ID, timeline.CreateRequest{
+		ClientTxnID: "txn-phase4-u-4-04-row",
+		Summary:     &summary,
+		HostRefs: &timeline.CollectionActionPayload{
+			Actions: []timeline.CollectionAction{
+				{
+					Op:             "add_resolved_ref",
+					RawText:        "WS-023",
+					NormalizedText: normalizedHostToken,
+					ResolvedRecord: &golden.Phase4CanonicalHostRecordID,
+				},
+			},
+		},
+	}, []byte("txn-phase4-u-4-04-row"), "req-phase4-u-4-04-row", golden.Phase4BaseTime)
+	if err != nil {
+		t.Fatalf("create resolved relationship row: %v", err)
+	}
+	initialRows, err := timelineStore.QueryRows(context.Background(), incident.ID)
+	if err != nil {
+		t.Fatalf("query initial timeline rows: %v", err)
+	}
+	initialRow := phase4test.FindRow(t, initialRows, created.RecordID.String())
+	initialItem := phase4test.RequireSingleCollectionItem(t, initialRow, golden.Phase4FieldTimelineHostRefs)
+	mentionID := phase4test.MentionIDFromItemRef(t, initialItem["item_ref"].(string))
 
 	tx, err := harness.Pool.BeginTx(context.Background(), pgxTxOptions())
 	if err != nil {
 		t.Fatalf("begin dismiss tx: %v", err)
 	}
-	if err := store.ApplyMentionLifecycleTx(context.Background(), tx, actor, golden.Phase4TimelineRecordID, golden.Phase4FieldTimelineHostRefs, golden.Phase4HostMentionID, "dismiss_item", nil, golden.Phase4BaseTime); err != nil {
+	if err := store.ApplyMentionLifecycleTx(context.Background(), tx, actor, created.RecordID, golden.Phase4FieldTimelineHostRefs, mentionID, "dismiss_item", nil, golden.Phase4BaseTime); err != nil {
 		t.Fatalf("dismiss mention: %v", err)
 	}
 	if err := tx.Commit(context.Background()); err != nil {
 		t.Fatalf("commit dismiss tx: %v", err)
 	}
 
-	dismissed := phase4test.LookupMention(t, harness.DB, golden.Phase4HostMentionID)
+	dismissed := phase4test.LookupMention(t, harness.DB, mentionID)
 	assertx.RequireMentionStatus(t, dismissed, golden.Phase4MentionStatusDismissed)
 	if dismissed.ResolvedRecordID != nil || dismissed.ResolvedAt != nil || dismissed.ResolutionMethod != nil {
 		t.Fatalf("expected dismissed mention to clear resolution metadata, got %#v", dismissed)
@@ -158,130 +187,360 @@ SELECT COUNT(*)
    AND dst_record_id = $3
    AND link_type = 'observed_on_host'
    AND deleted_at IS NULL
-`, incident.ID, golden.Phase4TimelineRecordID, golden.Phase4CanonicalHostRecordID); got != 0 {
+`, incident.ID, created.RecordID, golden.Phase4CanonicalHostRecordID); got != 0 {
 		t.Fatalf("expected dismiss to remove active derived link, got %d rows", got)
+	}
+	dismissedRows, err := timelineStore.QueryRows(context.Background(), incident.ID)
+	if err != nil {
+		t.Fatalf("query timeline rows after dismiss: %v", err)
+	}
+	dismissedRow := phase4test.FindRow(t, dismissedRows, created.RecordID.String())
+	if got := phase4test.CollectionItems(t, dismissedRow, golden.Phase4FieldTimelineHostRefs); len(got) != 0 {
+		t.Fatalf("dismissed mention must be excluded from current relationship-cell values, got %#v", got)
 	}
 
 	tx, err = harness.Pool.BeginTx(context.Background(), pgxTxOptions())
 	if err != nil {
 		t.Fatalf("begin restore tx: %v", err)
 	}
-	if err := store.ApplyMentionLifecycleTx(context.Background(), tx, actor, golden.Phase4TimelineRecordID, golden.Phase4FieldTimelineHostRefs, golden.Phase4HostMentionID, "revert_to_unresolved", nil, golden.Phase4BaseTime.Add(time.Minute)); err != nil {
+	if err := store.ApplyMentionLifecycleTx(context.Background(), tx, actor, created.RecordID, golden.Phase4FieldTimelineHostRefs, mentionID, "revert_to_unresolved", nil, golden.Phase4BaseTime.Add(time.Minute)); err != nil {
 		t.Fatalf("restore mention: %v", err)
 	}
 	if err := tx.Commit(context.Background()); err != nil {
 		t.Fatalf("commit restore tx: %v", err)
 	}
 
-	restored := phase4test.LookupMention(t, harness.DB, golden.Phase4HostMentionID)
+	restored := phase4test.LookupMention(t, harness.DB, mentionID)
 	assertx.RequireMentionStatus(t, restored, golden.Phase4MentionStatusUnresolved)
 	if restored.RawText != "WS-023" || restored.ResolvedRecordID != nil || restored.ResolutionMethod != nil {
 		t.Fatalf("expected durable restore-to-unresolved semantics, got %#v", restored)
+	}
+	restoredRows, err := timelineStore.QueryRows(context.Background(), incident.ID)
+	if err != nil {
+		t.Fatalf("query timeline rows after restore: %v", err)
+	}
+	restoredRow := phase4test.FindRow(t, restoredRows, created.RecordID.String())
+	restoredItem := phase4test.RequireSingleCollectionItem(t, restoredRow, golden.Phase4FieldTimelineHostRefs)
+	if restoredItem["item_kind"] != "unresolved_mention" || restoredItem["raw_text"] != "WS-023" {
+		t.Fatalf("restore must surface the unresolved mention in current-state reads, got %#v", restoredItem)
+	}
+	if _, ok := restoredItem["resolved_record_id"]; ok {
+		t.Fatalf("restore must not silently relink the historical target, got %#v", restoredItem)
 	}
 }
 
 // U-4-05 / REQ-02-059..REQ-02-063 / AC-021, AC-022.
 func TestPhase4_ExactMatchPrecedence_U_4_05(t *testing.T) {
-	harness := phase4test.StartStore(t, "phase4-u-4-05")
-	store := NewStore(harness.Pool)
-	actor := phase4test.SeedLocalUserFlags(t, harness.DB, "u405@example.test", "U405", "U405Phase4Pass1!", false, false, true)
-	incident := phase4test.CreateIncidentInStore(t, harness.Pool, actor, "txn-phase4-u-4-05-incident", "IR-U405", "Phase 4 U-4-05")
+	nullableString := func(value string) any {
+		if value == "" {
+			return nil
+		}
+		return value
+	}
+	startFixture := func(t *testing.T, suffix string) (*phase4test.StoreHarness, *Store, authn.UserRecord, uuid.UUID) {
+		t.Helper()
 
-	phase4test.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.Phase4CanonicalHostRecordID, "Canonical Host", "WS-023", "ws-023.corp.example.test", "")
-	phase4test.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, golden.Phase4CanonicalHostRecordID, "host", "Workstation 23")
-	phase4test.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, golden.Phase4CanonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
-	phase4test.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, golden.Phase4CanonicalIdentityID, "identity", "Case Owner")
+		harness := phase4test.StartStore(t, "phase4-u-4-05-"+suffix)
+		store := NewStore(harness.Pool)
+		actor := phase4test.SeedLocalUserFlags(t, harness.DB, "u405-"+suffix+"@example.test", "U405 "+suffix, "U405Phase4Pass1!", false, false, true)
+		incident := phase4test.CreateIncidentInStore(t, harness.Pool, actor, "txn-phase4-u-4-05-"+suffix, "IR-U405-"+suffix, "Phase 4 U-4-05 "+suffix)
+		return harness, store, actor, incident.ID
+	}
+	seedHost := func(t *testing.T, harness *phase4test.StoreHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, displayName string, aadDeviceID string, fqdn string, hostname string) {
+		t.Helper()
 
-	hostReuse, err := store.CreateHostRow(context.Background(), actor, incident.ID, CreateRequest{
-		ClientTxnID: "txn-phase4-u-4-05-host-reuse",
-		Values: map[string]string{
-			"host.display_name": "Host reuse",
-			"host.fqdn":         "ws-023.corp.example.test",
-		},
-	}, []byte("txn-phase4-u-4-05-host-reuse"), "req-host-reuse", golden.Phase4BaseTime)
-	if err != nil {
-		t.Fatalf("host exact-match reuse: %v", err)
+		phase4test.SeedHostRecord(t, harness.DB, incidentID, actorID, recordID, displayName, "seed-hostname", "seed.example.test", "")
+		if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE hosts
+   SET aad_device_id = $2,
+       fqdn = $3,
+       hostname = $4
+ WHERE record_id = $1
+`, recordID, nullableString(aadDeviceID), nullableString(fqdn), nullableString(hostname)); err != nil {
+			t.Fatalf("normalize seeded host identifiers: %v", err)
+		}
 	}
-	if hostReuse.RecordID != golden.Phase4CanonicalHostRecordID || hostReuse.StatusCode != 200 {
-		t.Fatalf("expected fqdn exact match to reuse canonical host, got %#v", hostReuse)
-	}
+	seedIdentity := func(t *testing.T, harness *phase4test.StoreHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, displayName string, aadObjectID string, sid string, upn string, email string, samAccountName string) {
+		t.Helper()
 
-	hostAliasOnly, err := store.CreateHostRow(context.Background(), actor, incident.ID, CreateRequest{
-		ClientTxnID: "txn-phase4-u-4-05-host-alias",
-		Values: map[string]string{
-			"host.display_name": "Workstation 23",
-		},
-	}, []byte("txn-phase4-u-4-05-host-alias"), "req-host-alias", golden.Phase4BaseTime.Add(time.Minute))
-	if err != nil {
-		t.Fatalf("host alias-only create: %v", err)
-	}
-	if hostAliasOnly.RecordID == golden.Phase4CanonicalHostRecordID || hostAliasOnly.StatusCode != 201 {
-		t.Fatalf("expected suggestion-only alias to avoid implicit reuse, got %#v", hostAliasOnly)
-	}
-
-	identityReuse, err := store.CreateIdentityRow(context.Background(), actor, incident.ID, CreateRequest{
-		ClientTxnID: "txn-phase4-u-4-05-identity-reuse",
-		Values: map[string]string{
-			"identity.display_name": "Identity reuse",
-			"identity.email":        "alex.analyst@example.test",
-		},
-	}, []byte("txn-phase4-u-4-05-identity-reuse"), "req-identity-reuse", golden.Phase4BaseTime.Add(2*time.Minute))
-	if err != nil {
-		t.Fatalf("identity exact-match reuse: %v", err)
-	}
-	if identityReuse.RecordID != golden.Phase4CanonicalIdentityID || identityReuse.StatusCode != 200 {
-		t.Fatalf("expected email exact match to reuse canonical identity, got %#v", identityReuse)
+		phase4test.SeedIdentityRecord(t, harness.DB, incidentID, actorID, recordID, displayName, "seed-upn@example.test", "seed-email@example.test", "SEEDSAM")
+		if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE identities
+   SET aad_object_id = $2,
+       sid = $3,
+       upn = $4,
+       email = $5,
+       sam_account_name = $6
+ WHERE record_id = $1
+`, recordID, nullableString(aadObjectID), nullableString(sid), nullableString(upn), nullableString(email), nullableString(samAccountName)); err != nil {
+			t.Fatalf("normalize seeded identity identifiers: %v", err)
+		}
 	}
 
-	if got := phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM hosts WHERE incident_id = $1 AND host_state IN ('stub', 'canonical')`, incident.ID); got != 2 {
-		t.Fatalf("expected one reused host and one new stub host, got %d active rows", got)
-	}
-	if got := phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM identities WHERE incident_id = $1 AND identity_state IN ('stub', 'canonical')`, incident.ID); got != 1 {
-		t.Fatalf("expected identity exact-match reuse without creating a duplicate, got %d active rows", got)
-	}
+	t.Run("host precedence ladder honors aad_device_id, then fqdn, then hostname", func(t *testing.T) {
+		hostCases := []struct {
+			name         string
+			suffix       string
+			values       map[string]string
+			wantSelector string
+		}{
+			{
+				name:   "aad_device_id outranks fqdn and hostname",
+				suffix: "host-aad",
+				values: map[string]string{
+					"host.display_name":  "Host ladder aad",
+					"host.aad_device_id": "AAD-DEVICE-01",
+					"host.fqdn":          "ladder.example.test",
+					"host.hostname":      "host-ladder",
+				},
+				wantSelector: "aad",
+			},
+			{
+				name:   "fqdn outranks hostname when aad_device_id is absent",
+				suffix: "host-fqdn",
+				values: map[string]string{
+					"host.display_name": "Host ladder fqdn",
+					"host.fqdn":         "ladder.example.test",
+					"host.hostname":     "host-ladder",
+				},
+				wantSelector: "fqdn",
+			},
+			{
+				name:   "hostname matches when higher-precedence identifiers are absent",
+				suffix: "host-hostname",
+				values: map[string]string{
+					"host.display_name": "Host ladder hostname",
+					"host.hostname":     "host-ladder",
+				},
+				wantSelector: "hostname",
+			},
+		}
+		for _, tc := range hostCases {
+			t.Run(tc.name, func(t *testing.T) {
+				harness, store, actor, incidentID := startFixture(t, tc.suffix)
+
+				hostAADRecordID := uuid.New()
+				hostFQDNRecordID := uuid.New()
+				hostHostnameRecordID := uuid.New()
+				seedHost(t, harness, incidentID, actor.ID, hostAADRecordID, "AAD Host", "AAD-DEVICE-01", "", "")
+				seedHost(t, harness, incidentID, actor.ID, hostFQDNRecordID, "FQDN Host", "", "ladder.example.test", "")
+				seedHost(t, harness, incidentID, actor.ID, hostHostnameRecordID, "Hostname Host", "", "", "host-ladder")
+
+				reuse, err := store.CreateHostRow(context.Background(), actor, incidentID, CreateRequest{
+					ClientTxnID: "txn-phase4-u-4-05-" + tc.suffix,
+					Values:      tc.values,
+				}, []byte("txn-phase4-u-4-05-"+tc.suffix), "req-"+tc.suffix, golden.Phase4BaseTime)
+				if err != nil {
+					t.Fatalf("host exact-match reuse: %v", err)
+				}
+
+				wantRecordID := hostHostnameRecordID
+				switch tc.wantSelector {
+				case "aad":
+					wantRecordID = hostAADRecordID
+				case "fqdn":
+					wantRecordID = hostFQDNRecordID
+				}
+				if reuse.RecordID != wantRecordID || reuse.StatusCode != 200 {
+					t.Fatalf("unexpected host precedence result: got %#v want_record=%s", reuse, wantRecordID)
+				}
+			})
+		}
+	})
+
+	t.Run("identity precedence ladder honors aad_object_id, sid, upn, email, then sam_account_name", func(t *testing.T) {
+		identityCases := []struct {
+			name         string
+			suffix       string
+			values       map[string]string
+			wantSelector string
+		}{
+			{
+				name:   "aad_object_id outranks sid, upn, email, and sam_account_name",
+				suffix: "identity-aad",
+				values: map[string]string{
+					"identity.display_name":     "Identity ladder aad",
+					"identity.aad_object_id":    "AAD-OBJECT-01",
+					"identity.sid":              "S-1-5-21-405-500-1001",
+					"identity.upn":              "upn.identity@example.test",
+					"identity.email":            "email.identity@example.test",
+					"identity.sam_account_name": "SAMMATCH",
+				},
+				wantSelector: "aad",
+			},
+			{
+				name:   "sid outranks upn, email, and sam_account_name when aad_object_id is absent",
+				suffix: "identity-sid",
+				values: map[string]string{
+					"identity.display_name":     "Identity ladder sid",
+					"identity.sid":              "S-1-5-21-405-500-1001",
+					"identity.upn":              "upn.identity@example.test",
+					"identity.email":            "email.identity@example.test",
+					"identity.sam_account_name": "SAMMATCH",
+				},
+				wantSelector: "sid",
+			},
+			{
+				name:   "upn outranks email and sam_account_name when higher-precedence identifiers are absent",
+				suffix: "identity-upn",
+				values: map[string]string{
+					"identity.display_name":     "Identity ladder upn",
+					"identity.upn":              "upn.identity@example.test",
+					"identity.email":            "email.identity@example.test",
+					"identity.sam_account_name": "SAMMATCH",
+				},
+				wantSelector: "upn",
+			},
+			{
+				name:   "email outranks sam_account_name when higher-precedence identifiers are absent",
+				suffix: "identity-email",
+				values: map[string]string{
+					"identity.display_name":     "Identity ladder email",
+					"identity.email":            "email.identity@example.test",
+					"identity.sam_account_name": "SAMMATCH",
+				},
+				wantSelector: "email",
+			},
+			{
+				name:   "sam_account_name matches when it is the only exact-match identifier",
+				suffix: "identity-sam",
+				values: map[string]string{
+					"identity.display_name":     "Identity ladder sam",
+					"identity.sam_account_name": "SAMMATCH",
+				},
+				wantSelector: "sam",
+			},
+		}
+		for _, tc := range identityCases {
+			t.Run(tc.name, func(t *testing.T) {
+				harness, store, actor, incidentID := startFixture(t, tc.suffix)
+
+				identityAADRecordID := uuid.New()
+				identitySIDRecordID := uuid.New()
+				identityUPNRecordID := uuid.New()
+				identityEmailRecordID := uuid.New()
+				identitySAMRecordID := uuid.New()
+				seedIdentity(t, harness, incidentID, actor.ID, identityAADRecordID, "AAD Identity", "AAD-OBJECT-01", "", "", "", "")
+				seedIdentity(t, harness, incidentID, actor.ID, identitySIDRecordID, "SID Identity", "", "S-1-5-21-405-500-1001", "", "", "")
+				seedIdentity(t, harness, incidentID, actor.ID, identityUPNRecordID, "UPN Identity", "", "", "upn.identity@example.test", "", "")
+				seedIdentity(t, harness, incidentID, actor.ID, identityEmailRecordID, "Email Identity", "", "", "", "email.identity@example.test", "")
+				seedIdentity(t, harness, incidentID, actor.ID, identitySAMRecordID, "SAM Identity", "", "", "", "", "SAMMATCH")
+
+				reuse, err := store.CreateIdentityRow(context.Background(), actor, incidentID, CreateRequest{
+					ClientTxnID: "txn-phase4-u-4-05-" + tc.suffix,
+					Values:      tc.values,
+				}, []byte("txn-phase4-u-4-05-"+tc.suffix), "req-"+tc.suffix, golden.Phase4BaseTime.Add(2*time.Minute))
+				if err != nil {
+					t.Fatalf("identity exact-match reuse: %v", err)
+				}
+
+				wantRecordID := identitySAMRecordID
+				switch tc.wantSelector {
+				case "aad":
+					wantRecordID = identityAADRecordID
+				case "sid":
+					wantRecordID = identitySIDRecordID
+				case "upn":
+					wantRecordID = identityUPNRecordID
+				case "email":
+					wantRecordID = identityEmailRecordID
+				}
+				if reuse.RecordID != wantRecordID || reuse.StatusCode != 200 {
+					t.Fatalf("unexpected identity precedence result: got %#v want_record=%s", reuse, wantRecordID)
+				}
+			})
+		}
+	})
+
+	t.Run("suggestion-only aliases and fuzzy non-matches stay non-authoritative", func(t *testing.T) {
+		t.Run("host suggestion-only alias does not trigger implicit reuse", func(t *testing.T) {
+			harness, store, actor, incidentID := startFixture(t, "host-alias")
+
+			hostAliasRecordID := uuid.New()
+			seedHost(t, harness, incidentID, actor.ID, hostAliasRecordID, "Canonical Alias Host", "", "ws-023.corp.example.test", "WS-023")
+			phase4test.SeedEntityAlias(t, harness.DB, incidentID, actor.ID, hostAliasRecordID, "host", "Workstation 23")
+
+			hostAliasOnly, err := store.CreateHostRow(context.Background(), actor, incidentID, CreateRequest{
+				ClientTxnID: "txn-phase4-u-4-05-host-alias",
+				Values: map[string]string{
+					"host.display_name": "Workstation 23",
+				},
+			}, []byte("txn-phase4-u-4-05-host-alias"), "req-host-alias", golden.Phase4BaseTime.Add(time.Minute))
+			if err != nil {
+				t.Fatalf("host alias-only create: %v", err)
+			}
+			if hostAliasOnly.RecordID == hostAliasRecordID || hostAliasOnly.StatusCode != 201 {
+				t.Fatalf("expected suggestion-only alias to avoid implicit reuse, got %#v", hostAliasOnly)
+			}
+		})
+
+		t.Run("identity fuzzy near-match does not trigger implicit reuse", func(t *testing.T) {
+			harness, store, actor, incidentID := startFixture(t, "identity-fuzzy")
+
+			identityAliasRecordID := uuid.New()
+			seedIdentity(t, harness, incidentID, actor.ID, identityAliasRecordID, "Case Owner", "", "", "", "", "CASEOWNER")
+			phase4test.SeedEntityAlias(t, harness.DB, incidentID, actor.ID, identityAliasRecordID, "identity", "Case Owner")
+
+			identityFuzzyNonMatch, err := store.CreateIdentityRow(context.Background(), actor, incidentID, CreateRequest{
+				ClientTxnID: "txn-phase4-u-4-05-identity-fuzzy",
+				Values: map[string]string{
+					"identity.display_name": "Case Ownr",
+				},
+			}, []byte("txn-phase4-u-4-05-identity-fuzzy"), "req-identity-fuzzy", golden.Phase4BaseTime.Add(3*time.Minute))
+			if err != nil {
+				t.Fatalf("identity fuzzy non-match create: %v", err)
+			}
+			if identityFuzzyNonMatch.RecordID == identityAliasRecordID || identityFuzzyNonMatch.StatusCode != 201 {
+				t.Fatalf("expected fuzzy non-match to avoid implicit reuse, got %#v", identityFuzzyNonMatch)
+			}
+		})
+	})
 }
 
 // U-4-06 / REQ-02-064..REQ-02-066 / AC-023, AC-186, AC-209.
 func TestPhase4_ExplicitEntityMerge_U_4_06(t *testing.T) {
-	harness := phase4test.StartStore(t, "phase4-u-4-06")
-	store := NewStore(harness.Pool)
-	actor := phase4test.SeedLocalUserFlags(t, harness.DB, "u406@example.test", "U406", "U406Phase4Pass1!", false, false, true)
-	incident := phase4test.CreateIncidentInStore(t, harness.Pool, actor, "txn-phase4-u-4-06-incident", "IR-U406", "Phase 4 U-4-06")
+	t.Run("host merge preserves raw mentions, loser lineage, and survivor reuse", func(t *testing.T) {
+		harness := phase4test.StartStore(t, "phase4-u-4-06-host")
+		store := NewStore(harness.Pool)
+		actor := phase4test.SeedLocalUserFlags(t, harness.DB, "u406@example.test", "U406", "U406Phase4Pass1!", false, false, true)
+		incident := phase4test.CreateIncidentInStore(t, harness.Pool, actor, "txn-phase4-u-4-06-incident", "IR-U406", "Phase 4 U-4-06")
 
-	phase4test.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.Phase4CanonicalHostRecordID, "WS-023", "WS-023", "", "")
-	phase4test.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.Phase4DuplicateHostRecordID, "WS-023 duplicate", "WS-023-DUP", "ws-023.corp.example.test", "")
-	phase4test.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, golden.Phase4DuplicateHostRecordID, "host", "Workstation 23")
-	phase4test.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, golden.Phase4TimelineRecordID)
-	phase4test.SeedResolvedMention(t, harness.DB, actor.ID, golden.Phase4HostMentionID, golden.Phase4TimelineRecordID, golden.Phase4DuplicateHostRecordID, golden.Phase4FieldTimelineHostRefs, "host", "WS-023")
-	phase4test.SeedRecordLink(t, harness.DB, incident.ID, actor.ID, golden.Phase4DuplicateLinkID, golden.Phase4TimelineRecordID, golden.Phase4DuplicateHostRecordID, "observed_on_host", "manual", nil)
-	phase4test.SeedRecordTag(t, harness.DB, incident.ID, actor.ID, golden.Phase4TagIDSurvivor, golden.Phase4CanonicalHostRecordID, "critical-host")
-	phase4test.SeedRecordTag(t, harness.DB, incident.ID, actor.ID, golden.Phase4TagIDLoser, golden.Phase4DuplicateHostRecordID, "critical-host")
-	phase4test.SeedAssessment(t, harness.DB, incident.ID, actor.ID, golden.Phase4AssessmentHostID, golden.Phase4DuplicateHostRecordID, "host", "confirmed")
+		phase4test.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.Phase4CanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		phase4test.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.Phase4DuplicateHostRecordID, "WS-023 duplicate", "WS-023-DUP", "ws-023.corp.example.test", "")
+		phase4test.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, golden.Phase4DuplicateHostRecordID, "host", "Workstation 23")
+		phase4test.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, golden.Phase4TimelineRecordID)
+		phase4test.SeedResolvedMention(t, harness.DB, actor.ID, golden.Phase4HostMentionID, golden.Phase4TimelineRecordID, golden.Phase4DuplicateHostRecordID, golden.Phase4FieldTimelineHostRefs, "host", "WS-023")
+		phase4test.SeedRecordLink(t, harness.DB, incident.ID, actor.ID, golden.Phase4DuplicateLinkID, golden.Phase4TimelineRecordID, golden.Phase4DuplicateHostRecordID, "observed_on_host", "manual", nil)
+		phase4test.SeedRecordTag(t, harness.DB, incident.ID, actor.ID, golden.Phase4TagIDSurvivor, golden.Phase4CanonicalHostRecordID, "critical-host")
+		phase4test.SeedRecordTag(t, harness.DB, incident.ID, actor.ID, golden.Phase4TagIDLoser, golden.Phase4DuplicateHostRecordID, "critical-host")
+		phase4test.SeedAssessment(t, harness.DB, incident.ID, actor.ID, golden.Phase4AssessmentHostID, golden.Phase4DuplicateHostRecordID, "host", "confirmed")
+		beforeMention := phase4test.LookupMention(t, harness.DB, golden.Phase4HostMentionID)
 
-	result, err := store.MergeEntity(context.Background(), actor, golden.Phase4CanonicalHostRecordID, MergeRequest{
-		LoserRecordID:          golden.Phase4DuplicateHostRecordID,
-		SurvivorBaseRowVersion: 1,
-		LoserBaseRowVersion:    1,
-		ClientTxnID:            "txn-phase4-u-4-06-merge",
-	}, []byte("txn-phase4-u-4-06-merge"), "req-merge", golden.Phase4BaseTime)
-	if err != nil {
-		t.Fatalf("merge entity: %v", err)
-	}
-	if result.SurvivorRecordID != golden.Phase4CanonicalHostRecordID || result.LoserRecordID != golden.Phase4DuplicateHostRecordID {
-		t.Fatalf("unexpected merge result: %#v", result)
-	}
+		result, err := store.MergeEntity(context.Background(), actor, golden.Phase4CanonicalHostRecordID, MergeRequest{
+			LoserRecordID:          golden.Phase4DuplicateHostRecordID,
+			SurvivorBaseRowVersion: 1,
+			LoserBaseRowVersion:    1,
+			ClientTxnID:            "txn-phase4-u-4-06-merge",
+		}, []byte("txn-phase4-u-4-06-merge"), "req-merge", golden.Phase4BaseTime)
+		if err != nil {
+			t.Fatalf("merge entity: %v", err)
+		}
+		if result.SurvivorRecordID != golden.Phase4CanonicalHostRecordID || result.LoserRecordID != golden.Phase4DuplicateHostRecordID {
+			t.Fatalf("unexpected merge result: %#v", result)
+		}
 
-	mention := phase4test.LookupMention(t, harness.DB, golden.Phase4HostMentionID)
-	assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusResolved)
-	if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != golden.Phase4CanonicalHostRecordID {
-		t.Fatalf("expected merge to repoint mention resolution to survivor, got %#v", mention)
-	}
-	link := phase4test.LookupActiveLink(t, harness.DB, incident.ID, golden.Phase4TimelineRecordID, golden.Phase4CanonicalHostRecordID, "observed_on_host")
-	assertx.RequireActiveLink(t, link, golden.Phase4TimelineRecordID, golden.Phase4CanonicalHostRecordID, "observed_on_host", "manual", nil)
-	if got := phase4test.LookupAssessmentSubject(t, harness.DB, golden.Phase4AssessmentHostID); got != golden.Phase4CanonicalHostRecordID {
-		t.Fatalf("expected assessment repoint to survivor, got %s", got)
-	}
-	if got := phase4test.QueryCount(t, harness.DB, `
+		mention := phase4test.LookupMention(t, harness.DB, golden.Phase4HostMentionID)
+		assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusResolved)
+		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != golden.Phase4CanonicalHostRecordID {
+			t.Fatalf("expected merge to repoint mention resolution to survivor, got %#v", mention)
+		}
+		assertx.RequireRawTextPreserved(t, beforeMention.RawText, mention.RawText)
+		link := phase4test.LookupActiveLink(t, harness.DB, incident.ID, golden.Phase4TimelineRecordID, golden.Phase4CanonicalHostRecordID, "observed_on_host")
+		assertx.RequireActiveLink(t, link, golden.Phase4TimelineRecordID, golden.Phase4CanonicalHostRecordID, "observed_on_host", "manual", nil)
+		if got := phase4test.LookupAssessmentSubject(t, harness.DB, golden.Phase4AssessmentHostID); got != golden.Phase4CanonicalHostRecordID {
+			t.Fatalf("expected assessment repoint to survivor, got %s", got)
+		}
+		if got := phase4test.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_tags
  WHERE incident_id = $1
@@ -289,29 +548,104 @@ SELECT COUNT(*)
    AND normalized_tag_name = 'critical-host'
    AND deleted_at IS NULL
 `, incident.ID, golden.Phase4CanonicalHostRecordID); got != 1 {
-		t.Fatalf("expected one active deduped survivor tag, got %d", got)
-	}
-	if got := phase4test.QueryCount(t, harness.DB, `
+			t.Fatalf("expected one active deduped survivor tag, got %d", got)
+		}
+		if got := phase4test.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_links
  WHERE record_link_id = $1
    AND deleted_at IS NULL
 `, golden.Phase4DuplicateLinkID); got != 0 {
-		t.Fatalf("expected loser-targeted active link to disappear, got %d rows", got)
-	}
+			t.Fatalf("expected loser-targeted active link to disappear, got %d rows", got)
+		}
+		state, mergedInto, rowVersion, _ := phase4test.LookupHostState(t, harness.DB, golden.Phase4DuplicateHostRecordID)
+		if state != "merged" || mergedInto == nil || *mergedInto != golden.Phase4CanonicalHostRecordID || rowVersion != 2 {
+			t.Fatalf("expected loser host lineage state after merge, got state=%s merged_into=%v row_version=%d", state, mergedInto, rowVersion)
+		}
 
-	reuse, err := store.CreateHostRow(context.Background(), actor, incident.ID, CreateRequest{
-		ClientTxnID: "txn-phase4-u-4-06-reuse",
-		Values: map[string]string{
-			"host.fqdn": "ws-023.corp.example.test",
-		},
-	}, []byte("txn-phase4-u-4-06-reuse"), "req-reuse", golden.Phase4BaseTime.Add(time.Minute))
-	if err != nil {
-		t.Fatalf("post-merge exact-match reuse: %v", err)
-	}
-	if reuse.RecordID != golden.Phase4CanonicalHostRecordID {
-		t.Fatalf("expected exact-match reuse to carry forward to survivor, got %#v", reuse)
-	}
+		reuse, err := store.CreateHostRow(context.Background(), actor, incident.ID, CreateRequest{
+			ClientTxnID: "txn-phase4-u-4-06-reuse",
+			Values: map[string]string{
+				"host.fqdn": "ws-023.corp.example.test",
+			},
+		}, []byte("txn-phase4-u-4-06-reuse"), "req-reuse", golden.Phase4BaseTime.Add(time.Minute))
+		if err != nil {
+			t.Fatalf("post-merge exact-match reuse: %v", err)
+		}
+		if reuse.RecordID != golden.Phase4CanonicalHostRecordID {
+			t.Fatalf("expected exact-match reuse to carry forward to survivor, got %#v", reuse)
+		}
+	})
+
+	t.Run("identity merge preserves raw mentions, loser lineage, and survivor reuse", func(t *testing.T) {
+		harness := phase4test.StartStore(t, "phase4-u-4-06-identity")
+		store := NewStore(harness.Pool)
+		actor := phase4test.SeedLocalUserFlags(t, harness.DB, "u406-identity@example.test", "U406 Identity", "U406IdentityPhase4Pass1!", false, false, true)
+		incident := phase4test.CreateIncidentInStore(t, harness.Pool, actor, "txn-phase4-u-4-06-identity-incident", "IR-U406-I", "Phase 4 U-4-06 identity")
+
+		phase4test.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, golden.Phase4CanonicalIdentityID, "Alex Analyst", "alex.survivor@example.test", "alex.survivor@example.test", "ALEXSURV")
+		phase4test.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, golden.Phase4DuplicateIdentityID, "Alex Duplicate", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
+		phase4test.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, golden.Phase4DuplicateIdentityID, "identity", "Case Owner")
+		phase4test.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, golden.Phase4TimelineRecordID)
+		phase4test.SeedResolvedMention(t, harness.DB, actor.ID, golden.Phase4IdentityMentionID, golden.Phase4TimelineRecordID, golden.Phase4DuplicateIdentityID, golden.Phase4FieldTimelineIdentityRefs, "identity", "Case Owner")
+		phase4test.SeedRecordLink(t, harness.DB, incident.ID, actor.ID, golden.Phase4DuplicateLinkID, golden.Phase4TimelineRecordID, golden.Phase4DuplicateIdentityID, "observed_as_identity", "manual", nil)
+		phase4test.SeedAssessment(t, harness.DB, incident.ID, actor.ID, golden.Phase4AssessmentIdentID, golden.Phase4DuplicateIdentityID, "identity", "confirmed")
+		beforeMention := phase4test.LookupMention(t, harness.DB, golden.Phase4IdentityMentionID)
+
+		result, err := store.MergeEntity(context.Background(), actor, golden.Phase4CanonicalIdentityID, MergeRequest{
+			LoserRecordID:          golden.Phase4DuplicateIdentityID,
+			SurvivorBaseRowVersion: 1,
+			LoserBaseRowVersion:    1,
+			ClientTxnID:            "txn-phase4-u-4-06-identity-merge",
+		}, []byte("txn-phase4-u-4-06-identity-merge"), "req-identity-merge", golden.Phase4BaseTime)
+		if err != nil {
+			t.Fatalf("merge identity: %v", err)
+		}
+		if result.SurvivorRecordID != golden.Phase4CanonicalIdentityID || result.LoserRecordID != golden.Phase4DuplicateIdentityID {
+			t.Fatalf("unexpected identity merge result: %#v", result)
+		}
+
+		mention := phase4test.LookupMention(t, harness.DB, golden.Phase4IdentityMentionID)
+		assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusResolved)
+		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != golden.Phase4CanonicalIdentityID {
+			t.Fatalf("expected identity merge to repoint mention resolution to survivor, got %#v", mention)
+		}
+		assertx.RequireRawTextPreserved(t, beforeMention.RawText, mention.RawText)
+		link := phase4test.LookupActiveLink(t, harness.DB, incident.ID, golden.Phase4TimelineRecordID, golden.Phase4CanonicalIdentityID, "observed_as_identity")
+		assertx.RequireActiveLink(t, link, golden.Phase4TimelineRecordID, golden.Phase4CanonicalIdentityID, "observed_as_identity", "manual", nil)
+		if got := phase4test.LookupAssessmentSubject(t, harness.DB, golden.Phase4AssessmentIdentID); got != golden.Phase4CanonicalIdentityID {
+			t.Fatalf("expected identity assessment repoint to survivor, got %s", got)
+		}
+
+		var (
+			state         string
+			mergedIntoRaw sql.NullString
+			rowVersion    int64
+		)
+		if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT identity_state, merged_into_record_id::text, row_version
+  FROM identities
+ WHERE record_id = $1
+`, golden.Phase4DuplicateIdentityID).Scan(&state, &mergedIntoRaw, &rowVersion); err != nil {
+			t.Fatalf("lookup loser identity state: %v", err)
+		}
+		if state != "merged" || !mergedIntoRaw.Valid || mergedIntoRaw.String != golden.Phase4CanonicalIdentityID.String() || rowVersion != 2 {
+			t.Fatalf("expected loser identity lineage after merge, got state=%s merged_into=%v row_version=%d", state, mergedIntoRaw, rowVersion)
+		}
+
+		reuse, err := store.CreateIdentityRow(context.Background(), actor, incident.ID, CreateRequest{
+			ClientTxnID: "txn-phase4-u-4-06-identity-reuse",
+			Values: map[string]string{
+				"identity.email": "alex.analyst@example.test",
+			},
+		}, []byte("txn-phase4-u-4-06-identity-reuse"), "req-identity-reuse", golden.Phase4BaseTime.Add(time.Minute))
+		if err != nil {
+			t.Fatalf("post-merge identity exact-match reuse: %v", err)
+		}
+		if reuse.RecordID != golden.Phase4CanonicalIdentityID {
+			t.Fatalf("expected identity exact-match reuse to carry forward to survivor, got %#v", reuse)
+		}
+	})
 }
 
 // U-4-07 / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.

@@ -3,6 +3,7 @@ package entities
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -144,6 +145,54 @@ SELECT
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate identity rows: %w", err)
+	}
+	return result, nil
+}
+
+func (s *Store) QueryIndicatorRows(ctx context.Context, incidentID uuid.UUID) ([]map[string]any, error) {
+	if s.pool == nil {
+		return nil, fmt.Errorf("query indicator rows: store pool is nil")
+	}
+
+	rows, err := s.pool.Query(ctx, `
+SELECT
+    record_id::text,
+    incident_id::text,
+    row_version,
+    indicator_type,
+    value_kind,
+    display_value,
+    normalized_value,
+    dedupe_key,
+    defanged_value,
+    hash_algorithm,
+    hash_value,
+    stix_pattern,
+    first_observed_at,
+    last_observed_at,
+    observation_count,
+    lifecycle_summary,
+    supporting_link_count,
+    edited_at
+  FROM indicator_grid_projection
+ WHERE incident_id = $1
+ ORDER BY indicator_type ASC, display_value ASC, record_id ASC
+`, incidentID)
+	if err != nil {
+		return nil, fmt.Errorf("query indicator rows: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]map[string]any, 0)
+	for rows.Next() {
+		record, err := scanIndicatorProjectionRecord(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, BuildIndicatorRow(record))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate indicator rows: %w", err)
 	}
 	return result, nil
 }
@@ -660,4 +709,78 @@ SELECT record_id, raw_text
 		aliasesByRecord[recordID] = aliases
 	}
 	return aliasesByRecord, nil
+}
+
+func scanIndicatorProjectionRecord(scanner interface {
+	Scan(dest ...any) error
+}) (IndicatorProjectionRecord, error) {
+	var (
+		record          IndicatorProjectionRecord
+		recordIDRaw     string
+		incidentIDRaw   string
+		normalizedValue sql.NullString
+		defangedValue   sql.NullString
+		hashAlgorithm   sql.NullString
+		hashValue       sql.NullString
+		stixPattern     sql.NullString
+		firstObserved   sql.NullTime
+		lastObserved    sql.NullTime
+		lifecycle       sql.NullString
+		editedAt        sql.NullTime
+	)
+	if err := scanner.Scan(
+		&recordIDRaw,
+		&incidentIDRaw,
+		&record.RowVersion,
+		&record.IndicatorType,
+		&record.ValueKind,
+		&record.DisplayValue,
+		&normalizedValue,
+		&record.DedupeKey,
+		&defangedValue,
+		&hashAlgorithm,
+		&hashValue,
+		&stixPattern,
+		&firstObserved,
+		&lastObserved,
+		&record.ObservationCount,
+		&lifecycle,
+		&record.SupportingLinkCnt,
+		&editedAt,
+	); err != nil {
+		return IndicatorProjectionRecord{}, fmt.Errorf("scan indicator projection record: %w", err)
+	}
+
+	record.RecordID = uuid.MustParse(recordIDRaw)
+	record.IncidentID = uuid.MustParse(incidentIDRaw)
+	if normalizedValue.Valid {
+		record.NormalizedValue = stringPointer(normalizedValue.String)
+	}
+	if defangedValue.Valid {
+		record.DefangedValue = stringPointer(defangedValue.String)
+	}
+	if hashAlgorithm.Valid {
+		record.HashAlgorithm = stringPointer(hashAlgorithm.String)
+	}
+	if hashValue.Valid {
+		record.HashValue = stringPointer(hashValue.String)
+	}
+	if stixPattern.Valid {
+		record.STIXPattern = stringPointer(stixPattern.String)
+	}
+	if firstObserved.Valid {
+		value := firstObserved.Time.UTC()
+		record.FirstObservedAt = &value
+	}
+	if lastObserved.Valid {
+		value := lastObserved.Time.UTC()
+		record.LastObservedAt = &value
+	}
+	if lifecycle.Valid {
+		record.LifecycleSummary = stringPointer(lifecycle.String)
+	}
+	if editedAt.Valid {
+		record.UpdatedAt = editedAt.Time.UTC()
+	}
+	return record, nil
 }
