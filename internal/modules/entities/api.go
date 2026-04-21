@@ -41,6 +41,13 @@ type HostRecord struct {
 	FQDN                  *string
 	Hostname              *string
 	HostState             string
+	LinkedEventCount      int
+	EvidenceCount         int
+	Location              *string
+	OSPlatform            *string
+	BusinessOwner         *string
+	Criticality           *string
+	ContainmentStatus     *string
 	MergedIntoRecordID    *uuid.UUID
 	EntityOrigin          string
 	SeedMentionID         *uuid.UUID
@@ -62,6 +69,11 @@ type IdentityRecord struct {
 	Email                 *string
 	SamAccountName        *string
 	IdentityState         string
+	LinkedEventCount      int
+	EvidenceCount         int
+	PrivilegeLevel        *string
+	MFAState              *string
+	ResetStatus           *string
 	MergedIntoRecordID    *uuid.UUID
 	EntityOrigin          string
 	SeedMentionID         *uuid.UUID
@@ -230,20 +242,20 @@ func BuildHostRow(record HostRecord) map[string]any {
 			"host.hostname":           map[string]any{"value": derefString(record.Hostname)},
 			"host.aliases":            map[string]any{"value": collectionValue(false, aliasCollectionItems(record.SuggestionOnlyAliases))},
 			"host.host_state":         map[string]any{"value": record.HostState},
-			"host.linked_event_count": map[string]any{"value": 0},
-			"host.evidence_count":     map[string]any{"value": 0},
-			"host.location":           map[string]any{"value": nil},
-			"host.os_platform":        map[string]any{"value": nil},
-			"host.business_owner":     map[string]any{"value": nil},
-			"host.criticality":        map[string]any{"value": nil},
-			"host.containment_status": map[string]any{"value": nil},
+			"host.linked_event_count": map[string]any{"value": record.LinkedEventCount},
+			"host.evidence_count":     map[string]any{"value": record.EvidenceCount},
+			"host.location":           map[string]any{"value": derefString(record.Location)},
+			"host.os_platform":        map[string]any{"value": derefString(record.OSPlatform)},
+			"host.business_owner":     map[string]any{"value": derefString(record.BusinessOwner)},
+			"host.criticality":        map[string]any{"value": derefString(record.Criticality)},
+			"host.containment_status": map[string]any{"value": derefString(record.ContainmentStatus)},
 			"host.edited_at":          map[string]any{"value": formatTimestamp(record.UpdatedAt)},
 		},
 	}
 	row["group_values"] = map[string]any{
 		"host.host_state":         record.HostState,
-		"host.criticality":        nil,
-		"host.containment_status": nil,
+		"host.criticality":        derefString(record.Criticality),
+		"host.containment_status": derefString(record.ContainmentStatus),
 	}
 	return row
 }
@@ -261,19 +273,19 @@ func BuildIdentityRow(record IdentityRecord) map[string]any {
 			"identity.sam_account_name":   map[string]any{"value": derefString(record.SamAccountName)},
 			"identity.aliases":            map[string]any{"value": collectionValue(false, aliasCollectionItems(record.SuggestionOnlyAliases))},
 			"identity.identity_state":     map[string]any{"value": record.IdentityState},
-			"identity.linked_event_count": map[string]any{"value": 0},
-			"identity.evidence_count":     map[string]any{"value": 0},
-			"identity.privilege_level":    map[string]any{"value": nil},
-			"identity.mfa_state":          map[string]any{"value": nil},
-			"identity.reset_status":       map[string]any{"value": nil},
+			"identity.linked_event_count": map[string]any{"value": record.LinkedEventCount},
+			"identity.evidence_count":     map[string]any{"value": record.EvidenceCount},
+			"identity.privilege_level":    map[string]any{"value": derefString(record.PrivilegeLevel)},
+			"identity.mfa_state":          map[string]any{"value": derefString(record.MFAState)},
+			"identity.reset_status":       map[string]any{"value": derefString(record.ResetStatus)},
 			"identity.edited_at":          map[string]any{"value": formatTimestamp(record.UpdatedAt)},
 		},
 	}
 	row["group_values"] = map[string]any{
 		"identity.identity_state":  record.IdentityState,
-		"identity.privilege_level": nil,
-		"identity.mfa_state":       nil,
-		"identity.reset_status":    nil,
+		"identity.privilege_level": derefString(record.PrivilegeLevel),
+		"identity.mfa_state":       derefString(record.MFAState),
+		"identity.reset_status":    derefString(record.ResetStatus),
 	}
 	return row
 }

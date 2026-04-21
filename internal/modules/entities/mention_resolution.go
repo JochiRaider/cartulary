@@ -49,6 +49,9 @@ func (s *Store) ResolveOrCreateFromMentionTx(ctx context.Context, tx pgx.Tx, act
 			if err != nil {
 				return MentionResolutionResult{}, err
 			}
+			if err := upsertHostProjectionTx(ctx, tx, record); err != nil {
+				return MentionResolutionResult{}, err
+			}
 			afterRow := BuildHostRow(record)
 			if beforeRow != nil && reflect.DeepEqual(beforeRow, afterRow) {
 				operationKind = ""
@@ -81,6 +84,9 @@ func (s *Store) ResolveOrCreateFromMentionTx(ctx context.Context, tx pgx.Tx, act
 		} else {
 			record, beforeRow, operationKind, _, err := s.upsertIdentityWithInputTx(ctx, tx, actor, mention.IncidentID, identityInputFromMention(mentionRecordFromAction(mention)), now)
 			if err != nil {
+				return MentionResolutionResult{}, err
+			}
+			if err := upsertIdentityProjectionTx(ctx, tx, record); err != nil {
 				return MentionResolutionResult{}, err
 			}
 			afterRow := BuildIdentityRow(record)

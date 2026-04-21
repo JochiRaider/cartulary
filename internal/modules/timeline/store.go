@@ -21,6 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 var (
@@ -127,14 +128,20 @@ func (s *Store) GetRecordIncident(ctx context.Context, recordID uuid.UUID) (uuid
 	return incidentID, nil
 }
 
-func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID) ([]map[string]any, error) {
-	rows, err := sqlc.New(s.pool).ListTimelineProjectionRows(ctx, pgUUID(incidentID))
+func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error) {
+	sqlText, args, err := buildTimelineQuerySQL(incidentID, query)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.pool.Query(ctx, sqlText, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list timeline projection rows: %w", err)
 	}
-	result := make([]map[string]any, 0, len(rows))
-	for _, row := range rows {
-		projected, err := projectedRecordFromSQL(row)
+	defer rows.Close()
+
+	result := make([]map[string]any, 0)
+	for rows.Next() {
+		projected, err := scanProjectedRecord(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -142,6 +149,9 @@ func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID) ([]map[stri
 			return nil, err
 		}
 		result = append(result, BuildRow(projected))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate timeline projection rows: %w", err)
 	}
 	return result, nil
 }
@@ -863,6 +873,271 @@ func projectedRecordFromSQL(row sqlc.TimelineGridProjection) (projectedRecord, e
 		HasEvidence:           row.HasEvidence,
 		HasUnresolvedMentions: row.HasUnresolvedMentions,
 	}, nil
+}
+
+func scanProjectedRecord(scanner interface {
+	Scan(dest ...any) error
+}) (projectedRecord, error) {
+	var row sqlc.TimelineGridProjection
+	if err := scanner.Scan(
+		&row.RecordID,
+		&row.IncidentID,
+		&row.RowVersion,
+		&row.OccurredAt,
+		&row.Summary,
+		&row.Details,
+		&row.SourceText,
+		&row.RecordedAt,
+		&row.EditedAt,
+		&row.SortTs,
+		&row.CaptureState,
+		&row.ReplacementRecordID,
+		&row.OccurredDay,
+		&row.RecordedDay,
+		&row.EvidenceCount,
+		&row.HasEvidence,
+		&row.HasUnresolvedMentions,
+	); err != nil {
+		return projectedRecord{}, fmt.Errorf("scan timeline projection row: %w", err)
+	}
+	return projectedRecordFromSQL(row)
+}
+
+var timelineSortExpressions = map[string]string{
+	"record_id":                        "t.record_id",
+	"timeline.sort_ts":                 "t.sort_ts",
+	"timeline.summary":                 "t.summary",
+	"timeline.evidence_count":          "t.evidence_count",
+	"timeline.edited_at":               "t.edited_at",
+	"timeline.capture_state":           "t.capture_state",
+	"timeline.occurred_day":            "t.occurred_day",
+	"timeline.recorded_day":            "t.recorded_day",
+	"timeline.has_evidence":            "t.has_evidence",
+	"timeline.has_unresolved_mentions": "t.has_unresolved_mentions",
+}
+
+func buildTimelineQuerySQL(incidentID uuid.UUID, query viewschema.QueryMeta) (string, []any, error) {
+	var builder strings.Builder
+	builder.WriteString(`
+SELECT
+    t.record_id,
+    t.incident_id,
+    t.row_version,
+    t.occurred_at,
+    t.summary,
+    t.details,
+    t.source_text,
+    t.recorded_at,
+    t.edited_at,
+    t.sort_ts,
+    t.capture_state,
+    t.replacement_record_id,
+    t.occurred_day,
+    t.recorded_day,
+    t.evidence_count,
+    t.has_evidence,
+    t.has_unresolved_mentions
+  FROM timeline_grid_projection t
+ WHERE t.incident_id = $1`)
+
+	args := []any{incidentID}
+	for _, filter := range query.Filters {
+		if err := appendTimelineFilter(&builder, &args, filter); err != nil {
+			return "", nil, err
+		}
+	}
+
+	builder.WriteString(" ORDER BY ")
+	for index, sortEntry := range query.Sort {
+		if index > 0 {
+			builder.WriteString(", ")
+		}
+		expr, ok := timelineSortExpressions[sortEntry.FieldKey]
+		if !ok {
+			return "", nil, fmt.Errorf("timeline query sort field %q not mapped", sortEntry.FieldKey)
+		}
+		builder.WriteString(expr)
+		if sortEntry.Direction == "desc" {
+			builder.WriteString(" DESC")
+		} else {
+			builder.WriteString(" ASC")
+		}
+	}
+
+	return builder.String(), args, nil
+}
+
+func appendTimelineFilter(builder *strings.Builder, args *[]any, filter viewschema.Filter) error {
+	switch filter.FieldKey {
+	case "timeline.occurred_day":
+		return appendDateFilterClause(builder, args, "t.occurred_day", filter)
+	case "timeline.recorded_day":
+		return appendDateFilterClause(builder, args, "t.recorded_day", filter)
+	case "timeline.capture_state":
+		return appendStringFilterClause(builder, args, "t.capture_state", filter)
+	case "timeline.has_evidence":
+		return appendBoolFilterClause(builder, args, "t.has_evidence", filter)
+	case "timeline.has_unresolved_mentions":
+		return appendBoolFilterClause(builder, args, "t.has_unresolved_mentions", filter)
+	case "timeline.tags":
+		return appendTimelineTagFilterClause(builder, args, filter)
+	default:
+		return fmt.Errorf("timeline query filter field %q not mapped", filter.FieldKey)
+	}
+}
+
+func appendTimelineTagFilterClause(builder *strings.Builder, args *[]any, filter viewschema.Filter) error {
+	values := stringValues(filter.Arg["values"])
+	switch filter.Op {
+	case "contains_any":
+		builder.WriteString(`
+   AND EXISTS (
+        SELECT 1
+          FROM record_tags rt
+         WHERE rt.incident_id = t.incident_id
+           AND rt.record_id = t.record_id
+           AND rt.deleted_at IS NULL
+           AND rt.normalized_tag_name = ANY(`)
+		builder.WriteString(bindWithCast(args, values, "text[]"))
+		builder.WriteString(`)
+   )`)
+		return nil
+	case "contains_all":
+		for _, value := range values {
+			builder.WriteString(`
+   AND EXISTS (
+        SELECT 1
+          FROM record_tags rt
+         WHERE rt.incident_id = t.incident_id
+           AND rt.record_id = t.record_id
+           AND rt.deleted_at IS NULL
+           AND rt.normalized_tag_name = `)
+			builder.WriteString(bind(args, value))
+			builder.WriteString(`
+   )`)
+		}
+		return nil
+	default:
+		return fmt.Errorf("timeline tag operator %q not mapped", filter.Op)
+	}
+}
+
+func appendStringFilterClause(builder *strings.Builder, args *[]any, expr string, filter viewschema.Filter) error {
+	switch filter.Op {
+	case "eq":
+		return appendEqualityClause(builder, args, expr, filter.Arg)
+	default:
+		return fmt.Errorf("string filter operator %q not mapped", filter.Op)
+	}
+}
+
+func appendBoolFilterClause(builder *strings.Builder, args *[]any, expr string, filter viewschema.Filter) error {
+	switch filter.Op {
+	case "eq":
+		return appendEqualityClause(builder, args, expr, filter.Arg)
+	default:
+		return fmt.Errorf("bool filter operator %q not mapped", filter.Op)
+	}
+}
+
+func appendDateFilterClause(builder *strings.Builder, args *[]any, expr string, filter viewschema.Filter) error {
+	switch filter.Op {
+	case "eq":
+		return appendEqualityClauseWithCast(builder, args, expr, filter.Arg, "date")
+	case "range":
+		return appendRangeClause(builder, args, expr, filter.Arg, "date")
+	default:
+		return fmt.Errorf("date filter operator %q not mapped", filter.Op)
+	}
+}
+
+func appendEqualityClause(builder *strings.Builder, args *[]any, expr string, arg map[string]any) error {
+	return appendEqualityClauseWithCast(builder, args, expr, arg, "")
+}
+
+func appendEqualityClauseWithCast(builder *strings.Builder, args *[]any, expr string, arg map[string]any, cast string) error {
+	if value, ok := arg["value"]; ok {
+		if value == nil {
+			builder.WriteString("\n   AND ")
+			builder.WriteString(expr)
+			builder.WriteString(" IS NULL")
+			return nil
+		}
+		builder.WriteString("\n   AND ")
+		builder.WriteString(expr)
+		builder.WriteString(" = ")
+		builder.WriteString(bindWithCast(args, value, cast))
+		return nil
+	}
+
+	values, ok := arg["values"].([]any)
+	if !ok || len(values) == 0 {
+		return fmt.Errorf("missing equality values for %s", expr)
+	}
+	builder.WriteString("\n   AND (")
+	for index, value := range values {
+		if index > 0 {
+			builder.WriteString(" OR ")
+		}
+		builder.WriteString(expr)
+		builder.WriteString(" = ")
+		builder.WriteString(bindWithCast(args, value, cast))
+	}
+	builder.WriteString(")")
+	return nil
+}
+
+func appendRangeClause(builder *strings.Builder, args *[]any, expr string, arg map[string]any, cast string) error {
+	for _, bound := range []struct {
+		Key string
+		Op  string
+	}{
+		{Key: "gt", Op: ">"},
+		{Key: "gte", Op: ">="},
+		{Key: "lt", Op: "<"},
+		{Key: "lte", Op: "<="},
+	} {
+		value, ok := arg[bound.Key]
+		if !ok {
+			continue
+		}
+		builder.WriteString("\n   AND ")
+		builder.WriteString(expr)
+		builder.WriteByte(' ')
+		builder.WriteString(bound.Op)
+		builder.WriteByte(' ')
+		builder.WriteString(bindWithCast(args, value, cast))
+	}
+	return nil
+}
+
+func bind(args *[]any, value any) string {
+	return bindWithCast(args, value, "")
+}
+
+func bindWithCast(args *[]any, value any, cast string) string {
+	*args = append(*args, value)
+	placeholder := fmt.Sprintf("$%d", len(*args))
+	if cast == "" {
+		return placeholder
+	}
+	return placeholder + "::" + cast
+}
+
+func stringValues(raw any) []string {
+	items, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	values := make([]string, 0, len(items))
+	for _, item := range items {
+		value, ok := item.(string)
+		if !ok {
+			continue
+		}
+		values = append(values, value)
+	}
+	return values
 }
 
 type mentionQueryer interface {

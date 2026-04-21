@@ -15,6 +15,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -85,32 +86,12 @@ type SupersedeRequest struct {
 	ReplacementRecordID *uuid.UUID
 }
 
-func DecodeTimelineQueryRequest(reader io.Reader) (map[string]json.RawMessage, *auth.APIError) {
-	if reader == nil {
-		return map[string]json.RawMessage{}, nil
+func DecodeViewQueryRequest(reader io.Reader, viewSchemaID string) (viewschema.QueryMeta, *auth.APIError) {
+	query, err := viewquery.Decode(reader, viewSchemaID)
+	if err != nil {
+		return viewschema.QueryMeta{}, invalidViewQueryValidation(err)
 	}
-	decoder := json.NewDecoder(reader)
-	var raw map[string]json.RawMessage
-	if err := decoder.Decode(&raw); err != nil {
-		if err == io.EOF {
-			return map[string]json.RawMessage{}, nil
-		}
-		return nil, invalidViewQuery("", "request_not_object")
-	}
-	if len(raw) != 0 {
-		for key := range raw {
-			return nil, invalidViewQuery(key, "unknown_field")
-		}
-	}
-	return raw, nil
-}
-
-func DefaultViewQueryMeta(viewSchemaID string) any {
-	schema, ok := viewschema.Lookup(viewSchemaID)
-	if !ok {
-		return nil
-	}
-	return schema.DefaultQueryMeta()
+	return query.Meta, nil
 }
 
 func DecodeTimelineCreateRequest(reader io.Reader) (CreateRequest, *auth.APIError) {
@@ -463,6 +444,37 @@ func invalidViewQuery(field string, reasonCode string) *auth.APIError {
 	}
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
+	}
+	return &auth.APIError{
+		Status:  http.StatusBadRequest,
+		Code:    "invalid_view_query",
+		Message: "invalid view query",
+		Details: details,
+	}
+}
+
+func invalidViewQueryValidation(err *viewquery.ValidationError) *auth.APIError {
+	if err == nil {
+		return invalidViewQuery("", "")
+	}
+	details := map[string]any{}
+	if err.Field != "" {
+		details["field"] = err.Field
+	}
+	if err.FieldKey != "" {
+		details["field_key"] = err.FieldKey
+	}
+	if err.FilterIndex != nil {
+		details["filter_index"] = *err.FilterIndex
+	}
+	if err.ReasonCode != "" {
+		details["reason_code"] = err.ReasonCode
+	}
+	if err.RequestedCount != nil {
+		details["requested_count"] = *err.RequestedCount
+	}
+	if err.MaxCount != nil {
+		details["max_count"] = *err.MaxCount
 	}
 	return &auth.APIError{
 		Status:  http.StatusBadRequest,

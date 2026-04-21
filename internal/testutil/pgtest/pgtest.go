@@ -17,7 +17,10 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
+
+const postgresImage = "postgres:16-alpine"
 
 type Harness struct {
 	Container testcontainers.Container
@@ -69,9 +72,23 @@ func StartShared(ctx context.Context) (*Harness, error) {
 	return harness, nil
 }
 
+func StopShared(ctx context.Context) error {
+	sharedHarnessMu.Lock()
+	defer sharedHarnessMu.Unlock()
+
+	if sharedHarness == nil || sharedHarness.Container == nil {
+		sharedHarness = nil
+		return nil
+	}
+
+	container := sharedHarness.Container
+	sharedHarness = nil
+	return container.Terminate(ctx)
+}
+
 func startHarness(ctx context.Context) (*Harness, error) {
 	req := testcontainers.ContainerRequest{
-		Image:        "postgres:16-alpine",
+		Image:        postgresImage,
 		ExposedPorts: []string{"5432/tcp"},
 		Env: map[string]string{
 			"POSTGRES_DB":       "postgres",
@@ -81,12 +98,17 @@ func startHarness(ctx context.Context) (*Harness, error) {
 		WaitingFor: wait.ForListeningPort("5432/tcp").WithStartupTimeout(60 * time.Second),
 	}
 
-	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
+	container, err := testcontainersx.StartWithRetry(ctx, testcontainersx.StartConfig{
+		Service: "postgres testcontainer",
+		Image:   postgresImage,
+	}, func(ctx context.Context) (testcontainers.Container, error) {
+		return testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+			ContainerRequest: req,
+			Started:          true,
+		})
 	})
 	if err != nil {
-		return nil, fmt.Errorf("start postgres testcontainer: %w", err)
+		return nil, err
 	}
 
 	host, err := container.Host(ctx)
@@ -212,6 +234,7 @@ func (h *Harness) Close(ctx context.Context) error {
 	if h == nil || h.Container == nil {
 		return nil
 	}
+	// Shared harnesses stay alive until StopShared or test-process teardown.
 	if h.shared {
 		return nil
 	}

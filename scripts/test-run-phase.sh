@@ -152,8 +152,75 @@ fi
 assert_contains "$go_skip_output" "go test inventory requires top-level pass" "run-go-phase skip message"
 assert_contains "$go_skip_output" "runner=go_test" "run-go-phase skip runner"
 
+go_pause_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-phase-pause.XXXXXX")"
+cleanup_paths+=("$go_pause_dir")
+cat >"$go_pause_dir/run_go_phase_pause_test.go" <<'EOF'
+package rungophasepause
+
+import "testing"
+
+func TestPhase1_RunGoPhasePause_ProcessSmoke(t *testing.T) {
+	t.Parallel()
+	t.Fatalf("actual fatal line")
+}
+EOF
+
+go_pause_rel="./${go_pause_dir#"$ROOT_DIR"/}"
+set +e
+go_pause_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+    "$GO_HELPER" "run-go-phase pause-filter smoke" '^(TestPhase1_.*_ProcessSmoke)$' -- "$go_bin" test "$go_pause_rel" -parallel 2 \
+    2>&1
+)"
+go_pause_status=$?
+set -e
+if [[ "$go_pause_status" -eq 0 ]]; then
+  fail "run-go-phase pause-filter: expected non-zero exit status"
+fi
+assert_contains "$go_pause_output" "failure: run-go-phase pause-filter smoke" "run-go-phase pause-filter label"
+assert_contains "$go_pause_output" "actual fatal line" "run-go-phase pause-filter message"
+assert_not_contains "$go_pause_output" "message==== PAUSE" "run-go-phase pause-filter pause message"
+assert_not_contains "$go_pause_output" "message==== CONT" "run-go-phase pause-filter cont message"
+
+go_pkg_setup_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-phase-package-setup.XXXXXX")"
+cleanup_paths+=("$go_pkg_setup_dir")
+cat >"$go_pkg_setup_dir/run_go_phase_package_setup_test.go" <<'EOF'
+package rungophasepackagesetup
+
+import (
+	"fmt"
+	"os"
+	"testing"
+)
+
+func TestMain(m *testing.M) {
+	fmt.Fprintln(os.Stderr, "start shared process harnesses: package setup failed")
+	os.Exit(1)
+}
+
+func TestPhase1_RunGoPhasePackageSetup_ProcessSmoke(t *testing.T) {}
+EOF
+
+go_pkg_setup_rel="./${go_pkg_setup_dir#"$ROOT_DIR"/}"
+set +e
+go_pkg_setup_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+    "$GO_HELPER" "run-go-phase phase1 package setup smoke" '^(TestPhase1_.*_ProcessSmoke)$' -- "$go_bin" test "$go_pkg_setup_rel" \
+    2>&1
+)"
+go_pkg_setup_status=$?
+set -e
+if [[ "$go_pkg_setup_status" -eq 0 ]]; then
+  fail "run-go-phase package setup: expected non-zero exit status"
+fi
+assert_contains "$go_pkg_setup_output" "failure: run-go-phase phase1 package setup smoke" "run-go-phase package setup label"
+assert_contains "$go_pkg_setup_output" "coverage=support" "run-go-phase package setup coverage"
+assert_contains "$go_pkg_setup_output" "phase=phase1" "run-go-phase package setup phase"
+assert_contains "$go_pkg_setup_output" "symbol_or_title=(package setup)" "run-go-phase package setup title"
+assert_contains "$go_pkg_setup_output" "message=start shared process harnesses: package setup failed" "run-go-phase package setup message"
+
 go_manifest_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-manifest-phase-smoke.XXXXXX")"
-cleanup_paths+=("$go_manifest_dir" "$ROOT_DIR/tools/phase9_test_map.json" "$ROOT_DIR/tools/phase10_test_map.json")
+cleanup_paths+=("$go_manifest_dir" "$ROOT_DIR/tools/phase9_test_map.json" "$ROOT_DIR/tools/phase10_test_map.json" "$ROOT_DIR/tools/phase11_test_map.json")
 cat >"$go_manifest_dir/run_go_manifest_phase_smoke_test.go" <<'EOF'
 package rungomanifestphasesmoke
 
@@ -224,3 +291,59 @@ if [[ "$go_manifest_skip_status" -eq 0 ]]; then
 fi
 assert_contains "$go_manifest_skip_output" "failure: run-go-manifest-phase skip" "run-go-manifest-phase skip label"
 assert_contains "$go_manifest_skip_output" "go test inventory requires top-level pass" "run-go-manifest-phase skip message"
+
+go_manifest_pkg_setup_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-manifest-phase-package-setup.XXXXXX")"
+cleanup_paths+=("$go_manifest_pkg_setup_dir")
+cat >"$go_manifest_pkg_setup_dir/run_go_manifest_phase_package_setup_test.go" <<'EOF'
+package rungomanifestphasepackagesetup
+
+import (
+	"fmt"
+	"os"
+	"testing"
+)
+
+func TestMain(m *testing.M) {
+	fmt.Fprintln(os.Stderr, "manifest package setup failed")
+	os.Exit(1)
+}
+
+func TestPhase11_RunGoManifestPackageSetup_U_11_01(t *testing.T) {}
+EOF
+
+go_manifest_pkg_setup_rel="./${go_manifest_pkg_setup_dir#"$ROOT_DIR"/}"
+cat >"$ROOT_DIR/tools/phase11_test_map.json" <<EOF
+{
+  "expected_ids": ["U-11-01"],
+  "unit": [
+    {
+      "id": "U-11-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "$go_manifest_pkg_setup_rel",
+      "file": "${go_manifest_pkg_setup_rel#./}/run_go_manifest_phase_package_setup_test.go",
+      "symbol": "TestPhase11_RunGoManifestPackageSetup_U_11_01",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "smoke"
+    }
+  ]
+}
+EOF
+
+set +e
+go_manifest_pkg_setup_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  NODE_BIN="$node_bin" \
+    "$GO_MANIFEST_HELPER" "run-go-manifest-phase package setup" phase11 unit authoritative backend_unit -- "$go_bin" test "$go_manifest_pkg_setup_rel" \
+    2>&1
+)"
+go_manifest_pkg_setup_status=$?
+set -e
+if [[ "$go_manifest_pkg_setup_status" -eq 0 ]]; then
+  fail "run-go-manifest-phase package setup: expected non-zero exit status"
+fi
+assert_contains "$go_manifest_pkg_setup_output" "failure: run-go-manifest-phase package setup" "run-go-manifest-phase package setup label"
+assert_contains "$go_manifest_pkg_setup_output" "coverage=authoritative" "run-go-manifest-phase package setup coverage"
+assert_contains "$go_manifest_pkg_setup_output" "phase=phase11" "run-go-manifest-phase package setup phase"
+assert_contains "$go_manifest_pkg_setup_output" "symbol_or_title=(package setup)" "run-go-manifest-phase package setup title"
+assert_contains "$go_manifest_pkg_setup_output" "message=manifest package setup failed" "run-go-manifest-phase package setup message"

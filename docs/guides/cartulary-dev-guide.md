@@ -201,6 +201,13 @@ The repo-control files MUST select a `react-data-grid` package version whose pac
 
 `/apps/web` or the adapter-owned browser entry MUST import the published stylesheet exactly once before rendering any workbook grid. A missing stylesheet import is a bootstrap-smoke failure.
 
+The repo-local package boundary around that grid stack is fixed:
+
+- `/packages/view-contracts` parses generated contract artifacts and exposes TypeScript-consumable surface, field, sort, filter, grouping, and capability metadata.
+- `/packages/grid-adapter` owns direct `react-data-grid` imports, stylesheet ownership, vendor-event translation, row-identity assertions, and presentation-only group-row or header behavior.
+- `/packages/test-utils` owns shared selector builders and browser helpers for sort, filter, grouping, scroll, paste, and anchor assertions reused across functional and visual suites.
+- `/apps/web` owns workbook controllers, query state, HTTP mutation submission, pending replay, and WebSocket refresh behavior. Tests that target those controllers MUST import the workbook or controller modules directly rather than routing through `App.tsx` re-exports.
+
 ### 2.4 Frontend dev and build tools
 
 | Tool                               | Purpose                                            |
@@ -689,6 +696,7 @@ The base implementation MUST NOT design ordinary workflows around disabled virtu
 - The controlled-state mapping table in §6.6 defines owner, default, persistence boundary, and failure behavior for every listed RDG-facing surface.
 - Every grid-editable field resolves to an explicit editor adapter, and `editable=true` alone does not make a cell editable.
 - The frontend imports the RDG stylesheet exactly once before workbook grid rendering.
+- Frontend lint, type-check, and unit targets include `/packages/grid-adapter`, `/packages/view-contracts`, and `/packages/test-utils`, not only `/apps/web`.
 - Sparse patch reducers preserve unchanged row object references and never use visible row index as identity.
 - Grid changes in the fragility trigger list run the grid-adapter harness, focused browser tests, and visual-regression fixtures.
 
@@ -724,6 +732,8 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make build`         | Produce the app build with embedded frontend assets                                                          |
 
 If the repository uses both a root task-surface `Makefile` and `AGENTS.md`, both MUST be updated together when this task surface changes.
+
+Repo-control helper targets MAY expose narrower frontend or browser slices. When present, `make frontend-unit`, `make browser-e2e-support`, and `make browser-e2e-visual` SHOULD remain stable helper targets under the same root task surface. `make browser-e2e-visual` is the dedicated Playwright screenshot suite and belongs in the isolated browser stage rather than the shared-stack functional stage.
 
 ### 7.2 Verification tiers
 
@@ -772,13 +782,18 @@ Production packaging MUST embed the built frontend assets into the application d
 - projection maintenance,
 - migration application.
 
+`backend-integration` and `backend-process` both depend on a responsive Docker/testcontainers environment. When Docker startup is unavailable or unhealthy, those failures should surface as package/setup failures in the test harness and be treated as infrastructure prerequisites rather than Cartulary application-behavior regressions.
+
 **Frontend unit and component tests** cover:
 
 - cell renderers,
+- grid-adapter package invariants and capability gating,
 - the sync engine,
 - conflict-state transitions,
 - view-contract-driven behavior,
-- WebSocket message handling.
+- workbook controller query-state behavior,
+- WebSocket message handling,
+- direct imports of workbook or controller modules rather than `App.tsx` passthrough exports.
 
 **Frontend end-to-end tests** MUST cover at minimum:
 
@@ -788,7 +803,9 @@ Production packaging MUST embed the built frontend assets into the application d
 - multi-cell paste with partial conflicts,
 - sort, filter, or group changes while an edit is pending,
 - startup-surface fallback,
-- evidence preview blocked-state handling.
+- evidence preview blocked-state handling,
+- workbook visual screenshots for the exposed grid states under the owned Playwright stack,
+- reuse of shared browser helpers from `/packages/test-utils` rather than app-local duplicated selector choreography.
 
 ### Verification
 

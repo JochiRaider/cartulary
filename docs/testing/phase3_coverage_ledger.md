@@ -5,6 +5,7 @@ This ledger is the human-readable companion to `tools/phase3_test_map.json`.
 - Scope: Timeline workbook create, patch, query, lifecycle actions, replay stability, projection rebuild, save-state UI, and browser-visible collaboration behavior.
 - Normative owners: Core 03 `§6`, `§7`, `§15`; Core 01 `§3.3.5`, `§7.4.1`; Core 04 `AC-043`, `AC-191` through `AC-199`, `AC-329` through `AC-331`.
 - Authority: `tools/phase3_test_map.json` is the enforced Phase 3 traceability source. This ledger summarizes the same surface in prose and does not control the mechanical row inventory.
+- Timeline zero-field create traceability: cite Core 01 `REQ-01-057` plus Core 04 `AC-191` and `AC-192` for the owner rule. `contracts/view-schemas/cartulary.view.timeline.v1.json` is derived evidence only and is not the behavior source.
 - Support-only evidence: `internal/modules/timeline/phase3_support_test.go` and `internal/modules/timeline/phase3_support_integration_test.go` remain regression coverage only. They do not satisfy authoritative `U-3-*`, `I-3-*`, or `E-3-*` rows.
 
 ## Unit

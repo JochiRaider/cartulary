@@ -989,6 +989,7 @@ Pure adapter mapping tests must not require a real browser. Lifecycle, focus, se
 
 - §14.8 test IDs remain unique.
 - §14.8 covers keyboard/focus, editability, copy/paste, drag fill, resizing, virtualization, frozen columns, `colSpan`, treegrid, CSS import, renderer precedence, row identity, and row-object identity.
+- §14.8 includes explicit disabled-capability assertions and invariant failures for missing or duplicate `record_id`, and it preserves stable anchors by `record_id + field_key` through sorted, filtered, grouped, and invalidated refreshes.
 - No §14.8 row treats visible row index as a valid mutation identity.
 
 ### 14.9 Workbook visual-regression harness
@@ -996,6 +997,8 @@ Pure adapter mapping tests must not require a real browser. Lifecycle, focus, se
 The repository must provide one browser visual-regression harness for workbook surfaces. The harness must use deterministic seed data, deterministic viewport size, deterministic browser zoom, deterministic fixture ordering, and masked dynamic regions for timestamps, cursors, avatars, generated IDs, and clock-derived labels.
 
 The default viewport for this harness is `1440x900` CSS pixels unless the repo-local visual-test configuration declares a stricter fixed viewport. Visual regression is a developer gate for changes to the grid adapter, renderer, editor, workbook shell, theme, presence UI, conflict UI, saved-view UI, and coordination-surface grid UI. Visual regression results are implementation-quality evidence only. Public timed or fixture-sensitive claims still require Core 05 publication controls.
+
+The repository uses one owned-stack Playwright screenshot suite for this harness. It MUST NOT introduce a second visual runner just to satisfy workbook screenshot coverage.
 
 | Fixture ID     | Required visible state                                                                                      |
 | -------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -1022,6 +1025,7 @@ The default viewport for this harness is `1440x900` CSS pixels unless the repo-l
 - §14.9 includes `VFIX-GRID-01` through `VFIX-GRID-15`.
 - Visual fixtures distinguish loading, no rows, and ordinary empty group states.
 - Dynamic regions remain masked according to the harness rules in this section.
+- Guide-listed vendor capabilities that are not yet product-exposed are satisfied through explicit disabled-capability assertions, not pseudo-visual fixtures that imply support.
 
 ### 14.9A Grid browser-command harness
 
@@ -1029,18 +1033,25 @@ The browser test layer must provide shared helper commands for these interaction
 
 | Helper family        | Required behavior                                                                                                                                                           |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sort, filter, group  | Toggle header sort, apply or remove filter chips, change grouping controls, and assert that subsequent refreshes preserve Cartulary anchors by `record_id + field_key`.    |
 | Column resize        | Locate a header resize handle, perform pointer resize, support keyboard resize path when applicable, and assert final width or layout change through observable grid state. |
 | Drag fill            | Locate active editable cell drag handle, drag over target rows, release, and assert field-keyed mutation intents.                                                           |
 | Scroll-to-cell       | Scroll a target `record_id + field_key` into view and assert that focus, conflict state, and presence state attach to that anchor.                                          |
 | Tree expand/collapse | Toggle group rows through mouse and keyboard paths and assert ARIA expansion state.                                                                                         |
 | Paste matrix         | Paste a deterministic TSV matrix into visible cells and assert record-keyed creates or patches in visual paste order.                                                       |
+| Anchor assertion     | Provide a reusable assertion path for visible cell, conflict, presence, and save-state anchors keyed by `record_id + field_key` rather than visible row position.          |
 
 Individual tests may add local setup, but they must not reimplement low-level pointer choreography when a shared helper exists.
 
 **Acceptance criteria**:
 
 - The testing guide defines shared command families for column resize, drag fill, scroll-to-cell, tree expand/collapse, and paste matrix.
+- The testing guide defines shared command families for sort, filter, grouping, and anchor assertions in addition to the lower-level pointer helpers.
 - The command harness requires assertions against Cartulary anchors, not only vendor DOM state.
+
+### 14.9B Timeline zero-field-create traceability note
+
+Timeline zero-field create remains enabled when the addressed `view_schema_id` allows it. In repo-local traceability, cite Core 01 `REQ-01-057` as the owner of row-create request shape and zero-field-create eligibility, and cite Core 04 `AC-191` and `AC-192` as the conformance checks for the Timeline-specific `client_txn_id`-only create and forbidden-field rejection behavior. `contracts/view-schemas/cartulary.view.timeline.v1.json` is a derived artifact that reflects that owner rule; it is not the behavior owner.
 
 ### 14.10 Projection determinism and rebuild harness
 

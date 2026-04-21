@@ -12,7 +12,7 @@ import {
   createDraftRow,
   ensureDraftRow,
   TimelineWorkbook,
-} from "./App";
+} from "./WorkbookShell";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 

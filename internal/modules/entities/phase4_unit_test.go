@@ -13,10 +13,20 @@ import (
 	timeline "github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/assertx"
 	"github.com/JochiRaider/cartulary/internal/testutil/golden"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
+
+func mustDefaultQueryMeta(t testing.TB, viewSchemaID string) viewschema.QueryMeta {
+	t.Helper()
+	schema, ok := viewschema.Lookup(viewSchemaID)
+	if !ok {
+		t.Fatalf("view schema %q not registered", viewSchemaID)
+	}
+	return schema.DefaultQueryMeta()
+}
 
 // U-4-03 / REQ-02-034, REQ-02-038, REQ-02-054..REQ-02-055 / AC-020, AC-021, AC-186.
 func TestPhase4_CreateFromMention_U_4_03(t *testing.T) {
@@ -65,6 +75,21 @@ func TestPhase4_CreateFromMention_U_4_03(t *testing.T) {
 		}
 		if got := phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM hosts WHERE incident_id = $1`, incident.ID); got != 1 {
 			t.Fatalf("expected create-from-mention reuse to avoid creating a second host, got %d rows", got)
+		}
+		var (
+			projectedDisplayName string
+			projectedHostname    string
+			projectedState       string
+		)
+		if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT display_name, hostname, host_state
+  FROM host_grid_projection
+ WHERE record_id = $1
+`, golden.Phase4CanonicalHostRecordID).Scan(&projectedDisplayName, &projectedHostname, &projectedState); err != nil {
+			t.Fatalf("lookup host projection after create-from-mention reuse: %v", err)
+		}
+		if projectedDisplayName != "WS-023" || projectedHostname != "WS-023" || projectedState != "canonical" {
+			t.Fatalf("unexpected host projection after create-from-mention reuse: display=%q hostname=%q state=%q", projectedDisplayName, projectedHostname, projectedState)
 		}
 	})
 
@@ -121,6 +146,22 @@ SELECT identity_state, entity_origin, seed_entity_mention_id::text, display_name
 		if displayName != "alex.analyst@example.test" || !email.Valid || email.String != "alex.analyst@example.test" || samAccountName.Valid {
 			t.Fatalf("unexpected identity seed values: display=%q email=%v sam=%v", displayName, email, samAccountName)
 		}
+
+		var (
+			projectedDisplayName string
+			projectedEmail       sql.NullString
+			projectedState       string
+		)
+		if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT display_name, email::text, identity_state
+  FROM identity_grid_projection
+ WHERE record_id = $1
+`, result.RecordID).Scan(&projectedDisplayName, &projectedEmail, &projectedState); err != nil {
+			t.Fatalf("lookup identity projection after create-from-mention: %v", err)
+		}
+		if projectedDisplayName != displayName || !projectedEmail.Valid || projectedEmail.String != email.String || projectedState != state {
+			t.Fatalf("unexpected identity projection after create-from-mention: display=%q email=%v state=%q", projectedDisplayName, projectedEmail, projectedState)
+		}
 	})
 }
 
@@ -155,7 +196,7 @@ func TestPhase4_DismissRestoreMentionLifecycle_U_4_04(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create resolved relationship row: %v", err)
 	}
-	initialRows, err := timelineStore.QueryRows(context.Background(), incident.ID)
+	initialRows, err := timelineStore.QueryRows(context.Background(), incident.ID, mustDefaultQueryMeta(t, timeline.TimelineViewSchemaID))
 	if err != nil {
 		t.Fatalf("query initial timeline rows: %v", err)
 	}
@@ -190,7 +231,7 @@ SELECT COUNT(*)
 `, incident.ID, created.RecordID, golden.Phase4CanonicalHostRecordID); got != 0 {
 		t.Fatalf("expected dismiss to remove active derived link, got %d rows", got)
 	}
-	dismissedRows, err := timelineStore.QueryRows(context.Background(), incident.ID)
+	dismissedRows, err := timelineStore.QueryRows(context.Background(), incident.ID, mustDefaultQueryMeta(t, timeline.TimelineViewSchemaID))
 	if err != nil {
 		t.Fatalf("query timeline rows after dismiss: %v", err)
 	}
@@ -215,7 +256,7 @@ SELECT COUNT(*)
 	if restored.RawText != "WS-023" || restored.ResolvedRecordID != nil || restored.ResolutionMethod != nil {
 		t.Fatalf("expected durable restore-to-unresolved semantics, got %#v", restored)
 	}
-	restoredRows, err := timelineStore.QueryRows(context.Background(), incident.ID)
+	restoredRows, err := timelineStore.QueryRows(context.Background(), incident.ID, mustDefaultQueryMeta(t, timeline.TimelineViewSchemaID))
 	if err != nil {
 		t.Fatalf("query timeline rows after restore: %v", err)
 	}

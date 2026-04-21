@@ -548,7 +548,7 @@ func TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild(t *testing.T) {
 		t.Fatalf("expected zero-field query row to remain rough, got %#v", zeroFieldRow)
 	}
 
-	unsupportedQuery := doPhase3JSON(
+	sortedQuery := doPhase3JSON(
 		t,
 		http.MethodPost,
 		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/query",
@@ -557,9 +557,31 @@ func TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild(t *testing.T) {
 		},
 		withCookies(adminLogin.sessionCookie),
 	)
-	unsupportedBody := httptestx.RequireErrorEnvelope(t, unsupportedQuery, http.StatusBadRequest, "invalid_view_query")
-	unsupportedError := unsupportedBody["error"].(map[string]any)
-	httptestx.RequireClosedVocabularyRejected(t, unsupportedError["code"].(string), unsupportedError["details"].(map[string]any), "sort", "unknown_field")
+	sortedEnvelope := httptestx.RequireSuccessEnvelope(t, sortedQuery, http.StatusOK)
+	sortedMeta := sortedEnvelope["meta"].(map[string]any)["query"].(map[string]any)
+	sortedSort := sortedMeta["sort"].([]any)
+	if len(sortedSort) != 3 {
+		t.Fatalf("expected effective sort to include user sort plus default tail, got %#v", sortedSort)
+	}
+	if sortedSort[0].(map[string]any)["field_key"] != "timeline.summary" || sortedSort[0].(map[string]any)["direction"] != "asc" {
+		t.Fatalf("expected primary user sort on timeline.summary asc, got %#v", sortedSort)
+	}
+	if sortedSort[1].(map[string]any)["field_key"] != "timeline.sort_ts" || sortedSort[1].(map[string]any)["direction"] != "asc" {
+		t.Fatalf("expected default tail timeline.sort_ts asc, got %#v", sortedSort)
+	}
+	if sortedSort[2].(map[string]any)["field_key"] != "record_id" || sortedSort[2].(map[string]any)["direction"] != "asc" {
+		t.Fatalf("expected stable record_id asc tie-break, got %#v", sortedSort)
+	}
+	sortedRows := sortedEnvelope["data"].(map[string]any)["rows"].([]any)
+	if got := sortedRows[0].(map[string]any)["record_id"]; got != firstID {
+		t.Fatalf("expected timeline.summary asc to place Tie A first, got %#v", sortedRows)
+	}
+	if got := sortedRows[1].(map[string]any)["record_id"]; got != secondID {
+		t.Fatalf("expected timeline.summary asc to place Tie B second, got %#v", sortedRows)
+	}
+	if got := sortedRows[2].(map[string]any)["record_id"]; got != zeroFieldID {
+		t.Fatalf("expected null summary row to sort last, got %#v", sortedRows)
+	}
 
 	if _, err := db.ExecContext(context.Background(), `DELETE FROM timeline_grid_projection WHERE incident_id::text = $1`, incidentID); err != nil {
 		t.Fatalf("clear projection rows: %v", err)

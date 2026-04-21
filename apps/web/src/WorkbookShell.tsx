@@ -1,4 +1,25 @@
 import {
+  type GridActionsColumn,
+  type GridColumn,
+  type GridRow,
+  GridTable,
+  GridViewport,
+  reconcileRecordRows,
+} from "@cartulary/grid-adapter";
+import {
+  draftCellTestId,
+  gridGroupRowTestId,
+  gridShellTestId,
+  gridSortHeaderTestId,
+  relationshipItemsTestId,
+  rowCellTestId,
+  type WorkbookSurface,
+} from "@cartulary/test-utils";
+import {
+  requireViewContract,
+  resolveHeaderSortFieldKey,
+} from "@cartulary/view-contracts";
+import {
   type ChangeEvent,
   type FormEvent,
   type KeyboardEvent,
@@ -11,6 +32,18 @@ import {
   useState,
 } from "react";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
+import { WorkbookGridControls } from "./WorkbookGridControls";
+import {
+  applyFilterDraft,
+  buildQueryRequest,
+  defaultFilterDraft,
+  emptyWorkbookQueryState,
+  type FilterDraft,
+  removeFilterField,
+  toggleSortField,
+  updateGroupBy,
+  type WorkbookQueryState,
+} from "./workbookQuery";
 import {
   buildAutoResolutionNotices,
   buildInspectorMentions,
@@ -23,6 +56,9 @@ import {
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 const hostsViewSchemaId = "cartulary.view.hosts.v1";
 const identitiesViewSchemaId = "cartulary.view.identities.v1";
+const timelineContract = requireViewContract(timelineViewSchemaId);
+const hostsContract = requireViewContract(hostsViewSchemaId);
+const identitiesContract = requireViewContract(identitiesViewSchemaId);
 const csrfCookieName = "cartulary_csrf";
 const csrfHeaderName = "X-CSRF-Token";
 
@@ -74,6 +110,7 @@ type WorkbookRow = {
   collectionValues: Record<RelationshipDraftKey, CollectionItem[]>;
   relationshipDrafts: RelationshipDrafts;
   pendingSignature: string | null;
+  rawRow: TimelineApiRow | null;
 };
 
 type TimelineWorkbookProps = {
@@ -203,6 +240,19 @@ type EntityRow = {
     label: string;
     value: string;
   }>;
+};
+
+type ViewportContinuityFollowup = "none" | "entity-refresh";
+
+type ViewportContinuityState = {
+  token: number;
+  attemptVersion: number;
+  focusRowId: string;
+  preservedScroll: { top: number; left: number } | null;
+  followup: ViewportContinuityFollowup;
+  followupSettled: boolean;
+  baselineHostEntities: EntityRow[];
+  baselineIdentityEntities: EntityRow[];
 };
 
 type DismissedMention = {
@@ -341,6 +391,7 @@ export function createDraftRow(index: number): WorkbookRow {
     },
     relationshipDrafts: emptyRelationshipDrafts(),
     pendingSignature: null,
+    rawRow: null,
   };
 }
 
@@ -359,6 +410,58 @@ function readStringCell(
 function readNumberCell(row: EntityApiRow, fieldKey: string): number {
   const raw = row.cells[fieldKey]?.value;
   return typeof raw === "number" ? raw : 0;
+}
+
+function readCellValue(
+  row: TimelineApiRow | EntityApiRow | null,
+  fieldKey: string,
+): unknown {
+  return row?.cells[fieldKey]?.value ?? null;
+}
+
+function stringifyGridValue(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+  if (typeof value === "number") {
+    return String(value);
+  }
+  if (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    "items" in value &&
+    Array.isArray(value.items)
+  ) {
+    return value.items
+      .map((item) => {
+        if (!item || typeof item !== "object") {
+          return null;
+        }
+        const object = item as Record<string, unknown>;
+        return typeof object.display_text === "string"
+          ? object.display_text
+          : typeof object.raw_text === "string"
+            ? object.raw_text
+            : null;
+      })
+      .filter((item): item is string => item !== null)
+      .join(", ");
+  }
+  return "";
+}
+
+function timelineGroupLabel(row: WorkbookRow, fieldKey: string) {
+  const value = stringifyGridValue(readCellValue(row.rawRow, fieldKey)).trim();
+  return value === "" ? "Unassigned" : value;
+}
+
+function entityGroupLabel(row: EntityRow, fieldKey: string) {
+  const value = stringifyGridValue(readCellValue(row.rawRow, fieldKey)).trim();
+  return value === "" ? "Unassigned" : value;
 }
 
 function rowFromApi(row: TimelineApiRow): WorkbookRow {
@@ -382,6 +485,7 @@ function rowFromApi(row: TimelineApiRow): WorkbookRow {
     },
     relationshipDrafts: emptyRelationshipDrafts(),
     pendingSignature: null,
+    rawRow: row,
   };
 }
 
@@ -909,6 +1013,12 @@ export function TimelineWorkbook({
   const [autoResolutionNotices, setAutoResolutionNotices] = useState<
     AutoResolutionNotice[]
   >([]);
+  const [queryState, setQueryState] = useState<WorkbookQueryState>(() =>
+    emptyWorkbookQueryState(),
+  );
+  const [filterDraft, setFilterDraft] = useState<FilterDraft>(() =>
+    defaultFilterDraft(timelineContract),
+  );
   const draftCounterRef = useRef(2);
   const clientTxnRef = useRef(1);
   const pendingOpsRef = useRef(0);
@@ -925,6 +1035,9 @@ export function TimelineWorkbook({
   );
   const gridShellRef = useRef<HTMLDivElement | null>(null);
   const pendingScrollRef = useRef<{ top: number; left: number } | null>(null);
+  const viewportContinuityTokenRef = useRef(1);
+  const [viewportContinuity, setViewportContinuity] =
+    useState<ViewportContinuityState | null>(null);
 
   const queryPath = useMemo(
     () =>
@@ -933,6 +1046,10 @@ export function TimelineWorkbook({
         `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
       ),
     [apiBase, incidentId],
+  );
+  const queryBody = useMemo(
+    () => JSON.stringify(buildQueryRequest(timelineContract, queryState)),
+    [queryState],
   );
   const changeSocketURL = useMemo(
     () =>
@@ -972,17 +1089,41 @@ export function TimelineWorkbook({
     currentIncidentRole === "reviewer" ||
     currentIncidentRole === "admin";
 
-  const captureGridScroll = useCallback(() => {
+  const applyQueryFilter = useCallback(() => {
+    setQueryState((current) => applyFilterDraft(current, filterDraft));
+    setFilterDraft((current) => ({
+      ...current,
+      booleanValue: "",
+      value: "",
+    }));
+  }, [filterDraft]);
+
+  const handleQueryGroupByChange = useCallback((groupBy: string | null) => {
+    setQueryState((current) =>
+      updateGroupBy(timelineContract, current, groupBy),
+    );
+  }, []);
+
+  const handleQuerySortToggle = useCallback((fieldKey: string) => {
+    setQueryState((current) =>
+      toggleSortField(timelineContract, current, fieldKey),
+    );
+  }, []);
+
+  const currentGridScrollSnapshot = useCallback(() => {
     const element = gridShellRef.current;
     if (!element) {
-      pendingScrollRef.current = null;
-      return;
+      return null;
     }
-    pendingScrollRef.current = {
+    return {
       top: element.scrollTop,
       left: element.scrollLeft,
     };
   }, []);
+
+  const captureGridScroll = useCallback(() => {
+    pendingScrollRef.current = currentGridScrollSnapshot();
+  }, [currentGridScrollSnapshot]);
 
   const trackPendingSocketTxn = useCallback((clientTxnId: string) => {
     const existingTimeout =
@@ -1032,6 +1173,80 @@ export function TimelineWorkbook({
       });
     },
     [],
+  );
+
+  const beginViewportContinuity = useCallback(
+    (
+      focusRowId: string,
+      options: { followup?: ViewportContinuityFollowup } = {},
+    ) => {
+      const token = viewportContinuityTokenRef.current;
+      viewportContinuityTokenRef.current += 1;
+      const followup = options.followup ?? "none";
+      setViewportContinuity({
+        token,
+        attemptVersion: 0,
+        focusRowId,
+        preservedScroll: currentGridScrollSnapshot(),
+        followup,
+        followupSettled: followup === "none",
+        baselineHostEntities: hostEntities,
+        baselineIdentityEntities: identityEntities,
+      });
+      return token;
+    },
+    [currentGridScrollSnapshot, hostEntities, identityEntities],
+  );
+
+  const settleViewportContinuityFollowup = useCallback((token: number) => {
+    setViewportContinuity((current) => {
+      if (!current || current.token !== token) {
+        return current;
+      }
+      return {
+        ...current,
+        followupSettled: true,
+        attemptVersion: current.attemptVersion + 1,
+      };
+    });
+  }, []);
+
+  const clearViewportContinuity = useCallback((token: number) => {
+    setViewportContinuity((current) =>
+      current?.token === token ? null : current,
+    );
+  }, []);
+
+  const tryRestoreViewportContinuity = useCallback(
+    (continuity: ViewportContinuityState) => {
+      const element = document.querySelector<HTMLButtonElement>(
+        `[data-testid="row-${continuity.focusRowId}-inspect"]`,
+      );
+      if (element === null) {
+        return false;
+      }
+      window.focus();
+      element.focus({ preventScroll: true });
+      restoreGridScroll(continuity.preservedScroll);
+      return document.activeElement === element;
+    },
+    [restoreGridScroll],
+  );
+
+  const shouldHoldViewportContinuity = useCallback(
+    (continuity: ViewportContinuityState) => {
+      if (continuity.followup !== "entity-refresh") {
+        return false;
+      }
+      if (!continuity.followupSettled) {
+        return true;
+      }
+      return (
+        continuity.baselineHostEntities === hostEntities &&
+        continuity.baselineIdentityEntities === identityEntities
+      );
+    },
+    [hostEntities, identityEntities],
   );
 
   const restoreInputFocus = useCallback(
@@ -1207,6 +1422,14 @@ export function TimelineWorkbook({
         const focusKey = `${committed.key}:${options.focusField}`;
         setPendingFocusKey(focusKey);
       }
+      setViewportContinuity((current) =>
+        current === null
+          ? null
+          : {
+              ...current,
+              attemptVersion: current.attemptVersion + 1,
+            },
+      );
     },
     [nextDraftIndex, selectedRowId],
   );
@@ -1223,7 +1446,7 @@ export function TimelineWorkbook({
 
       const result = await fetchJSON<TimelineQueryEnvelope>(queryPath, {
         method: "POST",
-        body: JSON.stringify({}),
+        body: queryBody,
       });
 
       if (requestSequence !== loadSequenceRef.current) {
@@ -1237,7 +1460,12 @@ export function TimelineWorkbook({
       }
 
       const envelope = readEnvelope<TimelineQueryEnvelope>(result.payload);
-      const projectedRows = envelope.data.rows.map(rowFromApi);
+      const projectedRows = [
+        ...reconcileRecordRows(
+          rowsRef.current.filter((row) => row.recordId !== null),
+          envelope.data.rows.map(rowFromApi),
+        ),
+      ];
       const hydratedRows = ensureDraftRowWithFreshIndex(
         projectedRows,
         nextDraftIndex,
@@ -1259,7 +1487,7 @@ export function TimelineWorkbook({
       setSaveState("Saved");
       setIsLoading(false);
     },
-    [nextDraftIndex, queryPath],
+    [nextDraftIndex, queryBody, queryPath],
   );
 
   loadRowsRef.current = loadRows;
@@ -1275,6 +1503,24 @@ export function TimelineWorkbook({
     }
     return restoreInputFocus(pendingFocusKey);
   }, [pendingFocusKey, restoreInputFocus, rows]);
+
+  useLayoutEffect(() => {
+    if (viewportContinuity === null || viewportContinuity.attemptVersion < 1) {
+      return;
+    }
+    if (!tryRestoreViewportContinuity(viewportContinuity)) {
+      return;
+    }
+    if (shouldHoldViewportContinuity(viewportContinuity)) {
+      return;
+    }
+    clearViewportContinuity(viewportContinuity.token);
+  }, [
+    clearViewportContinuity,
+    shouldHoldViewportContinuity,
+    tryRestoreViewportContinuity,
+    viewportContinuity,
+  ]);
 
   useEffect(() => {
     void rows;
@@ -1642,8 +1888,13 @@ export function TimelineWorkbook({
       return;
     }
 
+    const viewportContinuityToken = beginViewportContinuity(snapshot.recordId, {
+      followup:
+        action === "resolve_item" && resolvedRecordId === undefined
+          ? "entity-refresh"
+          : "none",
+    });
     beginSave();
-    captureGridScroll();
     setInspectorMessage(null);
     saveQueueRef.current = saveQueueRef.current
       .catch(() => undefined)
@@ -1658,6 +1909,7 @@ export function TimelineWorkbook({
         );
         if (!result.ok) {
           resolvePendingSocketTxn(clientTxnId);
+          clearViewportContinuity(viewportContinuityToken);
           setInspectorMessage(parseErrorMessage(result.payload));
           finishSave("Conflict");
           return;
@@ -1707,19 +1959,16 @@ export function TimelineWorkbook({
         }
 
         const envelope = readEnvelope<TimelineMutationEnvelope>(result.payload);
-        const preservedScroll =
-          pendingScrollRef.current === null
-            ? null
-            : { ...pendingScrollRef.current };
         applyRowMutation(snapshot.key, envelope, {
           detectAutoResolution: false,
         });
         finishSave("Saved");
-        window.setTimeout(() => {
-          restoreRowFocus(snapshot.recordId ?? "", preservedScroll);
-        }, 0);
         if (action === "resolve_item" && resolvedRecordId === undefined) {
-          await onRefreshEntities?.();
+          try {
+            await onRefreshEntities?.();
+          } finally {
+            settleViewportContinuityFollowup(viewportContinuityToken);
+          }
         }
       });
   }
@@ -1766,6 +2015,284 @@ export function TimelineWorkbook({
     setSelectedMentionRef(itemRef);
     setInspectorMessage(null);
   }
+
+  const timelineColumns: readonly GridColumn<WorkbookRow>[] = [
+    {
+      fieldKey: "timeline.capture_state",
+      headerTestId: gridSortHeaderTestId("timeline", "timeline.capture_state"),
+      label: "State",
+      renderCell: (row) => (
+        <span
+          data-testid={
+            row.recordId === null
+              ? "draft-row-capture-state"
+              : rowCellTestId(row.recordId, "capture-state")
+          }
+        >
+          {row.captureState}
+        </span>
+      ),
+      sortableFieldKey: "timeline.capture_state",
+    },
+    {
+      fieldKey: "row_version",
+      label: "Version",
+      renderCell: (row) => (
+        <span
+          data-testid={
+            row.recordId === null
+              ? "draft-row-version"
+              : rowCellTestId(row.recordId, "row-version")
+          }
+        >
+          {row.rowVersion ?? "new"}
+        </span>
+      ),
+    },
+    ...fieldOrder.map(
+      (field): GridColumn<WorkbookRow> => ({
+        fieldKey: field.fieldKey,
+        headerTestId: gridSortHeaderTestId("timeline", field.fieldKey),
+        label: timelineContract.fieldMap[field.fieldKey]?.label ?? field.label,
+        renderCell: (row) =>
+          field.multiline ? (
+            <textarea
+              aria-label={`${field.label} ${row.recordId ?? "draft row"}`}
+              data-testid={
+                row.recordId === null
+                  ? draftCellTestId(field.key)
+                  : rowCellTestId(row.recordId, field.key)
+              }
+              ref={(element) => {
+                registerInput(row.key, field.key, element);
+                if (element) {
+                  focusMountedInput(element, `${row.key}:${field.key}`);
+                }
+              }}
+              rows={3}
+              style={textareaStyle}
+              value={row.values[field.key]}
+              onBlur={() => {
+                handleBlur(row.key);
+              }}
+              onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
+                setRowValue(row.key, field.key, event.target.value);
+              }}
+              onFocus={() => {
+                if (row.recordId) {
+                  handleSelectRow(row.recordId);
+                }
+              }}
+              onInput={(event: FormEvent<HTMLTextAreaElement>) => {
+                setRowValue(row.key, field.key, event.currentTarget.value);
+              }}
+              onKeyDown={(event) => {
+                handleKeyDown(event, row.key);
+              }}
+              onPaste={() => {
+                handlePaste(row.key);
+              }}
+            />
+          ) : (
+            <input
+              aria-label={`${field.label} ${row.recordId ?? "draft row"}`}
+              data-testid={
+                row.recordId === null
+                  ? draftCellTestId(field.key)
+                  : rowCellTestId(row.recordId, field.key)
+              }
+              ref={(element) => {
+                registerInput(row.key, field.key, element);
+                if (element) {
+                  focusMountedInput(element, `${row.key}:${field.key}`);
+                }
+              }}
+              style={inputStyle}
+              type="text"
+              value={row.values[field.key]}
+              onBlur={() => {
+                handleBlur(row.key);
+              }}
+              onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                setRowValue(row.key, field.key, event.target.value);
+              }}
+              onFocus={() => {
+                if (row.recordId) {
+                  handleSelectRow(row.recordId);
+                }
+              }}
+              onInput={(event: FormEvent<HTMLInputElement>) => {
+                setRowValue(row.key, field.key, event.currentTarget.value);
+              }}
+              onKeyDown={(event) => {
+                handleKeyDown(event, row.key);
+              }}
+              onPaste={() => {
+                handlePaste(row.key);
+              }}
+            />
+          ),
+        sortableFieldKey: resolveHeaderSortFieldKey(
+          timelineContract,
+          field.fieldKey,
+        ),
+      }),
+    ),
+    ...relationshipFields.map(
+      (field): GridColumn<WorkbookRow> => ({
+        fieldKey: field.fieldKey,
+        label: field.label,
+        renderCell: (row) => (
+          <>
+            <div
+              data-testid={
+                row.recordId === null
+                  ? draftCellTestId(`${field.draftKey}-items`)
+                  : relationshipItemsTestId(row.recordId, field.draftKey)
+              }
+              style={relationshipItemsWrapStyle}
+            >
+              {row.collectionValues[field.draftKey].length > 0 ? (
+                row.collectionValues[field.draftKey].map((item) => (
+                  <RelationshipChip
+                    key={item.itemRef}
+                    entityIndex={entityIndex}
+                    item={item}
+                    onSelect={() => {
+                      if (row.recordId) {
+                        handleSelectMention(row.recordId, item.itemRef);
+                      }
+                    }}
+                  />
+                ))
+              ) : (
+                <span style={emptyRelationshipStyle}>No items</span>
+              )}
+            </div>
+            <input
+              aria-label={`${field.label} ${row.recordId ?? "draft row"}`}
+              data-testid={
+                row.recordId === null
+                  ? draftCellTestId(`${field.draftKey}-input`)
+                  : rowCellTestId(row.recordId, `${field.draftKey}-input`)
+              }
+              key={`${row.key}:${field.draftKey}:${row.rowVersion ?? "draft"}`}
+              ref={(element) => {
+                registerInput(row.key, field.draftKey, element);
+                if (element) {
+                  focusMountedInput(element, `${row.key}:${field.draftKey}`);
+                }
+              }}
+              style={inputStyle}
+              type="text"
+              value={row.relationshipDrafts[field.draftKey]}
+              onBlur={() => {
+                queueRelationshipSave(row.key, field.fieldKey, field.draftKey);
+              }}
+              onChange={(event) => {
+                setRelationshipDraft(
+                  row.key,
+                  field.draftKey,
+                  event.target.value,
+                );
+              }}
+              onFocus={() => {
+                if (row.recordId) {
+                  handleSelectRow(row.recordId);
+                }
+              }}
+              onKeyDown={(event) => {
+                handleRelationshipKeyDown(
+                  event,
+                  row.key,
+                  field.fieldKey,
+                  field.draftKey,
+                );
+              }}
+              placeholder={`Add ${field.label.toLowerCase()} token`}
+            />
+          </>
+        ),
+      }),
+    ),
+  ];
+
+  const timelineActionsColumn: GridActionsColumn<WorkbookRow> = {
+    label: "Actions",
+    renderCell: ({ data: row }) =>
+      row.recordId === null ? (
+        <span style={bodyStyle}>Draft row</span>
+      ) : (
+        <div style={actionStackStyle}>
+          <button
+            data-testid={`row-${row.recordId}-inspect`}
+            style={actionButtonStyle}
+            type="button"
+            onClick={() => {
+              handleSelectRow(row.recordId ?? "");
+            }}
+          >
+            Inspect
+          </button>
+          <button
+            data-testid={`row-${row.recordId}-mark-reviewed`}
+            disabled={
+              row.captureState === "reviewed" ||
+              row.captureState === "superseded"
+            }
+            style={actionButtonStyle}
+            type="button"
+            onClick={() => {
+              queueAction(row.key, "mark-reviewed");
+            }}
+          >
+            Mark reviewed
+          </button>
+          <input
+            data-testid={`row-${row.recordId}-replacement-id`}
+            placeholder="Replacement record id"
+            style={replacementInputStyle}
+            type="text"
+            value={replacementDrafts[row.key] ?? ""}
+            onChange={(event) => {
+              const value = event.target.value;
+              setReplacementDrafts((current) => ({
+                ...current,
+                [row.key]: value,
+              }));
+            }}
+          />
+          <button
+            data-testid={`row-${row.recordId}-supersede`}
+            disabled={
+              row.captureState === "superseded" ||
+              normalizeValue(replacementDrafts[row.key] ?? "") === ""
+            }
+            style={actionButtonStyle}
+            type="button"
+            onClick={() => {
+              queueAction(row.key, "supersede");
+            }}
+          >
+            Supersede
+          </button>
+        </div>
+      ),
+  };
+
+  const timelineGridRows: readonly GridRow<WorkbookRow>[] = rows.map((row) => ({
+    key: row.key,
+    recordId: row.recordId,
+    data: row,
+    onSelect: () => {
+      if (row.recordId) {
+        handleSelectRow(row.recordId);
+      }
+    },
+    selected: row.recordId !== null && row.recordId === selectedRowId,
+    testId: row.recordId === null ? undefined : `timeline-row-${row.recordId}`,
+    variant: row.recordId === null ? "draft" : "default",
+  }));
 
   if (isLoading) {
     return (
@@ -1886,309 +2413,39 @@ export function TimelineWorkbook({
       ) : null}
 
       <div style={splitShellStyle}>
-        <div
-          ref={gridShellRef}
-          data-testid="timeline-grid-shell"
-          style={gridShellStyle}
-        >
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                <th style={headCellStyle}>State</th>
-                <th style={headCellStyle}>Version</th>
-                {fieldOrder.map((field) => (
-                  <th key={field.fieldKey} style={headCellStyle}>
-                    {field.label}
-                  </th>
-                ))}
-                {relationshipFields.map((field) => (
-                  <th key={field.fieldKey} style={headCellStyle}>
-                    {field.label}
-                  </th>
-                ))}
-                <th style={headCellStyle}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={row.key}
-                  style={
-                    row.recordId === null
-                      ? draftRowStyle
-                      : row.recordId === selectedRowId
-                        ? selectedRowStyle
-                        : undefined
-                  }
-                  onClick={() => {
-                    if (row.recordId) {
-                      handleSelectRow(row.recordId);
-                    }
-                  }}
-                >
-                  <td
-                    data-testid={
-                      row.recordId === null
-                        ? "draft-row-capture-state"
-                        : `row-${row.recordId}-capture-state`
-                    }
-                    style={metaCellStyle}
-                  >
-                    {row.captureState}
-                  </td>
-                  <td
-                    data-testid={
-                      row.recordId === null
-                        ? "draft-row-version"
-                        : `row-${row.recordId}-row-version`
-                    }
-                    style={metaCellStyle}
-                  >
-                    {row.rowVersion ?? "new"}
-                  </td>
-                  {fieldOrder.map((field) => (
-                    <td key={field.fieldKey} style={bodyCellStyle}>
-                      {field.multiline ? (
-                        <textarea
-                          aria-label={`${field.label} ${row.recordId ?? "draft row"}`}
-                          data-testid={
-                            row.recordId === null
-                              ? `draft-row-${field.key}`
-                              : `row-${row.recordId}-${field.key}`
-                          }
-                          ref={(element) => {
-                            registerInput(row.key, field.key, element);
-                            if (element) {
-                              focusMountedInput(
-                                element,
-                                `${row.key}:${field.key}`,
-                              );
-                            }
-                          }}
-                          rows={3}
-                          style={textareaStyle}
-                          value={row.values[field.key]}
-                          onBlur={() => {
-                            handleBlur(row.key);
-                          }}
-                          onChange={(
-                            event: ChangeEvent<HTMLTextAreaElement>,
-                          ) => {
-                            setRowValue(row.key, field.key, event.target.value);
-                          }}
-                          onFocus={() => {
-                            if (row.recordId) {
-                              handleSelectRow(row.recordId);
-                            }
-                          }}
-                          onInput={(event: FormEvent<HTMLTextAreaElement>) => {
-                            setRowValue(
-                              row.key,
-                              field.key,
-                              event.currentTarget.value,
-                            );
-                          }}
-                          onKeyDown={(event) => {
-                            handleKeyDown(event, row.key);
-                          }}
-                          onPaste={() => {
-                            handlePaste(row.key);
-                          }}
-                        />
-                      ) : (
-                        <input
-                          aria-label={`${field.label} ${row.recordId ?? "draft row"}`}
-                          data-testid={
-                            row.recordId === null
-                              ? `draft-row-${field.key}`
-                              : `row-${row.recordId}-${field.key}`
-                          }
-                          ref={(element) => {
-                            registerInput(row.key, field.key, element);
-                            if (element) {
-                              focusMountedInput(
-                                element,
-                                `${row.key}:${field.key}`,
-                              );
-                            }
-                          }}
-                          style={inputStyle}
-                          type="text"
-                          value={row.values[field.key]}
-                          onBlur={() => {
-                            handleBlur(row.key);
-                          }}
-                          onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                            setRowValue(row.key, field.key, event.target.value);
-                          }}
-                          onFocus={() => {
-                            if (row.recordId) {
-                              handleSelectRow(row.recordId);
-                            }
-                          }}
-                          onInput={(event: FormEvent<HTMLInputElement>) => {
-                            setRowValue(
-                              row.key,
-                              field.key,
-                              event.currentTarget.value,
-                            );
-                          }}
-                          onKeyDown={(event) => {
-                            handleKeyDown(event, row.key);
-                          }}
-                          onPaste={() => {
-                            handlePaste(row.key);
-                          }}
-                        />
-                      )}
-                    </td>
-                  ))}
-                  {relationshipFields.map((field) => (
-                    <td key={field.fieldKey} style={bodyCellStyle}>
-                      <div
-                        data-testid={
-                          row.recordId === null
-                            ? `draft-row-${field.draftKey}-items`
-                            : `row-${row.recordId}-${field.draftKey}-items`
-                        }
-                        style={relationshipItemsWrapStyle}
-                      >
-                        {row.collectionValues[field.draftKey].length > 0 ? (
-                          row.collectionValues[field.draftKey].map((item) => (
-                            <RelationshipChip
-                              key={item.itemRef}
-                              entityIndex={entityIndex}
-                              item={item}
-                              onSelect={() => {
-                                if (row.recordId) {
-                                  handleSelectMention(
-                                    row.recordId,
-                                    item.itemRef,
-                                  );
-                                }
-                              }}
-                            />
-                          ))
-                        ) : (
-                          <span style={emptyRelationshipStyle}>No items</span>
-                        )}
-                      </div>
-                      <input
-                        aria-label={`${field.label} ${row.recordId ?? "draft row"}`}
-                        data-testid={
-                          row.recordId === null
-                            ? `draft-row-${field.draftKey}-input`
-                            : `row-${row.recordId}-${field.draftKey}-input`
-                        }
-                        key={`${row.key}:${field.draftKey}:${row.rowVersion ?? "draft"}`}
-                        ref={(element) => {
-                          registerInput(row.key, field.draftKey, element);
-                          if (element) {
-                            focusMountedInput(
-                              element,
-                              `${row.key}:${field.draftKey}`,
-                            );
-                          }
-                        }}
-                        style={inputStyle}
-                        type="text"
-                        value={row.relationshipDrafts[field.draftKey]}
-                        onBlur={() => {
-                          queueRelationshipSave(
-                            row.key,
-                            field.fieldKey,
-                            field.draftKey,
-                          );
-                        }}
-                        onChange={(event) => {
-                          setRelationshipDraft(
-                            row.key,
-                            field.draftKey,
-                            event.target.value,
-                          );
-                        }}
-                        onFocus={() => {
-                          if (row.recordId) {
-                            handleSelectRow(row.recordId);
-                          }
-                        }}
-                        onKeyDown={(event) => {
-                          handleRelationshipKeyDown(
-                            event,
-                            row.key,
-                            field.fieldKey,
-                            field.draftKey,
-                          );
-                        }}
-                        placeholder={`Add ${field.label.toLowerCase()} token`}
-                      />
-                    </td>
-                  ))}
-                  <td style={actionCellStyle}>
-                    {row.recordId === null ? (
-                      <span style={bodyStyle}>Draft row</span>
-                    ) : (
-                      <div style={actionStackStyle}>
-                        <button
-                          data-testid={`row-${row.recordId}-inspect`}
-                          style={actionButtonStyle}
-                          type="button"
-                          onClick={() => {
-                            handleSelectRow(row.recordId ?? "");
-                          }}
-                        >
-                          Inspect
-                        </button>
-                        <button
-                          data-testid={`row-${row.recordId}-mark-reviewed`}
-                          disabled={
-                            row.captureState === "reviewed" ||
-                            row.captureState === "superseded"
-                          }
-                          style={actionButtonStyle}
-                          type="button"
-                          onClick={() => {
-                            queueAction(row.key, "mark-reviewed");
-                          }}
-                        >
-                          Mark reviewed
-                        </button>
-                        <input
-                          data-testid={`row-${row.recordId}-replacement-id`}
-                          placeholder="Replacement record id"
-                          style={replacementInputStyle}
-                          type="text"
-                          value={replacementDrafts[row.key] ?? ""}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setReplacementDrafts((current) => ({
-                              ...current,
-                              [row.key]: value,
-                            }));
-                          }}
-                        />
-                        <button
-                          data-testid={`row-${row.recordId}-supersede`}
-                          disabled={
-                            row.captureState === "superseded" ||
-                            normalizeValue(replacementDrafts[row.key] ?? "") ===
-                              ""
-                          }
-                          style={actionButtonStyle}
-                          type="button"
-                          onClick={() => {
-                            queueAction(row.key, "supersede");
-                          }}
-                        >
-                          Supersede
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div>
+          <WorkbookGridControls
+            contract={timelineContract}
+            filterDraft={filterDraft}
+            onApplyFilter={applyQueryFilter}
+            onFilterDraftChange={setFilterDraft}
+            onGroupByChange={handleQueryGroupByChange}
+            onRemoveFilter={(fieldKey) => {
+              setQueryState((current) => removeFilterField(current, fieldKey));
+            }}
+            queryState={queryState}
+            surface="timeline"
+          />
+          <GridViewport
+            ref={gridShellRef}
+            style={gridShellStyle}
+            testId={gridShellTestId("timeline")}
+          >
+            <GridTable
+              actionsColumn={timelineActionsColumn}
+              columns={timelineColumns}
+              getGroupLabel={(row, fieldKey) =>
+                timelineGroupLabel(row, fieldKey)
+              }
+              getGroupRowTestId={(fieldKey, value) =>
+                gridGroupRowTestId("timeline", fieldKey, value)
+              }
+              groupBy={queryState.groupBy}
+              onToggleSort={handleQuerySortToggle}
+              rows={timelineGridRows}
+              sort={queryState.sort}
+            />
+          </GridViewport>
         </div>
 
         <aside data-testid="timeline-inspector" style={inspectorShellStyle}>
@@ -2427,7 +2684,14 @@ function EntityWorkbookSurface({
   incidentId,
   apiBase,
   entityType,
+  filterDraft,
+  onApplyFilter,
+  onFilterDraftChange,
+  onGroupByChange,
+  onRemoveFilter,
   rows,
+  onToggleSort,
+  queryState,
   currentIncidentRole,
   entityIndex,
   onRefreshEntities,
@@ -2435,6 +2699,13 @@ function EntityWorkbookSurface({
   incidentId: string;
   apiBase?: string | undefined;
   entityType: EntityRow["entityType"];
+  filterDraft: FilterDraft;
+  onApplyFilter: () => void;
+  onFilterDraftChange: (draft: FilterDraft) => void;
+  onGroupByChange: (groupBy: string | null) => void;
+  onRemoveFilter: (fieldKey: string) => void;
+  onToggleSort: (fieldKey: string) => void;
+  queryState: WorkbookQueryState;
   rows: EntityRow[];
   currentIncidentRole: IncidentRole | null;
   entityIndex: Record<string, EntityRow>;
@@ -2453,12 +2724,109 @@ function EntityWorkbookSurface({
   const canMerge =
     currentIncidentRole === "reviewer" || currentIncidentRole === "admin";
   const survivorLabel = selectedEntity?.label ?? "Select a record";
+  const surface: WorkbookSurface =
+    entityType === "host" ? "hosts" : "identities";
+  const contract = entityType === "host" ? hostsContract : identitiesContract;
   const loserEntity =
     rows.find((row) => row.recordId === mergeCandidateId) ?? null;
   const mergePlan =
     selectedEntity && loserEntity
       ? buildMergePlan(selectedEntity, loserEntity)
       : null;
+  const entityColumns: readonly GridColumn<EntityRow>[] = [
+    {
+      fieldKey:
+        entityType === "host" ? "host.display_name" : "identity.display_name",
+      headerTestId: gridSortHeaderTestId(
+        surface,
+        entityType === "host" ? "host.display_name" : "identity.display_name",
+      ),
+      label:
+        contract.fieldMap[
+          entityType === "host" ? "host.display_name" : "identity.display_name"
+        ]?.label ?? "Name",
+      renderCell: (row) => row.label,
+      sortableFieldKey:
+        entityType === "host" ? "host.display_name" : "identity.display_name",
+    },
+    {
+      fieldKey: entityType === "host" ? "host.hostname" : "identity.upn",
+      headerTestId: gridSortHeaderTestId(
+        surface,
+        entityType === "host" ? "host.hostname" : "identity.upn",
+      ),
+      label:
+        contract.fieldMap[
+          entityType === "host" ? "host.hostname" : "identity.upn"
+        ]?.label ?? "Primary",
+      renderCell: (row) => row.secondaryText || "None",
+      sortableFieldKey:
+        entityType === "host" ? "host.hostname" : "identity.upn",
+    },
+    {
+      fieldKey: entityType === "host" ? "host.aliases" : "identity.aliases",
+      label:
+        contract.fieldMap[
+          entityType === "host" ? "host.aliases" : "identity.aliases"
+        ]?.label ?? "Aliases",
+      renderCell: (row) => (
+        <div style={relationshipItemsWrapStyle}>
+          {row.aliasTexts.length > 0 ? (
+            row.aliasTexts.map((alias) => (
+              <span key={alias} style={aliasChipStyle}>
+                {alias}
+              </span>
+            ))
+          ) : (
+            <span style={emptyRelationshipStyle}>No aliases</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      fieldKey:
+        entityType === "host" ? "host.host_state" : "identity.identity_state",
+      headerTestId: gridSortHeaderTestId(
+        surface,
+        entityType === "host" ? "host.host_state" : "identity.identity_state",
+      ),
+      label:
+        contract.fieldMap[
+          entityType === "host" ? "host.host_state" : "identity.identity_state"
+        ]?.label ?? "State",
+      renderCell: (row) => row.state,
+      sortableFieldKey:
+        entityType === "host" ? "host.host_state" : "identity.identity_state",
+    },
+    {
+      fieldKey: "row_version",
+      label: "Version",
+      renderCell: (row) => row.rowVersion,
+    },
+  ];
+  const entityActionsColumn: GridActionsColumn<EntityRow> = {
+    label: "Actions",
+    renderCell: ({ data: row }) => (
+      <button
+        data-testid={`inspect-${entityType}-${row.recordId}`}
+        style={actionButtonStyle}
+        type="button"
+        onClick={() => {
+          setSelectedRecordId(row.recordId);
+          setMergeMessage(null);
+        }}
+      >
+        Inspect
+      </button>
+    ),
+  };
+  const entityGridRows: readonly GridRow<EntityRow>[] = rows.map((row) => ({
+    key: row.recordId,
+    recordId: row.recordId,
+    data: row,
+    selected: row.recordId === selectedEntity?.recordId,
+    testId: `${entityType}-row-${row.recordId}`,
+  }));
 
   useEffect(() => {
     if (selectedEntity) {
@@ -2546,63 +2914,34 @@ function EntityWorkbookSurface({
       </header>
 
       <div style={splitShellStyle}>
-        <div data-testid={`${entityType}-grid-shell`} style={gridShellStyle}>
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                <th style={headCellStyle}>Name</th>
-                <th style={headCellStyle}>Primary</th>
-                <th style={headCellStyle}>Aliases</th>
-                <th style={headCellStyle}>State</th>
-                <th style={headCellStyle}>Version</th>
-                <th style={headCellStyle}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={row.recordId}
-                  data-testid={`${entityType}-row-${row.recordId}`}
-                  style={
-                    row.recordId === selectedEntity?.recordId
-                      ? selectedRowStyle
-                      : undefined
-                  }
-                >
-                  <td style={bodyCellStyle}>{row.label}</td>
-                  <td style={bodyCellStyle}>{row.secondaryText || "None"}</td>
-                  <td style={bodyCellStyle}>
-                    <div style={relationshipItemsWrapStyle}>
-                      {row.aliasTexts.length > 0 ? (
-                        row.aliasTexts.map((alias) => (
-                          <span key={alias} style={aliasChipStyle}>
-                            {alias}
-                          </span>
-                        ))
-                      ) : (
-                        <span style={emptyRelationshipStyle}>No aliases</span>
-                      )}
-                    </div>
-                  </td>
-                  <td style={bodyCellStyle}>{row.state}</td>
-                  <td style={bodyCellStyle}>{row.rowVersion}</td>
-                  <td style={actionCellStyle}>
-                    <button
-                      data-testid={`inspect-${entityType}-${row.recordId}`}
-                      style={actionButtonStyle}
-                      type="button"
-                      onClick={() => {
-                        setSelectedRecordId(row.recordId);
-                        setMergeMessage(null);
-                      }}
-                    >
-                      Inspect
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div>
+          <WorkbookGridControls
+            contract={contract}
+            filterDraft={filterDraft}
+            onApplyFilter={onApplyFilter}
+            onFilterDraftChange={onFilterDraftChange}
+            onGroupByChange={onGroupByChange}
+            onRemoveFilter={onRemoveFilter}
+            queryState={queryState}
+            surface={surface}
+          />
+          <GridViewport
+            style={gridShellStyle}
+            testId={gridShellTestId(surface)}
+          >
+            <GridTable
+              actionsColumn={entityActionsColumn}
+              columns={entityColumns}
+              getGroupLabel={(row, fieldKey) => entityGroupLabel(row, fieldKey)}
+              getGroupRowTestId={(fieldKey, value) =>
+                gridGroupRowTestId(surface, fieldKey, value)
+              }
+              groupBy={queryState.groupBy}
+              onToggleSort={onToggleSort}
+              rows={entityGridRows}
+              sort={queryState.sort}
+            />
+          </GridViewport>
         </div>
 
         <aside
@@ -2804,6 +3143,17 @@ export function WorkbookShell({
   const [entityLoadError, setEntityLoadError] = useState<string | null>(null);
   const [currentIncidentRole, setCurrentIncidentRole] =
     useState<IncidentRole | null>(null);
+  const [hostQueryState, setHostQueryState] = useState<WorkbookQueryState>(() =>
+    emptyWorkbookQueryState(),
+  );
+  const [identityQueryState, setIdentityQueryState] =
+    useState<WorkbookQueryState>(() => emptyWorkbookQueryState());
+  const [hostFilterDraft, setHostFilterDraft] = useState<FilterDraft>(() =>
+    defaultFilterDraft(hostsContract),
+  );
+  const [identityFilterDraft, setIdentityFilterDraft] = useState<FilterDraft>(
+    () => defaultFilterDraft(identitiesContract),
+  );
 
   const entityIndex = useMemo(() => {
     const index: Record<string, EntityRow> = {};
@@ -2834,7 +3184,13 @@ export function WorkbookShell({
   }, [apiBase, incidentId, onIncidentAccessLost]);
 
   const queryEntityView = useCallback(
-    async (viewSchemaId: string, entityType: EntityRow["entityType"]) => {
+    async (
+      viewSchemaId: string,
+      entityType: EntityRow["entityType"],
+      queryState: WorkbookQueryState,
+    ) => {
+      const contract =
+        viewSchemaId === hostsViewSchemaId ? hostsContract : identitiesContract;
       const result = await fetchJSON<ViewQueryEnvelope>(
         apiPath(
           apiBase,
@@ -2842,7 +3198,7 @@ export function WorkbookShell({
         ),
         {
           method: "POST",
-          body: JSON.stringify({}),
+          body: JSON.stringify(buildQueryRequest(contract, queryState)),
         },
       );
       if (!result.ok) {
@@ -2858,11 +3214,13 @@ export function WorkbookShell({
     setEntityLoadError(null);
     try {
       const [nextHosts, nextIdentities] = await Promise.all([
-        queryEntityView(hostsViewSchemaId, "host"),
-        queryEntityView(identitiesViewSchemaId, "identity"),
+        queryEntityView(hostsViewSchemaId, "host", hostQueryState),
+        queryEntityView(identitiesViewSchemaId, "identity", identityQueryState),
       ]);
-      setHostRows(nextHosts);
-      setIdentityRows(nextIdentities);
+      setHostRows((current) => [...reconcileRecordRows(current, nextHosts)]);
+      setIdentityRows((current) => [
+        ...reconcileRecordRows(current, nextIdentities),
+      ]);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Entity load failed.";
@@ -2875,7 +3233,32 @@ export function WorkbookShell({
       }
       setEntityLoadError(message);
     }
-  }, [onIncidentAccessLost, queryEntityView]);
+  }, [
+    hostQueryState,
+    identityQueryState,
+    onIncidentAccessLost,
+    queryEntityView,
+  ]);
+
+  const applyHostFilter = useCallback(() => {
+    setHostQueryState((current) => applyFilterDraft(current, hostFilterDraft));
+    setHostFilterDraft((current) => ({
+      ...current,
+      booleanValue: "",
+      value: "",
+    }));
+  }, [hostFilterDraft]);
+
+  const applyIdentityFilter = useCallback(() => {
+    setIdentityQueryState((current) =>
+      applyFilterDraft(current, identityFilterDraft),
+    );
+    setIdentityFilterDraft((current) => ({
+      ...current,
+      booleanValue: "",
+      value: "",
+    }));
+  }, [identityFilterDraft]);
 
   useEffect(() => {
     void Promise.all([loadEntities(), loadSessionRole()]);
@@ -2978,8 +3361,51 @@ export function WorkbookShell({
           currentIncidentRole={currentIncidentRole}
           entityIndex={entityIndex}
           entityType={surface === "hosts" ? "host" : "identity"}
+          filterDraft={
+            surface === "hosts" ? hostFilterDraft : identityFilterDraft
+          }
           incidentId={incidentId}
+          onApplyFilter={
+            surface === "hosts" ? applyHostFilter : applyIdentityFilter
+          }
+          onFilterDraftChange={
+            surface === "hosts" ? setHostFilterDraft : setIdentityFilterDraft
+          }
+          onGroupByChange={(groupBy) => {
+            if (surface === "hosts") {
+              setHostQueryState((current) =>
+                updateGroupBy(hostsContract, current, groupBy),
+              );
+              return;
+            }
+            setIdentityQueryState((current) =>
+              updateGroupBy(identitiesContract, current, groupBy),
+            );
+          }}
+          onRemoveFilter={(fieldKey) => {
+            if (surface === "hosts") {
+              setHostQueryState((current) =>
+                removeFilterField(current, fieldKey),
+              );
+              return;
+            }
+            setIdentityQueryState((current) =>
+              removeFilterField(current, fieldKey),
+            );
+          }}
           onRefreshEntities={loadEntities}
+          onToggleSort={(fieldKey) => {
+            if (surface === "hosts") {
+              setHostQueryState((current) =>
+                toggleSortField(hostsContract, current, fieldKey),
+              );
+              return;
+            }
+            setIdentityQueryState((current) =>
+              toggleSortField(identitiesContract, current, fieldKey),
+            );
+          }}
+          queryState={surface === "hosts" ? hostQueryState : identityQueryState}
           rows={surface === "hosts" ? hostRows : identityRows}
         />
       )}
@@ -3089,43 +3515,6 @@ const gridShellStyle = {
   maxHeight: "70vh",
 };
 
-const tableStyle = {
-  width: "100%",
-  borderCollapse: "collapse" as const,
-  minWidth: "78rem",
-};
-
-const headCellStyle = {
-  position: "sticky" as const,
-  top: 0,
-  zIndex: 1,
-  padding: "0.9rem 0.85rem",
-  textAlign: "left" as const,
-  fontSize: "0.8rem",
-  letterSpacing: "0.08em",
-  textTransform: "uppercase" as const,
-  background: "rgb(242 247 243)",
-  borderBottom: "1px solid rgb(207 221 214)",
-};
-
-const bodyCellStyle = {
-  padding: "0.75rem",
-  borderBottom: "1px solid rgb(232 238 234)",
-  verticalAlign: "top" as const,
-};
-
-const metaCellStyle = {
-  ...bodyCellStyle,
-  fontSize: "0.9rem",
-  color: "rgb(70 92 85)",
-  whiteSpace: "nowrap" as const,
-};
-
-const actionCellStyle = {
-  ...bodyCellStyle,
-  minWidth: "11rem",
-};
-
 const actionStackStyle = {
   display: "grid",
   gap: "0.5rem",
@@ -3164,14 +3553,6 @@ const actionButtonStyle = {
 const secondaryActionButtonStyle = {
   ...actionButtonStyle,
   background: "rgb(247 249 247)",
-};
-
-const draftRowStyle = {
-  background: "rgb(252 249 241)",
-};
-
-const selectedRowStyle = {
-  background: "rgb(232 244 239)",
 };
 
 const labelStyle = {

@@ -162,6 +162,8 @@ This structure matches the intended baseline in the development guide and keeps 
 
 `/packages/grid-adapter` owns the direct `react-data-grid` integration. `/apps/web` must consume Cartulary adapter components and types from `/packages/grid-adapter` rather than importing `react-data-grid` directly. `/packages/ui` remains presentational and must not own workbook state, grid mutation semantics, or vendor-coordinate translation.[^25]
 
+`/packages/view-contracts` and `/packages/test-utils` must also be real workspace packages with their own package manifests, TS config, and source exports. They should follow the same source-export pattern used by `/packages/protocol-ts`: `/packages/view-contracts` stays a thin parser or adapter over generated contract artifacts, while `/packages/test-utils` owns shared selector factories and browser helpers reused by both functional and visual workbook suites.
+
 Two rules matter immediately:
 
 - keep the backend as one root Go module and the frontend as one top-level pnpm workspace.[^4]
@@ -285,6 +287,8 @@ Repository-local recommended meanings:
 - `make build`: build the application artifact and, later, embed the frontend assets into it.
 
 `make check` is not optional. It is the required developer verification gate and must include codegen drift detection and migration verification.[^6]
+
+Repo-control helper targets SHOULD also include at least `make frontend-unit`, `make browser-e2e-support`, and `make browser-e2e-visual` so the frontend workspace packages, support browser helpers, and workbook screenshot fixtures can run independently. `make browser-e2e-visual` remains a Playwright screenshot suite under the owned-stack harness rather than a second visual runner.
 
 By the end of bootstrap, `make check` must include a frontend smoke path that proves the browser bundle can import `react-data-grid/lib/styles.css`, render a minimal Cartulary fixture grid through `/packages/grid-adapter`, and key rows by `record_id`. The smoke fixture must include at least two rows with distinct `record_id` values. This smoke path must not assert feature-complete workbook behavior. It exists only to fail early on package-format, CSS-export, peer-dependency, and stable-row-key integration errors.[^25]
 

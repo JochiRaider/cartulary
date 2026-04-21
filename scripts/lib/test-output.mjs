@@ -317,6 +317,32 @@ function firstActionableLine(lines) {
   return "";
 }
 
+function firstGoActionableLine(lines) {
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (line === "") {
+      continue;
+    }
+    if (
+      line.startsWith("=== RUN") ||
+      line.startsWith("=== PAUSE") ||
+      line.startsWith("=== CONT") ||
+      line.startsWith("=== NAME") ||
+      line.startsWith("--- PASS") ||
+      line.startsWith("--- FAIL") ||
+      line.startsWith("--- SKIP") ||
+      line === "PASS" ||
+      line === "FAIL" ||
+      /^ok\s/.test(line) ||
+      /^\?\s/.test(line)
+    ) {
+      continue;
+    }
+    return line;
+  }
+  return "";
+}
+
 function renderList(values) {
   if (values.length === 0) {
     return "none";
@@ -755,6 +781,28 @@ function classifyGoTest(importPath, testName, phaseLabel) {
   };
 }
 
+function classifyGoPackageFailure(importPath, phaseLabel) {
+  const manifestPhase = optionalEnv("CARTULARY_MANIFEST_PHASE");
+  const manifestCoverage = optionalEnv("CARTULARY_MANIFEST_COVERAGE");
+  if (manifestPhase !== "" && manifestCoverage !== "") {
+    return {
+      coverage: manifestCoverage,
+      phase: manifestPhase,
+      id: "",
+      owner: toRepoRelativePackage(importPath),
+    };
+  }
+
+  const inferredPhase = inferPhaseFromText(phaseLabel);
+  const support = /\bsupport\b/i.test(phaseLabel) || /\bsmoke\b/i.test(phaseLabel);
+  return {
+    coverage: support ? "support" : "unmapped",
+    phase: inferredPhase,
+    id: "",
+    owner: toRepoRelativePackage(importPath),
+  };
+}
+
 function summarizeGoRun(logFile, phaseLabel, exitStatus) {
   const events = readGoEvents(logFile);
   const topLevel = new Map();
@@ -860,7 +908,7 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus) {
         package_or_file: owner,
         symbol_or_title: testCase.test,
         message:
-          firstActionableLine(testCase.outputs) || `${testCase.test} failed`,
+          firstGoActionableLine(testCase.outputs) || `${testCase.test} failed`,
         reproduce: `go test ${owner} -run '^${escapeRegex(testCase.test)}$'`,
         raw: relToRepo(logFile),
       });
@@ -870,22 +918,23 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus) {
   }
 
   for (const pkg of packageFailures.keys()) {
-    const owner = toRepoRelativePackage(pkg);
+    const classification = classifyGoPackageFailure(pkg, phaseLabel);
+    const owner = classification.owner;
     owners.add(owner);
     if ([...topLevel.values()].some((entry) => entry.package === pkg && entry.status === "fail")) {
       continue;
     }
     counts.failed += 1;
-    counts.unmapped_failed += 1;
+    counts[`${classification.coverage}_failed`] += 1;
     dossiers.push({
-      coverage: "unmapped",
-      phase: inferPhaseFromText(phaseLabel),
+      coverage: classification.coverage,
+      phase: classification.phase,
       id: "",
       runner: "go_test",
       package_or_file: owner,
       symbol_or_title: "(package setup)",
       message:
-        firstActionableLine(packageOutputs.get(pkg) ?? []) ||
+        firstGoActionableLine(packageOutputs.get(pkg) ?? []) ||
         `package ${owner} failed before a top-level test was attributed`,
       reproduce: `go test ${owner}`,
       raw: relToRepo(logFile),

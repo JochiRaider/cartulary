@@ -94,7 +94,8 @@ func (s *Service) handleTimelineQuery(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := DecodeTimelineQueryRequest(r.Body); apiErr != nil {
+	queryMeta, apiErr := DecodeViewQueryRequest(r.Body, viewSchemaID)
+	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -105,13 +106,13 @@ func (s *Service) handleTimelineQuery(w http.ResponseWriter, r *http.Request) {
 	)
 	switch viewSchemaID {
 	case TimelineViewSchemaID:
-		rows, err = s.store.QueryRows(r.Context(), incidentID)
+		rows, err = s.store.QueryRows(r.Context(), incidentID, queryMeta)
 	case entities.HostsViewSchemaID:
-		rows, err = s.entityStore.QueryHostRows(r.Context(), incidentID)
+		rows, err = s.entityStore.QueryHostRows(r.Context(), incidentID, queryMeta)
 	case entities.IdentitiesViewSchemaID:
-		rows, err = s.entityStore.QueryIdentityRows(r.Context(), incidentID)
+		rows, err = s.entityStore.QueryIdentityRows(r.Context(), incidentID, queryMeta)
 	case entities.IndicatorsViewSchemaID:
-		rows, err = s.entityStore.QueryIndicatorRows(r.Context(), incidentID)
+		rows, err = s.entityStore.QueryIndicatorRows(r.Context(), incidentID, queryMeta)
 	default:
 		writeAPIError(w, r, invalidViewQuery("view_schema_id", "unknown_view_schema"))
 		return
@@ -130,7 +131,7 @@ func (s *Service) handleTimelineQuery(w http.ResponseWriter, r *http.Request) {
 		"rows":           rows,
 	}, httpapi.EnvelopeMeta{
 		RequestID: httpapi.RequestIDFromContext(r.Context()),
-		Query:     DefaultViewQueryMeta(viewSchemaID),
+		Query:     queryMeta,
 	})
 }
 

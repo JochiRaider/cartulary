@@ -161,8 +161,26 @@ func RequireDefaultQueryMeta(t testing.TB, body map[string]any, viewSchemaID str
 	if !ok {
 		t.Fatalf("expected meta.query.filters array, got %T", queryValue["filters"])
 	}
-	if !reflect.DeepEqual(filters, expected.Filters) {
-		t.Fatalf("unexpected meta.query.filters: got %#v want %#v", filters, expected.Filters)
+	if len(filters) != len(expected.Filters) {
+		t.Fatalf("unexpected meta.query.filters length: got %#v want %#v", filters, expected.Filters)
+	}
+	gotFilters := make([]viewschema.Filter, 0, len(filters))
+	for _, item := range filters {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			t.Fatalf("expected filter entry object, got %T", item)
+		}
+		fieldKey, _ := entry["field_key"].(string)
+		op, _ := entry["op"].(string)
+		arg, _ := entry["arg"].(map[string]any)
+		gotFilters = append(gotFilters, viewschema.Filter{
+			FieldKey: fieldKey,
+			Op:       op,
+			Arg:      arg,
+		})
+	}
+	if !reflect.DeepEqual(gotFilters, expected.Filters) {
+		t.Fatalf("unexpected meta.query.filters: got %#v want %#v", gotFilters, expected.Filters)
 	}
 
 	sortValue, ok := queryValue["sort"].([]any)

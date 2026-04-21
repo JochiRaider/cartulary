@@ -150,10 +150,7 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
       .getByTestId(`row-${mainRow.record_id}-hostRefs-items`)
       .getByLabel("Resolved WS-023"),
   ).toBeVisible();
-  await expect(
-    page.getByTestId(`row-${mainRow.record_id}-inspect`),
-  ).toBeFocused();
-  expect(await currentTimelineGridScroll(page)).toEqual(resolveScroll);
+  await expectTimelineContinuity(page, mainRow.record_id, resolveScroll);
 
   await page
     .getByTestId(`mention-${sanitizeTestId(String(identityMention.item_ref))}`)
@@ -181,20 +178,12 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
       .getByTestId(`row-${mainRow.record_id}-identityRefs-items`)
       .getByLabel("Resolved vpn.user@example.test"),
   ).toBeVisible();
-  await expect(
-    page.getByTestId(`row-${mainRow.record_id}-inspect`),
-  ).toBeFocused();
-  expect(await currentTimelineGridScroll(page)).toEqual(createScroll);
+  await expectTimelineContinuity(page, mainRow.record_id, createScroll);
 
   const timelineRows = (await queryViewRows(
     page,
     incidentId,
     timelineViewSchemaId,
-  )) as ViewRow[];
-  const identitiesAfter = (await queryViewRows(
-    page,
-    incidentId,
-    identitiesViewSchemaId,
   )) as ViewRow[];
   const mainRowAfter = findRow(timelineRows, mainRow.record_id);
   const siblingRowAfter = findRow(timelineRows, siblingRow.record_id);
@@ -210,7 +199,12 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
     collectionItems(siblingRowAfter, hostRefsFieldKey),
     "WS-023?",
   );
-  const createdIdentityRow = findRow(identitiesAfter, createdIdentityRecordId);
+  const createdIdentityRow = await waitForViewRow(
+    page,
+    incidentId,
+    identitiesViewSchemaId,
+    createdIdentityRecordId,
+  );
 
   expect(identitiesBefore).toHaveLength(0);
   expect(String(resolvedHostItem.item_kind)).toBe("resolved_ref");
@@ -308,8 +302,7 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
       .getByTestId(`mention-${sanitizeTestId(String(seededMention.item_ref))}`)
       .getByLabel("Dismissed WS-023?"),
   ).toBeVisible();
-  await expect(page.getByTestId(`row-${row.record_id}-inspect`)).toBeFocused();
-  expect(await currentTimelineGridScroll(page)).toEqual(dismissScroll);
+  await expectTimelineContinuity(page, row.record_id, dismissScroll);
   expect(
     collectionItems(dismissEnvelope.data.row, hostRefsFieldKey),
   ).toHaveLength(0);
@@ -343,8 +336,7 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
       .getByTestId(`row-${row.record_id}-hostRefs-items`)
       .getByLabel(/^Resolved WS-023$/),
   ).toHaveCount(0);
-  await expect(page.getByTestId(`row-${row.record_id}-inspect`)).toBeFocused();
-  expect(await currentTimelineGridScroll(page)).toEqual(restoreScroll);
+  await expectTimelineContinuity(page, row.record_id, restoreScroll);
   expect(restoreBody.changes[0]?.action_payload.actions[0]?.item_ref).toBe(
     seededMention.item_ref,
   );
@@ -975,4 +967,44 @@ async function currentTimelineGridScroll(page: Page) {
       top: grid.scrollTop,
     };
   });
+}
+
+async function expectTimelineContinuity(
+  page: Page,
+  recordId: string,
+  preservedScroll: { left: number; top: number },
+) {
+  const inspectButton = page.getByTestId(`row-${recordId}-inspect`);
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("surface"))
+    .toBe("timeline");
+  await expect(inspectButton).toBeFocused();
+  await expect(inspectButton).toBeInViewport();
+  expect((await currentTimelineGridScroll(page)).top).toEqual(
+    preservedScroll.top,
+  );
+}
+
+async function waitForViewRow(
+  page: Page,
+  incidentId: string,
+  viewSchemaId: string,
+  recordId: string,
+) {
+  await expect
+    .poll(async () => {
+      const rows = (await queryViewRows(page, incidentId, viewSchemaId)) as
+        | ViewRow[]
+        | Array<Record<string, unknown>>;
+      return rows.some(
+        (candidate) =>
+          typeof candidate === "object" &&
+          candidate !== null &&
+          "record_id" in candidate &&
+          candidate.record_id === recordId,
+      );
+    })
+    .toBe(true);
+  const rows = (await queryViewRows(page, incidentId, viewSchemaId)) as ViewRow[];
+  return findRow(rows, recordId);
 }

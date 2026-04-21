@@ -13,10 +13,12 @@ type Field struct {
 	Label                   string  `json:"label"`
 	Writable                bool    `json:"writable"`
 	CreateWritable          bool    `json:"create_writable"`
+	HeaderSortFieldKey      *string `json:"header_sort_field_key"`
 	ConflictResolutionClass string  `json:"conflict_resolution_class"`
 	EntityBindingMode       *string `json:"entity_binding_mode"`
 	WriteTarget             *string `json:"write_target"`
 	WriteAction             *string `json:"write_action"`
+	Clearable               bool    `json:"clearable"`
 }
 
 type SortEntry struct {
@@ -24,27 +26,27 @@ type SortEntry struct {
 	Direction string `json:"direction"`
 }
 
-type QueryMeta struct {
-	Filters []any       `json:"filters"`
-	Sort    []SortEntry `json:"sort"`
-	GroupBy *string     `json:"group_by,omitempty"`
-}
-
 type inlineCreate struct {
 	PermitsZeroFieldCreate bool `json:"permits_zero_field_create"`
 }
 
 type schemaDocument struct {
-	ViewSchemaID string       `json:"view_schema_id"`
-	DefaultSort  []SortEntry  `json:"default_sort"`
-	InlineCreate inlineCreate `json:"inline_create"`
-	Fields       []Field      `json:"fields"`
+	ViewSchemaID   string       `json:"view_schema_id"`
+	DefaultSort    []SortEntry  `json:"default_sort"`
+	SortFields     []string     `json:"sort_fields"`
+	FilterFields   []string     `json:"filter_fields"`
+	GroupingFields []string     `json:"grouping_fields"`
+	InlineCreate   inlineCreate `json:"inline_create"`
+	Fields         []Field      `json:"fields"`
 }
 
 type Schema struct {
 	ViewSchemaID           string
 	PermitsZeroFieldCreate bool
 	defaultSort            []SortEntry
+	sortFields             []string
+	filterFields           []string
+	groupingFields         []string
 	fields                 map[string]Field
 }
 
@@ -62,11 +64,22 @@ func (s Schema) DefaultSort() []SortEntry {
 	return cloned
 }
 
-func (s Schema) DefaultQueryMeta() QueryMeta {
-	return QueryMeta{
-		Filters: []any{},
-		Sort:    s.DefaultSort(),
-	}
+func (s Schema) SortFields() []string {
+	cloned := make([]string, len(s.sortFields))
+	copy(cloned, s.sortFields)
+	return cloned
+}
+
+func (s Schema) FilterFields() []string {
+	cloned := make([]string, len(s.filterFields))
+	copy(cloned, s.filterFields)
+	return cloned
+}
+
+func (s Schema) GroupingFields() []string {
+	cloned := make([]string, len(s.groupingFields))
+	copy(cloned, s.groupingFields)
+	return cloned
 }
 
 var (
@@ -114,6 +127,9 @@ func loadRegistry() {
 				ViewSchemaID:           document.ViewSchemaID,
 				PermitsZeroFieldCreate: document.InlineCreate.PermitsZeroFieldCreate,
 				defaultSort:            append([]SortEntry(nil), document.DefaultSort...),
+				sortFields:             append([]string(nil), document.SortFields...),
+				filterFields:           append([]string(nil), document.FilterFields...),
+				groupingFields:         append([]string(nil), document.GroupingFields...),
 				fields:                 fieldIndex,
 			}
 		}

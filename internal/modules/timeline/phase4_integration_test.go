@@ -920,6 +920,77 @@ UPDATE incident_memberships
 		}
 	})
 
+	t.Run("resolve_item without a target creates an identity that is immediately query-visible", func(t *testing.T) {
+		harness := phase4test.StartServer(t, "phase4-u-4-09-resolve-create")
+		adminLogin, _ := provisionBootstrapAdmin(t, harness.Server)
+		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-u-4-09-resolve-create-incident",
+			"incident_key":  "IR-PHASE4-U409-D",
+			"title":         "Phase 4 I-4-09 resolve_item create",
+		})
+		incidentID := incident["incident_id"].(string)
+		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+			"client_txn_id":    "txn-phase4-u-4-09-resolve-create-row",
+			"timeline.summary": "Manual identity create-from-mention row",
+			golden.Phase4FieldTimelineIdentityRefs: fixtures.CollectionActions(
+				fixtures.AddTokenAction("vpn.user@example.test"),
+			),
+		})
+		record := created["row"].(map[string]any)
+		recordID := record["record_id"].(string)
+		unresolvedItem := requireSingleCollectionItem(t, record, golden.Phase4FieldTimelineIdentityRefs)
+
+		resp := doPhase3JSON(
+			t,
+			http.MethodPatch,
+			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
+			fixtures.TimelineCollectionPatchPayload(
+				golden.Phase4FieldTimelineIdentityRefs,
+				1,
+				"txn-phase4-u-4-09-resolve-create-patch",
+				fixtures.CollectionActions(
+					map[string]any{
+						"op":       "resolve_item",
+						"item_ref": unresolvedItem["item_ref"].(string),
+					},
+				),
+			),
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
+		row := data["row"].(map[string]any)
+		if got := int64(row["row_version"].(float64)); got != 2 {
+			t.Fatalf("unexpected resolve_item create row_version: got %d want 2", got)
+		}
+		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineIdentityRefs)
+		if item["item_kind"] != "resolved_ref" {
+			t.Fatalf("expected resolved_ref item after create-from-mention, got %#v", item)
+		}
+		createdIdentityID := item["resolved_record_id"].(string)
+
+		viewLogin := phase4test.LoginResult{
+			SessionCookie: adminLogin.sessionCookie,
+			CSRFCookie:    adminLogin.csrfCookie,
+		}
+		identityRow := phase4test.FindRow(
+			t,
+			phase4test.QueryViewRows(
+				t,
+				harness.Server.HTTP.URL,
+				incidentID,
+				golden.Phase4IdentitiesViewSchemaID,
+				viewLogin,
+			),
+			createdIdentityID,
+		)
+		identityCells := identityRow["cells"].(map[string]any)
+		identityEmail := identityCells["identity.email"].(map[string]any)["value"]
+		if identityEmail != "vpn.user@example.test" {
+			t.Fatalf("expected created identity query row to expose the mention email, got %#v", identityRow)
+		}
+	})
+
 	t.Run("client supplied confidence is rejected without side effects", func(t *testing.T) {
 		harness := phase4test.StartServer(t, "phase4-u-4-09-reject")
 		adminLogin, _ := provisionBootstrapAdmin(t, harness.Server)
