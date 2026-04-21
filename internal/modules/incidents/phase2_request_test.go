@@ -1,6 +1,7 @@
 package incidents
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/gen/contracts"
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -119,7 +121,7 @@ func TestPhase2_U_2_05_IncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStabl
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "unknown", "unknown_top_level_member")
 }
 
-func TestPhase2_U_2_06_MembershipCreateDecodeRejectsInvalidSelectorsAndInvitationFields(t *testing.T) {
+func TestPhase2_U_2_06_MembershipCreateUsesLookupOnlyForUserOrEmailTargets(t *testing.T) {
 	request, apiErr := DecodeMembershipCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-email",
 		"email":"  Analyst@Example.Test  ",
@@ -132,6 +134,26 @@ func TestPhase2_U_2_06_MembershipCreateDecodeRejectsInvalidSelectorsAndInvitatio
 		t.Fatal("expected normalized email target")
 	}
 	requireWritableStringNormalization(t, *request.Email, "Analyst@Example.Test")
+	emailLookup := &membershipTargetLookupStub{
+		getByEmail: func(_ context.Context, email string) (authn.UserRecord, error) {
+			if email != "Analyst@Example.Test" {
+				t.Fatalf("unexpected email lookup target: %q", email)
+			}
+			return authn.UserRecord{
+				ID:          uuid.MustParse("00000000-0000-0000-0000-000000000603"),
+				Email:       email,
+				DisplayName: "Analyst",
+				IsActive:    true,
+			}, nil
+		},
+	}
+	target, apiErr := resolveMembershipTarget(context.Background(), emailLookup, request)
+	if apiErr != nil {
+		t.Fatalf("resolve normalized email target: %v", apiErr)
+	}
+	if target.Email != "Analyst@Example.Test" || emailLookup.emailCalls != 1 || emailLookup.idCalls != 0 {
+		t.Fatalf("membership email target must use lookup-only resolution: target=%#v lookup=%#v", target, emailLookup)
+	}
 
 	userOnly, apiErr := DecodeMembershipCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-06-user",
@@ -143,6 +165,26 @@ func TestPhase2_U_2_06_MembershipCreateDecodeRejectsInvalidSelectorsAndInvitatio
 	}
 	if userOnly.UserID == nil || userOnly.Email != nil {
 		t.Fatalf("expected user_id-only membership target, got %#v", userOnly)
+	}
+	userLookup := &membershipTargetLookupStub{
+		getByID: func(_ context.Context, userID uuid.UUID) (authn.UserRecord, error) {
+			if userOnly.UserID == nil || userID != *userOnly.UserID {
+				t.Fatalf("unexpected user_id lookup target: %s", userID)
+			}
+			return authn.UserRecord{
+				ID:          userID,
+				Email:       "lookup-user@example.test",
+				DisplayName: "Lookup User",
+				IsActive:    true,
+			}, nil
+		},
+	}
+	target, apiErr = resolveMembershipTarget(context.Background(), userLookup, userOnly)
+	if apiErr != nil {
+		t.Fatalf("resolve user_id target: %v", apiErr)
+	}
+	if userOnly.UserID == nil || target.ID != *userOnly.UserID || userLookup.idCalls != 1 || userLookup.emailCalls != 0 {
+		t.Fatalf("membership user_id target must use lookup-only resolution: target=%#v lookup=%#v", target, userLookup)
 	}
 
 	_, apiErr = DecodeMembershipCreateRequest(strings.NewReader(`{
@@ -173,9 +215,43 @@ func TestPhase2_U_2_06_MembershipCreateDecodeRejectsInvalidSelectorsAndInvitatio
 		"invitation_email":"new@example.test"
 	}`))
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_mutation_payload", "invitation_email", "unknown_field")
+
+	notFoundRequest, apiErr := DecodeMembershipCreateRequest(strings.NewReader(`{
+		"client_txn_id":"txn-u-2-06-not-found",
+		"email":"missing@example.test",
+		"role":"viewer"
+	}`))
+	if apiErr != nil {
+		t.Fatalf("decode not-found membership create request: %v", apiErr)
+	}
+	_, apiErr = resolveMembershipTarget(context.Background(), &membershipTargetLookupStub{
+		getByEmail: func(context.Context, string) (authn.UserRecord, error) {
+			return authn.UserRecord{}, authn.ErrNotFound
+		},
+	}, notFoundRequest)
+	requireAPIError(t, apiErr, http.StatusNotFound, "user_not_found", "", "")
+
+	inactiveRequest, apiErr := DecodeMembershipCreateRequest(strings.NewReader(`{
+		"client_txn_id":"txn-u-2-06-inactive",
+		"email":"inactive@example.test",
+		"role":"viewer"
+	}`))
+	if apiErr != nil {
+		t.Fatalf("decode inactive membership create request: %v", apiErr)
+	}
+	_, apiErr = resolveMembershipTarget(context.Background(), &membershipTargetLookupStub{
+		getByEmail: func(context.Context, string) (authn.UserRecord, error) {
+			return authn.UserRecord{
+				ID:       uuid.MustParse("00000000-0000-0000-0000-000000000604"),
+				Email:    "inactive@example.test",
+				IsActive: false,
+			}, nil
+		},
+	}, inactiveRequest)
+	requireAPIError(t, apiErr, http.StatusConflict, "user_inactive", "", "")
 }
 
-func TestPhase2_U_2_07_MembershipPatchAndDeleteDecodeEnforceBaseVersionAndLastAdminGuard(t *testing.T) {
+func TestSupportPhase2_MembershipPatchAndDeleteDecodeAndLastAdminGuardStayStable(t *testing.T) {
 	patchRequest, apiErr := DecodeMembershipPatchRequest(strings.NewReader(`{
 		"base_membership_version":5,
 		"role":"admin"
@@ -330,6 +406,29 @@ func TestPhase2_U_2_10_ReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesA
 	if outsideReserved.Code != http.StatusNotFound || strings.Contains(outsideReserved.Body.String(), "extension_profile_not_claimed") {
 		t.Fatalf("ordinary unknown paths must keep ordinary not-found handling: status=%d body=%q", outsideReserved.Code, outsideReserved.Body.String())
 	}
+}
+
+type membershipTargetLookupStub struct {
+	emailCalls int
+	getByEmail func(context.Context, string) (authn.UserRecord, error)
+	getByID    func(context.Context, uuid.UUID) (authn.UserRecord, error)
+	idCalls    int
+}
+
+func (s *membershipTargetLookupStub) GetUserByID(ctx context.Context, userID uuid.UUID) (authn.UserRecord, error) {
+	s.idCalls++
+	if s.getByID == nil {
+		return authn.UserRecord{}, nil
+	}
+	return s.getByID(ctx, userID)
+}
+
+func (s *membershipTargetLookupStub) GetUserByNormalizedEmail(ctx context.Context, email string) (authn.UserRecord, error) {
+	s.emailCalls++
+	if s.getByEmail == nil {
+		return authn.UserRecord{}, nil
+	}
+	return s.getByEmail(ctx, email)
 }
 
 func requireAPIError(t testing.TB, apiErr *auth.APIError, wantStatus int, wantCode string, wantField string, wantReasonCode string) {

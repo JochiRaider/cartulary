@@ -95,6 +95,9 @@ fi
 if grep -Fq 'e2e/phase1.spec.ts' "$functional_script"; then
   fail "scripts/run-browser-e2e-functional.sh must not raw-select e2e/phase1.spec.ts"
 fi
+if ! grep -Fq 'phase2 authoritative browser_functional' "$functional_script"; then
+  fail "scripts/run-browser-e2e-functional.sh must execute Phase 2 browser_functional rows through the manifest"
+fi
 
 if ! grep -Fq 'phase1 authoritative browser_stateful' "$stateful_script"; then
   fail "scripts/run-browser-e2e-stateful.sh must execute Phase 1 browser_stateful rows through the manifest"
@@ -112,21 +115,30 @@ const fs = require("fs");
 const path = require("path");
 
 const root = process.argv[2];
-const manifest = JSON.parse(fs.readFileSync(path.join(root, "tools", "phase1_test_map.json"), "utf8"));
-
-for (const entry of manifest.e2e ?? []) {
-  if (entry.coverage !== "authoritative" || entry.runner !== "playwright") {
-    continue;
-  }
-  const expected = entry.id === "E-1-04" ? "browser_stateful" : "browser_functional";
-  if (entry.execution_dependency !== expected) {
-    console.error(
-      `phase1 authoritative e2e row ${entry.id} must declare execution_dependency=${expected}`,
-    );
-    process.exit(1);
+for (const [phase, expectedFor] of [
+  [
+    "phase1",
+    (entry) => (entry.id === "E-1-04" ? "browser_stateful" : "browser_functional"),
+  ],
+  ["phase2", () => "browser_functional"],
+]) {
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(root, "tools", `${phase}_test_map.json`), "utf8"),
+  );
+  for (const entry of manifest.e2e ?? []) {
+    if (entry.coverage !== "authoritative" || entry.runner !== "playwright") {
+      continue;
+    }
+    const expected = expectedFor(entry);
+    if (entry.execution_dependency !== expected) {
+      console.error(
+        `${phase} authoritative e2e row ${entry.id} must declare execution_dependency=${expected}`,
+      );
+      process.exit(1);
+    }
   }
 }
 EOF
 then
-  fail "Phase 1 authoritative browser manifest rows must carry the canonical execution_dependency for their layer"
+  fail "Phase 1 and Phase 2 authoritative browser manifest rows must carry the canonical execution_dependency for their layer"
 fi

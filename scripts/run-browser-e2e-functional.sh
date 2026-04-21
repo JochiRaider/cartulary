@@ -19,7 +19,7 @@ manifest_env=(
 "${manifest_env[@]}" \
   "$ROOT_DIR/scripts/lib/run-playwright-manifest-phase.sh" \
   "browser-e2e-functional phase2 authoritative" \
-  phase2 authoritative -- \
+  phase2 authoritative browser_functional -- \
   "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test
 
 "${manifest_env[@]}" \

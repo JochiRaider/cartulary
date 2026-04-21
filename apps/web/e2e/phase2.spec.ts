@@ -36,7 +36,7 @@ test("E-2-01 creates an incident, bootstraps the creator as admin, and lands on 
   );
 });
 
-test("E-2-02 shows incident discovery, direct retrieval, and promoted-field-only patching on the ordinary incident shell", async ({
+test("E-2-02 shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell", async ({
   page,
 }) => {
   const incidentKey = uniqueIncidentKey("E202");
@@ -51,6 +51,8 @@ test("E-2-02 shows incident discovery, direct retrieval, and promoted-field-only
   ).toContainText(incidentKey);
   await page.getByTestId(`landing-open-${incidentId}`).click();
 
+  await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
+  await page.goto(`/?incident_id=${incidentId}`);
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
   await expect(page.getByTestId("incident-summary-key")).toHaveText(
     incidentKey,

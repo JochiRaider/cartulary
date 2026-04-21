@@ -26,6 +26,11 @@ type Service struct {
 	now        func() time.Time
 }
 
+type membershipTargetLookup interface {
+	GetUserByID(context.Context, uuid.UUID) (authn.UserRecord, error)
+	GetUserByNormalizedEmail(context.Context, string) (authn.UserRecord, error)
+}
+
 func RegisterRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		service, err := newService(deps)
@@ -602,17 +607,21 @@ func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 }
 
 func (s *Service) resolveMembershipTarget(ctx context.Context, request MembershipCreateRequest) (authn.UserRecord, *auth.APIError) {
+	return resolveMembershipTarget(ctx, s.authStore, request)
+}
+
+func resolveMembershipTarget(ctx context.Context, lookup membershipTargetLookup, request MembershipCreateRequest) (authn.UserRecord, *auth.APIError) {
 	var (
 		user authn.UserRecord
 		err  error
 	)
 	if request.UserID != nil {
-		user, err = s.authStore.GetUserByID(ctx, *request.UserID)
+		user, err = lookup.GetUserByID(ctx, *request.UserID)
 	} else {
-		user, err = s.authStore.GetUserByNormalizedEmail(ctx, *request.Email)
+		user, err = lookup.GetUserByNormalizedEmail(ctx, *request.Email)
 	}
 	if errors.Is(err, authn.ErrNotFound) {
-		return authn.UserRecord{}, &auth.APIError{Status: http.StatusNotFound, Code: "user_not_found", Details: map[string]any{}}
+		return authn.UserRecord{}, userNotFoundError()
 	}
 	if err != nil {
 		return authn.UserRecord{}, internalAPIError(err)

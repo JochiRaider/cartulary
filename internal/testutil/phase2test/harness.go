@@ -29,6 +29,34 @@ type StoreHarness struct {
 	DB   *sql.DB
 }
 
+func StartStore(t testing.TB, prefix string) *StoreHarness {
+	t.Helper()
+
+	postgresHarness := pgtest.Start(t)
+	testDB := postgresHarness.PrepareDatabaseT(t, prefix)
+
+	pool, err := pgxpool.New(context.Background(), testDB.DSN)
+	if err != nil {
+		t.Fatalf("open pgx pool: %v", err)
+	}
+	t.Cleanup(func() {
+		pool.Close()
+	})
+
+	db, err := sql.Open("pgx", testDB.DSN)
+	if err != nil {
+		t.Fatalf("open sql db: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+
+	return &StoreHarness{
+		Pool: pool,
+		DB:   db,
+	}
+}
+
 func StartRuntime(t testing.TB) *RuntimeHarness {
 	t.Helper()
 

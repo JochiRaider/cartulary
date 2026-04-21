@@ -174,20 +174,46 @@ func SeedLocalUserFlags(
 ) string {
 	t.Helper()
 
+	return SeedLocalUserRecord(t, db, email, displayName, password, mfaRequired, isDeploymentAdmin, isActive).ID.String()
+}
+
+func SeedLocalUserRecord(
+	t testing.TB,
+	db *sql.DB,
+	email string,
+	displayName string,
+	password string,
+	mfaRequired bool,
+	isDeploymentAdmin bool,
+	isActive bool,
+) authn.UserRecord {
+	t.Helper()
+
 	hash, err := authn.HashPassword(password)
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}
 
-	var userID string
+	var record authn.UserRecord
 	if err := db.QueryRowContext(context.Background(), `
 INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id::text
-`, email, displayName, hash, mfaRequired, isActive, isDeploymentAdmin).Scan(&userID); err != nil {
+RETURNING id, email, display_name, password_hash, mfa_required, is_active, is_deployment_admin, created_at, updated_at, user_version
+`, email, displayName, hash, mfaRequired, isActive, isDeploymentAdmin).Scan(
+		&record.ID,
+		&record.Email,
+		&record.DisplayName,
+		&record.PasswordHash,
+		&record.MFARequired,
+		&record.IsActive,
+		&record.IsDeploymentAdmin,
+		&record.CreatedAt,
+		&record.UpdatedAt,
+		&record.UserVersion,
+	); err != nil {
 		t.Fatalf("seed local user with flags: %v", err)
 	}
-	return userID
+	return record
 }
 
 func LoginLocalUser(t testing.TB, server *httptestx.Server, username string, password string) (*http.Cookie, *http.Cookie) {

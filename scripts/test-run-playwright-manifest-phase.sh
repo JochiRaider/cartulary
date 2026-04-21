@@ -54,7 +54,7 @@ mkdir -p "$(dirname "$output_file")"
 
 if [[ " $* " == *" --list "* ]]; then
   cat >"$output_file" <<'JSON'
-{"suites":[{"specs":[{"title":"E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface","tests":[{"results":[],"status":"skipped"}],"file":"phase2.spec.ts"},{"title":"E-2-02 shows incident discovery, direct retrieval, and promoted-field-only patching on the ordinary incident shell","tests":[{"results":[],"status":"skipped"}],"file":"phase2.spec.ts"},{"title":"E-2-03 lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell","tests":[{"results":[],"status":"skipped"}],"file":"phase2.spec.ts"}],"suites":[]}],"errors":[]}
+{"suites":[{"specs":[{"title":"E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface","tests":[{"results":[],"status":"skipped"}],"file":"phase2.spec.ts"},{"title":"E-2-02 shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell","tests":[{"results":[],"status":"skipped"}],"file":"phase2.spec.ts"},{"title":"E-2-03 lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell","tests":[{"results":[],"status":"skipped"}],"file":"phase2.spec.ts"}],"suites":[]}],"errors":[]}
 JSON
   exit 0
 fi
@@ -62,7 +62,7 @@ fi
 case "${FAKE_PLAYWRIGHT_MODE:-success}" in
   success)
     cat >"$output_file" <<'JSON'
-{"suites":[{"specs":[{"title":"E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface","file":"phase2.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"E-2-02 shows incident discovery, direct retrieval, and promoted-field-only patching on the ordinary incident shell","file":"phase2.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"E-2-03 lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell","file":"phase2.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]}],"suites":[]}],"errors":[]}
+{"suites":[{"specs":[{"title":"E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface","file":"phase2.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"E-2-02 shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell","file":"phase2.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]},{"title":"E-2-03 lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell","file":"phase2.spec.ts","tests":[{"results":[{"status":"passed","retry":0,"attachments":[],"errors":[]}]}]}],"suites":[]}],"errors":[]}
 JSON
     ;;
   mismatch)

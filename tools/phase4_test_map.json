@@ -33,6 +33,7 @@
       "package": "./internal/modules/timeline",
       "file": "internal/modules/timeline/phase4_unit_test.go",
       "symbol": "TestPhase4_BindingMode_U_4_01",
+      "execution_dependency": "backend_store",
       "evidence_layer": "store_domain"
     },
     {
@@ -42,6 +43,7 @@
       "package": "./internal/modules/timeline",
       "file": "internal/modules/timeline/phase4_unit_test.go",
       "symbol": "TestPhase4_DuplicateMentionProvenance_U_4_02",
+      "execution_dependency": "backend_store",
       "evidence_layer": "store_domain"
     },
     {
@@ -51,6 +53,7 @@
       "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_unit_test.go",
       "symbol": "TestPhase4_CreateFromMention_U_4_03",
+      "execution_dependency": "backend_store",
       "evidence_layer": "store_domain"
     },
     {
@@ -60,6 +63,7 @@
       "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_unit_test.go",
       "symbol": "TestPhase4_DismissRestoreMentionLifecycle_U_4_04",
+      "execution_dependency": "backend_store",
       "evidence_layer": "store_domain"
     },
     {
@@ -69,6 +73,7 @@
       "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_unit_test.go",
       "symbol": "TestPhase4_ExactMatchPrecedence_U_4_05",
+      "execution_dependency": "backend_store",
       "evidence_layer": "store_domain"
     },
     {
@@ -78,6 +83,7 @@
       "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_unit_test.go",
       "symbol": "TestPhase4_ExplicitEntityMerge_U_4_06",
+      "execution_dependency": "backend_store",
       "evidence_layer": "store_domain"
     },
     {
@@ -87,6 +93,7 @@
       "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_unit_test.go",
       "symbol": "TestPhase4_IndicatorObservationSeparation_U_4_07",
+      "execution_dependency": "backend_store",
       "evidence_layer": "store_domain"
     },
     {
@@ -96,6 +103,7 @@
       "package": "./internal/modules/timeline",
       "file": "internal/modules/timeline/phase4_request_test.go",
       "symbol": "TestPhase4_AutoResolutionEligibility_U_4_08",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "decoder"
     },
     {
@@ -105,6 +113,7 @@
       "package": "./internal/modules/timeline",
       "file": "internal/modules/timeline/phase4_request_test.go",
       "symbol": "TestPhase4_ManualTimelineConfidenceNull_U_4_09",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "decoder"
     }
   ],

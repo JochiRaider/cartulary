@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -13,23 +14,7 @@ import (
 )
 
 var (
-	unitTestPattern = regexp.MustCompile(`^TestPhase[0-9][A-Za-z0-9_]*_U_[0-9]_`)
-	allowlisted     = map[string]struct{}{
-		"TestPhase3_CaptureStateLifecycle_U_3_03":                   {},
-		"TestPhase3_CreateAndPatchWriteHistory_U_3_09":              {},
-		"TestPhase3_CreateCommitsAndAssignsIdentity_U_3_01":         {},
-		"TestPhase3_InitialCreateState_U_3_02":                      {},
-		"TestPhase3_PatchReplayStability_U_3_07":                    {},
-		"TestPhase3_ReviewedDemotionAndSupersedeTerminality_U_3_04": {},
-		"TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10":      {},
-		"TestPhase4_BindingMode_U_4_01":                    {},
-		"TestPhase4_DuplicateMentionProvenance_U_4_02":     {},
-		"TestPhase4_CreateFromMention_U_4_03":              {},
-		"TestPhase4_DismissRestoreMentionLifecycle_U_4_04": {},
-		"TestPhase4_ExactMatchPrecedence_U_4_05":           {},
-		"TestPhase4_ExplicitEntityMerge_U_4_06":            {},
-		"TestPhase4_IndicatorObservationSeparation_U_4_07": {},
-	}
+	unitTestPattern     = regexp.MustCompile(`^TestPhase[0-9][A-Za-z0-9_]*_U_[0-9]_`)
 	disallowedSelectors = map[string]struct{}{
 		"pgtest.Start":            {},
 		"phase3test.StartStore":   {},
@@ -42,6 +27,18 @@ var (
 		"phase4test.StartStore":   {},
 	}
 )
+
+type manifestEntry struct {
+	Coverage            string   `json:"coverage"`
+	ExecutionDependency string   `json:"execution_dependency"`
+	Runner              string   `json:"runner"`
+	Symbol              string   `json:"symbol"`
+	Symbols             []string `json:"symbols"`
+}
+
+type phaseManifest struct {
+	Unit []manifestEntry `json:"unit"`
+}
 
 type finding struct {
 	Test     string
@@ -74,7 +71,7 @@ func main() {
 	})
 
 	fmt.Fprintln(os.Stderr, "Service-backed unit-test guard failed.")
-	fmt.Fprintln(os.Stderr, "Only the allowlisted Phase 4 store-domain U-tests may start pgtest/s3test or runtime helpers directly; new service-backed U-tests must live under backend-store and be explicitly allowlisted.")
+	fmt.Fprintln(os.Stderr, "Only authoritative Go U-tests whose manifest entry declares execution_dependency=backend_store may start pgtest/s3test or runtime helpers directly.")
 	for _, finding := range findings {
 		fmt.Fprintf(os.Stderr, "  %s: %s:%d uses %s\n", finding.Test, finding.File, finding.Line, finding.Selector)
 	}
@@ -84,9 +81,13 @@ func main() {
 func scan() ([]finding, error) {
 	fset := token.NewFileSet()
 	var findings []finding
+	allowedTests, err := loadBackendStoreUnitTests()
+	if err != nil {
+		return nil, err
+	}
 
 	for _, root := range []string{"internal", filepath.Join("cmd", "server")} {
-		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
@@ -113,7 +114,7 @@ func scan() ([]finding, error) {
 				if !unitTestPattern.MatchString(fn.Name.Name) {
 					continue
 				}
-				if _, ok := allowlisted[fn.Name.Name]; ok {
+				if _, ok := allowedTests[fn.Name.Name]; ok {
 					continue
 				}
 
@@ -144,6 +145,41 @@ func scan() ([]finding, error) {
 	}
 
 	return findings, nil
+}
+
+func loadBackendStoreUnitTests() (map[string]struct{}, error) {
+	paths, err := filepath.Glob(filepath.Join("tools", "phase*_test_map.json"))
+	if err != nil {
+		return nil, fmt.Errorf("glob phase manifests: %w", err)
+	}
+
+	allowed := make(map[string]struct{})
+	for _, manifestPath := range paths {
+		raw, err := os.ReadFile(manifestPath)
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", manifestPath, err)
+		}
+
+		var manifest phaseManifest
+		if err := json.Unmarshal(raw, &manifest); err != nil {
+			return nil, fmt.Errorf("decode %s: %w", manifestPath, err)
+		}
+
+		for _, entry := range manifest.Unit {
+			if entry.Coverage != "authoritative" || entry.Runner != "go_test" || entry.ExecutionDependency != "backend_store" {
+				continue
+			}
+			if entry.Symbol != "" {
+				allowed[entry.Symbol] = struct{}{}
+			}
+			for _, symbol := range entry.Symbols {
+				if symbol != "" {
+					allowed[symbol] = struct{}{}
+				}
+			}
+		}
+	}
+	return allowed, nil
 }
 
 func selectorString(expr ast.Expr) string {

@@ -1,7 +1,6 @@
 package incidents_test
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -176,7 +175,12 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 	)
 	first := httptestx.RequireSuccessEnvelope(t, create, http.StatusCreated)["data"].(map[string]any)
 	incidentID := first["incident_id"].(string)
-	stableBefore := phase2ReplayCounts(t, harness.DB, incidentID)
+	replaySelector := phase2test.IncidentCreateReplaySelector{
+		ActorUserID: uuid.MustParse(first["created_by_user_id"].(string)),
+		ClientTxnID: "txn-i-2-02-create",
+		IncidentID:  uuid.MustParse(incidentID),
+	}
+	stableBefore := phase2test.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, replaySelector)
 
 	replay := phase2test.DoJSON(
 		t,
@@ -194,6 +198,9 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 	if replayBody["incident_id"] != incidentID {
 		t.Fatalf("expected idempotent replay to return original incident, got %#v", replayBody)
 	}
+	if stableAfterReplay := phase2test.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, replaySelector); stableAfterReplay != stableBefore {
+		t.Fatalf("incident create replay must keep durable side effects stable: before=%+v after=%+v", stableBefore, stableAfterReplay)
+	}
 
 	divergent := phase2test.DoJSON(
 		t,
@@ -208,6 +215,9 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, divergent, http.StatusConflict, "client_txn_conflict")
+	if stableAfterConflict := phase2test.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, replaySelector); stableAfterConflict != stableBefore {
+		t.Fatalf("divergent create replay must not change durable side effects: before=%+v after=%+v", stableBefore, stableAfterConflict)
+	}
 
 	duplicateKey := phase2test.DoJSON(
 		t,
@@ -222,18 +232,9 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, duplicateKey, http.StatusConflict, "incident_key_conflict")
-
-	httptestx.RequireReplayScaffold(t, httptestx.ReplayExpectation{
-		FirstStatus:     http.StatusCreated,
-		ReplayStatus:    http.StatusOK,
-		DivergentStatus: http.StatusConflict,
-		DivergentCode:   "client_txn_conflict",
-		StableBefore:    stableBefore,
-		StableAfter:     phase2ReplayCounts(t, harness.DB, incidentID),
-	})
 }
 
-func TestPhase2_I_2_03_MembershipChangesReDeriveAuthorizationImmediately(t *testing.T) {
+func TestPhase2_I_2_03_ControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing.T) {
 	for _, route := range phase2test.ControlBoundaryInventory() {
 		route := route
 		t.Run(route.Name, func(t *testing.T) {
@@ -541,21 +542,6 @@ func TestPhase2_I_2_06_UnclaimedReservedFamiliesReturnCanonical404AndOutsidePath
 	bodyText := phase2test.ReadBodyString(t, outsideReserved.Body)
 	if strings.Contains(bodyText, "extension_profile_not_claimed") {
 		t.Fatalf("outside reserved families must keep ordinary 404 handling, got %q", bodyText)
-	}
-}
-
-func phase2ReplayCounts(t testing.TB, db *sql.DB, incidentID string) httptestx.ReplayCounts {
-	t.Helper()
-	return httptestx.ReplayCounts{
-		ChangeSets: phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'incidents.create' AND scope_key IS NOT NULL`),
-		MutationRows: phase2test.CountMutationArtifacts(
-			t,
-			db,
-			phase2test.MutationSelector{IncidentID: incidentID},
-			phase2test.MutationOwnerIncidentResource,
-			phase2test.MutationOwnerIncidentMembership,
-		),
-		Revisions: phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM incidents WHERE id::text = $1`, incidentID),
 	}
 }
 

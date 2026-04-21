@@ -455,6 +455,10 @@ func incidentNotFoundError() *auth.APIError {
 	return &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
 }
 
+func userNotFoundError() *auth.APIError {
+	return &auth.APIError{Status: http.StatusNotFound, Code: "user_not_found", Details: map[string]any{}}
+}
+
 func incidentKeyConflictError() *auth.APIError {
 	return &auth.APIError{Status: http.StatusConflict, Code: "incident_key_conflict", Details: map[string]any{}}
 }

@@ -1,0 +1,334 @@
+package incidents_test
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"reflect"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/phase2test"
+)
+
+func TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences(t *testing.T) {
+	harness := phase2test.StartStore(t, "phase2-u-2-02")
+	store := incidents.NewStore(harness.Pool)
+	actor := phase2test.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"phase2-u202@example.test",
+		"Phase 2 U202",
+		"Phase2U202Pass!",
+		false,
+		false,
+		true,
+	)
+
+	result := phase2test.CreateIncidentInStore(t, harness.Pool, actor, incidents.CreateIncidentRequest{
+		ClientTxnID: "txn-phase2-u-2-02-create",
+		IncidentKey: "IR-U202",
+		Title:       "Phase 2 U-2-02",
+	})
+	if result.StatusCode != http.StatusCreated {
+		t.Fatalf("unexpected create status: got %d want %d", result.StatusCode, http.StatusCreated)
+	}
+
+	membership, err := store.GetMembership(context.Background(), result.Incident.ID, actor.ID)
+	if err != nil {
+		t.Fatalf("lookup bootstrap membership: %v", err)
+	}
+	if membership.Role != "admin" || membership.UserID != actor.ID || membership.AddedByUserID != actor.ID {
+		t.Fatalf("unexpected bootstrap membership: %#v", membership)
+	}
+
+	defaultPrefs, err := store.GetIncidentWorkbookPreferences(context.Background(), result.Incident.ID)
+	if err != nil {
+		t.Fatalf("lookup incident workbook preferences: %v", err)
+	}
+	if defaultPrefs.IncidentID != result.Incident.ID || defaultPrefs.UpdatedByUserID == nil || *defaultPrefs.UpdatedByUserID != actor.ID {
+		t.Fatalf("unexpected incident workbook preferences: %#v", defaultPrefs)
+	}
+
+	userPrefs, err := store.GetUserWorkbookPreferences(context.Background(), result.Incident.ID, actor.ID)
+	if err != nil {
+		t.Fatalf("lookup user workbook preferences: %v", err)
+	}
+	if userPrefs.IncidentID != result.Incident.ID || userPrefs.UserID != actor.ID {
+		t.Fatalf("unexpected user workbook preferences: %#v", userPrefs)
+	}
+}
+
+func TestPhase2_U_2_03_StoreCreateIncidentReturnsStableLocationValue(t *testing.T) {
+	harness := phase2test.StartStore(t, "phase2-u-2-03")
+	actor := phase2test.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"phase2-u203@example.test",
+		"Phase 2 U203",
+		"Phase2U203Pass!",
+		false,
+		false,
+		true,
+	)
+
+	result := phase2test.CreateIncidentInStore(t, harness.Pool, actor, incidents.CreateIncidentRequest{
+		ClientTxnID: "txn-phase2-u-2-03-create",
+		IncidentKey: "IR-U203",
+		Title:       "Phase 2 U-2-03",
+	})
+	if result.StatusCode != http.StatusCreated {
+		t.Fatalf("unexpected create status: got %d want %d", result.StatusCode, http.StatusCreated)
+	}
+	if want := "/api/v1/incidents/" + result.Incident.ID.String(); result.Location != want {
+		t.Fatalf("unexpected stable incident location value: got %q want %q", result.Location, want)
+	}
+}
+
+func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor(t *testing.T) {
+	harness := phase2test.StartStore(t, "phase2-u-2-04")
+	store := incidents.NewStore(harness.Pool)
+	actor := phase2test.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"phase2-u204@example.test",
+		"Phase 2 U204",
+		"Phase2U204Pass!",
+		false,
+		false,
+		true,
+	)
+	secondActor := phase2test.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"phase2-u204-second@example.test",
+		"Phase 2 U204 Second",
+		"Phase2U204SecondPass!",
+		false,
+		false,
+		true,
+	)
+
+	firstRequest, apiErr := incidents.DecodeIncidentCreateRequest(strings.NewReader(`{
+		"client_txn_id":"txn-u-2-04",
+		"incident_key":"  IR-U204  ",
+		"title":"  Replay Incident  "
+	}`))
+	if apiErr != nil {
+		t.Fatalf("decode first create request: %v", apiErr)
+	}
+
+	firstResult, err := store.CreateIncident(
+		context.Background(),
+		actor,
+		firstRequest,
+		incidents.IncidentCreateRequestHash(firstRequest),
+		"req-txn-u-2-04-create",
+		time.Now().UTC(),
+	)
+	if err != nil {
+		t.Fatalf("create first incident: %v", err)
+	}
+	if firstResult.StatusCode != http.StatusCreated {
+		t.Fatalf("unexpected first create status: got %d want %d", firstResult.StatusCode, http.StatusCreated)
+	}
+
+	selector := phase2test.IncidentCreateReplaySelector{
+		ActorUserID: actor.ID,
+		ClientTxnID: firstRequest.ClientTxnID,
+		IncidentID:  firstResult.Incident.ID,
+	}
+	stableBefore := phase2test.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, selector)
+
+	replayRequest, apiErr := incidents.DecodeIncidentCreateRequest(strings.NewReader(`{
+		"client_txn_id":"txn-u-2-04",
+		"incident_key":"IR-U204",
+		"title":"Replay Incident"
+	}`))
+	if apiErr != nil {
+		t.Fatalf("decode replay request: %v", apiErr)
+	}
+	replayResult, err := store.CreateIncident(
+		context.Background(),
+		actor,
+		replayRequest,
+		incidents.IncidentCreateRequestHash(replayRequest),
+		"req-txn-u-2-04-replay",
+		time.Now().UTC(),
+	)
+	if err != nil {
+		t.Fatalf("replay incident create: %v", err)
+	}
+	if replayResult.StatusCode != http.StatusOK || replayResult.Incident.ID != firstResult.Incident.ID || replayResult.Location != firstResult.Location {
+		t.Fatalf("unexpected replay result: first=%#v replay=%#v", firstResult, replayResult)
+	}
+	if canonicalFirst := canonicalJSONMap(t, firstResult.Payload); !reflect.DeepEqual(canonicalFirst, replayResult.Payload) {
+		t.Fatalf("expected replayed payload to match original create payload: first=%#v replay=%#v", canonicalFirst, replayResult.Payload)
+	}
+	if stableAfter := phase2test.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, selector); stableAfter != stableBefore {
+		t.Fatalf("replay must keep durable side effects stable: before=%+v after=%+v", stableBefore, stableAfter)
+	}
+
+	divergentRequest, apiErr := incidents.DecodeIncidentCreateRequest(strings.NewReader(`{
+		"client_txn_id":"txn-u-2-04",
+		"incident_key":"IR-U204",
+		"title":"Different title"
+	}`))
+	if apiErr != nil {
+		t.Fatalf("decode divergent create request: %v", apiErr)
+	}
+	if _, err := store.CreateIncident(
+		context.Background(),
+		actor,
+		divergentRequest,
+		incidents.IncidentCreateRequestHash(divergentRequest),
+		"req-txn-u-2-04-divergent",
+		time.Now().UTC(),
+	); !errors.Is(err, authn.ErrClientTxnConflict) {
+		t.Fatalf("divergent replay must return client transaction conflict: %v", err)
+	}
+	if stableAfterConflict := phase2test.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, selector); stableAfterConflict != stableBefore {
+		t.Fatalf("divergent replay must not change durable side effects: before=%+v after=%+v", stableBefore, stableAfterConflict)
+	}
+
+	secondActorRequest := incidents.CreateIncidentRequest{
+		ClientTxnID: firstRequest.ClientTxnID,
+		IncidentKey: "IR-U204-ACTOR2",
+		Title:       "Second Actor Incident",
+	}
+	secondActorResult, err := store.CreateIncident(
+		context.Background(),
+		secondActor,
+		secondActorRequest,
+		incidents.IncidentCreateRequestHash(secondActorRequest),
+		"req-txn-u-2-04-actor-two",
+		time.Now().UTC(),
+	)
+	if err != nil {
+		t.Fatalf("create second-actor incident: %v", err)
+	}
+	if secondActorResult.StatusCode != http.StatusCreated || secondActorResult.Incident.ID == firstResult.Incident.ID {
+		t.Fatalf("actor-scoped idempotency must allow a distinct create for a different actor: %#v", secondActorResult)
+	}
+
+	wantSecondActorSideEffects := phase2test.IncidentCreateReplaySideEffects{
+		BootstrapMembershipRows:        1,
+		IncidentRows:                   1,
+		IncidentWorkbookPreferenceRows: 1,
+		OwnerMutationRows:              2,
+		RouteIdempotencyRows:           1,
+		UserWorkbookPreferenceRows:     1,
+	}
+	if got := phase2test.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, phase2test.IncidentCreateReplaySelector{
+		ActorUserID: secondActor.ID,
+		ClientTxnID: secondActorRequest.ClientTxnID,
+		IncidentID:  secondActorResult.Incident.ID,
+	}); got != wantSecondActorSideEffects {
+		t.Fatalf("unexpected second-actor durable side effects: got=%+v want=%+v", got, wantSecondActorSideEffects)
+	}
+}
+
+func TestPhase2_U_2_07_StoreMembershipPatchAndDeleteRejectStaleBaseVersion(t *testing.T) {
+	harness := phase2test.StartStore(t, "phase2-u-2-07")
+	store := incidents.NewStore(harness.Pool)
+	admin := phase2test.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"phase2-u207-admin@example.test",
+		"Phase 2 U207 Admin",
+		"Phase2U207AdminPass!",
+		false,
+		false,
+		true,
+	)
+	target := phase2test.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"phase2-u207-target@example.test",
+		"Phase 2 U207 Target",
+		"Phase2U207TargetPass!",
+		false,
+		false,
+		true,
+	)
+
+	incidentResult := phase2test.CreateIncidentInStore(t, harness.Pool, admin, incidents.CreateIncidentRequest{
+		ClientTxnID: "txn-phase2-u-2-07-incident",
+		IncidentKey: "IR-U207",
+		Title:       "Phase 2 U-2-07",
+	})
+	membershipResult := phase2test.CreateMembershipInStore(
+		t,
+		harness.Pool,
+		admin,
+		incidentResult.Incident.ID,
+		target,
+		incidents.MembershipCreateRequest{
+			ClientTxnID: "txn-phase2-u-2-07-membership",
+			UserID:      &target.ID,
+			Role:        "viewer",
+		},
+	)
+	staleVersion := membershipResult.Membership.MembershipVersion + 1
+
+	if _, _, err := store.UpdateMembership(
+		context.Background(),
+		admin,
+		incidentResult.Incident.ID,
+		target.ID,
+		incidents.MembershipPatchRequest{
+			BaseMembershipVersion: staleVersion,
+			Role:                  "reviewer",
+		},
+		"req-phase2-u-2-07-patch",
+		time.Now().UTC(),
+	); !errors.Is(err, incidents.ErrMembershipVersionConflict) {
+		t.Fatalf("stale membership patch must reject with version conflict: %v", err)
+	}
+
+	current, err := store.GetMembership(context.Background(), incidentResult.Incident.ID, target.ID)
+	if err != nil {
+		t.Fatalf("lookup membership after stale patch: %v", err)
+	}
+	if current.Role != membershipResult.Membership.Role || current.MembershipVersion != membershipResult.Membership.MembershipVersion {
+		t.Fatalf("stale membership patch must not mutate membership state: before=%#v after=%#v", membershipResult.Membership, current)
+	}
+
+	if err := store.DeleteMembership(
+		context.Background(),
+		admin,
+		incidentResult.Incident.ID,
+		target.ID,
+		incidents.MembershipDeleteRequest{BaseMembershipVersion: staleVersion},
+		"req-phase2-u-2-07-delete",
+	); !errors.Is(err, incidents.ErrMembershipVersionConflict) {
+		t.Fatalf("stale membership delete must reject with version conflict: %v", err)
+	}
+
+	current, err = store.GetMembership(context.Background(), incidentResult.Incident.ID, target.ID)
+	if err != nil {
+		t.Fatalf("lookup membership after stale delete: %v", err)
+	}
+	if current.Role != membershipResult.Membership.Role || current.MembershipVersion != membershipResult.Membership.MembershipVersion {
+		t.Fatalf("stale membership delete must not mutate membership state: before=%#v after=%#v", membershipResult.Membership, current)
+	}
+}
+
+func canonicalJSONMap(t testing.TB, value map[string]any) map[string]any {
+	t.Helper()
+
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal canonical json map: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("decode canonical json map: %v", err)
+	}
+	return decoded
+}
