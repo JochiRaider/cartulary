@@ -20,8 +20,29 @@ test("E-3-02 measures user-visible typing_ack and blank-row-create completion wi
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
+  await expect(page.getByTestId("save-state")).toHaveText("Saved");
 
   const draftSummary = page.getByTestId("draft-row-summary");
+  const delayedCreateRoute = "**/api/v1/incidents/*/views/timeline/rows";
+  let delayedCreateSeen = false;
+  await page.route(delayedCreateRoute, async (route) => {
+    if (delayedCreateSeen) {
+      await route.fallback();
+      return;
+    }
+    delayedCreateSeen = true;
+    await page.waitForTimeout(150);
+    await route.fallback();
+  });
+
+  const visibleSaveStateSummary = `Visible save state ${uniqueTxn("save-state")}`;
+  await draftSummary.fill(visibleSaveStateSummary);
+  await draftSummary.press("Enter");
+  await expect(page.getByTestId("save-state")).toHaveText("Syncing");
+  await expect(page.getByTestId("save-state")).toHaveText("Saved");
+  await expect(page.getByTestId("draft-row-summary")).toBeFocused();
+  await page.unroute(delayedCreateRoute);
+
   const typingSamples: number[] = [];
   for (let sampleIndex = 0; sampleIndex < 13; sampleIndex += 1) {
     const appendedCharacter = String.fromCharCode(97 + (sampleIndex % 26));

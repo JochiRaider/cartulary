@@ -4,7 +4,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/run-phase-common.sh"
 
 usage() {
-  echo "usage: run-playwright-manifest-phase.sh \"<label>\" <phase> <coverage> -- <playwright test command...>" >&2
+  echo "usage: run-playwright-manifest-phase.sh \"<label>\" <phase> <coverage> [<execution_dependency>] -- <playwright test command...>" >&2
   exit 2
 }
 
@@ -16,6 +16,12 @@ phase_label="$1"
 phase_manifest="$2"
 coverage="$3"
 shift 3
+
+execution_dependency=""
+if [[ "$1" != "--" ]]; then
+  execution_dependency="$1"
+  shift
+fi
 
 if [[ "$1" != "--" ]]; then
   usage
@@ -32,8 +38,8 @@ repo_root="$(cd "$script_dir/../.." && pwd)"
 node_bin="${NODE_BIN:-node}"
 manifest_script="$repo_root/scripts/lib/phase-manifest.mjs"
 
-mapfile -t manifest_files < <("$node_bin" "$manifest_script" playwright-files "$phase_manifest" "$coverage")
-grep_pattern="$("$node_bin" "$manifest_script" playwright-grep "$phase_manifest" "$coverage")"
+mapfile -t manifest_files < <("$node_bin" "$manifest_script" playwright-files "$phase_manifest" "$coverage" "$execution_dependency")
+grep_pattern="$("$node_bin" "$manifest_script" playwright-grep "$phase_manifest" "$coverage" "$execution_dependency")"
 list_report="$(mktemp -t cartulary-playwright-list-XXXX.json)"
 run_report="$(mktemp -t cartulary-playwright-run-XXXX.json)"
 output_mode="$(resolve_output_mode)"
@@ -56,7 +62,7 @@ if [[ "$list_status" -ne 0 ]]; then
   exit "$list_status"
 fi
 
-"$node_bin" "$manifest_script" playwright-verify-list "$phase_manifest" "$coverage" "$list_report"
+"$node_bin" "$manifest_script" playwright-verify-list "$phase_manifest" "$coverage" "$execution_dependency" "$list_report"
 
 set +e
 if [[ "$output_mode" != "quiet" ]]; then
@@ -72,7 +78,7 @@ verify_output=""
 verify_status=0
 if [[ "$run_status" -eq 0 ]]; then
   set +e
-  verify_output="$("$node_bin" "$manifest_script" playwright-verify-run "$phase_manifest" "$coverage" "$run_report" 2>&1)"
+  verify_output="$("$node_bin" "$manifest_script" playwright-verify-run "$phase_manifest" "$coverage" "$execution_dependency" "$run_report" 2>&1)"
   verify_status=$?
   set -e
 fi

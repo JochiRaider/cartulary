@@ -9,6 +9,14 @@ const sectionDefinitions = [
 
 const validCoverage = new Set(["authoritative", "supplemental"]);
 const validGoSections = new Set(["unit", "integration", "e2e"]);
+const validExecutionDependencies = new Set([
+  "backend_unit",
+  "backend_store",
+  "backend_integration",
+  "frontend_unit",
+  "browser_functional",
+  "browser_measurement",
+]);
 
 export function loadManifest(root, phase) {
   const manifestPath = path.join(root, "tools", `${phase}_test_map.json`);
@@ -50,12 +58,27 @@ export function validateManifest(root, phase) {
       if (typeof entry.coverage !== "string" || !validCoverage.has(entry.coverage)) {
         throw new Error(`manifest entry ${entry.id} must declare coverage=authoritative|supplemental`);
       }
+      if (
+        typeof entry.execution_dependency === "string" &&
+        !validExecutionDependencies.has(entry.execution_dependency)
+      ) {
+        throw new Error(
+          `manifest entry ${entry.id} has invalid execution_dependency ${entry.execution_dependency}`,
+        );
+      }
       if (entry.runner === "playwright") {
         if (typeof entry.title !== "string" || entry.title.trim() === "") {
           throw new Error(`manifest entry ${entry.id} is missing a non-empty title`);
         }
         if (typeof entry.file !== "string" || !entry.file.startsWith("apps/web/e2e/")) {
           throw new Error(`manifest entry ${entry.id} must point at an apps/web/e2e file`);
+        }
+      } else if (entry.runner === "vitest") {
+        if (typeof entry.title !== "string" || entry.title.trim() === "") {
+          throw new Error(`manifest entry ${entry.id} is missing a non-empty title`);
+        }
+        if (typeof entry.file !== "string" || !entry.file.startsWith("apps/web/")) {
+          throw new Error(`manifest entry ${entry.id} must point at an apps/web file`);
         }
       } else if (entry.runner === "go_test") {
         if (typeof entry.symbol !== "string" || entry.symbol.trim() === "") {
@@ -65,7 +88,7 @@ export function validateManifest(root, phase) {
           throw new Error(`manifest entry ${entry.id} must declare a repo-relative Go package owner`);
         }
       } else {
-        throw new Error(`manifest entry ${entry.id} must declare runner=go_test|playwright`);
+        throw new Error(`manifest entry ${entry.id} must declare runner=go_test|playwright|vitest`);
       }
       if (typeof entry.file !== "string" || entry.file.trim() === "") {
         throw new Error(`manifest entry ${entry.id} must declare a file`);
@@ -156,7 +179,11 @@ function packageMatchesPattern(pkg, pattern) {
   return pkg === pattern;
 }
 
-function selectGoEntries(root, phase, section, coverage, packagePatterns) {
+function entryMatchesExecutionDependency(entry, executionDependency) {
+  return executionDependency === "" || entry.execution_dependency === executionDependency;
+}
+
+function selectGoEntries(root, phase, section, coverage, executionDependency, packagePatterns) {
   if (!validGoSections.has(section)) {
     throw new Error(`invalid go manifest section ${section}`);
   }
@@ -169,6 +196,7 @@ function selectGoEntries(root, phase, section, coverage, packagePatterns) {
       entry.section === section &&
       entry.runner === "go_test" &&
       entry.coverage === coverage &&
+      entryMatchesExecutionDependency(entry, executionDependency) &&
       packagePatterns.some((pattern) => packageMatchesPattern(entry.package, pattern)),
   );
 }
@@ -199,10 +227,14 @@ function flattenPlaywrightSuites(suites, specs = []) {
   return specs;
 }
 
-function selectPlaywrightEntries(root, phase, coverage) {
+function selectPlaywrightEntries(root, phase, coverage, executionDependency) {
   const { manifest } = loadManifest(root, phase);
   return collectEntries(manifest).filter(
-    (entry) => entry.section === "e2e" && entry.runner === "playwright" && entry.coverage === coverage,
+    (entry) =>
+      entry.section === "e2e" &&
+      entry.runner === "playwright" &&
+      entry.coverage === coverage &&
+      entryMatchesExecutionDependency(entry, executionDependency),
   );
 }
 
@@ -211,6 +243,71 @@ function normalizePlaywrightFile(file) {
     throw new Error(`playwright manifest file must live under apps/web/: ${file}`);
   }
   return file.slice("apps/web/".length);
+}
+
+function selectVitestEntries(root, phase, coverage, executionDependency) {
+  const { manifest } = loadManifest(root, phase);
+  return collectEntries(manifest).filter(
+    (entry) =>
+      entry.section === "unit" &&
+      entry.runner === "vitest" &&
+      entry.coverage === coverage &&
+      entryMatchesExecutionDependency(entry, executionDependency),
+  );
+}
+
+function normalizeVitestFile(file) {
+  if (!file.startsWith("apps/web/")) {
+    throw new Error(`vitest manifest file must live under apps/web/: ${file}`);
+  }
+  return file.slice("apps/web/".length);
+}
+
+function readVitestReport(reportFile) {
+  return JSON.parse(readFileSync(reportFile, "utf8"));
+}
+
+function verifyVitestRun(reportFile, expectedTitles) {
+  const report = readVitestReport(reportFile);
+  if (report.success !== true) {
+    throw new Error("vitest manifest run failed");
+  }
+
+  const executed = [];
+  const failed = [];
+  const files = new Set();
+  for (const fileResult of report.testResults ?? []) {
+    if (typeof fileResult?.name === "string" && fileResult.name !== "") {
+      files.add(fileResult.name);
+    }
+    for (const assertion of fileResult.assertionResults ?? []) {
+      if (assertion.status === "skipped") {
+        continue;
+      }
+      if (typeof assertion.title !== "string" || assertion.title === "") {
+        failed.push("(missing title)");
+        continue;
+      }
+      if (assertion.status !== "passed") {
+        failed.push(`${assertion.title} (${assertion.status})`);
+        continue;
+      }
+      executed.push(assertion.title);
+    }
+  }
+
+  const missing = expectedTitles.filter((title) => !executed.includes(title));
+  const unexpected = executed.filter((title) => !expectedTitles.includes(title));
+  if (missing.length > 0 || unexpected.length > 0 || failed.length > 0) {
+    throw new Error(
+      `vitest execution mismatch: missing=${missing.join(",") || "none"} unexpected=${unexpected.join(",") || "none"} failed=${failed.join(",") || "none"}`,
+    );
+  }
+
+  return {
+    files: Array.from(files).sort(),
+    executed: executed.sort(),
+  };
 }
 
 function readPlaywrightReport(reportFile) {
@@ -278,8 +375,8 @@ function main(argv) {
 
   switch (command) {
     case "go-regex": {
-      const [phase, section, coverage, ...packagePatterns] = rest;
-      const entries = selectGoEntries(root, phase, section, coverage, packagePatterns);
+      const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
+      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, packagePatterns);
       if (entries.length === 0) {
         throw new Error(`no ${coverage} go tests found for ${phase} ${section} in ${packagePatterns.join(", ")}`);
       }
@@ -288,8 +385,8 @@ function main(argv) {
     }
 
     case "go-verify-log": {
-      const [phase, section, coverage, logFile, ...packagePatterns] = rest;
-      const entries = selectGoEntries(root, phase, section, coverage, packagePatterns);
+      const [phase, section, coverage, executionDependency = "", logFile, ...packagePatterns] = rest;
+      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, packagePatterns);
       if (entries.length === 0) {
         throw new Error(`no ${coverage} go tests found for ${phase} ${section} in ${packagePatterns.join(", ")}`);
       }
@@ -310,8 +407,8 @@ function main(argv) {
     }
 
     case "playwright-files": {
-      const [phase, coverage] = rest;
-      const entries = selectPlaywrightEntries(root, phase, coverage);
+      const [phase, coverage, executionDependency = ""] = rest;
+      const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
       if (entries.length === 0) {
         throw new Error(`no ${coverage} playwright tests found for ${phase}`);
       }
@@ -321,8 +418,8 @@ function main(argv) {
     }
 
     case "playwright-grep": {
-      const [phase, coverage] = rest;
-      const entries = selectPlaywrightEntries(root, phase, coverage);
+      const [phase, coverage, executionDependency = ""] = rest;
+      const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
       if (entries.length === 0) {
         throw new Error(`no ${coverage} playwright tests found for ${phase}`);
       }
@@ -331,8 +428,8 @@ function main(argv) {
     }
 
     case "playwright-verify-list": {
-      const [phase, coverage, reportFile] = rest;
-      const entries = selectPlaywrightEntries(root, phase, coverage);
+      const [phase, coverage, executionDependency = "", reportFile] = rest;
+      const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
       const expectedTitles = entries.map((entry) => entry.title).sort();
       verifyPlaywrightSpecSet(reportFile, expectedTitles);
       printLines([
@@ -343,8 +440,8 @@ function main(argv) {
     }
 
     case "playwright-verify-run": {
-      const [phase, coverage, reportFile] = rest;
-      const entries = selectPlaywrightEntries(root, phase, coverage);
+      const [phase, coverage, executionDependency = "", reportFile] = rest;
+      const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
       const expectedTitles = entries.map((entry) => entry.title).sort();
       const report = verifyPlaywrightSpecSet(reportFile, expectedTitles);
       const specs = flattenPlaywrightSuites(report.suites);
@@ -374,6 +471,40 @@ function main(argv) {
       printLines([
         `matched playwright manifest tests: ${executed.length}`,
         ...executed.map((title) => `  ${title}`),
+      ]);
+      return;
+    }
+
+    case "vitest-files": {
+      const [phase, coverage, executionDependency = ""] = rest;
+      const entries = selectVitestEntries(root, phase, coverage, executionDependency);
+      if (entries.length === 0) {
+        throw new Error(`no ${coverage} vitest tests found for ${phase}`);
+      }
+      const files = [...new Set(entries.map((entry) => normalizeVitestFile(entry.file)))].sort();
+      printLines(files);
+      return;
+    }
+
+    case "vitest-grep": {
+      const [phase, coverage, executionDependency = ""] = rest;
+      const entries = selectVitestEntries(root, phase, coverage, executionDependency);
+      if (entries.length === 0) {
+        throw new Error(`no ${coverage} vitest tests found for ${phase}`);
+      }
+      printLines([`${alternationRegex(entries.map((entry) => entry.title))}$`]);
+      return;
+    }
+
+    case "vitest-verify-run": {
+      const [phase, coverage, executionDependency = "", reportFile] = rest;
+      const entries = selectVitestEntries(root, phase, coverage, executionDependency);
+      const expectedTitles = entries.map((entry) => entry.title).sort();
+      const result = verifyVitestRun(reportFile, expectedTitles);
+      printLines([
+        `matched vitest manifest tests: ${result.executed.length}`,
+        ...result.files.map((file) => `  file ${file}`),
+        ...result.executed.map((title) => `  ${title}`),
       ]);
       return;
     }

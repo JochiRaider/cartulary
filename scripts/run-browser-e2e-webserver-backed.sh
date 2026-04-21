@@ -15,12 +15,18 @@ run_phase_command \
   "browser-e2e-functional other phases" \
   "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" \
   "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test \
-  e2e/phase1.spec.ts e2e/phase3.spec.ts e2e/phase4.spec.ts
+  e2e/phase1.spec.ts e2e/phase4.spec.ts
 
 "${manifest_env[@]}" \
   "$ROOT_DIR/scripts/lib/run-playwright-manifest-phase.sh" \
   "browser-e2e-functional phase2 authoritative" \
   phase2 authoritative -- \
+  "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test
+
+"${manifest_env[@]}" \
+  "$ROOT_DIR/scripts/lib/run-playwright-manifest-phase.sh" \
+  "browser-e2e-functional phase3 authoritative" \
+  phase3 authoritative browser_functional -- \
   "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test
 
 run_phase_command \

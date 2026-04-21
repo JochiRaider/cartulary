@@ -1,50 +1,54 @@
 # Phase 3 Coverage Ledger
 
-This ledger is the authoritative repo-local map for Phase 3 test evidence.
+This ledger is the human-readable companion to `tools/phase3_test_map.json`.
 
-- Scope: Timeline workbook create, patch, query, lifecycle actions, idempotent replay, projection rebuild, and workbook-visible collaboration behavior.
+- Scope: Timeline workbook create, patch, query, lifecycle actions, replay stability, projection rebuild, save-state UI, and browser-visible collaboration behavior.
 - Normative owners: Core 03 `§6`, `§7`, `§15`; Core 01 `§3.3.5`, `§7.4.1`; Core 04 `AC-043`, `AC-191` through `AC-199`, `AC-329` through `AC-331`.
-- Support-only evidence: no separate Phase 3 process-only suite exists in `cmd/server`; authoritative Phase 3 browser evidence lives under `apps/web/e2e`.
+- Authority: `tools/phase3_test_map.json` is the enforced Phase 3 traceability source. This ledger summarizes the same surface in prose and does not control the mechanical row inventory.
+- Support-only evidence: `internal/modules/timeline/phase3_support_test.go` and `internal/modules/timeline/phase3_support_integration_test.go` remain regression coverage only. They do not satisfy authoritative `U-3-*`, `I-3-*`, or `E-3-*` rows.
 
 ## Unit
 
-| Row | Owner sections | Evidence |
-| --- | --- | --- |
-| `U-3-01` | Core 03 `§7`; Core 04 `AC-191`, `AC-192` | `internal/modules/timeline/phase3_create_request_test.go::TestPhase3_CreateRequestContracts_U_3_01` |
-| `U-3-02` | Core 03 `§6`; Core 04 `AC-191` | `internal/modules/timeline/phase3_create_request_test.go::TestPhase3_CreateInitialStateVocabulary_U_3_02` |
-| `U-3-03` | Core 03 `§6`; Core 04 `AC-193`, `AC-195` | `internal/modules/timeline/phase3_state_test.go::TestPhase3_CaptureStateTransitions_U_3_03` |
-| `U-3-04` | Core 03 `§6`; Core 04 `AC-195`, `AC-197` | `internal/modules/timeline/phase3_state_test.go::TestPhase3_ReviewedRowsDemoteAndSupersededRowsAreTerminal_U_3_04` |
-| `U-3-06` | Core 03 `§15`; Core 01 `§7.4.1`; Core 04 `AC-192` | `internal/modules/timeline/phase3_create_request_test.go::TestPhase3_PatchPayloadValidation_U_3_06` |
-| `U-3-07` | Core 01 `§3.3.5`; Core 04 `AC-199`, `AC-330` | `internal/modules/timeline/phase3_create_request_test.go::TestPhase3_PatchRequestHashNormalization_U_3_07` |
-| `U-3-08` | Core 03 `§15`; Core 01 `§7.4.1` | `internal/modules/timeline/phase3_projection_payload_test.go::TestPhase3_ProjectionRowsKeepStableBindingAndDerivedFields_U_3_08` |
-| `U-3-09` | Core 01 `§3.3.5`; Core 03 `§15` | `internal/modules/timeline/phase3_projection_payload_test.go::TestPhase3_TimelinePayloadBuildersExposeStableShapes_U_3_09` |
-| `U-3-10` | Core 03 `§6`; Core 04 `AC-329`, `AC-330` | `internal/modules/timeline/phase3_projection_payload_test.go::TestPhase3_SupersedeGuardsAndActionHashes_U_3_10` |
+| Row | Evidence | Task target | Real services | Major assertions | Remaining gap |
+| --- | --- | --- | --- | --- | --- |
+| `U-3-01` | `internal/modules/timeline/phase3_store_test.go::TestPhase3_CreateCommitsAndAssignsIdentity_U_3_01` | `backend-store` | PostgreSQL | A one-value Timeline create commits a real row, assigns `record_id`, starts at `row_version=1`, and persists the Timeline projection row. | Browser-visible create flow and draft-row continuation remain browser evidence. |
+| `U-3-02` | `internal/modules/timeline/phase3_store_test.go::TestPhase3_InitialCreateState_U_3_02` | `backend-store` | PostgreSQL | Real committed create initializes `capture_state='rough'` and rejects obsolete lifecycle vocabulary through the store path rather than helper constants alone. | None for the declared store-owned contract. |
+| `U-3-03` | `internal/modules/timeline/phase3_store_test.go::TestPhase3_CaptureStateLifecycle_U_3_03` | `backend-store` | PostgreSQL | The first material patch demotes `rough -> enriched`, and reviewer-authorized `mark-reviewed` persists the explicit `reviewed` transition on real store state. | UI disclosure and browser action affordances remain browser evidence. |
+| `U-3-04` | `internal/modules/timeline/phase3_store_test.go::TestPhase3_ReviewedDemotionAndSupersedeTerminality_U_3_04` | `backend-store` | PostgreSQL | A material edit demotes `reviewed -> enriched`, legal supersede persists `superseded`, and ordinary patch attempts fail closed afterwards. | Replacement-target guards and rollback coupling are owned by `U-3-10` and integration rows. |
+| `U-3-05` | `apps/web/src/App.test.tsx::Phase 3 U-3-05 autosaves on Enter, Tab, blur, and paste completion without a Save button and keeps exact save-state labels` | `frontend-unit` | None | The authoritative component row proves no explicit Save button is required, autosave commits on Enter, Tab, blur, and paste completion, exact `Syncing` / `Saved` / `Conflict` labels remain stable, and the continuation-row helper contract stays bound to the same test. | Focus continuation on the real browser surface remains `E-3-01`. |
+| `U-3-06` | `internal/modules/timeline/phase3_decoder_test.go::TestPhase3_PatchPayloadValidation_U_3_06` | `backend-unit` | None | Patch decode fails closed on missing required members, duplicate `field_key` entries, empty `changes[]`, protected field mutations, and unknown top-level members. | Durable patch consequences remain store or integration evidence. |
+| `U-3-07` | `internal/modules/timeline/phase3_store_test.go::TestPhase3_PatchReplayStability_U_3_07` | `backend-store` | PostgreSQL | Patch replay returns the original committed result and creates no second mutation row or record revision on the write substrate. | Collaboration suppression remains integration and browser evidence, not store-only evidence. |
+| `U-3-08` | `internal/modules/timeline/phase3_projection_contract_test.go::TestPhase3_ProjectionContract_U_3_08` | `backend-unit` | None | Timeline projection rows expose the full grid-owned field contract and keep stable `record_id` / `row_version` binding plus derived field shapes. | Persisted rebuild maintenance remains integration evidence. |
+| `U-3-09` | `internal/modules/timeline/phase3_store_test.go::TestPhase3_CreateAndPatchWriteHistory_U_3_09` | `backend-store` | PostgreSQL | Successful Timeline create and patch each write one attributed mutation entry and one new record revision on the real write substrate. | Browser-visible history inspection is deferred to later phases. |
+| `U-3-10` | `internal/modules/timeline/phase3_store_test.go::TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10` | `backend-store` | PostgreSQL + store rollback hooks | Supersede-with-replacement rejects illegal targets, replays idempotently, writes one coupled replacement link, and rolls back both lifecycle and link state together on hook-induced failure. | End-to-end action routing and visibility still depend on integration and browser evidence. |
 
 ## Integration
 
-| Row | Owner sections | Evidence |
-| --- | --- | --- |
-| `I-3-01` | Core 03 `§6`, `§7`, `§15`; Core 04 `AC-191` through `AC-199`, `AC-330`, `AC-331` | `internal/modules/timeline/phase3_integration_test.go::TestPhase3_I_3_01_CreatePatchReplayAndRollback` |
-| `I-3-02` | Core 03 `§15`; Core 01 `§7.4.1` | `internal/modules/timeline/phase3_integration_test.go::TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild` |
-| `I-3-03` | Core 03 `§6`, `§15`; Core 04 `AC-194`, `AC-196`, `AC-197`, `AC-329`, `AC-330`, `AC-331` | `internal/modules/timeline/phase3_integration_test.go::TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions` |
+| Row | Evidence | Task target | Real services | Major assertions | Remaining gap |
+| --- | --- | --- | --- | --- | --- |
+| `I-3-01` | `internal/modules/timeline/phase3_integration_test.go::TestPhase3_I_3_01_CreatePatchReplayAndRollback` | `backend-integration` | PostgreSQL + MinIO + real runtime + real WebSocket boundary | Real HTTP create, patch, review, supersede, replay, mutation history, projection maintenance, WebSocket invalidation, and rollback all stay transactionally coherent. | None for the declared integration contract. |
+| `I-3-02` | `internal/modules/timeline/phase3_integration_test.go::TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild` | `backend-integration` | PostgreSQL + MinIO + real runtime | The query route reads projection rows instead of source rows, and deterministic rebuild restores the same Timeline query surface. | None for the declared projection-query contract. |
+| `I-3-03` | `internal/modules/timeline/phase3_integration_test.go::TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions` | `backend-integration` | PostgreSQL + MinIO + real runtime + real WebSocket boundary | Incident-role authorization, review or supersede legality, replay semantics, replacement-target guards, and rollback of supersede link or projection state all hold on the live route surface. | Systematic route-matrix coverage is support-only evidence, not authoritative row coverage. |
 
 ## Browser E2E
 
-| Row | Owner sections | Evidence |
-| --- | --- | --- |
-| `E-3-01` | Core 03 `§7`; Core 04 `AC-191` | `apps/web/e2e/phase3.spec.ts::E-3-01 creates a Timeline row in-grid and continues editing on the draft row` |
-| `E-3-02` | Core 04 `AC-043`; Core 05 measurement predicates `perf.typing_ack.v1`, `perf.timeline_blank_row_create.v1` | `apps/web/e2e/measurement/phase3_measurement.spec.ts::E-3-02 measures user-visible typing_ack and blank-row-create completion within the Phase 3 envelope` |
-| `E-3-03` | Core 03 `§6`; Core 04 `AC-194`, `AC-195`, `AC-196`, `AC-197` | `apps/web/e2e/phase3.spec.ts::E-3-03 drives review, demotion, and supersede through the visible workbook surface` |
-| `E-3-04` | Core 01 `§3.3.5`; Core 04 `AC-199`, `AC-330`, `AC-331` | `apps/web/e2e/phase3.spec.ts::E-3-04 uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible invalidation` |
+| Row | Evidence | Task target | Real services | Major assertions | Remaining gap |
+| --- | --- | --- | --- | --- | --- |
+| `E-3-01` | `apps/web/e2e/phase3.spec.ts::E-3-01 creates a Timeline row in-grid and continues editing on the draft row` | `browser-e2e-webserver-backed` | Real browser + Go server + PostgreSQL + MinIO + Vite | A user creates a Timeline row on the real workbook surface and immediately continues editing on the fresh draft row without leaving the grid. | None for the declared browser create-flow contract. |
+| `E-3-02` | `apps/web/e2e/measurement/phase3_measurement.spec.ts::E-3-02 measures user-visible typing_ack and blank-row-create completion within the Phase 3 envelope` | `browser-e2e-measurement` | Real browser + Go server + PostgreSQL + MinIO + Vite | The isolated measurement suite proves visible `Syncing -> Saved` save-state transitions once on the real stack and then measures typing acknowledgement and blank-row-create completion against the declared Phase 3 p95 envelope. | `Conflict` labeling remains covered at the component layer rather than the isolated timing suite. |
+| `E-3-03` | `apps/web/e2e/phase3.spec.ts::E-3-03 drives review, demotion, and supersede through the visible workbook surface` | `browser-e2e-webserver-backed` | Real browser + Go server + PostgreSQL + MinIO + Vite | The visible workbook surface supports review, reviewed-row demotion after material edit, legal supersede, and post-supersede disabling. | None for the declared browser lifecycle contract. |
+| `E-3-04` | `apps/web/e2e/phase3.spec.ts::E-3-04 uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible invalidation` | `browser-e2e-webserver-backed` | Real browser + Go server + PostgreSQL + MinIO + Vite + disclosed test-only snapshot routes | Real browser replay preserves the original committed result, avoids duplicate history growth, and suppresses duplicate visible invalidation. | The disclosed snapshot harness is intentionally test-only and not part of runtime behavior. |
 
 ## Shared Harness Coverage
 
 | Harness | Phase 3 evidence |
 | --- | --- |
-| Envelope consistency and default query meta | `internal/testutil/httptestx/httptestx.go::RequireSuccessEnvelope`, `RequireErrorEnvelope`, and `internal/testutil/httptestx/crosscutting.go::RequireDefaultQueryMeta`, exercised by `internal/modules/timeline/phase3_integration_test.go::TestPhase3_I_3_01_CreatePatchReplayAndRollback`, `TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild`, and `TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions`. |
-| Mutation attribution, revision emission, and coupled-history assertions | `internal/testutil/httptestx/crosscutting.go::RequireMutationAttribution` plus `internal/testutil/timelinetest/timelinetest.go::LookupChangeSet`, `CountChangeSetMutations`, `CountRecordRevisions`, and `CountActiveSupersedesLinks`, exercised by `internal/modules/timeline/phase3_integration_test.go::TestPhase3_I_3_01_CreatePatchReplayAndRollback` and `TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions`. |
-| Projection-row substrate inspection | `internal/testutil/timelinetest/timelinetest.go::LookupProjectionRow` exercised by `internal/modules/timeline/phase3_integration_test.go::TestPhase3_I_3_01_CreatePatchReplayAndRollback` and `TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions`. |
-| Replay stability and divergent replay rejection | `internal/testutil/httptestx/crosscutting.go::RequireReplayScaffold` exercised by `internal/modules/timeline/phase3_integration_test.go::TestPhase3_I_3_01_CreatePatchReplayAndRollback` and `TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions`. |
-| Closed-vocabulary and field-key fail-closed validation | `internal/testutil/httptestx/crosscutting.go::RequireClosedVocabularyRejected` exercised by `internal/modules/timeline/phase3_create_request_test.go::TestPhase3_PatchPayloadValidation_U_3_06` and `internal/modules/timeline/phase3_integration_test.go::TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild`. |
-| Real-service integration harness | `internal/testutil/pgtest`, `internal/testutil/s3test`, `internal/testutil/httptestx`, and `internal/testutil/wstest`, exercised across all Phase 3 integration tests under `internal/modules/timeline/phase3_integration_test.go`. |
-| Browser timing and disclosed hybrid replay harness | `apps/web/e2e/helpers.ts::measureTypingAck`, `measureBlankRowCreate`, `fetchTimelineRecordSubstrate`, and `fetchTimelineRecordChangeCount`, exercised by `apps/web/e2e/measurement/phase3_measurement.spec.ts::E-3-02 measures user-visible typing_ack and blank-row-create completion within the Phase 3 envelope` and `apps/web/e2e/phase3.spec.ts::E-3-04 uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible invalidation`. Measurement-sensitive browser timing evidence runs through the isolated `browser-e2e-measurement` suite rather than the parallel `check-heavy` block. |
+| Real runtime, store, and socket harness | `internal/testutil/phase3test` now centralizes the Postgres + MinIO runtime boot path, HTTP session helpers, incident or membership seeding, and Timeline WebSocket assertions shared by authoritative and support-only Phase 3 tests. |
+| Cross-cutting HTTP and replay helpers | `internal/testutil/httptestx` still owns success or error envelope checks, replay scaffolding, mutation attribution helpers, and closed-vocabulary assertions used across the Phase 3 backend suite. |
+| Timeline substrate inspection helpers | `internal/testutil/timelinetest` continues to provide projection-row, change-set, revision-count, and supersede-link inspection used by the Phase 3 store and integration slices. |
+| Browser timing and replay helpers | `apps/web/e2e/helpers.ts` provides the Phase 3 timing predicates, substrate snapshot accessors, and browser auth helpers shared by `E-3-02` and `E-3-04`. |
+
+## Support-Only Evidence
+
+- `internal/modules/timeline/phase3_support_test.go` keeps helper-level regression coverage for request-shape helpers, vocabulary helpers, hash normalization, payload builders, and supersede guards. These tests are intentionally forbidden from carrying authoritative Phase 3 IDs.
+- `internal/modules/timeline/phase3_support_integration_test.go::TestSupportPhase3_AuthorizationMatrix` table-drives create, query, patch, review, and supersede authorization across no-membership, editor, reviewer, and admin states. It strengthens route inventory confidence but does not replace `I-3-03`.

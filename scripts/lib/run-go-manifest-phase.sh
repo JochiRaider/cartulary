@@ -4,7 +4,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/run-phase-common.sh"
 
 usage() {
-  echo "usage: run-go-manifest-phase.sh \"<label>\" <phase> <section> <coverage> -- <go test command...>" >&2
+  echo "usage: run-go-manifest-phase.sh \"<label>\" <phase> <section> <coverage> [<execution_dependency>] -- <go test command...>" >&2
   exit 2
 }
 
@@ -17,6 +17,12 @@ phase_manifest="$2"
 section="$3"
 coverage="$4"
 shift 4
+
+execution_dependency=""
+if [[ "$1" != "--" ]]; then
+  execution_dependency="$1"
+  shift
+fi
 
 if [[ "$1" != "--" ]]; then
   usage
@@ -61,7 +67,7 @@ repo_root="$(cd "$script_dir/../.." && pwd)"
 node_bin="${NODE_BIN:-node}"
 manifest_script="$repo_root/scripts/lib/phase-manifest.mjs"
 
-pattern="$("$node_bin" "$manifest_script" go-regex "$phase_manifest" "$section" "$coverage" "${package_patterns[@]}")"
+pattern="$("$node_bin" "$manifest_script" go-regex "$phase_manifest" "$section" "$coverage" "$execution_dependency" "${package_patterns[@]}")"
 run_command=("${prefix[@]}" test -json -run "$pattern" "${suffix[@]}")
 log_file="$(mktemp -t cartulary-phase-XXXX.log)"
 output_mode="$(resolve_output_mode)"
@@ -79,7 +85,7 @@ fi
 set -e
 
 set +e
-inventory_output="$("$node_bin" "$manifest_script" go-verify-log "$phase_manifest" "$section" "$coverage" "$log_file" "${package_patterns[@]}" 2>&1)"
+ inventory_output="$("$node_bin" "$manifest_script" go-verify-log "$phase_manifest" "$section" "$coverage" "$execution_dependency" "$log_file" "${package_patterns[@]}" 2>&1)"
 inventory_status=$?
 set -e
 

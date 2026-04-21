@@ -15,6 +15,13 @@ import (
 var (
 	unitTestPattern = regexp.MustCompile(`^TestPhase[0-9][A-Za-z0-9_]*_U_[0-9]_`)
 	allowlisted     = map[string]struct{}{
+		"TestPhase3_CaptureStateLifecycle_U_3_03":                   {},
+		"TestPhase3_CreateAndPatchWriteHistory_U_3_09":              {},
+		"TestPhase3_CreateCommitsAndAssignsIdentity_U_3_01":         {},
+		"TestPhase3_InitialCreateState_U_3_02":                      {},
+		"TestPhase3_PatchReplayStability_U_3_07":                    {},
+		"TestPhase3_ReviewedDemotionAndSupersedeTerminality_U_3_04": {},
+		"TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10":      {},
 		"TestPhase4_BindingMode_U_4_01":                    {},
 		"TestPhase4_DuplicateMentionProvenance_U_4_02":     {},
 		"TestPhase4_CreateFromMention_U_4_03":              {},
@@ -25,6 +32,7 @@ var (
 	}
 	disallowedSelectors = map[string]struct{}{
 		"pgtest.Start":            {},
+		"phase3test.StartStore":   {},
 		"s3test.Start":            {},
 		"phase1test.StartRuntime": {},
 		"phase2test.StartRuntime": {},

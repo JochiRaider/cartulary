@@ -45,44 +45,45 @@ describe("Phase 3 Timeline workbook", () => {
     vi.unstubAllGlobals();
   });
 
-  it("Phase 3 U-3-05 keeps a continuation row after autosaved create", async () => {
+  it("Phase 3 U-3-05 autosaves on Enter, Tab, blur, and paste completion without a Save button and keeps exact save-state labels", async () => {
     const draftRow = createDraftRow(1);
     draftRow.values.summary = "First timeline fact";
 
-    const createPayload = buildCreatePayload(draftRow, "timeline-client-1");
-    expect(createPayload).toEqual({
+    expect(buildCreatePayload(draftRow, "timeline-client-1")).toEqual({
       client_txn_id: "timeline-client-1",
       "timeline.summary": "First timeline fact",
     });
 
-    const persistedRow = {
-      ...createDraftRow(99),
-      key: "record-1",
-      recordId: "record-1",
-      rowVersion: 1,
-      captureState: "rough",
-      values: {
-        occurredAt: "",
-        summary: "First timeline fact",
-        details: "",
-        sourceText: "",
-      },
-      committedValues: {
-        occurredAt: "",
-        summary: "First timeline fact",
-        details: "",
-        sourceText: "",
-      },
-    };
-
-    const continuedRows = ensureDraftRow([persistedRow], 2);
+    const continuedRows = ensureDraftRow(
+      [
+        {
+          ...createDraftRow(99),
+          key: "record-1",
+          recordId: "record-1",
+          rowVersion: 1,
+          captureState: "rough",
+          values: {
+            occurredAt: "",
+            summary: "First timeline fact",
+            details: "",
+            sourceText: "",
+          },
+          committedValues: {
+            occurredAt: "",
+            summary: "First timeline fact",
+            details: "",
+            sourceText: "",
+          },
+        },
+      ],
+      2,
+    );
     expect(continuedRows).toHaveLength(2);
-    expect(continuedRows[0]?.recordId).toBe("record-1");
     expect(continuedRows[1]?.recordId).toBeNull();
     expect(continuedRows[1]?.values.summary).toBe("");
-  });
 
-  it("Phase 3 component autosaves on Enter, Tab, and paste completion", async () => {
+    const pendingBlurPatch = deferred<Response>();
+
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -104,7 +105,7 @@ describe("Phase 3 Timeline workbook", () => {
         row: timelineRow({
           recordId: "record-1",
           rowVersion: 2,
-          summary: "Alpha enter",
+          summary: "Updated via enter",
           captureState: "enriched",
         }),
       }),
@@ -116,11 +117,12 @@ describe("Phase 3 Timeline workbook", () => {
         row: timelineRow({
           recordId: "record-1",
           rowVersion: 3,
-          summary: "Alpha tab",
+          summary: "Updated via tab",
           captureState: "enriched",
         }),
       }),
     );
+    fetchMock.mockReturnValueOnce(pendingBlurPatch.promise);
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
@@ -128,19 +130,27 @@ describe("Phase 3 Timeline workbook", () => {
         row: timelineRow({
           recordId: "record-1",
           rowVersion: 4,
-          summary: "Alpha tab",
+          summary: "Updated via blur",
           sourceText: "Pasted transcript",
           captureState: "enriched",
         }),
       }),
     );
+    fetchMock.mockResolvedValueOnce(errorEnvelope("row_version_conflict", 409));
 
     render(<TimelineWorkbook incidentId="incident-1" />);
+
+    expect((await screen.findByTestId("save-state")).textContent).toBe("Saved");
+    expect(screen.queryByRole("button", { name: /^save$/i })).toBeNull();
 
     const summaryInput = (await screen.findByTestId(
       "row-record-1-summary",
     )) as HTMLInputElement;
-    fireEvent.change(summaryInput, { target: { value: "Alpha enter" } });
+    fireEvent.change(summaryInput, { target: { value: "Updated via enter" } });
+    await waitFor(() => {
+      expect(summaryInput.value).toBe("Updated via enter");
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
     fireEvent.keyDown(summaryInput, { key: "Enter" });
 
     await waitFor(() => {
@@ -149,13 +159,23 @@ describe("Phase 3 Timeline workbook", () => {
     expect(extractBody(fetchMock, 1).base_row_version).toBe(1);
     expect(extractBody(fetchMock, 1).changes[0]).toEqual({
       field_key: "timeline.summary",
-      value: "Alpha enter",
+      value: "Updated via enter",
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "2",
+      );
+      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
     });
 
     const tabInput = (await screen.findByTestId(
       "row-record-1-summary",
     )) as HTMLInputElement;
-    fireEvent.change(tabInput, { target: { value: "Alpha tab" } });
+    fireEvent.change(tabInput, { target: { value: "Updated via tab" } });
+    await waitFor(() => {
+      expect(tabInput.value).toBe("Updated via tab");
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
     fireEvent.keyDown(tabInput, { key: "Tab" });
 
     await waitFor(() => {
@@ -164,86 +184,98 @@ describe("Phase 3 Timeline workbook", () => {
     expect(extractBody(fetchMock, 2).base_row_version).toBe(2);
     expect(extractBody(fetchMock, 2).changes[0]).toEqual({
       field_key: "timeline.summary",
-      value: "Alpha tab",
+      value: "Updated via tab",
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "3",
+      );
+      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
     });
 
-    const sourceText = (await screen.findByTestId(
-      "row-record-1-sourceText",
-    )) as HTMLTextAreaElement;
-    fireEvent.change(sourceText, { target: { value: "Pasted transcript" } });
-    fireEvent.paste(sourceText);
+    const blurInput = (await screen.findByTestId(
+      "row-record-1-summary",
+    )) as HTMLInputElement;
+    fireEvent.change(blurInput, { target: { value: "Updated via blur" } });
+    await waitFor(() => {
+      expect(blurInput.value).toBe("Updated via blur");
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    fireEvent.blur(blurInput);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(4);
     });
     expect(extractBody(fetchMock, 3).base_row_version).toBe(3);
     expect(extractBody(fetchMock, 3).changes[0]).toEqual({
-      field_key: "timeline.source_text",
-      value: "Pasted transcript",
+      field_key: "timeline.summary",
+      value: "Updated via blur",
     });
-  });
-
-  it("Phase 3 component shows the exact save-state labels Syncing, Saved, and Conflict", async () => {
-    const pendingPatch = deferred<Response>();
-
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "incident-1",
-        view_schema_id: timelineViewSchemaId,
-        rows: [
-          timelineRow({
-            recordId: "record-1",
-            rowVersion: 1,
-            summary: "Alpha",
-            captureState: "rough",
-          }),
-        ],
-      }),
-    );
-    fetchMock.mockReturnValueOnce(pendingPatch.promise);
-    fetchMock.mockResolvedValueOnce(errorEnvelope("row_version_conflict", 409));
-
-    render(<TimelineWorkbook incidentId="incident-1" />);
-
-    const summaryInput = (await screen.findByTestId(
-      "row-record-1-summary",
-    )) as HTMLInputElement;
-    fireEvent.change(summaryInput, { target: { value: "Pending save" } });
-    fireEvent.blur(summaryInput);
-
     await waitFor(() => {
-      expect(screen.getByText("Syncing")).toBeTruthy();
+      expect(screen.getByTestId("save-state").textContent).toBe("Syncing");
     });
 
-    pendingPatch.resolve(
+    pendingBlurPatch.resolve(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-5",
+        change_set_id: "change-set-4",
         row: timelineRow({
           recordId: "record-1",
-          rowVersion: 2,
-          summary: "Pending save",
+          rowVersion: 4,
+          summary: "Updated via blur",
           captureState: "enriched",
         }),
       }),
     );
+    await waitFor(() => {
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "4",
+      );
+      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+    });
+
+    const sourceText = (await screen.findByTestId(
+      "row-record-1-sourceText",
+    )) as HTMLTextAreaElement;
+    fireEvent.change(sourceText, { target: { value: "Pasted transcript" } });
+    await waitFor(() => {
+      expect(sourceText.value).toBe("Pasted transcript");
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    fireEvent.paste(sourceText);
 
     await waitFor(() => {
-      expect(screen.getByText("Saved")).toBeTruthy();
+      expect(fetchMock).toHaveBeenCalledTimes(5);
+    });
+    expect(extractBody(fetchMock, 4).base_row_version).toBe(4);
+    expect(extractBody(fetchMock, 4).changes[0]).toEqual({
+      field_key: "timeline.source_text",
+      value: "Pasted transcript",
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "4",
+      );
+      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
     });
 
     const conflictedInput = (await screen.findByTestId(
       "row-record-1-summary",
     )) as HTMLInputElement;
     fireEvent.change(conflictedInput, { target: { value: "Conflict value" } });
+    await waitFor(() => {
+      expect(conflictedInput.value).toBe("Conflict value");
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
     fireEvent.blur(conflictedInput);
 
     await waitFor(() => {
-      expect(screen.getByText("Conflict")).toBeTruthy();
+      expect(fetchMock).toHaveBeenCalledTimes(6);
+      expect(screen.getByTestId("save-state").textContent).toBe("Conflict");
     });
   });
 
-  it("Phase 3 component suppresses self-originated websocket invalidations without refocusing the draft row", async () => {
+  it("Phase 3 support suppresses self-originated websocket invalidations without refocusing the draft row", async () => {
     const pendingPatch = deferred<Response>();
 
     fetchMock.mockResolvedValueOnce(

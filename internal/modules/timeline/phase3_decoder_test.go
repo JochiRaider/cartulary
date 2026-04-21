@@ -6,72 +6,6 @@ import (
 	"testing"
 )
 
-func TestPhase3_CreateRequestContracts_U_3_01(t *testing.T) {
-	t.Run("zero field create is allowed for timeline", func(t *testing.T) {
-		request, apiErr := DecodeTimelineCreateRequest(bytes.NewBufferString(`{
-			"client_txn_id": "txn-u-3-01-zero"
-		}`))
-		if apiErr != nil {
-			t.Fatalf("expected zero-field timeline create to decode, got %#v", apiErr)
-		}
-		if CreateRequestHasUserValue(request) {
-			t.Fatalf("expected zero-field create request to have no user values, got %#v", request)
-		}
-	})
-
-	t.Run("one non-empty value remains valid and normalizes", func(t *testing.T) {
-		request, apiErr := DecodeTimelineCreateRequest(bytes.NewBufferString(`{
-			"client_txn_id": "txn-u-3-01-one-value",
-			"timeline.summary": "  First capture  "
-		}`))
-		if apiErr != nil {
-			t.Fatalf("expected valid create request, got %#v", apiErr)
-		}
-		if request.Summary == nil {
-			t.Fatalf("expected summary value, got %#v", request)
-		}
-		requireWritableStringNormalization(t, *request.Summary, "First capture")
-	})
-
-	t.Run("client-owned system fields fail closed", func(t *testing.T) {
-		_, apiErr := DecodeTimelineCreateRequest(bytes.NewBufferString(`{
-			"client_txn_id": "txn-u-3-01-invalid",
-			"timeline.capture_state": "reviewed"
-		}`))
-		if apiErr == nil {
-			t.Fatal("expected direct write to timeline.capture_state to fail")
-		}
-		requireClosedVocabularyRejected(
-			t,
-			apiErr.Code,
-			apiErr.Details,
-			"timeline.capture_state",
-			"unknown_field",
-		)
-	})
-}
-
-func TestPhase3_CreateInitialStateVocabulary_U_3_02(t *testing.T) {
-	if InitialCaptureState() != captureStateRough {
-		t.Fatalf("unexpected initial capture state: %q", InitialCaptureState())
-	}
-	for _, supported := range []string{
-		captureStateRough,
-		captureStateEnriched,
-		captureStateReviewed,
-		captureStateSuperseded,
-	} {
-		if !IsSupportedCaptureState(supported) {
-			t.Fatalf("expected supported capture_state %q", supported)
-		}
-	}
-	for _, obsolete := range []string{"developing", "complete"} {
-		if IsSupportedCaptureState(obsolete) {
-			t.Fatalf("obsolete capture_state must be rejected: %q", obsolete)
-		}
-	}
-}
-
 func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 	request, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
 		"view_schema_id": "cartulary.view.timeline.v1",
@@ -170,6 +104,12 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 		field  string
 		reason string
 	}{
+		{
+			name:   "unknown top level member",
+			body:   `{"view_schema_id":"cartulary.view.timeline.v1","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"timeline.summary","value":"x"}],"unknown":"value"}`,
+			field:  "unknown",
+			reason: "unknown_field",
+		},
 		{
 			name:   "missing view schema",
 			body:   `{"base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"timeline.summary","value":"x"}]}`,
@@ -312,45 +252,3 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 	})
 }
 
-func TestPhase3_PatchRequestHashNormalization_U_3_07(t *testing.T) {
-	left, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
-		"view_schema_id": "cartulary.view.timeline.v1",
-		"base_row_version": 3,
-		"client_txn_id": "txn-u-3-07",
-		"changes": [
-			{ "field_key": "timeline.summary", "value": "summary" },
-			{ "field_key": "timeline.details", "value": "details" }
-		]
-	}`))
-	if apiErr != nil {
-		t.Fatalf("decode left patch: %#v", apiErr)
-	}
-	right, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
-		"view_schema_id": "cartulary.view.timeline.v1",
-		"base_row_version": 3,
-		"client_txn_id": "txn-u-3-07",
-		"changes": [
-			{ "field_key": "timeline.details", "value": "details" },
-			{ "field_key": "timeline.summary", "value": "summary" }
-		]
-	}`))
-	if apiErr != nil {
-		t.Fatalf("decode right patch: %#v", apiErr)
-	}
-	if !hashesEqual(TimelinePatchRequestHash(left), TimelinePatchRequestHash(right)) {
-		t.Fatal("expected canonical patch request hash to ignore outer changes[] order")
-	}
-
-	changed := "changed"
-	if hashesEqual(TimelinePatchRequestHash(left), TimelinePatchRequestHash(PatchRequest{
-		ViewSchemaID:   right.ViewSchemaID,
-		BaseRowVersion: right.BaseRowVersion,
-		ClientTxnID:    right.ClientTxnID,
-		CanonicalChange: []PatchChange{
-			{FieldKey: "timeline.details", TextValue: &changed},
-			{FieldKey: "timeline.summary", TextValue: right.CanonicalChange[1].TextValue},
-		},
-	})) {
-		t.Fatal("expected divergent normalized patch request hash to differ")
-	}
-}
