@@ -54,7 +54,7 @@ type authStore interface {
 }
 
 type sessionHub interface {
-	RegisterSession(uuid.UUID, *websocket.Conn) func()
+	RegisterSession(uuid.UUID) (<-chan string, func())
 	RevokeSession(uuid.UUID, string)
 }
 
@@ -1071,9 +1071,14 @@ func (s *Service) handleTestSocket(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	defer conn.CloseNow()
+	closed := false
+	defer func() {
+		if !closed {
+			conn.CloseNow()
+		}
+	}()
 
-	unregister := s.hub.RegisterSession(principal.Session.ID, conn)
+	revocations, unregister := s.hub.RegisterSession(principal.Session.ID)
 	defer unregister()
 
 	ctx := context.Background()
@@ -1084,13 +1089,43 @@ func (s *Service) handleTestSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for {
-		var message platformws.Message
-		if err := platformws.ReadJSON(ctx, conn, &message); err != nil {
-			return
+	type readResult struct {
+		closeRequested bool
+	}
+	readResults := make(chan readResult, 1)
+	go func() {
+		for {
+			var message platformws.Message
+			if err := platformws.ReadJSON(context.Background(), conn, &message); err != nil {
+				readResults <- readResult{}
+				return
+			}
+			if message.Type == "close_me" {
+				readResults <- readResult{closeRequested: true}
+				return
+			}
 		}
-		if message.Type == "close_me" {
-			_ = conn.Close(websocket.StatusNormalClosure, "client_complete")
+	}()
+
+	for {
+		select {
+		case reasonCode := <-revocations:
+			closeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			err := platformws.WriteThenClose(closeCtx, conn, platformws.Message{
+				Type:    "session_revoked",
+				Payload: platformws.RawPayload(map[string]any{"reason_code": reasonCode}),
+			}, websocket.StatusPolicyViolation, "session_revoked")
+			cancel()
+			if err == nil {
+				closed = true
+			}
+			return
+		case result := <-readResults:
+			if result.closeRequested {
+				if err := conn.Close(websocket.StatusNormalClosure, "client_complete"); err == nil {
+					closed = true
+				}
+			}
 			return
 		}
 	}

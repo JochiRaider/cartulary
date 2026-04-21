@@ -158,24 +158,60 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)
 
-	server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-02-session-revoked")
-	defer db.Close()
+	t.Run("logout revokes attached session socket", func(t *testing.T) {
+		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-02-session-revoked")
+		defer db.Close()
 
-	seedLocalUser(t, db, "socket-owner@example.test", "Socket Owner", "SocketPass123!", false)
-	sessionCookie, csrfCookie := loginLocalUser(t, server, "socket-owner@example.test", "SocketPass123!", nil)
-	socket := connectSessionSocket(t, server, sessionCookie.Value)
-	defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
+		seedLocalUser(t, db, "socket-owner@example.test", "Socket Owner", "SocketPass123!", false)
+		sessionCookie, csrfCookie := loginLocalUser(t, server, "socket-owner@example.test", "SocketPass123!", nil)
+		socket := connectSessionSocket(t, server, sessionCookie.Value)
+		defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
-	logoutResp := doJSON(
-		t,
-		http.MethodPost,
-		server.HTTP.URL+"/api/v1/auth/logout",
-		nil,
-		withCookies(sessionCookie, csrfCookie),
-		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
-	)
-	httptestx.RequireSuccessEnvelope(t, logoutResp, http.StatusOK)
-	expectSessionRevoked(t, socket, "session_revoked")
+		logoutResp := doJSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/auth/logout",
+			nil,
+			withCookies(sessionCookie, csrfCookie),
+			withHeader(authn.CSRFHeaderName, csrfCookie.Value),
+		)
+		httptestx.RequireSuccessEnvelope(t, logoutResp, http.StatusOK)
+		expectSessionRevoked(t, socket, "session_revoked")
+	})
+
+	t.Run("concurrency limit revokes attached least recently used session socket", func(t *testing.T) {
+		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-02-concurrency-socket")
+		defer db.Close()
+
+		userID := seedLocalUser(t, db, "socket-concurrency@example.test", "Socket Concurrency", "SocketConcurrencyPass1!", false)
+		sessionCookie, _ := loginLocalUser(t, server, "socket-concurrency@example.test", "SocketConcurrencyPass1!", nil)
+		firstSessionID := querySessionRow(t, db, userID).sessionID
+		socket := connectSessionSocket(t, server, sessionCookie.Value)
+		defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
+
+		time.Sleep(20 * time.Millisecond)
+		for i := 0; i < 4; i++ {
+			_, _ = loginLocalUser(t, server, "socket-concurrency@example.test", "SocketConcurrencyPass1!", nil)
+			time.Sleep(20 * time.Millisecond)
+		}
+
+		activeSessionCookie, _ := loginLocalUser(t, server, "socket-concurrency@example.test", "SocketConcurrencyPass1!", nil)
+		expectSessionRevoked(t, socket, authn.ConcurrencyLimitReasonCode)
+
+		firstSession := querySessionByID(t, db, firstSessionID)
+		if !firstSession.revokedAt.Valid {
+			t.Fatal("expected least-recently-used attached session to be revoked")
+		}
+		if firstSession.revokeReasonCode.String != authn.ConcurrencyLimitReasonCode {
+			t.Fatalf("unexpected concurrency revoke_reason_code: got %q", firstSession.revokeReasonCode.String)
+		}
+
+		revokedSession := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(sessionCookie))
+		httptestx.RequireErrorEnvelope(t, revokedSession, http.StatusUnauthorized, "session_required")
+
+		activeSession := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(activeSessionCookie))
+		httptestx.RequireSuccessEnvelope(t, activeSession, http.StatusOK)
+	})
 }
 
 func TestPhase1_CredentialStateAndBootstrapFlows_I_1_04(t *testing.T) {

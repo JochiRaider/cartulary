@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
 	"github.com/google/uuid"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
@@ -1905,8 +1904,8 @@ type revocationCall struct {
 	reasonCode string
 }
 
-func (h *hubStub) RegisterSession(uuid.UUID, *websocket.Conn) func() {
-	return func() {}
+func (h *hubStub) RegisterSession(uuid.UUID) (<-chan string, func()) {
+	return nil, func() {}
 }
 
 func (h *hubStub) RevokeSession(sessionID uuid.UUID, reasonCode string) {
