@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
@@ -43,5 +44,33 @@ func TestHarnessBootsServerAndAssertsEnvelopes(t *testing.T) {
 	errorDetails := errorBody["error"].(map[string]any)["details"].(map[string]any)
 	if errorDetails["reason_code"] != "bootstrap_unavailable" {
 		t.Fatalf("unexpected error details: %#v", errorDetails)
+	}
+}
+
+func TestRequireAuthCookies(t *testing.T) {
+	authCookies := RequireAuthCookies(t, []*http.Cookie{
+		{
+			Name:     authn.SessionCookieName,
+			Value:    "session-token",
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		},
+		{
+			Name:     authn.CSRFCookieName,
+			Value:    "csrf-token",
+			Path:     "/",
+			HttpOnly: false,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		},
+	})
+
+	if authCookies.Session == nil || authCookies.Session.Value != "session-token" {
+		t.Fatalf("unexpected session cookie: %#v", authCookies.Session)
+	}
+	if authCookies.CSRF == nil || authCookies.CSRF.Value != "csrf-token" {
+		t.Fatalf("unexpected csrf cookie: %#v", authCookies.CSRF)
 	}
 }

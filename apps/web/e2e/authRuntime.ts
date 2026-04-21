@@ -412,11 +412,17 @@ export async function logoutAndVerify(
   await verifySessionUnauthorized(storageState, label);
 }
 
-async function authenticatedRequestContext(storageState: StorageState) {
+export async function authenticatedRequestContextFromStorageState(
+  storageState: StorageState,
+) {
   return request.newContext({
     baseURL: apiBase,
     extraHTTPHeaders: authHeadersForStorageState(storageState),
   });
+}
+
+async function authenticatedRequestContext(storageState: StorageState) {
+  return authenticatedRequestContextFromStorageState(storageState);
 }
 
 export async function reconcileWorkerAdminManifest(

@@ -183,6 +183,7 @@ test: frontend-toolchain
 	if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) test pass $$completed $$total - backend-unit backend-store backend-integration backend-integration-support backend-process backend-process-support frontend-unit browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement; fi
 
 backend-unit: export CARTULARY_TEST_TARGET := backend-unit
+backend-unit: export CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION := phase1:unit:authoritative:backend_unit:./internal/platform/...
 
 backend-unit: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)

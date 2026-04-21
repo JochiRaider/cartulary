@@ -12,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
@@ -27,6 +28,8 @@ type ServerOptions struct {
 	Env              map[string]string
 	AdditionalRoutes []httpapi.RouteRegistrar
 }
+
+type AuthCookies = authcookietest.AuthCookies
 
 func StartServer(t testing.TB, options ServerOptions) *Server {
 	t.Helper()
@@ -197,4 +200,9 @@ func RequireErrorEnvelope(t testing.TB, resp *http.Response, wantStatus int, wan
 		t.Fatalf("expected error details object, got %T", errorValue["details"])
 	}
 	return body
+}
+
+func RequireAuthCookies(t testing.TB, cookies []*http.Cookie) AuthCookies {
+	t.Helper()
+	return authcookietest.RequireAuthCookies(t, cookies)
 }

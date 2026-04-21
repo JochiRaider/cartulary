@@ -49,11 +49,11 @@
       "id": "U-1-02",
       "coverage": "authoritative",
       "runner": "go_test",
-      "package": "./internal/platform/authn",
-      "file": "internal/platform/authn/phase1_primitives_test.go",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_LoginNormalizationAndPasswordExactness_U_1_02",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "auth_primitives"
+      "evidence_layer": "http_conformance"
     },
     {
       "id": "U-1-03",
@@ -79,11 +79,11 @@
       "id": "U-1-05",
       "coverage": "authoritative",
       "runner": "go_test",
-      "package": "./internal/platform/authn",
-      "file": "internal/platform/authn/phase1_primitives_test.go",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "auth_primitives"
+      "evidence_layer": "http_conformance"
     },
     {
       "id": "U-1-06",
@@ -110,10 +110,10 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_users_test.go",
+      "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_UserPatchAndLastAdminGuard_U_1_08",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "http_conformance"
     },
     {
       "id": "U-1-09",

@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestPhase1_LoginNormalizationAndPasswordExactness_U_1_02(t *testing.T) {
+func TestSupportPhase1_LoginNormalizationAndPasswordExactness(t *testing.T) {
 	normalized, comparison, ok := NormalizeEmailAddress(" \u00a0Analyst@Example.Test\t")
 	if !ok {
 		t.Fatal("expected email normalization to succeed")
@@ -43,7 +43,7 @@ func TestPhase1_LoginNormalizationAndPasswordExactness_U_1_02(t *testing.T) {
 	}
 }
 
-func TestPhase1_SessionTiming_U_1_03(t *testing.T) {
+func TestSupportPhase1_SessionTiming(t *testing.T) {
 	now := time.Date(2026, time.April, 17, 12, 0, 0, 0, time.UTC)
 
 	timing := NewSessionTiming(now)
@@ -72,7 +72,7 @@ func TestPhase1_SessionTiming_U_1_03(t *testing.T) {
 	}
 }
 
-func TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05(t *testing.T) {
+func TestSupportPhase1_ConcurrencyLimitRevokesLRUNonCurrent(t *testing.T) {
 	base := time.Date(2026, time.April, 17, 12, 0, 0, 0, time.UTC)
 
 	currentID := uuid.MustParse("10000000-0000-0000-0000-000000000001")
@@ -98,7 +98,7 @@ func TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05(t *testing.T) {
 	}
 }
 
-func TestPhase1_RevocationScopes_U_1_06(t *testing.T) {
+func TestSupportPhase1_RevocationScopes(t *testing.T) {
 	if scope := RevocationScopeForAction(RevocationActionLogout); scope != RevokeCurrentSessionOnly {
 		t.Fatalf("logout must revoke only the current session, got %v", scope)
 	}

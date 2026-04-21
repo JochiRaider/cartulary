@@ -43,6 +43,7 @@ vi.mock("./Phase2Harness", () => ({
 }));
 
 import { AppRoot } from "./AppRoot";
+import type { CredentialState, SessionData } from "./phase1Client";
 
 describe("Incident landing", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -503,25 +504,12 @@ function incidentResource(
   };
 }
 
-function sessionResource(
-  overrides?: Partial<{
-    absolute_expires_at: string;
-    authenticated_at: string;
-    display_name: string;
-    idle_expires_at: string;
-    is_deployment_admin: boolean;
-    memberships: Array<{ incident_id: string; role: string }>;
-    mfa_state: string;
-    provider_type: string;
-    session_expires_at: string;
-    user_id: string;
-  }>,
-) {
+function sessionResource(overrides?: Partial<SessionData>): SessionData {
   return {
     user_id: "user-1",
     display_name: "Operator",
     provider_type: "local",
-    mfa_state: "single_factor",
+    mfa_state: "not_required",
     is_deployment_admin: false,
     authenticated_at: "2026-04-20T12:00:00Z",
     idle_expires_at: "2026-04-20T12:30:00Z",
@@ -532,11 +520,11 @@ function sessionResource(
   };
 }
 
-function credentialStateResource() {
+function credentialStateResource(): CredentialState {
   return {
     user_id: "user-1",
     auth_kind: "local",
-    recovery_model: "deployment_admin_reset",
+    recovery_model: "admin_assisted",
     password_changed_at: "2026-04-20T12:00:00Z",
     totp: {
       state: "not_enrolled",

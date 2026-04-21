@@ -5,11 +5,17 @@ export type SessionMembership = {
   role: string;
 };
 
+export type SessionProviderType = "local";
+export type SessionMFAState = "not_required" | "satisfied";
+export type CredentialAuthKind = "local";
+export type CredentialRecoveryModel = "admin_assisted";
+export type CredentialTOTPState = "not_enrolled" | "pending" | "active";
+
 export type SessionData = {
   user_id: string;
   display_name: string;
-  provider_type: string;
-  mfa_state: string;
+  provider_type: SessionProviderType;
+  mfa_state: SessionMFAState;
   is_deployment_admin: boolean;
   authenticated_at: string;
   idle_expires_at: string;
@@ -20,11 +26,11 @@ export type SessionData = {
 
 export type CredentialState = {
   user_id: string;
-  auth_kind: string;
-  recovery_model: string;
+  auth_kind: CredentialAuthKind;
+  recovery_model: CredentialRecoveryModel;
   password_changed_at: string | null;
   totp: {
-    state: string;
+    state: CredentialTOTPState;
     enrolled_at?: string | null;
     pending_expires_at?: string | null;
   };

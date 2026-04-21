@@ -1,257 +1,57 @@
 package phase1test
 
-import (
-	"net/http"
-	"strings"
-)
+import "github.com/JochiRaider/cartulary/internal/testutil/phase1routes"
 
-type RouteTransport string
+type RouteTransport = phase1routes.RouteTransport
 
 const (
-	RouteTransportHTTP      RouteTransport = "http"
-	RouteTransportWebSocket RouteTransport = "websocket"
+	RouteTransportHTTP      = phase1routes.RouteTransportHTTP
+	RouteTransportWebSocket = phase1routes.RouteTransportWebSocket
 )
 
-type RouteCheck string
+type RouteCheck = phase1routes.RouteCheck
 
 const (
-	RouteCheckBootstrapBoundary RouteCheck = "bootstrap_boundary"
-	RouteCheckCSRF              RouteCheck = "csrf"
-	RouteCheckEnvelope          RouteCheck = "envelope"
-	RouteCheckMutationAudit     RouteCheck = "mutation_audit"
-	RouteCheckReplay            RouteCheck = "replay"
-	RouteCheckSecretSafePayload RouteCheck = "secret_safe_payload"
-	RouteCheckSessionRevocation RouteCheck = "session_revocation"
+	RouteCheckBootstrapBoundary = phase1routes.RouteCheckBootstrapBoundary
+	RouteCheckCSRF              = phase1routes.RouteCheckCSRF
+	RouteCheckEnvelope          = phase1routes.RouteCheckEnvelope
+	RouteCheckMutationAudit     = phase1routes.RouteCheckMutationAudit
+	RouteCheckReplay            = phase1routes.RouteCheckReplay
+	RouteCheckSecretSafePayload = phase1routes.RouteCheckSecretSafePayload
+	RouteCheckSessionRevocation = phase1routes.RouteCheckSessionRevocation
 )
 
-type RouteID string
+type RouteID = phase1routes.RouteID
 
 const (
-	RouteLogin              RouteID = "login"
-	RouteSession            RouteID = "session"
-	RouteLogout             RouteID = "logout"
-	RouteCredentialState    RouteID = "credential_state"
-	RoutePasswordChange     RouteID = "password_change"
-	RouteTOTPBegin          RouteID = "totp_begin"
-	RouteTOTPComplete       RouteID = "totp_complete"
-	RouteUsersList          RouteID = "users_list"
-	RouteUsersCreate        RouteID = "users_create"
-	RouteUsersGet           RouteID = "users_get"
-	RouteUsersPatch         RouteID = "users_patch"
-	RouteUsersPasswordReset RouteID = "users_password_reset"
-	RouteUsersTOTPReset     RouteID = "users_totp_reset"
-	RouteUsersRevokeAll     RouteID = "users_revoke_all"
-	RouteSessionLifecycleWS RouteID = "session_lifecycle_ws"
+	RouteLogin              = phase1routes.RouteLogin
+	RouteSession            = phase1routes.RouteSession
+	RouteLogout             = phase1routes.RouteLogout
+	RouteCredentialState    = phase1routes.RouteCredentialState
+	RoutePasswordChange     = phase1routes.RoutePasswordChange
+	RouteTOTPBegin          = phase1routes.RouteTOTPBegin
+	RouteTOTPComplete       = phase1routes.RouteTOTPComplete
+	RouteUsersList          = phase1routes.RouteUsersList
+	RouteUsersCreate        = phase1routes.RouteUsersCreate
+	RouteUsersGet           = phase1routes.RouteUsersGet
+	RouteUsersPatch         = phase1routes.RouteUsersPatch
+	RouteUsersPasswordReset = phase1routes.RouteUsersPasswordReset
+	RouteUsersTOTPReset     = phase1routes.RouteUsersTOTPReset
+	RouteUsersRevokeAll     = phase1routes.RouteUsersRevokeAll
+	RouteSessionLifecycleWS = phase1routes.RouteSessionLifecycleWS
 )
 
-type RouteInventoryFixture struct {
-	UserID string
-}
-
-type RouteInventoryEntry struct {
-	ID            RouteID
-	Transport     RouteTransport
-	Method        string
-	Template      string
-	SuccessStatus int
-	RequiresCSRF  bool
-	Checks        []RouteCheck
-}
+type RouteInventoryFixture = phase1routes.RouteInventoryFixture
+type RouteInventoryEntry = phase1routes.RouteInventoryEntry
 
 func BuildRoutePath(template string, fixture RouteInventoryFixture) string {
-	replacer := strings.NewReplacer(
-		"{user_id}", fixture.UserID,
-	)
-	return replacer.Replace(template)
+	return phase1routes.BuildRoutePath(template, fixture)
 }
 
 func PublicRouteInventory() []RouteInventoryEntry {
-	return []RouteInventoryEntry{
-		{
-			ID:            RouteLogin,
-			Transport:     RouteTransportHTTP,
-			Method:        http.MethodPost,
-			Template:      "/api/v1/auth/login",
-			SuccessStatus: http.StatusOK,
-			Checks:        []RouteCheck{RouteCheckEnvelope},
-		},
-		{
-			ID:            RouteSession,
-			Transport:     RouteTransportHTTP,
-			Method:        http.MethodGet,
-			Template:      "/api/v1/auth/session",
-			SuccessStatus: http.StatusOK,
-			Checks:        []RouteCheck{RouteCheckBootstrapBoundary, RouteCheckEnvelope},
-		},
-		{
-			ID:            RouteLogout,
-			Transport:     RouteTransportHTTP,
-			Method:        http.MethodPost,
-			Template:      "/api/v1/auth/logout",
-			SuccessStatus: http.StatusOK,
-			RequiresCSRF:  true,
-			Checks: []RouteCheck{
-				RouteCheckBootstrapBoundary,
-				RouteCheckCSRF,
-				RouteCheckEnvelope,
-				RouteCheckSessionRevocation,
-			},
-		},
-		{
-			ID:            RouteCredentialState,
-			Transport:     RouteTransportHTTP,
-			Method:        http.MethodGet,
-			Template:      "/api/v1/auth/credential-state",
-			SuccessStatus: http.StatusOK,
-			Checks:        []RouteCheck{RouteCheckBootstrapBoundary, RouteCheckEnvelope},
-		},
-		{
-			ID:            RoutePasswordChange,
-			Transport:     RouteTransportHTTP,
-			Method:        http.MethodPost,
-			Template:      "/api/v1/auth/password/change",
-			SuccessStatus: http.StatusOK,
-			RequiresCSRF:  true,
-			Checks: []RouteCheck{
-				RouteCheckBootstrapBoundary,
-				RouteCheckCSRF,
-				RouteCheckEnvelope,
-				RouteCheckReplay,
-				RouteCheckSecretSafePayload,
-				RouteCheckSessionRevocation,
-			},
-		},
-		{
-			ID:            RouteTOTPBegin,
-			Transport:     RouteTransportHTTP,
-			Method:        http.MethodPost,
-			Template:      "/api/v1/auth/mfa/totp/begin",
-			SuccessStatus: http.StatusOK,
-			RequiresCSRF:  true,
-			Checks: []RouteCheck{
-				RouteCheckCSRF,
-				RouteCheckEnvelope,
-				RouteCheckReplay,
-				RouteCheckSecretSafePayload,
-			},
-		},
-		{
-			ID:            RouteTOTPComplete,
-			Transport:     RouteTransportHTTP,
-			Method:        http.MethodPost,
-			Template:      "/api/v1/auth/mfa/totp/complete",
-			SuccessStatus: http.StatusOK,
-			RequiresCSRF:  true,
-			Checks: []RouteCheck{
-				RouteCheckCSRF,
-				RouteCheckEnvelope,
-				RouteCheckReplay,
-				RouteCheckSecretSafePayload,
-			},
-		},
-		{
-			ID:            RouteUsersList,
-			Transport:     RouteTransportHTTP,
-			Method:        http.MethodGet,
-			Template:      "/api/v1/users",
-			SuccessStatus: http.StatusOK,
-			Checks:        []RouteCheck{RouteCheckBootstrapBoundary, RouteCheckEnvelope},
-		},
-		{
-			ID:            RouteUsersCreate,
-			Transport:     RouteTransportHTTP,
-			Method:        http.MethodPost,
-			Template:      "/api/v1/users",
-			SuccessStatus: http.StatusCreated,
-			RequiresCSRF:  true,
-			Checks: []RouteCheck{
-				RouteCheckBootstrapBoundary,
-				RouteCheckCSRF,
-				RouteCheckEnvelope,
-				RouteCheckMutationAudit,
-				RouteCheckReplay,
-				RouteCheckSecretSafePayload,
-			},
-		},
-		{
-			ID:            RouteUsersGet,
-			Transport:     RouteTransportHTTP,
-			Method:        http.MethodGet,
-			Template:      "/api/v1/users/{user_id}",
-			SuccessStatus: http.StatusOK,
-			Checks:        []RouteCheck{RouteCheckBootstrapBoundary, RouteCheckEnvelope},
-		},
-		{
-			ID:            RouteUsersPatch,
-			Transport:     RouteTransportHTTP,
-			Method:        http.MethodPatch,
-			Template:      "/api/v1/users/{user_id}",
-			SuccessStatus: http.StatusOK,
-			RequiresCSRF:  true,
-			Checks: []RouteCheck{
-				RouteCheckBootstrapBoundary,
-				RouteCheckCSRF,
-				RouteCheckEnvelope,
-				RouteCheckMutationAudit,
-			},
-		},
-		{
-			ID:            RouteUsersPasswordReset,
-			Transport:     RouteTransportHTTP,
-			Method:        http.MethodPost,
-			Template:      "/api/v1/users/{user_id}/password/reset",
-			SuccessStatus: http.StatusOK,
-			RequiresCSRF:  true,
-			Checks: []RouteCheck{
-				RouteCheckBootstrapBoundary,
-				RouteCheckCSRF,
-				RouteCheckEnvelope,
-				RouteCheckMutationAudit,
-				RouteCheckReplay,
-				RouteCheckSecretSafePayload,
-				RouteCheckSessionRevocation,
-			},
-		},
-		{
-			ID:            RouteUsersTOTPReset,
-			Transport:     RouteTransportHTTP,
-			Method:        http.MethodPost,
-			Template:      "/api/v1/users/{user_id}/mfa/totp/reset",
-			SuccessStatus: http.StatusOK,
-			RequiresCSRF:  true,
-			Checks: []RouteCheck{
-				RouteCheckBootstrapBoundary,
-				RouteCheckCSRF,
-				RouteCheckEnvelope,
-				RouteCheckMutationAudit,
-				RouteCheckReplay,
-				RouteCheckSecretSafePayload,
-				RouteCheckSessionRevocation,
-			},
-		},
-		{
-			ID:            RouteUsersRevokeAll,
-			Transport:     RouteTransportHTTP,
-			Method:        http.MethodPost,
-			Template:      "/api/v1/users/{user_id}/sessions/revoke-all",
-			SuccessStatus: http.StatusOK,
-			RequiresCSRF:  true,
-			Checks: []RouteCheck{
-				RouteCheckBootstrapBoundary,
-				RouteCheckCSRF,
-				RouteCheckEnvelope,
-				RouteCheckMutationAudit,
-				RouteCheckReplay,
-				RouteCheckSecretSafePayload,
-				RouteCheckSessionRevocation,
-			},
-		},
-		{
-			ID:        RouteSessionLifecycleWS,
-			Transport: RouteTransportWebSocket,
-			Method:    http.MethodGet,
-			Template:  "/ws/v1/test/session-lifecycle",
-			Checks:    []RouteCheck{RouteCheckBootstrapBoundary, RouteCheckSessionRevocation},
-		},
-	}
+	return phase1routes.PublicRouteInventory()
+}
+
+func HasRouteCheck(route RouteInventoryEntry, check RouteCheck) bool {
+	return phase1routes.HasRouteCheck(route, check)
 }

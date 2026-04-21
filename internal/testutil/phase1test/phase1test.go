@@ -203,21 +203,8 @@ func LoginLocalUser(t testing.TB, baseURL string, username string, password stri
 		t.Fatalf("login failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 	}
 	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-
-	var sessionCookie *http.Cookie
-	var csrfCookie *http.Cookie
-	for _, cookie := range resp.Cookies() {
-		switch cookie.Name {
-		case authn.SessionCookieName:
-			sessionCookie = cookie
-		case authn.CSRFCookieName:
-			csrfCookie = cookie
-		}
-	}
-	if sessionCookie == nil || csrfCookie == nil {
-		t.Fatalf("expected login to set both session and csrf cookies, got %#v", resp.Cookies())
-	}
-	return sessionCookie, csrfCookie
+	authCookies := httptestx.RequireAuthCookies(t, resp.Cookies())
+	return authCookies.Session, authCookies.CSRF
 }
 
 func LoginLocalUserWithSecondFactor(t testing.TB, baseURL string, username string, password string, code string) LoginResult {
@@ -237,21 +224,8 @@ func LoginLocalUserWithSecondFactor(t testing.TB, baseURL string, username strin
 		t.Fatalf("login with second factor failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 	}
 	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-
-	var sessionCookie *http.Cookie
-	var csrfCookie *http.Cookie
-	for _, cookie := range resp.Cookies() {
-		switch cookie.Name {
-		case authn.SessionCookieName:
-			sessionCookie = cookie
-		case authn.CSRFCookieName:
-			csrfCookie = cookie
-		}
-	}
-	if sessionCookie == nil || csrfCookie == nil {
-		t.Fatalf("expected login to set both session and csrf cookies, got %#v", resp.Cookies())
-	}
-	return LoginResult{SessionCookie: sessionCookie, CSRFCookie: csrfCookie}
+	authCookies := httptestx.RequireAuthCookies(t, resp.Cookies())
+	return LoginResult{SessionCookie: authCookies.Session, CSRFCookie: authCookies.CSRF}
 }
 
 func RequireBootstrapLogin(t testing.TB, baseURL string, username string, password string) string {

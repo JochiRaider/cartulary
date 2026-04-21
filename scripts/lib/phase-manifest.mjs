@@ -466,6 +466,13 @@ function main(argv) {
       return;
     }
 
+    case "go-count": {
+      const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
+      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, packagePatterns);
+      printLines([String(entries.length)]);
+      return;
+    }
+
     case "go-verify-log": {
       const [phase, section, coverage, executionDependency = "", logFile, ...packagePatterns] = rest;
       const entries = selectGoEntries(root, phase, section, coverage, executionDependency, packagePatterns);

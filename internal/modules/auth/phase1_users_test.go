@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
+func TestSupportPhase1_UserPatchDecoderAndLastAdminGuard(t *testing.T) {
 	request, apiErr := DecodeUserPatchRequest(strings.NewReader(`{
 		"base_user_version":2,
 		"display_name":" Analyst Patched ",

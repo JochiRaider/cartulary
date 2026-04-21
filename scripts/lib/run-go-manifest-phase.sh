@@ -66,6 +66,15 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 node_bin="${NODE_BIN:-node}"
 manifest_script="$repo_root/scripts/lib/phase-manifest.mjs"
+match_count="$("$node_bin" "$manifest_script" go-count "$phase_manifest" "$section" "$coverage" "$execution_dependency" "${package_patterns[@]}")"
+if [[ "$match_count" == "0" ]]; then
+  selection_key="${phase_manifest}:${section}:${coverage}:${execution_dependency}:${package_patterns[*]}"
+  if [[ "${CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION:-}" == "$selection_key" ]]; then
+    exit 0
+  fi
+  echo "no ${coverage} go tests found for ${phase_manifest} ${section} in ${package_patterns[*]}" >&2
+  exit 1
+fi
 
 pattern="$("$node_bin" "$manifest_script" go-regex "$phase_manifest" "$section" "$coverage" "$execution_dependency" "${package_patterns[@]}")"
 run_command=("${prefix[@]}" test -json -run "$pattern" "${suffix[@]}")

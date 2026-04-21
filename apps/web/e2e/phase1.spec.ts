@@ -1,6 +1,7 @@
-import type { Page } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 
 import {
+  authenticatedRequestContextFromStorageState,
   createLocalUser,
   listUsers,
   loadUser,
@@ -433,6 +434,43 @@ test("E-1-08 keeps deployment-user administration on deployment-admin sessions a
   );
   await expect(page.getByTestId("admin-password-reset")).toHaveCount(0);
 
+  const targetUserVersion = (await loadUser(workerAdminRequest, targetUser.user_id))
+    .user_version;
+  const incidentAdminRequests = await authenticatedRequestContextFromStorageState(
+    await page.context().storageState(),
+  );
+  try {
+    await expectUnauthorizedCredentialAction(
+      incidentAdminRequests,
+      `/api/v1/users/${targetUser.user_id}/password/reset`,
+      {
+        base_user_version: targetUserVersion,
+        client_txn_id: uniqueTxn("phase1-e108-incident-password-reset"),
+        new_password: "Phase1E108Changed!",
+        reason: "incident admin denial probe",
+      },
+    );
+    await expectUnauthorizedCredentialAction(
+      incidentAdminRequests,
+      `/api/v1/users/${targetUser.user_id}/mfa/totp/reset`,
+      {
+        base_user_version: targetUserVersion,
+        client_txn_id: uniqueTxn("phase1-e108-incident-totp-reset"),
+        reason: "incident admin denial probe",
+      },
+    );
+    await expectUnauthorizedCredentialAction(
+      incidentAdminRequests,
+      `/api/v1/users/${targetUser.user_id}/sessions/revoke-all`,
+      {
+        client_txn_id: uniqueTxn("phase1-e108-incident-revoke-all"),
+        reason: "incident admin denial probe",
+      },
+    );
+  } finally {
+    await incidentAdminRequests.dispose();
+  }
+
   await restoreTrackedStorageState(page, workerAdmin.storageState);
   await phase1.goto();
   await phase1.loadTargetUser(targetUser.user_id);
@@ -501,6 +539,20 @@ async function createIncidentMembership(
     },
   );
   expect(response.ok()).toBeTruthy();
+}
+
+async function expectUnauthorizedCredentialAction(
+  authRequests: APIRequestContext,
+  path: string,
+  data: Record<string, unknown>,
+) {
+  const response = await authRequests.post(path, { data });
+  expect(response.status()).toBe(401);
+  await expect(response.json()).resolves.toMatchObject({
+    error: {
+      code: "session_required",
+    },
+  });
 }
 
 async function clearBrowserSession(page: Page) {
