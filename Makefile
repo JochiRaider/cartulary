@@ -24,17 +24,27 @@ Q := @
 RUN_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-phase.sh
 RUN_GO_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-go-phase.sh
 RUN_GO_MANIFEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-go-manifest-phase.sh
+RUN_PLAYWRIGHT_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-playwright-phase.sh
 RUN_PLAYWRIGHT_MANIFEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-playwright-manifest-phase.sh
+RUN_VITEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-vitest-phase.sh
 RUN_VITEST_MANIFEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-vitest-manifest-phase.sh
+TEST_OUTPUT_SCRIPT := $(CURDIR)/scripts/lib/test-output.sh
 RUN_PHASE = $(Q)$(RUN_PHASE_SCRIPT)
 RUN_GO_PHASE = $(Q)$(RUN_GO_PHASE_SCRIPT)
 RUN_GO_MANIFEST_PHASE = $(Q)NODE_BIN=$(NODE_BIN) $(RUN_GO_MANIFEST_PHASE_SCRIPT)
+RUN_PLAYWRIGHT_PHASE = $(Q)NODE_BIN=$(NODE_BIN) $(RUN_PLAYWRIGHT_PHASE_SCRIPT)
 RUN_PLAYWRIGHT_MANIFEST_PHASE = $(Q)NODE_BIN=$(NODE_BIN) $(RUN_PLAYWRIGHT_MANIFEST_PHASE_SCRIPT)
+RUN_VITEST_PHASE = $(Q)NODE_BIN=$(NODE_BIN) $(RUN_VITEST_PHASE_SCRIPT)
 RUN_VITEST_MANIFEST_PHASE = $(Q)NODE_BIN=$(NODE_BIN) $(RUN_VITEST_MANIFEST_PHASE_SCRIPT)
 RUN_PHASE_ALLOW_SUCCESS_LOG = $(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT)
+TARGET_SUMMARY = $(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary
+RUN_SUMMARY = $(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) run-summary
+RUN_SUMMARY_CMD = NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) run-summary
 
 CARTULARY_OUTPUT_MODE ?= quiet
-export CARTULARY_OUTPUT_MODE VERBOSE CI_VERBOSE
+CARTULARY_TEST_RESULTS_DIR ?= $(CURDIR)/.cartulary/test-results
+CARTULARY_TEST_RUN_ID ?= $(shell printf '%s-p%s' "$$(date -u +%Y%m%dT%H%M%SZ)" "$$$$")
+export CARTULARY_OUTPUT_MODE VERBOSE CI_VERBOSE CARTULARY_TEST_RESULTS_DIR CARTULARY_TEST_RUN_ID CARTULARY_TEST_INVENTORY
 
 ifeq ($(CI_VERBOSE),1)
 EFFECTIVE_OUTPUT_MODE := normal
@@ -49,9 +59,9 @@ PNPM_INSTALL_FLAGS := --reporter=append-only --loglevel=warn
 BIOME_CHECK_FLAGS := --reporter=summary --diagnostic-level=warn
 TSC_FLAGS := --pretty false
 VITE_BUILD_FLAGS := --logLevel warn
-VITEST_FLAGS := --reporter=dot --silent=passed-only
+VITEST_FLAGS := --silent=passed-only
 VITEST_MANIFEST_FLAGS := --silent=passed-only
-PLAYWRIGHT_TEST_FLAGS := --reporter=dot --quiet
+PLAYWRIGHT_TEST_FLAGS := --quiet
 endif
 
 SQLC_TOOL := github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
@@ -127,7 +137,7 @@ phase-map-check: frontend-toolchain
 	$(RUN_PHASE) "phase-map-check" -- $(PNPM_ENV) env NODE_BIN=$(NODE_BIN) ./scripts/check-phase-maps.sh
 
 run-phase-smoke:
-	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-run-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh'
+	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-run-phase.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh'
 
 phase-test-name-check:
 	$(RUN_PHASE) "phase-test-name-check" -- ./scripts/check-phase-test-names.sh
@@ -151,66 +161,115 @@ test-fast: frontend-toolchain
 	$(Q)$(MAKE) --no-print-directory frontend-unit
 
 test: frontend-toolchain
-	$(Q)$(MAKE) --no-print-directory test-fast
-	$(Q)$(MAKE) --no-print-directory browser-e2e
+	$(Q)set -e; \
+	dry_run=0; \
+	case " $(MAKEFLAGS) " in \
+		*" n"*|*" --just-print"*|*" --dry-run"*) dry_run=1 ;; \
+	esac; \
+	completed=0; \
+	total=2; \
+	if $(MAKE) --no-print-directory test-fast; then \
+		completed=$$((completed + 1)); \
+	else \
+		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) test fail $$completed $$total test-fast backend-unit backend-store backend-integration backend-integration-support backend-process backend-process-support frontend-unit browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement; fi; \
+		exit 1; \
+	fi; \
+	if $(MAKE) --no-print-directory browser-e2e; then \
+		completed=$$((completed + 1)); \
+	else \
+		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) test fail $$completed $$total browser-e2e backend-unit backend-store backend-integration backend-integration-support backend-process backend-process-support frontend-unit browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement; fi; \
+		exit 1; \
+	fi; \
+	if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) test pass $$completed $$total - backend-unit backend-store backend-integration backend-integration-support backend-process backend-process-support frontend-unit browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement; fi
+
+backend-unit: export CARTULARY_TEST_TARGET := backend-unit
 
 backend-unit: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_GO_MANIFEST_PHASE) "backend-unit phase0 authoritative platform" phase0 unit authoritative backend_unit -- $(GO_ENV) $(GO) test ./internal/platform/...
 	$(RUN_GO_MANIFEST_PHASE) "backend-unit phase1 authoritative platform" phase1 unit authoritative backend_unit -- $(GO_ENV) $(GO) test ./internal/platform/...
-	$(RUN_PHASE) "backend-unit configtest" -- $(GO_ENV) $(GO) test ./internal/testutil/configtest
+	$(RUN_GO_PHASE) "backend-unit configtest" '^Test' -- $(GO_ENV) $(GO) test ./internal/testutil/configtest
 	$(RUN_GO_MANIFEST_PHASE) "backend-unit phase0 authoritative app" phase0 unit authoritative backend_unit -- $(GO_ENV) $(GO) test ./internal/app
 	$(RUN_GO_MANIFEST_PHASE) "backend-unit phase1 authoritative auth" phase1 unit authoritative backend_unit -- $(GO_ENV) $(GO) test ./internal/modules/auth
-	$(RUN_PHASE) "backend-unit support phase1" -- $(GO_ENV) $(GO) test ./internal/modules/auth -run '^(TestSupportPhase1_)'
+	$(RUN_GO_PHASE) "backend-unit support phase1" '^(TestSupportPhase1_)' -- $(GO_ENV) $(GO) test ./internal/modules/auth
 	$(RUN_GO_PHASE) "backend-unit phase4 app" '^(TestPhase4_.*_U_4_0[89])' -- $(GO_ENV) $(GO) test ./internal/app ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline
 	$(RUN_GO_MANIFEST_PHASE) "backend-unit phase2 authoritative" phase2 unit authoritative -- $(GO_ENV) $(GO) test ./internal/modules/incidents
 	$(RUN_GO_MANIFEST_PHASE) "backend-unit phase3 authoritative" phase3 unit authoritative backend_unit -- $(GO_ENV) $(GO) test ./internal/modules/timeline
+	$(TARGET_SUMMARY) backend-unit pass
+
+backend-store: export CARTULARY_TEST_TARGET := backend-store
 
 backend-store: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_GO_PHASE) "backend-store" '^(TestPhase4_.*_U_4_0[1-7])' -- $(GO_ENV) $(GO) test -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./internal/modules/entities ./internal/modules/timeline
 	$(RUN_GO_MANIFEST_PHASE) "backend-store phase3 authoritative" phase3 unit authoritative backend_store -- $(GO_ENV) $(GO) test ./internal/modules/timeline -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM)
+	$(TARGET_SUMMARY) backend-store pass
+
+backend-integration: export CARTULARY_TEST_TARGET := backend-integration
 
 backend-integration: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_PHASE) "backend-integration testutil" -- $(GO_ENV) $(GO) test -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./internal/testutil/httptestx ./internal/testutil/pgtest ./internal/testutil/s3test ./internal/testutil/wstest
+	$(RUN_GO_PHASE) "backend-integration testutil" '^Test' -- $(GO_ENV) $(GO) test -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./internal/testutil/httptestx ./internal/testutil/pgtest ./internal/testutil/s3test ./internal/testutil/wstest
 	$(RUN_GO_MANIFEST_PHASE) "backend-integration phase0 authoritative" phase0 integration authoritative backend_integration -- $(GO_ENV) $(GO) test ./internal/platform/... ./internal/app -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM)
 	$(RUN_GO_MANIFEST_PHASE) "backend-integration phase1 authoritative" phase1 integration authoritative backend_integration -- $(GO_ENV) $(GO) test ./internal/modules/auth -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM)
 	$(RUN_GO_PHASE) "backend-integration phase4" '^(TestPhase4_.*_I_4_)' -- $(GO_ENV) $(GO) test -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./internal/platform/... ./internal/app ./internal/modules/entities ./internal/modules/timeline
 	$(RUN_GO_MANIFEST_PHASE) "backend-integration phase2 authoritative" phase2 integration authoritative -- $(GO_ENV) $(GO) test ./internal/modules/incidents
 	$(RUN_GO_MANIFEST_PHASE) "backend-integration phase3 authoritative" phase3 integration authoritative backend_integration -- $(GO_ENV) $(GO) test ./internal/modules/timeline -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM)
+	$(TARGET_SUMMARY) backend-integration pass
+
+backend-integration-support: export CARTULARY_TEST_TARGET := backend-integration-support
 
 backend-integration-support: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_PHASE) "backend-integration support phase1" -- $(GO_ENV) $(GO) test -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./internal/modules/auth -run '^(TestSupportPhase1_)'
-	$(RUN_PHASE) "backend-integration support phase2" -- $(GO_ENV) $(GO) test ./internal/modules/incidents -run '^(TestSupportPhase2_)'
-	$(RUN_PHASE) "backend-integration support phase3" -- $(GO_ENV) $(GO) test ./internal/modules/timeline -run '^(TestSupportPhase3_)'
+	$(RUN_GO_PHASE) "backend-integration support phase1" '^(TestSupportPhase1_)' -- $(GO_ENV) $(GO) test -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./internal/modules/auth
+	$(RUN_GO_PHASE) "backend-integration support phase2" '^(TestSupportPhase2_)' -- $(GO_ENV) $(GO) test ./internal/modules/incidents
+	$(RUN_GO_PHASE) "backend-integration support phase3" '^(TestSupportPhase3_)' -- $(GO_ENV) $(GO) test ./internal/modules/timeline
+	$(TARGET_SUMMARY) backend-integration-support pass
+
+backend-process: export CARTULARY_TEST_TARGET := backend-process
 
 # Phase 0 process evidence is part of the developer gate and must never be direct-run only.
 backend-process: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_GO_MANIFEST_PHASE) "backend-process phase0 authoritative" phase0 e2e authoritative backend_process -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4
 	$(RUN_GO_PHASE) "backend-process phase1 smoke" '^(TestPhase1_.*_ProcessSmoke)$$' -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4
+	$(TARGET_SUMMARY) backend-process pass
 
-backend-process-support:
-	$(Q)$(MAKE) --no-print-directory phase2-process-smoke
+backend-process-support: export CARTULARY_TEST_TARGET := backend-process-support
+
+backend-process-support: frontend-toolchain
+	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
+	$(RUN_GO_PHASE) "backend-process support phase2" '^(TestPhase2_ProcessSmoke_)' -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4
+	$(TARGET_SUMMARY) backend-process-support pass
+
+phase0-process-e2e: export CARTULARY_TEST_TARGET := phase0-process-e2e
 
 # Phase 0 process evidence is part of the developer gate and must never be direct-run only.
-phase0-process-e2e:
+phase0-process-e2e: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_GO_MANIFEST_PHASE) "phase0-process-e2e" phase0 e2e authoritative backend_process -- $(GO_ENV) $(GO) test ./cmd/server
+	$(TARGET_SUMMARY) phase0-process-e2e pass
 
-phase1-process-smoke:
+phase1-process-smoke: export CARTULARY_TEST_TARGET := phase1-process-smoke
+
+phase1-process-smoke: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_GO_PHASE) "phase1-process-smoke" '^(TestPhase1_.*_ProcessSmoke)$$' -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4
+	$(TARGET_SUMMARY) phase1-process-smoke pass
 
-phase2-process-smoke:
+phase2-process-smoke: export CARTULARY_TEST_TARGET := phase2-process-smoke
+
+phase2-process-smoke: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_GO_PHASE) "phase2-process-smoke" '^(TestPhase2_ProcessSmoke_)' -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4
+	$(TARGET_SUMMARY) phase2-process-smoke pass
+
+frontend-unit: export CARTULARY_TEST_TARGET := frontend-unit
 
 frontend-unit: frontend-toolchain
-	$(RUN_PHASE) "frontend-unit" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec vitest run $(VITEST_FLAGS)
+	$(RUN_VITEST_PHASE) "frontend-unit" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec vitest run $(VITEST_FLAGS)
 	$(RUN_VITEST_MANIFEST_PHASE) "frontend-unit phase3 authoritative" phase3 authoritative frontend_unit -- $(PNPM_ENV) $(PNPM) --dir apps/web exec vitest run $(VITEST_MANIFEST_FLAGS)
+	$(TARGET_SUMMARY) frontend-unit pass
 
 e2e: frontend-toolchain
 	$(Q)$(MAKE) --no-print-directory browser-e2e
@@ -220,22 +279,37 @@ browser-e2e: frontend-toolchain
 	$(Q)$(MAKE) --no-print-directory browser-e2e-stateful
 	$(Q)$(MAKE) --no-print-directory browser-e2e-measurement
 
+browser-e2e-webserver-backed: export CARTULARY_TEST_TARGET := browser-e2e-webserver-backed
+
 browser-e2e-webserver-backed: frontend-toolchain build-server build-migrate
-	$(RUN_PHASE) "browser-e2e-webserver-backed" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-webserver-backed.sh
+	$(Q)env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-webserver-backed.sh
+	$(TARGET_SUMMARY) browser-e2e-webserver-backed pass
+
+browser-e2e-functional: export CARTULARY_TEST_TARGET := browser-e2e-functional
 
 browser-e2e-functional: frontend-toolchain build-server build-migrate
-	$(RUN_PHASE) "browser-e2e-functional" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-functional.sh
+	$(Q)env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-functional.sh
+	$(TARGET_SUMMARY) browser-e2e-functional pass
+
+browser-e2e-support: export CARTULARY_TEST_TARGET := browser-e2e-support
 
 browser-e2e-support: frontend-toolchain build-server build-migrate
-	$(RUN_PHASE) "browser-e2e-support phase2" -- env PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) $(PNPM) --dir apps/web exec playwright test e2e/phase2.support.spec.ts
+	$(RUN_PLAYWRIGHT_PHASE) "browser-e2e-support phase2" -- env PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) $(PNPM) --dir apps/web exec playwright test e2e/phase2.support.spec.ts
+	$(TARGET_SUMMARY) browser-e2e-support pass
+
+browser-e2e-stateful: export CARTULARY_TEST_TARGET := browser-e2e-stateful
 
 # Browser evidence that mutates process-global backend state belongs here.
 browser-e2e-stateful: frontend-toolchain build-server build-migrate
-	$(RUN_PHASE) "browser-e2e-stateful" -- env PLAYWRIGHT_WORKERS=1 PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-stateful.sh $(PLAYWRIGHT_TEST_FLAGS)
+	$(Q)env PLAYWRIGHT_WORKERS=1 PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-stateful.sh $(PLAYWRIGHT_TEST_FLAGS)
+	$(TARGET_SUMMARY) browser-e2e-stateful pass
+
+browser-e2e-measurement: export CARTULARY_TEST_TARGET := browser-e2e-measurement
 
 # Core 05-bound timing evidence is not parallel-safe with the heavy backend gate.
 browser-e2e-measurement: frontend-toolchain build-server build-migrate
-	$(RUN_PHASE) "browser-e2e-measurement" -- env PLAYWRIGHT_WORKERS=1 PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-measurement.sh
+	$(Q)env PLAYWRIGHT_WORKERS=1 PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-measurement.sh
+	$(TARGET_SUMMARY) browser-e2e-measurement pass
 
 lint: lint-go lint-biome lint-typecheck
 
@@ -273,10 +347,39 @@ check-service-backed: frontend-toolchain
 
 check-isolated: browser-e2e-stateful browser-e2e-measurement
 
-check: check-preflight
-	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(CHECK_JOBS) check-heavy
-	$(Q)$(MAKE) --no-print-directory check-service-backed
-	$(Q)$(MAKE) --no-print-directory check-isolated
+check: frontend-toolchain
+	$(Q)set -e; \
+	dry_run=0; \
+	case " $(MAKEFLAGS) " in \
+		*" n"*|*" --just-print"*|*" --dry-run"*) dry_run=1 ;; \
+	esac; \
+	completed=0; \
+	total=4; \
+	if $(MAKE) --no-print-directory check-preflight; then \
+		completed=$$((completed + 1)); \
+	else \
+		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check fail $$completed $$total check-preflight backend-unit frontend-unit backend-store backend-integration backend-integration-support backend-process backend-process-support browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement; fi; \
+		exit 1; \
+	fi; \
+	if $(MAKE) --no-print-directory --output-sync=target -j$(CHECK_JOBS) check-heavy; then \
+		completed=$$((completed + 1)); \
+	else \
+		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check fail $$completed $$total check-heavy backend-unit frontend-unit backend-store backend-integration backend-integration-support backend-process backend-process-support browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement; fi; \
+		exit 1; \
+	fi; \
+	if $(MAKE) --no-print-directory check-service-backed; then \
+		completed=$$((completed + 1)); \
+	else \
+		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check fail $$completed $$total check-service-backed backend-unit frontend-unit backend-store backend-integration backend-integration-support backend-process backend-process-support browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement; fi; \
+		exit 1; \
+	fi; \
+	if $(MAKE) --no-print-directory check-isolated; then \
+		completed=$$((completed + 1)); \
+	else \
+		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check fail $$completed $$total check-isolated backend-unit frontend-unit backend-store backend-integration backend-integration-support backend-process backend-process-support browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement; fi; \
+		exit 1; \
+	fi; \
+	if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check pass $$completed $$total - backend-unit frontend-unit backend-store backend-integration backend-integration-support backend-process backend-process-support browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement; fi
 
 ci:
 	$(Q)./scripts/ci/verify.sh

@@ -69,48 +69,59 @@ manifest_script="$repo_root/scripts/lib/phase-manifest.mjs"
 
 pattern="$("$node_bin" "$manifest_script" go-regex "$phase_manifest" "$section" "$coverage" "$execution_dependency" "${package_patterns[@]}")"
 run_command=("${prefix[@]}" test -json -run "$pattern" "${suffix[@]}")
-log_file="$(mktemp -t cartulary-phase-XXXX.log)"
 output_mode="$(resolve_output_mode)"
+phase_dir="$(prepare_phase_artifact_dir "$phase_label")"
+log_file="${phase_dir}/runner.jsonl"
+stderr_file="${phase_dir}/stderr.log"
+command_text="$(render_command "${run_command[@]}")"
+start_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+start_ms="$(date +%s%3N)"
 
-echo "== ${phase_label} =="
+if [[ "$output_mode" != "quiet" && "${RUN_PHASE_SHOW_BANNER:-1}" == "1" ]]; then
+  echo "== ${phase_label} =="
+fi
 
 set +e
 if [[ "$output_mode" != "quiet" ]]; then
-  "${run_command[@]}" > >(tee "$log_file") 2>&1
+  "${run_command[@]}" > >(tee "$log_file") 2> >(tee "$stderr_file" >&2)
   run_status=$?
 else
-  "${run_command[@]}" >"$log_file" 2>&1
+  "${run_command[@]}" >"$log_file" 2>"$stderr_file"
   run_status=$?
 fi
 set -e
 
+end_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+end_ms="$(date +%s%3N)"
+duration_ms="$((end_ms - start_ms))"
+
 set +e
- inventory_output="$("$node_bin" "$manifest_script" go-verify-log "$phase_manifest" "$section" "$coverage" "$execution_dependency" "$log_file" "${package_patterns[@]}" 2>&1)"
-inventory_status=$?
+CARTULARY_PHASE_LABEL="$phase_label" \
+CARTULARY_PHASE_DIR="$phase_dir" \
+CARTULARY_PHASE_COMMAND="$command_text" \
+CARTULARY_PHASE_START_TIME="$start_time" \
+CARTULARY_PHASE_END_TIME="$end_time" \
+CARTULARY_PHASE_DURATION_MS="$duration_ms" \
+CARTULARY_PHASE_EXIT_STATUS="$run_status" \
+CARTULARY_PHASE_RUNNER_LOG="$log_file" \
+CARTULARY_PHASE_STDERR_LOG="$stderr_file" \
+CARTULARY_MANIFEST_PHASE="$phase_manifest" \
+CARTULARY_MANIFEST_SECTION="$section" \
+CARTULARY_MANIFEST_COVERAGE="$coverage" \
+CARTULARY_MANIFEST_EXECUTION_DEPENDENCY="$execution_dependency" \
+CARTULARY_GO_PACKAGE_PATTERNS="$(printf '%s\n' "${package_patterns[@]}")" \
+  NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" go-manifest-phase
+helper_status=$?
 set -e
 
-if [[ -n "$inventory_output" ]]; then
-  if [[ "$inventory_status" -eq 0 ]]; then
-    printf '%s\n' "$inventory_output"
-  else
-    printf '%s\n' "$inventory_output" >&2
-  fi
-fi
-
-if [[ "$inventory_status" -ne 0 && "$run_status" -eq 0 ]]; then
-  echo "phase failed: ${phase_label} manifest verification" >&2
-  echo "phase log: $log_file" >&2
-  show_phase_log_excerpt "$log_file"
-  exit "$inventory_status"
-fi
-
-if [[ "$run_status" -eq 0 ]]; then
-  rm -f "$log_file"
+if [[ "$run_status" -eq 0 && "$helper_status" -eq 0 ]]; then
   exit 0
 fi
 
-if [[ "$output_mode" == "quiet" ]]; then
-  emit_phase_failure "$phase_label" "$log_file" "${run_command[@]}"
+emit_target_summary fail || true
+
+if [[ "$run_status" -ne 0 ]]; then
+  exit "$run_status"
 fi
 
-exit "$run_status"
+exit "$helper_status"

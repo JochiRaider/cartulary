@@ -4,24 +4,16 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/run-phase-common.sh"
 
 usage() {
-  echo "usage: run-vitest-manifest-phase.sh \"<label>\" <phase> <coverage> [<execution_dependency>] -- <vitest run command...>" >&2
+  echo "usage: run-playwright-phase.sh \"<label>\" -- <playwright test command...>" >&2
   exit 2
 }
 
-if [[ "$#" -lt 5 ]]; then
+if [[ "$#" -lt 3 ]]; then
   usage
 fi
 
 phase_label="$1"
-phase_manifest="$2"
-coverage="$3"
-shift 3
-
-execution_dependency=""
-if [[ "$1" != "--" ]]; then
-  execution_dependency="$1"
-  shift
-fi
+shift
 
 if [[ "$1" != "--" ]]; then
   usage
@@ -33,38 +25,33 @@ if [[ "$#" -eq 0 ]]; then
 fi
 
 command=("$@")
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-repo_root="$(cd "$script_dir/../.." && pwd)"
-node_bin="${NODE_BIN:-node}"
-manifest_script="$repo_root/scripts/lib/phase-manifest.mjs"
-
-mapfile -t manifest_files < <("$node_bin" "$manifest_script" vitest-files "$phase_manifest" "$coverage" "$execution_dependency")
-grep_pattern="$("$node_bin" "$manifest_script" vitest-grep "$phase_manifest" "$coverage" "$execution_dependency")"
 output_mode="$(resolve_output_mode)"
 phase_dir="$(prepare_phase_artifact_dir "$phase_label")"
 run_report="${phase_dir}/runner.json"
 stdout_log="${phase_dir}/stdout.log"
 stderr_log="${phase_dir}/stderr.log"
+output_dir="${phase_dir}/playwright-output"
 
 if [[ "$output_mode" != "quiet" && "${RUN_PHASE_SHOW_BANNER:-1}" == "1" ]]; then
   echo "== ${phase_label} =="
 fi
 
 if [[ "$output_mode" == "quiet" ]]; then
-  run_command=("${command[@]}" --reporter=json --outputFile="$run_report" -t "$grep_pattern" "${manifest_files[@]}")
+  run_command=("${command[@]}" --reporter=json --output "$output_dir")
 else
-  run_command=("${command[@]}" --reporter=dot --reporter=json --outputFile.json="$run_report" -t "$grep_pattern" "${manifest_files[@]}")
+  run_command=("${command[@]}" --reporter=dot,json --output "$output_dir")
 fi
+
 command_text="$(render_command "${run_command[@]}")"
 start_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 start_ms="$(date +%s%3N)"
 
 set +e
 if [[ "$output_mode" != "quiet" ]]; then
-  "${run_command[@]}" > >(tee "$stdout_log") 2> >(tee "$stderr_log" >&2)
+  PLAYWRIGHT_JSON_OUTPUT_FILE="$run_report" "${run_command[@]}" > >(tee "$stdout_log") 2> >(tee "$stderr_log" >&2)
   run_status=$?
 else
-  "${run_command[@]}" >"$stdout_log" 2>"$stderr_log"
+  PLAYWRIGHT_JSON_OUTPUT_FILE="$run_report" "${run_command[@]}" >"$stdout_log" 2>"$stderr_log"
   run_status=$?
 fi
 set -e
@@ -84,10 +71,10 @@ CARTULARY_PHASE_EXIT_STATUS="$run_status" \
 CARTULARY_PHASE_RUNNER_LOG="$run_report" \
 CARTULARY_PHASE_STDOUT_LOG="$stdout_log" \
 CARTULARY_PHASE_STDERR_LOG="$stderr_log" \
-CARTULARY_MANIFEST_PHASE="$phase_manifest" \
-CARTULARY_MANIFEST_COVERAGE="$coverage" \
-CARTULARY_MANIFEST_EXECUTION_DEPENDENCY="$execution_dependency" \
-  NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" vitest-manifest-phase
+CARTULARY_PLAYWRIGHT_OUTPUT_DIR="$output_dir" \
+CARTULARY_WEB_E2E_SERVER_LOG="${CARTULARY_WEB_E2E_SERVER_LOG:-}" \
+CARTULARY_WEB_E2E_WEB_LOG="${CARTULARY_WEB_E2E_WEB_LOG:-}" \
+  NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" playwright-phase
 helper_status=$?
 set -e
 

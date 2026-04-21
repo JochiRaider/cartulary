@@ -2,17 +2,35 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${ROOT_DIR}/scripts/lib/run-phase-common.sh"
 source "${ROOT_DIR}/scripts/lib/web-e2e-lifecycle.sh"
 COMPOSE_FILE="${ROOT_DIR}/docker-compose.dev.yml"
 GO_BIN="${GO:-go}"
 SERVER_BIN="${CARTULARY_SERVER_BIN:-}"
 MIGRATE_BIN="${CARTULARY_MIGRATE_BIN:-}"
-RUNTIME_ROOT_BASE="$(mktemp -d /tmp/cartulary-web-e2e-runtime-XXXXXX)"
+KEEP_RUNTIME_ROOT=0
+TARGET_ARTIFACT_DIR="${CARTULARY_WEB_E2E_ARTIFACT_DIR:-}"
+if [[ -z "${TARGET_ARTIFACT_DIR}" && -n "${CARTULARY_TEST_TARGET:-}" ]]; then
+  TARGET_ARTIFACT_DIR="$(ensure_target_artifact_dir)/owned-stack"
+fi
+
+if [[ -n "${TARGET_ARTIFACT_DIR}" ]]; then
+  mkdir -p "${TARGET_ARTIFACT_DIR}"
+  RUNTIME_ROOT_BASE="${TARGET_ARTIFACT_DIR}/runtime-root"
+  SERVER_LOG="${TARGET_ARTIFACT_DIR}/server.log"
+  WEB_LOG="${TARGET_ARTIFACT_DIR}/web.log"
+  rm -rf "${RUNTIME_ROOT_BASE}"
+  rm -f "${SERVER_LOG}" "${WEB_LOG}"
+  KEEP_RUNTIME_ROOT=1
+else
+  RUNTIME_ROOT_BASE="$(mktemp -d /tmp/cartulary-web-e2e-runtime-XXXXXX)"
+  SERVER_LOG="/tmp/cartulary-e2e-server-$$.log"
+  WEB_LOG="/tmp/cartulary-e2e-web-$$.log"
+fi
+
 PLAYWRIGHT_STATE_DIR="${RUNTIME_ROOT_BASE}/playwright-state"
 E2E_DB="cartulary_web_e2e_$$"
 E2E_DSN="postgres://cartulary:cartulary@localhost:5432/${E2E_DB}?sslmode=disable"
-SERVER_LOG="/tmp/cartulary-e2e-server-$$.log"
-WEB_LOG="/tmp/cartulary-e2e-web-$$.log"
 MINIO_READY_URL="http://127.0.0.1:9000/minio/health/ready"
 POSTGRES_READY_TIMEOUT_SECONDS="${CARTULARY_POSTGRES_READY_TIMEOUT_SECONDS:-180}"
 child_command=()
@@ -43,6 +61,9 @@ mkdir -p \
   "${RUNTIME_ROOT_BASE}/temporary-work" \
   "${RUNTIME_ROOT_BASE}/export-outputs"
 export CARTULARY_PLAYWRIGHT_STATE_DIR="${PLAYWRIGHT_STATE_DIR}"
+export CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}"
+export CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}"
+export CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}"
 
 port_in_use() {
   local port="$1"
@@ -101,7 +122,9 @@ cleanup() {
   stop_owned_process_group "${SERVER_PGID:-}" 8080 "backend"
   docker compose -f "${COMPOSE_FILE}" exec -T postgres \
     psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null 2>&1 || true
-  rm -rf "${RUNTIME_ROOT_BASE}"
+  if [[ "${KEEP_RUNTIME_ROOT}" -ne 1 ]]; then
+    rm -rf "${RUNTIME_ROOT_BASE}"
+  fi
 }
 
 trap cleanup EXIT

@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+RUN_PHASE_COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RUN_PHASE_REPO_ROOT="$(cd "${RUN_PHASE_COMMON_DIR}/../.." && pwd)"
+TEST_OUTPUT_HELPER="${RUN_PHASE_COMMON_DIR}/test-output.sh"
+
 render_command() {
   local rendered=""
   local arg
@@ -10,42 +14,73 @@ render_command() {
 }
 
 resolve_output_mode() {
-  local output_mode="${CARTULARY_OUTPUT_MODE:-normal}"
+  local output_mode="${CARTULARY_OUTPUT_MODE:-quiet}"
   if [[ "${VERBOSE:-0}" == "1" || "${CI_VERBOSE:-0}" == "1" ]]; then
     output_mode="normal"
   fi
   printf '%s\n' "$output_mode"
 }
 
-show_phase_log_excerpt() {
-  local log_file="$1"
-  local line_count
-  line_count="$(wc -l <"$log_file")"
-
-  if [[ "$line_count" -le 200 ]]; then
-    echo "----- phase output begin -----" >&2
-    cat "$log_file" >&2
-    echo "----- phase output end -----" >&2
-    return
-  fi
-
-  echo "----- phase output first 40 lines begin -----" >&2
-  sed -n '1,40p' "$log_file" >&2
-  echo "----- phase output first 40 lines end -----" >&2
-  echo "----- phase output last 160 lines begin -----" >&2
-  tail -n 160 "$log_file" >&2
-  echo "----- phase output last 160 lines end -----" >&2
+slugify_phase_label() {
+  local label="$1"
+  printf '%s' "$label" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//; s/--+/-/g'
 }
 
-emit_phase_failure() {
-  local phase="$1"
-  local log_file="$2"
-  shift 2
+resolve_results_root() {
+  if [[ -n "${CARTULARY_TEST_RESULTS_DIR:-}" ]]; then
+    if [[ "${CARTULARY_TEST_RESULTS_DIR}" = /* ]]; then
+      printf '%s\n' "${CARTULARY_TEST_RESULTS_DIR}"
+    else
+      printf '%s\n' "${RUN_PHASE_REPO_ROOT}/${CARTULARY_TEST_RESULTS_DIR}"
+    fi
+    return
+  fi
+  printf '%s\n' "${RUN_PHASE_REPO_ROOT}/.cartulary/test-results"
+}
 
-  echo "phase failed: ${phase}" >&2
-  echo "failing command: $(render_command "$@")" >&2
-  echo "phase log: $log_file" >&2
-  show_phase_log_excerpt "$log_file"
+resolve_test_run_id() {
+  if [[ -z "${CARTULARY_TEST_RUN_ID:-}" ]]; then
+    CARTULARY_TEST_RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-p$$"
+    export CARTULARY_TEST_RUN_ID
+  fi
+  printf '%s\n' "${CARTULARY_TEST_RUN_ID}"
+}
+
+resolve_test_target() {
+  if [[ -n "${CARTULARY_TEST_TARGET:-}" ]]; then
+    printf '%s\n' "${CARTULARY_TEST_TARGET}"
+    return
+  fi
+  printf '%s\n' "adhoc"
+}
+
+ensure_target_artifact_dir() {
+  local results_root
+  local run_id
+  local target
+  results_root="$(resolve_results_root)"
+  run_id="$(resolve_test_run_id)"
+  target="$(resolve_test_target)"
+  mkdir -p "${results_root}/${run_id}/${target}"
+  printf '%s\n' "${results_root}/${run_id}/${target}"
+}
+
+prepare_phase_artifact_dir() {
+  local phase="$1"
+  local target_dir
+  local slug
+  target_dir="$(ensure_target_artifact_dir)"
+  slug="$(slugify_phase_label "$phase")"
+  mkdir -p "${target_dir}/${slug}"
+  printf '%s\n' "${target_dir}/${slug}"
+}
+
+emit_target_summary() {
+  local status="${1:-pass}"
+  if [[ -z "${CARTULARY_TEST_TARGET:-}" ]]; then
+    return 0
+  fi
+  NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" target-summary "${CARTULARY_TEST_TARGET}" "${status}"
 }
 
 run_phase_command() {
@@ -58,37 +93,76 @@ run_phase_command() {
   shift
 
   local output_mode
-  output_mode="$(resolve_output_mode)"
+  local phase_dir
+  local stdout_log
+  local stderr_log
+  local command_text
+  local start_time
+  local end_time
+  local start_ms
+  local end_ms
+  local duration_ms
+  local status
+  local helper_status
 
-  if [[ "${RUN_PHASE_SHOW_BANNER:-1}" == "1" ]]; then
+  output_mode="$(resolve_output_mode)"
+  phase_dir="$(prepare_phase_artifact_dir "$phase")"
+  stdout_log="${phase_dir}/stdout.log"
+  stderr_log="${phase_dir}/stderr.log"
+  command_text="$(render_command "$@")"
+
+  if [[ "$output_mode" != "quiet" && "${RUN_PHASE_SHOW_BANNER:-1}" == "1" ]]; then
     echo "== ${phase} =="
   fi
 
-  if [[ "$output_mode" != "quiet" ]]; then
-    set +e
-    "$@"
-    local status=$?
-    set -e
-    return "$status"
-  fi
-
-  local log_file
-  log_file="$(mktemp -t cartulary-phase-XXXX.log)"
+  start_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  start_ms="$(date +%s%3N)"
 
   set +e
-  "$@" >"$log_file" 2>&1
-  local status=$?
+  if [[ "$output_mode" != "quiet" ]]; then
+    "$@" > >(tee "$stdout_log") 2> >(tee "$stderr_log" >&2)
+    status=$?
+  else
+    "$@" >"$stdout_log" 2>"$stderr_log"
+    status=$?
+  fi
   set -e
 
-  if [[ "$status" -eq 0 ]]; then
-    if [[ "${CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG:-0}" == "1" && -s "$log_file" ]]; then
-      cat "$log_file"
+  end_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  end_ms="$(date +%s%3N)"
+  duration_ms="$((end_ms - start_ms))"
+
+  if [[ "$status" -eq 0 && "$output_mode" == "quiet" && "${CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG:-0}" == "1" ]]; then
+    if [[ -s "$stdout_log" ]]; then
+      cat "$stdout_log"
     fi
-    rm -f "$log_file"
+    if [[ -s "$stderr_log" ]]; then
+      cat "$stderr_log" >&2
+    fi
+  fi
+
+  set +e
+  CARTULARY_PHASE_LABEL="$phase" \
+  CARTULARY_PHASE_DIR="$phase_dir" \
+  CARTULARY_PHASE_COMMAND="$command_text" \
+  CARTULARY_PHASE_START_TIME="$start_time" \
+  CARTULARY_PHASE_END_TIME="$end_time" \
+  CARTULARY_PHASE_DURATION_MS="$duration_ms" \
+  CARTULARY_PHASE_EXIT_STATUS="$status" \
+  CARTULARY_PHASE_STDOUT_LOG="$stdout_log" \
+  CARTULARY_PHASE_STDERR_LOG="$stderr_log" \
+    NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" shell-phase
+  helper_status=$?
+  set -e
+
+  if [[ "$status" -eq 0 && "$helper_status" -eq 0 ]]; then
     return 0
   fi
 
-  emit_phase_failure "$phase" "$log_file" "$@"
+  emit_target_summary fail || true
 
-  return "$status"
+  if [[ "$status" -ne 0 ]]; then
+    return "$status"
+  fi
+  return "$helper_status"
 }

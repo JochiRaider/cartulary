@@ -41,24 +41,29 @@ assert_not_contains() {
   fi
 }
 
-extract_log_path() {
-  printf '%s\n' "$1" | sed -n 's/^phase log: //p' | tail -n 1
+assert_empty() {
+  local value="$1"
+  local label="$2"
+
+  if [[ -n "$value" ]]; then
+    fail "$label: expected no output, got [$value]"
+  fi
 }
 
 quiet_success_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
     "$HELPER" "quiet success" -- bash -lc 'echo hidden-success-output'
 )"
-assert_contains "$quiet_success_output" "== quiet success ==" "quiet success banner"
-assert_not_contains "$quiet_success_output" "hidden-success-output" "quiet success suppresses routine output"
+assert_empty "$quiet_success_output" "quiet success"
 
 success_log_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 \
-    "$HELPER" "success log replay" -- bash -lc 'echo keep-this-warning >&2'
+    "$HELPER" "success log replay" -- bash -lc 'echo keep-this-warning >&2' \
+    2>&1
 )"
-assert_contains "$success_log_output" "== success log replay ==" "success log replay banner"
 assert_contains "$success_log_output" "keep-this-warning" "success log replay output"
+assert_not_contains "$success_log_output" "== success log replay ==" "success log replay banner"
 
 set +e
 short_failure_output="$(
@@ -71,38 +76,11 @@ set -e
 if [[ "$short_failure_status" -ne 7 ]]; then
   fail "short failure: expected exit status 7, got $short_failure_status"
 fi
-assert_contains "$short_failure_output" "== short failure ==" "short failure banner"
-assert_contains "$short_failure_output" "phase failed: short failure" "short failure label"
-assert_contains "$short_failure_output" "failing command: bash -lc" "short failure command"
-assert_contains "$short_failure_output" "short-failure" "short failure output"
-short_failure_log="$(extract_log_path "$short_failure_output")"
-if [[ -z "$short_failure_log" || ! -f "$short_failure_log" ]]; then
-  fail "short failure: expected a preserved phase log path"
-fi
-cleanup_paths+=("$short_failure_log")
-
-set +e
-long_failure_output="$(
-  CARTULARY_OUTPUT_MODE=quiet \
-    "$HELPER" "long failure" -- bash -lc 'for i in $(seq 1 230); do echo "line-$i"; done; exit 9' \
-    2>&1
-)"
-long_failure_status=$?
-set -e
-if [[ "$long_failure_status" -ne 9 ]]; then
-  fail "long failure: expected exit status 9, got $long_failure_status"
-fi
-assert_contains "$long_failure_output" "== long failure ==" "long failure banner"
-assert_contains "$long_failure_output" "line-1" "long failure first excerpt"
-assert_contains "$long_failure_output" "line-40" "long failure first excerpt boundary"
-assert_not_contains "$long_failure_output" "line-70" "long failure middle omission"
-assert_contains "$long_failure_output" "line-71" "long failure last excerpt start"
-assert_contains "$long_failure_output" "line-230" "long failure last excerpt end"
-long_failure_log="$(extract_log_path "$long_failure_output")"
-if [[ -z "$long_failure_log" || ! -f "$long_failure_log" ]]; then
-  fail "long failure: expected a preserved phase log path"
-fi
-cleanup_paths+=("$long_failure_log")
+assert_contains "$short_failure_output" "failure: short failure" "short failure label"
+assert_contains "$short_failure_output" "runner=shell" "short failure runner"
+assert_contains "$short_failure_output" "message=short-failure" "short failure message"
+assert_contains "$short_failure_output" "raw=" "short failure raw path"
+assert_not_contains "$short_failure_output" "== short failure ==" "short failure banner"
 
 verbose_override_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
@@ -131,10 +109,7 @@ go_success_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
     "$GO_HELPER" "run-go-phase smoke" '^(TestPhase0_.*_E_0_[0-9]+)$' -- "$go_bin" test "$go_smoke_rel"
 )"
-assert_contains "$go_success_output" "== run-go-phase smoke ==" "run-go-phase success banner"
-assert_contains "$go_success_output" "matched go tests: 2 across 1 packages" "run-go-phase matched count"
-assert_contains "$go_success_output" "TestPhase0_RunGoPhase_E_0_01" "run-go-phase matched first numeric suffix test"
-assert_contains "$go_success_output" "TestPhase0_RunGoPhase_E_0_02" "run-go-phase matched second numeric suffix test"
+assert_empty "$go_success_output" "run-go-phase success"
 
 set +e
 go_zero_output="$(
@@ -147,7 +122,8 @@ set -e
 if [[ "$go_zero_status" -eq 0 ]]; then
   fail "run-go-phase zero-match: expected non-zero exit status"
 fi
-assert_contains "$go_zero_output" "phase matched zero tests" "run-go-phase zero-match output"
+assert_contains "$go_zero_output" "failure: run-go-phase zero-match" "run-go-phase zero-match label"
+assert_contains "$go_zero_output" "message=phase matched zero tests" "run-go-phase zero-match message"
 
 go_skip_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-phase-skip.XXXXXX")"
 cleanup_paths+=("$go_skip_dir")
@@ -173,8 +149,8 @@ set -e
 if [[ "$go_skip_status" -eq 0 ]]; then
   fail "run-go-phase skip: expected non-zero exit status"
 fi
-assert_contains "$go_skip_output" "go test inventory requires top-level pass" "run-go-phase skip inventory failure"
-assert_contains "$go_skip_output" "TestPhase0_RunGoPhaseSkip_E_0_01" "run-go-phase skip test name"
+assert_contains "$go_skip_output" "go test inventory requires top-level pass" "run-go-phase skip message"
+assert_contains "$go_skip_output" "runner=go_test" "run-go-phase skip runner"
 
 go_manifest_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-manifest-phase-smoke.XXXXXX")"
 cleanup_paths+=("$go_manifest_dir" "$ROOT_DIR/tools/phase9_test_map.json" "$ROOT_DIR/tools/phase10_test_map.json")
@@ -232,9 +208,7 @@ go_manifest_success_output="$(
   NODE_BIN="$node_bin" \
     "$GO_MANIFEST_HELPER" "run-go-manifest-phase smoke" phase9 unit authoritative backend_unit -- "$go_bin" test "$go_manifest_rel"
 )"
-assert_contains "$go_manifest_success_output" "== run-go-manifest-phase smoke ==" "run-go-manifest-phase success banner"
-assert_contains "$go_manifest_success_output" "matched go manifest tests: 1" "run-go-manifest-phase matched count"
-assert_contains "$go_manifest_success_output" "TestPhase9_RunGoManifest_U_9_01" "run-go-manifest-phase matched test"
+assert_empty "$go_manifest_success_output" "run-go-manifest-phase success"
 
 set +e
 go_manifest_skip_output="$(
@@ -248,5 +222,5 @@ set -e
 if [[ "$go_manifest_skip_status" -eq 0 ]]; then
   fail "run-go-manifest-phase skip: expected non-zero exit status"
 fi
-assert_contains "$go_manifest_skip_output" "manifest-go execution mismatch" "run-go-manifest-phase skip verification failure"
-assert_contains "$go_manifest_skip_output" "skipped=TestPhase10_RunGoManifest_U_10_01" "run-go-manifest-phase skip test name"
+assert_contains "$go_manifest_skip_output" "failure: run-go-manifest-phase skip" "run-go-manifest-phase skip label"
+assert_contains "$go_manifest_skip_output" "go test inventory requires top-level pass" "run-go-manifest-phase skip message"
