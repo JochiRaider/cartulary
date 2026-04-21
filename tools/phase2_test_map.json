@@ -11,6 +11,9 @@
     "U-2-08",
     "U-2-09",
     "U-2-10",
+    "U-2-11",
+    "U-2-12",
+    "U-2-13",
     "I-2-01",
     "I-2-02",
     "I-2-03",
@@ -115,6 +118,33 @@
       "file": "internal/modules/incidents/phase2_request_test.go",
       "symbol": "TestPhase2_U_2_10_ReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallback",
       "evidence_layer": "contract_dispatch"
+    },
+    {
+      "id": "U-2-11",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/App.landing.test.tsx",
+      "title": "Phase 2 U-2-11 ordinary landing shell creates an incident, refreshes session-visible membership, routes to the workbook by incident_id, and falls back when a stale incident selection is no longer visible",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component"
+    },
+    {
+      "id": "U-2-12",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/IncidentAdminPanel.test.tsx",
+      "title": "Phase 2 U-2-12 ordinary incident shell gates promoted-field controls by incident role, hides membership-admin controls from non-admin members, and returns to landing when incident access is lost",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component"
+    },
+    {
+      "id": "U-2-13",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/IncidentAdminPanel.test.tsx",
+      "title": "Phase 2 U-2-13 ordinary incident shell issues membership create, patch, and delete requests with versioned payloads and refreshes session role after each mutation",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component"
     }
   ],
   "integration": [

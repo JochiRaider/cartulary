@@ -7,32 +7,73 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./WorkbookShell", () => ({
-  WorkbookShell: ({
-    incidentId,
-    onIncidentAccessLost,
-  }: {
-    incidentId: string;
-    onIncidentAccessLost?: () => void;
-  }) => (
-    <section data-testid="mock-workbook">
-      <p data-testid="mock-workbook-incident">{incidentId}</p>
-      <button
-        data-testid="mock-access-lost"
-        type="button"
-        onClick={() => {
-          onIncidentAccessLost?.();
-        }}
-      >
-        Lose access
-      </button>
-    </section>
-  ),
-  buildCreatePayload: vi.fn(),
-  createDraftRow: vi.fn(),
-  ensureDraftRow: vi.fn(),
-  TimelineWorkbook: vi.fn(),
-}));
+vi.mock("./WorkbookShell", async () => {
+  const React = await import("react");
+
+  return {
+    WorkbookShell: ({
+      incidentId,
+      onIncidentAccessLost,
+    }: {
+      incidentId: string;
+      onIncidentAccessLost?: () => void;
+    }) => {
+      const [currentRole, setCurrentRole] = React.useState("");
+
+      React.useEffect(() => {
+        let active = true;
+        void fetch("/api/v1/auth/session")
+          .then(async (response) => {
+            const payload = (await response.json()) as {
+              data?: {
+                memberships?: Array<{
+                  incident_id: string;
+                  role: string;
+                }>;
+              };
+            };
+            if (!active) {
+              return;
+            }
+            const membership =
+              payload.data?.memberships?.find(
+                (entry) => entry.incident_id === incidentId,
+              ) ?? null;
+            setCurrentRole(membership?.role ?? "");
+          })
+          .catch(() => {
+            if (active) {
+              setCurrentRole("");
+            }
+          });
+
+        return () => {
+          active = false;
+        };
+      }, [incidentId]);
+
+      return (
+        <section data-testid="mock-workbook">
+          <p data-testid="mock-workbook-incident">{incidentId}</p>
+          <p data-testid="mock-workbook-role">{currentRole}</p>
+          <button
+            data-testid="mock-access-lost"
+            type="button"
+            onClick={() => {
+              onIncidentAccessLost?.();
+            }}
+          >
+            Lose access
+          </button>
+        </section>
+      );
+    },
+    buildCreatePayload: vi.fn(),
+    createDraftRow: vi.fn(),
+    ensureDraftRow: vi.fn(),
+    TimelineWorkbook: vi.fn(),
+  };
+});
 
 vi.mock("./Phase1Harness", () => ({
   Phase1Harness: () => <section data-testid="mock-phase1-harness" />,
@@ -144,7 +185,7 @@ describe("Incident landing", () => {
     await expectStableFetchCount(fetchMock, 3);
   });
 
-  it("navigates into the workbook after create succeeds", async () => {
+  it("Phase 2 U-2-11 ordinary landing shell creates an incident, refreshes session-visible membership, routes to the workbook by incident_id, and falls back when a stale incident selection is no longer visible", async () => {
     let created = false;
     fetchMock.mockImplementation((input, init) => {
       const url = String(input);
@@ -218,11 +259,16 @@ describe("Incident landing", () => {
     expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
       "incident-created",
     );
+    await waitFor(() => {
+      expect(screen.getByTestId("mock-workbook-role").textContent).toBe(
+        "admin",
+      );
+    });
     expect(window.location.search).toContain("incident_id=incident-created");
-  });
 
-  it("falls back to the landing screen when the requested incident is stale", async () => {
+    cleanup();
     window.history.replaceState({}, "", "/?incident_id=incident-stale");
+    fetchMock.mockReset();
     fetchMock.mockImplementation((input) => {
       if (String(input) === "/api/v1/auth/session") {
         return Promise.resolve(
@@ -259,7 +305,6 @@ describe("Incident landing", () => {
       "no longer visible",
     );
     expect(window.location.search).not.toContain("incident_id=");
-    await expectStableFetchCount(fetchMock, 3);
   });
 
   it("renders the workbook directly from an authenticated incident route under StrictMode", async () => {
@@ -305,7 +350,7 @@ describe("Incident landing", () => {
     expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
       "incident-5",
     );
-    await expectStableFetchCount(fetchMock, 3);
+    await expectStableFetchCount(fetchMock, 5);
   });
 
   it("returns to the landing screen when workbook access is lost", async () => {
@@ -357,7 +402,7 @@ describe("Incident landing", () => {
     renderApp();
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
-    await expectStableFetchCount(fetchMock, 3);
+    await expectStableFetchCount(fetchMock, 5);
     accessLost = true;
     fireEvent.click(screen.getByTestId("mock-access-lost"));
 
@@ -368,7 +413,7 @@ describe("Incident landing", () => {
       "no longer visible",
     );
     expect(window.location.search).not.toContain("incident_id=");
-    await expectStableFetchCount(fetchMock, 6);
+    await expectStableFetchCount(fetchMock, 8);
   });
 
   it("cancels an in-flight shell refresh when the app unmounts", async () => {

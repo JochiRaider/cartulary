@@ -15,110 +15,164 @@ const (
 	RouteTransportWebSocket RouteTransport = "websocket"
 )
 
-type RouteCheck string
+type MutationOwner string
 
 const (
-	RouteCheckAuthorization    RouteCheck = "authorization"
-	RouteCheckEnvelope         RouteCheck = "envelope"
-	RouteCheckMutationAudit    RouteCheck = "mutation_audit"
-	RouteCheckReservedDispatch RouteCheck = "reserved_dispatch"
+	MutationOwnerIncidentResource   MutationOwner = "incident resource mutation"
+	MutationOwnerIncidentMembership MutationOwner = "incident membership mutation"
+)
+
+type ControlRoleTier string
+
+const (
+	ControlRoleMembershipRequired ControlRoleTier = "membership-required"
+	ControlRoleEditorOrHigher     ControlRoleTier = "editor|reviewer|admin"
+	ControlRoleReviewerOrHigher   ControlRoleTier = "reviewer|admin"
+	ControlRoleAdminOnly          ControlRoleTier = "admin"
 )
 
 type RouteInventoryFixture struct {
-	IncidentID           string
-	AdminUserID          string
-	PrimaryRecordID      string
-	ReplacementRecordID  string
-	BaseRecordVersion    int64
+	IncidentID            string
+	AdminUserID           string
+	CandidateUserID       string
+	MemberUserID          string
+	PrimaryRecordID       string
+	ReplacementRecordID   string
+	BaseIncidentVersion   int64
+	BaseRecordVersion     int64
 	BaseMembershipVersion int64
+	ClientTxnSuffix       string
 }
 
 type RouteInventoryEntry struct {
-	Name         string
-	Transport    RouteTransport
-	Method       string
-	Template     string
-	RequiresCSRF bool
-	Checks       []RouteCheck
-	Body         func(RouteInventoryFixture) map[string]any
+	Name            string
+	Transport       RouteTransport
+	Method          string
+	Template        string
+	SuccessStatus   int
+	SuccessEnvelope bool
+	RequiresCSRF    bool
+	AllowedRole     ControlRoleTier
+	MutationOwners  []MutationOwner
+	Body            func(RouteInventoryFixture) map[string]any
 }
 
 func BuildRoutePath(template string, fixture RouteInventoryFixture) string {
 	replacer := strings.NewReplacer(
 		"{incident_id}", fixture.IncidentID,
 		"{admin_user_id}", fixture.AdminUserID,
+		"{candidate_user_id}", fixture.CandidateUserID,
+		"{member_user_id}", fixture.MemberUserID,
 		"{record_id}", fixture.PrimaryRecordID,
 		"{replacement_record_id}", fixture.ReplacementRecordID,
 	)
 	return replacer.Replace(template)
 }
 
-func DeploymentAdminBoundaryInventory() []RouteInventoryEntry {
+func PublicRouteInventory() []RouteInventoryEntry {
 	return []RouteInventoryEntry{
 		{
-			Name:      "incident get",
-			Transport: RouteTransportHTTP,
-			Method:    http.MethodGet,
-			Template:  "/api/v1/incidents/{incident_id}",
-			Checks:    []RouteCheck{RouteCheckAuthorization, RouteCheckEnvelope},
+			Name:            "incident list",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodGet,
+			Template:        "/api/v1/incidents",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
 		},
 		{
-			Name:         "incident patch",
-			Transport:    RouteTransportHTTP,
-			Method:       http.MethodPatch,
-			Template:     "/api/v1/incidents/{incident_id}",
-			RequiresCSRF: true,
-			Checks:       []RouteCheck{RouteCheckAuthorization, RouteCheckEnvelope},
-			Body: func(RouteInventoryFixture) map[string]any {
+			Name:            "incident create",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPost,
+			Template:        "/api/v1/incidents",
+			SuccessStatus:   http.StatusCreated,
+			SuccessEnvelope: true,
+			RequiresCSRF:    true,
+			MutationOwners: []MutationOwner{
+				MutationOwnerIncidentResource,
+				MutationOwnerIncidentMembership,
+			},
+			Body: func(fixture RouteInventoryFixture) map[string]any {
 				return map[string]any{
-					"base_incident_version": 1,
+					"client_txn_id": "txn-phase2-public-incident-create-" + fixture.ClientTxnSuffix,
+					"incident_key":  "IR-PUBLIC-" + strings.ToUpper(fixture.ClientTxnSuffix),
+					"title":         "Public inventory incident " + fixture.ClientTxnSuffix,
+				}
+			},
+		},
+		{
+			Name:            "incident get",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodGet,
+			Template:        "/api/v1/incidents/{incident_id}",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+		},
+		{
+			Name:            "incident patch",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPatch,
+			Template:        "/api/v1/incidents/{incident_id}",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			RequiresCSRF:    true,
+			MutationOwners:  []MutationOwner{MutationOwnerIncidentResource},
+			Body: func(fixture RouteInventoryFixture) map[string]any {
+				return map[string]any{
+					"base_incident_version": fixture.BaseIncidentVersion,
 					"tlp":                   "amber",
 				}
 			},
 		},
 		{
-			Name:      "memberships list",
-			Transport: RouteTransportHTTP,
-			Method:    http.MethodGet,
-			Template:  "/api/v1/incidents/{incident_id}/memberships",
-			Checks:    []RouteCheck{RouteCheckAuthorization, RouteCheckEnvelope},
+			Name:            "memberships list",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodGet,
+			Template:        "/api/v1/incidents/{incident_id}/memberships",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
 		},
 		{
-			Name:         "membership create",
-			Transport:    RouteTransportHTTP,
-			Method:       http.MethodPost,
-			Template:     "/api/v1/incidents/{incident_id}/memberships",
-			RequiresCSRF: true,
-			Checks:       []RouteCheck{RouteCheckAuthorization, RouteCheckEnvelope},
+			Name:            "membership create",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPost,
+			Template:        "/api/v1/incidents/{incident_id}/memberships",
+			SuccessStatus:   http.StatusCreated,
+			SuccessEnvelope: true,
+			RequiresCSRF:    true,
+			MutationOwners:  []MutationOwner{MutationOwnerIncidentMembership},
 			Body: func(fixture RouteInventoryFixture) map[string]any {
 				return map[string]any{
-					"client_txn_id": "txn-support-phase2-boundary-membership-create",
-					"user_id":       fixture.AdminUserID,
+					"client_txn_id": "txn-phase2-public-membership-create-" + fixture.ClientTxnSuffix,
+					"user_id":       fixture.CandidateUserID,
 					"role":          "viewer",
 				}
 			},
 		},
 		{
-			Name:         "membership patch",
-			Transport:    RouteTransportHTTP,
-			Method:       http.MethodPatch,
-			Template:     "/api/v1/incidents/{incident_id}/memberships/{admin_user_id}",
-			RequiresCSRF: true,
-			Checks:       []RouteCheck{RouteCheckAuthorization, RouteCheckEnvelope},
+			Name:            "membership patch",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPatch,
+			Template:        "/api/v1/incidents/{incident_id}/memberships/{member_user_id}",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			RequiresCSRF:    true,
+			MutationOwners:  []MutationOwner{MutationOwnerIncidentMembership},
 			Body: func(fixture RouteInventoryFixture) map[string]any {
 				return map[string]any{
 					"base_membership_version": fixture.BaseMembershipVersion,
-					"role":                    "viewer",
+					"role":                    "reviewer",
 				}
 			},
 		},
 		{
-			Name:         "membership delete",
-			Transport:    RouteTransportHTTP,
-			Method:       http.MethodDelete,
-			Template:     "/api/v1/incidents/{incident_id}/memberships/{admin_user_id}",
-			RequiresCSRF: true,
-			Checks:       []RouteCheck{RouteCheckAuthorization, RouteCheckEnvelope},
+			Name:            "membership delete",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodDelete,
+			Template:        "/api/v1/incidents/{incident_id}/memberships/{member_user_id}",
+			SuccessStatus:   http.StatusNoContent,
+			SuccessEnvelope: false,
+			RequiresCSRF:    true,
+			MutationOwners:  []MutationOwner{MutationOwnerIncidentMembership},
 			Body: func(fixture RouteInventoryFixture) map[string]any {
 				return map[string]any{
 					"base_membership_version": fixture.BaseMembershipVersion,
@@ -126,127 +180,258 @@ func DeploymentAdminBoundaryInventory() []RouteInventoryEntry {
 			},
 		},
 		{
-			Name:      "default workbook preferences",
-			Transport: RouteTransportHTTP,
-			Method:    http.MethodGet,
-			Template:  "/api/v1/incidents/{incident_id}/workbook-preferences/default",
-			Checks:    []RouteCheck{RouteCheckAuthorization, RouteCheckEnvelope},
+			Name:            "default workbook preferences",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodGet,
+			Template:        "/api/v1/incidents/{incident_id}/workbook-preferences/default",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
 		},
 		{
-			Name:      "user workbook preferences",
-			Transport: RouteTransportHTTP,
-			Method:    http.MethodGet,
-			Template:  "/api/v1/incidents/{incident_id}/workbook-preferences/me",
-			Checks:    []RouteCheck{RouteCheckAuthorization, RouteCheckEnvelope},
+			Name:            "user workbook preferences",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodGet,
+			Template:        "/api/v1/incidents/{incident_id}/workbook-preferences/me",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
 		},
 		{
-			Name:      "timeline query",
-			Transport: RouteTransportHTTP,
-			Method:    http.MethodPost,
-			Template:  "/api/v1/incidents/{incident_id}/views/" + timeline.TimelineViewSchemaID + "/query",
-			Checks:    []RouteCheck{RouteCheckAuthorization, RouteCheckEnvelope},
-			Body: func(RouteInventoryFixture) map[string]any {
-				return map[string]any{}
-			},
+			Name:            "extensions list",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodGet,
+			Template:        "/api/v1/extensions",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+		},
+	}
+}
+
+func ControlBoundaryInventory() []RouteInventoryEntry {
+	return []RouteInventoryEntry{
+		{
+			Name:            "incident get",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodGet,
+			Template:        "/api/v1/incidents/{incident_id}",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			AllowedRole:     ControlRoleMembershipRequired,
 		},
 		{
-			Name:      "hosts query",
-			Transport: RouteTransportHTTP,
-			Method:    http.MethodPost,
-			Template:  "/api/v1/incidents/{incident_id}/views/" + entities.HostsViewSchemaID + "/query",
-			Checks:    []RouteCheck{RouteCheckAuthorization, RouteCheckEnvelope},
-			Body: func(RouteInventoryFixture) map[string]any {
-				return map[string]any{}
-			},
-		},
-		{
-			Name:      "identities query",
-			Transport: RouteTransportHTTP,
-			Method:    http.MethodPost,
-			Template:  "/api/v1/incidents/{incident_id}/views/" + entities.IdentitiesViewSchemaID + "/query",
-			Checks:    []RouteCheck{RouteCheckAuthorization, RouteCheckEnvelope},
-			Body: func(RouteInventoryFixture) map[string]any {
-				return map[string]any{}
-			},
-		},
-		{
-			Name:      "indicators query",
-			Transport: RouteTransportHTTP,
-			Method:    http.MethodPost,
-			Template:  "/api/v1/incidents/{incident_id}/views/" + entities.IndicatorsViewSchemaID + "/query",
-			Checks:    []RouteCheck{RouteCheckAuthorization, RouteCheckEnvelope},
-			Body: func(RouteInventoryFixture) map[string]any {
-				return map[string]any{}
-			},
-		},
-		{
-			Name:         "timeline create",
-			Transport:    RouteTransportHTTP,
-			Method:       http.MethodPost,
-			Template:     "/api/v1/incidents/{incident_id}/views/" + timeline.TimelineViewSchemaID + "/rows",
-			RequiresCSRF: true,
-			Checks:       []RouteCheck{RouteCheckAuthorization, RouteCheckEnvelope},
-			Body: func(RouteInventoryFixture) map[string]any {
+			Name:            "incident patch",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPatch,
+			Template:        "/api/v1/incidents/{incident_id}",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			RequiresCSRF:    true,
+			AllowedRole:     ControlRoleReviewerOrHigher,
+			Body: func(fixture RouteInventoryFixture) map[string]any {
 				return map[string]any{
-					"client_txn_id":    "txn-support-phase2-boundary-row-create",
-					"timeline.summary": "Deployment admin denied",
+					"base_incident_version": fixture.BaseIncidentVersion,
+					"tlp":                   "amber",
 				}
 			},
 		},
 		{
-			Name:      "timeline websocket",
-			Transport: RouteTransportWebSocket,
-			Method:    http.MethodGet,
-			Template:  "/ws/v1/incidents/{incident_id}/views/" + timeline.TimelineViewSchemaID + "/changes",
-			Checks:    []RouteCheck{RouteCheckAuthorization},
+			Name:            "memberships list",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodGet,
+			Template:        "/api/v1/incidents/{incident_id}/memberships",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			AllowedRole:     ControlRoleMembershipRequired,
 		},
 		{
-			Name:         "record patch",
-			Transport:    RouteTransportHTTP,
-			Method:       http.MethodPatch,
-			Template:     "/api/v1/records/{record_id}",
-			RequiresCSRF: true,
-			Checks:       []RouteCheck{RouteCheckAuthorization, RouteCheckEnvelope},
+			Name:            "membership create",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPost,
+			Template:        "/api/v1/incidents/{incident_id}/memberships",
+			SuccessStatus:   http.StatusCreated,
+			SuccessEnvelope: true,
+			RequiresCSRF:    true,
+			AllowedRole:     ControlRoleAdminOnly,
+			Body: func(fixture RouteInventoryFixture) map[string]any {
+				return map[string]any{
+					"client_txn_id": "txn-phase2-control-membership-create-" + fixture.ClientTxnSuffix,
+					"user_id":       fixture.CandidateUserID,
+					"role":          "viewer",
+				}
+			},
+		},
+		{
+			Name:            "membership patch",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPatch,
+			Template:        "/api/v1/incidents/{incident_id}/memberships/{member_user_id}",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			RequiresCSRF:    true,
+			AllowedRole:     ControlRoleAdminOnly,
+			Body: func(fixture RouteInventoryFixture) map[string]any {
+				return map[string]any{
+					"base_membership_version": fixture.BaseMembershipVersion,
+					"role":                    "reviewer",
+				}
+			},
+		},
+		{
+			Name:            "membership delete",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodDelete,
+			Template:        "/api/v1/incidents/{incident_id}/memberships/{member_user_id}",
+			SuccessStatus:   http.StatusNoContent,
+			SuccessEnvelope: false,
+			RequiresCSRF:    true,
+			AllowedRole:     ControlRoleAdminOnly,
+			Body: func(fixture RouteInventoryFixture) map[string]any {
+				return map[string]any{
+					"base_membership_version": fixture.BaseMembershipVersion,
+				}
+			},
+		},
+		{
+			Name:            "default workbook preferences",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodGet,
+			Template:        "/api/v1/incidents/{incident_id}/workbook-preferences/default",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			AllowedRole:     ControlRoleMembershipRequired,
+		},
+		{
+			Name:            "user workbook preferences",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodGet,
+			Template:        "/api/v1/incidents/{incident_id}/workbook-preferences/me",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			AllowedRole:     ControlRoleMembershipRequired,
+		},
+		{
+			Name:            "timeline query",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPost,
+			Template:        "/api/v1/incidents/{incident_id}/views/" + timeline.TimelineViewSchemaID + "/query",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			AllowedRole:     ControlRoleMembershipRequired,
+			Body: func(RouteInventoryFixture) map[string]any {
+				return map[string]any{}
+			},
+		},
+		{
+			Name:            "hosts query",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPost,
+			Template:        "/api/v1/incidents/{incident_id}/views/" + entities.HostsViewSchemaID + "/query",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			AllowedRole:     ControlRoleMembershipRequired,
+			Body: func(RouteInventoryFixture) map[string]any {
+				return map[string]any{}
+			},
+		},
+		{
+			Name:            "identities query",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPost,
+			Template:        "/api/v1/incidents/{incident_id}/views/" + entities.IdentitiesViewSchemaID + "/query",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			AllowedRole:     ControlRoleMembershipRequired,
+			Body: func(RouteInventoryFixture) map[string]any {
+				return map[string]any{}
+			},
+		},
+		{
+			Name:            "indicators query",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPost,
+			Template:        "/api/v1/incidents/{incident_id}/views/" + entities.IndicatorsViewSchemaID + "/query",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			AllowedRole:     ControlRoleMembershipRequired,
+			Body: func(RouteInventoryFixture) map[string]any {
+				return map[string]any{}
+			},
+		},
+		{
+			Name:            "timeline create",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPost,
+			Template:        "/api/v1/incidents/{incident_id}/views/" + timeline.TimelineViewSchemaID + "/rows",
+			SuccessStatus:   http.StatusCreated,
+			SuccessEnvelope: true,
+			RequiresCSRF:    true,
+			AllowedRole:     ControlRoleEditorOrHigher,
+			Body: func(fixture RouteInventoryFixture) map[string]any {
+				return map[string]any{
+					"client_txn_id":    "txn-phase2-control-timeline-create-" + fixture.ClientTxnSuffix,
+					"timeline.summary": "Control boundary row " + fixture.ClientTxnSuffix,
+				}
+			},
+		},
+		{
+			Name:        "timeline websocket",
+			Transport:   RouteTransportWebSocket,
+			Method:      http.MethodGet,
+			Template:    "/ws/v1/incidents/{incident_id}/views/" + timeline.TimelineViewSchemaID + "/changes",
+			AllowedRole: ControlRoleMembershipRequired,
+		},
+		{
+			Name:            "record patch",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPatch,
+			Template:        "/api/v1/records/{record_id}",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			RequiresCSRF:    true,
+			AllowedRole:     ControlRoleEditorOrHigher,
 			Body: func(fixture RouteInventoryFixture) map[string]any {
 				return map[string]any{
 					"view_schema_id":   timeline.TimelineViewSchemaID,
 					"base_row_version": fixture.BaseRecordVersion,
-					"client_txn_id":    "txn-support-phase2-boundary-record-patch",
+					"client_txn_id":    "txn-phase2-control-record-patch-" + fixture.ClientTxnSuffix,
 					"changes": []map[string]any{
 						{
 							"field_key": "timeline.summary",
-							"value":     "Denied patch",
+							"value":     "Control boundary patch " + fixture.ClientTxnSuffix,
 						},
 					},
 				}
 			},
 		},
 		{
-			Name:         "mark reviewed",
-			Transport:    RouteTransportHTTP,
-			Method:       http.MethodPost,
-			Template:     "/api/v1/records/{record_id}/mark-reviewed",
-			RequiresCSRF: true,
-			Checks:       []RouteCheck{RouteCheckAuthorization, RouteCheckEnvelope},
+			Name:            "mark reviewed",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPost,
+			Template:        "/api/v1/records/{record_id}/mark-reviewed",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			RequiresCSRF:    true,
+			AllowedRole:     ControlRoleReviewerOrHigher,
 			Body: func(fixture RouteInventoryFixture) map[string]any {
 				return map[string]any{
 					"base_row_version": fixture.BaseRecordVersion,
-					"client_txn_id":    "txn-support-phase2-boundary-mark-reviewed",
+					"client_txn_id":    "txn-phase2-control-mark-reviewed-" + fixture.ClientTxnSuffix,
 				}
 			},
 		},
 		{
-			Name:         "supersede",
-			Transport:    RouteTransportHTTP,
-			Method:       http.MethodPost,
-			Template:     "/api/v1/records/{record_id}/supersede",
-			RequiresCSRF: true,
-			Checks:       []RouteCheck{RouteCheckAuthorization, RouteCheckEnvelope},
+			Name:            "supersede",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPost,
+			Template:        "/api/v1/records/{record_id}/supersede",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			RequiresCSRF:    true,
+			AllowedRole:     ControlRoleReviewerOrHigher,
 			Body: func(fixture RouteInventoryFixture) map[string]any {
 				return map[string]any{
 					"base_row_version":      fixture.BaseRecordVersion,
-					"client_txn_id":         "txn-support-phase2-boundary-supersede",
-					"reason":                "Denied supersede",
+					"client_txn_id":         "txn-phase2-control-supersede-" + fixture.ClientTxnSuffix,
+					"reason":                "Control boundary supersede " + fixture.ClientTxnSuffix,
 					"replacement_record_id": fixture.ReplacementRecordID,
 				}
 			},

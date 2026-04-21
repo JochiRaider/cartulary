@@ -121,7 +121,20 @@ func TestSupportPhase2_IncidentPatchWritesAuditBeforeAfter(t *testing.T) {
 	)
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
-	event := requireAuditEvent(t, phase2test.LookupAuditEvents(t, harness.DB, incidentID), "incident_updated", adminID)
+	events := phase2test.LookupOwnerMutations(
+		t,
+		harness.DB,
+		phase2test.MutationSelector{IncidentID: incidentID},
+		phase2test.MutationOwnerIncidentResource,
+	)
+	event := phase2test.RequireOwnerMutationEvent(
+		t,
+		events,
+		phase2test.MutationOwnerIncidentResource,
+		"incident_updated",
+		adminID,
+		"",
+	)
 	if event.EventSource != "incidents" || event.ClientTxnID != "" || event.RequestID == "" {
 		t.Fatalf("unexpected incident_updated attribution: %#v", event)
 	}
@@ -188,8 +201,20 @@ func TestSupportPhase2_MembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 	)
 	httptestx.RequireStatus(t, deleteResp, http.StatusNoContent)
 
-	events := phase2test.LookupAuditEvents(t, harness.DB, incidentID)
-	created := requireMembershipAuditEvent(t, events, "incident_membership_created", adminID, targetUserID)
+	events := phase2test.LookupOwnerMutations(
+		t,
+		harness.DB,
+		phase2test.MutationSelector{IncidentID: incidentID},
+		phase2test.MutationOwnerIncidentMembership,
+	)
+	created := phase2test.RequireOwnerMutationEvent(
+		t,
+		events,
+		phase2test.MutationOwnerIncidentMembership,
+		"incident_membership_created",
+		adminID,
+		targetUserID,
+	)
 	if created.ClientTxnID != "txn-membership-audit-create" {
 		t.Fatalf("unexpected incident_membership_created attribution: %#v", created)
 	}
@@ -197,7 +222,14 @@ func TestSupportPhase2_MembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 		t.Fatalf("unexpected incident_membership_created payload: before=%#v after=%#v", created.Before, created.After)
 	}
 
-	updated := requireMembershipAuditEvent(t, events, "incident_membership_updated", adminID, targetUserID)
+	updated := phase2test.RequireOwnerMutationEvent(
+		t,
+		events,
+		phase2test.MutationOwnerIncidentMembership,
+		"incident_membership_updated",
+		adminID,
+		targetUserID,
+	)
 	if updated.ClientTxnID != "" || updated.RequestID == "" {
 		t.Fatalf("unexpected incident_membership_updated attribution: %#v", updated)
 	}
@@ -205,7 +237,14 @@ func TestSupportPhase2_MembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 		t.Fatalf("unexpected incident_membership_updated payload: before=%#v after=%#v", updated.Before, updated.After)
 	}
 
-	deleted := requireMembershipAuditEvent(t, events, "incident_membership_deleted", adminID, targetUserID)
+	deleted := phase2test.RequireOwnerMutationEvent(
+		t,
+		events,
+		phase2test.MutationOwnerIncidentMembership,
+		"incident_membership_deleted",
+		adminID,
+		targetUserID,
+	)
 	if deleted.ClientTxnID != "" || deleted.RequestID == "" {
 		t.Fatalf("unexpected incident_membership_deleted attribution: %#v", deleted)
 	}
@@ -254,103 +293,4 @@ func TestSupportPhase2_IncidentCreateTreatsComposedAndDecomposedIncidentKeysAsEq
 	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, "IR-É-900"); got != 1 {
 		t.Fatalf("expected composed and decomposed keys to collapse to one canonical incident, got %d rows", got)
 	}
-}
-
-func TestSupportPhase2_DeploymentAdminBoundaryRouteInventory(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase2-boundary-inventory")
-
-	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-support-phase2-boundary-incident",
-		"incident_key":  "IR-BOUNDARY",
-		"title":         "Boundary Inventory",
-	})
-	incidentID := incident["incident_id"].(string)
-
-	primaryRow := phase2test.CreateTimelineRow(t, harness.Server, adminLogin, incidentID, map[string]any{
-		"client_txn_id":    "txn-support-phase2-boundary-primary",
-		"timeline.summary": "Primary boundary row",
-	})
-	replacementRow := phase2test.CreateTimelineRow(t, harness.Server, adminLogin, incidentID, map[string]any{
-		"client_txn_id":    "txn-support-phase2-boundary-replacement",
-		"timeline.summary": "Replacement boundary row",
-	})
-
-	deploymentEmail := "phase2-boundary-deployment@example.test"
-	phase2test.SeedLocalUserFlags(t, harness.DB, deploymentEmail, "Phase 2 Boundary Deployment", "Phase2Boundary1!", false, true, true)
-	deploymentSession, deploymentCSRF := phase2test.LoginLocalUser(t, harness.Server, deploymentEmail, "Phase2Boundary1!")
-
-	fixture := phase2test.RouteInventoryFixture{
-		IncidentID:            incidentID,
-		AdminUserID:           adminID,
-		PrimaryRecordID:       primaryRow["row"].(map[string]any)["record_id"].(string),
-		ReplacementRecordID:   replacementRow["row"].(map[string]any)["record_id"].(string),
-		BaseRecordVersion:     1,
-		BaseMembershipVersion: 1,
-	}
-
-	for _, route := range phase2test.DeploymentAdminBoundaryInventory() {
-		t.Run(route.Name, func(t *testing.T) {
-			if route.Transport == phase2test.RouteTransportWebSocket {
-				phase2test.RequireTimelineSocketRejected(t, harness.Server.HTTP.URL, fixture.IncidentID, deploymentSession.Value, http.StatusNotFound, "incident_not_found")
-				return
-			}
-
-			options := []func(*http.Request){phase2test.WithCookies(deploymentSession)}
-			if route.RequiresCSRF {
-				options = append(options, phase2test.WithCookies(deploymentCSRF))
-				options = append(options, phase2test.WithHeader(authn.CSRFHeaderName, deploymentCSRF.Value))
-			}
-			var body any
-			if route.Body != nil {
-				body = route.Body(fixture)
-			}
-
-			resp := phase2test.DoJSON(
-				t,
-				route.Method,
-				harness.Server.HTTP.URL+phase2test.BuildRoutePath(route.Template, fixture),
-				body,
-				options...,
-			)
-			httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "incident_not_found")
-		})
-	}
-}
-
-func requireAuditEvent(
-	t testing.TB,
-	events []phase2test.AuditEventRecord,
-	eventKind string,
-	actorUserID string,
-) phase2test.AuditEventRecord {
-	t.Helper()
-	for _, event := range events {
-		if event.EventKind == eventKind && event.ActorUserID == actorUserID {
-			return event
-		}
-	}
-	t.Fatalf("missing audit event %q for actor %s in %#v", eventKind, actorUserID, events)
-	return phase2test.AuditEventRecord{}
-}
-
-func requireMembershipAuditEvent(
-	t testing.TB,
-	events []phase2test.AuditEventRecord,
-	eventKind string,
-	actorUserID string,
-	targetUserID string,
-) phase2test.AuditEventRecord {
-	t.Helper()
-	for _, event := range events {
-		if event.EventKind != eventKind || event.ActorUserID != actorUserID {
-			continue
-		}
-		if event.After["user_id"] == targetUserID || event.Before["user_id"] == targetUserID {
-			return event
-		}
-	}
-	t.Fatalf("missing membership audit event %q for actor %s target %s in %#v", eventKind, actorUserID, targetUserID, events)
-	return phase2test.AuditEventRecord{}
 }

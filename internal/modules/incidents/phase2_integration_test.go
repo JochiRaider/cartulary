@@ -60,28 +60,47 @@ func TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomicall
 			t.Fatalf("expected one user workbook preferences row, got %d", got)
 		}
 
-		events := phase2test.LookupAuditEvents(t, harness.DB, incidentID)
-		if len(events) != 2 {
-			t.Fatalf("expected two incident audit events, got %#v", events)
+		resourceEvents := phase2test.LookupOwnerMutations(
+			t,
+			harness.DB,
+			phase2test.MutationSelector{IncidentID: incidentID},
+			phase2test.MutationOwnerIncidentResource,
+		)
+		membershipEvents := phase2test.LookupOwnerMutations(
+			t,
+			harness.DB,
+			phase2test.MutationSelector{IncidentID: incidentID},
+			phase2test.MutationOwnerIncidentMembership,
+		)
+		if len(resourceEvents) != 1 || len(membershipEvents) != 1 {
+			t.Fatalf("expected one incident resource mutation and one incident membership mutation, got resource=%#v membership=%#v", resourceEvents, membershipEvents)
 		}
 		httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
-			ActorUserID: events[0].ActorUserID,
-			Source:      events[0].EventSource,
-			ClientTxnID: events[0].ClientTxnID,
-			RequestID:   events[0].RequestID,
-			CreatedAt:   events[0].CreatedAt,
+			ActorUserID: resourceEvents[0].ActorUserID,
+			Source:      resourceEvents[0].EventSource,
+			ClientTxnID: resourceEvents[0].ClientTxnID,
+			RequestID:   resourceEvents[0].RequestID,
+			CreatedAt:   resourceEvents[0].CreatedAt,
 		}, adminID, "incidents", "txn-i-2-01-create")
-		if events[0].EventKind != "incident_created" || events[0].RequestID != requestID {
-			t.Fatalf("unexpected incident_created audit event: %#v", events[0])
+		if resourceEvents[0].EventKind != "incident_created" || resourceEvents[0].RequestID != requestID {
+			t.Fatalf("unexpected incident resource mutation: %#v", resourceEvents[0])
 		}
-		if events[1].EventKind != "incident_membership_created" {
-			t.Fatalf("unexpected membership bootstrap audit event: %#v", events[1])
+		bootstrapMembershipEvent := phase2test.RequireOwnerMutationEvent(
+			t,
+			membershipEvents,
+			phase2test.MutationOwnerIncidentMembership,
+			"incident_membership_created",
+			adminID,
+			adminID,
+		)
+		if bootstrapMembershipEvent.RequestID != requestID {
+			t.Fatalf("unexpected membership bootstrap request_id: %#v", bootstrapMembershipEvent)
 		}
-		if afterIncidentID := events[0].After["incident_id"]; afterIncidentID != incidentID {
-			t.Fatalf("unexpected incident audit payload: %#v", events[0].After)
+		if afterIncidentID := resourceEvents[0].After["incident_id"]; afterIncidentID != incidentID {
+			t.Fatalf("unexpected incident resource payload: %#v", resourceEvents[0].After)
 		}
-		if events[1].After["role"] != "admin" || events[1].After["user_id"] != adminID {
-			t.Fatalf("unexpected membership audit payload: %#v", events[1].After)
+		if bootstrapMembershipEvent.After["role"] != "admin" || bootstrapMembershipEvent.After["user_id"] != adminID {
+			t.Fatalf("unexpected incident membership payload: %#v", bootstrapMembershipEvent.After)
 		}
 	})
 
@@ -125,9 +144,13 @@ func TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomicall
 		if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences`); got != 0 {
 			t.Fatalf("rollback must leave no user workbook preferences, got %d", got)
 		}
-		if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE incident_id IS NOT NULL OR client_txn_id = $1`, "txn-i-2-01-rollback"); got != 0 {
-			t.Fatalf("rollback must leave no incident-scoped audit events, got %d", got)
-		}
+		phase2test.RequireNoMutationArtifacts(
+			t,
+			harness.DB,
+			phase2test.MutationSelector{ClientTxnID: "txn-i-2-01-rollback"},
+			phase2test.MutationOwnerIncidentResource,
+			phase2test.MutationOwnerIncidentMembership,
+		)
 		if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'incidents.create'`); got != 0 {
 			t.Fatalf("rollback must leave no create idempotency rows, got %d", got)
 		}
@@ -152,8 +175,8 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	first := httptestx.RequireSuccessEnvelope(t, create, http.StatusCreated)["data"].(map[string]any)
-	incidentID := first["incident_id"]
-	stableBefore := phase2ReplayCounts(t, harness.DB, "IR-I202")
+	incidentID := first["incident_id"].(string)
+	stableBefore := phase2ReplayCounts(t, harness.DB, incidentID)
 
 	replay := phase2test.DoJSON(
 		t,
@@ -206,111 +229,129 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 		DivergentStatus: http.StatusConflict,
 		DivergentCode:   "client_txn_conflict",
 		StableBefore:    stableBefore,
-		StableAfter:     phase2ReplayCounts(t, harness.DB, "IR-I202"),
+		StableAfter:     phase2ReplayCounts(t, harness.DB, incidentID),
 	})
 }
 
 func TestPhase2_I_2_03_MembershipChangesReDeriveAuthorizationImmediately(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase2-i-2-03")
+	for _, route := range phase2test.ControlBoundaryInventory() {
+		route := route
+		t.Run(route.Name, func(t *testing.T) {
+			fixtureCtx := newPhase2RouteFixture(t, "phase2-i-2-03-"+route.Name)
+			progressionSlug := phase2FixtureSlug("phase2-i-2-03-" + route.Name + "-progression")
+			progressionUserID := phase2test.SeedLocalUserFlags(
+				t,
+				fixtureCtx.harness.DB,
+				progressionSlug+"@example.test",
+				"Progression User "+progressionSlug,
+				"ProgressionUser1!",
+				false,
+				false,
+				true,
+			)
+			progressionSession, progressionCSRF := phase2test.LoginLocalUser(
+				t,
+				fixtureCtx.harness.Server,
+				progressionSlug+"@example.test",
+				"ProgressionUser1!",
+			)
 
-	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	targetID := phase2test.SeedLocalUserFlags(t, harness.DB, "reviewer-target@example.test", "Reviewer Target", "ReviewerTargetPass1!", false, false, true)
-	deploymentOnlyID := phase2test.SeedLocalUserFlags(t, harness.DB, "deployment-only@example.test", "Deployment Only", "DeploymentOnly1!", false, true, true)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-i-2-03-create",
-		"incident_key":  "IR-I203",
-		"title":         "Membership Lifecycle",
-	})
-	incidentID := incident["incident_id"].(string)
+			requireControlRouteOutcome(
+				t,
+				fixtureCtx.harness.Server.HTTP.URL,
+				route,
+				fixtureCtx.routeFixture(route.Name+"-no-membership"),
+				progressionSession,
+				progressionCSRF,
+				controlStageNoMembership,
+			)
 
-	membershipCreate := phase2test.DoJSON(
-		t,
-		http.MethodPost,
-		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
-		map[string]any{
-			"client_txn_id": "txn-i-2-03-membership",
-			"email":         " reviewer-target@example.test ",
-			"role":          "viewer",
-		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
-	)
-	createdMembership := httptestx.RequireSuccessEnvelope(t, membershipCreate, http.StatusCreated)["data"].(map[string]any)
-	if createdMembership["user_id"] != targetID || createdMembership["role"] != "viewer" {
-		t.Fatalf("unexpected created membership payload: %#v", createdMembership)
-	}
+			viewerMembership := phase2test.CreateMembership(
+				t,
+				fixtureCtx.harness.Server,
+				fixtureCtx.adminLogin,
+				fixtureCtx.fixture.IncidentID,
+				map[string]any{
+					"client_txn_id": "txn-" + progressionSlug + "-viewer",
+					"user_id":       progressionUserID,
+					"role":          "viewer",
+				},
+			)
+			ensureUserWorkbookPreferences(t, fixtureCtx, progressionUserID)
+			requireControlRouteOutcome(
+				t,
+				fixtureCtx.harness.Server.HTTP.URL,
+				route,
+				fixtureCtx.routeFixture(route.Name+"-viewer"),
+				progressionSession,
+				progressionCSRF,
+				controlStageViewer,
+			)
 
-	targetSession, targetCSRF := phase2test.LoginLocalUser(t, harness.Server, "reviewer-target@example.test", "ReviewerTargetPass1!")
-	targetGet := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID, nil, phase2test.WithCookies(targetSession))
-	httptestx.RequireSuccessEnvelope(t, targetGet, http.StatusOK)
+			reviewerMembership := phase2test.PatchMembership(
+				t,
+				fixtureCtx.harness.Server,
+				fixtureCtx.adminLogin,
+				fixtureCtx.fixture.IncidentID,
+				progressionUserID,
+				map[string]any{
+					"base_membership_version": viewerMembership["membership_version"],
+					"role":                    "reviewer",
+				},
+			)
+			reviewerData := requireControlRouteOutcome(
+				t,
+				fixtureCtx.harness.Server.HTTP.URL,
+				route,
+				fixtureCtx.routeFixture(route.Name+"-reviewer"),
+				progressionSession,
+				progressionCSRF,
+				controlStageReviewer,
+			)
+			updateRouteFixtureAfterSuccess(t, fixtureCtx, route, reviewerData, controlStageReviewer)
 
-	targetPatchDenied := phase2test.DoJSON(
-		t,
-		http.MethodPatch,
-		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
-		map[string]any{
-			"base_incident_version": 1,
-			"tlp":                   "amber",
-		},
-		phase2test.WithCookies(targetSession, targetCSRF),
-		phase2test.WithHeader(authn.CSRFHeaderName, targetCSRF.Value),
-	)
-	httptestx.RequireErrorEnvelope(t, targetPatchDenied, http.StatusForbidden, "authorization_denied")
+			adminMembership := phase2test.PatchMembership(
+				t,
+				fixtureCtx.harness.Server,
+				fixtureCtx.adminLogin,
+				fixtureCtx.fixture.IncidentID,
+				progressionUserID,
+				map[string]any{
+					"base_membership_version": reviewerMembership["membership_version"],
+					"role":                    "admin",
+				},
+			)
+			adminData := requireControlRouteOutcome(
+				t,
+				fixtureCtx.harness.Server.HTTP.URL,
+				route,
+				fixtureCtx.routeFixture(route.Name+"-admin"),
+				progressionSession,
+				progressionCSRF,
+				controlStageAdmin,
+			)
+			updateRouteFixtureAfterSuccess(t, fixtureCtx, route, adminData, controlStageAdmin)
 
-	memberPatch := phase2test.DoJSON(
-		t,
-		http.MethodPatch,
-		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+targetID,
-		map[string]any{
-			"base_membership_version": 1,
-			"role":                    "reviewer",
-		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
-	)
-	httptestx.RequireSuccessEnvelope(t, memberPatch, http.StatusOK)
-
-	targetPatchAllowed := phase2test.DoJSON(
-		t,
-		http.MethodPatch,
-		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
-		map[string]any{
-			"base_incident_version": 1,
-			"current_phase":         "eradication",
-		},
-		phase2test.WithCookies(targetSession, targetCSRF),
-		phase2test.WithHeader(authn.CSRFHeaderName, targetCSRF.Value),
-	)
-	httptestx.RequireSuccessEnvelope(t, targetPatchAllowed, http.StatusOK)
-	httptestx.RequireAuthorizationReDerived(t, httptestx.AuthorizationOutcome{Status: http.StatusForbidden, Code: "authorization_denied"}, httptestx.AuthorizationOutcome{Status: http.StatusOK})
-
-	deploymentOnlySession, _ := phase2test.LoginLocalUser(t, harness.Server, "deployment-only@example.test", "DeploymentOnly1!")
-	deploymentOnlyDenied := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID, nil, phase2test.WithCookies(deploymentOnlySession))
-	httptestx.RequireErrorEnvelope(t, deploymentOnlyDenied, http.StatusNotFound, "incident_not_found")
-	phase2test.RequireTimelineSocketRejected(t, harness.Server.HTTP.URL, incidentID, deploymentOnlySession.Value, http.StatusNotFound, "incident_not_found")
-
-	deleteMembership := phase2test.DoJSON(
-		t,
-		http.MethodDelete,
-		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+targetID,
-		map[string]any{
-			"base_membership_version": 2,
-		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
-	)
-	httptestx.RequireStatus(t, deleteMembership, http.StatusNoContent)
-
-	postDelete := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID, nil, phase2test.WithCookies(targetSession))
-	httptestx.RequireErrorEnvelope(t, postDelete, http.StatusNotFound, "incident_not_found")
-	phase2test.RequireTimelineSocketRejected(t, harness.Server.HTTP.URL, incidentID, targetSession.Value, http.StatusNotFound, "incident_not_found")
-
-	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE incident_id::text = $1 AND user_id::text = $2`, incidentID, adminID); got != 1 {
-		t.Fatalf("expected creator membership to remain, got %d", got)
-	}
-	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE incident_id::text = $1 AND user_id::text = $2`, incidentID, deploymentOnlyID); got != 0 {
-		t.Fatalf("deployment-only user must not gain implicit incident membership, got %d", got)
+			phase2test.DeleteMembership(
+				t,
+				fixtureCtx.harness.Server,
+				fixtureCtx.adminLogin,
+				fixtureCtx.fixture.IncidentID,
+				progressionUserID,
+				map[string]any{
+					"base_membership_version": adminMembership["membership_version"],
+				},
+			)
+			requireControlRouteOutcome(
+				t,
+				fixtureCtx.harness.Server.HTTP.URL,
+				route,
+				fixtureCtx.routeFixture(route.Name+"-removed"),
+				progressionSession,
+				progressionCSRF,
+				controlStageRemoved,
+			)
+		})
 	}
 }
 
@@ -503,16 +544,18 @@ func TestPhase2_I_2_06_UnclaimedReservedFamiliesReturnCanonical404AndOutsidePath
 	}
 }
 
-func phase2ReplayCounts(t testing.TB, db *sql.DB, incidentKeyCanonical string) httptestx.ReplayCounts {
+func phase2ReplayCounts(t testing.TB, db *sql.DB, incidentID string) httptestx.ReplayCounts {
 	t.Helper()
 	return httptestx.ReplayCounts{
 		ChangeSets: phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'incidents.create' AND scope_key IS NOT NULL`),
-		MutationRows: phase2test.QueryCount(t, db, `
-SELECT COUNT(*)
-  FROM deployment_admin_audit_events
- WHERE incident_id IN (SELECT id FROM incidents WHERE incident_key_canonical = $1)
-`, incidentKeyCanonical),
-		Revisions: phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, incidentKeyCanonical),
+		MutationRows: phase2test.CountMutationArtifacts(
+			t,
+			db,
+			phase2test.MutationSelector{IncidentID: incidentID},
+			phase2test.MutationOwnerIncidentResource,
+			phase2test.MutationOwnerIncidentMembership,
+		),
+		Revisions: phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM incidents WHERE id::text = $1`, incidentID),
 	}
 }
 

@@ -269,6 +269,7 @@ frontend-unit: export CARTULARY_TEST_TARGET := frontend-unit
 
 frontend-unit: frontend-toolchain
 	$(RUN_VITEST_PHASE) "frontend-unit" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec vitest run $(VITEST_FLAGS)
+	$(RUN_VITEST_MANIFEST_PHASE) "frontend-unit phase2 authoritative" phase2 authoritative frontend_unit -- $(PNPM_ENV) $(PNPM) --dir apps/web exec vitest run $(VITEST_MANIFEST_FLAGS)
 	$(RUN_VITEST_MANIFEST_PHASE) "frontend-unit phase3 authoritative" phase3 authoritative frontend_unit -- $(PNPM_ENV) $(PNPM) --dir apps/web exec vitest run $(VITEST_MANIFEST_FLAGS)
 	$(TARGET_SUMMARY) frontend-unit pass
 

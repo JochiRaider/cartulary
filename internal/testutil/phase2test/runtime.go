@@ -106,6 +106,62 @@ func CreateTimelineRow(t testing.TB, server *httptestx.Server, actor LoginResult
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
+func PatchIncident(t testing.TB, server *httptestx.Server, actor LoginResult, incidentID string, body map[string]any) map[string]any {
+	t.Helper()
+
+	resp := DoJSON(
+		t,
+		http.MethodPatch,
+		server.HTTP.URL+"/api/v1/incidents/"+incidentID,
+		body,
+		WithCookies(actor.SessionCookie, actor.CSRFCookie),
+		WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
+	)
+	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+}
+
+func CreateMembership(t testing.TB, server *httptestx.Server, actor LoginResult, incidentID string, body map[string]any) map[string]any {
+	t.Helper()
+
+	resp := DoJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
+		body,
+		WithCookies(actor.SessionCookie, actor.CSRFCookie),
+		WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
+	)
+	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+}
+
+func PatchMembership(t testing.TB, server *httptestx.Server, actor LoginResult, incidentID string, userID string, body map[string]any) map[string]any {
+	t.Helper()
+
+	resp := DoJSON(
+		t,
+		http.MethodPatch,
+		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+userID,
+		body,
+		WithCookies(actor.SessionCookie, actor.CSRFCookie),
+		WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
+	)
+	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+}
+
+func DeleteMembership(t testing.TB, server *httptestx.Server, actor LoginResult, incidentID string, userID string, body map[string]any) {
+	t.Helper()
+
+	resp := DoJSON(
+		t,
+		http.MethodDelete,
+		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+userID,
+		body,
+		WithCookies(actor.SessionCookie, actor.CSRFCookie),
+		WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
+	)
+	httptestx.RequireStatus(t, resp, http.StatusNoContent)
+}
+
 func SeedLocalUserFlags(
 	t testing.TB,
 	db *sql.DB,
@@ -209,42 +265,7 @@ func QueryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 func LookupAuditEvents(t testing.TB, db *sql.DB, incidentID string) []AuditEventRecord {
 	t.Helper()
 
-	rows, err := db.QueryContext(context.Background(), `
-SELECT event_kind,
-       actor_user_id::text,
-       event_source,
-       COALESCE(client_txn_id, ''),
-       COALESCE(request_id, ''),
-       created_at,
-       before_json,
-       after_json
-  FROM deployment_admin_audit_events
- WHERE incident_id::text = $1
- ORDER BY created_at ASC
-`, incidentID)
-	if err != nil {
-		t.Fatalf("query audit events: %v", err)
-	}
-	defer rows.Close()
-
-	events := make([]AuditEventRecord, 0, 4)
-	for rows.Next() {
-		var (
-			record        AuditEventRecord
-			beforePayload []byte
-			afterPayload  []byte
-		)
-		if err := rows.Scan(&record.EventKind, &record.ActorUserID, &record.EventSource, &record.ClientTxnID, &record.RequestID, &record.CreatedAt, &beforePayload, &afterPayload); err != nil {
-			t.Fatalf("scan audit event: %v", err)
-		}
-		record.Before = decodeJSONMap(t, beforePayload)
-		record.After = decodeJSONMap(t, afterPayload)
-		events = append(events, record)
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatalf("iterate audit events: %v", err)
-	}
-	return events
+	return lookupAuditEventsBySelector(t, db, MutationSelector{IncidentID: incidentID})
 }
 
 func RequireTimelineSocketRejected(

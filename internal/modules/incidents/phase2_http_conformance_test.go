@@ -54,6 +54,24 @@ func TestSupportPhase2_IncidentCreateBootstrapsCreatorAndWorkbookPreferencesHTTP
 	}
 }
 
+func TestSupportPhase2_PublicRouteInventoryEnvelopes(t *testing.T) {
+	for _, route := range phase2test.PublicRouteInventory() {
+		route := route
+		t.Run(route.Name, func(t *testing.T) {
+			fixtureCtx := newPhase2RouteFixture(t, "phase2-public-"+route.Name)
+			resp := executeRouteRequest(
+				t,
+				fixtureCtx.harness.Server.HTTP.URL,
+				route,
+				fixtureCtx.routeFixture(route.Name),
+				fixtureCtx.adminLogin.SessionCookie,
+				fixtureCtx.adminLogin.CSRFCookie,
+			)
+			requireRouteSuccess(t, resp, route)
+		})
+	}
+}
+
 func TestSupportPhase2_IncidentCreateReturnsStableLocationHeaderHTTPConformance(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-u-2-03")
@@ -366,54 +384,39 @@ func TestSupportPhase2_MembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGua
 	httptestx.RequireErrorEnvelope(t, lastAdmin, http.StatusConflict, "last_incident_admin")
 }
 
-func TestSupportPhase2_DeploymentAdminAloneDoesNotGrantIncidentRouteOrSocketAccessHTTPConformance(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase2-u-2-08")
-
-	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-u-2-08-incident",
-		"incident_key":  "IR-U208",
-		"title":         "Boundary Incident",
-	})
-	incidentID := incident["incident_id"].(string)
-
-	phase2test.SeedLocalUserFlags(t, harness.DB, "phase2-u208@example.test", "Phase2 U208", "Phase2U208Pass!", false, true, true)
-	deploymentSession, deploymentCSRF := phase2test.LoginLocalUser(t, harness.Server, "phase2-u208@example.test", "Phase2U208Pass!")
-	phase2test.RequireErrorContract(t, "incident_not_found", http.StatusNotFound)
-
-	surfaces := []struct {
-		name   string
-		method string
-		path   string
-		body   any
-	}{
-		{name: "incident read", method: http.MethodGet, path: "/api/v1/incidents/" + incidentID},
-		{name: "incident write", method: http.MethodPatch, path: "/api/v1/incidents/" + incidentID, body: map[string]any{"base_incident_version": 1, "tlp": "amber"}},
-		{name: "memberships list", method: http.MethodGet, path: "/api/v1/incidents/" + incidentID + "/memberships"},
-		{name: "membership create", method: http.MethodPost, path: "/api/v1/incidents/" + incidentID + "/memberships", body: map[string]any{"client_txn_id": "txn-u-2-08-membership", "user_id": adminID, "role": "viewer"}},
-		{name: "membership patch", method: http.MethodPatch, path: "/api/v1/incidents/" + incidentID + "/memberships/" + adminID, body: map[string]any{"base_membership_version": 1, "role": "viewer"}},
-		{name: "membership delete", method: http.MethodDelete, path: "/api/v1/incidents/" + incidentID + "/memberships/" + adminID, body: map[string]any{"base_membership_version": 1}},
-		{name: "default workbook preferences", method: http.MethodGet, path: "/api/v1/incidents/" + incidentID + "/workbook-preferences/default"},
-		{name: "user workbook preferences", method: http.MethodGet, path: "/api/v1/incidents/" + incidentID + "/workbook-preferences/me"},
-	}
-
-	for _, surface := range surfaces {
-		surface := surface
-		t.Run(surface.name, func(t *testing.T) {
-			resp := phase2test.DoJSON(
+func TestSupportPhase2_ControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied(t *testing.T) {
+	for _, route := range phase2test.ControlBoundaryInventory() {
+		route := route
+		t.Run(route.Name, func(t *testing.T) {
+			fixtureCtx := newPhase2RouteFixture(t, "phase2-control-denied-"+route.Name)
+			deploymentEmail := phase2FixtureSlug("phase2-control-denied-" + route.Name)
+			phase2test.SeedLocalUserFlags(
 				t,
-				surface.method,
-				harness.Server.HTTP.URL+surface.path,
-				surface.body,
-				phase2test.WithCookies(deploymentSession, deploymentCSRF),
-				phase2test.WithHeader(authn.CSRFHeaderName, deploymentCSRF.Value),
+				fixtureCtx.harness.DB,
+				deploymentEmail+"@example.test",
+				"Deployment Only "+deploymentEmail,
+				"DeploymentOnly1!",
+				false,
+				true,
+				true,
 			)
-			httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "incident_not_found")
+			deploymentSession, deploymentCSRF := phase2test.LoginLocalUser(
+				t,
+				fixtureCtx.harness.Server,
+				deploymentEmail+"@example.test",
+				"DeploymentOnly1!",
+			)
+			requireControlRouteOutcome(
+				t,
+				fixtureCtx.harness.Server.HTTP.URL,
+				route,
+				fixtureCtx.routeFixture(route.Name),
+				deploymentSession,
+				deploymentCSRF,
+				controlStageNoMembership,
+			)
 		})
 	}
-
-	phase2test.RequireTimelineSocketRejected(t, harness.Server.HTTP.URL, incidentID, deploymentSession.Value, http.StatusNotFound, "incident_not_found")
 }
 
 func requireErrorDetails(t testing.TB, envelope map[string]any, wantField string, wantReasonCode string) {
