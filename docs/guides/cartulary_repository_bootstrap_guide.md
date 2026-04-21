@@ -74,7 +74,7 @@ mkdir -p \
   internal/gen/contracts internal/gen/sql \
   db/migrations db/queries \
   contracts/openapi contracts/ws contracts/view-schemas contracts/errors \
-  apps/web packages/grid-adapter packages/ui packages/protocol-ts/src/generated packages/view-contracts packages/test-utils \
+  apps/web packages/ui packages/grid-adapter packages/protocol-ts/src/generated packages/view-contracts packages/test-utils \
   scripts tools docs configs/dev internal/testutil/configtest internal/testutil/pgtest \
   internal/testutil/s3test internal/testutil/httptestx internal/testutil/wstest \
   internal/testutil/fixtures internal/testutil/golden
@@ -147,8 +147,8 @@ Use this tree as the initial repository shape:
     /web
 
   /packages
-    /grid-adapter
     /ui
+    /grid-adapter
     /protocol-ts
     /view-contracts
     /test-utils
@@ -160,22 +160,12 @@ Use this tree as the initial repository shape:
 
 This structure matches the intended baseline in the development guide and keeps transport, runtime plumbing, and storage adapters under `internal/platform`, while domain and application logic live under `internal/modules`.[^4][^16]
 
+`/packages/grid-adapter` owns the direct `react-data-grid` integration. `/apps/web` must consume Cartulary adapter components and types from `/packages/grid-adapter` rather than importing `react-data-grid` directly. `/packages/ui` remains presentational and must not own workbook state, grid mutation semantics, or vendor-coordinate translation.[^25]
+
 Two rules matter immediately:
 
 - keep the backend as one root Go module and the frontend as one top-level pnpm workspace.[^4]
 - create the module directories now, even when many are still empty, so Codex does not invent alternate module boundaries later.[^3][^16]
-
-### 5.1 Package responsibility boundaries
-
-The frontend workspace MUST include an explicit grid-adapter boundary from bootstrap. `/packages/grid-adapter` is a frontend package boundary, not a separate deployable. It exists so selected-grid integration cannot drift into generic presentational components.
-
-| Package                    | Bootstrap responsibility                                                                                                                                                                                                                    |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/packages/grid-adapter`   | Cartulary-owned frontend grid adapter. Owns selected-grid integration, vendor-coordinate translation, column and field binding, renderer/editor registration, grid capability allowlist, imperative API fencing, and adapter test fixtures. |
-| `/packages/ui`             | Reusable presentational components with no workbook-state ownership and no direct vendor-grid mutation authority.                                                                                                                           |
-| `/packages/view-contracts` | TypeScript-consumable adapters over `/contracts/view-schemas/*`; must not own field mutability or write-back behavior.                                                                                                                      |
-| `/packages/protocol-ts`    | Generated protocol types and helpers derived from `/contracts/*`.                                                                                                                                                                           |
-| `/packages/test-utils`     | Shared protocol, UI, grid-adapter, and visual-fixture test helpers.                                                                                                                                                                         |
 
 ## 6. Step 3: scaffold the backend composition root before handlers
 
@@ -295,6 +285,8 @@ Repository-local recommended meanings:
 - `make build`: build the application artifact and, later, embed the frontend assets into it.
 
 `make check` is not optional. It is the required developer verification gate and must include codegen drift detection and migration verification.[^6]
+
+By the end of bootstrap, `make check` must include a frontend smoke path that proves the browser bundle can import `react-data-grid/lib/styles.css`, render a minimal Cartulary fixture grid through `/packages/grid-adapter`, and key rows by `record_id`. The smoke fixture must include at least two rows with distinct `record_id` values. This smoke path must not assert feature-complete workbook behavior. It exists only to fail early on package-format, CSS-export, peer-dependency, and stable-row-key integration errors.[^25]
 
 ## 11. Step 8: bootstrap the TDD harness before the first feature slice
 
@@ -485,8 +477,8 @@ The repository bootstrap is complete when all of the following are true:
 - the command surface exists and `make check` is the enforced developer gate.[^6]
 - PostgreSQL and MinIO can be started locally through Compose.[^18]
 - contract/codegen directories exist and generated outputs are treated as read-only.[^7]
+- the frontend smoke path renders a minimal `react-data-grid` fixture through `/packages/grid-adapter`, imports `react-data-grid/lib/styles.css`, and keys fixture rows by distinct `record_id` values.[^25]
 - reusable shared harnesses exist for envelopes, authorization re-derivation, idempotency, projection determinism, and WebSocket lifecycle.[^8]
-- the frontend workspace contains an explicit `/packages/grid-adapter` boundary, and no feature code outside that boundary directly imports or calls the selected grid engine's mutation, plugin, or imperative instance APIs.
 - the first failing Phase 0 tests are checked in and can be run repeatedly.[^9]
 - no feature work beyond the bootstrap shell has bypassed migrations, config validation, or the TDD loop.[^16][^20]
 
@@ -517,3 +509,4 @@ That state is the correct handoff point for Codex. From there, implementation sh
 [^22]: [cartulary_implementation_testing_guide.md](sandbox:/mnt/data/cartulary_implementation_testing_guide.md), lines 97-168.
 [^23]: [04_security_deployment_and_conformance.md](sandbox:/mnt/data/04_security_deployment_and_conformance.md), lines 7-39 and 43-94.
 [^24]: [00_document_set_status_and_precedence.md](sandbox:/mnt/data/00_document_set_status_and_precedence.md), lines 128-132; [cartulary-dev-guide.md](sandbox:/mnt/data/cartulary-dev-guide.md), lines 692-695.
+[^25]: [R09-react-data-grid-research-report.md](sandbox:/mnt/data/R09-react-data-grid-research-report.md), especially §§1, 3, 18, and 20 on the inspected `react-data-grid` package shape, controlled grid surface, CSS export, and build/package constraints.

@@ -177,35 +177,6 @@ These tools do not ship in the compiled application binary.
 | `react-dom`       | React DOM renderer                                                                 | MIT     |
 | `react-data-grid` | Virtualized workbook grid, keyboard editing, paste, grouping, and custom renderers | MIT     |
 
-### 2.3.1 Grid engine selection gate
-
-The current baseline grid package remains `react-data-grid` until changed by an explicit stack-baseline revision. 
-
-A pull request MUST NOT introduce a second runtime grid engine, replace the baseline grid engine, adopt a license-keyed runtime grid engine, or expose a selected-grid vendor instance outside the grid adapter unless the grid-engine selection gate is complete.
-
-A grid-engine evaluation is complete only when every field below is present. Omission of any required field means `Evaluation incomplete`.
-
-| Evaluation field          | Required content                                                                                                                            | Default when absent    |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| Dependency identity       | Package name, package scope, major version, package manager, and intended import path.                                                      | Evaluation incomplete. |
-| License posture           | License name, commercial or evaluation terms, license-key requirement, and whether the dependency satisfies the permissive-runtime policy.  | Evaluation incomplete. |
-| Runtime model             | Exactly one of `declarative_react_grid`, `imperative_engine_with_react_adapter`, or `other`.                                                | Evaluation incomplete. |
-| Row identity model        | Whether source, physical, visual, and renderable indexes are distinct; how the engine exposes each.                                         | Evaluation incomplete. |
-| Data ownership model      | Whether the engine mutates caller data, clones caller data, owns internal source data, or supports more than one mode.                      | Evaluation incomplete. |
-| Extension surface         | Supported plugins, hooks, registries, renderers, editors, validators, menus, formulas, clipboard, sorting, filtering, grouping, and themes. | Evaluation incomplete. |
-| Disabled-capability plan  | Closed list of vendor capabilities that are disabled, unavailable, or inaccessible through ordinary runtime.                                | Evaluation incomplete. |
-| Adapter preservation plan | How `record_id`, `row_version`, `field_key`, conflict state, pending queue state, and server-canonical query state remain authoritative.    | Evaluation incomplete. |
-| Test plan                 | Unit, integration, E2E, visual-regression, and performance evidence required before adoption.                                               | Evaluation incomplete. |
-
-An ADR or equivalent rationale artifact MAY explain why a grid-engine change is desirable. It does not satisfy this gate by itself. The Development Guide MUST still record the stack-baseline consequence before the repository treats the dependency change as adopted.
-
-#### Acceptance criteria
-
-- **DG-R08-AC-001:** This subsection exists directly under `### 2.3 Frontend runtime dependencies`.
-- **DG-R08-AC-002:** The subsection states that `react-data-grid` remains the baseline unless changed by explicit stack-baseline revision.
-- **DG-R08-AC-003:** The subsection requires license-key and license-policy review before adopting a license-keyed grid runtime.
-- **DG-R08-AC-004:** The subsection contains an evaluation-field table covering dependency identity, license posture, runtime model, row identity model, data ownership model, extension surface, disabled-capability plan, adapter preservation plan, and test plan.
-
 The rest of the baseline frontend runtime uses browser-native APIs:
 
 - `fetch` for HTTP,
@@ -215,6 +186,20 @@ The rest of the baseline frontend runtime uses browser-native APIs:
 - `IntersectionObserver` and `ResizeObserver` for viewport management.
 
 For evidence access, preview and download MUST continue to redeem through the Go application via same-origin opaque handles. The browser MUST NOT construct, persist, or treat arbitrary raw object-store URLs as evidence-access state. Evidence upload MAY use a server-issued short-lived upload target under the object-store abstraction.
+
+### 2.3.1 React Data Grid compatibility boundary
+
+The implementation baseline uses `react-data-grid` through `/packages/grid-adapter`. Exact package versions MUST be pinned in `package.json`, workspace manifests, and lockfiles, not in this prose.
+
+The repo-control files MUST select a `react-data-grid` package version whose package metadata is compatible with the frontend build. At minimum, the selected package MUST provide:
+
+- an ESM-compatible JavaScript export consumable by the Vite build;
+- TypeScript declarations for the public grid surface used by `/packages/grid-adapter`;
+- a stylesheet export at `react-data-grid/lib/styles.css` or an explicitly documented successor path;
+- React and ReactDOM peer dependency compatibility with the repository’s selected React major version;
+- a license compatible with the permissive-license runtime dependency policy.
+
+`/apps/web` or the adapter-owned browser entry MUST import the published stylesheet exactly once before rendering any workbook grid. A missing stylesheet import is a bootstrap-smoke failure.
 
 ### 2.4 Frontend dev and build tools
 
@@ -345,6 +330,7 @@ The path tree below is an intended baseline shape, not an independently verified
 
   /packages
     /ui                              # Reusable presentational components
+    /grid-adapter                    # Cartulary-owned adapter over react-data-grid
     /protocol-ts                     # Generated TypeScript protocol types
     /view-contracts                  # TypeScript-consumable adapters around view-schema contracts
     /test-utils                      # Shared frontend and protocol test helpers
@@ -360,6 +346,7 @@ The path tree below is an intended baseline shape, not an independently verified
 - The TypeScript workspace MUST remain one `pnpm` workspace rooted at the repository top level.
 - `internal/platform` owns transport, configuration, storage adapters, and cross-cutting runtime plumbing.
 - `internal/modules` owns domain and application logic.
+- `/packages/grid-adapter` MUST be the only workspace package that imports `react-data-grid`. `/apps/web` MUST consume Cartulary adapter exports. `/packages/view-contracts` remains the owner of TypeScript-consumable view-schema adapters; `/packages/grid-adapter` consumes those adapters and MUST NOT become an independent behavioral owner for field mutability, grouping, sort, filter, or write-back semantics.
 - Generated code MAY be checked in, but generated paths MUST be clearly marked and drift-checked.
 - `AGENTS.md` owns contributor procedure. This guide may reference commands and paths, but it does not own execution procedure.
 
@@ -380,6 +367,7 @@ The path tree below is an intended baseline shape, not an independently verified
 - The repository tree contains the path families declared above or explicit successor paths documented by a guide update.
 - Generated paths contain `DO NOT EDIT` markers when checked in.
 - No domain logic is introduced directly under transport packages.
+- No workspace package other than `/packages/grid-adapter` imports `react-data-grid` directly.
 
 ---
 
@@ -557,180 +545,17 @@ This guide intentionally places `party`, `task_request`, `decision`, and artifac
 
 ### 6.1 Application structure (`/apps/web`)
 
-| Frontend module       | Responsibility                                                                                                                                                                                    | Required default or constraint                                                                                                                                                                         |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `workbook shell`      | Built-in tabs, system-view registration, saved-view selector, startup-surface resolution, view-level filters and grouping controls                                                                | MUST keep all workbook-native surfaces inside the workbook shell rather than separate application modules                                                                                              |
-| `grid adapter`        | Cartulary-owned adapter around the selected grid engine, including `record_id` anchoring, column registration, renderer/editor registration, vendor-event translation, and imperative API fencing | The adapter MUST be the only code path that translates vendor-local coordinates, indexes, hooks, plugin events, selection objects, or imperative grid calls into Cartulary events or mutation requests |
-| `cell renderers`      | Typed cell display and edit components                                                                                                                                                            | Save state, conflict state, and presence markers MUST render at cell level where applicable                                                                                                            |
-| `sync engine`         | Pending-patch queue, autosave, HTTP mutation submission, retry behavior                                                                                                                           | MUST send `record_id`, `base_row_version`, and changed fields only                                                                                                                                     |
-| `WebSocket client`    | `hello`, `resume`, replay tracking, `ping` and `pong`, reset handling                                                                                                                             | MUST treat the server stream as read-only and re-query via HTTP on reset                                                                                                                               |
-| `collaboration state` | `record_changed`, `presence_snapshot`, `presence_delta`, `job_progress` handling                                                                                                                  | MUST preserve selection anchoring by `record_id` through patch, invalidate, and remove events                                                                                                          |
-| `conflict resolver`   | Same-surface conflict review and explicit resolution                                                                                                                                              | MUST open from the affected cell and keep the grid visible                                                                                                                                             |
-| `inspector drawer`    | Enrichment, relationships, history, rollback, evidence inspection, party and mention resolution                                                                                                   | MUST remain non-blocking relative to the grid                                                                                                                                                          |
-| `presence UI`         | Header avatars, row-gutter indicators, same-cell editing hints                                                                                                                                    | MUST be keyed by stable identifiers rather than labels or row numbers                                                                                                                                  |
-
-### 6.1.1 Grid adapter contract
-
-The frontend MUST isolate the selected grid engine behind a Cartulary-owned grid adapter. The adapter is the only frontend boundary that may translate vendor coordinates into Cartulary anchors.
-
-Definitions used by this section:
-
-| Term                   | Required meaning                                                                                                                              |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `selected grid engine` | The grid dependency currently selected by the stack baseline.                                                                                 |
-| `vendor coordinate`    | Any selected-grid-engine-local row, column, visual, physical, source, renderable, or selection coordinate.                                    |
-| `Cartulary anchor`     | Stable identity tuple containing the relevant `view_schema_id`, `record_id`, `row_version` where needed, and `field_key` where cell-specific. |
-| `render_binding_table` | Adapter-local mapping from current viewport and overscan rows to Cartulary row anchors and presentation-row classifications.                  |
-| `column_binding_table` | Adapter-local mapping from rendered columns to stable `field_key`, writeability, renderer, editor, and layout metadata.                       |
-
-The adapter MUST classify grid state as follows.
-
-| State family                            | Authority classification           | Required handling                                                                                                                          |
-| --------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `record_id`                             | Authoritative                      | MUST be the row identity for focus, selection, edits, pending patches, presence, conflict markers, inspector routing, and history routing. |
-| `row_version`                           | Authoritative                      | MUST be the base version for record-scoped optimistic writes.                                                                              |
-| `field_key`                             | Authoritative                      | MUST be the cell write identity and query-field identity.                                                                                  |
-| `view_schema_id`                        | Authoritative                      | MUST define field registry, mutability, read contracts, write contracts, grouping keys, sort keys, and surface identity.                   |
-| `view_row_v1`                           | Authoritative row input            | MUST populate the adapter's render-binding table.                                                                                          |
-| `view_row_patch_v1`                     | Authoritative sparse update input  | MUST update only the addressed `record_id` and changed `field_key` members.                                                                |
-| `meta.query`                            | Authoritative query-state echo     | MUST be the displayed applied query state after server canonicalization.                                                                   |
-| Sync-engine pending queue               | Authoritative local mutation state | MUST own unsent or retrying patches. The grid adapter MAY display queue state but MUST NOT reorder, drop, or reinterpret queue units.      |
-| Conflict resolver state                 | Authoritative local conflict state | MUST own same-field conflict display and resolution actions.                                                                               |
-| Vendor visual row index                 | Non-authoritative                  | MAY locate a visible cell only until translated to `record_id` and `field_key`.                                                            |
-| Vendor physical/source/renderable index | Non-authoritative                  | MUST NOT be emitted outside the adapter as record identity.                                                                                |
-| Vendor selection object                 | Non-authoritative                  | MUST NOT be persisted or sent to the server.                                                                                               |
-| Vendor plugin state                     | Non-authoritative unless mapped    | MUST be inaccessible outside the adapter unless explicitly mapped to a Cartulary contract and test.                                        |
-| Vendor imperative instance state        | Non-authoritative unless wrapped   | MUST be fenced behind adapter methods and tests.                                                                                           |
-
-The adapter MUST expose one Cartulary event vocabulary to the rest of the frontend.
-
-| Adapter event               | Required payload                                                                                                                       | Omission and error behavior                                                                                                                                                                                                 |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cell_focus_changed`        | `view_schema_id`, `record_id`, `field_key`, optional `row_version`                                                                     | If the vendor cell cannot be resolved to a data row and schema field, the adapter MUST emit no focus event and MUST clear or retain focus according to the prior valid Cartulary anchor, not according to the vendor index. |
-| `selection_changed`         | `view_schema_id`, ordered selected anchors as `record_id` plus `field_key` ranges where applicable                                     | Group headers, spacer rows, and non-data rows MUST NOT become selected record anchors.                                                                                                                                      |
-| `cell_edit_committed`       | `view_schema_id`, `record_id`, `base_row_version`, `field_key`, `value`, `client_txn_id`                                               | If any required anchor is missing, the adapter MUST reject the local commit before sync-engine enqueue.                                                                                                                     |
-| `paste_committed`           | `view_schema_id`, ordered cell range mapped to existing `record_id` anchors or create-row anchors, field-keyed values, `client_txn_id` | The adapter MUST preserve visual paste order after translation to stable anchors. It MUST NOT rely on vendor source indexes as mutation identity.                                                                           |
-| `query_state_requested`     | `view_schema_id`, requested sort, filters, grouping, and initiating UI source                                                          | The adapter MUST send only stable contract keys. It MUST NOT send visible labels, vendor column indexes, projection-table names, or storage-table names.                                                                    |
-| `adapter_refresh_requested` | `view_schema_id`, refresh class from the grid-state refresh table, reason code                                                         | Unknown refresh classes are invalid.                                                                                                                                                                                        |
-
-The adapter MUST normalize vendor cell events through this deterministic algorithm before emitting Cartulary events or enqueueing mutations.
-
-```text
-on vendor cell event:
-  read vendor row coordinate and vendor column coordinate
-  resolve row coordinate through current render_binding_table
-  resolve column coordinate through current column_binding_table
-
-  if row binding is absent:
-    do not emit a Cartulary row event
-    do not enqueue a mutation
-    preserve the last valid Cartulary anchor only if the UI action did not claim a new data-row focus
-
-  if column binding is absent or not bound to one field_key:
-    do not emit a Cartulary cell event
-    do not enqueue a mutation
-
-  if the resolved row is a group header, spacer, loading row, summary row, or presentation-only row:
-    do not emit a mutation-capable event
-
-  emit the corresponding Cartulary adapter event using view_schema_id, record_id, row_version when required, and field_key
-```
-
-The adapter MUST maintain a render-binding table for the current viewport and overscan region. Each data-row binding MUST contain `view_schema_id`, `record_id`, `row_version`, and the row's current position in the adapter's displayed order. Each data-column binding MUST contain `field_key`, writeability state, read renderer, edit renderer, and default-hidden or visible layout state.
-
-The adapter MUST treat group headers, loading rows, summary rows, spacer rows, and vendor-generated rows as non-data rows unless the active view contract explicitly declares them writable data rows. After sort, filter, grouping, cursor continuation, live update, hidden-field layout, virtual scrolling, or vendor plugin action, a commit MUST still target the original `record_id` and `field_key`. The terms `visual`, `physical`, `source`, and `renderable` are vendor-coordinate concepts only and MUST NOT become Cartulary identity.
-
-#### Acceptance criteria
-
-- **DG-R08-AC-006:** The frontend architecture table uses `grid adapter` as the vendor-grid boundary.
-- **DG-R08-AC-007:** The architecture table states that vendor events and imperative APIs are mediated by the adapter.
-- **DG-R08-AC-008:** No architecture row allows direct mutation routing from a renderer, editor, plugin, or component outside the adapter and sync engine.
-- **DG-R08-AC-009:** This subsection defines authoritative and non-authoritative grid state in a table.
-- **DG-R08-AC-010:** The event vocabulary table includes `cell_focus_changed`, `selection_changed`, `cell_edit_committed`, `paste_committed`, `query_state_requested`, and `adapter_refresh_requested`.
-- **DG-R08-AC-011:** Every mutation-capable adapter event requires `record_id`, `field_key`, and the version value needed by the server-owned mutation contract.
-- **DG-R08-AC-012:** The subsection explicitly forbids vendor row indexes as mutation identity.
-- **DG-R08-AC-013:** The subsection specifies fail-closed behavior when a vendor coordinate cannot be translated to a Cartulary anchor.
-- **DG-R08-AC-014:** The subsection uses `visual`, `physical`, `source`, and `renderable` only as vendor-coordinate concepts, not as Cartulary identity.
-- **DG-R08-AC-015:** The subsection states that data-row commits after sorting, filtering, grouping, live update, and virtual scrolling target `record_id` and `field_key`.
-- **DG-R08-AC-016:** The subsection states that group headers and presentation-only rows are never writable rows.
-
-### 6.1.2 Grid capability allowlist
-
-The grid adapter MUST define a closed capability allowlist for the selected grid engine. Plugin registration is closed by default. A vendor plugin or capability is enabled only when it appears in the allowlist with class, owner, and test evidence.
-
-| Class            | Meaning                                                                                    | Required handling                                                                                                     |
-| ---------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `adapter_owned`  | Required for Cartulary UI behavior and mediated by the grid adapter.                       | Enabled only through adapter code and covered by unit tests.                                                          |
-| `server_owned`   | The grid may expose UI affordances, but canonical semantics are owned by server contracts. | Requests MUST round-trip through server-owned routes or canonical contract artifacts before display is authoritative. |
-| `disabled`       | Conflicts with current Cartulary behavior or lacks current contract coverage.              | MUST NOT be registered, enabled, reachable, or callable in ordinary runtime.                                          |
-| `future_profile` | Potentially useful but outside the current baseline.                                       | MUST require a later owner-contract or stack-baseline revision before enablement.                                     |
-
-The current-profile default mapping is:
-
-| Capability family                | Default class         | Required current-profile handling                                                                    |
-| -------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------- |
-| Virtualized rendering            | `adapter_owned`       | Adapter MAY use the grid engine for viewport rendering, but row identity remains `record_id`.        |
-| Keyboard navigation              | `adapter_owned`       | Adapter MUST map key effects to Cartulary focus, selection, edit, and paste contracts.               |
-| Inline scalar editors            | `adapter_owned`       | Editors MUST emit `cell_edit_committed` only through the adapter.                                    |
-| Custom renderers                 | `adapter_owned`       | Renderers MAY display cell state but MUST NOT own authoritative mutation state.                      |
-| Clipboard paste                  | `adapter_owned`       | Paste MUST translate into the shared Cartulary paste and tabular-ingest contract.                    |
-| Sort UI                          | `server_owned`        | UI MAY request sort; server `meta.query.sort[]` is authoritative.                                    |
-| Filter UI                        | `server_owned`        | UI MAY request filters; server normalized filter state is authoritative.                             |
-| Group UI                         | `server_owned`        | UI MAY request one declared grouping key; group headers remain presentation-only.                    |
-| Validation display               | `server_owned`        | Client MAY show local hints, but server validation and mutation result are authoritative.            |
-| Presence markers                 | `adapter_owned`       | Markers MUST be keyed by `record_id` and `field_key`, not vendor coordinates.                        |
-| Same-field conflict markers      | `adapter_owned`       | Markers MUST be keyed by conflict state from the sync/conflict subsystem.                            |
-| Vendor source-data mutation APIs | `disabled`            | No direct use outside the adapter; no authoritative data mutation through vendor data APIs.          |
-| Vendor formulas                  | `disabled`            | MUST NOT be enabled unless a later owner contract defines formula semantics.                         |
-| Vendor undo/redo                 | `disabled`            | MUST NOT bypass Cartulary revision, conflict, or history contracts.                                  |
-| Vendor hidden-row semantics      | `disabled`            | MUST NOT determine row visibility; server query state and view contracts own visibility.             |
-| Vendor context-menu commands     | `disabled`            | MUST be unavailable unless every command is mapped to a Cartulary action and test.                   |
-| Manual row movement              | `future_profile`      | MUST NOT mutate ordering or source state in the current baseline.                                    |
-| Manual column movement           | `future_profile`      | MUST NOT become persisted layout unless a layout contract explicitly owns it.                        |
-| Plugin registration              | `disabled` by default | Each enabled plugin MUST appear in the allowlist with class, owner, and tests.                       |
-| Theme and CSS customization      | `adapter_owned`       | MAY affect presentation only and MUST NOT change row identity, field identity, or mutation behavior. |
-
-#### Acceptance criteria
-
-- **DG-R08-AC-017:** The allowlist defines exactly the four class values `adapter_owned`, `server_owned`, `disabled`, and `future_profile`, or stricter successors.
-- **DG-R08-AC-018:** The default capability mapping includes every capability family listed in this subsection.
-- **DG-R08-AC-019:** The subsection forbids vendor formulas, vendor undo/redo, vendor source-data mutation APIs, vendor hidden-row semantics, and vendor context-menu commands unless later mapped to Cartulary contracts and tests.
-- **DG-R08-AC-020:** The subsection states that plugin registration is closed by default.
-
-### 6.1.3 Renderer and editor lifecycle rules
-
-Renderers MAY read `view_row_v1`, `view_row_patch_v1`, presence state, save state, and conflict state. Renderers MUST NOT mutate authoritative state.
-
-Editors MUST emit commits only through the adapter event vocabulary. Editors MUST reset local state when prepared for a different `record_id`, `field_key`, or `row_version`. Editor reuse across rows MUST reset by stable Cartulary anchors, not vendor coordinates.
-
-Renderers and editors MUST release portals, subscriptions, timers, observers, and stale closures during unmount, remount, surface switch, and engine destroy. A renderer or editor MUST NOT retain a vendor row index as a future mutation target. A renderer or editor MUST NOT call vendor data-mutation APIs directly. A renderer or editor MUST NOT call HTTP mutation routes directly; the sync engine remains the mutation submission owner.
-
-#### Acceptance criteria
-
-- **DG-R08-AC-021:** This subsection exists.
-- **DG-R08-AC-022:** The subsection requires cleanup of portals, subscriptions, timers, observers, and stale closures.
-- **DG-R08-AC-023:** The subsection forbids direct HTTP mutation calls from renderers and editors.
-- **DG-R08-AC-024:** The subsection states that editor reuse across rows resets by stable Cartulary anchors, not vendor coordinates.
-
-### 6.1.4 Grid-state refresh semantics
-
-The grid adapter MUST use one of the refresh classes below whenever server results, live collaboration events, query replacement, or adapter lifecycle changes require visible grid refresh. Unknown refresh classes are invalid. The adapter MUST NOT invent best-effort refresh behavior without adding the class to this table and adding tests.
-
-| Refresh class                    | Trigger examples                                                                                                               | Selection and focus                                                                                                        | Scroll                                                                                                | Pending local edits                                             | Inspector                                                           | Presence and conflict markers                   |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------- |
-| `cell_patch`                     | Sparse `view_row_patch_v1` changes visible fields.                                                                             | Preserve by `record_id` and `field_key`.                                                                                   | Preserve.                                                                                             | Preserve unless the same field enters conflict state.           | Preserve if the selected `record_id` remains active.                | Recompute markers by stable anchors.            |
-| `row_refresh`                    | Full row returned after create, patch, attach, or explicit row refresh.                                                        | Preserve by `record_id`; update `row_version`.                                                                             | Preserve.                                                                                             | Preserve or clear only according to sync/conflict result.       | Preserve if selected `record_id` remains active.                    | Recompute markers by stable anchors.            |
-| `invalidate_requery`             | Sparse patch cannot safely express the change; server emits invalidate.                                                        | Preserve by `record_id` and `field_key` when the record returns in the requery result; otherwise clear the invalid anchor. | Preserve when anchor remains visible; otherwise scroll behavior follows active query-result defaults. | Preserve sync-engine queue state; do not retarget.              | Preserve only when selected `record_id` remains visible and active. | Recompute after requery.                        |
-| `query_replace_preserve_anchors` | Sort, filter, grouping, saved-view, or cursor-bound result replacement.                                                        | Preserve anchors when the same `record_id` and `field_key` remain in the result; otherwise clear invalid anchors.          | Keep anchor in view when possible.                                                                    | Preserve and do not retarget.                                   | Preserve only for surviving selected `record_id`.                   | Recompute by stable anchors.                    |
-| `surface_remount`                | `view_schema_id` change, grid-engine reinitialization, capability registry change, or unrecoverable adapter invariant failure. | Clear surface-local selection and focus unless the new surface explicitly resolves the same stable anchor.                 | Reset to new surface default.                                                                         | Preserve sync-engine queue state; do not drop unsent mutations. | Close unless it can rebind to a valid same-incident `record_id`.    | Rehydrate from collaboration state after mount. |
-
-Pending local edits MUST never retarget to a different `record_id`.
-
-#### Acceptance criteria
-
-- **DG-R08-AC-025:** The refresh table covers `cell_patch`, `row_refresh`, `invalidate_requery`, `query_replace_preserve_anchors`, and `surface_remount`.
-- **DG-R08-AC-026:** Each refresh class defines selection/focus, scroll, pending-edit, inspector, presence, and conflict-marker behavior.
-- **DG-R08-AC-027:** The subsection states that pending local edits must never retarget to a different `record_id`.
+| Frontend module         | Responsibility                                                                                                                      | Required default or constraint                                                                                                                                     |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `workbook shell`        | Built-in tabs, system-view registration, saved-view selector, startup-surface resolution, view-level filters and grouping controls  | MUST keep all workbook-native surfaces inside the workbook shell rather than separate application modules                                                          |
+| `grid adapter consumer` | Workbook shell integration with `/packages/grid-adapter`, active `view_schema_id`, query state, and sync-engine mutation submission | MUST NOT import `react-data-grid` directly; MUST pass only contract-derived columns, field adapters, row data, and callback handlers into `/packages/grid-adapter` |
+| `cell renderers`        | Typed cell display and edit components                                                                                              | Save state, conflict state, and presence markers MUST render at cell level where applicable                                                                        |
+| `sync engine`           | Pending-patch queue, autosave, HTTP mutation submission, retry behavior                                                             | MUST send `record_id`, `base_row_version`, and changed fields only                                                                                                 |
+| `WebSocket client`      | `hello`, `resume`, replay tracking, `ping` and `pong`, reset handling                                                               | MUST treat the server stream as read-only and re-query via HTTP on reset                                                                                           |
+| `collaboration state`   | `record_changed`, `presence_snapshot`, `presence_delta`, `job_progress` handling                                                    | MUST preserve selection anchoring by `record_id` through patch, invalidate, and remove events                                                                      |
+| `conflict resolver`     | Same-surface conflict review and explicit resolution                                                                                | MUST open from the affected cell and keep the grid visible                                                                                                         |
+| `inspector drawer`      | Enrichment, relationships, history, rollback, evidence inspection, party and mention resolution                                     | MUST remain non-blocking relative to the grid                                                                                                                      |
+| `presence UI`           | Header avatars, row-gutter indicators, same-cell editing hints                                                                      | MUST be keyed by stable identifiers rather than labels or row numbers                                                                                              |
 
 ### 6.2 Workbook-surface rules
 
@@ -771,13 +596,13 @@ If a referenced saved view or view schema is missing, invisible, or invalid beca
 
 ### 6.4 Workspace packages
 
-| Package                    | Baseline responsibility                                                                                                                                                                                                                     |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/packages/grid-adapter`   | Cartulary-owned frontend grid adapter. Owns selected-grid integration, vendor-coordinate translation, column and field binding, renderer/editor registration, grid capability allowlist, imperative API fencing, and adapter test fixtures. |
-| `/packages/ui`             | Reusable presentational components with no workbook-state ownership and no direct vendor-grid mutation authority.                                                                                                                           |
-| `/packages/protocol-ts`    | Generated protocol types and helpers derived from `/contracts/*`                                                                                                                                                                            |
-| `/packages/view-contracts` | TypeScript-consumable adapters over `/contracts/view-schemas/*`                                                                                                                                                                             |
-| `/packages/test-utils`     | Shared protocol, UI, grid-adapter, and visual-fixture test helpers, including mock WebSocket servers and row fixtures                                                                                                                       |
+| Package                    | Baseline responsibility                                                                                                                                                                                                                                                       |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/packages/ui`             | Reusable presentational components with no workbook-state ownership                                                                                                                                                                                                           |
+| `/packages/grid-adapter`   | Cartulary-owned `react-data-grid` adapter that maps rows, columns, renderers, editors, vendor events, focus, selection, sorting, paste, fill, grouping, and imperative APIs to Cartulary `record_id`, `row_version`, `field_key`, `view_schema_id`, and sync-engine contracts |
+| `/packages/protocol-ts`    | Generated protocol types and helpers derived from `/contracts/*`                                                                                                                                                                                                              |
+| `/packages/view-contracts` | TypeScript-consumable adapters over `/contracts/view-schemas/*`                                                                                                                                                                                                               |
+| `/packages/test-utils`     | Shared protocol and UI test helpers, including mock WebSocket servers and row fixtures                                                                                                                                                                                        |
 
 ### 6.5 Frontend configuration
 
@@ -788,6 +613,71 @@ If a referenced saved view or view schema is missing, invisible, or invalid beca
 - The frontend MUST use relative API and WebSocket paths unless the repository intentionally changes that baseline.
 - Field writeability, `conflict_resolution_class`, `entity_binding_mode`, default sort, filterability, and grouping MUST derive from view contracts rather than from hard-coded visible labels.
 
+### 6.6 React Data Grid controlled-state mapping
+
+Every material `react-data-grid` state surface used by Cartulary MUST map to a Cartulary owner before it reaches `/apps/web`. The grid adapter MUST NOT delegate authoritative workbook state to hidden vendor state.
+
+| RDG-facing surface        | Cartulary owner                              | Default                                                                       | Persistence boundary                                                                | Boundary and failure behavior                                                                                                                                            |
+| ------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `rows`                    | Query state plus collaboration refresh state | Empty only before first successful query or when query response has `rows=[]` | Server query response and live refresh; not vendor-owned                            | Full row replacement, sparse patch, invalidate, and remove MUST apply by `record_id`; row-index updates MUST fail closed.                                                |
+| `rowKeyGetter`            | `/packages/grid-adapter`                     | Always `row.record_id`                                                        | Not persisted                                                                       | Missing or duplicate `record_id` is an adapter invariant failure and MUST NOT enqueue mutations.                                                                         |
+| `onRowsChange`            | Grid adapter plus sync engine                | Disabled when no writable field action exists                                 | Emits create or patch intent only                                                   | MUST NOT directly mutate authoritative workbook state; existing-row writes require `base_row_version`.                                                                   |
+| `selectedRows`            | Client-local workbook state                  | Empty set                                                                     | Client-local; not saved-view state                                                  | Keys MUST be `record_id`; selection MUST survive sort, filter, group, and live patch when the record remains visible.                                                    |
+| `sortColumns`             | View-query state                             | Derived from effective query sort                                             | Saved only through saved-view `query_json.sort` when the user saves that view state | Header sort MUST compile to stable `field_key` sort entries; local row reordering is forbidden.                                                                          |
+| `columnWidths`            | Layout state adapter                         | View-schema/default layout until user resize                                  | Client-local unless explicitly saved through `layout_json`                          | Hidden vendor width state MUST NOT become the only durable layout state.                                                                                                 |
+| Active cell and edit mode | Grid adapter                                 | No active cell before grid entry                                              | Client-local only                                                                   | Active anchor MUST be represented as `record_id + field_key` when it targets a body cell; after refresh, the adapter MUST restore or intentionally clear by that anchor. |
+| Scroll position           | Grid adapter                                 | Top-left of active surface                                                    | Client-local only                                                                   | MUST NOT be persisted in saved views; virtual scroll MUST NOT retarget pending edits.                                                                                    |
+| Group expansion           | Grid adapter or workbook client state        | Collapsed or owner-declared default                                           | Client-local unless a later owner contract explicitly persists it                   | Group rows are presentation rows and MUST NOT become writable records.                                                                                                   |
+| Copy                      | Grid adapter                                 | Enabled for readable body cells and allowed group/header contexts             | No persistence                                                                      | Copy MUST NOT require mutation rights; copied text MUST derive from display/read contract.                                                                               |
+| Paste                     | Grid adapter plus sync engine                | Enabled only where active selection contains mutation-capable writable cells  | Creates or patches through public write contracts                                   | Paste into group rows, read-only cells, or presentation rows MUST NOT enqueue mutations.                                                                                 |
+| Drag fill                 | Grid adapter plus sync engine                | Disabled unless source and targets are writable and editor-compatible         | Creates or patches through public write contracts                                   | Fill into read-only, grouped, synthetic, or incompatible fields MUST fail closed.                                                                                        |
+| `renderCell`              | Field renderer registry                      | Contract-derived renderer or safe text renderer                               | Package-local registry                                                              | Renderer MUST NOT mutate authoritative state directly.                                                                                                                   |
+| `renderEditCell`          | Field editor registry                        | No editor unless explicitly registered                                        | Package-local registry                                                              | `editable=true` alone MUST NOT make a cell editable.                                                                                                                     |
+| `TreeDataGrid` grouping   | Grid adapter                                 | Off unless active view has grouping                                           | Client-local expansion unless owner contract persists it                            | Group rows MUST expose treegrid semantics and copy/paste restrictions without becoming data rows.                                                                        |
+
+### 6.7 Field renderer and editor adapters
+
+Each grid-rendered `field_key` MUST resolve to one display renderer. Each grid-editable `field_key` MUST resolve to one explicit editor adapter. A field that is writable through another surface but not editable in the grid MUST declare `grid_editable=false` or an equivalent explicit adapter decision in the repo-local view-contract adapter layer.
+
+The grid adapter MUST NOT infer editability from `react-data-grid` `editable` alone. Edit mode MUST be possible only when the resolved column supplies an editor adapter that maps draft display state back to a Cartulary field-keyed mutation payload.
+
+Renderer precedence is deterministic:
+
+1. field-specific renderer adapter,
+2. type-family renderer adapter,
+3. safe text/value renderer,
+4. no renderer only when the field is not present in the active view row.
+
+Editor precedence is deterministic:
+
+1. field-specific editor adapter,
+2. type-family editor adapter if explicitly allowed for that field family,
+3. no grid editor.
+
+A renderer or editor adapter MUST NOT call public mutation routes directly. It MAY emit adapter-local draft/update events only. The sync engine remains the mutation-submission owner.
+
+### 6.8 Grid CSS and theme integration
+
+The frontend MUST import the published `react-data-grid` stylesheet exactly once. Cartulary theme integration MUST prefer wrapper classes, CSS variables, and documented stable classes. It MUST NOT depend on generated RDG class-name internals except where the package documents a stable public class.
+
+Layout-critical RDG inline styles, CSS variables, and measured dimensions MUST be treated as vendor-owned layout mechanics. Cartulary styling MAY wrap or override semantic state presentation, but it MUST NOT remove layout styles required for virtualization, frozen columns, active-cell preservation, measuring cells, resize handles, or drag-fill handles.
+
+Visual regression fixtures MUST cover light and dark theme classes when both are exposed by the product.
+
+### 6.9 Row identity and performance guardrails
+
+The query refresh path, sparse-patch application path, local pending-edit path, and collaboration event reducer MUST preserve unchanged row object references when the row's public data has not changed. A full query replacement MAY rebuild arrays, but it MUST still key state restoration by `record_id`.
+
+A reducer that applies a sparse patch MUST replace only the changed row object and MUST preserve references for unchanged rows where the row remains present. A reducer that applies a remove event MUST remove the row by `record_id`. A reducer that applies an invalidate event MUST mark the row stale or trigger re-query by `record_id`; it MUST NOT use visible index as identity.
+
+Fixed density row heights are the default implementation path. Variable row height MAY be added only behind a tested mode that runs large-grid, virtualization, keyboard, frozen-column, and visual regression cases.
+
+### 6.10 Grid fragility guardrails
+
+Any change touching the grid adapter, column calculation, frozen columns, column resizing, column reordering, `colSpan`, grouped headers, group rows, treegrid behavior, active-position behavior, scroll-to-cell, virtualization settings, keyboard navigation, copy/paste, drag fill, editor entry, editor close behavior, renderer precedence, or RDG CSS/theme integration MUST run the grid-adapter harness, focused browser interaction tests, and workbook visual-regression fixtures.
+
+The base implementation MUST NOT design ordinary workflows around disabled virtualization. Disabling virtualization MAY be used only for isolated diagnostics or a documented test fixture.
+
 ### Verification
 
 - The five built-in tabs and the required workbook-native system surfaces appear in the workbook shell.
@@ -795,9 +685,12 @@ If a referenced saved view or view schema is missing, invisible, or invalid beca
 - Startup-surface fallback is covered by automated tests.
 - Mutations sent by the frontend are keyed by `record_id`, `base_row_version`, and `field_key`.
 - No React component hard-codes a behavior that already belongs to the view-schema contracts by visible label alone.
-- The grid adapter is the only package that imports or calls selected-grid mutation, plugin, or imperative instance APIs.
-- Disabled grid capabilities are absent from ordinary runtime registration and fail adapter-level reachability tests.
-- Pending local edits do not retarget after sort, filter, grouping, live update, virtual scrolling, or surface remount.
+- `/packages/grid-adapter` is the only workspace package that imports `react-data-grid` directly.
+- The controlled-state mapping table in §6.6 defines owner, default, persistence boundary, and failure behavior for every listed RDG-facing surface.
+- Every grid-editable field resolves to an explicit editor adapter, and `editable=true` alone does not make a cell editable.
+- The frontend imports the RDG stylesheet exactly once before workbook grid rendering.
+- Sparse patch reducers preserve unchanged row object references and never use visible row index as identity.
+- Grid changes in the fragility trigger list run the grid-adapter harness, focused browser tests, and visual-regression fixtures.
 
 ---
 
@@ -1035,26 +928,26 @@ The implementation baseline MUST prefer projection tables over Postgres material
 
 ### 10.2 Surface ownership matrix
 
-| Surface or object group | Authoritative model                                             | Backend owner | Projection or route realization                                                           | Frontend owner                                                   | Default surface class and notes                                                                                                                                                                                                                        |
-| ----------------------- | --------------------------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Timeline                | `timeline_event`                                                | `timeline`    | `timeline_grid_projection`; `cartulary.view.timeline.v1`                                  | workbook shell, grid adapter, Timeline columns                   | Built-in tab. Zero-field create remains allowed only because the owner contract explicitly allows it.                                                                                                                                                  |
-| Hosts                   | `host`                                                          | `entities`    | `host_grid_projection`; `cartulary.view.hosts.v1`                                         | workbook shell, grid adapter, Hosts columns                      | Built-in tab. `entity_origin` surface.                                                                                                                                                                                                                 |
-| Identities              | `identity`                                                      | `entities`    | `identity_grid_projection`; `cartulary.view.identities.v1`                                | workbook shell, grid adapter, Identities columns                 | Built-in tab. `entity_origin` surface.                                                                                                                                                                                                                 |
-| Evidence                | `evidence` plus joined blob metadata                            | `evidence`    | `evidence_grid_projection`; `cartulary.view.evidence.v1`                                  | workbook shell, grid adapter, Evidence columns, inspector        | Built-in tab. Visible text and hidden party links remain separate concepts.                                                                                                                                                                            |
-| Notes                   | `artifact` filtered to `artifact_type='note'`                   | `links`       | `artifact_grid_projection`; `cartulary.view.notes.v1`                                     | workbook shell, grid adapter, Notes columns                      | Built-in tab. Notes are one artifact-backed surface, not the artifact family as a whole.                                                                                                                                                               |
-| Indicators              | canonical `indicator` plus observations and lifecycle intervals | `entities`    | `indicator_grid_projection`; `cartulary.view.indicators.v1`                               | workbook shell, system-view registration, indicator columns      | Contract-backed system view. Existing rows derive mutability from the view contract and are not generic free-edit rows.                                                                                                                                |
-| Assessments             | `assessment`                                                    | `entities`    | `assessment_grid_projection`; `cartulary.view.assessments.v1`                             | workbook shell, system-view registration, assessment columns     | Contract-backed system view.                                                                                                                                                                                                                           |
-| Task Requests           | `task_request`                                                  | `links`       | `task_request_grid_projection`; `cartulary.view.task_requests.v1`                         | workbook shell, system-view registration, queue-oriented columns | Contract-backed system view.                                                                                                                                                                                                                           |
-| Decisions               | `decision`                                                      | `links`       | `decision_grid_projection`; `cartulary.view.decisions.v1`                                 | workbook shell, system-view registration, decision columns       | Contract-backed system view.                                                                                                                                                                                                                           |
-| Parties                 | `party`                                                         | `links`       | `party_grid_projection`; `cartulary.view.parties.v1`                                      | workbook shell, system-view registration, party columns          | Contract-backed system view. Party identity is incident-scoped coordination identity, not deployment-local account identity.                                                                                                                           |
-| Communications Log      | `artifact` filtered to `artifact_type='comm_log'`               | `links`       | `artifact_grid_projection` filtered to `comm_log`; `cartulary.view.comm_log.v1`           | workbook shell, coordination-surface components                  | Workbook-native coordination surface. Canonical base surface is the standardized `view_schema_id`; an additional `scope='system'` saved view over the same schema MAY exist as an additive preset only and MUST NOT replace the required base surface. |
-| Handoff                 | `artifact` filtered to `artifact_type='handoff'`                | `links`       | `artifact_grid_projection` filtered to `handoff`; `cartulary.view.handoff.v1`             | workbook shell, coordination-surface components                  | Workbook-native coordination surface. Canonical base surface is the standardized `view_schema_id`; an additional `scope='system'` saved view over the same schema MAY exist as an additive preset only and MUST NOT replace the required base surface. |
-| Status Review           | `artifact` filtered to `artifact_type='status_review'`          | `links`       | `artifact_grid_projection` filtered to `status_review`; `cartulary.view.status_review.v1` | workbook shell, coordination-surface components                  | Workbook-native coordination surface. Canonical base surface is the standardized `view_schema_id`; an additional `scope='system'` saved view over the same schema MAY exist as an additive preset only and MUST NOT replace the required base surface. |
-| Lesson                  | `artifact` filtered to `artifact_type='lesson'`                 | `links`       | `artifact_grid_projection` filtered to `lesson`; `cartulary.view.lesson.v1`               | workbook shell, coordination-surface components                  | Workbook-native coordination surface. Canonical base surface is the standardized `view_schema_id`; an additional `scope='system'` saved view over the same schema MAY exist as an additive preset only and MUST NOT replace the required base surface. |
-| Saved views             | `saved_view`                                                    | `incidents`   | `/api/v1/incidents/{incident_id}/saved-views/*`                                           | workbook shell, saved-view selector, layout persistence          | Workbook configuration object, not a projection row. Scope controls discoverability and mutability of the configuration object only.                                                                                                                   |
-| Workbook preferences    | `user_workbook_preferences`, `incident_workbook_preferences`    | `incidents`   | `/api/v1/incidents/{incident_id}/workbook-preferences/*`                                  | workbook bootstrap and startup-surface selection                 | Route-backed configuration object, not a workbook projection.                                                                                                                                                                                          |
-| Deployment-local users  | `user`                                                          | `auth`        | `/api/v1/users/*`                                                                         | admin UI or admin CLI if present                                 | Not a workbook surface. Deployment-local administration only.                                                                                                                                                                                          |
-| Incident memberships    | `incident_membership`                                           | `incidents`   | `/api/v1/incidents/{incident_id}/memberships/*`                                           | admin UI or admin CLI if present                                 | Not a workbook surface. Incident authorization administration only.                                                                                                                                                                                    |
+| Surface or object group | Authoritative model                                             | Backend owner | Projection or route realization                                                           | Frontend owner                                                     | Default surface class and notes                                                                                                                                                                                                                        |
+| ----------------------- | --------------------------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Timeline                | `timeline_event`                                                | `timeline`    | `timeline_grid_projection`; `cartulary.view.timeline.v1`                                  | workbook shell, grid adapter consumer, Timeline columns            | Built-in tab. Zero-field create remains allowed only because the owner contract explicitly allows it.                                                                                                                                                  |
+| Hosts                   | `host`                                                          | `entities`    | `host_grid_projection`; `cartulary.view.hosts.v1`                                         | workbook shell, grid adapter consumer, Hosts columns               | Built-in tab. `entity_origin` surface.                                                                                                                                                                                                                 |
+| Identities              | `identity`                                                      | `entities`    | `identity_grid_projection`; `cartulary.view.identities.v1`                                | workbook shell, grid adapter consumer, Identities columns          | Built-in tab. `entity_origin` surface.                                                                                                                                                                                                                 |
+| Evidence                | `evidence` plus joined blob metadata                            | `evidence`    | `evidence_grid_projection`; `cartulary.view.evidence.v1`                                  | workbook shell, grid adapter consumer, Evidence columns, inspector | Built-in tab. Visible text and hidden party links remain separate concepts.                                                                                                                                                                            |
+| Notes                   | `artifact` filtered to `artifact_type='note'`                   | `links`       | `artifact_grid_projection`; `cartulary.view.notes.v1`                                     | workbook shell, grid adapter consumer, Notes columns               | Built-in tab. Notes are one artifact-backed surface, not the artifact family as a whole.                                                                                                                                                               |
+| Indicators              | canonical `indicator` plus observations and lifecycle intervals | `entities`    | `indicator_grid_projection`; `cartulary.view.indicators.v1`                               | workbook shell, system-view registration, indicator columns        | Contract-backed system view. Existing rows derive mutability from the view contract and are not generic free-edit rows.                                                                                                                                |
+| Assessments             | `assessment`                                                    | `entities`    | `assessment_grid_projection`; `cartulary.view.assessments.v1`                             | workbook shell, system-view registration, assessment columns       | Contract-backed system view.                                                                                                                                                                                                                           |
+| Task Requests           | `task_request`                                                  | `links`       | `task_request_grid_projection`; `cartulary.view.task_requests.v1`                         | workbook shell, system-view registration, queue-oriented columns   | Contract-backed system view.                                                                                                                                                                                                                           |
+| Decisions               | `decision`                                                      | `links`       | `decision_grid_projection`; `cartulary.view.decisions.v1`                                 | workbook shell, system-view registration, decision columns         | Contract-backed system view.                                                                                                                                                                                                                           |
+| Parties                 | `party`                                                         | `links`       | `party_grid_projection`; `cartulary.view.parties.v1`                                      | workbook shell, system-view registration, party columns            | Contract-backed system view. Party identity is incident-scoped coordination identity, not deployment-local account identity.                                                                                                                           |
+| Communications Log      | `artifact` filtered to `artifact_type='comm_log'`               | `links`       | `artifact_grid_projection` filtered to `comm_log`; `cartulary.view.comm_log.v1`           | workbook shell, coordination-surface components                    | Workbook-native coordination surface. Canonical base surface is the standardized `view_schema_id`; an additional `scope='system'` saved view over the same schema MAY exist as an additive preset only and MUST NOT replace the required base surface. |
+| Handoff                 | `artifact` filtered to `artifact_type='handoff'`                | `links`       | `artifact_grid_projection` filtered to `handoff`; `cartulary.view.handoff.v1`             | workbook shell, coordination-surface components                    | Workbook-native coordination surface. Canonical base surface is the standardized `view_schema_id`; an additional `scope='system'` saved view over the same schema MAY exist as an additive preset only and MUST NOT replace the required base surface. |
+| Status Review           | `artifact` filtered to `artifact_type='status_review'`          | `links`       | `artifact_grid_projection` filtered to `status_review`; `cartulary.view.status_review.v1` | workbook shell, coordination-surface components                    | Workbook-native coordination surface. Canonical base surface is the standardized `view_schema_id`; an additional `scope='system'` saved view over the same schema MAY exist as an additive preset only and MUST NOT replace the required base surface. |
+| Lesson                  | `artifact` filtered to `artifact_type='lesson'`                 | `links`       | `artifact_grid_projection` filtered to `lesson`; `cartulary.view.lesson.v1`               | workbook shell, coordination-surface components                    | Workbook-native coordination surface. Canonical base surface is the standardized `view_schema_id`; an additional `scope='system'` saved view over the same schema MAY exist as an additive preset only and MUST NOT replace the required base surface. |
+| Saved views             | `saved_view`                                                    | `incidents`   | `/api/v1/incidents/{incident_id}/saved-views/*`                                           | workbook shell, saved-view selector, layout persistence            | Workbook configuration object, not a projection row. Scope controls discoverability and mutability of the configuration object only.                                                                                                                   |
+| Workbook preferences    | `user_workbook_preferences`, `incident_workbook_preferences`    | `incidents`   | `/api/v1/incidents/{incident_id}/workbook-preferences/*`                                  | workbook bootstrap and startup-surface selection                   | Route-backed configuration object, not a workbook projection.                                                                                                                                                                                          |
+| Deployment-local users  | `user`                                                          | `auth`        | `/api/v1/users/*`                                                                         | admin UI or admin CLI if present                                   | Not a workbook surface. Deployment-local administration only.                                                                                                                                                                                          |
+| Incident memberships    | `incident_membership`                                           | `incidents`   | `/api/v1/incidents/{incident_id}/memberships/*`                                           | admin UI or admin CLI if present                                   | Not a workbook surface. Incident authorization administration only.                                                                                                                                                                                    |
 
 If the implementation exposes standardized optional artifact-backed surfaces in the current profile, the baseline `links` module also owns `cartulary.view.findings.v1`, `cartulary.view.investigative_queries.v1`, and `cartulary.view.forensic_keywords.v1` over filtered artifact-backed or otherwise owner-defined storage. Those surfaces remain optional and MUST use the standardized `view_schema_id` values when exposed.
 
@@ -1345,10 +1238,11 @@ This guide rewrite is complete only when all of the following are true:
 16. Repo-fact sections that depend on live repository control files, including package inventory, the monorepo tree, task surface, and contributor-procedure owner, are explicitly marked as pending repo-control revalidation or independently revalidated.
 17. Deployment runtime-root coverage includes `backup storage`, the deployment section includes first-deployment-admin bootstrap and `deployment_admin` boundary notes, and the backup or restore text states that backup, restore, and restore verification remain deployment-local operator-facing concerns rather than public workbook route families.
 18. Section 14 explicitly distinguishes implementation-facing harness mirrors from Core 05 claim-bearing publication requirements, names Core 05 as the owner for benchmark-profile and reproducibility rules, and mirrors the current fixture qualifiers plus `cartulary.perf.desktop_ref.v1`.
-19. The frontend section contains the grid-engine selection gate and continues to name `react-data-grid` as the current baseline.
-20. The frontend architecture section contains the grid adapter contract, capability allowlist, renderer/editor lifecycle rules, and grid-state refresh semantics.
-21. `/packages/grid-adapter` appears in the workspace package baseline and owns selected-grid integration, coordinate translation, capability allowlisting, and imperative API fencing.
-22. No frontend section allows row-position identity, direct vendor-grid mutation outside the adapter, or mutation routing from renderers and editors outside the adapter and sync engine.
+19. `/packages/grid-adapter` appears in the monorepo tree and workspace package ownership table.
+20. The frontend architecture states that only `/packages/grid-adapter` may import `react-data-grid` directly.
+21. The controlled-state mapping table covers RDG rows, row keys, row changes, selection, sorting, column widths, active cell/edit mode, scroll position, group expansion, copy, paste, drag fill, renderers, editors, and treegrid grouping.
+22. The editor and renderer contract defines deterministic precedence and forbids direct public mutation-route calls from adapters.
+23. The frontend architecture defines RDG stylesheet import, generated-class-name, row-identity, fixed-height default, variable-height, disabled-virtualization, and fragility-test boundaries.
 
 ### Verification
 

@@ -279,7 +279,7 @@ This is the first phase where record-row history exists at all. Phase 7 will lat
 | U-3-04      | A later material edit on a reviewed Timeline row demotes it to `enriched`. An explicit supersede action moves a legal row to `superseded` and blocks ordinary forward editing semantics.                                               | REQ-03-105..REQ-03-110, REQ-01-086..REQ-01-088                                                 | AC-107..AC-111, AC-198..AC-199         |
 | U-3-05      | Autosave commits on Enter, Tab, blur, and paste completion. No explicit Save button is required. Save-state labels are exactly `Syncing`, `Saved`, and `Conflict`.                                                                     | REQ-03-087..REQ-03-089                                                                         | AC-043                                 |
 | U-3-06      | `PATCH /api/v1/records/{record_id}` requires `view_schema_id`, `base_row_version`, `client_txn_id`, and non-empty `changes[]`. Duplicate `field_key` entries or `changes[]: []` are rejected as malformed mutation payloads.           | REQ-01-058..REQ-01-060, REQ-01-069..REQ-01-070                                                 | AC-125, AC-126, AC-299                 |
-| U-3-07      | Patch-route idempotent replay returns the original committed result and creates no second mutation row and no second record revision on the write substrate. Collaboration suppression remains integration or browser evidence.            | REQ-01-058, REQ-01-069..REQ-01-070                                                             | AC-126, AC-299                         |
+| U-3-07      | Patch-route idempotent replay returns the original committed result and creates no second mutation row and no second record revision on the write substrate. Collaboration suppression remains integration or browser evidence.        | REQ-01-058, REQ-01-069..REQ-01-070                                                             | AC-126, AC-299                         |
 | U-3-08      | Timeline projection rows carry the view-owned derived fields and maintain stable `record_id` / `row_version` binding for the grid.                                                                                                     | REQ-01-312..REQ-01-322, REQ-01-349..REQ-01-350, REQ-03-236..REQ-03-241                         | AC-116, AC-119, AC-120, AC-191..AC-193 |
 | U-3-09      | Every successful Timeline create or patch writes an attributed mutation entry and a new row revision for that record.                                                                                                                  | REQ-02-205..REQ-02-207, REQ-04-036..REQ-04-037                                                 | AC-215, AC-231                         |
 | U-3-10      | Supersede-with-replacement rejects illegal replacement targets, replays idempotently by `(record_id, client_txn_id)`, and writes one coupled history entry so rollback removes both the lifecycle transition and the replacement link. | REQ-01-086..REQ-01-087, REQ-01-311..REQ-01-312, REQ-02-168, REQ-02-181, REQ-03-106..REQ-03-107 | AC-329..AC-331                         |
@@ -938,7 +938,7 @@ Clients and tests must address writable and queryable fields only by stable `fie
 
 ### 14.8 Grid-adapter identity and capability harness
 
-This harness verifies that the frontend grid adapter maps vendor-local coordinates to stable Cartulary anchors. It must run for any change to the grid adapter, renderer/editor registration, sync-engine integration, view-schema field adapters, query UI, paste handling, presence display, or conflict display. A grid-engine replacement is not accepted until this harness passes against the replacement.
+This harness verifies that the frontend grid adapter maps vendor-local coordinates to stable Cartulary anchors. It must run for any change to the grid adapter, renderer/editor registration, sync-engine integration, view-schema field adapters, query UI, paste handling, presence display, or conflict display. A grid-engine replacement is not accepted until this harness passes against the replacement. The RDG-specific rows below cover browser behaviors and package surfaces identified as high-risk in the `react-data-grid` research report.[^rdg-report]
 
 Pure adapter mapping tests must not require a real browser. Lifecycle, focus, selection, paste, and visual-state tests must use a real browser or browser-equivalent renderer.
 
@@ -950,14 +950,35 @@ Pure adapter mapping tests must not require a real browser. Lifecycle, focus, se
 | `U-GRID-04` | Unit              | Disabled vendor capabilities are not registered, enabled, reachable, or callable in ordinary runtime.                                                                                          |
 | `U-GRID-05` | Unit              | Imperative grid APIs capable of data, metadata, sort, filter, selection, validation, plugin, or lifecycle mutation are inaccessible outside `/packages/grid-adapter`.                          |
 | `U-GRID-06` | Unit              | Renderer/editor lifecycle cleanup removes portals, subscriptions, timers, observers, and stale row references on unmount, remount, and surface switch.                                         |
+| `U-GRID-07` | Unit              | Adapter rejects any body row lacking a non-empty unique `record_id` before rendering a mutation-capable grid.                                                                                  |
+| `U-GRID-08` | Unit              | Adapter maps RDG `sortColumns` changes to view-query `sort[]` entries keyed by sortable `field_key`; it never sorts authoritative rows locally.                                                |
+| `U-GRID-09` | Unit              | Adapter resolves editability only from explicit editor adapters plus contract writeability; RDG `editable=true` without `renderEditCell` never opens an editor.                                |
+| `U-GRID-10` | Unit              | Adapter preserves unchanged row object references when applying sparse patches to row arrays.                                                                                                  |
 | `I-GRID-01` | Integration       | Sorted, filtered, grouped, and cursor-replaced result sets preserve edits by `record_id` and `field_key`, not visible row position.                                                            |
 | `I-GRID-02` | Integration       | Sparse patches, full row refreshes, invalidates, and query replacements follow the grid-state refresh semantics table.                                                                         |
 | `I-GRID-03` | Integration       | Paste into a sorted or filtered visible range creates or updates the intended records in visual paste order after stable-anchor translation.                                                   |
+| `I-GRID-04` | Integration       | Column resize changes are client-local until explicitly saved through allowed layout state; hidden vendor width state is not the only durable layout state.                                    |
+| `I-GRID-05` | Integration       | Copy is allowed from readable read-only cells where the view contract allows reading, but paste, fill, and editor entry are blocked.                                                           |
+| `I-GRID-06` | Integration       | Renderer precedence follows field-specific, type-family, safe text/value fallback, with no mutation side effects from renderers.                                                               |
 | `E-GRID-01` | E2E               | After a live update reorders the visible result, the analyst's pending edit remains attached to the original `record_id` and cannot retarget to the row now occupying the old visual position. |
 | `E-GRID-02` | E2E               | Same-cell conflict markers, presence markers, and save-state labels remain attached to the intended cell after sort, filter, grouping, virtual scroll, and live row patch.                     |
+| `E-GRID-03` | E2E               | Keyboard entry, exit, active-cell restoration, header navigation, summary navigation, and RTL arrow behavior preserve or intentionally clear Cartulary anchors.                                |
+| `E-GRID-04` | E2E               | Drag fill updates only writable compatible target cells and fails closed on read-only, grouped, synthetic, or incompatible cells.                                                              |
+| `E-GRID-05` | E2E               | Column resizing works through mouse and keyboard paths and does not break active-cell, conflict-marker, or presence-marker anchoring.                                                          |
+| `E-GRID-06` | E2E               | Virtual scrolling plus scroll-to-cell preserves active edit state and same-field conflict state by `record_id + field_key`.                                                                    |
+| `E-GRID-07` | E2E               | Frozen columns plus `colSpan` plus horizontal scroll preserve keyboard navigation and do not produce mutation-capable covered cells.                                                           |
+| `E-GRID-08` | E2E               | Treegrid/group rows expose expand/collapse keyboard behavior and ARIA state, while copy/paste and ordinary cell editing are restricted on group rows.                                          |
+| `E-GRID-09` | E2E               | The frontend bundle imports the RDG stylesheet exactly once before rendering a workbook grid.                                                                                                  |
 | `V-GRID-01` | Visual regression | Stable fixtures cover default viewport, unresolved mention, resolved chip, same-field conflict marker, row-gutter presence marker, grouped result, evidence count, and save-state strip.       |
+| `V-GRID-02` | Visual regression | Visual fixtures cover frozen-column shadow, resize handle, drag-fill handle, edit-cell state, grouped/tree row, and light/dark theme classes when exposed.                                     |
 
-**Owner sections**: Core 01 §3.1, §3.3.4, §3.3.5, §7.4; Core 03 §3–§4, §11, §13–§16; development guide §6.1 grid adapter contract and capability allowlist.
+**Owner sections**: Core 01 §3.1, §3.3.4, §3.3.5, §7.4; Core 03 §3–§4, §11, §13–§16; development guide §6 grid adapter contract, controlled-state mapping, and capability allowlist.
+
+**Acceptance criteria**:
+
+- §14.8 test IDs remain unique.
+- §14.8 covers keyboard/focus, editability, copy/paste, drag fill, resizing, virtualization, frozen columns, `colSpan`, treegrid, CSS import, renderer precedence, row identity, and row-object identity.
+- No §14.8 row treats visible row index as a valid mutation identity.
 
 ### 14.9 Workbook visual-regression harness
 
@@ -965,18 +986,50 @@ The repository must provide one browser visual-regression harness for workbook s
 
 The default viewport for this harness is `1440x900` CSS pixels unless the repo-local visual-test configuration declares a stricter fixed viewport. Visual regression is a developer gate for changes to the grid adapter, renderer, editor, workbook shell, theme, presence UI, conflict UI, saved-view UI, and coordination-surface grid UI. Visual regression results are implementation-quality evidence only. Public timed or fixture-sensitive claims still require Core 05 publication controls.
 
-| Fixture ID     | Required visible state                                                                           |
-| -------------- | ------------------------------------------------------------------------------------------------ |
-| `VFIX-GRID-01` | Timeline default viewport with stable row identity and visible save-state strip.                 |
-| `VFIX-GRID-02` | Timeline unresolved mention token and resolved entity chip in adjacent rows.                     |
-| `VFIX-GRID-03` | Same-field conflict marker with resolver entry point visible.                                    |
-| `VFIX-GRID-04` | Row-gutter presence marker and same-cell editing hint where supported.                           |
-| `VFIX-GRID-05` | Evidence count and preview affordance on a Timeline row.                                         |
-| `VFIX-GRID-06` | Grouped result with group headers rendered as presentation-only rows.                            |
-| `VFIX-GRID-07` | Task Requests or Decisions system view with queue-oriented fields visible.                       |
-| `VFIX-GRID-08` | Save-state strip showing `Syncing`, `Saved`, and `Conflict` across deterministic fixture states. |
+| Fixture ID     | Required visible state                                                                                      |
+| -------------- | ----------------------------------------------------------------------------------------------------------- |
+| `VFIX-GRID-01` | Timeline default viewport with stable row identity and visible save-state strip.                            |
+| `VFIX-GRID-02` | Timeline unresolved mention token and resolved entity chip in adjacent rows.                                |
+| `VFIX-GRID-03` | Same-field conflict marker with resolver entry point visible.                                               |
+| `VFIX-GRID-04` | Row-gutter presence marker and same-cell editing hint where supported.                                      |
+| `VFIX-GRID-05` | Evidence count and preview affordance on a Timeline row.                                                    |
+| `VFIX-GRID-06` | Grouped result with group headers rendered as presentation-only rows.                                       |
+| `VFIX-GRID-07` | Task Requests or Decisions system view with queue-oriented fields visible.                                  |
+| `VFIX-GRID-08` | Save-state strip showing `Syncing`, `Saved`, and `Conflict` across deterministic fixture states.            |
+| `VFIX-GRID-09` | Frozen first column with horizontal scroll and frozen-column shadow visible.                                |
+| `VFIX-GRID-10` | Column resize handle visible on a resizable header and focus state preserved on the active cell.            |
+| `VFIX-GRID-11` | Drag-fill handle visible only on an editable active cell.                                                   |
+| `VFIX-GRID-12` | Active edit cell with editor chrome, display fallback, and row identity preserved.                          |
+| `VFIX-GRID-13` | Treegrid/group row with expand/collapse affordance, non-writable presentation styling, and leaf rows below. |
+| `VFIX-GRID-14` | Dark theme grid state when dark theme is exposed.                                                           |
+| `VFIX-GRID-15` | Empty successful query using no-rows fallback distinct from loading state.                                  |
 
 **Owner sections**: Core 01 §3.1 and §3.3.4; Core 03 §1–§4, §11, §13–§16; Core 05 for claim-bearing publication boundaries only.
+
+**Acceptance criteria**:
+
+- §14.9 includes `VFIX-GRID-01` through `VFIX-GRID-15`.
+- Visual fixtures distinguish loading, no rows, and ordinary empty group states.
+- Dynamic regions remain masked according to the harness rules in this section.
+
+### 14.9A Grid browser-command harness
+
+The browser test layer must provide shared helper commands for these interaction families:
+
+| Helper family        | Required behavior                                                                                                                                                           |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Column resize        | Locate a header resize handle, perform pointer resize, support keyboard resize path when applicable, and assert final width or layout change through observable grid state. |
+| Drag fill            | Locate active editable cell drag handle, drag over target rows, release, and assert field-keyed mutation intents.                                                           |
+| Scroll-to-cell       | Scroll a target `record_id + field_key` into view and assert that focus, conflict state, and presence state attach to that anchor.                                          |
+| Tree expand/collapse | Toggle group rows through mouse and keyboard paths and assert ARIA expansion state.                                                                                         |
+| Paste matrix         | Paste a deterministic TSV matrix into visible cells and assert record-keyed creates or patches in visual paste order.                                                       |
+
+Individual tests may add local setup, but they must not reimplement low-level pointer choreography when a shared helper exists.
+
+**Acceptance criteria**:
+
+- The testing guide defines shared command families for column resize, drag fill, scroll-to-cell, tree expand/collapse, and paste matrix.
+- The command harness requires assertions against Cartulary anchors, not only vendor DOM state.
 
 ### 14.10 Projection determinism and rebuild harness
 
@@ -1132,3 +1185,4 @@ This guide MUST NOT be used as a completion artifact unless §1.2, §15.1, §16.
 [^core01-routes]: `01_architecture_storage_and_view_contracts.md`, especially §§3.3.2, 3.3.3.1, 3.3.5.1, 7.4, 12.1–12.2, 16, 17, and 20.
 [^core02-registry]: `02_domain_model_schema_and_history.md`, especially §10.4.4A on the tagged-variant registry and §19 on party and coordination semantics.
 [^core03-workbook]: `03_workbook_interaction_collaboration_and_workflows.md`, especially §§2, 11, 13, and 16–20 on workbook surfaces, optional standardized surfaces, keyboard behavior, and party / coordination flows.
+[^rdg-report]: `R09-react-data-grid-research-report.md`, especially §§3, 12–15, 17–21, and the evidence ledger for controlled state, browser interaction coverage, grouping/treegrid behavior, performance, CSS, build packaging, and fragile grid combinations.
