@@ -6,14 +6,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -22,20 +18,15 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/crosscutting"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
-	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase0test"
+	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
-	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
 func TestPhase0_ReadyState_E_0_01(t *testing.T) {
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
-	testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-e-0-01")
-	if err != nil {
-		t.Fatalf("prepare postgres database: %v", err)
-	}
-	defer dropPhase0Database(t, postgresHarness, testDB.Name)
+	testDB := postgresHarness.PrepareDatabaseT(t, "phase0-e-0-01")
 
 	db := openPhase0SQL(t, testDB.DSN)
 	defer db.Close()
@@ -46,7 +37,7 @@ func TestPhase0_ReadyState_E_0_01(t *testing.T) {
 	configPath := writePhase0Config(t, string(fixtures.MustRead("config", "valid.toml")))
 	env := phase0ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, fixtures.Path("bootstrap-admin", "canonical.json"))
 
-	server := startPhase0Server(t, env)
+	server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
 	defer server.Stop(t)
 
 	server.WaitForReady(t)
@@ -96,11 +87,7 @@ func TestPhase0_InvalidConfigDiagnostics_E_0_02(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-e-0-02")
-			if err != nil {
-				t.Fatalf("prepare postgres database: %v", err)
-			}
-			defer dropPhase0Database(t, postgresHarness, testDB.Name)
+			testDB := postgresHarness.PrepareDatabaseT(t, "phase0-e-0-02")
 
 			bucket := phase0BucketName("phase0-e-0-02")
 			defer cleanupPhase0Bucket(t, s3Harness, bucket)
@@ -111,8 +98,8 @@ func TestPhase0_InvalidConfigDiagnostics_E_0_02(t *testing.T) {
 				env[key] = value
 			}
 
-			server := startPhase0Server(t, env)
-			err = server.WaitForExit(t)
+			server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
+			err := server.WaitForExit(t)
 			if err == nil {
 				t.Fatal("expected invalid config startup to exit non-zero")
 			}
@@ -128,11 +115,7 @@ func TestPhase0_InvalidConfigDiagnostics_E_0_02(t *testing.T) {
 func TestPhase0_FirstAdminBootstrap_E_0_03(t *testing.T) {
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
-	testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-e-0-03")
-	if err != nil {
-		t.Fatalf("prepare postgres database: %v", err)
-	}
-	defer dropPhase0Database(t, postgresHarness, testDB.Name)
+	testDB := postgresHarness.PrepareDatabaseT(t, "phase0-e-0-03")
 
 	db := openPhase0SQL(t, testDB.DSN)
 	defer db.Close()
@@ -143,7 +126,7 @@ func TestPhase0_FirstAdminBootstrap_E_0_03(t *testing.T) {
 	configPath := writePhase0Config(t, string(fixtures.MustRead("config", "valid.toml")))
 	env := phase0ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, fixtures.Path("bootstrap-admin", "canonical.json"))
 
-	server := startPhase0Server(t, env)
+	server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
 	defer server.Stop(t)
 	server.WaitForReady(t)
 
@@ -230,11 +213,7 @@ func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-e-0-04")
-			if err != nil {
-				t.Fatalf("prepare postgres database: %v", err)
-			}
-			defer dropPhase0Database(t, postgresHarness, testDB.Name)
+			testDB := postgresHarness.PrepareDatabaseT(t, "phase0-e-0-04")
 
 			db := openPhase0SQL(t, testDB.DSN)
 			defer db.Close()
@@ -245,8 +224,8 @@ func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
 			configPath := writePhase0Config(t, tc.configContent())
 			env := phase0ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, tc.bootstrapPath)
 
-			server := startPhase0Server(t, env)
-			err = server.WaitForExit(t)
+			server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
+			err := server.WaitForExit(t)
 			if err == nil {
 				t.Fatal("expected bootstrap failure to exit non-zero")
 			}
@@ -267,11 +246,7 @@ func TestPhase0_BootstrapSkipAndRecovery_E_0_05(t *testing.T) {
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
 	t.Run("existing active deployment admin skips stale and invalid bootstrap manifests", func(t *testing.T) {
-		testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-e-0-05-skip")
-		if err != nil {
-			t.Fatalf("prepare postgres database: %v", err)
-		}
-		defer dropPhase0Database(t, postgresHarness, testDB.Name)
+		testDB := postgresHarness.PrepareDatabaseT(t, "phase0-e-0-05-skip")
 
 		db := openPhase0SQL(t, testDB.DSN)
 		defer db.Close()
@@ -308,7 +283,7 @@ func TestPhase0_BootstrapSkipAndRecovery_E_0_05(t *testing.T) {
 				configPath := writePhase0Config(t, string(fixtures.MustRead("config", "valid.toml")))
 				env := phase0ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, tc.manifestPath)
 
-				server := startPhase0Server(t, env)
+				server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
 				defer server.Stop(t)
 				server.WaitForReady(t)
 				server.RequireStatus(t, "/healthz", http.StatusOK)
@@ -322,11 +297,7 @@ func TestPhase0_BootstrapSkipAndRecovery_E_0_05(t *testing.T) {
 	})
 
 	t.Run("bootstrap recovery remains fail-closed", func(t *testing.T) {
-		testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-e-0-05-recovery")
-		if err != nil {
-			t.Fatalf("prepare postgres database: %v", err)
-		}
-		defer dropPhase0Database(t, postgresHarness, testDB.Name)
+		testDB := postgresHarness.PrepareDatabaseT(t, "phase0-e-0-05-recovery")
 
 		db := openPhase0SQL(t, testDB.DSN)
 		defer db.Close()
@@ -345,8 +316,8 @@ func TestPhase0_BootstrapSkipAndRecovery_E_0_05(t *testing.T) {
 		configPath := writePhase0Config(t, string(fixtures.MustRead("config", "valid.toml")))
 		env := phase0ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, fixtures.Path("bootstrap-admin", "canonical.json"))
 
-		server := startPhase0Server(t, env)
-		err = server.WaitForExit(t)
+		server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
+		err := server.WaitForExit(t)
 		if err == nil {
 			t.Fatal("expected lost-admin recovery startup to exit non-zero")
 		}
@@ -360,15 +331,6 @@ func TestPhase0_BootstrapSkipAndRecovery_E_0_05(t *testing.T) {
 	})
 }
 
-type phase0ServerProcess struct {
-	address string
-	cancel  context.CancelFunc
-	done    chan error
-	cmd     *exec.Cmd
-	stderr  bytes.Buffer
-	stdout  bytes.Buffer
-}
-
 type phase0AuditEvent struct {
 	ActorUserID string
 	EventSource string
@@ -376,185 +338,6 @@ type phase0AuditEvent struct {
 	RequestID   string
 	CreatedAt   time.Time
 	After       map[string]any
-}
-
-func startPhase0Server(t testing.TB, env map[string]string) *phase0ServerProcess {
-	t.Helper()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cmd := exec.CommandContext(ctx, "go", "run", "./cmd/server")
-	cmd.Dir = phase0RepoRoot()
-	cmd.Env = append(os.Environ(), phase0EnvPairs(env)...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-
-	process := &phase0ServerProcess{
-		address: env["CARTULARY_HTTP_ADDR"],
-		cancel:  cancel,
-		done:    make(chan error, 1),
-		cmd:     cmd,
-	}
-	cmd.Stdout = &process.stdout
-	cmd.Stderr = &process.stderr
-
-	if err := cmd.Start(); err != nil {
-		cancel()
-		t.Fatalf("start cmd/server: %v", err)
-	}
-
-	go func() {
-		process.done <- cmd.Wait()
-	}()
-
-	return process
-}
-
-func (p *phase0ServerProcess) WaitForReady(t testing.TB) {
-	t.Helper()
-
-	client := &http.Client{Timeout: 500 * time.Millisecond}
-	deadline := time.Now().Add(15 * time.Second)
-	for time.Now().Before(deadline) {
-		select {
-		case err := <-p.done:
-			t.Fatalf("cmd/server exited before readiness: %v\nstdout:\n%s\nstderr:\n%s", err, p.stdout.String(), p.stderr.String())
-		default:
-		}
-
-		healthResp, healthErr := client.Get("http://" + p.address + "/healthz")
-		if healthErr == nil {
-			healthResp.Body.Close()
-			readyResp, readyErr := client.Get("http://" + p.address + "/readyz")
-			if readyErr == nil {
-				readyResp.Body.Close()
-				if healthResp.StatusCode == http.StatusOK && readyResp.StatusCode == http.StatusOK {
-					return
-				}
-			}
-		}
-
-		time.Sleep(200 * time.Millisecond)
-	}
-
-	t.Fatalf("timed out waiting for readiness\nstdout:\n%s\nstderr:\n%s", p.stdout.String(), p.stderr.String())
-}
-
-func (p *phase0ServerProcess) WaitForExit(t testing.TB) error {
-	t.Helper()
-
-	select {
-	case err := <-p.done:
-		return err
-	case <-time.After(15 * time.Second):
-		t.Fatalf("timed out waiting for cmd/server exit\nstdout:\n%s\nstderr:\n%s", p.stdout.String(), p.stderr.String())
-		return nil
-	}
-}
-
-func (p *phase0ServerProcess) Stop(t testing.TB) {
-	t.Helper()
-
-	if p == nil {
-		return
-	}
-	p.cancel()
-	if p.cmd != nil && p.cmd.Process != nil {
-		_ = syscall.Kill(-p.cmd.Process.Pid, syscall.SIGTERM)
-	}
-	select {
-	case <-p.done:
-	case <-time.After(5 * time.Second):
-		t.Fatalf("timed out stopping cmd/server\nstdout:\n%s\nstderr:\n%s", p.stdout.String(), p.stderr.String())
-	}
-}
-
-func (p *phase0ServerProcess) RequireStatus(t testing.TB, path string, want int) {
-	t.Helper()
-
-	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get("http://" + p.address + path)
-	if err != nil {
-		t.Fatalf("request %s: %v", path, err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != want {
-		t.Fatalf("unexpected status for %s: got %d want %d", path, resp.StatusCode, want)
-	}
-}
-
-func (p *phase0ServerProcess) RequireConnectionRefused(t testing.TB, path string) {
-	t.Helper()
-
-	client := &http.Client{Timeout: 500 * time.Millisecond}
-	if resp, err := client.Get("http://" + p.address + path); err == nil {
-		resp.Body.Close()
-		t.Fatalf("expected %s to be unreachable, got HTTP %d", path, resp.StatusCode)
-	}
-}
-
-func (p *phase0ServerProcess) RequireWebsocketConnectionRefused(t testing.TB, path string) {
-	t.Helper()
-
-	_, _, err := wstest.TryConnect("http://"+p.address, path, nil)
-	wstest.RequireConnectionRefused(t, err)
-}
-
-func (p *phase0ServerProcess) RequireDiagnosticsCode(t testing.TB, wantCode string) {
-	t.Helper()
-
-	payload := p.parseDiagnostics(t)
-	errorPayload := payload["error"].(map[string]any)
-	if errorPayload["code"] != wantCode {
-		t.Fatalf("unexpected diagnostics code: got %v want %s", errorPayload["code"], wantCode)
-	}
-}
-
-func (p *phase0ServerProcess) RequireReasonCode(t testing.TB, wantReasonCode string) {
-	t.Helper()
-
-	payload := p.parseDiagnostics(t)
-	items := payload["error"].(map[string]any)["details"].(map[string]any)["items"].([]any)
-	for _, item := range items {
-		typed := item.(map[string]any)
-		if typed["reason_code"] == wantReasonCode {
-			return
-		}
-	}
-	t.Fatalf("missing reason_code=%q in stderr payload %s", wantReasonCode, p.stderr.String())
-}
-
-func (p *phase0ServerProcess) RequireDiagnosticsField(t testing.TB, wantPath string, wantReasonCode string) {
-	t.Helper()
-
-	payload := p.parseDiagnostics(t)
-	items := payload["error"].(map[string]any)["details"].(map[string]any)["items"].([]any)
-	for _, item := range items {
-		typed := item.(map[string]any)
-		if typed["path"] == wantPath && typed["reason_code"] == wantReasonCode {
-			return
-		}
-	}
-	t.Fatalf("missing diagnostic path=%q reason_code=%q in stderr payload %s", wantPath, wantReasonCode, p.stderr.String())
-}
-
-func (p *phase0ServerProcess) parseDiagnostics(t testing.TB) map[string]any {
-	t.Helper()
-
-	stderr := strings.TrimSpace(p.stderr.String())
-	if stderr == "" {
-		t.Fatal("expected structured startup diagnostics on stderr")
-	}
-	if idx := strings.LastIndex(stderr, "\nexit status "); idx >= 0 {
-		stderr = strings.TrimSpace(stderr[:idx])
-	}
-	if strings.HasPrefix(stderr, "exit status ") {
-		t.Fatalf("missing structured startup diagnostics on stderr\nstderr:\n%s", p.stderr.String())
-	}
-
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(stderr), &payload); err != nil {
-		t.Fatalf("decode stderr diagnostics JSON: %v\nstderr:\n%s", err, stderr)
-	}
-	return payload
 }
 
 func phase0ServerEnv(t testing.TB, databaseEnv map[string]string, objectStoreEnv map[string]string, configPath string, bootstrapPath string) map[string]string {
@@ -572,7 +355,6 @@ func phase0ServerEnv(t testing.TB, databaseEnv map[string]string, objectStoreEnv
 		env[key] = value
 	}
 	env["CARTULARY_CONFIG_FILE"] = configPath
-	env["CARTULARY_HTTP_ADDR"] = phase0FreeAddress(t)
 	if bootstrapPath != "" {
 		env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = bootstrapPath
 	}
@@ -611,42 +393,11 @@ func stripConfigSection(t testing.TB, content string, header string) string {
 	return strings.Join(append(lines[:start], lines[end:]...), "\n")
 }
 
-func phase0FreeAddress(t testing.TB) string {
-	t.Helper()
-
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("reserve free tcp port: %v", err)
-	}
-	defer listener.Close()
-	return listener.Addr().String()
-}
-
-func phase0EnvPairs(env map[string]string) []string {
-	pairs := make([]string, 0, len(env))
-	for key, value := range env {
-		pairs = append(pairs, key+"="+value)
-	}
-	return pairs
-}
-
-func phase0RepoRoot() string {
-	_, file, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(file), "..", "..")
-}
-
 func phase0BucketName(prefix string) string {
 	value := strings.ToLower(prefix)
 	value = strings.ReplaceAll(value, "_", "-")
 	value = strings.ReplaceAll(value, " ", "-")
 	return fmt.Sprintf("%s-%d", value, time.Now().UnixNano())
-}
-
-func dropPhase0Database(t testing.TB, harness *pgtest.Harness, name string) {
-	t.Helper()
-	if err := harness.DropDatabase(context.Background(), name); err != nil {
-		t.Fatalf("drop postgres database: %v", err)
-	}
 }
 
 func cleanupPhase0Bucket(t testing.TB, harness *s3test.Harness, bucket string) {

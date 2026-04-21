@@ -36,15 +36,7 @@ func StartStore(t testing.TB, prefix string) *StoreHarness {
 	t.Helper()
 
 	postgresHarness := pgtest.Start(t)
-	testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), prefix)
-	if err != nil {
-		t.Fatalf("prepare postgres database: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop postgres database: %v", err)
-		}
-	})
+	testDB := postgresHarness.PrepareDatabaseT(t, prefix)
 
 	pool, err := pgxpool.New(context.Background(), testDB.DSN)
 	if err != nil {

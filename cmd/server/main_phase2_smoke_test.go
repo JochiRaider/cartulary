@@ -6,6 +6,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
 )
 
 func TestPhase2_ProcessSmoke_IncidentCreateListAndWorkbookPrefs(t *testing.T) {
@@ -311,7 +312,7 @@ func TestPhase2_ProcessSmoke_DeploymentAdminBoundary(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, listIncidentMemberships, http.StatusNotFound, "incident_not_found")
 }
 
-func phase2CreateIncident(t testing.TB, server *phase0ServerProcess, adminSession *http.Cookie, adminCSRF *http.Cookie, body map[string]any) map[string]any {
+func phase2CreateIncident(t testing.TB, server *processtest.Server, adminSession *http.Cookie, adminCSRF *http.Cookie, body map[string]any) map[string]any {
 	t.Helper()
 
 	resp := phase1DoJSON(

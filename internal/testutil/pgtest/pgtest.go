@@ -179,6 +179,21 @@ func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestData
 	return testDB, status, nil
 }
 
+func (h *Harness) PrepareDatabaseT(t testing.TB, prefix string) *TestDatabase {
+	t.Helper()
+
+	testDB, _, err := h.PrepareDatabase(context.Background(), prefix)
+	if err != nil {
+		t.Fatalf("prepare postgres database: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := h.DropDatabase(context.Background(), testDB.Name); err != nil {
+			t.Fatalf("drop postgres database: %v", err)
+		}
+	})
+	return testDB
+}
+
 func (h *Harness) DropDatabase(ctx context.Context, name string) error {
 	admin, err := sql.Open("pgx", h.adminDSN)
 	if err != nil {

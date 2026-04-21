@@ -14,15 +14,7 @@ import (
 
 func TestHarnessOpensAndClosesSocketAgainstBootstrapBoundary(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "wstest")
-	if err != nil {
-		t.Fatalf("prepare postgres database: %v", err)
-	}
-	defer func() {
-		if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop postgres database: %v", err)
-		}
-	}()
+	testDB := postgresHarness.PrepareDatabaseT(t, "wstest")
 
 	s3Harness := s3test.Start(t)
 	bucket, err := s3Harness.BootstrapBucket(context.Background(), "wstest")

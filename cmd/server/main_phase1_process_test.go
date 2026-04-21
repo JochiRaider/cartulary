@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"net/http"
 	"testing"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase1test"
+	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
@@ -427,18 +427,12 @@ type loginResult struct {
 	csrfCookie    *http.Cookie
 }
 
-func startPhase1ServerProcess(t testing.TB, prefix string) *phase0ServerProcess {
+func startPhase1ServerProcess(t testing.TB, prefix string) *processtest.Server {
 	t.Helper()
 
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
-	testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), prefix)
-	if err != nil {
-		t.Fatalf("prepare postgres database: %v", err)
-	}
-	t.Cleanup(func() {
-		dropPhase0Database(t, postgresHarness, testDB.Name)
-	})
+	testDB := postgresHarness.PrepareDatabaseT(t, prefix)
 
 	bucket := phase0BucketName(prefix)
 	t.Cleanup(func() {
@@ -449,7 +443,7 @@ func startPhase1ServerProcess(t testing.TB, prefix string) *phase0ServerProcess 
 	env := phase0ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, fixtures.Path("bootstrap-admin", "canonical.json"))
 	env[enableTestRoutesEnv] = "1"
 
-	server := startPhase0Server(t, env)
+	server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
 	t.Cleanup(func() {
 		server.Stop(t)
 	})
@@ -457,21 +451,21 @@ func startPhase1ServerProcess(t testing.TB, prefix string) *phase0ServerProcess 
 	return server
 }
 
-func phase1ServerURL(server *phase0ServerProcess) string {
-	return "http://" + server.address
+func phase1ServerURL(server *processtest.Server) string {
+	return server.BaseURL
 }
 
-func phase1DoJSON(t testing.TB, server *phase0ServerProcess, method string, path string, body any, options ...func(*http.Request)) *http.Response {
+func phase1DoJSON(t testing.TB, server *processtest.Server, method string, path string, body any, options ...func(*http.Request)) *http.Response {
 	t.Helper()
 	return phase1test.DoJSON(t, method, phase1ServerURL(server)+path, body, options...)
 }
 
-func phase1LoginLocalUser(t testing.TB, server *phase0ServerProcess, username string, password string) (*http.Cookie, *http.Cookie) {
+func phase1LoginLocalUser(t testing.TB, server *processtest.Server, username string, password string) (*http.Cookie, *http.Cookie) {
 	t.Helper()
 	return phase1test.LoginLocalUser(t, phase1ServerURL(server), username, password, nil)
 }
 
-func phase1LoginLocalUserWithSecondFactor(t testing.TB, server *phase0ServerProcess, username string, password string, code string) loginResult {
+func phase1LoginLocalUserWithSecondFactor(t testing.TB, server *processtest.Server, username string, password string, code string) loginResult {
 	t.Helper()
 	if code == "" {
 		sessionCookie, csrfCookie := phase1test.LoginLocalUser(t, phase1ServerURL(server), username, password, nil)
@@ -481,12 +475,12 @@ func phase1LoginLocalUserWithSecondFactor(t testing.TB, server *phase0ServerProc
 	return loginResult{sessionCookie: login.SessionCookie, csrfCookie: login.CSRFCookie}
 }
 
-func phase1RequireBootstrapLogin(t testing.TB, server *phase0ServerProcess, username string, password string) string {
+func phase1RequireBootstrapLogin(t testing.TB, server *processtest.Server, username string, password string) string {
 	t.Helper()
 	return phase1test.RequireBootstrapLogin(t, phase1ServerURL(server), username, password)
 }
 
-func phase1CreateUser(t testing.TB, server *phase0ServerProcess, adminSession *http.Cookie, adminCSRF *http.Cookie, body map[string]any) map[string]any {
+func phase1CreateUser(t testing.TB, server *processtest.Server, adminSession *http.Cookie, adminCSRF *http.Cookie, body map[string]any) map[string]any {
 	t.Helper()
 
 	resp := phase1DoJSON(
@@ -501,7 +495,7 @@ func phase1CreateUser(t testing.TB, server *phase0ServerProcess, adminSession *h
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
-func phase1ProvisionBootstrapAdmin(t testing.TB, server *phase0ServerProcess) (loginResult, string) {
+func phase1ProvisionBootstrapAdmin(t testing.TB, server *processtest.Server) (loginResult, string) {
 	t.Helper()
 
 	bootstrapToken := phase1RequireBootstrapLogin(t, server, phase1BootstrapAdminEmail, phase1BootstrapAdminPassword)
@@ -513,7 +507,7 @@ func phase1ProvisionBootstrapAdmin(t testing.TB, server *phase0ServerProcess) (l
 	return phase1LoginLocalUserWithSecondFactor(t, server, phase1BootstrapAdminEmail, phase1BootstrapAdminPassword, phase1GenerateTOTPCode(t, secretBase32)), secretBase32
 }
 
-func phase1ProvisionTOTPUser(t testing.TB, server *phase0ServerProcess, adminSession *http.Cookie, adminCSRF *http.Cookie, email string, displayName string, password string) (map[string]any, string) {
+func phase1ProvisionTOTPUser(t testing.TB, server *processtest.Server, adminSession *http.Cookie, adminCSRF *http.Cookie, email string, displayName string, password string) (map[string]any, string) {
 	t.Helper()
 
 	user := phase1CreateUser(t, server, adminSession, adminCSRF, map[string]any{
@@ -532,12 +526,12 @@ func phase1ProvisionTOTPUser(t testing.TB, server *phase0ServerProcess, adminSes
 	return user, secretBase32
 }
 
-func phase1BeginTOTPEnrollment(t testing.TB, server *phase0ServerProcess, bootstrapToken string, body map[string]any) map[string]any {
+func phase1BeginTOTPEnrollment(t testing.TB, server *processtest.Server, bootstrapToken string, body map[string]any) map[string]any {
 	t.Helper()
 	return phase1test.BeginTOTPEnrollment(t, phase1ServerURL(server), bootstrapToken, body)
 }
 
-func phase1CompleteTOTPEnrollment(t testing.TB, server *phase0ServerProcess, bootstrapToken string, enrollmentID string, secretBase32 string, clientTxnID string) {
+func phase1CompleteTOTPEnrollment(t testing.TB, server *processtest.Server, bootstrapToken string, enrollmentID string, secretBase32 string, clientTxnID string) {
 	t.Helper()
 	phase1test.CompleteInitialEnrollment(t, phase1ServerURL(server), bootstrapToken, enrollmentID, secretBase32, clientTxnID)
 }
@@ -547,7 +541,7 @@ func phase1GenerateTOTPCode(t testing.TB, secretBase32 string) string {
 	return phase1test.GenerateTOTPCode(t, secretBase32)
 }
 
-func phase1ConnectSessionSocket(t testing.TB, server *phase0ServerProcess, sessionToken string) *wstest.Client {
+func phase1ConnectSessionSocket(t testing.TB, server *processtest.Server, sessionToken string) *wstest.Client {
 	t.Helper()
 	return phase1test.ConnectSessionSocket(t, phase1ServerURL(server), sessionToken)
 }
@@ -557,7 +551,7 @@ func phase1ExpectSessionRevoked(t testing.TB, conn *wstest.Client, wantReasonCod
 	phase1test.ExpectSessionRevoked(t, conn, wantReasonCode)
 }
 
-func phase1RequireBootstrapWebsocketRejected(t testing.TB, server *phase0ServerProcess, bootstrapToken string) {
+func phase1RequireBootstrapWebsocketRejected(t testing.TB, server *processtest.Server, bootstrapToken string) {
 	t.Helper()
 	phase1test.RequireBootstrapWebsocketRejected(t, phase1ServerURL(server), bootstrapToken)
 }

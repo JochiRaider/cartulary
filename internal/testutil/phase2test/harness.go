@@ -95,16 +95,7 @@ func (h *RuntimeHarness) StartStore(t testing.TB, prefix string) *StoreHarness {
 func (h *RuntimeHarness) prepareDatabase(t testing.TB, prefix string) *pgtest.TestDatabase {
 	t.Helper()
 
-	testDB, _, err := h.Postgres.PrepareDatabase(context.Background(), prefix)
-	if err != nil {
-		t.Fatalf("prepare postgres database: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := h.Postgres.DropDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop postgres database: %v", err)
-		}
-	})
-	return testDB
+	return h.Postgres.PrepareDatabaseT(t, prefix)
 }
 
 func (h *RuntimeHarness) prepareBucket(t testing.TB, prefix string) string {

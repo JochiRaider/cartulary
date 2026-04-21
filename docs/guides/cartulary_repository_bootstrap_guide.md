@@ -298,6 +298,7 @@ Create the test harness structure before Phase 0 implementation. A practical bac
 /internal/testutil
   /configtest
   /pgtest
+  /processtest
   /s3test
   /httptestx
   /wstest
@@ -308,9 +309,10 @@ Create the test harness structure before Phase 0 implementation. A practical bac
 Recommended responsibilities:
 
 - `configtest`: effective-config fixture loader, overlay helper, invalid-config golden files.
-- `pgtest`: Postgres testcontainer startup, migration application, transaction reset helper.
+- `pgtest`: Postgres testcontainer startup plus fresh migrated database-per-test helpers.
+- `processtest`: real `cmd/server` lifecycle, readiness and health polling, fail-closed connection probes, and startup diagnostics parsing.
 - `s3test`: MinIO testcontainer startup, bucket bootstrap, round-trip helper.
-- `httptestx`: server boot helper, authenticated request helper, envelope assertions.
+- `httptestx`: in-process runtime or HTTP server boot helper, authenticated request helper, and JSON envelope assertions.
 - `wstest`: WebSocket connect, handshake, receive, revoke, and close assertions.
 - `fixtures`: canonical bootstrap manifests, config artifacts, and payload fixtures.
 - `golden`: deterministic expected JSON or diagnostics outputs.
@@ -478,7 +480,7 @@ The repository bootstrap is complete when all of the following are true:
 - PostgreSQL and MinIO can be started locally through Compose.[^18]
 - contract/codegen directories exist and generated outputs are treated as read-only.[^7]
 - the frontend smoke path renders a minimal `react-data-grid` fixture through `/packages/grid-adapter`, imports `react-data-grid/lib/styles.css`, and keys fixture rows by distinct `record_id` values.[^25]
-- reusable shared harnesses exist for envelopes, authorization re-derivation, idempotency, projection determinism, and WebSocket lifecycle.[^8]
+- reusable shared harnesses exist for in-process HTTP envelopes, real process readiness or diagnostics, authorization re-derivation where applicable, idempotency, projection determinism where applicable, and WebSocket lifecycle.[^8]
 - the first failing Phase 0 tests are checked in and can be run repeatedly.[^9]
 - no feature work beyond the bootstrap shell has bypassed migrations, config validation, or the TDD loop.[^16][^20]
 

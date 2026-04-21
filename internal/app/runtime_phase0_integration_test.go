@@ -28,15 +28,7 @@ import (
 
 func TestPhase0_InvalidConfigNeverReachesReady_I_0_03(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-invalid-config")
-	if err != nil {
-		t.Fatalf("prepare postgres database: %v", err)
-	}
-	defer func() {
-		if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop postgres database: %v", err)
-		}
-	}()
+	testDB := postgresHarness.PrepareDatabaseT(t, "phase0-invalid-config")
 
 	s3Harness := s3test.Start(t)
 	bucket, err := s3Harness.BootstrapBucket(context.Background(), "phase0-invalid-config")
@@ -93,15 +85,7 @@ func TestPhase0_FirstAdminBootstrap_I_0_04(t *testing.T) {
 	s3Harness := s3test.Start(t)
 
 	t.Run("commits one deployment admin, bootstrap marker, and startup audit before readiness", func(t *testing.T) {
-		testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-bootstrap-success")
-		if err != nil {
-			t.Fatalf("prepare postgres database: %v", err)
-		}
-		defer func() {
-			if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
-				t.Fatalf("drop postgres database: %v", err)
-			}
-		}()
+		testDB := postgresHarness.PrepareDatabaseT(t, "phase0-bootstrap-success")
 
 		db := openPhase0SQL(t, testDB.DSN)
 		defer db.Close()
@@ -178,15 +162,7 @@ func TestPhase0_FirstAdminBootstrap_I_0_04(t *testing.T) {
 	})
 
 	t.Run("rolls back the whole bootstrap transaction when the audit insert fails", func(t *testing.T) {
-		testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-bootstrap-rollback")
-		if err != nil {
-			t.Fatalf("prepare postgres database: %v", err)
-		}
-		defer func() {
-			if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
-				t.Fatalf("drop postgres database: %v", err)
-			}
-		}()
+		testDB := postgresHarness.PrepareDatabaseT(t, "phase0-bootstrap-rollback")
 
 		db := openPhase0SQL(t, testDB.DSN)
 		defer db.Close()
@@ -216,7 +192,7 @@ EXECUTE FUNCTION phase0_fail_bootstrap_audit();
 		cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
 
 		counters := installPhase0StartupCounters(t)
-		_, err = NewRuntime(context.Background(), cfg, Options{Env: env})
+		_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
 		requireBootstrapReason(t, err, "bootstrap_persist_failed")
 		counters.RequireNotStarted(t)
 
@@ -323,15 +299,7 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-bootstrap-failure")
-			if err != nil {
-				t.Fatalf("prepare postgres database: %v", err)
-			}
-			defer func() {
-				if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
-					t.Fatalf("drop postgres database: %v", err)
-				}
-			}()
+			testDB := postgresHarness.PrepareDatabaseT(t, "phase0-bootstrap-failure")
 
 			db := openPhase0SQL(t, testDB.DSN)
 			defer db.Close()
@@ -353,7 +321,7 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 			}
 
 			counters := installPhase0StartupCounters(t)
-			_, err = NewRuntime(context.Background(), cfg, Options{Env: env})
+			_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
 			requireBootstrapReason(t, err, tc.wantReasonCode)
 			counters.RequireNotStarted(t)
 
@@ -370,15 +338,7 @@ func TestPhase0_BootstrapSkipAndRecovery_I_0_06(t *testing.T) {
 	s3Harness := s3test.Start(t)
 
 	t.Run("existing active deployment admin skips stale and invalid manifests", func(t *testing.T) {
-		testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-bootstrap-skip")
-		if err != nil {
-			t.Fatalf("prepare postgres database: %v", err)
-		}
-		defer func() {
-			if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
-				t.Fatalf("drop postgres database: %v", err)
-			}
-		}()
+		testDB := postgresHarness.PrepareDatabaseT(t, "phase0-bootstrap-skip")
 
 		db := openPhase0SQL(t, testDB.DSN)
 		defer db.Close()
@@ -428,15 +388,7 @@ func TestPhase0_BootstrapSkipAndRecovery_I_0_06(t *testing.T) {
 	})
 
 	t.Run("bootstrap recovery remains fail-closed when completion state exists without an active admin", func(t *testing.T) {
-		testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "phase0-bootstrap-recovery")
-		if err != nil {
-			t.Fatalf("prepare postgres database: %v", err)
-		}
-		defer func() {
-			if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
-				t.Fatalf("drop postgres database: %v", err)
-			}
-		}()
+		testDB := postgresHarness.PrepareDatabaseT(t, "phase0-bootstrap-recovery")
 
 		db := openPhase0SQL(t, testDB.DSN)
 		defer db.Close()
@@ -461,7 +413,7 @@ func TestPhase0_BootstrapSkipAndRecovery_I_0_06(t *testing.T) {
 		cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
 
 		counters := installPhase0StartupCounters(t)
-		_, err = NewRuntime(context.Background(), cfg, Options{Env: env})
+		_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
 		requireBootstrapReason(t, err, "bootstrap_recovery_not_supported")
 		counters.RequireNotStarted(t)
 

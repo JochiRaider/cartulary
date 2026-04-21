@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"testing"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -41,15 +41,7 @@ func StartRuntime(t testing.TB) *RuntimeHarness {
 func (h *RuntimeHarness) StartServer(t testing.TB, prefix string) *ServerHarness {
 	t.Helper()
 
-	testDB, _, err := h.Postgres.PrepareDatabase(context.Background(), prefix)
-	if err != nil {
-		t.Fatalf("prepare postgres database: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := h.Postgres.DropDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop postgres database: %v", err)
-		}
-	})
+	testDB := h.Postgres.PrepareDatabaseT(t, prefix)
 
 	bucket, err := h.S3.BootstrapBucket(context.Background(), prefix)
 	if err != nil {
@@ -86,15 +78,7 @@ func StartStore(t testing.TB, prefix string) *StoreHarness {
 	t.Helper()
 
 	postgresHarness := pgtest.Start(t)
-	testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), prefix)
-	if err != nil {
-		t.Fatalf("prepare postgres database: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop postgres database: %v", err)
-		}
-	})
+	testDB := postgresHarness.PrepareDatabaseT(t, prefix)
 
 	pool, err := pgxpool.New(context.Background(), testDB.DSN)
 	if err != nil {

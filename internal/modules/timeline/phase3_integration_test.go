@@ -1051,15 +1051,7 @@ func (c *timelineSocketClient) Close(code int, reason string) {
 func startPhase3Server(t testing.TB, postgresHarness *pgtest.Harness, s3Harness *s3test.Harness, prefix string) (*httptestx.Server, *sql.DB) {
 	t.Helper()
 
-	testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), prefix)
-	if err != nil {
-		t.Fatalf("prepare postgres database: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop postgres database: %v", err)
-		}
-	})
+	testDB := postgresHarness.PrepareDatabaseT(t, prefix)
 
 	bucket, err := s3Harness.BootstrapBucket(context.Background(), prefix)
 	if err != nil {

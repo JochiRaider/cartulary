@@ -49,15 +49,7 @@ func StartRuntime(t testing.TB) *RuntimeHarness {
 func (h *RuntimeHarness) StartServer(t testing.TB, prefix string) *ServerHarness {
 	t.Helper()
 
-	testDB, _, err := h.Postgres.PrepareDatabase(context.Background(), prefix)
-	if err != nil {
-		t.Fatalf("prepare postgres database: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := h.Postgres.DropDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop postgres database: %v", err)
-		}
-	})
+	testDB := h.Postgres.PrepareDatabaseT(t, prefix)
 
 	bucket, err := h.S3.BootstrapBucket(context.Background(), prefix)
 	if err != nil {

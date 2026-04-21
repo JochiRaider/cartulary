@@ -11,15 +11,7 @@ import (
 
 func TestHarnessBootsServerAndAssertsEnvelopes(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB, _, err := postgresHarness.PrepareDatabase(context.Background(), "httptestx")
-	if err != nil {
-		t.Fatalf("prepare postgres database: %v", err)
-	}
-	defer func() {
-		if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop postgres database: %v", err)
-		}
-	}()
+	testDB := postgresHarness.PrepareDatabaseT(t, "httptestx")
 
 	s3Harness := s3test.Start(t)
 	bucket, err := s3Harness.BootstrapBucket(context.Background(), "httptestx")
