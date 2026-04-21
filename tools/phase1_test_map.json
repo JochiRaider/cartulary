@@ -30,7 +30,9 @@
     "E-1-08"
   ],
   "forbidden_id_files": [
-    "cmd/server/main_phase1_process_test.go"
+    "cmd/server/main_phase1_process_test.go",
+    "internal/modules/auth/phase1_support_test.go",
+    "internal/modules/auth/phase1_support_integration_test.go"
   ],
   "unit": [
     {
@@ -40,6 +42,7 @@
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_request_test.go",
       "symbol": "TestPhase1_LoginRequestShape_U_1_01",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "decoder"
     },
     {
@@ -49,6 +52,7 @@
       "package": "./internal/platform/authn",
       "file": "internal/platform/authn/phase1_primitives_test.go",
       "symbol": "TestPhase1_LoginNormalizationAndPasswordExactness_U_1_02",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "auth_primitives"
     },
     {
@@ -58,6 +62,7 @@
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_LoginCreatesSessionAndResource_U_1_03",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "http_conformance"
     },
     {
@@ -67,6 +72,7 @@
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_SessionInspectionRoute_U_1_04",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "http_conformance"
     },
     {
@@ -76,6 +82,7 @@
       "package": "./internal/platform/authn",
       "file": "internal/platform/authn/phase1_primitives_test.go",
       "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "auth_primitives"
     },
     {
@@ -85,6 +92,7 @@
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_RouteRevocationConsequences_U_1_06",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "http_conformance"
     },
     {
@@ -94,6 +102,7 @@
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_UserCreateRouteDefaults_U_1_07",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "http_conformance"
     },
     {
@@ -103,6 +112,7 @@
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_users_test.go",
       "symbol": "TestPhase1_UserPatchAndLastAdminGuard_U_1_08",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "store_domain"
     },
     {
@@ -112,6 +122,7 @@
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_CSRFProtectionRoutes_U_1_09",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "http_conformance"
     },
     {
@@ -121,6 +132,7 @@
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_CredentialStateRoute_U_1_10",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "http_conformance"
     },
     {
@@ -130,6 +142,7 @@
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_PasswordChangeRouteContracts_U_1_11",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "http_conformance"
     },
     {
@@ -139,6 +152,7 @@
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_TOTPRouteContracts_U_1_12",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "http_conformance"
     },
     {
@@ -148,6 +162,7 @@
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_AdminCredentialActionGuards_U_1_13",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "http_conformance"
     }
   ],
@@ -159,6 +174,7 @@
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_integration_test.go",
       "symbol": "TestPhase1_LoginSessionLifecycle_I_1_01",
+      "execution_dependency": "backend_integration",
       "evidence_layer": "integration"
     },
     {
@@ -168,6 +184,7 @@
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_integration_test.go",
       "symbol": "TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02",
+      "execution_dependency": "backend_integration",
       "evidence_layer": "integration"
     },
     {
@@ -176,7 +193,12 @@
       "runner": "go_test",
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_integration_test.go",
-      "symbol": "TestPhase1_UserAdminLifecycle_I_1_03",
+      "symbols": [
+        "TestPhase1_UserAdminLifecycle_I_1_03",
+        "TestPhase1_UserAdminAudit_I_1_03",
+        "TestPhase1_UserCreateReplayReturnsOriginalCommittedResource_I_1_03"
+      ],
+      "execution_dependency": "backend_integration",
       "evidence_layer": "integration"
     },
     {
@@ -185,7 +207,13 @@
       "runner": "go_test",
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_integration_test.go",
-      "symbol": "TestPhase1_CredentialStateTransitions_I_1_04",
+      "symbols": [
+        "TestPhase1_CredentialStateAndBootstrapFlows_I_1_04",
+        "TestPhase1_CredentialStateTransitions_I_1_04",
+        "TestPhase1_BootstrapEnrollmentConsumption_I_1_04",
+        "TestPhase1_PasswordChangeReplayAndStoredPayload_I_1_04"
+      ],
+      "execution_dependency": "backend_integration",
       "evidence_layer": "integration"
     },
     {
@@ -194,7 +222,13 @@
       "runner": "go_test",
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_integration_test.go",
-      "symbol": "TestPhase1_AdminCredentialActions_I_1_05",
+      "symbols": [
+        "TestPhase1_AdminCredentialActions_I_1_05",
+        "TestPhase1_AdminCredentialAuditAndScope_I_1_05",
+        "TestPhase1_AdminPasswordResetReplayReturnsOriginalCommittedResource_I_1_05",
+        "TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05"
+      ],
+      "execution_dependency": "backend_integration",
       "evidence_layer": "integration"
     },
     {
@@ -204,6 +238,7 @@
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_integration_test.go",
       "symbol": "TestPhase1_BootstrapTokenRouteBoundaries_I_1_06",
+      "execution_dependency": "backend_integration",
       "evidence_layer": "integration"
     }
   ],
@@ -214,6 +249,7 @@
       "runner": "playwright",
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-01 signs in as a local user and inspects the ordinary session surface",
+      "execution_dependency": "browser_functional",
       "evidence_layer": "browser"
     },
     {
@@ -222,6 +258,7 @@
       "runner": "playwright",
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-02 requires MFA on the ordinary login surface, rejects wrong codes, and accepts a valid TOTP code",
+      "execution_dependency": "browser_functional",
       "evidence_layer": "browser"
     },
     {
@@ -230,6 +267,7 @@
       "runner": "playwright",
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-03 rejects invalid credentials without issuing a session cookie",
+      "execution_dependency": "browser_functional",
       "evidence_layer": "browser"
     },
     {
@@ -238,6 +276,7 @@
       "runner": "playwright",
       "file": "apps/web/e2e/phase1.clock.spec.ts",
       "title": "E-1-04 advances the shared clock past idle expiry and requires a fresh login afterwards",
+      "execution_dependency": "browser_stateful",
       "evidence_layer": "browser"
     },
     {
@@ -246,6 +285,7 @@
       "runner": "playwright",
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-05 lets deployment admins create and patch users, rejects stale versions, and shows the last-admin guard on the ordinary shell",
+      "execution_dependency": "browser_functional",
       "evidence_layer": "browser"
     },
     {
@@ -254,6 +294,7 @@
       "runner": "playwright",
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-06 follows the bootstrap-token enrollment sequence on the ordinary login shell and proves completion alone issues no session",
+      "execution_dependency": "browser_functional",
       "evidence_layer": "browser"
     },
     {
@@ -262,6 +303,7 @@
       "runner": "playwright",
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-07 requires the current password and current TOTP code, revokes the session immediately, and requires re-login with the new password",
+      "execution_dependency": "browser_functional",
       "evidence_layer": "browser"
     },
     {
@@ -270,6 +312,7 @@
       "runner": "playwright",
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-08 keeps deployment-user administration on deployment-admin sessions and hides it from an incident admin on the ordinary shell",
+      "execution_dependency": "browser_functional",
       "evidence_layer": "browser"
     }
   ]

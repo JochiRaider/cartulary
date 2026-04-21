@@ -18,7 +18,7 @@ for name in "${phase_tests[@]}"; do
       fi
       ;;
     TestPhase1_*)
-      if [[ ! "$name" =~ (_U_1_|_I_1_|_ProcessSmoke$) ]]; then
+      if [[ ! "$name" =~ (^TestPhase1_.*_(U|I)_1_[0-9]{2}$|^TestPhase1_.*_ProcessSmoke$) ]]; then
         invalid+=("$name")
       fi
       ;;

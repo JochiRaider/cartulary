@@ -885,7 +885,7 @@ Each extension claim still requires the **base profile first**. The AC groups li
 
 ## 14. Shared cross-cutting harnesses
 
-These harnesses apply across phases and should be implemented once, then reused. The harness list is intentionally small and tied to current owner sections. When a phase introduces multiple public routes under the same surface, the harnesses should run from a shared route inventory rather than from scattered one-off assertions; Phase 2 is the first phase where that route-inventory discipline is required in the repo task surface. The same task-surface rule applies to browser harness ownership: when multiple browser suites depend on the same real Playwright web-server bootstrap, the repo gate must orchestrate them under one owned shared stack instead of racing multiple startup attempts on the same fixed ports.
+These harnesses apply across phases and should be implemented once, then reused. The harness list is intentionally small and tied to current owner sections. When a phase introduces multiple public routes under the same surface, the harnesses should run from a shared route inventory rather than from scattered one-off assertions; Phase 1 auth and deployment-local user-administration surfaces already require that route-inventory discipline in the repo task surface, and Phase 2 incident surfaces continue the same rule. The same task-surface rule applies to browser harness ownership: when multiple browser suites depend on the same real Playwright web-server bootstrap, the repo gate must orchestrate them under one owned shared stack instead of racing multiple startup attempts on the same fixed ports.
 
 ### 14.1 Envelope consistency harness
 

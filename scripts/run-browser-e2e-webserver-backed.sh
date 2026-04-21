@@ -6,28 +6,8 @@ source "$ROOT_DIR/scripts/lib/run-phase-common.sh"
 source "$ROOT_DIR/scripts/lib/playwright-owned-stack.sh"
 
 resolve_playwright_owned_stack_env "$ROOT_DIR"
-manifest_env=(
-  "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}"
-  NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}"
-)
 
-run_phase_command \
-  "browser-e2e-functional other phases" \
-  "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" \
-  "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test \
-  e2e/phase1.spec.ts e2e/phase4.spec.ts
-
-"${manifest_env[@]}" \
-  "$ROOT_DIR/scripts/lib/run-playwright-manifest-phase.sh" \
-  "browser-e2e-functional phase2 authoritative" \
-  phase2 authoritative -- \
-  "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test
-
-"${manifest_env[@]}" \
-  "$ROOT_DIR/scripts/lib/run-playwright-manifest-phase.sh" \
-  "browser-e2e-functional phase3 authoritative" \
-  phase3 authoritative browser_functional -- \
-  "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test
+"$ROOT_DIR/scripts/run-browser-e2e-functional.sh"
 
 run_phase_command \
   "browser-e2e-support phase2" \

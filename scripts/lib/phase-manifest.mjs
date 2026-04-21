@@ -16,8 +16,30 @@ const validExecutionDependencies = new Set([
   "backend_process",
   "frontend_unit",
   "browser_functional",
+  "browser_stateful",
   "browser_measurement",
 ]);
+
+function goEntrySymbols(entry) {
+  if (entry.symbol !== undefined && entry.symbols !== undefined) {
+    throw new Error(`manifest entry ${entry.id} must declare symbol or symbols[], not both`);
+  }
+  if (entry.symbols !== undefined) {
+    if (!Array.isArray(entry.symbols) || entry.symbols.length === 0) {
+      throw new Error(`manifest entry ${entry.id} must declare a non-empty symbols[] array`);
+    }
+    for (const symbol of entry.symbols) {
+      if (typeof symbol !== "string" || symbol.trim() === "") {
+        throw new Error(`manifest entry ${entry.id} has an invalid symbol in symbols[]`);
+      }
+    }
+    return entry.symbols;
+  }
+  if (typeof entry.symbol !== "string" || entry.symbol.trim() === "") {
+    throw new Error(`manifest entry ${entry.id} is missing a non-empty symbol`);
+  }
+  return [entry.symbol];
+}
 
 export function loadManifest(root, phase) {
   const manifestPath = path.join(root, "tools", `${phase}_test_map.json`);
@@ -82,9 +104,7 @@ export function validateManifest(root, phase) {
           throw new Error(`manifest entry ${entry.id} must point at an apps/web file`);
         }
       } else if (entry.runner === "go_test") {
-        if (typeof entry.symbol !== "string" || entry.symbol.trim() === "") {
-          throw new Error(`manifest entry ${entry.id} is missing a non-empty symbol`);
-        }
+        goEntrySymbols(entry);
         if (typeof entry.package !== "string" || !entry.package.startsWith("./")) {
           throw new Error(`manifest entry ${entry.id} must declare a repo-relative Go package owner`);
         }
@@ -127,9 +147,11 @@ export function validateManifest(root, phase) {
   for (const entry of entries) {
     const targetPath = path.join(root, entry.file);
     const source = readFileSync(targetPath, "utf8");
-    const needle = entry.symbol ?? entry.title;
-    if (!source.includes(needle)) {
-      throw new Error(`manifest entry ${entry.id} not found in ${entry.file}: ${needle}`);
+    const needles = entry.runner === "go_test" ? goEntrySymbols(entry) : [entry.title];
+    for (const needle of needles) {
+      if (!source.includes(needle)) {
+        throw new Error(`manifest entry ${entry.id} not found in ${entry.file}: ${needle}`);
+      }
     }
   }
 
@@ -232,8 +254,8 @@ function goLogKey(pkg, test) {
   return `${pkg}::${test}`;
 }
 
-function describeGoEntry(entry) {
-  return `${entry.symbol} [${entry.package}]`;
+function describeGoSymbol(entry, symbol) {
+  return `${symbol} [${entry.package}]`;
 }
 
 function readGoLogTopLevelStatuses(logFile) {
@@ -440,7 +462,7 @@ function main(argv) {
       if (entries.length === 0) {
         throw new Error(`no ${coverage} go tests found for ${phase} ${section} in ${packagePatterns.join(", ")}`);
       }
-      printLines([exactRegex(entries.map((entry) => entry.symbol))]);
+      printLines([exactRegex(entries.flatMap((entry) => goEntrySymbols(entry)))]);
       return;
     }
 
@@ -457,25 +479,27 @@ function main(argv) {
       const failed = [];
       const incomplete = [];
       for (const entry of entries) {
-        const key = goLogKey(toGoImportPath(root, entry.package), entry.symbol);
-        const result = actual.get(key);
-        if (!result) {
-          missing.push(describeGoEntry(entry));
-          continue;
-        }
-        switch (result.status) {
-          case "pass":
-            passed.push(entry.symbol);
-            break;
-          case "skip":
-            skipped.push(describeGoEntry(entry));
-            break;
-          case "fail":
-            failed.push(describeGoEntry(entry));
-            break;
-          default:
-            incomplete.push(describeGoEntry(entry));
-            break;
+        for (const symbol of goEntrySymbols(entry)) {
+          const key = goLogKey(toGoImportPath(root, entry.package), symbol);
+          const result = actual.get(key);
+          if (!result) {
+            missing.push(describeGoSymbol(entry, symbol));
+            continue;
+          }
+          switch (result.status) {
+            case "pass":
+              passed.push(symbol);
+              break;
+            case "skip":
+              skipped.push(describeGoSymbol(entry, symbol));
+              break;
+            case "fail":
+              failed.push(describeGoSymbol(entry, symbol));
+              break;
+            default:
+              incomplete.push(describeGoSymbol(entry, symbol));
+              break;
+          }
         }
       }
       if (missing.length > 0 || skipped.length > 0 || failed.length > 0 || incomplete.length > 0) {

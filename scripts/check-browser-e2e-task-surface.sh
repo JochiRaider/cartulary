@@ -3,6 +3,10 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 makefile="$repo_root/Makefile"
+functional_script="$repo_root/scripts/run-browser-e2e-functional.sh"
+stateful_script="$repo_root/scripts/run-browser-e2e-stateful.sh"
+webserver_backed_script="$repo_root/scripts/run-browser-e2e-webserver-backed.sh"
+node_bin="${NODE_BIN:-node}"
 
 fail() {
   echo "$*" >&2
@@ -52,4 +56,77 @@ fi
 
 if ! rg -q '^browser-e2e-webserver-backed:' "$makefile"; then
   fail "Makefile must define browser-e2e-webserver-backed"
+fi
+
+browser_functional_block="$(awk '
+  /^browser-e2e-functional:/ { in_block=1; next }
+  in_block && /^[^[:space:]].*:/ { exit }
+  in_block { print }
+' "$makefile")"
+if [[ -z "$browser_functional_block" ]]; then
+  fail "Makefile must define a non-empty browser-e2e-functional block"
+fi
+if ! printf '%s\n' "$browser_functional_block" | grep -Fq './scripts/run-browser-e2e-functional.sh'; then
+  fail "browser-e2e-functional must delegate to scripts/run-browser-e2e-functional.sh"
+fi
+
+browser_stateful_block="$(awk '
+  /^browser-e2e-stateful:/ { in_block=1; next }
+  in_block && /^[^[:space:]].*:/ { exit }
+  in_block { print }
+' "$makefile")"
+if [[ -z "$browser_stateful_block" ]]; then
+  fail "Makefile must define a non-empty browser-e2e-stateful block"
+fi
+if ! printf '%s\n' "$browser_stateful_block" | grep -Fq './scripts/run-browser-e2e-stateful.sh'; then
+  fail "browser-e2e-stateful must delegate to scripts/run-browser-e2e-stateful.sh"
+fi
+
+if ! [[ -f "$functional_script" ]]; then
+  fail "missing scripts/run-browser-e2e-functional.sh"
+fi
+if ! [[ -f "$stateful_script" ]]; then
+  fail "missing scripts/run-browser-e2e-stateful.sh"
+fi
+
+if ! grep -Fq 'phase1 authoritative browser_functional' "$functional_script"; then
+  fail "scripts/run-browser-e2e-functional.sh must execute Phase 1 browser_functional rows through the manifest"
+fi
+if grep -Fq 'e2e/phase1.spec.ts' "$functional_script"; then
+  fail "scripts/run-browser-e2e-functional.sh must not raw-select e2e/phase1.spec.ts"
+fi
+
+if ! grep -Fq 'phase1 authoritative browser_stateful' "$stateful_script"; then
+  fail "scripts/run-browser-e2e-stateful.sh must execute Phase 1 browser_stateful rows through the manifest"
+fi
+if grep -Fq 'e2e/phase1.clock.spec.ts' "$stateful_script"; then
+  fail "scripts/run-browser-e2e-stateful.sh must not raw-select e2e/phase1.clock.spec.ts"
+fi
+
+if ! grep -Fq '"$ROOT_DIR/scripts/run-browser-e2e-functional.sh"' "$webserver_backed_script"; then
+  fail "scripts/run-browser-e2e-webserver-backed.sh must delegate to scripts/run-browser-e2e-functional.sh"
+fi
+
+if ! "$node_bin" - "$repo_root" <<'EOF'
+const fs = require("fs");
+const path = require("path");
+
+const root = process.argv[2];
+const manifest = JSON.parse(fs.readFileSync(path.join(root, "tools", "phase1_test_map.json"), "utf8"));
+
+for (const entry of manifest.e2e ?? []) {
+  if (entry.coverage !== "authoritative" || entry.runner !== "playwright") {
+    continue;
+  }
+  const expected = entry.id === "E-1-04" ? "browser_stateful" : "browser_functional";
+  if (entry.execution_dependency !== expected) {
+    console.error(
+      `phase1 authoritative e2e row ${entry.id} must declare execution_dependency=${expected}`,
+    );
+    process.exit(1);
+  }
+}
+EOF
+then
+  fail "Phase 1 authoritative browser manifest rows must carry the canonical execution_dependency for their layer"
 fi
