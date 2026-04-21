@@ -74,7 +74,7 @@ mkdir -p \
   internal/gen/contracts internal/gen/sql \
   db/migrations db/queries \
   contracts/openapi contracts/ws contracts/view-schemas contracts/errors \
-  apps/web packages/ui packages/protocol-ts/src/generated packages/view-contracts packages/test-utils \
+  apps/web packages/grid-adapter packages/ui packages/protocol-ts/src/generated packages/view-contracts packages/test-utils \
   scripts tools docs configs/dev internal/testutil/configtest internal/testutil/pgtest \
   internal/testutil/s3test internal/testutil/httptestx internal/testutil/wstest \
   internal/testutil/fixtures internal/testutil/golden
@@ -147,6 +147,7 @@ Use this tree as the initial repository shape:
     /web
 
   /packages
+    /grid-adapter
     /ui
     /protocol-ts
     /view-contracts
@@ -163,6 +164,18 @@ Two rules matter immediately:
 
 - keep the backend as one root Go module and the frontend as one top-level pnpm workspace.[^4]
 - create the module directories now, even when many are still empty, so Codex does not invent alternate module boundaries later.[^3][^16]
+
+### 5.1 Package responsibility boundaries
+
+The frontend workspace MUST include an explicit grid-adapter boundary from bootstrap. `/packages/grid-adapter` is a frontend package boundary, not a separate deployable. It exists so selected-grid integration cannot drift into generic presentational components.
+
+| Package                    | Bootstrap responsibility                                                                                                                                                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/packages/grid-adapter`   | Cartulary-owned frontend grid adapter. Owns selected-grid integration, vendor-coordinate translation, column and field binding, renderer/editor registration, grid capability allowlist, imperative API fencing, and adapter test fixtures. |
+| `/packages/ui`             | Reusable presentational components with no workbook-state ownership and no direct vendor-grid mutation authority.                                                                                                                           |
+| `/packages/view-contracts` | TypeScript-consumable adapters over `/contracts/view-schemas/*`; must not own field mutability or write-back behavior.                                                                                                                      |
+| `/packages/protocol-ts`    | Generated protocol types and helpers derived from `/contracts/*`.                                                                                                                                                                           |
+| `/packages/test-utils`     | Shared protocol, UI, grid-adapter, and visual-fixture test helpers.                                                                                                                                                                         |
 
 ## 6. Step 3: scaffold the backend composition root before handlers
 
@@ -473,6 +486,7 @@ The repository bootstrap is complete when all of the following are true:
 - PostgreSQL and MinIO can be started locally through Compose.[^18]
 - contract/codegen directories exist and generated outputs are treated as read-only.[^7]
 - reusable shared harnesses exist for envelopes, authorization re-derivation, idempotency, projection determinism, and WebSocket lifecycle.[^8]
+- the frontend workspace contains an explicit `/packages/grid-adapter` boundary, and no feature code outside that boundary directly imports or calls the selected grid engine's mutation, plugin, or imperative instance APIs.
 - the first failing Phase 0 tests are checked in and can be run repeatedly.[^9]
 - no feature work beyond the bootstrap shell has bypassed migrations, config validation, or the TDD loop.[^16][^20]
 

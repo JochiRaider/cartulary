@@ -20,51 +20,51 @@ Implementation conformance and claim-bearing publication are separate. Nothing i
 
 Every major section in this guide declares one section class unless a subsection overrides it.
 
-| Section class | Meaning |
-| --- | --- |
-| `Implementation baseline` | Repo-local language, package, directory, command, and ownership choices. |
-| `Derived behavioral summary` | A non-authoritative summary of product behavior owned elsewhere. |
-| `Generated-artifact rule` | Code-generation, drift, or hand-edit prohibition rules. |
-| `Cross-reference` | Navigation to the controlling owner sections. |
+| Section class                    | Meaning                                                                            |
+| -------------------------------- | ---------------------------------------------------------------------------------- |
+| `Implementation baseline`        | Repo-local language, package, directory, command, and ownership choices.           |
+| `Derived behavioral summary`     | A non-authoritative summary of product behavior owned elsewhere.                   |
+| `Generated-artifact rule`        | Code-generation, drift, or hand-edit prohibition rules.                            |
+| `Cross-reference`                | Navigation to the controlling owner sections.                                      |
 | `Contributor-procedure boundary` | A pointer to `AGENTS.md` or another procedure owner, not procedure content itself. |
 
 ### Profile applicability matrix
 
 Unless a narrower banner is stated for a subsection, this guide is written for the Base profile implementation baseline.
 
-| Profile | Default in this guide | Implementation-guide meaning |
-| --- | --- | --- |
-| Base (`base`) | Assumed unless a subsection says otherwise | Default architecture, repo layout, concurrency, evidence core, clipboard paste, local authentication, and baseline deployment. |
-| Import (`import`) | Off unless explicitly claimed | File-based structured import, import assistant objects, import-session persistence, and workbook parser compatibility behavior. |
-| Snapshot and Reporting (`snapshot_reporting`) | Off unless explicitly claimed | Immutable snapshots, release records, report rendering, export redaction, and generated presentation artifacts. |
-| Incident Portability (`incident_portability`) | Off unless explicitly claimed | Whole-incident export and import, bundle verification, and portability staging. |
-| Reference Pack (`reference_pack`) | Off unless explicitly claimed | Pack import, activation, refresh, attestation, and overlay behavior. |
-| Enterprise Authentication (`enterprise_authentication`) | Off unless explicitly claimed | OIDC and SAML provider integration. |
+| Profile                                                 | Default in this guide                      | Implementation-guide meaning                                                                                                    |
+| ------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Base (`base`)                                           | Assumed unless a subsection says otherwise | Default architecture, repo layout, concurrency, evidence core, clipboard paste, local authentication, and baseline deployment.  |
+| Import (`import`)                                       | Off unless explicitly claimed              | File-based structured import, import assistant objects, import-session persistence, and workbook parser compatibility behavior. |
+| Snapshot and Reporting (`snapshot_reporting`)           | Off unless explicitly claimed              | Immutable snapshots, release records, report rendering, export redaction, and generated presentation artifacts.                 |
+| Incident Portability (`incident_portability`)           | Off unless explicitly claimed              | Whole-incident export and import, bundle verification, and portability staging.                                                 |
+| Reference Pack (`reference_pack`)                       | Off unless explicitly claimed              | Pack import, activation, refresh, attestation, and overlay behavior.                                                            |
+| Enterprise Authentication (`enterprise_authentication`) | Off unless explicitly claimed              | OIDC and SAML provider integration.                                                                                             |
 
 ### Terminology used by this guide
 
-| Term | Required meaning in this guide |
-| --- | --- |
-| `implementation guide` | This document. It is not a sole behavioral authority. |
-| `repo-local derived contract artifacts` | Machine-readable contract files under `/contracts/*` that are derived from owner documents and drive code generation. |
-| `artifact` | The record family defined by Core 02. It is not synonymous with the Notes workbook surface. |
-| `Notes` | One workbook surface backed by `artifact_type='note'`. |
-| `system view` | A workbook-native surface beyond the five built-in tabs. |
-| `party` | An incident-scoped coordination identity, not a deployment-local login user. |
-| `local authentication` | The Base-profile session and MFA implementation. |
-| `enterprise authentication` | The Enterprise Authentication Extension Profile only. |
-| `import unit` | The canonical file-import contract object. Explanatory references to worksheet ranges or tables are examples of locator kinds, not alternate contract names. |
+| Term                                    | Required meaning in this guide                                                                                                                               |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `implementation guide`                  | This document. It is not a sole behavioral authority.                                                                                                        |
+| `repo-local derived contract artifacts` | Machine-readable contract files under `/contracts/*` that are derived from owner documents and drive code generation.                                        |
+| `artifact`                              | The record family defined by Core 02. It is not synonymous with the Notes workbook surface.                                                                  |
+| `Notes`                                 | One workbook surface backed by `artifact_type='note'`.                                                                                                       |
+| `system view`                           | A workbook-native surface beyond the five built-in tabs.                                                                                                     |
+| `party`                                 | An incident-scoped coordination identity, not a deployment-local login user.                                                                                 |
+| `local authentication`                  | The Base-profile session and MFA implementation.                                                                                                             |
+| `enterprise authentication`             | The Enterprise Authentication Extension Profile only.                                                                                                        |
+| `import unit`                           | The canonical file-import contract object. Explanatory references to worksheet ranges or tables are examples of locator kinds, not alternate contract names. |
 
 ### Owner cross-reference map
 
-| Topic family | Primary owner |
-| --- | --- |
-| Document status, precedence, profile model | Core 00 |
-| Architecture, route families, view schemas, projections, jobs, portability, extension route families | Core 01 |
-| Record model, mention/entity semantics, parties, task requests, decisions, indicators, assessments, history substrate | Core 02 |
-| Workbook surfaces, saved views, startup selection, collaboration, same-field conflicts, workflow behavior | Core 03 |
-| Authentication, authorization, runtime roots, trust boundaries, conformance fixtures | Core 04 |
-| Claim-bearing publication, benchmark profiles, benchmark manifests, measurement predicates, and reproducibility | Core 05 |
+| Topic family                                                                                                          | Primary owner |
+| --------------------------------------------------------------------------------------------------------------------- | ------------- |
+| Document status, precedence, profile model                                                                            | Core 00       |
+| Architecture, route families, view schemas, projections, jobs, portability, extension route families                  | Core 01       |
+| Record model, mention/entity semantics, parties, task requests, decisions, indicators, assessments, history substrate | Core 02       |
+| Workbook surfaces, saved views, startup selection, collaboration, same-field conflicts, workflow behavior             | Core 03       |
+| Authentication, authorization, runtime roots, trust boundaries, conformance fixtures                                  | Core 04       |
+| Claim-bearing publication, benchmark profiles, benchmark manifests, measurement predicates, and reproducibility       | Core 05       |
 
 ---
 
@@ -125,10 +125,10 @@ This section remains an intended stack baseline, not a manifest-verified current
 
 The planned stack families for the current implementation baseline are Go for the backend, React for the browser UI, and Vite for frontend development and bundling. The package names listed in this section are planned baseline choices, not an independently verified current-repository inventory. Exact package presence, replacement, and version truth are owned by `go.mod`, `go.sum`, `package.json`, workspace manifests, and lockfiles. In this guide, exact package-inventory assertions are current only to the extent those repo-control files are revalidated as of 2026-04-15.
 
-| Statement family | Status in this guide | Verification source | Default interpretation when repo-control files are not under review |
-| --- | --- | --- | --- |
-| Planned stack family | Implementation baseline | This guide | Authoritative guide baseline |
-| Exact direct dependency and version inventory | Repo-control fact | `go.mod`, `go.sum`, `package.json`, workspace manifests, and lockfiles revalidated as of 2026-04-15 | Intended baseline only; not a verified current-repository claim |
+| Statement family                              | Status in this guide    | Verification source                                                                                 | Default interpretation when repo-control files are not under review |
+| --------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Planned stack family                          | Implementation baseline | This guide                                                                                          | Authoritative guide baseline                                        |
+| Exact direct dependency and version inventory | Repo-control fact       | `go.mod`, `go.sum`, `package.json`, workspace manifests, and lockfiles revalidated as of 2026-04-15 | Intended baseline only; not a verified current-repository claim     |
 
 A guide revision that changes package assertions SHOULD update the package-inventory freshness anchor and revalidate the table against the repo-control files.
 
@@ -136,14 +136,14 @@ A guide revision that changes package assertions SHOULD update the package-inven
 
 All direct backend runtime dependencies MUST be permissive-licensed. Everything not listed below is Go standard library.
 
-| Package | Purpose | License |
-| --- | --- | --- |
-| `github.com/jackc/pgx/v5` | PostgreSQL driver, typed query execution, pooling, LISTEN/NOTIFY integration | MIT |
-| `github.com/coder/websocket` | WebSocket server for the collaboration stream | ISC |
-| `github.com/minio/minio-go/v7` | S3-compatible object storage client | Apache-2.0 |
-| `github.com/BurntSushi/toml` | Deployment configuration loading with fail-closed unknown-key validation | MIT |
-| `golang.org/x/crypto` | Argon2id password hashing and related primitives | BSD-3-Clause |
-| `github.com/pquerna/otp` | TOTP MFA | Apache-2.0 |
+| Package                        | Purpose                                                                      | License      |
+| ------------------------------ | ---------------------------------------------------------------------------- | ------------ |
+| `github.com/jackc/pgx/v5`      | PostgreSQL driver, typed query execution, pooling, LISTEN/NOTIFY integration | MIT          |
+| `github.com/coder/websocket`   | WebSocket server for the collaboration stream                                | ISC          |
+| `github.com/minio/minio-go/v7` | S3-compatible object storage client                                          | Apache-2.0   |
+| `github.com/BurntSushi/toml`   | Deployment configuration loading with fail-closed unknown-key validation     | MIT          |
+| `golang.org/x/crypto`          | Argon2id password hashing and related primitives                             | BSD-3-Clause |
+| `github.com/pquerna/otp`       | TOTP MFA                                                                     | Apache-2.0   |
 
 Standard-library responsibilities include:
 
@@ -163,19 +163,48 @@ The baseline MUST NOT introduce a Go web framework or ORM unless the repository 
 
 These tools do not ship in the compiled application binary.
 
-| Tool | Purpose |
-| --- | --- |
-| `sqlc` | Generate typed Go code from authored SQL queries |
-| `goose` | Apply numbered SQL migrations |
+| Tool                | Purpose                                               |
+| ------------------- | ----------------------------------------------------- |
+| `sqlc`              | Generate typed Go code from authored SQL queries      |
+| `goose`             | Apply numbered SQL migrations                         |
 | `testcontainers-go` | Run integration tests against real Postgres and MinIO |
 
 ### 2.3 Frontend runtime dependencies
 
-| Package | Purpose | License |
-| --- | --- | --- |
-| `react` | UI runtime and declarative rendering | MIT |
-| `react-dom` | React DOM renderer | MIT |
-| `react-data-grid` | Virtualized workbook grid, keyboard editing, paste, grouping, and custom renderers | MIT |
+| Package           | Purpose                                                                            | License |
+| ----------------- | ---------------------------------------------------------------------------------- | ------- |
+| `react`           | UI runtime and declarative rendering                                               | MIT     |
+| `react-dom`       | React DOM renderer                                                                 | MIT     |
+| `react-data-grid` | Virtualized workbook grid, keyboard editing, paste, grouping, and custom renderers | MIT     |
+
+### 2.3.1 Grid engine selection gate
+
+The current baseline grid package remains `react-data-grid` until changed by an explicit stack-baseline revision. 
+
+A pull request MUST NOT introduce a second runtime grid engine, replace the baseline grid engine, adopt a license-keyed runtime grid engine, or expose a selected-grid vendor instance outside the grid adapter unless the grid-engine selection gate is complete.
+
+A grid-engine evaluation is complete only when every field below is present. Omission of any required field means `Evaluation incomplete`.
+
+| Evaluation field          | Required content                                                                                                                            | Default when absent    |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| Dependency identity       | Package name, package scope, major version, package manager, and intended import path.                                                      | Evaluation incomplete. |
+| License posture           | License name, commercial or evaluation terms, license-key requirement, and whether the dependency satisfies the permissive-runtime policy.  | Evaluation incomplete. |
+| Runtime model             | Exactly one of `declarative_react_grid`, `imperative_engine_with_react_adapter`, or `other`.                                                | Evaluation incomplete. |
+| Row identity model        | Whether source, physical, visual, and renderable indexes are distinct; how the engine exposes each.                                         | Evaluation incomplete. |
+| Data ownership model      | Whether the engine mutates caller data, clones caller data, owns internal source data, or supports more than one mode.                      | Evaluation incomplete. |
+| Extension surface         | Supported plugins, hooks, registries, renderers, editors, validators, menus, formulas, clipboard, sorting, filtering, grouping, and themes. | Evaluation incomplete. |
+| Disabled-capability plan  | Closed list of vendor capabilities that are disabled, unavailable, or inaccessible through ordinary runtime.                                | Evaluation incomplete. |
+| Adapter preservation plan | How `record_id`, `row_version`, `field_key`, conflict state, pending queue state, and server-canonical query state remain authoritative.    | Evaluation incomplete. |
+| Test plan                 | Unit, integration, E2E, visual-regression, and performance evidence required before adoption.                                               | Evaluation incomplete. |
+
+An ADR or equivalent rationale artifact MAY explain why a grid-engine change is desirable. It does not satisfy this gate by itself. The Development Guide MUST still record the stack-baseline consequence before the repository treats the dependency change as adopted.
+
+#### Acceptance criteria
+
+- **DG-R08-AC-001:** This subsection exists directly under `### 2.3 Frontend runtime dependencies`.
+- **DG-R08-AC-002:** The subsection states that `react-data-grid` remains the baseline unless changed by explicit stack-baseline revision.
+- **DG-R08-AC-003:** The subsection requires license-key and license-policy review before adopting a license-keyed grid runtime.
+- **DG-R08-AC-004:** The subsection contains an evaluation-field table covering dependency identity, license posture, runtime model, row identity model, data ownership model, extension surface, disabled-capability plan, adapter preservation plan, and test plan.
 
 The rest of the baseline frontend runtime uses browser-native APIs:
 
@@ -189,14 +218,14 @@ For evidence access, preview and download MUST continue to redeem through the Go
 
 ### 2.4 Frontend dev and build tools
 
-| Tool | Purpose |
-| --- | --- |
-| `typescript` | Static type checking |
-| `vite` plus `@vitejs/plugin-react` | Dev server and production bundler |
-| `biome` | Formatting and linting |
-| `vitest` | Unit, integration, protocol, and component testing |
-| `@testing-library/react` | Component test utilities |
-| `@playwright/test` | Multi-context end-to-end testing |
+| Tool                               | Purpose                                            |
+| ---------------------------------- | -------------------------------------------------- |
+| `typescript`                       | Static type checking                               |
+| `vite` plus `@vitejs/plugin-react` | Dev server and production bundler                  |
+| `biome`                            | Formatting and linting                             |
+| `vitest`                           | Unit, integration, protocol, and component testing |
+| `@testing-library/react`           | Component test utilities                           |
+| `@playwright/test`                 | Multi-context end-to-end testing                   |
 
 ### 2.5 Explicit exclusions
 
@@ -336,15 +365,15 @@ The path tree below is an intended baseline shape, not an independently verified
 
 ### 3.2 Authoritative-input versus generated-path policy
 
-| Path family | Path status | Authoritative input | Edit policy |
-| --- | --- | --- | --- |
-| `/contracts/**` | Authored derived contract artifacts | Owner core docs and adopted NLSpecs | Hand-editable after owner change |
-| `/db/queries/**` | Authored source | Repo-local query definitions | Hand-editable |
-| `/db/migrations/**` | Authored source | Schema evolution | Hand-editable |
-| `/internal/gen/**` | Generated | `/contracts/**` or `/db/queries/**` | MUST NOT be hand-edited |
-| `/packages/protocol-ts/src/generated/**` | Generated | `/contracts/**` | MUST NOT be hand-edited |
-| `pnpm-lock.yaml` | Tool-managed | `pnpm install` | MUST NOT be hand-edited |
-| `go.sum` | Tool-managed | `go mod tidy` or equivalent | MUST NOT be hand-edited |
+| Path family                              | Path status                         | Authoritative input                 | Edit policy                      |
+| ---------------------------------------- | ----------------------------------- | ----------------------------------- | -------------------------------- |
+| `/contracts/**`                          | Authored derived contract artifacts | Owner core docs and adopted NLSpecs | Hand-editable after owner change |
+| `/db/queries/**`                         | Authored source                     | Repo-local query definitions        | Hand-editable                    |
+| `/db/migrations/**`                      | Authored source                     | Schema evolution                    | Hand-editable                    |
+| `/internal/gen/**`                       | Generated                           | `/contracts/**` or `/db/queries/**` | MUST NOT be hand-edited          |
+| `/packages/protocol-ts/src/generated/**` | Generated                           | `/contracts/**`                     | MUST NOT be hand-edited          |
+| `pnpm-lock.yaml`                         | Tool-managed                        | `pnpm install`                      | MUST NOT be hand-edited          |
+| `go.sum`                                 | Tool-managed                        | `go mod tidy` or equivalent         | MUST NOT be hand-edited          |
 
 ### Verification
 
@@ -372,12 +401,12 @@ The guide MUST NOT refer to `/contracts/*` as the product “source of truth.”
 
 ### 4.2 Contract family owner map
 
-| Contract family | Primary owner | Repo-local artifact | Generated or runtime consumers | Edit rule |
-| --- | --- | --- | --- | --- |
-| HTTP route surface | Core 01 route-owner sections | `/contracts/openapi/cartulary.openapi.yaml` | Go transport types, handler tests, TypeScript request and response types | Change owner contract first, then OpenAPI |
-| WebSocket messages | Core 01 collaboration transport plus Core 03 collaboration behavior | `/contracts/ws/*.schema.json` | Go WebSocket transport, TypeScript message types, protocol tests | Change owner contract first, then WS schemas |
-| View schemas and write-back contracts | Core 01 view-schema registry and addenda, with field semantics from Core 02 and workflow consequences from Core 03 | `/contracts/view-schemas/*.json` | Grid wrapper, filter builders, write routing, saved-view normalization | Change owner contract first, then view schemas |
-| Error registries and reason-code registries | Core 01 error-envelope owner sections | `/contracts/errors/*.json` | Go error helpers, TypeScript enums, test fixtures | Change owner contract first, then error registries |
+| Contract family                             | Primary owner                                                                                                      | Repo-local artifact                         | Generated or runtime consumers                                           | Edit rule                                          |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------- |
+| HTTP route surface                          | Core 01 route-owner sections                                                                                       | `/contracts/openapi/cartulary.openapi.yaml` | Go transport types, handler tests, TypeScript request and response types | Change owner contract first, then OpenAPI          |
+| WebSocket messages                          | Core 01 collaboration transport plus Core 03 collaboration behavior                                                | `/contracts/ws/*.schema.json`               | Go WebSocket transport, TypeScript message types, protocol tests         | Change owner contract first, then WS schemas       |
+| View schemas and write-back contracts       | Core 01 view-schema registry and addenda, with field semantics from Core 02 and workflow consequences from Core 03 | `/contracts/view-schemas/*.json`            | Grid wrapper, filter builders, write routing, saved-view normalization   | Change owner contract first, then view schemas     |
+| Error registries and reason-code registries | Core 01 error-envelope owner sections                                                                              | `/contracts/errors/*.json`                  | Go error helpers, TypeScript enums, test fixtures                        | Change owner contract first, then error registries |
 
 ### 4.3 Generated artifact rules
 
@@ -486,20 +515,20 @@ The implementation sequence for a behavior-affecting change MUST be:
 
 ### 5.3 Domain-module ownership baseline
 
-| Module | Authoritative implementation scope | Explicit non-scope |
-| --- | --- | --- |
-| `auth` | Local users, sessions, MFA, deployment-local user-account concerns | Incident data, workbook rows, evidence lifecycle |
-| `incidents` | Incident CRUD, memberships, saved views, workbook preferences, startup-surface persistence | Password/MFA logic, blob lifecycle |
-| `timeline` | `timeline_event` creation, update, capture-state transitions, timeline-specific projection effects | Canonical host or identity ownership outside mention workflows |
-| `entities` | Hosts, identities, canonical indicators, indicator observations, indicator lifecycle intervals, compromise assessments, aliases, entity mentions | Parties, task requests, decisions, artifact-backed coordination surfaces |
-| `evidence` | Evidence records, blob-slot lifecycle, attach-blob finalization, custody events, preview/download handle issuance and redemption | Saved views, reference-pack activation |
-| `imports` | CSV and XLSX adapters, `import_session`, `import_unit`, preview, mapping, provenance, warning codes, import jobs | Hot-path clipboard UI beyond the shared tabular-ingest contract |
-| `links` | Typed record links, tags, Notes artifacts, `party`, `task_request`, `decision`, `comm_log`, `handoff`, `status_review`, `lesson`, coordination linking flows | Object storage internals, pack verification |
-| `revisions` | Change sets, mutation entries, record revisions, rollback operations | Live presence and WS transport |
-| `projections` | `*_grid_projection` maintenance, rebuild commands, projection invalidation strategy | Source-of-truth business decisions |
-| `reference_data` | Reference packs, manifests, activation state, attestation metadata, type registries | Incident record lifecycle |
-| `reporting` | Snapshots, releases, canonical export model, self-contained render artifacts | Live workbook write path |
-| `collaboration` | Presence state, `record_changed`, `job_progress`, replay and resume handling | HTTP mutation acceptance and persistence |
+| Module           | Authoritative implementation scope                                                                                                                           | Explicit non-scope                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `auth`           | Local users, sessions, MFA, deployment-local user-account concerns                                                                                           | Incident data, workbook rows, evidence lifecycle                         |
+| `incidents`      | Incident CRUD, memberships, saved views, workbook preferences, startup-surface persistence                                                                   | Password/MFA logic, blob lifecycle                                       |
+| `timeline`       | `timeline_event` creation, update, capture-state transitions, timeline-specific projection effects                                                           | Canonical host or identity ownership outside mention workflows           |
+| `entities`       | Hosts, identities, canonical indicators, indicator observations, indicator lifecycle intervals, compromise assessments, aliases, entity mentions             | Parties, task requests, decisions, artifact-backed coordination surfaces |
+| `evidence`       | Evidence records, blob-slot lifecycle, attach-blob finalization, custody events, preview/download handle issuance and redemption                             | Saved views, reference-pack activation                                   |
+| `imports`        | CSV and XLSX adapters, `import_session`, `import_unit`, preview, mapping, provenance, warning codes, import jobs                                             | Hot-path clipboard UI beyond the shared tabular-ingest contract          |
+| `links`          | Typed record links, tags, Notes artifacts, `party`, `task_request`, `decision`, `comm_log`, `handoff`, `status_review`, `lesson`, coordination linking flows | Object storage internals, pack verification                              |
+| `revisions`      | Change sets, mutation entries, record revisions, rollback operations                                                                                         | Live presence and WS transport                                           |
+| `projections`    | `*_grid_projection` maintenance, rebuild commands, projection invalidation strategy                                                                          | Source-of-truth business decisions                                       |
+| `reference_data` | Reference packs, manifests, activation state, attestation metadata, type registries                                                                          | Incident record lifecycle                                                |
+| `reporting`      | Snapshots, releases, canonical export model, self-contained render artifacts                                                                                 | Live workbook write path                                                 |
+| `collaboration`  | Presence state, `record_changed`, `job_progress`, replay and resume handling                                                                                 | HTTP mutation acceptance and persistence                                 |
 
 This guide intentionally places `party`, `task_request`, `decision`, and artifact-backed coordination surfaces under the existing `links` module baseline because the current proposed module set does not define a separate `coordination` module. A future split into a dedicated coordination module MAY happen later, but it is not part of the current baseline.
 
@@ -528,17 +557,180 @@ This guide intentionally places `party`, `task_request`, `decision`, and artifac
 
 ### 6.1 Application structure (`/apps/web`)
 
-| Frontend module | Responsibility | Required default or constraint |
-| --- | --- | --- |
-| `workbook shell` | Built-in tabs, system-view registration, saved-view selector, startup-surface resolution, view-level filters and grouping controls | MUST keep all workbook-native surfaces inside the workbook shell rather than separate application modules |
-| `grid wrapper` | `react-data-grid` wrapper with `record_id` anchoring, column registration, edit hooks | `rowKeyGetter` MUST be `record_id`; field mutability MUST derive from view contracts |
-| `cell renderers` | Typed cell display and edit components | Save state, conflict state, and presence markers MUST render at cell level where applicable |
-| `sync engine` | Pending-patch queue, autosave, HTTP mutation submission, retry behavior | MUST send `record_id`, `base_row_version`, and changed fields only |
-| `WebSocket client` | `hello`, `resume`, replay tracking, `ping` and `pong`, reset handling | MUST treat the server stream as read-only and re-query via HTTP on reset |
-| `collaboration state` | `record_changed`, `presence_snapshot`, `presence_delta`, `job_progress` handling | MUST preserve selection anchoring by `record_id` through patch, invalidate, and remove events |
-| `conflict resolver` | Same-surface conflict review and explicit resolution | MUST open from the affected cell and keep the grid visible |
-| `inspector drawer` | Enrichment, relationships, history, rollback, evidence inspection, party and mention resolution | MUST remain non-blocking relative to the grid |
-| `presence UI` | Header avatars, row-gutter indicators, same-cell editing hints | MUST be keyed by stable identifiers rather than labels or row numbers |
+| Frontend module       | Responsibility                                                                                                                                                                                    | Required default or constraint                                                                                                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `workbook shell`      | Built-in tabs, system-view registration, saved-view selector, startup-surface resolution, view-level filters and grouping controls                                                                | MUST keep all workbook-native surfaces inside the workbook shell rather than separate application modules                                                                                              |
+| `grid adapter`        | Cartulary-owned adapter around the selected grid engine, including `record_id` anchoring, column registration, renderer/editor registration, vendor-event translation, and imperative API fencing | The adapter MUST be the only code path that translates vendor-local coordinates, indexes, hooks, plugin events, selection objects, or imperative grid calls into Cartulary events or mutation requests |
+| `cell renderers`      | Typed cell display and edit components                                                                                                                                                            | Save state, conflict state, and presence markers MUST render at cell level where applicable                                                                                                            |
+| `sync engine`         | Pending-patch queue, autosave, HTTP mutation submission, retry behavior                                                                                                                           | MUST send `record_id`, `base_row_version`, and changed fields only                                                                                                                                     |
+| `WebSocket client`    | `hello`, `resume`, replay tracking, `ping` and `pong`, reset handling                                                                                                                             | MUST treat the server stream as read-only and re-query via HTTP on reset                                                                                                                               |
+| `collaboration state` | `record_changed`, `presence_snapshot`, `presence_delta`, `job_progress` handling                                                                                                                  | MUST preserve selection anchoring by `record_id` through patch, invalidate, and remove events                                                                                                          |
+| `conflict resolver`   | Same-surface conflict review and explicit resolution                                                                                                                                              | MUST open from the affected cell and keep the grid visible                                                                                                                                             |
+| `inspector drawer`    | Enrichment, relationships, history, rollback, evidence inspection, party and mention resolution                                                                                                   | MUST remain non-blocking relative to the grid                                                                                                                                                          |
+| `presence UI`         | Header avatars, row-gutter indicators, same-cell editing hints                                                                                                                                    | MUST be keyed by stable identifiers rather than labels or row numbers                                                                                                                                  |
+
+### 6.1.1 Grid adapter contract
+
+The frontend MUST isolate the selected grid engine behind a Cartulary-owned grid adapter. The adapter is the only frontend boundary that may translate vendor coordinates into Cartulary anchors.
+
+Definitions used by this section:
+
+| Term                   | Required meaning                                                                                                                              |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `selected grid engine` | The grid dependency currently selected by the stack baseline.                                                                                 |
+| `vendor coordinate`    | Any selected-grid-engine-local row, column, visual, physical, source, renderable, or selection coordinate.                                    |
+| `Cartulary anchor`     | Stable identity tuple containing the relevant `view_schema_id`, `record_id`, `row_version` where needed, and `field_key` where cell-specific. |
+| `render_binding_table` | Adapter-local mapping from current viewport and overscan rows to Cartulary row anchors and presentation-row classifications.                  |
+| `column_binding_table` | Adapter-local mapping from rendered columns to stable `field_key`, writeability, renderer, editor, and layout metadata.                       |
+
+The adapter MUST classify grid state as follows.
+
+| State family                            | Authority classification           | Required handling                                                                                                                          |
+| --------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `record_id`                             | Authoritative                      | MUST be the row identity for focus, selection, edits, pending patches, presence, conflict markers, inspector routing, and history routing. |
+| `row_version`                           | Authoritative                      | MUST be the base version for record-scoped optimistic writes.                                                                              |
+| `field_key`                             | Authoritative                      | MUST be the cell write identity and query-field identity.                                                                                  |
+| `view_schema_id`                        | Authoritative                      | MUST define field registry, mutability, read contracts, write contracts, grouping keys, sort keys, and surface identity.                   |
+| `view_row_v1`                           | Authoritative row input            | MUST populate the adapter's render-binding table.                                                                                          |
+| `view_row_patch_v1`                     | Authoritative sparse update input  | MUST update only the addressed `record_id` and changed `field_key` members.                                                                |
+| `meta.query`                            | Authoritative query-state echo     | MUST be the displayed applied query state after server canonicalization.                                                                   |
+| Sync-engine pending queue               | Authoritative local mutation state | MUST own unsent or retrying patches. The grid adapter MAY display queue state but MUST NOT reorder, drop, or reinterpret queue units.      |
+| Conflict resolver state                 | Authoritative local conflict state | MUST own same-field conflict display and resolution actions.                                                                               |
+| Vendor visual row index                 | Non-authoritative                  | MAY locate a visible cell only until translated to `record_id` and `field_key`.                                                            |
+| Vendor physical/source/renderable index | Non-authoritative                  | MUST NOT be emitted outside the adapter as record identity.                                                                                |
+| Vendor selection object                 | Non-authoritative                  | MUST NOT be persisted or sent to the server.                                                                                               |
+| Vendor plugin state                     | Non-authoritative unless mapped    | MUST be inaccessible outside the adapter unless explicitly mapped to a Cartulary contract and test.                                        |
+| Vendor imperative instance state        | Non-authoritative unless wrapped   | MUST be fenced behind adapter methods and tests.                                                                                           |
+
+The adapter MUST expose one Cartulary event vocabulary to the rest of the frontend.
+
+| Adapter event               | Required payload                                                                                                                       | Omission and error behavior                                                                                                                                                                                                 |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cell_focus_changed`        | `view_schema_id`, `record_id`, `field_key`, optional `row_version`                                                                     | If the vendor cell cannot be resolved to a data row and schema field, the adapter MUST emit no focus event and MUST clear or retain focus according to the prior valid Cartulary anchor, not according to the vendor index. |
+| `selection_changed`         | `view_schema_id`, ordered selected anchors as `record_id` plus `field_key` ranges where applicable                                     | Group headers, spacer rows, and non-data rows MUST NOT become selected record anchors.                                                                                                                                      |
+| `cell_edit_committed`       | `view_schema_id`, `record_id`, `base_row_version`, `field_key`, `value`, `client_txn_id`                                               | If any required anchor is missing, the adapter MUST reject the local commit before sync-engine enqueue.                                                                                                                     |
+| `paste_committed`           | `view_schema_id`, ordered cell range mapped to existing `record_id` anchors or create-row anchors, field-keyed values, `client_txn_id` | The adapter MUST preserve visual paste order after translation to stable anchors. It MUST NOT rely on vendor source indexes as mutation identity.                                                                           |
+| `query_state_requested`     | `view_schema_id`, requested sort, filters, grouping, and initiating UI source                                                          | The adapter MUST send only stable contract keys. It MUST NOT send visible labels, vendor column indexes, projection-table names, or storage-table names.                                                                    |
+| `adapter_refresh_requested` | `view_schema_id`, refresh class from the grid-state refresh table, reason code                                                         | Unknown refresh classes are invalid.                                                                                                                                                                                        |
+
+The adapter MUST normalize vendor cell events through this deterministic algorithm before emitting Cartulary events or enqueueing mutations.
+
+```text
+on vendor cell event:
+  read vendor row coordinate and vendor column coordinate
+  resolve row coordinate through current render_binding_table
+  resolve column coordinate through current column_binding_table
+
+  if row binding is absent:
+    do not emit a Cartulary row event
+    do not enqueue a mutation
+    preserve the last valid Cartulary anchor only if the UI action did not claim a new data-row focus
+
+  if column binding is absent or not bound to one field_key:
+    do not emit a Cartulary cell event
+    do not enqueue a mutation
+
+  if the resolved row is a group header, spacer, loading row, summary row, or presentation-only row:
+    do not emit a mutation-capable event
+
+  emit the corresponding Cartulary adapter event using view_schema_id, record_id, row_version when required, and field_key
+```
+
+The adapter MUST maintain a render-binding table for the current viewport and overscan region. Each data-row binding MUST contain `view_schema_id`, `record_id`, `row_version`, and the row's current position in the adapter's displayed order. Each data-column binding MUST contain `field_key`, writeability state, read renderer, edit renderer, and default-hidden or visible layout state.
+
+The adapter MUST treat group headers, loading rows, summary rows, spacer rows, and vendor-generated rows as non-data rows unless the active view contract explicitly declares them writable data rows. After sort, filter, grouping, cursor continuation, live update, hidden-field layout, virtual scrolling, or vendor plugin action, a commit MUST still target the original `record_id` and `field_key`. The terms `visual`, `physical`, `source`, and `renderable` are vendor-coordinate concepts only and MUST NOT become Cartulary identity.
+
+#### Acceptance criteria
+
+- **DG-R08-AC-006:** The frontend architecture table uses `grid adapter` as the vendor-grid boundary.
+- **DG-R08-AC-007:** The architecture table states that vendor events and imperative APIs are mediated by the adapter.
+- **DG-R08-AC-008:** No architecture row allows direct mutation routing from a renderer, editor, plugin, or component outside the adapter and sync engine.
+- **DG-R08-AC-009:** This subsection defines authoritative and non-authoritative grid state in a table.
+- **DG-R08-AC-010:** The event vocabulary table includes `cell_focus_changed`, `selection_changed`, `cell_edit_committed`, `paste_committed`, `query_state_requested`, and `adapter_refresh_requested`.
+- **DG-R08-AC-011:** Every mutation-capable adapter event requires `record_id`, `field_key`, and the version value needed by the server-owned mutation contract.
+- **DG-R08-AC-012:** The subsection explicitly forbids vendor row indexes as mutation identity.
+- **DG-R08-AC-013:** The subsection specifies fail-closed behavior when a vendor coordinate cannot be translated to a Cartulary anchor.
+- **DG-R08-AC-014:** The subsection uses `visual`, `physical`, `source`, and `renderable` only as vendor-coordinate concepts, not as Cartulary identity.
+- **DG-R08-AC-015:** The subsection states that data-row commits after sorting, filtering, grouping, live update, and virtual scrolling target `record_id` and `field_key`.
+- **DG-R08-AC-016:** The subsection states that group headers and presentation-only rows are never writable rows.
+
+### 6.1.2 Grid capability allowlist
+
+The grid adapter MUST define a closed capability allowlist for the selected grid engine. Plugin registration is closed by default. A vendor plugin or capability is enabled only when it appears in the allowlist with class, owner, and test evidence.
+
+| Class            | Meaning                                                                                    | Required handling                                                                                                     |
+| ---------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `adapter_owned`  | Required for Cartulary UI behavior and mediated by the grid adapter.                       | Enabled only through adapter code and covered by unit tests.                                                          |
+| `server_owned`   | The grid may expose UI affordances, but canonical semantics are owned by server contracts. | Requests MUST round-trip through server-owned routes or canonical contract artifacts before display is authoritative. |
+| `disabled`       | Conflicts with current Cartulary behavior or lacks current contract coverage.              | MUST NOT be registered, enabled, reachable, or callable in ordinary runtime.                                          |
+| `future_profile` | Potentially useful but outside the current baseline.                                       | MUST require a later owner-contract or stack-baseline revision before enablement.                                     |
+
+The current-profile default mapping is:
+
+| Capability family                | Default class         | Required current-profile handling                                                                    |
+| -------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------- |
+| Virtualized rendering            | `adapter_owned`       | Adapter MAY use the grid engine for viewport rendering, but row identity remains `record_id`.        |
+| Keyboard navigation              | `adapter_owned`       | Adapter MUST map key effects to Cartulary focus, selection, edit, and paste contracts.               |
+| Inline scalar editors            | `adapter_owned`       | Editors MUST emit `cell_edit_committed` only through the adapter.                                    |
+| Custom renderers                 | `adapter_owned`       | Renderers MAY display cell state but MUST NOT own authoritative mutation state.                      |
+| Clipboard paste                  | `adapter_owned`       | Paste MUST translate into the shared Cartulary paste and tabular-ingest contract.                    |
+| Sort UI                          | `server_owned`        | UI MAY request sort; server `meta.query.sort[]` is authoritative.                                    |
+| Filter UI                        | `server_owned`        | UI MAY request filters; server normalized filter state is authoritative.                             |
+| Group UI                         | `server_owned`        | UI MAY request one declared grouping key; group headers remain presentation-only.                    |
+| Validation display               | `server_owned`        | Client MAY show local hints, but server validation and mutation result are authoritative.            |
+| Presence markers                 | `adapter_owned`       | Markers MUST be keyed by `record_id` and `field_key`, not vendor coordinates.                        |
+| Same-field conflict markers      | `adapter_owned`       | Markers MUST be keyed by conflict state from the sync/conflict subsystem.                            |
+| Vendor source-data mutation APIs | `disabled`            | No direct use outside the adapter; no authoritative data mutation through vendor data APIs.          |
+| Vendor formulas                  | `disabled`            | MUST NOT be enabled unless a later owner contract defines formula semantics.                         |
+| Vendor undo/redo                 | `disabled`            | MUST NOT bypass Cartulary revision, conflict, or history contracts.                                  |
+| Vendor hidden-row semantics      | `disabled`            | MUST NOT determine row visibility; server query state and view contracts own visibility.             |
+| Vendor context-menu commands     | `disabled`            | MUST be unavailable unless every command is mapped to a Cartulary action and test.                   |
+| Manual row movement              | `future_profile`      | MUST NOT mutate ordering or source state in the current baseline.                                    |
+| Manual column movement           | `future_profile`      | MUST NOT become persisted layout unless a layout contract explicitly owns it.                        |
+| Plugin registration              | `disabled` by default | Each enabled plugin MUST appear in the allowlist with class, owner, and tests.                       |
+| Theme and CSS customization      | `adapter_owned`       | MAY affect presentation only and MUST NOT change row identity, field identity, or mutation behavior. |
+
+#### Acceptance criteria
+
+- **DG-R08-AC-017:** The allowlist defines exactly the four class values `adapter_owned`, `server_owned`, `disabled`, and `future_profile`, or stricter successors.
+- **DG-R08-AC-018:** The default capability mapping includes every capability family listed in this subsection.
+- **DG-R08-AC-019:** The subsection forbids vendor formulas, vendor undo/redo, vendor source-data mutation APIs, vendor hidden-row semantics, and vendor context-menu commands unless later mapped to Cartulary contracts and tests.
+- **DG-R08-AC-020:** The subsection states that plugin registration is closed by default.
+
+### 6.1.3 Renderer and editor lifecycle rules
+
+Renderers MAY read `view_row_v1`, `view_row_patch_v1`, presence state, save state, and conflict state. Renderers MUST NOT mutate authoritative state.
+
+Editors MUST emit commits only through the adapter event vocabulary. Editors MUST reset local state when prepared for a different `record_id`, `field_key`, or `row_version`. Editor reuse across rows MUST reset by stable Cartulary anchors, not vendor coordinates.
+
+Renderers and editors MUST release portals, subscriptions, timers, observers, and stale closures during unmount, remount, surface switch, and engine destroy. A renderer or editor MUST NOT retain a vendor row index as a future mutation target. A renderer or editor MUST NOT call vendor data-mutation APIs directly. A renderer or editor MUST NOT call HTTP mutation routes directly; the sync engine remains the mutation submission owner.
+
+#### Acceptance criteria
+
+- **DG-R08-AC-021:** This subsection exists.
+- **DG-R08-AC-022:** The subsection requires cleanup of portals, subscriptions, timers, observers, and stale closures.
+- **DG-R08-AC-023:** The subsection forbids direct HTTP mutation calls from renderers and editors.
+- **DG-R08-AC-024:** The subsection states that editor reuse across rows resets by stable Cartulary anchors, not vendor coordinates.
+
+### 6.1.4 Grid-state refresh semantics
+
+The grid adapter MUST use one of the refresh classes below whenever server results, live collaboration events, query replacement, or adapter lifecycle changes require visible grid refresh. Unknown refresh classes are invalid. The adapter MUST NOT invent best-effort refresh behavior without adding the class to this table and adding tests.
+
+| Refresh class                    | Trigger examples                                                                                                               | Selection and focus                                                                                                        | Scroll                                                                                                | Pending local edits                                             | Inspector                                                           | Presence and conflict markers                   |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------- |
+| `cell_patch`                     | Sparse `view_row_patch_v1` changes visible fields.                                                                             | Preserve by `record_id` and `field_key`.                                                                                   | Preserve.                                                                                             | Preserve unless the same field enters conflict state.           | Preserve if the selected `record_id` remains active.                | Recompute markers by stable anchors.            |
+| `row_refresh`                    | Full row returned after create, patch, attach, or explicit row refresh.                                                        | Preserve by `record_id`; update `row_version`.                                                                             | Preserve.                                                                                             | Preserve or clear only according to sync/conflict result.       | Preserve if selected `record_id` remains active.                    | Recompute markers by stable anchors.            |
+| `invalidate_requery`             | Sparse patch cannot safely express the change; server emits invalidate.                                                        | Preserve by `record_id` and `field_key` when the record returns in the requery result; otherwise clear the invalid anchor. | Preserve when anchor remains visible; otherwise scroll behavior follows active query-result defaults. | Preserve sync-engine queue state; do not retarget.              | Preserve only when selected `record_id` remains visible and active. | Recompute after requery.                        |
+| `query_replace_preserve_anchors` | Sort, filter, grouping, saved-view, or cursor-bound result replacement.                                                        | Preserve anchors when the same `record_id` and `field_key` remain in the result; otherwise clear invalid anchors.          | Keep anchor in view when possible.                                                                    | Preserve and do not retarget.                                   | Preserve only for surviving selected `record_id`.                   | Recompute by stable anchors.                    |
+| `surface_remount`                | `view_schema_id` change, grid-engine reinitialization, capability registry change, or unrecoverable adapter invariant failure. | Clear surface-local selection and focus unless the new surface explicitly resolves the same stable anchor.                 | Reset to new surface default.                                                                         | Preserve sync-engine queue state; do not drop unsent mutations. | Close unless it can rebind to a valid same-incident `record_id`.    | Rehydrate from collaboration state after mount. |
+
+Pending local edits MUST never retarget to a different `record_id`.
+
+#### Acceptance criteria
+
+- **DG-R08-AC-025:** The refresh table covers `cell_patch`, `row_refresh`, `invalidate_requery`, `query_replace_preserve_anchors`, and `surface_remount`.
+- **DG-R08-AC-026:** Each refresh class defines selection/focus, scroll, pending-edit, inspector, presence, and conflict-marker behavior.
+- **DG-R08-AC-027:** The subsection states that pending local edits must never retarget to a different `record_id`.
 
 ### 6.2 Workbook-surface rules
 
@@ -579,12 +771,13 @@ If a referenced saved view or view schema is missing, invisible, or invalid beca
 
 ### 6.4 Workspace packages
 
-| Package | Baseline responsibility |
-| --- | --- |
-| `/packages/ui` | Reusable presentational components with no workbook-state ownership |
-| `/packages/protocol-ts` | Generated protocol types and helpers derived from `/contracts/*` |
-| `/packages/view-contracts` | TypeScript-consumable adapters over `/contracts/view-schemas/*` |
-| `/packages/test-utils` | Shared protocol and UI test helpers, including mock WebSocket servers and row fixtures |
+| Package                    | Baseline responsibility                                                                                                                                                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/packages/grid-adapter`   | Cartulary-owned frontend grid adapter. Owns selected-grid integration, vendor-coordinate translation, column and field binding, renderer/editor registration, grid capability allowlist, imperative API fencing, and adapter test fixtures. |
+| `/packages/ui`             | Reusable presentational components with no workbook-state ownership and no direct vendor-grid mutation authority.                                                                                                                           |
+| `/packages/protocol-ts`    | Generated protocol types and helpers derived from `/contracts/*`                                                                                                                                                                            |
+| `/packages/view-contracts` | TypeScript-consumable adapters over `/contracts/view-schemas/*`                                                                                                                                                                             |
+| `/packages/test-utils`     | Shared protocol, UI, grid-adapter, and visual-fixture test helpers, including mock WebSocket servers and row fixtures                                                                                                                       |
 
 ### 6.5 Frontend configuration
 
@@ -602,6 +795,9 @@ If a referenced saved view or view schema is missing, invisible, or invalid beca
 - Startup-surface fallback is covered by automated tests.
 - Mutations sent by the frontend are keyed by `record_id`, `base_row_version`, and `field_key`.
 - No React component hard-codes a behavior that already belongs to the view-schema contracts by visible label alone.
+- The grid adapter is the only package that imports or calls selected-grid mutation, plugin, or imperative instance APIs.
+- Disabled grid capabilities are absent from ordinary runtime registration and fail adapter-level reachability tests.
+- Pending local edits do not retarget after sort, filter, grouping, live update, virtual scrolling, or surface remount.
 
 ---
 
@@ -619,29 +815,29 @@ This section remains an intended command and workflow baseline, not a verified t
 
 If the repository exposes a root `Makefile`, it SHOULD remain the stable human-facing task surface. Treat the command table below as the intended implementation baseline until revalidated against the live repo control surface.
 
-| Command | Minimum responsibility |
-| --- | --- |
-| `make bootstrap` | Install tools, install workspace dependencies, prepare local services |
-| `make db-up` | Start local Postgres and MinIO |
-| `make db-reset` | Recreate the database and run migrations |
-| `make dev` | Start the Go server and Vite dev server |
-| `make generate` | Regenerate Go and TypeScript artifacts derived from `/db/queries/*` and `/contracts/*` |
-| `make backend-store` | Run service-backed store-domain `U-*` backend evidence that keeps unit-layer IDs while using real Postgres |
-| `make test-fast` | Run the narrower pure-unit, service-backed backend, and frontend unit/process loop |
-| `make test` | Run the authoritative full test corpus, including manifest-verified browser E2E plus explicit support suites |
-| `make lint` | Run backend vet/lint and frontend lint/type checks |
-| `make check` | Developer verification gate |
-| `make ci` | Provider-neutral CI enforcement entrypoint |
-| `make build` | Produce the app build with embedded frontend assets |
+| Command              | Minimum responsibility                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `make bootstrap`     | Install tools, install workspace dependencies, prepare local services                                        |
+| `make db-up`         | Start local Postgres and MinIO                                                                               |
+| `make db-reset`      | Recreate the database and run migrations                                                                     |
+| `make dev`           | Start the Go server and Vite dev server                                                                      |
+| `make generate`      | Regenerate Go and TypeScript artifacts derived from `/db/queries/*` and `/contracts/*`                       |
+| `make backend-store` | Run service-backed store-domain `U-*` backend evidence that keeps unit-layer IDs while using real Postgres   |
+| `make test-fast`     | Run the narrower pure-unit, service-backed backend, and frontend unit/process loop                           |
+| `make test`          | Run the authoritative full test corpus, including manifest-verified browser E2E plus explicit support suites |
+| `make lint`          | Run backend vet/lint and frontend lint/type checks                                                           |
+| `make check`         | Developer verification gate                                                                                  |
+| `make ci`            | Provider-neutral CI enforcement entrypoint                                                                   |
+| `make build`         | Produce the app build with embedded frontend assets                                                          |
 
 If the repository uses both a root task-surface `Makefile` and `AGENTS.md`, both MUST be updated together when this task surface changes.
 
 ### 7.2 Verification tiers
 
-| Verification tier | Required checks | Blocking condition |
-| --- | --- | --- |
-| Developer verification | formatting, lint or vet, Go build, Go tests, TypeScript build or type check, Vitest, browser E2E coverage, `make generate` drift check, migration application check | Any failure blocks ordinary development completion |
-| Release verification | all developer verification checks, dependency license report, SBOM generation, release-artifact smoke build, any profile-specific release checks for claimed extensions | Any failure blocks release publication |
+| Verification tier      | Required checks                                                                                                                                                         | Blocking condition                                 |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Developer verification | formatting, lint or vet, Go build, Go tests, TypeScript build or type check, Vitest, browser E2E coverage, `make generate` drift check, migration application check     | Any failure blocks ordinary development completion |
+| Release verification   | all developer verification checks, dependency license report, SBOM generation, release-artifact smoke build, any profile-specific release checks for claimed extensions | Any failure blocks release publication             |
 
 `make check` is the required developer gate. It MUST include contract-generation drift detection, migration verification, and a failure condition when any authoritative phase-manifest row is absent from actual execution. When browser suites depend on the real Playwright web-server bootstrap, the gate must run those suites under one owned shared stack rather than parallelizing multiple independent startup attempts. `make ci` composes the same execution-truth guarantee into the provider-neutral CI surface.
 
@@ -722,12 +918,12 @@ This section is an implementation-facing summary. It does not own the behavioral
 
 The implementation baseline assumes **field-level optimistic concurrency on top of row versioning**.
 
-| Owned behavior | Implementation consequence |
-| --- | --- |
+| Owned behavior                                                  | Implementation consequence                                                               |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | Each visible row is identified by `record_id` and `row_version` | Grid state, selection anchoring, and pending patches MUST be keyed by stable identifiers |
-| Different-field concurrent edits auto-rebase | Patch handling MUST be field-addressable rather than full-row replacement |
-| Same-field concurrent edits require explicit analyst resolution | Conflict UI MUST preserve saved value and unsaved local draft separately |
-| Pending local work survives transient disconnect | Client MUST retain a pending-patch queue distinct from server-committed state |
+| Different-field concurrent edits auto-rebase                    | Patch handling MUST be field-addressable rather than full-row replacement                |
+| Same-field concurrent edits require explicit analyst resolution | Conflict UI MUST preserve saved value and unsaved local draft separately                 |
+| Pending local work survives transient disconnect                | Client MUST retain a pending-patch queue distinct from server-committed state            |
 
 ### 8.2 Autosave and pending-patch handling
 
@@ -786,11 +982,11 @@ The browser MUST redeem preview and download access through same-origin opaque h
 
 Implementation summary:
 
-| Browser objective | Required public contract | Required server-issued artifact | Default supported browser behavior | Unsupported interpretation |
-| --- | --- | --- | --- | --- |
-| Upload bytes for one pending blob slot | `POST /api/v1/object-blobs` plus the returned upload target | `object_blob_id` plus `upload_target` | The browser MAY use the short-lived target for the accepted pending slot only | Persisting the target as evidence-access state or treating it as a preview or download URL |
-| Preview evidence bytes | `POST /api/v1/evidence-records/{record_id}/preview-handle` then `GET /api/v1/evidence-handles/{handle_token}` | preview handle | The browser redeems a same-origin opaque handle through the application | Constructing a raw object-store URL |
-| Download evidence bytes | `POST /api/v1/evidence-records/{record_id}/download-handle` then `GET /api/v1/evidence-handles/{handle_token}` | download handle | The browser redeems a same-origin opaque handle through the application | Reusing `upload_target` as a download path or constructing a raw object-store URL |
+| Browser objective                      | Required public contract                                                                                       | Required server-issued artifact       | Default supported browser behavior                                            | Unsupported interpretation                                                                 |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Upload bytes for one pending blob slot | `POST /api/v1/object-blobs` plus the returned upload target                                                    | `object_blob_id` plus `upload_target` | The browser MAY use the short-lived target for the accepted pending slot only | Persisting the target as evidence-access state or treating it as a preview or download URL |
+| Preview evidence bytes                 | `POST /api/v1/evidence-records/{record_id}/preview-handle` then `GET /api/v1/evidence-handles/{handle_token}`  | preview handle                        | The browser redeems a same-origin opaque handle through the application       | Constructing a raw object-store URL                                                        |
+| Download evidence bytes                | `POST /api/v1/evidence-records/{record_id}/download-handle` then `GET /api/v1/evidence-handles/{handle_token}` | download handle                       | The browser redeems a same-origin opaque handle through the application       | Reusing `upload_target` as a download path or constructing a raw object-store URL          |
 
 - preview-handle issuance is intentionally non-idempotent,
 - download-handle issuance is intentionally non-idempotent,
@@ -839,26 +1035,26 @@ The implementation baseline MUST prefer projection tables over Postgres material
 
 ### 10.2 Surface ownership matrix
 
-| Surface or object group | Authoritative model | Backend owner | Projection or route realization | Frontend owner | Default surface class and notes |
-| --- | --- | --- | --- | --- | --- |
-| Timeline | `timeline_event` | `timeline` | `timeline_grid_projection`; `cartulary.view.timeline.v1` | workbook shell, grid wrapper, Timeline columns | Built-in tab. Zero-field create remains allowed only because the owner contract explicitly allows it. |
-| Hosts | `host` | `entities` | `host_grid_projection`; `cartulary.view.hosts.v1` | workbook shell, grid wrapper, Hosts columns | Built-in tab. `entity_origin` surface. |
-| Identities | `identity` | `entities` | `identity_grid_projection`; `cartulary.view.identities.v1` | workbook shell, grid wrapper, Identities columns | Built-in tab. `entity_origin` surface. |
-| Evidence | `evidence` plus joined blob metadata | `evidence` | `evidence_grid_projection`; `cartulary.view.evidence.v1` | workbook shell, grid wrapper, Evidence columns, inspector | Built-in tab. Visible text and hidden party links remain separate concepts. |
-| Notes | `artifact` filtered to `artifact_type='note'` | `links` | `artifact_grid_projection`; `cartulary.view.notes.v1` | workbook shell, grid wrapper, Notes columns | Built-in tab. Notes are one artifact-backed surface, not the artifact family as a whole. |
-| Indicators | canonical `indicator` plus observations and lifecycle intervals | `entities` | `indicator_grid_projection`; `cartulary.view.indicators.v1` | workbook shell, system-view registration, indicator columns | Contract-backed system view. Existing rows derive mutability from the view contract and are not generic free-edit rows. |
-| Assessments | `assessment` | `entities` | `assessment_grid_projection`; `cartulary.view.assessments.v1` | workbook shell, system-view registration, assessment columns | Contract-backed system view. |
-| Task Requests | `task_request` | `links` | `task_request_grid_projection`; `cartulary.view.task_requests.v1` | workbook shell, system-view registration, queue-oriented columns | Contract-backed system view. |
-| Decisions | `decision` | `links` | `decision_grid_projection`; `cartulary.view.decisions.v1` | workbook shell, system-view registration, decision columns | Contract-backed system view. |
-| Parties | `party` | `links` | `party_grid_projection`; `cartulary.view.parties.v1` | workbook shell, system-view registration, party columns | Contract-backed system view. Party identity is incident-scoped coordination identity, not deployment-local account identity. |
-| Communications Log | `artifact` filtered to `artifact_type='comm_log'` | `links` | `artifact_grid_projection` filtered to `comm_log`; `cartulary.view.comm_log.v1` | workbook shell, coordination-surface components | Workbook-native coordination surface. Canonical base surface is the standardized `view_schema_id`; an additional `scope='system'` saved view over the same schema MAY exist as an additive preset only and MUST NOT replace the required base surface. |
-| Handoff | `artifact` filtered to `artifact_type='handoff'` | `links` | `artifact_grid_projection` filtered to `handoff`; `cartulary.view.handoff.v1` | workbook shell, coordination-surface components | Workbook-native coordination surface. Canonical base surface is the standardized `view_schema_id`; an additional `scope='system'` saved view over the same schema MAY exist as an additive preset only and MUST NOT replace the required base surface. |
-| Status Review | `artifact` filtered to `artifact_type='status_review'` | `links` | `artifact_grid_projection` filtered to `status_review`; `cartulary.view.status_review.v1` | workbook shell, coordination-surface components | Workbook-native coordination surface. Canonical base surface is the standardized `view_schema_id`; an additional `scope='system'` saved view over the same schema MAY exist as an additive preset only and MUST NOT replace the required base surface. |
-| Lesson | `artifact` filtered to `artifact_type='lesson'` | `links` | `artifact_grid_projection` filtered to `lesson`; `cartulary.view.lesson.v1` | workbook shell, coordination-surface components | Workbook-native coordination surface. Canonical base surface is the standardized `view_schema_id`; an additional `scope='system'` saved view over the same schema MAY exist as an additive preset only and MUST NOT replace the required base surface. |
-| Saved views | `saved_view` | `incidents` | `/api/v1/incidents/{incident_id}/saved-views/*` | workbook shell, saved-view selector, layout persistence | Workbook configuration object, not a projection row. Scope controls discoverability and mutability of the configuration object only. |
-| Workbook preferences | `user_workbook_preferences`, `incident_workbook_preferences` | `incidents` | `/api/v1/incidents/{incident_id}/workbook-preferences/*` | workbook bootstrap and startup-surface selection | Route-backed configuration object, not a workbook projection. |
-| Deployment-local users | `user` | `auth` | `/api/v1/users/*` | admin UI or admin CLI if present | Not a workbook surface. Deployment-local administration only. |
-| Incident memberships | `incident_membership` | `incidents` | `/api/v1/incidents/{incident_id}/memberships/*` | admin UI or admin CLI if present | Not a workbook surface. Incident authorization administration only. |
+| Surface or object group | Authoritative model                                             | Backend owner | Projection or route realization                                                           | Frontend owner                                                   | Default surface class and notes                                                                                                                                                                                                                        |
+| ----------------------- | --------------------------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Timeline                | `timeline_event`                                                | `timeline`    | `timeline_grid_projection`; `cartulary.view.timeline.v1`                                  | workbook shell, grid adapter, Timeline columns                   | Built-in tab. Zero-field create remains allowed only because the owner contract explicitly allows it.                                                                                                                                                  |
+| Hosts                   | `host`                                                          | `entities`    | `host_grid_projection`; `cartulary.view.hosts.v1`                                         | workbook shell, grid adapter, Hosts columns                      | Built-in tab. `entity_origin` surface.                                                                                                                                                                                                                 |
+| Identities              | `identity`                                                      | `entities`    | `identity_grid_projection`; `cartulary.view.identities.v1`                                | workbook shell, grid adapter, Identities columns                 | Built-in tab. `entity_origin` surface.                                                                                                                                                                                                                 |
+| Evidence                | `evidence` plus joined blob metadata                            | `evidence`    | `evidence_grid_projection`; `cartulary.view.evidence.v1`                                  | workbook shell, grid adapter, Evidence columns, inspector        | Built-in tab. Visible text and hidden party links remain separate concepts.                                                                                                                                                                            |
+| Notes                   | `artifact` filtered to `artifact_type='note'`                   | `links`       | `artifact_grid_projection`; `cartulary.view.notes.v1`                                     | workbook shell, grid adapter, Notes columns                      | Built-in tab. Notes are one artifact-backed surface, not the artifact family as a whole.                                                                                                                                                               |
+| Indicators              | canonical `indicator` plus observations and lifecycle intervals | `entities`    | `indicator_grid_projection`; `cartulary.view.indicators.v1`                               | workbook shell, system-view registration, indicator columns      | Contract-backed system view. Existing rows derive mutability from the view contract and are not generic free-edit rows.                                                                                                                                |
+| Assessments             | `assessment`                                                    | `entities`    | `assessment_grid_projection`; `cartulary.view.assessments.v1`                             | workbook shell, system-view registration, assessment columns     | Contract-backed system view.                                                                                                                                                                                                                           |
+| Task Requests           | `task_request`                                                  | `links`       | `task_request_grid_projection`; `cartulary.view.task_requests.v1`                         | workbook shell, system-view registration, queue-oriented columns | Contract-backed system view.                                                                                                                                                                                                                           |
+| Decisions               | `decision`                                                      | `links`       | `decision_grid_projection`; `cartulary.view.decisions.v1`                                 | workbook shell, system-view registration, decision columns       | Contract-backed system view.                                                                                                                                                                                                                           |
+| Parties                 | `party`                                                         | `links`       | `party_grid_projection`; `cartulary.view.parties.v1`                                      | workbook shell, system-view registration, party columns          | Contract-backed system view. Party identity is incident-scoped coordination identity, not deployment-local account identity.                                                                                                                           |
+| Communications Log      | `artifact` filtered to `artifact_type='comm_log'`               | `links`       | `artifact_grid_projection` filtered to `comm_log`; `cartulary.view.comm_log.v1`           | workbook shell, coordination-surface components                  | Workbook-native coordination surface. Canonical base surface is the standardized `view_schema_id`; an additional `scope='system'` saved view over the same schema MAY exist as an additive preset only and MUST NOT replace the required base surface. |
+| Handoff                 | `artifact` filtered to `artifact_type='handoff'`                | `links`       | `artifact_grid_projection` filtered to `handoff`; `cartulary.view.handoff.v1`             | workbook shell, coordination-surface components                  | Workbook-native coordination surface. Canonical base surface is the standardized `view_schema_id`; an additional `scope='system'` saved view over the same schema MAY exist as an additive preset only and MUST NOT replace the required base surface. |
+| Status Review           | `artifact` filtered to `artifact_type='status_review'`          | `links`       | `artifact_grid_projection` filtered to `status_review`; `cartulary.view.status_review.v1` | workbook shell, coordination-surface components                  | Workbook-native coordination surface. Canonical base surface is the standardized `view_schema_id`; an additional `scope='system'` saved view over the same schema MAY exist as an additive preset only and MUST NOT replace the required base surface. |
+| Lesson                  | `artifact` filtered to `artifact_type='lesson'`                 | `links`       | `artifact_grid_projection` filtered to `lesson`; `cartulary.view.lesson.v1`               | workbook shell, coordination-surface components                  | Workbook-native coordination surface. Canonical base surface is the standardized `view_schema_id`; an additional `scope='system'` saved view over the same schema MAY exist as an additive preset only and MUST NOT replace the required base surface. |
+| Saved views             | `saved_view`                                                    | `incidents`   | `/api/v1/incidents/{incident_id}/saved-views/*`                                           | workbook shell, saved-view selector, layout persistence          | Workbook configuration object, not a projection row. Scope controls discoverability and mutability of the configuration object only.                                                                                                                   |
+| Workbook preferences    | `user_workbook_preferences`, `incident_workbook_preferences`    | `incidents`   | `/api/v1/incidents/{incident_id}/workbook-preferences/*`                                  | workbook bootstrap and startup-surface selection                 | Route-backed configuration object, not a workbook projection.                                                                                                                                                                                          |
+| Deployment-local users  | `user`                                                          | `auth`        | `/api/v1/users/*`                                                                         | admin UI or admin CLI if present                                 | Not a workbook surface. Deployment-local administration only.                                                                                                                                                                                          |
+| Incident memberships    | `incident_membership`                                           | `incidents`   | `/api/v1/incidents/{incident_id}/memberships/*`                                           | admin UI or admin CLI if present                                 | Not a workbook surface. Incident authorization administration only.                                                                                                                                                                                    |
 
 If the implementation exposes standardized optional artifact-backed surfaces in the current profile, the baseline `links` module also owns `cartulary.view.findings.v1`, `cartulary.view.investigative_queries.v1`, and `cartulary.view.forensic_keywords.v1` over filtered artifact-backed or otherwise owner-defined storage. Those surfaces remain optional and MUST use the standardized `view_schema_id` values when exposed.
 
@@ -895,12 +1091,12 @@ File-based structured import is not part of the default Base surface. When the I
 
 The guide uses the following canonical import objects:
 
-| Object | Default interpretation | Minimum implementation responsibility |
-| --- | --- | --- |
-| `import_session` | One uploaded source file plus one operator-driven workflow | Persist source identity, creator attribution, parser identity, session status, selected units, and diagnostics |
-| `import_unit` | One candidate ingestable unit discovered from the source file | Persist locator identity, dimensions, unit status, warnings, and mapping identity when approved |
-| `mapping_fingerprint` | Deterministic identity for one approved source-to-field mapping | Bind approved mapping persistence and later provenance |
-| `warning_code[]` | Closed warning vocabulary for downgraded or unsupported source features | Surface parser downgrades without leaking workbook semantics into other modules |
+| Object                | Default interpretation                                                  | Minimum implementation responsibility                                                                          |
+| --------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `import_session`      | One uploaded source file plus one operator-driven workflow              | Persist source identity, creator attribution, parser identity, session status, selected units, and diagnostics |
+| `import_unit`         | One candidate ingestable unit discovered from the source file           | Persist locator identity, dimensions, unit status, warnings, and mapping identity when approved                |
+| `mapping_fingerprint` | Deterministic identity for one approved source-to-field mapping         | Bind approved mapping persistence and later provenance                                                         |
+| `warning_code[]`      | Closed warning vocabulary for downgraded or unsupported source features | Surface parser downgrades without leaking workbook semantics into other modules                                |
 
 The implementation baseline MUST use canonical import-unit vocabulary rather than inventing alternate contract nouns such as “selected-sheet import” or “selected-region import.” A worksheet used range or named range is a locator kind, not the public contract object.
 
@@ -948,14 +1144,14 @@ The guide baseline requires code support for:
 - fail-closed handling for unknown keys,
 - explicit runtime-root coverage matching the stable key map below.
 
-| Runtime-root purpose | Stable configuration key | Default implementation meaning |
-| --- | --- | --- |
-| database storage | `roots.database_storage` | Authoritative structured-state storage |
-| object storage | `roots.object_storage` | Authoritative binary-evidence storage |
-| backup storage | `roots.backup_storage` | Operator-facing backup artifacts and retention material |
-| reference-pack storage | `roots.reference_pack_storage` | Imported reference packs and extracted pack payloads |
-| temporary work files | `roots.temporary_work` | Staging and transient processing artifacts that may carry incident data |
-| export outputs | `roots.export_outputs` | Generated reports, presentations, and other rendered outputs |
+| Runtime-root purpose   | Stable configuration key       | Default implementation meaning                                          |
+| ---------------------- | ------------------------------ | ----------------------------------------------------------------------- |
+| database storage       | `roots.database_storage`       | Authoritative structured-state storage                                  |
+| object storage         | `roots.object_storage`         | Authoritative binary-evidence storage                                   |
+| backup storage         | `roots.backup_storage`         | Operator-facing backup artifacts and retention material                 |
+| reference-pack storage | `roots.reference_pack_storage` | Imported reference packs and extracted pack payloads                    |
+| temporary work files   | `roots.temporary_work`         | Staging and transient processing artifacts that may carry incident data |
+| export outputs         | `roots.export_outputs`         | Generated reports, presentations, and other rendered outputs            |
 
 This guide intentionally does not restate the full operator-facing configuration artifact or discovery precedence as a second owner. Core 04 §12 remains the owner for those details.
 
@@ -991,13 +1187,13 @@ The bootstrap-created admin then enters the ordinary local TOTP bootstrap flow o
 
 ### 12.4 Profile-specific deployment concerns
 
-| Profile | Additional implementation concern |
-| --- | --- |
-| `import` | Temporary-work roots, hostile workbook parsing, size ceilings, background import jobs |
-| `snapshot_reporting` | Self-contained render assets, release-state handling, artifact approval gates, redaction-driven rendering |
-| `incident_portability` | Staging under temporary-work roots, checksum verification before visibility, authoritative-source-only export |
-| `reference_pack` | Offline bundle import, activation state, attestation metadata, pack storage roots |
-| `enterprise_authentication` | Server-side provider configuration, correlation-state storage, provider-to-session convergence |
+| Profile                     | Additional implementation concern                                                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `import`                    | Temporary-work roots, hostile workbook parsing, size ceilings, background import jobs                         |
+| `snapshot_reporting`        | Self-contained render assets, release-state handling, artifact approval gates, redaction-driven rendering     |
+| `incident_portability`      | Staging under temporary-work roots, checksum verification before visibility, authoritative-source-only export |
+| `reference_pack`            | Offline bundle import, activation state, attestation metadata, pack storage roots                             |
+| `enterprise_authentication` | Server-side provider configuration, correlation-state storage, provider-to-session convergence                |
 
 Extension-specific code paths MUST remain off by default unless the deployment explicitly claims the corresponding profile.
 
@@ -1100,10 +1296,10 @@ This guide intentionally contains no assistant-specific or tool-specific work-al
 
 These fixtures are implementation-facing test anchors mirrored from owner criteria. They support local and CI engineering validation. Any claim-bearing timed or fixture-sensitive public statement MUST additionally satisfy Core 05 benchmark-profile, benchmark-manifest, measurement-predicate, and publication-manifest requirements.
 
-| Measurement context | Governing owner | Interpretation in this guide |
-| --- | --- | --- |
-| Local or CI engineering run | Core 04 behavioral thresholds plus this guide's harness mirror | Informative implementation-facing validation |
-| Public timed or fixture-sensitive claim | Core 05 | Claim-bearing only when the benchmark profile, benchmark manifest, measurement predicate, and underlying implementation claim all conform |
+| Measurement context                     | Governing owner                                                | Interpretation in this guide                                                                                                              |
+| --------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Local or CI engineering run             | Core 04 behavioral thresholds plus this guide's harness mirror | Informative implementation-facing validation                                                                                              |
+| Public timed or fixture-sensitive claim | Core 05                                                        | Claim-bearing only when the benchmark profile, benchmark manifest, measurement predicate, and underlying implementation claim all conform |
 
 Unless an owner criterion declares another benchmark profile explicitly, the current claim-bearing benchmark profile is `cartulary.perf.desktop_ref.v1`. Unless a publication criterion says otherwise, `reference incident` means Fixture A.
 
@@ -1149,6 +1345,10 @@ This guide rewrite is complete only when all of the following are true:
 16. Repo-fact sections that depend on live repository control files, including package inventory, the monorepo tree, task surface, and contributor-procedure owner, are explicitly marked as pending repo-control revalidation or independently revalidated.
 17. Deployment runtime-root coverage includes `backup storage`, the deployment section includes first-deployment-admin bootstrap and `deployment_admin` boundary notes, and the backup or restore text states that backup, restore, and restore verification remain deployment-local operator-facing concerns rather than public workbook route families.
 18. Section 14 explicitly distinguishes implementation-facing harness mirrors from Core 05 claim-bearing publication requirements, names Core 05 as the owner for benchmark-profile and reproducibility rules, and mirrors the current fixture qualifiers plus `cartulary.perf.desktop_ref.v1`.
+19. The frontend section contains the grid-engine selection gate and continues to name `react-data-grid` as the current baseline.
+20. The frontend architecture section contains the grid adapter contract, capability allowlist, renderer/editor lifecycle rules, and grid-state refresh semantics.
+21. `/packages/grid-adapter` appears in the workspace package baseline and owns selected-grid integration, coordinate translation, capability allowlisting, and imperative API fencing.
+22. No frontend section allows row-position identity, direct vendor-grid mutation outside the adapter, or mutation routing from renderers and editors outside the adapter and sync engine.
 
 ### Verification
 
