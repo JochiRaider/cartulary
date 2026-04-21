@@ -29,6 +29,7 @@
       "package": "./internal/platform/config",
       "file": "internal/platform/config/config_phase0_test.go",
       "symbol": "TestPhase0_ConfigDiscovery_U_0_01",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "config_validation"
     },
     {
@@ -38,6 +39,7 @@
       "package": "./internal/platform/config",
       "file": "internal/platform/config/config_phase0_test.go",
       "symbol": "TestPhase0_RuntimeRoots_U_0_02",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "config_validation"
     },
     {
@@ -47,6 +49,7 @@
       "package": "./internal/platform/config",
       "file": "internal/platform/config/config_phase0_test.go",
       "symbol": "TestPhase0_FilesystemRootPaths_U_0_03",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "path_validation"
     },
     {
@@ -56,6 +59,7 @@
       "package": "./internal/platform/config",
       "file": "internal/platform/config/config_phase0_test.go",
       "symbol": "TestPhase0_DisconnectedDefaults_U_0_04",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "config_defaults"
     },
     {
@@ -65,6 +69,7 @@
       "package": "./internal/app",
       "file": "internal/app/runtime_phase0_test.go",
       "symbol": "TestPhase0_FailClosedStartup_U_0_05",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "startup_fail_closed"
     },
     {
@@ -74,6 +79,7 @@
       "package": "./internal/app",
       "file": "internal/app/bootstrap_phase0_test.go",
       "symbol": "TestPhase0_BootstrapManifestValidation_U_0_07",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "bootstrap_manifest_validation"
     },
     {
@@ -83,6 +89,7 @@
       "package": "./internal/app",
       "file": "internal/app/bootstrap_phase0_test.go",
       "symbol": "TestPhase0_BootstrapPreflight_U_0_08",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "bootstrap_preflight"
     },
     {
@@ -92,6 +99,7 @@
       "package": "./internal/platform/config",
       "file": "internal/platform/config/config_phase0_test.go",
       "symbol": "TestPhase0_ResourceLimits_U_0_09",
+      "execution_dependency": "backend_unit",
       "evidence_layer": "resource_limit_validation"
     }
   ],
@@ -103,6 +111,7 @@
       "package": "./internal/platform/postgres",
       "file": "internal/platform/postgres/postgres_phase0_test.go",
       "symbol": "TestPhase0_SchemaBootstrap_I_0_01",
+      "execution_dependency": "backend_integration",
       "evidence_layer": "postgres_integration"
     },
     {
@@ -112,6 +121,7 @@
       "package": "./internal/platform/objectstore",
       "file": "internal/platform/objectstore/objectstore_phase0_test.go",
       "symbol": "TestPhase0_ObjectStoreInitialization_I_0_02",
+      "execution_dependency": "backend_integration",
       "evidence_layer": "object_store_integration"
     },
     {
@@ -121,6 +131,7 @@
       "package": "./internal/app",
       "file": "internal/app/runtime_phase0_integration_test.go",
       "symbol": "TestPhase0_InvalidConfigNeverReachesReady_I_0_03",
+      "execution_dependency": "backend_integration",
       "evidence_layer": "runtime_integration"
     },
     {
@@ -130,6 +141,7 @@
       "package": "./internal/app",
       "file": "internal/app/runtime_phase0_integration_test.go",
       "symbol": "TestPhase0_FirstAdminBootstrap_I_0_04",
+      "execution_dependency": "backend_integration",
       "evidence_layer": "bootstrap_integration"
     },
     {
@@ -139,6 +151,7 @@
       "package": "./internal/app",
       "file": "internal/app/runtime_phase0_integration_test.go",
       "symbol": "TestPhase0_BootstrapFailures_I_0_05",
+      "execution_dependency": "backend_integration",
       "evidence_layer": "bootstrap_failure_integration"
     },
     {
@@ -148,6 +161,7 @@
       "package": "./internal/app",
       "file": "internal/app/runtime_phase0_integration_test.go",
       "symbol": "TestPhase0_BootstrapSkipAndRecovery_I_0_06",
+      "execution_dependency": "backend_integration",
       "evidence_layer": "bootstrap_recovery_integration"
     }
   ],
@@ -159,6 +173,7 @@
       "package": "./cmd/server",
       "file": "cmd/server/main_phase0_e2e_test.go",
       "symbol": "TestPhase0_ReadyState_E_0_01",
+      "execution_dependency": "backend_process",
       "evidence_layer": "process_e2e"
     },
     {
@@ -168,6 +183,7 @@
       "package": "./cmd/server",
       "file": "cmd/server/main_phase0_e2e_test.go",
       "symbol": "TestPhase0_InvalidConfigDiagnostics_E_0_02",
+      "execution_dependency": "backend_process",
       "evidence_layer": "process_e2e"
     },
     {
@@ -177,6 +193,7 @@
       "package": "./cmd/server",
       "file": "cmd/server/main_phase0_e2e_test.go",
       "symbol": "TestPhase0_FirstAdminBootstrap_E_0_03",
+      "execution_dependency": "backend_process",
       "evidence_layer": "process_e2e"
     },
     {
@@ -186,6 +203,7 @@
       "package": "./cmd/server",
       "file": "cmd/server/main_phase0_e2e_test.go",
       "symbol": "TestPhase0_BootstrapFailures_E_0_04",
+      "execution_dependency": "backend_process",
       "evidence_layer": "process_e2e"
     },
     {
@@ -195,6 +213,7 @@
       "package": "./cmd/server",
       "file": "cmd/server/main_phase0_e2e_test.go",
       "symbol": "TestPhase0_BootstrapSkipAndRecovery_E_0_05",
+      "execution_dependency": "backend_process",
       "evidence_layer": "process_e2e"
     }
   ]

@@ -27,6 +27,7 @@ var (
 	newJobsManager   = jobs.NewManager
 	setupPostgres    = postgres.SetupWithEnv
 	setupObjectStore = objectstore.SetupWithEnv
+	runBootstrap     = bootstrapPreflight
 	newWSHub         = platformws.NewHub
 	newHTTPHandler   = httpapi.NewHandler
 )
@@ -79,7 +80,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.ObjectStore = client
 	}
 
-	if err := bootstrapPreflight(ctx, normalizedCfg, postgresBootstrapStore{pool: runtime.Postgres}, os.ReadFile, deriveBootstrapPasswordHash); err != nil {
+	if err := runBootstrap(ctx, normalizedCfg, postgresBootstrapStore{pool: runtime.Postgres}, os.ReadFile, deriveBootstrapPasswordHash); err != nil {
 		runtime.Close()
 		return nil, err
 	}

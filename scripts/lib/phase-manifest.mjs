@@ -13,6 +13,7 @@ const validExecutionDependencies = new Set([
   "backend_unit",
   "backend_store",
   "backend_integration",
+  "backend_process",
   "frontend_unit",
   "browser_functional",
   "browser_measurement",
@@ -201,18 +202,77 @@ function selectGoEntries(root, phase, section, coverage, executionDependency, pa
   );
 }
 
-function readGoLogRunTests(logFile) {
-  const seen = new Set();
+let cachedGoModulePath;
+
+function loadGoModulePath(root) {
+  if (cachedGoModulePath !== undefined) {
+    return cachedGoModulePath;
+  }
+  const goMod = readFileSync(path.join(root, "go.mod"), "utf8");
+  const match = goMod.match(/^module\s+(\S+)$/m);
+  if (!match) {
+    throw new Error("unable to determine Go module path from go.mod");
+  }
+  cachedGoModulePath = match[1];
+  return cachedGoModulePath;
+}
+
+function toGoImportPath(root, repoRelativePackage) {
+  if (!repoRelativePackage.startsWith("./")) {
+    throw new Error(`manifest Go package must be repo-relative: ${repoRelativePackage}`);
+  }
+  const suffix = repoRelativePackage.slice(2);
+  if (suffix === "") {
+    return loadGoModulePath(root);
+  }
+  return `${loadGoModulePath(root)}/${suffix}`;
+}
+
+function goLogKey(pkg, test) {
+  return `${pkg}::${test}`;
+}
+
+function describeGoEntry(entry) {
+  return `${entry.symbol} [${entry.package}]`;
+}
+
+function readGoLogTopLevelStatuses(logFile) {
+  const seen = new Map();
   for (const rawLine of readFileSync(logFile, "utf8").split(/\r?\n/)) {
     const line = rawLine.trim();
     if (line === "") {
       continue;
     }
     const entry = JSON.parse(line);
-    if (entry.Action !== "run" || typeof entry.Test !== "string" || entry.Test.includes("/")) {
+    if (typeof entry.Package !== "string" || entry.Package === "") {
       continue;
     }
-    seen.add(entry.Test);
+    if (
+      !["run", "pass", "fail", "skip"].includes(entry.Action) ||
+      typeof entry.Test !== "string" ||
+      entry.Test.includes("/")
+    ) {
+      continue;
+    }
+    if (
+      !entry.Test.startsWith("Test") &&
+      !entry.Test.startsWith("Benchmark") &&
+      !entry.Test.startsWith("Fuzz")
+    ) {
+      continue;
+    }
+    const key = goLogKey(entry.Package, entry.Test);
+    if (!seen.has(key)) {
+      seen.set(key, { package: entry.Package, test: entry.Test, status: "" });
+    }
+    const current = seen.get(key);
+    if (entry.Action === "run") {
+      if (current.status === "") {
+        current.status = "run";
+      }
+      continue;
+    }
+    current.status = entry.Action;
   }
   return seen;
 }
@@ -390,18 +450,42 @@ function main(argv) {
       if (entries.length === 0) {
         throw new Error(`no ${coverage} go tests found for ${phase} ${section} in ${packagePatterns.join(", ")}`);
       }
-      const expected = entries.map((entry) => entry.symbol).sort();
-      const actual = readGoLogRunTests(logFile);
-      const missing = expected.filter((symbol) => !actual.has(symbol));
-      const unexpected = Array.from(actual)
-        .filter((symbol) => expected.includes(symbol))
-        .sort();
-      if (missing.length > 0) {
-        throw new Error(`manifest-go execution mismatch: missing=${missing.join(", ")}`);
+      const actual = readGoLogTopLevelStatuses(logFile);
+      const passed = [];
+      const missing = [];
+      const skipped = [];
+      const failed = [];
+      const incomplete = [];
+      for (const entry of entries) {
+        const key = goLogKey(toGoImportPath(root, entry.package), entry.symbol);
+        const result = actual.get(key);
+        if (!result) {
+          missing.push(describeGoEntry(entry));
+          continue;
+        }
+        switch (result.status) {
+          case "pass":
+            passed.push(entry.symbol);
+            break;
+          case "skip":
+            skipped.push(describeGoEntry(entry));
+            break;
+          case "fail":
+            failed.push(describeGoEntry(entry));
+            break;
+          default:
+            incomplete.push(describeGoEntry(entry));
+            break;
+        }
+      }
+      if (missing.length > 0 || skipped.length > 0 || failed.length > 0 || incomplete.length > 0) {
+        throw new Error(
+          `manifest-go execution mismatch: missing=${missing.join(",") || "none"} skipped=${skipped.join(",") || "none"} failed=${failed.join(",") || "none"} incomplete=${incomplete.join(",") || "none"}`,
+        );
       }
       printLines([
-        `matched go manifest tests: ${expected.length}`,
-        ...unexpected.map((symbol) => `  ${symbol}`),
+        `matched go manifest tests: ${passed.length}`,
+        ...passed.sort().map((symbol) => `  ${symbol}`),
       ]);
       return;
     }

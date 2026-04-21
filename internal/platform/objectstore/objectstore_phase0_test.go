@@ -19,7 +19,7 @@ import (
 func TestPhase0_ObjectStoreInitialization_I_0_02(t *testing.T) {
 	s3Harness := s3test.Start(t)
 
-	t.Run("derives managed-service settings from roots.object_storage.service_ref", func(t *testing.T) {
+	t.Run("derives disconnected filesystem-root settings from the generic CARTULARY_S3 environment contract", func(t *testing.T) {
 		bucket := fmt.Sprintf("phase0-i-0-02-%d", time.Now().UnixNano())
 		defer func() {
 			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
@@ -27,15 +27,9 @@ func TestPhase0_ObjectStoreInitialization_I_0_02(t *testing.T) {
 			}
 		}()
 
-		env := s3Harness.EnvForServiceRef("object_primary", bucket)
-		env[objectstore.EndpointEnv] = "127.0.0.1:1"
-		env[objectstore.AccessKeyEnv] = "wrong"
-		env[objectstore.SecretKeyEnv] = "wrong"
-		env[objectstore.BucketEnv] = "wrong-bucket"
-
-		client, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), env)
+		client, err := objectstore.SetupWithEnv(context.Background(), disconnectedObjectStoreConfig(t), s3Harness.Env(bucket))
 		if err != nil {
-			t.Fatalf("setup object store from managed-service binding: %v", err)
+			t.Fatalf("setup object store from disconnected filesystem-root binding: %v", err)
 		}
 
 		exists, err := client.BucketExists(context.Background(), bucket)
@@ -71,11 +65,53 @@ func TestPhase0_ObjectStoreInitialization_I_0_02(t *testing.T) {
 		}
 	})
 
-	t.Run("fails closed when the configured managed-service binding cannot resolve service-ref settings", func(t *testing.T) {
+	t.Run("fails closed when only managed-service variables are present for a disconnected filesystem-root binding", func(t *testing.T) {
 		bucket := fmt.Sprintf("phase0-i-0-02-fail-%d", time.Now().UnixNano())
-		env := s3Harness.Env(bucket)
+		env := s3Harness.EnvForServiceRef("object_primary", bucket)
+		env[objectstore.EndpointEnv] = "127.0.0.1:1"
+		env[objectstore.AccessKeyEnv] = "wrong"
+		env[objectstore.SecretKeyEnv] = "wrong"
+		env[objectstore.BucketEnv] = "wrong-bucket"
 
-		_, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), env)
+		_, err := objectstore.SetupWithEnv(context.Background(), disconnectedObjectStoreConfig(t), env)
+		if err == nil {
+			t.Fatal("expected disconnected filesystem-root binding to reject an unusable generic object-store environment")
+		}
+		if !strings.Contains(err.Error(), `check object store bucket "wrong-bucket"`) {
+			t.Fatalf("unexpected disconnected object-store binding failure: %v", err)
+		}
+	})
+}
+
+func TestSupportPhase0_ManagedServiceObjectStoreBinding(t *testing.T) {
+	s3Harness := s3test.Start(t)
+
+	t.Run("derives managed-service settings from roots.object_storage.service_ref", func(t *testing.T) {
+		bucket := fmt.Sprintf("phase0-support-managed-object-%d", time.Now().UnixNano())
+		defer func() {
+			if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
+				t.Logf("cleanup bucket: %v", err)
+			}
+		}()
+
+		client, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), s3Harness.EnvForServiceRef("object_primary", bucket))
+		if err != nil {
+			t.Fatalf("setup object store from managed-service binding: %v", err)
+		}
+
+		exists, err := client.BucketExists(context.Background(), bucket)
+		if err != nil {
+			t.Fatalf("check bucket existence: %v", err)
+		}
+		if !exists {
+			t.Fatalf("expected setup to create configured bucket %q", bucket)
+		}
+	})
+
+	t.Run("fails closed when the configured managed-service binding cannot resolve service-ref settings", func(t *testing.T) {
+		bucket := fmt.Sprintf("phase0-support-managed-object-fail-%d", time.Now().UnixNano())
+
+		_, err := objectstore.SetupWithEnv(context.Background(), managedObjectStoreConfig(t), s3Harness.Env(bucket))
 		if err == nil {
 			t.Fatal("expected managed-service object-store binding to reject unrelated generic env settings")
 		}
@@ -83,6 +119,46 @@ func TestPhase0_ObjectStoreInitialization_I_0_02(t *testing.T) {
 			t.Fatalf("unexpected managed-service binding failure: %v", err)
 		}
 	})
+}
+
+func disconnectedObjectStoreConfig(t testing.TB) config.Config {
+	t.Helper()
+
+	cfg, err := config.Validate(config.Config{
+		ConfigSchemaID:    "cartulary.deployment_config.v1",
+		DeploymentProfile: "disconnected",
+		Roots: config.RootBindings{
+			DatabaseStorage: config.RootBinding{
+				BindingKind: "filesystem_root",
+				Path:        "/var/lib/cartulary/postgres",
+			},
+			ObjectStorage: config.RootBinding{
+				BindingKind: "filesystem_root",
+				Path:        "/var/lib/cartulary/object-store",
+			},
+			BackupStorage: config.RootBinding{
+				BindingKind: "filesystem_root",
+				Path:        "/var/lib/cartulary/backups",
+			},
+			ReferencePackStorage: config.RootBinding{
+				BindingKind: "filesystem_root",
+				Path:        "/var/lib/cartulary/reference-packs",
+			},
+			TemporaryWork: config.RootBinding{
+				BindingKind: "filesystem_root",
+				Path:        "/var/lib/cartulary/tmp",
+			},
+			ExportOutputs: config.RootBinding{
+				BindingKind: "filesystem_root",
+				Path:        "/var/lib/cartulary/exports",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("validate disconnected object-store config: %v", err)
+	}
+
+	return cfg
 }
 
 func managedObjectStoreConfig(t testing.TB) config.Config {

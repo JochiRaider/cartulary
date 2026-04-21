@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -225,72 +224,66 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 		{
 			name: "non regular bootstrap path",
 			manifestPath: func(t *testing.T) string {
-				return t.TempDir()
+				return phase0test.WriteNonRegularBootstrapManifestPath(t)
 			},
 			wantReasonCode: "bootstrap_manifest_not_regular_file",
 		},
 		{
 			name: "malformed json manifest",
 			manifestPath: func(t *testing.T) string {
-				path := filepath.Join(t.TempDir(), "bootstrap-admin.json")
-				if err := os.WriteFile(path, []byte(`{"bootstrap_schema_id":`), 0o644); err != nil {
-					t.Fatalf("write malformed manifest: %v", err)
-				}
-				return path
+				return phase0test.WriteMalformedBootstrapManifest(t)
 			},
 			wantReasonCode: "bootstrap_manifest_parse_error",
 		},
 		{
 			name: "wrong schema id manifest",
 			manifestPath: func(t *testing.T) string {
-				return writeBootstrapManifest(t, `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v2","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!"}`)
+				return phase0test.WriteWrongSchemaBootstrapManifest(t)
 			},
 			wantReasonCode: "bootstrap_manifest_schema_invalid",
 		},
 		{
 			name: "explicit false mfa manifest",
 			manifestPath: func(t *testing.T) string {
-				return writeBootstrapManifest(t, `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","mfa_required":false}`)
+				return phase0test.WriteExplicitFalseMFABootstrapManifest(t)
 			},
 			wantReasonCode: "bootstrap_manifest_schema_invalid",
 		},
 		{
 			name: "unknown top level members",
 			manifestPath: func(t *testing.T) string {
-				return writeBootstrapManifest(t, `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","unexpected":"surprise"}`)
+				return phase0test.WriteUnknownMemberBootstrapManifest(t)
 			},
 			wantReasonCode: "bootstrap_manifest_schema_invalid",
 		},
 		{
 			name: "forbidden incident membership fields",
 			manifestPath: func(t *testing.T) string {
-				return writeBootstrapManifest(t, `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","incident_memberships":[{"incident_id":"11111111-1111-1111-1111-111111111111","role":"admin"}]}`)
+				return phase0test.WriteForbiddenIncidentMembershipBootstrapManifest(t)
 			},
 			wantReasonCode: "bootstrap_manifest_schema_invalid",
 		},
 		{
 			name: "forbidden provider binding fields",
 			manifestPath: func(t *testing.T) string {
-				return writeBootstrapManifest(t, `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","provider_subject":"oidc-subject"}`)
+				return phase0test.WriteForbiddenProviderBootstrapManifest(t)
 			},
 			wantReasonCode: "bootstrap_manifest_schema_invalid",
 		},
 		{
 			name: "forbidden client chosen admin fields",
 			manifestPath: func(t *testing.T) string {
-				return writeBootstrapManifest(t, `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","is_deployment_admin":true}`)
+				return phase0test.WriteForbiddenDeploymentAdminBootstrapManifest(t)
 			},
 			wantReasonCode: "bootstrap_manifest_schema_invalid",
 		},
 		{
 			name: "email conflict",
 			manifestPath: func(t *testing.T) string {
-				return fixtures.Path("bootstrap-admin", "canonical.json")
+				return phase0test.CanonicalBootstrapManifestPath()
 			},
 			seed: func(t *testing.T, db *sql.DB) {
-				if _, err := db.ExecContext(context.Background(), `INSERT INTO users (email, display_name, password_hash) VALUES ($1, $2, $3)`, "bootstrap-admin@example.test", "Existing User", "existing-hash"); err != nil {
-					t.Fatalf("seed conflicting user: %v", err)
-				}
+				phase0test.SeedBootstrapEmailConflict(t, db)
 			},
 			wantReasonCode: "bootstrap_email_conflict",
 			wantUserCount:  1,
@@ -364,7 +357,7 @@ func TestPhase0_BootstrapSkipAndRecovery_I_0_06(t *testing.T) {
 			},
 			{
 				name:         "invalid manifest content",
-				manifestPath: writeBootstrapManifest(t, `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","mfa_required":false}`),
+				manifestPath: phase0test.WriteExplicitFalseMFABootstrapManifest(t),
 			},
 		}
 
@@ -578,16 +571,6 @@ func phase0IntegrationEnv(databaseEnv map[string]string, objectStoreEnv map[stri
 		env[key] = value
 	}
 	return env
-}
-
-func writeBootstrapManifest(t testing.TB, content string) string {
-	t.Helper()
-
-	path := filepath.Join(t.TempDir(), "bootstrap-admin.json")
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("write bootstrap manifest: %v", err)
-	}
-	return path
 }
 
 func openPhase0SQL(t testing.TB, dsn string) *sql.DB {

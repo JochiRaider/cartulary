@@ -16,18 +16,17 @@ import (
 )
 
 func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
-	cfg := phase0RuntimeConfig(t)
-	cfg.Roots.DatabaseStorage.Path = "relative/postgres"
-
 	originalNewJobsManager := newJobsManager
 	originalSetupPostgres := setupPostgres
 	originalSetupObjectStore := setupObjectStore
+	originalRunBootstrap := runBootstrap
 	originalNewWSHub := newWSHub
 	originalNewHTTPHandler := newHTTPHandler
 	t.Cleanup(func() {
 		newJobsManager = originalNewJobsManager
 		setupPostgres = originalSetupPostgres
 		setupObjectStore = originalSetupObjectStore
+		runBootstrap = originalRunBootstrap
 		newWSHub = originalNewWSHub
 		newHTTPHandler = originalNewHTTPHandler
 	})
@@ -62,22 +61,72 @@ func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
 		return http.NewServeMux(), nil
 	}
 
-	_, err := NewRuntime(context.Background(), cfg, Options{})
-	if err == nil {
-		t.Fatal("expected invalid config to fail closed")
-	}
+	t.Run("invalid deployment config stops before any dependency wiring", func(t *testing.T) {
+		cfg := phase0RuntimeConfig(t)
+		cfg.Roots.DatabaseStorage.Path = "relative/postgres"
 
-	diagnosticsErr, ok := err.(*config.DiagnosticsError)
-	if !ok {
-		t.Fatalf("expected diagnostics error, got %T", err)
-	}
-	if diagnosticsErr.Code != "invalid_deployment_config" {
-		t.Fatalf("unexpected diagnostics code: got %q", diagnosticsErr.Code)
-	}
+		_, err := NewRuntime(context.Background(), cfg, Options{})
+		if err == nil {
+			t.Fatal("expected invalid config to fail closed")
+		}
 
-	if jobsCalls != 0 || postgresCalls != 0 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
-		t.Fatalf("expected fail-closed startup before any dependency wiring, got jobs=%d postgres=%d object_store=%d websocket=%d handler=%d", jobsCalls, postgresCalls, objectStoreCalls, wsHubCalls, handlerCalls)
-	}
+		diagnosticsErr, ok := err.(*config.DiagnosticsError)
+		if !ok {
+			t.Fatalf("expected diagnostics error, got %T", err)
+		}
+		if diagnosticsErr.Code != "invalid_deployment_config" {
+			t.Fatalf("unexpected diagnostics code: got %q", diagnosticsErr.Code)
+		}
+
+		if jobsCalls != 0 || postgresCalls != 0 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
+			t.Fatalf("expected fail-closed startup before any dependency wiring, got jobs=%d postgres=%d object_store=%d websocket=%d handler=%d", jobsCalls, postgresCalls, objectStoreCalls, wsHubCalls, handlerCalls)
+		}
+	})
+
+	t.Run("bootstrap preflight failures stop before jobs, websocket, and handler construction", func(t *testing.T) {
+		cfg := phase0RuntimeConfig(t)
+
+		var bootstrapCalls int
+		runBootstrap = func(ctx context.Context, cfg config.Config, store bootstrapStore, readFile func(string) ([]byte, error), hashPassword func(string) (string, error)) error {
+			bootstrapCalls++
+			return &config.DiagnosticsError{
+				Code: config.InvalidDeploymentConfigCode,
+				Diagnostics: []config.Diagnostic{{
+					Path:       "bootstrap.first_admin_manifest_path",
+					ReasonCode: "bootstrap_recovery_not_supported",
+					Message:    "bootstrap completion state exists but no active deployment admin remains",
+				}},
+			}
+		}
+
+		jobsCalls = 0
+		postgresCalls = 0
+		objectStoreCalls = 0
+		wsHubCalls = 0
+		handlerCalls = 0
+
+		_, err := NewRuntime(context.Background(), cfg, Options{})
+		if err == nil {
+			t.Fatal("expected bootstrap preflight to fail closed")
+		}
+
+		diagnosticsErr, ok := err.(*config.DiagnosticsError)
+		if !ok {
+			t.Fatalf("expected diagnostics error, got %T", err)
+		}
+		if diagnosticsErr.Code != config.InvalidDeploymentConfigCode {
+			t.Fatalf("unexpected diagnostics code: got %q", diagnosticsErr.Code)
+		}
+		if bootstrapCalls != 1 {
+			t.Fatalf("expected exactly one bootstrap preflight call, got %d", bootstrapCalls)
+		}
+		if postgresCalls != 1 || objectStoreCalls != 1 {
+			t.Fatalf("expected startup to reach storage setup before bootstrap preflight failure, got postgres=%d object_store=%d", postgresCalls, objectStoreCalls)
+		}
+		if jobsCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
+			t.Fatalf("expected bootstrap preflight failure to stop before listener construction, got jobs=%d websocket=%d handler=%d", jobsCalls, wsHubCalls, handlerCalls)
+		}
+	})
 }
 
 func phase0RuntimeConfig(t testing.TB) config.Config {

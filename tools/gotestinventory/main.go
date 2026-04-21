@@ -15,6 +15,10 @@ type event struct {
 	Test    string `json:"Test"`
 }
 
+type testState struct {
+	Status string
+}
+
 func main() {
 	if len(os.Args) != 2 {
 		fmt.Fprintln(os.Stderr, "usage: gotestinventory <go-test-json-log-file|-")
@@ -39,7 +43,7 @@ func run(path string, stdout io.Writer, stderr io.Writer) error {
 
 	order := make([]string, 0)
 	testsByPackage := make(map[string][]string)
-	seenTests := make(map[string]map[string]struct{})
+	testStates := make(map[string]map[string]*testState)
 
 	lineNumber := 0
 	for scanner.Scan() {
@@ -54,7 +58,7 @@ func run(path string, stdout io.Writer, stderr io.Writer) error {
 			return fmt.Errorf("phase inventory parse failed: invalid go test json on line %d: %w", lineNumber, err)
 		}
 
-		if entry.Action != "run" || entry.Package == "" || entry.Test == "" {
+		if entry.Package == "" || entry.Test == "" {
 			continue
 		}
 		if strings.Contains(entry.Test, "/") {
@@ -64,16 +68,22 @@ func run(path string, stdout io.Writer, stderr io.Writer) error {
 			continue
 		}
 
-		if _, ok := seenTests[entry.Package]; !ok {
-			seenTests[entry.Package] = make(map[string]struct{})
+		if _, ok := testStates[entry.Package]; !ok {
+			testStates[entry.Package] = make(map[string]*testState)
 			order = append(order, entry.Package)
 		}
-		if _, ok := seenTests[entry.Package][entry.Test]; ok {
-			continue
+		if _, ok := testStates[entry.Package][entry.Test]; !ok {
+			testStates[entry.Package][entry.Test] = &testState{}
+			testsByPackage[entry.Package] = append(testsByPackage[entry.Package], entry.Test)
 		}
-
-		seenTests[entry.Package][entry.Test] = struct{}{}
-		testsByPackage[entry.Package] = append(testsByPackage[entry.Package], entry.Test)
+		switch entry.Action {
+		case "run":
+			if testStates[entry.Package][entry.Test].Status == "" {
+				testStates[entry.Package][entry.Test].Status = "run"
+			}
+		case "pass", "fail", "skip":
+			testStates[entry.Package][entry.Test].Status = entry.Action
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -81,23 +91,68 @@ func run(path string, stdout io.Writer, stderr io.Writer) error {
 	}
 
 	matchedTests := 0
+	skipped := make([]string, 0)
+	failed := make([]string, 0)
+	incomplete := make([]string, 0)
 	for _, pkg := range order {
-		matchedTests += len(testsByPackage[pkg])
+		for _, testName := range testsByPackage[pkg] {
+			state := testStates[pkg][testName]
+			switch state.Status {
+			case "pass":
+				matchedTests++
+			case "skip":
+				skipped = append(skipped, fmt.Sprintf("%s/%s", pkg, testName))
+			case "fail":
+				failed = append(failed, fmt.Sprintf("%s/%s", pkg, testName))
+			default:
+				incomplete = append(incomplete, fmt.Sprintf("%s/%s", pkg, testName))
+			}
+		}
 	}
 	if matchedTests == 0 {
+		if len(skipped) > 0 || len(failed) > 0 || len(incomplete) > 0 {
+			return fmt.Errorf(
+				"go test inventory requires top-level pass: skipped=%s failed=%s incomplete=%s",
+				joinValues(skipped),
+				joinValues(failed),
+				joinValues(incomplete),
+			)
+		}
 		return fmt.Errorf("phase matched zero tests")
+	}
+	if len(skipped) > 0 || len(failed) > 0 || len(incomplete) > 0 {
+		return fmt.Errorf(
+			"go test inventory requires top-level pass: skipped=%s failed=%s incomplete=%s",
+			joinValues(skipped),
+			joinValues(failed),
+			joinValues(incomplete),
+		)
 	}
 
 	fmt.Fprintf(stdout, "matched go tests: %d across %d packages\n", matchedTests, len(order))
 	for _, pkg := range order {
-		fmt.Fprintf(stdout, "  %s\n", pkg)
+		printedPackage := false
 		for _, testName := range testsByPackage[pkg] {
+			if testStates[pkg][testName].Status != "pass" {
+				continue
+			}
+			if !printedPackage {
+				fmt.Fprintf(stdout, "  %s\n", pkg)
+				printedPackage = true
+			}
 			fmt.Fprintf(stdout, "    %s\n", testName)
 		}
 	}
 
 	_ = stderr
 	return nil
+}
+
+func joinValues(values []string) string {
+	if len(values) == 0 {
+		return "none"
+	}
+	return strings.Join(values, ", ")
 }
 
 func openInput(path string) (io.Reader, func(), error) {

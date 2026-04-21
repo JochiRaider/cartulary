@@ -160,7 +160,9 @@ func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
 		name           string
 		configContent  func() string
 		bootstrapPath  string
+		seed           func(t *testing.T, db *sql.DB)
 		wantReasonCode string
+		wantUserCount  int
 	}{
 		{
 			name: "missing bootstrap path",
@@ -180,18 +182,27 @@ func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
 			wantReasonCode: "bootstrap_manifest_not_readable",
 		},
 		{
+			name: "non regular bootstrap path",
+			configContent: func() string {
+				return string(fixtures.MustRead("config", "valid.toml"))
+			},
+			bootstrapPath:  phase0test.WriteNonRegularBootstrapManifestPath(t),
+			wantReasonCode: "bootstrap_manifest_not_regular_file",
+		},
+		{
+			name: "malformed bootstrap manifest",
+			configContent: func() string {
+				return string(fixtures.MustRead("config", "valid.toml"))
+			},
+			bootstrapPath:  phase0test.WriteMalformedBootstrapManifest(t),
+			wantReasonCode: "bootstrap_manifest_parse_error",
+		},
+		{
 			name: "schema-invalid bootstrap manifest",
 			configContent: func() string {
 				return string(fixtures.MustRead("config", "valid.toml"))
 			},
-			bootstrapPath: func() string {
-				path := filepath.Join(t.TempDir(), "bootstrap-admin.json")
-				content := `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","mfa_required":false}`
-				if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-					t.Fatalf("write invalid bootstrap manifest: %v", err)
-				}
-				return path
-			}(),
+			bootstrapPath:  phase0test.WriteExplicitFalseMFABootstrapManifest(t),
 			wantReasonCode: "bootstrap_manifest_schema_invalid",
 		},
 		{
@@ -199,15 +210,20 @@ func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
 			configContent: func() string {
 				return string(fixtures.MustRead("config", "valid.toml"))
 			},
-			bootstrapPath: func() string {
-				path := filepath.Join(t.TempDir(), "bootstrap-admin.json")
-				content := `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","unexpected":"surprise"}`
-				if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-					t.Fatalf("write invalid bootstrap manifest: %v", err)
-				}
-				return path
-			}(),
+			bootstrapPath:  phase0test.WriteUnknownMemberBootstrapManifest(t),
 			wantReasonCode: "bootstrap_manifest_schema_invalid",
+		},
+		{
+			name: "email conflict",
+			configContent: func() string {
+				return string(fixtures.MustRead("config", "valid.toml"))
+			},
+			bootstrapPath: phase0test.CanonicalBootstrapManifestPath(),
+			seed: func(t *testing.T, db *sql.DB) {
+				phase0test.SeedBootstrapEmailConflict(t, db)
+			},
+			wantReasonCode: "bootstrap_email_conflict",
+			wantUserCount:  1,
 		},
 	}
 
@@ -217,6 +233,9 @@ func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
 
 			db := openPhase0SQL(t, testDB.DSN)
 			defer db.Close()
+			if tc.seed != nil {
+				tc.seed(t, db)
+			}
 
 			bucket := phase0BucketName("phase0-e-0-04")
 			defer cleanupPhase0Bucket(t, s3Harness, bucket)
@@ -234,7 +253,7 @@ func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
 			server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v1/changes")
 			server.RequireDiagnosticsCode(t, "invalid_deployment_config")
 			server.RequireReasonCode(t, tc.wantReasonCode)
-			requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, 0)
+			requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, tc.wantUserCount)
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 0)
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM incident_memberships`, 0)
@@ -266,15 +285,8 @@ func TestPhase0_BootstrapSkipAndRecovery_E_0_05(t *testing.T) {
 				manifestPath: filepath.Join(t.TempDir(), "missing-bootstrap.json"),
 			},
 			{
-				name: "invalid manifest content",
-				manifestPath: func() string {
-					path := filepath.Join(t.TempDir(), "invalid-bootstrap.json")
-					content := `{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","bootstrap_artifact_id":"11111111-1111-1111-1111-111111111111","email":"bootstrap-admin@example.test","display_name":"Bootstrap Admin","initial_password":"BootstrapPass1!","mfa_required":false}`
-					if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-						t.Fatalf("write invalid bootstrap manifest: %v", err)
-					}
-					return path
-				}(),
+				name:         "invalid manifest content",
+				manifestPath: phase0test.WriteExplicitFalseMFABootstrapManifest(t),
 			},
 		}
 
@@ -321,6 +333,7 @@ func TestPhase0_BootstrapSkipAndRecovery_E_0_05(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected lost-admin recovery startup to exit non-zero")
 		}
+		server.RequireConnectionRefused(t, "/healthz")
 		server.RequireConnectionRefused(t, "/readyz")
 		server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v1/changes")
 		server.RequireReasonCode(t, "bootstrap_recovery_not_supported")

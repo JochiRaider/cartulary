@@ -136,7 +136,7 @@ browser-e2e-task-surface-check:
 	$(RUN_PHASE) "browser-e2e-task-surface-check" -- ./scripts/check-browser-e2e-task-surface.sh
 
 backend-task-surface-check:
-	$(RUN_PHASE) "backend-task-surface-check" -- ./scripts/check-backend-task-surface.sh
+	$(RUN_PHASE) "backend-task-surface-check" -- env NODE_BIN=$(NODE_BIN) ./scripts/check-backend-task-surface.sh
 
 service-backed-unit-check:
 	$(RUN_PHASE) "service-backed-unit-check" -- ./scripts/check-service-backed-unit-tests.sh
@@ -156,9 +156,11 @@ test: frontend-toolchain
 
 backend-unit: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_GO_PHASE) "backend-unit platform" '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase4_.*_U_4_)' -- $(GO_ENV) $(GO) test ./internal/platform/...
+	$(RUN_GO_MANIFEST_PHASE) "backend-unit phase0 authoritative platform" phase0 unit authoritative backend_unit -- $(GO_ENV) $(GO) test ./internal/platform/...
+	$(RUN_GO_PHASE) "backend-unit platform" '^(TestPhase1_.*_U_1_|TestPhase4_.*_U_4_)' -- $(GO_ENV) $(GO) test ./internal/platform/...
 	$(RUN_PHASE) "backend-unit configtest" -- $(GO_ENV) $(GO) test ./internal/testutil/configtest
-	$(RUN_GO_PHASE) "backend-unit phases" '^(TestPhase0_.*_U_0_|TestPhase1_.*_U_1_|TestPhase4_.*_U_4_0[89])' -- $(GO_ENV) $(GO) test ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline
+	$(RUN_GO_MANIFEST_PHASE) "backend-unit phase0 authoritative app" phase0 unit authoritative backend_unit -- $(GO_ENV) $(GO) test ./internal/app
+	$(RUN_GO_PHASE) "backend-unit phases" '^(TestPhase1_.*_U_1_|TestPhase4_.*_U_4_0[89])' -- $(GO_ENV) $(GO) test ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline
 	$(RUN_GO_MANIFEST_PHASE) "backend-unit phase2 authoritative" phase2 unit authoritative -- $(GO_ENV) $(GO) test ./internal/modules/incidents
 	$(RUN_GO_MANIFEST_PHASE) "backend-unit phase3 authoritative" phase3 unit authoritative backend_unit -- $(GO_ENV) $(GO) test ./internal/modules/timeline
 
@@ -170,7 +172,8 @@ backend-store: frontend-toolchain
 backend-integration: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "backend-integration testutil" -- $(GO_ENV) $(GO) test -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./internal/testutil/httptestx ./internal/testutil/pgtest ./internal/testutil/s3test ./internal/testutil/wstest
-	$(RUN_GO_PHASE) "backend-integration phases" '^(TestPhase0_.*_I_0_|TestPhase1_.*_I_1_|TestPhase4_.*_I_4_)' -- $(GO_ENV) $(GO) test -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./internal/platform/... ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline
+	$(RUN_GO_MANIFEST_PHASE) "backend-integration phase0 authoritative" phase0 integration authoritative backend_integration -- $(GO_ENV) $(GO) test ./internal/platform/... ./internal/app -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM)
+	$(RUN_GO_PHASE) "backend-integration phases" '^(TestPhase1_.*_I_1_|TestPhase4_.*_I_4_)' -- $(GO_ENV) $(GO) test -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./internal/platform/... ./internal/app ./internal/modules/auth ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline
 	$(RUN_GO_MANIFEST_PHASE) "backend-integration phase2 authoritative" phase2 integration authoritative -- $(GO_ENV) $(GO) test ./internal/modules/incidents
 	$(RUN_GO_MANIFEST_PHASE) "backend-integration phase3 authoritative" phase3 integration authoritative backend_integration -- $(GO_ENV) $(GO) test ./internal/modules/timeline -p $(GO_TEST_SERVICE_PACKAGE_PARALLELISM)
 
@@ -182,7 +185,8 @@ backend-integration-support: frontend-toolchain
 # Phase 0 process evidence is part of the developer gate and must never be direct-run only.
 backend-process: frontend-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_GO_PHASE) "backend-process" '^(TestPhase0_.*_E_0_[0-9]+|TestPhase1_.*_ProcessSmoke)$$' -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4
+	$(RUN_GO_MANIFEST_PHASE) "backend-process phase0 authoritative" phase0 e2e authoritative backend_process -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4
+	$(RUN_GO_PHASE) "backend-process phase1 smoke" '^(TestPhase1_.*_ProcessSmoke)$$' -- $(GO_ENV) $(GO) test ./cmd/server -parallel 4
 
 backend-process-support:
 	$(Q)$(MAKE) --no-print-directory phase2-process-smoke
@@ -190,7 +194,7 @@ backend-process-support:
 # Phase 0 process evidence is part of the developer gate and must never be direct-run only.
 phase0-process-e2e:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_GO_PHASE) "phase0-process-e2e" '^(TestPhase0_.*_E_0_[0-9]+)$$' -- $(GO_ENV) $(GO) test ./cmd/server
+	$(RUN_GO_MANIFEST_PHASE) "phase0-process-e2e" phase0 e2e authoritative backend_process -- $(GO_ENV) $(GO) test ./cmd/server
 
 phase1-process-smoke:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
