@@ -1,5 +1,5 @@
 {
-  "note": "Phase 4 authoritative execution manifest. Support-only harness coverage stays outside this map.",
+  "note": "Phase 4 authoritative execution manifest. Support-only route inventory and workbook helper coverage stay outside this map.",
   "expected_ids": [
     "U-4-01",
     "U-4-02",
@@ -22,8 +22,18 @@
     "E-4-04"
   ],
   "forbidden_id_files": [
-    "internal/modules/entities/phase4_projection_integration_test.go",
-    "apps/web/src/WorkbookShell.phase4.test.tsx"
+    "internal/modules/entities/phase4_support_integration_test.go",
+    "apps/web/src/WorkbookShell.phase4.support.test.tsx"
+  ],
+  "support_go_targets": [
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/modules/entities",
+      "file": "internal/modules/entities/phase4_support_integration_test.go",
+      "symbol": "TestSupportPhase4Integration_RouteSurfaceInventory",
+      "selection_pattern": "TestSupportPhase4Integration_"
+    }
   ],
   "unit": [
     {
@@ -34,7 +44,9 @@
       "file": "internal/modules/timeline/phase4_unit_test.go",
       "symbol": "TestPhase4_BindingMode_U_4_01",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "Timeline mention fields prove `mention_origin` binding while representative Host and Identity writable plus alias fields prove `entity_origin`, and the store writes mentions versus entity rows without synthesizing the other substrate.",
+      "out_of_scope": "HTTP route behavior and browser-visible resolution flows remain integration or browser evidence."
     },
     {
       "id": "U-4-02",
@@ -44,7 +56,9 @@
       "file": "internal/modules/timeline/phase4_unit_test.go",
       "symbol": "TestPhase4_DuplicateMentionProvenance_U_4_02",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "Repeated identical mention tokens persist as separate durable mentions with distinct provenance locators, mention ids, and source-row attachment.",
+      "out_of_scope": "Interactive resolve and dismiss route behavior remains integration and browser evidence."
     },
     {
       "id": "U-4-03",
@@ -54,7 +68,9 @@
       "file": "internal/modules/entities/phase4_unit_test.go",
       "symbol": "TestPhase4_CreateFromMention_U_4_03",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "Create-from-mention store paths promote unresolved mentions into durable Host or Identity rows with stable lineage and immediate relationship state.",
+      "out_of_scope": "The live resolve route and current-state HTTP readback remain integration evidence."
     },
     {
       "id": "U-4-04",
@@ -64,7 +80,9 @@
       "file": "internal/modules/entities/phase4_unit_test.go",
       "symbol": "TestPhase4_DismissRestoreMentionLifecycle_U_4_04",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "Dismiss and restore store operations preserve raw mention text, mutate durable mention status correctly, and couple link removal or restoration to the lifecycle transition.",
+      "out_of_scope": "Route idempotency and authorization re-derivation remain integration evidence."
     },
     {
       "id": "U-4-05",
@@ -74,7 +92,9 @@
       "file": "internal/modules/entities/phase4_unit_test.go",
       "symbol": "TestPhase4_ExactMatchPrecedence_U_4_05",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "Exact-match precedence resolves reuse decisions through the owned identifier hierarchy and keeps suggestion-only aliases out of authoritative reuse.",
+      "out_of_scope": "HTTP conflict payload shape and browser-visible merge prompts remain higher-layer evidence."
     },
     {
       "id": "U-4-06",
@@ -84,7 +104,9 @@
       "file": "internal/modules/entities/phase4_unit_test.go",
       "symbol": "TestPhase4_ExplicitEntityMerge_U_4_06",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "Explicit merge store behavior repoints live mentions, links, and dependent rows onto the survivor while preserving loser lineage and replay stability.",
+      "out_of_scope": "HTTP merge route envelopes, websocket invalidation, and auth checks remain integration evidence."
     },
     {
       "id": "U-4-07",
@@ -94,7 +116,9 @@
       "file": "internal/modules/entities/phase4_unit_test.go",
       "symbol": "TestPhase4_IndicatorObservationSeparation_U_4_07",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "Indicator storage keeps source-bound observations separate while fanning them into one canonical indicator record and lifecycle projection state.",
+      "out_of_scope": "Current-state route readback and live authorization remain integration evidence."
     },
     {
       "id": "U-4-08",
@@ -104,7 +128,9 @@
       "file": "internal/modules/timeline/phase4_request_test.go",
       "symbol": "TestPhase4_AutoResolutionEligibility_U_4_08",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "decoder"
+      "evidence_layer": "decoder",
+      "claim": "Timeline request decoding preserves authoritative raw mention text, applies shared mention-token normalization, and accepts suppressor or forbidden rewrite tokens without silently rewriting them.",
+      "out_of_scope": "Durable mention persistence and auto-match side effects remain store or integration evidence."
     },
     {
       "id": "U-4-09",
@@ -114,7 +140,9 @@
       "file": "internal/modules/timeline/phase4_request_test.go",
       "symbol": "TestPhase4_ManualTimelineConfidenceNull_U_4_09",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "decoder"
+      "evidence_layer": "decoder",
+      "claim": "Timeline create and patch decoding accepts manual relationship actions only when client confidence or provenance metadata is omitted and fails closed on override attempts.",
+      "out_of_scope": "Committed relationship mutations, replay, and current-state route readback remain integration evidence."
     }
   ],
   "integration": [
@@ -126,7 +154,9 @@
       "file": "internal/modules/entities/phase4_integration_test.go",
       "symbol": "TestPhase4_ResolveRoute_I_4_01",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "http_runtime"
+      "evidence_layer": "http_runtime",
+      "claim": "The mention resolve route persists durable resolve, dismiss, and revert transitions through the live HTTP surface with replay stability, websocket invalidation, and live target validation.",
+      "out_of_scope": "Browser inspector workflows remain browser evidence."
     },
     {
       "id": "I-4-02",
@@ -136,7 +166,9 @@
       "file": "internal/modules/entities/phase4_integration_test.go",
       "symbol": "TestPhase4_EntityOriginUpsert_I_4_02",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "http_runtime"
+      "evidence_layer": "http_runtime",
+      "claim": "Host and Identity create routes reuse exact matches, keep suggestion-only aliases non-authoritative, expose contract-conformant current-state rows, and rebuild deterministic entity projections through the real HTTP surface.",
+      "out_of_scope": "End-user browser create flows remain browser evidence."
     },
     {
       "id": "I-4-03",
@@ -146,7 +178,9 @@
       "file": "internal/modules/entities/phase4_integration_test.go",
       "symbol": "TestPhase4_ExplicitMergeRoute_I_4_03",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "http_runtime"
+      "evidence_layer": "http_runtime",
+      "claim": "The explicit merge route repoints live fan-out, preserves survivor reuse semantics, emits attributed history, and keeps loser lineage intact on Hosts and Identities.",
+      "out_of_scope": "Browser-visible inspector merge choreography remains browser evidence."
     },
     {
       "id": "I-4-07",
@@ -156,7 +190,9 @@
       "file": "internal/modules/entities/phase4_integration_test.go",
       "symbol": "TestPhase4_IndicatorsRoute_I_4_07",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "http_runtime"
+      "evidence_layer": "http_runtime",
+      "claim": "Indicator create and query routes persist canonical indicators, expose contract-conformant current-state rows, and rebuild deterministic indicator projections without collapsing source-bound observations.",
+      "out_of_scope": "Browser-visible indicator discovery remains out of scope for this phase."
     },
     {
       "id": "I-4-08",
@@ -166,7 +202,9 @@
       "file": "internal/modules/timeline/phase4_integration_test.go",
       "symbol": "TestPhase4_AutoResolutionEligibility_I_4_08",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "http_runtime"
+      "evidence_layer": "http_runtime",
+      "claim": "Timeline patch and query routes auto-resolve only eligible exact matches, keep ineligible tokens unresolved, and return contract-conformant current-state rows before and after projection rebuilds.",
+      "out_of_scope": "Browser-visible chip rendering and inspector affordances remain browser or support-only frontend evidence."
     },
     {
       "id": "I-4-09",
@@ -176,7 +214,9 @@
       "file": "internal/modules/timeline/phase4_integration_test.go",
       "symbol": "TestPhase4_ManualTimelineConfidenceNull_I_4_09",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "http_runtime"
+      "evidence_layer": "http_runtime",
+      "claim": "Timeline create and patch routes persist manual relationship actions with null confidence only, reject override payloads, and expose contract-conformant current-state rows across create, patch, and create-from-mention paths.",
+      "out_of_scope": "Browser inspector workflows remain browser or support-only frontend evidence."
     }
   ],
   "e2e": [
@@ -187,7 +227,9 @@
       "file": "apps/web/e2e/phase4.spec.ts",
       "title": "E-4-01 resolves and creates entities from Timeline mentions in the inspector",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "The browser inspector resolves existing entities and creates new entities from Timeline mentions through the real end-user flow.",
+      "out_of_scope": "Lower-level route replay and store substrate assertions remain backend evidence."
     },
     {
       "id": "E-4-02",
@@ -196,7 +238,9 @@
       "file": "apps/web/e2e/phase4.spec.ts",
       "title": "E-4-02 dismisses and ordinarily restores a mention without relinking",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "The browser inspector dismisses a mention and restores it to unresolved state without silently relinking it.",
+      "out_of_scope": "Mention substrate mutation details remain backend evidence."
     },
     {
       "id": "E-4-03",
@@ -205,7 +249,9 @@
       "file": "apps/web/e2e/phase4.spec.ts",
       "title": "E-4-03 merges duplicate entities from the inspector and preserves survivor identity",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "The browser inspector merges duplicate entities through the end-user flow while preserving the survivor identity in the UI.",
+      "out_of_scope": "Detailed fan-out repointing and projection substrate assertions remain backend evidence."
     },
     {
       "id": "E-4-04",
@@ -214,7 +260,9 @@
       "file": "apps/web/e2e/phase4.spec.ts",
       "title": "E-4-04 auto-resolves only eligible exact-match Timeline tokens",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "The browser workbook shows auto-resolution only for eligible exact-match Timeline tokens and leaves ineligible tokens unresolved.",
+      "out_of_scope": "Decoder normalization details and route-level projection rebuild assertions remain backend evidence."
     }
   ]
 }

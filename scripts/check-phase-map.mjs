@@ -11,18 +11,23 @@ if (!phase) {
 
 validateManifest(process.cwd(), phase);
 
-if (phase === "phase3") {
+const ledgerFilenames = {
+  phase3: "phase3_coverage_ledger.md",
+  phase4: "phase4_coverage_ledger.md",
+};
+
+if (phase in ledgerFilenames) {
   const ledgerPath = path.join(
     process.cwd(),
     "docs",
     "testing",
-    "phase3_coverage_ledger.md",
+    ledgerFilenames[phase],
   );
   const committedLedger = readFileSync(ledgerPath, "utf8");
   const renderedLedger = renderPhaseLedger(process.cwd(), phase);
   if (committedLedger !== renderedLedger) {
     throw new Error(
-      `phase3 coverage ledger drift: regenerate docs/testing/phase3_coverage_ledger.md from tools/phase3_test_map.json`,
+      `${phase} coverage ledger drift: regenerate docs/testing/${ledgerFilenames[phase]} from tools/${phase}_test_map.json`,
     );
   }
 }

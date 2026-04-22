@@ -28,6 +28,49 @@
     "cmd/server/main_phase2_smoke_test.go",
     "apps/web/e2e/phase2.support.spec.ts"
   ],
+  "support_go_targets": [
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/modules/incidents",
+      "file": "internal/modules/incidents/phase2_http_conformance_test.go",
+      "symbols": [
+        "TestSupportPhase2_IncidentCreateBootstrapsCreatorAndWorkbookPreferencesHTTPConformance",
+        "TestSupportPhase2_PublicRouteInventoryEnvelopes",
+        "TestSupportPhase2_IncidentCreateReturnsStableLocationHeaderHTTPConformance",
+        "TestSupportPhase2_IncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance",
+        "TestSupportPhase2_MembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTPConformance",
+        "TestSupportPhase2_MembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConformance",
+        "TestSupportPhase2_ControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied"
+      ],
+      "selection_pattern": "TestSupportPhase2_"
+    },
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/modules/incidents",
+      "file": "internal/modules/incidents/phase2_pagination_integration_test.go",
+      "symbols": [
+        "TestSupportPhase2_IncidentListUsesLiveFirstPageIndependentlyOfTestClock",
+        "TestSupportPhase2_IncidentListContinuationUsesSnapshotStableRows",
+        "TestSupportPhase2_MembershipListContinuationUsesSnapshotStableRows"
+      ],
+      "selection_pattern": "TestSupportPhase2_"
+    },
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/modules/incidents",
+      "file": "internal/modules/incidents/phase2_extra_integration_test.go",
+      "symbols": [
+        "TestSupportPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict",
+        "TestSupportPhase2_IncidentPatchWritesAuditBeforeAfter",
+        "TestSupportPhase2_MembershipMutationsWriteAuditBeforeAfter",
+        "TestSupportPhase2_IncidentCreateTreatsComposedAndDecomposedIncidentKeysAsEqual"
+      ],
+      "selection_pattern": "TestSupportPhase2_"
+    }
+  ],
   "unit": [
     {
       "id": "U-2-01",

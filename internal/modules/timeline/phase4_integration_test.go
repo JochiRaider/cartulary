@@ -93,6 +93,7 @@ SELECT COUNT(*)
 		}
 
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
+		requirePhase4ViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
 		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
 		if item["item_kind"] != "resolved_ref" {
 			t.Fatalf("expected resolved_ref item after auto-match, got %#v", item)
@@ -184,6 +185,7 @@ SELECT COUNT(*)
 			golden.Phase4AutoMatchLinkExpectation.Confidence,
 		)
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
+		requirePhase4ViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
 		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineIdentityRefs)
 		if item["matched_alias_text"] != "Analyst Alex" || item["provenance"] != golden.Phase4LinkProvenanceAutoMatch {
 			t.Fatalf("expected identity auto-match metadata in refreshed row, got %#v", item)
@@ -234,6 +236,7 @@ SELECT COUNT(*)
 				}
 
 				row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
+				requirePhase4ViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
 				item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
 				if item["item_kind"] != "unresolved_mention" {
 					t.Fatalf("expected unresolved_mention item for %q, got %#v", rawText, item)
@@ -307,6 +310,7 @@ SELECT COUNT(*)
 		requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)
 
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
+		requirePhase4ViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
 		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
 		if item["item_kind"] != "unresolved_mention" {
 			t.Fatalf("competing alias candidates must remain unresolved, got %#v", item)
@@ -366,6 +370,7 @@ SELECT COUNT(*)
 		}
 
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
+		requirePhase4ViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
 		items := collectionItems(t, row, golden.Phase4FieldTimelineHostRefs)
 		if len(items) != 2 {
 			t.Fatalf("expected two host ref items after mixed patch, got %#v", items)
@@ -471,6 +476,7 @@ SELECT COUNT(*)
 		}
 
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
+		requirePhase4ViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
 		if got := int64(row["row_version"].(float64)); got != 1 {
 			t.Fatalf("rollback must preserve source row_version, got %d", got)
 		}
@@ -496,6 +502,7 @@ SELECT COUNT(*)
 		record := created["row"].(map[string]any)
 		recordID := record["record_id"].(string)
 		rowBefore := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
+		requirePhase4ViewRowFieldSurface(t, "I-4-08", rowBefore, timeline.TimelineViewSchemaID)
 		itemBefore := requireSingleCollectionItem(t, rowBefore, golden.Phase4FieldTimelineHostRefs)
 		if itemBefore["item_kind"] != "unresolved_mention" {
 			t.Fatalf("expected unresolved token before later alias creation, got %#v", itemBefore)
@@ -517,6 +524,7 @@ SELECT COUNT(*)
 		envelope := queryTimelineEnvelope(t, harness.Server, incidentID, adminLogin, map[string]any{})
 		httptestx.RequireDefaultQueryMeta(t, envelope, timeline.TimelineViewSchemaID)
 		rowAfter := findRow(t, envelope["data"].(map[string]any)["rows"].([]any), recordID)
+		requirePhase4ViewRowFieldSurface(t, "I-4-08", rowAfter, timeline.TimelineViewSchemaID)
 		itemAfter := requireSingleCollectionItem(t, rowAfter, golden.Phase4FieldTimelineHostRefs)
 		if itemAfter["item_kind"] != "unresolved_mention" {
 			t.Fatalf("projection rebuild must not late-auto-resolve unresolved tokens, got %#v", itemAfter)
@@ -597,6 +605,7 @@ func TestPhase4_ManualTimelineConfidenceNull_I_4_09(t *testing.T) {
 		envelope := queryTimelineEnvelope(t, harness.Server, incidentID, adminLogin, map[string]any{})
 		httptestx.RequireDefaultQueryMeta(t, envelope, timeline.TimelineViewSchemaID)
 		row := findRow(t, envelope["data"].(map[string]any)["rows"].([]any), recordID)
+		requirePhase4ViewRowFieldSurface(t, "I-4-09", row, timeline.TimelineViewSchemaID)
 		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
 		if item["item_kind"] != "resolved_ref" || item["resolved_record_id"] != golden.Phase4CanonicalHostRecordID.String() {
 			t.Fatalf("unexpected create-route current-state item: %#v", item)
@@ -740,6 +749,7 @@ UPDATE incident_memberships
 			golden.Phase4ManualLinkExpectation.Confidence,
 		)
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
+		requirePhase4ViewRowFieldSurface(t, "I-4-09", row, timeline.TimelineViewSchemaID)
 		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
 		if item["item_kind"] != "resolved_ref" {
 			t.Fatalf("expected resolved_ref item after add_resolved_ref, got %#v", item)
@@ -902,6 +912,7 @@ UPDATE incident_memberships
 			golden.Phase4ManualLinkExpectation.Confidence,
 		)
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
+		requirePhase4ViewRowFieldSurface(t, "I-4-09", row, timeline.TimelineViewSchemaID)
 		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineIdentityRefs)
 		if item["item_kind"] != "resolved_ref" {
 			t.Fatalf("expected resolved_ref item after resolve_item, got %#v", item)
@@ -984,6 +995,7 @@ UPDATE incident_memberships
 			),
 			createdIdentityID,
 		)
+		requirePhase4ViewRowFieldSurface(t, "I-4-09", identityRow, golden.Phase4IdentitiesViewSchemaID)
 		identityCells := identityRow["cells"].(map[string]any)
 		identityEmail := identityCells["identity.email"].(map[string]any)["value"]
 		if identityEmail != "vpn.user@example.test" {
@@ -1073,6 +1085,7 @@ SELECT COUNT(*)
 		assertx.RequireRawTextPreserved(t, beforeMention.RawText, afterMention.RawText)
 
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
+		requirePhase4ViewRowFieldSurface(t, "I-4-09", row, timeline.TimelineViewSchemaID)
 		if got := int64(row["row_version"].(float64)); got != 1 {
 			t.Fatalf("rejected payload must not advance row_version, got %d", got)
 		}
@@ -1152,6 +1165,16 @@ func requireSuccessEnvelopeWithBody(t testing.TB, resp *http.Response, wantStatu
 		t.Fatalf("unexpected status: got %d want %d body=%#v", resp.StatusCode, wantStatus, body)
 	}
 	return httptestx.RequireSuccessEnvelope(t, resp, wantStatus)
+}
+
+func requirePhase4ViewRowFieldSurface(t testing.TB, testID string, row map[string]any, viewSchemaID string) {
+	t.Helper()
+
+	httptestx.RequireFieldKeyConformance(
+		t,
+		phase4test.SortedRowFieldKeys(t, row),
+		phase4test.AllowedFieldKeys(t, testID, viewSchemaID),
+	)
 }
 
 func requireSingleCollectionItem(t testing.TB, row map[string]any, fieldKey string) map[string]any {

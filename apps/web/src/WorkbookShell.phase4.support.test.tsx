@@ -24,12 +24,12 @@ import {
 } from "./workbookShellPhase4";
 
 // Support-only mocked component coverage for Phase 4 workbook helpers.
-// This file is not authoritative route or browser evidence.
+// This file is not authoritative Phase 4 evidence.
 type TimelineWorkbookProps = ComponentProps<typeof TimelineWorkbook>;
 type EntityIndex = NonNullable<TimelineWorkbookProps["entityIndex"]>;
 type EntityRowFixture = EntityIndex[string];
 
-describe("Phase 4 workbook helpers", () => {
+describe("Support Phase 4 workbook helpers", () => {
   it("reads manual and auto-resolved collection items without dropping confidence nulls", () => {
     const items = readCollectionItems(
       {
@@ -302,7 +302,7 @@ describe("Phase 4 workbook helpers", () => {
   });
 });
 
-describe("Phase 4 TimelineWorkbook", () => {
+describe("Support Phase 4 TimelineWorkbook", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   let webSocketInstance: {
     onmessage: ((event: MessageEvent) => void) | null;

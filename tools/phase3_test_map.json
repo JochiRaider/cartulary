@@ -28,6 +28,31 @@
     "internal/modules/timeline/phase3_support_test.go",
     "internal/modules/timeline/phase3_support_integration_test.go"
   ],
+  "support_go_targets": [
+    {
+      "target": "backend_unit",
+      "section": "unit",
+      "package": "./internal/modules/timeline",
+      "file": "internal/modules/timeline/phase3_support_test.go",
+      "symbols": [
+        "TestSupportPhase3Unit_CreateRequestCoverage",
+        "TestSupportPhase3Unit_InitialStateVocabulary",
+        "TestSupportPhase3Unit_CaptureStateHelpers",
+        "TestSupportPhase3Unit_PatchRequestHashNormalization",
+        "TestSupportPhase3Unit_PayloadBuildersExposeStableShapes",
+        "TestSupportPhase3Unit_SupersedeGuardAndHashHelpers"
+      ],
+      "selection_pattern": "TestSupportPhase3Unit_"
+    },
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/modules/timeline",
+      "file": "internal/modules/timeline/phase3_support_integration_test.go",
+      "symbol": "TestSupportPhase3Integration_AuthorizationMatrix",
+      "selection_pattern": "TestSupportPhase3Integration_"
+    }
+  ],
   "unit": [
     {
       "id": "U-3-01",

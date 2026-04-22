@@ -8,6 +8,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/golden"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 // U-4-08 / REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 / AC-205, AC-388..AC-392.
@@ -37,9 +38,7 @@ func TestPhase4_AutoResolutionEligibility_U_4_08(t *testing.T) {
 		if action.RawText != " vpn   gateway " {
 			t.Fatalf("expected raw token text to remain authoritative, got %#v", action)
 		}
-		if action.NormalizedText != "vpn gateway" {
-			t.Fatalf("expected mention_token_text_v1 normalization to collapse whitespace, got %#v", action)
-		}
+		httptestx.RequireWritableStringNormalization(t, action.NormalizedText, "vpn gateway")
 	})
 
 	t.Run("suppressor and forbidden rewrite tokens remain valid submitted tokens", func(t *testing.T) {
@@ -213,9 +212,7 @@ func TestPhase4_ManualTimelineConfidenceNull_U_4_09(t *testing.T) {
 				if apiErr == nil {
 					t.Fatal("expected client-supplied metadata to fail closed")
 				}
-				if apiErr.Code != "invalid_mutation_payload" {
-					t.Fatalf("unexpected error code: %#v", apiErr)
-				}
+				httptestx.RequireClosedVocabularyRejected(t, apiErr.Code, apiErr.Details, tc.field, "invalid_value")
 			})
 		}
 	})

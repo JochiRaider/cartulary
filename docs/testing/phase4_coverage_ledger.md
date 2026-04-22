@@ -1,0 +1,68 @@
+# Phase 4 Coverage Ledger
+
+This ledger is generated from `tools/phase4_test_map.json`. Update the manifest row metadata first, then regenerate this file.
+
+- Scope: entity mentions, resolve and merge routes, entity-origin Host and Identity creation, indicator create and query surfaces, Timeline auto-resolution and manual relationship HTTP behavior, and the owned Phase 4 browser inspector flows.
+- Normative owners: Core 01 `§3.3.5`; Core 02 `§6` through `§10`; Core 03 `§9`, `§16`; Core 04 `AC-017`, `AC-019` through `AC-023`, `AC-077` through `AC-079`, `AC-186`, `AC-188` through `AC-190`, `AC-205`, `AC-209`, `AC-221` through `AC-225`, `AC-388` through `AC-397`.
+- Authority: `tools/phase4_test_map.json` is the enforced Phase 4 traceability source. This ledger is a rendered companion and does not control the mechanical row inventory.
+- Binding-mode note: the authoritative Phase 4 row set stays fixed. Contract-derived binding-mode, row-field, and projection-determinism assertions are absorbed into the existing authoritative rows instead of creating new Phase 4 IDs.
+
+## Authoritative Execution
+
+- `backend-unit` selects authoritative `U-4-*` decoder rows only through `RUN_GO_MANIFEST_PHASE ... phase4 unit authoritative backend_unit`.
+- `backend-store` selects authoritative store-backed `U-4-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase4 unit authoritative backend_store`.
+- `backend-integration` selects authoritative `I-4-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase4 integration authoritative backend_integration`.
+- `browser-e2e-webserver-backed` and delegated `browser-e2e-functional` select authoritative `E-4-*` rows only through the Phase 4 Playwright manifest for `browser_functional`.
+
+## Support-Only Execution
+
+- `internal/modules/entities/phase4_support_integration_test.go` runs through `backend-integration-support` with `TestSupportPhase4Integration_` and is forbidden from claiming `I-4-*` identifiers.
+- `apps/web/src/WorkbookShell.phase4.support.test.tsx` runs through `frontend-unit` and is forbidden from claiming `U-4-*`, `I-4-*`, or `E-4-*` identifiers.
+
+## Unit
+
+| Row | Evidence | Execution | Claim | Out of scope |
+| --- | --- | --- | --- | --- |
+| `U-4-01` | `internal/modules/timeline/phase4_unit_test.go::TestPhase4_BindingMode_U_4_01` | `backend_store` | Timeline mention fields prove `mention_origin` binding while representative Host and Identity writable plus alias fields prove `entity_origin`, and the store writes mentions versus entity rows without synthesizing the other substrate. | HTTP route behavior and browser-visible resolution flows remain integration or browser evidence. |
+| `U-4-02` | `internal/modules/timeline/phase4_unit_test.go::TestPhase4_DuplicateMentionProvenance_U_4_02` | `backend_store` | Repeated identical mention tokens persist as separate durable mentions with distinct provenance locators, mention ids, and source-row attachment. | Interactive resolve and dismiss route behavior remains integration and browser evidence. |
+| `U-4-03` | `internal/modules/entities/phase4_unit_test.go::TestPhase4_CreateFromMention_U_4_03` | `backend_store` | Create-from-mention store paths promote unresolved mentions into durable Host or Identity rows with stable lineage and immediate relationship state. | The live resolve route and current-state HTTP readback remain integration evidence. |
+| `U-4-04` | `internal/modules/entities/phase4_unit_test.go::TestPhase4_DismissRestoreMentionLifecycle_U_4_04` | `backend_store` | Dismiss and restore store operations preserve raw mention text, mutate durable mention status correctly, and couple link removal or restoration to the lifecycle transition. | Route idempotency and authorization re-derivation remain integration evidence. |
+| `U-4-05` | `internal/modules/entities/phase4_unit_test.go::TestPhase4_ExactMatchPrecedence_U_4_05` | `backend_store` | Exact-match precedence resolves reuse decisions through the owned identifier hierarchy and keeps suggestion-only aliases out of authoritative reuse. | HTTP conflict payload shape and browser-visible merge prompts remain higher-layer evidence. |
+| `U-4-06` | `internal/modules/entities/phase4_unit_test.go::TestPhase4_ExplicitEntityMerge_U_4_06` | `backend_store` | Explicit merge store behavior repoints live mentions, links, and dependent rows onto the survivor while preserving loser lineage and replay stability. | HTTP merge route envelopes, websocket invalidation, and auth checks remain integration evidence. |
+| `U-4-07` | `internal/modules/entities/phase4_unit_test.go::TestPhase4_IndicatorObservationSeparation_U_4_07` | `backend_store` | Indicator storage keeps source-bound observations separate while fanning them into one canonical indicator record and lifecycle projection state. | Current-state route readback and live authorization remain integration evidence. |
+| `U-4-08` | `internal/modules/timeline/phase4_request_test.go::TestPhase4_AutoResolutionEligibility_U_4_08` | `backend_unit` | Timeline request decoding preserves authoritative raw mention text, applies shared mention-token normalization, and accepts suppressor or forbidden rewrite tokens without silently rewriting them. | Durable mention persistence and auto-match side effects remain store or integration evidence. |
+| `U-4-09` | `internal/modules/timeline/phase4_request_test.go::TestPhase4_ManualTimelineConfidenceNull_U_4_09` | `backend_unit` | Timeline create and patch decoding accepts manual relationship actions only when client confidence or provenance metadata is omitted and fails closed on override attempts. | Committed relationship mutations, replay, and current-state route readback remain integration evidence. |
+
+## Integration
+
+| Row | Evidence | Execution | Claim | Out of scope |
+| --- | --- | --- | --- | --- |
+| `I-4-01` | `internal/modules/entities/phase4_integration_test.go::TestPhase4_ResolveRoute_I_4_01` | `backend_integration` | The mention resolve route persists durable resolve, dismiss, and revert transitions through the live HTTP surface with replay stability, websocket invalidation, and live target validation. | Browser inspector workflows remain browser evidence. |
+| `I-4-02` | `internal/modules/entities/phase4_integration_test.go::TestPhase4_EntityOriginUpsert_I_4_02` | `backend_integration` | Host and Identity create routes reuse exact matches, keep suggestion-only aliases non-authoritative, expose contract-conformant current-state rows, and rebuild deterministic entity projections through the real HTTP surface. | End-user browser create flows remain browser evidence. |
+| `I-4-03` | `internal/modules/entities/phase4_integration_test.go::TestPhase4_ExplicitMergeRoute_I_4_03` | `backend_integration` | The explicit merge route repoints live fan-out, preserves survivor reuse semantics, emits attributed history, and keeps loser lineage intact on Hosts and Identities. | Browser-visible inspector merge choreography remains browser evidence. |
+| `I-4-07` | `internal/modules/entities/phase4_integration_test.go::TestPhase4_IndicatorsRoute_I_4_07` | `backend_integration` | Indicator create and query routes persist canonical indicators, expose contract-conformant current-state rows, and rebuild deterministic indicator projections without collapsing source-bound observations. | Browser-visible indicator discovery remains out of scope for this phase. |
+| `I-4-08` | `internal/modules/timeline/phase4_integration_test.go::TestPhase4_AutoResolutionEligibility_I_4_08` | `backend_integration` | Timeline patch and query routes auto-resolve only eligible exact matches, keep ineligible tokens unresolved, and return contract-conformant current-state rows before and after projection rebuilds. | Browser-visible chip rendering and inspector affordances remain browser or support-only frontend evidence. |
+| `I-4-09` | `internal/modules/timeline/phase4_integration_test.go::TestPhase4_ManualTimelineConfidenceNull_I_4_09` | `backend_integration` | Timeline create and patch routes persist manual relationship actions with null confidence only, reject override payloads, and expose contract-conformant current-state rows across create, patch, and create-from-mention paths. | Browser inspector workflows remain browser or support-only frontend evidence. |
+
+## Browser E2E
+
+| Row | Evidence | Execution | Claim | Out of scope |
+| --- | --- | --- | --- | --- |
+| `E-4-01` | `apps/web/e2e/phase4.spec.ts::E-4-01 resolves and creates entities from Timeline mentions in the inspector` | `browser_functional` | The browser inspector resolves existing entities and creates new entities from Timeline mentions through the real end-user flow. | Lower-level route replay and store substrate assertions remain backend evidence. |
+| `E-4-02` | `apps/web/e2e/phase4.spec.ts::E-4-02 dismisses and ordinarily restores a mention without relinking` | `browser_functional` | The browser inspector dismisses a mention and restores it to unresolved state without silently relinking it. | Mention substrate mutation details remain backend evidence. |
+| `E-4-03` | `apps/web/e2e/phase4.spec.ts::E-4-03 merges duplicate entities from the inspector and preserves survivor identity` | `browser_functional` | The browser inspector merges duplicate entities through the end-user flow while preserving the survivor identity in the UI. | Detailed fan-out repointing and projection substrate assertions remain backend evidence. |
+| `E-4-04` | `apps/web/e2e/phase4.spec.ts::E-4-04 auto-resolves only eligible exact-match Timeline tokens` | `browser_functional` | The browser workbook shows auto-resolution only for eligible exact-match Timeline tokens and leaves ineligible tokens unresolved. | Decoder normalization details and route-level projection rebuild assertions remain backend evidence. |
+
+## Shared Harness Coverage
+
+| Harness | Phase 4 evidence |
+| --- | --- |
+| Real runtime and route helpers | `internal/testutil/phase4test` centralizes the Postgres + MinIO runtime boot path, bootstrap-admin login helpers, entity or mention seed helpers, contract-derived field-surface helpers, and the owned support-only route inventory for Phase 4 HTTP surfaces. |
+| Cross-cutting HTTP and projection helpers | `internal/testutil/httptestx` owns success or error envelope checks, replay scaffolding, authorization re-derivation assertions, closed-vocabulary checks, field-key conformance, and projection determinism assertions shared across the Phase 4 backend suite. |
+| Entity and Timeline substrate inspection | `internal/testutil/assertx`, `internal/testutil/timelinetest`, and Phase 4 package-local lookup helpers inspect durable mention, link, change-set, projection, and observation state that the authoritative Phase 4 rows rely on. |
+| Browser helper fixtures | `apps/web/src/timelineWorkbookTestSupport.tsx` and `apps/web/src/workbookShellPhase4.ts` provide the mocked workbook row, websocket, and mention helper scaffolding used by the support-only Phase 4 workbook tests. |
+
+## Support-Only Evidence
+
+- `internal/modules/entities/phase4_support_integration_test.go::TestSupportPhase4Integration_RouteSurfaceInventory` loops the centralized Phase 4 route inventory and proves the owned resolve, merge, entity-origin, indicator, and Timeline surfaces stay wired through `backend-integration-support`. It is route-surface support evidence only and does not replace any authoritative `I-4-*` row.
+- `apps/web/src/WorkbookShell.phase4.support.test.tsx` keeps mocked helper and component regression coverage for Phase 4 workbook chips, payload builders, inspector mention derivation, and auto-resolution notices. It remains support-only and is not completion evidence for Phase 4.

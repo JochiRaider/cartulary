@@ -24,6 +24,11 @@ const validExecutionDependencies = new Set([
   "browser_stateful",
   "browser_measurement",
 ]);
+const validSupportTargets = new Set(["backend_unit", "backend_integration_support"]);
+const supportTargetSections = new Map([
+  ["backend_unit", "unit"],
+  ["backend_integration_support", "integration"],
+]);
 
 function goEntrySymbols(entry) {
   if (entry.symbol !== undefined && entry.symbols !== undefined) {
@@ -42,6 +47,32 @@ function goEntrySymbols(entry) {
   }
   if (typeof entry.symbol !== "string" || entry.symbol.trim() === "") {
     throw new Error(`manifest entry ${entry.id} is missing a non-empty symbol`);
+  }
+  return [entry.symbol];
+}
+
+function supportGoEntryLabel(entry) {
+  return `support_go_target ${entry.target ?? "(missing target)"} ${entry.file ?? "(missing file)"}`;
+}
+
+function supportGoEntrySymbols(entry) {
+  const label = supportGoEntryLabel(entry);
+  if (entry.symbol !== undefined && entry.symbols !== undefined) {
+    throw new Error(`${label} must declare symbol or symbols[], not both`);
+  }
+  if (entry.symbols !== undefined) {
+    if (!Array.isArray(entry.symbols) || entry.symbols.length === 0) {
+      throw new Error(`${label} must declare a non-empty symbols[] array`);
+    }
+    for (const symbol of entry.symbols) {
+      if (typeof symbol !== "string" || symbol.trim() === "") {
+        throw new Error(`${label} has an invalid symbol in symbols[]`);
+      }
+    }
+    return entry.symbols;
+  }
+  if (typeof entry.symbol !== "string" || entry.symbol.trim() === "") {
+    throw new Error(`${label} is missing a non-empty symbol`);
   }
   return [entry.symbol];
 }
@@ -137,17 +168,25 @@ export function collectEntries(manifest) {
   return entries;
 }
 
+export function collectSupportGoEntries(manifest) {
+  return (manifest.support_go_targets ?? []).map((entry) => ({ ...entry }));
+}
+
 export function validateManifest(root, phase) {
   const phaseNumber = phaseNumberFromPhase(phase);
   const { manifestPath, manifest } = loadManifest(root, phase);
-  const requireLedgerClaims = phase === "phase3";
+  const requireLedgerClaims = phase === "phase3" || phase === "phase4";
 
   if (!Array.isArray(manifest.expected_ids) || manifest.expected_ids.length === 0) {
     throw new Error(`manifest ${manifestPath} must define a non-empty expected_ids array`);
   }
   validateExpectedIDs(manifest.expected_ids, phaseNumber, manifestPath);
+  if (manifest.support_go_targets !== undefined && !Array.isArray(manifest.support_go_targets)) {
+    throw new Error(`manifest ${manifestPath} support_go_targets must be an array when present`);
+  }
 
   const entries = [];
+  const supportEntries = [];
   for (const [section, prefix] of sectionDefinitions) {
     for (const entry of manifest[section] ?? []) {
       if (typeof entry.id !== "string" || !entry.id.startsWith(prefix)) {
@@ -207,6 +246,62 @@ export function validateManifest(root, phase) {
     }
   }
 
+  for (const entry of collectSupportGoEntries(manifest)) {
+    if (typeof entry.target !== "string" || !validSupportTargets.has(entry.target)) {
+      throw new Error(
+        `${supportGoEntryLabel(entry)} must declare target=backend_unit|backend_integration_support`,
+      );
+    }
+    if (typeof entry.section !== "string" || !validGoSections.has(entry.section)) {
+      throw new Error(`${supportGoEntryLabel(entry)} must declare section=unit|integration|e2e`);
+    }
+    const expectedSection = supportTargetSections.get(entry.target);
+    if (entry.section !== expectedSection) {
+      throw new Error(
+        `${supportGoEntryLabel(entry)} must declare section=${expectedSection} for target=${entry.target}`,
+      );
+    }
+    if (typeof entry.package !== "string" || !entry.package.startsWith("./")) {
+      throw new Error(`${supportGoEntryLabel(entry)} must declare a repo-relative Go package owner`);
+    }
+    if (typeof entry.file !== "string" || entry.file.trim() === "") {
+      throw new Error(`${supportGoEntryLabel(entry)} must declare a file`);
+    }
+    if (typeof entry.selection_pattern !== "string" || entry.selection_pattern.trim() === "") {
+      throw new Error(`${supportGoEntryLabel(entry)} must declare a non-empty selection_pattern`);
+    }
+    let selectionPattern;
+    try {
+      selectionPattern = new RegExp(entry.selection_pattern);
+    } catch (error) {
+      throw new Error(
+        `${supportGoEntryLabel(entry)} has invalid selection_pattern ${JSON.stringify(entry.selection_pattern)}`,
+      );
+    }
+    const symbols = supportGoEntrySymbols(entry);
+    for (const symbol of symbols) {
+      if (!selectionPattern.test(symbol)) {
+        throw new Error(
+          `${supportGoEntryLabel(entry)} selection_pattern does not match symbol ${symbol}`,
+        );
+      }
+    }
+    const packageRoot = entry.package.startsWith("./") ? entry.package.slice(2) : entry.package;
+    const normalizedPackageRoot = packageRoot.endsWith("/...")
+      ? packageRoot.slice(0, -4)
+      : packageRoot;
+    const fileDir = path.posix.dirname(entry.file);
+    const packageOwnsFile = packageRoot.endsWith("/...")
+      ? fileDir === normalizedPackageRoot || fileDir.startsWith(`${normalizedPackageRoot}/`)
+      : fileDir === normalizedPackageRoot;
+    if (!packageOwnsFile) {
+      throw new Error(
+        `${supportGoEntryLabel(entry)} file ${entry.file} does not belong to package ${entry.package}`,
+      );
+    }
+    supportEntries.push(entry);
+  }
+
   const ids = entries.map((entry) => entry.id);
   const uniqueIDs = new Set(ids);
   if (uniqueIDs.size !== ids.length) {
@@ -248,6 +343,16 @@ export function validateManifest(root, phase) {
     for (const needle of needles) {
       if (!source.includes(needle)) {
         throw new Error(`manifest entry ${entry.id} not found in ${entry.file}: ${needle}`);
+      }
+    }
+  }
+
+  for (const entry of supportEntries) {
+    const targetPath = path.join(root, entry.file);
+    const source = readFileSync(targetPath, "utf8");
+    for (const needle of supportGoEntrySymbols(entry)) {
+      if (!source.includes(needle)) {
+        throw new Error(`${supportGoEntryLabel(entry)} not found in ${entry.file}: ${needle}`);
       }
     }
   }
@@ -311,6 +416,21 @@ function selectGoEntries(root, phase, section, coverage, executionDependency, pa
       entry.runner === "go_test" &&
       entry.coverage === coverage &&
       entryMatchesExecutionDependency(entry, executionDependency) &&
+      packagePatterns.some((pattern) => packageMatchesPattern(entry.package, pattern)),
+  );
+}
+
+function selectSupportGoEntries(root, phase, target, packagePatterns) {
+  if (!validSupportTargets.has(target)) {
+    throw new Error(`invalid support target ${target}`);
+  }
+  if (packagePatterns.length === 0) {
+    throw new Error("support go selection requires at least one package pattern");
+  }
+  const { manifest } = loadManifest(root, phase);
+  return collectSupportGoEntries(manifest).filter(
+    (entry) =>
+      entry.target === target &&
       packagePatterns.some((pattern) => packageMatchesPattern(entry.package, pattern)),
   );
 }
@@ -560,6 +680,23 @@ function main(argv) {
     case "go-count": {
       const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
       const entries = selectGoEntries(root, phase, section, coverage, executionDependency, packagePatterns);
+      printLines([String(entries.length)]);
+      return;
+    }
+
+    case "support-go-regex": {
+      const [phase, target, ...packagePatterns] = rest;
+      const entries = selectSupportGoEntries(root, phase, target, packagePatterns);
+      if (entries.length === 0) {
+        throw new Error(`no support go tests found for ${phase} ${target} in ${packagePatterns.join(", ")}`);
+      }
+      printLines([exactRegex(entries.flatMap((entry) => supportGoEntrySymbols(entry)))]);
+      return;
+    }
+
+    case "support-go-count": {
+      const [phase, target, ...packagePatterns] = rest;
+      const entries = selectSupportGoEntries(root, phase, target, packagePatterns);
       printLines([String(entries.length)]);
       return;
     }

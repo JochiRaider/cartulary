@@ -1045,12 +1045,15 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
   }
 
   if (exitStatus === 0 && (passedCount === 0 || skippedCount > 0 || incompleteCount > 0)) {
+    const coverage = /\bsupport\b/i.test(phaseLabel) ? "support" : "unmapped";
     const message =
       passedCount === 0 && skippedCount === 0 && incompleteCount === 0
-        ? "phase matched zero tests"
+        ? coverage === "support"
+          ? "support phase matched zero tests"
+          : "phase matched zero tests"
         : `go test inventory requires top-level pass: skipped=${skippedCount} incomplete=${incompleteCount}`;
     dossiers.push({
-      coverage: "unmapped",
+      coverage,
       phase: inferPhaseFromText(phaseLabel),
       id: "",
       runner: "go_test",
@@ -1061,7 +1064,7 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
       raw: relToRepo(logFile),
     });
     counts.failed += 1;
-    counts.unmapped_failed += 1;
+    counts[`${coverage}_failed`] += 1;
   }
 
   counts.packages = owners.size;

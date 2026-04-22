@@ -13,6 +13,7 @@ import (
 	"github.com/pquerna/otp/totp"
 
 	entities "github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/assertx"
@@ -686,6 +687,7 @@ SELECT COUNT(*)
 		hostEnvelope := phase4test.QueryViewEnvelope(t, harness.Server.HTTP.URL, incidentID.String(), golden.Phase4HostsViewSchemaID, viewLogin)
 		httptestx.RequireDefaultQueryMeta(t, hostEnvelope, golden.Phase4HostsViewSchemaID)
 		hostRow := phase4test.FindRow(t, phase4test.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.Phase4HostsViewSchemaID, viewLogin), hostRecordID.String())
+		requirePhase4ViewRowFieldSurface(t, "I-4-02", hostRow, golden.Phase4HostsViewSchemaID)
 		hostAlias := phase4test.RequireSingleCollectionItem(t, hostRow, "host.aliases")
 		if hostAlias["item_kind"] != "suggestion_only_alias" || hostAlias["raw_text"] != "Gateway Query Alias" {
 			t.Fatalf("unexpected host alias readback: %#v", hostAlias)
@@ -694,9 +696,44 @@ SELECT COUNT(*)
 		identityEnvelope := phase4test.QueryViewEnvelope(t, harness.Server.HTTP.URL, incidentID.String(), golden.Phase4IdentitiesViewSchemaID, viewLogin)
 		httptestx.RequireDefaultQueryMeta(t, identityEnvelope, golden.Phase4IdentitiesViewSchemaID)
 		identityRow := phase4test.FindRow(t, phase4test.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.Phase4IdentitiesViewSchemaID, viewLogin), identityRecordID.String())
+		requirePhase4ViewRowFieldSurface(t, "I-4-02", identityRow, golden.Phase4IdentitiesViewSchemaID)
 		identityAlias := phase4test.RequireSingleCollectionItem(t, identityRow, "identity.aliases")
 		if identityAlias["item_kind"] != "suggestion_only_alias" || identityAlias["raw_text"] != "Query Owner" {
 			t.Fatalf("unexpected identity alias readback: %#v", identityAlias)
+		}
+
+		hostProjectionBefore := lookupHostProjectionSnapshot(t, harness.DB, hostRecordID)
+		identityProjectionBefore := lookupIdentityProjectionSnapshot(t, harness.DB, identityRecordID)
+		if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM host_grid_projection WHERE incident_id = $1`, incidentID); err != nil {
+			t.Fatalf("clear host projection rows: %v", err)
+		}
+		if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM identity_grid_projection WHERE incident_id = $1`, incidentID); err != nil {
+			t.Fatalf("clear identity projection rows: %v", err)
+		}
+		projectionStore := projections.NewStore(harness.Server.Runtime.Postgres)
+		if err := projectionStore.RebuildIncidentHosts(context.Background(), incidentID); err != nil {
+			t.Fatalf("rebuild host projections: %v", err)
+		}
+		if err := projectionStore.RebuildIncidentIdentities(context.Background(), incidentID); err != nil {
+			t.Fatalf("rebuild identity projections: %v", err)
+		}
+		hostProjectionAfter := lookupHostProjectionSnapshot(t, harness.DB, hostRecordID)
+		identityProjectionAfter := lookupIdentityProjectionSnapshot(t, harness.DB, identityRecordID)
+		httptestx.RequireProjectionDeterminism(t, hostProjectionBefore, hostProjectionAfter)
+		httptestx.RequireProjectionDeterminism(t, identityProjectionBefore, identityProjectionAfter)
+
+		hostRowAfterRebuild := phase4test.FindRow(t, phase4test.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.Phase4HostsViewSchemaID, viewLogin), hostRecordID.String())
+		requirePhase4ViewRowFieldSurface(t, "I-4-02", hostRowAfterRebuild, golden.Phase4HostsViewSchemaID)
+		httptestx.RequireProjectionDeterminism(t, hostRow["cells"], hostRowAfterRebuild["cells"])
+		if rebuiltHostAlias := phase4test.RequireSingleCollectionItem(t, hostRowAfterRebuild, "host.aliases"); rebuiltHostAlias["raw_text"] != "Gateway Query Alias" {
+			t.Fatalf("unexpected rebuilt host alias readback: %#v", rebuiltHostAlias)
+		}
+
+		identityRowAfterRebuild := phase4test.FindRow(t, phase4test.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.Phase4IdentitiesViewSchemaID, viewLogin), identityRecordID.String())
+		requirePhase4ViewRowFieldSurface(t, "I-4-02", identityRowAfterRebuild, golden.Phase4IdentitiesViewSchemaID)
+		httptestx.RequireProjectionDeterminism(t, identityRow["cells"], identityRowAfterRebuild["cells"])
+		if rebuiltIdentityAlias := phase4test.RequireSingleCollectionItem(t, identityRowAfterRebuild, "identity.aliases"); rebuiltIdentityAlias["raw_text"] != "Query Owner" {
+			t.Fatalf("unexpected rebuilt identity alias readback: %#v", rebuiltIdentityAlias)
 		}
 
 		replayStableBefore := httptestx.ReplayCounts{
@@ -1181,6 +1218,7 @@ func TestPhase4_IndicatorsRoute_I_4_07(t *testing.T) {
 	httptestx.RequireDefaultQueryMeta(t, queryEnvelope, golden.Phase4IndicatorsViewSchemaID)
 	queryRows := phase4test.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.Phase4IndicatorsViewSchemaID, viewLogin)
 	queryRow := phase4test.FindRow(t, queryRows, recordID.String())
+	requirePhase4ViewRowFieldSurface(t, "I-4-07", queryRow, golden.Phase4IndicatorsViewSchemaID)
 	if queryRow["record_id"] != recordID.String() {
 		t.Fatalf("unexpected indicator query row: %#v", queryRow)
 	}
@@ -1223,6 +1261,7 @@ func TestPhase4_IndicatorsRoute_I_4_07(t *testing.T) {
 
 	queryRowsAfter := phase4test.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.Phase4IndicatorsViewSchemaID, viewLogin)
 	queryRowAfter := phase4test.FindRow(t, queryRowsAfter, recordID.String())
+	requirePhase4ViewRowFieldSurface(t, "I-4-07", queryRowAfter, golden.Phase4IndicatorsViewSchemaID)
 	cells := queryRowAfter["cells"].(map[string]any)
 	if cells["indicator.observation_count"].(map[string]any)["value"] != float64(2) {
 		t.Fatalf("expected indicator readback observation_count=2, got %#v", queryRowAfter)
@@ -1233,6 +1272,20 @@ func TestPhase4_IndicatorsRoute_I_4_07(t *testing.T) {
 	if listIndicatorObservations(t, harness.DB, incidentID)[0].ResolvedIndicatorRecordID == nil {
 		t.Fatalf("expected indicator observations to remain source-bound resolved rows")
 	}
+
+	indicatorProjectionBefore := lookupIndicatorProjection(t, harness.DB, recordID)
+	if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM indicator_grid_projection WHERE incident_id = $1`, incidentID); err != nil {
+		t.Fatalf("clear indicator projection rows: %v", err)
+	}
+	if err := projections.NewStore(harness.Server.Runtime.Postgres).RebuildIncidentIndicators(context.Background(), incidentID); err != nil {
+		t.Fatalf("rebuild indicator projections: %v", err)
+	}
+	indicatorProjectionAfter := lookupIndicatorProjection(t, harness.DB, recordID)
+	httptestx.RequireProjectionDeterminism(t, indicatorProjectionBefore, indicatorProjectionAfter)
+
+	queryRowAfterRebuild := phase4test.FindRow(t, phase4test.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.Phase4IndicatorsViewSchemaID, viewLogin), recordID.String())
+	requirePhase4ViewRowFieldSurface(t, "I-4-07", queryRowAfterRebuild, golden.Phase4IndicatorsViewSchemaID)
+	httptestx.RequireProjectionDeterminism(t, queryRowAfter["cells"], queryRowAfterRebuild["cells"])
 
 	replayStableBefore := httptestx.ReplayCounts{
 		ChangeSets: phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID),
@@ -1800,6 +1853,16 @@ func httptestError(t testing.TB, resp *http.Response, wantStatus int, wantCode s
 	return httptestx.RequireErrorEnvelope(t, resp, wantStatus, wantCode)
 }
 
+func requirePhase4ViewRowFieldSurface(t testing.TB, testID string, row map[string]any, viewSchemaID string) {
+	t.Helper()
+
+	httptestx.RequireFieldKeyConformance(
+		t,
+		phase4test.SortedRowFieldKeys(t, row),
+		phase4test.AllowedFieldKeys(t, testID, viewSchemaID),
+	)
+}
+
 func requireIndicatorCellValue(t testing.TB, row map[string]any, fieldKey string, want any) {
 	t.Helper()
 	cells := row["cells"].(map[string]any)
@@ -1858,6 +1921,73 @@ SELECT
 	row.CreatedByUser = mustUUID(t, createdByRaw)
 	row.UpdatedByUser = mustUUID(t, updatedByRaw)
 	return row
+}
+
+type hostProjectionSnapshot struct {
+	RecordID    uuid.UUID
+	IncidentID  uuid.UUID
+	RowVersion  int64
+	DisplayName string
+	Hostname    string
+	HostState   string
+	EditedAt    time.Time
+}
+
+type identityProjectionSnapshot struct {
+	RecordID       uuid.UUID
+	IncidentID     uuid.UUID
+	RowVersion     int64
+	DisplayName    string
+	Email          *string
+	SamAccountName *string
+	IdentityState  string
+	EditedAt       time.Time
+}
+
+func lookupHostProjectionSnapshot(t testing.TB, db *sql.DB, recordID uuid.UUID) hostProjectionSnapshot {
+	t.Helper()
+
+	var (
+		snapshot      hostProjectionSnapshot
+		recordIDRaw   string
+		incidentIDRaw string
+	)
+	if err := db.QueryRowContext(context.Background(), `
+SELECT record_id::text, incident_id::text, row_version, display_name, hostname, host_state, edited_at
+  FROM host_grid_projection
+ WHERE record_id = $1
+`, recordID).Scan(&recordIDRaw, &incidentIDRaw, &snapshot.RowVersion, &snapshot.DisplayName, &snapshot.Hostname, &snapshot.HostState, &snapshot.EditedAt); err != nil {
+		t.Fatalf("lookup host projection snapshot: %v", err)
+	}
+	snapshot.RecordID = mustUUID(t, recordIDRaw)
+	snapshot.IncidentID = mustUUID(t, incidentIDRaw)
+	snapshot.EditedAt = snapshot.EditedAt.UTC()
+	return snapshot
+}
+
+func lookupIdentityProjectionSnapshot(t testing.TB, db *sql.DB, recordID uuid.UUID) identityProjectionSnapshot {
+	t.Helper()
+
+	var (
+		snapshot       identityProjectionSnapshot
+		recordIDRaw    string
+		incidentIDRaw  string
+		email          *string
+		samAccountName *string
+	)
+	if err := db.QueryRowContext(context.Background(), `
+SELECT record_id::text, incident_id::text, row_version, display_name, email::text, sam_account_name, identity_state, edited_at
+  FROM identity_grid_projection
+ WHERE record_id = $1
+`, recordID).Scan(&recordIDRaw, &incidentIDRaw, &snapshot.RowVersion, &snapshot.DisplayName, &email, &samAccountName, &snapshot.IdentityState, &snapshot.EditedAt); err != nil {
+		t.Fatalf("lookup identity projection snapshot: %v", err)
+	}
+	snapshot.RecordID = mustUUID(t, recordIDRaw)
+	snapshot.IncidentID = mustUUID(t, incidentIDRaw)
+	snapshot.Email = email
+	snapshot.SamAccountName = samAccountName
+	snapshot.EditedAt = snapshot.EditedAt.UTC()
+	return snapshot
 }
 
 func lookupIndicatorProjection(t testing.TB, db *sql.DB, recordID uuid.UUID) indicatorProjectionRow {

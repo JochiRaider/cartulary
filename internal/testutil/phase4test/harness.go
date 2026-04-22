@@ -3,7 +3,6 @@ package phase4test
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -155,22 +154,7 @@ func RequireViewContract(t testing.TB, testID string, viewSchemaIDs ...string) {
 
 func RequireViewFieldBindingMode(t testing.TB, testID string, viewSchemaID string, fieldKey string, wantBindingMode string) {
 	t.Helper()
-	RequireViewContract(t, testID, viewSchemaID)
-
-	data, err := os.ReadFile(viewContractPath(viewSchemaID))
-	if err != nil {
-		t.Fatalf("Phase 4 %s failed to read view contract %s: %v", testID, viewSchemaID, err)
-	}
-
-	var document struct {
-		Fields []struct {
-			FieldKey          string `json:"field_key"`
-			EntityBindingMode string `json:"entity_binding_mode"`
-		} `json:"fields"`
-	}
-	if err := json.Unmarshal(data, &document); err != nil {
-		t.Fatalf("Phase 4 %s failed to parse view contract %s: %v", testID, viewSchemaID, err)
-	}
+	document := loadViewContract(t, testID, viewSchemaID)
 
 	for _, field := range document.Fields {
 		if field.FieldKey != fieldKey {
@@ -184,7 +168,7 @@ func RequireViewFieldBindingMode(t testing.TB, testID string, viewSchemaID strin
 	t.Fatalf("Phase 4 %s missing field %s in view contract %s", testID, fieldKey, viewSchemaID)
 }
 
-func RequireRouteSurface(t testing.TB, testID string, server *httptestx.Server, method string, path string, body any) *http.Response {
+func RequireRouteSurface(t testing.TB, testID string, server *httptestx.Server, method string, path string, body any, options ...func(*http.Request)) *http.Response {
 	t.Helper()
 	if server == nil || server.HTTP == nil {
 		t.Fatalf("Phase 4 %s requires a running HTTP server harness", testID)
@@ -196,6 +180,9 @@ func RequireRouteSurface(t testing.TB, testID string, server *httptestx.Server, 
 	}
 
 	req := httptestx.NewJSONRequest(t, method, server.HTTP.URL+path, requestBody)
+	for _, option := range options {
+		option(req)
+	}
 	resp := httptestx.Do(t, http.DefaultClient, req)
 	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusMethodNotAllowed {
 		defer resp.Body.Close()

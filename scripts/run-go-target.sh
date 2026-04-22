@@ -37,6 +37,16 @@ manifest_go_count() {
   "${NODE_HELPER}" "${MANIFEST_SCRIPT}" go-count "$@"
 }
 
+support_go_regex() {
+  "${NODE_HELPER}" "${MANIFEST_SCRIPT}" support-go-regex "$@"
+}
+
+support_go_count() {
+  "${NODE_HELPER}" "${MANIFEST_SCRIPT}" support-go-count "$@"
+}
+
+SUPPORT_MANIFEST_PHASES=(phase0 phase1 phase2 phase3 phase4)
+
 build_union_regex() {
   if [[ "$#" -eq 0 ]]; then
     echo "build_union_regex requires at least one regex component" >&2
@@ -63,6 +73,29 @@ build_union_regex() {
   printf '%s\n' "${result}"
 }
 
+append_declared_support_regex_components() {
+  if [[ "$#" -lt 2 ]]; then
+    echo "append_declared_support_regex_components requires <components-var> <target> <packages...>" >&2
+    return 2
+  fi
+
+  local -n components_ref="$1"
+  shift
+
+  local target="$1"
+  shift
+
+  local phase
+  local count
+  for phase in "${SUPPORT_MANIFEST_PHASES[@]}"; do
+    count="$(support_go_count "${phase}" "${target}" "$@")"
+    if [[ "${count}" == "0" ]]; then
+      continue
+    fi
+    components_ref+=("$(support_go_regex "${phase}" "${target}" "$@")")
+  done
+}
+
 render_go_test_command() {
   if [[ "$#" -lt 2 ]]; then
     echo "render_go_test_command requires <regex> -- <go test args...>" >&2
@@ -81,6 +114,26 @@ render_go_test_command() {
   render_command env GOCACHE="${GO_CACHE_DIR}" GOMODCACHE="${GO_MOD_CACHE_DIR}" "${GO_BIN}" test -json -run "${test_regex}" "$@"
 }
 
+emit_declared_support_phase() {
+  if [[ "$#" -lt 6 ]]; then
+    echo "emit_declared_support_phase requires <label> <actual|reused|derived> <report-dir> <phase> <target> <packages...>" >&2
+    return 2
+  fi
+
+  local phase_label="$1"
+  local duration_mode="$2"
+  local report_dir="$3"
+  local manifest_phase="$4"
+  local target="$5"
+  shift 5
+
+  local packages=("$@")
+  local support_regex
+
+  support_regex="$(support_go_regex "${manifest_phase}" "${target}" "${packages[@]}")"
+  emit_go_raw_phase "${phase_label}" "${duration_mode}" "${report_dir}" "${support_regex}" "${packages[@]}"
+}
+
 backend_integration_core_shared_spec() {
   if [[ "$#" -ne 2 ]]; then
     echo "backend_integration_core_shared_spec requires <regex-var> <args-var>" >&2
@@ -89,21 +142,24 @@ backend_integration_core_shared_spec() {
 
   local -n regex_ref="$1"
   local -n args_ref="$2"
-
-  regex_ref="$(build_union_regex \
-    "$(manifest_go_regex phase0 integration authoritative backend_integration ./internal/platform/... ./internal/app)" \
-    "$(manifest_go_regex phase2 integration authoritative backend_integration ./internal/modules/incidents)" \
-    "$(manifest_go_regex phase3 integration authoritative backend_integration ./internal/modules/timeline)" \
-    "$(manifest_go_regex phase4 integration authoritative backend_integration ./internal/modules/entities ./internal/modules/timeline)" \
-    '^(TestSupportPhase2_)' \
-    '^(TestSupportPhase3Integration_)')"
-  args_ref=(
-    -p "${GO_TEST_PACKAGE_PARALLELISM}"
+  local package_patterns=(
     ./internal/platform/...
     ./internal/app
     ./internal/modules/incidents
     ./internal/modules/entities
     ./internal/modules/timeline
+  )
+  local regex_components=(
+    "$(manifest_go_regex phase0 integration authoritative backend_integration ./internal/platform/... ./internal/app)"
+    "$(manifest_go_regex phase2 integration authoritative backend_integration ./internal/modules/incidents)"
+    "$(manifest_go_regex phase3 integration authoritative backend_integration ./internal/modules/timeline)"
+    "$(manifest_go_regex phase4 integration authoritative backend_integration ./internal/modules/entities ./internal/modules/timeline)"
+  )
+  append_declared_support_regex_components regex_components backend_integration_support "${package_patterns[@]}"
+  regex_ref="$(build_union_regex "${regex_components[@]}")"
+  args_ref=(
+    -p "${GO_TEST_PACKAGE_PARALLELISM}"
+    "${package_patterns[@]}"
   )
 }
 
@@ -115,13 +171,17 @@ backend_integration_auth_shared_spec() {
 
   local -n regex_ref="$1"
   local -n args_ref="$2"
-
-  regex_ref="$(build_union_regex \
-    "$(manifest_go_regex phase1 integration authoritative backend_integration ./internal/modules/auth)" \
-    '^(TestSupportPhase1_)')"
+  local package_patterns=(
+    ./internal/modules/auth
+  )
+  local regex_components=(
+    "$(manifest_go_regex phase1 integration authoritative backend_integration ./internal/modules/auth)"
+  )
+  append_declared_support_regex_components regex_components backend_integration_support "${package_patterns[@]}"
+  regex_ref="$(build_union_regex "${regex_components[@]}")"
   args_ref=(
     -p "${GO_TEST_PACKAGE_PARALLELISM}"
-    ./internal/modules/auth
+    "${package_patterns[@]}"
   )
 }
 
@@ -466,29 +526,40 @@ run_backend_unit() {
   local config_usage
   local phase1_platform_count
   local status=0
+  local core_package_patterns=(
+    ./internal/platform/...
+    ./internal/app
+    ./internal/modules/incidents
+    ./internal/modules/entities
+    ./internal/modules/timeline
+  )
+  local core_regex_components=(
+    "$(manifest_go_regex phase0 unit authoritative backend_unit ./internal/platform/...)"
+    "$(manifest_go_regex phase0 unit authoritative backend_unit ./internal/app)"
+    "$(manifest_go_regex phase2 unit authoritative backend_unit ./internal/modules/incidents)"
+    "$(manifest_go_regex phase3 unit authoritative backend_unit ./internal/modules/timeline)"
+    '^(TestPhase4_.*_U_4_0[89])'
+  )
+  local auth_package_patterns=(
+    ./internal/modules/auth
+  )
+  local auth_regex_components=(
+    "$(manifest_go_regex phase1 unit authoritative backend_unit ./internal/modules/auth)"
+  )
 
   phase1_platform_count="$(manifest_go_count phase1 unit authoritative backend_unit ./internal/platform/...)"
-  core_regex="$(build_union_regex \
-    "$(manifest_go_regex phase0 unit authoritative backend_unit ./internal/platform/...)" \
-    "$(manifest_go_regex phase0 unit authoritative backend_unit ./internal/app)" \
-    "$(manifest_go_regex phase2 unit authoritative backend_unit ./internal/modules/incidents)" \
-    "$(manifest_go_regex phase3 unit authoritative backend_unit ./internal/modules/timeline)" \
-    '^(TestSupportPhase3Unit_)' \
-    '^(TestPhase4_.*_U_4_0[89])')"
   if [[ "${phase1_platform_count}" != "0" ]]; then
-    core_regex="$(build_union_regex "${core_regex}" "$(manifest_go_regex phase1 unit authoritative backend_unit ./internal/platform/...)" )"
+    core_regex_components+=("$(manifest_go_regex phase1 unit authoritative backend_unit ./internal/platform/...)")
   fi
-  auth_regex="$(build_union_regex \
-    "$(manifest_go_regex phase1 unit authoritative backend_unit ./internal/modules/auth)" \
-    '^(TestSupportPhase1_)')"
+  append_declared_support_regex_components core_regex_components backend_unit "${core_package_patterns[@]}"
+  append_declared_support_regex_components auth_regex_components backend_unit "${auth_package_patterns[@]}"
+  core_regex="$(build_union_regex "${core_regex_components[@]}")"
+  auth_regex="$(build_union_regex "${auth_regex_components[@]}")"
 
   assign_captured_report core_dir core_usage backend-unit-core "${core_regex}" -- \
-    ./internal/platform/... \
-    ./internal/app \
-    ./internal/modules/incidents \
-    ./internal/modules/entities \
-    ./internal/modules/timeline
-  assign_captured_report auth_dir auth_usage backend-unit-auth "${auth_regex}" -- ./internal/modules/auth
+    "${core_package_patterns[@]}"
+  assign_captured_report auth_dir auth_usage backend-unit-auth "${auth_regex}" -- \
+    "${auth_package_patterns[@]}"
   assign_captured_report config_dir config_usage backend-unit-configtest '^Test' -- ./internal/testutil/configtest
 
   clear_go_selection_env
@@ -504,9 +575,9 @@ run_backend_unit() {
   clear_go_selection_env
   emit_go_manifest_phase "backend-unit phase1 authoritative auth" "${auth_usage}" "${auth_dir}" phase1 unit authoritative backend_unit ./internal/modules/auth || status=$?
   clear_go_selection_env
-  emit_go_raw_phase "backend-unit support phase1" derived "${auth_dir}" '^(TestSupportPhase1_)' ./internal/modules/auth || status=$?
+  emit_declared_support_phase "backend-unit support phase1" derived "${auth_dir}" phase1 backend_unit ./internal/modules/auth || status=$?
   clear_go_selection_env
-  emit_go_raw_phase "backend-unit support phase3" derived "${core_dir}" '^(TestSupportPhase3Unit_)' ./internal/modules/timeline || status=$?
+  emit_declared_support_phase "backend-unit support phase3" derived "${core_dir}" phase3 backend_unit ./internal/modules/timeline || status=$?
   clear_go_selection_env
   emit_go_raw_phase "backend-unit phase4 app" derived "${core_dir}" '^(TestPhase4_.*_U_4_0[89])' ./internal/app ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline || status=$?
   clear_go_selection_env
@@ -591,11 +662,13 @@ run_backend_integration_support() {
   assign_named_shared_report auth_dir auth_usage backend-integration-support backend-integration-auth
 
   clear_go_selection_env
-  emit_go_raw_phase "backend-integration support phase1" "${auth_usage}" "${auth_dir}" '^(TestSupportPhase1_)' ./internal/modules/auth || status=$?
+  emit_declared_support_phase "backend-integration support phase1" "${auth_usage}" "${auth_dir}" phase1 backend_integration_support ./internal/modules/auth || status=$?
   clear_go_selection_env
-  emit_go_raw_phase "backend-integration support phase2" "${core_usage}" "${core_dir}" '^(TestSupportPhase2_)' ./internal/modules/incidents || status=$?
+  emit_declared_support_phase "backend-integration support phase2" "${core_usage}" "${core_dir}" phase2 backend_integration_support ./internal/modules/incidents || status=$?
   clear_go_selection_env
-  emit_go_raw_phase "backend-integration support phase3" derived "${core_dir}" '^(TestSupportPhase3Integration_)' ./internal/modules/timeline || status=$?
+  emit_declared_support_phase "backend-integration support phase3" derived "${core_dir}" phase3 backend_integration_support ./internal/modules/timeline || status=$?
+  clear_go_selection_env
+  emit_declared_support_phase "backend-integration support phase4" derived "${core_dir}" phase4 backend_integration_support ./internal/modules/entities ./internal/modules/timeline || status=$?
 
   finish_target "${status}"
 }

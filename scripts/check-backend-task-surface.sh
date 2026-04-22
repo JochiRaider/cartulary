@@ -72,6 +72,50 @@ require_shared_command_contains() {
   fi
 }
 
+support_selection_patterns() {
+  local target="$1"
+  shift
+
+  "$node_bin" - "$repo_root" "$target" "$@" <<'EOF'
+const fs = require("fs");
+const path = require("path");
+
+const [root, target, ...packagePatterns] = process.argv.slice(2);
+
+function packageMatchesPattern(pkg, pattern) {
+  if (pattern.endsWith("/...")) {
+    const prefix = pattern.slice(0, -4);
+    return pkg === prefix || pkg.startsWith(`${prefix}/`);
+  }
+  return pkg === pattern;
+}
+
+const patterns = new Set();
+for (const entry of fs.readdirSync(path.join(root, "tools")).sort()) {
+  if (!/^phase\d+_test_map\.json$/.test(entry)) {
+    continue;
+  }
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(root, "tools", entry), "utf8"),
+  );
+  for (const supportEntry of manifest.support_go_targets ?? []) {
+    if (supportEntry.target !== target) {
+      continue;
+    }
+    if (!packagePatterns.some((pattern) => packageMatchesPattern(supportEntry.package, pattern))) {
+      continue;
+    }
+    patterns.add(supportEntry.selection_pattern);
+  }
+}
+
+const values = Array.from(patterns).sort();
+if (values.length > 0) {
+  process.stdout.write(`${values.join("\n")}\n`);
+}
+EOF
+}
+
 check_heavy_line="$(sed -n 's/^check-heavy:[[:space:]]*//p' "$makefile" | head -n 1)"
 if [[ -z "$check_heavy_line" ]]; then
   fail "Makefile must define check-heavy prerequisites"
@@ -212,7 +256,8 @@ for expected in \
   'manifest_go_regex phase1 unit authoritative backend_unit ./internal/modules/auth' \
   'emit_go_manifest_phase "backend-unit phase2 authoritative"' \
   'emit_go_manifest_phase "backend-unit phase3 authoritative"' \
-  'TestSupportPhase1_'
+  'emit_declared_support_phase "backend-unit support phase1"' \
+  'emit_declared_support_phase "backend-unit support phase3"'
 do
   if ! grep -Fq "$expected" "$go_runner_script"; then
     fail "scripts/run-go-target.sh must preserve backend-unit selection surface: missing $expected"
@@ -241,9 +286,10 @@ for expected in \
   'emit_go_manifest_phase "backend-integration phase1 authoritative"' \
   'emit_go_manifest_phase "backend-integration phase4 authoritative"' \
   'emit_go_manifest_phase "backend-integration phase2 authoritative"' \
-  'emit_go_raw_phase "backend-integration support phase1"' \
-  'emit_go_raw_phase "backend-integration support phase2"' \
-  'emit_go_raw_phase "backend-integration support phase3"'
+  'emit_declared_support_phase "backend-integration support phase1"' \
+  'emit_declared_support_phase "backend-integration support phase2"' \
+  'emit_declared_support_phase "backend-integration support phase3"' \
+  'emit_declared_support_phase "backend-integration support phase4"'
 do
   if ! grep -Fq "$expected" "$go_runner_script"; then
     fail "scripts/run-go-target.sh must preserve backend-integration selection surface: missing $expected"
@@ -328,8 +374,22 @@ if ! printf '%s\n' "$backend_integration_support_block" | grep -Fq 'run-go-targe
 fi
 require_shared_command_match backend-integration-core backend-integration backend-integration-support
 require_shared_command_match backend-integration-auth backend-integration backend-integration-support
-require_shared_command_contains backend-integration backend-integration-core "TestSupportPhase3Integration_"
-require_shared_command_contains backend-integration backend-integration-auth "TestSupportPhase1_"
+mapfile -t backend_integration_core_support_patterns < <(support_selection_patterns backend_integration_support ./internal/platform/... ./internal/app ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline)
+if [[ "${#backend_integration_core_support_patterns[@]}" -eq 0 ]]; then
+  fail "backend-integration-core must have declared support selectors"
+fi
+for pattern in "${backend_integration_core_support_patterns[@]}"; do
+  [[ -z "$pattern" ]] && continue
+  require_shared_command_contains backend-integration backend-integration-core "$pattern"
+done
+mapfile -t backend_integration_auth_support_patterns < <(support_selection_patterns backend_integration_support ./internal/modules/auth)
+if [[ "${#backend_integration_auth_support_patterns[@]}" -eq 0 ]]; then
+  fail "backend-integration-auth must have declared support selectors"
+fi
+for pattern in "${backend_integration_auth_support_patterns[@]}"; do
+  [[ -z "$pattern" ]] && continue
+  require_shared_command_contains backend-integration backend-integration-auth "$pattern"
+done
 require_shared_command_match backend-process-shared backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke
 
 test_fast_block="$(extract_target_block test-fast)"

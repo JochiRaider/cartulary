@@ -1,4 +1,13 @@
-import { collectEntries, loadManifest } from "./lib/phase-manifest.mjs";
+import { collectEntries, collectSupportGoEntries, loadManifest } from "./lib/phase-manifest.mjs";
+
+const supportTargetDisplay = new Map([
+  ["backend_unit", "backend-unit"],
+  ["backend_integration_support", "backend-integration-support"],
+]);
+const supportTargetOrder = new Map([
+  ["backend_unit", 0],
+  ["backend_integration_support", 1],
+]);
 
 const phaseConfigs = {
   phase3: {
@@ -20,12 +29,8 @@ const phaseConfigs = {
       "- `frontend-unit` selects authoritative `U-3-*` workbook rows only through the Phase 3 Vitest manifest for `frontend_unit`.",
       "- `browser-e2e-webserver-backed` and delegated `browser-e2e-functional` select authoritative functional `E-3-*` rows only through the Phase 3 Playwright manifest for `browser_functional`.",
       "- `browser-e2e-measurement` selects authoritative measurement `E-3-*` rows only through the Phase 3 Playwright manifest for `browser_measurement`.",
-      "",
-      "## Support-Only Execution",
-      "",
-      "- `internal/modules/timeline/phase3_support_test.go` runs through `backend-unit` with `TestSupportPhase3Unit_` and is forbidden from claiming `U-3-*` identifiers.",
-      "- `internal/modules/timeline/phase3_support_integration_test.go` runs through `backend-integration-support` with `TestSupportPhase3Integration_` and is forbidden from claiming `I-3-*` identifiers.",
     ],
+    supportExecutionExtras: [],
     sections: [
       ["unit", "Unit"],
       ["integration", "Integration"],
@@ -44,6 +49,44 @@ const phaseConfigs = {
       "- `internal/modules/timeline/phase3_support_integration_test.go::TestSupportPhase3Integration_AuthorizationMatrix` table-drives create, query, patch, review, and supersede authorization across no-membership, editor, reviewer, and admin states. It strengthens route inventory confidence and does not replace `I-3-03`.",
     ],
   },
+  phase4: {
+    title: "Phase 4 Coverage Ledger",
+    introduction: [
+      "This ledger is generated from `tools/phase4_test_map.json`. Update the manifest row metadata first, then regenerate this file.",
+      "",
+      "- Scope: entity mentions, resolve and merge routes, entity-origin Host and Identity creation, indicator create and query surfaces, Timeline auto-resolution and manual relationship HTTP behavior, and the owned Phase 4 browser inspector flows.",
+      "- Normative owners: Core 01 `§3.3.5`; Core 02 `§6` through `§10`; Core 03 `§9`, `§16`; Core 04 `AC-017`, `AC-019` through `AC-023`, `AC-077` through `AC-079`, `AC-186`, `AC-188` through `AC-190`, `AC-205`, `AC-209`, `AC-221` through `AC-225`, `AC-388` through `AC-397`.",
+      "- Authority: `tools/phase4_test_map.json` is the enforced Phase 4 traceability source. This ledger is a rendered companion and does not control the mechanical row inventory.",
+      "- Binding-mode note: the authoritative Phase 4 row set stays fixed. Contract-derived binding-mode, row-field, and projection-determinism assertions are absorbed into the existing authoritative rows instead of creating new Phase 4 IDs.",
+      "",
+      "## Authoritative Execution",
+      "",
+      "- `backend-unit` selects authoritative `U-4-*` decoder rows only through `RUN_GO_MANIFEST_PHASE ... phase4 unit authoritative backend_unit`.",
+      "- `backend-store` selects authoritative store-backed `U-4-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase4 unit authoritative backend_store`.",
+      "- `backend-integration` selects authoritative `I-4-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase4 integration authoritative backend_integration`.",
+      "- `browser-e2e-webserver-backed` and delegated `browser-e2e-functional` select authoritative `E-4-*` rows only through the Phase 4 Playwright manifest for `browser_functional`.",
+    ],
+    supportExecutionExtras: [
+      "- `apps/web/src/WorkbookShell.phase4.support.test.tsx` runs through `frontend-unit` and is forbidden from claiming `U-4-*`, `I-4-*`, or `E-4-*` identifiers.",
+    ],
+    sections: [
+      ["unit", "Unit"],
+      ["integration", "Integration"],
+      ["e2e", "Browser E2E"],
+    ],
+    sharedHarness: [
+      "| Harness | Phase 4 evidence |",
+      "| --- | --- |",
+      "| Real runtime and route helpers | `internal/testutil/phase4test` centralizes the Postgres + MinIO runtime boot path, bootstrap-admin login helpers, entity or mention seed helpers, contract-derived field-surface helpers, and the owned support-only route inventory for Phase 4 HTTP surfaces. |",
+      "| Cross-cutting HTTP and projection helpers | `internal/testutil/httptestx` owns success or error envelope checks, replay scaffolding, authorization re-derivation assertions, closed-vocabulary checks, field-key conformance, and projection determinism assertions shared across the Phase 4 backend suite. |",
+      "| Entity and Timeline substrate inspection | `internal/testutil/assertx`, `internal/testutil/timelinetest`, and Phase 4 package-local lookup helpers inspect durable mention, link, change-set, projection, and observation state that the authoritative Phase 4 rows rely on. |",
+      "| Browser helper fixtures | `apps/web/src/timelineWorkbookTestSupport.tsx` and `apps/web/src/workbookShellPhase4.ts` provide the mocked workbook row, websocket, and mention helper scaffolding used by the support-only Phase 4 workbook tests. |",
+    ],
+    supportOnly: [
+      "- `internal/modules/entities/phase4_support_integration_test.go::TestSupportPhase4Integration_RouteSurfaceInventory` loops the centralized Phase 4 route inventory and proves the owned resolve, merge, entity-origin, indicator, and Timeline surfaces stay wired through `backend-integration-support`. It is route-surface support evidence only and does not replace any authoritative `I-4-*` row.",
+      "- `apps/web/src/WorkbookShell.phase4.support.test.tsx` keeps mocked helper and component regression coverage for Phase 4 workbook chips, payload builders, inspector mention derivation, and auto-resolution notices. It remains support-only and is not completion evidence for Phase 4.",
+    ],
+  },
 };
 
 function renderEvidence(entry) {
@@ -55,6 +98,49 @@ function renderEvidence(entry) {
 
 function renderExecution(entry) {
   return `\`${entry.execution_dependency}\``;
+}
+
+function phaseNumberFromKey(phase) {
+  const match = /^phase(\d+)$/.exec(phase);
+  if (!match) {
+    throw new Error(`unsupported phase key ${phase}`);
+  }
+  return match[1];
+}
+
+function sectionPrefix(section) {
+  switch (section) {
+    case "unit":
+      return "U";
+    case "integration":
+      return "I";
+    case "e2e":
+      return "E";
+    default:
+      throw new Error(`unsupported support section ${section}`);
+  }
+}
+
+function renderSupportExecutionLines(phase, manifest, extras = []) {
+  const phaseNumber = phaseNumberFromKey(phase);
+  const supportLines = collectSupportGoEntries(manifest)
+    .sort((left, right) => {
+      const orderDiff =
+        (supportTargetOrder.get(left.target) ?? Number.MAX_SAFE_INTEGER) -
+        (supportTargetOrder.get(right.target) ?? Number.MAX_SAFE_INTEGER);
+      if (orderDiff !== 0) {
+        return orderDiff;
+      }
+      return left.file.localeCompare(right.file);
+    })
+    .map((entry) => {
+      const target = supportTargetDisplay.get(entry.target);
+      if (!target) {
+        throw new Error(`unsupported support target ${entry.target}`);
+      }
+      return `- \`${entry.file}\` runs through \`${target}\` with \`${entry.selection_pattern}\` and is forbidden from claiming \`${sectionPrefix(entry.section)}-${phaseNumber}-*\` identifiers.`;
+    });
+  return [...supportLines, ...extras];
 }
 
 function renderSection(title, entries) {
@@ -86,6 +172,14 @@ export function renderPhaseLedger(root, phase) {
   );
 
   const lines = [`# ${config.title}`, "", ...config.introduction];
+  const supportExecutionLines = renderSupportExecutionLines(
+    phase,
+    manifest,
+    config.supportExecutionExtras,
+  );
+  if (supportExecutionLines.length > 0) {
+    lines.push("", "## Support-Only Execution", "", ...supportExecutionLines);
+  }
 
   for (const [sectionKey, title] of config.sections) {
     const sectionEntries = entries.filter((entry) => entry.section === sectionKey);

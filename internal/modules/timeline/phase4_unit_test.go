@@ -7,6 +7,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/testutil/golden"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 
 	. "github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -19,6 +20,15 @@ func TestPhase4_BindingMode_U_4_01(t *testing.T) {
 	entityStore := entities.NewStore(harness.Pool)
 	actor := phase4test.SeedLocalUserFlags(t, harness.DB, "u401@example.test", "U401", "U401Phase4Pass1!", false, false, true)
 	incident := phase4test.CreateIncidentInStore(t, harness.Pool, actor, "txn-phase4-u-4-01-incident", "IR-U401", "Phase 4 U-4-01")
+
+	phase4test.RequireViewFieldBindingMode(t, "U-4-01", golden.Phase4TimelineViewSchemaID, golden.Phase4FieldTimelineHostRefs, "mention_origin")
+	phase4test.RequireViewFieldBindingMode(t, "U-4-01", golden.Phase4TimelineViewSchemaID, golden.Phase4FieldTimelineIdentityRefs, "mention_origin")
+	phase4test.RequireViewFieldBindingMode(t, "U-4-01", golden.Phase4HostsViewSchemaID, "host.display_name", "entity_origin")
+	phase4test.RequireViewFieldBindingMode(t, "U-4-01", golden.Phase4HostsViewSchemaID, "host.hostname", "entity_origin")
+	phase4test.RequireViewFieldBindingMode(t, "U-4-01", golden.Phase4HostsViewSchemaID, "host.aliases", "entity_origin")
+	phase4test.RequireViewFieldBindingMode(t, "U-4-01", golden.Phase4IdentitiesViewSchemaID, "identity.display_name", "entity_origin")
+	phase4test.RequireViewFieldBindingMode(t, "U-4-01", golden.Phase4IdentitiesViewSchemaID, "identity.email", "entity_origin")
+	phase4test.RequireViewFieldBindingMode(t, "U-4-01", golden.Phase4IdentitiesViewSchemaID, "identity.aliases", "entity_origin")
 
 	normalizedHostToken, ok := fieldnorm.NormalizeMentionToken("WS-023")
 	if !ok {

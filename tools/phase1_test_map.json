@@ -34,6 +34,40 @@
     "internal/modules/auth/phase1_support_test.go",
     "internal/modules/auth/phase1_support_integration_test.go"
   ],
+  "support_go_targets": [
+    {
+      "target": "backend_unit",
+      "section": "unit",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_support_test.go",
+      "symbols": [
+        "TestSupportPhase1_SessionInspectionHelpers",
+        "TestSupportPhase1_CSRFHelpers",
+        "TestSupportPhase1_CredentialStateBuilders",
+        "TestSupportPhase1_PasswordChangeDecode",
+        "TestSupportPhase1_TOTPBootstrapHelpers",
+        "TestSupportPhase1_UserCreateDefaultsAndSafeShape",
+        "TestSupportPhase1_AdminCredentialActionsRequireDeploymentAdmin"
+      ],
+      "selection_pattern": "TestSupportPhase1_"
+    },
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_support_integration_test.go",
+      "symbols": [
+        "TestSupportPhase1_UserListUsesSnapshotStablePagination",
+        "TestSupportPhase1_PublicRouteInventoryEnvelopes",
+        "TestSupportPhase1_PublicRouteInventoryBootstrapBoundaries",
+        "TestSupportPhase1_PublicRouteInventoryCSRFProtection",
+        "TestSupportPhase1_PublicRouteInventoryReplayAndStoredPayloadSafety",
+        "TestSupportPhase1_PublicRouteInventoryAuditAttribution",
+        "TestSupportPhase1_PublicRouteInventorySessionRevocation"
+      ],
+      "selection_pattern": "TestSupportPhase1_"
+    }
+  ],
   "unit": [
     {
       "id": "U-1-01",
