@@ -1,0 +1,104 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { csrfHeaderName, fetchJSON } from "./browserApi";
+
+describe("fetchJSON", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("adds JSON content type and CSRF header for mutating requests with included credentials", async () => {
+    vi.spyOn(document, "cookie", "get").mockReturnValue(
+      "cartulary_csrf=test-csrf",
+    );
+    fetchMock.mockResolvedValue(jsonResponse({ data: { ok: true } }));
+
+    await fetchJSON("/api/v1/incidents", {
+      method: "POST",
+      body: JSON.stringify({ title: "IR-201" }),
+    });
+
+    const request = capturedRequest(fetchMock);
+    expect(request.credentials).toBe("include");
+    expect(request.headers.get("Content-Type")).toBe("application/json");
+    expect(request.headers.get(csrfHeaderName)).toBe("test-csrf");
+  });
+
+  it.each([
+    {
+      cookie: "other_cookie=value",
+      label: "the CSRF cookie is absent",
+    },
+    {
+      cookie: "cartulary_csrf=",
+      label: "the CSRF cookie value is empty",
+    },
+  ])("omits the CSRF header when $label", async ({ cookie }) => {
+    vi.spyOn(document, "cookie", "get").mockReturnValue(cookie);
+    fetchMock.mockResolvedValue(jsonResponse({ data: { ok: true } }));
+
+    await fetchJSON("/api/v1/incidents", {
+      method: "POST",
+      body: JSON.stringify({ title: "IR-201" }),
+    });
+
+    const request = capturedRequest(fetchMock);
+    expect(request.headers.get("Content-Type")).toBe("application/json");
+    expect(request.headers.get(csrfHeaderName)).toBeNull();
+  });
+
+  it("omits the CSRF header for mutating requests that do not include credentials", async () => {
+    vi.spyOn(document, "cookie", "get").mockReturnValue(
+      "cartulary_csrf=test-csrf",
+    );
+    fetchMock.mockResolvedValue(jsonResponse({ data: { ok: true } }));
+
+    await fetchJSON("/api/v1/auth/mfa/totp/begin", {
+      method: "POST",
+      credentials: "omit",
+      body: JSON.stringify({ client_txn_id: "txn-1" }),
+    });
+
+    const request = capturedRequest(fetchMock);
+    expect(request.credentials).toBe("omit");
+    expect(request.headers.get("Content-Type")).toBe("application/json");
+    expect(request.headers.get(csrfHeaderName)).toBeNull();
+  });
+
+  it("leaves GET requests without JSON content type or CSRF header", async () => {
+    const cookieSpy = vi
+      .spyOn(document, "cookie", "get")
+      .mockReturnValue("cartulary_csrf=test-csrf");
+    fetchMock.mockResolvedValue(jsonResponse({ data: { ok: true } }));
+
+    await fetchJSON("/api/v1/incidents");
+
+    const request = capturedRequest(fetchMock);
+    expect(request.credentials).toBe("include");
+    expect(request.headers.get("Content-Type")).toBeNull();
+    expect(request.headers.get(csrfHeaderName)).toBeNull();
+    expect(cookieSpy).not.toHaveBeenCalled();
+  });
+});
+
+function capturedRequest(fetchMock: ReturnType<typeof vi.fn>) {
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  return new Request("http://localhost/api", fetchMock.mock.calls[0]?.[1]);
+}
+
+function jsonResponse(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}

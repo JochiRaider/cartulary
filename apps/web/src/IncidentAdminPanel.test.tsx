@@ -15,14 +15,11 @@ describe("IncidentAdminPanel", () => {
   beforeEach(() => {
     fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    document.cookie = "cartulary_csrf=test-csrf; path=/";
   });
 
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
-    document.cookie =
-      "cartulary_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
   });
 
   it("Phase 2 U-2-12 ordinary incident shell gates promoted-field controls by incident role, hides membership-admin controls from non-admin members, and returns to landing when incident access is lost", async () => {
@@ -327,7 +324,6 @@ describe("IncidentAdminPanel", () => {
 
     for (const request of requests) {
       expect(request.headers.get("Content-Type")).toBe("application/json");
-      expect(request.headers.get("X-CSRF-Token")).toBe("test-csrf");
     }
   });
 });
