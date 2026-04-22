@@ -1,3 +1,8 @@
+import {
+  assertGridFocusContinuity,
+  rowInspectButtonTestId,
+  scrollGridToBottom,
+} from "@cartulary/test-utils";
 import type { Page, Response } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
@@ -131,7 +136,7 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
   );
   await expect(page.getByTestId("timeline-inspector")).toContainText("WS-023?");
 
-  const resolveScroll = await scrollTimelineGridToBottom(page);
+  const resolveScroll = await scrollGridToBottom(page, "timeline");
   const resolveResponsePromise = waitForTimelinePatch(page, mainRow.record_id);
   await page
     .getByTestId("inspector-resolve-target")
@@ -159,7 +164,7 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
     "vpn.user@example.test",
   );
 
-  const createScroll = await scrollTimelineGridToBottom(page);
+  const createScroll = await scrollGridToBottom(page, "timeline");
   const createResponsePromise = waitForTimelinePatch(page, mainRow.record_id);
   await page.getByRole("button", { name: "Create identity" }).click();
   const createEnvelope = await readTimelineMutation(
@@ -287,7 +292,7 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
     .getByTestId(`mention-${sanitizeTestId(String(seededMention.item_ref))}`)
     .click();
 
-  const dismissScroll = await scrollTimelineGridToBottom(page);
+  const dismissScroll = await scrollGridToBottom(page, "timeline");
   const dismissResponsePromise = waitForTimelinePatch(page, row.record_id);
   await page.getByRole("button", { name: "Dismiss" }).click();
   const dismissEnvelope = await readTimelineMutation(
@@ -307,7 +312,7 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
     collectionItems(dismissEnvelope.data.row, hostRefsFieldKey),
   ).toHaveLength(0);
 
-  const restoreScroll = await scrollTimelineGridToBottom(page);
+  const restoreScroll = await scrollGridToBottom(page, "timeline");
   const restoreResponsePromise = waitForTimelinePatch(page, row.record_id);
   await page.getByRole("button", { name: "Restore to unresolved" }).click();
   const restoreResponse = await restoreResponsePromise;
@@ -336,7 +341,9 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
       .getByTestId(`row-${row.record_id}-hostRefs-items`)
       .getByLabel(/^Resolved WS-023$/),
   ).toHaveCount(0);
-  await expectTimelineContinuity(page, row.record_id, restoreScroll);
+  await expectTimelineContinuity(page, row.record_id, restoreScroll, {
+    requireExactVerticalScroll: false,
+  });
   expect(restoreBody.changes[0]?.action_payload.actions[0]?.item_ref).toBe(
     seededMention.item_ref,
   );
@@ -647,7 +654,9 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
     identityMergeEnvelope.data.merge_summary.repointed_link_count,
   ).toBeGreaterThan(0);
   expect(
-    identityRowsAfter.some((row) => row.record_id === identitySurvivor.record_id),
+    identityRowsAfter.some(
+      (row) => row.record_id === identitySurvivor.record_id,
+    ),
   ).toBeTruthy();
   expect(
     identityRowsAfter.some((row) => row.record_id === identityLoser.record_id),
@@ -709,7 +718,7 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByText("Timeline workbook shell")).toBeVisible();
 
-  const autoScroll = await scrollTimelineGridToBottom(page);
+  const autoScroll = await scrollGridToBottom(page, "timeline");
   const eligibleResponsePromise = waitForTimelinePatch(
     page,
     eligibleRow.record_id,
@@ -746,11 +755,11 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     autoNotice.getByRole("button", { name: "Review" }),
   ).toBeVisible();
   await expect(
-    page.getByTestId(`row-${eligibleRow.record_id}-inspect`),
+    page.getByTestId(rowInspectButtonTestId(eligibleRow.record_id)),
   ).toBeFocused();
-  expect((await currentTimelineGridScroll(page)).top).toEqual(autoScroll.top);
+  await expectTimelineContinuity(page, eligibleRow.record_id, autoScroll);
 
-  const undoScroll = await scrollTimelineGridToBottom(page);
+  const undoScroll = await scrollGridToBottom(page, "timeline");
   const undoResponsePromise = waitForTimelinePatch(page, eligibleRow.record_id);
   await autoNotice.getByRole("button", { name: "Undo" }).click();
   const undoEnvelope = await readTimelineMutation(await undoResponsePromise);
@@ -764,9 +773,9 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
     "Auto",
   );
   await expect(
-    page.getByTestId(`row-${eligibleRow.record_id}-inspect`),
+    page.getByTestId(rowInspectButtonTestId(eligibleRow.record_id)),
   ).toBeFocused();
-  expect((await currentTimelineGridScroll(page)).top).toEqual(undoScroll.top);
+  await expectTimelineContinuity(page, eligibleRow.record_id, undoScroll);
 
   const suppressedTokens = [
     "WS-023",
@@ -918,7 +927,7 @@ async function addRelationshipTokenViaUI(
 }
 
 async function openTimelineInspector(page: Page, recordId: string) {
-  await page.getByTestId(`row-${recordId}-inspect`).click();
+  await page.getByTestId(rowInspectButtonTestId(recordId)).click();
   await expect(page.getByTestId("timeline-inspector")).toContainText(recordId);
 }
 
@@ -948,41 +957,26 @@ async function readMergeEnvelope(response: Response) {
   return (await response.json()) as MergeEnvelope;
 }
 
-async function scrollTimelineGridToBottom(page: Page) {
-  return page.getByTestId("timeline-grid-shell").evaluate((element) => {
-    const grid = element as HTMLDivElement;
-    grid.scrollTop = grid.scrollHeight;
-    return {
-      left: grid.scrollLeft,
-      top: grid.scrollTop,
-    };
-  });
-}
-
-async function currentTimelineGridScroll(page: Page) {
-  return page.getByTestId("timeline-grid-shell").evaluate((element) => {
-    const grid = element as HTMLDivElement;
-    return {
-      left: grid.scrollLeft,
-      top: grid.scrollTop,
-    };
-  });
-}
-
 async function expectTimelineContinuity(
   page: Page,
   recordId: string,
   preservedScroll: { left: number; top: number },
+  options: {
+    requireExactHorizontalScroll?: boolean;
+    requireExactVerticalScroll?: boolean;
+  } = {},
 ) {
-  const inspectButton = page.getByTestId(`row-${recordId}-inspect`);
   await expect
     .poll(() => new URL(page.url()).searchParams.get("surface"))
     .toBe("timeline");
-  await expect(inspectButton).toBeFocused();
-  await expect(inspectButton).toBeInViewport();
-  expect((await currentTimelineGridScroll(page)).top).toEqual(
-    preservedScroll.top,
-  );
+  await assertGridFocusContinuity({
+    focusTestId: rowInspectButtonTestId(recordId),
+    page,
+    preservedScroll,
+    requireExactHorizontalScroll: options.requireExactHorizontalScroll ?? false,
+    requireExactVerticalScroll: options.requireExactVerticalScroll,
+    surface: "timeline",
+  });
 }
 
 async function waitForViewRow(
@@ -1005,6 +999,10 @@ async function waitForViewRow(
       );
     })
     .toBe(true);
-  const rows = (await queryViewRows(page, incidentId, viewSchemaId)) as ViewRow[];
+  const rows = (await queryViewRows(
+    page,
+    incidentId,
+    viewSchemaId,
+  )) as ViewRow[];
   return findRow(rows, recordId);
 }

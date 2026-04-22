@@ -12,8 +12,8 @@ import {
 
 import {
   isExternalServerHarnessMode,
-  sharedPlaywrightStateDir,
   resolvePlaywrightStateFile,
+  sharedPlaywrightStateDir,
 } from "./harnessState";
 
 export const bootstrapEmail = "dev-admin@example.test";
@@ -802,10 +802,7 @@ async function provisionUserTotp(
   }
   return provisionTotpFromBootstrap(
     authRequests,
-    requireBootstrapToken(
-      loginResult.details,
-      currentSuiteAdminStateContext(),
-    ),
+    requireBootstrapToken(loginResult.details, currentSuiteAdminStateContext()),
   );
 }
 
@@ -945,5 +942,7 @@ function suiteAdminStateError(
   const ownership = context.externalServerMode
     ? "The reused external-server stack owns this state for its full lifetime."
     : "The harness expected to provision this state during Playwright global setup.";
-  return new Error(`${message}. Expected harness state at ${stateLocation}. ${ownership}`);
+  return new Error(
+    `${message}. Expected harness state at ${stateLocation}. ${ownership}`,
+  );
 }

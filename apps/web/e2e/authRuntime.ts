@@ -25,12 +25,12 @@ import {
   buildWorkerAdminBlueprints,
   clearWorkerAdminCleanupMarkers,
   ensureWorkerAdminCleanupMarkerDirectory,
-  loadWorkerAdminManifestIfPresent,
   loadWorkerAdminManifest,
-  type WorkerAdminBlueprint,
-  type WorkerAdminManifest,
+  loadWorkerAdminManifestIfPresent,
   type TrackedSessionSnapshot,
+  type WorkerAdminBlueprint,
   type WorkerAdminEntry,
+  type WorkerAdminManifest,
   workerAdminNeedsJanitor,
   writeWorkerAdminManifest,
 } from "./sessionSupport";
@@ -448,7 +448,7 @@ export async function reconcileWorkerAdminManifest(
     const manifestEntry = existingByIndex.get(blueprint.parallelIndex) ?? null;
     const manifestUser =
       manifestEntry !== null
-        ? usersByID.get(manifestEntry.user_id) ?? null
+        ? (usersByID.get(manifestEntry.user_id) ?? null)
         : null;
     let user =
       usersByEmail.get(blueprint.email) ??

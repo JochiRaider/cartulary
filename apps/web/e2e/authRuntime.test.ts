@@ -2,10 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  type UserResource,
-  reconcileWorkerAdminManifest,
-} from "./authRuntime";
+import { reconcileWorkerAdminManifest, type UserResource } from "./authRuntime";
 import type { WorkerAdminBlueprint } from "./sessionSupport";
 
 type FakeUser = UserResource & {
@@ -123,7 +120,9 @@ function buildBlueprints(workerCount: number) {
   })) satisfies WorkerAdminBlueprint[];
 }
 
-function createFakeControlPlane(initialUsers: FakeUser[] = []): FakeControlPlane {
+function createFakeControlPlane(
+  initialUsers: FakeUser[] = [],
+): FakeControlPlane {
   let nextID = initialUsers.length + 1;
   const users = new Map(initialUsers.map((user) => [user.user_id, user]));
   const stats = {
@@ -135,14 +134,14 @@ function createFakeControlPlane(initialUsers: FakeUser[] = []): FakeControlPlane
   return {
     controlPlane: {
       canLogin: async (email, password) => {
-        const user = [...users.values()].find((candidate) => candidate.email === email);
+        const user = [...users.values()].find(
+          (candidate) => candidate.email === email,
+        );
         if (!user) {
           return false;
         }
         return (
-          user.password === password &&
-          user.is_active &&
-          !user.mfa_required
+          user.password === password && user.is_active && !user.mfa_required
         );
       },
       createUser: async (blueprint) => {
@@ -160,7 +159,8 @@ function createFakeControlPlane(initialUsers: FakeUser[] = []): FakeControlPlane
         users.set(created.user_id, created);
         return toUserResource(created);
       },
-      listUsers: async () => [...users.values()].map((user) => toUserResource(user)),
+      listUsers: async () =>
+        [...users.values()].map((user) => toUserResource(user)),
       patchUser: async (userId, body) => {
         stats.patchCount += 1;
         const current = requireUser(users, userId);

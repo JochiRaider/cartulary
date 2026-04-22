@@ -125,6 +125,7 @@
       "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_integration_test.go",
       "symbol": "TestPhase4_ResolveRoute_I_4_01",
+      "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime"
     },
     {
@@ -134,6 +135,7 @@
       "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_integration_test.go",
       "symbol": "TestPhase4_EntityOriginUpsert_I_4_02",
+      "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime"
     },
     {
@@ -143,6 +145,7 @@
       "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_integration_test.go",
       "symbol": "TestPhase4_ExplicitMergeRoute_I_4_03",
+      "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime"
     },
     {
@@ -152,6 +155,7 @@
       "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_integration_test.go",
       "symbol": "TestPhase4_IndicatorsRoute_I_4_07",
+      "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime"
     },
     {
@@ -161,6 +165,7 @@
       "package": "./internal/modules/timeline",
       "file": "internal/modules/timeline/phase4_integration_test.go",
       "symbol": "TestPhase4_AutoResolutionEligibility_I_4_08",
+      "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime"
     },
     {
@@ -170,6 +175,7 @@
       "package": "./internal/modules/timeline",
       "file": "internal/modules/timeline/phase4_integration_test.go",
       "symbol": "TestPhase4_ManualTimelineConfidenceNull_I_4_09",
+      "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime"
     }
   ],
@@ -180,6 +186,7 @@
       "runner": "playwright",
       "file": "apps/web/e2e/phase4.spec.ts",
       "title": "E-4-01 resolves and creates entities from Timeline mentions in the inspector",
+      "execution_dependency": "browser_functional",
       "evidence_layer": "browser"
     },
     {
@@ -188,6 +195,7 @@
       "runner": "playwright",
       "file": "apps/web/e2e/phase4.spec.ts",
       "title": "E-4-02 dismisses and ordinarily restores a mention without relinking",
+      "execution_dependency": "browser_functional",
       "evidence_layer": "browser"
     },
     {
@@ -196,6 +204,7 @@
       "runner": "playwright",
       "file": "apps/web/e2e/phase4.spec.ts",
       "title": "E-4-03 merges duplicate entities from the inspector and preserves survivor identity",
+      "execution_dependency": "browser_functional",
       "evidence_layer": "browser"
     },
     {
@@ -204,6 +213,7 @@
       "runner": "playwright",
       "file": "apps/web/e2e/phase4.spec.ts",
       "title": "E-4-04 auto-resolves only eligible exact-match Timeline tokens",
+      "execution_dependency": "browser_functional",
       "evidence_layer": "browser"
     }
   ]

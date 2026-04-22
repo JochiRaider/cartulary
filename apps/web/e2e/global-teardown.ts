@@ -1,7 +1,7 @@
 import { cleanupWorkerAdminSuite } from "./authRuntime";
+import { isExternalServerHarnessMode } from "./harnessState";
 import { clearSuiteAdminTotpSecret } from "./helpers";
 import { clearWorkerAdminSuiteState } from "./sessionSupport";
-import { isExternalServerHarnessMode } from "./harnessState";
 
 export default async function globalTeardown() {
   try {

@@ -11,11 +11,15 @@ describe("reconcileSuiteAdminTotpState", () => {
       provisionTotpFromBootstrap: vi.fn(async () => "unused"),
     };
 
-    const secret = await reconcileSuiteAdminTotpState(client, "JBSWY3DPEHPK3PXP", {
-      externalServerMode: true,
-      sharedStateDir: "/tmp/cartulary-shared",
-      stateFilePath: "/tmp/cartulary-shared/admin-totp.txt",
-    });
+    const secret = await reconcileSuiteAdminTotpState(
+      client,
+      "JBSWY3DPEHPK3PXP",
+      {
+        externalServerMode: true,
+        sharedStateDir: "/tmp/cartulary-shared",
+        stateFilePath: "/tmp/cartulary-shared/admin-totp.txt",
+      },
+    );
 
     expect(secret).toBe("JBSWY3DPEHPK3PXP");
     expect(client.loginLocal).toHaveBeenCalledOnce();
@@ -71,8 +75,6 @@ describe("reconcileSuiteAdminTotpState", () => {
         sharedStateDir: "/tmp/cartulary-shared",
         stateFilePath: "/tmp/cartulary-shared/admin-totp.txt",
       }),
-    ).rejects.toThrow(
-      "CARTULARY_PLAYWRIGHT_STATE_DIR=/tmp/cartulary-shared",
-    );
+    ).rejects.toThrow("CARTULARY_PLAYWRIGHT_STATE_DIR=/tmp/cartulary-shared");
   });
 });

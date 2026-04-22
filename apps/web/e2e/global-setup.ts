@@ -1,8 +1,8 @@
 import type { FullConfig } from "@playwright/test";
 import { prepareWorkerAdminSuite } from "./authRuntime";
+import { isExternalServerHarnessMode } from "./harnessState";
 import { clearSuiteAdminTotpSecret, prepareSuiteAdminState } from "./helpers";
 import { clearWorkerAdminSuiteState } from "./sessionSupport";
-import { isExternalServerHarnessMode } from "./harnessState";
 
 export default async function globalSetup(config: FullConfig) {
   if (!isExternalServerHarnessMode()) {

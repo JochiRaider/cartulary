@@ -30,10 +30,14 @@ export function ensureSharedPlaywrightStateDir() {
 
 export function resolvePlaywrightStateFile(fileName: string) {
   const directory = ensureSharedPlaywrightStateDir();
-  return directory === null ? join(tmpdir(), fileName) : join(directory, fileName);
+  return directory === null
+    ? join(tmpdir(), fileName)
+    : join(directory, fileName);
 }
 
 export function resolvePlaywrightStateDirectory(directoryName: string) {
   const directory = ensureSharedPlaywrightStateDir();
-  return directory === null ? join(tmpdir(), directoryName) : join(directory, directoryName);
+  return directory === null
+    ? join(tmpdir(), directoryName)
+    : join(directory, directoryName);
 }

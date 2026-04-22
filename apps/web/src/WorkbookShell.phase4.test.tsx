@@ -1,3 +1,4 @@
+import { gridShellTestId, rowInspectButtonTestId } from "@cartulary/test-utils";
 import {
   cleanup,
   fireEvent,
@@ -332,6 +333,7 @@ describe("Phase 4 TimelineWorkbook", () => {
 
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -461,7 +463,9 @@ describe("Phase 4 TimelineWorkbook", () => {
       />,
     );
 
-    fireEvent.click(await screen.findByTestId("row-record-1-inspect"));
+    fireEvent.click(
+      await screen.findByTestId(rowInspectButtonTestId("record-1")),
+    );
     fireEvent.click(screen.getByTestId("mention-host-unresolved"));
     const preservedScroll = setTimelineGridScroll(240, 140);
     fireEvent.change(screen.getByTestId("inspector-resolve-target"), {
@@ -474,7 +478,7 @@ describe("Phase 4 TimelineWorkbook", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    await expectTimelineContinuity("record-1", preservedScroll);
+    await expectTimelineFocusAndScroll("record-1", preservedScroll);
     expect(
       screen
         .getByTestId("row-record-1-hostRefs-items")
@@ -570,7 +574,9 @@ describe("Phase 4 TimelineWorkbook", () => {
     );
     rerenderTimelineWorkbook = renderResult.rerender;
 
-    fireEvent.click(await screen.findByTestId("row-record-1-inspect"));
+    fireEvent.click(
+      await screen.findByTestId(rowInspectButtonTestId("record-1")),
+    );
     fireEvent.click(screen.getByTestId("mention-identity-create"));
     const preservedScroll = setTimelineGridScroll(280, 175);
     fireEvent.click(screen.getByText("Create identity"));
@@ -586,7 +592,88 @@ describe("Phase 4 TimelineWorkbook", () => {
         "VPN User",
       );
     });
-    await expectTimelineContinuity("record-1", preservedScroll);
+    await expectTimelineFocusAndScroll("record-1", preservedScroll);
+  });
+
+  it("reveals a clipped inspect action after an auto-resolution collection patch", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha",
+            captureState: "reviewed",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-auto-resolve",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "Alpha",
+          captureState: "reviewed",
+          hostRefs: [
+            resolvedItem({
+              itemRef: "mention-host-auto",
+              entityType: "host",
+              rawText: " vpn   gateway ",
+              displayText: "Gateway node",
+              resolvedRecordId: "host-1",
+              resolutionMethod: "auto_match",
+              autoResolved: true,
+              provenance: "auto_match",
+              confidence: 100,
+              matchedAliasText: "VPN Gateway",
+            }),
+          ],
+        }),
+      }),
+    );
+
+    render(
+      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+    );
+
+    installTimelineInspectGeometry("record-1", {
+      containerHeight: 300,
+      containerLeft: 40,
+      containerTop: 100,
+      containerWidth: 400,
+      contentLeft: 368,
+      contentTop: 310,
+      targetHeight: 40,
+      targetWidth: 80,
+    });
+
+    const relationshipInput = (await screen.findByTestId(
+      "row-record-1-hostRefs-input",
+    )) as HTMLInputElement;
+    const preservedScroll = setTimelineGridScroll(240, 18);
+
+    expect(isInspectButtonFullyVisibleWithinGrid("record-1")).toBe(false);
+
+    fireEvent.change(relationshipInput, {
+      target: { value: " vpn   gateway " },
+    });
+    fireEvent.keyDown(relationshipInput, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+    await expectTimelineFocusAndScroll("record-1", preservedScroll, {
+      expectedLeft: 48,
+      requireVisibleWithinGrid: true,
+    });
+    expect(
+      await screen.findByTestId("auto-resolution-notice-mention-host-auto"),
+    ).toBeTruthy();
   });
 
   it("renders a dismissed mention restore action after the dismiss flow completes", async () => {
@@ -654,7 +741,9 @@ describe("Phase 4 TimelineWorkbook", () => {
       <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
     );
 
-    fireEvent.click(await screen.findByTestId("row-record-1-inspect"));
+    fireEvent.click(
+      await screen.findByTestId(rowInspectButtonTestId("record-1")),
+    );
     await screen.findByText("Dismiss");
     const dismissScroll = setTimelineGridScroll(320, 180);
     fireEvent.click(screen.getByText("Dismiss"));
@@ -662,7 +751,7 @@ describe("Phase 4 TimelineWorkbook", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    await expectTimelineContinuity("record-1", dismissScroll);
+    await expectTimelineFocusAndScroll("record-1", dismissScroll);
     expect(screen.getByText("Restore to unresolved")).toBeTruthy();
     expect(screen.getByText("Dismissed")).toBeTruthy();
 
@@ -672,7 +761,7 @@ describe("Phase 4 TimelineWorkbook", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
     });
-    await expectTimelineContinuity("record-1", restoreScroll);
+    await expectTimelineFocusAndScroll("record-1", restoreScroll);
     expect(
       screen
         .getByTestId("row-record-1-hostRefs-items")
@@ -838,24 +927,111 @@ function unresolvedItem({
 }
 
 function setTimelineGridScroll(top: number, left: number) {
-  const grid = screen.getByTestId("timeline-grid-shell") as HTMLDivElement;
+  const grid = screen.getByTestId(
+    gridShellTestId("timeline"),
+  ) as HTMLDivElement;
   grid.scrollTop = top;
   grid.scrollLeft = left;
   return { top, left };
 }
 
-async function expectTimelineContinuity(
+async function expectTimelineFocusAndScroll(
   recordId: string,
   preservedScroll: { top: number; left: number },
+  options: {
+    expectedLeft?: number;
+    requireVisibleWithinGrid?: boolean;
+  } = {},
 ) {
   await waitFor(() => {
     expect(document.activeElement).toBe(
-      screen.getByTestId(`row-${recordId}-inspect`),
+      screen.getByTestId(rowInspectButtonTestId(recordId)),
     );
-    const grid = screen.getByTestId("timeline-grid-shell") as HTMLDivElement;
+    const grid = screen.getByTestId(
+      gridShellTestId("timeline"),
+    ) as HTMLDivElement;
     expect(grid.scrollTop).toBe(preservedScroll.top);
-    expect(grid.scrollLeft).toBe(preservedScroll.left);
+    expect(grid.scrollLeft).toBe(options.expectedLeft ?? preservedScroll.left);
+    if (options.requireVisibleWithinGrid) {
+      expect(isInspectButtonFullyVisibleWithinGrid(recordId)).toBe(true);
+    }
   });
+}
+
+function installTimelineInspectGeometry(
+  recordId: string,
+  options: {
+    containerHeight: number;
+    containerLeft: number;
+    containerTop: number;
+    containerWidth: number;
+    contentLeft: number;
+    contentTop: number;
+    targetHeight: number;
+    targetWidth: number;
+  },
+) {
+  const gridTestId = gridShellTestId("timeline");
+  const inspectTestId = rowInspectButtonTestId(recordId);
+  const original = HTMLElement.prototype.getBoundingClientRect;
+
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+    function mockRect(this: HTMLElement) {
+      const testId = this.getAttribute("data-testid");
+      if (testId === gridTestId) {
+        return rectFromBox({
+          height: options.containerHeight,
+          left: options.containerLeft,
+          top: options.containerTop,
+          width: options.containerWidth,
+        });
+      }
+      if (testId === inspectTestId) {
+        const grid = screen.getByTestId(gridTestId) as HTMLDivElement;
+        return rectFromBox({
+          height: options.targetHeight,
+          left: options.containerLeft + options.contentLeft - grid.scrollLeft,
+          top: options.containerTop + options.contentTop - grid.scrollTop,
+          width: options.targetWidth,
+        });
+      }
+      return original.call(this);
+    },
+  );
+}
+
+function isInspectButtonFullyVisibleWithinGrid(recordId: string) {
+  const tolerancePx = 1;
+  const grid = screen.getByTestId(gridShellTestId("timeline"));
+  const inspectButton = screen.getByTestId(rowInspectButtonTestId(recordId));
+  const gridRect = grid.getBoundingClientRect();
+  const inspectRect = inspectButton.getBoundingClientRect();
+
+  return (
+    inspectRect.top >= gridRect.top - tolerancePx &&
+    inspectRect.left >= gridRect.left - tolerancePx &&
+    inspectRect.bottom <= gridRect.bottom + tolerancePx &&
+    inspectRect.right <= gridRect.right + tolerancePx
+  );
+}
+
+function rectFromBox(options: {
+  height: number;
+  left: number;
+  top: number;
+  width: number;
+}) {
+  return {
+    bottom: options.top + options.height,
+    height: options.height,
+    left: options.left,
+    right: options.left + options.width,
+    top: options.top,
+    width: options.width,
+    x: options.left,
+    y: options.top,
+    toJSON: () => ({}),
+  } as DOMRect;
 }
 
 function buildEntityIndex(...rows: EntityRowFixture[]): EntityIndex {

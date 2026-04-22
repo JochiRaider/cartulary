@@ -58,7 +58,9 @@
 - `make test-fast` runs the pure backend unit slice, the service-backed backend store and integration slices, the backend process or E2E slice, and the frontend unit suite for the narrower local loop.
 - `make test` is the authoritative full-corpus test surface and runs `make test-fast` plus browser E2E. The Phase 0 process evidence under `cmd/server` is part of this surface and is not a direct-only command.
 - `make check` is the developer verification gate and runs frozen frontend install, generated-artifact drift detection, migration verification against a scratch local Postgres database, backend lint and tests, frontend lint, type-check, and tests, plus backend and frontend builds. The gate keeps pure parallel-safe work in the heavy block, then runs service-backed backend and shared-stack browser verification in a serialized stage, and finally runs isolated browser suites.
+- Apply authored frontend formatting with `pnpm --dir apps/web format`.
 - `make ci` is the provider-neutral CI enforcement entrypoint. It composes the canonical repo task surface and fails on codegen drift, migration failures, and deployable-shape drift.
 - `make check` and `make ci` quiet output is the default. Use `VERBOSE=1` when you need the full streaming logs for investigation.
+- If a `check-heavy` child fails under parallel execution, GNU Make may still print `Waiting for unfinished jobs....` while sibling jobs drain; that line is expected orchestration output, not a second root cause.
 - From PowerShell, prefer repo commands through `wsl.exe -d Ubuntu-24.04 --cd /home/askahn/code/cartulary ...`; for Node/pnpm, prepend `/home/askahn/code/cartulary/tmp/node-runtime/bin` to `PATH` and use `corepack pnpm`.
 - If Git on the UNC WSL path reports dubious ownership, retry with `git -c safe.directory=//wsl.localhost/Ubuntu-24.04/home/askahn/code/cartulary ...`.

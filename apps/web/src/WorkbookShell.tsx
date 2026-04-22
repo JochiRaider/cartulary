@@ -13,6 +13,7 @@ import {
   gridSortHeaderTestId,
   relationshipItemsTestId,
   rowCellTestId,
+  rowInspectButtonTestId,
   type WorkbookSurface,
 } from "@cartulary/test-utils";
 import {
@@ -34,6 +35,12 @@ import {
 } from "react";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import { WorkbookGridControls } from "./WorkbookGridControls";
+import {
+  captureViewportAnchor,
+  computeRestoredViewportScroll,
+  type ScrollPosition,
+  type ViewportSnapshot,
+} from "./workbookContinuity";
 import {
   applyFilterDraft,
   buildQueryRequest,
@@ -259,11 +266,16 @@ type EntityRow = {
 
 type ViewportContinuityFollowup = "none" | "entity-refresh";
 
-type ViewportContinuityState = {
+type ViewportContinuityTarget =
+  | { kind: "row-inspect"; recordId: string }
+  | { kind: "input"; focusKey: string }
+  | { kind: "scroll-only" };
+
+type ViewportContinuityRequest = {
   token: number;
   attemptVersion: number;
-  focusRowId: string;
-  preservedScroll: { top: number; left: number } | null;
+  target: ViewportContinuityTarget;
+  preservedViewport: ViewportSnapshot | null;
   followup: ViewportContinuityFollowup;
   followupSettled: boolean;
   baselineHostEntities: EntityRow[];
@@ -301,6 +313,7 @@ type AutoResolutionNotice = {
 
 type LoadRowsOptions = {
   showLoading: boolean;
+  viewportContinuityToken?: number;
 };
 
 type MergePlanLine = {
@@ -1111,7 +1124,6 @@ export function TimelineWorkbook({
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("Saved");
-  const [pendingFocusKey, setPendingFocusKey] = useState<string | null>(null);
   const [replacementDrafts, setReplacementDrafts] = useState<
     Record<string, string>
   >({});
@@ -1148,10 +1160,9 @@ export function TimelineWorkbook({
     new Map<string, HTMLInputElement | HTMLTextAreaElement>(),
   );
   const gridShellRef = useRef<HTMLDivElement | null>(null);
-  const pendingScrollRef = useRef<{ top: number; left: number } | null>(null);
   const viewportContinuityTokenRef = useRef(1);
-  const [viewportContinuity, setViewportContinuity] =
-    useState<ViewportContinuityState | null>(null);
+  const [viewportContinuityRequest, setViewportContinuityRequest] =
+    useState<ViewportContinuityRequest | null>(null);
 
   const queryPath = useMemo(
     () =>
@@ -1239,9 +1250,26 @@ export function TimelineWorkbook({
     };
   }, []);
 
-  const captureGridScroll = useCallback(() => {
-    pendingScrollRef.current = currentGridScrollSnapshot();
-  }, [currentGridScrollSnapshot]);
+  const currentGridViewportSnapshot = useCallback(
+    (target: HTMLElement | null = null): ViewportSnapshot | null => {
+      const gridShell = gridShellRef.current;
+      const scroll = currentGridScrollSnapshot();
+      if (gridShell === null || scroll === null) {
+        return null;
+      }
+      return {
+        scroll,
+        anchor:
+          target === null
+            ? null
+            : captureViewportAnchor(
+                gridShell.getBoundingClientRect(),
+                target.getBoundingClientRect(),
+              ),
+      };
+    },
+    [currentGridScrollSnapshot],
+  );
 
   const trackPendingSocketTxn = useCallback((clientTxnId: string) => {
     const existingTimeout =
@@ -1274,7 +1302,7 @@ export function TimelineWorkbook({
   );
 
   const restoreGridScroll = useCallback(
-    (preservedScroll: { top: number; left: number } | null) => {
+    (preservedScroll: ScrollPosition | null) => {
       const gridShell = gridShellRef.current;
       if (gridShell === null || preservedScroll === null) {
         return;
@@ -1293,19 +1321,104 @@ export function TimelineWorkbook({
     [],
   );
 
+  const restoreGridViewportForElement = useCallback(
+    (
+      resolveElement: () =>
+        | HTMLButtonElement
+        | HTMLInputElement
+        | HTMLTextAreaElement
+        | null,
+      preservedViewport: ViewportSnapshot | null,
+    ) => {
+      const element = resolveElement();
+      if (element === null) {
+        return false;
+      }
+      // Continuity restores the previous scroll position first, then applies
+      // only the extra delta needed to keep the target fully visible.
+      const currentViewport =
+        preservedViewport ??
+        ({
+          scroll: currentGridScrollSnapshot(),
+          anchor: null,
+        } satisfies ViewportSnapshot);
+      const preservedScroll = currentViewport.scroll;
+      window.focus();
+      element.focus({ preventScroll: true });
+      restoreGridScroll(preservedScroll);
+      const restoreViewportGeometry = (attempt: number) => {
+        window.requestAnimationFrame(() => {
+          const currentGridShell = gridShellRef.current;
+          const currentElement = resolveElement();
+          if (
+            currentGridShell === null ||
+            preservedScroll === null ||
+            currentElement === null ||
+            !currentElement.isConnected
+          ) {
+            if (attempt < 6) {
+              restoreViewportGeometry(attempt + 1);
+            }
+            return;
+          }
+          restoreGridScroll(
+            computeRestoredViewportScroll({
+              preservedScroll,
+              preservedAnchor: currentViewport.anchor,
+              containerRect: currentGridShell.getBoundingClientRect(),
+              elementRect: currentElement.getBoundingClientRect(),
+            }),
+          );
+        });
+      };
+      restoreViewportGeometry(0);
+      return document.activeElement === element;
+    },
+    [currentGridScrollSnapshot, restoreGridScroll],
+  );
+
+  const resolveInputElement = useCallback((focusKey: string) => {
+    const selectorTestId = focusTestIdForKey(focusKey);
+    const selector =
+      selectorTestId === null
+        ? null
+        : document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+            `[data-testid="${selectorTestId}"]`,
+          );
+    return selector ?? rowInputRefs.current.get(focusKey) ?? null;
+  }, []);
+
+  const resolveViewportContinuityElement = useCallback(
+    (target: ViewportContinuityTarget) => {
+      switch (target.kind) {
+        case "row-inspect":
+          return document.querySelector<HTMLButtonElement>(
+            `[data-testid="${rowInspectButtonTestId(target.recordId)}"]`,
+          );
+        case "input":
+          return resolveInputElement(target.focusKey);
+        case "scroll-only":
+          return null;
+      }
+    },
+    [resolveInputElement],
+  );
+
   const beginViewportContinuity = useCallback(
     (
-      focusRowId: string,
+      target: ViewportContinuityTarget,
       options: { followup?: ViewportContinuityFollowup } = {},
     ) => {
       const token = viewportContinuityTokenRef.current;
       viewportContinuityTokenRef.current += 1;
       const followup = options.followup ?? "none";
-      setViewportContinuity({
+      setViewportContinuityRequest({
         token,
         attemptVersion: 0,
-        focusRowId,
-        preservedScroll: currentGridScrollSnapshot(),
+        target,
+        preservedViewport: currentGridViewportSnapshot(
+          resolveViewportContinuityElement(target),
+        ),
         followup,
         followupSettled: followup === "none",
         baselineHostEntities: hostEntities,
@@ -1313,11 +1426,16 @@ export function TimelineWorkbook({
       });
       return token;
     },
-    [currentGridScrollSnapshot, hostEntities, identityEntities],
+    [
+      currentGridViewportSnapshot,
+      hostEntities,
+      identityEntities,
+      resolveViewportContinuityElement,
+    ],
   );
 
   const settleViewportContinuityFollowup = useCallback((token: number) => {
-    setViewportContinuity((current) => {
+    setViewportContinuityRequest((current) => {
       if (!current || current.token !== token) {
         return current;
       }
@@ -1330,29 +1448,55 @@ export function TimelineWorkbook({
   }, []);
 
   const clearViewportContinuity = useCallback((token: number) => {
-    setViewportContinuity((current) =>
+    setViewportContinuityRequest((current) =>
       current?.token === token ? null : current,
     );
   }, []);
 
-  const tryRestoreViewportContinuity = useCallback(
-    (continuity: ViewportContinuityState) => {
-      const element = document.querySelector<HTMLButtonElement>(
-        `[data-testid="row-${continuity.focusRowId}-inspect"]`,
-      );
-      if (element === null) {
-        return false;
+  const advanceViewportContinuity = useCallback(
+    (
+      token: number | undefined,
+      options: {
+        target?: ViewportContinuityTarget | null;
+      } = {},
+    ) => {
+      if (token === undefined) {
+        return;
       }
-      window.focus();
-      element.focus({ preventScroll: true });
-      restoreGridScroll(continuity.preservedScroll);
-      return document.activeElement === element;
+      setViewportContinuityRequest((current) => {
+        if (current === null || current.token !== token) {
+          return current;
+        }
+        return {
+          ...current,
+          attemptVersion: current.attemptVersion + 1,
+          target: options.target ?? current.target,
+        };
+      });
     },
-    [restoreGridScroll],
+    [],
+  );
+
+  const tryRestoreViewportContinuity = useCallback(
+    (continuity: ViewportContinuityRequest) => {
+      if (continuity.target.kind === "scroll-only") {
+        restoreGridScroll(continuity.preservedViewport?.scroll ?? null);
+        return true;
+      }
+      return restoreGridViewportForElement(
+        () => resolveViewportContinuityElement(continuity.target),
+        continuity.preservedViewport,
+      );
+    },
+    [
+      resolveViewportContinuityElement,
+      restoreGridScroll,
+      restoreGridViewportForElement,
+    ],
   );
 
   const shouldHoldViewportContinuity = useCallback(
-    (continuity: ViewportContinuityState) => {
+    (continuity: ViewportContinuityRequest) => {
       if (continuity.followup !== "entity-refresh") {
         return false;
       }
@@ -1367,133 +1511,15 @@ export function TimelineWorkbook({
     [hostEntities, identityEntities],
   );
 
-  const restoreInputFocus = useCallback(
-    (focusKey: string) => {
-      let cancelled = false;
-      const focusTarget = (attempt: number) => {
-        if (cancelled) {
-          return;
-        }
-
-        const selectorTestId = focusTestIdForKey(focusKey);
-        const selector =
-          selectorTestId === null
-            ? null
-            : document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
-                `[data-testid="${selectorTestId}"]`,
-              );
-        const element = selector ?? rowInputRefs.current.get(focusKey);
-        if (element) {
-          const gridShell = gridShellRef.current;
-          const preservedScroll =
-            gridShell === null
-              ? null
-              : {
-                  top: gridShell.scrollTop,
-                  left: gridShell.scrollLeft,
-                };
-          window.focus();
-          element.focus({ preventScroll: true });
-          restoreGridScroll(preservedScroll);
-          if (document.activeElement === element) {
-            setPendingFocusKey((current) =>
-              current === focusKey ? null : current,
-            );
-            return;
-          }
-        }
-
-        if (attempt < 60) {
-          window.setTimeout(() => focusTarget(attempt + 1), 50);
-        }
-      };
-
-      focusTarget(0);
-      return () => {
-        cancelled = true;
-      };
-    },
-    [restoreGridScroll],
-  );
-
-  const restoreRowFocus = useCallback(
-    (
-      recordId: string,
-      preservedScrollOverride: { top: number; left: number } | null = null,
-    ) => {
-      let cancelled = false;
-      const focusTarget = (attempt: number) => {
-        if (cancelled) {
-          return;
-        }
-
-        const element = document.querySelector<HTMLButtonElement>(
-          `[data-testid="row-${recordId}-inspect"]`,
-        );
-        if (element) {
-          const preservedScroll =
-            preservedScrollOverride ??
-            (gridShellRef.current === null
-              ? null
-              : {
-                  top: gridShellRef.current.scrollTop,
-                  left: gridShellRef.current.scrollLeft,
-                });
-          window.focus();
-          element.focus({ preventScroll: true });
-          restoreGridScroll(preservedScroll);
-          if (document.activeElement === element) {
-            return;
-          }
-        }
-
-        if (attempt < 60) {
-          window.setTimeout(() => focusTarget(attempt + 1), 50);
-        }
-      };
-
-      focusTarget(0);
-      return () => {
-        cancelled = true;
-      };
-    },
-    [restoreGridScroll],
-  );
-
-  const focusMountedInput = useCallback(
-    (element: HTMLInputElement | HTMLTextAreaElement, focusKey: string) => {
-      if (pendingFocusKey !== focusKey) {
-        return;
-      }
-      window.setTimeout(() => {
-        const gridShell = gridShellRef.current;
-        const preservedScroll =
-          gridShell === null
-            ? null
-            : {
-                top: gridShell.scrollTop,
-                left: gridShell.scrollLeft,
-              };
-        element.focus({ preventScroll: true });
-        restoreGridScroll(preservedScroll);
-        if (document.activeElement === element) {
-          setPendingFocusKey((current) =>
-            current === focusKey ? null : current,
-          );
-        }
-      }, 0);
-    },
-    [pendingFocusKey, restoreGridScroll],
-  );
-
   const applyRowMutation = useCallback(
     (
       rowKey: string,
       envelope: TimelineMutationEnvelope,
       options: {
-        focusField?: FocusFieldKey | null;
         continueOnFreshDraft?: boolean;
         detectAutoResolution?: boolean;
+        promoteToCommittedRowInspect?: boolean;
+        viewportContinuityToken?: number;
       } = {},
     ) => {
       const previousRow = rowsRef.current.find(
@@ -1534,22 +1560,23 @@ export function TimelineWorkbook({
       ) {
         setSelectedRowId(committed.recordId);
       }
-      if (options.continueOnFreshDraft && hydrated.draftSummaryKey) {
-        setPendingFocusKey(hydrated.draftSummaryKey);
-      } else if (options.focusField && committed.recordId !== null) {
-        const focusKey = `${committed.key}:${options.focusField}`;
-        setPendingFocusKey(focusKey);
-      }
-      setViewportContinuity((current) =>
-        current === null
-          ? null
-          : {
-              ...current,
-              attemptVersion: current.attemptVersion + 1,
-            },
-      );
+      const nextViewportTarget =
+        options.continueOnFreshDraft && hydrated.draftSummaryKey
+          ? ({
+              kind: "input",
+              focusKey: hydrated.draftSummaryKey,
+            } satisfies ViewportContinuityTarget)
+          : options.promoteToCommittedRowInspect && committed.recordId !== null
+            ? ({
+                kind: "row-inspect",
+                recordId: committed.recordId,
+              } satisfies ViewportContinuityTarget)
+            : null;
+      advanceViewportContinuity(options.viewportContinuityToken, {
+        target: nextViewportTarget,
+      });
     },
-    [nextDraftIndex, selectedRowId],
+    [advanceViewportContinuity, nextDraftIndex, selectedRowId],
   );
 
   const loadRows = useCallback(
@@ -1572,6 +1599,9 @@ export function TimelineWorkbook({
       }
 
       if (!result.ok) {
+        if (options.viewportContinuityToken !== undefined) {
+          clearViewportContinuity(options.viewportContinuityToken);
+        }
         setLoadError("Timeline projection load failed.");
         setIsLoading(false);
         return;
@@ -1592,6 +1622,7 @@ export function TimelineWorkbook({
         rowsRef.current = hydratedRows;
         setRows(hydratedRows);
       });
+      advanceViewportContinuity(options.viewportContinuityToken);
       setDismissedMentionsByRow((current) => {
         const next = { ...current };
         for (const row of projectedRows) {
@@ -1605,7 +1636,13 @@ export function TimelineWorkbook({
       setSaveState("Saved");
       setIsLoading(false);
     },
-    [nextDraftIndex, queryBody, queryPath],
+    [
+      advanceViewportContinuity,
+      clearViewportContinuity,
+      nextDraftIndex,
+      queryBody,
+      queryPath,
+    ],
   );
 
   loadRowsRef.current = loadRows;
@@ -1615,40 +1652,40 @@ export function TimelineWorkbook({
   }, [loadRows]);
 
   useLayoutEffect(() => {
-    void rows;
-    if (pendingFocusKey === null) {
+    if (
+      viewportContinuityRequest === null ||
+      viewportContinuityRequest.attemptVersion < 1
+    ) {
       return;
     }
-    return restoreInputFocus(pendingFocusKey);
-  }, [pendingFocusKey, restoreInputFocus, rows]);
-
-  useLayoutEffect(() => {
-    if (viewportContinuity === null || viewportContinuity.attemptVersion < 1) {
-      return;
-    }
-    if (!tryRestoreViewportContinuity(viewportContinuity)) {
-      return;
-    }
-    if (shouldHoldViewportContinuity(viewportContinuity)) {
-      return;
-    }
-    clearViewportContinuity(viewportContinuity.token);
+    let cancelled = false;
+    const restoreTarget = (attempt: number) => {
+      if (cancelled) {
+        return;
+      }
+      if (!tryRestoreViewportContinuity(viewportContinuityRequest)) {
+        if (attempt < 60) {
+          window.setTimeout(() => {
+            restoreTarget(attempt + 1);
+          }, 50);
+        }
+        return;
+      }
+      if (shouldHoldViewportContinuity(viewportContinuityRequest)) {
+        return;
+      }
+      clearViewportContinuity(viewportContinuityRequest.token);
+    };
+    restoreTarget(0);
+    return () => {
+      cancelled = true;
+    };
   }, [
     clearViewportContinuity,
     shouldHoldViewportContinuity,
     tryRestoreViewportContinuity,
-    viewportContinuity,
+    viewportContinuityRequest,
   ]);
-
-  useEffect(() => {
-    void rows;
-    if (pendingScrollRef.current === null || gridShellRef.current === null) {
-      return;
-    }
-    gridShellRef.current.scrollTop = pendingScrollRef.current.top;
-    gridShellRef.current.scrollLeft = pendingScrollRef.current.left;
-    pendingScrollRef.current = null;
-  }, [rows]);
 
   useEffect(() => {
     return () => {
@@ -1675,13 +1712,23 @@ export function TimelineWorkbook({
       if (!isRecordChangedMessage(message)) {
         return;
       }
-      captureGridScroll();
-      void loadRowsRef.current({ showLoading: false });
+      const viewportContinuityToken = beginViewportContinuity({
+        kind: "scroll-only",
+      });
+      void loadRowsRef.current({
+        showLoading: false,
+        viewportContinuityToken,
+      });
     };
     return () => {
       socket.close();
     };
-  }, [captureGridScroll, changeSocketURL, incidentId, resolvePendingSocketTxn]);
+  }, [
+    beginViewportContinuity,
+    changeSocketURL,
+    incidentId,
+    resolvePendingSocketTxn,
+  ]);
 
   useEffect(() => {
     if (selectedRowId === null) {
@@ -1786,7 +1833,14 @@ export function TimelineWorkbook({
     rowInputRefs.current.set(key, element);
   }
 
-  function queueScalarSave(rowKey: string, focusContinuation: boolean) {
+  function queueScalarSave(
+    rowKey: string,
+    focusField: keyof RowValues,
+    options: {
+      continueOnFreshDraft: boolean;
+      preserveInputFocus: boolean;
+    },
+  ) {
     const snapshot = rowsRef.current.find(
       (candidate) => candidate.key === rowKey,
     );
@@ -1807,9 +1861,18 @@ export function TimelineWorkbook({
     if (pendingSignaturesRef.current.get(rowKey) === mutationSignature) {
       return;
     }
+    const viewportContinuityToken = beginViewportContinuity(
+      options.preserveInputFocus
+        ? {
+            kind: "input",
+            focusKey: `${rowKey}:${focusField}`,
+          }
+        : {
+            kind: "scroll-only",
+          },
+    );
     pendingSignaturesRef.current.set(rowKey, mutationSignature);
     beginSave();
-    captureGridScroll();
 
     setRows((current) => {
       const nextRows = current.map((row) =>
@@ -1848,6 +1911,7 @@ export function TimelineWorkbook({
             rowsRef.current = nextRows;
             return nextRows;
           });
+          clearViewportContinuity(viewportContinuityToken);
           finishSave("Conflict");
           return;
         }
@@ -1855,8 +1919,10 @@ export function TimelineWorkbook({
         pendingSignaturesRef.current.delete(rowKey);
         const envelope = readEnvelope<TimelineMutationEnvelope>(result.payload);
         applyRowMutation(rowKey, envelope, {
-          continueOnFreshDraft: focusContinuation && snapshot.recordId === null,
+          continueOnFreshDraft:
+            options.continueOnFreshDraft && snapshot.recordId === null,
           detectAutoResolution: false,
+          viewportContinuityToken,
         });
         finishSave("Saved");
       });
@@ -1888,8 +1954,17 @@ export function TimelineWorkbook({
       return;
     }
 
+    const viewportContinuityToken = beginViewportContinuity(
+      snapshot.recordId === null
+        ? {
+            kind: "scroll-only",
+          }
+        : {
+            kind: "row-inspect",
+            recordId: snapshot.recordId,
+          },
+    );
     beginSave();
-    captureGridScroll();
     saveQueueRef.current = saveQueueRef.current
       .catch(() => undefined)
       .then(async () => {
@@ -1908,23 +1983,18 @@ export function TimelineWorkbook({
         });
         if (!result.ok) {
           resolvePendingSocketTxn(clientTxnId);
+          clearViewportContinuity(viewportContinuityToken);
           setInspectorMessage(parseErrorMessage(result.payload));
           finishSave("Conflict");
           return;
         }
 
         const envelope = readEnvelope<TimelineMutationEnvelope>(result.payload);
-        const preservedScroll =
-          pendingScrollRef.current === null
-            ? null
-            : { ...pendingScrollRef.current };
-        applyRowMutation(rowKey, envelope);
+        applyRowMutation(rowKey, envelope, {
+          promoteToCommittedRowInspect: snapshot.recordId === null,
+          viewportContinuityToken,
+        });
         finishSave("Saved");
-        if (envelope.data.row.record_id) {
-          window.setTimeout(() => {
-            restoreRowFocus(envelope.data.row.record_id, preservedScroll);
-          }, 0);
-        }
       });
   }
 
@@ -1943,8 +2013,11 @@ export function TimelineWorkbook({
     }
 
     const clientTxnId = nextClientTxnId();
+    const viewportContinuityToken = beginViewportContinuity({
+      kind: "row-inspect",
+      recordId: snapshot.recordId,
+    });
     beginSave();
-    captureGridScroll();
     saveQueueRef.current = saveQueueRef.current
       .catch(() => undefined)
       .then(async () => {
@@ -1973,11 +2046,15 @@ export function TimelineWorkbook({
         );
         if (!result.ok) {
           resolvePendingSocketTxn(clientTxnId);
+          clearViewportContinuity(viewportContinuityToken);
           finishSave("Conflict");
           return;
         }
 
-        await loadRowsRef.current({ showLoading: false });
+        await loadRowsRef.current({
+          showLoading: false,
+          viewportContinuityToken,
+        });
         finishSave("Saved");
       });
   }
@@ -2006,12 +2083,18 @@ export function TimelineWorkbook({
       return;
     }
 
-    const viewportContinuityToken = beginViewportContinuity(snapshot.recordId, {
-      followup:
-        action === "resolve_item" && resolvedRecordId === undefined
-          ? "entity-refresh"
-          : "none",
-    });
+    const viewportContinuityToken = beginViewportContinuity(
+      {
+        kind: "row-inspect",
+        recordId: snapshot.recordId,
+      },
+      {
+        followup:
+          action === "resolve_item" && resolvedRecordId === undefined
+            ? "entity-refresh"
+            : "none",
+      },
+    );
     beginSave();
     setInspectorMessage(null);
     saveQueueRef.current = saveQueueRef.current
@@ -2079,6 +2162,7 @@ export function TimelineWorkbook({
         const envelope = readEnvelope<TimelineMutationEnvelope>(result.payload);
         applyRowMutation(snapshot.key, envelope, {
           detectAutoResolution: false,
+          viewportContinuityToken,
         });
         finishSave("Saved");
         if (action === "resolve_item" && resolvedRecordId === undefined) {
@@ -2091,17 +2175,24 @@ export function TimelineWorkbook({
       });
   }
 
-  function handleBlur(rowKey: string) {
-    queueScalarSave(rowKey, false);
+  function handleBlur(rowKey: string, focusField: keyof RowValues) {
+    queueScalarSave(rowKey, focusField, {
+      continueOnFreshDraft: false,
+      preserveInputFocus: false,
+    });
   }
 
   function handleKeyDown(
     event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
     rowKey: string,
+    focusField: keyof RowValues,
   ) {
     if (event.key === "Enter" || event.key === "Tab") {
       event.preventDefault();
-      queueScalarSave(rowKey, true);
+      queueScalarSave(rowKey, focusField, {
+        continueOnFreshDraft: true,
+        preserveInputFocus: true,
+      });
     }
   }
 
@@ -2117,9 +2208,12 @@ export function TimelineWorkbook({
     }
   }
 
-  function handlePaste(rowKey: string) {
+  function handlePaste(rowKey: string, focusField: keyof RowValues) {
     window.setTimeout(() => {
-      queueScalarSave(rowKey, false);
+      queueScalarSave(rowKey, focusField, {
+        continueOnFreshDraft: false,
+        preserveInputFocus: true,
+      });
     }, 0);
   }
 
@@ -2171,15 +2265,12 @@ export function TimelineWorkbook({
           id={controlId}
           ref={(element) => {
             registerInput(row.key, binding.key, element);
-            if (element) {
-              focusMountedInput(element, `${row.key}:${binding.key}`);
-            }
           }}
           rows={3}
           style={textareaStyle}
           value={row.values[binding.key]}
           onBlur={() => {
-            handleBlur(row.key);
+            handleBlur(row.key, binding.key);
           }}
           onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
             setRowValue(row.key, binding.key, event.target.value);
@@ -2193,10 +2284,10 @@ export function TimelineWorkbook({
             setRowValue(row.key, binding.key, event.currentTarget.value);
           }}
           onKeyDown={(event) => {
-            handleKeyDown(event, row.key);
+            handleKeyDown(event, row.key, binding.key);
           }}
           onPaste={() => {
-            handlePaste(row.key);
+            handlePaste(row.key, binding.key);
           }}
         />
       );
@@ -2208,15 +2299,12 @@ export function TimelineWorkbook({
         id={controlId}
         ref={(element) => {
           registerInput(row.key, binding.key, element);
-          if (element) {
-            focusMountedInput(element, `${row.key}:${binding.key}`);
-          }
         }}
         style={inputStyle}
         type="text"
         value={row.values[binding.key]}
         onBlur={() => {
-          handleBlur(row.key);
+          handleBlur(row.key, binding.key);
         }}
         onChange={(event: ChangeEvent<HTMLInputElement>) => {
           setRowValue(row.key, binding.key, event.target.value);
@@ -2230,10 +2318,10 @@ export function TimelineWorkbook({
           setRowValue(row.key, binding.key, event.currentTarget.value);
         }}
         onKeyDown={(event) => {
-          handleKeyDown(event, row.key);
+          handleKeyDown(event, row.key, binding.key);
         }}
         onPaste={() => {
-          handlePaste(row.key);
+          handlePaste(row.key, binding.key);
         }}
       />
     );
@@ -2317,9 +2405,6 @@ export function TimelineWorkbook({
           key={`${row.key}:${binding.draftKey}:${row.rowVersion ?? "draft"}`}
           ref={(element) => {
             registerInput(row.key, binding.draftKey, element);
-            if (element) {
-              focusMountedInput(element, `${row.key}:${binding.draftKey}`);
-            }
           }}
           style={inputStyle}
           type="text"
@@ -2415,7 +2500,7 @@ export function TimelineWorkbook({
       ) : (
         <div style={actionStackStyle}>
           <button
-            data-testid={`row-${row.recordId}-inspect`}
+            data-testid={rowInspectButtonTestId(row.recordId)}
             style={actionButtonStyle}
             type="button"
             onClick={() => {

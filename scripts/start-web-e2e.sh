@@ -353,7 +353,7 @@ supervise_stack() {
   done
 }
 
-make -C "${ROOT_DIR}" frontend-toolchain
+env MAKEFLAGS= make -s -C "${ROOT_DIR}" --no-print-directory frontend-toolchain
 run_phase_command "browser-e2e startup services" browser_start_services
 run_phase_command "browser-e2e startup database" browser_prepare_database
 

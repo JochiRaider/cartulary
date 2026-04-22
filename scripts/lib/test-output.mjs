@@ -144,6 +144,26 @@ function formatDuration(durationMs) {
   return `${minutes}m${remainder.toFixed(1)}s`;
 }
 
+function formatDurationFields(wallDurationMs, durationMs) {
+  const effectiveWall = Number.isFinite(wallDurationMs) ? wallDurationMs : durationMs;
+  if (effectiveWall !== durationMs) {
+    return `wall_duration=${formatDuration(effectiveWall)} duration=${formatDuration(durationMs)}`;
+  }
+  return `duration=${formatDuration(durationMs)}`;
+}
+
+function computeWindowDurationMs(startTime, endTime) {
+  if (!startTime || !endTime) {
+    return 0;
+  }
+  const startMs = Date.parse(startTime);
+  const endMs = Date.parse(endTime);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) {
+    return 0;
+  }
+  return endMs - startMs;
+}
+
 function requiredEnv(name) {
   const value = process.env[name];
   if (value === undefined || value === "") {
@@ -365,6 +385,7 @@ function printBlock(header, fields) {
 function createBasePhaseContext(runner) {
   const phaseDir = requiredEnv("CARTULARY_PHASE_DIR");
   ensureDir(phaseDir);
+  const durationMs = parseInteger("CARTULARY_PHASE_DURATION_MS", 0);
   return {
     label: requiredEnv("CARTULARY_PHASE_LABEL"),
     phaseDir,
@@ -373,7 +394,8 @@ function createBasePhaseContext(runner) {
     runner,
     startTime: requiredEnv("CARTULARY_PHASE_START_TIME"),
     endTime: requiredEnv("CARTULARY_PHASE_END_TIME"),
-    durationMs: parseInteger("CARTULARY_PHASE_DURATION_MS", 0),
+    durationMs,
+    wallDurationMs: parseInteger("CARTULARY_PHASE_WALL_DURATION_MS", durationMs),
     exitStatus: parseInteger("CARTULARY_PHASE_EXIT_STATUS", 0),
   };
 }
@@ -395,6 +417,7 @@ function writePhaseArtifacts(context, details) {
     end_time: context.endTime,
     exit_status: context.exitStatus,
     duration_ms: context.durationMs,
+    wall_duration_ms: context.wallDurationMs,
     status: details.status,
     counts: details.counts,
   };
@@ -418,6 +441,7 @@ function writePhaseArtifacts(context, details) {
     start_time: context.startTime,
     end_time: context.endTime,
     duration_ms: context.durationMs,
+    wall_duration_ms: context.wallDurationMs,
     exit_status: context.exitStatus,
     artifacts,
     counts: details.counts,
@@ -468,6 +492,7 @@ function summarizeTargetDir(target) {
   let startTime = "";
   let endTime = "";
   let durationMs = 0;
+  let wallDurationMs = 0;
   let failed = false;
 
   for (const summary of summaries) {
@@ -478,6 +503,7 @@ function summarizeTargetDir(target) {
       endTime = summary.end_time;
     }
     durationMs += summary.duration_ms ?? 0;
+    wallDurationMs += summary.wall_duration_ms ?? summary.duration_ms ?? 0;
     counts.tests += summary.counts?.tests ?? 0;
     counts.failed += summary.counts?.failed ?? 0;
     counts.authoritative += summary.counts?.authoritative ?? 0;
@@ -510,6 +536,7 @@ function summarizeTargetDir(target) {
     startTime,
     endTime,
     durationMs,
+    wallDurationMs,
     failed,
     authoritativeInventory,
     supportInventory,
@@ -563,6 +590,7 @@ function handleTargetSummary(args) {
     start_time: summary.startTime,
     end_time: summary.endTime,
     duration_ms: summary.durationMs,
+    wall_duration_ms: summary.wallDurationMs,
     counts: summary.counts,
     artifacts: {
       dir: relToRepo(summary.targetDir),
@@ -572,14 +600,14 @@ function handleTargetSummary(args) {
 
   if (status === "PASS") {
     process.stdout.write(
-      `[PASS] ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} authoritative=${summary.counts.authoritative} support=${summary.counts.support} unmapped=${summary.counts.unmapped} packages=${summary.counts.packages} duration=${formatDuration(summary.durationMs)} artifacts=${relToRepo(summary.targetDir)}\n`,
+      `[PASS] ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} authoritative=${summary.counts.authoritative} support=${summary.counts.support} unmapped=${summary.counts.unmapped} packages=${summary.counts.packages} ${formatDurationFields(summary.wallDurationMs, summary.durationMs)} artifacts=${relToRepo(summary.targetDir)}\n`,
     );
     printInventory(summary);
     return 0;
   }
 
   process.stderr.write(
-    `[FAIL] ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} failed=${summary.counts.failed} authoritative_failed=${summary.counts.authoritative_failed} support_failed=${summary.counts.support_failed} unmapped_failed=${summary.counts.unmapped_failed} duration=${formatDuration(summary.durationMs)} artifacts=${relToRepo(summary.targetDir)}\n`,
+    `[FAIL] ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} failed=${summary.counts.failed} authoritative_failed=${summary.counts.authoritative_failed} support_failed=${summary.counts.support_failed} unmapped_failed=${summary.counts.unmapped_failed} ${formatDurationFields(summary.wallDurationMs, summary.durationMs)} artifacts=${relToRepo(summary.targetDir)}\n`,
   );
   return 0;
 }
@@ -602,8 +630,11 @@ function handleRunSummary(args) {
     support_failed: 0,
     unmapped_failed: 0,
     duration_ms: 0,
+    wall_duration_ms: 0,
   };
   let failed = requestedStatus === "fail";
+  let startTime = "";
+  let endTime = "";
 
   for (const target of targets) {
     const file = path.join(resultsRoot, runId, target, "target-summary.json");
@@ -621,16 +652,30 @@ function handleRunSummary(args) {
     aggregate.support_failed += summary.counts?.support_failed ?? 0;
     aggregate.unmapped_failed += summary.counts?.unmapped_failed ?? 0;
     aggregate.duration_ms += summary.duration_ms ?? 0;
+    aggregate.wall_duration_ms += summary.wall_duration_ms ?? summary.duration_ms ?? 0;
+    if (startTime === "" || (summary.start_time && summary.start_time < startTime)) {
+      startTime = summary.start_time ?? "";
+    }
+    if (endTime === "" || (summary.end_time && summary.end_time > endTime)) {
+      endTime = summary.end_time ?? "";
+    }
     if (summary.status !== "pass") {
       failed = true;
     }
   }
+
+  const windowWallDurationMs = computeWindowDurationMs(startTime, endTime);
+  const wallDurationMs = windowWallDurationMs > 0 ? windowWallDurationMs : aggregate.wall_duration_ms;
 
   const runSummary = {
     label,
     status: failed ? "fail" : "pass",
     completed_targets: `${completedTargets}/${totalTargets}`,
     aborted_after: abortedAfter === "-" ? "" : abortedAfter,
+    start_time: startTime,
+    end_time: endTime,
+    duration_ms: aggregate.duration_ms,
+    wall_duration_ms: wallDurationMs,
     counts: aggregate,
     artifacts: {
       dir: relToRepo(path.join(resultsRoot, runId)),
@@ -641,13 +686,13 @@ function handleRunSummary(args) {
 
   if (!failed) {
     process.stdout.write(
-      `[PASS] ${label} completed_targets=${completedTargets}/${totalTargets} phases=${aggregate.phases} tests=${aggregate.tests} authoritative=${aggregate.authoritative} support=${aggregate.support} unmapped=${aggregate.unmapped} duration=${formatDuration(aggregate.duration_ms)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
+      `[PASS] ${label} completed_targets=${completedTargets}/${totalTargets} phases=${aggregate.phases} tests=${aggregate.tests} authoritative=${aggregate.authoritative} support=${aggregate.support} unmapped=${aggregate.unmapped} ${formatDurationFields(wallDurationMs, aggregate.duration_ms)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
     );
     return 0;
   }
 
   process.stderr.write(
-    `[FAIL] ${label} completed_targets=${completedTargets}/${totalTargets} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} duration=${formatDuration(aggregate.duration_ms)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
+    `[FAIL] ${label} completed_targets=${completedTargets}/${totalTargets} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} ${formatDurationFields(wallDurationMs, aggregate.duration_ms)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
   );
   return 0;
 }
@@ -710,10 +755,15 @@ function handleShellPhase() {
     });
   }
 
-  const message =
+  const messageBase =
     firstActionableLine(splitLogLines(stderrLog)) ||
     firstActionableLine(splitLogLines(stdoutLog)) ||
     `command exited with status ${context.exitStatus}`;
+  const failureNote = optionalEnv("CARTULARY_PHASE_FAILURE_NOTE");
+  const message =
+    failureNote === ""
+      ? messageBase
+      : `${messageBase} | remediation: ${failureNote}`;
   return finalizeShellPhase(context, stdoutLog, stderrLog, {
     status: "fail",
     phase: inferPhaseFromText(context.label),

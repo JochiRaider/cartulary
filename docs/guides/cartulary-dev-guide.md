@@ -744,6 +744,10 @@ Repo-control helper targets MAY expose narrower frontend or browser slices. When
 
 `make check` is the required developer gate. It MUST include contract-generation drift detection, migration verification, and a failure condition when any authoritative phase-manifest row is absent from actual execution. When browser suites depend on the real Playwright web-server bootstrap, the gate must run those suites under one owned shared stack rather than parallelizing multiple independent startup attempts. `make ci` composes the same execution-truth guarantee into the provider-neutral CI surface.
 
+The supported authored-frontend formatter command is `pnpm --dir apps/web format`. Frontend Biome enforcement SHOULD use the curated authored-source scope rather than `biome check .` so runtime outputs such as `dist/`, `test-results/`, coverage artifacts, and installed dependencies are not treated as formatter owners.
+
+When one `check-heavy` child fails under parallel execution, GNU Make MAY still print `Waiting for unfinished jobs....` while already-started siblings drain. That line is expected orchestration output and is not, by itself, a second verification failure.
+
 The repository MUST distinguish **codegen drift** from **migration drift**:
 
 - **codegen drift** means generated outputs change after `make generate`,

@@ -1,6 +1,5 @@
-import type { Page, TestInfo } from "@playwright/test";
-
 import { changeGrouping, gridGroupRowTestId } from "@cartulary/test-utils";
+import type { Page, TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
@@ -24,7 +23,9 @@ type ViewRow = {
 
 type CollectionItem = Record<string, unknown>;
 
-test("visual workbook default and grouped states", async ({ page }, testInfo) => {
+test("visual workbook default and grouped states", async ({
+  page,
+}, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
 
   const incidentId = await createIncident(
@@ -36,10 +37,15 @@ test("visual workbook default and grouped states", async ({ page }, testInfo) =>
     client_txn_id: uniqueTxn("v301-alpha"),
     "timeline.summary": "Alpha grouped row",
   });
-  const reviewedRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("v301-beta"),
-    "timeline.summary": "Beta grouped row",
-  });
+  const reviewedRow = await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("v301-beta"),
+      "timeline.summary": "Beta grouped row",
+    },
+  );
 
   await page.goto(`/?incident_id=${incidentId}`);
   await page.getByTestId(`row-${reviewedRow.record_id}-mark-reviewed`).click();
@@ -68,7 +74,9 @@ test("visual workbook default and grouped states", async ({ page }, testInfo) =>
   );
 });
 
-test("visual workbook mention and save-state states", async ({ page }, testInfo) => {
+test("visual workbook mention and save-state states", async ({
+  page,
+}, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
 
   const incidentId = await createIncident(
@@ -76,22 +84,37 @@ test("visual workbook mention and save-state states", async ({ page }, testInfo)
     uniqueIncidentKey("V302"),
     "Workbook visual mentions",
   );
-  const resolvedHost = (await createViewRow(page, incidentId, hostsViewSchemaId, {
-    client_txn_id: uniqueTxn("v302-host"),
-    "host.display_name": "Gateway node",
-    "host.hostname": "gateway-node.example.test",
-    "host.aliases": collectionActionsPayload(["VPN Gateway"]),
-  })) as ViewRow;
-  const unresolvedRow = (await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("v302-unresolved"),
-    "timeline.summary": "Unresolved mention row",
-    "timeline.host_refs": collectionActionsPayload(["WS-023?"]),
-  })) as ViewRow;
-  const resolvedRow = (await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("v302-resolved"),
-    "timeline.summary": "Resolved mention row",
-    "timeline.host_refs": collectionActionsPayload([" vpn   gateway "]),
-  })) as ViewRow;
+  const resolvedHost = (await createViewRow(
+    page,
+    incidentId,
+    hostsViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("v302-host"),
+      "host.display_name": "Gateway node",
+      "host.hostname": "gateway-node.example.test",
+      "host.aliases": collectionActionsPayload(["VPN Gateway"]),
+    },
+  )) as ViewRow;
+  const unresolvedRow = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("v302-unresolved"),
+      "timeline.summary": "Unresolved mention row",
+      "timeline.host_refs": collectionActionsPayload(["WS-023?"]),
+    },
+  )) as ViewRow;
+  const resolvedRow = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("v302-resolved"),
+      "timeline.summary": "Resolved mention row",
+      "timeline.host_refs": collectionActionsPayload([" vpn   gateway "]),
+    },
+  )) as ViewRow;
   const resolvedMention = requireItemByRawText(
     collectionItems(resolvedRow, hostRefsFieldKey),
     " vpn   gateway ",

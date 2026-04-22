@@ -13,6 +13,15 @@ fail() {
   exit 1
 }
 
+extract_target_block() {
+  local target="$1"
+  awk -v target="$target" '
+    $0 ~ "^" target ":" { in_block=1; next }
+    in_block && /^[^[:space:]].*:/ { exit }
+    in_block { print }
+  ' "$makefile"
+}
+
 check_heavy_line="$(sed -n 's/^check-heavy:[[:space:]]*//p' "$makefile" | head -n 1)"
 if [[ -z "$check_heavy_line" ]]; then
   fail "Makefile must define check-heavy prerequisites"
@@ -30,14 +39,16 @@ if [[ "${#browser_targets[@]}" -ne 0 ]]; then
   fail "check-heavy must not include browser-e2e* prerequisites, found: ${browser_targets[*]}"
 fi
 
-check_service_block="$(awk '
-  /^check-service-backed:/ { in_block=1; next }
-  in_block && /^[^[:space:]].*:/ { exit }
-  in_block { print }
-' "$makefile")"
+check_service_block="$(extract_target_block check-service-backed)"
 if [[ -z "$check_service_block" ]]; then
   fail "Makefile must define a non-empty check-service-backed block"
 fi
+
+for lane in check-service-backed-lane-a check-service-backed-lane-b; do
+  if ! printf '%s\n' "$check_service_block" | rg -q "(^|[[:space:]])$lane($|[[:space:]])"; then
+    fail "check-service-backed must invoke $lane"
+  fi
+done
 
 service_browser_targets=()
 while IFS= read -r line; do
@@ -46,12 +57,28 @@ while IFS= read -r line; do
   done < <(printf '%s\n' "$line" | grep -o 'browser-e2e[^[:space:]]*' || true)
 done <<<"$check_service_block"
 
-if [[ "${#service_browser_targets[@]}" -ne 1 ]]; then
-  fail "check-service-backed must invoke exactly one browser-e2e* target, found: ${service_browser_targets[*]:-none}"
+if [[ "${#service_browser_targets[@]}" -ne 0 ]]; then
+  fail "check-service-backed must delegate browser work through its lane targets, found direct browser targets: ${service_browser_targets[*]}"
 fi
 
-if [[ "${service_browser_targets[0]}" != "browser-e2e-webserver-backed" ]]; then
-  fail "check-service-backed must use browser-e2e-webserver-backed as its only browser target, found: ${service_browser_targets[0]}"
+check_service_lane_b_block="$(extract_target_block check-service-backed-lane-b)"
+if [[ -z "$check_service_lane_b_block" ]]; then
+  fail "Makefile must define a non-empty check-service-backed-lane-b block"
+fi
+
+lane_browser_targets=()
+while IFS= read -r line; do
+  while IFS= read -r target; do
+    [[ -n "$target" ]] && lane_browser_targets+=("$target")
+  done < <(printf '%s\n' "$line" | grep -o 'browser-e2e[^[:space:]]*' || true)
+done <<<"$check_service_lane_b_block"
+
+if [[ "${#lane_browser_targets[@]}" -ne 1 ]]; then
+  fail "check-service-backed-lane-b must invoke exactly one browser-e2e* target, found: ${lane_browser_targets[*]:-none}"
+fi
+
+if [[ "${lane_browser_targets[0]}" != "browser-e2e-webserver-backed" ]]; then
+  fail "check-service-backed-lane-b must use browser-e2e-webserver-backed as its only browser target, found: ${lane_browser_targets[0]}"
 fi
 
 if ! rg -q '^browser-e2e-webserver-backed:' "$makefile"; then
@@ -98,6 +125,12 @@ fi
 if ! grep -Fq 'phase2 authoritative browser_functional' "$functional_script"; then
   fail "scripts/run-browser-e2e-functional.sh must execute Phase 2 browser_functional rows through the manifest"
 fi
+if ! grep -Fq 'phase4 authoritative browser_functional' "$functional_script"; then
+  fail "scripts/run-browser-e2e-functional.sh must execute Phase 4 browser_functional rows through the manifest"
+fi
+if grep -Fq 'e2e/phase4.spec.ts' "$functional_script"; then
+  fail "scripts/run-browser-e2e-functional.sh must not raw-select e2e/phase4.spec.ts"
+fi
 
 if ! grep -Fq 'phase1 authoritative browser_stateful' "$stateful_script"; then
   fail "scripts/run-browser-e2e-stateful.sh must execute Phase 1 browser_stateful rows through the manifest"
@@ -121,6 +154,7 @@ for (const [phase, expectedFor] of [
     (entry) => (entry.id === "E-1-04" ? "browser_stateful" : "browser_functional"),
   ],
   ["phase2", () => "browser_functional"],
+  ["phase4", () => "browser_functional"],
 ]) {
   const manifest = JSON.parse(
     fs.readFileSync(path.join(root, "tools", `${phase}_test_map.json`), "utf8"),

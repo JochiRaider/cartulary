@@ -108,8 +108,8 @@ emit_target_summary() {
 }
 
 emit_report_phase_summary() {
-  if [[ "$#" -ne 7 ]]; then
-    echo "emit_report_phase_summary requires <helper-command> <label> <command-text> <start-time> <end-time> <duration-ms> <exit-status>" >&2
+  if [[ "$#" -ne 8 ]]; then
+    echo "emit_report_phase_summary requires <helper-command> <label> <command-text> <start-time> <end-time> <duration-ms> <wall-duration-ms> <exit-status>" >&2
     return 2
   fi
 
@@ -119,7 +119,8 @@ emit_report_phase_summary() {
   local start_time="$4"
   local end_time="$5"
   local duration_ms="$6"
-  local exit_status="$7"
+  local wall_duration_ms="$7"
+  local exit_status="$8"
   local phase_dir
   local helper_status
 
@@ -132,6 +133,7 @@ emit_report_phase_summary() {
   CARTULARY_PHASE_START_TIME="$start_time" \
   CARTULARY_PHASE_END_TIME="$end_time" \
   CARTULARY_PHASE_DURATION_MS="$duration_ms" \
+  CARTULARY_PHASE_WALL_DURATION_MS="$wall_duration_ms" \
   CARTULARY_PHASE_EXIT_STATUS="$exit_status" \
     NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" "${helper_command}"
   helper_status=$?
@@ -210,6 +212,7 @@ run_phase_command() {
   CARTULARY_PHASE_START_TIME="$start_time" \
   CARTULARY_PHASE_END_TIME="$end_time" \
   CARTULARY_PHASE_DURATION_MS="$duration_ms" \
+  CARTULARY_PHASE_WALL_DURATION_MS="$duration_ms" \
   CARTULARY_PHASE_EXIT_STATUS="$status" \
   CARTULARY_PHASE_STDOUT_LOG="$stdout_log" \
   CARTULARY_PHASE_STDERR_LOG="$stderr_log" \

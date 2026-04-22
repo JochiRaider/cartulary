@@ -27,7 +27,8 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "lint": "biome check .",
+    "format": "bash ../../scripts/run-frontend-biome.sh write",
+    "lint": "bash ../../scripts/run-frontend-biome.sh check",
     "test": "vitest",
     "test:e2e": "pnpm run test:e2e:functional && pnpm run test:e2e:stateful",
     "test:e2e:functional": "playwright test e2e/phase1.spec.ts e2e/phase2.spec.ts e2e/phase3.spec.ts e2e/phase4.spec.ts",

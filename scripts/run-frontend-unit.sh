@@ -72,17 +72,17 @@ unset CARTULARY_VITEST_TITLES || true
 unset CARTULARY_MANIFEST_PHASE || true
 unset CARTULARY_MANIFEST_COVERAGE || true
 unset CARTULARY_MANIFEST_EXECUTION_DEPENDENCY || true
-emit_report_phase_summary vitest-phase "frontend-unit" "${command_text}" "${start_time}" "${end_time}" "${duration_ms}" "${run_status}" || status=$?
+emit_report_phase_summary vitest-phase "frontend-unit" "${command_text}" "${start_time}" "${end_time}" "${duration_ms}" "${duration_ms}" "${run_status}" || status=$?
 
 export CARTULARY_MANIFEST_PHASE=phase2
 export CARTULARY_MANIFEST_COVERAGE=authoritative
 export CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=frontend_unit
-emit_report_phase_summary vitest-manifest-phase "frontend-unit phase2 authoritative" "${command_text}" "${end_time}" "${end_time}" 0 "${run_status}" || status=$?
+emit_report_phase_summary vitest-manifest-phase "frontend-unit phase2 authoritative" "${command_text}" "${end_time}" "${end_time}" 0 0 "${run_status}" || status=$?
 
 export CARTULARY_MANIFEST_PHASE=phase3
 export CARTULARY_MANIFEST_COVERAGE=authoritative
 export CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=frontend_unit
-emit_report_phase_summary vitest-manifest-phase "frontend-unit phase3 authoritative" "${command_text}" "${end_time}" "${end_time}" 0 "${run_status}" || status=$?
+emit_report_phase_summary vitest-manifest-phase "frontend-unit phase3 authoritative" "${command_text}" "${end_time}" "${end_time}" 0 0 "${run_status}" || status=$?
 
 if [[ "${status}" -eq 0 ]]; then
   emit_target_summary pass

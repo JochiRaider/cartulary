@@ -78,6 +78,7 @@ if [[ "$list_status" -ne 0 ]]; then
   CARTULARY_PHASE_START_TIME="$start_time" \
   CARTULARY_PHASE_END_TIME="$end_time" \
   CARTULARY_PHASE_DURATION_MS="$duration_ms" \
+  CARTULARY_PHASE_WALL_DURATION_MS="$duration_ms" \
   CARTULARY_PHASE_EXIT_STATUS="$list_status" \
   CARTULARY_PHASE_STDOUT_LOG="$stdout_log" \
   CARTULARY_PHASE_STDERR_LOG="$stderr_log" \
@@ -108,6 +109,7 @@ CARTULARY_PHASE_COMMAND="$run_command_text" \
 CARTULARY_PHASE_START_TIME="$start_time" \
 CARTULARY_PHASE_END_TIME="$end_time" \
 CARTULARY_PHASE_DURATION_MS="$duration_ms" \
+CARTULARY_PHASE_WALL_DURATION_MS="$duration_ms" \
 CARTULARY_PHASE_EXIT_STATUS="$run_status" \
 CARTULARY_PHASE_RUNNER_LOG="$run_report" \
 CARTULARY_PLAYWRIGHT_LIST_REPORT="$list_report" \

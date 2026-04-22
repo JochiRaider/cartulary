@@ -434,11 +434,13 @@ test("E-1-08 keeps deployment-user administration on deployment-admin sessions a
   );
   await expect(page.getByTestId("admin-password-reset")).toHaveCount(0);
 
-  const targetUserVersion = (await loadUser(workerAdminRequest, targetUser.user_id))
-    .user_version;
-  const incidentAdminRequests = await authenticatedRequestContextFromStorageState(
-    await page.context().storageState(),
-  );
+  const targetUserVersion = (
+    await loadUser(workerAdminRequest, targetUser.user_id)
+  ).user_version;
+  const incidentAdminRequests =
+    await authenticatedRequestContextFromStorageState(
+      await page.context().storageState(),
+    );
   try {
     await expectUnauthorizedCredentialAction(
       incidentAdminRequests,

@@ -30,8 +30,8 @@ manifest_env=(
 
 exec "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" \
   NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
-  "$ROOT_DIR/scripts/lib/run-playwright-phase.sh" \
-  "browser-e2e-functional phase4 raw" \
+  "$ROOT_DIR/scripts/lib/run-playwright-manifest-phase.sh" \
+  "browser-e2e-functional phase4 authoritative" \
+  phase4 authoritative browser_functional \
   -- \
-  "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test \
-  e2e/phase4.spec.ts
+  "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test

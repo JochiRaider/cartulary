@@ -19,6 +19,7 @@ import (
 )
 
 const httpAddrEnv = "CARTULARY_HTTP_ADDR"
+const serverBinEnv = "CARTULARY_SERVER_BIN"
 
 type Server struct {
 	Address string
@@ -47,7 +48,8 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cmd := exec.CommandContext(ctx, "go", "run", "./cmd/server")
+	command, args := serverCommand()
+	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Dir = repoRoot()
 	cmd.Env = append(os.Environ(), envPairs(env)...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -229,6 +231,13 @@ func envPairs(env map[string]string) []string {
 		pairs = append(pairs, key+"="+value)
 	}
 	return pairs
+}
+
+func serverCommand() (string, []string) {
+	if configured := strings.TrimSpace(os.Getenv(serverBinEnv)); configured != "" {
+		return configured, nil
+	}
+	return "go", []string{"run", "./cmd/server"}
 }
 
 func freeAddress(t testing.TB) string {

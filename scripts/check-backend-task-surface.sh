@@ -20,6 +20,17 @@ extract_target_block() {
   ' "$makefile"
 }
 
+extract_target_prereqs() {
+  local target="$1"
+  awk -v target="$target" '
+    $0 ~ "^" target ":" && $0 !~ "^" target ":[[:space:]]+export[[:space:]]" {
+      sub("^" target ":[[:space:]]*", "", $0)
+      print
+      exit
+    }
+  ' "$makefile"
+}
+
 check_heavy_line="$(sed -n 's/^check-heavy:[[:space:]]*//p' "$makefile" | head -n 1)"
 if [[ -z "$check_heavy_line" ]]; then
   fail "Makefile must define check-heavy prerequisites"
@@ -74,6 +85,12 @@ for (const [phase, sections] of [
     "phase1",
     [
       ["unit", "backend_unit"],
+      ["integration", "backend_integration"],
+    ],
+  ],
+  [
+    "phase4",
+    [
       ["integration", "backend_integration"],
     ],
   ],
@@ -181,6 +198,7 @@ fi
 for expected in \
   'emit_go_manifest_phase "backend-integration phase0 authoritative"' \
   'emit_go_manifest_phase "backend-integration phase1 authoritative"' \
+  'emit_go_manifest_phase "backend-integration phase4 authoritative"' \
   'emit_go_manifest_phase "backend-integration phase2 authoritative"' \
   'emit_go_raw_phase "backend-integration support phase1"' \
   'emit_go_raw_phase "backend-integration support phase2"' \
@@ -195,6 +213,9 @@ backend_process_block="$(extract_target_block backend-process)"
 if ! printf '%s\n' "$backend_process_block" | grep -Fq 'run-go-target.sh backend-process'; then
   fail "backend-process must delegate to scripts/run-go-target.sh backend-process"
 fi
+if ! printf '%s\n' "$backend_process_block" | grep -Fq 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
+  fail "backend-process must export CARTULARY_SERVER_BIN=$(SERVER_BIN)"
+fi
 if ! grep -Fq 'emit_go_manifest_phase "backend-process phase0 authoritative"' "$go_runner_script"; then
   fail "scripts/run-go-target.sh must preserve backend-process Phase 0 manifest selection"
 fi
@@ -203,23 +224,61 @@ phase0_process_block="$(extract_target_block phase0-process-e2e)"
 if ! printf '%s\n' "$phase0_process_block" | grep -Fq 'run-go-target.sh phase0-process-e2e'; then
   fail "phase0-process-e2e must delegate to scripts/run-go-target.sh phase0-process-e2e"
 fi
+if ! printf '%s\n' "$phase0_process_block" | grep -Fq 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
+  fail "phase0-process-e2e must export CARTULARY_SERVER_BIN=$(SERVER_BIN)"
+fi
 if ! grep -Fq 'emit_go_manifest_phase "phase0-process-e2e"' "$go_runner_script"; then
   fail "scripts/run-go-target.sh must preserve phase0-process-e2e Phase 0 manifest selection"
 fi
+
+phase1_process_block="$(extract_target_block phase1-process-smoke)"
+if ! printf '%s\n' "$phase1_process_block" | grep -Fq 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
+  fail "phase1-process-smoke must export CARTULARY_SERVER_BIN=$(SERVER_BIN)"
+fi
+
+phase2_process_block="$(extract_target_block phase2-process-smoke)"
+if ! printf '%s\n' "$phase2_process_block" | grep -Fq 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
+  fail "phase2-process-smoke must export CARTULARY_SERVER_BIN=$(SERVER_BIN)"
+fi
+
+for target in backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke; do
+  prereqs="$(extract_target_prereqs "$target")"
+  if [[ -z "$prereqs" || "$prereqs" != *build-server* ]]; then
+    fail "$target must depend on build-server"
+  fi
+done
 
 check_service_block="$(extract_target_block check-service-backed)"
 if [[ -z "$check_service_block" ]]; then
   fail "Makefile must define a non-empty check-service-backed block"
 fi
 
-for target in "${service_backed_targets[@]}"; do
-  if ! printf '%s\n' "$check_service_block" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
-    fail "check-service-backed must invoke $target"
+for lane in check-service-backed-lane-a check-service-backed-lane-b; do
+  if ! printf '%s\n' "$check_service_block" | rg -q "(^|[[:space:]])$lane($|[[:space:]])"; then
+    fail "check-service-backed must invoke $lane"
   fi
 done
 
 if printf '%s\n' "$check_service_block" | rg -q '(^|[[:space:]])(backend-process-support|phase2-process-smoke)($|[[:space:]])'; then
   fail "check-service-backed must not invoke Phase 2 process smoke coverage"
+fi
+
+check_service_lane_a_block="$(extract_target_block check-service-backed-lane-a)"
+for target in backend-integration backend-integration-support; do
+  if ! printf '%s\n' "$check_service_lane_a_block" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
+    fail "check-service-backed-lane-a must invoke $target"
+  fi
+done
+
+check_service_lane_b_prereqs="$(extract_target_prereqs check-service-backed-lane-b)"
+check_service_lane_b_block="$(extract_target_block check-service-backed-lane-b)"
+for target in backend-store backend-process; do
+  if ! printf '%s\n' "$check_service_lane_b_prereqs" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
+    fail "check-service-backed-lane-b must invoke $target"
+  fi
+done
+if printf '%s\n' "${check_service_lane_b_prereqs} ${check_service_lane_b_block}" | rg -q '(^|[[:space:]])phase2-process-smoke($|[[:space:]])'; then
+  fail "check-service-backed-lane-b must not invoke Phase 2 process smoke coverage"
 fi
 
 backend_integration_support_block="$(extract_target_block backend-integration-support)"
@@ -234,9 +293,29 @@ test_fast_block="$(extract_target_block test-fast)"
 if [[ -z "$test_fast_block" ]]; then
   fail "Makefile must define a non-empty test-fast block"
 fi
-if ! printf '%s\n' "$test_fast_block" | rg -q '(^|[[:space:]])backend-store($|[[:space:]])'; then
-  fail "test-fast must invoke backend-store"
-fi
+for lane in test-fast-service-backed-lane-a test-fast-service-backed-lane-b; do
+  if ! printf '%s\n' "$test_fast_block" | rg -q "(^|[[:space:]])$lane($|[[:space:]])"; then
+    fail "test-fast must invoke $lane"
+  fi
+done
 if printf '%s\n' "$test_fast_block" | rg -q '(^|[[:space:]])(backend-process-support|phase2-process-smoke)($|[[:space:]])'; then
   fail "test-fast must not invoke Phase 2 process smoke coverage"
+fi
+
+test_fast_lane_a_block="$(extract_target_block test-fast-service-backed-lane-a)"
+for target in backend-integration backend-integration-support; do
+  if ! printf '%s\n' "$test_fast_lane_a_block" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
+    fail "test-fast-service-backed-lane-a must invoke $target"
+  fi
+done
+
+test_fast_lane_b_prereqs="$(extract_target_prereqs test-fast-service-backed-lane-b)"
+test_fast_lane_b_block="$(extract_target_block test-fast-service-backed-lane-b)"
+for target in backend-store backend-process; do
+  if ! printf '%s\n' "$test_fast_lane_b_prereqs" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
+    fail "test-fast-service-backed-lane-b must invoke $target"
+  fi
+done
+if printf '%s\n' "${test_fast_lane_b_prereqs} ${test_fast_lane_b_block}" | rg -q '(^|[[:space:]])phase2-process-smoke($|[[:space:]])'; then
+  fail "test-fast-service-backed-lane-b must not invoke Phase 2 process smoke coverage"
 fi

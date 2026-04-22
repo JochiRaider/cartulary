@@ -1,11 +1,10 @@
-import type { Page } from "@playwright/test";
-
 import {
   applyFilterChip,
   changeGrouping,
   gridGroupRowTestId,
   sortByHeader,
 } from "@cartulary/test-utils";
+import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
@@ -37,9 +36,9 @@ test("support Phase 3 grid controls submit sort, filter, and group query members
   });
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(page.getByTestId(`row-${alphaRow.record_id}-summary`)).toHaveValue(
-    "Alpha summary",
-  );
+  await expect(
+    page.getByTestId(`row-${alphaRow.record_id}-summary`),
+  ).toHaveValue("Alpha summary");
 
   await page.getByTestId(`row-${betaRow.record_id}-mark-reviewed`).click();
   await expect(
@@ -64,9 +63,9 @@ test("support Phase 3 grid controls submit sort, filter, and group query members
     ],
     sort: [{ direction: "asc", field_key: "timeline.summary" }],
   });
-  await expect(page.getByTestId(`row-${betaRow.record_id}-summary`)).toHaveValue(
-    "Beta summary",
-  );
+  await expect(
+    page.getByTestId(`row-${betaRow.record_id}-summary`),
+  ).toHaveValue("Beta summary");
 
   const groupRequest = waitForTimelineQuery(page, incidentId);
   await changeGrouping(page, "timeline", "timeline.capture_state");
@@ -130,8 +129,9 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
   await expect(page.getByTestId("save-state")).toHaveText("Syncing");
 
   const betaVersion = Number.parseInt(
-    (await page.getByTestId(`row-${betaRow.record_id}-row-version`).textContent()) ??
-      "0",
+    (await page
+      .getByTestId(`row-${betaRow.record_id}-row-version`)
+      .textContent()) ?? "0",
     10,
   );
   const invalidationResponse = await page.request.patch(
@@ -158,12 +158,13 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
   await expect(
     page.getByTestId(`row-${alphaRow.record_id}-row-version`),
   ).toHaveText("2");
-  await expect(page.getByTestId(`row-${alphaRow.record_id}-summary`)).toHaveValue(
-    "Zulu anchored",
-  );
+  await expect(
+    page.getByTestId(`row-${alphaRow.record_id}-summary`),
+  ).toHaveValue("Zulu anchored");
   const alphaCaptureState = (
-    (await page.getByTestId(`row-${alphaRow.record_id}-capture-state`).textContent()) ??
-    ""
+    (await page
+      .getByTestId(`row-${alphaRow.record_id}-capture-state`)
+      .textContent()) ?? ""
   ).trim();
   expect(alphaCaptureState).not.toBe("");
   await expect(
@@ -181,9 +182,11 @@ function waitForTimelineQuery(page: Page, incidentId: string) {
   return page.waitForRequest(
     (request) =>
       request.method() === "POST" &&
-      request.url().endsWith(
-        `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
-      ),
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
+        ),
   );
 }
 

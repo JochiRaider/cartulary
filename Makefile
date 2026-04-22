@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-test-name-check browser-e2e-task-surface-check backend-task-surface-check service-backed-unit-check run-phase-smoke backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-measurement browser-e2e-visual test-fast test e2e lint lint-go lint-biome lint-typecheck check check-preflight check-heavy check-service-backed check-isolated ci build build-server build-migrate build-web
+.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-test-name-check browser-e2e-task-surface-check backend-task-surface-check service-backed-unit-check run-phase-smoke backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-measurement browser-e2e-visual test-fast test-fast-service-backed-lane-a test-fast-service-backed-lane-b test e2e lint lint-go lint-biome lint-typecheck check check-preflight check-heavy check-service-backed check-service-backed-lane-a check-service-backed-lane-b check-isolated ci build build-server build-migrate build-web
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
 PNPM ?= $(shell if command -v pnpm >/dev/null 2>&1; then command -v pnpm; elif [ -x "$$HOME/.local/share/pnpm/pnpm" ]; then printf "$$HOME/.local/share/pnpm/pnpm"; fi)
@@ -11,6 +11,9 @@ GO_RUN_ENV := GOCACHE=$(GO_CACHE_DIR) GOMODCACHE=$(GO_MOD_CACHE_DIR)
 NODE_VERSION ?= 24.15.0
 PNPM_VERSION ?= 10.33.0
 CHECK_JOBS ?= 4
+SERVICE_BACKED_JOBS ?= 2
+BACKEND_STORE_GO_TEST_P ?= 2
+BACKEND_INTEGRATION_GO_TEST_P ?= 2
 GO_TEST_SERVICE_PACKAGE_PARALLELISM ?= 1
 PLAYWRIGHT_WORKERS ?= 2
 VITEST_MAX_WORKERS ?= 2
@@ -35,6 +38,7 @@ RUN_PLAYWRIGHT_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-playwright-phase.sh
 RUN_PLAYWRIGHT_MANIFEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-playwright-manifest-phase.sh
 RUN_VITEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-vitest-phase.sh
 RUN_VITEST_MANIFEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-vitest-manifest-phase.sh
+RUN_FRONTEND_BIOME_SCRIPT := $(CURDIR)/scripts/run-frontend-biome.sh
 TEST_OUTPUT_SCRIPT := $(CURDIR)/scripts/lib/test-output.sh
 RUN_PHASE = $(Q)$(RUN_PHASE_SCRIPT)
 RUN_GO_PHASE = $(Q)$(RUN_GO_PHASE_SCRIPT)
@@ -47,6 +51,13 @@ RUN_PHASE_ALLOW_SUCCESS_LOG = $(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHA
 TARGET_SUMMARY = $(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary
 RUN_SUMMARY = $(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) run-summary
 RUN_SUMMARY_CMD = NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) run-summary
+
+define resolve_service_go_test_p
+$(if $(filter environment environment override command line override,$(origin $(1))),$($(1)),$(if $(filter environment environment override command line override,$(origin GO_TEST_SERVICE_PACKAGE_PARALLELISM)),$(GO_TEST_SERVICE_PACKAGE_PARALLELISM),$($(1))))
+endef
+
+EFFECTIVE_BACKEND_STORE_GO_TEST_P := $(call resolve_service_go_test_p,BACKEND_STORE_GO_TEST_P)
+EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P := $(call resolve_service_go_test_p,BACKEND_INTEGRATION_GO_TEST_P)
 
 CARTULARY_OUTPUT_MODE ?= quiet
 CARTULARY_TEST_RESULTS_DIR ?= $(CURDIR)/.cartulary/test-results
@@ -195,7 +206,13 @@ service-backed-unit-check:
 
 test-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)$(MAKE) --no-print-directory --output-sync=target -j2 backend-unit frontend-unit
-	$(Q)$(MAKE) --no-print-directory backend-store backend-integration backend-integration-support backend-process
+	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) test-fast-service-backed-lane-a test-fast-service-backed-lane-b
+
+test-fast-service-backed-lane-a:
+	$(Q)$(MAKE) --no-print-directory backend-integration
+	$(Q)$(MAKE) --no-print-directory backend-integration-support
+
+test-fast-service-backed-lane-b: backend-store backend-process
 
 test: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)set -e; \
@@ -228,39 +245,39 @@ backend-unit: $(NODE_BIN)
 backend-store: export CARTULARY_TEST_TARGET := backend-store
 
 backend-store: $(NODE_BIN)
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh backend-store
+	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_PACKAGE_PARALLELISM=$(EFFECTIVE_BACKEND_STORE_GO_TEST_P) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh backend-store
 
 backend-integration: export CARTULARY_TEST_TARGET := backend-integration
 
 backend-integration: $(NODE_BIN)
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh backend-integration
+	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_PACKAGE_PARALLELISM=$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh backend-integration
 
 backend-integration-support: export CARTULARY_TEST_TARGET := backend-integration-support
 
 backend-integration-support: $(NODE_BIN)
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh backend-integration-support
+	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_PACKAGE_PARALLELISM=$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh backend-integration-support
 
 backend-process: export CARTULARY_TEST_TARGET := backend-process
 
 # Phase 0 process evidence is part of the developer gate and must never be direct-run only.
-backend-process: $(NODE_BIN)
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh backend-process
+backend-process: $(NODE_BIN) build-server
+	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh backend-process
 
 phase0-process-e2e: export CARTULARY_TEST_TARGET := phase0-process-e2e
 
 # Phase 0 process evidence is part of the developer gate and must never be direct-run only.
-phase0-process-e2e: $(NODE_BIN)
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh phase0-process-e2e
+phase0-process-e2e: $(NODE_BIN) build-server
+	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh phase0-process-e2e
 
 phase1-process-smoke: export CARTULARY_TEST_TARGET := phase1-process-smoke
 
-phase1-process-smoke: $(NODE_BIN)
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh phase1-process-smoke
+phase1-process-smoke: $(NODE_BIN) build-server
+	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh phase1-process-smoke
 
 phase2-process-smoke: export CARTULARY_TEST_TARGET := phase2-process-smoke
 
-phase2-process-smoke: $(NODE_BIN)
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh phase2-process-smoke
+phase2-process-smoke: $(NODE_BIN) build-server
+	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh phase2-process-smoke
 
 frontend-unit: export CARTULARY_TEST_TARGET := frontend-unit
 
@@ -318,7 +335,7 @@ lint-go:
 	$(RUN_PHASE) "lint go-vet" -- $(GO_ENV) $(GO) vet ./...
 
 lint-biome: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "lint biome" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec biome check src $(BIOME_CHECK_FLAGS)
+	$(Q)CARTULARY_PHASE_FAILURE_NOTE="run pnpm --dir apps/web format to apply the authoritative frontend Biome scope" CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT) "lint biome" -- bash $(RUN_FRONTEND_BIOME_SCRIPT) check $(BIOME_CHECK_FLAGS)
 
 lint-typecheck: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "lint typecheck" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec tsc --noEmit $(TSC_FLAGS)
@@ -342,7 +359,14 @@ check-preflight: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 check-heavy: migration-drift lint-go lint-biome lint-typecheck backend-unit frontend-unit deployable-shape-verify
 
 check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)$(MAKE) --no-print-directory backend-store backend-integration backend-integration-support backend-process browser-e2e-webserver-backed
+	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) check-service-backed-lane-a check-service-backed-lane-b
+
+check-service-backed-lane-a:
+	$(Q)$(MAKE) --no-print-directory backend-integration
+	$(Q)$(MAKE) --no-print-directory backend-integration-support
+
+check-service-backed-lane-b: backend-store backend-process
+	$(Q)$(MAKE) --no-print-directory browser-e2e-webserver-backed
 
 check-isolated: browser-e2e-stateful browser-e2e-measurement browser-e2e-visual
 
