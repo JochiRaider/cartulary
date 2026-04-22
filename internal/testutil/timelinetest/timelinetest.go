@@ -3,6 +3,7 @@ package timelinetest
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -22,6 +23,17 @@ type ChangeSetRow struct {
 	ClientTxnID string
 	RequestID   string
 	CreatedAt   time.Time
+}
+
+type ChangeSetMutationRow struct {
+	SequenceNo      int
+	TargetKind      string
+	TargetID        string
+	OperationKind   string
+	BeforeVersionID *string
+	AfterVersionID  *string
+	BeforeValue     map[string]any
+	AfterValue      map[string]any
 }
 
 type ProjectionRow struct {
@@ -58,6 +70,91 @@ WHERE change_set_id::text = $1
 func CountChangeSetMutations(t testing.TB, db *sql.DB, changeSetID string) int {
 	t.Helper()
 	return queryCount(t, db, `SELECT COUNT(*) FROM change_set_mutations WHERE change_set_id::text = $1`, changeSetID)
+}
+
+func LookupChangeSetMutations(t testing.TB, db *sql.DB, changeSetID string) []ChangeSetMutationRow {
+	t.Helper()
+
+	rows, err := db.QueryContext(context.Background(), `
+SELECT sequence_no, target_kind, target_id, operation_kind, before_version_id, after_version_id, before_value, after_value
+FROM change_set_mutations
+WHERE change_set_id::text = $1
+ORDER BY sequence_no ASC
+`, changeSetID)
+	if err != nil {
+		t.Fatalf("query change-set mutations: %v", err)
+	}
+	defer rows.Close()
+
+	var mutations []ChangeSetMutationRow
+	for rows.Next() {
+		var mutation ChangeSetMutationRow
+		var beforeVersion sql.NullString
+		var afterVersion sql.NullString
+		var beforeJSON []byte
+		var afterJSON []byte
+		if err := rows.Scan(
+			&mutation.SequenceNo,
+			&mutation.TargetKind,
+			&mutation.TargetID,
+			&mutation.OperationKind,
+			&beforeVersion,
+			&afterVersion,
+			&beforeJSON,
+			&afterJSON,
+		); err != nil {
+			t.Fatalf("scan change-set mutation: %v", err)
+		}
+		if beforeVersion.Valid {
+			mutation.BeforeVersionID = &beforeVersion.String
+		}
+		if afterVersion.Valid {
+			mutation.AfterVersionID = &afterVersion.String
+		}
+		mutation.BeforeValue = decodeJSONMap(t, beforeJSON)
+		mutation.AfterValue = decodeJSONMap(t, afterJSON)
+		mutations = append(mutations, mutation)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate change-set mutations: %v", err)
+	}
+	return mutations
+}
+
+func RequireSupersedeCoupledChangeSet(t testing.TB, db *sql.DB, changeSetID string, recordID string, replacementRecordID string, wantRowVersion int64) {
+	t.Helper()
+
+	mutations := LookupChangeSetMutations(t, db, changeSetID)
+	if len(mutations) != 2 {
+		t.Fatalf("expected supersede change set %s to write exactly two mutations, got %#v", changeSetID, mutations)
+	}
+
+	recordMutation := mutations[0]
+	if recordMutation.SequenceNo != 1 || recordMutation.TargetKind != "timeline_record" || recordMutation.TargetID != recordID || recordMutation.OperationKind != "patch" {
+		t.Fatalf("unexpected primary supersede mutation: %#v", recordMutation)
+	}
+	if recordMutation.AfterValue["record_id"] != recordID {
+		t.Fatalf("expected supersede mutation row record_id %q, got %#v", recordID, recordMutation.AfterValue)
+	}
+	if got := recordMutation.AfterValue["row_version"]; got != float64(wantRowVersion) {
+		t.Fatalf("expected supersede mutation row_version %d, got %#v", wantRowVersion, recordMutation.AfterValue)
+	}
+	cells, ok := recordMutation.AfterValue["cells"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected supersede mutation cells map, got %#v", recordMutation.AfterValue)
+	}
+	captureStateCell, ok := cells["timeline.capture_state"].(map[string]any)
+	if !ok || captureStateCell["value"] != "superseded" {
+		t.Fatalf("expected supersede mutation capture_state cell, got %#v", recordMutation.AfterValue)
+	}
+
+	linkMutation := mutations[1]
+	if linkMutation.SequenceNo != 2 || linkMutation.TargetKind != "record_link" || linkMutation.OperationKind != "create" {
+		t.Fatalf("unexpected supersede link mutation: %#v", linkMutation)
+	}
+	if linkMutation.AfterValue["src_record_id"] != replacementRecordID || linkMutation.AfterValue["dst_record_id"] != recordID || linkMutation.AfterValue["link_type"] != "supersedes" {
+		t.Fatalf("unexpected supersede link mutation payload: %#v", linkMutation.AfterValue)
+	}
 }
 
 func CountRecordRevisions(t testing.TB, db *sql.DB, recordID string) int {
@@ -131,4 +228,17 @@ func queryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 		t.Fatalf("query count: %v", err)
 	}
 	return count
+}
+
+func decodeJSONMap(t testing.TB, payload []byte) map[string]any {
+	t.Helper()
+
+	if len(payload) == 0 {
+		return nil
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("decode json map: %v", err)
+	}
+	return decoded
 }

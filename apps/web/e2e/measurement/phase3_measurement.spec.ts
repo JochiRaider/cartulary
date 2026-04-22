@@ -1,3 +1,5 @@
+import type { Route } from "@playwright/test";
+
 import { expect, test } from "../fixtures";
 
 import {
@@ -8,6 +10,8 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "../helpers";
+
+const timelineViewSchemaId = "cartulary.view.timeline.v1";
 
 test("E-3-02 measures user-visible typing_ack and blank-row-create completion within the Phase 3 envelope", async ({
   page,
@@ -23,25 +27,27 @@ test("E-3-02 measures user-visible typing_ack and blank-row-create completion wi
   await expect(page.getByTestId("save-state")).toHaveText("Saved");
 
   const draftSummary = page.getByTestId("draft-row-summary");
-  const delayedCreateRoute = "**/api/v1/incidents/*/views/timeline/rows";
-  let delayedCreateSeen = false;
-  await page.route(delayedCreateRoute, async (route) => {
-    if (delayedCreateSeen) {
+  const delayedCreateRoute = `**/api/v1/incidents/*/views/${timelineViewSchemaId}/rows`;
+  let delayedCreateHitCount = 0;
+  const routeHandler = async (route: Route) => {
+    delayedCreateHitCount += 1;
+    if (delayedCreateHitCount > 1) {
       await route.fallback();
       return;
     }
-    delayedCreateSeen = true;
     await page.waitForTimeout(150);
     await route.fallback();
-  });
+  };
+  await page.route(delayedCreateRoute, routeHandler);
 
   const visibleSaveStateSummary = `Visible save state ${uniqueTxn("save-state")}`;
   await draftSummary.fill(visibleSaveStateSummary);
   await draftSummary.press("Enter");
   await expect(page.getByTestId("save-state")).toHaveText("Syncing");
   await expect(page.getByTestId("save-state")).toHaveText("Saved");
+  expect(delayedCreateHitCount).toBe(1);
   await expect(page.getByTestId("draft-row-summary")).toBeFocused();
-  await page.unroute(delayedCreateRoute);
+  await page.unroute(delayedCreateRoute, routeHandler);
 
   const typingSamples: number[] = [];
   for (let sampleIndex = 0; sampleIndex < 13; sampleIndex += 1) {

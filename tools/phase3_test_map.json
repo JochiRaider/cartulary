@@ -37,7 +37,9 @@
       "file": "internal/modules/timeline/phase3_store_test.go",
       "symbol": "TestPhase3_CreateCommitsAndAssignsIdentity_U_3_01",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "A one-value Timeline create commits a real row, assigns `record_id`, starts at `row_version=1`, and persists the Timeline projection row.",
+      "out_of_scope": "Browser-visible create flow and draft-row continuation remain browser evidence."
     },
     {
       "id": "U-3-02",
@@ -47,7 +49,9 @@
       "file": "internal/modules/timeline/phase3_store_test.go",
       "symbol": "TestPhase3_InitialCreateState_U_3_02",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "A committed Timeline create initializes `capture_state='rough'` on the persisted row and projection state.",
+      "out_of_scope": "Obsolete lifecycle-token rejection remains supplemental helper coverage until a public executed submission path owns that proof."
     },
     {
       "id": "U-3-03",
@@ -57,7 +61,9 @@
       "file": "internal/modules/timeline/phase3_store_test.go",
       "symbol": "TestPhase3_CaptureStateLifecycle_U_3_03",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "The first material patch transitions `rough -> enriched`, and store-driven `mark-reviewed` persists an explicit `reviewed` transition on real store state.",
+      "out_of_scope": "Reviewer or admin authorization is owned by `I-3-03`, not this store-only row."
     },
     {
       "id": "U-3-04",
@@ -67,7 +73,9 @@
       "file": "internal/modules/timeline/phase3_store_test.go",
       "symbol": "TestPhase3_ReviewedDemotionAndSupersedeTerminality_U_3_04",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "A material edit demotes `reviewed -> enriched`, legal supersede persists `superseded`, and ordinary patch attempts fail closed afterwards.",
+      "out_of_scope": "Replacement-target guards and rollback coupling are owned by `U-3-10` and integration rows."
     },
     {
       "id": "U-3-05",
@@ -76,7 +84,9 @@
       "file": "apps/web/src/WorkbookShell.phase3.test.tsx",
       "title": "Phase 3 U-3-05 autosaves on Enter, Tab, blur, and paste completion without a Save button and keeps exact save-state labels",
       "execution_dependency": "frontend_unit",
-      "evidence_layer": "component"
+      "evidence_layer": "component",
+      "claim": "The workbook component proves autosave commits on Enter, Tab, blur, and paste completion without a Save button, with exact `Syncing`, `Saved`, and `Conflict` labels.",
+      "out_of_scope": "Focus continuation on the real browser surface remains `E-3-01`."
     },
     {
       "id": "U-3-06",
@@ -86,7 +96,9 @@
       "file": "internal/modules/timeline/phase3_decoder_test.go",
       "symbol": "TestPhase3_PatchPayloadValidation_U_3_06",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "decoder"
+      "evidence_layer": "decoder",
+      "claim": "Patch decode fails closed on missing required members, duplicate `field_key` entries, empty `changes[]`, protected field mutations, and unknown top-level members.",
+      "out_of_scope": "Durable patch consequences remain store or integration evidence."
     },
     {
       "id": "U-3-07",
@@ -96,7 +108,9 @@
       "file": "internal/modules/timeline/phase3_store_test.go",
       "symbol": "TestPhase3_PatchReplayStability_U_3_07",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "Patch replay returns the original committed result and creates no second mutation row or record revision on the write substrate.",
+      "out_of_scope": "Collaboration suppression remains integration and browser evidence."
     },
     {
       "id": "U-3-08",
@@ -106,7 +120,9 @@
       "file": "internal/modules/timeline/phase3_projection_contract_test.go",
       "symbol": "TestPhase3_ProjectionContract_U_3_08",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "projection_contract"
+      "evidence_layer": "projection_contract",
+      "claim": "Timeline projection rows expose the full grid-owned field contract and keep stable `record_id` and `row_version` binding plus derived field shapes.",
+      "out_of_scope": "Persisted rebuild maintenance remains integration evidence."
     },
     {
       "id": "U-3-09",
@@ -116,7 +132,9 @@
       "file": "internal/modules/timeline/phase3_store_test.go",
       "symbol": "TestPhase3_CreateAndPatchWriteHistory_U_3_09",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "Successful Timeline create and patch each write one attributed mutation entry and one new row revision on the real write substrate.",
+      "out_of_scope": "Browser-visible history inspection is deferred to later phases."
     },
     {
       "id": "U-3-10",
@@ -126,7 +144,9 @@
       "file": "internal/modules/timeline/phase3_store_test.go",
       "symbol": "TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "Supersede-with-replacement rejects illegal targets, replays idempotently, writes one coupled `timeline_record` plus one `record_link` mutation in one change set, and rollback removes both lifecycle and link state together.",
+      "out_of_scope": "End-to-end action routing and visible browser disclosure remain integration and browser evidence."
     },
     {
       "id": "U-3-GRID-01",
@@ -135,7 +155,9 @@
       "file": "apps/web/src/WorkbookShell.phase3.test.tsx",
       "title": "Phase 3 U-3-GRID-01 binds Timeline grid columns from the active view_schema and commits writable cells by field_key",
       "execution_dependency": "frontend_unit",
-      "evidence_layer": "component"
+      "evidence_layer": "component",
+      "claim": "The RDG-backed workbook grid binds Timeline columns from the active `view_schema` and commits writable cells by authoritative `field_key`.",
+      "out_of_scope": "Vendor-specific RDG behavior stays with adapter tests; this row owns workbook binding only."
     },
     {
       "id": "U-3-GRID-02",
@@ -144,7 +166,9 @@
       "file": "apps/web/src/WorkbookShell.phase3.test.tsx",
       "title": "Phase 3 U-3-GRID-02 binds saved rows by record_id and row_version instead of visible row index",
       "execution_dependency": "frontend_unit",
-      "evidence_layer": "component"
+      "evidence_layer": "component",
+      "claim": "The RDG-backed workbook grid keeps saved-row identity bound to `record_id` and `row_version` rather than visible row position.",
+      "out_of_scope": "Real browser reorder regressions remain supplemental coverage."
     },
     {
       "id": "U-3-GRID-03",
@@ -153,7 +177,9 @@
       "file": "apps/web/src/WorkbookShell.phase3.test.tsx",
       "title": "Phase 3 U-3-GRID-03 keeps sorted and filtered local edits bound to the original record_id, base_row_version, and field_key",
       "execution_dependency": "frontend_unit",
-      "evidence_layer": "component"
+      "evidence_layer": "component",
+      "claim": "The RDG-backed workbook grid keeps sorted and filtered local edits bound to the original `record_id`, `base_row_version`, and `field_key`.",
+      "out_of_scope": "End-to-end browser interaction remains supplemental because this row owns workbook binding semantics."
     }
   ],
   "integration": [
@@ -165,7 +191,9 @@
       "file": "internal/modules/timeline/phase3_integration_test.go",
       "symbol": "TestPhase3_I_3_01_CreatePatchReplayAndRollback",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "integration"
+      "evidence_layer": "integration",
+      "claim": "Real HTTP create, patch, review, supersede, replay, mutation history, projection maintenance, WebSocket invalidation, and rollback stay transactionally coherent.",
+      "out_of_scope": "None."
     },
     {
       "id": "I-3-02",
@@ -175,7 +203,9 @@
       "file": "internal/modules/timeline/phase3_integration_test.go",
       "symbol": "TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "integration"
+      "evidence_layer": "integration",
+      "claim": "The query route reads projection rows instead of source rows, and deterministic rebuild restores the same Timeline query surface.",
+      "out_of_scope": "None."
     },
     {
       "id": "I-3-03",
@@ -185,7 +215,9 @@
       "file": "internal/modules/timeline/phase3_integration_test.go",
       "symbol": "TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "integration"
+      "evidence_layer": "integration",
+      "claim": "Incident-role authorization, review and supersede legality, replay semantics, replacement-target guards, and supersede change-set shape all hold on the live route surface.",
+      "out_of_scope": "Systematic route-matrix inventory remains support-only evidence."
     }
   ],
   "e2e": [
@@ -196,7 +228,9 @@
       "file": "apps/web/e2e/phase3.spec.ts",
       "title": "E-3-01 creates a Timeline row in-grid and continues editing on the draft row",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "A user creates a Timeline row on the real workbook surface and immediately continues editing on the fresh draft row without leaving the grid.",
+      "out_of_scope": "None."
     },
     {
       "id": "E-3-02",
@@ -205,7 +239,9 @@
       "file": "apps/web/e2e/measurement/phase3_measurement.spec.ts",
       "title": "E-3-02 measures user-visible typing_ack and blank-row-create completion within the Phase 3 envelope",
       "execution_dependency": "browser_measurement",
-      "evidence_layer": "browser_measurement"
+      "evidence_layer": "browser_measurement",
+      "claim": "The isolated measurement suite proves one real-stack visible `Syncing -> Saved` transition under controlled latency, then measures typing acknowledgement and blank-row-create completion against the Phase 3 envelope.",
+      "out_of_scope": "`Conflict` labeling remains component-layer evidence."
     },
     {
       "id": "E-3-03",
@@ -214,7 +250,9 @@
       "file": "apps/web/e2e/phase3.spec.ts",
       "title": "E-3-03 drives review, demotion, and supersede through the visible workbook surface",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "A reviewer-session browser flow visibly performs review, material-edit demotion, legal supersede, and post-supersede disabling on the workbook surface.",
+      "out_of_scope": "Durable substrate counts and replay internals remain backend or disclosed hybrid evidence."
     },
     {
       "id": "E-3-04",
@@ -223,7 +261,9 @@
       "file": "apps/web/e2e/phase3.spec.ts",
       "title": "E-3-04 uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible invalidation",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "Real browser replay preserves the original committed result, avoids duplicate history growth, and suppresses duplicate visible invalidation.",
+      "out_of_scope": "The disclosed snapshot harness is intentionally test-only and not part of runtime behavior."
     }
   ]
 }

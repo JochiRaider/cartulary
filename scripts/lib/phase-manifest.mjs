@@ -140,6 +140,7 @@ export function collectEntries(manifest) {
 export function validateManifest(root, phase) {
   const phaseNumber = phaseNumberFromPhase(phase);
   const { manifestPath, manifest } = loadManifest(root, phase);
+  const requireLedgerClaims = phase === "phase3";
 
   if (!Array.isArray(manifest.expected_ids) || manifest.expected_ids.length === 0) {
     throw new Error(`manifest ${manifestPath} must define a non-empty expected_ids array`);
@@ -193,6 +194,14 @@ export function validateManifest(root, phase) {
       }
       if (typeof entry.evidence_layer !== "string" || entry.evidence_layer.trim() === "") {
         throw new Error(`manifest entry ${entry.id} must declare evidence_layer`);
+      }
+      if (requireLedgerClaims) {
+        if (typeof entry.claim !== "string" || entry.claim.trim() === "") {
+          throw new Error(`manifest entry ${entry.id} must declare a non-empty claim`);
+        }
+        if (typeof entry.out_of_scope !== "string" || entry.out_of_scope.trim() === "") {
+          throw new Error(`manifest entry ${entry.id} must declare a non-empty out_of_scope`);
+        }
       }
       entries.push({ ...entry, section });
     }

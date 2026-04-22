@@ -816,6 +816,7 @@ func TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions(t *testing.
 		requireTimelineSocketChange(t, socket, recordID, 4)
 		timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second)
 		requireMutationRecorded(t, db, superseded["change_set_id"].(string), recordID, reviewerID, "timeline.records.supersede", "txn-i-3-03-supersede", 2, 4)
+		timelinetest.RequireSupersedeCoupledChangeSet(t, db, superseded["change_set_id"].(string), recordID, replacementID, 4)
 		if got := timelinetest.CountActiveSupersedesLinks(t, db, incidentID, replacementID, recordID); got != 1 {
 			t.Fatalf("expected one active supersedes link, got %d", got)
 		}

@@ -9,6 +9,7 @@ import {
 import {
   type APIRequestContext,
   type APIResponse,
+  type Browser,
   expect,
   type Page,
   request,
@@ -373,6 +374,34 @@ export async function createIncidentMembership(
   expect(response.ok()).toBeTruthy();
 }
 
+export async function createIncidentMemberUser(
+  page: Page,
+  incidentId: string,
+  options: {
+    email: string;
+    display_name: string;
+    initial_password: string;
+    role: string;
+    mfa_required?: boolean;
+    is_deployment_admin?: boolean;
+  },
+) {
+  const user = await createLocalUser(page, {
+    email: options.email,
+    display_name: options.display_name,
+    initial_password: options.initial_password,
+    mfa_required: options.mfa_required,
+    is_deployment_admin: options.is_deployment_admin,
+  });
+  await createIncidentMembership(page, incidentId, options.email, options.role);
+  return {
+    ...user,
+    email: options.email,
+    initial_password: options.initial_password,
+    role: options.role,
+  };
+}
+
 export async function createViewRow(
   page: Page,
   incidentId: string,
@@ -651,6 +680,51 @@ export async function reconcileSuiteAdminTotpState(
   throw new Error(
     `suite admin harness login failed with ${loginWithoutSecondFactor.code}`,
   );
+}
+
+export async function openIncidentFromLanding(page: Page, incidentId: string) {
+  await page.goto("/");
+  await expect(
+    page.getByTestId(`landing-incident-${incidentId}`),
+  ).toBeVisible();
+  await page.getByTestId(`landing-open-${incidentId}`).click();
+  await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
+}
+
+export async function openIncidentAsTrackedUser(
+  browser: Browser,
+  sessionTracker: {
+    loginTrackedUser: (
+      page: Page,
+      details: {
+        createdBy: string;
+        email: string;
+        password: string;
+        purpose: string;
+        userId: string;
+      },
+    ) => Promise<void>;
+  },
+  options: {
+    createdBy: string;
+    email: string;
+    incidentId: string;
+    password: string;
+    purpose: string;
+    userId: string;
+  },
+) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await sessionTracker.loginTrackedUser(page, {
+    createdBy: options.createdBy,
+    email: options.email,
+    password: options.password,
+    purpose: options.purpose,
+    userId: options.userId,
+  });
+  await openIncidentFromLanding(page, options.incidentId);
+  return page;
 }
 
 function isConnectionRefused(error: unknown) {

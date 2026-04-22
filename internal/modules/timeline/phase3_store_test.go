@@ -312,6 +312,7 @@ func TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10(t *testing.T) {
 		if err != nil {
 			t.Fatalf("supersede row: %v", err)
 		}
+		timelinetest.RequireSupersedeCoupledChangeSet(t, harness.DB, first.ChangeSetID.String(), row.RecordID.String(), replacement.RecordID.String(), first.RowVersion)
 		if got := timelinetest.CountActiveSupersedesLinks(t, harness.DB, incidentID.String(), replacement.RecordID.String(), row.RecordID.String()); got != 1 {
 			t.Fatalf("expected one active supersedes link, got %d", got)
 		}
@@ -363,8 +364,13 @@ func TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10(t *testing.T) {
 			Reason:              "rollback supersede",
 			ReplacementRecordID: &replacement.RecordID,
 		}
+		beforeRollback := timelinetest.SnapshotCounters(t, harness.DB, incident.ID.String(), row.RecordID.String())
 		if _, err := store.Supersede(context.Background(), actor, row.RecordID, request, timeline.TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), "req-phase3-u-3-10-rollback", phase3BaseTime().Add(2*time.Minute)); err == nil {
 			t.Fatal("expected supersede rollback error")
+		}
+		afterRollback := timelinetest.SnapshotCounters(t, harness.DB, incident.ID.String(), row.RecordID.String())
+		if beforeRollback != afterRollback {
+			t.Fatalf("rollback must keep counters stable, before=%+v after=%+v", beforeRollback, afterRollback)
 		}
 
 		substrate, err := store.SnapshotRecordSubstrate(context.Background(), row.RecordID)

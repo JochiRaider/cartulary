@@ -5,12 +5,15 @@ import { expect, test } from "./fixtures";
 import {
   apiBase,
   createIncident,
+  createIncidentMemberUser,
   createViewRow,
   csrfHeaders,
   fetchTimelineRecordChangeCount,
   fetchTimelineRecordSubstrate,
   gridDraftRows,
   gridSavedRows,
+  openIncidentAsTrackedUser,
+  uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
   waitForCommittedRowSummary,
@@ -49,13 +52,23 @@ test("E-3-01 creates a Timeline row in-grid and continues editing on the draft r
 });
 
 test("E-3-03 drives review, demotion, and supersede through the visible workbook surface", async ({
+  browser,
   page,
+  sessionTracker,
 }) => {
+  const reviewerEmail = uniqueEmail("phase3-e303-reviewer");
+  const reviewerPassword = "Phase3E303Reviewer!";
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("E303"),
     "Phase 3 E-3-03",
   );
+  const reviewerUser = await createIncidentMemberUser(page, incidentId, {
+    email: reviewerEmail,
+    display_name: "Phase 3 E303 Reviewer",
+    initial_password: reviewerPassword,
+    role: "reviewer",
+  });
   const primaryRow = await createViewRow(
     page,
     incidentId,
@@ -77,31 +90,55 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
   const recordId = primaryRow.record_id as string;
   const replacementId = replacementRow.record_id as string;
 
-  await page.goto(`/?incident_id=${incidentId}`);
-
-  await page.getByTestId(`row-${recordId}-mark-reviewed`).click();
-  await expect(page.getByTestId(`row-${recordId}-capture-state`)).toHaveText(
-    "reviewed",
+  const reviewerPage = await openIncidentAsTrackedUser(
+    browser,
+    sessionTracker,
+    {
+      createdBy: "phase3 reviewer lifecycle flow",
+      email: reviewerEmail,
+      incidentId,
+      password: reviewerPassword,
+      purpose: "phase3 e303 reviewer workbook lifecycle",
+      userId: reviewerUser.user_id,
+    },
   );
-  await expect(page.getByTestId(`row-${recordId}-row-version`)).toHaveText("2");
 
-  const detailsInput = page.getByTestId(`row-${recordId}-details`);
-  await detailsInput.fill("Material edit after review");
-  await page.getByTestId("timeline-blur-surface").click();
-  await expect(page.getByTestId(`row-${recordId}-capture-state`)).toHaveText(
-    "enriched",
-  );
-  await expect(page.getByTestId(`row-${recordId}-row-version`)).toHaveText("3");
-
-  await page.getByTestId(`row-${recordId}-replacement-id`).fill(replacementId);
-  await page.getByTestId(`row-${recordId}-supersede`).click();
-  await expect(page.getByTestId(`row-${recordId}-capture-state`)).toHaveText(
-    "superseded",
-  );
-  await expect(page.getByTestId(`row-${recordId}-row-version`)).toHaveText("4");
   await expect(
-    page.getByTestId(`row-${recordId}-mark-reviewed`),
+    reviewerPage.getByText("Current incident role: reviewer"),
+  ).toBeVisible();
+
+  await reviewerPage.getByTestId(`row-${recordId}-mark-reviewed`).click();
+  await expect(
+    reviewerPage.getByTestId(`row-${recordId}-capture-state`),
+  ).toHaveText("reviewed");
+  await expect(
+    reviewerPage.getByTestId(`row-${recordId}-row-version`),
+  ).toHaveText("2");
+
+  const detailsInput = reviewerPage.getByTestId(`row-${recordId}-details`);
+  await detailsInput.fill("Material edit after review");
+  await reviewerPage.getByTestId("timeline-blur-surface").click();
+  await expect(
+    reviewerPage.getByTestId(`row-${recordId}-capture-state`),
+  ).toHaveText("enriched");
+  await expect(
+    reviewerPage.getByTestId(`row-${recordId}-row-version`),
+  ).toHaveText("3");
+
+  await reviewerPage
+    .getByTestId(`row-${recordId}-replacement-id`)
+    .fill(replacementId);
+  await reviewerPage.getByTestId(`row-${recordId}-supersede`).click();
+  await expect(
+    reviewerPage.getByTestId(`row-${recordId}-capture-state`),
+  ).toHaveText("superseded");
+  await expect(
+    reviewerPage.getByTestId(`row-${recordId}-row-version`),
+  ).toHaveText("4");
+  await expect(
+    reviewerPage.getByTestId(`row-${recordId}-mark-reviewed`),
   ).toBeDisabled();
+  await reviewerPage.context().close();
 });
 
 test("E-3-04 uses a disclosed hybrid replay harness to prove replay avoids duplicate history and visible invalidation", async ({

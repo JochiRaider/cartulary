@@ -1,9 +1,9 @@
-import type { Browser, Page } from "@playwright/test";
-
 import { expect, test } from "./fixtures";
 import {
   createIncident,
   createLocalUser,
+  openIncidentAsTrackedUser,
+  openIncidentFromLanding,
   uniqueEmail,
   uniqueIncidentKey,
 } from "./helpers";
@@ -144,9 +144,11 @@ test("E-2-03 lets incident admins manage memberships and hides those controls fr
   ).toHaveText("Version 2");
 
   const memberPage = await openIncidentAsTrackedUser(browser, sessionTracker, {
+    createdBy: "phase2 non-admin membership view",
     email: memberEmail,
-    password: memberPassword,
     incidentId,
+    password: memberPassword,
+    purpose: "phase2 e203 non-admin incident shell",
     userId: memberUser.user_id,
   });
 
@@ -177,46 +179,3 @@ test("E-2-03 lets incident admins manage memberships and hides those controls fr
     page.getByTestId(`incident-membership-row-${memberUser.user_id}`),
   ).toHaveCount(0);
 });
-
-async function openIncidentFromLanding(page: Page, incidentId: string) {
-  await page.goto("/");
-  await expect(
-    page.getByTestId(`landing-incident-${incidentId}`),
-  ).toBeVisible();
-  await page.getByTestId(`landing-open-${incidentId}`).click();
-  await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
-}
-
-async function openIncidentAsTrackedUser(
-  browser: Browser,
-  sessionTracker: {
-    loginTrackedUser: (
-      page: Page,
-      details: {
-        createdBy: string;
-        email: string;
-        password: string;
-        purpose: string;
-        userId: string;
-      },
-    ) => Promise<void>;
-  },
-  options: {
-    email: string;
-    password: string;
-    incidentId: string;
-    userId: string;
-  },
-) {
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  await sessionTracker.loginTrackedUser(page, {
-    createdBy: "phase2 non-admin membership view",
-    email: options.email,
-    password: options.password,
-    purpose: "phase2 e203 non-admin incident shell",
-    userId: options.userId,
-  });
-  await openIncidentFromLanding(page, options.incidentId);
-  return page;
-}
