@@ -717,18 +717,21 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByText("Timeline workbook shell")).toBeVisible();
+  const eligibleHostRefsInput = page.getByTestId(
+    `row-${eligibleRow.record_id}-hostRefs-input`,
+  );
+  // Capture continuity baselines only after the specific row control exists;
+  // the shell can render before this hydrated input is ready.
+  await expect(eligibleHostRefsInput).toBeVisible();
 
   const autoScroll = await scrollGridToBottom(page, "timeline");
+  expect(autoScroll.top).toBeGreaterThan(0);
   const eligibleResponsePromise = waitForTimelinePatch(
     page,
     eligibleRow.record_id,
   );
-  await page
-    .getByTestId(`row-${eligibleRow.record_id}-hostRefs-input`)
-    .fill(" vpn   gateway ");
-  await page
-    .getByTestId(`row-${eligibleRow.record_id}-hostRefs-input`)
-    .press("Enter");
+  await eligibleHostRefsInput.fill(" vpn   gateway ");
+  await eligibleHostRefsInput.press("Enter");
   const eligibleEnvelope = await readTimelineMutation(
     await eligibleResponsePromise,
   );
