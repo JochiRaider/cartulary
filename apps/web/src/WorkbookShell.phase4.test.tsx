@@ -7,7 +7,13 @@ import {
 } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
+import {
+  buildRecordChangedPayload,
+  emitRecordChanged,
+  successEnvelope,
+  timelineRow,
+  timelineViewSchemaId,
+} from "./timelineWorkbookTestSupport";
 import { TimelineWorkbook } from "./WorkbookShell";
 import {
   buildAutoResolutionNotices,
@@ -18,7 +24,6 @@ import {
 
 // Support-only mocked component coverage for Phase 4 workbook helpers.
 // This file is not authoritative route or browser evidence.
-const timelineViewSchemaId = "cartulary.view.timeline.v1";
 type TimelineWorkbookProps = ComponentProps<typeof TimelineWorkbook>;
 type EntityIndex = NonNullable<TimelineWorkbookProps["entityIndex"]>;
 type EntityRowFixture = EntityIndex[string];
@@ -745,15 +750,12 @@ describe("Phase 4 TimelineWorkbook", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
-    webSocketInstance?.onmessage?.(
-      new MessageEvent("message", {
-        data: JSON.stringify(
-          recordChangedMessage({
-            recordId: "record-1",
-            rowVersion: 2,
-            clientTxnId: "timeline-client-1",
-          }),
-        ),
+    emitRecordChanged(
+      webSocketInstance,
+      buildRecordChangedPayload({
+        recordId: "record-1",
+        rowVersion: 2,
+        clientTxnId: "timeline-client-1",
       }),
     );
 
@@ -764,15 +766,12 @@ describe("Phase 4 TimelineWorkbook", () => {
       { timeout: 200 },
     );
 
-    webSocketInstance?.onmessage?.(
-      new MessageEvent("message", {
-        data: JSON.stringify(
-          recordChangedMessage({
-            recordId: "record-1",
-            rowVersion: 3,
-            clientTxnId: "someone-else",
-          }),
-        ),
+    emitRecordChanged(
+      webSocketInstance,
+      buildRecordChangedPayload({
+        recordId: "record-1",
+        rowVersion: 3,
+        clientTxnId: "someone-else",
       }),
     );
 
@@ -781,42 +780,6 @@ describe("Phase 4 TimelineWorkbook", () => {
     });
   });
 });
-
-function timelineRow({
-  recordId,
-  rowVersion,
-  occurredAt = "",
-  summary = "",
-  details = "",
-  sourceText = "",
-  captureState,
-  hostRefs = [],
-  identityRefs = [],
-}: {
-  recordId: string;
-  rowVersion: number;
-  occurredAt?: string;
-  summary?: string;
-  details?: string;
-  sourceText?: string;
-  captureState: string;
-  hostRefs?: Array<Record<string, unknown>>;
-  identityRefs?: Array<Record<string, unknown>>;
-}) {
-  return {
-    record_id: recordId,
-    row_version: rowVersion,
-    cells: {
-      "timeline.occurred_at": { value: occurredAt },
-      "timeline.summary": { value: summary },
-      "timeline.details": { value: details },
-      "timeline.source_text": { value: sourceText },
-      "timeline.capture_state": { value: captureState },
-      "timeline.host_refs": { value: { items: hostRefs } },
-      "timeline.identity_refs": { value: { items: identityRefs } },
-    },
-  };
-}
 
 function resolvedItem({
   itemRef,
@@ -872,42 +835,6 @@ function unresolvedItem({
     display_text: rawText,
     raw_text: rawText,
   };
-}
-
-function recordChangedMessage({
-  recordId,
-  rowVersion,
-  clientTxnId,
-}: {
-  recordId: string;
-  rowVersion: number;
-  clientTxnId: string;
-}) {
-  return {
-    type: "record_changed",
-    payload: {
-      record_id: recordId,
-      row_version: rowVersion,
-      change_set_id: `change-set-${rowVersion}`,
-      client_txn_id: clientTxnId,
-      actor_user_id: "user-1",
-      changed_field_keys: ["timeline.host_refs"],
-      affected_views: [
-        {
-          view_schema_id: timelineViewSchemaId,
-          change_kind: "invalidate",
-        },
-      ],
-    },
-  };
-}
-
-function successEnvelope(payload: unknown) {
-  return Promise.resolve({
-    ok: true,
-    status: 200,
-    json: async () => ({ data: payload }),
-  } as Response);
 }
 
 function setTimelineGridScroll(top: number, left: number) {

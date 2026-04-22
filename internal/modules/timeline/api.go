@@ -45,6 +45,7 @@ type CreateRequest struct {
 	SourceText   *string
 	HostRefs     *CollectionActionPayload
 	IdentityRefs *CollectionActionPayload
+	Tags         *CollectionActionPayload
 }
 
 type PatchRequest struct {
@@ -142,6 +143,9 @@ func DecodeTimelineCreateRequest(reader io.Reader) (CreateRequest, *auth.APIErro
 	}
 	if request.IdentityRefs, ok = decodeCreateCollectionActionField(raw, "timeline.identity_refs"); !ok {
 		return CreateRequest{}, invalidMutationPayload("timeline.identity_refs", "invalid_value")
+	}
+	if request.Tags, ok = decodeCreateCollectionActionField(raw, "timeline.tags"); !ok {
+		return CreateRequest{}, invalidMutationPayload("timeline.tags", "invalid_value")
 	}
 	if !schema.PermitsZeroFieldCreate && !CreateRequestHasUserValue(request) {
 		return CreateRequest{}, invalidMutationPayload("payload", "at_least_one_value_required")
@@ -324,6 +328,7 @@ func TimelineCreateRequestHash(request CreateRequest) []byte {
 		"timeline.source_text":   derefString(request.SourceText),
 		"timeline.host_refs":     canonicalCollectionActionPayload(request.HostRefs),
 		"timeline.identity_refs": canonicalCollectionActionPayload(request.IdentityRefs),
+		"timeline.tags":          canonicalCollectionActionPayload(request.Tags),
 	}
 	return hashRequestPayload(payload)
 }
@@ -369,7 +374,7 @@ func BuildRow(record projectedRecord) map[string]any {
 		"timeline.host_refs":               map[string]any{"value": collectionValue(true, record.HostRefs)},
 		"timeline.identity_refs":           map[string]any{"value": collectionValue(true, record.IdentityRefs)},
 		"timeline.evidence_count":          map[string]any{"value": record.EvidenceCount},
-		"timeline.tags":                    map[string]any{"value": collectionValue(false, nil)},
+		"timeline.tags":                    map[string]any{"value": collectionValue(false, record.Tags)},
 		"timeline.edited_at":               map[string]any{"value": formatTimestamp(record.EditedAt)},
 		"timeline.recorded_at":             map[string]any{"value": formatTimestamp(record.RecordedAt)},
 		"timeline.sort_ts":                 map[string]any{"value": formatTimestamp(record.SortTs)},
@@ -667,6 +672,12 @@ func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey 
 		return nil, false
 	}
 	for _, action := range payload.Actions {
+		if fieldKey == "timeline.tags" {
+			if action.Op != "add_token" {
+				return nil, false
+			}
+			continue
+		}
 		if action.Op != "add_token" && action.Op != "add_resolved_ref" {
 			return nil, false
 		}
@@ -675,7 +686,9 @@ func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey 
 }
 
 func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*CollectionActionPayload, bool) {
-	if fieldKey != "timeline.host_refs" && fieldKey != "timeline.identity_refs" {
+	if fieldKey != "timeline.host_refs" &&
+		fieldKey != "timeline.identity_refs" &&
+		fieldKey != "timeline.tags" {
 		return nil, false
 	}
 
@@ -727,7 +740,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 			if err := json.Unmarshal(rawTextValue, &rawText); err != nil {
 				return nil, false
 			}
-			normalized, ok := fieldnorm.NormalizeMentionToken(rawText)
+			normalized, ok := normalizeCollectionToken(fieldKey, rawText)
 			if !ok {
 				return nil, false
 			}
@@ -737,6 +750,9 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 				NormalizedText: normalized,
 			})
 		case "add_resolved_ref":
+			if fieldKey == "timeline.tags" {
+				return nil, false
+			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "raw_text", "resolved_record_id"}, nil) {
 				return nil, false
 			}
@@ -752,7 +768,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 			if err := json.Unmarshal(rawTextValue, &rawText); err != nil {
 				return nil, false
 			}
-			normalized, ok := fieldnorm.NormalizeMentionToken(rawText)
+			normalized, ok := normalizeCollectionToken(fieldKey, rawText)
 			if !ok {
 				return nil, false
 			}
@@ -771,6 +787,9 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 				ResolvedRecord: &parsed,
 			})
 		case "resolve_item":
+			if fieldKey == "timeline.tags" {
+				return nil, false
+			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "item_ref"}, []string{"resolved_record_id"}) {
 				return nil, false
 			}
@@ -796,6 +815,9 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 			}
 			actions = append(actions, action)
 		case "dismiss_item", "revert_to_unresolved":
+			if fieldKey == "timeline.tags" {
+				return nil, false
+			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "item_ref"}, nil) {
 				return nil, false
 			}
@@ -813,6 +835,13 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 		}
 	}
 	return &CollectionActionPayload{Actions: actions}, true
+}
+
+func normalizeCollectionToken(fieldKey string, rawText string) (string, bool) {
+	if fieldKey == "timeline.tags" {
+		return fieldnorm.NormalizeLine(rawText)
+	}
+	return fieldnorm.NormalizeMentionToken(rawText)
 }
 
 func objectHasOnlyFields(object map[string]json.RawMessage, fields ...string) bool {

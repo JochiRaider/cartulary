@@ -18,6 +18,7 @@ import {
 import {
   requireViewContract,
   resolveHeaderSortFieldKey,
+  visibleFields,
 } from "@cartulary/view-contracts";
 import {
   type ChangeEvent,
@@ -71,7 +72,9 @@ type EditableField =
   | "timeline.source_text";
 type RelationshipFieldKey = "timeline.host_refs" | "timeline.identity_refs";
 type RelationshipDraftKey = "hostRefs" | "identityRefs";
-type FocusFieldKey = keyof RowValues | RelationshipDraftKey;
+type CollectionFieldKey = RelationshipFieldKey | "timeline.tags";
+type CollectionDraftKey = RelationshipDraftKey | "tags";
+type FocusFieldKey = keyof RowValues | CollectionDraftKey;
 type IncidentRole = "viewer" | "editor" | "reviewer" | "admin" | "";
 
 type RowValues = {
@@ -81,9 +84,10 @@ type RowValues = {
   sourceText: string;
 };
 
-type RelationshipDrafts = {
+type CollectionDrafts = {
   hostRefs: string;
   identityRefs: string;
+  tags: string;
 };
 
 type CollectionItem = {
@@ -100,6 +104,13 @@ type CollectionItem = {
   matchedAliasText: string | null;
 };
 
+type TagCollectionItem = {
+  itemRef: string;
+  itemKind: "tag" | string;
+  displayText: string;
+  rawText: string;
+};
+
 type WorkbookRow = {
   key: string;
   recordId: string | null;
@@ -107,8 +118,12 @@ type WorkbookRow = {
   captureState: string;
   values: RowValues;
   committedValues: RowValues;
-  collectionValues: Record<RelationshipDraftKey, CollectionItem[]>;
-  relationshipDrafts: RelationshipDrafts;
+  collectionValues: {
+    hostRefs: CollectionItem[];
+    identityRefs: CollectionItem[];
+    tags: TagCollectionItem[];
+  };
+  collectionDrafts: CollectionDrafts;
   pendingSignature: string | null;
   rawRow: TimelineApiRow | null;
 };
@@ -293,55 +308,109 @@ type MergePlanLine = {
   outcome: string;
 };
 
-const fieldOrder: Array<{
+type TimelineScalarBinding = {
+  kind: "scalar";
   fieldKey: EditableField;
   key: keyof RowValues;
-  label: string;
   multiline?: boolean;
-}> = [
-  {
-    fieldKey: "timeline.occurred_at",
-    key: "occurredAt",
-    label: "Time (RFC3339)",
-  },
-  {
-    fieldKey: "timeline.summary",
-    key: "summary",
-    label: "Summary",
-  },
-  {
-    fieldKey: "timeline.details",
-    key: "details",
-    label: "Details",
-    multiline: true,
-  },
-  {
-    fieldKey: "timeline.source_text",
-    key: "sourceText",
-    label: "Source Text",
-    multiline: true,
-  },
-];
+};
 
-const relationshipFields: Array<{
-  fieldKey: RelationshipFieldKey;
-  draftKey: RelationshipDraftKey;
-  entityType: "host" | "identity";
-  label: string;
-}> = [
+type TimelineCollectionBinding = {
+  kind: "collection";
+  fieldKey: CollectionFieldKey;
+  draftKey: CollectionDraftKey;
+  collectionKind: "relationship" | "tag";
+  entityType?: "host" | "identity";
+};
+
+type TimelineReadonlyBinding = {
+  kind: "readonly";
+  fieldKey: string;
+};
+
+type TimelineFieldBinding =
+  | TimelineScalarBinding
+  | TimelineCollectionBinding
+  | TimelineReadonlyBinding;
+type TimelineScalarEditorSurface = "grid" | "inspector";
+
+const timelineScalarBindingIndex: Record<EditableField, TimelineScalarBinding> =
   {
+    "timeline.occurred_at": {
+      kind: "scalar",
+      fieldKey: "timeline.occurred_at",
+      key: "occurredAt",
+    },
+    "timeline.summary": {
+      kind: "scalar",
+      fieldKey: "timeline.summary",
+      key: "summary",
+    },
+    "timeline.details": {
+      kind: "scalar",
+      fieldKey: "timeline.details",
+      key: "details",
+      multiline: true,
+    },
+    "timeline.source_text": {
+      kind: "scalar",
+      fieldKey: "timeline.source_text",
+      key: "sourceText",
+      multiline: true,
+    },
+  };
+
+const timelineCollectionBindingIndex: Record<
+  CollectionFieldKey,
+  TimelineCollectionBinding
+> = {
+  "timeline.host_refs": {
+    kind: "collection",
     fieldKey: "timeline.host_refs",
     draftKey: "hostRefs",
+    collectionKind: "relationship",
     entityType: "host",
-    label: "Hosts",
   },
-  {
+  "timeline.identity_refs": {
+    kind: "collection",
     fieldKey: "timeline.identity_refs",
     draftKey: "identityRefs",
+    collectionKind: "relationship",
     entityType: "identity",
-    label: "Identities",
   },
+  "timeline.tags": {
+    kind: "collection",
+    fieldKey: "timeline.tags",
+    draftKey: "tags",
+    collectionKind: "tag",
+  },
+};
+
+const timelineInspectorEditableFields: readonly EditableField[] = [
+  "timeline.details",
+  "timeline.source_text",
 ];
+
+function timelineFieldBinding(fieldKey: string): TimelineFieldBinding {
+  if (fieldKey in timelineScalarBindingIndex) {
+    return timelineScalarBindingIndex[fieldKey as EditableField];
+  }
+  if (fieldKey in timelineCollectionBindingIndex) {
+    return timelineCollectionBindingIndex[fieldKey as CollectionFieldKey];
+  }
+  return {
+    kind: "readonly",
+    fieldKey,
+  };
+}
+
+const timelineVisibleBindings: readonly TimelineFieldBinding[] = visibleFields(
+  timelineContract,
+).map((field) => timelineFieldBinding(field.fieldKey));
+const timelineInspectorBindings: readonly TimelineScalarBinding[] =
+  timelineInspectorEditableFields.map(
+    (fieldKey) => timelineFieldBinding(fieldKey) as TimelineScalarBinding,
+  );
 
 const mergeIdentifierFields: Record<
   EntityRow["entityType"],
@@ -370,10 +439,11 @@ function emptyValues(): RowValues {
   };
 }
 
-function emptyRelationshipDrafts(): RelationshipDrafts {
+function emptyCollectionDrafts(): CollectionDrafts {
   return {
     hostRefs: "",
     identityRefs: "",
+    tags: "",
   };
 }
 
@@ -388,8 +458,9 @@ export function createDraftRow(index: number): WorkbookRow {
     collectionValues: {
       hostRefs: [],
       identityRefs: [],
+      tags: [],
     },
-    relationshipDrafts: emptyRelationshipDrafts(),
+    collectionDrafts: emptyCollectionDrafts(),
     pendingSignature: null,
     rawRow: null,
   };
@@ -454,6 +525,48 @@ function stringifyGridValue(value: unknown): string {
   return "";
 }
 
+function readTagItems(row: TimelineApiRow): TagCollectionItem[] {
+  const raw = row.cells["timeline.tags"]?.value;
+  const value =
+    raw &&
+    typeof raw === "object" &&
+    !Array.isArray(raw) &&
+    "items" in raw &&
+    Array.isArray(raw.items)
+      ? raw.items
+      : [];
+  return value
+    .map((item, index) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const object = item as Record<string, unknown>;
+      const rawText =
+        typeof object.raw_text === "string"
+          ? object.raw_text
+          : typeof object.display_text === "string"
+            ? object.display_text
+            : "";
+      if (rawText === "") {
+        return null;
+      }
+      return {
+        itemRef:
+          typeof object.item_ref === "string"
+            ? object.item_ref
+            : `tag-item-${index}:${rawText}`,
+        itemKind:
+          typeof object.item_kind === "string" ? object.item_kind : "tag",
+        displayText:
+          typeof object.display_text === "string"
+            ? object.display_text
+            : rawText,
+        rawText,
+      };
+    })
+    .filter((item): item is TagCollectionItem => item !== null);
+}
+
 function timelineGroupLabel(row: WorkbookRow, fieldKey: string) {
   const value = stringifyGridValue(readCellValue(row.rawRow, fieldKey)).trim();
   return value === "" ? "Unassigned" : value;
@@ -482,8 +595,9 @@ function rowFromApi(row: TimelineApiRow): WorkbookRow {
     collectionValues: {
       hostRefs: readCollectionItems(row, "timeline.host_refs"),
       identityRefs: readCollectionItems(row, "timeline.identity_refs"),
+      tags: readTagItems(row),
     },
-    relationshipDrafts: emptyRelationshipDrafts(),
+    collectionDrafts: emptyCollectionDrafts(),
     pendingSignature: null,
     rawRow: row,
   };
@@ -623,19 +737,19 @@ export function buildCreatePayload(row: WorkbookRow, clientTxnId: string) {
     client_txn_id: clientTxnId,
   };
 
-  for (const field of fieldOrder) {
+  for (const field of Object.values(timelineScalarBindingIndex)) {
     const normalized = normalizeValue(row.values[field.key]);
     if (normalized !== "") {
       payload[field.fieldKey] = normalized;
     }
   }
 
-  for (const relationshipField of relationshipFields) {
+  for (const field of Object.values(timelineCollectionBindingIndex)) {
     const actions = buildCollectionActions(
-      row.relationshipDrafts[relationshipField.draftKey],
+      row.collectionDrafts[field.draftKey],
     );
     if (actions !== null) {
-      payload[relationshipField.fieldKey] = actions;
+      payload[field.fieldKey] = actions;
     }
   }
 
@@ -646,7 +760,7 @@ export function buildCreatePayload(row: WorkbookRow, clientTxnId: string) {
 }
 
 function buildScalarPatchPayload(row: WorkbookRow, clientTxnId: string) {
-  const changes = fieldOrder
+  const changes = Object.values(timelineScalarBindingIndex)
     .map((field) => {
       const current = normalizeValue(row.values[field.key]);
       const committed = normalizeValue(row.committedValues[field.key]);
@@ -678,7 +792,7 @@ function buildScalarPatchPayload(row: WorkbookRow, clientTxnId: string) {
 
 function buildCollectionPatchPayload(
   row: WorkbookRow,
-  fieldKey: RelationshipFieldKey,
+  fieldKey: CollectionFieldKey,
   draftValue: string,
   clientTxnId: string,
 ) {
@@ -1071,6 +1185,10 @@ export function TimelineWorkbook({
         (row) => row.recordId !== null && row.recordId === selectedRowId,
       ) ?? null,
     [rows, selectedRowId],
+  );
+  const draftRow = useMemo(
+    () => rows.find((row) => row.recordId === null) ?? null,
+    [rows],
   );
   const dismissedForSelectedRow = selectedRow?.recordId
     ? (dismissedMentionsByRow[selectedRow.recordId] ?? [])
@@ -1633,9 +1751,9 @@ export function TimelineWorkbook({
     });
   }
 
-  function setRelationshipDraft(
+  function setCollectionDraft(
     rowKey: string,
-    field: RelationshipDraftKey,
+    field: CollectionDraftKey,
     value: string,
   ) {
     setRows((current) => {
@@ -1643,8 +1761,8 @@ export function TimelineWorkbook({
         row.key === rowKey
           ? {
               ...row,
-              relationshipDrafts: {
-                ...row.relationshipDrafts,
+              collectionDrafts: {
+                ...row.collectionDrafts,
                 [field]: value,
               },
             }
@@ -1744,10 +1862,10 @@ export function TimelineWorkbook({
       });
   }
 
-  function queueRelationshipSave(
+  function queueCollectionSave(
     rowKey: string,
-    fieldKey: RelationshipFieldKey,
-    focusField: RelationshipDraftKey,
+    fieldKey: CollectionFieldKey,
+    focusField: CollectionDraftKey,
   ) {
     const snapshot = rowsRef.current.find(
       (candidate) => candidate.key === rowKey,
@@ -1755,7 +1873,7 @@ export function TimelineWorkbook({
     if (!snapshot) {
       return;
     }
-    const draftValue = snapshot.relationshipDrafts[focusField];
+    const draftValue = snapshot.collectionDrafts[focusField];
     const clientTxnId = nextClientTxnId();
     const payload =
       snapshot.recordId === null
@@ -1987,15 +2105,15 @@ export function TimelineWorkbook({
     }
   }
 
-  function handleRelationshipKeyDown(
+  function handleCollectionKeyDown(
     event: KeyboardEvent<HTMLInputElement>,
     rowKey: string,
-    fieldKey: RelationshipFieldKey,
-    draftKey: RelationshipDraftKey,
+    fieldKey: CollectionFieldKey,
+    draftKey: CollectionDraftKey,
   ) {
     if (event.key === "Enter" || event.key === "Tab") {
       event.preventDefault();
-      queueRelationshipSave(rowKey, fieldKey, draftKey);
+      queueCollectionSave(rowKey, fieldKey, draftKey);
     }
   }
 
@@ -2014,6 +2132,221 @@ export function TimelineWorkbook({
     setSelectedRowId(rowRecordId);
     setSelectedMentionRef(itemRef);
     setInspectorMessage(null);
+  }
+
+  function timelineBindingLabel(fieldKey: string) {
+    return timelineContract.fieldMap[fieldKey]?.label ?? fieldKey;
+  }
+
+  function timelineScalarControlId(
+    row: WorkbookRow,
+    binding: TimelineScalarBinding,
+    surface: TimelineScalarEditorSurface,
+  ) {
+    return ["timeline-editor", surface, row.key, binding.fieldKey]
+      .map((value) => value.replace(/[^a-zA-Z0-9_-]+/g, "-"))
+      .join("-");
+  }
+
+  function renderTimelineScalarControl(
+    row: WorkbookRow,
+    binding: TimelineScalarBinding,
+    surface: TimelineScalarEditorSurface,
+    controlId: string,
+  ) {
+    const label = timelineBindingLabel(binding.fieldKey);
+    const gridAccessibleLabel =
+      surface === "grid"
+        ? `${label} ${row.recordId ?? "draft row"}`
+        : undefined;
+    const dataTestId =
+      row.recordId === null
+        ? draftCellTestId(binding.key)
+        : rowCellTestId(row.recordId, binding.key);
+    if (binding.multiline) {
+      return (
+        <textarea
+          aria-label={gridAccessibleLabel}
+          data-testid={dataTestId}
+          id={controlId}
+          ref={(element) => {
+            registerInput(row.key, binding.key, element);
+            if (element) {
+              focusMountedInput(element, `${row.key}:${binding.key}`);
+            }
+          }}
+          rows={3}
+          style={textareaStyle}
+          value={row.values[binding.key]}
+          onBlur={() => {
+            handleBlur(row.key);
+          }}
+          onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
+            setRowValue(row.key, binding.key, event.target.value);
+          }}
+          onFocus={() => {
+            if (row.recordId) {
+              handleSelectRow(row.recordId);
+            }
+          }}
+          onInput={(event: FormEvent<HTMLTextAreaElement>) => {
+            setRowValue(row.key, binding.key, event.currentTarget.value);
+          }}
+          onKeyDown={(event) => {
+            handleKeyDown(event, row.key);
+          }}
+          onPaste={() => {
+            handlePaste(row.key);
+          }}
+        />
+      );
+    }
+    return (
+      <input
+        aria-label={gridAccessibleLabel}
+        data-testid={dataTestId}
+        id={controlId}
+        ref={(element) => {
+          registerInput(row.key, binding.key, element);
+          if (element) {
+            focusMountedInput(element, `${row.key}:${binding.key}`);
+          }
+        }}
+        style={inputStyle}
+        type="text"
+        value={row.values[binding.key]}
+        onBlur={() => {
+          handleBlur(row.key);
+        }}
+        onChange={(event: ChangeEvent<HTMLInputElement>) => {
+          setRowValue(row.key, binding.key, event.target.value);
+        }}
+        onFocus={() => {
+          if (row.recordId) {
+            handleSelectRow(row.recordId);
+          }
+        }}
+        onInput={(event: FormEvent<HTMLInputElement>) => {
+          setRowValue(row.key, binding.key, event.currentTarget.value);
+        }}
+        onKeyDown={(event) => {
+          handleKeyDown(event, row.key);
+        }}
+        onPaste={() => {
+          handlePaste(row.key);
+        }}
+      />
+    );
+  }
+
+  function renderTimelineGridEditor(
+    row: WorkbookRow,
+    binding: TimelineScalarBinding,
+  ) {
+    return renderTimelineScalarControl(
+      row,
+      binding,
+      "grid",
+      timelineScalarControlId(row, binding, "grid"),
+    );
+  }
+
+  function renderTimelineInspectorEditor(
+    row: WorkbookRow,
+    binding: TimelineScalarBinding,
+  ) {
+    const controlId = timelineScalarControlId(row, binding, "inspector");
+    return (
+      <div key={binding.fieldKey} style={labelStyle}>
+        <label htmlFor={controlId}>
+          {timelineBindingLabel(binding.fieldKey)}
+        </label>
+        {renderTimelineScalarControl(row, binding, "inspector", controlId)}
+      </div>
+    );
+  }
+
+  function renderTimelineCollectionInput(
+    row: WorkbookRow,
+    binding: TimelineCollectionBinding,
+  ) {
+    const label = timelineBindingLabel(binding.fieldKey);
+    const items = row.collectionValues[binding.draftKey];
+    return (
+      <>
+        <div
+          data-testid={
+            row.recordId === null
+              ? draftCellTestId(`${binding.draftKey}-items`)
+              : relationshipItemsTestId(row.recordId, binding.draftKey)
+          }
+          style={relationshipItemsWrapStyle}
+        >
+          {items.length > 0 ? (
+            binding.collectionKind === "relationship" ? (
+              items.map((item) => (
+                <RelationshipChip
+                  key={item.itemRef}
+                  entityIndex={entityIndex}
+                  item={item as CollectionItem}
+                  onSelect={() => {
+                    if (row.recordId) {
+                      handleSelectMention(row.recordId, item.itemRef);
+                    }
+                  }}
+                />
+              ))
+            ) : (
+              items.map((item) => (
+                <span key={item.itemRef} style={tagChipStyle}>
+                  {(item as TagCollectionItem).displayText}
+                </span>
+              ))
+            )
+          ) : (
+            <span style={emptyRelationshipStyle}>No items</span>
+          )}
+        </div>
+        <input
+          aria-label={`${label} ${row.recordId ?? "draft row"}`}
+          data-testid={
+            row.recordId === null
+              ? draftCellTestId(`${binding.draftKey}-input`)
+              : rowCellTestId(row.recordId, `${binding.draftKey}-input`)
+          }
+          key={`${row.key}:${binding.draftKey}:${row.rowVersion ?? "draft"}`}
+          ref={(element) => {
+            registerInput(row.key, binding.draftKey, element);
+            if (element) {
+              focusMountedInput(element, `${row.key}:${binding.draftKey}`);
+            }
+          }}
+          style={inputStyle}
+          type="text"
+          value={row.collectionDrafts[binding.draftKey]}
+          onBlur={() => {
+            queueCollectionSave(row.key, binding.fieldKey, binding.draftKey);
+          }}
+          onChange={(event) => {
+            setCollectionDraft(row.key, binding.draftKey, event.target.value);
+          }}
+          onFocus={() => {
+            if (row.recordId) {
+              handleSelectRow(row.recordId);
+            }
+          }}
+          onKeyDown={(event) => {
+            handleCollectionKeyDown(
+              event,
+              row.key,
+              binding.fieldKey,
+              binding.draftKey,
+            );
+          }}
+          placeholder={`Add ${label.toLowerCase()} token`}
+        />
+      </>
+    );
   }
 
   const timelineColumns: readonly GridColumn<WorkbookRow>[] = [
@@ -2049,169 +2382,26 @@ export function TimelineWorkbook({
         </span>
       ),
     },
-    ...fieldOrder.map(
-      (field): GridColumn<WorkbookRow> => ({
-        fieldKey: field.fieldKey,
-        headerTestId: gridSortHeaderTestId("timeline", field.fieldKey),
-        label: timelineContract.fieldMap[field.fieldKey]?.label ?? field.label,
-        renderCell: (row) =>
-          field.multiline ? (
-            <textarea
-              aria-label={`${field.label} ${row.recordId ?? "draft row"}`}
-              data-testid={
-                row.recordId === null
-                  ? draftCellTestId(field.key)
-                  : rowCellTestId(row.recordId, field.key)
-              }
-              ref={(element) => {
-                registerInput(row.key, field.key, element);
-                if (element) {
-                  focusMountedInput(element, `${row.key}:${field.key}`);
-                }
-              }}
-              rows={3}
-              style={textareaStyle}
-              value={row.values[field.key]}
-              onBlur={() => {
-                handleBlur(row.key);
-              }}
-              onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
-                setRowValue(row.key, field.key, event.target.value);
-              }}
-              onFocus={() => {
-                if (row.recordId) {
-                  handleSelectRow(row.recordId);
-                }
-              }}
-              onInput={(event: FormEvent<HTMLTextAreaElement>) => {
-                setRowValue(row.key, field.key, event.currentTarget.value);
-              }}
-              onKeyDown={(event) => {
-                handleKeyDown(event, row.key);
-              }}
-              onPaste={() => {
-                handlePaste(row.key);
-              }}
-            />
-          ) : (
-            <input
-              aria-label={`${field.label} ${row.recordId ?? "draft row"}`}
-              data-testid={
-                row.recordId === null
-                  ? draftCellTestId(field.key)
-                  : rowCellTestId(row.recordId, field.key)
-              }
-              ref={(element) => {
-                registerInput(row.key, field.key, element);
-                if (element) {
-                  focusMountedInput(element, `${row.key}:${field.key}`);
-                }
-              }}
-              style={inputStyle}
-              type="text"
-              value={row.values[field.key]}
-              onBlur={() => {
-                handleBlur(row.key);
-              }}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                setRowValue(row.key, field.key, event.target.value);
-              }}
-              onFocus={() => {
-                if (row.recordId) {
-                  handleSelectRow(row.recordId);
-                }
-              }}
-              onInput={(event: FormEvent<HTMLInputElement>) => {
-                setRowValue(row.key, field.key, event.currentTarget.value);
-              }}
-              onKeyDown={(event) => {
-                handleKeyDown(event, row.key);
-              }}
-              onPaste={() => {
-                handlePaste(row.key);
-              }}
-            />
-          ),
+    ...timelineVisibleBindings.map(
+      (binding): GridColumn<WorkbookRow> => ({
+        fieldKey: binding.fieldKey,
+        headerTestId: gridSortHeaderTestId("timeline", binding.fieldKey),
+        label: timelineBindingLabel(binding.fieldKey),
+        renderCell: (row) => {
+          if (binding.kind === "scalar") {
+            return renderTimelineGridEditor(row, binding);
+          }
+          if (binding.kind === "collection") {
+            return renderTimelineCollectionInput(row, binding);
+          }
+          const text = stringifyGridValue(
+            readCellValue(row.rawRow, binding.fieldKey),
+          );
+          return <span style={bodyStyle}>{text === "" ? "—" : text}</span>;
+        },
         sortableFieldKey: resolveHeaderSortFieldKey(
           timelineContract,
-          field.fieldKey,
-        ),
-      }),
-    ),
-    ...relationshipFields.map(
-      (field): GridColumn<WorkbookRow> => ({
-        fieldKey: field.fieldKey,
-        label: field.label,
-        renderCell: (row) => (
-          <>
-            <div
-              data-testid={
-                row.recordId === null
-                  ? draftCellTestId(`${field.draftKey}-items`)
-                  : relationshipItemsTestId(row.recordId, field.draftKey)
-              }
-              style={relationshipItemsWrapStyle}
-            >
-              {row.collectionValues[field.draftKey].length > 0 ? (
-                row.collectionValues[field.draftKey].map((item) => (
-                  <RelationshipChip
-                    key={item.itemRef}
-                    entityIndex={entityIndex}
-                    item={item}
-                    onSelect={() => {
-                      if (row.recordId) {
-                        handleSelectMention(row.recordId, item.itemRef);
-                      }
-                    }}
-                  />
-                ))
-              ) : (
-                <span style={emptyRelationshipStyle}>No items</span>
-              )}
-            </div>
-            <input
-              aria-label={`${field.label} ${row.recordId ?? "draft row"}`}
-              data-testid={
-                row.recordId === null
-                  ? draftCellTestId(`${field.draftKey}-input`)
-                  : rowCellTestId(row.recordId, `${field.draftKey}-input`)
-              }
-              key={`${row.key}:${field.draftKey}:${row.rowVersion ?? "draft"}`}
-              ref={(element) => {
-                registerInput(row.key, field.draftKey, element);
-                if (element) {
-                  focusMountedInput(element, `${row.key}:${field.draftKey}`);
-                }
-              }}
-              style={inputStyle}
-              type="text"
-              value={row.relationshipDrafts[field.draftKey]}
-              onBlur={() => {
-                queueRelationshipSave(row.key, field.fieldKey, field.draftKey);
-              }}
-              onChange={(event) => {
-                setRelationshipDraft(
-                  row.key,
-                  field.draftKey,
-                  event.target.value,
-                );
-              }}
-              onFocus={() => {
-                if (row.recordId) {
-                  handleSelectRow(row.recordId);
-                }
-              }}
-              onKeyDown={(event) => {
-                handleRelationshipKeyDown(
-                  event,
-                  row.key,
-                  field.fieldKey,
-                  field.draftKey,
-                );
-              }}
-              placeholder={`Add ${field.label.toLowerCase()} token`}
-            />
-          </>
+          binding.fieldKey,
         ),
       }),
     ),
@@ -2293,6 +2483,19 @@ export function TimelineWorkbook({
     testId: row.recordId === null ? undefined : `timeline-row-${row.recordId}`,
     variant: row.recordId === null ? "draft" : "default",
   }));
+
+  function renderInspectorFieldEditors(row: WorkbookRow) {
+    return (
+      <section style={inspectorSectionStyle}>
+        <h3 style={sectionTitleStyle}>Details</h3>
+        <div style={inspectorActionStackStyle}>
+          {timelineInspectorBindings.map((binding) =>
+            renderTimelineInspectorEditor(row, binding),
+          )}
+        </div>
+      </section>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -2454,14 +2657,18 @@ export function TimelineWorkbook({
             <h2 style={inspectorTitleStyle}>
               {selectedRow?.recordId
                 ? `Timeline row ${selectedRow.recordId}`
-                : "Select a saved row"}
+                : draftRow
+                  ? "Draft timeline row"
+                  : "Select a saved row"}
             </h2>
             <p style={bodyStyle}>
-              Routine mention review stays on the workbook surface.
+              Routine mention review and hidden-field editing stay on the
+              workbook surface.
             </p>
           </div>
           {selectedRow?.recordId ? (
             <>
+              {renderInspectorFieldEditors(selectedRow)}
               <section style={inspectorSectionStyle}>
                 <h3 style={sectionTitleStyle}>Mentions</h3>
                 <div style={mentionGroupStyle}>
@@ -2669,10 +2876,13 @@ export function TimelineWorkbook({
               ) : null}
             </>
           ) : (
-            <p style={bodyStyle}>
-              Pick a saved row to inspect unresolved, resolved, and dismissed
-              mentions.
-            </p>
+            <>
+              {draftRow ? renderInspectorFieldEditors(draftRow) : null}
+              <p style={bodyStyle}>
+                Pick a saved row to inspect unresolved, resolved, and dismissed
+                mentions.
+              </p>
+            </>
           )}
         </aside>
       </div>
@@ -3649,6 +3859,13 @@ const aliasChipStyle = {
   border: "1px solid rgb(188 205 198)",
   background: "rgb(240 247 243)",
   color: "rgb(45 74 66)",
+};
+
+const tagChipStyle = {
+  ...relationshipChipStyle,
+  border: "1px solid rgb(178 191 184)",
+  background: "rgb(242 246 243)",
+  color: "rgb(54 74 67)",
 };
 
 const emptyRelationshipStyle = {

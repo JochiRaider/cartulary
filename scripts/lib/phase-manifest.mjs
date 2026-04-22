@@ -6,6 +6,11 @@ const sectionDefinitions = [
   ["integration", "I-"],
   ["e2e", "E-"],
 ];
+const implementationTestingGuidePath = path.join(
+  "docs",
+  "guides",
+  "cartulary_implementation_testing_guide.md",
+);
 
 const validCoverage = new Set(["authoritative", "supplemental"]);
 const validGoSections = new Set(["unit", "integration", "e2e"]);
@@ -41,6 +46,81 @@ function goEntrySymbols(entry) {
   return [entry.symbol];
 }
 
+function phaseNumberFromPhase(phase) {
+  const match = /^phase(\d+)$/.exec(phase);
+  if (!match) {
+    throw new Error(`invalid phase name ${phase}; expected phase<number>`);
+  }
+  return match[1];
+}
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
+function phaseIDPatternSource(layerPrefix, phaseNumber, separator) {
+  const normalizedLayerPrefix = layerPrefix.endsWith(separator)
+    ? layerPrefix
+    : `${layerPrefix}${separator}`;
+  return `${escapeRegex(normalizedLayerPrefix)}${phaseNumber}${escapeRegex(
+    separator,
+  )}(?:[A-Z0-9]+${escapeRegex(separator)})*\\d{2}`;
+}
+
+function phaseIDRegex(layerPrefix, phaseNumber) {
+  return new RegExp(`^${phaseIDPatternSource(layerPrefix, phaseNumber, "-")}$`);
+}
+
+function claimedPhaseIDRegex(phaseNumber, separator) {
+  return new RegExp(
+    String.raw`\b[UIE]${escapeRegex(separator)}${phaseNumber}${escapeRegex(
+      separator,
+    )}(?:[A-Z0-9]+${escapeRegex(separator)})*\d{2}\b`,
+    "g",
+  );
+}
+
+function validateExpectedIDs(expectedIDs, phaseNumber, manifestPath) {
+  const seen = new Set();
+  for (const id of expectedIDs) {
+    if (typeof id !== "string" || id.trim() === "") {
+      throw new Error(`manifest ${manifestPath} has an invalid expected_id: ${JSON.stringify(id)}`);
+    }
+    const layerPrefix = `${id[0] ?? ""}-`;
+    if (!phaseIDRegex(layerPrefix, phaseNumber).test(id)) {
+      throw new Error(`manifest ${manifestPath} has expected_id ${id} that does not belong to phase${phaseNumber}`);
+    }
+    if (seen.has(id)) {
+      throw new Error(`manifest ${manifestPath} has duplicate expected_id ${id}`);
+    }
+    seen.add(id);
+  }
+}
+
+function loadGuideExpectedIDs(root, phaseNumber) {
+  const source = readFileSync(path.join(root, implementationTestingGuidePath), "utf8");
+  const pattern = new RegExp(
+    String.raw`^\|\s*([UIE]-${phaseNumber}(?:-[A-Z0-9]+)*-\d{2})\s*\|`,
+  );
+  const ids = new Set();
+  for (const line of source.split(/\r?\n/)) {
+    const match = pattern.exec(line);
+    if (match?.[1]) {
+      ids.add(match[1]);
+    }
+  }
+  return Array.from(ids).sort();
+}
+
+function extractClaimedPhaseIDs(source, phaseNumber) {
+  const hyphenMatches = source.match(claimedPhaseIDRegex(phaseNumber, "-")) ?? [];
+  const underscoreMatches = source.match(claimedPhaseIDRegex(phaseNumber, "_")) ?? [];
+  return new Set([
+    ...hyphenMatches,
+    ...underscoreMatches.map((value) => value.replaceAll("_", "-")),
+  ]);
+}
+
 export function loadManifest(root, phase) {
   const manifestPath = path.join(root, "tools", `${phase}_test_map.json`);
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
@@ -58,16 +138,13 @@ export function collectEntries(manifest) {
 }
 
 export function validateManifest(root, phase) {
-  const phaseMatch = /^phase(\d+)$/.exec(phase);
-  if (!phaseMatch) {
-    throw new Error(`invalid phase name ${phase}; expected phase<number>`);
-  }
-  const phaseNumber = phaseMatch[1];
+  const phaseNumber = phaseNumberFromPhase(phase);
   const { manifestPath, manifest } = loadManifest(root, phase);
 
   if (!Array.isArray(manifest.expected_ids) || manifest.expected_ids.length === 0) {
     throw new Error(`manifest ${manifestPath} must define a non-empty expected_ids array`);
   }
+  validateExpectedIDs(manifest.expected_ids, phaseNumber, manifestPath);
 
   const entries = [];
   for (const [section, prefix] of sectionDefinitions) {
@@ -75,7 +152,7 @@ export function validateManifest(root, phase) {
       if (typeof entry.id !== "string" || !entry.id.startsWith(prefix)) {
         throw new Error(`manifest entry in ${section} has invalid id: ${JSON.stringify(entry)}`);
       }
-      if (!new RegExp(`^${prefix}${phaseNumber}-\\d{2}$`).test(entry.id)) {
+      if (!phaseIDRegex(prefix, phaseNumber).test(entry.id)) {
         throw new Error(`manifest entry ${entry.id} does not belong to ${phase}`);
       }
       if (typeof entry.coverage !== "string" || !validCoverage.has(entry.coverage)) {
@@ -144,6 +221,17 @@ export function validateManifest(root, phase) {
     );
   }
 
+  const guideExpectedIDs = loadGuideExpectedIDs(root, phaseNumber);
+  if (guideExpectedIDs.length > 0) {
+    const guideMissing = guideExpectedIDs.filter((id) => !expected.includes(id));
+    const guideUnexpected = expected.filter((id) => !guideExpectedIDs.includes(id));
+    if (guideMissing.length > 0 || guideUnexpected.length > 0) {
+      throw new Error(
+        `${phase} guide mismatch: missing=${guideMissing.join(",") || "none"} unexpected=${guideUnexpected.join(",") || "none"}`,
+      );
+    }
+  }
+
   for (const entry of entries) {
     const targetPath = path.join(root, entry.file);
     const source = readFileSync(targetPath, "utf8");
@@ -157,13 +245,7 @@ export function validateManifest(root, phase) {
 
   for (const target of manifest.forbidden_id_files ?? []) {
     const source = readFileSync(path.join(root, target), "utf8");
-    const hyphenMatches = source.match(new RegExp(String.raw`\b[UIE]-${phaseNumber}-\d{2}\b`, "g")) ?? [];
-    const underscoreMatches =
-      source.match(new RegExp(String.raw`\b[UIE]_${phaseNumber}_\d{2}\b`, "g")) ?? [];
-    const claimedIDs = new Set([
-      ...hyphenMatches,
-      ...underscoreMatches.map((value) => value.replaceAll("_", "-")),
-    ]);
+    const claimedIDs = extractClaimedPhaseIDs(source, phaseNumber);
     if (claimedIDs.size > 0) {
       throw new Error(
         `${target} must not claim ${phase} authoritative ids: ${Array.from(claimedIDs).sort().join(", ")}`,

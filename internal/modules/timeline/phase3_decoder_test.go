@@ -30,6 +30,7 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 		"timeline.occurred_at",
 		"timeline.source_text",
 		"timeline.summary",
+		"timeline.tags",
 	})
 
 	t.Run("thirty two raw changes do not trip the count ceiling", func(t *testing.T) {
@@ -95,6 +96,34 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 		}
 		if got := len(request.CanonicalChange[0].ActionPayload.Actions); got != maxCollectionActions {
 			t.Fatalf("unexpected decoded action count: got %d want %d", got, maxCollectionActions)
+		}
+	})
+
+	t.Run("timeline tags collection actions remain valid", func(t *testing.T) {
+		request, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
+			"view_schema_id": "cartulary.view.timeline.v1",
+			"base_row_version": 1,
+			"client_txn_id": "txn-u-3-06-tags",
+			"changes": [
+				{
+					"field_key": "timeline.tags",
+					"action_payload": {
+						"kind": "collection_actions_v1",
+						"actions": [
+							{ "op": "add_token", "raw_text": "critical-host" }
+						]
+					}
+				}
+			]
+		}`))
+		if apiErr != nil {
+			t.Fatalf("expected timeline.tags payload to decode, got %#v", apiErr)
+		}
+		if got := request.CanonicalChange[0].FieldKey; got != "timeline.tags" {
+			t.Fatalf("unexpected field key: got %q", got)
+		}
+		if got := request.CanonicalChange[0].ActionPayload.Actions[0].NormalizedText; got != "critical-host" {
+			t.Fatalf("unexpected normalized tag token: got %q", got)
 		}
 	})
 
@@ -251,4 +280,3 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 		)
 	})
 }
-

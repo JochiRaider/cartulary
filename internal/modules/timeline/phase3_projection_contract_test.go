@@ -33,6 +33,14 @@ func TestPhase3_ProjectionContract_U_3_08(t *testing.T) {
 		CreatedByUserID: actorID,
 		UpdatedByUserID: actorID,
 	}, &replacementID)
+	projected.Tags = []map[string]any{
+		{
+			"item_ref":     "record_tag:55555555-5555-5555-5555-555555555555",
+			"item_kind":    "tag",
+			"display_text": "critical-host",
+			"raw_text":     "critical-host",
+		},
+	}
 	row := BuildRow(projected)
 
 	if row["record_id"] != recordID.String() || row["row_version"] != int64(4) {
@@ -72,6 +80,11 @@ func TestPhase3_ProjectionContract_U_3_08(t *testing.T) {
 	}
 	if cells["timeline.capture_state"].(map[string]any)["value"] != captureStateReviewed {
 		t.Fatalf("expected capture_state cell value, got %#v", cells["timeline.capture_state"])
+	}
+	tagValue := cells["timeline.tags"].(map[string]any)["value"].(map[string]any)
+	tagItems := tagValue["items"].([]map[string]any)
+	if len(tagItems) != 1 || tagItems[0]["display_text"] != "critical-host" {
+		t.Fatalf("expected stable tag collection value, got %#v", cells["timeline.tags"])
 	}
 	if cells["timeline.occurred_day"].(map[string]any)["value"] != "2026-04-10" || cells["timeline.recorded_day"].(map[string]any)["value"] != "2026-04-10" {
 		t.Fatalf("expected derived day cells, got %#v %#v", cells["timeline.occurred_day"], cells["timeline.recorded_day"])

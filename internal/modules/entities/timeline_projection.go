@@ -54,6 +54,7 @@ type timelineProjectedRecord struct {
 	HasUnresolvedMentions bool
 	HostRefs              []map[string]any
 	IdentityRefs          []map[string]any
+	Tags                  []map[string]any
 }
 
 type mentionQueryer interface {
@@ -160,7 +161,7 @@ func projectTimelineRecord(record timelineSourceRecord, replacementRecordID *uui
 	}
 }
 
-func hydrateTimelineMentionCollections(ctx context.Context, querier mentionQueryer, record *timelineProjectedRecord) error {
+func hydrateTimelineCollections(ctx context.Context, querier mentionQueryer, record *timelineProjectedRecord) error {
 	if record == nil {
 		return nil
 	}
@@ -267,6 +268,42 @@ SELECT entity_mention_id, entity_type, source_field_key, raw_text, resolution_st
 	record.HostRefs = hostRefs
 	record.IdentityRefs = identityRefs
 	record.HasUnresolvedMentions = hasUnresolved
+
+	tagRows, err := querier.Query(ctx, `
+SELECT record_tag_id, tag_name
+  FROM record_tags
+ WHERE incident_id = $1
+   AND record_id = $2
+   AND deleted_at IS NULL
+ ORDER BY normalized_tag_name ASC, record_tag_id ASC
+`, record.IncidentID, record.RecordID)
+	if err != nil {
+		return fmt.Errorf("query timeline tags: %w", err)
+	}
+
+	tags := make([]map[string]any, 0)
+	for tagRows.Next() {
+		var (
+			recordTagID uuid.UUID
+			tagName     string
+		)
+		if err := tagRows.Scan(&recordTagID, &tagName); err != nil {
+			tagRows.Close()
+			return fmt.Errorf("scan timeline tag row: %w", err)
+		}
+		tags = append(tags, map[string]any{
+			"item_ref":     "record_tag:" + recordTagID.String(),
+			"item_kind":    "tag",
+			"display_text": tagName,
+			"raw_text":     tagName,
+		})
+	}
+	if err := tagRows.Err(); err != nil {
+		tagRows.Close()
+		return fmt.Errorf("iterate timeline tags: %w", err)
+	}
+	tagRows.Close()
+	record.Tags = tags
 	return nil
 }
 
@@ -279,7 +316,7 @@ func buildTimelineRow(record timelineProjectedRecord) map[string]any {
 		"timeline.host_refs":               map[string]any{"value": collectionValue(true, record.HostRefs)},
 		"timeline.identity_refs":           map[string]any{"value": collectionValue(true, record.IdentityRefs)},
 		"timeline.evidence_count":          map[string]any{"value": record.EvidenceCount},
-		"timeline.tags":                    map[string]any{"value": collectionValue(false, nil)},
+		"timeline.tags":                    map[string]any{"value": collectionValue(false, record.Tags)},
 		"timeline.edited_at":               map[string]any{"value": formatTimestamp(record.EditedAt)},
 		"timeline.recorded_at":             map[string]any{"value": formatTimestamp(record.RecordedAt)},
 		"timeline.sort_ts":                 map[string]any{"value": formatTimestamp(record.SortTS)},

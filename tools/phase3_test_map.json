@@ -11,6 +11,9 @@
     "U-3-08",
     "U-3-09",
     "U-3-10",
+    "U-3-GRID-01",
+    "U-3-GRID-02",
+    "U-3-GRID-03",
     "I-3-01",
     "I-3-02",
     "I-3-03",
@@ -20,6 +23,8 @@
     "E-3-04"
   ],
   "forbidden_id_files": [
+    "apps/web/e2e/phase3.support.spec.ts",
+    "apps/web/src/App.test.tsx",
     "internal/modules/timeline/phase3_support_test.go",
     "internal/modules/timeline/phase3_support_integration_test.go"
   ],
@@ -68,7 +73,7 @@
       "id": "U-3-05",
       "coverage": "authoritative",
       "runner": "vitest",
-      "file": "apps/web/src/App.test.tsx",
+      "file": "apps/web/src/WorkbookShell.phase3.test.tsx",
       "title": "Phase 3 U-3-05 autosaves on Enter, Tab, blur, and paste completion without a Save button and keeps exact save-state labels",
       "execution_dependency": "frontend_unit",
       "evidence_layer": "component"
@@ -122,6 +127,33 @@
       "symbol": "TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10",
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain"
+    },
+    {
+      "id": "U-3-GRID-01",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/WorkbookShell.phase3.test.tsx",
+      "title": "Phase 3 U-3-GRID-01 binds Timeline grid columns from the active view_schema and commits writable cells by field_key",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component"
+    },
+    {
+      "id": "U-3-GRID-02",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/WorkbookShell.phase3.test.tsx",
+      "title": "Phase 3 U-3-GRID-02 binds saved rows by record_id and row_version instead of visible row index",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component"
+    },
+    {
+      "id": "U-3-GRID-03",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/WorkbookShell.phase3.test.tsx",
+      "title": "Phase 3 U-3-GRID-03 keeps sorted and filtered local edits bound to the original record_id, base_row_version, and field_key",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component"
     }
   ],
   "integration": [

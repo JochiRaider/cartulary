@@ -170,7 +170,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		return MentionActionResult{}, err
 	}
 	beforeProjected := projectTimelineRecord(sourceRecord, nil)
-	if err := hydrateTimelineMentionCollections(ctx, tx, &beforeProjected); err != nil {
+	if err := hydrateTimelineCollections(ctx, tx, &beforeProjected); err != nil {
 		return MentionActionResult{}, err
 	}
 
@@ -196,7 +196,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	}
 
 	afterProjected := projectTimelineRecord(nextRecord, nil)
-	if err := hydrateTimelineMentionCollections(ctx, tx, &afterProjected); err != nil {
+	if err := hydrateTimelineCollections(ctx, tx, &afterProjected); err != nil {
 		return MentionActionResult{}, err
 	}
 

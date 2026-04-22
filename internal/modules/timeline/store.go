@@ -60,6 +60,7 @@ type projectedRecord struct {
 	HasUnresolvedMentions bool
 	HostRefs              []map[string]any
 	IdentityRefs          []map[string]any
+	Tags                  []map[string]any
 }
 
 type sourceRecord struct {
@@ -252,6 +253,9 @@ RETURNING record_id
 	if err := applyCreateMentionActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.HostRefs, request.IdentityRefs, now.UTC()); err != nil {
 		return MutationResult{}, err
 	}
+	if err := applyCreateTagActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.Tags, now.UTC()); err != nil {
+		return MutationResult{}, err
+	}
 
 	projected := projectRecord(current, nil)
 	if err := hydrateProjectedCollections(ctx, tx, &projected); err != nil {
@@ -361,6 +365,7 @@ func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID u
 
 	next := current
 	mentionChanged := false
+	tagChanged := false
 	for _, change := range request.CanonicalChange {
 		switch change.FieldKey {
 		case "timeline.occurred_at":
@@ -375,6 +380,10 @@ func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID u
 			if change.ActionPayload != nil && len(change.ActionPayload.Actions) > 0 {
 				mentionChanged = true
 			}
+		case "timeline.tags":
+			if change.ActionPayload != nil && len(change.ActionPayload.Actions) > 0 {
+				tagChanged = true
+			}
 		}
 	}
 
@@ -388,7 +397,12 @@ func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID u
 			return MutationResult{}, err
 		}
 	}
-	if !materialChanged && !mentionChanged {
+	if tagChanged {
+		if err := applyPatchTagActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, request.CanonicalChange, now.UTC()); err != nil {
+			return MutationResult{}, err
+		}
+	}
+	if !materialChanged && !mentionChanged && !tagChanged {
 		return MutationResult{}, ErrNoEffectiveChange
 	}
 	nextState, err := CaptureStateAfterMaterialPatch(current.CaptureState)
@@ -1261,6 +1275,41 @@ SELECT entity_mention_id, entity_type, source_field_key, raw_text, resolution_st
 	record.HostRefs = hostRefs
 	record.IdentityRefs = identityRefs
 	record.HasUnresolvedMentions = hasUnresolved
+	tagRows, err := querier.Query(ctx, `
+SELECT record_tag_id, tag_name
+  FROM record_tags
+ WHERE incident_id = $1
+   AND record_id = $2
+   AND deleted_at IS NULL
+ ORDER BY normalized_tag_name ASC, record_tag_id ASC
+`, record.IncidentID, record.RecordID)
+	if err != nil {
+		return fmt.Errorf("query timeline tags: %w", err)
+	}
+
+	tags := make([]map[string]any, 0)
+	for tagRows.Next() {
+		var (
+			recordTagID uuid.UUID
+			tagName     string
+		)
+		if err := tagRows.Scan(&recordTagID, &tagName); err != nil {
+			tagRows.Close()
+			return fmt.Errorf("scan timeline tag row: %w", err)
+		}
+		tags = append(tags, map[string]any{
+			"item_ref":     "record_tag:" + recordTagID.String(),
+			"item_kind":    "tag",
+			"display_text": tagName,
+			"raw_text":     tagName,
+		})
+	}
+	if err := tagRows.Err(); err != nil {
+		tagRows.Close()
+		return fmt.Errorf("iterate timeline tags: %w", err)
+	}
+	tagRows.Close()
+	record.Tags = tags
 	return nil
 }
 
@@ -1276,6 +1325,10 @@ func applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uui
 		return err
 	}
 	return nil
+}
+
+func applyCreateTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, tags *CollectionActionPayload, now time.Time) error {
+	return insertTagActionsTx(ctx, tx, actorUserID, incidentID, recordID, tags, now)
 }
 
 func applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) error {
@@ -1315,6 +1368,62 @@ func applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.User
 			default:
 				return fmt.Errorf("unsupported mention action: %s", action.Op)
 			}
+		}
+	}
+	return nil
+}
+
+func applyPatchTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) error {
+	for _, change := range changes {
+		if change.FieldKey != "timeline.tags" || change.ActionPayload == nil {
+			continue
+		}
+		if err := insertTagActionsTx(ctx, tx, actorUserID, incidentID, recordID, change.ActionPayload, now); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func insertTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, payload *CollectionActionPayload, now time.Time) error {
+	if payload == nil || len(payload.Actions) == 0 {
+		return nil
+	}
+	for _, action := range payload.Actions {
+		if action.Op != "add_token" {
+			return fmt.Errorf("unsupported tag action: %s", action.Op)
+		}
+
+		var exists bool
+		if err := tx.QueryRow(ctx, `
+SELECT EXISTS (
+    SELECT 1
+      FROM record_tags
+     WHERE incident_id = $1
+       AND record_id = $2
+       AND normalized_tag_name = $3
+       AND deleted_at IS NULL
+)
+`, incidentID, recordID, action.NormalizedText).Scan(&exists); err != nil {
+			return fmt.Errorf("query active record tag: %w", err)
+		}
+		if exists {
+			continue
+		}
+
+		if _, err := tx.Exec(ctx, `
+INSERT INTO record_tags (
+    incident_id,
+    record_id,
+    tag_name,
+    normalized_tag_name,
+    created_by_user_id,
+    created_at,
+    updated_at
+)
+VALUES ($1, $2, $3, $4, $5, $6, $6)
+`, incidentID, recordID, action.NormalizedText, action.NormalizedText, actorUserID, now.UTC()); err != nil {
+			return fmt.Errorf("insert record tag: %w", err)
 		}
 	}
 	return nil
