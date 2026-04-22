@@ -31,6 +31,47 @@ extract_target_prereqs() {
   ' "$makefile"
 }
 
+inspect_shared_command() {
+  local target="$1"
+  local shared_name="$2"
+  NODE_BIN="$node_bin" "$go_runner_script" inspect-shared-command "$target" "$shared_name"
+}
+
+require_shared_command_match() {
+  local shared_name="$1"
+  shift
+
+  if [[ "$#" -lt 2 ]]; then
+    fail "require_shared_command_match needs <shared-name> <target>..."
+  fi
+
+  local baseline_target="$1"
+  shift
+  local baseline_command
+  baseline_command="$(inspect_shared_command "$baseline_target" "$shared_name")" || fail "failed to inspect $shared_name for $baseline_target"
+
+  local target
+  local current_command
+  for target in "$@"; do
+    current_command="$(inspect_shared_command "$target" "$shared_name")" || fail "failed to inspect $shared_name for $target"
+    if [[ "$baseline_command" != "$current_command" ]]; then
+      fail "shared report $shared_name must resolve to the same go test command for $baseline_target and $target"
+    fi
+  done
+}
+
+require_shared_command_contains() {
+  local target="$1"
+  local shared_name="$2"
+  local needle="$3"
+  local command_text
+
+  command_text="$(inspect_shared_command "$target" "$shared_name")" || fail "failed to inspect $shared_name for $target"
+  if [[ "$command_text" != *"$needle"* ]]; then
+    fail "shared report $shared_name for $target must include $needle"
+  fi
+}
+
 check_heavy_line="$(sed -n 's/^check-heavy:[[:space:]]*//p' "$makefile" | head -n 1)"
 if [[ -z "$check_heavy_line" ]]; then
   fail "Makefile must define check-heavy prerequisites"
@@ -285,9 +326,11 @@ backend_integration_support_block="$(extract_target_block backend-integration-su
 if ! printf '%s\n' "$backend_integration_support_block" | grep -Fq 'run-go-target.sh backend-integration-support'; then
   fail "backend-integration-support must delegate to scripts/run-go-target.sh backend-integration-support"
 fi
-if ! grep -Fq "TestSupportPhase1_" "$go_runner_script"; then
-  fail "scripts/run-go-target.sh must run Phase 1 support coverage through TestSupportPhase1_"
-fi
+require_shared_command_match backend-integration-core backend-integration backend-integration-support
+require_shared_command_match backend-integration-auth backend-integration backend-integration-support
+require_shared_command_contains backend-integration backend-integration-core "TestSupportPhase3Integration_"
+require_shared_command_contains backend-integration backend-integration-auth "TestSupportPhase1_"
+require_shared_command_match backend-process-shared backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke
 
 test_fast_block="$(extract_target_block test-fast)"
 if [[ -z "$test_fast_block" ]]; then

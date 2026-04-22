@@ -6,7 +6,17 @@ This ledger is the human-readable companion to `tools/phase3_test_map.json`.
 - Normative owners: Core 03 `§6`, `§7`, `§15`; Core 01 `§3.3.5`, `§7.4.1`; Core 04 `AC-043`, `AC-191` through `AC-199`, `AC-329` through `AC-331`.
 - Authority: `tools/phase3_test_map.json` is the enforced Phase 3 traceability source. This ledger summarizes the same surface in prose and does not control the mechanical row inventory.
 - Timeline zero-field create traceability: cite Core 01 `REQ-01-057` plus Core 04 `AC-191` and `AC-192` for the owner rule. `contracts/view-schemas/cartulary.view.timeline.v1.json` is derived evidence only and is not the behavior source.
+- Authoritative execution:
+  - `backend-unit` selects authoritative `U-3-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase3 unit authoritative backend_unit`.
+  - `backend-store` selects store-backed authoritative `U-3-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase3 unit authoritative backend_store`.
+  - `backend-integration` selects authoritative `I-3-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase3 integration authoritative backend_integration`.
+  - `frontend-unit` selects authoritative `U-3-*` workbook rows only through the Phase 3 Vitest manifest for `frontend_unit`.
+  - `browser-e2e-webserver-backed` and delegated `browser-e2e-functional` select authoritative functional `E-3-*` rows only through the Phase 3 Playwright manifest for `browser_functional`.
+  - `browser-e2e-measurement` selects authoritative measurement `E-3-*` rows only through the Phase 3 Playwright manifest for `browser_measurement`.
 - Support-only evidence: `internal/modules/timeline/phase3_support_test.go` and `internal/modules/timeline/phase3_support_integration_test.go` remain regression coverage only. They do not satisfy authoritative `U-3-*`, `I-3-*`, or `E-3-*` rows.
+- Support-only execution:
+  - `internal/modules/timeline/phase3_support_test.go` runs through `backend-unit` with `TestSupportPhase3Unit_` and is forbidden from claiming `U-3-*` identifiers.
+  - `internal/modules/timeline/phase3_support_integration_test.go` runs through `backend-integration-support` with `TestSupportPhase3Integration_` and is forbidden from claiming `I-3-*` identifiers.
 
 ## Unit
 
@@ -54,5 +64,5 @@ This ledger is the human-readable companion to `tools/phase3_test_map.json`.
 
 ## Support-Only Evidence
 
-- `internal/modules/timeline/phase3_support_test.go` keeps helper-level regression coverage for request-shape helpers, vocabulary helpers, hash normalization, payload builders, and supersede guards. These tests are intentionally forbidden from carrying authoritative Phase 3 IDs.
-- `internal/modules/timeline/phase3_support_integration_test.go::TestSupportPhase3_AuthorizationMatrix` table-drives create, query, patch, review, and supersede authorization across no-membership, editor, reviewer, and admin states. It strengthens route inventory confidence but does not replace `I-3-03`.
+- `internal/modules/timeline/phase3_support_test.go` keeps helper-level regression coverage for request-shape helpers, vocabulary helpers, hash normalization, payload builders, and supersede guards. These tests run under `TestSupportPhase3Unit_` and are intentionally forbidden from carrying authoritative Phase 3 IDs.
+- `internal/modules/timeline/phase3_support_integration_test.go::TestSupportPhase3Integration_AuthorizationMatrix` table-drives create, query, patch, review, and supersede authorization across no-membership, editor, reviewer, and admin states. It runs through `backend-integration-support`, strengthens route inventory confidence, and does not replace `I-3-03`.

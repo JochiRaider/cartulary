@@ -346,6 +346,7 @@ check-preflight: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	else \
 		$(MAKE) --no-print-directory frontend-install; \
 	fi
+	$(Q)$(MAKE) --no-print-directory lint-biome
 	$(Q)$(MAKE) --no-print-directory run-phase-smoke
 	$(Q)$(MAKE) --no-print-directory phase-test-name-check
 	$(Q)$(MAKE) --no-print-directory browser-e2e-task-surface-check
@@ -356,7 +357,7 @@ check-preflight: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 
 # Keep only parallel-safe work here. Service-backed Go phases and owned-stack
 # browser suites run after this block under serialized orchestration.
-check-heavy: migration-drift lint-go lint-biome lint-typecheck backend-unit frontend-unit deployable-shape-verify
+check-heavy: migration-drift lint-go lint-typecheck backend-unit frontend-unit deployable-shape-verify
 
 check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) check-service-backed-lane-a check-service-backed-lane-b

@@ -1,10 +1,10 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   assertGridRows,
-  GridViewport,
   GridTable,
+  GridViewport,
   reconcileRecordRows,
   type GridColumn,
   type GridRow,
@@ -18,12 +18,14 @@ type HarnessRow = {
 const columns: readonly GridColumn<HarnessRow>[] = [
   {
     fieldKey: "label",
+    headerTestId: "label-header",
     label: "Label",
     renderCell: (row) => row.label,
     sortableFieldKey: "label",
   },
   {
     fieldKey: "state",
+    headerTestId: "state-header",
     label: "State",
     renderCell: (row) => row.state,
     sortableFieldKey: "state",
@@ -33,6 +35,21 @@ const columns: readonly GridColumn<HarnessRow>[] = [
 ];
 
 describe("grid-adapter", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        disconnect() {}
+        observe() {}
+        unobserve() {}
+      },
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("rejects missing and duplicate saved record identities", () => {
     expect(() =>
       assertGridRows([
@@ -74,7 +91,7 @@ describe("grid-adapter", () => {
     expect(reconciled[1]).not.toBe(next[0]);
   });
 
-  it("renders sortable headers, disabled capability blocking, and grouped rows", async () => {
+  it("renders an RDG-backed grid with stable row attributes, sort translation, and presentation-only group rows", async () => {
     const onToggleSort = vi.fn();
     const rows: readonly GridRow<HarnessRow>[] = [
       {
@@ -84,6 +101,7 @@ describe("grid-adapter", () => {
           label: "Alpha",
           state: "open",
         },
+        testId: "row-record-1",
       },
       {
         key: "record-2",
@@ -92,15 +110,23 @@ describe("grid-adapter", () => {
           label: "Beta",
           state: "reviewed",
         },
+        testId: "row-record-2",
       },
     ];
 
     render(
-      <GridViewport>
+      <GridViewport testId="grid-shell">
         <GridTable
+          actionsColumn={{
+            label: "Actions",
+            renderCell: (row) => <span>{row.recordId}</span>,
+          }}
           columns={columns}
           getGroupLabel={(row, fieldKey) =>
             fieldKey === "state" ? row.state : null
+          }
+          getGroupRowTestId={(fieldKey, value) =>
+            `group-${fieldKey}-${value}`
           }
           groupBy="state"
           onToggleSort={onToggleSort}
@@ -110,14 +136,24 @@ describe("grid-adapter", () => {
       </GridViewport>,
     );
 
-    await screen.findAllByText("open");
-    expect(screen.getByRole("button", { name: "Sort Label" })).toBeTruthy();
-    expect(screen.getByText("State").getAttribute("title")).toBe(
+    const gridShell = await screen.findByTestId("grid-shell");
+    const grid = gridShell.querySelector('[role="grid"]');
+    expect(grid).toBeTruthy();
+    expect(gridShell.querySelector('[data-grid-record-id="record-1"]')).toBeTruthy();
+    expect(gridShell.querySelector('[data-grid-record-id="record-2"]')).toBeTruthy();
+    expect(screen.getByTestId("group-state-open")).toBeTruthy();
+    expect(screen.getByTestId("group-state-reviewed")).toBeTruthy();
+
+    const labelHeader = screen.getByTestId("label-header");
+    expect(labelHeader.getAttribute("data-grid-field-key")).toBe("label");
+    fireEvent.click(labelHeader);
+    expect(onToggleSort).toHaveBeenCalledWith("label");
+
+    const stateHeader = screen.getByTestId("state-header");
+    expect(stateHeader.getAttribute("title")).toBe(
       "State sorting disabled in this harness",
     );
-
-    screen.getByRole("button", { name: "Sort Label" }).click();
-    expect(onToggleSort).toHaveBeenCalledWith("label");
-    expect(screen.getAllByText("reviewed")).toHaveLength(2);
+    fireEvent.click(stateHeader);
+    expect(onToggleSort).toHaveBeenCalledTimes(1);
   });
 });

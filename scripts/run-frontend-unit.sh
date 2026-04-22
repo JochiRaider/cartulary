@@ -30,6 +30,7 @@ output_mode="$(resolve_output_mode)"
 path_prefix="${NODE_RUNTIME_DIR}/bin:${PATH}"
 
 command=("${PNPM_BIN}" --dir apps/web exec vitest run)
+command+=(--project=browser-unit --project=harness-node)
 if [[ -n "${VITEST_FLAGS_STRING}" ]]; then
   # shellcheck disable=SC2206
   vitest_flag_parts=(${VITEST_FLAGS_STRING})

@@ -1,3 +1,5 @@
+import { gridSavedRowsSelector } from "@cartulary/test-utils";
+
 import type { RecordChangedPayload } from "./workbookShellPhase4";
 
 export const timelineViewSchemaId = "cartulary.view.timeline.v1";
@@ -158,18 +160,16 @@ export function timelineRow({
   };
 }
 
-export function visibleGridRows(container: HTMLElement): HTMLTableRowElement[] {
+export function visibleGridRows(container: HTMLElement): HTMLDivElement[] {
   return Array.from(
-    container.querySelectorAll<HTMLTableRowElement>(
-      'tbody tr[data-grid-record-id]:not([data-grid-record-id=""])',
-    ),
+    container.querySelectorAll<HTMLDivElement>(gridSavedRowsSelector()),
   );
 }
 
 export function requiredGridRow(
   container: HTMLElement,
   index: number,
-): HTMLTableRowElement {
+): HTMLDivElement {
   const rows = visibleGridRows(container);
   const row = rows[index];
   if (!row) {

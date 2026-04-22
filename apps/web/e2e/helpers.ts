@@ -1,6 +1,11 @@
 import { createHmac } from "node:crypto";
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-
+import {
+  gridDraftRowSelector,
+  gridSavedRowsSelector,
+  gridShellTestId,
+  type WorkbookSurface,
+} from "@cartulary/test-utils";
 import {
   type APIRequestContext,
   type APIResponse,
@@ -467,10 +472,11 @@ export async function measureBlankRowCreate(
 ) {
   const completion = waitForCommittedRowSummary(page, {
     expectedSummary,
+    surface: "timeline",
     timeoutMs: 5_000,
   });
   await page.getByTestId("draft-row-summary").press("Enter");
-  return completion;
+  return (await completion).durationMs;
 }
 
 export function percentile95(samples: number[]) {
@@ -526,6 +532,18 @@ export function uniqueEmail(prefix: string) {
 
 export function uniqueIncidentKey(prefix: string) {
   return `IR-${prefix}-${Date.now().toString(36).toUpperCase()}`;
+}
+
+export function gridSavedRows(page: Page, surface: WorkbookSurface) {
+  return page
+    .getByTestId(gridShellTestId(surface))
+    .locator(gridSavedRowsSelector());
+}
+
+export function gridDraftRows(page: Page, surface: WorkbookSurface) {
+  return page
+    .getByTestId(gridShellTestId(surface))
+    .locator(gridDraftRowSelector());
 }
 
 export function generateTotpCode(secretBase32: string) {
@@ -714,65 +732,93 @@ async function waitForInputValue(
   );
 }
 
-async function waitForCommittedRowSummary(
+export async function waitForCommittedRowSummary(
   page: Page,
   options: {
     expectedSummary: string;
+    surface: WorkbookSurface;
     timeoutMs: number;
   },
 ) {
   const start = await page.evaluate(() => performance.now());
   return page.evaluate(
-    ({ expectedSummary, startMark, timeoutMs }) =>
-      new Promise<number>((resolve, reject) => {
-        const deadline = startMark + timeoutMs;
-        const tick = () => {
-          const candidates = document.querySelectorAll(
-            'input[data-testid$="-summary"], textarea[data-testid$="-summary"]',
-          );
-          for (const candidate of candidates) {
-            if (
-              !(
-                candidate instanceof HTMLInputElement ||
-                candidate instanceof HTMLTextAreaElement
-              )
-            ) {
-              continue;
-            }
-            const testId = candidate.getAttribute("data-testid") ?? "";
-            if (
-              !testId.startsWith("row-") ||
-              !testId.endsWith("-summary") ||
-              candidate.value !== expectedSummary
-            ) {
-              continue;
-            }
-            const recordId = testId.slice(4, -"-summary".length);
-            const versionSelector = `[data-testid="${CSS.escape(`row-${recordId}-row-version`)}"]`;
-            const versionElement = document.querySelector(versionSelector);
-            if (
-              versionElement instanceof HTMLElement &&
-              versionElement.textContent?.trim() &&
-              versionElement.textContent.trim() !== "new"
-            ) {
-              resolve(performance.now() - startMark);
+    ({
+      draftRowSelector,
+      expectedSummary,
+      gridShell,
+      savedRowsSelector,
+      startMark,
+      timeoutMs,
+    }) =>
+      new Promise<{ durationMs: number; recordId: string }>(
+        (resolve, reject) => {
+          const deadline = startMark + timeoutMs;
+          const tick = () => {
+            const gridRoot = document.querySelector(
+              `[data-testid="${CSS.escape(gridShell)}"]`,
+            );
+            if (!(gridRoot instanceof HTMLElement)) {
+              if (performance.now() > deadline) {
+                reject(
+                  new Error(`timed out waiting for workbook grid ${gridShell}`),
+                );
+                return;
+              }
+              requestAnimationFrame(tick);
               return;
             }
-          }
-          if (performance.now() > deadline) {
-            reject(
-              new Error(
-                `timed out waiting for committed row summary ${expectedSummary}`,
-              ),
+            const candidates = gridRoot.querySelectorAll(
+              'input[data-testid$="-summary"], textarea[data-testid$="-summary"]',
             );
-            return;
-          }
+            for (const candidate of candidates) {
+              if (
+                !(
+                  candidate instanceof HTMLInputElement ||
+                  candidate instanceof HTMLTextAreaElement
+                )
+              ) {
+                continue;
+              }
+              if (candidate.value !== expectedSummary) {
+                continue;
+              }
+              if (candidate.closest(draftRowSelector) !== null) {
+                continue;
+              }
+              const savedRow = candidate.closest(savedRowsSelector);
+              if (!(savedRow instanceof HTMLElement)) {
+                continue;
+              }
+              const recordId = savedRow
+                .getAttribute("data-grid-record-id")
+                ?.trim();
+              if (!recordId) {
+                continue;
+              }
+              resolve({
+                durationMs: performance.now() - startMark,
+                recordId,
+              });
+              return;
+            }
+            if (performance.now() > deadline) {
+              reject(
+                new Error(
+                  `timed out waiting for committed row summary ${expectedSummary}`,
+                ),
+              );
+              return;
+            }
+            requestAnimationFrame(tick);
+          };
           requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      }),
+        },
+      ),
     {
+      draftRowSelector: gridDraftRowSelector(),
       expectedSummary: options.expectedSummary,
+      gridShell: gridShellTestId(options.surface),
+      savedRowsSelector: gridSavedRowsSelector(),
       startMark: start,
       timeoutMs: options.timeoutMs,
     },

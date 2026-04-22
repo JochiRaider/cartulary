@@ -1,3 +1,5 @@
+import { rowCellTestId } from "@cartulary/test-utils";
+
 import { expect, test } from "./fixtures";
 
 import {
@@ -7,8 +9,11 @@ import {
   csrfHeaders,
   fetchTimelineRecordChangeCount,
   fetchTimelineRecordSubstrate,
+  gridDraftRows,
+  gridSavedRows,
   uniqueIncidentKey,
   uniqueTxn,
+  waitForCommittedRowSummary,
 } from "./helpers";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
@@ -29,10 +34,16 @@ test("E-3-01 creates a Timeline row in-grid and continues editing on the draft r
   await draftSummary.fill("First browser fact");
   await draftSummary.press("Enter");
 
+  const committedRow = await waitForCommittedRowSummary(page, {
+    expectedSummary: "First browser fact",
+    surface: "timeline",
+    timeoutMs: 5_000,
+  });
   await expect(page.getByTestId("save-state")).toHaveText("Saved");
-  await expect(page.locator("tbody tr")).toHaveCount(2);
+  await expect(gridSavedRows(page, "timeline")).toHaveCount(1);
+  await expect(gridDraftRows(page, "timeline")).toHaveCount(1);
   await expect(
-    page.locator('[data-testid^="row-"][data-testid$="-summary"]').first(),
+    page.getByTestId(rowCellTestId(committedRow.recordId, "summary")),
   ).toHaveValue("First browser fact");
   await expect(page.getByTestId("draft-row-summary")).toBeFocused();
 });

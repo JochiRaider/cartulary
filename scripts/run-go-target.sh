@@ -25,6 +25,7 @@ mkdir -p "${GO_CACHE_DIR}" "${GO_MOD_CACHE_DIR}"
 
 usage() {
   echo "usage: run-go-target.sh <backend-unit|backend-store|backend-integration|backend-integration-support|backend-process|phase0-process-e2e|phase1-process-smoke|phase2-process-smoke>" >&2
+  echo "       run-go-target.sh inspect-shared-command <target> <shared-name>" >&2
   exit 2
 }
 
@@ -62,6 +63,138 @@ build_union_regex() {
   printf '%s\n' "${result}"
 }
 
+render_go_test_command() {
+  if [[ "$#" -lt 2 ]]; then
+    echo "render_go_test_command requires <regex> -- <go test args...>" >&2
+    return 2
+  fi
+
+  local test_regex="$1"
+  shift
+
+  if [[ "$1" != "--" ]]; then
+    echo "render_go_test_command requires -- before go test args" >&2
+    return 2
+  fi
+  shift
+
+  render_command env GOCACHE="${GO_CACHE_DIR}" GOMODCACHE="${GO_MOD_CACHE_DIR}" "${GO_BIN}" test -json -run "${test_regex}" "$@"
+}
+
+backend_integration_core_shared_spec() {
+  if [[ "$#" -ne 2 ]]; then
+    echo "backend_integration_core_shared_spec requires <regex-var> <args-var>" >&2
+    return 2
+  fi
+
+  local -n regex_ref="$1"
+  local -n args_ref="$2"
+
+  regex_ref="$(build_union_regex \
+    "$(manifest_go_regex phase0 integration authoritative backend_integration ./internal/platform/... ./internal/app)" \
+    "$(manifest_go_regex phase2 integration authoritative backend_integration ./internal/modules/incidents)" \
+    "$(manifest_go_regex phase3 integration authoritative backend_integration ./internal/modules/timeline)" \
+    "$(manifest_go_regex phase4 integration authoritative backend_integration ./internal/modules/entities ./internal/modules/timeline)" \
+    '^(TestSupportPhase2_)' \
+    '^(TestSupportPhase3Integration_)')"
+  args_ref=(
+    -p "${GO_TEST_PACKAGE_PARALLELISM}"
+    ./internal/platform/...
+    ./internal/app
+    ./internal/modules/incidents
+    ./internal/modules/entities
+    ./internal/modules/timeline
+  )
+}
+
+backend_integration_auth_shared_spec() {
+  if [[ "$#" -ne 2 ]]; then
+    echo "backend_integration_auth_shared_spec requires <regex-var> <args-var>" >&2
+    return 2
+  fi
+
+  local -n regex_ref="$1"
+  local -n args_ref="$2"
+
+  regex_ref="$(build_union_regex \
+    "$(manifest_go_regex phase1 integration authoritative backend_integration ./internal/modules/auth)" \
+    '^(TestSupportPhase1_)')"
+  args_ref=(
+    -p "${GO_TEST_PACKAGE_PARALLELISM}"
+    ./internal/modules/auth
+  )
+}
+
+backend_process_shared_spec() {
+  if [[ "$#" -ne 2 ]]; then
+    echo "backend_process_shared_spec requires <regex-var> <args-var>" >&2
+    return 2
+  fi
+
+  local -n regex_ref="$1"
+  local -n args_ref="$2"
+
+  regex_ref="$(build_union_regex \
+    "$(manifest_go_regex phase0 e2e authoritative backend_process ./cmd/server)" \
+    '^(TestPhase1_.*_ProcessSmoke)$' \
+    '^(TestPhase2_ProcessSmoke_)')"
+  args_ref=(
+    -parallel 4
+    ./cmd/server
+  )
+}
+
+# Shared captures are intentionally reused across multiple targets, so both
+# execution and inspection resolve from the same named spec helpers.
+resolve_target_shared_report_spec() {
+  if [[ "$#" -ne 4 ]]; then
+    echo "resolve_target_shared_report_spec requires <target> <shared-name> <regex-var> <args-var>" >&2
+    return 2
+  fi
+
+  local target="$1"
+  local shared_name="$2"
+  local regex_var="$3"
+  local args_var="$4"
+
+  case "${shared_name}" in
+    backend-integration-core)
+      case "${target}" in
+        backend-integration|backend-integration-support) ;;
+        *)
+          echo "shared report ${shared_name} is not defined for target ${target}" >&2
+          return 2
+          ;;
+      esac
+      backend_integration_core_shared_spec "${regex_var}" "${args_var}"
+      ;;
+    backend-integration-auth)
+      case "${target}" in
+        backend-integration|backend-integration-support) ;;
+        *)
+          echo "shared report ${shared_name} is not defined for target ${target}" >&2
+          return 2
+          ;;
+      esac
+      backend_integration_auth_shared_spec "${regex_var}" "${args_var}"
+      ;;
+    backend-process-shared)
+      case "${target}" in
+        backend-process|phase0-process-e2e|phase1-process-smoke|phase2-process-smoke) ;;
+        *)
+          echo "shared report ${shared_name} is not defined for target ${target}" >&2
+          return 2
+          ;;
+      esac
+      backend_process_shared_spec "${regex_var}" "${args_var}"
+      ;;
+    *)
+      echo "unknown shared report ${shared_name}" >&2
+      return 2
+      ;;
+  esac
+}
+
 capture_go_report() {
   if [[ "$#" -lt 4 ]]; then
     echo "capture_go_report requires <shared-name> <regex> -- <go test args...>" >&2
@@ -97,11 +230,12 @@ capture_go_report() {
   complete_file="${shared_dir}/complete"
   runner_log="${shared_dir}/runner.jsonl"
   stderr_log="${shared_dir}/stderr.log"
-  command_text="$(render_command env GOCACHE="${GO_CACHE_DIR}" GOMODCACHE="${GO_MOD_CACHE_DIR}" "${GO_BIN}" test -json -run "${test_regex}" "${test_args[@]}")"
+  command_text="$(render_go_test_command "${test_regex}" -- "${test_args[@]}")"
 
   if [[ -f "${complete_file}" ]]; then
     existing_command="$(<"${shared_dir}/command.txt")"
     if [[ "${existing_command}" != "${command_text}" ]]; then
+      echo "shared_go_report_command_mismatch report=${shared_name}" >&2
       echo "shared go report ${shared_name} was created with a different command" >&2
       echo "existing: ${existing_command}" >&2
       echo "current:  ${command_text}" >&2
@@ -147,6 +281,23 @@ capture_go_report() {
   printf '%s\n' actual
 }
 
+assign_named_shared_report() {
+  if [[ "$#" -ne 4 ]]; then
+    echo "assign_named_shared_report requires <dir-var> <usage-var> <target> <shared-name>" >&2
+    return 2
+  fi
+
+  local dir_var="$1"
+  local usage_var="$2"
+  local target="$3"
+  local shared_name="$4"
+  local shared_regex
+  local shared_args=()
+
+  resolve_target_shared_report_spec "${target}" "${shared_name}" shared_regex shared_args
+  assign_captured_report "${dir_var}" "${usage_var}" "${shared_name}" "${shared_regex}" -- "${shared_args[@]}"
+}
+
 assign_captured_report() {
   if [[ "$#" -lt 4 ]]; then
     echo "assign_captured_report requires <dir-var> <usage-var> <shared-name> <regex> -- <go test args...>" >&2
@@ -168,6 +319,21 @@ assign_captured_report() {
 
   dir_ref="${capture_result[0]}"
   usage_ref="${capture_result[1]}"
+}
+
+inspect_shared_command() {
+  if [[ "$#" -ne 2 ]]; then
+    echo "inspect_shared_command requires <target> <shared-name>" >&2
+    return 2
+  fi
+
+  local target="$1"
+  local shared_name="$2"
+  local shared_regex
+  local shared_args=()
+
+  resolve_target_shared_report_spec "${target}" "${shared_name}" shared_regex shared_args
+  render_go_test_command "${shared_regex}" -- "${shared_args[@]}"
 }
 
 load_phase_window() {
@@ -307,6 +473,7 @@ run_backend_unit() {
     "$(manifest_go_regex phase0 unit authoritative backend_unit ./internal/app)" \
     "$(manifest_go_regex phase2 unit authoritative backend_unit ./internal/modules/incidents)" \
     "$(manifest_go_regex phase3 unit authoritative backend_unit ./internal/modules/timeline)" \
+    '^(TestSupportPhase3Unit_)' \
     '^(TestPhase4_.*_U_4_0[89])')"
   if [[ "${phase1_platform_count}" != "0" ]]; then
     core_regex="$(build_union_regex "${core_regex}" "$(manifest_go_regex phase1 unit authoritative backend_unit ./internal/platform/...)" )"
@@ -338,6 +505,8 @@ run_backend_unit() {
   emit_go_manifest_phase "backend-unit phase1 authoritative auth" "${auth_usage}" "${auth_dir}" phase1 unit authoritative backend_unit ./internal/modules/auth || status=$?
   clear_go_selection_env
   emit_go_raw_phase "backend-unit support phase1" derived "${auth_dir}" '^(TestSupportPhase1_)' ./internal/modules/auth || status=$?
+  clear_go_selection_env
+  emit_go_raw_phase "backend-unit support phase3" derived "${core_dir}" '^(TestSupportPhase3Unit_)' ./internal/modules/timeline || status=$?
   clear_go_selection_env
   emit_go_raw_phase "backend-unit phase4 app" derived "${core_dir}" '^(TestPhase4_.*_U_4_0[89])' ./internal/app ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline || status=$?
   clear_go_selection_env
@@ -382,8 +551,6 @@ run_backend_integration() {
   local core_usage
   local auth_dir
   local auth_usage
-  local core_regex
-  local auth_regex
   local status=0
 
   assign_captured_report testutil_dir testutil_usage backend-integration-testutil '^Test' -- \
@@ -394,27 +561,8 @@ run_backend_integration() {
     ./internal/testutil/testcontainersx \
     ./internal/testutil/wstest
 
-  core_regex="$(build_union_regex \
-    "$(manifest_go_regex phase0 integration authoritative backend_integration ./internal/platform/... ./internal/app)" \
-    "$(manifest_go_regex phase2 integration authoritative backend_integration ./internal/modules/incidents)" \
-    "$(manifest_go_regex phase3 integration authoritative backend_integration ./internal/modules/timeline)" \
-    "$(manifest_go_regex phase4 integration authoritative backend_integration ./internal/modules/entities ./internal/modules/timeline)" \
-    '^(TestSupportPhase2_)' \
-    '^(TestSupportPhase3_)')"
-  auth_regex="$(build_union_regex \
-    "$(manifest_go_regex phase1 integration authoritative backend_integration ./internal/modules/auth)" \
-    '^(TestSupportPhase1_)')"
-
-  assign_captured_report core_dir core_usage backend-integration-core "${core_regex}" -- \
-    -p "${GO_TEST_PACKAGE_PARALLELISM}" \
-    ./internal/platform/... \
-    ./internal/app \
-    ./internal/modules/incidents \
-    ./internal/modules/entities \
-    ./internal/modules/timeline
-  assign_captured_report auth_dir auth_usage backend-integration-auth "${auth_regex}" -- \
-    -p "${GO_TEST_PACKAGE_PARALLELISM}" \
-    ./internal/modules/auth
+  assign_named_shared_report core_dir core_usage backend-integration backend-integration-core
+  assign_named_shared_report auth_dir auth_usage backend-integration backend-integration-auth
 
   clear_go_selection_env
   emit_go_raw_phase "backend-integration testutil" "${testutil_usage}" "${testutil_dir}" '^Test' ./internal/testutil/httptestx ./internal/testutil/pgtest ./internal/testutil/s3test ./internal/testutil/testcontainersx ./internal/testutil/wstest || status=$?
@@ -437,53 +585,27 @@ run_backend_integration_support() {
   local core_usage
   local auth_dir
   local auth_usage
-  local core_regex
-  local auth_regex
   local status=0
 
-  core_regex="$(build_union_regex \
-    "$(manifest_go_regex phase0 integration authoritative backend_integration ./internal/platform/... ./internal/app)" \
-    "$(manifest_go_regex phase2 integration authoritative backend_integration ./internal/modules/incidents)" \
-    "$(manifest_go_regex phase3 integration authoritative backend_integration ./internal/modules/timeline)" \
-    "$(manifest_go_regex phase4 integration authoritative backend_integration ./internal/modules/entities ./internal/modules/timeline)" \
-    '^(TestSupportPhase2_)' \
-    '^(TestSupportPhase3_)')"
-  auth_regex="$(build_union_regex \
-    "$(manifest_go_regex phase1 integration authoritative backend_integration ./internal/modules/auth)" \
-    '^(TestSupportPhase1_)')"
-
-  assign_captured_report core_dir core_usage backend-integration-core "${core_regex}" -- \
-    -p "${GO_TEST_PACKAGE_PARALLELISM}" \
-    ./internal/platform/... \
-    ./internal/app \
-    ./internal/modules/incidents \
-    ./internal/modules/entities \
-    ./internal/modules/timeline
-  assign_captured_report auth_dir auth_usage backend-integration-auth "${auth_regex}" -- \
-    -p "${GO_TEST_PACKAGE_PARALLELISM}" \
-    ./internal/modules/auth
+  assign_named_shared_report core_dir core_usage backend-integration-support backend-integration-core
+  assign_named_shared_report auth_dir auth_usage backend-integration-support backend-integration-auth
 
   clear_go_selection_env
   emit_go_raw_phase "backend-integration support phase1" "${auth_usage}" "${auth_dir}" '^(TestSupportPhase1_)' ./internal/modules/auth || status=$?
   clear_go_selection_env
   emit_go_raw_phase "backend-integration support phase2" "${core_usage}" "${core_dir}" '^(TestSupportPhase2_)' ./internal/modules/incidents || status=$?
   clear_go_selection_env
-  emit_go_raw_phase "backend-integration support phase3" derived "${core_dir}" '^(TestSupportPhase3_)' ./internal/modules/timeline || status=$?
+  emit_go_raw_phase "backend-integration support phase3" derived "${core_dir}" '^(TestSupportPhase3Integration_)' ./internal/modules/timeline || status=$?
 
   finish_target "${status}"
 }
 
 run_backend_process() {
-  local shared_regex
   local shared_dir
   local shared_usage
   local status=0
 
-  shared_regex="$(build_union_regex \
-    "$(manifest_go_regex phase0 e2e authoritative backend_process ./cmd/server)" \
-    '^(TestPhase1_.*_ProcessSmoke)$' \
-    '^(TestPhase2_ProcessSmoke_)')"
-  assign_captured_report shared_dir shared_usage backend-process-shared "${shared_regex}" -- -parallel 4 ./cmd/server
+  assign_named_shared_report shared_dir shared_usage backend-process backend-process-shared
 
   clear_go_selection_env
   emit_go_manifest_phase "backend-process phase0 authoritative" "${shared_usage}" "${shared_dir}" phase0 e2e authoritative backend_process ./cmd/server || status=$?
@@ -494,16 +616,11 @@ run_backend_process() {
 }
 
 run_phase0_process_e2e() {
-  local shared_regex
   local shared_dir
   local shared_usage
   local status=0
 
-  shared_regex="$(build_union_regex \
-    "$(manifest_go_regex phase0 e2e authoritative backend_process ./cmd/server)" \
-    '^(TestPhase1_.*_ProcessSmoke)$' \
-    '^(TestPhase2_ProcessSmoke_)')"
-  assign_captured_report shared_dir shared_usage backend-process-shared "${shared_regex}" -- -parallel 4 ./cmd/server
+  assign_named_shared_report shared_dir shared_usage phase0-process-e2e backend-process-shared
 
   clear_go_selection_env
   emit_go_manifest_phase "phase0-process-e2e" "${shared_usage}" "${shared_dir}" phase0 e2e authoritative backend_process ./cmd/server || status=$?
@@ -512,16 +629,11 @@ run_phase0_process_e2e() {
 }
 
 run_phase1_process_smoke() {
-  local shared_regex
   local shared_dir
   local shared_usage
   local status=0
 
-  shared_regex="$(build_union_regex \
-    "$(manifest_go_regex phase0 e2e authoritative backend_process ./cmd/server)" \
-    '^(TestPhase1_.*_ProcessSmoke)$' \
-    '^(TestPhase2_ProcessSmoke_)')"
-  assign_captured_report shared_dir shared_usage backend-process-shared "${shared_regex}" -- -parallel 4 ./cmd/server
+  assign_named_shared_report shared_dir shared_usage phase1-process-smoke backend-process-shared
 
   clear_go_selection_env
   emit_go_raw_phase "phase1-process-smoke" "${shared_usage}" "${shared_dir}" '^(TestPhase1_.*_ProcessSmoke)$' ./cmd/server || status=$?
@@ -530,16 +642,11 @@ run_phase1_process_smoke() {
 }
 
 run_phase2_process_smoke() {
-  local shared_regex
   local shared_dir
   local shared_usage
   local status=0
 
-  shared_regex="$(build_union_regex \
-    "$(manifest_go_regex phase0 e2e authoritative backend_process ./cmd/server)" \
-    '^(TestPhase1_.*_ProcessSmoke)$' \
-    '^(TestPhase2_ProcessSmoke_)')"
-  assign_captured_report shared_dir shared_usage backend-process-shared "${shared_regex}" -- -parallel 4 ./cmd/server
+  assign_named_shared_report shared_dir shared_usage phase2-process-smoke backend-process-shared
 
   clear_go_selection_env
   emit_go_raw_phase "phase2-process-smoke" "${shared_usage}" "${shared_dir}" '^(TestPhase2_ProcessSmoke_)' ./cmd/server || status=$?
@@ -547,33 +654,63 @@ run_phase2_process_smoke() {
   finish_target "${status}"
 }
 
-if [[ "$#" -ne 1 ]]; then
+if [[ "$#" -eq 0 ]]; then
   usage
 fi
 
 case "$1" in
+  inspect-shared-command)
+    if [[ "$#" -ne 3 ]]; then
+      usage
+    fi
+    inspect_shared_command "$2" "$3"
+    ;;
   backend-unit)
+    if [[ "$#" -ne 1 ]]; then
+      usage
+    fi
     run_backend_unit
     ;;
   backend-store)
+    if [[ "$#" -ne 1 ]]; then
+      usage
+    fi
     run_backend_store
     ;;
   backend-integration)
+    if [[ "$#" -ne 1 ]]; then
+      usage
+    fi
     run_backend_integration
     ;;
   backend-integration-support)
+    if [[ "$#" -ne 1 ]]; then
+      usage
+    fi
     run_backend_integration_support
     ;;
   backend-process)
+    if [[ "$#" -ne 1 ]]; then
+      usage
+    fi
     run_backend_process
     ;;
   phase0-process-e2e)
+    if [[ "$#" -ne 1 ]]; then
+      usage
+    fi
     run_phase0_process_e2e
     ;;
   phase1-process-smoke)
+    if [[ "$#" -ne 1 ]]; then
+      usage
+    fi
     run_phase1_process_smoke
     ;;
   phase2-process-smoke)
+    if [[ "$#" -ne 1 ]]; then
+      usage
+    fi
     run_phase2_process_smoke
     ;;
   *)

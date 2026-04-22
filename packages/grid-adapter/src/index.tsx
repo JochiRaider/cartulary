@@ -1,11 +1,21 @@
 import {
   forwardRef,
+  useMemo,
   type CSSProperties,
   type ForwardedRef,
   type MouseEventHandler,
   type PropsWithChildren,
   type ReactNode,
 } from "react";
+import {
+  type CellRendererProps as RDGCellRendererProps,
+  Cell as RDGCell,
+  DataGrid,
+  Row as RDGRow,
+  type Column as RDGColumn,
+  type RenderRowProps as RDGRenderRowProps,
+  type SortColumn as RDGSortColumn,
+} from "react-data-grid";
 
 import "react-data-grid/lib/styles.css";
 
@@ -27,8 +37,8 @@ export type GridColumn<Row> = {
   readonly sortDisabled?: boolean | undefined;
   readonly sortDisabledReason?: string | null | undefined;
   readonly align?: "left" | "center" | "right" | undefined;
-  readonly minWidth?: string | undefined;
-  readonly width?: string | undefined;
+  readonly minWidth?: number | string | undefined;
+  readonly width?: number | string | undefined;
 };
 
 export type GridRow<Row> = {
@@ -44,7 +54,7 @@ export type GridRow<Row> = {
 export type GridActionsColumn<Row> = {
   readonly label: string;
   readonly renderCell: (row: GridRow<Row>) => ReactNode;
-  readonly minWidth?: string | undefined;
+  readonly minWidth?: number | string | undefined;
 };
 
 export type GridViewportProps = PropsWithChildren<{
@@ -71,6 +81,24 @@ export type GridTableProps<Row> = {
   readonly sort?: readonly GridSortEntry[] | undefined;
 };
 
+type AdapterGridGroupRow = {
+  readonly groupBy: string;
+  readonly groupLabel: string | null;
+  readonly key: string;
+  readonly kind: "group";
+  readonly testId?: string | undefined;
+};
+
+type AdapterGridDataRow<Row> = {
+  readonly gridRow: GridRow<Row>;
+  readonly key: string;
+  readonly kind: "data";
+};
+
+type AdapterGridRow<Row> = AdapterGridGroupRow | AdapterGridDataRow<Row>;
+
+const actionsColumnKey = "__cartulary_actions__";
+
 export const GridViewport = forwardRef<HTMLDivElement, GridViewportProps>(
   function GridViewport(
     { children, className, style, testId }: GridViewportProps,
@@ -79,13 +107,9 @@ export const GridViewport = forwardRef<HTMLDivElement, GridViewportProps>(
     return (
       <div
         className={className}
-        data-grid-adapter={gridAdapterVendor}
         data-testid={testId}
         ref={ref}
-        style={{
-          ...viewportStyle,
-          ...style,
-        }}
+        style={resolveViewportStyle(style)}
       >
         {children}
       </div>
@@ -106,203 +130,120 @@ export function GridTable<Row>({
 }: GridTableProps<Row>) {
   assertGridRows(rows);
 
-  const renderedColumns = [...columns];
   const totalColumnCount =
-    renderedColumns.length + (actionsColumn === undefined ? 0 : 1);
+    columns.length + (actionsColumn === undefined ? 0 : 1);
+  const firstColumnKey =
+    columns[0]?.fieldKey ?? (actionsColumn === undefined ? "" : actionsColumnKey);
+
+  const renderedRows = useMemo(
+    () =>
+      buildRenderedRows({
+        getGroupLabel,
+        getGroupRowTestId,
+        groupBy,
+        rows,
+      }),
+    [getGroupLabel, getGroupRowTestId, groupBy, rows],
+  );
+
+  const rdgColumns = useMemo(() => {
+    const mappedColumns = columns.map((column) =>
+      buildDataColumn({
+        column,
+        firstColumnKey,
+        onToggleSort,
+        sort,
+        totalColumnCount,
+      }),
+    );
+
+    if (actionsColumn === undefined) {
+      return mappedColumns;
+    }
+
+    return [
+      ...mappedColumns,
+      buildActionsColumn({
+        actionsColumn,
+        firstColumnKey,
+        totalColumnCount,
+      }),
+    ];
+  }, [
+    actionsColumn,
+    columns,
+    firstColumnKey,
+    onToggleSort,
+    sort,
+    totalColumnCount,
+  ]);
+
+  const cellStylesByKey = useMemo(() => {
+    const styles = new Map<string, CSSProperties>();
+    for (const column of columns) {
+      styles.set(column.fieldKey, {
+        ...bodyCellStyle,
+        ...alignmentStyle(column.align),
+      });
+    }
+    if (actionsColumn) {
+      styles.set(actionsColumnKey, bodyCellStyle);
+    }
+    return styles;
+  }, [actionsColumn, columns]);
+
+  const sortColumns = useMemo(() => toRDGSortColumns(sort), [sort]);
 
   return (
-    <table style={tableStyle}>
-      <thead>
-        <tr>
-          {renderedColumns.map((column) => {
-            const sortState = sortStateForField(
-              sort,
-              column.sortableFieldKey ?? column.fieldKey,
-            );
-            const canToggleSort =
-              onToggleSort !== undefined &&
-              column.sortableFieldKey !== null &&
-              column.sortableFieldKey !== undefined &&
-              !column.sortDisabled;
-            const headerContent = canToggleSort ? (
-              <button
-                aria-label={`Sort ${column.label}`}
-                data-grid-field-key={column.fieldKey}
-                data-testid={column.headerTestId}
-                style={headerButtonStyle}
-                title={column.sortDisabledReason ?? undefined}
-                type="button"
-                onClick={() => {
-                  if (column.sortableFieldKey) {
-                    onToggleSort(column.sortableFieldKey);
-                  }
-                }}
-              >
-                <span>{column.label}</span>
-                <span style={headerMetaStyle}>
-                  {sortState === undefined
-                    ? "Sort"
-                    : sortState.direction === "asc"
-                      ? "Asc"
-                      : "Desc"}
-                </span>
-              </button>
-            ) : (
-              <span
-                data-grid-editable={column.sortDisabled ? "false" : undefined}
-                data-grid-field-key={column.fieldKey}
-                data-testid={column.headerTestId}
-                title={column.sortDisabledReason ?? undefined}
-              >
-                {column.label}
-              </span>
-            );
-            return (
-              <th
-                key={column.fieldKey}
-                style={{
-                  ...headCellStyle,
-                  ...columnWidthStyle(column),
-                  ...(column.align === "right"
-                    ? rightAlignedStyle
-                    : column.align === "center"
-                      ? centeredStyle
-                      : null),
-                }}
-              >
-                {headerContent}
-              </th>
-            );
-          })}
-          {actionsColumn ? (
-            <th
-              style={{
-                ...headCellStyle,
-                minWidth: actionsColumn.minWidth ?? "11rem",
-              }}
-            >
-              {actionsColumn.label}
-            </th>
-          ) : null}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.length < 1 ? (
-          <tr>
-            <td colSpan={totalColumnCount} style={emptyCellStyle}>
-              {emptyMessage}
-            </td>
-          </tr>
-        ) : (
-          renderGridBody({
-            actionsColumn,
-            columns: renderedColumns,
-            getGroupLabel,
-            getGroupRowTestId,
-            groupBy,
-            rows,
-          })
-        )}
-      </tbody>
-    </table>
+    <DataGrid<AdapterGridRow<Row>, unknown>
+      columns={rdgColumns}
+      enableVirtualization={false}
+      renderers={{
+        noRowsFallback: (
+          <div style={emptyStateStyle} data-grid-empty="true">
+            {emptyMessage}
+          </div>
+        ),
+        renderCell: (key, props) => {
+          const cellStyle =
+            props.row.kind === "group" && props.column.key === firstColumnKey
+              ? groupCellStyle
+              : cellStylesByKey.get(props.column.key) ?? bodyCellStyle;
+          return <AdapterCell key={key} {...props} cellStyle={cellStyle} />;
+        },
+        renderRow: (key, props) => (
+          <AdapterRow
+            key={key}
+            {...props}
+            rowStyle={
+              props.row.kind === "group"
+                ? undefined
+                : rowStyleForVariant(props.row.gridRow)
+            }
+          />
+        ),
+      }}
+      rowHeight={(row: AdapterGridRow<Row>) =>
+        row.kind === "group" ? 48 : 168
+      }
+      rowKeyGetter={(row: AdapterGridRow<Row>) => row.key}
+      rows={renderedRows}
+      sortColumns={sortColumns}
+      style={resolveGridStyle()}
+      headerRowHeight={56}
+      onSortColumnsChange={
+        onToggleSort === undefined
+          ? undefined
+          : (nextSortColumns) => {
+              const nextFieldKey = nextSortColumns[0]?.columnKey ?? sort[0]?.fieldKey;
+              if (nextFieldKey) {
+                onToggleSort(nextFieldKey);
+              }
+            }
+      }
+    />
   );
 }
-
-type RenderGridBodyProps<Row> = {
-  readonly actionsColumn?: GridActionsColumn<Row> | undefined;
-  readonly columns: readonly GridColumn<Row>[];
-  readonly getGroupLabel?:
-    | ((row: Row, fieldKey: string) => string | null | undefined)
-    | undefined;
-  readonly getGroupRowTestId?:
-    | ((fieldKey: string, value: string) => string | undefined)
-    | undefined;
-  readonly groupBy: string | null;
-  readonly rows: readonly GridRow<Row>[];
-};
-
-function renderGridBody<Row>({
-  actionsColumn,
-  columns,
-  getGroupLabel,
-  getGroupRowTestId,
-  groupBy,
-  rows,
-}: RenderGridBodyProps<Row>) {
-  const parts: ReactNode[] = [];
-  let activeGroupLabel: string | null = null;
-  for (const row of rows) {
-    const nextGroupLabel =
-      groupBy === null || getGroupLabel === undefined
-        ? null
-        : normalizeGroupLabel(getGroupLabel(row.data, groupBy));
-    if (groupBy !== null && nextGroupLabel !== activeGroupLabel) {
-      activeGroupLabel = nextGroupLabel;
-      parts.push(
-        <tr
-          data-testid={
-            nextGroupLabel === null || getGroupRowTestId === undefined
-              ? undefined
-              : getGroupRowTestId(groupBy, nextGroupLabel)
-          }
-          key={`group:${groupBy}:${nextGroupLabel ?? "empty"}`}
-        >
-          <td
-            colSpan={columns.length + (actionsColumn === undefined ? 0 : 1)}
-            style={groupCellStyle}
-          >
-            <strong>{nextGroupLabel ?? "Unassigned"}</strong>
-          </td>
-        </tr>,
-      );
-    }
-    parts.push(
-      <tr
-        key={row.key}
-        data-grid-record-id={row.recordId ?? ""}
-        data-testid={row.testId}
-        style={{
-          ...(row.variant === "draft" ? draftRowStyle : null),
-          ...(row.selected ? selectedRowStyle : null),
-        }}
-        onClick={row.onSelect}
-      >
-        {columns.map((column) => (
-          <td
-            key={column.fieldKey}
-            data-grid-field-key={column.fieldKey}
-            style={{
-              ...bodyCellStyle,
-              ...columnWidthStyle(column),
-              ...(column.align === "right"
-                ? rightAlignedStyle
-                : column.align === "center"
-                  ? centeredStyle
-                  : null),
-            }}
-          >
-            {column.renderCell(row.data)}
-          </td>
-        ))}
-        {actionsColumn ? (
-          <td
-            style={{
-              ...bodyCellStyle,
-              minWidth: actionsColumn.minWidth ?? "11rem",
-            }}
-          >
-            {actionsColumn.renderCell(row)}
-          </td>
-        ) : null}
-      </tr>,
-    );
-  }
-  return parts;
-}
-
-type RecordIdentity = {
-  readonly recordId: string | null;
-};
 
 export function assertGridRows<Row extends RecordIdentity>(
   rows: readonly Row[],
@@ -352,6 +293,282 @@ export function reconcileRecordRows<Row extends RecordIdentity>(
   });
 }
 
+type RecordIdentity = {
+  readonly recordId: string | null;
+};
+
+type BuildRenderedRowsProps<Row> = {
+  readonly getGroupLabel?:
+    | ((row: Row, fieldKey: string) => string | null | undefined)
+    | undefined;
+  readonly getGroupRowTestId?:
+    | ((fieldKey: string, value: string) => string | undefined)
+    | undefined;
+  readonly groupBy: string | null;
+  readonly rows: readonly GridRow<Row>[];
+};
+
+type BuildDataColumnProps<Row> = {
+  readonly column: GridColumn<Row>;
+  readonly firstColumnKey: string;
+  readonly onToggleSort?: ((fieldKey: string) => void) | undefined;
+  readonly sort: readonly GridSortEntry[];
+  readonly totalColumnCount: number;
+};
+
+type BuildActionsColumnProps<Row> = {
+  readonly actionsColumn: GridActionsColumn<Row>;
+  readonly firstColumnKey: string;
+  readonly totalColumnCount: number;
+};
+
+function AdapterCell<Row>({
+  cellStyle,
+  ...props
+}: RDGCellRendererProps<AdapterGridRow<Row>, unknown> & {
+  readonly cellStyle: CSSProperties;
+}) {
+  return (
+    <RDGCell
+      {...props}
+      data-grid-field-key={props.column.key}
+      style={cellStyle}
+    />
+  );
+}
+
+function AdapterRow<Row>({
+  row,
+  rowStyle,
+  style,
+  ...props
+}: RDGRenderRowProps<AdapterGridRow<Row>, unknown> & {
+  readonly rowStyle?: CSSProperties | undefined;
+}) {
+  if (row.kind === "group") {
+    return <RDGRow {...props} row={row} style={style} />;
+  }
+
+  return (
+    <RDGRow
+      {...props}
+      data-grid-record-id={row.gridRow.recordId ?? ""}
+      data-testid={row.gridRow.testId}
+      row={row}
+      style={rowStyle === undefined ? style : { ...style, ...rowStyle }}
+      onClick={
+        row.gridRow.onSelect === undefined
+          ? undefined
+          : (event) => {
+              row.gridRow.onSelect?.(
+                event as unknown as React.MouseEvent<HTMLTableRowElement>,
+              );
+            }
+      }
+    />
+  );
+}
+
+function buildRenderedRows<Row>({
+  getGroupLabel,
+  getGroupRowTestId,
+  groupBy,
+  rows,
+}: BuildRenderedRowsProps<Row>): readonly AdapterGridRow<Row>[] {
+  if (groupBy === null || getGroupLabel === undefined) {
+    return rows.map((row) => ({
+      gridRow: row,
+      key: row.key,
+      kind: "data",
+    }));
+  }
+
+  const renderedRows: AdapterGridRow<Row>[] = [];
+  let activeGroupLabel: string | null = null;
+
+  for (const row of rows) {
+    const nextGroupLabel = normalizeGroupLabel(getGroupLabel(row.data, groupBy));
+    if (nextGroupLabel !== activeGroupLabel) {
+      activeGroupLabel = nextGroupLabel;
+      renderedRows.push({
+        groupBy,
+        groupLabel: nextGroupLabel,
+        key: `group:${groupBy}:${nextGroupLabel ?? "empty"}`,
+        kind: "group",
+        testId:
+          nextGroupLabel === null || getGroupRowTestId === undefined
+            ? undefined
+            : getGroupRowTestId(groupBy, nextGroupLabel),
+      });
+    }
+    renderedRows.push({
+      gridRow: row,
+      key: row.key,
+      kind: "data",
+    });
+  }
+
+  return renderedRows;
+}
+
+function buildDataColumn<Row>({
+  column,
+  firstColumnKey,
+  onToggleSort,
+  sort,
+  totalColumnCount,
+}: BuildDataColumnProps<Row>): RDGColumn<AdapterGridRow<Row>, unknown> {
+  const canToggleSort =
+    onToggleSort !== undefined &&
+    column.sortableFieldKey !== null &&
+    column.sortableFieldKey !== undefined &&
+    !column.sortDisabled;
+
+  return {
+    key: column.fieldKey,
+    minWidth: resolveNumericMinWidth(column.minWidth),
+    name: column.label,
+    renderCell: ({ row }) => {
+      if (row.kind === "group") {
+        if (column.fieldKey !== firstColumnKey) {
+          return null;
+        }
+        return (
+          <strong data-testid={row.testId}>
+            {row.groupLabel ?? "Unassigned"}
+          </strong>
+        );
+      }
+      return column.renderCell(row.gridRow.data);
+    },
+    renderHeaderCell: () => {
+      const sortState = sortStateForField(
+        sort,
+        column.sortableFieldKey ?? column.fieldKey,
+      );
+      return (
+        <span
+          data-grid-field-key={column.fieldKey}
+          data-testid={column.headerTestId}
+          style={headerContentStyle(column.align)}
+          title={column.sortDisabledReason ?? undefined}
+        >
+          <span>{column.label}</span>
+          {canToggleSort ? (
+            <span style={headerMetaStyle}>
+              {sortState === undefined
+                ? "Sort"
+                : sortState.direction === "asc"
+                  ? "Asc"
+                  : "Desc"}
+            </span>
+          ) : null}
+        </span>
+      );
+    },
+    sortable: canToggleSort,
+    width: resolveColumnWidth(column.width, column.minWidth),
+    colSpan: (args) =>
+      args.type === "ROW" &&
+      args.row.kind === "group" &&
+      column.fieldKey === firstColumnKey
+        ? totalColumnCount
+        : undefined,
+  };
+}
+
+function buildActionsColumn<Row>({
+  actionsColumn,
+  firstColumnKey,
+  totalColumnCount,
+}: BuildActionsColumnProps<Row>): RDGColumn<AdapterGridRow<Row>, unknown> {
+  return {
+    key: actionsColumnKey,
+    minWidth: resolveNumericMinWidth(actionsColumn.minWidth),
+    name: actionsColumn.label,
+    renderCell: ({ row }) => {
+      if (row.kind === "group") {
+        if (firstColumnKey !== actionsColumnKey) {
+          return null;
+        }
+        return (
+          <strong data-testid={row.testId}>
+            {row.groupLabel ?? "Unassigned"}
+          </strong>
+        );
+      }
+      return actionsColumn.renderCell(row.gridRow);
+    },
+    renderHeaderCell: () => <span>{actionsColumn.label}</span>,
+    sortable: false,
+    width: resolveColumnWidth(undefined, actionsColumn.minWidth ?? "11rem"),
+    colSpan: (args) =>
+      args.type === "ROW" &&
+      args.row.kind === "group" &&
+      firstColumnKey === actionsColumnKey
+        ? totalColumnCount
+        : undefined,
+  };
+}
+
+function resolveViewportStyle(style?: CSSProperties): CSSProperties {
+  return {
+    ...viewportStyle,
+    ...style,
+  };
+}
+
+function resolveGridStyle(): CSSProperties {
+  const gridStyle: CSSProperties & Record<string, string | number> = {
+    blockSize: "auto",
+    minWidth: "78rem",
+  };
+
+  gridStyle["--rdg-background-color"] = "rgb(255 255 255 / 0.82)";
+  gridStyle["--rdg-border-color"] = "rgb(199 214 207)";
+  gridStyle["--rdg-header-background-color"] = "rgb(242 247 243)";
+  gridStyle["--rdg-row-hover-background-color"] = "rgb(247 250 248)";
+  gridStyle["--rdg-row-selected-background-color"] = "rgb(232 244 239)";
+  gridStyle["--rdg-row-selected-hover-background-color"] =
+    "rgb(232 244 239)";
+
+  return gridStyle;
+}
+
+function resolveColumnWidth(
+  width: number | string | undefined,
+  minWidth: number | string | undefined,
+) {
+  if (width !== undefined) {
+    return width;
+  }
+  if (typeof minWidth === "string") {
+    return minWidth;
+  }
+  return undefined;
+}
+
+function resolveNumericMinWidth(minWidth: number | string | undefined) {
+  return typeof minWidth === "number" ? minWidth : undefined;
+}
+
+function rowStyleForVariant<Row>(row: GridRow<Row>): CSSProperties | undefined {
+  if (row.variant === "draft") {
+    return draftRowStyle;
+  }
+  if (row.selected) {
+    return selectedRowStyle;
+  }
+  return undefined;
+}
+
+function toRDGSortColumns(sort: readonly GridSortEntry[]): readonly RDGSortColumn[] {
+  return sort.map((entry) => ({
+    columnKey: entry.fieldKey,
+    direction: entry.direction === "asc" ? "ASC" : "DESC",
+  }));
+}
+
 function shallowEqualRecord<Row extends object>(left: Row, right: Row) {
   const leftRecord = left as Record<string, unknown>;
   const rightRecord = right as Record<string, unknown>;
@@ -380,10 +597,24 @@ function normalizeGroupLabel(
   return normalized === "" ? null : normalized;
 }
 
-function columnWidthStyle<Row>(column: GridColumn<Row>): CSSProperties {
+function alignmentStyle(
+  align: "left" | "center" | "right" | undefined,
+): CSSProperties {
+  if (align === "right") {
+    return rightAlignedStyle;
+  }
+  if (align === "center") {
+    return centeredStyle;
+  }
+  return {};
+}
+
+function headerContentStyle(
+  align: "left" | "center" | "right" | undefined,
+): CSSProperties {
   return {
-    minWidth: column.minWidth,
-    width: column.width,
+    ...headerContentBaseStyle,
+    ...alignmentStyle(align),
   };
 }
 
@@ -396,39 +627,12 @@ const viewportStyle = {
   maxHeight: "70vh",
 };
 
-const tableStyle = {
-  width: "100%",
-  borderCollapse: "collapse" as const,
-  minWidth: "78rem",
-};
-
-const headCellStyle = {
-  position: "sticky" as const,
-  top: 0,
-  zIndex: 1,
-  padding: "0.9rem 0.85rem",
-  textAlign: "left" as const,
-  fontSize: "0.8rem",
-  letterSpacing: "0.08em",
-  textTransform: "uppercase" as const,
-  background: "rgb(242 247 243)",
-  borderBottom: "1px solid rgb(207 221 214)",
-};
-
-const headerButtonStyle = {
+const headerContentBaseStyle = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
   gap: "0.5rem",
   width: "100%",
-  border: 0,
-  padding: 0,
-  background: "transparent",
-  color: "inherit",
-  font: "inherit",
-  cursor: "pointer",
-  textTransform: "inherit" as const,
-  letterSpacing: "inherit",
 };
 
 const headerMetaStyle = {
@@ -442,16 +646,17 @@ const bodyCellStyle = {
   verticalAlign: "top" as const,
 };
 
-const emptyCellStyle = {
-  ...bodyCellStyle,
-  textAlign: "center" as const,
-  color: "rgb(70 92 85)",
-};
-
 const groupCellStyle = {
   ...bodyCellStyle,
   background: "rgb(247 249 247)",
   color: "rgb(53 79 72)",
+};
+
+const emptyStateStyle = {
+  gridColumn: "1 / -1",
+  padding: "0.75rem",
+  textAlign: "center" as const,
+  color: "rgb(70 92 85)",
 };
 
 const draftRowStyle = {

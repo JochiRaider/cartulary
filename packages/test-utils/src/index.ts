@@ -4,6 +4,23 @@ export function gridShellTestId(surface: WorkbookSurface): string {
   return `${surface}-grid-shell`;
 }
 
+/**
+ * Scope this selector through `gridShellTestId(surface)` when targeting
+ * workbook rows in tests. Do not rely on raw table markup or renderer classes.
+ */
+export function gridSavedRowsSelector(): string {
+  return '[role="row"][data-grid-record-id]:not([data-grid-record-id=""])';
+}
+
+/**
+ * Scope this selector through `gridShellTestId(surface)` when targeting the
+ * workbook draft row in tests. Do not rely on raw table markup or renderer
+ * classes.
+ */
+export function gridDraftRowSelector(): string {
+  return '[role="row"][data-grid-record-id=""]';
+}
+
 export function gridSortHeaderTestId(
   surface: WorkbookSurface,
   fieldKey: string,

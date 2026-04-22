@@ -827,8 +827,17 @@ function buildCollectionPatchPayload(
   };
 }
 
-function buildMutationSignature(payload: unknown): string {
-  return JSON.stringify(payload);
+// Dedup queued autosaves by the logical mutation payload, not the per-request txn id.
+function buildStableMutationSignature(payload: unknown): string {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return JSON.stringify(payload);
+  }
+
+  const { client_txn_id: _clientTxnID, ...stablePayload } = payload as Record<
+    string,
+    unknown
+  >;
+  return JSON.stringify(stablePayload);
 }
 
 function readEnvelope<T>(payload: unknown): T {
@@ -1857,7 +1866,7 @@ export function TimelineWorkbook({
       return;
     }
 
-    const mutationSignature = buildMutationSignature(payload);
+    const mutationSignature = buildStableMutationSignature(payload);
     if (pendingSignaturesRef.current.get(rowKey) === mutationSignature) {
       return;
     }

@@ -1,7 +1,18 @@
 import path from "node:path";
 
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vitest/config";
+import { defineConfig, defineProject } from "vitest/config";
+
+const browserUnitIncludes = [
+  "src/**/*.test.ts",
+  "src/**/*.test.tsx",
+  "src/**/*.spec.ts",
+  "src/**/*.spec.tsx",
+  "../../packages/**/*.test.ts",
+  "../../packages/**/*.test.tsx",
+];
+
+const harnessNodeIncludes = ["e2e/**/*.test.ts"];
 
 export default defineConfig({
   plugins: [react()],
@@ -26,15 +37,23 @@ export default defineConfig({
     },
   },
   test: {
-    environment: "jsdom",
-    include: [
-      "src/**/*.test.ts",
-      "src/**/*.test.tsx",
-      "src/**/*.spec.ts",
-      "src/**/*.spec.tsx",
-      "../../packages/**/*.test.ts",
-      "../../packages/**/*.test.tsx",
-      "e2e/**/*.test.ts",
+    projects: [
+      defineProject({
+        test: {
+          name: "browser-unit",
+          environment: "jsdom",
+          include: browserUnitIncludes,
+          setupFiles: ["./src/testSetup.ts", "./src/testSetup.dom.ts"],
+        },
+      }),
+      defineProject({
+        test: {
+          name: "harness-node",
+          environment: "node",
+          include: harnessNodeIncludes,
+          setupFiles: ["./src/testSetup.ts"],
+        },
+      }),
     ],
   },
 });

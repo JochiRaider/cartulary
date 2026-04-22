@@ -3,38 +3,28 @@ package timeline_test
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/pquerna/otp"
-	"github.com/pquerna/otp/totp"
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
-	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
-	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/phase3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/timelinetest"
-	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
 func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase3test.StartRuntime(t)
 
 	t.Run("create patch review and supersede replays stay single-write and preserve substrate", func(t *testing.T) {
-		server, db := startPhase3Server(t, postgresHarness, s3Harness, "phase3-i-3-01-replay")
-		defer db.Close()
+		server, db := startPhase3Server(t, runtime, "phase3-i-3-01-replay")
 
 		adminLogin, adminID := provisionBootstrapAdmin(t, server)
 		incident := createIncident(t, server, adminLogin, map[string]any{
@@ -406,7 +396,7 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 		})
 		defer restoreHooks()
 
-		server, db := startPhase3Server(t, postgresHarness, s3Harness, "phase3-i-3-01-rollback")
+		server, db := startPhase3Server(t, runtime, "phase3-i-3-01-rollback")
 		defer db.Close()
 
 		adminLogin, _ := provisionBootstrapAdmin(t, server)
@@ -454,10 +444,9 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 }
 
 func TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase3test.StartRuntime(t)
 
-	server, db := startPhase3Server(t, postgresHarness, s3Harness, "phase3-i-3-02")
+	server, db := startPhase3Server(t, runtime, "phase3-i-3-02")
 	defer db.Close()
 
 	adminLogin, _ := provisionBootstrapAdmin(t, server)
@@ -608,11 +597,10 @@ func TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild(t *testing.T) {
 }
 
 func TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase3test.StartRuntime(t)
 
 	t.Run("authorization re-derives, reasons normalize, and supersede guards hold", func(t *testing.T) {
-		server, db := startPhase3Server(t, postgresHarness, s3Harness, "phase3-i-3-03")
+		server, db := startPhase3Server(t, runtime, "phase3-i-3-03")
 		defer db.Close()
 
 		adminLogin, _ := provisionBootstrapAdmin(t, server)
@@ -978,7 +966,7 @@ func TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions(t *testing.
 		})
 		defer restoreHooks()
 
-		server, db := startPhase3Server(t, postgresHarness, s3Harness, "phase3-i-3-03-rollback")
+		server, db := startPhase3Server(t, runtime, "phase3-i-3-03-rollback")
 		defer db.Close()
 
 		adminLogin, _ := provisionBootstrapAdmin(t, server)
@@ -1049,447 +1037,175 @@ type loginResult struct {
 	csrfCookie    *http.Cookie
 }
 
-type recordChangeSocketPayload struct {
-	RecordID         string   `json:"record_id"`
-	RowVersion       float64  `json:"row_version"`
-	ChangeSetID      string   `json:"change_set_id"`
-	ClientTxnID      string   `json:"client_txn_id"`
-	ChangedFieldKeys []string `json:"changed_field_keys"`
-}
-
-type timelineSocketClient struct {
-	raw      *wstest.Client
-	messages chan platformws.Message
-	errors   chan error
-}
-
-func (c *timelineSocketClient) Close(code int, reason string) {
-	if c == nil || c.raw == nil {
-		return
+func toPhase3Login(login loginResult) phase3test.LoginResult {
+	return phase3test.LoginResult{
+		SessionCookie: login.sessionCookie,
+		CSRFCookie:    login.csrfCookie,
 	}
-	c.raw.Close(websocket.StatusCode(code), reason)
 }
 
-func startPhase3Server(t testing.TB, postgresHarness *pgtest.Harness, s3Harness *s3test.Harness, prefix string) (*httptestx.Server, *sql.DB) {
+type recordChangeSocketPayload = phase3test.RecordChangeSocketPayload
+
+type timelineSocketClient = phase3test.TimelineSocketClient
+
+func startPhase3Server(t testing.TB, runtime *phase3test.RuntimeHarness, prefix string) (*httptestx.Server, *sql.DB) {
 	t.Helper()
 
-	testDB := postgresHarness.PrepareDatabaseT(t, prefix)
-
-	bucket, err := s3Harness.BootstrapBucket(context.Background(), prefix)
-	if err != nil {
-		t.Fatalf("bootstrap bucket: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-			t.Logf("cleanup bucket: %v", err)
-		}
-	})
-
-	env := testDB.Env()
-	for key, value := range s3Harness.Env(bucket) {
-		env[key] = value
-	}
-	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
-
-	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env})
-	db, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatalf("open sql db: %v", err)
-	}
-	return server, db
+	harness := runtime.StartServer(t, prefix)
+	return harness.Server, harness.DB
 }
 
 func provisionBootstrapAdmin(t testing.TB, server *httptestx.Server) (loginResult, string) {
 	t.Helper()
 
-	bootstrapToken := requireBootstrapLogin(t, server, "bootstrap-admin@example.test", "BootstrapPass1!")
-	begin := beginTOTPEnrollment(t, server, bootstrapToken, map[string]any{
-		"client_txn_id": "txn-bootstrap-admin-begin",
-	})
-	secretBase32 := begin["totp_setup"].(map[string]any)["secret_base32"].(string)
-	completeInitialEnrollment(t, server, bootstrapToken, begin["enrollment_id"].(string), secretBase32, "txn-bootstrap-admin-complete")
-	login := loginLocalUserWithSecondFactor(t, server, "bootstrap-admin@example.test", "BootstrapPass1!", generateTOTPCode(t, secretBase32))
-
-	sessionResp := doPhase3JSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(login.sessionCookie))
-	sessionData := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
-	return login, sessionData["user_id"].(string)
+	login, userID := phase3test.ProvisionBootstrapAdmin(t, server)
+	return loginResult{
+		sessionCookie: login.SessionCookie,
+		csrfCookie:    login.CSRFCookie,
+	}, userID.String()
 }
 
 func createIncident(t testing.TB, server *httptestx.Server, admin loginResult, body map[string]any) map[string]any {
 	t.Helper()
 
-	resp := doPhase3JSON(
-		t,
-		http.MethodPost,
-		server.HTTP.URL+"/api/v1/incidents",
-		body,
-		withCookies(admin.sessionCookie, admin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, admin.csrfCookie.Value),
-	)
-	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+	return phase3test.CreateIncident(t, server, toPhase3Login(admin), body)
 }
 
 func createTimelineRow(t testing.TB, server *httptestx.Server, incidentID string, admin loginResult, body map[string]any) map[string]any {
 	t.Helper()
 
-	resp := doPhase3JSON(
-		t,
-		http.MethodPost,
-		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
-		body,
-		withCookies(admin.sessionCookie, admin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, admin.csrfCookie.Value),
-	)
-	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+	return phase3test.CreateTimelineRow(t, server, incidentID, toPhase3Login(admin), body)
 }
 
 func createMembership(t testing.TB, server *httptestx.Server, incidentID string, userID string, email string, role string, admin loginResult) {
 	t.Helper()
 
-	resp := doPhase3JSON(
-		t,
-		http.MethodPost,
-		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
-		map[string]any{
-			"client_txn_id": "txn-phase3-membership-create-" + userID,
-			"email":         email,
-			"role":          role,
-		},
-		withCookies(admin.sessionCookie, admin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, admin.csrfCookie.Value),
-	)
-	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
-	if body["user_id"] != userID {
-		t.Fatalf("unexpected membership create payload: %#v", body)
-	}
+	phase3test.CreateMembership(t, server, incidentID, userID, email, role, toPhase3Login(admin))
 }
 
 func updateMembershipRole(t testing.TB, server *httptestx.Server, incidentID string, userID string, baseVersion int, role string, admin loginResult) {
 	t.Helper()
 
-	resp := doPhase3JSON(
-		t,
-		http.MethodPatch,
-		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+userID,
-		map[string]any{
-			"base_membership_version": baseVersion,
-			"role":                    role,
-		},
-		withCookies(admin.sessionCookie, admin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, admin.csrfCookie.Value),
-	)
-	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
+	phase3test.UpdateMembershipRole(t, server, incidentID, userID, baseVersion, role, toPhase3Login(admin))
 }
 
 func seedLocalUserFlags(t testing.TB, db *sql.DB, email string, displayName string, password string, mfaRequired bool, isDeploymentAdmin bool, isActive bool) string {
 	t.Helper()
 
-	hash, err := authn.HashPassword(password)
-	if err != nil {
-		t.Fatalf("hash password: %v", err)
-	}
-
-	var userID string
-	if err := db.QueryRowContext(context.Background(), `
-INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id::text
-`, email, displayName, hash, mfaRequired, isActive, isDeploymentAdmin).Scan(&userID); err != nil {
-		t.Fatalf("seed local user with flags: %v", err)
-	}
-	return userID
+	return phase3test.SeedLocalUserFlags(t, db, email, displayName, password, mfaRequired, isDeploymentAdmin, isActive).ID.String()
 }
 
 func loginLocalUser(t testing.TB, server *httptestx.Server, username string, password string) (*http.Cookie, *http.Cookie) {
 	t.Helper()
 
-	resp := doPhase3JSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
-		"username": username,
-		"password": password,
-	})
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("login failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
-	}
-	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-
-	var sessionCookie *http.Cookie
-	var csrfCookie *http.Cookie
-	for _, cookie := range resp.Cookies() {
-		switch cookie.Name {
-		case authn.SessionCookieName:
-			sessionCookie = cookie
-		case authn.CSRFCookieName:
-			csrfCookie = cookie
-		}
-	}
-	if sessionCookie == nil || csrfCookie == nil {
-		t.Fatalf("expected login to set both session and csrf cookies, got %#v", resp.Cookies())
-	}
-	return sessionCookie, csrfCookie
+	return phase3test.LoginLocalUser(t, server, username, password)
 }
 
 func connectTimelineSocket(t testing.TB, server *httptestx.Server, incidentID string, sessionToken string) *timelineSocketClient {
 	t.Helper()
 
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+sessionToken)
-	rawClient := wstest.ConnectWithHeaders(t, server.HTTP.URL, "/ws/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/changes", headers)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	message, err := rawClient.Receive(ctx)
-	if err != nil {
-		t.Fatalf("receive websocket connected message: %v", err)
-	}
-	wstest.RequireMessageType(t, message, "connected")
-
-	client := &timelineSocketClient{
-		raw:      rawClient,
-		messages: make(chan platformws.Message, 32),
-		errors:   make(chan error, 1),
-	}
-	go func() {
-		for {
-			message, err := rawClient.Receive(context.Background())
-			if err != nil {
-				select {
-				case client.errors <- err:
-				default:
-				}
-				return
-			}
-			select {
-			case client.messages <- message:
-			default:
-				select {
-				case client.errors <- fmt.Errorf("timeline websocket buffer overflow"):
-				default:
-				}
-				return
-			}
-		}
-	}()
-	return client
+	return phase3test.ConnectTimelineSocket(t, server, incidentID, sessionToken)
 }
 
 func requireTimelineSocketChange(t testing.TB, client *timelineSocketClient, wantRecordID string, wantRowVersion int64) recordChangeSocketPayload {
 	t.Helper()
 
-	var message platformws.Message
-	select {
-	case message = <-client.messages:
-	case err := <-client.errors:
-		t.Fatalf("receive websocket record_changed: %v", err)
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for websocket record_changed")
-	}
-	wstest.RequireMessageType(t, message, "record_changed")
-
-	var payload recordChangeSocketPayload
-	if err := json.Unmarshal(message.Payload, &payload); err != nil {
-		t.Fatalf("decode record_changed payload: %v", err)
-	}
-	if payload.RecordID != wantRecordID || payload.RowVersion != float64(wantRowVersion) {
-		t.Fatalf("unexpected record_changed payload: %#v", payload)
-	}
-	if payload.ClientTxnID == "" {
-		t.Fatalf("expected websocket payload client_txn_id, got %#v", payload)
-	}
-	return payload
+	return phase3test.RequireTimelineSocketChange(t, client, wantRecordID, wantRowVersion)
 }
 
 func expectNoTimelineSocketMessage(t testing.TB, client *timelineSocketClient) {
 	t.Helper()
 
-	select {
-	case message := <-client.messages:
-		t.Fatalf("expected no websocket message, got %#v", message)
-	case err := <-client.errors:
-		t.Fatalf("expected no websocket message, got read error %v", err)
-	case <-time.After(300 * time.Millisecond):
-	}
+	phase3test.ExpectNoTimelineSocketMessage(t, client)
 }
 
 func requireMutationRecorded(t testing.TB, db *sql.DB, changeSetID string, recordID string, wantActorUserID string, wantSource string, wantClientTxnID string, wantMutationRows int, wantRevisions int) {
 	t.Helper()
 
-	changeSet := timelinetest.LookupChangeSet(t, db, changeSetID)
-	httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
-		ActorUserID: changeSet.ActorUserID,
-		Source:      changeSet.Source,
-		ClientTxnID: changeSet.ClientTxnID,
-		RequestID:   changeSet.RequestID,
-		CreatedAt:   changeSet.CreatedAt,
-	}, wantActorUserID, wantSource, wantClientTxnID)
-	if got := timelinetest.CountChangeSetMutations(t, db, changeSetID); got != wantMutationRows {
-		t.Fatalf("unexpected mutation row count for %s: got %d want %d", changeSetID, got, wantMutationRows)
-	}
-	if got := timelinetest.CountRecordRevisions(t, db, recordID); got != wantRevisions {
-		t.Fatalf("unexpected record revision count for %s: got %d want %d", recordID, got, wantRevisions)
-	}
+	phase3test.RequireMutationRecorded(t, db, changeSetID, recordID, wantActorUserID, wantSource, wantClientTxnID, wantMutationRows, wantRevisions)
 }
 
 func requireNoTimelineCollaborationEmission(t testing.TB, client *timelineSocketClient, changes <-chan platformws.RecordChange) {
 	t.Helper()
 
-	expectNoTimelineSocketMessage(t, client)
-	timelinetest.RequireNoRecordChange(t, changes, 300*time.Millisecond)
+	phase3test.RequireNoTimelineCollaborationEmission(t, client, changes)
 }
 
 func queryTimelineEnvelope(t testing.TB, server *httptestx.Server, incidentID string, login loginResult, body map[string]any) map[string]any {
 	t.Helper()
 
-	queryResp := doPhase3JSON(
-		t,
-		http.MethodPost,
-		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/query",
-		body,
-		withCookies(login.sessionCookie),
-	)
-	return httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)
+	return phase3test.QueryTimelineEnvelope(t, server, incidentID, toPhase3Login(login), body)
 }
 
 func queryTimelineRows(t testing.TB, server *httptestx.Server, incidentID string, login loginResult) []any {
 	t.Helper()
 
-	return queryTimelineEnvelope(t, server, incidentID, login, map[string]any{})["data"].(map[string]any)["rows"].([]any)
+	return phase3test.QueryTimelineRows(t, server, incidentID, toPhase3Login(login))
 }
 
 func findRow(t testing.TB, rows []any, recordID string) map[string]any {
 	t.Helper()
 
-	for _, candidate := range rows {
-		row := candidate.(map[string]any)
-		if row["record_id"] == recordID {
-			return row
-		}
-	}
-	t.Fatalf("record_id %s not found in rows %#v", recordID, rows)
-	return nil
+	return phase3test.FindRow(t, rows, recordID)
 }
 
 func mustUUID(t testing.TB, raw string) uuid.UUID {
 	t.Helper()
 
-	value, err := uuid.Parse(raw)
-	if err != nil {
-		t.Fatalf("parse uuid: %v", err)
-	}
-	return value
+	return phase3test.MustUUID(t, raw)
 }
 
 func requireBootstrapLogin(t testing.TB, server *httptestx.Server, username string, password string) string {
 	t.Helper()
 
-	resp := doPhase3JSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
-		"username": username,
-		"password": password,
-	})
-	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusUnauthorized, "mfa_setup_required")
-	details := body["error"].(map[string]any)["details"].(map[string]any)
-	return details["bootstrap_token"].(string)
+	login := phase3test.RequireBootstrapLogin(t, server, username, password)
+	return login
 }
 
 func beginTOTPEnrollment(t testing.TB, server *httptestx.Server, bootstrapToken string, body map[string]any) map[string]any {
 	t.Helper()
 
-	resp := doPhase3JSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", body, withHeader("Authorization", "Bearer "+bootstrapToken))
-	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	return phase3test.BeginTOTPEnrollment(t, server, bootstrapToken, body)
 }
 
 func completeInitialEnrollment(t testing.TB, server *httptestx.Server, bootstrapToken string, enrollmentID string, secretBase32 string, clientTxnID string) {
 	t.Helper()
 
-	resp := doPhase3JSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{
-		"client_txn_id": clientTxnID,
-		"enrollment_id": enrollmentID,
-		"code":          generateTOTPCode(t, secretBase32),
-	}, withHeader("Authorization", "Bearer "+bootstrapToken))
-	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
+	phase3test.CompleteInitialEnrollment(t, server, bootstrapToken, enrollmentID, secretBase32, clientTxnID)
 }
 
 func loginLocalUserWithSecondFactor(t testing.TB, server *httptestx.Server, username string, password string, code string) loginResult {
 	t.Helper()
 
-	resp := doPhase3JSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
-		"username": username,
-		"password": password,
-		"second_factor": map[string]any{
-			"kind": "totp",
-			"assertion": map[string]any{
-				"code": code,
-			},
-		},
-	})
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("login with second factor failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
+	login := phase3test.LoginLocalUserWithSecondFactor(t, server, username, password, code)
+	return loginResult{
+		sessionCookie: login.SessionCookie,
+		csrfCookie:    login.CSRFCookie,
 	}
-	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-
-	var sessionCookie *http.Cookie
-	var csrfCookie *http.Cookie
-	for _, cookie := range resp.Cookies() {
-		switch cookie.Name {
-		case authn.SessionCookieName:
-			sessionCookie = cookie
-		case authn.CSRFCookieName:
-			csrfCookie = cookie
-		}
-	}
-	if sessionCookie == nil || csrfCookie == nil {
-		t.Fatalf("expected login to set both session and csrf cookies, got %#v", resp.Cookies())
-	}
-	return loginResult{sessionCookie: sessionCookie, csrfCookie: csrfCookie}
 }
 
 func generateTOTPCode(t testing.TB, secretBase32 string) string {
 	t.Helper()
 
-	code, err := totp.GenerateCodeCustom(secretBase32, time.Now().UTC(), totp.ValidateOpts{
-		Period:    30,
-		Skew:      1,
-		Digits:    otp.DigitsSix,
-		Algorithm: otp.AlgorithmSHA1,
-	})
-	if err != nil {
-		t.Fatalf("generate totp code: %v", err)
-	}
-	return code
+	return phase3test.GenerateTOTPCode(t, secretBase32)
 }
 
 func doPhase3JSON(t testing.TB, method string, url string, body any, options ...func(*http.Request)) *http.Response {
 	t.Helper()
 
-	req := httptestx.NewJSONRequest(t, method, url, body)
-	for _, option := range options {
-		option(req)
-	}
-	return httptestx.Do(t, http.DefaultClient, req)
+	return phase3test.DoJSON(t, method, url, body, options...)
 }
 
 func withCookies(cookies ...*http.Cookie) func(*http.Request) {
-	return func(req *http.Request) {
-		for _, cookie := range cookies {
-			if cookie != nil {
-				req.AddCookie(cookie)
-			}
-		}
-	}
+	return phase3test.WithCookies(cookies...)
 }
 
 func withHeader(key string, value string) func(*http.Request) {
-	return func(req *http.Request) {
-		req.Header.Set(key, value)
-	}
+	return phase3test.WithHeader(key, value)
 }
 
 func queryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 	t.Helper()
 
-	var count int
-	if err := db.QueryRowContext(context.Background(), query, args...).Scan(&count); err != nil {
-		t.Fatalf("query count: %v", err)
-	}
-	return count
+	return phase3test.QueryCount(t, db, query, args...)
 }

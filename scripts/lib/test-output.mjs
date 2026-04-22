@@ -128,6 +128,22 @@ function writeJson(file, value) {
   writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function createCounts() {
+  return {
+    tests: 0,
+    failed: 0,
+    authoritative: 0,
+    support: 0,
+    unmapped: 0,
+    non_test: 0,
+    authoritative_failed: 0,
+    support_failed: 0,
+    unmapped_failed: 0,
+    non_test_failed: 0,
+    packages: 0,
+  };
+}
+
 function formatDuration(durationMs) {
   if (!Number.isFinite(durationMs) || durationMs < 0) {
     return "0ms";
@@ -479,15 +495,7 @@ function summarizeTargetDir(target) {
   const supportInventory = [];
   const counts = {
     phases: summaries.length,
-    tests: 0,
-    failed: 0,
-    authoritative: 0,
-    support: 0,
-    unmapped: 0,
-    authoritative_failed: 0,
-    support_failed: 0,
-    unmapped_failed: 0,
-    packages: 0,
+    ...createCounts(),
   };
   let startTime = "";
   let endTime = "";
@@ -509,9 +517,11 @@ function summarizeTargetDir(target) {
     counts.authoritative += summary.counts?.authoritative ?? 0;
     counts.support += summary.counts?.support ?? 0;
     counts.unmapped += summary.counts?.unmapped ?? 0;
+    counts.non_test += summary.counts?.non_test ?? 0;
     counts.authoritative_failed += summary.counts?.authoritative_failed ?? 0;
     counts.support_failed += summary.counts?.support_failed ?? 0;
     counts.unmapped_failed += summary.counts?.unmapped_failed ?? 0;
+    counts.non_test_failed += summary.counts?.non_test_failed ?? 0;
     for (const owner of summary.owners ?? []) {
       owners.add(owner);
     }
@@ -607,7 +617,7 @@ function handleTargetSummary(args) {
   }
 
   process.stderr.write(
-    `[FAIL] ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} failed=${summary.counts.failed} authoritative_failed=${summary.counts.authoritative_failed} support_failed=${summary.counts.support_failed} unmapped_failed=${summary.counts.unmapped_failed} ${formatDurationFields(summary.wallDurationMs, summary.durationMs)} artifacts=${relToRepo(summary.targetDir)}\n`,
+    `[FAIL] ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} failed=${summary.counts.failed} authoritative_failed=${summary.counts.authoritative_failed} support_failed=${summary.counts.support_failed} unmapped_failed=${summary.counts.unmapped_failed} non_test_failed=${summary.counts.non_test_failed} ${formatDurationFields(summary.wallDurationMs, summary.durationMs)} artifacts=${relToRepo(summary.targetDir)}\n`,
   );
   return 0;
 }
@@ -621,14 +631,7 @@ function handleRunSummary(args) {
   const totalTargets = Number.parseInt(totalText, 10) || 0;
   const aggregate = {
     phases: 0,
-    tests: 0,
-    failed: 0,
-    authoritative: 0,
-    support: 0,
-    unmapped: 0,
-    authoritative_failed: 0,
-    support_failed: 0,
-    unmapped_failed: 0,
+    ...createCounts(),
     duration_ms: 0,
     wall_duration_ms: 0,
   };
@@ -648,9 +651,11 @@ function handleRunSummary(args) {
     aggregate.authoritative += summary.counts?.authoritative ?? 0;
     aggregate.support += summary.counts?.support ?? 0;
     aggregate.unmapped += summary.counts?.unmapped ?? 0;
+    aggregate.non_test += summary.counts?.non_test ?? 0;
     aggregate.authoritative_failed += summary.counts?.authoritative_failed ?? 0;
     aggregate.support_failed += summary.counts?.support_failed ?? 0;
     aggregate.unmapped_failed += summary.counts?.unmapped_failed ?? 0;
+    aggregate.non_test_failed += summary.counts?.non_test_failed ?? 0;
     aggregate.duration_ms += summary.duration_ms ?? 0;
     aggregate.wall_duration_ms += summary.wall_duration_ms ?? summary.duration_ms ?? 0;
     if (startTime === "" || (summary.start_time && summary.start_time < startTime)) {
@@ -692,7 +697,7 @@ function handleRunSummary(args) {
   }
 
   process.stderr.write(
-    `[FAIL] ${label} completed_targets=${completedTargets}/${totalTargets} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} ${formatDurationFields(wallDurationMs, aggregate.duration_ms)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
+    `[FAIL] ${label} completed_targets=${completedTargets}/${totalTargets} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.duration_ms)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
   );
   return 0;
 }
@@ -739,15 +744,7 @@ function handleShellPhase() {
       status: "pass",
       phase: inferPhaseFromText(context.label),
       counts: {
-        tests: 0,
-        failed: 0,
-        authoritative: 0,
-        support: 0,
-        unmapped: 0,
-        authoritative_failed: 0,
-        support_failed: 0,
-        unmapped_failed: 0,
-        packages: 0,
+        ...createCounts(),
       },
       owners: [],
       inventory: [],
@@ -768,21 +765,16 @@ function handleShellPhase() {
     status: "fail",
     phase: inferPhaseFromText(context.label),
     counts: {
-      tests: 0,
+      ...createCounts(),
       failed: 1,
-      authoritative: 0,
-      support: 0,
-      unmapped: 0,
-      authoritative_failed: 0,
-      support_failed: 0,
-      unmapped_failed: 1,
-      packages: 0,
+      non_test: 1,
+      non_test_failed: 1,
     },
     owners: [],
     inventory: [],
     dossiers: [
       {
-        coverage: "unmapped",
+        coverage: "non_test",
         phase: inferPhaseFromText(context.label),
         id: "",
         runner: "shell",
@@ -975,17 +967,7 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
   const cases = [];
   const dossiers = [];
   const owners = new Set();
-  const counts = {
-    tests: 0,
-    failed: 0,
-    authoritative: 0,
-    support: 0,
-    unmapped: 0,
-    authoritative_failed: 0,
-    support_failed: 0,
-    unmapped_failed: 0,
-    packages: 0,
-  };
+  const counts = createCounts();
   let passedCount = 0;
   let skippedCount = 0;
   let incompleteCount = 0;
@@ -1281,14 +1263,28 @@ function createVitestSelection({ manifestAware }) {
     const phase = requiredEnv("CARTULARY_MANIFEST_PHASE");
     const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
     const executionDependency = optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY");
+    const entries = selectVitestManifestEntries(phase, coverage, executionDependency);
     const selected = new Set(
-      selectVitestManifestEntries(phase, coverage, executionDependency).map(
-        (entry) => `${entry.file}::${entry.title}`,
-      ),
+      entries.map((entry) => `${entry.file}::${entry.title}`),
     );
+    const selectedFiles = new Set(entries.map((entry) => normalizePath(entry.file)));
     return {
       matches(normalizedFile, title) {
         return selected.has(`${normalizedFile}::${title}`);
+      },
+      matchesFile(normalizedFile) {
+        return selectedFiles.has(normalizedFile);
+      },
+      classifyFileFailure(normalizedFile) {
+        if (!selectedFiles.has(normalizedFile)) {
+          return null;
+        }
+        return {
+          coverage,
+          phase,
+          id: "",
+          owner: normalizedFile,
+        };
       },
     };
   }
@@ -1310,6 +1306,108 @@ function createVitestSelection({ manifestAware }) {
       }
       return true;
     },
+    matchesFile(normalizedFile) {
+      if (selectedFiles.size === 0) {
+        return selectedTitles.size === 0;
+      }
+      return selectedFiles.has(normalizedFile);
+    },
+    classifyFileFailure() {
+      return null;
+    },
+  };
+}
+
+function isVitestFileResult(value) {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      typeof value.name === "string" &&
+      Array.isArray(value.assertionResults),
+  );
+}
+
+function collectVitestFileResults(report) {
+  const fileResults = [];
+  const visited = new Set();
+  appendVitestFileResults(report, fileResults, visited);
+  return fileResults;
+}
+
+function appendVitestFileResults(value, fileResults, visited) {
+  if (!value || typeof value !== "object") {
+    return;
+  }
+  if (isVitestFileResult(value)) {
+    fileResults.push(value);
+    return;
+  }
+  if (visited.has(value)) {
+    return;
+  }
+  visited.add(value);
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      appendVitestFileResults(entry, fileResults, visited);
+    }
+    return;
+  }
+  for (const key of ["testResults", "projectResults", "projects", "results"]) {
+    if (!Array.isArray(value[key])) {
+      continue;
+    }
+    for (const entry of value[key]) {
+      appendVitestFileResults(entry, fileResults, visited);
+    }
+  }
+}
+
+function findVitestAuthoritativeFileEntry(normalizedFile, phaseLabel) {
+  const inferredPhase = inferPhaseFromText(normalizedFile) || inferPhaseFromText(phaseLabel);
+  let fallback = null;
+
+  for (const entry of loadManifestIndex().authoritativeVitest.values()) {
+    if (normalizePath(entry.file) !== normalizedFile) {
+      continue;
+    }
+    if (!fallback) {
+      fallback = entry;
+    }
+    if (inferredPhase && entry.phase === inferredPhase) {
+      return entry;
+    }
+  }
+
+  return fallback;
+}
+
+function classifyVitestFileFailure(filePath, phaseLabel, selection = null) {
+  const normalizedFile = normalizeVitestFile(filePath);
+  const selected = selection?.classifyFileFailure?.(normalizedFile);
+  if (selected) {
+    return selected;
+  }
+
+  const authoritative = findVitestAuthoritativeFileEntry(normalizedFile, phaseLabel);
+  if (authoritative) {
+    return {
+      coverage: "authoritative",
+      phase: authoritative.phase,
+      id: "",
+      owner: normalizedFile,
+    };
+  }
+
+  const inferredPhase = inferPhaseFromText(normalizedFile) || inferPhaseFromText(phaseLabel);
+  const support =
+    normalizedFile.includes(".support.") ||
+    isForbiddenFile(normalizedFile, inferredPhase) ||
+    /\bsupport\b/i.test(phaseLabel);
+  return {
+    coverage: support ? "support" : "unmapped",
+    phase: inferredPhase,
+    id: "",
+    owner: normalizedFile,
   };
 }
 
@@ -1318,21 +1416,42 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
   const owners = new Set();
   const inventory = [];
   const dossiers = [];
-  const counts = {
-    tests: 0,
-    failed: 0,
-    authoritative: 0,
-    support: 0,
-    unmapped: 0,
-    authoritative_failed: 0,
-    support_failed: 0,
-    unmapped_failed: 0,
-    packages: 0,
-  };
+  const counts = createCounts();
 
-  for (const fileResult of report.testResults ?? []) {
+  for (const fileResult of collectVitestFileResults(report)) {
     const normalizedFile = normalizeVitestFile(fileResult.name ?? "");
-    for (const assertion of fileResult.assertionResults ?? []) {
+    const assertions = fileResult.assertionResults ?? [];
+    const executedAssertions = assertions.filter(
+      (assertion) => assertion.status !== "skipped",
+    );
+    if (executedAssertions.length === 0 && fileResult.status === "failed") {
+      if (selection && !selection.matchesFile(normalizedFile)) {
+        continue;
+      }
+      const classification = classifyVitestFileFailure(
+        normalizedFile,
+        phaseLabel,
+        selection,
+      );
+      owners.add(classification.owner);
+      counts.failed += 1;
+      counts[`${classification.coverage}_failed`] += 1;
+      dossiers.push({
+        coverage: classification.coverage,
+        phase: classification.phase,
+        id: classification.id,
+        runner: "vitest",
+        package_or_file: classification.owner,
+        symbol_or_title: "(suite load)",
+        message:
+          fileResult.message?.split("\n")[0]?.trim() ||
+          `test file ${classification.owner} failed before a top-level test was attributed`,
+        reproduce: `pnpm --dir apps/web exec vitest run ${classification.owner.replace(/^apps\/web\//, "")}`,
+        raw: relToRepo(reportFile),
+      });
+      continue;
+    }
+    for (const assertion of assertions) {
       if (assertion.status === "skipped") {
         continue;
       }
@@ -1372,7 +1491,7 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
     }
   }
 
-  if (counts.tests === 0) {
+  if (counts.tests === 0 && dossiers.length === 0) {
     dossiers.push({
       coverage: "unmapped",
       phase: inferPhaseFromText(phaseLabel),
@@ -1608,17 +1727,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
   const owners = new Set();
   const inventory = [];
   const dossiers = [];
-  const counts = {
-    tests: 0,
-    failed: 0,
-    authoritative: 0,
-    support: 0,
-    unmapped: 0,
-    authoritative_failed: 0,
-    support_failed: 0,
-    unmapped_failed: 0,
-    packages: 0,
-  };
+  const counts = createCounts();
 
   const specs = flattenPlaywrightSuites(report.suites).filter((spec) => {
     if (!selection) {

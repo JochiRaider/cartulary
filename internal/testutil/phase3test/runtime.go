@@ -13,8 +13,11 @@ import (
 	"github.com/pquerna/otp/totp"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/timelinetest"
 )
 
 type LoginResult struct {
@@ -53,13 +56,13 @@ func WithHeader(key string, value string) func(*http.Request) {
 func ProvisionBootstrapAdmin(t testing.TB, server *httptestx.Server) (LoginResult, uuid.UUID) {
 	t.Helper()
 
-	bootstrapToken := requireBootstrapLogin(t, server, "bootstrap-admin@example.test", "BootstrapPass1!")
-	begin := beginTOTPEnrollment(t, server, bootstrapToken, map[string]any{
+	bootstrapToken := RequireBootstrapLogin(t, server, "bootstrap-admin@example.test", "BootstrapPass1!")
+	begin := BeginTOTPEnrollment(t, server, bootstrapToken, map[string]any{
 		"client_txn_id": "txn-phase3-bootstrap-admin-begin",
 	})
 	secretBase32 := begin["totp_setup"].(map[string]any)["secret_base32"].(string)
-	completeInitialEnrollment(t, server, bootstrapToken, begin["enrollment_id"].(string), secretBase32, "txn-phase3-bootstrap-admin-complete")
-	login := LoginLocalUserWithSecondFactor(t, server, "bootstrap-admin@example.test", "BootstrapPass1!", generateTOTPCode(t, secretBase32))
+	CompleteInitialEnrollment(t, server, bootstrapToken, begin["enrollment_id"].(string), secretBase32, "txn-phase3-bootstrap-admin-complete")
+	login := LoginLocalUserWithSecondFactor(t, server, "bootstrap-admin@example.test", "BootstrapPass1!", GenerateTOTPCode(t, secretBase32))
 
 	sessionResp := DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, WithCookies(login.SessionCookie))
 	sessionData := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
@@ -259,7 +262,65 @@ func QueryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 	return count
 }
 
-func requireBootstrapLogin(t testing.TB, server *httptestx.Server, username string, password string) string {
+func QueryTimelineEnvelope(t testing.TB, server *httptestx.Server, incidentID string, login LoginResult, body map[string]any) map[string]any {
+	t.Helper()
+
+	queryResp := DoJSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/query",
+		body,
+		WithCookies(login.SessionCookie),
+	)
+	return httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)
+}
+
+func QueryTimelineRows(t testing.TB, server *httptestx.Server, incidentID string, login LoginResult) []any {
+	t.Helper()
+
+	return QueryTimelineEnvelope(t, server, incidentID, login, map[string]any{})["data"].(map[string]any)["rows"].([]any)
+}
+
+func FindRow(t testing.TB, rows []any, recordID string) map[string]any {
+	t.Helper()
+
+	for _, candidate := range rows {
+		row := candidate.(map[string]any)
+		if row["record_id"] == recordID {
+			return row
+		}
+	}
+	t.Fatalf("record_id %s not found in rows %#v", recordID, rows)
+	return nil
+}
+
+func RequireNoTimelineCollaborationEmission(t testing.TB, client *TimelineSocketClient, changes <-chan platformws.RecordChange) {
+	t.Helper()
+
+	ExpectNoTimelineSocketMessage(t, client)
+	timelinetest.RequireNoRecordChange(t, changes, 300*time.Millisecond)
+}
+
+func RequireMutationRecorded(t testing.TB, db *sql.DB, changeSetID string, recordID string, wantActorUserID string, wantSource string, wantClientTxnID string, wantMutationRows int, wantRevisions int) {
+	t.Helper()
+
+	changeSet := timelinetest.LookupChangeSet(t, db, changeSetID)
+	httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+		ActorUserID: changeSet.ActorUserID,
+		Source:      changeSet.Source,
+		ClientTxnID: changeSet.ClientTxnID,
+		RequestID:   changeSet.RequestID,
+		CreatedAt:   changeSet.CreatedAt,
+	}, wantActorUserID, wantSource, wantClientTxnID)
+	if got := timelinetest.CountChangeSetMutations(t, db, changeSetID); got != wantMutationRows {
+		t.Fatalf("unexpected mutation row count for %s: got %d want %d", changeSetID, got, wantMutationRows)
+	}
+	if got := timelinetest.CountRecordRevisions(t, db, recordID); got != wantRevisions {
+		t.Fatalf("unexpected record revision count for %s: got %d want %d", recordID, got, wantRevisions)
+	}
+}
+
+func RequireBootstrapLogin(t testing.TB, server *httptestx.Server, username string, password string) string {
 	t.Helper()
 
 	resp := DoJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
@@ -271,25 +332,25 @@ func requireBootstrapLogin(t testing.TB, server *httptestx.Server, username stri
 	return details["bootstrap_token"].(string)
 }
 
-func beginTOTPEnrollment(t testing.TB, server *httptestx.Server, bootstrapToken string, body map[string]any) map[string]any {
+func BeginTOTPEnrollment(t testing.TB, server *httptestx.Server, bootstrapToken string, body map[string]any) map[string]any {
 	t.Helper()
 
 	resp := DoJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/begin", body, WithHeader("Authorization", "Bearer "+bootstrapToken))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
-func completeInitialEnrollment(t testing.TB, server *httptestx.Server, bootstrapToken string, enrollmentID string, secretBase32 string, clientTxnID string) {
+func CompleteInitialEnrollment(t testing.TB, server *httptestx.Server, bootstrapToken string, enrollmentID string, secretBase32 string, clientTxnID string) {
 	t.Helper()
 
 	resp := DoJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/mfa/totp/complete", map[string]any{
 		"client_txn_id": clientTxnID,
 		"enrollment_id": enrollmentID,
-		"code":          generateTOTPCode(t, secretBase32),
+		"code":          GenerateTOTPCode(t, secretBase32),
 	}, WithHeader("Authorization", "Bearer "+bootstrapToken))
 	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }
 
-func generateTOTPCode(t testing.TB, secretBase32 string) string {
+func GenerateTOTPCode(t testing.TB, secretBase32 string) string {
 	t.Helper()
 
 	code, err := totp.GenerateCodeCustom(secretBase32, time.Now().UTC(), totp.ValidateOpts{

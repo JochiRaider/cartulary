@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestSupportPhase3_CreateRequestCoverage(t *testing.T) {
+func TestSupportPhase3Unit_CreateRequestCoverage(t *testing.T) {
 	t.Run("zero field create is allowed for timeline", func(t *testing.T) {
 		request, apiErr := DecodeTimelineCreateRequest(bytes.NewBufferString(`{
 			"client_txn_id": "txn-support-phase3-zero"
@@ -54,7 +54,7 @@ func TestSupportPhase3_CreateRequestCoverage(t *testing.T) {
 	})
 }
 
-func TestSupportPhase3_InitialStateVocabulary(t *testing.T) {
+func TestSupportPhase3Unit_InitialStateVocabulary(t *testing.T) {
 	if InitialCaptureState() != captureStateRough {
 		t.Fatalf("unexpected initial capture state: %q", InitialCaptureState())
 	}
@@ -75,7 +75,7 @@ func TestSupportPhase3_InitialStateVocabulary(t *testing.T) {
 	}
 }
 
-func TestSupportPhase3_CaptureStateHelpers(t *testing.T) {
+func TestSupportPhase3Unit_CaptureStateHelpers(t *testing.T) {
 	nextState, err := CaptureStateAfterMaterialPatch(captureStateRough)
 	if err != nil {
 		t.Fatalf("rough patch transition: %v", err)
@@ -106,7 +106,7 @@ func TestSupportPhase3_CaptureStateHelpers(t *testing.T) {
 	}
 }
 
-func TestSupportPhase3_PatchRequestHashNormalization(t *testing.T) {
+func TestSupportPhase3Unit_PatchRequestHashNormalization(t *testing.T) {
 	left, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(`{
 		"view_schema_id": "cartulary.view.timeline.v1",
 		"base_row_version": 3,
@@ -149,7 +149,7 @@ func TestSupportPhase3_PatchRequestHashNormalization(t *testing.T) {
 	}
 }
 
-func TestSupportPhase3_PayloadBuildersExposeStableShapes(t *testing.T) {
+func TestSupportPhase3Unit_PayloadBuildersExposeStableShapes(t *testing.T) {
 	recordID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	incidentID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
 	changeSetID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
@@ -186,7 +186,7 @@ func TestSupportPhase3_PayloadBuildersExposeStableShapes(t *testing.T) {
 	}
 }
 
-func TestSupportPhase3_SupersedeGuardAndHashHelpers(t *testing.T) {
+func TestSupportPhase3Unit_SupersedeGuardAndHashHelpers(t *testing.T) {
 	recordID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	incidentID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
 	otherIncidentID := uuid.MustParse("33333333-3333-3333-3333-333333333333")

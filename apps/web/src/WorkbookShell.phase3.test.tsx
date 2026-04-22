@@ -327,6 +327,184 @@ describe("Phase 3 Timeline workbook authoritative coverage", () => {
     });
   });
 
+  it("Phase 3 U-3-05 suppresses duplicate pending scalar saves that only differ by client_txn_id", async () => {
+    const pendingPatch = deferred<Response>();
+
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockReturnValueOnce(pendingPatch.promise);
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+
+    await screen.findByTestId("save-state");
+
+    const summaryInput = (await screen.findByTestId(
+      "row-record-1-summary",
+    )) as HTMLInputElement;
+    fireEvent.change(summaryInput, {
+      target: { value: "Pending deduplicated summary" },
+    });
+    await waitFor(() => {
+      expect(summaryInput.value).toBe("Pending deduplicated summary");
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    fireEvent.keyDown(summaryInput, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+    expect(extractBody(fetchMock, 1)).toMatchObject({
+      base_row_version: 1,
+      changes: [
+        {
+          field_key: "timeline.summary",
+          value: "Pending deduplicated summary",
+        },
+      ],
+    });
+
+    fireEvent.blur(summaryInput);
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    pendingPatch.resolve(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-dedup-1",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "Pending deduplicated summary",
+          captureState: "enriched",
+        }),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "2",
+      );
+      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("Phase 3 U-3-05 queues a follow-up scalar save when the logical payload changes while a prior save is pending", async () => {
+    const firstPendingPatch = deferred<Response>();
+
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha",
+            captureState: "rough",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockReturnValueOnce(firstPendingPatch.promise);
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-dedup-2",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 3,
+          summary: "Second pending summary",
+          captureState: "enriched",
+        }),
+      }),
+    );
+
+    render(<TimelineWorkbook incidentId="incident-1" />);
+
+    await screen.findByTestId("save-state");
+
+    const summaryInput = (await screen.findByTestId(
+      "row-record-1-summary",
+    )) as HTMLInputElement;
+    fireEvent.change(summaryInput, {
+      target: { value: "First pending summary" },
+    });
+    await waitFor(() => {
+      expect(summaryInput.value).toBe("First pending summary");
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    fireEvent.keyDown(summaryInput, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+    expect(extractBody(fetchMock, 1)).toMatchObject({
+      changes: [
+        {
+          field_key: "timeline.summary",
+          value: "First pending summary",
+        },
+      ],
+    });
+
+    fireEvent.change(summaryInput, {
+      target: { value: "Second pending summary" },
+    });
+    await waitFor(() => {
+      expect(summaryInput.value).toBe("Second pending summary");
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    fireEvent.blur(summaryInput);
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    firstPendingPatch.resolve(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-dedup-1",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "First pending summary",
+          captureState: "enriched",
+        }),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+    expect(extractBody(fetchMock, 2)).toMatchObject({
+      changes: [
+        {
+          field_key: "timeline.summary",
+          value: "Second pending summary",
+        },
+      ],
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("row-record-1-row-version").textContent).toBe(
+        "3",
+      );
+      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+    });
+  });
+
   it("Phase 3 U-3-GRID-01 binds Timeline grid columns from the active view_schema and commits writable cells by field_key", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
@@ -363,7 +541,7 @@ describe("Phase 3 Timeline workbook authoritative coverage", () => {
 
     const grid = await screen.findByTestId(gridShellTestId("timeline"));
     const headerFields = Array.from(
-      grid.querySelectorAll("thead [data-grid-field-key]"),
+      grid.querySelectorAll('[role="columnheader"] [data-grid-field-key]'),
     ).map((node) => node.getAttribute("data-grid-field-key"));
     expect(headerFields.slice(0, 2)).toEqual([
       "timeline.capture_state",

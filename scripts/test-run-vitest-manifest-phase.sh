@@ -38,6 +38,31 @@ assert_empty() {
   fi
 }
 
+assert_equals() {
+  local actual="$1"
+  local expected="$2"
+  local label="$3"
+
+  if [[ "$actual" != "$expected" ]]; then
+    fail "$label: expected [$expected], got [$actual]"
+  fi
+}
+
+json_field() {
+  local file="$1"
+  local path="$2"
+
+  "${NODE:-node}" -e '
+const fs = require("node:fs");
+const [file, path] = process.argv.slice(1);
+const value = path.split(".").reduce((current, key) => current?.[key], JSON.parse(fs.readFileSync(file, "utf8")));
+if (value === undefined || value === null) {
+  process.exit(1);
+}
+process.stdout.write(String(value));
+' "$file" "$path"
+}
+
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/run-vitest-manifest-smoke.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 fake_vitest="$tmp_dir/fake-vitest.sh"
@@ -75,6 +100,12 @@ JSON
 {"numTotalTestSuites":1,"numPassedTestSuites":1,"numFailedTestSuites":0,"numPendingTestSuites":0,"numTotalTests":1,"numPassedTests":1,"numFailedTests":0,"numPendingTests":0,"numTodoTests":0,"success":true,"testResults":[{"assertionResults":[{"ancestorTitles":["Phase 3 Timeline workbook authoritative coverage"],"fullName":"Phase 3 Timeline workbook authoritative coverage wrong title","status":"passed","title":"Phase 3 support wrong title","failureMessages":[],"meta":{},"tags":[]}],"status":"passed","message":"","name":"/home/askahn/code/cartulary/apps/web/src/WorkbookShell.phase3.test.tsx"}]}
 JSON
     ;;
+  suite_load_failure)
+    cat >"$output_file" <<'JSON'
+{"numTotalTestSuites":1,"numPassedTestSuites":0,"numFailedTestSuites":1,"numPendingTestSuites":0,"numTotalTests":0,"numPassedTests":0,"numFailedTests":0,"numPendingTests":0,"numTodoTests":0,"success":false,"testResults":[{"assertionResults":[],"status":"failed","message":"ReferenceError: window is not defined","name":"/home/askahn/code/cartulary/apps/web/src/WorkbookShell.phase3.test.tsx"}]}
+JSON
+    exit 1
+    ;;
   *)
     echo "unsupported fake vitest mode ${FAKE_VITEST_MODE}" >&2
     exit 2
@@ -108,3 +139,27 @@ if [[ "$mismatch_status" -eq 0 ]]; then
 fi
 assert_contains "$mismatch_output" "manifest mismatch: vitest manifest mismatch" "vitest manifest mismatch label"
 assert_contains "$mismatch_output" "missing_ids=U-3-05,U-3-GRID-01,U-3-GRID-02,U-3-GRID-03" "vitest manifest missing id"
+
+suite_load_results="$tmp_dir/results"
+set +e
+suite_load_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$suite_load_results" \
+  CARTULARY_TEST_RUN_ID="suite-load" \
+  NODE_BIN="${NODE:-node}" \
+  FAKE_VITEST_MODE=suite_load_failure \
+    "$HELPER" "vitest manifest suite load" phase3 authoritative frontend_unit -- "$fake_vitest" \
+    2>&1
+)"
+suite_load_status=$?
+set -e
+
+if [[ "$suite_load_status" -eq 0 ]]; then
+  fail "vitest manifest suite load: expected non-zero exit status"
+fi
+assert_contains "$suite_load_output" "failure: vitest manifest suite load" "vitest manifest suite load label"
+assert_contains "$suite_load_output" "symbol_or_title=(suite load)" "vitest manifest suite load title"
+assert_contains "$suite_load_output" "message=ReferenceError: window is not defined" "vitest manifest suite load message"
+phase_summary="$suite_load_results/suite-load/adhoc/vitest-manifest-suite-load/phase-summary.json"
+assert_equals "$(json_field "$phase_summary" "counts.failed")" "1" "vitest manifest suite load failed count"
+assert_equals "$(json_field "$phase_summary" "counts.authoritative_failed")" "1" "vitest manifest suite load authoritative failed count"

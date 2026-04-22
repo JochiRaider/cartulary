@@ -11,7 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/phase3test"
 )
 
-func TestSupportPhase3_AuthorizationMatrix(t *testing.T) {
+func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 	runtime := phase3test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase3-support-auth")
 
