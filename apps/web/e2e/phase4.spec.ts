@@ -248,12 +248,13 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
     },
   )) as ViewRow;
 
-  await createTimelineFillers(page, incidentId, "E-4-02 filler", 12);
+  await createTimelineFillers(page, incidentId, "E-4-02 filler before", 6);
   const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e402-row"),
     "timeline.summary": "E-4-02 lifecycle row",
     [hostRefsFieldKey]: collectionActionsPayload(["WS-023?"]),
   })) as ViewRow;
+  await createTimelineFillers(page, incidentId, "E-4-02 filler after", 6);
   const seededMention = requireItemByRawText(
     collectionItems(row, hostRefsFieldKey),
     "WS-023?",
@@ -286,6 +287,17 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
       .getByTestId(`row-${row.record_id}-hostRefs-items`)
       .getByLabel("Resolved WS-023"),
   ).toBeVisible();
+  const initialTimelineRows = (await queryViewRows(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+  )) as ViewRow[];
+  const rowIndexBeforeDismiss = initialTimelineRows.findIndex(
+    (candidate) => candidate.record_id === row.record_id,
+  );
+  expect(rowIndexBeforeDismiss).toBeGreaterThanOrEqual(0);
+  expect(rowIndexBeforeDismiss).toBeGreaterThan(0);
+  expect(rowIndexBeforeDismiss).toBeLessThan(initialTimelineRows.length - 1);
 
   await openTimelineInspector(page, row.record_id);
   await page
@@ -293,6 +305,7 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
     .click();
 
   const dismissScroll = await scrollGridToBottom(page, "timeline");
+  expect(dismissScroll.top).toBeGreaterThan(0);
   const dismissResponsePromise = waitForTimelinePatch(page, row.record_id);
   await page.getByRole("button", { name: "Dismiss" }).click();
   const dismissEnvelope = await readTimelineMutation(
@@ -307,7 +320,9 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
       .getByTestId(`mention-${sanitizeTestId(String(seededMention.item_ref))}`)
       .getByLabel("Dismissed WS-023?"),
   ).toBeVisible();
-  await expectTimelineContinuity(page, row.record_id, dismissScroll);
+  await expectTimelineContinuity(page, row.record_id, dismissScroll, {
+    requireExactVerticalScroll: false,
+  });
   expect(
     collectionItems(dismissEnvelope.data.row, hostRefsFieldKey),
   ).toHaveLength(0);
@@ -977,7 +992,7 @@ async function expectTimelineContinuity(
     page,
     preservedScroll,
     requireExactHorizontalScroll: options.requireExactHorizontalScroll ?? false,
-    requireExactVerticalScroll: options.requireExactVerticalScroll,
+    requireExactVerticalScroll: options.requireExactVerticalScroll ?? false,
     surface: "timeline",
   });
 }

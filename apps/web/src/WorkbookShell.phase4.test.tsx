@@ -769,6 +769,118 @@ describe("Phase 4 TimelineWorkbook", () => {
     ).toBeTruthy();
   });
 
+  it("reveals a vertically clipped inspect action through dismiss and restore continuity", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha",
+            captureState: "reviewed",
+            hostRefs: [
+              resolvedItem({
+                itemRef: "mention-host-resolved",
+                entityType: "host",
+                rawText: "WS-023",
+                displayText: "WS-023",
+                resolvedRecordId: "host-1",
+                resolutionMethod: "explicit_resolve_route",
+                autoResolved: false,
+                provenance: "manual",
+                confidence: null,
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-dismiss",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "Alpha",
+          captureState: "reviewed",
+          hostRefs: [],
+        }),
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-restore",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 3,
+          summary: "Alpha",
+          captureState: "reviewed",
+          hostRefs: [
+            unresolvedItem({
+              itemRef: "mention-host-resolved",
+              entityType: "host",
+              rawText: "WS-023",
+            }),
+          ],
+        }),
+      }),
+    );
+
+    render(
+      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+    );
+
+    installTimelineInspectGeometry("record-1", {
+      containerHeight: 300,
+      containerLeft: 40,
+      containerTop: 100,
+      containerWidth: 400,
+      contentLeft: 85,
+      contentTop: 610,
+      targetHeight: 40,
+      targetWidth: 80,
+    });
+
+    fireEvent.click(
+      await screen.findByTestId(rowInspectButtonTestId("record-1")),
+    );
+    await screen.findByText("Dismiss");
+
+    const dismissScroll = setTimelineGridScroll(320, 18);
+    expect(isInspectButtonFullyVisibleWithinGrid("record-1")).toBe(false);
+    fireEvent.click(screen.getByText("Dismiss"));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+    await expectTimelineFocusAndScroll("record-1", dismissScroll, {
+      expectedTop: 350,
+      requireVisibleWithinGrid: true,
+    });
+    expect(screen.getByText("Restore to unresolved")).toBeTruthy();
+
+    const restoreScroll = setTimelineGridScroll(340, 18);
+    expect(isInspectButtonFullyVisibleWithinGrid("record-1")).toBe(false);
+    fireEvent.click(screen.getByText("Restore to unresolved"));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+    await expectTimelineFocusAndScroll("record-1", restoreScroll, {
+      expectedTop: 350,
+      requireVisibleWithinGrid: true,
+    });
+    expect(
+      screen
+        .getByTestId("row-record-1-hostRefs-items")
+        .querySelector('[aria-label="Unresolved WS-023"]'),
+    ).toBeTruthy();
+  });
+
   it("suppresses self-originated websocket invalidations and reloads for external ones", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
@@ -940,6 +1052,7 @@ async function expectTimelineFocusAndScroll(
   preservedScroll: { top: number; left: number },
   options: {
     expectedLeft?: number;
+    expectedTop?: number;
     requireVisibleWithinGrid?: boolean;
   } = {},
 ) {
@@ -950,7 +1063,7 @@ async function expectTimelineFocusAndScroll(
     const grid = screen.getByTestId(
       gridShellTestId("timeline"),
     ) as HTMLDivElement;
-    expect(grid.scrollTop).toBe(preservedScroll.top);
+    expect(grid.scrollTop).toBe(options.expectedTop ?? preservedScroll.top);
     expect(grid.scrollLeft).toBe(options.expectedLeft ?? preservedScroll.left);
     if (options.requireVisibleWithinGrid) {
       expect(isInspectButtonFullyVisibleWithinGrid(recordId)).toBe(true);

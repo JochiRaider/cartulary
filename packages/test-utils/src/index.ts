@@ -274,6 +274,10 @@ async function readTestIdGridViewportState(
   };
 }
 
+/**
+ * Base continuity requires the focused control to remain focused and fully
+ * visible. Exact scroll preservation is stricter and must be opted into.
+ */
 export async function assertGridFocusContinuity(options: {
   focusTestId: string;
   intervalMs?: number;
@@ -289,8 +293,8 @@ export async function assertGridFocusContinuity(options: {
     intervalMs = 50,
     page,
     preservedScroll,
-    requireExactHorizontalScroll = true,
-    requireExactVerticalScroll = true,
+    requireExactHorizontalScroll = false,
+    requireExactVerticalScroll = false,
     surface,
     timeoutMs = 3_000,
   } = options;
