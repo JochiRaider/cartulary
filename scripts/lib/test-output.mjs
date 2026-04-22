@@ -167,6 +167,10 @@ function optionalLines(name) {
     .filter(Boolean);
 }
 
+function optionalSetFromLines(name) {
+  return new Set(optionalLines(name));
+}
+
 function parseInteger(name, fallback = 0) {
   const value = process.env[name];
   if (value === undefined || value === "") {
@@ -803,7 +807,68 @@ function classifyGoPackageFailure(importPath, phaseLabel) {
   };
 }
 
-function summarizeGoRun(logFile, phaseLabel, exitStatus) {
+function createGoSelection({ manifestAware }) {
+  const packagePatterns = optionalLines("CARTULARY_GO_PACKAGE_PATTERNS");
+  const reportSlice = optionalEnv("CARTULARY_REPORT_SLICE") === "1";
+
+  if (manifestAware && reportSlice) {
+    const phase = requiredEnv("CARTULARY_MANIFEST_PHASE");
+    const section = requiredEnv("CARTULARY_MANIFEST_SECTION");
+    const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
+    const executionDependency = optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY");
+    const entries = selectGoManifestEntries(
+      phase,
+      section,
+      coverage,
+      executionDependency,
+      packagePatterns,
+    );
+    const selectedTests = new Set();
+    const selectedPackages = new Set();
+    for (const entry of entries) {
+      const symbols = entry.symbol !== undefined ? [entry.symbol] : entry.symbols;
+      selectedPackages.add(toGoImportPath(entry.package));
+      for (const symbol of symbols) {
+        selectedTests.add(`${toGoImportPath(entry.package)}::${symbol}`);
+      }
+    }
+    return {
+      matchesTest(importPath, testName) {
+        return selectedTests.has(`${importPath}::${testName}`);
+      },
+      matchesPackage(importPath) {
+        return selectedPackages.has(importPath);
+      },
+    };
+  }
+
+  const testRegexSource = optionalEnv("CARTULARY_GO_TEST_REGEX");
+  if (testRegexSource === "" && packagePatterns.length === 0) {
+    return null;
+  }
+  const testRegex = testRegexSource === "" ? null : new RegExp(testRegexSource);
+  return {
+    matchesTest(importPath, testName) {
+      if (
+        packagePatterns.length > 0 &&
+        !packagePatterns.some((pattern) => packageMatchesPattern(toRepoRelativePackage(importPath), pattern))
+      ) {
+        return false;
+      }
+      return testRegex === null ? true : testRegex.test(testName);
+    },
+    matchesPackage(importPath) {
+      if (packagePatterns.length === 0) {
+        return true;
+      }
+      return packagePatterns.some((pattern) =>
+        packageMatchesPattern(toRepoRelativePackage(importPath), pattern),
+      );
+    },
+  };
+}
+
+function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
   const events = readGoEvents(logFile);
   const topLevel = new Map();
   const packageOutputs = new Map();
@@ -876,6 +941,9 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus) {
   let incompleteCount = 0;
 
   for (const testCase of topLevel.values()) {
+    if (selection && !selection.matchesTest(testCase.package, testCase.test)) {
+      continue;
+    }
     const classification = classifyGoTest(testCase.package, testCase.test, phaseLabel);
     const owner = classification.owner;
     owners.add(owner);
@@ -918,6 +986,9 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus) {
   }
 
   for (const pkg of packageFailures.keys()) {
+    if (selection && !selection.matchesPackage(pkg)) {
+      continue;
+    }
     const classification = classifyGoPackageFailure(pkg, phaseLabel);
     const owner = classification.owner;
     owners.add(owner);
@@ -1056,7 +1127,12 @@ function handleGoPhase({ manifestAware }) {
   const stderrLog = optionalEnv("CARTULARY_PHASE_STDERR_LOG");
   removeEmptyArtifact(stderrLog);
 
-  const summary = summarizeGoRun(runnerLog, context.label, context.exitStatus);
+  const summary = summarizeGoRun(
+    runnerLog,
+    context.label,
+    context.exitStatus,
+    createGoSelection({ manifestAware }),
+  );
   let status = context.exitStatus === 0 && summary.dossiers.length === 0 ? "pass" : "fail";
   let manifestMismatch = null;
   let manifestSummary = null;
@@ -1148,7 +1224,46 @@ function normalizeVitestFile(filePath) {
   return normalizePath(path.join("apps/web", relative));
 }
 
-function summarizeVitestRun(reportFile, phaseLabel) {
+function createVitestSelection({ manifestAware }) {
+  const reportSlice = optionalEnv("CARTULARY_REPORT_SLICE") === "1";
+
+  if (manifestAware && reportSlice) {
+    const phase = requiredEnv("CARTULARY_MANIFEST_PHASE");
+    const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
+    const executionDependency = optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY");
+    const selected = new Set(
+      selectVitestManifestEntries(phase, coverage, executionDependency).map(
+        (entry) => `${entry.file}::${entry.title}`,
+      ),
+    );
+    return {
+      matches(normalizedFile, title) {
+        return selected.has(`${normalizedFile}::${title}`);
+      },
+    };
+  }
+
+  const selectedFiles = new Set(
+    optionalLines("CARTULARY_VITEST_FILES").map((value) => normalizeVitestFile(value)),
+  );
+  const selectedTitles = optionalSetFromLines("CARTULARY_VITEST_TITLES");
+  if (selectedFiles.size === 0 && selectedTitles.size === 0) {
+    return null;
+  }
+  return {
+    matches(normalizedFile, title) {
+      if (selectedFiles.size > 0 && !selectedFiles.has(normalizedFile)) {
+        return false;
+      }
+      if (selectedTitles.size > 0 && !selectedTitles.has(title)) {
+        return false;
+      }
+      return true;
+    },
+  };
+}
+
+function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
   const report = JSON.parse(readFileSync(reportFile, "utf8"));
   const owners = new Set();
   const inventory = [];
@@ -1169,6 +1284,9 @@ function summarizeVitestRun(reportFile, phaseLabel) {
     const normalizedFile = normalizeVitestFile(fileResult.name ?? "");
     for (const assertion of fileResult.assertionResults ?? []) {
       if (assertion.status === "skipped") {
+        continue;
+      }
+      if (selection && !selection.matches(normalizedFile, assertion.title ?? "")) {
         continue;
       }
       const classification = classifyVitestCase(normalizedFile, assertion.title ?? "", phaseLabel);
@@ -1281,7 +1399,11 @@ function handleVitestPhase({ manifestAware }) {
   removeEmptyArtifact(stderrLog);
   removeEmptyArtifact(stdoutLog);
 
-  const summary = summarizeVitestRun(reportFile, context.label);
+  const summary = summarizeVitestRun(
+    reportFile,
+    context.label,
+    createVitestSelection({ manifestAware }),
+  );
   let status = context.exitStatus === 0 && summary.dossiers.length === 0 ? "pass" : "fail";
   let manifestSummary = null;
   let manifestMismatch = null;
@@ -1392,7 +1514,46 @@ function flattenPlaywrightSuites(suites, specs = []) {
   return specs;
 }
 
-function summarizePlaywrightRun(reportFile, phaseLabel) {
+function createPlaywrightSelection({ manifestAware }) {
+  const reportSlice = optionalEnv("CARTULARY_REPORT_SLICE") === "1";
+
+  if (manifestAware && reportSlice) {
+    const phase = requiredEnv("CARTULARY_MANIFEST_PHASE");
+    const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
+    const executionDependency = optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY");
+    const selected = new Set(
+      selectPlaywrightManifestEntries(phase, coverage, executionDependency).map(
+        (entry) => `${entry.file}::${entry.title}`,
+      ),
+    );
+    return {
+      matches(normalizedFile, title) {
+        return selected.has(`${normalizedFile}::${title}`);
+      },
+    };
+  }
+
+  const selectedFiles = new Set(
+    optionalLines("CARTULARY_PLAYWRIGHT_FILES").map((value) => normalizePlaywrightFile(value)),
+  );
+  const selectedTitles = optionalSetFromLines("CARTULARY_PLAYWRIGHT_TITLES");
+  if (selectedFiles.size === 0 && selectedTitles.size === 0) {
+    return null;
+  }
+  return {
+    matches(normalizedFile, title) {
+      if (selectedFiles.size > 0 && !selectedFiles.has(normalizedFile)) {
+        return false;
+      }
+      if (selectedTitles.size > 0 && !selectedTitles.has(title)) {
+        return false;
+      }
+      return true;
+    },
+  };
+}
+
+function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
   const report = JSON.parse(readFileSync(reportFile, "utf8"));
   const owners = new Set();
   const inventory = [];
@@ -1409,7 +1570,15 @@ function summarizePlaywrightRun(reportFile, phaseLabel) {
     packages: 0,
   };
 
-  const specs = flattenPlaywrightSuites(report.suites);
+  const specs = flattenPlaywrightSuites(report.suites).filter((spec) => {
+    if (!selection) {
+      return true;
+    }
+    return selection.matches(
+      normalizePlaywrightFile(spec.file ?? ""),
+      spec.title ?? "",
+    );
+  });
   if (specs.length === 0 && (report.errors ?? []).length > 0) {
     const coverage = /\bsupport\b/i.test(phaseLabel) ? "support" : "unmapped";
     const message = (report.errors ?? [])
@@ -1585,7 +1754,11 @@ function handlePlaywrightPhase({ manifestAware }) {
   removeEmptyArtifact(stdoutLog);
   removeEmptyArtifact(stderrLog);
 
-  const summary = summarizePlaywrightRun(reportFile, context.label);
+  const summary = summarizePlaywrightRun(
+    reportFile,
+    context.label,
+    createPlaywrightSelection({ manifestAware }),
+  );
   let status = context.exitStatus === 0 && summary.dossiers.length === 0 ? "pass" : "fail";
   let manifestSummary = null;
   let manifestMismatch = null;

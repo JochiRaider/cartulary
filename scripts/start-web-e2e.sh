@@ -258,6 +258,36 @@ run_migrate() {
   "${GO_BIN}" run ./cmd/migrate "$@"
 }
 
+browser_start_services() {
+  docker compose -f "${COMPOSE_FILE}" up -d postgres minio >/dev/null
+  wait_for_postgres
+  wait_for_minio
+}
+
+browser_prepare_database() {
+  assert_port_free 8080 "backend"
+  assert_port_free 4173 "frontend"
+  cd "${ROOT_DIR}"
+  docker compose -f "${COMPOSE_FILE}" exec -T postgres \
+    psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null
+  docker compose -f "${COMPOSE_FILE}" exec -T postgres \
+    psql -U cartulary -d postgres -c "CREATE DATABASE \"${E2E_DB}\";" >/dev/null
+
+  CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
+  CARTULARY_POSTGRES_DSN="${E2E_DSN}" \
+  GOCACHE=/tmp/cartulary-go-build \
+  GOMODCACHE=/tmp/cartulary-go-mod \
+    run_migrate up
+}
+
+browser_wait_backend_ready() {
+  wait_for_http "http://127.0.0.1:8080/readyz" "backend"
+}
+
+browser_wait_frontend_ready() {
+  wait_for_http "http://127.0.0.1:4173" "frontend"
+}
+
 run_server() {
   if [[ -n "${SERVER_BIN}" && -x "${SERVER_BIN}" ]]; then
     "${SERVER_BIN}" "$@"
@@ -324,25 +354,8 @@ supervise_stack() {
 }
 
 make -C "${ROOT_DIR}" frontend-toolchain
-docker compose -f "${COMPOSE_FILE}" up -d postgres minio >/dev/null
-wait_for_postgres
-wait_for_minio
-assert_port_free 8080 "backend"
-assert_port_free 4173 "frontend"
-cd "${ROOT_DIR}"
-docker compose -f "${COMPOSE_FILE}" exec -T postgres \
-  psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null
-docker compose -f "${COMPOSE_FILE}" exec -T postgres \
-  psql -U cartulary -d postgres -c "CREATE DATABASE \"${E2E_DB}\";" >/dev/null
-
-(
-  cd "${ROOT_DIR}"
-  CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
-  CARTULARY_POSTGRES_DSN="${E2E_DSN}" \
-  GOCACHE=/tmp/cartulary-go-build \
-  GOMODCACHE=/tmp/cartulary-go-mod \
-  run_migrate up
-)
+run_phase_command "browser-e2e startup services" browser_start_services
+run_phase_command "browser-e2e startup database" browser_prepare_database
 
 if [[ -n "${SERVER_BIN}" && -x "${SERVER_BIN}" ]]; then
   SERVER_COMMAND=("${SERVER_BIN}")
@@ -371,8 +384,8 @@ start_process_group VITE_PGID "${WEB_LOG}" \
   PATH="${ROOT_DIR}/tmp/node-runtime/bin:${PATH}" \
   corepack pnpm --dir apps/web dev --host 127.0.0.1 --port 4173 --strictPort
 
-wait_for_http "http://127.0.0.1:8080/readyz" "backend"
-wait_for_http "http://127.0.0.1:4173" "frontend"
+run_phase_command "browser-e2e startup backend ready" browser_wait_backend_ready
+run_phase_command "browser-e2e startup frontend ready" browser_wait_frontend_ready
 
 if [[ "${#child_command[@]}" -gt 0 ]]; then
   start_process_group CHILD_PGID "" "${child_command[@]}"

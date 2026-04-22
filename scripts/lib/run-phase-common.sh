@@ -65,6 +65,30 @@ ensure_target_artifact_dir() {
   printf '%s\n' "${results_root}/${run_id}/${target}"
 }
 
+prepare_target_support_dir() {
+  local name="${1:-support}"
+  local target_dir
+  target_dir="$(ensure_target_artifact_dir)"
+  mkdir -p "${target_dir}/${name}"
+  printf '%s\n' "${target_dir}/${name}"
+}
+
+prepare_shared_artifact_dir() {
+  local name="$1"
+  local results_root
+  local run_id
+
+  if [[ -z "${name}" ]]; then
+    echo "prepare_shared_artifact_dir requires <name>" >&2
+    return 2
+  fi
+
+  results_root="$(resolve_results_root)"
+  run_id="$(resolve_test_run_id)"
+  mkdir -p "${results_root}/${run_id}/_shared/${name}"
+  printf '%s\n' "${results_root}/${run_id}/_shared/${name}"
+}
+
 prepare_phase_artifact_dir() {
   local phase="$1"
   local target_dir
@@ -81,6 +105,44 @@ emit_target_summary() {
     return 0
   fi
   NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" target-summary "${CARTULARY_TEST_TARGET}" "${status}"
+}
+
+emit_report_phase_summary() {
+  if [[ "$#" -ne 7 ]]; then
+    echo "emit_report_phase_summary requires <helper-command> <label> <command-text> <start-time> <end-time> <duration-ms> <exit-status>" >&2
+    return 2
+  fi
+
+  local helper_command="$1"
+  local phase="$2"
+  local command_text="$3"
+  local start_time="$4"
+  local end_time="$5"
+  local duration_ms="$6"
+  local exit_status="$7"
+  local phase_dir
+  local helper_status
+
+  phase_dir="$(prepare_phase_artifact_dir "$phase")"
+
+  set +e
+  CARTULARY_PHASE_LABEL="$phase" \
+  CARTULARY_PHASE_DIR="$phase_dir" \
+  CARTULARY_PHASE_COMMAND="$command_text" \
+  CARTULARY_PHASE_START_TIME="$start_time" \
+  CARTULARY_PHASE_END_TIME="$end_time" \
+  CARTULARY_PHASE_DURATION_MS="$duration_ms" \
+  CARTULARY_PHASE_EXIT_STATUS="$exit_status" \
+    NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" "${helper_command}"
+  helper_status=$?
+  set -e
+
+  if [[ "${helper_status}" -eq 0 ]]; then
+    return 0
+  fi
+
+  emit_target_summary fail || true
+  return "${helper_status}"
 }
 
 run_phase_command() {

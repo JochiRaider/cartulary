@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 makefile="$repo_root/Makefile"
+go_runner_script="$repo_root/scripts/run-go-target.sh"
 node_bin="${NODE_BIN:-node}"
 
 fail() {
@@ -143,73 +144,67 @@ then
 fi
 
 backend_unit_block="$(extract_target_block backend-unit)"
+if ! printf '%s\n' "$backend_unit_block" | grep -Fq 'run-go-target.sh backend-unit'; then
+  fail "backend-unit must delegate to scripts/run-go-target.sh backend-unit"
+fi
 for expected in \
-  'RUN_GO_MANIFEST_PHASE) "backend-unit phase0 authoritative platform" phase0 unit authoritative backend_unit --' \
-  'RUN_GO_MANIFEST_PHASE) "backend-unit phase0 authoritative app" phase0 unit authoritative backend_unit --' \
-  'RUN_GO_MANIFEST_PHASE) "backend-unit phase1 authoritative platform" phase1 unit authoritative backend_unit --' \
-  'RUN_GO_MANIFEST_PHASE) "backend-unit phase1 authoritative auth" phase1 unit authoritative backend_unit --'
+  'manifest_go_regex phase0 unit authoritative backend_unit ./internal/platform/...' \
+  'manifest_go_regex phase0 unit authoritative backend_unit ./internal/app' \
+  'manifest_go_count phase1 unit authoritative backend_unit ./internal/platform/...' \
+  'manifest_go_regex phase1 unit authoritative backend_unit ./internal/modules/auth' \
+  'emit_go_manifest_phase "backend-unit phase2 authoritative"' \
+  'emit_go_manifest_phase "backend-unit phase3 authoritative"' \
+  'TestSupportPhase1_'
 do
-  if ! printf '%s\n' "$backend_unit_block" | grep -Fq "$expected"; then
-    fail "backend-unit must invoke Phase 0 manifest selection: missing $expected"
+  if ! grep -Fq "$expected" "$go_runner_script"; then
+    fail "scripts/run-go-target.sh must preserve backend-unit selection surface: missing $expected"
   fi
 done
 
-if ! printf '%s\n' "$backend_unit_block" | grep -Fq 'RUN_GO_MANIFEST_PHASE) "backend-unit phase2 authoritative" phase2 unit authoritative backend_unit --'; then
-  fail "backend-unit must invoke the Phase 2 backend_unit manifest selector"
-fi
-
-if printf '%s\n' "$backend_unit_block" | rg -q 'TestPhase1_.*_U_1_'; then
-  fail "backend-unit must not use regex-based Phase 1 Go selection"
-fi
-
-if printf '%s\n' "$backend_unit_block" | rg -q 'TestPhase2_.*_U_2_'; then
-  fail "backend-unit must not use regex-based Phase 2 Go selection"
-fi
-
-if ! printf '%s\n' "$backend_unit_block" | grep -Fq "TestSupportPhase1_"; then
-  fail "backend-unit must run Phase 1 support coverage through TestSupportPhase1_"
-fi
-
 backend_store_block="$(extract_target_block backend-store)"
-if ! printf '%s\n' "$backend_store_block" | grep -Fq 'RUN_GO_MANIFEST_PHASE) "backend-store phase2 authoritative" phase2 unit authoritative backend_store --'; then
-  fail "backend-store must invoke the Phase 2 backend_store manifest selector"
+if ! printf '%s\n' "$backend_store_block" | grep -Fq 'run-go-target.sh backend-store'; then
+  fail "backend-store must delegate to scripts/run-go-target.sh backend-store"
 fi
-if ! printf '%s\n' "$backend_store_block" | grep -Fq 'RUN_GO_MANIFEST_PHASE) "backend-store phase3 authoritative" phase3 unit authoritative backend_store --'; then
-  fail "backend-store must invoke the Phase 3 backend_store manifest selector"
-fi
-if printf '%s\n' "$backend_store_block" | rg -q 'TestPhase2_.*_U_2_'; then
-  fail "backend-store must not use regex-based Phase 2 Go selection"
-fi
+for expected in \
+  'emit_go_manifest_phase "backend-store phase2 authoritative"' \
+  'emit_go_manifest_phase "backend-store phase3 authoritative"'
+do
+  if ! grep -Fq "$expected" "$go_runner_script"; then
+    fail "scripts/run-go-target.sh must preserve backend-store selection surface: missing $expected"
+  fi
+done
 
 backend_integration_block="$(extract_target_block backend-integration)"
-if ! printf '%s\n' "$backend_integration_block" | grep -Fq 'RUN_GO_MANIFEST_PHASE) "backend-integration phase0 authoritative" phase0 integration authoritative backend_integration --'; then
-  fail "backend-integration must invoke the Phase 0 manifest selector"
+if ! printf '%s\n' "$backend_integration_block" | grep -Fq 'run-go-target.sh backend-integration'; then
+  fail "backend-integration must delegate to scripts/run-go-target.sh backend-integration"
 fi
-
-if ! printf '%s\n' "$backend_integration_block" | grep -Fq 'RUN_GO_MANIFEST_PHASE) "backend-integration phase1 authoritative" phase1 integration authoritative backend_integration --'; then
-  fail "backend-integration must invoke the Phase 1 manifest selector"
-fi
-
-if ! printf '%s\n' "$backend_integration_block" | grep -Fq 'RUN_GO_MANIFEST_PHASE) "backend-integration phase2 authoritative" phase2 integration authoritative backend_integration --'; then
-  fail "backend-integration must invoke the Phase 2 manifest selector"
-fi
-
-if printf '%s\n' "$backend_integration_block" | rg -q 'TestPhase1_.*_I_1_'; then
-  fail "backend-integration must not use regex-based Phase 1 Go selection"
-fi
-
-if printf '%s\n' "$backend_integration_block" | rg -q 'TestPhase2_.*_I_2_'; then
-  fail "backend-integration must not use regex-based Phase 2 Go selection"
-fi
+for expected in \
+  'emit_go_manifest_phase "backend-integration phase0 authoritative"' \
+  'emit_go_manifest_phase "backend-integration phase1 authoritative"' \
+  'emit_go_manifest_phase "backend-integration phase2 authoritative"' \
+  'emit_go_raw_phase "backend-integration support phase1"' \
+  'emit_go_raw_phase "backend-integration support phase2"' \
+  'emit_go_raw_phase "backend-integration support phase3"'
+do
+  if ! grep -Fq "$expected" "$go_runner_script"; then
+    fail "scripts/run-go-target.sh must preserve backend-integration selection surface: missing $expected"
+  fi
+done
 
 backend_process_block="$(extract_target_block backend-process)"
-if ! printf '%s\n' "$backend_process_block" | grep -Fq 'RUN_GO_MANIFEST_PHASE) "backend-process phase0 authoritative" phase0 e2e authoritative backend_process --'; then
-  fail "backend-process must invoke the Phase 0 manifest selector"
+if ! printf '%s\n' "$backend_process_block" | grep -Fq 'run-go-target.sh backend-process'; then
+  fail "backend-process must delegate to scripts/run-go-target.sh backend-process"
+fi
+if ! grep -Fq 'emit_go_manifest_phase "backend-process phase0 authoritative"' "$go_runner_script"; then
+  fail "scripts/run-go-target.sh must preserve backend-process Phase 0 manifest selection"
 fi
 
 phase0_process_block="$(extract_target_block phase0-process-e2e)"
-if ! printf '%s\n' "$phase0_process_block" | grep -Fq 'RUN_GO_MANIFEST_PHASE) "phase0-process-e2e" phase0 e2e authoritative backend_process --'; then
-  fail "phase0-process-e2e must invoke the Phase 0 manifest selector"
+if ! printf '%s\n' "$phase0_process_block" | grep -Fq 'run-go-target.sh phase0-process-e2e'; then
+  fail "phase0-process-e2e must delegate to scripts/run-go-target.sh phase0-process-e2e"
+fi
+if ! grep -Fq 'emit_go_manifest_phase "phase0-process-e2e"' "$go_runner_script"; then
+  fail "scripts/run-go-target.sh must preserve phase0-process-e2e Phase 0 manifest selection"
 fi
 
 check_service_block="$(extract_target_block check-service-backed)"
@@ -228,8 +223,11 @@ if printf '%s\n' "$check_service_block" | rg -q '(^|[[:space:]])(backend-process
 fi
 
 backend_integration_support_block="$(extract_target_block backend-integration-support)"
-if ! printf '%s\n' "$backend_integration_support_block" | grep -Fq "TestSupportPhase1_"; then
-  fail "backend-integration-support must run Phase 1 support coverage through TestSupportPhase1_"
+if ! printf '%s\n' "$backend_integration_support_block" | grep -Fq 'run-go-target.sh backend-integration-support'; then
+  fail "backend-integration-support must delegate to scripts/run-go-target.sh backend-integration-support"
+fi
+if ! grep -Fq "TestSupportPhase1_" "$go_runner_script"; then
+  fail "scripts/run-go-target.sh must run Phase 1 support coverage through TestSupportPhase1_"
 fi
 
 test_fast_block="$(extract_target_block test-fast)"
