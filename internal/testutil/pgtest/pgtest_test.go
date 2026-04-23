@@ -10,6 +10,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
@@ -149,9 +150,9 @@ func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
 	}
 
 	migrateCalls := 0
-	migrateDatabaseFn = func(db *sql.DB, directory string, command string) (postgres.MigrationStatus, error) {
+	migrateDatabaseFn = func(db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
 		migrateCalls++
-		return postgres.MigrationStatus{Command: command, Directory: directory}, nil
+		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
 	}
 
 	harness := &Harness{
@@ -177,6 +178,9 @@ func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
 	}
 	if !status.TemplateClone {
 		t.Fatal("expected migration status to mark template clone mode")
+	}
+	if status.Directory != dbmigrations.RepositoryPath {
+		t.Fatalf("unexpected migration directory in status: got %q want %q", status.Directory, dbmigrations.RepositoryPath)
 	}
 	if status.TemplateDatabase != "suite_template" {
 		t.Fatalf("unexpected template database in status: got %q", status.TemplateDatabase)

@@ -7,7 +7,7 @@ The repository now includes a bounded bootstrap shell:
 - one root Go module with the canonical path `github.com/JochiRaider/cartulary`;
 - one top-level pnpm workspace with a minimal Vite + React web shell;
 - local PostgreSQL and MinIO development services through `docker-compose.dev.yml`;
-- compile-only `cmd/server` and `cmd/migrate` entrypoints plus platform stubs;
+- operational `cmd/server` and `cmd/migrate` entrypoints plus platform stubs;
 - a sample disconnected development config at `configs/dev/config.toml`.
 
 This is still bootstrap infrastructure, not product behavior. Domain routes, workbook features, generated contracts, migrations beyond stubs, and extension-profile behavior remain intentionally unimplemented at this step.

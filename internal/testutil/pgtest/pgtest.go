@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -16,6 +14,7 @@ import (
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
+	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
@@ -251,7 +250,7 @@ func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestData
 				DSN:  h.dsnFor(name),
 			}, postgres.MigrationStatus{
 				Command:          "template-clone",
-				Directory:        migrationsDir(),
+				Directory:        dbmigrations.RepositoryPath,
 				TemplateClone:    true,
 				TemplateDatabase: h.templateDB,
 			}, nil
@@ -268,7 +267,7 @@ func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestData
 	}
 	defer db.Close()
 
-	status, err := migrateDatabaseFn(db, migrationsDir(), "up")
+	status, err := migrateDatabaseFn(db, dbmigrations.Source(), "up")
 	if err != nil {
 		return nil, postgres.MigrationStatus{}, err
 	}
@@ -333,11 +332,6 @@ func (h *Harness) dsnFor(database string) string {
 		return strings.ReplaceAll(h.dsnTemplate, "{database}", database)
 	}
 	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", h.User, h.Password, h.Host, h.Port, database)
-}
-
-func migrationsDir() string {
-	_, file, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(file), "..", "..", "..", "db", "migrations")
 }
 
 func sanitizeIdentifier(value string) string {

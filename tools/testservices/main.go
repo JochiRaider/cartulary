@@ -18,6 +18,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
@@ -268,7 +269,7 @@ func createTemplateDatabase(ctx context.Context, adminDSN string, templateDB str
 	if err != nil {
 		return fmt.Errorf("open template database: %w", err)
 	}
-	if _, err := postgres.Migrate(db, "db/migrations", "up"); err != nil {
+	if _, err := postgres.Migrate(db, dbmigrations.Source(), "up"); err != nil {
 		_ = db.Close()
 		return err
 	}

@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -17,8 +18,16 @@ import (
 
 const PostgresDSNEnv = "CARTULARY_POSTGRES_DSN"
 
+var gooseBaseFSMu sync.Mutex
+
 type Settings struct {
 	DSN string
+}
+
+type MigrationSource struct {
+	BaseFS fs.FS
+	Path   string
+	Name   string
 }
 
 type MigrationStatus struct {
@@ -27,6 +36,18 @@ type MigrationStatus struct {
 	Empty            bool
 	TemplateClone    bool
 	TemplateDatabase string
+}
+
+func NewMigrationSource(path string) MigrationSource {
+	return MigrationSource{Path: path}
+}
+
+func NewEmbeddedMigrationSource(fsys fs.FS, path string, name string) MigrationSource {
+	return MigrationSource{
+		BaseFS: fsys,
+		Path:   path,
+		Name:   name,
+	}
 }
 
 func ConnectionString(cfg config.Config) string {
@@ -73,13 +94,15 @@ func OpenSQLWithEnv(cfg config.Config, env map[string]string) (*sql.DB, error) {
 	return db, nil
 }
 
-func Migrate(db *sql.DB, directory string, command string) (MigrationStatus, error) {
+func Migrate(db *sql.DB, source MigrationSource, command string, args ...string) (MigrationStatus, error) {
+	source = normalizeMigrationSource(source)
+
 	status := MigrationStatus{
 		Command:   command,
-		Directory: directory,
+		Directory: source.displayName(),
 	}
 
-	empty, err := migrationDirectoryEmpty(directory)
+	empty, err := migrationSourceEmpty(source)
 	if err != nil {
 		return status, fmt.Errorf("inspect migration directory: %w", err)
 	}
@@ -88,11 +111,35 @@ func Migrate(db *sql.DB, directory string, command string) (MigrationStatus, err
 		return status, nil
 	}
 
-	if err := goose.Run(command, db, directory); err != nil {
+	if err := runGoose(command, db, source, args...); err != nil {
 		return status, fmt.Errorf("run goose %q: %w", command, err)
 	}
 
 	return status, nil
+}
+
+func normalizeMigrationSource(source MigrationSource) MigrationSource {
+	if source.Path == "" {
+		source.Path = "."
+	}
+	return source
+}
+
+func (source MigrationSource) displayName() string {
+	if source.Name != "" {
+		return source.Name
+	}
+	if source.Path == "" {
+		return "."
+	}
+	return source.Path
+}
+
+func migrationSourceEmpty(source MigrationSource) (bool, error) {
+	if source.BaseFS != nil {
+		return migrationFSEmpty(source.BaseFS, source.Path)
+	}
+	return migrationDirectoryEmpty(source.Path)
 }
 
 func migrationDirectoryEmpty(directory string) (bool, error) {
@@ -116,6 +163,45 @@ func migrationDirectoryEmpty(directory string) (bool, error) {
 	}
 
 	return !found, nil
+}
+
+func migrationFSEmpty(fsys fs.FS, directory string) (bool, error) {
+	found := false
+	err := fs.WalkDir(fsys, directory, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		if entry.Name() == ".gitkeep" {
+			return nil
+		}
+
+		found = true
+		return fs.SkipAll
+	})
+	if err != nil && err != fs.SkipAll {
+		return false, err
+	}
+
+	return !found, nil
+}
+
+func runGoose(command string, db *sql.DB, source MigrationSource, args ...string) error {
+	if source.BaseFS == nil {
+		return goose.Run(command, db, source.Path, args...)
+	}
+
+	// goose stores the migration filesystem in package-global state, so embedded
+	// runs are serialized to keep concurrent callers from trampling each other.
+	gooseBaseFSMu.Lock()
+	defer gooseBaseFSMu.Unlock()
+
+	goose.SetBaseFS(source.BaseFS)
+	defer goose.SetBaseFS(nil)
+
+	return goose.Run(command, db, source.Path, args...)
 }
 
 func lookupEnv(env map[string]string, key string) (string, bool) {

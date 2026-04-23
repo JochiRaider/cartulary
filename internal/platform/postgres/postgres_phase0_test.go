@@ -3,12 +3,11 @@ package postgres_test
 import (
 	"context"
 	"database/sql"
-	"path/filepath"
-	"runtime"
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
@@ -31,14 +30,16 @@ func TestPhase0_SchemaBootstrap_I_0_01(t *testing.T) {
 	}
 	defer db.Close()
 
-	if _, err := postgres.Migrate(db, phase0MigrationsDir(), "up"); err != nil {
+	source := dbmigrations.Source()
+
+	if _, err := postgres.Migrate(db, source, "up"); err != nil {
 		t.Fatalf("run first schema bootstrap: %v", err)
 	}
 
 	assertCount(t, db, `SELECT COUNT(*) FROM pg_extension WHERE extname IN ('pgcrypto', 'citext')`, 2)
 	assertCount(t, db, `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('users', 'deployment_bootstrap_state', 'deployment_admin_audit_events')`, 3)
 
-	if _, err := postgres.Migrate(db, phase0MigrationsDir(), "up"); err != nil {
+	if _, err := postgres.Migrate(db, source, "up"); err != nil {
 		t.Fatalf("run second schema bootstrap: %v", err)
 	}
 
@@ -70,9 +71,4 @@ func assertCount(t testing.TB, db *sql.DB, query string, want int) {
 	if got != want {
 		t.Fatalf("unexpected count for %q: got %d want %d", query, got, want)
 	}
-}
-
-func phase0MigrationsDir() string {
-	_, file, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(file), "..", "..", "..", "db", "migrations")
 }

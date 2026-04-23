@@ -1,14 +1,14 @@
 package postgres_test
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
+
+	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 )
 
 func TestSupportPhase0_SchemaBootstrapMigrationGuard(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join(phase0MigrationsDir(), "00001_phase0_bootstrap.sql"))
+	data, err := dbmigrations.Files.ReadFile("00001_phase0_bootstrap.sql")
 	if err != nil {
 		t.Fatalf("read phase 0 bootstrap migration: %v", err)
 	}
