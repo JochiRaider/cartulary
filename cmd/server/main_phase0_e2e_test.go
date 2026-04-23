@@ -65,14 +65,15 @@ func TestPhase0_InvalidConfigDiagnostics_E_0_02(t *testing.T) {
 		name       string
 		configText string
 		env        map[string]string
-		path       string
-		reasonCode string
+		goldenFile string
 	}{
 		{
-			name:       "missing required runtime roots",
-			configText: string(fixtures.MustRead("config", "invalid_missing_required.toml")),
-			path:       "deployment_profile",
-			reasonCode: "missing_required_key",
+			name:       "missing required runtime root",
+			configText: stripConfigSection(t, string(fixtures.MustRead("config", "valid.toml")), "[roots.export_outputs]"),
+			env: map[string]string{
+				"CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH": "",
+			},
+			goldenFile: "startup_missing_export_outputs_root.json",
 		},
 		{
 			name:       "invalid root path shape",
@@ -80,8 +81,7 @@ func TestPhase0_InvalidConfigDiagnostics_E_0_02(t *testing.T) {
 			env: map[string]string{
 				"CARTULARY__ROOTS__DATABASE_STORAGE__PATH": "relative/postgres",
 			},
-			path:       "roots.database_storage.path",
-			reasonCode: "path_not_absolute",
+			goldenFile: "startup_path_not_absolute_database_storage_root.json",
 		},
 	}
 
@@ -106,8 +106,7 @@ func TestPhase0_InvalidConfigDiagnostics_E_0_02(t *testing.T) {
 			server.RequireConnectionRefused(t, "/healthz")
 			server.RequireConnectionRefused(t, "/readyz")
 			server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v1/changes")
-			server.RequireDiagnosticsCode(t, "invalid_deployment_config")
-			server.RequireDiagnosticsField(t, tc.path, tc.reasonCode)
+			server.RequireDiagnosticsMatchGolden(t, []string{"phase0", "diagnostics", tc.goldenFile})
 		})
 	}
 }
@@ -157,61 +156,51 @@ func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
 	cases := []struct {
-		name           string
-		configContent  func() string
-		bootstrapPath  string
-		seed           func(t *testing.T, db *sql.DB)
-		wantReasonCode string
-		wantUserCount  int
+		name          string
+		configContent func() string
+		bootstrapPath string
+		seed          func(t *testing.T, db *sql.DB)
+		goldenFile    string
+		wantUserCount int
 	}{
 		{
 			name: "missing bootstrap path",
 			configContent: func() string {
 				return stripConfigSection(t, string(fixtures.MustRead("config", "valid.toml")), "[bootstrap]")
 			},
-			wantReasonCode: "bootstrap_manifest_path_missing",
-		},
-		{
-			name: "unreadable regular bootstrap manifest",
-			configContent: func() string {
-				return string(fixtures.MustRead("config", "valid.toml"))
-			},
-			bootstrapPath: func() string {
-				return phase0test.WriteUnreadableRegularFile(t, t.TempDir(), "bootstrap-admin.json", fixtures.MustRead("bootstrap-admin", "canonical.json"))
-			}(),
-			wantReasonCode: "bootstrap_manifest_not_readable",
+			goldenFile: "bootstrap_manifest_path_missing.json",
 		},
 		{
 			name: "non regular bootstrap path",
 			configContent: func() string {
 				return string(fixtures.MustRead("config", "valid.toml"))
 			},
-			bootstrapPath:  phase0test.WriteNonRegularBootstrapManifestPath(t),
-			wantReasonCode: "bootstrap_manifest_not_regular_file",
+			bootstrapPath: phase0test.WriteNonRegularBootstrapManifestPath(t),
+			goldenFile:    "bootstrap_manifest_not_regular_file.json",
 		},
 		{
 			name: "malformed bootstrap manifest",
 			configContent: func() string {
 				return string(fixtures.MustRead("config", "valid.toml"))
 			},
-			bootstrapPath:  phase0test.WriteMalformedBootstrapManifest(t),
-			wantReasonCode: "bootstrap_manifest_parse_error",
+			bootstrapPath: phase0test.WriteMalformedBootstrapManifest(t),
+			goldenFile:    "bootstrap_manifest_parse_error.json",
 		},
 		{
-			name: "schema-invalid bootstrap manifest",
+			name: "explicit false mfa bootstrap manifest",
 			configContent: func() string {
 				return string(fixtures.MustRead("config", "valid.toml"))
 			},
-			bootstrapPath:  phase0test.WriteExplicitFalseMFABootstrapManifest(t),
-			wantReasonCode: "bootstrap_manifest_schema_invalid",
+			bootstrapPath: phase0test.WriteExplicitFalseMFABootstrapManifest(t),
+			goldenFile:    "bootstrap_manifest_schema_invalid_explicit_false_mfa.json",
 		},
 		{
 			name: "unknown-member bootstrap manifest",
 			configContent: func() string {
 				return string(fixtures.MustRead("config", "valid.toml"))
 			},
-			bootstrapPath:  phase0test.WriteUnknownMemberBootstrapManifest(t),
-			wantReasonCode: "bootstrap_manifest_schema_invalid",
+			bootstrapPath: phase0test.WriteUnknownMemberBootstrapManifest(t),
+			goldenFile:    "bootstrap_manifest_schema_invalid_unknown_member.json",
 		},
 		{
 			name: "email conflict",
@@ -222,8 +211,8 @@ func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
 			seed: func(t *testing.T, db *sql.DB) {
 				phase0test.SeedBootstrapEmailConflict(t, db)
 			},
-			wantReasonCode: "bootstrap_email_conflict",
-			wantUserCount:  1,
+			goldenFile:    "bootstrap_email_conflict.json",
+			wantUserCount: 1,
 		},
 	}
 
@@ -251,8 +240,7 @@ func TestPhase0_BootstrapFailures_E_0_04(t *testing.T) {
 			server.RequireConnectionRefused(t, "/healthz")
 			server.RequireConnectionRefused(t, "/readyz")
 			server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v1/changes")
-			server.RequireDiagnosticsCode(t, "invalid_deployment_config")
-			server.RequireReasonCode(t, tc.wantReasonCode)
+			server.RequireDiagnosticsMatchGolden(t, []string{"phase0", "diagnostics", tc.goldenFile})
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, tc.wantUserCount)
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 0)
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)
@@ -336,7 +324,7 @@ func TestPhase0_BootstrapSkipAndRecovery_E_0_05(t *testing.T) {
 		server.RequireConnectionRefused(t, "/healthz")
 		server.RequireConnectionRefused(t, "/readyz")
 		server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v1/changes")
-		server.RequireReasonCode(t, "bootstrap_recovery_not_supported")
+		server.RequireDiagnosticsMatchGolden(t, []string{"phase0", "diagnostics", "bootstrap_recovery_not_supported.json"})
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true`, 0)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 1)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events`, 0)

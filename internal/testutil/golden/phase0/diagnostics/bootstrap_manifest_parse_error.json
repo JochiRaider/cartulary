@@ -1,0 +1,14 @@
+{
+  "error": {
+    "code": "invalid_deployment_config",
+    "details": {
+      "items": [
+        {
+          "message": "parse bootstrap manifest JSON: unexpected end of JSON input",
+          "path": "bootstrap.first_admin_manifest_path",
+          "reason_code": "bootstrap_manifest_parse_error"
+        }
+      ]
+    }
+  }
+}

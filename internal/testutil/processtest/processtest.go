@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/diagnosticstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
@@ -166,7 +167,7 @@ func (s *Server) RequireWebsocketConnectionRefused(t testing.TB, path string) {
 	wstest.RequireConnectionRefused(t, err)
 }
 
-func (s *Server) Diagnostics(t testing.TB) map[string]any {
+func (s *Server) DiagnosticsJSON(t testing.TB) string {
 	t.Helper()
 
 	stderr := strings.TrimSpace(s.stderr.String())
@@ -180,11 +181,25 @@ func (s *Server) Diagnostics(t testing.TB) map[string]any {
 		t.Fatalf("missing structured startup diagnostics on stderr\nstderr:\n%s", s.stderr.String())
 	}
 
+	return stderr
+}
+
+func (s *Server) Diagnostics(t testing.TB) map[string]any {
+	t.Helper()
+
+	stderr := s.DiagnosticsJSON(t)
+
 	var payload map[string]any
 	if err := json.Unmarshal([]byte(stderr), &payload); err != nil {
 		t.Fatalf("decode stderr diagnostics JSON: %v\nstderr:\n%s", err, stderr)
 	}
 	return payload
+}
+
+func (s *Server) RequireDiagnosticsMatchGolden(t testing.TB, goldenParts []string) {
+	t.Helper()
+
+	diagnosticstest.RequireJSONMatchesGolden(t, s.DiagnosticsJSON(t), goldenParts)
 }
 
 func (s *Server) RequireDiagnosticsCode(t testing.TB, wantCode string) {

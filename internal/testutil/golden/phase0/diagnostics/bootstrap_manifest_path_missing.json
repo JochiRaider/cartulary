@@ -1,0 +1,14 @@
+{
+  "error": {
+    "code": "invalid_deployment_config",
+    "details": {
+      "items": [
+        {
+          "message": "bootstrap manifest path is required for first deployment admin bootstrap",
+          "path": "bootstrap.first_admin_manifest_path",
+          "reason_code": "bootstrap_manifest_path_missing"
+        }
+      ]
+    }
+  }
+}

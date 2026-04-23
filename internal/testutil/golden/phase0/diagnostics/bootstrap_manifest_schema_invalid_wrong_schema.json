@@ -1,0 +1,14 @@
+{
+  "error": {
+    "code": "invalid_deployment_config",
+    "details": {
+      "items": [
+        {
+          "message": "bootstrap_schema_id must equal \"cartulary.bootstrap_admin.v1\"",
+          "path": "bootstrap.first_admin_manifest.bootstrap_schema_id",
+          "reason_code": "bootstrap_manifest_schema_invalid"
+        }
+      ]
+    }
+  }
+}

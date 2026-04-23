@@ -87,16 +87,13 @@ func TestPhase0_FailClosedStartup_U_0_05(t *testing.T) {
 		cfg := phase0RuntimeConfig(t)
 
 		var bootstrapCalls int
-		runBootstrap = func(ctx context.Context, cfg config.Config, store bootstrapStore, readFile func(string) ([]byte, error), hashPassword func(string) (string, error)) error {
+		runBootstrap = func(ctx context.Context, cfg config.Config, store bootstrapStore, manifestFS bootstrapManifestFS, hashPassword func(string) (string, error)) error {
 			bootstrapCalls++
-			return &config.DiagnosticsError{
-				Code: config.InvalidDeploymentConfigCode,
-				Diagnostics: []config.Diagnostic{{
-					Path:       "bootstrap.first_admin_manifest_path",
-					ReasonCode: "bootstrap_recovery_not_supported",
-					Message:    "bootstrap completion state exists but no active deployment admin remains",
-				}},
-			}
+			return config.NewDiagnosticsError(config.Diagnostic{
+				Path:       "bootstrap.first_admin_manifest_path",
+				ReasonCode: "bootstrap_recovery_not_supported",
+				Message:    "bootstrap completion state exists but no active deployment admin remains",
+			})
 		}
 
 		jobsCalls = 0

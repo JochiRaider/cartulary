@@ -62,6 +62,12 @@ func TestStartServerExitsBeforeReadyAndParsesDiagnostics(t *testing.T) {
 
 	configPath := writeConfig(t, string(fixtures.MustRead("config", "invalid_missing_required.toml")))
 	env := processEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, "")
+	delete(env, "CARTULARY__ROOTS__DATABASE_STORAGE__PATH")
+	delete(env, "CARTULARY__ROOTS__OBJECT_STORAGE__PATH")
+	delete(env, "CARTULARY__ROOTS__BACKUP_STORAGE__PATH")
+	delete(env, "CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH")
+	delete(env, "CARTULARY__ROOTS__TEMPORARY_WORK__PATH")
+	delete(env, "CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH")
 
 	server := StartServer(t, ServerOptions{Env: env})
 
@@ -72,22 +78,18 @@ func TestStartServerExitsBeforeReadyAndParsesDiagnostics(t *testing.T) {
 	server.RequireConnectionRefused(t, "/healthz")
 	server.RequireConnectionRefused(t, "/readyz")
 	server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v1/changes")
-	server.RequireDiagnosticsCode(t, "invalid_deployment_config")
-	server.RequireDiagnosticsField(t, "deployment_profile", "missing_required_key")
-	server.RequireReasonCode(t, "missing_required_key")
+	server.RequireDiagnosticsMatchGolden(t, []string{"config", "invalid_missing_required.json"})
 	if diagnostics := server.Diagnostics(t); diagnostics["error"] == nil {
 		t.Fatalf("expected error diagnostics payload, got %#v", diagnostics)
 	}
 }
 
-func TestDiagnosticsStripsGoRunExitSuffix(t *testing.T) {
+func TestDiagnosticsJSONStripsGoRunExitSuffix(t *testing.T) {
 	server := &Server{}
 	server.stderr.WriteString("{\"error\":{\"code\":\"invalid_deployment_config\",\"details\":{\"items\":[{\"path\":\"x\",\"reason_code\":\"y\"}]}}}\nexit status 1\n")
 
-	diagnostics := server.Diagnostics(t)
-	errorPayload := diagnostics["error"].(map[string]any)
-	if errorPayload["code"] != "invalid_deployment_config" {
-		t.Fatalf("unexpected diagnostics payload: %#v", diagnostics)
+	if got := server.DiagnosticsJSON(t); got != "{\"error\":{\"code\":\"invalid_deployment_config\",\"details\":{\"items\":[{\"path\":\"x\",\"reason_code\":\"y\"}]}}}" {
+		t.Fatalf("unexpected diagnostics JSON: %q", got)
 	}
 }
 

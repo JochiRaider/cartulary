@@ -142,6 +142,9 @@ func (e *DiagnosticsError) Error() string {
 }
 
 func (e *DiagnosticsError) JSON() string {
+	items := append([]Diagnostic(nil), e.Diagnostics...)
+	sortDiagnostics(items)
+
 	payload := struct {
 		Error struct {
 			Code    string `json:"code"`
@@ -160,7 +163,7 @@ func (e *DiagnosticsError) JSON() string {
 			Details: struct {
 				Items []Diagnostic `json:"items"`
 			}{
-				Items: e.Diagnostics,
+				Items: items,
 			},
 		},
 	}
@@ -418,12 +421,17 @@ func sortDiagnostics(diagnostics []Diagnostic) {
 	})
 }
 
-func newDiagnosticsError(diagnostics []Diagnostic) *DiagnosticsError {
-	sortDiagnostics(diagnostics)
+func NewDiagnosticsError(diagnostics ...Diagnostic) *DiagnosticsError {
+	normalized := append([]Diagnostic(nil), diagnostics...)
+	sortDiagnostics(normalized)
 	return &DiagnosticsError{
 		Code:        InvalidDeploymentConfigCode,
-		Diagnostics: diagnostics,
+		Diagnostics: normalized,
 	}
+}
+
+func newDiagnosticsError(diagnostics []Diagnostic) *DiagnosticsError {
+	return NewDiagnosticsError(diagnostics...)
 }
 
 func lookupEnv(env map[string]string, key string) (string, bool) {

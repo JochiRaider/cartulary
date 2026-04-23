@@ -1,0 +1,14 @@
+{
+  "error": {
+    "code": "invalid_deployment_config",
+    "details": {
+      "items": [
+        {
+          "message": "bootstrap manifest field \"is_deployment_admin\" is not allowed",
+          "path": "bootstrap.first_admin_manifest.is_deployment_admin",
+          "reason_code": "bootstrap_manifest_schema_invalid"
+        }
+      ]
+    }
+  }
+}

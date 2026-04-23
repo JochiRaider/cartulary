@@ -1,0 +1,39 @@
+{
+  "error": {
+    "code": "invalid_deployment_config",
+    "details": {
+      "items": [
+        {
+          "message": "bootstrap_artifact_id is required",
+          "path": "bootstrap.first_admin_manifest.bootstrap_artifact_id",
+          "reason_code": "bootstrap_manifest_schema_invalid"
+        },
+        {
+          "message": "bootstrap_schema_id is required",
+          "path": "bootstrap.first_admin_manifest.bootstrap_schema_id",
+          "reason_code": "bootstrap_manifest_schema_invalid"
+        },
+        {
+          "message": "display_name must not be empty",
+          "path": "bootstrap.first_admin_manifest.display_name",
+          "reason_code": "bootstrap_manifest_schema_invalid"
+        },
+        {
+          "message": "email is required",
+          "path": "bootstrap.first_admin_manifest.email",
+          "reason_code": "bootstrap_manifest_schema_invalid"
+        },
+        {
+          "message": "initial_password must be at least 12 Unicode scalar values",
+          "path": "bootstrap.first_admin_manifest.initial_password",
+          "reason_code": "bootstrap_manifest_schema_invalid"
+        },
+        {
+          "message": "bootstrap manifest field \"unexpected\" is not allowed",
+          "path": "bootstrap.first_admin_manifest.unexpected",
+          "reason_code": "bootstrap_manifest_schema_invalid"
+        }
+      ]
+    }
+  }
+}

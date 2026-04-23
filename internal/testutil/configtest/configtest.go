@@ -1,15 +1,13 @@
 package configtest
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/testutil/diagnosticstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
-	"github.com/JochiRaider/cartulary/internal/testutil/golden"
 )
 
 type TempRoots struct {
@@ -60,22 +58,7 @@ func Overlay(pairs ...string) map[string]string {
 func RequireDiagnosticsMatchGolden(t testing.TB, err error, goldenParts []string) {
 	t.Helper()
 
-	got := []byte(DiagnosticsJSON(t, err))
-	want := golden.MustRead(goldenParts...)
-
-	var gotValue any
-	if unmarshalErr := json.Unmarshal(got, &gotValue); unmarshalErr != nil {
-		t.Fatalf("unmarshal got diagnostics: %v", unmarshalErr)
-	}
-
-	var wantValue any
-	if unmarshalErr := json.Unmarshal(want, &wantValue); unmarshalErr != nil {
-		t.Fatalf("unmarshal golden diagnostics: %v", unmarshalErr)
-	}
-
-	if !reflect.DeepEqual(gotValue, wantValue) {
-		t.Fatalf("diagnostics mismatch\nwant:\n%s\n\ngot:\n%s", string(want), string(got))
-	}
+	diagnosticstest.RequireJSONMatchesGolden(t, DiagnosticsJSON(t, err), goldenParts)
 }
 
 func DiagnosticsJSON(t testing.TB, err error) string {

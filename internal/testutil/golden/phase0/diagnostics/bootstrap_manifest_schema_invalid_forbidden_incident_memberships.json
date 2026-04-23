@@ -1,0 +1,14 @@
+{
+  "error": {
+    "code": "invalid_deployment_config",
+    "details": {
+      "items": [
+        {
+          "message": "bootstrap manifest field \"incident_memberships\" is not allowed",
+          "path": "bootstrap.first_admin_manifest.incident_memberships",
+          "reason_code": "bootstrap_manifest_schema_invalid"
+        }
+      ]
+    }
+  }
+}

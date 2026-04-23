@@ -1,0 +1,14 @@
+{
+  "error": {
+    "code": "invalid_deployment_config",
+    "details": {
+      "items": [
+        {
+          "message": "bootstrap completion state exists but no active deployment admin remains",
+          "path": "bootstrap.first_admin_manifest_path",
+          "reason_code": "bootstrap_recovery_not_supported"
+        }
+      ]
+    }
+  }
+}

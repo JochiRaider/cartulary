@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/crosscutting"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -44,8 +45,7 @@ func TestPhase0_InvalidConfigNeverReachesReady_I_0_03(t *testing.T) {
 	cases := []struct {
 		name       string
 		mutate     func(config.Config) config.Config
-		path       string
-		reasonCode string
+		goldenFile string
 	}{
 		{
 			name: "path-validation failure",
@@ -53,8 +53,7 @@ func TestPhase0_InvalidConfigNeverReachesReady_I_0_03(t *testing.T) {
 				cfg.Roots.DatabaseStorage.Path = "relative/postgres"
 				return cfg
 			},
-			path:       "roots.database_storage.path",
-			reasonCode: "path_not_absolute",
+			goldenFile: "startup_path_not_absolute_database_storage_root.json",
 		},
 		{
 			name: "missing required runtime root",
@@ -62,8 +61,7 @@ func TestPhase0_InvalidConfigNeverReachesReady_I_0_03(t *testing.T) {
 				cfg.Roots.ExportOutputs = config.RootBinding{}
 				return cfg
 			},
-			path:       "roots.export_outputs",
-			reasonCode: "missing_required_key",
+			goldenFile: "startup_missing_export_outputs_root.json",
 		},
 	}
 
@@ -73,7 +71,7 @@ func TestPhase0_InvalidConfigNeverReachesReady_I_0_03(t *testing.T) {
 			cfg := tc.mutate(phase0RuntimeConfig(t))
 
 			_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
-			requireDiagnosticPathAndReason(t, err, tc.path, tc.reasonCode)
+			configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", tc.goldenFile})
 			counters.RequireNotStarted(t)
 		})
 	}
@@ -204,78 +202,71 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 	s3Harness := s3test.Start(t)
 
 	cases := []struct {
-		name           string
-		manifestPath   func(t *testing.T) string
-		seed           func(t *testing.T, db *sql.DB)
-		wantReasonCode string
-		wantUserCount  int
+		name          string
+		manifestPath  func(t *testing.T) string
+		seed          func(t *testing.T, db *sql.DB)
+		goldenFile    string
+		wantUserCount int
 	}{
 		{
-			name:           "missing configured bootstrap path",
-			wantReasonCode: "bootstrap_manifest_path_missing",
-		},
-		{
-			name: "unreadable regular bootstrap file",
-			manifestPath: func(t *testing.T) string {
-				return phase0test.WriteUnreadableRegularFile(t, t.TempDir(), "bootstrap-admin.json", fixtures.MustRead("bootstrap-admin", "canonical.json"))
-			},
-			wantReasonCode: "bootstrap_manifest_not_readable",
+			name:       "missing configured bootstrap path",
+			goldenFile: "bootstrap_manifest_path_missing.json",
 		},
 		{
 			name: "non regular bootstrap path",
 			manifestPath: func(t *testing.T) string {
 				return phase0test.WriteNonRegularBootstrapManifestPath(t)
 			},
-			wantReasonCode: "bootstrap_manifest_not_regular_file",
+			goldenFile: "bootstrap_manifest_not_regular_file.json",
 		},
 		{
 			name: "malformed json manifest",
 			manifestPath: func(t *testing.T) string {
 				return phase0test.WriteMalformedBootstrapManifest(t)
 			},
-			wantReasonCode: "bootstrap_manifest_parse_error",
+			goldenFile: "bootstrap_manifest_parse_error.json",
 		},
 		{
 			name: "wrong schema id manifest",
 			manifestPath: func(t *testing.T) string {
 				return phase0test.WriteWrongSchemaBootstrapManifest(t)
 			},
-			wantReasonCode: "bootstrap_manifest_schema_invalid",
+			goldenFile: "bootstrap_manifest_schema_invalid_wrong_schema.json",
 		},
 		{
 			name: "explicit false mfa manifest",
 			manifestPath: func(t *testing.T) string {
 				return phase0test.WriteExplicitFalseMFABootstrapManifest(t)
 			},
-			wantReasonCode: "bootstrap_manifest_schema_invalid",
+			goldenFile: "bootstrap_manifest_schema_invalid_explicit_false_mfa.json",
 		},
 		{
 			name: "unknown top level members",
 			manifestPath: func(t *testing.T) string {
 				return phase0test.WriteUnknownMemberBootstrapManifest(t)
 			},
-			wantReasonCode: "bootstrap_manifest_schema_invalid",
+			goldenFile: "bootstrap_manifest_schema_invalid_unknown_member.json",
 		},
 		{
 			name: "forbidden incident membership fields",
 			manifestPath: func(t *testing.T) string {
 				return phase0test.WriteForbiddenIncidentMembershipBootstrapManifest(t)
 			},
-			wantReasonCode: "bootstrap_manifest_schema_invalid",
+			goldenFile: "bootstrap_manifest_schema_invalid_forbidden_incident_memberships.json",
 		},
 		{
 			name: "forbidden provider binding fields",
 			manifestPath: func(t *testing.T) string {
 				return phase0test.WriteForbiddenProviderBootstrapManifest(t)
 			},
-			wantReasonCode: "bootstrap_manifest_schema_invalid",
+			goldenFile: "bootstrap_manifest_schema_invalid_forbidden_provider_subject.json",
 		},
 		{
 			name: "forbidden client chosen admin fields",
 			manifestPath: func(t *testing.T) string {
 				return phase0test.WriteForbiddenDeploymentAdminBootstrapManifest(t)
 			},
-			wantReasonCode: "bootstrap_manifest_schema_invalid",
+			goldenFile: "bootstrap_manifest_schema_invalid_forbidden_deployment_admin.json",
 		},
 		{
 			name: "email conflict",
@@ -285,8 +276,8 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 			seed: func(t *testing.T, db *sql.DB) {
 				phase0test.SeedBootstrapEmailConflict(t, db)
 			},
-			wantReasonCode: "bootstrap_email_conflict",
-			wantUserCount:  1,
+			goldenFile:    "bootstrap_email_conflict.json",
+			wantUserCount: 1,
 		},
 	}
 
@@ -315,7 +306,7 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 
 			counters := installPhase0StartupCounters(t)
 			_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
-			requireBootstrapReason(t, err, tc.wantReasonCode)
+			configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", tc.goldenFile})
 			counters.RequireNotStarted(t)
 
 			requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, tc.wantUserCount)
@@ -407,7 +398,7 @@ func TestPhase0_BootstrapSkipAndRecovery_I_0_06(t *testing.T) {
 
 		counters := installPhase0StartupCounters(t)
 		_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
-		requireBootstrapReason(t, err, "bootstrap_recovery_not_supported")
+		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", "bootstrap_recovery_not_supported.json"})
 		counters.RequireNotStarted(t)
 
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM users`, 1)
@@ -469,31 +460,6 @@ func (c *phase0StartupCounters) RequireNotStarted(t testing.TB) {
 	if c.jobsManager != 0 || c.wsHub != 0 || c.httpHandler != 0 {
 		t.Fatalf("expected listeners and job shells to remain unstarted, got jobs=%d websocket=%d handler=%d", c.jobsManager, c.wsHub, c.httpHandler)
 	}
-}
-
-func requireInvalidDeploymentConfig(t testing.TB, err error) {
-	t.Helper()
-
-	diagnosticsErr, ok := err.(*config.DiagnosticsError)
-	if !ok {
-		t.Fatalf("expected diagnostics error, got %T", err)
-	}
-	if diagnosticsErr.Code != config.InvalidDeploymentConfigCode {
-		t.Fatalf("unexpected diagnostics code: got %q want %q", diagnosticsErr.Code, config.InvalidDeploymentConfigCode)
-	}
-}
-
-func requireDiagnosticPathAndReason(t testing.TB, err error, wantPath string, wantReasonCode string) {
-	t.Helper()
-
-	requireInvalidDeploymentConfig(t, err)
-	diagnosticsErr := err.(*config.DiagnosticsError)
-	for _, diagnostic := range diagnosticsErr.Diagnostics {
-		if diagnostic.Path == wantPath && diagnostic.ReasonCode == wantReasonCode {
-			return
-		}
-	}
-	t.Fatalf("missing diagnostic path=%q reason_code=%q in %#v", wantPath, wantReasonCode, diagnosticsErr.Diagnostics)
 }
 
 func requireBootstrapReason(t testing.TB, err error, wantReasonCode string) {

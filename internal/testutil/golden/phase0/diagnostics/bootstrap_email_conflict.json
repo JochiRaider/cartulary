@@ -1,0 +1,14 @@
+{
+  "error": {
+    "code": "invalid_deployment_config",
+    "details": {
+      "items": [
+        {
+          "message": "bootstrap manifest email conflicts with an existing local user",
+          "path": "bootstrap.first_admin_manifest.email",
+          "reason_code": "bootstrap_email_conflict"
+        }
+      ]
+    }
+  }
+}

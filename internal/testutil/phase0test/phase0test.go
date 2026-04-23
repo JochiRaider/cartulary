@@ -3,8 +3,6 @@ package phase0test
 import (
 	"context"
 	"database/sql"
-	"errors"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,30 +14,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
-
-func WriteUnreadableRegularFile(t testing.TB, dir string, name string, content []byte) string {
-	t.Helper()
-
-	path := filepath.Join(dir, name)
-	if err := os.WriteFile(path, content, 0o600); err != nil {
-		t.Fatalf("write unreadable regular file fixture: %v", err)
-	}
-	if err := os.Chmod(path, 0o200); err != nil {
-		t.Fatalf("chmod unreadable regular file fixture: %v", err)
-	}
-
-	t.Cleanup(func() {
-		_ = os.Chmod(path, 0o600)
-	})
-
-	if _, err := os.ReadFile(path); err == nil {
-		t.Skip("current environment can still read write-only files; unreadable regular-file assertions are unsupported here")
-	} else if !errors.Is(err, fs.ErrPermission) && !os.IsPermission(err) {
-		t.Fatalf("expected permission error for unreadable regular file, got %v", err)
-	}
-
-	return path
-}
 
 func WriteBootstrapManifest(t testing.TB, content string) string {
 	t.Helper()

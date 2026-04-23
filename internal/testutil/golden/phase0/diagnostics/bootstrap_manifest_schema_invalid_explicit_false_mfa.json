@@ -1,0 +1,14 @@
+{
+  "error": {
+    "code": "invalid_deployment_config",
+    "details": {
+      "items": [
+        {
+          "message": "mfa_required must be true when supplied",
+          "path": "bootstrap.first_admin_manifest.mfa_required",
+          "reason_code": "bootstrap_manifest_schema_invalid"
+        }
+      ]
+    }
+  }
+}

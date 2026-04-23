@@ -2,16 +2,15 @@ package app
 
 import (
 	"context"
-	"errors"
-	"os"
-	"path/filepath"
+	"io/fs"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase0test"
 )
 
 func TestPhase0_BootstrapManifestValidation_U_0_07(t *testing.T) {
@@ -141,24 +140,20 @@ func TestPhase0_BootstrapPreflight_U_0_08(t *testing.T) {
 				ActiveDeploymentAdmins: 1,
 			},
 		}
-
-		var readCalls int
+		manifestFS := &bootstrapManifestFSStub{}
 		err := bootstrapPreflight(context.Background(), config.Config{
 			Bootstrap: config.BootstrapConfig{
 				FirstAdminManifestPath: "/tmp/stale-bootstrap.json",
 			},
-		}, store, func(path string) ([]byte, error) {
-			readCalls++
-			return nil, errors.New("unexpected manifest read")
-		}, deriveBootstrapPasswordHash)
+		}, store, manifestFS, deriveBootstrapPasswordHash)
 		if err != nil {
 			t.Fatalf("bootstrap preflight with existing admin: %v", err)
 		}
 		if store.readCalls != 1 {
 			t.Fatalf("expected exactly one bootstrap-state query, got %d", store.readCalls)
 		}
-		if readCalls != 0 {
-			t.Fatalf("expected manifest reads to be skipped, got %d", readCalls)
+		if manifestFS.statCalls != 0 || manifestFS.readCalls != 0 {
+			t.Fatalf("expected manifest filesystem access to be skipped, got stat=%d read=%d", manifestFS.statCalls, manifestFS.readCalls)
 		}
 		if store.createCalls != 0 {
 			t.Fatalf("expected no bootstrap create call, got %d", store.createCalls)
@@ -171,21 +166,17 @@ func TestPhase0_BootstrapPreflight_U_0_08(t *testing.T) {
 				ActiveDeploymentAdmins: 1,
 			},
 		}
-
-		var readCalls int
+		manifestFS := &bootstrapManifestFSStub{}
 		err := bootstrapPreflight(context.Background(), config.Config{
 			Bootstrap: config.BootstrapConfig{
 				FirstAdminManifestPath: "/tmp/invalid-bootstrap.json",
 			},
-		}, store, func(path string) ([]byte, error) {
-			readCalls++
-			return []byte(`{"bootstrap_schema_id":"cartulary.bootstrap_admin.v1","mfa_required":false}`), nil
-		}, deriveBootstrapPasswordHash)
+		}, store, manifestFS, deriveBootstrapPasswordHash)
 		if err != nil {
 			t.Fatalf("bootstrap preflight with existing admin and invalid manifest: %v", err)
 		}
-		if readCalls != 0 {
-			t.Fatalf("expected manifest reads to be skipped for invalid configured content, got %d", readCalls)
+		if manifestFS.statCalls != 0 || manifestFS.readCalls != 0 {
+			t.Fatalf("expected manifest filesystem access to be skipped for invalid configured content, got stat=%d read=%d", manifestFS.statCalls, manifestFS.readCalls)
 		}
 		if store.createCalls != 0 {
 			t.Fatalf("expected no bootstrap create call, got %d", store.createCalls)
@@ -198,22 +189,18 @@ func TestPhase0_BootstrapPreflight_U_0_08(t *testing.T) {
 				BootstrapCompleted: true,
 			},
 		}
-
-		var readCalls int
+		manifestFS := &bootstrapManifestFSStub{}
 		err := bootstrapPreflight(context.Background(), config.Config{
 			Bootstrap: config.BootstrapConfig{
 				FirstAdminManifestPath: "/tmp/bootstrap.json",
 			},
-		}, store, func(path string) ([]byte, error) {
-			readCalls++
-			return fixtures.MustRead("bootstrap-admin", "canonical.json"), nil
-		}, deriveBootstrapPasswordHash)
-		requireBootstrapDiagnostic(t, err, "bootstrap.first_admin_manifest_path", "bootstrap_recovery_not_supported")
+		}, store, manifestFS, deriveBootstrapPasswordHash)
+		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", "bootstrap_recovery_not_supported.json"})
 		if store.readCalls != 1 {
 			t.Fatalf("expected exactly one bootstrap-state query, got %d", store.readCalls)
 		}
-		if readCalls != 0 {
-			t.Fatalf("expected manifest reads to be skipped during fail-closed recovery, got %d", readCalls)
+		if manifestFS.statCalls != 0 || manifestFS.readCalls != 0 {
+			t.Fatalf("expected manifest filesystem access to be skipped during fail-closed recovery, got stat=%d read=%d", manifestFS.statCalls, manifestFS.readCalls)
 		}
 		if store.createCalls != 0 {
 			t.Fatalf("expected no bootstrap create call, got %d", store.createCalls)
@@ -222,50 +209,92 @@ func TestPhase0_BootstrapPreflight_U_0_08(t *testing.T) {
 
 	t.Run("requires a configured manifest path when bootstrap is still needed", func(t *testing.T) {
 		store := &bootstrapStoreStub{}
-
-		err := bootstrapPreflight(context.Background(), config.Config{}, store, func(path string) ([]byte, error) {
-			return fixtures.MustRead("bootstrap-admin", "canonical.json"), nil
-		}, deriveBootstrapPasswordHash)
-		requireBootstrapDiagnostic(t, err, "bootstrap.first_admin_manifest_path", "bootstrap_manifest_path_missing")
+		manifestFS := &bootstrapManifestFSStub{}
+		err := bootstrapPreflight(context.Background(), config.Config{}, store, manifestFS, deriveBootstrapPasswordHash)
+		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", "bootstrap_manifest_path_missing.json"})
 		if store.readCalls != 1 {
 			t.Fatalf("expected exactly one bootstrap-state query, got %d", store.readCalls)
+		}
+		if manifestFS.statCalls != 0 || manifestFS.readCalls != 0 {
+			t.Fatalf("expected manifest filesystem access to be skipped when path is missing, got stat=%d read=%d", manifestFS.statCalls, manifestFS.readCalls)
 		}
 		if store.createCalls != 0 {
 			t.Fatalf("expected no bootstrap create call, got %d", store.createCalls)
 		}
 	})
 
-	t.Run("returns stable reason codes for unreadable and non-regular manifests", func(t *testing.T) {
+	t.Run("returns a whole-payload golden for unreadable manifests via injected permission failure", func(t *testing.T) {
 		store := &bootstrapStoreStub{}
-		unreadableManifestPath := phase0test.WriteUnreadableRegularFile(t, t.TempDir(), "bootstrap-admin.json", fixtures.MustRead("bootstrap-admin", "canonical.json"))
-
+		manifestFS := &bootstrapManifestFSStub{
+			statInfo: stubFileInfo{mode: 0},
+			readErr:  fs.ErrPermission,
+		}
 		err := bootstrapPreflight(context.Background(), config.Config{
 			Bootstrap: config.BootstrapConfig{
-				FirstAdminManifestPath: unreadableManifestPath,
+				FirstAdminManifestPath: "/tmp/bootstrap-admin.json",
 			},
-		}, store, os.ReadFile, deriveBootstrapPasswordHash)
-		requireBootstrapDiagnostic(t, err, "bootstrap.first_admin_manifest_path", "bootstrap_manifest_not_readable")
+		}, store, manifestFS, deriveBootstrapPasswordHash)
+		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", "bootstrap_manifest_not_readable_permission_denied.json"})
+		if manifestFS.statCalls != 1 || manifestFS.readCalls != 1 {
+			t.Fatalf("expected one manifest stat and one read, got stat=%d read=%d", manifestFS.statCalls, manifestFS.readCalls)
+		}
+	})
 
-		err = bootstrapPreflight(context.Background(), config.Config{
+	t.Run("returns a whole-payload golden for non-regular manifests", func(t *testing.T) {
+		store := &bootstrapStoreStub{}
+		manifestFS := &bootstrapManifestFSStub{
+			statInfo: stubFileInfo{mode: fs.ModeDir},
+		}
+		err := bootstrapPreflight(context.Background(), config.Config{
 			Bootstrap: config.BootstrapConfig{
-				FirstAdminManifestPath: t.TempDir(),
+				FirstAdminManifestPath: "/tmp/bootstrap-admin.json",
 			},
-		}, store, os.ReadFile, deriveBootstrapPasswordHash)
-		requireBootstrapDiagnostic(t, err, "bootstrap.first_admin_manifest_path", "bootstrap_manifest_not_regular_file")
+		}, store, manifestFS, deriveBootstrapPasswordHash)
+		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", "bootstrap_manifest_not_regular_file.json"})
+		if manifestFS.statCalls != 1 || manifestFS.readCalls != 0 {
+			t.Fatalf("expected one manifest stat and zero reads, got stat=%d read=%d", manifestFS.statCalls, manifestFS.readCalls)
+		}
+	})
+
+	t.Run("returns a whole-payload golden for malformed bootstrap manifests", func(t *testing.T) {
+		store := &bootstrapStoreStub{}
+		manifestFS := &bootstrapManifestFSStub{
+			statInfo: stubFileInfo{mode: 0},
+			readData: []byte(`{"bootstrap_schema_id":`),
+		}
+		err := bootstrapPreflight(context.Background(), config.Config{
+			Bootstrap: config.BootstrapConfig{
+				FirstAdminManifestPath: "/tmp/bootstrap-admin.json",
+			},
+		}, store, manifestFS, deriveBootstrapPasswordHash)
+		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", "bootstrap_manifest_parse_error.json"})
+	})
+
+	t.Run("returns canonically ordered schema-invalid diagnostics", func(t *testing.T) {
+		store := &bootstrapStoreStub{}
+		manifestFS := &bootstrapManifestFSStub{
+			statInfo: stubFileInfo{mode: 0},
+			readData: []byte(`{"display_name":"   ","initial_password":"short","unexpected":"surprise"}`),
+		}
+		err := bootstrapPreflight(context.Background(), config.Config{
+			Bootstrap: config.BootstrapConfig{
+				FirstAdminManifestPath: "/tmp/bootstrap-admin.json",
+			},
+		}, store, manifestFS, deriveBootstrapPasswordHash)
+		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"phase0", "diagnostics", "bootstrap_manifest_schema_invalid_multiple.json"})
 	})
 
 	t.Run("consumes the configured manifest when bootstrap is required", func(t *testing.T) {
 		store := &bootstrapStoreStub{}
-		manifestPath := filepath.Join(t.TempDir(), "bootstrap-admin.json")
-		if err := os.WriteFile(manifestPath, fixtures.MustRead("bootstrap-admin", "canonical.json"), 0o644); err != nil {
-			t.Fatalf("write bootstrap manifest: %v", err)
+		manifestFS := &bootstrapManifestFSStub{
+			statInfo: stubFileInfo{mode: 0},
+			readData: fixtures.MustRead("bootstrap-admin", "canonical.json"),
 		}
-
 		err := bootstrapPreflight(context.Background(), config.Config{
 			Bootstrap: config.BootstrapConfig{
-				FirstAdminManifestPath: manifestPath,
+				FirstAdminManifestPath: "/tmp/bootstrap-admin.json",
 			},
-		}, store, os.ReadFile, deriveBootstrapPasswordHash)
+		}, store, manifestFS, deriveBootstrapPasswordHash)
 		if err != nil {
 			t.Fatalf("bootstrap preflight with valid manifest: %v", err)
 		}
@@ -274,6 +303,9 @@ func TestPhase0_BootstrapPreflight_U_0_08(t *testing.T) {
 		}
 		if store.createCalls != 1 {
 			t.Fatalf("expected one bootstrap create call, got %d", store.createCalls)
+		}
+		if manifestFS.statCalls != 1 || manifestFS.readCalls != 1 {
+			t.Fatalf("expected one manifest stat and one read, got stat=%d read=%d", manifestFS.statCalls, manifestFS.readCalls)
 		}
 		if store.created == nil {
 			t.Fatal("expected bootstrap create request")
@@ -337,3 +369,39 @@ func requireBootstrapDiagnostic(t testing.TB, err error, wantPath string, wantRe
 
 	t.Fatalf("missing diagnostic path=%q reason=%q in %#v", wantPath, wantReason, diagnosticsErr.Diagnostics)
 }
+
+type bootstrapManifestFSStub struct {
+	statInfo  fs.FileInfo
+	statErr   error
+	readData  []byte
+	readErr   error
+	statCalls int
+	readCalls int
+}
+
+func (s *bootstrapManifestFSStub) Stat(name string) (fs.FileInfo, error) {
+	s.statCalls++
+	if s.statErr != nil {
+		return nil, s.statErr
+	}
+	return s.statInfo, nil
+}
+
+func (s *bootstrapManifestFSStub) ReadFile(name string) ([]byte, error) {
+	s.readCalls++
+	if s.readErr != nil {
+		return nil, s.readErr
+	}
+	return append([]byte(nil), s.readData...), nil
+}
+
+type stubFileInfo struct {
+	mode fs.FileMode
+}
+
+func (stubFileInfo) Name() string        { return "bootstrap-admin.json" }
+func (stubFileInfo) Size() int64         { return 0 }
+func (f stubFileInfo) Mode() fs.FileMode { return f.mode }
+func (stubFileInfo) ModTime() time.Time  { return time.Time{} }
+func (f stubFileInfo) IsDir() bool       { return f.mode.IsDir() }
+func (stubFileInfo) Sys() any            { return nil }

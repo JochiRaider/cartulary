@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"strings"
 	"unicode"
@@ -58,7 +59,22 @@ type postgresBootstrapStore struct {
 	pool *pgxpool.Pool
 }
 
-func bootstrapPreflight(ctx context.Context, cfg config.Config, store bootstrapStore, readFile func(string) ([]byte, error), hashPassword func(string) (string, error)) error {
+type bootstrapManifestFS interface {
+	Stat(name string) (fs.FileInfo, error)
+	ReadFile(name string) ([]byte, error)
+}
+
+type osBootstrapManifestFS struct{}
+
+func (osBootstrapManifestFS) Stat(name string) (fs.FileInfo, error) {
+	return os.Stat(name)
+}
+
+func (osBootstrapManifestFS) ReadFile(name string) ([]byte, error) {
+	return os.ReadFile(name)
+}
+
+func bootstrapPreflight(ctx context.Context, cfg config.Config, store bootstrapStore, manifestFS bootstrapManifestFS, hashPassword func(string) (string, error)) error {
 	state, err := store.ReadBootstrapState(ctx)
 	if err != nil {
 		return bootstrapDiagnostic(bootstrapManifestPathKey, "bootstrap_persist_failed", "query bootstrap state", err)
@@ -84,7 +100,7 @@ func bootstrapPreflight(ctx context.Context, cfg config.Config, store bootstrapS
 		})
 	}
 
-	info, err := os.Stat(manifestPath)
+	info, err := manifestFS.Stat(manifestPath)
 	if err != nil {
 		return bootstrapDiagnostic(bootstrapManifestPathKey, "bootstrap_manifest_not_readable", "stat bootstrap manifest", err)
 	}
@@ -96,7 +112,7 @@ func bootstrapPreflight(ctx context.Context, cfg config.Config, store bootstrapS
 		})
 	}
 
-	raw, err := readFile(manifestPath)
+	raw, err := manifestFS.ReadFile(manifestPath)
 	if err != nil {
 		return bootstrapDiagnostic(bootstrapManifestPathKey, "bootstrap_manifest_not_readable", "read bootstrap manifest", err)
 	}
@@ -358,10 +374,7 @@ func bootstrapDiagnostic(path string, reasonCode string, action string, err erro
 }
 
 func configError(diagnostics ...config.Diagnostic) error {
-	return &config.DiagnosticsError{
-		Code:        config.InvalidDeploymentConfigCode,
-		Diagnostics: diagnostics,
-	}
+	return config.NewDiagnosticsError(diagnostics...)
 }
 
 func bootstrapManifestDiagnostic(field string, message string) config.Diagnostic {

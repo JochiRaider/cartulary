@@ -1,0 +1,14 @@
+{
+  "error": {
+    "code": "invalid_deployment_config",
+    "details": {
+      "items": [
+        {
+          "message": "filesystem root paths must be an absolute POSIX path",
+          "path": "roots.database_storage.path",
+          "reason_code": "path_not_absolute"
+        }
+      ]
+    }
+  }
+}

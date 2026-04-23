@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -80,7 +79,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.ObjectStore = client
 	}
 
-	if err := runBootstrap(ctx, normalizedCfg, postgresBootstrapStore{pool: runtime.Postgres}, os.ReadFile, deriveBootstrapPasswordHash); err != nil {
+	if err := runBootstrap(ctx, normalizedCfg, postgresBootstrapStore{pool: runtime.Postgres}, osBootstrapManifestFS{}, deriveBootstrapPasswordHash); err != nil {
 		runtime.Close()
 		return nil, err
 	}

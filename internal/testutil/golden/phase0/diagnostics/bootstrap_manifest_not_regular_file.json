@@ -1,0 +1,14 @@
+{
+  "error": {
+    "code": "invalid_deployment_config",
+    "details": {
+      "items": [
+        {
+          "message": "bootstrap manifest path must reference one regular file",
+          "path": "bootstrap.first_admin_manifest_path",
+          "reason_code": "bootstrap_manifest_not_regular_file"
+        }
+      ]
+    }
+  }
+}

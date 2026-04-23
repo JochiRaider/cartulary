@@ -1,0 +1,14 @@
+{
+  "error": {
+    "code": "invalid_deployment_config",
+    "details": {
+      "items": [
+        {
+          "message": "required runtime root is missing",
+          "path": "roots.export_outputs",
+          "reason_code": "missing_required_key"
+        }
+      ]
+    }
+  }
+}
