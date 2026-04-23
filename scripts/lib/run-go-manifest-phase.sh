@@ -83,8 +83,7 @@ phase_dir="$(prepare_phase_artifact_dir "$phase_label")"
 log_file="${phase_dir}/runner.jsonl"
 stderr_file="${phase_dir}/stderr.log"
 command_text="$(render_command "${run_command[@]}")"
-start_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-start_ms="$(date +%s%3N)"
+phase_capture_start PHASE
 
 if [[ "$output_mode" != "quiet" && "${RUN_PHASE_SHOW_BANNER:-1}" == "1" ]]; then
   echo "== ${phase_label} =="
@@ -92,7 +91,7 @@ fi
 
 set +e
 if [[ "$output_mode" != "quiet" ]]; then
-  "${run_command[@]}" > >(tee "$log_file") 2> >(tee "$stderr_file" >&2)
+  "${run_command[@]}" > >(tee "$log_file" | stream_go_json_output) 2> >(tee "$stderr_file" >&2)
   run_status=$?
 else
   "${run_command[@]}" >"$log_file" 2>"$stderr_file"
@@ -100,9 +99,10 @@ else
 fi
 set -e
 
-end_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-end_ms="$(date +%s%3N)"
-duration_ms="$((end_ms - start_ms))"
+phase_capture_finish PHASE
+start_time="${PHASE_START_TIME}"
+end_time="${PHASE_END_TIME}"
+duration_ms="${PHASE_DURATION_MS}"
 
 set +e
 CARTULARY_PHASE_LABEL="$phase_label" \
@@ -111,7 +111,7 @@ CARTULARY_PHASE_COMMAND="$command_text" \
 CARTULARY_PHASE_START_TIME="$start_time" \
 CARTULARY_PHASE_END_TIME="$end_time" \
 CARTULARY_PHASE_DURATION_MS="$duration_ms" \
-CARTULARY_PHASE_WALL_DURATION_MS="$duration_ms" \
+CARTULARY_PHASE_WALL_DURATION_MS="${PHASE_WALL_DURATION_MS}" \
 CARTULARY_PHASE_EXIT_STATUS="$run_status" \
 CARTULARY_PHASE_RUNNER_LOG="$log_file" \
 CARTULARY_PHASE_STDERR_LOG="$stderr_file" \

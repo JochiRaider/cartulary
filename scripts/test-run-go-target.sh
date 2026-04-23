@@ -22,6 +22,21 @@ fail() {
   exit 1
 }
 
+json_field() {
+  local file="$1"
+  local path="$2"
+
+  "${NODE:-node}" -e '
+const fs = require("node:fs");
+const [file, path] = process.argv.slice(1);
+const value = path.split(".").reduce((current, key) => current?.[key], JSON.parse(fs.readFileSync(file, "utf8")));
+if (value === undefined || value === null) {
+  process.exit(1);
+}
+process.stdout.write(String(value));
+' "$file" "$path"
+}
+
 assert_contains() {
   local haystack="$1"
   local needle="$2"
@@ -29,6 +44,16 @@ assert_contains() {
 
   if [[ "$haystack" != *"$needle"* ]]; then
     fail "$label: expected output to contain [$needle]"
+  fi
+}
+
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  local label="$3"
+
+  if [[ "$haystack" == *"$needle"* ]]; then
+    fail "$label: expected output to omit [$needle]"
   fi
 }
 
@@ -41,8 +66,89 @@ assert_not_zero() {
   fi
 }
 
+assert_not_negative() {
+  local actual="$1"
+  local label="$2"
+
+  if [[ -z "$actual" || ! "$actual" =~ ^-?[0-9]+$ || "$actual" == -* ]]; then
+    fail "$label: expected a non-negative integer, got [$actual]"
+  fi
+}
+
 node_bin="${NODE_BIN:-node}"
 go_bin="${GO:-go}"
+
+verbose_go_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-verbose.XXXXXX")"
+cleanup_paths+=("$verbose_go_dir")
+cat >"$verbose_go_dir/run_go_target_verbose_test.go" <<'EOF'
+package rungotargetverbose
+
+import "testing"
+
+func TestSupportPhase4Integration_VerboseSmoke(t *testing.T) {
+	t.Log("support verbose line")
+}
+EOF
+
+verbose_go_rel="./${verbose_go_dir#"$ROOT_DIR"/}"
+verbose_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  VERBOSE=1 \
+    "$GO_PHASE_HELPER" "run-go-target verbose smoke" '^(TestSupportPhase4Integration_VerboseSmoke)$' -- "$go_bin" test "$verbose_go_rel" \
+    2>&1
+)"
+assert_contains "$verbose_output" "== run-go-target verbose smoke ==" "verbose go banner"
+assert_contains "$verbose_output" "support verbose line" "verbose go human output"
+assert_not_contains "$verbose_output" "\"Action\":\"output\"" "verbose go raw json output"
+assert_not_contains "$verbose_output" "\"Test\":\"TestSupportPhase4Integration_VerboseSmoke\"" "verbose go raw json test field"
+
+duration_results_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-durations.XXXXXX")"
+cleanup_paths+=("$duration_results_dir")
+shared_report_dir="$duration_results_dir/shared-report"
+mkdir -p "$shared_report_dir"
+cat >"$shared_report_dir/runner.jsonl" <<'EOF'
+{"Time":"2026-04-22T12:00:00Z","Action":"run","Package":"github.com/JochiRaider/cartulary/internal/modules/entities","Test":"TestSupportPhase4Integration_Smoke"}
+{"Time":"2026-04-22T12:00:00Z","Action":"output","Package":"github.com/JochiRaider/cartulary/internal/modules/entities","Test":"TestSupportPhase4Integration_Smoke","Output":"=== RUN   TestSupportPhase4Integration_Smoke\n"}
+{"Time":"2026-04-22T12:00:00Z","Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/entities","Test":"TestSupportPhase4Integration_Smoke","Elapsed":0.001}
+{"Time":"2026-04-22T12:00:00Z","Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/entities","Elapsed":0.001}
+EOF
+touch "$shared_report_dir/stderr.log"
+printf '%s\n' "env go test -json -run '^(TestSupportPhase4Integration_Smoke)$' ./internal/modules/entities" >"$shared_report_dir/command.txt"
+printf '%s\n' "2026-04-22T12:00:00Z" >"$shared_report_dir/start_time.txt"
+printf '%s\n' "2026-04-22T12:00:00Z" >"$shared_report_dir/end_time.txt"
+printf '%s\n' "-17" >"$shared_report_dir/duration_ms.txt"
+printf '%s\n' "0" >"$shared_report_dir/exit_status.txt"
+
+duration_artifacts_root="$duration_results_dir/results"
+(
+  export CARTULARY_TEST_RESULTS_DIR="$duration_artifacts_root"
+  export CARTULARY_TEST_RUN_ID="duration-smoke"
+  export CARTULARY_TEST_TARGET="backend-unit-smoke"
+  export NODE_BIN="$node_bin"
+  source "$GO_TARGET_HELPER"
+  emit_go_raw_phase "duration actual" actual "$shared_report_dir" '^(TestSupportPhase4Integration_Smoke)$' ./internal/modules/entities
+  emit_go_raw_phase "duration reused" reused "$shared_report_dir" '^(TestSupportPhase4Integration_Smoke)$' ./internal/modules/entities
+  emit_go_raw_phase "duration derived" derived "$shared_report_dir" '^(TestSupportPhase4Integration_Smoke)$' ./internal/modules/entities
+  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary backend-unit-smoke pass >/dev/null
+  "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "duration smoke" pass 1 1 - backend-unit-smoke >/dev/null
+)
+
+duration_actual_summary="$duration_artifacts_root/duration-smoke/backend-unit-smoke/duration-actual/phase-summary.json"
+duration_reused_summary="$duration_artifacts_root/duration-smoke/backend-unit-smoke/duration-reused/phase-summary.json"
+duration_derived_summary="$duration_artifacts_root/duration-smoke/backend-unit-smoke/duration-derived/phase-summary.json"
+duration_target_summary="$duration_artifacts_root/duration-smoke/backend-unit-smoke/target-summary.json"
+duration_run_summary="$duration_artifacts_root/duration-smoke/run-summary.json"
+
+assert_not_negative "$(json_field "$duration_actual_summary" "duration_ms")" "duration actual phase duration"
+assert_not_negative "$(json_field "$duration_actual_summary" "wall_duration_ms")" "duration actual phase wall duration"
+assert_not_negative "$(json_field "$duration_reused_summary" "duration_ms")" "duration reused phase duration"
+assert_not_negative "$(json_field "$duration_reused_summary" "wall_duration_ms")" "duration reused phase wall duration"
+assert_not_negative "$(json_field "$duration_derived_summary" "duration_ms")" "duration derived phase duration"
+assert_not_negative "$(json_field "$duration_derived_summary" "wall_duration_ms")" "duration derived phase wall duration"
+assert_not_negative "$(json_field "$duration_target_summary" "duration_ms")" "duration target duration"
+assert_not_negative "$(json_field "$duration_target_summary" "wall_duration_ms")" "duration target wall duration"
+assert_not_negative "$(json_field "$duration_run_summary" "duration_ms")" "duration run duration"
+assert_not_negative "$(json_field "$duration_run_summary" "wall_duration_ms")" "duration run wall duration"
 
 core_shared_command="$(
   NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration-support backend-integration-core

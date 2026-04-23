@@ -278,8 +278,6 @@ capture_go_report() {
   local command_text
   local start_time
   local end_time
-  local start_ms
-  local end_ms
   local duration_ms
   local output_mode
   local run_status
@@ -307,14 +305,13 @@ capture_go_report() {
   fi
 
   output_mode="$(resolve_output_mode)"
-  start_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  start_ms="$(date +%s%3N)"
+  phase_capture_start PHASE
 
   set +e
   if [[ "${output_mode}" != "quiet" ]]; then
     env GOCACHE="${GO_CACHE_DIR}" GOMODCACHE="${GO_MOD_CACHE_DIR}" \
       "${GO_BIN}" test -json -run "${test_regex}" "${test_args[@]}" \
-      > >(tee "${runner_log}") \
+      > >(tee "${runner_log}" | stream_go_json_output >&2) \
       2> >(tee "${stderr_log}" >&2)
     run_status=$?
   else
@@ -326,14 +323,15 @@ capture_go_report() {
   fi
   set -e
 
-  end_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  end_ms="$(date +%s%3N)"
-  duration_ms="$((end_ms - start_ms))"
+  phase_capture_finish PHASE
+  start_time="${PHASE_START_TIME}"
+  end_time="${PHASE_END_TIME}"
+  duration_ms="${PHASE_DURATION_MS}"
 
   printf '%s\n' "${command_text}" >"${shared_dir}/command.txt"
   printf '%s\n' "${start_time}" >"${shared_dir}/start_time.txt"
   printf '%s\n' "${end_time}" >"${shared_dir}/end_time.txt"
-  printf '%s\n' "${duration_ms}" >"${shared_dir}/duration_ms.txt"
+  printf '%s\n' "$(phase_clamp_duration_ms "${duration_ms}")" >"${shared_dir}/duration_ms.txt"
   printf '%s\n' "${run_status}" >"${shared_dir}/exit_status.txt"
   touch "${complete_file}"
 
@@ -399,22 +397,24 @@ inspect_shared_command() {
 load_phase_window() {
   local report_dir="$1"
   local mode="$2"
+  local stored_duration_ms
 
   PHASE_COMMAND_TEXT="$(<"${report_dir}/command.txt")"
   PHASE_EXIT_STATUS="$(<"${report_dir}/exit_status.txt")"
+  stored_duration_ms="$(phase_clamp_duration_ms "$(<"${report_dir}/duration_ms.txt")")"
   if [[ "${mode}" == "actual" ]]; then
     PHASE_START_TIME="$(<"${report_dir}/start_time.txt")"
     PHASE_END_TIME="$(<"${report_dir}/end_time.txt")"
-    PHASE_DURATION_MS="$(<"${report_dir}/duration_ms.txt")"
+    PHASE_DURATION_MS="${stored_duration_ms}"
     PHASE_WALL_DURATION_MS="${PHASE_DURATION_MS}"
     return 0
   fi
 
-  PHASE_END_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  PHASE_END_TIME="$(phase_now_utc)"
   PHASE_START_TIME="${PHASE_END_TIME}"
   PHASE_WALL_DURATION_MS=0
   if [[ "${mode}" == "reused" ]]; then
-    PHASE_DURATION_MS="$(<"${report_dir}/duration_ms.txt")"
+    PHASE_DURATION_MS="${stored_duration_ms}"
     return 0
   fi
 
@@ -727,66 +727,72 @@ run_phase2_process_smoke() {
   finish_target "${status}"
 }
 
-if [[ "$#" -eq 0 ]]; then
-  usage
-fi
-
-case "$1" in
-  inspect-shared-command)
-    if [[ "$#" -ne 3 ]]; then
-      usage
-    fi
-    inspect_shared_command "$2" "$3"
-    ;;
-  backend-unit)
-    if [[ "$#" -ne 1 ]]; then
-      usage
-    fi
-    run_backend_unit
-    ;;
-  backend-store)
-    if [[ "$#" -ne 1 ]]; then
-      usage
-    fi
-    run_backend_store
-    ;;
-  backend-integration)
-    if [[ "$#" -ne 1 ]]; then
-      usage
-    fi
-    run_backend_integration
-    ;;
-  backend-integration-support)
-    if [[ "$#" -ne 1 ]]; then
-      usage
-    fi
-    run_backend_integration_support
-    ;;
-  backend-process)
-    if [[ "$#" -ne 1 ]]; then
-      usage
-    fi
-    run_backend_process
-    ;;
-  phase0-process-e2e)
-    if [[ "$#" -ne 1 ]]; then
-      usage
-    fi
-    run_phase0_process_e2e
-    ;;
-  phase1-process-smoke)
-    if [[ "$#" -ne 1 ]]; then
-      usage
-    fi
-    run_phase1_process_smoke
-    ;;
-  phase2-process-smoke)
-    if [[ "$#" -ne 1 ]]; then
-      usage
-    fi
-    run_phase2_process_smoke
-    ;;
-  *)
+main() {
+  if [[ "$#" -eq 0 ]]; then
     usage
-    ;;
-esac
+  fi
+
+  case "$1" in
+    inspect-shared-command)
+      if [[ "$#" -ne 3 ]]; then
+        usage
+      fi
+      inspect_shared_command "$2" "$3"
+      ;;
+    backend-unit)
+      if [[ "$#" -ne 1 ]]; then
+        usage
+      fi
+      run_backend_unit
+      ;;
+    backend-store)
+      if [[ "$#" -ne 1 ]]; then
+        usage
+      fi
+      run_backend_store
+      ;;
+    backend-integration)
+      if [[ "$#" -ne 1 ]]; then
+        usage
+      fi
+      run_backend_integration
+      ;;
+    backend-integration-support)
+      if [[ "$#" -ne 1 ]]; then
+        usage
+      fi
+      run_backend_integration_support
+      ;;
+    backend-process)
+      if [[ "$#" -ne 1 ]]; then
+        usage
+      fi
+      run_backend_process
+      ;;
+    phase0-process-e2e)
+      if [[ "$#" -ne 1 ]]; then
+        usage
+      fi
+      run_phase0_process_e2e
+      ;;
+    phase1-process-smoke)
+      if [[ "$#" -ne 1 ]]; then
+        usage
+      fi
+      run_phase1_process_smoke
+      ;;
+    phase2-process-smoke)
+      if [[ "$#" -ne 1 ]]; then
+        usage
+      fi
+      run_phase2_process_smoke
+      ;;
+    *)
+      usage
+      ;;
+  esac
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

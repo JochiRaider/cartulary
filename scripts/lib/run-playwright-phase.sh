@@ -43,8 +43,7 @@ else
 fi
 
 command_text="$(render_command "${run_command[@]}")"
-start_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-start_ms="$(date +%s%3N)"
+phase_capture_start PHASE
 
 set +e
 if [[ "$output_mode" != "quiet" ]]; then
@@ -56,9 +55,10 @@ else
 fi
 set -e
 
-end_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-end_ms="$(date +%s%3N)"
-duration_ms="$((end_ms - start_ms))"
+phase_capture_finish PHASE
+start_time="${PHASE_START_TIME}"
+end_time="${PHASE_END_TIME}"
+duration_ms="${PHASE_DURATION_MS}"
 
 set +e
 CARTULARY_PHASE_LABEL="$phase_label" \
@@ -67,7 +67,7 @@ CARTULARY_PHASE_COMMAND="$command_text" \
 CARTULARY_PHASE_START_TIME="$start_time" \
 CARTULARY_PHASE_END_TIME="$end_time" \
 CARTULARY_PHASE_DURATION_MS="$duration_ms" \
-CARTULARY_PHASE_WALL_DURATION_MS="$duration_ms" \
+CARTULARY_PHASE_WALL_DURATION_MS="${PHASE_WALL_DURATION_MS}" \
 CARTULARY_PHASE_EXIT_STATUS="$run_status" \
 CARTULARY_PHASE_RUNNER_LOG="$run_report" \
 CARTULARY_PHASE_STDOUT_LOG="$stdout_log" \

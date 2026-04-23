@@ -1,5 +1,5 @@
 {
-  "note": "Phase 4 authoritative execution manifest. Support-only route inventory and workbook helper coverage stay outside this map.",
+  "note": "Phase 4 authoritative execution manifest. Support-only matrix harness and workbook helper coverage stay outside the authoritative row inventory.",
   "expected_ids": [
     "U-4-01",
     "U-4-02",
@@ -31,7 +31,14 @@
       "section": "integration",
       "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_support_integration_test.go",
-      "symbol": "TestSupportPhase4Integration_RouteSurfaceInventory",
+      "symbols": [
+        "TestSupportPhase4Integration_SurfaceEnvelope",
+        "TestSupportPhase4Integration_CSRFProtection",
+        "TestSupportPhase4Integration_ReplayAndDivergentConflict",
+        "TestSupportPhase4Integration_AuthorizationReDerivation",
+        "TestSupportPhase4Integration_DefaultQueryMetaAndFieldKeyConformance",
+        "TestSupportPhase4Integration_ProjectionAndWebsocketConsequences"
+      ],
       "selection_pattern": "TestSupportPhase4Integration_"
     }
   ],

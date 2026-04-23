@@ -4,6 +4,81 @@ RUN_PHASE_COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUN_PHASE_REPO_ROOT="$(cd "${RUN_PHASE_COMMON_DIR}/../.." && pwd)"
 TEST_OUTPUT_HELPER="${RUN_PHASE_COMMON_DIR}/test-output.sh"
 
+phase_now_utc() {
+  date -u +%Y-%m-%dT%H:%M:%SZ
+}
+
+phase_now_monotonic_ms() {
+  if [[ -r /proc/uptime ]]; then
+    LC_ALL=C awk '{printf "%.0f\n", $1 * 1000}' /proc/uptime
+    return
+  fi
+
+  local now_ms
+  now_ms="$(date +%s%3N 2>/dev/null || true)"
+  if [[ "${now_ms}" =~ ^[0-9]+$ ]]; then
+    printf '%s\n' "${now_ms}"
+    return
+  fi
+
+  printf '%s000\n' "$(date +%s)"
+}
+
+phase_clamp_duration_ms() {
+  local value="${1:-0}"
+  if [[ ! "${value}" =~ ^-?[0-9]+$ ]] || (( value < 0 )); then
+    printf '0\n'
+    return
+  fi
+  printf '%s\n' "${value}"
+}
+
+phase_elapsed_ms() {
+  local start_ms="${1:-0}"
+  local end_ms="${2:-0}"
+  if [[ ! "${start_ms}" =~ ^-?[0-9]+$ ]] || [[ ! "${end_ms}" =~ ^-?[0-9]+$ ]]; then
+    printf '0\n'
+    return
+  fi
+  phase_clamp_duration_ms "$((end_ms - start_ms))"
+}
+
+phase_capture_start() {
+  if [[ "$#" -ne 1 ]]; then
+    echo "phase_capture_start requires <prefix>" >&2
+    return 2
+  fi
+
+  local prefix="$1"
+  printf -v "${prefix}_START_TIME" '%s' "$(phase_now_utc)"
+  printf -v "${prefix}_START_MONOTONIC_MS" '%s' "$(phase_now_monotonic_ms)"
+}
+
+phase_capture_finish() {
+  if [[ "$#" -ne 1 ]]; then
+    echo "phase_capture_finish requires <prefix>" >&2
+    return 2
+  fi
+
+  local prefix="$1"
+  local start_monotonic_var="${prefix}_START_MONOTONIC_MS"
+  local end_time
+  local end_monotonic
+  local duration_ms
+
+  end_time="$(phase_now_utc)"
+  end_monotonic="$(phase_now_monotonic_ms)"
+  duration_ms="$(phase_elapsed_ms "${!start_monotonic_var:-0}" "${end_monotonic}")"
+
+  printf -v "${prefix}_END_TIME" '%s' "${end_time}"
+  printf -v "${prefix}_DURATION_MS" '%s' "${duration_ms}"
+  printf -v "${prefix}_WALL_DURATION_MS" '%s' "${duration_ms}"
+}
+
+stream_go_json_output() {
+  NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" go-json-stream
+}
+
 render_command() {
   local rendered=""
   local arg
@@ -118,11 +193,14 @@ emit_report_phase_summary() {
   local command_text="$3"
   local start_time="$4"
   local end_time="$5"
-  local duration_ms="$6"
-  local wall_duration_ms="$7"
+  local duration_ms
+  local wall_duration_ms
   local exit_status="$8"
   local phase_dir
   local helper_status
+
+  duration_ms="$(phase_clamp_duration_ms "$6")"
+  wall_duration_ms="$(phase_clamp_duration_ms "$7")"
 
   phase_dir="$(prepare_phase_artifact_dir "$phase")"
 
@@ -179,8 +257,7 @@ run_phase_command() {
     echo "== ${phase} =="
   fi
 
-  start_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  start_ms="$(date +%s%3N)"
+  phase_capture_start PHASE
 
   set +e
   if [[ "$output_mode" != "quiet" ]]; then
@@ -192,9 +269,10 @@ run_phase_command() {
   fi
   set -e
 
-  end_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  end_ms="$(date +%s%3N)"
-  duration_ms="$((end_ms - start_ms))"
+  phase_capture_finish PHASE
+  start_time="${PHASE_START_TIME}"
+  end_time="${PHASE_END_TIME}"
+  duration_ms="${PHASE_DURATION_MS}"
 
   if [[ "$status" -eq 0 && "$output_mode" == "quiet" && "${CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG:-0}" == "1" ]]; then
     if [[ -s "$stdout_log" ]]; then
@@ -212,7 +290,7 @@ run_phase_command() {
   CARTULARY_PHASE_START_TIME="$start_time" \
   CARTULARY_PHASE_END_TIME="$end_time" \
   CARTULARY_PHASE_DURATION_MS="$duration_ms" \
-  CARTULARY_PHASE_WALL_DURATION_MS="$duration_ms" \
+  CARTULARY_PHASE_WALL_DURATION_MS="${PHASE_WALL_DURATION_MS}" \
   CARTULARY_PHASE_EXIT_STATUS="$status" \
   CARTULARY_PHASE_STDOUT_LOG="$stdout_log" \
   CARTULARY_PHASE_STDERR_LOG="$stderr_log" \

@@ -42,7 +42,7 @@ mapfile -t manifest_files < <("$node_bin" "$manifest_script" playwright-files "$
 grep_pattern="$("$node_bin" "$manifest_script" playwright-grep "$phase_manifest" "$coverage" "$execution_dependency")"
 output_mode="$(resolve_output_mode)"
 phase_dir="$(prepare_phase_artifact_dir "$phase_label")"
-list_report="${phase_dir}/list.json"
+selection_report="${phase_dir}/manifest-selection.json"
 run_report="${phase_dir}/runner.json"
 stdout_log="${phase_dir}/stdout.log"
 stderr_log="${phase_dir}/stderr.log"
@@ -60,17 +60,17 @@ else
 fi
 list_command_text="$(render_command "${list_command[@]}")"
 run_command_text="$(render_command "${run_command[@]}")"
-start_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-start_ms="$(date +%s%3N)"
+phase_capture_start PHASE
 
 set +e
-PLAYWRIGHT_JSON_OUTPUT_FILE="$list_report" "${list_command[@]}" >"$stdout_log" 2>"$stderr_log"
+PLAYWRIGHT_JSON_OUTPUT_FILE="$selection_report" "${list_command[@]}" >"$stdout_log" 2>"$stderr_log"
 list_status=$?
 set -e
 if [[ "$list_status" -ne 0 ]]; then
-  end_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  end_ms="$(date +%s%3N)"
-  duration_ms="$((end_ms - start_ms))"
+  phase_capture_finish PHASE
+  start_time="${PHASE_START_TIME}"
+  end_time="${PHASE_END_TIME}"
+  duration_ms="${PHASE_DURATION_MS}"
   set +e
   CARTULARY_PHASE_LABEL="$phase_label" \
   CARTULARY_PHASE_DIR="$phase_dir" \
@@ -78,7 +78,7 @@ if [[ "$list_status" -ne 0 ]]; then
   CARTULARY_PHASE_START_TIME="$start_time" \
   CARTULARY_PHASE_END_TIME="$end_time" \
   CARTULARY_PHASE_DURATION_MS="$duration_ms" \
-  CARTULARY_PHASE_WALL_DURATION_MS="$duration_ms" \
+  CARTULARY_PHASE_WALL_DURATION_MS="${PHASE_WALL_DURATION_MS}" \
   CARTULARY_PHASE_EXIT_STATUS="$list_status" \
   CARTULARY_PHASE_STDOUT_LOG="$stdout_log" \
   CARTULARY_PHASE_STDERR_LOG="$stderr_log" \
@@ -98,9 +98,10 @@ else
 fi
 set -e
 
-end_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-end_ms="$(date +%s%3N)"
-duration_ms="$((end_ms - start_ms))"
+phase_capture_finish PHASE
+start_time="${PHASE_START_TIME}"
+end_time="${PHASE_END_TIME}"
+duration_ms="${PHASE_DURATION_MS}"
 
 set +e
 CARTULARY_PHASE_LABEL="$phase_label" \
@@ -109,10 +110,10 @@ CARTULARY_PHASE_COMMAND="$run_command_text" \
 CARTULARY_PHASE_START_TIME="$start_time" \
 CARTULARY_PHASE_END_TIME="$end_time" \
 CARTULARY_PHASE_DURATION_MS="$duration_ms" \
-CARTULARY_PHASE_WALL_DURATION_MS="$duration_ms" \
+CARTULARY_PHASE_WALL_DURATION_MS="${PHASE_WALL_DURATION_MS}" \
 CARTULARY_PHASE_EXIT_STATUS="$run_status" \
 CARTULARY_PHASE_RUNNER_LOG="$run_report" \
-CARTULARY_PLAYWRIGHT_LIST_REPORT="$list_report" \
+CARTULARY_PLAYWRIGHT_SELECTION_REPORT="$selection_report" \
 CARTULARY_PHASE_STDOUT_LOG="$stdout_log" \
 CARTULARY_PHASE_STDERR_LOG="$stderr_log" \
 CARTULARY_PLAYWRIGHT_OUTPUT_DIR="$output_dir" \

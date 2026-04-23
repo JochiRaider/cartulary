@@ -77,13 +77,13 @@ const phaseConfigs = {
     sharedHarness: [
       "| Harness | Phase 4 evidence |",
       "| --- | --- |",
-      "| Real runtime and route helpers | `internal/testutil/phase4test` centralizes the Postgres + MinIO runtime boot path, bootstrap-admin login helpers, entity or mention seed helpers, contract-derived field-surface helpers, and the owned support-only route inventory for Phase 4 HTTP surfaces. |",
+      "| Real runtime and route helpers | `internal/testutil/phase4test` centralizes the Postgres + MinIO runtime boot path, bootstrap-admin login helpers, entity or mention seed helpers, contract-derived field-surface helpers, and the inventory-driven support matrix metadata for every owned Phase 4 HTTP route. |",
       "| Cross-cutting HTTP and projection helpers | `internal/testutil/httptestx` owns success or error envelope checks, replay scaffolding, authorization re-derivation assertions, closed-vocabulary checks, field-key conformance, and projection determinism assertions shared across the Phase 4 backend suite. |",
       "| Entity and Timeline substrate inspection | `internal/testutil/assertx`, `internal/testutil/timelinetest`, and Phase 4 package-local lookup helpers inspect durable mention, link, change-set, projection, and observation state that the authoritative Phase 4 rows rely on. |",
       "| Browser helper fixtures | `apps/web/src/timelineWorkbookTestSupport.tsx` and `apps/web/src/workbookShellPhase4.ts` provide the mocked workbook row, websocket, and mention helper scaffolding used by the support-only Phase 4 workbook tests. |",
     ],
     supportOnly: [
-      "- `internal/modules/entities/phase4_support_integration_test.go::TestSupportPhase4Integration_RouteSurfaceInventory` loops the centralized Phase 4 route inventory and proves the owned resolve, merge, entity-origin, indicator, and Timeline surfaces stay wired through `backend-integration-support`. It is route-surface support evidence only and does not replace any authoritative `I-4-*` row.",
+      "- `internal/modules/entities/phase4_support_integration_test.go` consumes the centralized Phase 4 route inventory through `TestSupportPhase4Integration_SurfaceEnvelope`, `..._CSRFProtection`, `..._ReplayAndDivergentConflict`, `..._AuthorizationReDerivation`, `..._DefaultQueryMetaAndFieldKeyConformance`, and `..._ProjectionAndWebsocketConsequences`. Together they keep the resolve, merge, entity-origin, indicator, and Timeline routes on one enforced support-only matrix without replacing any authoritative `I-4-*` row.",
       "- `apps/web/src/WorkbookShell.phase4.support.test.tsx` keeps mocked helper and component regression coverage for Phase 4 workbook chips, payload builders, inspector mention derivation, and auto-resolution notices. It remains support-only and is not completion evidence for Phase 4.",
     ],
   },

@@ -46,6 +46,9 @@ function main() {
     case "playwright-manifest-phase":
       process.exit(handlePlaywrightPhase({ manifestAware: true }));
       break;
+    case "go-json-stream":
+      process.exit(handleGoJSONStream());
+      break;
     case "target-summary":
       process.exit(handleTargetSummary(rest));
       break;
@@ -142,6 +145,13 @@ function createCounts() {
     non_test_failed: 0,
     packages: 0,
   };
+}
+
+function clampDurationMs(value) {
+  if (!Number.isFinite(value) || value < 0) {
+    return 0;
+  }
+  return value;
 }
 
 function formatDuration(durationMs) {
@@ -401,7 +411,7 @@ function printBlock(header, fields) {
 function createBasePhaseContext(runner) {
   const phaseDir = requiredEnv("CARTULARY_PHASE_DIR");
   ensureDir(phaseDir);
-  const durationMs = parseInteger("CARTULARY_PHASE_DURATION_MS", 0);
+  const durationMs = clampDurationMs(parseInteger("CARTULARY_PHASE_DURATION_MS", 0));
   return {
     label: requiredEnv("CARTULARY_PHASE_LABEL"),
     phaseDir,
@@ -411,7 +421,7 @@ function createBasePhaseContext(runner) {
     startTime: requiredEnv("CARTULARY_PHASE_START_TIME"),
     endTime: requiredEnv("CARTULARY_PHASE_END_TIME"),
     durationMs,
-    wallDurationMs: parseInteger("CARTULARY_PHASE_WALL_DURATION_MS", durationMs),
+    wallDurationMs: clampDurationMs(parseInteger("CARTULARY_PHASE_WALL_DURATION_MS", durationMs)),
     exitStatus: parseInteger("CARTULARY_PHASE_EXIT_STATUS", 0),
   };
 }
@@ -510,8 +520,8 @@ function summarizeTargetDir(target) {
     if (endTime === "" || summary.end_time > endTime) {
       endTime = summary.end_time;
     }
-    durationMs += summary.duration_ms ?? 0;
-    wallDurationMs += summary.wall_duration_ms ?? summary.duration_ms ?? 0;
+    durationMs += clampDurationMs(summary.duration_ms ?? 0);
+    wallDurationMs += clampDurationMs(summary.wall_duration_ms ?? summary.duration_ms ?? 0);
     counts.tests += summary.counts?.tests ?? 0;
     counts.failed += summary.counts?.failed ?? 0;
     counts.authoritative += summary.counts?.authoritative ?? 0;
@@ -656,8 +666,10 @@ function handleRunSummary(args) {
     aggregate.support_failed += summary.counts?.support_failed ?? 0;
     aggregate.unmapped_failed += summary.counts?.unmapped_failed ?? 0;
     aggregate.non_test_failed += summary.counts?.non_test_failed ?? 0;
-    aggregate.duration_ms += summary.duration_ms ?? 0;
-    aggregate.wall_duration_ms += summary.wall_duration_ms ?? summary.duration_ms ?? 0;
+    aggregate.duration_ms += clampDurationMs(summary.duration_ms ?? 0);
+    aggregate.wall_duration_ms += clampDurationMs(
+      summary.wall_duration_ms ?? summary.duration_ms ?? 0,
+    );
     if (startTime === "" || (summary.start_time && summary.start_time < startTime)) {
       startTime = summary.start_time ?? "";
     }
@@ -700,6 +712,40 @@ function handleRunSummary(args) {
     `[FAIL] ${label} completed_targets=${completedTargets}/${totalTargets} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.duration_ms)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
   );
   return 0;
+}
+
+function handleGoJSONStream() {
+  flushGoJSONStream(readFileSync(0, "utf8"), true);
+  return 0;
+}
+
+function flushGoJSONStream(buffer, flushAll) {
+  const lines = buffer.split(/\r?\n/);
+  const pending = flushAll ? "" : lines.pop() ?? "";
+  for (const line of lines) {
+    if (!line.trim()) {
+      continue;
+    }
+    try {
+      const entry = JSON.parse(line);
+      if (typeof entry.Output === "string") {
+        process.stdout.write(entry.Output);
+      }
+    } catch {
+      // Go's -json stream is expected on stdout; ignore malformed lines.
+    }
+  }
+  if (flushAll && pending.trim()) {
+    try {
+      const entry = JSON.parse(pending);
+      if (typeof entry.Output === "string") {
+        process.stdout.write(entry.Output);
+      }
+    } catch {
+      // Ignore trailing malformed output.
+    }
+  }
+  return pending;
 }
 
 function createInventoryItem({ coverage, phase, id, owner, name }) {
@@ -1907,7 +1953,7 @@ function evaluatePlaywrightManifest(summary) {
 function handlePlaywrightPhase({ manifestAware }) {
   const context = createBasePhaseContext("playwright");
   const reportFile = requiredEnv("CARTULARY_PHASE_RUNNER_LOG");
-  const listReport = optionalEnv("CARTULARY_PLAYWRIGHT_LIST_REPORT");
+  const selectionReport = optionalEnv("CARTULARY_PLAYWRIGHT_SELECTION_REPORT");
   const stdoutLog = optionalEnv("CARTULARY_PHASE_STDOUT_LOG");
   const stderrLog = optionalEnv("CARTULARY_PHASE_STDERR_LOG");
   const outputDir = optionalEnv("CARTULARY_PLAYWRIGHT_OUTPUT_DIR");
@@ -1937,7 +1983,8 @@ function handlePlaywrightPhase({ manifestAware }) {
         missing_ids: verification.missingIDs,
         unexpected_ids: verification.unexpectedIDs,
         forbidden_id_files: verification.forbiddenIDFiles,
-        raw: renderRawList([listReport, reportFile]),
+        selection: selectionReport && existsSync(selectionReport) ? relToRepo(selectionReport) : "",
+        runner: relToRepo(reportFile),
       };
     }
   }
@@ -1952,7 +1999,7 @@ function handlePlaywrightPhase({ manifestAware }) {
     manifestSummary,
     manifestMismatch,
     artifacts: {
-      list_json: listReport,
+      selection_json: selectionReport,
       runner_json: reportFile,
       stdout_log: existsSync(stdoutLog) ? stdoutLog : "",
       stderr_log: existsSync(stderrLog) ? stderrLog : "",
@@ -1970,14 +2017,19 @@ function handlePlaywrightPhase({ manifestAware }) {
       missing_ids: renderList(manifestMismatch.missing_ids),
       unexpected_ids: renderList(manifestMismatch.unexpected_ids),
       forbidden_id_files: renderList(manifestMismatch.forbidden_id_files),
-      raw: manifestMismatch.raw,
+      selection: manifestMismatch.selection,
+      runner: manifestMismatch.runner,
     });
     return 1;
   }
   for (const dossier of summary.dossiers) {
+    const { runner, raw, ...rest } = dossier;
     printBlock(`failure: ${context.label}`, {
-      ...dossier,
-      raw: mergeRawPaths(dossier.raw, renderRawList([reportFile, outputDir, serverLog, webLog])),
+      ...rest,
+      test_runner: runner,
+      selection: selectionReport && existsSync(selectionReport) ? relToRepo(selectionReport) : "",
+      runner: relToRepo(reportFile),
+      raw: mergeRawPaths(raw, renderRawList([reportFile, outputDir, serverLog, webLog])),
     });
   }
   return 1;
