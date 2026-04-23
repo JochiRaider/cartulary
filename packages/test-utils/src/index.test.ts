@@ -9,6 +9,7 @@ import {
 } from "./index";
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   document.body.innerHTML = "";
 });
@@ -66,12 +67,13 @@ describe("@cartulary/test-utils grid continuity", () => {
     ).resolves.toBeUndefined();
   });
 
-  it("fails when exact vertical scroll is required and scrollTop changed", async () => {
+  it("fails when exact vertical scroll is required and scrollTop changed under fake timers", async () => {
     const { focusTestId, page } = installGridContinuityFixture({
       currentScroll: { left: 18, top: 180 },
       focusRect: { height: 40, left: 85, top: 170, width: 80 },
       gridRect: { height: 300, left: 40, top: 100, width: 400 },
     });
+    vi.useFakeTimers();
 
     await expect(
       assertGridFocusContinuity({
@@ -84,6 +86,42 @@ describe("@cartulary/test-utils grid continuity", () => {
         timeoutMs: 10,
       }),
     ).rejects.toThrow("Expected timeline vertical scroll 240, received 180");
+  });
+
+  it("retries until the preserved vertical scroll converges", async () => {
+    let gridEvaluateCount = 0;
+    const { focusTestId, page } = installGridContinuityFixture(
+      {
+        currentScroll: { left: 18, top: 180 },
+        focusRect: { height: 40, left: 85, top: 170, width: 80 },
+        gridRect: { height: 300, left: 40, top: 100, width: 400 },
+      },
+      {
+        onEvaluate(testId, element) {
+          if (testId !== gridShellTestId("timeline")) {
+            return;
+          }
+          gridEvaluateCount += 1;
+          if (gridEvaluateCount >= 5 && element instanceof HTMLDivElement) {
+            element.scrollTop = 240;
+          }
+        },
+      },
+    );
+
+    await expect(
+      assertGridFocusContinuity({
+        focusTestId,
+        intervalMs: 0,
+        page,
+        preservedScroll: { left: 18, top: 240 },
+        requireExactVerticalScroll: true,
+        surface: "timeline",
+        timeoutMs: 10,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(gridEvaluateCount).toBeGreaterThan(2);
   });
 
   it("fails when exact horizontal scroll is required and scrollLeft changed", async () => {
@@ -107,11 +145,16 @@ describe("@cartulary/test-utils grid continuity", () => {
   });
 });
 
-function installGridContinuityFixture(options: {
-  currentScroll: { left: number; top: number };
-  focusRect: { height: number; left: number; top: number; width: number };
-  gridRect: { height: number; left: number; top: number; width: number };
-}) {
+function installGridContinuityFixture(
+  options: {
+    currentScroll: { left: number; top: number };
+    focusRect: { height: number; left: number; top: number; width: number };
+    gridRect: { height: number; left: number; top: number; width: number };
+  },
+  pageOptions: {
+    onEvaluate?: (testId: string, element: Element) => void;
+  } = {},
+) {
   const focusTestId = rowInspectButtonTestId("record-1");
   const gridTestId = gridShellTestId("timeline");
   document.body.innerHTML = `
@@ -148,11 +191,16 @@ function installGridContinuityFixture(options: {
     page: createBrowserPage({
       [focusTestId]: focusTarget,
       [gridTestId]: grid,
-    }),
+    }, pageOptions),
   };
 }
 
-function createBrowserPage(elements: Record<string, Element>) {
+function createBrowserPage(
+  elements: Record<string, Element>,
+  options: {
+    onEvaluate?: (testId: string, element: Element) => void;
+  } = {},
+) {
   return {
     getByTestId(value: string) {
       const element = elements[value];
@@ -165,8 +213,10 @@ function createBrowserPage(elements: Record<string, Element>) {
             element.click();
           }
         },
-        evaluate: async (pageFunction: (element: Element) => unknown) =>
-          pageFunction(element),
+        evaluate: async (pageFunction: (element: Element) => unknown) => {
+          options.onEvaluate?.(value, element);
+          return pageFunction(element);
+        },
         fill: async () => undefined,
       };
     },

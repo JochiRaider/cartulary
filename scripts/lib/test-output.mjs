@@ -1273,36 +1273,71 @@ function handleGoPhase({ manifestAware }) {
   return 1;
 }
 
-function classifyVitestCase(filePath, title, phaseLabel) {
-  const normalizedFile = normalizeVitestFile(filePath);
-  const authoritative = loadManifestIndex().authoritativeVitest.get(`${normalizedFile}::${title}`);
+function classifyVitestCase(ownerPath, title, phaseLabel) {
+  const manifestFile = vitestOwnerToSelectionFile(ownerPath);
+  const authoritative = loadManifestIndex().authoritativeVitest.get(`${manifestFile}::${title}`);
   if (authoritative) {
     return {
       coverage: "authoritative",
       phase: authoritative.phase,
       id: authoritative.id,
-      owner: normalizedFile,
+      owner: ownerPath,
     };
   }
   const support =
-    normalizedFile.includes(".support.") ||
+    ownerPath.includes(".support.") ||
     supportNamedTitle(title) ||
-    isForbiddenFile(normalizedFile, inferPhaseFromText(normalizedFile) || inferPhaseFromText(title)) ||
+    isForbiddenFile(ownerPath, inferPhaseFromText(ownerPath) || inferPhaseFromText(title)) ||
     /\bsupport\b/i.test(phaseLabel);
   return {
     coverage: support ? "support" : "unmapped",
-    phase: inferPhaseFromText(normalizedFile) || inferPhaseFromText(title) || inferPhaseFromText(phaseLabel),
+    phase: inferPhaseFromText(ownerPath) || inferPhaseFromText(title) || inferPhaseFromText(phaseLabel),
     id: "",
-    owner: normalizedFile,
+    owner: ownerPath,
   };
 }
 
-function normalizeVitestFile(filePath) {
+function normalizeVitestOwnerPath(filePath) {
+  return relToRepo(filePath);
+}
+
+function normalizeVitestSelectionFile(filePath) {
   const relative = relToRepo(filePath);
+  if (relative === "") {
+    return "";
+  }
   if (relative.startsWith("apps/web/")) {
     return relative;
   }
   return normalizePath(path.join("apps/web", relative));
+}
+
+function vitestOwnerToSelectionFile(ownerPath) {
+  if (ownerPath === "") {
+    return "";
+  }
+  if (ownerPath.startsWith("apps/web/")) {
+    return ownerPath;
+  }
+  return normalizePath(path.join("apps/web", ownerPath));
+}
+
+function vitestOwnerToReproducePath(ownerPath) {
+  if (ownerPath.startsWith("apps/web/")) {
+    return ownerPath.slice("apps/web/".length);
+  }
+  if (ownerPath.startsWith("packages/")) {
+    return `../../${ownerPath}`;
+  }
+  return ownerPath;
+}
+
+function renderVitestReproduceCommand(ownerPath, title = "") {
+  const reproducePath = vitestOwnerToReproducePath(ownerPath);
+  if (title === "") {
+    return `pnpm --dir apps/web exec vitest run ${reproducePath}`;
+  }
+  return `pnpm --dir apps/web exec vitest run ${reproducePath} -t '${escapeSingleQuotes(title)}$'`;
 }
 
 function createVitestSelection({ manifestAware }) {
@@ -1318,36 +1353,39 @@ function createVitestSelection({ manifestAware }) {
     );
     const selectedFiles = new Set(entries.map((entry) => normalizePath(entry.file)));
     return {
-      matches(normalizedFile, title) {
-        return selected.has(`${normalizedFile}::${title}`);
+      matches(ownerPath, title) {
+        return selected.has(`${vitestOwnerToSelectionFile(ownerPath)}::${title}`);
       },
-      matchesFile(normalizedFile) {
-        return selectedFiles.has(normalizedFile);
+      matchesFile(ownerPath) {
+        return selectedFiles.has(vitestOwnerToSelectionFile(ownerPath));
       },
-      classifyFileFailure(normalizedFile) {
-        if (!selectedFiles.has(normalizedFile)) {
+      classifyFileFailure(ownerPath) {
+        if (!selectedFiles.has(vitestOwnerToSelectionFile(ownerPath))) {
           return null;
         }
         return {
           coverage,
           phase,
           id: "",
-          owner: normalizedFile,
+          owner: ownerPath,
         };
       },
     };
   }
 
   const selectedFiles = new Set(
-    optionalLines("CARTULARY_VITEST_FILES").map((value) => normalizeVitestFile(value)),
+    optionalLines("CARTULARY_VITEST_FILES").map((value) => normalizeVitestSelectionFile(value)),
   );
   const selectedTitles = optionalSetFromLines("CARTULARY_VITEST_TITLES");
   if (selectedFiles.size === 0 && selectedTitles.size === 0) {
     return null;
   }
   return {
-    matches(normalizedFile, title) {
-      if (selectedFiles.size > 0 && !selectedFiles.has(normalizedFile)) {
+    matches(ownerPath, title) {
+      if (
+        selectedFiles.size > 0 &&
+        !selectedFiles.has(vitestOwnerToSelectionFile(ownerPath))
+      ) {
         return false;
       }
       if (selectedTitles.size > 0 && !selectedTitles.has(title)) {
@@ -1355,11 +1393,11 @@ function createVitestSelection({ manifestAware }) {
       }
       return true;
     },
-    matchesFile(normalizedFile) {
+    matchesFile(ownerPath) {
       if (selectedFiles.size === 0) {
         return selectedTitles.size === 0;
       }
-      return selectedFiles.has(normalizedFile);
+      return selectedFiles.has(vitestOwnerToSelectionFile(ownerPath));
     },
     classifyFileFailure() {
       return null;
@@ -1411,12 +1449,13 @@ function appendVitestFileResults(value, fileResults, visited) {
   }
 }
 
-function findVitestAuthoritativeFileEntry(normalizedFile, phaseLabel) {
-  const inferredPhase = inferPhaseFromText(normalizedFile) || inferPhaseFromText(phaseLabel);
+function findVitestAuthoritativeFileEntry(ownerPath, phaseLabel) {
+  const manifestFile = vitestOwnerToSelectionFile(ownerPath);
+  const inferredPhase = inferPhaseFromText(ownerPath) || inferPhaseFromText(phaseLabel);
   let fallback = null;
 
   for (const entry of loadManifestIndex().authoritativeVitest.values()) {
-    if (normalizePath(entry.file) !== normalizedFile) {
+    if (normalizePath(entry.file) !== manifestFile) {
       continue;
     }
     if (!fallback) {
@@ -1430,33 +1469,32 @@ function findVitestAuthoritativeFileEntry(normalizedFile, phaseLabel) {
   return fallback;
 }
 
-function classifyVitestFileFailure(filePath, phaseLabel, selection = null) {
-  const normalizedFile = normalizeVitestFile(filePath);
-  const selected = selection?.classifyFileFailure?.(normalizedFile);
+function classifyVitestFileFailure(ownerPath, phaseLabel, selection = null) {
+  const selected = selection?.classifyFileFailure?.(ownerPath);
   if (selected) {
     return selected;
   }
 
-  const authoritative = findVitestAuthoritativeFileEntry(normalizedFile, phaseLabel);
+  const authoritative = findVitestAuthoritativeFileEntry(ownerPath, phaseLabel);
   if (authoritative) {
     return {
       coverage: "authoritative",
       phase: authoritative.phase,
       id: "",
-      owner: normalizedFile,
+      owner: ownerPath,
     };
   }
 
-  const inferredPhase = inferPhaseFromText(normalizedFile) || inferPhaseFromText(phaseLabel);
+  const inferredPhase = inferPhaseFromText(ownerPath) || inferPhaseFromText(phaseLabel);
   const support =
-    normalizedFile.includes(".support.") ||
-    isForbiddenFile(normalizedFile, inferredPhase) ||
+    ownerPath.includes(".support.") ||
+    isForbiddenFile(ownerPath, inferredPhase) ||
     /\bsupport\b/i.test(phaseLabel);
   return {
     coverage: support ? "support" : "unmapped",
     phase: inferredPhase,
     id: "",
-    owner: normalizedFile,
+    owner: ownerPath,
   };
 }
 
@@ -1468,17 +1506,17 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
   const counts = createCounts();
 
   for (const fileResult of collectVitestFileResults(report)) {
-    const normalizedFile = normalizeVitestFile(fileResult.name ?? "");
+    const ownerPath = normalizeVitestOwnerPath(fileResult.name ?? "");
     const assertions = fileResult.assertionResults ?? [];
     const executedAssertions = assertions.filter(
       (assertion) => assertion.status !== "skipped",
     );
     if (executedAssertions.length === 0 && fileResult.status === "failed") {
-      if (selection && !selection.matchesFile(normalizedFile)) {
+      if (selection && !selection.matchesFile(ownerPath)) {
         continue;
       }
       const classification = classifyVitestFileFailure(
-        normalizedFile,
+        ownerPath,
         phaseLabel,
         selection,
       );
@@ -1495,7 +1533,7 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
         message:
           fileResult.message?.split("\n")[0]?.trim() ||
           `test file ${classification.owner} failed before a top-level test was attributed`,
-        reproduce: `pnpm --dir apps/web exec vitest run ${classification.owner.replace(/^apps\/web\//, "")}`,
+        reproduce: renderVitestReproduceCommand(classification.owner),
         raw: relToRepo(reportFile),
       });
       continue;
@@ -1504,10 +1542,10 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
       if (assertion.status === "skipped") {
         continue;
       }
-      if (selection && !selection.matches(normalizedFile, assertion.title ?? "")) {
+      if (selection && !selection.matches(ownerPath, assertion.title ?? "")) {
         continue;
       }
-      const classification = classifyVitestCase(normalizedFile, assertion.title ?? "", phaseLabel);
+      const classification = classifyVitestCase(ownerPath, assertion.title ?? "", phaseLabel);
       owners.add(classification.owner);
       counts.tests += 1;
       counts[classification.coverage] += 1;
@@ -1534,7 +1572,10 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
         package_or_file: classification.owner,
         symbol_or_title: assertion.title ?? "(missing title)",
         message: failureMessage.split("\n")[0] || `${assertion.title ?? "vitest assertion"} failed`,
-        reproduce: `pnpm --dir apps/web exec vitest run ${classification.owner.replace(/^apps\/web\//, "")} -t '${escapeSingleQuotes((assertion.title ?? "").trim())}$'`,
+        reproduce: renderVitestReproduceCommand(
+          classification.owner,
+          (assertion.title ?? "").trim(),
+        ),
         raw: relToRepo(reportFile),
       });
     }

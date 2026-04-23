@@ -298,75 +298,106 @@ export async function assertGridFocusContinuity(options: {
     surface,
     timeoutMs = 3_000,
   } = options;
+  const retryIntervalMs = Math.max(intervalMs, 0);
+  const maxAttempts = Math.max(
+    1,
+    Math.ceil(timeoutMs / Math.max(retryIntervalMs, 1)) + 1,
+  );
   const deadline = Date.now() + timeoutMs;
   let lastError: Error | null = null;
 
-  while (Date.now() <= deadline) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
-      const focusTarget = page.getByTestId(focusTestId);
-      const evaluateFocusTarget = requireEvaluate(
-        focusTarget,
-        `assertGridFocusContinuity(${surface}, ${focusTestId}) requires locator.evaluate() support`,
-      );
-      const isFocused = (await evaluateFocusTarget(
-        (element) => document.activeElement === element,
-      )) as boolean;
-      if (!isFocused) {
-        throw new Error(
-          `Expected ${focusTestId} to be focused within the ${surface} grid continuity restore`,
-        );
-      }
-      const viewportState = await readTestIdGridViewportState(
-        page,
-        surface,
+      await assertGridFocusContinuityOnce({
         focusTestId,
-      );
-      const isVisibleWithinViewport =
-        viewportState.top >= -viewportVisibilityTolerancePx &&
-        viewportState.left >= -viewportVisibilityTolerancePx &&
-        viewportState.bottom <=
-          viewportState.containerHeight + viewportVisibilityTolerancePx &&
-        viewportState.right <=
-          viewportState.containerWidth + viewportVisibilityTolerancePx;
-      if (!isVisibleWithinViewport) {
-        throw new Error(
-          `Expected ${focusTestId} to remain fully visible within the ${surface} grid viewport (top=${viewportState.top}, bottom=${viewportState.bottom}, left=${viewportState.left}, right=${viewportState.right}, containerHeight=${viewportState.containerHeight}, containerWidth=${viewportState.containerWidth})`,
-        );
-      }
-      const currentScroll = await readGridScroll(page, surface);
-      if (
-        requireExactVerticalScroll &&
-        currentScroll.top !== preservedScroll.top
-      ) {
-        throw new Error(
-          `Expected ${surface} vertical scroll ${preservedScroll.top}, received ${currentScroll.top}`,
-        );
-      }
-      if (
-        requireExactHorizontalScroll &&
-        currentScroll.left !== preservedScroll.left
-      ) {
-        throw new Error(
-          `Expected ${surface} horizontal scroll ${preservedScroll.left}, received ${currentScroll.left}`,
-        );
-      }
+        page,
+        preservedScroll,
+        requireExactHorizontalScroll,
+        requireExactVerticalScroll,
+        surface,
+      });
       return;
     } catch (error) {
       lastError =
         error instanceof Error ? error : new Error(String(error ?? "unknown"));
-      if (Date.now() > deadline) {
+      if (attempt === maxAttempts - 1 || Date.now() > deadline) {
         break;
       }
-      await delay(intervalMs);
+      await waitForGridContinuityRetry(retryIntervalMs);
     }
   }
   throw lastError ?? new Error("Grid continuity assertion timed out");
+}
+
+async function assertGridFocusContinuityOnce(options: {
+  focusTestId: string;
+  page: BrowserPageLike;
+  preservedScroll: { left: number; top: number };
+  requireExactHorizontalScroll: boolean;
+  requireExactVerticalScroll: boolean;
+  surface: WorkbookSurface;
+}) {
+  const {
+    focusTestId,
+    page,
+    preservedScroll,
+    requireExactHorizontalScroll,
+    requireExactVerticalScroll,
+    surface,
+  } = options;
+  const focusTarget = page.getByTestId(focusTestId);
+  const evaluateFocusTarget = requireEvaluate(
+    focusTarget,
+    `assertGridFocusContinuity(${surface}, ${focusTestId}) requires locator.evaluate() support`,
+  );
+  const isFocused = (await evaluateFocusTarget(
+    (element) => document.activeElement === element,
+  )) as boolean;
+  if (!isFocused) {
+    throw new Error(
+      `Expected ${focusTestId} to be focused within the ${surface} grid continuity restore`,
+    );
+  }
+  const viewportState = await readTestIdGridViewportState(page, surface, focusTestId);
+  const isVisibleWithinViewport =
+    viewportState.top >= -viewportVisibilityTolerancePx &&
+    viewportState.left >= -viewportVisibilityTolerancePx &&
+    viewportState.bottom <=
+      viewportState.containerHeight + viewportVisibilityTolerancePx &&
+    viewportState.right <=
+      viewportState.containerWidth + viewportVisibilityTolerancePx;
+  if (!isVisibleWithinViewport) {
+    throw new Error(
+      `Expected ${focusTestId} to remain fully visible within the ${surface} grid viewport (top=${viewportState.top}, bottom=${viewportState.bottom}, left=${viewportState.left}, right=${viewportState.right}, containerHeight=${viewportState.containerHeight}, containerWidth=${viewportState.containerWidth})`,
+    );
+  }
+  const currentScroll = await readGridScroll(page, surface);
+  if (requireExactVerticalScroll && currentScroll.top !== preservedScroll.top) {
+    throw new Error(
+      `Expected ${surface} vertical scroll ${preservedScroll.top}, received ${currentScroll.top}`,
+    );
+  }
+  if (
+    requireExactHorizontalScroll &&
+    currentScroll.left !== preservedScroll.left
+  ) {
+    throw new Error(
+      `Expected ${surface} horizontal scroll ${preservedScroll.left}, received ${currentScroll.left}`,
+    );
+  }
 }
 
 function delay(durationMs: number) {
   return new Promise<void>((resolve) => {
     setTimeout(resolve, durationMs);
   });
+}
+
+function waitForGridContinuityRetry(intervalMs: number) {
+  if (intervalMs <= 0) {
+    return Promise.resolve();
+  }
+  return delay(intervalMs);
 }
 
 const viewportVisibilityTolerancePx = 1;

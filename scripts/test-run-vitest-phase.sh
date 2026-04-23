@@ -101,6 +101,12 @@ JSON
 JSON
     exit 1
     ;;
+  package_failure)
+    cat >"$output_file" <<'JSON'
+{"numTotalTestSuites":1,"numPassedTestSuites":0,"numFailedTestSuites":1,"numPendingTestSuites":0,"numTotalTests":1,"numPassedTests":0,"numFailedTests":1,"numPendingTests":0,"numTodoTests":0,"success":false,"testResults":[{"assertionResults":[{"ancestorTitles":[],"fullName":"raw package failure","status":"failed","title":"raw package failure","failureMessages":["AssertionError: package failure\n    at package"],"meta":{},"tags":[]}],"status":"failed","message":"","name":"/home/askahn/code/cartulary/packages/test-utils/src/index.test.ts"}]}
+JSON
+    exit 1
+    ;;
   suite_load_failure)
     cat >"$output_file" <<'JSON'
 {"numTotalTestSuites":1,"numPassedTestSuites":0,"numFailedTestSuites":1,"numPendingTestSuites":0,"numTotalTests":0,"numPassedTests":0,"numFailedTests":0,"numPendingTests":0,"numTodoTests":0,"success":false,"testResults":[{"assertionResults":[],"status":"failed","message":"ReferenceError: window is not defined","name":"/home/askahn/code/cartulary/apps/web/src/raw-suite-load.test.ts"}]}
@@ -142,6 +148,23 @@ assert_contains "$failure_output" "failure: vitest raw failure" "vitest raw fail
 assert_contains "$failure_output" "runner=vitest" "vitest raw failure runner"
 assert_contains "$failure_output" "symbol_or_title=raw failure" "vitest raw failure title"
 assert_contains "$failure_output" "message=AssertionError: expected 1 to be 2" "vitest raw failure message"
+
+set +e
+package_failure_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  NODE_BIN="${NODE:-node}" \
+  FAKE_VITEST_MODE=package_failure \
+    "$HELPER" "vitest raw package failure" -- "$fake_vitest" \
+    2>&1
+)"
+package_failure_status=$?
+set -e
+
+if [[ "$package_failure_status" -eq 0 ]]; then
+  fail "vitest raw package failure: expected non-zero exit status"
+fi
+assert_contains "$package_failure_output" "package_or_file=packages/test-utils/src/index.test.ts" "vitest raw package failure owner"
+assert_contains "$package_failure_output" "reproduce=pnpm --dir apps/web exec vitest run ../../packages/test-utils/src/index.test.ts -t 'raw package failure$'" "vitest raw package failure reproduce"
 
 suite_load_results="$tmp_dir/results"
 set +e
