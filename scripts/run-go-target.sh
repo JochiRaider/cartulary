@@ -598,17 +598,21 @@ run_backend_store() {
 
   shared_regex="$(build_union_regex \
     '^(TestPhase4_.*_U_4_0[1-7])' \
+    "$(manifest_go_regex phase1 unit authoritative backend_store ./internal/modules/auth)" \
     "$(manifest_go_regex phase2 unit authoritative backend_store ./internal/modules/incidents)" \
     "$(manifest_go_regex phase3 unit authoritative backend_store ./internal/modules/timeline)")"
 
   assign_captured_report shared_dir shared_usage backend-store-shared "${shared_regex}" -- \
     -p "${GO_TEST_PACKAGE_PARALLELISM}" \
+    ./internal/modules/auth \
     ./internal/modules/incidents \
     ./internal/modules/entities \
     ./internal/modules/timeline
 
   clear_go_selection_env
   emit_go_raw_phase "backend-store" "${shared_usage}" "${shared_dir}" '^(TestPhase4_.*_U_4_0[1-7])' ./internal/modules/entities ./internal/modules/timeline || status=$?
+  clear_go_selection_env
+  emit_go_manifest_phase "backend-store phase1 authoritative" derived "${shared_dir}" phase1 unit authoritative backend_store ./internal/modules/auth || status=$?
   clear_go_selection_env
   emit_go_manifest_phase "backend-store phase2 authoritative" derived "${shared_dir}" phase2 unit authoritative backend_store ./internal/modules/incidents || status=$?
   clear_go_selection_env

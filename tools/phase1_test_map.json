@@ -121,9 +121,9 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_handlers_test.go",
+      "file": "internal/modules/auth/phase1_store_test.go",
       "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05",
-      "execution_dependency": "backend_unit",
+      "execution_dependency": "backend_store",
       "evidence_layer": "http_conformance"
     },
     {
@@ -131,9 +131,9 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_handlers_test.go",
+      "file": "internal/modules/auth/phase1_store_test.go",
       "symbol": "TestPhase1_RouteRevocationConsequences_U_1_06",
-      "execution_dependency": "backend_unit",
+      "execution_dependency": "backend_store",
       "evidence_layer": "http_conformance"
     },
     {
@@ -151,9 +151,9 @@
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_handlers_test.go",
+      "file": "internal/modules/auth/phase1_store_test.go",
       "symbol": "TestPhase1_UserPatchAndLastAdminGuard_U_1_08",
-      "execution_dependency": "backend_unit",
+      "execution_dependency": "backend_store",
       "evidence_layer": "http_conformance"
     },
     {

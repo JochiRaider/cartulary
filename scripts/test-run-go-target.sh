@@ -243,7 +243,7 @@ backend_store_structure="$(
 )"
 assert_contains "$backend_store_structure" "assign_calls=1" "backend-store single shared capture"
 assert_contains "$backend_store_structure" "raw_calls=1" "backend-store raw phase count"
-assert_contains "$backend_store_structure" "manifest_calls=2" "backend-store derived phase count"
+assert_contains "$backend_store_structure" "manifest_calls=3" "backend-store derived phase count"
 assert_contains "$backend_store_structure" "finish_status=0" "backend-store finish status"
 
 phase1_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase1 backend_integration_support ./internal/modules/auth)"

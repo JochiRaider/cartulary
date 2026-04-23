@@ -1,28 +1,17 @@
-package phase1test
+package phase1storetest
 
 import (
 	"context"
 	"database/sql"
 	"encoding/base32"
 	"encoding/json"
-	"net/http"
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
 	"github.com/google/uuid"
-	"github.com/pquerna/otp"
-	"github.com/pquerna/otp/totp"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
-
-type LoginResult struct {
-	SessionCookie *http.Cookie
-	CSRFCookie    *http.Cookie
-}
 
 type SessionRow struct {
 	AuthenticatedAt          time.Time
@@ -46,74 +35,6 @@ type AuditEventRecord struct {
 	CreatedAt    time.Time
 	Before       map[string]any
 	After        map[string]any
-}
-
-func DoJSON(t testing.TB, method string, url string, body any, options ...func(*http.Request)) *http.Response {
-	t.Helper()
-
-	req := httptestx.NewJSONRequest(t, method, url, body)
-	for _, option := range options {
-		option(req)
-	}
-	return httptestx.Do(t, http.DefaultClient, req)
-}
-
-func WithCookies(cookies ...*http.Cookie) func(*http.Request) {
-	return func(req *http.Request) {
-		for _, cookie := range cookies {
-			if cookie != nil {
-				req.AddCookie(cookie)
-			}
-		}
-	}
-}
-
-func WithHeader(key string, value string) func(*http.Request) {
-	return func(req *http.Request) {
-		req.Header.Set(key, value)
-	}
-}
-
-func SetClockOffset(
-	t testing.TB,
-	baseURL string,
-	offsetSeconds int64,
-	options ...func(*http.Request),
-) map[string]any {
-	t.Helper()
-
-	resp := DoJSON(
-		t,
-		http.MethodPost,
-		baseURL+"/api/v1/test/clock/set",
-		map[string]any{
-			"offset_seconds": offsetSeconds,
-		},
-		options...,
-	)
-	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
-}
-
-func ResetClockOffset(
-	t testing.TB,
-	baseURL string,
-	options ...func(*http.Request),
-) {
-	t.Helper()
-	SetClockOffset(t, baseURL, 0, options...)
-}
-
-func WithClockOffset(
-	t testing.TB,
-	baseURL string,
-	offsetSeconds int64,
-	options ...func(*http.Request),
-) {
-	t.Helper()
-	SetClockOffset(t, baseURL, offsetSeconds, options...)
-	t.Cleanup(func() {
-		ResetClockOffset(t, baseURL, options...)
-	})
 }
 
 func SeedLocalUser(t testing.TB, db *sql.DB, email string, displayName string, password string, mfaRequired bool) string {
@@ -385,174 +306,6 @@ RETURNING id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootst
 	return record
 }
 
-func LoginLocalUser(t testing.TB, baseURL string, username string, password string, headers func(*http.Request)) (*http.Cookie, *http.Cookie) {
-	t.Helper()
-
-	req := httptestx.NewJSONRequest(t, http.MethodPost, baseURL+"/api/v1/auth/login", map[string]any{
-		"username": username,
-		"password": password,
-	})
-	if headers != nil {
-		headers(req)
-	}
-	resp := httptestx.Do(t, http.DefaultClient, req)
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("login failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
-	}
-	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-	authCookies := httptestx.RequireAuthCookies(t, resp.Cookies())
-	return authCookies.Session, authCookies.CSRF
-}
-
-func LoginLocalUserWithSecondFactor(t testing.TB, baseURL string, username string, password string, code string) LoginResult {
-	t.Helper()
-
-	resp := DoJSON(t, http.MethodPost, baseURL+"/api/v1/auth/login", map[string]any{
-		"username": username,
-		"password": password,
-		"second_factor": map[string]any{
-			"kind": "totp",
-			"assertion": map[string]any{
-				"code": code,
-			},
-		},
-	})
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("login with second factor failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
-	}
-	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-	authCookies := httptestx.RequireAuthCookies(t, resp.Cookies())
-	return LoginResult{SessionCookie: authCookies.Session, CSRFCookie: authCookies.CSRF}
-}
-
-func RequireBootstrapLogin(t testing.TB, baseURL string, username string, password string) string {
-	t.Helper()
-
-	resp := DoJSON(t, http.MethodPost, baseURL+"/api/v1/auth/login", map[string]any{
-		"username": username,
-		"password": password,
-	})
-	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusUnauthorized, "mfa_setup_required")
-	details := body["error"].(map[string]any)["details"].(map[string]any)
-	token, _ := details["bootstrap_token"].(string)
-	if token == "" {
-		t.Fatalf("expected bootstrap_token on mfa_setup_required response, got %#v", details)
-	}
-	for _, cookie := range resp.Cookies() {
-		if cookie.Name == authn.SessionCookieName {
-			t.Fatal("mfa_setup_required must not set a session cookie")
-		}
-	}
-	return token
-}
-
-func BeginTOTPEnrollment(t testing.TB, baseURL string, bootstrapToken string, body map[string]any) map[string]any {
-	t.Helper()
-
-	resp := DoJSON(
-		t,
-		http.MethodPost,
-		baseURL+"/api/v1/auth/mfa/totp/begin",
-		body,
-		WithHeader("Authorization", "Bearer "+bootstrapToken),
-	)
-	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
-}
-
-func CompleteInitialEnrollment(t testing.TB, baseURL string, bootstrapToken string, enrollmentID string, secretBase32 string, clientTxnID string) {
-	t.Helper()
-
-	resp := DoJSON(
-		t,
-		http.MethodPost,
-		baseURL+"/api/v1/auth/mfa/totp/complete",
-		map[string]any{
-			"client_txn_id": clientTxnID,
-			"enrollment_id": enrollmentID,
-			"code":          GenerateTOTPCode(t, secretBase32),
-		},
-		WithHeader("Authorization", "Bearer "+bootstrapToken),
-	)
-	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
-}
-
-func GenerateTOTPCode(t testing.TB, secretBase32 string) string {
-	t.Helper()
-
-	code, err := totp.GenerateCodeCustom(secretBase32, time.Now().UTC(), totp.ValidateOpts{
-		Period:    30,
-		Skew:      1,
-		Digits:    otp.DigitsSix,
-		Algorithm: otp.AlgorithmSHA1,
-	})
-	if err != nil {
-		t.Fatalf("generate totp code: %v", err)
-	}
-	return code
-}
-
-func ConnectSessionSocket(t testing.TB, serverURL string, sessionToken string) *wstest.Client {
-	t.Helper()
-
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+sessionToken)
-	client := wstest.ConnectWithHeaders(t, serverURL, "/ws/v1/test/session-lifecycle", headers)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	connected, err := client.Receive(ctx)
-	if err != nil {
-		t.Fatalf("read connected websocket message: %v", err)
-	}
-	wstest.RequireMessageType(t, connected, "connected")
-	return client
-}
-
-func ExpectSessionRevoked(t testing.TB, client *wstest.Client, wantReasonCode string) {
-	t.Helper()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	revoked, err := client.Receive(ctx)
-	if err != nil {
-		t.Fatalf("read session_revoked message: %v", err)
-	}
-	wstest.RequireSessionRevoked(t, revoked)
-
-	var payload map[string]any
-	if err := json.Unmarshal(revoked.Payload, &payload); err != nil {
-		t.Fatalf("decode session_revoked payload: %v", err)
-	}
-	if payload["reason_code"] != wantReasonCode {
-		t.Fatalf("unexpected session_revoked payload: %#v", payload)
-	}
-
-	_, err = client.Receive(ctx)
-	wstest.RequireClose(t, err, websocket.StatusPolicyViolation, "")
-}
-
-func RequireBootstrapWebsocketRejected(t testing.TB, serverURL string, bootstrapToken string) {
-	t.Helper()
-
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+bootstrapToken)
-
-	_, resp, err := wstest.TryConnect(serverURL, "/ws/v1/test/session-lifecycle", headers)
-	if err == nil {
-		t.Fatal("expected bootstrap-token websocket dial to fail")
-	}
-	if resp == nil {
-		t.Fatalf("expected HTTP rejection response for bootstrap-token websocket dial, err=%v", err)
-	}
-	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "credential_bootstrap_rejected")
-	details := body["error"].(map[string]any)["details"].(map[string]any)
-	if details["reason_code"] != "not_allowed_for_route" {
-		t.Fatalf("unexpected websocket bootstrap rejection: %#v", details)
-	}
-}
-
 func QuerySessionRow(t testing.TB, db *sql.DB, userID string) SessionRow {
 	t.Helper()
 	return QuerySingleSession(
@@ -677,32 +430,4 @@ func RequireAuditEventBySource(t testing.TB, events []AuditEventRecord, source s
 	}
 	t.Fatalf("expected audit event source %q in %#v", source, events)
 	return AuditEventRecord{}
-}
-
-func CreateIncidentResource(t testing.TB, baseURL string, sessionCookie *http.Cookie, csrfCookie *http.Cookie, body map[string]any) map[string]any {
-	t.Helper()
-
-	resp := DoJSON(
-		t,
-		http.MethodPost,
-		baseURL+"/api/v1/incidents",
-		body,
-		WithCookies(sessionCookie, csrfCookie),
-		WithHeader(authn.CSRFHeaderName, csrfCookie.Value),
-	)
-	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
-}
-
-func CreateIncidentMembership(t testing.TB, baseURL string, incidentID string, sessionCookie *http.Cookie, csrfCookie *http.Cookie, body map[string]any) map[string]any {
-	t.Helper()
-
-	resp := DoJSON(
-		t,
-		http.MethodPost,
-		baseURL+"/api/v1/incidents/"+incidentID+"/memberships",
-		body,
-		WithCookies(sessionCookie, csrfCookie),
-		WithHeader(authn.CSRFHeaderName, csrfCookie.Value),
-	)
-	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }

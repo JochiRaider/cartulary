@@ -118,7 +118,7 @@ This phase establishes the authenticated shell:
 
 Incident-specific work does not begin until the bounded credential lifecycle and deployment-local account boundary are trustworthy.[^base-manifest][^core01-routes]
 
-Repository execution for this phase is manifest-driven. `tools/phase1_test_map.json` is the executable authoritative inventory for Phase 1 completion, and `make test`, `make check`, and `make ci` must both select and verify every mapped authoritative row. `make backend-unit` carries `U-1-01..U-1-13`; `make frontend-unit` carries `U-1-14..U-1-17`; `make backend-integration` carries `I-1-01..I-1-06`; and the ordinary-shell browser rows continue to execute through the Phase 1 Playwright manifest under `browser_functional` and `browser_stateful`. Support-only backend sweeps and smoke coverage remain valuable, but they are not substitutes for the manifest-owned completion rows.
+Repository execution for this phase is manifest-driven. `tools/phase1_test_map.json` is the executable authoritative inventory for Phase 1 completion, and `make test`, `make check`, and `make ci` must both select and verify every mapped authoritative row. `make backend-unit` carries the pure Phase 1 handler-unit rows, while `make backend-store` carries the service-backed Phase 1 unit rows `U-1-05`, `U-1-06`, and `U-1-08`; `make frontend-unit` carries `U-1-14..U-1-17`; `make backend-integration` carries `I-1-01..I-1-06`; and the ordinary-shell browser rows continue to execute through the Phase 1 Playwright manifest under `browser_functional` and `browser_stateful`. Support-only backend sweeps and smoke coverage remain valuable, but they are not substitutes for the manifest-owned completion rows.
 
 Shared harness owners for this phase are explicit:
 

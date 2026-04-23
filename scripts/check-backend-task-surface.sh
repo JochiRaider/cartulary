@@ -167,13 +167,6 @@ for (const [phase, sections] of [
     ],
   ],
   [
-    "phase1",
-    [
-      ["unit", "backend_unit"],
-      ["integration", "backend_integration"],
-    ],
-  ],
-  [
     "phase4",
     [
       ["integration", "backend_integration"],
@@ -195,6 +188,52 @@ for (const [phase, sections] of [
         process.exit(1);
       }
     }
+  }
+}
+
+const phase1 = JSON.parse(
+  fs.readFileSync(path.join(root, "tools", "phase1_test_map.json"), "utf8"),
+);
+const phase1UnitDeps = new Map([
+  ["U-1-01", "backend_unit"],
+  ["U-1-02", "backend_unit"],
+  ["U-1-03", "backend_unit"],
+  ["U-1-04", "backend_unit"],
+  ["U-1-05", "backend_store"],
+  ["U-1-06", "backend_store"],
+  ["U-1-07", "backend_unit"],
+  ["U-1-08", "backend_store"],
+  ["U-1-09", "backend_unit"],
+  ["U-1-10", "backend_unit"],
+  ["U-1-11", "backend_unit"],
+  ["U-1-12", "backend_unit"],
+  ["U-1-13", "backend_unit"],
+]);
+for (const entry of phase1.unit ?? []) {
+  if (entry.coverage !== "authoritative" || entry.runner !== "go_test") {
+    continue;
+  }
+  const expected = phase1UnitDeps.get(entry.id);
+  if (!expected) {
+    console.error(`phase1 authoritative unit row ${entry.id} is missing a canonical execution_dependency expectation`);
+    process.exit(1);
+  }
+  if (entry.execution_dependency !== expected) {
+    console.error(
+      `phase1 authoritative unit row ${entry.id} must declare execution_dependency=${expected}`,
+    );
+    process.exit(1);
+  }
+}
+for (const entry of phase1.integration ?? []) {
+  if (entry.coverage !== "authoritative" || entry.runner !== "go_test") {
+    continue;
+  }
+  if (entry.execution_dependency !== "backend_integration") {
+    console.error(
+      `phase1 authoritative integration row ${entry.id} must declare execution_dependency=backend_integration`,
+    );
+    process.exit(1);
   }
 }
 
@@ -274,6 +313,7 @@ if ! printf '%s\n' "$backend_store_block" | grep -Fq '$(TEST_SERVICES_BIN) run -
 fi
 for expected in \
   'emit_go_manifest_phase "backend-store phase2 authoritative"' \
+  'emit_go_manifest_phase "backend-store phase1 authoritative"' \
   'emit_go_manifest_phase "backend-store phase3 authoritative"'
 do
   if ! grep -Fq "$expected" "$go_runner_script"; then

@@ -3,8 +3,6 @@ package authn
 import (
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 func TestSupportPhase1_LoginNormalizationAndPasswordExactness(t *testing.T) {
@@ -69,50 +67,5 @@ func TestSupportPhase1_SessionTiming(t *testing.T) {
 	}
 	if !sliding.SessionExpiresAt.Equal(timing.AbsoluteExpiresAt) {
 		t.Fatalf("session_expires_at must clamp to absolute expiry: got %s want %s", sliding.SessionExpiresAt, timing.AbsoluteExpiresAt)
-	}
-}
-
-func TestSupportPhase1_ConcurrencyLimitRevokesLRUNonCurrent(t *testing.T) {
-	base := time.Date(2026, time.April, 17, 12, 0, 0, 0, time.UTC)
-
-	currentID := uuid.MustParse("10000000-0000-0000-0000-000000000001")
-	oldestID := uuid.MustParse("10000000-0000-0000-0000-000000000002")
-	active := []SessionSummary{
-		{SessionID: currentID, LastQualifyingActivityAt: base.Add(-10 * time.Minute), AuthenticatedAt: base.Add(-10 * time.Minute)},
-		{SessionID: oldestID, LastQualifyingActivityAt: base.Add(-59 * time.Minute), AuthenticatedAt: base.Add(-59 * time.Minute)},
-		{SessionID: uuid.MustParse("10000000-0000-0000-0000-000000000003"), LastQualifyingActivityAt: base.Add(-20 * time.Minute), AuthenticatedAt: base.Add(-20 * time.Minute)},
-		{SessionID: uuid.MustParse("10000000-0000-0000-0000-000000000004"), LastQualifyingActivityAt: base.Add(-30 * time.Minute), AuthenticatedAt: base.Add(-30 * time.Minute)},
-		{SessionID: uuid.MustParse("10000000-0000-0000-0000-000000000005"), LastQualifyingActivityAt: base.Add(-40 * time.Minute), AuthenticatedAt: base.Add(-40 * time.Minute)},
-		{SessionID: uuid.MustParse("10000000-0000-0000-0000-000000000006"), LastQualifyingActivityAt: base.Add(-50 * time.Minute), AuthenticatedAt: base.Add(-50 * time.Minute)},
-	}
-
-	victim, ok := SelectSessionForConcurrencyLimit(active, currentID)
-	if !ok {
-		t.Fatal("expected one non-current victim session")
-	}
-	if victim.SessionID != oldestID {
-		t.Fatalf("unexpected concurrency victim: got %s want %s", victim.SessionID, oldestID)
-	}
-	if ConcurrencyLimitReasonCode != "concurrency_limit" {
-		t.Fatalf("unexpected concurrency reason code constant: %q", ConcurrencyLimitReasonCode)
-	}
-}
-
-func TestSupportPhase1_RevocationScopes(t *testing.T) {
-	if scope := RevocationScopeForAction(RevocationActionLogout); scope != RevokeCurrentSessionOnly {
-		t.Fatalf("logout must revoke only the current session, got %v", scope)
-	}
-
-	for _, action := range []RevocationAction{
-		RevocationActionPasswordChange,
-		RevocationActionTOTPReplacement,
-		RevocationActionAdminPasswordReset,
-		RevocationActionAdminTOTPReset,
-		RevocationActionAccountDisablement,
-		RevocationActionExplicitRevokeAll,
-	} {
-		if scope := RevocationScopeForAction(action); scope != RevokeAllUserSessions {
-			t.Fatalf("expected %v to revoke all user sessions, got %v", action, scope)
-		}
 	}
 }

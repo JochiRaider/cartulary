@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -22,6 +23,39 @@ type RuntimeHarness struct {
 type ServerHarness struct {
 	Server *httptestx.Server
 	DB     *sql.DB
+}
+
+type StoreHarness struct {
+	Pool *pgxpool.Pool
+	DB   *sql.DB
+}
+
+func StartStore(t testing.TB, prefix string) *StoreHarness {
+	t.Helper()
+
+	postgresHarness := pgtest.Start(t)
+	testDB := postgresHarness.PrepareDatabaseT(t, prefix)
+
+	pool, err := pgxpool.New(context.Background(), testDB.DSN)
+	if err != nil {
+		t.Fatalf("open pgx pool: %v", err)
+	}
+	t.Cleanup(func() {
+		pool.Close()
+	})
+
+	db, err := sql.Open("pgx", testDB.DSN)
+	if err != nil {
+		t.Fatalf("open postgres sql handle: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+
+	return &StoreHarness{
+		Pool: pool,
+		DB:   db,
+	}
 }
 
 func StartRuntime(t testing.TB) *RuntimeHarness {
@@ -70,5 +104,32 @@ func (h *RuntimeHarness) StartServer(t testing.TB, prefix string, additionalRout
 	return &ServerHarness{
 		Server: server,
 		DB:     db,
+	}
+}
+
+func (h *RuntimeHarness) StartStore(t testing.TB, prefix string) *StoreHarness {
+	t.Helper()
+
+	testDB := h.Postgres.PrepareDatabaseT(t, prefix)
+
+	pool, err := pgxpool.New(context.Background(), testDB.DSN)
+	if err != nil {
+		t.Fatalf("open pgx pool: %v", err)
+	}
+	t.Cleanup(func() {
+		pool.Close()
+	})
+
+	db, err := sql.Open("pgx", testDB.DSN)
+	if err != nil {
+		t.Fatalf("open postgres sql handle: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+
+	return &StoreHarness{
+		Pool: pool,
+		DB:   db,
 	}
 }
