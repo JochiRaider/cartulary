@@ -88,7 +88,9 @@
       "file": "internal/modules/incidents/phase2_request_test.go",
       "symbol": "TestPhase2_U_2_01_IncidentCreateAcceptsDeclaredMembersAndNormalizesIncidentKey",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "decoder_normalization"
+      "evidence_layer": "decoder_normalization",
+      "claim": "Incident create decode rejects undeclared members, rejects `initial_memberships`, and normalizes `incident_key` with trim plus NFC before uniqueness.",
+      "out_of_scope": "Durable create persistence remains integration evidence."
     },
     {
       "id": "U-2-02",
@@ -98,7 +100,9 @@
       "file": "internal/modules/incidents/phase2_store_test.go",
       "symbol": "TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "Store.CreateIncident commits the bootstrap `admin` membership plus both incident-wide and per-user workbook-preference rows.",
+      "out_of_scope": "HTTP envelope and header emission remain support coverage."
     },
     {
       "id": "U-2-03",
@@ -108,7 +112,9 @@
       "file": "internal/modules/incidents/phase2_store_test.go",
       "symbol": "TestPhase2_U_2_03_StoreCreateIncidentReturnsStableLocationValue",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "The committed create result returns the stable `/api/v1/incidents/{incident_id}` location value.",
+      "out_of_scope": "Actual `Location` header emission remains support coverage."
     },
     {
       "id": "U-2-04",
@@ -118,7 +124,9 @@
       "file": "internal/modules/incidents/phase2_store_test.go",
       "symbol": "TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "Incident create idempotency scopes by actor plus normalized request, exact replay returns the original committed result, divergent replay rejects, and replay keeps the incident row, bootstrap membership, workbook-preference rows, owner mutation artifacts, and route idempotency stable.",
+      "out_of_scope": "HTTP replay envelope proof remains support coverage."
     },
     {
       "id": "U-2-05",
@@ -128,7 +136,9 @@
       "file": "internal/modules/incidents/phase2_request_test.go",
       "symbol": "TestPhase2_U_2_05_IncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "decoder_projection"
+      "evidence_layer": "decoder_projection",
+      "claim": "Incident patch decode allows only promoted fields, requires `base_incident_version`, and keeps structural no-ops version-stable.",
+      "out_of_scope": "Persisted patch consequences remain integration evidence."
     },
     {
       "id": "U-2-06",
@@ -138,7 +148,9 @@
       "file": "internal/modules/incidents/phase2_request_test.go",
       "symbol": "TestPhase2_U_2_06_MembershipCreateUsesLookupOnlyForUserOrEmailTargets",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "lookup_only_resolution"
+      "evidence_layer": "lookup_only_resolution",
+      "claim": "Membership create requires exactly one selector, resolves targets by lookup-only `user_id` or `email`, returns canonical `user_not_found` or `user_inactive`, and rejects invitation-only fields without any auto-create path.",
+      "out_of_scope": "Live HTTP envelope proof remains support coverage."
     },
     {
       "id": "U-2-07",
@@ -148,7 +160,9 @@
       "file": "internal/modules/incidents/phase2_store_test.go",
       "symbol": "TestPhase2_U_2_07_StoreMembershipPatchAndDeleteRejectStaleBaseVersion",
       "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain"
+      "evidence_layer": "store_domain",
+      "claim": "Store-backed membership patch and delete reject stale `base_membership_version` values without mutating durable membership state.",
+      "out_of_scope": "Pure decoder shape and `last_incident_admin` guard coverage stay on the executed support-only unit surface."
     },
     {
       "id": "U-2-08",
@@ -158,7 +172,9 @@
       "file": "internal/modules/incidents/phase2_unit_test.go",
       "symbol": "TestPhase2_U_2_08_IncidentAccessDecisionUsesNotFoundForMissingMembershipAndDeniedForInsufficientRole",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "incident_access_decision"
+      "evidence_layer": "incident_access_decision",
+      "claim": "The incident access decision helper returns `incident_not_found` for no membership and `authorization_denied` for insufficient incident role.",
+      "out_of_scope": "Deployment-admin-without-membership route breadth remains paired support or integration inventory coverage."
     },
     {
       "id": "U-2-09",
@@ -168,7 +184,9 @@
       "file": "internal/modules/incidents/phase2_request_test.go",
       "symbol": "TestPhase2_U_2_09_ExtensionDiscoveryReturnsExactSingletonProfileShape",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "contract_dispatch"
+      "evidence_layer": "contract_dispatch",
+      "claim": "Extension discovery keeps the singleton route shape, exact profile fields, canonical ordering, and no pagination members.",
+      "out_of_scope": "Runtime auth and leak checks remain integration evidence."
     },
     {
       "id": "U-2-10",
@@ -178,7 +196,9 @@
       "file": "internal/modules/incidents/phase2_request_test.go",
       "symbol": "TestPhase2_U_2_10_ReservedExtensionDispatchHonorsBaseRoutesClaimedFamiliesAndOutsideFallback",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "contract_dispatch"
+      "evidence_layer": "contract_dispatch",
+      "claim": "Reserved-family dispatch preserves base-route precedence, claimed-family routing, reserved-but-unclaimed canonical 404s, and ordinary outside-family 404s.",
+      "out_of_scope": "Real authenticated dispatch remains integration evidence."
     },
     {
       "id": "U-2-11",
@@ -187,7 +207,9 @@
       "file": "apps/web/src/App.landing.test.tsx",
       "title": "Phase 2 U-2-11 ordinary landing shell creates an incident, refreshes session-visible membership, routes to the workbook by incident_id, and falls back when a stale incident selection is no longer visible",
       "execution_dependency": "frontend_unit",
-      "evidence_layer": "component"
+      "evidence_layer": "component",
+      "claim": "The ordinary landing shell creates an incident, refreshes session-visible membership on workbook entry, stores the selected `incident_id` in the route, and returns cleanly to landing when a stale selection is no longer visible.",
+      "out_of_scope": "Real browser confirmation stays `E-2-01` and `E-2-02`."
     },
     {
       "id": "U-2-12",
@@ -196,7 +218,9 @@
       "file": "apps/web/src/IncidentAdminPanel.test.tsx",
       "title": "Phase 2 U-2-12 ordinary incident shell gates promoted-field controls by incident role, hides membership-admin controls from non-admin members, and returns to landing when incident access is lost",
       "execution_dependency": "frontend_unit",
-      "evidence_layer": "component"
+      "evidence_layer": "component",
+      "claim": "The ordinary incident shell exposes promoted-field controls only for reviewer or admin roles, hides membership-administration controls from non-admin members, and triggers the landing fallback when incident access disappears.",
+      "out_of_scope": "Real browser visibility remains `E-2-02` and `E-2-03`."
     },
     {
       "id": "U-2-13",
@@ -205,7 +229,9 @@
       "file": "apps/web/src/IncidentAdminPanel.test.tsx",
       "title": "Phase 2 U-2-13 ordinary incident shell issues membership create, patch, and delete requests with versioned payloads and refreshes session role after each mutation",
       "execution_dependency": "frontend_unit",
-      "evidence_layer": "component"
+      "evidence_layer": "component",
+      "claim": "The ordinary incident shell emits the expected membership mutation payloads, includes versioned patch or delete bodies, and refreshes the session-visible incident role after each mutation.",
+      "out_of_scope": "Real browser mutation flow remains `E-2-03`."
     }
   ],
   "integration": [
@@ -217,7 +243,9 @@
       "file": "internal/modules/incidents/phase2_integration_test.go",
       "symbol": "TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomically",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "integration"
+      "evidence_layer": "integration",
+      "claim": "Incident create persists the incident row, bootstrap membership, workbook preferences, and owner-level mutation artifacts on the current Phase 2 audit substrate atomically, while hook-forced rollback leaves no surviving Phase 2 mutation artifacts.",
+      "out_of_scope": "`change_sets` migration remains an owner/docs follow-on, not Phase 2 evidence."
     },
     {
       "id": "I-2-02",
@@ -227,7 +255,9 @@
       "file": "internal/modules/incidents/phase2_integration_test.go",
       "symbol": "TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "integration"
+      "evidence_layer": "integration",
+      "claim": "Real create with trimmed decomposed input normalizes the response key, replay with the composed form returns the original committed resource, divergent replay rejects, opposite-form duplicates on distinct requests fail with `incident_key_conflict`, and the incident row, bootstrap membership, workbook-preference rows, owner mutation artifacts, and route idempotency remain stable.",
+      "out_of_scope": "None for the declared replay and normalization contract."
     },
     {
       "id": "I-2-03",
@@ -237,7 +267,9 @@
       "file": "internal/modules/incidents/phase2_integration_test.go",
       "symbol": "TestPhase2_I_2_03_ControlBoundaryInventoryReDerivesAuthorizationImmediately",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "integration"
+      "evidence_layer": "integration",
+      "claim": "One same-session role progression `no membership -> viewer -> reviewer -> admin -> removed` re-derives access immediately for every `ControlBoundaryInventory()` route, including workbook-preference reads, membership-admin routes, and the Timeline websocket boundary.",
+      "out_of_scope": "Deployment-admin-without-membership breadth is paired with the support inventory sweep."
     },
     {
       "id": "I-2-04",
@@ -247,7 +279,9 @@
       "file": "internal/modules/incidents/phase2_integration_test.go",
       "symbol": "TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "integration"
+      "evidence_layer": "integration",
+      "claim": "Real incident patch persists only promoted fields, rejects stale versions, and advances `incident_version` only on material change.",
+      "out_of_scope": "None for the declared patch contract."
     },
     {
       "id": "I-2-05",
@@ -257,7 +291,9 @@
       "file": "internal/modules/incidents/phase2_integration_test.go",
       "symbol": "TestPhase2_I_2_05_ExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutLeaks",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "integration"
+      "evidence_layer": "integration",
+      "claim": "Extension discovery succeeds for an authenticated zero-membership session and leaks no provider secrets or live claim payloads.",
+      "out_of_scope": "None for the declared discovery contract."
     },
     {
       "id": "I-2-06",
@@ -267,7 +303,9 @@
       "file": "internal/modules/incidents/phase2_integration_test.go",
       "symbol": "TestPhase2_I_2_06_UnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "integration"
+      "evidence_layer": "integration",
+      "claim": "Reserved but unclaimed family roots and descendants return canonical `extension_profile_not_claimed`, while outside-family paths preserve ordinary 404 handling.",
+      "out_of_scope": "None for the declared dispatch contract."
     }
   ],
   "e2e": [
@@ -278,7 +316,9 @@
       "file": "apps/web/e2e/phase2.spec.ts",
       "title": "E-2-01 creates an incident, bootstraps the creator as admin, and lands on the workbook surface",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "Real browser incident create bootstraps the creator as incident admin and lands on the ordinary workbook shell.",
+      "out_of_scope": "None for the declared browser create-flow contract."
     },
     {
       "id": "E-2-02",
@@ -287,7 +327,9 @@
       "file": "apps/web/e2e/phase2.spec.ts",
       "title": "E-2-02 shows incident discovery, raw querystring deep-link retrieval, and promoted-field-only patching on the ordinary incident shell",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "The ordinary shell exposes incident discovery, raw `/?incident_id=...` deep-link retrieval, and promoted-field-only patching on the real browser surface.",
+      "out_of_scope": "None for the declared browser patch-flow contract."
     },
     {
       "id": "E-2-03",
@@ -296,7 +338,9 @@
       "file": "apps/web/e2e/phase2.spec.ts",
       "title": "E-2-03 lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "Incident admins manage memberships on the ordinary shell and non-admin incident members do not receive those controls.",
+      "out_of_scope": "None for the declared browser membership contract."
     }
   ]
 }

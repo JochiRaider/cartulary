@@ -13,6 +13,7 @@ validateManifest(process.cwd(), phase);
 
 const ledgerFilenames = {
   phase0: "phase0_coverage_ledger.md",
+  phase2: "phase2_coverage_ledger.md",
   phase3: "phase3_coverage_ledger.md",
   phase4: "phase4_coverage_ledger.md",
 };
