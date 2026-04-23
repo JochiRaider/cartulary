@@ -94,7 +94,7 @@ func RequireClosedVocabularyRejected(t testing.TB, code string, details map[stri
 	if code == "" {
 		t.Fatal("expected closed-vocabulary rejection code")
 	}
-	if code != "invalid_mutation_payload" && code != "invalid_view_query" {
+	if code != "invalid_auth_request" && code != "invalid_mutation_payload" && code != "invalid_view_query" {
 		t.Fatalf("unexpected closed-vocabulary rejection code: %q", code)
 	}
 	if details == nil {

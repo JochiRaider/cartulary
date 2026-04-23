@@ -14,6 +14,10 @@
     "U-1-11",
     "U-1-12",
     "U-1-13",
+    "U-1-14",
+    "U-1-15",
+    "U-1-16",
+    "U-1-17",
     "I-1-01",
     "I-1-02",
     "I-1-03",
@@ -32,7 +36,8 @@
   "forbidden_id_files": [
     "cmd/server/main_phase1_process_test.go",
     "internal/modules/auth/phase1_support_test.go",
-    "internal/modules/auth/phase1_support_integration_test.go"
+    "internal/modules/auth/phase1_support_integration_test.go",
+    "apps/web/src/App.phase1.support.test.tsx"
   ],
   "support_go_targets": [
     {
@@ -58,12 +63,14 @@
       "file": "internal/modules/auth/phase1_support_integration_test.go",
       "symbols": [
         "TestSupportPhase1_UserListUsesSnapshotStablePagination",
-        "TestSupportPhase1_PublicRouteInventoryEnvelopes",
-        "TestSupportPhase1_PublicRouteInventoryBootstrapBoundaries",
-        "TestSupportPhase1_PublicRouteInventoryCSRFProtection",
-        "TestSupportPhase1_PublicRouteInventoryReplayAndStoredPayloadSafety",
-        "TestSupportPhase1_PublicRouteInventoryAuditAttribution",
-        "TestSupportPhase1_PublicRouteInventorySessionRevocation"
+        "TestSupportPhase1_Integration_SurfaceEnvelope",
+        "TestSupportPhase1_Integration_BootstrapBoundaries",
+        "TestSupportPhase1_Integration_CSRFProtection",
+        "TestSupportPhase1_Integration_ReplayAndStoredPayloadSafety",
+        "TestSupportPhase1_Integration_AuditAttribution",
+        "TestSupportPhase1_Integration_SessionRevocation",
+        "TestSupportPhase1_Integration_AuthorizationReDerivation",
+        "TestSupportPhase1_Integration_RequestContracts"
       ],
       "selection_pattern": "TestSupportPhase1_"
     }
@@ -198,6 +205,42 @@
       "symbol": "TestPhase1_AdminCredentialActionGuards_U_1_13",
       "execution_dependency": "backend_unit",
       "evidence_layer": "http_conformance"
+    },
+    {
+      "id": "U-1-14",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/App.phase1.test.tsx",
+      "title": "Phase 1 U-1-14 ordinary shell keeps the anonymous login surface, sends the login request, refreshes session and credential state after success, and keeps deployment-user controls denied for non-admin sessions",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component"
+    },
+    {
+      "id": "U-1-15",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/App.phase1.test.tsx",
+      "title": "Phase 1 U-1-15 ordinary shell follows mfa_setup_required through totp begin and complete, sends bootstrap-token requests, and proves completion alone does not issue a session",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component"
+    },
+    {
+      "id": "U-1-16",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/App.phase1.test.tsx",
+      "title": "Phase 1 U-1-16 ordinary account-security controls issue password-change and totp-enrollment requests, surface failures on the shell, and refresh back to anonymous state after success",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component"
+    },
+    {
+      "id": "U-1-17",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/App.phase1.test.tsx",
+      "title": "Phase 1 U-1-17 ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component"
     }
   ],
   "integration": [

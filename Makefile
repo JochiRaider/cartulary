@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-test-name-check browser-e2e-task-surface-check backend-task-surface-check service-backed-unit-check run-phase-smoke backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-unit browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-measurement browser-e2e-visual test-fast test-fast-service-backed-lane-a test-fast-service-backed-lane-b test e2e lint lint-go lint-biome lint-typecheck check check-preflight check-heavy check-service-backed check-service-backed-lane-a check-service-backed-lane-b check-isolated ci build build-server build-migrate build-web
+.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-test-name-check browser-e2e-task-surface-check frontend-task-surface-check backend-task-surface-check service-backed-unit-check run-phase-smoke backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-typecheck frontend-unit browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-measurement browser-e2e-visual test-fast test-fast-service-backed-lane-a test-fast-service-backed-lane-b test e2e lint lint-go lint-biome lint-typecheck check check-preflight check-heavy check-service-backed check-service-backed-lane-a check-service-backed-lane-b check-isolated ci build build-server build-migrate build-web
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
 PNPM ?= $(shell if command -v pnpm >/dev/null 2>&1; then command -v pnpm; elif [ -x "$$HOME/.local/share/pnpm/pnpm" ]; then printf "$$HOME/.local/share/pnpm/pnpm"; fi)
@@ -92,6 +92,8 @@ SERVER_BUILD_INPUTS := go.mod go.sum $(shell rg --files cmd/server internal/app 
 MIGRATE_BUILD_INPUTS := go.mod go.sum $(shell rg --files cmd/migrate internal/app internal/platform db/migrations 2>/dev/null)
 WEB_BUILD_INPUTS := package.json pnpm-lock.yaml pnpm-workspace.yaml $(shell rg --files apps/web packages 2>/dev/null)
 TEST_SERVICES_BUILD_INPUTS := go.mod go.sum $(shell rg --files tools/testservices internal/testutil/pgtest internal/testutil/s3test internal/testutil/suiteservices internal/platform/postgres 2>/dev/null)
+EMBEDDED_WEB_ASSET_DIR := $(CURDIR)/internal/platform/httpapi/webassets/dist
+EMBEDDED_WEB_ASSET_STAMP := $(CURDIR)/tmp/frontend-embed/web-assets.stamp
 
 $(NODE_BIN):
 	$(Q)mkdir -p $(NODE_RUNTIME_DIR)
@@ -189,7 +191,7 @@ migration-drift: build-migrate
 
 deployable-shape: deployable-shape-verify
 
-deployable-shape-verify: build-server build-migrate build-web
+deployable-shape-verify: build-server build-migrate
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "deployable-shape" -- ./scripts/ci/check-deployable-shape.sh
 
 phase-map-check: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
@@ -204,6 +206,9 @@ phase-test-name-check:
 browser-e2e-task-surface-check:
 	$(RUN_PHASE) "browser-e2e-task-surface-check" -- ./scripts/check-browser-e2e-task-surface.sh
 
+frontend-task-surface-check: $(NODE_BIN)
+	$(RUN_PHASE) "frontend-task-surface-check" -- env NODE_BIN=$(NODE_BIN) ./scripts/check-frontend-task-surface.sh
+
 backend-task-surface-check: $(NODE_BIN)
 	$(RUN_PHASE) "backend-task-surface-check" -- env NODE_BIN=$(NODE_BIN) ./scripts/check-backend-task-surface.sh
 
@@ -211,7 +216,7 @@ service-backed-unit-check:
 	$(RUN_PHASE) "service-backed-unit-check" -- ./scripts/check-service-backed-unit-tests.sh
 
 test-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
-	$(Q)$(MAKE) --no-print-directory --output-sync=target -j2 backend-unit frontend-unit
+	$(Q)$(MAKE) --no-print-directory --output-sync=target -j3 backend-unit frontend-typecheck frontend-unit
 	$(Q)$(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) test-fast-service-backed-lane-a test-fast-service-backed-lane-b
 
 test-fast-service-backed-lane-a:
@@ -231,16 +236,16 @@ test: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	if $(MAKE) --no-print-directory test-fast; then \
 		completed=$$((completed + 1)); \
 	else \
-		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) test fail $$completed $$total test-fast backend-unit backend-store backend-integration backend-integration-support backend-process frontend-unit browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
+		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) test fail $$completed $$total test-fast backend-unit backend-store backend-integration backend-integration-support backend-process frontend-typecheck frontend-unit browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
 		exit 1; \
 	fi; \
 	if $(MAKE) --no-print-directory browser-e2e; then \
 		completed=$$((completed + 1)); \
 	else \
-		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) test fail $$completed $$total browser-e2e backend-unit backend-store backend-integration backend-integration-support backend-process frontend-unit browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
+		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) test fail $$completed $$total browser-e2e backend-unit backend-store backend-integration backend-integration-support backend-process frontend-typecheck frontend-unit browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
 		exit 1; \
 	fi; \
-	if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) test pass $$completed $$total - backend-unit backend-store backend-integration backend-integration-support backend-process frontend-unit browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi
+	if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) test pass $$completed $$total - backend-unit backend-store backend-integration backend-integration-support backend-process frontend-typecheck frontend-unit browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi
 
 backend-unit: export CARTULARY_TEST_TARGET := backend-unit
 backend-unit: export CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION := phase1:unit:authoritative:backend_unit:./internal/platform/...
@@ -286,6 +291,9 @@ phase2-process-smoke: $(NODE_BIN) build-server $(TEST_SERVICES_BIN)
 	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(TEST_SERVICES_BIN) run -- ./scripts/run-go-target.sh phase2-process-smoke
 
 frontend-unit: export CARTULARY_TEST_TARGET := frontend-unit
+
+frontend-typecheck: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "frontend typecheck" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec tsc --noEmit $(TSC_FLAGS)
 
 frontend-unit: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)env PNPM=$(PNPM) NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) VITEST_FLAGS="$(VITEST_FLAGS)" VITEST_MAX_WORKERS=$(VITEST_MAX_WORKERS) ./scripts/run-frontend-unit.sh
@@ -334,7 +342,7 @@ browser-e2e-visual: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-mig
 	$(Q)env PLAYWRIGHT_WORKERS=1 PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-visual.sh
 	$(TARGET_SUMMARY) browser-e2e-visual pass
 
-lint: lint-go lint-biome lint-typecheck
+lint: lint-go lint-biome frontend-typecheck
 
 lint-go:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
@@ -343,8 +351,7 @@ lint-go:
 lint-biome: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)CARTULARY_PHASE_FAILURE_NOTE="run pnpm --dir apps/web format to apply the authoritative frontend Biome scope" CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT) "lint biome" -- bash $(RUN_FRONTEND_BIOME_SCRIPT) check $(BIOME_CHECK_FLAGS)
 
-lint-typecheck: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "lint typecheck" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec tsc --noEmit $(TSC_FLAGS)
+lint-typecheck: frontend-typecheck
 
 check-preflight: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)if [ "$(CI)" = "1" ]; then \
@@ -356,6 +363,7 @@ check-preflight: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)$(MAKE) --no-print-directory run-phase-smoke
 	$(Q)$(MAKE) --no-print-directory phase-test-name-check
 	$(Q)$(MAKE) --no-print-directory browser-e2e-task-surface-check
+	$(Q)$(MAKE) --no-print-directory frontend-task-surface-check
 	$(Q)$(MAKE) --no-print-directory backend-task-surface-check
 	$(Q)$(MAKE) --no-print-directory service-backed-unit-check
 	$(Q)$(MAKE) --no-print-directory generate-drift
@@ -363,7 +371,7 @@ check-preflight: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 
 # Keep only parallel-safe work here. Service-backed Go phases and owned-stack
 # browser suites run after this block under serialized orchestration.
-check-heavy: migration-drift lint-go lint-typecheck backend-unit frontend-unit deployable-shape-verify
+check-heavy: migration-drift lint-go frontend-typecheck backend-unit frontend-unit deployable-shape-verify
 
 check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
 	$(Q)$(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) check-service-backed-lane-a check-service-backed-lane-b
@@ -388,35 +396,41 @@ check: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	if $(MAKE) --no-print-directory check-preflight; then \
 		completed=$$((completed + 1)); \
 	else \
-		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check fail $$completed $$total check-preflight backend-unit frontend-unit backend-store backend-integration backend-integration-support backend-process browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
+		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check fail $$completed $$total check-preflight backend-unit frontend-typecheck frontend-unit backend-store backend-integration backend-integration-support backend-process browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
 		exit 1; \
 	fi; \
 	if $(MAKE) --no-print-directory --output-sync=target -j$(CHECK_JOBS) check-heavy; then \
 		completed=$$((completed + 1)); \
 	else \
-		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check fail $$completed $$total check-heavy backend-unit frontend-unit backend-store backend-integration backend-integration-support backend-process browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
+		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check fail $$completed $$total check-heavy backend-unit frontend-typecheck frontend-unit backend-store backend-integration backend-integration-support backend-process browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
 		exit 1; \
 	fi; \
 	if $(MAKE) --no-print-directory check-service-backed; then \
 		completed=$$((completed + 1)); \
 	else \
-		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check fail $$completed $$total check-service-backed backend-unit frontend-unit backend-store backend-integration backend-integration-support backend-process browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
+		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check fail $$completed $$total check-service-backed backend-unit frontend-typecheck frontend-unit backend-store backend-integration backend-integration-support backend-process browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
 		exit 1; \
 	fi; \
 	if $(MAKE) --no-print-directory check-isolated; then \
 		completed=$$((completed + 1)); \
 	else \
-		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check fail $$completed $$total check-isolated backend-unit frontend-unit backend-store backend-integration backend-integration-support backend-process browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
+		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check fail $$completed $$total check-isolated backend-unit frontend-typecheck frontend-unit backend-store backend-integration backend-integration-support backend-process browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
 		exit 1; \
 	fi; \
-	if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check pass $$completed $$total - backend-unit frontend-unit backend-store backend-integration backend-integration-support backend-process browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi
+	if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check pass $$completed $$total - backend-unit frontend-typecheck frontend-unit backend-store backend-integration backend-integration-support backend-process browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi
 
 ci:
 	$(Q)./scripts/ci/verify.sh
 
-build: build-server build-migrate build-web
+build: build-server build-migrate
 
-$(SERVER_BIN): $(SERVER_BUILD_INPUTS)
+$(EMBEDDED_WEB_ASSET_STAMP): $(CURDIR)/apps/web/dist/index.html
+	$(Q)mkdir -p $(EMBEDDED_WEB_ASSET_DIR) $(dir $(EMBEDDED_WEB_ASSET_STAMP))
+	$(Q)find $(EMBEDDED_WEB_ASSET_DIR) -mindepth 1 ! -name '.keep' -exec rm -rf {} +
+	$(Q)cp -R $(CURDIR)/apps/web/dist/. $(EMBEDDED_WEB_ASSET_DIR)/
+	$(Q)printf 'source=%s\n' "$(CURDIR)/apps/web/dist/index.html" > $(EMBEDDED_WEB_ASSET_STAMP)
+
+$(SERVER_BIN): $(SERVER_BUILD_INPUTS) $(EMBEDDED_WEB_ASSET_STAMP)
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "build server" -- $(GO_ENV) $(GO) build -o $(SERVER_BIN) ./cmd/server
 

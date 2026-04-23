@@ -17,7 +17,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase1test"
+	phase1support "github.com/JochiRaider/cartulary/internal/testutil/phase1test"
+	phase1test "github.com/JochiRaider/cartulary/internal/testutil/phase1test/inventory"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
@@ -104,16 +105,13 @@ func TestSupportPhase1_UserListUsesSnapshotStablePagination(t *testing.T) {
 	}
 }
 
-func TestSupportPhase1_PublicRouteInventoryEnvelopes(t *testing.T) {
+func TestSupportPhase1_Integration_SurfaceEnvelope(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)
 	ctx := newPhase1SupportRouteContext(t, postgresHarness, s3Harness, "phase1-support-envelope")
 	defer ctx.db.Close()
 
-	for _, route := range phase1test.PublicRouteInventory() {
-		if route.Transport != phase1test.RouteTransportHTTP {
-			continue
-		}
+	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessSurfaceEnvelope) {
 		t.Run(string(route.ID), func(t *testing.T) {
 			req := ctx.buildSuccessRequest(t, route)
 			resp := ctx.do(t, req)
@@ -122,7 +120,7 @@ func TestSupportPhase1_PublicRouteInventoryEnvelopes(t *testing.T) {
 	}
 }
 
-func TestSupportPhase1_PublicRouteInventoryBootstrapBoundaries(t *testing.T) {
+func TestSupportPhase1_Integration_BootstrapBoundaries(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)
 	ctx := newPhase1SupportRouteContext(t, postgresHarness, s3Harness, "phase1-support-bootstrap")
@@ -134,13 +132,10 @@ func TestSupportPhase1_PublicRouteInventoryBootstrapBoundaries(t *testing.T) {
 	totpTargetID, _, _, _, _ := ctx.newActiveTOTPLoggedInUser(t, "bootstrap-totp-target", false)
 	revokeTargetID, _, _, _, _ := ctx.newLoggedInLocalUser(t, "bootstrap-revoke-target", false, false, true)
 
-	for _, route := range phase1test.PublicRouteInventory() {
-		if !hasRouteCheck(route, phase1test.RouteCheckBootstrapBoundary) {
-			continue
-		}
+	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessBootstrapBoundary) {
 		t.Run(string(route.ID), func(t *testing.T) {
 			if route.Transport == phase1test.RouteTransportWebSocket {
-				phase1test.RequireBootstrapWebsocketRejected(t, ctx.server.HTTP.URL, bootstrapToken)
+				phase1support.RequireBootstrapWebsocketRejected(t, ctx.server.HTTP.URL, bootstrapToken)
 				return
 			}
 
@@ -155,16 +150,13 @@ func TestSupportPhase1_PublicRouteInventoryBootstrapBoundaries(t *testing.T) {
 	}
 }
 
-func TestSupportPhase1_PublicRouteInventoryCSRFProtection(t *testing.T) {
+func TestSupportPhase1_Integration_CSRFProtection(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)
 	ctx := newPhase1SupportRouteContext(t, postgresHarness, s3Harness, "phase1-support-csrf")
 	defer ctx.db.Close()
 
-	for _, route := range phase1test.PublicRouteInventory() {
-		if !hasRouteCheck(route, phase1test.RouteCheckCSRF) {
-			continue
-		}
+	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessCSRF) {
 		t.Run(string(route.ID), func(t *testing.T) {
 			req := ctx.buildCSRFFailureRequest(t, route)
 			resp := ctx.do(t, req)
@@ -173,16 +165,13 @@ func TestSupportPhase1_PublicRouteInventoryCSRFProtection(t *testing.T) {
 	}
 }
 
-func TestSupportPhase1_PublicRouteInventoryReplayAndStoredPayloadSafety(t *testing.T) {
+func TestSupportPhase1_Integration_ReplayAndStoredPayloadSafety(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)
 	ctx := newPhase1SupportRouteContext(t, postgresHarness, s3Harness, "phase1-support-replay")
 	defer ctx.db.Close()
 
-	for _, route := range phase1test.PublicRouteInventory() {
-		if !hasRouteCheck(route, phase1test.RouteCheckReplay) && !hasRouteCheck(route, phase1test.RouteCheckSecretSafePayload) {
-			continue
-		}
+	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessReplayStoredPayload) {
 		t.Run(string(route.ID), func(t *testing.T) {
 			req := ctx.buildSuccessRequest(t, route)
 			firstResp := ctx.do(t, req)
@@ -254,16 +243,13 @@ func TestSupportPhase1_PublicRouteInventoryReplayAndStoredPayloadSafety(t *testi
 	}
 }
 
-func TestSupportPhase1_PublicRouteInventoryAuditAttribution(t *testing.T) {
+func TestSupportPhase1_Integration_AuditAttribution(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)
 	ctx := newPhase1SupportRouteContext(t, postgresHarness, s3Harness, "phase1-support-audit")
 	defer ctx.db.Close()
 
-	for _, route := range phase1test.PublicRouteInventory() {
-		if !hasRouteCheck(route, phase1test.RouteCheckMutationAudit) {
-			continue
-		}
+	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessMutationAudit) {
 		t.Run(string(route.ID), func(t *testing.T) {
 			req := ctx.buildSuccessRequest(t, route)
 			resp := ctx.do(t, req)
@@ -287,16 +273,13 @@ func TestSupportPhase1_PublicRouteInventoryAuditAttribution(t *testing.T) {
 	}
 }
 
-func TestSupportPhase1_PublicRouteInventorySessionRevocation(t *testing.T) {
+func TestSupportPhase1_Integration_SessionRevocation(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)
 	ctx := newPhase1SupportRouteContext(t, postgresHarness, s3Harness, "phase1-support-revocation")
 	defer ctx.db.Close()
 
-	for _, route := range phase1test.PublicRouteInventory() {
-		if !hasRouteCheck(route, phase1test.RouteCheckSessionRevocation) {
-			continue
-		}
+	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessSessionRevocation) {
 		t.Run(string(route.ID), func(t *testing.T) {
 			switch route.ID {
 			case phase1test.RouteSessionLifecycleWS:
@@ -413,13 +396,74 @@ func TestSupportPhase1_PublicRouteInventorySessionRevocation(t *testing.T) {
 	}
 }
 
+func TestSupportPhase1_Integration_AuthorizationReDerivation(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	s3Harness := s3test.Start(t)
+
+	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessAuthorization) {
+		t.Run(string(route.ID), func(t *testing.T) {
+			ctx := newPhase1SupportRouteContext(t, postgresHarness, s3Harness, "phase1-support-authorization-"+string(route.ID))
+			defer ctx.db.Close()
+
+			beforeReq := ctx.buildSuccessRequest(t, route)
+			beforeResp := ctx.do(t, beforeReq)
+			httptestx.RequireSuccessEnvelope(t, beforeResp, route.SuccessStatus)
+
+			ctx.demotePrimaryAdmin(t)
+
+			afterReq := ctx.buildSuccessRequest(t, route)
+			afterResp := ctx.do(t, afterReq)
+			body := httptestx.RequireErrorEnvelope(t, afterResp, route.AuthorizationStatus, route.AuthorizationCode)
+			errorValue := body["error"].(map[string]any)
+			httptestx.RequireAuthorizationReDerived(
+				t,
+				httptestx.AuthorizationOutcome{Status: route.SuccessStatus, Code: "success"},
+				httptestx.AuthorizationOutcome{Status: afterResp.StatusCode, Code: errorValue["code"].(string)},
+			)
+		})
+	}
+}
+
+func TestSupportPhase1_Integration_RequestContracts(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	s3Harness := s3test.Start(t)
+	ctx := newPhase1SupportRouteContext(t, postgresHarness, s3Harness, "phase1-support-request-contracts")
+	defer ctx.db.Close()
+
+	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessRequestContracts) {
+		for _, contract := range route.RequestContracts.ClosedVocabulary {
+			t.Run(string(route.ID)+"/closed-vocabulary/"+contract.Field, func(t *testing.T) {
+				resp := ctx.do(t, ctx.buildClosedVocabularyRequest(t, route, contract.Field))
+				body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, ctx.closedVocabularyCode(route, contract.Field))
+				errorValue := body["error"].(map[string]any)
+				httptestx.RequireClosedVocabularyRejected(
+					t,
+					errorValue["code"].(string),
+					errorValue["details"].(map[string]any),
+					contract.Field,
+					contract.ReasonCode,
+				)
+			})
+		}
+
+		for _, contract := range route.RequestContracts.WritableStrings {
+			t.Run(string(route.ID)+"/writable-string/"+contract.Field, func(t *testing.T) {
+				ctx.requireWritableStringNormalization(t, route, contract.Field)
+			})
+		}
+	}
+}
+
 type phase1SupportRouteContext struct {
-	server       *httptestx.Server
-	db           *sql.DB
-	adminID      string
-	adminSession *http.Cookie
-	adminCSRF    *http.Cookie
-	sequence     int
+	server           *httptestx.Server
+	db               *sql.DB
+	adminID          string
+	adminSession     *http.Cookie
+	adminCSRF        *http.Cookie
+	peerAdminID      string
+	peerAdminSession *http.Cookie
+	peerAdminCSRF    *http.Cookie
+	sequence         int
 }
 
 type phase1SupportRequest struct {
@@ -451,13 +495,18 @@ func newPhase1SupportRouteContext(
 	server, db := startPhase1Server(t, postgresHarness, s3Harness, prefix)
 	adminID := seedLocalUserFlags(t, db, prefix+"-admin@example.test", "Support Admin", "SupportAdminPass1!", false, true, true)
 	adminSession, adminCSRF := loginLocalUser(t, server, prefix+"-admin@example.test", "SupportAdminPass1!", nil)
+	peerAdminID := seedLocalUserFlags(t, db, prefix+"-peer-admin@example.test", "Support Peer Admin", "SupportPeerAdminPass1!", false, true, true)
+	peerAdminSession, peerAdminCSRF := loginLocalUser(t, server, prefix+"-peer-admin@example.test", "SupportPeerAdminPass1!", nil)
 
 	return &phase1SupportRouteContext{
-		server:       server,
-		db:           db,
-		adminID:      adminID,
-		adminSession: adminSession,
-		adminCSRF:    adminCSRF,
+		server:           server,
+		db:               db,
+		adminID:          adminID,
+		adminSession:     adminSession,
+		adminCSRF:        adminCSRF,
+		peerAdminID:      peerAdminID,
+		peerAdminSession: peerAdminSession,
+		peerAdminCSRF:    peerAdminCSRF,
 	}
 }
 
@@ -849,6 +898,233 @@ func (c *phase1SupportRouteContext) buildBootstrapBoundaryRequest(
 	}
 }
 
+func (c *phase1SupportRouteContext) demotePrimaryAdmin(t testing.TB) {
+	t.Helper()
+
+	resp := doJSON(
+		t,
+		http.MethodPatch,
+		c.server.HTTP.URL+"/api/v1/users/"+c.adminID,
+		map[string]any{
+			"base_user_version":   c.userVersion(t, c.adminID),
+			"is_deployment_admin": false,
+		},
+		withCookies(c.peerAdminSession, c.peerAdminCSRF),
+		withHeader(authn.CSRFHeaderName, c.peerAdminCSRF.Value),
+	)
+	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	if got := data["is_deployment_admin"]; got != false {
+		t.Fatalf("expected primary admin to be demoted, got %#v", data)
+	}
+}
+
+func (c *phase1SupportRouteContext) buildClosedVocabularyRequest(
+	t testing.TB,
+	route phase1test.RouteInventoryEntry,
+	field string,
+) phase1SupportRequest {
+	t.Helper()
+
+	switch route.ID {
+	case phase1test.RouteLogin:
+		_, email, password := c.newLocalUser(t, "closed-vocabulary-login", false, false, true)
+		return phase1SupportRequest{
+			route: route,
+			path:  route.Template,
+			body: map[string]any{
+				"username": email,
+				"password": password,
+				"second_factor": map[string]any{
+					"kind": "webauthn",
+					"assertion": map[string]any{
+						"code": "123456",
+					},
+				},
+			},
+			headers: map[string]string{},
+		}
+	case phase1test.RoutePasswordChange:
+		userID, _, password, _, login := c.newActiveTOTPLoggedInUser(t, "closed-vocabulary-password-change", false)
+		return phase1SupportRequest{
+			route: route,
+			path:  route.Template,
+			body: map[string]any{
+				"client_txn_id":    c.nextClientTxn("closed-vocabulary-password-change"),
+				"current_password": password,
+				"new_password":     "SupportPasswordChanged2!",
+				"second_factor": map[string]any{
+					"kind": "webauthn",
+					"assertion": map[string]any{
+						"code": "123456",
+					},
+				},
+			},
+			cookies:      []*http.Cookie{login.sessionCookie, login.csrfCookie},
+			headers:      map[string]string{authn.CSRFHeaderName: login.csrfCookie.Value},
+			actorUserID:  userID,
+			targetUserID: userID,
+		}
+	case phase1test.RouteTOTPBegin:
+		userID, _, password, secretBase32, login := c.newActiveTOTPLoggedInUser(t, "closed-vocabulary-totp-begin", false)
+		return phase1SupportRequest{
+			route: route,
+			path:  route.Template,
+			body: map[string]any{
+				"client_txn_id":    c.nextClientTxn("closed-vocabulary-totp-begin"),
+				"current_password": password,
+				"second_factor": map[string]any{
+					"kind": "webauthn",
+					"assertion": map[string]any{
+						"code": generateTOTPCode(t, secretBase32),
+					},
+				},
+			},
+			cookies:      []*http.Cookie{login.sessionCookie, login.csrfCookie},
+			headers:      map[string]string{authn.CSRFHeaderName: login.csrfCookie.Value},
+			actorUserID:  userID,
+			targetUserID: userID,
+		}
+	case phase1test.RouteUsersCreate:
+		if field != "auth_kind" {
+			t.Fatalf("unsupported closed-vocabulary field %s for route %s", field, route.ID)
+		}
+		email, password := c.nextIdentity("closed-vocabulary-users-create")
+		return phase1SupportRequest{
+			route: route,
+			path:  route.Template,
+			body: map[string]any{
+				"client_txn_id":    c.nextClientTxn("closed-vocabulary-users-create"),
+				"auth_kind":        "ldap",
+				"email":            email,
+				"display_name":     "Closed Vocabulary Create",
+				"initial_password": password,
+			},
+			cookies: []*http.Cookie{c.adminSession, c.adminCSRF},
+			headers: map[string]string{authn.CSRFHeaderName: c.adminCSRF.Value},
+		}
+	default:
+		t.Fatalf("unsupported closed-vocabulary route %s", route.ID)
+		return phase1SupportRequest{}
+	}
+}
+
+func (c *phase1SupportRouteContext) closedVocabularyCode(route phase1test.RouteInventoryEntry, field string) string {
+	switch route.ID {
+	case phase1test.RouteLogin, phase1test.RoutePasswordChange, phase1test.RouteTOTPBegin:
+		return "invalid_auth_request"
+	case phase1test.RouteUsersCreate:
+		return "invalid_mutation_payload"
+	default:
+		panic("unsupported closed-vocabulary route " + string(route.ID) + " field " + field)
+	}
+}
+
+func (c *phase1SupportRouteContext) requireWritableStringNormalization(
+	t testing.TB,
+	route phase1test.RouteInventoryEntry,
+	field string,
+) {
+	t.Helper()
+
+	switch route.ID {
+	case phase1test.RouteUsersCreate:
+		email, password := c.nextIdentity("writable-users-create")
+		body := map[string]any{
+			"client_txn_id":    c.nextClientTxn("writable-users-create"),
+			"auth_kind":        "local",
+			"email":            email,
+			"display_name":     "Writable Create",
+			"initial_password": password,
+		}
+		var want string
+		switch field {
+		case "email":
+			body["email"] = "  " + email + "  "
+			want = email
+		case "display_name":
+			body["display_name"] = "  Writable Create  "
+			want = "Writable Create"
+		default:
+			t.Fatalf("unsupported writable-string field %s for route %s", field, route.ID)
+		}
+		resp := doJSON(
+			t,
+			route.Method,
+			c.server.HTTP.URL+route.Template,
+			body,
+			withCookies(c.adminSession, c.adminCSRF),
+			withHeader(authn.CSRFHeaderName, c.adminCSRF.Value),
+		)
+		data := httptestx.RequireSuccessEnvelope(t, resp, route.SuccessStatus)["data"].(map[string]any)
+		got, ok := data[field].(string)
+		if !ok {
+			t.Fatalf("expected %s response field for route %s, got %#v", field, route.ID, data)
+		}
+		httptestx.RequireWritableStringNormalization(t, got, want)
+	case phase1test.RouteUsersPatch:
+		targetUserID, _, _ := c.newLocalUser(t, "writable-users-patch-target", false, false, true)
+		body := map[string]any{
+			"base_user_version": 1,
+		}
+		var want string
+		switch field {
+		case "email":
+			body["email"] = "  WritablePatch@Example.Test  "
+			want = "WritablePatch@Example.Test"
+		case "display_name":
+			body["display_name"] = "  Writable Patch  "
+			want = "Writable Patch"
+		default:
+			t.Fatalf("unsupported writable-string field %s for route %s", field, route.ID)
+		}
+		resp := doJSON(
+			t,
+			route.Method,
+			c.server.HTTP.URL+phase1test.BuildRoutePath(route.Template, phase1test.RouteInventoryFixture{UserID: targetUserID}),
+			body,
+			withCookies(c.adminSession, c.adminCSRF),
+			withHeader(authn.CSRFHeaderName, c.adminCSRF.Value),
+		)
+		data := httptestx.RequireSuccessEnvelope(t, resp, route.SuccessStatus)["data"].(map[string]any)
+		got, ok := data[field].(string)
+		if !ok {
+			t.Fatalf("expected %s response field for route %s, got %#v", field, route.ID, data)
+		}
+		httptestx.RequireWritableStringNormalization(t, got, want)
+	case phase1test.RouteUsersPasswordReset, phase1test.RouteUsersTOTPReset, phase1test.RouteUsersRevokeAll:
+		if field != "reason" {
+			t.Fatalf("unsupported writable-string field %s for route %s", field, route.ID)
+		}
+		req := c.buildSuccessRequest(t, route)
+		body := cloneJSONMap(t, req.body)
+		body["reason"] = "  Support reason normalization  "
+		req.body = body
+
+		rawReason := body["reason"].(string)
+		normalizedReason := authn.NormalizeReasonNote(&rawReason)
+		if normalizedReason == nil {
+			t.Fatalf("expected normalized reason note for %q", rawReason)
+		}
+		httptestx.RequireWritableStringNormalization(t, *normalizedReason, "Support reason normalization")
+
+		firstResp := c.do(t, req)
+		firstData := httptestx.RequireSuccessEnvelope(t, firstResp, route.SuccessStatus)["data"].(map[string]any)
+
+		replayReq := req
+		replayBody := cloneJSONMap(t, req.body)
+		replayBody["reason"] = *normalizedReason
+		replayReq.body = replayBody
+		replayedResp := c.do(t, replayReq)
+		replayedData := httptestx.RequireSuccessEnvelope(t, replayedResp, route.SuccessStatus)["data"].(map[string]any)
+		requireJSONEquivalent(t, replayedData, firstData)
+		if got := queryCount(t, c.db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND scope_key = $2 AND client_txn_id = $3`, req.routeKey, req.scopeKey, req.clientTxnID); got != 1 {
+			t.Fatalf("expected one route_idempotency row for %s, got %d", route.ID, got)
+		}
+	default:
+		t.Fatalf("unsupported writable-string route %s", route.ID)
+	}
+}
+
 func (c *phase1SupportRouteContext) do(t testing.TB, req phase1SupportRequest) *http.Response {
 	t.Helper()
 
@@ -860,6 +1136,16 @@ func (c *phase1SupportRouteContext) do(t testing.TB, req phase1SupportRequest) *
 		options = append(options, withHeader(key, value))
 	}
 	return doJSON(t, req.route.Method, c.server.HTTP.URL+req.path, req.body, options...)
+}
+
+func (c *phase1SupportRouteContext) userVersion(t testing.TB, userID string) int64 {
+	t.Helper()
+
+	var version int64
+	if err := c.db.QueryRowContext(context.Background(), `SELECT user_version FROM users WHERE id::text = $1`, userID).Scan(&version); err != nil {
+		t.Fatalf("query user version for %s: %v", userID, err)
+	}
+	return version
 }
 
 func (c *phase1SupportRouteContext) newLocalUser(t testing.TB, tag string, mfaRequired bool, isDeploymentAdmin bool, isActive bool) (string, string, string) {
@@ -932,13 +1218,18 @@ func (c *phase1SupportRouteContext) nextIdentity(tag string) (string, string) {
 	return email, password
 }
 
-func hasRouteCheck(route phase1test.RouteInventoryEntry, check phase1test.RouteCheck) bool {
-	for _, candidate := range route.Checks {
-		if candidate == check {
-			return true
-		}
+func cloneJSONMap(t testing.TB, body any) map[string]any {
+	t.Helper()
+
+	typed, ok := body.(map[string]any)
+	if !ok {
+		t.Fatalf("expected json object body, got %T", body)
 	}
-	return false
+	cloned := make(map[string]any, len(typed))
+	for key, value := range typed {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func supportSecretBase32(seed int) string {

@@ -15,6 +15,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { requireFetchCall, requireJSONBodyAt } from "./fetchMockTestSupport";
 import {
   deferred,
   errorEnvelope,
@@ -656,9 +657,9 @@ describe("Phase 3 Timeline workbook authoritative coverage", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
-      "/api/v1/records/record-1",
-    );
+    expect(
+      String(requireFetchCall(fetchMock, 1, "timeline patch request #1")[0]),
+    ).toContain("/api/v1/records/record-1");
     expect(extractBody(fetchMock, 1).base_row_version).toBe(7);
   });
 
@@ -805,9 +806,9 @@ describe("Phase 3 Timeline workbook authoritative coverage", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(4);
     });
-    expect(String(fetchMock.mock.calls[3]?.[0])).toContain(
-      "/api/v1/records/record-1",
-    );
+    expect(
+      String(requireFetchCall(fetchMock, 3, "timeline patch request #3")[0]),
+    ).toContain("/api/v1/records/record-1");
     expect(extractBody(fetchMock, 3)).toMatchObject({
       base_row_version: 7,
       changes: [
@@ -821,14 +822,16 @@ describe("Phase 3 Timeline workbook authoritative coverage", () => {
 });
 
 function extractBody(fetchSpy: ReturnType<typeof vi.fn>, index: number) {
-  return JSON.parse(String(fetchSpy.mock.calls[index]?.[1]?.body ?? "{}")) as {
+  return requireJSONBodyAt<{
     base_row_version: number;
     changes: Array<{ field_key: string; value: string | null }>;
-  };
+  }>(fetchSpy, index, `timeline request body at index ${index}`);
 }
 
 function extractJSONBody(fetchSpy: ReturnType<typeof vi.fn>, index: number) {
-  return JSON.parse(
-    String(fetchSpy.mock.calls[index]?.[1]?.body ?? "{}"),
-  ) as Record<string, unknown>;
+  return requireJSONBodyAt<Record<string, unknown>>(
+    fetchSpy,
+    index,
+    `timeline JSON request body at index ${index}`,
+  );
 }

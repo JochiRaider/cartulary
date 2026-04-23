@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"github.com/minio/minio-go/v7"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
@@ -79,7 +81,17 @@ func NewHandler(options ...Options) (http.Handler, error) {
 		option = options[0]
 	}
 
+	rootHTML, err := webassets.ReadIndexHTML()
+	if err != nil {
+		return nil, fmt.Errorf("load embedded web root: %w", err)
+	}
+	staticFS, err := webassets.StaticFS()
+	if err != nil {
+		return nil, fmt.Errorf("load embedded web assets: %w", err)
+	}
+
 	mux := http.NewServeMux()
+	mux.Handle("/assets/", http.StripPrefix("/", http.FileServerFS(staticFS)))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			if match, ok := MatchReservedExtensionFamily(r.URL.Path); ok && !match.Claimed {
@@ -93,8 +105,8 @@ func NewHandler(options ...Options) (http.Handler, error) {
 			return
 		}
 
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		_, _ = fmt.Fprintln(w, "cartulary bootstrap server")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		http.ServeContent(w, r, "index.html", time.Time{}, bytes.NewReader(rootHTML))
 	})
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")

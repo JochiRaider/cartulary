@@ -18,7 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase1routes"
+	phase1test "github.com/JochiRaider/cartulary/internal/testutil/phase1test/inventory"
 )
 
 func TestPhase1_LoginNormalizationAndPasswordExactness_U_1_02(t *testing.T) {
@@ -451,6 +451,46 @@ func TestPhase1_UserCreateRouteDefaults_U_1_07(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects invalid auth_kind before the create path runs", func(t *testing.T) {
+		adminID := uuid.MustParse("10000000-0000-0000-0000-000000000107")
+		sessionID := uuid.MustParse("10000000-0000-0000-0000-000000000108")
+		token := "user-create-invalid-auth-kind-token"
+
+		createCalls := 0
+		store := &authStoreStub{
+			getSessionByFingerprintFunc: func(_ context.Context, fingerprint []byte) (authn.SessionRecord, authn.UserRecord, error) {
+				if !bytes.Equal(fingerprint, authn.FingerprintToken(keys, token)) {
+					t.Fatal("user create used the wrong session fingerprint")
+				}
+				return activeSessionRecord(sessionID, adminID, now), deploymentAdminUserRecord(adminID, "admin@example.test"), nil
+			},
+			createUserFunc: func(context.Context, authn.UserRecord, string, string, string, bool, bool, string, []byte, string, time.Time) (authn.UserCreateResult, error) {
+				createCalls++
+				return authn.UserCreateResult{}, nil
+			},
+		}
+		service := newUnitService(t, store, &hubStub{}, keys, now)
+
+		recorder := httptest.NewRecorder()
+		request := newJSONRequest(t, http.MethodPost, "/api/v1/users", `{
+			"client_txn_id":"txn-user-create-invalid-auth-kind",
+			"auth_kind":"ldap",
+			"email":"phase1-invalid-auth-kind@example.test",
+			"display_name":"Phase 1 Invalid Auth Kind",
+			"initial_password":"Phase1InvalidAuthKindPass!"
+		}`)
+		addSessionAuth(request, keys, token, true)
+		service.handleUsersCollection(recorder, request)
+
+		requireErrorEnvelope(t, recorder, http.StatusBadRequest, "invalid_mutation_payload", "auth_kind")
+		if got := decodeErrorDetails(t, recorder)["reason_code"]; got != "invalid_auth_kind" {
+			t.Fatalf("unexpected auth_kind rejection reason_code: got %v want invalid_auth_kind", got)
+		}
+		if createCalls != 0 {
+			t.Fatalf("CreateUser must not run for invalid auth_kind, got %d calls", createCalls)
+		}
+	})
+
 	t.Run("applies defaults and returns a secret-safe resource", func(t *testing.T) {
 		adminID := uuid.MustParse("10000000-0000-0000-0000-000000000109")
 		sessionID := uuid.MustParse("10000000-0000-0000-0000-000000000110")
@@ -551,6 +591,12 @@ func TestPhase1_UserCreateRouteDefaults_U_1_07(t *testing.T) {
 		}
 
 		data := decodeSuccessData(t, recorder)
+		if got := data["email"]; got != "phase1-create@example.test" {
+			t.Fatalf("unexpected normalized create response email: got %v want phase1-create@example.test", got)
+		}
+		if got := data["display_name"]; got != "Phase 1 Create" {
+			t.Fatalf("unexpected normalized create response display_name: got %v want Phase 1 Create", got)
+		}
 		if data["is_active"] != true || data["mfa_required"] != true || data["is_deployment_admin"] != false {
 			t.Fatalf("unexpected create response defaults: %#v", data)
 		}
@@ -595,6 +641,36 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 		}
 	})
 
+	t.Run("decoder normalizes writable strings and preserves the last-admin helper guard", func(t *testing.T) {
+		request, apiErr := DecodeUserPatchRequest(strings.NewReader(`{
+			"base_user_version":2,
+			"email":" Phase1Patch@Example.Test ",
+			"display_name":" Analyst Patched ",
+			"is_deployment_admin":false
+		}`))
+		if apiErr != nil {
+			t.Fatalf("decode valid user patch request: %v", apiErr)
+		}
+		if request.BaseUserVersion != 2 {
+			t.Fatalf("unexpected base_user_version: got %d want 2", request.BaseUserVersion)
+		}
+		if request.Email == nil || *request.Email != "Phase1Patch@Example.Test" {
+			t.Fatalf("unexpected normalized email: %#v", request.Email)
+		}
+		if request.DisplayName == nil || *request.DisplayName != "Analyst Patched" {
+			t.Fatalf("unexpected normalized display_name: %#v", request.DisplayName)
+		}
+		if !WouldLeaveNoActiveDeploymentAdmins(true, true, 1, false, true) {
+			t.Fatal("demoting the last active deployment admin must be rejected")
+		}
+		if !WouldLeaveNoActiveDeploymentAdmins(true, true, 1, true, false) {
+			t.Fatal("deactivating the last active deployment admin must be rejected")
+		}
+		if WouldLeaveNoActiveDeploymentAdmins(true, true, 2, false, true) {
+			t.Fatal("another active deployment admin should satisfy the guard")
+		}
+	})
+
 	for _, tc := range []struct {
 		name     string
 		storeErr error
@@ -632,6 +708,9 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 					if baseUserVersion != 7 {
 						t.Fatalf("unexpected base_user_version: got %d want 7", baseUserVersion)
 					}
+					if email == nil || *email != "Phase1Patched@Example.Test" {
+						t.Fatalf("unexpected email: %#v", email)
+					}
 					if displayName == nil || *displayName != "Phase 1 Patched" {
 						t.Fatalf("unexpected display_name: %#v", displayName)
 					}
@@ -649,6 +728,7 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			request := newJSONRequest(t, http.MethodPatch, "/api/v1/users/"+targetUserID.String(), `{
 				"base_user_version":7,
+				"email":" Phase1Patched@Example.Test ",
 				"display_name":" Phase 1 Patched "
 			}`)
 			addSessionAuth(request, keys, token, true)
@@ -668,10 +748,11 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 func TestPhase1_CSRFProtectionRoutes_U_1_09(t *testing.T) {
 	now := time.Date(2026, time.April, 17, 12, 40, 0, 0, time.UTC)
 	keys := loadUnitMasterKeys(t)
-	fixture := phase1routes.RouteInventoryFixture{
+	fixture := phase1test.RouteInventoryFixture{
 		UserID: "10000000-0000-0000-0000-000000000124",
 	}
 	token := "csrf-state-changing-token"
+	routes := phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessCSRF)
 
 	for _, tc := range []struct {
 		name       string
@@ -688,11 +769,7 @@ func TestPhase1_CSRFProtectionRoutes_U_1_09(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			for _, route := range phase1routes.PublicRouteInventory() {
-				if !route.RequiresCSRF || !phase1RouteHasCheck(route, phase1routes.RouteCheckCSRF) {
-					continue
-				}
-
+			for _, route := range routes {
 				t.Run(string(route.ID), func(t *testing.T) {
 					hub := &hubStub{}
 					service := newUnitService(t, &authStoreStub{
@@ -703,7 +780,7 @@ func TestPhase1_CSRFProtectionRoutes_U_1_09(t *testing.T) {
 					}, hub, keys, now)
 
 					recorder := httptest.NewRecorder()
-					request := newJSONRequest(t, route.Method, phase1routes.BuildRoutePath(route.Template, fixture), phase1RouteCSRFPayload(t, route))
+					request := newJSONRequest(t, route.Method, phase1test.BuildRoutePath(route.Template, fixture), phase1RouteCSRFPayload(t, route))
 					addSessionCookiesOnly(request, keys, token)
 					if tc.headerName != "" {
 						request.Header.Set(tc.headerName, tc.headerVal)
@@ -2404,36 +2481,27 @@ func requireRevocations(t testing.TB, got []revocationCall, want []revocationCal
 	}
 }
 
-func phase1RouteHasCheck(route phase1routes.RouteInventoryEntry, check phase1routes.RouteCheck) bool {
-	for _, candidate := range route.Checks {
-		if candidate == check {
-			return true
-		}
-	}
-	return false
-}
-
-func phase1RouteCSRFPayload(t testing.TB, route phase1routes.RouteInventoryEntry) string {
+func phase1RouteCSRFPayload(t testing.TB, route phase1test.RouteInventoryEntry) string {
 	t.Helper()
 
 	switch route.ID {
-	case phase1routes.RouteLogout:
+	case phase1test.RouteLogout:
 		return `{}`
-	case phase1routes.RoutePasswordChange:
+	case phase1test.RoutePasswordChange:
 		return `{
 			"client_txn_id":"txn-password-csrf",
 			"current_password":"Phase1CSRFCurrent!",
 			"new_password":"Phase1CSRFFresh!"
 		}`
-	case phase1routes.RouteTOTPBegin:
+	case phase1test.RouteTOTPBegin:
 		return `{"client_txn_id":"txn-totp-begin-csrf"}`
-	case phase1routes.RouteTOTPComplete:
+	case phase1test.RouteTOTPComplete:
 		return `{
 			"client_txn_id":"txn-totp-complete-csrf",
 			"enrollment_id":"10000000-0000-0000-0000-000000000129",
 			"code":"123456"
 		}`
-	case phase1routes.RouteUsersCreate:
+	case phase1test.RouteUsersCreate:
 		return `{
 			"client_txn_id":"txn-user-create-csrf",
 			"auth_kind":"local",
@@ -2441,23 +2509,23 @@ func phase1RouteCSRFPayload(t testing.TB, route phase1routes.RouteInventoryEntry
 			"display_name":"CSRF Route",
 			"initial_password":"Phase1CSRFFresh!"
 		}`
-	case phase1routes.RouteUsersPatch:
+	case phase1test.RouteUsersPatch:
 		return `{
 			"base_user_version":1,
 			"display_name":"CSRF Patch"
 		}`
-	case phase1routes.RouteUsersPasswordReset:
+	case phase1test.RouteUsersPasswordReset:
 		return `{
 			"base_user_version":1,
 			"client_txn_id":"txn-user-password-reset-csrf",
 			"new_password":"Phase1CSRFFresh!"
 		}`
-	case phase1routes.RouteUsersTOTPReset:
+	case phase1test.RouteUsersTOTPReset:
 		return `{
 			"base_user_version":1,
 			"client_txn_id":"txn-user-totp-reset-csrf"
 		}`
-	case phase1routes.RouteUsersRevokeAll:
+	case phase1test.RouteUsersRevokeAll:
 		return `{
 			"client_txn_id":"txn-user-revoke-all-csrf",
 			"reason":"csrf guard"
@@ -2468,21 +2536,21 @@ func phase1RouteCSRFPayload(t testing.TB, route phase1routes.RouteInventoryEntry
 	}
 }
 
-func dispatchPhase1UnitRoute(t testing.TB, service *Service, route phase1routes.RouteInventoryEntry, recorder *httptest.ResponseRecorder, request *http.Request) {
+func dispatchPhase1UnitRoute(t testing.TB, service *Service, route phase1test.RouteInventoryEntry, recorder *httptest.ResponseRecorder, request *http.Request) {
 	t.Helper()
 
 	switch route.ID {
-	case phase1routes.RouteLogout:
+	case phase1test.RouteLogout:
 		service.handleLogout(recorder, request)
-	case phase1routes.RoutePasswordChange:
+	case phase1test.RoutePasswordChange:
 		service.handlePasswordChange(recorder, request)
-	case phase1routes.RouteTOTPBegin:
+	case phase1test.RouteTOTPBegin:
 		service.handleTOTPBegin(recorder, request)
-	case phase1routes.RouteTOTPComplete:
+	case phase1test.RouteTOTPComplete:
 		service.handleTOTPComplete(recorder, request)
-	case phase1routes.RouteUsersCreate:
+	case phase1test.RouteUsersCreate:
 		service.handleUsersCollection(recorder, request)
-	case phase1routes.RouteUsersPatch, phase1routes.RouteUsersPasswordReset, phase1routes.RouteUsersTOTPReset, phase1routes.RouteUsersRevokeAll:
+	case phase1test.RouteUsersPatch, phase1test.RouteUsersPasswordReset, phase1test.RouteUsersTOTPReset, phase1test.RouteUsersRevokeAll:
 		service.handleUsersMember(recorder, request)
 	default:
 		t.Fatalf("missing unit route dispatcher for %s", route.ID)

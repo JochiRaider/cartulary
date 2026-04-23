@@ -16,6 +16,11 @@ vi.mock("./WorkbookShell", () => ({
 }));
 
 import { AppRoot } from "./AppRoot";
+import {
+  findFetchCalls,
+  readHeader,
+  requireJSONRequest,
+} from "./fetchMockTestSupport";
 import type { CredentialState, SessionData } from "./phase1Client";
 
 describe("Phase 1 ordinary app shell", () => {
@@ -32,33 +37,7 @@ describe("Phase 1 ordinary app shell", () => {
     vi.unstubAllGlobals();
   });
 
-  it("shows the ordinary login surface when the browser has no session", async () => {
-    fetchMock.mockImplementation((input) => {
-      if (String(input) === "/api/v1/auth/session") {
-        return Promise.resolve(
-          errorResponse("session_required", 401, {
-            reason_code: "no_session",
-          }),
-        );
-      }
-      throw new Error(`unexpected fetch: ${String(input)}`);
-    });
-
-    renderApp();
-
-    expect(await screen.findByTestId("auth-login-username")).toBeTruthy();
-    expect(screen.getByTestId("auth-shell-message").textContent).toContain(
-      "Sign in with your local account",
-    );
-    await waitFor(() => {
-      expect(screen.getByTestId("auth-status").textContent).toBe(
-        "Ready to sign in.",
-      );
-    });
-    await expectStableFetchCount(fetchMock, 1);
-  });
-
-  it("signs in through the ordinary shell and renders account plus denied admin panels", async () => {
+  it("Phase 1 U-1-14 ordinary shell keeps the anonymous login surface, sends the login request, refreshes session and credential state after success, and keeps deployment-user controls denied for non-admin sessions", async () => {
     let authenticated = false;
     fetchMock.mockImplementation((input, init) => {
       const url = String(input);
@@ -107,7 +86,10 @@ describe("Phase 1 ordinary app shell", () => {
 
     renderApp();
 
-    await screen.findByTestId("auth-login-username");
+    expect(await screen.findByTestId("auth-login-username")).toBeTruthy();
+    expect(screen.getByTestId("auth-shell-message").textContent).toContain(
+      "Sign in with your local account",
+    );
     fireEvent.change(screen.getByTestId("auth-login-username"), {
       target: { value: "operator@example.test" },
     });
@@ -127,10 +109,19 @@ describe("Phase 1 ordinary app shell", () => {
     expect(screen.getByTestId("admin-access-note").textContent).toContain(
       "Deployment admin access is required",
     );
+    const loginRequest = requireJSONRequest(
+      fetchMock,
+      "/api/v1/auth/login",
+      "POST",
+    );
+    expect(loginRequest.body).toEqual({
+      username: "operator@example.test",
+      password: "OperatorPass1!",
+    });
     await expectStableFetchCount(fetchMock, 5);
   });
 
-  it("shows the bootstrap enrollment flow on the ordinary login shell", async () => {
+  it("Phase 1 U-1-15 ordinary shell follows mfa_setup_required through totp begin and complete, sends bootstrap-token requests, and proves completion alone does not issue a session", async () => {
     fetchMock.mockImplementation((input, init) => {
       const url = String(input);
       const method = (init?.method ?? "GET").toUpperCase();
@@ -200,14 +191,224 @@ describe("Phase 1 ordinary app shell", () => {
         "TOTP enrollment completed",
       );
     });
+    const beginRequest = requireJSONRequest(
+      fetchMock,
+      "/api/v1/auth/mfa/totp/begin",
+      "POST",
+    );
+    expect(typeof beginRequest.body.client_txn_id).toBe("string");
+    expect(beginRequest.init?.credentials).toBe("omit");
+    expect(readHeader(beginRequest.init, "Authorization")).toBe(
+      "Bearer bootstrap-token-123",
+    );
+
+    const completeRequest = requireJSONRequest(
+      fetchMock,
+      "/api/v1/auth/mfa/totp/complete",
+      "POST",
+    );
+    expect(typeof completeRequest.body.client_txn_id).toBe("string");
+    expect(completeRequest.body.enrollment_id).toBe("enrollment-1");
+    expect(completeRequest.body.code).toBe("123456");
+    expect(completeRequest.init?.credentials).toBe("omit");
+    expect(readHeader(completeRequest.init, "Authorization")).toBe(
+      "Bearer bootstrap-token-123",
+    );
+
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/auth/session", "GET"),
+    ).toHaveLength(1);
+    expect(screen.queryByTestId("landing-current-user")).toBeNull();
+    await expectStableFetchCount(fetchMock, 4);
   });
 
-  it("renders the ordinary deployment-admin user management surface and shows patch conflicts", async () => {
+  it("Phase 1 U-1-16 ordinary account-security controls issue password-change and totp-enrollment requests, surface failures on the shell, and refresh back to anonymous state after success", async () => {
+    let sessionActive = true;
+    let totpBeginAttempts = 0;
+
+    fetchMock.mockImplementation((input, init) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+
+      if (url === "/api/v1/auth/session") {
+        if (!sessionActive) {
+          return Promise.resolve(errorResponse("session_required", 401));
+        }
+        return Promise.resolve(
+          jsonResponse({
+            data: sessionResource({
+              display_name: "Phase 1 Operator",
+              mfa_state: "satisfied",
+            }),
+          }),
+        );
+      }
+      if (url === "/api/v1/auth/credential-state") {
+        return Promise.resolve(
+          jsonResponse({
+            data: credentialStateResource({
+              totp: {
+                state: "active",
+                enrolled_at: "2026-04-20T11:00:00Z",
+                pending_expires_at: null,
+              },
+            }),
+          }),
+        );
+      }
+      if (url === "/api/v1/incidents") {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              incidents: [],
+            },
+          }),
+        );
+      }
+      if (url === "/api/v1/auth/mfa/totp/begin" && method === "POST") {
+        totpBeginAttempts += 1;
+        if (totpBeginAttempts === 1) {
+          return Promise.resolve(errorResponse("invalid_second_factor", 401));
+        }
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              enrollment_id: "replacement-enrollment-1",
+              totp_setup: {
+                secret_base32: "JBSWY3DPEHPK3PXP",
+              },
+            },
+          }),
+        );
+      }
+      if (url === "/api/v1/auth/password/change" && method === "POST") {
+        sessionActive = false;
+        return Promise.resolve(jsonResponse({ data: {} }));
+      }
+      throw new Error(`unexpected fetch: ${method} ${url}`);
+    });
+
+    renderApp();
+
+    await screen.findByTestId("account-session-user-id");
+
+    fireEvent.change(screen.getByTestId("account-totp-current-password"), {
+      target: { value: "Current Phase 1 Password!" },
+    });
+    fireEvent.change(screen.getByTestId("account-totp-current-factor"), {
+      target: { value: "111111" },
+    });
+    fireEvent.click(screen.getByTestId("account-totp-begin"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("account-error-code").textContent).toBe(
+        "invalid_second_factor",
+      );
+    });
+    expect(screen.getByTestId("account-status").textContent).toBe(
+      "TOTP begin failed",
+    );
+
+    fireEvent.change(screen.getByTestId("account-totp-current-factor"), {
+      target: { value: "222222" },
+    });
+    fireEvent.click(screen.getByTestId("account-totp-begin"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("account-totp-secret-base32").textContent).toBe(
+        "JBSWY3DPEHPK3PXP",
+      );
+    });
+
+    fireEvent.change(screen.getByTestId("account-password-current"), {
+      target: { value: "Current Phase 1 Password!" },
+    });
+    fireEvent.change(screen.getByTestId("account-password-next"), {
+      target: { value: "Replacement Phase 1 Password!" },
+    });
+    fireEvent.change(screen.getByTestId("account-password-factor-code"), {
+      target: { value: "654321" },
+    });
+    fireEvent.click(screen.getByTestId("account-password-change"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-login-username")).toBeTruthy();
+    });
+    expect(screen.getByTestId("auth-shell-message").textContent).toContain(
+      "Password changed. Sign in again.",
+    );
+
+    const totpBeginRequests = findFetchCalls(
+      fetchMock,
+      "/api/v1/auth/mfa/totp/begin",
+      "POST",
+    ).map((_call, index) =>
+      requireJSONRequest(
+        fetchMock,
+        "/api/v1/auth/mfa/totp/begin",
+        "POST",
+        index,
+      ),
+    );
+    expect(totpBeginRequests).toHaveLength(2);
+    for (const request of totpBeginRequests) {
+      expect(typeof request.body.client_txn_id).toBe("string");
+      expect(request.body.current_password).toBe("Current Phase 1 Password!");
+      expect(request.body.second_factor).toEqual({
+        kind: "totp",
+        assertion: {
+          code: expect.any(String),
+        },
+      });
+    }
+    expect(
+      (
+        totpBeginRequests[0]?.body.second_factor as {
+          assertion?: { code?: string };
+        }
+      )?.assertion?.code,
+    ).toBe("111111");
+    expect(
+      (
+        totpBeginRequests[1]?.body.second_factor as {
+          assertion?: { code?: string };
+        }
+      )?.assertion?.code,
+    ).toBe("222222");
+
+    const passwordChangeRequest = requireJSONRequest(
+      fetchMock,
+      "/api/v1/auth/password/change",
+      "POST",
+    );
+    expect(typeof passwordChangeRequest.body.client_txn_id).toBe("string");
+    expect(passwordChangeRequest.body).toEqual({
+      client_txn_id: expect.any(String),
+      current_password: "Current Phase 1 Password!",
+      new_password: "Replacement Phase 1 Password!",
+      second_factor: {
+        kind: "totp",
+        assertion: {
+          code: "654321",
+        },
+      },
+    });
+    await expectStableFetchCount(fetchMock, 7);
+  });
+
+  it("Phase 1 U-1-17 ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell", async () => {
     const createdUser = userResource({
       user_id: "user-2",
       email: "phase1-admin@example.test",
       display_name: "Phase 1 Admin Target",
       user_version: 1,
+    });
+    const adminTarget = userResource({
+      user_id: "user-1",
+      email: "deployment-admin@example.test",
+      display_name: "Deployment Admin",
+      user_version: 9,
+      is_deployment_admin: true,
     });
 
     fetchMock.mockImplementation((input, init) => {
@@ -257,6 +458,16 @@ describe("Phase 1 ordinary app shell", () => {
       if (url === "/api/v1/users/user-2" && method === "PATCH") {
         return Promise.resolve(errorResponse("user_version_conflict", 409));
       }
+      if (url === "/api/v1/users/user-1" && method === "GET") {
+        return Promise.resolve(
+          jsonResponse({
+            data: adminTarget,
+          }),
+        );
+      }
+      if (url === "/api/v1/users/user-1" && method === "PATCH") {
+        return Promise.resolve(errorResponse("last_deployment_admin", 409));
+      }
       throw new Error(`unexpected fetch: ${method} ${url}`);
     });
 
@@ -282,9 +493,27 @@ describe("Phase 1 ordinary app shell", () => {
     expect(screen.getByTestId("admin-status").textContent).toBe(
       "Created local user",
     );
+    const createRequest = requireJSONRequest(
+      fetchMock,
+      "/api/v1/users",
+      "POST",
+    );
+    expect(typeof createRequest.body.client_txn_id).toBe("string");
+    expect(createRequest.body).toEqual({
+      client_txn_id: expect.any(String),
+      auth_kind: "local",
+      email: "phase1-admin@example.test",
+      display_name: "Phase 1 Admin Target",
+      initial_password: "CreatedPass1!",
+      mfa_required: true,
+      is_deployment_admin: false,
+    });
 
-    fireEvent.change(screen.getByTestId("admin-patch-base-version"), {
-      target: { value: "0" },
+    fireEvent.click(screen.getByTestId("admin-load-user"));
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-status").textContent).toBe(
+        "Loaded target user",
+      );
     });
     fireEvent.click(screen.getByTestId("admin-patch-user"));
 
@@ -293,6 +522,52 @@ describe("Phase 1 ordinary app shell", () => {
         "user_version_conflict",
       );
     });
+    const patchConflictRequest = requireJSONRequest(
+      fetchMock,
+      "/api/v1/users/user-2",
+      "PATCH",
+    );
+    expect(patchConflictRequest.body).toEqual({
+      base_user_version: 1,
+      display_name: "Phase 1 Admin Target",
+      mfa_required: true,
+      is_active: true,
+      is_deployment_admin: false,
+    });
+
+    fireEvent.change(screen.getByTestId("admin-target-user-id-input"), {
+      target: { value: "user-1" },
+    });
+    fireEvent.click(screen.getByTestId("admin-load-user"));
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-target-user-version").textContent).toBe(
+        "9",
+      );
+    });
+    fireEvent.click(screen.getByTestId("admin-patch-is-deployment-admin"));
+    fireEvent.click(screen.getByTestId("admin-patch-user"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-error-code").textContent).toBe(
+        "last_deployment_admin",
+      );
+    });
+    const lastAdminPatchRequest = requireJSONRequest(
+      fetchMock,
+      "/api/v1/users/user-1",
+      "PATCH",
+    );
+    expect(lastAdminPatchRequest.body).toEqual({
+      base_user_version: 9,
+      display_name: "Deployment Admin",
+      mfa_required: true,
+      is_active: true,
+      is_deployment_admin: false,
+    });
+    expect(screen.getByTestId("admin-status").textContent).toBe(
+      "Patch local user failed",
+    );
+    await expectStableFetchCount(fetchMock, 11);
   });
 });
 
@@ -316,16 +591,23 @@ function sessionResource(overrides?: Partial<SessionData>): SessionData {
   };
 }
 
-function credentialStateResource(): CredentialState {
+function credentialStateResource(
+  overrides?: Partial<CredentialState>,
+): CredentialState {
+  const baseTotp = {
+    state: "not_enrolled" as const,
+    enrolled_at: null,
+    pending_expires_at: null,
+  };
   return {
     user_id: "user-1",
     auth_kind: "local",
     recovery_model: "admin_assisted",
     password_changed_at: "2026-04-20T12:00:00Z",
+    ...overrides,
     totp: {
-      state: "not_enrolled",
-      enrolled_at: null,
-      pending_expires_at: null,
+      ...baseTotp,
+      ...(overrides?.totp ?? {}),
     },
   };
 }

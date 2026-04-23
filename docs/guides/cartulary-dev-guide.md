@@ -724,7 +724,7 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make dev`           | Start the Go server and Vite dev server                                                                      |
 | `make generate`      | Regenerate Go and TypeScript artifacts derived from `/db/queries/*` and `/contracts/*`                       |
 | `make backend-store` | Run service-backed store-domain `U-*` backend evidence that keeps unit-layer IDs while using real Postgres   |
-| `make test-fast`     | Run the narrower pure-unit, service-backed backend, and frontend unit/process loop                           |
+| `make test-fast`     | Run the narrower pure-unit, service-backed backend, frontend type-check, and frontend unit/process loop      |
 | `make test`          | Run the authoritative full test corpus, including manifest-verified browser E2E plus explicit support suites |
 | `make lint`          | Run backend vet/lint and frontend lint/type checks                                                           |
 | `make check`         | Developer verification gate                                                                                  |
@@ -772,7 +772,7 @@ The default local loop is:
 2. `make dev`
 3. use the Vite-served browser app against the Go server and local Postgres plus MinIO
 
-Production packaging MUST embed the built frontend assets into the application deployable. The production deployable MUST NOT depend on the Vite dev server.
+Production packaging MUST embed the built frontend assets into the application deployable. `build-server` is the deployable server shape and MUST stage the frontend bundle before compiling the binary. The production deployable MUST NOT depend on the Vite dev server.
 
 ### 7.4 Test strategy
 

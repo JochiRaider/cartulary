@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)"
 ALLOWED_RUNTIME_DIRS=("server" "migrate")
+EMBEDDED_WEB_DIR="internal/platform/httpapi/webassets/dist"
 
 cd "$ROOT_DIR"
 
@@ -46,10 +47,30 @@ if [[ ! -f "migrate" ]]; then
   exit 1
 fi
 
-if [[ ! -f "apps/web/dist/index.html" ]]; then
-  echo "deployable-shape check failed: frontend build artifact 'apps/web/dist/index.html' was not produced" >&2
+if [[ ! -f "${EMBEDDED_WEB_DIR}/index.html" ]]; then
+  echo "deployable-shape check failed: embedded frontend asset '${EMBEDDED_WEB_DIR}/index.html' was not produced" >&2
   exit 1
 fi
 
-echo "deployable-shape verified: cmd/server remains the single runtime application unit and cmd/migrate remains operational tooling."
-echo "hardening gap (explicit): frontend assets are still built separately and are not yet embedded into the server artifact."
+if ! grep -Fq '<div id="root"></div>' "${EMBEDDED_WEB_DIR}/index.html"; then
+  echo "deployable-shape check failed: embedded frontend index.html is missing the application root shell" >&2
+  exit 1
+fi
+
+first_embedded_asset="$(find "${EMBEDDED_WEB_DIR}/assets" -type f | LC_ALL=C sort | head -n 1)"
+if [[ -z "${first_embedded_asset}" ]]; then
+  echo "deployable-shape check failed: embedded frontend assets directory '${EMBEDDED_WEB_DIR}/assets' is empty" >&2
+  exit 1
+fi
+
+embedded_asset_name="$(basename "${first_embedded_asset}")"
+if ! grep -aFq '<div id="root"></div>' "server"; then
+  echo "deployable-shape check failed: backend build artifact './server' does not appear to embed the frontend root shell" >&2
+  exit 1
+fi
+if ! grep -aFq "${embedded_asset_name}" "server"; then
+  echo "deployable-shape check failed: backend build artifact './server' does not appear to embed frontend asset '${embedded_asset_name}'" >&2
+  exit 1
+fi
+
+echo "deployable-shape verified: cmd/server remains the single runtime application unit, cmd/migrate remains operational tooling, and the built server binary embeds the frontend app."

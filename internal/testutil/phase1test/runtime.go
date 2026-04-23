@@ -7,7 +7,6 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -34,7 +33,7 @@ func StartRuntime(t testing.TB) *RuntimeHarness {
 	}
 }
 
-func (h *RuntimeHarness) StartServer(t testing.TB, prefix string) *ServerHarness {
+func (h *RuntimeHarness) StartServer(t testing.TB, prefix string, additionalRoutes ...httpapi.RouteRegistrar) *ServerHarness {
 	t.Helper()
 
 	testDB := h.Postgres.PrepareDatabaseT(t, prefix)
@@ -57,7 +56,7 @@ func (h *RuntimeHarness) StartServer(t testing.TB, prefix string) *ServerHarness
 
 	server := httptestx.StartServer(t, httptestx.ServerOptions{
 		Env:              env,
-		AdditionalRoutes: []httpapi.RouteRegistrar{auth.RegisterTestRoutes()},
+		AdditionalRoutes: append([]httpapi.RouteRegistrar(nil), additionalRoutes...),
 	})
 
 	db, err := sql.Open("pgx", testDB.DSN)
