@@ -150,6 +150,18 @@ assert_not_negative "$(json_field "$duration_target_summary" "wall_duration_ms")
 assert_not_negative "$(json_field "$duration_run_summary" "duration_ms")" "duration run duration"
 assert_not_negative "$(json_field "$duration_run_summary" "wall_duration_ms")" "duration run wall duration"
 
+backend_unit_core_shared_command="$(
+  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-unit backend-unit-core
+)"
+assert_contains "$backend_unit_core_shared_command" "TestSupportPhase0_" "backend-unit-core phase0 selector"
+assert_contains "$backend_unit_core_shared_command" "TestSupportPhase2Unit_" "backend-unit-core phase2 selector"
+assert_contains "$backend_unit_core_shared_command" "TestSupportPhase3Unit_" "backend-unit-core phase3 selector"
+
+backend_unit_auth_shared_command="$(
+  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-unit backend-unit-auth
+)"
+assert_contains "$backend_unit_auth_shared_command" "TestSupportPhase1_" "backend-unit-auth phase1 selector"
+
 core_shared_command="$(
   NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration-support backend-integration-core
 )"
@@ -245,6 +257,15 @@ assert_contains "$backend_store_structure" "assign_calls=1" "backend-store singl
 assert_contains "$backend_store_structure" "raw_calls=1" "backend-store raw phase count"
 assert_contains "$backend_store_structure" "manifest_calls=3" "backend-store derived phase count"
 assert_contains "$backend_store_structure" "finish_status=0" "backend-store finish status"
+
+phase0_backend_unit_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase0 backend_unit ./internal/platform/... ./internal/app)"
+assert_not_zero "$phase0_backend_unit_support_count" "phase0 backend-unit support-go-count"
+phase1_backend_unit_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase1 backend_unit ./internal/modules/auth)"
+assert_not_zero "$phase1_backend_unit_support_count" "phase1 backend-unit support-go-count"
+phase2_backend_unit_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase2 backend_unit ./internal/modules/incidents)"
+assert_not_zero "$phase2_backend_unit_support_count" "phase2 backend-unit support-go-count"
+phase3_backend_unit_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase3 backend_unit ./internal/modules/timeline)"
+assert_not_zero "$phase3_backend_unit_support_count" "phase3 backend-unit support-go-count"
 
 phase1_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase1 backend_integration_support ./internal/modules/auth)"
 assert_not_zero "$phase1_support_count" "phase1 support-go-count"

@@ -1,5 +1,5 @@
 {
-  "note": "Phase 2 authoritative execution manifest. Support-only HTTP conformance, browser-request probes, smoke tests, and extra regressions stay outside this map.",
+  "note": "Phase 2 authoritative execution manifest. Support-only unit decoder regressions, HTTP conformance, browser-request probes, smoke tests, and extra regressions stay outside this map.",
   "expected_ids": [
     "U-2-01",
     "U-2-02",
@@ -25,10 +25,19 @@
     "E-2-03"
   ],
   "forbidden_id_files": [
+    "internal/modules/incidents/phase2_support_test.go",
     "cmd/server/main_phase2_smoke_test.go",
     "apps/web/e2e/phase2.support.spec.ts"
   ],
   "support_go_targets": [
+    {
+      "target": "backend_unit",
+      "section": "unit",
+      "package": "./internal/modules/incidents",
+      "file": "internal/modules/incidents/phase2_support_test.go",
+      "symbol": "TestSupportPhase2Unit_MembershipPatchAndDeleteDecodeAndLastAdminGuardStayStable",
+      "selection_pattern": "TestSupportPhase2Unit_"
+    },
     {
       "target": "backend_integration_support",
       "section": "integration",
@@ -65,8 +74,7 @@
       "symbols": [
         "TestSupportPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict",
         "TestSupportPhase2_IncidentPatchWritesAuditBeforeAfter",
-        "TestSupportPhase2_MembershipMutationsWriteAuditBeforeAfter",
-        "TestSupportPhase2_IncidentCreateTreatsComposedAndDecomposedIncidentKeysAsEqual"
+        "TestSupportPhase2_MembershipMutationsWriteAuditBeforeAfter"
       ],
       "selection_pattern": "TestSupportPhase2_"
     }

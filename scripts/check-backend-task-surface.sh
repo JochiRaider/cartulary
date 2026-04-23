@@ -297,11 +297,28 @@ for expected in \
   'emit_go_manifest_phase "backend-unit phase3 authoritative"' \
   'emit_declared_support_phase "backend-unit support phase0"' \
   'emit_declared_support_phase "backend-unit support phase1"' \
+  'emit_declared_support_phase "backend-unit support phase2"' \
   'emit_declared_support_phase "backend-unit support phase3"'
 do
   if ! grep -Fq "$expected" "$go_runner_script"; then
     fail "scripts/run-go-target.sh must preserve backend-unit selection surface: missing $expected"
   fi
+done
+mapfile -t backend_unit_core_support_patterns < <(support_selection_patterns backend_unit ./internal/platform/... ./internal/app ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline)
+if [[ "${#backend_unit_core_support_patterns[@]}" -eq 0 ]]; then
+  fail "backend-unit core packages must have declared support selectors"
+fi
+for pattern in "${backend_unit_core_support_patterns[@]}"; do
+  [[ -z "$pattern" ]] && continue
+  require_shared_command_contains backend-unit backend-unit-core "$pattern"
+done
+mapfile -t backend_unit_auth_support_patterns < <(support_selection_patterns backend_unit ./internal/modules/auth)
+if [[ "${#backend_unit_auth_support_patterns[@]}" -eq 0 ]]; then
+  fail "backend-unit auth packages must have declared support selectors"
+fi
+for pattern in "${backend_unit_auth_support_patterns[@]}"; do
+  [[ -z "$pattern" ]] && continue
+  require_shared_command_contains backend-unit backend-unit-auth "$pattern"
 done
 
 backend_store_block="$(extract_target_block backend-store)"

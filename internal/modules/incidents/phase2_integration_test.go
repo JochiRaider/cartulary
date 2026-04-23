@@ -159,6 +159,7 @@ func TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomicall
 func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-i-2-02")
+	normalizedIncidentKey := "IR-\u00C9-202"
 
 	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
 	create := phase2test.DoJSON(
@@ -167,13 +168,16 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 		harness.Server.HTTP.URL+"/api/v1/incidents",
 		map[string]any{
 			"client_txn_id": "txn-i-2-02-create",
-			"incident_key":  " IR-I202 ",
+			"incident_key":  "  IR-E\u0301-202  ",
 			"title":         "Replay Incident",
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	first := httptestx.RequireSuccessEnvelope(t, create, http.StatusCreated)["data"].(map[string]any)
+	if first["incident_key"] != normalizedIncidentKey {
+		t.Fatalf("expected normalized incident key in create response, got %#v", first)
+	}
 	incidentID := first["incident_id"].(string)
 	replaySelector := phase2test.IncidentCreateReplaySelector{
 		ActorUserID: uuid.MustParse(first["created_by_user_id"].(string)),
@@ -188,7 +192,7 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 		harness.Server.HTTP.URL+"/api/v1/incidents",
 		map[string]any{
 			"client_txn_id": "txn-i-2-02-create",
-			"incident_key":  "IR-I202",
+			"incident_key":  normalizedIncidentKey,
 			"title":         "Replay Incident",
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
@@ -197,6 +201,9 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 	replayBody := httptestx.RequireSuccessEnvelope(t, replay, http.StatusOK)["data"].(map[string]any)
 	if replayBody["incident_id"] != incidentID {
 		t.Fatalf("expected idempotent replay to return original incident, got %#v", replayBody)
+	}
+	if replayBody["incident_key"] != normalizedIncidentKey {
+		t.Fatalf("expected replay to keep the normalized incident key, got %#v", replayBody)
 	}
 	if stableAfterReplay := phase2test.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, replaySelector); stableAfterReplay != stableBefore {
 		t.Fatalf("incident create replay must keep durable side effects stable: before=%+v after=%+v", stableBefore, stableAfterReplay)
@@ -208,7 +215,7 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 		harness.Server.HTTP.URL+"/api/v1/incidents",
 		map[string]any{
 			"client_txn_id": "txn-i-2-02-create",
-			"incident_key":  "IR-I202",
+			"incident_key":  normalizedIncidentKey,
 			"title":         "Different title",
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
@@ -225,13 +232,16 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 		harness.Server.HTTP.URL+"/api/v1/incidents",
 		map[string]any{
 			"client_txn_id": "txn-i-2-02-duplicate",
-			"incident_key":  "  IR-I202  ",
+			"incident_key":  normalizedIncidentKey,
 			"title":         "Duplicate key",
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, duplicateKey, http.StatusConflict, "incident_key_conflict")
+	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, normalizedIncidentKey); got != 1 {
+		t.Fatalf("expected one canonical incident row after composed-vs-decomposed duplicate conflict, got %d", got)
+	}
 }
 
 func TestPhase2_I_2_03_ControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing.T) {
