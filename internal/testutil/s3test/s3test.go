@@ -7,6 +7,7 @@ import (
 	"io"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,6 +20,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
 
@@ -39,13 +41,18 @@ type Harness struct {
 	SecretKey string
 	Secure    bool
 
-	counter uint64
-	shared  bool
+	suiteHash   string
+	processHash string
+	counter     uint64
+	shared      bool
+	attached    bool
 }
 
 var (
-	sharedHarnessMu sync.Mutex
-	sharedHarness   *Harness
+	sharedHarnessMu   sync.Mutex
+	sharedHarness     *Harness
+	startOwnedHarness = StartOwned
+	verifyAttachedFn  = verifyAttachedHarness
 )
 
 func Start(t testing.TB) *Harness {
@@ -67,13 +74,23 @@ func StartShared(ctx context.Context) (*Harness, error) {
 		return sharedHarness, nil
 	}
 
-	harness, err := startHarness(ctx)
+	harness, attached, err := startAttachedHarness(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !attached {
+		harness, err = startOwnedHarness(ctx)
+	}
 	if err != nil {
 		return nil, err
 	}
 	harness.shared = true
 	sharedHarness = harness
 	return harness, nil
+}
+
+func StartOwned(ctx context.Context) (*Harness, error) {
+	return startHarness(ctx)
 }
 
 func StopShared(ctx context.Context) error {
@@ -128,11 +145,13 @@ func startHarness(ctx context.Context) (*Harness, error) {
 	}
 
 	harness := &Harness{
-		Container: container,
-		Endpoint:  host + ":" + port.Port(),
-		AccessKey: "minioadmin",
-		SecretKey: "minioadmin",
-		Secure:    false,
+		Container:   container,
+		Endpoint:    host + ":" + port.Port(),
+		AccessKey:   "minioadmin",
+		SecretKey:   "minioadmin",
+		Secure:      false,
+		suiteHash:   resolveSuiteHash(),
+		processHash: suiteservices.ProcessHash(),
 	}
 
 	if err := harness.WaitReady(ctx); err != nil {
@@ -141,6 +160,38 @@ func startHarness(ctx context.Context) (*Harness, error) {
 	}
 
 	return harness, nil
+}
+
+func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
+	endpoint := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.S3EndpointEnv))
+	accessKey := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.S3AccessKeyEnv))
+	secretKey := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.S3SecretKeyEnv))
+	if endpoint == "" && accessKey == "" && secretKey == "" {
+		return nil, false, nil
+	}
+	if endpoint == "" || accessKey == "" || secretKey == "" {
+		return nil, false, fmt.Errorf("attach minio harness: %s, %s, and %s must all be set", suiteservices.S3EndpointEnv, suiteservices.S3AccessKeyEnv, suiteservices.S3SecretKeyEnv)
+	}
+
+	secure, err := suiteservices.ParseBool(suiteservices.LookupEnvValue(nil, suiteservices.S3SecureEnv))
+	if err != nil {
+		return nil, false, fmt.Errorf("attach minio harness: %w", err)
+	}
+
+	harness := &Harness{
+		Endpoint:    endpoint,
+		AccessKey:   accessKey,
+		SecretKey:   secretKey,
+		Secure:      secure,
+		suiteHash:   resolveSuiteHash(),
+		processHash: suiteservices.ProcessHash(),
+		attached:    true,
+	}
+	if err := verifyAttachedFn(ctx, harness); err != nil {
+		return nil, false, fmt.Errorf("attach minio harness: authenticated readiness: %w", err)
+	}
+	recordSuiteEvent(suiteservices.Event{Type: suiteservices.EventS3Attach})
+	return harness, true, nil
 }
 
 func (h *Harness) WaitReady(ctx context.Context) error {
@@ -183,7 +234,7 @@ func (h *Harness) Client(ctx context.Context) (*minio.Client, error) {
 }
 
 func (h *Harness) BootstrapBucket(ctx context.Context, prefix string) (string, error) {
-	name := fmt.Sprintf("%s-%06d", sanitizeBucket(prefix), atomic.AddUint64(&h.counter, 1))
+	name := h.nextBucketName(prefix)
 	if err := h.CreateBucket(ctx, name); err != nil {
 		return "", err
 	}
@@ -202,6 +253,10 @@ func (h *Harness) CreateBucket(ctx context.Context, name string) error {
 			return fmt.Errorf("create bucket %s: %w", name, err)
 		}
 	}
+	recordSuiteEvent(suiteservices.Event{
+		Type: suiteservices.EventS3BucketCreated,
+		Name: name,
+	})
 
 	return nil
 }
@@ -249,6 +304,10 @@ func (h *Harness) CleanupBucket(ctx context.Context, bucket string) error {
 	if err := client.RemoveBucket(ctx, bucket); err != nil {
 		return fmt.Errorf("remove bucket %s: %w", bucket, err)
 	}
+	recordSuiteEvent(suiteservices.Event{
+		Type: suiteservices.EventS3BucketCleaned,
+		Name: bucket,
+	})
 
 	return nil
 }
@@ -258,7 +317,7 @@ func (h *Harness) Env(bucket string) map[string]string {
 		objectstore.EndpointEnv:  h.Endpoint,
 		objectstore.AccessKeyEnv: h.AccessKey,
 		objectstore.SecretKeyEnv: h.SecretKey,
-		objectstore.SecureEnv:    "false",
+		objectstore.SecureEnv:    strconv.FormatBool(h.Secure),
 		objectstore.BucketEnv:    bucket,
 	}
 }
@@ -273,7 +332,7 @@ func (h *Harness) EnvForServiceRef(serviceRef string, bucket string) map[string]
 		keys.Endpoint:  h.Endpoint,
 		keys.AccessKey: h.AccessKey,
 		keys.SecretKey: h.SecretKey,
-		keys.Secure:    "false",
+		keys.Secure:    strconv.FormatBool(h.Secure),
 		keys.Bucket:    bucket,
 	}
 }
@@ -294,13 +353,77 @@ func sanitizeBucket(prefix string) string {
 	prefix = strings.ToLower(prefix)
 	prefix = strings.ReplaceAll(prefix, "_", "-")
 	prefix = strings.ReplaceAll(prefix, " ", "-")
-	if prefix == "" {
+
+	var builder strings.Builder
+	for _, r := range prefix {
+		switch {
+		case r >= 'a' && r <= 'z':
+			builder.WriteRune(r)
+		case r >= '0' && r <= '9':
+			builder.WriteRune(r)
+		case r == '-':
+			builder.WriteRune(r)
+		}
+	}
+
+	result := strings.Trim(builder.String(), "-")
+	if result == "" {
 		return "cartulary-test"
 	}
-	return prefix
+	return result
 }
 
 func repoRoot() string {
 	_, file, _, _ := runtime.Caller(0)
 	return filepath.Join(filepath.Dir(file), "..", "..", "..")
+}
+
+func resolveSuiteHash() string {
+	if hash := suiteservices.SuiteHash(nil); hash != "" {
+		return hash
+	}
+	return suiteservices.ShortHash("local-suite", 8)
+}
+
+func (h *Harness) nextBucketName(prefix string) string {
+	suiteHash := h.suiteHash
+	if suiteHash == "" {
+		suiteHash = resolveSuiteHash()
+	}
+	processHash := h.processHash
+	if processHash == "" {
+		processHash = suiteservices.ProcessHash()
+	}
+
+	base := fmt.Sprintf("ct-%s-%s-%06d", suiteHash, processHash, atomic.AddUint64(&h.counter, 1))
+	suffix := sanitizeBucket(prefix)
+	if suffix == "" {
+		return truncateBucketName(base, 63)
+	}
+
+	available := 63 - len(base) - 1
+	if available <= 0 {
+		return truncateBucketName(base, 63)
+	}
+	return truncateBucketName(base+"-"+truncateBucketName(suffix, available), 63)
+}
+
+func truncateBucketName(value string, max int) string {
+	if len(value) <= max {
+		return value
+	}
+	return strings.Trim(value[:max], "-")
+}
+
+func verifyAttachedHarness(ctx context.Context, harness *Harness) error {
+	client, err := harness.Client(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = client.ListBuckets(ctx)
+	return err
+}
+
+func recordSuiteEvent(event suiteservices.Event) {
+	_ = suiteservices.RecordEvent(nil, event)
 }

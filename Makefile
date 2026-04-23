@@ -24,6 +24,7 @@ MIGRATE_BIN ?= $(CURDIR)/migrate
 TOOLBIN_DIR ?= $(CURDIR)/tmp/toolbin
 SQLC_BIN ?= $(TOOLBIN_DIR)/sqlc-v1.30.0
 GOOSE_BIN ?= $(TOOLBIN_DIR)/goose-v3.27.0
+TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
 FRONTEND_INSTALL_STAMP ?= $(CURDIR)/tmp/frontend-install/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
 PLAYWRIGHT_INSTALL_STAMP ?= $(CURDIR)/tmp/playwright/chromium.stamp
 FRONTEND_TOOLCHAIN_STAMP ?= $(CURDIR)/tmp/frontend-toolchain/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
@@ -90,6 +91,7 @@ FRONTEND_INSTALL_INPUTS := package.json pnpm-lock.yaml pnpm-workspace.yaml apps/
 SERVER_BUILD_INPUTS := go.mod go.sum $(shell rg --files cmd/server internal/app internal/modules internal/platform contracts 2>/dev/null)
 MIGRATE_BUILD_INPUTS := go.mod go.sum $(shell rg --files cmd/migrate internal/app internal/platform db/migrations 2>/dev/null)
 WEB_BUILD_INPUTS := package.json pnpm-lock.yaml pnpm-workspace.yaml $(shell rg --files apps/web packages 2>/dev/null)
+TEST_SERVICES_BUILD_INPUTS := go.mod go.sum $(shell rg --files tools/testservices internal/testutil/pgtest internal/testutil/s3test internal/testutil/suiteservices internal/platform/postgres 2>/dev/null)
 
 $(NODE_BIN):
 	$(Q)mkdir -p $(NODE_RUNTIME_DIR)
@@ -142,6 +144,10 @@ $(GOOSE_BIN):
 	$(Q)rm -f $(TOOLBIN_DIR)/goose $(GOOSE_BIN)
 	$(RUN_PHASE) "bootstrap goose tool" -- env GOBIN=$(TOOLBIN_DIR) $(GO_RUN_ENV) $(GO) install $(GOOSE_TOOL)
 	$(Q)mv $(TOOLBIN_DIR)/goose $(GOOSE_BIN)
+
+$(TEST_SERVICES_BIN): $(TEST_SERVICES_BUILD_INPUTS)
+	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
+	$(RUN_PHASE) "build testservices" -- $(GO_ENV) $(GO) build -o $(TEST_SERVICES_BIN) ./tools/testservices
 
 $(PLAYWRIGHT_INSTALL_STAMP): $(FRONTEND_INSTALL_STAMP) $(FRONTEND_TOOLCHAIN_STAMP)
 	$(Q)mkdir -p $(dir $(PLAYWRIGHT_INSTALL_STAMP))
@@ -204,9 +210,9 @@ backend-task-surface-check: $(NODE_BIN)
 service-backed-unit-check:
 	$(RUN_PHASE) "service-backed-unit-check" -- ./scripts/check-service-backed-unit-tests.sh
 
-test-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+test-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
 	$(Q)$(MAKE) --no-print-directory --output-sync=target -j2 backend-unit frontend-unit
-	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) test-fast-service-backed-lane-a test-fast-service-backed-lane-b
+	$(Q)$(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) test-fast-service-backed-lane-a test-fast-service-backed-lane-b
 
 test-fast-service-backed-lane-a:
 	$(Q)$(MAKE) --no-print-directory backend-integration
@@ -244,40 +250,40 @@ backend-unit: $(NODE_BIN)
 
 backend-store: export CARTULARY_TEST_TARGET := backend-store
 
-backend-store: $(NODE_BIN)
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_PACKAGE_PARALLELISM=$(EFFECTIVE_BACKEND_STORE_GO_TEST_P) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh backend-store
+backend-store: $(NODE_BIN) $(TEST_SERVICES_BIN)
+	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_PACKAGE_PARALLELISM=$(EFFECTIVE_BACKEND_STORE_GO_TEST_P) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(TEST_SERVICES_BIN) run -- ./scripts/run-go-target.sh backend-store
 
 backend-integration: export CARTULARY_TEST_TARGET := backend-integration
 
-backend-integration: $(NODE_BIN)
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_PACKAGE_PARALLELISM=$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh backend-integration
+backend-integration: $(NODE_BIN) $(TEST_SERVICES_BIN)
+	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_PACKAGE_PARALLELISM=$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(TEST_SERVICES_BIN) run -- ./scripts/run-go-target.sh backend-integration
 
 backend-integration-support: export CARTULARY_TEST_TARGET := backend-integration-support
 
-backend-integration-support: $(NODE_BIN)
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_PACKAGE_PARALLELISM=$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh backend-integration-support
+backend-integration-support: $(NODE_BIN) $(TEST_SERVICES_BIN)
+	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_PACKAGE_PARALLELISM=$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(TEST_SERVICES_BIN) run -- ./scripts/run-go-target.sh backend-integration-support
 
 backend-process: export CARTULARY_TEST_TARGET := backend-process
 
 # Phase 0 process evidence is part of the developer gate and must never be direct-run only.
-backend-process: $(NODE_BIN) build-server
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh backend-process
+backend-process: $(NODE_BIN) build-server $(TEST_SERVICES_BIN)
+	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(TEST_SERVICES_BIN) run -- ./scripts/run-go-target.sh backend-process
 
 phase0-process-e2e: export CARTULARY_TEST_TARGET := phase0-process-e2e
 
 # Phase 0 process evidence is part of the developer gate and must never be direct-run only.
-phase0-process-e2e: $(NODE_BIN) build-server
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh phase0-process-e2e
+phase0-process-e2e: $(NODE_BIN) build-server $(TEST_SERVICES_BIN)
+	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(TEST_SERVICES_BIN) run -- ./scripts/run-go-target.sh phase0-process-e2e
 
 phase1-process-smoke: export CARTULARY_TEST_TARGET := phase1-process-smoke
 
-phase1-process-smoke: $(NODE_BIN) build-server
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh phase1-process-smoke
+phase1-process-smoke: $(NODE_BIN) build-server $(TEST_SERVICES_BIN)
+	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(TEST_SERVICES_BIN) run -- ./scripts/run-go-target.sh phase1-process-smoke
 
 phase2-process-smoke: export CARTULARY_TEST_TARGET := phase2-process-smoke
 
-phase2-process-smoke: $(NODE_BIN) build-server
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh phase2-process-smoke
+phase2-process-smoke: $(NODE_BIN) build-server $(TEST_SERVICES_BIN)
+	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(TEST_SERVICES_BIN) run -- ./scripts/run-go-target.sh phase2-process-smoke
 
 frontend-unit: export CARTULARY_TEST_TARGET := frontend-unit
 
@@ -359,8 +365,8 @@ check-preflight: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 # browser suites run after this block under serialized orchestration.
 check-heavy: migration-drift lint-go lint-typecheck backend-unit frontend-unit deployable-shape-verify
 
-check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) check-service-backed-lane-a check-service-backed-lane-b
+check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
+	$(Q)$(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) check-service-backed-lane-a check-service-backed-lane-b
 
 check-service-backed-lane-a:
 	$(Q)$(MAKE) --no-print-directory backend-integration

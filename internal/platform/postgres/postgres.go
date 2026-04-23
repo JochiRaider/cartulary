@@ -22,9 +22,11 @@ type Settings struct {
 }
 
 type MigrationStatus struct {
-	Command   string
-	Directory string
-	Empty     bool
+	Command          string
+	Directory        string
+	Empty            bool
+	TemplateClone    bool
+	TemplateDatabase string
 }
 
 func ConnectionString(cfg config.Config) string {

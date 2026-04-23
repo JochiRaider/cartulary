@@ -1,0 +1,488 @@
+package main
+
+import (
+	"context"
+	"crypto/rand"
+	"database/sql"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"net/url"
+	"os"
+	"os/exec"
+	"os/signal"
+	"slices"
+	"strings"
+	"syscall"
+	"time"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
+)
+
+const (
+	serviceStartupTimeout = 2 * time.Minute
+	cleanupTimeout        = 30 * time.Second
+	signalWaitTimeout     = 15 * time.Second
+)
+
+type postgresService struct {
+	adminDSN    string
+	dsnTemplate string
+	host        string
+	port        string
+	user        string
+	close       func(context.Context) error
+}
+
+type minioService struct {
+	endpoint  string
+	accessKey string
+	secretKey string
+	secure    bool
+	close     func(context.Context) error
+}
+
+type childProcess interface {
+	Wait() error
+	Signal(os.Signal) error
+	Kill() error
+	PID() int
+}
+
+type dependencies struct {
+	startPostgres  func(context.Context) (postgresService, error)
+	startMinIO     func(context.Context) (minioService, error)
+	startChild     func(argv []string, env map[string]string) (childProcess, error)
+	createTemplate func(context.Context, string, string) error
+	recordEvent    func(map[string]string, suiteservices.Event)
+	refreshSummary func(map[string]string)
+	suiteID        func() (string, error)
+	notifySignals  func(chan<- os.Signal, ...os.Signal)
+	stopSignals    func(chan<- os.Signal)
+}
+
+func main() {
+	os.Exit(run(os.Args[1:], envMap(os.Environ()), defaultDependencies()))
+}
+
+func run(args []string, env map[string]string, deps dependencies) int {
+	command, usageErr := parseRunCommand(args)
+	if usageErr != nil {
+		fmt.Fprintln(os.Stderr, usageErr)
+		return 2
+	}
+
+	if suiteservices.SuiteActive(env) {
+		deps.recordEvent(env, suiteservices.Event{Type: suiteservices.EventWrapperPassThrough})
+		child, err := deps.startChild(command, env)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "start child command: %v\n", err)
+			return 1
+		}
+		return waitForChild(command, child, deps)
+	}
+
+	suiteID, err := deps.suiteID()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "generate suite id: %v\n", err)
+		return 1
+	}
+
+	ownedEnv := cloneEnv(env)
+	ownedEnv[suiteservices.ActiveEnv] = "1"
+	ownedEnv[suiteservices.SuiteIDEnv] = suiteID
+
+	deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart})
+	deps.refreshSummary(ownedEnv)
+
+	var postgresSvc postgresService
+	var minioSvc minioService
+	childExitCode := 1
+	cleanupStatus := "startup_failed"
+
+	postgresCtx, cancelPostgres := context.WithTimeout(context.Background(), serviceStartupTimeout)
+	postgresSvc, err = deps.startPostgres(postgresCtx)
+	cancelPostgres()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "start suite postgres: %v\n", err)
+		recordCleanupAndRefresh(deps, ownedEnv, "startup_failed", childExitCode)
+		return 1
+	}
+	defer func() {
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, cleanupStatus, childExitCode)
+	}()
+
+	templateDB := templateDatabaseName(suiteID)
+	deps.recordEvent(ownedEnv, suiteservices.Event{
+		Type:    suiteservices.EventServiceStarted,
+		Service: suiteservices.ServicePostgres,
+		Details: map[string]any{
+			"host":              postgresSvc.host,
+			"port":              postgresSvc.port,
+			"user":              postgresSvc.user,
+			"template_database": templateDB,
+		},
+	})
+	deps.refreshSummary(ownedEnv)
+
+	templateCtx, cancelTemplate := context.WithTimeout(context.Background(), serviceStartupTimeout)
+	err = deps.createTemplate(templateCtx, postgresSvc.adminDSN, templateDB)
+	cancelTemplate()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "prepare postgres template database: %v\n", err)
+		return 1
+	}
+	deps.recordEvent(ownedEnv, suiteservices.Event{
+		Type: suiteservices.EventPostgresDBCreated,
+		Name: templateDB,
+		Kind: "template",
+	})
+	deps.recordEvent(ownedEnv, suiteservices.Event{
+		Type: suiteservices.EventPostgresDBMigrated,
+		Name: templateDB,
+		Kind: "template",
+	})
+	deps.refreshSummary(ownedEnv)
+
+	minioCtx, cancelMinIO := context.WithTimeout(context.Background(), serviceStartupTimeout)
+	minioSvc, err = deps.startMinIO(minioCtx)
+	cancelMinIO()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "start suite minio: %v\n", err)
+		return 1
+	}
+	deps.recordEvent(ownedEnv, suiteservices.Event{
+		Type:    suiteservices.EventServiceStarted,
+		Service: suiteservices.ServiceMinIO,
+		Details: map[string]any{
+			"endpoint": minioSvc.endpoint,
+			"secure":   minioSvc.secure,
+		},
+	})
+	deps.refreshSummary(ownedEnv)
+
+	childEnv := cloneEnv(ownedEnv)
+	childEnv[suiteservices.PGAdminDSNEnv] = postgresSvc.adminDSN
+	childEnv[suiteservices.PGDSNTemplateEnv] = postgresSvc.dsnTemplate
+	childEnv[suiteservices.PGTemplateDBEnv] = templateDB
+	childEnv[suiteservices.S3EndpointEnv] = minioSvc.endpoint
+	childEnv[suiteservices.S3AccessKeyEnv] = minioSvc.accessKey
+	childEnv[suiteservices.S3SecretKeyEnv] = minioSvc.secretKey
+	childEnv[suiteservices.S3SecureEnv] = fmt.Sprintf("%t", minioSvc.secure)
+
+	child, err := deps.startChild(command, childEnv)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "start child command: %v\n", err)
+		cleanupStatus = "child_start_failed"
+		return 1
+	}
+
+	childExitCode = waitForChild(command, child, deps)
+	if childExitCode == 0 {
+		cleanupStatus = "succeeded"
+		return 0
+	}
+	cleanupStatus = "failed"
+	return childExitCode
+}
+
+func parseRunCommand(args []string) ([]string, error) {
+	if len(args) < 3 || args[0] != "run" || args[1] != "--" {
+		return nil, errors.New("usage: testservices run -- <command> [args...]")
+	}
+	command := slices.Clone(args[2:])
+	if len(command) == 0 || strings.TrimSpace(command[0]) == "" {
+		return nil, errors.New("usage: testservices run -- <command> [args...]")
+	}
+	return command, nil
+}
+
+func defaultDependencies() dependencies {
+	return dependencies{
+		startPostgres:  startPostgresService,
+		startMinIO:     startMinIOService,
+		startChild:     startChildProcess,
+		createTemplate: createTemplateDatabase,
+		recordEvent: func(env map[string]string, event suiteservices.Event) {
+			_ = suiteservices.RecordEvent(env, event)
+		},
+		refreshSummary: func(env map[string]string) {
+			_ = suiteservices.RefreshSummary(env)
+		},
+		suiteID:       generateSuiteID,
+		notifySignals: signal.Notify,
+		stopSignals:   signal.Stop,
+	}
+}
+
+func startPostgresService(ctx context.Context) (postgresService, error) {
+	harness, err := pgtest.StartOwned(ctx)
+	if err != nil {
+		return postgresService{}, err
+	}
+	return postgresService{
+		adminDSN: harness.AdminDSN(),
+		dsnTemplate: fmt.Sprintf(
+			"postgres://%s:%s@%s:%s/{database}?sslmode=disable",
+			harness.User,
+			harness.Password,
+			harness.Host,
+			harness.Port,
+		),
+		host:  harness.Host,
+		port:  harness.Port,
+		user:  harness.User,
+		close: harness.Close,
+	}, nil
+}
+
+func startMinIOService(ctx context.Context) (minioService, error) {
+	harness, err := s3test.StartOwned(ctx)
+	if err != nil {
+		return minioService{}, err
+	}
+	return minioService{
+		endpoint:  harness.Endpoint,
+		accessKey: harness.AccessKey,
+		secretKey: harness.SecretKey,
+		secure:    harness.Secure,
+		close:     harness.Close,
+	}, nil
+}
+
+func createTemplateDatabase(ctx context.Context, adminDSN string, templateDB string) error {
+	if err := createDatabase(ctx, adminDSN, templateDB); err != nil {
+		return err
+	}
+
+	templateDSN, err := replaceDatabaseInDSN(adminDSN, templateDB)
+	if err != nil {
+		return err
+	}
+	db, err := sql.Open("pgx", templateDSN)
+	if err != nil {
+		return fmt.Errorf("open template database: %w", err)
+	}
+	if _, err := postgres.Migrate(db, "db/migrations", "up"); err != nil {
+		_ = db.Close()
+		return err
+	}
+	if err := db.Close(); err != nil {
+		return fmt.Errorf("close template database handle: %w", err)
+	}
+
+	admin, err := sql.Open("pgx", adminDSN)
+	if err != nil {
+		return fmt.Errorf("open postgres admin handle: %w", err)
+	}
+	defer admin.Close()
+
+	if _, err := admin.ExecContext(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, templateDB); err != nil {
+		return fmt.Errorf("terminate template database connections: %w", err)
+	}
+	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH ALLOW_CONNECTIONS false`, templateDB)); err != nil {
+		return fmt.Errorf("disable template database connections: %w", err)
+	}
+	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH IS_TEMPLATE true`, templateDB)); err != nil {
+		return fmt.Errorf("mark template database as template: %w", err)
+	}
+	return nil
+}
+
+func createDatabase(ctx context.Context, adminDSN string, name string) error {
+	admin, err := sql.Open("pgx", adminDSN)
+	if err != nil {
+		return fmt.Errorf("open postgres admin handle: %w", err)
+	}
+	defer admin.Close()
+
+	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE "%s"`, name)); err != nil {
+		return fmt.Errorf("create database %s: %w", name, err)
+	}
+	return nil
+}
+
+func replaceDatabaseInDSN(adminDSN string, database string) (string, error) {
+	parsed, err := url.Parse(adminDSN)
+	if err != nil {
+		return "", fmt.Errorf("parse postgres dsn: %w", err)
+	}
+	parsed.Path = "/" + database
+	return parsed.String(), nil
+}
+
+func recordCleanupAndRefresh(deps dependencies, env map[string]string, status string, childExitCode int) {
+	deps.recordEvent(env, suiteservices.Event{
+		Type:   suiteservices.EventCleanupCompleted,
+		Status: status,
+		Details: map[string]any{
+			"child_exit_status": childExitCode,
+		},
+	})
+	deps.refreshSummary(env)
+}
+
+func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc postgresService, minioSvc minioService, status string, childExitCode int) {
+	cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
+	defer cancel()
+
+	cleanupStatus := status
+	if cleanupStatus == "" {
+		cleanupStatus = "succeeded"
+	}
+
+	if postgresSvc.close != nil {
+		if err := postgresSvc.close(cleanupCtx); err != nil {
+			cleanupStatus = "cleanup_failed"
+			fmt.Fprintf(os.Stderr, "cleanup suite postgres: %v\n", err)
+		}
+	}
+	if minioSvc.close != nil {
+		if err := minioSvc.close(cleanupCtx); err != nil {
+			cleanupStatus = "cleanup_failed"
+			fmt.Fprintf(os.Stderr, "cleanup suite minio: %v\n", err)
+		}
+	}
+
+	recordCleanupAndRefresh(deps, env, cleanupStatus, childExitCode)
+}
+
+func waitForChild(command []string, child childProcess, deps dependencies) int {
+	signals := make(chan os.Signal, 1)
+	deps.notifySignals(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	defer deps.stopSignals(signals)
+
+	waitResult := make(chan error, 1)
+	go func() {
+		waitResult <- child.Wait()
+	}()
+
+	signaled := false
+	var killTimer <-chan time.Time
+	for {
+		select {
+		case err := <-waitResult:
+			exitCode := exitCode(err)
+			if signaled && exitCode == 0 {
+				return 1
+			}
+			return exitCode
+		case sig := <-signals:
+			signaled = true
+			if err := child.Signal(sig); err != nil {
+				fmt.Fprintf(os.Stderr, "forward signal %s to %s: %v\n", sig, strings.Join(command, " "), err)
+				_ = child.Kill()
+			}
+			killTimer = time.After(signalWaitTimeout)
+		case <-killTimer:
+			fmt.Fprintf(os.Stderr, "child process %d did not exit after signal, forcing termination\n", child.PID())
+			_ = child.Kill()
+			killTimer = nil
+		}
+	}
+}
+
+func exitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitCode()
+	}
+	return 1
+}
+
+func generateSuiteID() (string, error) {
+	var data [12]byte
+	if _, err := rand.Read(data[:]); err != nil {
+		return "", fmt.Errorf("read random suite id bytes: %w", err)
+	}
+	return hex.EncodeToString(data[:]), nil
+}
+
+func templateDatabaseName(suiteID string) string {
+	return fmt.Sprintf("ct_tpl_%s", suiteservices.ShortHash(suiteID, 12))
+}
+
+func cloneEnv(env map[string]string) map[string]string {
+	cloned := make(map[string]string, len(env))
+	for key, value := range env {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func envMap(entries []string) map[string]string {
+	values := make(map[string]string, len(entries))
+	for _, entry := range entries {
+		key, value, ok := strings.Cut(entry, "=")
+		if !ok {
+			values[entry] = ""
+			continue
+		}
+		values[key] = value
+	}
+	return values
+}
+
+func envSlice(values map[string]string) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+
+	entries := make([]string, 0, len(keys))
+	for _, key := range keys {
+		entries = append(entries, fmt.Sprintf("%s=%s", key, values[key]))
+	}
+	return entries
+}
+
+type execChild struct {
+	cmd *exec.Cmd
+}
+
+func startChildProcess(argv []string, env map[string]string) (childProcess, error) {
+	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd.Env = envSlice(env)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	return &execChild{cmd: cmd}, nil
+}
+
+func (c *execChild) Wait() error {
+	return c.cmd.Wait()
+}
+
+func (c *execChild) Signal(sig os.Signal) error {
+	if c.cmd.Process == nil {
+		return nil
+	}
+	return syscall.Kill(-c.cmd.Process.Pid, sig.(syscall.Signal))
+}
+
+func (c *execChild) Kill() error {
+	if c.cmd.Process == nil {
+		return nil
+	}
+	return syscall.Kill(-c.cmd.Process.Pid, syscall.SIGKILL)
+}
+
+func (c *execChild) PID() int {
+	if c.cmd.Process == nil {
+		return 0
+	}
+	return c.cmd.Process.Pid
+}

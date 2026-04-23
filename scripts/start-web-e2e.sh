@@ -4,66 +4,125 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${ROOT_DIR}/scripts/lib/run-phase-common.sh"
 source "${ROOT_DIR}/scripts/lib/web-e2e-lifecycle.sh"
+
 COMPOSE_FILE="${ROOT_DIR}/docker-compose.dev.yml"
 GO_BIN="${GO:-go}"
 SERVER_BIN="${CARTULARY_SERVER_BIN:-}"
 MIGRATE_BIN="${CARTULARY_MIGRATE_BIN:-}"
-KEEP_RUNTIME_ROOT=0
-TARGET_ARTIFACT_DIR="${CARTULARY_WEB_E2E_ARTIFACT_DIR:-}"
-if [[ -z "${TARGET_ARTIFACT_DIR}" && -n "${CARTULARY_TEST_TARGET:-}" ]]; then
-  TARGET_ARTIFACT_DIR="$(ensure_target_artifact_dir)/owned-stack"
-fi
-
-if [[ -n "${TARGET_ARTIFACT_DIR}" ]]; then
-  mkdir -p "${TARGET_ARTIFACT_DIR}"
-  RUNTIME_ROOT_BASE="${TARGET_ARTIFACT_DIR}/runtime-root"
-  SERVER_LOG="${TARGET_ARTIFACT_DIR}/server.log"
-  WEB_LOG="${TARGET_ARTIFACT_DIR}/web.log"
-  rm -rf "${RUNTIME_ROOT_BASE}"
-  rm -f "${SERVER_LOG}" "${WEB_LOG}"
-  KEEP_RUNTIME_ROOT=1
-else
-  RUNTIME_ROOT_BASE="$(mktemp -d /tmp/cartulary-web-e2e-runtime-XXXXXX)"
-  SERVER_LOG="/tmp/cartulary-e2e-server-$$.log"
-  WEB_LOG="/tmp/cartulary-e2e-web-$$.log"
-fi
-
-PLAYWRIGHT_STATE_DIR="${RUNTIME_ROOT_BASE}/playwright-state"
-E2E_DB="cartulary_web_e2e_$$"
-E2E_DSN="postgres://cartulary:cartulary@localhost:5432/${E2E_DB}?sslmode=disable"
+USE_REPO_ROOT_RUNTIME_ARTIFACTS_ENV="CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES"
 MINIO_READY_URL="http://127.0.0.1:9000/minio/health/ready"
 POSTGRES_READY_TIMEOUT_SECONDS="${CARTULARY_POSTGRES_READY_TIMEOUT_SECONDS:-180}"
+
+KEEP_RUNTIME_ROOT=0
+TARGET_ARTIFACT_DIR=""
+RUNTIME_ROOT_BASE=""
+SERVER_LOG=""
+WEB_LOG=""
+PLAYWRIGHT_STATE_DIR=""
+E2E_DB=""
+E2E_DSN=""
 child_command=()
 SERVER_PGID=""
 VITE_PGID=""
 CHILD_PGID=""
 cleanup_done=0
 
-if [[ "$#" -gt 0 ]]; then
+usage() {
+  echo "usage: start-web-e2e.sh [-- <command...>]" >&2
+}
+
+parse_child_command() {
+  child_command=()
+
+  if [[ "$#" -eq 0 ]]; then
+    return 0
+  fi
+
   if [[ "$1" != "--" ]]; then
-    echo "usage: start-web-e2e.sh [-- <command...>]" >&2
-    exit 2
+    usage
+    return 2
   fi
   shift
-  if [[ "$#" -eq 0 ]]; then
-    echo "usage: start-web-e2e.sh [-- <command...>]" >&2
-    exit 2
-  fi
-  child_command=("$@")
-fi
 
-mkdir -p \
-  "${RUNTIME_ROOT_BASE}/database-storage" \
-  "${RUNTIME_ROOT_BASE}/object-storage" \
-  "${PLAYWRIGHT_STATE_DIR}" \
-  "${RUNTIME_ROOT_BASE}/backup-storage" \
-  "${RUNTIME_ROOT_BASE}/reference-pack-storage" \
-  "${RUNTIME_ROOT_BASE}/temporary-work" \
-  "${RUNTIME_ROOT_BASE}/export-outputs"
-export CARTULARY_PLAYWRIGHT_STATE_DIR="${PLAYWRIGHT_STATE_DIR}"
-export CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}"
-export CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}"
-export CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}"
+  if [[ "$#" -eq 0 ]]; then
+    usage
+    return 2
+  fi
+
+  child_command=("$@")
+}
+
+prepare_runtime_root() {
+  TARGET_ARTIFACT_DIR="${CARTULARY_WEB_E2E_ARTIFACT_DIR:-}"
+  if [[ -z "${TARGET_ARTIFACT_DIR}" && -n "${CARTULARY_TEST_TARGET:-}" ]]; then
+    TARGET_ARTIFACT_DIR="$(ensure_target_artifact_dir)/owned-stack"
+  fi
+
+  if [[ -n "${TARGET_ARTIFACT_DIR}" ]]; then
+    mkdir -p "${TARGET_ARTIFACT_DIR}"
+    RUNTIME_ROOT_BASE="${TARGET_ARTIFACT_DIR}/runtime-root"
+    SERVER_LOG="${TARGET_ARTIFACT_DIR}/server.log"
+    WEB_LOG="${TARGET_ARTIFACT_DIR}/web.log"
+    rm -rf "${RUNTIME_ROOT_BASE}"
+    rm -f "${SERVER_LOG}" "${WEB_LOG}"
+    KEEP_RUNTIME_ROOT=1
+  else
+    RUNTIME_ROOT_BASE="$(mktemp -d /tmp/cartulary-web-e2e-runtime-XXXXXX)"
+    SERVER_LOG="/tmp/cartulary-e2e-server-$$.log"
+    WEB_LOG="/tmp/cartulary-e2e-web-$$.log"
+  fi
+
+  PLAYWRIGHT_STATE_DIR="${RUNTIME_ROOT_BASE}/playwright-state"
+  E2E_DB="cartulary_web_e2e_$$"
+  E2E_DSN="postgres://cartulary:cartulary@localhost:5432/${E2E_DB}?sslmode=disable"
+
+  mkdir -p \
+    "${RUNTIME_ROOT_BASE}/database-storage" \
+    "${RUNTIME_ROOT_BASE}/object-storage" \
+    "${PLAYWRIGHT_STATE_DIR}" \
+    "${RUNTIME_ROOT_BASE}/backup-storage" \
+    "${RUNTIME_ROOT_BASE}/reference-pack-storage" \
+    "${RUNTIME_ROOT_BASE}/temporary-work" \
+    "${RUNTIME_ROOT_BASE}/export-outputs"
+
+  export CARTULARY_PLAYWRIGHT_STATE_DIR="${PLAYWRIGHT_STATE_DIR}"
+  export CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}"
+  export CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}"
+  export CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}"
+}
+
+use_repo_root_runtime_artifacts() {
+  [[ "${!USE_REPO_ROOT_RUNTIME_ARTIFACTS_ENV:-0}" == "1" ]]
+}
+
+# Browser E2E defaults to the current source tree so repo-root build artifacts
+# cannot silently drift from the code under test.
+resolve_runtime_command() {
+  local outvar="$1"
+  local label="$2"
+  local configured_path="$3"
+  local repo_root_artifact="$4"
+  shift 4
+  local -n resolved_ref="$outvar"
+
+  resolved_ref=()
+
+  if [[ -n "${configured_path}" ]]; then
+    if [[ "${configured_path}" == "${repo_root_artifact}" ]] && ! use_repo_root_runtime_artifacts; then
+      configured_path=""
+    elif [[ ! -x "${configured_path}" ]]; then
+      echo "${label} override ${configured_path} is not executable" >&2
+      return 1
+    fi
+  fi
+
+  if [[ -n "${configured_path}" ]]; then
+    resolved_ref=("${configured_path}")
+    return 0
+  fi
+
+  resolved_ref=("${GO_BIN}" run "$@")
+}
 
 port_in_use() {
   local port="$1"
@@ -126,10 +185,6 @@ cleanup() {
     rm -rf "${RUNTIME_ROOT_BASE}"
   fi
 }
-
-trap cleanup EXIT
-lifecycle_reset_shutdown_state
-lifecycle_install_signal_traps
 
 exit_for_requested_shutdown() {
   local context="$1"
@@ -249,15 +304,6 @@ assert_port_free() {
   fi
 }
 
-run_migrate() {
-  if [[ -n "${MIGRATE_BIN}" && -x "${MIGRATE_BIN}" ]]; then
-    "${MIGRATE_BIN}" "$@"
-    return
-  fi
-
-  "${GO_BIN}" run ./cmd/migrate "$@"
-}
-
 browser_start_services() {
   docker compose -f "${COMPOSE_FILE}" up -d postgres minio >/dev/null
   wait_for_postgres
@@ -268,16 +314,20 @@ browser_prepare_database() {
   assert_port_free 8080 "backend"
   assert_port_free 4173 "frontend"
   cd "${ROOT_DIR}"
+
   docker compose -f "${COMPOSE_FILE}" exec -T postgres \
     psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null
   docker compose -f "${COMPOSE_FILE}" exec -T postgres \
     psql -U cartulary -d postgres -c "CREATE DATABASE \"${E2E_DB}\";" >/dev/null
 
+  local -a migrate_command=()
+  resolve_runtime_command migrate_command "migration" "${MIGRATE_BIN}" "${ROOT_DIR}/migrate" ./cmd/migrate
+
   CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
   CARTULARY_POSTGRES_DSN="${E2E_DSN}" \
   GOCACHE=/tmp/cartulary-go-build \
   GOMODCACHE=/tmp/cartulary-go-mod \
-    run_migrate up
+    "${migrate_command[@]}" up
 }
 
 browser_wait_backend_ready() {
@@ -286,15 +336,6 @@ browser_wait_backend_ready() {
 
 browser_wait_frontend_ready() {
   wait_for_http "http://127.0.0.1:4173" "frontend"
-}
-
-run_server() {
-  if [[ -n "${SERVER_BIN}" && -x "${SERVER_BIN}" ]]; then
-    "${SERVER_BIN}" "$@"
-    return
-  fi
-
-  "${GO_BIN}" run ./cmd/server "$@"
 }
 
 wait_for_process_status() {
@@ -353,42 +394,52 @@ supervise_stack() {
   done
 }
 
-env MAKEFLAGS= make -s -C "${ROOT_DIR}" --no-print-directory frontend-toolchain
-run_phase_command "browser-e2e startup services" browser_start_services
-run_phase_command "browser-e2e startup database" browser_prepare_database
+main() {
+  parse_child_command "$@"
+  prepare_runtime_root
 
-if [[ -n "${SERVER_BIN}" && -x "${SERVER_BIN}" ]]; then
-  SERVER_COMMAND=("${SERVER_BIN}")
-else
-  SERVER_COMMAND=("${GO_BIN}" run ./cmd/server)
+  trap cleanup EXIT
+  lifecycle_reset_shutdown_state
+  lifecycle_install_signal_traps
+
+  env MAKEFLAGS= make -s -C "${ROOT_DIR}" --no-print-directory frontend-toolchain
+  run_phase_command "browser-e2e startup services" browser_start_services
+  run_phase_command "browser-e2e startup database" browser_prepare_database
+
+  local -a server_command=()
+  resolve_runtime_command server_command "backend" "${SERVER_BIN}" "${ROOT_DIR}/server" ./cmd/server
+
+  start_process_group SERVER_PGID "${SERVER_LOG}" \
+    env \
+    CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
+    CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
+    CARTULARY_POSTGRES_DSN="${E2E_DSN}" \
+    CARTULARY_ENABLE_TEST_ROUTES=1 \
+    CARTULARY__ROOTS__DATABASE_STORAGE__PATH="${RUNTIME_ROOT_BASE}/database-storage" \
+    CARTULARY__ROOTS__OBJECT_STORAGE__PATH="${RUNTIME_ROOT_BASE}/object-storage" \
+    CARTULARY__ROOTS__BACKUP_STORAGE__PATH="${RUNTIME_ROOT_BASE}/backup-storage" \
+    CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH="${RUNTIME_ROOT_BASE}/reference-pack-storage" \
+    CARTULARY__ROOTS__TEMPORARY_WORK__PATH="${RUNTIME_ROOT_BASE}/temporary-work" \
+    CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH="${RUNTIME_ROOT_BASE}/export-outputs" \
+    GOCACHE=/tmp/cartulary-go-build \
+    GOMODCACHE=/tmp/cartulary-go-mod \
+    "${server_command[@]}"
+
+  start_process_group VITE_PGID "${WEB_LOG}" \
+    env \
+    PATH="${ROOT_DIR}/tmp/node-runtime/bin:${PATH}" \
+    corepack pnpm --dir apps/web dev --host 127.0.0.1 --port 4173 --strictPort
+
+  run_phase_command "browser-e2e startup backend ready" browser_wait_backend_ready
+  run_phase_command "browser-e2e startup frontend ready" browser_wait_frontend_ready
+
+  if [[ "${#child_command[@]}" -gt 0 ]]; then
+    start_process_group CHILD_PGID "" "${child_command[@]}"
+  fi
+
+  supervise_stack
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
 fi
-
-start_process_group SERVER_PGID "${SERVER_LOG}" \
-  env \
-  CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
-  CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
-  CARTULARY_POSTGRES_DSN="${E2E_DSN}" \
-  CARTULARY_ENABLE_TEST_ROUTES=1 \
-  CARTULARY__ROOTS__DATABASE_STORAGE__PATH="${RUNTIME_ROOT_BASE}/database-storage" \
-  CARTULARY__ROOTS__OBJECT_STORAGE__PATH="${RUNTIME_ROOT_BASE}/object-storage" \
-  CARTULARY__ROOTS__BACKUP_STORAGE__PATH="${RUNTIME_ROOT_BASE}/backup-storage" \
-  CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH="${RUNTIME_ROOT_BASE}/reference-pack-storage" \
-  CARTULARY__ROOTS__TEMPORARY_WORK__PATH="${RUNTIME_ROOT_BASE}/temporary-work" \
-  CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH="${RUNTIME_ROOT_BASE}/export-outputs" \
-  GOCACHE=/tmp/cartulary-go-build \
-  GOMODCACHE=/tmp/cartulary-go-mod \
-  "${SERVER_COMMAND[@]}"
-
-start_process_group VITE_PGID "${WEB_LOG}" \
-  env \
-  PATH="${ROOT_DIR}/tmp/node-runtime/bin:${PATH}" \
-  corepack pnpm --dir apps/web dev --host 127.0.0.1 --port 4173 --strictPort
-
-run_phase_command "browser-e2e startup backend ready" browser_wait_backend_ready
-run_phase_command "browser-e2e startup frontend ready" browser_wait_frontend_ready
-
-if [[ "${#child_command[@]}" -gt 0 ]]; then
-  start_process_group CHILD_PGID "" "${child_command[@]}"
-fi
-
-supervise_stack

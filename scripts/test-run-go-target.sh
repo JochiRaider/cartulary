@@ -162,6 +162,89 @@ auth_shared_command="$(
 )"
 assert_contains "$auth_shared_command" "TestSupportPhase1_" "backend-integration-auth phase1 selector"
 
+shared_mismatch_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-shared-mismatch.XXXXXX")"
+cleanup_paths+=("$shared_mismatch_results")
+(
+  export CARTULARY_TEST_RESULTS_DIR="$shared_mismatch_results/results"
+  export CARTULARY_TEST_RUN_ID="shared-mismatch"
+  export NODE_BIN="$node_bin"
+  source "$GO_TARGET_HELPER"
+
+  shared_dir="$(prepare_shared_artifact_dir backend-integration-core)"
+  mkdir -p "$shared_dir"
+  printf '%s\n' "env go test -json -run '^TestOld$' ./internal/app" >"$shared_dir/command.txt"
+  touch "$shared_dir/complete"
+
+  set +e
+  mismatch_output="$(
+    capture_go_report backend-integration-core '^TestCurrent$' -- ./internal/app \
+      2>&1
+  )"
+  mismatch_status=$?
+  set -e
+
+  if [[ "$mismatch_status" -eq 0 ]]; then
+    fail "shared command mismatch: expected capture_go_report to fail"
+  fi
+  assert_contains "$mismatch_output" "shared_go_report_command_mismatch" "shared command mismatch marker"
+)
+
+shared_reuse_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-shared-reuse.XXXXXX")"
+cleanup_paths+=("$shared_reuse_results")
+(
+  export CARTULARY_TEST_RESULTS_DIR="$shared_reuse_results/results"
+  export CARTULARY_TEST_RUN_ID="shared-reuse"
+  export NODE_BIN="$node_bin"
+  source "$GO_TARGET_HELPER"
+
+  shared_dir="$(prepare_shared_artifact_dir backend-integration-core)"
+  mkdir -p "$shared_dir"
+  printf '%s\n' "$core_shared_command" >"$shared_dir/command.txt"
+  touch "$shared_dir/complete"
+
+  assign_named_shared_report reused_dir reused_usage backend-integration-support backend-integration-core
+  if [[ "$reused_dir" != "$shared_dir" ]]; then
+    fail "shared reuse: expected assign_named_shared_report to reuse the existing shared dir"
+  fi
+  if [[ "$reused_usage" != "reused" ]]; then
+    fail "shared reuse: expected assign_named_shared_report to mark the report as reused"
+  fi
+)
+
+backend_store_structure="$(
+  export NODE_BIN="$node_bin"
+  source "$GO_TARGET_HELPER"
+  assign_calls=0
+  raw_calls=0
+  manifest_calls=0
+  finish_status=""
+  assign_captured_report() {
+    local -n dir_ref="$1"
+    local -n usage_ref="$2"
+    assign_calls=$((assign_calls + 1))
+    dir_ref="/tmp/backend-store-shared"
+    usage_ref="actual"
+  }
+  emit_go_raw_phase() {
+    raw_calls=$((raw_calls + 1))
+  }
+  emit_go_manifest_phase() {
+    manifest_calls=$((manifest_calls + 1))
+  }
+  clear_go_selection_env() {
+    :
+  }
+  finish_target() {
+    finish_status="$1"
+    printf "assign_calls=%s raw_calls=%s manifest_calls=%s finish_status=%s\n" "$assign_calls" "$raw_calls" "$manifest_calls" "$finish_status"
+  }
+  run_backend_store
+)"
+assert_contains "$backend_store_structure" "assign_calls=1" "backend-store single shared capture"
+assert_contains "$backend_store_structure" "raw_calls=1" "backend-store raw phase count"
+assert_contains "$backend_store_structure" "manifest_calls=2" "backend-store derived phase count"
+assert_contains "$backend_store_structure" "finish_status=0" "backend-store finish status"
+
 phase1_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase1 backend_integration_support ./internal/modules/auth)"
 assert_not_zero "$phase1_support_count" "phase1 support-go-count"
 phase2_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase2 backend_integration_support ./internal/modules/incidents)"

@@ -86,6 +86,20 @@ count_lines() {
   wc -l <"$path" | tr -d ' '
 }
 
+array_has_prefix_entry() {
+  local prefix="$1"
+  shift
+  local entry=""
+
+  for entry in "$@"; do
+    if [[ "$entry" == "$prefix"* ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 mkdir -p "$ROOT_DIR/tmp"
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/web-e2e-lifecycle-smoke.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
@@ -394,3 +408,59 @@ assert_equals "$(count_lines "$frontend_exit_dir/server.term")" "1" "frontend-ex
 assert_equals "$(count_lines "$frontend_exit_dir/child.term")" "1" "frontend-exits child term count"
 assert_process_stopped "$(tr -d '\n' <"$frontend_exit_dir/server.pid")" "frontend-exits server process"
 assert_process_stopped "$(tr -d '\n' <"$frontend_exit_dir/child.pid")" "frontend-exits child process"
+
+source "$ROOT_DIR/scripts/lib/playwright-owned-stack.sh"
+resolve_playwright_owned_stack_env "$ROOT_DIR"
+if array_has_prefix_entry "CARTULARY_SERVER_BIN=" "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}"; then
+  fail "playwright owned stack env must not inject CARTULARY_SERVER_BIN by default"
+fi
+if array_has_prefix_entry "CARTULARY_MIGRATE_BIN=" "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}"; then
+  fail "playwright owned stack env must not inject CARTULARY_MIGRATE_BIN by default"
+fi
+
+command_override="$tmp_dir/explicit-runtime-bin.sh"
+cat >"$command_override" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "$command_override"
+
+repo_server_artifact="$tmp_dir/repo-server"
+cat >"$repo_server_artifact" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "$repo_server_artifact"
+
+repo_migrate_artifact="$tmp_dir/repo-migrate"
+cat >"$repo_migrate_artifact" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "$repo_migrate_artifact"
+
+source "$ROOT_DIR/scripts/start-web-e2e.sh"
+GO_BIN="go-test-bin"
+
+resolved_command=()
+resolve_runtime_command resolved_command "backend" "$repo_server_artifact" "$repo_server_artifact" ./cmd/server
+assert_equals "${resolved_command[*]}" "go-test-bin run ./cmd/server" "repo-root backend artifact ignored by default"
+
+resolve_runtime_command resolved_command "migration" "$repo_migrate_artifact" "$repo_migrate_artifact" ./cmd/migrate
+assert_equals "${resolved_command[*]}" "go-test-bin run ./cmd/migrate" "repo-root migrate artifact ignored by default"
+
+resolve_runtime_command resolved_command "backend" "$command_override" "$repo_server_artifact" ./cmd/server
+assert_equals "${resolved_command[*]}" "$command_override" "explicit backend override honored"
+
+missing_override_stderr="$tmp_dir/missing-runtime-bin.stderr"
+if resolve_runtime_command resolved_command "backend" "$tmp_dir/missing-runtime-bin" "$repo_server_artifact" ./cmd/server 2>"$missing_override_stderr"; then
+  fail "missing explicit backend override must fail fast"
+fi
+if ! grep -Fq "is not executable" "$missing_override_stderr"; then
+  fail "missing explicit backend override must explain the executable requirement"
+fi
+
+CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES=1
+resolve_runtime_command resolved_command "backend" "$repo_server_artifact" "$repo_server_artifact" ./cmd/server
+assert_equals "${resolved_command[*]}" "$repo_server_artifact" "repo-root backend artifact opt-in honored"
+unset CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES

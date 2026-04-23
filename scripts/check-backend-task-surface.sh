@@ -268,6 +268,9 @@ backend_store_block="$(extract_target_block backend-store)"
 if ! printf '%s\n' "$backend_store_block" | grep -Fq 'run-go-target.sh backend-store'; then
   fail "backend-store must delegate to scripts/run-go-target.sh backend-store"
 fi
+if ! printf '%s\n' "$backend_store_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+  fail "backend-store must run through $(TEST_SERVICES_BIN) for suite-scoped services"
+fi
 for expected in \
   'emit_go_manifest_phase "backend-store phase2 authoritative"' \
   'emit_go_manifest_phase "backend-store phase3 authoritative"'
@@ -280,6 +283,9 @@ done
 backend_integration_block="$(extract_target_block backend-integration)"
 if ! printf '%s\n' "$backend_integration_block" | grep -Fq 'run-go-target.sh backend-integration'; then
   fail "backend-integration must delegate to scripts/run-go-target.sh backend-integration"
+fi
+if ! printf '%s\n' "$backend_integration_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+  fail "backend-integration must run through $(TEST_SERVICES_BIN) for suite-scoped services"
 fi
 for expected in \
   'emit_go_manifest_phase "backend-integration phase0 authoritative"' \
@@ -300,6 +306,9 @@ backend_process_block="$(extract_target_block backend-process)"
 if ! printf '%s\n' "$backend_process_block" | grep -Fq 'run-go-target.sh backend-process'; then
   fail "backend-process must delegate to scripts/run-go-target.sh backend-process"
 fi
+if ! printf '%s\n' "$backend_process_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+  fail "backend-process must run through $(TEST_SERVICES_BIN) for suite-scoped services"
+fi
 if ! printf '%s\n' "$backend_process_block" | grep -Fq 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
   fail "backend-process must export CARTULARY_SERVER_BIN=$(SERVER_BIN)"
 fi
@@ -310,6 +319,9 @@ fi
 phase0_process_block="$(extract_target_block phase0-process-e2e)"
 if ! printf '%s\n' "$phase0_process_block" | grep -Fq 'run-go-target.sh phase0-process-e2e'; then
   fail "phase0-process-e2e must delegate to scripts/run-go-target.sh phase0-process-e2e"
+fi
+if ! printf '%s\n' "$phase0_process_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+  fail "phase0-process-e2e must run through $(TEST_SERVICES_BIN) for suite-scoped services"
 fi
 if ! printf '%s\n' "$phase0_process_block" | grep -Fq 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
   fail "phase0-process-e2e must export CARTULARY_SERVER_BIN=$(SERVER_BIN)"
@@ -322,10 +334,16 @@ phase1_process_block="$(extract_target_block phase1-process-smoke)"
 if ! printf '%s\n' "$phase1_process_block" | grep -Fq 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
   fail "phase1-process-smoke must export CARTULARY_SERVER_BIN=$(SERVER_BIN)"
 fi
+if ! printf '%s\n' "$phase1_process_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+  fail "phase1-process-smoke must run through $(TEST_SERVICES_BIN) for suite-scoped services"
+fi
 
 phase2_process_block="$(extract_target_block phase2-process-smoke)"
 if ! printf '%s\n' "$phase2_process_block" | grep -Fq 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
   fail "phase2-process-smoke must export CARTULARY_SERVER_BIN=$(SERVER_BIN)"
+fi
+if ! printf '%s\n' "$phase2_process_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+  fail "phase2-process-smoke must run through $(TEST_SERVICES_BIN) for suite-scoped services"
 fi
 
 for target in backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke; do
@@ -338,6 +356,9 @@ done
 check_service_block="$(extract_target_block check-service-backed)"
 if [[ -z "$check_service_block" ]]; then
   fail "Makefile must define a non-empty check-service-backed block"
+fi
+if ! printf '%s\n' "$check_service_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+  fail "check-service-backed must wrap the shared service-backed lane block through $(TEST_SERVICES_BIN)"
 fi
 
 for lane in check-service-backed-lane-a check-service-backed-lane-b; do
@@ -372,6 +393,9 @@ backend_integration_support_block="$(extract_target_block backend-integration-su
 if ! printf '%s\n' "$backend_integration_support_block" | grep -Fq 'run-go-target.sh backend-integration-support'; then
   fail "backend-integration-support must delegate to scripts/run-go-target.sh backend-integration-support"
 fi
+if ! printf '%s\n' "$backend_integration_support_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+  fail "backend-integration-support must run through $(TEST_SERVICES_BIN) for suite-scoped services"
+fi
 require_shared_command_match backend-integration-core backend-integration backend-integration-support
 require_shared_command_match backend-integration-auth backend-integration backend-integration-support
 mapfile -t backend_integration_core_support_patterns < <(support_selection_patterns backend_integration_support ./internal/platform/... ./internal/app ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline)
@@ -395,6 +419,9 @@ require_shared_command_match backend-process-shared backend-process phase0-proce
 test_fast_block="$(extract_target_block test-fast)"
 if [[ -z "$test_fast_block" ]]; then
   fail "Makefile must define a non-empty test-fast block"
+fi
+if ! printf '%s\n' "$test_fast_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+  fail "test-fast must wrap the shared service-backed lane block through $(TEST_SERVICES_BIN)"
 fi
 for lane in test-fast-service-backed-lane-a test-fast-service-backed-lane-b; do
   if ! printf '%s\n' "$test_fast_block" | rg -q "(^|[[:space:]])$lane($|[[:space:]])"; then

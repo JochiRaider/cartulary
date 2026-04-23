@@ -17,6 +17,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
 
@@ -29,9 +30,14 @@ type Harness struct {
 	User      string
 	Password  string
 
-	adminDSN string
-	counter  uint64
-	shared   bool
+	adminDSN    string
+	dsnTemplate string
+	templateDB  string
+	suiteHash   string
+	processHash string
+	counter     uint64
+	shared      bool
+	attached    bool
 }
 
 type TestDatabase struct {
@@ -40,8 +46,12 @@ type TestDatabase struct {
 }
 
 var (
-	sharedHarnessMu sync.Mutex
-	sharedHarness   *Harness
+	sharedHarnessMu   sync.Mutex
+	sharedHarness     *Harness
+	startOwnedHarness = StartOwned
+	pingAdminDSNFn    = pingAdminDSN
+	migrateDatabaseFn = postgres.Migrate
+	createDatabaseFn  = createDatabase
 )
 
 func Start(t testing.TB) *Harness {
@@ -63,13 +73,23 @@ func StartShared(ctx context.Context) (*Harness, error) {
 		return sharedHarness, nil
 	}
 
-	harness, err := startHarness(ctx)
+	harness, attached, err := startAttachedHarness(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !attached {
+		harness, err = startOwnedHarness(ctx)
+	}
 	if err != nil {
 		return nil, err
 	}
 	harness.shared = true
 	sharedHarness = harness
 	return harness, nil
+}
+
+func StartOwned(ctx context.Context) (*Harness, error) {
+	return startHarness(ctx)
 }
 
 func StopShared(ctx context.Context) error {
@@ -124,11 +144,13 @@ func startHarness(ctx context.Context) (*Harness, error) {
 	}
 
 	harness := &Harness{
-		Container: container,
-		Host:      host,
-		Port:      port.Port(),
-		User:      "cartulary",
-		Password:  "cartulary",
+		Container:   container,
+		Host:        host,
+		Port:        port.Port(),
+		User:        "cartulary",
+		Password:    "cartulary",
+		suiteHash:   resolveSuiteHash(),
+		processHash: suiteservices.ProcessHash(),
 	}
 	harness.adminDSN = harness.dsnFor("postgres")
 
@@ -140,19 +162,45 @@ func startHarness(ctx context.Context) (*Harness, error) {
 	return harness, nil
 }
 
+func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
+	adminDSN := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.PGAdminDSNEnv))
+	dsnTemplate := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.PGDSNTemplateEnv))
+	if adminDSN == "" && dsnTemplate == "" {
+		return nil, false, nil
+	}
+	if adminDSN == "" || dsnTemplate == "" {
+		return nil, false, fmt.Errorf("attach postgres harness: %s and %s must both be set", suiteservices.PGAdminDSNEnv, suiteservices.PGDSNTemplateEnv)
+	}
+	if !strings.Contains(dsnTemplate, "{database}") {
+		return nil, false, fmt.Errorf("attach postgres harness: %s must contain {database}", suiteservices.PGDSNTemplateEnv)
+	}
+
+	harness := &Harness{
+		adminDSN:    adminDSN,
+		dsnTemplate: dsnTemplate,
+		templateDB:  strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.PGTemplateDBEnv)),
+		suiteHash:   resolveSuiteHash(),
+		processHash: suiteservices.ProcessHash(),
+		attached:    true,
+	}
+	if err := pingAdminDSNFn(ctx, adminDSN); err != nil {
+		return nil, false, fmt.Errorf("attach postgres harness: ping admin dsn: %w", err)
+	}
+	recordSuiteEvent(suiteservices.Event{Type: suiteservices.EventPostgresAttach})
+	return harness, true, nil
+}
+
 func (h *Harness) WaitReady(ctx context.Context) error {
 	deadline := time.Now().Add(30 * time.Second)
+	var lastErr error
 	for {
-		db, err := sql.Open("pgx", h.adminDSN)
-		if err == nil {
-			err = db.PingContext(ctx)
-			_ = db.Close()
-		}
+		err := pingAdminDSNFn(ctx, h.adminDSN)
 		if err == nil {
 			return nil
 		}
+		lastErr = err
 		if time.Now().After(deadline) {
-			return fmt.Errorf("postgres did not become ready: %w", err)
+			return fmt.Errorf("postgres did not become ready: %w", lastErr)
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
@@ -163,17 +211,15 @@ func (h *Harness) AdminDSN() string {
 }
 
 func (h *Harness) NewDatabase(ctx context.Context, prefix string) (*TestDatabase, error) {
-	name := fmt.Sprintf("%s_%06d", sanitizeIdentifier(prefix), atomic.AddUint64(&h.counter, 1))
-
-	admin, err := sql.Open("pgx", h.adminDSN)
-	if err != nil {
-		return nil, fmt.Errorf("open postgres admin handle: %w", err)
+	name := h.nextDatabaseName(prefix)
+	if err := h.createDatabase(ctx, name, ""); err != nil {
+		return nil, err
 	}
-	defer admin.Close()
-
-	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE "%s"`, name)); err != nil {
-		return nil, fmt.Errorf("create test database %s: %w", name, err)
-	}
+	recordSuiteEvent(suiteservices.Event{
+		Type: suiteservices.EventPostgresDBCreated,
+		Name: name,
+		Kind: "scratch",
+	})
 
 	return &TestDatabase{
 		Name: name,
@@ -182,6 +228,35 @@ func (h *Harness) NewDatabase(ctx context.Context, prefix string) (*TestDatabase
 }
 
 func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestDatabase, postgres.MigrationStatus, error) {
+	if h.templateDB != "" {
+		name := h.nextDatabaseName(prefix)
+		if err := h.createDatabase(ctx, name, h.templateDB); err != nil {
+			return nil, postgres.MigrationStatus{}, err
+		}
+		recordSuiteEvent(suiteservices.Event{
+			Type: suiteservices.EventPostgresDBCreated,
+			Name: name,
+			Kind: "template-clone",
+		})
+		recordSuiteEvent(suiteservices.Event{
+			Type: suiteservices.EventPostgresTemplateUse,
+			Name: name,
+			Details: map[string]any{
+				"template_database": h.templateDB,
+			},
+		})
+
+		return &TestDatabase{
+				Name: name,
+				DSN:  h.dsnFor(name),
+			}, postgres.MigrationStatus{
+				Command:          "template-clone",
+				Directory:        migrationsDir(),
+				TemplateClone:    true,
+				TemplateDatabase: h.templateDB,
+			}, nil
+	}
+
 	testDB, err := h.NewDatabase(ctx, prefix)
 	if err != nil {
 		return nil, postgres.MigrationStatus{}, err
@@ -193,10 +268,15 @@ func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestData
 	}
 	defer db.Close()
 
-	status, err := postgres.Migrate(db, migrationsDir(), "up")
+	status, err := migrateDatabaseFn(db, migrationsDir(), "up")
 	if err != nil {
 		return nil, postgres.MigrationStatus{}, err
 	}
+	recordSuiteEvent(suiteservices.Event{
+		Type: suiteservices.EventPostgresDBMigrated,
+		Name: testDB.Name,
+		Kind: "scratch",
+	})
 
 	return testDB, status, nil
 }
@@ -249,6 +329,9 @@ func (db *TestDatabase) Env() map[string]string {
 }
 
 func (h *Harness) dsnFor(database string) string {
+	if h.dsnTemplate != "" {
+		return strings.ReplaceAll(h.dsnTemplate, "{database}", database)
+	}
 	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", h.User, h.Password, h.Host, h.Port, database)
 }
 
@@ -261,8 +344,96 @@ func sanitizeIdentifier(value string) string {
 	value = strings.ToLower(value)
 	value = strings.ReplaceAll(value, "-", "_")
 	value = strings.ReplaceAll(value, " ", "_")
-	if value == "" {
+
+	var builder strings.Builder
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z':
+			builder.WriteRune(r)
+		case r >= '0' && r <= '9':
+			builder.WriteRune(r)
+		case r == '_':
+			builder.WriteRune(r)
+		}
+	}
+
+	result := strings.Trim(builder.String(), "_")
+	if result == "" {
 		return "testdb"
 	}
-	return value
+	return result
+}
+
+func resolveSuiteHash() string {
+	if hash := suiteservices.SuiteHash(nil); hash != "" {
+		return hash
+	}
+	return suiteservices.ShortHash("local-suite", 8)
+}
+
+func (h *Harness) nextDatabaseName(prefix string) string {
+	suiteHash := h.suiteHash
+	if suiteHash == "" {
+		suiteHash = resolveSuiteHash()
+	}
+	processHash := h.processHash
+	if processHash == "" {
+		processHash = suiteservices.ProcessHash()
+	}
+
+	base := fmt.Sprintf("ct_%s_%s_%06d", suiteHash, processHash, atomic.AddUint64(&h.counter, 1))
+	suffix := sanitizeIdentifier(prefix)
+	if suffix == "" {
+		return truncateIdentifier(base, 63)
+	}
+
+	available := 63 - len(base) - 1
+	if available <= 0 {
+		return truncateIdentifier(base, 63)
+	}
+	return truncateIdentifier(base+"_"+truncateIdentifier(suffix, available), 63)
+}
+
+func truncateIdentifier(value string, max int) string {
+	if len(value) <= max {
+		return value
+	}
+	return strings.TrimRight(value[:max], "_")
+}
+
+func (h *Harness) createDatabase(ctx context.Context, name string, templateDB string) error {
+	return createDatabaseFn(ctx, h.adminDSN, name, templateDB)
+}
+
+func pingAdminDSN(ctx context.Context, dsn string) error {
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	return db.PingContext(ctx)
+}
+
+func createDatabase(ctx context.Context, adminDSN string, name string, templateDB string) error {
+	admin, err := sql.Open("pgx", adminDSN)
+	if err != nil {
+		return fmt.Errorf("open postgres admin handle: %w", err)
+	}
+	defer admin.Close()
+
+	statement := fmt.Sprintf(`CREATE DATABASE "%s"`, name)
+	if templateDB != "" {
+		statement += fmt.Sprintf(` TEMPLATE "%s"`, templateDB)
+	}
+	if _, err := admin.ExecContext(ctx, statement); err != nil {
+		if templateDB != "" {
+			return fmt.Errorf("create test database %s from template %s: %w", name, templateDB, err)
+		}
+		return fmt.Errorf("create test database %s: %w", name, err)
+	}
+	return nil
+}
+
+func recordSuiteEvent(event suiteservices.Event) {
+	_ = suiteservices.RecordEvent(nil, event)
 }

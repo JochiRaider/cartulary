@@ -3,10 +3,188 @@ package pgtest
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"regexp"
+	"strings"
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
+
+func TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness(t *testing.T) {
+	resetSharedHarness(t)
+
+	t.Setenv(suiteservices.PGAdminDSNEnv, "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable")
+	t.Setenv(suiteservices.PGDSNTemplateEnv, "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable")
+	t.Setenv(suiteservices.PGTemplateDBEnv, "suite_template")
+
+	oldStart := startOwnedHarness
+	oldPing := pingAdminDSNFn
+	t.Cleanup(func() {
+		startOwnedHarness = oldStart
+		pingAdminDSNFn = oldPing
+	})
+
+	startCalls := 0
+	startOwnedHarness = func(ctx context.Context) (*Harness, error) {
+		startCalls++
+		return nil, errors.New("owned harness should not start when attach env is present")
+	}
+
+	var pingDSN string
+	pingAdminDSNFn = func(ctx context.Context, dsn string) error {
+		pingDSN = dsn
+		return nil
+	}
+
+	harness, err := StartShared(context.Background())
+	if err != nil {
+		t.Fatalf("start attached harness: %v", err)
+	}
+	if startCalls != 0 {
+		t.Fatalf("expected attach mode to skip owned startup, got %d calls", startCalls)
+	}
+	if !harness.attached {
+		t.Fatal("expected attached harness")
+	}
+	if harness.Container != nil {
+		t.Fatal("expected attach mode to avoid creating a testcontainer")
+	}
+	if harness.templateDB != "suite_template" {
+		t.Fatalf("unexpected template database: got %q", harness.templateDB)
+	}
+	if pingDSN != harness.AdminDSN() {
+		t.Fatalf("unexpected admin dsn ping: got %q want %q", pingDSN, harness.AdminDSN())
+	}
+	if got := harness.dsnFor("tenant_one"); !strings.Contains(got, "/tenant_one?") {
+		t.Fatalf("expected attach dsn template replacement, got %q", got)
+	}
+}
+
+func TestStartSharedFallsBackToOwnedHarnessWhenAttachEnvIsAbsent(t *testing.T) {
+	resetSharedHarness(t)
+	t.Setenv(suiteservices.PGAdminDSNEnv, "")
+	t.Setenv(suiteservices.PGDSNTemplateEnv, "")
+	t.Setenv(suiteservices.PGTemplateDBEnv, "")
+
+	oldStart := startOwnedHarness
+	t.Cleanup(func() {
+		startOwnedHarness = oldStart
+	})
+
+	startCalls := 0
+	want := &Harness{
+		adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
+		dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
+		suiteHash:   "suitehash",
+		processHash: "processid",
+	}
+	startOwnedHarness = func(ctx context.Context) (*Harness, error) {
+		startCalls++
+		return want, nil
+	}
+
+	harness, err := StartShared(context.Background())
+	if err != nil {
+		t.Fatalf("start shared harness: %v", err)
+	}
+	if startCalls != 1 {
+		t.Fatalf("expected one owned startup, got %d", startCalls)
+	}
+	if harness != want {
+		t.Fatal("expected StartShared to return the owned harness")
+	}
+	if !harness.shared {
+		t.Fatal("expected owned harness returned by StartShared to be marked shared")
+	}
+}
+
+func TestDatabaseNamesAreUniqueAcrossSimulatedProcesses(t *testing.T) {
+	first := &Harness{suiteHash: "suitehash", processHash: "procaaaa"}
+	second := &Harness{suiteHash: "suitehash", processHash: "procbbbb"}
+
+	seen := make(map[string]struct{})
+	validName := regexp.MustCompile(`^[a-z0-9_]+$`)
+	for _, harness := range []*Harness{first, second} {
+		for i := 0; i < 8; i++ {
+			name := harness.nextDatabaseName("Prefix With Spaces-and-symbols!")
+			if len(name) > 63 {
+				t.Fatalf("database name exceeds postgres identifier limit: %q", name)
+			}
+			if !validName.MatchString(name) {
+				t.Fatalf("database name must be sanitized, got %q", name)
+			}
+			if _, exists := seen[name]; exists {
+				t.Fatalf("database name collision detected: %q", name)
+			}
+			seen[name] = struct{}{}
+		}
+	}
+}
+
+func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
+	oldCreate := createDatabaseFn
+	oldMigrate := migrateDatabaseFn
+	t.Cleanup(func() {
+		createDatabaseFn = oldCreate
+		migrateDatabaseFn = oldMigrate
+	})
+
+	var createCalls []struct {
+		Name     string
+		Template string
+	}
+	createDatabaseFn = func(ctx context.Context, adminDSN string, name string, templateDB string) error {
+		createCalls = append(createCalls, struct {
+			Name     string
+			Template string
+		}{
+			Name:     name,
+			Template: templateDB,
+		})
+		return nil
+	}
+
+	migrateCalls := 0
+	migrateDatabaseFn = func(db *sql.DB, directory string, command string) (postgres.MigrationStatus, error) {
+		migrateCalls++
+		return postgres.MigrationStatus{Command: command, Directory: directory}, nil
+	}
+
+	harness := &Harness{
+		adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
+		dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
+		templateDB:  "suite_template",
+		suiteHash:   "suitehash",
+		processHash: "procaaaa",
+	}
+
+	testDB, status, err := harness.PrepareDatabase(context.Background(), "bootstrap")
+	if err != nil {
+		t.Fatalf("prepare database from template: %v", err)
+	}
+	if len(createCalls) != 1 {
+		t.Fatalf("expected one database create call, got %d", len(createCalls))
+	}
+	if createCalls[0].Template != "suite_template" {
+		t.Fatalf("expected template clone create call, got template %q", createCalls[0].Template)
+	}
+	if migrateCalls != 0 {
+		t.Fatalf("expected template mode to skip per-database migrations, got %d calls", migrateCalls)
+	}
+	if !status.TemplateClone {
+		t.Fatal("expected migration status to mark template clone mode")
+	}
+	if status.TemplateDatabase != "suite_template" {
+		t.Fatalf("unexpected template database in status: got %q", status.TemplateDatabase)
+	}
+	if testDB.Name == "" || !strings.Contains(testDB.DSN, testDB.Name) {
+		t.Fatalf("expected prepared database dsn to reference the cloned database, got %#v", testDB)
+	}
+}
 
 func TestHarnessStartsPostgresAndRunsCurrentMigrationPath(t *testing.T) {
 	harness := Start(t)
@@ -53,4 +231,18 @@ SELECT EXISTS (
 	if !exists {
 		t.Fatal("expected PrepareDatabaseT to return a migrated database")
 	}
+}
+
+func resetSharedHarness(t testing.TB) {
+	t.Helper()
+
+	sharedHarnessMu.Lock()
+	sharedHarness = nil
+	sharedHarnessMu.Unlock()
+
+	t.Cleanup(func() {
+		sharedHarnessMu.Lock()
+		sharedHarness = nil
+		sharedHarnessMu.Unlock()
+	})
 }
