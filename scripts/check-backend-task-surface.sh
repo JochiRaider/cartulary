@@ -256,6 +256,7 @@ for expected in \
   'manifest_go_regex phase1 unit authoritative backend_unit ./internal/modules/auth' \
   'emit_go_manifest_phase "backend-unit phase2 authoritative"' \
   'emit_go_manifest_phase "backend-unit phase3 authoritative"' \
+  'emit_declared_support_phase "backend-unit support phase0"' \
   'emit_declared_support_phase "backend-unit support phase1"' \
   'emit_declared_support_phase "backend-unit support phase3"'
 do
@@ -292,6 +293,7 @@ for expected in \
   'emit_go_manifest_phase "backend-integration phase1 authoritative"' \
   'emit_go_manifest_phase "backend-integration phase4 authoritative"' \
   'emit_go_manifest_phase "backend-integration phase2 authoritative"' \
+  'emit_declared_support_phase "backend-integration support phase0"' \
   'emit_declared_support_phase "backend-integration support phase1"' \
   'emit_declared_support_phase "backend-integration support phase2"' \
   'emit_declared_support_phase "backend-integration support phase3"' \

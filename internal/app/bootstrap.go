@@ -366,10 +366,15 @@ func bootstrapPersistOrConflict(err error) error {
 }
 
 func bootstrapDiagnostic(path string, reasonCode string, action string, err error) error {
+	message := err.Error()
+	if errors.Is(err, fs.ErrPermission) {
+		message = fs.ErrPermission.Error()
+	}
+
 	return configError(config.Diagnostic{
 		Path:       path,
 		ReasonCode: reasonCode,
-		Message:    fmt.Sprintf("%s: %v", action, err),
+		Message:    fmt.Sprintf("%s: %s", action, message),
 	})
 }
 

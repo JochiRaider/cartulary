@@ -21,6 +21,28 @@
     "E-0-04",
     "E-0-05"
   ],
+  "forbidden_id_files": [
+    "internal/platform/postgres/postgres_phase0_support_test.go",
+    "internal/platform/objectstore/objectstore_phase0_support_test.go"
+  ],
+  "support_go_targets": [
+    {
+      "target": "backend_unit",
+      "section": "unit",
+      "package": "./internal/platform/postgres",
+      "file": "internal/platform/postgres/postgres_phase0_support_test.go",
+      "symbol": "TestSupportPhase0_SchemaBootstrapMigrationGuard",
+      "selection_pattern": "TestSupportPhase0_"
+    },
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/platform/objectstore",
+      "file": "internal/platform/objectstore/objectstore_phase0_support_test.go",
+      "symbol": "TestSupportPhase0_ManagedServiceObjectStoreBinding",
+      "selection_pattern": "TestSupportPhase0_"
+    }
+  ],
   "unit": [
     {
       "id": "U-0-01",
@@ -30,7 +52,9 @@
       "file": "internal/platform/config/config_phase0_test.go",
       "symbol": "TestPhase0_ConfigDiscovery_U_0_01",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "config_validation"
+      "evidence_layer": "config_validation",
+      "claim": "Configuration discovery enforces canonical selector precedence, rejects unknown keys, and fails closed on unsupported schema or profile combinations before startup composition.",
+      "out_of_scope": "Runtime-root compatibility and startup filesystem canonicalization belong to later Phase 0 rows."
     },
     {
       "id": "U-0-02",
@@ -40,7 +64,9 @@
       "file": "internal/platform/config/config_phase0_test.go",
       "symbol": "TestPhase0_RuntimeRoots_U_0_02",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "config_validation"
+      "evidence_layer": "config_validation",
+      "claim": "Every supported deployment profile requires the full runtime-root set, rejects unknown or malformed bindings, accepts `cloud` managed-service bindings for the service-backed roots, and keeps the always-filesystem roots closed.",
+      "out_of_scope": "Lexical path rejection, overlap detection, and effective escape-write prevention are owned by `U-0-03`."
     },
     {
       "id": "U-0-03",
@@ -50,7 +76,9 @@
       "file": "internal/platform/config/config_phase0_test.go",
       "symbol": "TestPhase0_FilesystemRootPaths_U_0_03",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "path_validation"
+      "evidence_layer": "path_validation",
+      "claim": "Filesystem-root validation rejects non-absolute, shell-expanded, `.`, `..`, NUL-bearing, overlapping, non-writable, and attempted escape-write paths against configured roots.",
+      "out_of_scope": "Real runtime fail-closed startup consequences remain integration and process evidence."
     },
     {
       "id": "U-0-04",
@@ -60,7 +88,9 @@
       "file": "internal/platform/config/config_phase0_test.go",
       "symbol": "TestPhase0_DisconnectedDefaults_U_0_04",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "config_defaults"
+      "evidence_layer": "config_defaults",
+      "claim": "Disconnected defaults apply only where allowed and never synthesize missing or malformed roots away for other profiles.",
+      "out_of_scope": "Profile-specific binding-kind compatibility is covered by `U-0-02`."
     },
     {
       "id": "U-0-05",
@@ -70,7 +100,9 @@
       "file": "internal/app/runtime_phase0_test.go",
       "symbol": "TestPhase0_FailClosedStartup_U_0_05",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "startup_fail_closed"
+      "evidence_layer": "startup_fail_closed",
+      "claim": "Invalid deployment config and bootstrap-preflight failure stop dependency wiring before HTTP, WebSocket, or job startup begins.",
+      "out_of_scope": "Whole-payload diagnostics and durable bootstrap side effects are integration or process evidence."
     },
     {
       "id": "U-0-07",
@@ -80,7 +112,9 @@
       "file": "internal/app/bootstrap_phase0_test.go",
       "symbol": "TestPhase0_BootstrapManifestValidation_U_0_07",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "bootstrap_manifest_validation"
+      "evidence_layer": "bootstrap_manifest_validation",
+      "claim": "Bootstrap manifest validation accepts only the v1 schema, defaults omitted `mfa_required` to true, and rejects explicit false, unknown members, and forbidden deployment-admin, incident, or provider fields.",
+      "out_of_scope": "Manifest filesystem errors and durable bootstrap persistence stay with higher Phase 0 layers."
     },
     {
       "id": "U-0-08",
@@ -90,7 +124,9 @@
       "file": "internal/app/bootstrap_phase0_test.go",
       "symbol": "TestPhase0_BootstrapPreflight_U_0_08",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "bootstrap_preflight"
+      "evidence_layer": "bootstrap_preflight",
+      "claim": "Bootstrap preflight queries bootstrap state first, skips manifest access when an active admin exists, and emits canonical diagnostics for missing, unreadable, non-regular, malformed, and recovery-failure cases.",
+      "out_of_scope": "Real Postgres-backed bootstrap creation and rollback belong to `I-0-04` through `I-0-06`."
     },
     {
       "id": "U-0-09",
@@ -100,7 +136,9 @@
       "file": "internal/platform/config/config_phase0_test.go",
       "symbol": "TestPhase0_ResourceLimits_U_0_09",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "resource_limit_validation"
+      "evidence_layer": "resource_limit_validation",
+      "claim": "Resource-limit validation resolves defaults deterministically, enforces closed numeric domains, rejects unknown limit keys, and preserves the fixed public ceilings.",
+      "out_of_scope": "Runtime use of those limits on later import, archive, and preview routes belongs to later phases."
     }
   ],
   "integration": [
@@ -112,7 +150,9 @@
       "file": "internal/platform/postgres/postgres_phase0_test.go",
       "symbol": "TestPhase0_SchemaBootstrap_I_0_01",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "postgres_integration"
+      "evidence_layer": "postgres_integration",
+      "claim": "Real PostgreSQL bootstrap creates the required extensions and base tables and reruns without schema drift or duplicate objects.",
+      "out_of_scope": "Migration-text style guards remain support-only."
     },
     {
       "id": "I-0-02",
@@ -122,7 +162,9 @@
       "file": "internal/platform/objectstore/objectstore_phase0_test.go",
       "symbol": "TestPhase0_ObjectStoreInitialization_I_0_02",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "object_store_integration"
+      "evidence_layer": "object_store_integration",
+      "claim": "Real S3-compatible object-store setup resolves disconnected `filesystem_root` bindings through the generic `CARTULARY_S3_*` contract and completes a live round trip.",
+      "out_of_scope": "Managed-service object-store binding coverage remains supplemental."
     },
     {
       "id": "I-0-03",
@@ -132,7 +174,9 @@
       "file": "internal/app/runtime_phase0_integration_test.go",
       "symbol": "TestPhase0_InvalidConfigNeverReachesReady_I_0_03",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "runtime_integration"
+      "evidence_layer": "runtime_integration",
+      "claim": "Config failures on real Postgres and MinIO prevent ready state and stop handler, WebSocket, and job startup even when backing services are healthy.",
+      "out_of_scope": "Real process exit behavior and connection refusal remain `E-0-02`."
     },
     {
       "id": "I-0-04",
@@ -142,7 +186,9 @@
       "file": "internal/app/runtime_phase0_integration_test.go",
       "symbol": "TestPhase0_FirstAdminBootstrap_I_0_04",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "bootstrap_integration"
+      "evidence_layer": "bootstrap_integration",
+      "claim": "Successful bootstrap commits exactly one active deployment admin, one bootstrap marker, one audit row, zero incident memberships, and a local-auth-only safe user shape before readiness; rollback leaves no partial state.",
+      "out_of_scope": "Real OS process-boundary readiness and diagnostics remain `E-0-03`."
     },
     {
       "id": "I-0-05",
@@ -152,7 +198,9 @@
       "file": "internal/app/runtime_phase0_integration_test.go",
       "symbol": "TestPhase0_BootstrapFailures_I_0_05",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "bootstrap_failure_integration"
+      "evidence_layer": "bootstrap_failure_integration",
+      "claim": "Required bootstrap failures for missing, unreadable regular-file, non-regular, malformed, schema-invalid, and email-conflicting manifests block readiness and leave no partial bootstrap state.",
+      "out_of_scope": "Process-boundary refusal and exit diagnostics remain `E-0-04`."
     },
     {
       "id": "I-0-06",
@@ -162,7 +210,9 @@
       "file": "internal/app/runtime_phase0_integration_test.go",
       "symbol": "TestPhase0_BootstrapSkipAndRecovery_I_0_06",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "bootstrap_recovery_integration"
+      "evidence_layer": "bootstrap_recovery_integration",
+      "claim": "Existing active admins skip stale or invalid manifests, while bootstrap-completion with zero active admins fails closed without implicit recovery.",
+      "out_of_scope": "Real process-boundary refusal remains `E-0-05`."
     }
   ],
   "e2e": [
@@ -174,7 +224,9 @@
       "file": "cmd/server/main_phase0_e2e_test.go",
       "symbol": "TestPhase0_ReadyState_E_0_01",
       "execution_dependency": "backend_process",
-      "evidence_layer": "process_e2e"
+      "evidence_layer": "process_e2e",
+      "claim": "A fresh process reaches health and ready only after configuration validation, Postgres bootstrap, object-store reachability, and successful bootstrap preflight.",
+      "out_of_scope": "Browser-visible UI evidence is out of scope for Phase 0."
     },
     {
       "id": "E-0-02",
@@ -184,7 +236,9 @@
       "file": "cmd/server/main_phase0_e2e_test.go",
       "symbol": "TestPhase0_InvalidConfigDiagnostics_E_0_02",
       "execution_dependency": "backend_process",
-      "evidence_layer": "process_e2e"
+      "evidence_layer": "process_e2e",
+      "claim": "Invalid config exits non-zero, emits structured startup diagnostics, and exposes no HTTP readiness or WebSocket surface.",
+      "out_of_scope": "Bootstrap-manifest-specific failure variants remain `E-0-04`."
     },
     {
       "id": "E-0-03",
@@ -194,7 +248,9 @@
       "file": "cmd/server/main_phase0_e2e_test.go",
       "symbol": "TestPhase0_FirstAdminBootstrap_E_0_03",
       "execution_dependency": "backend_process",
-      "evidence_layer": "process_e2e"
+      "evidence_layer": "process_e2e",
+      "claim": "A real process requiring bootstrap becomes ready only after durable bootstrap success and leaves one deployment admin, one bootstrap marker, one audit row, and zero incident memberships.",
+      "out_of_scope": "Bootstrap failure matrix coverage belongs to `E-0-04` and `E-0-05`."
     },
     {
       "id": "E-0-04",
@@ -204,7 +260,9 @@
       "file": "cmd/server/main_phase0_e2e_test.go",
       "symbol": "TestPhase0_BootstrapFailures_E_0_04",
       "execution_dependency": "backend_process",
-      "evidence_layer": "process_e2e"
+      "evidence_layer": "process_e2e",
+      "claim": "Required bootstrap failures on the real process boundary block startup before HTTP, readiness, or WebSocket surfaces exist and emit canonical invalid-deployment diagnostics.",
+      "out_of_scope": "Unreadable regular-file manifest parity is a follow-on process-boundary improvement, not part of the current authoritative row."
     },
     {
       "id": "E-0-05",
@@ -214,7 +272,9 @@
       "file": "cmd/server/main_phase0_e2e_test.go",
       "symbol": "TestPhase0_BootstrapSkipAndRecovery_E_0_05",
       "execution_dependency": "backend_process",
-      "evidence_layer": "process_e2e"
+      "evidence_layer": "process_e2e",
+      "claim": "Stale or invalid manifests are ignored when an active deployment admin exists, while lost-admin recovery fails closed with `bootstrap_recovery_not_supported` and no exposed surface.",
+      "out_of_scope": "It does not prove every bootstrap failure reason at the process boundary; those remain `E-0-04`."
     }
   ]
 }

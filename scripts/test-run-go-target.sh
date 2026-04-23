@@ -153,6 +153,7 @@ assert_not_negative "$(json_field "$duration_run_summary" "wall_duration_ms")" "
 core_shared_command="$(
   NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration-support backend-integration-core
 )"
+assert_contains "$core_shared_command" "TestSupportPhase0_" "backend-integration-core phase0 selector"
 assert_contains "$core_shared_command" "TestSupportPhase2_" "backend-integration-core phase2 selector"
 assert_contains "$core_shared_command" "TestSupportPhase3Integration_" "backend-integration-core phase3 selector"
 assert_contains "$core_shared_command" "TestSupportPhase4Integration_" "backend-integration-core phase4 selector"

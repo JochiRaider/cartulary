@@ -3,10 +3,8 @@ package postgres_test
 import (
 	"context"
 	"database/sql"
-	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -14,40 +12,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
-
-func TestPhase0_SchemaBootstrap_U_0_06(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join(phase0MigrationsDir(), "00001_phase0_bootstrap.sql"))
-	if err != nil {
-		t.Fatalf("read phase 0 bootstrap migration: %v", err)
-	}
-
-	sqlText := string(data)
-	requiredIdempotentStatements := []string{
-		"CREATE EXTENSION IF NOT EXISTS pgcrypto;",
-		"CREATE EXTENSION IF NOT EXISTS citext;",
-		"CREATE TABLE IF NOT EXISTS users (",
-		"CREATE TABLE IF NOT EXISTS deployment_bootstrap_state (",
-		"CREATE TABLE IF NOT EXISTS deployment_admin_audit_events (",
-	}
-	for _, statement := range requiredIdempotentStatements {
-		if !strings.Contains(sqlText, statement) {
-			t.Fatalf("bootstrap migration must keep rerun-safe DDL %q", statement)
-		}
-	}
-
-	nonIdempotentStatements := []string{
-		"CREATE EXTENSION pgcrypto;",
-		"CREATE EXTENSION citext;",
-		"CREATE TABLE users (",
-		"CREATE TABLE deployment_bootstrap_state (",
-		"CREATE TABLE deployment_admin_audit_events (",
-	}
-	for _, statement := range nonIdempotentStatements {
-		if strings.Contains(sqlText, statement) {
-			t.Fatalf("bootstrap migration must not use non-idempotent DDL %q", statement)
-		}
-	}
-}
 
 func TestPhase0_SchemaBootstrap_I_0_01(t *testing.T) {
 	postgresHarness := pgtest.Start(t)

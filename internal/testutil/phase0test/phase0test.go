@@ -65,6 +65,20 @@ func WriteNonRegularBootstrapManifestPath(t testing.TB) string {
 	return t.TempDir()
 }
 
+func WriteUnreadableBootstrapManifest(t testing.TB) string {
+	t.Helper()
+
+	path := WriteBootstrapManifest(t, string(fixtures.MustRead("bootstrap-admin", "canonical.json")))
+	if err := os.Chmod(path, 0o000); err != nil {
+		t.Fatalf("chmod unreadable bootstrap manifest: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(path, 0o644)
+	})
+
+	return path
+}
+
 func CanonicalBootstrapManifestPath() string {
 	return fixtures.Path("bootstrap-admin", "canonical.json")
 }

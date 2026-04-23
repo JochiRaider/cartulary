@@ -104,6 +104,29 @@ func TestPhase0_ConfigDiscovery_U_0_01(t *testing.T) {
 }
 
 func TestPhase0_RuntimeRoots_U_0_02(t *testing.T) {
+	t.Run("accepts filesystem root bindings for every supported profile", func(t *testing.T) {
+		for _, profile := range phase0SupportedDeploymentProfiles() {
+			t.Run(profile, func(t *testing.T) {
+				if _, err := Validate(phase0DeploymentProfileConfig(t, profile)); err != nil {
+					t.Fatalf("validate %s filesystem-root config: %v", profile, err)
+				}
+			})
+		}
+	})
+
+	t.Run("requires each runtime root for every supported profile", func(t *testing.T) {
+		for _, profile := range phase0SupportedDeploymentProfiles() {
+			for _, rootName := range phase0RuntimeRootNames() {
+				t.Run(profile+"/"+rootName, func(t *testing.T) {
+					cfg := setPhase0RootBinding(phase0DeploymentProfileConfig(t, profile), rootName, RootBinding{})
+
+					_, err := Validate(cfg)
+					requireDiagnostic(t, err, "roots."+rootName, "missing_required_key")
+				})
+			}
+		}
+	})
+
 	t.Run("requires the full runtime root registry", func(t *testing.T) {
 		err := loadInvalidConfig(t, stripSection(t, string(fixtures.MustRead("config", "valid.toml")), "[roots.export_outputs]"), nil)
 		requireDiagnostic(t, err, "roots.export_outputs", "missing_required_key")
@@ -121,131 +144,37 @@ func TestPhase0_RuntimeRoots_U_0_02(t *testing.T) {
 	})
 
 	t.Run("rejects malformed filesystem root bindings", func(t *testing.T) {
-		content := strings.Replace(string(fixtures.MustRead("config", "valid.toml")), strings.Join([]string{
-			`[roots.database_storage]`,
-			`binding_kind = "filesystem_root"`,
-			`path = "/var/lib/cartulary/postgres"`,
-		}, "\n"), strings.Join([]string{
-			`[roots.database_storage]`,
-			`binding_kind = "filesystem_root"`,
-			`service_ref = "postgres-primary"`,
-		}, "\n"), 1)
+		cfg := phase0BaseConfig(t)
+		cfg.Roots.DatabaseStorage = RootBinding{
+			BindingKind: "filesystem_root",
+			ServiceRef:  "postgres-primary",
+		}
 
-		err := loadInvalidConfig(t, content, nil)
+		_, err := Validate(cfg)
 		requireDiagnostic(t, err, "roots.database_storage.path", "missing_required_key")
 		requireDiagnostic(t, err, "roots.database_storage.service_ref", "type_mismatch")
 	})
 
-	t.Run("rejects profile-incompatible managed services in disconnected mode", func(t *testing.T) {
-		content := strings.Replace(string(fixtures.MustRead("config", "valid.toml")), strings.Join([]string{
-			`[roots.database_storage]`,
-			`binding_kind = "filesystem_root"`,
-			`path = "/var/lib/cartulary/postgres"`,
-		}, "\n"), strings.Join([]string{
-			`[roots.database_storage]`,
-			`binding_kind = "managed_service"`,
-			`service_ref = "postgres-primary"`,
-		}, "\n"), 1)
+	t.Run("accepts and rejects managed service bindings per root and supported profile", func(t *testing.T) {
+		for _, profile := range phase0SupportedDeploymentProfiles() {
+			for _, rootName := range phase0RuntimeRootNames() {
+				t.Run(profile+"/"+rootName, func(t *testing.T) {
+					cfg := setPhase0RootBinding(phase0DeploymentProfileConfig(t, profile), rootName, RootBinding{
+						BindingKind: "managed_service",
+						ServiceRef:  phase0ManagedServiceRef(rootName),
+					})
 
-		err := loadInvalidConfig(t, content, nil)
-		requireDiagnostic(t, err, "roots.database_storage.binding_kind", "profile_incompatible_binding")
-	})
+					_, err := Validate(cfg)
+					if phase0ManagedServiceAllowed(profile, rootName) {
+						if err != nil {
+							t.Fatalf("validate %s managed-service binding for %s: %v", profile, rootName, err)
+						}
+						return
+					}
 
-	t.Run("accepts managed services only on allowed profiles", func(t *testing.T) {
-		content := string(fixtures.MustRead("config", "valid.toml"))
-		content = strings.ReplaceAll(content, `deployment_profile = "disconnected"`, `deployment_profile = "on_prem"`)
-		content = strings.Replace(content, strings.Join([]string{
-			`[roots.database_storage]`,
-			`binding_kind = "filesystem_root"`,
-			`path = "/var/lib/cartulary/postgres"`,
-		}, "\n"), strings.Join([]string{
-			`[roots.database_storage]`,
-			`binding_kind = "managed_service"`,
-			`service_ref = "postgres-primary"`,
-		}, "\n"), 1)
-		content = strings.Replace(content, strings.Join([]string{
-			`[roots.object_storage]`,
-			`binding_kind = "filesystem_root"`,
-			`path = "/var/lib/cartulary/object-store"`,
-		}, "\n"), strings.Join([]string{
-			`[roots.object_storage]`,
-			`binding_kind = "managed_service"`,
-			`service_ref = "minio-primary"`,
-		}, "\n"), 1)
-		content = strings.Replace(content, strings.Join([]string{
-			`[roots.backup_storage]`,
-			`binding_kind = "filesystem_root"`,
-			`path = "/var/lib/cartulary/backups"`,
-		}, "\n"), strings.Join([]string{
-			`[roots.backup_storage]`,
-			`binding_kind = "managed_service"`,
-			`service_ref = "backup-vault"`,
-		}, "\n"), 1)
-
-		if _, err := LoadWithOptions(LoadOptions{Path: writeTempConfig(t, content)}); err != nil {
-			t.Fatalf("load on-prem managed services config: %v", err)
-		}
-	})
-
-	t.Run("rejects managed services for roots that are always filesystem-only", func(t *testing.T) {
-		cases := []struct {
-			name        string
-			original    string
-			replacement string
-			diagnostic  string
-		}{
-			{
-				name: "reference_pack_storage",
-				original: strings.Join([]string{
-					`[roots.reference_pack_storage]`,
-					`binding_kind = "filesystem_root"`,
-					`path = "/var/lib/cartulary/reference-packs"`,
-				}, "\n"),
-				replacement: strings.Join([]string{
-					`[roots.reference_pack_storage]`,
-					`binding_kind = "managed_service"`,
-					`service_ref = "shared-service"`,
-				}, "\n"),
-				diagnostic: "roots.reference_pack_storage.binding_kind",
-			},
-			{
-				name: "temporary_work",
-				original: strings.Join([]string{
-					`[roots.temporary_work]`,
-					`binding_kind = "filesystem_root"`,
-					`path = "/var/lib/cartulary/tmp"`,
-				}, "\n"),
-				replacement: strings.Join([]string{
-					`[roots.temporary_work]`,
-					`binding_kind = "managed_service"`,
-					`service_ref = "shared-service"`,
-				}, "\n"),
-				diagnostic: "roots.temporary_work.binding_kind",
-			},
-			{
-				name: "export_outputs",
-				original: strings.Join([]string{
-					`[roots.export_outputs]`,
-					`binding_kind = "filesystem_root"`,
-					`path = "/var/lib/cartulary/exports"`,
-				}, "\n"),
-				replacement: strings.Join([]string{
-					`[roots.export_outputs]`,
-					`binding_kind = "managed_service"`,
-					`service_ref = "shared-service"`,
-				}, "\n"),
-				diagnostic: "roots.export_outputs.binding_kind",
-			},
-		}
-
-		for _, tc := range cases {
-			t.Run(tc.name, func(t *testing.T) {
-				content := string(fixtures.MustRead("config", "valid.toml"))
-				content = strings.Replace(content, tc.original, tc.replacement, 1)
-
-				err := loadInvalidConfig(t, content, nil)
-				requireDiagnostic(t, err, tc.diagnostic, "profile_incompatible_binding")
-			})
+					requireDiagnostic(t, err, "roots."+rootName+".binding_kind", "profile_incompatible_binding")
+				})
+			}
 		}
 	})
 }
@@ -279,9 +208,18 @@ func TestPhase0_FilesystemRootPaths_U_0_03(t *testing.T) {
 	})
 
 	t.Run("rejects forbidden lexical path segments", func(t *testing.T) {
-		content := strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `path = "/var/lib/cartulary/postgres"`, `path = "/var/lib/cartulary/../postgres"`)
-		err := loadInvalidConfig(t, content, nil)
-		requireDiagnostic(t, err, "roots.database_storage.path", "path_forbidden_segment")
+		cases := []string{
+			"/var/lib/cartulary/./postgres",
+			"/var/lib/cartulary/../postgres",
+		}
+
+		for _, path := range cases {
+			t.Run(path, func(t *testing.T) {
+				content := strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `path = "/var/lib/cartulary/postgres"`, `path = "`+path+`"`)
+				err := loadInvalidConfig(t, content, nil)
+				requireDiagnostic(t, err, "roots.database_storage.path", "path_forbidden_segment")
+			})
+		}
 	})
 
 	t.Run("rejects NUL bytes when the runtime can construct them", func(t *testing.T) {
@@ -332,22 +270,51 @@ func TestPhase0_FilesystemRootPaths_U_0_03(t *testing.T) {
 			_ = os.Chmod(readonly, 0o755)
 		})
 
-		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
-			"CARTULARY__ROOTS__DATABASE_STORAGE__PATH":       readonly,
-			"CARTULARY__ROOTS__OBJECT_STORAGE__PATH":         filepath.Join(base, "object-store"),
-			"CARTULARY__ROOTS__BACKUP_STORAGE__PATH":         filepath.Join(base, "backups"),
-			"CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH": filepath.Join(base, "reference-packs"),
-			"CARTULARY__ROOTS__TEMPORARY_WORK__PATH":         filepath.Join(base, "tmp"),
-			"CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH":         filepath.Join(base, "exports"),
-		})
+		env := phase0FilesystemRootEnv(base)
+		env["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"] = readonly
+		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), env)
 
 		_, err := ValidateForStartup(cfg)
 		requireDiagnostic(t, err, "roots.database_storage.path", "path_not_writable")
 	})
 
 	t.Run("rejects effective writes that escape a configured root", func(t *testing.T) {
-		if !pathEscapesRoot("/srv/cartulary/tmp", "/srv/cartulary/tmp/../escape.txt") {
-			t.Fatal("expected path escape detection to reject traversal outside the configured root")
+		base := t.TempDir()
+		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), phase0FilesystemRootEnv(base))
+
+		validated, err := ValidateForStartup(cfg)
+		if err != nil {
+			t.Fatalf("validate startup config with temp roots: %v", err)
+		}
+
+		insideRelativePath := filepath.Join("nested", "proof.txt")
+		if err := writeFileWithinFilesystemRoot(validated.Roots.TemporaryWork.Path, insideRelativePath, []byte("proof"), 0o644); err != nil {
+			t.Fatalf("write inside configured root: %v", err)
+		}
+
+		insideTarget, err := resolvePathWithinFilesystemRoot(validated.Roots.TemporaryWork.Path, insideRelativePath)
+		if err != nil {
+			t.Fatalf("resolve in-root target: %v", err)
+		}
+		got, err := os.ReadFile(insideTarget)
+		if err != nil {
+			t.Fatalf("read in-root target: %v", err)
+		}
+		if string(got) != "proof" {
+			t.Fatalf("unexpected in-root payload: got %q want %q", got, "proof")
+		}
+
+		escapeRelativePath := filepath.Join("..", "escape.txt")
+		if err := writeFileWithinFilesystemRoot(validated.Roots.TemporaryWork.Path, escapeRelativePath, []byte("escape"), 0o644); err == nil {
+			t.Fatal("expected attempted escape write to fail")
+		}
+
+		escapeTarget := filepath.Join(base, "escape.txt")
+		if _, err := os.Stat(escapeTarget); !os.IsNotExist(err) {
+			if err == nil {
+				t.Fatalf("unexpected escaped write created %q", escapeTarget)
+			}
+			t.Fatalf("stat escaped target %q: %v", escapeTarget, err)
 		}
 	})
 }
@@ -487,6 +454,19 @@ func fixtureConfigPath() string {
 	return fixtures.Path("config", "valid.toml")
 }
 
+func phase0BaseConfig(t testing.TB) Config {
+	t.Helper()
+	return mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), nil)
+}
+
+func phase0DeploymentProfileConfig(t testing.TB, profile string) Config {
+	t.Helper()
+
+	cfg := phase0BaseConfig(t)
+	cfg.DeploymentProfile = profile
+	return cfg
+}
+
 func mustLoadConfig(t testing.TB, content string, env map[string]string) Config {
 	t.Helper()
 
@@ -524,6 +504,79 @@ func writeTempConfig(t testing.TB, content string) string {
 	}
 
 	return path
+}
+
+func phase0SupportedDeploymentProfiles() []string {
+	return []string{"disconnected", "on_prem", "cloud"}
+}
+
+func phase0RuntimeRootNames() []string {
+	return []string{
+		"database_storage",
+		"object_storage",
+		"backup_storage",
+		"reference_pack_storage",
+		"temporary_work",
+		"export_outputs",
+	}
+}
+
+func phase0ManagedServiceAllowed(profile string, rootName string) bool {
+	if profile == "disconnected" {
+		return false
+	}
+
+	switch rootName {
+	case "database_storage", "object_storage", "backup_storage":
+		return true
+	default:
+		return false
+	}
+}
+
+func phase0ManagedServiceRef(rootName string) string {
+	switch rootName {
+	case "database_storage":
+		return "postgres-primary"
+	case "object_storage":
+		return "minio-primary"
+	case "backup_storage":
+		return "backup-vault"
+	default:
+		return "shared-service"
+	}
+}
+
+func setPhase0RootBinding(cfg Config, rootName string, binding RootBinding) Config {
+	switch rootName {
+	case "database_storage":
+		cfg.Roots.DatabaseStorage = binding
+	case "object_storage":
+		cfg.Roots.ObjectStorage = binding
+	case "backup_storage":
+		cfg.Roots.BackupStorage = binding
+	case "reference_pack_storage":
+		cfg.Roots.ReferencePackStorage = binding
+	case "temporary_work":
+		cfg.Roots.TemporaryWork = binding
+	case "export_outputs":
+		cfg.Roots.ExportOutputs = binding
+	default:
+		panic("unknown phase0 root name: " + rootName)
+	}
+
+	return cfg
+}
+
+func phase0FilesystemRootEnv(base string) map[string]string {
+	return map[string]string{
+		"CARTULARY__ROOTS__DATABASE_STORAGE__PATH":       filepath.Join(base, "postgres"),
+		"CARTULARY__ROOTS__OBJECT_STORAGE__PATH":         filepath.Join(base, "object-store"),
+		"CARTULARY__ROOTS__BACKUP_STORAGE__PATH":         filepath.Join(base, "backups"),
+		"CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH": filepath.Join(base, "reference-packs"),
+		"CARTULARY__ROOTS__TEMPORARY_WORK__PATH":         filepath.Join(base, "tmp"),
+		"CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH":         filepath.Join(base, "exports"),
+	}
 }
 
 func stripSection(t testing.TB, content string, header string) string {

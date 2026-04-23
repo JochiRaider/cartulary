@@ -10,6 +10,44 @@ const supportTargetOrder = new Map([
 ]);
 
 const phaseConfigs = {
+  phase0: {
+    title: "Phase 0 Coverage Ledger",
+    introduction: [
+      "This ledger is generated from `tools/phase0_test_map.json`. Update the manifest row metadata first, then regenerate this file.",
+      "",
+      "- Scope: infrastructure, deployment configuration, runtime roots, schema bootstrap, bootstrap-admin preflight, object-store reachability, and fail-closed startup only.",
+      "- Normative owners: Core 01 `§1`; Core 01 `§3.3.5.1`; Core 04 `§5–§8`; Core 04 `§12`; Core 04 `§9.0.1`.",
+      "- Authority: `tools/phase0_test_map.json` is the enforced Phase 0 traceability source. This ledger is a rendered companion and does not control the mechanical row inventory.",
+      "- Browser E2E note: no Phase 0 browser-visible surface exists under `apps/web`, so authoritative `E-*` evidence lives on the real `cmd/server` process boundary.",
+      "",
+      "## Authoritative Execution",
+      "",
+      "- `backend-unit` selects authoritative `U-0-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase0 unit authoritative backend_unit`.",
+      "- `backend-integration` selects authoritative `I-0-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase0 integration authoritative backend_integration`.",
+      "- `backend-process` and `phase0-process-e2e` select authoritative `E-0-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase0 e2e authoritative backend_process`.",
+    ],
+    supportExecutionExtras: [],
+    sections: [
+      ["unit", "Unit"],
+      ["integration", "Integration"],
+      ["e2e", "Process E2E"],
+    ],
+    sharedHarness: [
+      "| Harness | Phase 0 evidence |",
+      "| --- | --- |",
+      "| Startup diagnostics and real process boundary | `internal/testutil/diagnosticstest`, `internal/testutil/configtest`, and `internal/testutil/processtest` keep unit, integration, and process startup diagnostics on shared whole-payload goldens. |",
+      "| Fail-closed HTTP readiness and health gating | `internal/testutil/processtest.WaitForReady`, `RequireStatus`, and `RequireConnectionRefused` prove `/healthz` and `/readyz` behavior across success and failure flows. |",
+      "| Fail-closed WebSocket boundary | `internal/testutil/processtest.RequireWebsocketConnectionRefused`, built on `internal/testutil/wstest`, proves Phase 0 startup failures expose no WebSocket surface. |",
+      "| Mutation attribution, secret-safe payloads, and bootstrap auth-binding shape | `internal/testutil/crosscutting` plus `internal/testutil/phase0test.RequireBootstrapUserLocalAuthOnly` cover startup audit attribution, secret-safe payloads, and bootstrap-created-user auth-binding shape. |",
+      "| Real Postgres bootstrap harness | `internal/platform/postgres/postgres_phase0_test.go::TestPhase0_SchemaBootstrap_I_0_01` and the runtime integration suite prove migration and bootstrap state against real PostgreSQL. |",
+      "| Real object-store binding harness | `internal/platform/objectstore/objectstore_phase0_test.go::TestPhase0_ObjectStoreInitialization_I_0_02` and the real process suite prove disconnected `filesystem_root` resolution through the generic `CARTULARY_S3_*` contract and live MinIO reachability. |",
+    ],
+    supportOnly: [
+      "- `internal/platform/postgres/postgres_phase0_support_test.go` keeps the migration-text regression guard; authoritative schema-bootstrap evidence stays `I-0-01`.",
+      "- `internal/platform/objectstore/objectstore_phase0_support_test.go` keeps managed-service object-store binding coverage; authoritative object-store reachability stays `I-0-02`.",
+      "- `tools/testservices/integration_test.go` remains harness-development noise and is intentionally outside Phase 0 traceability.",
+    ],
+  },
   phase3: {
     title: "Phase 3 Coverage Ledger",
     introduction: [

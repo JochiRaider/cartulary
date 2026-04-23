@@ -213,6 +213,13 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 			goldenFile: "bootstrap_manifest_path_missing.json",
 		},
 		{
+			name: "unreadable regular bootstrap manifest",
+			manifestPath: func(t *testing.T) string {
+				return phase0test.WriteUnreadableBootstrapManifest(t)
+			},
+			goldenFile: "bootstrap_manifest_not_readable_permission_denied.json",
+		},
+		{
 			name: "non regular bootstrap path",
 			manifestPath: func(t *testing.T) string {
 				return phase0test.WriteNonRegularBootstrapManifestPath(t)

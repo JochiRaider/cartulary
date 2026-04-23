@@ -439,11 +439,39 @@ func nearestExistingPath(root string) (string, bool, error) {
 	}
 }
 
-func pathEscapesRoot(root string, target string) bool {
-	if !isPOSIXAbsolutePath(root) || !isPOSIXAbsolutePath(target) {
-		return true
+func resolvePathWithinFilesystemRoot(root string, relativePath string) (string, error) {
+	cleanedRoot := filepath.Clean(root)
+	if !filepath.IsAbs(cleanedRoot) {
+		return "", fmt.Errorf("filesystem root %q must be absolute", root)
 	}
-	return !pathWithinRoot(cleanPOSIXPath(root), cleanPOSIXPath(target))
+	if filepath.IsAbs(relativePath) {
+		return "", fmt.Errorf("path %q must be relative to the configured filesystem root", relativePath)
+	}
+
+	resolvedPath := filepath.Clean(filepath.Join(cleanedRoot, relativePath))
+	relativeResolvedPath, err := filepath.Rel(cleanedRoot, resolvedPath)
+	if err != nil {
+		return "", fmt.Errorf("resolve path within filesystem root: %w", err)
+	}
+	if relativeResolvedPath == ".." || strings.HasPrefix(relativeResolvedPath, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path %q escapes configured filesystem root %q", relativePath, cleanedRoot)
+	}
+
+	return resolvedPath, nil
+}
+
+func writeFileWithinFilesystemRoot(root string, relativePath string, data []byte, perm os.FileMode) error {
+	resolvedPath, err := resolvePathWithinFilesystemRoot(root, relativePath)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(resolvedPath), 0o755); err != nil {
+		return fmt.Errorf("create parent directories within filesystem root: %w", err)
+	}
+	if err := os.WriteFile(resolvedPath, data, perm); err != nil {
+		return fmt.Errorf("write file within filesystem root: %w", err)
+	}
+	return nil
 }
 
 func pathWithinRoot(root string, target string) bool {

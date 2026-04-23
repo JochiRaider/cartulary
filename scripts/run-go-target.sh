@@ -573,6 +573,8 @@ run_backend_unit() {
   clear_go_selection_env
   emit_go_manifest_phase "backend-unit phase0 authoritative app" derived "${core_dir}" phase0 unit authoritative backend_unit ./internal/app || status=$?
   clear_go_selection_env
+  emit_declared_support_phase "backend-unit support phase0" derived "${core_dir}" phase0 backend_unit ./internal/platform/... ./internal/app || status=$?
+  clear_go_selection_env
   emit_go_manifest_phase "backend-unit phase1 authoritative auth" "${auth_usage}" "${auth_dir}" phase1 unit authoritative backend_unit ./internal/modules/auth || status=$?
   clear_go_selection_env
   emit_declared_support_phase "backend-unit support phase1" derived "${auth_dir}" phase1 backend_unit ./internal/modules/auth || status=$?
@@ -661,6 +663,8 @@ run_backend_integration_support() {
   assign_named_shared_report core_dir core_usage backend-integration-support backend-integration-core
   assign_named_shared_report auth_dir auth_usage backend-integration-support backend-integration-auth
 
+  clear_go_selection_env
+  emit_declared_support_phase "backend-integration support phase0" "${core_usage}" "${core_dir}" phase0 backend_integration_support ./internal/platform/... ./internal/app || status=$?
   clear_go_selection_env
   emit_declared_support_phase "backend-integration support phase1" "${auth_usage}" "${auth_dir}" phase1 backend_integration_support ./internal/modules/auth || status=$?
   clear_go_selection_env
