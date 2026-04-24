@@ -648,10 +648,12 @@ function handleRunSummary(args) {
   let failed = requestedStatus === "fail";
   let startTime = "";
   let endTime = "";
+  const missingTargetSummaries = [];
 
   for (const target of targets) {
     const file = path.join(resultsRoot, runId, target, "target-summary.json");
     if (!existsSync(file)) {
+      missingTargetSummaries.push(target);
       continue;
     }
     const summary = JSON.parse(readFileSync(file, "utf8"));
@@ -681,6 +683,13 @@ function handleRunSummary(args) {
     }
   }
 
+  if (requestedStatus === "fail" && aggregate.failed === 0) {
+    aggregate.phases += 1;
+    aggregate.failed += 1;
+    aggregate.non_test += 1;
+    aggregate.non_test_failed += 1;
+  }
+
   const windowWallDurationMs = computeWindowDurationMs(startTime, endTime);
   const wallDurationMs = windowWallDurationMs > 0 ? windowWallDurationMs : aggregate.wall_duration_ms;
 
@@ -698,6 +707,7 @@ function handleRunSummary(args) {
       dir: relToRepo(path.join(resultsRoot, runId)),
     },
     targets,
+    missing_target_summaries: missingTargetSummaries,
   };
   writeJson(path.join(resultsRoot, runId, "run-summary.json"), runSummary);
 

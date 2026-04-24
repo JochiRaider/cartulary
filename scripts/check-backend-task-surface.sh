@@ -419,6 +419,12 @@ fi
 if ! printf '%s\n' "$check_service_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
   fail "check-service-backed must wrap the shared service-backed lane block through $(TEST_SERVICES_BIN)"
 fi
+if ! printf '%s\n' "$check_service_block" | grep -Fq '$(RUN_PHASE)'; then
+  fail "check-service-backed must report the shared service wrapper through RUN_PHASE"
+fi
+if ! printf '%s\n' "$check_service_block" | grep -Fq '$(TARGET_SUMMARY) check-service-backed pass'; then
+  fail "check-service-backed must emit its target summary"
+fi
 
 for lane in check-service-backed-lane-a check-service-backed-lane-b; do
   if ! printf '%s\n' "$check_service_block" | rg -q "(^|[[:space:]])$lane($|[[:space:]])"; then
@@ -479,16 +485,30 @@ test_fast_block="$(extract_target_block test-fast)"
 if [[ -z "$test_fast_block" ]]; then
   fail "Makefile must define a non-empty test-fast block"
 fi
-if ! printf '%s\n' "$test_fast_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
-  fail "test-fast must wrap the shared service-backed lane block through $(TEST_SERVICES_BIN)"
+if ! printf '%s\n' "$test_fast_block" | rg -q '(^|[[:space:]])test-fast-service-backed($|[[:space:]])'; then
+  fail "test-fast must invoke test-fast-service-backed"
+fi
+
+test_fast_service_block="$(extract_target_block test-fast-service-backed)"
+if [[ -z "$test_fast_service_block" ]]; then
+  fail "Makefile must define a non-empty test-fast-service-backed block"
+fi
+if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+  fail "test-fast-service-backed must wrap the shared service-backed lane block through $(TEST_SERVICES_BIN)"
+fi
+if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(RUN_PHASE)'; then
+  fail "test-fast-service-backed must report the shared service wrapper through RUN_PHASE"
+fi
+if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(TARGET_SUMMARY) test-fast-service-backed pass'; then
+  fail "test-fast-service-backed must emit its target summary"
 fi
 for lane in test-fast-service-backed-lane-a test-fast-service-backed-lane-b; do
-  if ! printf '%s\n' "$test_fast_block" | rg -q "(^|[[:space:]])$lane($|[[:space:]])"; then
-    fail "test-fast must invoke $lane"
+  if ! printf '%s\n' "$test_fast_service_block" | rg -q "(^|[[:space:]])$lane($|[[:space:]])"; then
+    fail "test-fast-service-backed must invoke $lane"
   fi
 done
-if printf '%s\n' "$test_fast_block" | rg -q '(^|[[:space:]])(backend-process-support|phase2-process-smoke)($|[[:space:]])'; then
-  fail "test-fast must not invoke Phase 2 process smoke coverage"
+if printf '%s\n' "$test_fast_service_block" | rg -q '(^|[[:space:]])(backend-process-support|phase2-process-smoke)($|[[:space:]])'; then
+  fail "test-fast-service-backed must not invoke Phase 2 process smoke coverage"
 fi
 
 test_fast_lane_a_block="$(extract_target_block test-fast-service-backed-lane-a)"

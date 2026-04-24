@@ -179,14 +179,15 @@ func TestRunRecordsMinIOStartupFailureWithStructuredSummary(t *testing.T) {
 	}
 	deps.startMinIO = func(context.Context) (minioService, error) {
 		return minioService{}, &testcontainersx.StartFailure{
-			Operation:       "start",
-			Service:         "minio testcontainer",
-			Image:           "minio/minio:RELEASE.2025-09-07T16-13-09Z",
-			DockerEndpoint:  "unix:///var/run/docker.sock",
-			AttemptsStarted: 1,
-			MaxAttempts:     2,
-			Retryable:       true,
-			Cause:           errors.New("docker.sock connection refused password=minio-secret access_key=access-secret"),
+			Operation:             "start",
+			Service:               "minio testcontainer",
+			Image:                 "minio/minio:RELEASE.2025-09-07T16-13-09Z",
+			DockerEndpoint:        "unix:///var/run/docker.sock",
+			AttemptsStarted:       1,
+			MaxAttempts:           2,
+			Retryable:             true,
+			RetryBlockedByContext: true,
+			Cause:                 errors.New("docker.sock connection refused password=minio-secret access_key=access-secret"),
 		}
 	}
 
@@ -210,6 +211,9 @@ func TestRunRecordsMinIOStartupFailureWithStructuredSummary(t *testing.T) {
 	}
 	if !scope.Failure.Retryable {
 		t.Fatal("expected retryable failure classification")
+	}
+	if !scope.Failure.RetryBlockedByContext {
+		t.Fatal("expected retry-blocked-by-context classification")
 	}
 	if scope.Failure.AttemptsStarted != 1 || scope.Failure.MaxAttempts != 2 {
 		t.Fatalf("unexpected attempts: got %#v", scope.Failure)

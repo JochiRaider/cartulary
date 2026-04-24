@@ -138,14 +138,14 @@ func DecodeTimelineCreateRequest(reader io.Reader) (CreateRequest, *auth.APIErro
 	if request.SourceText, ok = normalizeNullableNoteField(raw, "timeline.source_text"); !ok {
 		return CreateRequest{}, invalidMutationPayload("timeline.source_text", "invalid_value")
 	}
-	if request.HostRefs, ok = decodeCreateCollectionActionField(raw, "timeline.host_refs"); !ok {
-		return CreateRequest{}, invalidMutationPayload("timeline.host_refs", "invalid_value")
+	if request.HostRefs, apiErr = decodeCreateCollectionActionField(raw, "timeline.host_refs"); apiErr != nil {
+		return CreateRequest{}, apiErr
 	}
-	if request.IdentityRefs, ok = decodeCreateCollectionActionField(raw, "timeline.identity_refs"); !ok {
-		return CreateRequest{}, invalidMutationPayload("timeline.identity_refs", "invalid_value")
+	if request.IdentityRefs, apiErr = decodeCreateCollectionActionField(raw, "timeline.identity_refs"); apiErr != nil {
+		return CreateRequest{}, apiErr
 	}
-	if request.Tags, ok = decodeCreateCollectionActionField(raw, "timeline.tags"); !ok {
-		return CreateRequest{}, invalidMutationPayload("timeline.tags", "invalid_value")
+	if request.Tags, apiErr = decodeCreateCollectionActionField(raw, "timeline.tags"); apiErr != nil {
+		return CreateRequest{}, apiErr
 	}
 	if !schema.PermitsZeroFieldCreate && !CreateRequestHasUserValue(request) {
 		return CreateRequest{}, invalidMutationPayload("payload", "at_least_one_value_required")
@@ -201,7 +201,10 @@ func DecodeTimelinePatchRequest(reader io.Reader) (PatchRequest, *auth.APIError)
 		return PatchRequest{}, invalidMutationPayload("changes", "empty_changes")
 	}
 	if len(rawChanges) > maxPatchChanges {
-		return PatchRequest{}, invalidMutationPayload("changes", "change_count_exceeded")
+		return PatchRequest{}, invalidMutationPayloadWithDetails("changes", "change_count_exceeded", map[string]any{
+			"requested_count": len(rawChanges),
+			"max_count":       maxPatchChanges,
+		})
 	}
 
 	seen := make(map[string]struct{}, len(rawChanges))
@@ -490,12 +493,19 @@ func invalidViewQueryValidation(err *viewquery.ValidationError) *auth.APIError {
 }
 
 func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
+	return invalidMutationPayloadWithDetails(field, reasonCode, nil)
+}
+
+func invalidMutationPayloadWithDetails(field string, reasonCode string, extra map[string]any) *auth.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
 	}
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
+	}
+	for key, value := range extra {
+		details[key] = value
 	}
 	return &auth.APIError{
 		Status:  http.StatusBadRequest,
@@ -638,9 +648,9 @@ func decodePatchChange(raw json.RawMessage) (PatchChange, *auth.APIError) {
 		if !hasActionPayload {
 			return PatchChange{}, invalidMutationPayload("action_payload", "missing_required_field")
 		}
-		payload, ok := decodeCollectionActionPayload(fieldKey, actionPayload)
-		if !ok {
-			return PatchChange{}, invalidMutationPayload(fieldKey, "invalid_value")
+		payload, apiErr := decodeCollectionActionPayload(fieldKey, actionPayload, fieldKey, "changes.action_payload.actions")
+		if apiErr != nil {
+			return PatchChange{}, apiErr
 		}
 		change.ActionPayload = payload
 		return change, nil
@@ -680,87 +690,99 @@ func normalizeFieldTextValue(fieldKey string, value json.RawMessage) (*string, b
 	}
 }
 
-func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey string) (*CollectionActionPayload, bool) {
+func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey string) (*CollectionActionPayload, *auth.APIError) {
 	value, ok := raw[fieldKey]
 	if !ok {
-		return nil, true
+		return nil, nil
 	}
-	payload, ok := decodeCollectionActionPayload(fieldKey, value)
-	if !ok {
-		return nil, false
+	payload, apiErr := decodeCollectionActionPayload(fieldKey, value, fieldKey, fieldKey+".actions")
+	if apiErr != nil {
+		return nil, apiErr
 	}
 	for _, action := range payload.Actions {
 		if fieldKey == "timeline.tags" {
 			if action.Op != "add_token" {
-				return nil, false
+				return nil, invalidMutationPayload(fieldKey, "invalid_value")
 			}
 			continue
 		}
 		if action.Op != "add_token" && action.Op != "add_resolved_ref" {
-			return nil, false
+			return nil, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 	}
-	return payload, true
+	return payload, nil
 }
 
-func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*CollectionActionPayload, bool) {
+func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalidField string, actionsField string) (*CollectionActionPayload, *auth.APIError) {
 	if fieldKey != "timeline.host_refs" &&
 		fieldKey != "timeline.identity_refs" &&
 		fieldKey != "timeline.tags" {
-		return nil, false
+		return nil, invalidMutationPayload(invalidField, "invalid_value")
 	}
 
 	var payloadObject map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &payloadObject); err != nil {
-		return nil, false
+		return nil, invalidMutationPayload(invalidField, "invalid_value")
 	}
 	if !objectHasOnlyFields(payloadObject, "kind", "actions") {
-		return nil, false
+		return nil, invalidMutationPayload(invalidField, "invalid_value")
 	}
 
 	var kind string
 	if err := json.Unmarshal(payloadObject["kind"], &kind); err != nil {
-		return nil, false
+		return nil, invalidMutationPayload(invalidField, "invalid_value")
 	}
 	var rawActions []json.RawMessage
 	if err := json.Unmarshal(payloadObject["actions"], &rawActions); err != nil {
-		return nil, false
+		return nil, invalidMutationPayload(invalidField, "invalid_value")
 	}
-	if kind != "collection_actions_v1" || len(rawActions) == 0 || len(rawActions) > maxCollectionActions {
-		return nil, false
+	if kind != "collection_actions_v1" {
+		return nil, invalidMutationPayload(invalidField, "invalid_value")
+	}
+	if len(rawActions) == 0 {
+		return nil, invalidMutationPayloadWithDetails(actionsField, "empty_collection_actions", map[string]any{
+			"field_key": fieldKey,
+		})
+	}
+	if len(rawActions) > maxCollectionActions {
+		return nil, invalidMutationPayloadWithDetails(actionsField, "collection_action_count_exceeded", map[string]any{
+			"field_key":       fieldKey,
+			"requested_count": len(rawActions),
+			"max_count":       maxCollectionActions,
+		})
 	}
 
 	actions := make([]CollectionAction, 0, len(rawActions))
 	for _, rawActionData := range rawActions {
 		var rawAction map[string]json.RawMessage
 		if err := json.Unmarshal(rawActionData, &rawAction); err != nil {
-			return nil, false
+			return nil, invalidMutationPayload(invalidField, "invalid_value")
 		}
 		opValue, ok := rawAction["op"]
 		if !ok {
-			return nil, false
+			return nil, invalidMutationPayload(invalidField, "invalid_value")
 		}
 
 		var op string
 		if err := json.Unmarshal(opValue, &op); err != nil {
-			return nil, false
+			return nil, invalidMutationPayload(invalidField, "invalid_value")
 		}
 		switch op {
 		case "add_token":
 			if !actionHasOnlyFields(rawAction, []string{"op", "raw_text"}, nil) {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			rawTextValue, ok := rawAction["raw_text"]
 			if !ok {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			var rawText string
 			if err := json.Unmarshal(rawTextValue, &rawText); err != nil {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			normalized, ok := normalizeCollectionToken(fieldKey, rawText)
 			if !ok {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			actions = append(actions, CollectionAction{
 				Op:             op,
@@ -769,34 +791,34 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 			})
 		case "add_resolved_ref":
 			if fieldKey == "timeline.tags" {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "raw_text", "resolved_record_id"}, nil) {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			rawTextValue, ok := rawAction["raw_text"]
 			if !ok {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			resolvedRecordValue, ok := rawAction["resolved_record_id"]
 			if !ok {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			var rawText string
 			if err := json.Unmarshal(rawTextValue, &rawText); err != nil {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			normalized, ok := normalizeCollectionToken(fieldKey, rawText)
 			if !ok {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			var resolvedRecordID string
 			if err := json.Unmarshal(resolvedRecordValue, &resolvedRecordID); err != nil {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			parsed, err := uuid.Parse(resolvedRecordID)
 			if err != nil {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			actions = append(actions, CollectionAction{
 				Op:             op,
@@ -806,53 +828,53 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (*Colle
 			})
 		case "resolve_item":
 			if fieldKey == "timeline.tags" {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "item_ref"}, []string{"resolved_record_id"}) {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			itemRefValue, ok := rawAction["item_ref"]
 			if !ok {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			var itemRef string
 			if err := json.Unmarshal(itemRefValue, &itemRef); err != nil || strings.TrimSpace(itemRef) == "" {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			action := CollectionAction{Op: op, ItemRef: itemRef}
 			if resolvedRecordValue, ok := rawAction["resolved_record_id"]; ok {
 				var resolvedRecordID string
 				if err := json.Unmarshal(resolvedRecordValue, &resolvedRecordID); err != nil {
-					return nil, false
+					return nil, invalidMutationPayload(invalidField, "invalid_value")
 				}
 				parsed, err := uuid.Parse(resolvedRecordID)
 				if err != nil {
-					return nil, false
+					return nil, invalidMutationPayload(invalidField, "invalid_value")
 				}
 				action.ResolvedRecord = &parsed
 			}
 			actions = append(actions, action)
 		case "dismiss_item", "revert_to_unresolved":
 			if fieldKey == "timeline.tags" {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "item_ref"}, nil) {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			itemRefValue, ok := rawAction["item_ref"]
 			if !ok {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			var itemRef string
 			if err := json.Unmarshal(itemRefValue, &itemRef); err != nil || strings.TrimSpace(itemRef) == "" {
-				return nil, false
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			actions = append(actions, CollectionAction{Op: op, ItemRef: itemRef})
 		default:
-			return nil, false
+			return nil, invalidMutationPayload(invalidField, "invalid_value")
 		}
 	}
-	return &CollectionActionPayload{Actions: actions}, true
+	return &CollectionActionPayload{Actions: actions}, nil
 }
 
 func normalizeCollectionToken(fieldKey string, rawText string) (string, bool) {

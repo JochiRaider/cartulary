@@ -60,14 +60,15 @@ type WrapperSummary struct {
 }
 
 type FailureSummary struct {
-	Service         string `json:"service,omitempty"`
-	Stage           string `json:"stage,omitempty"`
-	Operation       string `json:"operation,omitempty"`
-	Message         string `json:"message,omitempty"`
-	AttemptsStarted int    `json:"attempts_started"`
-	MaxAttempts     int    `json:"max_attempts"`
-	Retryable       bool   `json:"retryable"`
-	DockerEndpoint  string `json:"docker_endpoint,omitempty"`
+	Service               string `json:"service,omitempty"`
+	Stage                 string `json:"stage,omitempty"`
+	Operation             string `json:"operation,omitempty"`
+	Message               string `json:"message,omitempty"`
+	AttemptsStarted       int    `json:"attempts_started"`
+	MaxAttempts           int    `json:"max_attempts"`
+	Retryable             bool   `json:"retryable"`
+	RetryBlockedByContext bool   `json:"retry_blocked_by_context"`
+	DockerEndpoint        string `json:"docker_endpoint,omitempty"`
 }
 
 type CleanupSummary struct {
@@ -211,14 +212,15 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 		case EventFailureRecorded:
 			if scope.Failure == nil {
 				scope.Failure = &FailureSummary{
-					Service:         event.Service,
-					Stage:           stringDetail(event.Details, "stage"),
-					Operation:       stringDetail(event.Details, "operation"),
-					Message:         stringDetail(event.Details, "message"),
-					AttemptsStarted: intValue(event.Details, "attempts_started"),
-					MaxAttempts:     intValue(event.Details, "max_attempts"),
-					Retryable:       boolDetail(event.Details, "retryable"),
-					DockerEndpoint:  stringDetail(event.Details, "docker_endpoint"),
+					Service:               event.Service,
+					Stage:                 stringDetail(event.Details, "stage"),
+					Operation:             stringDetail(event.Details, "operation"),
+					Message:               stringDetail(event.Details, "message"),
+					AttemptsStarted:       intValue(event.Details, "attempts_started"),
+					MaxAttempts:           intValue(event.Details, "max_attempts"),
+					Retryable:             boolDetail(event.Details, "retryable"),
+					RetryBlockedByContext: boolDetail(event.Details, "retry_blocked_by_context"),
+					DockerEndpoint:        stringDetail(event.Details, "docker_endpoint"),
 				}
 			}
 		case EventServiceStarted:

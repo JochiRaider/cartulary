@@ -27,9 +27,11 @@ import (
 )
 
 const (
-	serviceStartupTimeout = 2 * time.Minute
-	cleanupTimeout        = 30 * time.Second
-	signalWaitTimeout     = 15 * time.Second
+	postgresStartupTimeout = 2 * time.Minute
+	templateStartupTimeout = 2 * time.Minute
+	minioStartupTimeout    = 5 * time.Minute
+	cleanupTimeout         = 30 * time.Second
+	signalWaitTimeout      = 15 * time.Second
 
 	stagePostgresStart    = "postgres-start"
 	stagePostgresTemplate = "postgres-template"
@@ -114,7 +116,7 @@ func run(args []string, env map[string]string, deps dependencies) int {
 	childExitCode := 1
 	cleanupStatus := "startup_failed"
 
-	postgresCtx, cancelPostgres := context.WithTimeout(context.Background(), serviceStartupTimeout)
+	postgresCtx, cancelPostgres := context.WithTimeout(context.Background(), postgresStartupTimeout)
 	postgresSvc, err = deps.startPostgres(postgresCtx)
 	cancelPostgres()
 	if err != nil {
@@ -139,7 +141,7 @@ func run(args []string, env map[string]string, deps dependencies) int {
 	})
 	deps.refreshSummary(ownedEnv)
 
-	templateCtx, cancelTemplate := context.WithTimeout(context.Background(), serviceStartupTimeout)
+	templateCtx, cancelTemplate := context.WithTimeout(context.Background(), templateStartupTimeout)
 	err = deps.createTemplate(templateCtx, postgresSvc.adminDSN, templateDB)
 	cancelTemplate()
 	if err != nil {
@@ -158,7 +160,7 @@ func run(args []string, env map[string]string, deps dependencies) int {
 	})
 	deps.refreshSummary(ownedEnv)
 
-	minioCtx, cancelMinIO := context.WithTimeout(context.Background(), serviceStartupTimeout)
+	minioCtx, cancelMinIO := context.WithTimeout(context.Background(), minioStartupTimeout)
 	minioSvc, err = deps.startMinIO(minioCtx)
 	cancelMinIO()
 	if err != nil {
@@ -375,6 +377,7 @@ func failureSummary(service string, stage string, operation string, err error) s
 		failure.AttemptsStarted = startFailure.AttemptsStarted
 		failure.MaxAttempts = startFailure.MaxAttempts
 		failure.Retryable = startFailure.Retryable
+		failure.RetryBlockedByContext = startFailure.RetryBlockedByContext
 		failure.DockerEndpoint = startFailure.DockerEndpoint
 	} else if err != nil {
 		failure.Message = err.Error()
@@ -390,13 +393,14 @@ func recordFailureAndRefresh(deps dependencies, env map[string]string, failure s
 		Type:    suiteservices.EventFailureRecorded,
 		Service: failure.Service,
 		Details: map[string]any{
-			"stage":            failure.Stage,
-			"operation":        failure.Operation,
-			"message":          failure.Message,
-			"attempts_started": failure.AttemptsStarted,
-			"max_attempts":     failure.MaxAttempts,
-			"retryable":        failure.Retryable,
-			"docker_endpoint":  failure.DockerEndpoint,
+			"stage":                    failure.Stage,
+			"operation":                failure.Operation,
+			"message":                  failure.Message,
+			"attempts_started":         failure.AttemptsStarted,
+			"max_attempts":             failure.MaxAttempts,
+			"retryable":                failure.Retryable,
+			"retry_blocked_by_context": failure.RetryBlockedByContext,
+			"docker_endpoint":          failure.DockerEndpoint,
 		},
 	})
 	deps.refreshSummary(env)

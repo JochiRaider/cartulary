@@ -1,6 +1,7 @@
 package timeline
 
 import (
+	"reflect"
 	"slices"
 	"testing"
 )
@@ -22,6 +23,13 @@ func requireWritableStringNormalization(t testing.TB, got string, want string) {
 	t.Helper()
 	if got != want {
 		t.Fatalf("unexpected normalized string: got %q want %q", got, want)
+	}
+}
+
+func requireErrorDetail(t testing.TB, details map[string]any, key string, want any) {
+	t.Helper()
+	if !reflect.DeepEqual(details[key], want) {
+		t.Fatalf("unexpected error detail %q: got %v want %v", key, details[key], want)
 	}
 }
 

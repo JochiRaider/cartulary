@@ -239,6 +239,41 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 			"changes",
 			"change_count_exceeded",
 		)
+		requireErrorDetail(t, apiErr.Details, "requested_count", maxPatchChanges+1)
+		requireErrorDetail(t, apiErr.Details, "max_count", maxPatchChanges)
+	})
+
+	t.Run("empty patch collection actions fail with collection count detail", func(t *testing.T) {
+		payload, err := json.Marshal(map[string]any{
+			"view_schema_id":   TimelineViewSchemaID,
+			"base_row_version": 1,
+			"client_txn_id":    "txn-u-3-06-empty-actions",
+			"changes": []map[string]any{
+				{
+					"field_key": "timeline.host_refs",
+					"action_payload": map[string]any{
+						"kind":    "collection_actions_v1",
+						"actions": []map[string]any{},
+					},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("marshal empty collection patch payload: %v", err)
+		}
+
+		_, apiErr := DecodeTimelinePatchRequest(bytes.NewReader(payload))
+		if apiErr == nil {
+			t.Fatal("expected empty collection action rejection")
+		}
+		requireClosedVocabularyRejected(
+			t,
+			apiErr.Code,
+			apiErr.Details,
+			"changes.action_payload.actions",
+			"empty_collection_actions",
+		)
+		requireErrorDetail(t, apiErr.Details, "field_key", "timeline.host_refs")
 	})
 
 	t.Run("sixty five collection actions fail closed", func(t *testing.T) {
@@ -275,8 +310,72 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 			t,
 			apiErr.Code,
 			apiErr.Details,
-			"timeline.host_refs",
-			"invalid_value",
+			"changes.action_payload.actions",
+			"collection_action_count_exceeded",
 		)
+		requireErrorDetail(t, apiErr.Details, "field_key", "timeline.host_refs")
+		requireErrorDetail(t, apiErr.Details, "requested_count", maxCollectionActions+1)
+		requireErrorDetail(t, apiErr.Details, "max_count", maxCollectionActions)
+	})
+
+	t.Run("empty create collection actions fail with collection count detail", func(t *testing.T) {
+		payload, err := json.Marshal(map[string]any{
+			"client_txn_id": "txn-u-3-06-create-empty-actions",
+			"timeline.host_refs": map[string]any{
+				"kind":    "collection_actions_v1",
+				"actions": []map[string]any{},
+			},
+		})
+		if err != nil {
+			t.Fatalf("marshal empty create collection payload: %v", err)
+		}
+
+		_, apiErr := DecodeTimelineCreateRequest(bytes.NewReader(payload))
+		if apiErr == nil {
+			t.Fatal("expected empty create collection action rejection")
+		}
+		requireClosedVocabularyRejected(
+			t,
+			apiErr.Code,
+			apiErr.Details,
+			"timeline.host_refs.actions",
+			"empty_collection_actions",
+		)
+		requireErrorDetail(t, apiErr.Details, "field_key", "timeline.host_refs")
+	})
+
+	t.Run("oversized create collection actions fail with collection count detail", func(t *testing.T) {
+		actions := make([]map[string]any, 0, maxCollectionActions+1)
+		for index := range maxCollectionActions + 1 {
+			actions = append(actions, map[string]any{
+				"op":       "add_token",
+				"raw_text": "host-token-" + string(rune('a'+(index%26))),
+			})
+		}
+		payload, err := json.Marshal(map[string]any{
+			"client_txn_id": "txn-u-3-06-create-too-many-actions",
+			"timeline.host_refs": map[string]any{
+				"kind":    "collection_actions_v1",
+				"actions": actions,
+			},
+		})
+		if err != nil {
+			t.Fatalf("marshal oversized create collection payload: %v", err)
+		}
+
+		_, apiErr := DecodeTimelineCreateRequest(bytes.NewReader(payload))
+		if apiErr == nil {
+			t.Fatal("expected oversized create collection action rejection")
+		}
+		requireClosedVocabularyRejected(
+			t,
+			apiErr.Code,
+			apiErr.Details,
+			"timeline.host_refs.actions",
+			"collection_action_count_exceeded",
+		)
+		requireErrorDetail(t, apiErr.Details, "field_key", "timeline.host_refs")
+		requireErrorDetail(t, apiErr.Details, "requested_count", maxCollectionActions+1)
+		requireErrorDetail(t, apiErr.Details, "max_count", maxCollectionActions)
 	})
 }

@@ -119,6 +119,21 @@ assert_equals "$(json_field "$short_failure_summary" "counts.non_test")" "1" "sh
 assert_equals "$(json_field "$short_failure_summary" "counts.non_test_failed")" "1" "short failure non-test failed count"
 assert_equals "$(json_field "$short_failure_summary" "counts.unmapped_failed")" "0" "short failure unmapped failed count"
 
+missing_target_results="$(mktemp -d "$ROOT_DIR/tmp/run-summary-missing-target.XXXXXX")"
+cleanup_paths+=("$missing_target_results")
+missing_target_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$missing_target_results" \
+  CARTULARY_TEST_RUN_ID="missing-target" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "missing target" fail 0 1 - test-fast-service-backed \
+    2>&1
+)"
+assert_contains "$missing_target_output" "non_test_failed=1" "missing target run summary output"
+missing_target_summary="$missing_target_results/missing-target/run-summary.json"
+assert_equals "$(json_field "$missing_target_summary" "counts.failed")" "1" "missing target failed count"
+assert_equals "$(json_field "$missing_target_summary" "counts.non_test")" "1" "missing target non-test count"
+assert_equals "$(json_field "$missing_target_summary" "counts.non_test_failed")" "1" "missing target non-test failed count"
+assert_equals "$(json_field "$missing_target_summary" "missing_target_summaries.0")" "test-fast-service-backed" "missing target summary list"
+
 verbose_override_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   VERBOSE=1 \
