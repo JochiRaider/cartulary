@@ -72,40 +72,25 @@ require_shared_command_contains() {
   fi
 }
 
-support_selection_patterns() {
+target_plan_support_patterns() {
   local target="$1"
-  shift
+  local shared_report="$2"
 
-  "$node_bin" - "$repo_root" "$target" "$@" <<'EOF'
-const fs = require("fs");
-const path = require("path");
+  "$node_bin" - "$target_plan_file" "$target" "$shared_report" <<'EOF'
+const fs = require("node:fs");
 
-const [root, target, ...packagePatterns] = process.argv.slice(2);
-
-function packageMatchesPattern(pkg, pattern) {
-  if (pattern.endsWith("/...")) {
-    const prefix = pattern.slice(0, -4);
-    return pkg === prefix || pkg.startsWith(`${prefix}/`);
-  }
-  return pkg === pattern;
-}
-
+const [planFile, target, sharedReport] = process.argv.slice(2);
+const rows = JSON.parse(fs.readFileSync(planFile, "utf8"));
 const patterns = new Set();
-for (const entry of fs.readdirSync(path.join(root, "tools")).sort()) {
-  if (!/^phase\d+_test_map\.json$/.test(entry)) {
-    continue;
-  }
-  const manifest = JSON.parse(
-    fs.readFileSync(path.join(root, "tools", entry), "utf8"),
-  );
-  for (const supportEntry of manifest.support_go_targets ?? []) {
-    if (supportEntry.target !== target) {
-      continue;
-    }
-    if (!packagePatterns.some((pattern) => packageMatchesPattern(supportEntry.package, pattern))) {
-      continue;
-    }
-    patterns.add(supportEntry.selection_pattern);
+for (const row of rows) {
+  if (
+    row.target === target &&
+    row.shared_report === sharedReport &&
+    row.support_only === true &&
+    typeof row.support_selector === "string" &&
+    row.support_selector !== ""
+  ) {
+    patterns.add(row.support_selector);
   }
 }
 
@@ -115,6 +100,10 @@ if (values.length > 0) {
 }
 EOF
 }
+
+target_plan_file="$(mktemp)"
+trap 'rm -f "$target_plan_file"' EXIT
+"$node_bin" "$repo_root/scripts/print-target-plan.mjs" --json >"$target_plan_file"
 
 check_heavy_line="$(sed -n 's/^check-heavy:[[:space:]]*//p' "$makefile" | head -n 1)"
 if [[ -z "$check_heavy_line" ]]; then
@@ -156,167 +145,113 @@ if rg -q 'TestPhase4_.*_U_4_' "$go_runner_script"; then
   fail "scripts/run-go-target.sh must not use raw authoritative Phase 4 U-4-* Go selectors"
 fi
 
-if ! "$node_bin" - "$repo_root" <<'EOF'
-const fs = require("fs");
-const path = require("path");
+if ! "$node_bin" - "$repo_root" "$target_plan_file" <<'EOF'
+const fs = require("node:fs");
+const path = require("node:path");
 
-const root = process.argv[2];
-for (const [phase, sections] of [
-  [
-    "phase0",
-    [
-      ["unit", "backend_unit"],
-      ["integration", "backend_integration"],
-      ["e2e", "backend_process"],
-    ],
-  ],
-  [
-    "phase4",
-    [
-      ["integration", "backend_integration"],
-    ],
-  ],
-]) {
-  const manifest = JSON.parse(
-    fs.readFileSync(path.join(root, "tools", `${phase}_test_map.json`), "utf8"),
-  );
-  for (const [section, dependency] of sections) {
+const [root, planFile] = process.argv.slice(2);
+const rows = JSON.parse(fs.readFileSync(planFile, "utf8"));
+const backendDependencies = new Set([
+  "backend_unit",
+  "backend_store",
+  "backend_integration",
+  "backend_process",
+]);
+
+function supportSymbols(entry) {
+  if (entry.symbol !== undefined && entry.symbols !== undefined) {
+    throw new Error(`${entry.file} must not declare both symbol and symbols`);
+  }
+  if (entry.symbols !== undefined) {
+    return entry.symbols;
+  }
+  return [entry.symbol];
+}
+
+const manifestRows = [];
+const supportRows = [];
+for (const file of fs.readdirSync(path.join(root, "tools")).sort()) {
+  if (!/^phase\d+_test_map\.json$/.test(file)) {
+    continue;
+  }
+  const phase = file.replace(/_test_map\.json$/, "");
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "tools", file), "utf8"));
+  for (const section of ["unit", "integration", "e2e"]) {
     for (const entry of manifest[section] ?? []) {
-      if (entry.coverage !== "authoritative" || entry.runner !== "go_test") {
-        continue;
+      if (
+        entry.coverage === "authoritative" &&
+        entry.runner === "go_test" &&
+        backendDependencies.has(entry.execution_dependency)
+      ) {
+        manifestRows.push({ ...entry, phase, section });
       }
-      if (entry.execution_dependency !== dependency) {
-        console.error(
-          `${phase} authoritative ${section} row ${entry.id} must declare execution_dependency=${dependency}`,
-        );
-        process.exit(1);
-      }
+    }
+  }
+  for (const entry of manifest.support_go_targets ?? []) {
+    for (const symbol of supportSymbols(entry)) {
+      supportRows.push({ ...entry, phase, symbol });
     }
   }
 }
 
-const phase1 = JSON.parse(
-  fs.readFileSync(path.join(root, "tools", "phase1_test_map.json"), "utf8"),
-);
-const phase1UnitDeps = new Map([
-  ["U-1-01", "backend_unit"],
-  ["U-1-02", "backend_unit"],
-  ["U-1-03", "backend_unit"],
-  ["U-1-04", "backend_unit"],
-  ["U-1-05", "backend_store"],
-  ["U-1-06", "backend_store"],
-  ["U-1-07", "backend_unit"],
-  ["U-1-08", "backend_store"],
-  ["U-1-09", "backend_unit"],
-  ["U-1-10", "backend_unit"],
-  ["U-1-11", "backend_unit"],
-  ["U-1-12", "backend_unit"],
-  ["U-1-13", "backend_unit"],
-]);
-for (const entry of phase1.unit ?? []) {
-  if (entry.coverage !== "authoritative" || entry.runner !== "go_test") {
-    continue;
-  }
-  const expected = phase1UnitDeps.get(entry.id);
-  if (!expected) {
-    console.error(`phase1 authoritative unit row ${entry.id} is missing a canonical execution_dependency expectation`);
-    process.exit(1);
-  }
-  if (entry.execution_dependency !== expected) {
+for (const entry of manifestRows) {
+  const matches = rows.filter(
+    (row) =>
+      row.canonical_authoritative === true &&
+      row.support_only === false &&
+      row.coverage === "authoritative" &&
+      row.id === entry.id &&
+      row.manifest_phase === entry.phase,
+  );
+  if (matches.length !== 1) {
     console.error(
-      `phase1 authoritative unit row ${entry.id} must declare execution_dependency=${expected}`,
+      `${entry.phase} authoritative ${entry.section} row ${entry.id} must appear in exactly one canonical target-plan row, found ${matches.length}`,
     );
     process.exit(1);
   }
-}
-for (const entry of phase1.integration ?? []) {
-  if (entry.coverage !== "authoritative" || entry.runner !== "go_test") {
-    continue;
-  }
-  if (entry.execution_dependency !== "backend_integration") {
+  const row = matches[0];
+  if (row.execution_dependency !== entry.execution_dependency || row.section !== entry.section) {
     console.error(
-      `phase1 authoritative integration row ${entry.id} must declare execution_dependency=backend_integration`,
+      `${entry.phase} authoritative row ${entry.id} target-plan mismatch: expected ${entry.section}/${entry.execution_dependency}, found ${row.section}/${row.execution_dependency}`,
     );
     process.exit(1);
   }
 }
 
-const phase2 = JSON.parse(
-  fs.readFileSync(path.join(root, "tools", "phase2_test_map.json"), "utf8"),
-);
-const phase2UnitDeps = new Map([
-  ["U-2-01", "backend_unit"],
-  ["U-2-02", "backend_store"],
-  ["U-2-03", "backend_store"],
-  ["U-2-04", "backend_store"],
-  ["U-2-05", "backend_unit"],
-  ["U-2-06", "backend_unit"],
-  ["U-2-07", "backend_store"],
-  ["U-2-08", "backend_unit"],
-  ["U-2-09", "backend_unit"],
-  ["U-2-10", "backend_unit"],
-]);
-for (const entry of phase2.unit ?? []) {
-  if (entry.coverage !== "authoritative" || entry.runner !== "go_test") {
-    continue;
-  }
-  const expected = phase2UnitDeps.get(entry.id);
-  if (!expected) {
-    console.error(`phase2 authoritative unit row ${entry.id} is missing a canonical execution_dependency expectation`);
-    process.exit(1);
-  }
-  if (entry.execution_dependency !== expected) {
-    console.error(
-      `phase2 authoritative unit row ${entry.id} must declare execution_dependency=${expected}`,
-    );
-    process.exit(1);
-  }
-}
-for (const entry of phase2.integration ?? []) {
-  if (entry.coverage !== "authoritative" || entry.runner !== "go_test") {
-    continue;
-  }
-  if (entry.execution_dependency !== "backend_integration") {
-    console.error(
-      `phase2 authoritative integration row ${entry.id} must declare execution_dependency=backend_integration`,
-    );
+const manifestKeys = new Set(manifestRows.map((entry) => `${entry.phase}:${entry.id}`));
+for (const row of rows) {
+  if (
+    row.canonical_authoritative === true &&
+    row.support_only === false &&
+    row.coverage === "authoritative" &&
+    !manifestKeys.has(`${row.manifest_phase}:${row.id}`)
+  ) {
+    console.error(`target-plan row ${row.target} ${row.manifest_phase} ${row.id} is not backed by an authoritative backend manifest row`);
     process.exit(1);
   }
 }
 
-const phase4 = JSON.parse(
-  fs.readFileSync(path.join(root, "tools", "phase4_test_map.json"), "utf8"),
-);
-const phase4UnitDeps = new Map([
-  ["U-4-01", "backend_store"],
-  ["U-4-02", "backend_store"],
-  ["U-4-03", "backend_store"],
-  ["U-4-04", "backend_store"],
-  ["U-4-05", "backend_store"],
-  ["U-4-06", "backend_store"],
-  ["U-4-07", "backend_store"],
-  ["U-4-08", "backend_unit"],
-  ["U-4-09", "backend_unit"],
-]);
-for (const entry of phase4.unit ?? []) {
-  if (entry.coverage !== "authoritative" || entry.runner !== "go_test") {
-    continue;
-  }
-  const expected = phase4UnitDeps.get(entry.id);
-  if (!expected) {
-    console.error(`phase4 authoritative unit row ${entry.id} is missing a canonical execution_dependency expectation`);
-    process.exit(1);
-  }
-  if (entry.execution_dependency !== expected) {
+for (const entry of supportRows) {
+  const matches = rows.filter(
+    (row) =>
+      row.support_only === true &&
+      row.manifest_phase === entry.phase &&
+      row.execution_dependency === entry.target &&
+      row.file === entry.file &&
+      row.support_selector === entry.selection_pattern &&
+      Array.isArray(row.symbols) &&
+      row.symbols.includes(entry.symbol),
+  );
+  if (matches.length !== 1) {
     console.error(
-      `phase4 authoritative unit row ${entry.id} must declare execution_dependency=${expected}`,
+      `${entry.phase} support row ${entry.file}::${entry.symbol} must appear in exactly one target-plan support row, found ${matches.length}`,
     );
     process.exit(1);
   }
 }
 EOF
 then
-  fail "Authoritative backend manifests must carry the canonical execution_dependency for their layer"
+  fail "Backend target plan must match authoritative manifests and support selectors"
 fi
 
 backend_unit_block="$(extract_target_block backend-unit)"
@@ -341,7 +276,7 @@ do
     fail "scripts/run-go-target.sh must preserve backend-unit selection surface: missing $expected"
   fi
 done
-mapfile -t backend_unit_core_support_patterns < <(support_selection_patterns backend_unit ./internal/platform/... ./internal/app ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline)
+mapfile -t backend_unit_core_support_patterns < <(target_plan_support_patterns backend-unit backend-unit-core)
 if [[ "${#backend_unit_core_support_patterns[@]}" -eq 0 ]]; then
   fail "backend-unit core packages must have declared support selectors"
 fi
@@ -349,7 +284,7 @@ for pattern in "${backend_unit_core_support_patterns[@]}"; do
   [[ -z "$pattern" ]] && continue
   require_shared_command_contains backend-unit backend-unit-core "$pattern"
 done
-mapfile -t backend_unit_auth_support_patterns < <(support_selection_patterns backend_unit ./internal/modules/auth)
+mapfile -t backend_unit_auth_support_patterns < <(target_plan_support_patterns backend-unit backend-unit-auth)
 if [[ "${#backend_unit_auth_support_patterns[@]}" -eq 0 ]]; then
   fail "backend-unit auth packages must have declared support selectors"
 fi
@@ -502,7 +437,7 @@ if ! printf '%s\n' "$backend_integration_support_block" | grep -Fq '$(TEST_SERVI
 fi
 require_shared_command_match backend-integration-core backend-integration backend-integration-support
 require_shared_command_match backend-integration-auth backend-integration backend-integration-support
-mapfile -t backend_integration_core_support_patterns < <(support_selection_patterns backend_integration_support ./internal/platform/... ./internal/app ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline)
+mapfile -t backend_integration_core_support_patterns < <(target_plan_support_patterns backend-integration-support backend-integration-core)
 if [[ "${#backend_integration_core_support_patterns[@]}" -eq 0 ]]; then
   fail "backend-integration-core must have declared support selectors"
 fi
@@ -510,7 +445,7 @@ for pattern in "${backend_integration_core_support_patterns[@]}"; do
   [[ -z "$pattern" ]] && continue
   require_shared_command_contains backend-integration backend-integration-core "$pattern"
 done
-mapfile -t backend_integration_auth_support_patterns < <(support_selection_patterns backend_integration_support ./internal/modules/auth)
+mapfile -t backend_integration_auth_support_patterns < <(target_plan_support_patterns backend-integration-support backend-integration-auth)
 if [[ "${#backend_integration_auth_support_patterns[@]}" -eq 0 ]]; then
   fail "backend-integration-auth must have declared support selectors"
 fi

@@ -726,6 +726,9 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make dev`           | Start the Go server and Vite dev server                                                                      |
 | `make generate`      | Regenerate Go and TypeScript artifacts derived from `/db/queries/*` and `/contracts/*`                       |
 | `make backend-store` | Run service-backed store-domain `U-*` backend evidence that keeps unit-layer IDs while using real Postgres   |
+| `make target-plan`   | Print the backend Go target execution plan without running tests                                             |
+| `make target-plan-json` | Emit deterministic backend Go target-plan JSON for task-surface checks                                    |
+| `make explain-target TARGET=backend-store` | Explain one backend Go target without running tests                                      |
 | `make test-fast`     | Run the narrower pure-unit, service-backed backend, frontend type-check, and frontend unit/process loop      |
 | `make test`          | Run the authoritative full test corpus, including manifest-verified browser E2E plus explicit support suites |
 | `make lint`          | Run backend vet/lint and frontend lint/type checks                                                           |
@@ -767,6 +770,8 @@ Backend verification MUST distinguish phase evidence from execution dependency. 
 - execution dependency: pure unit, service-backed store-domain, service-backed runtime, process, and isolated browser work.
 
 `backend-unit` is reserved for pure backend tests with no `pgtest`, `s3test`, or real runtime startup. `backend-store` owns the service-backed store-domain `U-*` slice, while `backend-integration`, `backend-process`, and browser suites continue to own runtime, process, and browser-backed evidence respectively.
+
+The backend Go target plan is inspectable without executing tests. `make target-plan` renders the human execution plan, `make target-plan-json` emits the deterministic JSON consumed by task-surface checks, and `make explain-target TARGET=<backend target>` focuses on one backend target's authoritative rows, support-only selectors, shared reports, package sets, service-backed requirement, and check-stage safety classification.
 
 ### 7.3 Local development loop
 

@@ -30,7 +30,7 @@ const supportTargetSections = new Map([
   ["backend_integration_support", "integration"],
 ]);
 
-function goEntrySymbols(entry) {
+export function goEntrySymbols(entry) {
   if (entry.symbol !== undefined && entry.symbols !== undefined) {
     throw new Error(`manifest entry ${entry.id} must declare symbol or symbols[], not both`);
   }
@@ -55,7 +55,7 @@ function supportGoEntryLabel(entry) {
   return `support_go_target ${entry.target ?? "(missing target)"} ${entry.file ?? "(missing file)"}`;
 }
 
-function supportGoEntrySymbols(entry) {
+export function supportGoEntrySymbols(entry) {
   const label = supportGoEntryLabel(entry);
   if (entry.symbol !== undefined && entry.symbols !== undefined) {
     throw new Error(`${label} must declare symbol or symbols[], not both`);
@@ -454,7 +454,7 @@ function alternationRegex(values) {
   return `(${escaped.join("|")})`;
 }
 
-function packageMatchesPattern(pkg, pattern) {
+export function packageMatchesPattern(pkg, pattern) {
   if (pattern.endsWith("/...")) {
     const prefix = pattern.slice(0, -4);
     return pkg === prefix || pkg.startsWith(`${prefix}/`);

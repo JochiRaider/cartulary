@@ -5,7 +5,7 @@ SHELL := /bin/bash
 .PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install
 .PHONY: db-up db-reset dev
 .PHONY: generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check
-.PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke backend-task-surface-check service-backed-unit-check run-phase-smoke phase-test-name-check
+.PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check run-phase-smoke phase-test-name-check
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
 .PHONY: test-fast test-fast-service-backed test-fast-service-backed-lane-a test-fast-service-backed-lane-b test lint lint-go check check-preflight check-heavy check-service-backed check-service-backed-lane-a check-service-backed-lane-b check-isolated ci
@@ -170,6 +170,9 @@ help:
 		'  make backend-store         run service-backed store-domain evidence' \
 		'  make backend-integration   run backend integration evidence' \
 		'  make backend-process       run backend process evidence' \
+		'  make target-plan           explain backend target execution families' \
+		'  make target-plan-json      emit deterministic backend target plan JSON' \
+		'  make explain-target TARGET=backend-store explain one backend target' \
 		'' \
 		'frontend:' \
 		'  make frontend-typecheck    run TypeScript type checking' \
@@ -387,7 +390,7 @@ phase-map-check: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(RUN_PHASE) "phase-map-check" -- $(PNPM_ENV) env NODE_BIN=$(NODE_BIN) ./scripts/check-phase-maps.sh
 
 run-phase-smoke: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-run-phase.sh && ./scripts/test-run-go-target.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh'
+	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-run-phase.sh && ./scripts/test-run-go-target.sh && ./scripts/test-print-target-plan.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh'
 
 phase-test-name-check:
 	$(RUN_PHASE) "phase-test-name-check" -- ./scripts/check-phase-test-names.sh
@@ -447,6 +450,16 @@ backend-unit: export CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION := phase1:unit:aut
 
 backend-unit: $(NODE_BIN)
 	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) ./scripts/run-go-target.sh backend-unit
+
+target-plan:
+	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/print-target-plan.mjs
+
+target-plan-json:
+	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/print-target-plan.mjs --json
+
+explain-target:
+	$(Q)if [ -z "$(TARGET)" ]; then echo "usage: make explain-target TARGET=<backend target>" >&2; exit 2; fi
+	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/print-target-plan.mjs --target "$(TARGET)"
 
 backend-store: export CARTULARY_TEST_TARGET := backend-store
 
