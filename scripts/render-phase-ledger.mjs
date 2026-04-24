@@ -1,5 +1,28 @@
 import { collectEntries, collectSupportGoEntries, loadManifest } from "./lib/phase-manifest.mjs";
 
+export const phaseLedgerOutputs = Object.freeze([
+  Object.freeze({
+    phase: "phase0",
+    outputPath: "docs/testing/phase0_coverage_ledger.md",
+  }),
+  Object.freeze({
+    phase: "phase1",
+    outputPath: "docs/testing/phase1_coverage_ledger.md",
+  }),
+  Object.freeze({
+    phase: "phase2",
+    outputPath: "docs/testing/phase2_coverage_ledger.md",
+  }),
+  Object.freeze({
+    phase: "phase3",
+    outputPath: "docs/testing/phase3_coverage_ledger.md",
+  }),
+  Object.freeze({
+    phase: "phase4",
+    outputPath: "docs/testing/phase4_coverage_ledger.md",
+  }),
+]);
+
 const supportTargetDisplay = new Map([
   ["backend_unit", "backend-unit"],
   ["backend_integration_support", "backend-integration-support"],

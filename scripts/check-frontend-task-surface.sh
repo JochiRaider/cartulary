@@ -51,6 +51,15 @@ fi
 if ! printf '%s\n' "$check_preflight_block" | rg -q 'frontend-task-surface-check'; then
   fail "check-preflight must invoke frontend-task-surface-check"
 fi
+if ! rg -q '^phase-ledgers:' "$makefile"; then
+  fail "Makefile must define phase-ledgers"
+fi
+if ! rg -q '^phase-ledger-drift:' "$makefile"; then
+  fail "Makefile must define phase-ledger-drift"
+fi
+if ! printf '%s\n' "$check_preflight_block" | rg -q 'phase-ledger-drift'; then
+  fail "check-preflight must invoke phase-ledger-drift"
+fi
 
 if ! [[ -f "$runner_script" ]]; then
   fail "missing scripts/run-frontend-unit.sh"

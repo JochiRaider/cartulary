@@ -4,7 +4,7 @@ SHELL := /bin/bash
 .PHONY: help doctor
 .PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install
 .PHONY: db-up db-reset dev
-.PHONY: generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check
+.PHONY: generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-ledgers phase-ledger-drift
 .PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check run-phase-smoke phase-test-name-check
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
@@ -165,6 +165,8 @@ help:
 		'  make generate              regenerate sqlc and contract-derived outputs' \
 		'  make generate-drift        fail on generated artifact drift' \
 		'  make migration-drift       verify migrations against a scratch database' \
+		'  make phase-ledgers         regenerate committed phase coverage ledgers' \
+		'  make phase-ledger-drift    fail on phase coverage ledger drift' \
 		'' \
 		'backend:' \
 		'  make backend-unit          run pure backend unit evidence' \
@@ -382,6 +384,12 @@ deployable-shape-verify: build-server build-migrate
 phase-map-check: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(RUN_PHASE) "phase-map-check" -- $(PNPM_ENV) env NODE_BIN=$(NODE_BIN) ./scripts/check-phase-maps.sh
 
+phase-ledgers: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(RUN_PHASE) "phase-ledgers" -- $(PNPM_ENV) env NODE_BIN=$(NODE_BIN) $(NODE_BIN) ./scripts/render-phase-ledgers.mjs
+
+phase-ledger-drift: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(RUN_PHASE) "phase-ledger-drift" -- $(PNPM_ENV) env NODE_BIN=$(NODE_BIN) $(NODE_BIN) ./scripts/check-phase-ledger-drift.mjs
+
 run-phase-smoke: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-bootstrap-node-runtime.sh && ./scripts/test-run-make-sequence.sh && ./scripts/test-run-phase.sh && ./scripts/test-run-go-target.sh && ./scripts/test-print-target-plan.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh'
 
@@ -548,6 +556,7 @@ check-preflight: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)$(MAKE) --no-print-directory frontend-task-surface-check
 	$(Q)$(MAKE) --no-print-directory backend-task-surface-check
 	$(Q)$(MAKE) --no-print-directory phase-map-check
+	$(Q)$(MAKE) --no-print-directory phase-ledger-drift
 	$(Q)$(MAKE) --no-print-directory service-backed-unit-check
 	$(Q)$(MAKE) --no-print-directory generate-drift
 
