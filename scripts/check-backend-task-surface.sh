@@ -125,6 +125,66 @@ for target in "${service_backed_targets[@]}"; do
   done
 done
 
+if grep -Fq 'rg --files' "$makefile"; then
+  fail "Makefile must not use parse-time rg --files for build input discovery"
+fi
+if ! grep -Fq 'scripts/list-build-inputs.sh' "$makefile"; then
+  fail "Makefile must use scripts/list-build-inputs.sh for build input discovery"
+fi
+
+for target in services-up services-wait postgres-wait minio-wait minio-init; do
+  if ! rg -q "^${target}:" "$makefile"; then
+    fail "Makefile must define $target"
+  fi
+done
+
+services_wait_prereqs="$(extract_target_prereqs services-wait)"
+for target in postgres-wait minio-wait; do
+  if ! printf '%s\n' "$services_wait_prereqs" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
+    fail "services-wait must depend on $target"
+  fi
+done
+
+services_up_block="$(extract_target_block services-up)"
+if ! printf '%s\n' "$services_up_block" | grep -Fq 'up -d postgres minio'; then
+  fail "services-up must start postgres and minio"
+fi
+if ! printf '%s\n' "$services_up_block" | grep -Fq 'services-wait'; then
+  fail "services-up must wait for service readiness"
+fi
+
+db_up_block="$(extract_target_block db-up)"
+if ! printf '%s\n' "$db_up_block" | grep -Fq 'services-up'; then
+  fail "db-up must delegate service startup to services-up"
+fi
+if ! printf '%s\n' "$db_up_block" | grep -Fq 'minio-init'; then
+  fail "db-up must initialize the default MinIO bucket"
+fi
+
+db_reset_block="$(extract_target_block db-reset)"
+if ! printf '%s\n' "$db_reset_block" | grep -Fq 'postgres-wait'; then
+  fail "db-reset must wait for postgres before resetting the database"
+fi
+if ! printf '%s\n' "$db_reset_block" | grep -Fq 'MinIO/object storage is not reset'; then
+  fail "db-reset must explicitly report that object storage is not reset"
+fi
+
+minio_init_block="$(extract_target_block minio-init)"
+if ! printf '%s\n' "$minio_init_block" | grep -Fq 'MINIO_BUCKET="$(MINIO_BUCKET)"'; then
+  fail "minio-init must pass the configured MINIO_BUCKET"
+fi
+if ! printf '%s\n' "$minio_init_block" | grep -Fq 'init-minio'; then
+  fail "minio-init must delegate bucket creation to dev-services.sh"
+fi
+
+help_block="$(extract_target_block help)"
+if ! printf '%s\n' "$help_block" | grep -Fq 'make services-up'; then
+  fail "help must document services-up"
+fi
+if ! printf '%s\n' "$help_block" | grep -Fq 'does not reset object storage'; then
+  fail "help must document db-reset object-storage scope"
+fi
+
 if ! rg -q '^backend-store:' "$makefile"; then
   fail "Makefile must define backend-store"
 fi

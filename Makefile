@@ -3,7 +3,7 @@ SHELL := /bin/bash
 
 .PHONY: help doctor
 .PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install
-.PHONY: db-up db-reset dev
+.PHONY: db-up db-reset services-up services-wait postgres-wait minio-wait minio-init dev
 .PHONY: generate generate-drift toolchain-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-ledgers phase-ledger-drift
 .PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check run-phase-smoke phase-test-name-check
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck
@@ -11,6 +11,8 @@ SHELL := /bin/bash
 .PHONY: test-fast test-fast-service-backed test-fast-service-backed-lane-a test-fast-service-backed-lane-b test lint lint-go check check-preflight check-heavy check-service-backed check-service-backed-lane-a check-service-backed-lane-b check-isolated ci
 .PHONY: build build-server build-migrate build-web
 .PHONY: clean distclean
+
+.SECONDEXPANSION:
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
 CONFIG_FILE ?= $(CURDIR)/configs/dev/config.toml
@@ -35,6 +37,7 @@ TOOLBIN_DIR ?= $(CURDIR)/tmp/toolbin
 SQLC_BIN ?= $(TOOLBIN_DIR)/sqlc-v1.30.0
 GOOSE_BIN ?= $(TOOLBIN_DIR)/goose-v3.27.0
 TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
+MINIO_BUCKET ?= cartulary
 FRONTEND_INSTALL_STAMP ?= $(CURDIR)/tmp/frontend-install/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
 PLAYWRIGHT_INSTALL_STAMP ?= $(CURDIR)/tmp/playwright/chromium.stamp
 FRONTEND_TOOLCHAIN_STAMP ?= $(CURDIR)/tmp/frontend-toolchain/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
@@ -52,6 +55,8 @@ RUN_VITEST_MANIFEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-vitest-manifest-ph
 RUN_FRONTEND_BIOME_SCRIPT := $(CURDIR)/scripts/run-frontend-biome.sh
 TEST_OUTPUT_SCRIPT := $(CURDIR)/scripts/lib/test-output.sh
 RUN_MAKE_SEQUENCE_SCRIPT := $(CURDIR)/scripts/run-make-sequence.sh
+BUILD_INPUTS_SCRIPT := $(CURDIR)/scripts/list-build-inputs.sh
+DEV_SERVICES_SCRIPT := $(CURDIR)/scripts/dev-services.sh
 RUN_PHASE = $(Q)$(RUN_PHASE_SCRIPT)
 RUN_GO_PHASE = $(Q)$(RUN_GO_PHASE_SCRIPT)
 RUN_GO_MANIFEST_PHASE = $(Q)NODE_BIN=$(NODE_BIN) $(RUN_GO_MANIFEST_PHASE_SCRIPT)
@@ -99,10 +104,13 @@ GOOSE_TOOL := github.com/pressly/goose/v3/cmd/goose@v3.27.0
 TESTCONTAINERS_GO_VERSION := v0.42.0
 
 FRONTEND_INSTALL_INPUTS := package.json pnpm-lock.yaml pnpm-workspace.yaml apps/web/package.json $(wildcard packages/*/package.json)
-SERVER_BUILD_INPUTS := go.mod go.sum $(shell rg --files cmd/server internal/app internal/modules internal/platform contracts 2>/dev/null)
-MIGRATE_BUILD_INPUTS := go.mod go.sum $(shell rg --files cmd/migrate internal/app internal/platform db/migrations 2>/dev/null)
-WEB_BUILD_INPUTS := package.json pnpm-lock.yaml pnpm-workspace.yaml $(shell rg --files apps/web packages 2>/dev/null)
-TEST_SERVICES_BUILD_INPUTS := go.mod go.sum $(shell rg --files tools/testservices internal/testutil/pgtest internal/testutil/s3test internal/testutil/suiteservices internal/platform/postgres db/migrations 2>/dev/null)
+define discover_build_inputs
+$(strip $(shell $(BUILD_INPUTS_SCRIPT) $(1)))$(if $(filter-out 0,$(.SHELLSTATUS)),$(error build input discovery failed for roots: $(1)),)
+endef
+SERVER_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,cmd/server internal/app internal/modules internal/platform contracts)
+MIGRATE_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,cmd/migrate internal/app internal/platform db/migrations)
+WEB_BUILD_INPUTS = package.json pnpm-lock.yaml pnpm-workspace.yaml $(call discover_build_inputs,apps/web packages)
+TEST_SERVICES_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,tools/testservices internal/testutil/pgtest internal/testutil/s3test internal/testutil/suiteservices internal/platform/postgres db/migrations)
 EMBEDDED_WEB_ASSET_DIR := $(CURDIR)/internal/platform/httpapi/webassets/dist
 EMBEDDED_WEB_ASSET_STAMP := $(CURDIR)/tmp/frontend-embed/web-assets.stamp
 CLEAN_PATHS := $(SERVER_BIN) $(MIGRATE_BIN) $(CURDIR)/apps/web/dist $(EMBEDDED_WEB_ASSET_STAMP) $(CARTULARY_TEST_RESULTS_DIR) $(CURDIR)/apps/web/test-results $(CURDIR)/tmp/dev-stack $(CURDIR)/tmp/dev-stack-lifecycle-smoke.* $(CURDIR)/tmp/web-e2e-lifecycle-smoke.* $(CURDIR)/tmp/vitest-json-sample.*
@@ -157,8 +165,10 @@ help:
 		'  make playwright-install     install browser dependencies' \
 		'' \
 		'dev:' \
-		'  make db-up                 start local Postgres and MinIO' \
-		'  make db-reset              recreate the local database and apply migrations' \
+		'  make services-up           start local Postgres and MinIO, then wait until ready' \
+		'  make db-up                 compatibility alias for services-up plus MinIO bucket init' \
+		'  make db-reset              recreate the local database only; does not reset object storage' \
+		'  make minio-init            create the default local MinIO bucket if needed' \
 		'  make dev                   run the Go server and Vite dev server' \
 		'' \
 		'generate:' \
@@ -335,7 +345,7 @@ $(GOOSE_BIN):
 	$(RUN_PHASE) "bootstrap goose tool" -- env GOBIN=$(TOOLBIN_DIR) $(GO_RUN_ENV) $(GO) install $(GOOSE_TOOL)
 	$(Q)mv $(TOOLBIN_DIR)/goose $(GOOSE_BIN)
 
-$(TEST_SERVICES_BIN): $(TEST_SERVICES_BUILD_INPUTS)
+$(TEST_SERVICES_BIN): $$(TEST_SERVICES_BUILD_INPUTS)
 	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "build testservices" -- $(GO_ENV) $(GO) build -o $(TEST_SERVICES_BIN) ./tools/testservices
 
@@ -349,11 +359,29 @@ bootstrap: $(SQLC_BIN) $(GOOSE_BIN) frontend-install playwright-install
 
 playwright-install: $(PLAYWRIGHT_INSTALL_STAMP)
 
-db-up:
+services-up:
 	$(Q)docker compose -f docker-compose.dev.yml up -d postgres minio
+	$(Q)$(MAKE) --no-print-directory services-wait
+
+services-wait: postgres-wait minio-wait
+
+postgres-wait:
+	$(Q)$(DEV_SERVICES_SCRIPT) wait-postgres
+
+minio-wait:
+	$(Q)$(DEV_SERVICES_SCRIPT) wait-minio
+
+minio-init: services-wait
+	$(Q)MINIO_BUCKET="$(MINIO_BUCKET)" $(DEV_SERVICES_SCRIPT) init-minio
+
+db-up:
+	$(Q)$(MAKE) --no-print-directory services-up
+	$(Q)$(MAKE) --no-print-directory minio-init
 
 db-reset:
 	$(Q)docker compose -f docker-compose.dev.yml up -d postgres
+	$(Q)$(MAKE) --no-print-directory postgres-wait
+	$(Q)printf '%s\n' 'db-reset: database reset only; MinIO/object storage is not reset.'
 	$(Q)docker compose -f docker-compose.dev.yml exec -T postgres psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS cartulary;"
 	$(Q)docker compose -f docker-compose.dev.yml exec -T postgres psql -U cartulary -d postgres -c "CREATE DATABASE cartulary;"
 	$(Q)env CARTULARY_CONFIG_FILE=$(CONFIG_FILE) $(GO_RUN_ENV) $(GO) run ./cmd/migrate up
@@ -393,7 +421,7 @@ phase-ledger-drift: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(RUN_PHASE) "phase-ledger-drift" -- $(PNPM_ENV) env NODE_BIN=$(NODE_BIN) $(NODE_BIN) ./scripts/check-phase-ledger-drift.mjs
 
 run-phase-smoke: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-check-toolchain-pins.sh && ./scripts/test-bootstrap-node-runtime.sh && ./scripts/test-run-make-sequence.sh && ./scripts/test-run-phase.sh && ./scripts/test-run-go-target.sh && ./scripts/test-print-target-plan.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh && ./scripts/test-dev-stack-lifecycle.sh'
+	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-check-toolchain-pins.sh && ./scripts/test-bootstrap-node-runtime.sh && ./scripts/test-build-input-discovery.sh && ./scripts/test-run-make-sequence.sh && ./scripts/test-run-phase.sh && ./scripts/test-run-go-target.sh && ./scripts/test-print-target-plan.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh && ./scripts/test-dev-stack-lifecycle.sh'
 
 phase-test-name-check:
 	$(RUN_PHASE) "phase-test-name-check" -- ./scripts/check-phase-test-names.sh
@@ -596,19 +624,19 @@ $(EMBEDDED_WEB_ASSET_STAMP): $(CURDIR)/apps/web/dist/index.html
 	$(Q)cp -R $(CURDIR)/apps/web/dist/. $(EMBEDDED_WEB_ASSET_DIR)/
 	$(Q)printf 'source=%s\n' "$(CURDIR)/apps/web/dist/index.html" > $(EMBEDDED_WEB_ASSET_STAMP)
 
-$(SERVER_BIN): $(SERVER_BUILD_INPUTS) $(EMBEDDED_WEB_ASSET_STAMP)
+$(SERVER_BIN): $$(SERVER_BUILD_INPUTS) $(EMBEDDED_WEB_ASSET_STAMP)
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "build server" -- $(GO_ENV) $(GO) build -o $(SERVER_BIN) ./cmd/server
 
 build-server: $(SERVER_BIN)
 
-$(MIGRATE_BIN): $(MIGRATE_BUILD_INPUTS)
+$(MIGRATE_BIN): $$(MIGRATE_BUILD_INPUTS)
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "build migrate" -- $(GO_ENV) $(GO) build -o $(MIGRATE_BIN) ./cmd/migrate
 
 build-migrate: $(MIGRATE_BIN)
 
-$(CURDIR)/apps/web/dist/index.html: $(WEB_BUILD_INPUTS) $(FRONTEND_INSTALL_STAMP) | $(NODE_BIN)
+$(CURDIR)/apps/web/dist/index.html: $$(WEB_BUILD_INPUTS) $(FRONTEND_INSTALL_STAMP) | $(NODE_BIN)
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "build web" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec vite build $(VITE_BUILD_FLAGS)
 
 build-web: $(CURDIR)/apps/web/dist/index.html

@@ -51,8 +51,42 @@ copy_minimal_repo() {
   cp "${ROOT_DIR}/package.json" "${dest}/package.json"
   cp "${ROOT_DIR}/go.mod" "${dest}/go.mod"
   cp "${ROOT_DIR}/README.md" "${dest}/README.md"
+  cp "${ROOT_DIR}/scripts/list-build-inputs.sh" "${dest}/scripts/list-build-inputs.sh"
   cp "${ROOT_DIR}/scripts/bootstrap-node-runtime.sh" "${dest}/scripts/bootstrap-node-runtime.sh"
   cp "${ROOT_DIR}/scripts/check-toolchain-pins.mjs" "${dest}/scripts/check-toolchain-pins.mjs"
+  mkdir -p \
+    "${dest}/apps/web" \
+    "${dest}/cmd/migrate" \
+    "${dest}/cmd/server" \
+    "${dest}/contracts" \
+    "${dest}/db/migrations" \
+    "${dest}/internal/app" \
+    "${dest}/internal/modules" \
+    "${dest}/internal/platform" \
+    "${dest}/internal/platform/postgres" \
+    "${dest}/internal/testutil/pgtest" \
+    "${dest}/internal/testutil/s3test" \
+    "${dest}/internal/testutil/suiteservices" \
+    "${dest}/packages" \
+    "${dest}/tools/testservices"
+  local root
+  for root in \
+    apps/web \
+    cmd/migrate \
+    cmd/server \
+    contracts \
+    db/migrations \
+    internal/app \
+    internal/modules \
+    internal/platform \
+    internal/platform/postgres \
+    internal/testutil/pgtest \
+    internal/testutil/s3test \
+    internal/testutil/suiteservices \
+    packages \
+    tools/testservices; do
+    printf 'placeholder\n' >"${dest}/${root}/placeholder.txt"
+  done
 }
 
 replace_text() {

@@ -6,6 +6,7 @@ makefile="$repo_root/Makefile"
 functional_script="$repo_root/scripts/run-browser-e2e-functional.sh"
 stateful_script="$repo_root/scripts/run-browser-e2e-stateful.sh"
 webserver_backed_script="$repo_root/scripts/run-browser-e2e-webserver-backed.sh"
+start_web_e2e_script="$repo_root/scripts/start-web-e2e.sh"
 node_bin="${NODE_BIN:-node}"
 
 fail() {
@@ -114,6 +115,15 @@ if ! [[ -f "$functional_script" ]]; then
 fi
 if ! [[ -f "$stateful_script" ]]; then
   fail "missing scripts/run-browser-e2e-stateful.sh"
+fi
+if ! [[ -f "$start_web_e2e_script" ]]; then
+  fail "missing scripts/start-web-e2e.sh"
+fi
+if ! grep -Fq 'DEV_SERVICES_SCRIPT=' "$start_web_e2e_script"; then
+  fail "scripts/start-web-e2e.sh must configure the shared dev service helper"
+fi
+if ! grep -Fq '"${DEV_SERVICES_SCRIPT}" wait' "$start_web_e2e_script"; then
+  fail "scripts/start-web-e2e.sh must wait for Postgres and MinIO through dev-services.sh"
 fi
 
 if ! grep -Fq 'phase1 authoritative browser_functional' "$functional_script"; then

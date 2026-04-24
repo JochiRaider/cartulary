@@ -6,13 +6,12 @@ source "${ROOT_DIR}/scripts/lib/run-phase-common.sh"
 source "${ROOT_DIR}/scripts/lib/web-e2e-lifecycle.sh"
 
 COMPOSE_FILE="${ROOT_DIR}/docker-compose.dev.yml"
+DEV_SERVICES_SCRIPT="${ROOT_DIR}/scripts/dev-services.sh"
 GO_BIN="${GO:-go}"
 NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/tmp/node-runtime}"
 SERVER_BIN="${CARTULARY_SERVER_BIN:-}"
 MIGRATE_BIN="${CARTULARY_MIGRATE_BIN:-}"
 USE_REPO_ROOT_RUNTIME_ARTIFACTS_ENV="CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES"
-MINIO_READY_URL="http://127.0.0.1:9000/minio/health/ready"
-POSTGRES_READY_TIMEOUT_SECONDS="${CARTULARY_POSTGRES_READY_TIMEOUT_SECONDS:-180}"
 
 KEEP_RUNTIME_ROOT=0
 TARGET_ARTIFACT_DIR=""
@@ -230,66 +229,6 @@ wait_for_http() {
   return 1
 }
 
-wait_for_postgres() {
-  local start_time="$SECONDS"
-  local container_id=""
-  local state="unknown"
-  local health="unknown"
-  local shutdown_status=0
-
-  while (( SECONDS - start_time < POSTGRES_READY_TIMEOUT_SECONDS )); do
-    if docker compose -f "${COMPOSE_FILE}" exec -T postgres pg_isready -U cartulary -d postgres >/dev/null 2>&1; then
-      return 0
-    fi
-
-    if exit_for_requested_shutdown "postgres readiness"; then
-      :
-    else
-      shutdown_status=$?
-      return "${shutdown_status}"
-    fi
-
-    container_id="$(docker compose -f "${COMPOSE_FILE}" ps -q postgres 2>/dev/null || true)"
-    if [[ -n "${container_id}" ]]; then
-      state="$(docker inspect -f '{{.State.Status}}' "${container_id}" 2>/dev/null || printf 'unknown')"
-      health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "${container_id}" 2>/dev/null || printf 'unknown')"
-      if [[ "${state}" == "exited" || "${state}" == "dead" ]]; then
-        echo "postgres container is ${state} during browser e2e startup (health=${health})" >&2
-        docker compose -f "${COMPOSE_FILE}" logs --no-color --tail 120 postgres >&2 || true
-        return 1
-      fi
-    fi
-
-    sleep 1
-  done
-
-  echo "postgres did not become ready for browser e2e after ${POSTGRES_READY_TIMEOUT_SECONDS}s (state=${state} health=${health})" >&2
-  docker compose -f "${COMPOSE_FILE}" logs --no-color --tail 120 postgres >&2 || true
-  return 1
-}
-
-wait_for_minio() {
-  local shutdown_status=0
-
-  for _ in $(seq 1 120); do
-    if curl -fsS "${MINIO_READY_URL}" >/dev/null 2>&1; then
-      return 0
-    fi
-
-    if exit_for_requested_shutdown "minio readiness"; then
-      :
-    else
-      shutdown_status=$?
-      return "${shutdown_status}"
-    fi
-    sleep 1
-  done
-
-  echo "minio did not become ready for browser e2e" >&2
-  docker compose -f "${COMPOSE_FILE}" logs --no-color minio >&2 || true
-  return 1
-}
-
 assert_port_free() {
   local port="$1"
   local name="$2"
@@ -307,8 +246,7 @@ assert_port_free() {
 
 browser_start_services() {
   docker compose -f "${COMPOSE_FILE}" up -d postgres minio >/dev/null
-  wait_for_postgres
-  wait_for_minio
+  "${DEV_SERVICES_SCRIPT}" wait
 }
 
 browser_prepare_database() {
