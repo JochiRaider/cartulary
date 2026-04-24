@@ -205,7 +205,7 @@ backend_unit_core_shared_spec() {
     "$(manifest_go_regex phase0 unit authoritative backend_unit ./internal/app)"
     "$(manifest_go_regex phase2 unit authoritative backend_unit ./internal/modules/incidents)"
     "$(manifest_go_regex phase3 unit authoritative backend_unit ./internal/modules/timeline)"
-    '^(TestPhase4_.*_U_4_0[89])'
+    "$(manifest_go_regex phase4 unit authoritative backend_unit ./internal/app ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline)"
   )
   local phase1_platform_count
 
@@ -637,7 +637,7 @@ run_backend_unit() {
   clear_go_selection_env
   emit_declared_support_phase "backend-unit support phase3" derived "${core_dir}" phase3 backend_unit ./internal/modules/timeline || status=$?
   clear_go_selection_env
-  emit_go_raw_phase "backend-unit phase4 app" derived "${core_dir}" '^(TestPhase4_.*_U_4_0[89])' ./internal/app ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline || status=$?
+  emit_go_manifest_phase "backend-unit phase4 authoritative" derived "${core_dir}" phase4 unit authoritative backend_unit ./internal/app ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline || status=$?
   clear_go_selection_env
   emit_go_manifest_phase "backend-unit phase2 authoritative" derived "${core_dir}" phase2 unit authoritative backend_unit ./internal/modules/incidents || status=$?
   clear_go_selection_env
@@ -653,7 +653,7 @@ run_backend_store() {
   local status=0
 
   shared_regex="$(build_union_regex \
-    '^(TestPhase4_.*_U_4_0[1-7])' \
+    "$(manifest_go_regex phase4 unit authoritative backend_store ./internal/modules/entities ./internal/modules/timeline)" \
     "$(manifest_go_regex phase1 unit authoritative backend_store ./internal/modules/auth)" \
     "$(manifest_go_regex phase2 unit authoritative backend_store ./internal/modules/incidents)" \
     "$(manifest_go_regex phase3 unit authoritative backend_store ./internal/modules/timeline)")"
@@ -666,7 +666,7 @@ run_backend_store() {
     ./internal/modules/timeline
 
   clear_go_selection_env
-  emit_go_raw_phase "backend-store" "${shared_usage}" "${shared_dir}" '^(TestPhase4_.*_U_4_0[1-7])' ./internal/modules/entities ./internal/modules/timeline || status=$?
+  emit_go_manifest_phase "backend-store phase4 authoritative" "${shared_usage}" "${shared_dir}" phase4 unit authoritative backend_store ./internal/modules/entities ./internal/modules/timeline || status=$?
   clear_go_selection_env
   emit_go_manifest_phase "backend-store phase1 authoritative" derived "${shared_dir}" phase1 unit authoritative backend_store ./internal/modules/auth || status=$?
   clear_go_selection_env

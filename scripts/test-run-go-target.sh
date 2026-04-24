@@ -224,12 +224,64 @@ cleanup_paths+=("$shared_reuse_results")
   fi
 )
 
+backend_unit_structure="$(
+  export NODE_BIN="$node_bin"
+  source "$GO_TARGET_HELPER"
+  assign_calls=0
+  raw_calls=0
+  support_calls=0
+  manifest_calls=0
+  phase4_manifest_calls=0
+  raw_phase4_calls=0
+  finish_status=""
+  assign_captured_report() {
+    local -n dir_ref="$1"
+    local -n usage_ref="$2"
+    assign_calls=$((assign_calls + 1))
+    dir_ref="/tmp/backend-unit-shared"
+    usage_ref="actual"
+  }
+  emit_go_raw_phase() {
+    local phase_label="$1"
+    local regex="${4:-}"
+    raw_calls=$((raw_calls + 1))
+    if [[ "$phase_label" == *"phase4"* || "$regex" == *"U_4"* ]]; then
+      raw_phase4_calls=$((raw_phase4_calls + 1))
+    fi
+  }
+  emit_declared_support_phase() {
+    support_calls=$((support_calls + 1))
+  }
+  emit_go_manifest_phase() {
+    local phase_label="$1"
+    manifest_calls=$((manifest_calls + 1))
+    if [[ "$phase_label" == "backend-unit phase4 authoritative" ]]; then
+      phase4_manifest_calls=$((phase4_manifest_calls + 1))
+    fi
+  }
+  clear_go_selection_env() {
+    :
+  }
+  finish_target() {
+    finish_status="$1"
+    printf "assign_calls=%s raw_calls=%s support_calls=%s manifest_calls=%s phase4_manifest_calls=%s raw_phase4_calls=%s finish_status=%s\n" "$assign_calls" "$raw_calls" "$support_calls" "$manifest_calls" "$phase4_manifest_calls" "$raw_phase4_calls" "$finish_status"
+  }
+  run_backend_unit
+)"
+assert_contains "$backend_unit_structure" "assign_calls=3" "backend-unit shared capture count"
+assert_contains "$backend_unit_structure" "raw_calls=1" "backend-unit raw configtest count"
+assert_contains "$backend_unit_structure" "support_calls=4" "backend-unit support phase count"
+assert_contains "$backend_unit_structure" "phase4_manifest_calls=1" "backend-unit phase4 manifest phase count"
+assert_contains "$backend_unit_structure" "raw_phase4_calls=0" "backend-unit raw phase4 phase count"
+assert_contains "$backend_unit_structure" "finish_status=0" "backend-unit finish status"
+
 backend_store_structure="$(
   export NODE_BIN="$node_bin"
   source "$GO_TARGET_HELPER"
   assign_calls=0
   raw_calls=0
   manifest_calls=0
+  phase4_manifest_calls=0
   finish_status=""
   assign_captured_report() {
     local -n dir_ref="$1"
@@ -242,20 +294,25 @@ backend_store_structure="$(
     raw_calls=$((raw_calls + 1))
   }
   emit_go_manifest_phase() {
+    local phase_label="$1"
     manifest_calls=$((manifest_calls + 1))
+    if [[ "$phase_label" == "backend-store phase4 authoritative" ]]; then
+      phase4_manifest_calls=$((phase4_manifest_calls + 1))
+    fi
   }
   clear_go_selection_env() {
     :
   }
   finish_target() {
     finish_status="$1"
-    printf "assign_calls=%s raw_calls=%s manifest_calls=%s finish_status=%s\n" "$assign_calls" "$raw_calls" "$manifest_calls" "$finish_status"
+    printf "assign_calls=%s raw_calls=%s manifest_calls=%s phase4_manifest_calls=%s finish_status=%s\n" "$assign_calls" "$raw_calls" "$manifest_calls" "$phase4_manifest_calls" "$finish_status"
   }
   run_backend_store
 )"
 assert_contains "$backend_store_structure" "assign_calls=1" "backend-store single shared capture"
-assert_contains "$backend_store_structure" "raw_calls=1" "backend-store raw phase count"
-assert_contains "$backend_store_structure" "manifest_calls=3" "backend-store derived phase count"
+assert_contains "$backend_store_structure" "raw_calls=0" "backend-store raw phase count"
+assert_contains "$backend_store_structure" "manifest_calls=4" "backend-store derived phase count"
+assert_contains "$backend_store_structure" "phase4_manifest_calls=1" "backend-store phase4 manifest phase count"
 assert_contains "$backend_store_structure" "finish_status=0" "backend-store finish status"
 
 phase0_backend_unit_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase0 backend_unit ./internal/platform/... ./internal/app)"

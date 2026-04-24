@@ -152,6 +152,10 @@ if rg -q 'TestPhase0_.*_U_0_|TestPhase0_.*_I_0_|TestPhase0_.*_E_0_' "$makefile";
   fail "Makefile must not use regex-based Phase 0 Go selection"
 fi
 
+if rg -q 'TestPhase4_.*_U_4_' "$go_runner_script"; then
+  fail "scripts/run-go-target.sh must not use raw authoritative Phase 4 U-4-* Go selectors"
+fi
+
 if ! "$node_bin" - "$repo_root" <<'EOF'
 const fs = require("fs");
 const path = require("path");
@@ -279,6 +283,37 @@ for (const entry of phase2.integration ?? []) {
     process.exit(1);
   }
 }
+
+const phase4 = JSON.parse(
+  fs.readFileSync(path.join(root, "tools", "phase4_test_map.json"), "utf8"),
+);
+const phase4UnitDeps = new Map([
+  ["U-4-01", "backend_store"],
+  ["U-4-02", "backend_store"],
+  ["U-4-03", "backend_store"],
+  ["U-4-04", "backend_store"],
+  ["U-4-05", "backend_store"],
+  ["U-4-06", "backend_store"],
+  ["U-4-07", "backend_store"],
+  ["U-4-08", "backend_unit"],
+  ["U-4-09", "backend_unit"],
+]);
+for (const entry of phase4.unit ?? []) {
+  if (entry.coverage !== "authoritative" || entry.runner !== "go_test") {
+    continue;
+  }
+  const expected = phase4UnitDeps.get(entry.id);
+  if (!expected) {
+    console.error(`phase4 authoritative unit row ${entry.id} is missing a canonical execution_dependency expectation`);
+    process.exit(1);
+  }
+  if (entry.execution_dependency !== expected) {
+    console.error(
+      `phase4 authoritative unit row ${entry.id} must declare execution_dependency=${expected}`,
+    );
+    process.exit(1);
+  }
+}
 EOF
 then
   fail "Authoritative backend manifests must carry the canonical execution_dependency for their layer"
@@ -293,8 +328,10 @@ for expected in \
   'manifest_go_regex phase0 unit authoritative backend_unit ./internal/app' \
   'manifest_go_count phase1 unit authoritative backend_unit ./internal/platform/...' \
   'manifest_go_regex phase1 unit authoritative backend_unit ./internal/modules/auth' \
+  'manifest_go_regex phase4 unit authoritative backend_unit ./internal/app ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline' \
   'emit_go_manifest_phase "backend-unit phase2 authoritative"' \
   'emit_go_manifest_phase "backend-unit phase3 authoritative"' \
+  'emit_go_manifest_phase "backend-unit phase4 authoritative"' \
   'emit_declared_support_phase "backend-unit support phase0"' \
   'emit_declared_support_phase "backend-unit support phase1"' \
   'emit_declared_support_phase "backend-unit support phase2"' \
@@ -329,6 +366,8 @@ if ! printf '%s\n' "$backend_store_block" | grep -Fq '$(TEST_SERVICES_BIN) run -
   fail "backend-store must run through $(TEST_SERVICES_BIN) for suite-scoped services"
 fi
 for expected in \
+  'manifest_go_regex phase4 unit authoritative backend_store ./internal/modules/entities ./internal/modules/timeline' \
+  'emit_go_manifest_phase "backend-store phase4 authoritative"' \
   'emit_go_manifest_phase "backend-store phase2 authoritative"' \
   'emit_go_manifest_phase "backend-store phase1 authoritative"' \
   'emit_go_manifest_phase "backend-store phase3 authoritative"'
