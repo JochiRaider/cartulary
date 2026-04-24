@@ -88,9 +88,17 @@ type RouteIdempotencyRecord struct {
 	RouteKey     string
 	ScopeKey     string
 	ClientTxnID  string
+	ActorUserID  uuid.UUID
 	RequestHash  []byte
 	StatusCode   int
 	ResponseJSON []byte
+}
+
+type RouteIdempotencyKey struct {
+	RouteKey    string
+	ActorUserID uuid.UUID
+	ScopeKey    string
+	ClientTxnID string
 }
 
 type IncidentMembershipSummary struct {
@@ -719,22 +727,53 @@ RETURNING id
 	return result, nil
 }
 
-func (s *Store) GetRouteIdempotency(ctx context.Context, routeKey string, scopeKey string, clientTxnID string) (RouteIdempotencyRecord, error) {
+func (s *Store) GetRouteIdempotency(ctx context.Context, key RouteIdempotencyKey) (RouteIdempotencyRecord, error) {
 	row := s.pool.QueryRow(ctx, `
-SELECT route_key, scope_key, client_txn_id, request_hash, status_code, response_json
+SELECT route_key, scope_key, client_txn_id, actor_user_id, request_hash, status_code, response_json
   FROM route_idempotency
  WHERE route_key = $1
-   AND scope_key = $2
-   AND client_txn_id = $3
-`, routeKey, scopeKey, clientTxnID)
+   AND actor_user_id = $2
+   AND scope_key = $3
+   AND client_txn_id = $4
+`, key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID)
 	var record RouteIdempotencyRecord
-	if err := row.Scan(&record.RouteKey, &record.ScopeKey, &record.ClientTxnID, &record.RequestHash, &record.StatusCode, &record.ResponseJSON); err != nil {
+	if err := row.Scan(&record.RouteKey, &record.ScopeKey, &record.ClientTxnID, &record.ActorUserID, &record.RequestHash, &record.StatusCode, &record.ResponseJSON); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RouteIdempotencyRecord{}, ErrNotFound
 		}
 		return RouteIdempotencyRecord{}, err
 	}
 	return record, nil
+}
+
+// InsertRouteIdempotency stores one committed route result under a route-local
+// target scope. ScopeKey must not include ActorUserID; actor scoping is enforced
+// by the key and the database uniqueness constraint.
+func InsertRouteIdempotency(ctx context.Context, tx pgx.Tx, key RouteIdempotencyKey, targetUserID *uuid.UUID, requestHash []byte, statusCode int, responseJSON []byte) error {
+	_, err := tx.Exec(ctx, `
+INSERT INTO route_idempotency (
+    route_key, scope_key, client_txn_id, actor_user_id, target_user_id, request_hash, status_code, response_json
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+`, key.RouteKey, key.ScopeKey, key.ClientTxnID, key.ActorUserID, targetUserID, requestHash, statusCode, responseJSON)
+	return err
+}
+
+func InsertRouteIdempotencyPayload(ctx context.Context, tx pgx.Tx, key RouteIdempotencyKey, targetUserID *uuid.UUID, requestHash []byte, statusCode int, payload any) error {
+	responseJSON, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal idempotency payload: %w", err)
+	}
+	return InsertRouteIdempotency(ctx, tx, key, targetUserID, requestHash, statusCode, responseJSON)
+}
+
+func ActorOnlyRouteIdempotencyKey(routeKey string, actorUserID uuid.UUID, clientTxnID string) RouteIdempotencyKey {
+	return RouteIdempotencyKey{
+		RouteKey:    routeKey,
+		ActorUserID: actorUserID,
+		ScopeKey:    "actor",
+		ClientTxnID: clientTxnID,
+	}
 }
 
 func (s *Store) ChangePassword(
@@ -746,8 +785,8 @@ func (s *Store) ChangePassword(
 	requestID string,
 	now time.Time,
 ) (PasswordChangeResult, error) {
-	scopeKey := user.ID.String()
-	if existing, err := s.GetRouteIdempotency(ctx, "auth.password.change", scopeKey, clientTxnID); err == nil {
+	key := ActorOnlyRouteIdempotencyKey("auth.password.change", user.ID, clientTxnID)
+	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return PasswordChangeResult{}, ErrClientTxnConflict
 		}
@@ -819,12 +858,7 @@ RETURNING id
 		return PasswordChangeResult{}, fmt.Errorf("marshal password-change idempotency response: %w", err)
 	}
 
-	if _, err := tx.Exec(ctx, `
-INSERT INTO route_idempotency (
-    route_key, scope_key, client_txn_id, actor_user_id, target_user_id, request_hash, status_code, response_json
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-`, "auth.password.change", scopeKey, clientTxnID, user.ID, user.ID, requestHash, http.StatusOK, responseJSON); err != nil {
+	if err := InsertRouteIdempotency(ctx, tx, key, &user.ID, requestHash, http.StatusOK, responseJSON); err != nil {
 		if IsUniqueViolation(err) {
 			return PasswordChangeResult{}, ErrClientTxnConflict
 		}
@@ -890,8 +924,8 @@ func (s *Store) CreateUser(
 	requestID string,
 	now time.Time,
 ) (UserCreateResult, error) {
-	scopeKey := actor.ID.String()
-	if existing, err := s.GetRouteIdempotency(ctx, "users.create", scopeKey, clientTxnID); err == nil {
+	key := ActorOnlyRouteIdempotencyKey("users.create", actor.ID, clientTxnID)
+	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return UserCreateResult{}, ErrClientTxnConflict
 		}
@@ -953,12 +987,7 @@ VALUES ($1, $2, 'users.create', 'user_created', 'user_created', $3, $4, jsonb_bu
 		return UserCreateResult{}, err
 	}
 
-	if _, err := tx.Exec(ctx, `
-INSERT INTO route_idempotency (
-    route_key, scope_key, client_txn_id, actor_user_id, target_user_id, request_hash, status_code, response_json
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-`, "users.create", scopeKey, clientTxnID, actor.ID, created.ID, requestHash, http.StatusCreated, responseJSON); err != nil {
+	if err := InsertRouteIdempotency(ctx, tx, key, &created.ID, requestHash, http.StatusCreated, responseJSON); err != nil {
 		if IsUniqueViolation(err) {
 			return UserCreateResult{}, ErrClientTxnConflict
 		}
@@ -1115,8 +1144,13 @@ func (s *Store) AdminResetPassword(
 	requestID string,
 	now time.Time,
 ) (AdminPasswordResetResult, error) {
-	scopeKey := actor.ID.String() + ":" + targetUserID.String()
-	if existing, err := s.GetRouteIdempotency(ctx, "users.password.reset", scopeKey, clientTxnID); err == nil {
+	key := RouteIdempotencyKey{
+		RouteKey:    "users.password.reset",
+		ActorUserID: actor.ID,
+		ScopeKey:    targetUserID.String(),
+		ClientTxnID: clientTxnID,
+	}
+	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return AdminPasswordResetResult{}, ErrClientTxnConflict
 		}
@@ -1221,12 +1255,7 @@ RETURNING id
 	}
 	result.ResponseJSON = responseJSON
 
-	if _, err := tx.Exec(ctx, `
-INSERT INTO route_idempotency (
-    route_key, scope_key, client_txn_id, actor_user_id, target_user_id, request_hash, status_code, response_json
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-`, "users.password.reset", scopeKey, clientTxnID, actor.ID, targetUserID, requestHash, http.StatusOK, responseJSON); err != nil {
+	if err := InsertRouteIdempotency(ctx, tx, key, &targetUserID, requestHash, http.StatusOK, responseJSON); err != nil {
 		if IsUniqueViolation(err) {
 			return AdminPasswordResetResult{}, ErrClientTxnConflict
 		}
@@ -1256,8 +1285,13 @@ func (s *Store) AdminResetTOTP(
 	requestID string,
 	now time.Time,
 ) (AdminTOTPResetResult, error) {
-	scopeKey := actor.ID.String() + ":" + targetUserID.String()
-	if existing, err := s.GetRouteIdempotency(ctx, "users.totp.reset", scopeKey, clientTxnID); err == nil {
+	key := RouteIdempotencyKey{
+		RouteKey:    "users.totp.reset",
+		ActorUserID: actor.ID,
+		ScopeKey:    targetUserID.String(),
+		ClientTxnID: clientTxnID,
+	}
+	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return AdminTOTPResetResult{}, ErrClientTxnConflict
 		}
@@ -1345,12 +1379,7 @@ RETURNING id, email::text, display_name, password_hash, password_changed_at, mfa
 		return AdminTOTPResetResult{}, err
 	}
 
-	if _, err := tx.Exec(ctx, `
-INSERT INTO route_idempotency (
-    route_key, scope_key, client_txn_id, actor_user_id, target_user_id, request_hash, status_code, response_json
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-`, "users.totp.reset", scopeKey, clientTxnID, actor.ID, targetUserID, requestHash, http.StatusOK, responseJSON); err != nil {
+	if err := InsertRouteIdempotency(ctx, tx, key, &targetUserID, requestHash, http.StatusOK, responseJSON); err != nil {
 		if IsUniqueViolation(err) {
 			return AdminTOTPResetResult{}, ErrClientTxnConflict
 		}
@@ -1383,8 +1412,13 @@ func (s *Store) AdminRevokeAllSessions(
 	requestID string,
 	now time.Time,
 ) (AdminRevokeAllResult, error) {
-	scopeKey := actor.ID.String() + ":" + targetUserID.String()
-	if existing, err := s.GetRouteIdempotency(ctx, "users.sessions.revoke_all", scopeKey, clientTxnID); err == nil {
+	key := RouteIdempotencyKey{
+		RouteKey:    "users.sessions.revoke_all",
+		ActorUserID: actor.ID,
+		ScopeKey:    targetUserID.String(),
+		ClientTxnID: clientTxnID,
+	}
+	if existing, err := s.GetRouteIdempotency(ctx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return AdminRevokeAllResult{}, ErrClientTxnConflict
 		}
@@ -1418,12 +1452,7 @@ func (s *Store) AdminRevokeAllSessions(
 		return AdminRevokeAllResult{}, err
 	}
 
-	if _, err := tx.Exec(ctx, `
-INSERT INTO route_idempotency (
-    route_key, scope_key, client_txn_id, actor_user_id, target_user_id, request_hash, status_code, response_json
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-`, "users.sessions.revoke_all", scopeKey, clientTxnID, actor.ID, targetUserID, requestHash, http.StatusOK, responseJSON); err != nil {
+	if err := InsertRouteIdempotency(ctx, tx, key, &targetUserID, requestHash, http.StatusOK, responseJSON); err != nil {
 		if IsUniqueViolation(err) {
 			return AdminRevokeAllResult{}, ErrClientTxnConflict
 		}

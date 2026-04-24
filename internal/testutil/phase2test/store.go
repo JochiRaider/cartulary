@@ -137,7 +137,7 @@ func SnapshotIncidentCreateReplaySideEffects(
 		RouteIdempotencyRows: QueryCount(
 			t,
 			db,
-			`SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'incidents.create' AND scope_key = $1 AND client_txn_id = $2`,
+			`SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'incidents.create' AND actor_user_id::text = $1 AND scope_key = 'actor' AND client_txn_id = $2`,
 			selector.ActorUserID.String(),
 			selector.ClientTxnID,
 		),

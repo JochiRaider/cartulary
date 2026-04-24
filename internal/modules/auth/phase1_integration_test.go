@@ -318,7 +318,14 @@ func TestPhase1_CredentialStateAndBootstrapFlows_I_1_04(t *testing.T) {
 			t.Fatalf("expected password change to revoke all sessions, found %d active", activeSessions)
 		}
 
-		idempotencyCount := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2`, "auth.password.change", userID)
+		idempotencyCount := queryCount(t, db, `
+SELECT COUNT(*)
+  FROM route_idempotency
+ WHERE route_key = $1
+   AND actor_user_id::text = $2
+   AND scope_key = $3
+   AND client_txn_id = $4
+`, "auth.password.change", userID, "actor", "txn-password-change-1")
 		if idempotencyCount != 1 {
 			t.Fatalf("expected one password-change idempotency record, got %d", idempotencyCount)
 		}
@@ -1103,7 +1110,7 @@ func TestPhase1_UserCreateReplayReturnsOriginalCommittedResource_I_1_03(t *testi
 
 	requireArgon2PasswordHash(t, queryUserPasswordHash(t, db, targetUserID), "CreateReplayTarget1!", "WrongCreateReplay1!")
 
-	idempotency := lookupRouteIdempotency(t, db, "users.create", adminID, "txn-user-create-replay")
+	idempotency := lookupRouteIdempotency(t, db, "users.create", adminID, "actor", "txn-user-create-replay")
 	if idempotency.StatusCode != http.StatusCreated {
 		t.Fatalf("unexpected users.create idempotency status_code: got %d want %d", idempotency.StatusCode, http.StatusCreated)
 	}
@@ -1163,7 +1170,7 @@ func TestPhase1_UserCreateReplayReturnsOriginalCommittedResource_I_1_03(t *testi
 	replayAfterPatchData := httptestx.RequireSuccessEnvelope(t, replayAfterPatchResp, http.StatusOK)["data"].(map[string]any)
 	requireJSONEquivalent(t, replayAfterPatchData, createData)
 
-	if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND scope_key = $2 AND client_txn_id = $3`, "users.create", adminID, "txn-user-create-replay"); got != 1 {
+	if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, "users.create", adminID, "actor", "txn-user-create-replay"); got != 1 {
 		t.Fatalf("expected one users.create route_idempotency row, got %d", got)
 	}
 	if got := queryCount(t, db, `SELECT COUNT(*) FROM users WHERE email = $1`, "create-replay-target@example.test"); got != 1 {
@@ -1206,7 +1213,7 @@ func TestPhase1_PasswordChangeReplayAndStoredPayload_I_1_04(t *testing.T) {
 
 	requireArgon2PasswordHash(t, queryUserPasswordHash(t, db, userID), "PasswordReplayChanged1!", "PasswordReplay1!")
 
-	idempotency := lookupRouteIdempotency(t, db, "auth.password.change", userID, "txn-password-change-replay")
+	idempotency := lookupRouteIdempotency(t, db, "auth.password.change", userID, "actor", "txn-password-change-replay")
 	if idempotency.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected auth.password.change idempotency status_code: got %d want %d", idempotency.StatusCode, http.StatusOK)
 	}
@@ -1247,7 +1254,7 @@ func TestPhase1_PasswordChangeReplayAndStoredPayload_I_1_04(t *testing.T) {
 	divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 	httptestx.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
 
-	if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND scope_key = $2 AND client_txn_id = $3`, "auth.password.change", userID, "txn-password-change-replay"); got != 1 {
+	if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, "auth.password.change", userID, "actor", "txn-password-change-replay"); got != 1 {
 		t.Fatalf("expected one auth.password.change route_idempotency row, got %d", got)
 	}
 }
@@ -1262,7 +1269,7 @@ func TestPhase1_AdminPasswordResetReplayReturnsOriginalCommittedResource_I_1_05(
 	adminID := seedLocalUserFlags(t, db, "admin-password-replay@example.test", "Admin Password Replay", "AdminPasswordReplay1!", false, true, true)
 	adminSession, adminCSRF := loginLocalUser(t, server, "admin-password-replay@example.test", "AdminPasswordReplay1!", nil)
 	targetUserID := seedLocalUser(t, db, "target-password-replay@example.test", "Target Password Replay", "TargetPasswordReplay1!", false)
-	scopeKey := adminID + ":" + targetUserID
+	scopeKey := targetUserID
 
 	resetRequest := map[string]any{
 		"base_user_version": 1,
@@ -1282,7 +1289,7 @@ func TestPhase1_AdminPasswordResetReplayReturnsOriginalCommittedResource_I_1_05(
 
 	requireArgon2PasswordHash(t, queryUserPasswordHash(t, db, targetUserID), "TargetPasswordReplayChanged1!", "TargetPasswordReplay1!")
 
-	idempotency := lookupRouteIdempotency(t, db, "users.password.reset", scopeKey, "txn-admin-password-replay")
+	idempotency := lookupRouteIdempotency(t, db, "users.password.reset", adminID, scopeKey, "txn-admin-password-replay")
 	if idempotency.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected users.password.reset idempotency status_code: got %d want %d", idempotency.StatusCode, http.StatusOK)
 	}
@@ -1340,7 +1347,7 @@ func TestPhase1_AdminPasswordResetReplayReturnsOriginalCommittedResource_I_1_05(
 	replayAfterPatchData := httptestx.RequireSuccessEnvelope(t, replayAfterPatchResp, http.StatusOK)["data"].(map[string]any)
 	requireJSONEquivalent(t, replayAfterPatchData, resetData)
 
-	if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND scope_key = $2 AND client_txn_id = $3`, "users.password.reset", scopeKey, "txn-admin-password-replay"); got != 1 {
+	if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, "users.password.reset", adminID, scopeKey, "txn-admin-password-replay"); got != 1 {
 		t.Fatalf("expected one users.password.reset route_idempotency row, got %d", got)
 	}
 }
@@ -1356,7 +1363,7 @@ func TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05(t *testing.T) {
 		adminID := seedLocalUserFlags(t, db, "admin-totp-replay@example.test", "Admin TOTP Replay", "AdminTotpReplay1!", false, true, true)
 		adminSession, adminCSRF := loginLocalUser(t, server, "admin-totp-replay@example.test", "AdminTotpReplay1!", nil)
 		targetUserID := seedLocalUserWithActiveTOTP(t, db, "target-totp-replay@example.test", "Target TOTP Replay", "TargetTotpReplay1!", true, false, "JBSWY3DPEHPK3QBB")
-		scopeKey := adminID + ":" + targetUserID
+		scopeKey := targetUserID
 
 		resetRequest := map[string]any{
 			"base_user_version": 1,
@@ -1373,7 +1380,7 @@ func TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05(t *testing.T) {
 		)
 		resetData := httptestx.RequireSuccessEnvelope(t, resetResp, http.StatusOK)["data"].(map[string]any)
 
-		idempotency := lookupRouteIdempotency(t, db, "users.totp.reset", scopeKey, "txn-admin-totp-replay")
+		idempotency := lookupRouteIdempotency(t, db, "users.totp.reset", adminID, scopeKey, "txn-admin-totp-replay")
 		if idempotency.StatusCode != http.StatusOK {
 			t.Fatalf("unexpected users.totp.reset idempotency status_code: got %d want %d", idempotency.StatusCode, http.StatusOK)
 		}
@@ -1406,7 +1413,7 @@ func TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05(t *testing.T) {
 		divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 		httptestx.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
 
-		if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND scope_key = $2 AND client_txn_id = $3`, "users.totp.reset", scopeKey, "txn-admin-totp-replay"); got != 1 {
+		if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, "users.totp.reset", adminID, scopeKey, "txn-admin-totp-replay"); got != 1 {
 			t.Fatalf("expected one users.totp.reset route_idempotency row, got %d", got)
 		}
 	})
@@ -1422,7 +1429,7 @@ func TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05(t *testing.T) {
 		if targetSession == nil {
 			t.Fatal("expected target session cookie before revoke-all")
 		}
-		scopeKey := adminID + ":" + targetUserID
+		scopeKey := targetUserID
 
 		revokeRequest := map[string]any{
 			"client_txn_id": "txn-admin-revoke-replay",
@@ -1438,7 +1445,7 @@ func TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05(t *testing.T) {
 		)
 		revokeData := httptestx.RequireSuccessEnvelope(t, revokeResp, http.StatusOK)["data"].(map[string]any)
 
-		idempotency := lookupRouteIdempotency(t, db, "users.sessions.revoke_all", scopeKey, "txn-admin-revoke-replay")
+		idempotency := lookupRouteIdempotency(t, db, "users.sessions.revoke_all", adminID, scopeKey, "txn-admin-revoke-replay")
 		if idempotency.StatusCode != http.StatusOK {
 			t.Fatalf("unexpected users.sessions.revoke_all idempotency status_code: got %d want %d", idempotency.StatusCode, http.StatusOK)
 		}
@@ -1470,7 +1477,7 @@ func TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05(t *testing.T) {
 		divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 		httptestx.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
 
-		if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND scope_key = $2 AND client_txn_id = $3`, "users.sessions.revoke_all", scopeKey, "txn-admin-revoke-replay"); got != 1 {
+		if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, "users.sessions.revoke_all", adminID, scopeKey, "txn-admin-revoke-replay"); got != 1 {
 			t.Fatalf("expected one users.sessions.revoke_all route_idempotency row, got %d", got)
 		}
 	})
@@ -1938,7 +1945,7 @@ type routeIdempotencyRecord struct {
 	Response   map[string]any
 }
 
-func lookupRouteIdempotency(t testing.TB, db *sql.DB, routeKey string, scopeKey string, clientTxnID string) routeIdempotencyRecord {
+func lookupRouteIdempotency(t testing.TB, db *sql.DB, routeKey string, actorUserID string, scopeKey string, clientTxnID string) routeIdempotencyRecord {
 	t.Helper()
 
 	var (
@@ -1949,9 +1956,10 @@ func lookupRouteIdempotency(t testing.TB, db *sql.DB, routeKey string, scopeKey 
 SELECT status_code, response_json
   FROM route_idempotency
  WHERE route_key = $1
-   AND scope_key = $2
-   AND client_txn_id = $3
-`, routeKey, scopeKey, clientTxnID).Scan(&record.StatusCode, &responseJSON); err != nil {
+   AND actor_user_id::text = $2
+   AND scope_key = $3
+   AND client_txn_id = $4
+`, routeKey, actorUserID, scopeKey, clientTxnID).Scan(&record.StatusCode, &responseJSON); err != nil {
 		t.Fatalf("lookup route idempotency: %v", err)
 	}
 	record.Response = decodeJSONMap(t, responseJSON)

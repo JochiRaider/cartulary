@@ -43,7 +43,7 @@ type authStore interface {
 	GetPendingTOTPEnrollmentByID(context.Context, uuid.UUID) (*authn.PendingTOTPEnrollmentRecord, error)
 	BeginTOTPEnrollment(context.Context, uuid.UUID, string, *uuid.UUID, *uuid.UUID, string, []byte, []byte, bool, time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error)
 	ActivateTOTPEnrollment(context.Context, authn.UserRecord, uuid.UUID, string, *uuid.UUID, *uuid.UUID, time.Time) (authn.TOTPCompleteResult, error)
-	GetRouteIdempotency(context.Context, string, string, string) (authn.RouteIdempotencyRecord, error)
+	GetRouteIdempotency(context.Context, authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error)
 	ChangePassword(context.Context, authn.UserRecord, string, []byte, string, string, time.Time) (authn.PasswordChangeResult, error)
 	ListUsers(context.Context) ([]authn.UserRecord, error)
 	CreateUser(context.Context, authn.UserRecord, string, string, string, bool, bool, string, []byte, string, time.Time) (authn.UserCreateResult, error)
@@ -332,7 +332,8 @@ func (s *Service) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		"new_password":     requestSecretFingerprint(s.keys, request.NewPassword),
 		"second_factor":    requestSecondFactorHashPayload(s.keys, request.SecondFactor),
 	})
-	if existing, err := s.store.GetRouteIdempotency(r.Context(), "auth.password.change", principal.User.ID.String(), request.ClientTxnID); err == nil {
+	key := authn.ActorOnlyRouteIdempotencyKey("auth.password.change", principal.User.ID, request.ClientTxnID)
+	if existing, err := s.store.GetRouteIdempotency(r.Context(), key); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
 			writeAPIError(w, r, ClientTxnConflictError(request.ClientTxnID))
 			return

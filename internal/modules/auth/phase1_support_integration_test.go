@@ -178,7 +178,7 @@ func TestSupportPhase1_Integration_ReplayAndStoredPayloadSafety(t *testing.T) {
 
 			switch route.ID {
 			case phase1test.RoutePasswordChange:
-				idempotency := lookupRouteIdempotency(t, ctx.db, req.routeKey, req.scopeKey, req.clientTxnID)
+				idempotency := lookupRouteIdempotency(t, ctx.db, req.routeKey, req.actorUserID, req.scopeKey, req.clientTxnID)
 				if idempotency.StatusCode != route.SuccessStatus {
 					t.Fatalf("unexpected idempotency status for %s: got %d want %d", route.ID, idempotency.StatusCode, route.SuccessStatus)
 				}
@@ -191,7 +191,7 @@ func TestSupportPhase1_Integration_ReplayAndStoredPayloadSafety(t *testing.T) {
 				replayedData := httptestx.RequireSuccessEnvelope(t, replayedResp, http.StatusOK)["data"].(map[string]any)
 				requireJSONEquivalent(t, replayedData, firstData)
 
-				if got := queryCount(t, ctx.db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND scope_key = $2 AND client_txn_id = $3`, req.routeKey, req.scopeKey, req.clientTxnID); got != 1 {
+				if got := queryCount(t, ctx.db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, req.routeKey, req.actorUserID, req.scopeKey, req.clientTxnID); got != 1 {
 					t.Fatalf("expected one route_idempotency row for %s, got %d", route.ID, got)
 				}
 			case phase1test.RouteTOTPBegin:
@@ -224,7 +224,7 @@ func TestSupportPhase1_Integration_ReplayAndStoredPayloadSafety(t *testing.T) {
 					t.Fatalf("unexpected complete replay rejection for %s: got %v want consumed", route.ID, got)
 				}
 			default:
-				idempotency := lookupRouteIdempotency(t, ctx.db, req.routeKey, req.scopeKey, req.clientTxnID)
+				idempotency := lookupRouteIdempotency(t, ctx.db, req.routeKey, req.actorUserID, req.scopeKey, req.clientTxnID)
 				if idempotency.StatusCode != route.SuccessStatus {
 					t.Fatalf("unexpected idempotency status for %s: got %d want %d", route.ID, idempotency.StatusCode, route.SuccessStatus)
 				}
@@ -234,7 +234,7 @@ func TestSupportPhase1_Integration_ReplayAndStoredPayloadSafety(t *testing.T) {
 				replayedData := httptestx.RequireSuccessEnvelope(t, replayedResp, http.StatusOK)["data"].(map[string]any)
 				requireJSONEquivalent(t, replayedData, firstData)
 
-				if got := queryCount(t, ctx.db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND scope_key = $2 AND client_txn_id = $3`, req.routeKey, req.scopeKey, req.clientTxnID); got != 1 {
+				if got := queryCount(t, ctx.db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, req.routeKey, req.actorUserID, req.scopeKey, req.clientTxnID); got != 1 {
 					t.Fatalf("expected one route_idempotency row for %s, got %d", route.ID, got)
 				}
 			}
@@ -567,7 +567,7 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 			headers:            map[string]string{authn.CSRFHeaderName: login.csrfCookie.Value},
 			clientTxnID:        clientTxnID,
 			routeKey:           "auth.password.change",
-			scopeKey:           userID,
+			scopeKey:           "actor",
 			actorUserID:        userID,
 			targetUserID:       userID,
 			replayEmail:        email,
@@ -642,7 +642,7 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 			headers:     map[string]string{authn.CSRFHeaderName: c.adminCSRF.Value},
 			clientTxnID: clientTxnID,
 			routeKey:    "users.create",
-			scopeKey:    c.adminID,
+			scopeKey:    "actor",
 			actorUserID: c.adminID,
 			auditSource: "users.create",
 		}
@@ -685,7 +685,7 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 			headers:      map[string]string{authn.CSRFHeaderName: c.adminCSRF.Value},
 			clientTxnID:  clientTxnID,
 			routeKey:     "users.password.reset",
-			scopeKey:     c.adminID + ":" + targetUserID,
+			scopeKey:     targetUserID,
 			actorUserID:  c.adminID,
 			targetUserID: targetUserID,
 			auditSource:  "users.password.reset",
@@ -705,7 +705,7 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 			headers:      map[string]string{authn.CSRFHeaderName: c.adminCSRF.Value},
 			clientTxnID:  clientTxnID,
 			routeKey:     "users.totp.reset",
-			scopeKey:     c.adminID + ":" + targetUserID,
+			scopeKey:     targetUserID,
 			actorUserID:  c.adminID,
 			targetUserID: targetUserID,
 			auditSource:  "users.totp.reset",
@@ -724,7 +724,7 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 			headers:      map[string]string{authn.CSRFHeaderName: c.adminCSRF.Value},
 			clientTxnID:  clientTxnID,
 			routeKey:     "users.sessions.revoke_all",
-			scopeKey:     c.adminID + ":" + targetUserID,
+			scopeKey:     targetUserID,
 			actorUserID:  c.adminID,
 			targetUserID: targetUserID,
 			auditSource:  "users.sessions.revoke_all",
@@ -1116,7 +1116,7 @@ func (c *phase1SupportRouteContext) requireWritableStringNormalization(
 		replayedResp := c.do(t, replayReq)
 		replayedData := httptestx.RequireSuccessEnvelope(t, replayedResp, route.SuccessStatus)["data"].(map[string]any)
 		requireJSONEquivalent(t, replayedData, firstData)
-		if got := queryCount(t, c.db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND scope_key = $2 AND client_txn_id = $3`, req.routeKey, req.scopeKey, req.clientTxnID); got != 1 {
+		if got := queryCount(t, c.db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, req.routeKey, req.actorUserID, req.scopeKey, req.clientTxnID); got != 1 {
 			t.Fatalf("expected one route_idempotency row for %s, got %d", route.ID, got)
 		}
 	default:

@@ -443,6 +443,150 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 	})
 }
 
+func TestPhase3_I_3_12_RouteIdempotencyIsActorScoped(t *testing.T) {
+	runtime := phase3test.StartRuntime(t)
+	server, db := startPhase3Server(t, runtime, "phase3-idempotency-actor-scope")
+	defer db.Close()
+
+	adminLogin, adminID := provisionBootstrapAdmin(t, server)
+	editorID := seedLocalUserFlags(t, db, "phase3-actor-scope-editor@example.test", "Actor Scope Editor", "ActorScopeEditor1!", false, false, true)
+	incident := createIncident(t, server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase3-actor-scope-incident",
+		"incident_key":  "IR-ACTOR-SCOPE",
+		"title":         "Actor-scoped idempotency",
+	})
+	incidentID := incident["incident_id"].(string)
+	createMembership(t, server, incidentID, editorID, "phase3-actor-scope-editor@example.test", "editor", adminLogin)
+	editorSession, editorCSRF := loginLocalUser(t, server, "phase3-actor-scope-editor@example.test", "ActorScopeEditor1!")
+	editorLogin := loginResult{sessionCookie: editorSession, csrfCookie: editorCSRF}
+
+	createPayload := map[string]any{
+		"client_txn_id":    "txn-phase3-shared-row-create",
+		"timeline.summary": "shared create txn",
+	}
+	adminCreate := createTimelineRow(t, server, incidentID, adminLogin, createPayload)
+	editorCreate := createTimelineRow(t, server, incidentID, editorLogin, createPayload)
+	adminCreateRecordID := adminCreate["row"].(map[string]any)["record_id"].(string)
+	editorCreateRecordID := editorCreate["row"].(map[string]any)["record_id"].(string)
+	if adminCreateRecordID == editorCreateRecordID {
+		t.Fatalf("cross-actor row create must commit independent records, got %s", adminCreateRecordID)
+	}
+	for _, tc := range []struct {
+		login loginResult
+		want  map[string]any
+	}{
+		{login: adminLogin, want: adminCreate},
+		{login: editorLogin, want: editorCreate},
+	} {
+		resp := doPhase3JSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
+			createPayload,
+			withCookies(tc.login.sessionCookie, tc.login.csrfCookie),
+			withHeader(authn.CSRFHeaderName, tc.login.csrfCookie.Value),
+		)
+		replay := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+		if replay["change_set_id"] != tc.want["change_set_id"] {
+			t.Fatalf("create replay returned wrong actor payload: got %#v want %#v", replay, tc.want)
+		}
+	}
+	if got := queryCount(t, db, `
+SELECT COUNT(*)
+  FROM route_idempotency
+ WHERE route_key = $1
+   AND actor_user_id::text IN ($2, $3)
+   AND scope_key = $4
+   AND client_txn_id = $5
+`, "timeline.rows.create", adminID, editorID, incidentID+":"+timeline.TimelineViewSchemaID, "txn-phase3-shared-row-create"); got != 2 {
+		t.Fatalf("expected two actor-scoped create idempotency rows, got %d", got)
+	}
+
+	patchTarget := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
+		"client_txn_id":    "txn-phase3-actor-scope-patch-target",
+		"timeline.summary": "patch target",
+	})
+	patchRecordID := patchTarget["row"].(map[string]any)["record_id"].(string)
+	adminPatchPayload := map[string]any{
+		"view_schema_id":   timeline.TimelineViewSchemaID,
+		"base_row_version": 1,
+		"client_txn_id":    "txn-phase3-shared-row-patch",
+		"changes": []map[string]any{
+			{"field_key": "timeline.summary", "value": "admin patch"},
+		},
+	}
+	adminPatchResp := doPhase3JSON(
+		t,
+		http.MethodPatch,
+		server.HTTP.URL+"/api/v1/records/"+patchRecordID,
+		adminPatchPayload,
+		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+	)
+	adminPatch := httptestx.RequireSuccessEnvelope(t, adminPatchResp, http.StatusOK)["data"].(map[string]any)
+
+	editorPatchPayload := map[string]any{
+		"view_schema_id":   timeline.TimelineViewSchemaID,
+		"base_row_version": 2,
+		"client_txn_id":    "txn-phase3-shared-row-patch",
+		"changes": []map[string]any{
+			{"field_key": "timeline.details", "value": "editor patch"},
+		},
+	}
+	editorPatchResp := doPhase3JSON(
+		t,
+		http.MethodPatch,
+		server.HTTP.URL+"/api/v1/records/"+patchRecordID,
+		editorPatchPayload,
+		withCookies(editorLogin.sessionCookie, editorLogin.csrfCookie),
+		withHeader(authn.CSRFHeaderName, editorLogin.csrfCookie.Value),
+	)
+	editorPatch := httptestx.RequireSuccessEnvelope(t, editorPatchResp, http.StatusOK)["data"].(map[string]any)
+	if adminPatch["change_set_id"] == editorPatch["change_set_id"] {
+		t.Fatalf("cross-actor patch must commit independent change_sets, got %#v", adminPatch)
+	}
+	for _, tc := range []struct {
+		login   loginResult
+		payload map[string]any
+		want    map[string]any
+	}{
+		{login: adminLogin, payload: adminPatchPayload, want: adminPatch},
+		{login: editorLogin, payload: editorPatchPayload, want: editorPatch},
+	} {
+		resp := doPhase3JSON(
+			t,
+			http.MethodPatch,
+			server.HTTP.URL+"/api/v1/records/"+patchRecordID,
+			tc.payload,
+			withCookies(tc.login.sessionCookie, tc.login.csrfCookie),
+			withHeader(authn.CSRFHeaderName, tc.login.csrfCookie.Value),
+		)
+		replay := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+		if replay["change_set_id"] != tc.want["change_set_id"] {
+			t.Fatalf("patch replay returned wrong actor payload: got %#v want %#v", replay, tc.want)
+		}
+	}
+	if got := queryCount(t, db, `
+SELECT COUNT(*)
+  FROM route_idempotency
+ WHERE route_key = $1
+   AND actor_user_id::text IN ($2, $3)
+   AND scope_key = $4
+   AND client_txn_id = $5
+`, "timeline.records.patch", adminID, editorID, patchRecordID, "txn-phase3-shared-row-patch"); got != 2 {
+		t.Fatalf("expected two actor-scoped patch idempotency rows, got %d", got)
+	}
+	if got := queryCount(t, db, `
+SELECT COUNT(DISTINCT actor_user_id)
+  FROM route_idempotency
+ WHERE route_key IN ('timeline.rows.create', 'timeline.records.patch')
+   AND client_txn_id IN ('txn-phase3-shared-row-create', 'txn-phase3-shared-row-patch')
+   AND actor_user_id::text IN ($1, $2)
+`, adminID, editorID); got != 2 {
+		t.Fatalf("expected both actors represented in idempotency rows, got %d", got)
+	}
+}
+
 func TestPhase3_PatchSameFieldConflictEnvelope_I_3_04(t *testing.T) {
 	runtime := phase3test.StartRuntime(t)
 	server, db := startPhase3Server(t, runtime, "phase3-i-3-04-same-field-conflict")
@@ -517,7 +661,14 @@ func TestPhase3_PatchSameFieldConflictEnvelope_I_3_04(t *testing.T) {
 	if beforeConflict != afterConflict {
 		t.Fatalf("same-field HTTP conflict must not create writes: before=%#v after=%#v", beforeConflict, afterConflict)
 	}
-	if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'timeline.records.patch' AND client_txn_id = $1`, "txn-i-3-04-conflict-client"); got != 0 {
+	if got := queryCount(t, db, `
+SELECT COUNT(*)
+  FROM route_idempotency
+ WHERE route_key = 'timeline.records.patch'
+   AND actor_user_id::text = $1
+   AND scope_key = $2
+   AND client_txn_id = $3
+`, adminID, recordID, "txn-i-3-04-conflict-client"); got != 0 {
 		t.Fatalf("same-field HTTP conflict must not persist idempotency row, got %d", got)
 	}
 }

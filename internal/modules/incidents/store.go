@@ -227,8 +227,8 @@ SELECT incident_id, user_id, home_sheet_ref, created_at, updated_at
 }
 
 func (s *Store) CreateIncident(ctx context.Context, actor authn.UserRecord, request CreateIncidentRequest, requestHash []byte, requestID string, now time.Time) (CreateIncidentResult, error) {
-	scopeKey := IncidentCreateIdempotencyScope(actor.ID)
-	if existing, err := s.authStore.GetRouteIdempotency(ctx, "incidents.create", scopeKey, request.ClientTxnID); err == nil {
+	key := authn.ActorOnlyRouteIdempotencyKey("incidents.create", actor.ID, request.ClientTxnID)
+	if existing, err := s.authStore.GetRouteIdempotency(ctx, key); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
 			return CreateIncidentResult{}, authn.ErrClientTxnConflict
 		}
@@ -361,12 +361,7 @@ VALUES ($1, $2, NULL, $3, $3)
 	if err != nil {
 		return CreateIncidentResult{}, fmt.Errorf("marshal incident payload: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `
-INSERT INTO route_idempotency (
-    route_key, scope_key, client_txn_id, actor_user_id, target_user_id, request_hash, status_code, response_json
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-`, "incidents.create", scopeKey, request.ClientTxnID, actor.ID, actor.ID, requestHash, http.StatusCreated, responseJSON); err != nil {
+	if err := authn.InsertRouteIdempotency(ctx, tx, key, &actor.ID, requestHash, http.StatusCreated, responseJSON); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return CreateIncidentResult{}, authn.ErrClientTxnConflict
 		}
@@ -477,8 +472,14 @@ RETURNING id, incident_key, title, description, status, severity, tlp, current_p
 }
 
 func (s *Store) CreateMembership(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, targetUser authn.UserRecord, request MembershipCreateRequest, requestHash []byte, requestID string, now time.Time) (MembershipCreateResult, error) {
-	scopeKey := actor.ID.String() + ":" + incidentID.String()
-	if existing, err := s.authStore.GetRouteIdempotency(ctx, "incident.memberships.create", scopeKey, request.ClientTxnID); err == nil {
+	scopeKey := incidentID.String()
+	key := authn.RouteIdempotencyKey{
+		RouteKey:    "incident.memberships.create",
+		ActorUserID: actor.ID,
+		ScopeKey:    scopeKey,
+		ClientTxnID: request.ClientTxnID,
+	}
+	if existing, err := s.authStore.GetRouteIdempotency(ctx, key); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
 			return MembershipCreateResult{}, authn.ErrClientTxnConflict
 		}
@@ -526,7 +527,7 @@ SELECT m.incident_id, m.user_id, u.display_name, m.role, m.joined_at, m.added_by
 			return MembershipCreateResult{}, ErrMembershipExistsUsePatch
 		}
 		payload := BuildMembershipResource(current)
-		if err := insertRouteIdempotency(ctx, tx, "incident.memberships.create", scopeKey, request.ClientTxnID, &actor.ID, &targetUser.ID, requestHash, http.StatusOK, payload); err != nil {
+		if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, &targetUser.ID, requestHash, http.StatusOK, payload); err != nil {
 			if authn.IsUniqueViolation(err) {
 				return MembershipCreateResult{}, authn.ErrClientTxnConflict
 			}
@@ -572,7 +573,7 @@ RETURNING incident_id, user_id, $6::text AS display_name, role, joined_at, added
 	}); err != nil {
 		return MembershipCreateResult{}, err
 	}
-	if err := insertRouteIdempotency(ctx, tx, "incident.memberships.create", scopeKey, request.ClientTxnID, &actor.ID, &targetUser.ID, requestHash, http.StatusCreated, payload); err != nil {
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, &targetUser.ID, requestHash, http.StatusCreated, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return MembershipCreateResult{}, authn.ErrClientTxnConflict
 		}
@@ -783,22 +784,6 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 `, event.ActorUserID, event.TargetUserID, event.IncidentID, event.EventSource, event.EventKind, event.ReasonCode, event.ClientTxnID, event.RequestID, jsonOrNil(event.BeforeJSON), jsonOrNil(event.AfterJSON))
 	if err != nil {
 		return fmt.Errorf("insert incident audit event: %w", err)
-	}
-	return nil
-}
-
-func insertRouteIdempotency(ctx context.Context, tx pgx.Tx, routeKey string, scopeKey string, clientTxnID string, actorUserID *uuid.UUID, targetUserID *uuid.UUID, requestHash []byte, statusCode int, payload map[string]any) error {
-	responseJSON, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("marshal idempotency payload: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `
-INSERT INTO route_idempotency (
-    route_key, scope_key, client_txn_id, actor_user_id, target_user_id, request_hash, status_code, response_json
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-`, routeKey, scopeKey, clientTxnID, actorUserID, targetUserID, requestHash, statusCode, responseJSON); err != nil {
-		return fmt.Errorf("insert route idempotency: %w", err)
 	}
 	return nil
 }

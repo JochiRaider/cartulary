@@ -14,7 +14,7 @@ func TestSupportPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-membership-replay")
 
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
 	targetUserID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase2-membership-replay@example.test", "Replay Target", "ReplayTarget1!", false, false, true)
 	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-membership-replay-incident",
@@ -90,7 +90,14 @@ func TestSupportPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict
 	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE incident_id::text = $1 AND user_id::text = $2`, incidentID, targetUserID); got != 1 {
 		t.Fatalf("membership create replay must not duplicate rows, got %d", got)
 	}
-	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'incident.memberships.create' AND client_txn_id = $1`, "txn-membership-replay"); got != 1 {
+	if got := phase2test.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM route_idempotency
+ WHERE route_key = 'incident.memberships.create'
+   AND actor_user_id::text = $1
+   AND scope_key = $2
+   AND client_txn_id = $3
+`, adminID, incidentID, "txn-membership-replay"); got != 1 {
 		t.Fatalf("membership create replay must not duplicate idempotency rows, got %d", got)
 	}
 }

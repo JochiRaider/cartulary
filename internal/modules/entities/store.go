@@ -606,7 +606,13 @@ func scanIdentityQueryRecord(scanner interface {
 
 func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	scopeKey := incidentID.String() + ":" + HostsViewSchemaID
-	if existing, err := s.authStore.GetRouteIdempotency(ctx, hostCreateRouteKey, scopeKey, request.ClientTxnID); err == nil {
+	idempotencyKey := authn.RouteIdempotencyKey{
+		RouteKey:    hostCreateRouteKey,
+		ActorUserID: actor.ID,
+		ScopeKey:    scopeKey,
+		ClientTxnID: request.ClientTxnID,
+	}
+	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -693,7 +699,7 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 	}
 
 	payload := BuildMutationPayload(HostsViewSchemaID, changeSetID, afterRow)
-	if err := insertRouteIdempotency(ctx, tx, hostCreateRouteKey, scopeKey, request.ClientTxnID, actor.ID, requestHash, statusCode, payload); err != nil {
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, statusCode, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -714,7 +720,13 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 
 func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	scopeKey := incidentID.String() + ":" + IdentitiesViewSchemaID
-	if existing, err := s.authStore.GetRouteIdempotency(ctx, identityCreateRouteKey, scopeKey, request.ClientTxnID); err == nil {
+	idempotencyKey := authn.RouteIdempotencyKey{
+		RouteKey:    identityCreateRouteKey,
+		ActorUserID: actor.ID,
+		ScopeKey:    scopeKey,
+		ClientTxnID: request.ClientTxnID,
+	}
+	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -801,7 +813,7 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 	}
 
 	payload := BuildMutationPayload(IdentitiesViewSchemaID, changeSetID, afterRow)
-	if err := insertRouteIdempotency(ctx, tx, identityCreateRouteKey, scopeKey, request.ClientTxnID, actor.ID, requestHash, statusCode, payload); err != nil {
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, statusCode, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -1038,29 +1050,6 @@ SET incident_id = EXCLUDED.incident_id,
 `, record.RecordID, record.IncidentID, record.RowVersion, record.DisplayName, record.UPN, record.Email, record.SamAccountName, record.IdentityState, record.UpdatedAt.UTC())
 	if err != nil {
 		return fmt.Errorf("upsert identity projection: %w", err)
-	}
-	return nil
-}
-
-func insertRouteIdempotency(ctx context.Context, tx pgx.Tx, routeKey string, scopeKey string, clientTxnID string, actorUserID uuid.UUID, requestHash []byte, statusCode int, payload map[string]any) error {
-	responseJSON, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("marshal idempotency payload: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `
-INSERT INTO route_idempotency (
-    route_key,
-    scope_key,
-    client_txn_id,
-    actor_user_id,
-    target_user_id,
-    request_hash,
-    status_code,
-    response_json
-)
-VALUES ($1, $2, $3, $4, NULL, $5, $6, $7)
-`, routeKey, scopeKey, clientTxnID, actorUserID, requestHash, statusCode, responseJSON); err != nil {
-		return fmt.Errorf("insert route idempotency: %w", err)
 	}
 	return nil
 }

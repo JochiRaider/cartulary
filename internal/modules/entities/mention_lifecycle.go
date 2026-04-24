@@ -126,8 +126,14 @@ SELECT
 }
 
 func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, mentionID uuid.UUID, request MentionActionRequest, requestHash []byte, requestID string, now time.Time) (MentionActionResult, error) {
-	scopeKey := mentionIdempotencyScope(actor.ID, mentionID)
-	if existing, err := s.authStore.GetRouteIdempotency(ctx, mentionActionRouteKey, scopeKey, request.ClientTxnID); err == nil {
+	scopeKey := mentionIdempotencyScope(mentionID)
+	idempotencyKey := authn.RouteIdempotencyKey{
+		RouteKey:    mentionActionRouteKey,
+		ActorUserID: actor.ID,
+		ScopeKey:    scopeKey,
+		ClientTxnID: request.ClientTxnID,
+	}
+	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return MentionActionResult{}, authn.ErrClientTxnConflict
 		}
@@ -295,7 +301,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	}
 
 	payload := buildMentionActionPayload(mention.IncidentID, outcome.After, nextRecord.RecordID, nextRecord.RowVersion, changeSetID, outcome.ActiveLink)
-	if err := insertRouteIdempotency(ctx, tx, mentionActionRouteKey, scopeKey, request.ClientTxnID, actor.ID, requestHash, http.StatusOK, payload); err != nil {
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return MentionActionResult{}, authn.ErrClientTxnConflict
 		}
@@ -662,8 +668,8 @@ func mentionChangedFieldKeys(sourceFieldKey string) []string {
 	return keys
 }
 
-func mentionIdempotencyScope(actorUserID uuid.UUID, mentionID uuid.UUID) string {
-	return actorUserID.String() + ":" + mentionID.String()
+func mentionIdempotencyScope(mentionID uuid.UUID) string {
+	return mentionID.String()
 }
 
 func resolutionMethodPointer(value string) *string {

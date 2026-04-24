@@ -785,7 +785,7 @@ func TestPhase1_PasswordChangeRouteContracts_U_1_11(t *testing.T) {
 					IsActive:     true,
 				}, nil
 			},
-			getRouteIdempotencyFunc: func(context.Context, string, string, string) (authn.RouteIdempotencyRecord, error) {
+			getRouteIdempotencyFunc: func(context.Context, authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
 				return authn.RouteIdempotencyRecord{}, authn.ErrNotFound
 			},
 			changePasswordFunc: func(context.Context, authn.UserRecord, string, []byte, string, string, time.Time) (authn.PasswordChangeResult, error) {
@@ -824,7 +824,7 @@ func TestPhase1_PasswordChangeRouteContracts_U_1_11(t *testing.T) {
 				}
 				return activeSessionRecord(sessionID, userID, now), user, nil
 			},
-			getRouteIdempotencyFunc: func(context.Context, string, string, string) (authn.RouteIdempotencyRecord, error) {
+			getRouteIdempotencyFunc: func(context.Context, authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
 				return authn.RouteIdempotencyRecord{}, authn.ErrNotFound
 			},
 			changePasswordFunc: func(context.Context, authn.UserRecord, string, []byte, string, string, time.Time) (authn.PasswordChangeResult, error) {
@@ -868,7 +868,7 @@ func TestPhase1_PasswordChangeRouteContracts_U_1_11(t *testing.T) {
 				}
 				return activeSessionRecord(currentSessionID, userID, now), user, nil
 			},
-			getRouteIdempotencyFunc: func(context.Context, string, string, string) (authn.RouteIdempotencyRecord, error) {
+			getRouteIdempotencyFunc: func(context.Context, authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
 				return authn.RouteIdempotencyRecord{}, authn.ErrNotFound
 			},
 			changePasswordFunc: func(_ context.Context, actor authn.UserRecord, clientTxnID string, requestHash []byte, newPasswordHash string, requestID string, changedAt time.Time) (authn.PasswordChangeResult, error) {
@@ -980,10 +980,10 @@ func TestPhase1_PasswordChangeRouteContracts_U_1_11(t *testing.T) {
 					IsActive:     true,
 				}, nil
 			},
-			getRouteIdempotencyFunc: func(_ context.Context, routeKey string, scopeKey string, clientTxnID string) (authn.RouteIdempotencyRecord, error) {
+			getRouteIdempotencyFunc: func(_ context.Context, key authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
 				idempotencyLookups++
-				if routeKey != "auth.password.change" || scopeKey != userID.String() || clientTxnID != "txn-password-replay" {
-					t.Fatalf("unexpected idempotency lookup: route=%q scope=%q txn=%q", routeKey, scopeKey, clientTxnID)
+				if key.RouteKey != "auth.password.change" || key.ActorUserID != userID || key.ScopeKey != "actor" || key.ClientTxnID != "txn-password-replay" {
+					t.Fatalf("unexpected idempotency lookup: key=%#v", key)
 				}
 				return authn.RouteIdempotencyRecord{
 					RequestHash:  expectedHash,
@@ -1849,7 +1849,7 @@ type authStoreStub struct {
 	getPendingTOTPEnrollmentByIDFunc    func(context.Context, uuid.UUID) (*authn.PendingTOTPEnrollmentRecord, error)
 	beginTOTPEnrollmentFunc             func(context.Context, uuid.UUID, string, *uuid.UUID, *uuid.UUID, string, []byte, []byte, bool, time.Time) (authn.PendingTOTPEnrollmentRecord, bool, error)
 	activateTOTPEnrollmentFunc          func(context.Context, authn.UserRecord, uuid.UUID, string, *uuid.UUID, *uuid.UUID, time.Time) (authn.TOTPCompleteResult, error)
-	getRouteIdempotencyFunc             func(context.Context, string, string, string) (authn.RouteIdempotencyRecord, error)
+	getRouteIdempotencyFunc             func(context.Context, authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error)
 	changePasswordFunc                  func(context.Context, authn.UserRecord, string, []byte, string, string, time.Time) (authn.PasswordChangeResult, error)
 	listUsersFunc                       func(context.Context) ([]authn.UserRecord, error)
 	createUserFunc                      func(context.Context, authn.UserRecord, string, string, string, bool, bool, string, []byte, string, time.Time) (authn.UserCreateResult, error)
@@ -1911,8 +1911,8 @@ func (s *authStoreStub) ActivateTOTPEnrollment(ctx context.Context, user authn.U
 	return callStub6(s.activateTOTPEnrollmentFunc, ctx, user, enrollmentID, authScopeKind, sessionID, bootstrapTokenID, now)
 }
 
-func (s *authStoreStub) GetRouteIdempotency(ctx context.Context, routeKey string, scopeKey string, clientTxnID string) (authn.RouteIdempotencyRecord, error) {
-	return callStub3(s.getRouteIdempotencyFunc, ctx, routeKey, scopeKey, clientTxnID)
+func (s *authStoreStub) GetRouteIdempotency(ctx context.Context, key authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
+	return callStub1(s.getRouteIdempotencyFunc, ctx, key)
 }
 
 func (s *authStoreStub) ChangePassword(ctx context.Context, user authn.UserRecord, clientTxnID string, requestHash []byte, newPasswordHash string, requestID string, now time.Time) (authn.PasswordChangeResult, error) {

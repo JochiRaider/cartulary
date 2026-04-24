@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -91,8 +92,10 @@ func TestPhase4_ResolveRoute_I_4_01(t *testing.T) {
 SELECT COUNT(*)
   FROM route_idempotency
  WHERE route_key = $1
-   AND client_txn_id = $2
-`, "entities.entity_mentions.resolve", "txn-phase4-i-4-01-resolve"); got != 1 {
+   AND actor_user_id::text = $2
+   AND scope_key = $3
+   AND client_txn_id = $4
+`, "entities.entity_mentions.resolve", adminUserID.String(), golden.Phase4HostMentionID.String(), "txn-phase4-i-4-01-resolve"); got != 1 {
 			t.Fatalf("expected one route idempotency row for a replayed mention action, got %d", got)
 		}
 
@@ -1161,6 +1164,117 @@ UPDATE incident_memberships
 	})
 }
 
+func TestPhase4_I_4_12_EntityCreateIdempotencyIsActorScoped(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase4-entity-create-actor-scope")
+	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	editor := phase4test.SeedLocalUserFlags(t, harness.DB, "phase4-entity-scope-editor@example.test", "Entity Scope Editor", "EntityScopeEditor1!", false, false, true)
+	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase4-entity-scope-incident",
+		"incident_key":  "IR-E-ACTOR-SCOPE",
+		"title":         "Entity actor-scoped idempotency",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	phase4test.SeedIncidentMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
+	editorLogin := loginPhase4LocalUser(t, harness.Server, editor.Email, "EntityScopeEditor1!")
+
+	cases := []struct {
+		name       string
+		routeKey   string
+		viewSchema string
+		payload    func(label string) map[string]any
+	}{
+		{
+			name:       "hosts",
+			routeKey:   "entities.hosts.rows.create",
+			viewSchema: golden.Phase4HostsViewSchemaID,
+			payload: func(label string) map[string]any {
+				return map[string]any{
+					"client_txn_id":     "txn-phase4-shared-host-create",
+					"host.display_name": "Actor scoped host " + label,
+					"host.hostname":     "ACTOR-SCOPE-" + label,
+				}
+			},
+		},
+		{
+			name:       "identities",
+			routeKey:   "entities.identities.rows.create",
+			viewSchema: golden.Phase4IdentitiesViewSchemaID,
+			payload: func(label string) map[string]any {
+				return map[string]any{
+					"client_txn_id":         "txn-phase4-shared-identity-create",
+					"identity.display_name": "Actor Scoped " + label,
+					"identity.email":        "actor-scope-" + label + "@example.test",
+				}
+			},
+		},
+		{
+			name:       "indicators",
+			routeKey:   "entities.indicators.rows.create",
+			viewSchema: golden.Phase4IndicatorsViewSchemaID,
+			payload: func(label string) map[string]any {
+				value := "198.51.100.10"
+				if label == "editor" {
+					value = "198.51.100.11"
+				}
+				return map[string]any{
+					"client_txn_id":              "txn-phase4-shared-indicator-create",
+					"indicator.indicator_type":   golden.Phase4IndicatorTypeIPv4,
+					"indicator.value_kind":       golden.Phase4IndicatorValueKindAtomic,
+					"indicator.display_value":    value,
+					"indicator.normalized_value": value,
+					"indicator.defanged_value":   strings.ReplaceAll(value, ".", "[.]"),
+				}
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			adminPayload := tc.payload("admin")
+			editorPayload := tc.payload("editor")
+			adminCreate := createPhase4EntityRow(t, harness.Server.HTTP.URL, incidentID.String(), tc.viewSchema, adminLogin, adminPayload, http.StatusCreated)
+			editorCreate := createPhase4EntityRow(t, harness.Server.HTTP.URL, incidentID.String(), tc.viewSchema, editorLogin, editorPayload, http.StatusCreated)
+			adminRecordID := adminCreate["row"].(map[string]any)["record_id"].(string)
+			editorRecordID := editorCreate["row"].(map[string]any)["record_id"].(string)
+			if adminRecordID == editorRecordID {
+				t.Fatalf("cross-actor %s create must not replay another actor's row, got %s", tc.name, adminRecordID)
+			}
+
+			adminReplay := createPhase4EntityRow(t, harness.Server.HTTP.URL, incidentID.String(), tc.viewSchema, adminLogin, adminPayload, http.StatusOK)
+			if adminReplay["change_set_id"] != adminCreate["change_set_id"] {
+				t.Fatalf("admin %s replay returned wrong payload: got %#v want %#v", tc.name, adminReplay, adminCreate)
+			}
+			editorReplay := createPhase4EntityRow(t, harness.Server.HTTP.URL, incidentID.String(), tc.viewSchema, editorLogin, editorPayload, http.StatusOK)
+			if editorReplay["change_set_id"] != editorCreate["change_set_id"] {
+				t.Fatalf("editor %s replay returned wrong payload: got %#v want %#v", tc.name, editorReplay, editorCreate)
+			}
+
+			clientTxnID := adminPayload["client_txn_id"].(string)
+			scopeKey := incidentID.String() + ":" + tc.viewSchema
+			if got := phase4test.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM route_idempotency
+ WHERE route_key = $1
+   AND actor_user_id::text IN ($2, $3)
+   AND scope_key = $4
+   AND client_txn_id = $5
+`, tc.routeKey, adminUserID.String(), editor.ID.String(), scopeKey, clientTxnID); got != 2 {
+				t.Fatalf("expected two actor-scoped %s idempotency rows, got %d", tc.name, got)
+			}
+			if got := phase4test.QueryCount(t, harness.DB, `
+SELECT COUNT(DISTINCT actor_user_id)
+  FROM route_idempotency
+ WHERE route_key = $1
+   AND scope_key = $2
+   AND client_txn_id = $3
+   AND actor_user_id::text IN ($4, $5)
+`, tc.routeKey, scopeKey, clientTxnID, adminUserID.String(), editor.ID.String()); got != 2 {
+				t.Fatalf("expected both actors represented for %s idempotency, got %d", tc.name, got)
+			}
+		})
+	}
+}
+
 // I-4-07 / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
 func TestPhase4_IndicatorsRoute_I_4_07(t *testing.T) {
 	harness := phase4test.StartServer(t, "phase4-i-4-07-indicators")
@@ -1466,6 +1580,48 @@ func createIncident(t testing.TB, server *httptestx.Server, admin loginResult, b
 		withHeader(authn.CSRFHeaderName, admin.csrfCookie.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+}
+
+func createPhase4EntityRow(t testing.TB, serverURL string, incidentID string, viewSchemaID string, actor phase4test.LoginResult, body map[string]any, wantStatus int) map[string]any {
+	t.Helper()
+
+	resp := phase4test.DoJSON(
+		t,
+		http.MethodPost,
+		serverURL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/rows",
+		body,
+		phase4test.WithCookies(actor.SessionCookie, actor.CSRFCookie),
+		phase4test.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
+	)
+	return phase4test.RequireSuccessData(t, resp, wantStatus)
+}
+
+func loginPhase4LocalUser(t testing.TB, server *httptestx.Server, username string, password string) phase4test.LoginResult {
+	t.Helper()
+
+	resp := phase4test.DoJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+		"username": username,
+		"password": password,
+	})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("login failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
+	}
+	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
+
+	var sessionCookie *http.Cookie
+	var csrfCookie *http.Cookie
+	for _, cookie := range resp.Cookies() {
+		switch cookie.Name {
+		case authn.SessionCookieName:
+			sessionCookie = cookie
+		case authn.CSRFCookieName:
+			csrfCookie = cookie
+		}
+	}
+	if sessionCookie == nil || csrfCookie == nil {
+		t.Fatalf("expected login to set both session and csrf cookies, got %#v", resp.Cookies())
+	}
+	return phase4test.LoginResult{SessionCookie: sessionCookie, CSRFCookie: csrfCookie}
 }
 
 func requireBootstrapLogin(t testing.TB, server *httptestx.Server, username string, password string) string {

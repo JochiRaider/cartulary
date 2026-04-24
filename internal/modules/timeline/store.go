@@ -236,7 +236,13 @@ func (s *Store) SnapshotRecordSubstrate(ctx context.Context, recordID uuid.UUID)
 
 func (s *Store) CreateRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	scopeKey := incidentID.String() + ":" + TimelineViewSchemaID
-	if existing, err := s.authStore.GetRouteIdempotency(ctx, createRouteKey, scopeKey, request.ClientTxnID); err == nil {
+	idempotencyKey := authn.RouteIdempotencyKey{
+		RouteKey:    createRouteKey,
+		ActorUserID: actor.ID,
+		ScopeKey:    scopeKey,
+		ClientTxnID: request.ClientTxnID,
+	}
+	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -363,7 +369,7 @@ RETURNING record_id
 	}
 
 	payload := BuildMutationPayload(projected, changeSetID)
-	if err := insertRouteIdempotency(ctx, tx, createRouteKey, scopeKey, request.ClientTxnID, actor.ID, requestHash, http.StatusCreated, payload); err != nil {
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusCreated, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -390,7 +396,13 @@ RETURNING record_id
 }
 
 func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	if existing, err := s.authStore.GetRouteIdempotency(ctx, patchRouteKey, recordID.String(), request.ClientTxnID); err == nil {
+	idempotencyKey := authn.RouteIdempotencyKey{
+		RouteKey:    patchRouteKey,
+		ActorUserID: actor.ID,
+		ScopeKey:    recordID.String(),
+		ClientTxnID: request.ClientTxnID,
+	}
+	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -571,7 +583,7 @@ RETURNING recorded_at
 	}
 
 	payload := BuildMutationPayload(afterProjected, changeSetID)
-	if err := insertRouteIdempotency(ctx, tx, patchRouteKey, recordID.String(), request.ClientTxnID, actor.ID, requestHash, http.StatusOK, payload); err != nil {
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -992,7 +1004,13 @@ func (s *Store) applyAction(
 	replacementRecordID *uuid.UUID,
 	prepare func(sourceRecord) (sourceRecord, *links.SupersedesLink, *string, error),
 ) (MutationResult, error) {
-	if existing, err := s.authStore.GetRouteIdempotency(ctx, routeKey, recordID.String(), clientTxnID); err == nil {
+	idempotencyKey := authn.RouteIdempotencyKey{
+		RouteKey:    routeKey,
+		ActorUserID: actor.ID,
+		ScopeKey:    recordID.String(),
+		ClientTxnID: clientTxnID,
+	}
+	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -1149,7 +1167,7 @@ RETURNING recorded_at
 	}
 
 	payload := BuildActionPayload(afterProjected, changeSetID, effectiveReason)
-	if err := insertRouteIdempotency(ctx, tx, routeKey, recordID.String(), clientTxnID, actor.ID, requestHash, http.StatusOK, payload); err != nil {
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -2034,29 +2052,6 @@ func (s *Store) beforeCommit(routeKey string, recordID uuid.UUID) error {
 		return nil
 	}
 	return s.hooks.BeforeCommit(routeKey, recordID)
-}
-
-func insertRouteIdempotency(ctx context.Context, tx pgx.Tx, routeKey string, scopeKey string, clientTxnID string, actorUserID uuid.UUID, requestHash []byte, statusCode int, payload map[string]any) error {
-	responseJSON, err := jsonMarshal(payload)
-	if err != nil {
-		return fmt.Errorf("marshal idempotency payload: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `
-INSERT INTO route_idempotency (
-    route_key,
-    scope_key,
-    client_txn_id,
-    actor_user_id,
-    target_user_id,
-    request_hash,
-    status_code,
-    response_json
-)
-VALUES ($1, $2, $3, $4, NULL, $5, $6, $7)
-`, routeKey, scopeKey, clientTxnID, actorUserID, requestHash, statusCode, responseJSON); err != nil {
-		return fmt.Errorf("insert route idempotency: %w", err)
-	}
-	return nil
 }
 
 func versionID(recordID uuid.UUID, rowVersion int64) string {

@@ -453,9 +453,10 @@ SELECT COUNT(*)
 SELECT COUNT(*)
   FROM route_idempotency
  WHERE route_key = $1
-   AND scope_key = $2
-   AND client_txn_id = $3
-`, "timeline.records.patch", recordID, "txn-phase4-u-4-08-rollback-patch"); got != 0 {
+   AND actor_user_id::text = $2
+   AND scope_key = $3
+   AND client_txn_id = $4
+`, "timeline.records.patch", adminID, recordID, "txn-phase4-u-4-08-rollback-patch"); got != 0 {
 			t.Fatalf("rollback must not persist patch idempotency, got %d rows", got)
 		}
 		if got := queryCount(t, harness.DB, `
@@ -1005,7 +1006,7 @@ UPDATE incident_memberships
 
 	t.Run("client supplied confidence is rejected without side effects", func(t *testing.T) {
 		harness := phase4test.StartServer(t, "phase4-u-4-09-reject")
-		adminLogin, _ := provisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-09-reject-incident",
 			"incident_key":  "IR-PHASE4-U409-C",
@@ -1062,9 +1063,10 @@ UPDATE incident_memberships
 SELECT COUNT(*)
   FROM route_idempotency
  WHERE route_key = $1
-   AND scope_key = $2
-   AND client_txn_id = $3
-`, "timeline.records.patch", recordID, "txn-phase4-u-4-09-reject-patch"); got != 0 {
+   AND actor_user_id::text = $2
+   AND scope_key = $3
+   AND client_txn_id = $4
+`, "timeline.records.patch", adminID, recordID, "txn-phase4-u-4-09-reject-patch"); got != 0 {
 			t.Fatalf("rejected payload must not persist idempotency success state, got %d rows", got)
 		}
 		if got := queryCount(t, harness.DB, `

@@ -116,7 +116,7 @@ func TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomicall
 
 		harness := runtime.StartServer(t, "phase2-i-2-01-rollback")
 
-		adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+		adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
 		createResp := phase2test.DoJSON(
 			t,
 			http.MethodPost,
@@ -150,7 +150,14 @@ func TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomicall
 			phase2test.MutationOwnerIncidentResource,
 			phase2test.MutationOwnerIncidentMembership,
 		)
-		if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'incidents.create'`); got != 0 {
+		if got := phase2test.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM route_idempotency
+ WHERE route_key = 'incidents.create'
+   AND actor_user_id::text = $1
+   AND scope_key = 'actor'
+   AND client_txn_id = $2
+`, adminID, "txn-i-2-01-rollback"); got != 0 {
 			t.Fatalf("rollback must leave no create idempotency rows, got %d", got)
 		}
 	})

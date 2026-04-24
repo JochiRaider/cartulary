@@ -24,8 +24,8 @@ func DefaultIncidentCreateBootstrap() IncidentCreateBootstrap {
 	}
 }
 
-func IncidentCreateIdempotencyScope(actorUserID uuid.UUID) string {
-	return actorUserID.String()
+func IncidentCreateIdempotencyScope() string {
+	return "actor"
 }
 
 func IncidentCreateRequestHash(request CreateIncidentRequest) []byte {

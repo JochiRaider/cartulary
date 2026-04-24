@@ -334,7 +334,14 @@ func TestPhase3_PatchFieldLevelConcurrency_U_3_11(t *testing.T) {
 		if beforeConflict != afterConflict {
 			t.Fatalf("same-field conflict must not create writes: before=%#v after=%#v", beforeConflict, afterConflict)
 		}
-		if got := phase3test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'timeline.records.patch' AND client_txn_id = $1`, stalePatch.ClientTxnID); got != 0 {
+		if got := phase3test.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM route_idempotency
+ WHERE route_key = 'timeline.records.patch'
+   AND actor_user_id::text = $1
+   AND scope_key = $2
+   AND client_txn_id = $3
+`, actor.ID.String(), row.RecordID.String(), stalePatch.ClientTxnID); got != 0 {
 			t.Fatalf("same-field conflict must not persist idempotency row, got %d", got)
 		}
 	})

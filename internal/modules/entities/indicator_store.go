@@ -137,7 +137,13 @@ type indicatorUpsertInput struct {
 
 func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	scopeKey := incidentID.String() + ":" + IndicatorsViewSchemaID
-	if existing, err := s.authStore.GetRouteIdempotency(ctx, indicatorCreateRouteKey, scopeKey, request.ClientTxnID); err == nil {
+	idempotencyKey := authn.RouteIdempotencyKey{
+		RouteKey:    indicatorCreateRouteKey,
+		ActorUserID: actor.ID,
+		ScopeKey:    scopeKey,
+		ClientTxnID: request.ClientTxnID,
+	}
+	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -225,7 +231,7 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 	}
 
 	payload := BuildMutationPayload(IndicatorsViewSchemaID, changeSetID, afterRow)
-	if err := insertRouteIdempotency(ctx, tx, indicatorCreateRouteKey, scopeKey, request.ClientTxnID, actor.ID, requestHash, statusCode, payload); err != nil {
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, statusCode, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return MutationResult{}, authn.ErrClientTxnConflict
 		}

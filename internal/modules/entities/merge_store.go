@@ -209,8 +209,14 @@ SELECT incident_id
 }
 
 func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivorRecordID uuid.UUID, request MergeRequest, requestHash []byte, requestID string, now time.Time) (MergeResult, error) {
-	scopeKey := mergeScopeKey(actor.ID, survivorRecordID, request.LoserRecordID)
-	if existing, err := s.authStore.GetRouteIdempotency(ctx, mergeRouteKey, scopeKey, request.ClientTxnID); err == nil {
+	scopeKey := mergeScopeKey(survivorRecordID, request.LoserRecordID)
+	idempotencyKey := authn.RouteIdempotencyKey{
+		RouteKey:    mergeRouteKey,
+		ActorUserID: actor.ID,
+		ScopeKey:    scopeKey,
+		ClientTxnID: request.ClientTxnID,
+	}
+	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
 			return MergeResult{}, authn.ErrClientTxnConflict
 		}
@@ -702,7 +708,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	}
 	result.Payload = BuildMergePayload(result)
 
-	if err := insertRouteIdempotency(ctx, tx, mergeRouteKey, scopeKey, request.ClientTxnID, actor.ID, requestHash, http.StatusOK, result.Payload); err != nil {
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, result.Payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return MergeResult{}, authn.ErrClientTxnConflict
 		}
@@ -1827,8 +1833,8 @@ func loadUniqueSortedAliasTexts(values []string) []string {
 	return result
 }
 
-func mergeScopeKey(actorUserID uuid.UUID, survivorRecordID uuid.UUID, loserRecordID uuid.UUID) string {
-	return actorUserID.String() + ":" + survivorRecordID.String() + ":" + loserRecordID.String()
+func mergeScopeKey(survivorRecordID uuid.UUID, loserRecordID uuid.UUID) string {
+	return survivorRecordID.String() + ":" + loserRecordID.String()
 }
 
 func isLockUnavailable(err error) bool {
