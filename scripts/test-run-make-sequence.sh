@@ -54,6 +54,57 @@ assert_contains() {
   fi
 }
 
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  local label="$3"
+
+  if [[ "${haystack}" == *"${needle}"* ]]; then
+    fail "${label}: expected output not to contain [${needle}]"
+  fi
+}
+
+assert_file_absent() {
+  local path="$1"
+  local label="$2"
+
+  if [[ -e "${path}" ]]; then
+    fail "${label}: expected ${path} to be absent"
+  fi
+}
+
+assert_count() {
+  local actual="$1"
+  local expected="$2"
+  local label="$3"
+
+  assert_equals "${actual}" "${expected}" "${label}"
+}
+
+make_target_block() {
+  local target="$1"
+
+  awk -v target="${target}" '
+    $0 ~ "^" target ":" {
+      in_target = 1
+      print
+      next
+    }
+    in_target && /^[^[:space:]#][^:]*:/ {
+      exit
+    }
+    in_target {
+      print
+    }
+  ' "${ROOT_DIR}/Makefile"
+}
+
+line_count() {
+  local pattern="$1"
+
+  grep -Ec "${pattern}" "${ROOT_DIR}/Makefile"
+}
+
 write_fake_make() {
   local dir="$1"
 
@@ -110,7 +161,7 @@ success_output="$(
   FAKE_MAKE_LOG="${success_dir}/make.log" \
   CARTULARY_TEST_RESULTS_DIR="${success_results}" \
   CARTULARY_TEST_RUN_ID="success" \
-    "${SCRIPT}" --label smoke --summary-targets alpha,beta --step alpha --parallel-step beta:3 \
+    "${SCRIPT}" --label smoke --summary-targets " alpha, beta " --step alpha --parallel-step beta:3 \
     2>&1
 )"
 assert_contains "${success_output}" "[PASS] smoke" "success run summary output"
@@ -153,6 +204,54 @@ FAKE_MAKE_LOG="${dry_run_dir}/make.log" \
 CARTULARY_TEST_RESULTS_DIR="${dry_run_dir}/results" \
 CARTULARY_TEST_RUN_ID="dry-run" \
   "${SCRIPT}" --label dry-run --summary-targets alpha --step alpha
-if [[ -e "${dry_run_dir}/results/dry-run/run-summary.json" ]]; then
-  fail "dry-run: expected no run-summary JSON"
-fi
+assert_file_absent "${dry_run_dir}/results/dry-run/run-summary.json" "script dry-run summary"
+assert_contains "$(cat "${dry_run_dir}/make.log")" "--no-print-directory alpha" "script dry-run child make"
+
+invalid_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-invalid.XXXXXX")"
+cleanup_paths+=("${invalid_dir}")
+write_fake_make "${invalid_dir}"
+set +e
+invalid_output="$(
+  MAKE="${invalid_dir}/fake-make" \
+  FAKE_MAKE_LOG="${invalid_dir}/make.log" \
+    "${SCRIPT}" --label invalid --summary-targets alpha --parallel-step alpha \
+    2>&1
+)"
+invalid_status=$?
+set -e
+assert_equals "${invalid_status}" "2" "invalid usage status"
+assert_contains "${invalid_output}" "--parallel-step requires <target>:<jobs>" "invalid usage output"
+assert_file_absent "${invalid_dir}/make.log" "invalid usage child make log"
+
+makefile_content="$(cat "${ROOT_DIR}/Makefile")"
+assert_count "$(line_count '^TEST_SUMMARY_TARGETS :=')" "1" "test summary target list declaration"
+assert_count "$(line_count '^CHECK_SUMMARY_TARGETS :=')" "1" "check summary target list declaration"
+assert_count "$(line_count '^RUN_MAKE_SEQUENCE_SCRIPT :=')" "1" "run sequence helper declaration"
+
+test_block="$(make_target_block test)"
+check_block="$(make_target_block check)"
+assert_contains "${test_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "make test helper invocation"
+assert_contains "${test_block}" '--summary-targets "$(TEST_SUMMARY_TARGETS)"' "make test summary list"
+assert_contains "${test_block}" "--step test-fast --step browser-e2e" "make test sequence"
+assert_not_contains "${test_block}" "completed=" "make test inline completed counter"
+assert_not_contains "${test_block}" "total=" "make test inline total counter"
+assert_contains "${check_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "make check helper invocation"
+assert_contains "${check_block}" '--summary-targets "$(CHECK_SUMMARY_TARGETS)"' "make check summary list"
+assert_contains "${check_block}" "--step check-preflight --parallel-step check-heavy:\$(CHECK_JOBS) --step check-service-backed --step check-isolated" "make check sequence"
+assert_not_contains "${check_block}" "completed=" "make check inline completed counter"
+assert_not_contains "${check_block}" "total=" "make check inline total counter"
+assert_not_contains "${makefile_content}" "RUN_SUMMARY =" "unused run summary helper variable"
+assert_not_contains "${makefile_content}" "RUN_SUMMARY_CMD =" "unused run summary command variable"
+
+for target in test check; do
+  make_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-make-n-${target}.XXXXXX")"
+  cleanup_paths+=("${make_dry_run_dir}")
+  make_dry_run_output="$(
+    CARTULARY_TEST_RESULTS_DIR="${make_dry_run_dir}/results" \
+    CARTULARY_TEST_RUN_ID="make-n-${target}" \
+      make -n --no-print-directory "${target}" \
+      2>&1
+  )"
+  assert_contains "${make_dry_run_output}" "scripts/run-make-sequence.sh --label ${target}" "make -n ${target} helper command"
+  assert_file_absent "${make_dry_run_dir}/results/make-n-${target}/run-summary.json" "make -n ${target} summary"
+done
