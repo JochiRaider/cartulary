@@ -12,6 +12,8 @@
     "U-3-09",
     "U-3-10",
     "U-3-11",
+    "U-3-12",
+    "U-3-13",
     "U-3-GRID-01",
     "U-3-GRID-02",
     "U-3-GRID-03",
@@ -186,6 +188,28 @@
       "evidence_layer": "store_domain",
       "claim": "Stale Timeline patches derive committed writable field changes since the client base row version. Different-field edits rebase, same-field direct edits return `same_field_conflict`, collection fields use `collection_value_v1`, lifecycle-only stale edits apply against current state, and replay precedence remains idempotent.",
       "out_of_scope": "HTTP conflict envelope transport and browser-visible concurrent editing behavior remain integration or browser evidence."
+    },
+    {
+      "id": "U-3-12",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/WorkbookShell.phase3.test.tsx",
+      "title": "Phase 3 U-3-12 builds zero-field Timeline create payloads only for explicit blank-row creation",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component",
+      "claim": "The workbook create payload builder omits zero-field creates during ordinary draft autosave, but emits `client_txn_id`-only payloads for explicit blank-row creation.",
+      "out_of_scope": "Server-side zero-field validation and durable initial row state remain backend store or integration evidence."
+    },
+    {
+      "id": "U-3-13",
+      "coverage": "authoritative",
+      "runner": "vitest",
+      "file": "apps/web/src/WorkbookShell.phase3.test.tsx",
+      "title": "Phase 3 U-3-13 creates an explicit blank Timeline row with only client_txn_id and suppresses duplicate pending submits",
+      "execution_dependency": "frontend_unit",
+      "evidence_layer": "component",
+      "claim": "The workbook blank-row action submits exactly one pending `client_txn_id`-only create for a duplicate click burst and renders the committed rough Timeline row plus a fresh draft row.",
+      "out_of_scope": "Real browser create continuation remains `E-3-01`; backend replay and projection durability remain integration evidence."
     },
     {
       "id": "U-3-GRID-01",

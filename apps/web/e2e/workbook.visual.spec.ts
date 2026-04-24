@@ -3,9 +3,9 @@ import type { Page, TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
-  apiBase,
   createIncident,
   createViewRow,
+  holdBrowserApiRequest,
   patchTimelineRecord,
   uniqueIncidentKey,
   uniqueTxn,
@@ -156,23 +156,31 @@ test("visual workbook mention and save-state states", async ({
     page.getByTestId("timeline-grid-shell"),
   );
 
-  const delayedPatchRoute = `${apiBase}/api/v1/records/${resolvedRow.record_id}`;
-  await page.route(delayedPatchRoute, async (route) => {
-    await page.waitForTimeout(300);
-    await route.continue();
+  const heldPatch = await holdBrowserApiRequest(page, {
+    method: "PATCH",
+    path: `/api/v1/records/${resolvedRow.record_id}`,
   });
 
-  const summaryInput = page.getByTestId(`row-${resolvedRow.record_id}-summary`);
-  await summaryInput.fill("Save-state strip visual");
-  await summaryInput.press("Enter");
-  await expect(page.getByTestId("save-state")).toHaveText("Syncing");
-  await captureScreenshot(
-    page,
-    testInfo,
-    "workbook-save-state-strip",
-    page.locator('[data-testid="save-state"]').locator(".."),
-  );
-  await page.unroute(delayedPatchRoute);
+  try {
+    const summaryInput = page.getByTestId(
+      `row-${resolvedRow.record_id}-summary`,
+    );
+    await summaryInput.fill("Save-state strip visual");
+    await summaryInput.press("Enter");
+    await heldPatch.waitForHit;
+    await expect(page.getByTestId("save-state")).toHaveText("Syncing");
+    await captureScreenshot(
+      page,
+      testInfo,
+      "workbook-save-state-strip",
+      page.locator('[data-testid="save-state"]').locator(".."),
+    );
+    expect(heldPatch.hitCount()).toBe(1);
+    heldPatch.release();
+    await expect(page.getByTestId("save-state")).toHaveText("Saved");
+  } finally {
+    await heldPatch.dispose();
+  }
 });
 
 function collectionActionsPayload(tokens: readonly string[]) {

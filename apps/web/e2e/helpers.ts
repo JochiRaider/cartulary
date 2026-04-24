@@ -12,6 +12,7 @@ import {
   type Browser,
   expect,
   type Page,
+  type Route,
   request,
   type StorageState,
 } from "@playwright/test";
@@ -28,6 +29,13 @@ export const sessionCookieName = "cartulary_session";
 export const csrfCookieName = "cartulary_csrf";
 export const csrfHeaderName = "X-CSRF-Token";
 export const apiBase = "http://127.0.0.1:8080";
+
+type HeldBrowserAPIRequest = {
+  waitForHit: Promise<void>;
+  release: () => void;
+  dispose: () => Promise<void>;
+  hitCount: () => number;
+};
 
 const suiteAdminTotpStatePath = resolvePlaywrightStateFile(
   "cartulary-playwright-admin-totp.txt",
@@ -142,6 +150,61 @@ export async function applyCookies(page: Page, session: string, csrf: string) {
       sameSite: "Lax",
     },
   ]);
+}
+
+export function browserApiRoute(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `**${normalizedPath}`;
+}
+
+export async function holdBrowserApiRequest(
+  page: Page,
+  options: {
+    method: string;
+    path: string;
+  },
+): Promise<HeldBrowserAPIRequest> {
+  const routePattern = browserApiRoute(options.path);
+  const expectedMethod = options.method.toUpperCase();
+  let matchingHitCount = 0;
+  let hitResolved = false;
+  let releaseHold: (() => void) | null = null;
+  let resolveHit: (() => void) | null = null;
+  const waitForHit = new Promise<void>((resolve) => {
+    resolveHit = resolve;
+  });
+  const hold = new Promise<void>((resolve) => {
+    releaseHold = resolve;
+  });
+
+  const routeHandler = async (route: Route) => {
+    if (route.request().method().toUpperCase() !== expectedMethod) {
+      await route.fallback();
+      return;
+    }
+
+    matchingHitCount += 1;
+    if (!hitResolved) {
+      hitResolved = true;
+      resolveHit?.();
+    }
+    await hold;
+    await route.continue();
+  };
+
+  await page.route(routePattern, routeHandler);
+
+  return {
+    waitForHit,
+    release: () => {
+      releaseHold?.();
+    },
+    dispose: async () => {
+      releaseHold?.();
+      await page.unroute(routePattern, routeHandler);
+    },
+    hitCount: () => matchingHitCount,
+  };
 }
 
 export async function applyStorageState(

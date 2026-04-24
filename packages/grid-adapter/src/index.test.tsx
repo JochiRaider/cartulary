@@ -288,4 +288,66 @@ describe("grid-adapter", () => {
     expect(screen.getByTestId("row-action").textContent).toBe("record-1");
     expect(screen.getByTestId("editable-grid-shell")).toBeTruthy();
   });
+
+  it("survives jsdom layout measurement when row pending state rerenders the RDG grid", async () => {
+    function PendingGridHarness() {
+      const [pending, setPending] = useState(false);
+      const gridRows = useMemo<readonly GridRow<HarnessRow>[]>(
+        () => [
+          {
+            key: "draft-1",
+            recordId: null,
+            data: {
+              label: pending ? "Pending" : "Ready",
+              state: pending ? "pending" : "draft",
+            },
+            variant: "draft",
+          },
+        ],
+        [pending],
+      );
+      const actionsColumn = useMemo(
+        () => ({
+          label: "Actions",
+          renderCell: (row: GridRow<HarnessRow>) => (
+            <button
+              data-testid="pending-row-action"
+              disabled={row.data.state === "pending"}
+              type="button"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                setPending(true);
+              }}
+            >
+              {row.data.state}
+            </button>
+          ),
+        }),
+        [],
+      );
+
+      return (
+        <GridViewport testId="pending-grid-shell">
+          <GridTable
+            actionsColumn={actionsColumn}
+            columns={columns}
+            rows={gridRows}
+          />
+        </GridViewport>
+      );
+    }
+
+    render(<PendingGridHarness />);
+
+    expect(() => {
+      fireEvent.mouseDown(screen.getByTestId("pending-row-action"));
+    }).not.toThrow();
+
+    expect(
+      (await screen.findByRole("button", {
+        name: "pending",
+      })) as HTMLButtonElement,
+    ).toHaveProperty("disabled", true);
+    expect(screen.getByTestId("pending-grid-shell")).toBeTruthy();
+  });
 });

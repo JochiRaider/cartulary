@@ -12,6 +12,7 @@ import {
   createIncident,
   createViewRow,
   csrfHeaders,
+  holdBrowserApiRequest,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
@@ -117,44 +118,49 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
   await applyFilterChip(page, "timeline", "timeline.has_evidence", "false");
   await changeGrouping(page, "timeline", "timeline.capture_state");
 
-  const delayedPatchRoute = `${apiBase}/api/v1/records/${alphaRow.record_id}`;
-  await page.route(delayedPatchRoute, async (route) => {
-    await page.waitForTimeout(300);
-    await route.continue();
+  const heldPatch = await holdBrowserApiRequest(page, {
+    method: "PATCH",
+    path: `/api/v1/records/${alphaRow.record_id}`,
   });
 
-  const alphaSummary = page.getByTestId(`row-${alphaRow.record_id}-summary`);
-  await alphaSummary.fill("Zulu anchored");
-  await alphaSummary.press("Enter");
-  await expect(page.getByTestId("save-state")).toHaveText("Syncing");
+  try {
+    const alphaSummary = page.getByTestId(`row-${alphaRow.record_id}-summary`);
+    await alphaSummary.fill("Zulu anchored");
+    await alphaSummary.press("Enter");
+    await heldPatch.waitForHit;
+    await expect(page.getByTestId("save-state")).toHaveText("Syncing");
 
-  const betaVersion = Number.parseInt(
-    (await page
-      .getByTestId(`row-${betaRow.record_id}-row-version`)
-      .textContent()) ?? "0",
-    10,
-  );
-  const invalidationResponse = await page.request.patch(
-    `${apiBase}/api/v1/records/${betaRow.record_id}`,
-    {
-      headers: await csrfHeaders(page),
-      data: {
-        view_schema_id: timelineViewSchemaId,
-        base_row_version: betaVersion,
-        client_txn_id: uniqueTxn("s302-invalidation"),
-        changes: [
-          {
-            field_key: "timeline.details",
-            value: "Support invalidation",
-          },
-        ],
+    const betaVersion = Number.parseInt(
+      (await page
+        .getByTestId(`row-${betaRow.record_id}-row-version`)
+        .textContent()) ?? "0",
+      10,
+    );
+    const invalidationResponse = await page.request.patch(
+      `${apiBase}/api/v1/records/${betaRow.record_id}`,
+      {
+        headers: await csrfHeaders(page),
+        data: {
+          view_schema_id: timelineViewSchemaId,
+          base_row_version: betaVersion,
+          client_txn_id: uniqueTxn("s302-invalidation"),
+          changes: [
+            {
+              field_key: "timeline.details",
+              value: "Support invalidation",
+            },
+          ],
+        },
       },
-    },
-  );
-  expect(invalidationResponse.ok()).toBeTruthy();
+    );
+    expect(invalidationResponse.ok()).toBeTruthy();
 
-  await expect(page.getByTestId("save-state")).toHaveText("Saved");
-  await page.unroute(delayedPatchRoute);
+    expect(heldPatch.hitCount()).toBe(1);
+    heldPatch.release();
+    await expect(page.getByTestId("save-state")).toHaveText("Saved");
+  } finally {
+    await heldPatch.dispose();
+  }
   await expect(
     page.getByTestId(`row-${alphaRow.record_id}-row-version`),
   ).toHaveText("2");

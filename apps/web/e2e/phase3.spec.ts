@@ -1,4 +1,5 @@
 import { rowCellTestId } from "@cartulary/test-utils";
+import type { Route } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
@@ -49,6 +50,52 @@ test("E-3-01 creates a Timeline row in-grid and continues editing on the draft r
     page.getByTestId(rowCellTestId(committedRow.recordId, "summary")),
   ).toHaveValue("First browser fact");
   await expect(page.getByTestId("draft-row-summary")).toBeFocused();
+});
+
+test("E-3-01 supports explicit blank Timeline row creation with only client_txn_id", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E301BLANK"),
+    "Phase 3 E-3-01 blank create",
+  );
+
+  const createBodies: Record<string, unknown>[] = [];
+  const createRoute = `**/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`;
+  const routeHandler = async (route: Route) => {
+    createBodies.push(
+      route.request().postDataJSON() as Record<string, unknown>,
+    );
+    await route.fallback();
+  };
+  await page.route(createRoute, routeHandler);
+
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByText("Timeline mutation substrate")).toBeVisible();
+  await expect(page.getByTestId("save-state")).toHaveText("Saved");
+
+  await page.getByTestId("draft-row-create").click();
+  const committedRow = await waitForCommittedRowSummary(page, {
+    expectedSummary: "",
+    surface: "timeline",
+    timeoutMs: 5_000,
+  });
+
+  await expect(page.getByTestId("save-state")).toHaveText("Saved");
+  await expect(gridSavedRows(page, "timeline")).toHaveCount(1);
+  await expect(gridDraftRows(page, "timeline")).toHaveCount(1);
+  await expect(
+    page.getByTestId(rowCellTestId(committedRow.recordId, "summary")),
+  ).toHaveValue("");
+  await expect(
+    page.getByTestId(rowCellTestId(committedRow.recordId, "capture-state")),
+  ).toHaveText("rough");
+  expect(createBodies).toHaveLength(1);
+  expect(Object.keys(createBodies[0] ?? {})).toEqual(["client_txn_id"]);
+  expect(typeof createBodies[0]?.client_txn_id).toBe("string");
+
+  await page.unroute(createRoute, routeHandler);
 });
 
 test("E-3-03 drives review, demotion, and supersede through the visible workbook surface", async ({

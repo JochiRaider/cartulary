@@ -23,7 +23,8 @@ import {
 } from "@cartulary/view-contracts";
 import {
   type ChangeEvent,
-  type KeyboardEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   startTransition,
   useCallback,
   useEffect,
@@ -765,7 +766,15 @@ function buildCollectionActions(rawInput: string) {
   };
 }
 
-export function buildCreatePayload(row: WorkbookRow, clientTxnId: string) {
+type BuildCreatePayloadOptions = {
+  allowZeroFieldCreate?: boolean;
+};
+
+export function buildCreatePayload(
+  row: WorkbookRow,
+  clientTxnId: string,
+  options: BuildCreatePayloadOptions = {},
+) {
   const payload: Record<string, unknown> = {
     client_txn_id: clientTxnId,
   };
@@ -786,7 +795,7 @@ export function buildCreatePayload(row: WorkbookRow, clientTxnId: string) {
     }
   }
 
-  if (Object.keys(payload).length < 2) {
+  if (Object.keys(payload).length < 2 && !options.allowZeroFieldCreate) {
     return null;
   }
   return payload;
@@ -1163,6 +1172,44 @@ function RelationshipChip({
       <span>{label}</span>
       {isAutoResolved ? <span style={chipMetaStyle}>Auto</span> : null}
     </span>
+  );
+}
+
+function DraftRowCreateButton({
+  onCreate,
+  row,
+}: {
+  readonly onCreate: (row: WorkbookRow) => void;
+  readonly row: WorkbookRow;
+}) {
+  const createBlankRow = (
+    event:
+      | ReactKeyboardEvent<HTMLButtonElement>
+      | ReactMouseEvent<HTMLButtonElement>,
+  ) => {
+    if (event.currentTarget.disabled) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    onCreate(row);
+  };
+
+  return (
+    <button
+      data-testid="draft-row-create"
+      disabled={row.pendingSignature !== null}
+      style={actionButtonStyle}
+      type="button"
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          createBlankRow(event);
+        }
+      }}
+      onMouseDown={createBlankRow}
+    >
+      Create blank row
+    </button>
   );
 }
 
@@ -1992,13 +2039,15 @@ export function TimelineWorkbook({
       rowKey: string,
       focusField: keyof RowValues,
       options: {
+        allowZeroFieldCreate?: boolean;
         continueOnFreshDraft: boolean;
         preserveInputFocus: boolean;
+        snapshotOverride?: WorkbookRow;
       },
     ) => {
-      const snapshot = rowsRef.current.find(
-        (candidate) => candidate.key === rowKey,
-      );
+      const snapshot =
+        options.snapshotOverride ??
+        rowsRef.current.find((candidate) => candidate.key === rowKey);
       if (!snapshot) {
         return;
       }
@@ -2006,7 +2055,9 @@ export function TimelineWorkbook({
       const clientTxnId = nextClientTxnId();
       const payload =
         snapshot.recordId === null
-          ? buildCreatePayload(snapshot, clientTxnId)
+          ? buildCreatePayload(snapshot, clientTxnId, {
+              allowZeroFieldCreate: options.allowZeroFieldCreate === true,
+            })
           : buildScalarPatchPayload(snapshot, clientTxnId);
       if (payload === null) {
         return;
@@ -2029,14 +2080,16 @@ export function TimelineWorkbook({
       pendingSignaturesRef.current.set(rowKey, mutationSignature);
       beginSave();
 
-      setRows((current) => {
-        const nextRows = current.map((row) =>
-          row.key === rowKey
-            ? { ...row, pendingSignature: mutationSignature }
-            : row,
-        );
-        rowsRef.current = nextRows;
-        return nextRows;
+      startTransition(() => {
+        setRows((current) => {
+          const nextRows = current.map((row) =>
+            row.key === rowKey
+              ? { ...row, pendingSignature: mutationSignature }
+              : row,
+          );
+          rowsRef.current = nextRows;
+          return nextRows;
+        });
       });
 
       saveQueueRef.current = saveQueueRef.current
@@ -2398,7 +2451,7 @@ export function TimelineWorkbook({
 
   const handleKeyDown = useCallback(
     (
-      event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+      event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
       rowKey: string,
       focusField: keyof RowValues,
     ) => {
@@ -2415,7 +2468,7 @@ export function TimelineWorkbook({
 
   const handleCollectionKeyDown = useCallback(
     (
-      event: KeyboardEvent<HTMLInputElement>,
+      event: ReactKeyboardEvent<HTMLInputElement>,
       rowKey: string,
       fieldKey: CollectionFieldKey,
       draftKey: CollectionDraftKey,
@@ -2457,6 +2510,22 @@ export function TimelineWorkbook({
       setInspectorMessage(null);
     },
     [],
+  );
+
+  const handleCreateBlankDraftRow = useCallback(
+    (row: WorkbookRow) => {
+      const activeRow =
+        rowsRef.current.find((candidate) => candidate.key === row.key) ??
+        rowsRef.current.find((candidate) => candidate.recordId === null) ??
+        row;
+      queueScalarSave(activeRow.key, "summary", {
+        allowZeroFieldCreate: true,
+        continueOnFreshDraft: true,
+        preserveInputFocus: false,
+        snapshotOverride: activeRow,
+      });
+    },
+    [queueScalarSave],
   );
 
   const timelineBindingLabel = useCallback((fieldKey: string) => {
@@ -2764,7 +2833,12 @@ export function TimelineWorkbook({
       width: 176,
       renderCell: ({ data: row }) =>
         row.recordId === null ? (
-          <span style={bodyStyle}>Draft row</span>
+          <div style={actionStackStyle}>
+            <DraftRowCreateButton
+              onCreate={handleCreateBlankDraftRow}
+              row={row}
+            />
+          </div>
         ) : (
           <div style={actionStackStyle}>
             <button
@@ -2822,7 +2896,12 @@ export function TimelineWorkbook({
           </div>
         ),
     }),
-    [handleSelectRow, queueAction, replacementDrafts],
+    [
+      handleCreateBlankDraftRow,
+      handleSelectRow,
+      queueAction,
+      replacementDrafts,
+    ],
   );
 
   const timelineGridRows = useMemo<readonly GridRow<WorkbookRow>[]>(
