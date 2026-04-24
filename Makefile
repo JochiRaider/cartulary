@@ -105,7 +105,7 @@ WEB_BUILD_INPUTS := package.json pnpm-lock.yaml pnpm-workspace.yaml $(shell rg -
 TEST_SERVICES_BUILD_INPUTS := go.mod go.sum $(shell rg --files tools/testservices internal/testutil/pgtest internal/testutil/s3test internal/testutil/suiteservices internal/platform/postgres db/migrations 2>/dev/null)
 EMBEDDED_WEB_ASSET_DIR := $(CURDIR)/internal/platform/httpapi/webassets/dist
 EMBEDDED_WEB_ASSET_STAMP := $(CURDIR)/tmp/frontend-embed/web-assets.stamp
-CLEAN_PATHS := $(SERVER_BIN) $(MIGRATE_BIN) $(CURDIR)/apps/web/dist $(EMBEDDED_WEB_ASSET_STAMP) $(CARTULARY_TEST_RESULTS_DIR) $(CURDIR)/apps/web/test-results $(CURDIR)/tmp/web-e2e-lifecycle-smoke.* $(CURDIR)/tmp/vitest-json-sample.*
+CLEAN_PATHS := $(SERVER_BIN) $(MIGRATE_BIN) $(CURDIR)/apps/web/dist $(EMBEDDED_WEB_ASSET_STAMP) $(CARTULARY_TEST_RESULTS_DIR) $(CURDIR)/apps/web/test-results $(CURDIR)/tmp/dev-stack $(CURDIR)/tmp/dev-stack-lifecycle-smoke.* $(CURDIR)/tmp/web-e2e-lifecycle-smoke.* $(CURDIR)/tmp/vitest-json-sample.*
 DISTCLEAN_PATHS := $(CLEAN_PATHS) $(NODE_RUNTIME_DIR) $(TOOLBIN_DIR) $(CURDIR)/tmp/frontend-install $(CURDIR)/tmp/frontend-toolchain $(CURDIR)/tmp/playwright $(CURDIR)/tmp/frontend-embed $(CURDIR)/.cache $(CURDIR)/.pnpm-store $(CURDIR)/apps/web/.vite $(CURDIR)/playwright-report $(CURDIR)/apps/web/playwright-report $(CURDIR)/coverage $(CURDIR)/apps/web/coverage
 
 define guarded_remove_paths
@@ -358,9 +358,7 @@ db-reset:
 	$(Q)env CARTULARY_CONFIG_FILE=$(CONFIG_FILE) $(GO_RUN_ENV) $(GO) run ./cmd/migrate up
 
 dev: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)env CARTULARY_CONFIG_FILE=$(CONFIG_FILE) CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH=$(CURDIR)/configs/dev/bootstrap-admin.json $(GO_RUN_ENV) $(GO) run ./cmd/server & \
-	$(PNPM_RUN_ENV) $(PNPM) --dir apps/web dev & \
-	wait
+	$(Q)env GO=$(GO) CONFIG_FILE=$(CONFIG_FILE) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) PNPM=$(PNPM) ./scripts/dev-stack.sh
 
 generate: $(SQLC_BIN)
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
@@ -391,7 +389,7 @@ phase-ledger-drift: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(RUN_PHASE) "phase-ledger-drift" -- $(PNPM_ENV) env NODE_BIN=$(NODE_BIN) $(NODE_BIN) ./scripts/check-phase-ledger-drift.mjs
 
 run-phase-smoke: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-bootstrap-node-runtime.sh && ./scripts/test-run-make-sequence.sh && ./scripts/test-run-phase.sh && ./scripts/test-run-go-target.sh && ./scripts/test-print-target-plan.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh'
+	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-bootstrap-node-runtime.sh && ./scripts/test-run-make-sequence.sh && ./scripts/test-run-phase.sh && ./scripts/test-run-go-target.sh && ./scripts/test-print-target-plan.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh && ./scripts/test-dev-stack-lifecycle.sh'
 
 phase-test-name-check:
 	$(RUN_PHASE) "phase-test-name-check" -- ./scripts/check-phase-test-names.sh
@@ -623,6 +621,8 @@ distclean:
 		'  $(EMBEDDED_WEB_ASSET_STAMP)' \
 		'  $(CARTULARY_TEST_RESULTS_DIR)' \
 		'  $(CURDIR)/apps/web/test-results' \
+		'  $(CURDIR)/tmp/dev-stack' \
+		'  $(CURDIR)/tmp/dev-stack-lifecycle-smoke.*' \
 		'  $(CURDIR)/tmp/web-e2e-lifecycle-smoke.*' \
 		'  $(CURDIR)/tmp/vitest-json-sample.*' \
 		'  $(NODE_RUNTIME_DIR)' \
