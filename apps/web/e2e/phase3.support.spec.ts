@@ -178,6 +178,53 @@ test("support Phase 3 keeps a pending edit anchored to its record under sort, fi
   ).toBeVisible();
 });
 
+test("support Phase 3 keeps repeated scalar grid edits out of the RDG measured-width crash path", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("S303"),
+    "Phase 3 support RDG edit stability",
+  );
+  const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("s303-row"),
+    "timeline.summary": "RDG edit row",
+  });
+  const recordId = row.record_id as string;
+
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(`row-${recordId}-summary`)).toHaveValue(
+    "RDG edit row",
+  );
+
+  await expectNoPageCrashDuring(page, async () => {
+    for (const value of [
+      "RDG edit row patched 1",
+      "RDG edit row patched 2",
+      "RDG edit row patched 3",
+      "RDG edit row final",
+    ]) {
+      const summaryInput = page.getByTestId(`row-${recordId}-summary`);
+      await summaryInput.fill(value);
+      await expect(summaryInput).toHaveValue(value);
+      await expect(page.getByTestId(`timeline-row-${recordId}`)).toBeAttached();
+    }
+
+    const patchResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        response.url().endsWith(`/api/v1/records/${recordId}`),
+    );
+    await page.getByTestId(`row-${recordId}-summary`).press("Enter");
+    await patchResponse;
+  });
+
+  await expect(page.getByTestId(`row-${recordId}-row-version`)).toHaveText("2");
+  await expect(page.getByTestId(`row-${recordId}-summary`)).toHaveValue(
+    "RDG edit row final",
+  );
+});
+
 function waitForTimelineQuery(page: Page, incidentId: string) {
   return page.waitForRequest(
     (request) =>
@@ -192,4 +239,92 @@ function waitForTimelineQuery(page: Page, incidentId: string) {
 
 function readPostBody(request: { postData: () => string | null }) {
   return JSON.parse(request.postData() ?? "{}") as Record<string, unknown>;
+}
+
+type CrashMonitor = {
+  readonly promise: Promise<never>;
+  readonly stop: () => void;
+};
+
+async function expectNoPageCrashDuring(
+  page: Page,
+  action: () => Promise<void>,
+) {
+  const monitors = [rejectOnPageError(page), rejectOnAppRootEmpty(page)];
+  try {
+    await Promise.race([
+      action(),
+      ...monitors.map((monitor) => monitor.promise),
+    ]);
+  } finally {
+    for (const monitor of monitors) {
+      monitor.stop();
+    }
+  }
+}
+
+function rejectOnPageError(page: Page): CrashMonitor {
+  let rejectCrash!: (error: Error) => void;
+  const promise = new Promise<never>((_, reject) => {
+    rejectCrash = reject;
+  });
+  const listener = (error: Error) => {
+    rejectCrash(error);
+  };
+  page.on("pageerror", listener);
+  return {
+    promise,
+    stop: () => {
+      page.off("pageerror", listener);
+    },
+  };
+}
+
+function rejectOnAppRootEmpty(page: Page): CrashMonitor {
+  let stopped = false;
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  const promise = new Promise<never>((_, reject) => {
+    const checkRoot = () => {
+      if (stopped) {
+        return;
+      }
+      void page
+        .evaluate(() => {
+          const root = document.querySelector("#root");
+          return root === null || root.childElementCount === 0;
+        })
+        .then(
+          (isEmpty) => {
+            if (stopped) {
+              return;
+            }
+            if (isEmpty) {
+              reject(
+                new Error(
+                  "React app root was removed or emptied during grid edit.",
+                ),
+              );
+              return;
+            }
+            timeout = setTimeout(checkRoot, 50);
+          },
+          (error: unknown) => {
+            if (!stopped) {
+              reject(error instanceof Error ? error : new Error(String(error)));
+            }
+          },
+        );
+    };
+    checkRoot();
+  });
+
+  return {
+    promise,
+    stop: () => {
+      stopped = true;
+      if (timeout !== null) {
+        clearTimeout(timeout);
+      }
+    },
+  };
 }

@@ -1,19 +1,21 @@
 import {
-  forwardRef,
-  useMemo,
   type CSSProperties,
   type ForwardedRef,
+  forwardRef,
+  type Key,
   type MouseEventHandler,
   type PropsWithChildren,
   type ReactNode,
+  useCallback,
+  useMemo,
 } from "react";
 import {
-  type CellRendererProps as RDGCellRendererProps,
-  Cell as RDGCell,
   DataGrid,
-  Row as RDGRow,
+  Cell as RDGCell,
+  type CellRendererProps as RDGCellRendererProps,
   type Column as RDGColumn,
   type RenderRowProps as RDGRenderRowProps,
+  Row as RDGRow,
   type SortColumn as RDGSortColumn,
 } from "react-data-grid";
 
@@ -37,8 +39,8 @@ export type GridColumn<Row> = {
   readonly sortDisabled?: boolean | undefined;
   readonly sortDisabledReason?: string | null | undefined;
   readonly align?: "left" | "center" | "right" | undefined;
-  readonly minWidth?: number | string | undefined;
-  readonly width?: number | string | undefined;
+  readonly minWidth?: number | undefined;
+  readonly width?: number | undefined;
 };
 
 export type GridRow<Row> = {
@@ -54,7 +56,8 @@ export type GridRow<Row> = {
 export type GridActionsColumn<Row> = {
   readonly label: string;
   readonly renderCell: (row: GridRow<Row>) => ReactNode;
-  readonly minWidth?: number | string | undefined;
+  readonly minWidth?: number | undefined;
+  readonly width?: number | undefined;
 };
 
 export type GridViewportProps = PropsWithChildren<{
@@ -98,6 +101,10 @@ type AdapterGridDataRow<Row> = {
 type AdapterGridRow<Row> = AdapterGridGroupRow | AdapterGridDataRow<Row>;
 
 const actionsColumnKey = "__cartulary_actions__";
+const defaultDataColumnMinWidth = 144;
+const defaultDataColumnWidth = 224;
+const defaultActionsColumnMinWidth = 144;
+const defaultActionsColumnWidth = 176;
 
 export const GridViewport = forwardRef<HTMLDivElement, GridViewportProps>(
   function GridViewport(
@@ -133,7 +140,8 @@ export function GridTable<Row>({
   const totalColumnCount =
     columns.length + (actionsColumn === undefined ? 0 : 1);
   const firstColumnKey =
-    columns[0]?.fieldKey ?? (actionsColumn === undefined ? "" : actionsColumnKey);
+    columns[0]?.fieldKey ??
+    (actionsColumn === undefined ? "" : actionsColumnKey);
 
   const renderedRows = useMemo(
     () =>
@@ -193,53 +201,69 @@ export function GridTable<Row>({
   }, [actionsColumn, columns]);
 
   const sortColumns = useMemo(() => toRDGSortColumns(sort), [sort]);
+  const noRowsFallback = useMemo(
+    () => (
+      <div style={emptyStateStyle} data-grid-empty="true">
+        {emptyMessage}
+      </div>
+    ),
+    [emptyMessage],
+  );
+  const renderCell = useCallback(
+    (key: Key, props: RDGCellRendererProps<AdapterGridRow<Row>, unknown>) => {
+      const cellStyle =
+        props.row.kind === "group" && props.column.key === firstColumnKey
+          ? groupCellStyle
+          : (cellStylesByKey.get(props.column.key) ?? bodyCellStyle);
+      return <AdapterCell key={key} {...props} cellStyle={cellStyle} />;
+    },
+    [cellStylesByKey, firstColumnKey],
+  );
+  const renderRow = useCallback(
+    (key: Key, props: RDGRenderRowProps<AdapterGridRow<Row>, unknown>) => (
+      <AdapterRow
+        key={key}
+        {...props}
+        rowStyle={
+          props.row.kind === "group"
+            ? undefined
+            : rowStyleForVariant(props.row.gridRow)
+        }
+      />
+    ),
+    [],
+  );
+  const renderers = useMemo(
+    () => ({
+      noRowsFallback,
+      renderCell,
+      renderRow,
+    }),
+    [noRowsFallback, renderCell, renderRow],
+  );
+  const handleSortColumnsChange = useCallback(
+    (nextSortColumns: readonly RDGSortColumn[]) => {
+      const nextFieldKey = nextSortColumns[0]?.columnKey ?? sort[0]?.fieldKey;
+      if (nextFieldKey) {
+        onToggleSort?.(nextFieldKey);
+      }
+    },
+    [onToggleSort, sort],
+  );
 
   return (
     <DataGrid<AdapterGridRow<Row>, unknown>
       columns={rdgColumns}
       enableVirtualization={false}
-      renderers={{
-        noRowsFallback: (
-          <div style={emptyStateStyle} data-grid-empty="true">
-            {emptyMessage}
-          </div>
-        ),
-        renderCell: (key, props) => {
-          const cellStyle =
-            props.row.kind === "group" && props.column.key === firstColumnKey
-              ? groupCellStyle
-              : cellStylesByKey.get(props.column.key) ?? bodyCellStyle;
-          return <AdapterCell key={key} {...props} cellStyle={cellStyle} />;
-        },
-        renderRow: (key, props) => (
-          <AdapterRow
-            key={key}
-            {...props}
-            rowStyle={
-              props.row.kind === "group"
-                ? undefined
-                : rowStyleForVariant(props.row.gridRow)
-            }
-          />
-        ),
-      }}
-      rowHeight={(row: AdapterGridRow<Row>) =>
-        row.kind === "group" ? 48 : 168
-      }
-      rowKeyGetter={(row: AdapterGridRow<Row>) => row.key}
+      renderers={renderers}
+      rowHeight={gridRowHeight}
+      rowKeyGetter={gridRowKeyGetter}
       rows={renderedRows}
       sortColumns={sortColumns}
-      style={resolveGridStyle()}
+      style={gridStyle}
       headerRowHeight={56}
       onSortColumnsChange={
-        onToggleSort === undefined
-          ? undefined
-          : (nextSortColumns) => {
-              const nextFieldKey = nextSortColumns[0]?.columnKey ?? sort[0]?.fieldKey;
-              if (nextFieldKey) {
-                onToggleSort(nextFieldKey);
-              }
-            }
+        onToggleSort === undefined ? undefined : handleSortColumnsChange
       }
     />
   );
@@ -387,7 +411,9 @@ function buildRenderedRows<Row>({
   let activeGroupLabel: string | null = null;
 
   for (const row of rows) {
-    const nextGroupLabel = normalizeGroupLabel(getGroupLabel(row.data, groupBy));
+    const nextGroupLabel = normalizeGroupLabel(
+      getGroupLabel(row.data, groupBy),
+    );
     if (nextGroupLabel !== activeGroupLabel) {
       activeGroupLabel = nextGroupLabel;
       renderedRows.push({
@@ -426,7 +452,7 @@ function buildDataColumn<Row>({
 
   return {
     key: column.fieldKey,
-    minWidth: resolveNumericMinWidth(column.minWidth),
+    minWidth: column.minWidth ?? defaultDataColumnMinWidth,
     name: column.label,
     renderCell: ({ row }) => {
       if (row.kind === "group") {
@@ -467,7 +493,7 @@ function buildDataColumn<Row>({
       );
     },
     sortable: canToggleSort,
-    width: resolveColumnWidth(column.width, column.minWidth),
+    width: column.width ?? defaultDataColumnWidth,
     colSpan: (args) =>
       args.type === "ROW" &&
       args.row.kind === "group" &&
@@ -484,7 +510,7 @@ function buildActionsColumn<Row>({
 }: BuildActionsColumnProps<Row>): RDGColumn<AdapterGridRow<Row>, unknown> {
   return {
     key: actionsColumnKey,
-    minWidth: resolveNumericMinWidth(actionsColumn.minWidth),
+    minWidth: actionsColumn.minWidth ?? defaultActionsColumnMinWidth,
     name: actionsColumn.label,
     renderCell: ({ row }) => {
       if (row.kind === "group") {
@@ -501,7 +527,7 @@ function buildActionsColumn<Row>({
     },
     renderHeaderCell: () => <span>{actionsColumn.label}</span>,
     sortable: false,
-    width: resolveColumnWidth(undefined, actionsColumn.minWidth ?? "11rem"),
+    width: actionsColumn.width ?? defaultActionsColumnWidth,
     colSpan: (args) =>
       args.type === "ROW" &&
       args.row.kind === "group" &&
@@ -518,38 +544,12 @@ function resolveViewportStyle(style?: CSSProperties): CSSProperties {
   };
 }
 
-function resolveGridStyle(): CSSProperties {
-  const gridStyle: CSSProperties & Record<string, string | number> = {
-    blockSize: "auto",
-    minWidth: "78rem",
-  };
-
-  gridStyle["--rdg-background-color"] = "rgb(255 255 255 / 0.82)";
-  gridStyle["--rdg-border-color"] = "rgb(199 214 207)";
-  gridStyle["--rdg-header-background-color"] = "rgb(242 247 243)";
-  gridStyle["--rdg-row-hover-background-color"] = "rgb(247 250 248)";
-  gridStyle["--rdg-row-selected-background-color"] = "rgb(232 244 239)";
-  gridStyle["--rdg-row-selected-hover-background-color"] =
-    "rgb(232 244 239)";
-
-  return gridStyle;
+function gridRowHeight<Row>(row: AdapterGridRow<Row>) {
+  return row.kind === "group" ? 48 : 168;
 }
 
-function resolveColumnWidth(
-  width: number | string | undefined,
-  minWidth: number | string | undefined,
-) {
-  if (width !== undefined) {
-    return width;
-  }
-  if (typeof minWidth === "string") {
-    return minWidth;
-  }
-  return undefined;
-}
-
-function resolveNumericMinWidth(minWidth: number | string | undefined) {
-  return typeof minWidth === "number" ? minWidth : undefined;
+function gridRowKeyGetter<Row>(row: AdapterGridRow<Row>) {
+  return row.key;
 }
 
 function rowStyleForVariant<Row>(row: GridRow<Row>): CSSProperties | undefined {
@@ -562,7 +562,9 @@ function rowStyleForVariant<Row>(row: GridRow<Row>): CSSProperties | undefined {
   return undefined;
 }
 
-function toRDGSortColumns(sort: readonly GridSortEntry[]): readonly RDGSortColumn[] {
+function toRDGSortColumns(
+  sort: readonly GridSortEntry[],
+): readonly RDGSortColumn[] {
   return sort.map((entry) => ({
     columnKey: entry.fieldKey,
     direction: entry.direction === "asc" ? "ASC" : "DESC",
@@ -587,9 +589,7 @@ function sortStateForField(
   return sort.find((entry) => entry.fieldKey === fieldKey);
 }
 
-function normalizeGroupLabel(
-  value: string | null | undefined,
-): string | null {
+function normalizeGroupLabel(value: string | null | undefined): string | null {
   if (value === null || value === undefined) {
     return null;
   }
@@ -626,6 +626,18 @@ const viewportStyle = {
   background: "rgb(255 255 255 / 0.82)",
   maxHeight: "70vh",
 };
+
+const gridStyle = {
+  blockSize: "auto",
+  minWidth: "78rem",
+  width: "max-content",
+  "--rdg-background-color": "rgb(255 255 255 / 0.82)",
+  "--rdg-border-color": "rgb(199 214 207)",
+  "--rdg-header-background-color": "rgb(242 247 243)",
+  "--rdg-row-hover-background-color": "rgb(247 250 248)",
+  "--rdg-row-selected-background-color": "rgb(232 244 239)",
+  "--rdg-row-selected-hover-background-color": "rgb(232 244 239)",
+} satisfies CSSProperties & Record<string, string | number>;
 
 const headerContentBaseStyle = {
   display: "flex",

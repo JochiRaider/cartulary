@@ -469,6 +469,7 @@ type phase1SupportRequest struct {
 	route              phase1test.RouteInventoryEntry
 	path               string
 	body               any
+	rawBody            *string
 	cookies            []*http.Cookie
 	headers            map[string]string
 	clientTxnID        string
@@ -755,6 +756,7 @@ func (c *phase1SupportRouteContext) buildCSRFFailureRequest(t testing.TB, route 
 					},
 				},
 			},
+			rawBody:      malformedJSONBody(),
 			cookies:      []*http.Cookie{login.sessionCookie, login.csrfCookie},
 			headers:      map[string]string{},
 			actorUserID:  userID,
@@ -788,6 +790,7 @@ func (c *phase1SupportRouteContext) buildCSRFFailureRequest(t testing.TB, route 
 				"enrollment_id": beginData["enrollment_id"].(string),
 				"code":          generateTOTPCode(t, beginData["totp_setup"].(map[string]any)["secret_base32"].(string)),
 			},
+			rawBody:      malformedJSONBody(),
 			cookies:      []*http.Cookie{login.sessionCookie, login.csrfCookie},
 			headers:      map[string]string{},
 			actorUserID:  userID,
@@ -796,6 +799,9 @@ func (c *phase1SupportRouteContext) buildCSRFFailureRequest(t testing.TB, route 
 	default:
 		req := c.buildSuccessRequest(t, route)
 		delete(req.headers, authn.CSRFHeaderName)
+		if route.ID == phase1test.RoutePasswordChange {
+			req.rawBody = malformedJSONBody()
+		}
 		return req
 	}
 }
@@ -1134,7 +1140,23 @@ func (c *phase1SupportRouteContext) do(t testing.TB, req phase1SupportRequest) *
 	for key, value := range req.headers {
 		options = append(options, withHeader(key, value))
 	}
+	if req.rawBody != nil {
+		httpReq, err := http.NewRequest(req.route.Method, c.server.HTTP.URL+req.path, strings.NewReader(*req.rawBody))
+		if err != nil {
+			t.Fatalf("create raw json request: %v", err)
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+		for _, option := range options {
+			option(httpReq)
+		}
+		return httptestx.Do(t, http.DefaultClient, httpReq)
+	}
 	return doJSON(t, req.route.Method, c.server.HTTP.URL+req.path, req.body, options...)
+}
+
+func malformedJSONBody() *string {
+	body := "{"
+	return &body
 }
 
 func (c *phase1SupportRouteContext) userVersion(t testing.TB, userID string) int64 {

@@ -823,6 +823,63 @@ UPDATE incident_memberships
 	})
 }
 
+func TestPhase4_EntityCreateAuthAndCSRFFailBeforeMalformedBody_I_4_02(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase4-entity-create-auth-csrf-order")
+	adminLogin, _ := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase4-entity-create-auth-order-incident",
+		"incident_key":  "IR-AUTH-CSRF-ORDER",
+		"title":         "Entity create auth csrf ordering",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	socket := phase4test.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.Phase4HostsViewSchemaID, adminLogin.SessionCookie.Value)
+	defer socket.Close(1000, "test_complete")
+
+	type entityCreateFailureCounts struct {
+		Records        int
+		ChangeSets     int
+		MutationRows   int
+		HostProjection int
+	}
+	counts := func() entityCreateFailureCounts {
+		return entityCreateFailureCounts{
+			Records:        phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM records WHERE incident_id = $1`, incidentID),
+			ChangeSets:     phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID),
+			MutationRows:   phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations m JOIN change_sets c ON c.change_set_id = m.change_set_id WHERE c.incident_id = $1`, incidentID),
+			HostProjection: phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM host_grid_projection WHERE incident_id = $1`, incidentID),
+		}
+	}
+	before := counts()
+	url := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + golden.Phase4HostsViewSchemaID + "/rows"
+
+	unauthenticated := doEntitiesRawJSON(t, http.MethodPost, url, "{")
+	phase4test.RequireErrorBody(t, unauthenticated, http.StatusUnauthorized, "session_required")
+
+	missingCSRF := doEntitiesRawJSON(
+		t,
+		http.MethodPost,
+		url,
+		"{",
+		withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+	)
+	phase4test.RequireErrorBody(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
+
+	invalidCSRF := doEntitiesRawJSON(
+		t,
+		http.MethodPost,
+		url,
+		"{",
+		withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		withHeader(authn.CSRFHeaderName, "wrong-csrf-token"),
+	)
+	phase4test.RequireErrorBody(t, invalidCSRF, http.StatusForbidden, "csrf_verification_failed")
+
+	if after := counts(); after != before {
+		t.Fatalf("auth/csrf failures must not mutate entity state: before=%#v after=%#v", before, after)
+	}
+	phase4test.ExpectNoSocketMessage(t, socket)
+}
+
 // I-4-03 / REQ-01-181..REQ-01-195, REQ-02-064..REQ-02-066 / AC-023, AC-186, AC-209.
 func TestPhase4_ExplicitMergeRoute_I_4_03(t *testing.T) {
 	t.Run("host merge repoints live fan-out and preserves survivor reuse", func(t *testing.T) {
@@ -1707,6 +1764,20 @@ func doEntitiesJSON(t testing.TB, method string, url string, body any, options .
 	t.Helper()
 
 	req := httptestx.NewJSONRequest(t, method, url, body)
+	for _, option := range options {
+		option(req)
+	}
+	return httptestx.Do(t, http.DefaultClient, req)
+}
+
+func doEntitiesRawJSON(t testing.TB, method string, url string, body string, options ...func(*http.Request)) *http.Response {
+	t.Helper()
+
+	req, err := http.NewRequest(method, url, strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("create raw json request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
 	for _, option := range options {
 		option(req)
 	}

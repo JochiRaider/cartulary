@@ -676,6 +676,66 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     ).toBeTruthy();
   });
 
+  it("keeps the workbook mounted after committing a relationship-cell edit", async () => {
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "incident-1",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "record-1",
+            rowVersion: 1,
+            summary: "Alpha",
+            captureState: "reviewed",
+          }),
+        ],
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "change-set-relationship-commit",
+        row: timelineRow({
+          recordId: "record-1",
+          rowVersion: 2,
+          summary: "Alpha",
+          captureState: "reviewed",
+          hostRefs: [
+            unresolvedItem({
+              itemRef: "mention-host-new",
+              entityType: "host",
+              rawText: "WS-023",
+            }),
+          ],
+        }),
+      }),
+    );
+
+    render(
+      <TimelineWorkbook incidentId="incident-1" currentIncidentRole="admin" />,
+    );
+
+    const relationshipInput = (await screen.findByTestId(
+      "row-record-1-hostRefs-input",
+    )) as HTMLInputElement;
+    fireEvent.change(relationshipInput, { target: { value: "WS-023" } });
+    fireEvent.keyDown(relationshipInput, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("save-state").textContent).toBe("Saved");
+    });
+
+    expect(screen.getByTestId(gridShellTestId("timeline"))).toBeTruthy();
+    expect(screen.getByTestId("row-record-1-hostRefs-input")).toBeTruthy();
+    expect(
+      screen.getByTestId("row-record-1-hostRefs-items").textContent,
+    ).toContain("WS-023");
+    expect(screen.getByTestId(rowInspectButtonTestId("record-1"))).toBeTruthy();
+  });
+
   it("renders a dismissed mention restore action after the dismiss flow completes", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({

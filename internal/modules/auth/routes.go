@@ -317,13 +317,13 @@ func (s *Service) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	request, apiErr := DecodePasswordChangeRequest(r.Body)
+	principal, apiErr := s.authenticateSessionRequest(r, true)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	request, apiErr := DecodePasswordChangeRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -410,13 +410,13 @@ func (s *Service) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	request, apiErr := DecodeTOTPBeginRequest(r.Body)
+	authContext, apiErr := s.authenticateAuthRequest(r, true, true)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 
-	authContext, apiErr := s.authenticateAuthRequest(r, true, true)
+	request, apiErr := DecodeTOTPBeginRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -514,13 +514,13 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	request, apiErr := DecodeTOTPCompleteRequest(r.Body)
+	authContext, apiErr := s.authenticateAuthRequest(r, true, true)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 
-	authContext, apiErr := s.authenticateAuthRequest(r, true, true)
+	request, apiErr := DecodeTOTPCompleteRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return

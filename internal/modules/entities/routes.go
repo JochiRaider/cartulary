@@ -222,22 +222,18 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request, viewSchem
 		return
 	}
 
-	request, apiErr := DecodeCreateRequest(viewSchemaID, r.Body)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-
 	principal, apiErr := s.authenticateSessionRequest(r, true)
 	if apiErr != nil {
-		if apiErr.Code == "session_required" {
-			writeAPIError(w, r, invalidMutationPayload("payload", "session_required"))
-			return
-		}
 		writeAPIError(w, r, apiErr)
 		return
 	}
 	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+
+	request, apiErr := DecodeCreateRequest(viewSchemaID, r.Body)
+	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}

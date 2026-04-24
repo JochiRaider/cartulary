@@ -584,6 +584,34 @@ func TestPhase1_CSRFProtectionRoutes_U_1_09(t *testing.T) {
 			}
 		})
 	}
+
+	for _, route := range routes {
+		switch route.ID {
+		case phase1test.RoutePasswordChange, phase1test.RouteTOTPBegin, phase1test.RouteTOTPComplete:
+		default:
+			continue
+		}
+
+		t.Run(string(route.ID)+"/malformed_body_still_fails_csrf", func(t *testing.T) {
+			hub := &hubStub{}
+			service := newUnitService(t, &authStoreStub{
+				getSessionByFingerprintFunc: func(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error) {
+					t.Fatal("csrf failure must not look up the session")
+					return authn.SessionRecord{}, authn.UserRecord{}, nil
+				},
+			}, hub, keys, now)
+
+			recorder := httptest.NewRecorder()
+			request := newJSONRequest(t, route.Method, phase1test.BuildRoutePath(route.Template, fixture), `{`)
+			addSessionCookiesOnly(request, keys, token)
+			dispatchPhase1UnitRoute(t, service, route, recorder, request)
+
+			requireErrorEnvelope(t, recorder, http.StatusForbidden, "csrf_verification_failed", "")
+			if len(hub.revocations) != 0 {
+				t.Fatalf("csrf failure must not publish revocations, got %#v", hub.revocations)
+			}
+		})
+	}
 }
 
 func TestPhase1_CredentialStateRoute_U_1_10(t *testing.T) {

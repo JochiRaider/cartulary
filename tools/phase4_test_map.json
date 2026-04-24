@@ -172,10 +172,13 @@
       "runner": "go_test",
       "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_integration_test.go",
-      "symbol": "TestPhase4_EntityOriginUpsert_I_4_02",
+      "symbols": [
+        "TestPhase4_EntityOriginUpsert_I_4_02",
+        "TestPhase4_EntityCreateAuthAndCSRFFailBeforeMalformedBody_I_4_02"
+      ],
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
-      "claim": "Host and Identity create routes reuse exact matches, keep suggestion-only aliases non-authoritative, expose contract-conformant current-state rows, and rebuild deterministic entity projections through the real HTTP surface.",
+      "claim": "Host and Identity create routes reuse exact matches, keep suggestion-only aliases non-authoritative, expose contract-conformant current-state rows, reject unauthenticated or CSRF-invalid malformed create requests before body parsing without durable or websocket side effects, and rebuild deterministic entity projections through the real HTTP surface.",
       "out_of_scope": "End-user browser create flows remain browser evidence."
     },
     {
