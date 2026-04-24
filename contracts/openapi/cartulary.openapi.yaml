@@ -1,8 +1,8 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Cartulary Phase 3 Timeline Mutation HTTP Contract",
-    "version": "0.3.0-phase3",
+    "title": "Cartulary Phase 4 Base Mutation HTTP Contract",
+    "version": "0.4.0-phase4",
     "description": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority."
   },
   "paths": {
@@ -216,7 +216,7 @@
           "timeline"
         ],
         "operationId": "queryTimelineView",
-        "summary": "Query Timeline rows from the projection-backed Phase 3 workbook surface.",
+        "summary": "Query Timeline rows from the projection-backed workbook surface.",
         "requestBody": {
           "required": false,
           "content": {
@@ -244,37 +244,50 @@
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/rows": {
       "post": {
         "tags": [
-          "timeline"
+          "workbook"
         ],
-        "operationId": "createTimelineRow",
-        "summary": "Create one Timeline row through the Phase 3 view-scoped row-create route.",
+        "operationId": "createViewRow",
+        "summary": "Create one row through the view-scoped row-create route for Timeline, Host, Identity, or Indicator surfaces.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TimelineCreateRequest"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/TimelineCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/HostCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/IdentityCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/IndicatorCreateRequest"
+                  }
+                ]
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Created Timeline row refresh",
+            "description": "Created view row refresh",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TimelineMutationEnvelope"
+                  "$ref": "#/components/schemas/ViewMutationEnvelope"
                 }
               }
             }
           },
           "200": {
-            "description": "Idempotent Timeline row-create replay",
+            "description": "Idempotent view row-create replay",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TimelineMutationEnvelope"
+                  "$ref": "#/components/schemas/ViewMutationEnvelope"
                 }
               }
             }
@@ -314,7 +327,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TimelineMutationEnvelope"
+                  "$ref": "#/components/schemas/ViewMutationEnvelope"
                 }
               }
             }
@@ -408,6 +421,37 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RecordMergeEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/entity-mentions/{entity_mention_id}/resolve": {
+      "post": {
+        "tags": [
+          "entities"
+        ],
+        "operationId": "resolveEntityMention",
+        "summary": "Resolve, dismiss, or restore one entity mention with idempotent replay.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MentionActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Entity mention action response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MentionActionEnvelope"
                 }
               }
             }
@@ -597,6 +641,141 @@
               "string",
               "null"
             ]
+          },
+          "timeline.host_refs": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "timeline.identity_refs": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "timeline.tags": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "HostCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "host.display_name": {
+            "type": "string"
+          },
+          "host.aad_device_id": {
+            "type": "string"
+          },
+          "host.fqdn": {
+            "type": "string"
+          },
+          "host.hostname": {
+            "type": "string"
+          },
+          "host.aliases": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "host.host_state": {
+            "type": "string"
+          },
+          "host.location": {
+            "type": "string"
+          },
+          "host.os_platform": {
+            "type": "string"
+          },
+          "host.business_owner": {
+            "type": "string"
+          },
+          "host.criticality": {
+            "type": "string"
+          },
+          "host.containment_status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "IdentityCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "identity.display_name": {
+            "type": "string"
+          },
+          "identity.aad_object_id": {
+            "type": "string"
+          },
+          "identity.sid": {
+            "type": "string"
+          },
+          "identity.upn": {
+            "type": "string"
+          },
+          "identity.email": {
+            "type": "string"
+          },
+          "identity.sam_account_name": {
+            "type": "string"
+          },
+          "identity.aliases": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "identity.identity_state": {
+            "type": "string"
+          },
+          "identity.privilege_level": {
+            "type": "string"
+          },
+          "identity.mfa_state": {
+            "type": "string"
+          },
+          "identity.reset_status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "IndicatorCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "indicator.indicator_type": {
+            "type": "string"
+          },
+          "indicator.value_kind": {
+            "type": "string"
+          },
+          "indicator.display_value": {
+            "type": "string"
+          },
+          "indicator.normalized_value": {
+            "type": "string"
+          },
+          "indicator.defanged_value": {
+            "type": "string"
+          },
+          "indicator.hash_algorithm": {
+            "type": "string"
+          },
+          "indicator.hash_value": {
+            "type": "string"
+          },
+          "indicator.stix_pattern": {
+            "type": "string"
           }
         },
         "required": [
@@ -638,11 +817,161 @@
           "field_key": {
             "type": "string"
           },
-          "value": {}
+          "value": {},
+          "action_payload": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
         },
         "required": [
-          "field_key",
-          "value"
+          "field_key"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "value"
+            ],
+            "not": {
+              "required": [
+                "action_payload"
+              ]
+            }
+          },
+          {
+            "required": [
+              "action_payload"
+            ],
+            "not": {
+              "required": [
+                "value"
+              ]
+            }
+          }
+        ]
+      },
+      "CollectionActionsV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "collection_actions_v1"
+          },
+          "actions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/CollectionAddTokenAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionAddResolvedRefAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionResolveItemAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionDismissItemAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionRevertToUnresolvedAction"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "actions"
+        ]
+      },
+      "CollectionAddTokenAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_token"
+          },
+          "raw_text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "raw_text"
+        ]
+      },
+      "CollectionAddResolvedRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_resolved_ref"
+          },
+          "raw_text": {
+            "type": "string"
+          },
+          "resolved_record_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "op",
+          "raw_text",
+          "resolved_record_id"
+        ]
+      },
+      "CollectionResolveItemAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "resolve_item"
+          },
+          "item_ref": {
+            "type": "string"
+          },
+          "resolved_record_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
+        ]
+      },
+      "CollectionDismissItemAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "dismiss_item"
+          },
+          "item_ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
+        ]
+      },
+      "CollectionRevertToUnresolvedAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "revert_to_unresolved"
+          },
+          "item_ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
         ]
       },
       "TimelineActionRequest": {
@@ -865,7 +1194,136 @@
           "meta"
         ]
       },
-      "TimelineCell": {
+      "MentionActionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_mention_row_version": {
+            "type": "integer"
+          },
+          "client_txn_id": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "resolve_item",
+              "dismiss_item",
+              "revert_to_unresolved"
+            ]
+          },
+          "resolved_record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "base_mention_row_version",
+          "client_txn_id",
+          "action"
+        ]
+      },
+      "MentionActionData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entity_mention": {
+            "$ref": "#/components/schemas/EntityMentionResource"
+          },
+          "source_record": {
+            "$ref": "#/components/schemas/MentionSourceRecordResource"
+          },
+          "change_set_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "active_link": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "incident_id",
+          "entity_mention",
+          "source_record",
+          "change_set_id"
+        ]
+      },
+      "EntityMentionResource": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "entity_mention_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "row_version": {
+            "type": "integer"
+          },
+          "resolution_status": {
+            "type": "string"
+          },
+          "resolved_record_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "entity_mention_id",
+          "row_version",
+          "resolution_status",
+          "resolved_record_id"
+        ]
+      },
+      "MentionSourceRecordResource": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "row_version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "record_id",
+          "row_version"
+        ]
+      },
+      "MentionActionEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/MentionActionData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ViewCell": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -875,7 +1333,7 @@
           "value"
         ]
       },
-      "TimelineRow": {
+      "ViewRow": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -889,8 +1347,11 @@
           "cells": {
             "type": "object",
             "additionalProperties": {
-              "$ref": "#/components/schemas/TimelineCell"
+              "$ref": "#/components/schemas/ViewCell"
             }
+          },
+          "group_values": {
+            "type": "object"
           }
         },
         "required": [
@@ -898,6 +1359,12 @@
           "row_version",
           "cells"
         ]
+      },
+      "TimelineCell": {
+        "$ref": "#/components/schemas/ViewCell"
+      },
+      "TimelineRow": {
+        "$ref": "#/components/schemas/ViewRow"
       },
       "TimelineQueryData": {
         "type": "object",
@@ -913,7 +1380,7 @@
           "rows": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/TimelineRow"
+              "$ref": "#/components/schemas/ViewRow"
             }
           }
         },
@@ -939,19 +1406,25 @@
           "meta"
         ]
       },
-      "TimelineMutationData": {
+      "ViewMutationData": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "view_schema_id": {
-            "const": "cartulary.view.timeline.v1"
+            "type": "string",
+            "enum": [
+              "cartulary.view.timeline.v1",
+              "cartulary.view.hosts.v1",
+              "cartulary.view.identities.v1",
+              "cartulary.view.indicators.v1"
+            ]
           },
           "change_set_id": {
             "type": "string",
             "format": "uuid"
           },
           "row": {
-            "$ref": "#/components/schemas/TimelineRow"
+            "$ref": "#/components/schemas/ViewRow"
           }
         },
         "required": [
@@ -960,12 +1433,12 @@
           "row"
         ]
       },
-      "TimelineMutationEnvelope": {
+      "ViewMutationEnvelope": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/TimelineMutationData"
+            "$ref": "#/components/schemas/ViewMutationData"
           },
           "meta": {
             "$ref": "#/components/schemas/EnvelopeMeta"
@@ -975,6 +1448,12 @@
           "data",
           "meta"
         ]
+      },
+      "TimelineMutationData": {
+        "$ref": "#/components/schemas/ViewMutationData"
+      },
+      "TimelineMutationEnvelope": {
+        "$ref": "#/components/schemas/ViewMutationEnvelope"
       },
       "TimelineActionData": {
         "type": "object",
