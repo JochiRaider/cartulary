@@ -48,8 +48,22 @@ check_preflight_block="$(extract_target_block check-preflight)"
 if [[ -z "$check_preflight_block" ]]; then
   fail "Makefile must define a non-empty check-preflight block"
 fi
+if ! rg -q '^toolchain-drift:' "$makefile"; then
+  fail "Makefile must define toolchain-drift"
+fi
+if ! printf '%s\n' "$check_preflight_block" | rg -q 'toolchain-drift'; then
+  fail "check-preflight must invoke toolchain-drift"
+fi
 if ! printf '%s\n' "$check_preflight_block" | rg -q 'frontend-task-surface-check'; then
   fail "check-preflight must invoke frontend-task-surface-check"
+fi
+check_preflight_prereqs="$(extract_target_prereqs check-preflight)"
+if printf '%s\n' "$check_preflight_prereqs" | rg -q 'FRONTEND_INSTALL_STAMP'; then
+  fail "check-preflight must not depend directly on FRONTEND_INSTALL_STAMP"
+fi
+check_prereqs="$(extract_target_prereqs check)"
+if printf '%s\n' "$check_prereqs" | rg -q 'FRONTEND_INSTALL_STAMP'; then
+  fail "check must not depend directly on FRONTEND_INSTALL_STAMP"
 fi
 if ! rg -q '^phase-ledgers:' "$makefile"; then
   fail "Makefile must define phase-ledgers"

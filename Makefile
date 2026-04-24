@@ -4,7 +4,7 @@ SHELL := /bin/bash
 .PHONY: help doctor
 .PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install
 .PHONY: db-up db-reset dev
-.PHONY: generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-ledgers phase-ledger-drift
+.PHONY: generate generate-drift toolchain-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-ledgers phase-ledger-drift
 .PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check run-phase-smoke phase-test-name-check
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
@@ -164,6 +164,7 @@ help:
 		'generate:' \
 		'  make generate              regenerate sqlc and contract-derived outputs' \
 		'  make generate-drift        fail on generated artifact drift' \
+		'  make toolchain-drift       fail on repo-control toolchain pin drift' \
 		'  make migration-drift       verify migrations against a scratch database' \
 		'  make phase-ledgers         regenerate committed phase coverage ledgers' \
 		'  make phase-ledger-drift    fail on phase coverage ledger drift' \
@@ -369,6 +370,9 @@ generate: $(SQLC_BIN)
 generate-drift:
 	$(RUN_PHASE) "generate-drift" -- ./scripts/check-generate-drift.sh
 
+toolchain-drift: $(NODE_BIN)
+	$(Q)$(NODE_BIN) ./scripts/check-toolchain-pins.mjs
+
 # Migration drift covers schema-affecting changes not represented in /db/migrations
 # or migrations that fail to apply cleanly in CI.
 migration-drift: build-migrate
@@ -389,7 +393,7 @@ phase-ledger-drift: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(RUN_PHASE) "phase-ledger-drift" -- $(PNPM_ENV) env NODE_BIN=$(NODE_BIN) $(NODE_BIN) ./scripts/check-phase-ledger-drift.mjs
 
 run-phase-smoke: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-bootstrap-node-runtime.sh && ./scripts/test-run-make-sequence.sh && ./scripts/test-run-phase.sh && ./scripts/test-run-go-target.sh && ./scripts/test-print-target-plan.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh && ./scripts/test-dev-stack-lifecycle.sh'
+	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-check-toolchain-pins.sh && ./scripts/test-bootstrap-node-runtime.sh && ./scripts/test-run-make-sequence.sh && ./scripts/test-run-phase.sh && ./scripts/test-run-go-target.sh && ./scripts/test-print-target-plan.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh && ./scripts/test-dev-stack-lifecycle.sh'
 
 phase-test-name-check:
 	$(RUN_PHASE) "phase-test-name-check" -- ./scripts/check-phase-test-names.sh
@@ -541,7 +545,8 @@ lint-biome: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 
 lint-typecheck: frontend-typecheck
 
-check-preflight: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+check-preflight: $(NODE_BIN)
+	$(Q)$(MAKE) --no-print-directory toolchain-drift
 	$(Q)if [ "$(CI)" = "1" ]; then \
 		$(MAKE) --no-print-directory frontend-install-ci; \
 	else \
@@ -577,7 +582,7 @@ check-service-backed-lane-b: backend-store backend-process
 
 check-isolated: browser-e2e-stateful browser-e2e-measurement browser-e2e-visual
 
-check: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+check: $(NODE_BIN)
 	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label check --summary-targets "$(CHECK_SUMMARY_TARGETS)" --step check-preflight --parallel-step check-heavy:$(CHECK_JOBS) --step check-service-backed --step check-isolated
 
 ci:
