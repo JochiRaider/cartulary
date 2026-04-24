@@ -37,6 +37,23 @@ func TestStartWithRetryFailsFastOnPreflightError(t *testing.T) {
 	if !strings.Contains(err.Error(), "docker preflight postgres testcontainer") {
 		t.Fatalf("expected preflight failure message, got %q", err)
 	}
+
+	var startFailure *StartFailure
+	if !errors.As(err, &startFailure) {
+		t.Fatalf("expected StartFailure, got %T", err)
+	}
+	if startFailure.Operation != "docker preflight" {
+		t.Fatalf("unexpected operation: got %q", startFailure.Operation)
+	}
+	if startFailure.AttemptsStarted != 0 {
+		t.Fatalf("unexpected attempt count: got %d", startFailure.AttemptsStarted)
+	}
+	if startFailure.MaxAttempts != DefaultMaxAttempts {
+		t.Fatalf("unexpected max attempts: got %d want %d", startFailure.MaxAttempts, DefaultMaxAttempts)
+	}
+	if startFailure.Retryable {
+		t.Fatal("preflight failure must not be retryable")
+	}
 }
 
 func TestStartWithRetryRetriesTransientDockerStartupError(t *testing.T) {
@@ -76,6 +93,74 @@ func TestStartWithRetryRetriesTransientDockerStartupError(t *testing.T) {
 	}
 }
 
+func TestStartWithRetryReturnsOriginalCauseWhenContextExpiresDuringBackoff(t *testing.T) {
+	t.Parallel()
+
+	startCalls := 0
+	sleepCalls := 0
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+
+	retryableErr := errors.New(`wait until ready: get state: Get "http://%2Fvar%2Frun%2Fdocker.sock/v1.51/containers/id/json": context deadline exceeded`)
+
+	_, err := StartWithRetry(ctx, StartConfig{
+		Service: "minio testcontainer",
+		Image:   "minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		Preflight: func(context.Context) (string, error) {
+			return "unix:///var/run/docker.sock", nil
+		},
+		Sleep: func(ctx context.Context, _ time.Duration) error {
+			sleepCalls++
+			<-ctx.Done()
+			return ctx.Err()
+		},
+	}, func(context.Context) (int, error) {
+		startCalls++
+		return 0, retryableErr
+	})
+	if err == nil {
+		t.Fatal("expected retry-blocked failure")
+	}
+	if startCalls != 1 {
+		t.Fatalf("expected one startup attempt before context expiry, got %d", startCalls)
+	}
+	if sleepCalls != 1 {
+		t.Fatalf("expected one retry backoff wait, got %d", sleepCalls)
+	}
+
+	var startFailure *StartFailure
+	if !errors.As(err, &startFailure) {
+		t.Fatalf("expected StartFailure, got %T", err)
+	}
+	if !startFailure.Retryable {
+		t.Fatal("expected retryable startup classification")
+	}
+	if !startFailure.RetryBlockedByContext {
+		t.Fatal("expected retry to be blocked by context")
+	}
+	if startFailure.Cause != retryableErr {
+		t.Fatalf("expected original startup cause to be preserved, got %#v", startFailure.Cause)
+	}
+	if startFailure.AttemptsStarted != 1 || startFailure.MaxAttempts != DefaultMaxAttempts {
+		t.Fatalf("unexpected attempts: got %d/%d", startFailure.AttemptsStarted, startFailure.MaxAttempts)
+	}
+
+	message := err.Error()
+	for _, want := range []string{
+		"start minio testcontainer",
+		"image minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		"docker endpoint unix:///var/run/docker.sock",
+		"after 1/2 attempt(s)",
+		"retry blocked by context: context deadline exceeded",
+		`Get "http://%2Fvar%2Frun%2Fdocker.sock`,
+	} {
+		if !strings.Contains(message, want) {
+			t.Fatalf("expected error message to contain %q, got %q", want, message)
+		}
+	}
+}
+
 func TestStartWithRetryDoesNotRetryLogicalReadinessFailure(t *testing.T) {
 	t.Parallel()
 
@@ -96,6 +181,17 @@ func TestStartWithRetryDoesNotRetryLogicalReadinessFailure(t *testing.T) {
 	}
 	if startCalls != 1 {
 		t.Fatalf("expected one startup attempt, got %d", startCalls)
+	}
+
+	var startFailure *StartFailure
+	if !errors.As(err, &startFailure) {
+		t.Fatalf("expected StartFailure, got %T", err)
+	}
+	if startFailure.Retryable {
+		t.Fatal("logical readiness failure must not be retryable")
+	}
+	if startFailure.AttemptsStarted != 1 || startFailure.MaxAttempts != DefaultMaxAttempts {
+		t.Fatalf("unexpected attempts: got %d/%d", startFailure.AttemptsStarted, startFailure.MaxAttempts)
 	}
 }
 
@@ -123,7 +219,7 @@ func TestStartWithRetryFormatsFinalFailureWithContext(t *testing.T) {
 		"start minio testcontainer",
 		"image minio/minio:RELEASE.2025-09-07T16-13-09Z",
 		"docker endpoint unix:///var/run/docker.sock",
-		"after 2 attempt(s)",
+		"after 2/2 attempt(s)",
 		"connection refused",
 	} {
 		if !strings.Contains(message, want) {

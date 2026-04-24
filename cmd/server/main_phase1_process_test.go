@@ -11,7 +11,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase1test"
 	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
-	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
 const (
@@ -541,12 +540,12 @@ func phase1GenerateTOTPCode(t testing.TB, secretBase32 string) string {
 	return phase1test.GenerateTOTPCode(t, secretBase32)
 }
 
-func phase1ConnectSessionSocket(t testing.TB, server *processtest.Server, sessionToken string) *wstest.Client {
+func phase1ConnectSessionSocket(t testing.TB, server *processtest.Server, sessionToken string) *phase1test.SessionSocketClient {
 	t.Helper()
 	return phase1test.ConnectSessionSocket(t, phase1ServerURL(server), sessionToken)
 }
 
-func phase1ExpectSessionRevoked(t testing.TB, conn *wstest.Client, wantReasonCode string) {
+func phase1ExpectSessionRevoked(t testing.TB, conn *phase1test.SessionSocketClient, wantReasonCode string) {
 	t.Helper()
 	phase1test.ExpectSessionRevoked(t, conn, wantReasonCode)
 }

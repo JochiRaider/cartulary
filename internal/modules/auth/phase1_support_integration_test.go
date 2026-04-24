@@ -20,7 +20,6 @@ import (
 	phase1support "github.com/JochiRaider/cartulary/internal/testutil/phase1test"
 	phase1test "github.com/JochiRaider/cartulary/internal/testutil/phase1test/inventory"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
-	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
 func TestSupportPhase1_UserListUsesSnapshotStablePagination(t *testing.T) {
@@ -1192,7 +1191,7 @@ func (c *phase1SupportRouteContext) newSocketSession(
 	t testing.TB,
 	tag string,
 	activeTOTP bool,
-) (string, string, string, *http.Cookie, *http.Cookie, *wstest.Client) {
+) (string, string, string, *http.Cookie, *http.Cookie, *phase1support.SessionSocketClient) {
 	t.Helper()
 
 	if activeTOTP {

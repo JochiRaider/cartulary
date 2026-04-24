@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/base32"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -23,7 +24,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase1test"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
-	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
 func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
@@ -121,17 +121,20 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 	t.Run("sixth login revokes least recently used non-current session", func(t *testing.T) {
 		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-01-concurrency")
 		defer db.Close()
+		t.Cleanup(func() {
+			phase1test.ResetClockOffset(t, server.HTTP.URL)
+		})
 
 		userID := seedLocalUser(t, db, "analyst2@example.test", "Analyst Two", "ConcurrencyPass1!", false)
 
 		var firstSessionID string
 		for i := 0; i < 6; i++ {
+			phase1test.SetClockOffset(t, server.HTTP.URL, int64(i))
 			sessionCookie, _ := loginLocalUser(t, server, "analyst2@example.test", "ConcurrencyPass1!", nil)
 			if i == 0 {
 				firstSessionID = querySessionRow(t, db, userID).sessionID
 			}
 			_ = sessionCookie
-			time.Sleep(20 * time.Millisecond)
 		}
 
 		activeCount := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1 AND revoked_at IS NULL`, userID)
@@ -182,21 +185,40 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 	t.Run("concurrency limit revokes attached least recently used session socket", func(t *testing.T) {
 		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-02-concurrency-socket")
 		defer db.Close()
+		t.Cleanup(func() {
+			phase1test.ResetClockOffset(t, server.HTTP.URL)
+		})
 
 		userID := seedLocalUser(t, db, "socket-concurrency@example.test", "Socket Concurrency", "SocketConcurrencyPass1!", false)
 		sessionCookie, _ := loginLocalUser(t, server, "socket-concurrency@example.test", "SocketConcurrencyPass1!", nil)
 		firstSessionID := querySessionRow(t, db, userID).sessionID
+		if sessionCount := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1`, userID); sessionCount != 1 {
+			t.Fatalf("expected one session row after initial login, got %d; sessions=%s", sessionCount, formatUserSessions(t, db, userID))
+		}
 		socket := connectSessionSocket(t, server, sessionCookie.Value)
 		defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
-		time.Sleep(20 * time.Millisecond)
 		for i := 0; i < 4; i++ {
+			phase1test.SetClockOffset(t, server.HTTP.URL, int64(i+1))
 			_, _ = loginLocalUser(t, server, "socket-concurrency@example.test", "SocketConcurrencyPass1!", nil)
-			time.Sleep(20 * time.Millisecond)
 		}
 
+		phase1test.SetClockOffset(t, server.HTTP.URL, 5)
 		activeSessionCookie, _ := loginLocalUser(t, server, "socket-concurrency@example.test", "SocketConcurrencyPass1!", nil)
-		expectSessionRevoked(t, socket, authn.ConcurrencyLimitReasonCode)
+		if activeCount := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1 AND revoked_at IS NULL`, userID); activeCount != 5 {
+			t.Fatalf("expected five active sessions after sixth login, got %d; sessions=%s", activeCount, formatUserSessions(t, db, userID))
+		}
+		if err := phase1test.AwaitSessionRevoked(socket, authn.ConcurrencyLimitReasonCode); err != nil {
+			firstSession := querySessionByID(t, db, firstSessionID)
+			t.Fatalf(
+				"await session_revoked for first session %s: %v (revoked_at_valid=%t revoke_reason_code=%q sessions=%s)",
+				firstSessionID,
+				err,
+				firstSession.revokedAt.Valid,
+				firstSession.revokeReasonCode.String,
+				formatUserSessions(t, db, userID),
+			)
+		}
 
 		firstSession := querySessionByID(t, db, firstSessionID)
 		if !firstSession.revokedAt.Valid {
@@ -1671,12 +1693,12 @@ func generateTOTPCode(t testing.TB, secretBase32 string) string {
 	return code
 }
 
-func connectSessionSocket(t testing.TB, server *httptestx.Server, sessionToken string) *wstest.Client {
+func connectSessionSocket(t testing.TB, server *httptestx.Server, sessionToken string) *phase1test.SessionSocketClient {
 	t.Helper()
 	return phase1test.ConnectSessionSocket(t, server.HTTP.URL, sessionToken)
 }
 
-func expectSessionRevoked(t testing.TB, conn *wstest.Client, wantReasonCode string) {
+func expectSessionRevoked(t testing.TB, conn *phase1test.SessionSocketClient, wantReasonCode string) {
 	t.Helper()
 	phase1test.ExpectSessionRevoked(t, conn, wantReasonCode)
 }
@@ -1746,6 +1768,51 @@ func queryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 		t.Fatalf("query count: %v", err)
 	}
 	return count
+}
+
+func formatUserSessions(t testing.TB, db *sql.DB, userID string) string {
+	t.Helper()
+
+	rows, err := db.QueryContext(context.Background(), `
+SELECT authenticated_at,
+       id::text,
+       last_qualifying_activity_at,
+       revoked_at,
+       revoke_reason_code
+  FROM user_sessions
+ WHERE user_id = $1
+ ORDER BY authenticated_at ASC, id ASC
+`, userID)
+	if err != nil {
+		t.Fatalf("query user sessions: %v", err)
+	}
+	defer rows.Close()
+
+	summary := make([]string, 0, 6)
+	for rows.Next() {
+		var (
+			authenticatedAt time.Time
+			sessionID       string
+			lastActivityAt  time.Time
+			revokedAt       sql.NullTime
+			reasonCode      sql.NullString
+		)
+		if err := rows.Scan(&authenticatedAt, &sessionID, &lastActivityAt, &revokedAt, &reasonCode); err != nil {
+			t.Fatalf("scan user session: %v", err)
+		}
+		summary = append(summary, fmt.Sprintf(
+			"{id=%s auth=%s last=%s revoked=%t reason=%q}",
+			sessionID,
+			authenticatedAt.UTC().Format(time.RFC3339Nano),
+			lastActivityAt.UTC().Format(time.RFC3339Nano),
+			revokedAt.Valid,
+			reasonCode.String,
+		))
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate user sessions: %v", err)
+	}
+	return strings.Join(summary, ", ")
 }
 
 type auditEventRecord struct {

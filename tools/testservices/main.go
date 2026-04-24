@@ -23,12 +23,20 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
+	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
 
 const (
 	serviceStartupTimeout = 2 * time.Minute
 	cleanupTimeout        = 30 * time.Second
 	signalWaitTimeout     = 15 * time.Second
+
+	stagePostgresStart    = "postgres-start"
+	stagePostgresTemplate = "postgres-template"
+	stageMinIOStart       = "minio-start"
+	stageChildStart       = "child-start"
+	stageCleanupPostgres  = "cleanup-postgres"
+	stageCleanupMinIO     = "cleanup-minio"
 )
 
 type postgresService struct {
@@ -82,7 +90,7 @@ func run(args []string, env map[string]string, deps dependencies) int {
 		deps.recordEvent(env, suiteservices.Event{Type: suiteservices.EventWrapperPassThrough})
 		child, err := deps.startChild(command, env)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "start child command: %v\n", err)
+			recordFailureAndRefresh(deps, env, failureSummary("", stageChildStart, "start child command", err))
 			return 1
 		}
 		return waitForChild(command, child, deps)
@@ -110,7 +118,7 @@ func run(args []string, env map[string]string, deps dependencies) int {
 	postgresSvc, err = deps.startPostgres(postgresCtx)
 	cancelPostgres()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "start suite postgres: %v\n", err)
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresStart, "start suite postgres", err))
 		recordCleanupAndRefresh(deps, ownedEnv, "startup_failed", childExitCode)
 		return 1
 	}
@@ -135,7 +143,7 @@ func run(args []string, env map[string]string, deps dependencies) int {
 	err = deps.createTemplate(templateCtx, postgresSvc.adminDSN, templateDB)
 	cancelTemplate()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "prepare postgres template database: %v\n", err)
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "prepare postgres template database", err))
 		return 1
 	}
 	deps.recordEvent(ownedEnv, suiteservices.Event{
@@ -154,7 +162,7 @@ func run(args []string, env map[string]string, deps dependencies) int {
 	minioSvc, err = deps.startMinIO(minioCtx)
 	cancelMinIO()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "start suite minio: %v\n", err)
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceMinIO, stageMinIOStart, "start suite minio", err))
 		return 1
 	}
 	deps.recordEvent(ownedEnv, suiteservices.Event{
@@ -178,7 +186,7 @@ func run(args []string, env map[string]string, deps dependencies) int {
 
 	child, err := deps.startChild(command, childEnv)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "start child command: %v\n", err)
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageChildStart, "start child command", err))
 		cleanupStatus = "child_start_failed"
 		return 1
 	}
@@ -340,17 +348,77 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 	if postgresSvc.close != nil {
 		if err := postgresSvc.close(cleanupCtx); err != nil {
 			cleanupStatus = "cleanup_failed"
-			fmt.Fprintf(os.Stderr, "cleanup suite postgres: %v\n", err)
+			printSuiteFailure(env, failureSummary(suiteservices.ServicePostgres, stageCleanupPostgres, "cleanup suite postgres", err))
 		}
 	}
 	if minioSvc.close != nil {
 		if err := minioSvc.close(cleanupCtx); err != nil {
 			cleanupStatus = "cleanup_failed"
-			fmt.Fprintf(os.Stderr, "cleanup suite minio: %v\n", err)
+			printSuiteFailure(env, failureSummary(suiteservices.ServiceMinIO, stageCleanupMinIO, "cleanup suite minio", err))
 		}
 	}
 
 	recordCleanupAndRefresh(deps, env, cleanupStatus, childExitCode)
+}
+
+func failureSummary(service string, stage string, operation string, err error) suiteservices.FailureSummary {
+	failure := suiteservices.FailureSummary{
+		Service:   service,
+		Stage:     stage,
+		Operation: operation,
+	}
+
+	var startFailure *testcontainersx.StartFailure
+	if errors.As(err, &startFailure) {
+		failure.Operation = startFailure.Operation
+		failure.Message = startFailure.DiagnosticMessage()
+		failure.AttemptsStarted = startFailure.AttemptsStarted
+		failure.MaxAttempts = startFailure.MaxAttempts
+		failure.Retryable = startFailure.Retryable
+		failure.DockerEndpoint = startFailure.DockerEndpoint
+	} else if err != nil {
+		failure.Message = err.Error()
+	}
+
+	failure.Message = suiteservices.SanitizeDiagnosticText(failure.Message)
+	failure.DockerEndpoint = suiteservices.SanitizeDiagnosticText(failure.DockerEndpoint)
+	return failure
+}
+
+func recordFailureAndRefresh(deps dependencies, env map[string]string, failure suiteservices.FailureSummary) {
+	deps.recordEvent(env, suiteservices.Event{
+		Type:    suiteservices.EventFailureRecorded,
+		Service: failure.Service,
+		Details: map[string]any{
+			"stage":            failure.Stage,
+			"operation":        failure.Operation,
+			"message":          failure.Message,
+			"attempts_started": failure.AttemptsStarted,
+			"max_attempts":     failure.MaxAttempts,
+			"retryable":        failure.Retryable,
+			"docker_endpoint":  failure.DockerEndpoint,
+		},
+	})
+	deps.refreshSummary(env)
+	printSuiteFailure(env, failure)
+}
+
+func printSuiteFailure(env map[string]string, failure suiteservices.FailureSummary) {
+	label := failure.Stage
+	if strings.TrimSpace(failure.Service) != "" {
+		label = fmt.Sprintf("%s (%s)", label, failure.Service)
+	}
+
+	artifactDir, ok, err := suiteservices.ResolveSuiteArtifactDir(env)
+	if err != nil || !ok {
+		artifactDir = "unresolved"
+	}
+
+	message := failure.Message
+	if strings.TrimSpace(message) == "" {
+		message = "unknown failure"
+	}
+	fmt.Fprintf(os.Stderr, "suite failure %s: %s [artifacts: %s]\n", label, message, artifactDir)
 }
 
 func waitForChild(command []string, child childProcess, deps dependencies) int {

@@ -84,7 +84,9 @@
       "file": "internal/modules/auth/phase1_request_test.go",
       "symbol": "TestPhase1_LoginRequestShape_U_1_01",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "decoder"
+      "evidence_layer": "decoder",
+      "claim": "Login request-shape validation rejects unknown top-level members, unsupported `second_factor.kind`, and malformed TOTP assertions with the route-owned invalid-auth surface.",
+      "out_of_scope": "Does not execute the full login route or session creation path."
     },
     {
       "id": "U-1-02",
@@ -94,7 +96,9 @@
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_LoginNormalizationAndPasswordExactness_U_1_02",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "http_conformance"
+      "evidence_layer": "http_conformance",
+      "claim": "The real login handler trims and case-folds the username for lookup while exact post-JSON-decoded password bytes reach verification unchanged, so trimmed or normalized password variants fail before session creation.",
+      "out_of_scope": "Durable route-created password-hash persistence remains integration evidence."
     },
     {
       "id": "U-1-03",
@@ -104,7 +108,9 @@
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_LoginCreatesSessionAndResource_U_1_03",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "http_conformance"
+      "evidence_layer": "http_conformance",
+      "claim": "The real login handler creates exactly one session via the store, returns the singleton session resource, and emits the ordinary cookie and envelope shape with the required auth-cookie attributes.",
+      "out_of_scope": "Durable session-row persistence and expiry math remain integration evidence."
     },
     {
       "id": "U-1-04",
@@ -114,7 +120,9 @@
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_SessionInspectionRoute_U_1_04",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "http_conformance"
+      "evidence_layer": "http_conformance",
+      "claim": "The real `GET /auth/session` route rejects pagination members, returns the singleton resource envelope, and proves the handler does not slide idle expiry.",
+      "out_of_scope": "Durable non-sliding inspection is still integration-proven against PostgreSQL."
     },
     {
       "id": "U-1-05",
@@ -124,7 +132,9 @@
       "file": "internal/modules/auth/phase1_store_test.go",
       "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05",
       "execution_dependency": "backend_store",
-      "evidence_layer": "http_conformance"
+      "evidence_layer": "http_conformance",
+      "claim": "The real login handler creates the sixth session through the real store, revokes the deterministic least-recently-used non-current victim, publishes `concurrency_limit` to the session hub, persists the durable revocation row, and records the matching deployment-local audit event while still returning the new session resource.",
+      "out_of_scope": "Browser-visible session loss and shared-runtime socket closure remain higher-layer evidence."
     },
     {
       "id": "U-1-06",
@@ -134,7 +144,9 @@
       "file": "internal/modules/auth/phase1_store_test.go",
       "symbol": "TestPhase1_RouteRevocationConsequences_U_1_06",
       "execution_dependency": "backend_store",
-      "evidence_layer": "http_conformance"
+      "evidence_layer": "http_conformance",
+      "claim": "One route matrix proves logout, password change, TOTP replacement completion, account disablement, admin password reset, admin TOTP reset, and explicit revoke-all drive the correct current-only or all-session revocation scope, publish the right hub fanout, clear auth cookies only when the actor loses the current session, and persist the resulting session-row state.",
+      "out_of_scope": "Socket closure on revoked attached sessions remains integration evidence."
     },
     {
       "id": "U-1-07",
@@ -144,7 +156,9 @@
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_UserCreateRouteDefaults_U_1_07",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "http_conformance"
+      "evidence_layer": "http_conformance",
+      "claim": "User-create rejects undeclared `is_active`, rejects unsupported `auth_kind`, normalizes writable `email` and `display_name`, forces server-managed activation, keeps default `mfa_required` and `is_deployment_admin` behavior stable, and returns the safe user resource without secret echo.",
+      "out_of_scope": "Persisted Argon2id storage and replay behavior are covered at integration rather than unit level."
     },
     {
       "id": "U-1-08",
@@ -154,7 +168,9 @@
       "file": "internal/modules/auth/phase1_store_test.go",
       "symbol": "TestPhase1_UserPatchAndLastAdminGuard_U_1_08",
       "execution_dependency": "backend_store",
-      "evidence_layer": "http_conformance"
+      "evidence_layer": "http_conformance",
+      "claim": "The real patch route rejects missing `base_user_version`, normalizes writable `email` and `display_name`, translates stale-version conflicts to `user_version_conflict`, and proves the last-active-deployment-admin demotion or deactivation guard against durable database state without publishing revocations or applying partial mutation.",
+      "out_of_scope": "Browser-visible administration flows remain browser evidence."
     },
     {
       "id": "U-1-09",
@@ -164,7 +180,9 @@
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_CSRFProtectionRoutes_U_1_09",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "http_conformance"
+      "evidence_layer": "http_conformance",
+      "claim": "An inventory-driven loop covers every cookie-authenticated Phase 1 mutator and proves missing or invalid CSRF proof fails closed before session lookup, mutation, replay, or revocation fan-out.",
+      "out_of_scope": "Cross-route persistence consequences remain integration evidence."
     },
     {
       "id": "U-1-10",
@@ -174,7 +192,9 @@
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_CredentialStateRoute_U_1_10",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "http_conformance"
+      "evidence_layer": "http_conformance",
+      "claim": "The real credential-state route returns the safe response shape, keeps `totp.state` closed, and rejects bootstrap-token access with the route-owned failure code.",
+      "out_of_scope": "Credential lifecycle transitions and bootstrap consumption remain integration-proven."
     },
     {
       "id": "U-1-11",
@@ -184,7 +204,9 @@
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_PasswordChangeRouteContracts_U_1_11",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "http_conformance"
+      "evidence_layer": "http_conformance",
+      "claim": "The password-change route proves exact current-password verification, active-TOTP enforcement, all-session revocation consequences, replay behavior, and secret-safe handler-boundary response storage.",
+      "out_of_scope": "Durable replay storage and audit persistence remain integration evidence."
     },
     {
       "id": "U-1-12",
@@ -194,7 +216,9 @@
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_TOTPRouteContracts_U_1_12",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "http_conformance"
+      "evidence_layer": "http_conformance",
+      "claim": "The TOTP begin and complete handlers enforce exactly one auth mode, reject mixed session-plus-bootstrap auth on both routes, prove same-scope replay and divergent replay conflict, keep setup material begin-only, and prove bootstrap-token consumption after successful complete.",
+      "out_of_scope": "Durable enrollment storage and post-complete credential transitions remain integration evidence."
     },
     {
       "id": "U-1-13",
@@ -204,7 +228,9 @@
       "file": "internal/modules/auth/phase1_handlers_test.go",
       "symbol": "TestPhase1_AdminCredentialActionGuards_U_1_13",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "http_conformance"
+      "evidence_layer": "http_conformance",
+      "claim": "Deployment-admin-only credential routes fail closed for ordinary or incident-admin sessions and keep route-local revoke and reset consequences stable.",
+      "out_of_scope": "Audit persistence, replay storage, and WebSocket revocation remain integration evidence."
     },
     {
       "id": "U-1-14",
@@ -213,7 +239,9 @@
       "file": "apps/web/src/App.phase1.test.tsx",
       "title": "Phase 1 U-1-14 ordinary shell keeps the anonymous login surface, sends the login request, refreshes session and credential state after success, and keeps deployment-user controls denied for non-admin sessions",
       "execution_dependency": "frontend_unit",
-      "evidence_layer": "component"
+      "evidence_layer": "component",
+      "claim": "The ordinary shell starts anonymous, sends the Phase 1 login request with the ordinary client payload, refreshes session plus credential-state fetches after success, and keeps deployment-user controls denied for a non-deployment-admin session.",
+      "out_of_scope": "Real cookies, durable session rows, and route-owned invalid-credential cases remain integration or browser evidence."
     },
     {
       "id": "U-1-15",
@@ -222,7 +250,9 @@
       "file": "apps/web/src/App.phase1.test.tsx",
       "title": "Phase 1 U-1-15 ordinary shell follows mfa_setup_required through totp begin and complete, sends bootstrap-token requests, and proves completion alone does not issue a session",
       "execution_dependency": "frontend_unit",
-      "evidence_layer": "component"
+      "evidence_layer": "component",
+      "claim": "The ordinary login shell consumes `mfa_setup_required`, sends bootstrap-token `totp/begin` and `totp/complete` requests on the ordinary client surface, and proves completion alone does not refresh into an authenticated session.",
+      "out_of_scope": "Real bootstrap-token issuance and later login with an enrolled factor remain browser E2E evidence."
     },
     {
       "id": "U-1-16",
@@ -231,7 +261,9 @@
       "file": "apps/web/src/App.phase1.test.tsx",
       "title": "Phase 1 U-1-16 ordinary account-security controls issue password-change and totp-enrollment requests, surface failures on the shell, and refresh back to anonymous state after success",
       "execution_dependency": "frontend_unit",
-      "evidence_layer": "component"
+      "evidence_layer": "component",
+      "claim": "The ordinary account-security panel issues TOTP begin and password-change requests with the expected payloads, keeps route-owned failure codes visible on the shell, and returns the user to the anonymous shell after a successful password change.",
+      "out_of_scope": "Real session revocation, credential persistence, and replacement-enrollment storage remain integration or browser evidence."
     },
     {
       "id": "U-1-17",
@@ -240,7 +272,9 @@
       "file": "apps/web/src/App.phase1.test.tsx",
       "title": "Phase 1 U-1-17 ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell",
       "execution_dependency": "frontend_unit",
-      "evidence_layer": "component"
+      "evidence_layer": "component",
+      "claim": "The ordinary deployment-admin panel sends create, load, and versioned patch requests, then surfaces `user_version_conflict` and `last_deployment_admin` on the ordinary shell without leaning on debug-only harness views.",
+      "out_of_scope": "Durable patch persistence, audit rows, and deployment-admin authorization re-derivation remain backend integration evidence."
     }
   ],
   "integration": [
@@ -252,7 +286,9 @@
       "file": "internal/modules/auth/phase1_integration_test.go",
       "symbol": "TestPhase1_LoginSessionLifecycle_I_1_01",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "integration"
+      "evidence_layer": "integration",
+      "claim": "Real login creates one durable session row, session inspection exposes the singleton resource without idle slide, touch slides idle expiry, logout revokes the current session, idle expiry fails closed with `session_expired`, and sixth-login concurrency revokes the LRU non-current session with one deployment-local audit event.",
+      "out_of_scope": "None."
     },
     {
       "id": "I-1-02",
@@ -262,7 +298,9 @@
       "file": "internal/modules/auth/phase1_integration_test.go",
       "symbol": "TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "integration"
+      "evidence_layer": "integration",
+      "claim": "A real socket on `/ws/v1/test/session-lifecycle` receives `session_revoked` and then closes after logout. The Phase 1 shared socket helpers now route through `internal/testutil/phase1test` and `internal/testutil/wstest`.",
+      "out_of_scope": "None."
     },
     {
       "id": "I-1-03",
@@ -276,7 +314,9 @@
         "TestPhase1_UserCreateReplayReturnsOriginalCommittedResource_I_1_03"
       ],
       "execution_dependency": "backend_integration",
-      "evidence_layer": "integration"
+      "evidence_layer": "integration",
+      "claim": "User create applies defaults, stores Argon2id password hashes, persists safe `response_json`, replays the original committed resource even after later mutation, rejects divergent replay with `client_txn_conflict`, keeps one idempotency row, proves stale-version and last-admin guard behavior, and records secret-safe deployment-admin audit before/after payloads.",
+      "out_of_scope": "Unit-level handler orchestration for create and patch remains thinner than the integration evidence."
     },
     {
       "id": "I-1-04",
@@ -291,7 +331,9 @@
         "TestPhase1_PasswordChangeReplayAndStoredPayload_I_1_04"
       ],
       "execution_dependency": "backend_integration",
-      "evidence_layer": "integration"
+      "evidence_layer": "integration",
+      "claim": "Credential-state transitions prove first enrollment, replacement enrollment, begin replay and divergent conflict, bootstrap-token consumption, password change revocation, Argon2id password-hash replacement, exact replay of password change before fresh invalid-current-password evaluation, secret-safe stored `route_idempotency.response_json`, and one-row replay stability.",
+      "out_of_scope": "None for the declared Phase 1 contract."
     },
     {
       "id": "I-1-05",
@@ -306,7 +348,9 @@
         "TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05"
       ],
       "execution_dependency": "backend_integration",
-      "evidence_layer": "integration"
+      "evidence_layer": "integration",
+      "claim": "Admin password reset, TOTP reset, and revoke-all revoke attached sockets, preserve deployment-local authorization boundaries, store only secret-safe replay payloads, reject divergent replay with `client_txn_conflict`, keep one idempotency row per committed request, return original committed replay payloads, prove password-reset replay after later user mutation, and prove persisted Argon2id password-hash replacement on admin reset.",
+      "out_of_scope": "None for the declared Phase 1 contract."
     },
     {
       "id": "I-1-06",
@@ -316,7 +360,9 @@
       "file": "internal/modules/auth/phase1_integration_test.go",
       "symbol": "TestPhase1_BootstrapTokenRouteBoundaries_I_1_06",
       "execution_dependency": "backend_integration",
-      "evidence_layer": "integration"
+      "evidence_layer": "integration",
+      "claim": "Bootstrap tokens work only on `totp/begin` and `totp/complete`, are rejected on ordinary session, credential-state, incident, and test-auth routes, and are rejected on the real WebSocket boundary with `credential_bootstrap_rejected`.",
+      "out_of_scope": "None."
     }
   ],
   "e2e": [
@@ -327,7 +373,9 @@
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-01 signs in as a local user and inspects the ordinary session surface",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "Browser sign-in exposes the ordinary session surface, including `provider_type='local'`, singleton expiry fields, and `memberships[]`, without relying on the debug harness façade.",
+      "out_of_scope": "None."
     },
     {
       "id": "E-1-02",
@@ -336,7 +384,9 @@
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-02 requires MFA on the ordinary login surface, rejects wrong codes, and accepts a valid TOTP code",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "The ordinary login UI rejects missing and wrong TOTP assertions and accepts a valid code against real backend state.",
+      "out_of_scope": "None."
     },
     {
       "id": "E-1-03",
@@ -345,7 +395,9 @@
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-03 rejects invalid credentials without issuing a session cookie",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "Invalid credentials leave no session cookie and expose the route-owned browser-visible failure code on the normal login surface.",
+      "out_of_scope": "None."
     },
     {
       "id": "E-1-04",
@@ -354,7 +406,9 @@
       "file": "apps/web/e2e/phase1.clock.spec.ts",
       "title": "E-1-04 advances the shared clock past idle expiry and requires a fresh login afterwards",
       "execution_dependency": "browser_stateful",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "Idle expiry fails closed after the shared test clock advances past the normative idle TTL, and the ordinary account surface drops back to login before a fresh sign-in succeeds.",
+      "out_of_scope": "None."
     },
     {
       "id": "E-1-05",
@@ -363,7 +417,9 @@
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-05 lets deployment admins create and patch users, rejects stale versions, and shows the last-admin guard on the ordinary shell",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "Browser deployment-user administration works on the ordinary shell, stale version conflicts surface in the normal admin panel, and the last-admin demotion and deactivation guard remain visible there.",
+      "out_of_scope": "None."
     },
     {
       "id": "E-1-06",
@@ -372,7 +428,9 @@
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-06 follows the bootstrap-token enrollment sequence on the ordinary login shell and proves completion alone issues no session",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "The ordinary login UI proves first-time bootstrap enrollment, completion without implicit session issuance, later login with active TOTP, admin-driven TOTP reset, second bootstrap enrollment, and post-reset re-login with the replacement secret.",
+      "out_of_scope": "None."
     },
     {
       "id": "E-1-07",
@@ -381,7 +439,9 @@
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-07 requires the current password and current TOTP code, revokes the session immediately, and requires re-login with the new password",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "The ordinary account-security UI requires exact current password and current TOTP, revokes the session immediately, rejects the old password, and accepts the new password.",
+      "out_of_scope": "None."
     },
     {
       "id": "E-1-08",
@@ -390,7 +450,9 @@
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-08 keeps deployment-user administration on deployment-admin sessions and hides it from an incident admin on the ordinary shell",
       "execution_dependency": "browser_functional",
-      "evidence_layer": "browser"
+      "evidence_layer": "browser",
+      "claim": "The ordinary shell keeps deployment-user administration on deployment-admin sessions, shows a deny-by-UI note for an incident admin, and the incident-admin browser session receives `401 session_required` when it attempts password reset, TOTP reset, or revoke-all directly.",
+      "out_of_scope": "Audit persistence and route-owned state consequences remain integration evidence."
     }
   ]
 }

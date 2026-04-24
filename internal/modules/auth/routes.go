@@ -1110,13 +1110,16 @@ func (s *Service) handleTestSocket(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case reasonCode := <-revocations:
-			closeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			err := platformws.WriteThenClose(closeCtx, conn, platformws.Message{
+			writeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			err := platformws.WriteJSON(writeCtx, conn, platformws.Message{
 				Type:    "session_revoked",
 				Payload: platformws.RawPayload(map[string]any{"reason_code": reasonCode}),
-			}, websocket.StatusPolicyViolation, "session_revoked")
+			})
 			cancel()
-			if err == nil {
+			if err != nil {
+				return
+			}
+			if err := conn.Close(websocket.StatusPolicyViolation, "session_revoked"); err == nil {
 				closed = true
 			}
 			return

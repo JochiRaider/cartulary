@@ -48,6 +48,53 @@ const phaseConfigs = {
       "- `tools/testservices/integration_test.go` remains harness-development noise and is intentionally outside Phase 0 traceability.",
     ],
   },
+  phase1: {
+    title: "Phase 1 Coverage Ledger",
+    introduction: [
+      "This ledger is generated from `tools/phase1_test_map.json`. Update the manifest row metadata first, then regenerate this file.",
+      "",
+      "- Scope: local authentication, session lifecycle, TOTP bootstrap or replacement, deployment-local user administration, and deployment-admin credential actions only.",
+      "- Normative owners: Core 01 `§3.3.2`, `§3.3.2.2`, `§3.3.5.1`, `§3.3.10`; Core 04 `§1`, `§3`.",
+      "- Authority: `tools/phase1_test_map.json` is the enforced Phase 1 traceability source. This ledger is a rendered companion and does not control the mechanical row inventory.",
+      "- Explicit `N/A`: view-schema field-key conformance, projection-rebuild determinism, and measurement or timed-completion validation under claim-bearing timing criteria.",
+      "",
+      "## Authoritative Execution",
+      "",
+      "- `backend-unit` selects authoritative `U-1-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase1 unit authoritative backend_unit`.",
+      "- `backend-store` selects store-backed authoritative `U-1-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase1 unit authoritative backend_store`.",
+      "- `frontend-unit` selects authoritative `U-1-*` ordinary-shell Vitest rows only through the Phase 1 Vitest manifest for `frontend_unit`.",
+      "- `backend-integration` selects authoritative `I-1-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase1 integration authoritative backend_integration`.",
+      "- `browser-e2e-webserver-backed` and delegated `browser-e2e-functional` select authoritative functional `E-1-*` rows only through the Phase 1 Playwright manifest for `browser_functional`.",
+      "- `browser-e2e-stateful` selects authoritative stateful `E-1-*` rows only through the Phase 1 Playwright manifest for `browser_stateful`.",
+    ],
+    supportExecutionExtras: [
+      "- `apps/web/src/App.phase1.support.test.tsx` remains smoke-only support coverage and is forbidden from claiming `U-1-*` identifiers.",
+      "- `cmd/server/main_phase1_process_test.go` remains process-smoke evidence only. It runs through `backend-process`, `make test`, and `make check`, but it is not counted as the authoritative `E-*` surface below.",
+    ],
+    sections: [
+      ["unit", "Unit"],
+      ["integration", "Integration"],
+      ["e2e", "Browser E2E"],
+    ],
+    sharedHarness: [
+      "| Harness | Phase 1 evidence |",
+      "| --- | --- |",
+      "| Envelope consistency and browser/admin API helpers | `internal/testutil/httptestx/httptestx.go` plus `apps/web/e2e/authRuntime.ts` and `apps/web/e2e/helpers.ts` keep the Phase 1 browser helpers on one shared request surface instead of per-spec ad hoc API wiring. |",
+      "| Real runtime, Postgres, and object-store harness | `internal/testutil/phase1test/runtime.go` wraps real PostgreSQL, real MinIO, and real runtime startup for the integration suite, while `internal/testutil/phase1storetest/runtime.go` owns the non-cyclic `StartStore` harness used by service-backed Phase 1 unit rows that exercise handlers directly against a real `authn.Store`. |",
+      "| Auth HTTP, bootstrap, and session helpers | `internal/testutil/phase1test/phase1test.go` centralizes HTTP, bootstrap, credential-flow, and shared auth-cookie helpers for the integration and process-smoke suites, while `internal/testutil/phase1storetest/store.go` centralizes local-user seeding, active-TOTP seeding, deterministic session and pending-enrollment seeding, session inspection queries, counts, and audit lookup used by the Phase 1 service-backed unit rows. |",
+      "| Public-route inventory governance | `internal/testutil/phase1test/inventory/routes.go` plus `internal/modules/auth/phase1_support_integration_test.go` apply `surface_envelope`, `bootstrap_boundary`, `csrf`, `replay_stored_payload`, `mutation_audit`, `session_revocation`, `authorization_rederivation`, and `request_contracts` support sweeps from one Phase 1 route inventory rather than scattered ad hoc selections. |",
+      "| Ordinary-shell frontend-unit ownership | `apps/web/src/App.phase1.test.tsx`, `tools/phase1_test_map.json`, and `scripts/run-frontend-unit.sh` keep the Phase 1 ordinary shell on the authoritative `frontend-unit` task surface instead of leaving Vitest coverage as unmapped smoke. |",
+      "| WebSocket lifecycle helpers | `internal/testutil/phase1test.ConnectSessionSocket`, `ExpectSessionRevoked`, and `RequireBootstrapWebsocketRejected`, built on `internal/testutil/wstest`, cover the real WebSocket boundary without test-local raw socket code. |",
+      "| Mutation attribution and secret-safe payload checks | `internal/testutil/httptestx/crosscutting.go::RequireMutationAttribution`, `RequireDivergentReplayRejected`, and `RequireSecretSafePayload` are exercised by the Phase 1 integration tests for deployment-admin audit, replay, and stored payload safety. |",
+      "| Replay and divergent replay proof | `TestPhase1_UserCreateReplayReturnsOriginalCommittedResource_I_1_03`, `TestPhase1_PasswordChangeReplayAndStoredPayload_I_1_04`, `TestPhase1_AdminPasswordResetReplayReturnsOriginalCommittedResource_I_1_05`, and `TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05` now cover exact replay, divergent replay, original committed payload reuse, and one-row idempotency stability for the bounded credential routes and admin credential-action routes. |",
+    ],
+    supportOnly: [
+      "- `internal/modules/auth/phase1_support_test.go` keeps helper-level regression coverage for session inspection helpers, CSRF helpers, credential-state builders, password-change decode, TOTP bootstrap helpers, user-create defaults, and deployment-admin credential-action guards. It does not replace `U-1-*`.",
+      "- `internal/modules/auth/phase1_support_integration_test.go` keeps inventory-driven user-list pagination, success-envelope, bootstrap-boundary, CSRF, replay-stored-payload, mutation-audit, session-revocation, authorization re-derivation, and request-contract sweeps on the support runtime surface. It does not replace `I-1-*`.",
+      "- `apps/web/src/App.phase1.support.test.tsx` remains ordinary-shell smoke-only coverage and is not completion evidence for Phase 1.",
+      "- `cmd/server/main_phase1_process_test.go` remains process-smoke evidence for startup and runtime confidence and is not authoritative `E-1-*` evidence.",
+    ],
+  },
   phase2: {
     title: "Phase 2 Coverage Ledger",
     introduction: [
@@ -176,7 +223,12 @@ const phaseConfigs = {
 
 function renderEvidence(entry) {
   if (entry.runner === "go_test") {
-    return `\`${entry.file}::${entry.symbol}\``;
+    const symbols = entry.symbols ?? [entry.symbol];
+    return symbols
+      .map((symbol, index) =>
+        index === 0 ? `\`${entry.file}::${symbol}\`` : `\`${symbol}\``,
+      )
+      .join(", ");
   }
   return `\`${entry.file}::${entry.title}\``;
 }

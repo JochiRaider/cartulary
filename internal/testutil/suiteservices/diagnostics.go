@@ -20,6 +20,7 @@ const (
 	EventWrapperOwnedStart   = "wrapper-owned-start"
 	EventWrapperPassThrough  = "wrapper-pass-through"
 	EventServiceStarted      = "service-started"
+	EventFailureRecorded     = "failure-recorded"
 	EventCleanupCompleted    = "cleanup-completed"
 	EventPostgresAttach      = "postgres-attach"
 	EventPostgresDBCreated   = "postgres-db-created"
@@ -46,6 +47,7 @@ type ServiceScope struct {
 	RunID        string               `json:"run_id"`
 	ArtifactDir  string               `json:"artifact_dir"`
 	Wrapper      WrapperSummary       `json:"wrapper"`
+	Failure      *FailureSummary      `json:"failure,omitempty"`
 	Cleanup      CleanupSummary       `json:"cleanup"`
 	Postgres     PostgresSummary      `json:"postgres"`
 	MinIO        MinIOSummary         `json:"minio"`
@@ -55,6 +57,17 @@ type ServiceScope struct {
 type WrapperSummary struct {
 	OwnedCount       int `json:"owned_count"`
 	PassThroughCount int `json:"pass_through_count"`
+}
+
+type FailureSummary struct {
+	Service         string `json:"service,omitempty"`
+	Stage           string `json:"stage,omitempty"`
+	Operation       string `json:"operation,omitempty"`
+	Message         string `json:"message,omitempty"`
+	AttemptsStarted int    `json:"attempts_started"`
+	MaxAttempts     int    `json:"max_attempts"`
+	Retryable       bool   `json:"retryable"`
+	DockerEndpoint  string `json:"docker_endpoint,omitempty"`
 }
 
 type CleanupSummary struct {
@@ -110,6 +123,7 @@ func RecordEvent(env map[string]string, event Event) error {
 	if event.PID == 0 {
 		event.PID = os.Getpid()
 	}
+	event = sanitizeEvent(event)
 
 	eventsDir := filepath.Join(suiteDir, "events")
 	if err := os.MkdirAll(eventsDir, 0o755); err != nil {
@@ -194,6 +208,19 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			scope.Wrapper.OwnedCount++
 		case EventWrapperPassThrough:
 			scope.Wrapper.PassThroughCount++
+		case EventFailureRecorded:
+			if scope.Failure == nil {
+				scope.Failure = &FailureSummary{
+					Service:         event.Service,
+					Stage:           stringDetail(event.Details, "stage"),
+					Operation:       stringDetail(event.Details, "operation"),
+					Message:         stringDetail(event.Details, "message"),
+					AttemptsStarted: intValue(event.Details, "attempts_started"),
+					MaxAttempts:     intValue(event.Details, "max_attempts"),
+					Retryable:       boolDetail(event.Details, "retryable"),
+					DockerEndpoint:  stringDetail(event.Details, "docker_endpoint"),
+				}
+			}
 		case EventServiceStarted:
 			startedServices[event.Service] = struct{}{}
 			switch event.Service {
@@ -357,4 +384,9 @@ func intDetail(details map[string]any, key string) (int, bool) {
 	default:
 		return 0, false
 	}
+}
+
+func intValue(details map[string]any, key string) int {
+	value, _ := intDetail(details, key)
+	return value
 }

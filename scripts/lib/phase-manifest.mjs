@@ -176,7 +176,11 @@ export function validateManifest(root, phase) {
   const phaseNumber = phaseNumberFromPhase(phase);
   const { manifestPath, manifest } = loadManifest(root, phase);
   const requireLedgerClaims =
-    phase === "phase0" || phase === "phase2" || phase === "phase3" || phase === "phase4";
+    phase === "phase0" ||
+    phase === "phase1" ||
+    phase === "phase2" ||
+    phase === "phase3" ||
+    phase === "phase4";
 
   if (!Array.isArray(manifest.expected_ids) || manifest.expected_ids.length === 0) {
     throw new Error(`manifest ${manifestPath} must define a non-empty expected_ids array`);
