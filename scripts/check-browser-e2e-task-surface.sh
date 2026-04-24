@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 makefile="$repo_root/Makefile"
 functional_script="$repo_root/scripts/run-browser-e2e-functional.sh"
 stateful_script="$repo_root/scripts/run-browser-e2e-stateful.sh"
+measurement_script="$repo_root/scripts/run-browser-e2e-measurement.sh"
 webserver_backed_script="$repo_root/scripts/run-browser-e2e-webserver-backed.sh"
 start_web_e2e_script="$repo_root/scripts/start-web-e2e.sh"
 node_bin="${NODE_BIN:-node}"
@@ -110,11 +111,29 @@ if ! printf '%s\n' "$browser_stateful_block" | grep -Fq './scripts/run-browser-e
   fail "browser-e2e-stateful must delegate to scripts/run-browser-e2e-stateful.sh"
 fi
 
+browser_measurement_block="$(awk '
+  /^browser-e2e-measurement:/ { in_block=1; next }
+  in_block && /^[^[:space:]].*:/ { exit }
+  in_block { print }
+' "$makefile")"
+if [[ -z "$browser_measurement_block" ]]; then
+  fail "Makefile must define a non-empty browser-e2e-measurement block"
+fi
+if ! printf '%s\n' "$browser_measurement_block" | grep -Fq './scripts/run-browser-e2e-measurement.sh'; then
+  fail "browser-e2e-measurement must delegate to scripts/run-browser-e2e-measurement.sh"
+fi
+if printf '%s\n' "$browser_measurement_block" | grep -Fq 'Core 05-bound timing evidence'; then
+  fail "browser-e2e-measurement must be labeled ordinary measurement, not Core 05-bound claim evidence"
+fi
+
 if ! [[ -f "$functional_script" ]]; then
   fail "missing scripts/run-browser-e2e-functional.sh"
 fi
 if ! [[ -f "$stateful_script" ]]; then
   fail "missing scripts/run-browser-e2e-stateful.sh"
+fi
+if ! [[ -f "$measurement_script" ]]; then
+  fail "missing scripts/run-browser-e2e-measurement.sh"
 fi
 if ! [[ -f "$start_web_e2e_script" ]]; then
   fail "missing scripts/start-web-e2e.sh"
@@ -147,6 +166,15 @@ if ! grep -Fq 'phase1 authoritative browser_stateful' "$stateful_script"; then
 fi
 if grep -Fq 'e2e/phase1.clock.spec.ts' "$stateful_script"; then
   fail "scripts/run-browser-e2e-stateful.sh must not raw-select e2e/phase1.clock.spec.ts"
+fi
+if ! grep -Fq 'claim_bearing": false' "$measurement_script"; then
+  fail "scripts/run-browser-e2e-measurement.sh must emit claim_bearing=false ordinary measurement metadata"
+fi
+if ! grep -Fq 'evidence_kind": "ordinary_measurement"' "$measurement_script"; then
+  fail "scripts/run-browser-e2e-measurement.sh must emit ordinary_measurement evidence_kind metadata"
+fi
+if ! grep -Fq 'phase3 authoritative browser_measurement' "$measurement_script"; then
+  fail "scripts/run-browser-e2e-measurement.sh must execute Phase 3 browser_measurement rows through the manifest"
 fi
 
 if ! grep -Fq '"$ROOT_DIR/scripts/run-browser-e2e-functional.sh"' "$webserver_backed_script"; then

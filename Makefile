@@ -4,7 +4,7 @@ SHELL := /bin/bash
 .PHONY: help doctor
 .PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install
 .PHONY: db-up db-reset services-up services-wait postgres-wait minio-wait minio-init dev
-.PHONY: generate generate-drift toolchain-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-ledgers phase-ledger-drift
+.PHONY: generate generate-drift toolchain-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-ledgers phase-ledger-drift benchmark-claim-check task-surface-report task-surface-check
 .PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check run-phase-smoke phase-test-name-check
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck format format-frontend
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
@@ -82,6 +82,7 @@ CARTULARY_TEST_RUN_ID ?= $(shell if [ -x /usr/bin/date ]; then now="$$(/usr/bin/
 RELEASE_ARTIFACT_DIR ?= $(CURDIR)/.cartulary/release-artifacts
 LICENSE_REPORT_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/license-report.json
 SBOM_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/sbom.cdx.json
+BENCHMARK_MANIFEST ?= $(CURDIR)/.cartulary/benchmark/benchmark_manifest.json
 export CARTULARY_OUTPUT_MODE VERBOSE CI_VERBOSE CARTULARY_TEST_RESULTS_DIR CARTULARY_TEST_RUN_ID CARTULARY_TEST_INVENTORY
 
 ifeq ($(CI_VERBOSE),1)
@@ -181,6 +182,8 @@ help:
 		'  make migration-drift       verify migrations against a scratch database' \
 		'  make phase-ledgers         regenerate committed phase coverage ledgers' \
 		'  make phase-ledger-drift    fail on phase coverage ledger drift' \
+		'  make benchmark-claim-check validate retained Core 05 benchmark claim artifacts' \
+		'  make task-surface-report   print the root Make task-surface inventory' \
 		'' \
 		'backend:' \
 		'  make backend-unit          run pure backend unit evidence' \
@@ -201,9 +204,11 @@ help:
 		'  make browser-e2e           run all browser E2E suites' \
 		'  make browser-e2e-webserver-backed run shared-stack browser E2E' \
 		'  make browser-e2e-stateful  run isolated stateful browser E2E' \
+		'  make browser-e2e-measurement run ordinary browser measurement evidence' \
 		'  make browser-e2e-visual    run isolated visual browser E2E' \
 		'' \
 		'check:' \
+		'  make help                 print the grouped root task surface' \
 		'  make doctor                verify required local tools and versions' \
 		'  make test-fast             run the narrower local verification loop' \
 		'  make test                  run the authoritative full test corpus' \
@@ -425,8 +430,17 @@ phase-ledgers: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 phase-ledger-drift: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(RUN_PHASE) "phase-ledger-drift" -- $(PNPM_ENV) env NODE_BIN=$(NODE_BIN) $(NODE_BIN) ./scripts/check-phase-ledger-drift.mjs
 
+benchmark-claim-check: $(NODE_BIN)
+	$(RUN_PHASE) "benchmark-claim-check" -- $(NODE_BIN) ./scripts/check-benchmark-claim.mjs "$(BENCHMARK_MANIFEST)"
+
+task-surface-report: $(NODE_BIN)
+	$(Q)$(NODE_BIN) ./scripts/print-task-surface-report.mjs
+
+task-surface-check: $(NODE_BIN)
+	$(RUN_PHASE) "task-surface-check" -- $(NODE_BIN) ./scripts/print-task-surface-report.mjs --check
+
 run-phase-smoke: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-check-toolchain-pins.sh && ./scripts/test-bootstrap-node-runtime.sh && ./scripts/test-build-input-discovery.sh && ./scripts/test-run-make-sequence.sh && ./scripts/test-release-task-surface.sh && ./scripts/test-run-phase.sh && ./scripts/test-run-go-target.sh && ./scripts/test-print-target-plan.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh && ./scripts/test-dev-stack-lifecycle.sh'
+	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-check-toolchain-pins.sh && ./scripts/test-bootstrap-node-runtime.sh && ./scripts/test-build-input-discovery.sh && ./scripts/test-run-make-sequence.sh && ./scripts/test-release-task-surface.sh && ./scripts/test-benchmark-claim-check.sh && ./scripts/test-task-surface-report.sh && ./scripts/test-run-phase.sh && ./scripts/test-run-go-target.sh && ./scripts/test-print-target-plan.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh && ./scripts/test-dev-stack-lifecycle.sh'
 
 phase-test-name-check:
 	$(RUN_PHASE) "phase-test-name-check" -- ./scripts/check-phase-test-names.sh
@@ -556,7 +570,7 @@ browser-e2e-stateful: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-m
 
 browser-e2e-measurement: export CARTULARY_TEST_TARGET := browser-e2e-measurement
 
-# Core 05-bound timing evidence is not parallel-safe with the heavy backend gate.
+# Ordinary implementation/regression measurement; not claim-bearing Core 05 publication evidence.
 browser-e2e-measurement: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
 	$(Q)env PLAYWRIGHT_WORKERS=1 PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-measurement.sh
 	$(TARGET_SUMMARY) browser-e2e-measurement pass
@@ -593,6 +607,7 @@ check-preflight: $(NODE_BIN)
 	$(Q)$(MAKE) --no-print-directory lint-biome
 	$(Q)$(MAKE) --no-print-directory run-phase-smoke
 	$(Q)$(MAKE) --no-print-directory phase-test-name-check
+	$(Q)$(MAKE) --no-print-directory task-surface-check
 	$(Q)$(MAKE) --no-print-directory browser-e2e-task-surface-check
 	$(Q)$(MAKE) --no-print-directory frontend-task-surface-check
 	$(Q)$(MAKE) --no-print-directory backend-task-surface-check
