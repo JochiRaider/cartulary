@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   startTransition,
   useCallback,
   useEffect,
@@ -14,20 +16,27 @@ import {
   extractError,
   fetchJSON,
 } from "./browserApi";
-import { Phase1Harness } from "./Phase1Harness";
 import {
   Phase1AccountPanel,
   Phase1AdminPanel,
   Phase1AuthSurface,
 } from "./Phase1Surface";
-import { Phase2Harness } from "./Phase2Harness";
 import {
   type CredentialState,
   loadCredentialState,
   loadSession,
   type SessionData,
 } from "./phase1Client";
-import { WorkbookShell } from "./WorkbookShell";
+
+const LazyWorkbookShell = lazy(async () => {
+  const module = await import("./WorkbookShell");
+  return { default: module.WorkbookShell };
+});
+
+const LazyDebugHarnessShell = lazy(async () => {
+  const module = await import("./DebugHarnessShell");
+  return { default: module.DebugHarnessShell };
+});
 
 type IncidentData = {
   incident_id: string;
@@ -624,11 +633,19 @@ export function App() {
             </button>
           </div>
 
-          <WorkbookShell
-            incidentId={route.incidentId}
-            onIncidentAccessLost={handleIncidentAccessLost}
-            onIncidentSnapshot={handleIncidentSnapshot}
-          />
+          <Suspense
+            fallback={
+              <p data-testid="workbook-loading" style={routeLoadingStyle}>
+                Loading workbook…
+              </p>
+            }
+          >
+            <LazyWorkbookShell
+              incidentId={route.incidentId}
+              onIncidentAccessLost={handleIncidentAccessLost}
+              onIncidentSnapshot={handleIncidentSnapshot}
+            />
+          </Suspense>
         </section>
       </main>
     );
@@ -648,8 +665,15 @@ export function App() {
             </p>
           </div>
 
-          <Phase1Harness />
-          <Phase2Harness />
+          <Suspense
+            fallback={
+              <p data-testid="debug-harness-loading" style={routeLoadingStyle}>
+                Loading debug harness…
+              </p>
+            }
+          >
+            <LazyDebugHarnessShell />
+          </Suspense>
         </section>
       </main>
     );
@@ -922,6 +946,14 @@ const landingIncidentMetaStyle = {
 const landingStatusStyle = {
   margin: "1.25rem 0 0",
   minHeight: "1.5rem",
+  color: "rgb(45 82 75)",
+};
+
+const routeLoadingStyle = {
+  margin: "1rem 0 0",
+  padding: "1rem 1.2rem",
+  borderRadius: "1rem",
+  background: "rgb(233 241 236)",
   color: "rgb(45 82 75)",
 };
 
