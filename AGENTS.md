@@ -25,6 +25,8 @@
 
 ## Canonical command surface
 
+- `make help`
+- `make doctor`
 - `make bootstrap`
 - `make db-up`
 - `make db-reset`
@@ -37,6 +39,8 @@
 - `make check`
 - `make ci`
 - `make build`
+- `make clean`
+- `make distclean`
 
 ## Artifact ownership and edit rules
 
@@ -53,6 +57,8 @@
 - Start local backing services with `make db-up`.
 - Then run `make dev`.
 - The local bootstrap server uses `configs/dev/config.toml` through `CARTULARY_CONFIG_FILE`.
+- `make help` prints the grouped root task surface without bootstrapping Node or pnpm.
+- `make doctor` verifies required local tools and pinned toolchain versions without installing them.
 - `make bootstrap` installs the pinned Go CLI tools and workspace dependencies.
 - `make backend-store` runs the service-backed store-domain `U-*` backend slice that keeps unit-layer phase IDs while using real Postgres.
 - `make test-fast` runs the pure backend unit slice, the service-backed backend store and integration slices, the backend process or E2E slice, frontend type-checking, and the frontend unit suite for the narrower local loop.
@@ -60,6 +66,8 @@
 - `make check` is the developer verification gate and runs frozen frontend install, authored-frontend Biome before the heavy parallel block, generated-artifact drift detection, migration verification against a scratch local Postgres database, backend lint and tests, frontend type-check and tests, plus backend and frontend builds. The gate keeps pure parallel-safe work in the heavy block, then runs service-backed backend and shared-stack browser verification in a serialized stage, and finally runs isolated browser suites.
 - Apply authored frontend formatting with `pnpm --dir apps/web format`.
 - `make ci` is the provider-neutral CI enforcement entrypoint. It composes the canonical repo task surface and fails on codegen drift, migration failures, and deployable-shape drift.
+- `make clean` removes reproducible repo-local build and report artifacts while preserving checked-in files and external Go caches.
+- `make distclean` additionally removes repo-local tool/runtime caches after printing the removal list.
 - `make check` and `make ci` quiet output is the default. Use `VERBOSE=1` when you need the full streaming logs for investigation.
 - If a `check-heavy` child fails under parallel execution, GNU Make may still print `Waiting for unfinished jobs....` while sibling jobs drain; that line is expected orchestration output, not a second root cause.
 - Shell-backed verification wrappers such as frontend lint or migration drift report as non-test failures rather than unmapped test inventory when they exit non-zero.

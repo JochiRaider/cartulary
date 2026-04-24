@@ -718,6 +718,8 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 
 | Command              | Minimum responsibility                                                                                       |
 | -------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `make help`          | Print the grouped root task surface without bootstrapping local toolchains                                   |
+| `make doctor`        | Verify required local tools and pinned toolchain versions without installing them                            |
 | `make bootstrap`     | Install tools, install workspace dependencies, prepare local services                                        |
 | `make db-up`         | Start local Postgres and MinIO                                                                               |
 | `make db-reset`      | Recreate the database and run migrations                                                                     |
@@ -730,6 +732,8 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make check`         | Developer verification gate                                                                                  |
 | `make ci`            | Provider-neutral CI enforcement entrypoint                                                                   |
 | `make build`         | Produce the app build with embedded frontend assets                                                          |
+| `make clean`         | Remove reproducible repo-local build and report artifacts                                                    |
+| `make distclean`     | Remove repo-local tool/runtime caches after printing the removal list                                        |
 
 If the repository uses both a root task-surface `Makefile` and `AGENTS.md`, both MUST be updated together when this task surface changes.
 

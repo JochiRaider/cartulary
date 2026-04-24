@@ -1,6 +1,16 @@
 SHELL := /bin/bash
+.DEFAULT_GOAL := help
 
-.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install db-up db-reset dev generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-test-name-check browser-e2e-task-surface-check frontend-task-surface-check backend-task-surface-check service-backed-unit-check run-phase-smoke backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke frontend-typecheck frontend-unit browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-measurement browser-e2e-visual test-fast test-fast-service-backed test-fast-service-backed-lane-a test-fast-service-backed-lane-b test e2e lint lint-go lint-biome lint-typecheck check check-preflight check-heavy check-service-backed check-service-backed-lane-a check-service-backed-lane-b check-isolated ci build build-server build-migrate build-web
+.PHONY: help doctor
+.PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install
+.PHONY: db-up db-reset dev
+.PHONY: generate generate-drift migration-drift deployable-shape deployable-shape-verify phase-map-check
+.PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke backend-task-surface-check service-backed-unit-check run-phase-smoke phase-test-name-check
+.PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck
+.PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
+.PHONY: test-fast test-fast-service-backed test-fast-service-backed-lane-a test-fast-service-backed-lane-b test lint lint-go check check-preflight check-heavy check-service-backed check-service-backed-lane-a check-service-backed-lane-b check-isolated ci
+.PHONY: build build-server build-migrate build-web
+.PHONY: clean distclean
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
 PNPM ?= $(shell if command -v pnpm >/dev/null 2>&1; then command -v pnpm; elif [ -x "$$HOME/.local/share/pnpm/pnpm" ]; then printf "$$HOME/.local/share/pnpm/pnpm"; fi)
@@ -62,7 +72,7 @@ EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P := $(call resolve_service_go_test_p,BACK
 
 CARTULARY_OUTPUT_MODE ?= quiet
 CARTULARY_TEST_RESULTS_DIR ?= $(CURDIR)/.cartulary/test-results
-CARTULARY_TEST_RUN_ID ?= $(shell printf '%s-p%s' "$$(date -u +%Y%m%dT%H%M%SZ)" "$$$$")
+CARTULARY_TEST_RUN_ID ?= $(shell if [ -x /usr/bin/date ]; then now="$$(/usr/bin/date -u +%Y%m%dT%H%M%SZ)"; elif command -v date >/dev/null 2>&1; then now="$$(date -u +%Y%m%dT%H%M%SZ)"; else now="unknown-time"; fi; printf '%s-p%s' "$$now" "$$$$")
 export CARTULARY_OUTPUT_MODE VERBOSE CI_VERBOSE CARTULARY_TEST_RESULTS_DIR CARTULARY_TEST_RUN_ID CARTULARY_TEST_INVENTORY
 
 ifeq ($(CI_VERBOSE),1)
@@ -94,6 +104,185 @@ WEB_BUILD_INPUTS := package.json pnpm-lock.yaml pnpm-workspace.yaml $(shell rg -
 TEST_SERVICES_BUILD_INPUTS := go.mod go.sum $(shell rg --files tools/testservices internal/testutil/pgtest internal/testutil/s3test internal/testutil/suiteservices internal/platform/postgres db/migrations 2>/dev/null)
 EMBEDDED_WEB_ASSET_DIR := $(CURDIR)/internal/platform/httpapi/webassets/dist
 EMBEDDED_WEB_ASSET_STAMP := $(CURDIR)/tmp/frontend-embed/web-assets.stamp
+CLEAN_PATHS := $(SERVER_BIN) $(MIGRATE_BIN) $(CURDIR)/apps/web/dist $(EMBEDDED_WEB_ASSET_STAMP) $(CARTULARY_TEST_RESULTS_DIR) $(CURDIR)/apps/web/test-results $(CURDIR)/tmp/web-e2e-lifecycle-smoke.* $(CURDIR)/tmp/vitest-json-sample.*
+DISTCLEAN_PATHS := $(CLEAN_PATHS) $(NODE_RUNTIME_DIR) $(TOOLBIN_DIR) $(CURDIR)/tmp/frontend-install $(CURDIR)/tmp/frontend-toolchain $(CURDIR)/tmp/playwright $(CURDIR)/tmp/frontend-embed $(CURDIR)/.cache $(CURDIR)/.pnpm-store $(CURDIR)/apps/web/.vite $(CURDIR)/playwright-report $(CURDIR)/apps/web/playwright-report $(CURDIR)/coverage $(CURDIR)/apps/web/coverage
+
+define guarded_remove_paths
+set -euo pipefail; \
+repo="$(CURDIR)"; \
+for path in $(1); do \
+	if [ -z "$$path" ] || [ "$$path" = "/" ] || [ "$$path" = "." ]; then \
+		echo "refusing unsafe cleanup path: '$$path'" >&2; \
+		exit 1; \
+	fi; \
+	case "$$path" in \
+		"$$repo"/*) ;; \
+		*) echo "refusing cleanup path outside repository: $$path" >&2; exit 1 ;; \
+	esac; \
+	if [ -e "$$path" ] || [ -L "$$path" ]; then \
+		printf 'removing %s\n' "$${path#$$repo/}"; \
+		rm -rf -- "$$path"; \
+	fi; \
+done
+endef
+
+define clean_embedded_web_assets
+set -euo pipefail; \
+repo="$(CURDIR)"; \
+dir="$(EMBEDDED_WEB_ASSET_DIR)"; \
+if [ -z "$$dir" ] || [ "$$dir" = "/" ] || [ "$$dir" = "." ]; then \
+	echo "refusing unsafe embedded asset path: '$$dir'" >&2; \
+	exit 1; \
+fi; \
+case "$$dir" in \
+	"$$repo"/*) ;; \
+	*) echo "refusing embedded asset path outside repository: $$dir" >&2; exit 1 ;; \
+esac; \
+if [ -d "$$dir" ]; then \
+	printf 'removing embedded web assets under %s, preserving .keep\n' "$${dir#$$repo/}"; \
+	find "$$dir" -mindepth 1 -maxdepth 1 ! -name '.keep' -exec rm -rf -- {} +; \
+fi
+endef
+
+help:
+	$(Q)printf '%s\n' \
+		'Cartulary developer task surface' \
+		'' \
+		'bootstrap:' \
+		'  make bootstrap             install pinned tools and frontend/browser dependencies' \
+		'  make bootstrap-node-runtime install the pinned repo-local Node runtime' \
+		'  make frontend-toolchain     verify the pinned Node/pnpm toolchain' \
+		'  make frontend-install       install workspace dependencies' \
+		'  make playwright-install     install browser dependencies' \
+		'' \
+		'dev:' \
+		'  make db-up                 start local Postgres and MinIO' \
+		'  make db-reset              recreate the local database and apply migrations' \
+		'  make dev                   run the Go server and Vite dev server' \
+		'' \
+		'generate:' \
+		'  make generate              regenerate sqlc and contract-derived outputs' \
+		'  make generate-drift        fail on generated artifact drift' \
+		'  make migration-drift       verify migrations against a scratch database' \
+		'' \
+		'backend:' \
+		'  make backend-unit          run pure backend unit evidence' \
+		'  make backend-store         run service-backed store-domain evidence' \
+		'  make backend-integration   run backend integration evidence' \
+		'  make backend-process       run backend process evidence' \
+		'' \
+		'frontend:' \
+		'  make frontend-typecheck    run TypeScript type checking' \
+		'  make frontend-unit         run the frontend unit suite' \
+		'  make lint-biome            run authored frontend Biome checks' \
+		'' \
+		'browser:' \
+		'  make browser-e2e           run all browser E2E suites' \
+		'  make browser-e2e-webserver-backed run shared-stack browser E2E' \
+		'  make browser-e2e-stateful  run isolated stateful browser E2E' \
+		'  make browser-e2e-visual    run isolated visual browser E2E' \
+		'' \
+		'check:' \
+		'  make doctor                verify required local tools and versions' \
+		'  make test-fast             run the narrower local verification loop' \
+		'  make test                  run the authoritative full test corpus' \
+		'  make lint                  run backend and frontend lint/type checks' \
+		'  make check                 run the developer verification gate' \
+		'  make ci                    run the provider-neutral CI entrypoint' \
+		'' \
+		'build:' \
+		'  make build                 build backend binaries with embedded web assets' \
+		'  make build-server          build the server binary' \
+		'  make build-migrate         build the migration binary' \
+		'  make build-web             build frontend web assets' \
+		'' \
+		'cleanup:' \
+		'  make clean                 remove repo-local build and report artifacts' \
+		'  make distclean             also remove repo-local tool/runtime caches'
+
+doctor:
+	$(Q)set -e; \
+	fail=0; \
+	print_missing() { printf 'missing %s: %s\n' "$$1" "$$2"; fail=1; }; \
+	go_path="$(GO)"; \
+	if [ -n "$$go_path" ] && [ ! -x "$$go_path" ] && command -v "$$go_path" >/dev/null 2>&1; then \
+		go_path="$$(command -v "$$go_path")"; \
+	fi; \
+	if [ -n "$$go_path" ] && [ -x "$$go_path" ]; then \
+		go_version_line="$$("$$go_path" version)"; \
+		go_version="$${go_version_line#go version }"; \
+		go_version="$${go_version%% *}"; \
+		if [[ "$$go_version" == go1.26* ]]; then \
+			printf 'ok go: %s %s\n' "$$go_path" "$$go_version"; \
+		else \
+			printf 'missing go: expected Go 1.26, found %s at %s\n' "$$go_version" "$$go_path"; \
+			fail=1; \
+		fi; \
+	else \
+		print_missing go "install Go 1.26 or set GO=/path/to/go"; \
+	fi; \
+	node_path=""; \
+	if [ -x "$(NODE_BIN)" ]; then \
+		node_path="$(NODE_BIN)"; \
+	elif command -v node >/dev/null 2>&1; then \
+		node_path="$$(command -v node)"; \
+	fi; \
+	if [ -n "$$node_path" ]; then \
+		node_version="$$("$$node_path" --version)"; \
+		if [ "$$node_version" = "v$(NODE_VERSION)" ]; then \
+			printf 'ok node: %s %s\n' "$$node_path" "$$node_version"; \
+		else \
+			printf 'missing node: expected v%s, found %s at %s\n' "$(NODE_VERSION)" "$$node_version" "$$node_path"; \
+			fail=1; \
+		fi; \
+	else \
+		print_missing node "run make bootstrap-node-runtime or install Node $(NODE_VERSION)"; \
+	fi; \
+	pnpm_path=""; \
+	if [ -n "$(PNPM)" ] && [ -x "$(PNPM)" ]; then \
+		pnpm_path="$(PNPM)"; \
+	elif [ -n "$(PNPM)" ] && command -v "$(PNPM)" >/dev/null 2>&1; then \
+		pnpm_path="$$(command -v "$(PNPM)")"; \
+	fi; \
+	if [ -n "$$pnpm_path" ]; then \
+		pnpm_version="$$(PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" "$$pnpm_path" --version 2>/dev/null || true)"; \
+		if [ "$$pnpm_version" = "$(PNPM_VERSION)" ]; then \
+			printf 'ok pnpm: %s %s\n' "$$pnpm_path" "$$pnpm_version"; \
+		else \
+			printf 'missing pnpm: expected %s, found %s at %s\n' "$(PNPM_VERSION)" "$${pnpm_version:-unusable}" "$$pnpm_path"; \
+			fail=1; \
+		fi; \
+	else \
+		print_missing pnpm "install pnpm $(PNPM_VERSION)"; \
+	fi; \
+	if command -v docker >/dev/null 2>&1; then \
+		docker_path="$$(command -v docker)"; \
+		compose_version="$$(docker compose version --short 2>/dev/null || docker compose version 2>/dev/null || true)"; \
+		if [ -n "$$compose_version" ]; then \
+			printf 'ok docker compose: %s %s\n' "$$docker_path" "$$compose_version"; \
+		else \
+			print_missing "docker compose" "install Docker with the compose plugin"; \
+		fi; \
+	else \
+		print_missing "docker compose" "install Docker with the compose plugin"; \
+	fi; \
+	for tool in rg curl tar; do \
+		if command -v "$$tool" >/dev/null 2>&1; then \
+			tool_path="$$(command -v "$$tool")"; \
+			tool_version="$$("$$tool" --version 2>/dev/null | head -n 1 || true)"; \
+			printf 'ok %s: %s %s\n' "$$tool" "$$tool_path" "$$tool_version"; \
+		else \
+			print_missing "$$tool" "install $$tool and ensure it is on PATH"; \
+		fi; \
+	done; \
+	if command -v ss >/dev/null 2>&1; then \
+		ss_path="$$(command -v ss)"; \
+		ss_version="$$(ss --version 2>&1 | head -n 1 || true)"; \
+		printf 'ok ss: %s %s\n' "$$ss_path" "$$ss_version"; \
+	else \
+		printf 'optional missing ss: install iproute2 for local port diagnostics\n'; \
+	fi; \
+	exit "$$fail"
 
 $(NODE_BIN):
 	$(Q)mkdir -p $(NODE_RUNTIME_DIR)
@@ -455,3 +644,35 @@ $(CURDIR)/apps/web/dist/index.html: $(WEB_BUILD_INPUTS) $(FRONTEND_INSTALL_STAMP
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "build web" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec vite build $(VITE_BUILD_FLAGS)
 
 build-web: $(CURDIR)/apps/web/dist/index.html
+
+clean:
+	$(Q)$(call guarded_remove_paths,$(CLEAN_PATHS))
+	$(Q)$(clean_embedded_web_assets)
+
+distclean:
+	$(Q)printf '%s\n' \
+		'The following repo-local artifacts will be removed when present:' \
+		'  $(SERVER_BIN)' \
+		'  $(MIGRATE_BIN)' \
+		'  $(CURDIR)/apps/web/dist' \
+		'  $(EMBEDDED_WEB_ASSET_STAMP)' \
+		'  $(CARTULARY_TEST_RESULTS_DIR)' \
+		'  $(CURDIR)/apps/web/test-results' \
+		'  $(CURDIR)/tmp/web-e2e-lifecycle-smoke.*' \
+		'  $(CURDIR)/tmp/vitest-json-sample.*' \
+		'  $(NODE_RUNTIME_DIR)' \
+		'  $(TOOLBIN_DIR)' \
+		'  $(CURDIR)/tmp/frontend-install' \
+		'  $(CURDIR)/tmp/frontend-toolchain' \
+		'  $(CURDIR)/tmp/playwright' \
+		'  $(CURDIR)/tmp/frontend-embed' \
+		'  $(CURDIR)/.cache' \
+		'  $(CURDIR)/.pnpm-store' \
+		'  $(CURDIR)/apps/web/.vite' \
+		'  $(CURDIR)/playwright-report' \
+		'  $(CURDIR)/apps/web/playwright-report' \
+		'  $(CURDIR)/coverage' \
+		'  $(CURDIR)/apps/web/coverage' \
+		'  generated embedded web assets under $(EMBEDDED_WEB_ASSET_DIR), preserving .keep'
+	$(Q)$(call guarded_remove_paths,$(DISTCLEAN_PATHS))
+	$(Q)$(clean_embedded_web_assets)

@@ -13,7 +13,7 @@ At bootstrap completion, the repository should satisfy all of the following:
 - one modular-monolith application skeleton, not a set of future microservices.[^3]
 - one root Go module and one top-level pnpm workspace with the baseline monorepo layout already in place.[^4]
 - local PostgreSQL and S3-compatible object storage available through `docker-compose.dev.yml` for development and integration tests.[^3][^5]
-- a root `Makefile` with the canonical developer task surface, including `bootstrap`, `db-up`, `db-reset`, `dev`, `generate`, `test`, `lint`, `check`, and `build`.[^6]
+- a root `Makefile` with the canonical developer task surface, including `help`, `doctor`, `bootstrap`, `db-up`, `db-reset`, `dev`, `generate`, `test`, `lint`, `check`, `build`, `clean`, and `distclean`.[^6]
 - a live contract derivation path from owner sections to `/contracts/*` to generated code, with drift detection wired into `make check`.[^7]
 - reusable unit, integration, and black-box end-to-end harnesses, plus the shared cross-cutting harnesses that must apply across phases.[^8]
 - the first red tests for Phase 0 checked in before any feature code beyond the bootstrap shell is treated as complete.[^9]
@@ -259,6 +259,8 @@ For the initial greenfield phase, it is enough for `make generate` to prove the 
 
 Implement the root `Makefile` next. It should expose the baseline human-facing tasks from the development guide:[^6]
 
+- `make help`
+- `make doctor`
 - `make bootstrap`
 - `make db-up`
 - `make db-reset`
@@ -270,9 +272,13 @@ Implement the root `Makefile` next. It should expose the baseline human-facing t
 - `make check`
 - `make ci`
 - `make build`
+- `make clean`
+- `make distclean`
 
 Repository-local recommended meanings:
 
+- `make help`: print the grouped root task surface without bootstrapping local toolchains.
+- `make doctor`: verify required local tools and pinned toolchain versions without installing them.
 - `make bootstrap`: install Go tools, install pnpm dependencies, and prepare local service prerequisites.
 - `make db-up`: start PostgreSQL and MinIO through Compose.
 - `make db-reset`: recreate the local database and apply migrations.
@@ -285,6 +291,8 @@ Repository-local recommended meanings:
 - `make check`: run the full developer gate and fail if any authoritative phase-manifest row is absent from execution. Keep only pure parallel-safe work in the heavy block, run service-backed backend phases and the shared-stack browser suite in one serialized stage, and leave stateful or timing-sensitive browser suites isolated afterwards.
 - `make ci`: run the provider-neutral CI gate that composes the canonical task surface and enforces execution truth, codegen drift, migration verification, and deployable-shape checks.
 - `make build`: build the application artifact with embedded frontend assets.
+- `make clean`: remove reproducible repo-local build and report artifacts while preserving checked-in files and external Go caches.
+- `make distclean`: additionally remove repo-local tool/runtime caches after printing the removal list.
 
 `make check` is not optional. It is the required developer verification gate and must include codegen drift detection and migration verification.[^6]
 
