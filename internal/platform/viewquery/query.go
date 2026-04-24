@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -765,39 +766,68 @@ func allowedOps(values ...string) map[string]struct{} {
 }
 
 func lookupSpec(viewSchemaID string) (map[string]FieldSpec, bool) {
+	querySpecsOnce.Do(loadQuerySpecs)
 	spec, ok := querySpecs[viewSchemaID]
 	return spec, ok
 }
 
-var querySpecs = map[string]map[string]FieldSpec{
-	"cartulary.view.timeline.v1": {
-		"timeline.occurred_day":            {Kind: FieldKindDate, AllowedOps: allowedOps("eq", "range")},
-		"timeline.recorded_day":            {Kind: FieldKindDate, AllowedOps: allowedOps("eq", "range")},
-		"timeline.capture_state":           {Kind: FieldKindString, AllowedOps: allowedOps("eq")},
-		"timeline.has_evidence":            {Kind: FieldKindBool, AllowedOps: allowedOps("eq")},
-		"timeline.has_unresolved_mentions": {Kind: FieldKindBool, AllowedOps: allowedOps("eq")},
-		"timeline.tags":                    {Kind: FieldKindStringCollection, AllowedOps: allowedOps("contains_any", "contains_all")},
-	},
-	"cartulary.view.hosts.v1": {
-		"host.host_state":         {Kind: FieldKindString, AllowedOps: allowedOps("eq")},
-		"host.location":           {Kind: FieldKindString, AllowedOps: allowedOps("eq")},
-		"host.os_platform":        {Kind: FieldKindString, AllowedOps: allowedOps("eq")},
-		"host.business_owner":     {Kind: FieldKindString, AllowedOps: allowedOps("eq")},
-		"host.criticality":        {Kind: FieldKindString, AllowedOps: allowedOps("eq")},
-		"host.containment_status": {Kind: FieldKindString, AllowedOps: allowedOps("eq")},
-	},
-	"cartulary.view.identities.v1": {
-		"identity.identity_state":  {Kind: FieldKindString, AllowedOps: allowedOps("eq")},
-		"identity.privilege_level": {Kind: FieldKindString, AllowedOps: allowedOps("eq")},
-		"identity.mfa_state":       {Kind: FieldKindString, AllowedOps: allowedOps("eq")},
-		"identity.reset_status":    {Kind: FieldKindString, AllowedOps: allowedOps("eq")},
-	},
-	"cartulary.view.indicators.v1": {
-		"indicator.indicator_type":    {Kind: FieldKindString, AllowedOps: allowedOps("eq")},
-		"indicator.value_kind":        {Kind: FieldKindString, AllowedOps: allowedOps("eq")},
-		"indicator.hash_algorithm":    {Kind: FieldKindString, AllowedOps: allowedOps("eq")},
-		"indicator.first_observed_at": {Kind: FieldKindTimestamp, AllowedOps: allowedOps("eq", "range")},
-		"indicator.last_observed_at":  {Kind: FieldKindTimestamp, AllowedOps: allowedOps("eq", "range")},
-		"indicator.lifecycle_summary": {Kind: FieldKindString, AllowedOps: allowedOps("eq")},
-	},
+var (
+	querySpecsOnce sync.Once
+	querySpecs     map[string]map[string]FieldSpec
+)
+
+func loadQuerySpecs() {
+	querySpecs = make(map[string]map[string]FieldSpec)
+	for _, resource := range viewschema.ListPublicResources() {
+		fieldByKey := make(map[string]viewschema.ViewFieldEntry, len(resource.Fields))
+		for _, field := range resource.Fields {
+			fieldByKey[field.FieldKey] = field
+		}
+		spec := make(map[string]FieldSpec)
+		for _, fieldKey := range resource.FilterFields {
+			field, ok := fieldByKey[fieldKey]
+			if !ok || len(field.FilterOps) == 0 {
+				continue
+			}
+			spec[fieldKey] = FieldSpec{
+				Kind:       fieldKindForContract(field.ReadKind, field.FilterOps),
+				AllowedOps: allowedOps(field.FilterOps...),
+			}
+		}
+		for _, predicate := range resource.SyntheticFilterPredicates {
+			if len(predicate.FilterOps) == 0 {
+				continue
+			}
+			spec[predicate.FieldKey] = FieldSpec{
+				Kind:       syntheticFieldKind(predicate.FilterOps),
+				AllowedOps: allowedOps(predicate.FilterOps...),
+			}
+		}
+		querySpecs[resource.ViewSchemaID] = spec
+	}
+}
+
+func fieldKindForContract(readKind string, ops []string) FieldKind {
+	switch readKind {
+	case "boolean":
+		return FieldKindBool
+	case "date":
+		return FieldKindDate
+	case "timestamp":
+		return FieldKindTimestamp
+	case "collection":
+		return FieldKindStringCollection
+	default:
+		if slices.Contains(ops, "prefix") {
+			return FieldKindCaseFoldedString
+		}
+		return FieldKindString
+	}
+}
+
+func syntheticFieldKind(ops []string) FieldKind {
+	if slices.Contains(ops, "full_text") {
+		return FieldKindFullText
+	}
+	return FieldKindString
 }

@@ -35,7 +35,6 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query", service.handleTimelineQuery)
 		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows", service.handleTimelineCreate)
 		mux.HandleFunc("PATCH /api/v1/records/{record_id}", service.handleTimelinePatch)
 		mux.HandleFunc("POST /api/v1/records/{record_id}/mark-reviewed", service.handleMarkReviewed)
@@ -75,63 +74,6 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		keys:          keys,
 		now:           now,
 	}, nil
-}
-
-func (s *Service) handleTimelineQuery(w http.ResponseWriter, r *http.Request) {
-	viewSchemaID := r.PathValue("view_schema_id")
-	incidentID, ok := pathUUID(w, r, "incident_id")
-	if !ok {
-		return
-	}
-
-	principal, apiErr := s.authenticateSessionRequest(r, false)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	queryMeta, apiErr := DecodeViewQueryRequest(r.Body, viewSchemaID)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-
-	var (
-		rows []map[string]any
-		err  error
-	)
-	switch viewSchemaID {
-	case TimelineViewSchemaID:
-		rows, err = s.store.QueryRows(r.Context(), incidentID, queryMeta)
-	case entities.HostsViewSchemaID:
-		rows, err = s.entityStore.QueryHostRows(r.Context(), incidentID, queryMeta)
-	case entities.IdentitiesViewSchemaID:
-		rows, err = s.entityStore.QueryIdentityRows(r.Context(), incidentID, queryMeta)
-	case entities.IndicatorsViewSchemaID:
-		rows, err = s.entityStore.QueryIndicatorRows(r.Context(), incidentID, queryMeta)
-	default:
-		writeAPIError(w, r, invalidViewQuery("view_schema_id", "unknown_view_schema"))
-		return
-	}
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	_ = httpapi.WriteSuccessWithMeta(w, r, http.StatusOK, map[string]any{
-		"incident_id":    incidentID.String(),
-		"view_schema_id": viewSchemaID,
-		"rows":           rows,
-	}, httpapi.EnvelopeMeta{
-		RequestID: httpapi.RequestIDFromContext(r.Context()),
-		Query:     queryMeta,
-	})
 }
 
 func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request) {

@@ -17,8 +17,10 @@ import {
   type WorkbookSurface,
 } from "@cartulary/test-utils";
 import {
+  listViewContracts,
   requireViewContract,
   resolveHeaderSortFieldKey,
+  type ViewContract,
   visibleFields,
 } from "@cartulary/view-contracts";
 import {
@@ -65,14 +67,29 @@ import {
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 const hostsViewSchemaId = "cartulary.view.hosts.v1";
 const identitiesViewSchemaId = "cartulary.view.identities.v1";
+const evidenceViewSchemaId = "cartulary.view.evidence.v1";
+const notesViewSchemaId = "cartulary.view.notes.v1";
 const timelineContract = requireViewContract(timelineViewSchemaId);
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
+const allWorkbookContracts = listViewContracts();
+const builtInSurfaceIDs = [
+  timelineViewSchemaId,
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
+  evidenceViewSchemaId,
+  notesViewSchemaId,
+] as const;
+const legacySurfaceParamToViewSchemaID: Readonly<Record<string, string>> = {
+  hosts: hostsViewSchemaId,
+  identities: identitiesViewSchemaId,
+  timeline: timelineViewSchemaId,
+};
 const csrfCookieName = "cartulary_csrf";
 const csrfHeaderName = "X-CSRF-Token";
 
 type SaveState = "Syncing" | "Saved" | "Conflict";
-type SurfaceKind = "timeline" | "hosts" | "identities";
+type SurfaceKind = string;
 type EditableField =
   | "timeline.occurred_at"
   | "timeline.summary"
@@ -3786,6 +3803,127 @@ function EntityWorkbookSurface({
   );
 }
 
+function GenericWorkbookSurface({
+  contract,
+  filterDraft,
+  incidentId,
+  loadError,
+  onApplyFilter,
+  onFilterDraftChange,
+  onGroupByChange,
+  onRemoveFilter,
+  onToggleSort,
+  queryState,
+  rows,
+}: {
+  contract: ViewContract;
+  filterDraft: FilterDraft;
+  incidentId: string;
+  loadError: string | null;
+  onApplyFilter: () => void;
+  onFilterDraftChange: (draft: FilterDraft) => void;
+  onGroupByChange: (groupBy: string | null) => void;
+  onRemoveFilter: (fieldKey: string) => void;
+  onToggleSort: (fieldKey: string) => void;
+  queryState: WorkbookQueryState;
+  rows: EntityApiRow[];
+}) {
+  const surface = contract.viewSchemaId as WorkbookSurface;
+  const columns: readonly GridColumn<EntityApiRow>[] = visibleFields(contract)
+    .slice(0, 8)
+    .map((field) => ({
+      fieldKey: field.fieldKey,
+      headerTestId: gridSortHeaderTestId(surface, field.fieldKey),
+      label: field.label,
+      width: field.defaultHidden ? 160 : 220,
+      renderCell: (row) => genericCellLabel(row.cells[field.fieldKey]?.value),
+      sortableFieldKey: resolveHeaderSortFieldKey(contract, field.fieldKey),
+    }));
+  const gridRows: readonly GridRow<EntityApiRow>[] = rows.map((row) => ({
+    key: row.record_id,
+    recordId: row.record_id,
+    data: row,
+    testId: `generic-row-${contract.viewSchemaId}-${row.record_id}`,
+  }));
+
+  return (
+    <section style={workbookStyle}>
+      <header style={headerStyle}>
+        <div>
+          <p style={eyebrowStyle}>
+            {contract.surfaceKind === "built_in_sheet"
+              ? "Built-in sheet"
+              : "System view"}
+          </p>
+          <h1 style={headlineStyle}>{contract.title}</h1>
+          <p style={bodyStyle}>Incident {incidentId}</p>
+        </div>
+      </header>
+
+      <WorkbookGridControls
+        contract={contract}
+        filterDraft={filterDraft}
+        onApplyFilter={onApplyFilter}
+        onFilterDraftChange={onFilterDraftChange}
+        onGroupByChange={onGroupByChange}
+        onRemoveFilter={onRemoveFilter}
+        queryState={queryState}
+        surface={surface}
+      />
+
+      {loadError ? (
+        <p data-testid="generic-surface-load-error" style={bodyStyle}>
+          {loadError}
+        </p>
+      ) : null}
+
+      <GridViewport style={gridShellStyle} testId={gridShellTestId(surface)}>
+        <GridTable
+          columns={columns}
+          getGroupLabel={(row, fieldKey) =>
+            genericCellLabel(row.cells[fieldKey]?.value)
+          }
+          getGroupRowTestId={(fieldKey, value) =>
+            gridGroupRowTestId(surface, fieldKey, value)
+          }
+          groupBy={queryState.groupBy}
+          onToggleSort={onToggleSort}
+          rows={gridRows}
+          sort={queryState.sort}
+        />
+      </GridViewport>
+    </section>
+  );
+}
+
+function genericCellLabel(value: unknown): string {
+  if (value === null || value === undefined || value === "") {
+    return "None";
+  }
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
+  }
+  if (typeof value === "object" && value !== null && "items" in value) {
+    const items = (value as { items?: unknown }).items;
+    if (Array.isArray(items)) {
+      return `${items.length} item${items.length === 1 ? "" : "s"}`;
+    }
+  }
+  return JSON.stringify(value);
+}
+
+function surfaceSlug(viewSchemaID: string): string {
+  return (
+    Object.entries(legacySurfaceParamToViewSchemaID).find(
+      ([, mappedViewSchemaID]) => mappedViewSchemaID === viewSchemaID,
+    )?.[0] ??
+    viewSchemaID.replace(/^cartulary\.view\./, "").replace(/\.v1$/, "")
+  );
+}
+
 export function WorkbookShell({
   incidentId,
   apiBase,
@@ -3793,15 +3931,27 @@ export function WorkbookShell({
   onIncidentAccessLost,
 }: WorkbookShellProps) {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
-  const initialSurface = (params.get("surface") ?? "timeline") as SurfaceKind;
-  const [surface, setSurface] = useState<SurfaceKind>(
-    initialSurface === "hosts" || initialSurface === "identities"
-      ? initialSurface
-      : "timeline",
-  );
+  const initialViewSchemaID = useMemo(() => {
+    const explicit = params.get("view_schema_id");
+    if (
+      explicit &&
+      allWorkbookContracts.some(
+        (contract) => contract.viewSchemaId === explicit,
+      )
+    ) {
+      return explicit;
+    }
+    const legacySurface = params.get("surface") ?? "timeline";
+    return (
+      legacySurfaceParamToViewSchemaID[legacySurface] ?? timelineViewSchemaId
+    );
+  }, [params]);
+  const [surface, setSurface] = useState<SurfaceKind>(initialViewSchemaID);
   const [hostRows, setHostRows] = useState<EntityRow[]>([]);
   const [identityRows, setIdentityRows] = useState<EntityRow[]>([]);
   const [entityLoadError, setEntityLoadError] = useState<string | null>(null);
+  const [genericRows, setGenericRows] = useState<EntityApiRow[]>([]);
+  const [genericLoadError, setGenericLoadError] = useState<string | null>(null);
   const [currentIncidentRole, setCurrentIncidentRole] =
     useState<IncidentRole | null>(null);
   const [hostQueryState, setHostQueryState] = useState<WorkbookQueryState>(() =>
@@ -3815,6 +3965,20 @@ export function WorkbookShell({
   const [identityFilterDraft, setIdentityFilterDraft] = useState<FilterDraft>(
     () => defaultFilterDraft(identitiesContract),
   );
+  const activeContract = useMemo(
+    () =>
+      allWorkbookContracts.find(
+        (contract) => contract.viewSchemaId === surface,
+      ) ?? timelineContract,
+    [surface],
+  );
+  const [genericQueryState, setGenericQueryState] =
+    useState<WorkbookQueryState>(() => emptyWorkbookQueryState());
+  const [genericFilterDraft, setGenericFilterDraft] = useState<FilterDraft>(
+    () => defaultFilterDraft(activeContract),
+  );
+  const [genericSurfaceStateID, setGenericSurfaceStateID] =
+    useState<string>(initialViewSchemaID);
 
   const entityIndex = useMemo(() => {
     const index: Record<string, EntityRow> = {};
@@ -3921,14 +4085,86 @@ export function WorkbookShell({
     }));
   }, [identityFilterDraft]);
 
+  const isSpecializedSurface =
+    surface === timelineViewSchemaId ||
+    surface === hostsViewSchemaId ||
+    surface === identitiesViewSchemaId;
+
+  const loadGenericSurface = useCallback(async () => {
+    if (isSpecializedSurface || genericSurfaceStateID !== surface) {
+      return;
+    }
+    setGenericLoadError(null);
+    try {
+      const result = await fetchJSON<ViewQueryEnvelope>(
+        apiPath(
+          apiBase,
+          `/api/v1/incidents/${incidentId}/views/${surface}/query`,
+        ),
+        {
+          method: "POST",
+          body: JSON.stringify(
+            buildQueryRequest(activeContract, genericQueryState),
+          ),
+        },
+      );
+      if (!result.ok) {
+        throw new Error(parseErrorMessage(result.payload));
+      }
+      const envelope = readEnvelope<ViewQueryEnvelope>(result.payload);
+      setGenericRows(envelope.data.rows);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Surface load failed.";
+      if (
+        typeof message === "string" &&
+        (message.includes("incident_not_found") ||
+          message.includes("authorization_denied"))
+      ) {
+        onIncidentAccessLost?.();
+      }
+      setGenericLoadError(message);
+      setGenericRows([]);
+    }
+  }, [
+    activeContract,
+    apiBase,
+    genericQueryState,
+    genericSurfaceStateID,
+    incidentId,
+    isSpecializedSurface,
+    onIncidentAccessLost,
+    surface,
+  ]);
+
   useEffect(() => {
     void Promise.all([loadEntities(), loadSessionRole()]);
   }, [loadEntities, loadSessionRole]);
 
   useEffect(() => {
+    setGenericQueryState(emptyWorkbookQueryState());
+    setGenericFilterDraft(defaultFilterDraft(activeContract));
+    setGenericSurfaceStateID(surface);
+    setGenericRows([]);
+    setGenericLoadError(null);
+  }, [activeContract, surface]);
+
+  useEffect(() => {
+    void loadGenericSurface();
+  }, [loadGenericSurface]);
+
+  useEffect(() => {
     const next = new URLSearchParams(window.location.search);
     next.set("incident_id", incidentId);
-    next.set("surface", surface);
+    next.set("view_schema_id", surface);
+    const legacySurface = Object.entries(legacySurfaceParamToViewSchemaID).find(
+      ([, viewSchemaID]) => viewSchemaID === surface,
+    )?.[0];
+    if (legacySurface) {
+      next.set("surface", legacySurface);
+    } else {
+      next.delete("surface");
+    }
     window.history.replaceState({}, "", `/?${next.toString()}`);
   }, [incidentId, surface]);
 
@@ -3946,45 +4182,61 @@ export function WorkbookShell({
 
       <div style={toolbarStyle}>
         <div style={tabStripStyle}>
-          <button
-            data-testid="surface-tab-timeline"
-            style={{
-              ...surfaceTabStyle,
-              ...(surface === "timeline" ? surfaceTabActiveStyle : null),
-            }}
-            type="button"
-            onClick={() => {
-              setSurface("timeline");
-            }}
-          >
-            Timeline
-          </button>
-          <button
-            data-testid="surface-tab-hosts"
-            style={{
-              ...surfaceTabStyle,
-              ...(surface === "hosts" ? surfaceTabActiveStyle : null),
-            }}
-            type="button"
-            onClick={() => {
-              setSurface("hosts");
-            }}
-          >
-            Hosts
-          </button>
-          <button
-            data-testid="surface-tab-identities"
-            style={{
-              ...surfaceTabStyle,
-              ...(surface === "identities" ? surfaceTabActiveStyle : null),
-            }}
-            type="button"
-            onClick={() => {
-              setSurface("identities");
-            }}
-          >
-            Identities
-          </button>
+          {builtInSurfaceIDs.map((viewSchemaID) => {
+            const contract = requireViewContract(viewSchemaID);
+            return (
+              <button
+                key={viewSchemaID}
+                data-testid={`surface-tab-${surfaceSlug(viewSchemaID)}`}
+                style={{
+                  ...surfaceTabStyle,
+                  ...(surface === viewSchemaID ? surfaceTabActiveStyle : null),
+                }}
+                type="button"
+                onClick={() => {
+                  setSurface(viewSchemaID);
+                }}
+              >
+                {contract.title}
+              </button>
+            );
+          })}
+          <label style={systemViewSelectLabelStyle}>
+            System view
+            <select
+              data-testid="system-view-selector"
+              style={selectStyle}
+              value={
+                builtInSurfaceIDs.includes(
+                  surface as (typeof builtInSurfaceIDs)[number],
+                )
+                  ? ""
+                  : surface
+              }
+              onChange={(event) => {
+                if (event.target.value) {
+                  setSurface(event.target.value);
+                }
+              }}
+            >
+              <option value="">Select view</option>
+              {allWorkbookContracts
+                .filter(
+                  (contract) =>
+                    !builtInSurfaceIDs.includes(
+                      contract.viewSchemaId as (typeof builtInSurfaceIDs)[number],
+                    ),
+                )
+                .map((contract) => (
+                  <option
+                    key={contract.viewSchemaId}
+                    value={contract.viewSchemaId}
+                  >
+                    {contract.title}
+                  </option>
+                ))}
+            </select>
+          </label>
         </div>
         <div style={roleBadgeStyle}>
           Current incident role: {currentIncidentRole || "viewer"}
@@ -4006,7 +4258,7 @@ export function WorkbookShell({
         </p>
       ) : null}
 
-      {surface === "timeline" ? (
+      {surface === timelineViewSchemaId ? (
         <TimelineWorkbook
           apiBase={apiBase}
           currentIncidentRole={currentIncidentRole}
@@ -4016,24 +4268,31 @@ export function WorkbookShell({
           incidentId={incidentId}
           onRefreshEntities={loadEntities}
         />
-      ) : (
+      ) : surface === hostsViewSchemaId ||
+        surface === identitiesViewSchemaId ? (
         <EntityWorkbookSurface
           apiBase={apiBase}
           currentIncidentRole={currentIncidentRole}
           entityIndex={entityIndex}
-          entityType={surface === "hosts" ? "host" : "identity"}
+          entityType={surface === hostsViewSchemaId ? "host" : "identity"}
           filterDraft={
-            surface === "hosts" ? hostFilterDraft : identityFilterDraft
+            surface === hostsViewSchemaId
+              ? hostFilterDraft
+              : identityFilterDraft
           }
           incidentId={incidentId}
           onApplyFilter={
-            surface === "hosts" ? applyHostFilter : applyIdentityFilter
+            surface === hostsViewSchemaId
+              ? applyHostFilter
+              : applyIdentityFilter
           }
           onFilterDraftChange={
-            surface === "hosts" ? setHostFilterDraft : setIdentityFilterDraft
+            surface === hostsViewSchemaId
+              ? setHostFilterDraft
+              : setIdentityFilterDraft
           }
           onGroupByChange={(groupBy) => {
-            if (surface === "hosts") {
+            if (surface === hostsViewSchemaId) {
               setHostQueryState((current) =>
                 updateGroupBy(hostsContract, current, groupBy),
               );
@@ -4044,7 +4303,7 @@ export function WorkbookShell({
             );
           }}
           onRemoveFilter={(fieldKey) => {
-            if (surface === "hosts") {
+            if (surface === hostsViewSchemaId) {
               setHostQueryState((current) =>
                 removeFilterField(current, fieldKey),
               );
@@ -4056,7 +4315,7 @@ export function WorkbookShell({
           }}
           onRefreshEntities={loadEntities}
           onToggleSort={(fieldKey) => {
-            if (surface === "hosts") {
+            if (surface === hostsViewSchemaId) {
               setHostQueryState((current) =>
                 toggleSortField(hostsContract, current, fieldKey),
               );
@@ -4066,8 +4325,45 @@ export function WorkbookShell({
               toggleSortField(identitiesContract, current, fieldKey),
             );
           }}
-          queryState={surface === "hosts" ? hostQueryState : identityQueryState}
-          rows={surface === "hosts" ? hostRows : identityRows}
+          queryState={
+            surface === hostsViewSchemaId ? hostQueryState : identityQueryState
+          }
+          rows={surface === hostsViewSchemaId ? hostRows : identityRows}
+        />
+      ) : (
+        <GenericWorkbookSurface
+          contract={activeContract}
+          filterDraft={genericFilterDraft}
+          incidentId={incidentId}
+          loadError={genericLoadError}
+          onApplyFilter={() => {
+            setGenericQueryState((current) =>
+              applyFilterDraft(current, genericFilterDraft),
+            );
+            setGenericFilterDraft((current) => ({
+              ...current,
+              booleanValue: "",
+              value: "",
+            }));
+          }}
+          onFilterDraftChange={setGenericFilterDraft}
+          onGroupByChange={(groupBy) => {
+            setGenericQueryState((current) =>
+              updateGroupBy(activeContract, current, groupBy),
+            );
+          }}
+          onRemoveFilter={(fieldKey) => {
+            setGenericQueryState((current) =>
+              removeFilterField(current, fieldKey),
+            );
+          }}
+          onToggleSort={(fieldKey) => {
+            setGenericQueryState((current) =>
+              toggleSortField(activeContract, current, fieldKey),
+            );
+          }}
+          queryState={genericQueryState}
+          rows={genericRows}
         />
       )}
     </section>
@@ -4430,6 +4726,11 @@ const surfaceTabActiveStyle = {
   background: "rgb(34 74 63)",
   color: "rgb(250 252 251)",
   borderColor: "rgb(34 74 63)",
+};
+
+const systemViewSelectLabelStyle = {
+  ...labelStyle,
+  minWidth: "16rem",
 };
 
 const roleBadgeStyle = {

@@ -1497,6 +1497,13 @@ func appendStringFilterClause(builder *strings.Builder, args *[]any, expr string
 	switch filter.Op {
 	case "eq":
 		return appendEqualityClause(builder, args, expr, filter.Arg)
+	case "prefix":
+		value, _ := filter.Arg["value"].(string)
+		builder.WriteString("\n   AND lower(coalesce((")
+		builder.WriteString(expr)
+		builder.WriteString(")::text, '')) LIKE ")
+		builder.WriteString(bindWithCast(args, value+"%", ""))
+		return nil
 	default:
 		return fmt.Errorf("string filter operator %q not mapped", filter.Op)
 	}

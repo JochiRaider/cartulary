@@ -1,4 +1,4 @@
-export type WorkbookSurface = "timeline" | "hosts" | "identities";
+export type WorkbookSurface = string;
 
 export function gridShellTestId(surface: WorkbookSurface): string {
   return `${surface}-grid-shell`;

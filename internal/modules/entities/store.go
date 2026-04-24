@@ -232,27 +232,27 @@ SELECT
 	for _, filter := range query.Filters {
 		switch filter.FieldKey {
 		case "host.host_state":
-			if err := appendQueryEqualityClause(&builder, &args, "p.host_state", filter.Arg, ""); err != nil {
+			if err := appendQueryTextClause(&builder, &args, "p.host_state", filter); err != nil {
 				return "", nil, err
 			}
 		case "host.location":
-			if err := appendQueryEqualityClause(&builder, &args, "p.location", filter.Arg, ""); err != nil {
+			if err := appendQueryTextClause(&builder, &args, "p.location", filter); err != nil {
 				return "", nil, err
 			}
 		case "host.os_platform":
-			if err := appendQueryEqualityClause(&builder, &args, "p.os_platform", filter.Arg, ""); err != nil {
+			if err := appendQueryTextClause(&builder, &args, "p.os_platform", filter); err != nil {
 				return "", nil, err
 			}
 		case "host.business_owner":
-			if err := appendQueryEqualityClause(&builder, &args, "p.business_owner", filter.Arg, ""); err != nil {
+			if err := appendQueryTextClause(&builder, &args, "p.business_owner", filter); err != nil {
 				return "", nil, err
 			}
 		case "host.criticality":
-			if err := appendQueryEqualityClause(&builder, &args, "p.criticality", filter.Arg, ""); err != nil {
+			if err := appendQueryTextClause(&builder, &args, "p.criticality", filter); err != nil {
 				return "", nil, err
 			}
 		case "host.containment_status":
-			if err := appendQueryEqualityClause(&builder, &args, "p.containment_status", filter.Arg, ""); err != nil {
+			if err := appendQueryTextClause(&builder, &args, "p.containment_status", filter); err != nil {
 				return "", nil, err
 			}
 		default:
@@ -304,19 +304,19 @@ SELECT
 	for _, filter := range query.Filters {
 		switch filter.FieldKey {
 		case "identity.identity_state":
-			if err := appendQueryEqualityClause(&builder, &args, "p.identity_state", filter.Arg, ""); err != nil {
+			if err := appendQueryTextClause(&builder, &args, "p.identity_state", filter); err != nil {
 				return "", nil, err
 			}
 		case "identity.privilege_level":
-			if err := appendQueryEqualityClause(&builder, &args, "p.privilege_level", filter.Arg, ""); err != nil {
+			if err := appendQueryTextClause(&builder, &args, "p.privilege_level", filter); err != nil {
 				return "", nil, err
 			}
 		case "identity.mfa_state":
-			if err := appendQueryEqualityClause(&builder, &args, "p.mfa_state", filter.Arg, ""); err != nil {
+			if err := appendQueryTextClause(&builder, &args, "p.mfa_state", filter); err != nil {
 				return "", nil, err
 			}
 		case "identity.reset_status":
-			if err := appendQueryEqualityClause(&builder, &args, "p.reset_status", filter.Arg, ""); err != nil {
+			if err := appendQueryTextClause(&builder, &args, "p.reset_status", filter); err != nil {
 				return "", nil, err
 			}
 		default:
@@ -361,19 +361,19 @@ SELECT
 	for _, filter := range query.Filters {
 		switch filter.FieldKey {
 		case "indicator.indicator_type":
-			if err := appendQueryEqualityClause(&builder, &args, "i.indicator_type", filter.Arg, ""); err != nil {
+			if err := appendQueryTextClause(&builder, &args, "i.indicator_type", filter); err != nil {
 				return "", nil, err
 			}
 		case "indicator.value_kind":
-			if err := appendQueryEqualityClause(&builder, &args, "i.value_kind", filter.Arg, ""); err != nil {
+			if err := appendQueryTextClause(&builder, &args, "i.value_kind", filter); err != nil {
 				return "", nil, err
 			}
 		case "indicator.hash_algorithm":
-			if err := appendQueryEqualityClause(&builder, &args, "i.hash_algorithm", filter.Arg, ""); err != nil {
+			if err := appendQueryTextClause(&builder, &args, "i.hash_algorithm", filter); err != nil {
 				return "", nil, err
 			}
 		case "indicator.lifecycle_summary":
-			if err := appendQueryEqualityClause(&builder, &args, "i.lifecycle_summary", filter.Arg, ""); err != nil {
+			if err := appendQueryTextClause(&builder, &args, "i.lifecycle_summary", filter); err != nil {
 				return "", nil, err
 			}
 		case "indicator.first_observed_at":
@@ -441,6 +441,54 @@ func appendQueryEqualityClause(builder *strings.Builder, args *[]any, expr strin
 		builder.WriteString(expr)
 		builder.WriteString(" = ")
 		builder.WriteString(bindQueryValue(args, value, cast))
+	}
+	builder.WriteString(")")
+	return nil
+}
+
+func appendQueryTextClause(builder *strings.Builder, args *[]any, expr string, filter viewschema.Filter) error {
+	switch filter.Op {
+	case "eq":
+		return appendQueryCaseFoldedEqualityClause(builder, args, expr, filter.Arg)
+	case "prefix":
+		value, _ := filter.Arg["value"].(string)
+		builder.WriteString("\n   AND lower(coalesce((")
+		builder.WriteString(expr)
+		builder.WriteString(")::text, '')) LIKE ")
+		builder.WriteString(bindQueryValue(args, value+"%", ""))
+		return nil
+	default:
+		return fmt.Errorf("text filter operator %q not mapped", filter.Op)
+	}
+}
+
+func appendQueryCaseFoldedEqualityClause(builder *strings.Builder, args *[]any, expr string, arg map[string]any) error {
+	if value, ok := arg["value"]; ok {
+		if value == nil {
+			builder.WriteString("\n   AND ")
+			builder.WriteString(expr)
+			builder.WriteString(" IS NULL")
+			return nil
+		}
+		builder.WriteString("\n   AND lower(coalesce((")
+		builder.WriteString(expr)
+		builder.WriteString(")::text, '')) = ")
+		builder.WriteString(bindQueryValue(args, value, ""))
+		return nil
+	}
+	values, ok := arg["values"].([]any)
+	if !ok || len(values) == 0 {
+		return fmt.Errorf("missing equality values for %s", expr)
+	}
+	builder.WriteString("\n   AND (")
+	for index, value := range values {
+		if index > 0 {
+			builder.WriteString(" OR ")
+		}
+		builder.WriteString("lower(coalesce((")
+		builder.WriteString(expr)
+		builder.WriteString(")::text, '')) = ")
+		builder.WriteString(bindQueryValue(args, value, ""))
 	}
 	builder.WriteString(")")
 	return nil

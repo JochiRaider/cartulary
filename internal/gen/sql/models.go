@@ -8,6 +8,72 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Artifact struct {
+	RecordID            pgtype.UUID        `json:"record_id"`
+	IncidentID          pgtype.UUID        `json:"incident_id"`
+	ArtifactType        string             `json:"artifact_type"`
+	Title               pgtype.Text        `json:"title"`
+	Body                pgtype.Text        `json:"body"`
+	TimestampUtc        pgtype.Timestamptz `json:"timestamp_utc"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	CommID              pgtype.Text        `json:"comm_id"`
+	CommType            pgtype.Text        `json:"comm_type"`
+	Audience            pgtype.Text        `json:"audience"`
+	ChannelOrMeeting    pgtype.Text        `json:"channel_or_meeting"`
+	Summary             pgtype.Text        `json:"summary"`
+	NextReportAt        pgtype.Timestamptz `json:"next_report_at"`
+	PrivilegeTag        pgtype.Text        `json:"privilege_tag"`
+	HandoffID           pgtype.Text        `json:"handoff_id"`
+	OutgoingOwnerUserID pgtype.UUID        `json:"outgoing_owner_user_id"`
+	IncomingOwnerUserID pgtype.UUID        `json:"incoming_owner_user_id"`
+	CurrentStateSummary pgtype.Text        `json:"current_state_summary"`
+	NextChecks          pgtype.Text        `json:"next_checks"`
+	AcknowledgedAt      pgtype.Timestamptz `json:"acknowledged_at"`
+	StatusReviewID      pgtype.Text        `json:"status_review_id"`
+	ReviewOwnerUserID   pgtype.UUID        `json:"review_owner_user_id"`
+	ActiveRisksSummary  pgtype.Text        `json:"active_risks_summary"`
+	LessonID            pgtype.Text        `json:"lesson_id"`
+	OwnerUserID         pgtype.UUID        `json:"owner_user_id"`
+	ClosureState        pgtype.Text        `json:"closure_state"`
+	CreatedByUserID     pgtype.UUID        `json:"created_by_user_id"`
+}
+
+type ArtifactGridProjection struct {
+	RecordID            pgtype.UUID        `json:"record_id"`
+	IncidentID          pgtype.UUID        `json:"incident_id"`
+	ArtifactType        string             `json:"artifact_type"`
+	Title               pgtype.Text        `json:"title"`
+	Body                pgtype.Text        `json:"body"`
+	TimestampUtc        pgtype.Timestamptz `json:"timestamp_utc"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	CreatedByUserID     pgtype.UUID        `json:"created_by_user_id"`
+	CommID              pgtype.Text        `json:"comm_id"`
+	CommType            pgtype.Text        `json:"comm_type"`
+	Audience            pgtype.Text        `json:"audience"`
+	ChannelOrMeeting    pgtype.Text        `json:"channel_or_meeting"`
+	Summary             pgtype.Text        `json:"summary"`
+	NextReportAt        pgtype.Timestamptz `json:"next_report_at"`
+	PrivilegeTag        pgtype.Text        `json:"privilege_tag"`
+	HandoffID           pgtype.Text        `json:"handoff_id"`
+	OutgoingOwnerUserID pgtype.UUID        `json:"outgoing_owner_user_id"`
+	IncomingOwnerUserID pgtype.UUID        `json:"incoming_owner_user_id"`
+	CurrentStateSummary pgtype.Text        `json:"current_state_summary"`
+	NextChecks          pgtype.Text        `json:"next_checks"`
+	AcknowledgedAt      pgtype.Timestamptz `json:"acknowledged_at"`
+	StatusReviewID      pgtype.Text        `json:"status_review_id"`
+	ReviewOwnerUserID   pgtype.UUID        `json:"review_owner_user_id"`
+	ActiveRisksSummary  pgtype.Text        `json:"active_risks_summary"`
+	LessonID            pgtype.Text        `json:"lesson_id"`
+	OwnerUserID         pgtype.UUID        `json:"owner_user_id"`
+	ClosureState        pgtype.Text        `json:"closure_state"`
+	TimestampDay        pgtype.Date        `json:"timestamp_day"`
+	NextReportDay       pgtype.Date        `json:"next_report_day"`
+	AckState            string             `json:"ack_state"`
+	LinkedRecordCount   int32              `json:"linked_record_count"`
+}
+
 type BootstrapToken struct {
 	ID               pgtype.UUID        `json:"id"`
 	UserID           pgtype.UUID        `json:"user_id"`
@@ -55,6 +121,20 @@ type CompromiseAssessment struct {
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt              pgtype.Timestamptz `json:"deleted_at"`
 	DeletedByUserID        pgtype.UUID        `json:"deleted_by_user_id"`
+}
+
+type Decision struct {
+	RecordID           pgtype.UUID        `json:"record_id"`
+	IncidentID         pgtype.UUID        `json:"incident_id"`
+	Summary            pgtype.Text        `json:"summary"`
+	Status             string             `json:"status"`
+	OwnerUserID        pgtype.UUID        `json:"owner_user_id"`
+	DecisionType       pgtype.Text        `json:"decision_type"`
+	DecidedAt          pgtype.Timestamptz `json:"decided_at"`
+	Rationale          pgtype.Text        `json:"rationale"`
+	SupersedesRecordID pgtype.UUID        `json:"supersedes_record_id"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
 type DeploymentAdminAuditEvent struct {
@@ -126,6 +206,24 @@ type EntityPreservedIdentifier struct {
 	CreatedByUserID             pgtype.UUID        `json:"created_by_user_id"`
 	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
 	DeletedAt                   pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type Evidence struct {
+	RecordID           pgtype.UUID        `json:"record_id"`
+	IncidentID         pgtype.UUID        `json:"incident_id"`
+	Title              pgtype.Text        `json:"title"`
+	LifecycleState     string             `json:"lifecycle_state"`
+	RequestedAt        pgtype.Timestamptz `json:"requested_at"`
+	ReceivedAt         pgtype.Timestamptz `json:"received_at"`
+	StorageRef         pgtype.Text        `json:"storage_ref"`
+	BlobHash           pgtype.Text        `json:"blob_hash"`
+	CollectorPartyText pgtype.Text        `json:"collector_party_text"`
+	CollectorPartyID   pgtype.UUID        `json:"collector_party_id"`
+	SourcePartyText    pgtype.Text        `json:"source_party_text"`
+	SourcePartyID      pgtype.UUID        `json:"source_party_id"`
+	UploadState        string             `json:"upload_state"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Host struct {
@@ -317,6 +415,21 @@ type IndicatorStateInterval struct {
 	CreatedAt                pgtype.Timestamptz `json:"created_at"`
 }
 
+type Party struct {
+	RecordID         pgtype.UUID        `json:"record_id"`
+	IncidentID       pgtype.UUID        `json:"incident_id"`
+	DisplayName      pgtype.Text        `json:"display_name"`
+	PartyKind        pgtype.Text        `json:"party_kind"`
+	OrganizationName pgtype.Text        `json:"organization_name"`
+	RoleTitle        pgtype.Text        `json:"role_title"`
+	PrimaryEmail     pgtype.Text        `json:"primary_email"`
+	TimezoneName     pgtype.Text        `json:"timezone_name"`
+	ExternalRef      pgtype.Text        `json:"external_ref"`
+	Notes            pgtype.Text        `json:"notes"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type PendingTotpEnrollment struct {
 	ID                        pgtype.UUID        `json:"id"`
 	UserID                    pgtype.UUID        `json:"user_id"`
@@ -395,6 +508,27 @@ type RouteIdempotency struct {
 	StatusCode   int32              `json:"status_code"`
 	ResponseJson []byte             `json:"response_json"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type TaskRequest struct {
+	RecordID           pgtype.UUID        `json:"record_id"`
+	IncidentID         pgtype.UUID        `json:"incident_id"`
+	Title              pgtype.Text        `json:"title"`
+	Status             string             `json:"status"`
+	OwnerUserID        pgtype.UUID        `json:"owner_user_id"`
+	Priority           pgtype.Text        `json:"priority"`
+	TaskKind           pgtype.Text        `json:"task_kind"`
+	Workstream         pgtype.Text        `json:"workstream"`
+	DueAt              pgtype.Timestamptz `json:"due_at"`
+	RequesterPartyText pgtype.Text        `json:"requester_party_text"`
+	RequesterPartyID   pgtype.UUID        `json:"requester_party_id"`
+	BlockedReason      pgtype.Text        `json:"blocked_reason"`
+	CompletedAt        pgtype.Timestamptz `json:"completed_at"`
+	ExternalTicketRef  pgtype.Text        `json:"external_ticket_ref"`
+	ClosureSummary     pgtype.Text        `json:"closure_summary"`
+	DecisionRecordID   pgtype.UUID        `json:"decision_record_id"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
 type TimelineEvent struct {
