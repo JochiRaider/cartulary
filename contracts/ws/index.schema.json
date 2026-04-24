@@ -1,11 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.ws.phase1.index.v1",
-  "title": "Cartulary Phase 1 WebSocket Contract Index",
+  "$id": "cartulary.ws.incident_stream.index.v1",
+  "title": "Cartulary Incident WebSocket Contract Index",
   "description": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "route": {
+      "const": "GET /ws/v1/incidents/{incident_id}",
+      "default": "GET /ws/v1/incidents/{incident_id}"
+    },
     "messages": {
       "type": "array",
       "items": {
@@ -13,96 +17,223 @@
         "additionalProperties": false,
         "properties": {
           "type": {
-            "const": "session_revoked"
+            "enum": [
+              "hello",
+              "resume",
+              "hello_ack",
+              "resume_ack",
+              "presence_snapshot",
+              "presence_delta",
+              "presence_update",
+              "record_changed",
+              "job_progress",
+              "ping",
+              "pong",
+              "error",
+              "session_revoked"
+            ]
           },
           "version": {
             "const": "v1"
           },
           "direction": {
-            "const": "server_to_client"
+            "enum": [
+              "client_to_server",
+              "server_to_client"
+            ]
+          },
+          "replayable": {
+            "type": "boolean"
           },
           "payload_schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "type": {
-                "const": "object"
-              },
-              "required": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "properties": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "reason_code": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "type": {
-                        "const": "string"
-                      },
-                      "enum": {
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "required": [
-                      "type",
-                      "enum"
-                    ]
-                  }
-                },
-                "required": [
-                  "reason_code"
-                ]
-              }
-            },
-            "required": [
-              "type",
-              "required",
-              "properties"
-            ]
+            "type": "object"
           }
         },
         "required": [
           "type",
           "version",
           "direction",
+          "replayable",
           "payload_schema"
         ]
       },
       "default": [
         {
+          "type": "hello",
+          "version": "v1",
+          "direction": "client_to_server",
+          "replayable": false,
+          "payload_schema": {
+            "type": "object",
+            "required": [
+              "client_instance_id",
+              "presence"
+            ]
+          }
+        },
+        {
+          "type": "resume",
+          "version": "v1",
+          "direction": "client_to_server",
+          "replayable": false,
+          "payload_schema": {
+            "type": "object",
+            "required": [
+              "client_instance_id",
+              "resume_token",
+              "last_seen_stream_seq",
+              "presence"
+            ]
+          }
+        },
+        {
+          "type": "pong",
+          "version": "v1",
+          "direction": "client_to_server",
+          "replayable": false,
+          "payload_schema": {
+            "type": "object"
+          }
+        },
+        {
+          "type": "presence_update",
+          "version": "v1",
+          "direction": "client_to_server",
+          "replayable": false,
+          "payload_schema": {
+            "type": "object",
+            "required": [
+              "presence"
+            ]
+          }
+        },
+        {
+          "type": "hello_ack",
+          "version": "v1",
+          "direction": "server_to_client",
+          "replayable": false,
+          "payload_schema": {
+            "type": "object",
+            "required": [
+              "connection_id",
+              "resume_token",
+              "server_time",
+              "heartbeat_interval_ms",
+              "presence_ttl_ms",
+              "resume_window_ms"
+            ]
+          }
+        },
+        {
+          "type": "resume_ack",
+          "version": "v1",
+          "direction": "server_to_client",
+          "replayable": false,
+          "payload_schema": {
+            "type": "object",
+            "required": [
+              "status",
+              "resume_token",
+              "server_high_water_stream_seq"
+            ]
+          }
+        },
+        {
+          "type": "presence_snapshot",
+          "version": "v1",
+          "direction": "server_to_client",
+          "replayable": false,
+          "payload_schema": {
+            "type": "object",
+            "required": [
+              "presences"
+            ]
+          }
+        },
+        {
+          "type": "presence_delta",
+          "version": "v1",
+          "direction": "server_to_client",
+          "replayable": false,
+          "payload_schema": {
+            "type": "object",
+            "required": [
+              "delta_kind",
+              "presence"
+            ]
+          }
+        },
+        {
+          "type": "record_changed",
+          "version": "v1",
+          "direction": "server_to_client",
+          "replayable": true,
+          "payload_schema": {
+            "type": "object",
+            "required": [
+              "record_id",
+              "row_version",
+              "change_set_id",
+              "client_txn_id",
+              "actor_user_id",
+              "changed_field_keys",
+              "affected_views"
+            ]
+          }
+        },
+        {
+          "type": "job_progress",
+          "version": "v1",
+          "direction": "server_to_client",
+          "replayable": true,
+          "payload_schema": {
+            "type": "object",
+            "required": [
+              "job_id",
+              "state"
+            ]
+          }
+        },
+        {
+          "type": "ping",
+          "version": "v1",
+          "direction": "server_to_client",
+          "replayable": false,
+          "payload_schema": {
+            "type": "object"
+          }
+        },
+        {
+          "type": "error",
+          "version": "v1",
+          "direction": "server_to_client",
+          "replayable": false,
+          "payload_schema": {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "retryable"
+            ]
+          }
+        },
+        {
           "type": "session_revoked",
           "version": "v1",
           "direction": "server_to_client",
+          "replayable": false,
           "payload_schema": {
             "type": "object",
             "required": [
               "reason_code"
-            ],
-            "properties": {
-              "reason_code": {
-                "type": "string",
-                "enum": [
-                  "session_revoked",
-                  "session_expired",
-                  "concurrency_limit"
-                ]
-              }
-            }
+            ]
           }
         }
       ]
     }
   },
   "required": [
+    "route",
     "messages"
   ]
 }

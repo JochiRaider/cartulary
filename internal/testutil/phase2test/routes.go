@@ -376,7 +376,7 @@ func ControlBoundaryInventory() []RouteInventoryEntry {
 			Name:        "timeline websocket",
 			Transport:   RouteTransportWebSocket,
 			Method:      http.MethodGet,
-			Template:    "/ws/v1/incidents/{incident_id}/views/" + timeline.TimelineViewSchemaID + "/changes",
+			Template:    "/ws/v1/incidents/{incident_id}",
 			AllowedRole: ControlRoleMembershipRequired,
 		},
 		{

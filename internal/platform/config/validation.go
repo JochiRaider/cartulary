@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	pathpkg "path"
 	"path/filepath"
@@ -74,6 +75,7 @@ func validateConfigStructure(cfg *Config, presence configPresence) []Diagnostic 
 		})
 	}
 
+	validatePublicOrigin(&cfg.Application, &diagnostics)
 	validateRootBinding(&cfg.Roots.DatabaseStorage, "roots.database_storage", cfg.DeploymentProfile, true, true, &diagnostics)
 	validateRootBinding(&cfg.Roots.ObjectStorage, "roots.object_storage", cfg.DeploymentProfile, true, true, &diagnostics)
 	validateRootBinding(&cfg.Roots.BackupStorage, "roots.backup_storage", cfg.DeploymentProfile, true, true, &diagnostics)
@@ -88,6 +90,44 @@ func validateConfigStructure(cfg *Config, presence configPresence) []Diagnostic 
 	}
 
 	return append(diagnostics, detectFilesystemRootOverlap(collectFilesystemRoots(*cfg))...)
+}
+
+func validatePublicOrigin(application *ApplicationConfig, diagnostics *[]Diagnostic) {
+	if strings.TrimSpace(application.PublicOrigin) == "" {
+		*diagnostics = append(*diagnostics, Diagnostic{
+			Path:       "application.public_origin",
+			ReasonCode: "missing_required_key",
+			Message:    "application public origin is required",
+		})
+		return
+	}
+
+	parsed, err := url.Parse(application.PublicOrigin)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		*diagnostics = append(*diagnostics, Diagnostic{
+			Path:       "application.public_origin",
+			ReasonCode: "invalid_origin",
+			Message:    "application public origin must be an absolute http or https origin",
+		})
+		return
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		*diagnostics = append(*diagnostics, Diagnostic{
+			Path:       "application.public_origin",
+			ReasonCode: "invalid_origin",
+			Message:    "application public origin scheme must be http or https",
+		})
+		return
+	}
+	if parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		*diagnostics = append(*diagnostics, Diagnostic{
+			Path:       "application.public_origin",
+			ReasonCode: "invalid_origin",
+			Message:    "application public origin must not include userinfo, path, query, or fragment",
+		})
+		return
+	}
+	application.PublicOrigin = parsed.Scheme + "://" + parsed.Host
 }
 
 func validateStartupFilesystemRoots(cfg *Config) []Diagnostic {

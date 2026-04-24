@@ -309,7 +309,7 @@ func RequireTimelineSocketRejected(
 		t.Fatalf("parse server url: %v", err)
 	}
 	target.Scheme = strings.Replace(target.Scheme, "http", "ws", 1)
-	target.Path = "/ws/v1/incidents/" + incidentID + "/views/cartulary.view.timeline.v1/changes"
+	target.Path = "/ws/v1/incidents/" + incidentID
 
 	headers := http.Header{}
 	headers.Set("Authorization", "Bearer "+sessionToken)

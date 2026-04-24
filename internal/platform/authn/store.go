@@ -403,6 +403,35 @@ UPDATE user_sessions
 	return nil
 }
 
+func (s *Store) ListActiveSessionsForUser(ctx context.Context, userID uuid.UUID) ([]SessionRecord, error) {
+	rows, err := s.pool.Query(ctx, `
+SELECT id, user_id, authenticated_at, last_qualifying_activity_at, idle_expires_at, absolute_expires_at,
+       session_expires_at, revoked_at, revoke_reason_code, created_at, updated_at
+  FROM user_sessions
+ WHERE user_id = $1
+   AND revoked_at IS NULL
+   AND session_expires_at > now()
+ ORDER BY created_at ASC
+`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list active sessions for user: %w", err)
+	}
+	defer rows.Close()
+
+	records := make([]SessionRecord, 0)
+	for rows.Next() {
+		record, err := scanSession(rows)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, record)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate active sessions for user: %w", err)
+	}
+	return records, nil
+}
+
 func (s *Store) IssueBootstrapToken(ctx context.Context, userID uuid.UUID, fingerprint []byte, now time.Time) (BootstrapTokenRecord, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {

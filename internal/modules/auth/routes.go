@@ -22,11 +22,12 @@ import (
 const unauthorizedCode = "session_required"
 
 type Service struct {
-	store      authStore
-	hub        sessionHub
-	keys       authn.MasterKeys
-	pagination *pagination.Registry
-	now        func() time.Time
+	store        authStore
+	hub          sessionHub
+	keys         authn.MasterKeys
+	pagination   *pagination.Registry
+	publicOrigin string
+	now          func() time.Time
 }
 
 type authStore interface {
@@ -120,11 +121,12 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	}
 
 	return &Service{
-		store:      authn.NewStore(deps.Postgres),
-		hub:        deps.WSHub,
-		keys:       keys,
-		pagination: paginator,
-		now:        now,
+		store:        authn.NewStore(deps.Postgres),
+		hub:          deps.WSHub,
+		keys:         keys,
+		pagination:   paginator,
+		publicOrigin: deps.Config.Application.PublicOrigin,
+		now:          now,
 	}, nil
 }
 
@@ -1068,7 +1070,7 @@ func (s *Service) handleTestSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := platformws.Accept(w, r)
+	conn, err := platformws.Accept(w, r, s.publicOrigin)
 	if err != nil {
 		return
 	}

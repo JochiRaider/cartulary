@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
@@ -30,16 +31,36 @@ func ConnectViewSocket(t testing.TB, server *httptestx.Server, incidentID string
 
 	headers := http.Header{}
 	headers.Set("Authorization", "Bearer "+sessionToken)
-	client := wstest.ConnectWithHeaders(t, server.HTTP.URL, "/ws/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/changes", headers)
+	client := wstest.ConnectWithHeaders(t, server.HTTP.URL, "/ws/v1/incidents/"+incidentID, headers)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	if err := client.Send(ctx, platformws.Message{
+		Type: "hello",
+		Payload: platformws.RawPayload(map[string]any{
+			"client_instance_id": "phase4-test-" + incidentID,
+			"presence": map[string]any{
+				"sheet_ref": map[string]any{
+					"kind": "view_schema",
+					"id":   viewSchemaID,
+				},
+				"mode": "viewing",
+			},
+		}),
+	}); err != nil {
+		t.Fatalf("send websocket hello: %v", err)
+	}
 	message, err := client.Receive(ctx)
 	if err != nil {
-		t.Fatalf("receive websocket connected message: %v", err)
+		t.Fatalf("receive websocket hello_ack message: %v", err)
 	}
-	wstest.RequireMessageType(t, message, "connected")
+	wstest.RequireMessageType(t, message, "hello_ack")
+	message, err = client.Receive(ctx)
+	if err != nil {
+		t.Fatalf("receive websocket presence_snapshot message: %v", err)
+	}
+	wstest.RequireMessageType(t, message, "presence_snapshot")
 	return client
 }
 
@@ -49,20 +70,28 @@ func RequireRecordChanged(t testing.TB, client *wstest.Client, wantRecordID stri
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	message, err := client.Receive(ctx)
-	if err != nil {
-		t.Fatalf("receive websocket record_changed: %v", err)
-	}
-	wstest.RequireMessageType(t, message, "record_changed")
+	var lastPayload *RecordChangeSocketPayload
+	for {
+		message, err := client.Receive(ctx)
+		if err != nil {
+			if lastPayload != nil {
+				t.Fatalf("timed out waiting for websocket record_changed record=%s version=%d after seeing %#v: %v", wantRecordID, wantRowVersion, *lastPayload, err)
+			}
+			t.Fatalf("receive websocket record_changed: %v", err)
+		}
+		if message.Type != "record_changed" {
+			continue
+		}
 
-	var payload RecordChangeSocketPayload
-	if err := json.Unmarshal(message.Payload, &payload); err != nil {
-		t.Fatalf("decode record_changed payload: %v", err)
+		var payload RecordChangeSocketPayload
+		if err := json.Unmarshal(message.Payload, &payload); err != nil {
+			t.Fatalf("decode record_changed payload: %v", err)
+		}
+		lastPayload = &payload
+		if payload.RecordID == wantRecordID && payload.RowVersion == float64(wantRowVersion) {
+			return payload
+		}
 	}
-	if payload.RecordID != wantRecordID || payload.RowVersion != float64(wantRowVersion) {
-		t.Fatalf("unexpected record_changed payload: %#v", payload)
-	}
-	return payload
 }
 
 func ExpectNoSocketMessage(t testing.TB, client *wstest.Client) {

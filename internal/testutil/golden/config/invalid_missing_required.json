@@ -4,6 +4,11 @@
     "details": {
       "items": [
         {
+          "message": "application public origin is required",
+          "path": "application.public_origin",
+          "reason_code": "missing_required_key"
+        },
+        {
           "message": "config_schema_id is required",
           "path": "config_schema_id",
           "reason_code": "missing_required_key"

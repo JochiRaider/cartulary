@@ -16,7 +16,7 @@ import (
 func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws/v1/test/session-lifecycle", func(w http.ResponseWriter, r *http.Request) {
-		conn, err := platformws.Accept(w, r)
+		conn, err := platformws.Accept(w, r, "")
 		if err != nil {
 			return
 		}

@@ -89,6 +89,9 @@ func disconnectedObjectStoreConfig(t testing.TB) config.Config {
 	cfg, err := config.Validate(config.Config{
 		ConfigSchemaID:    "cartulary.deployment_config.v1",
 		DeploymentProfile: "disconnected",
+		Application: config.ApplicationConfig{
+			PublicOrigin: "http://localhost:5173",
+		},
 		Roots: config.RootBindings{
 			DatabaseStorage: config.RootBinding{
 				BindingKind: "filesystem_root",

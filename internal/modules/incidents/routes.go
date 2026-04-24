@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 const incidentUnauthorizedCode = "session_required"
@@ -21,6 +22,7 @@ const incidentUnauthorizedCode = "session_required"
 type Service struct {
 	store      *Store
 	authStore  *authn.Store
+	hub        *platformws.Hub
 	keys       authn.MasterKeys
 	pagination *pagination.Registry
 	now        func() time.Time
@@ -61,6 +63,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	return &Service{
 		store:      NewStore(deps.Postgres),
 		authStore:  authn.NewStore(deps.Postgres),
+		hub:        deps.WSHub,
 		keys:       keys,
 		pagination: paginator,
 		now:        now,
@@ -509,6 +512,7 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
+		s.revokeIncidentAccess(r.Context(), incidentID, userID)
 		w.WriteHeader(http.StatusNoContent)
 
 	default:
@@ -604,6 +608,19 @@ func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 		return MembershipRecord{}, apiErr
 	}
 	return record, nil
+}
+
+func (s *Service) revokeIncidentAccess(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) {
+	if s.hub == nil {
+		return
+	}
+	sessions, err := s.authStore.ListActiveSessionsForUser(ctx, userID)
+	if err != nil {
+		return
+	}
+	for _, session := range sessions {
+		s.hub.RevokeIncidentAccess(incidentID, session.ID)
+	}
 }
 
 func (s *Service) resolveMembershipTarget(ctx context.Context, request MembershipCreateRequest) (authn.UserRecord, *auth.APIError) {

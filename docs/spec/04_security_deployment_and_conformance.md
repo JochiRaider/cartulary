@@ -1511,7 +1511,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
 ### 9.12 Additional Base Profile criteria for deployment configuration contract
 
 - **AC-294**: With no selector override, the deployment loads `/etc/cartulary/config.toml`; when `CARTULARY_CONFIG_FILE` is set to an alternate absolute path, that file is selected instead; after file load, `CARTULARY__ROOTS__BACKUP_STORAGE__PATH=/srv/cartulary/backups` overrides `roots.backup_storage.path`; and an unknown file key or unknown `CARTULARY__...` overlay key fails closed with `invalid_deployment_config`.
-  - Verifies: REQ-01-455, REQ-04-058, REQ-04-066..REQ-04-071, REQ-04-077
+  - Verifies: REQ-01-455, REQ-04-058, REQ-04-066..REQ-04-071, REQ-04-077, REQ-04-109
 - **AC-295**: Required runtime-root keys are present and use the standardized binding model; `deployment_profile='disconnected'` rejects `binding_kind='managed_service'` for `roots.database_storage`, `roots.object_storage`, or `roots.backup_storage`; `roots.reference_pack_storage`, `roots.temporary_work`, and `roots.export_outputs` reject any binding kind other than `filesystem_root`; and `roots.backup_storage` accepts only `filesystem_root` in `disconnected` and only `filesystem_root` or `managed_service` in `on_prem` or `cloud`.
   - Verifies: REQ-01-455, REQ-04-058, REQ-04-069, REQ-04-071..REQ-04-073, REQ-04-077
 - **AC-296**: Relative paths, `~`, shell-variable forms, empty strings, NUL, lexical `.` or `..`, overlapping configured filesystem roots after canonicalization, non-writable filesystem roots, and effective writes or extracts that escape a configured root all fail closed with `invalid_deployment_config` and the appropriate `reason_code`.
@@ -1519,7 +1519,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
 - **AC-297**: The canonical disconnected example using `/var/lib/cartulary/postgres`, `/var/lib/cartulary/object-store`, `/var/lib/cartulary/backups`, `/var/lib/cartulary/reference-packs`, `/var/lib/cartulary/tmp`, and `/var/lib/cartulary/exports` validates as a correct disconnected deployment configuration; omission of any required runtime-root key remains invalid at runtime and is not satisfied by hidden defaults.
   - Verifies: REQ-01-455, REQ-04-058, REQ-04-067, REQ-04-069, REQ-04-071..REQ-04-076
 - **AC-298**: Invalid deployment configuration prevents HTTP listeners, WebSocket listeners, and background-job runners from starting; startup fails non-zero; and the surfaced error family is `invalid_deployment_config` with per-item `path`, `reason_code`, and `message`.
-  - Verifies: REQ-04-066, REQ-04-077..REQ-04-078
+  - Verifies: REQ-04-066, REQ-04-077..REQ-04-078, REQ-04-109
 
 - **AC-343**: On a fresh deployment with zero active deployment admins, no bootstrap-completion marker, `bootstrap.first_admin_manifest_path` set to a valid manifest path, and a valid `cartulary.bootstrap_admin.v1` manifest at that path, startup succeeds and listeners become available only after bootstrap completes; exactly one local user is created with `is_deployment_admin=true`, `is_active=true`, and `mfa_required=true`; no incident membership is created; and the same commit persists one deployment-local bootstrap-completion marker plus one deployment-local administrative audit event. A later valid password login for that user returns `401 error.code='mfa_setup_required'` until TOTP setup completes.
   - Verifies: REQ-01-121, REQ-01-530..REQ-01-536, REQ-02-007..REQ-02-008, REQ-02-202, REQ-02-246, REQ-04-028, REQ-04-038, REQ-04-087..REQ-04-090
@@ -1620,7 +1620,7 @@ The smallest useful deployment is intentionally not the absolute minimum number 
 ### 12.1 Scope and owner
 
 **REQ-04-066**
-This section owns the operator-facing deployment configuration surface for runtime roots, resource limits, and startup validation.
+This section owns the operator-facing deployment configuration surface for application public origin, runtime roots, resource limits, and startup validation.
 Profiles: base
 Verified by: AC-294, AC-298, AC-320
 
@@ -1637,7 +1637,7 @@ Profiles: base
 Verified by: AC-294
 
 **REQ-04-069**
-The deployment configuration file MUST declare `config_schema_id = "cartulary.deployment_config.v1"` and required `deployment_profile` with one of `disconnected`, `on_prem`, or `cloud`. Keys other than those defined by the selected configuration schema version are invalid.
+The deployment configuration file MUST declare `config_schema_id = "cartulary.deployment_config.v1"`, required `deployment_profile` with one of `disconnected`, `on_prem`, or `cloud`, and required `application.public_origin`. Keys other than those defined by the selected configuration schema version are invalid.
 Profiles: base
 Verified by: AC-294, AC-295, AC-297
 
@@ -1648,6 +1648,13 @@ Verified by: AC-294
 
 ### 12.3 Key registry and binding model
 
+
+#### Application public origin
+
+**REQ-04-109**
+The stable deployment-configuration key for the browser application origin MUST be `application.public_origin`. It MUST be an absolute `http` or `https` origin and MUST NOT include userinfo, path, query, or fragment. The public WebSocket implementation MUST validate cookie-authenticated browser `Origin` values against this configured origin before joining an incident-scoped stream.
+Profiles: base
+Verified by: AC-131, AC-298
 
 #### 12.3.1 Resource-limit registry
 
@@ -1798,6 +1805,7 @@ Deployment-configuration validation failures MUST surface the top-level error co
 - `unknown_key`,
 - `type_mismatch`,
 - `invalid_enum`,
+- `invalid_origin`,
 - `path_not_absolute`,
 - `path_forbidden_segment`,
 - `path_overlap`,

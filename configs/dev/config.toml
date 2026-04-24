@@ -1,6 +1,9 @@
 config_schema_id = "cartulary.deployment_config.v1"
 deployment_profile = "disconnected"
 
+[application]
+public_origin = "http://localhost:5173"
+
 [roots.database_storage]
 binding_kind = "filesystem_root"
 path = "/var/lib/cartulary/postgres"

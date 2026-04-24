@@ -324,6 +324,7 @@ browser_prepare_database() {
   resolve_runtime_command migrate_command "migration" "${MIGRATE_BIN}" "${ROOT_DIR}/migrate" ./cmd/migrate
 
   CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
+  CARTULARY__APPLICATION__PUBLIC_ORIGIN="http://127.0.0.1:4173" \
   CARTULARY_POSTGRES_DSN="${E2E_DSN}" \
   GOCACHE=/tmp/cartulary-go-build \
   GOMODCACHE=/tmp/cartulary-go-mod \
@@ -412,6 +413,7 @@ main() {
   start_process_group SERVER_PGID "${SERVER_LOG}" \
     env \
     CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
+    CARTULARY__APPLICATION__PUBLIC_ORIGIN="http://127.0.0.1:4173" \
     CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
     CARTULARY_POSTGRES_DSN="${E2E_DSN}" \
     CARTULARY_ENABLE_TEST_ROUTES=1 \

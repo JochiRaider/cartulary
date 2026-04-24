@@ -29,7 +29,7 @@ func RegisterBootstrapRoutes() httpapi.RouteRegistrar {
 		})
 
 		mux.HandleFunc("/ws/v1/bootstrap-harness", func(w http.ResponseWriter, r *http.Request) {
-			conn, err := platformws.Accept(w, r)
+			conn, err := platformws.Accept(w, r, "")
 			if err != nil {
 				return
 			}

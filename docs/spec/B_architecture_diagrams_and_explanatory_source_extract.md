@@ -158,6 +158,9 @@ config_schema_id = "cartulary.deployment_config.v1"
 deployment_profile = "disconnected"
 bootstrap.first_admin_manifest_path = "/run/secrets/cartulary-bootstrap-admin.json"
 
+[application]
+public_origin = "http://localhost:5173"
+
 [roots.database_storage]
 binding_kind = "filesystem_root"
 path = "/var/lib/cartulary/postgres"
@@ -189,6 +192,9 @@ path = "/var/lib/cartulary/exports"
 config_schema_id = "cartulary.deployment_config.v1"
 deployment_profile = "cloud"
 bootstrap.first_admin_manifest_path = "/run/secrets/cartulary-bootstrap-admin.json"
+
+[application]
+public_origin = "https://cartulary.example.com"
 
 [roots.database_storage]
 binding_kind = "managed_service"

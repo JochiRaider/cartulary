@@ -41,16 +41,36 @@ func ConnectTimelineSocket(t testing.TB, server *httptestx.Server, incidentID st
 
 	headers := http.Header{}
 	headers.Set("Authorization", "Bearer "+sessionToken)
-	rawClient := wstest.ConnectWithHeaders(t, server.HTTP.URL, "/ws/v1/incidents/"+incidentID+"/views/"+timelineViewSchemaID+"/changes", headers)
+	rawClient := wstest.ConnectWithHeaders(t, server.HTTP.URL, "/ws/v1/incidents/"+incidentID, headers)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	if err := rawClient.Send(ctx, platformws.Message{
+		Type: "hello",
+		Payload: platformws.RawPayload(map[string]any{
+			"client_instance_id": "phase3-test-" + incidentID,
+			"presence": map[string]any{
+				"sheet_ref": map[string]any{
+					"kind": "view_schema",
+					"id":   timelineViewSchemaID,
+				},
+				"mode": "viewing",
+			},
+		}),
+	}); err != nil {
+		t.Fatalf("send websocket hello: %v", err)
+	}
 	message, err := rawClient.Receive(ctx)
 	if err != nil {
-		t.Fatalf("receive websocket connected message: %v", err)
+		t.Fatalf("receive websocket hello_ack message: %v", err)
 	}
-	wstest.RequireMessageType(t, message, "connected")
+	wstest.RequireMessageType(t, message, "hello_ack")
+	message, err = rawClient.Receive(ctx)
+	if err != nil {
+		t.Fatalf("receive websocket presence_snapshot message: %v", err)
+	}
+	wstest.RequireMessageType(t, message, "presence_snapshot")
 
 	client := &TimelineSocketClient{
 		raw:      rawClient,

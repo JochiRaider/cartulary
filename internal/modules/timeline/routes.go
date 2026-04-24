@@ -35,7 +35,6 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		mux.HandleFunc("GET /ws/v1/incidents/{incident_id}/views/{view_schema_id}/changes", service.handleTimelineChangeSocket)
 		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query", service.handleTimelineQuery)
 		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows", service.handleTimelineCreate)
 		mux.HandleFunc("PATCH /api/v1/records/{record_id}", service.handleTimelinePatch)
@@ -178,84 +177,6 @@ func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
-}
-
-func (s *Service) handleTimelineChangeSocket(w http.ResponseWriter, r *http.Request) {
-	if r.PathValue("view_schema_id") != TimelineViewSchemaID {
-		http.NotFound(w, r)
-		return
-	}
-	incidentID, ok := pathUUID(w, r, "incident_id")
-	if !ok {
-		return
-	}
-
-	principal, apiErr := s.authenticateSessionRequest(r, false)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-
-	conn, err := platformws.Accept(w, r)
-	if err != nil {
-		return
-	}
-	defer conn.CloseNow()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	changes, unsubscribe := s.hub.SubscribeRecordChanges(16)
-	defer unsubscribe()
-
-	if err := platformws.WriteJSON(ctx, conn, platformws.Message{
-		Type: "connected",
-		Payload: platformws.RawPayload(map[string]any{
-			"boundary":       "/ws/v1/incidents/{incident_id}/views/{view_schema_id}/changes",
-			"incident_id":    incidentID.String(),
-			"view_schema_id": TimelineViewSchemaID,
-		}),
-	}); err != nil {
-		return
-	}
-
-	go func() {
-		defer cancel()
-		for {
-			var message platformws.Message
-			if err := platformws.ReadJSON(context.Background(), conn, &message); err != nil {
-				return
-			}
-		}
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case change, ok := <-changes:
-			if !ok {
-				return
-			}
-			if change.IncidentID != incidentID || change.ViewSchemaID != TimelineViewSchemaID {
-				continue
-			}
-			if err := platformws.WriteJSON(ctx, conn, platformws.Message{
-				Type:    "record_changed",
-				Payload: platformws.RawPayload(recordChangePayload(change)),
-			}); err != nil {
-				return
-			}
-		}
-	}
 }
 
 func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request) {
@@ -488,7 +409,7 @@ func (s *Service) handleRecordSubstrateSnapshot(w http.ResponseWriter, r *http.R
 }
 
 func (s *Service) handleRecordChangeSocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := platformws.Accept(w, r)
+	conn, err := platformws.Accept(w, r, "")
 	if err != nil {
 		return
 	}

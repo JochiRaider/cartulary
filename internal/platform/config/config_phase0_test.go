@@ -63,6 +63,7 @@ func TestPhase0_ConfigDiscovery_U_0_01(t *testing.T) {
 			Path: fixtureConfigPath(),
 			Env: map[string]string{
 				"CARTULARY__ROOTS__BACKUP_STORAGE__PATH": "/srv/cartulary/backups",
+				"CARTULARY__APPLICATION__PUBLIC_ORIGIN":  "https://cartulary.example.test",
 			},
 		})
 		if err != nil {
@@ -71,6 +72,9 @@ func TestPhase0_ConfigDiscovery_U_0_01(t *testing.T) {
 
 		if cfg.Roots.BackupStorage.Path != "/srv/cartulary/backups" {
 			t.Fatalf("unexpected overlay result: got %q", cfg.Roots.BackupStorage.Path)
+		}
+		if cfg.Application.PublicOrigin != "https://cartulary.example.test" {
+			t.Fatalf("unexpected public-origin overlay result: got %q", cfg.Application.PublicOrigin)
 		}
 	})
 
@@ -100,6 +104,28 @@ func TestPhase0_ConfigDiscovery_U_0_01(t *testing.T) {
 	t.Run("rejects invalid deployment profiles", func(t *testing.T) {
 		err := loadInvalidConfig(t, strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `deployment_profile = "disconnected"`, `deployment_profile = "edge"`), nil)
 		requireDiagnostic(t, err, "deployment_profile", "invalid_enum")
+	})
+
+	t.Run("requires application public origin", func(t *testing.T) {
+		err := loadInvalidConfig(t, stripSection(t, string(fixtures.MustRead("config", "valid.toml")), "[application]"), nil)
+		requireDiagnostic(t, err, "application.public_origin", "missing_required_key")
+	})
+
+	t.Run("rejects non-origin application public origin values", func(t *testing.T) {
+		cases := []string{
+			`public_origin = "localhost:5173"`,
+			`public_origin = "ftp://localhost:5173"`,
+			`public_origin = "http://localhost:5173/path"`,
+			`public_origin = "http://localhost:5173?debug=true"`,
+			`public_origin = "http://localhost:5173#fragment"`,
+		}
+		for _, replacement := range cases {
+			t.Run(replacement, func(t *testing.T) {
+				content := strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `public_origin = "http://localhost:5173"`, replacement)
+				err := loadInvalidConfig(t, content, nil)
+				requireDiagnostic(t, err, "application.public_origin", "invalid_origin")
+			})
+		}
 	})
 }
 

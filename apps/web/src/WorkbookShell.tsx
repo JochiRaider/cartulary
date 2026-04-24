@@ -915,6 +915,32 @@ function websocketPath(base: string | undefined, path: string): string {
   return target.toString();
 }
 
+function tabClientInstanceId(): string {
+  const key = "cartulary.client_instance_id";
+  try {
+    const existing = window.sessionStorage.getItem(key);
+    if (existing) {
+      return existing;
+    }
+    const created =
+      window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+    window.sessionStorage.setItem(key, created);
+    return created;
+  } catch {
+    return `${Date.now()}-${Math.random()}`;
+  }
+}
+
+function workbookPresence() {
+  return {
+    sheet_ref: {
+      kind: "view_schema",
+      id: timelineViewSchemaId,
+    },
+    mode: "viewing",
+  };
+}
+
 function sanitizeTestId(value: string) {
   return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
 }
@@ -1165,6 +1191,9 @@ export function TimelineWorkbook({
   const loadRowsRef = useRef<(options: LoadRowsOptions) => Promise<void>>(
     async () => undefined,
   );
+  const socketResumeTokenRef = useRef<string | null>(null);
+  const socketLastSeenStreamSeqRef = useRef(0);
+  const socketClientInstanceIdRef = useRef<string | null>(null);
   const rowInputRefs = useRef(
     new Map<string, HTMLInputElement | HTMLTextAreaElement>(),
   );
@@ -1186,11 +1215,7 @@ export function TimelineWorkbook({
     [queryState],
   );
   const changeSocketURL = useMemo(
-    () =>
-      websocketPath(
-        apiBase,
-        `/ws/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/changes`,
-      ),
+    () => websocketPath(apiBase, `/ws/v1/incidents/${incidentId}`),
     [apiBase, incidentId],
   );
   const nextDraftIndex = useCallback(() => {
@@ -1710,16 +1735,94 @@ export function TimelineWorkbook({
       return;
     }
 
-    const socket = new WebSocket(changeSocketURL);
-    socket.onmessage = (event) => {
-      const message = JSON.parse(event.data) as unknown;
+    let closed = false;
+    let socket: WebSocket | null = null;
+    let reconnectTimer: number | null = null;
+    const clientInstanceId =
+      socketClientInstanceIdRef.current ?? tabClientInstanceId();
+    socketClientInstanceIdRef.current = clientInstanceId;
+
+    const scheduleReconnect = () => {
+      if (closed || reconnectTimer !== null) {
+        return;
+      }
+      reconnectTimer = window.setTimeout(() => {
+        reconnectTimer = null;
+        connect();
+      }, 1000);
+    };
+
+    const sendSessionEstablishment = (target: WebSocket) => {
+      const resumeToken = socketResumeTokenRef.current;
+      if (resumeToken) {
+        target.send(
+          JSON.stringify({
+            type: "resume",
+            payload: {
+              client_instance_id: clientInstanceId,
+              resume_token: resumeToken,
+              last_seen_stream_seq: socketLastSeenStreamSeqRef.current,
+              presence: workbookPresence(),
+            },
+          }),
+        );
+        return;
+      }
+      target.send(
+        JSON.stringify({
+          type: "hello",
+          payload: {
+            client_instance_id: clientInstanceId,
+            presence: workbookPresence(),
+          },
+        }),
+      );
+    };
+
+    const handleMessage = (target: WebSocket, raw: unknown) => {
+      if (!raw || typeof raw !== "object") {
+        return;
+      }
+      const message = raw as {
+        type?: string;
+        stream_seq?: number;
+        payload?: Record<string, unknown>;
+      };
+      if (message.type === "ping") {
+        target.send(JSON.stringify({ type: "pong", payload: {} }));
+        return;
+      }
+      if (message.type === "hello_ack" || message.type === "resume_ack") {
+        const resumeToken = message.payload?.resume_token;
+        if (typeof resumeToken === "string") {
+          socketResumeTokenRef.current = resumeToken;
+        }
+        if (
+          message.type === "resume_ack" &&
+          message.payload?.status === "reset_required"
+        ) {
+          void loadRowsRef.current({ showLoading: false });
+        }
+        return;
+      }
+      if (message.type === "session_revoked") {
+        socketResumeTokenRef.current = null;
+        target.close();
+        return;
+      }
       if (
-        shouldIgnoreSelfOriginatedRecordChange(message, resolvePendingSocketTxn)
+        shouldIgnoreSelfOriginatedRecordChange(raw, resolvePendingSocketTxn)
       ) {
         return;
       }
-      if (!isRecordChangedMessage(message)) {
+      if (!isRecordChangedMessage(raw)) {
         return;
+      }
+      if (typeof message.stream_seq === "number") {
+        socketLastSeenStreamSeqRef.current = Math.max(
+          socketLastSeenStreamSeqRef.current,
+          message.stream_seq,
+        );
       }
       const viewportContinuityToken = beginViewportContinuity({
         kind: "scroll-only",
@@ -1729,8 +1832,36 @@ export function TimelineWorkbook({
         viewportContinuityToken,
       });
     };
+
+    const connect = () => {
+      if (closed) {
+        return;
+      }
+      socket = new WebSocket(changeSocketURL);
+      socket.onopen = () => {
+        if (socket) {
+          sendSessionEstablishment(socket);
+        }
+      };
+      socket.onmessage = (event) => {
+        if (!socket) {
+          return;
+        }
+        handleMessage(socket, JSON.parse(event.data) as unknown);
+      };
+      socket.onclose = scheduleReconnect;
+      socket.onerror = () => {
+        socket?.close();
+      };
+    };
+
+    connect();
     return () => {
-      socket.close();
+      closed = true;
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+      }
+      socket?.close();
     };
   }, [
     beginViewportContinuity,

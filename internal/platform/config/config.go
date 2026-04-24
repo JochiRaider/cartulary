@@ -57,11 +57,16 @@ type DiagnosticsError struct {
 }
 
 type Config struct {
-	ConfigSchemaID    string          `toml:"config_schema_id"`
-	DeploymentProfile string          `toml:"deployment_profile"`
-	Roots             RootBindings    `toml:"roots"`
-	Bootstrap         BootstrapConfig `toml:"bootstrap"`
-	Limits            LimitConfig     `toml:"limits"`
+	ConfigSchemaID    string            `toml:"config_schema_id"`
+	DeploymentProfile string            `toml:"deployment_profile"`
+	Application       ApplicationConfig `toml:"application"`
+	Roots             RootBindings      `toml:"roots"`
+	Bootstrap         BootstrapConfig   `toml:"bootstrap"`
+	Limits            LimitConfig       `toml:"limits"`
+}
+
+type ApplicationConfig struct {
+	PublicOrigin string `toml:"public_origin"`
 }
 
 type RootBindings struct {

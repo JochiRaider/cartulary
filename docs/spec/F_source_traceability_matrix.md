@@ -1348,6 +1348,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-04-106 | Core 04 §2 Authorization model | base | AC-402 |
 | REQ-04-107 | Core 04 §12.3.3 Backup storage binding | base | AC-403 |
 | REQ-04-108 | Core 04 §12.3.3 Backup storage binding | base | AC-403 |
+| REQ-04-109 | Core 04 §12.3 Key registry and binding model | base | AC-131, AC-294, AC-298 |
 | REQ-05-001 | Core 05 §1 Scope and separation | claim_publication | PC-006 |
 | REQ-05-002 | Core 05 §1 Scope and separation | claim_publication | PC-006 |
 | REQ-05-003 | Core 05 §1 Scope and separation | claim_publication | PC-001, PC-002, PC-006 |

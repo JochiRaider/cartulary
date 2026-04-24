@@ -77,7 +77,7 @@ func TestStartServerExitsBeforeReadyAndParsesDiagnostics(t *testing.T) {
 	}
 	server.RequireConnectionRefused(t, "/healthz")
 	server.RequireConnectionRefused(t, "/readyz")
-	server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v1/changes")
+	server.RequireWebsocketConnectionRefused(t, "/ws/v1/incidents/00000000-0000-0000-0000-000000000000")
 	server.RequireDiagnosticsMatchGolden(t, []string{"config", "invalid_missing_required.json"})
 	if diagnostics := server.Diagnostics(t); diagnostics["error"] == nil {
 		t.Fatalf("expected error diagnostics payload, got %#v", diagnostics)
