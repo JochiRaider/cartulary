@@ -37,4 +37,15 @@ describe("view-contracts", () => {
       hosts.defaultVisibleFields,
     );
   });
+
+  it("parses enum values for contract-backed controls", () => {
+    const assessments = requireViewContract("cartulary.view.assessments.v1");
+
+    expect(
+      assessments.fieldMap["assessment.assessment_state"]?.enumValues,
+    ).toEqual(["unknown", "suspected", "confirmed", "disproven", "cleared"]);
+    expect(assessments.fieldMap["assessment.confidence_band"]?.enumValues).toEqual(
+      ["unset", "low", "medium", "high"],
+    );
+  });
 });

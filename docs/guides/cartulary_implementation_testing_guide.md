@@ -398,6 +398,7 @@ Execution dependency is distinct from evidence layer in this phase. `U-4-01..U-4
 | E-4-02 | An analyst dismisses and later ordinarily restores a mention. The restored mention returns to the unresolved queue and does not silently recover an old resolved target.                              | REQ-02-039..REQ-02-041, REQ-03-129..REQ-03-134                                     | AC-188..AC-190, AC-224, AC-225 |
 | E-4-03 | A reviewer merges two duplicate entities from the inspector. The surviving row identity remains stable and dependent links or resolutions follow the survivor.                                        | REQ-01-181..REQ-01-195, REQ-02-064..REQ-02-066, REQ-03-247..REQ-03-249             | AC-023, AC-186, AC-209         |
 | E-4-04 | An eligible exact-match Timeline token auto-resolves on commit, while hedge, punctuation, parenthetical, or approximate forms remain unresolved and require explicit analyst action.                  | REQ-01-315..REQ-01-316, REQ-01-568, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 | AC-205, AC-388..AC-391         |
+| E-4-05 | An analyst creates append-only assessment history through the Assessments workbook surface with band-first confidence, rationale, support references, default ordering, and state or band filtering.  | REQ-03-250..REQ-03-254                                                              | AC-018, AC-080..AC-084         |
 
 ---
 

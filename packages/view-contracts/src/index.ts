@@ -10,6 +10,7 @@ export type ViewFieldContract = {
   readonly label: string;
   readonly createWritable: boolean;
   readonly defaultHidden: boolean;
+  readonly enumValues: readonly string[] | null;
   readonly headerSortFieldKey: string | null;
   readonly filterOps: readonly string[];
   readonly groupable: boolean;
@@ -53,6 +54,7 @@ type RawField = {
   readonly create_writable?: boolean;
   readonly default_hidden?: boolean;
   readonly entity_binding_mode?: string | null;
+  readonly enum_values?: readonly string[] | null;
   readonly field_key: string;
   readonly filter_ops?: readonly string[];
   readonly groupable?: boolean;
@@ -101,6 +103,10 @@ function parseContract(json: string): ViewContract {
         label: field.label,
         createWritable: field.create_writable ?? false,
         defaultHidden: field.default_hidden ?? false,
+        enumValues:
+          field.enum_values === null || field.enum_values === undefined
+            ? null
+            : Object.freeze([...field.enum_values]),
         headerSortFieldKey: field.header_sort_field_key ?? null,
         filterOps: Object.freeze([...(field.filter_ops ?? [])]),
         groupable: field.groupable ?? false,

@@ -69,9 +69,11 @@ const hostsViewSchemaId = "cartulary.view.hosts.v1";
 const identitiesViewSchemaId = "cartulary.view.identities.v1";
 const evidenceViewSchemaId = "cartulary.view.evidence.v1";
 const notesViewSchemaId = "cartulary.view.notes.v1";
+const assessmentsViewSchemaId = "cartulary.view.assessments.v1";
 const timelineContract = requireViewContract(timelineViewSchemaId);
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
+const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
 const allWorkbookContracts = listViewContracts();
 const builtInSurfaceIDs = [
   timelineViewSchemaId,
@@ -101,6 +103,8 @@ type CollectionFieldKey = RelationshipFieldKey | "timeline.tags";
 type CollectionDraftKey = RelationshipDraftKey | "tags";
 type FocusFieldKey = keyof RowValues | CollectionDraftKey;
 type IncidentRole = "viewer" | "editor" | "reviewer" | "admin" | "";
+type AssessmentSubjectType = "host" | "identity";
+type AssessmentConfidenceBand = "unset" | "low" | "medium" | "high";
 
 type RowValues = {
   occurredAt: string;
@@ -280,6 +284,16 @@ type EntityRow = {
     label: string;
     value: string;
   }>;
+};
+
+type AssessmentCreateDraft = {
+  assessedAt: string;
+  assessmentState: string;
+  confidenceBand: AssessmentConfidenceBand;
+  rationale: string;
+  subjectRecordId: string;
+  subjectType: AssessmentSubjectType;
+  supportRecordIds: string[];
 };
 
 type ViewportContinuityFollowup = "none" | "entity-refresh";
@@ -815,6 +829,68 @@ export function buildCreatePayload(
   if (Object.keys(payload).length < 2 && !options.allowZeroFieldCreate) {
     return null;
   }
+  return payload;
+}
+
+export function confidenceScoreFromBand(
+  band: AssessmentConfidenceBand,
+): number | null {
+  switch (band) {
+    case "low":
+      return 25;
+    case "medium":
+      return 55;
+    case "high":
+      return 85;
+    default:
+      return null;
+  }
+}
+
+export function buildAssessmentCreatePayload(
+  draft: AssessmentCreateDraft,
+  clientTxnId: string,
+): Record<string, unknown> | null {
+  const subjectRecordId = normalizeValue(draft.subjectRecordId);
+  const assessmentState = normalizeValue(draft.assessmentState);
+  const rationale = normalizeValue(draft.rationale);
+  if (subjectRecordId === "" || assessmentState === "" || rationale === "") {
+    return null;
+  }
+
+  const payload: Record<string, unknown> = {
+    client_txn_id: clientTxnId,
+    "assessment.subject_ref": subjectRecordId,
+    "assessment.subject_type": draft.subjectType,
+    "assessment.assessment_state": assessmentState,
+    "assessment.confidence_score": confidenceScoreFromBand(
+      draft.confidenceBand,
+    ),
+    "assessment.rationale": rationale,
+  };
+
+  const assessedAt = normalizeValue(draft.assessedAt);
+  if (assessedAt !== "") {
+    payload["assessment.assessed_at"] = assessedAt;
+  }
+
+  const supportRecordIds = Array.from(
+    new Set(
+      draft.supportRecordIds
+        .map((recordId) => normalizeValue(recordId))
+        .filter((recordId) => recordId !== ""),
+    ),
+  );
+  if (supportRecordIds.length > 0) {
+    payload["assessment.support_refs"] = {
+      kind: "collection_actions_v1",
+      actions: supportRecordIds.map((recordId) => ({
+        op: "add_record_ref",
+        linked_record_id: recordId,
+      })),
+    };
+  }
+
   return payload;
 }
 
@@ -3803,6 +3879,405 @@ function EntityWorkbookSurface({
   );
 }
 
+function AssessmentWorkbookSurface({
+  apiBase,
+  assessmentRows,
+  currentIncidentRole,
+  filterDraft,
+  hostRows,
+  identityRows,
+  incidentId,
+  loadError,
+  onApplyFilter,
+  onFilterDraftChange,
+  onGroupByChange,
+  onRefreshAssessmentRows,
+  onRemoveFilter,
+  onToggleSort,
+  queryState,
+}: {
+  apiBase?: string | undefined;
+  assessmentRows: EntityApiRow[];
+  currentIncidentRole: IncidentRole | null;
+  filterDraft: FilterDraft;
+  hostRows: EntityRow[];
+  identityRows: EntityRow[];
+  incidentId: string;
+  loadError: string | null;
+  onApplyFilter: () => void;
+  onFilterDraftChange: (draft: FilterDraft) => void;
+  onGroupByChange: (groupBy: string | null) => void;
+  onRefreshAssessmentRows: () => Promise<void>;
+  onRemoveFilter: (fieldKey: string) => void;
+  onToggleSort: (fieldKey: string) => void;
+  queryState: WorkbookQueryState;
+}) {
+  const [draft, setDraft] = useState<AssessmentCreateDraft>(() =>
+    initialAssessmentDraft(),
+  );
+  const [supportRows, setSupportRows] = useState<TimelineApiRow[]>([]);
+  const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const subjectRows = draft.subjectType === "host" ? hostRows : identityRows;
+  const canCreate =
+    currentIncidentRole === "editor" ||
+    currentIncidentRole === "reviewer" ||
+    currentIncidentRole === "admin";
+  const stateOptions = enumValuesFor(
+    assessmentsContract,
+    "assessment.assessment_state",
+    ["unknown", "suspected", "confirmed", "disproven", "cleared"],
+  );
+  const confidenceBandOptions = enumValuesFor(
+    assessmentsContract,
+    "assessment.confidence_band",
+    ["unset", "low", "medium", "high"],
+  ).filter(isAssessmentConfidenceBand);
+  const columns: readonly GridColumn<EntityApiRow>[] = visibleFields(
+    assessmentsContract,
+  ).map((field) => ({
+    fieldKey: field.fieldKey,
+    headerTestId: gridSortHeaderTestId(assessmentsViewSchemaId, field.fieldKey),
+    label: field.label,
+    width: assessmentColumnWidth(field.fieldKey),
+    renderCell: (row) => (
+      <span data-testid={rowCellTestId(row.record_id, field.fieldKey)}>
+        {genericCellLabel(row.cells[field.fieldKey]?.value)}
+      </span>
+    ),
+    sortableFieldKey: resolveHeaderSortFieldKey(
+      assessmentsContract,
+      field.fieldKey,
+    ),
+  }));
+  const gridRows: readonly GridRow<EntityApiRow>[] = assessmentRows.map(
+    (row) => ({
+      key: row.record_id,
+      recordId: row.record_id,
+      data: row,
+      testId: `assessment-row-${row.record_id}`,
+    }),
+  );
+
+  useEffect(() => {
+    setDraft((current) => {
+      if (
+        current.subjectRecordId !== "" &&
+        subjectRows.some((row) => row.recordId === current.subjectRecordId)
+      ) {
+        return current;
+      }
+      return {
+        ...current,
+        subjectRecordId: subjectRows[0]?.recordId ?? "",
+      };
+    });
+  }, [subjectRows]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    async function loadSupportRows() {
+      const result = await fetchJSON<TimelineQueryEnvelope>(
+        apiPath(
+          apiBase,
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
+        ),
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        },
+      );
+      if (!isCurrent) {
+        return;
+      }
+      if (!result.ok) {
+        setSupportRows([]);
+        return;
+      }
+      const envelope = readEnvelope<TimelineQueryEnvelope>(result.payload);
+      setSupportRows(envelope.data.rows);
+    }
+    void loadSupportRows();
+    return () => {
+      isCurrent = false;
+    };
+  }, [apiBase, incidentId]);
+
+  async function submitAssessment() {
+    const payload = buildAssessmentCreatePayload(
+      draft,
+      `assessment-${Date.now()}`,
+    );
+    if (payload === null) {
+      setMessage("Subject, state, and rationale are required.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setMessage(null);
+    try {
+      const result = await fetchJSON<TimelineMutationEnvelope>(
+        apiPath(
+          apiBase,
+          `/api/v1/incidents/${incidentId}/views/${assessmentsViewSchemaId}/rows`,
+        ),
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+        },
+      );
+      if (!result.ok) {
+        setMessage(parseErrorMessage(result.payload));
+        return;
+      }
+      await onRefreshAssessmentRows();
+      setDraft((current) => ({
+        ...initialAssessmentDraft(),
+        subjectType: current.subjectType,
+        subjectRecordId: current.subjectRecordId,
+      }));
+      setMessage("Assessment created.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <section style={workbookStyle}>
+      <header style={headerStyle}>
+        <div>
+          <p style={eyebrowStyle}>System view</p>
+          <h1 style={headlineStyle}>{assessmentsContract.title}</h1>
+          <p style={bodyStyle}>Incident {incidentId}</p>
+        </div>
+      </header>
+
+      <div style={splitShellStyle}>
+        <div>
+          <WorkbookGridControls
+            contract={assessmentsContract}
+            filterDraft={filterDraft}
+            onApplyFilter={onApplyFilter}
+            onFilterDraftChange={onFilterDraftChange}
+            onGroupByChange={onGroupByChange}
+            onRemoveFilter={onRemoveFilter}
+            queryState={queryState}
+            surface={assessmentsViewSchemaId}
+          />
+          {loadError ? (
+            <p data-testid="assessment-surface-load-error" style={bodyStyle}>
+              {loadError}
+            </p>
+          ) : null}
+          <GridViewport
+            style={gridShellStyle}
+            testId={gridShellTestId(assessmentsViewSchemaId)}
+          >
+            <GridTable
+              columns={columns}
+              getGroupLabel={(row, fieldKey) =>
+                genericCellLabel(row.cells[fieldKey]?.value)
+              }
+              getGroupRowTestId={(fieldKey, value) =>
+                gridGroupRowTestId(assessmentsViewSchemaId, fieldKey, value)
+              }
+              groupBy={queryState.groupBy}
+              onToggleSort={onToggleSort}
+              rows={gridRows}
+              sort={queryState.sort}
+            />
+          </GridViewport>
+        </div>
+
+        <aside
+          data-testid="assessment-create-panel"
+          style={inspectorShellStyle}
+        >
+          <div style={inspectorHeaderStyle}>
+            <p style={eyebrowStyle}>Create</p>
+            <h2 style={inspectorTitleStyle}>Append assessment</h2>
+          </div>
+          <div style={inspectorSectionStyle}>
+            <label style={labelStyle}>
+              Subject type
+              <select
+                data-testid="assessment-create-subject-type"
+                style={selectStyle}
+                value={draft.subjectType}
+                onChange={(event) => {
+                  const subjectType =
+                    event.target.value === "identity" ? "identity" : "host";
+                  const nextRows =
+                    subjectType === "host" ? hostRows : identityRows;
+                  setDraft((current) => ({
+                    ...current,
+                    subjectType,
+                    subjectRecordId: nextRows[0]?.recordId ?? "",
+                  }));
+                }}
+              >
+                {enumValuesFor(assessmentsContract, "assessment.subject_type", [
+                  "host",
+                  "identity",
+                ]).map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={labelStyle}>
+              Subject
+              <select
+                data-testid="assessment-create-subject"
+                style={selectStyle}
+                value={draft.subjectRecordId}
+                onChange={(event) => {
+                  setDraft((current) => ({
+                    ...current,
+                    subjectRecordId: event.target.value,
+                  }));
+                }}
+              >
+                <option value="">Select subject</option>
+                {subjectRows.map((row) => (
+                  <option key={row.recordId} value={row.recordId}>
+                    {row.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={labelStyle}>
+              State
+              <select
+                data-testid="assessment-create-state"
+                style={selectStyle}
+                value={draft.assessmentState}
+                onChange={(event) => {
+                  setDraft((current) => ({
+                    ...current,
+                    assessmentState: event.target.value,
+                  }));
+                }}
+              >
+                {stateOptions.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={labelStyle}>
+              Confidence
+              <select
+                data-testid="assessment-create-confidence-band"
+                style={selectStyle}
+                value={draft.confidenceBand}
+                onChange={(event) => {
+                  const confidenceBand = isAssessmentConfidenceBand(
+                    event.target.value,
+                  )
+                    ? event.target.value
+                    : "unset";
+                  setDraft((current) => ({
+                    ...current,
+                    confidenceBand,
+                  }));
+                }}
+              >
+                {confidenceBandOptions.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={labelStyle}>
+              Rationale
+              <textarea
+                data-testid="assessment-create-rationale"
+                rows={4}
+                style={textareaStyle}
+                value={draft.rationale}
+                onChange={(event) => {
+                  setDraft((current) => ({
+                    ...current,
+                    rationale: event.target.value,
+                  }));
+                }}
+              />
+            </label>
+
+            <label style={labelStyle}>
+              Assessed
+              <input
+                data-testid="assessment-create-assessed-at"
+                placeholder="RFC3339 timestamp"
+                style={inputStyle}
+                type="text"
+                value={draft.assessedAt}
+                onChange={(event) => {
+                  setDraft((current) => ({
+                    ...current,
+                    assessedAt: event.target.value,
+                  }));
+                }}
+              />
+            </label>
+
+            <label style={labelStyle}>
+              Support refs
+              <select
+                data-testid="assessment-create-support-refs"
+                multiple
+                size={Math.min(Math.max(supportRows.length, 2), 5)}
+                style={selectStyle}
+                value={draft.supportRecordIds}
+                onChange={(event) => {
+                  const supportRecordIds = Array.from(
+                    event.currentTarget.selectedOptions,
+                  ).map((option) => option.value);
+                  setDraft((current) => ({
+                    ...current,
+                    supportRecordIds,
+                  }));
+                }}
+              >
+                {supportRows.map((row) => (
+                  <option key={row.record_id} value={row.record_id}>
+                    {supportRowLabel(row)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <button
+              data-testid="assessment-create-submit"
+              disabled={!canCreate || isSubmitting}
+              style={secondaryActionButtonStyle}
+              type="button"
+              onClick={() => {
+                void submitAssessment();
+              }}
+            >
+              Create assessment
+            </button>
+            {message ? (
+              <p data-testid="assessment-create-message" style={bodyStyle}>
+                {message}
+              </p>
+            ) : null}
+          </div>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
 function GenericWorkbookSurface({
   contract,
   filterDraft,
@@ -3915,6 +4390,70 @@ function genericCellLabel(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function enumValuesFor(
+  contract: ViewContract,
+  fieldKey: string,
+  fallback: readonly string[],
+): readonly string[] {
+  return contract.fieldMap[fieldKey]?.enumValues ?? fallback;
+}
+
+function isAssessmentConfidenceBand(
+  value: string,
+): value is AssessmentConfidenceBand {
+  return (
+    value === "unset" ||
+    value === "low" ||
+    value === "medium" ||
+    value === "high"
+  );
+}
+
+function initialAssessmentDraft(): AssessmentCreateDraft {
+  const [assessmentState = "unknown"] = enumValuesFor(
+    assessmentsContract,
+    "assessment.assessment_state",
+    ["unknown", "suspected", "confirmed", "disproven", "cleared"],
+  );
+  const confidenceBand = enumValuesFor(
+    assessmentsContract,
+    "assessment.confidence_band",
+    ["unset", "low", "medium", "high"],
+  ).find(isAssessmentConfidenceBand);
+  return {
+    assessedAt: "",
+    assessmentState,
+    confidenceBand: confidenceBand ?? "unset",
+    rationale: "",
+    subjectRecordId: "",
+    subjectType: "host",
+    supportRecordIds: [],
+  };
+}
+
+function assessmentColumnWidth(fieldKey: string): number {
+  switch (fieldKey) {
+    case "assessment.subject_ref":
+      return 300;
+    case "assessment.rationale":
+      return 360;
+    case "assessment.assessed_at":
+      return 210;
+    case "assessment.assessor":
+      return 300;
+    default:
+      return 180;
+  }
+}
+
+function supportRowLabel(row: TimelineApiRow): string {
+  const summary = readStringCell(row, "timeline.summary");
+  if (summary !== "") {
+    return summary;
+  }
+  return row.record_id;
+}
+
 function surfaceSlug(viewSchemaID: string): string {
   return (
     Object.entries(legacySurfaceParamToViewSchemaID).find(
@@ -3952,6 +4491,10 @@ export function WorkbookShell({
   const [entityLoadError, setEntityLoadError] = useState<string | null>(null);
   const [genericRows, setGenericRows] = useState<EntityApiRow[]>([]);
   const [genericLoadError, setGenericLoadError] = useState<string | null>(null);
+  const [assessmentRows, setAssessmentRows] = useState<EntityApiRow[]>([]);
+  const [assessmentLoadError, setAssessmentLoadError] = useState<string | null>(
+    null,
+  );
   const [currentIncidentRole, setCurrentIncidentRole] =
     useState<IncidentRole | null>(null);
   const [hostQueryState, setHostQueryState] = useState<WorkbookQueryState>(() =>
@@ -3965,6 +4508,10 @@ export function WorkbookShell({
   const [identityFilterDraft, setIdentityFilterDraft] = useState<FilterDraft>(
     () => defaultFilterDraft(identitiesContract),
   );
+  const [assessmentQueryState, setAssessmentQueryState] =
+    useState<WorkbookQueryState>(() => emptyWorkbookQueryState());
+  const [assessmentFilterDraft, setAssessmentFilterDraft] =
+    useState<FilterDraft>(() => defaultFilterDraft(assessmentsContract));
   const activeContract = useMemo(
     () =>
       allWorkbookContracts.find(
@@ -4088,7 +4635,52 @@ export function WorkbookShell({
   const isSpecializedSurface =
     surface === timelineViewSchemaId ||
     surface === hostsViewSchemaId ||
-    surface === identitiesViewSchemaId;
+    surface === identitiesViewSchemaId ||
+    surface === assessmentsViewSchemaId;
+
+  const loadAssessmentSurface = useCallback(async () => {
+    if (surface !== assessmentsViewSchemaId) {
+      return;
+    }
+    setAssessmentLoadError(null);
+    try {
+      const result = await fetchJSON<ViewQueryEnvelope>(
+        apiPath(
+          apiBase,
+          `/api/v1/incidents/${incidentId}/views/${assessmentsViewSchemaId}/query`,
+        ),
+        {
+          method: "POST",
+          body: JSON.stringify(
+            buildQueryRequest(assessmentsContract, assessmentQueryState),
+          ),
+        },
+      );
+      if (!result.ok) {
+        throw new Error(parseErrorMessage(result.payload));
+      }
+      const envelope = readEnvelope<ViewQueryEnvelope>(result.payload);
+      setAssessmentRows(envelope.data.rows);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Assessment load failed.";
+      if (
+        typeof message === "string" &&
+        (message.includes("incident_not_found") ||
+          message.includes("authorization_denied"))
+      ) {
+        onIncidentAccessLost?.();
+      }
+      setAssessmentLoadError(message);
+      setAssessmentRows([]);
+    }
+  }, [
+    apiBase,
+    assessmentQueryState,
+    incidentId,
+    onIncidentAccessLost,
+    surface,
+  ]);
 
   const loadGenericSurface = useCallback(async () => {
     if (isSpecializedSurface || genericSurfaceStateID !== surface) {
@@ -4152,6 +4744,10 @@ export function WorkbookShell({
   useEffect(() => {
     void loadGenericSurface();
   }, [loadGenericSurface]);
+
+  useEffect(() => {
+    void loadAssessmentSurface();
+  }, [loadAssessmentSurface]);
 
   useEffect(() => {
     const next = new URLSearchParams(window.location.search);
@@ -4329,6 +4925,45 @@ export function WorkbookShell({
             surface === hostsViewSchemaId ? hostQueryState : identityQueryState
           }
           rows={surface === hostsViewSchemaId ? hostRows : identityRows}
+        />
+      ) : surface === assessmentsViewSchemaId ? (
+        <AssessmentWorkbookSurface
+          apiBase={apiBase}
+          assessmentRows={assessmentRows}
+          currentIncidentRole={currentIncidentRole}
+          filterDraft={assessmentFilterDraft}
+          hostRows={hostRows}
+          identityRows={identityRows}
+          incidentId={incidentId}
+          loadError={assessmentLoadError}
+          onApplyFilter={() => {
+            setAssessmentQueryState((current) =>
+              applyFilterDraft(current, assessmentFilterDraft),
+            );
+            setAssessmentFilterDraft((current) => ({
+              ...current,
+              booleanValue: "",
+              value: "",
+            }));
+          }}
+          onFilterDraftChange={setAssessmentFilterDraft}
+          onGroupByChange={(groupBy) => {
+            setAssessmentQueryState((current) =>
+              updateGroupBy(assessmentsContract, current, groupBy),
+            );
+          }}
+          onRefreshAssessmentRows={loadAssessmentSurface}
+          onRemoveFilter={(fieldKey) => {
+            setAssessmentQueryState((current) =>
+              removeFilterField(current, fieldKey),
+            );
+          }}
+          onToggleSort={(fieldKey) => {
+            setAssessmentQueryState((current) =>
+              toggleSortField(assessmentsContract, current, fieldKey),
+            );
+          }}
+          queryState={assessmentQueryState}
         />
       ) : (
         <GenericWorkbookSurface

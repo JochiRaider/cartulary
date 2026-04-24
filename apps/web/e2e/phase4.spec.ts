@@ -1,5 +1,10 @@
 import {
+  applyFilterChip,
   assertGridFocusContinuity,
+  gridSavedRowsSelector,
+  gridShellTestId,
+  removeFilterChip,
+  rowCellTestId,
   rowInspectButtonTestId,
   scrollGridToBottom,
 } from "@cartulary/test-utils";
@@ -18,6 +23,7 @@ import {
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 const hostsViewSchemaId = "cartulary.view.hosts.v1";
 const identitiesViewSchemaId = "cartulary.view.identities.v1";
+const assessmentsViewSchemaId = "cartulary.view.assessments.v1";
 const hostRefsFieldKey = "timeline.host_refs";
 const identityRefsFieldKey = "timeline.identity_refs";
 
@@ -856,6 +862,155 @@ test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
   }
 });
 
+test("E-4-05 creates append-only assessment history through the workbook UI", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E4ASSESS"),
+    "Phase 4 assessment workbook E2E",
+  );
+  const subject = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("assessment-host"),
+    "host.display_name": "Assessment Host",
+    "host.hostname": "assessment-host.example.test",
+  })) as ViewRow;
+  const support = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("assessment-support"),
+    "timeline.summary": "Assessment support event",
+  })) as ViewRow;
+
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      assessmentsViewSchemaId,
+    )}`,
+  );
+  await expect(page.getByText("Timeline workbook shell")).toBeVisible();
+  await expect(page.getByTestId("assessment-create-panel")).toBeVisible();
+  await expect(page.getByTestId("assessment-create-subject")).toHaveValue(
+    subject.record_id,
+  );
+
+  const created: Record<string, ViewRow> = {};
+  for (const entry of [
+    {
+      state: "unknown",
+      band: "unset",
+      assessedAt: "2026-04-24T10:00:00Z",
+      supportRefs: [] as string[],
+    },
+    {
+      state: "suspected",
+      band: "low",
+      assessedAt: "2026-04-24T11:00:00Z",
+      supportRefs: [] as string[],
+    },
+    {
+      state: "confirmed",
+      band: "medium",
+      assessedAt: "2026-04-24T12:00:00Z",
+      supportRefs: [support.record_id],
+    },
+    {
+      state: "disproven",
+      band: "medium",
+      assessedAt: "2026-04-24T13:00:00Z",
+      supportRefs: [] as string[],
+    },
+    {
+      state: "cleared",
+      band: "high",
+      assessedAt: "2026-04-24T14:00:00Z",
+      supportRefs: [] as string[],
+    },
+  ]) {
+    created[entry.state] = await createAssessmentViaUI(page, {
+      assessedAt: entry.assessedAt,
+      confidenceBand: entry.band,
+      rationale: `Assessment ${entry.state} rationale.`,
+      state: entry.state,
+      supportRecordIds: entry.supportRefs,
+    });
+  }
+
+  await expectAssessmentGridOrder(page, [
+    created.cleared.record_id,
+    created.disproven.record_id,
+    created.confirmed.record_id,
+    created.suspected.record_id,
+    created.unknown.record_id,
+  ]);
+
+  await expect(
+    page.getByTestId(
+      rowCellTestId(created.unknown.record_id, "assessment.confidence_band"),
+    ),
+  ).toHaveText("unset");
+  await expect(
+    page.getByTestId(
+      rowCellTestId(created.suspected.record_id, "assessment.confidence_band"),
+    ),
+  ).toHaveText("low");
+  await expect(
+    page.getByTestId(
+      rowCellTestId(created.confirmed.record_id, "assessment.confidence_band"),
+    ),
+  ).toHaveText("medium");
+  await expect(
+    page.getByTestId(
+      rowCellTestId(created.cleared.record_id, "assessment.confidence_band"),
+    ),
+  ).toHaveText("high");
+  await expect(
+    page.getByTestId(
+      rowCellTestId(
+        created.confirmed.record_id,
+        "assessment.supporting_link_count",
+      ),
+    ),
+  ).toHaveText("1");
+
+  await applyFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.confidence_band",
+    "high",
+  );
+  await expectAssessmentGridOrder(page, [created.cleared.record_id]);
+  await removeFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.confidence_band",
+  );
+  await expectAssessmentGridOrder(page, [
+    created.cleared.record_id,
+    created.disproven.record_id,
+    created.confirmed.record_id,
+    created.suspected.record_id,
+    created.unknown.record_id,
+  ]);
+
+  await applyFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.assessment_state",
+    "disproven",
+  );
+  await expectAssessmentGridOrder(page, [created.disproven.record_id]);
+  await removeFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.assessment_state",
+  );
+  await applyFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.assessment_state",
+    "cleared",
+  );
+  await expectAssessmentGridOrder(page, [created.cleared.record_id]);
+});
+
 async function createTimelineFillers(
   page: Page,
   incidentId: string,
@@ -868,6 +1023,63 @@ async function createTimelineFillers(
       "timeline.summary": `${prefix} ${index}`,
     });
   }
+}
+
+async function createAssessmentViaUI(
+  page: Page,
+  options: {
+    assessedAt: string;
+    confidenceBand: string;
+    rationale: string;
+    state: string;
+    supportRecordIds: string[];
+  },
+) {
+  await page.getByTestId("assessment-create-state").selectOption(options.state);
+  await page
+    .getByTestId("assessment-create-confidence-band")
+    .selectOption(options.confidenceBand);
+  await page.getByTestId("assessment-create-rationale").fill(options.rationale);
+  await page
+    .getByTestId("assessment-create-assessed-at")
+    .fill(options.assessedAt);
+  if (options.supportRecordIds.length > 0) {
+    await expect(
+      page.getByTestId("assessment-create-support-refs").locator("option"),
+    ).toHaveCount(options.supportRecordIds.length);
+    await page
+      .getByTestId("assessment-create-support-refs")
+      .selectOption(options.supportRecordIds);
+  }
+
+  const responsePromise = waitForAssessmentCreate(page);
+  await page.getByTestId("assessment-create-submit").click();
+  const envelope = await readTimelineMutation(await responsePromise);
+  await expect(
+    page.getByTestId(`assessment-row-${envelope.data.row.record_id}`),
+  ).toBeVisible();
+  return envelope.data.row;
+}
+
+function waitForAssessmentCreate(page: Page) {
+  return page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith(`/views/${assessmentsViewSchemaId}/rows`),
+  );
+}
+
+async function expectAssessmentGridOrder(page: Page, expected: string[]) {
+  const grid = page.getByTestId(gridShellTestId(assessmentsViewSchemaId));
+  await expect
+    .poll(async () =>
+      grid
+        .locator(gridSavedRowsSelector())
+        .evaluateAll((rows) =>
+          rows.map((row) => row.getAttribute("data-grid-record-id") ?? ""),
+        ),
+    )
+    .toEqual(expected);
 }
 
 function collectionActionsPayload(rawTexts: string[]) {
