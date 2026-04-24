@@ -37,7 +37,8 @@
         "TestSupportPhase4Integration_ReplayAndDivergentConflict",
         "TestSupportPhase4Integration_AuthorizationReDerivation",
         "TestSupportPhase4Integration_DefaultQueryMetaAndFieldKeyConformance",
-        "TestSupportPhase4Integration_ProjectionAndWebsocketConsequences"
+        "TestSupportPhase4Integration_ProjectionAndWebsocketConsequences",
+        "TestSupportPhase4Integration_RecordEnvelopeSubstrate"
       ],
       "selection_pattern": "TestSupportPhase4Integration_"
     }

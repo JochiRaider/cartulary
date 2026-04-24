@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -34,6 +35,7 @@ var (
 type Store struct {
 	pool            *pgxpool.Pool
 	authStore       *authn.Store
+	recordStore     *records.Store
 	revisionsStore  *revisions.Store
 	projectionStore *projections.Store
 	linkStore       *links.Store
@@ -111,6 +113,7 @@ func NewStoreWithHooks(pool *pgxpool.Pool, hooks StoreHooks) *Store {
 	return &Store{
 		pool:            pool,
 		authStore:       authn.NewStore(pool),
+		recordStore:     records.NewStore(),
 		revisionsStore:  revisions.NewStore(),
 		projectionStore: projections.NewStore(pool),
 		linkStore:       links.NewStore(),
@@ -120,11 +123,11 @@ func NewStoreWithHooks(pool *pgxpool.Pool, hooks StoreHooks) *Store {
 
 func (s *Store) GetRecordIncident(ctx context.Context, recordID uuid.UUID) (uuid.UUID, error) {
 	var incidentID uuid.UUID
-	if err := s.pool.QueryRow(ctx, `SELECT incident_id FROM timeline_events WHERE record_id = $1`, recordID).Scan(&incidentID); err != nil {
+	if err := s.pool.QueryRow(ctx, `SELECT incident_id FROM records WHERE record_id = $1`, recordID).Scan(&incidentID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return uuid.UUID{}, ErrRecordNotFound
 		}
-		return uuid.UUID{}, fmt.Errorf("get timeline record incident: %w", err)
+		return uuid.UUID{}, fmt.Errorf("get record incident: %w", err)
 	}
 	return incidentID, nil
 }
@@ -230,8 +233,22 @@ func (s *Store) CreateRow(ctx context.Context, actor authn.UserRecord, incidentI
 		CreatedByUserID: actor.ID,
 		UpdatedByUserID: actor.ID,
 	}
+	recordID, err := s.recordStore.InsertTx(ctx, tx, records.InsertParams{
+		IncidentID:      incidentID,
+		RecordType:      "timeline_event",
+		CreatedByUserID: actor.ID,
+		CreatedAt:       now.UTC(),
+		UpdatedByUserID: actor.ID,
+		UpdatedAt:       now.UTC(),
+		RowVersion:      1,
+	})
+	if err != nil {
+		return MutationResult{}, err
+	}
+	current.RecordID = recordID
 	if err := tx.QueryRow(ctx, `
 INSERT INTO timeline_events (
+    record_id,
     incident_id,
     occurred_at,
     summary,
@@ -244,9 +261,9 @@ INSERT INTO timeline_events (
     created_by_user_id,
     updated_by_user_id
 )
-VALUES ($1, $2, $3, $4, $5, 'rough', 1, $6, $6, $7, $7)
+VALUES ($1, $2, $3, $4, $5, $6, 'rough', 1, $7, $7, $8, $8)
 RETURNING record_id
-`, incidentID, request.OccurredAt, request.Summary, request.Details, request.SourceText, now.UTC(), actor.ID).Scan(&current.RecordID); err != nil {
+`, current.RecordID, incidentID, request.OccurredAt, request.Summary, request.Details, request.SourceText, now.UTC(), actor.ID).Scan(&current.RecordID); err != nil {
 		return MutationResult{}, fmt.Errorf("insert timeline record: %w", err)
 	}
 
@@ -410,7 +427,10 @@ func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID u
 		return MutationResult{}, err
 	}
 	next.CaptureState = nextState
-	next.RowVersion = current.RowVersion + 1
+	next.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
+	if err != nil {
+		return MutationResult{}, err
+	}
 	next.EditedAt = now.UTC()
 	next.UpdatedByUserID = actor.ID
 	if current.CaptureState == captureStateReviewed {
@@ -612,6 +632,10 @@ func (s *Store) applyAction(
 	if err != nil {
 		return MutationResult{}, err
 	}
+	next.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
+	if err != nil {
+		return MutationResult{}, err
+	}
 
 	beforeProjected := projectRecord(current, nil)
 	if err := hydrateProjectedCollections(ctx, tx, &beforeProjected); err != nil {
@@ -741,25 +765,26 @@ RETURNING recorded_at
 func loadSourceRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (sourceRecord, error) {
 	row := tx.QueryRow(ctx, `
 SELECT
-    record_id,
-    incident_id,
-    occurred_at,
-    summary,
-    details,
-    source_text,
-    capture_state,
-    row_version,
-    recorded_at,
-    edited_at,
-    created_by_user_id,
-    updated_by_user_id,
-    reviewed_by_user_id,
-    reviewed_at,
-    superseded_by_user_id,
-    superseded_at
-FROM timeline_events
-WHERE record_id = $1
-FOR UPDATE
+    e.record_id,
+    e.incident_id,
+    e.occurred_at,
+    e.summary,
+    e.details,
+    e.source_text,
+    e.capture_state,
+    r.row_version,
+    e.recorded_at,
+    e.edited_at,
+    r.created_by_user_id,
+    r.updated_by_user_id,
+    e.reviewed_by_user_id,
+    e.reviewed_at,
+    e.superseded_by_user_id,
+    e.superseded_at
+FROM timeline_events e
+JOIN records r ON r.record_id = e.record_id
+WHERE e.record_id = $1
+FOR UPDATE OF e, r
 `, recordID)
 
 	var record sourceRecord
@@ -842,7 +867,7 @@ func projectionInput(record projectedRecord) projections.TimelineProjectionInput
 	}
 }
 
-func projectedRecordFromSQL(row sqlc.TimelineGridProjection) (projectedRecord, error) {
+func projectedRecordFromSQL(row sqlc.GetTimelineProjectionRowRow) (projectedRecord, error) {
 	recordID, err := uuidFromPG(row.RecordID)
 	if err != nil {
 		return projectedRecord{}, err
@@ -892,7 +917,7 @@ func projectedRecordFromSQL(row sqlc.TimelineGridProjection) (projectedRecord, e
 func scanProjectedRecord(scanner interface {
 	Scan(dest ...any) error
 }) (projectedRecord, error) {
-	var row sqlc.TimelineGridProjection
+	var row sqlc.GetTimelineProjectionRowRow
 	if err := scanner.Scan(
 		&row.RecordID,
 		&row.IncidentID,
@@ -936,7 +961,7 @@ func buildTimelineQuerySQL(incidentID uuid.UUID, query viewschema.QueryMeta) (st
 SELECT
     t.record_id,
     t.incident_id,
-    t.row_version,
+    r.row_version,
     t.occurred_at,
     t.summary,
     t.details,
@@ -952,6 +977,8 @@ SELECT
     t.has_evidence,
     t.has_unresolved_mentions
   FROM timeline_grid_projection t
+  JOIN records r
+    ON r.record_id = t.record_id
  WHERE t.incident_id = $1`)
 
 	args := []any{incidentID}

@@ -74,25 +74,26 @@ type projectedMentionItem struct {
 func loadTimelineSourceRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (timelineSourceRecord, error) {
 	row := tx.QueryRow(ctx, `
 SELECT
-    record_id,
-    incident_id,
-    occurred_at,
-    summary,
-    details,
-    source_text,
-    capture_state,
-    row_version,
-    recorded_at,
-    edited_at,
-    created_by_user_id,
-    updated_by_user_id,
-    reviewed_by_user_id,
-    reviewed_at,
-    superseded_by_user_id,
-    superseded_at
-  FROM timeline_events
- WHERE record_id = $1
- FOR UPDATE
+    e.record_id,
+    e.incident_id,
+    e.occurred_at,
+    e.summary,
+    e.details,
+    e.source_text,
+    e.capture_state,
+    r.row_version,
+    e.recorded_at,
+    e.edited_at,
+    r.created_by_user_id,
+    r.updated_by_user_id,
+    e.reviewed_by_user_id,
+    e.reviewed_at,
+    e.superseded_by_user_id,
+    e.superseded_at
+  FROM timeline_events e
+  JOIN records r ON r.record_id = e.record_id
+ WHERE e.record_id = $1
+ FOR UPDATE OF e, r
 `, recordID)
 
 	var record timelineSourceRecord

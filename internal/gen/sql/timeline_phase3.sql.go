@@ -13,30 +13,51 @@ import (
 
 const getTimelineProjectionRow = `-- name: GetTimelineProjectionRow :one
 SELECT
-    record_id,
-    incident_id,
-    row_version,
-    occurred_at,
-    summary,
-    details,
-    source_text,
-    recorded_at,
-    edited_at,
-    sort_ts,
-    capture_state,
-    replacement_record_id,
-    occurred_day,
-    recorded_day,
-    evidence_count,
-    has_evidence,
-    has_unresolved_mentions
-FROM timeline_grid_projection
-WHERE record_id = $1
+    t.record_id,
+    t.incident_id,
+    r.row_version,
+    t.occurred_at,
+    t.summary,
+    t.details,
+    t.source_text,
+    t.recorded_at,
+    t.edited_at,
+    t.sort_ts,
+    t.capture_state,
+    t.replacement_record_id,
+    t.occurred_day,
+    t.recorded_day,
+    t.evidence_count,
+    t.has_evidence,
+    t.has_unresolved_mentions
+FROM timeline_grid_projection t
+JOIN records r ON r.record_id = t.record_id
+WHERE t.record_id = $1
 `
 
-func (q *Queries) GetTimelineProjectionRow(ctx context.Context, recordID pgtype.UUID) (TimelineGridProjection, error) {
+type GetTimelineProjectionRowRow struct {
+	RecordID              pgtype.UUID        `json:"record_id"`
+	IncidentID            pgtype.UUID        `json:"incident_id"`
+	RowVersion            int64              `json:"row_version"`
+	OccurredAt            pgtype.Timestamptz `json:"occurred_at"`
+	Summary               pgtype.Text        `json:"summary"`
+	Details               pgtype.Text        `json:"details"`
+	SourceText            pgtype.Text        `json:"source_text"`
+	RecordedAt            pgtype.Timestamptz `json:"recorded_at"`
+	EditedAt              pgtype.Timestamptz `json:"edited_at"`
+	SortTs                pgtype.Timestamptz `json:"sort_ts"`
+	CaptureState          string             `json:"capture_state"`
+	ReplacementRecordID   pgtype.UUID        `json:"replacement_record_id"`
+	OccurredDay           pgtype.Date        `json:"occurred_day"`
+	RecordedDay           pgtype.Date        `json:"recorded_day"`
+	EvidenceCount         int32              `json:"evidence_count"`
+	HasEvidence           bool               `json:"has_evidence"`
+	HasUnresolvedMentions bool               `json:"has_unresolved_mentions"`
+}
+
+func (q *Queries) GetTimelineProjectionRow(ctx context.Context, recordID pgtype.UUID) (GetTimelineProjectionRowRow, error) {
 	row := q.db.QueryRow(ctx, getTimelineProjectionRow, recordID)
-	var i TimelineGridProjection
+	var i GetTimelineProjectionRowRow
 	err := row.Scan(
 		&i.RecordID,
 		&i.IncidentID,
@@ -61,37 +82,58 @@ func (q *Queries) GetTimelineProjectionRow(ctx context.Context, recordID pgtype.
 
 const listTimelineProjectionRows = `-- name: ListTimelineProjectionRows :many
 SELECT
-    record_id,
-    incident_id,
-    row_version,
-    occurred_at,
-    summary,
-    details,
-    source_text,
-    recorded_at,
-    edited_at,
-    sort_ts,
-    capture_state,
-    replacement_record_id,
-    occurred_day,
-    recorded_day,
-    evidence_count,
-    has_evidence,
-    has_unresolved_mentions
-FROM timeline_grid_projection
-WHERE incident_id = $1
-ORDER BY sort_ts ASC, record_id ASC
+    t.record_id,
+    t.incident_id,
+    r.row_version,
+    t.occurred_at,
+    t.summary,
+    t.details,
+    t.source_text,
+    t.recorded_at,
+    t.edited_at,
+    t.sort_ts,
+    t.capture_state,
+    t.replacement_record_id,
+    t.occurred_day,
+    t.recorded_day,
+    t.evidence_count,
+    t.has_evidence,
+    t.has_unresolved_mentions
+FROM timeline_grid_projection t
+JOIN records r ON r.record_id = t.record_id
+WHERE t.incident_id = $1
+ORDER BY t.sort_ts ASC, t.record_id ASC
 `
 
-func (q *Queries) ListTimelineProjectionRows(ctx context.Context, incidentID pgtype.UUID) ([]TimelineGridProjection, error) {
+type ListTimelineProjectionRowsRow struct {
+	RecordID              pgtype.UUID        `json:"record_id"`
+	IncidentID            pgtype.UUID        `json:"incident_id"`
+	RowVersion            int64              `json:"row_version"`
+	OccurredAt            pgtype.Timestamptz `json:"occurred_at"`
+	Summary               pgtype.Text        `json:"summary"`
+	Details               pgtype.Text        `json:"details"`
+	SourceText            pgtype.Text        `json:"source_text"`
+	RecordedAt            pgtype.Timestamptz `json:"recorded_at"`
+	EditedAt              pgtype.Timestamptz `json:"edited_at"`
+	SortTs                pgtype.Timestamptz `json:"sort_ts"`
+	CaptureState          string             `json:"capture_state"`
+	ReplacementRecordID   pgtype.UUID        `json:"replacement_record_id"`
+	OccurredDay           pgtype.Date        `json:"occurred_day"`
+	RecordedDay           pgtype.Date        `json:"recorded_day"`
+	EvidenceCount         int32              `json:"evidence_count"`
+	HasEvidence           bool               `json:"has_evidence"`
+	HasUnresolvedMentions bool               `json:"has_unresolved_mentions"`
+}
+
+func (q *Queries) ListTimelineProjectionRows(ctx context.Context, incidentID pgtype.UUID) ([]ListTimelineProjectionRowsRow, error) {
 	rows, err := q.db.Query(ctx, listTimelineProjectionRows, incidentID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []TimelineGridProjection
+	var items []ListTimelineProjectionRowsRow
 	for rows.Next() {
-		var i TimelineGridProjection
+		var i ListTimelineProjectionRowsRow
 		if err := rows.Scan(
 			&i.RecordID,
 			&i.IncidentID,
@@ -125,7 +167,7 @@ const listTimelineProjectionSourceRows = `-- name: ListTimelineProjectionSourceR
 SELECT
     e.record_id,
     e.incident_id,
-    e.row_version,
+    r.row_version,
     e.occurred_at,
     e.summary,
     e.details,
@@ -154,6 +196,7 @@ SELECT
           AND em.resolution_status = 'unresolved'
     ) AS has_unresolved_mentions
 FROM timeline_events e
+JOIN records r ON r.record_id = e.record_id
 WHERE e.incident_id = $1
 ORDER BY COALESCE(e.occurred_at, e.recorded_at) ASC, e.record_id ASC
 `

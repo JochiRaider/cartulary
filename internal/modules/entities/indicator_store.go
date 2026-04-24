@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
@@ -210,6 +211,17 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 		AfterValue:      afterRow,
 	}); err != nil {
 		return MutationResult{}, err
+	}
+	if beforeRow == nil || !jsonEqual(beforeRow, afterRow) {
+		if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+			ChangeSetID: changeSetID,
+			RecordID:    record.RecordID,
+			RowVersion:  record.RowVersion,
+			BeforeValue: beforeRow,
+			AfterValue:  afterRow,
+		}); err != nil {
+			return MutationResult{}, err
+		}
 	}
 
 	payload := BuildMutationPayload(IndicatorsViewSchemaID, changeSetID, afterRow)
@@ -452,6 +464,19 @@ func (s *Store) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actor authn.Us
 			CreatedByUser:   actor.ID,
 			UpdatedByUser:   actor.ID,
 		}
+		recordID, err := s.recordStore.InsertTx(ctx, tx, records.InsertParams{
+			IncidentID:      incidentID,
+			RecordType:      "indicator",
+			CreatedByUserID: actor.ID,
+			CreatedAt:       record.CreatedAt,
+			UpdatedByUserID: actor.ID,
+			UpdatedAt:       record.UpdatedAt,
+			RowVersion:      record.RowVersion,
+		})
+		if err != nil {
+			return IndicatorRecord{}, nil, "", 0, err
+		}
+		record.RecordID = recordID
 		if err := insertIndicatorTx(ctx, tx, &record); err != nil {
 			return IndicatorRecord{}, nil, "", 0, err
 		}
@@ -483,7 +508,10 @@ func (s *Store) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actor authn.Us
 		fieldChanged = true
 	}
 	if fieldChanged {
-		next.RowVersion = current.RowVersion + 1
+		next.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
+		if err != nil {
+			return IndicatorRecord{}, nil, "", 0, err
+		}
 		next.UpdatedAt = now.UTC()
 		next.UpdatedByUser = actor.ID
 		if err := updateIndicatorTx(ctx, tx, next); err != nil {
@@ -542,31 +570,33 @@ func indicatorInputFromCreateRequest(request CreateRequest) (indicatorUpsertInpu
 func loadIndicatorByDedupeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, indicatorType string, dedupeKey string) (IndicatorRecord, bool, error) {
 	record, err := scanIndicatorRecord(tx.QueryRow(ctx, `
 SELECT
-    record_id,
-    incident_id,
-    indicator_type,
-    value_kind,
-    display_value,
-    normalized_value,
-    dedupe_key,
-    defanged_value,
-    hash_algorithm,
-    hash_value,
-    stix_pattern,
-    row_version,
-    created_at,
-    updated_at,
-    created_by_user_id,
-    updated_by_user_id,
-    deleted_at,
-    deleted_by_user_id
-  FROM indicators
- WHERE incident_id = $1
-   AND indicator_type = $2
-   AND dedupe_key = $3
-   AND deleted_at IS NULL
+    i.record_id,
+    i.incident_id,
+    i.indicator_type,
+    i.value_kind,
+    i.display_value,
+    i.normalized_value,
+    i.dedupe_key,
+    i.defanged_value,
+    i.hash_algorithm,
+    i.hash_value,
+    i.stix_pattern,
+    r.row_version,
+    r.created_at,
+    r.updated_at,
+    r.created_by_user_id,
+    r.updated_by_user_id,
+    r.deleted_at,
+    r.deleted_by_user_id
+  FROM indicators i
+  JOIN records r
+    ON r.record_id = i.record_id
+ WHERE i.incident_id = $1
+   AND i.indicator_type = $2
+   AND i.dedupe_key = $3
+   AND r.deleted_at IS NULL
  LIMIT 1
- FOR UPDATE
+ FOR UPDATE OF i, r
 `, incidentID, indicatorType, dedupeKey))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return IndicatorRecord{}, false, nil
@@ -580,6 +610,7 @@ SELECT
 func insertIndicatorTx(ctx context.Context, tx pgx.Tx, record *IndicatorRecord) error {
 	return tx.QueryRow(ctx, `
 INSERT INTO indicators (
+    record_id,
     incident_id,
     indicator_type,
     value_kind,
@@ -596,9 +627,9 @@ INSERT INTO indicators (
     created_by_user_id,
     updated_by_user_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12, $13, $13)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13, $14, $14)
 RETURNING record_id
-`, record.IncidentID, record.IndicatorType, record.ValueKind, record.DisplayValue, record.NormalizedValue, record.DedupeKey, record.DefangedValue, record.HashAlgorithm, record.HashValue, record.STIXPattern, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
+`, record.RecordID, record.IncidentID, record.IndicatorType, record.ValueKind, record.DisplayValue, record.NormalizedValue, record.DedupeKey, record.DefangedValue, record.HashAlgorithm, record.HashValue, record.STIXPattern, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
 }
 
 func updateIndicatorTx(ctx context.Context, tx pgx.Tx, record IndicatorRecord) error {
@@ -750,26 +781,28 @@ SELECT COUNT(*)
 func loadIndicatorRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (IndicatorRecord, error) {
 	record, err := scanIndicatorRecord(tx.QueryRow(ctx, `
 SELECT
-    record_id,
-    incident_id,
-    indicator_type,
-    value_kind,
-    display_value,
-    normalized_value,
-    dedupe_key,
-    defanged_value,
-    hash_algorithm,
-    hash_value,
-    stix_pattern,
-    row_version,
-    created_at,
-    updated_at,
-    created_by_user_id,
-    updated_by_user_id,
-    deleted_at,
-    deleted_by_user_id
-  FROM indicators
- WHERE record_id = $1
+    i.record_id,
+    i.incident_id,
+    i.indicator_type,
+    i.value_kind,
+    i.display_value,
+    i.normalized_value,
+    i.dedupe_key,
+    i.defanged_value,
+    i.hash_algorithm,
+    i.hash_value,
+    i.stix_pattern,
+    r.row_version,
+    r.created_at,
+    r.updated_at,
+    r.created_by_user_id,
+    r.updated_by_user_id,
+    r.deleted_at,
+    r.deleted_by_user_id
+  FROM indicators i
+  JOIN records r
+    ON r.record_id = i.record_id
+ WHERE i.record_id = $1
 `, recordID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return IndicatorRecord{}, ErrIndicatorNotFound
@@ -785,9 +818,10 @@ func validateIndicatorRecordIncidentTx(ctx context.Context, tx pgx.Tx, incidentI
 	if err := tx.QueryRow(ctx, `
 SELECT EXISTS (
     SELECT 1
-      FROM indicators
+      FROM records
      WHERE record_id = $1
        AND incident_id = $2
+       AND record_type = 'indicator'
        AND deleted_at IS NULL
 )
 `, recordID, incidentID).Scan(&exists); err != nil {
@@ -965,12 +999,12 @@ func validateTimelineSourceIncidentTx(ctx context.Context, tx pgx.Tx, incidentID
 	if err := tx.QueryRow(ctx, `
 SELECT EXISTS (
     SELECT 1
-      FROM timeline_events
+      FROM records
      WHERE record_id = $1
        AND incident_id = $2
 )
 `, sourceRecordID, incidentID).Scan(&exists); err != nil {
-		return fmt.Errorf("validate timeline source incident: %w", err)
+		return fmt.Errorf("validate source record incident: %w", err)
 	}
 	if !exists {
 		return ErrRecordDeletedUseRestore

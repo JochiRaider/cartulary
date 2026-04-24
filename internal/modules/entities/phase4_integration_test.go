@@ -1575,6 +1575,7 @@ func withHeader(key string, value string) func(*http.Request) {
 
 func seedHostRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, hostname string, fqdn string, aadDeviceID string) {
 	t.Helper()
+	phase4test.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "host")
 
 	var (
 		fqdnValue      any
@@ -1607,6 +1608,7 @@ VALUES ($1, $2, $3, $4, $5, 'suggestion_only', $6, now())
 
 func seedTimelineRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID) {
 	t.Helper()
+	phase4test.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "timeline_event")
 
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO timeline_events (record_id, incident_id, summary, capture_state, created_by_user_id, updated_by_user_id)
@@ -1657,10 +1659,11 @@ INSERT INTO record_links (
     provenance,
     confidence,
     owner_user_id,
+    created_by_user_id,
     decided_at,
     created_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), now())
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, now(), now())
 `, recordLinkID, incidentID, srcRecordID, dstRecordID, linkType, provenance, confidence, actorUserID); err != nil {
 		t.Fatalf("seed record link: %v", err)
 	}
@@ -1679,6 +1682,7 @@ VALUES ($1, $2, $3, $4, $5, $6)
 
 func seedAssessment(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, assessmentID uuid.UUID, subjectID uuid.UUID, subjectType string, state string) {
 	t.Helper()
+	phase4test.SeedRecordEnvelope(t, db, incidentID, actorUserID, assessmentID, "assessment")
 
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO compromise_assessments (compromise_assessment_id, incident_id, subject_id, subject_type, state, assessed_by_user_id)

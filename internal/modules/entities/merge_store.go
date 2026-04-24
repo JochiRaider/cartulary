@@ -195,14 +195,8 @@ type mergeCounts struct {
 func (s *Store) GetMergeRouteIncident(ctx context.Context, recordID uuid.UUID) (uuid.UUID, error) {
 	row := s.pool.QueryRow(ctx, `
 SELECT incident_id
-  FROM (
-        SELECT incident_id FROM hosts WHERE record_id = $1
-        UNION ALL
-        SELECT incident_id FROM identities WHERE record_id = $1
-        UNION ALL
-        SELECT incident_id FROM timeline_events WHERE record_id = $1
-       ) records
- LIMIT 1
+  FROM records
+ WHERE record_id = $1
 `, recordID)
 	var incidentID uuid.UUID
 	if err := row.Scan(&incidentID); err != nil {
@@ -460,7 +454,10 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	switch survivorMeta.RecordType {
 	case "host":
 		nextSurvivor := carryPlan.SurvivorHost
-		nextSurvivor.RowVersion = survivorHost.RowVersion + 1
+		nextSurvivor.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, survivorHost.RecordID, actor.ID, now.UTC())
+		if err != nil {
+			return MergeResult{}, err
+		}
 		nextSurvivor.UpdatedAt = now.UTC()
 		nextSurvivor.UpdatedByUser = actor.ID
 		if err := updateHostTx(ctx, tx, nextSurvivor); err != nil {
@@ -473,7 +470,10 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		nextLoser := loserHost
 		nextLoser.HostState = "merged"
 		nextLoser.MergedIntoRecordID = &survivorRecordID
-		nextLoser.RowVersion = loserHost.RowVersion + 1
+		nextLoser.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, loserHost.RecordID, actor.ID, now.UTC())
+		if err != nil {
+			return MergeResult{}, err
+		}
 		nextLoser.UpdatedAt = now.UTC()
 		nextLoser.UpdatedByUser = actor.ID
 		if err := updateHostTx(ctx, tx, nextLoser); err != nil {
@@ -493,7 +493,10 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		loserHost = nextLoser
 	case "identity":
 		nextSurvivor := carryPlan.SurvivorIdentity
-		nextSurvivor.RowVersion = survivorIdentity.RowVersion + 1
+		nextSurvivor.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, survivorIdentity.RecordID, actor.ID, now.UTC())
+		if err != nil {
+			return MergeResult{}, err
+		}
 		nextSurvivor.UpdatedAt = now.UTC()
 		nextSurvivor.UpdatedByUser = actor.ID
 		if err := updateIdentityTx(ctx, tx, nextSurvivor); err != nil {
@@ -506,7 +509,10 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		nextLoser := loserIdentity
 		nextLoser.IdentityState = "merged"
 		nextLoser.MergedIntoRecordID = &survivorRecordID
-		nextLoser.RowVersion = loserIdentity.RowVersion + 1
+		nextLoser.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, loserIdentity.RecordID, actor.ID, now.UTC())
+		if err != nil {
+			return MergeResult{}, err
+		}
 		nextLoser.UpdatedAt = now.UTC()
 		nextLoser.UpdatedByUser = actor.ID
 		if err := updateIdentityTx(ctx, tx, nextLoser); err != nil {
@@ -574,6 +580,24 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 			return MergeResult{}, err
 		}
 		sequenceNo++
+		if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+			ChangeSetID: changeSetID,
+			RecordID:    survivorHost.RecordID,
+			RowVersion:  survivorHost.RowVersion,
+			BeforeValue: survivorBefore,
+			AfterValue:  survivorAfter,
+		}); err != nil {
+			return MergeResult{}, err
+		}
+		if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+			ChangeSetID: changeSetID,
+			RecordID:    loserHost.RecordID,
+			RowVersion:  loserHost.RowVersion,
+			BeforeValue: loserBefore,
+			AfterValue:  loserAfter,
+		}); err != nil {
+			return MergeResult{}, err
+		}
 	case "identity":
 		beforeVersionID := entityVersionID("identity", survivorIdentity.RecordID, survivorIdentity.RowVersion-1)
 		afterVersionID := entityVersionID("identity", survivorIdentity.RecordID, survivorIdentity.RowVersion)
@@ -607,6 +631,24 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 			return MergeResult{}, err
 		}
 		sequenceNo++
+		if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+			ChangeSetID: changeSetID,
+			RecordID:    survivorIdentity.RecordID,
+			RowVersion:  survivorIdentity.RowVersion,
+			BeforeValue: survivorBefore,
+			AfterValue:  survivorAfter,
+		}); err != nil {
+			return MergeResult{}, err
+		}
+		if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+			ChangeSetID: changeSetID,
+			RecordID:    loserIdentity.RecordID,
+			RowVersion:  loserIdentity.RowVersion,
+			BeforeValue: loserBefore,
+			AfterValue:  loserAfter,
+		}); err != nil {
+			return MergeResult{}, err
+		}
 	}
 
 	for _, mutation := range mutations {
@@ -676,20 +718,8 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 func loadMergeTargetMetaTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (mergeTargetMeta, error) {
 	row := tx.QueryRow(ctx, `
 SELECT incident_id, record_type
-  FROM (
-        SELECT incident_id, 'host'::text AS record_type
-          FROM hosts
-         WHERE record_id = $1
-        UNION ALL
-        SELECT incident_id, 'identity'::text AS record_type
-          FROM identities
-         WHERE record_id = $1
-        UNION ALL
-        SELECT incident_id, 'timeline_event'::text AS record_type
-          FROM timeline_events
-         WHERE record_id = $1
-       ) records
- LIMIT 1
+  FROM records
+ WHERE record_id = $1
 `, recordID)
 	var meta mergeTargetMeta
 	meta.RecordID = recordID
@@ -727,23 +757,25 @@ func lockMergeTargetTx(ctx context.Context, tx pgx.Tx, recordType string, record
 func loadHostByRecordIDTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (HostRecord, error) {
 	record, err := scanHostRecord(tx.QueryRow(ctx, `
 SELECT
-    record_id,
-    incident_id,
-    display_name,
-    aad_device_id,
-    fqdn,
-    hostname,
-    host_state,
-    merged_into_record_id,
-    entity_origin,
-    seed_entity_mention_id,
-    row_version,
-    created_at,
-    updated_at,
-    created_by_user_id,
-    updated_by_user_id
-  FROM hosts
- WHERE record_id = $1
+    h.record_id,
+    h.incident_id,
+    h.display_name,
+    h.aad_device_id,
+    h.fqdn,
+    h.hostname,
+    h.host_state,
+    h.merged_into_record_id,
+    h.entity_origin,
+    h.seed_entity_mention_id,
+    r.row_version,
+    r.created_at,
+    r.updated_at,
+    r.created_by_user_id,
+    r.updated_by_user_id
+  FROM hosts h
+  JOIN records r
+    ON r.record_id = h.record_id
+ WHERE h.record_id = $1
 `, recordID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return HostRecord{}, ErrMergeTargetNotFound
@@ -757,25 +789,27 @@ SELECT
 func loadIdentityByRecordIDTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (IdentityRecord, error) {
 	record, err := scanIdentityRecord(tx.QueryRow(ctx, `
 SELECT
-    record_id,
-    incident_id,
-    display_name,
-    aad_object_id,
-    sid,
-    upn,
-    email::text,
-    sam_account_name,
-    identity_state,
-    merged_into_record_id,
-    entity_origin,
-    seed_entity_mention_id,
-    row_version,
-    created_at,
-    updated_at,
-    created_by_user_id,
-    updated_by_user_id
-  FROM identities
- WHERE record_id = $1
+    i.record_id,
+    i.incident_id,
+    i.display_name,
+    i.aad_object_id,
+    i.sid,
+    i.upn,
+    i.email::text,
+    i.sam_account_name,
+    i.identity_state,
+    i.merged_into_record_id,
+    i.entity_origin,
+    i.seed_entity_mention_id,
+    r.row_version,
+    r.created_at,
+    r.updated_at,
+    r.created_by_user_id,
+    r.updated_by_user_id
+  FROM identities i
+  JOIN records r
+    ON r.record_id = i.record_id
+ WHERE i.record_id = $1
 `, recordID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return IdentityRecord{}, ErrMergeTargetNotFound
@@ -1571,8 +1605,8 @@ func loadMergeTimelineInvalidationsTx(ctx context.Context, tx pgx.Tx, fieldKeysB
 	result := make([]MergeTimelineInvalidation, 0, len(recordIDs))
 	for _, recordID := range recordIDs {
 		var rowVersion int64
-		if err := tx.QueryRow(ctx, `SELECT row_version FROM timeline_events WHERE record_id = $1`, recordID).Scan(&rowVersion); err != nil {
-			return nil, fmt.Errorf("load timeline invalidation row_version: %w", err)
+		if err := tx.QueryRow(ctx, `SELECT row_version FROM records WHERE record_id = $1`, recordID).Scan(&rowVersion); err != nil {
+			return nil, fmt.Errorf("load record invalidation row_version: %w", err)
 		}
 		fieldKeys := append([]string(nil), fieldKeysByRecord[recordID]...)
 		fieldKeys = loadUniqueSortedAliasTexts(fieldKeys)

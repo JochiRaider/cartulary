@@ -49,12 +49,12 @@ INSERT INTO host_grid_projection (
     edited_at
 )
 SELECT
-    record_id,
-    incident_id,
-    row_version,
-    display_name,
-    hostname,
-    host_state,
+    h.record_id,
+    h.incident_id,
+    r.row_version,
+    h.display_name,
+    h.hostname,
+    h.host_state,
     0,
     0,
     NULL,
@@ -62,10 +62,12 @@ SELECT
     NULL,
     NULL,
     NULL,
-    updated_at
-  FROM hosts
- WHERE incident_id = $1
-   AND host_state IN ('stub', 'canonical')
+    r.updated_at
+  FROM hosts h
+  JOIN records r
+    ON r.record_id = h.record_id
+ WHERE h.incident_id = $1
+   AND h.host_state IN ('stub', 'canonical')
 `, incidentID); err != nil {
 		return fmt.Errorf("insert host projection rows: %w", err)
 	}
@@ -113,23 +115,25 @@ INSERT INTO identity_grid_projection (
     edited_at
 )
 SELECT
-    record_id,
-    incident_id,
-    row_version,
-    display_name,
-    upn,
-    email,
-    sam_account_name,
-    identity_state,
+    i.record_id,
+    i.incident_id,
+    r.row_version,
+    i.display_name,
+    i.upn,
+    i.email,
+    i.sam_account_name,
+    i.identity_state,
     0,
     0,
     NULL,
     NULL,
     NULL,
-    updated_at
-  FROM identities
- WHERE incident_id = $1
-   AND identity_state IN ('stub', 'canonical')
+    r.updated_at
+  FROM identities i
+  JOIN records r
+    ON r.record_id = i.record_id
+ WHERE i.incident_id = $1
+   AND i.identity_state IN ('stub', 'canonical')
 `, incidentID); err != nil {
 		return fmt.Errorf("insert identity projection rows: %w", err)
 	}
@@ -183,7 +187,7 @@ INSERT INTO indicator_grid_projection (
 SELECT
     i.record_id,
     i.incident_id,
-    i.row_version,
+    r.row_version,
     i.indicator_type,
     i.value_kind,
     i.display_value,
@@ -198,8 +202,10 @@ SELECT
     COALESCE(obs.observation_count, 0),
     lifecycle.lifecycle_summary,
     COALESCE(links.supporting_link_count, 0),
-    i.updated_at
+    r.updated_at
   FROM indicators i
+  JOIN records r
+    ON r.record_id = i.record_id
   LEFT JOIN (
         SELECT
             resolved_indicator_record_id,
@@ -229,7 +235,7 @@ SELECT
   ) links
     ON links.dst_record_id = i.record_id
  WHERE i.incident_id = $1
-   AND i.deleted_at IS NULL
+   AND r.deleted_at IS NULL
 `, incidentID); err != nil {
 		return fmt.Errorf("insert indicator projection rows: %w", err)
 	}

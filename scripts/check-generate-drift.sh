@@ -15,9 +15,15 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
+before_status="$(git status --short -- "${GENERATED_PATHS[@]}")"
+before_diff="$(git diff -- "${GENERATED_PATHS[@]}")"
+
 make generate
 
-if [[ -n "$(git status --short -- "${GENERATED_PATHS[@]}")" ]]; then
+after_status="$(git status --short -- "${GENERATED_PATHS[@]}")"
+after_diff="$(git diff -- "${GENERATED_PATHS[@]}")"
+
+if [[ "$after_status" != "$before_status" || "$after_diff" != "$before_diff" ]]; then
   echo "generated artifact drift detected after make generate" >&2
   git status --short -- "${GENERATED_PATHS[@]}" >&2
   echo "diff excerpt (first 200 lines):" >&2

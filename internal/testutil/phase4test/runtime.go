@@ -197,6 +197,7 @@ ON CONFLICT (incident_id, user_id) DO NOTHING
 
 func SeedHostRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, hostname string, fqdn string, aadDeviceID string) {
 	t.Helper()
+	SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "host")
 
 	var (
 		fqdnValue      any
@@ -218,6 +219,7 @@ VALUES ($1, $2, $3, $4, $5, $6, 'canonical', $7, $7)
 
 func SeedIdentityRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, upn string, email string, samAccountName string) {
 	t.Helper()
+	SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "identity")
 
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO identities (record_id, incident_id, display_name, upn, email, sam_account_name, identity_state, created_by_user_id, updated_by_user_id)
@@ -244,6 +246,7 @@ VALUES ($1, $2, $3, $4, $5, 'suggestion_only', $6, now())
 
 func SeedTimelineRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID) {
 	t.Helper()
+	SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "timeline_event")
 
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO timeline_events (record_id, incident_id, summary, capture_state, created_by_user_id, updated_by_user_id)
@@ -310,10 +313,11 @@ INSERT INTO record_links (
     provenance,
     confidence,
     owner_user_id,
+    created_by_user_id,
     decided_at,
     created_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), now())
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, now(), now())
 `, recordLinkID, incidentID, srcRecordID, dstRecordID, linkType, provenance, confidence, actorUserID); err != nil {
 		t.Fatalf("seed record link: %v", err)
 	}
@@ -332,12 +336,25 @@ VALUES ($1, $2, $3, $4, $5, $6)
 
 func SeedAssessment(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, assessmentID uuid.UUID, subjectID uuid.UUID, subjectType string, state string) {
 	t.Helper()
+	SeedRecordEnvelope(t, db, incidentID, actorUserID, assessmentID, "assessment")
 
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO compromise_assessments (compromise_assessment_id, incident_id, subject_id, subject_type, state, assessed_by_user_id)
 VALUES ($1, $2, $3, $4, $5, $6)
 `, assessmentID, incidentID, subjectID, subjectType, state, actorUserID); err != nil {
 		t.Fatalf("seed assessment: %v", err)
+	}
+}
+
+func SeedRecordEnvelope(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, recordType string) {
+	t.Helper()
+
+	if _, err := db.ExecContext(context.Background(), `
+INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
+VALUES ($1, $2, $3, $4, $4)
+ON CONFLICT (record_id) DO NOTHING
+`, recordID, incidentID, recordType, actorUserID); err != nil {
+		t.Fatalf("seed record envelope: %v", err)
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
@@ -245,6 +246,19 @@ func (s *Store) upsertHostWithInputTx(ctx context.Context, tx pgx.Tx, actor auth
 			CreatedByUser: actor.ID,
 			UpdatedByUser: actor.ID,
 		}
+		recordID, err := s.recordStore.InsertTx(ctx, tx, records.InsertParams{
+			IncidentID:      incidentID,
+			RecordType:      "host",
+			CreatedByUserID: actor.ID,
+			CreatedAt:       record.CreatedAt,
+			UpdatedByUserID: actor.ID,
+			UpdatedAt:       record.UpdatedAt,
+			RowVersion:      record.RowVersion,
+		})
+		if err != nil {
+			return HostRecord{}, nil, "", 0, err
+		}
+		record.RecordID = recordID
 		if err := insertHostTx(ctx, tx, &record); err != nil {
 			return HostRecord{}, nil, "", 0, err
 		}
@@ -298,7 +312,10 @@ func (s *Store) upsertHostWithInputTx(ctx context.Context, tx pgx.Tx, actor auth
 	}
 
 	if fieldChanged || identifierChanged || aliasChanged {
-		next.RowVersion = current.RowVersion + 1
+		next.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
+		if err != nil {
+			return HostRecord{}, nil, "", 0, err
+		}
 		next.UpdatedAt = now.UTC()
 		next.UpdatedByUser = actor.ID
 		if err := updateHostTx(ctx, tx, next); err != nil {
@@ -342,6 +359,19 @@ func (s *Store) upsertIdentityWithInputTx(ctx context.Context, tx pgx.Tx, actor 
 			CreatedByUser:  actor.ID,
 			UpdatedByUser:  actor.ID,
 		}
+		recordID, err := s.recordStore.InsertTx(ctx, tx, records.InsertParams{
+			IncidentID:      incidentID,
+			RecordType:      "identity",
+			CreatedByUserID: actor.ID,
+			CreatedAt:       record.CreatedAt,
+			UpdatedByUserID: actor.ID,
+			UpdatedAt:       record.UpdatedAt,
+			RowVersion:      record.RowVersion,
+		})
+		if err != nil {
+			return IdentityRecord{}, nil, "", 0, err
+		}
+		record.RecordID = recordID
 		if err := insertIdentityTx(ctx, tx, &record); err != nil {
 			return IdentityRecord{}, nil, "", 0, err
 		}
@@ -403,7 +433,10 @@ func (s *Store) upsertIdentityWithInputTx(ctx context.Context, tx pgx.Tx, actor 
 	}
 
 	if fieldChanged || identifierChanged || aliasChanged {
-		next.RowVersion = current.RowVersion + 1
+		next.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
+		if err != nil {
+			return IdentityRecord{}, nil, "", 0, err
+		}
 		next.UpdatedAt = now.UTC()
 		next.UpdatedByUser = actor.ID
 		if err := updateIdentityTx(ctx, tx, next); err != nil {
@@ -551,25 +584,27 @@ func matchIdentityTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, input
 func loadActiveHostsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]HostRecord, error) {
 	rows, err := tx.Query(ctx, `
 SELECT
-    record_id,
-    incident_id,
-    display_name,
-    aad_device_id,
-    fqdn,
-    hostname,
-    host_state,
-    merged_into_record_id,
-    entity_origin,
-    seed_entity_mention_id,
-    row_version,
-    created_at,
-    updated_at,
-    created_by_user_id,
-    updated_by_user_id
-  FROM hosts
- WHERE incident_id = $1
-   AND host_state IN ('stub', 'canonical')
- FOR UPDATE
+    h.record_id,
+    h.incident_id,
+    h.display_name,
+    h.aad_device_id,
+    h.fqdn,
+    h.hostname,
+    h.host_state,
+    h.merged_into_record_id,
+    h.entity_origin,
+    h.seed_entity_mention_id,
+    r.row_version,
+    r.created_at,
+    r.updated_at,
+    r.created_by_user_id,
+    r.updated_by_user_id
+  FROM hosts h
+  JOIN records r
+    ON r.record_id = h.record_id
+ WHERE h.incident_id = $1
+   AND h.host_state IN ('stub', 'canonical')
+ FOR UPDATE OF h, r
 `, incidentID)
 	if err != nil {
 		return nil, fmt.Errorf("load active hosts: %w", err)
@@ -593,27 +628,29 @@ SELECT
 func loadActiveIdentitiesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]IdentityRecord, error) {
 	rows, err := tx.Query(ctx, `
 SELECT
-    record_id,
-    incident_id,
-    display_name,
-    aad_object_id,
-    sid,
-    upn,
-    email::text,
-    sam_account_name,
-    identity_state,
-    merged_into_record_id,
-    entity_origin,
-    seed_entity_mention_id,
-    row_version,
-    created_at,
-    updated_at,
-    created_by_user_id,
-    updated_by_user_id
-  FROM identities
- WHERE incident_id = $1
-   AND identity_state IN ('stub', 'canonical')
- FOR UPDATE
+    i.record_id,
+    i.incident_id,
+    i.display_name,
+    i.aad_object_id,
+    i.sid,
+    i.upn,
+    i.email::text,
+    i.sam_account_name,
+    i.identity_state,
+    i.merged_into_record_id,
+    i.entity_origin,
+    i.seed_entity_mention_id,
+    r.row_version,
+    r.created_at,
+    r.updated_at,
+    r.created_by_user_id,
+    r.updated_by_user_id
+  FROM identities i
+  JOIN records r
+    ON r.record_id = i.record_id
+ WHERE i.incident_id = $1
+   AND i.identity_state IN ('stub', 'canonical')
+ FOR UPDATE OF i, r
 `, incidentID)
 	if err != nil {
 		return nil, fmt.Errorf("load active identities: %w", err)

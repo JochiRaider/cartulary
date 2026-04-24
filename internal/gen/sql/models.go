@@ -332,6 +332,19 @@ type PendingTotpEnrollment struct {
 	ConsumedAt                pgtype.Timestamptz `json:"consumed_at"`
 }
 
+type Record struct {
+	RecordID        pgtype.UUID        `json:"record_id"`
+	IncidentID      pgtype.UUID        `json:"incident_id"`
+	RecordType      string             `json:"record_type"`
+	CreatedByUserID pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedByUserID pgtype.UUID        `json:"updated_by_user_id"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	RowVersion      int64              `json:"row_version"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	DeletedByUserID pgtype.UUID        `json:"deleted_by_user_id"`
+}
+
 type RecordLink struct {
 	RecordLinkID    pgtype.UUID        `json:"record_link_id"`
 	IncidentID      pgtype.UUID        `json:"incident_id"`
@@ -345,6 +358,7 @@ type RecordLink struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
 	DeletedByUserID pgtype.UUID        `json:"deleted_by_user_id"`
+	CreatedByUserID pgtype.UUID        `json:"created_by_user_id"`
 }
 
 type RecordRevision struct {

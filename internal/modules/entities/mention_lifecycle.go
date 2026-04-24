@@ -90,7 +90,7 @@ func (s *Store) GetMentionActionAccess(ctx context.Context, mentionID uuid.UUID,
 	row := s.pool.QueryRow(ctx, `
 SELECT
     m.entity_mention_id,
-    t.incident_id,
+    r.incident_id,
     m.source_record_id,
     m.source_field_key,
     m.entity_type,
@@ -106,9 +106,9 @@ SELECT
     m.resolution_method,
     im.role
   FROM entity_mentions m
-  JOIN timeline_events t ON t.record_id = m.source_record_id
+  JOIN records r ON r.record_id = m.source_record_id
   LEFT JOIN incident_memberships im
-    ON im.incident_id = t.incident_id
+    ON im.incident_id = r.incident_id
    AND im.user_id = $2
  WHERE m.entity_mention_id = $1
 `, mentionID, userID)
@@ -188,7 +188,10 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	}
 
 	nextRecord := sourceRecord
-	nextRecord.RowVersion++
+	nextRecord.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, sourceRecord.RecordID, actor.ID, now.UTC())
+	if err != nil {
+		return MentionActionResult{}, err
+	}
 	nextRecord.EditedAt = now.UTC()
 	nextRecord.UpdatedByUserID = actor.ID
 	if err := updateMentionSourceRecordTx(ctx, tx, nextRecord); err != nil {
@@ -444,7 +447,7 @@ func loadMentionActionRecordTx(ctx context.Context, tx pgx.Tx, mentionID uuid.UU
 	row := tx.QueryRow(ctx, `
 SELECT
     m.entity_mention_id,
-    t.incident_id,
+    r.incident_id,
     m.source_record_id,
     m.source_field_key,
     m.entity_type,
@@ -461,9 +464,9 @@ SELECT
     ,
     NULL::text AS role
   FROM entity_mentions m
-  JOIN timeline_events t ON t.record_id = m.source_record_id
+  JOIN records r ON r.record_id = m.source_record_id
  WHERE m.entity_mention_id = $1
- FOR UPDATE
+ FOR UPDATE OF m, r
 `, mentionID)
 	record, err := scanMentionActionRecord(row)
 	if errors.Is(err, pgx.ErrNoRows) {

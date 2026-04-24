@@ -1276,6 +1276,7 @@ SELECT entity_mention_id::text, source_record_id::text, raw_text, resolution_sta
 
 func seedHostRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, hostname string) {
 	t.Helper()
+	phase4test.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "host")
 
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO hosts (record_id, incident_id, display_name, hostname, host_state, created_by_user_id, updated_by_user_id)
@@ -1287,6 +1288,7 @@ VALUES ($1, $2, $3, $4, 'canonical', $5, $5)
 
 func seedIdentityRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, upn string, email string, samAccountName string) {
 	t.Helper()
+	phase4test.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "identity")
 
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO identities (record_id, incident_id, display_name, upn, email, sam_account_name, identity_state, created_by_user_id, updated_by_user_id)

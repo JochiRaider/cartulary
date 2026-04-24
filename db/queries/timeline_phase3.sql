@@ -1,53 +1,55 @@
 -- name: ListTimelineProjectionRows :many
 SELECT
-    record_id,
-    incident_id,
-    row_version,
-    occurred_at,
-    summary,
-    details,
-    source_text,
-    recorded_at,
-    edited_at,
-    sort_ts,
-    capture_state,
-    replacement_record_id,
-    occurred_day,
-    recorded_day,
-    evidence_count,
-    has_evidence,
-    has_unresolved_mentions
-FROM timeline_grid_projection
-WHERE incident_id = $1
-ORDER BY sort_ts ASC, record_id ASC;
+    t.record_id,
+    t.incident_id,
+    r.row_version,
+    t.occurred_at,
+    t.summary,
+    t.details,
+    t.source_text,
+    t.recorded_at,
+    t.edited_at,
+    t.sort_ts,
+    t.capture_state,
+    t.replacement_record_id,
+    t.occurred_day,
+    t.recorded_day,
+    t.evidence_count,
+    t.has_evidence,
+    t.has_unresolved_mentions
+FROM timeline_grid_projection t
+JOIN records r ON r.record_id = t.record_id
+WHERE t.incident_id = $1
+ORDER BY t.sort_ts ASC, t.record_id ASC;
 
 -- name: GetTimelineProjectionRow :one
 SELECT
-    record_id,
-    incident_id,
-    row_version,
-    occurred_at,
-    summary,
-    details,
-    source_text,
-    recorded_at,
-    edited_at,
-    sort_ts,
-    capture_state,
-    replacement_record_id,
-    occurred_day,
-    recorded_day,
-    evidence_count,
-    has_evidence,
-    has_unresolved_mentions
-FROM timeline_grid_projection
-WHERE record_id = $1;
+    t.record_id,
+    t.incident_id,
+    r.row_version,
+    t.occurred_at,
+    t.summary,
+    t.details,
+    t.source_text,
+    t.recorded_at,
+    t.edited_at,
+    t.sort_ts,
+    t.capture_state,
+    t.replacement_record_id,
+    t.occurred_day,
+    t.recorded_day,
+    t.evidence_count,
+    t.has_evidence,
+    t.has_unresolved_mentions
+FROM timeline_grid_projection t
+JOIN records r ON r.record_id = t.record_id
+WHERE t.record_id = $1;
 
 -- name: ListTimelineProjectionSourceRows :many
 SELECT
     e.record_id,
     e.incident_id,
-    e.row_version,
+    r.row_version,
     e.occurred_at,
     e.summary,
     e.details,
@@ -76,5 +78,6 @@ SELECT
           AND em.resolution_status = 'unresolved'
     ) AS has_unresolved_mentions
 FROM timeline_events e
+JOIN records r ON r.record_id = e.record_id
 WHERE e.incident_id = $1
 ORDER BY COALESCE(e.occurred_at, e.recorded_at) ASC, e.record_id ASC;

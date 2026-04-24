@@ -119,10 +119,11 @@ INSERT INTO record_links (
     provenance,
     confidence,
     owner_user_id,
+    created_by_user_id,
     decided_at,
     created_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8, $8)
 RETURNING
     record_link_id,
     incident_id,
@@ -184,10 +185,11 @@ INSERT INTO record_links (
     provenance,
     confidence,
     owner_user_id,
+    created_by_user_id,
     decided_at,
     created_at
 )
-VALUES ($1, $2, $3, 'supersedes', 'manual', NULL, $4, $5, $5)
+VALUES ($1, $2, $3, 'supersedes', 'manual', NULL, $4, $4, $5, $5)
 RETURNING record_link_id, incident_id, src_record_id, dst_record_id
 `, incidentID, replacementRecordID, supersededRecordID, ownerUserID, now.UTC()).Scan(&link.RecordLinkID, &link.IncidentID, &link.SrcRecordID, &link.DstRecordID); err != nil {
 		return SupersedesLink{}, fmt.Errorf("insert supersedes link: %w", err)

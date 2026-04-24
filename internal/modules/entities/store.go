@@ -20,6 +20,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -30,6 +31,7 @@ var ErrInvalidCreateRequest = errors.New("entities: invalid create request")
 type Store struct {
 	pool            *pgxpool.Pool
 	authStore       *authn.Store
+	recordStore     *records.Store
 	revisionsStore  *revisions.Store
 	projectionStore *projections.Store
 	linkStore       *links.Store
@@ -39,6 +41,7 @@ func NewStore(pool *pgxpool.Pool) *Store {
 	return &Store{
 		pool:            pool,
 		authStore:       authn.NewStore(pool),
+		recordStore:     records.NewStore(),
 		revisionsStore:  revisions.NewStore(),
 		projectionStore: projections.NewStore(pool),
 		linkStore:       links.NewStore(),
@@ -212,12 +215,14 @@ SELECT
     h.merged_into_record_id,
     h.entity_origin,
     h.seed_entity_mention_id,
-    h.row_version,
-    h.created_at,
-    h.updated_at,
-    h.created_by_user_id,
-    h.updated_by_user_id
+    r.row_version,
+    r.created_at,
+    r.updated_at,
+    r.created_by_user_id,
+    r.updated_by_user_id
   FROM hosts h
+  JOIN records r
+    ON r.record_id = h.record_id
   JOIN host_grid_projection p
     ON p.record_id = h.record_id
  WHERE h.incident_id = $1
@@ -282,12 +287,14 @@ SELECT
     i.merged_into_record_id,
     i.entity_origin,
     i.seed_entity_mention_id,
-    i.row_version,
-    i.created_at,
-    i.updated_at,
-    i.created_by_user_id,
-    i.updated_by_user_id
+    r.row_version,
+    r.created_at,
+    r.updated_at,
+    r.created_by_user_id,
+    r.updated_by_user_id
   FROM identities i
+  JOIN records r
+    ON r.record_id = i.record_id
   JOIN identity_grid_projection p
     ON p.record_id = i.record_id
  WHERE i.incident_id = $1
@@ -329,7 +336,7 @@ func buildIndicatorQuerySQL(incidentID uuid.UUID, query viewschema.QueryMeta) (s
 SELECT
     i.record_id::text,
     i.incident_id::text,
-    i.row_version,
+    r.row_version,
     i.indicator_type,
     i.value_kind,
     i.display_value,
@@ -346,6 +353,8 @@ SELECT
     i.supporting_link_count,
     i.edited_at
   FROM indicator_grid_projection i
+  JOIN records r
+    ON r.record_id = i.record_id
  WHERE i.incident_id = $1`)
 	args := []any{incidentID}
 
@@ -671,6 +680,17 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 	}); err != nil {
 		return MutationResult{}, err
 	}
+	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
+		if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+			ChangeSetID: changeSetID,
+			RecordID:    record.RecordID,
+			RowVersion:  record.RowVersion,
+			BeforeValue: beforeRow,
+			AfterValue:  afterRow,
+		}); err != nil {
+			return MutationResult{}, err
+		}
+	}
 
 	payload := BuildMutationPayload(HostsViewSchemaID, changeSetID, afterRow)
 	if err := insertRouteIdempotency(ctx, tx, hostCreateRouteKey, scopeKey, request.ClientTxnID, actor.ID, requestHash, statusCode, payload); err != nil {
@@ -768,6 +788,17 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 	}); err != nil {
 		return MutationResult{}, err
 	}
+	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
+		if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+			ChangeSetID: changeSetID,
+			RecordID:    record.RecordID,
+			RowVersion:  record.RowVersion,
+			BeforeValue: beforeRow,
+			AfterValue:  afterRow,
+		}); err != nil {
+			return MutationResult{}, err
+		}
+	}
 
 	payload := BuildMutationPayload(IdentitiesViewSchemaID, changeSetID, afterRow)
 	if err := insertRouteIdempotency(ctx, tx, identityCreateRouteKey, scopeKey, request.ClientTxnID, actor.ID, requestHash, statusCode, payload); err != nil {
@@ -792,28 +823,30 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 func loadHostByHostnameTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, hostname string) (HostRecord, error) {
 	record, err := scanHostRecord(tx.QueryRow(ctx, `
 SELECT
-    record_id,
-    incident_id,
-    display_name,
-    aad_device_id,
-    fqdn,
-    hostname,
-    host_state,
-    merged_into_record_id,
-    entity_origin,
-    seed_entity_mention_id,
-    row_version,
-    created_at,
-    updated_at,
-    created_by_user_id,
-    updated_by_user_id
-  FROM hosts
- WHERE incident_id = $1
-   AND hostname = $2
-   AND host_state IN ('stub', 'canonical')
- ORDER BY updated_at DESC, record_id DESC
+    h.record_id,
+    h.incident_id,
+    h.display_name,
+    h.aad_device_id,
+    h.fqdn,
+    h.hostname,
+    h.host_state,
+    h.merged_into_record_id,
+    h.entity_origin,
+    h.seed_entity_mention_id,
+    r.row_version,
+    r.created_at,
+    r.updated_at,
+    r.created_by_user_id,
+    r.updated_by_user_id
+  FROM hosts h
+  JOIN records r
+    ON r.record_id = h.record_id
+ WHERE h.incident_id = $1
+   AND h.hostname = $2
+   AND h.host_state IN ('stub', 'canonical')
+ ORDER BY r.updated_at DESC, h.record_id DESC
  LIMIT 1
- FOR UPDATE
+ FOR UPDATE OF h, r
 `, incidentID, hostname))
 	return record, err
 }
@@ -821,6 +854,7 @@ SELECT
 func insertHostTx(ctx context.Context, tx pgx.Tx, record *HostRecord) error {
 	return tx.QueryRow(ctx, `
 INSERT INTO hosts (
+    record_id,
     incident_id,
     display_name,
     aad_device_id,
@@ -835,9 +869,9 @@ INSERT INTO hosts (
     created_by_user_id,
     updated_by_user_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11, $11)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11, $12, $12)
 RETURNING record_id
-`, record.IncidentID, record.DisplayName, record.AADDeviceID, record.FQDN, record.Hostname, record.HostState, record.EntityOrigin, record.SeedMentionID, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
+`, record.RecordID, record.IncidentID, record.DisplayName, record.AADDeviceID, record.FQDN, record.Hostname, record.HostState, record.EntityOrigin, record.SeedMentionID, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
 }
 
 func updateHostTx(ctx context.Context, tx pgx.Tx, record HostRecord) error {
@@ -896,30 +930,32 @@ SET incident_id = EXCLUDED.incident_id,
 func loadIdentityByEmailTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, email string) (IdentityRecord, error) {
 	record, err := scanIdentityRecord(tx.QueryRow(ctx, `
 SELECT
-    record_id,
-    incident_id,
-    display_name,
-    aad_object_id,
-    sid,
-    upn,
-    email::text,
-    sam_account_name,
-    identity_state,
-    merged_into_record_id,
-    entity_origin,
-    seed_entity_mention_id,
-    row_version,
-    created_at,
-    updated_at,
-    created_by_user_id,
-    updated_by_user_id
-  FROM identities
- WHERE incident_id = $1
-   AND email = $2
-   AND identity_state IN ('stub', 'canonical')
- ORDER BY updated_at DESC, record_id DESC
+    i.record_id,
+    i.incident_id,
+    i.display_name,
+    i.aad_object_id,
+    i.sid,
+    i.upn,
+    i.email::text,
+    i.sam_account_name,
+    i.identity_state,
+    i.merged_into_record_id,
+    i.entity_origin,
+    i.seed_entity_mention_id,
+    r.row_version,
+    r.created_at,
+    r.updated_at,
+    r.created_by_user_id,
+    r.updated_by_user_id
+  FROM identities i
+  JOIN records r
+    ON r.record_id = i.record_id
+ WHERE i.incident_id = $1
+   AND i.email = $2
+   AND i.identity_state IN ('stub', 'canonical')
+ ORDER BY r.updated_at DESC, i.record_id DESC
  LIMIT 1
- FOR UPDATE
+ FOR UPDATE OF i, r
 `, incidentID, email))
 	return record, err
 }
@@ -927,6 +963,7 @@ SELECT
 func insertIdentityTx(ctx context.Context, tx pgx.Tx, record *IdentityRecord) error {
 	return tx.QueryRow(ctx, `
 INSERT INTO identities (
+    record_id,
     incident_id,
     display_name,
     aad_object_id,
@@ -943,9 +980,9 @@ INSERT INTO identities (
     created_by_user_id,
     updated_by_user_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12, $13, $13)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13, $14, $14)
 RETURNING record_id
-`, record.IncidentID, record.DisplayName, record.AADObjectID, record.SID, record.UPN, record.Email, record.SamAccountName, record.IdentityState, record.EntityOrigin, record.SeedMentionID, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
+`, record.RecordID, record.IncidentID, record.DisplayName, record.AADObjectID, record.SID, record.UPN, record.Email, record.SamAccountName, record.IdentityState, record.EntityOrigin, record.SeedMentionID, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
 }
 
 func updateIdentityTx(ctx context.Context, tx pgx.Tx, record IdentityRecord) error {
