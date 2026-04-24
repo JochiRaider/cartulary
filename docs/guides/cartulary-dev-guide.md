@@ -725,6 +725,7 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make db-reset`      | Recreate the database and run migrations                                                                     |
 | `make dev`           | Start the Go server and Vite dev server                                                                      |
 | `make generate`      | Regenerate Go and TypeScript artifacts derived from `/db/queries/*` and `/contracts/*`                       |
+| `make format`        | Format authored frontend sources through the curated frontend Biome wrapper                                  |
 | `make backend-store` | Run service-backed store-domain `U-*` backend evidence that keeps unit-layer IDs while using real Postgres   |
 | `make target-plan`   | Print the backend Go target execution plan without running tests                                             |
 | `make target-plan-json` | Emit deterministic backend Go target-plan JSON for task-surface checks                                    |
@@ -752,7 +753,7 @@ Repo-control helper targets MAY expose narrower frontend or browser slices. When
 
 `make check` is the required developer gate. It MUST include contract-generation drift detection, migration verification, an authored-frontend Biome pass immediately after frontend install and before the heavy parallel block, and a failure condition when any authoritative phase-manifest row is absent from actual execution. When browser suites depend on the real Playwright web-server bootstrap, the gate must run those suites under one owned shared stack rather than parallelizing multiple independent startup attempts. `make ci` composes the same execution-truth guarantee into the provider-neutral CI surface. `make release-check` is the release verification gate and MUST fail if the configured license report or SBOM artifact is missing or empty.
 
-The supported authored-frontend formatter command is `pnpm --dir apps/web format`. Frontend Biome enforcement SHOULD use the curated authored-source scope rather than `biome check .` so runtime outputs such as `dist/`, `test-results/`, coverage artifacts, and installed dependencies are not treated as formatter owners.
+The supported authored-frontend formatter command is `make format`. It delegates to the curated frontend Biome wrapper, and frontend Biome enforcement SHOULD use that authored-source scope rather than `biome check .` so runtime outputs such as `dist/`, `test-results/`, coverage artifacts, and installed dependencies are not treated as formatter owners.
 
 Shell-backed verification wrappers such as frontend lint, migration drift, and similar helper phases SHOULD report as non-test failures rather than as unmapped test inventory when they exit non-zero.
 

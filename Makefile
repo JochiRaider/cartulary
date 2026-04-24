@@ -6,7 +6,7 @@ SHELL := /bin/bash
 .PHONY: db-up db-reset services-up services-wait postgres-wait minio-wait minio-init dev
 .PHONY: generate generate-drift toolchain-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-ledgers phase-ledger-drift
 .PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check run-phase-smoke phase-test-name-check
-.PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck
+.PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck format format-frontend
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
 .PHONY: test-fast test-fast-service-backed test-fast-service-backed-lane-a test-fast-service-backed-lane-b test lint lint-go check check-preflight check-heavy check-service-backed check-service-backed-lane-a check-service-backed-lane-b check-isolated ci release-check license-report sbom
 .PHONY: build build-server build-migrate build-web
@@ -195,6 +195,7 @@ help:
 		'  make frontend-typecheck    run TypeScript type checking' \
 		'  make frontend-unit         run the frontend unit suite' \
 		'  make lint-biome            run authored frontend Biome checks' \
+		'  make format                format authored frontend sources' \
 		'' \
 		'browser:' \
 		'  make browser-e2e           run all browser E2E suites' \
@@ -572,8 +573,13 @@ lint-go:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "lint go-vet" -- $(GO_ENV) $(GO) vet ./...
 
+format: format-frontend
+
+format-frontend: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT) "format frontend" -- bash $(RUN_FRONTEND_BIOME_SCRIPT) format
+
 lint-biome: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)CARTULARY_PHASE_FAILURE_NOTE="run pnpm --dir apps/web format to apply the authoritative frontend Biome scope" CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT) "lint biome" -- bash $(RUN_FRONTEND_BIOME_SCRIPT) check $(BIOME_CHECK_FLAGS)
+	$(Q)CARTULARY_PHASE_FAILURE_NOTE="run make format to apply the authoritative frontend Biome scope" CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT) "lint biome" -- bash $(RUN_FRONTEND_BIOME_SCRIPT) check $(BIOME_CHECK_FLAGS)
 
 lint-typecheck: frontend-typecheck
 

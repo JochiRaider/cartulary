@@ -91,6 +91,25 @@ if ! rg -q '^lint-typecheck:[[:space:]]+frontend-typecheck$$' "$makefile"; then
   fail "lint-typecheck must remain a compatibility alias to frontend-typecheck"
 fi
 
+if ! rg -q '^format:[[:space:]]+format-frontend$$' "$makefile"; then
+  fail "format must delegate to format-frontend"
+fi
+format_frontend_prereqs="$(extract_target_prereqs format-frontend)"
+if ! printf '%s\n' "$format_frontend_prereqs" | rg -q '(^|[[:space:]])\$\(NODE_BIN\)($|[[:space:]])'; then
+  fail "format-frontend must depend on NODE_BIN"
+fi
+if ! printf '%s\n' "$format_frontend_prereqs" | rg -q '(^|[[:space:]])\$\(FRONTEND_INSTALL_STAMP\)($|[[:space:]])'; then
+  fail "format-frontend must depend on FRONTEND_INSTALL_STAMP"
+fi
+format_frontend_block="$(extract_target_block format-frontend)"
+if ! printf '%s\n' "$format_frontend_block" | grep -Fq '$(RUN_FRONTEND_BIOME_SCRIPT) format'; then
+  fail "format-frontend must run the curated frontend Biome formatter"
+fi
+lint_biome_block="$(extract_target_block lint-biome)"
+if ! printf '%s\n' "$lint_biome_block" | grep -Fq 'run make format to apply the authoritative frontend Biome scope'; then
+  fail "lint-biome must tell developers to run make format"
+fi
+
 test_fast_block="$(extract_target_block test-fast)"
 if [[ -z "$test_fast_block" ]]; then
   fail "Makefile must define a non-empty test-fast block"

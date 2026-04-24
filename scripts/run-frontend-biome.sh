@@ -6,7 +6,7 @@ NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/tmp/node-runtime}"
 PNPM_BIN="${PNPM:-${NODE_RUNTIME_DIR}/bin/pnpm}"
 
 if [[ $# -lt 1 ]]; then
-  echo "usage: run-frontend-biome.sh <check|write> [biome args...]" >&2
+  echo "usage: run-frontend-biome.sh <check|format|write> [biome args...]" >&2
   exit 2
 fi
 
@@ -14,9 +14,9 @@ mode="$1"
 shift
 
 case "${mode}" in
-  check|write) ;;
+  check|format|write) ;;
   *)
-    echo "usage: run-frontend-biome.sh <check|write> [biome args...]" >&2
+    echo "usage: run-frontend-biome.sh <check|format|write> [biome args...]" >&2
     exit 2
     ;;
 esac
@@ -35,7 +35,7 @@ scope=(
   "playwright.config.ts"
 )
 
-if [[ "${mode}" == "write" ]]; then
+if [[ "${mode}" == "format" || "${mode}" == "write" ]]; then
   command=("${PNPM_BIN}" --dir "${ROOT_DIR}/apps/web" exec biome check --write)
 else
   command=("${PNPM_BIN}" --dir "${ROOT_DIR}/apps/web" exec biome check)

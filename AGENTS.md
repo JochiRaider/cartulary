@@ -32,6 +32,7 @@
 - `make db-reset`
 - `make dev`
 - `make generate`
+- `make format`
 - `make phase-ledgers`
 - `make phase-ledger-drift`
 - `make test-fast`
@@ -73,7 +74,7 @@
 - `make test-fast` runs the pure backend unit slice, the service-backed backend store and integration slices, the backend process or E2E slice, frontend type-checking, and the frontend unit suite for the narrower local loop.
 - `make test` is the authoritative full-corpus test surface and runs `make test-fast` plus browser E2E. The Phase 0 process evidence under `cmd/server` is part of this surface and is not a direct-only command.
 - `make check` is the developer verification gate and runs frozen frontend install, authored-frontend Biome before the heavy parallel block, phase coverage ledger drift detection, generated-artifact drift detection, migration verification against a scratch local Postgres database, backend lint and tests, frontend type-check and tests, plus backend and frontend builds. The gate keeps pure parallel-safe work in the heavy block, then runs service-backed backend and shared-stack browser verification in a serialized stage, and finally runs isolated browser suites.
-- Apply authored frontend formatting with `pnpm --dir apps/web format`.
+- Apply authored frontend formatting with `make format`.
 - `make ci` is the provider-neutral CI enforcement entrypoint. It composes the canonical repo task surface and fails on codegen drift, phase coverage ledger drift, migration failures, and deployable-shape drift.
 - `make release-check` is the release verification gate. It runs the developer gate plus license report verification, SBOM verification, and build verification; until generators are chosen, the license and SBOM targets fail if their configured artifacts are missing or empty.
 - `make clean` removes reproducible repo-local build and report artifacts while preserving checked-in files and external Go caches.
