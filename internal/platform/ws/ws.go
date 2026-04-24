@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -122,6 +123,41 @@ type RecordChange struct {
 	EmittedAt        time.Time
 }
 
+const (
+	JobScopeKindIncident   = "incident"
+	JobScopeKindDeployment = "deployment"
+
+	JobStatusQueued          = "queued"
+	JobStatusRunning         = "running"
+	JobStatusCancelRequested = "cancel_requested"
+	JobStatusSucceeded       = "succeeded"
+	JobStatusFailed          = "failed"
+	JobStatusCanceled        = "canceled"
+)
+
+type JobScope struct {
+	Kind       string `json:"kind"`
+	IncidentID string `json:"incident_id,omitempty"`
+}
+
+type JobProgress struct {
+	Completed int64  `json:"completed"`
+	Total     *int64 `json:"total"`
+}
+
+type JobProgressPayload struct {
+	JobID         string      `json:"job_id"`
+	Scope         JobScope    `json:"scope"`
+	Status        string      `json:"status"`
+	Progress      JobProgress `json:"progress"`
+	UpdatedAt     time.Time   `json:"updated_at"`
+	Cancelable    *bool       `json:"cancelable,omitempty"`
+	Message       string      `json:"message,omitempty"`
+	ResultSummary any         `json:"result_summary,omitempty"`
+	ErrorSummary  any         `json:"error_summary,omitempty"`
+	RetainedUntil *time.Time  `json:"retained_until,omitempty"`
+}
+
 type ResumeToken struct {
 	Token            string
 	SessionID        uuid.UUID
@@ -211,9 +247,12 @@ func (h *Hub) PublishRecordChange(change RecordChange) {
 	}
 }
 
-func (h *Hub) PublishJobProgress(incidentID uuid.UUID, payload any) {
+func (h *Hub) PublishJobProgress(incidentID uuid.UUID, payload JobProgressPayload) error {
 	if h == nil {
-		return
+		return nil
+	}
+	if err := ValidateIncidentJobProgressPayload(incidentID, payload); err != nil {
+		return err
 	}
 
 	now := time.Now().UTC()
@@ -233,6 +272,7 @@ func (h *Hub) PublishJobProgress(incidentID uuid.UUID, payload any) {
 		default:
 		}
 	}
+	return nil
 }
 
 func (h *Hub) SnapshotRecordChanges() []RecordChange {
@@ -640,6 +680,55 @@ func RecordChangePayload(change RecordChange) map[string]any {
 			},
 		},
 	}
+}
+
+func NewIncidentJobProgressPayload(jobID string, incidentID uuid.UUID, status string, progress JobProgress, updatedAt time.Time) JobProgressPayload {
+	return JobProgressPayload{
+		JobID: jobID,
+		Scope: JobScope{
+			Kind:       JobScopeKindIncident,
+			IncidentID: incidentID.String(),
+		},
+		Status:    status,
+		Progress:  progress,
+		UpdatedAt: updatedAt.UTC(),
+	}
+}
+
+func ValidateIncidentJobProgressPayload(incidentID uuid.UUID, payload JobProgressPayload) error {
+	if strings.TrimSpace(payload.JobID) == "" {
+		return fmt.Errorf("job_progress.job_id is required")
+	}
+	if payload.Scope.Kind != JobScopeKindIncident {
+		return fmt.Errorf("job_progress.scope.kind must be incident")
+	}
+	scopeIncidentID, err := uuid.Parse(payload.Scope.IncidentID)
+	if err != nil {
+		return fmt.Errorf("job_progress.scope.incident_id is invalid")
+	}
+	if scopeIncidentID != incidentID {
+		return fmt.Errorf("job_progress.scope.incident_id must match envelope incident_id")
+	}
+	switch payload.Status {
+	case JobStatusQueued, JobStatusRunning, JobStatusCancelRequested, JobStatusSucceeded, JobStatusFailed, JobStatusCanceled:
+	default:
+		return fmt.Errorf("job_progress.status is invalid")
+	}
+	if payload.Progress.Completed < 0 {
+		return fmt.Errorf("job_progress.progress.completed must be non-negative")
+	}
+	if payload.Progress.Total != nil {
+		if *payload.Progress.Total <= 0 {
+			return fmt.Errorf("job_progress.progress.total must be positive or null")
+		}
+		if payload.Progress.Completed > *payload.Progress.Total {
+			return fmt.Errorf("job_progress.progress.completed must not exceed total")
+		}
+	}
+	if payload.UpdatedAt.IsZero() {
+		return fmt.Errorf("job_progress.updated_at is required")
+	}
+	return nil
 }
 
 func PresenceSnapshotMessage(incidentID uuid.UUID, presences []PresenceRecord, now time.Time) Message {
