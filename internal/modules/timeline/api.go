@@ -509,8 +509,26 @@ func incidentNotFoundError() *auth.APIError {
 	return &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
 }
 
-func rowVersionConflictError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: map[string]any{}}
+func rowVersionConflictError(details ...map[string]any) *auth.APIError {
+	payload := map[string]any{}
+	if len(details) > 0 && details[0] != nil {
+		payload = details[0]
+	}
+	return &auth.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: payload}
+}
+
+func sameFieldConflictError(err *SameFieldConflictError) *auth.APIError {
+	conflict := any(nil)
+	if err != nil {
+		conflict = err.Conflict
+	}
+	return &auth.APIError{
+		Status:   http.StatusConflict,
+		Code:     "same_field_conflict",
+		Message:  "same field conflict",
+		Details:  map[string]any{},
+		Conflict: conflict,
+	}
 }
 
 func illegalTransitionError(reasonCode string) *auth.APIError {

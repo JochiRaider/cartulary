@@ -2,10 +2,13 @@ package timeline
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -31,6 +34,50 @@ var (
 	ErrIllegalTransition  = errors.New("timeline: illegal transition")
 	ErrNoEffectiveChange  = errors.New("timeline: no effective change")
 )
+
+type RowVersionConflictError struct {
+	RecordID          uuid.UUID
+	BaseRowVersion    int64
+	CurrentRowVersion int64
+}
+
+func (e *RowVersionConflictError) Error() string {
+	return ErrRowVersionConflict.Error()
+}
+
+func (e *RowVersionConflictError) Unwrap() error {
+	return ErrRowVersionConflict
+}
+
+func (e *RowVersionConflictError) Details() map[string]any {
+	if e == nil {
+		return map[string]any{}
+	}
+	return map[string]any{
+		"record_id":           e.RecordID.String(),
+		"base_row_version":    e.BaseRowVersion,
+		"current_row_version": e.CurrentRowVersion,
+	}
+}
+
+type SameFieldConflictError struct {
+	Conflict map[string]any
+}
+
+func (e *SameFieldConflictError) Error() string {
+	return "timeline: same field conflict"
+}
+
+type patchConflictWindow struct {
+	BaseRow       map[string]any
+	ChangedFields map[string]patchChangedField
+}
+
+type patchChangedField struct {
+	FieldKey        string
+	ServerUpdatedBy uuid.UUID
+	ServerUpdatedAt time.Time
+}
 
 type Store struct {
 	pool            *pgxpool.Pool
@@ -373,8 +420,29 @@ func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID u
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if current.RowVersion != request.BaseRowVersion {
-		return MutationResult{}, ErrRowVersionConflict
+	if current.RowVersion < request.BaseRowVersion {
+		return MutationResult{}, &RowVersionConflictError{
+			RecordID:          recordID,
+			BaseRowVersion:    request.BaseRowVersion,
+			CurrentRowVersion: current.RowVersion,
+		}
+	}
+	if current.RowVersion > request.BaseRowVersion {
+		window, err := loadPatchConflictWindowTx(ctx, tx, recordID, request.BaseRowVersion, current.RowVersion)
+		if err != nil {
+			return MutationResult{}, err
+		}
+		if change, changed, ok := overlappingPatchChange(request.CanonicalChange, window.ChangedFields); ok {
+			currentProjected := projectRecord(current, nil)
+			if err := hydrateProjectedCollections(ctx, tx, &currentProjected); err != nil {
+				return MutationResult{}, err
+			}
+			conflict, err := buildSameFieldConflict(recordID, currentProjected, request.BaseRowVersion, requestHash, window, change, changed)
+			if err != nil {
+				return MutationResult{}, err
+			}
+			return MutationResult{}, conflict
+		}
 	}
 	if current.CaptureState == "superseded" {
 		return MutationResult{}, ErrIllegalTransition
@@ -526,6 +594,350 @@ RETURNING recorded_at
 		ChangedFieldKeys: ComputeChangedFieldKeys(&beforeProjected, afterProjected),
 		Row:              afterProjected,
 	}, nil
+}
+
+func loadPatchConflictWindowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64) (patchConflictWindow, error) {
+	rows, err := tx.Query(ctx, `
+SELECT rr.row_version, rr.before_json, rr.after_json, cs.actor_user_id, cs.created_at
+  FROM record_revisions rr
+  JOIN change_sets cs
+    ON cs.change_set_id = rr.change_set_id
+ WHERE rr.record_id = $1
+   AND rr.row_version >= $2
+   AND rr.row_version <= $3
+ ORDER BY rr.row_version ASC
+`, recordID, baseRowVersion, currentRowVersion)
+	if err != nil {
+		return patchConflictWindow{}, fmt.Errorf("query timeline patch conflict window: %w", err)
+	}
+	defer rows.Close()
+
+	window := patchConflictWindow{
+		ChangedFields: make(map[string]patchChangedField),
+	}
+	for rows.Next() {
+		var (
+			rowVersion int64
+			beforeJSON []byte
+			afterJSON  []byte
+			actorID    uuid.UUID
+			createdAt  time.Time
+		)
+		if err := rows.Scan(&rowVersion, &beforeJSON, &afterJSON, &actorID, &createdAt); err != nil {
+			return patchConflictWindow{}, fmt.Errorf("scan timeline patch conflict window: %w", err)
+		}
+
+		if rowVersion == baseRowVersion {
+			baseRow, ok := decodeRevisionRow(afterJSON)
+			if !ok {
+				return patchConflictWindow{}, newRowVersionConflict(recordID, baseRowVersion, currentRowVersion)
+			}
+			window.BaseRow = baseRow
+			continue
+		}
+
+		beforeRow, beforeOK := decodeRevisionRow(beforeJSON)
+		afterRow, afterOK := decodeRevisionRow(afterJSON)
+		if !beforeOK || !afterOK {
+			return patchConflictWindow{}, newRowVersionConflict(recordID, baseRowVersion, currentRowVersion)
+		}
+		for _, fieldKey := range changedRevisionWritableFieldKeys(beforeRow, afterRow) {
+			window.ChangedFields[fieldKey] = patchChangedField{
+				FieldKey:        fieldKey,
+				ServerUpdatedBy: actorID,
+				ServerUpdatedAt: createdAt.UTC(),
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return patchConflictWindow{}, fmt.Errorf("iterate timeline patch conflict window: %w", err)
+	}
+	if window.BaseRow == nil {
+		return patchConflictWindow{}, newRowVersionConflict(recordID, baseRowVersion, currentRowVersion)
+	}
+	return window, nil
+}
+
+func newRowVersionConflict(recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64) *RowVersionConflictError {
+	return &RowVersionConflictError{
+		RecordID:          recordID,
+		BaseRowVersion:    baseRowVersion,
+		CurrentRowVersion: currentRowVersion,
+	}
+}
+
+func decodeRevisionRow(data []byte) (map[string]any, bool) {
+	if len(data) == 0 {
+		return nil, false
+	}
+	var row map[string]any
+	if err := json.Unmarshal(data, &row); err != nil {
+		return nil, false
+	}
+	if _, ok := row["cells"].(map[string]any); !ok {
+		return nil, false
+	}
+	return row, true
+}
+
+func changedRevisionWritableFieldKeys(beforeRow map[string]any, afterRow map[string]any) []string {
+	beforeCells, _ := beforeRow["cells"].(map[string]any)
+	afterCells, _ := afterRow["cells"].(map[string]any)
+	changed := make([]string, 0)
+	for fieldKey, afterCell := range afterCells {
+		field, ok := viewschema.LookupField(TimelineViewSchemaID, fieldKey)
+		if !ok || !field.Writable {
+			continue
+		}
+		if !reflect.DeepEqual(beforeCells[fieldKey], afterCell) {
+			changed = append(changed, fieldKey)
+		}
+	}
+	sort.Strings(changed)
+	return changed
+}
+
+func overlappingPatchChange(changes []PatchChange, changedFields map[string]patchChangedField) (PatchChange, patchChangedField, bool) {
+	for _, change := range changes {
+		changed, ok := changedFields[change.FieldKey]
+		if ok {
+			return change, changed, true
+		}
+	}
+	return PatchChange{}, patchChangedField{}, false
+}
+
+func buildSameFieldConflict(recordID uuid.UUID, current projectedRecord, baseRowVersion int64, requestHash []byte, window patchConflictWindow, change PatchChange, changed patchChangedField) (*SameFieldConflictError, error) {
+	baseValue, ok := rowCellValue(window.BaseRow, change.FieldKey)
+	if !ok {
+		return nil, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
+	}
+	serverValue, ok := rowCellValue(BuildRow(current), change.FieldKey)
+	if !ok {
+		return nil, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
+	}
+	clientValue, err := patchClientConflictValue(change, baseValue, requestHash)
+	if err != nil {
+		return nil, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
+	}
+
+	field, _ := viewschema.LookupField(TimelineViewSchemaID, change.FieldKey)
+	conflictClass := field.ConflictResolutionClass
+	if conflictClass == "" {
+		conflictClass = "atomic_replace"
+	}
+	token := conflictToken(recordID, change.FieldKey, baseRowVersion, current.RowVersion, requestHash)
+	return &SameFieldConflictError{
+		Conflict: map[string]any{
+			"conflict_token":            token,
+			"record_id":                 recordID.String(),
+			"field_key":                 change.FieldKey,
+			"conflict_resolution_class": conflictClass,
+			"base_row_version":          baseRowVersion,
+			"current_row_version":       current.RowVersion,
+			"client_value":              clientValue,
+			"server_value":              serverValue,
+			"server_updated_by":         changed.ServerUpdatedBy.String(),
+			"server_updated_at":         formatTimestamp(changed.ServerUpdatedAt),
+			"base_value":                baseValue,
+		},
+	}, nil
+}
+
+func conflictToken(recordID uuid.UUID, fieldKey string, baseRowVersion int64, currentRowVersion int64, requestHash []byte) string {
+	sum := hashRequestPayload(map[string]any{
+		"record_id":           recordID.String(),
+		"field_key":           fieldKey,
+		"base_row_version":    baseRowVersion,
+		"current_row_version": currentRowVersion,
+		"request_hash":        base64.RawURLEncoding.EncodeToString(requestHash),
+	})
+	return base64.RawURLEncoding.EncodeToString(sum)
+}
+
+func rowCellValue(row map[string]any, fieldKey string) (any, bool) {
+	cells, ok := row["cells"].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	cell, ok := cells[fieldKey].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	value, ok := cell["value"]
+	return value, ok
+}
+
+func patchClientConflictValue(change PatchChange, baseValue any, requestHash []byte) (any, error) {
+	if change.ActionPayload == nil {
+		return canonicalChangeValue(change), nil
+	}
+	return applyCollectionConflictActions(change.FieldKey, baseValue, change.ActionPayload, requestHash)
+}
+
+func applyCollectionConflictActions(fieldKey string, baseValue any, payload *CollectionActionPayload, requestHash []byte) (map[string]any, error) {
+	ordered, items, ok := cloneCollectionConflictValue(baseValue)
+	if !ok {
+		return nil, fmt.Errorf("invalid base collection value for %s", fieldKey)
+	}
+	for index, action := range payload.Actions {
+		switch action.Op {
+		case "add_token":
+			items = append(items, newClientCollectionItem(fieldKey, action, requestHash, index, false))
+		case "add_resolved_ref":
+			items = append(items, newClientCollectionItem(fieldKey, action, requestHash, index, true))
+		case "resolve_item":
+			if item := findCollectionItem(items, action.ItemRef); item != nil {
+				item["item_kind"] = "resolved_ref"
+				if action.ResolvedRecord != nil {
+					item["resolved_record_id"] = action.ResolvedRecord.String()
+				}
+				removeResolutionMetadata(item, false)
+			}
+		case "dismiss_item":
+			items = removeCollectionItem(items, action.ItemRef)
+		case "revert_to_unresolved":
+			if item := findCollectionItem(items, action.ItemRef); item != nil {
+				item["item_kind"] = "unresolved_mention"
+				removeResolutionMetadata(item, true)
+			}
+		default:
+			return nil, fmt.Errorf("unsupported collection action: %s", action.Op)
+		}
+	}
+	if !ordered {
+		sort.SliceStable(items, func(left int, right int) bool {
+			return collectionSortKey(items[left]) < collectionSortKey(items[right])
+		})
+	}
+	return collectionValue(ordered, items), nil
+}
+
+func cloneCollectionConflictValue(value any) (bool, []map[string]any, bool) {
+	object, ok := value.(map[string]any)
+	if !ok || object["kind"] != "collection_value_v1" {
+		return false, nil, false
+	}
+	ordered, ok := object["ordered"].(bool)
+	if !ok {
+		return false, nil, false
+	}
+	items := make([]map[string]any, 0)
+	switch rawItems := object["items"].(type) {
+	case []any:
+		for _, rawItem := range rawItems {
+			item, ok := rawItem.(map[string]any)
+			if !ok {
+				return false, nil, false
+			}
+			items = append(items, cloneMap(item))
+		}
+	case []map[string]any:
+		for _, item := range rawItems {
+			items = append(items, cloneMap(item))
+		}
+	default:
+		return false, nil, false
+	}
+	return ordered, items, true
+}
+
+func cloneMap(source map[string]any) map[string]any {
+	cloned := make(map[string]any, len(source))
+	for key, value := range source {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func newClientCollectionItem(fieldKey string, action CollectionAction, requestHash []byte, actionIndex int, resolved bool) map[string]any {
+	rawText := action.RawText
+	displayText := action.RawText
+	if fieldKey == "timeline.tags" {
+		rawText = action.NormalizedText
+		displayText = action.NormalizedText
+	}
+	item := map[string]any{
+		"item_ref":     clientCollectionItemRef(fieldKey, action, requestHash, actionIndex),
+		"display_text": displayText,
+		"raw_text":     rawText,
+	}
+	if fieldKey == "timeline.tags" {
+		item["item_kind"] = "tag"
+		return item
+	}
+
+	item["entity_type"] = collectionEntityType(fieldKey)
+	if resolved {
+		item["item_kind"] = "resolved_ref"
+		if action.ResolvedRecord != nil {
+			item["resolved_record_id"] = action.ResolvedRecord.String()
+		}
+		return item
+	}
+	item["item_kind"] = "unresolved_mention"
+	return item
+}
+
+func clientCollectionItemRef(fieldKey string, action CollectionAction, requestHash []byte, actionIndex int) string {
+	sum := hashRequestPayload(map[string]any{
+		"request_hash": base64.RawURLEncoding.EncodeToString(requestHash),
+		"field_key":    fieldKey,
+		"action_index": actionIndex,
+		"op":           action.Op,
+		"raw_text":     action.NormalizedText,
+		"item_ref":     action.ItemRef,
+	})
+	token := base64.RawURLEncoding.EncodeToString(sum)
+	if len(token) > 18 {
+		token = token[:18]
+	}
+	return "client:" + token
+}
+
+func collectionEntityType(fieldKey string) string {
+	if fieldKey == "timeline.identity_refs" {
+		return "identity"
+	}
+	return "host"
+}
+
+func findCollectionItem(items []map[string]any, itemRef string) map[string]any {
+	for _, item := range items {
+		if item["item_ref"] == itemRef {
+			return item
+		}
+	}
+	return nil
+}
+
+func removeCollectionItem(items []map[string]any, itemRef string) []map[string]any {
+	for index, item := range items {
+		if item["item_ref"] == itemRef {
+			return append(items[:index], items[index+1:]...)
+		}
+	}
+	return items
+}
+
+func removeResolutionMetadata(item map[string]any, removeResolvedID bool) {
+	if removeResolvedID {
+		delete(item, "resolved_record_id")
+	}
+	delete(item, "resolution_method")
+	delete(item, "auto_resolved")
+	delete(item, "provenance")
+	delete(item, "confidence")
+	delete(item, "matched_alias_text")
+}
+
+func collectionSortKey(item map[string]any) string {
+	for _, key := range []string{"display_text", "raw_text", "item_ref"} {
+		if value, ok := item[key].(string); ok {
+			return value
+		}
+	}
+	return ""
 }
 
 func (s *Store) MarkReviewed(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request ActionRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {

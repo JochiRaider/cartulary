@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 const sectionDefinitions = [
@@ -150,6 +150,44 @@ function extractClaimedPhaseIDs(source, phaseNumber) {
     ...hyphenMatches,
     ...underscoreMatches.map((value) => value.replaceAll("_", "-")),
   ]);
+}
+
+function collectGoTestFiles(root, relativeRoot) {
+  const absoluteRoot = path.join(root, relativeRoot);
+  const files = [];
+  for (const entry of readdirSync(absoluteRoot, { withFileTypes: true })) {
+    const relativePath = path.posix.join(relativeRoot, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...collectGoTestFiles(root, relativePath));
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith("_test.go")) {
+      files.push(relativePath);
+    }
+  }
+  return files;
+}
+
+function collectAuthoritativeGoTestFunctions(root, phaseNumber) {
+  const testFunctionPattern = new RegExp(
+    String.raw`\bfunc\s+(TestPhase${phaseNumber}[A-Za-z0-9_]*_[UIE]_${phaseNumber}_(?:[A-Z0-9]+_)*\d{2})\s*\(`,
+    "g",
+  );
+  const functions = [];
+  for (const searchRoot of ["internal", path.posix.join("cmd", "server")]) {
+    for (const file of collectGoTestFiles(root, searchRoot)) {
+      const source = readFileSync(path.join(root, file), "utf8");
+      for (const match of source.matchAll(testFunctionPattern)) {
+        functions.push({ file, symbol: match[1] });
+      }
+    }
+  }
+  return functions.sort((left, right) => {
+    if (left.symbol !== right.symbol) {
+      return left.symbol.localeCompare(right.symbol);
+    }
+    return left.file.localeCompare(right.file);
+  });
 }
 
 export function loadManifest(root, phase) {
@@ -350,6 +388,27 @@ export function validateManifest(root, phase) {
         throw new Error(`manifest entry ${entry.id} not found in ${entry.file}: ${needle}`);
       }
     }
+  }
+
+  const manifestedGoSymbols = new Set();
+  for (const entry of entries) {
+    if (entry.runner !== "go_test") {
+      continue;
+    }
+    for (const symbol of goEntrySymbols(entry)) {
+      manifestedGoSymbols.add(symbol);
+    }
+  }
+  const unmanifestedAuthoritativeGoTests = collectAuthoritativeGoTestFunctions(
+    root,
+    phaseNumber,
+  ).filter((test) => !manifestedGoSymbols.has(test.symbol));
+  if (unmanifestedAuthoritativeGoTests.length > 0) {
+    throw new Error(
+      `${phase} has authoritative-looking Go tests missing from ${manifestPath}: ${unmanifestedAuthoritativeGoTests
+        .map((test) => `${test.file}::${test.symbol}`)
+        .join(", ")}`,
+    );
   }
 
   for (const entry of supportEntries) {

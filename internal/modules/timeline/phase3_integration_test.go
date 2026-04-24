@@ -443,6 +443,85 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 	})
 }
 
+func TestPhase3_PatchSameFieldConflictEnvelope_I_3_04(t *testing.T) {
+	runtime := phase3test.StartRuntime(t)
+	server, db := startPhase3Server(t, runtime, "phase3-i-3-04-same-field-conflict")
+	defer db.Close()
+
+	adminLogin, adminID := provisionBootstrapAdmin(t, server)
+	incident := createIncident(t, server, adminLogin, map[string]any{
+		"client_txn_id": "txn-i-3-04-conflict-incident",
+		"incident_key":  "IR-I304",
+		"title":         "Same field conflict",
+	})
+	incidentID := incident["incident_id"].(string)
+	created := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
+		"client_txn_id":    "txn-i-3-04-conflict-row",
+		"timeline.summary": "Base summary",
+	})
+	recordID := created["row"].(map[string]any)["record_id"].(string)
+
+	serverPatch := doPhase3JSON(
+		t,
+		http.MethodPatch,
+		server.HTTP.URL+"/api/v1/records/"+recordID,
+		map[string]any{
+			"view_schema_id":   timeline.TimelineViewSchemaID,
+			"base_row_version": 1,
+			"client_txn_id":    "txn-i-3-04-conflict-server",
+			"changes": []map[string]any{
+				{"field_key": "timeline.summary", "value": "Server summary"},
+			},
+		},
+		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+	)
+	httptestx.RequireSuccessEnvelope(t, serverPatch, http.StatusOK)
+	beforeConflict := timelinetest.SnapshotCounters(t, db, incidentID, recordID)
+
+	clientPatch := doPhase3JSON(
+		t,
+		http.MethodPatch,
+		server.HTTP.URL+"/api/v1/records/"+recordID,
+		map[string]any{
+			"view_schema_id":   timeline.TimelineViewSchemaID,
+			"base_row_version": 1,
+			"client_txn_id":    "txn-i-3-04-conflict-client",
+			"changes": []map[string]any{
+				{"field_key": "timeline.summary", "value": "Client summary"},
+			},
+		},
+		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+	)
+	body := httptestx.RequireErrorEnvelope(t, clientPatch, http.StatusConflict, "same_field_conflict")
+	errorObject := body["error"].(map[string]any)
+	conflict, ok := errorObject["conflict"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected same-field conflict object, got %#v", errorObject)
+	}
+	if conflict["record_id"] != recordID ||
+		conflict["field_key"] != "timeline.summary" ||
+		conflict["conflict_resolution_class"] != "text_compare_merge" ||
+		conflict["base_row_version"] != float64(1) ||
+		conflict["current_row_version"] != float64(2) ||
+		conflict["base_value"] != "Base summary" ||
+		conflict["server_value"] != "Server summary" ||
+		conflict["client_value"] != "Client summary" ||
+		conflict["server_updated_by"] != adminID ||
+		conflict["server_updated_at"] == "" ||
+		conflict["conflict_token"] == "" {
+		t.Fatalf("unexpected same-field conflict object: %#v", conflict)
+	}
+	afterConflict := timelinetest.SnapshotCounters(t, db, incidentID, recordID)
+	if beforeConflict != afterConflict {
+		t.Fatalf("same-field HTTP conflict must not create writes: before=%#v after=%#v", beforeConflict, afterConflict)
+	}
+	if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'timeline.records.patch' AND client_txn_id = $1`, "txn-i-3-04-conflict-client"); got != 0 {
+		t.Fatalf("same-field HTTP conflict must not persist idempotency row, got %d", got)
+	}
+}
+
 func TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild(t *testing.T) {
 	runtime := phase3test.StartRuntime(t)
 

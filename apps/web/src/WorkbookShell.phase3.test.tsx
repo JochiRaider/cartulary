@@ -307,7 +307,16 @@ describe("Phase 3 Timeline workbook authoritative coverage", () => {
         ],
       }),
     );
-    fetchMock.mockResolvedValueOnce(errorEnvelope("row_version_conflict", 409));
+    fetchMock.mockResolvedValueOnce(
+      errorEnvelope("same_field_conflict", 409, {
+        field_key: "timeline.summary",
+        base_row_version: 1,
+        current_row_version: 2,
+        base_value: "Alpha",
+        server_value: "Server value",
+        client_value: "Conflict value",
+      }),
+    );
 
     render(<TimelineWorkbook incidentId="incident-1" />);
 
@@ -325,6 +334,7 @@ describe("Phase 3 Timeline workbook authoritative coverage", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(screen.getByTestId("save-state").textContent).toBe("Conflict");
+      expect(conflictInput.value).toBe("Conflict value");
     });
   });
 

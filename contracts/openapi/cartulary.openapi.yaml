@@ -297,7 +297,7 @@
           "timeline"
         ],
         "operationId": "patchTimelineRecord",
-        "summary": "Patch one Timeline row with optimistic row_version checks and idempotent replay.",
+        "summary": "Patch one Timeline row with field-level optimistic concurrency and idempotent replay.",
         "requestBody": {
           "required": true,
           "content": {
@@ -504,6 +504,9 @@
             "type": "boolean"
           },
           "details": {
+            "type": "object"
+          },
+          "conflict": {
             "type": "object"
           }
         },

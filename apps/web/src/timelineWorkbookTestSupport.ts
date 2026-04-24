@@ -62,7 +62,11 @@ export function successEnvelope(data: unknown, status = 200) {
   );
 }
 
-export function errorEnvelope(code: string, status: number) {
+export function errorEnvelope(
+  code: string,
+  status: number,
+  conflict?: unknown,
+) {
   return new Response(
     JSON.stringify({
       error: {
@@ -72,6 +76,7 @@ export function errorEnvelope(code: string, status: number) {
         request_id: "req-error",
         retryable: false,
         details: {},
+        ...(conflict === undefined ? {} : { conflict }),
       },
     }),
     {

@@ -365,9 +365,9 @@ check-preflight: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)$(MAKE) --no-print-directory browser-e2e-task-surface-check
 	$(Q)$(MAKE) --no-print-directory frontend-task-surface-check
 	$(Q)$(MAKE) --no-print-directory backend-task-surface-check
+	$(Q)$(MAKE) --no-print-directory phase-map-check
 	$(Q)$(MAKE) --no-print-directory service-backed-unit-check
 	$(Q)$(MAKE) --no-print-directory generate-drift
-	$(Q)$(MAKE) --no-print-directory phase-map-check
 
 # Keep only parallel-safe work here. Service-backed Go phases and owned-stack
 # browser suites run after this block under serialized orchestration.

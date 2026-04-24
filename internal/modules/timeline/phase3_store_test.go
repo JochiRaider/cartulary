@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -242,6 +243,192 @@ func TestPhase3_PatchReplayStability_U_3_07(t *testing.T) {
 	}
 }
 
+func TestPhase3_PatchFieldLevelConcurrency_U_3_11(t *testing.T) {
+	t.Run("stale different-field patch rebases onto current row", func(t *testing.T) {
+		harness := phase3test.StartStore(t, "phase3-u-3-11-rebase")
+		store, actor, incidentID := newPhase3StoreFixture(t, harness, "U311R", "txn-phase3-u-3-11-rebase-incident")
+
+		row := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-11-rebase-row", "base summary", phase3BaseTime())
+		serverPatch := timeline.PatchRequest{
+			ViewSchemaID:   timeline.TimelineViewSchemaID,
+			BaseRowVersion: row.RowVersion,
+			ClientTxnID:    "txn-phase3-u-3-11-rebase-server",
+			CanonicalChange: []timeline.PatchChange{
+				{FieldKey: "timeline.summary", TextValue: storeStringPtr("server summary")},
+			},
+		}
+		serverResult, err := store.PatchRow(context.Background(), actor, row.RecordID, serverPatch, timeline.TimelinePatchRequestHash(serverPatch), "req-phase3-u-3-11-rebase-server", phase3BaseTime().Add(time.Minute))
+		if err != nil {
+			t.Fatalf("server patch: %v", err)
+		}
+
+		stalePatch := timeline.PatchRequest{
+			ViewSchemaID:   timeline.TimelineViewSchemaID,
+			BaseRowVersion: row.RowVersion,
+			ClientTxnID:    "txn-phase3-u-3-11-rebase-client",
+			CanonicalChange: []timeline.PatchChange{
+				{FieldKey: "timeline.details", TextValue: storeStringPtr("client details")},
+			},
+		}
+		rebased, err := store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timeline.TimelinePatchRequestHash(stalePatch), "req-phase3-u-3-11-rebase-client", phase3BaseTime().Add(2*time.Minute))
+		if err != nil {
+			t.Fatalf("stale different-field patch should rebase: %v", err)
+		}
+		if rebased.RowVersion != serverResult.RowVersion+1 {
+			t.Fatalf("expected rebased patch to advance once from current version, got %d after %d", rebased.RowVersion, serverResult.RowVersion)
+		}
+		cells := rebased.Payload["row"].(map[string]any)["cells"].(map[string]any)
+		if got := cells["timeline.summary"].(map[string]any)["value"]; got != "server summary" {
+			t.Fatalf("expected rebased row to preserve server summary, got %#v", cells["timeline.summary"])
+		}
+		if got := cells["timeline.details"].(map[string]any)["value"]; got != "client details" {
+			t.Fatalf("expected rebased row to include client details, got %#v", cells["timeline.details"])
+		}
+	})
+
+	t.Run("stale same-field text patch returns conflict payload without writes", func(t *testing.T) {
+		harness := phase3test.StartStore(t, "phase3-u-3-11-text-conflict")
+		store, actor, incidentID := newPhase3StoreFixture(t, harness, "U311T", "txn-phase3-u-3-11-text-conflict-incident")
+
+		row := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-11-text-conflict-row", "base summary", phase3BaseTime())
+		serverPatch := timeline.PatchRequest{
+			ViewSchemaID:   timeline.TimelineViewSchemaID,
+			BaseRowVersion: row.RowVersion,
+			ClientTxnID:    "txn-phase3-u-3-11-text-conflict-server",
+			CanonicalChange: []timeline.PatchChange{
+				{FieldKey: "timeline.summary", TextValue: storeStringPtr("server summary")},
+			},
+		}
+		serverResult, err := store.PatchRow(context.Background(), actor, row.RecordID, serverPatch, timeline.TimelinePatchRequestHash(serverPatch), "req-phase3-u-3-11-text-conflict-server", phase3BaseTime().Add(time.Minute))
+		if err != nil {
+			t.Fatalf("server patch: %v", err)
+		}
+		beforeConflict := timelinetest.SnapshotCounters(t, harness.DB, incidentID.String(), row.RecordID.String())
+
+		stalePatch := timeline.PatchRequest{
+			ViewSchemaID:   timeline.TimelineViewSchemaID,
+			BaseRowVersion: row.RowVersion,
+			ClientTxnID:    "txn-phase3-u-3-11-text-conflict-client",
+			CanonicalChange: []timeline.PatchChange{
+				{FieldKey: "timeline.summary", TextValue: storeStringPtr("client summary")},
+			},
+		}
+		_, err = store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timeline.TimelinePatchRequestHash(stalePatch), "req-phase3-u-3-11-text-conflict-client", phase3BaseTime().Add(2*time.Minute))
+		var conflict *timeline.SameFieldConflictError
+		if !errors.As(err, &conflict) {
+			t.Fatalf("expected same-field conflict, got %v", err)
+		}
+		if conflict.Conflict["record_id"] != row.RecordID.String() ||
+			conflict.Conflict["field_key"] != "timeline.summary" ||
+			conflict.Conflict["conflict_resolution_class"] != "text_compare_merge" ||
+			conflict.Conflict["base_value"] != "base summary" ||
+			conflict.Conflict["server_value"] != "server summary" ||
+			conflict.Conflict["client_value"] != "client summary" ||
+			conflict.Conflict["server_updated_by"] != actor.ID.String() {
+			t.Fatalf("unexpected same-field conflict payload: %#v", conflict.Conflict)
+		}
+		if conflict.Conflict["base_row_version"] != row.RowVersion || conflict.Conflict["current_row_version"] != serverResult.RowVersion || conflict.Conflict["conflict_token"] == "" {
+			t.Fatalf("missing same-field conflict version/token fields: %#v", conflict.Conflict)
+		}
+		afterConflict := timelinetest.SnapshotCounters(t, harness.DB, incidentID.String(), row.RecordID.String())
+		if beforeConflict != afterConflict {
+			t.Fatalf("same-field conflict must not create writes: before=%#v after=%#v", beforeConflict, afterConflict)
+		}
+		if got := phase3test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'timeline.records.patch' AND client_txn_id = $1`, stalePatch.ClientTxnID); got != 0 {
+			t.Fatalf("same-field conflict must not persist idempotency row, got %d", got)
+		}
+	})
+
+	t.Run("stale same-field collection patch reports collection values", func(t *testing.T) {
+		harness := phase3test.StartStore(t, "phase3-u-3-11-collection-conflict")
+		store, actor, incidentID := newPhase3StoreFixture(t, harness, "U311C", "txn-phase3-u-3-11-collection-conflict-incident")
+
+		row := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-11-collection-conflict-row", "collection row", phase3BaseTime())
+		serverPatch := decodeStorePatchRequest(t, `{
+			"view_schema_id": "cartulary.view.timeline.v1",
+			"base_row_version": 1,
+			"client_txn_id": "txn-phase3-u-3-11-collection-conflict-server",
+			"changes": [
+				{
+					"field_key": "timeline.host_refs",
+					"action_payload": {
+						"kind": "collection_actions_v1",
+						"actions": [{ "op": "add_token", "raw_text": "Server Host" }]
+					}
+				}
+			]
+		}`)
+		serverResult, err := store.PatchRow(context.Background(), actor, row.RecordID, serverPatch, timeline.TimelinePatchRequestHash(serverPatch), "req-phase3-u-3-11-collection-conflict-server", phase3BaseTime().Add(time.Minute))
+		if err != nil {
+			t.Fatalf("server collection patch: %v", err)
+		}
+
+		stalePatch := decodeStorePatchRequest(t, `{
+			"view_schema_id": "cartulary.view.timeline.v1",
+			"base_row_version": 1,
+			"client_txn_id": "txn-phase3-u-3-11-collection-conflict-client",
+			"changes": [
+				{
+					"field_key": "timeline.host_refs",
+					"action_payload": {
+						"kind": "collection_actions_v1",
+						"actions": [{ "op": "add_token", "raw_text": "Client Host" }]
+					}
+				}
+			]
+		}`)
+		_, err = store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timeline.TimelinePatchRequestHash(stalePatch), "req-phase3-u-3-11-collection-conflict-client", phase3BaseTime().Add(2*time.Minute))
+		var conflict *timeline.SameFieldConflictError
+		if !errors.As(err, &conflict) {
+			t.Fatalf("expected collection same-field conflict, got %v", err)
+		}
+		if conflict.Conflict["field_key"] != "timeline.host_refs" ||
+			conflict.Conflict["conflict_resolution_class"] != "collection_review" ||
+			conflict.Conflict["base_row_version"] != row.RowVersion ||
+			conflict.Conflict["current_row_version"] != serverResult.RowVersion {
+			t.Fatalf("unexpected collection conflict metadata: %#v", conflict.Conflict)
+		}
+		requireCollectionConflictValue(t, conflict.Conflict["base_value"], "")
+		requireCollectionConflictValue(t, conflict.Conflict["server_value"], "Server Host")
+		requireCollectionConflictValue(t, conflict.Conflict["client_value"], "Client Host")
+	})
+
+	t.Run("stale patch after lifecycle-only change applies against current lifecycle", func(t *testing.T) {
+		harness := phase3test.StartStore(t, "phase3-u-3-11-lifecycle-rebase")
+		store, actor, incidentID := newPhase3StoreFixture(t, harness, "U311L", "txn-phase3-u-3-11-lifecycle-rebase-incident")
+
+		row := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-11-lifecycle-rebase-row", "lifecycle row", phase3BaseTime())
+		review := timeline.ActionRequest{
+			BaseRowVersion: row.RowVersion,
+			ClientTxnID:    "txn-phase3-u-3-11-lifecycle-rebase-review",
+		}
+		reviewed, err := store.MarkReviewed(context.Background(), actor, row.RecordID, review, timeline.TimelineActionRequestHash(review.BaseRowVersion, review.ClientTxnID, review.Reason, nil), "req-phase3-u-3-11-lifecycle-rebase-review", phase3BaseTime().Add(time.Minute))
+		if err != nil {
+			t.Fatalf("mark reviewed: %v", err)
+		}
+
+		stalePatch := timeline.PatchRequest{
+			ViewSchemaID:   timeline.TimelineViewSchemaID,
+			BaseRowVersion: row.RowVersion,
+			ClientTxnID:    "txn-phase3-u-3-11-lifecycle-rebase-patch",
+			CanonicalChange: []timeline.PatchChange{
+				{FieldKey: "timeline.details", TextValue: storeStringPtr("stale lifecycle edit")},
+			},
+		}
+		rebased, err := store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timeline.TimelinePatchRequestHash(stalePatch), "req-phase3-u-3-11-lifecycle-rebase-patch", phase3BaseTime().Add(2*time.Minute))
+		if err != nil {
+			t.Fatalf("stale lifecycle-only patch should apply: %v", err)
+		}
+		if rebased.RowVersion != reviewed.RowVersion+1 {
+			t.Fatalf("expected lifecycle rebase to advance once, got %d after %d", rebased.RowVersion, reviewed.RowVersion)
+		}
+		cells := rebased.Payload["row"].(map[string]any)["cells"].(map[string]any)
+		if got := cells["timeline.capture_state"].(map[string]any)["value"]; got != "enriched" {
+			t.Fatalf("expected patch against reviewed current state to demote to enriched, got %#v", cells["timeline.capture_state"])
+		}
+	})
+}
+
 func TestPhase3_CreateAndPatchWriteHistory_U_3_09(t *testing.T) {
 	harness := phase3test.StartStore(t, "phase3-u-3-09")
 	store, actor, incidentID := newPhase3StoreFixture(t, harness, "U309", "txn-phase3-u-3-09-incident")
@@ -435,6 +622,55 @@ func requirePhase3MutationRecorded(t testing.TB, db *sql.DB, changeSetID string,
 	}
 	if got := timelinetest.CountRecordRevisions(t, db, recordID); got != wantRevisions {
 		t.Fatalf("unexpected record revision count for %s: got %d want %d", recordID, got, wantRevisions)
+	}
+}
+
+func decodeStorePatchRequest(t testing.TB, body string) timeline.PatchRequest {
+	t.Helper()
+
+	request, apiErr := timeline.DecodeTimelinePatchRequest(strings.NewReader(body))
+	if apiErr != nil {
+		t.Fatalf("decode patch request: %#v", apiErr)
+	}
+	return request
+}
+
+func requireCollectionConflictValue(t testing.TB, value any, wantRawText string) {
+	t.Helper()
+
+	collection, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("expected collection conflict value object, got %T", value)
+	}
+	if collection["kind"] != "collection_value_v1" {
+		t.Fatalf("expected collection_value_v1, got %#v", collection)
+	}
+	items, ok := collection["items"].([]map[string]any)
+	if !ok {
+		rawItems, rawOK := collection["items"].([]any)
+		if !rawOK {
+			t.Fatalf("expected collection items array, got %T", collection["items"])
+		}
+		items = make([]map[string]any, 0, len(rawItems))
+		for _, rawItem := range rawItems {
+			item, itemOK := rawItem.(map[string]any)
+			if !itemOK {
+				t.Fatalf("expected collection item object, got %T", rawItem)
+			}
+			items = append(items, item)
+		}
+	}
+	if wantRawText == "" {
+		if len(items) != 0 {
+			t.Fatalf("expected empty base collection, got %#v", collection)
+		}
+		return
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected one collection item, got %#v", collection)
+	}
+	if items[0]["raw_text"] != wantRawText || items[0]["item_kind"] != "unresolved_mention" {
+		t.Fatalf("unexpected collection item: %#v", items[0])
 	}
 }
 

@@ -286,6 +286,8 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request) {
 		entityConflict       *entities.ExactMatchConflictError
 		mentionTransitionErr *entities.MentionTransitionError
 		mentionTargetErr     *entities.MentionTargetValidationError
+		rowConflict          *RowVersionConflictError
+		sameFieldConflict    *SameFieldConflictError
 	)
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
@@ -293,6 +295,12 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request) {
 		return
 	case errors.Is(err, ErrRecordNotFound):
 		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case errors.As(err, &sameFieldConflict):
+		writeAPIError(w, r, sameFieldConflictError(sameFieldConflict))
+		return
+	case errors.As(err, &rowConflict):
+		writeAPIError(w, r, rowVersionConflictError(rowConflict.Details()))
 		return
 	case errors.Is(err, ErrRowVersionConflict):
 		writeAPIError(w, r, rowVersionConflictError())
@@ -679,7 +687,7 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError
 	if message == "" {
 		message = apiErr.Code
 	}
-	_ = httpapi.WriteError(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details)
+	_ = httpapi.WriteErrorWithConflict(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details, apiErr.Conflict)
 }
 
 func pathUUID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID, bool) {

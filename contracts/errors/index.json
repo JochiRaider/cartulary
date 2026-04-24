@@ -134,6 +134,11 @@
       "summary": "The record mutation used a stale base_row_version."
     },
     {
+      "code": "same_field_conflict",
+      "http_status": 409,
+      "summary": "A stale record patch overlapped a field changed after the client base row version."
+    },
+    {
       "code": "merge_precondition_failed",
       "http_status": 409,
       "summary": "The requested record merge failed a route-owned merge eligibility or conflict precondition."

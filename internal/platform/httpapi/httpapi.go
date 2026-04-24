@@ -69,6 +69,7 @@ type ErrorPayload struct {
 	Retryable bool           `json:"retryable"`
 	Message   string         `json:"message,omitempty"`
 	Details   map[string]any `json:"details"`
+	Conflict  any            `json:"conflict,omitempty"`
 }
 
 type requestIDContextKey struct{}
@@ -156,6 +157,10 @@ func WriteSuccessWithMeta(w http.ResponseWriter, r *http.Request, status int, da
 }
 
 func WriteError(w http.ResponseWriter, r *http.Request, status int, code string, message string, details map[string]any) error {
+	return WriteErrorWithConflict(w, r, status, code, message, details, nil)
+}
+
+func WriteErrorWithConflict(w http.ResponseWriter, r *http.Request, status int, code string, message string, details map[string]any, conflict any) error {
 	return writeJSON(w, status, ErrorEnvelope{
 		Error: ErrorPayload{
 			Code:      code,
@@ -164,6 +169,7 @@ func WriteError(w http.ResponseWriter, r *http.Request, status int, code string,
 			Retryable: status == http.StatusConflict && code == "record_locked",
 			Message:   message,
 			Details:   details,
+			Conflict:  conflict,
 		},
 	})
 }

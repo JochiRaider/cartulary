@@ -11,12 +11,14 @@
     "U-3-08",
     "U-3-09",
     "U-3-10",
+    "U-3-11",
     "U-3-GRID-01",
     "U-3-GRID-02",
     "U-3-GRID-03",
     "I-3-01",
     "I-3-02",
     "I-3-03",
+    "I-3-04",
     "E-3-01",
     "E-3-02",
     "E-3-03",
@@ -174,6 +176,18 @@
       "out_of_scope": "End-to-end action routing and visible browser disclosure remain integration and browser evidence."
     },
     {
+      "id": "U-3-11",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/timeline",
+      "file": "internal/modules/timeline/phase3_store_test.go",
+      "symbol": "TestPhase3_PatchFieldLevelConcurrency_U_3_11",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "store_domain",
+      "claim": "Stale Timeline patches derive committed writable field changes since the client base row version. Different-field edits rebase, same-field direct edits return `same_field_conflict`, collection fields use `collection_value_v1`, lifecycle-only stale edits apply against current state, and replay precedence remains idempotent.",
+      "out_of_scope": "HTTP conflict envelope transport and browser-visible concurrent editing behavior remain integration or browser evidence."
+    },
+    {
       "id": "U-3-GRID-01",
       "coverage": "authoritative",
       "runner": "vitest",
@@ -243,6 +257,18 @@
       "evidence_layer": "integration",
       "claim": "Incident-role authorization, review and supersede legality, replay semantics, replacement-target guards, and supersede change-set shape all hold on the live route surface.",
       "out_of_scope": "Systematic route-matrix inventory remains support-only evidence."
+    },
+    {
+      "id": "I-3-04",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/timeline",
+      "file": "internal/modules/timeline/phase3_integration_test.go",
+      "symbol": "TestPhase3_PatchSameFieldConflictEnvelope_I_3_04",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "integration",
+      "claim": "Same-field Timeline patch conflicts are transported as `409 same_field_conflict` with `error.conflict` and no mutation or idempotency write.",
+      "out_of_scope": "Field-level rebase and conflict payload construction remain store-domain evidence; browser conflict resolution remains Phase 6 evidence."
     }
   ],
   "e2e": [

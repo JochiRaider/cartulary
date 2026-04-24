@@ -22,10 +22,11 @@ const (
 )
 
 type APIError struct {
-	Status  int
-	Code    string
-	Message string
-	Details map[string]any
+	Status   int
+	Code     string
+	Message  string
+	Details  map[string]any
+	Conflict any
 }
 
 type LoginRequest struct {
