@@ -386,9 +386,12 @@ SELECT
 `, hostRecordID).Scan(&hostState, &entityOrigin, &seedMentionID, &displayName, &hostname, &fqdn, &suggestionAliasN); err != nil {
 			t.Fatalf("lookup created host row: %v", err)
 		}
-		if hostState != "stub" || entityOrigin != "direct_create" || seedMentionID.Valid {
-			t.Fatalf("expected direct_create host provenance without seed mention, got state=%q origin=%q seed=%v", hostState, entityOrigin, seedMentionID)
+		if hostState != "stub" || entityOrigin != "entity_sheet" || seedMentionID.Valid {
+			t.Fatalf("expected entity_sheet host provenance without seed mention, got state=%q origin=%q seed=%v", hostState, entityOrigin, seedMentionID)
 		}
+		requireEntityOriginDefault(t, harness.DB, "hosts", "entity_sheet")
+		requireEntityOriginRejected(t, harness.DB, "hosts", hostRecordID, "direct_create")
+		requireEntityOriginRejected(t, harness.DB, "hosts", hostRecordID, "not_a_core02_origin")
 		if displayName != "Gateway record" || hostname != "GATEWAY-01" || !fqdn.Valid || fqdn.String != "gateway-01.corp.example" || suggestionAliasN != 1 {
 			t.Fatalf("unexpected created host state: display=%q hostname=%q fqdn=%v aliases=%d", displayName, hostname, fqdn, suggestionAliasN)
 		}
@@ -526,9 +529,12 @@ SELECT
 `, identityRecordID).Scan(&identityState, &entityOrigin, &seedMentionID, &displayName, &email, &samAccountName, &suggestionCount); err != nil {
 			t.Fatalf("lookup created identity row: %v", err)
 		}
-		if identityState != "stub" || entityOrigin != "direct_create" || seedMentionID.Valid {
-			t.Fatalf("expected direct_create identity provenance without seed mention, got state=%q origin=%q seed=%v", identityState, entityOrigin, seedMentionID)
+		if identityState != "stub" || entityOrigin != "entity_sheet" || seedMentionID.Valid {
+			t.Fatalf("expected entity_sheet identity provenance without seed mention, got state=%q origin=%q seed=%v", identityState, entityOrigin, seedMentionID)
 		}
+		requireEntityOriginDefault(t, harness.DB, "identities", "entity_sheet")
+		requireEntityOriginRejected(t, harness.DB, "identities", identityRecordID, "direct_create")
+		requireEntityOriginRejected(t, harness.DB, "identities", identityRecordID, "not_a_core02_origin")
 		if displayName != "Alex Analyst" || !email.Valid || email.String != "alex.analyst@example.test" || !samAccountName.Valid || samAccountName.String != "ALEXA" || suggestionCount != 1 {
 			t.Fatalf("unexpected created identity state: display=%q email=%v sam=%v aliases=%d", displayName, email, samAccountName, suggestionCount)
 		}
@@ -821,6 +827,46 @@ UPDATE incident_memberships
 			httptestx.AuthorizationOutcome{Status: deniedResp.StatusCode, Code: deniedBody["error"].(map[string]any)["code"].(string)},
 		)
 	})
+}
+
+func requireEntityOriginDefault(t *testing.T, db *sql.DB, tableName string, want string) {
+	t.Helper()
+
+	if tableName != "hosts" && tableName != "identities" {
+		t.Fatalf("unsupported entity_origin table %q", tableName)
+	}
+
+	var defaultExpression string
+	if err := db.QueryRowContext(context.Background(), `
+SELECT column_default
+  FROM information_schema.columns
+ WHERE table_schema = 'public'
+   AND table_name = $1
+   AND column_name = 'entity_origin'
+`, tableName).Scan(&defaultExpression); err != nil {
+		t.Fatalf("lookup %s.entity_origin default: %v", tableName, err)
+	}
+	if !strings.Contains(defaultExpression, "'"+want+"'") {
+		t.Fatalf("expected %s.entity_origin default %q, got %q", tableName, want, defaultExpression)
+	}
+}
+
+func requireEntityOriginRejected(t *testing.T, db *sql.DB, tableName string, recordID uuid.UUID, origin string) {
+	t.Helper()
+
+	var query string
+	switch tableName {
+	case "hosts":
+		query = `UPDATE hosts SET entity_origin = $1 WHERE record_id = $2`
+	case "identities":
+		query = `UPDATE identities SET entity_origin = $1 WHERE record_id = $2`
+	default:
+		t.Fatalf("unsupported entity_origin table %q", tableName)
+	}
+
+	if _, err := db.ExecContext(context.Background(), query, origin, recordID); err == nil {
+		t.Fatalf("expected %s.entity_origin to reject %q", tableName, origin)
+	}
 }
 
 func TestPhase4_EntityCreateAuthAndCSRFFailBeforeMalformedBody_I_4_02(t *testing.T) {

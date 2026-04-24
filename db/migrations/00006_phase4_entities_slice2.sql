@@ -2,7 +2,7 @@
 ALTER TABLE hosts
     ADD COLUMN IF NOT EXISTS aad_device_id text,
     ADD COLUMN IF NOT EXISTS fqdn text,
-    ADD COLUMN IF NOT EXISTS entity_origin text NOT NULL DEFAULT 'direct_create' CHECK (entity_origin IN ('direct_create', 'created_from_mention')),
+    ADD COLUMN IF NOT EXISTS entity_origin text NOT NULL DEFAULT 'entity_sheet' CHECK (entity_origin IN ('entity_sheet', 'entity_import', 'created_from_mention', 'system_upsert')),
     ADD COLUMN IF NOT EXISTS seed_entity_mention_id uuid REFERENCES entity_mentions (entity_mention_id);
 
 CREATE INDEX IF NOT EXISTS hosts_incident_aad_device_id_idx
@@ -16,7 +16,7 @@ CREATE INDEX IF NOT EXISTS hosts_incident_fqdn_idx
 ALTER TABLE identities
     ADD COLUMN IF NOT EXISTS aad_object_id text,
     ADD COLUMN IF NOT EXISTS sid text,
-    ADD COLUMN IF NOT EXISTS entity_origin text NOT NULL DEFAULT 'direct_create' CHECK (entity_origin IN ('direct_create', 'created_from_mention')),
+    ADD COLUMN IF NOT EXISTS entity_origin text NOT NULL DEFAULT 'entity_sheet' CHECK (entity_origin IN ('entity_sheet', 'entity_import', 'created_from_mention', 'system_upsert')),
     ADD COLUMN IF NOT EXISTS seed_entity_mention_id uuid REFERENCES entity_mentions (entity_mention_id);
 
 CREATE INDEX IF NOT EXISTS identities_incident_aad_object_id_idx

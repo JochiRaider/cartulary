@@ -21,6 +21,11 @@ var (
 	identityExactMatchPrecedence = []string{"aad_object_id", "sid", "upn", "email", "sam_account_name"}
 )
 
+const (
+	entityOriginEntitySheet        = "entity_sheet"
+	entityOriginCreatedFromMention = "created_from_mention"
+)
+
 type ExactMatchConflictError struct {
 	EntityType       string
 	IdentifierClass  string
@@ -94,7 +99,7 @@ func hostInputFromCreateRequest(request CreateRequest) (hostUpsertInput, error) 
 		FQDN:                   optionalValue(request.Values, "host.fqdn"),
 		Hostname:               optionalValue(request.Values, "host.hostname"),
 		AliasAdds:              append([]CollectionAction(nil), request.AliasAdds["host.aliases"]...),
-		EntityOrigin:           "direct_create",
+		EntityOrigin:           entityOriginEntitySheet,
 		AllowDisplayNameUpdate: true,
 	}
 	if strings.TrimSpace(input.DisplayName) == "" {
@@ -121,7 +126,7 @@ func identityInputFromCreateRequest(request CreateRequest) (identityUpsertInput,
 		Email:                  optionalValue(request.Values, "identity.email"),
 		SamAccountName:         optionalValue(request.Values, "identity.sam_account_name"),
 		AliasAdds:              append([]CollectionAction(nil), request.AliasAdds["identity.aliases"]...),
-		EntityOrigin:           "direct_create",
+		EntityOrigin:           entityOriginEntitySheet,
 		AllowDisplayNameUpdate: true,
 	}
 	if strings.TrimSpace(input.DisplayName) == "" {
@@ -146,7 +151,7 @@ func identityInputFromCreateRequest(request CreateRequest) (identityUpsertInput,
 func hostInputFromMention(mention mentionRecord) hostUpsertInput {
 	input := hostUpsertInput{
 		DisplayName:            mention.RawText,
-		EntityOrigin:           "created_from_mention",
+		EntityOrigin:           entityOriginCreatedFromMention,
 		SeedMentionID:          &mention.EntityMentionID,
 		AllowDisplayNameUpdate: false,
 	}
@@ -161,7 +166,7 @@ func hostInputFromMention(mention mentionRecord) hostUpsertInput {
 func identityInputFromMention(mention mentionRecord) identityUpsertInput {
 	input := identityUpsertInput{
 		DisplayName:            mention.RawText,
-		EntityOrigin:           "created_from_mention",
+		EntityOrigin:           entityOriginCreatedFromMention,
 		SeedMentionID:          &mention.EntityMentionID,
 		AllowDisplayNameUpdate: false,
 	}
