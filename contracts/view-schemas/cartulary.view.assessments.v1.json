@@ -101,7 +101,10 @@
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
       "clearable": false,
-      "enum_values": null,
+      "enum_values": [
+        "host",
+        "identity"
+      ],
       "writable": false,
       "read_model": "subject_type",
       "create_writable": true,
@@ -126,7 +129,13 @@
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
       "clearable": false,
-      "enum_values": null,
+      "enum_values": [
+        "unknown",
+        "suspected",
+        "confirmed",
+        "disproven",
+        "cleared"
+      ],
       "writable": false,
       "read_model": "assessment_state",
       "create_writable": true,
@@ -151,7 +160,12 @@
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
       "clearable": false,
-      "enum_values": null,
+      "enum_values": [
+        "unset",
+        "low",
+        "medium",
+        "high"
+      ],
       "writable": false,
       "read_model": "confidence_band"
     },

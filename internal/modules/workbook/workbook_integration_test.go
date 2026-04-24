@@ -137,12 +137,38 @@ VALUES ($1, $2, 'note', 'Analyst note', 'needle appears here', $3)
 			viewSchemaID: "cartulary.view.assessments.v1",
 			recordType:   "assessment",
 			insertChild: func(recordID uuid.UUID) {
+				subjectID := uuid.New()
+				phase4test.SeedRecordEnvelope(t, harness.DB, incidentID, adminUserID, subjectID, "host")
 				execSeed(t, harness, `
-INSERT INTO compromise_assessments (compromise_assessment_id, incident_id, subject_id, subject_type, state, confidence, assessed_by_user_id)
-VALUES ($1, $2, $3, 'host', 'compromised', 80, $4)
-`, recordID, incidentID, uuid.New(), adminUserID)
+INSERT INTO hosts (record_id, incident_id, display_name, host_state, created_by_user_id, updated_by_user_id)
+VALUES ($1, $2, 'Assessment subject', 'canonical', $3, $3)
+`, subjectID, incidentID, adminUserID)
+				execSeed(t, harness, `
+INSERT INTO assessments (record_id, incident_id, subject_record_id, subject_type, assessment_state, confidence_score, rationale, assessor_user_id)
+VALUES ($1, $2, $3, 'host', 'confirmed', 80, 'Seeded test assessment rationale.', $4)
+`, recordID, incidentID, subjectID, adminUserID)
+				execSeed(t, harness, `
+INSERT INTO assessment_grid_projection (
+    record_id,
+    incident_id,
+    row_version,
+    subject_ref,
+    subject_type,
+    assessment_state,
+    confidence_score,
+    confidence_band,
+    rationale,
+    assessor,
+    assessed_at,
+    supporting_link_count
+)
+SELECT a.record_id, a.incident_id, r.row_version, a.subject_record_id, a.subject_type, a.assessment_state, a.confidence_score, 'high', a.rationale, a.assessor_user_id, a.assessed_at, 0
+  FROM assessments a
+  JOIN records r ON r.record_id = a.record_id
+ WHERE a.record_id = $1
+`, recordID)
 			},
-			filter:    prefixFilter("assessment.assessment_state", "comp"),
+			filter:    prefixFilter("assessment.assessment_state", "conf"),
 			wantField: "assessment.confidence_band",
 			wantValue: "high",
 		},

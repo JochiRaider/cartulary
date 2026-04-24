@@ -339,10 +339,32 @@ func SeedAssessment(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID 
 	SeedRecordEnvelope(t, db, incidentID, actorUserID, assessmentID, "assessment")
 
 	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO compromise_assessments (compromise_assessment_id, incident_id, subject_id, subject_type, state, assessed_by_user_id)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO assessments (record_id, incident_id, subject_record_id, subject_type, assessment_state, rationale, assessor_user_id)
+VALUES ($1, $2, $3, $4, $5, 'Seeded test assessment rationale.', $6)
 `, assessmentID, incidentID, subjectID, subjectType, state, actorUserID); err != nil {
 		t.Fatalf("seed assessment: %v", err)
+	}
+	if _, err := db.ExecContext(context.Background(), `
+INSERT INTO assessment_grid_projection (
+    record_id,
+    incident_id,
+    row_version,
+    subject_ref,
+    subject_type,
+    assessment_state,
+    confidence_band,
+    rationale,
+    assessor,
+    assessed_at,
+    supporting_link_count
+)
+SELECT a.record_id, a.incident_id, r.row_version, a.subject_record_id, a.subject_type, a.assessment_state, 'unset', a.rationale, a.assessor_user_id, a.assessed_at, 0
+  FROM assessments a
+  JOIN records r ON r.record_id = a.record_id
+ WHERE a.record_id = $1
+ON CONFLICT (record_id) DO NOTHING
+`, assessmentID); err != nil {
+		t.Fatalf("seed assessment projection: %v", err)
 	}
 }
 
@@ -476,9 +498,9 @@ func LookupAssessmentSubject(t testing.TB, db *sql.DB, assessmentID uuid.UUID) u
 
 	var subjectID string
 	if err := db.QueryRowContext(context.Background(), `
-SELECT subject_id::text
-  FROM compromise_assessments
- WHERE compromise_assessment_id = $1
+SELECT subject_record_id::text
+  FROM assessments
+ WHERE record_id = $1
 `, assessmentID).Scan(&subjectID); err != nil {
 		t.Fatalf("lookup assessment subject: %v", err)
 	}

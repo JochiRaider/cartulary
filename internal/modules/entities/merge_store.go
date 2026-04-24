@@ -127,18 +127,19 @@ type mergeTagRecord struct {
 }
 
 type mergeAssessmentRecord struct {
-	CompromiseAssessmentID uuid.UUID
-	IncidentID             uuid.UUID
-	SubjectID              uuid.UUID
-	SubjectType            string
-	State                  string
-	Confidence             *int
-	AssessedByUserID       *uuid.UUID
-	AssessedAt             time.Time
-	CreatedAt              time.Time
-	UpdatedAt              time.Time
-	DeletedAt              *time.Time
-	DeletedByUserID        *uuid.UUID
+	RecordID        uuid.UUID
+	IncidentID      uuid.UUID
+	SubjectRecordID uuid.UUID
+	SubjectType     string
+	AssessmentState string
+	ConfidenceScore *int
+	Rationale       string
+	AssessorUserID  uuid.UUID
+	AssessedAt      time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	DeletedAt       *time.Time
+	DeletedByUserID *uuid.UUID
 }
 
 type mergeExactMatchCandidate struct {
@@ -1133,24 +1134,25 @@ UPDATE record_tags
 func (s *Store) repointMergedAssessmentsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordType string, survivorRecordID uuid.UUID, loserRecordID uuid.UUID, actorUserID uuid.UUID, now time.Time) ([]mergeMutation, int, error) {
 	rows, err := tx.Query(ctx, `
 SELECT
-    compromise_assessment_id,
+    record_id,
     incident_id,
-    subject_id,
+    subject_record_id,
     subject_type,
-    state,
-    confidence,
-    assessed_by_user_id,
+    assessment_state,
+    confidence_score,
+    rationale,
+    assessor_user_id,
     assessed_at,
     created_at,
     updated_at,
     deleted_at,
     deleted_by_user_id
-  FROM compromise_assessments
+  FROM assessments
  WHERE incident_id = $1
    AND subject_type = $2
-   AND subject_id = $3
+   AND subject_record_id = $3
    AND deleted_at IS NULL
- ORDER BY assessed_at ASC, compromise_assessment_id ASC
+ ORDER BY assessed_at ASC, record_id ASC
  FOR UPDATE
 `, incidentID, recordType, loserRecordID)
 	if err != nil {
@@ -1175,18 +1177,21 @@ SELECT
 	for _, record := range records {
 		before := buildMergeAssessmentValue(record)
 		if _, err := tx.Exec(ctx, `
-UPDATE compromise_assessments
-   SET subject_id = $2,
+UPDATE assessments
+   SET subject_record_id = $2,
        updated_at = $3
- WHERE compromise_assessment_id = $1
-`, record.CompromiseAssessmentID, survivorRecordID, now.UTC()); err != nil {
+ WHERE record_id = $1
+`, record.RecordID, survivorRecordID, now.UTC()); err != nil {
 			return nil, 0, fmt.Errorf("repoint merged assessment: %w", err)
 		}
-		record.SubjectID = survivorRecordID
+		record.SubjectRecordID = survivorRecordID
 		record.UpdatedAt = now.UTC()
+		if err := s.projectionStore.RefreshAssessmentTx(ctx, tx, record.RecordID); err != nil {
+			return nil, 0, err
+		}
 		mutations = append(mutations, mergeMutation{
-			TargetKind:    "compromise_assessment",
-			TargetID:      record.CompromiseAssessmentID.String(),
+			TargetKind:    "assessment",
+			TargetID:      record.RecordID.String(),
 			OperationKind: "patch",
 			BeforeValue:   before,
 			AfterValue:    buildMergeAssessmentValue(record),
@@ -1956,16 +1961,17 @@ func buildMergeTagValue(record mergeTagRecord) map[string]any {
 
 func buildMergeAssessmentValue(record mergeAssessmentRecord) map[string]any {
 	return map[string]any{
-		"compromise_assessment_id": record.CompromiseAssessmentID.String(),
-		"incident_id":              record.IncidentID.String(),
-		"subject_id":               record.SubjectID.String(),
-		"subject_type":             record.SubjectType,
-		"state":                    record.State,
-		"confidence":               record.Confidence,
-		"assessed_by_user_id":      formatUUIDPointer(record.AssessedByUserID),
-		"assessed_at":              formatTimestamp(record.AssessedAt),
-		"deleted_at":               formatTimestampPointer(record.DeletedAt),
-		"deleted_by_user_id":       formatUUIDPointer(record.DeletedByUserID),
+		"record_id":          record.RecordID.String(),
+		"incident_id":        record.IncidentID.String(),
+		"subject_record_id":  record.SubjectRecordID.String(),
+		"subject_type":       record.SubjectType,
+		"assessment_state":   record.AssessmentState,
+		"confidence_score":   record.ConfidenceScore,
+		"rationale":          record.Rationale,
+		"assessor_user_id":   record.AssessorUserID.String(),
+		"assessed_at":        formatTimestamp(record.AssessedAt),
+		"deleted_at":         formatTimestampPointer(record.DeletedAt),
+		"deleted_by_user_id": formatUUIDPointer(record.DeletedByUserID),
 	}
 }
 
@@ -2156,18 +2162,18 @@ func scanMergeAssessmentRecord(scanner interface{ Scan(dest ...any) error }) (me
 	var (
 		record          mergeAssessmentRecord
 		confidence      pgtype.Int4
-		assessedBy      pgtype.UUID
 		deletedAt       pgtype.Timestamptz
 		deletedByUserID pgtype.UUID
 	)
 	if err := scanner.Scan(
-		&record.CompromiseAssessmentID,
+		&record.RecordID,
 		&record.IncidentID,
-		&record.SubjectID,
+		&record.SubjectRecordID,
 		&record.SubjectType,
-		&record.State,
+		&record.AssessmentState,
 		&confidence,
-		&assessedBy,
+		&record.Rationale,
+		&record.AssessorUserID,
 		&record.AssessedAt,
 		&record.CreatedAt,
 		&record.UpdatedAt,
@@ -2178,9 +2184,8 @@ func scanMergeAssessmentRecord(scanner interface{ Scan(dest ...any) error }) (me
 	}
 	if confidence.Valid {
 		value := int(confidence.Int32)
-		record.Confidence = &value
+		record.ConfidenceScore = &value
 	}
-	record.AssessedByUserID = uuidPointerFromPG(assessedBy)
 	if deletedAt.Valid {
 		value := deletedAt.Time.UTC()
 		record.DeletedAt = &value

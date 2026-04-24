@@ -2,6 +2,7 @@ package workbook
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -375,6 +376,15 @@ func uuidValue(value any) (uuid.UUID, error) {
 
 func genericCellValue(field genericField, value any) any {
 	if field.kind == fieldKindCollection {
+		if value != nil {
+			if items, ok := collectionItemsFromValue(value); ok {
+				return map[string]any{
+					"kind":    "collection_value_v1",
+					"ordered": field.ordered,
+					"items":   items,
+				}
+			}
+		}
 		return map[string]any{
 			"kind":    "collection_value_v1",
 			"ordered": field.ordered,
@@ -409,25 +419,67 @@ func genericCellValue(field genericField, value any) any {
 	}
 }
 
+func collectionItemsFromValue(value any) ([]map[string]any, bool) {
+	var data []byte
+	switch typed := value.(type) {
+	case []byte:
+		data = typed
+	case string:
+		data = []byte(typed)
+	default:
+		return nil, false
+	}
+	var items []map[string]any
+	if err := json.Unmarshal(data, &items); err != nil {
+		return nil, false
+	}
+	if items == nil {
+		items = []map[string]any{}
+	}
+	return items, true
+}
+
 var emptyCollectionExpr = "NULL::text"
 
 var genericSurfaces = map[string]genericSurface{
 	AssessmentsViewSchemaID: {
 		viewSchemaID: AssessmentsViewSchemaID,
-		fromSQL:      "FROM compromise_assessments a JOIN records r ON r.record_id = a.compromise_assessment_id",
-		recordExpr:   "a.compromise_assessment_id",
+		fromSQL: `FROM assessment_grid_projection a
+JOIN records r ON r.record_id = a.record_id
+LEFT JOIN LATERAL (
+    SELECT COALESCE(jsonb_agg(jsonb_build_object(
+        'item_ref', 'record_ref:' || dst.record_id::text,
+        'item_kind', 'record_ref',
+        'display_text', dst.record_type || ':' || dst.record_id::text,
+        'linked_record_id', dst.record_id::text
+    ) ORDER BY dst.record_type ASC, dst.record_id ASC), '[]'::jsonb) AS support_refs
+      FROM record_links rl
+      JOIN records src
+        ON src.incident_id = rl.incident_id
+       AND src.record_id = rl.src_record_id
+       AND src.deleted_at IS NULL
+      JOIN records dst
+        ON dst.incident_id = rl.incident_id
+       AND dst.record_id = rl.dst_record_id
+       AND dst.deleted_at IS NULL
+     WHERE rl.incident_id = a.incident_id
+       AND rl.src_record_id = a.record_id
+       AND rl.link_type = 'supported_by'
+       AND rl.deleted_at IS NULL
+) support ON true`,
+		recordExpr:   "a.record_id",
 		incidentExpr: "a.incident_id",
 		fields: []genericField{
-			{key: "assessment.subject_ref", expr: "a.subject_id", kind: fieldKindText},
+			{key: "assessment.subject_ref", expr: "a.subject_ref", kind: fieldKindText},
 			{key: "assessment.subject_type", expr: "a.subject_type", kind: fieldKindText},
-			{key: "assessment.assessment_state", expr: "a.state", kind: fieldKindText},
-			{key: "assessment.confidence_band", expr: "CASE WHEN a.confidence IS NULL THEN NULL WHEN a.confidence >= 67 THEN 'high' WHEN a.confidence >= 34 THEN 'medium' ELSE 'low' END", kind: fieldKindText},
-			{key: "assessment.confidence_score", expr: "a.confidence", kind: fieldKindNumber},
-			{key: "assessment.rationale", expr: "NULL::text", kind: fieldKindText},
-			{key: "assessment.assessor", expr: "a.assessed_by_user_id", kind: fieldKindText},
+			{key: "assessment.assessment_state", expr: "a.assessment_state", kind: fieldKindText},
+			{key: "assessment.confidence_band", expr: "a.confidence_band", kind: fieldKindText},
+			{key: "assessment.confidence_score", expr: "a.confidence_score", kind: fieldKindNumber},
+			{key: "assessment.rationale", expr: "a.rationale", kind: fieldKindText},
+			{key: "assessment.assessor", expr: "a.assessor", kind: fieldKindText},
 			{key: "assessment.assessed_at", expr: "a.assessed_at", kind: fieldKindTimestamp},
-			{key: "assessment.support_refs", expr: emptyCollectionExpr, kind: fieldKindCollection},
-			{key: "assessment.supporting_link_count", expr: "0", kind: fieldKindNumber},
+			{key: "assessment.support_refs", expr: "support.support_refs", kind: fieldKindCollection},
+			{key: "assessment.supporting_link_count", expr: "a.supporting_link_count", kind: fieldKindNumber},
 		},
 	},
 	EvidenceViewSchemaID: {

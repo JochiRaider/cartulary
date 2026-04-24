@@ -74,6 +74,37 @@ type ArtifactGridProjection struct {
 	LinkedRecordCount   int32              `json:"linked_record_count"`
 }
 
+type Assessment struct {
+	RecordID        pgtype.UUID        `json:"record_id"`
+	IncidentID      pgtype.UUID        `json:"incident_id"`
+	SubjectRecordID pgtype.UUID        `json:"subject_record_id"`
+	SubjectType     string             `json:"subject_type"`
+	AssessmentState string             `json:"assessment_state"`
+	ConfidenceScore pgtype.Int4        `json:"confidence_score"`
+	AssessorUserID  pgtype.UUID        `json:"assessor_user_id"`
+	AssessedAt      pgtype.Timestamptz `json:"assessed_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	DeletedByUserID pgtype.UUID        `json:"deleted_by_user_id"`
+	Rationale       string             `json:"rationale"`
+}
+
+type AssessmentGridProjection struct {
+	RecordID            pgtype.UUID        `json:"record_id"`
+	IncidentID          pgtype.UUID        `json:"incident_id"`
+	RowVersion          int64              `json:"row_version"`
+	SubjectRef          pgtype.UUID        `json:"subject_ref"`
+	SubjectType         string             `json:"subject_type"`
+	AssessmentState     string             `json:"assessment_state"`
+	ConfidenceScore     pgtype.Int4        `json:"confidence_score"`
+	ConfidenceBand      string             `json:"confidence_band"`
+	Rationale           string             `json:"rationale"`
+	Assessor            pgtype.UUID        `json:"assessor"`
+	AssessedAt          pgtype.Timestamptz `json:"assessed_at"`
+	SupportingLinkCount int32              `json:"supporting_link_count"`
+}
+
 type BootstrapToken struct {
 	ID               pgtype.UUID        `json:"id"`
 	UserID           pgtype.UUID        `json:"user_id"`
@@ -106,21 +137,6 @@ type ChangeSetMutation struct {
 	AfterVersionID  pgtype.Text `json:"after_version_id"`
 	BeforeValue     []byte      `json:"before_value"`
 	AfterValue      []byte      `json:"after_value"`
-}
-
-type CompromiseAssessment struct {
-	CompromiseAssessmentID pgtype.UUID        `json:"compromise_assessment_id"`
-	IncidentID             pgtype.UUID        `json:"incident_id"`
-	SubjectID              pgtype.UUID        `json:"subject_id"`
-	SubjectType            string             `json:"subject_type"`
-	State                  string             `json:"state"`
-	Confidence             pgtype.Int4        `json:"confidence"`
-	AssessedByUserID       pgtype.UUID        `json:"assessed_by_user_id"`
-	AssessedAt             pgtype.Timestamptz `json:"assessed_at"`
-	CreatedAt              pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt              pgtype.Timestamptz `json:"deleted_at"`
-	DeletedByUserID        pgtype.UUID        `json:"deleted_by_user_id"`
 }
 
 type Decision struct {
