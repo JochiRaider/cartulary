@@ -7,6 +7,7 @@ source "${ROOT_DIR}/scripts/lib/web-e2e-lifecycle.sh"
 
 COMPOSE_FILE="${ROOT_DIR}/docker-compose.dev.yml"
 GO_BIN="${GO:-go}"
+NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/tmp/node-runtime}"
 SERVER_BIN="${CARTULARY_SERVER_BIN:-}"
 MIGRATE_BIN="${CARTULARY_MIGRATE_BIN:-}"
 USE_REPO_ROOT_RUNTIME_ARTIFACTS_ENV="CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES"
@@ -403,7 +404,13 @@ main() {
   lifecycle_reset_shutdown_state
   lifecycle_install_signal_traps
 
-  env MAKEFLAGS= make -s -C "${ROOT_DIR}" --no-print-directory frontend-toolchain
+  env MAKEFLAGS= CARTULARY_FRONTEND_TOOLCHAIN_QUIET=1 make -s -C "${ROOT_DIR}" --no-print-directory frontend-toolchain
+  local pnpm_bin="${PNPM:-${NODE_RUNTIME_DIR}/bin/pnpm}"
+  if [[ ! -x "${pnpm_bin}" ]]; then
+    echo "repo-local pnpm was not found at ${pnpm_bin}; run make frontend-toolchain" >&2
+    return 1
+  fi
+
   run_phase_command "browser-e2e startup services" browser_start_services
   run_phase_command "browser-e2e startup database" browser_prepare_database
 
@@ -429,8 +436,9 @@ main() {
 
   start_process_group VITE_PGID "${WEB_LOG}" \
     env \
-    PATH="${ROOT_DIR}/tmp/node-runtime/bin:${PATH}" \
-    corepack pnpm --dir apps/web dev --host 127.0.0.1 --port 4173 --strictPort
+    COREPACK_HOME="${NODE_RUNTIME_DIR}/corepack" \
+    PATH="${NODE_RUNTIME_DIR}/bin:${PATH}" \
+    "${pnpm_bin}" --dir apps/web dev --host 127.0.0.1 --port 4173 --strictPort
 
   run_phase_command "browser-e2e startup backend ready" browser_wait_backend_ready
   run_phase_command "browser-e2e startup frontend ready" browser_wait_frontend_ready

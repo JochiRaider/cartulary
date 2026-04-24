@@ -4,22 +4,16 @@ set -euo pipefail
 ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 source "${ROOT_DIR}/scripts/lib/run-phase-common.sh"
 
-PNPM_BIN="${PNPM:-}"
 NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/tmp/node-runtime}"
+PNPM_BIN="${PNPM:-${NODE_RUNTIME_DIR}/bin/pnpm}"
 NODE_HELPER="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
 VITEST_MAX_WORKERS="${VITEST_MAX_WORKERS:-2}"
 VITEST_FLAGS_STRING="${VITEST_FLAGS:-}"
 export NODE_BIN="${NODE_HELPER}"
 
-if [[ -z "${PNPM_BIN}" ]]; then
-  if command -v pnpm >/dev/null 2>&1; then
-    PNPM_BIN="$(command -v pnpm)"
-  elif [[ -x "${HOME}/.local/share/pnpm/pnpm" ]]; then
-    PNPM_BIN="${HOME}/.local/share/pnpm/pnpm"
-  else
-    echo "pnpm was not provided and could not be discovered" >&2
-    exit 1
-  fi
+if [[ ! -x "${PNPM_BIN}" ]]; then
+  echo "repo-local pnpm was not found at ${PNPM_BIN}; run make frontend-toolchain" >&2
+  exit 1
 fi
 
 raw_dir="$(prepare_target_support_dir raw/frontend-unit)"
@@ -28,6 +22,7 @@ stdout_log="${raw_dir}/stdout.log"
 stderr_log="${raw_dir}/stderr.log"
 output_mode="$(resolve_output_mode)"
 path_prefix="${NODE_RUNTIME_DIR}/bin:${PATH}"
+corepack_home="${NODE_RUNTIME_DIR}/corepack"
 
 command=("${PNPM_BIN}" --dir apps/web exec vitest run)
 command+=(--project=browser-unit --project=harness-node)
@@ -44,16 +39,16 @@ else
   run_command=("${command[@]}" --reporter=dot --reporter=json --outputFile.json="${run_report}")
 fi
 
-command_text="$(render_command env PATH="${path_prefix}" "${run_command[@]}")"
+command_text="$(render_command env PATH="${path_prefix}" COREPACK_HOME="${corepack_home}" "${run_command[@]}")"
 start_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 start_ms="$(date +%s%3N)"
 
 set +e
 if [[ "${output_mode}" == "quiet" ]]; then
-  env PATH="${path_prefix}" "${run_command[@]}" >"${stdout_log}" 2>"${stderr_log}"
+  env PATH="${path_prefix}" COREPACK_HOME="${corepack_home}" "${run_command[@]}" >"${stdout_log}" 2>"${stderr_log}"
   run_status=$?
 else
-  env PATH="${path_prefix}" "${run_command[@]}" > >(tee "${stdout_log}") 2> >(tee "${stderr_log}" >&2)
+  env PATH="${path_prefix}" COREPACK_HOME="${corepack_home}" "${run_command[@]}" > >(tee "${stdout_log}") 2> >(tee "${stderr_log}" >&2)
   run_status=$?
 fi
 set -e

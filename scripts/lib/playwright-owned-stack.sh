@@ -9,18 +9,12 @@ resolve_playwright_owned_stack_env() {
   fi
 
   PLAYWRIGHT_OWNED_STACK_NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-$root_dir/tmp/node-runtime}"
-  PLAYWRIGHT_OWNED_STACK_PNPM_BIN="${PNPM:-}"
+  PLAYWRIGHT_OWNED_STACK_PNPM_BIN="${PNPM:-${PLAYWRIGHT_OWNED_STACK_NODE_RUNTIME_DIR}/bin/pnpm}"
   PLAYWRIGHT_OWNED_STACK_NODE_BIN="${NODE_BIN:-}"
 
-  if [[ -z "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" ]]; then
-    if command -v pnpm >/dev/null 2>&1; then
-      PLAYWRIGHT_OWNED_STACK_PNPM_BIN="$(command -v pnpm)"
-    elif [[ -x "$HOME/.local/share/pnpm/pnpm" ]]; then
-      PLAYWRIGHT_OWNED_STACK_PNPM_BIN="$HOME/.local/share/pnpm/pnpm"
-    else
-      echo "pnpm was not provided and could not be discovered" >&2
-      return 1
-    fi
+  if [[ ! -x "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" ]]; then
+    echo "repo-local pnpm was not found at ${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}; run make frontend-toolchain" >&2
+    return 1
   fi
 
   if [[ -z "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" ]]; then
@@ -35,6 +29,7 @@ resolve_playwright_owned_stack_env() {
     env
     CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER=1
     PLAYWRIGHT_WORKERS="${PLAYWRIGHT_WORKERS:-2}"
+    COREPACK_HOME="${PLAYWRIGHT_OWNED_STACK_NODE_RUNTIME_DIR}/corepack"
     PATH="${PLAYWRIGHT_OWNED_STACK_NODE_RUNTIME_DIR}/bin:${PATH}"
   )
 }

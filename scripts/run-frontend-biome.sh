@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/tmp/node-runtime}"
-PNPM_BIN="${PNPM:-}"
+PNPM_BIN="${PNPM:-${NODE_RUNTIME_DIR}/bin/pnpm}"
 
 if [[ $# -lt 1 ]]; then
   echo "usage: run-frontend-biome.sh <check|write> [biome args...]" >&2
@@ -21,18 +21,13 @@ case "${mode}" in
     ;;
 esac
 
-if [[ -z "${PNPM_BIN}" ]]; then
-  if command -v pnpm >/dev/null 2>&1; then
-    PNPM_BIN="$(command -v pnpm)"
-  elif [[ -x "${HOME}/.local/share/pnpm/pnpm" ]]; then
-    PNPM_BIN="${HOME}/.local/share/pnpm/pnpm"
-  else
-    echo "pnpm was not provided and could not be discovered" >&2
-    exit 1
-  fi
+if [[ ! -x "${PNPM_BIN}" ]]; then
+  echo "repo-local pnpm was not found at ${PNPM_BIN}; run make frontend-toolchain" >&2
+  exit 1
 fi
 
 path_prefix="${NODE_RUNTIME_DIR}/bin:${PATH}"
+corepack_home="${NODE_RUNTIME_DIR}/corepack"
 scope=(
   "src"
   "e2e"
@@ -56,4 +51,4 @@ fi
 
 command+=("${scope[@]}")
 
-env PATH="${path_prefix}" "${command[@]}"
+env PATH="${path_prefix}" COREPACK_HOME="${corepack_home}" "${command[@]}"

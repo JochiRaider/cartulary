@@ -13,7 +13,6 @@ SHELL := /bin/bash
 .PHONY: clean distclean
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
-PNPM ?= $(shell if command -v pnpm >/dev/null 2>&1; then command -v pnpm; elif [ -x "$$HOME/.local/share/pnpm/pnpm" ]; then printf "$$HOME/.local/share/pnpm/pnpm"; fi)
 CONFIG_FILE ?= $(CURDIR)/configs/dev/config.toml
 GO_CACHE_DIR ?= /tmp/cartulary-go-build
 GO_MOD_CACHE_DIR ?= /tmp/cartulary-go-mod
@@ -29,6 +28,7 @@ PLAYWRIGHT_WORKERS ?= 2
 VITEST_MAX_WORKERS ?= 2
 NODE_RUNTIME_DIR ?= $(CURDIR)/tmp/node-runtime
 NODE_BIN ?= $(NODE_RUNTIME_DIR)/bin/node
+PNPM ?= $(NODE_RUNTIME_DIR)/bin/pnpm
 SERVER_BIN ?= $(CURDIR)/server
 MIGRATE_BIN ?= $(CURDIR)/migrate
 TOOLBIN_DIR ?= $(CURDIR)/tmp/toolbin
@@ -38,9 +38,9 @@ TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
 FRONTEND_INSTALL_STAMP ?= $(CURDIR)/tmp/frontend-install/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
 PLAYWRIGHT_INSTALL_STAMP ?= $(CURDIR)/tmp/playwright/chromium.stamp
 FRONTEND_TOOLCHAIN_STAMP ?= $(CURDIR)/tmp/frontend-toolchain/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
-PNPM_RUN_ENV := PATH=$(NODE_RUNTIME_DIR)/bin:$$PATH
+PNPM_RUN_ENV := PATH=$(NODE_RUNTIME_DIR)/bin:$$PATH COREPACK_HOME=$(NODE_RUNTIME_DIR)/corepack
 GO_ENV := env $(GO_RUN_ENV)
-PNPM_ENV := env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH"
+PNPM_ENV := env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack"
 Q := @
 RUN_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-phase.sh
 RUN_GO_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-go-phase.sh
@@ -51,6 +51,7 @@ RUN_VITEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-vitest-phase.sh
 RUN_VITEST_MANIFEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-vitest-manifest-phase.sh
 RUN_FRONTEND_BIOME_SCRIPT := $(CURDIR)/scripts/run-frontend-biome.sh
 TEST_OUTPUT_SCRIPT := $(CURDIR)/scripts/lib/test-output.sh
+RUN_MAKE_SEQUENCE_SCRIPT := $(CURDIR)/scripts/run-make-sequence.sh
 RUN_PHASE = $(Q)$(RUN_PHASE_SCRIPT)
 RUN_GO_PHASE = $(Q)$(RUN_GO_PHASE_SCRIPT)
 RUN_GO_MANIFEST_PHASE = $(Q)NODE_BIN=$(NODE_BIN) $(RUN_GO_MANIFEST_PHASE_SCRIPT)
@@ -62,6 +63,8 @@ RUN_PHASE_ALLOW_SUCCESS_LOG = $(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHA
 TARGET_SUMMARY = $(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary
 RUN_SUMMARY = $(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) run-summary
 RUN_SUMMARY_CMD = NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) run-summary
+TEST_SUMMARY_TARGETS := test-fast-service-backed,backend-unit,backend-store,backend-integration,backend-integration-support,backend-process,frontend-typecheck,frontend-unit,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
+CHECK_SUMMARY_TARGETS := check-service-backed,backend-unit,frontend-typecheck,frontend-unit,backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
 
 define resolve_service_go_test_p
 $(if $(filter environment environment override command line override,$(origin $(1))),$($(1)),$(if $(filter environment environment override command line override,$(origin GO_TEST_SERVICE_PACKAGE_PARALLELISM)),$(GO_TEST_SERVICE_PACKAGE_PARALLELISM),$($(1))))
@@ -227,8 +230,6 @@ doctor:
 	node_path=""; \
 	if [ -x "$(NODE_BIN)" ]; then \
 		node_path="$(NODE_BIN)"; \
-	elif command -v node >/dev/null 2>&1; then \
-		node_path="$$(command -v node)"; \
 	fi; \
 	if [ -n "$$node_path" ]; then \
 		node_version="$$("$$node_path" --version)"; \
@@ -239,16 +240,14 @@ doctor:
 			fail=1; \
 		fi; \
 	else \
-		print_missing node "run make bootstrap-node-runtime or install Node $(NODE_VERSION)"; \
+		print_missing node "run make bootstrap-node-runtime"; \
 	fi; \
 	pnpm_path=""; \
 	if [ -n "$(PNPM)" ] && [ -x "$(PNPM)" ]; then \
 		pnpm_path="$(PNPM)"; \
-	elif [ -n "$(PNPM)" ] && command -v "$(PNPM)" >/dev/null 2>&1; then \
-		pnpm_path="$$(command -v "$(PNPM)")"; \
 	fi; \
 	if [ -n "$$pnpm_path" ]; then \
-		pnpm_version="$$(PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" "$$pnpm_path" --version 2>/dev/null || true)"; \
+		pnpm_version="$$(PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" "$$pnpm_path" --version 2>/dev/null || true)"; \
 		if [ "$$pnpm_version" = "$(PNPM_VERSION)" ]; then \
 			printf 'ok pnpm: %s %s\n' "$$pnpm_path" "$$pnpm_version"; \
 		else \
@@ -256,7 +255,7 @@ doctor:
 			fail=1; \
 		fi; \
 	else \
-		print_missing pnpm "install pnpm $(PNPM_VERSION)"; \
+		print_missing pnpm "run make frontend-toolchain"; \
 	fi; \
 	if command -v docker >/dev/null 2>&1; then \
 		docker_path="$$(command -v docker)"; \
@@ -287,45 +286,41 @@ doctor:
 	fi; \
 	exit "$$fail"
 
-$(NODE_BIN):
-	$(Q)mkdir -p $(NODE_RUNTIME_DIR)
-	$(Q)if [ -x "$(NODE_BIN)" ] && [ "$$($(NODE_BIN) -v)" = "v$(NODE_VERSION)" ]; then \
-		: ; \
-	else \
-		archive="/tmp/node-v$(NODE_VERSION)-linux-x64.tar.xz"; \
-		curl -fsSLo "$$archive" "https://nodejs.org/dist/v$(NODE_VERSION)/node-v$(NODE_VERSION)-linux-x64.tar.xz"; \
-		rm -rf "$(NODE_RUNTIME_DIR)"; \
-		mkdir -p "$(NODE_RUNTIME_DIR)"; \
-		tar -xJf "$$archive" -C "$(NODE_RUNTIME_DIR)" --strip-components=1; \
-	fi
+$(NODE_BIN): scripts/bootstrap-node-runtime.sh Makefile
+	$(Q)NODE_VERSION="$(NODE_VERSION)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" ./scripts/bootstrap-node-runtime.sh
 
 bootstrap-node-runtime: $(NODE_BIN)
 
-$(FRONTEND_TOOLCHAIN_STAMP): $(NODE_BIN)
+$(FRONTEND_TOOLCHAIN_STAMP): $(NODE_BIN) Makefile
 	$(Q)mkdir -p $(dir $(FRONTEND_TOOLCHAIN_STAMP))
-	$(Q)if [ -z "$(PNPM)" ]; then \
-		echo "pnpm $(PNPM_VERSION) is required but was not found" >&2; \
+	$(Q)$(PNPM_ENV) $(NODE_RUNTIME_DIR)/bin/corepack enable --install-directory "$(NODE_RUNTIME_DIR)/bin" pnpm
+	$(Q)$(PNPM_ENV) $(NODE_RUNTIME_DIR)/bin/corepack prepare pnpm@$(PNPM_VERSION) --activate >/dev/null
+	$(Q)node_version="$$($(NODE_BIN) --version)"; \
+	if [ "$$node_version" != "v$(NODE_VERSION)" ]; then \
+		echo "node version mismatch: expected v$(NODE_VERSION), got $$node_version at $(NODE_BIN)" >&2; \
 		exit 1; \
-	fi
-	$(Q)if [ "$$($(PNPM_RUN_ENV) $(PNPM) --version)" != "$(PNPM_VERSION)" ]; then \
-		echo "pnpm version mismatch: expected $(PNPM_VERSION)" >&2; \
+	fi; \
+	pnpm_version="$$($(PNPM_ENV) $(PNPM) --version)"; \
+	if [ "$$pnpm_version" != "$(PNPM_VERSION)" ]; then \
+		echo "pnpm version mismatch: expected $(PNPM_VERSION), got $$pnpm_version at $(PNPM)" >&2; \
 		exit 1; \
-	fi
-	$(Q)printf 'node=%s\npnpm=%s\n' "$(NODE_VERSION)" "$(PNPM_VERSION)" > $(FRONTEND_TOOLCHAIN_STAMP)
+	fi; \
+	printf 'node_path=%s\nnode_version=%s\npnpm_path=%s\npnpm_version=%s\n' "$(NODE_BIN)" "$$node_version" "$(PNPM)" "$$pnpm_version" > $(FRONTEND_TOOLCHAIN_STAMP)
 
 frontend-toolchain: $(FRONTEND_TOOLCHAIN_STAMP)
+	$(Q)if [ "$${CARTULARY_FRONTEND_TOOLCHAIN_QUIET:-0}" != "1" ]; then cat $(FRONTEND_TOOLCHAIN_STAMP); fi
 
 $(FRONTEND_INSTALL_STAMP): $(FRONTEND_INSTALL_INPUTS) $(FRONTEND_TOOLCHAIN_STAMP)
 	$(Q)mkdir -p $(dir $(FRONTEND_INSTALL_STAMP))
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "frontend install" -- $(PNPM_ENV) $(PNPM) install $(PNPM_INSTALL_FLAGS)
-	$(Q)printf 'node=%s\npnpm=%s\n' "$(NODE_VERSION)" "$(PNPM_VERSION)" > $(FRONTEND_INSTALL_STAMP)
+	$(Q)printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\n' "$(NODE_BIN)" "$(NODE_VERSION)" "$(PNPM)" "$(PNPM_VERSION)" > $(FRONTEND_INSTALL_STAMP)
 
 frontend-install: $(FRONTEND_INSTALL_STAMP)
 
 frontend-install-ci: $(FRONTEND_TOOLCHAIN_STAMP)
 	$(Q)mkdir -p $(dir $(FRONTEND_INSTALL_STAMP))
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "check frontend install" -- $(PNPM_ENV) $(PNPM) install --frozen-lockfile $(PNPM_INSTALL_FLAGS)
-	$(Q)printf 'node=%s\npnpm=%s\n' "$(NODE_VERSION)" "$(PNPM_VERSION)" > $(FRONTEND_INSTALL_STAMP)
+	$(Q)printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\n' "$(NODE_BIN)" "$(NODE_VERSION)" "$(PNPM)" "$(PNPM_VERSION)" > $(FRONTEND_INSTALL_STAMP)
 
 $(SQLC_BIN):
 	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
@@ -346,7 +341,7 @@ $(TEST_SERVICES_BIN): $(TEST_SERVICES_BUILD_INPUTS)
 $(PLAYWRIGHT_INSTALL_STAMP): $(FRONTEND_INSTALL_STAMP) $(FRONTEND_TOOLCHAIN_STAMP)
 	$(Q)mkdir -p $(dir $(PLAYWRIGHT_INSTALL_STAMP))
 	$(RUN_PHASE) "playwright-install" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec playwright install chromium
-	$(Q)printf 'node=%s\npnpm=%s\n' "$(NODE_VERSION)" "$(PNPM_VERSION)" > $(PLAYWRIGHT_INSTALL_STAMP)
+	$(Q)printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\n' "$(NODE_BIN)" "$(NODE_VERSION)" "$(PNPM)" "$(PNPM_VERSION)" > $(PLAYWRIGHT_INSTALL_STAMP)
 
 bootstrap: $(SQLC_BIN) $(GOOSE_BIN) frontend-install playwright-install
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
@@ -390,7 +385,7 @@ phase-map-check: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(RUN_PHASE) "phase-map-check" -- $(PNPM_ENV) env NODE_BIN=$(NODE_BIN) ./scripts/check-phase-maps.sh
 
 run-phase-smoke: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-run-phase.sh && ./scripts/test-run-go-target.sh && ./scripts/test-print-target-plan.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh'
+	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-bootstrap-node-runtime.sh && ./scripts/test-run-make-sequence.sh && ./scripts/test-run-phase.sh && ./scripts/test-run-go-target.sh && ./scripts/test-print-target-plan.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh'
 
 phase-test-name-check:
 	$(RUN_PHASE) "phase-test-name-check" -- ./scripts/check-phase-test-names.sh
@@ -424,26 +419,7 @@ test-fast-service-backed-lane-a:
 test-fast-service-backed-lane-b: backend-store backend-process
 
 test: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)set -e; \
-	dry_run=0; \
-	case " $(MAKEFLAGS) " in \
-		*" n"*|*" --just-print"*|*" --dry-run"*) dry_run=1 ;; \
-	esac; \
-	completed=0; \
-	total=2; \
-	if $(MAKE) --no-print-directory test-fast; then \
-		completed=$$((completed + 1)); \
-	else \
-		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) test fail $$completed $$total test-fast test-fast-service-backed backend-unit backend-store backend-integration backend-integration-support backend-process frontend-typecheck frontend-unit browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
-		exit 1; \
-	fi; \
-	if $(MAKE) --no-print-directory browser-e2e; then \
-		completed=$$((completed + 1)); \
-	else \
-		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) test fail $$completed $$total browser-e2e test-fast-service-backed backend-unit backend-store backend-integration backend-integration-support backend-process frontend-typecheck frontend-unit browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
-		exit 1; \
-	fi; \
-	if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) test pass $$completed $$total - test-fast-service-backed backend-unit backend-store backend-integration backend-integration-support backend-process frontend-typecheck frontend-unit browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi
+	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label test --summary-targets "$(TEST_SUMMARY_TARGETS)" --step test-fast --step browser-e2e
 
 backend-unit: export CARTULARY_TEST_TARGET := backend-unit
 backend-unit: export CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION := phase1:unit:authoritative:backend_unit:./internal/platform/...
@@ -597,38 +573,7 @@ check-service-backed-lane-b: backend-store backend-process
 check-isolated: browser-e2e-stateful browser-e2e-measurement browser-e2e-visual
 
 check: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)set -e; \
-	dry_run=0; \
-	case " $(MAKEFLAGS) " in \
-		*" n"*|*" --just-print"*|*" --dry-run"*) dry_run=1 ;; \
-	esac; \
-	completed=0; \
-	total=4; \
-	if $(MAKE) --no-print-directory check-preflight; then \
-		completed=$$((completed + 1)); \
-	else \
-		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check fail $$completed $$total check-preflight check-service-backed backend-unit frontend-typecheck frontend-unit backend-store backend-integration backend-integration-support backend-process browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
-		exit 1; \
-	fi; \
-	if $(MAKE) --no-print-directory --output-sync=target -j$(CHECK_JOBS) check-heavy; then \
-		completed=$$((completed + 1)); \
-	else \
-		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check fail $$completed $$total check-heavy check-service-backed backend-unit frontend-typecheck frontend-unit backend-store backend-integration backend-integration-support backend-process browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
-		exit 1; \
-	fi; \
-	if $(MAKE) --no-print-directory check-service-backed; then \
-		completed=$$((completed + 1)); \
-	else \
-		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check fail $$completed $$total check-service-backed check-service-backed backend-unit frontend-typecheck frontend-unit backend-store backend-integration backend-integration-support backend-process browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
-		exit 1; \
-	fi; \
-	if $(MAKE) --no-print-directory check-isolated; then \
-		completed=$$((completed + 1)); \
-	else \
-		if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check fail $$completed $$total check-isolated check-service-backed backend-unit frontend-typecheck frontend-unit backend-store backend-integration backend-integration-support backend-process browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi; \
-		exit 1; \
-	fi; \
-	if [ "$$dry_run" -ne 1 ]; then $(RUN_SUMMARY_CMD) check pass $$completed $$total - check-service-backed backend-unit frontend-typecheck frontend-unit backend-store backend-integration backend-integration-support backend-process browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; fi
+	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label check --summary-targets "$(CHECK_SUMMARY_TARGETS)" --step check-preflight --parallel-step check-heavy:$(CHECK_JOBS) --step check-service-backed --step check-isolated
 
 ci:
 	$(Q)./scripts/ci/verify.sh
