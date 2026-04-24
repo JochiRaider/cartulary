@@ -271,6 +271,7 @@ Implement the root `Makefile` next. It should expose the baseline human-facing t
 - `make lint`
 - `make check`
 - `make ci`
+- `make release-check`
 - `make build`
 - `make clean`
 - `make distclean`
@@ -290,11 +291,12 @@ Repository-local recommended meanings:
 - `make lint`: run Go vet or lint plus frontend lint and type-check.
 - `make check`: run the full developer gate and fail if any authoritative phase-manifest row is absent from execution. Keep only pure parallel-safe work in the heavy block, run service-backed backend phases and the shared-stack browser suite in one serialized stage, and leave stateful or timing-sensitive browser suites isolated afterwards.
 - `make ci`: run the provider-neutral CI gate that composes the canonical task surface and enforces execution truth, codegen drift, migration verification, and deployable-shape checks.
+- `make release-check`: run the release verification tier by composing the developer gate, dependency license report verification, SBOM verification, and release build verification.
 - `make build`: build the application artifact with embedded frontend assets.
 - `make clean`: remove reproducible repo-local build and report artifacts while preserving checked-in files and external Go caches.
 - `make distclean`: additionally remove repo-local tool/runtime caches after printing the removal list.
 
-`make check` is not optional. It is the required developer verification gate and must include codegen drift detection and migration verification.[^6]
+`make check` is not optional. It is the required developer verification gate and must include codegen drift detection and migration verification.[^6] `make release-check` is the release verification gate and must fail if the required license or SBOM artifacts are missing or empty.
 
 Repo-control helper targets SHOULD also include at least `make frontend-unit`, `make browser-e2e-support`, and `make browser-e2e-visual` so the frontend workspace packages, support browser helpers, and workbook screenshot fixtures can run independently. `make browser-e2e-visual` remains a Playwright screenshot suite under the owned-stack harness rather than a second visual runner.
 

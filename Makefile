@@ -8,7 +8,7 @@ SHELL := /bin/bash
 .PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check run-phase-smoke phase-test-name-check
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
-.PHONY: test-fast test-fast-service-backed test-fast-service-backed-lane-a test-fast-service-backed-lane-b test lint lint-go check check-preflight check-heavy check-service-backed check-service-backed-lane-a check-service-backed-lane-b check-isolated ci
+.PHONY: test-fast test-fast-service-backed test-fast-service-backed-lane-a test-fast-service-backed-lane-b test lint lint-go check check-preflight check-heavy check-service-backed check-service-backed-lane-a check-service-backed-lane-b check-isolated ci release-check license-report sbom
 .PHONY: build build-server build-migrate build-web
 .PHONY: clean distclean
 
@@ -79,6 +79,9 @@ EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P := $(call resolve_service_go_test_p,BACK
 CARTULARY_OUTPUT_MODE ?= quiet
 CARTULARY_TEST_RESULTS_DIR ?= $(CURDIR)/.cartulary/test-results
 CARTULARY_TEST_RUN_ID ?= $(shell if [ -x /usr/bin/date ]; then now="$$(/usr/bin/date -u +%Y%m%dT%H%M%SZ)"; elif command -v date >/dev/null 2>&1; then now="$$(date -u +%Y%m%dT%H%M%SZ)"; else now="unknown-time"; fi; printf '%s-p%s' "$$now" "$$$$")
+RELEASE_ARTIFACT_DIR ?= $(CURDIR)/.cartulary/release-artifacts
+LICENSE_REPORT_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/license-report.json
+SBOM_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/sbom.cdx.json
 export CARTULARY_OUTPUT_MODE VERBOSE CI_VERBOSE CARTULARY_TEST_RESULTS_DIR CARTULARY_TEST_RUN_ID CARTULARY_TEST_INVENTORY
 
 ifeq ($(CI_VERBOSE),1)
@@ -113,7 +116,7 @@ WEB_BUILD_INPUTS = package.json pnpm-lock.yaml pnpm-workspace.yaml $(call discov
 TEST_SERVICES_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,tools/testservices internal/testutil/pgtest internal/testutil/s3test internal/testutil/suiteservices internal/platform/postgres db/migrations)
 EMBEDDED_WEB_ASSET_DIR := $(CURDIR)/internal/platform/httpapi/webassets/dist
 EMBEDDED_WEB_ASSET_STAMP := $(CURDIR)/tmp/frontend-embed/web-assets.stamp
-CLEAN_PATHS := $(SERVER_BIN) $(MIGRATE_BIN) $(CURDIR)/apps/web/dist $(EMBEDDED_WEB_ASSET_STAMP) $(CARTULARY_TEST_RESULTS_DIR) $(CURDIR)/apps/web/test-results $(CURDIR)/tmp/dev-stack $(CURDIR)/tmp/dev-stack-lifecycle-smoke.* $(CURDIR)/tmp/web-e2e-lifecycle-smoke.* $(CURDIR)/tmp/vitest-json-sample.*
+CLEAN_PATHS := $(SERVER_BIN) $(MIGRATE_BIN) $(CURDIR)/apps/web/dist $(EMBEDDED_WEB_ASSET_STAMP) $(CARTULARY_TEST_RESULTS_DIR) $(RELEASE_ARTIFACT_DIR) $(CURDIR)/apps/web/test-results $(CURDIR)/tmp/dev-stack $(CURDIR)/tmp/dev-stack-lifecycle-smoke.* $(CURDIR)/tmp/web-e2e-lifecycle-smoke.* $(CURDIR)/tmp/vitest-json-sample.*
 DISTCLEAN_PATHS := $(CLEAN_PATHS) $(NODE_RUNTIME_DIR) $(TOOLBIN_DIR) $(CURDIR)/tmp/frontend-install $(CURDIR)/tmp/frontend-toolchain $(CURDIR)/tmp/playwright $(CURDIR)/tmp/frontend-embed $(CURDIR)/.cache $(CURDIR)/.pnpm-store $(CURDIR)/apps/web/.vite $(CURDIR)/playwright-report $(CURDIR)/apps/web/playwright-report $(CURDIR)/coverage $(CURDIR)/apps/web/coverage
 
 define guarded_remove_paths
@@ -206,6 +209,7 @@ help:
 		'  make lint                  run backend and frontend lint/type checks' \
 		'  make check                 run the developer verification gate' \
 		'  make ci                    run the provider-neutral CI entrypoint' \
+		'  make release-check         run check plus release license, SBOM, and build verification' \
 		'' \
 		'build:' \
 		'  make build                 build backend binaries with embedded web assets' \
@@ -421,7 +425,7 @@ phase-ledger-drift: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(RUN_PHASE) "phase-ledger-drift" -- $(PNPM_ENV) env NODE_BIN=$(NODE_BIN) $(NODE_BIN) ./scripts/check-phase-ledger-drift.mjs
 
 run-phase-smoke: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-check-toolchain-pins.sh && ./scripts/test-bootstrap-node-runtime.sh && ./scripts/test-build-input-discovery.sh && ./scripts/test-run-make-sequence.sh && ./scripts/test-run-phase.sh && ./scripts/test-run-go-target.sh && ./scripts/test-print-target-plan.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh && ./scripts/test-dev-stack-lifecycle.sh'
+	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-check-toolchain-pins.sh && ./scripts/test-bootstrap-node-runtime.sh && ./scripts/test-build-input-discovery.sh && ./scripts/test-run-make-sequence.sh && ./scripts/test-release-task-surface.sh && ./scripts/test-run-phase.sh && ./scripts/test-run-go-target.sh && ./scripts/test-print-target-plan.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh && ./scripts/test-dev-stack-lifecycle.sh'
 
 phase-test-name-check:
 	$(RUN_PHASE) "phase-test-name-check" -- ./scripts/check-phase-test-names.sh
@@ -616,6 +620,14 @@ check: $(NODE_BIN)
 ci:
 	$(Q)./scripts/ci/verify.sh
 
+release-check: check license-report sbom build
+
+license-report:
+	$(RUN_PHASE) "license-report" -- ./scripts/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"
+
+sbom:
+	$(RUN_PHASE) "sbom" -- ./scripts/check-release-artifact.sh "SBOM" "$(SBOM_ARTIFACT)"
+
 build: build-server build-migrate
 
 $(EMBEDDED_WEB_ASSET_STAMP): $(CURDIR)/apps/web/dist/index.html
@@ -653,6 +665,7 @@ distclean:
 		'  $(CURDIR)/apps/web/dist' \
 		'  $(EMBEDDED_WEB_ASSET_STAMP)' \
 		'  $(CARTULARY_TEST_RESULTS_DIR)' \
+		'  $(RELEASE_ARTIFACT_DIR)' \
 		'  $(CURDIR)/apps/web/test-results' \
 		'  $(CURDIR)/tmp/dev-stack' \
 		'  $(CURDIR)/tmp/dev-stack-lifecycle-smoke.*' \

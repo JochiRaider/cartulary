@@ -239,7 +239,7 @@ Every direct runtime dependency MUST be permissive-licensed. The release process
 - a direct and transitive dependency license report,
 - a software bill of materials for the shipped application artifact set.
 
-Developer verification and release verification are different tiers. `make check` is the developer verification gate. Release verification MUST run the developer gate plus license and SBOM checks. This guide does not assign a canonical user-facing release-gate command name unless and until the repo control surface is verified in repository files; the minimum requirement is a release gate, whether CI job or scripted task, that runs the full release-verification tier.
+Developer verification and release verification are different tiers. `make check` is the developer verification gate. Release verification MUST run the developer gate plus license and SBOM checks. The canonical user-facing release gate is `make release-check`; it runs the full release-verification tier and fails when the configured license report or SBOM artifact is missing or empty.
 
 ### Verification
 
@@ -734,6 +734,7 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make lint`          | Run backend vet/lint and frontend lint/type checks                                                           |
 | `make check`         | Developer verification gate                                                                                  |
 | `make ci`            | Provider-neutral CI enforcement entrypoint                                                                   |
+| `make release-check` | Release verification gate that composes `check`, license report verification, SBOM verification, and build   |
 | `make build`         | Produce the app build with embedded frontend assets                                                          |
 | `make clean`         | Remove reproducible repo-local build and report artifacts                                                    |
 | `make distclean`     | Remove repo-local tool/runtime caches after printing the removal list                                        |
@@ -749,7 +750,7 @@ Repo-control helper targets MAY expose narrower frontend or browser slices. When
 | Developer verification | formatting, lint or vet, Go build, Go tests, TypeScript build or type check, Vitest, browser E2E coverage, `make generate` drift check, migration application check     | Any failure blocks ordinary development completion |
 | Release verification   | all developer verification checks, dependency license report, SBOM generation, release-artifact smoke build, any profile-specific release checks for claimed extensions | Any failure blocks release publication             |
 
-`make check` is the required developer gate. It MUST include contract-generation drift detection, migration verification, an authored-frontend Biome pass immediately after frontend install and before the heavy parallel block, and a failure condition when any authoritative phase-manifest row is absent from actual execution. When browser suites depend on the real Playwright web-server bootstrap, the gate must run those suites under one owned shared stack rather than parallelizing multiple independent startup attempts. `make ci` composes the same execution-truth guarantee into the provider-neutral CI surface.
+`make check` is the required developer gate. It MUST include contract-generation drift detection, migration verification, an authored-frontend Biome pass immediately after frontend install and before the heavy parallel block, and a failure condition when any authoritative phase-manifest row is absent from actual execution. When browser suites depend on the real Playwright web-server bootstrap, the gate must run those suites under one owned shared stack rather than parallelizing multiple independent startup attempts. `make ci` composes the same execution-truth guarantee into the provider-neutral CI surface. `make release-check` is the release verification gate and MUST fail if the configured license report or SBOM artifact is missing or empty.
 
 The supported authored-frontend formatter command is `pnpm --dir apps/web format`. Frontend Biome enforcement SHOULD use the curated authored-source scope rather than `biome check .` so runtime outputs such as `dist/`, `test-results/`, coverage artifacts, and installed dependencies are not treated as formatter owners.
 
