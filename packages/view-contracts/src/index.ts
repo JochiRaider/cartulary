@@ -8,14 +8,17 @@ export type SortEntry = {
 export type ViewFieldContract = {
   readonly fieldKey: string;
   readonly label: string;
-  readonly writable: boolean;
   readonly createWritable: boolean;
+  readonly defaultHidden: boolean;
   readonly headerSortFieldKey: string | null;
+  readonly filterOps: readonly string[];
+  readonly groupable: boolean;
+  readonly sortable: boolean;
+  readonly readKind: string;
+  readonly writeKind: "read_only" | "direct_value" | "action_payload";
   readonly clearable: boolean;
   readonly conflictResolutionClass: string | null;
   readonly entityBindingMode: string | null;
-  readonly writeTarget: string | null;
-  readonly writeAction: string | null;
 };
 
 export type ViewFieldCapability = {
@@ -48,13 +51,16 @@ type RawField = {
   readonly clearable?: boolean;
   readonly conflict_resolution_class?: string | null;
   readonly create_writable?: boolean;
+  readonly default_hidden?: boolean;
   readonly entity_binding_mode?: string | null;
   readonly field_key: string;
+  readonly filter_ops?: readonly string[];
+  readonly groupable?: boolean;
   readonly header_sort_field_key?: string | null;
   readonly label: string;
-  readonly writable?: boolean;
-  readonly write_action?: string | null;
-  readonly write_target?: string | null;
+  readonly read_kind?: string;
+  readonly sortable?: boolean;
+  readonly write_kind?: "read_only" | "direct_value" | "action_payload";
 };
 
 type RawViewContract = {
@@ -93,14 +99,17 @@ function parseContract(json: string): ViewContract {
       (field): ViewFieldContract => ({
         fieldKey: field.field_key,
         label: field.label,
-        writable: field.writable ?? false,
         createWritable: field.create_writable ?? false,
+        defaultHidden: field.default_hidden ?? false,
         headerSortFieldKey: field.header_sort_field_key ?? null,
+        filterOps: Object.freeze([...(field.filter_ops ?? [])]),
+        groupable: field.groupable ?? false,
+        sortable: field.sortable ?? false,
+        readKind: field.read_kind ?? "text",
+        writeKind: field.write_kind ?? "read_only",
         clearable: field.clearable ?? false,
         conflictResolutionClass: field.conflict_resolution_class ?? null,
         entityBindingMode: field.entity_binding_mode ?? null,
-        writeTarget: field.write_target ?? null,
-        writeAction: field.write_action ?? null,
       }),
     ),
   );
@@ -193,14 +202,10 @@ export function fieldCapability(
 ): ViewFieldCapability {
   const field = contract.fieldMap[fieldKey];
   return {
-    editable: field?.writable ?? false,
-    filterable: contract.filterableFieldMap[fieldKey] ?? false,
-    groupable: contract.groupableFieldMap[fieldKey] ?? false,
-    sortable:
-      (resolveHeaderSortFieldKey(contract, fieldKey) ?? "") !== "" &&
-      contract.sortableFieldMap[
-        resolveHeaderSortFieldKey(contract, fieldKey) ?? fieldKey
-      ] === true,
+    editable: field?.writeKind !== undefined && field.writeKind !== "read_only",
+    filterable: (field?.filterOps.length ?? 0) > 0,
+    groupable: field?.groupable ?? false,
+    sortable: field?.sortable ?? false,
   };
 }
 

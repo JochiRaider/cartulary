@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "view_schema_id": "cartulary.view.notes.v1",
+  "title": "Notes",
+  "surface_kind": "built_in_sheet",
+  "source_record_types": [
+    "artifact"
+  ],
+  "technical_fields": [
+    "record_id",
+    "row_version"
+  ],
+  "required_reference_pack_keys": [],
+  "default_visible_fields": [
+    "note.title",
+    "note.body",
+    "note.tags",
+    "note.linked_record_count",
+    "note.updated_at"
+  ],
+  "default_hidden_fields": [
+    "record_id",
+    "row_version",
+    "note.created_by_user_id"
+  ],
+  "default_sort": [
+    {
+      "field_key": "note.updated_at",
+      "direction": "desc"
+    },
+    {
+      "field_key": "record_id",
+      "direction": "asc"
+    }
+  ],
+  "sort_fields": [
+    "note.title",
+    "note.body",
+    "note.linked_record_count",
+    "note.updated_at",
+    "note.created_by_user_id"
+  ],
+  "filter_fields": [
+    "note.tags",
+    "note.created_by_user_id",
+    "note.updated_at"
+  ],
+  "synthetic_filter_predicates": [
+    {
+      "field_key": "note.full_text",
+      "label": "Full Text",
+      "filter_ops": [
+        "full_text"
+      ]
+    }
+  ],
+  "grouping_fields": [],
+  "inline_create": {
+    "permits_zero_field_create": false
+  },
+  "fields": [
+    {
+      "field_key": "note.title",
+      "label": "Title",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "text",
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "text_compare_merge",
+      "entity_binding_mode": null,
+      "string_contract_id": "single_line_title_v1",
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "title",
+      "write_target": "notes.title"
+    },
+    {
+      "field_key": "note.body",
+      "label": "Body",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "text",
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "text_compare_merge",
+      "entity_binding_mode": null,
+      "string_contract_id": "multiline_body_v1",
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "body",
+      "write_target": "notes.body"
+    },
+    {
+      "field_key": "note.tags",
+      "label": "Tags",
+      "default_hidden": false,
+      "sortable": false,
+      "header_sort_field_key": null,
+      "filter_ops": [
+        "contains_any",
+        "contains_all"
+      ],
+      "groupable": false,
+      "read_kind": "collection",
+      "write_kind": "action_payload",
+      "conflict_resolution_class": "collection_review",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "tags",
+      "write_action": "record_tags collection actions"
+    },
+    {
+      "field_key": "note.linked_record_count",
+      "label": "Linked Records",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "number",
+      "write_kind": "read_only",
+      "conflict_resolution_class": null,
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": false,
+      "read_model": "linked_record_count"
+    },
+    {
+      "field_key": "note.updated_at",
+      "label": "Updated",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [
+        "eq",
+        "range"
+      ],
+      "groupable": false,
+      "read_kind": "timestamp",
+      "write_kind": "read_only",
+      "conflict_resolution_class": null,
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": false,
+      "read_model": "updated_at"
+    },
+    {
+      "field_key": "note.created_by_user_id",
+      "label": "Created By",
+      "default_hidden": true,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [
+        "eq",
+        "prefix"
+      ],
+      "groupable": false,
+      "read_kind": "text",
+      "write_kind": "read_only",
+      "conflict_resolution_class": null,
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": false,
+      "read_model": "created_by_user_id"
+    }
+  ]
+}

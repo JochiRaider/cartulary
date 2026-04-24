@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "view_schema_id": "cartulary.view.lesson.v1",
+  "title": "Lesson",
+  "surface_kind": "system_view",
+  "source_record_types": [
+    "artifact"
+  ],
+  "technical_fields": [
+    "record_id",
+    "row_version"
+  ],
+  "required_reference_pack_keys": [],
+  "default_visible_fields": [
+    "lesson.timestamp_utc",
+    "lesson.summary",
+    "lesson.owner_user_id",
+    "lesson.closure_state",
+    "lesson.follow_up_task_ids",
+    "lesson.evidence_refs",
+    "lesson.updated_at"
+  ],
+  "default_hidden_fields": [
+    "record_id",
+    "row_version",
+    "lesson.lesson_id",
+    "lesson.timestamp_day"
+  ],
+  "default_sort": [
+    {
+      "field_key": "lesson.timestamp_utc",
+      "direction": "desc"
+    },
+    {
+      "field_key": "record_id",
+      "direction": "asc"
+    }
+  ],
+  "sort_fields": [
+    "lesson.timestamp_utc",
+    "lesson.summary",
+    "lesson.owner_user_id",
+    "lesson.closure_state",
+    "lesson.updated_at",
+    "lesson.timestamp_day"
+  ],
+  "filter_fields": [
+    "lesson.closure_state",
+    "lesson.owner_user_id",
+    "lesson.timestamp_day"
+  ],
+  "synthetic_filter_predicates": [],
+  "grouping_fields": [
+    "lesson.closure_state",
+    "lesson.owner_user_id",
+    "lesson.timestamp_day"
+  ],
+  "inline_create": {
+    "permits_zero_field_create": false
+  },
+  "fields": [
+    {
+      "field_key": "lesson.timestamp_utc",
+      "label": "Timestamp",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "timestamp",
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": "timestamp_instant_v1",
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "timestamp_utc",
+      "write_target": "lesson.timestamp_utc"
+    },
+    {
+      "field_key": "lesson.summary",
+      "label": "Summary",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "text",
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "text_compare_merge",
+      "entity_binding_mode": null,
+      "string_contract_id": "single_line_title_v1",
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "summary",
+      "write_target": "lesson.summary"
+    },
+    {
+      "field_key": "lesson.owner_user_id",
+      "label": "Owner",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [
+        "eq",
+        "prefix"
+      ],
+      "groupable": true,
+      "read_kind": "text",
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "owner_user_id",
+      "write_target": "lesson.owner_user_id"
+    },
+    {
+      "field_key": "lesson.closure_state",
+      "label": "Closure State",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [
+        "eq",
+        "prefix"
+      ],
+      "groupable": true,
+      "read_kind": "text",
+      "write_kind": "direct_value",
+      "conflict_resolution_class": "atomic_replace",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "closure_state",
+      "write_target": "lesson.closure_state"
+    },
+    {
+      "field_key": "lesson.follow_up_task_ids",
+      "label": "Follow-up Tasks",
+      "default_hidden": false,
+      "sortable": false,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "collection",
+      "write_kind": "action_payload",
+      "conflict_resolution_class": "collection_review",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "follow_up_task_ids",
+      "write_action": "lesson follow-up task reference collection actions"
+    },
+    {
+      "field_key": "lesson.evidence_refs",
+      "label": "Evidence",
+      "default_hidden": false,
+      "sortable": false,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "collection",
+      "write_kind": "action_payload",
+      "conflict_resolution_class": "collection_review",
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": true,
+      "read_model": "evidence_refs",
+      "write_action": "lesson evidence reference collection actions"
+    },
+    {
+      "field_key": "lesson.lesson_id",
+      "label": "Lesson ID",
+      "default_hidden": true,
+      "sortable": false,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "text",
+      "write_kind": "read_only",
+      "conflict_resolution_class": null,
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": false,
+      "read_model": "lesson_id"
+    },
+    {
+      "field_key": "lesson.timestamp_day",
+      "label": "Timestamp Day",
+      "default_hidden": true,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [
+        "eq",
+        "range"
+      ],
+      "groupable": true,
+      "read_kind": "date",
+      "write_kind": "read_only",
+      "conflict_resolution_class": null,
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": false,
+      "read_model": "timestamp_day"
+    },
+    {
+      "field_key": "lesson.updated_at",
+      "label": "Updated",
+      "default_hidden": false,
+      "sortable": true,
+      "header_sort_field_key": null,
+      "filter_ops": [],
+      "groupable": false,
+      "read_kind": "timestamp",
+      "write_kind": "read_only",
+      "conflict_resolution_class": null,
+      "entity_binding_mode": null,
+      "string_contract_id": null,
+      "direct_scalar_contract_id": null,
+      "direct_reference_contract_id": null,
+      "clearable": false,
+      "enum_values": null,
+      "writable": false,
+      "read_model": "updated_at"
+    }
+  ]
+}

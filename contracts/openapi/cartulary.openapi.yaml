@@ -414,6 +414,48 @@
           }
         }
       }
+    },
+    "/api/v1/view-schemas": {
+      "get": {
+        "tags": [
+          "view-schemas"
+        ],
+        "operationId": "listViewSchemas",
+        "summary": "List standardized current-profile view schema resources.",
+        "responses": {
+          "200": {
+            "description": "View schema list response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewSchemaListEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/view-schemas/{view_schema_id}": {
+      "get": {
+        "tags": [
+          "view-schemas"
+        ],
+        "operationId": "getViewSchema",
+        "summary": "Fetch one standardized current-profile view schema resource.",
+        "responses": {
+          "200": {
+            "description": "View schema singleton response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewSchemaEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1176,6 +1218,296 @@
           "enrollment_id",
           "expires_at",
           "totp_setup"
+        ]
+      },
+      "SortEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field_key": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          }
+        },
+        "required": [
+          "field_key",
+          "direction"
+        ]
+      },
+      "SyntheticFilterPredicate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field_key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "filter_ops": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "field_key",
+          "label",
+          "filter_ops"
+        ]
+      },
+      "ViewFieldEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field_key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "default_hidden": {
+            "type": "boolean"
+          },
+          "sortable": {
+            "type": "boolean"
+          },
+          "header_sort_field_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "filter_ops": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "groupable": {
+            "type": "boolean"
+          },
+          "read_kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "number",
+              "boolean",
+              "timestamp",
+              "date",
+              "enum",
+              "collection"
+            ]
+          },
+          "write_kind": {
+            "type": "string",
+            "enum": [
+              "read_only",
+              "direct_value",
+              "action_payload"
+            ]
+          },
+          "conflict_resolution_class": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "entity_binding_mode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "string_contract_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "direct_scalar_contract_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "direct_reference_contract_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "clearable": {
+            "type": "boolean"
+          },
+          "enum_values": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "field_key",
+          "label",
+          "default_hidden",
+          "sortable",
+          "header_sort_field_key",
+          "filter_ops",
+          "groupable",
+          "read_kind",
+          "write_kind",
+          "conflict_resolution_class",
+          "entity_binding_mode",
+          "string_contract_id",
+          "direct_scalar_contract_id",
+          "direct_reference_contract_id",
+          "clearable",
+          "enum_values"
+        ]
+      },
+      "ViewSchemaResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schema_id": {
+            "type": "string"
+          },
+          "surface_kind": {
+            "type": "string",
+            "enum": [
+              "built_in_sheet",
+              "system_view"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "source_record_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "technical_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required_reference_pack_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "default_sort": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SortEntry"
+            }
+          },
+          "sort_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filter_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "synthetic_filter_predicates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyntheticFilterPredicate"
+            }
+          },
+          "grouping_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewFieldEntry"
+            }
+          }
+        },
+        "required": [
+          "view_schema_id",
+          "surface_kind",
+          "title",
+          "source_record_types",
+          "technical_fields",
+          "required_reference_pack_keys",
+          "default_sort",
+          "sort_fields",
+          "filter_fields",
+          "synthetic_filter_predicates",
+          "grouping_fields",
+          "fields"
+        ]
+      },
+      "ViewSchemaListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_schemas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ViewSchemaResource"
+            }
+          }
+        },
+        "required": [
+          "view_schemas"
+        ]
+      },
+      "ViewSchemaListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ViewSchemaListData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ViewSchemaEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ViewSchemaResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       }
     }

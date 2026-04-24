@@ -1,16 +1,52 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "registry_id": "cartulary.view_schemas.phase3.v1",
+  "registry_id": "cartulary.view_schemas.base.v1",
   "note": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.",
   "view_schemas": [
     {
-      "view_schema_id": "cartulary.view.timeline.v1",
-      "title": "Timeline",
+      "view_schema_id": "cartulary.view.assessments.v1",
+      "title": "Assessments",
+      "surface_kind": "system_view",
+      "source_record_types": [
+        "assessment"
+      ],
+      "artifact_path": "contracts/view-schemas/cartulary.view.assessments.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.comm_log.v1",
+      "title": "Communications Log",
+      "surface_kind": "system_view",
+      "source_record_types": [
+        "artifact"
+      ],
+      "artifact_path": "contracts/view-schemas/cartulary.view.comm_log.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.decisions.v1",
+      "title": "Decisions",
+      "surface_kind": "system_view",
+      "source_record_types": [
+        "decision"
+      ],
+      "artifact_path": "contracts/view-schemas/cartulary.view.decisions.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.evidence.v1",
+      "title": "Evidence",
       "surface_kind": "built_in_sheet",
       "source_record_types": [
-        "timeline_event"
+        "evidence"
       ],
-      "artifact_path": "contracts/view-schemas/cartulary.view.timeline.v1.json"
+      "artifact_path": "contracts/view-schemas/cartulary.view.evidence.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.handoff.v1",
+      "title": "Handoff",
+      "surface_kind": "system_view",
+      "source_record_types": [
+        "artifact"
+      ],
+      "artifact_path": "contracts/view-schemas/cartulary.view.handoff.v1.json"
     },
     {
       "view_schema_id": "cartulary.view.hosts.v1",
@@ -38,6 +74,60 @@
         "indicator"
       ],
       "artifact_path": "contracts/view-schemas/cartulary.view.indicators.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.lesson.v1",
+      "title": "Lesson",
+      "surface_kind": "system_view",
+      "source_record_types": [
+        "artifact"
+      ],
+      "artifact_path": "contracts/view-schemas/cartulary.view.lesson.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.notes.v1",
+      "title": "Notes",
+      "surface_kind": "built_in_sheet",
+      "source_record_types": [
+        "artifact"
+      ],
+      "artifact_path": "contracts/view-schemas/cartulary.view.notes.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.parties.v1",
+      "title": "Parties",
+      "surface_kind": "system_view",
+      "source_record_types": [
+        "party"
+      ],
+      "artifact_path": "contracts/view-schemas/cartulary.view.parties.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.status_review.v1",
+      "title": "Status Review",
+      "surface_kind": "system_view",
+      "source_record_types": [
+        "artifact"
+      ],
+      "artifact_path": "contracts/view-schemas/cartulary.view.status_review.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.task_requests.v1",
+      "title": "Task Requests",
+      "surface_kind": "system_view",
+      "source_record_types": [
+        "task_request"
+      ],
+      "artifact_path": "contracts/view-schemas/cartulary.view.task_requests.v1.json"
+    },
+    {
+      "view_schema_id": "cartulary.view.timeline.v1",
+      "title": "Timeline",
+      "surface_kind": "built_in_sheet",
+      "source_record_types": [
+        "timeline_event"
+      ],
+      "artifact_path": "contracts/view-schemas/cartulary.view.timeline.v1.json"
     }
   ]
 }
