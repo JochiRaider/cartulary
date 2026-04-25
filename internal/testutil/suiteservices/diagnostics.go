@@ -31,6 +31,12 @@ const (
 	EventS3BucketCleaned     = "s3-bucket-cleaned"
 )
 
+const (
+	PostgresPreparationTemplate       = "template"
+	PostgresPreparationTemplateClone  = "template-clone"
+	PostgresPreparationFreshMigration = "fresh-migration"
+)
+
 type Event struct {
 	Type      string         `json:"type"`
 	Timestamp string         `json:"timestamp"`
@@ -78,17 +84,27 @@ type CleanupSummary struct {
 }
 
 type PostgresSummary struct {
-	Started               bool     `json:"started"`
-	StartedAt             string   `json:"started_at,omitempty"`
-	Host                  string   `json:"host,omitempty"`
-	Port                  string   `json:"port,omitempty"`
-	User                  string   `json:"user,omitempty"`
-	TemplateDatabase      string   `json:"template_database,omitempty"`
-	AttachedHarnessCount  int      `json:"attached_harness_count"`
-	CreatedDatabaseCount  int      `json:"created_database_count"`
-	MigratedDatabaseCount int      `json:"migrated_database_count"`
-	TemplateCloneCount    int      `json:"template_clone_count"`
-	CreatedDatabases      []string `json:"created_databases,omitempty"`
+	Started               bool                          `json:"started"`
+	StartedAt             string                        `json:"started_at,omitempty"`
+	Host                  string                        `json:"host,omitempty"`
+	Port                  string                        `json:"port,omitempty"`
+	User                  string                        `json:"user,omitempty"`
+	TemplateDatabase      string                        `json:"template_database,omitempty"`
+	AttachedHarnessCount  int                           `json:"attached_harness_count"`
+	CreatedDatabaseCount  int                           `json:"created_database_count"`
+	MigratedDatabaseCount int                           `json:"migrated_database_count"`
+	TemplateCloneCount    int                           `json:"template_clone_count"`
+	CreatedDatabases      []string                      `json:"created_databases,omitempty"`
+	DatabasePreparations  []PostgresDatabasePreparation `json:"database_preparations,omitempty"`
+}
+
+type PostgresDatabasePreparation struct {
+	Name             string `json:"name"`
+	Strategy         string `json:"strategy"`
+	TemplateDatabase string `json:"template_database,omitempty"`
+	Target           string `json:"target,omitempty"`
+	PID              int    `json:"pid"`
+	Timestamp        string `json:"timestamp"`
 }
 
 type MinIOSummary struct {
@@ -192,6 +208,7 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 	createdBuckets := make(map[string]struct{})
 	cleanedBuckets := make(map[string]struct{})
 	startedServices := make(map[string]struct{})
+	databasePreparations := make(map[string]PostgresDatabasePreparation)
 
 	for _, eventPath := range eventFiles {
 		raw, err := os.ReadFile(eventPath)
@@ -258,10 +275,13 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			if event.Kind == "template" && event.Name != "" {
 				scope.Postgres.TemplateDatabase = event.Name
 			}
+			upsertPostgresPreparation(databasePreparations, event, strategyForPostgresCreateEvent(event))
 		case EventPostgresDBMigrated:
 			scope.Postgres.MigratedDatabaseCount++
+			upsertPostgresPreparation(databasePreparations, event, strategyForPostgresMigratedEvent(event))
 		case EventPostgresTemplateUse:
 			scope.Postgres.TemplateCloneCount++
+			upsertPostgresPreparation(databasePreparations, event, PostgresPreparationTemplateClone)
 		case EventS3Attach:
 			scope.MinIO.AttachedHarnessCount++
 		case EventS3BucketCreated:
@@ -278,11 +298,91 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 	}
 
 	scope.Postgres.CreatedDatabases = sortedKeys(createdDatabases)
+	scope.Postgres.DatabasePreparations = sortedPostgresPreparations(databasePreparations)
 	scope.MinIO.CreatedBuckets = sortedKeys(createdBuckets)
 	scope.MinIO.CleanedBuckets = sortedKeys(cleanedBuckets)
 	scope.StartedNames.Names = sortedKeys(startedServices)
 
 	return scope, true, nil
+}
+
+func strategyForPostgresCreateEvent(event Event) string {
+	if strategy := stringDetail(event.Details, "preparation_strategy"); strategy != "" {
+		return normalizePostgresPreparationStrategy(strategy)
+	}
+	switch event.Kind {
+	case PostgresPreparationTemplate:
+		return PostgresPreparationTemplate
+	case PostgresPreparationTemplateClone:
+		return PostgresPreparationTemplateClone
+	case "scratch":
+		return PostgresPreparationFreshMigration
+	default:
+		return ""
+	}
+}
+
+func strategyForPostgresMigratedEvent(event Event) string {
+	if strategy := stringDetail(event.Details, "preparation_strategy"); strategy != "" {
+		return normalizePostgresPreparationStrategy(strategy)
+	}
+	if event.Kind == PostgresPreparationTemplate {
+		return PostgresPreparationTemplate
+	}
+	return PostgresPreparationFreshMigration
+}
+
+func normalizePostgresPreparationStrategy(strategy string) string {
+	switch strategy {
+	case PostgresPreparationTemplate, PostgresPreparationTemplateClone, PostgresPreparationFreshMigration:
+		return strategy
+	default:
+		return ""
+	}
+}
+
+func upsertPostgresPreparation(preparations map[string]PostgresDatabasePreparation, event Event, strategy string) {
+	if event.Name == "" {
+		return
+	}
+
+	existing := preparations[event.Name]
+	if existing.Name == "" {
+		existing.Name = event.Name
+	}
+	if existing.Timestamp == "" || event.Timestamp < existing.Timestamp {
+		existing.Timestamp = event.Timestamp
+	}
+	if existing.PID == 0 {
+		existing.PID = event.PID
+	}
+	if strategy != "" {
+		existing.Strategy = strategy
+	}
+	if target := stringDetail(event.Details, "target"); target != "" {
+		existing.Target = target
+	}
+	if templateDB := stringDetail(event.Details, "template_database"); templateDB != "" {
+		existing.TemplateDatabase = templateDB
+	}
+	preparations[event.Name] = existing
+}
+
+func sortedPostgresPreparations(preparations map[string]PostgresDatabasePreparation) []PostgresDatabasePreparation {
+	if len(preparations) == 0 {
+		return nil
+	}
+	values := make([]PostgresDatabasePreparation, 0, len(preparations))
+	for _, preparation := range preparations {
+		values = append(values, preparation)
+	}
+	sort.Slice(values, func(i, j int) bool {
+		if values[i].Name != values[j].Name {
+			return values[i].Name < values[j].Name
+		}
+		return values[i].Timestamp < values[j].Timestamp
+	})
+	return values
 }
 
 func sanitizeFileComponent(value string) string {

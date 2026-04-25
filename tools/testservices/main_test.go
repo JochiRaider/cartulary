@@ -366,9 +366,33 @@ func TestPrepareWebE2EWritesShellEnvAndMetadata(t *testing.T) {
 	metadataFile := filepath.Join(t.TempDir(), "browser.json")
 	activeEnv := cloneEnv(deps.env)
 	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "suite-web-e2e"
+	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
 	activeEnv[suiteservices.PGTemplateDBEnv] = "suite_template"
 
-	deps.prepareWebE2E = func(context.Context, map[string]string) (webE2EFixture, error) {
+	deps.prepareWebE2E = func(_ context.Context, env map[string]string) (webE2EFixture, error) {
+		if err := suiteservices.RecordEvent(env, suiteservices.Event{
+			Type: suiteservices.EventPostgresDBCreated,
+			Name: "ct_web",
+			Kind: suiteservices.PostgresPreparationTemplateClone,
+			Details: map[string]any{
+				"preparation_strategy": suiteservices.PostgresPreparationTemplateClone,
+				"template_database":    "suite_template",
+				"target":               suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
+			},
+		}); err != nil {
+			return webE2EFixture{}, err
+		}
+		if err := suiteservices.RecordEvent(env, suiteservices.Event{
+			Type: suiteservices.EventPostgresTemplateUse,
+			Name: "ct_web",
+			Details: map[string]any{
+				"template_database": "suite_template",
+				"target":            suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
+			},
+		}); err != nil {
+			return webE2EFixture{}, err
+		}
 		return webE2EFixture{
 			DatabaseName: "ct_web",
 			DSN:          "postgres://cartulary:pa'ss@127.0.0.1:5432/ct_web?sslmode=disable",
@@ -407,6 +431,24 @@ func TestPrepareWebE2EWritesShellEnvAndMetadata(t *testing.T) {
 	}
 	if metadata.DatabaseName != "ct_web" || metadata.Bucket != "ct-web" {
 		t.Fatalf("unexpected metadata: %#v", metadata)
+	}
+
+	scope, ok, err := suiteservices.Summarize(activeEnv)
+	if err != nil {
+		t.Fatalf("summarize browser fixture events: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected browser fixture suite summary")
+	}
+	if len(scope.Postgres.DatabasePreparations) != 1 {
+		t.Fatalf("expected one browser database preparation, got %#v", scope.Postgres.DatabasePreparations)
+	}
+	preparation := scope.Postgres.DatabasePreparations[0]
+	if preparation.Name != "ct_web" ||
+		preparation.Strategy != suiteservices.PostgresPreparationTemplateClone ||
+		preparation.TemplateDatabase != "suite_template" ||
+		preparation.Target != "browser-e2e-webserver-backed" {
+		t.Fatalf("unexpected browser database preparation: %#v", preparation)
 	}
 }
 

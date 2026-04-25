@@ -544,8 +544,10 @@ frontend-unit: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)$(MAKE) --no-print-directory browser-e2e
 
-browser-e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)$(MAKE) --no-print-directory browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-resettable
+browser-e2e: export CARTULARY_TEST_TARGET := browser-e2e
+
+browser-e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
+	$(Q)$(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-resettable
 
 browser-e2e-webserver-backed: export CARTULARY_TEST_TARGET := browser-e2e-webserver-backed
 
@@ -651,8 +653,10 @@ check-service-backed-lane-a:
 check-service-backed-lane-b: backend-store backend-process
 	$(Q)$(MAKE) --no-print-directory browser-e2e-webserver-backed
 
-check-isolated:
-	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(BROWSER_E2E_ISOLATED_JOBS) browser-e2e-stateful browser-e2e-resettable
+check-isolated: export CARTULARY_TEST_TARGET := check-isolated
+
+check-isolated: $(TEST_SERVICES_BIN)
+	$(Q)$(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(BROWSER_E2E_ISOLATED_JOBS) browser-e2e-stateful browser-e2e-resettable
 
 check: $(NODE_BIN)
 	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label check --summary-targets "$(CHECK_SUMMARY_TARGETS)" --step check-setup-blockers --parallel-step check-parallel:$(CHECK_JOBS) --step check-service-backed --step check-isolated

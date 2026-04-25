@@ -104,6 +104,17 @@ if [[ "${#browser_targets[@]}" -ne 0 ]]; then
   fail "check-heavy must not include browser-e2e* prerequisites, found: ${browser_targets[*]}"
 fi
 
+browser_e2e_block="$(extract_target_block browser-e2e)"
+if [[ -z "$browser_e2e_block" ]]; then
+  fail "Makefile must define a non-empty browser-e2e block"
+fi
+if ! printf '%s\n' "$browser_e2e_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+  fail 'browser-e2e must wrap aggregate browser children through $(TEST_SERVICES_BIN)'
+fi
+if ! printf '%s\n' "$browser_e2e_block" | grep -Fq 'browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-resettable'; then
+  fail "browser-e2e must run webserver-backed, stateful, and resettable browser children"
+fi
+
 check_service_block="$(extract_target_block check-service-backed)"
 if [[ -z "$check_service_block" ]]; then
   fail "Makefile must define a non-empty check-service-backed block"
@@ -149,6 +160,9 @@ fi
 check_isolated_block="$(extract_target_block check-isolated)"
 if [[ -z "$check_isolated_block" ]]; then
   fail "Makefile must define a non-empty check-isolated block"
+fi
+if ! printf '%s\n' "$check_isolated_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+  fail 'check-isolated must wrap isolated browser children through $(TEST_SERVICES_BIN)'
 fi
 if ! printf '%s\n' "$check_isolated_block" | grep -Fq 'browser-e2e-stateful browser-e2e-resettable'; then
   fail "check-isolated must run browser-e2e-stateful and browser-e2e-resettable"

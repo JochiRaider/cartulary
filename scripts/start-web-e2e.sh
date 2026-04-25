@@ -411,6 +411,10 @@ browser_prepare_database() {
 
   if using_test_services_stack; then
     require_test_services_bin || return $?
+    if [[ -z "${CARTULARY_PGTEST_TEMPLATE_DB:-}" ]]; then
+      echo "browser e2e active test-service mode requires CARTULARY_PGTEST_TEMPLATE_DB to clone the migrated suite template database" >&2
+      return 1
+    fi
     "${TEST_SERVICES_BIN}" prepare-web-e2e --env-file "${TEST_SERVICES_ENV_FILE}" --metadata-file "${TEST_SERVICES_METADATA_FILE}"
     # shellcheck disable=SC1090
     source "${TEST_SERVICES_ENV_FILE}"

@@ -215,9 +215,10 @@ func (h *Harness) NewDatabase(ctx context.Context, prefix string) (*TestDatabase
 		return nil, err
 	}
 	recordSuiteEvent(suiteservices.Event{
-		Type: suiteservices.EventPostgresDBCreated,
-		Name: name,
-		Kind: "scratch",
+		Type:    suiteservices.EventPostgresDBCreated,
+		Name:    name,
+		Kind:    "scratch",
+		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, ""),
 	})
 
 	return &TestDatabase{
@@ -233,15 +234,17 @@ func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestData
 			return nil, postgres.MigrationStatus{}, err
 		}
 		recordSuiteEvent(suiteservices.Event{
-			Type: suiteservices.EventPostgresDBCreated,
-			Name: name,
-			Kind: "template-clone",
+			Type:    suiteservices.EventPostgresDBCreated,
+			Name:    name,
+			Kind:    "template-clone",
+			Details: postgresPreparationDetails(suiteservices.PostgresPreparationTemplateClone, h.templateDB),
 		})
 		recordSuiteEvent(suiteservices.Event{
 			Type: suiteservices.EventPostgresTemplateUse,
 			Name: name,
 			Details: map[string]any{
 				"template_database": h.templateDB,
+				"target":            suiteservices.LookupEnvValue(nil, suiteservices.TargetEnv),
 			},
 		})
 
@@ -272,9 +275,10 @@ func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestData
 		return nil, postgres.MigrationStatus{}, err
 	}
 	recordSuiteEvent(suiteservices.Event{
-		Type: suiteservices.EventPostgresDBMigrated,
-		Name: testDB.Name,
-		Kind: "scratch",
+		Type:    suiteservices.EventPostgresDBMigrated,
+		Name:    testDB.Name,
+		Kind:    "scratch",
+		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, ""),
 	})
 
 	return testDB, status, nil
@@ -430,4 +434,15 @@ func createDatabase(ctx context.Context, adminDSN string, name string, templateD
 
 func recordSuiteEvent(event suiteservices.Event) {
 	_ = suiteservices.RecordEvent(nil, event)
+}
+
+func postgresPreparationDetails(strategy string, templateDB string) map[string]any {
+	details := map[string]any{
+		"preparation_strategy": strategy,
+		"target":               suiteservices.LookupEnvValue(nil, suiteservices.TargetEnv),
+	}
+	if templateDB != "" {
+		details["template_database"] = templateDB
+	}
+	return details
 }

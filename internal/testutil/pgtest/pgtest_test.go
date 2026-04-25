@@ -127,6 +127,11 @@ func TestDatabaseNamesAreUniqueAcrossSimulatedProcesses(t *testing.T) {
 }
 
 func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
+	t.Setenv(suiteservices.SuiteIDEnv, "suite-template-mode")
+	t.Setenv(suiteservices.TargetEnv, "backend-store")
+	t.Setenv("CARTULARY_TEST_RESULTS_DIR", t.TempDir())
+	t.Setenv("CARTULARY_TEST_RUN_ID", "template-mode")
+
 	oldCreate := createDatabaseFn
 	oldMigrate := migrateDatabaseFn
 	t.Cleanup(func() {
@@ -187,6 +192,30 @@ func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
 	}
 	if testDB.Name == "" || !strings.Contains(testDB.DSN, testDB.Name) {
 		t.Fatalf("expected prepared database dsn to reference the cloned database, got %#v", testDB)
+	}
+
+	scope, ok, err := suiteservices.Summarize(nil)
+	if err != nil {
+		t.Fatalf("summarize suite service events: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected suite service summary")
+	}
+	if len(scope.Postgres.DatabasePreparations) != 1 {
+		t.Fatalf("expected one database preparation, got %#v", scope.Postgres.DatabasePreparations)
+	}
+	preparation := scope.Postgres.DatabasePreparations[0]
+	if preparation.Name != testDB.Name {
+		t.Fatalf("unexpected prepared database name: got %q want %q", preparation.Name, testDB.Name)
+	}
+	if preparation.Strategy != suiteservices.PostgresPreparationTemplateClone {
+		t.Fatalf("expected template-clone preparation, got %#v", preparation)
+	}
+	if preparation.TemplateDatabase != "suite_template" {
+		t.Fatalf("unexpected template database: got %#v", preparation)
+	}
+	if preparation.Target != "backend-store" {
+		t.Fatalf("unexpected preparation target: got %#v", preparation)
 	}
 }
 

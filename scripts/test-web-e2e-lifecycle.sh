@@ -660,6 +660,14 @@ TEST_SERVICES_METADATA_FILE="$tmp_dir/browser.json"
 FAKE_TEST_SERVICES_LOG="$fake_test_services_log"
 export FAKE_TEST_SERVICES_LOG
 browser_start_services >/dev/null
+missing_template_stderr="$tmp_dir/missing-template.stderr"
+if browser_prepare_database 2>"$missing_template_stderr"; then
+  fail "active test-service browser prepare must require CARTULARY_PGTEST_TEMPLATE_DB"
+fi
+if ! grep -Fq "CARTULARY_PGTEST_TEMPLATE_DB" "$missing_template_stderr"; then
+  fail "missing template database failure must mention CARTULARY_PGTEST_TEMPLATE_DB"
+fi
+CARTULARY_PGTEST_TEMPLATE_DB="suite_template"
 browser_prepare_database
 assert_equals "$E2E_DSN" "postgres://cartulary:cartulary@127.0.0.1:15432/ct_web?sslmode=disable" "active test-service browser dsn"
 assert_equals "$CARTULARY_S3_BUCKET" "ct-web" "active test-service browser bucket"
@@ -676,4 +684,5 @@ if ! tail -n 1 "$fake_test_services_log" | grep -Fq "cleanup-web-e2e --metadata-
 fi
 
 unset CARTULARY_TEST_SERVICES_ACTIVE
+unset CARTULARY_PGTEST_TEMPLATE_DB
 unset FAKE_TEST_SERVICES_LOG

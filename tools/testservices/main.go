@@ -187,14 +187,16 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 		return 1
 	}
 	deps.recordEvent(ownedEnv, suiteservices.Event{
-		Type: suiteservices.EventPostgresDBCreated,
-		Name: templateDB,
-		Kind: "template",
+		Type:    suiteservices.EventPostgresDBCreated,
+		Name:    templateDB,
+		Kind:    "template",
+		Details: postgresPreparationDetails(ownedEnv, suiteservices.PostgresPreparationTemplate, ""),
 	})
 	deps.recordEvent(ownedEnv, suiteservices.Event{
-		Type: suiteservices.EventPostgresDBMigrated,
-		Name: templateDB,
-		Kind: "template",
+		Type:    suiteservices.EventPostgresDBMigrated,
+		Name:    templateDB,
+		Kind:    "template",
+		Details: postgresPreparationDetails(ownedEnv, suiteservices.PostgresPreparationTemplate, ""),
 	})
 	deps.refreshSummary(ownedEnv)
 
@@ -278,6 +280,7 @@ func runPrepareWebE2E(args []string, env map[string]string, deps dependencies) i
 		fmt.Fprintf(os.Stderr, "write browser e2e env: %v\n", err)
 		return 1
 	}
+	deps.refreshSummary(env)
 
 	return 0
 }
@@ -305,6 +308,7 @@ func runCleanupWebE2E(args []string, env map[string]string, deps dependencies) i
 		fmt.Fprintf(os.Stderr, "cleanup browser e2e fixture: %v\n", err)
 		return 1
 	}
+	deps.refreshSummary(env)
 	return 0
 }
 
@@ -476,6 +480,17 @@ func createDatabase(ctx context.Context, adminDSN string, name string) error {
 		return fmt.Errorf("create database %s: %w", name, err)
 	}
 	return nil
+}
+
+func postgresPreparationDetails(env map[string]string, strategy string, templateDB string) map[string]any {
+	details := map[string]any{
+		"preparation_strategy": strategy,
+		"target":               suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
+	}
+	if templateDB != "" {
+		details["template_database"] = templateDB
+	}
+	return details
 }
 
 func replaceDatabaseInDSN(adminDSN string, database string) (string, error) {

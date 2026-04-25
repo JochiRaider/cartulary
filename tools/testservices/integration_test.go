@@ -36,6 +36,8 @@ func TestMakeBackendStoreUsesSingleOwnedSuitePair(t *testing.T) {
 	if scope.Postgres.TemplateCloneCount == 0 {
 		t.Fatalf("expected backend-store to clone the migrated template database, got %#v", scope.Postgres)
 	}
+	assertPostgresPreparationStrategy(t, scope, suiteservices.PostgresPreparationTemplate)
+	assertPostgresPreparationStrategy(t, scope, suiteservices.PostgresPreparationTemplateClone)
 	if scope.Postgres.AttachedHarnessCount == 0 {
 		t.Fatalf("expected attached postgres harness usage, got %#v", scope.Postgres)
 	}
@@ -64,6 +66,8 @@ func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedLanes(t *testing.T) {
 	if scope.Postgres.TemplateCloneCount == 0 {
 		t.Fatalf("expected cloned per-test databases, got %#v", scope.Postgres)
 	}
+	assertPostgresPreparationStrategy(t, scope, suiteservices.PostgresPreparationTemplate)
+	assertPostgresPreparationStrategy(t, scope, suiteservices.PostgresPreparationTemplateClone)
 	if scope.MinIO.BucketCreateCount == 0 || scope.MinIO.BucketCleanupCount == 0 {
 		t.Fatalf("expected minio bucket create and cleanup activity, got %#v", scope.MinIO)
 	}
@@ -208,6 +212,17 @@ func assertSuiteServicesStarted(t testing.TB, scope suiteservices.ServiceScope) 
 	if !scope.MinIO.Started {
 		t.Fatalf("expected minio suite service to start, got %#v", scope.MinIO)
 	}
+}
+
+func assertPostgresPreparationStrategy(t testing.TB, scope suiteservices.ServiceScope, strategy string) {
+	t.Helper()
+
+	for _, preparation := range scope.Postgres.DatabasePreparations {
+		if preparation.Strategy == strategy {
+			return
+		}
+	}
+	t.Fatalf("expected postgres preparation strategy %q in %#v", strategy, scope.Postgres.DatabasePreparations)
 }
 
 func uniqueEventPIDs(events []suiteservices.Event, eventType string) []int {
