@@ -4,6 +4,8 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 makefile="$repo_root/Makefile"
 functional_script="$repo_root/scripts/run-browser-e2e-functional.sh"
+webserver_batch_script="$repo_root/scripts/lib/run-playwright-webserver-batch.sh"
+webserver_batch_config="$repo_root/apps/web/playwright.webserver-backed.config.ts"
 stateful_script="$repo_root/scripts/run-browser-e2e-stateful.sh"
 measurement_script="$repo_root/scripts/run-browser-e2e-measurement.sh"
 resettable_script="$repo_root/scripts/run-browser-e2e-resettable.sh"
@@ -289,6 +291,12 @@ fi
 if ! [[ -f "$functional_script" ]]; then
   fail "missing scripts/run-browser-e2e-functional.sh"
 fi
+if ! [[ -f "$webserver_batch_script" ]]; then
+  fail "missing scripts/lib/run-playwright-webserver-batch.sh"
+fi
+if ! [[ -f "$webserver_batch_config" ]]; then
+  fail "missing apps/web/playwright.webserver-backed.config.ts"
+fi
 if ! [[ -f "$stateful_script" ]]; then
   fail "missing scripts/run-browser-e2e-stateful.sh"
 fi
@@ -323,20 +331,41 @@ if ! grep -Fq 'docker compose -f "${COMPOSE_FILE}" up -d postgres minio' "$start
   fail "scripts/start-web-e2e.sh must keep Compose-backed startup for standalone browser E2E"
 fi
 
-if ! grep -Fq 'phase1 authoritative browser_functional' "$functional_script"; then
-  fail "scripts/run-browser-e2e-functional.sh must execute Phase 1 browser_functional rows through the manifest"
+if ! grep -Fq 'run-playwright-webserver-batch.sh' "$functional_script"; then
+  fail "scripts/run-browser-e2e-functional.sh must delegate to the Playwright webserver batch runner"
 fi
-if grep -Fq 'e2e/phase1.spec.ts' "$functional_script"; then
-  fail "scripts/run-browser-e2e-functional.sh must not raw-select e2e/phase1.spec.ts"
+if ! grep -Fq 'functional' "$functional_script"; then
+  fail "scripts/run-browser-e2e-functional.sh must run the functional-only batch mode"
 fi
-if ! grep -Fq 'phase2 authoritative browser_functional' "$functional_script"; then
-  fail "scripts/run-browser-e2e-functional.sh must execute Phase 2 browser_functional rows through the manifest"
+if ! grep -Fq 'playwright.webserver-backed.config.ts' "$functional_script"; then
+  fail "scripts/run-browser-e2e-functional.sh must use the batched webserver-backed Playwright config"
 fi
-if ! grep -Fq 'phase4 authoritative browser_functional' "$functional_script"; then
-  fail "scripts/run-browser-e2e-functional.sh must execute Phase 4 browser_functional rows through the manifest"
+if grep -Fq 'run-playwright-manifest-phase.sh' "$functional_script"; then
+  fail "scripts/run-browser-e2e-functional.sh must not launch one Playwright process per manifest phase"
 fi
-if grep -Fq 'e2e/phase4.spec.ts' "$functional_script"; then
-  fail "scripts/run-browser-e2e-functional.sh must not raw-select e2e/phase4.spec.ts"
+if ! grep -Fq 'playwright-grep-many' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must build one multi-phase Playwright grep from manifest titles"
+fi
+if ! grep -Fq 'functional_phases=(phase1 phase2 phase3 phase4)' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must include Phase 1 through Phase 4 browser_functional manifest selections"
+fi
+if ! grep -Fq ':authoritative:browser_functional' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must select authoritative browser_functional manifest rows"
+fi
+if ! grep -Fq 'CARTULARY_REPORT_SLICE=1' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must emit sliced Playwright summaries"
+fi
+if ! grep -Fq 'CARTULARY_PHASE_ACCOUNTING_MODE=derived' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must mark derived slices to avoid duration multiplication"
+fi
+if ! grep -Fq 'name: "functional"' "$webserver_batch_config"; then
+  fail "apps/web/playwright.webserver-backed.config.ts must define the functional project"
+fi
+if ! grep -Fq 'name: "support"' "$webserver_batch_config"; then
+  fail "apps/web/playwright.webserver-backed.config.ts must define the support project"
+fi
+if ! grep -Fq 'CARTULARY_PLAYWRIGHT_FUNCTIONAL_GREP' "$webserver_batch_config"; then
+  fail "apps/web/playwright.webserver-backed.config.ts must scope manifest grep to the functional project"
 fi
 
 if ! grep -Fq 'phase1 authoritative browser_stateful' "$stateful_script"; then
@@ -373,8 +402,17 @@ if ! grep -Fq 'CARTULARY_PLAYWRIGHT_STATE_DIR' "$reset_script"; then
   fail "scripts/reset-web-e2e-stack.sh must clear shared Playwright state after backend reset"
 fi
 
-if ! grep -Fq '"$ROOT_DIR/scripts/run-browser-e2e-functional.sh"' "$webserver_backed_script"; then
-  fail "scripts/run-browser-e2e-webserver-backed.sh must delegate to scripts/run-browser-e2e-functional.sh"
+if ! grep -Fq 'run-playwright-webserver-batch.sh' "$webserver_backed_script"; then
+  fail "scripts/run-browser-e2e-webserver-backed.sh must delegate to the Playwright webserver batch runner"
+fi
+if ! grep -Fq 'webserver-backed' "$webserver_backed_script"; then
+  fail "scripts/run-browser-e2e-webserver-backed.sh must run the functional-plus-support batch mode"
+fi
+if ! grep -Fq 'playwright.webserver-backed.config.ts' "$webserver_backed_script"; then
+  fail "scripts/run-browser-e2e-webserver-backed.sh must use the batched webserver-backed Playwright config"
+fi
+if grep -Fq 'run-browser-e2e-functional.sh' "$webserver_backed_script"; then
+  fail "scripts/run-browser-e2e-webserver-backed.sh must not serialize through scripts/run-browser-e2e-functional.sh"
 fi
 
 if ! "$node_bin" - "$repo_root" <<'EOF'

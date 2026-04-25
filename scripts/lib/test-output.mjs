@@ -2654,6 +2654,13 @@ function flattenPlaywrightSuites(suites, specs = []) {
   return specs;
 }
 
+function summarizePlaywrightErrors(report) {
+  const messages = (report.errors ?? [])
+    .map((error) => error?.message)
+    .filter((message) => typeof message === "string" && message.trim() !== "");
+  return messages.join("; ");
+}
+
 function createPlaywrightSelection({ manifestAware }) {
   const reportSlice = optionalEnv("CARTULARY_REPORT_SLICE") === "1";
 
@@ -2734,6 +2741,23 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
       inventory,
       dossiers,
     };
+  }
+
+  const topLevelErrorSummary = summarizePlaywrightErrors(report);
+  if (topLevelErrorSummary !== "") {
+    dossiers.push({
+      coverage: "non_test",
+      phase: inferPhaseFromText(phaseLabel),
+      id: "",
+      runner: "playwright",
+      package_or_file: "(playwright runner)",
+      symbol_or_title: "(playwright runner)",
+      message: topLevelErrorSummary.split("\n")[0],
+      reproduce: requiredEnv("CARTULARY_PHASE_COMMAND"),
+      raw: relToRepo(reportFile),
+    });
+    counts.failed += 1;
+    counts.non_test_failed += 1;
   }
 
   for (const spec of specs) {
@@ -2874,6 +2898,7 @@ function evaluatePlaywrightManifest(summary) {
 
 function handlePlaywrightPhase({ manifestAware }) {
   const context = createBasePhaseContext("playwright");
+  const reportSlice = optionalEnv("CARTULARY_REPORT_SLICE") === "1";
   const reportFile = requiredEnv("CARTULARY_PHASE_RUNNER_LOG");
   const selectionReport = optionalEnv("CARTULARY_PLAYWRIGHT_SELECTION_REPORT");
   const stdoutLog = optionalEnv("CARTULARY_PHASE_STDOUT_LOG");
@@ -2889,11 +2914,13 @@ function handlePlaywrightPhase({ manifestAware }) {
     context.label,
     createPlaywrightSelection({ manifestAware }),
   );
-  let status = context.exitStatus === 0 && summary.dossiers.length === 0 ? "pass" : "fail";
+  const selectedSlicePassed =
+    summary.dossiers.length === 0 && (context.exitStatus === 0 || reportSlice);
+  let status = selectedSlicePassed ? "pass" : "fail";
   let manifestSummary = null;
   let manifestMismatch = null;
 
-  if (manifestAware && context.exitStatus === 0 && summary.dossiers.length === 0) {
+  if (manifestAware && selectedSlicePassed) {
     const verification = evaluatePlaywrightManifest(summary);
     manifestSummary = {
       missing_ids: verification.missingIDs,

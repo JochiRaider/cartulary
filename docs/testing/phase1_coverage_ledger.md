@@ -13,7 +13,7 @@ This ledger is generated from `tools/phase1_test_map.json`. Update the manifest 
 - `backend-store` selects store-backed authoritative `U-1-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase1 unit authoritative backend_store`.
 - `frontend-unit` selects authoritative `U-1-*` ordinary-shell Vitest rows only through the Phase 1 Vitest manifest for `frontend_unit`.
 - `backend-integration` selects authoritative `I-1-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase1 integration authoritative backend_integration`.
-- `browser-e2e-webserver-backed` and delegated `browser-e2e-functional` select authoritative functional `E-1-*` rows only through the Phase 1 Playwright manifest for `browser_functional`.
+- `browser-e2e-webserver-backed` and helper `browser-e2e-functional` select authoritative functional `E-1-*` rows through the batched Playwright manifest selection for `browser_functional`.
 - `browser-e2e-stateful` selects authoritative stateful `E-1-*` rows only through the Phase 1 Playwright manifest for `browser_stateful`.
 
 ## Support-Only Execution

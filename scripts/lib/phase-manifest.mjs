@@ -598,6 +598,30 @@ function selectPlaywrightEntries(root, phase, coverage, executionDependency) {
   );
 }
 
+function parsePlaywrightSelectionSpec(spec) {
+  const [phase, coverage, executionDependency = ""] = spec.split(":");
+  if (!phase || !coverage) {
+    throw new Error(
+      `invalid playwright selection ${spec}; expected <phase>:<coverage>[:<execution_dependency>]`,
+    );
+  }
+  return { phase, coverage, executionDependency };
+}
+
+function selectPlaywrightEntriesForSpecs(root, specs) {
+  if (specs.length === 0) {
+    throw new Error("playwright multi-phase selection requires at least one selection spec");
+  }
+  return specs.flatMap((spec) => {
+    const { phase, coverage, executionDependency } = parsePlaywrightSelectionSpec(spec);
+    const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
+    if (entries.length === 0) {
+      throw new Error(`no ${coverage} playwright tests found for ${phase}`);
+    }
+    return entries;
+  });
+}
+
 function normalizePlaywrightFile(file) {
   if (!file.startsWith("apps/web/")) {
     throw new Error(`playwright manifest file must live under apps/web/: ${file}`);
@@ -834,6 +858,29 @@ function main(argv) {
         throw new Error(`no ${coverage} playwright tests found for ${phase}`);
       }
       printLines([alternationRegex(entries.map((entry) => entry.title))]);
+      return;
+    }
+
+    case "playwright-grep-many": {
+      const entries = selectPlaywrightEntriesForSpecs(root, rest);
+      printLines([alternationRegex(entries.map((entry) => entry.title))]);
+      return;
+    }
+
+    case "playwright-selection-report": {
+      const [phase, coverage, executionDependency = ""] = rest;
+      const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
+      if (entries.length === 0) {
+        throw new Error(`no ${coverage} playwright tests found for ${phase}`);
+      }
+      const specs = entries.map((entry) => ({
+        title: entry.title,
+        file: normalizePlaywrightFile(entry.file),
+        tests: [{ results: [], status: "skipped" }],
+      }));
+      process.stdout.write(
+        `${JSON.stringify({ suites: [{ specs, suites: [] }], errors: [] }, null, 2)}\n`,
+      );
       return;
     }
 

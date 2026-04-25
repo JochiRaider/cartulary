@@ -87,7 +87,7 @@ const phaseConfigs = {
       "- `backend-store` selects store-backed authoritative `U-1-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase1 unit authoritative backend_store`.",
       "- `frontend-unit` selects authoritative `U-1-*` ordinary-shell Vitest rows only through the Phase 1 Vitest manifest for `frontend_unit`.",
       "- `backend-integration` selects authoritative `I-1-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase1 integration authoritative backend_integration`.",
-      "- `browser-e2e-webserver-backed` and delegated `browser-e2e-functional` select authoritative functional `E-1-*` rows only through the Phase 1 Playwright manifest for `browser_functional`.",
+      "- `browser-e2e-webserver-backed` and helper `browser-e2e-functional` select authoritative functional `E-1-*` rows through the batched Playwright manifest selection for `browser_functional`.",
       "- `browser-e2e-stateful` selects authoritative stateful `E-1-*` rows only through the Phase 1 Playwright manifest for `browser_stateful`.",
     ],
     supportExecutionExtras: [
@@ -133,11 +133,11 @@ const phaseConfigs = {
       "- `backend-store` selects store-backed authoritative `U-2-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase2 unit authoritative backend_store`.",
       "- `backend-integration` selects authoritative `I-2-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase2 integration authoritative backend_integration`.",
       "- `frontend-unit` selects authoritative `U-2-*` rows only through the Phase 2 Vitest manifest for `frontend_unit`.",
-      "- `browser-e2e-webserver-backed` and delegated `browser-e2e-functional` select authoritative `E-2-*` rows only through the Phase 2 Playwright manifest for `browser_functional`.",
+      "- `browser-e2e-webserver-backed` and helper `browser-e2e-functional` select authoritative `E-2-*` rows through the batched Playwright manifest selection for `browser_functional`.",
     ],
     supportExecutionExtras: [
       "- `backend-integration-support` emits a shared-capture support report rather than a second independent runtime.",
-      "- `make browser-e2e-support` is a helper slice already exercised inside `browser-e2e-webserver-backed` and does not provide additional authoritative confirmation.",
+      "- `make browser-e2e-support` is a helper slice also exercised inside the batched `browser-e2e-webserver-backed` Playwright run and does not provide additional authoritative confirmation.",
       "- `make phase2-process-smoke` remains an isolated support target for flaky process smoke and does not participate in the default developer or CI gates.",
     ],
     sections: [
@@ -182,7 +182,7 @@ const phaseConfigs = {
       "- `backend-store` selects store-backed authoritative `U-3-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase3 unit authoritative backend_store`.",
       "- `backend-integration` selects authoritative `I-3-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase3 integration authoritative backend_integration`.",
       "- `frontend-unit` selects authoritative `U-3-*` workbook rows only through the Phase 3 Vitest manifest for `frontend_unit`.",
-      "- `browser-e2e-webserver-backed` and delegated `browser-e2e-functional` select authoritative functional `E-3-*` rows only through the Phase 3 Playwright manifest for `browser_functional`.",
+      "- `browser-e2e-webserver-backed` and helper `browser-e2e-functional` select authoritative functional `E-3-*` rows through the batched Playwright manifest selection for `browser_functional`.",
       "- `browser-e2e-measurement` selects authoritative measurement `E-3-*` rows only through the Phase 3 Playwright manifest for `browser_measurement`.",
     ],
     supportExecutionExtras: [],
@@ -219,7 +219,7 @@ const phaseConfigs = {
       "- `backend-unit` selects authoritative `U-4-*` decoder rows only through `RUN_GO_MANIFEST_PHASE ... phase4 unit authoritative backend_unit`.",
       "- `backend-store` selects authoritative store-backed `U-4-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase4 unit authoritative backend_store`.",
       "- `backend-integration` selects authoritative `I-4-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase4 integration authoritative backend_integration`.",
-      "- `browser-e2e-webserver-backed` and delegated `browser-e2e-functional` select authoritative `E-4-*` rows only through the Phase 4 Playwright manifest for `browser_functional`.",
+      "- `browser-e2e-webserver-backed` and helper `browser-e2e-functional` select authoritative `E-4-*` rows through the batched Playwright manifest selection for `browser_functional`.",
     ],
     supportExecutionExtras: [
       "- `apps/web/src/WorkbookShell.phase4.support.test.tsx` runs through `frontend-unit` and is forbidden from claiming `U-4-*`, `I-4-*`, or `E-4-*` identifiers.",
