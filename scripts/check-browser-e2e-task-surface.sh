@@ -346,11 +346,34 @@ fi
 if ! grep -Fq 'playwright-grep-many' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must build one multi-phase Playwright grep from manifest titles"
 fi
-if ! grep -Fq 'functional_phases=(phase1 phase2 phase3 phase4)' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must include Phase 1 through Phase 4 browser_functional manifest selections"
+if ! grep -Fq 'list-phases' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must discover browser_functional phases through phase-manifest list-phases"
+fi
+if ! grep -Fq 'playwright-count "$phase" authoritative browser_functional' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must filter discovered phases by authoritative browser_functional manifest rows"
 fi
 if ! grep -Fq ':authoritative:browser_functional' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must select authoritative browser_functional manifest rows"
+fi
+browser_functional_phases=()
+while IFS= read -r phase; do
+  if [[ -z "$phase" ]]; then
+    continue
+  fi
+  count="$("$node_bin" "$repo_root/scripts/lib/phase-manifest.mjs" playwright-count "$phase" authoritative browser_functional)"
+  if [[ "$count" == "0" ]]; then
+    continue
+  fi
+  browser_functional_phases+=("$phase")
+done < <("$node_bin" "$repo_root/scripts/lib/phase-manifest.mjs" list-phases)
+
+for required_browser_functional_phase in phase1 phase2 phase3 phase4; do
+  if ! printf '%s\n' "${browser_functional_phases[@]}" | grep -Fxq "$required_browser_functional_phase"; then
+    fail "authoritative browser_functional manifest phases must include $required_browser_functional_phase, found: ${browser_functional_phases[*]:-none}"
+  fi
+done
+if printf '%s\n' "${browser_functional_phases[@]}" | grep -Fxq phase0; then
+  fail "authoritative browser_functional manifest phases must skip phase0, found: ${browser_functional_phases[*]}"
 fi
 if ! grep -Fq 'CARTULARY_REPORT_SLICE=1' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must emit sliced Playwright summaries"

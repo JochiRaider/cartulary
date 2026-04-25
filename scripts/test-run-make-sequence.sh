@@ -164,6 +164,9 @@ success_output="$(
     "${SCRIPT}" --label smoke --summary-targets " alpha, beta " --summary-groups "alpha-group=alpha;beta-group=beta" --step alpha --parallel-step beta:3 \
     2>&1
 )"
+assert_contains "${success_output}" "[RUN] smoke steps=2 targets=2 jobs=3 run_id=success" "success run start output"
+assert_contains "${success_output}" "[STEP] smoke 1/2 alpha mode=serial jobs=1" "success serial step output"
+assert_contains "${success_output}" "[STEP] smoke 2/2 beta mode=parallel jobs=3" "success parallel step output"
 assert_contains "${success_output}" "[PASS] smoke" "success run summary output"
 assert_contains "${success_output}" "[GROUP] smoke alpha-group targets=alpha status=pass" "success alpha group output"
 assert_contains "${success_output}" "[GROUP] smoke beta-group targets=beta status=pass" "success beta group output"
@@ -193,6 +196,8 @@ aggregate_missing_output="$(
 aggregate_missing_status=$?
 set -e
 assert_equals "${aggregate_missing_status}" "1" "aggregate missing target exit status"
+assert_contains "${aggregate_missing_output}" "[RUN] aggregate-missing steps=1 targets=2 jobs=1 run_id=aggregate-missing" "aggregate missing run start output"
+assert_contains "${aggregate_missing_output}" "[STEP] aggregate-missing 1/1 alpha mode=serial jobs=1" "aggregate missing step output"
 assert_contains "${aggregate_missing_output}" "[FAIL] aggregate-missing" "aggregate missing target run summary output"
 aggregate_missing_summary="${aggregate_missing_results}/aggregate-missing/run-summary.json"
 assert_equals "$(json_field "${aggregate_missing_summary}" "status")" "fail" "aggregate missing target status"
@@ -214,6 +219,9 @@ failure_output="$(
 failure_status=$?
 set -e
 assert_equals "${failure_status}" "7" "failure child exit status"
+assert_contains "${failure_output}" "[RUN] fail-smoke steps=3 targets=2 jobs=1 run_id=failure" "failure run start output"
+assert_contains "${failure_output}" "[STEP] fail-smoke 1/3 alpha mode=serial jobs=1" "failure alpha step output"
+assert_contains "${failure_output}" "[STEP] fail-smoke 2/3 fail-step mode=serial jobs=1" "failure failing step output"
 assert_contains "${failure_output}" "[FAIL] fail-smoke" "failure run summary output"
 failure_summary="${failure_results}/failure/run-summary.json"
 assert_equals "$(json_field "${failure_summary}" "status")" "fail" "failure status"
@@ -224,12 +232,17 @@ assert_equals "$(json_field "${failure_summary}" "counts.non_test_failed")" "1" 
 dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-dry-run.XXXXXX")"
 cleanup_paths+=("${dry_run_dir}")
 write_fake_make "${dry_run_dir}"
-MAKEFLAGS="n" \
-MAKE="${dry_run_dir}/fake-make" \
-FAKE_MAKE_LOG="${dry_run_dir}/make.log" \
-CARTULARY_TEST_RESULTS_DIR="${dry_run_dir}/results" \
-CARTULARY_TEST_RUN_ID="dry-run" \
-  "${SCRIPT}" --label dry-run --summary-targets alpha --step alpha
+dry_run_output="$(
+  MAKEFLAGS="n" \
+  MAKE="${dry_run_dir}/fake-make" \
+  FAKE_MAKE_LOG="${dry_run_dir}/make.log" \
+  CARTULARY_TEST_RESULTS_DIR="${dry_run_dir}/results" \
+  CARTULARY_TEST_RUN_ID="dry-run" \
+    "${SCRIPT}" --label dry-run --summary-targets alpha --step alpha \
+    2>&1
+)"
+assert_not_contains "${dry_run_output}" "[RUN]" "script dry-run run start output"
+assert_not_contains "${dry_run_output}" "[STEP]" "script dry-run step output"
 assert_file_absent "${dry_run_dir}/results/dry-run/run-summary.json" "script dry-run summary"
 assert_contains "$(cat "${dry_run_dir}/make.log")" "--no-print-directory alpha" "script dry-run child make"
 
@@ -300,10 +313,14 @@ assert_contains "${makefile_content}" 'HARNESS_SMOKE_GROUPS := core=$(HARNESS_SM
 assert_contains "${makefile_content}" "TEST_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser-webserver-backed=browser-e2e-webserver-backed" "test summary group list"
 assert_contains "${makefile_content}" "CHECK_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser-webserver-backed=browser-e2e-webserver-backed" "check summary group list"
 assert_contains "${test_service_backed_block}" 'target-summary test-service-backed pass --children "$(TEST_SERVICE_BACKED_CHILD_TARGETS)"' "test service-backed success child summary"
+assert_contains "${test_service_backed_block}" 'target-start test-service-backed --children "$(TEST_SERVICE_BACKED_CHILD_TARGETS)" --service-backed 1' "test service-backed target start"
+assert_contains "${test_service_backed_block}" 'step-start test-service-backed 1 3 test-service-backed-lane-a --mode parallel --jobs $(TEST_SERVICE_BACKED_JOBS)' "test service-backed lane-a start"
 assert_contains "${test_service_backed_block}" 'target-summary test-service-backed fail --children "$(TEST_SERVICE_BACKED_CHILD_TARGETS)"' "test service-backed failure child summary"
 assert_contains "${test_fast_service_backed_block}" 'target-summary test-fast-service-backed pass --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)"' "test-fast service-backed success child summary"
+assert_contains "${test_fast_service_backed_block}" 'target-start test-fast-service-backed --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)" --service-backed 1' "test-fast service-backed target start"
 assert_contains "${test_fast_service_backed_block}" 'target-summary test-fast-service-backed fail --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)"' "test-fast service-backed failure child summary"
 assert_contains "${check_service_backed_block}" 'target-summary check-service-backed pass --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)"' "check service-backed success child summary"
+assert_contains "${check_service_backed_block}" 'target-start check-service-backed --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)" --service-backed 1' "check service-backed target start"
 assert_contains "${check_service_backed_block}" 'target-summary check-service-backed fail --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)"' "check service-backed failure child summary"
 assert_not_contains "${makefile_content}" "RUN_SUMMARY =" "unused run summary helper variable"
 assert_not_contains "${makefile_content}" "RUN_SUMMARY_CMD =" "unused run summary command variable"

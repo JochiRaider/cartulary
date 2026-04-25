@@ -46,7 +46,9 @@ support_go_count() {
   "${NODE_HELPER}" "${MANIFEST_SCRIPT}" support-go-count "$@"
 }
 
-SUPPORT_MANIFEST_PHASES=(phase0 phase1 phase2 phase3 phase4)
+manifest_phases() {
+  "${NODE_HELPER}" "${MANIFEST_SCRIPT}" list-phases
+}
 
 build_union_regex() {
   if [[ "$#" -eq 0 ]]; then
@@ -88,13 +90,16 @@ append_declared_support_regex_components() {
 
   local phase
   local count
-  for phase in "${SUPPORT_MANIFEST_PHASES[@]}"; do
+  while IFS= read -r phase; do
+    if [[ -z "${phase}" ]]; then
+      continue
+    fi
     count="$(support_go_count "${phase}" "${target}" "$@")"
     if [[ "${count}" == "0" ]]; then
       continue
     fi
     components_ref+=("$(support_go_regex "${phase}" "${target}" "$@")")
-  done
+  done < <(manifest_phases)
 }
 
 render_go_test_command() {

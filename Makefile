@@ -519,6 +519,9 @@ test-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
 test-fast-service-backed: export CARTULARY_TEST_TARGET := test-fast-service-backed
 
 test-fast-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
+	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-start test-fast-service-backed --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)" --service-backed 1
+	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) step-start test-fast-service-backed 1 2 test-fast-service-backed-lane-a --mode parallel --jobs $(SERVICE_BACKED_JOBS)
+	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) step-start test-fast-service-backed 2 2 test-fast-service-backed-lane-b --mode parallel --jobs $(SERVICE_BACKED_JOBS)
 	$(RUN_PHASE) "test-fast service-backed" -- $(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) test-fast-service-backed-lane-a test-fast-service-backed-lane-b; status=$$?; \
 	summary_status=0; \
 	if [ $$status -eq 0 ]; then \
@@ -538,6 +541,10 @@ test-fast-service-backed-lane-b: backend-store backend-process
 test-service-backed: export CARTULARY_TEST_TARGET := test-service-backed
 
 test-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
+	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-start test-service-backed --children "$(TEST_SERVICE_BACKED_CHILD_TARGETS)" --service-backed 1
+	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) step-start test-service-backed 1 3 test-service-backed-lane-a --mode parallel --jobs $(TEST_SERVICE_BACKED_JOBS)
+	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) step-start test-service-backed 2 3 test-service-backed-lane-b --mode parallel --jobs $(TEST_SERVICE_BACKED_JOBS)
+	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) step-start test-service-backed 3 3 test-service-backed-lane-browser --mode parallel --jobs $(TEST_SERVICE_BACKED_JOBS)
 	$(RUN_PHASE) "test service-backed" -- $(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(TEST_SERVICE_BACKED_JOBS) test-service-backed-lane-a test-service-backed-lane-b test-service-backed-lane-browser; status=$$?; \
 	summary_status=0; \
 	if [ $$status -eq 0 ]; then \
@@ -579,7 +586,7 @@ target-plan-json:
 
 explain-target:
 	$(Q)if [ -z "$(TARGET)" ]; then echo "usage: make explain-target TARGET=<backend target>" >&2; exit 2; fi
-	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/print-target-plan.mjs --target "$(TARGET)"
+	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/print-target-plan.mjs --target "$(TARGET)" $(if $(filter 0,$(DETAIL)),,--detail)
 
 backend-store: export CARTULARY_TEST_TARGET := backend-store
 
@@ -731,6 +738,9 @@ check-parallel: check-heavy check-static-validation check-harness-smoke
 check-service-backed: export CARTULARY_TEST_TARGET := check-service-backed
 
 check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) test-service-images
+	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-start check-service-backed --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)" --service-backed 1
+	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) step-start check-service-backed 1 2 check-service-backed-lane-a --mode parallel --jobs $(SERVICE_BACKED_JOBS)
+	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) step-start check-service-backed 2 2 check-service-backed-lane-b --mode parallel --jobs $(SERVICE_BACKED_JOBS)
 	$(RUN_PHASE) "check service-backed" -- $(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) check-service-backed-lane-a check-service-backed-lane-b; status=$$?; \
 	summary_status=0; \
 	if [ $$status -eq 0 ]; then \

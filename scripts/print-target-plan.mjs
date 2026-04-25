@@ -9,12 +9,13 @@ process.stdout.on("error", (error) => {
 });
 
 function usage() {
-  process.stderr.write("usage: print-target-plan.mjs [--json] [--target <target>]\n");
+  process.stderr.write("usage: print-target-plan.mjs [--json] [--detail] [--target <target>]\n");
   process.exit(2);
 }
 
 function parseArgs(argv) {
   const options = {
+    detail: false,
     json: false,
     target: "",
   };
@@ -22,6 +23,10 @@ function parseArgs(argv) {
     const arg = argv[index];
     if (arg === "--json") {
       options.json = true;
+      continue;
+    }
+    if (arg === "--detail") {
+      options.detail = true;
       continue;
     }
     if (arg === "--target") {
@@ -87,6 +92,68 @@ function renderHuman(rows, target) {
   return lines.join("\n").trimEnd();
 }
 
+function aggregateTargetRows(rows) {
+  const byTarget = new Map();
+  for (const row of rows) {
+    if (!byTarget.has(row.target)) {
+      byTarget.set(row.target, {
+        target: row.target,
+        service_backed: false,
+        rows: 0,
+        authoritative: 0,
+        support: 0,
+        raw: 0,
+        phases: new Set(),
+        shared_reports: new Set(),
+        safety: new Set(),
+      });
+    }
+    const aggregate = byTarget.get(row.target);
+    aggregate.service_backed = aggregate.service_backed || row.service_backed;
+    aggregate.rows += 1;
+    if (row.coverage === "authoritative") {
+      aggregate.authoritative += 1;
+    } else if (row.coverage === "support") {
+      aggregate.support += 1;
+    } else if (row.coverage === "raw") {
+      aggregate.raw += 1;
+    }
+    if (row.manifest_phase) {
+      aggregate.phases.add(row.manifest_phase);
+    }
+    if (row.shared_report) {
+      aggregate.shared_reports.add(row.shared_report);
+    }
+    if (row.check_heavy_safe) {
+      aggregate.safety.add("check-heavy");
+    }
+    if (row.check_service_backed_safe) {
+      aggregate.safety.add("check-service-backed");
+    }
+    if (row.check_isolated_safe) {
+      aggregate.safety.add("check-isolated");
+    }
+  }
+  return Array.from(byTarget.values()).sort((left, right) => left.target.localeCompare(right.target));
+}
+
+function renderCompact(rows, target) {
+  const aggregates = aggregateTargetRows(rows);
+  const targetNames = target ? [target] : aggregates.map((aggregate) => aggregate.target);
+  const lines = [];
+  for (const name of targetNames) {
+    const aggregate = aggregates.find((candidate) => candidate.target === name);
+    if (!aggregate) {
+      continue;
+    }
+    const safety = aggregate.safety.size === 0 ? "direct-only" : Array.from(aggregate.safety).sort().join(",");
+    lines.push(
+      `${aggregate.target} service_backed=${aggregate.service_backed ? 1 : 0} phases=${aggregate.phases.size} rows=${aggregate.rows} authoritative=${aggregate.authoritative} support=${aggregate.support} raw=${aggregate.raw} safety=${safety} shared_reports=${aggregate.shared_reports.size}`,
+    );
+  }
+  return lines.join("\n");
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const knownTargets = collectTargetNames();
@@ -104,7 +171,8 @@ function main() {
     return;
   }
 
-  process.stdout.write(`${renderHuman(rows, options.target)}\n`);
+  const rendered = options.detail ? renderHuman(rows, options.target) : renderCompact(rows, options.target);
+  process.stdout.write(`${rendered}\n`);
 }
 
 try {

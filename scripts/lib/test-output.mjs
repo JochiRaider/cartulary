@@ -13,6 +13,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { collectEntries, loadManifest } from "./phase-manifest.mjs";
+import { collectTargetPlanRows, findTargetDescriptor } from "./target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
@@ -69,6 +70,15 @@ function main() {
       break;
     case "run-summary":
       process.exit(handleRunSummary(rest));
+      break;
+    case "run-start":
+      process.exit(handleRunStart(rest));
+      break;
+    case "step-start":
+      process.exit(handleStepStart(rest));
+      break;
+    case "target-start":
+      process.exit(handleTargetStart(rest));
       break;
     default:
       throw new Error(`unknown test-output command ${command}`);
@@ -220,14 +230,149 @@ function resolveAccountingModes(accountingModes, fallbackActualPhases = 0) {
 
 function formatAccountingModeFields(accountingModes) {
   const modes = resolveAccountingModes(accountingModes);
-  return `actual_phases=${modes.actual ?? 0} reused_phases=${modes.reused ?? 0} derived_phases=${modes.derived ?? 0}`;
+  return `actual=${modes.actual ?? 0} reused=${modes.reused ?? 0} derived=${modes.derived ?? 0}`;
 }
 
 function formatDurationFields(wallDurationMs, executedDurationMs, logicalDurationMs = executedDurationMs) {
   const effectiveLogical = clampDurationMs(logicalDurationMs);
   const effectiveExecuted = clampDurationMs(executedDurationMs);
   const effectiveWall = Number.isFinite(wallDurationMs) ? wallDurationMs : effectiveLogical;
-  return `wall_duration=${formatDuration(effectiveWall)} executed_duration=${formatDuration(effectiveExecuted)} logical_duration=${formatDuration(effectiveLogical)}`;
+  return `wall=${formatDuration(effectiveWall)} exec=${formatDuration(effectiveExecuted)} logical=${formatDuration(effectiveLogical)}`;
+}
+
+function resolveOutputMode() {
+  if (process.env.VERBOSE === "1" || process.env.CI_VERBOSE === "1") {
+    return "normal";
+  }
+  return process.env.CARTULARY_OUTPUT_MODE || "quiet";
+}
+
+function parseLifecycleOptions(args) {
+  const options = { positional: [], force: false };
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--force") {
+      options.force = true;
+      continue;
+    }
+    if (arg.startsWith("--")) {
+      const name = arg.slice(2).replaceAll("-", "_");
+      const value = args[index + 1];
+      if (value === undefined) {
+        throw new Error(`${arg} requires a value`);
+      }
+      options[name] = value;
+      index += 1;
+      continue;
+    }
+    options.positional.push(arg);
+  }
+  return options;
+}
+
+function shouldEmitLifecycle(options) {
+  return options.force || resolveOutputMode() === "quiet";
+}
+
+function parseNonNegativeInteger(value, label) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`${label} must be a non-negative integer`);
+  }
+  return parsed;
+}
+
+function parseTargetListValue(value) {
+  if (!value) {
+    return [];
+  }
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
+function handleRunStart(args) {
+  const options = parseLifecycleOptions(args);
+  const [label] = options.positional;
+  if (!label || options.steps === undefined || options.targets === undefined || options.jobs === undefined) {
+    throw new Error("usage: test-output.mjs run-start <label> --steps <n> --targets <n> --jobs <n> [--force]");
+  }
+  if (!shouldEmitLifecycle(options)) {
+    return 0;
+  }
+  const steps = parseNonNegativeInteger(options.steps, "steps");
+  const targets = parseNonNegativeInteger(options.targets, "targets");
+  const jobs = parseNonNegativeInteger(options.jobs, "jobs");
+  process.stdout.write(`[RUN] ${label} steps=${steps} targets=${targets} jobs=${jobs} run_id=${runId}\n`);
+  return 0;
+}
+
+function handleStepStart(args) {
+  const options = parseLifecycleOptions(args);
+  const [label, indexText, totalText, target] = options.positional;
+  const mode = options.mode ?? options.positional[4] ?? "serial";
+  const jobsText = options.jobs ?? options.positional[5] ?? "1";
+  if (!label || !indexText || !totalText || !target) {
+    throw new Error("usage: test-output.mjs step-start <label> <index> <total> <target> [--mode <mode>] [--jobs <n>] [--force]");
+  }
+  if (!shouldEmitLifecycle(options)) {
+    return 0;
+  }
+  const index = parseNonNegativeInteger(indexText, "index");
+  const total = parseNonNegativeInteger(totalText, "total");
+  const jobs = parseNonNegativeInteger(jobsText, "jobs");
+  process.stdout.write(`[STEP] ${label} ${index}/${total} ${target} mode=${mode} jobs=${jobs}\n`);
+  return 0;
+}
+
+function targetStartStats(target, children) {
+  const childSet = new Set(children);
+  const rows = collectTargetPlanRows(repoRoot).filter((row) => {
+    if (childSet.size > 0) {
+      return childSet.has(row.target);
+    }
+    return row.target === target;
+  });
+  const descriptor = findTargetDescriptor(target);
+  const serviceBacked = descriptor?.serviceBacked ?? rows.some((row) => row.service_backed);
+  const manifestPhases = new Set(rows.map((row) => row.manifest_phase).filter(Boolean));
+  const rawRows = rows.filter((row) => row.manifest_phase === "").length;
+  return {
+    serviceBacked,
+    expectedPhases: manifestPhases.size + rawRows,
+    expectedTests: rows.length,
+  };
+}
+
+function handleTargetStart(args) {
+  const options = parseLifecycleOptions(args);
+  const [target] = options.positional;
+  if (!target) {
+    throw new Error("usage: test-output.mjs target-start <target> [--children <a,b>] [--service-backed <0|1>] [--expected-phases <n>] [--expected-tests <n>] [--force]");
+  }
+  if (!shouldEmitLifecycle(options)) {
+    return 0;
+  }
+  const children = parseTargetListValue(options.children);
+  const stats = targetStartStats(target, children);
+  const serviceBacked =
+    options.service_backed === undefined
+      ? stats.serviceBacked
+      : options.service_backed === "1" || options.service_backed === "true";
+  const expectedPhases =
+    options.expected_phases === undefined
+      ? stats.expectedPhases
+      : parseNonNegativeInteger(options.expected_phases, "expected-phases");
+  const expectedTests =
+    options.expected_tests === undefined
+      ? stats.expectedTests
+      : parseNonNegativeInteger(options.expected_tests, "expected-tests");
+  const childField = children.length > 0 ? ` children=${children.join(",")}` : "";
+  process.stdout.write(
+    `[TARGET] start ${target} service_backed=${serviceBacked ? 1 : 0} expected_phases=${expectedPhases} expected_tests=${expectedTests}${childField}\n`,
+  );
+  return 0;
 }
 
 function normalizeTimingBucket(value, runner = "") {

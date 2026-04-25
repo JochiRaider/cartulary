@@ -37,11 +37,24 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 node_bin="${NODE_BIN:-node}"
 manifest_script="$repo_root/scripts/lib/phase-manifest.mjs"
-functional_phases=(phase1 phase2 phase3 phase4)
+functional_phases=()
 functional_specs=()
-for phase in "${functional_phases[@]}"; do
+while IFS= read -r phase; do
+  if [[ -z "$phase" ]]; then
+    continue
+  fi
+  count="$("$node_bin" "$manifest_script" playwright-count "$phase" authoritative browser_functional)"
+  if [[ "$count" == "0" ]]; then
+    continue
+  fi
+  functional_phases+=("$phase")
   functional_specs+=("${phase}:authoritative:browser_functional")
-done
+done < <("$node_bin" "$manifest_script" list-phases)
+
+if [[ "${#functional_specs[@]}" -eq 0 ]]; then
+  echo "no authoritative browser_functional Playwright manifest rows found" >&2
+  exit 1
+fi
 
 functional_grep="$("$node_bin" "$manifest_script" playwright-grep-many "${functional_specs[@]}")"
 output_mode="$(resolve_output_mode)"

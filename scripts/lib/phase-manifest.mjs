@@ -199,6 +199,20 @@ export function loadManifest(root, phase) {
   return { manifestPath, manifest };
 }
 
+export function phaseManifestNames(root) {
+  const manifestRoot = process.env.CARTULARY_PHASE_MANIFEST_ROOT
+    ? path.resolve(process.env.CARTULARY_PHASE_MANIFEST_ROOT)
+    : root;
+  return readdirSync(path.join(manifestRoot, "tools"))
+    .filter((entry) => /^phase\d+_test_map\.json$/.test(entry))
+    .map((entry) => entry.replace(/_test_map\.json$/, ""))
+    .sort((left, right) => {
+      const leftNumber = Number.parseInt(left.replace(/^phase/, ""), 10);
+      const rightNumber = Number.parseInt(right.replace(/^phase/, ""), 10);
+      return leftNumber - rightNumber || left.localeCompare(right);
+    });
+}
+
 export function collectEntries(manifest) {
   const entries = [];
   for (const [section] of sectionDefinitions) {
@@ -758,6 +772,11 @@ function main(argv) {
   const root = process.cwd();
 
   switch (command) {
+    case "list-phases": {
+      printLines(phaseManifestNames(root));
+      return;
+    }
+
     case "go-regex": {
       const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
       const entries = selectGoEntries(root, phase, section, coverage, executionDependency, packagePatterns);
@@ -858,6 +877,13 @@ function main(argv) {
         throw new Error(`no ${coverage} playwright tests found for ${phase}`);
       }
       printLines([alternationRegex(entries.map((entry) => entry.title))]);
+      return;
+    }
+
+    case "playwright-count": {
+      const [phase, coverage, executionDependency = ""] = rest;
+      const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
+      printLines([String(entries.length)]);
       return;
     }
 

@@ -89,6 +89,60 @@ esac
 
 completed=0
 total="${#steps[@]}"
+target_count="${#summary_targets[@]}"
+max_jobs=1
+
+for step in "${steps[@]}"; do
+  step_kind="${step%%:*}"
+  step_rest="${step#*:}"
+  if [[ "${step_kind}" != "parallel" ]]; then
+    continue
+  fi
+  step_jobs="${step_rest#*:}"
+  if [[ "${step_jobs}" =~ ^[0-9]+$ ]] && (( step_jobs > max_jobs )); then
+    max_jobs="${step_jobs}"
+  fi
+done
+
+emit_run_start() {
+  if [[ "${dry_run}" -eq 1 ]]; then
+    return 0
+  fi
+
+  NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_SCRIPT}" run-start \
+    "${label}" --steps "${total}" --targets "${target_count}" --jobs "${max_jobs}"
+}
+
+emit_step_start() {
+  local encoded="$1"
+  local index="$2"
+  local kind="${encoded%%:*}"
+  local rest="${encoded#*:}"
+  local target
+  local jobs=1
+  local mode=serial
+
+  if [[ "${dry_run}" -eq 1 ]]; then
+    return 0
+  fi
+
+  case "${kind}" in
+    step)
+      target="${rest}"
+      ;;
+    parallel)
+      target="${rest%%:*}"
+      jobs="${rest#*:}"
+      mode=parallel
+      ;;
+    *)
+      target="${rest}"
+      ;;
+  esac
+
+  NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_SCRIPT}" step-start \
+    "${label}" "${index}" "${total}" "${target}" --mode "${mode}" --jobs "${jobs}"
+}
 
 run_summary() {
   local status="$1"
@@ -136,9 +190,15 @@ run_step() {
   esac
 }
 
-for step in "${steps[@]}"; do
+emit_run_start
+
+for index in "${!steps[@]}"; do
+  step="${steps[$index]}"
   step_target="${step#*:}"
   step_target="${step_target%%:*}"
+  step_number=$((index + 1))
+
+  emit_step_start "${step}" "${step_number}"
 
   set +e
   run_step "${step}"

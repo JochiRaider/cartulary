@@ -1,16 +1,12 @@
-import { readdirSync } from "node:fs";
-import path from "node:path";
-
 import {
   collectEntries,
   collectSupportGoEntries,
   goEntrySymbols,
   loadManifest,
   packageMatchesPattern,
+  phaseManifestNames,
   supportGoEntrySymbols,
 } from "./phase-manifest.mjs";
-
-const manifestPhases = ["phase0", "phase1", "phase2", "phase3", "phase4"];
 
 const targetDescriptors = [
   {
@@ -388,13 +384,6 @@ function compareRows(left, right) {
   );
 }
 
-function phaseManifestNames(root) {
-  return readdirSync(path.join(root, "tools"))
-    .filter((entry) => /^phase\d+_test_map\.json$/.test(entry))
-    .map((entry) => entry.replace(/_test_map\.json$/, ""))
-    .sort();
-}
-
 function rowBase(descriptor) {
   return {
     target: descriptor.name,
@@ -537,6 +526,6 @@ export function findTargetDescriptor(target) {
   return targetDescriptors.find((descriptor) => descriptor.name === target) ?? null;
 }
 
-export function knownManifestPhases() {
-  return [...manifestPhases];
+export function knownManifestPhases(root = process.cwd()) {
+  return phaseManifestNames(root);
 }
