@@ -247,7 +247,7 @@
           "workbook"
         ],
         "operationId": "createViewRow",
-        "summary": "Create one row through the view-scoped row-create route for Timeline, Host, Identity, Indicator, Notes, Task Requests, or Decisions surfaces.",
+        "summary": "Create one row through the view-scoped row-create route for Timeline, Host, Identity, Indicator, Assessments, Notes, Task Requests, or Decisions surfaces.",
         "requestBody": {
           "required": true,
           "content": {
@@ -265,6 +265,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/IndicatorCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AssessmentCreateRequest"
                   },
                   {
                     "$ref": "#/components/schemas/NoteCreateRequest"
@@ -1294,6 +1297,65 @@
           "client_txn_id"
         ]
       },
+      "AssessmentCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "assessment.subject_ref": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "assessment.subject_type": {
+            "type": "string",
+            "enum": [
+              "host",
+              "identity"
+            ]
+          },
+          "assessment.assessment_state": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "suspected",
+              "confirmed",
+              "disproven",
+              "cleared"
+            ]
+          },
+          "assessment.confidence_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100
+          },
+          "assessment.rationale": {
+            "type": "string"
+          },
+          "assessment.assessor": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "assessment.assessed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "assessment.support_refs": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "assessment.subject_ref",
+          "assessment.subject_type",
+          "assessment.assessment_state",
+          "assessment.rationale"
+        ]
+      },
       "NoteCreateRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -1498,6 +1560,9 @@
                   "$ref": "#/components/schemas/CollectionAddResolvedRefAction"
                 },
                 {
+                  "$ref": "#/components/schemas/CollectionAddRecordRefAction"
+                },
+                {
                   "$ref": "#/components/schemas/CollectionResolveItemAction"
                 },
                 {
@@ -1550,6 +1615,23 @@
           "op",
           "raw_text",
           "resolved_record_id"
+        ]
+      },
+      "CollectionAddRecordRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_record_ref"
+          },
+          "linked_record_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "op",
+          "linked_record_id"
         ]
       },
       "CollectionResolveItemAction": {
@@ -2046,7 +2128,8 @@
               "cartulary.view.timeline.v1",
               "cartulary.view.hosts.v1",
               "cartulary.view.identities.v1",
-              "cartulary.view.indicators.v1"
+              "cartulary.view.indicators.v1",
+              "cartulary.view.assessments.v1"
             ]
           },
           "change_set_id": {
