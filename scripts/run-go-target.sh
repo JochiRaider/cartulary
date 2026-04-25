@@ -47,6 +47,14 @@ support_go_count() {
   "${NODE_HELPER}" "${MANIFEST_SCRIPT}" support-go-count "$@"
 }
 
+manifest_go_postgres_fixture_policy_tests() {
+  "${NODE_HELPER}" "${MANIFEST_SCRIPT}" go-postgres-fixture-policy-tests "$@"
+}
+
+support_go_postgres_fixture_policy_tests() {
+  "${NODE_HELPER}" "${MANIFEST_SCRIPT}" support-go-postgres-fixture-policy-tests "$@"
+}
+
 manifest_phases() {
   "${NODE_HELPER}" "${MANIFEST_SCRIPT}" list-phases
 }
@@ -57,6 +65,14 @@ planned_shard_names() {
 
 planned_shard_spec() {
   "${NODE_HELPER}" "${SHARD_PLAN_SCRIPT}" shard-spec "$@"
+}
+
+planned_shard_postgres_fixture_policy_tests() {
+  "${NODE_HELPER}" "${SHARD_PLAN_SCRIPT}" shard-postgres-fixture-policy-tests "$@"
+}
+
+planned_shard_postgres_fixture_policy_packages() {
+  "${NODE_HELPER}" "${SHARD_PLAN_SCRIPT}" shard-postgres-fixture-policy-packages "$@"
 }
 
 planned_aggregate_names() {
@@ -101,6 +117,63 @@ build_union_regex() {
   printf '%s\n' "${result}"
 }
 
+join_nonempty_csv() {
+  local result=""
+  local component
+  for component in "$@"; do
+    if [[ -z "${component}" ]]; then
+      continue
+    fi
+    if [[ -n "${result}" ]]; then
+      result="${result},"
+    fi
+    result="${result}${component}"
+  done
+  printf '%s\n' "${result}"
+}
+
+append_declared_support_policy_components() {
+  if [[ "$#" -lt 2 ]]; then
+    echo "append_declared_support_policy_components requires <components-var> <target> <packages...>" >&2
+    return 2
+  fi
+
+  local -n components_ref="$1"
+  shift
+
+  local target="$1"
+  shift
+
+  local phase
+  local count
+  local policy
+  while IFS= read -r phase; do
+    if [[ -z "${phase}" ]]; then
+      continue
+    fi
+    count="$(support_go_count "${phase}" "${target}" "$@")"
+    if [[ "${count}" == "0" ]]; then
+      continue
+    fi
+    policy="$(support_go_postgres_fixture_policy_tests "${phase}" "${target}" "$@")"
+    if [[ -n "${policy}" ]]; then
+      components_ref+=("${policy}")
+    fi
+  done < <(manifest_phases)
+}
+
+set_postgres_fixture_policy_env() {
+  POSTGRES_FIXTURE_POLICY_TESTS="${1:-}"
+  POSTGRES_FIXTURE_POLICY_PACKAGES="${2:-}"
+  POSTGRES_FIXTURE_POLICY_DEFAULT="${3:-}"
+}
+
+clear_postgres_fixture_policy_env() {
+  unset POSTGRES_FIXTURE_POLICY_TESTS || true
+  unset POSTGRES_FIXTURE_POLICY_PACKAGES || true
+  unset POSTGRES_FIXTURE_POLICY_DEFAULT || true
+}
+
 append_declared_support_regex_components() {
   if [[ "$#" -lt 2 ]]; then
     echo "append_declared_support_regex_components requires <components-var> <target> <packages...>" >&2
@@ -142,7 +215,21 @@ render_go_test_command() {
   fi
   shift
 
-  render_command env GOCACHE="${GO_CACHE_DIR}" GOMODCACHE="${GO_MOD_CACHE_DIR}" "${GO_BIN}" test -json -run "${test_regex}" "$@"
+  local env_args=(
+    GOCACHE="${GO_CACHE_DIR}"
+    GOMODCACHE="${GO_MOD_CACHE_DIR}"
+  )
+  if [[ -n "${POSTGRES_FIXTURE_POLICY_TESTS:-}" ]]; then
+    env_args+=(CARTULARY_POSTGRES_FIXTURE_POLICY_TESTS="${POSTGRES_FIXTURE_POLICY_TESTS}")
+  fi
+  if [[ -n "${POSTGRES_FIXTURE_POLICY_PACKAGES:-}" ]]; then
+    env_args+=(CARTULARY_POSTGRES_FIXTURE_POLICY_PACKAGES="${POSTGRES_FIXTURE_POLICY_PACKAGES}")
+  fi
+  if [[ -n "${POSTGRES_FIXTURE_POLICY_DEFAULT:-}" ]]; then
+    env_args+=(CARTULARY_POSTGRES_FIXTURE_POLICY_DEFAULT="${POSTGRES_FIXTURE_POLICY_DEFAULT}")
+  fi
+
+  render_command env "${env_args[@]}" "${GO_BIN}" test -json -run "${test_regex}" "$@"
 }
 
 emit_declared_support_phase() {
@@ -543,6 +630,73 @@ resolve_target_shared_report_spec() {
   esac
 }
 
+resolve_target_shared_report_postgres_fixture_policy() {
+  if [[ "$#" -ne 4 ]]; then
+    echo "resolve_target_shared_report_postgres_fixture_policy requires <target> <shared-name> <test-policy-var> <package-policy-var>" >&2
+    return 2
+  fi
+
+  local target="$1"
+  local shared_name="$2"
+  local tests_var="$3"
+  local packages_var="$4"
+  local planned_tests=""
+  local planned_packages=""
+  local components=()
+
+  local -n tests_ref="${tests_var}"
+  local -n packages_ref="${packages_var}"
+  tests_ref=""
+  packages_ref=""
+
+  if [[ "${target}" == "backend-integration" || "${target}" == "backend-integration-support" ]] && [[ "${shared_name}" == *"-shard-"* ]]; then
+    planned_tests="$(planned_shard_postgres_fixture_policy_tests "${target}" "${shared_name}")"
+    planned_packages="$(planned_shard_postgres_fixture_policy_packages "${target}" "${shared_name}")"
+    tests_ref="${planned_tests}"
+    packages_ref="${planned_packages}"
+    return 0
+  fi
+
+  case "${shared_name}" in
+    backend-integration-phase0-platform)
+      components+=("$(manifest_go_postgres_fixture_policy_tests phase0 integration authoritative backend_integration ./internal/platform/...)")
+      append_declared_support_policy_components components backend_integration_support ./internal/platform/...
+      ;;
+    backend-integration-phase0-app)
+      components+=("$(manifest_go_postgres_fixture_policy_tests phase0 integration authoritative backend_integration ./internal/app)")
+      ;;
+    backend-integration-auth)
+      components+=("$(manifest_go_postgres_fixture_policy_tests phase1 integration authoritative backend_integration ./internal/modules/auth)")
+      append_declared_support_policy_components components backend_integration_support ./internal/modules/auth
+      ;;
+    backend-integration-phase2-incidents)
+      components+=("$(manifest_go_postgres_fixture_policy_tests phase2 integration authoritative backend_integration ./internal/modules/incidents)")
+      append_declared_support_policy_components components backend_integration_support ./internal/modules/incidents
+      ;;
+    backend-integration-phase3-timeline)
+      components+=("$(manifest_go_postgres_fixture_policy_tests phase3 integration authoritative backend_integration ./internal/modules/timeline)")
+      append_declared_support_policy_components components backend_integration_support ./internal/modules/timeline
+      ;;
+    backend-integration-phase4-entities)
+      components+=("$(manifest_go_postgres_fixture_policy_tests phase4 integration authoritative backend_integration ./internal/modules/entities)")
+      append_declared_support_policy_components components backend_integration_support ./internal/modules/entities
+      ;;
+    backend-integration-phase4-timeline)
+      components+=("$(manifest_go_postgres_fixture_policy_tests phase4 integration authoritative backend_integration ./internal/modules/timeline)")
+      ;;
+    backend-integration-testutil)
+      packages_ref="./internal/testutil/httptestx=package_reset,./internal/testutil/pgtest=package_reset,./internal/testutil/s3test=package_reset,./internal/testutil/testcontainersx=package_reset,./internal/testutil/wstest=package_reset"
+      ;;
+    backend-process-shared)
+      components+=("$(manifest_go_postgres_fixture_policy_tests phase0 e2e authoritative backend_process ./cmd/server)")
+      ;;
+    *)
+      ;;
+  esac
+
+  tests_ref="$(join_nonempty_csv "${components[@]}")"
+}
+
 capture_go_report() {
   if [[ "$#" -lt 4 ]]; then
     echo "capture_go_report requires <shared-name> <regex> -- <go test args...>" >&2
@@ -619,13 +773,21 @@ capture_go_report_locked() {
 
   set +e
   if [[ "${output_mode}" != "quiet" ]]; then
-    env GOCACHE="${GO_CACHE_DIR}" GOMODCACHE="${GO_MOD_CACHE_DIR}" \
+    env GOCACHE="${GO_CACHE_DIR}" \
+      GOMODCACHE="${GO_MOD_CACHE_DIR}" \
+      CARTULARY_POSTGRES_FIXTURE_POLICY_TESTS="${POSTGRES_FIXTURE_POLICY_TESTS:-}" \
+      CARTULARY_POSTGRES_FIXTURE_POLICY_PACKAGES="${POSTGRES_FIXTURE_POLICY_PACKAGES:-}" \
+      CARTULARY_POSTGRES_FIXTURE_POLICY_DEFAULT="${POSTGRES_FIXTURE_POLICY_DEFAULT:-}" \
       "${GO_BIN}" test -json -run "${test_regex}" "${test_args[@]}" \
       > >(tee "${runner_log}" | stream_go_json_output >&2) \
       2> >(tee "${stderr_log}" >&2)
     run_status=$?
   else
-    env GOCACHE="${GO_CACHE_DIR}" GOMODCACHE="${GO_MOD_CACHE_DIR}" \
+    env GOCACHE="${GO_CACHE_DIR}" \
+      GOMODCACHE="${GO_MOD_CACHE_DIR}" \
+      CARTULARY_POSTGRES_FIXTURE_POLICY_TESTS="${POSTGRES_FIXTURE_POLICY_TESTS:-}" \
+      CARTULARY_POSTGRES_FIXTURE_POLICY_PACKAGES="${POSTGRES_FIXTURE_POLICY_PACKAGES:-}" \
+      CARTULARY_POSTGRES_FIXTURE_POLICY_DEFAULT="${POSTGRES_FIXTURE_POLICY_DEFAULT:-}" \
       "${GO_BIN}" test -json -run "${test_regex}" "${test_args[@]}" \
       >"${runner_log}" \
       2>"${stderr_log}"
@@ -661,9 +823,14 @@ assign_named_shared_report() {
   local shared_name="$4"
   local shared_regex
   local shared_args=()
+  local policy_tests=""
+  local policy_packages=""
 
   resolve_target_shared_report_spec "${target}" "${shared_name}" shared_regex shared_args
+  resolve_target_shared_report_postgres_fixture_policy "${target}" "${shared_name}" policy_tests policy_packages
+  set_postgres_fixture_policy_env "${policy_tests}" "${policy_packages}" ""
   assign_captured_report "${dir_var}" "${usage_var}" "${shared_name}" "${shared_regex}" -- "${shared_args[@]}"
+  clear_postgres_fixture_policy_env
 }
 
 assign_captured_report() {
@@ -901,9 +1068,14 @@ inspect_shared_command() {
   local shared_name="$2"
   local shared_regex
   local shared_args=()
+  local policy_tests=""
+  local policy_packages=""
 
   resolve_target_shared_report_spec "${target}" "${shared_name}" shared_regex shared_args
+  resolve_target_shared_report_postgres_fixture_policy "${target}" "${shared_name}" policy_tests policy_packages
+  set_postgres_fixture_policy_env "${policy_tests}" "${policy_packages}" ""
   render_go_test_command "${shared_regex}" -- "${shared_args[@]}"
+  clear_postgres_fixture_policy_env
 }
 
 load_phase_window() {
@@ -1088,6 +1260,7 @@ run_backend_unit() {
 
 run_backend_store() {
   local shared_regex
+  local shared_policy_tests
   local shared_dir
   local shared_usage
   local status=0
@@ -1097,13 +1270,20 @@ run_backend_store() {
     "$(manifest_go_regex phase1 unit authoritative backend_store ./internal/modules/auth)" \
     "$(manifest_go_regex phase2 unit authoritative backend_store ./internal/modules/incidents)" \
     "$(manifest_go_regex phase3 unit authoritative backend_store ./internal/modules/timeline)")"
+  shared_policy_tests="$(join_nonempty_csv \
+    "$(manifest_go_postgres_fixture_policy_tests phase4 unit authoritative backend_store ./internal/modules/entities ./internal/modules/timeline)" \
+    "$(manifest_go_postgres_fixture_policy_tests phase1 unit authoritative backend_store ./internal/modules/auth)" \
+    "$(manifest_go_postgres_fixture_policy_tests phase2 unit authoritative backend_store ./internal/modules/incidents)" \
+    "$(manifest_go_postgres_fixture_policy_tests phase3 unit authoritative backend_store ./internal/modules/timeline)")"
 
+  set_postgres_fixture_policy_env "${shared_policy_tests}" "" ""
   assign_captured_report shared_dir shared_usage backend-store-shared "${shared_regex}" -- \
     -p "${GO_TEST_PACKAGE_PARALLELISM}" \
     ./internal/modules/auth \
     ./internal/modules/incidents \
     ./internal/modules/entities \
     ./internal/modules/timeline
+  clear_postgres_fixture_policy_env
 
   clear_go_selection_env
   emit_go_manifest_phase "backend-store phase4 authoritative" "${shared_usage}" "${shared_dir}" phase4 unit authoritative backend_store ./internal/modules/entities ./internal/modules/timeline || status=$?

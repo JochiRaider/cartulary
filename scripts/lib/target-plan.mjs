@@ -1,6 +1,8 @@
 import {
   collectEntries,
   collectSupportGoEntries,
+  effectiveGoEntryPostgresFixturePolicy,
+  effectiveSupportGoEntryPostgresFixturePolicy,
   goEntrySymbols,
   loadManifest,
   packageMatchesPattern,
@@ -247,6 +249,9 @@ const targetDescriptors = [
           "./internal/testutil/wstest",
         ],
         sharedReport: "backend-integration-testutil",
+        fixturePolicy: {
+          postgres: "package_reset",
+        },
       },
     ],
   },
@@ -448,6 +453,9 @@ function manifestRowsForFamily(root, descriptor, family) {
     package: entry.package,
     symbols: goEntrySymbols(entry),
     evidence_layer: entry.evidence_layer,
+    fixture_policy: {
+      postgres: effectiveGoEntryPostgresFixturePolicy(entry),
+    },
   }));
 }
 
@@ -472,6 +480,9 @@ function supportRowsForFamily(root, descriptor, family) {
           package: entry.package,
           symbols: [symbol],
           evidence_layer: "support",
+          fixture_policy: {
+            postgres: effectiveSupportGoEntryPostgresFixturePolicy(entry),
+          },
         });
       }
     }
@@ -498,6 +509,7 @@ function rawRowsForFamily(descriptor, family) {
       symbols: [],
       evidence_layer: "raw",
       label: family.label,
+      fixture_policy: family.fixturePolicy ?? {},
     },
   ];
 }

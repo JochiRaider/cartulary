@@ -43,6 +43,22 @@ json_b="$tmp_dir/target-plan-b.json"
 "$NODE_HELPER" -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' "$json_a"
 cmp -s "$json_a" "$json_b" || fail "target-plan JSON must be deterministic across invocations"
 
+if ! "$NODE_HELPER" - "$json_a" <<'EOF'
+const fs = require("node:fs");
+const rows = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const storeRows = rows.filter((row) => row.target === "backend-store");
+if (storeRows.length === 0 || !storeRows.every((row) => row.fixture_policy?.postgres === "template_clone")) {
+  process.exit(1);
+}
+const rawPgtest = rows.find((row) => row.target === "backend-integration" && row.shared_report === "backend-integration-testutil");
+if (!rawPgtest || rawPgtest.fixture_policy?.postgres !== "package_reset") {
+  process.exit(1);
+}
+EOF
+then
+  fail "target-plan JSON must expose postgres fixture policies"
+fi
+
 shard_json_a="$tmp_dir/go-shard-plan-a.json"
 shard_json_b="$tmp_dir/go-shard-plan-b.json"
 "$NODE_HELPER" "$SHARD_PLAN_SCRIPT" --json --target backend-integration >"$shard_json_a"
@@ -64,9 +80,13 @@ const entities = plan.aggregates.find((aggregate) => aggregate.name === "backend
 if (!incidents || incidents.shards.length < 2 || !entities || entities.shards.length < 2) {
   process.exit(1);
 }
+const authoritative = plan.shards.flatMap((shard) => shard.items).filter((item) => item.kind === "authoritative");
+if (authoritative.length === 0 || !authoritative.every((item) => item.postgres_fixture_policy === "template_clone")) {
+  process.exit(1);
+}
 EOF
 then
-  fail "backend-integration go shard plan must be weighted and split heavy aggregates"
+  fail "backend-integration go shard plan must be weighted, policy-bearing, and split heavy aggregates"
 fi
 
 backend_store_output="$("$NODE_HELPER" "$PLAN_SCRIPT" --target backend-store)"
@@ -139,3 +159,30 @@ phase5_shared_command="$(
     "$ROOT_DIR/scripts/run-go-target.sh" inspect-shared-command backend-unit backend-unit-auth
 )"
 assert_contains "$phase5_shared_command" "TestSupportPhase5_Discovered" "run-go-target support selection includes discovered phase"
+
+invalid_phase_root="$tmp_dir/invalid-phase-root"
+mkdir -p "$invalid_phase_root/tools"
+cat >"$invalid_phase_root/tools/phase5_test_map.json" <<'JSON'
+{
+  "expected_ids": ["U-5-01"],
+  "unit": [
+    {
+      "id": "U-5-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_store_test.go",
+      "symbol": "TestPhase5_Invalid_U_5_01",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "store_domain",
+      "fixture_policy": { "postgres": "invalid" },
+      "claim": "invalid fixture policy smoke",
+      "out_of_scope": "invalid fixture policy smoke"
+    }
+  ]
+}
+JSON
+
+if CARTULARY_PHASE_MANIFEST_ROOT="$invalid_phase_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase5 >/dev/null 2>&1; then
+  fail "phase manifest validation must reject unknown postgres fixture policies"
+fi

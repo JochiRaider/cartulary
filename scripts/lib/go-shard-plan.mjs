@@ -125,6 +125,10 @@ function addAggregate(aggregates, row, mode) {
   return aggregate;
 }
 
+function normalizePostgresFixturePolicy(value) {
+  return value === "template_clone" || value === "package_reset" ? value : "";
+}
+
 function buildExecutionItems(root) {
   const modulePath = loadGoModulePath(root);
   const baselines = loadDurationBaselines(root);
@@ -148,6 +152,7 @@ function buildExecutionItems(root) {
         import_path: "",
         weight_ms: baselines.defaultIntegrationWeightMs,
         weight_source: "default",
+        postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
       });
       continue;
     }
@@ -170,6 +175,7 @@ function buildExecutionItems(root) {
           import_path: importPath,
           weight_ms: weightMs,
           weight_source: baselines.tests.has(key) ? "baseline" : "default",
+          postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
         });
       }
       continue;
@@ -193,6 +199,7 @@ function buildExecutionItems(root) {
           import_path: importPath,
           weight_ms: weightMs,
           weight_source: baselines.tests.has(key) ? "baseline" : "default",
+          postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
         });
       }
     }
@@ -310,8 +317,10 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
             id: item.id,
             symbol: item.symbol,
             import_path: item.import_path,
+            packages: item.packages,
             weight_ms: item.weight_ms,
             weight_source: item.weight_source,
+            postgres_fixture_policy: item.postgres_fixture_policy,
           }))
           .sort(
             (left, right) =>
@@ -373,6 +382,25 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
   };
 }
 
+function fixturePolicyAssignmentsForShard(shard, mode) {
+  const assignments = [];
+  for (const item of shard.items) {
+    if (!item.postgres_fixture_policy) {
+      continue;
+    }
+    if (mode === "tests" && item.symbol) {
+      assignments.push(`${item.symbol}=${item.postgres_fixture_policy}`);
+      continue;
+    }
+    if (mode === "packages" && item.kind === "raw") {
+      for (const pkg of item.packages) {
+        assignments.push(`${pkg}=${item.postgres_fixture_policy}`);
+      }
+    }
+  }
+  return assignments.sort();
+}
+
 function targetShards(plan, target) {
   if (!integrationTargets.has(target)) {
     throw new Error(`unsupported Go shard target ${target}`);
@@ -420,6 +448,16 @@ function main(argv) {
     case "shard-spec": {
       const shard = findShard(plan, target, name);
       printLines([shard.regex, ...shard.packages]);
+      return;
+    }
+    case "shard-postgres-fixture-policy-tests": {
+      const shard = findShard(plan, target, name);
+      printLines([fixturePolicyAssignmentsForShard(shard, "tests").join(",")]);
+      return;
+    }
+    case "shard-postgres-fixture-policy-packages": {
+      const shard = findShard(plan, target, name);
+      printLines([fixturePolicyAssignmentsForShard(shard, "packages").join(",")]);
       return;
     }
     case "list-aggregates":

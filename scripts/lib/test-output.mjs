@@ -884,6 +884,7 @@ function loadServiceFixtureActivities(target) {
         operation: fixtureOperationForEvent(event.type),
         name: event.name ?? "",
         strategy: details.strategy ?? details.preparation_strategy ?? "",
+        fixture_policy: details.fixture_policy ?? "",
         reuse_scope: details.reuse_scope ?? "per-test",
         caller_package: details.caller_package ?? "",
         caller_file: details.caller_file ?? "",
@@ -934,22 +935,26 @@ function summarizeFixtureActivities(target) {
       activity.service,
       activity.operation,
       activity.reuse_scope,
+      activity.fixture_policy,
       activity.caller_package,
     ], activity, {
       service: activity.service,
       operation: activity.operation,
       reuse_scope: activity.reuse_scope,
+      fixture_policy: activity.fixture_policy,
       caller_package: activity.caller_package,
     });
     addFixtureAggregate(byTest, [
       activity.service,
       activity.operation,
       activity.reuse_scope,
+      activity.fixture_policy,
       activity.test_name,
     ], activity, {
       service: activity.service,
       operation: activity.operation,
       reuse_scope: activity.reuse_scope,
+      fixture_policy: activity.fixture_policy,
       test_name: activity.test_name,
     });
     addFixtureAggregate(byStrategy, [
@@ -957,11 +962,13 @@ function summarizeFixtureActivities(target) {
       activity.operation,
       activity.reuse_scope,
       activity.strategy,
+      activity.fixture_policy,
     ], activity, {
       service: activity.service,
       operation: activity.operation,
       reuse_scope: activity.reuse_scope,
       strategy: activity.strategy,
+      fixture_policy: activity.fixture_policy,
     });
   }
 
@@ -1007,6 +1014,7 @@ function fixtureSortKey(value) {
     value.service ?? "",
     value.operation ?? "",
     value.strategy ?? "",
+    value.fixture_policy ?? "",
     value.reuse_scope ?? "",
     value.caller_package ?? "",
     value.test_name ?? "",

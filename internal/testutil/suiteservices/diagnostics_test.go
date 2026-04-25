@@ -129,6 +129,7 @@ func TestSummarizeReportsFixtureActivity(t *testing.T) {
 			Details: map[string]any{
 				"duration_ms":          float64(25),
 				"preparation_strategy": PostgresPreparationTemplateClone,
+				"fixture_policy":       PostgresFixturePolicyTemplateClone,
 				"reuse_scope":          FixtureReusePerTest,
 				"caller_package":       "internal/modules/auth",
 				"caller_file":          "internal/modules/auth/phase1_integration_test.go",
@@ -143,6 +144,7 @@ func TestSummarizeReportsFixtureActivity(t *testing.T) {
 			Name:      "ct_auth",
 			Details: map[string]any{
 				"duration_ms":    float64(7),
+				"fixture_policy": PostgresFixturePolicyPackageReset,
 				"reuse_scope":    FixtureReusePackage,
 				"caller_package": "internal/modules/auth",
 				"caller_file":    "internal/modules/auth/phase1_integration_test.go",
@@ -191,6 +193,9 @@ func TestSummarizeReportsFixtureActivity(t *testing.T) {
 	}
 	if len(scope.Fixture.ByStrategy) == 0 || scope.Fixture.ByStrategy[0].TotalDurationMS != 25 {
 		t.Fatalf("expected strategy fixture aggregation sorted by cost, got %#v", scope.Fixture.ByStrategy)
+	}
+	if scope.Fixture.ByStrategy[0].FixturePolicy != PostgresFixturePolicyTemplateClone {
+		t.Fatalf("expected fixture policy in strategy diagnostics, got %#v", scope.Fixture.ByStrategy[0])
 	}
 	if len(scope.Fixture.Slowest) == 0 || scope.Fixture.Slowest[0].TestName != "TestAuth" {
 		t.Fatalf("expected slowest fixture event first, got %#v", scope.Fixture.Slowest)

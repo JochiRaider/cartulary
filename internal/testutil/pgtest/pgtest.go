@@ -24,6 +24,17 @@ import (
 
 const postgresImage = "postgres:16-alpine"
 
+const (
+	postgresFixturePolicyTemplateClone = "template_clone"
+	postgresFixturePolicyPackageReset  = "package_reset"
+)
+
+const (
+	postgresFixturePolicyTestsEnv    = "CARTULARY_POSTGRES_FIXTURE_POLICY_TESTS"
+	postgresFixturePolicyPackagesEnv = "CARTULARY_POSTGRES_FIXTURE_POLICY_PACKAGES"
+	postgresFixturePolicyDefaultEnv  = "CARTULARY_POSTGRES_FIXTURE_POLICY_DEFAULT"
+)
+
 func ContainerImage() string {
 	return postgresImage
 }
@@ -60,9 +71,10 @@ type packageDatabase struct {
 }
 
 type fixtureAttribution struct {
-	TestName      string
-	CallerFile    string
-	CallerPackage string
+	TestName              string
+	CallerFile            string
+	CallerPackage         string
+	PostgresFixturePolicy string
 }
 
 var (
@@ -389,6 +401,24 @@ func (h *Harness) PreparePackageDatabaseT(t testing.TB, prefix string) *TestData
 	t.Helper()
 
 	attribution := fixtureAttributionFor(t, "pgtest")
+	attribution.PostgresFixturePolicy = resolvePostgresFixturePolicy(attribution)
+	if attribution.PostgresFixturePolicy == postgresFixturePolicyTemplateClone {
+		testDB, _, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePerTest, attribution)
+		if err != nil {
+			t.Fatalf("prepare isolated postgres database: %v", err)
+		}
+		t.Cleanup(func() {
+			if h.retainPreparedDatabaseOnCleanup() {
+				h.recordRetainedDatabase(testDB.Name, suiteservices.FixtureReusePerTest, attribution)
+				return
+			}
+			if err := h.dropDatabase(context.Background(), testDB.Name, suiteservices.FixtureReusePerTest, attribution); err != nil {
+				t.Fatalf("drop isolated postgres database: %v", err)
+			}
+		})
+		return testDB
+	}
+
 	key := attribution.CallerPackage
 	if key == "" {
 		key = sanitizeIdentifier(prefix)
@@ -748,7 +778,71 @@ func postgresFixtureDetails(strategy string, reuseScope string, attribution fixt
 	if attribution.CallerPackage != "" {
 		details["caller_package"] = attribution.CallerPackage
 	}
+	if attribution.PostgresFixturePolicy != "" {
+		details["fixture_policy"] = attribution.PostgresFixturePolicy
+	}
 	return details
+}
+
+func resolvePostgresFixturePolicy(attribution fixtureAttribution) string {
+	topLevelTest := topLevelTestName(attribution.TestName)
+	if policy := lookupFixturePolicy(postgresFixturePolicyTestsEnv, topLevelTest); policy != "" {
+		return policy
+	}
+	if policy := lookupFixturePolicy(postgresFixturePolicyPackagesEnv, attribution.CallerPackage); policy != "" {
+		return policy
+	}
+	if policy := normalizePostgresFixturePolicy(suiteservices.LookupEnvValue(nil, postgresFixturePolicyDefaultEnv)); policy != "" {
+		return policy
+	}
+	return postgresFixturePolicyPackageReset
+}
+
+func lookupFixturePolicy(envName string, key string) string {
+	key = normalizeFixturePolicyKey(key)
+	if key == "" {
+		return ""
+	}
+	for _, assignment := range splitFixturePolicyAssignments(suiteservices.LookupEnvValue(nil, envName)) {
+		name, value, ok := strings.Cut(assignment, "=")
+		if !ok {
+			continue
+		}
+		if normalizeFixturePolicyKey(name) == key {
+			return normalizePostgresFixturePolicy(value)
+		}
+	}
+	return ""
+}
+
+func splitFixturePolicyAssignments(value string) []string {
+	return strings.FieldsFunc(value, func(r rune) bool {
+		return r == ',' || r == ';' || r == '\n' || r == '\r'
+	})
+}
+
+func topLevelTestName(testName string) string {
+	if before, _, ok := strings.Cut(testName, "/"); ok {
+		return before
+	}
+	return testName
+}
+
+func normalizeFixturePolicyKey(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.TrimPrefix(value, "./")
+	return value
+}
+
+func normalizePostgresFixturePolicy(value string) string {
+	switch strings.TrimSpace(value) {
+	case postgresFixturePolicyTemplateClone:
+		return postgresFixturePolicyTemplateClone
+	case postgresFixturePolicyPackageReset:
+		return postgresFixturePolicyPackageReset
+	default:
+		return ""
+	}
 }
 
 func fixtureAttributionFor(t testing.TB, harnessPackage string) fixtureAttribution {

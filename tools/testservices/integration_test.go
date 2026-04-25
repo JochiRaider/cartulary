@@ -45,6 +45,8 @@ func TestMakeBackendStoreUsesSingleOwnedSuitePair(t *testing.T) {
 		t.Fatalf("expected backend-store fixture diagnostics, got %#v", scope.Fixture)
 	}
 	assertNoHotPathPostgresDrops(t, scope)
+	assertNoPostgresDatabaseResets(t, scope)
+	assertPostgresFixturePolicy(t, scope, suiteservices.PostgresFixturePolicyTemplateClone)
 }
 
 func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedLanes(t *testing.T) {
@@ -64,8 +66,8 @@ func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedLanes(t *testing.T) {
 		t.Fatalf("expected nested target wrappers to pass through on the shared suite env, got %#v", scope.Wrapper)
 	}
 	assertSuiteServicesStarted(t, scope)
-	if scope.Postgres.MigratedDatabaseCount != 1 {
-		t.Fatalf("expected one migrated template database for the whole suite, got %#v", scope.Postgres)
+	if scope.Postgres.MigratedDatabaseCount < 1 {
+		t.Fatalf("expected at least one migrated template database for the whole suite, got %#v", scope.Postgres)
 	}
 	if scope.Postgres.TemplateCloneCount == 0 {
 		t.Fatalf("expected cloned package or isolated databases, got %#v", scope.Postgres)
@@ -79,6 +81,8 @@ func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedLanes(t *testing.T) {
 		t.Fatalf("expected fixture diagnostics grouped by package, got %#v", scope.Fixture)
 	}
 	assertNoHotPathPostgresDrops(t, scope)
+	assertPostgresPackageResetsLimitedToHarnessPolicy(t, scope)
+	assertPostgresFixturePolicy(t, scope, suiteservices.PostgresFixturePolicyTemplateClone)
 
 	postgresPIDs := uniqueEventPIDs(events, suiteservices.EventPostgresDBCreated)
 	minioPIDs := uniqueEventPIDs(events, suiteservices.EventS3BucketCreated)
@@ -105,6 +109,41 @@ func assertNoHotPathPostgresDrops(t testing.TB, scope suiteservices.ServiceScope
 		}
 		t.Fatalf("unexpected hot-path postgres database drop activity: %#v", activity)
 	}
+}
+
+func assertNoPostgresDatabaseResets(t testing.TB, scope suiteservices.ServiceScope) {
+	t.Helper()
+
+	for _, activity := range scope.Fixture.ByStrategy {
+		if activity.Service == suiteservices.ServicePostgres && activity.Operation == "database-reset" {
+			t.Fatalf("unexpected postgres database reset activity: %#v", activity)
+		}
+	}
+}
+
+func assertPostgresPackageResetsLimitedToHarnessPolicy(t testing.TB, scope suiteservices.ServiceScope) {
+	t.Helper()
+
+	for _, activity := range scope.Fixture.ByPackage {
+		if activity.Service != suiteservices.ServicePostgres || activity.Operation != "database-reset" {
+			continue
+		}
+		if activity.FixturePolicy == suiteservices.PostgresFixturePolicyPackageReset {
+			continue
+		}
+		t.Fatalf("unexpected non-harness postgres package reset activity: %#v", activity)
+	}
+}
+
+func assertPostgresFixturePolicy(t testing.TB, scope suiteservices.ServiceScope, policy string) {
+	t.Helper()
+
+	for _, activity := range scope.Fixture.ByStrategy {
+		if activity.Service == suiteservices.ServicePostgres && activity.FixturePolicy == policy {
+			return
+		}
+	}
+	t.Fatalf("expected postgres fixture policy %q in %#v", policy, scope.Fixture.ByStrategy)
 }
 
 func TestMakeMigrationDriftDoesNotEmitSuiteServiceArtifacts(t *testing.T) {

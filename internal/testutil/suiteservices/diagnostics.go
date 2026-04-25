@@ -44,6 +44,11 @@ const (
 )
 
 const (
+	PostgresFixturePolicyTemplateClone = "template_clone"
+	PostgresFixturePolicyPackageReset  = "package_reset"
+)
+
+const (
 	FixtureReusePerTest          = "per-test"
 	FixtureReusePackage          = "package-reused"
 	FixtureReuseTransaction      = "transaction"
@@ -148,6 +153,7 @@ type FixtureActivity struct {
 	Service         string `json:"service,omitempty"`
 	Operation       string `json:"operation,omitempty"`
 	Strategy        string `json:"strategy,omitempty"`
+	FixturePolicy   string `json:"fixture_policy,omitempty"`
 	ReuseScope      string `json:"reuse_scope,omitempty"`
 	CallerPackage   string `json:"caller_package,omitempty"`
 	CallerFile      string `json:"caller_file,omitempty"`
@@ -371,21 +377,24 @@ func recordFixtureActivity(summary *FixtureSummary, byPackage map[string]Fixture
 
 	summary.TotalCount++
 	summary.TotalDurationMS += activity.TotalDurationMS
-	upsertFixtureActivity(byPackage, fixtureKey(activity.Service, activity.CallerPackage, activity.Operation, activity.ReuseScope), activity, func(existing *FixtureActivity) {
+	upsertFixtureActivity(byPackage, fixtureKey(activity.Service, activity.CallerPackage, activity.FixturePolicy, activity.Operation, activity.ReuseScope), activity, func(existing *FixtureActivity) {
 		existing.Service = activity.Service
 		existing.CallerPackage = activity.CallerPackage
+		existing.FixturePolicy = activity.FixturePolicy
 		existing.Operation = activity.Operation
 		existing.ReuseScope = activity.ReuseScope
 	})
-	upsertFixtureActivity(byTest, fixtureKey(activity.Service, activity.TestName, activity.Operation, activity.ReuseScope), activity, func(existing *FixtureActivity) {
+	upsertFixtureActivity(byTest, fixtureKey(activity.Service, activity.TestName, activity.FixturePolicy, activity.Operation, activity.ReuseScope), activity, func(existing *FixtureActivity) {
 		existing.Service = activity.Service
 		existing.TestName = activity.TestName
+		existing.FixturePolicy = activity.FixturePolicy
 		existing.Operation = activity.Operation
 		existing.ReuseScope = activity.ReuseScope
 	})
-	upsertFixtureActivity(byStrategy, fixtureKey(activity.Service, activity.Strategy, activity.Operation, activity.ReuseScope), activity, func(existing *FixtureActivity) {
+	upsertFixtureActivity(byStrategy, fixtureKey(activity.Service, activity.Strategy, activity.FixturePolicy, activity.Operation, activity.ReuseScope), activity, func(existing *FixtureActivity) {
 		existing.Service = activity.Service
 		existing.Strategy = activity.Strategy
+		existing.FixturePolicy = activity.FixturePolicy
 		existing.Operation = activity.Operation
 		existing.ReuseScope = activity.ReuseScope
 	})
@@ -401,6 +410,7 @@ func fixtureActivityFromEvent(event Event) FixtureActivity {
 		Service:         service,
 		Operation:       fixtureOperationForEvent(event.Type),
 		Strategy:        firstNonEmpty(stringDetail(event.Details, "strategy"), stringDetail(event.Details, "preparation_strategy")),
+		FixturePolicy:   stringDetail(event.Details, "fixture_policy"),
 		ReuseScope:      firstNonEmpty(stringDetail(event.Details, "reuse_scope"), FixtureReusePerTest),
 		CallerPackage:   stringDetail(event.Details, "caller_package"),
 		CallerFile:      stringDetail(event.Details, "caller_file"),
@@ -509,6 +519,7 @@ func fixtureActivitySortKey(activity FixtureActivity) string {
 		activity.Service,
 		activity.Operation,
 		activity.Strategy,
+		activity.FixturePolicy,
 		activity.ReuseScope,
 		activity.CallerPackage,
 		activity.TestName,

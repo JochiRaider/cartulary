@@ -220,6 +220,105 @@ func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
 	}
 }
 
+func TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage(t *testing.T) {
+	t.Setenv(postgresFixturePolicyTestsEnv, "TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage=template_clone")
+	t.Setenv(postgresFixturePolicyPackagesEnv, "internal/modules/auth=package_reset")
+	t.Setenv(postgresFixturePolicyDefaultEnv, "package_reset")
+
+	policy := resolvePostgresFixturePolicy(fixtureAttribution{
+		TestName:      "TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage/subcase",
+		CallerPackage: "internal/modules/auth",
+	})
+	if policy != postgresFixturePolicyTemplateClone {
+		t.Fatalf("expected top-level test policy to win, got %q", policy)
+	}
+
+	t.Setenv(postgresFixturePolicyTestsEnv, "")
+	policy = resolvePostgresFixturePolicy(fixtureAttribution{
+		TestName:      "TestOther/subcase",
+		CallerPackage: "./internal/modules/auth",
+	})
+	if policy != postgresFixturePolicyPackageReset {
+		t.Fatalf("expected package policy to win, got %q", policy)
+	}
+
+	t.Setenv(postgresFixturePolicyPackagesEnv, "")
+	t.Setenv(postgresFixturePolicyDefaultEnv, "template_clone")
+	policy = resolvePostgresFixturePolicy(fixtureAttribution{
+		TestName:      "TestOther/subcase",
+		CallerPackage: "internal/modules/timeline",
+	})
+	if policy != postgresFixturePolicyTemplateClone {
+		t.Fatalf("expected default policy to apply, got %q", policy)
+	}
+}
+
+func TestPreparePackageDatabaseTTemplateClonePolicyAvoidsPackageReset(t *testing.T) {
+	t.Setenv(suiteservices.SuiteIDEnv, "")
+	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyTemplateClone)
+
+	oldCreate := createDatabaseFn
+	oldDrop := dropDatabaseFn
+	oldListMutableTables := listMutableTablesFn
+	t.Cleanup(func() {
+		createDatabaseFn = oldCreate
+		dropDatabaseFn = oldDrop
+		listMutableTablesFn = oldListMutableTables
+	})
+
+	var creates []struct {
+		Name     string
+		Template string
+	}
+	createDatabaseFn = func(ctx context.Context, adminDSN string, name string, templateDB string) error {
+		creates = append(creates, struct {
+			Name     string
+			Template string
+		}{Name: name, Template: templateDB})
+		return nil
+	}
+	var drops []string
+	dropDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
+		drops = append(drops, name)
+		return nil
+	}
+	listMutableTablesFn = func(ctx context.Context, db *sql.DB) ([]string, error) {
+		return nil, errors.New("template clone policy must not reset mutable tables")
+	}
+
+	harness := &Harness{
+		adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
+		dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
+		templateDB:  "suite_template",
+		suiteHash:   "suitehash",
+		processHash: "procaaaa",
+	}
+
+	var firstName string
+	t.Run("first clone", func(t *testing.T) {
+		firstName = harness.PreparePackageDatabaseT(t, "clone-policy").Name
+	})
+	var secondName string
+	t.Run("second clone", func(t *testing.T) {
+		secondName = harness.PreparePackageDatabaseT(t, "clone-policy").Name
+	})
+
+	if firstName == "" || secondName == "" || firstName == secondName {
+		t.Fatalf("expected distinct template-clone database names, got first=%q second=%q", firstName, secondName)
+	}
+	if len(creates) != 2 {
+		t.Fatalf("expected two database creates, got %#v", creates)
+	}
+	for _, create := range creates {
+		if create.Template != "suite_template" {
+			t.Fatalf("expected template clone create, got %#v", create)
+		}
+	}
+	if len(drops) != 2 {
+		t.Fatalf("expected cloned databases to be dropped outside active suite, got %v", drops)
+	}
+}
+
 func TestPrepareDatabaseTCleanupDropsStandaloneDatabase(t *testing.T) {
 	t.Setenv(suiteservices.SuiteIDEnv, "")
 
@@ -478,6 +577,7 @@ SELECT EXISTS (
 }
 
 func TestPreparePackageDatabaseTReusesAndResetsMutableTables(t *testing.T) {
+	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyPackageReset)
 	harness := Start(t)
 
 	oldListMutableTables := listMutableTablesFn
