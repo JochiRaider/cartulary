@@ -24,6 +24,10 @@ import (
 
 const postgresImage = "postgres:16-alpine"
 
+func ContainerImage() string {
+	return postgresImage
+}
+
 type Harness struct {
 	Container testcontainers.Container
 	Host      string

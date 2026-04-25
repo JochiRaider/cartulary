@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
@@ -119,6 +120,118 @@ func TestRunCleansUpOwnedServicesOnChildFailureAndPropagatesStatus(t *testing.T)
 	requireTimingEvent(t, events, bucketTeardown, "test-services cleanup owned services")
 }
 
+func TestRunStartsMinIOWhilePostgresTemplateIsPreparing(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	minioStarted := make(chan struct{})
+	releaseMinIO := make(chan struct{})
+	childStarted := false
+
+	deps.startPostgres = func(context.Context) (postgresService, error) {
+		return postgresService{
+			adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
+			dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
+			host:        "127.0.0.1",
+			port:        "5432",
+			user:        "cartulary",
+			close:       func(context.Context) error { return nil },
+		}, nil
+	}
+	deps.startMinIO = func(ctx context.Context) (minioService, error) {
+		close(minioStarted)
+		select {
+		case <-releaseMinIO:
+			return minioService{
+				endpoint:  "127.0.0.1:9000",
+				accessKey: "minio-access",
+				secretKey: "minio-secret",
+				secure:    false,
+				close:     func(context.Context) error { return nil },
+			}, nil
+		case <-ctx.Done():
+			return minioService{}, ctx.Err()
+		}
+	}
+	deps.createTemplate = func(context.Context, string, string) error {
+		select {
+		case <-minioStarted:
+			close(releaseMinIO)
+			return nil
+		case <-time.After(time.Second):
+			return errors.New("minio did not start before postgres template preparation")
+		}
+	}
+	deps.startChild = func(argv []string, env map[string]string) (childProcess, error) {
+		childStarted = true
+		if env[suiteservices.PGTemplateDBEnv] == "" {
+			t.Fatal("child must receive the migrated template database name")
+		}
+		if env[suiteservices.S3EndpointEnv] != "127.0.0.1:9000" {
+			t.Fatalf("child missing minio endpoint: %#v", env)
+		}
+		if env[suiteservices.S3AccessKeyEnv] != "minio-access" || env[suiteservices.S3SecretKeyEnv] != "minio-secret" {
+			t.Fatalf("child missing minio credentials: %#v", env)
+		}
+		return fakeChild{}, nil
+	}
+
+	status := run([]string{"run", "--", "ignored"}, deps.env, deps.dependencies)
+	if status != 0 {
+		t.Fatalf("unexpected exit status: got %d want 0", status)
+	}
+	if !childStarted {
+		t.Fatal("expected child command to start after both services are ready")
+	}
+
+	events := loadTestEvents(t, deps)
+	requireTimingEvent(t, events, bucketServiceWait, "test-services start postgres")
+	requireTimingEvent(t, events, bucketServiceWait, "test-services start minio")
+	requireTimingEvent(t, events, bucketMigration, "test-services prepare postgres template database")
+}
+
+func TestRunCleansUpMinIOWhenPostgresStartupFails(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	minioClosed := 0
+	childStarted := false
+
+	deps.startPostgres = func(context.Context) (postgresService, error) {
+		return postgresService{}, errors.New("postgres refused startup")
+	}
+	deps.startMinIO = func(context.Context) (minioService, error) {
+		return minioService{
+			endpoint:  "127.0.0.1:9000",
+			accessKey: "minio-access",
+			secretKey: "minio-secret",
+			close: func(context.Context) error {
+				minioClosed++
+				return nil
+			},
+		}, nil
+	}
+	deps.startChild = func([]string, map[string]string) (childProcess, error) {
+		childStarted = true
+		return fakeChild{}, nil
+	}
+
+	status := run([]string{"run", "--", "ignored"}, deps.env, deps.dependencies)
+	if status != 1 {
+		t.Fatalf("unexpected exit status: got %d want 1", status)
+	}
+	if childStarted {
+		t.Fatal("child must not start when postgres startup fails")
+	}
+	if minioClosed != 1 {
+		t.Fatalf("expected minio cleanup after postgres startup failure, got %d", minioClosed)
+	}
+
+	scope := loadScope(t, deps)
+	if scope.Failure == nil || scope.Failure.Service != suiteservices.ServicePostgres || scope.Failure.Stage != stagePostgresStart {
+		t.Fatalf("unexpected startup failure summary: %#v", scope.Failure)
+	}
+	if scope.Cleanup.Status != "startup_failed" {
+		t.Fatalf("unexpected cleanup status: %#v", scope.Cleanup)
+	}
+}
+
 func TestRunRedactsCredentialsInDiagnostics(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	deps.startPostgres = func(context.Context) (postgresService, error) {
@@ -179,6 +292,7 @@ func TestRunRedactsCredentialsInDiagnostics(t *testing.T) {
 
 func TestRunRecordsMinIOStartupFailureWithStructuredSummary(t *testing.T) {
 	deps := defaultTestDependencies(t)
+	childStarted := false
 	deps.startPostgres = func(context.Context) (postgresService, error) {
 		return postgresService{
 			adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
@@ -202,10 +316,17 @@ func TestRunRecordsMinIOStartupFailureWithStructuredSummary(t *testing.T) {
 			Cause:                 errors.New("docker.sock connection refused password=minio-secret access_key=access-secret"),
 		}
 	}
+	deps.startChild = func([]string, map[string]string) (childProcess, error) {
+		childStarted = true
+		return fakeChild{}, nil
+	}
 
 	status := run([]string{"run", "--", "ignored"}, deps.env, deps.dependencies)
 	if status != 1 {
 		t.Fatalf("unexpected exit status: got %d want 1", status)
+	}
+	if childStarted {
+		t.Fatal("child must not start when minio startup fails")
 	}
 
 	scope := loadScope(t, deps)
@@ -248,6 +369,7 @@ func TestRunRecordsMinIOStartupFailureWithStructuredSummary(t *testing.T) {
 
 func TestRunRecordsPostgresTemplateFailureWithStructuredSummary(t *testing.T) {
 	deps := defaultTestDependencies(t)
+	minioClosed := 0
 	deps.startPostgres = func(context.Context) (postgresService, error) {
 		return postgresService{
 			adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
@@ -256,6 +378,17 @@ func TestRunRecordsPostgresTemplateFailureWithStructuredSummary(t *testing.T) {
 			port:        "5432",
 			user:        "cartulary",
 			close:       func(context.Context) error { return nil },
+		}, nil
+	}
+	deps.startMinIO = func(context.Context) (minioService, error) {
+		return minioService{
+			endpoint:  "127.0.0.1:9000",
+			accessKey: "access-secret",
+			secretKey: "minio-secret",
+			close: func(context.Context) error {
+				minioClosed++
+				return nil
+			},
 		}, nil
 	}
 	deps.createTemplate = func(context.Context, string, string) error {
@@ -285,6 +418,9 @@ func TestRunRecordsPostgresTemplateFailureWithStructuredSummary(t *testing.T) {
 	}
 	if scope.Cleanup.Status != "startup_failed" {
 		t.Fatalf("unexpected cleanup status: got %#v", scope.Cleanup)
+	}
+	if minioClosed != 1 {
+		t.Fatalf("expected minio cleanup after template failure, got %d", minioClosed)
 	}
 }
 
@@ -365,6 +501,30 @@ func TestPrepareWebE2ERequiresActiveSuiteAndTemplate(t *testing.T) {
 	}
 	if called {
 		t.Fatal("prepare must not run without a migrated template database")
+	}
+}
+
+func TestWarmImagesUsesPinnedServiceImages(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	var got []string
+	deps.warmImages = func(_ context.Context, images []string) error {
+		got = append(got, images...)
+		return nil
+	}
+
+	status := run([]string{"warm-images"}, deps.env, deps.dependencies)
+	if status != 0 {
+		t.Fatalf("unexpected warm-images status: got %d want 0", status)
+	}
+
+	want := serviceImages()
+	if len(got) != len(want) {
+		t.Fatalf("unexpected image count: got %v want %v", got, want)
+	}
+	for index := range want {
+		if got[index] != want[index] {
+			t.Fatalf("unexpected image at %d: got %q want %q", index, got[index], want[index])
+		}
 	}
 }
 

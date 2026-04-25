@@ -521,6 +521,24 @@ for target in backend-process phase0-process-e2e phase1-process-smoke phase2-pro
   fi
 done
 
+test_service_images_block="$(extract_target_block test-service-images)"
+if [[ -z "$test_service_images_block" ]]; then
+  fail "Makefile must define a non-empty test-service-images block"
+fi
+if ! printf '%s\n' "$test_service_images_block" | grep -Fq '$(TEST_SERVICES_BIN) warm-images'; then
+  fail "test-service-images must warm pinned service images through $(TEST_SERVICES_BIN)"
+fi
+
+check_heavy_prereqs="$(extract_target_prereqs check-heavy)"
+if ! printf '%s\n' "$check_heavy_prereqs" | rg -q '(^|[[:space:]])test-service-images($|[[:space:]])'; then
+  fail "check-heavy must warm service images during the parallel-safe check stage"
+fi
+
+check_service_prereqs="$(extract_target_prereqs check-service-backed)"
+if ! printf '%s\n' "$check_service_prereqs" | rg -q '(^|[[:space:]])test-service-images($|[[:space:]])'; then
+  fail "check-service-backed must depend on test-service-images for direct runs"
+fi
+
 check_service_block="$(extract_target_block check-service-backed)"
 if [[ -z "$check_service_block" ]]; then
   fail "Makefile must define a non-empty check-service-backed block"

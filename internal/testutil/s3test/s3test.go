@@ -28,11 +28,15 @@ const (
 	minioImage                = "minio/minio:RELEASE.2025-09-07T16-13-09Z"
 	minioAPIPort              = "9000/tcp"
 	minioConsolePort          = "9001/tcp"
-	minioStartupTimeout       = 2 * time.Minute
+	minioPortMappingTimeout   = 30 * time.Second
 	minioHealthPollInterval   = 500 * time.Millisecond
 	minioClientReadyTimeout   = 60 * time.Second
 	minioClientAttemptTimeout = 5 * time.Second
 )
+
+func ContainerImage() string {
+	return minioImage
+}
 
 type Harness struct {
 	Container testcontainers.Container
@@ -130,7 +134,7 @@ func startHarness(ctx context.Context) (*Harness, error) {
 			"MINIO_ROOT_USER":     "minioadmin",
 			"MINIO_ROOT_PASSWORD": "minioadmin",
 		},
-		WaitingFor: wait.ForListeningPort(minioAPIPort).WithStartupTimeout(minioStartupTimeout),
+		WaitingFor: minioPortWaitStrategy(),
 	}
 
 	container, err := testcontainersx.StartWithRetry(ctx, testcontainersx.StartConfig{
@@ -174,6 +178,10 @@ func startHarness(ctx context.Context) (*Harness, error) {
 	}
 
 	return harness, nil
+}
+
+func minioPortWaitStrategy() *wait.HostPortStrategy {
+	return wait.ForMappedPort(minioAPIPort).WithStartupTimeout(minioPortMappingTimeout)
 }
 
 func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {

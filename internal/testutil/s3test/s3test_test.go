@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/minio/minio-go/v7"
@@ -126,6 +127,16 @@ func TestBucketNamesAreUniqueAcrossSimulatedProcesses(t *testing.T) {
 			}
 			seen[name] = struct{}{}
 		}
+	}
+}
+
+func TestMinIOContainerWaitStrategyOnlyWaitsForPortMapping(t *testing.T) {
+	strategy := minioPortWaitStrategy()
+	if got := strategy.String(); !strings.Contains(got, "to be mapped") {
+		t.Fatalf("expected mapped-port-only wait strategy, got %q", got)
+	}
+	if timeout := strategy.Timeout(); timeout == nil || *timeout != minioPortMappingTimeout {
+		t.Fatalf("unexpected port mapping timeout: got %v want %v", timeout, minioPortMappingTimeout)
 	}
 }
 

@@ -42,6 +42,7 @@
     { "name": "explain-target", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/print-target-plan.mjs"] },
     { "name": "backend-task-surface-check", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/check-backend-task-surface.sh"] },
     { "name": "service-backed-unit-check", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/check-service-backed-unit-tests.sh"] },
+    { "name": "test-service-images", "classification": "helper_only", "included_in": ["helper_only"] },
     {
       "name": "run-phase-smoke",
       "classification": "helper_only",

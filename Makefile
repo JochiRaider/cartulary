@@ -5,7 +5,7 @@ SHELL := /bin/bash
 .PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install
 .PHONY: db-up db-reset services-up services-wait postgres-wait minio-wait minio-init dev
 .PHONY: generate generate-drift toolchain-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-ledgers phase-ledger-drift benchmark-claim-check task-surface-report task-surface-check
-.PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check run-phase-smoke phase-test-name-check
+.PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check test-service-images run-phase-smoke phase-test-name-check
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck format format-frontend
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-resettable browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
 .PHONY: test-local test-service-backed test-service-backed-lane-a test-service-backed-lane-b test-service-backed-lane-browser test-isolated test-fast test-fast-service-backed test-fast-service-backed-lane-a test-fast-service-backed-lane-b test lint lint-go check check-preflight check-setup-blockers check-static-validation check-harness-smoke check-parallel check-heavy check-service-backed check-service-backed-lane-a check-service-backed-lane-b check-isolated ci release-check license-report sbom
@@ -467,6 +467,9 @@ backend-task-surface-check: $(NODE_BIN)
 service-backed-unit-check:
 	$(RUN_PHASE) "service-backed-unit-check" -- ./scripts/check-service-backed-unit-tests.sh
 
+test-service-images: $(TEST_SERVICES_BIN)
+	$(RUN_PHASE) "warm test service images" -- $(TEST_SERVICES_BIN) warm-images
+
 test-local: backend-unit frontend-typecheck frontend-unit
 
 test-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
@@ -681,13 +684,13 @@ check-harness-smoke:
 
 # Keep only parallel-safe work here. Service-backed Go phases and owned-stack
 # browser suites run after this block under serialized orchestration.
-check-heavy: migration-drift lint-go frontend-typecheck backend-unit frontend-unit deployable-shape-verify
+check-heavy: test-service-images migration-drift lint-go frontend-typecheck backend-unit frontend-unit deployable-shape-verify
 
 check-parallel: check-heavy check-static-validation check-harness-smoke
 
 check-service-backed: export CARTULARY_TEST_TARGET := check-service-backed
 
-check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
+check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) test-service-images
 	$(RUN_PHASE) "check service-backed" -- $(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) check-service-backed-lane-a check-service-backed-lane-b; status=$$?; \
 	summary_status=0; \
 	if [ $$status -eq 0 ]; then \

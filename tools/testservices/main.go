@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -65,6 +66,20 @@ type minioService struct {
 	close     func(context.Context) error
 }
 
+type postgresStartResult struct {
+	service postgresService
+	start   time.Time
+	end     time.Time
+	err     error
+}
+
+type minioStartResult struct {
+	service minioService
+	start   time.Time
+	end     time.Time
+	err     error
+}
+
 type webE2EFixture struct {
 	DatabaseName string
 	DSN          string
@@ -94,6 +109,7 @@ type dependencies struct {
 	createTemplate func(context.Context, string, string) error
 	prepareWebE2E  func(context.Context, map[string]string) (webE2EFixture, error)
 	cleanupWebE2E  func(context.Context, webE2EMetadata, map[string]string) error
+	warmImages     func(context.Context, []string) error
 	recordEvent    func(map[string]string, suiteservices.Event)
 	refreshSummary func(map[string]string)
 	suiteID        func() (string, error)
@@ -107,7 +123,7 @@ func main() {
 
 func run(args []string, env map[string]string, deps dependencies) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | prepare-web-e2e --env-file <path> --metadata-file <path> | cleanup-web-e2e --metadata-file <path>")
+		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | prepare-web-e2e --env-file <path> --metadata-file <path> | cleanup-web-e2e --metadata-file <path> | warm-images")
 		return 2
 	}
 
@@ -118,10 +134,40 @@ func run(args []string, env map[string]string, deps dependencies) int {
 		return runPrepareWebE2E(args[1:], env, deps)
 	case "cleanup-web-e2e":
 		return runCleanupWebE2E(args[1:], env, deps)
+	case "warm-images":
+		return runWarmImages(args[1:], deps)
 	default:
 		fmt.Fprintf(os.Stderr, "usage: unknown testservices command %q\n", args[0])
 		return 2
 	}
+}
+
+func startPostgresAsync(parent context.Context, deps dependencies) <-chan postgresStartResult {
+	resultCh := make(chan postgresStartResult, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(parent, postgresStartupTimeout)
+		defer cancel()
+
+		result := postgresStartResult{start: time.Now().UTC()}
+		result.service, result.err = deps.startPostgres(ctx)
+		result.end = time.Now().UTC()
+		resultCh <- result
+	}()
+	return resultCh
+}
+
+func startMinIOAsync(parent context.Context, deps dependencies) <-chan minioStartResult {
+	resultCh := make(chan minioStartResult, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(parent, minioStartupTimeout)
+		defer cancel()
+
+		result := minioStartResult{start: time.Now().UTC()}
+		result.service, result.err = deps.startMinIO(ctx)
+		result.end = time.Now().UTC()
+		resultCh <- result
+	}()
+	return resultCh
 }
 
 func runWrappedCommand(args []string, env map[string]string, deps dependencies) int {
@@ -161,14 +207,21 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	childExitCode := 1
 	cleanupStatus := "startup_failed"
 
-	postgresCtx, cancelPostgres := context.WithTimeout(context.Background(), postgresStartupTimeout)
-	postgresStart := time.Now().UTC()
-	postgresSvc, err = deps.startPostgres(postgresCtx)
-	recordTimingSpanStatus(deps, ownedEnv, bucketServiceWait, "test-services start postgres", postgresStart, err)
-	cancelPostgres()
-	if err != nil {
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresStart, "start suite postgres", err))
-		recordCleanupAndRefresh(deps, ownedEnv, "startup_failed", childExitCode)
+	startupCtx, cancelStartup := context.WithCancel(context.Background())
+	defer cancelStartup()
+	postgresResultCh := startPostgresAsync(startupCtx, deps)
+	minioResultCh := startMinIOAsync(startupCtx, deps)
+
+	postgresResult := <-postgresResultCh
+	postgresSvc = postgresResult.service
+	recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start postgres", postgresResult.start, postgresResult.end, postgresResult.err)
+	if postgresResult.err != nil {
+		cancelStartup()
+		minioResult := <-minioResultCh
+		minioSvc = minioResult.service
+		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresStart, "start suite postgres", postgresResult.err))
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "startup_failed", childExitCode)
 		return 1
 	}
 	defer func() {
@@ -194,6 +247,10 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	recordTimingSpanStatus(deps, ownedEnv, bucketMigration, "test-services prepare postgres template database", templateStart, err)
 	cancelTemplate()
 	if err != nil {
+		cancelStartup()
+		minioResult := <-minioResultCh
+		minioSvc = minioResult.service
+		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "prepare postgres template database", err))
 		return 1
 	}
@@ -211,13 +268,11 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	})
 	deps.refreshSummary(ownedEnv)
 
-	minioCtx, cancelMinIO := context.WithTimeout(context.Background(), minioStartupTimeout)
-	minioStart := time.Now().UTC()
-	minioSvc, err = deps.startMinIO(minioCtx)
-	recordTimingSpanStatus(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioStart, err)
-	cancelMinIO()
-	if err != nil {
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceMinIO, stageMinIOStart, "start suite minio", err))
+	minioResult := <-minioResultCh
+	minioSvc = minioResult.service
+	recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
+	if minioResult.err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceMinIO, stageMinIOStart, "start suite minio", minioResult.err))
 		return 1
 	}
 	deps.recordEvent(ownedEnv, suiteservices.Event{
@@ -330,6 +385,22 @@ func runCleanupWebE2E(args []string, env map[string]string, deps dependencies) i
 	return 0
 }
 
+func runWarmImages(args []string, deps dependencies) int {
+	if len(args) != 0 {
+		fmt.Fprintln(os.Stderr, "usage: testservices warm-images")
+		return 2
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+
+	if err := deps.warmImages(ctx, serviceImages()); err != nil {
+		fmt.Fprintf(os.Stderr, "warm service images: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
 func parseRunCommand(args []string) ([]string, error) {
 	if len(args) < 3 || args[0] != "run" || args[1] != "--" {
 		return nil, errors.New("usage: testservices run -- <command> [args...]")
@@ -401,6 +472,7 @@ func defaultDependencies() dependencies {
 		createTemplate: createTemplateDatabase,
 		prepareWebE2E:  prepareWebE2EFixture,
 		cleanupWebE2E:  cleanupWebE2EFixture,
+		warmImages:     warmServiceImages,
 		recordEvent: func(env map[string]string, event suiteservices.Event) {
 			_ = suiteservices.RecordEvent(env, event)
 		},
@@ -411,6 +483,66 @@ func defaultDependencies() dependencies {
 		notifySignals: signal.Notify,
 		stopSignals:   signal.Stop,
 	}
+}
+
+func serviceImages() []string {
+	return []string{
+		pgtest.ContainerImage(),
+		s3test.ContainerImage(),
+	}
+}
+
+func warmServiceImages(ctx context.Context, images []string) error {
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(images))
+
+	for _, image := range images {
+		image := strings.TrimSpace(image)
+		if image == "" {
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := warmServiceImage(ctx, image); err != nil {
+				errCh <- err
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	var errs []error
+	for err := range errCh {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
+}
+
+func warmServiceImage(ctx context.Context, image string) error {
+	inspect := exec.CommandContext(ctx, "docker", "image", "inspect", image)
+	inspect.Stdout = ioDiscard{}
+	inspect.Stderr = ioDiscard{}
+	if err := inspect.Run(); err == nil {
+		fmt.Fprintf(os.Stderr, "service image already present: %s\n", image)
+		return nil
+	}
+
+	fmt.Fprintf(os.Stderr, "pulling service image: %s\n", image)
+	pull := exec.CommandContext(ctx, "docker", "pull", image)
+	pull.Stdout = os.Stdout
+	pull.Stderr = os.Stderr
+	if err := pull.Run(); err != nil {
+		return fmt.Errorf("pull %s: %w", image, err)
+	}
+	return nil
+}
+
+type ioDiscard struct{}
+
+func (ioDiscard) Write(p []byte) (int, error) {
+	return len(p), nil
 }
 
 func startPostgresService(ctx context.Context) (postgresService, error) {
@@ -643,6 +775,14 @@ func recordTimingSpanStatus(deps dependencies, env map[string]string, bucket str
 		status = "fail"
 	}
 	recordTimingSpan(deps, env, bucket, label, start, time.Now().UTC(), status)
+}
+
+func recordTimingSpanStatusAt(deps dependencies, env map[string]string, bucket string, label string, start time.Time, end time.Time, err error) {
+	status := "pass"
+	if err != nil {
+		status = "fail"
+	}
+	recordTimingSpan(deps, env, bucket, label, start, end, status)
 }
 
 func recordTimingSpan(deps dependencies, env map[string]string, bucket string, label string, start time.Time, end time.Time, status string) {
