@@ -18,9 +18,15 @@ const indicatorsViewSchemaId = "cartulary.view.indicators.v1";
 
 describe("WorkbookShell surface selection", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
+  let evidenceRows: Array<{
+    record_id: string;
+    row_version: number;
+    cells: Record<string, { value: unknown }>;
+  }>;
 
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
+    evidenceRows = [];
     fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith("/api/v1/auth/session")) {
@@ -61,6 +67,23 @@ describe("WorkbookShell surface selection", () => {
           home_sheet_ref: null,
         });
       }
+      if (url.endsWith("/api/v1/evidence-records/evidence-1/preview-handle")) {
+        return successEnvelope({
+          href: "/api/v1/evidence-handles/preview-token",
+          method: "GET",
+          filename: "evidence.txt",
+          preview_kind: "text_inline",
+          content_type: "text/plain",
+        });
+      }
+      if (url.endsWith("/api/v1/evidence-records/evidence-1/download-handle")) {
+        return successEnvelope({
+          href: "/api/v1/evidence-handles/download-token",
+          method: "GET",
+          filename: "evidence.txt",
+          content_type: "text/plain",
+        });
+      }
       for (const viewSchemaId of [
         timelineViewSchemaId,
         hostsViewSchemaId,
@@ -72,7 +95,7 @@ describe("WorkbookShell surface selection", () => {
           return successEnvelope({
             incident_id: "incident-1",
             view_schema_id: viewSchemaId,
-            rows: [],
+            rows: viewSchemaId === evidenceViewSchemaId ? evidenceRows : [],
           });
         }
       }
@@ -91,6 +114,7 @@ describe("WorkbookShell surface selection", () => {
 
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -121,6 +145,61 @@ describe("WorkbookShell surface selection", () => {
     });
     expect(window.location.search).toContain(
       `view_schema_id=${encodeURIComponent(indicatorsViewSchemaId)}`,
+    );
+  });
+
+  it("issues opaque evidence preview and download handles from the evidence surface", async () => {
+    evidenceRows = [
+      {
+        record_id: "evidence-1",
+        row_version: 4,
+        cells: {
+          "evidence.title": { value: "EDR package" },
+          "evidence.lifecycle_state": { value: "available" },
+          "evidence.requested_at": { value: null },
+          "evidence.received_at": { value: null },
+          "evidence.storage_ref": { value: "slot" },
+          "evidence.blob_hash": { value: "sha" },
+          "evidence.collector_party_text": { value: "IR" },
+          "evidence.source_party_text": { value: "Endpoint" },
+          "evidence.upload_state": { value: "available" },
+          "evidence.linked_record_count": { value: 0 },
+          "evidence.edited_at": { value: null },
+        },
+      },
+    ];
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+
+    render(<WorkbookShell incidentId="incident-1" />);
+
+    fireEvent.click(await screen.findByTestId("surface-tab-evidence"));
+    fireEvent.click(await screen.findByTestId("evidence-preview-evidence-1"));
+
+    const frame = await screen.findByTestId(
+      "evidence-preview-frame-evidence-1",
+    );
+    expect(frame.getAttribute("src")).toBe(
+      "/api/v1/evidence-handles/preview-token",
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "/api/v1/evidence-records/evidence-1/preview-handle",
+      ),
+      expect.objectContaining({ method: "POST", body: "{}" }),
+    );
+
+    fireEvent.click(screen.getByTestId("evidence-download-evidence-1"));
+
+    await waitFor(() => {
+      expect(anchorClick).toHaveBeenCalled();
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "/api/v1/evidence-records/evidence-1/download-handle",
+      ),
+      expect.objectContaining({ method: "POST", body: "{}" }),
     );
   });
 });

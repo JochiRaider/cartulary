@@ -493,7 +493,7 @@ LEFT JOIN LATERAL (
 	},
 	EvidenceViewSchemaID: {
 		viewSchemaID: EvidenceViewSchemaID,
-		fromSQL:      "FROM evidence e JOIN records r ON r.record_id = e.record_id",
+		fromSQL:      "FROM evidence e JOIN records r ON r.record_id = e.record_id LEFT JOIN object_blobs b ON b.object_blob_id = e.object_blob_id",
 		recordExpr:   "e.record_id",
 		incidentExpr: "e.incident_id",
 		fields: []genericField{
@@ -502,12 +502,12 @@ LEFT JOIN LATERAL (
 			{key: "evidence.requested_at", expr: "e.requested_at", kind: fieldKindTimestamp},
 			{key: "evidence.received_at", expr: "e.received_at", kind: fieldKindTimestamp},
 			{key: "evidence.storage_ref", expr: "e.storage_ref", kind: fieldKindText},
-			{key: "evidence.blob_hash", expr: "e.blob_hash", kind: fieldKindText},
+			{key: "evidence.blob_hash", expr: "COALESCE(b.observed_sha256_hex, e.blob_hash)", kind: fieldKindText},
 			{key: "evidence.collector_party_text", expr: "e.collector_party_text", kind: fieldKindText},
 			{key: "evidence.collector_party_id", expr: "e.collector_party_id", kind: fieldKindText},
 			{key: "evidence.source_party_text", expr: "e.source_party_text", kind: fieldKindText},
 			{key: "evidence.source_party_id", expr: "e.source_party_id", kind: fieldKindText},
-			{key: "evidence.upload_state", expr: "e.upload_state", kind: fieldKindText},
+			{key: "evidence.upload_state", expr: "COALESCE(b.upload_state, e.upload_state)", kind: fieldKindText},
 			{key: "evidence.linked_record_count", expr: "0", kind: fieldKindNumber},
 			{key: "evidence.edited_at", expr: "e.updated_at", kind: fieldKindTimestamp},
 		},

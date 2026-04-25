@@ -240,6 +240,29 @@ type Evidence struct {
 	UploadState        string             `json:"upload_state"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	ObjectBlobID       pgtype.UUID        `json:"object_blob_id"`
+}
+
+type EvidenceAccessHandle struct {
+	HandleToken            string             `json:"handle_token"`
+	IncidentID             pgtype.UUID        `json:"incident_id"`
+	RecordID               pgtype.UUID        `json:"record_id"`
+	ObjectBlobID           pgtype.UUID        `json:"object_blob_id"`
+	IssuedByUserID         pgtype.UUID        `json:"issued_by_user_id"`
+	IssuingSessionID       pgtype.UUID        `json:"issuing_session_id"`
+	HandleKind             string             `json:"handle_kind"`
+	MediaClass             string             `json:"media_class"`
+	PreviewKind            pgtype.Text        `json:"preview_kind"`
+	Disposition            string             `json:"disposition"`
+	Filename               string             `json:"filename"`
+	ContentType            string             `json:"content_type"`
+	SizeBytes              int64              `json:"size_bytes"`
+	Sha256                 pgtype.Text        `json:"sha256"`
+	EvidenceLifecycleState string             `json:"evidence_lifecycle_state"`
+	UploadState            string             `json:"upload_state"`
+	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt             pgtype.Timestamptz `json:"consumed_at"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 }
 
 type HandoffRiskRef struct {
@@ -441,6 +464,31 @@ type IndicatorStateInterval struct {
 	RowVersion               int64              `json:"row_version"`
 	CreatedByUserID          pgtype.UUID        `json:"created_by_user_id"`
 	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+}
+
+type ObjectBlob struct {
+	ObjectBlobID         pgtype.UUID        `json:"object_blob_id"`
+	IncidentID           pgtype.UUID        `json:"incident_id"`
+	CreatedByUserID      pgtype.UUID        `json:"created_by_user_id"`
+	StorageKey           string             `json:"storage_key"`
+	UploadState          string             `json:"upload_state"`
+	ByteSize             int64              `json:"byte_size"`
+	FilenameHint         pgtype.Text        `json:"filename_hint"`
+	ContentTypeHint      pgtype.Text        `json:"content_type_hint"`
+	ExpectedSha256Hex    pgtype.Text        `json:"expected_sha256_hex"`
+	ObservedSize         pgtype.Int8        `json:"observed_size"`
+	ObservedContentType  pgtype.Text        `json:"observed_content_type"`
+	ObservedSha256Hex    pgtype.Text        `json:"observed_sha256_hex"`
+	TargetExpiresAt      pgtype.Timestamptz `json:"target_expires_at"`
+	PendingExpiresAt     pgtype.Timestamptz `json:"pending_expires_at"`
+	FinalizedAt          pgtype.Timestamptz `json:"finalized_at"`
+	TerminalReason       pgtype.Text        `json:"terminal_reason"`
+	FailedAt             pgtype.Timestamptz `json:"failed_at"`
+	FinalizeAttemptCount int32              `json:"finalize_attempt_count"`
+	CleanupDueAt         pgtype.Timestamptz `json:"cleanup_due_at"`
+	CleanedUpAt          pgtype.Timestamptz `json:"cleaned_up_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Party struct {

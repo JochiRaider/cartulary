@@ -1,0 +1,206 @@
+package evidence_test
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+
+	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
+)
+
+func TestEvidenceBlobRoutes_CreateAttachAndHandleRedeem(t *testing.T) {
+	harness := phase4test.StartServer(t, "evidence-blob-routes")
+	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-evidence-incident",
+		"incident_key":  "evidence-routes",
+		"title":         "Evidence routes",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	recordID := uuid.New()
+	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
+
+	payload := []byte("hello evidence")
+	sum := sha256.Sum256(payload)
+	createBody := map[string]any{
+		"incident_id":       incidentID.String(),
+		"client_txn_id":     "txn-blob-create",
+		"byte_size":         len(payload),
+		"filename_hint":     " hello.txt ",
+		"content_type_hint": "text/plain",
+		"sha256_hex":        fmt.Sprintf("%x", sum[:]),
+	}
+	createResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
+	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
+	if got := createData["upload_state"]; got != "pending" {
+		t.Fatalf("unexpected create upload_state: %#v", got)
+	}
+	accepted := createData["accepted_contract"].(map[string]any)
+	if accepted["filename_hint"] != "hello.txt" {
+		t.Fatalf("expected normalized filename_hint, got %#v", accepted["filename_hint"])
+	}
+	uploadTarget := createData["upload_target"].(map[string]any)
+	putObject(t, uploadTarget["href"].(string), payload, "text/plain")
+
+	replayResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
+	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
+	if replayData["object_blob_id"] != createData["object_blob_id"] {
+		t.Fatalf("blob replay should return original object_blob_id")
+	}
+	divergent := map[string]any{
+		"incident_id":   incidentID.String(),
+		"client_txn_id": "txn-blob-create",
+		"byte_size":     len(payload) + 1,
+	}
+	httptestx.RequireErrorEnvelope(t, phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", divergent, authOptions(login)...), http.StatusConflict, "client_txn_conflict")
+
+	attachBody := map[string]any{
+		"object_blob_id":   createData["object_blob_id"],
+		"base_row_version": 1,
+		"client_txn_id":    "txn-attach-blob",
+	}
+	attachResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", attachBody, authOptions(login)...)
+	if attachResp.StatusCode != http.StatusOK {
+		data, _ := io.ReadAll(attachResp.Body)
+		t.Fatalf("attach status %d: %s", attachResp.StatusCode, string(data))
+	}
+	attachData := httptestx.RequireSuccessEnvelope(t, attachResp, http.StatusOK)["data"].(map[string]any)
+	if attachData["object_blob_id"] != createData["object_blob_id"] {
+		t.Fatalf("attach response object_blob_id mismatch: %#v", attachData)
+	}
+	row := attachData["row"].(map[string]any)
+	cells := row["cells"].(map[string]any)
+	if got := cells["evidence.upload_state"].(map[string]any)["value"]; got != "available" {
+		t.Fatalf("expected attached evidence upload_state available, got %#v", got)
+	}
+	attachReplay := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", attachBody, authOptions(login)...)
+	httptestx.RequireSuccessEnvelope(t, attachReplay, http.StatusOK)
+
+	previewResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
+	previewData := httptestx.RequireSuccessEnvelope(t, previewResp, http.StatusOK)["data"].(map[string]any)
+	if previewData["handle_kind"] != "preview" || previewData["preview_kind"] != "text_inline" {
+		t.Fatalf("unexpected preview handle payload: %#v", previewData)
+	}
+	previewBody := redeemHandle(t, harness.Server.HTTP.URL+previewData["href"].(string), login)
+	if string(previewBody) != string(payload) {
+		t.Fatalf("preview body mismatch: got %q", string(previewBody))
+	}
+
+	downloadResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/download-handle", map[string]any{}, authOptions(login)...)
+	downloadData := httptestx.RequireSuccessEnvelope(t, downloadResp, http.StatusOK)["data"].(map[string]any)
+	downloadURL := harness.Server.HTTP.URL + downloadData["href"].(string)
+	downloadBody := redeemHandle(t, downloadURL, login)
+	if string(downloadBody) != string(payload) {
+		t.Fatalf("download body mismatch: got %q", string(downloadBody))
+	}
+	second := phase4test.DoJSON(t, http.MethodGet, downloadURL, nil, phase4test.WithCookies(login.SessionCookie))
+	httptestx.RequireErrorEnvelope(t, second, http.StatusGone, "handle_consumed")
+}
+
+func TestEvidenceHandleRequestRejectsUnknownMembers(t *testing.T) {
+	body := strings.NewReader(`{"client_txn_id":"forbidden"}`)
+	if apiErr := evidenceDecodeHandleForTest(body); apiErr == nil || apiErr.Code != "invalid_evidence_handle_request" {
+		t.Fatalf("expected invalid_evidence_handle_request for handle issuance client_txn_id, got %#v", apiErr)
+	}
+}
+
+func TestEvidenceOpenAPIIncludesRouteFamily(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join(repoRoot(), "contracts", "openapi", "cartulary.openapi.yaml"))
+	if err != nil {
+		t.Fatalf("read openapi contract: %v", err)
+	}
+	var document struct {
+		Paths map[string]any `json:"paths"`
+	}
+	if err := json.Unmarshal(data, &document); err != nil {
+		t.Fatalf("decode openapi contract: %v", err)
+	}
+	for _, path := range []string{
+		"/api/v1/object-blobs",
+		"/api/v1/evidence-records/{record_id}/attach-blob",
+		"/api/v1/evidence-records/{record_id}/preview-handle",
+		"/api/v1/evidence-records/{record_id}/download-handle",
+		"/api/v1/evidence-handles/{handle_token}",
+	} {
+		if _, ok := document.Paths[path]; !ok {
+			t.Fatalf("missing evidence OpenAPI path %s", path)
+		}
+	}
+}
+
+func authOptions(login phase4test.LoginResult) []func(*http.Request) {
+	return []func(*http.Request){
+		phase4test.WithCookies(login.SessionCookie, login.CSRFCookie),
+		phase4test.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+	}
+}
+
+func seedEvidenceRecord(t *testing.T, harness *phase4test.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID) {
+	t.Helper()
+	if _, err := harness.DB.ExecContext(context.Background(), `
+INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id, row_version)
+VALUES ($1, $2, 'evidence', $3, $3, 1)
+`, recordID, incidentID, actorID); err != nil {
+		t.Fatalf("seed evidence record envelope: %v", err)
+	}
+	if _, err := harness.DB.ExecContext(context.Background(), `
+INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state, requested_at)
+VALUES ($1, $2, 'Evidence payload', 'received', 'pending', now())
+`, recordID, incidentID); err != nil {
+		t.Fatalf("seed evidence row: %v", err)
+	}
+}
+
+func putObject(t *testing.T, href string, payload []byte, contentType string) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPut, href, bytes.NewReader(payload))
+	if err != nil {
+		t.Fatalf("create object upload request: %v", err)
+	}
+	req.Header.Set("Content-Type", contentType)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("upload object: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		data, _ := io.ReadAll(resp.Body)
+		t.Fatalf("upload object status %d: %s", resp.StatusCode, string(data))
+	}
+}
+
+func redeemHandle(t *testing.T, href string, login phase4test.LoginResult) []byte {
+	t.Helper()
+	resp := phase4test.DoJSON(t, http.MethodGet, href, nil, phase4test.WithCookies(login.SessionCookie))
+	httptestx.RequireStatus(t, resp, http.StatusOK)
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read handle response: %v", err)
+	}
+	return data
+}
+
+func evidenceDecodeHandleForTest(reader io.Reader) *auth.APIError {
+	return evidence.DecodeHandleIssueRequest(reader)
+}
+
+func repoRoot() string {
+	_, file, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(file), "..", "..", "..")
+}

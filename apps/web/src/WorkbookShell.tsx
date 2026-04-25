@@ -270,6 +270,23 @@ type MergeEnvelope = {
   };
 };
 
+type EvidenceHandleEnvelope = {
+  data: {
+    href: string;
+    method: "GET";
+    filename: string;
+    preview_kind?: string | null;
+    content_type?: string | null;
+  };
+};
+
+type EvidencePreviewState = {
+  href: string;
+  recordId: string;
+  title: string;
+  previewKind: string | null;
+};
+
 type TimelineApiRow = {
   record_id: string;
   row_version: number;
@@ -4327,6 +4344,71 @@ function GenericWorkbookSurface({
   const [editValue, setEditValue] = useState("");
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [mutationState, setMutationState] = useState<SaveState>("Saved");
+  const [evidenceMessageByRecordID, setEvidenceMessageByRecordID] = useState<
+    Record<string, string>
+  >({});
+  const [evidencePreview, setEvidencePreview] =
+    useState<EvidencePreviewState | null>(null);
+  const isEvidenceSurface = contract.viewSchemaId === evidenceViewSchemaId;
+
+  const setEvidenceMessage = useCallback(
+    (recordId: string, message: string | null) => {
+      setEvidenceMessageByRecordID((current) => {
+        const next = { ...current };
+        if (message === null) {
+          delete next[recordId];
+        } else {
+          next[recordId] = message;
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const issueEvidenceHandle = useCallback(
+    async (row: EntityApiRow, kind: "preview" | "download") => {
+      setEvidenceMessage(row.record_id, null);
+      const result = await fetchJSON<EvidenceHandleEnvelope>(
+        apiPath(
+          apiBase,
+          `/api/v1/evidence-records/${row.record_id}/${kind}-handle`,
+        ),
+        { method: "POST", body: JSON.stringify({}) },
+      );
+      if (!result.ok) {
+        setEvidenceMessage(row.record_id, parseErrorMessage(result.payload));
+        return;
+      }
+      const envelope = readEnvelope<EvidenceHandleEnvelope>(result.payload);
+      const href =
+        envelope.data.href.startsWith("/") && apiBase
+          ? apiPath(apiBase, envelope.data.href)
+          : envelope.data.href;
+      if (kind === "preview") {
+        setEvidencePreview({
+          href,
+          recordId: row.record_id,
+          title:
+            stringifyGridValue(row.cells["evidence.title"]?.value).trim() ||
+            row.record_id,
+          previewKind: envelope.data.preview_kind ?? null,
+        });
+        setEvidenceMessage(row.record_id, "Preview loaded inline.");
+        return;
+      }
+
+      const anchor = document.createElement("a");
+      anchor.href = href;
+      anchor.download = envelope.data.filename || "evidence";
+      anchor.rel = "noopener";
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      setEvidenceMessage(row.record_id, "Download handle issued.");
+    },
+    [apiBase, setEvidenceMessage],
+  );
 
   const columns: readonly GridColumn<EntityApiRow>[] = visibleFields(
     contract,
@@ -4342,6 +4424,67 @@ function GenericWorkbookSurface({
     ),
     sortableFieldKey: resolveHeaderSortFieldKey(contract, field.fieldKey),
   }));
+  const evidenceActionsColumn = useMemo<
+    GridActionsColumn<EntityApiRow> | undefined
+  >(() => {
+    if (!isEvidenceSurface) {
+      return undefined;
+    }
+    return {
+      label: "Access",
+      width: 208,
+      renderCell: ({ data: row }) => {
+        const uploadState = stringifyGridValue(
+          row.cells["evidence.upload_state"]?.value,
+        );
+        const lifecycleState = stringifyGridValue(
+          row.cells["evidence.lifecycle_state"]?.value,
+        );
+        const canAccess =
+          uploadState === "available" &&
+          (lifecycleState === "available" || lifecycleState === "released");
+        const message =
+          evidenceMessageByRecordID[row.record_id] ??
+          (canAccess ? null : `Blocked: ${uploadState || "no blob"}`);
+        return (
+          <div style={actionStackStyle}>
+            <div style={inlineButtonRowStyle}>
+              <button
+                data-testid={`evidence-preview-${row.record_id}`}
+                disabled={!canAccess}
+                style={actionButtonStyle}
+                type="button"
+                onClick={() => {
+                  void issueEvidenceHandle(row, "preview");
+                }}
+              >
+                Preview
+              </button>
+              <button
+                data-testid={`evidence-download-${row.record_id}`}
+                disabled={!canAccess}
+                style={actionButtonStyle}
+                type="button"
+                onClick={() => {
+                  void issueEvidenceHandle(row, "download");
+                }}
+              >
+                Download
+              </button>
+            </div>
+            {message ? (
+              <span
+                data-testid={`evidence-access-message-${row.record_id}`}
+                style={evidenceAccessMessageStyle}
+              >
+                {message}
+              </span>
+            ) : null}
+          </div>
+        );
+      },
+    };
+  }, [evidenceMessageByRecordID, isEvidenceSurface, issueEvidenceHandle]);
   const gridRows: readonly GridRow<EntityApiRow>[] = rows.map((row) => ({
     key: row.record_id,
     recordId: row.record_id,
@@ -4578,8 +4721,43 @@ function GenericWorkbookSurface({
         </p>
       ) : null}
 
+      {isEvidenceSurface && evidencePreview ? (
+        <section
+          data-testid="evidence-preview-panel"
+          style={evidencePreviewPanelStyle}
+        >
+          <div style={evidencePreviewHeaderStyle}>
+            <div>
+              <p style={eyebrowStyle}>Preview</p>
+              <h2 style={sectionTitleStyle}>{evidencePreview.title}</h2>
+            </div>
+            <button
+              style={secondaryActionButtonStyle}
+              type="button"
+              onClick={() => {
+                setEvidencePreview(null);
+              }}
+            >
+              Close
+            </button>
+          </div>
+          <iframe
+            data-testid={`evidence-preview-frame-${evidencePreview.recordId}`}
+            src={evidencePreview.href}
+            style={evidencePreviewFrameStyle}
+            title={`Evidence preview ${evidencePreview.title}`}
+          />
+          {evidencePreview.previewKind ? (
+            <p style={evidenceAccessMessageStyle}>
+              {evidencePreview.previewKind}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       <GridViewport style={gridShellStyle} testId={gridShellTestId(surface)}>
         <GridTable
+          actionsColumn={evidenceActionsColumn}
           columns={columns}
           getGroupLabel={(row, fieldKey) =>
             genericCellLabel(row.cells[fieldKey]?.value)
@@ -5463,6 +5641,37 @@ const genericErrorTextStyle = {
   margin: 0,
   color: "rgb(153 27 27)",
   fontWeight: 700,
+};
+
+const evidenceAccessMessageStyle = {
+  margin: 0,
+  fontSize: "0.85rem",
+  color: "rgb(87 109 103)",
+};
+
+const evidencePreviewPanelStyle = {
+  display: "grid",
+  gap: "0.75rem",
+  margin: "1rem 0",
+  padding: "1rem",
+  borderRadius: "1rem",
+  border: "1px solid rgb(199 214 207)",
+  background: "rgb(255 255 255 / 0.86)",
+};
+
+const evidencePreviewHeaderStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "1rem",
+  alignItems: "start",
+};
+
+const evidencePreviewFrameStyle = {
+  width: "100%",
+  minHeight: "28rem",
+  border: "1px solid rgb(199 214 207)",
+  borderRadius: "0.75rem",
+  background: "rgb(255 255 255)",
 };
 
 const labelStyle = {
