@@ -317,6 +317,14 @@ cleanup() {
   fi
   cleanup_done=1
 
+  local cleanup_start_time
+  local cleanup_start_ms
+  local cleanup_end_time
+  local cleanup_end_ms
+  local cleanup_duration_ms
+  cleanup_start_time="$(phase_now_utc)"
+  cleanup_start_ms="$(phase_now_monotonic_ms)"
+
   if [[ -n "${CHILD_PGID:-}" ]]; then
     stop_process_group "${CHILD_PGID}" || true
   fi
@@ -333,6 +341,11 @@ cleanup() {
   if [[ "${KEEP_RUNTIME_ROOT}" -ne 1 ]]; then
     rm -rf "${RUNTIME_ROOT_BASE}"
   fi
+
+  cleanup_end_time="$(phase_now_utc)"
+  cleanup_end_ms="$(phase_now_monotonic_ms)"
+  cleanup_duration_ms="$(phase_elapsed_ms "${cleanup_start_ms}" "${cleanup_end_ms}")"
+  emit_target_timing_span "teardown" "browser-e2e owned-stack cleanup" "${cleanup_start_time}" "${cleanup_end_time}" "${cleanup_duration_ms}" "pass" 0
 }
 
 exit_for_requested_shutdown() {
@@ -510,22 +523,24 @@ main() {
   lifecycle_reset_shutdown_state
   lifecycle_install_signal_traps
 
-  env MAKEFLAGS= CARTULARY_FRONTEND_TOOLCHAIN_QUIET=1 make -s -C "${ROOT_DIR}" --no-print-directory frontend-toolchain
+  run_timing_span "setup" "browser-e2e frontend toolchain" \
+    env MAKEFLAGS= CARTULARY_FRONTEND_TOOLCHAIN_QUIET=1 make -s -C "${ROOT_DIR}" --no-print-directory frontend-toolchain
   local pnpm_bin="${PNPM:-${NODE_RUNTIME_DIR}/bin/pnpm}"
   if [[ ! -x "${pnpm_bin}" ]]; then
     echo "repo-local pnpm was not found at ${pnpm_bin}; run make frontend-toolchain" >&2
     return 1
   fi
 
-  run_phase_command "browser-e2e allocate ports" resolve_owned_stack_ports
-  write_stack_metadata
+  CARTULARY_PHASE_TIMING_BUCKET=setup run_phase_command "browser-e2e allocate ports" resolve_owned_stack_ports
+  run_timing_span "setup" "browser-e2e write stack metadata" write_stack_metadata
 
-  run_phase_command "browser-e2e startup services" browser_start_services
-  run_phase_command "browser-e2e startup database" browser_prepare_database
+  CARTULARY_PHASE_TIMING_BUCKET=service_wait run_phase_command "browser-e2e startup services" browser_start_services
+  CARTULARY_PHASE_TIMING_BUCKET=migration run_phase_command "browser-e2e startup database" browser_prepare_database
 
   local -a server_command=()
   resolve_runtime_command server_command "backend" "${SERVER_BIN}" "${ROOT_DIR}/server" ./cmd/server
 
+  run_timing_span "server_startup" "browser-e2e start backend process" \
   start_process_group SERVER_PGID "${SERVER_LOG}" \
     env \
     CARTULARY_HTTP_ADDR="127.0.0.1:${BACKEND_PORT}" \
@@ -549,6 +564,7 @@ main() {
     GOMODCACHE=/tmp/cartulary-go-mod \
     "${server_command[@]}"
 
+  run_timing_span "frontend_startup" "browser-e2e start frontend process" \
   start_process_group VITE_PGID "${WEB_LOG}" \
     env \
     COREPACK_HOME="${NODE_RUNTIME_DIR}/corepack" \
@@ -557,8 +573,8 @@ main() {
     CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
     "${pnpm_bin}" --dir apps/web dev --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort
 
-  run_phase_command "browser-e2e startup backend ready" browser_wait_backend_ready
-  run_phase_command "browser-e2e startup frontend ready" browser_wait_frontend_ready
+  CARTULARY_PHASE_TIMING_BUCKET=server_startup run_phase_command "browser-e2e startup backend ready" browser_wait_backend_ready
+  CARTULARY_PHASE_TIMING_BUCKET=frontend_startup run_phase_command "browser-e2e startup frontend ready" browser_wait_frontend_ready
 
   if [[ "${#child_command[@]}" -gt 0 ]]; then
     start_process_group CHILD_PGID "" "${child_command[@]}"

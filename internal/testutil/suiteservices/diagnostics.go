@@ -29,6 +29,7 @@ const (
 	EventS3Attach            = "s3-attach"
 	EventS3BucketCreated     = "s3-bucket-created"
 	EventS3BucketCleaned     = "s3-bucket-cleaned"
+	EventTimingSpan          = "timing-span"
 )
 
 const (

@@ -114,6 +114,12 @@ mkdir -p "$ROOT_DIR/tmp"
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/web-e2e-lifecycle-smoke.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY_PHASE_TIMING_BUCKET=service_wait run_phase_command "browser-e2e startup services"' "browser lifecycle service timing bucket"
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY_PHASE_TIMING_BUCKET=migration run_phase_command "browser-e2e startup database"' "browser lifecycle migration timing bucket"
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_timing_span "server_startup" "browser-e2e start backend process"' "browser lifecycle backend startup span"
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_timing_span "frontend_startup" "browser-e2e start frontend process"' "browser lifecycle frontend startup span"
+assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e owned-stack cleanup"' "browser lifecycle teardown span"
+
 signal_recorder="$tmp_dir/signal-recorder.sh"
 cat >"$signal_recorder" <<'EOF'
 #!/usr/bin/env bash

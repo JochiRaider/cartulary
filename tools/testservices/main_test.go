@@ -111,6 +111,12 @@ func TestRunCleansUpOwnedServicesOnChildFailureAndPropagatesStatus(t *testing.T)
 	if scope.Cleanup.ChildExitStatus == nil || *scope.Cleanup.ChildExitStatus != 7 {
 		t.Fatalf("unexpected child exit status: got %#v", scope.Cleanup)
 	}
+	events := loadTestEvents(t, deps)
+	requireTimingEvent(t, events, bucketSetup, "test-services wrapper setup")
+	requireTimingEvent(t, events, bucketServiceWait, "test-services start postgres")
+	requireTimingEvent(t, events, bucketMigration, "test-services prepare postgres template database")
+	requireTimingEvent(t, events, bucketServiceWait, "test-services start minio")
+	requireTimingEvent(t, events, bucketTeardown, "test-services cleanup owned services")
 }
 
 func TestRunRedactsCredentialsInDiagnostics(t *testing.T) {
@@ -351,6 +357,8 @@ func TestPrepareWebE2ERequiresActiveSuiteAndTemplate(t *testing.T) {
 
 	activeEnv := cloneEnv(deps.env)
 	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "suite-web-e2e-cleanup"
+	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
 	status = run([]string{"prepare-web-e2e", "--env-file", filepath.Join(t.TempDir(), "env"), "--metadata-file", filepath.Join(t.TempDir(), "metadata.json")}, activeEnv, deps.dependencies)
 	if status != 1 {
 		t.Fatalf("missing postgres template must fail with status 1, got %d", status)
@@ -450,6 +458,7 @@ func TestPrepareWebE2EWritesShellEnvAndMetadata(t *testing.T) {
 		preparation.Target != "browser-e2e-webserver-backed" {
 		t.Fatalf("unexpected browser database preparation: %#v", preparation)
 	}
+	requireTimingEvent(t, loadTestEventsForEnv(t, activeEnv), bucketMigration, "test-services prepare browser e2e fixture")
 }
 
 func TestCleanupWebE2EReadsMetadataAndCallsCleanup(t *testing.T) {
@@ -460,6 +469,8 @@ func TestCleanupWebE2EReadsMetadataAndCallsCleanup(t *testing.T) {
 	}
 	activeEnv := cloneEnv(deps.env)
 	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "suite-web-e2e-cleanup"
+	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
 
 	var got webE2EMetadata
 	deps.cleanupWebE2E = func(ctx context.Context, metadata webE2EMetadata, env map[string]string) error {
@@ -474,6 +485,7 @@ func TestCleanupWebE2EReadsMetadataAndCallsCleanup(t *testing.T) {
 	if got.DatabaseName != "ct_web" || got.Bucket != "ct-web" {
 		t.Fatalf("cleanup received unexpected metadata: %#v", got)
 	}
+	requireTimingEvent(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services cleanup browser e2e fixture")
 }
 
 func TestPrepareWebE2ECleansFixtureWhenEnvWriteFails(t *testing.T) {
@@ -564,6 +576,58 @@ func (fakeChild) PID() int               { return 4242 }
 
 func stringContains(haystack string, needle string) bool {
 	return strings.Contains(haystack, needle)
+}
+
+func loadTestEvents(t testing.TB, deps testDeps) []suiteservices.Event {
+	t.Helper()
+	env := cloneEnv(deps.env)
+	env[suiteservices.SuiteIDEnv] = "suite-redaction"
+	return loadTestEventsForEnv(t, env)
+}
+
+func loadTestEventsForEnv(t testing.TB, env map[string]string) []suiteservices.Event {
+	t.Helper()
+	suiteDir, ok, err := suiteservices.ResolveSuiteArtifactDir(env)
+	if err != nil {
+		t.Fatalf("resolve suite artifact dir: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected suite artifact dir")
+	}
+	eventFiles, err := filepath.Glob(filepath.Join(suiteDir, "events", "*.json"))
+	if err != nil {
+		t.Fatalf("list suite service events: %v", err)
+	}
+	events := make([]suiteservices.Event, 0, len(eventFiles))
+	for _, eventPath := range eventFiles {
+		raw, err := os.ReadFile(eventPath)
+		if err != nil {
+			t.Fatalf("read event %s: %v", eventPath, err)
+		}
+		var event suiteservices.Event
+		if err := json.Unmarshal(raw, &event); err != nil {
+			t.Fatalf("decode event %s: %v", eventPath, err)
+		}
+		events = append(events, event)
+	}
+	return events
+}
+
+func requireTimingEvent(t testing.TB, events []suiteservices.Event, bucket string, label string) {
+	t.Helper()
+	for _, event := range events {
+		if event.Type != suiteservices.EventTimingSpan {
+			continue
+		}
+		if event.Details["bucket"] != bucket || event.Details["label"] != label {
+			continue
+		}
+		if event.Details["duration_ms"] == nil {
+			t.Fatalf("timing event %q missing duration_ms: %#v", label, event)
+		}
+		return
+	}
+	t.Fatalf("missing timing event bucket=%s label=%q in %#v", bucket, label, events)
 }
 
 func loadScope(t testing.TB, deps testDeps) suiteservices.ServiceScope {

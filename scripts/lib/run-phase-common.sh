@@ -43,6 +43,71 @@ phase_elapsed_ms() {
   phase_clamp_duration_ms "$((end_ms - start_ms))"
 }
 
+emit_target_timing_span() {
+  if [[ "$#" -ne 7 ]]; then
+    echo "emit_target_timing_span requires <bucket> <label> <start-time> <end-time> <duration-ms> <status> <exit-status>" >&2
+    return 2
+  fi
+
+  if [[ -z "${CARTULARY_TEST_TARGET:-}" ]]; then
+    return 0
+  fi
+
+  local bucket="$1"
+  local label="$2"
+  local start_time="$3"
+  local end_time="$4"
+  local duration_ms
+  local status="$6"
+
+  duration_ms="$(phase_clamp_duration_ms "$5")"
+
+  CARTULARY_TIMING_BUCKET="$bucket" \
+  CARTULARY_TIMING_LABEL="$label" \
+  CARTULARY_TIMING_START_TIME="$start_time" \
+  CARTULARY_TIMING_END_TIME="$end_time" \
+  CARTULARY_TIMING_DURATION_MS="$duration_ms" \
+  CARTULARY_TIMING_STATUS="$status" \
+    NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" timing-span >/dev/null 2>&1 || true
+}
+
+run_timing_span() {
+  if [[ "$#" -lt 3 ]]; then
+    echo "run_timing_span requires <bucket> <label> <command...>" >&2
+    return 2
+  fi
+
+  local bucket="$1"
+  local label="$2"
+  shift 2
+
+  local start_time
+  local end_time
+  local start_ms
+  local end_ms
+  local duration_ms
+  local status
+  local span_status
+
+  start_time="$(phase_now_utc)"
+  start_ms="$(phase_now_monotonic_ms)"
+
+  set +e
+  "$@"
+  status=$?
+  set -e
+
+  end_time="$(phase_now_utc)"
+  end_ms="$(phase_now_monotonic_ms)"
+  duration_ms="$(phase_elapsed_ms "${start_ms}" "${end_ms}")"
+  span_status="pass"
+  if [[ "${status}" -ne 0 ]]; then
+    span_status="fail"
+  fi
+  emit_target_timing_span "$bucket" "$label" "$start_time" "$end_time" "$duration_ms" "$span_status" "$status"
+  return "$status"
+}
+
 phase_capture_start() {
   if [[ "$#" -ne 1 ]]; then
     echo "phase_capture_start requires <prefix>" >&2
@@ -213,6 +278,7 @@ emit_report_phase_summary() {
   CARTULARY_PHASE_DURATION_MS="$duration_ms" \
   CARTULARY_PHASE_WALL_DURATION_MS="$wall_duration_ms" \
   CARTULARY_PHASE_EXIT_STATUS="$exit_status" \
+  CARTULARY_PHASE_TIMING_BUCKET="${CARTULARY_PHASE_TIMING_BUCKET:-}" \
     NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" "${helper_command}"
   helper_status=$?
   set -e
@@ -292,6 +358,7 @@ run_phase_command() {
   CARTULARY_PHASE_DURATION_MS="$duration_ms" \
   CARTULARY_PHASE_WALL_DURATION_MS="${PHASE_WALL_DURATION_MS}" \
   CARTULARY_PHASE_EXIT_STATUS="$status" \
+  CARTULARY_PHASE_TIMING_BUCKET="${CARTULARY_PHASE_TIMING_BUCKET:-}" \
   CARTULARY_PHASE_STDOUT_LOG="$stdout_log" \
   CARTULARY_PHASE_STDERR_LOG="$stderr_log" \
     NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" shell-phase

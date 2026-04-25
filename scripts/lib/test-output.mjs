@@ -18,6 +18,18 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
 const resultsRoot = resolveResultsRoot();
 const runId = process.env.CARTULARY_TEST_RUN_ID || "adhoc";
+const targetTimingSchemaID = "cartulary.test_target_timing.v1";
+const timingBucketOrder = [
+  "setup",
+  "service_wait",
+  "migration",
+  "server_startup",
+  "frontend_startup",
+  "test_command",
+  "teardown",
+  "report_collation",
+];
+const timingBucketSet = new Set(timingBucketOrder);
 
 let cachedGoModulePath;
 let cachedManifestIndex;
@@ -51,6 +63,9 @@ function main() {
       break;
     case "target-summary":
       process.exit(handleTargetSummary(rest));
+      break;
+    case "timing-span":
+      process.exit(handleTimingSpan());
       break;
     case "run-summary":
       process.exit(handleRunSummary(rest));
@@ -213,6 +228,30 @@ function formatDurationFields(wallDurationMs, executedDurationMs, logicalDuratio
   const effectiveExecuted = clampDurationMs(executedDurationMs);
   const effectiveWall = Number.isFinite(wallDurationMs) ? wallDurationMs : effectiveLogical;
   return `wall_duration=${formatDuration(effectiveWall)} executed_duration=${formatDuration(effectiveExecuted)} logical_duration=${formatDuration(effectiveLogical)}`;
+}
+
+function normalizeTimingBucket(value, runner = "") {
+  if (value && timingBucketSet.has(value)) {
+    return value;
+  }
+  if (runner === "go_test" || runner === "vitest" || runner === "playwright") {
+    return "test_command";
+  }
+  return "test_command";
+}
+
+function formatBucketSummary(bucket) {
+  if (!bucket) {
+    return "none";
+  }
+  return `${bucket.name}(${formatDuration(bucket.duration_ms)})`;
+}
+
+function formatTargetBucketSummary(bucket) {
+  if (!bucket) {
+    return "none";
+  }
+  return `${bucket.target}:${bucket.name}(${formatDuration(bucket.duration_ms)})`;
 }
 
 function computeWindowDurationMs(startTime, endTime) {
@@ -468,6 +507,7 @@ function createBasePhaseContext(runner) {
     target: optionalEnv("CARTULARY_TEST_TARGET", "adhoc"),
     command: requiredEnv("CARTULARY_PHASE_COMMAND"),
     runner,
+    timingBucket: normalizeTimingBucket(optionalEnv("CARTULARY_PHASE_TIMING_BUCKET"), runner),
     startTime: requiredEnv("CARTULARY_PHASE_START_TIME"),
     endTime: requiredEnv("CARTULARY_PHASE_END_TIME"),
     accountingMode,
@@ -500,6 +540,7 @@ function writePhaseArtifacts(context, details) {
     logical_duration_ms: context.logicalDurationMs,
     duration_ms: context.durationMs,
     wall_duration_ms: context.wallDurationMs,
+    timing_bucket: context.timingBucket,
     status: details.status,
     counts: details.counts,
   };
@@ -527,6 +568,7 @@ function writePhaseArtifacts(context, details) {
     logical_duration_ms: context.logicalDurationMs,
     duration_ms: context.durationMs,
     wall_duration_ms: context.wallDurationMs,
+    timing_bucket: context.timingBucket,
     exit_status: context.exitStatus,
     artifacts,
     counts: details.counts,
@@ -536,6 +578,208 @@ function writePhaseArtifacts(context, details) {
     manifest_mismatch: details.manifestMismatch,
   };
   writeJson(path.join(context.phaseDir, "phase-summary.json"), summary);
+}
+
+function timingSpanPath(target) {
+  const targetDir = path.join(resultsRoot, runId, target);
+  const label = optionalEnv("CARTULARY_TIMING_LABEL", "timing-span");
+  const slug = slugifyLabel(label) || "timing-span";
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return path.join(targetDir, "timing-spans", `${timestamp}-${process.pid}-${slug}.json`);
+}
+
+function createTargetOwnedTimingSpan(source = "target") {
+  const target = optionalEnv("CARTULARY_TEST_TARGET", "");
+  if (target === "") {
+    return null;
+  }
+  const bucket = normalizeTimingBucket(optionalEnv("CARTULARY_TIMING_BUCKET"));
+  const label = requiredEnv("CARTULARY_TIMING_LABEL");
+  const durationMs = clampDurationMs(parseInteger("CARTULARY_TIMING_DURATION_MS", 0));
+  const startTime = optionalEnv("CARTULARY_TIMING_START_TIME");
+  const endTime = optionalEnv("CARTULARY_TIMING_END_TIME");
+  return {
+    source,
+    bucket,
+    label,
+    start_time: startTime,
+    end_time: endTime,
+    duration_ms: durationMs,
+    status: optionalEnv("CARTULARY_TIMING_STATUS", "pass"),
+  };
+}
+
+function handleTimingSpan() {
+  const span = createTargetOwnedTimingSpan();
+  if (!span) {
+    return 0;
+  }
+  writeJson(timingSpanPath(optionalEnv("CARTULARY_TEST_TARGET")), span);
+  return 0;
+}
+
+function loadTargetOwnedTimingSpans(targetDir) {
+  const spansDir = path.join(targetDir, "timing-spans");
+  if (!existsSync(spansDir)) {
+    return [];
+  }
+  const spans = [];
+  for (const entry of readdirSync(spansDir, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith(".json")) {
+      continue;
+    }
+    const span = JSON.parse(readFileSync(path.join(spansDir, entry.name), "utf8"));
+    if (!span?.bucket || !timingBucketSet.has(span.bucket)) {
+      continue;
+    }
+    spans.push({
+      source: span.source ?? "target",
+      bucket: span.bucket,
+      label: span.label ?? "",
+      start_time: span.start_time ?? "",
+      end_time: span.end_time ?? "",
+      duration_ms: clampDurationMs(span.duration_ms ?? 0),
+      status: span.status ?? "",
+    });
+  }
+  return spans;
+}
+
+function loadServiceTimingSpans(target) {
+  const servicesRoot = path.join(resultsRoot, runId, "_shared", "test-services");
+  if (!existsSync(servicesRoot)) {
+    return [];
+  }
+  const spans = [];
+  const stack = [servicesRoot];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+        continue;
+      }
+      if (!entry.isFile() || !entry.name.endsWith(".json")) {
+        continue;
+      }
+      let event;
+      try {
+        event = JSON.parse(readFileSync(next, "utf8"));
+      } catch {
+        continue;
+      }
+      if (event.type !== "timing-span") {
+        continue;
+      }
+      const details = event.details ?? {};
+      if (details.target !== target) {
+        continue;
+      }
+      const bucket = normalizeTimingBucket(details.bucket);
+      spans.push({
+        source: "test_services",
+        bucket,
+        label: details.label ?? event.name ?? "test-services timing",
+        start_time: details.start_time ?? "",
+        end_time: details.end_time ?? event.timestamp ?? "",
+        duration_ms: clampDurationMs(details.duration_ms ?? 0),
+        status: details.status ?? event.status ?? "",
+        artifact: relToRepo(path.dirname(path.dirname(next))),
+      });
+    }
+  }
+  return spans;
+}
+
+function phaseSummaryTimingSpan(summary) {
+  return {
+    source: "phase",
+    bucket: normalizeTimingBucket(summary.timing_bucket, summary.runner),
+    label: summary.label,
+    runner: summary.runner,
+    status: summary.status,
+    accounting_mode: normalizeAccountingMode(summary.accounting_mode),
+    start_time: summary.start_time ?? "",
+    end_time: summary.end_time ?? "",
+    duration_ms: clampDurationMs(
+      summary.wall_duration_ms ?? summary.logical_duration_ms ?? summary.duration_ms ?? 0,
+    ),
+    logical_duration_ms: clampDurationMs(summary.logical_duration_ms ?? summary.duration_ms ?? 0),
+    executed_duration_ms: clampDurationMs(summary.executed_duration_ms ?? 0),
+    artifacts: summary.artifacts ?? {},
+  };
+}
+
+function addTimingSpanToBuckets(buckets, span) {
+  if (!span || !timingBucketSet.has(span.bucket)) {
+    return;
+  }
+  if (!buckets.has(span.bucket)) {
+    buckets.set(span.bucket, {
+      name: span.bucket,
+      duration_ms: 0,
+      spans: [],
+    });
+  }
+  const bucket = buckets.get(span.bucket);
+  const durationMs = clampDurationMs(span.duration_ms ?? 0);
+  bucket.duration_ms += durationMs;
+  bucket.spans.push({
+    ...span,
+    duration_ms: durationMs,
+  });
+}
+
+function summarizeTargetTiming(target, targetDir, phaseSummaries, status, reportCollationSpan) {
+  const buckets = new Map();
+  for (const summary of phaseSummaries) {
+    addTimingSpanToBuckets(buckets, phaseSummaryTimingSpan(summary));
+  }
+  for (const span of loadTargetOwnedTimingSpans(targetDir)) {
+    addTimingSpanToBuckets(buckets, span);
+  }
+  for (const span of loadServiceTimingSpans(target)) {
+    addTimingSpanToBuckets(buckets, span);
+  }
+  addTimingSpanToBuckets(buckets, reportCollationSpan);
+
+  const bucketList = timingBucketOrder
+    .map((name) => buckets.get(name))
+    .filter(Boolean)
+    .map((bucket) => ({
+      ...bucket,
+      spans: bucket.spans.sort((left, right) =>
+        `${left.start_time ?? ""}:${left.label ?? ""}`.localeCompare(
+          `${right.start_time ?? ""}:${right.label ?? ""}`,
+        ),
+      ),
+    }));
+  const slowest = bucketList.reduce((current, bucket) => {
+    if (!current || bucket.duration_ms > current.duration_ms) {
+      return { name: bucket.name, duration_ms: bucket.duration_ms };
+    }
+    return current;
+  }, null);
+  const startTimes = bucketList
+    .flatMap((bucket) => bucket.spans.map((span) => span.start_time).filter(Boolean))
+    .sort();
+  const endTimes = bucketList
+    .flatMap((bucket) => bucket.spans.map((span) => span.end_time).filter(Boolean))
+    .sort();
+  const timing = {
+    schema_id: targetTimingSchemaID,
+    target,
+    status,
+    generated_at: new Date().toISOString(),
+    start_time: startTimes[0] ?? "",
+    end_time: endTimes[endTimes.length - 1] ?? "",
+    buckets: bucketList,
+    slowest_lifecycle_bucket: slowest,
+  };
+  const timingPath = path.join(targetDir, "target-timing.json");
+  writeJson(timingPath, timing);
+  return { timing, timingPath };
 }
 
 function summarizeTargetDir(target) {
@@ -739,8 +983,10 @@ function toTargetSummaryReference(summary, fallbackTarget) {
       summary.accounting_modes,
       summary.counts?.phases ?? 0,
     ),
+    slowest_lifecycle_bucket: summary.slowest_lifecycle_bucket ?? null,
     artifacts: {
       dir: summary.artifacts?.dir ?? relToRepo(path.join(resultsRoot, runId, fallbackTarget)),
+      timing_json: summary.artifacts?.timing_json ?? "",
     },
   };
 }
@@ -761,7 +1007,7 @@ function loadChildTargetSummaries(childTargetNames) {
 
 function writeTargetLine(stream, label, target, summary, targetDir) {
   stream.write(
-    `${label} ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} authoritative=${summary.counts.authoritative} support=${summary.counts.support} unmapped=${summary.counts.unmapped} packages=${summary.counts.packages} ${formatDurationFields(summary.wallDurationMs, summary.executedDurationMs, summary.logicalDurationMs)} ${formatAccountingModeFields(summary.accountingModes)} artifacts=${relToRepo(targetDir)}\n`,
+    `${label} ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} authoritative=${summary.counts.authoritative} support=${summary.counts.support} unmapped=${summary.counts.unmapped} packages=${summary.counts.packages} ${formatDurationFields(summary.wallDurationMs, summary.executedDurationMs, summary.logicalDurationMs)} ${formatAccountingModeFields(summary.accountingModes)} slowest_lifecycle_bucket=${formatBucketSummary(summary.slowestLifecycleBucket)} artifacts=${relToRepo(targetDir)}\n`,
   );
 }
 
@@ -779,6 +1025,8 @@ function writeChildTargetLines(stream, parentTarget, childTargets, missingChildT
 }
 
 function handleTargetSummary(args) {
+  const reportCollationStartMs = Date.now();
+  const reportCollationStartTime = new Date(reportCollationStartMs).toISOString();
   const { target, requestedStatus, childTargetNames } = parseTargetSummaryArgs(args);
   const summary = summarizeTargetDir(target);
   const { childTargets, missingChildTargetSummaries } =
@@ -787,6 +1035,24 @@ function handleTargetSummary(args) {
     summary.failed || missingChildTargetSummaries.length > 0 || requestedStatus === "fail"
       ? "FAIL"
       : "PASS";
+  const reportCollationEndMs = Date.now();
+  const reportCollationEndTime = new Date(reportCollationEndMs).toISOString();
+  const { timing, timingPath } = summarizeTargetTiming(
+    target,
+    summary.targetDir,
+    summary.summaries,
+    status.toLowerCase(),
+    {
+      source: "target",
+      bucket: "report_collation",
+      label: "target summary collation",
+      start_time: reportCollationStartTime,
+      end_time: reportCollationEndTime,
+      duration_ms: clampDurationMs(reportCollationEndMs - reportCollationStartMs),
+      status: status.toLowerCase(),
+    },
+  );
+  summary.slowestLifecycleBucket = timing.slowest_lifecycle_bucket;
   const targetSummary = {
     target,
     status: status.toLowerCase(),
@@ -798,8 +1064,10 @@ function handleTargetSummary(args) {
     wall_duration_ms: summary.wallDurationMs,
     accounting_modes: summary.accountingModes,
     counts: summary.counts,
+    slowest_lifecycle_bucket: timing.slowest_lifecycle_bucket,
     artifacts: {
       dir: relToRepo(summary.targetDir),
+      timing_json: relToRepo(timingPath),
     },
     child_targets: childTargets,
     missing_child_target_summaries: missingChildTargetSummaries,
@@ -814,7 +1082,7 @@ function handleTargetSummary(args) {
   }
 
   process.stderr.write(
-    `[FAIL] ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} failed=${summary.counts.failed} authoritative_failed=${summary.counts.authoritative_failed} support_failed=${summary.counts.support_failed} unmapped_failed=${summary.counts.unmapped_failed} non_test_failed=${summary.counts.non_test_failed} ${formatDurationFields(summary.wallDurationMs, summary.executedDurationMs, summary.logicalDurationMs)} ${formatAccountingModeFields(summary.accountingModes)} artifacts=${relToRepo(summary.targetDir)}\n`,
+    `[FAIL] ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} failed=${summary.counts.failed} authoritative_failed=${summary.counts.authoritative_failed} support_failed=${summary.counts.support_failed} unmapped_failed=${summary.counts.unmapped_failed} non_test_failed=${summary.counts.non_test_failed} ${formatDurationFields(summary.wallDurationMs, summary.executedDurationMs, summary.logicalDurationMs)} ${formatAccountingModeFields(summary.accountingModes)} slowest_lifecycle_bucket=${formatBucketSummary(summary.slowestLifecycleBucket)} artifacts=${relToRepo(summary.targetDir)}\n`,
   );
   writeChildTargetLines(process.stderr, target, childTargets, missingChildTargetSummaries);
   return 0;
@@ -978,6 +1246,36 @@ function writeSummaryGroupLines(stream, label, summaryGroups) {
   }
 }
 
+function findSlowestTarget(targetSummaries) {
+  return targetSummaries.reduce((current, summary) => {
+    const durationMs = clampDurationMs(
+      summary.wall_duration_ms ?? summary.logical_duration_ms ?? summary.duration_ms ?? 0,
+    );
+    if (!current || durationMs > current.duration_ms) {
+      return { target: summary.target, duration_ms: durationMs };
+    }
+    return current;
+  }, null);
+}
+
+function findSlowestLifecycleBucket(targetSummaries) {
+  return targetSummaries.reduce((current, summary) => {
+    const bucket = summary.slowest_lifecycle_bucket;
+    if (!bucket) {
+      return current;
+    }
+    const candidate = {
+      target: summary.target,
+      name: bucket.name,
+      duration_ms: clampDurationMs(bucket.duration_ms ?? 0),
+    };
+    if (!current || candidate.duration_ms > current.duration_ms) {
+      return candidate;
+    }
+    return current;
+  }, null);
+}
+
 function handleRunSummary(args) {
   const { label, requestedStatus, completedText, totalText, abortedAfter, targets, summaryGroups } =
     parseRunSummaryArgs(args);
@@ -1004,6 +1302,8 @@ function handleRunSummary(args) {
   const wallDurationMs = summarized.wallDurationMs;
   const renderedSummaryGroups = buildSummaryGroups(summaryGroups);
   const failed = summarized.failed || renderedSummaryGroups.some((group) => group.status !== "pass");
+  const slowestTarget = findSlowestTarget(targetSummaries);
+  const slowestLifecycleBucket = findSlowestLifecycleBucket(targetSummaries);
 
   const runSummary = {
     label,
@@ -1018,6 +1318,8 @@ function handleRunSummary(args) {
     wall_duration_ms: wallDurationMs,
     accounting_modes: accountingModes,
     counts: aggregate,
+    slowest_target: slowestTarget,
+    slowest_lifecycle_bucket: slowestLifecycleBucket,
     artifacts: {
       dir: relToRepo(path.join(resultsRoot, runId)),
     },
@@ -1030,14 +1332,14 @@ function handleRunSummary(args) {
 
   if (!failed) {
     process.stdout.write(
-      `[PASS] ${label} completed_targets=${completedTargets}/${totalTargets} phases=${aggregate.phases} tests=${aggregate.tests} authoritative=${aggregate.authoritative} support=${aggregate.support} unmapped=${aggregate.unmapped} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms)} ${formatAccountingModeFields(accountingModes)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
+      `[PASS] ${label} completed_targets=${completedTargets}/${totalTargets} phases=${aggregate.phases} tests=${aggregate.tests} authoritative=${aggregate.authoritative} support=${aggregate.support} unmapped=${aggregate.unmapped} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
     );
     writeSummaryGroupLines(process.stdout, label, renderedSummaryGroups);
     return 0;
   }
 
   process.stderr.write(
-    `[FAIL] ${label} completed_targets=${completedTargets}/${totalTargets} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms)} ${formatAccountingModeFields(accountingModes)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
+    `[FAIL] ${label} completed_targets=${completedTargets}/${totalTargets} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
   );
   writeSummaryGroupLines(process.stderr, label, renderedSummaryGroups);
   return 1;

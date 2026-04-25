@@ -41,6 +41,11 @@ const (
 	stageChildStart       = "child-start"
 	stageCleanupPostgres  = "cleanup-postgres"
 	stageCleanupMinIO     = "cleanup-minio"
+
+	bucketSetup       = "setup"
+	bucketServiceWait = "service_wait"
+	bucketMigration   = "migration"
+	bucketTeardown    = "teardown"
 )
 
 type postgresService struct {
@@ -120,6 +125,7 @@ func run(args []string, env map[string]string, deps dependencies) int {
 }
 
 func runWrappedCommand(args []string, env map[string]string, deps dependencies) int {
+	wrapperStart := time.Now().UTC()
 	command, usageErr := parseRunCommand(args)
 	if usageErr != nil {
 		fmt.Fprintln(os.Stderr, usageErr)
@@ -148,6 +154,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 
 	deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart})
 	deps.refreshSummary(ownedEnv)
+	recordTimingSpan(deps, ownedEnv, bucketSetup, "test-services wrapper setup", wrapperStart, time.Now().UTC(), "pass")
 
 	var postgresSvc postgresService
 	var minioSvc minioService
@@ -155,7 +162,9 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	cleanupStatus := "startup_failed"
 
 	postgresCtx, cancelPostgres := context.WithTimeout(context.Background(), postgresStartupTimeout)
+	postgresStart := time.Now().UTC()
 	postgresSvc, err = deps.startPostgres(postgresCtx)
+	recordTimingSpanStatus(deps, ownedEnv, bucketServiceWait, "test-services start postgres", postgresStart, err)
 	cancelPostgres()
 	if err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresStart, "start suite postgres", err))
@@ -180,7 +189,9 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	deps.refreshSummary(ownedEnv)
 
 	templateCtx, cancelTemplate := context.WithTimeout(context.Background(), templateStartupTimeout)
+	templateStart := time.Now().UTC()
 	err = deps.createTemplate(templateCtx, postgresSvc.adminDSN, templateDB)
+	recordTimingSpanStatus(deps, ownedEnv, bucketMigration, "test-services prepare postgres template database", templateStart, err)
 	cancelTemplate()
 	if err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "prepare postgres template database", err))
@@ -201,7 +212,9 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	deps.refreshSummary(ownedEnv)
 
 	minioCtx, cancelMinIO := context.WithTimeout(context.Background(), minioStartupTimeout)
+	minioStart := time.Now().UTC()
 	minioSvc, err = deps.startMinIO(minioCtx)
+	recordTimingSpanStatus(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioStart, err)
 	cancelMinIO()
 	if err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceMinIO, stageMinIOStart, "start suite minio", err))
@@ -260,7 +273,9 @@ func runPrepareWebE2E(args []string, env map[string]string, deps dependencies) i
 	ctx, cancel := context.WithTimeout(context.Background(), templateStartupTimeout)
 	defer cancel()
 
+	prepareStart := time.Now().UTC()
 	fixture, err := deps.prepareWebE2E(ctx, env)
+	recordTimingSpanStatus(deps, env, bucketMigration, "test-services prepare browser e2e fixture", prepareStart, err)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "prepare browser e2e fixture: %v\n", err)
 		return 1
@@ -304,10 +319,13 @@ func runCleanupWebE2E(args []string, env map[string]string, deps dependencies) i
 
 	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
+	cleanupStart := time.Now().UTC()
 	if err := deps.cleanupWebE2E(ctx, metadata, env); err != nil {
+		recordTimingSpanStatus(deps, env, bucketTeardown, "test-services cleanup browser e2e fixture", cleanupStart, err)
 		fmt.Fprintf(os.Stderr, "cleanup browser e2e fixture: %v\n", err)
 		return 1
 	}
+	recordTimingSpan(deps, env, bucketTeardown, "test-services cleanup browser e2e fixture", cleanupStart, time.Now().UTC(), "pass")
 	deps.refreshSummary(env)
 	return 0
 }
@@ -619,9 +637,41 @@ func recordCleanupAndRefresh(deps dependencies, env map[string]string, status st
 	deps.refreshSummary(env)
 }
 
+func recordTimingSpanStatus(deps dependencies, env map[string]string, bucket string, label string, start time.Time, err error) {
+	status := "pass"
+	if err != nil {
+		status = "fail"
+	}
+	recordTimingSpan(deps, env, bucket, label, start, time.Now().UTC(), status)
+}
+
+func recordTimingSpan(deps dependencies, env map[string]string, bucket string, label string, start time.Time, end time.Time, status string) {
+	if end.Before(start) {
+		end = start
+	}
+	duration := end.Sub(start)
+	if duration < 0 {
+		duration = 0
+	}
+	deps.recordEvent(env, suiteservices.Event{
+		Type:   suiteservices.EventTimingSpan,
+		Status: status,
+		Details: map[string]any{
+			"target":      suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
+			"bucket":      bucket,
+			"label":       label,
+			"start_time":  start.Format(time.RFC3339Nano),
+			"end_time":    end.Format(time.RFC3339Nano),
+			"duration_ms": duration.Milliseconds(),
+			"status":      status,
+		},
+	})
+}
+
 func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc postgresService, minioSvc minioService, status string, childExitCode int) {
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
+	cleanupStart := time.Now().UTC()
 
 	cleanupStatus := status
 	if cleanupStatus == "" {
@@ -641,6 +691,7 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 		}
 	}
 
+	recordTimingSpan(deps, env, bucketTeardown, "test-services cleanup owned services", cleanupStart, time.Now().UTC(), cleanupStatus)
 	recordCleanupAndRefresh(deps, env, cleanupStatus, childExitCode)
 }
 

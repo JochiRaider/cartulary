@@ -147,6 +147,7 @@ duration_actual_summary="$duration_artifacts_root/duration-smoke/backend-unit-sm
 duration_reused_summary="$duration_artifacts_root/duration-smoke/backend-unit-smoke/duration-reused/phase-summary.json"
 duration_derived_summary="$duration_artifacts_root/duration-smoke/backend-unit-smoke/duration-derived/phase-summary.json"
 duration_target_summary="$duration_artifacts_root/duration-smoke/backend-unit-smoke/target-summary.json"
+duration_target_timing="$duration_artifacts_root/duration-smoke/backend-unit-smoke/target-timing.json"
 duration_run_summary="$duration_artifacts_root/duration-smoke/run-summary.json"
 
 assert_not_negative "$(json_field "$duration_actual_summary" "duration_ms")" "duration actual phase duration"
@@ -179,6 +180,15 @@ assert_equals "$(json_field "$duration_target_summary" "wall_duration_ms")" "120
 assert_equals "$(json_field "$duration_target_summary" "accounting_modes.actual")" "1" "duration target actual accounting count"
 assert_equals "$(json_field "$duration_target_summary" "accounting_modes.reused")" "1" "duration target reused accounting count"
 assert_equals "$(json_field "$duration_target_summary" "accounting_modes.derived")" "1" "duration target derived accounting count"
+assert_contains "$(json_field "$duration_target_summary" "artifacts.timing_json")" "target-timing.json" "duration target timing artifact"
+assert_equals "$(json_field "$duration_target_timing" "schema_id")" "cartulary.test_target_timing.v1" "duration target timing schema"
+assert_equals "$(json_field "$duration_target_timing" "buckets.0.name")" "test_command" "duration target test command bucket"
+assert_equals "$(json_field "$duration_target_timing" "buckets.1.name")" "report_collation" "duration target report collation bucket"
+if "${NODE:-node}" -e 'const fs=require("node:fs"); const buckets=JSON.parse(fs.readFileSync(process.argv[1],"utf8")).buckets.map((bucket)=>bucket.name); process.exit(buckets.includes("setup") ? 1 : 0);' "$duration_target_timing"; then
+  :
+else
+  fail "duration target timing must omit setup bucket"
+fi
 assert_not_negative "$(json_field "$duration_run_summary" "duration_ms")" "duration run duration"
 assert_not_negative "$(json_field "$duration_run_summary" "wall_duration_ms")" "duration run wall duration"
 assert_equals "$(json_field "$duration_run_summary" "executed_duration_ms")" "1200" "duration run executed duration"
