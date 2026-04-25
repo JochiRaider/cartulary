@@ -85,6 +85,16 @@ assert_not_negative() {
   fi
 }
 
+assert_less_than() {
+  local actual="$1"
+  local expected_upper_bound="$2"
+  local label="$3"
+
+  if [[ -z "$actual" || -z "$expected_upper_bound" || ! "$actual" =~ ^[0-9]+$ || ! "$expected_upper_bound" =~ ^[0-9]+$ || "$actual" -ge "$expected_upper_bound" ]]; then
+    fail "$label: expected [$actual] to be less than [$expected_upper_bound]"
+  fi
+}
+
 node_bin="${NODE_BIN:-node}"
 go_bin="${GO:-go}"
 
@@ -378,6 +388,36 @@ cleanup_paths+=("$parallel_capture_results")
   assert_contains "$invalid_jobs_output" "invalid shard job count" "parallel capture invalid jobs marker"
 )
 
+parallel_scheduler_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-parallel-scheduler.XXXXXX")"
+cleanup_paths+=("$parallel_scheduler_results")
+(
+  export CARTULARY_TEST_RESULTS_DIR="$parallel_scheduler_results/results"
+  export CARTULARY_TEST_RUN_ID="parallel-scheduler"
+  export NODE_BIN="$node_bin"
+  source "$GO_TARGET_HELPER"
+
+  assign_named_shared_report() {
+    local -n dir_ref="$1"
+    local -n usage_ref="$2"
+    local shared_name="$4"
+    printf '%s\n' "$(phase_now_monotonic_ms)" >"$parallel_scheduler_results/${shared_name}.start"
+    case "${shared_name}" in
+      shard-a) sleep 0.4 ;;
+      shard-b) sleep 0.05 ;;
+      *) sleep 0.01 ;;
+    esac
+    printf '%s\n' "$(phase_now_monotonic_ms)" >"$parallel_scheduler_results/${shared_name}.end"
+    dir_ref="/tmp/${shared_name}"
+    usage_ref="actual"
+  }
+
+  metadata_dir="$parallel_scheduler_results/metadata"
+  capture_named_shared_reports_parallel backend-integration 2 "$metadata_dir" shard-a shard-b shard-c
+  shard_a_end="$(<"$parallel_scheduler_results/shard-a.end")"
+  shard_c_start="$(<"$parallel_scheduler_results/shard-c.start")"
+  assert_less_than "$shard_c_start" "$shard_a_end" "parallel capture starts next shard after first completed child"
+)
+
 backend_unit_structure="$(
   export NODE_BIN="$node_bin"
   source "$GO_TARGET_HELPER"
@@ -520,6 +560,7 @@ assert_contains "$backend_integration_structure" "manifest_calls=7" "backend-int
 assert_contains "$backend_integration_structure" "phase4_manifest_calls=2" "backend-integration phase4 split phase count"
 assert_contains "$backend_integration_structure" "backend-integration-phase4-entities" "backend-integration captures phase4 entities shard"
 assert_contains "$backend_integration_structure" "backend-integration-testutil" "backend-integration captures testutil shard"
+assert_contains "$backend_integration_structure" "names= backend-integration-phase2-incidents backend-integration-phase0-platform backend-integration-phase4-entities backend-integration-auth backend-integration-phase3-timeline backend-integration-phase4-timeline backend-integration-testutil backend-integration-phase0-app" "backend-integration weighted shard order"
 assert_contains "$backend_integration_structure" "finish_status=0" "backend-integration finish status"
 
 backend_integration_support_structure="$(
@@ -562,6 +603,7 @@ assert_contains "$backend_integration_support_structure" "capture_jobs=4" "backe
 assert_contains "$backend_integration_support_structure" "support_calls=5" "backend-integration-support support shard phase count"
 assert_contains "$backend_integration_support_structure" "backend-integration-phase4-entities" "backend-integration-support captures phase4 entities shard"
 assert_not_contains "$backend_integration_support_structure" "backend-integration-testutil" "backend-integration-support skips testutil shard"
+assert_contains "$backend_integration_support_structure" "names= backend-integration-phase2-incidents backend-integration-phase0-platform backend-integration-phase4-entities backend-integration-auth backend-integration-phase3-timeline" "backend-integration-support weighted shard order"
 assert_contains "$backend_integration_support_structure" "finish_status=0" "backend-integration-support finish status"
 
 phase0_backend_unit_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase0 backend_unit ./internal/platform/... ./internal/app)"

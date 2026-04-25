@@ -643,6 +643,36 @@ assign_captured_report() {
   usage_ref="${capture_result[1]}"
 }
 
+wait_for_one_parallel_capture() {
+  if [[ "$#" -ne 1 ]]; then
+    echo "wait_for_one_parallel_capture requires <pid-array-var>" >&2
+    return 2
+  fi
+
+  local -n pids_ref="$1"
+  local completed_pid=""
+  local wait_status
+  local pid
+  local remaining=()
+
+  set +e
+  wait -n -p completed_pid "${pids_ref[@]}"
+  wait_status=$?
+  set -e
+
+  for pid in "${pids_ref[@]}"; do
+    if [[ "${pid}" != "${completed_pid}" ]]; then
+      remaining+=("${pid}")
+    fi
+  done
+  if [[ -z "${completed_pid}" ]]; then
+    remaining=()
+  fi
+  pids_ref=("${remaining[@]}")
+
+  return "${wait_status}"
+}
+
 capture_named_shared_reports_parallel() {
   if [[ "$#" -lt 4 ]]; then
     echo "capture_named_shared_reports_parallel requires <target> <jobs> <metadata-dir> <shared-name...>" >&2
@@ -662,10 +692,15 @@ capture_named_shared_reports_parallel() {
   mkdir -p "${metadata_dir}"
 
   local pids=()
-  local active=0
   local status=0
   local shared_name
   for shared_name in "$@"; do
+    while (( ${#pids[@]} >= jobs )); do
+      if ! wait_for_one_parallel_capture pids; then
+        status=1
+      fi
+    done
+
     (
       local report_dir
       local report_usage
@@ -673,25 +708,36 @@ capture_named_shared_reports_parallel() {
       printf '%s\n%s\n' "${report_dir}" "${report_usage}" >"${metadata_dir}/${shared_name}.meta"
     ) &
     pids+=("$!")
-    active=$((active + 1))
-
-    if (( active >= jobs )); then
-      if ! wait "${pids[0]}"; then
-        status=1
-      fi
-      pids=("${pids[@]:1}")
-      active=$((active - 1))
-    fi
   done
 
-  local pid
-  for pid in "${pids[@]}"; do
-    if ! wait "${pid}"; then
+  while (( ${#pids[@]} > 0 )); do
+    if ! wait_for_one_parallel_capture pids; then
       status=1
     fi
   done
 
   return "${status}"
+}
+
+backend_integration_shared_reports() {
+  printf '%s\n' \
+    backend-integration-phase2-incidents \
+    backend-integration-phase0-platform \
+    backend-integration-phase4-entities \
+    backend-integration-auth \
+    backend-integration-phase3-timeline \
+    backend-integration-phase4-timeline \
+    backend-integration-testutil \
+    backend-integration-phase0-app
+}
+
+backend_integration_support_shared_reports() {
+  printf '%s\n' \
+    backend-integration-phase2-incidents \
+    backend-integration-phase0-platform \
+    backend-integration-phase4-entities \
+    backend-integration-auth \
+    backend-integration-phase3-timeline
 }
 
 read_shared_report_metadata() {
@@ -961,18 +1007,12 @@ run_backend_integration() {
   local phase4_timeline_dir
   local phase4_timeline_usage
   local metadata_dir
+  local shared_reports=()
   local status=0
 
   metadata_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-backend-integration-shards.XXXXXX")"
-  capture_named_shared_reports_parallel backend-integration "${BACKEND_INTEGRATION_SHARD_JOBS}" "${metadata_dir}" \
-    backend-integration-phase4-entities \
-    backend-integration-phase2-incidents \
-    backend-integration-phase3-timeline \
-    backend-integration-auth \
-    backend-integration-phase4-timeline \
-    backend-integration-phase0-app \
-    backend-integration-phase0-platform \
-    backend-integration-testutil
+  mapfile -t shared_reports < <(backend_integration_shared_reports)
+  capture_named_shared_reports_parallel backend-integration "${BACKEND_INTEGRATION_SHARD_JOBS}" "${metadata_dir}" "${shared_reports[@]}"
 
   read_shared_report_metadata phase4_entities_dir phase4_entities_usage "${metadata_dir}" backend-integration-phase4-entities
   read_shared_report_metadata phase2_incidents_dir phase2_incidents_usage "${metadata_dir}" backend-integration-phase2-incidents
@@ -1016,15 +1056,12 @@ run_backend_integration_support() {
   local phase4_entities_dir
   local phase4_entities_usage
   local metadata_dir
+  local shared_reports=()
   local status=0
 
   metadata_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-backend-integration-support-shards.XXXXXX")"
-  capture_named_shared_reports_parallel backend-integration-support "${BACKEND_INTEGRATION_SHARD_JOBS}" "${metadata_dir}" \
-    backend-integration-phase4-entities \
-    backend-integration-phase2-incidents \
-    backend-integration-phase3-timeline \
-    backend-integration-auth \
-    backend-integration-phase0-platform
+  mapfile -t shared_reports < <(backend_integration_support_shared_reports)
+  capture_named_shared_reports_parallel backend-integration-support "${BACKEND_INTEGRATION_SHARD_JOBS}" "${metadata_dir}" "${shared_reports[@]}"
 
   read_shared_report_metadata phase4_entities_dir phase4_entities_usage "${metadata_dir}" backend-integration-phase4-entities
   read_shared_report_metadata phase2_incidents_dir phase2_incidents_usage "${metadata_dir}" backend-integration-phase2-incidents
