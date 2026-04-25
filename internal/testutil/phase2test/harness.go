@@ -33,7 +33,7 @@ func StartStore(t testing.TB, prefix string) *StoreHarness {
 	t.Helper()
 
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareDatabaseT(t, prefix)
+	testDB := postgresHarness.PreparePackageDatabaseT(t, prefix)
 
 	pool, err := pgxpool.New(context.Background(), testDB.DSN)
 	if err != nil {
@@ -123,20 +123,11 @@ func (h *RuntimeHarness) StartStore(t testing.TB, prefix string) *StoreHarness {
 func (h *RuntimeHarness) prepareDatabase(t testing.TB, prefix string) *pgtest.TestDatabase {
 	t.Helper()
 
-	return h.Postgres.PrepareDatabaseT(t, prefix)
+	return h.Postgres.PreparePackageDatabaseT(t, prefix)
 }
 
 func (h *RuntimeHarness) prepareBucket(t testing.TB, prefix string) string {
 	t.Helper()
 
-	bucket, err := h.S3.BootstrapBucket(context.Background(), prefix)
-	if err != nil {
-		t.Fatalf("bootstrap bucket: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := h.S3.CleanupBucket(context.Background(), bucket); err != nil {
-			t.Logf("cleanup bucket: %v", err)
-		}
-	})
-	return bucket
+	return h.S3.PreparePackageBucketT(t, prefix)
 }

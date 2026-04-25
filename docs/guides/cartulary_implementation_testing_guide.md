@@ -24,6 +24,15 @@ This guide also resolves one dependency error from the prior version: reviewer-f
 - **E2E test**: verifies a user-observable flow through the full deployed stack against the visible contract and the cited ACs.
 - **Visual regression test**: verifies deterministic browser-rendered workbook states against stable screenshot or DOM-visual fixtures. It is developer-gate evidence for UI drift. It is not a claim-bearing benchmark unless Core 05 publication requirements are separately satisfied.
 
+### 1.1.1 Service-backed fixture modes
+
+Service-backed Go tests must keep service ownership centralized in `tools/testservices`; phase helpers choose only the fixture isolation mode used inside that already-running Postgres and MinIO pair.
+
+- Use isolated per-test Postgres databases and buckets for startup, migration, rollback, process-boundary, and unclear isolation cases.
+- Use package-reused Postgres databases for store and ordinary route tests that only require a clean logical schema state; helpers reset mutable public tables and preserve migration metadata before each test.
+- Use package-reused MinIO buckets for ordinary route tests; helpers clear object contents before each test. Prefix cleanup is available for tests that can route all object keys through a unique prefix.
+- Treat fixture churn diagnostics in `service-scope.json` and `target-summary.json` as the source of truth when deciding whether a test needs stronger isolation.
+
 ### 1.2 Conformance posture
 
 Phases 0 through 10 are the base-profile implementation sequence. A base-profile claim MUST satisfy the current Base claim manifest in Core 04 rather than any historical endpoint shorthand such as `AC-299` alone. Phase 11 is intentionally not a base-profile phase. It is an extension-profile hook section that keeps extension work aligned to the current extension route families and claim manifests. Core 05 remains a separate normative companion for claim-bearing publication of timed or fixture-sensitive criteria and does not broaden Base Profile or extension-profile implementation conformance.[^base-manifest][^traceability][^claim-publication]

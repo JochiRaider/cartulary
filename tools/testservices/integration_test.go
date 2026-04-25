@@ -34,12 +34,15 @@ func TestMakeBackendStoreUsesSingleOwnedSuitePair(t *testing.T) {
 		t.Fatalf("expected one migrated template database, got %#v", scope.Postgres)
 	}
 	if scope.Postgres.TemplateCloneCount == 0 {
-		t.Fatalf("expected backend-store to clone the migrated template database, got %#v", scope.Postgres)
+		t.Fatalf("expected backend-store to clone or reuse the migrated template database, got %#v", scope.Postgres)
 	}
 	assertPostgresPreparationStrategy(t, scope, suiteservices.PostgresPreparationTemplate)
 	assertPostgresPreparationStrategy(t, scope, suiteservices.PostgresPreparationTemplateClone)
 	if scope.Postgres.AttachedHarnessCount == 0 {
 		t.Fatalf("expected attached postgres harness usage, got %#v", scope.Postgres)
+	}
+	if scope.Fixture.TotalCount == 0 {
+		t.Fatalf("expected backend-store fixture diagnostics, got %#v", scope.Fixture)
 	}
 }
 
@@ -64,12 +67,15 @@ func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedLanes(t *testing.T) {
 		t.Fatalf("expected one migrated template database for the whole suite, got %#v", scope.Postgres)
 	}
 	if scope.Postgres.TemplateCloneCount == 0 {
-		t.Fatalf("expected cloned per-test databases, got %#v", scope.Postgres)
+		t.Fatalf("expected cloned package or isolated databases, got %#v", scope.Postgres)
 	}
 	assertPostgresPreparationStrategy(t, scope, suiteservices.PostgresPreparationTemplate)
 	assertPostgresPreparationStrategy(t, scope, suiteservices.PostgresPreparationTemplateClone)
-	if scope.MinIO.BucketCreateCount == 0 || scope.MinIO.BucketCleanupCount == 0 {
-		t.Fatalf("expected minio bucket create and cleanup activity, got %#v", scope.MinIO)
+	if scope.MinIO.BucketCreateCount == 0 {
+		t.Fatalf("expected minio bucket create activity, got %#v", scope.MinIO)
+	}
+	if scope.Fixture.TotalCount == 0 || len(scope.Fixture.ByPackage) == 0 {
+		t.Fatalf("expected fixture diagnostics grouped by package, got %#v", scope.Fixture)
 	}
 
 	postgresPIDs := uniqueEventPIDs(events, suiteservices.EventPostgresDBCreated)
@@ -81,10 +87,10 @@ func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedLanes(t *testing.T) {
 		t.Fatalf("expected bucket creation from multiple go test package processes, got %v", minioPIDs)
 	}
 	if hasDuplicateNames(events, suiteservices.EventPostgresDBCreated) {
-		t.Fatal("expected distinct per-test database names across package binaries")
+		t.Fatal("expected distinct database names across package binaries")
 	}
 	if hasDuplicateNames(events, suiteservices.EventS3BucketCreated) {
-		t.Fatal("expected distinct per-test bucket names across package binaries")
+		t.Fatal("expected distinct bucket names across package binaries")
 	}
 }
 

@@ -34,7 +34,7 @@ func StartStore(t testing.TB, prefix string) *StoreHarness {
 	t.Helper()
 
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareDatabaseT(t, prefix)
+	testDB := postgresHarness.PreparePackageDatabaseT(t, prefix)
 
 	pool, err := pgxpool.New(context.Background(), testDB.DSN)
 	if err != nil {
@@ -70,17 +70,9 @@ func StartRuntime(t testing.TB) *RuntimeHarness {
 func (h *RuntimeHarness) StartServer(t testing.TB, prefix string, additionalRoutes ...httpapi.RouteRegistrar) *ServerHarness {
 	t.Helper()
 
-	testDB := h.Postgres.PrepareDatabaseT(t, prefix)
+	testDB := h.Postgres.PreparePackageDatabaseT(t, prefix)
 
-	bucket, err := h.S3.BootstrapBucket(context.Background(), prefix)
-	if err != nil {
-		t.Fatalf("bootstrap bucket: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := h.S3.CleanupBucket(context.Background(), bucket); err != nil {
-			t.Logf("cleanup bucket: %v", err)
-		}
-	})
+	bucket := h.S3.PreparePackageBucketT(t, prefix)
 
 	env := testDB.Env()
 	for key, value := range h.S3.Env(bucket) {
@@ -110,7 +102,7 @@ func (h *RuntimeHarness) StartServer(t testing.TB, prefix string, additionalRout
 func (h *RuntimeHarness) StartStore(t testing.TB, prefix string) *StoreHarness {
 	t.Helper()
 
-	testDB := h.Postgres.PrepareDatabaseT(t, prefix)
+	testDB := h.Postgres.PreparePackageDatabaseT(t, prefix)
 
 	pool, err := pgxpool.New(context.Background(), testDB.DSN)
 	if err != nil {

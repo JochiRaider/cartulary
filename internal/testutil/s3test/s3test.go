@@ -46,6 +46,20 @@ type Harness struct {
 	counter     uint64
 	shared      bool
 	attached    bool
+
+	packageBucketMu sync.Mutex
+	packageBuckets  map[string]*packageBucket
+}
+
+type packageBucket struct {
+	mu     sync.Mutex
+	bucket string
+}
+
+type fixtureAttribution struct {
+	TestName      string
+	CallerFile    string
+	CallerPackage string
 }
 
 var (
@@ -235,13 +249,18 @@ func (h *Harness) Client(ctx context.Context) (*minio.Client, error) {
 
 func (h *Harness) BootstrapBucket(ctx context.Context, prefix string) (string, error) {
 	name := h.nextBucketName(prefix)
-	if err := h.CreateBucket(ctx, name); err != nil {
+	if err := h.createBucket(ctx, name, suiteservices.FixtureReusePerTest, fixtureAttribution{}); err != nil {
 		return "", err
 	}
 	return name, nil
 }
 
 func (h *Harness) CreateBucket(ctx context.Context, name string) error {
+	return h.createBucket(ctx, name, suiteservices.FixtureReusePerTest, fixtureAttribution{})
+}
+
+func (h *Harness) createBucket(ctx context.Context, name string, reuseScope string, attribution fixtureAttribution) error {
+	start := time.Now()
 	client, err := h.Client(ctx)
 	if err != nil {
 		return err
@@ -254,11 +273,56 @@ func (h *Harness) CreateBucket(ctx context.Context, name string) error {
 		}
 	}
 	recordSuiteEvent(suiteservices.Event{
-		Type: suiteservices.EventS3BucketCreated,
-		Name: name,
+		Type:    suiteservices.EventS3BucketCreated,
+		Name:    name,
+		Details: s3FixtureDetails("bucket", reuseScope, attribution, time.Since(start)),
 	})
 
 	return nil
+}
+
+func (h *Harness) PreparePackageBucketT(t testing.TB, prefix string) string {
+	t.Helper()
+
+	attribution := fixtureAttributionFor(t, "s3test")
+	key := attribution.CallerPackage
+	if key == "" {
+		key = sanitizeBucket(prefix)
+	}
+	fixture := h.packageBucket(key)
+	fixture.mu.Lock()
+
+	if fixture.bucket == "" {
+		name := h.nextBucketName(prefix)
+		if err := h.createBucket(context.Background(), name, suiteservices.FixtureReusePackage, attribution); err != nil {
+			fixture.mu.Unlock()
+			t.Fatalf("prepare package s3 bucket: %v", err)
+		}
+		fixture.bucket = name
+	} else if err := h.cleanupPrefixWithDetails(context.Background(), fixture.bucket, "", suiteservices.FixtureReusePrefix, attribution); err != nil {
+		fixture.mu.Unlock()
+		t.Fatalf("reset package s3 bucket: %v", err)
+	}
+
+	t.Cleanup(func() {
+		fixture.mu.Unlock()
+	})
+	return fixture.bucket
+}
+
+func (h *Harness) packageBucket(key string) *packageBucket {
+	h.packageBucketMu.Lock()
+	defer h.packageBucketMu.Unlock()
+
+	if h.packageBuckets == nil {
+		h.packageBuckets = make(map[string]*packageBucket)
+	}
+	fixture := h.packageBuckets[key]
+	if fixture == nil {
+		fixture = &packageBucket{}
+		h.packageBuckets[key] = fixture
+	}
+	return fixture
 }
 
 func (h *Harness) RoundTrip(ctx context.Context, bucket string, key string, payload []byte) ([]byte, error) {
@@ -287,12 +351,52 @@ func (h *Harness) RoundTrip(ctx context.Context, bucket string, key string, payl
 }
 
 func (h *Harness) CleanupBucket(ctx context.Context, bucket string) error {
+	start := time.Now()
+	if err := h.cleanupPrefix(ctx, bucket, ""); err != nil {
+		return err
+	}
+
 	client, err := h.Client(ctx)
 	if err != nil {
 		return err
 	}
 
-	for objectInfo := range client.ListObjects(ctx, bucket, minio.ListObjectsOptions{Recursive: true}) {
+	if err := client.RemoveBucket(ctx, bucket); err != nil {
+		return fmt.Errorf("remove bucket %s: %w", bucket, err)
+	}
+	recordSuiteEvent(suiteservices.Event{
+		Type:    suiteservices.EventS3BucketCleaned,
+		Name:    bucket,
+		Details: s3FixtureDetails("bucket", suiteservices.FixtureReusePerTest, fixtureAttribution{}, time.Since(start)),
+	})
+
+	return nil
+}
+
+func (h *Harness) CleanupPrefix(ctx context.Context, bucket string, prefix string) error {
+	return h.cleanupPrefixWithDetails(ctx, bucket, prefix, suiteservices.FixtureReusePrefix, fixtureAttribution{})
+}
+
+func (h *Harness) cleanupPrefixWithDetails(ctx context.Context, bucket string, prefix string, reuseScope string, attribution fixtureAttribution) error {
+	start := time.Now()
+	if err := h.cleanupPrefix(ctx, bucket, prefix); err != nil {
+		return err
+	}
+	recordSuiteEvent(suiteservices.Event{
+		Type:    suiteservices.EventS3PrefixCleaned,
+		Name:    bucket,
+		Details: s3FixtureDetailsWithPrefix("prefix", prefix, reuseScope, attribution, time.Since(start)),
+	})
+	return nil
+}
+
+func (h *Harness) cleanupPrefix(ctx context.Context, bucket string, prefix string) error {
+	client, err := h.Client(ctx)
+	if err != nil {
+		return err
+	}
+
+	for objectInfo := range client.ListObjects(ctx, bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {
 		if objectInfo.Err != nil {
 			return fmt.Errorf("list bucket %s: %w", bucket, objectInfo.Err)
 		}
@@ -300,14 +404,6 @@ func (h *Harness) CleanupBucket(ctx context.Context, bucket string) error {
 			return fmt.Errorf("remove object %s/%s: %w", bucket, objectInfo.Key, err)
 		}
 	}
-
-	if err := client.RemoveBucket(ctx, bucket); err != nil {
-		return fmt.Errorf("remove bucket %s: %w", bucket, err)
-	}
-	recordSuiteEvent(suiteservices.Event{
-		Type: suiteservices.EventS3BucketCleaned,
-		Name: bucket,
-	})
 
 	return nil
 }
@@ -426,4 +522,88 @@ func verifyAttachedHarness(ctx context.Context, harness *Harness) error {
 
 func recordSuiteEvent(event suiteservices.Event) {
 	_ = suiteservices.RecordEvent(nil, event)
+}
+
+func s3FixtureDetails(strategy string, reuseScope string, attribution fixtureAttribution, duration time.Duration) map[string]any {
+	return s3FixtureDetailsWithPrefix(strategy, "", reuseScope, attribution, duration)
+}
+
+func s3FixtureDetailsWithPrefix(strategy string, prefix string, reuseScope string, attribution fixtureAttribution, duration time.Duration) map[string]any {
+	if reuseScope == "" {
+		reuseScope = suiteservices.FixtureReusePerTest
+	}
+	details := map[string]any{
+		"duration_ms": duration.Milliseconds(),
+		"reuse_scope": reuseScope,
+		"strategy":    strategy,
+		"target":      suiteservices.LookupEnvValue(nil, suiteservices.TargetEnv),
+	}
+	if prefix != "" {
+		details["object_prefix"] = prefix
+	}
+	if attribution.TestName != "" {
+		details["test_name"] = attribution.TestName
+	}
+	if attribution.CallerFile != "" {
+		details["caller_file"] = attribution.CallerFile
+	}
+	if attribution.CallerPackage != "" {
+		details["caller_package"] = attribution.CallerPackage
+	}
+	return details
+}
+
+func fixtureAttributionFor(t testing.TB, harnessPackage string) fixtureAttribution {
+	t.Helper()
+
+	attribution := fixtureAttribution{TestName: t.Name()}
+	file := callerFile(harnessPackage)
+	attribution.CallerFile = repoRelativePath(file)
+	attribution.CallerPackage = callerPackage(attribution.CallerFile)
+	return attribution
+}
+
+func callerFile(harnessPackage string) string {
+	pcs := make([]uintptr, 32)
+	count := runtime.Callers(3, pcs)
+	frames := runtime.CallersFrames(pcs[:count])
+	fallback := ""
+	for {
+		frame, more := frames.Next()
+		file := filepath.ToSlash(frame.File)
+		if file != "" && !strings.Contains(file, "/internal/testutil/"+harnessPackage+"/") && !strings.Contains(file, "/testing/") && !strings.Contains(file, "/src/runtime/") {
+			if fallback == "" {
+				fallback = file
+			}
+			if strings.HasSuffix(file, "_test.go") && !strings.Contains(file, "/internal/testutil/") {
+				return file
+			}
+		}
+		if !more {
+			break
+		}
+	}
+	return fallback
+}
+
+func repoRelativePath(path string) string {
+	if path == "" {
+		return ""
+	}
+	root, err := suiteservices.FindRepoRoot()
+	if err != nil {
+		return filepath.ToSlash(path)
+	}
+	relative, err := filepath.Rel(root, path)
+	if err != nil || strings.HasPrefix(relative, "..") {
+		return filepath.ToSlash(path)
+	}
+	return filepath.ToSlash(relative)
+}
+
+func callerPackage(file string) string {
+	if file == "" {
+		return ""
+	}
+	return filepath.ToSlash(filepath.Dir(file))
 }

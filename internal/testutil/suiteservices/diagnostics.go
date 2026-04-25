@@ -24,11 +24,15 @@ const (
 	EventCleanupCompleted    = "cleanup-completed"
 	EventPostgresAttach      = "postgres-attach"
 	EventPostgresDBCreated   = "postgres-db-created"
+	EventPostgresDBDropped   = "postgres-db-dropped"
 	EventPostgresDBMigrated  = "postgres-db-migrated"
+	EventPostgresDBReset     = "postgres-db-reset"
+	EventPostgresTransaction = "postgres-transaction"
 	EventPostgresTemplateUse = "postgres-template-clone"
 	EventS3Attach            = "s3-attach"
 	EventS3BucketCreated     = "s3-bucket-created"
 	EventS3BucketCleaned     = "s3-bucket-cleaned"
+	EventS3PrefixCleaned     = "s3-prefix-cleaned"
 	EventTimingSpan          = "timing-span"
 )
 
@@ -36,6 +40,14 @@ const (
 	PostgresPreparationTemplate       = "template"
 	PostgresPreparationTemplateClone  = "template-clone"
 	PostgresPreparationFreshMigration = "fresh-migration"
+)
+
+const (
+	FixtureReusePerTest       = "per-test"
+	FixtureReusePackage       = "package-reused"
+	FixtureReuseTransaction   = "transaction"
+	FixtureReusePrefix        = "prefix-reused"
+	FixtureReuseSuiteTemplate = "suite-template"
 )
 
 type Event struct {
@@ -58,6 +70,7 @@ type ServiceScope struct {
 	Cleanup      CleanupSummary       `json:"cleanup"`
 	Postgres     PostgresSummary      `json:"postgres"`
 	MinIO        MinIOSummary         `json:"minio"`
+	Fixture      FixtureSummary       `json:"fixture"`
 	StartedNames StartedServiceRecord `json:"started_services"`
 }
 
@@ -118,6 +131,27 @@ type MinIOSummary struct {
 	BucketCleanupCount   int      `json:"bucket_cleanup_count"`
 	CreatedBuckets       []string `json:"created_buckets,omitempty"`
 	CleanedBuckets       []string `json:"cleaned_buckets,omitempty"`
+}
+
+type FixtureSummary struct {
+	TotalCount      int               `json:"total_count"`
+	TotalDurationMS int64             `json:"total_duration_ms"`
+	ByPackage       []FixtureActivity `json:"by_package,omitempty"`
+	ByTest          []FixtureActivity `json:"by_test,omitempty"`
+	ByStrategy      []FixtureActivity `json:"by_strategy,omitempty"`
+	Slowest         []FixtureActivity `json:"slowest,omitempty"`
+}
+
+type FixtureActivity struct {
+	Service         string `json:"service,omitempty"`
+	Operation       string `json:"operation,omitempty"`
+	Strategy        string `json:"strategy,omitempty"`
+	ReuseScope      string `json:"reuse_scope,omitempty"`
+	CallerPackage   string `json:"caller_package,omitempty"`
+	CallerFile      string `json:"caller_file,omitempty"`
+	TestName        string `json:"test_name,omitempty"`
+	Count           int    `json:"count"`
+	TotalDurationMS int64  `json:"total_duration_ms"`
 }
 
 type StartedServiceRecord struct {
@@ -210,6 +244,10 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 	cleanedBuckets := make(map[string]struct{})
 	startedServices := make(map[string]struct{})
 	databasePreparations := make(map[string]PostgresDatabasePreparation)
+	packageFixtures := make(map[string]FixtureActivity)
+	testFixtures := make(map[string]FixtureActivity)
+	strategyFixtures := make(map[string]FixtureActivity)
+	slowestFixtures := make([]FixtureActivity, 0)
 
 	for _, eventPath := range eventFiles {
 		raw, err := os.ReadFile(eventPath)
@@ -277,9 +315,15 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 				scope.Postgres.TemplateDatabase = event.Name
 			}
 			upsertPostgresPreparation(databasePreparations, event, strategyForPostgresCreateEvent(event))
+			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
+		case EventPostgresDBDropped:
+			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
 		case EventPostgresDBMigrated:
 			scope.Postgres.MigratedDatabaseCount++
 			upsertPostgresPreparation(databasePreparations, event, strategyForPostgresMigratedEvent(event))
+			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
+		case EventPostgresDBReset, EventPostgresTransaction:
+			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
 		case EventPostgresTemplateUse:
 			scope.Postgres.TemplateCloneCount++
 			upsertPostgresPreparation(databasePreparations, event, PostgresPreparationTemplateClone)
@@ -290,11 +334,15 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			if event.Name != "" {
 				createdBuckets[event.Name] = struct{}{}
 			}
+			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
 		case EventS3BucketCleaned:
 			scope.MinIO.BucketCleanupCount++
 			if event.Name != "" {
 				cleanedBuckets[event.Name] = struct{}{}
 			}
+			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
+		case EventS3PrefixCleaned:
+			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
 		}
 	}
 
@@ -303,8 +351,162 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 	scope.MinIO.CreatedBuckets = sortedKeys(createdBuckets)
 	scope.MinIO.CleanedBuckets = sortedKeys(cleanedBuckets)
 	scope.StartedNames.Names = sortedKeys(startedServices)
+	scope.Fixture.ByPackage = sortedFixtureActivities(packageFixtures)
+	scope.Fixture.ByTest = sortedFixtureActivities(testFixtures)
+	scope.Fixture.ByStrategy = sortedFixtureActivities(strategyFixtures)
+	scope.Fixture.Slowest = topFixtureActivities(slowestFixtures, 10)
 
 	return scope, true, nil
+}
+
+func recordFixtureActivity(summary *FixtureSummary, byPackage map[string]FixtureActivity, byTest map[string]FixtureActivity, byStrategy map[string]FixtureActivity, slowest *[]FixtureActivity, event Event) {
+	activity := fixtureActivityFromEvent(event)
+	if activity.Service == "" {
+		return
+	}
+
+	summary.TotalCount++
+	summary.TotalDurationMS += activity.TotalDurationMS
+	upsertFixtureActivity(byPackage, fixtureKey(activity.Service, activity.CallerPackage, activity.Operation, activity.ReuseScope), activity, func(existing *FixtureActivity) {
+		existing.Service = activity.Service
+		existing.CallerPackage = activity.CallerPackage
+		existing.Operation = activity.Operation
+		existing.ReuseScope = activity.ReuseScope
+	})
+	upsertFixtureActivity(byTest, fixtureKey(activity.Service, activity.TestName, activity.Operation, activity.ReuseScope), activity, func(existing *FixtureActivity) {
+		existing.Service = activity.Service
+		existing.TestName = activity.TestName
+		existing.Operation = activity.Operation
+		existing.ReuseScope = activity.ReuseScope
+	})
+	upsertFixtureActivity(byStrategy, fixtureKey(activity.Service, activity.Strategy, activity.Operation, activity.ReuseScope), activity, func(existing *FixtureActivity) {
+		existing.Service = activity.Service
+		existing.Strategy = activity.Strategy
+		existing.Operation = activity.Operation
+		existing.ReuseScope = activity.ReuseScope
+	})
+	*slowest = append(*slowest, activity)
+}
+
+func fixtureActivityFromEvent(event Event) FixtureActivity {
+	service := fixtureServiceForEvent(event.Type)
+	if service == "" {
+		return FixtureActivity{}
+	}
+	activity := FixtureActivity{
+		Service:         service,
+		Operation:       fixtureOperationForEvent(event.Type),
+		Strategy:        firstNonEmpty(stringDetail(event.Details, "strategy"), stringDetail(event.Details, "preparation_strategy")),
+		ReuseScope:      firstNonEmpty(stringDetail(event.Details, "reuse_scope"), FixtureReusePerTest),
+		CallerPackage:   stringDetail(event.Details, "caller_package"),
+		CallerFile:      stringDetail(event.Details, "caller_file"),
+		TestName:        stringDetail(event.Details, "test_name"),
+		Count:           1,
+		TotalDurationMS: int64Value(event.Details, "duration_ms"),
+	}
+	return activity
+}
+
+func fixtureServiceForEvent(eventType string) string {
+	switch eventType {
+	case EventPostgresDBCreated, EventPostgresDBDropped, EventPostgresDBMigrated, EventPostgresDBReset, EventPostgresTransaction:
+		return ServicePostgres
+	case EventS3BucketCreated, EventS3BucketCleaned, EventS3PrefixCleaned:
+		return ServiceMinIO
+	default:
+		return ""
+	}
+}
+
+func fixtureOperationForEvent(eventType string) string {
+	switch eventType {
+	case EventPostgresDBCreated:
+		return "database-create"
+	case EventPostgresDBDropped:
+		return "database-drop"
+	case EventPostgresDBMigrated:
+		return "database-migrate"
+	case EventPostgresDBReset:
+		return "database-reset"
+	case EventPostgresTransaction:
+		return "transaction"
+	case EventS3BucketCreated:
+		return "bucket-create"
+	case EventS3BucketCleaned:
+		return "bucket-clean"
+	case EventS3PrefixCleaned:
+		return "prefix-clean"
+	default:
+		return eventType
+	}
+}
+
+func upsertFixtureActivity(values map[string]FixtureActivity, key string, activity FixtureActivity, initialize func(*FixtureActivity)) {
+	if key == "" {
+		return
+	}
+	existing := values[key]
+	if existing.Count == 0 {
+		initialize(&existing)
+	}
+	existing.Count += activity.Count
+	existing.TotalDurationMS += activity.TotalDurationMS
+	values[key] = existing
+}
+
+func sortedFixtureActivities(values map[string]FixtureActivity) []FixtureActivity {
+	if len(values) == 0 {
+		return nil
+	}
+	activities := make([]FixtureActivity, 0, len(values))
+	for _, activity := range values {
+		activities = append(activities, activity)
+	}
+	sort.Slice(activities, func(i, j int) bool {
+		if activities[i].TotalDurationMS != activities[j].TotalDurationMS {
+			return activities[i].TotalDurationMS > activities[j].TotalDurationMS
+		}
+		if activities[i].Count != activities[j].Count {
+			return activities[i].Count > activities[j].Count
+		}
+		return fixtureActivitySortKey(activities[i]) < fixtureActivitySortKey(activities[j])
+	})
+	return activities
+}
+
+func topFixtureActivities(values []FixtureActivity, limit int) []FixtureActivity {
+	if len(values) == 0 || limit <= 0 {
+		return nil
+	}
+	sort.Slice(values, func(i, j int) bool {
+		if values[i].TotalDurationMS != values[j].TotalDurationMS {
+			return values[i].TotalDurationMS > values[j].TotalDurationMS
+		}
+		return fixtureActivitySortKey(values[i]) < fixtureActivitySortKey(values[j])
+	})
+	if len(values) > limit {
+		values = values[:limit]
+	}
+	return values
+}
+
+func fixtureKey(parts ...string) string {
+	trimmed := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed = append(trimmed, strings.TrimSpace(part))
+	}
+	return strings.Join(trimmed, "\x1f")
+}
+
+func fixtureActivitySortKey(activity FixtureActivity) string {
+	return strings.Join([]string{
+		activity.Service,
+		activity.Operation,
+		activity.Strategy,
+		activity.ReuseScope,
+		activity.CallerPackage,
+		activity.TestName,
+	}, "\x1f")
 }
 
 func strategyForPostgresCreateEvent(event Event) string {
@@ -459,6 +661,15 @@ func stringDetail(details map[string]any, key string) string {
 	return text
 }
 
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func boolDetail(details map[string]any, key string) bool {
 	if details == nil {
 		return false
@@ -492,4 +703,24 @@ func intDetail(details map[string]any, key string) (int, bool) {
 func intValue(details map[string]any, key string) int {
 	value, _ := intDetail(details, key)
 	return value
+}
+
+func int64Value(details map[string]any, key string) int64 {
+	if details == nil {
+		return 0
+	}
+	value, ok := details[key]
+	if !ok {
+		return 0
+	}
+	switch typed := value.(type) {
+	case float64:
+		return int64(typed)
+	case int:
+		return int64(typed)
+	case int64:
+		return typed
+	default:
+		return 0
+	}
 }

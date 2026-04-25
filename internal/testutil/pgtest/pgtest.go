@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -37,11 +39,25 @@ type Harness struct {
 	counter     uint64
 	shared      bool
 	attached    bool
+
+	packageDBMu sync.Mutex
+	packageDBs  map[string]*packageDatabase
 }
 
 type TestDatabase struct {
 	Name string
 	DSN  string
+}
+
+type packageDatabase struct {
+	mu sync.Mutex
+	db *TestDatabase
+}
+
+type fixtureAttribution struct {
+	TestName      string
+	CallerFile    string
+	CallerPackage string
 }
 
 var (
@@ -210,7 +226,12 @@ func (h *Harness) AdminDSN() string {
 }
 
 func (h *Harness) NewDatabase(ctx context.Context, prefix string) (*TestDatabase, error) {
+	return h.newDatabase(ctx, prefix, suiteservices.FixtureReusePerTest, fixtureAttribution{})
+}
+
+func (h *Harness) newDatabase(ctx context.Context, prefix string, reuseScope string, attribution fixtureAttribution) (*TestDatabase, error) {
 	name := h.nextDatabaseName(prefix)
+	start := time.Now()
 	if err := h.createDatabase(ctx, name, ""); err != nil {
 		return nil, err
 	}
@@ -218,7 +239,7 @@ func (h *Harness) NewDatabase(ctx context.Context, prefix string) (*TestDatabase
 		Type:    suiteservices.EventPostgresDBCreated,
 		Name:    name,
 		Kind:    "scratch",
-		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, ""),
+		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, "", reuseScope, attribution, time.Since(start)),
 	})
 
 	return &TestDatabase{
@@ -228,8 +249,13 @@ func (h *Harness) NewDatabase(ctx context.Context, prefix string) (*TestDatabase
 }
 
 func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestDatabase, postgres.MigrationStatus, error) {
+	return h.prepareDatabase(ctx, prefix, suiteservices.FixtureReusePerTest, fixtureAttribution{})
+}
+
+func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope string, attribution fixtureAttribution) (*TestDatabase, postgres.MigrationStatus, error) {
 	if h.templateDB != "" {
 		name := h.nextDatabaseName(prefix)
+		start := time.Now()
 		if err := h.createDatabase(ctx, name, h.templateDB); err != nil {
 			return nil, postgres.MigrationStatus{}, err
 		}
@@ -237,7 +263,7 @@ func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestData
 			Type:    suiteservices.EventPostgresDBCreated,
 			Name:    name,
 			Kind:    "template-clone",
-			Details: postgresPreparationDetails(suiteservices.PostgresPreparationTemplateClone, h.templateDB),
+			Details: postgresPreparationDetails(suiteservices.PostgresPreparationTemplateClone, h.templateDB, reuseScope, attribution, time.Since(start)),
 		})
 		recordSuiteEvent(suiteservices.Event{
 			Type: suiteservices.EventPostgresTemplateUse,
@@ -259,7 +285,7 @@ func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestData
 			}, nil
 	}
 
-	testDB, err := h.NewDatabase(ctx, prefix)
+	testDB, err := h.newDatabase(ctx, prefix, reuseScope, attribution)
 	if err != nil {
 		return nil, postgres.MigrationStatus{}, err
 	}
@@ -270,6 +296,7 @@ func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestData
 	}
 	defer db.Close()
 
+	migrateStart := time.Now()
 	status, err := migrateDatabaseFn(db, dbmigrations.Source(), "up")
 	if err != nil {
 		return nil, postgres.MigrationStatus{}, err
@@ -278,7 +305,7 @@ func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestData
 		Type:    suiteservices.EventPostgresDBMigrated,
 		Name:    testDB.Name,
 		Kind:    "scratch",
-		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, ""),
+		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, "", reuseScope, attribution, time.Since(migrateStart)),
 	})
 
 	return testDB, status, nil
@@ -287,7 +314,8 @@ func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestData
 func (h *Harness) PrepareDatabaseT(t testing.TB, prefix string) *TestDatabase {
 	t.Helper()
 
-	testDB, _, err := h.PrepareDatabase(context.Background(), prefix)
+	attribution := fixtureAttributionFor(t, "pgtest")
+	testDB, _, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePerTest, attribution)
 	if err != nil {
 		t.Fatalf("prepare postgres database: %v", err)
 	}
@@ -299,7 +327,118 @@ func (h *Harness) PrepareDatabaseT(t testing.TB, prefix string) *TestDatabase {
 	return testDB
 }
 
+func (h *Harness) PreparePackageDatabaseT(t testing.TB, prefix string) *TestDatabase {
+	t.Helper()
+
+	attribution := fixtureAttributionFor(t, "pgtest")
+	key := attribution.CallerPackage
+	if key == "" {
+		key = sanitizeIdentifier(prefix)
+	}
+	fixture := h.packageDatabase(key)
+	fixture.mu.Lock()
+
+	if fixture.db == nil {
+		testDB, _, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePackage, attribution)
+		if err != nil {
+			fixture.mu.Unlock()
+			t.Fatalf("prepare package postgres database: %v", err)
+		}
+		fixture.db = testDB
+	} else if err := h.resetDatabase(context.Background(), fixture.db.Name, suiteservices.FixtureReusePackage, attribution); err != nil {
+		fixture.mu.Unlock()
+		t.Fatalf("reset package postgres database: %v", err)
+	}
+
+	t.Cleanup(func() {
+		fixture.mu.Unlock()
+	})
+	return fixture.db
+}
+
+func (h *Harness) packageDatabase(key string) *packageDatabase {
+	h.packageDBMu.Lock()
+	defer h.packageDBMu.Unlock()
+
+	if h.packageDBs == nil {
+		h.packageDBs = make(map[string]*packageDatabase)
+	}
+	fixture := h.packageDBs[key]
+	if fixture == nil {
+		fixture = &packageDatabase{}
+		h.packageDBs[key] = fixture
+	}
+	return fixture
+}
+
+func (h *Harness) ResetDatabase(ctx context.Context, name string) error {
+	return h.resetDatabase(ctx, name, suiteservices.FixtureReusePerTest, fixtureAttribution{})
+}
+
+func (h *Harness) resetDatabase(ctx context.Context, name string, reuseScope string, attribution fixtureAttribution) error {
+	start := time.Now()
+	db, err := sql.Open("pgx", h.dsnFor(name))
+	if err != nil {
+		return fmt.Errorf("open postgres reset handle: %w", err)
+	}
+	defer db.Close()
+
+	rows, err := db.QueryContext(ctx, `
+SELECT tablename
+  FROM pg_tables
+ WHERE schemaname = 'public'
+   AND tablename <> 'goose_db_version'
+ ORDER BY tablename`)
+	if err != nil {
+		return fmt.Errorf("list mutable postgres tables: %w", err)
+	}
+	defer rows.Close()
+
+	tables := make([]string, 0)
+	for rows.Next() {
+		var table string
+		if err := rows.Scan(&table); err != nil {
+			return fmt.Errorf("scan mutable postgres table: %w", err)
+		}
+		tables = append(tables, quoteIdentifier(table))
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate mutable postgres tables: %w", err)
+	}
+	if len(tables) > 0 {
+		if _, err := db.ExecContext(ctx, "TRUNCATE TABLE "+strings.Join(tables, ", ")+" RESTART IDENTITY CASCADE"); err != nil {
+			return fmt.Errorf("truncate mutable postgres tables: %w", err)
+		}
+	}
+	recordSuiteEvent(suiteservices.Event{
+		Type:    suiteservices.EventPostgresDBReset,
+		Name:    name,
+		Details: postgresFixtureDetails("", reuseScope, attribution, time.Since(start)),
+	})
+	return nil
+}
+
+func BeginRollbackTxT(t testing.TB, db *sql.DB) *sql.Tx {
+	t.Helper()
+
+	attribution := fixtureAttributionFor(t, "pgtest")
+	start := time.Now()
+	tx, err := db.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("begin postgres rollback transaction: %v", err)
+	}
+	recordSuiteEvent(suiteservices.Event{
+		Type:    suiteservices.EventPostgresTransaction,
+		Details: postgresFixtureDetails("", suiteservices.FixtureReuseTransaction, attribution, time.Since(start)),
+	})
+	t.Cleanup(func() {
+		_ = tx.Rollback()
+	})
+	return tx
+}
+
 func (h *Harness) DropDatabase(ctx context.Context, name string) error {
+	start := time.Now()
 	admin, err := sql.Open("pgx", h.adminDSN)
 	if err != nil {
 		return fmt.Errorf("open postgres admin handle: %w", err)
@@ -309,6 +448,11 @@ func (h *Harness) DropDatabase(ctx context.Context, name string) error {
 	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE)`, name)); err != nil {
 		return fmt.Errorf("drop test database %s: %w", name, err)
 	}
+	recordSuiteEvent(suiteservices.Event{
+		Type:    suiteservices.EventPostgresDBDropped,
+		Name:    name,
+		Details: postgresFixtureDetails("", suiteservices.FixtureReusePerTest, fixtureAttribution{}, time.Since(start)),
+	})
 
 	return nil
 }
@@ -436,13 +580,93 @@ func recordSuiteEvent(event suiteservices.Event) {
 	_ = suiteservices.RecordEvent(nil, event)
 }
 
-func postgresPreparationDetails(strategy string, templateDB string) map[string]any {
-	details := map[string]any{
-		"preparation_strategy": strategy,
-		"target":               suiteservices.LookupEnvValue(nil, suiteservices.TargetEnv),
-	}
+func postgresPreparationDetails(strategy string, templateDB string, reuseScope string, attribution fixtureAttribution, duration time.Duration) map[string]any {
+	details := postgresFixtureDetails(strategy, reuseScope, attribution, duration)
+	details["preparation_strategy"] = strategy
 	if templateDB != "" {
 		details["template_database"] = templateDB
 	}
 	return details
+}
+
+func postgresFixtureDetails(strategy string, reuseScope string, attribution fixtureAttribution, duration time.Duration) map[string]any {
+	if reuseScope == "" {
+		reuseScope = suiteservices.FixtureReusePerTest
+	}
+	details := map[string]any{
+		"duration_ms":          duration.Milliseconds(),
+		"reuse_scope":          reuseScope,
+		"strategy":             strategy,
+		"preparation_strategy": strategy,
+		"target":               suiteservices.LookupEnvValue(nil, suiteservices.TargetEnv),
+	}
+	if attribution.TestName != "" {
+		details["test_name"] = attribution.TestName
+	}
+	if attribution.CallerFile != "" {
+		details["caller_file"] = attribution.CallerFile
+	}
+	if attribution.CallerPackage != "" {
+		details["caller_package"] = attribution.CallerPackage
+	}
+	return details
+}
+
+func fixtureAttributionFor(t testing.TB, harnessPackage string) fixtureAttribution {
+	t.Helper()
+
+	attribution := fixtureAttribution{TestName: t.Name()}
+	file := callerFile(harnessPackage)
+	attribution.CallerFile = repoRelativePath(file)
+	attribution.CallerPackage = callerPackage(attribution.CallerFile)
+	return attribution
+}
+
+func callerFile(harnessPackage string) string {
+	pcs := make([]uintptr, 32)
+	count := runtime.Callers(3, pcs)
+	frames := runtime.CallersFrames(pcs[:count])
+	fallback := ""
+	for {
+		frame, more := frames.Next()
+		file := filepath.ToSlash(frame.File)
+		if file != "" && !strings.Contains(file, "/internal/testutil/"+harnessPackage+"/") && !strings.Contains(file, "/testing/") && !strings.Contains(file, "/src/runtime/") {
+			if fallback == "" {
+				fallback = file
+			}
+			if strings.HasSuffix(file, "_test.go") && !strings.Contains(file, "/internal/testutil/") {
+				return file
+			}
+		}
+		if !more {
+			break
+		}
+	}
+	return fallback
+}
+
+func repoRelativePath(path string) string {
+	if path == "" {
+		return ""
+	}
+	root, err := suiteservices.FindRepoRoot()
+	if err != nil {
+		return filepath.ToSlash(path)
+	}
+	relative, err := filepath.Rel(root, path)
+	if err != nil || strings.HasPrefix(relative, "..") {
+		return filepath.ToSlash(path)
+	}
+	return filepath.ToSlash(relative)
+}
+
+func callerPackage(file string) string {
+	if file == "" {
+		return ""
+	}
+	return filepath.ToSlash(filepath.Dir(file))
+}
+
+func quoteIdentifier(value string) string {
+	return `"` + strings.ReplaceAll(value, `"`, `""`) + `"`
 }

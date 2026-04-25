@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/minio/minio-go/v7"
+
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
@@ -148,6 +150,41 @@ func TestHarnessStartsMinIOAndRoundTripsObjects(t *testing.T) {
 
 	if !bytes.Equal(got, payload) {
 		t.Fatalf("unexpected object payload: %q", got)
+	}
+}
+
+func TestCleanupPrefixPreservesSiblingObjects(t *testing.T) {
+	harness := Start(t)
+
+	bucket, err := harness.BootstrapBucket(context.Background(), "prefix-cleanup")
+	if err != nil {
+		t.Fatalf("bootstrap bucket: %v", err)
+	}
+	defer func() {
+		if err := harness.CleanupBucket(context.Background(), bucket); err != nil {
+			t.Fatalf("cleanup bucket: %v", err)
+		}
+	}()
+
+	if _, err := harness.RoundTrip(context.Background(), bucket, "current/proof.txt", []byte("current")); err != nil {
+		t.Fatalf("write current prefix object: %v", err)
+	}
+	if _, err := harness.RoundTrip(context.Background(), bucket, "sibling/proof.txt", []byte("sibling")); err != nil {
+		t.Fatalf("write sibling prefix object: %v", err)
+	}
+	if err := harness.CleanupPrefix(context.Background(), bucket, "current/"); err != nil {
+		t.Fatalf("cleanup prefix: %v", err)
+	}
+
+	client, err := harness.Client(context.Background())
+	if err != nil {
+		t.Fatalf("create minio client: %v", err)
+	}
+	if _, err := client.StatObject(context.Background(), bucket, "current/proof.txt", minio.StatObjectOptions{}); err == nil {
+		t.Fatal("expected current prefix object to be removed")
+	}
+	if _, err := client.StatObject(context.Background(), bucket, "sibling/proof.txt", minio.StatObjectOptions{}); err != nil {
+		t.Fatalf("expected sibling prefix object to remain: %v", err)
 	}
 }
 

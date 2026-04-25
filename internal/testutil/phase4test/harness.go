@@ -48,17 +48,9 @@ func StartRuntime(t testing.TB) *RuntimeHarness {
 func (h *RuntimeHarness) StartServer(t testing.TB, prefix string) *ServerHarness {
 	t.Helper()
 
-	testDB := h.Postgres.PrepareDatabaseT(t, prefix)
+	testDB := h.Postgres.PreparePackageDatabaseT(t, prefix)
 
-	bucket, err := h.S3.BootstrapBucket(context.Background(), prefix)
-	if err != nil {
-		t.Fatalf("bootstrap bucket: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := h.S3.CleanupBucket(context.Background(), bucket); err != nil {
-			t.Logf("cleanup bucket: %v", err)
-		}
-	})
+	bucket := h.S3.PreparePackageBucketT(t, prefix)
 
 	env := testDB.Env()
 	for key, value := range h.S3.Env(bucket) {

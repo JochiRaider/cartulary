@@ -48,6 +48,6 @@ func StartStore(t testing.TB, prefix string) *StoreHarness {
 	t.Helper()
 
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareDatabaseT(t, prefix)
+	testDB := postgresHarness.PreparePackageDatabaseT(t, prefix)
 	return OpenStore(t, testDB.DSN)
 }

@@ -266,6 +266,53 @@ SELECT EXISTS (
 	}
 }
 
+func TestPreparePackageDatabaseTReusesAndResetsMutableTables(t *testing.T) {
+	harness := Start(t)
+
+	var firstName string
+	t.Run("first use seeds rows", func(t *testing.T) {
+		first := harness.PreparePackageDatabaseT(t, "package-reset")
+		firstName = first.Name
+
+		db, err := sql.Open("pgx", first.DSN)
+		if err != nil {
+			t.Fatalf("open package database: %v", err)
+		}
+		defer db.Close()
+
+		if _, err := db.ExecContext(context.Background(), `INSERT INTO users (email, display_name, password_hash, mfa_required) VALUES ($1, $2, $3, false)`, "package-reset@example.test", "Package Reset", "hash"); err != nil {
+			t.Fatalf("seed package database: %v", err)
+		}
+	})
+	t.Run("second use resets rows", func(t *testing.T) {
+		second := harness.PreparePackageDatabaseT(t, "package-reset")
+		if second.Name != firstName {
+			t.Fatalf("expected package database reuse, got %q want %q", second.Name, firstName)
+		}
+		db, err := sql.Open("pgx", second.DSN)
+		if err != nil {
+			t.Fatalf("open reused package database: %v", err)
+		}
+		defer db.Close()
+
+		var userCount int
+		if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM users`).Scan(&userCount); err != nil {
+			t.Fatalf("count reset users: %v", err)
+		}
+		if userCount != 0 {
+			t.Fatalf("expected package reset to clear users, got %d", userCount)
+		}
+
+		var gooseCount int
+		if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM goose_db_version`).Scan(&gooseCount); err != nil {
+			t.Fatalf("count goose versions: %v", err)
+		}
+		if gooseCount == 0 {
+			t.Fatal("expected package reset to preserve migration metadata")
+		}
+	})
+}
+
 func resetSharedHarness(t testing.TB) {
 	t.Helper()
 

@@ -36,7 +36,7 @@ func StartStore(t testing.TB, prefix string) *StoreHarness {
 	t.Helper()
 
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareDatabaseT(t, prefix)
+	testDB := postgresHarness.PreparePackageDatabaseT(t, prefix)
 
 	pool, err := pgxpool.New(context.Background(), testDB.DSN)
 	if err != nil {
