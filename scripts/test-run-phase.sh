@@ -75,6 +75,46 @@ assert_equals() {
   fi
 }
 
+write_target_summary() {
+  local results_dir="$1"
+  local run_id="$2"
+  local target="$3"
+  local duration_ms="$4"
+  local wall_duration_ms="$5"
+  local phases="$6"
+  local tests="$7"
+  local target_dir="${results_dir}/${run_id}/${target}"
+
+  mkdir -p "$target_dir"
+  cat >"$target_dir/target-summary.json" <<JSON
+{
+  "target": "${target}",
+  "status": "pass",
+  "start_time": "2026-01-01T00:00:00Z",
+  "end_time": "2026-01-01T00:00:01Z",
+  "duration_ms": ${duration_ms},
+  "wall_duration_ms": ${wall_duration_ms},
+  "counts": {
+    "phases": ${phases},
+    "tests": ${tests},
+    "failed": 0,
+    "authoritative": ${tests},
+    "support": 0,
+    "unmapped": 0,
+    "non_test": 0,
+    "authoritative_failed": 0,
+    "support_failed": 0,
+    "unmapped_failed": 0,
+    "non_test_failed": 0,
+    "packages": 1
+  },
+  "artifacts": {
+    "dir": ".cartulary/test-results/${run_id}/${target}"
+  }
+}
+JSON
+}
+
 quiet_success_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
     "$HELPER" "quiet success" -- bash -lc 'echo hidden-success-output'
@@ -133,6 +173,49 @@ assert_equals "$(json_field "$missing_target_summary" "counts.failed")" "1" "mis
 assert_equals "$(json_field "$missing_target_summary" "counts.non_test")" "1" "missing target non-test count"
 assert_equals "$(json_field "$missing_target_summary" "counts.non_test_failed")" "1" "missing target non-test failed count"
 assert_equals "$(json_field "$missing_target_summary" "missing_target_summaries.0")" "test-fast-service-backed" "missing target summary list"
+
+child_summary_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-children.XXXXXX")"
+cleanup_paths+=("$child_summary_results")
+write_target_summary "$child_summary_results" "child-summary" "child-a" 1000 1200 2 7
+write_target_summary "$child_summary_results" "child-summary" "child-b" 2000 2000 3 11
+CARTULARY_OUTPUT_MODE=quiet \
+CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \
+CARTULARY_TEST_RUN_ID="child-summary" \
+CARTULARY_TEST_TARGET="parent-target" \
+  "$HELPER" "parent target" -- bash -lc 'true' >/dev/null
+child_target_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \
+  CARTULARY_TEST_RUN_ID="child-summary" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-target pass --children child-a,child-b \
+    2>&1
+)"
+assert_contains "$child_target_output" "[PASS] parent-target" "child target parent output"
+assert_contains "$child_target_output" "[CHILD] parent-target child-a status=pass phases=2 tests=7 wall_duration=1.20s duration=1.00s" "child target child-a output"
+assert_contains "$child_target_output" "[CHILD] parent-target child-b status=pass phases=3 tests=11 duration=2.00s" "child target child-b output"
+parent_target_summary="$child_summary_results/child-summary/parent-target/target-summary.json"
+assert_equals "$(json_field "$parent_target_summary" "child_targets.0.target")" "child-a" "child target summary first child"
+assert_equals "$(json_field "$parent_target_summary" "child_targets.1.counts.tests")" "11" "child target summary second child tests"
+assert_equals "$(json_field "$parent_target_summary" "missing_child_target_summaries.length")" "0" "child target summary missing list"
+CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \
+CARTULARY_TEST_RUN_ID="child-summary" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "child run" pass 1 1 - parent-target >/dev/null
+child_run_summary="$child_summary_results/child-summary/run-summary.json"
+assert_equals "$(json_field "$child_run_summary" "target_summaries.0.target")" "parent-target" "run summary target object"
+assert_equals "$(json_field "$child_run_summary" "target_summaries.0.child_targets.1.target")" "child-b" "run summary preserved child target"
+
+missing_child_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-missing-child.XXXXXX")"
+cleanup_paths+=("$missing_child_results")
+missing_child_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$missing_child_results" \
+  CARTULARY_TEST_RUN_ID="missing-child" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-with-missing pass --children missing-child \
+    2>&1
+)"
+assert_contains "$missing_child_output" "[FAIL] parent-with-missing" "missing child parent output"
+assert_contains "$missing_child_output" "[CHILD-MISSING] parent-with-missing missing-child" "missing child output"
+missing_child_summary="$missing_child_results/missing-child/parent-with-missing/target-summary.json"
+assert_equals "$(json_field "$missing_child_summary" "status")" "fail" "missing child status"
+assert_equals "$(json_field "$missing_child_summary" "missing_child_target_summaries.0")" "missing-child" "missing child summary list"
 
 verbose_override_output="$(
   CARTULARY_OUTPUT_MODE=quiet \

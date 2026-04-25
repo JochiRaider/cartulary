@@ -597,13 +597,110 @@ function printInventory(targetSummary) {
   }
 }
 
-function handleTargetSummary(args) {
-  const [target, requestedStatus = "pass"] = args;
+function parseTargetList(value) {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function parseTargetSummaryArgs(args) {
+  const [target, ...rest] = args;
   if (!target) {
-    throw new Error("usage: test-output.mjs target-summary <target> [pass|fail]");
+    throw new Error("usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>]");
   }
+
+  let requestedStatus = "pass";
+  const remaining = [...rest];
+  if (remaining.length > 0 && !remaining[0].startsWith("--")) {
+    requestedStatus = remaining.shift();
+  }
+
+  const childTargetNames = [];
+  while (remaining.length > 0) {
+    const option = remaining.shift();
+    if (option !== "--children") {
+      throw new Error(`unknown target-summary option ${option}`);
+    }
+    const value = remaining.shift();
+    if (value === undefined) {
+      throw new Error("--children requires a comma-separated target list");
+    }
+    childTargetNames.push(...parseTargetList(value));
+  }
+
+  return { target, requestedStatus, childTargetNames };
+}
+
+function targetSummaryPath(target) {
+  return path.join(resultsRoot, runId, target, "target-summary.json");
+}
+
+function loadTargetSummary(target) {
+  const file = targetSummaryPath(target);
+  if (!existsSync(file)) {
+    return undefined;
+  }
+  return JSON.parse(readFileSync(file, "utf8"));
+}
+
+function toTargetSummaryReference(summary, fallbackTarget) {
+  return {
+    target: summary.target ?? fallbackTarget,
+    status: summary.status ?? "",
+    start_time: summary.start_time ?? "",
+    end_time: summary.end_time ?? "",
+    duration_ms: clampDurationMs(summary.duration_ms ?? 0),
+    wall_duration_ms: clampDurationMs(summary.wall_duration_ms ?? summary.duration_ms ?? 0),
+    counts: summary.counts ?? { phases: 0, ...createCounts() },
+    artifacts: {
+      dir: summary.artifacts?.dir ?? relToRepo(path.join(resultsRoot, runId, fallbackTarget)),
+    },
+  };
+}
+
+function loadChildTargetSummaries(childTargetNames) {
+  const childTargets = [];
+  const missingChildTargetSummaries = [];
+  for (const childTarget of childTargetNames) {
+    const summary = loadTargetSummary(childTarget);
+    if (!summary) {
+      missingChildTargetSummaries.push(childTarget);
+      continue;
+    }
+    childTargets.push(toTargetSummaryReference(summary, childTarget));
+  }
+  return { childTargets, missingChildTargetSummaries };
+}
+
+function writeTargetLine(stream, label, target, summary, targetDir) {
+  stream.write(
+    `${label} ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} authoritative=${summary.counts.authoritative} support=${summary.counts.support} unmapped=${summary.counts.unmapped} packages=${summary.counts.packages} ${formatDurationFields(summary.wallDurationMs, summary.durationMs)} artifacts=${relToRepo(targetDir)}\n`,
+  );
+}
+
+function writeChildTargetLines(stream, parentTarget, childTargets, missingChildTargetSummaries) {
+  for (const child of childTargets) {
+    stream.write(
+      `[CHILD] ${parentTarget} ${child.target} status=${child.status} phases=${child.counts?.phases ?? 0} tests=${child.counts?.tests ?? 0} ${formatDurationFields(child.wall_duration_ms, child.duration_ms)} artifacts=${child.artifacts?.dir ?? ""}\n`,
+    );
+  }
+  for (const childTarget of missingChildTargetSummaries) {
+    stream.write(
+      `[CHILD-MISSING] ${parentTarget} ${childTarget} artifacts=${relToRepo(targetSummaryPath(childTarget))}\n`,
+    );
+  }
+}
+
+function handleTargetSummary(args) {
+  const { target, requestedStatus, childTargetNames } = parseTargetSummaryArgs(args);
   const summary = summarizeTargetDir(target);
-  const status = summary.failed || requestedStatus === "fail" ? "FAIL" : "PASS";
+  const { childTargets, missingChildTargetSummaries } =
+    loadChildTargetSummaries(childTargetNames);
+  const status =
+    summary.failed || missingChildTargetSummaries.length > 0 || requestedStatus === "fail"
+      ? "FAIL"
+      : "PASS";
   const targetSummary = {
     target,
     status: status.toLowerCase(),
@@ -615,13 +712,14 @@ function handleTargetSummary(args) {
     artifacts: {
       dir: relToRepo(summary.targetDir),
     },
+    child_targets: childTargets,
+    missing_child_target_summaries: missingChildTargetSummaries,
   };
   writeJson(path.join(summary.targetDir, "target-summary.json"), targetSummary);
 
   if (status === "PASS") {
-    process.stdout.write(
-      `[PASS] ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} authoritative=${summary.counts.authoritative} support=${summary.counts.support} unmapped=${summary.counts.unmapped} packages=${summary.counts.packages} ${formatDurationFields(summary.wallDurationMs, summary.durationMs)} artifacts=${relToRepo(summary.targetDir)}\n`,
-    );
+    writeTargetLine(process.stdout, "[PASS]", target, summary, summary.targetDir);
+    writeChildTargetLines(process.stdout, target, childTargets, missingChildTargetSummaries);
     printInventory(summary);
     return 0;
   }
@@ -629,6 +727,7 @@ function handleTargetSummary(args) {
   process.stderr.write(
     `[FAIL] ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} failed=${summary.counts.failed} authoritative_failed=${summary.counts.authoritative_failed} support_failed=${summary.counts.support_failed} unmapped_failed=${summary.counts.unmapped_failed} non_test_failed=${summary.counts.non_test_failed} ${formatDurationFields(summary.wallDurationMs, summary.durationMs)} artifacts=${relToRepo(summary.targetDir)}\n`,
   );
+  writeChildTargetLines(process.stderr, target, childTargets, missingChildTargetSummaries);
   return 0;
 }
 
@@ -649,14 +748,15 @@ function handleRunSummary(args) {
   let startTime = "";
   let endTime = "";
   const missingTargetSummaries = [];
+  const targetSummaries = [];
 
   for (const target of targets) {
-    const file = path.join(resultsRoot, runId, target, "target-summary.json");
-    if (!existsSync(file)) {
+    const summary = loadTargetSummary(target);
+    if (!summary) {
       missingTargetSummaries.push(target);
       continue;
     }
-    const summary = JSON.parse(readFileSync(file, "utf8"));
+    targetSummaries.push(summary);
     aggregate.phases += summary.counts?.phases ?? 0;
     aggregate.tests += summary.counts?.tests ?? 0;
     aggregate.failed += summary.counts?.failed ?? 0;
@@ -707,6 +807,7 @@ function handleRunSummary(args) {
       dir: relToRepo(path.join(resultsRoot, runId)),
     },
     targets,
+    target_summaries: targetSummaries,
     missing_target_summaries: missingTargetSummaries,
   };
   writeJson(path.join(resultsRoot, runId, "run-summary.json"), runSummary);
