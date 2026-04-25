@@ -32,6 +32,52 @@ extract_target_prereqs() {
   ' "$makefile"
 }
 
+assert_text_has_token() {
+  local label="$1"
+  local text="$2"
+  local token="$3"
+  local message="$4"
+
+  if ! printf '%s\n' "$text" | awk -v token="$token" '
+    {
+      for (i = 1; i <= NF; i++) {
+        if ($i == token) {
+          found = 1
+        }
+      }
+    }
+    END { exit found ? 0 : 1 }
+  '; then
+    fail "${message} (${label} missing ${token})"
+  fi
+}
+
+assert_target_prereq() {
+  local target="$1"
+  local prereq="$2"
+  local message="$3"
+  local prereqs
+
+  prereqs="$(extract_target_prereqs "$target")"
+  if [[ -z "$prereqs" ]]; then
+    fail "Makefile must define non-empty $target prerequisites"
+  fi
+  assert_text_has_token "$target prerequisites" "$prereqs" "$prereq" "$message"
+}
+
+assert_target_recipe_invokes() {
+  local target="$1"
+  local invoked_target="$2"
+  local message="$3"
+  local block
+
+  block="$(extract_target_block "$target")"
+  if [[ -z "$block" ]]; then
+    fail "Makefile must define a non-empty $target block"
+  fi
+  assert_text_has_token "$target recipe" "$block" "$invoked_target" "$message"
+}
+
 if ! rg -q '^frontend-task-surface-check:' "$makefile"; then
   fail "Makefile must define frontend-task-surface-check"
 fi
@@ -137,9 +183,11 @@ test_fast_block="$(extract_target_block test-fast)"
 if [[ -z "$test_fast_block" ]]; then
   fail "Makefile must define a non-empty test-fast block"
 fi
-if ! printf '%s\n' "$test_fast_block" | rg -q '(^|[[:space:]])frontend-typecheck($|[[:space:]])'; then
-  fail "test-fast must invoke frontend-typecheck"
-fi
+assert_target_recipe_invokes test-fast test-local "test-fast must route local frontend checks through test-local"
+assert_target_prereq test-local backend-unit "test-fast must route local checks through test-local, and test-local must include backend-unit"
+assert_target_prereq test-local frontend-typecheck "test-fast must route local frontend checks through test-local, and test-local must include frontend-typecheck"
+assert_target_prereq test-local frontend-unit "test-fast must route local frontend checks through test-local, and test-local must include frontend-unit"
+assert_target_recipe_invokes test-fast test-fast-service-backed "test-fast must invoke test-fast-service-backed"
 
 check_heavy_prereqs="$(extract_target_prereqs check-heavy)"
 if [[ -z "$check_heavy_prereqs" ]]; then

@@ -731,7 +731,7 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make target-plan-json` | Emit deterministic backend Go target-plan JSON for task-surface checks                                    |
 | `make explain-target TARGET=backend-store` | Explain one backend Go target without running tests                                      |
 | `make test-fast`     | Run the narrower pure-unit, service-backed backend, frontend type-check, and frontend unit/process loop      |
-| `make test`          | Run the authoritative full test corpus, including manifest-verified browser E2E plus explicit support suites |
+| `make test`          | Run the authoritative full test corpus with shared service-backed backend and webserver browser orchestration |
 | `make lint`          | Run backend vet/lint and frontend lint/type checks                                                           |
 | `make check`         | Developer verification gate                                                                                  |
 | `make ci`            | Provider-neutral CI enforcement entrypoint                                                                   |
@@ -753,7 +753,7 @@ Repo-control helper targets MAY expose narrower frontend or browser slices. When
 
 `make check` is the required developer gate. It MUST include contract-generation drift detection, migration verification, an authored-frontend Biome pass, and a failure condition when any authoritative phase-manifest row is absent from actual execution. Only toolchain drift and frontend install are early setup blockers; parallel-safe static validation, Biome, generated-artifact drift, harness smoke, and product checks run together after those blockers pass. When browser suites depend on the real Playwright web-server bootstrap, the gate must run those suites under one owned shared stack rather than parallelizing multiple independent startup attempts. `make ci` composes the same execution-truth guarantee into the provider-neutral CI surface. `make release-check` is the release verification gate and MUST fail if the configured license report or SBOM artifact is missing or empty.
 
-During `make check-service-backed`, `browser-e2e-webserver-backed` reuses the active `cartulary-test-services` Postgres and MinIO stack, cloning the migrated suite template database and creating a browser-scoped object bucket through that harness. The final `make check` summary reports `backend-service-backed` and `browser-webserver-backed` duration groups separately, so backend service work and browser web-server lifecycle work remain independently attributable while sharing the serialized stage. Direct standalone browser E2E targets continue to use the development Compose stack.
+During `make test-service-backed` and `make check-service-backed`, `browser-e2e-webserver-backed` reuses the active `cartulary-test-services` Postgres and MinIO stack, cloning the migrated suite template database and creating a browser-scoped object bucket through that harness. The final `make test` and `make check` summaries report `backend-service-backed` and `browser-webserver-backed` duration groups separately, so backend service work and browser web-server lifecycle work remain independently attributable while sharing the service-backed stage. Direct standalone browser E2E targets continue to use the development Compose stack.
 
 The supported authored-frontend formatter command is `make format`. It delegates to the curated frontend Biome wrapper, and frontend Biome enforcement SHOULD use that authored-source scope rather than `biome check .` so runtime outputs such as `dist/`, `test-results/`, coverage artifacts, and installed dependencies are not treated as formatter owners.
 
@@ -766,7 +766,7 @@ The repository MUST distinguish **codegen drift** from **migration drift**:
 - **codegen drift** means generated outputs change after `make generate`,
 - **migration drift** means schema-affecting behavior or query changes are not represented in the numbered migration path or migrations do not apply cleanly in CI.
 
-Browser verification MUST also distinguish shared-stack functional browser work from isolated browser classes. Stateful browser suites and fixture-sensitive measurement suites remain isolated after the heavy parallel block; ordinary web-server-backed browser suites belong to one serialized shared-stack orchestration path.
+Browser verification MUST also distinguish shared-stack functional browser work from isolated browser classes. Stateful browser suites and fixture-sensitive measurement suites remain isolated after the shared service-backed stage; ordinary web-server-backed browser suites belong to one owned shared-stack orchestration path and may run alongside backend service-backed work when the harness provides isolated database, bucket, runtime-root, and port allocation.
 
 Backend verification MUST distinguish phase evidence from execution dependency. The repository now uses two axes:
 

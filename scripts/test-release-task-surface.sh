@@ -94,7 +94,7 @@ license_report_block="$(make_target_block license-report)"
 sbom_block="$(make_target_block sbom)"
 help_output="$(make --no-print-directory help)"
 
-assert_contains "$makefile_content" ".PHONY: test-fast" "release phony target group"
+assert_contains "$makefile_content" " test-fast " "release phony target group"
 assert_contains "$makefile_content" " release-check license-report sbom" "release phony targets"
 assert_contains "$release_check_block" "release-check: check license-report sbom build" "release-check dependencies"
 assert_contains "$license_report_block" './scripts/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"' "license-report validation command"

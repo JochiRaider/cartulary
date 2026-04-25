@@ -111,8 +111,56 @@ fi
 if ! printf '%s\n' "$browser_e2e_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
   fail 'browser-e2e must wrap aggregate browser children through $(TEST_SERVICES_BIN)'
 fi
+if ! printf '%s\n' "$browser_e2e_block" | grep -Fq -- '-j$(BROWSER_E2E_JOBS)'; then
+  fail 'browser-e2e must run aggregate browser children with -j$(BROWSER_E2E_JOBS)'
+fi
+if ! printf '%s\n' "$browser_e2e_block" | grep -Fq -- '--output-sync=target'; then
+  fail "browser-e2e must use output-sync for parallel aggregate browser children"
+fi
 if ! printf '%s\n' "$browser_e2e_block" | grep -Fq 'browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-resettable'; then
   fail "browser-e2e must run webserver-backed, stateful, and resettable browser children"
+fi
+
+test_service_block="$(extract_target_block test-service-backed)"
+if [[ -z "$test_service_block" ]]; then
+  fail "Makefile must define a non-empty test-service-backed block"
+fi
+
+for lane in test-service-backed-lane-a test-service-backed-lane-b test-service-backed-lane-browser; do
+  if ! printf '%s\n' "$test_service_block" | grep -Fq "$lane"; then
+    fail "test-service-backed must invoke $lane"
+  fi
+done
+
+test_service_browser_targets=()
+while IFS= read -r line; do
+  while IFS= read -r target; do
+    [[ -n "$target" ]] && test_service_browser_targets+=("$target")
+  done < <(printf '%s\n' "$line" | grep -o 'browser-e2e[^[:space:]]*' || true)
+done <<<"$test_service_block"
+
+if [[ "${#test_service_browser_targets[@]}" -ne 0 ]]; then
+  fail "test-service-backed must delegate browser work through its lane targets, found direct browser targets: ${test_service_browser_targets[*]}"
+fi
+
+test_service_lane_browser_block="$(extract_target_block test-service-backed-lane-browser)"
+if [[ -z "$test_service_lane_browser_block" ]]; then
+  fail "Makefile must define a non-empty test-service-backed-lane-browser block"
+fi
+
+test_lane_browser_targets=()
+while IFS= read -r line; do
+  while IFS= read -r target; do
+    [[ -n "$target" ]] && test_lane_browser_targets+=("$target")
+  done < <(printf '%s\n' "$line" | grep -o 'browser-e2e[^[:space:]]*' || true)
+done <<<"$test_service_lane_browser_block"
+
+if [[ "${#test_lane_browser_targets[@]}" -ne 1 ]]; then
+  fail "test-service-backed-lane-browser must invoke exactly one browser-e2e* target, found: ${test_lane_browser_targets[*]:-none}"
+fi
+
+if [[ "${test_lane_browser_targets[0]}" != "browser-e2e-webserver-backed" ]]; then
+  fail "test-service-backed-lane-browser must use browser-e2e-webserver-backed as its only browser target, found: ${test_lane_browser_targets[0]}"
 fi
 
 check_service_block="$(extract_target_block check-service-backed)"
@@ -171,6 +219,14 @@ fi
 browser_summary_group="$(printf '%s\n' "$check_summary_groups_line" | tr ';' '\n' | sed -n 's/^browser-webserver-backed=//p')"
 if [[ "$browser_summary_group" != "browser-e2e-webserver-backed" ]]; then
   fail "browser-webserver-backed summary group must contain only browser-e2e-webserver-backed, found: ${browser_summary_group:-none}"
+fi
+
+test_summary_groups_line="$(sed -n 's/^TEST_SUMMARY_GROUPS[[:space:]]*:=[[:space:]]*//p' "$makefile" | head -n 1)"
+if [[ -z "$test_summary_groups_line" ]]; then
+  fail "Makefile must define TEST_SUMMARY_GROUPS"
+fi
+if [[ "$test_summary_groups_line" != "$check_summary_groups_line" ]]; then
+  fail "TEST_SUMMARY_GROUPS must match CHECK_SUMMARY_GROUPS so service-backed and browser webserver-backed durations stay comparable"
 fi
 
 check_isolated_block="$(extract_target_block check-isolated)"
