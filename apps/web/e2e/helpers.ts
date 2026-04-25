@@ -28,7 +28,19 @@ export const bootstrapPassword = "DevBootstrap1!";
 export const sessionCookieName = "cartulary_session";
 export const csrfCookieName = "cartulary_csrf";
 export const csrfHeaderName = "X-CSRF-Token";
-export const apiBase = "http://127.0.0.1:8080";
+
+function originFromEnv(name: string, fallback: string) {
+  return (process.env[name] ?? fallback).replace(/\/+$/, "");
+}
+
+export const apiBase = originFromEnv(
+  "CARTULARY_WEB_E2E_API_ORIGIN",
+  "http://127.0.0.1:8080",
+);
+export const webBase = originFromEnv(
+  "CARTULARY_WEB_E2E_PUBLIC_ORIGIN",
+  "http://127.0.0.1:4173",
+);
 
 type HeldBrowserAPIRequest = {
   waitForHit: Promise<void>;

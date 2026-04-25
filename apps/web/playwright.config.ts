@@ -8,6 +8,8 @@ const configuredWorkers = Number.parseInt(
   process.env.PLAYWRIGHT_WORKERS ?? "2",
   10,
 );
+const publicOrigin =
+  process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN ?? "http://127.0.0.1:4173";
 const useExternalServer =
   process.env.CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER === "1";
 
@@ -22,7 +24,7 @@ export default defineConfig({
       : configuredWorkers,
   timeout: 60_000,
   use: {
-    baseURL: "http://127.0.0.1:4173",
+    baseURL: publicOrigin,
     trace: "retain-on-failure",
   },
   webServer: useExternalServer
@@ -30,7 +32,7 @@ export default defineConfig({
     : {
         command: "bash ./scripts/start-web-e2e.sh",
         cwd: path.resolve(currentDirectory, "..", ".."),
-        url: "http://127.0.0.1:4173",
+        url: publicOrigin,
         reuseExistingServer: false,
         timeout: 180_000,
       },

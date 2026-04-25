@@ -100,6 +100,16 @@ array_has_prefix_entry() {
   return 1
 }
 
+assert_file_contains() {
+  local path="$1"
+  local expected="$2"
+  local label="$3"
+
+  if ! grep -Fq "$expected" "$path"; then
+    fail "$label: expected $path to contain [$expected]"
+  fi
+}
+
 mkdir -p "$ROOT_DIR/tmp"
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/web-e2e-lifecycle-smoke.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
@@ -417,6 +427,17 @@ fi
 if array_has_prefix_entry "CARTULARY_MIGRATE_BIN=" "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}"; then
   fail "playwright owned stack env must not inject CARTULARY_MIGRATE_BIN by default"
 fi
+CARTULARY_WEB_E2E_API_ORIGIN="http://127.0.0.1:18081"
+CARTULARY_WEB_E2E_PUBLIC_ORIGIN="http://127.0.0.1:14173"
+resolve_playwright_owned_stack_env "$ROOT_DIR"
+if ! array_has_prefix_entry "CARTULARY_WEB_E2E_API_ORIGIN=http://127.0.0.1:18081" "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}"; then
+  fail "playwright owned stack env must pass through CARTULARY_WEB_E2E_API_ORIGIN"
+fi
+if ! array_has_prefix_entry "CARTULARY_WEB_E2E_PUBLIC_ORIGIN=http://127.0.0.1:14173" "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}"; then
+  fail "playwright owned stack env must pass through CARTULARY_WEB_E2E_PUBLIC_ORIGIN"
+fi
+unset CARTULARY_WEB_E2E_API_ORIGIN
+unset CARTULARY_WEB_E2E_PUBLIC_ORIGIN
 
 command_override="$tmp_dir/explicit-runtime-bin.sh"
 cat >"$command_override" <<'EOF'
@@ -466,6 +487,112 @@ assert_equals "${resolved_command[*]}" "$repo_server_artifact" "repo-root backen
 resolve_runtime_command resolved_command "migration" "$repo_migrate_artifact" "$repo_migrate_artifact" ./cmd/migrate
 assert_equals "${resolved_command[*]}" "$repo_migrate_artifact" "repo-root migrate artifact opt-in honored"
 unset CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES
+
+resolve_owned_stack_ports
+dynamic_backend_port="$BACKEND_PORT"
+dynamic_frontend_port="$FRONTEND_PORT"
+if [[ -z "$dynamic_backend_port" || -z "$dynamic_frontend_port" ]]; then
+  fail "dynamic browser e2e port allocation must set backend and frontend ports"
+fi
+if [[ "$dynamic_backend_port" == "$dynamic_frontend_port" ]]; then
+  fail "dynamic browser e2e port allocation must choose distinct backend and frontend ports"
+fi
+assert_equals "$CARTULARY_WEB_E2E_API_ORIGIN" "http://127.0.0.1:${dynamic_backend_port}" "dynamic browser e2e API origin export"
+assert_equals "$CARTULARY_WEB_E2E_PUBLIC_ORIGIN" "http://127.0.0.1:${dynamic_frontend_port}" "dynamic browser e2e public origin export"
+
+CARTULARY_WEB_E2E_BACKEND_PORT="$dynamic_backend_port"
+CARTULARY_WEB_E2E_FRONTEND_PORT="$dynamic_frontend_port"
+resolve_owned_stack_ports
+assert_equals "$BACKEND_PORT" "$dynamic_backend_port" "explicit browser e2e backend port override"
+assert_equals "$FRONTEND_PORT" "$dynamic_frontend_port" "explicit browser e2e frontend port override"
+
+STACK_ENV_FILE="$tmp_dir/stack.env"
+STACK_JSON_FILE="$tmp_dir/stack.json"
+RUNTIME_ROOT_BASE="$tmp_dir/runtime-root"
+SERVER_LOG="$tmp_dir/server.log"
+WEB_LOG="$tmp_dir/web.log"
+write_stack_metadata
+assert_file_contains "$STACK_ENV_FILE" "CARTULARY_WEB_E2E_API_ORIGIN=http://127.0.0.1:${dynamic_backend_port}" "stack env API origin"
+assert_file_contains "$STACK_ENV_FILE" "CARTULARY_WEB_E2E_PUBLIC_ORIGIN=http://127.0.0.1:${dynamic_frontend_port}" "stack env public origin"
+"${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" - "$STACK_JSON_FILE" "$dynamic_backend_port" "$dynamic_frontend_port" "$SERVER_LOG" "$WEB_LOG" <<'EOF'
+const fs = require("node:fs");
+
+const [path, backendPort, frontendPort, serverLog, webLog] = process.argv.slice(2);
+const payload = JSON.parse(fs.readFileSync(path, "utf8"));
+const failures = [];
+if (payload.api_origin !== `http://127.0.0.1:${backendPort}`) {
+  failures.push(`unexpected api_origin ${payload.api_origin}`);
+}
+if (payload.public_origin !== `http://127.0.0.1:${frontendPort}`) {
+  failures.push(`unexpected public_origin ${payload.public_origin}`);
+}
+if (payload.backend_port !== Number.parseInt(backendPort, 10)) {
+  failures.push(`unexpected backend_port ${payload.backend_port}`);
+}
+if (payload.frontend_port !== Number.parseInt(frontendPort, 10)) {
+  failures.push(`unexpected frontend_port ${payload.frontend_port}`);
+}
+if (payload.server_log !== serverLog) {
+  failures.push(`unexpected server_log ${payload.server_log}`);
+}
+if (payload.web_log !== webLog) {
+  failures.push(`unexpected web_log ${payload.web_log}`);
+}
+if (failures.length > 0) {
+  console.error(failures.join("\n"));
+  process.exit(1);
+}
+EOF
+
+fake_curl_dir="$tmp_dir/fake-curl-bin"
+mkdir -p "$fake_curl_dir"
+fake_curl_url_file="$tmp_dir/fake-curl-url.txt"
+cat >"$fake_curl_dir/curl" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+output_file=""
+url=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    -o)
+      output_file="$2"
+      shift 2
+      ;;
+    -w|-X|-H)
+      shift 2
+      ;;
+    -sS)
+      shift
+      ;;
+    *)
+      url="$1"
+      shift
+      ;;
+  esac
+done
+
+printf '%s\n' "$url" >"${FAKE_CURL_URL_FILE:?}"
+cat >"$output_file" <<JSON
+{"data":{"schema_id":"cartulary.test.runtime_reset.v1","reset_id":"reset-smoke","tables_reset":["incidents"],"migration_metadata_preserved":true,"bootstrap_admin_restored":true,"object_count_after":0,"post_reset_counts":{"active_deployment_admins":1,"bootstrap_markers":1,"incidents":0,"records":0,"user_sessions":0,"route_idempotency":0}}}
+JSON
+printf '200'
+EOF
+chmod +x "$fake_curl_dir/curl"
+FAKE_CURL_URL_FILE="$fake_curl_url_file" \
+PATH="$fake_curl_dir:$PATH" \
+CARTULARY_TEST_RESULTS_DIR="$tmp_dir/reset-results" \
+CARTULARY_TEST_RUN_ID="reset-smoke" \
+CARTULARY_TEST_TARGET="browser-e2e-resettable" \
+CARTULARY_WEB_E2E_API_ORIGIN="http://127.0.0.1:${dynamic_backend_port}" \
+NODE_BIN="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" \
+  "$ROOT_DIR/scripts/reset-web-e2e-stack.sh" --label dynamic-origin
+assert_equals "$(tr -d '\n' <"$fake_curl_url_file")" "http://127.0.0.1:${dynamic_backend_port}/api/v1/test/runtime/reset" "reset helper dynamic API origin"
+
+unset CARTULARY_WEB_E2E_BACKEND_PORT
+unset CARTULARY_WEB_E2E_FRONTEND_PORT
+unset CARTULARY_WEB_E2E_API_ORIGIN
+unset CARTULARY_WEB_E2E_PUBLIC_ORIGIN
 
 CARTULARY_TEST_SERVICES_ACTIVE=1
 TEST_SERVICES_BIN="$tmp_dir/missing-test-services"

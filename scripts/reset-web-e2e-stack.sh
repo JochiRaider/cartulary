@@ -22,6 +22,8 @@ support_dir="$(prepare_target_support_dir reset-boundary)"
 response_file="${support_dir}/${label}.json"
 status_file="${support_dir}/${label}.status"
 state_marker_file="${support_dir}/${label}.state-reset"
+api_origin="${CARTULARY_WEB_E2E_API_ORIGIN:-http://127.0.0.1:8080}"
+api_origin="${api_origin%/}"
 
 status="$(
   curl -sS \
@@ -29,7 +31,7 @@ status="$(
     -H 'Content-Type: application/json' \
     -o "$response_file" \
     -w '%{http_code}' \
-    'http://127.0.0.1:8080/api/v1/test/runtime/reset'
+    "${api_origin}/api/v1/test/runtime/reset"
 )"
 printf '%s\n' "$status" >"$status_file"
 

@@ -13,6 +13,8 @@ const browserUnitIncludes = [
 ];
 
 const harnessNodeIncludes = ["e2e/**/*.test.ts"];
+const e2eAPIOrigin =
+  process.env.CARTULARY_WEB_E2E_API_ORIGIN ?? "http://127.0.0.1:8080";
 
 export default defineConfig({
   plugins: [react()],
@@ -22,16 +24,16 @@ export default defineConfig({
     },
     proxy: {
       "/healthz": {
-        target: "http://127.0.0.1:8080",
+        target: e2eAPIOrigin,
       },
       "/readyz": {
-        target: "http://127.0.0.1:8080",
+        target: e2eAPIOrigin,
       },
       "/api": {
-        target: "http://127.0.0.1:8080",
+        target: e2eAPIOrigin,
       },
       "/ws": {
-        target: "http://127.0.0.1:8080",
+        target: e2eAPIOrigin,
         ws: true,
       },
     },

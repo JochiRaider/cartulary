@@ -18,6 +18,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
   waitForCommittedRowSummary,
+  webBase,
 } from "./helpers";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
@@ -223,7 +224,7 @@ test("E-3-04 uses a disclosed hybrid replay harness to prove replay avoids dupli
     }
   });
 
-  await observer.goto(`http://127.0.0.1:4173/?incident_id=${incidentId}`);
+  await observer.goto(`${webBase}/?incident_id=${incidentId}`);
   await expect(observer.getByTestId(`row-${recordId}-row-version`)).toHaveText(
     "1",
   );

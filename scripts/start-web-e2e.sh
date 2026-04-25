@@ -19,11 +19,17 @@ TARGET_ARTIFACT_DIR=""
 RUNTIME_ROOT_BASE=""
 SERVER_LOG=""
 WEB_LOG=""
+STACK_ENV_FILE=""
+STACK_JSON_FILE=""
 PLAYWRIGHT_STATE_DIR=""
 TEST_SERVICES_ENV_FILE=""
 TEST_SERVICES_METADATA_FILE=""
 E2E_DB=""
 E2E_DSN=""
+BACKEND_PORT=""
+FRONTEND_PORT=""
+API_ORIGIN=""
+PUBLIC_ORIGIN=""
 child_command=()
 SERVER_PGID=""
 VITE_PGID=""
@@ -66,13 +72,17 @@ prepare_runtime_root() {
     RUNTIME_ROOT_BASE="${TARGET_ARTIFACT_DIR}/runtime-root"
     SERVER_LOG="${TARGET_ARTIFACT_DIR}/server.log"
     WEB_LOG="${TARGET_ARTIFACT_DIR}/web.log"
+    STACK_ENV_FILE="${TARGET_ARTIFACT_DIR}/stack.env"
+    STACK_JSON_FILE="${TARGET_ARTIFACT_DIR}/stack.json"
     rm -rf "${RUNTIME_ROOT_BASE}"
-    rm -f "${SERVER_LOG}" "${WEB_LOG}"
+    rm -f "${SERVER_LOG}" "${WEB_LOG}" "${STACK_ENV_FILE}" "${STACK_JSON_FILE}"
     KEEP_RUNTIME_ROOT=1
   else
     RUNTIME_ROOT_BASE="$(mktemp -d /tmp/cartulary-web-e2e-runtime-XXXXXX)"
     SERVER_LOG="/tmp/cartulary-e2e-server-$$.log"
     WEB_LOG="/tmp/cartulary-e2e-web-$$.log"
+    STACK_ENV_FILE="${RUNTIME_ROOT_BASE}/stack.env"
+    STACK_JSON_FILE="${RUNTIME_ROOT_BASE}/stack.json"
   fi
 
   PLAYWRIGHT_STATE_DIR="${RUNTIME_ROOT_BASE}/playwright-state"
@@ -94,6 +104,119 @@ prepare_runtime_root() {
   export CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}"
   export CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}"
   export CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}"
+}
+
+validate_port_number() {
+  local port="$1"
+  local name="$2"
+
+  if [[ ! "${port}" =~ ^[0-9]+$ ]] || (( port < 1 || port > 65535 )); then
+    echo "${name} port must be an integer from 1 through 65535, got ${port}" >&2
+    return 1
+  fi
+}
+
+allocate_available_port() {
+  local outvar="$1"
+  local name="$2"
+  local configured_port="$3"
+  local excluded_port="${4:-}"
+  local -n port_ref="$outvar"
+
+  port_ref=""
+
+  if [[ -n "${configured_port}" ]]; then
+    validate_port_number "${configured_port}" "${name}" || return $?
+    if [[ -n "${excluded_port}" && "${configured_port}" == "${excluded_port}" ]]; then
+      echo "${name} port ${configured_port} must differ from the other browser e2e stack port" >&2
+      return 1
+    fi
+    if port_in_use "${configured_port}"; then
+      echo "${name} port ${configured_port} is already in use; choose another CARTULARY_WEB_E2E_*_PORT override" >&2
+      ss -ltnp "sport = :${configured_port}" >&2 || true
+      return 1
+    fi
+    port_ref="${configured_port}"
+    return 0
+  fi
+
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+  if [[ ! -x "${node_bin}" ]]; then
+    node_bin="node"
+  fi
+
+  local candidate=""
+  for _ in $(seq 1 50); do
+    candidate="$("${node_bin}" -e 'const net = require("node:net"); const server = net.createServer(); server.on("error", (error) => { console.error(error.message); process.exit(1); }); server.listen(0, "127.0.0.1", () => { console.log(server.address().port); server.close(); });')"
+    validate_port_number "${candidate}" "${name}" || return $?
+    if [[ -n "${excluded_port}" && "${candidate}" == "${excluded_port}" ]]; then
+      continue
+    fi
+    if ! port_in_use "${candidate}"; then
+      port_ref="${candidate}"
+      return 0
+    fi
+  done
+
+  echo "failed to allocate an available ${name} port for browser e2e" >&2
+  return 1
+}
+
+resolve_owned_stack_ports() {
+  allocate_available_port BACKEND_PORT "backend" "${CARTULARY_WEB_E2E_BACKEND_PORT:-}" "" || return $?
+  allocate_available_port FRONTEND_PORT "frontend" "${CARTULARY_WEB_E2E_FRONTEND_PORT:-}" "${BACKEND_PORT}" || return $?
+
+  if [[ "${BACKEND_PORT}" == "${FRONTEND_PORT}" ]]; then
+    echo "backend and frontend ports must differ for browser e2e" >&2
+    return 1
+  fi
+
+  API_ORIGIN="http://127.0.0.1:${BACKEND_PORT}"
+  PUBLIC_ORIGIN="http://127.0.0.1:${FRONTEND_PORT}"
+  export CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}"
+  export CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}"
+  export CARTULARY_WEB_E2E_BACKEND_PORT="${BACKEND_PORT}"
+  export CARTULARY_WEB_E2E_FRONTEND_PORT="${FRONTEND_PORT}"
+}
+
+write_stack_metadata() {
+  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
+
+  mkdir -p "$(dirname "${STACK_ENV_FILE}")"
+  cat >"${STACK_ENV_FILE}" <<EOF
+CARTULARY_WEB_E2E_API_ORIGIN=${API_ORIGIN}
+CARTULARY_WEB_E2E_PUBLIC_ORIGIN=${PUBLIC_ORIGIN}
+CARTULARY_WEB_E2E_BACKEND_PORT=${BACKEND_PORT}
+CARTULARY_WEB_E2E_FRONTEND_PORT=${FRONTEND_PORT}
+CARTULARY_WEB_E2E_RUNTIME_ROOT=${RUNTIME_ROOT_BASE}
+CARTULARY_WEB_E2E_SERVER_LOG=${SERVER_LOG}
+CARTULARY_WEB_E2E_WEB_LOG=${WEB_LOG}
+EOF
+
+  CARTULARY_WEB_E2E_STACK_JSON_FILE="${STACK_JSON_FILE}" \
+  CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
+  CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
+  CARTULARY_WEB_E2E_BACKEND_PORT="${BACKEND_PORT}" \
+  CARTULARY_WEB_E2E_FRONTEND_PORT="${FRONTEND_PORT}" \
+  CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}" \
+  CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}" \
+  CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}" \
+    "${node_bin}" <<'EOF'
+const fs = require("node:fs");
+
+const payload = {
+  schema_id: "cartulary.web_e2e_stack.v1",
+  api_origin: process.env.CARTULARY_WEB_E2E_API_ORIGIN,
+  public_origin: process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN,
+  backend_port: Number.parseInt(process.env.CARTULARY_WEB_E2E_BACKEND_PORT ?? "", 10),
+  frontend_port: Number.parseInt(process.env.CARTULARY_WEB_E2E_FRONTEND_PORT ?? "", 10),
+  runtime_root: process.env.CARTULARY_WEB_E2E_RUNTIME_ROOT,
+  server_log: process.env.CARTULARY_WEB_E2E_SERVER_LOG,
+  web_log: process.env.CARTULARY_WEB_E2E_WEB_LOG,
+};
+
+fs.writeFileSync(process.env.CARTULARY_WEB_E2E_STACK_JSON_FILE, `${JSON.stringify(payload, null, 2)}\n`);
+EOF
 }
 
 using_test_services_stack() {
@@ -197,8 +320,8 @@ cleanup() {
   if [[ -n "${CHILD_PGID:-}" ]]; then
     stop_process_group "${CHILD_PGID}" || true
   fi
-  stop_owned_process_group "${VITE_PGID:-}" 4173 "frontend"
-  stop_owned_process_group "${SERVER_PGID:-}" 8080 "backend"
+  stop_owned_process_group "${VITE_PGID:-}" "${FRONTEND_PORT:-4173}" "frontend"
+  stop_owned_process_group "${SERVER_PGID:-}" "${BACKEND_PORT:-8080}" "backend"
   if using_test_services_stack; then
     if [[ -x "${TEST_SERVICES_BIN}" && -f "${TEST_SERVICES_METADATA_FILE}" ]]; then
       "${TEST_SERVICES_BIN}" cleanup-web-e2e --metadata-file "${TEST_SERVICES_METADATA_FILE}" >/dev/null 2>&1 || true
@@ -282,8 +405,8 @@ browser_start_services() {
 }
 
 browser_prepare_database() {
-  assert_port_free 8080 "backend"
-  assert_port_free 4173 "frontend"
+  assert_port_free "${BACKEND_PORT}" "backend"
+  assert_port_free "${FRONTEND_PORT}" "frontend"
   cd "${ROOT_DIR}"
 
   if using_test_services_stack; then
@@ -304,7 +427,7 @@ browser_prepare_database() {
   resolve_runtime_command migrate_command "migration" "${MIGRATE_BIN}" "${ROOT_DIR}/migrate" ./cmd/migrate
 
   CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
-  CARTULARY__APPLICATION__PUBLIC_ORIGIN="http://127.0.0.1:4173" \
+  CARTULARY__APPLICATION__PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
   CARTULARY_POSTGRES_DSN="${E2E_DSN}" \
   GOCACHE=/tmp/cartulary-go-build \
   GOMODCACHE=/tmp/cartulary-go-mod \
@@ -312,11 +435,11 @@ browser_prepare_database() {
 }
 
 browser_wait_backend_ready() {
-  wait_for_http "http://127.0.0.1:8080/readyz" "backend"
+  wait_for_http "${API_ORIGIN}/readyz" "backend"
 }
 
 browser_wait_frontend_ready() {
-  wait_for_http "http://127.0.0.1:4173" "frontend"
+  wait_for_http "${PUBLIC_ORIGIN}" "frontend"
 }
 
 wait_for_process_status() {
@@ -390,6 +513,9 @@ main() {
     return 1
   fi
 
+  run_phase_command "browser-e2e allocate ports" resolve_owned_stack_ports
+  write_stack_metadata
+
   run_phase_command "browser-e2e startup services" browser_start_services
   run_phase_command "browser-e2e startup database" browser_prepare_database
 
@@ -398,8 +524,9 @@ main() {
 
   start_process_group SERVER_PGID "${SERVER_LOG}" \
     env \
+    CARTULARY_HTTP_ADDR="127.0.0.1:${BACKEND_PORT}" \
     CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
-    CARTULARY__APPLICATION__PUBLIC_ORIGIN="http://127.0.0.1:4173" \
+    CARTULARY__APPLICATION__PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
     CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
     CARTULARY_POSTGRES_DSN="${E2E_DSN}" \
     CARTULARY_S3_ENDPOINT="${CARTULARY_S3_ENDPOINT:-}" \
@@ -422,7 +549,9 @@ main() {
     env \
     COREPACK_HOME="${NODE_RUNTIME_DIR}/corepack" \
     PATH="${NODE_RUNTIME_DIR}/bin:${PATH}" \
-    "${pnpm_bin}" --dir apps/web dev --host 127.0.0.1 --port 4173 --strictPort
+    CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
+    CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
+    "${pnpm_bin}" --dir apps/web dev --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort
 
   run_phase_command "browser-e2e startup backend ready" browser_wait_backend_ready
   run_phase_command "browser-e2e startup frontend ready" browser_wait_frontend_ready

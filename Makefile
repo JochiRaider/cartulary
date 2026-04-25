@@ -23,6 +23,7 @@ NODE_VERSION ?= 24.15.0
 PNPM_VERSION ?= 10.33.0
 CHECK_JOBS ?= 4
 SERVICE_BACKED_JOBS ?= 2
+BROWSER_E2E_ISOLATED_JOBS ?= 2
 BACKEND_STORE_GO_TEST_P ?= 2
 BACKEND_INTEGRATION_GO_TEST_P ?= 2
 GO_TEST_SERVICE_PACKAGE_PARALLELISM ?= 1
@@ -642,7 +643,8 @@ check-service-backed-lane-a:
 check-service-backed-lane-b: backend-store backend-process
 	$(Q)$(MAKE) --no-print-directory browser-e2e-webserver-backed
 
-check-isolated: browser-e2e-stateful browser-e2e-resettable
+check-isolated:
+	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(BROWSER_E2E_ISOLATED_JOBS) browser-e2e-stateful browser-e2e-resettable
 
 check: $(NODE_BIN)
 	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label check --summary-targets "$(CHECK_SUMMARY_TARGETS)" --step check-preflight --parallel-step check-heavy:$(CHECK_JOBS) --step check-service-backed --step check-isolated
