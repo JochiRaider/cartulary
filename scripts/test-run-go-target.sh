@@ -360,13 +360,13 @@ assert_contains "$support_zero_output" "coverage=support" "support zero-match co
 assert_contains "$support_zero_output" "message=support phase matched zero tests" "support zero-match message"
 
 manifest_smoke_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-support-manifest.XXXXXX")"
+manifest_smoke_root="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-support-manifests.XXXXXX")"
+manifest_smoke_tools="$manifest_smoke_root/tools"
+mkdir -p "$manifest_smoke_tools"
+cp "$ROOT_DIR"/tools/phase*_test_map.json "$manifest_smoke_tools"/
 cleanup_paths+=(
   "$manifest_smoke_dir"
-  "$ROOT_DIR/tools/phase20_test_map.json"
-  "$ROOT_DIR/tools/phase21_test_map.json"
-  "$ROOT_DIR/tools/phase22_test_map.json"
-  "$ROOT_DIR/tools/phase23_test_map.json"
-  "$ROOT_DIR/tools/phase24_test_map.json"
+  "$manifest_smoke_root"
 )
 cat >"$manifest_smoke_dir/support_manifest_smoke_test.go" <<'EOF'
 package rungotargetsupportmanifest
@@ -388,7 +388,7 @@ EOF
 manifest_smoke_rel="./${manifest_smoke_dir#"$ROOT_DIR"/}"
 manifest_smoke_file="${manifest_smoke_rel#./}/support_manifest_smoke_test.go"
 
-cat >"$ROOT_DIR/tools/phase20_test_map.json" <<EOF
+cat >"$manifest_smoke_tools/phase20_test_map.json" <<EOF
 {
   "expected_ids": ["U-20-01"],
   "support_go_targets": [
@@ -415,9 +415,9 @@ cat >"$ROOT_DIR/tools/phase20_test_map.json" <<EOF
   ]
 }
 EOF
-NODE_BIN="$node_bin" "$node_bin" "$PHASE_MAP_CHECK" phase20 >/dev/null
+CARTULARY_PHASE_MANIFEST_ROOT="$manifest_smoke_root" NODE_BIN="$node_bin" "$node_bin" "$PHASE_MAP_CHECK" phase20 >/dev/null
 
-cat >"$ROOT_DIR/tools/phase21_test_map.json" <<EOF
+cat >"$manifest_smoke_tools/phase21_test_map.json" <<EOF
 {
   "expected_ids": ["U-21-01"],
   "support_go_targets": [
@@ -446,7 +446,7 @@ cat >"$ROOT_DIR/tools/phase21_test_map.json" <<EOF
 EOF
 set +e
 phase21_output="$(
-  NODE_BIN="$node_bin" "$node_bin" "$PHASE_MAP_CHECK" phase21 \
+  CARTULARY_PHASE_MANIFEST_ROOT="$manifest_smoke_root" NODE_BIN="$node_bin" "$node_bin" "$PHASE_MAP_CHECK" phase21 \
     2>&1
 )"
 phase21_status=$?
@@ -456,7 +456,7 @@ if [[ "$phase21_status" -eq 0 ]]; then
 fi
 assert_contains "$phase21_output" "not found in" "phase21 missing support symbol"
 
-cat >"$ROOT_DIR/tools/phase22_test_map.json" <<EOF
+cat >"$manifest_smoke_tools/phase22_test_map.json" <<EOF
 {
   "expected_ids": ["U-22-01"],
   "support_go_targets": [
@@ -485,7 +485,7 @@ cat >"$ROOT_DIR/tools/phase22_test_map.json" <<EOF
 EOF
 set +e
 phase22_output="$(
-  NODE_BIN="$node_bin" "$node_bin" "$PHASE_MAP_CHECK" phase22 \
+  CARTULARY_PHASE_MANIFEST_ROOT="$manifest_smoke_root" NODE_BIN="$node_bin" "$node_bin" "$PHASE_MAP_CHECK" phase22 \
     2>&1
 )"
 phase22_status=$?
@@ -495,7 +495,7 @@ if [[ "$phase22_status" -eq 0 ]]; then
 fi
 assert_contains "$phase22_output" "must declare target=backend_unit|backend_integration_support" "phase22 invalid support target"
 
-cat >"$ROOT_DIR/tools/phase23_test_map.json" <<EOF
+cat >"$manifest_smoke_tools/phase23_test_map.json" <<EOF
 {
   "expected_ids": ["U-23-01"],
   "support_go_targets": [
@@ -524,7 +524,7 @@ cat >"$ROOT_DIR/tools/phase23_test_map.json" <<EOF
 EOF
 set +e
 phase23_output="$(
-  NODE_BIN="$node_bin" "$node_bin" "$PHASE_MAP_CHECK" phase23 \
+  CARTULARY_PHASE_MANIFEST_ROOT="$manifest_smoke_root" NODE_BIN="$node_bin" "$node_bin" "$PHASE_MAP_CHECK" phase23 \
     2>&1
 )"
 phase23_status=$?
@@ -534,7 +534,7 @@ if [[ "$phase23_status" -eq 0 ]]; then
 fi
 assert_contains "$phase23_output" "selection_pattern does not match symbol" "phase23 selection pattern mismatch"
 
-cat >"$ROOT_DIR/tools/phase24_test_map.json" <<EOF
+cat >"$manifest_smoke_tools/phase24_test_map.json" <<EOF
 {
   "expected_ids": ["U-24-01"],
   "support_go_targets": [
@@ -563,7 +563,7 @@ cat >"$ROOT_DIR/tools/phase24_test_map.json" <<EOF
 EOF
 set +e
 phase24_output="$(
-  NODE_BIN="$node_bin" "$node_bin" "$PHASE_MAP_CHECK" phase24 \
+  CARTULARY_PHASE_MANIFEST_ROOT="$manifest_smoke_root" NODE_BIN="$node_bin" "$node_bin" "$PHASE_MAP_CHECK" phase24 \
     2>&1
 )"
 phase24_status=$?
@@ -572,3 +572,15 @@ if [[ "$phase24_status" -eq 0 ]]; then
   fail "phase24 support manifest: expected validation failure"
 fi
 assert_contains "$phase24_output" "does not belong to package" "phase24 package mismatch"
+
+for synthetic_manifest in \
+  "$ROOT_DIR/tools/phase20_test_map.json" \
+  "$ROOT_DIR/tools/phase21_test_map.json" \
+  "$ROOT_DIR/tools/phase22_test_map.json" \
+  "$ROOT_DIR/tools/phase23_test_map.json" \
+  "$ROOT_DIR/tools/phase24_test_map.json"
+do
+  if [[ -e "$synthetic_manifest" ]]; then
+    fail "run-go-target smoke must not write synthetic manifests into repo tools/: $synthetic_manifest"
+  fi
+done

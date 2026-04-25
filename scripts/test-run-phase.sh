@@ -354,7 +354,11 @@ assert_contains "$go_pkg_setup_output" "symbol_or_title=(package setup)" "run-go
 assert_contains "$go_pkg_setup_output" "message=start shared process harnesses: package setup failed" "run-go-phase package setup message"
 
 go_manifest_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-manifest-phase-smoke.XXXXXX")"
-cleanup_paths+=("$go_manifest_dir" "$ROOT_DIR/tools/phase9_test_map.json" "$ROOT_DIR/tools/phase10_test_map.json" "$ROOT_DIR/tools/phase11_test_map.json")
+go_manifest_root="$(mktemp -d "$ROOT_DIR/tmp/run-go-manifest-phase-manifests.XXXXXX")"
+go_manifest_tools="$go_manifest_root/tools"
+mkdir -p "$go_manifest_tools"
+cp "$ROOT_DIR"/tools/phase*_test_map.json "$go_manifest_tools"/
+cleanup_paths+=("$go_manifest_dir" "$go_manifest_root")
 cat >"$go_manifest_dir/run_go_manifest_phase_smoke_test.go" <<'EOF'
 package rungomanifestphasesmoke
 
@@ -368,7 +372,7 @@ func TestPhase10_RunGoManifest_U_10_01(t *testing.T) {
 EOF
 
 go_manifest_rel="./${go_manifest_dir#"$ROOT_DIR"/}"
-cat >"$ROOT_DIR/tools/phase9_test_map.json" <<EOF
+cat >"$go_manifest_tools/phase9_test_map.json" <<EOF
 {
   "expected_ids": ["U-9-01"],
   "unit": [
@@ -385,7 +389,7 @@ cat >"$ROOT_DIR/tools/phase9_test_map.json" <<EOF
   ]
 }
 EOF
-cat >"$ROOT_DIR/tools/phase10_test_map.json" <<EOF
+cat >"$go_manifest_tools/phase10_test_map.json" <<EOF
 {
   "expected_ids": ["U-10-01"],
   "unit": [
@@ -406,6 +410,7 @@ EOF
 node_bin="${NODE_BIN:-node}"
 go_manifest_success_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
   NODE_BIN="$node_bin" \
     "$GO_MANIFEST_HELPER" "run-go-manifest-phase smoke" phase9 unit authoritative backend_unit -- "$go_bin" test "$go_manifest_rel"
 )"
@@ -414,6 +419,7 @@ assert_empty "$go_manifest_success_output" "run-go-manifest-phase success"
 set +e
 go_manifest_skip_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
   NODE_BIN="$node_bin" \
     "$GO_MANIFEST_HELPER" "run-go-manifest-phase skip" phase10 unit authoritative backend_unit -- "$go_bin" test "$go_manifest_rel" \
     2>&1
@@ -446,7 +452,7 @@ func TestPhase11_RunGoManifestPackageSetup_U_11_01(t *testing.T) {}
 EOF
 
 go_manifest_pkg_setup_rel="./${go_manifest_pkg_setup_dir#"$ROOT_DIR"/}"
-cat >"$ROOT_DIR/tools/phase11_test_map.json" <<EOF
+cat >"$go_manifest_tools/phase11_test_map.json" <<EOF
 {
   "expected_ids": ["U-11-01"],
   "unit": [
@@ -467,6 +473,7 @@ EOF
 set +e
 go_manifest_pkg_setup_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
   NODE_BIN="$node_bin" \
     "$GO_MANIFEST_HELPER" "run-go-manifest-phase package setup" phase11 unit authoritative backend_unit -- "$go_bin" test "$go_manifest_pkg_setup_rel" \
     2>&1
@@ -481,3 +488,13 @@ assert_contains "$go_manifest_pkg_setup_output" "coverage=authoritative" "run-go
 assert_contains "$go_manifest_pkg_setup_output" "phase=phase11" "run-go-manifest-phase package setup phase"
 assert_contains "$go_manifest_pkg_setup_output" "symbol_or_title=(package setup)" "run-go-manifest-phase package setup title"
 assert_contains "$go_manifest_pkg_setup_output" "message=manifest package setup failed" "run-go-manifest-phase package setup message"
+
+for synthetic_manifest in \
+  "$ROOT_DIR/tools/phase9_test_map.json" \
+  "$ROOT_DIR/tools/phase10_test_map.json" \
+  "$ROOT_DIR/tools/phase11_test_map.json"
+do
+  if [[ -e "$synthetic_manifest" ]]; then
+    fail "run-go-manifest-phase smoke must not write synthetic manifests into repo tools/: $synthetic_manifest"
+  fi
+done

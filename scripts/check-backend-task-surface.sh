@@ -109,6 +109,19 @@ check_heavy_line="$(sed -n 's/^check-heavy:[[:space:]]*//p' "$makefile" | head -
 if [[ -z "$check_heavy_line" ]]; then
   fail "Makefile must define check-heavy prerequisites"
 fi
+check_parallel_line="$(sed -n 's/^check-parallel:[[:space:]]*//p' "$makefile" | head -n 1)"
+if [[ -z "$check_parallel_line" ]]; then
+  fail "Makefile must define check-parallel prerequisites"
+fi
+if ! printf '%s\n' "$check_parallel_line" | rg -q '(^|[[:space:]])check-heavy($|[[:space:]])'; then
+  fail "check-parallel must include check-heavy"
+fi
+if ! printf '%s\n' "$check_parallel_line" | rg -q '(^|[[:space:]])check-static-validation($|[[:space:]])'; then
+  fail "check-parallel must include static validation alongside backend product checks"
+fi
+if ! printf '%s\n' "$check_parallel_line" | rg -q '(^|[[:space:]])check-harness-smoke($|[[:space:]])'; then
+  fail "check-parallel must include harness smoke alongside backend product checks"
+fi
 
 read -r -a heavy_prereqs <<<"$check_heavy_line"
 service_backed_targets=(

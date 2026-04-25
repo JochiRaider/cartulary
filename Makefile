@@ -8,7 +8,7 @@ SHELL := /bin/bash
 .PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check run-phase-smoke phase-test-name-check
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck format format-frontend
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-resettable browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
-.PHONY: test-fast test-fast-service-backed test-fast-service-backed-lane-a test-fast-service-backed-lane-b test lint lint-go check check-preflight check-heavy check-service-backed check-service-backed-lane-a check-service-backed-lane-b check-isolated ci release-check license-report sbom
+.PHONY: test-fast test-fast-service-backed test-fast-service-backed-lane-a test-fast-service-backed-lane-b test lint lint-go check check-preflight check-setup-blockers check-static-validation check-harness-smoke check-parallel check-heavy check-service-backed check-service-backed-lane-a check-service-backed-lane-b check-isolated ci release-check license-report sbom
 .PHONY: build build-server build-migrate build-web
 .PHONY: clean distclean
 
@@ -607,15 +607,18 @@ lint-biome: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 
 lint-typecheck: frontend-typecheck
 
-check-preflight: $(NODE_BIN)
+check-preflight: check-setup-blockers
+
+check-setup-blockers: $(NODE_BIN)
 	$(Q)$(MAKE) --no-print-directory toolchain-drift
 	$(Q)if [ "$(CI)" = "1" ]; then \
 		$(MAKE) --no-print-directory frontend-install-ci; \
 	else \
 		$(MAKE) --no-print-directory frontend-install; \
 	fi
+
+check-static-validation:
 	$(Q)$(MAKE) --no-print-directory lint-biome
-	$(Q)$(MAKE) --no-print-directory run-phase-smoke
 	$(Q)$(MAKE) --no-print-directory phase-test-name-check
 	$(Q)$(MAKE) --no-print-directory task-surface-check
 	$(Q)$(MAKE) --no-print-directory browser-e2e-task-surface-check
@@ -626,9 +629,14 @@ check-preflight: $(NODE_BIN)
 	$(Q)$(MAKE) --no-print-directory service-backed-unit-check
 	$(Q)$(MAKE) --no-print-directory generate-drift
 
+check-harness-smoke:
+	$(Q)$(MAKE) --no-print-directory run-phase-smoke
+
 # Keep only parallel-safe work here. Service-backed Go phases and owned-stack
 # browser suites run after this block under serialized orchestration.
 check-heavy: migration-drift lint-go frontend-typecheck backend-unit frontend-unit deployable-shape-verify
+
+check-parallel: check-heavy check-static-validation check-harness-smoke
 
 check-service-backed: export CARTULARY_TEST_TARGET := check-service-backed
 
@@ -647,7 +655,7 @@ check-isolated:
 	$(Q)$(MAKE) --no-print-directory --output-sync=target -j$(BROWSER_E2E_ISOLATED_JOBS) browser-e2e-stateful browser-e2e-resettable
 
 check: $(NODE_BIN)
-	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label check --summary-targets "$(CHECK_SUMMARY_TARGETS)" --step check-preflight --parallel-step check-heavy:$(CHECK_JOBS) --step check-service-backed --step check-isolated
+	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label check --summary-targets "$(CHECK_SUMMARY_TARGETS)" --step check-setup-blockers --parallel-step check-parallel:$(CHECK_JOBS) --step check-service-backed --step check-isolated
 
 ci:
 	$(Q)./scripts/ci/verify.sh

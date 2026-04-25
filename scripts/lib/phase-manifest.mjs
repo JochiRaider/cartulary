@@ -191,7 +191,10 @@ function collectAuthoritativeGoTestFunctions(root, phaseNumber) {
 }
 
 export function loadManifest(root, phase) {
-  const manifestPath = path.join(root, "tools", `${phase}_test_map.json`);
+  const manifestRoot = process.env.CARTULARY_PHASE_MANIFEST_ROOT
+    ? path.resolve(process.env.CARTULARY_PHASE_MANIFEST_ROOT)
+    : root;
+  const manifestPath = path.join(manifestRoot, "tools", `${phase}_test_map.json`);
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   return { manifestPath, manifest };
 }

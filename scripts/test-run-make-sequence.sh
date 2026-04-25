@@ -241,7 +241,7 @@ assert_not_contains "${test_block}" "completed=" "make test inline completed cou
 assert_not_contains "${test_block}" "total=" "make test inline total counter"
 assert_contains "${check_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "make check helper invocation"
 assert_contains "${check_block}" '--summary-targets "$(CHECK_SUMMARY_TARGETS)"' "make check summary list"
-assert_contains "${check_block}" "--step check-preflight --parallel-step check-heavy:\$(CHECK_JOBS) --step check-service-backed --step check-isolated" "make check sequence"
+assert_contains "${check_block}" "--step check-setup-blockers --parallel-step check-parallel:\$(CHECK_JOBS) --step check-service-backed --step check-isolated" "make check sequence"
 assert_not_contains "${check_block}" "completed=" "make check inline completed counter"
 assert_not_contains "${check_block}" "total=" "make check inline total counter"
 assert_contains "${makefile_content}" "TEST_FAST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process" "test-fast service-backed child list"

@@ -44,26 +44,43 @@ if ! printf '%s\n' "$frontend_unit_block" | grep -Fq './scripts/run-frontend-uni
   fail "frontend-unit must delegate to scripts/run-frontend-unit.sh"
 fi
 
-check_preflight_block="$(extract_target_block check-preflight)"
-if [[ -z "$check_preflight_block" ]]; then
-  fail "Makefile must define a non-empty check-preflight block"
-fi
 if ! rg -q '^toolchain-drift:' "$makefile"; then
   fail "Makefile must define toolchain-drift"
 fi
-if ! printf '%s\n' "$check_preflight_block" | rg -q 'toolchain-drift'; then
-  fail "check-preflight must invoke toolchain-drift"
-fi
-if ! printf '%s\n' "$check_preflight_block" | rg -q 'frontend-task-surface-check'; then
-  fail "check-preflight must invoke frontend-task-surface-check"
-fi
 check_preflight_prereqs="$(extract_target_prereqs check-preflight)"
-if printf '%s\n' "$check_preflight_prereqs" | rg -q 'FRONTEND_INSTALL_STAMP'; then
-  fail "check-preflight must not depend directly on FRONTEND_INSTALL_STAMP"
+if ! printf '%s\n' "$check_preflight_prereqs" | rg -q '(^|[[:space:]])check-setup-blockers($|[[:space:]])'; then
+  fail "check-preflight must remain a compatibility alias to check-setup-blockers"
+fi
+check_setup_block="$(extract_target_block check-setup-blockers)"
+if [[ -z "$check_setup_block" ]]; then
+  fail "Makefile must define a non-empty check-setup-blockers block"
+fi
+if ! printf '%s\n' "$check_setup_block" | rg -q 'toolchain-drift'; then
+  fail "check-setup-blockers must invoke toolchain-drift"
+fi
+if ! printf '%s\n' "$check_setup_block" | rg -q 'frontend-install'; then
+  fail "check-setup-blockers must invoke frontend install after toolchain drift"
+fi
+if printf '%s\n' "$check_setup_block" | rg -q 'frontend-task-surface-check|phase-ledger-drift|run-phase-smoke|generate-drift|lint-biome'; then
+  fail "check-setup-blockers must not include static validation or harness smoke work"
 fi
 check_prereqs="$(extract_target_prereqs check)"
 if printf '%s\n' "$check_prereqs" | rg -q 'FRONTEND_INSTALL_STAMP'; then
   fail "check must not depend directly on FRONTEND_INSTALL_STAMP"
+fi
+check_parallel_prereqs="$(extract_target_prereqs check-parallel)"
+if ! printf '%s\n' "$check_parallel_prereqs" | rg -q '(^|[[:space:]])check-static-validation($|[[:space:]])'; then
+  fail "check-parallel must include check-static-validation"
+fi
+if ! printf '%s\n' "$check_parallel_prereqs" | rg -q '(^|[[:space:]])check-harness-smoke($|[[:space:]])'; then
+  fail "check-parallel must include check-harness-smoke"
+fi
+check_static_block="$(extract_target_block check-static-validation)"
+if [[ -z "$check_static_block" ]]; then
+  fail "Makefile must define a non-empty check-static-validation block"
+fi
+if ! printf '%s\n' "$check_static_block" | rg -q 'frontend-task-surface-check'; then
+  fail "check-static-validation must invoke frontend-task-surface-check"
 fi
 if ! rg -q '^phase-ledgers:' "$makefile"; then
   fail "Makefile must define phase-ledgers"
@@ -71,8 +88,8 @@ fi
 if ! rg -q '^phase-ledger-drift:' "$makefile"; then
   fail "Makefile must define phase-ledger-drift"
 fi
-if ! printf '%s\n' "$check_preflight_block" | rg -q 'phase-ledger-drift'; then
-  fail "check-preflight must invoke phase-ledger-drift"
+if ! printf '%s\n' "$check_static_block" | rg -q 'phase-ledger-drift'; then
+  fail "check-static-validation must invoke phase-ledger-drift"
 fi
 
 if ! [[ -f "$runner_script" ]]; then

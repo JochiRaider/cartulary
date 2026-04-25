@@ -7,6 +7,32 @@ GENERATED_PATHS=(
   "internal/gen/sql"
   "packages/protocol-ts/src/generated"
 )
+SCRATCH_INPUTS=(
+  "Makefile"
+  "sqlc.yaml"
+  "go.mod"
+  "go.sum"
+  "contracts"
+  "db/migrations"
+  "db/queries"
+  "scripts/list-build-inputs.sh"
+  "scripts/lib"
+  "tools/contractgen"
+)
+SCRATCH_PLACEHOLDER_DIRS=(
+  "apps/web"
+  "cmd/migrate"
+  "cmd/server"
+  "internal/app"
+  "internal/modules"
+  "internal/platform"
+  "internal/platform/postgres"
+  "internal/testutil/pgtest"
+  "internal/testutil/s3test"
+  "internal/testutil/suiteservices"
+  "packages"
+  "tools/testservices"
+)
 
 cd "$ROOT_DIR"
 
@@ -15,18 +41,60 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
-before_status="$(git status --short -- "${GENERATED_PATHS[@]}")"
-before_diff="$(git diff -- "${GENERATED_PATHS[@]}")"
+mkdir -p "$ROOT_DIR/tmp"
+scratch="$(mktemp -d "$ROOT_DIR/tmp/generate-drift.XXXXXX")"
 
-make generate
+cleanup() {
+  rm -rf "$scratch"
+}
+trap cleanup EXIT
 
-after_status="$(git status --short -- "${GENERATED_PATHS[@]}")"
-after_diff="$(git diff -- "${GENERATED_PATHS[@]}")"
+copy_path() {
+  local source="$1"
+  local destination="$scratch/$source"
 
-if [[ "$after_status" != "$before_status" || "$after_diff" != "$before_diff" ]]; then
+  if [[ ! -e "$ROOT_DIR/$source" ]]; then
+    echo "required generate-drift input missing: $source" >&2
+    exit 1
+  fi
+
+  mkdir -p "$(dirname "$destination")"
+  cp -a "$ROOT_DIR/$source" "$destination"
+}
+
+for input in "${SCRATCH_INPUTS[@]}" "${GENERATED_PATHS[@]}"; do
+  copy_path "$input"
+done
+
+for placeholder_dir in "${SCRATCH_PLACEHOLDER_DIRS[@]}"; do
+  mkdir -p "$scratch/$placeholder_dir"
+done
+
+make -C "$scratch" --no-print-directory generate \
+  SQLC_BIN="${SQLC_BIN:-$ROOT_DIR/tmp/toolbin/sqlc-v1.30.0}" \
+  GO="${GO:-go}" \
+  GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}" \
+  GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}" \
+  NODE_BIN="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" \
+  PNPM="${PNPM:-$ROOT_DIR/tmp/node-runtime/bin/pnpm}"
+
+drift=0
+for generated_path in "${GENERATED_PATHS[@]}"; do
+  if ! diff -ruN "$ROOT_DIR/$generated_path" "$scratch/$generated_path" >/dev/null; then
+    drift=1
+    break
+  fi
+done
+
+if [[ "$drift" -ne 0 ]]; then
   echo "generated artifact drift detected after make generate" >&2
-  git status --short -- "${GENERATED_PATHS[@]}" >&2
   echo "diff excerpt (first 200 lines):" >&2
-  git --no-pager diff -- "${GENERATED_PATHS[@]}" | sed -n '1,200p' >&2 || true
+  for generated_path in "${GENERATED_PATHS[@]}"; do
+    diff -ruN \
+      --label "$generated_path" \
+      --label "regenerated $generated_path" \
+      "$ROOT_DIR/$generated_path" \
+      "$scratch/$generated_path" || true
+  done | sed -n '1,200p' >&2
   exit 1
 fi
