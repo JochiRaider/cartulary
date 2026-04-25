@@ -243,6 +243,16 @@ phase2_incidents_shared_command="$(
 assert_contains "$phase2_incidents_shared_command" "TestSupportPhase2_" "backend-integration phase2 incidents support selector"
 assert_contains "$phase2_incidents_shared_command" "TestPhase2_I_2_01" "backend-integration phase2 incidents authoritative selector"
 
+phase2_incidents_shard_command="$(
+  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration backend-integration-phase2-incidents-shard-02
+)"
+assert_contains "$phase2_incidents_shard_command" "TestPhase2_I_2_01" "backend-integration phase2 incidents planned shard selector"
+
+phase2_incidents_support_shard_command="$(
+  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration-support backend-integration-phase2-incidents-shard-04
+)"
+assert_contains "$phase2_incidents_support_shard_command" "TestSupportPhase2_" "backend-integration support phase2 planned shard selector"
+
 phase3_timeline_shared_command="$(
   NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration-support backend-integration-phase3-timeline
 )"
@@ -547,6 +557,13 @@ backend_integration_structure="$(
       phase4_manifest_calls=$((phase4_manifest_calls + 1))
     fi
   }
+  create_aggregate_report() {
+    local -n dir_ref="$1"
+    local -n usage_ref="$2"
+    local aggregate_name="$4"
+    dir_ref="/tmp/${aggregate_name}"
+    usage_ref="actual"
+  }
   clear_go_selection_env() {
     :
   }
@@ -562,9 +579,11 @@ assert_contains "$backend_integration_structure" "capture_jobs=4" "backend-integ
 assert_contains "$backend_integration_structure" "raw_calls=1" "backend-integration raw testutil phase count"
 assert_contains "$backend_integration_structure" "manifest_calls=7" "backend-integration manifest shard phase count"
 assert_contains "$backend_integration_structure" "phase4_manifest_calls=2" "backend-integration phase4 split phase count"
-assert_contains "$backend_integration_structure" "backend-integration-phase4-entities" "backend-integration captures phase4 entities shard"
-assert_contains "$backend_integration_structure" "backend-integration-testutil" "backend-integration captures testutil shard"
-assert_contains "$backend_integration_structure" "names= backend-integration-phase2-incidents backend-integration-phase0-platform backend-integration-phase4-entities backend-integration-auth backend-integration-phase3-timeline backend-integration-phase4-timeline backend-integration-testutil backend-integration-phase0-app" "backend-integration weighted shard order"
+assert_contains "$backend_integration_structure" "backend-integration-phase4-entities-shard-01 backend-integration-phase4-entities-shard-02" "backend-integration captures split phase4 entity shards"
+assert_contains "$backend_integration_structure" "backend-integration-phase2-incidents-shard-01" "backend-integration captures first split phase2 incident shard"
+assert_contains "$backend_integration_structure" "backend-integration-phase2-incidents-shard-02" "backend-integration captures second split phase2 incident shard"
+assert_contains "$backend_integration_structure" "backend-integration-testutil-shard-01" "backend-integration captures raw testutil shard"
+assert_contains "$backend_integration_structure" "names= backend-integration-phase4-entities-shard-01" "backend-integration weighted shard order starts with heaviest shard"
 assert_contains "$backend_integration_structure" "finish_status=0" "backend-integration finish status"
 
 backend_integration_support_structure="$(
@@ -592,6 +611,13 @@ backend_integration_support_structure="$(
   emit_declared_support_phase() {
     support_calls=$((support_calls + 1))
   }
+  create_aggregate_report() {
+    local -n dir_ref="$1"
+    local -n usage_ref="$2"
+    local aggregate_name="$4"
+    dir_ref="/tmp/${aggregate_name}"
+    usage_ref="actual"
+  }
   clear_go_selection_env() {
     :
   }
@@ -605,9 +631,9 @@ assert_contains "$backend_integration_support_structure" "capture_calls=1" "back
 assert_contains "$backend_integration_support_structure" "capture_target=backend-integration-support" "backend-integration-support parallel capture target"
 assert_contains "$backend_integration_support_structure" "capture_jobs=4" "backend-integration-support default shard jobs"
 assert_contains "$backend_integration_support_structure" "support_calls=5" "backend-integration-support support shard phase count"
-assert_contains "$backend_integration_support_structure" "backend-integration-phase4-entities" "backend-integration-support captures phase4 entities shard"
+assert_contains "$backend_integration_support_structure" "backend-integration-phase4-entities-shard-" "backend-integration-support captures phase4 entities shards"
 assert_not_contains "$backend_integration_support_structure" "backend-integration-testutil" "backend-integration-support skips testutil shard"
-assert_contains "$backend_integration_support_structure" "names= backend-integration-phase2-incidents backend-integration-phase0-platform backend-integration-phase4-entities backend-integration-auth backend-integration-phase3-timeline" "backend-integration-support weighted shard order"
+assert_contains "$backend_integration_support_structure" "names= backend-integration-phase4-entities-shard-" "backend-integration-support weighted shard order starts with heaviest support shard"
 assert_contains "$backend_integration_support_structure" "finish_status=0" "backend-integration-support finish status"
 
 phase0_backend_unit_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase0 backend_unit ./internal/platform/... ./internal/app)"

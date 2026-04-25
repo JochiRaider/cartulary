@@ -453,22 +453,40 @@ if ! printf '%s\n' "$backend_integration_block" | grep -Fq '$(TEST_SERVICES_BIN)
   fail "backend-integration must run through $(TEST_SERVICES_BIN) for suite-scoped services"
 fi
 for expected in \
-  'emit_go_manifest_phase "backend-integration phase0 authoritative platform"' \
-  'emit_go_manifest_phase "backend-integration phase0 authoritative app"' \
-  'emit_go_manifest_phase "backend-integration phase1 authoritative"' \
-  'emit_go_manifest_phase "backend-integration phase4 authoritative entities"' \
-  'emit_go_manifest_phase "backend-integration phase4 authoritative timeline"' \
-  'emit_go_manifest_phase "backend-integration phase2 authoritative"' \
-  'emit_declared_support_phase "backend-integration support phase0 platform"' \
-  'emit_declared_support_phase "backend-integration support phase1"' \
-  'emit_declared_support_phase "backend-integration support phase2"' \
-  'emit_declared_support_phase "backend-integration support phase3"' \
-  'emit_declared_support_phase "backend-integration support phase4 entities"'
+  'planned_shard_names backend-integration' \
+  'planned_aggregate_names backend-integration' \
+  'planned_shard_names backend-integration-support' \
+  'planned_aggregate_names backend-integration-support' \
+  'emit_go_manifest_phase "${aggregate_label}"' \
+  'emit_declared_support_phase "${aggregate_label}"'
 do
   if ! grep -Fq "$expected" "$go_runner_script"; then
-    fail "scripts/run-go-target.sh must preserve backend-integration selection surface: missing $expected"
+    fail "scripts/run-go-target.sh must preserve planned backend-integration selection surface: missing $expected"
   fi
 done
+
+if ! "$node_bin" - "$repo_root" "$node_bin" <<'EOF'
+const { execFileSync } = require("node:child_process");
+const path = require("node:path");
+const [root, nodeBin] = process.argv.slice(2);
+const plan = JSON.parse(execFileSync(nodeBin, [path.join(root, "scripts/print-go-shard-plan.mjs"), "--json"], { encoding: "utf8", cwd: root }));
+const incidents = plan.aggregates.find((aggregate) => aggregate.target === "backend-integration" && aggregate.name === "backend-integration-phase2-incidents");
+const entities = plan.aggregates.find((aggregate) => aggregate.target === "backend-integration" && aggregate.name === "backend-integration-phase4-entities");
+if (!incidents || incidents.shards.length < 2 || !entities || entities.shards.length < 2) {
+  process.exit(1);
+}
+const weights = plan.shards
+  .filter((shard) => shard.has_authoritative || shard.has_raw)
+  .map((shard) => shard.weight_ms);
+for (let index = 1; index < weights.length; index += 1) {
+  if (weights[index - 1] < weights[index]) {
+    process.exit(1);
+  }
+}
+EOF
+then
+  fail "backend-integration shard plan must split heavy aggregates and schedule longest shards first"
+fi
 
 backend_process_block="$(extract_target_block backend-process)"
 if ! printf '%s\n' "$backend_process_block" | grep -Fq 'run-go-target.sh backend-process'; then

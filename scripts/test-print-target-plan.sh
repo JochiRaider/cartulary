@@ -5,6 +5,7 @@ ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 NODE_HELPER="${NODE_BIN:-node}"
 MAKE_HELPER="${MAKE:-make}"
 PLAN_SCRIPT="$ROOT_DIR/scripts/print-target-plan.mjs"
+SHARD_PLAN_SCRIPT="$ROOT_DIR/scripts/print-go-shard-plan.mjs"
 cleanup_paths=()
 
 cleanup() {
@@ -41,6 +42,32 @@ json_b="$tmp_dir/target-plan-b.json"
 
 "$NODE_HELPER" -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' "$json_a"
 cmp -s "$json_a" "$json_b" || fail "target-plan JSON must be deterministic across invocations"
+
+shard_json_a="$tmp_dir/go-shard-plan-a.json"
+shard_json_b="$tmp_dir/go-shard-plan-b.json"
+"$NODE_HELPER" "$SHARD_PLAN_SCRIPT" --json --target backend-integration >"$shard_json_a"
+"$NODE_HELPER" "$SHARD_PLAN_SCRIPT" --json --target backend-integration >"$shard_json_b"
+"$NODE_HELPER" -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' "$shard_json_a"
+cmp -s "$shard_json_a" "$shard_json_b" || fail "go shard-plan JSON must be deterministic across invocations"
+
+if ! "$NODE_HELPER" - "$shard_json_a" <<'EOF'
+const fs = require("node:fs");
+const plan = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const weights = plan.shards.map((shard) => shard.weight_ms);
+for (let index = 1; index < weights.length; index += 1) {
+  if (weights[index - 1] < weights[index]) {
+    process.exit(1);
+  }
+}
+const incidents = plan.aggregates.find((aggregate) => aggregate.name === "backend-integration-phase2-incidents");
+const entities = plan.aggregates.find((aggregate) => aggregate.name === "backend-integration-phase4-entities");
+if (!incidents || incidents.shards.length < 2 || !entities || entities.shards.length < 2) {
+  process.exit(1);
+}
+EOF
+then
+  fail "backend-integration go shard plan must be weighted and split heavy aggregates"
+fi
 
 backend_store_output="$("$NODE_HELPER" "$PLAN_SCRIPT" --target backend-store)"
 assert_contains "$backend_store_output" "backend-store service_backed=1" "backend-store compact target plan"

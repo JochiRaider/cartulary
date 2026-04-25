@@ -1,0 +1,459 @@
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { collectTargetPlanRows } from "./target-plan.mjs";
+
+const defaultShardTargetMs = 30_000;
+const defaultIntegrationWeightMs = 10_000;
+const baselinePath = path.join("tools", "go_test_duration_baselines.json");
+const integrationTargets = new Set(["backend-integration", "backend-integration-support"]);
+const executionTargets = new Set(["backend-integration", "backend-integration-support"]);
+
+const aggregateLabelOverrides = new Map([
+  ["backend-integration-testutil", "backend-integration testutil"],
+  ["backend-integration-phase0-platform", "backend-integration phase0 authoritative platform"],
+  ["backend-integration-phase0-app", "backend-integration phase0 authoritative app"],
+  ["backend-integration-auth", "backend-integration phase1 authoritative"],
+  ["backend-integration-phase2-incidents", "backend-integration phase2 authoritative"],
+  ["backend-integration-phase3-timeline", "backend-integration phase3 authoritative"],
+  ["backend-integration-phase4-entities", "backend-integration phase4 authoritative entities"],
+  ["backend-integration-phase4-timeline", "backend-integration phase4 authoritative timeline"],
+]);
+
+const supportLabelOverrides = new Map([
+  ["backend-integration-phase0-platform", "backend-integration support phase0 platform"],
+  ["backend-integration-auth", "backend-integration support phase1"],
+  ["backend-integration-phase2-incidents", "backend-integration support phase2"],
+  ["backend-integration-phase3-timeline", "backend-integration support phase3"],
+  ["backend-integration-phase4-entities", "backend-integration support phase4 entities"],
+]);
+
+function compareStrings(left, right) {
+  return String(left).localeCompare(String(right));
+}
+
+function exactRegex(values) {
+  const escaped = values.map((value) => value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`));
+  if (escaped.length === 0) {
+    throw new Error("cannot create shard regex from empty symbol list");
+  }
+  if (escaped.length === 1) {
+    return `^${escaped[0]}$`;
+  }
+  return `^(${escaped.join("|")})$`;
+}
+
+function loadGoModulePath(root) {
+  const goMod = readFileSync(path.join(root, "go.mod"), "utf8");
+  const match = goMod.match(/^module\s+(\S+)$/m);
+  if (!match) {
+    throw new Error("unable to determine Go module path from go.mod");
+  }
+  return match[1];
+}
+
+function toGoImportPath(modulePath, repoRelativePackage) {
+  if (!repoRelativePackage.startsWith("./")) {
+    throw new Error(`Go package must be repo-relative: ${repoRelativePackage}`);
+  }
+  const suffix = repoRelativePackage.slice(2);
+  return suffix === "" ? modulePath : `${modulePath}/${suffix}`;
+}
+
+function loadDurationBaselines(root) {
+  const file = path.join(root, baselinePath);
+  if (!existsSync(file)) {
+    return {
+      defaultShardTargetMs,
+      defaultIntegrationWeightMs,
+      tests: new Map(),
+    };
+  }
+  const raw = JSON.parse(readFileSync(file, "utf8"));
+  const tests = new Map(Object.entries(raw.tests ?? raw));
+  return {
+    defaultShardTargetMs: normalizePositiveInteger(
+      raw.default_shard_target_ms,
+      defaultShardTargetMs,
+    ),
+    defaultIntegrationWeightMs: normalizePositiveInteger(
+      raw.default_integration_weight_ms,
+      defaultIntegrationWeightMs,
+    ),
+    tests,
+  };
+}
+
+function normalizePositiveInteger(value, fallback) {
+  if (Number.isInteger(value) && value > 0) {
+    return value;
+  }
+  return fallback;
+}
+
+function rowPackages(row) {
+  if (row.package) {
+    return [row.package];
+  }
+  return [...row.packages];
+}
+
+function addAggregate(aggregates, row, mode) {
+  const key = `${row.target}\u001f${row.shared_report}`;
+  if (!aggregates.has(key)) {
+    aggregates.set(key, {
+      target: row.target,
+      name: row.shared_report,
+      mode,
+      label:
+        mode === "support"
+          ? supportLabelOverrides.get(row.shared_report) ?? `${row.shared_report} support`
+          : aggregateLabelOverrides.get(row.shared_report) ?? row.label ?? row.shared_report,
+      phase: row.manifest_phase,
+      section: row.section,
+      coverage: row.coverage,
+      execution_dependency: row.execution_dependency,
+      raw_selector: row.raw_selector ?? "",
+      packages: new Set(),
+      shards: new Set(),
+      weight_ms: 0,
+    });
+  }
+  const aggregate = aggregates.get(key);
+  for (const pkg of row.packages ?? rowPackages(row)) {
+    aggregate.packages.add(pkg);
+  }
+  return aggregate;
+}
+
+function buildExecutionItems(root) {
+  const modulePath = loadGoModulePath(root);
+  const baselines = loadDurationBaselines(root);
+  const rows = collectTargetPlanRows(root);
+  const aggregates = new Map();
+  const executableItems = [];
+
+  for (const row of rows) {
+    if (!executionTargets.has(row.target) || row.runner_family !== "go_test") {
+      continue;
+    }
+    if (row.target === "backend-integration" && row.coverage === "raw") {
+      addAggregate(aggregates, row, "raw");
+      executableItems.push({
+        aggregate_name: row.shared_report,
+        kind: "raw",
+        id: row.id,
+        packages: [...row.packages],
+        regex: row.raw_selector,
+        symbol: "",
+        import_path: "",
+        weight_ms: baselines.defaultIntegrationWeightMs,
+        weight_source: "default",
+      });
+      continue;
+    }
+    if (row.target === "backend-integration" && row.coverage === "authoritative") {
+      addAggregate(aggregates, row, "manifest");
+      for (const symbol of row.symbols) {
+        const importPath = toGoImportPath(modulePath, row.package);
+        const key = `${importPath}::${symbol}`;
+        const weightMs = normalizePositiveInteger(
+          baselines.tests.get(key),
+          baselines.defaultIntegrationWeightMs,
+        );
+        executableItems.push({
+          aggregate_name: row.shared_report,
+          kind: "authoritative",
+          id: row.id,
+          packages: rowPackages(row),
+          regex: "",
+          symbol,
+          import_path: importPath,
+          weight_ms: weightMs,
+          weight_source: baselines.tests.has(key) ? "baseline" : "default",
+        });
+      }
+      continue;
+    }
+    if (row.target === "backend-integration-support" && row.support_only) {
+      addAggregate(aggregates, row, "support");
+      for (const symbol of row.symbols) {
+        const importPath = toGoImportPath(modulePath, row.package);
+        const key = `${importPath}::${symbol}`;
+        const weightMs = normalizePositiveInteger(
+          baselines.tests.get(key),
+          baselines.defaultIntegrationWeightMs,
+        );
+        executableItems.push({
+          aggregate_name: row.shared_report,
+          kind: "support",
+          id: row.id,
+          packages: rowPackages(row),
+          regex: "",
+          symbol,
+          import_path: importPath,
+          weight_ms: weightMs,
+          weight_source: baselines.tests.has(key) ? "baseline" : "default",
+        });
+      }
+    }
+  }
+
+  return { baselines, aggregates, executableItems };
+}
+
+function packAggregateItems(aggregateName, items, targetMs) {
+  if (items.length === 0) {
+    return [];
+  }
+  if (items.length === 1 && items[0].kind === "raw") {
+    return [{ aggregateName, items: [...items], weight_ms: items[0].weight_ms }];
+  }
+  const sorted = [...items].sort(
+    (left, right) =>
+      right.weight_ms - left.weight_ms ||
+      compareStrings(left.symbol || left.id, right.symbol || right.id),
+  );
+  const bins = [];
+  for (const item of sorted) {
+    let selected = null;
+    for (const bin of bins) {
+      if (bin.weight_ms + item.weight_ms <= targetMs) {
+        selected = bin;
+        break;
+      }
+    }
+    if (!selected) {
+      selected = { aggregateName, items: [], weight_ms: 0 };
+      bins.push(selected);
+    }
+    selected.items.push(item);
+    selected.weight_ms += item.weight_ms;
+  }
+  return bins;
+}
+
+function targetOwnsShard(target, shard) {
+  if (target === "backend-integration") {
+    return shard.items.some((item) => item.kind === "authoritative" || item.kind === "raw");
+  }
+  if (target === "backend-integration-support") {
+    return shard.items.some((item) => item.kind === "support");
+  }
+  return false;
+}
+
+function targetOwnsAggregate(target, aggregate) {
+  return aggregate.target === target;
+}
+
+function publicAggregateTargetForMode(mode) {
+  return mode === "support" ? "backend-integration-support" : "backend-integration";
+}
+
+function shardName(aggregateName, index) {
+  return `${aggregateName}-shard-${String(index + 1).padStart(2, "0")}`;
+}
+
+export function collectGoShardPlan(root = process.cwd(), options = {}) {
+  const requestedTargetMs = normalizePositiveInteger(
+    options.targetMs,
+    Number.NaN,
+  );
+  const { baselines, aggregates, executableItems } = buildExecutionItems(root);
+  const targetMs = Number.isInteger(requestedTargetMs)
+    ? requestedTargetMs
+    : baselines.defaultShardTargetMs;
+  const itemsByAggregate = new Map();
+  for (const item of executableItems) {
+    if (!itemsByAggregate.has(item.aggregate_name)) {
+      itemsByAggregate.set(item.aggregate_name, []);
+    }
+    itemsByAggregate.get(item.aggregate_name).push(item);
+  }
+
+  const shards = [];
+  for (const [aggregateName, items] of [...itemsByAggregate.entries()].sort()) {
+    const bins = packAggregateItems(aggregateName, items, targetMs);
+    bins.forEach((bin, index) => {
+      const packages = new Set();
+      const symbols = [];
+      let rawRegex = "";
+      let hasAuthoritative = false;
+      let hasSupport = false;
+      let hasRaw = false;
+      for (const item of bin.items) {
+        for (const pkg of item.packages) {
+          packages.add(pkg);
+        }
+        if (item.kind === "raw") {
+          rawRegex = item.regex;
+          hasRaw = true;
+        } else {
+          symbols.push(item.symbol);
+          hasAuthoritative ||= item.kind === "authoritative";
+          hasSupport ||= item.kind === "support";
+        }
+      }
+      shards.push({
+        name: shardName(aggregateName, index),
+        aggregate_name: aggregateName,
+        regex: hasRaw ? rawRegex : exactRegex(symbols.sort(compareStrings)),
+        packages: Array.from(packages).sort(compareStrings),
+        weight_ms: bin.weight_ms,
+        has_authoritative: hasAuthoritative,
+        has_support: hasSupport,
+        has_raw: hasRaw,
+        item_count: bin.items.length,
+        items: bin.items
+          .map((item) => ({
+            kind: item.kind,
+            id: item.id,
+            symbol: item.symbol,
+            import_path: item.import_path,
+            weight_ms: item.weight_ms,
+            weight_source: item.weight_source,
+          }))
+          .sort(
+            (left, right) =>
+              compareStrings(left.kind, right.kind) ||
+              compareStrings(left.id, right.id) ||
+              compareStrings(left.symbol, right.symbol),
+          ),
+      });
+    });
+  }
+
+  for (const aggregate of aggregates.values()) {
+    aggregate.target = publicAggregateTargetForMode(aggregate.mode);
+  }
+  for (const shard of shards) {
+    for (const aggregate of aggregates.values()) {
+      if (aggregate.name !== shard.aggregate_name) {
+        continue;
+      }
+      if (
+        (aggregate.mode === "raw" && shard.has_raw) ||
+        (aggregate.mode === "manifest" && shard.has_authoritative) ||
+        (aggregate.mode === "support" && shard.has_support)
+      ) {
+        aggregate.shards.add(shard.name);
+        aggregate.weight_ms += shard.weight_ms;
+      }
+    }
+  }
+
+  const aggregateList = Array.from(aggregates.values())
+    .filter((aggregate) => aggregate.shards.size > 0)
+    .map((aggregate) => ({
+      ...aggregate,
+      packages: Array.from(aggregate.packages).sort(compareStrings),
+      shards: Array.from(aggregate.shards).sort(compareStrings),
+    }))
+    .sort(
+      (left, right) =>
+        compareStrings(left.target, right.target) ||
+        compareStrings(left.phase, right.phase) ||
+        compareStrings(left.name, right.name),
+    );
+
+  const shardList = shards.sort(
+    (left, right) =>
+      right.weight_ms - left.weight_ms ||
+      compareStrings(left.aggregate_name, right.aggregate_name) ||
+      compareStrings(left.name, right.name),
+  );
+
+  return {
+    schema_id: "cartulary.go_shard_plan.v1",
+    shard_target_ms: targetMs,
+    default_integration_weight_ms: baselines.defaultIntegrationWeightMs,
+    targets: Array.from(integrationTargets).sort(compareStrings),
+    aggregates: aggregateList,
+    shards: shardList,
+  };
+}
+
+function targetShards(plan, target) {
+  if (!integrationTargets.has(target)) {
+    throw new Error(`unsupported Go shard target ${target}`);
+  }
+  return plan.shards.filter((shard) => targetOwnsShard(target, shard));
+}
+
+function targetAggregates(plan, target) {
+  if (!integrationTargets.has(target)) {
+    throw new Error(`unsupported Go shard target ${target}`);
+  }
+  return plan.aggregates.filter((aggregate) => targetOwnsAggregate(target, aggregate));
+}
+
+function findShard(plan, target, name) {
+  const shard = targetShards(plan, target).find((candidate) => candidate.name === name);
+  if (!shard) {
+    throw new Error(`unknown shard ${name} for ${target}`);
+  }
+  return shard;
+}
+
+function findAggregate(plan, target, name) {
+  const aggregate = targetAggregates(plan, target).find((candidate) => candidate.name === name);
+  if (!aggregate) {
+    throw new Error(`unknown aggregate ${name} for ${target}`);
+  }
+  return aggregate;
+}
+
+function printLines(lines) {
+  process.stdout.write(`${lines.join("\n")}\n`);
+}
+
+function main(argv) {
+  const [command, target, name] = argv;
+  const plan = collectGoShardPlan(process.cwd());
+  switch (command) {
+    case "json":
+      process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
+      return;
+    case "list-shards":
+      printLines(targetShards(plan, target).map((shard) => shard.name));
+      return;
+    case "shard-spec": {
+      const shard = findShard(plan, target, name);
+      printLines([shard.regex, ...shard.packages]);
+      return;
+    }
+    case "list-aggregates":
+      printLines(targetAggregates(plan, target).map((aggregate) => aggregate.name));
+      return;
+    case "aggregate-shards": {
+      const aggregate = findAggregate(plan, target, name);
+      printLines(aggregate.shards);
+      return;
+    }
+    case "aggregate-packages": {
+      const aggregate = findAggregate(plan, target, name);
+      printLines(aggregate.packages);
+      return;
+    }
+    case "aggregate-field": {
+      const field = argv[3];
+      const aggregate = findAggregate(plan, target, name);
+      const value = aggregate[field] ?? "";
+      process.stdout.write(`${String(value)}\n`);
+      return;
+    }
+    default:
+      throw new Error(
+        "usage: go-shard-plan.mjs <json|list-shards|shard-spec|list-aggregates|aggregate-shards|aggregate-packages|aggregate-field> [target] [name] [field]",
+      );
+  }
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  try {
+    main(process.argv.slice(2));
+  } catch (error) {
+    process.stderr.write(`${error.message}\n`);
+    process.exit(1);
+  }
+}

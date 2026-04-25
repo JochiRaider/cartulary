@@ -12,6 +12,7 @@ GO_TEST_PACKAGE_PARALLELISM="${GO_TEST_PACKAGE_PARALLELISM:-${GO_TEST_SERVICE_PA
 BACKEND_INTEGRATION_SHARD_JOBS="${BACKEND_INTEGRATION_SHARD_JOBS:-4}"
 NODE_HELPER="${NODE_BIN:-}"
 MANIFEST_SCRIPT="${ROOT_DIR}/scripts/lib/phase-manifest.mjs"
+SHARD_PLAN_SCRIPT="${ROOT_DIR}/scripts/lib/go-shard-plan.mjs"
 
 if [[ -z "${NODE_HELPER}" ]]; then
   if [[ -x "${ROOT_DIR}/tmp/node-runtime/bin/node" ]]; then
@@ -48,6 +49,30 @@ support_go_count() {
 
 manifest_phases() {
   "${NODE_HELPER}" "${MANIFEST_SCRIPT}" list-phases
+}
+
+planned_shard_names() {
+  "${NODE_HELPER}" "${SHARD_PLAN_SCRIPT}" list-shards "$@"
+}
+
+planned_shard_spec() {
+  "${NODE_HELPER}" "${SHARD_PLAN_SCRIPT}" shard-spec "$@"
+}
+
+planned_aggregate_names() {
+  "${NODE_HELPER}" "${SHARD_PLAN_SCRIPT}" list-aggregates "$@"
+}
+
+planned_aggregate_shards() {
+  "${NODE_HELPER}" "${SHARD_PLAN_SCRIPT}" aggregate-shards "$@"
+}
+
+planned_aggregate_packages() {
+  "${NODE_HELPER}" "${SHARD_PLAN_SCRIPT}" aggregate-packages "$@"
+}
+
+planned_aggregate_field() {
+  "${NODE_HELPER}" "${SHARD_PLAN_SCRIPT}" aggregate-field "$@"
 }
 
 build_union_regex() {
@@ -383,6 +408,22 @@ resolve_target_shared_report_spec() {
   local shared_name="$2"
   local regex_var="$3"
   local args_var="$4"
+  local planned_spec=()
+
+  if [[ "${target}" == "backend-integration" || "${target}" == "backend-integration-support" ]] && [[ "${shared_name}" == *"-shard-"* ]] && mapfile -t planned_spec < <(planned_shard_spec "${target}" "${shared_name}" 2>/dev/null); then
+    if [[ "${#planned_spec[@]}" -lt 2 ]]; then
+      echo "planned shard ${shared_name} for ${target} returned an incomplete spec" >&2
+      return 2
+    fi
+    local -n regex_ref="${regex_var}"
+    local -n args_ref="${args_var}"
+    regex_ref="${planned_spec[0]}"
+    args_ref=(
+      -p "${GO_TEST_PACKAGE_PARALLELISM}"
+      "${planned_spec[@]:1}"
+    )
+    return 0
+  fi
 
   case "${shared_name}" in
     backend-unit-core)
@@ -724,27 +765,6 @@ capture_named_shared_reports_parallel() {
   return "${status}"
 }
 
-backend_integration_shared_reports() {
-  printf '%s\n' \
-    backend-integration-phase2-incidents \
-    backend-integration-phase0-platform \
-    backend-integration-phase4-entities \
-    backend-integration-auth \
-    backend-integration-phase3-timeline \
-    backend-integration-phase4-timeline \
-    backend-integration-testutil \
-    backend-integration-phase0-app
-}
-
-backend_integration_support_shared_reports() {
-  printf '%s\n' \
-    backend-integration-phase2-incidents \
-    backend-integration-phase0-platform \
-    backend-integration-phase4-entities \
-    backend-integration-auth \
-    backend-integration-phase3-timeline
-}
-
 read_shared_report_metadata() {
   if [[ "$#" -ne 4 ]]; then
     echo "read_shared_report_metadata requires <dir-var> <usage-var> <metadata-dir> <shared-name>" >&2
@@ -773,6 +793,104 @@ read_shared_report_metadata() {
   usage_ref="${metadata[1]}"
 }
 
+iso_window_duration_ms() {
+  if [[ "$#" -ne 2 ]]; then
+    echo "iso_window_duration_ms requires <start-time> <end-time>" >&2
+    return 2
+  fi
+
+  "${NODE_HELPER}" -e '
+const [start, end] = process.argv.slice(1);
+const duration = Date.parse(end) - Date.parse(start);
+process.stdout.write(String(Number.isFinite(duration) && duration > 0 ? duration : 0));
+' "$1" "$2"
+}
+
+create_aggregate_report() {
+  if [[ "$#" -lt 6 ]]; then
+    echo "create_aggregate_report requires <dir-var> <usage-var> <metadata-dir> <aggregate-name> <target> <shard-name...>" >&2
+    return 2
+  fi
+
+  local -n dir_ref="$1"
+  local -n usage_ref="$2"
+  local metadata_dir="$3"
+  local aggregate_name="$4"
+  local target="$5"
+  shift 5
+
+  local aggregate_root="${metadata_dir}/aggregate-reports"
+  local output_dir="${aggregate_root}/${aggregate_name}"
+  local runner_log="${output_dir}/runner.jsonl"
+  local stderr_log="${output_dir}/stderr.log"
+  local command_file="${output_dir}/command.txt"
+  local start_time=""
+  local end_time=""
+  local duration_ms=0
+  local wall_duration_ms=0
+  local exit_status=0
+  local has_actual=0
+  local shard_name
+  local shard_dir
+  local shard_usage
+  local shard_duration
+  local shard_status
+  local shard_start
+  local shard_end
+
+  mkdir -p "${output_dir}"
+  : >"${runner_log}"
+  : >"${stderr_log}"
+  : >"${command_file}"
+
+  for shard_name in "$@"; do
+    read_shared_report_metadata shard_dir shard_usage "${metadata_dir}" "${shard_name}"
+    if [[ -f "${shard_dir}/runner.jsonl" ]]; then
+      cat "${shard_dir}/runner.jsonl" >>"${runner_log}"
+    fi
+    if [[ -f "${shard_dir}/stderr.log" ]]; then
+      cat "${shard_dir}/stderr.log" >>"${stderr_log}"
+    fi
+    if [[ -s "${command_file}" ]]; then
+      printf '\n' >>"${command_file}"
+    fi
+    printf '%s: %s\n' "${shard_name}" "$(<"${shard_dir}/command.txt")" >>"${command_file}"
+
+    shard_duration="$(phase_clamp_duration_ms "$(<"${shard_dir}/duration_ms.txt")")"
+    duration_ms="$((duration_ms + shard_duration))"
+    shard_status="$(<"${shard_dir}/exit_status.txt")"
+    if [[ "${shard_status}" != "0" ]]; then
+      exit_status="${shard_status}"
+    fi
+    shard_start="$(<"${shard_dir}/start_time.txt")"
+    shard_end="$(<"${shard_dir}/end_time.txt")"
+    if [[ -z "${start_time}" || "${shard_start}" < "${start_time}" ]]; then
+      start_time="${shard_start}"
+    fi
+    if [[ -z "${end_time}" || "${shard_end}" > "${end_time}" ]]; then
+      end_time="${shard_end}"
+    fi
+    if [[ "${shard_usage}" == "actual" ]]; then
+      has_actual=1
+    fi
+  done
+
+  usage_ref="reused"
+  if [[ "${has_actual}" -eq 1 ]]; then
+    usage_ref="actual"
+    wall_duration_ms="$(iso_window_duration_ms "${start_time}" "${end_time}")"
+  fi
+
+  printf '%s\n' "${start_time}" >"${output_dir}/start_time.txt"
+  printf '%s\n' "${end_time}" >"${output_dir}/end_time.txt"
+  printf '%s\n' "$(phase_clamp_duration_ms "${duration_ms}")" >"${output_dir}/duration_ms.txt"
+  printf '%s\n' "$(phase_clamp_duration_ms "${wall_duration_ms}")" >"${output_dir}/wall_duration_ms.txt"
+  printf '%s\n' "${exit_status}" >"${output_dir}/exit_status.txt"
+  printf '%s\n' "${target}:${aggregate_name}" >"${output_dir}/aggregate.txt"
+
+  dir_ref="${output_dir}"
+}
+
 inspect_shared_command() {
   if [[ "$#" -ne 2 ]]; then
     echo "inspect_shared_command requires <target> <shared-name>" >&2
@@ -792,15 +910,20 @@ load_phase_window() {
   local report_dir="$1"
   local mode="$2"
   local stored_duration_ms
+  local stored_wall_duration_ms
 
   PHASE_COMMAND_TEXT="$(<"${report_dir}/command.txt")"
   PHASE_EXIT_STATUS="$(<"${report_dir}/exit_status.txt")"
   stored_duration_ms="$(phase_clamp_duration_ms "$(<"${report_dir}/duration_ms.txt")")"
+  stored_wall_duration_ms="${stored_duration_ms}"
+  if [[ -f "${report_dir}/wall_duration_ms.txt" ]]; then
+    stored_wall_duration_ms="$(phase_clamp_duration_ms "$(<"${report_dir}/wall_duration_ms.txt")")"
+  fi
   if [[ "${mode}" == "actual" ]]; then
     PHASE_START_TIME="$(<"${report_dir}/start_time.txt")"
     PHASE_END_TIME="$(<"${report_dir}/end_time.txt")"
     PHASE_DURATION_MS="${stored_duration_ms}"
-    PHASE_WALL_DURATION_MS="${PHASE_DURATION_MS}"
+    PHASE_WALL_DURATION_MS="${stored_wall_duration_ms}"
     return 0
   fi
 
@@ -995,96 +1118,79 @@ run_backend_store() {
 }
 
 run_backend_integration() {
-  local testutil_dir
-  local testutil_usage
-  local auth_dir
-  local auth_usage
-  local phase0_platform_dir
-  local phase0_platform_usage
-  local phase0_app_dir
-  local phase0_app_usage
-  local phase2_incidents_dir
-  local phase2_incidents_usage
-  local phase3_timeline_dir
-  local phase3_timeline_usage
-  local phase4_entities_dir
-  local phase4_entities_usage
-  local phase4_timeline_dir
-  local phase4_timeline_usage
   local metadata_dir
-  local shared_reports=()
+  local shard_names=()
+  local aggregate_names=()
   local status=0
+  local aggregate_name
+  local aggregate_dir
+  local aggregate_usage
+  local aggregate_mode
+  local aggregate_label
+  local aggregate_phase
+  local aggregate_section
+  local aggregate_coverage
+  local aggregate_dependency
+  local aggregate_regex
+  local aggregate_shards=()
+  local aggregate_packages=()
 
   metadata_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-backend-integration-shards.XXXXXX")"
-  mapfile -t shared_reports < <(backend_integration_shared_reports)
-  capture_named_shared_reports_parallel backend-integration "${BACKEND_INTEGRATION_SHARD_JOBS}" "${metadata_dir}" "${shared_reports[@]}"
+  mapfile -t shard_names < <(planned_shard_names backend-integration)
+  capture_named_shared_reports_parallel backend-integration "${BACKEND_INTEGRATION_SHARD_JOBS}" "${metadata_dir}" "${shard_names[@]}" || status=$?
 
-  read_shared_report_metadata phase4_entities_dir phase4_entities_usage "${metadata_dir}" backend-integration-phase4-entities
-  read_shared_report_metadata phase2_incidents_dir phase2_incidents_usage "${metadata_dir}" backend-integration-phase2-incidents
-  read_shared_report_metadata phase3_timeline_dir phase3_timeline_usage "${metadata_dir}" backend-integration-phase3-timeline
-  read_shared_report_metadata auth_dir auth_usage "${metadata_dir}" backend-integration-auth
-  read_shared_report_metadata phase4_timeline_dir phase4_timeline_usage "${metadata_dir}" backend-integration-phase4-timeline
-  read_shared_report_metadata phase0_app_dir phase0_app_usage "${metadata_dir}" backend-integration-phase0-app
-  read_shared_report_metadata phase0_platform_dir phase0_platform_usage "${metadata_dir}" backend-integration-phase0-platform
-  read_shared_report_metadata testutil_dir testutil_usage "${metadata_dir}" backend-integration-testutil
+  mapfile -t aggregate_names < <(planned_aggregate_names backend-integration)
+  for aggregate_name in "${aggregate_names[@]}"; do
+    mapfile -t aggregate_shards < <(planned_aggregate_shards backend-integration "${aggregate_name}")
+    mapfile -t aggregate_packages < <(planned_aggregate_packages backend-integration "${aggregate_name}")
+    create_aggregate_report aggregate_dir aggregate_usage "${metadata_dir}" "${aggregate_name}" backend-integration "${aggregate_shards[@]}" || status=$?
+    aggregate_mode="$(planned_aggregate_field backend-integration "${aggregate_name}" mode)"
+    aggregate_label="$(planned_aggregate_field backend-integration "${aggregate_name}" label)"
+    clear_go_selection_env
+    if [[ "${aggregate_mode}" == "raw" ]]; then
+      aggregate_regex="$(planned_aggregate_field backend-integration "${aggregate_name}" raw_selector)"
+      emit_go_raw_phase "${aggregate_label}" "${aggregate_usage}" "${aggregate_dir}" "${aggregate_regex}" "${aggregate_packages[@]}" || status=$?
+      continue
+    fi
+    aggregate_phase="$(planned_aggregate_field backend-integration "${aggregate_name}" phase)"
+    aggregate_section="$(planned_aggregate_field backend-integration "${aggregate_name}" section)"
+    aggregate_coverage="$(planned_aggregate_field backend-integration "${aggregate_name}" coverage)"
+    aggregate_dependency="$(planned_aggregate_field backend-integration "${aggregate_name}" execution_dependency)"
+    emit_go_manifest_phase "${aggregate_label}" "${aggregate_usage}" "${aggregate_dir}" "${aggregate_phase}" "${aggregate_section}" "${aggregate_coverage}" "${aggregate_dependency}" "${aggregate_packages[@]}" || status=$?
+  done
   rm -rf -- "${metadata_dir}"
-
-  clear_go_selection_env
-  emit_go_raw_phase "backend-integration testutil" "${testutil_usage}" "${testutil_dir}" '^Test' ./internal/testutil/httptestx ./internal/testutil/pgtest ./internal/testutil/s3test ./internal/testutil/testcontainersx ./internal/testutil/wstest || status=$?
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-integration phase0 authoritative platform" "${phase0_platform_usage}" "${phase0_platform_dir}" phase0 integration authoritative backend_integration ./internal/platform/... || status=$?
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-integration phase0 authoritative app" "${phase0_app_usage}" "${phase0_app_dir}" phase0 integration authoritative backend_integration ./internal/app || status=$?
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-integration phase1 authoritative" "${auth_usage}" "${auth_dir}" phase1 integration authoritative backend_integration ./internal/modules/auth || status=$?
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-integration phase4 authoritative entities" "${phase4_entities_usage}" "${phase4_entities_dir}" phase4 integration authoritative backend_integration ./internal/modules/entities || status=$?
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-integration phase4 authoritative timeline" "${phase4_timeline_usage}" "${phase4_timeline_dir}" phase4 integration authoritative backend_integration ./internal/modules/timeline || status=$?
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-integration phase2 authoritative" "${phase2_incidents_usage}" "${phase2_incidents_dir}" phase2 integration authoritative backend_integration ./internal/modules/incidents || status=$?
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-integration phase3 authoritative" "${phase3_timeline_usage}" "${phase3_timeline_dir}" phase3 integration authoritative backend_integration ./internal/modules/timeline || status=$?
 
   finish_target "${status}"
 }
 
 run_backend_integration_support() {
-  local auth_dir
-  local auth_usage
-  local phase0_platform_dir
-  local phase0_platform_usage
-  local phase2_incidents_dir
-  local phase2_incidents_usage
-  local phase3_timeline_dir
-  local phase3_timeline_usage
-  local phase4_entities_dir
-  local phase4_entities_usage
   local metadata_dir
-  local shared_reports=()
+  local shard_names=()
+  local aggregate_names=()
   local status=0
+  local aggregate_name
+  local aggregate_dir
+  local aggregate_usage
+  local aggregate_label
+  local aggregate_phase
+  local aggregate_shards=()
+  local aggregate_packages=()
 
   metadata_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-backend-integration-support-shards.XXXXXX")"
-  mapfile -t shared_reports < <(backend_integration_support_shared_reports)
-  capture_named_shared_reports_parallel backend-integration-support "${BACKEND_INTEGRATION_SHARD_JOBS}" "${metadata_dir}" "${shared_reports[@]}"
+  mapfile -t shard_names < <(planned_shard_names backend-integration-support)
+  capture_named_shared_reports_parallel backend-integration-support "${BACKEND_INTEGRATION_SHARD_JOBS}" "${metadata_dir}" "${shard_names[@]}" || status=$?
 
-  read_shared_report_metadata phase4_entities_dir phase4_entities_usage "${metadata_dir}" backend-integration-phase4-entities
-  read_shared_report_metadata phase2_incidents_dir phase2_incidents_usage "${metadata_dir}" backend-integration-phase2-incidents
-  read_shared_report_metadata phase3_timeline_dir phase3_timeline_usage "${metadata_dir}" backend-integration-phase3-timeline
-  read_shared_report_metadata auth_dir auth_usage "${metadata_dir}" backend-integration-auth
-  read_shared_report_metadata phase0_platform_dir phase0_platform_usage "${metadata_dir}" backend-integration-phase0-platform
+  mapfile -t aggregate_names < <(planned_aggregate_names backend-integration-support)
+  for aggregate_name in "${aggregate_names[@]}"; do
+    mapfile -t aggregate_shards < <(planned_aggregate_shards backend-integration-support "${aggregate_name}")
+    mapfile -t aggregate_packages < <(planned_aggregate_packages backend-integration-support "${aggregate_name}")
+    create_aggregate_report aggregate_dir aggregate_usage "${metadata_dir}" "${aggregate_name}" backend-integration-support "${aggregate_shards[@]}" || status=$?
+    aggregate_label="$(planned_aggregate_field backend-integration-support "${aggregate_name}" label)"
+    aggregate_phase="$(planned_aggregate_field backend-integration-support "${aggregate_name}" phase)"
+    clear_go_selection_env
+    emit_declared_support_phase "${aggregate_label}" "${aggregate_usage}" "${aggregate_dir}" "${aggregate_phase}" backend_integration_support "${aggregate_packages[@]}" || status=$?
+  done
   rm -rf -- "${metadata_dir}"
-
-  clear_go_selection_env
-  emit_declared_support_phase "backend-integration support phase0 platform" "${phase0_platform_usage}" "${phase0_platform_dir}" phase0 backend_integration_support ./internal/platform/... || status=$?
-  clear_go_selection_env
-  emit_declared_support_phase "backend-integration support phase1" "${auth_usage}" "${auth_dir}" phase1 backend_integration_support ./internal/modules/auth || status=$?
-  clear_go_selection_env
-  emit_declared_support_phase "backend-integration support phase2" "${phase2_incidents_usage}" "${phase2_incidents_dir}" phase2 backend_integration_support ./internal/modules/incidents || status=$?
-  clear_go_selection_env
-  emit_declared_support_phase "backend-integration support phase3" "${phase3_timeline_usage}" "${phase3_timeline_dir}" phase3 backend_integration_support ./internal/modules/timeline || status=$?
-  clear_go_selection_env
-  emit_declared_support_phase "backend-integration support phase4 entities" "${phase4_entities_usage}" "${phase4_entities_dir}" phase4 backend_integration_support ./internal/modules/entities || status=$?
 
   finish_target "${status}"
 }
