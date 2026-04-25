@@ -648,6 +648,28 @@ func TestCleanupWebE2EReadsMetadataAndCallsCleanup(t *testing.T) {
 	requireTimingEvent(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services cleanup browser e2e fixture")
 }
 
+func TestCleanupWebE2ERecordsFailedTimingEvent(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	metadataFile := filepath.Join(t.TempDir(), "browser.json")
+	if err := writeWebE2EMetadata(metadataFile, webE2EMetadata{DatabaseName: "ct_web", Bucket: "ct-web"}); err != nil {
+		t.Fatalf("write metadata: %v", err)
+	}
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "suite-web-e2e-cleanup-fail"
+	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
+
+	deps.cleanupWebE2E = func(context.Context, webE2EMetadata, map[string]string) error {
+		return errors.New("cleanup failed")
+	}
+
+	status := run([]string{"cleanup-web-e2e", "--metadata-file", metadataFile}, activeEnv, deps.dependencies)
+	if status != 1 {
+		t.Fatalf("cleanup failure status: got %d want 1", status)
+	}
+	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services cleanup browser e2e fixture", "fail")
+}
+
 func TestPrepareWebE2ECleansFixtureWhenEnvWriteFails(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	envFile := t.TempDir()
@@ -775,12 +797,20 @@ func loadTestEventsForEnv(t testing.TB, env map[string]string) []suiteservices.E
 
 func requireTimingEvent(t testing.TB, events []suiteservices.Event, bucket string, label string) {
 	t.Helper()
+	requireTimingEventStatus(t, events, bucket, label, "")
+}
+
+func requireTimingEventStatus(t testing.TB, events []suiteservices.Event, bucket string, label string, status string) {
+	t.Helper()
 	for _, event := range events {
 		if event.Type != suiteservices.EventTimingSpan {
 			continue
 		}
 		if event.Details["bucket"] != bucket || event.Details["label"] != label {
 			continue
+		}
+		if status != "" && event.Details["status"] != status {
+			t.Fatalf("timing event %q status: got %#v want %q", label, event.Details["status"], status)
 		}
 		if event.Details["duration_ms"] == nil {
 			t.Fatalf("timing event %q missing duration_ms: %#v", label, event)

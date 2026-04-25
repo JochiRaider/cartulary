@@ -84,6 +84,16 @@ assert_not_negative() {
   fi
 }
 
+assert_at_least() {
+  local actual="$1"
+  local minimum="$2"
+  local label="$3"
+
+  if [[ -z "$actual" || ! "$actual" =~ ^-?[0-9]+$ || "$actual" == -* || "$actual" -lt "$minimum" ]]; then
+    fail "$label: expected an integer >= $minimum, got [$actual]"
+  fi
+}
+
 write_target_summary() {
   local results_dir="$1"
   local run_id="$2"
@@ -255,7 +265,7 @@ cat >"$teardown_services_dir/cleanup-browser-fixture.json" <<'JSON'
 {
   "type": "timing-span",
   "name": "test-services cleanup browser e2e fixture",
-  "status": "pass",
+  "status": "fail",
   "timestamp": "2026-01-01T00:00:01.800Z",
   "details": {
     "target": "browser-e2e-webserver-backed",
@@ -264,14 +274,22 @@ cat >"$teardown_services_dir/cleanup-browser-fixture.json" <<'JSON'
     "start_time": "2026-01-01T00:00:01.100Z",
     "end_time": "2026-01-01T00:00:01.800Z",
     "duration_ms": 700,
-    "status": "pass"
+    "status": "fail"
   }
 }
 JSON
 CARTULARY_TEST_RESULTS_DIR="$teardown_accounting_results" \
 CARTULARY_TEST_RUN_ID="teardown-accounting" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e-webserver-backed pass >/dev/null
+  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e-webserver-backed pass >/dev/null 2>&1
+teardown_accounting_summary="$teardown_accounting_results/teardown-accounting/browser-e2e-webserver-backed/target-summary.json"
 teardown_accounting_timing="$teardown_accounting_results/teardown-accounting/browser-e2e-webserver-backed/target-timing.json"
+assert_equals "$(json_field "$teardown_accounting_summary" "status")" "fail" "teardown accounting failed service span target summary status"
+assert_equals "$(json_field "$teardown_accounting_timing" "status")" "fail" "teardown accounting failed service span target timing status"
+assert_equals "$(json_field "$teardown_accounting_summary" "wall_duration_ms")" "2100" "teardown accounting target summary wall includes teardown"
+assert_equals "$(json_field "$teardown_accounting_summary" "start_time")" "2026-01-01T00:00:00Z" "teardown accounting target summary start time"
+assert_equals "$(json_field "$teardown_accounting_summary" "end_time")" "2026-01-01T00:00:02.100Z" "teardown accounting target summary end time"
+assert_equals "$(json_field "$teardown_accounting_timing" "start_time")" "2026-01-01T00:00:00Z" "teardown accounting target timing start time"
+assert_equals "$(json_field "$teardown_accounting_timing" "end_time")" "2026-01-01T00:00:02.100Z" "teardown accounting target timing end time"
 assert_equals "$(json_field "$teardown_accounting_timing" "buckets.0.name")" "teardown" "teardown accounting bucket"
 assert_equals "$(json_field "$teardown_accounting_timing" "buckets.0.duration_ms")" "2100" "teardown accounting disjoint duration"
 assert_equals "$(json_field "$teardown_accounting_timing" "buckets.0.spans.length")" "3" "teardown accounting span count"

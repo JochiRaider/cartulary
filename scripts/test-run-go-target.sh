@@ -127,15 +127,15 @@ cleanup_paths+=("$duration_results_dir")
 shared_report_dir="$duration_results_dir/shared-report"
 mkdir -p "$shared_report_dir"
 cat >"$shared_report_dir/runner.jsonl" <<'EOF'
-{"Time":"2026-04-22T12:00:00Z","Action":"run","Package":"github.com/JochiRaider/cartulary/internal/modules/entities","Test":"TestSupportPhase4Integration_Smoke"}
-{"Time":"2026-04-22T12:00:00Z","Action":"output","Package":"github.com/JochiRaider/cartulary/internal/modules/entities","Test":"TestSupportPhase4Integration_Smoke","Output":"=== RUN   TestSupportPhase4Integration_Smoke\n"}
-{"Time":"2026-04-22T12:00:00Z","Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/entities","Test":"TestSupportPhase4Integration_Smoke","Elapsed":0.001}
-{"Time":"2026-04-22T12:00:00Z","Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/entities","Elapsed":0.001}
+{"Time":"2000-01-01T00:00:00Z","Action":"run","Package":"github.com/JochiRaider/cartulary/internal/modules/entities","Test":"TestSupportPhase4Integration_Smoke"}
+{"Time":"2000-01-01T00:00:00Z","Action":"output","Package":"github.com/JochiRaider/cartulary/internal/modules/entities","Test":"TestSupportPhase4Integration_Smoke","Output":"=== RUN   TestSupportPhase4Integration_Smoke\n"}
+{"Time":"2000-01-01T00:00:00Z","Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/entities","Test":"TestSupportPhase4Integration_Smoke","Elapsed":0.001}
+{"Time":"2000-01-01T00:00:00Z","Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/entities","Elapsed":0.001}
 EOF
 touch "$shared_report_dir/stderr.log"
 printf '%s\n' "env go test -json -run '^(TestSupportPhase4Integration_Smoke)$' ./internal/modules/entities" >"$shared_report_dir/command.txt"
-printf '%s\n' "2026-04-22T12:00:00Z" >"$shared_report_dir/start_time.txt"
-printf '%s\n' "2026-04-22T12:00:00Z" >"$shared_report_dir/end_time.txt"
+printf '%s\n' "2000-01-01T00:00:00Z" >"$shared_report_dir/start_time.txt"
+printf '%s\n' "2000-01-01T00:00:00Z" >"$shared_report_dir/end_time.txt"
 printf '%s\n' "1200" >"$shared_report_dir/duration_ms.txt"
 printf '%s\n' "0" >"$shared_report_dir/exit_status.txt"
 
@@ -187,11 +187,15 @@ assert_equals "$(json_field "$duration_target_summary" "executed_duration_ms")" 
 assert_equals "$(json_field "$duration_target_summary" "logical_duration_ms")" "2400" "duration target logical duration"
 assert_equals "$(json_field "$duration_target_summary" "duration_ms")" "2400" "duration target legacy duration"
 assert_equals "$(json_field "$duration_target_summary" "wall_duration_ms")" "1200" "duration target wall duration"
+assert_equals "$(json_field "$duration_target_summary" "start_time")" "2000-01-01T00:00:00Z" "duration target summary start time"
+assert_equals "$(json_field "$duration_target_summary" "end_time")" "2000-01-01T00:00:00Z" "duration target summary end time"
 assert_equals "$(json_field "$duration_target_summary" "accounting_modes.actual")" "1" "duration target actual accounting count"
 assert_equals "$(json_field "$duration_target_summary" "accounting_modes.reused")" "1" "duration target reused accounting count"
 assert_equals "$(json_field "$duration_target_summary" "accounting_modes.derived")" "1" "duration target derived accounting count"
 assert_contains "$(json_field "$duration_target_summary" "artifacts.timing_json")" "target-timing.json" "duration target timing artifact"
 assert_equals "$(json_field "$duration_target_timing" "schema_id")" "cartulary.test_target_timing.v1" "duration target timing schema"
+assert_equals "$(json_field "$duration_target_timing" "start_time")" "2000-01-01T00:00:00Z" "duration target timing start time"
+assert_equals "$(json_field "$duration_target_timing" "end_time")" "2000-01-01T00:00:00Z" "duration target timing end time"
 assert_equals "$(json_field "$duration_target_timing" "buckets.0.name")" "test_command" "duration target test command bucket"
 assert_equals "$(json_field "$duration_target_timing" "buckets.1.name")" "report_collation" "duration target report collation bucket"
 if "${NODE:-node}" -e 'const fs=require("node:fs"); const buckets=JSON.parse(fs.readFileSync(process.argv[1],"utf8")).buckets.map((bucket)=>bucket.name); process.exit(buckets.includes("setup") ? 1 : 0);' "$duration_target_timing"; then

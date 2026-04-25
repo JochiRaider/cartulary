@@ -301,14 +301,16 @@ stop_owned_process_group() {
   local group_id="$1"
   local port="$2"
   local name="$3"
+  local status=0
 
   if [[ -z "${group_id}" ]]; then
-    wait_for_port_release "${port}" "${name}" || true
-    return 0
+    wait_for_port_release "${port}" "${name}" || status=$?
+    return "${status}"
   fi
 
-  stop_process_group "${group_id}" || true
-  wait_for_port_release "${port}" "${name}" || true
+  stop_process_group "${group_id}" || status=$?
+  wait_for_port_release "${port}" "${name}" || status=$?
+  return "${status}"
 }
 
 cleanup() {
@@ -322,44 +324,84 @@ cleanup() {
   local step_end_time
   local step_end_ms
   local step_duration_ms
+  local cleanup_status=0
+  local step_status=0
+  local step_span_status="pass"
 
   step_start_time="$(phase_now_utc)"
   step_start_ms="$(phase_now_monotonic_ms)"
 
   if [[ -n "${CHILD_PGID:-}" ]]; then
-    stop_process_group "${CHILD_PGID}" || true
+    stop_process_group "${CHILD_PGID}" || cleanup_status=$?
   fi
-  stop_owned_process_group "${VITE_PGID:-}" "${FRONTEND_PORT:-4173}" "frontend"
-  stop_owned_process_group "${SERVER_PGID:-}" "${BACKEND_PORT:-8080}" "backend"
+  stop_owned_process_group "${VITE_PGID:-}" "${FRONTEND_PORT:-4173}" "frontend" || cleanup_status=$?
+  stop_owned_process_group "${SERVER_PGID:-}" "${BACKEND_PORT:-8080}" "backend" || cleanup_status=$?
 
   step_end_time="$(phase_now_utc)"
   step_end_ms="$(phase_now_monotonic_ms)"
   step_duration_ms="$(phase_elapsed_ms "${step_start_ms}" "${step_end_ms}")"
-  emit_target_timing_span "teardown" "browser-e2e stop owned processes" "${step_start_time}" "${step_end_time}" "${step_duration_ms}" "pass" 0
+  if [[ "${cleanup_status}" -ne 0 ]]; then
+    step_span_status="fail"
+  fi
+  emit_target_timing_span "teardown" "browser-e2e stop owned processes" "${step_start_time}" "${step_end_time}" "${step_duration_ms}" "${step_span_status}" "${cleanup_status}"
 
   if using_test_services_stack; then
     if [[ -x "${TEST_SERVICES_BIN}" && -f "${TEST_SERVICES_METADATA_FILE}" ]]; then
-      "${TEST_SERVICES_BIN}" cleanup-web-e2e --metadata-file "${TEST_SERVICES_METADATA_FILE}" >/dev/null 2>&1 || true
+      "${TEST_SERVICES_BIN}" cleanup-web-e2e --metadata-file "${TEST_SERVICES_METADATA_FILE}" || cleanup_status=$?
     fi
   else
     step_start_time="$(phase_now_utc)"
     step_start_ms="$(phase_now_monotonic_ms)"
+    step_status=0
     docker compose -f "${COMPOSE_FILE}" exec -T postgres \
-      psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null 2>&1 || true
+      psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null 2>&1 || step_status=$?
     step_end_time="$(phase_now_utc)"
     step_end_ms="$(phase_now_monotonic_ms)"
     step_duration_ms="$(phase_elapsed_ms "${step_start_ms}" "${step_end_ms}")"
-    emit_target_timing_span "teardown" "browser-e2e cleanup standalone database" "${step_start_time}" "${step_end_time}" "${step_duration_ms}" "pass" 0
+    step_span_status="pass"
+    if [[ "${step_status}" -ne 0 ]]; then
+      step_span_status="fail"
+      cleanup_status="${step_status}"
+    fi
+    emit_target_timing_span "teardown" "browser-e2e cleanup standalone database" "${step_start_time}" "${step_end_time}" "${step_duration_ms}" "${step_span_status}" "${step_status}"
   fi
   if [[ "${KEEP_RUNTIME_ROOT}" -ne 1 ]]; then
     step_start_time="$(phase_now_utc)"
     step_start_ms="$(phase_now_monotonic_ms)"
-    rm -rf "${RUNTIME_ROOT_BASE}"
+    step_status=0
+    rm -rf "${RUNTIME_ROOT_BASE}" || step_status=$?
     step_end_time="$(phase_now_utc)"
     step_end_ms="$(phase_now_monotonic_ms)"
     step_duration_ms="$(phase_elapsed_ms "${step_start_ms}" "${step_end_ms}")"
-    emit_target_timing_span "teardown" "browser-e2e remove runtime root" "${step_start_time}" "${step_end_time}" "${step_duration_ms}" "pass" 0
+    step_span_status="pass"
+    if [[ "${step_status}" -ne 0 ]]; then
+      step_span_status="fail"
+      cleanup_status="${step_status}"
+    fi
+    emit_target_timing_span "teardown" "browser-e2e remove runtime root" "${step_start_time}" "${step_end_time}" "${step_duration_ms}" "${step_span_status}" "${step_status}"
   fi
+
+  return "${cleanup_status}"
+}
+
+on_exit() {
+  local status=$?
+  local cleanup_status=0
+
+  trap - EXIT
+  set +e
+  cleanup
+  cleanup_status=$?
+  set -e
+
+  if [[ "${cleanup_status}" -ne 0 ]]; then
+    echo "browser e2e cleanup failed with status ${cleanup_status}" >&2
+    if [[ "${status}" -eq 0 ]]; then
+      exit "${cleanup_status}"
+    fi
+  fi
+
+  exit "${status}"
 }
 
 exit_for_requested_shutdown() {
@@ -533,7 +575,7 @@ main() {
   parse_child_command "$@"
   prepare_runtime_root
 
-  trap cleanup EXIT
+  trap on_exit EXIT
   lifecycle_reset_shutdown_state
   lifecycle_install_signal_traps
 

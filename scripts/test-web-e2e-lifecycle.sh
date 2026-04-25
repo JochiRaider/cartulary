@@ -322,6 +322,60 @@ done
 EOF
 chmod +x "$parent_death_launcher"
 
+failing_test_services_bin="$tmp_dir/failing-test-services.sh"
+cat >"$failing_test_services_bin" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${1:-}" == "cleanup-web-e2e" ]]; then
+  echo "fixture cleanup failed" >&2
+  exit 31
+fi
+
+echo "unexpected test-services command: $*" >&2
+exit 2
+EOF
+chmod +x "$failing_test_services_bin"
+
+cleanup_failure_runner="$tmp_dir/exercise-start-web-e2e-cleanup-failure.sh"
+cat >"$cleanup_failure_runner" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+source "${ROOT_DIR:?}/scripts/start-web-e2e.sh"
+
+tmp_dir="${TMP_DIR:?}"
+signal_recorder="${SIGNAL_RECORDER:?}"
+TEST_SERVICES_BIN="${FAILING_TEST_SERVICES_BIN:?}"
+TEST_SERVICES_METADATA_FILE="${tmp_dir}/test-services-web-e2e.json"
+RUNTIME_ROOT_BASE="${tmp_dir}/runtime-root"
+KEEP_RUNTIME_ROOT=0
+BACKEND_PORT=1
+FRONTEND_PORT=2
+
+mkdir -p "$RUNTIME_ROOT_BASE"
+printf '{"database_name":"ct_web","bucket":"ct-web"}\n' >"$TEST_SERVICES_METADATA_FILE"
+
+start_process_group CHILD_PGID "" \
+  env \
+  PID_FILE="${tmp_dir}/child.pid" \
+  TERM_FILE="${tmp_dir}/child.term" \
+  MODE=loop \
+  "$signal_recorder"
+
+for _ in $(seq 1 50); do
+  if [[ -f "${tmp_dir}/child.pid" ]]; then
+    break
+  fi
+  sleep 0.1
+done
+
+trap on_exit EXIT
+export CARTULARY_TEST_SERVICES_ACTIVE=1
+exit 0
+EOF
+chmod +x "$cleanup_failure_runner"
+
 single_stop_pid_file="$tmp_dir/single-stop.pid"
 single_stop_term_file="$tmp_dir/single-stop.term"
 source "$LIFECYCLE_HELPER"
@@ -437,6 +491,26 @@ assert_equals "$(count_lines "$frontend_exit_dir/server.term")" "1" "frontend-ex
 assert_equals "$(count_lines "$frontend_exit_dir/child.term")" "1" "frontend-exits child term count"
 assert_process_stopped "$(tr -d '\n' <"$frontend_exit_dir/server.pid")" "frontend-exits server process"
 assert_process_stopped "$(tr -d '\n' <"$frontend_exit_dir/child.pid")" "frontend-exits child process"
+
+cleanup_failure_dir="$tmp_dir/cleanup-failure"
+mkdir -p "$cleanup_failure_dir"
+cleanup_failure_stderr="$cleanup_failure_dir/stderr.log"
+if ROOT_DIR="$ROOT_DIR" \
+  TMP_DIR="$cleanup_failure_dir" \
+  SIGNAL_RECORDER="$signal_recorder" \
+  FAILING_TEST_SERVICES_BIN="$failing_test_services_bin" \
+  "$cleanup_failure_runner" >/dev/null 2>"$cleanup_failure_stderr"; then
+  cleanup_failure_status=0
+else
+  cleanup_failure_status=$?
+fi
+assert_equals "$cleanup_failure_status" "31" "start-web-e2e cleanup failure status"
+assert_file_contains "$cleanup_failure_stderr" "fixture cleanup failed" "start-web-e2e cleanup failure stderr"
+assert_file_contains "$cleanup_failure_stderr" "browser e2e cleanup failed with status 31" "start-web-e2e cleanup failure summary"
+assert_process_stopped "$(tr -d '\n' <"$cleanup_failure_dir/child.pid")" "start-web-e2e cleanup failure child process"
+if [[ -e "$cleanup_failure_dir/runtime-root" ]]; then
+  fail "start-web-e2e cleanup failure must still remove the runtime root"
+fi
 
 source "$ROOT_DIR/scripts/lib/playwright-owned-stack.sh"
 resolve_playwright_owned_stack_env "$ROOT_DIR"

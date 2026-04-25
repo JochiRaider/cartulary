@@ -1049,18 +1049,68 @@ function addTimingSpanToBuckets(buckets, span) {
   });
 }
 
-function summarizeTargetTiming(target, targetDir, phaseSummaries, status, reportCollationSpan) {
-  const buckets = new Map();
-  for (const summary of phaseSummaries) {
-    addTimingSpanToBuckets(buckets, phaseSummaryTimingSpan(summary));
+function lifecycleTimingSpans(target, targetDir) {
+  return [...loadTargetOwnedTimingSpans(targetDir), ...loadServiceTimingSpans(target)];
+}
+
+function timingStatusFailed(status) {
+  const normalized = String(status ?? "").trim().toLowerCase();
+  if (normalized === "" || normalized === "pass" || normalized === "succeeded") {
+    return false;
   }
-  for (const span of loadTargetOwnedTimingSpans(targetDir)) {
+  return true;
+}
+
+function hasFailedTimingSpan(spans) {
+  return spans.some((span) => timingStatusFailed(span.status));
+}
+
+function accountableTargetWallSpan(span) {
+  if (!span || span.bucket === "report_collation") {
+    return false;
+  }
+  if (span.source === "phase") {
+    return normalizeAccountingMode(span.accounting_mode) === "actual";
+  }
+  return true;
+}
+
+function summarizeAccountableTargetWindow(spans) {
+  const accountableSpans = spans.filter(accountableTargetWallSpan);
+  const startTimes = accountableSpans.map((span) => span.start_time).filter(Boolean).sort();
+  const endTimes = accountableSpans.map((span) => span.end_time).filter(Boolean).sort();
+  const startTime = startTimes[0] ?? "";
+  const endTime = endTimes[endTimes.length - 1] ?? "";
+  const windowDurationMs = computeWindowDurationMs(startTime, endTime);
+  const summedDurationMs = accountableSpans.reduce(
+    (total, span) => total + clampDurationMs(span.duration_ms ?? 0),
+    0,
+  );
+  return {
+    startTime,
+    endTime,
+    wallDurationMs: windowDurationMs > 0 ? windowDurationMs : summedDurationMs,
+  };
+}
+
+function summarizeTargetTiming(
+  target,
+  targetDir,
+  phaseSummaries,
+  status,
+  reportCollationSpan,
+  lifecycleSpans = lifecycleTimingSpans(target, targetDir),
+) {
+  const buckets = new Map();
+  const phaseSpans = phaseSummaries.map((summary) => phaseSummaryTimingSpan(summary));
+  for (const span of phaseSpans) {
     addTimingSpanToBuckets(buckets, span);
   }
-  for (const span of loadServiceTimingSpans(target)) {
+  for (const span of lifecycleSpans) {
     addTimingSpanToBuckets(buckets, span);
   }
   addTimingSpanToBuckets(buckets, reportCollationSpan);
+  const accountableWindow = summarizeAccountableTargetWindow([...phaseSpans, ...lifecycleSpans]);
 
   const bucketList = timingBucketOrder
     .map((name) => buckets.get(name))
@@ -1079,25 +1129,19 @@ function summarizeTargetTiming(target, targetDir, phaseSummaries, status, report
     }
     return current;
   }, null);
-  const startTimes = bucketList
-    .flatMap((bucket) => bucket.spans.map((span) => span.start_time).filter(Boolean))
-    .sort();
-  const endTimes = bucketList
-    .flatMap((bucket) => bucket.spans.map((span) => span.end_time).filter(Boolean))
-    .sort();
   const timing = {
     schema_id: targetTimingSchemaID,
     target,
     status,
     generated_at: new Date().toISOString(),
-    start_time: startTimes[0] ?? "",
-    end_time: endTimes[endTimes.length - 1] ?? "",
+    start_time: accountableWindow.startTime,
+    end_time: accountableWindow.endTime,
     buckets: bucketList,
     slowest_lifecycle_bucket: slowest,
   };
   const timingPath = path.join(targetDir, "target-timing.json");
   writeJson(timingPath, timing);
-  return { timing, timingPath };
+  return { timing, timingPath, accountableWindow };
 }
 
 function summarizeTargetDir(target) {
@@ -1422,15 +1466,19 @@ function handleTargetSummary(args) {
   const reportCollationStartTime = new Date(reportCollationStartMs).toISOString();
   const { target, requestedStatus, childTargetNames } = parseTargetSummaryArgs(args);
   const summary = summarizeTargetDir(target);
+  const lifecycleSpans = lifecycleTimingSpans(target, summary.targetDir);
   const { childTargets, missingChildTargetSummaries } =
     loadChildTargetSummaries(childTargetNames);
   const status =
-    summary.failed || missingChildTargetSummaries.length > 0 || requestedStatus === "fail"
+    summary.failed ||
+    hasFailedTimingSpan(lifecycleSpans) ||
+    missingChildTargetSummaries.length > 0 ||
+    requestedStatus === "fail"
       ? "FAIL"
       : "PASS";
   const reportCollationEndMs = Date.now();
   const reportCollationEndTime = new Date(reportCollationEndMs).toISOString();
-  const { timing, timingPath } = summarizeTargetTiming(
+  const { timing, timingPath, accountableWindow } = summarizeTargetTiming(
     target,
     summary.targetDir,
     summary.summaries,
@@ -1444,7 +1492,11 @@ function handleTargetSummary(args) {
       duration_ms: clampDurationMs(reportCollationEndMs - reportCollationStartMs),
       status: status.toLowerCase(),
     },
+    lifecycleSpans,
   );
+  summary.wallDurationMs = accountableWindow.wallDurationMs;
+  summary.startTime = accountableWindow.startTime;
+  summary.endTime = accountableWindow.endTime;
   summary.slowestLifecycleBucket = timing.slowest_lifecycle_bucket;
   summary.fixture = combineFixtureSummaries(target, summarizeFixtureActivities(target), childTargets);
   const targetSummary = {
