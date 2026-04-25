@@ -103,9 +103,6 @@ func assertNoHotPathPostgresDrops(t testing.TB, scope suiteservices.ServiceScope
 		if activity.Service != suiteservices.ServicePostgres || activity.Operation != "database-drop" {
 			continue
 		}
-		if activity.ReuseScope == suiteservices.FixtureReuseMigrationScratch {
-			continue
-		}
 		t.Fatalf("unexpected hot-path postgres database drop activity: %#v", activity)
 	}
 }

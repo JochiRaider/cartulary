@@ -21,7 +21,7 @@ func TestAssessmentsMigrationCore02(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 
 	t.Run("migrates legacy vocabulary and rationale", func(t *testing.T) {
-		db := migrateScratchDB(t, postgresHarness, "assessments-core02-ok", "up-to", dbmigrations.PreAssessmentsCore02Version)
+		db := postgresHarness.MigrationDatabaseT(t, "assessments-core02-ok", "up-to", dbmigrations.PreAssessmentsCore02Version)
 		fixture := seedLegacyAssessmentRows(t, db, "compromised")
 
 		if _, err := postgres.Migrate(db, dbmigrations.Source(), "up"); err != nil {
@@ -49,7 +49,7 @@ VALUES ($1, $2, $3, 'supported_by', 'manual', $4, $4)
 	})
 
 	t.Run("rejects unknown legacy state", func(t *testing.T) {
-		db := migrateScratchDB(t, postgresHarness, "assessments-core02-bad", "up-to", dbmigrations.PreAssessmentsCore02Version)
+		db := postgresHarness.MigrationDatabaseT(t, "assessments-core02-bad", "up-to", dbmigrations.PreAssessmentsCore02Version)
 		seedLegacyAssessmentRows(t, db, "contained")
 
 		if _, err := postgres.Migrate(db, dbmigrations.Source(), "up"); err == nil {
@@ -335,31 +335,6 @@ type legacyAssessmentFixture struct {
 	incidentID   uuid.UUID
 	timelineID   uuid.UUID
 	assessmentID uuid.UUID
-}
-
-func migrateScratchDB(t testing.TB, harness *pgtest.Harness, prefix string, command string, args ...string) *sql.DB {
-	t.Helper()
-
-	testDB, err := harness.NewMigrationDatabase(context.Background(), prefix)
-	if err != nil {
-		t.Fatalf("create scratch database: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := harness.DropMigrationDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop scratch database: %v", err)
-		}
-	})
-	db, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatalf("open scratch database: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = db.Close()
-	})
-	if _, err := postgres.Migrate(db, dbmigrations.Source(), command, args...); err != nil {
-		t.Fatalf("migrate scratch database: %v", err)
-	}
-	return db
 }
 
 func seedLegacyAssessmentRows(t testing.TB, db *sql.DB, state string) legacyAssessmentFixture {

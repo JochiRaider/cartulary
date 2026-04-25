@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"testing"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
-
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -14,27 +12,8 @@ import (
 
 func TestPhase0_SchemaBootstrap_I_0_01(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB, err := postgresHarness.NewMigrationDatabase(context.Background(), "phase0-i-0-01")
-	if err != nil {
-		t.Fatalf("prepare postgres database: %v", err)
-	}
-	defer func() {
-		if err := postgresHarness.DropMigrationDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop postgres database: %v", err)
-		}
-	}()
-
-	db, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatalf("open postgres sql handle: %v", err)
-	}
-	defer db.Close()
-
+	db := postgresHarness.MigrationDatabaseT(t, "phase0-i-0-01", "up")
 	source := dbmigrations.Source()
-
-	if _, err := postgres.Migrate(db, source, "up"); err != nil {
-		t.Fatalf("run first schema bootstrap: %v", err)
-	}
 
 	assertCount(t, db, `SELECT COUNT(*) FROM pg_extension WHERE extname IN ('pgcrypto', 'citext')`, 2)
 	assertCount(t, db, `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('users', 'deployment_bootstrap_state', 'deployment_admin_audit_events')`, 3)

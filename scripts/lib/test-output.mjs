@@ -845,6 +845,7 @@ function loadServiceFixtureActivities(target) {
   const fixtureEventTypes = new Set([
     "postgres-db-created",
     "postgres-db-dropped",
+    "postgres-db-retained",
     "postgres-db-migrated",
     "postgres-db-reset",
     "postgres-transaction",
@@ -901,6 +902,8 @@ function fixtureOperationForEvent(type) {
       return "database-create";
     case "postgres-db-dropped":
       return "database-drop";
+    case "postgres-db-retained":
+      return "database-retain";
     case "postgres-db-migrated":
       return "database-migrate";
     case "postgres-db-reset":

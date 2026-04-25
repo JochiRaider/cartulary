@@ -317,6 +317,115 @@ func TestPrepareDatabaseTCleanupRetainsAttachedSuiteTemplateClone(t *testing.T) 
 	}
 }
 
+func TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase(t *testing.T) {
+	t.Setenv(suiteservices.SuiteIDEnv, "")
+
+	oldCreate := createDatabaseFn
+	oldDrop := dropDatabaseFn
+	oldMigrate := migrateDatabaseFn
+	t.Cleanup(func() {
+		createDatabaseFn = oldCreate
+		dropDatabaseFn = oldDrop
+		migrateDatabaseFn = oldMigrate
+	})
+
+	var scratchName string
+	var dropped []string
+	createDatabaseFn = func(ctx context.Context, adminDSN string, name string, templateDB string) error {
+		scratchName = name
+		return nil
+	}
+	dropDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
+		dropped = append(dropped, name)
+		return nil
+	}
+	migrateDatabaseFn = func(db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
+	}
+
+	harness := &Harness{
+		adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
+		dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
+		templateDB:  "suite_template",
+		suiteHash:   "suitehash",
+		processHash: "procaaaa",
+	}
+
+	t.Run("migrate scratch", func(t *testing.T) {
+		harness.MigrationDatabaseT(t, "standalone-scratch", "up")
+	})
+
+	if len(dropped) != 1 || dropped[0] != scratchName {
+		t.Fatalf("expected standalone migration scratch cleanup to drop %q, got %v", scratchName, dropped)
+	}
+}
+
+func TestMigrationDatabaseTCleanupRetainsAttachedSuiteScratchDatabase(t *testing.T) {
+	t.Setenv(suiteservices.ActiveEnv, "1")
+	t.Setenv(suiteservices.SuiteIDEnv, "suite-retained-migration-scratch")
+	t.Setenv(suiteservices.TargetEnv, "backend-integration")
+	t.Setenv("CARTULARY_TEST_RESULTS_DIR", t.TempDir())
+	t.Setenv("CARTULARY_TEST_RUN_ID", "retained-migration-scratch")
+
+	oldCreate := createDatabaseFn
+	oldDrop := dropDatabaseFn
+	oldMigrate := migrateDatabaseFn
+	t.Cleanup(func() {
+		createDatabaseFn = oldCreate
+		dropDatabaseFn = oldDrop
+		migrateDatabaseFn = oldMigrate
+	})
+
+	var scratchName string
+	dropCalls := 0
+	createDatabaseFn = func(ctx context.Context, adminDSN string, name string, templateDB string) error {
+		scratchName = name
+		return nil
+	}
+	dropDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
+		dropCalls++
+		return nil
+	}
+	migrateDatabaseFn = func(db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
+	}
+
+	harness := &Harness{
+		adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
+		dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
+		templateDB:  "suite_template",
+		suiteHash:   "suitehash",
+		processHash: "procaaaa",
+		attached:    true,
+	}
+
+	t.Run("migrate scratch", func(t *testing.T) {
+		harness.MigrationDatabaseT(t, "attached-scratch", "up-to", "00001")
+	})
+
+	if dropCalls != 0 {
+		t.Fatalf("expected attached suite migration scratch cleanup to retain database, got %d drops", dropCalls)
+	}
+
+	scope, ok, err := suiteservices.Summarize(nil)
+	if err != nil {
+		t.Fatalf("summarize suite service events: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected suite service summary")
+	}
+	foundRetain := false
+	for _, activity := range scope.Fixture.ByStrategy {
+		if activity.Service == suiteservices.ServicePostgres && activity.Operation == "database-retain" && activity.ReuseScope == suiteservices.FixtureReuseMigrationScratch {
+			foundRetain = true
+			break
+		}
+	}
+	if !foundRetain {
+		t.Fatalf("expected retained migration scratch fixture activity for %q, got %#v", scratchName, scope.Fixture)
+	}
+}
+
 func TestHarnessStartsPostgresAndRunsCurrentMigrationPath(t *testing.T) {
 	harness := Start(t)
 

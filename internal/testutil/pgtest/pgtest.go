@@ -342,6 +342,49 @@ func (h *Harness) PrepareDatabaseT(t testing.TB, prefix string) *TestDatabase {
 	return testDB
 }
 
+func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string, command string, args ...string) *sql.DB {
+	t.Helper()
+
+	attribution := fixtureAttributionFor(t, "pgtest")
+	testDB, err := h.newDatabase(context.Background(), prefix, suiteservices.FixtureReuseMigrationScratch, attribution)
+	if err != nil {
+		t.Fatalf("create migration scratch database: %v", err)
+	}
+
+	var db *sql.DB
+	t.Cleanup(func() {
+		if db != nil {
+			_ = db.Close()
+		}
+		if h.retainDatabaseOnCleanup() {
+			h.recordRetainedDatabase(testDB.Name, suiteservices.FixtureReuseMigrationScratch, attribution)
+			return
+		}
+		if err := h.dropDatabase(context.Background(), testDB.Name, suiteservices.FixtureReuseMigrationScratch, attribution); err != nil {
+			t.Fatalf("drop migration scratch database: %v", err)
+		}
+	})
+
+	openedDB, err := sql.Open("pgx", testDB.DSN)
+	if err != nil {
+		t.Fatalf("open migration scratch database: %v", err)
+	}
+	db = openedDB
+
+	migrateStart := time.Now()
+	if _, err := migrateDatabaseFn(db, dbmigrations.Source(), command, args...); err != nil {
+		t.Fatalf("migrate scratch database: %v", err)
+	}
+	recordSuiteEvent(suiteservices.Event{
+		Type:    suiteservices.EventPostgresDBMigrated,
+		Name:    testDB.Name,
+		Kind:    "scratch",
+		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, "", suiteservices.FixtureReuseMigrationScratch, attribution, time.Since(migrateStart)),
+	})
+
+	return db
+}
+
 func (h *Harness) PreparePackageDatabaseT(t testing.TB, prefix string) *TestDatabase {
 	t.Helper()
 
@@ -537,8 +580,12 @@ func dropDatabase(ctx context.Context, adminDSN string, name string) error {
 	return nil
 }
 
-func (h *Harness) retainPreparedDatabaseOnCleanup() bool {
+func (h *Harness) retainDatabaseOnCleanup() bool {
 	return h.attached && h.templateDB != "" && suiteservices.SuiteActive(nil)
+}
+
+func (h *Harness) retainPreparedDatabaseOnCleanup() bool {
+	return h.retainDatabaseOnCleanup()
 }
 
 func (h *Harness) recordRetainedDatabase(name string, reuseScope string, attribution fixtureAttribution) {

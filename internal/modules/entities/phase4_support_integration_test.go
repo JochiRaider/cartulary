@@ -173,14 +173,14 @@ func TestSupportPhase4Integration_RecordEnvelopeSubstrate(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 
 	t.Run("fresh migrations expose record envelope schema", func(t *testing.T) {
-		db := migrateScratchDB(t, postgresHarness, "phase4-records-empty", "up")
+		db := postgresHarness.MigrationDatabaseT(t, "phase4-records-empty", "up")
 		requireColumns(t, db, "records", "record_id", "incident_id", "record_type", "created_by_user_id", "created_at", "updated_by_user_id", "updated_at", "row_version", "deleted_at", "deleted_by_user_id")
 		requireNoColumns(t, db, "record_id", "users", "user_sessions", "bootstrap_tokens", "pending_totp_enrollments", "incident_memberships", "deployment_bootstrap_state")
 		requireGenericRecordFKsDoNotTargetTimeline(t, db)
 	})
 
 	t.Run("migration backfills typed rows and tightens generic substrates", func(t *testing.T) {
-		db := migrateScratchDB(t, postgresHarness, "phase4-records-backfill", "up-to", dbmigrations.PreRecordEnvelopeVersion)
+		db := postgresHarness.MigrationDatabaseT(t, "phase4-records-backfill", "up-to", dbmigrations.PreRecordEnvelopeVersion)
 		fixture := seedPreEnvelopeRows(t, db)
 		if _, err := postgres.Migrate(db, dbmigrations.Source(), "up"); err != nil {
 			t.Fatalf("migrate backfill database to latest: %v", err)
@@ -600,31 +600,6 @@ type preEnvelopeFixture struct {
 	identityID            uuid.UUID
 	indicatorID           uuid.UUID
 	assessmentID          uuid.UUID
-}
-
-func migrateScratchDB(t testing.TB, harness *pgtest.Harness, prefix string, command string, args ...string) *sql.DB {
-	t.Helper()
-
-	testDB, err := harness.NewMigrationDatabase(context.Background(), prefix)
-	if err != nil {
-		t.Fatalf("create scratch database: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := harness.DropMigrationDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop scratch database: %v", err)
-		}
-	})
-	db, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatalf("open scratch database: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = db.Close()
-	})
-	if _, err := postgres.Migrate(db, dbmigrations.Source(), command, args...); err != nil {
-		t.Fatalf("migrate scratch database: %v", err)
-	}
-	return db
 }
 
 func seedPreEnvelopeRows(t testing.TB, db *sql.DB) preEnvelopeFixture {
