@@ -399,6 +399,7 @@ Execution dependency is distinct from evidence layer in this phase. `U-4-01..U-4
 | E-4-03 | A reviewer merges two duplicate entities from the inspector. The surviving row identity remains stable and dependent links or resolutions follow the survivor.                                        | REQ-01-181..REQ-01-195, REQ-02-064..REQ-02-066, REQ-03-247..REQ-03-249             | AC-023, AC-186, AC-209         |
 | E-4-04 | An eligible exact-match Timeline token auto-resolves on commit, while hedge, punctuation, parenthetical, or approximate forms remain unresolved and require explicit analyst action.                  | REQ-01-315..REQ-01-316, REQ-01-568, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 | AC-205, AC-388..AC-391         |
 | E-4-05 | An analyst creates append-only assessment history through the Assessments workbook surface with band-first confidence, rationale, support references, default ordering, and state or band filtering.  | REQ-03-250..REQ-03-254                                                              | AC-018, AC-080..AC-084         |
+| E-4-06 | An analyst creates and edits Notes, Task Requests, and Decisions through their real generic workbook surfaces, including defaults, collections, and visible validation failure.                       | REQ-01-329..REQ-01-340, REQ-03-255..REQ-03-260                                     | AC-085, AC-086, AC-137..AC-145 |
 
 ---
 

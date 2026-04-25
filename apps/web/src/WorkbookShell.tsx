@@ -21,6 +21,7 @@ import {
   requireViewContract,
   resolveHeaderSortFieldKey,
   type ViewContract,
+  type ViewFieldContract,
   visibleFields,
 } from "@cartulary/view-contracts";
 import {
@@ -228,6 +229,14 @@ type ViewQueryEnvelope = {
     incident_id: string;
     view_schema_id: string;
     rows: EntityApiRow[];
+  };
+};
+
+type ViewMutationEnvelope = {
+  data: {
+    view_schema_id: string;
+    change_set_id: string;
+    row: EntityApiRow;
   };
 };
 
@@ -4279,6 +4288,7 @@ function AssessmentWorkbookSurface({
 }
 
 function GenericWorkbookSurface({
+  apiBase,
   contract,
   filterDraft,
   incidentId,
@@ -4287,10 +4297,12 @@ function GenericWorkbookSurface({
   onFilterDraftChange,
   onGroupByChange,
   onRemoveFilter,
+  onRefresh,
   onToggleSort,
   queryState,
   rows,
 }: {
+  apiBase?: string | undefined;
   contract: ViewContract;
   filterDraft: FilterDraft;
   incidentId: string;
@@ -4299,27 +4311,112 @@ function GenericWorkbookSurface({
   onFilterDraftChange: (draft: FilterDraft) => void;
   onGroupByChange: (groupBy: string | null) => void;
   onRemoveFilter: (fieldKey: string) => void;
+  onRefresh: () => Promise<void> | void;
   onToggleSort: (fieldKey: string) => void;
   queryState: WorkbookQueryState;
   rows: EntityApiRow[];
 }) {
   const surface = contract.viewSchemaId as WorkbookSurface;
-  const columns: readonly GridColumn<EntityApiRow>[] = visibleFields(contract)
-    .slice(0, 8)
-    .map((field) => ({
-      fieldKey: field.fieldKey,
-      headerTestId: gridSortHeaderTestId(surface, field.fieldKey),
-      label: field.label,
-      width: field.defaultHidden ? 160 : 220,
-      renderCell: (row) => genericCellLabel(row.cells[field.fieldKey]?.value),
-      sortableFieldKey: resolveHeaderSortFieldKey(contract, field.fieldKey),
-    }));
+  const writableFields = useMemo(
+    () => contract.fields.filter((field) => field.writeKind !== "read_only"),
+    [contract],
+  );
+  const [createDraft, setCreateDraft] = useState<Record<string, string>>({});
+  const [editRecordId, setEditRecordId] = useState("");
+  const [editFieldKey, setEditFieldKey] = useState("");
+  const [editValue, setEditValue] = useState("");
+  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [mutationState, setMutationState] = useState<SaveState>("Saved");
+
+  const columns: readonly GridColumn<EntityApiRow>[] = visibleFields(
+    contract,
+  ).map((field) => ({
+    fieldKey: field.fieldKey,
+    headerTestId: gridSortHeaderTestId(surface, field.fieldKey),
+    label: field.label,
+    width: field.defaultHidden ? 160 : 220,
+    renderCell: (row) => (
+      <span data-testid={rowCellTestId(row.record_id, field.fieldKey)}>
+        {genericCellLabel(row.cells[field.fieldKey]?.value)}
+      </span>
+    ),
+    sortableFieldKey: resolveHeaderSortFieldKey(contract, field.fieldKey),
+  }));
   const gridRows: readonly GridRow<EntityApiRow>[] = rows.map((row) => ({
     key: row.record_id,
     recordId: row.record_id,
     data: row,
     testId: `generic-row-${contract.viewSchemaId}-${row.record_id}`,
   }));
+  const selectedEditRow =
+    rows.find((row) => row.record_id === editRecordId) ?? null;
+  const selectedEditField =
+    writableFields.find((field) => field.fieldKey === editFieldKey) ??
+    writableFields[0] ??
+    null;
+
+  const submitCreate = async () => {
+    const payload = buildGenericCreatePayload(
+      writableFields,
+      createDraft,
+      `generic-create-${contract.viewSchemaId}-${Date.now()}`,
+    );
+    if (payload === null) {
+      setMutationError("invalid_mutation_payload");
+      return;
+    }
+    setMutationState("Syncing");
+    setMutationError(null);
+    const result = await fetchJSON<ViewMutationEnvelope>(
+      apiPath(
+        apiBase,
+        `/api/v1/incidents/${incidentId}/views/${contract.viewSchemaId}/rows`,
+      ),
+      { method: "POST", body: JSON.stringify(payload) },
+    );
+    if (!result.ok) {
+      setMutationState("Conflict");
+      setMutationError(parseErrorMessage(result.payload));
+      return;
+    }
+    setCreateDraft({});
+    setMutationState("Saved");
+    await onRefresh();
+  };
+
+  const submitEdit = async () => {
+    if (selectedEditRow === null || selectedEditField === null) {
+      setMutationError("invalid_mutation_payload");
+      return;
+    }
+    const change = buildGenericPatchChange(selectedEditField, editValue);
+    if (change === null) {
+      setMutationError("invalid_mutation_payload");
+      return;
+    }
+    setMutationState("Syncing");
+    setMutationError(null);
+    const result = await fetchJSON<ViewMutationEnvelope>(
+      apiPath(apiBase, `/api/v1/records/${selectedEditRow.record_id}`),
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          view_schema_id: contract.viewSchemaId,
+          base_row_version: selectedEditRow.row_version,
+          client_txn_id: `generic-patch-${contract.viewSchemaId}-${Date.now()}`,
+          changes: [change],
+        }),
+      },
+    );
+    if (!result.ok) {
+      setMutationState("Conflict");
+      setMutationError(parseErrorMessage(result.payload));
+      return;
+    }
+    setEditValue("");
+    setMutationState("Saved");
+    await onRefresh();
+  };
 
   return (
     <section style={workbookStyle}>
@@ -4333,7 +4430,136 @@ function GenericWorkbookSurface({
           <h1 style={headlineStyle}>{contract.title}</h1>
           <p style={bodyStyle}>Incident {incidentId}</p>
         </div>
+        <div style={roleBadgeStyle} data-testid="generic-mutation-state">
+          {mutationState}
+        </div>
       </header>
+
+      {writableFields.length > 0 ? (
+        <section style={genericMutationPanelStyle}>
+          <div style={genericFormGridStyle}>
+            {writableFields.map((field) => (
+              <label
+                key={field.fieldKey}
+                htmlFor={`generic-create-input-${field.fieldKey}`}
+                style={labelStyle}
+              >
+                {field.label}
+                {field.writeKind === "action_payload" ? (
+                  <textarea
+                    data-testid={`generic-create-field-${field.fieldKey}`}
+                    id={`generic-create-input-${field.fieldKey}`}
+                    style={textareaStyle}
+                    value={createDraft[field.fieldKey] ?? ""}
+                    onChange={(event) => {
+                      setCreateDraft((current) => ({
+                        ...current,
+                        [field.fieldKey]: event.target.value,
+                      }));
+                    }}
+                  />
+                ) : (
+                  <input
+                    data-testid={`generic-create-field-${field.fieldKey}`}
+                    id={`generic-create-input-${field.fieldKey}`}
+                    style={inputStyle}
+                    value={createDraft[field.fieldKey] ?? ""}
+                    onChange={(event) => {
+                      setCreateDraft((current) => ({
+                        ...current,
+                        [field.fieldKey]: event.target.value,
+                      }));
+                    }}
+                  />
+                )}
+              </label>
+            ))}
+          </div>
+          <button
+            data-testid={`generic-create-submit-${contract.viewSchemaId}`}
+            style={actionButtonStyle}
+            type="button"
+            onClick={() => {
+              void submitCreate();
+            }}
+          >
+            Create
+          </button>
+
+          {rows.length > 0 && selectedEditField !== null ? (
+            <div style={genericEditRowStyle}>
+              <select
+                data-testid={`generic-edit-record-${contract.viewSchemaId}`}
+                style={selectStyle}
+                value={editRecordId}
+                onChange={(event) => {
+                  setEditRecordId(event.target.value);
+                }}
+              >
+                <option value="">Row</option>
+                {rows.map((row) => (
+                  <option key={row.record_id} value={row.record_id}>
+                    {row.record_id}
+                  </option>
+                ))}
+              </select>
+              <select
+                data-testid={`generic-edit-field-${contract.viewSchemaId}`}
+                style={selectStyle}
+                value={editFieldKey}
+                onChange={(event) => {
+                  setEditFieldKey(event.target.value);
+                }}
+              >
+                <option value="">Field</option>
+                {writableFields.map((field) => (
+                  <option key={field.fieldKey} value={field.fieldKey}>
+                    {field.label}
+                  </option>
+                ))}
+              </select>
+              {selectedEditField.writeKind === "action_payload" ? (
+                <textarea
+                  data-testid={`generic-edit-value-${contract.viewSchemaId}`}
+                  style={textareaStyle}
+                  value={editValue}
+                  onChange={(event) => {
+                    setEditValue(event.target.value);
+                  }}
+                />
+              ) : (
+                <input
+                  data-testid={`generic-edit-value-${contract.viewSchemaId}`}
+                  style={inputStyle}
+                  value={editValue}
+                  onChange={(event) => {
+                    setEditValue(event.target.value);
+                  }}
+                />
+              )}
+              <button
+                data-testid={`generic-edit-submit-${contract.viewSchemaId}`}
+                style={actionButtonStyle}
+                type="button"
+                onClick={() => {
+                  void submitEdit();
+                }}
+              >
+                Update
+              </button>
+            </div>
+          ) : null}
+
+          {mutationError ? (
+            <p
+              data-testid="generic-mutation-error"
+              style={genericErrorTextStyle}
+            >
+              {mutationError}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <WorkbookGridControls
         contract={contract}
@@ -4388,6 +4614,68 @@ function genericCellLabel(value: unknown): string {
     }
   }
   return JSON.stringify(value);
+}
+
+function buildGenericCreatePayload(
+  fields: readonly ViewFieldContract[],
+  draft: Record<string, string>,
+  clientTxnId: string,
+): Record<string, unknown> | null {
+  const payload: Record<string, unknown> = { client_txn_id: clientTxnId };
+  for (const field of fields) {
+    const value = normalizeValue(draft[field.fieldKey] ?? "");
+    if (value === "") {
+      continue;
+    }
+    if (field.writeKind === "action_payload") {
+      const actionPayload = buildGenericCollectionActions(field, value);
+      if (actionPayload !== null) {
+        payload[field.fieldKey] = actionPayload;
+      }
+      continue;
+    }
+    payload[field.fieldKey] = value;
+  }
+  return Object.keys(payload).length > 1 ? payload : null;
+}
+
+function buildGenericPatchChange(
+  field: ViewFieldContract,
+  rawValue: string,
+): Record<string, unknown> | null {
+  const value = normalizeValue(rawValue);
+  if (value === "" && !field.clearable) {
+    return null;
+  }
+  if (field.writeKind === "action_payload") {
+    const actionPayload = buildGenericCollectionActions(field, value);
+    return actionPayload === null
+      ? null
+      : { field_key: field.fieldKey, action_payload: actionPayload };
+  }
+  return {
+    field_key: field.fieldKey,
+    value: value === "" && field.clearable ? null : value,
+  };
+}
+
+function buildGenericCollectionActions(
+  field: ViewFieldContract,
+  rawValue: string,
+): Record<string, unknown> | null {
+  const tokens = rawValue
+    .split(/\r?\n/u)
+    .map((value) => normalizeValue(value))
+    .filter((value) => value !== "");
+  if (tokens.length === 0) {
+    return null;
+  }
+  const actions = tokens.map((value) =>
+    field.fieldKey === "note.tags"
+      ? { op: "add_token", raw_text: value }
+      : { op: "add_record_ref", linked_record_id: value },
+  );
+  return { kind: "collection_actions_v1", actions };
 }
 
 function enumValuesFor(
@@ -4524,8 +4812,6 @@ export function WorkbookShell({
   const [genericFilterDraft, setGenericFilterDraft] = useState<FilterDraft>(
     () => defaultFilterDraft(activeContract),
   );
-  const [genericSurfaceStateID, setGenericSurfaceStateID] =
-    useState<string>(initialViewSchemaID);
 
   const entityIndex = useMemo(() => {
     const index: Record<string, EntityRow> = {};
@@ -4683,7 +4969,7 @@ export function WorkbookShell({
   ]);
 
   const loadGenericSurface = useCallback(async () => {
-    if (isSpecializedSurface || genericSurfaceStateID !== surface) {
+    if (isSpecializedSurface) {
       return;
     }
     setGenericLoadError(null);
@@ -4722,7 +5008,6 @@ export function WorkbookShell({
     activeContract,
     apiBase,
     genericQueryState,
-    genericSurfaceStateID,
     incidentId,
     isSpecializedSurface,
     onIncidentAccessLost,
@@ -4736,10 +5021,9 @@ export function WorkbookShell({
   useEffect(() => {
     setGenericQueryState(emptyWorkbookQueryState());
     setGenericFilterDraft(defaultFilterDraft(activeContract));
-    setGenericSurfaceStateID(surface);
     setGenericRows([]);
     setGenericLoadError(null);
-  }, [activeContract, surface]);
+  }, [activeContract]);
 
   useEffect(() => {
     void loadGenericSurface();
@@ -4967,6 +5251,8 @@ export function WorkbookShell({
         />
       ) : (
         <GenericWorkbookSurface
+          key={activeContract.viewSchemaId}
+          apiBase={apiBase}
           contract={activeContract}
           filterDraft={genericFilterDraft}
           incidentId={incidentId}
@@ -4992,6 +5278,7 @@ export function WorkbookShell({
               removeFilterField(current, fieldKey),
             );
           }}
+          onRefresh={loadGenericSurface}
           onToggleSort={(fieldKey) => {
             setGenericQueryState((current) =>
               toggleSortField(activeContract, current, fieldKey),
@@ -5112,6 +5399,29 @@ const actionStackStyle = {
   gap: "0.5rem",
 };
 
+const genericMutationPanelStyle = {
+  display: "grid",
+  gap: "0.75rem",
+  padding: "1rem",
+  borderRadius: "1rem",
+  border: "1px solid rgb(199 214 207)",
+  background: "rgb(247 250 248)",
+};
+
+const genericFormGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))",
+  gap: "0.75rem",
+};
+
+const genericEditRowStyle = {
+  display: "grid",
+  gridTemplateColumns:
+    "minmax(10rem, 1fr) minmax(10rem, 1fr) minmax(14rem, 2fr) auto",
+  gap: "0.75rem",
+  alignItems: "end",
+};
+
 const inputStyle = {
   boxSizing: "border-box" as const,
   minWidth: 0,
@@ -5147,6 +5457,12 @@ const actionButtonStyle = {
 const secondaryActionButtonStyle = {
   ...actionButtonStyle,
   background: "rgb(247 249 247)",
+};
+
+const genericErrorTextStyle = {
+  margin: 0,
+  color: "rgb(153 27 27)",
+  fontWeight: 700,
 };
 
 const labelStyle = {

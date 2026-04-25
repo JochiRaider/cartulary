@@ -524,11 +524,11 @@ LEFT JOIN LATERAL (
 			{key: "decision.decision_type", expr: "d.decision_type", kind: fieldKindText},
 			{key: "decision.decided_at", expr: "d.decided_at", kind: fieldKindTimestamp},
 			{key: "decision.rationale", expr: "d.rationale", kind: fieldKindText},
-			{key: "decision.support_refs", expr: emptyCollectionExpr, kind: fieldKindCollection},
-			{key: "decision.affected_record_count", expr: "0", kind: fieldKindNumber},
-			{key: "decision.supersedes_record_id", expr: "d.supersedes_record_id", kind: fieldKindText},
+			{key: "decision.support_refs", expr: recordRefCollectionExprFor("d", "decision.support_refs", "supported_by"), kind: fieldKindCollection},
+			{key: "decision.affected_record_count", expr: linkCountExprFor("d", "decision.affected_record_ids", "references_record"), kind: fieldKindNumber},
+			{key: "decision.supersedes_record_id", expr: supersedesRecordIDExprFor("d"), kind: fieldKindText},
 			{key: "decision.updated_at", expr: "d.updated_at", kind: fieldKindTimestamp},
-			{key: "decision.is_superseded", expr: "false", kind: fieldKindBool},
+			{key: "decision.is_superseded", expr: isSupersededExprFor("d"), kind: fieldKindBool},
 		},
 	},
 	PartiesViewSchemaID: {
@@ -567,9 +567,9 @@ LEFT JOIN LATERAL (
 			{key: "task.completed_at", expr: "t.completed_at", kind: fieldKindTimestamp},
 			{key: "task.external_ticket_ref", expr: "t.external_ticket_ref", kind: fieldKindText},
 			{key: "task.closure_summary", expr: "t.closure_summary", kind: fieldKindText},
-			{key: "task.linked_record_ids", expr: emptyCollectionExpr, kind: fieldKindCollection},
+			{key: "task.linked_record_ids", expr: recordRefCollectionExprFor("t", "task.linked_record_ids", "references_record"), kind: fieldKindCollection},
 			{key: "task.decision_record_id", expr: "t.decision_record_id", kind: fieldKindText},
-			{key: "task.linked_record_count", expr: "0", kind: fieldKindNumber},
+			{key: "task.linked_record_count", expr: linkCountExprFor("t", "task.linked_record_ids", "references_record"), kind: fieldKindNumber},
 			{key: "task.updated_at", expr: "t.updated_at", kind: fieldKindTimestamp},
 			{key: "task.no_owner", expr: "t.owner_user_id IS NULL", kind: fieldKindBool},
 		},
@@ -577,7 +577,7 @@ LEFT JOIN LATERAL (
 	NotesViewSchemaID: artifactSurface(NotesViewSchemaID, "note", []genericField{
 		{key: "note.title", expr: "p.title", kind: fieldKindText},
 		{key: "note.body", expr: "p.body", kind: fieldKindText},
-		{key: "note.tags", expr: emptyCollectionExpr, kind: fieldKindCollection},
+		{key: "note.tags", expr: tagCollectionExprFor("p"), kind: fieldKindCollection},
 		{key: "note.linked_record_count", expr: "p.linked_record_count", kind: fieldKindNumber},
 		{key: "note.updated_at", expr: "p.updated_at", kind: fieldKindTimestamp},
 		{key: "note.created_by_user_id", expr: "p.created_by_user_id", kind: fieldKindText},
@@ -642,6 +642,10 @@ LEFT JOIN LATERAL (
 }
 
 func recordRefCollectionExpr(fieldKey string) string {
+	return recordRefCollectionExprFor("p", fieldKey, "references_record")
+}
+
+func recordRefCollectionExprFor(alias string, fieldKey string, linkType string) string {
 	return `(SELECT COALESCE(jsonb_agg(jsonb_build_object(
         'item_ref', 'record_ref:' || dst.record_id::text,
         'item_kind', 'record_ref',
@@ -653,11 +657,70 @@ func recordRefCollectionExpr(fieldKey string) string {
         ON dst.incident_id = rl.incident_id
        AND dst.record_id = rl.dst_record_id
        AND dst.deleted_at IS NULL
-     WHERE rl.incident_id = p.incident_id
-       AND rl.src_record_id = p.record_id
-       AND rl.link_type = 'references_record'
+     WHERE rl.incident_id = ` + alias + `.incident_id
+       AND rl.src_record_id = ` + alias + `.record_id
+       AND rl.link_type = '` + linkType + `'
        AND rl.field_key = '` + fieldKey + `'
        AND rl.deleted_at IS NULL)::text`
+}
+
+func tagCollectionExprFor(alias string) string {
+	return `(SELECT COALESCE(jsonb_agg(jsonb_build_object(
+        'item_ref', 'tag:' || rt.normalized_tag_name,
+        'item_kind', 'tag',
+        'display_text', rt.tag_name,
+        'raw_text', rt.tag_name
+    ) ORDER BY rt.normalized_tag_name ASC), '[]'::jsonb)
+      FROM record_tags rt
+     WHERE rt.incident_id = ` + alias + `.incident_id
+       AND rt.record_id = ` + alias + `.record_id
+       AND rt.deleted_at IS NULL)::text`
+}
+
+func linkCountExprFor(alias string, fieldKey string, linkType string) string {
+	return `(SELECT COUNT(*)::integer
+      FROM record_links rl
+      JOIN records dst
+        ON dst.incident_id = rl.incident_id
+       AND dst.record_id = rl.dst_record_id
+       AND dst.deleted_at IS NULL
+     WHERE rl.incident_id = ` + alias + `.incident_id
+       AND rl.src_record_id = ` + alias + `.record_id
+       AND rl.link_type = '` + linkType + `'
+       AND rl.field_key = '` + fieldKey + `'
+       AND rl.deleted_at IS NULL)`
+}
+
+func supersedesRecordIDExprFor(alias string) string {
+	return `(SELECT rl.dst_record_id
+      FROM record_links rl
+      JOIN records dst
+        ON dst.incident_id = rl.incident_id
+       AND dst.record_id = rl.dst_record_id
+       AND dst.record_type = 'decision'
+       AND dst.deleted_at IS NULL
+     WHERE rl.incident_id = ` + alias + `.incident_id
+       AND rl.src_record_id = ` + alias + `.record_id
+       AND rl.link_type = 'supersedes'
+       AND rl.deleted_at IS NULL
+     ORDER BY rl.created_at DESC, rl.record_link_id DESC
+     LIMIT 1)`
+}
+
+func isSupersededExprFor(alias string) string {
+	return `EXISTS (
+      SELECT 1
+        FROM record_links rl
+        JOIN records src
+          ON src.incident_id = rl.incident_id
+         AND src.record_id = rl.src_record_id
+         AND src.record_type = 'decision'
+         AND src.deleted_at IS NULL
+       WHERE rl.incident_id = ` + alias + `.incident_id
+         AND rl.dst_record_id = ` + alias + `.record_id
+         AND rl.link_type = 'supersedes'
+         AND rl.deleted_at IS NULL
+    )`
 }
 
 func partyRefCollectionExpr(fieldKey string) string {

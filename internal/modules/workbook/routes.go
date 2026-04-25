@@ -303,6 +303,7 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, pr
 func writeMutationResult(w http.ResponseWriter, r *http.Request, s *Service, principal *auth.SessionPrincipal, result MutationResult, err error, clientTxnID string) {
 	var (
 		validationErr *MutationValidationError
+		lifecycleErr  *LifecycleValidationError
 		rowConflict   *RowVersionConflictError
 		sameConflict  *SameFieldConflictError
 	)
@@ -315,6 +316,17 @@ func writeMutationResult(w http.ResponseWriter, r *http.Request, s *Service, pri
 		return
 	case errors.As(err, &validationErr):
 		writeAPIError(w, r, invalidMutationPayload(validationErr.Field, validationErr.ReasonCode))
+		return
+	case errors.As(err, &lifecycleErr):
+		details := map[string]any{
+			"from_status":     lifecycleErr.FromStatus,
+			"to_status":       lifecycleErr.ToStatus,
+			"violated_guards": append([]string(nil), lifecycleErr.ViolatedGuards...),
+		}
+		if lifecycleErr.ReasonCode != "" {
+			details["reason_code"] = lifecycleErr.ReasonCode
+		}
+		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: details})
 		return
 	case errors.As(err, &sameConflict):
 		writeAPIError(w, r, sameFieldConflictError(sameConflict))

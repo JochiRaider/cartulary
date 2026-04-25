@@ -112,6 +112,17 @@ func (e *SameFieldConflictError) Error() string {
 	return "workbook: same field conflict"
 }
 
+type LifecycleValidationError struct {
+	FromStatus     string
+	ToStatus       string
+	ViolatedGuards []string
+	ReasonCode     string
+}
+
+func (e *LifecycleValidationError) Error() string {
+	return "workbook: illegal transition"
+}
+
 func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, *auth.APIError) {
 	if !isWorkbookMutationSurface(viewSchemaID) {
 		return CreateRequest{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
@@ -313,7 +324,7 @@ func decodeDirectValue(fieldKey string, field viewschema.Field, value json.RawMe
 		utc := parsed.UTC()
 		return ValueChange{Kind: "timestamp", Timestamp: &utc}, utc.Format(time.RFC3339Nano), nil
 	}
-	if isUUIDField(fieldKey) {
+	if isUUIDField(fieldKey, field) {
 		var raw string
 		if err := json.Unmarshal(value, &raw); err != nil {
 			return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
@@ -383,6 +394,19 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 	}
 	action := CollectionAction{Op: op}
 	switch op {
+	case "add_token":
+		if !isTagCollection(fieldKey) || !objectHasOnlyFields(object, "op", "raw_text") {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		rawText, ok := decodeStringActionField(object, "raw_text")
+		if !ok {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		normalized, ok := fieldnorm.NormalizeLine(rawText)
+		if !ok {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		action.NormalizedText = normalized
 	case "add_record_ref":
 		if !isRecordRefCollection(fieldKey) || !objectHasOnlyFields(object, "op", "linked_record_id") {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
@@ -628,7 +652,10 @@ func canonicalCollectionActionPayload(payload CollectionActionPayload) map[strin
 		if action.ItemRef != "" {
 			entry["item_ref"] = action.ItemRef
 		}
-		if action.NormalizedText != "" {
+		if action.Op == "add_token" && action.NormalizedText != "" {
+			entry["raw_text"] = action.NormalizedText
+		}
+		if action.Op == "add_risk_ref" && action.NormalizedText != "" {
 			entry["risk_ref_text"] = action.NormalizedText
 		}
 		actions = append(actions, entry)
@@ -646,7 +673,8 @@ func hashRequestPayload(payload any) []byte {
 
 func isWorkbookMutationSurface(viewSchemaID string) bool {
 	switch viewSchemaID {
-	case PartiesViewSchemaID, CommLogViewSchemaID, HandoffViewSchemaID, StatusReviewViewSchemaID, LessonViewSchemaID:
+	case PartiesViewSchemaID, NotesViewSchemaID, TaskRequestsViewSchemaID, DecisionsViewSchemaID,
+		CommLogViewSchemaID, HandoffViewSchemaID, StatusReviewViewSchemaID, LessonViewSchemaID:
 		return true
 	default:
 		return false
@@ -659,15 +687,18 @@ func isReadOnlySystemField(fieldKey string) bool {
 		"comm_log.timestamp_day", "comm_log.next_report_day", "comm_log.updated_at",
 		"handoff.timestamp_day", "handoff.ack_state", "handoff.updated_at",
 		"status_review.timestamp_day", "status_review.next_report_day", "status_review.updated_at",
-		"lesson.timestamp_day", "lesson.updated_at", "party.updated_at":
+		"lesson.timestamp_day", "lesson.updated_at", "party.updated_at",
+		"note.linked_record_count", "note.updated_at", "note.created_by_user_id",
+		"task.linked_record_count", "task.updated_at", "task.no_owner",
+		"decision.affected_record_count", "decision.supersedes_record_id", "decision.updated_at", "decision.is_superseded":
 		return true
 	default:
 		return false
 	}
 }
 
-func isUUIDField(fieldKey string) bool {
-	return strings.HasSuffix(fieldKey, "_user_id")
+func isUUIDField(fieldKey string, field viewschema.Field) bool {
+	return strings.HasSuffix(fieldKey, "_user_id") || field.DirectReferenceContractID != nil
 }
 
 func isRecordRefCollection(fieldKey string) bool {
@@ -675,11 +706,16 @@ func isRecordRefCollection(fieldKey string) bool {
 	case "comm_log.decision_ids", "comm_log.action_task_ids",
 		"handoff.open_task_ids", "handoff.open_decision_ids",
 		"status_review.blocked_task_ids", "status_review.pending_evidence_ids", "status_review.open_decision_ids",
-		"lesson.follow_up_task_ids", "lesson.evidence_refs":
+		"lesson.follow_up_task_ids", "lesson.evidence_refs",
+		"task.linked_record_ids", "decision.support_refs":
 		return true
 	default:
 		return false
 	}
+}
+
+func isTagCollection(fieldKey string) bool {
+	return fieldKey == "note.tags"
 }
 
 func isPartyRefCollection(fieldKey string) bool {

@@ -24,6 +24,9 @@ const timelineViewSchemaId = "cartulary.view.timeline.v1";
 const hostsViewSchemaId = "cartulary.view.hosts.v1";
 const identitiesViewSchemaId = "cartulary.view.identities.v1";
 const assessmentsViewSchemaId = "cartulary.view.assessments.v1";
+const notesViewSchemaId = "cartulary.view.notes.v1";
+const taskRequestsViewSchemaId = "cartulary.view.task_requests.v1";
+const decisionsViewSchemaId = "cartulary.view.decisions.v1";
 const hostRefsFieldKey = "timeline.host_refs";
 const identityRefsFieldKey = "timeline.identity_refs";
 
@@ -1011,6 +1014,151 @@ test("E-4-05 creates append-only assessment history through the workbook UI", as
   await expectAssessmentGridOrder(page, [created.cleared.record_id]);
 });
 
+test("E-4-06 creates and edits Notes, Task Requests, and Decisions through generic workbook surfaces", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E4GENERIC"),
+    "Phase 4 generic workbook mutation E2E",
+  );
+  const support = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("generic-support"),
+    "timeline.summary": "Generic surface support event",
+  })) as ViewRow;
+
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      notesViewSchemaId,
+    )}`,
+  );
+  await expect(page.getByRole("heading", { name: "Notes" })).toBeVisible();
+  await page.getByTestId(`generic-create-submit-${notesViewSchemaId}`).click();
+  await expect(page.getByTestId("generic-mutation-error")).toContainText(
+    "invalid_mutation_payload",
+  );
+  await page
+    .getByTestId("generic-create-field-note.title")
+    .fill("Browser note");
+  await page
+    .getByTestId("generic-create-field-note.body")
+    .fill("Created from generic workbook UI");
+  await page.getByTestId("generic-create-field-note.tags").fill("browser");
+  await page.getByTestId(`generic-create-submit-${notesViewSchemaId}`).click();
+  const note = await waitForViewRowByCell(
+    page,
+    incidentId,
+    notesViewSchemaId,
+    "note.title",
+    "Browser note",
+  );
+  await expect(
+    page.getByTestId(rowCellTestId(note.record_id, "note.title")),
+  ).toHaveText("Browser note");
+  await editGenericCell(
+    page,
+    notesViewSchemaId,
+    note.record_id,
+    "note.body",
+    "Updated browser note",
+  );
+  await expect(
+    page.getByTestId(rowCellTestId(note.record_id, "note.body")),
+  ).toHaveText("Updated browser note");
+
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      decisionsViewSchemaId,
+    )}`,
+  );
+  await expect(page.getByRole("heading", { name: "Decisions" })).toBeVisible();
+  await page
+    .getByTestId("generic-create-field-decision.summary")
+    .fill("Browser decision");
+  await page
+    .getByTestId("generic-create-field-decision.decision_type")
+    .fill("containment");
+  await page
+    .getByTestId("generic-create-field-decision.rationale")
+    .fill("Generic UI decision rationale.");
+  await page
+    .getByTestId("generic-create-field-decision.support_refs")
+    .fill(support.record_id);
+  await page
+    .getByTestId(`generic-create-submit-${decisionsViewSchemaId}`)
+    .click();
+  const decision = await waitForViewRowByCell(
+    page,
+    incidentId,
+    decisionsViewSchemaId,
+    "decision.summary",
+    "Browser decision",
+  );
+  await expect(
+    page.getByTestId(rowCellTestId(decision.record_id, "decision.status")),
+  ).toHaveText("proposed");
+  await editGenericCell(
+    page,
+    decisionsViewSchemaId,
+    decision.record_id,
+    "decision.summary",
+    "Updated browser decision",
+  );
+  await expect(
+    page.getByTestId(rowCellTestId(decision.record_id, "decision.summary")),
+  ).toHaveText("Updated browser decision");
+
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      taskRequestsViewSchemaId,
+    )}`,
+  );
+  await expect(
+    page.getByRole("heading", { name: "Task Requests" }),
+  ).toBeVisible();
+  await page
+    .getByTestId("generic-create-field-task.title")
+    .fill("Browser task");
+  await page
+    .getByTestId("generic-create-field-task.task_kind")
+    .fill("collection");
+  await page
+    .getByTestId("generic-create-field-task.decision_record_id")
+    .fill(decision.record_id);
+  await page
+    .getByTestId("generic-create-field-task.linked_record_ids")
+    .fill(support.record_id);
+  await page
+    .getByTestId(`generic-create-submit-${taskRequestsViewSchemaId}`)
+    .click();
+  const task = await waitForViewRowByCell(
+    page,
+    incidentId,
+    taskRequestsViewSchemaId,
+    "task.title",
+    "Browser task",
+  );
+  await expect(
+    page.getByTestId(rowCellTestId(task.record_id, "task.status")),
+  ).toHaveText("open");
+  await expect(
+    page.getByTestId(rowCellTestId(task.record_id, "task.priority")),
+  ).toHaveText("normal");
+  await expect(
+    page.getByTestId(rowCellTestId(task.record_id, "task.linked_record_count")),
+  ).toHaveText("1");
+  await editGenericCell(
+    page,
+    taskRequestsViewSchemaId,
+    task.record_id,
+    "task.title",
+    "Updated browser task",
+  );
+  await expect(
+    page.getByTestId(rowCellTestId(task.record_id, "task.title")),
+  ).toHaveText("Updated browser task");
+});
+
 async function createTimelineFillers(
   page: Page,
   incidentId: string,
@@ -1235,4 +1383,43 @@ async function waitForViewRow(
     viewSchemaId,
   )) as ViewRow[];
   return findRow(rows, recordId);
+}
+
+async function waitForViewRowByCell(
+  page: Page,
+  incidentId: string,
+  viewSchemaId: string,
+  fieldKey: string,
+  value: string,
+) {
+  let match: ViewRow | null = null;
+  await expect
+    .poll(async () => {
+      const rows = (await queryViewRows(
+        page,
+        incidentId,
+        viewSchemaId,
+      )) as ViewRow[];
+      match = rows.find((row) => row.cells[fieldKey]?.value === value) ?? null;
+      return match !== null;
+    })
+    .toBe(true);
+  return match as ViewRow;
+}
+
+async function editGenericCell(
+  page: Page,
+  viewSchemaId: string,
+  recordId: string,
+  fieldKey: string,
+  value: string,
+) {
+  await page
+    .getByTestId(`generic-edit-record-${viewSchemaId}`)
+    .selectOption(recordId);
+  await page
+    .getByTestId(`generic-edit-field-${viewSchemaId}`)
+    .selectOption(fieldKey);
+  await page.getByTestId(`generic-edit-value-${viewSchemaId}`).fill(value);
+  await page.getByTestId(`generic-edit-submit-${viewSchemaId}`).click();
 }

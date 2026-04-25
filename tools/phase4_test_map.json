@@ -20,7 +20,8 @@
     "E-4-02",
     "E-4-03",
     "E-4-04",
-    "E-4-05"
+    "E-4-05",
+    "E-4-06"
   ],
   "forbidden_id_files": [
     "internal/modules/entities/phase4_support_integration_test.go",
@@ -286,6 +287,17 @@
       "evidence_layer": "browser",
       "claim": "The browser workbook creates append-only assessment rows through the Assessments surface with band-first confidence, rationale, support refs, default ordering, and state or confidence filters.",
       "out_of_scope": "Assessment storage, projection determinism, idempotency, and validation remain backend evidence."
+    },
+    {
+      "id": "E-4-06",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase4.spec.ts",
+      "title": "E-4-06 creates and edits Notes, Task Requests, and Decisions through generic workbook surfaces",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "The browser workbook creates and edits Notes, Task Requests, and Decisions through their real generic workbook surfaces, including defaults, collections, and visible validation failure.",
+      "out_of_scope": "Detailed lifecycle transition and idempotency assertions remain backend integration evidence."
     }
   ]
 }

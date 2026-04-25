@@ -3,6 +3,7 @@ package workbook
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -59,20 +60,31 @@ func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, i
 		return MutationResult{}, err
 	}
 
-	recordType := "artifact"
-	if request.ViewSchemaID == PartiesViewSchemaID {
-		recordType = "party"
+	recordType := recordTypeForView(request.ViewSchemaID)
+	if recordType == "" {
+		return MutationResult{}, mutationValidationError("view_schema_id", "unknown_view_schema")
 	}
 	recordID, err := s.recordStore.InsertTx(ctx, tx, recordsInsertParams(incidentID, recordType, actor.ID, now.UTC()))
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if request.ViewSchemaID == PartiesViewSchemaID {
+	switch request.ViewSchemaID {
+	case PartiesViewSchemaID:
 		if err := insertPartyTx(ctx, tx, recordID, incidentID, request, now.UTC()); err != nil {
 			return MutationResult{}, err
 		}
-	} else if err := insertArtifactTx(ctx, tx, recordID, incidentID, actor.ID, request, now.UTC()); err != nil {
-		return MutationResult{}, err
+	case TaskRequestsViewSchemaID:
+		if err := insertTaskRequestTx(ctx, tx, recordID, incidentID, actor.ID, request, now.UTC()); err != nil {
+			return MutationResult{}, err
+		}
+	case DecisionsViewSchemaID:
+		if err := insertDecisionTx(ctx, tx, recordID, incidentID, actor.ID, request, now.UTC()); err != nil {
+			return MutationResult{}, err
+		}
+	default:
+		if err := insertArtifactTx(ctx, tx, recordID, incidentID, actor.ID, request, now.UTC()); err != nil {
+			return MutationResult{}, err
+		}
 	}
 	if err := applyCollectionPayloadsTx(ctx, tx, incidentID, recordID, actor.ID, request.Collections, now.UTC()); err != nil {
 		return MutationResult{}, err
@@ -266,8 +278,19 @@ func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, re
 
 func (s *Store) RecordIncident(ctx context.Context, recordID uuid.UUID, viewSchemaID string) (uuid.UUID, error) {
 	var incidentID uuid.UUID
-	switch {
-	case viewSchemaID == PartiesViewSchemaID:
+	if viewSchemaID == "cartulary.view.timeline.v1" {
+		err := s.pool.QueryRow(ctx, `
+SELECT incident_id
+  FROM records
+ WHERE record_id = $1
+   AND record_type = 'timeline_event'
+   AND deleted_at IS NULL
+`, recordID).Scan(&incidentID)
+		return incidentID, err
+	}
+	recordType := recordTypeForView(viewSchemaID)
+	switch recordType {
+	case "party":
 		err := s.pool.QueryRow(ctx, `
 SELECT r.incident_id
   FROM records r
@@ -279,7 +302,7 @@ SELECT r.incident_id
    AND r.deleted_at IS NULL
 `, recordID).Scan(&incidentID)
 		return incidentID, err
-	case isWorkbookMutationSurface(viewSchemaID):
+	case "artifact":
 		err := s.pool.QueryRow(ctx, `
 SELECT r.incident_id
   FROM records r
@@ -292,14 +315,14 @@ SELECT r.incident_id
    AND r.deleted_at IS NULL
 `, recordID, artifactTypeForView(viewSchemaID)).Scan(&incidentID)
 		return incidentID, err
-	case viewSchemaID == "cartulary.view.timeline.v1":
+	case "task_request", "decision":
 		err := s.pool.QueryRow(ctx, `
 SELECT incident_id
   FROM records
  WHERE record_id = $1
-   AND record_type = 'timeline_event'
+   AND record_type = $2
    AND deleted_at IS NULL
-`, recordID).Scan(&incidentID)
+`, recordID, recordType).Scan(&incidentID)
 		return incidentID, err
 	default:
 		err := s.pool.QueryRow(ctx, `
@@ -381,6 +404,10 @@ func (s *Store) loadGenericRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID st
 
 func validateCreateRequest(request CreateRequest) error {
 	switch request.ViewSchemaID {
+	case NotesViewSchemaID:
+		if !hasTextValue(request.Values, "note.title") && !hasTextValue(request.Values, "note.body") {
+			return mutationValidationError("payload", "missing_minimum_create_signal")
+		}
 	case PartiesViewSchemaID:
 		if !hasTextValue(request.Values, "party.display_name") {
 			return mutationValidationError("party.display_name", "missing_required_field")
@@ -414,6 +441,38 @@ func validateCreateRequest(request CreateRequest) error {
 		}
 		if value, ok := request.Values["lesson.closure_state"]; ok && !validClosureState(derefText(value.Text)) {
 			return mutationValidationError("lesson.closure_state", "invalid_value")
+		}
+	case TaskRequestsViewSchemaID:
+		if !hasTextValue(request.Values, "task.title") {
+			return mutationValidationError("task.title", "missing_required_field")
+		}
+		if !validValueText(request.Values, "task.task_kind", validTaskKind) {
+			return mutationValidationError("task.task_kind", "missing_required_field")
+		}
+		if value, ok := request.Values["task.status"]; ok && !validTaskStatus(derefText(value.Text)) {
+			return mutationValidationError("task.status", "invalid_value")
+		}
+		if value, ok := request.Values["task.priority"]; ok && !validTaskPriority(derefText(value.Text)) {
+			return mutationValidationError("task.priority", "invalid_value")
+		}
+	case DecisionsViewSchemaID:
+		if !hasTextValue(request.Values, "decision.summary") {
+			return mutationValidationError("decision.summary", "missing_required_field")
+		}
+		if !validValueText(request.Values, "decision.decision_type", validDecisionType) {
+			return mutationValidationError("decision.decision_type", "missing_required_field")
+		}
+		if !hasTextValue(request.Values, "decision.rationale") {
+			return mutationValidationError("decision.rationale", "missing_required_field")
+		}
+		if value, ok := request.Values["decision.status"]; ok {
+			status := derefText(value.Text)
+			if !validDecisionStatus(status) {
+				return mutationValidationError("decision.status", "invalid_value")
+			}
+			if status == "superseded" {
+				return &LifecycleValidationError{ToStatus: status, ReasonCode: "superseded_direct_write", ViolatedGuards: []string{"decision.status"}}
+			}
 		}
 	}
 	return nil
@@ -477,18 +536,21 @@ func insertArtifactTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incide
 	_, err := tx.Exec(ctx, `
 INSERT INTO artifacts (
     record_id, incident_id, artifact_type, timestamp_utc, updated_at, created_at,
+    title, body,
     comm_id, comm_type, audience, channel_or_meeting, summary, next_report_at, privilege_tag,
     handoff_id, outgoing_owner_user_id, incoming_owner_user_id, current_state_summary, next_checks, acknowledged_at,
     status_review_id, review_owner_user_id, active_risks_summary,
     lesson_id, owner_user_id, closure_state, created_by_user_id
 ) VALUES (
     $1, $2, $3, $4, $5, $5,
-    $6, $7, $8, $9, $10, $11, $12,
-    $13, $14, $15, $16, $17, $18,
-    $19, $20, $21,
-    $22, $23, $24, $25
+    $6, $7,
+    $8, $9, $10, $11, $12, $13, $14,
+    $15, $16, $17, $18, $19, $20,
+    $21, $22, $23,
+    $24, $25, $26, $27
 )
 `, recordID, incidentID, artifactType, timestamp, now,
+		nullableTextValue(request.Values, "note.title"), nullableTextValue(request.Values, "note.body"),
 		commID, nullableTextValue(request.Values, "comm_log.comm_type"), nullableTextValue(request.Values, "comm_log.audience"), nullableTextValue(request.Values, "comm_log.channel_or_meeting"), nullableTextValue(request.Values, "comm_log.summary"), nullableTimestampValue(request.Values, "comm_log.next_report_at"), nullableTextValue(request.Values, "comm_log.privilege_tag"),
 		handoffID, outgoingOwner, nullableUUIDValue(request.Values, "handoff.incoming_owner_user_id"), nullableTextValue(request.Values, "handoff.current_state_summary"), nullableTextValue(request.Values, "handoff.next_checks"), nullableTimestampValue(request.Values, "handoff.acknowledged_at"),
 		statusReviewID, reviewOwner, nullableTextValue(request.Values, "status_review.active_risks_summary"),
@@ -499,10 +561,110 @@ INSERT INTO artifacts (
 	return nil
 }
 
+func insertTaskRequestTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, actorID uuid.UUID, request CreateRequest, now time.Time) error {
+	status := nullableTextValue(request.Values, "task.status")
+	if status == nil {
+		status = "open"
+	}
+	owner := nullableUUIDValue(request.Values, "task.owner_user_id")
+	if owner == nil {
+		owner = actorID
+	}
+	priority := nullableTextValue(request.Values, "task.priority")
+	if priority == nil {
+		priority = "normal"
+	}
+	completedAt := nullableTimestampValue(request.Values, "task.completed_at")
+	if status == "done" && completedAt == nil {
+		completedAt = now
+	}
+	if err := validateTaskCreateState(taskLifecycleState{
+		Status:        status.(string),
+		BlockedReason: nullableStringFromAny(nullableTextValue(request.Values, "task.blocked_reason")),
+		CompletedAt:   nullableTimeFromAny(completedAt),
+		OwnerUserID:   nullableUUIDStringFromAny(owner),
+		CreatedAt:     now,
+	}); err != nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `
+INSERT INTO task_requests (
+    record_id, incident_id, title, status, owner_user_id, priority, task_kind,
+    workstream, due_at, requester_party_text, requester_party_id, blocked_reason,
+    completed_at, external_ticket_ref, closure_summary, decision_record_id,
+    created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7,
+    $8, $9, $10, $11, $12,
+    $13, $14, $15, $16,
+    $17, $17
+)
+`, recordID, incidentID,
+		textValue(request.Values, "task.title"),
+		status,
+		owner,
+		priority,
+		textValue(request.Values, "task.task_kind"),
+		nullableTextValue(request.Values, "task.workstream"),
+		nullableTimestampValue(request.Values, "task.due_at"),
+		nullableTextValue(request.Values, "task.requester_party_text"),
+		nullableUUIDValue(request.Values, "task.requester_party_id"),
+		nullableTextValue(request.Values, "task.blocked_reason"),
+		completedAt,
+		nullableTextValue(request.Values, "task.external_ticket_ref"),
+		nullableTextValue(request.Values, "task.closure_summary"),
+		nullableUUIDValue(request.Values, "task.decision_record_id"),
+		now)
+	if err != nil {
+		return fmt.Errorf("insert task request: %w", err)
+	}
+	return nil
+}
+
+func insertDecisionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, actorID uuid.UUID, request CreateRequest, now time.Time) error {
+	status := nullableTextValue(request.Values, "decision.status")
+	if status == nil {
+		status = "proposed"
+	}
+	owner := nullableUUIDValue(request.Values, "decision.owner_user_id")
+	if owner == nil {
+		owner = actorID
+	}
+	decidedAt := nullableTimestampValue(request.Values, "decision.decided_at")
+	if decidedAt == nil {
+		decidedAt = now
+	}
+	_, err := tx.Exec(ctx, `
+INSERT INTO decisions (
+    record_id, incident_id, summary, status, owner_user_id, decision_type,
+    decided_at, rationale, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6,
+    $7, $8, $9, $9
+)
+`, recordID, incidentID,
+		textValue(request.Values, "decision.summary"),
+		status,
+		owner,
+		textValue(request.Values, "decision.decision_type"),
+		decidedAt,
+		textValue(request.Values, "decision.rationale"),
+		now)
+	if err != nil {
+		return fmt.Errorf("insert decision: %w", err)
+	}
+	return nil
+}
+
 func validateCreateReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, request CreateRequest) error {
 	for fieldKey, value := range request.Values {
 		if value.UUID != nil && strings.HasSuffix(fieldKey, "_user_id") {
 			if err := validateActiveUserTx(ctx, tx, *value.UUID, fieldKey); err != nil {
+				return err
+			}
+		}
+		if value.UUID != nil {
+			if err := validateDirectReferenceTx(ctx, tx, incidentID, fieldKey, *value.UUID); err != nil {
 				return err
 			}
 		}
@@ -519,6 +681,11 @@ func validatePatchReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.U
 	for _, change := range request.Changes {
 		if change.Value != nil && change.Value.UUID != nil && strings.HasSuffix(change.FieldKey, "_user_id") {
 			if err := validateActiveUserTx(ctx, tx, *change.Value.UUID, change.FieldKey); err != nil {
+				return err
+			}
+		}
+		if change.Value != nil && change.Value.UUID != nil {
+			if err := validateDirectReferenceTx(ctx, tx, incidentID, change.FieldKey, *change.Value.UUID); err != nil {
 				return err
 			}
 		}
@@ -547,6 +714,17 @@ func validateCollectionPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid
 	return nil
 }
 
+func validateDirectReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, fieldKey string, recordID uuid.UUID) error {
+	switch fieldKey {
+	case "task.requester_party_id":
+		return validateTargetRecordTx(ctx, tx, incidentID, recordID, "party", fieldKey)
+	case "task.decision_record_id":
+		return validateTargetRecordTx(ctx, tx, incidentID, recordID, "decision", fieldKey)
+	default:
+		return nil
+	}
+}
+
 func validateActiveUserTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, field string) error {
 	var exists bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM users WHERE id = $1 AND is_active = true)`, userID).Scan(&exists); err != nil {
@@ -560,6 +738,23 @@ func validateActiveUserTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, fiel
 
 func validateTargetRecordTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, expectedType string, field string) error {
 	var exists bool
+	if expectedType == "" {
+		if err := tx.QueryRow(ctx, `
+SELECT EXISTS (
+    SELECT 1
+      FROM records
+     WHERE incident_id = $1
+       AND record_id = $2
+       AND deleted_at IS NULL
+)
+`, incidentID, recordID).Scan(&exists); err != nil {
+			return fmt.Errorf("validate collection target: %w", err)
+		}
+		if !exists {
+			return mutationValidationError(field, "invalid_value")
+		}
+		return nil
+	}
 	if err := tx.QueryRow(ctx, `
 SELECT EXISTS (
     SELECT 1
@@ -580,6 +775,21 @@ SELECT EXISTS (
 
 func applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, request PatchRequest, now time.Time) (bool, error) {
 	changed := false
+	var beforeTask taskLifecycleState
+	var beforeDecisionStatus string
+	var err error
+	if request.ViewSchemaID == TaskRequestsViewSchemaID {
+		beforeTask, err = loadTaskLifecycleStateTx(ctx, tx, recordID)
+		if err != nil {
+			return false, err
+		}
+	}
+	if request.ViewSchemaID == DecisionsViewSchemaID && touchesField(request.Changes, "decision.status") {
+		beforeDecisionStatus, err = loadDecisionStatusTx(ctx, tx, recordID)
+		if err != nil {
+			return false, err
+		}
+	}
 	for _, change := range request.Changes {
 		if change.Value != nil {
 			applied, err := applyDirectChangeTx(ctx, tx, recordID, request.ViewSchemaID, change, now)
@@ -597,6 +807,22 @@ func applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID
 			changed = changed || applied
 		}
 	}
+	if request.ViewSchemaID == TaskRequestsViewSchemaID && touchesAnyField(request.Changes, "task.status", "task.blocked_reason", "task.completed_at", "task.owner_user_id") {
+		applied, err := normalizeTaskLifecycleTx(ctx, tx, recordID, beforeTask, touchesField(request.Changes, "task.completed_at"), now)
+		if err != nil {
+			return false, err
+		}
+		changed = changed || applied
+	}
+	if request.ViewSchemaID == DecisionsViewSchemaID && touchesField(request.Changes, "decision.status") {
+		afterDecisionStatus, err := loadDecisionStatusTx(ctx, tx, recordID)
+		if err != nil {
+			return false, err
+		}
+		if err := validateDecisionStatusTransition(beforeDecisionStatus, afterDecisionStatus); err != nil {
+			return false, err
+		}
+	}
 	return changed, nil
 }
 
@@ -605,12 +831,45 @@ func applyDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, vie
 	if table == "" || column == "" {
 		return false, mutationValidationError(change.FieldKey, "unsupported_field_key")
 	}
+	if err := validateDirectFieldValue(change); err != nil {
+		return false, err
+	}
 	value := directDBValue(*change.Value)
 	tag, err := tx.Exec(ctx, fmt.Sprintf(`UPDATE %s SET %s = $2, updated_at = $3 WHERE record_id = $1 AND %s IS DISTINCT FROM $2`, table, column, column), recordID, value, now)
 	if err != nil {
 		return false, fmt.Errorf("apply direct change: %w", err)
 	}
 	return tag.RowsAffected() > 0, nil
+}
+
+func validateDirectFieldValue(change PatchChange) error {
+	if change.Value == nil || change.Value.Text == nil {
+		return nil
+	}
+	value := *change.Value.Text
+	switch change.FieldKey {
+	case "task.status":
+		if !validTaskStatus(value) {
+			return mutationValidationError(change.FieldKey, "invalid_value")
+		}
+	case "task.task_kind":
+		if !validTaskKind(value) {
+			return mutationValidationError(change.FieldKey, "invalid_value")
+		}
+	case "task.priority":
+		if !validTaskPriority(value) {
+			return mutationValidationError(change.FieldKey, "invalid_value")
+		}
+	case "decision.status":
+		if !validDecisionStatus(value) {
+			return mutationValidationError(change.FieldKey, "invalid_value")
+		}
+	case "decision.decision_type":
+		if !validDecisionType(value) {
+			return mutationValidationError(change.FieldKey, "invalid_value")
+		}
+	}
+	return nil
 }
 
 func applyCollectionPayloadsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, collections map[string]CollectionActionPayload, now time.Time) error {
@@ -643,6 +902,12 @@ func applyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UU
 				return false, mutationValidationError(fieldKey, "invalid_value")
 			}
 			applied, err := tombstoneReferenceLinkTx(ctx, tx, incidentID, recordID, dst, fieldKey, expectedTargetType(fieldKey), actorID, now)
+			if err != nil {
+				return false, err
+			}
+			changed = changed || applied
+		case "add_token":
+			applied, err := upsertTagTx(ctx, tx, incidentID, recordID, action.NormalizedText, actorID, now)
 			if err != nil {
 				return false, err
 			}
@@ -691,11 +956,11 @@ func upsertReferenceLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID,
 INSERT INTO record_links (
     incident_id, src_record_id, dst_record_id, link_type, field_key,
     provenance, confidence, owner_user_id, created_by_user_id, decided_at, created_at
-) VALUES ($1, $2, $3, 'references_record', $4, 'manual', NULL, $5, $5, $6, $6)
+) VALUES ($1, $2, $3, $7, $4, 'manual', NULL, $5, $5, $6, $6)
 ON CONFLICT (incident_id, src_record_id, dst_record_id, link_type, field_key)
 WHERE deleted_at IS NULL AND field_key IS NOT NULL
 DO NOTHING
-`, incidentID, src, dst, fieldKey, actorID, now)
+`, incidentID, src, dst, fieldKey, actorID, now, linkTypeForField(fieldKey))
 	if err != nil {
 		return false, fmt.Errorf("upsert reference link: %w", err)
 	}
@@ -703,6 +968,12 @@ DO NOTHING
 }
 
 func tombstoneReferenceLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, fieldKey string, expectedTargetType string, actorID uuid.UUID, now time.Time) (bool, error) {
+	targetTypePredicate := ""
+	args := []any{incidentID, src, dst, fieldKey, actorID, now, linkTypeForField(fieldKey)}
+	if expectedTargetType != "" {
+		targetTypePredicate = "AND dst.record_type = $8"
+		args = append(args, expectedTargetType)
+	}
 	tag, err := tx.Exec(ctx, `
 UPDATE record_links
    SET deleted_at = $6,
@@ -710,7 +981,7 @@ UPDATE record_links
  WHERE incident_id = $1
    AND src_record_id = $2
    AND dst_record_id = $3
-   AND link_type = 'references_record'
+   AND link_type = $7
    AND field_key = $4
    AND deleted_at IS NULL
    AND EXISTS (
@@ -718,10 +989,10 @@ UPDATE record_links
          FROM records dst
         WHERE dst.incident_id = record_links.incident_id
           AND dst.record_id = record_links.dst_record_id
-          AND dst.record_type = $7
           AND dst.deleted_at IS NULL
+          `+targetTypePredicate+`
    )
-`, incidentID, src, dst, fieldKey, actorID, now, expectedTargetType)
+`, args...)
 	if err != nil {
 		return false, fmt.Errorf("remove reference link: %w", err)
 	}
@@ -766,10 +1037,29 @@ UPDATE handoff_risk_refs
 	return true, nil
 }
 
+func upsertTagTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, tagName string, actorID uuid.UUID, now time.Time) (bool, error) {
+	if tagName == "" {
+		return false, mutationValidationError("note.tags", "invalid_value")
+	}
+	tag, err := tx.Exec(ctx, `
+INSERT INTO record_tags (
+    incident_id, record_id, tag_name, normalized_tag_name,
+    created_by_user_id, created_at, updated_at
+) VALUES ($1, $2, $3, $3, $4, $5, $5)
+ON CONFLICT (incident_id, record_id, normalized_tag_name)
+WHERE deleted_at IS NULL
+DO NOTHING
+`, incidentID, recordID, tagName, actorID, now)
+	if err != nil {
+		return false, fmt.Errorf("upsert record tag: %w", err)
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
 func touchSourceRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID, now time.Time) error {
-	table := "artifacts"
-	if viewSchemaID == PartiesViewSchemaID {
-		table = "parties"
+	table := sourceTableForView(viewSchemaID)
+	if table == "" {
+		return mutationValidationError("view_schema_id", "unknown_view_schema")
 	}
 	if _, err := tx.Exec(ctx, fmt.Sprintf(`UPDATE %s SET updated_at = $2 WHERE record_id = $1`, table), recordID, now); err != nil {
 		return fmt.Errorf("touch source row: %w", err)
@@ -848,14 +1138,43 @@ func workbookVersionID(recordID uuid.UUID, rowVersion int64) string {
 }
 
 func recordTypeMatchesView(recordType string, viewSchemaID string) bool {
-	if viewSchemaID == PartiesViewSchemaID {
-		return recordType == "party"
+	return recordType == recordTypeForView(viewSchemaID)
+}
+
+func recordTypeForView(viewSchemaID string) string {
+	switch viewSchemaID {
+	case PartiesViewSchemaID:
+		return "party"
+	case TaskRequestsViewSchemaID:
+		return "task_request"
+	case DecisionsViewSchemaID:
+		return "decision"
+	case NotesViewSchemaID, CommLogViewSchemaID, HandoffViewSchemaID, StatusReviewViewSchemaID, LessonViewSchemaID:
+		return "artifact"
+	default:
+		return ""
 	}
-	return recordType == "artifact"
+}
+
+func sourceTableForView(viewSchemaID string) string {
+	switch recordTypeForView(viewSchemaID) {
+	case "party":
+		return "parties"
+	case "task_request":
+		return "task_requests"
+	case "decision":
+		return "decisions"
+	case "artifact":
+		return "artifacts"
+	default:
+		return ""
+	}
 }
 
 func artifactTypeForView(viewSchemaID string) string {
 	switch viewSchemaID {
+	case NotesViewSchemaID:
+		return "note"
 	case CommLogViewSchemaID:
 		return "comm_log"
 	case HandoffViewSchemaID:
@@ -873,6 +1192,10 @@ func tableColumnForField(fieldKey string) (string, string) {
 	switch {
 	case strings.HasPrefix(fieldKey, "party."):
 		return "parties", strings.TrimPrefix(fieldKey, "party.")
+	case fieldKey == "note.title":
+		return "artifacts", "title"
+	case fieldKey == "note.body":
+		return "artifacts", "body"
 	case strings.HasPrefix(fieldKey, "comm_log."):
 		return "artifacts", strings.TrimPrefix(fieldKey, "comm_log.")
 	case strings.HasPrefix(fieldKey, "handoff."):
@@ -881,6 +1204,10 @@ func tableColumnForField(fieldKey string) (string, string) {
 		return "artifacts", strings.TrimPrefix(fieldKey, "status_review.")
 	case strings.HasPrefix(fieldKey, "lesson."):
 		return "artifacts", strings.TrimPrefix(fieldKey, "lesson.")
+	case strings.HasPrefix(fieldKey, "task."):
+		return "task_requests", strings.TrimPrefix(fieldKey, "task.")
+	case strings.HasPrefix(fieldKey, "decision."):
+		return "decisions", strings.TrimPrefix(fieldKey, "decision.")
 	default:
 		return "", ""
 	}
@@ -974,8 +1301,19 @@ func expectedTargetType(fieldKey string) string {
 		return "task_request"
 	case "status_review.pending_evidence_ids", "lesson.evidence_refs":
 		return "evidence"
+	case "task.linked_record_ids", "decision.support_refs":
+		return ""
 	default:
 		return ""
+	}
+}
+
+func linkTypeForField(fieldKey string) string {
+	switch fieldKey {
+	case "decision.support_refs":
+		return "supported_by"
+	default:
+		return "references_record"
 	}
 }
 
@@ -999,6 +1337,224 @@ func validCommType(value string) bool {
 
 func validClosureState(value string) bool {
 	return value == "open" || value == "closed"
+}
+
+func validTaskKind(value string) bool {
+	switch value {
+	case "question", "request", "collection", "containment", "follow_up":
+		return true
+	default:
+		return false
+	}
+}
+
+func validTaskStatus(value string) bool {
+	switch value {
+	case "open", "in_progress", "blocked", "done", "canceled":
+		return true
+	default:
+		return false
+	}
+}
+
+func validTaskPriority(value string) bool {
+	switch value {
+	case "low", "normal", "high", "urgent":
+		return true
+	default:
+		return false
+	}
+}
+
+func validDecisionType(value string) bool {
+	switch value {
+	case "scope", "containment", "communication", "evidence", "reporting":
+		return true
+	default:
+		return false
+	}
+}
+
+func validDecisionStatus(value string) bool {
+	switch value {
+	case "proposed", "approved", "rejected", "superseded", "executed":
+		return true
+	default:
+		return false
+	}
+}
+
+type taskLifecycleState struct {
+	Status        string
+	BlockedReason sql.NullString
+	CompletedAt   sql.NullTime
+	OwnerUserID   sql.NullString
+	CreatedAt     time.Time
+}
+
+func loadTaskLifecycleStateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (taskLifecycleState, error) {
+	var state taskLifecycleState
+	err := tx.QueryRow(ctx, `
+SELECT status, NULLIF(blocked_reason, ''), completed_at, owner_user_id::text, created_at
+  FROM task_requests
+ WHERE record_id = $1
+`, recordID).Scan(&state.Status, &state.BlockedReason, &state.CompletedAt, &state.OwnerUserID, &state.CreatedAt)
+	if err != nil {
+		return taskLifecycleState{}, err
+	}
+	return state, nil
+}
+
+func normalizeTaskLifecycleTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, before taskLifecycleState, explicitCompletedAt bool, now time.Time) (bool, error) {
+	changed := false
+	after, err := loadTaskLifecycleStateTx(ctx, tx, recordID)
+	if err != nil {
+		return false, err
+	}
+	if !validTaskStatus(after.Status) {
+		return false, mutationValidationError("task.status", "invalid_value")
+	}
+	if before.Status != after.Status && !validTaskTransition(before.Status, after.Status) {
+		return false, &LifecycleValidationError{FromStatus: before.Status, ToStatus: after.Status, ReasonCode: "illegal_status_transition", ViolatedGuards: []string{"task.status"}}
+	}
+	if before.Status != after.Status && before.Status == "blocked" && after.Status != "blocked" && after.BlockedReason.Valid {
+		if _, err := tx.Exec(ctx, `UPDATE task_requests SET blocked_reason = NULL WHERE record_id = $1`, recordID); err != nil {
+			return false, fmt.Errorf("clear blocked reason: %w", err)
+		}
+		changed = true
+	}
+	if before.Status != after.Status && before.Status == "done" && after.Status != "done" && after.CompletedAt.Valid {
+		if _, err := tx.Exec(ctx, `UPDATE task_requests SET completed_at = NULL WHERE record_id = $1`, recordID); err != nil {
+			return false, fmt.Errorf("clear completed at: %w", err)
+		}
+		changed = true
+	}
+	if after.Status == "done" && !after.CompletedAt.Valid && !explicitCompletedAt {
+		if _, err := tx.Exec(ctx, `UPDATE task_requests SET completed_at = $2 WHERE record_id = $1`, recordID, now); err != nil {
+			return false, fmt.Errorf("fill completed at: %w", err)
+		}
+		changed = true
+	}
+	after, err = loadTaskLifecycleStateTx(ctx, tx, recordID)
+	if err != nil {
+		return false, err
+	}
+	if err := validateTaskCreateState(after); err != nil {
+		return false, err
+	}
+	return changed, nil
+}
+
+func validateTaskCreateState(state taskLifecycleState) error {
+	violated := taskLifecycleViolations(state)
+	if len(violated) > 0 {
+		return &LifecycleValidationError{ToStatus: state.Status, ReasonCode: "violated_lifecycle_guards", ViolatedGuards: violated}
+	}
+	return nil
+}
+
+func taskLifecycleViolations(state taskLifecycleState) []string {
+	violated := []string{}
+	if state.Status == "blocked" && !state.BlockedReason.Valid {
+		violated = append(violated, "blocked_requires_reason")
+	}
+	if state.Status != "blocked" && state.BlockedReason.Valid {
+		violated = append(violated, "non_blocked_clears_reason")
+	}
+	if state.Status == "done" {
+		if !state.CompletedAt.Valid {
+			violated = append(violated, "done_requires_completed_at")
+		} else if state.CompletedAt.Time.Before(state.CreatedAt) {
+			violated = append(violated, "completed_at_before_created_at")
+		}
+	}
+	if state.Status != "done" && state.CompletedAt.Valid {
+		violated = append(violated, "non_done_clears_completed_at")
+	}
+	if (state.Status == "open" || state.Status == "in_progress" || state.Status == "blocked") && !state.OwnerUserID.Valid {
+		violated = append(violated, "active_task_requires_owner")
+	}
+	return violated
+}
+
+func validTaskTransition(from string, to string) bool {
+	if from == to {
+		return true
+	}
+	switch from {
+	case "open", "in_progress", "blocked":
+		return to == "open" || to == "in_progress" || to == "blocked" || to == "done" || to == "canceled"
+	case "done":
+		return to == "open" || to == "in_progress" || to == "blocked"
+	case "canceled":
+		return to == "open" || to == "in_progress" || to == "blocked"
+	default:
+		return false
+	}
+}
+
+func loadDecisionStatusTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (string, error) {
+	var status string
+	err := tx.QueryRow(ctx, `SELECT status FROM decisions WHERE record_id = $1`, recordID).Scan(&status)
+	return status, err
+}
+
+func validateDecisionStatusTransition(from string, to string) error {
+	if !validDecisionStatus(to) {
+		return mutationValidationError("decision.status", "invalid_value")
+	}
+	if to == "superseded" {
+		return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: "superseded_direct_write", ViolatedGuards: []string{"decision.status"}}
+	}
+	if from == to {
+		return nil
+	}
+	if (from == "proposed" && (to == "approved" || to == "rejected" || to == "executed")) ||
+		(from == "approved" && to == "executed") {
+		return nil
+	}
+	return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: "illegal_status_transition", ViolatedGuards: []string{"decision.status"}}
+}
+
+func nullableStringFromAny(value any) sql.NullString {
+	if text, ok := value.(string); ok && text != "" {
+		return sql.NullString{String: text, Valid: true}
+	}
+	return sql.NullString{}
+}
+
+func nullableTimeFromAny(value any) sql.NullTime {
+	if timestamp, ok := value.(time.Time); ok {
+		return sql.NullTime{Time: timestamp, Valid: true}
+	}
+	return sql.NullTime{}
+}
+
+func nullableUUIDStringFromAny(value any) sql.NullString {
+	switch typed := value.(type) {
+	case uuid.UUID:
+		return sql.NullString{String: typed.String(), Valid: true}
+	default:
+		return sql.NullString{}
+	}
+}
+
+func touchesField(changes []PatchChange, fieldKey string) bool {
+	for _, change := range changes {
+		if change.FieldKey == fieldKey {
+			return true
+		}
+	}
+	return false
+}
+
+func touchesAnyField(changes []PatchChange, fieldKeys ...string) bool {
+	for _, fieldKey := range fieldKeys {
+		if touchesField(changes, fieldKey) {
+			return true
+		}
+	}
+	return false
 }
 
 func isUniqueViolation(err error) bool {

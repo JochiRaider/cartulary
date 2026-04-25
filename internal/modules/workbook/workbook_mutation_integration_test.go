@@ -154,6 +154,165 @@ func TestWorkbook_PartiesAndCoordinationMutations(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, immutableLessonID, http.StatusBadRequest, "invalid_mutation_payload")
 }
 
+func TestWorkbook_NotesTasksAndDecisionsMutations(t *testing.T) {
+	harness := phase4test.StartServer(t, "workbook-notes-tasks-decisions-mutations")
+	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-workbook-required-surfaces-incident",
+		"incident_key":  "IR-WORKBOOK-REQUIRED-MUTATE",
+		"title":         "Workbook required surface mutations",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	beforeNoteFailures := countIncidentRecords(t, harness, incidentID)
+	blankNote := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.notes.v1", uuid.Nil, map[string]any{
+		"client_txn_id": "txn-workbook-note-blank",
+	})
+	httptestx.RequireErrorEnvelope(t, blankNote, http.StatusBadRequest, "invalid_mutation_payload")
+	tagOnlyNote := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.notes.v1", uuid.Nil, map[string]any{
+		"client_txn_id": "txn-workbook-note-tag-only",
+		"note.tags":     collectionActions(addToken("triage")),
+	})
+	httptestx.RequireErrorEnvelope(t, tagOnlyNote, http.StatusBadRequest, "invalid_mutation_payload")
+	if got := countIncidentRecords(t, harness, incidentID); got != beforeNoteFailures {
+		t.Fatalf("rejected note creates wrote records: got %d want %d", got, beforeNoteFailures)
+	}
+
+	noteData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.notes.v1", map[string]any{
+		"client_txn_id": "txn-workbook-note-create",
+		"note.title":    "  Analyst note  ",
+		"note.body":     "  First line\n\nSecond line  ",
+		"note.tags":     collectionActions(addToken(" Investigation "), addToken("Investigation")),
+	})
+	noteRow := noteData["row"].(map[string]any)
+	noteID := phase4test.MustUUID(t, noteRow["record_id"].(string))
+	requireCellValue(t, noteRow, "note.title", "Analyst note")
+	requireCollectionItemCount(t, noteRow, "note.tags", 1)
+	noteReplay := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.notes.v1", uuid.Nil, map[string]any{
+		"client_txn_id": "txn-workbook-note-create",
+		"note.title":    "  Analyst note  ",
+		"note.body":     "  First line\n\nSecond line  ",
+		"note.tags":     collectionActions(addToken(" Investigation "), addToken("Investigation")),
+	})
+	httptestx.RequireSuccessEnvelope(t, noteReplay, http.StatusOK)
+	notePatch := requireWorkbookPatch(t, harness, adminLogin, noteID, map[string]any{
+		"view_schema_id":   "cartulary.view.notes.v1",
+		"base_row_version": 1,
+		"client_txn_id":    "txn-workbook-note-patch",
+		"changes": []map[string]any{
+			{"field_key": "note.body", "value": "Updated note body"},
+			{"field_key": "note.tags", "action_payload": collectionActions(addToken("follow-up"))},
+		},
+	})
+	notePatchedRow := notePatch["row"].(map[string]any)
+	requireCellValue(t, notePatchedRow, "note.body", "Updated note body")
+	requireCollectionItemCount(t, notePatchedRow, "note.tags", 2)
+
+	supportID := seedEvidenceRecord(t, harness, incidentID, adminUserID, "Support packet capture")
+	partyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
+		"client_txn_id":      "txn-workbook-task-requester-party",
+		"party.display_name": "Incident Commander",
+		"party.party_kind":   "person",
+	})
+	partyRow := partyData["row"].(map[string]any)
+	partyID := phase4test.MustUUID(t, partyRow["record_id"].(string))
+
+	beforeTaskFailure := countIncidentRecords(t, harness, incidentID)
+	invalidTask := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.task_requests.v1", uuid.Nil, map[string]any{
+		"client_txn_id":  "txn-workbook-task-invalid",
+		"task.title":     "Blocked task without reason",
+		"task.task_kind": "collection",
+		"task.status":    "blocked",
+	})
+	httptestx.RequireErrorEnvelope(t, invalidTask, http.StatusConflict, "illegal_transition")
+	if got := countIncidentRecords(t, harness, incidentID); got != beforeTaskFailure {
+		t.Fatalf("rejected task create wrote records: got %d want %d", got, beforeTaskFailure)
+	}
+
+	decisionData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.decisions.v1", map[string]any{
+		"client_txn_id":          "txn-workbook-decision-create",
+		"decision.summary":       "Contain endpoint",
+		"decision.decision_type": "containment",
+		"decision.rationale":     "Containment is required to preserve evidence.",
+		"decision.support_refs":  collectionActions(addRecordRef(supportID)),
+	})
+	decisionRow := decisionData["row"].(map[string]any)
+	decisionID := phase4test.MustUUID(t, decisionRow["record_id"].(string))
+	requireCellValue(t, decisionRow, "decision.status", "proposed")
+	requireCellValue(t, decisionRow, "decision.owner_user_id", adminUserID.String())
+	requireCollectionItemCount(t, decisionRow, "decision.support_refs", 1)
+
+	supersededDecision := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.decisions.v1", uuid.Nil, map[string]any{
+		"client_txn_id":          "txn-workbook-decision-superseded",
+		"decision.summary":       "Invalid superseded create",
+		"decision.decision_type": "scope",
+		"decision.rationale":     "Superseded cannot be directly created.",
+		"decision.status":        "superseded",
+	})
+	httptestx.RequireErrorEnvelope(t, supersededDecision, http.StatusConflict, "illegal_transition")
+
+	taskData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.task_requests.v1", map[string]any{
+		"client_txn_id":             "txn-workbook-task-create",
+		"task.title":                "Collect endpoint logs",
+		"task.task_kind":            "collection",
+		"task.requester_party_id":   partyID.String(),
+		"task.decision_record_id":   decisionID.String(),
+		"task.linked_record_ids":    collectionActions(addRecordRef(supportID), addRecordRef(supportID)),
+		"task.requester_party_text": "Incident Commander",
+	})
+	taskRow := taskData["row"].(map[string]any)
+	taskID := phase4test.MustUUID(t, taskRow["record_id"].(string))
+	requireCellValue(t, taskRow, "task.status", "open")
+	requireCellValue(t, taskRow, "task.owner_user_id", adminUserID.String())
+	requireCellValue(t, taskRow, "task.priority", "normal")
+	requireCellValue(t, taskRow, "task.decision_record_id", decisionID.String())
+	requireCellValue(t, taskRow, "task.linked_record_count", float64(1))
+	requireCollectionItemCount(t, taskRow, "task.linked_record_ids", 1)
+
+	taskDone := requireWorkbookPatch(t, harness, adminLogin, taskID, map[string]any{
+		"view_schema_id":   "cartulary.view.task_requests.v1",
+		"base_row_version": 1,
+		"client_txn_id":    "txn-workbook-task-done",
+		"changes": []map[string]any{
+			{"field_key": "task.status", "value": "done"},
+		},
+	})
+	taskDoneRow := taskDone["row"].(map[string]any)
+	requireCellValue(t, taskDoneRow, "task.status", "done")
+	requireNonEmptyCellValue(t, taskDoneRow, "task.completed_at")
+
+	taskDoneToCanceled := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", taskID, map[string]any{
+		"view_schema_id":   "cartulary.view.task_requests.v1",
+		"base_row_version": 2,
+		"client_txn_id":    "txn-workbook-task-done-canceled",
+		"changes": []map[string]any{
+			{"field_key": "task.status", "value": "canceled"},
+		},
+	})
+	httptestx.RequireErrorEnvelope(t, taskDoneToCanceled, http.StatusConflict, "illegal_transition")
+
+	decisionApproved := requireWorkbookPatch(t, harness, adminLogin, decisionID, map[string]any{
+		"view_schema_id":   "cartulary.view.decisions.v1",
+		"base_row_version": 1,
+		"client_txn_id":    "txn-workbook-decision-approved",
+		"changes": []map[string]any{
+			{"field_key": "decision.status", "value": "approved"},
+		},
+	})
+	decisionApprovedRow := decisionApproved["row"].(map[string]any)
+	requireCellValue(t, decisionApprovedRow, "decision.status", "approved")
+
+	decisionApprovedToRejected := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", decisionID, map[string]any{
+		"view_schema_id":   "cartulary.view.decisions.v1",
+		"base_row_version": 2,
+		"client_txn_id":    "txn-workbook-decision-approved-rejected",
+		"changes": []map[string]any{
+			{"field_key": "decision.status", "value": "rejected"},
+		},
+	})
+	httptestx.RequireErrorEnvelope(t, decisionApprovedToRejected, http.StatusConflict, "illegal_transition")
+}
+
 func requireWorkbookCreate(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {
 	t.Helper()
 	resp := doWorkbookJSON(t, harness, login, http.MethodPost, incidentID, viewSchemaID, uuid.Nil, body)
@@ -188,6 +347,15 @@ func requireCellValue(t testing.TB, row map[string]any, fieldKey string, want an
 	got := cells[fieldKey].(map[string]any)["value"]
 	if got != want {
 		t.Fatalf("unexpected %s value: got %#v want %#v", fieldKey, got, want)
+	}
+}
+
+func requireNonEmptyCellValue(t testing.TB, row map[string]any, fieldKey string) {
+	t.Helper()
+	cells := row["cells"].(map[string]any)
+	got := cells[fieldKey].(map[string]any)["value"]
+	if got == nil || got == "" {
+		t.Fatalf("expected non-empty %s value, got %#v", fieldKey, got)
 	}
 }
 
@@ -261,4 +429,8 @@ func addPartyRef(partyID uuid.UUID) map[string]any {
 
 func addRiskRef(text string) map[string]any {
 	return map[string]any{"op": "add_risk_ref", "risk_ref_text": text}
+}
+
+func addToken(text string) map[string]any {
+	return map[string]any{"op": "add_token", "raw_text": text}
 }
