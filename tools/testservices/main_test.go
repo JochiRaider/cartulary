@@ -15,6 +15,7 @@ import (
 
 func TestRunPassThroughModeStartsNoServices(t *testing.T) {
 	receivedEnv := map[string]string{}
+	recordedEvents := []suiteservices.Event{}
 	deps := dependencies{
 		startPostgres: func(context.Context) (postgresService, error) {
 			t.Fatal("startPostgres must not run in pass-through mode")
@@ -29,7 +30,9 @@ func TestRunPassThroughModeStartsNoServices(t *testing.T) {
 			return fakeChild{}, nil
 		},
 		createTemplate: func(context.Context, string, string) error { return nil },
-		recordEvent:    func(map[string]string, suiteservices.Event) {},
+		recordEvent: func(_ map[string]string, event suiteservices.Event) {
+			recordedEvents = append(recordedEvents, event)
+		},
 		refreshSummary: func(map[string]string) {},
 		suiteID: func() (string, error) {
 			return "unused", nil
@@ -49,6 +52,9 @@ func TestRunPassThroughModeStartsNoServices(t *testing.T) {
 	}
 	if receivedEnv["CARTULARY_SENTINEL_VAR"] != "preserved" {
 		t.Fatalf("expected child to inherit existing environment, got %#v", receivedEnv)
+	}
+	if len(recordedEvents) != 1 || recordedEvents[0].Type != suiteservices.EventWrapperPassThrough {
+		t.Fatalf("expected one pass-through wrapper event, got %#v", recordedEvents)
 	}
 }
 

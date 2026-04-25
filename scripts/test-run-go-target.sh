@@ -262,6 +262,44 @@ cleanup_paths+=("$shared_reuse_results")
   fi
 )
 
+shared_lock_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-shared-lock.XXXXXX")"
+cleanup_paths+=("$shared_lock_results")
+(
+  export CARTULARY_TEST_RESULTS_DIR="$shared_lock_results/results"
+  export CARTULARY_TEST_RUN_ID="shared-lock"
+  export NODE_BIN="$node_bin"
+  source "$GO_TARGET_HELPER"
+
+  shared_dir="$(prepare_shared_artifact_dir backend-integration-core)"
+  acquire_shared_report_lock "$shared_dir" backend-integration-core
+  assert_equals "$(<"$shared_dir/capture.lock/shared_report")" "backend-integration-core" "shared lock report name"
+  assert_equals "$(<"$shared_dir/capture.lock/pid")" "$$" "shared lock owner pid"
+
+  set +e
+  lock_timeout_output="$(
+    CARTULARY_SHARED_REPORT_LOCK_TIMEOUT_SECONDS=1 \
+      acquire_shared_report_lock "$shared_dir" backend-integration-core \
+      2>&1
+  )"
+  lock_timeout_status=$?
+  set -e
+  if [[ "$lock_timeout_status" -eq 0 ]]; then
+    fail "shared lock timeout: expected second lock acquisition to fail"
+  fi
+  assert_contains "$lock_timeout_output" "shared_go_report_lock_timeout" "shared lock timeout marker"
+
+  release_shared_report_lock "$shared_dir"
+  if [[ -e "$shared_dir/capture.lock" ]]; then
+    fail "shared lock release: capture.lock must be removed"
+  fi
+
+  mkdir -p "$shared_dir/capture.lock"
+  printf '%s\n' "999999" >"$shared_dir/capture.lock/pid"
+  acquire_shared_report_lock "$shared_dir" backend-integration-core
+  assert_equals "$(<"$shared_dir/capture.lock/pid")" "$$" "shared lock stale owner replacement"
+  release_shared_report_lock "$shared_dir"
+)
+
 backend_unit_structure="$(
   export NODE_BIN="$node_bin"
   source "$GO_TARGET_HELPER"

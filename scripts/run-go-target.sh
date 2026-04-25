@@ -134,6 +134,64 @@ emit_declared_support_phase() {
   emit_go_raw_phase "${phase_label}" "${duration_mode}" "${report_dir}" "${support_regex}" "${packages[@]}"
 }
 
+acquire_shared_report_lock() {
+  if [[ "$#" -ne 2 ]]; then
+    echo "acquire_shared_report_lock requires <shared-dir> <shared-name>" >&2
+    return 2
+  fi
+
+  local shared_dir="$1"
+  local shared_name="$2"
+  local lock_dir="${shared_dir}/capture.lock"
+  local timeout_seconds="${CARTULARY_SHARED_REPORT_LOCK_TIMEOUT_SECONDS:-300}"
+  local start_ms
+  local now_ms
+  local elapsed_ms
+  local owner_pid
+
+  if [[ ! "${timeout_seconds}" =~ ^[0-9]+$ ]] || (( timeout_seconds < 1 )); then
+    echo "invalid CARTULARY_SHARED_REPORT_LOCK_TIMEOUT_SECONDS=${timeout_seconds}" >&2
+    return 2
+  fi
+
+  start_ms="$(phase_now_monotonic_ms)"
+  while true; do
+    if mkdir "${lock_dir}" 2>/dev/null; then
+      printf '%s\n' "$$" >"${lock_dir}/pid"
+      printf '%s\n' "${shared_name}" >"${lock_dir}/shared_report"
+      printf '%s\n' "$(phase_now_utc)" >"${lock_dir}/acquired_at"
+      return 0
+    fi
+
+    owner_pid="$(cat "${lock_dir}/pid" 2>/dev/null || true)"
+    if [[ "${owner_pid}" =~ ^[0-9]+$ ]] && ! kill -0 "${owner_pid}" 2>/dev/null; then
+      rm -rf -- "${lock_dir}"
+      continue
+    fi
+
+    now_ms="$(phase_now_monotonic_ms)"
+    elapsed_ms="$(phase_elapsed_ms "${start_ms}" "${now_ms}")"
+    if (( elapsed_ms >= timeout_seconds * 1000 )); then
+      echo "shared_go_report_lock_timeout report=${shared_name} lock=${lock_dir}" >&2
+      if [[ -f "${lock_dir}/pid" ]]; then
+        echo "lock owner pid: $(<"${lock_dir}/pid")" >&2
+      fi
+      return 1
+    fi
+
+    sleep 0.1
+  done
+}
+
+release_shared_report_lock() {
+  if [[ "$#" -ne 1 ]]; then
+    echo "release_shared_report_lock requires <shared-dir>" >&2
+    return 2
+  fi
+
+  rm -rf -- "$1/capture.lock"
+}
+
 backend_integration_core_shared_spec() {
   if [[ "$#" -ne 2 ]]; then
     echo "backend_integration_core_shared_spec requires <regex-var> <args-var>" >&2
@@ -341,8 +399,31 @@ capture_go_report() {
   fi
 
   local shared_name="$1"
-  local test_regex="$2"
-  shift 2
+  local shared_dir
+  local capture_status
+
+  shared_dir="$(prepare_shared_artifact_dir "${shared_name}")"
+  acquire_shared_report_lock "${shared_dir}" "${shared_name}" || return $?
+
+  set +e
+  capture_go_report_locked "${shared_dir}" "$@"
+  capture_status=$?
+  set -e
+
+  release_shared_report_lock "${shared_dir}" || true
+  return "${capture_status}"
+}
+
+capture_go_report_locked() {
+  if [[ "$#" -lt 5 ]]; then
+    echo "capture_go_report_locked requires <shared-dir> <shared-name> <regex> -- <go test args...>" >&2
+    return 2
+  fi
+
+  local shared_dir="$1"
+  local shared_name="$2"
+  local test_regex="$3"
+  shift 3
 
   if [[ "$1" != "--" ]]; then
     echo "capture_go_report requires -- before go test args" >&2
@@ -363,7 +444,6 @@ capture_go_report() {
   local complete_file
   local existing_command
 
-  shared_dir="$(prepare_shared_artifact_dir "${shared_name}")"
   complete_file="${shared_dir}/complete"
   runner_log="${shared_dir}/runner.jsonl"
   stderr_log="${shared_dir}/stderr.log"

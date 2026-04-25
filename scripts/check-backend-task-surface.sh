@@ -101,9 +101,80 @@ if (values.length > 0) {
 EOF
 }
 
+target_plan_boolean_targets() {
+  local field="$1"
+  local expected="$2"
+
+  "$node_bin" - "$target_plan_file" "$field" "$expected" <<'EOF'
+const fs = require("node:fs");
+
+const [planFile, field, expectedRaw] = process.argv.slice(2);
+const expected = expectedRaw === "true";
+const rows = JSON.parse(fs.readFileSync(planFile, "utf8"));
+const targets = new Set();
+for (const row of rows) {
+  if (row[field] === expected) {
+    targets.add(row.target);
+  }
+}
+const values = Array.from(targets).sort();
+if (values.length > 0) {
+  process.stdout.write(`${values.join("\n")}\n`);
+}
+EOF
+}
+
+list_target_plan_service_backed_unsafe_targets() {
+  "$node_bin" - "$target_plan_file" <<'EOF'
+const fs = require("node:fs");
+
+const [planFile] = process.argv.slice(2);
+const rows = JSON.parse(fs.readFileSync(planFile, "utf8"));
+const targets = new Set();
+for (const row of rows) {
+  if (row.service_backed === true && row.check_service_backed_safe !== true) {
+    targets.add(row.target);
+  }
+}
+const values = Array.from(targets).sort();
+if (values.length > 0) {
+  process.stdout.write(`${values.join("\n")}\n`);
+}
+EOF
+}
+
+assert_text_contains_targets() {
+  local label="$1"
+  local text="$2"
+  shift 2
+
+  local target
+  for target in "$@"; do
+    if ! printf '%s\n' "$text" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
+      fail "$label must include target-plan target $target"
+    fi
+  done
+}
+
+assert_text_excludes_targets() {
+  local label="$1"
+  local text="$2"
+  shift 2
+
+  local target
+  for target in "$@"; do
+    if printf '%s\n' "$text" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
+      fail "$label must not include target-plan target $target"
+    fi
+  done
+}
+
 target_plan_file="$(mktemp)"
 trap 'rm -f "$target_plan_file"' EXIT
 "$node_bin" "$repo_root/scripts/print-target-plan.mjs" --json >"$target_plan_file"
+mapfile -t target_plan_check_heavy_targets < <(target_plan_boolean_targets check_heavy_safe true)
+mapfile -t target_plan_service_backed_safe_targets < <(target_plan_boolean_targets check_service_backed_safe true)
+mapfile -t target_plan_service_backed_unsafe_targets < <(list_target_plan_service_backed_unsafe_targets)
 
 check_heavy_line="$(sed -n 's/^check-heavy:[[:space:]]*//p' "$makefile" | head -n 1)"
 if [[ -z "$check_heavy_line" ]]; then
@@ -124,19 +195,8 @@ if ! printf '%s\n' "$check_parallel_line" | rg -q '(^|[[:space:]])check-harness-
 fi
 
 read -r -a heavy_prereqs <<<"$check_heavy_line"
-service_backed_targets=(
-  backend-store
-  backend-integration
-  backend-integration-support
-  backend-process
-)
-for target in "${service_backed_targets[@]}"; do
-  for prereq in "${heavy_prereqs[@]}"; do
-    if [[ "$prereq" == "$target" ]]; then
-      fail "check-heavy must not include service-backed target $target"
-    fi
-  done
-done
+assert_text_contains_targets "check-heavy prerequisites" "$check_heavy_line" "${target_plan_check_heavy_targets[@]}"
+assert_text_excludes_targets "check-heavy prerequisites" "$check_heavy_line" "${target_plan_service_backed_safe_targets[@]}" "${target_plan_service_backed_unsafe_targets[@]}"
 
 if grep -Fq 'rg --files' "$makefile"; then
   fail "Makefile must not use parse-time rg --files for build input discovery"
@@ -492,6 +552,9 @@ done
 
 check_service_lane_b_prereqs="$(extract_target_prereqs check-service-backed-lane-b)"
 check_service_lane_b_block="$(extract_target_block check-service-backed-lane-b)"
+check_service_backend_lane_text="${check_service_lane_a_block}"$'\n'"${check_service_lane_b_prereqs}"$'\n'"${check_service_lane_b_block}"
+assert_text_contains_targets "check-service-backed lanes" "$check_service_backend_lane_text" "${target_plan_service_backed_safe_targets[@]}"
+assert_text_excludes_targets "check-service-backed lanes" "$check_service_backend_lane_text" "${target_plan_check_heavy_targets[@]}" "${target_plan_service_backed_unsafe_targets[@]}"
 for target in backend-store backend-process; do
   if ! printf '%s\n' "$check_service_lane_b_prereqs" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
     fail "check-service-backed-lane-b must invoke $target"
@@ -567,6 +630,9 @@ done
 
 test_fast_lane_b_prereqs="$(extract_target_prereqs test-fast-service-backed-lane-b)"
 test_fast_lane_b_block="$(extract_target_block test-fast-service-backed-lane-b)"
+test_fast_backend_lane_text="${test_fast_lane_a_block}"$'\n'"${test_fast_lane_b_prereqs}"$'\n'"${test_fast_lane_b_block}"
+assert_text_contains_targets "test-fast-service-backed lanes" "$test_fast_backend_lane_text" "${target_plan_service_backed_safe_targets[@]}"
+assert_text_excludes_targets "test-fast-service-backed lanes" "$test_fast_backend_lane_text" "${target_plan_check_heavy_targets[@]}" "${target_plan_service_backed_unsafe_targets[@]}"
 for target in backend-store backend-process; do
   if ! printf '%s\n' "$test_fast_lane_b_prereqs" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
     fail "test-fast-service-backed-lane-b must invoke $target"
