@@ -5,7 +5,8 @@ SHELL := /bin/bash
 .PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install
 .PHONY: db-up db-reset services-up services-wait postgres-wait minio-wait minio-init dev
 .PHONY: generate generate-drift toolchain-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-ledgers phase-ledger-drift benchmark-claim-check task-surface-report task-surface-check
-.PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check test-service-images run-phase-smoke phase-test-name-check
+.PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check test-service-images run-phase-smoke run-phase-smoke-all phase-test-name-check
+.PHONY: harness-smoke-toolchain-pins harness-smoke-bootstrap-node-runtime harness-smoke-build-input-discovery harness-smoke-run-make-sequence harness-smoke-release-task-surface harness-smoke-benchmark-claim-check harness-smoke-task-surface-report harness-smoke-run-phase harness-smoke-run-go-target harness-smoke-print-target-plan harness-smoke-run-playwright-phase harness-smoke-run-playwright-manifest-phase harness-smoke-run-vitest-phase harness-smoke-run-vitest-manifest-phase harness-smoke-web-e2e-lifecycle harness-smoke-dev-stack-lifecycle
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck format format-frontend
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-resettable browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
 .PHONY: test-local test-service-backed test-service-backed-lane-a test-service-backed-lane-b test-service-backed-lane-browser test-isolated test-fast test-fast-service-backed test-fast-service-backed-lane-a test-fast-service-backed-lane-b test lint lint-go check check-preflight check-setup-blockers check-static-validation check-harness-smoke check-parallel check-heavy check-service-backed check-service-backed-lane-a check-service-backed-lane-b check-isolated ci release-check license-report sbom
@@ -22,6 +23,7 @@ GO_RUN_ENV := GOCACHE=$(GO_CACHE_DIR) GOMODCACHE=$(GO_MOD_CACHE_DIR)
 NODE_VERSION ?= 24.15.0
 PNPM_VERSION ?= 10.33.0
 CHECK_JOBS ?= 4
+HARNESS_SMOKE_JOBS ?= 4
 SERVICE_BACKED_JOBS ?= 2
 TEST_SERVICE_BACKED_JOBS ?= 3
 BROWSER_E2E_JOBS ?= 3
@@ -50,6 +52,7 @@ GO_ENV := env $(GO_RUN_ENV)
 PNPM_ENV := env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack"
 BROWSER_E2E_OWNED_STACK_ENV := PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) CARTULARY_TEST_SERVICES_BIN=$(TEST_SERVICES_BIN) CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES=1
 Q := @
+comma := ,
 RUN_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-phase.sh
 RUN_GO_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-go-phase.sh
 RUN_GO_MANIFEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-go-manifest-phase.sh
@@ -78,6 +81,10 @@ CHECK_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integ
 TEST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed
 TEST_FAST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process
 CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed
+HARNESS_SMOKE_CORE_TARGETS := harness-smoke-toolchain-pins,harness-smoke-bootstrap-node-runtime,harness-smoke-build-input-discovery,harness-smoke-run-make-sequence,harness-smoke-release-task-surface,harness-smoke-benchmark-claim-check,harness-smoke-task-surface-report,harness-smoke-run-phase,harness-smoke-run-go-target,harness-smoke-print-target-plan,harness-smoke-run-playwright-phase,harness-smoke-run-playwright-manifest-phase,harness-smoke-run-vitest-phase,harness-smoke-run-vitest-manifest-phase
+HARNESS_SMOKE_LIFECYCLE_TARGETS := harness-smoke-web-e2e-lifecycle,harness-smoke-dev-stack-lifecycle
+HARNESS_SMOKE_TARGETS := $(HARNESS_SMOKE_CORE_TARGETS),$(HARNESS_SMOKE_LIFECYCLE_TARGETS)
+HARNESS_SMOKE_GROUPS := core=$(HARNESS_SMOKE_CORE_TARGETS);lifecycle=$(HARNESS_SMOKE_LIFECYCLE_TARGETS)
 
 define resolve_service_go_test_p
 $(if $(filter environment environment override command line override,$(origin $(1))),$($(1)),$(if $(filter environment environment override command line override,$(origin GO_TEST_SERVICE_PACKAGE_PARALLELISM)),$(GO_TEST_SERVICE_PACKAGE_PARALLELISM),$($(1))))
@@ -449,8 +456,40 @@ task-surface-report: $(NODE_BIN)
 task-surface-check: $(NODE_BIN)
 	$(RUN_PHASE) "task-surface-check" -- $(NODE_BIN) ./scripts/print-task-surface-report.mjs --check
 
+define harness_smoke_target
+$(1): $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)CARTULARY_TEST_TARGET=$(1) $(RUN_PHASE_SCRIPT) "$(1)" -- env -u CARTULARY_TEST_TARGET ./$(2); status=$$$$?; \
+	summary_status=0; \
+	if [ $$$$status -eq 0 ]; then \
+		NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary $(1) pass || summary_status=$$$$?; \
+	else \
+		NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary $(1) fail || summary_status=$$$$?; \
+	fi; \
+	if [ $$$$status -ne 0 ]; then exit $$$$status; fi; \
+	exit $$$$summary_status
+endef
+
+$(eval $(call harness_smoke_target,harness-smoke-toolchain-pins,scripts/test-check-toolchain-pins.sh))
+$(eval $(call harness_smoke_target,harness-smoke-bootstrap-node-runtime,scripts/test-bootstrap-node-runtime.sh))
+$(eval $(call harness_smoke_target,harness-smoke-build-input-discovery,scripts/test-build-input-discovery.sh))
+$(eval $(call harness_smoke_target,harness-smoke-run-make-sequence,scripts/test-run-make-sequence.sh))
+$(eval $(call harness_smoke_target,harness-smoke-release-task-surface,scripts/test-release-task-surface.sh))
+$(eval $(call harness_smoke_target,harness-smoke-benchmark-claim-check,scripts/test-benchmark-claim-check.sh))
+$(eval $(call harness_smoke_target,harness-smoke-task-surface-report,scripts/test-task-surface-report.sh))
+$(eval $(call harness_smoke_target,harness-smoke-run-phase,scripts/test-run-phase.sh))
+$(eval $(call harness_smoke_target,harness-smoke-run-go-target,scripts/test-run-go-target.sh))
+$(eval $(call harness_smoke_target,harness-smoke-print-target-plan,scripts/test-print-target-plan.sh))
+$(eval $(call harness_smoke_target,harness-smoke-run-playwright-phase,scripts/test-run-playwright-phase.sh))
+$(eval $(call harness_smoke_target,harness-smoke-run-playwright-manifest-phase,scripts/test-run-playwright-manifest-phase.sh))
+$(eval $(call harness_smoke_target,harness-smoke-run-vitest-phase,scripts/test-run-vitest-phase.sh))
+$(eval $(call harness_smoke_target,harness-smoke-run-vitest-manifest-phase,scripts/test-run-vitest-manifest-phase.sh))
+$(eval $(call harness_smoke_target,harness-smoke-web-e2e-lifecycle,scripts/test-web-e2e-lifecycle.sh))
+$(eval $(call harness_smoke_target,harness-smoke-dev-stack-lifecycle,scripts/test-dev-stack-lifecycle.sh))
+
+run-phase-smoke-all: $(subst $(comma), ,$(HARNESS_SMOKE_TARGETS))
+
 run-phase-smoke: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(RUN_PHASE) "run-phase-smoke" -- bash -lc './scripts/test-check-toolchain-pins.sh && ./scripts/test-bootstrap-node-runtime.sh && ./scripts/test-build-input-discovery.sh && ./scripts/test-run-make-sequence.sh && ./scripts/test-release-task-surface.sh && ./scripts/test-benchmark-claim-check.sh && ./scripts/test-task-surface-report.sh && ./scripts/test-run-phase.sh && ./scripts/test-run-go-target.sh && ./scripts/test-print-target-plan.sh && ./scripts/test-run-playwright-phase.sh && ./scripts/test-run-playwright-manifest-phase.sh && ./scripts/test-run-vitest-phase.sh && ./scripts/test-run-vitest-manifest-phase.sh && ./scripts/test-web-e2e-lifecycle.sh && ./scripts/test-dev-stack-lifecycle.sh'
+	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label run-phase-smoke --summary-targets "$(HARNESS_SMOKE_TARGETS)" --summary-groups "$(HARNESS_SMOKE_GROUPS)" --parallel-step run-phase-smoke-all:$(HARNESS_SMOKE_JOBS)
 
 phase-test-name-check:
 	$(RUN_PHASE) "phase-test-name-check" -- ./scripts/check-phase-test-names.sh

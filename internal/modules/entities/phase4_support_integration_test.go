@@ -22,13 +22,14 @@ import (
 )
 
 func TestSupportPhase4Integration_SurfaceEnvelope(t *testing.T) {
+	suite := newPhase4SupportSuite(t, "surface-envelope")
 	for _, route := range phase4test.RoutesForHarness(
 		t,
 		phase4test.Phase4RouteInventory(phase4test.RouteInventoryContext{}),
 		phase4test.RouteHarnessSurfaceEnvelope,
 	) {
 		t.Run(string(route.Key), func(t *testing.T) {
-			scenario := newPhase4SupportScenario(t, "surface-envelope", route)
+			scenario := suite.newScenario(t, route)
 			data := scenario.requireRouteSuccess(t, route, supportTxn("surface", route.Key), nil)
 			assertRouteSuccessShape(t, route, scenario, data)
 		})
@@ -36,13 +37,14 @@ func TestSupportPhase4Integration_SurfaceEnvelope(t *testing.T) {
 }
 
 func TestSupportPhase4Integration_CSRFProtection(t *testing.T) {
+	suite := newPhase4SupportSuite(t, "csrf")
 	for _, route := range phase4test.RoutesForHarness(
 		t,
 		phase4test.Phase4RouteInventory(phase4test.RouteInventoryContext{}),
 		phase4test.RouteHarnessCSRF,
 	) {
 		t.Run(string(route.Key), func(t *testing.T) {
-			scenario := newPhase4SupportScenario(t, "csrf", route)
+			scenario := suite.newScenario(t, route)
 			resp := scenario.doRoute(t, route, supportTxn("csrf", route.Key), nil, false)
 			phase4test.RequireErrorBody(t, resp, http.StatusForbidden, "csrf_verification_failed")
 		})
@@ -50,13 +52,14 @@ func TestSupportPhase4Integration_CSRFProtection(t *testing.T) {
 }
 
 func TestSupportPhase4Integration_ReplayAndDivergentConflict(t *testing.T) {
+	suite := newPhase4SupportSuite(t, "replay")
 	for _, route := range phase4test.RoutesForHarness(
 		t,
 		phase4test.Phase4RouteInventory(phase4test.RouteInventoryContext{}),
 		phase4test.RouteHarnessReplayDivergent,
 	) {
 		t.Run(string(route.Key), func(t *testing.T) {
-			scenario := newPhase4SupportScenario(t, "replay", route)
+			scenario := suite.newScenario(t, route)
 			clientTxnID := supportTxn("replay", route.Key)
 
 			firstData := scenario.requireRouteSuccess(t, route, clientTxnID, nil)
@@ -77,13 +80,14 @@ func TestSupportPhase4Integration_ReplayAndDivergentConflict(t *testing.T) {
 }
 
 func TestSupportPhase4Integration_AuthorizationReDerivation(t *testing.T) {
+	suite := newPhase4SupportSuite(t, "authorization")
 	for _, route := range phase4test.RoutesForHarness(
 		t,
 		phase4test.Phase4RouteInventory(phase4test.RouteInventoryContext{}),
 		phase4test.RouteHarnessAuthorization,
 	) {
 		t.Run(string(route.Key), func(t *testing.T) {
-			scenario := newPhase4SupportScenario(t, "authorization", route)
+			scenario := suite.newScenario(t, route)
 			scenario.applyAuthorizationChange(t, route)
 
 			resp := scenario.doRoute(t, route, supportTxn("authorization", route.Key), nil, true)
@@ -98,13 +102,14 @@ func TestSupportPhase4Integration_AuthorizationReDerivation(t *testing.T) {
 }
 
 func TestSupportPhase4Integration_DefaultQueryMetaAndFieldKeyConformance(t *testing.T) {
+	suite := newPhase4SupportSuite(t, "query-matrix")
 	for _, route := range phase4test.RoutesForHarness(
 		t,
 		phase4test.Phase4RouteInventory(phase4test.RouteInventoryContext{}),
 		phase4test.RouteHarnessQueryFieldMatrix,
 	) {
 		t.Run(string(route.Key), func(t *testing.T) {
-			scenario := newPhase4SupportScenario(t, "query-matrix", route)
+			scenario := suite.newScenario(t, route)
 			data := scenario.requireRouteSuccess(t, route, supportTxn("query", route.Key), nil)
 			recordID := requireAffectedRecordID(t, route, scenario, data)
 
@@ -120,13 +125,14 @@ func TestSupportPhase4Integration_DefaultQueryMetaAndFieldKeyConformance(t *test
 }
 
 func TestSupportPhase4Integration_ProjectionAndWebsocketConsequences(t *testing.T) {
+	suite := newPhase4SupportSuite(t, "effects")
 	for _, route := range phase4test.RoutesForHarness(
 		t,
 		phase4test.Phase4RouteInventory(phase4test.RouteInventoryContext{}),
 		phase4test.RouteHarnessEffects,
 	) {
 		t.Run(string(route.Key), func(t *testing.T) {
-			scenario := newPhase4SupportScenario(t, "effects", route)
+			scenario := suite.newScenario(t, route)
 			var wsClient *wstest.Client
 			if route.WebSocketExpectation == phase4test.RouteWebSocketRecordChanged {
 				wsClient = phase4test.ConnectViewSocket(
@@ -223,54 +229,103 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 }
 
 type phase4SupportScenario struct {
-	harness         *phase4test.ServerHarness
-	bootstrapUserID uuid.UUID
-	actorLogin      phase4test.LoginResult
-	actorUserID     uuid.UUID
-	IncidentID      uuid.UUID
-	routeCtx        phase4test.RouteInventoryContext
+	harness             *phase4test.ServerHarness
+	bootstrapUserID     uuid.UUID
+	actorLogin          phase4test.LoginResult
+	actorUserID         uuid.UUID
+	IncidentID          uuid.UUID
+	routeCtx            phase4test.RouteInventoryContext
+	label               string
+	routeKey            phase4test.RouteKey
+	timelineID          uuid.UUID
+	mentionID           uuid.UUID
+	canonicalHostID     uuid.UUID
+	duplicateHostID     uuid.UUID
+	canonicalIdentityID uuid.UUID
+	duplicateIdentityID uuid.UUID
+	duplicateLinkID     uuid.UUID
+	tagIDSurvivor       uuid.UUID
+	tagIDLoser          uuid.UUID
+	assessmentHostID    uuid.UUID
 }
 
-func newPhase4SupportScenario(t *testing.T, label string, route phase4test.RouteInventoryEntry) *phase4SupportScenario {
+type phase4SupportSuite struct {
+	label           string
+	harness         *phase4test.ServerHarness
+	bootstrapLogin  phase4test.LoginResult
+	bootstrapUserID uuid.UUID
+}
+
+func newPhase4SupportSuite(t *testing.T, label string) *phase4SupportSuite {
 	t.Helper()
 
-	harness := phase4test.StartServer(t, "phase4-support-"+label+"-"+string(route.Key))
+	harness := phase4test.StartRuntime(t).StartServer(t, "phase4-support-"+label)
 	bootstrapLogin, bootstrapUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, bootstrapLogin, map[string]any{
-		"client_txn_id": supportTxn("incident", route.Key),
+	return &phase4SupportSuite{
+		label:           label,
+		harness:         harness,
+		bootstrapLogin:  bootstrapLogin,
+		bootstrapUserID: bootstrapUserID,
+	}
+}
+
+func (s *phase4SupportSuite) newScenario(t *testing.T, route phase4test.RouteInventoryEntry) *phase4SupportScenario {
+	t.Helper()
+
+	incident := phase4test.CreateIncident(t, s.harness.Server, s.bootstrapLogin, map[string]any{
+		"client_txn_id": supportTxn(s.label+"-incident", route.Key),
 		"incident_key":  "IR-P4-" + strings.ToUpper(strings.ReplaceAll(string(route.Key), "_", "-")),
-		"title":         "Phase 4 support matrix " + string(route.Key),
+		"title":         "Phase 4 support matrix " + s.label + " " + string(route.Key),
 	})
 	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 
 	const actorPassword = "SupportAdminPass1!"
 	actorRecord := phase4test.SeedLocalUserFlags(
 		t,
-		harness.DB,
-		"phase4-support-"+string(route.Key)+"@example.test",
+		s.harness.DB,
+		"phase4-support-"+s.label+"-"+string(route.Key)+"@example.test",
 		"Phase 4 Support Admin",
 		actorPassword,
 		false,
 		false,
 		true,
 	)
-	phase4test.SeedIncidentMembership(t, harness.DB, incidentID, actorRecord.ID, actorRecord.DisplayName, "admin", bootstrapUserID)
-	actorLogin := loginLocalSupportUser(t, harness, actorRecord.Email, actorPassword)
+	phase4test.SeedIncidentMembership(t, s.harness.DB, incidentID, actorRecord.ID, actorRecord.DisplayName, "admin", s.bootstrapUserID)
+	actorLogin := loginLocalSupportUser(t, s.harness, actorRecord.Email, actorPassword)
+
+	timelineID := supportUUID(s.label, route.Key, "timeline")
+	mentionID := supportUUID(s.label, route.Key, "mention")
+	canonicalHostID := supportUUID(s.label, route.Key, "canonical-host")
+	duplicateHostID := supportUUID(s.label, route.Key, "duplicate-host")
+	canonicalIdentityID := supportUUID(s.label, route.Key, "canonical-identity")
+	duplicateIdentityID := supportUUID(s.label, route.Key, "duplicate-identity")
 
 	scenario := &phase4SupportScenario{
-		harness:         harness,
-		bootstrapUserID: bootstrapUserID,
-		actorLogin:      actorLogin,
-		actorUserID:     actorRecord.ID,
-		IncidentID:      incidentID,
+		harness:             s.harness,
+		bootstrapUserID:     s.bootstrapUserID,
+		actorLogin:          actorLogin,
+		actorUserID:         actorRecord.ID,
+		IncidentID:          incidentID,
+		label:               s.label,
+		routeKey:            route.Key,
+		timelineID:          timelineID,
+		mentionID:           mentionID,
+		canonicalHostID:     canonicalHostID,
+		duplicateHostID:     duplicateHostID,
+		canonicalIdentityID: canonicalIdentityID,
+		duplicateIdentityID: duplicateIdentityID,
+		duplicateLinkID:     supportUUID(s.label, route.Key, "duplicate-link"),
+		tagIDSurvivor:       supportUUID(s.label, route.Key, "tag-survivor"),
+		tagIDLoser:          supportUUID(s.label, route.Key, "tag-loser"),
+		assessmentHostID:    supportUUID(s.label, route.Key, "assessment-host"),
 		routeCtx: phase4test.RouteInventoryContext{
 			IncidentID:            incidentID.String(),
-			TimelineRecordID:      golden.Phase4TimelineRecordID.String(),
-			MentionID:             golden.Phase4HostMentionID.String(),
-			MergeSurvivorRecordID: golden.Phase4CanonicalHostRecordID.String(),
-			MergeLoserRecordID:    golden.Phase4DuplicateHostRecordID.String(),
-			HostRecordID:          golden.Phase4CanonicalHostRecordID.String(),
-			IdentityRecordID:      golden.Phase4CanonicalIdentityID.String(),
+			TimelineRecordID:      timelineID.String(),
+			MentionID:             mentionID.String(),
+			MergeSurvivorRecordID: canonicalHostID.String(),
+			MergeLoserRecordID:    duplicateHostID.String(),
+			HostRecordID:          canonicalHostID.String(),
+			IdentityRecordID:      canonicalIdentityID.String(),
 		},
 	}
 
@@ -281,11 +336,11 @@ func newPhase4SupportScenario(t *testing.T, label string, route phase4test.Route
 func (s *phase4SupportScenario) seedBaseData(t *testing.T, route phase4test.RouteInventoryEntry) {
 	t.Helper()
 
-	phase4test.SeedTimelineRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, golden.Phase4TimelineRecordID)
-	phase4test.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, golden.Phase4CanonicalHostRecordID, "WS-023", "WS-023", "", "")
-	phase4test.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, golden.Phase4DuplicateHostRecordID, "WS-024", "WS-024", "ws-024.corp.example.test", "")
-	phase4test.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, golden.Phase4CanonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
-	phase4test.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, golden.Phase4DuplicateIdentityID, "Legacy Analyst", "legacy.analyst@example.test", "legacy.analyst@example.test", "LEGACYA")
+	phase4test.SeedTimelineRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.timelineID)
+	phase4test.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.canonicalHostID, "WS-023", "WS-023", "", "")
+	phase4test.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.duplicateHostID, "WS-024", "WS-024", "ws-024.corp.example.test", "")
+	phase4test.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.canonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
+	phase4test.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.duplicateIdentityID, "Legacy Analyst", "legacy.analyst@example.test", "legacy.analyst@example.test", "LEGACYA")
 
 	switch route.Key {
 	case phase4test.RouteMentionResolve:
@@ -293,8 +348,8 @@ func (s *phase4SupportScenario) seedBaseData(t *testing.T, route phase4test.Rout
 			t,
 			s.harness.DB,
 			s.actorUserID,
-			golden.Phase4HostMentionID,
-			golden.Phase4TimelineRecordID,
+			s.mentionID,
+			s.timelineID,
 			golden.Phase4FieldTimelineHostRefs,
 			"host",
 			"WS-023",
@@ -307,9 +362,9 @@ func (s *phase4SupportScenario) seedBaseData(t *testing.T, route phase4test.Rout
 			t,
 			s.harness.DB,
 			s.actorUserID,
-			golden.Phase4HostMentionID,
-			golden.Phase4TimelineRecordID,
-			golden.Phase4DuplicateHostRecordID,
+			s.mentionID,
+			s.timelineID,
+			s.duplicateHostID,
 			golden.Phase4FieldTimelineHostRefs,
 			"host",
 			"WS-024",
@@ -319,16 +374,16 @@ func (s *phase4SupportScenario) seedBaseData(t *testing.T, route phase4test.Rout
 			s.harness.DB,
 			s.IncidentID,
 			s.actorUserID,
-			golden.Phase4DuplicateLinkID,
-			golden.Phase4TimelineRecordID,
-			golden.Phase4DuplicateHostRecordID,
+			s.duplicateLinkID,
+			s.timelineID,
+			s.duplicateHostID,
 			"observed_on_host",
 			"manual",
 			nil,
 		)
-		phase4test.SeedRecordTag(t, s.harness.DB, s.IncidentID, s.actorUserID, golden.Phase4TagIDSurvivor, golden.Phase4CanonicalHostRecordID, "critical-host")
-		phase4test.SeedRecordTag(t, s.harness.DB, s.IncidentID, s.actorUserID, golden.Phase4TagIDLoser, golden.Phase4DuplicateHostRecordID, "critical-host")
-		phase4test.SeedAssessment(t, s.harness.DB, s.IncidentID, s.actorUserID, golden.Phase4AssessmentHostID, golden.Phase4DuplicateHostRecordID, "host", "confirmed")
+		phase4test.SeedRecordTag(t, s.harness.DB, s.IncidentID, s.actorUserID, s.tagIDSurvivor, s.canonicalHostID, "critical-host")
+		phase4test.SeedRecordTag(t, s.harness.DB, s.IncidentID, s.actorUserID, s.tagIDLoser, s.duplicateHostID, "critical-host")
+		phase4test.SeedAssessment(t, s.harness.DB, s.IncidentID, s.actorUserID, s.assessmentHostID, s.duplicateHostID, "host", "confirmed")
 	}
 
 	s.rebuildBaseProjections(t)
@@ -337,7 +392,7 @@ func (s *phase4SupportScenario) seedBaseData(t *testing.T, route phase4test.Rout
 		data := s.requireRouteSuccess(
 			t,
 			findRouteByKey(t, phase4test.RouteIndicatorsCreate),
-			supportTxn("seed-indicator", route.Key),
+			supportTxn(s.label+"-seed-indicator", route.Key),
 			nil,
 		)
 		s.routeCtx.IndicatorRecordID = requireRowRecordID(t, data)
@@ -550,12 +605,12 @@ type preEnvelopeFixture struct {
 func migrateScratchDB(t testing.TB, harness *pgtest.Harness, prefix string, command string, args ...string) *sql.DB {
 	t.Helper()
 
-	testDB, err := harness.NewDatabase(context.Background(), prefix)
+	testDB, err := harness.NewMigrationDatabase(context.Background(), prefix)
 	if err != nil {
 		t.Fatalf("create scratch database: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := harness.DropDatabase(context.Background(), testDB.Name); err != nil {
+		if err := harness.DropMigrationDatabase(context.Background(), testDB.Name); err != nil {
 			t.Fatalf("drop scratch database: %v", err)
 		}
 	})
@@ -850,4 +905,8 @@ func findRouteByKey(t testing.TB, key phase4test.RouteKey) phase4test.RouteInven
 
 func supportTxn(label string, routeKey phase4test.RouteKey) string {
 	return "txn-phase4-support-" + label + "-" + string(routeKey)
+}
+
+func supportUUID(label string, routeKey phase4test.RouteKey, name string) uuid.UUID {
+	return uuid.NewSHA1(uuid.NameSpaceOID, []byte("cartulary-phase4-support:"+label+":"+string(routeKey)+":"+name))
 }

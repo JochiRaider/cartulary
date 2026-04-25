@@ -26,6 +26,7 @@ const (
 	EventPostgresDBCreated   = "postgres-db-created"
 	EventPostgresDBDropped   = "postgres-db-dropped"
 	EventPostgresDBMigrated  = "postgres-db-migrated"
+	EventPostgresDBRetained  = "postgres-db-retained"
 	EventPostgresDBReset     = "postgres-db-reset"
 	EventPostgresTransaction = "postgres-transaction"
 	EventPostgresTemplateUse = "postgres-template-clone"
@@ -43,11 +44,12 @@ const (
 )
 
 const (
-	FixtureReusePerTest       = "per-test"
-	FixtureReusePackage       = "package-reused"
-	FixtureReuseTransaction   = "transaction"
-	FixtureReusePrefix        = "prefix-reused"
-	FixtureReuseSuiteTemplate = "suite-template"
+	FixtureReusePerTest          = "per-test"
+	FixtureReusePackage          = "package-reused"
+	FixtureReuseTransaction      = "transaction"
+	FixtureReusePrefix           = "prefix-reused"
+	FixtureReuseSuiteTemplate    = "suite-template"
+	FixtureReuseMigrationScratch = "migration-scratch"
 )
 
 type Event struct {
@@ -318,6 +320,8 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
 		case EventPostgresDBDropped:
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
+		case EventPostgresDBRetained:
+			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
 		case EventPostgresDBMigrated:
 			scope.Postgres.MigratedDatabaseCount++
 			upsertPostgresPreparation(databasePreparations, event, strategyForPostgresMigratedEvent(event))
@@ -409,7 +413,7 @@ func fixtureActivityFromEvent(event Event) FixtureActivity {
 
 func fixtureServiceForEvent(eventType string) string {
 	switch eventType {
-	case EventPostgresDBCreated, EventPostgresDBDropped, EventPostgresDBMigrated, EventPostgresDBReset, EventPostgresTransaction:
+	case EventPostgresDBCreated, EventPostgresDBDropped, EventPostgresDBMigrated, EventPostgresDBRetained, EventPostgresDBReset, EventPostgresTransaction:
 		return ServicePostgres
 	case EventS3BucketCreated, EventS3BucketCleaned, EventS3PrefixCleaned:
 		return ServiceMinIO
@@ -424,6 +428,8 @@ func fixtureOperationForEvent(eventType string) string {
 		return "database-create"
 	case EventPostgresDBDropped:
 		return "database-drop"
+	case EventPostgresDBRetained:
+		return "database-retain"
 	case EventPostgresDBMigrated:
 		return "database-migrate"
 	case EventPostgresDBReset:

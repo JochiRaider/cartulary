@@ -257,10 +257,16 @@ assert_count "$(line_count '^CHECK_SUMMARY_GROUPS :=')" "1" "check summary group
 assert_count "$(line_count '^TEST_SERVICE_BACKED_CHILD_TARGETS :=')" "1" "test service-backed child target list declaration"
 assert_count "$(line_count '^TEST_FAST_SERVICE_BACKED_CHILD_TARGETS :=')" "1" "test-fast service-backed child target list declaration"
 assert_count "$(line_count '^CHECK_SERVICE_BACKED_CHILD_TARGETS :=')" "1" "check service-backed child target list declaration"
+assert_count "$(line_count '^HARNESS_SMOKE_CORE_TARGETS :=')" "1" "harness smoke core target list declaration"
+assert_count "$(line_count '^HARNESS_SMOKE_LIFECYCLE_TARGETS :=')" "1" "harness smoke lifecycle target list declaration"
+assert_count "$(line_count '^HARNESS_SMOKE_TARGETS :=')" "1" "harness smoke target list declaration"
+assert_count "$(line_count '^HARNESS_SMOKE_GROUPS :=')" "1" "harness smoke group declaration"
 assert_count "$(line_count '^RUN_MAKE_SEQUENCE_SCRIPT :=')" "1" "run sequence helper declaration"
 
 test_block="$(make_target_block test)"
 check_block="$(make_target_block check)"
+run_phase_smoke_block="$(make_target_block run-phase-smoke)"
+run_phase_smoke_all_block="$(make_target_block run-phase-smoke-all)"
 test_service_backed_block="$(make_target_block test-service-backed)"
 test_fast_service_backed_block="$(make_target_block test-fast-service-backed)"
 check_service_backed_block="$(make_target_block check-service-backed)"
@@ -277,10 +283,20 @@ assert_contains "${check_block}" '--summary-groups "$(CHECK_SUMMARY_GROUPS)"' "m
 assert_contains "${check_block}" "--step check-setup-blockers --parallel-step check-parallel:\$(CHECK_JOBS) --step check-service-backed --step check-isolated" "make check sequence"
 assert_not_contains "${check_block}" "completed=" "make check inline completed counter"
 assert_not_contains "${check_block}" "total=" "make check inline total counter"
+assert_contains "${run_phase_smoke_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "run-phase-smoke helper invocation"
+assert_contains "${run_phase_smoke_block}" '--summary-targets "$(HARNESS_SMOKE_TARGETS)"' "run-phase-smoke summary list"
+assert_contains "${run_phase_smoke_block}" '--summary-groups "$(HARNESS_SMOKE_GROUPS)"' "run-phase-smoke summary group list"
+assert_contains "${run_phase_smoke_block}" "--parallel-step run-phase-smoke-all:\$(HARNESS_SMOKE_JOBS)" "run-phase-smoke parallel aggregate step"
+assert_contains "${run_phase_smoke_all_block}" '$(subst $(comma), ,$(HARNESS_SMOKE_TARGETS))' "run-phase-smoke-all dependency expansion"
+assert_not_contains "${run_phase_smoke_block}" "bash -lc" "run-phase-smoke old shell chain"
 assert_contains "${makefile_content}" "TEST_SUMMARY_TARGETS := test-service-backed,backend-unit,frontend-typecheck,frontend-unit,backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual" "test summary target list"
 assert_contains "${makefile_content}" "TEST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed" "test service-backed child list"
 assert_contains "${makefile_content}" "TEST_FAST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process" "test-fast service-backed child list"
 assert_contains "${makefile_content}" "CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed" "check service-backed child list"
+assert_contains "${makefile_content}" "HARNESS_SMOKE_CORE_TARGETS := harness-smoke-toolchain-pins,harness-smoke-bootstrap-node-runtime,harness-smoke-build-input-discovery,harness-smoke-run-make-sequence,harness-smoke-release-task-surface,harness-smoke-benchmark-claim-check,harness-smoke-task-surface-report,harness-smoke-run-phase,harness-smoke-run-go-target,harness-smoke-print-target-plan,harness-smoke-run-playwright-phase,harness-smoke-run-playwright-manifest-phase,harness-smoke-run-vitest-phase,harness-smoke-run-vitest-manifest-phase" "harness smoke core target list"
+assert_contains "${makefile_content}" "HARNESS_SMOKE_LIFECYCLE_TARGETS := harness-smoke-web-e2e-lifecycle,harness-smoke-dev-stack-lifecycle" "harness smoke lifecycle target list"
+assert_contains "${makefile_content}" 'HARNESS_SMOKE_TARGETS := $(HARNESS_SMOKE_CORE_TARGETS),$(HARNESS_SMOKE_LIFECYCLE_TARGETS)' "harness smoke combined target list"
+assert_contains "${makefile_content}" 'HARNESS_SMOKE_GROUPS := core=$(HARNESS_SMOKE_CORE_TARGETS);lifecycle=$(HARNESS_SMOKE_LIFECYCLE_TARGETS)' "harness smoke group list"
 assert_contains "${makefile_content}" "TEST_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser-webserver-backed=browser-e2e-webserver-backed" "test summary group list"
 assert_contains "${makefile_content}" "CHECK_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser-webserver-backed=browser-e2e-webserver-backed" "check summary group list"
 assert_contains "${test_service_backed_block}" 'target-summary test-service-backed pass --children "$(TEST_SERVICE_BACKED_CHILD_TARGETS)"' "test service-backed success child summary"
@@ -291,8 +307,9 @@ assert_contains "${check_service_backed_block}" 'target-summary check-service-ba
 assert_contains "${check_service_backed_block}" 'target-summary check-service-backed fail --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)"' "check service-backed failure child summary"
 assert_not_contains "${makefile_content}" "RUN_SUMMARY =" "unused run summary helper variable"
 assert_not_contains "${makefile_content}" "RUN_SUMMARY_CMD =" "unused run summary command variable"
+assert_not_contains "${makefile_content}" "bash -lc './scripts/test-check-toolchain-pins.sh &&" "old serialized harness smoke chain"
 
-for target in test check; do
+for target in test check run-phase-smoke; do
   make_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-make-n-${target}.XXXXXX")"
   cleanup_paths+=("${make_dry_run_dir}")
   make_dry_run_output="$(

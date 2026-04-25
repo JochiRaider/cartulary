@@ -44,6 +44,7 @@ func TestMakeBackendStoreUsesSingleOwnedSuitePair(t *testing.T) {
 	if scope.Fixture.TotalCount == 0 {
 		t.Fatalf("expected backend-store fixture diagnostics, got %#v", scope.Fixture)
 	}
+	assertNoHotPathPostgresDrops(t, scope)
 }
 
 func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedLanes(t *testing.T) {
@@ -77,6 +78,7 @@ func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedLanes(t *testing.T) {
 	if scope.Fixture.TotalCount == 0 || len(scope.Fixture.ByPackage) == 0 {
 		t.Fatalf("expected fixture diagnostics grouped by package, got %#v", scope.Fixture)
 	}
+	assertNoHotPathPostgresDrops(t, scope)
 
 	postgresPIDs := uniqueEventPIDs(events, suiteservices.EventPostgresDBCreated)
 	minioPIDs := uniqueEventPIDs(events, suiteservices.EventS3BucketCreated)
@@ -91,6 +93,20 @@ func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedLanes(t *testing.T) {
 	}
 	if hasDuplicateNames(events, suiteservices.EventS3BucketCreated) {
 		t.Fatal("expected distinct bucket names across package binaries")
+	}
+}
+
+func assertNoHotPathPostgresDrops(t testing.TB, scope suiteservices.ServiceScope) {
+	t.Helper()
+
+	for _, activity := range scope.Fixture.ByStrategy {
+		if activity.Service != suiteservices.ServicePostgres || activity.Operation != "database-drop" {
+			continue
+		}
+		if activity.ReuseScope == suiteservices.FixtureReuseMigrationScratch {
+			continue
+		}
+		t.Fatalf("unexpected hot-path postgres database drop activity: %#v", activity)
 	}
 }
 

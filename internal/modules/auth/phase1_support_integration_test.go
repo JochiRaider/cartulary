@@ -16,17 +16,14 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	phase1support "github.com/JochiRaider/cartulary/internal/testutil/phase1test"
 	phase1test "github.com/JochiRaider/cartulary/internal/testutil/phase1test/inventory"
-	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
 func TestSupportPhase1_UserListUsesSnapshotStablePagination(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase1support.StartRuntime(t)
 
-	server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-support-pagination")
+	server, db := startPhase1Server(t, runtime, "phase1-support-pagination")
 	defer db.Close()
 
 	seedFixedLocalUser(t, db, "10000000-0000-0000-0000-000000000701", "pagination-admin@example.test", "Pagination Admin", "PaginationAdmin1!", true)
@@ -105,9 +102,8 @@ func TestSupportPhase1_UserListUsesSnapshotStablePagination(t *testing.T) {
 }
 
 func TestSupportPhase1_Integration_SurfaceEnvelope(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
-	ctx := newPhase1SupportRouteContext(t, postgresHarness, s3Harness, "phase1-support-envelope")
+	runtime := phase1support.StartRuntime(t)
+	ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-envelope")
 	defer ctx.db.Close()
 
 	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessSurfaceEnvelope) {
@@ -120,9 +116,8 @@ func TestSupportPhase1_Integration_SurfaceEnvelope(t *testing.T) {
 }
 
 func TestSupportPhase1_Integration_BootstrapBoundaries(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
-	ctx := newPhase1SupportRouteContext(t, postgresHarness, s3Harness, "phase1-support-bootstrap")
+	runtime := phase1support.StartRuntime(t)
+	ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-bootstrap")
 	defer ctx.db.Close()
 
 	_, bootstrapEmail, bootstrapPassword := ctx.newLocalUser(t, "bootstrap-boundary", true, false, true)
@@ -150,9 +145,8 @@ func TestSupportPhase1_Integration_BootstrapBoundaries(t *testing.T) {
 }
 
 func TestSupportPhase1_Integration_CSRFProtection(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
-	ctx := newPhase1SupportRouteContext(t, postgresHarness, s3Harness, "phase1-support-csrf")
+	runtime := phase1support.StartRuntime(t)
+	ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-csrf")
 	defer ctx.db.Close()
 
 	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessCSRF) {
@@ -165,9 +159,8 @@ func TestSupportPhase1_Integration_CSRFProtection(t *testing.T) {
 }
 
 func TestSupportPhase1_Integration_ReplayAndStoredPayloadSafety(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
-	ctx := newPhase1SupportRouteContext(t, postgresHarness, s3Harness, "phase1-support-replay")
+	runtime := phase1support.StartRuntime(t)
+	ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-replay")
 	defer ctx.db.Close()
 
 	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessReplayStoredPayload) {
@@ -243,9 +236,8 @@ func TestSupportPhase1_Integration_ReplayAndStoredPayloadSafety(t *testing.T) {
 }
 
 func TestSupportPhase1_Integration_AuditAttribution(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
-	ctx := newPhase1SupportRouteContext(t, postgresHarness, s3Harness, "phase1-support-audit")
+	runtime := phase1support.StartRuntime(t)
+	ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-audit")
 	defer ctx.db.Close()
 
 	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessMutationAudit) {
@@ -273,9 +265,8 @@ func TestSupportPhase1_Integration_AuditAttribution(t *testing.T) {
 }
 
 func TestSupportPhase1_Integration_SessionRevocation(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
-	ctx := newPhase1SupportRouteContext(t, postgresHarness, s3Harness, "phase1-support-revocation")
+	runtime := phase1support.StartRuntime(t)
+	ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-revocation")
 	defer ctx.db.Close()
 
 	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessSessionRevocation) {
@@ -396,12 +387,11 @@ func TestSupportPhase1_Integration_SessionRevocation(t *testing.T) {
 }
 
 func TestSupportPhase1_Integration_AuthorizationReDerivation(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase1support.StartRuntime(t)
 
 	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessAuthorization) {
 		t.Run(string(route.ID), func(t *testing.T) {
-			ctx := newPhase1SupportRouteContext(t, postgresHarness, s3Harness, "phase1-support-authorization-"+string(route.ID))
+			ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-authorization-"+string(route.ID))
 			defer ctx.db.Close()
 
 			beforeReq := ctx.buildSuccessRequest(t, route)
@@ -424,9 +414,8 @@ func TestSupportPhase1_Integration_AuthorizationReDerivation(t *testing.T) {
 }
 
 func TestSupportPhase1_Integration_RequestContracts(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
-	ctx := newPhase1SupportRouteContext(t, postgresHarness, s3Harness, "phase1-support-request-contracts")
+	runtime := phase1support.StartRuntime(t)
+	ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-request-contracts")
 	defer ctx.db.Close()
 
 	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessRequestContracts) {
@@ -486,13 +475,12 @@ type phase1SupportRequest struct {
 
 func newPhase1SupportRouteContext(
 	t testing.TB,
-	postgresHarness *pgtest.Harness,
-	s3Harness *s3test.Harness,
+	runtime *phase1support.RuntimeHarness,
 	prefix string,
 ) *phase1SupportRouteContext {
 	t.Helper()
 
-	server, db := startPhase1Server(t, postgresHarness, s3Harness, prefix)
+	server, db := startPhase1Server(t, runtime, prefix)
 	adminID := seedLocalUserFlags(t, db, prefix+"-admin@example.test", "Support Admin", "SupportAdminPass1!", false, true, true)
 	adminSession, adminCSRF := loginLocalUser(t, server, prefix+"-admin@example.test", "SupportAdminPass1!", nil)
 	peerAdminID := seedLocalUserFlags(t, db, prefix+"-peer-admin@example.test", "Support Peer Admin", "SupportPeerAdminPass1!", false, true, true)

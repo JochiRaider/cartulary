@@ -14,12 +14,12 @@ import (
 
 func TestPhase0_SchemaBootstrap_I_0_01(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB, err := postgresHarness.NewDatabase(context.Background(), "phase0-i-0-01")
+	testDB, err := postgresHarness.NewMigrationDatabase(context.Background(), "phase0-i-0-01")
 	if err != nil {
 		t.Fatalf("prepare postgres database: %v", err)
 	}
 	defer func() {
-		if err := postgresHarness.DropDatabase(context.Background(), testDB.Name); err != nil {
+		if err := postgresHarness.DropMigrationDatabase(context.Background(), testDB.Name); err != nil {
 			t.Fatalf("drop postgres database: %v", err)
 		}
 	}()

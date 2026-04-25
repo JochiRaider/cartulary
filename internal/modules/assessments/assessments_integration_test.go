@@ -340,12 +340,12 @@ type legacyAssessmentFixture struct {
 func migrateScratchDB(t testing.TB, harness *pgtest.Harness, prefix string, command string, args ...string) *sql.DB {
 	t.Helper()
 
-	testDB, err := harness.NewDatabase(context.Background(), prefix)
+	testDB, err := harness.NewMigrationDatabase(context.Background(), prefix)
 	if err != nil {
 		t.Fatalf("create scratch database: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := harness.DropDatabase(context.Background(), testDB.Name); err != nil {
+		if err := harness.DropMigrationDatabase(context.Background(), testDB.Name); err != nil {
 			t.Fatalf("drop scratch database: %v", err)
 		}
 	})

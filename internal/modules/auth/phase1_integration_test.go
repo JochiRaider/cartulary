@@ -17,20 +17,15 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase1test"
-	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
 
 func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase1test.StartRuntime(t)
 
 	t.Run("persists login inspection idle sliding and logout", func(t *testing.T) {
-		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-01-lifecycle")
+		server, db := startPhase1Server(t, runtime, "phase1-i-1-01-lifecycle")
 		defer db.Close()
 
 		userID := seedLocalUser(t, db, "analyst@example.test", "Analyst One", "  parol\u00e9 secret  ", false)
@@ -92,7 +87,7 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 	})
 
 	t.Run("idle expiry fails closed and records session_expired", func(t *testing.T) {
-		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-01-expiry")
+		server, db := startPhase1Server(t, runtime, "phase1-i-1-01-expiry")
 		defer db.Close()
 
 		userID := seedLocalUser(t, db, "idle-expiry@example.test", "Idle Expiry", "IdleExpiryPass1!", false)
@@ -118,7 +113,7 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 	})
 
 	t.Run("sixth login revokes least recently used non-current session", func(t *testing.T) {
-		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-01-concurrency")
+		server, db := startPhase1Server(t, runtime, "phase1-i-1-01-concurrency")
 		defer db.Close()
 		t.Cleanup(func() {
 			phase1test.ResetClockOffset(t, server.HTTP.URL)
@@ -157,11 +152,10 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 }
 
 func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase1test.StartRuntime(t)
 
 	t.Run("logout revokes attached session socket", func(t *testing.T) {
-		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-02-session-revoked")
+		server, db := startPhase1Server(t, runtime, "phase1-i-1-02-session-revoked")
 		defer db.Close()
 
 		seedLocalUser(t, db, "socket-owner@example.test", "Socket Owner", "SocketPass123!", false)
@@ -182,7 +176,7 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 	})
 
 	t.Run("concurrency limit revokes attached least recently used session socket", func(t *testing.T) {
-		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-02-concurrency-socket")
+		server, db := startPhase1Server(t, runtime, "phase1-i-1-02-concurrency-socket")
 		defer db.Close()
 		t.Cleanup(func() {
 			phase1test.ResetClockOffset(t, server.HTTP.URL)
@@ -236,11 +230,10 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 }
 
 func TestPhase1_CredentialStateAndBootstrapFlows_I_1_04(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase1test.StartRuntime(t)
 
 	t.Run("first enrollment then password change revokes all sessions", func(t *testing.T) {
-		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-04-first-enrollment")
+		server, db := startPhase1Server(t, runtime, "phase1-i-1-04-first-enrollment")
 		defer db.Close()
 
 		userID := seedLocalUser(t, db, "mfa-user@example.test", "MFA User", "BootstrapPass123!", true)
@@ -331,7 +324,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("replacement enrollment revokes current session and swaps the active factor", func(t *testing.T) {
-		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-04-replacement-enrollment")
+		server, db := startPhase1Server(t, runtime, "phase1-i-1-04-replacement-enrollment")
 		defer db.Close()
 
 		seedLocalUser(t, db, "replace-user@example.test", "Replace User", "ReplacePass123!", true)
@@ -389,10 +382,9 @@ SELECT COUNT(*)
 }
 
 func TestPhase1_BootstrapTokenRouteBoundaries_I_1_06(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase1test.StartRuntime(t)
 
-	server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-06-bootstrap-boundaries")
+	server, db := startPhase1Server(t, runtime, "phase1-i-1-06-bootstrap-boundaries")
 	defer db.Close()
 
 	seedLocalUser(t, db, "bootstrap-boundary@example.test", "Bootstrap Boundary", "BootstrapRoute123!", true)
@@ -438,10 +430,9 @@ func TestPhase1_BootstrapTokenRouteBoundaries_I_1_06(t *testing.T) {
 }
 
 func TestPhase1_UserAdminLifecycle_I_1_03(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase1test.StartRuntime(t)
 
-	server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-03-user-admin")
+	server, db := startPhase1Server(t, runtime, "phase1-i-1-03-user-admin")
 	defer db.Close()
 
 	adminID := seedLocalUserFlags(t, db, "admin-users@example.test", "Users Admin", "AdminUsersPass123!", false, true, true)
@@ -535,11 +526,10 @@ func TestPhase1_UserAdminLifecycle_I_1_03(t *testing.T) {
 }
 
 func TestPhase1_AdminCredentialActions_I_1_05(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase1test.StartRuntime(t)
 
 	t.Run("password reset revokes attached sockets and preserves active totp", func(t *testing.T) {
-		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-05-password-reset")
+		server, db := startPhase1Server(t, runtime, "phase1-i-1-05-password-reset")
 		defer db.Close()
 
 		adminID := seedLocalUserFlags(t, db, "admin-reset@example.test", "Reset Admin", "ResetAdminPass123!", false, true, true)
@@ -584,7 +574,7 @@ func TestPhase1_AdminCredentialActions_I_1_05(t *testing.T) {
 	})
 
 	t.Run("totp reset revokes attached sockets and reopens bootstrap flow", func(t *testing.T) {
-		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-05-totp-reset")
+		server, db := startPhase1Server(t, runtime, "phase1-i-1-05-totp-reset")
 		defer db.Close()
 
 		seedLocalUserFlags(t, db, "admin-totp-reset@example.test", "TOTP Reset Admin", "TotpResetAdmin123!", false, true, true)
@@ -619,7 +609,7 @@ func TestPhase1_AdminCredentialActions_I_1_05(t *testing.T) {
 	})
 
 	t.Run("revoke-all revokes attached sockets without mutating credentials", func(t *testing.T) {
-		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-05-revoke-all")
+		server, db := startPhase1Server(t, runtime, "phase1-i-1-05-revoke-all")
 		defer db.Close()
 
 		seedLocalUserFlags(t, db, "admin-revoke-all@example.test", "Revoke All Admin", "RevokeAllAdmin123!", false, true, true)
@@ -650,10 +640,9 @@ func TestPhase1_AdminCredentialActions_I_1_05(t *testing.T) {
 }
 
 func TestPhase1_CredentialStateTransitions_I_1_04(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase1test.StartRuntime(t)
 
-	server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-04-state-transitions")
+	server, db := startPhase1Server(t, runtime, "phase1-i-1-04-state-transitions")
 	defer db.Close()
 
 	userID := seedLocalUser(t, db, "state-transitions@example.test", "State Transitions", "StateTransitions1!", false)
@@ -814,10 +803,9 @@ func TestPhase1_CredentialStateTransitions_I_1_04(t *testing.T) {
 }
 
 func TestPhase1_BootstrapEnrollmentConsumption_I_1_04(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase1test.StartRuntime(t)
 
-	server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-04-bootstrap-consumption")
+	server, db := startPhase1Server(t, runtime, "phase1-i-1-04-bootstrap-consumption")
 	defer db.Close()
 
 	seedLocalUser(t, db, "bootstrap-consumption@example.test", "Bootstrap Consumption", "BootstrapConsumption1!", true)
@@ -869,10 +857,9 @@ func TestPhase1_BootstrapEnrollmentConsumption_I_1_04(t *testing.T) {
 }
 
 func TestPhase1_UserAdminAudit_I_1_03(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase1test.StartRuntime(t)
 
-	server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-03-audit")
+	server, db := startPhase1Server(t, runtime, "phase1-i-1-03-audit")
 	defer db.Close()
 
 	adminID := seedLocalUserFlags(t, db, "audit-admin@example.test", "Audit Admin", "AuditAdminPass1!", false, true, true)
@@ -936,11 +923,10 @@ func TestPhase1_UserAdminAudit_I_1_03(t *testing.T) {
 }
 
 func TestPhase1_AdminCredentialAuditAndScope_I_1_05(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase1test.StartRuntime(t)
 
 	t.Run("password reset audit is deployment-local and incident admins are denied", func(t *testing.T) {
-		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-05-audit-scope")
+		server, db := startPhase1Server(t, runtime, "phase1-i-1-05-audit-scope")
 		defer db.Close()
 
 		adminID := seedLocalUserFlags(t, db, "scope-admin@example.test", "Scope Admin", "ScopeAdminPass1!", false, true, true)
@@ -1026,7 +1012,7 @@ func TestPhase1_AdminCredentialAuditAndScope_I_1_05(t *testing.T) {
 	})
 
 	t.Run("totp reset and revoke-all write safe deployment-admin audit records", func(t *testing.T) {
-		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-05-audit-events")
+		server, db := startPhase1Server(t, runtime, "phase1-i-1-05-audit-events")
 		defer db.Close()
 
 		adminID := seedLocalUserFlags(t, db, "audit-events-admin@example.test", "Audit Events Admin", "AuditEventsAdmin1!", false, true, true)
@@ -1079,10 +1065,9 @@ func TestPhase1_AdminCredentialAuditAndScope_I_1_05(t *testing.T) {
 }
 
 func TestPhase1_UserCreateReplayReturnsOriginalCommittedResource_I_1_03(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase1test.StartRuntime(t)
 
-	server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-03-create-replay")
+	server, db := startPhase1Server(t, runtime, "phase1-i-1-03-create-replay")
 	defer db.Close()
 
 	adminID := seedLocalUserFlags(t, db, "create-replay-admin@example.test", "Create Replay Admin", "CreateReplayAdmin1!", false, true, true)
@@ -1178,10 +1163,9 @@ func TestPhase1_UserCreateReplayReturnsOriginalCommittedResource_I_1_03(t *testi
 }
 
 func TestPhase1_PasswordChangeReplayAndStoredPayload_I_1_04(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase1test.StartRuntime(t)
 
-	server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-04-password-change-replay")
+	server, db := startPhase1Server(t, runtime, "phase1-i-1-04-password-change-replay")
 	defer db.Close()
 
 	userID := seedLocalUserWithActiveTOTP(t, db, "password-replay@example.test", "Password Replay", "PasswordReplay1!", true, false, "JBSWY3DPEHPK3QBA")
@@ -1259,10 +1243,9 @@ func TestPhase1_PasswordChangeReplayAndStoredPayload_I_1_04(t *testing.T) {
 }
 
 func TestPhase1_AdminPasswordResetReplayReturnsOriginalCommittedResource_I_1_05(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase1test.StartRuntime(t)
 
-	server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-05-password-reset-replay")
+	server, db := startPhase1Server(t, runtime, "phase1-i-1-05-password-reset-replay")
 	defer db.Close()
 
 	adminID := seedLocalUserFlags(t, db, "admin-password-replay@example.test", "Admin Password Replay", "AdminPasswordReplay1!", false, true, true)
@@ -1352,11 +1335,10 @@ func TestPhase1_AdminPasswordResetReplayReturnsOriginalCommittedResource_I_1_05(
 }
 
 func TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	s3Harness := s3test.Start(t)
+	runtime := phase1test.StartRuntime(t)
 
 	t.Run("totp reset replays the original response and rejects divergent reuse", func(t *testing.T) {
-		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-05-totp-reset-replay")
+		server, db := startPhase1Server(t, runtime, "phase1-i-1-05-totp-reset-replay")
 		defer db.Close()
 
 		adminID := seedLocalUserFlags(t, db, "admin-totp-replay@example.test", "Admin TOTP Replay", "AdminTotpReplay1!", false, true, true)
@@ -1418,7 +1400,7 @@ func TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05(t *testing.T) {
 	})
 
 	t.Run("revoke-all replays the original response and rejects divergent reuse", func(t *testing.T) {
-		server, db := startPhase1Server(t, postgresHarness, s3Harness, "phase1-i-1-05-revoke-all-replay")
+		server, db := startPhase1Server(t, runtime, "phase1-i-1-05-revoke-all-replay")
 		defer db.Close()
 
 		adminID := seedLocalUserFlags(t, db, "admin-revoke-replay@example.test", "Admin Revoke Replay", "AdminRevokeReplay1!", false, true, true)
@@ -1493,37 +1475,11 @@ type sessionRow struct {
 	revokeReasonCode         sql.NullString
 }
 
-func startPhase1Server(t testing.TB, postgresHarness *pgtest.Harness, s3Harness *s3test.Harness, prefix string) (*httptestx.Server, *sql.DB) {
+func startPhase1Server(t testing.TB, runtime *phase1test.RuntimeHarness, prefix string) (*httptestx.Server, *sql.DB) {
 	t.Helper()
 
-	testDB := postgresHarness.PrepareDatabaseT(t, prefix)
-
-	bucket, err := s3Harness.BootstrapBucket(context.Background(), prefix)
-	if err != nil {
-		t.Fatalf("bootstrap bucket: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-			t.Logf("cleanup bucket: %v", err)
-		}
-	})
-
-	env := testDB.Env()
-	for key, value := range s3Harness.Env(bucket) {
-		env[key] = value
-	}
-	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
-
-	server := httptestx.StartServer(t, httptestx.ServerOptions{
-		Env:              env,
-		AdditionalRoutes: []httpapi.RouteRegistrar{auth.RegisterTestRoutes()},
-	})
-
-	db, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatalf("open postgres sql handle: %v", err)
-	}
-	return server, db
+	harness := runtime.StartServer(t, prefix, auth.RegisterTestRoutes())
+	return harness.Server, harness.DB
 }
 
 func seedLocalUser(t testing.TB, db *sql.DB, email string, displayName string, password string, mfaRequired bool) string {

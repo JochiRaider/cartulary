@@ -54,8 +54,9 @@ type TestDatabase struct {
 }
 
 type packageDatabase struct {
-	mu sync.Mutex
-	db *TestDatabase
+	mu       sync.Mutex
+	db       *TestDatabase
+	resetSQL string
 }
 
 type fixtureAttribution struct {
@@ -65,12 +66,14 @@ type fixtureAttribution struct {
 }
 
 var (
-	sharedHarnessMu   sync.Mutex
-	sharedHarness     *Harness
-	startOwnedHarness = StartOwned
-	pingAdminDSNFn    = pingAdminDSN
-	migrateDatabaseFn = postgres.Migrate
-	createDatabaseFn  = createDatabase
+	sharedHarnessMu     sync.Mutex
+	sharedHarness       *Harness
+	startOwnedHarness   = StartOwned
+	pingAdminDSNFn      = pingAdminDSN
+	migrateDatabaseFn   = postgres.Migrate
+	createDatabaseFn    = createDatabase
+	dropDatabaseFn      = dropDatabase
+	listMutableTablesFn = listMutableTables
 )
 
 func Start(t testing.TB) *Harness {
@@ -233,6 +236,10 @@ func (h *Harness) NewDatabase(ctx context.Context, prefix string) (*TestDatabase
 	return h.newDatabase(ctx, prefix, suiteservices.FixtureReusePerTest, fixtureAttribution{})
 }
 
+func (h *Harness) NewMigrationDatabase(ctx context.Context, prefix string) (*TestDatabase, error) {
+	return h.newDatabase(ctx, prefix, suiteservices.FixtureReuseMigrationScratch, fixtureAttribution{})
+}
+
 func (h *Harness) newDatabase(ctx context.Context, prefix string, reuseScope string, attribution fixtureAttribution) (*TestDatabase, error) {
 	name := h.nextDatabaseName(prefix)
 	start := time.Now()
@@ -324,7 +331,11 @@ func (h *Harness) PrepareDatabaseT(t testing.TB, prefix string) *TestDatabase {
 		t.Fatalf("prepare postgres database: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := h.DropDatabase(context.Background(), testDB.Name); err != nil {
+		if h.retainPreparedDatabaseOnCleanup() {
+			h.recordRetainedDatabase(testDB.Name, suiteservices.FixtureReusePerTest, attribution)
+			return
+		}
+		if err := h.dropDatabase(context.Background(), testDB.Name, suiteservices.FixtureReusePerTest, attribution); err != nil {
 			t.Fatalf("drop postgres database: %v", err)
 		}
 	})
@@ -349,7 +360,7 @@ func (h *Harness) PreparePackageDatabaseT(t testing.TB, prefix string) *TestData
 			t.Fatalf("prepare package postgres database: %v", err)
 		}
 		fixture.db = testDB
-	} else if err := h.resetDatabase(context.Background(), fixture.db.Name, suiteservices.FixtureReusePackage, attribution); err != nil {
+	} else if err := h.resetPackageDatabase(context.Background(), fixture, attribution); err != nil {
 		fixture.mu.Unlock()
 		t.Fatalf("reset package postgres database: %v", err)
 	}
@@ -387,30 +398,12 @@ func (h *Harness) resetDatabase(ctx context.Context, name string, reuseScope str
 	}
 	defer db.Close()
 
-	rows, err := db.QueryContext(ctx, `
-SELECT tablename
-  FROM pg_tables
- WHERE schemaname = 'public'
-   AND tablename <> 'goose_db_version'
- ORDER BY tablename`)
+	statement, err := h.buildResetStatement(ctx, db)
 	if err != nil {
-		return fmt.Errorf("list mutable postgres tables: %w", err)
+		return err
 	}
-	defer rows.Close()
-
-	tables := make([]string, 0)
-	for rows.Next() {
-		var table string
-		if err := rows.Scan(&table); err != nil {
-			return fmt.Errorf("scan mutable postgres table: %w", err)
-		}
-		tables = append(tables, quoteIdentifier(table))
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("iterate mutable postgres tables: %w", err)
-	}
-	if len(tables) > 0 {
-		if _, err := db.ExecContext(ctx, "TRUNCATE TABLE "+strings.Join(tables, ", ")+" RESTART IDENTITY CASCADE"); err != nil {
+	if statement != "" {
+		if _, err := db.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("truncate mutable postgres tables: %w", err)
 		}
 	}
@@ -420,6 +413,74 @@ SELECT tablename
 		Details: postgresFixtureDetails("", reuseScope, attribution, time.Since(start)),
 	})
 	return nil
+}
+
+func (h *Harness) resetPackageDatabase(ctx context.Context, fixture *packageDatabase, attribution fixtureAttribution) error {
+	start := time.Now()
+	db, err := sql.Open("pgx", h.dsnFor(fixture.db.Name))
+	if err != nil {
+		return fmt.Errorf("open postgres reset handle: %w", err)
+	}
+	defer db.Close()
+
+	if fixture.resetSQL == "" {
+		statement, err := h.buildResetStatement(ctx, db)
+		if err != nil {
+			return err
+		}
+		fixture.resetSQL = statement
+	}
+	if fixture.resetSQL != "" {
+		if _, err := db.ExecContext(ctx, fixture.resetSQL); err != nil {
+			return fmt.Errorf("truncate mutable postgres tables: %w", err)
+		}
+	}
+	recordSuiteEvent(suiteservices.Event{
+		Type:    suiteservices.EventPostgresDBReset,
+		Name:    fixture.db.Name,
+		Details: postgresFixtureDetails("", suiteservices.FixtureReusePackage, attribution, time.Since(start)),
+	})
+	return nil
+}
+
+func (h *Harness) buildResetStatement(ctx context.Context, db *sql.DB) (string, error) {
+	tables, err := listMutableTablesFn(ctx, db)
+	if err != nil {
+		return "", err
+	}
+	if len(tables) == 0 {
+		return "", nil
+	}
+	for index, table := range tables {
+		tables[index] = quoteIdentifier(table)
+	}
+	return "TRUNCATE TABLE " + strings.Join(tables, ", ") + " RESTART IDENTITY CASCADE", nil
+}
+
+func listMutableTables(ctx context.Context, db *sql.DB) ([]string, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT tablename
+		  FROM pg_tables
+		 WHERE schemaname = 'public'
+   AND tablename <> 'goose_db_version'
+ ORDER BY tablename`)
+	if err != nil {
+		return nil, fmt.Errorf("list mutable postgres tables: %w", err)
+	}
+	defer rows.Close()
+
+	tables := make([]string, 0)
+	for rows.Next() {
+		var table string
+		if err := rows.Scan(&table); err != nil {
+			return nil, fmt.Errorf("scan mutable postgres table: %w", err)
+		}
+		tables = append(tables, table)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate mutable postgres tables: %w", err)
+	}
+	return tables, nil
 }
 
 func BeginRollbackTxT(t testing.TB, db *sql.DB) *sql.Tx {
@@ -442,8 +503,29 @@ func BeginRollbackTxT(t testing.TB, db *sql.DB) *sql.Tx {
 }
 
 func (h *Harness) DropDatabase(ctx context.Context, name string) error {
+	return h.dropDatabase(ctx, name, suiteservices.FixtureReusePerTest, fixtureAttribution{})
+}
+
+func (h *Harness) DropMigrationDatabase(ctx context.Context, name string) error {
+	return h.dropDatabase(ctx, name, suiteservices.FixtureReuseMigrationScratch, fixtureAttribution{})
+}
+
+func (h *Harness) dropDatabase(ctx context.Context, name string, reuseScope string, attribution fixtureAttribution) error {
 	start := time.Now()
-	admin, err := sql.Open("pgx", h.adminDSN)
+	if err := dropDatabaseFn(ctx, h.adminDSN, name); err != nil {
+		return err
+	}
+	recordSuiteEvent(suiteservices.Event{
+		Type:    suiteservices.EventPostgresDBDropped,
+		Name:    name,
+		Details: postgresFixtureDetails("", reuseScope, attribution, time.Since(start)),
+	})
+
+	return nil
+}
+
+func dropDatabase(ctx context.Context, adminDSN string, name string) error {
+	admin, err := sql.Open("pgx", adminDSN)
 	if err != nil {
 		return fmt.Errorf("open postgres admin handle: %w", err)
 	}
@@ -452,13 +534,19 @@ func (h *Harness) DropDatabase(ctx context.Context, name string) error {
 	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE)`, name)); err != nil {
 		return fmt.Errorf("drop test database %s: %w", name, err)
 	}
-	recordSuiteEvent(suiteservices.Event{
-		Type:    suiteservices.EventPostgresDBDropped,
-		Name:    name,
-		Details: postgresFixtureDetails("", suiteservices.FixtureReusePerTest, fixtureAttribution{}, time.Since(start)),
-	})
-
 	return nil
+}
+
+func (h *Harness) retainPreparedDatabaseOnCleanup() bool {
+	return h.attached && h.templateDB != "" && suiteservices.SuiteActive(nil)
+}
+
+func (h *Harness) recordRetainedDatabase(name string, reuseScope string, attribution fixtureAttribution) {
+	recordSuiteEvent(suiteservices.Event{
+		Type:    suiteservices.EventPostgresDBRetained,
+		Name:    name,
+		Details: postgresFixtureDetails(suiteservices.PostgresPreparationTemplateClone, reuseScope, attribution, 0),
+	})
 }
 
 func (h *Harness) Close(ctx context.Context) error {

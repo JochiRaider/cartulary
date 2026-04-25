@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -219,6 +220,103 @@ func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
 	}
 }
 
+func TestPrepareDatabaseTCleanupDropsStandaloneDatabase(t *testing.T) {
+	t.Setenv(suiteservices.SuiteIDEnv, "")
+
+	oldCreate := createDatabaseFn
+	oldDrop := dropDatabaseFn
+	t.Cleanup(func() {
+		createDatabaseFn = oldCreate
+		dropDatabaseFn = oldDrop
+	})
+
+	var dropped []string
+	createDatabaseFn = func(ctx context.Context, adminDSN string, name string, templateDB string) error {
+		return nil
+	}
+	dropDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
+		dropped = append(dropped, name)
+		return nil
+	}
+
+	harness := &Harness{
+		adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
+		dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
+		templateDB:  "suite_template",
+		suiteHash:   "suitehash",
+		processHash: "procaaaa",
+	}
+
+	var preparedName string
+	t.Run("prepare", func(t *testing.T) {
+		preparedName = harness.PrepareDatabaseT(t, "standalone-cleanup").Name
+	})
+
+	if len(dropped) != 1 || dropped[0] != preparedName {
+		t.Fatalf("expected standalone PrepareDatabaseT cleanup to drop %q, got %v", preparedName, dropped)
+	}
+}
+
+func TestPrepareDatabaseTCleanupRetainsAttachedSuiteTemplateClone(t *testing.T) {
+	t.Setenv(suiteservices.ActiveEnv, "1")
+	t.Setenv(suiteservices.SuiteIDEnv, "suite-retained-template")
+	t.Setenv(suiteservices.TargetEnv, "backend-integration")
+	t.Setenv("CARTULARY_TEST_RESULTS_DIR", t.TempDir())
+	t.Setenv("CARTULARY_TEST_RUN_ID", "retained-template")
+
+	oldCreate := createDatabaseFn
+	oldDrop := dropDatabaseFn
+	t.Cleanup(func() {
+		createDatabaseFn = oldCreate
+		dropDatabaseFn = oldDrop
+	})
+
+	createDatabaseFn = func(ctx context.Context, adminDSN string, name string, templateDB string) error {
+		return nil
+	}
+	dropCalls := 0
+	dropDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
+		dropCalls++
+		return nil
+	}
+
+	harness := &Harness{
+		adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
+		dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
+		templateDB:  "suite_template",
+		suiteHash:   "suitehash",
+		processHash: "procaaaa",
+		attached:    true,
+	}
+
+	var preparedName string
+	t.Run("prepare", func(t *testing.T) {
+		preparedName = harness.PrepareDatabaseT(t, "attached-cleanup").Name
+	})
+
+	if dropCalls != 0 {
+		t.Fatalf("expected attached suite template cleanup to retain database, got %d drops", dropCalls)
+	}
+
+	scope, ok, err := suiteservices.Summarize(nil)
+	if err != nil {
+		t.Fatalf("summarize suite service events: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected suite service summary")
+	}
+	foundRetain := false
+	for _, activity := range scope.Fixture.ByStrategy {
+		if activity.Operation == "database-retain" && activity.ReuseScope == suiteservices.FixtureReusePerTest && activity.Strategy == suiteservices.PostgresPreparationTemplateClone {
+			foundRetain = true
+			break
+		}
+	}
+	if !foundRetain {
+		t.Fatalf("expected retained clone fixture activity for %q, got %#v", preparedName, scope.Fixture)
+	}
+}
+
 func TestHarnessStartsPostgresAndRunsCurrentMigrationPath(t *testing.T) {
 	harness := Start(t)
 
@@ -227,6 +325,10 @@ func TestHarnessStartsPostgresAndRunsCurrentMigrationPath(t *testing.T) {
 		t.Fatalf("prepare database: %v", err)
 	}
 	defer func() {
+		if harness.retainPreparedDatabaseOnCleanup() {
+			harness.recordRetainedDatabase(testDB.Name, suiteservices.FixtureReusePerTest, fixtureAttribution{})
+			return
+		}
 		if err := harness.DropDatabase(context.Background(), testDB.Name); err != nil {
 			t.Fatalf("drop database: %v", err)
 		}
@@ -269,6 +371,16 @@ SELECT EXISTS (
 func TestPreparePackageDatabaseTReusesAndResetsMutableTables(t *testing.T) {
 	harness := Start(t)
 
+	oldListMutableTables := listMutableTablesFn
+	listCalls := 0
+	listMutableTablesFn = func(ctx context.Context, db *sql.DB) ([]string, error) {
+		listCalls++
+		return oldListMutableTables(ctx, db)
+	}
+	t.Cleanup(func() {
+		listMutableTablesFn = oldListMutableTables
+	})
+
 	var firstName string
 	t.Run("first use seeds rows", func(t *testing.T) {
 		first := harness.PreparePackageDatabaseT(t, "package-reset")
@@ -309,6 +421,36 @@ func TestPreparePackageDatabaseTReusesAndResetsMutableTables(t *testing.T) {
 		}
 		if gooseCount == 0 {
 			t.Fatal("expected package reset to preserve migration metadata")
+		}
+
+		if _, err := db.ExecContext(context.Background(), `INSERT INTO users (email, display_name, password_hash, mfa_required) VALUES ($1, $2, $3, false)`, "package-reset-again@example.test", "Package Reset Again", "hash"); err != nil {
+			t.Fatalf("seed package database for cached reset: %v", err)
+		}
+	})
+	if listCalls != 1 {
+		t.Fatalf("expected first package reset to discover mutable tables once, got %d calls", listCalls)
+	}
+
+	listMutableTablesFn = func(ctx context.Context, db *sql.DB) ([]string, error) {
+		return nil, fmt.Errorf("cached reset should not rediscover mutable tables")
+	}
+	t.Run("third use reuses cached reset statement", func(t *testing.T) {
+		third := harness.PreparePackageDatabaseT(t, "package-reset")
+		if third.Name != firstName {
+			t.Fatalf("expected package database reuse, got %q want %q", third.Name, firstName)
+		}
+		db, err := sql.Open("pgx", third.DSN)
+		if err != nil {
+			t.Fatalf("open cached-reset package database: %v", err)
+		}
+		defer db.Close()
+
+		var userCount int
+		if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM users`).Scan(&userCount); err != nil {
+			t.Fatalf("count users after cached reset: %v", err)
+		}
+		if userCount != 0 {
+			t.Fatalf("expected cached package reset to clear users, got %d", userCount)
 		}
 	})
 }
