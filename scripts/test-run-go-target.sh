@@ -57,6 +57,16 @@ assert_not_contains() {
   fi
 }
 
+assert_equals() {
+  local actual="$1"
+  local expected="$2"
+  local label="$3"
+
+  if [[ "$actual" != "$expected" ]]; then
+    fail "$label: expected [$expected], got [$actual]"
+  fi
+}
+
 assert_not_zero() {
   local actual="$1"
   local label="$2"
@@ -116,7 +126,7 @@ touch "$shared_report_dir/stderr.log"
 printf '%s\n' "env go test -json -run '^(TestSupportPhase4Integration_Smoke)$' ./internal/modules/entities" >"$shared_report_dir/command.txt"
 printf '%s\n' "2026-04-22T12:00:00Z" >"$shared_report_dir/start_time.txt"
 printf '%s\n' "2026-04-22T12:00:00Z" >"$shared_report_dir/end_time.txt"
-printf '%s\n' "-17" >"$shared_report_dir/duration_ms.txt"
+printf '%s\n' "1200" >"$shared_report_dir/duration_ms.txt"
 printf '%s\n' "0" >"$shared_report_dir/exit_status.txt"
 
 duration_artifacts_root="$duration_results_dir/results"
@@ -141,14 +151,42 @@ duration_run_summary="$duration_artifacts_root/duration-smoke/run-summary.json"
 
 assert_not_negative "$(json_field "$duration_actual_summary" "duration_ms")" "duration actual phase duration"
 assert_not_negative "$(json_field "$duration_actual_summary" "wall_duration_ms")" "duration actual phase wall duration"
+assert_equals "$(json_field "$duration_actual_summary" "accounting_mode")" "actual" "duration actual accounting mode"
+assert_equals "$(json_field "$duration_actual_summary" "executed_duration_ms")" "1200" "duration actual executed duration"
+assert_equals "$(json_field "$duration_actual_summary" "logical_duration_ms")" "1200" "duration actual logical duration"
+assert_equals "$(json_field "$duration_actual_summary" "duration_ms")" "1200" "duration actual legacy duration"
+assert_equals "$(json_field "$duration_actual_summary" "wall_duration_ms")" "1200" "duration actual wall duration"
 assert_not_negative "$(json_field "$duration_reused_summary" "duration_ms")" "duration reused phase duration"
 assert_not_negative "$(json_field "$duration_reused_summary" "wall_duration_ms")" "duration reused phase wall duration"
+assert_equals "$(json_field "$duration_reused_summary" "accounting_mode")" "reused" "duration reused accounting mode"
+assert_equals "$(json_field "$duration_reused_summary" "executed_duration_ms")" "0" "duration reused executed duration"
+assert_equals "$(json_field "$duration_reused_summary" "logical_duration_ms")" "1200" "duration reused logical duration"
+assert_equals "$(json_field "$duration_reused_summary" "duration_ms")" "1200" "duration reused legacy duration"
+assert_equals "$(json_field "$duration_reused_summary" "wall_duration_ms")" "0" "duration reused wall duration"
 assert_not_negative "$(json_field "$duration_derived_summary" "duration_ms")" "duration derived phase duration"
 assert_not_negative "$(json_field "$duration_derived_summary" "wall_duration_ms")" "duration derived phase wall duration"
+assert_equals "$(json_field "$duration_derived_summary" "accounting_mode")" "derived" "duration derived accounting mode"
+assert_equals "$(json_field "$duration_derived_summary" "executed_duration_ms")" "0" "duration derived executed duration"
+assert_equals "$(json_field "$duration_derived_summary" "logical_duration_ms")" "0" "duration derived logical duration"
+assert_equals "$(json_field "$duration_derived_summary" "duration_ms")" "0" "duration derived legacy duration"
+assert_equals "$(json_field "$duration_derived_summary" "wall_duration_ms")" "0" "duration derived wall duration"
 assert_not_negative "$(json_field "$duration_target_summary" "duration_ms")" "duration target duration"
 assert_not_negative "$(json_field "$duration_target_summary" "wall_duration_ms")" "duration target wall duration"
+assert_equals "$(json_field "$duration_target_summary" "executed_duration_ms")" "1200" "duration target executed duration"
+assert_equals "$(json_field "$duration_target_summary" "logical_duration_ms")" "2400" "duration target logical duration"
+assert_equals "$(json_field "$duration_target_summary" "duration_ms")" "2400" "duration target legacy duration"
+assert_equals "$(json_field "$duration_target_summary" "wall_duration_ms")" "1200" "duration target wall duration"
+assert_equals "$(json_field "$duration_target_summary" "accounting_modes.actual")" "1" "duration target actual accounting count"
+assert_equals "$(json_field "$duration_target_summary" "accounting_modes.reused")" "1" "duration target reused accounting count"
+assert_equals "$(json_field "$duration_target_summary" "accounting_modes.derived")" "1" "duration target derived accounting count"
 assert_not_negative "$(json_field "$duration_run_summary" "duration_ms")" "duration run duration"
 assert_not_negative "$(json_field "$duration_run_summary" "wall_duration_ms")" "duration run wall duration"
+assert_equals "$(json_field "$duration_run_summary" "executed_duration_ms")" "1200" "duration run executed duration"
+assert_equals "$(json_field "$duration_run_summary" "logical_duration_ms")" "2400" "duration run logical duration"
+assert_equals "$(json_field "$duration_run_summary" "duration_ms")" "2400" "duration run legacy duration"
+assert_equals "$(json_field "$duration_run_summary" "accounting_modes.actual")" "1" "duration run actual accounting count"
+assert_equals "$(json_field "$duration_run_summary" "accounting_modes.reused")" "1" "duration run reused accounting count"
+assert_equals "$(json_field "$duration_run_summary" "accounting_modes.derived")" "1" "duration run derived accounting count"
 
 backend_unit_core_shared_command="$(
   NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-unit backend-unit-core

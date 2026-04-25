@@ -75,6 +75,15 @@ assert_equals() {
   fi
 }
 
+assert_not_negative() {
+  local actual="$1"
+  local label="$2"
+
+  if [[ -z "$actual" || ! "$actual" =~ ^-?[0-9]+$ || "$actual" == -* ]]; then
+    fail "$label: expected a non-negative integer, got [$actual]"
+  fi
+}
+
 write_target_summary() {
   local results_dir="$1"
   local run_id="$2"
@@ -92,8 +101,15 @@ write_target_summary() {
   "status": "pass",
   "start_time": "2026-01-01T00:00:00Z",
   "end_time": "2026-01-01T00:00:01Z",
+  "executed_duration_ms": ${duration_ms},
+  "logical_duration_ms": ${duration_ms},
   "duration_ms": ${duration_ms},
   "wall_duration_ms": ${wall_duration_ms},
+  "accounting_modes": {
+    "actual": ${phases},
+    "reused": 0,
+    "derived": 0
+  },
   "counts": {
     "phases": ${phases},
     "tests": ${tests},
@@ -190,16 +206,34 @@ child_target_output="$(
     2>&1
 )"
 assert_contains "$child_target_output" "[PASS] parent-target" "child target parent output"
-assert_contains "$child_target_output" "[CHILD] parent-target child-a status=pass phases=2 tests=7 wall_duration=1.20s duration=1.00s" "child target child-a output"
-assert_contains "$child_target_output" "[CHILD] parent-target child-b status=pass phases=3 tests=11 duration=2.00s" "child target child-b output"
+assert_contains "$child_target_output" "[CHILD] parent-target child-a status=pass phases=2 tests=7 wall_duration=1.20s executed_duration=1.00s logical_duration=1.00s actual_phases=2 reused_phases=0 derived_phases=0" "child target child-a output"
+assert_contains "$child_target_output" "[CHILD] parent-target child-b status=pass phases=3 tests=11 wall_duration=2.00s executed_duration=2.00s logical_duration=2.00s actual_phases=3 reused_phases=0 derived_phases=0" "child target child-b output"
+assert_not_contains "$child_target_output" " duration=" "child target ambiguous duration output"
 parent_target_summary="$child_summary_results/child-summary/parent-target/target-summary.json"
+assert_not_negative "$(json_field "$parent_target_summary" "wall_duration_ms")" "parent target wall duration"
+assert_not_negative "$(json_field "$parent_target_summary" "executed_duration_ms")" "parent target executed duration"
+assert_not_negative "$(json_field "$parent_target_summary" "logical_duration_ms")" "parent target logical duration"
+assert_not_negative "$(json_field "$parent_target_summary" "duration_ms")" "parent target legacy duration"
+assert_equals "$(json_field "$parent_target_summary" "accounting_modes.actual")" "1" "parent target actual accounting count"
 assert_equals "$(json_field "$parent_target_summary" "child_targets.0.target")" "child-a" "child target summary first child"
 assert_equals "$(json_field "$parent_target_summary" "child_targets.1.counts.tests")" "11" "child target summary second child tests"
 assert_equals "$(json_field "$parent_target_summary" "missing_child_target_summaries.length")" "0" "child target summary missing list"
-CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \
-CARTULARY_TEST_RUN_ID="child-summary" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "child run" pass 1 1 - parent-target >/dev/null
+child_run_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \
+  CARTULARY_TEST_RUN_ID="child-summary" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "child run" pass 1 1 - parent-target \
+    2>&1
+)"
+assert_contains "$child_run_output" "wall_duration=" "child run wall duration output"
+assert_contains "$child_run_output" "executed_duration=" "child run executed duration output"
+assert_contains "$child_run_output" "logical_duration=" "child run logical duration output"
+assert_not_contains "$child_run_output" " duration=" "child run ambiguous duration output"
 child_run_summary="$child_summary_results/child-summary/run-summary.json"
+assert_not_negative "$(json_field "$child_run_summary" "wall_duration_ms")" "child run wall duration"
+assert_not_negative "$(json_field "$child_run_summary" "executed_duration_ms")" "child run executed duration"
+assert_not_negative "$(json_field "$child_run_summary" "logical_duration_ms")" "child run logical duration"
+assert_not_negative "$(json_field "$child_run_summary" "duration_ms")" "child run legacy duration"
+assert_equals "$(json_field "$child_run_summary" "accounting_modes.actual")" "1" "child run actual accounting count"
 assert_equals "$(json_field "$child_run_summary" "target_summaries.0.target")" "parent-target" "run summary target object"
 assert_equals "$(json_field "$child_run_summary" "target_summaries.0.child_targets.1.target")" "child-b" "run summary preserved child target"
 

@@ -531,6 +531,7 @@ emit_go_raw_phase() {
 
   load_phase_window "${report_dir}" "${duration_mode}"
   export CARTULARY_REPORT_SLICE=1
+  export CARTULARY_PHASE_ACCOUNTING_MODE="${duration_mode}"
   export CARTULARY_PHASE_RUNNER_LOG="${report_dir}/runner.jsonl"
   export CARTULARY_PHASE_STDERR_LOG="${report_dir}/stderr.log"
   export CARTULARY_GO_TEST_REGEX="${test_regex}"
@@ -564,6 +565,7 @@ emit_go_manifest_phase() {
 
   load_phase_window "${report_dir}" "${duration_mode}"
   export CARTULARY_REPORT_SLICE=1
+  export CARTULARY_PHASE_ACCOUNTING_MODE="${duration_mode}"
   export CARTULARY_PHASE_RUNNER_LOG="${report_dir}/runner.jsonl"
   export CARTULARY_PHASE_STDERR_LOG="${report_dir}/stderr.log"
   export CARTULARY_MANIFEST_PHASE="${manifest_phase}"

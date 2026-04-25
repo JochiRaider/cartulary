@@ -170,12 +170,49 @@ function formatDuration(durationMs) {
   return `${minutes}m${remainder.toFixed(1)}s`;
 }
 
-function formatDurationFields(wallDurationMs, durationMs) {
-  const effectiveWall = Number.isFinite(wallDurationMs) ? wallDurationMs : durationMs;
-  if (effectiveWall !== durationMs) {
-    return `wall_duration=${formatDuration(effectiveWall)} duration=${formatDuration(durationMs)}`;
+function normalizeAccountingMode(value) {
+  if (value === "actual" || value === "reused" || value === "derived") {
+    return value;
   }
-  return `duration=${formatDuration(durationMs)}`;
+  return "actual";
+}
+
+function createAccountingModes() {
+  return {
+    actual: 0,
+    reused: 0,
+    derived: 0,
+  };
+}
+
+function mergeAccountingModes(target, source) {
+  for (const mode of Object.keys(target)) {
+    target[mode] += clampDurationMs(source?.[mode] ?? 0);
+  }
+}
+
+function resolveAccountingModes(accountingModes, fallbackActualPhases = 0) {
+  const modes = createAccountingModes();
+  if (!accountingModes) {
+    modes.actual = clampDurationMs(fallbackActualPhases);
+    return modes;
+  }
+  for (const mode of Object.keys(modes)) {
+    modes[mode] = clampDurationMs(accountingModes[mode] ?? 0);
+  }
+  return modes;
+}
+
+function formatAccountingModeFields(accountingModes) {
+  const modes = resolveAccountingModes(accountingModes);
+  return `actual_phases=${modes.actual ?? 0} reused_phases=${modes.reused ?? 0} derived_phases=${modes.derived ?? 0}`;
+}
+
+function formatDurationFields(wallDurationMs, executedDurationMs, logicalDurationMs = executedDurationMs) {
+  const effectiveLogical = clampDurationMs(logicalDurationMs);
+  const effectiveExecuted = clampDurationMs(executedDurationMs);
+  const effectiveWall = Number.isFinite(wallDurationMs) ? wallDurationMs : effectiveLogical;
+  return `wall_duration=${formatDuration(effectiveWall)} executed_duration=${formatDuration(effectiveExecuted)} logical_duration=${formatDuration(effectiveLogical)}`;
 }
 
 function computeWindowDurationMs(startTime, endTime) {
@@ -411,7 +448,20 @@ function printBlock(header, fields) {
 function createBasePhaseContext(runner) {
   const phaseDir = requiredEnv("CARTULARY_PHASE_DIR");
   ensureDir(phaseDir);
-  const durationMs = clampDurationMs(parseInteger("CARTULARY_PHASE_DURATION_MS", 0));
+  const accountingMode =
+    optionalEnv("CARTULARY_REPORT_SLICE") === "1"
+      ? normalizeAccountingMode(optionalEnv("CARTULARY_PHASE_ACCOUNTING_MODE", "actual"))
+      : "actual";
+  const legacyDurationMs = parseInteger("CARTULARY_PHASE_DURATION_MS", 0);
+  const logicalDurationMs = clampDurationMs(
+    parseInteger("CARTULARY_PHASE_LOGICAL_DURATION_MS", legacyDurationMs),
+  );
+  const executedDurationMs = clampDurationMs(
+    parseInteger(
+      "CARTULARY_PHASE_EXECUTED_DURATION_MS",
+      accountingMode === "actual" ? logicalDurationMs : 0,
+    ),
+  );
   return {
     label: requiredEnv("CARTULARY_PHASE_LABEL"),
     phaseDir,
@@ -420,8 +470,11 @@ function createBasePhaseContext(runner) {
     runner,
     startTime: requiredEnv("CARTULARY_PHASE_START_TIME"),
     endTime: requiredEnv("CARTULARY_PHASE_END_TIME"),
-    durationMs,
-    wallDurationMs: clampDurationMs(parseInteger("CARTULARY_PHASE_WALL_DURATION_MS", durationMs)),
+    accountingMode,
+    durationMs: logicalDurationMs,
+    executedDurationMs,
+    logicalDurationMs,
+    wallDurationMs: clampDurationMs(parseInteger("CARTULARY_PHASE_WALL_DURATION_MS", logicalDurationMs)),
     exitStatus: parseInteger("CARTULARY_PHASE_EXIT_STATUS", 0),
   };
 }
@@ -442,6 +495,9 @@ function writePhaseArtifacts(context, details) {
     start_time: context.startTime,
     end_time: context.endTime,
     exit_status: context.exitStatus,
+    accounting_mode: context.accountingMode,
+    executed_duration_ms: context.executedDurationMs,
+    logical_duration_ms: context.logicalDurationMs,
     duration_ms: context.durationMs,
     wall_duration_ms: context.wallDurationMs,
     status: details.status,
@@ -466,6 +522,9 @@ function writePhaseArtifacts(context, details) {
     command: context.command,
     start_time: context.startTime,
     end_time: context.endTime,
+    accounting_mode: context.accountingMode,
+    executed_duration_ms: context.executedDurationMs,
+    logical_duration_ms: context.logicalDurationMs,
     duration_ms: context.durationMs,
     wall_duration_ms: context.wallDurationMs,
     exit_status: context.exitStatus,
@@ -510,18 +569,32 @@ function summarizeTargetDir(target) {
   let startTime = "";
   let endTime = "";
   let durationMs = 0;
+  let executedDurationMs = 0;
+  let logicalDurationMs = 0;
   let wallDurationMs = 0;
+  const accountingModes = createAccountingModes();
   let failed = false;
 
   for (const summary of summaries) {
+    const accountingMode = normalizeAccountingMode(summary.accounting_mode);
+    const summaryLogicalDurationMs = clampDurationMs(
+      summary.logical_duration_ms ?? summary.duration_ms ?? 0,
+    );
+    const summaryExecutedDurationMs = clampDurationMs(
+      summary.executed_duration_ms ??
+        (accountingMode === "actual" ? summaryLogicalDurationMs : 0),
+    );
     if (startTime === "" || summary.start_time < startTime) {
       startTime = summary.start_time;
     }
     if (endTime === "" || summary.end_time > endTime) {
       endTime = summary.end_time;
     }
-    durationMs += clampDurationMs(summary.duration_ms ?? 0);
-    wallDurationMs += clampDurationMs(summary.wall_duration_ms ?? summary.duration_ms ?? 0);
+    logicalDurationMs += summaryLogicalDurationMs;
+    executedDurationMs += summaryExecutedDurationMs;
+    durationMs += summaryLogicalDurationMs;
+    wallDurationMs += clampDurationMs(summary.wall_duration_ms ?? summaryLogicalDurationMs);
+    accountingModes[accountingMode] += 1;
     counts.tests += summary.counts?.tests ?? 0;
     counts.failed += summary.counts?.failed ?? 0;
     counts.authoritative += summary.counts?.authoritative ?? 0;
@@ -556,7 +629,10 @@ function summarizeTargetDir(target) {
     startTime,
     endTime,
     durationMs,
+    executedDurationMs,
+    logicalDurationMs,
     wallDurationMs,
+    accountingModes,
     failed,
     authoritativeInventory,
     supportInventory,
@@ -650,9 +726,19 @@ function toTargetSummaryReference(summary, fallbackTarget) {
     status: summary.status ?? "",
     start_time: summary.start_time ?? "",
     end_time: summary.end_time ?? "",
-    duration_ms: clampDurationMs(summary.duration_ms ?? 0),
-    wall_duration_ms: clampDurationMs(summary.wall_duration_ms ?? summary.duration_ms ?? 0),
+    executed_duration_ms: clampDurationMs(
+      summary.executed_duration_ms ?? summary.logical_duration_ms ?? summary.duration_ms ?? 0,
+    ),
+    logical_duration_ms: clampDurationMs(summary.logical_duration_ms ?? summary.duration_ms ?? 0),
+    duration_ms: clampDurationMs(summary.duration_ms ?? summary.logical_duration_ms ?? 0),
+    wall_duration_ms: clampDurationMs(
+      summary.wall_duration_ms ?? summary.logical_duration_ms ?? summary.duration_ms ?? 0,
+    ),
     counts: summary.counts ?? { phases: 0, ...createCounts() },
+    accounting_modes: resolveAccountingModes(
+      summary.accounting_modes,
+      summary.counts?.phases ?? 0,
+    ),
     artifacts: {
       dir: summary.artifacts?.dir ?? relToRepo(path.join(resultsRoot, runId, fallbackTarget)),
     },
@@ -675,14 +761,14 @@ function loadChildTargetSummaries(childTargetNames) {
 
 function writeTargetLine(stream, label, target, summary, targetDir) {
   stream.write(
-    `${label} ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} authoritative=${summary.counts.authoritative} support=${summary.counts.support} unmapped=${summary.counts.unmapped} packages=${summary.counts.packages} ${formatDurationFields(summary.wallDurationMs, summary.durationMs)} artifacts=${relToRepo(targetDir)}\n`,
+    `${label} ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} authoritative=${summary.counts.authoritative} support=${summary.counts.support} unmapped=${summary.counts.unmapped} packages=${summary.counts.packages} ${formatDurationFields(summary.wallDurationMs, summary.executedDurationMs, summary.logicalDurationMs)} ${formatAccountingModeFields(summary.accountingModes)} artifacts=${relToRepo(targetDir)}\n`,
   );
 }
 
 function writeChildTargetLines(stream, parentTarget, childTargets, missingChildTargetSummaries) {
   for (const child of childTargets) {
     stream.write(
-      `[CHILD] ${parentTarget} ${child.target} status=${child.status} phases=${child.counts?.phases ?? 0} tests=${child.counts?.tests ?? 0} ${formatDurationFields(child.wall_duration_ms, child.duration_ms)} artifacts=${child.artifacts?.dir ?? ""}\n`,
+      `[CHILD] ${parentTarget} ${child.target} status=${child.status} phases=${child.counts?.phases ?? 0} tests=${child.counts?.tests ?? 0} ${formatDurationFields(child.wall_duration_ms, child.executed_duration_ms, child.logical_duration_ms)} ${formatAccountingModeFields(child.accounting_modes)} artifacts=${child.artifacts?.dir ?? ""}\n`,
     );
   }
   for (const childTarget of missingChildTargetSummaries) {
@@ -706,8 +792,11 @@ function handleTargetSummary(args) {
     status: status.toLowerCase(),
     start_time: summary.startTime,
     end_time: summary.endTime,
+    executed_duration_ms: summary.executedDurationMs,
+    logical_duration_ms: summary.logicalDurationMs,
     duration_ms: summary.durationMs,
     wall_duration_ms: summary.wallDurationMs,
+    accounting_modes: summary.accountingModes,
     counts: summary.counts,
     artifacts: {
       dir: relToRepo(summary.targetDir),
@@ -725,7 +814,7 @@ function handleTargetSummary(args) {
   }
 
   process.stderr.write(
-    `[FAIL] ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} failed=${summary.counts.failed} authoritative_failed=${summary.counts.authoritative_failed} support_failed=${summary.counts.support_failed} unmapped_failed=${summary.counts.unmapped_failed} non_test_failed=${summary.counts.non_test_failed} ${formatDurationFields(summary.wallDurationMs, summary.durationMs)} artifacts=${relToRepo(summary.targetDir)}\n`,
+    `[FAIL] ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} failed=${summary.counts.failed} authoritative_failed=${summary.counts.authoritative_failed} support_failed=${summary.counts.support_failed} unmapped_failed=${summary.counts.unmapped_failed} non_test_failed=${summary.counts.non_test_failed} ${formatDurationFields(summary.wallDurationMs, summary.executedDurationMs, summary.logicalDurationMs)} ${formatAccountingModeFields(summary.accountingModes)} artifacts=${relToRepo(summary.targetDir)}\n`,
   );
   writeChildTargetLines(process.stderr, target, childTargets, missingChildTargetSummaries);
   return 0;
@@ -742,8 +831,11 @@ function handleRunSummary(args) {
     phases: 0,
     ...createCounts(),
     duration_ms: 0,
+    executed_duration_ms: 0,
+    logical_duration_ms: 0,
     wall_duration_ms: 0,
   };
+  const accountingModes = createAccountingModes();
   let failed = requestedStatus === "fail";
   let startTime = "";
   let endTime = "";
@@ -768,9 +860,20 @@ function handleRunSummary(args) {
     aggregate.support_failed += summary.counts?.support_failed ?? 0;
     aggregate.unmapped_failed += summary.counts?.unmapped_failed ?? 0;
     aggregate.non_test_failed += summary.counts?.non_test_failed ?? 0;
-    aggregate.duration_ms += clampDurationMs(summary.duration_ms ?? 0);
+    const summaryLogicalDurationMs = clampDurationMs(
+      summary.logical_duration_ms ?? summary.duration_ms ?? 0,
+    );
+    aggregate.logical_duration_ms += summaryLogicalDurationMs;
+    aggregate.duration_ms += summaryLogicalDurationMs;
+    aggregate.executed_duration_ms += clampDurationMs(
+      summary.executed_duration_ms ?? summaryLogicalDurationMs,
+    );
     aggregate.wall_duration_ms += clampDurationMs(
-      summary.wall_duration_ms ?? summary.duration_ms ?? 0,
+      summary.wall_duration_ms ?? summaryLogicalDurationMs,
+    );
+    mergeAccountingModes(
+      accountingModes,
+      resolveAccountingModes(summary.accounting_modes, summary.counts?.phases ?? 0),
     );
     if (startTime === "" || (summary.start_time && summary.start_time < startTime)) {
       startTime = summary.start_time ?? "";
@@ -800,8 +903,11 @@ function handleRunSummary(args) {
     aborted_after: abortedAfter === "-" ? "" : abortedAfter,
     start_time: startTime,
     end_time: endTime,
+    executed_duration_ms: aggregate.executed_duration_ms,
+    logical_duration_ms: aggregate.logical_duration_ms,
     duration_ms: aggregate.duration_ms,
     wall_duration_ms: wallDurationMs,
+    accounting_modes: accountingModes,
     counts: aggregate,
     artifacts: {
       dir: relToRepo(path.join(resultsRoot, runId)),
@@ -814,13 +920,13 @@ function handleRunSummary(args) {
 
   if (!failed) {
     process.stdout.write(
-      `[PASS] ${label} completed_targets=${completedTargets}/${totalTargets} phases=${aggregate.phases} tests=${aggregate.tests} authoritative=${aggregate.authoritative} support=${aggregate.support} unmapped=${aggregate.unmapped} ${formatDurationFields(wallDurationMs, aggregate.duration_ms)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
+      `[PASS] ${label} completed_targets=${completedTargets}/${totalTargets} phases=${aggregate.phases} tests=${aggregate.tests} authoritative=${aggregate.authoritative} support=${aggregate.support} unmapped=${aggregate.unmapped} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms)} ${formatAccountingModeFields(accountingModes)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
     );
     return 0;
   }
 
   process.stderr.write(
-    `[FAIL] ${label} completed_targets=${completedTargets}/${totalTargets} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.duration_ms)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
+    `[FAIL] ${label} completed_targets=${completedTargets}/${totalTargets} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms)} ${formatAccountingModeFields(accountingModes)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
   );
   return 0;
 }
