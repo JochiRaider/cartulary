@@ -228,6 +228,55 @@ assert_equals "$(json_field "$parent_target_timing" "schema_id")" "cartulary.tes
 assert_equals "$(json_field "$parent_target_timing" "buckets.0.name")" "test_command" "parent target timing test command bucket"
 assert_equals "$(json_field "$parent_target_timing" "buckets.1.name")" "report_collation" "parent target timing report collation bucket"
 assert_equals "$(json_field "$parent_target_summary" "slowest_lifecycle_bucket.name")" "$(json_field "$parent_target_timing" "slowest_lifecycle_bucket.name")" "parent target summary slowest bucket"
+
+teardown_accounting_results="$(mktemp -d "$ROOT_DIR/tmp/target-timing-teardown-accounting.XXXXXX")"
+cleanup_paths+=("$teardown_accounting_results")
+teardown_services_dir="$teardown_accounting_results/teardown-accounting/_shared/test-services/web-fixture/events"
+mkdir -p "$teardown_services_dir"
+CARTULARY_TEST_RESULTS_DIR="$teardown_accounting_results" \
+CARTULARY_TEST_RUN_ID="teardown-accounting" \
+CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
+CARTULARY_TIMING_BUCKET="teardown" \
+CARTULARY_TIMING_LABEL="browser-e2e stop owned processes" \
+CARTULARY_TIMING_START_TIME="2026-01-01T00:00:00Z" \
+CARTULARY_TIMING_END_TIME="2026-01-01T00:00:01.100Z" \
+CARTULARY_TIMING_DURATION_MS="1100" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" timing-span
+CARTULARY_TEST_RESULTS_DIR="$teardown_accounting_results" \
+CARTULARY_TEST_RUN_ID="teardown-accounting" \
+CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
+CARTULARY_TIMING_BUCKET="teardown" \
+CARTULARY_TIMING_LABEL="browser-e2e remove runtime root" \
+CARTULARY_TIMING_START_TIME="2026-01-01T00:00:01.800Z" \
+CARTULARY_TIMING_END_TIME="2026-01-01T00:00:02.100Z" \
+CARTULARY_TIMING_DURATION_MS="300" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" timing-span
+cat >"$teardown_services_dir/cleanup-browser-fixture.json" <<'JSON'
+{
+  "type": "timing-span",
+  "name": "test-services cleanup browser e2e fixture",
+  "status": "pass",
+  "timestamp": "2026-01-01T00:00:01.800Z",
+  "details": {
+    "target": "browser-e2e-webserver-backed",
+    "bucket": "teardown",
+    "label": "test-services cleanup browser e2e fixture",
+    "start_time": "2026-01-01T00:00:01.100Z",
+    "end_time": "2026-01-01T00:00:01.800Z",
+    "duration_ms": 700,
+    "status": "pass"
+  }
+}
+JSON
+CARTULARY_TEST_RESULTS_DIR="$teardown_accounting_results" \
+CARTULARY_TEST_RUN_ID="teardown-accounting" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e-webserver-backed pass >/dev/null
+teardown_accounting_timing="$teardown_accounting_results/teardown-accounting/browser-e2e-webserver-backed/target-timing.json"
+assert_equals "$(json_field "$teardown_accounting_timing" "buckets.0.name")" "teardown" "teardown accounting bucket"
+assert_equals "$(json_field "$teardown_accounting_timing" "buckets.0.duration_ms")" "2100" "teardown accounting disjoint duration"
+assert_equals "$(json_field "$teardown_accounting_timing" "buckets.0.spans.length")" "3" "teardown accounting span count"
+assert_equals "$(json_field "$teardown_accounting_timing" "slowest_lifecycle_bucket.name")" "teardown" "teardown accounting slowest bucket"
+
 child_run_output="$(
   CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \
   CARTULARY_TEST_RUN_ID="child-summary" \

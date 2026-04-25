@@ -317,35 +317,49 @@ cleanup() {
   fi
   cleanup_done=1
 
-  local cleanup_start_time
-  local cleanup_start_ms
-  local cleanup_end_time
-  local cleanup_end_ms
-  local cleanup_duration_ms
-  cleanup_start_time="$(phase_now_utc)"
-  cleanup_start_ms="$(phase_now_monotonic_ms)"
+  local step_start_time
+  local step_start_ms
+  local step_end_time
+  local step_end_ms
+  local step_duration_ms
+
+  step_start_time="$(phase_now_utc)"
+  step_start_ms="$(phase_now_monotonic_ms)"
 
   if [[ -n "${CHILD_PGID:-}" ]]; then
     stop_process_group "${CHILD_PGID}" || true
   fi
   stop_owned_process_group "${VITE_PGID:-}" "${FRONTEND_PORT:-4173}" "frontend"
   stop_owned_process_group "${SERVER_PGID:-}" "${BACKEND_PORT:-8080}" "backend"
+
+  step_end_time="$(phase_now_utc)"
+  step_end_ms="$(phase_now_monotonic_ms)"
+  step_duration_ms="$(phase_elapsed_ms "${step_start_ms}" "${step_end_ms}")"
+  emit_target_timing_span "teardown" "browser-e2e stop owned processes" "${step_start_time}" "${step_end_time}" "${step_duration_ms}" "pass" 0
+
   if using_test_services_stack; then
     if [[ -x "${TEST_SERVICES_BIN}" && -f "${TEST_SERVICES_METADATA_FILE}" ]]; then
       "${TEST_SERVICES_BIN}" cleanup-web-e2e --metadata-file "${TEST_SERVICES_METADATA_FILE}" >/dev/null 2>&1 || true
     fi
   else
+    step_start_time="$(phase_now_utc)"
+    step_start_ms="$(phase_now_monotonic_ms)"
     docker compose -f "${COMPOSE_FILE}" exec -T postgres \
       psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null 2>&1 || true
+    step_end_time="$(phase_now_utc)"
+    step_end_ms="$(phase_now_monotonic_ms)"
+    step_duration_ms="$(phase_elapsed_ms "${step_start_ms}" "${step_end_ms}")"
+    emit_target_timing_span "teardown" "browser-e2e cleanup standalone database" "${step_start_time}" "${step_end_time}" "${step_duration_ms}" "pass" 0
   fi
   if [[ "${KEEP_RUNTIME_ROOT}" -ne 1 ]]; then
+    step_start_time="$(phase_now_utc)"
+    step_start_ms="$(phase_now_monotonic_ms)"
     rm -rf "${RUNTIME_ROOT_BASE}"
+    step_end_time="$(phase_now_utc)"
+    step_end_ms="$(phase_now_monotonic_ms)"
+    step_duration_ms="$(phase_elapsed_ms "${step_start_ms}" "${step_end_ms}")"
+    emit_target_timing_span "teardown" "browser-e2e remove runtime root" "${step_start_time}" "${step_end_time}" "${step_duration_ms}" "pass" 0
   fi
-
-  cleanup_end_time="$(phase_now_utc)"
-  cleanup_end_ms="$(phase_now_monotonic_ms)"
-  cleanup_duration_ms="$(phase_elapsed_ms "${cleanup_start_ms}" "${cleanup_end_ms}")"
-  emit_target_timing_span "teardown" "browser-e2e owned-stack cleanup" "${cleanup_start_time}" "${cleanup_end_time}" "${cleanup_duration_ms}" "pass" 0
 }
 
 exit_for_requested_shutdown() {
