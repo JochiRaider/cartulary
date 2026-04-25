@@ -11,6 +11,7 @@ GO_BIN="${GO:-go}"
 NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/tmp/node-runtime}"
 SERVER_BIN="${CARTULARY_SERVER_BIN:-}"
 MIGRATE_BIN="${CARTULARY_MIGRATE_BIN:-}"
+TEST_SERVICES_BIN="${CARTULARY_TEST_SERVICES_BIN:-}"
 USE_REPO_ROOT_RUNTIME_ARTIFACTS_ENV="CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES"
 
 KEEP_RUNTIME_ROOT=0
@@ -19,6 +20,8 @@ RUNTIME_ROOT_BASE=""
 SERVER_LOG=""
 WEB_LOG=""
 PLAYWRIGHT_STATE_DIR=""
+TEST_SERVICES_ENV_FILE=""
+TEST_SERVICES_METADATA_FILE=""
 E2E_DB=""
 E2E_DSN=""
 child_command=()
@@ -75,6 +78,8 @@ prepare_runtime_root() {
   PLAYWRIGHT_STATE_DIR="${RUNTIME_ROOT_BASE}/playwright-state"
   E2E_DB="cartulary_web_e2e_$$"
   E2E_DSN="postgres://cartulary:cartulary@localhost:5432/${E2E_DB}?sslmode=disable"
+  TEST_SERVICES_ENV_FILE="${RUNTIME_ROOT_BASE}/test-services-web-e2e.env"
+  TEST_SERVICES_METADATA_FILE="${RUNTIME_ROOT_BASE}/test-services-web-e2e.json"
 
   mkdir -p \
     "${RUNTIME_ROOT_BASE}/database-storage" \
@@ -89,6 +94,21 @@ prepare_runtime_root() {
   export CARTULARY_WEB_E2E_SERVER_LOG="${SERVER_LOG}"
   export CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}"
   export CARTULARY_WEB_E2E_RUNTIME_ROOT="${RUNTIME_ROOT_BASE}"
+}
+
+using_test_services_stack() {
+  [[ "${CARTULARY_TEST_SERVICES_ACTIVE:-}" == "1" ]]
+}
+
+require_test_services_bin() {
+  if [[ -z "${TEST_SERVICES_BIN}" ]]; then
+    echo "CARTULARY_TEST_SERVICES_BIN is required when CARTULARY_TEST_SERVICES_ACTIVE=1" >&2
+    return 1
+  fi
+  if [[ ! -x "${TEST_SERVICES_BIN}" ]]; then
+    echo "CARTULARY_TEST_SERVICES_BIN ${TEST_SERVICES_BIN} is not executable" >&2
+    return 1
+  fi
 }
 
 use_repo_root_runtime_artifacts() {
@@ -179,8 +199,14 @@ cleanup() {
   fi
   stop_owned_process_group "${VITE_PGID:-}" 4173 "frontend"
   stop_owned_process_group "${SERVER_PGID:-}" 8080 "backend"
-  docker compose -f "${COMPOSE_FILE}" exec -T postgres \
-    psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null 2>&1 || true
+  if using_test_services_stack; then
+    if [[ -x "${TEST_SERVICES_BIN}" && -f "${TEST_SERVICES_METADATA_FILE}" ]]; then
+      "${TEST_SERVICES_BIN}" cleanup-web-e2e --metadata-file "${TEST_SERVICES_METADATA_FILE}" >/dev/null 2>&1 || true
+    fi
+  else
+    docker compose -f "${COMPOSE_FILE}" exec -T postgres \
+      psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null 2>&1 || true
+  fi
   if [[ "${KEEP_RUNTIME_ROOT}" -ne 1 ]]; then
     rm -rf "${RUNTIME_ROOT_BASE}"
   fi
@@ -245,6 +271,12 @@ assert_port_free() {
 }
 
 browser_start_services() {
+  if using_test_services_stack; then
+    require_test_services_bin || return $?
+    echo "browser e2e using active test-service Postgres and MinIO stack"
+    return 0
+  fi
+
   docker compose -f "${COMPOSE_FILE}" up -d postgres minio >/dev/null
   "${DEV_SERVICES_SCRIPT}" wait
 }
@@ -253,6 +285,15 @@ browser_prepare_database() {
   assert_port_free 8080 "backend"
   assert_port_free 4173 "frontend"
   cd "${ROOT_DIR}"
+
+  if using_test_services_stack; then
+    require_test_services_bin || return $?
+    "${TEST_SERVICES_BIN}" prepare-web-e2e --env-file "${TEST_SERVICES_ENV_FILE}" --metadata-file "${TEST_SERVICES_METADATA_FILE}"
+    # shellcheck disable=SC1090
+    source "${TEST_SERVICES_ENV_FILE}"
+    E2E_DSN="${CARTULARY_POSTGRES_DSN:?}"
+    return 0
+  fi
 
   docker compose -f "${COMPOSE_FILE}" exec -T postgres \
     psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null
@@ -361,6 +402,11 @@ main() {
     CARTULARY__APPLICATION__PUBLIC_ORIGIN="http://127.0.0.1:4173" \
     CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
     CARTULARY_POSTGRES_DSN="${E2E_DSN}" \
+    CARTULARY_S3_ENDPOINT="${CARTULARY_S3_ENDPOINT:-}" \
+    CARTULARY_S3_ACCESS_KEY_ID="${CARTULARY_S3_ACCESS_KEY_ID:-}" \
+    CARTULARY_S3_SECRET_ACCESS_KEY="${CARTULARY_S3_SECRET_ACCESS_KEY:-}" \
+    CARTULARY_S3_SECURE="${CARTULARY_S3_SECURE:-}" \
+    CARTULARY_S3_BUCKET="${CARTULARY_S3_BUCKET:-}" \
     CARTULARY_ENABLE_TEST_ROUTES=1 \
     CARTULARY__ROOTS__DATABASE_STORAGE__PATH="${RUNTIME_ROOT_BASE}/database-storage" \
     CARTULARY__ROOTS__OBJECT_STORAGE__PATH="${RUNTIME_ROOT_BASE}/object-storage" \

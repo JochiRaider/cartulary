@@ -463,4 +463,90 @@ fi
 CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES=1
 resolve_runtime_command resolved_command "backend" "$repo_server_artifact" "$repo_server_artifact" ./cmd/server
 assert_equals "${resolved_command[*]}" "$repo_server_artifact" "repo-root backend artifact opt-in honored"
+resolve_runtime_command resolved_command "migration" "$repo_migrate_artifact" "$repo_migrate_artifact" ./cmd/migrate
+assert_equals "${resolved_command[*]}" "$repo_migrate_artifact" "repo-root migrate artifact opt-in honored"
 unset CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES
+
+CARTULARY_TEST_SERVICES_ACTIVE=1
+TEST_SERVICES_BIN="$tmp_dir/missing-test-services"
+missing_test_services_stderr="$tmp_dir/missing-test-services.stderr"
+if browser_start_services 2>"$missing_test_services_stderr"; then
+  fail "active test-service mode must require an executable CARTULARY_TEST_SERVICES_BIN"
+fi
+if ! grep -Fq "CARTULARY_TEST_SERVICES_BIN" "$missing_test_services_stderr"; then
+  fail "missing test-services binary failure must mention CARTULARY_TEST_SERVICES_BIN"
+fi
+
+fake_test_services="$tmp_dir/fake-test-services.sh"
+cat >"$fake_test_services" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+log_file="${FAKE_TEST_SERVICES_LOG:?}"
+printf '%s\n' "$*" >>"$log_file"
+
+case "${1:-}" in
+  prepare-web-e2e)
+    env_file=""
+    metadata_file=""
+    shift
+    while [[ "$#" -gt 0 ]]; do
+      case "$1" in
+        --env-file)
+          env_file="$2"
+          shift 2
+          ;;
+        --metadata-file)
+          metadata_file="$2"
+          shift 2
+          ;;
+        *)
+          echo "unexpected prepare arg $1" >&2
+          exit 2
+          ;;
+      esac
+    done
+    cat >"$env_file" <<ENV
+export CARTULARY_POSTGRES_DSN='postgres://cartulary:cartulary@127.0.0.1:15432/ct_web?sslmode=disable'
+export CARTULARY_S3_ENDPOINT='127.0.0.1:19000'
+export CARTULARY_S3_ACCESS_KEY_ID='web-access'
+export CARTULARY_S3_SECRET_ACCESS_KEY='web-secret'
+export CARTULARY_S3_SECURE='false'
+export CARTULARY_S3_BUCKET='ct-web'
+ENV
+    printf '{"database_name":"ct_web","bucket":"ct-web"}\n' >"$metadata_file"
+    ;;
+  cleanup-web-e2e)
+    ;;
+  *)
+    echo "unexpected fake test-services command ${1:-}" >&2
+    exit 2
+    ;;
+esac
+EOF
+chmod +x "$fake_test_services"
+
+fake_test_services_log="$tmp_dir/fake-test-services.log"
+TEST_SERVICES_BIN="$fake_test_services"
+TEST_SERVICES_ENV_FILE="$tmp_dir/browser.env"
+TEST_SERVICES_METADATA_FILE="$tmp_dir/browser.json"
+FAKE_TEST_SERVICES_LOG="$fake_test_services_log"
+export FAKE_TEST_SERVICES_LOG
+browser_start_services >/dev/null
+browser_prepare_database
+assert_equals "$E2E_DSN" "postgres://cartulary:cartulary@127.0.0.1:15432/ct_web?sslmode=disable" "active test-service browser dsn"
+assert_equals "$CARTULARY_S3_BUCKET" "ct-web" "active test-service browser bucket"
+assert_equals "$(head -n 1 "$fake_test_services_log")" "prepare-web-e2e --env-file $TEST_SERVICES_ENV_FILE --metadata-file $TEST_SERVICES_METADATA_FILE" "active test-service prepare command"
+
+cleanup_done=0
+SERVER_PGID=""
+VITE_PGID=""
+CHILD_PGID=""
+KEEP_RUNTIME_ROOT=1
+cleanup
+if ! tail -n 1 "$fake_test_services_log" | grep -Fq "cleanup-web-e2e --metadata-file $TEST_SERVICES_METADATA_FILE"; then
+  fail "active test-service cleanup command must use browser metadata"
+fi
+
+unset CARTULARY_TEST_SERVICES_ACTIVE
+unset FAKE_TEST_SERVICES_LOG

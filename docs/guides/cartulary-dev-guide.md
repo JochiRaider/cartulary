@@ -753,6 +753,8 @@ Repo-control helper targets MAY expose narrower frontend or browser slices. When
 
 `make check` is the required developer gate. It MUST include contract-generation drift detection, migration verification, an authored-frontend Biome pass immediately after frontend install and before the heavy parallel block, and a failure condition when any authoritative phase-manifest row is absent from actual execution. When browser suites depend on the real Playwright web-server bootstrap, the gate must run those suites under one owned shared stack rather than parallelizing multiple independent startup attempts. `make ci` composes the same execution-truth guarantee into the provider-neutral CI surface. `make release-check` is the release verification gate and MUST fail if the configured license report or SBOM artifact is missing or empty.
 
+During `make check-service-backed`, `browser-e2e-webserver-backed` reuses the active `cartulary-test-services` Postgres and MinIO stack, cloning the migrated suite template database and creating a browser-scoped object bucket through that harness. Direct standalone browser E2E targets continue to use the development Compose stack.
+
 The supported authored-frontend formatter command is `make format`. It delegates to the curated frontend Biome wrapper, and frontend Biome enforcement SHOULD use that authored-source scope rather than `biome check .` so runtime outputs such as `dist/`, `test-results/`, coverage artifacts, and installed dependencies are not treated as formatter owners.
 
 Shell-backed verification wrappers such as frontend lint, migration drift, and similar helper phases SHOULD report as non-test failures rather than as unmapped test inventory when they exit non-zero.

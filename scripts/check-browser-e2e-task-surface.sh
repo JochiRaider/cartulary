@@ -18,11 +18,58 @@ fail() {
 extract_target_block() {
   local target="$1"
   awk -v target="$target" '
-    $0 ~ "^" target ":" { in_block=1; next }
+    $0 ~ "^" target ":" { in_block=1; print; next }
     in_block && /^[^[:space:]].*:/ { exit }
     in_block { print }
   ' "$makefile"
 }
+
+require_browser_owned_stack_target_uses_built_binaries() {
+  local target="$1"
+  local block
+  block="$(extract_target_block "$target")"
+
+  if [[ -z "$block" ]]; then
+    fail "Makefile must define a non-empty $target block"
+  fi
+  if ! printf '%s\n' "$block" | grep -Fq 'build-server'; then
+    fail "$target must depend on build-server"
+  fi
+  if ! printf '%s\n' "$block" | grep -Fq 'build-migrate'; then
+    fail "$target must depend on build-migrate"
+  fi
+  if ! printf '%s\n' "$block" | grep -Fq '$(BROWSER_E2E_OWNED_STACK_ENV)'; then
+    fail "$target must use BROWSER_E2E_OWNED_STACK_ENV"
+  fi
+}
+
+browser_e2e_owned_stack_env="$(sed -n 's/^BROWSER_E2E_OWNED_STACK_ENV[[:space:]]*:=//p' "$makefile" | head -n 1)"
+if [[ -z "$browser_e2e_owned_stack_env" ]]; then
+  fail "Makefile must define BROWSER_E2E_OWNED_STACK_ENV"
+fi
+if ! printf '%s\n' "$browser_e2e_owned_stack_env" | grep -Fq 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
+  fail "BROWSER_E2E_OWNED_STACK_ENV must export CARTULARY_SERVER_BIN=$(SERVER_BIN)"
+fi
+if ! printf '%s\n' "$browser_e2e_owned_stack_env" | grep -Fq 'CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN)'; then
+  fail "BROWSER_E2E_OWNED_STACK_ENV must export CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN)"
+fi
+if ! printf '%s\n' "$browser_e2e_owned_stack_env" | grep -Fq 'CARTULARY_TEST_SERVICES_BIN=$(TEST_SERVICES_BIN)'; then
+  fail "BROWSER_E2E_OWNED_STACK_ENV must export CARTULARY_TEST_SERVICES_BIN=$(TEST_SERVICES_BIN)"
+fi
+if ! printf '%s\n' "$browser_e2e_owned_stack_env" | grep -Fq 'CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES=1'; then
+  fail "BROWSER_E2E_OWNED_STACK_ENV must opt Makefile-owned browser E2E into built repo-root binaries"
+fi
+
+for browser_owned_stack_target in \
+  browser-e2e-webserver-backed \
+  browser-e2e-functional \
+  browser-e2e-support \
+  browser-e2e-stateful \
+  browser-e2e-measurement \
+  browser-e2e-visual
+do
+  require_browser_owned_stack_target_uses_built_binaries "$browser_owned_stack_target"
+done
 
 check_heavy_line="$(sed -n 's/^check-heavy:[[:space:]]*//p' "$makefile" | head -n 1)"
 if [[ -z "$check_heavy_line" ]]; then
@@ -141,8 +188,20 @@ fi
 if ! grep -Fq 'DEV_SERVICES_SCRIPT=' "$start_web_e2e_script"; then
   fail "scripts/start-web-e2e.sh must configure the shared dev service helper"
 fi
+if ! grep -Fq 'CARTULARY_TEST_SERVICES_ACTIVE' "$start_web_e2e_script"; then
+  fail "scripts/start-web-e2e.sh must detect active test-service suites"
+fi
+if ! grep -Fq 'prepare-web-e2e --env-file' "$start_web_e2e_script"; then
+  fail "scripts/start-web-e2e.sh must prepare browser fixtures through cartulary-test-services when active"
+fi
+if ! grep -Fq 'cleanup-web-e2e --metadata-file' "$start_web_e2e_script"; then
+  fail "scripts/start-web-e2e.sh must clean browser fixtures through cartulary-test-services when active"
+fi
 if ! grep -Fq '"${DEV_SERVICES_SCRIPT}" wait' "$start_web_e2e_script"; then
   fail "scripts/start-web-e2e.sh must wait for Postgres and MinIO through dev-services.sh"
+fi
+if ! grep -Fq 'docker compose -f "${COMPOSE_FILE}" up -d postgres minio' "$start_web_e2e_script"; then
+  fail "scripts/start-web-e2e.sh must keep Compose-backed startup for standalone browser E2E"
 fi
 
 if ! grep -Fq 'phase1 authoritative browser_functional' "$functional_script"; then

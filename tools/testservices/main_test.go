@@ -327,6 +327,140 @@ func TestRunRecordsChildStartFailureWithStructuredSummary(t *testing.T) {
 	}
 }
 
+func TestPrepareWebE2ERequiresActiveSuiteAndTemplate(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	called := false
+	deps.prepareWebE2E = func(context.Context, map[string]string) (webE2EFixture, error) {
+		called = true
+		return webE2EFixture{}, nil
+	}
+
+	status := run([]string{"prepare-web-e2e", "--env-file", filepath.Join(t.TempDir(), "env"), "--metadata-file", filepath.Join(t.TempDir(), "metadata.json")}, deps.env, deps.dependencies)
+	if status != 1 {
+		t.Fatalf("missing active suite must fail with status 1, got %d", status)
+	}
+	if called {
+		t.Fatal("prepare must not run without an active suite")
+	}
+
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	status = run([]string{"prepare-web-e2e", "--env-file", filepath.Join(t.TempDir(), "env"), "--metadata-file", filepath.Join(t.TempDir(), "metadata.json")}, activeEnv, deps.dependencies)
+	if status != 1 {
+		t.Fatalf("missing postgres template must fail with status 1, got %d", status)
+	}
+	if called {
+		t.Fatal("prepare must not run without a migrated template database")
+	}
+}
+
+func TestPrepareWebE2EWritesShellEnvAndMetadata(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	envFile := filepath.Join(t.TempDir(), "browser.env")
+	metadataFile := filepath.Join(t.TempDir(), "browser.json")
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.PGTemplateDBEnv] = "suite_template"
+
+	deps.prepareWebE2E = func(context.Context, map[string]string) (webE2EFixture, error) {
+		return webE2EFixture{
+			DatabaseName: "ct_web",
+			DSN:          "postgres://cartulary:pa'ss@127.0.0.1:5432/ct_web?sslmode=disable",
+			Bucket:       "ct-web",
+			S3Endpoint:   "127.0.0.1:9000",
+			S3AccessKey:  "access'key",
+			S3SecretKey:  "secret",
+			S3Secure:     true,
+		}, nil
+	}
+
+	status := run([]string{"prepare-web-e2e", "--env-file", envFile, "--metadata-file", metadataFile}, activeEnv, deps.dependencies)
+	if status != 0 {
+		t.Fatalf("unexpected prepare status: got %d want 0", status)
+	}
+
+	envRaw, err := os.ReadFile(envFile)
+	if err != nil {
+		t.Fatalf("read env file: %v", err)
+	}
+	envText := string(envRaw)
+	for _, expected := range []string{
+		`export CARTULARY_POSTGRES_DSN='postgres://cartulary:pa'"'"'ss@127.0.0.1:5432/ct_web?sslmode=disable'`,
+		`export CARTULARY_S3_ACCESS_KEY_ID='access'"'"'key'`,
+		`export CARTULARY_S3_BUCKET='ct-web'`,
+		`export CARTULARY_S3_SECURE='true'`,
+	} {
+		if !strings.Contains(envText, expected) {
+			t.Fatalf("env file missing %q in:\n%s", expected, envText)
+		}
+	}
+
+	metadata, err := readWebE2EMetadata(metadataFile)
+	if err != nil {
+		t.Fatalf("read metadata: %v", err)
+	}
+	if metadata.DatabaseName != "ct_web" || metadata.Bucket != "ct-web" {
+		t.Fatalf("unexpected metadata: %#v", metadata)
+	}
+}
+
+func TestCleanupWebE2EReadsMetadataAndCallsCleanup(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	metadataFile := filepath.Join(t.TempDir(), "browser.json")
+	if err := writeWebE2EMetadata(metadataFile, webE2EMetadata{DatabaseName: "ct_web", Bucket: "ct-web"}); err != nil {
+		t.Fatalf("write metadata: %v", err)
+	}
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+
+	var got webE2EMetadata
+	deps.cleanupWebE2E = func(ctx context.Context, metadata webE2EMetadata, env map[string]string) error {
+		got = metadata
+		return nil
+	}
+
+	status := run([]string{"cleanup-web-e2e", "--metadata-file", metadataFile}, activeEnv, deps.dependencies)
+	if status != 0 {
+		t.Fatalf("unexpected cleanup status: got %d want 0", status)
+	}
+	if got.DatabaseName != "ct_web" || got.Bucket != "ct-web" {
+		t.Fatalf("cleanup received unexpected metadata: %#v", got)
+	}
+}
+
+func TestPrepareWebE2ECleansFixtureWhenEnvWriteFails(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	envFile := t.TempDir()
+	metadataFile := filepath.Join(t.TempDir(), "browser.json")
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.PGTemplateDBEnv] = "suite_template"
+
+	deps.prepareWebE2E = func(context.Context, map[string]string) (webE2EFixture, error) {
+		return webE2EFixture{
+			DatabaseName: "ct_web",
+			DSN:          "postgres://cartulary:cartulary@127.0.0.1:5432/ct_web?sslmode=disable",
+			Bucket:       "ct-web",
+		}, nil
+	}
+	cleanupCalls := 0
+	deps.cleanupWebE2E = func(ctx context.Context, metadata webE2EMetadata, env map[string]string) error {
+		cleanupCalls++
+		if metadata.DatabaseName != "ct_web" || metadata.Bucket != "ct-web" {
+			t.Fatalf("cleanup received unexpected metadata: %#v", metadata)
+		}
+		return nil
+	}
+
+	status := run([]string{"prepare-web-e2e", "--env-file", envFile, "--metadata-file", metadataFile}, activeEnv, deps.dependencies)
+	if status != 1 {
+		t.Fatalf("env write failure must return status 1, got %d", status)
+	}
+	if cleanupCalls != 1 {
+		t.Fatalf("expected cleanup after env write failure, got %d calls", cleanupCalls)
+	}
+}
+
 type testDeps struct {
 	dependencies
 	env        map[string]string
@@ -354,6 +488,8 @@ func defaultTestDependencies(t testing.TB) testDeps {
 				return fakeChild{}, nil
 			},
 			createTemplate: func(context.Context, string, string) error { return nil },
+			prepareWebE2E:  func(context.Context, map[string]string) (webE2EFixture, error) { return webE2EFixture{}, nil },
+			cleanupWebE2E:  func(context.Context, webE2EMetadata, map[string]string) error { return nil },
 			recordEvent: func(env map[string]string, event suiteservices.Event) {
 				_ = suiteservices.RecordEvent(env, event)
 			},

@@ -5,12 +5,14 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"slices"
 	"strings"
 	"syscall"
@@ -58,6 +60,21 @@ type minioService struct {
 	close     func(context.Context) error
 }
 
+type webE2EFixture struct {
+	DatabaseName string
+	DSN          string
+	Bucket       string
+	S3Endpoint   string
+	S3AccessKey  string
+	S3SecretKey  string
+	S3Secure     bool
+}
+
+type webE2EMetadata struct {
+	DatabaseName string `json:"database_name"`
+	Bucket       string `json:"bucket"`
+}
+
 type childProcess interface {
 	Wait() error
 	Signal(os.Signal) error
@@ -70,6 +87,8 @@ type dependencies struct {
 	startMinIO     func(context.Context) (minioService, error)
 	startChild     func(argv []string, env map[string]string) (childProcess, error)
 	createTemplate func(context.Context, string, string) error
+	prepareWebE2E  func(context.Context, map[string]string) (webE2EFixture, error)
+	cleanupWebE2E  func(context.Context, webE2EMetadata, map[string]string) error
 	recordEvent    func(map[string]string, suiteservices.Event)
 	refreshSummary func(map[string]string)
 	suiteID        func() (string, error)
@@ -82,6 +101,25 @@ func main() {
 }
 
 func run(args []string, env map[string]string, deps dependencies) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | prepare-web-e2e --env-file <path> --metadata-file <path> | cleanup-web-e2e --metadata-file <path>")
+		return 2
+	}
+
+	switch args[0] {
+	case "run":
+		return runWrappedCommand(args, env, deps)
+	case "prepare-web-e2e":
+		return runPrepareWebE2E(args[1:], env, deps)
+	case "cleanup-web-e2e":
+		return runCleanupWebE2E(args[1:], env, deps)
+	default:
+		fmt.Fprintf(os.Stderr, "usage: unknown testservices command %q\n", args[0])
+		return 2
+	}
+}
+
+func runWrappedCommand(args []string, env map[string]string, deps dependencies) int {
 	command, usageErr := parseRunCommand(args)
 	if usageErr != nil {
 		fmt.Fprintln(os.Stderr, usageErr)
@@ -202,6 +240,74 @@ func run(args []string, env map[string]string, deps dependencies) int {
 	return childExitCode
 }
 
+func runPrepareWebE2E(args []string, env map[string]string, deps dependencies) int {
+	envFile, metadataFile, err := parsePrepareWebE2EArgs(args)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	if !suiteservices.SuiteActive(env) {
+		fmt.Fprintf(os.Stderr, "prepare-web-e2e requires %s=1\n", suiteservices.ActiveEnv)
+		return 1
+	}
+	if strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.PGTemplateDBEnv)) == "" {
+		fmt.Fprintf(os.Stderr, "prepare-web-e2e requires %s to clone the migrated suite template database\n", suiteservices.PGTemplateDBEnv)
+		return 1
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), templateStartupTimeout)
+	defer cancel()
+
+	fixture, err := deps.prepareWebE2E(ctx, env)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "prepare browser e2e fixture: %v\n", err)
+		return 1
+	}
+
+	metadata := webE2EMetadata{
+		DatabaseName: fixture.DatabaseName,
+		Bucket:       fixture.Bucket,
+	}
+	if err := writeWebE2EMetadata(metadataFile, metadata); err != nil {
+		_ = deps.cleanupWebE2E(context.Background(), metadata, env)
+		fmt.Fprintf(os.Stderr, "write browser e2e metadata: %v\n", err)
+		return 1
+	}
+	if err := writeWebE2EEnv(envFile, fixture); err != nil {
+		_ = deps.cleanupWebE2E(context.Background(), metadata, env)
+		fmt.Fprintf(os.Stderr, "write browser e2e env: %v\n", err)
+		return 1
+	}
+
+	return 0
+}
+
+func runCleanupWebE2E(args []string, env map[string]string, deps dependencies) int {
+	metadataFile, err := parseCleanupWebE2EArgs(args)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	if !suiteservices.SuiteActive(env) {
+		fmt.Fprintf(os.Stderr, "cleanup-web-e2e requires %s=1\n", suiteservices.ActiveEnv)
+		return 1
+	}
+
+	metadata, err := readWebE2EMetadata(metadataFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "read browser e2e metadata: %v\n", err)
+		return 1
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
+	defer cancel()
+	if err := deps.cleanupWebE2E(ctx, metadata, env); err != nil {
+		fmt.Fprintf(os.Stderr, "cleanup browser e2e fixture: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
 func parseRunCommand(args []string) ([]string, error) {
 	if len(args) < 3 || args[0] != "run" || args[1] != "--" {
 		return nil, errors.New("usage: testservices run -- <command> [args...]")
@@ -213,12 +319,66 @@ func parseRunCommand(args []string) ([]string, error) {
 	return command, nil
 }
 
+func parsePrepareWebE2EArgs(args []string) (string, string, error) {
+	values, err := parseFlagPairs(args, map[string]struct{}{
+		"--env-file":      {},
+		"--metadata-file": {},
+	})
+	if err != nil {
+		return "", "", err
+	}
+	envFile := strings.TrimSpace(values["--env-file"])
+	metadataFile := strings.TrimSpace(values["--metadata-file"])
+	if envFile == "" || metadataFile == "" {
+		return "", "", errors.New("usage: testservices prepare-web-e2e --env-file <path> --metadata-file <path>")
+	}
+	return envFile, metadataFile, nil
+}
+
+func parseCleanupWebE2EArgs(args []string) (string, error) {
+	values, err := parseFlagPairs(args, map[string]struct{}{
+		"--metadata-file": {},
+	})
+	if err != nil {
+		return "", err
+	}
+	metadataFile := strings.TrimSpace(values["--metadata-file"])
+	if metadataFile == "" {
+		return "", errors.New("usage: testservices cleanup-web-e2e --metadata-file <path>")
+	}
+	return metadataFile, nil
+}
+
+func parseFlagPairs(args []string, allowed map[string]struct{}) (map[string]string, error) {
+	if len(args)%2 != 0 {
+		return nil, errors.New("testservices command flags require <flag> <value> pairs")
+	}
+
+	values := make(map[string]string, len(allowed))
+	for i := 0; i < len(args); i += 2 {
+		flag := args[i]
+		if _, ok := allowed[flag]; !ok {
+			return nil, fmt.Errorf("unsupported testservices flag %q", flag)
+		}
+		if strings.TrimSpace(args[i+1]) == "" {
+			return nil, fmt.Errorf("testservices flag %s requires a value", flag)
+		}
+		if _, exists := values[flag]; exists {
+			return nil, fmt.Errorf("testservices flag %s must be specified once", flag)
+		}
+		values[flag] = args[i+1]
+	}
+	return values, nil
+}
+
 func defaultDependencies() dependencies {
 	return dependencies{
 		startPostgres:  startPostgresService,
 		startMinIO:     startMinIOService,
 		startChild:     startChildProcess,
 		createTemplate: createTemplateDatabase,
+		prepareWebE2E:  prepareWebE2EFixture,
+		cleanupWebE2E:  cleanupWebE2EFixture,
 		recordEvent: func(env map[string]string, event suiteservices.Event) {
 			_ = suiteservices.RecordEvent(env, event)
 		},
@@ -325,6 +485,112 @@ func replaceDatabaseInDSN(adminDSN string, database string) (string, error) {
 	}
 	parsed.Path = "/" + database
 	return parsed.String(), nil
+}
+
+func prepareWebE2EFixture(ctx context.Context, env map[string]string) (webE2EFixture, error) {
+	_ = env
+	postgresHarness, err := pgtest.StartShared(ctx)
+	if err != nil {
+		return webE2EFixture{}, fmt.Errorf("attach suite postgres: %w", err)
+	}
+	testDB, _, err := postgresHarness.PrepareDatabase(ctx, "web_e2e")
+	if err != nil {
+		return webE2EFixture{}, fmt.Errorf("prepare browser e2e database: %w", err)
+	}
+
+	s3Harness, err := s3test.StartShared(ctx)
+	if err != nil {
+		_ = postgresHarness.DropDatabase(context.Background(), testDB.Name)
+		return webE2EFixture{}, fmt.Errorf("attach suite minio: %w", err)
+	}
+	bucket, err := s3Harness.BootstrapBucket(ctx, "web-e2e")
+	if err != nil {
+		_ = postgresHarness.DropDatabase(context.Background(), testDB.Name)
+		return webE2EFixture{}, fmt.Errorf("prepare browser e2e bucket: %w", err)
+	}
+
+	return webE2EFixture{
+		DatabaseName: testDB.Name,
+		DSN:          testDB.DSN,
+		Bucket:       bucket,
+		S3Endpoint:   s3Harness.Endpoint,
+		S3AccessKey:  s3Harness.AccessKey,
+		S3SecretKey:  s3Harness.SecretKey,
+		S3Secure:     s3Harness.Secure,
+	}, nil
+}
+
+func cleanupWebE2EFixture(ctx context.Context, metadata webE2EMetadata, env map[string]string) error {
+	_ = env
+	var errs []error
+
+	if strings.TrimSpace(metadata.DatabaseName) != "" {
+		postgresHarness, err := pgtest.StartShared(ctx)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("attach suite postgres: %w", err))
+		} else if err := postgresHarness.DropDatabase(ctx, metadata.DatabaseName); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if strings.TrimSpace(metadata.Bucket) != "" {
+		s3Harness, err := s3test.StartShared(ctx)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("attach suite minio: %w", err))
+		} else if err := s3Harness.CleanupBucket(ctx, metadata.Bucket); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+func writeWebE2EEnv(path string, fixture webE2EFixture) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	lines := []string{
+		"# Generated by cartulary-test-services prepare-web-e2e.",
+		shellExport("CARTULARY_POSTGRES_DSN", fixture.DSN),
+		shellExport("CARTULARY_S3_ENDPOINT", fixture.S3Endpoint),
+		shellExport("CARTULARY_S3_ACCESS_KEY_ID", fixture.S3AccessKey),
+		shellExport("CARTULARY_S3_SECRET_ACCESS_KEY", fixture.S3SecretKey),
+		shellExport("CARTULARY_S3_SECURE", fmt.Sprintf("%t", fixture.S3Secure)),
+		shellExport("CARTULARY_S3_BUCKET", fixture.Bucket),
+		"",
+	}
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o600)
+}
+
+func shellExport(key string, value string) string {
+	return fmt.Sprintf("export %s=%s", key, shellQuote(value))
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
+}
+
+func writeWebE2EMetadata(path string, metadata webE2EMetadata) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	payload, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(payload, '\n'), 0o600)
+}
+
+func readWebE2EMetadata(path string) (webE2EMetadata, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return webE2EMetadata{}, err
+	}
+	var metadata webE2EMetadata
+	if err := json.Unmarshal(raw, &metadata); err != nil {
+		return webE2EMetadata{}, err
+	}
+	return metadata, nil
 }
 
 func recordCleanupAndRefresh(deps dependencies, env map[string]string, status string, childExitCode int) {
