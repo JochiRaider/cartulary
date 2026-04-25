@@ -6,6 +6,8 @@ makefile="$repo_root/Makefile"
 functional_script="$repo_root/scripts/run-browser-e2e-functional.sh"
 stateful_script="$repo_root/scripts/run-browser-e2e-stateful.sh"
 measurement_script="$repo_root/scripts/run-browser-e2e-measurement.sh"
+resettable_script="$repo_root/scripts/run-browser-e2e-resettable.sh"
+reset_script="$repo_root/scripts/reset-web-e2e-stack.sh"
 webserver_backed_script="$repo_root/scripts/run-browser-e2e-webserver-backed.sh"
 start_web_e2e_script="$repo_root/scripts/start-web-e2e.sh"
 node_bin="${NODE_BIN:-node}"
@@ -65,6 +67,7 @@ for browser_owned_stack_target in \
   browser-e2e-functional \
   browser-e2e-support \
   browser-e2e-stateful \
+  browser-e2e-resettable \
   browser-e2e-measurement \
   browser-e2e-visual
 do
@@ -130,6 +133,17 @@ if [[ "${lane_browser_targets[0]}" != "browser-e2e-webserver-backed" ]]; then
   fail "check-service-backed-lane-b must use browser-e2e-webserver-backed as its only browser target, found: ${lane_browser_targets[0]}"
 fi
 
+check_isolated_block="$(extract_target_block check-isolated)"
+if [[ -z "$check_isolated_block" ]]; then
+  fail "Makefile must define a non-empty check-isolated block"
+fi
+if ! printf '%s\n' "$check_isolated_block" | grep -Fq 'browser-e2e-stateful browser-e2e-resettable'; then
+  fail "check-isolated must run browser-e2e-stateful and browser-e2e-resettable"
+fi
+if printf '%s\n' "$check_isolated_block" | grep -Eq 'browser-e2e-measurement|browser-e2e-visual'; then
+  fail "check-isolated must not invoke measurement or visual as separate owned-stack targets"
+fi
+
 if ! rg -q '^browser-e2e-webserver-backed:' "$makefile"; then
   fail "Makefile must define browser-e2e-webserver-backed"
 fi
@@ -181,6 +195,12 @@ if ! [[ -f "$stateful_script" ]]; then
 fi
 if ! [[ -f "$measurement_script" ]]; then
   fail "missing scripts/run-browser-e2e-measurement.sh"
+fi
+if ! [[ -f "$resettable_script" ]]; then
+  fail "missing scripts/run-browser-e2e-resettable.sh"
+fi
+if ! [[ -f "$reset_script" ]]; then
+  fail "missing scripts/reset-web-e2e-stack.sh"
 fi
 if ! [[ -f "$start_web_e2e_script" ]]; then
   fail "missing scripts/start-web-e2e.sh"
@@ -234,6 +254,24 @@ if ! grep -Fq 'evidence_kind": "ordinary_measurement"' "$measurement_script"; th
 fi
 if ! grep -Fq 'phase3 authoritative browser_measurement' "$measurement_script"; then
   fail "scripts/run-browser-e2e-measurement.sh must execute Phase 3 browser_measurement rows through the manifest"
+fi
+if ! grep -Fq 'CARTULARY_TEST_TARGET="$target"' "$resettable_script"; then
+  fail "scripts/run-browser-e2e-resettable.sh must run each child with its own CARTULARY_TEST_TARGET"
+fi
+if ! grep -Fq 'run-browser-e2e-measurement.sh' "$resettable_script"; then
+  fail "scripts/run-browser-e2e-resettable.sh must run browser-e2e-measurement inside the shared stack"
+fi
+if ! grep -Fq 'reset-web-e2e-stack.sh' "$resettable_script"; then
+  fail "scripts/run-browser-e2e-resettable.sh must reset the shared stack between suites"
+fi
+if ! grep -Fq 'run-browser-e2e-visual.sh' "$resettable_script"; then
+  fail "scripts/run-browser-e2e-resettable.sh must run browser-e2e-visual inside the shared stack"
+fi
+if ! grep -Fq '/api/v1/test/runtime/reset' "$reset_script"; then
+  fail "scripts/reset-web-e2e-stack.sh must call the test runtime reset route"
+fi
+if ! grep -Fq 'CARTULARY_PLAYWRIGHT_STATE_DIR' "$reset_script"; then
+  fail "scripts/reset-web-e2e-stack.sh must clear shared Playwright state after backend reset"
 fi
 
 if ! grep -Fq '"$ROOT_DIR/scripts/run-browser-e2e-functional.sh"' "$webserver_backed_script"; then

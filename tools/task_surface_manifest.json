@@ -79,6 +79,7 @@
     { "name": "browser-e2e-functional", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/run-browser-e2e-functional.sh", "scripts/start-web-e2e.sh"] },
     { "name": "browser-e2e-support", "classification": "helper_only", "included_in": ["helper_only"] },
     { "name": "browser-e2e-stateful", "classification": "public", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-browser-e2e-stateful.sh", "scripts/start-web-e2e.sh"] },
+    { "name": "browser-e2e-resettable", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/run-browser-e2e-resettable.sh", "scripts/reset-web-e2e-stack.sh", "scripts/start-web-e2e.sh"] },
     { "name": "browser-e2e-measurement", "classification": "public", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-browser-e2e-measurement.sh", "scripts/start-web-e2e.sh"] },
     { "name": "browser-e2e-visual", "classification": "public", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-browser-e2e-visual.sh", "scripts/start-web-e2e.sh"] },
     { "name": "browser-e2e-task-surface-check", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/check-browser-e2e-task-surface.sh"] },

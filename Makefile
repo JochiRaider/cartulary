@@ -7,7 +7,7 @@ SHELL := /bin/bash
 .PHONY: generate generate-drift toolchain-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-ledgers phase-ledger-drift benchmark-claim-check task-surface-report task-surface-check
 .PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check run-phase-smoke phase-test-name-check
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck format format-frontend
-.PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
+.PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-resettable browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
 .PHONY: test-fast test-fast-service-backed test-fast-service-backed-lane-a test-fast-service-backed-lane-b test lint lint-go check check-preflight check-heavy check-service-backed check-service-backed-lane-a check-service-backed-lane-b check-isolated ci release-check license-report sbom
 .PHONY: build build-server build-migrate build-web
 .PHONY: clean distclean
@@ -544,7 +544,7 @@ e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)$(MAKE) --no-print-directory browser-e2e
 
 browser-e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)$(MAKE) --no-print-directory browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-measurement browser-e2e-visual
+	$(Q)$(MAKE) --no-print-directory browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-resettable
 
 browser-e2e-webserver-backed: export CARTULARY_TEST_TARGET := browser-e2e-webserver-backed
 
@@ -570,6 +570,12 @@ browser-e2e-stateful: export CARTULARY_TEST_TARGET := browser-e2e-stateful
 browser-e2e-stateful: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
 	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-stateful.sh $(PLAYWRIGHT_TEST_FLAGS)
 	$(TARGET_SUMMARY) browser-e2e-stateful pass
+
+browser-e2e-resettable: export CARTULARY_TEST_TARGET := browser-e2e-resettable
+
+browser-e2e-resettable: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
+	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-resettable.sh
+	$(TARGET_SUMMARY) browser-e2e-resettable pass --children "browser-e2e-measurement,browser-e2e-visual"
 
 browser-e2e-measurement: export CARTULARY_TEST_TARGET := browser-e2e-measurement
 
@@ -636,7 +642,7 @@ check-service-backed-lane-a:
 check-service-backed-lane-b: backend-store backend-process
 	$(Q)$(MAKE) --no-print-directory browser-e2e-webserver-backed
 
-check-isolated: browser-e2e-stateful browser-e2e-measurement browser-e2e-visual
+check-isolated: browser-e2e-stateful browser-e2e-resettable
 
 check: $(NODE_BIN)
 	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label check --summary-targets "$(CHECK_SUMMARY_TARGETS)" --step check-preflight --parallel-step check-heavy:$(CHECK_JOBS) --step check-service-backed --step check-isolated

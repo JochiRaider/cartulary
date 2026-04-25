@@ -39,6 +39,7 @@ func main() {
 		options.Now = testClock.Now
 		options.HTTP.AdditionalRoutes = []httpapi.RouteRegistrar{
 			httpapi.RegisterTestClockRoutes(testClock),
+			app.RegisterTestRuntimeResetRoute(),
 			auth.RegisterTestRoutes(),
 			timeline.RegisterTestRoutes(),
 		}
