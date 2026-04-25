@@ -24,14 +24,14 @@ func TestMigrateRunnerParsesPositionalCommandAndArgs(t *testing.T) {
 		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
 	}
 
-	if exitCode := runner.runCLI([]string{"up-to", "9"}); exitCode != 0 {
+	if exitCode := runner.runCLI([]string{"up-to", "5"}); exitCode != 0 {
 		t.Fatalf("unexpected exit code: got %d want 0", exitCode)
 	}
 	if gotCommand != "up-to" {
 		t.Fatalf("unexpected command: got %q want %q", gotCommand, "up-to")
 	}
-	if len(gotArgs) != 1 || gotArgs[0] != "9" {
-		t.Fatalf("unexpected command args: got %#v want %#v", gotArgs, []string{"9"})
+	if len(gotArgs) != 1 || gotArgs[0] != "5" {
+		t.Fatalf("unexpected command args: got %#v want %#v", gotArgs, []string{"5"})
 	}
 }
 

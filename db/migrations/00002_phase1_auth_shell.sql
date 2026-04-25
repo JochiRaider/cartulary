@@ -73,20 +73,23 @@ CREATE TABLE IF NOT EXISTS route_idempotency (
     route_key text NOT NULL,
     scope_key text NOT NULL,
     client_txn_id text NOT NULL,
-    actor_user_id uuid REFERENCES users (id),
+    actor_user_id uuid NOT NULL REFERENCES users (id),
     target_user_id uuid REFERENCES users (id),
     request_hash bytea NOT NULL,
     status_code integer NOT NULL,
     response_json jsonb NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    UNIQUE (route_key, scope_key, client_txn_id)
+    created_at timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS route_idempotency_route_actor_scope_client_txn_idx
+    ON route_idempotency (route_key, actor_user_id, scope_key, client_txn_id);
 
 CREATE INDEX IF NOT EXISTS route_idempotency_actor_lookup_idx
     ON route_idempotency (actor_user_id, created_at DESC);
 
 -- +goose Down
 DROP INDEX IF EXISTS route_idempotency_actor_lookup_idx;
+DROP INDEX IF EXISTS route_idempotency_route_actor_scope_client_txn_idx;
 DROP TABLE IF EXISTS route_idempotency;
 
 DROP INDEX IF EXISTS pending_totp_enrollments_scope_lookup_idx;

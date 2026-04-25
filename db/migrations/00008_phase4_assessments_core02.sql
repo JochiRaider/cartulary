@@ -87,7 +87,7 @@ ALTER TABLE record_links
     DROP CONSTRAINT IF EXISTS record_links_link_type_check;
 
 ALTER TABLE record_links
-    ADD CONSTRAINT record_links_link_type_check CHECK (link_type IN ('supersedes', 'observed_on_host', 'observed_as_identity', 'supported_by'));
+    ADD CONSTRAINT record_links_link_type_check CHECK (link_type IN ('supersedes', 'observed_on_host', 'observed_as_identity', 'supported_by', 'references_record'));
 
 CREATE TABLE IF NOT EXISTS assessment_grid_projection (
     record_id uuid PRIMARY KEY REFERENCES assessments (record_id) ON DELETE CASCADE,
@@ -182,7 +182,7 @@ ALTER TABLE record_links
     DROP CONSTRAINT IF EXISTS record_links_link_type_check;
 
 ALTER TABLE record_links
-    ADD CONSTRAINT record_links_link_type_check CHECK (link_type IN ('supersedes', 'observed_on_host', 'observed_as_identity'));
+    ADD CONSTRAINT record_links_link_type_check CHECK (link_type IN ('supersedes', 'observed_on_host', 'observed_as_identity', 'supported_by', 'references_record'));
 
 DROP INDEX IF EXISTS assessments_active_subject_lookup_idx;
 

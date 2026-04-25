@@ -174,7 +174,7 @@ func TestSupportPhase4Integration_RecordEnvelopeSubstrate(t *testing.T) {
 	})
 
 	t.Run("migration backfills typed rows and tightens generic substrates", func(t *testing.T) {
-		db := migrateScratchDB(t, postgresHarness, "phase4-records-backfill", "up-to", "9")
+		db := migrateScratchDB(t, postgresHarness, "phase4-records-backfill", "up-to", dbmigrations.PreRecordEnvelopeVersion)
 		fixture := seedPreEnvelopeRows(t, db)
 		if _, err := postgres.Migrate(db, dbmigrations.Source(), "up"); err != nil {
 			t.Fatalf("migrate backfill database to latest: %v", err)
