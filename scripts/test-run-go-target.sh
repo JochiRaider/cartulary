@@ -210,13 +210,43 @@ backend_unit_auth_shared_command="$(
 )"
 assert_contains "$backend_unit_auth_shared_command" "TestSupportPhase1_" "backend-unit-auth phase1 selector"
 
-core_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration-support backend-integration-core
+phase0_platform_shared_command="$(
+  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration-support backend-integration-phase0-platform
 )"
-assert_contains "$core_shared_command" "TestSupportPhase0_" "backend-integration-core phase0 selector"
-assert_contains "$core_shared_command" "TestSupportPhase2_" "backend-integration-core phase2 selector"
-assert_contains "$core_shared_command" "TestSupportPhase3Integration_" "backend-integration-core phase3 selector"
-assert_contains "$core_shared_command" "TestSupportPhase4Integration_" "backend-integration-core phase4 selector"
+assert_contains "$phase0_platform_shared_command" "TestSupportPhase0_" "backend-integration phase0 platform support selector"
+assert_contains "$phase0_platform_shared_command" "TestPhase0_SchemaBootstrap" "backend-integration phase0 platform authoritative selector"
+assert_not_contains "$phase0_platform_shared_command" "TestPhase0_FirstAdminBootstrap" "backend-integration phase0 platform excludes app selector"
+
+phase0_app_shared_command="$(
+  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration backend-integration-phase0-app
+)"
+assert_contains "$phase0_app_shared_command" "TestPhase0_FirstAdminBootstrap" "backend-integration phase0 app selector"
+assert_not_contains "$phase0_app_shared_command" "TestSupportPhase0_" "backend-integration phase0 app excludes platform support selector"
+
+phase2_incidents_shared_command="$(
+  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration-support backend-integration-phase2-incidents
+)"
+assert_contains "$phase2_incidents_shared_command" "TestSupportPhase2_" "backend-integration phase2 incidents support selector"
+assert_contains "$phase2_incidents_shared_command" "TestPhase2_I_2_01" "backend-integration phase2 incidents authoritative selector"
+
+phase3_timeline_shared_command="$(
+  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration-support backend-integration-phase3-timeline
+)"
+assert_contains "$phase3_timeline_shared_command" "TestSupportPhase3Integration_" "backend-integration phase3 timeline support selector"
+assert_contains "$phase3_timeline_shared_command" "TestPhase3_I_3_01" "backend-integration phase3 timeline authoritative selector"
+
+phase4_entities_shared_command="$(
+  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration-support backend-integration-phase4-entities
+)"
+assert_contains "$phase4_entities_shared_command" "TestSupportPhase4Integration_" "backend-integration phase4 entities support selector"
+assert_contains "$phase4_entities_shared_command" "TestPhase4_ResolveRoute" "backend-integration phase4 entities authoritative selector"
+assert_not_contains "$phase4_entities_shared_command" "TestPhase4_AutoResolutionEligibility" "backend-integration phase4 entities excludes timeline selector"
+
+phase4_timeline_shared_command="$(
+  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration backend-integration-phase4-timeline
+)"
+assert_contains "$phase4_timeline_shared_command" "TestPhase4_AutoResolutionEligibility" "backend-integration phase4 timeline selector"
+assert_not_contains "$phase4_timeline_shared_command" "TestSupportPhase4Integration_" "backend-integration phase4 timeline excludes entities support selector"
 
 auth_shared_command="$(
   NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration-support backend-integration-auth
@@ -231,14 +261,14 @@ cleanup_paths+=("$shared_mismatch_results")
   export NODE_BIN="$node_bin"
   source "$GO_TARGET_HELPER"
 
-  shared_dir="$(prepare_shared_artifact_dir backend-integration-core)"
+  shared_dir="$(prepare_shared_artifact_dir backend-integration-phase0-app)"
   mkdir -p "$shared_dir"
   printf '%s\n' "env go test -json -run '^TestOld$' ./internal/app" >"$shared_dir/command.txt"
   touch "$shared_dir/complete"
 
   set +e
   mismatch_output="$(
-    capture_go_report backend-integration-core '^TestCurrent$' -- ./internal/app \
+    capture_go_report backend-integration-phase0-app '^TestCurrent$' -- ./internal/app \
       2>&1
   )"
   mismatch_status=$?
@@ -258,12 +288,12 @@ cleanup_paths+=("$shared_reuse_results")
   export NODE_BIN="$node_bin"
   source "$GO_TARGET_HELPER"
 
-  shared_dir="$(prepare_shared_artifact_dir backend-integration-core)"
+  shared_dir="$(prepare_shared_artifact_dir backend-integration-phase2-incidents)"
   mkdir -p "$shared_dir"
-  printf '%s\n' "$core_shared_command" >"$shared_dir/command.txt"
+  printf '%s\n' "$phase2_incidents_shared_command" >"$shared_dir/command.txt"
   touch "$shared_dir/complete"
 
-  assign_named_shared_report reused_dir reused_usage backend-integration-support backend-integration-core
+  assign_named_shared_report reused_dir reused_usage backend-integration-support backend-integration-phase2-incidents
   if [[ "$reused_dir" != "$shared_dir" ]]; then
     fail "shared reuse: expected assign_named_shared_report to reuse the existing shared dir"
   fi
@@ -280,15 +310,15 @@ cleanup_paths+=("$shared_lock_results")
   export NODE_BIN="$node_bin"
   source "$GO_TARGET_HELPER"
 
-  shared_dir="$(prepare_shared_artifact_dir backend-integration-core)"
-  acquire_shared_report_lock "$shared_dir" backend-integration-core
-  assert_equals "$(<"$shared_dir/capture.lock/shared_report")" "backend-integration-core" "shared lock report name"
+  shared_dir="$(prepare_shared_artifact_dir backend-integration-phase2-incidents)"
+  acquire_shared_report_lock "$shared_dir" backend-integration-phase2-incidents
+  assert_equals "$(<"$shared_dir/capture.lock/shared_report")" "backend-integration-phase2-incidents" "shared lock report name"
   assert_equals "$(<"$shared_dir/capture.lock/pid")" "$$" "shared lock owner pid"
 
   set +e
   lock_timeout_output="$(
     CARTULARY_SHARED_REPORT_LOCK_TIMEOUT_SECONDS=1 \
-      acquire_shared_report_lock "$shared_dir" backend-integration-core \
+      acquire_shared_report_lock "$shared_dir" backend-integration-phase2-incidents \
       2>&1
   )"
   lock_timeout_status=$?
@@ -305,9 +335,47 @@ cleanup_paths+=("$shared_lock_results")
 
   mkdir -p "$shared_dir/capture.lock"
   printf '%s\n' "999999" >"$shared_dir/capture.lock/pid"
-  acquire_shared_report_lock "$shared_dir" backend-integration-core
+  acquire_shared_report_lock "$shared_dir" backend-integration-phase2-incidents
   assert_equals "$(<"$shared_dir/capture.lock/pid")" "$$" "shared lock stale owner replacement"
   release_shared_report_lock "$shared_dir"
+)
+
+parallel_capture_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-parallel-capture.XXXXXX")"
+cleanup_paths+=("$parallel_capture_results")
+(
+  export CARTULARY_TEST_RESULTS_DIR="$parallel_capture_results/results"
+  export CARTULARY_TEST_RUN_ID="parallel-capture"
+  export NODE_BIN="$node_bin"
+  source "$GO_TARGET_HELPER"
+
+  assign_named_shared_report() {
+    local -n dir_ref="$1"
+    local -n usage_ref="$2"
+    local shared_name="$4"
+    dir_ref="/tmp/${shared_name}"
+    usage_ref="actual"
+  }
+
+  metadata_dir="$parallel_capture_results/metadata"
+  capture_named_shared_reports_parallel backend-integration 2 "$metadata_dir" shard-a shard-b shard-c
+  read_shared_report_metadata shard_a_dir shard_a_usage "$metadata_dir" shard-a
+  read_shared_report_metadata shard_c_dir shard_c_usage "$metadata_dir" shard-c
+  assert_equals "$shard_a_dir" "/tmp/shard-a" "parallel capture shard-a dir"
+  assert_equals "$shard_a_usage" "actual" "parallel capture shard-a usage"
+  assert_equals "$shard_c_dir" "/tmp/shard-c" "parallel capture shard-c dir"
+  assert_equals "$shard_c_usage" "actual" "parallel capture shard-c usage"
+
+  set +e
+  invalid_jobs_output="$(
+    capture_named_shared_reports_parallel backend-integration 0 "$metadata_dir" shard-a \
+      2>&1
+  )"
+  invalid_jobs_status=$?
+  set -e
+  if [[ "$invalid_jobs_status" -eq 0 ]]; then
+    fail "parallel capture invalid jobs: expected failure"
+  fi
+  assert_contains "$invalid_jobs_output" "invalid shard job count" "parallel capture invalid jobs marker"
 )
 
 backend_unit_structure="$(
@@ -400,6 +468,101 @@ assert_contains "$backend_store_structure" "raw_calls=0" "backend-store raw phas
 assert_contains "$backend_store_structure" "manifest_calls=4" "backend-store derived phase count"
 assert_contains "$backend_store_structure" "phase4_manifest_calls=1" "backend-store phase4 manifest phase count"
 assert_contains "$backend_store_structure" "finish_status=0" "backend-store finish status"
+
+backend_integration_structure="$(
+  export NODE_BIN="$node_bin"
+  source "$GO_TARGET_HELPER"
+  capture_calls=0
+  capture_jobs=""
+  capture_target=""
+  capture_names=""
+  raw_calls=0
+  manifest_calls=0
+  phase4_manifest_calls=0
+  finish_status=""
+  capture_named_shared_reports_parallel() {
+    capture_target="$1"
+    capture_jobs="$2"
+    local metadata_dir="$3"
+    shift 3
+    capture_calls=$((capture_calls + 1))
+    mkdir -p "$metadata_dir"
+    local shared_name
+    for shared_name in "$@"; do
+      capture_names="${capture_names} ${shared_name}"
+      printf '/tmp/%s\nactual\n' "$shared_name" >"$metadata_dir/${shared_name}.meta"
+    done
+  }
+  emit_go_raw_phase() {
+    raw_calls=$((raw_calls + 1))
+  }
+  emit_go_manifest_phase() {
+    local phase_label="$1"
+    manifest_calls=$((manifest_calls + 1))
+    if [[ "$phase_label" == backend-integration\ phase4\ authoritative* ]]; then
+      phase4_manifest_calls=$((phase4_manifest_calls + 1))
+    fi
+  }
+  clear_go_selection_env() {
+    :
+  }
+  finish_target() {
+    finish_status="$1"
+    printf "capture_calls=%s capture_target=%s capture_jobs=%s raw_calls=%s manifest_calls=%s phase4_manifest_calls=%s finish_status=%s names=%s\n" "$capture_calls" "$capture_target" "$capture_jobs" "$raw_calls" "$manifest_calls" "$phase4_manifest_calls" "$finish_status" "$capture_names"
+  }
+  run_backend_integration
+)"
+assert_contains "$backend_integration_structure" "capture_calls=1" "backend-integration parallel capture count"
+assert_contains "$backend_integration_structure" "capture_target=backend-integration" "backend-integration parallel capture target"
+assert_contains "$backend_integration_structure" "capture_jobs=4" "backend-integration default shard jobs"
+assert_contains "$backend_integration_structure" "raw_calls=1" "backend-integration raw testutil phase count"
+assert_contains "$backend_integration_structure" "manifest_calls=7" "backend-integration manifest shard phase count"
+assert_contains "$backend_integration_structure" "phase4_manifest_calls=2" "backend-integration phase4 split phase count"
+assert_contains "$backend_integration_structure" "backend-integration-phase4-entities" "backend-integration captures phase4 entities shard"
+assert_contains "$backend_integration_structure" "backend-integration-testutil" "backend-integration captures testutil shard"
+assert_contains "$backend_integration_structure" "finish_status=0" "backend-integration finish status"
+
+backend_integration_support_structure="$(
+  export NODE_BIN="$node_bin"
+  source "$GO_TARGET_HELPER"
+  capture_calls=0
+  capture_jobs=""
+  capture_target=""
+  capture_names=""
+  support_calls=0
+  finish_status=""
+  capture_named_shared_reports_parallel() {
+    capture_target="$1"
+    capture_jobs="$2"
+    local metadata_dir="$3"
+    shift 3
+    capture_calls=$((capture_calls + 1))
+    mkdir -p "$metadata_dir"
+    local shared_name
+    for shared_name in "$@"; do
+      capture_names="${capture_names} ${shared_name}"
+      printf '/tmp/%s\nactual\n' "$shared_name" >"$metadata_dir/${shared_name}.meta"
+    done
+  }
+  emit_declared_support_phase() {
+    support_calls=$((support_calls + 1))
+  }
+  clear_go_selection_env() {
+    :
+  }
+  finish_target() {
+    finish_status="$1"
+    printf "capture_calls=%s capture_target=%s capture_jobs=%s support_calls=%s finish_status=%s names=%s\n" "$capture_calls" "$capture_target" "$capture_jobs" "$support_calls" "$finish_status" "$capture_names"
+  }
+  run_backend_integration_support
+)"
+assert_contains "$backend_integration_support_structure" "capture_calls=1" "backend-integration-support parallel capture count"
+assert_contains "$backend_integration_support_structure" "capture_target=backend-integration-support" "backend-integration-support parallel capture target"
+assert_contains "$backend_integration_support_structure" "capture_jobs=4" "backend-integration-support default shard jobs"
+assert_contains "$backend_integration_support_structure" "support_calls=5" "backend-integration-support support shard phase count"
+assert_contains "$backend_integration_support_structure" "backend-integration-phase4-entities" "backend-integration-support captures phase4 entities shard"
+assert_not_contains "$backend_integration_support_structure" "backend-integration-testutil" "backend-integration-support skips testutil shard"
+assert_contains "$backend_integration_support_structure" "finish_status=0" "backend-integration-support finish status"
 
 phase0_backend_unit_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase0 backend_unit ./internal/platform/... ./internal/app)"
 assert_not_zero "$phase0_backend_unit_support_count" "phase0 backend-unit support-go-count"

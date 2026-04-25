@@ -9,6 +9,7 @@ GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
 GO_TEST_SERVICE_PACKAGE_PARALLELISM="${GO_TEST_SERVICE_PACKAGE_PARALLELISM:-1}"
 GO_TEST_PACKAGE_PARALLELISM="${GO_TEST_PACKAGE_PARALLELISM:-${GO_TEST_SERVICE_PACKAGE_PARALLELISM}}"
+BACKEND_INTEGRATION_SHARD_JOBS="${BACKEND_INTEGRATION_SHARD_JOBS:-4}"
 NODE_HELPER="${NODE_BIN:-}"
 MANIFEST_SCRIPT="${ROOT_DIR}/scripts/lib/phase-manifest.mjs"
 
@@ -192,33 +193,57 @@ release_shared_report_lock() {
   rm -rf -- "$1/capture.lock"
 }
 
-backend_integration_core_shared_spec() {
-  if [[ "$#" -ne 2 ]]; then
-    echo "backend_integration_core_shared_spec requires <regex-var> <args-var>" >&2
+backend_integration_phase_shared_spec() {
+  if [[ "$#" -lt 4 ]]; then
+    echo "backend_integration_phase_shared_spec requires <phase> <regex-var> <args-var> <packages...>" >&2
     return 2
   fi
 
-  local -n regex_ref="$1"
-  local -n args_ref="$2"
-  local package_patterns=(
-    ./internal/platform/...
-    ./internal/app
-    ./internal/modules/incidents
-    ./internal/modules/entities
-    ./internal/modules/timeline
-  )
-  local regex_components=(
-    "$(manifest_go_regex phase0 integration authoritative backend_integration ./internal/platform/... ./internal/app)"
-    "$(manifest_go_regex phase2 integration authoritative backend_integration ./internal/modules/incidents)"
-    "$(manifest_go_regex phase3 integration authoritative backend_integration ./internal/modules/timeline)"
-    "$(manifest_go_regex phase4 integration authoritative backend_integration ./internal/modules/entities ./internal/modules/timeline)"
-  )
+  local manifest_phase="$1"
+  local regex_var="$2"
+  local args_var="$3"
+  shift 3
+
+  local -n regex_ref="${regex_var}"
+  local -n args_ref="${args_var}"
+  local package_patterns=("$@")
+  local regex_components=()
+  local authoritative_count
+
+  authoritative_count="$(manifest_go_count "${manifest_phase}" integration authoritative backend_integration "${package_patterns[@]}")"
+  if [[ "${authoritative_count}" != "0" ]]; then
+    regex_components+=("$(manifest_go_regex "${manifest_phase}" integration authoritative backend_integration "${package_patterns[@]}")")
+  fi
   append_declared_support_regex_components regex_components backend_integration_support "${package_patterns[@]}"
   regex_ref="$(build_union_regex "${regex_components[@]}")"
   args_ref=(
     -p "${GO_TEST_PACKAGE_PARALLELISM}"
     "${package_patterns[@]}"
   )
+}
+
+backend_integration_phase0_platform_shared_spec() {
+  backend_integration_phase_shared_spec phase0 "$1" "$2" ./internal/platform/...
+}
+
+backend_integration_phase0_app_shared_spec() {
+  backend_integration_phase_shared_spec phase0 "$1" "$2" ./internal/app
+}
+
+backend_integration_phase2_incidents_shared_spec() {
+  backend_integration_phase_shared_spec phase2 "$1" "$2" ./internal/modules/incidents
+}
+
+backend_integration_phase3_timeline_shared_spec() {
+  backend_integration_phase_shared_spec phase3 "$1" "$2" ./internal/modules/timeline
+}
+
+backend_integration_phase4_entities_shared_spec() {
+  backend_integration_phase_shared_spec phase4 "$1" "$2" ./internal/modules/entities
+}
+
+backend_integration_phase4_timeline_shared_spec() {
+  backend_integration_phase_shared_spec phase4 "$1" "$2" ./internal/modules/timeline
 }
 
 backend_integration_auth_shared_spec() {
@@ -240,6 +265,26 @@ backend_integration_auth_shared_spec() {
   args_ref=(
     -p "${GO_TEST_PACKAGE_PARALLELISM}"
     "${package_patterns[@]}"
+  )
+}
+
+backend_integration_testutil_shared_spec() {
+  if [[ "$#" -ne 2 ]]; then
+    echo "backend_integration_testutil_shared_spec requires <regex-var> <args-var>" >&2
+    return 2
+  fi
+
+  local -n regex_ref="$1"
+  local -n args_ref="$2"
+
+  regex_ref='^Test'
+  args_ref=(
+    -p "${GO_TEST_PACKAGE_PARALLELISM}"
+    ./internal/testutil/httptestx
+    ./internal/testutil/pgtest
+    ./internal/testutil/s3test
+    ./internal/testutil/testcontainersx
+    ./internal/testutil/wstest
   )
 }
 
@@ -355,7 +400,7 @@ resolve_target_shared_report_spec() {
       esac
       backend_unit_auth_shared_spec "${regex_var}" "${args_var}"
       ;;
-    backend-integration-core)
+    backend-integration-phase0-platform)
       case "${target}" in
         backend-integration|backend-integration-support) ;;
         *)
@@ -363,7 +408,57 @@ resolve_target_shared_report_spec() {
           return 2
           ;;
       esac
-      backend_integration_core_shared_spec "${regex_var}" "${args_var}"
+      backend_integration_phase0_platform_shared_spec "${regex_var}" "${args_var}"
+      ;;
+    backend-integration-phase0-app)
+      case "${target}" in
+        backend-integration|backend-integration-support) ;;
+        *)
+          echo "shared report ${shared_name} is not defined for target ${target}" >&2
+          return 2
+          ;;
+      esac
+      backend_integration_phase0_app_shared_spec "${regex_var}" "${args_var}"
+      ;;
+    backend-integration-phase2-incidents)
+      case "${target}" in
+        backend-integration|backend-integration-support) ;;
+        *)
+          echo "shared report ${shared_name} is not defined for target ${target}" >&2
+          return 2
+          ;;
+      esac
+      backend_integration_phase2_incidents_shared_spec "${regex_var}" "${args_var}"
+      ;;
+    backend-integration-phase3-timeline)
+      case "${target}" in
+        backend-integration|backend-integration-support) ;;
+        *)
+          echo "shared report ${shared_name} is not defined for target ${target}" >&2
+          return 2
+          ;;
+      esac
+      backend_integration_phase3_timeline_shared_spec "${regex_var}" "${args_var}"
+      ;;
+    backend-integration-phase4-entities)
+      case "${target}" in
+        backend-integration|backend-integration-support) ;;
+        *)
+          echo "shared report ${shared_name} is not defined for target ${target}" >&2
+          return 2
+          ;;
+      esac
+      backend_integration_phase4_entities_shared_spec "${regex_var}" "${args_var}"
+      ;;
+    backend-integration-phase4-timeline)
+      case "${target}" in
+        backend-integration|backend-integration-support) ;;
+        *)
+          echo "shared report ${shared_name} is not defined for target ${target}" >&2
+          return 2
+          ;;
+      esac
+      backend_integration_phase4_timeline_shared_spec "${regex_var}" "${args_var}"
       ;;
     backend-integration-auth)
       case "${target}" in
@@ -374,6 +469,16 @@ resolve_target_shared_report_spec() {
           ;;
       esac
       backend_integration_auth_shared_spec "${regex_var}" "${args_var}"
+      ;;
+    backend-integration-testutil)
+      case "${target}" in
+        backend-integration) ;;
+        *)
+          echo "shared report ${shared_name} is not defined for target ${target}" >&2
+          return 2
+          ;;
+      esac
+      backend_integration_testutil_shared_spec "${regex_var}" "${args_var}"
       ;;
     backend-process-shared)
       case "${target}" in
@@ -536,6 +641,85 @@ assign_captured_report() {
 
   dir_ref="${capture_result[0]}"
   usage_ref="${capture_result[1]}"
+}
+
+capture_named_shared_reports_parallel() {
+  if [[ "$#" -lt 4 ]]; then
+    echo "capture_named_shared_reports_parallel requires <target> <jobs> <metadata-dir> <shared-name...>" >&2
+    return 2
+  fi
+
+  local target="$1"
+  local jobs="$2"
+  local metadata_dir="$3"
+  shift 3
+
+  if [[ ! "${jobs}" =~ ^[0-9]+$ ]] || (( jobs < 1 )); then
+    echo "invalid shard job count: ${jobs}" >&2
+    return 2
+  fi
+
+  mkdir -p "${metadata_dir}"
+
+  local pids=()
+  local active=0
+  local status=0
+  local shared_name
+  for shared_name in "$@"; do
+    (
+      local report_dir
+      local report_usage
+      assign_named_shared_report report_dir report_usage "${target}" "${shared_name}"
+      printf '%s\n%s\n' "${report_dir}" "${report_usage}" >"${metadata_dir}/${shared_name}.meta"
+    ) &
+    pids+=("$!")
+    active=$((active + 1))
+
+    if (( active >= jobs )); then
+      if ! wait "${pids[0]}"; then
+        status=1
+      fi
+      pids=("${pids[@]:1}")
+      active=$((active - 1))
+    fi
+  done
+
+  local pid
+  for pid in "${pids[@]}"; do
+    if ! wait "${pid}"; then
+      status=1
+    fi
+  done
+
+  return "${status}"
+}
+
+read_shared_report_metadata() {
+  if [[ "$#" -ne 4 ]]; then
+    echo "read_shared_report_metadata requires <dir-var> <usage-var> <metadata-dir> <shared-name>" >&2
+    return 2
+  fi
+
+  local -n dir_ref="$1"
+  local -n usage_ref="$2"
+  local metadata_dir="$3"
+  local shared_name="$4"
+  local metadata_file="${metadata_dir}/${shared_name}.meta"
+  local metadata=()
+
+  if [[ ! -f "${metadata_file}" ]]; then
+    echo "missing shared report metadata for ${shared_name}" >&2
+    return 1
+  fi
+
+  mapfile -t metadata <"${metadata_file}"
+  if [[ "${#metadata[@]}" -ne 2 ]]; then
+    echo "incomplete shared report metadata for ${shared_name}" >&2
+    return 1
+  fi
+
+  dir_ref="${metadata[0]}"
+  usage_ref="${metadata[1]}"
 }
 
 inspect_shared_command() {
@@ -762,59 +946,103 @@ run_backend_store() {
 run_backend_integration() {
   local testutil_dir
   local testutil_usage
-  local core_dir
-  local core_usage
   local auth_dir
   local auth_usage
+  local phase0_platform_dir
+  local phase0_platform_usage
+  local phase0_app_dir
+  local phase0_app_usage
+  local phase2_incidents_dir
+  local phase2_incidents_usage
+  local phase3_timeline_dir
+  local phase3_timeline_usage
+  local phase4_entities_dir
+  local phase4_entities_usage
+  local phase4_timeline_dir
+  local phase4_timeline_usage
+  local metadata_dir
   local status=0
 
-  assign_captured_report testutil_dir testutil_usage backend-integration-testutil '^Test' -- \
-    -p "${GO_TEST_PACKAGE_PARALLELISM}" \
-    ./internal/testutil/httptestx \
-    ./internal/testutil/pgtest \
-    ./internal/testutil/s3test \
-    ./internal/testutil/testcontainersx \
-    ./internal/testutil/wstest
+  metadata_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-backend-integration-shards.XXXXXX")"
+  capture_named_shared_reports_parallel backend-integration "${BACKEND_INTEGRATION_SHARD_JOBS}" "${metadata_dir}" \
+    backend-integration-phase4-entities \
+    backend-integration-phase2-incidents \
+    backend-integration-phase3-timeline \
+    backend-integration-auth \
+    backend-integration-phase4-timeline \
+    backend-integration-phase0-app \
+    backend-integration-phase0-platform \
+    backend-integration-testutil
 
-  assign_named_shared_report core_dir core_usage backend-integration backend-integration-core
-  assign_named_shared_report auth_dir auth_usage backend-integration backend-integration-auth
+  read_shared_report_metadata phase4_entities_dir phase4_entities_usage "${metadata_dir}" backend-integration-phase4-entities
+  read_shared_report_metadata phase2_incidents_dir phase2_incidents_usage "${metadata_dir}" backend-integration-phase2-incidents
+  read_shared_report_metadata phase3_timeline_dir phase3_timeline_usage "${metadata_dir}" backend-integration-phase3-timeline
+  read_shared_report_metadata auth_dir auth_usage "${metadata_dir}" backend-integration-auth
+  read_shared_report_metadata phase4_timeline_dir phase4_timeline_usage "${metadata_dir}" backend-integration-phase4-timeline
+  read_shared_report_metadata phase0_app_dir phase0_app_usage "${metadata_dir}" backend-integration-phase0-app
+  read_shared_report_metadata phase0_platform_dir phase0_platform_usage "${metadata_dir}" backend-integration-phase0-platform
+  read_shared_report_metadata testutil_dir testutil_usage "${metadata_dir}" backend-integration-testutil
+  rm -rf -- "${metadata_dir}"
 
   clear_go_selection_env
   emit_go_raw_phase "backend-integration testutil" "${testutil_usage}" "${testutil_dir}" '^Test' ./internal/testutil/httptestx ./internal/testutil/pgtest ./internal/testutil/s3test ./internal/testutil/testcontainersx ./internal/testutil/wstest || status=$?
   clear_go_selection_env
-  emit_go_manifest_phase "backend-integration phase0 authoritative" "${core_usage}" "${core_dir}" phase0 integration authoritative backend_integration ./internal/platform/... ./internal/app || status=$?
+  emit_go_manifest_phase "backend-integration phase0 authoritative platform" "${phase0_platform_usage}" "${phase0_platform_dir}" phase0 integration authoritative backend_integration ./internal/platform/... || status=$?
+  clear_go_selection_env
+  emit_go_manifest_phase "backend-integration phase0 authoritative app" "${phase0_app_usage}" "${phase0_app_dir}" phase0 integration authoritative backend_integration ./internal/app || status=$?
   clear_go_selection_env
   emit_go_manifest_phase "backend-integration phase1 authoritative" "${auth_usage}" "${auth_dir}" phase1 integration authoritative backend_integration ./internal/modules/auth || status=$?
   clear_go_selection_env
-  emit_go_manifest_phase "backend-integration phase4 authoritative" derived "${core_dir}" phase4 integration authoritative backend_integration ./internal/modules/entities ./internal/modules/timeline || status=$?
+  emit_go_manifest_phase "backend-integration phase4 authoritative entities" "${phase4_entities_usage}" "${phase4_entities_dir}" phase4 integration authoritative backend_integration ./internal/modules/entities || status=$?
   clear_go_selection_env
-  emit_go_manifest_phase "backend-integration phase2 authoritative" derived "${core_dir}" phase2 integration authoritative backend_integration ./internal/modules/incidents || status=$?
+  emit_go_manifest_phase "backend-integration phase4 authoritative timeline" "${phase4_timeline_usage}" "${phase4_timeline_dir}" phase4 integration authoritative backend_integration ./internal/modules/timeline || status=$?
   clear_go_selection_env
-  emit_go_manifest_phase "backend-integration phase3 authoritative" derived "${core_dir}" phase3 integration authoritative backend_integration ./internal/modules/timeline || status=$?
+  emit_go_manifest_phase "backend-integration phase2 authoritative" "${phase2_incidents_usage}" "${phase2_incidents_dir}" phase2 integration authoritative backend_integration ./internal/modules/incidents || status=$?
+  clear_go_selection_env
+  emit_go_manifest_phase "backend-integration phase3 authoritative" "${phase3_timeline_usage}" "${phase3_timeline_dir}" phase3 integration authoritative backend_integration ./internal/modules/timeline || status=$?
 
   finish_target "${status}"
 }
 
 run_backend_integration_support() {
-  local core_dir
-  local core_usage
   local auth_dir
   local auth_usage
+  local phase0_platform_dir
+  local phase0_platform_usage
+  local phase2_incidents_dir
+  local phase2_incidents_usage
+  local phase3_timeline_dir
+  local phase3_timeline_usage
+  local phase4_entities_dir
+  local phase4_entities_usage
+  local metadata_dir
   local status=0
 
-  assign_named_shared_report core_dir core_usage backend-integration-support backend-integration-core
-  assign_named_shared_report auth_dir auth_usage backend-integration-support backend-integration-auth
+  metadata_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-backend-integration-support-shards.XXXXXX")"
+  capture_named_shared_reports_parallel backend-integration-support "${BACKEND_INTEGRATION_SHARD_JOBS}" "${metadata_dir}" \
+    backend-integration-phase4-entities \
+    backend-integration-phase2-incidents \
+    backend-integration-phase3-timeline \
+    backend-integration-auth \
+    backend-integration-phase0-platform
+
+  read_shared_report_metadata phase4_entities_dir phase4_entities_usage "${metadata_dir}" backend-integration-phase4-entities
+  read_shared_report_metadata phase2_incidents_dir phase2_incidents_usage "${metadata_dir}" backend-integration-phase2-incidents
+  read_shared_report_metadata phase3_timeline_dir phase3_timeline_usage "${metadata_dir}" backend-integration-phase3-timeline
+  read_shared_report_metadata auth_dir auth_usage "${metadata_dir}" backend-integration-auth
+  read_shared_report_metadata phase0_platform_dir phase0_platform_usage "${metadata_dir}" backend-integration-phase0-platform
+  rm -rf -- "${metadata_dir}"
 
   clear_go_selection_env
-  emit_declared_support_phase "backend-integration support phase0" "${core_usage}" "${core_dir}" phase0 backend_integration_support ./internal/platform/... ./internal/app || status=$?
+  emit_declared_support_phase "backend-integration support phase0 platform" "${phase0_platform_usage}" "${phase0_platform_dir}" phase0 backend_integration_support ./internal/platform/... || status=$?
   clear_go_selection_env
   emit_declared_support_phase "backend-integration support phase1" "${auth_usage}" "${auth_dir}" phase1 backend_integration_support ./internal/modules/auth || status=$?
   clear_go_selection_env
-  emit_declared_support_phase "backend-integration support phase2" "${core_usage}" "${core_dir}" phase2 backend_integration_support ./internal/modules/incidents || status=$?
+  emit_declared_support_phase "backend-integration support phase2" "${phase2_incidents_usage}" "${phase2_incidents_dir}" phase2 backend_integration_support ./internal/modules/incidents || status=$?
   clear_go_selection_env
-  emit_declared_support_phase "backend-integration support phase3" derived "${core_dir}" phase3 backend_integration_support ./internal/modules/timeline || status=$?
+  emit_declared_support_phase "backend-integration support phase3" "${phase3_timeline_usage}" "${phase3_timeline_dir}" phase3 backend_integration_support ./internal/modules/timeline || status=$?
   clear_go_selection_env
-  emit_declared_support_phase "backend-integration support phase4" derived "${core_dir}" phase4 backend_integration_support ./internal/modules/entities ./internal/modules/timeline || status=$?
+  emit_declared_support_phase "backend-integration support phase4 entities" "${phase4_entities_usage}" "${phase4_entities_dir}" phase4 backend_integration_support ./internal/modules/entities || status=$?
 
   finish_target "${status}"
 }

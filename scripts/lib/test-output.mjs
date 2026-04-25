@@ -812,6 +812,8 @@ function summarizeTargetDir(target) {
   };
   let startTime = "";
   let endTime = "";
+  let actualStartTime = "";
+  let actualEndTime = "";
   let durationMs = 0;
   let executedDurationMs = 0;
   let logicalDurationMs = 0;
@@ -833,6 +835,14 @@ function summarizeTargetDir(target) {
     }
     if (endTime === "" || summary.end_time > endTime) {
       endTime = summary.end_time;
+    }
+    if (accountingMode === "actual") {
+      if (actualStartTime === "" || summary.start_time < actualStartTime) {
+        actualStartTime = summary.start_time;
+      }
+      if (actualEndTime === "" || summary.end_time > actualEndTime) {
+        actualEndTime = summary.end_time;
+      }
     }
     logicalDurationMs += summaryLogicalDurationMs;
     executedDurationMs += summaryExecutedDurationMs;
@@ -865,6 +875,8 @@ function summarizeTargetDir(target) {
   }
   counts.packages = owners.size;
 
+  const actualWindowWallDurationMs = computeWindowDurationMs(actualStartTime, actualEndTime);
+
   return {
     target,
     targetDir,
@@ -875,7 +887,7 @@ function summarizeTargetDir(target) {
     durationMs,
     executedDurationMs,
     logicalDurationMs,
-    wallDurationMs,
+    wallDurationMs: actualWindowWallDurationMs > 0 ? actualWindowWallDurationMs : wallDurationMs,
     accountingModes,
     failed,
     authoritativeInventory,

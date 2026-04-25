@@ -453,15 +453,17 @@ if ! printf '%s\n' "$backend_integration_block" | grep -Fq '$(TEST_SERVICES_BIN)
   fail "backend-integration must run through $(TEST_SERVICES_BIN) for suite-scoped services"
 fi
 for expected in \
-  'emit_go_manifest_phase "backend-integration phase0 authoritative"' \
+  'emit_go_manifest_phase "backend-integration phase0 authoritative platform"' \
+  'emit_go_manifest_phase "backend-integration phase0 authoritative app"' \
   'emit_go_manifest_phase "backend-integration phase1 authoritative"' \
-  'emit_go_manifest_phase "backend-integration phase4 authoritative"' \
+  'emit_go_manifest_phase "backend-integration phase4 authoritative entities"' \
+  'emit_go_manifest_phase "backend-integration phase4 authoritative timeline"' \
   'emit_go_manifest_phase "backend-integration phase2 authoritative"' \
-  'emit_declared_support_phase "backend-integration support phase0"' \
+  'emit_declared_support_phase "backend-integration support phase0 platform"' \
   'emit_declared_support_phase "backend-integration support phase1"' \
   'emit_declared_support_phase "backend-integration support phase2"' \
   'emit_declared_support_phase "backend-integration support phase3"' \
-  'emit_declared_support_phase "backend-integration support phase4"'
+  'emit_declared_support_phase "backend-integration support phase4 entities"'
 do
   if ! grep -Fq "$expected" "$go_runner_script"; then
     fail "scripts/run-go-target.sh must preserve backend-integration selection surface: missing $expected"
@@ -574,23 +576,22 @@ fi
 if ! printf '%s\n' "$backend_integration_support_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
   fail "backend-integration-support must run through $(TEST_SERVICES_BIN) for suite-scoped services"
 fi
-require_shared_command_match backend-integration-core backend-integration backend-integration-support
-require_shared_command_match backend-integration-auth backend-integration backend-integration-support
-mapfile -t backend_integration_core_support_patterns < <(target_plan_support_patterns backend-integration-support backend-integration-core)
-if [[ "${#backend_integration_core_support_patterns[@]}" -eq 0 ]]; then
-  fail "backend-integration-core must have declared support selectors"
-fi
-for pattern in "${backend_integration_core_support_patterns[@]}"; do
-  [[ -z "$pattern" ]] && continue
-  require_shared_command_contains backend-integration backend-integration-core "$pattern"
-done
-mapfile -t backend_integration_auth_support_patterns < <(target_plan_support_patterns backend-integration-support backend-integration-auth)
-if [[ "${#backend_integration_auth_support_patterns[@]}" -eq 0 ]]; then
-  fail "backend-integration-auth must have declared support selectors"
-fi
-for pattern in "${backend_integration_auth_support_patterns[@]}"; do
-  [[ -z "$pattern" ]] && continue
-  require_shared_command_contains backend-integration backend-integration-auth "$pattern"
+for shared_report in \
+  backend-integration-phase0-platform \
+  backend-integration-phase2-incidents \
+  backend-integration-phase3-timeline \
+  backend-integration-phase4-entities \
+  backend-integration-auth
+do
+  require_shared_command_match "$shared_report" backend-integration backend-integration-support
+  mapfile -t backend_integration_support_patterns < <(target_plan_support_patterns backend-integration-support "$shared_report")
+  if [[ "${#backend_integration_support_patterns[@]}" -eq 0 ]]; then
+    fail "$shared_report must have declared support selectors"
+  fi
+  for pattern in "${backend_integration_support_patterns[@]}"; do
+    [[ -z "$pattern" ]] && continue
+    require_shared_command_contains backend-integration "$shared_report" "$pattern"
+  done
 done
 require_shared_command_match backend-process-shared backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke
 
