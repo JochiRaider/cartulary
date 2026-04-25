@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -27,6 +28,9 @@ func TestDecode_DefaultsToSchemaMeta(t *testing.T) {
 	}
 	if len(query.Meta.Sort) != len(schema.DefaultSort()) {
 		t.Fatalf("expected default sort length %d, got %#v", len(schema.DefaultSort()), query.Meta.Sort)
+	}
+	if query.Pagination.Limit != nil || query.Pagination.CursorToken != nil {
+		t.Fatalf("expected no explicit pagination members, got %#v", query.Pagination)
 	}
 }
 
@@ -67,6 +71,47 @@ func TestDecode_NormalizesFiltersSortAndGrouping(t *testing.T) {
 	}
 	if len(values) != 2 || values[0] != "alpha" || values[1] != "beta" {
 		t.Fatalf("expected canonical deduped tag values, got %#v", values)
+	}
+}
+
+func TestDecode_AcceptsBodyPaginationMembers(t *testing.T) {
+	query, err := Decode(strings.NewReader(`{"limit": 25, "cursor_token": "opaque-token"}`), timelineViewSchemaID)
+	if err != nil {
+		t.Fatalf("decode paginated query: %+v", err)
+	}
+	if query.Pagination.Limit == nil || *query.Pagination.Limit != 25 {
+		t.Fatalf("expected limit 25, got %#v", query.Pagination.Limit)
+	}
+	if query.Pagination.CursorToken == nil || *query.Pagination.CursorToken != "opaque-token" {
+		t.Fatalf("expected cursor token, got %#v", query.Pagination.CursorToken)
+	}
+}
+
+func TestDecode_RejectsInvalidPaginationMembers(t *testing.T) {
+	tests := []struct {
+		name  string
+		body  string
+		field string
+	}{
+		{name: "zero limit", body: `{"limit": 0}`, field: "limit"},
+		{name: "negative limit", body: `{"limit": -1}`, field: "limit"},
+		{name: "over max limit", body: `{"limit": 501}`, field: "limit"},
+		{name: "non integer limit", body: `{"limit": "10"}`, field: "limit"},
+		{name: "page alias", body: `{"page": 2}`, field: "page"},
+		{name: "offset alias", body: `{"offset": 10}`, field: "offset"},
+		{name: "page size alias", body: `{"page_size": 10}`, field: "page_size"},
+		{name: "block size alias", body: `{"block_size": 10}`, field: "block_size"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := Decode(strings.NewReader(test.body), timelineViewSchemaID)
+			if err == nil {
+				t.Fatal("expected pagination rejection")
+			}
+			if err.Field != test.field || err.ReasonCode != pagination.ReasonInvalidLimit {
+				t.Fatalf("unexpected pagination error: %+v", err)
+			}
+		})
 	}
 }
 

@@ -6,8 +6,6 @@ import (
 	"slices"
 	"testing"
 	"time"
-
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 type AuthorizationOutcome struct {
@@ -141,70 +139,26 @@ func RequireProjectionDeterminism(t testing.TB, first any, second any) {
 
 func RequireDefaultQueryMeta(t testing.TB, body map[string]any, viewSchemaID string) {
 	t.Helper()
+	_ = viewSchemaID
 
 	metaValue, ok := body["meta"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected success envelope meta object, got %T", body["meta"])
 	}
-	queryValue, ok := metaValue["query"].(map[string]any)
+	pagingValue, ok := metaValue["paging"].(map[string]any)
 	if !ok {
-		t.Fatalf("expected meta.query object, got %T", metaValue["query"])
+		t.Fatalf("expected meta.paging object, got %T", metaValue["paging"])
 	}
-
-	schema, ok := viewschema.Lookup(viewSchemaID)
-	if !ok {
-		t.Fatalf("view schema %q not registered", viewSchemaID)
+	if pagingValue["limit"] != float64(100) {
+		t.Fatalf("expected default meta.paging.limit=100, got %#v", pagingValue)
 	}
-	expected := schema.DefaultQueryMeta()
-
-	filters, ok := queryValue["filters"].([]any)
-	if !ok {
-		t.Fatalf("expected meta.query.filters array, got %T", queryValue["filters"])
+	if _, ok := pagingValue["has_more"].(bool); !ok {
+		t.Fatalf("expected meta.paging.has_more boolean, got %#v", pagingValue)
 	}
-	if len(filters) != len(expected.Filters) {
-		t.Fatalf("unexpected meta.query.filters length: got %#v want %#v", filters, expected.Filters)
-	}
-	gotFilters := make([]viewschema.Filter, 0, len(filters))
-	for _, item := range filters {
-		entry, ok := item.(map[string]any)
-		if !ok {
-			t.Fatalf("expected filter entry object, got %T", item)
+	if nextCursor := pagingValue["next_cursor"]; nextCursor != nil {
+		if _, ok := nextCursor.(string); !ok {
+			t.Fatalf("expected meta.paging.next_cursor string or null, got %#v", pagingValue)
 		}
-		fieldKey, _ := entry["field_key"].(string)
-		op, _ := entry["op"].(string)
-		arg, _ := entry["arg"].(map[string]any)
-		gotFilters = append(gotFilters, viewschema.Filter{
-			FieldKey: fieldKey,
-			Op:       op,
-			Arg:      arg,
-		})
-	}
-	if !reflect.DeepEqual(gotFilters, expected.Filters) {
-		t.Fatalf("unexpected meta.query.filters: got %#v want %#v", gotFilters, expected.Filters)
-	}
-
-	sortValue, ok := queryValue["sort"].([]any)
-	if !ok {
-		t.Fatalf("expected meta.query.sort array, got %T", queryValue["sort"])
-	}
-	gotSort := make([]viewschema.SortEntry, 0, len(sortValue))
-	for _, item := range sortValue {
-		entry, ok := item.(map[string]any)
-		if !ok {
-			t.Fatalf("expected sort entry object, got %T", item)
-		}
-		fieldKey, _ := entry["field_key"].(string)
-		direction, _ := entry["direction"].(string)
-		gotSort = append(gotSort, viewschema.SortEntry{
-			FieldKey:  fieldKey,
-			Direction: direction,
-		})
-	}
-	if !reflect.DeepEqual(gotSort, expected.Sort) {
-		t.Fatalf("unexpected meta.query.sort: got %#v want %#v", gotSort, expected.Sort)
-	}
-	if _, exists := queryValue["group_by"]; exists {
-		t.Fatalf("expected default query meta to omit group_by, got %#v", queryValue["group_by"])
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -44,7 +45,8 @@ type FieldSpec struct {
 }
 
 type Query struct {
-	Meta viewschema.QueryMeta
+	Meta       viewschema.QueryMeta
+	Pagination pagination.Query
 }
 
 var queryCaseFolder = cases.Fold()
@@ -85,7 +87,8 @@ func Decode(reader io.Reader, viewSchemaID string) (Query, *ValidationError) {
 	if err != nil {
 		return Query{}, err
 	}
-	if err := rejectPaginationMembers(raw); err != nil {
+	paging, err := normalizePagination(raw)
+	if err != nil {
 		return Query{}, err
 	}
 
@@ -95,6 +98,7 @@ func Decode(reader io.Reader, viewSchemaID string) (Query, *ValidationError) {
 			Sort:    effectiveSort(sortEntries, schema.DefaultSort()),
 			GroupBy: groupBy,
 		},
+		Pagination: paging,
 	}, nil
 }
 
@@ -130,16 +134,37 @@ func validateTopLevelMembers(raw map[string]json.RawMessage) *ValidationError {
 	return nil
 }
 
-func rejectPaginationMembers(raw map[string]json.RawMessage) *ValidationError {
-	for _, key := range []string{"limit", "cursor_token", "page", "offset", "block_size", "page_size"} {
+func normalizePagination(raw map[string]json.RawMessage) (pagination.Query, *ValidationError) {
+	for _, key := range []string{"page", "offset", "block_size", "page_size"} {
 		if _, ok := raw[key]; ok {
-			return &ValidationError{
+			return pagination.Query{}, &ValidationError{
 				Field:      key,
 				ReasonCode: "invalid_limit",
 			}
 		}
 	}
-	return nil
+	var query pagination.Query
+	if value, ok := raw["limit"]; ok {
+		var limit int
+		if err := json.Unmarshal(value, &limit); err != nil || limit < 1 || limit > pagination.MaxLimit {
+			return pagination.Query{}, &ValidationError{
+				Field:      "limit",
+				ReasonCode: "invalid_limit",
+			}
+		}
+		query.Limit = &limit
+	}
+	if value, ok := raw["cursor_token"]; ok {
+		var cursorToken string
+		if err := json.Unmarshal(value, &cursorToken); err != nil || strings.TrimSpace(cursorToken) == "" {
+			return pagination.Query{}, &ValidationError{
+				Field:      "cursor_token",
+				ReasonCode: pagination.ReasonInvalidCursorToken,
+			}
+		}
+		query.CursorToken = &cursorToken
+	}
+	return query, nil
 }
 
 func normalizeSort(raw json.RawMessage, schema viewschema.Schema) ([]viewschema.SortEntry, *ValidationError) {

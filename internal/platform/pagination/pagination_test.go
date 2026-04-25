@@ -64,6 +64,52 @@ func TestResolveRequestReusesCursorBoundLimitAndValidatesBindings(t *testing.T) 
 	}
 }
 
+func TestResolveViewQueryReportsContractMismatch(t *testing.T) {
+	cursorToken, err := EncodeCursor(Cursor{
+		Route:       "workbook.view-query",
+		ActorUserID: "user-1",
+		Limit:       2,
+		Scope: map[string]string{
+			"incident_id":    "incident-1",
+			"view_schema_id": "cartulary.view.timeline.v1",
+			"query_contract": `{"filters":[],"sort":[{"field_key":"record_id","direction":"asc"}]}`,
+		},
+		SnapshotID: "snapshot-1",
+		Offset:     2,
+	})
+	if err != nil {
+		t.Fatalf("encode cursor: %v", err)
+	}
+
+	_, cursor, reason := ResolveViewQuery(Query{CursorToken: &cursorToken}, "workbook.view-query", "user-1", map[string]string{
+		"incident_id":    "incident-1",
+		"view_schema_id": "cartulary.view.timeline.v1",
+		"query_contract": `{"filters":[],"sort":[{"field_key":"record_id","direction":"asc"}]}`,
+	})
+	if reason != "" || cursor == nil {
+		t.Fatalf("expected successful view query cursor resolve, reason=%q cursor=%#v", reason, cursor)
+	}
+
+	_, _, reason = ResolveViewQuery(Query{CursorToken: &cursorToken}, "workbook.view-query", "user-1", map[string]string{
+		"incident_id":    "incident-1",
+		"view_schema_id": "cartulary.view.timeline.v1",
+		"query_contract": `{"filters":[],"sort":[{"field_key":"timeline.summary","direction":"asc"}]}`,
+	})
+	if reason != ReasonCursorQueryMismatch {
+		t.Fatalf("expected query mismatch for changed normalized query, got %q", reason)
+	}
+
+	changedLimit := 3
+	_, _, reason = ResolveViewQuery(Query{CursorToken: &cursorToken, Limit: &changedLimit}, "workbook.view-query", "user-1", map[string]string{
+		"incident_id":    "incident-1",
+		"view_schema_id": "cartulary.view.timeline.v1",
+		"query_contract": `{"filters":[],"sort":[{"field_key":"record_id","direction":"asc"}]}`,
+	})
+	if reason != ReasonCursorQueryMismatch {
+		t.Fatalf("expected query mismatch for changed limit, got %q", reason)
+	}
+}
+
 func TestRegistryProvidesSnapshotStablePagesAndExpiresInactiveChains(t *testing.T) {
 	now := time.Date(2026, time.April, 20, 20, 0, 0, 0, time.UTC)
 	registry := NewRegistry(WithNow(func() time.Time { return now }))

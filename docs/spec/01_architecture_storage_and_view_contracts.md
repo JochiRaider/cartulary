@@ -4410,6 +4410,10 @@ Verified by: AC-015, AC-016, AC-017, AC-045, AC-053, AC-054, AC-100, AC-128, AC-
 
 **REQ-01-356**
 Interactive retrieval for hot workbook sheets MUST use a deterministic sort tuple and stable cursor, keyset, or viewport/block retrieval. It MUST NOT rely on deep `OFFSET` pagination for large incidents.
+
+The current-profile workbook view-query route `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query` MUST be a generic workbook-surface query route rather than a Timeline-only route. Its JSON request body MAY include `sort`, `filters`, `group_by`, `limit`, and `cursor_token`. `sort`, `filters`, and `group_by` MUST normalize under the active `view_schema_id` contract. `limit`, when supplied, MUST be an integer in the supported workbook query page-size range. `cursor_token`, when supplied, MUST be treated as an opaque continuation token bound to the authenticated actor, route family, incident, `view_schema_id`, normalized query contract, and page limit. A continuation request whose cursor binding no longer matches the request MUST fail closed rather than silently starting a new query.
+
+Successful workbook view-query responses MUST return the common success envelope with workbook rows in `data.rows` and paging metadata in `meta.paging`. `meta.paging` MUST include the effective `limit`, a boolean `has_more`, and `next_cursor` as either an opaque string continuation token or JSON `null` on terminal pages. Invalid cursor tokens, expired cursor snapshots, unsupported pagination members, invalid limits, and cursor/query mismatches MUST use stable route-owned validation errors rather than internal errors.
 Profiles: base
 Verified by: AC-015, AC-016, AC-017, AC-045, AC-053, AC-054, AC-100, AC-128, AC-210, AC-231
 

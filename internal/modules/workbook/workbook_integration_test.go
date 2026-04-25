@@ -6,9 +6,11 @@ import (
 	"net/http"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
@@ -59,12 +61,9 @@ func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 		if rows := data["rows"].([]any); len(rows) != 0 {
 			t.Fatalf("expected empty %s rows, got %#v", viewSchemaID, rows)
 		}
-		metaQuery := queryBody["meta"].(map[string]any)["query"].(map[string]any)
-		if filters := metaQuery["filters"].([]any); len(filters) != 0 {
-			t.Fatalf("expected empty filters for %s, got %#v", viewSchemaID, filters)
-		}
-		if sort := metaQuery["sort"].([]any); len(sort) == 0 {
-			t.Fatalf("expected default sort for %s, got %#v", viewSchemaID, metaQuery)
+		paging := queryBody["meta"].(map[string]any)["paging"].(map[string]any)
+		if paging["limit"] != float64(100) || paging["has_more"] != false || paging["next_cursor"] != nil {
+			t.Fatalf("expected terminal default paging for %s, got %#v", viewSchemaID, paging)
 		}
 	}
 
@@ -86,6 +85,222 @@ func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 	}
 	if !reflect.DeepEqual(gotIDs, wantIDs) {
 		t.Fatalf("unexpected discovered ids:\ngot  %v\nwant %v", gotIDs, wantIDs)
+	}
+}
+
+func TestWorkbook_QueryPaginationContract(t *testing.T) {
+	harness := phase4test.StartServer(t, "workbook-query-pagination")
+	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-workbook-query-pagination-incident",
+		"incident_key":  "IR-WORKBOOK-PAGING",
+		"title":         "Workbook query pagination",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	hostA := uuid.New()
+	hostB := uuid.New()
+	hostC := uuid.New()
+	seedHostForPaging(t, harness, incidentID, adminUserID, hostA, "Alpha")
+	seedHostForPaging(t, harness, incidentID, adminUserID, hostB, "Bravo")
+	seedHostForPaging(t, harness, incidentID, adminUserID, hostC, "Charlie")
+
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entities.HostsViewSchemaID + "/query"
+	sortByName := []map[string]any{{"field_key": "host.display_name", "direction": "asc"}}
+	first := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"limit": 1,
+		"sort":  sortByName,
+	})
+	firstRows := responseRows(first)
+	if len(firstRows) != 1 || firstRows[0]["record_id"] != hostA.String() {
+		t.Fatalf("expected first page host A, got %#v", firstRows)
+	}
+	firstPaging := responsePaging(first)
+	if firstPaging["limit"] != float64(1) || firstPaging["has_more"] != true || firstPaging["next_cursor"] == nil {
+		t.Fatalf("expected first page cursor, got %#v", firstPaging)
+	}
+	cursor := firstPaging["next_cursor"].(string)
+
+	second := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"cursor_token": cursor,
+		"sort":         sortByName,
+	})
+	secondPaging := responsePaging(second)
+	if secondPaging["limit"] != float64(1) || secondPaging["has_more"] != true || secondPaging["next_cursor"] == nil {
+		t.Fatalf("expected continuation to reuse limit 1, got %#v", secondPaging)
+	}
+	if rows := responseRows(second); len(rows) != 1 || rows[0]["record_id"] != hostB.String() {
+		t.Fatalf("expected second page host B, got %#v", rows)
+	}
+
+	terminal := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"cursor_token": secondPaging["next_cursor"].(string),
+		"sort":         sortByName,
+	})
+	terminalPaging := responsePaging(terminal)
+	if terminalPaging["limit"] != float64(1) || terminalPaging["has_more"] != false || terminalPaging["next_cursor"] != nil {
+		t.Fatalf("expected terminal continuation, got %#v", terminalPaging)
+	}
+	if rows := responseRows(terminal); len(rows) != 1 || rows[0]["record_id"] != hostC.String() {
+		t.Fatalf("expected terminal page host C, got %#v", rows)
+	}
+
+	for name, body := range map[string]map[string]any{
+		"changed limit":    {"cursor_token": cursor, "limit": 2, "sort": sortByName},
+		"changed sort":     {"cursor_token": cursor, "sort": []map[string]any{{"field_key": "host.display_name", "direction": "desc"}}},
+		"changed group_by": {"cursor_token": cursor, "sort": sortByName, "group_by": "host.host_state"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			resp := phase4test.DoJSON(t, http.MethodPost, queryURL, body, phase4test.WithCookies(adminLogin.SessionCookie))
+			errBody := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_view_query")
+			if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
+				t.Fatalf("expected cursor_query_mismatch, got %#v", details)
+			}
+		})
+	}
+
+	zero := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"filters": []map[string]any{{"field_key": "host.location", "op": "eq", "arg": map[string]any{"value": "missing-location"}}},
+	})
+	if rows := responseRows(zero); len(rows) != 0 {
+		t.Fatalf("expected zero-match page, got %#v", rows)
+	}
+	zeroPaging := responsePaging(zero)
+	if zeroPaging["limit"] != float64(100) || zeroPaging["has_more"] != false || zeroPaging["next_cursor"] != nil {
+		t.Fatalf("expected zero-match terminal paging, got %#v", zeroPaging)
+	}
+
+	grouped := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"limit":    1,
+		"sort":     sortByName,
+		"group_by": "host.host_state",
+	})
+	groupedRows := responseRows(grouped)
+	if len(groupedRows) != 1 {
+		t.Fatalf("expected grouping page size to count rows only, got %#v", groupedRows)
+	}
+	if groupedRows[0]["group_values"].(map[string]any)["host.host_state"] != "canonical" {
+		t.Fatalf("expected full row group_values, got %#v", groupedRows[0])
+	}
+}
+
+func TestWorkbook_QueryCursorSnapshotsSurviveInterveningMutations(t *testing.T) {
+	harness := phase4test.StartServer(t, "workbook-query-snapshot")
+	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-workbook-query-snapshot-incident",
+		"incident_key":  "IR-WORKBOOK-SNAPSHOT",
+		"title":         "Workbook query snapshot",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	hostA := uuid.New()
+	hostC := uuid.New()
+	hostD := uuid.New()
+	seedHostForPaging(t, harness, incidentID, adminUserID, hostA, "Alpha")
+	seedHostForPaging(t, harness, incidentID, adminUserID, hostC, "Charlie")
+	seedHostForPaging(t, harness, incidentID, adminUserID, hostD, "Delta")
+
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entities.HostsViewSchemaID + "/query"
+	sortByName := []map[string]any{{"field_key": "host.display_name", "direction": "asc"}}
+	pageOne := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"limit": 1,
+		"sort":  sortByName,
+	})
+	cursor := responsePaging(pageOne)["next_cursor"].(string)
+
+	hostB := uuid.New()
+	seedHostForPaging(t, harness, incidentID, adminUserID, hostB, "Bravo")
+	updateHostDisplayNameForPaging(t, harness, hostC, "Zulu", 2)
+
+	pageTwo := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"cursor_token": cursor,
+		"sort":         sortByName,
+	})
+	pageTwoRows := responseRows(pageTwo)
+	if len(pageTwoRows) != 1 || pageTwoRows[0]["record_id"] != hostC.String() {
+		t.Fatalf("expected snapshot continuation to preserve host C as second row, got %#v", pageTwoRows)
+	}
+	if pageTwoRows[0]["row_version"] != float64(1) {
+		t.Fatalf("expected snapshot row_version 1, got %#v", pageTwoRows[0])
+	}
+	if got := pageTwoRows[0]["cells"].(map[string]any)["host.display_name"].(map[string]any)["value"]; got != "Charlie" {
+		t.Fatalf("expected snapshot display name Charlie, got %#v", pageTwoRows[0])
+	}
+
+	pageThree := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"cursor_token": responsePaging(pageTwo)["next_cursor"].(string),
+		"sort":         sortByName,
+	})
+	pageThreeRows := responseRows(pageThree)
+	if len(pageThreeRows) != 1 || pageThreeRows[0]["record_id"] != hostD.String() {
+		t.Fatalf("expected snapshot continuation to preserve host D as third row, got %#v", pageThreeRows)
+	}
+	if responsePaging(pageThree)["has_more"] != false {
+		t.Fatalf("expected snapshot chain to terminate, got %#v", responsePaging(pageThree))
+	}
+
+	fresh := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{"sort": sortByName})
+	freshIDs := rowIDs(responseRows(fresh))
+	wantFresh := []string{hostA.String(), hostB.String(), hostD.String(), hostC.String()}
+	if !reflect.DeepEqual(freshIDs, wantFresh) {
+		t.Fatalf("fresh query did not reflect live ordering:\ngot  %v\nwant %v", freshIDs, wantFresh)
+	}
+	freshC := findResponseRow(t, responseRows(fresh), hostC)
+	if freshC["row_version"] != float64(2) {
+		t.Fatalf("expected fresh host C row_version 2, got %#v", freshC)
+	}
+}
+
+func TestWorkbook_QueryCursorSnapshotExpiry(t *testing.T) {
+	harness := phase4test.StartServer(t, "workbook-query-snapshot-expiry")
+	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-workbook-query-snapshot-expiry-incident",
+		"incident_key":  "IR-WORKBOOK-SNAPSHOT-EXPIRY",
+		"title":         "Workbook query snapshot expiry",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	hostA := uuid.New()
+	hostB := uuid.New()
+	seedHostForPaging(t, harness, incidentID, adminUserID, hostA, "Alpha")
+	seedHostForPaging(t, harness, incidentID, adminUserID, hostB, "Bravo")
+
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entities.HostsViewSchemaID + "/query"
+	sortByName := []map[string]any{{"field_key": "host.display_name", "direction": "asc"}}
+	pageOne := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"limit": 1,
+		"sort":  sortByName,
+	})
+	cursor := responsePaging(pageOne)["next_cursor"].(string)
+
+	harness.Server.Clock.SetOffset(9 * time.Minute)
+	beforeExpiry := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"cursor_token": cursor,
+		"sort":         sortByName,
+	})
+	if rows := responseRows(beforeExpiry); len(rows) != 1 || rows[0]["record_id"] != hostB.String() {
+		t.Fatalf("expected continuation before expiry to succeed, got %#v", rows)
+	}
+
+	pageOne = queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
+		"limit": 1,
+		"sort":  sortByName,
+	})
+	expiringCursor := responsePaging(pageOne)["next_cursor"].(string)
+	harness.Server.Clock.SetOffset(20 * time.Minute)
+	resp := phase4test.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+		"cursor_token": expiringCursor,
+		"sort":         sortByName,
+	}, phase4test.WithCookies(adminLogin.SessionCookie))
+	errBody := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_view_query")
+	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_snapshot_unavailable" {
+		t.Fatalf("expected cursor_snapshot_unavailable, got %#v", details)
+	}
+
+	fresh := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{"sort": sortByName})
+	if rows := responseRows(fresh); len(rows) != 2 {
+		t.Fatalf("expected fresh query after expiry to succeed, got %#v", rows)
 	}
 }
 
@@ -320,4 +535,82 @@ func eqFilter(fieldKey string, value any) map[string]any {
 
 func prefixFilter(fieldKey string, value string) map[string]any {
 	return map[string]any{"field_key": fieldKey, "op": "prefix", "arg": map[string]any{"value": value}}
+}
+
+func seedHostForPaging(t testing.TB, harness *phase4test.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, displayName string) {
+	t.Helper()
+	execSeed(t, harness, `
+INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
+VALUES ($1, $2, 'host', $3, $3)
+`, recordID, incidentID, actorID)
+	execSeed(t, harness, `
+INSERT INTO hosts (record_id, incident_id, display_name, hostname, host_state, created_by_user_id, updated_by_user_id)
+VALUES ($1, $2, $3, lower($3), 'canonical', $4, $4)
+`, recordID, incidentID, displayName, actorID)
+	execSeed(t, harness, `
+INSERT INTO host_grid_projection (record_id, incident_id, row_version, display_name, hostname, host_state, edited_at)
+VALUES ($1, $2, 1, $3, lower($3), 'canonical', now())
+`, recordID, incidentID, displayName)
+}
+
+func updateHostDisplayNameForPaging(t testing.TB, harness *phase4test.ServerHarness, recordID uuid.UUID, displayName string, rowVersion int64) {
+	t.Helper()
+	execSeed(t, harness, `
+UPDATE records
+   SET row_version = $2,
+       updated_at = now()
+ WHERE record_id = $1
+`, recordID, rowVersion)
+	execSeed(t, harness, `
+UPDATE hosts
+   SET display_name = $2,
+       row_version = $3,
+       updated_at = now()
+ WHERE record_id = $1
+`, recordID, displayName, rowVersion)
+	execSeed(t, harness, `
+UPDATE host_grid_projection
+   SET display_name = $2,
+       row_version = $3,
+       edited_at = now()
+ WHERE record_id = $1
+`, recordID, displayName, rowVersion)
+}
+
+func queryWorkbook(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, queryURL string, body map[string]any) map[string]any {
+	t.Helper()
+	resp := phase4test.DoJSON(t, http.MethodPost, queryURL, body, phase4test.WithCookies(login.SessionCookie))
+	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
+}
+
+func responseRows(envelope map[string]any) []map[string]any {
+	rawRows := envelope["data"].(map[string]any)["rows"].([]any)
+	rows := make([]map[string]any, 0, len(rawRows))
+	for _, rawRow := range rawRows {
+		rows = append(rows, rawRow.(map[string]any))
+	}
+	return rows
+}
+
+func responsePaging(envelope map[string]any) map[string]any {
+	return envelope["meta"].(map[string]any)["paging"].(map[string]any)
+}
+
+func rowIDs(rows []map[string]any) []string {
+	ids := make([]string, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row["record_id"].(string))
+	}
+	return ids
+}
+
+func findResponseRow(t testing.TB, rows []map[string]any, recordID uuid.UUID) map[string]any {
+	t.Helper()
+	for _, row := range rows {
+		if row["record_id"] == recordID.String() {
+			return row
+		}
+	}
+	t.Fatalf("row %s not found in %#v", recordID, rows)
+	return nil
 }

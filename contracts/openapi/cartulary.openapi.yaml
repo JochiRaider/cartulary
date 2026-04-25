@@ -213,10 +213,10 @@
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/query": {
       "post": {
         "tags": [
-          "timeline"
+          "workbook"
         ],
-        "operationId": "queryTimelineView",
-        "summary": "Query Timeline rows from the projection-backed workbook surface.",
+        "operationId": "queryWorkbookView",
+        "summary": "Query rows from a projection-backed workbook surface with cursor pagination.",
         "requestBody": {
           "required": false,
           "content": {
@@ -1096,7 +1096,31 @@
       "TimelineQueryRequest": {
         "type": "object",
         "additionalProperties": false,
-        "properties": {}
+        "properties": {
+          "sort": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "group_by": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "cursor_token": {
+            "type": "string"
+          }
+        }
       },
       "TimelineCreateRequest": {
         "type": "object",
@@ -1393,7 +1417,7 @@
         "additionalProperties": false,
         "properties": {
           "view_schema_id": {
-            "const": "cartulary.view.timeline.v1"
+            "type": "string"
           },
           "base_row_version": {
             "type": "integer"

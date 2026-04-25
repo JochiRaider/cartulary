@@ -20,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
@@ -30,6 +31,7 @@ type Service struct {
 	incidentStore *incidents.Store
 	authStore     *authn.Store
 	hub           *platformws.Hub
+	pagination    *pagination.Registry
 	keys          authn.MasterKeys
 	now           func() time.Time
 }
@@ -56,11 +58,16 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
+	paginator := deps.Pagination
+	if paginator == nil {
+		paginator = pagination.NewRegistry()
+	}
 	return &Service{
 		store:         NewStore(deps.Postgres),
 		incidentStore: incidents.NewStore(deps.Postgres),
 		authStore:     authn.NewStore(deps.Postgres),
 		hub:           deps.WSHub,
+		pagination:    paginator,
 		keys:          keys,
 		now:           now,
 	}, nil
@@ -83,27 +90,79 @@ func (s *Service) handleQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	queryMeta, apiErr := decodeViewQueryRequest(r, viewSchemaID)
+	query, apiErr := decodeViewQueryRequest(r, viewSchemaID)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	rows, err := s.store.QueryRows(r.Context(), incidentID, viewSchemaID, queryMeta)
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
+	scope, scopeErr := workbookQueryScope(incidentID, viewSchemaID, query.Meta)
+	if scopeErr != nil {
+		writeAPIError(w, r, internalAPIError(scopeErr))
 		return
+	}
+	binding, cursor, reasonCode := pagination.ResolveViewQuery(
+		query.Pagination,
+		"workbook.view-query",
+		principal.User.ID.String(),
+		scope,
+	)
+	if reasonCode != "" {
+		writeAPIError(w, r, invalidViewQuery("", reasonCode))
+		return
+	}
+
+	var (
+		rows       []json.RawMessage
+		nextCursor *pagination.Cursor
+		err        error
+	)
+	if cursor == nil {
+		resources, err := s.store.QueryRows(r.Context(), incidentID, viewSchemaID, query.Meta)
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		rows, err = pagination.MarshalResources(resources)
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		rows, nextCursor = s.pagination.Start(binding, rows)
+	} else {
+		rows, nextCursor, err = s.pagination.Continue(binding, *cursor)
+		switch {
+		case errors.Is(err, pagination.ErrCursorSnapshotExpired):
+			writeAPIError(w, r, invalidViewQuery("", pagination.ReasonCursorSnapshotUnavailable))
+			return
+		case errors.Is(err, pagination.ErrInvalidCursorToken):
+			writeAPIError(w, r, invalidViewQuery("", pagination.ReasonInvalidCursorToken))
+			return
+		case err != nil:
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	_ = httpapi.WriteSuccessWithMeta(w, r, http.StatusOK, map[string]any{
+	var nextToken *string
+	if nextCursor != nil {
+		token, err := pagination.EncodeCursor(*nextCursor)
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		nextToken = &token
+	}
+	_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{
 		"incident_id":    incidentID.String(),
 		"view_schema_id": viewSchemaID,
 		"rows":           rows,
-	}, httpapi.EnvelopeMeta{
-		RequestID: httpapi.RequestIDFromContext(r.Context()),
-		Query:     queryMeta,
+	}, httpapi.PagingMeta{
+		Limit:      binding.Limit,
+		HasMore:    nextToken != nil,
+		NextCursor: nextToken,
 	})
 }
 
@@ -376,12 +435,24 @@ func (s *Service) publishRecordChange(result MutationResult, actorUserID uuid.UU
 	})
 }
 
-func decodeViewQueryRequest(r *http.Request, viewSchemaID string) (viewschema.QueryMeta, *auth.APIError) {
+func decodeViewQueryRequest(r *http.Request, viewSchemaID string) (viewquery.Query, *auth.APIError) {
 	query, err := viewquery.Decode(r.Body, viewSchemaID)
 	if err != nil {
-		return viewschema.QueryMeta{}, invalidViewQueryValidation(err)
+		return viewquery.Query{}, invalidViewQueryValidation(err)
 	}
-	return query.Meta, nil
+	return query, nil
+}
+
+func workbookQueryScope(incidentID uuid.UUID, viewSchemaID string, queryMeta viewschema.QueryMeta) (map[string]string, error) {
+	payload, err := json.Marshal(queryMeta)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]string{
+		"incident_id":    incidentID.String(),
+		"view_schema_id": viewSchemaID,
+		"query_contract": string(payload),
+	}, nil
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *auth.APIError) {

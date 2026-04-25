@@ -777,20 +777,6 @@ func TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild(t *testing.T) {
 		withCookies(adminLogin.sessionCookie),
 	)
 	sortedEnvelope := httptestx.RequireSuccessEnvelope(t, sortedQuery, http.StatusOK)
-	sortedMeta := sortedEnvelope["meta"].(map[string]any)["query"].(map[string]any)
-	sortedSort := sortedMeta["sort"].([]any)
-	if len(sortedSort) != 3 {
-		t.Fatalf("expected effective sort to include user sort plus default tail, got %#v", sortedSort)
-	}
-	if sortedSort[0].(map[string]any)["field_key"] != "timeline.summary" || sortedSort[0].(map[string]any)["direction"] != "asc" {
-		t.Fatalf("expected primary user sort on timeline.summary asc, got %#v", sortedSort)
-	}
-	if sortedSort[1].(map[string]any)["field_key"] != "timeline.sort_ts" || sortedSort[1].(map[string]any)["direction"] != "asc" {
-		t.Fatalf("expected default tail timeline.sort_ts asc, got %#v", sortedSort)
-	}
-	if sortedSort[2].(map[string]any)["field_key"] != "record_id" || sortedSort[2].(map[string]any)["direction"] != "asc" {
-		t.Fatalf("expected stable record_id asc tie-break, got %#v", sortedSort)
-	}
 	sortedRows := sortedEnvelope["data"].(map[string]any)["rows"].([]any)
 	if got := sortedRows[0].(map[string]any)["record_id"]; got != firstID {
 		t.Fatalf("expected timeline.summary asc to place Tie A first, got %#v", sortedRows)

@@ -22,6 +22,7 @@ const (
 	ReasonInvalidCursorToken        = "invalid_cursor_token"
 	ReasonInvalidLimit              = "invalid_limit"
 	ReasonPaginationNotSupported    = "pagination_not_supported"
+	ReasonCursorQueryMismatch       = "cursor_query_mismatch"
 )
 
 var (
@@ -155,6 +156,33 @@ func ResolveRequest(values url.Values, route string, actorUserID string, scope m
 	}
 	if err := cursor.Validate(binding); err != nil {
 		return Binding{}, nil, ReasonInvalidCursorToken
+	}
+	return binding, &cursor, ""
+}
+
+func ResolveViewQuery(query Query, route string, actorUserID string, scope map[string]string) (Binding, *Cursor, string) {
+	if query.CursorToken == nil {
+		return Binding{
+			Route:       route,
+			ActorUserID: actorUserID,
+			Limit:       query.EffectiveLimit(nil),
+			Scope:       cloneScope(scope),
+		}, nil, ""
+	}
+
+	cursor, err := DecodeCursor(*query.CursorToken)
+	if err != nil {
+		return Binding{}, nil, ReasonInvalidCursorToken
+	}
+
+	binding := Binding{
+		Route:       route,
+		ActorUserID: actorUserID,
+		Limit:       query.EffectiveLimit(&cursor),
+		Scope:       cloneScope(scope),
+	}
+	if err := cursor.Validate(binding); err != nil {
+		return Binding{}, nil, ReasonCursorQueryMismatch
 	}
 	return binding, &cursor, ""
 }

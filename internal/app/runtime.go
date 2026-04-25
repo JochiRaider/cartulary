@@ -92,13 +92,13 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	runtime.Jobs = newJobsManager()
 	hub := newWSHub()
 	runtime.WSHub = hub
-	paginator := pagination.NewRegistry()
 
 	httpOptions := options.HTTP
 	now := options.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
+	paginator := pagination.NewRegistry(pagination.WithNow(now))
 	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidents.RegisterRoutes(), viewschemas.RegisterRoutes(), collaboration.RegisterRoutes(), entities.RegisterRoutes(), evidence.RegisterRoutes(), assessments.RegisterRoutes(), workbook.RegisterRoutes(), timeline.RegisterRoutes()}, httpOptions.AdditionalRoutes...)
 	httpOptions.Dependencies = httpapi.DependencySet{
 		Config:      normalizedCfg,
