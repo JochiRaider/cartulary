@@ -1,10 +1,12 @@
 package main
 
 import (
+	"database/sql"
 	"net/http"
 	"testing"
 
 	"github.com/coder/websocket"
+	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -104,20 +106,40 @@ func TestPhase1_CSRFFailClosed_ProcessSmoke(t *testing.T) {
 func TestPhase1_ConcurrencyCapRevokesSocket_ProcessSmoke(t *testing.T) {
 	t.Parallel()
 
-	server := startPhase1ServerProcess(t, "phase1-e-1-03")
+	server, db := startPhase1ServerProcessWithDB(t, "phase1-e-1-03")
+	t.Cleanup(func() {
+		phase1test.ResetClockOffset(t, phase1ServerURL(server))
+	})
 
 	initialLogin, adminSecret := phase1ProvisionBootstrapAdmin(t, server)
+	adminUserID := phase1test.QueryUserIDByEmail(t, db, phase1BootstrapAdminEmail)
+	firstSessionID := phase1test.QuerySessionRow(t, db, adminUserID).SessionID
+
 	sessions := make([]loginResult, 0, 6)
 	sessions = append(sessions, initialLogin)
 	for i := 0; i < 4; i++ {
+		phase1test.SetClockOffset(t, phase1ServerURL(server), int64(i+1))
 		sessions = append(sessions, phase1LoginLocalUserWithSecondFactor(t, server, phase1BootstrapAdminEmail, phase1BootstrapAdminPassword, phase1GenerateTOTPCode(t, adminSecret)))
 	}
 
 	socket := phase1ConnectSessionSocket(t, server, sessions[0].sessionCookie.Value)
 	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
+	phase1test.SetClockOffset(t, phase1ServerURL(server), 5)
 	sessions = append(sessions, phase1LoginLocalUserWithSecondFactor(t, server, phase1BootstrapAdminEmail, phase1BootstrapAdminPassword, phase1GenerateTOTPCode(t, adminSecret)))
-	phase1ExpectSessionRevoked(t, socket, authn.ConcurrencyLimitReasonCode)
+	if err := phase1test.AwaitSessionRevoked(socket, authn.ConcurrencyLimitReasonCode); err != nil {
+		firstSession := phase1test.QuerySessionByID(t, db, firstSessionID)
+		activeCount := phase1test.QueryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id::text = $1 AND revoked_at IS NULL`, adminUserID)
+		t.Fatalf(
+			"await session_revoked for first session %s: %v (active_sessions=%d revoked_at_valid=%t revoke_reason_code=%q sessions=%s)",
+			firstSessionID,
+			err,
+			activeCount,
+			firstSession.RevokedAt.Valid,
+			firstSession.RevokeReasonCode.String,
+			phase1test.FormatUserSessions(t, db, adminUserID),
+		)
+	}
 
 	revokedSession := phase1DoJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, withCookies(sessions[0].sessionCookie))
 	httptestx.RequireErrorEnvelope(t, revokedSession, http.StatusUnauthorized, "session_required")
@@ -429,9 +451,23 @@ type loginResult struct {
 func startPhase1ServerProcess(t testing.TB, prefix string) *processtest.Server {
 	t.Helper()
 
+	server, _ := startPhase1ServerProcessWithDB(t, prefix)
+	return server
+}
+
+func startPhase1ServerProcessWithDB(t testing.TB, prefix string) (*processtest.Server, *sql.DB) {
+	t.Helper()
+
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
 	testDB := postgresHarness.PrepareDatabaseT(t, prefix)
+	db, err := sql.Open("pgx", testDB.DSN)
+	if err != nil {
+		t.Fatalf("open postgres sql handle: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
 
 	bucket := phase0BucketName(prefix)
 	t.Cleanup(func() {
@@ -447,7 +483,7 @@ func startPhase1ServerProcess(t testing.TB, prefix string) *processtest.Server {
 		server.Stop(t)
 	})
 	server.WaitForReady(t)
-	return server
+	return server, db
 }
 
 func phase1ServerURL(server *processtest.Server) string {

@@ -728,6 +728,61 @@ func QueryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 	return count
 }
 
+func QueryUserIDByEmail(t testing.TB, db *sql.DB, email string) string {
+	t.Helper()
+
+	var userID string
+	if err := db.QueryRowContext(context.Background(), `SELECT id::text FROM users WHERE email = $1`, email).Scan(&userID); err != nil {
+		t.Fatalf("query user id by email: %v", err)
+	}
+	return userID
+}
+
+func FormatUserSessions(t testing.TB, db *sql.DB, userID string) string {
+	t.Helper()
+
+	rows, err := db.QueryContext(context.Background(), `
+SELECT authenticated_at,
+       id::text,
+       last_qualifying_activity_at,
+       revoked_at,
+       revoke_reason_code
+  FROM user_sessions
+ WHERE user_id::text = $1
+ ORDER BY authenticated_at ASC, id ASC
+`, userID)
+	if err != nil {
+		t.Fatalf("query user sessions: %v", err)
+	}
+	defer rows.Close()
+
+	summary := make([]string, 0, 6)
+	for rows.Next() {
+		var (
+			authenticatedAt time.Time
+			sessionID       string
+			lastActivityAt  time.Time
+			revokedAt       sql.NullTime
+			reasonCode      sql.NullString
+		)
+		if err := rows.Scan(&authenticatedAt, &sessionID, &lastActivityAt, &revokedAt, &reasonCode); err != nil {
+			t.Fatalf("scan user session: %v", err)
+		}
+		summary = append(summary, fmt.Sprintf(
+			"{id=%s auth=%s last=%s revoked=%t reason=%q}",
+			sessionID,
+			authenticatedAt.UTC().Format(time.RFC3339Nano),
+			lastActivityAt.UTC().Format(time.RFC3339Nano),
+			revokedAt.Valid,
+			reasonCode.String,
+		))
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate user sessions: %v", err)
+	}
+	return strings.Join(summary, ", ")
+}
+
 func LookupUserAuditEvents(t testing.TB, db *sql.DB, targetUserID string) []AuditEventRecord {
 	t.Helper()
 

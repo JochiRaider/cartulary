@@ -121,7 +121,7 @@ if [[ -z "$check_service_block" ]]; then
 fi
 
 for lane in check-service-backed-lane-a check-service-backed-lane-b; do
-  if ! printf '%s\n' "$check_service_block" | rg -q "(^|[[:space:]])$lane($|[[:space:]])"; then
+  if ! printf '%s\n' "$check_service_block" | grep -Fq "$lane"; then
     fail "check-service-backed must invoke $lane"
   fi
 done
@@ -155,6 +155,22 @@ fi
 
 if [[ "${lane_browser_targets[0]}" != "browser-e2e-webserver-backed" ]]; then
   fail "check-service-backed-lane-b must use browser-e2e-webserver-backed as its only browser target, found: ${lane_browser_targets[0]}"
+fi
+
+check_summary_groups_line="$(sed -n 's/^CHECK_SUMMARY_GROUPS[[:space:]]*:=[[:space:]]*//p' "$makefile" | head -n 1)"
+if [[ -z "$check_summary_groups_line" ]]; then
+  fail "Makefile must define CHECK_SUMMARY_GROUPS"
+fi
+if ! printf '%s\n' "$check_summary_groups_line" | grep -Fq 'browser-webserver-backed=browser-e2e-webserver-backed'; then
+  fail "CHECK_SUMMARY_GROUPS must report browser webserver-backed duration separately"
+fi
+backend_summary_group="$(printf '%s\n' "$check_summary_groups_line" | tr ';' '\n' | sed -n 's/^backend-service-backed=//p')"
+if [[ "$backend_summary_group" != "backend-integration,backend-integration-support,backend-store,backend-process" ]]; then
+  fail "backend-service-backed summary group must contain backend service targets, found: ${backend_summary_group:-none}"
+fi
+browser_summary_group="$(printf '%s\n' "$check_summary_groups_line" | tr ';' '\n' | sed -n 's/^browser-webserver-backed=//p')"
+if [[ "$browser_summary_group" != "browser-e2e-webserver-backed" ]]; then
+  fail "browser-webserver-backed summary group must contain only browser-e2e-webserver-backed, found: ${browser_summary_group:-none}"
 fi
 
 check_isolated_block="$(extract_target_block check-isolated)"

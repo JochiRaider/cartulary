@@ -70,6 +70,7 @@ RUN_PHASE_ALLOW_SUCCESS_LOG = $(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHA
 TARGET_SUMMARY = $(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary
 TEST_SUMMARY_TARGETS := test-fast-service-backed,backend-unit,backend-store,backend-integration,backend-integration-support,backend-process,frontend-typecheck,frontend-unit,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
 CHECK_SUMMARY_TARGETS := check-service-backed,backend-unit,frontend-typecheck,frontend-unit,backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
+CHECK_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser-webserver-backed=browser-e2e-webserver-backed
 TEST_FAST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process
 CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed
 
@@ -468,8 +469,15 @@ test-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
 test-fast-service-backed: export CARTULARY_TEST_TARGET := test-fast-service-backed
 
 test-fast-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
-	$(RUN_PHASE) "test-fast service-backed" -- $(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) test-fast-service-backed-lane-a test-fast-service-backed-lane-b
-	$(TARGET_SUMMARY) test-fast-service-backed pass --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)"
+	$(RUN_PHASE) "test-fast service-backed" -- $(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) test-fast-service-backed-lane-a test-fast-service-backed-lane-b; status=$$?; \
+	summary_status=0; \
+	if [ $$status -eq 0 ]; then \
+		NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary test-fast-service-backed pass --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)" || summary_status=$$?; \
+	else \
+		NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary test-fast-service-backed fail --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)" || summary_status=$$?; \
+	fi; \
+	if [ $$status -ne 0 ]; then exit $$status; fi; \
+	exit $$summary_status
 
 test-fast-service-backed-lane-a:
 	$(Q)$(MAKE) --no-print-directory backend-integration
@@ -535,8 +543,11 @@ phase2-process-smoke: $(NODE_BIN) build-server $(TEST_SERVICES_BIN)
 
 frontend-unit: export CARTULARY_TEST_TARGET := frontend-unit
 
+frontend-typecheck: export CARTULARY_TEST_TARGET := frontend-typecheck
+
 frontend-typecheck: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "frontend typecheck" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec tsc --noEmit $(TSC_FLAGS)
+	$(TARGET_SUMMARY) frontend-typecheck pass
 
 frontend-unit: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)env PNPM=$(PNPM) NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) VITEST_FLAGS="$(VITEST_FLAGS)" VITEST_MAX_WORKERS=$(VITEST_MAX_WORKERS) ./scripts/run-frontend-unit.sh
@@ -643,8 +654,15 @@ check-parallel: check-heavy check-static-validation check-harness-smoke
 check-service-backed: export CARTULARY_TEST_TARGET := check-service-backed
 
 check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
-	$(RUN_PHASE) "check service-backed" -- $(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) check-service-backed-lane-a check-service-backed-lane-b
-	$(TARGET_SUMMARY) check-service-backed pass --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)"
+	$(RUN_PHASE) "check service-backed" -- $(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) check-service-backed-lane-a check-service-backed-lane-b; status=$$?; \
+	summary_status=0; \
+	if [ $$status -eq 0 ]; then \
+		NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary check-service-backed pass --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)" || summary_status=$$?; \
+	else \
+		NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary check-service-backed fail --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)" || summary_status=$$?; \
+	fi; \
+	if [ $$status -ne 0 ]; then exit $$status; fi; \
+	exit $$summary_status
 
 check-service-backed-lane-a:
 	$(Q)$(MAKE) --no-print-directory backend-integration
@@ -659,7 +677,7 @@ check-isolated: $(TEST_SERVICES_BIN)
 	$(Q)$(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(BROWSER_E2E_ISOLATED_JOBS) browser-e2e-stateful browser-e2e-resettable
 
 check: $(NODE_BIN)
-	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label check --summary-targets "$(CHECK_SUMMARY_TARGETS)" --step check-setup-blockers --parallel-step check-parallel:$(CHECK_JOBS) --step check-service-backed --step check-isolated
+	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label check --summary-targets "$(CHECK_SUMMARY_TARGETS)" --summary-groups "$(CHECK_SUMMARY_GROUPS)" --step check-setup-blockers --parallel-step check-parallel:$(CHECK_JOBS) --step check-service-backed --step check-isolated
 
 ci:
 	$(Q)./scripts/ci/verify.sh

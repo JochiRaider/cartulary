@@ -177,12 +177,16 @@ assert_equals "$(json_field "$short_failure_summary" "counts.unmapped_failed")" 
 
 missing_target_results="$(mktemp -d "$ROOT_DIR/tmp/run-summary-missing-target.XXXXXX")"
 cleanup_paths+=("$missing_target_results")
+set +e
 missing_target_output="$(
   CARTULARY_TEST_RESULTS_DIR="$missing_target_results" \
   CARTULARY_TEST_RUN_ID="missing-target" \
     "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "missing target" fail 0 1 - test-fast-service-backed \
     2>&1
 )"
+missing_target_status=$?
+set -e
+assert_equals "$missing_target_status" "1" "missing target run summary status"
 assert_contains "$missing_target_output" "non_test_failed=1" "missing target run summary output"
 missing_target_summary="$missing_target_results/missing-target/run-summary.json"
 assert_equals "$(json_field "$missing_target_summary" "counts.failed")" "1" "missing target failed count"
@@ -221,12 +225,16 @@ assert_equals "$(json_field "$parent_target_summary" "missing_child_target_summa
 child_run_output="$(
   CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \
   CARTULARY_TEST_RUN_ID="child-summary" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "child run" pass 1 1 - parent-target \
+    "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "child run" pass 1 1 - \
+      --summary-groups "backend-service-backed=child-a,child-b;browser-webserver-backed=child-b" \
+      parent-target \
     2>&1
 )"
 assert_contains "$child_run_output" "wall_duration=" "child run wall duration output"
 assert_contains "$child_run_output" "executed_duration=" "child run executed duration output"
 assert_contains "$child_run_output" "logical_duration=" "child run logical duration output"
+assert_contains "$child_run_output" "[GROUP] child run backend-service-backed targets=child-a,child-b status=pass wall_duration=1.00s executed_duration=3.00s logical_duration=3.00s actual_phases=5 reused_phases=0 derived_phases=0" "child run backend service group output"
+assert_contains "$child_run_output" "[GROUP] child run browser-webserver-backed targets=child-b status=pass wall_duration=1.00s executed_duration=2.00s logical_duration=2.00s actual_phases=3 reused_phases=0 derived_phases=0" "child run browser group output"
 assert_not_contains "$child_run_output" " duration=" "child run ambiguous duration output"
 child_run_summary="$child_summary_results/child-summary/run-summary.json"
 assert_not_negative "$(json_field "$child_run_summary" "wall_duration_ms")" "child run wall duration"
@@ -236,6 +244,28 @@ assert_not_negative "$(json_field "$child_run_summary" "duration_ms")" "child ru
 assert_equals "$(json_field "$child_run_summary" "accounting_modes.actual")" "1" "child run actual accounting count"
 assert_equals "$(json_field "$child_run_summary" "target_summaries.0.target")" "parent-target" "run summary target object"
 assert_equals "$(json_field "$child_run_summary" "target_summaries.0.child_targets.1.target")" "child-b" "run summary preserved child target"
+assert_equals "$(json_field "$child_run_summary" "summary_groups.0.name")" "backend-service-backed" "run summary backend group name"
+assert_equals "$(json_field "$child_run_summary" "summary_groups.0.wall_duration_ms")" "1000" "run summary backend group wall duration"
+assert_equals "$(json_field "$child_run_summary" "summary_groups.0.executed_duration_ms")" "3000" "run summary backend group executed duration"
+assert_equals "$(json_field "$child_run_summary" "summary_groups.1.targets.0")" "child-b" "run summary browser group target"
+assert_equals "$(json_field "$child_run_summary" "summary_groups.1.status")" "pass" "run summary browser group status"
+
+set +e
+missing_group_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \
+  CARTULARY_TEST_RUN_ID="child-summary" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "child run missing group" pass 1 1 - \
+      --summary-groups "browser-webserver-backed=missing-browser" \
+      parent-target \
+    2>&1
+)"
+missing_group_status=$?
+set -e
+assert_equals "$missing_group_status" "1" "missing group run summary status"
+assert_contains "$missing_group_output" "[GROUP] child run missing group browser-webserver-backed targets=missing-browser status=fail" "missing group output"
+assert_contains "$missing_group_output" "missing=missing-browser" "missing group target output"
+missing_group_summary="$child_summary_results/child-summary/run-summary.json"
+assert_equals "$(json_field "$missing_group_summary" "summary_groups.0.missing_target_summaries.0")" "missing-browser" "missing group summary list"
 
 missing_child_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-missing-child.XXXXXX")"
 cleanup_paths+=("$missing_child_results")

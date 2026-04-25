@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/base32"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -193,7 +192,7 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 		sessionCookie, _ := loginLocalUser(t, server, "socket-concurrency@example.test", "SocketConcurrencyPass1!", nil)
 		firstSessionID := querySessionRow(t, db, userID).sessionID
 		if sessionCount := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1`, userID); sessionCount != 1 {
-			t.Fatalf("expected one session row after initial login, got %d; sessions=%s", sessionCount, formatUserSessions(t, db, userID))
+			t.Fatalf("expected one session row after initial login, got %d; sessions=%s", sessionCount, phase1test.FormatUserSessions(t, db, userID))
 		}
 		socket := connectSessionSocket(t, server, sessionCookie.Value)
 		defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
@@ -206,7 +205,7 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 		phase1test.SetClockOffset(t, server.HTTP.URL, 5)
 		activeSessionCookie, _ := loginLocalUser(t, server, "socket-concurrency@example.test", "SocketConcurrencyPass1!", nil)
 		if activeCount := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1 AND revoked_at IS NULL`, userID); activeCount != 5 {
-			t.Fatalf("expected five active sessions after sixth login, got %d; sessions=%s", activeCount, formatUserSessions(t, db, userID))
+			t.Fatalf("expected five active sessions after sixth login, got %d; sessions=%s", activeCount, phase1test.FormatUserSessions(t, db, userID))
 		}
 		if err := phase1test.AwaitSessionRevoked(socket, authn.ConcurrencyLimitReasonCode); err != nil {
 			firstSession := querySessionByID(t, db, firstSessionID)
@@ -216,7 +215,7 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 				err,
 				firstSession.revokedAt.Valid,
 				firstSession.revokeReasonCode.String,
-				formatUserSessions(t, db, userID),
+				phase1test.FormatUserSessions(t, db, userID),
 			)
 		}
 
@@ -1775,51 +1774,6 @@ func queryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 		t.Fatalf("query count: %v", err)
 	}
 	return count
-}
-
-func formatUserSessions(t testing.TB, db *sql.DB, userID string) string {
-	t.Helper()
-
-	rows, err := db.QueryContext(context.Background(), `
-SELECT authenticated_at,
-       id::text,
-       last_qualifying_activity_at,
-       revoked_at,
-       revoke_reason_code
-  FROM user_sessions
- WHERE user_id = $1
- ORDER BY authenticated_at ASC, id ASC
-`, userID)
-	if err != nil {
-		t.Fatalf("query user sessions: %v", err)
-	}
-	defer rows.Close()
-
-	summary := make([]string, 0, 6)
-	for rows.Next() {
-		var (
-			authenticatedAt time.Time
-			sessionID       string
-			lastActivityAt  time.Time
-			revokedAt       sql.NullTime
-			reasonCode      sql.NullString
-		)
-		if err := rows.Scan(&authenticatedAt, &sessionID, &lastActivityAt, &revokedAt, &reasonCode); err != nil {
-			t.Fatalf("scan user session: %v", err)
-		}
-		summary = append(summary, fmt.Sprintf(
-			"{id=%s auth=%s last=%s revoked=%t reason=%q}",
-			sessionID,
-			authenticatedAt.UTC().Format(time.RFC3339Nano),
-			lastActivityAt.UTC().Format(time.RFC3339Nano),
-			revokedAt.Valid,
-			reasonCode.String,
-		))
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatalf("iterate user sessions: %v", err)
-	}
-	return strings.Join(summary, ", ")
 }
 
 type auditEventRecord struct {

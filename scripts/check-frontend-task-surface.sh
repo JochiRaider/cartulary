@@ -100,8 +100,14 @@ frontend_typecheck_block="$(extract_target_block frontend-typecheck)"
 if [[ -z "$frontend_typecheck_block" ]]; then
   fail "Makefile must define a non-empty frontend-typecheck block"
 fi
+if ! rg -q '^frontend-typecheck:[[:space:]]+export CARTULARY_TEST_TARGET := frontend-typecheck$' "$makefile"; then
+  fail "frontend-typecheck must export CARTULARY_TEST_TARGET"
+fi
 if ! printf '%s\n' "$frontend_typecheck_block" | grep -Fq 'tsc --noEmit'; then
   fail "frontend-typecheck must run the frontend TypeScript compiler"
+fi
+if ! printf '%s\n' "$frontend_typecheck_block" | grep -Fq '$(TARGET_SUMMARY) frontend-typecheck pass'; then
+  fail "frontend-typecheck must emit a target summary"
 fi
 
 if ! rg -q '^lint-typecheck:[[:space:]]+frontend-typecheck$$' "$makefile"; then

@@ -7,10 +7,11 @@ MAKE_BIN="${MAKE:-make}"
 
 label=""
 summary_targets_csv=""
+summary_groups_spec=""
 steps=()
 
 usage() {
-  echo "usage: run-make-sequence.sh --label <name> --summary-targets <a,b> [--step <target> | --parallel-step <target>:<jobs>]..." >&2
+  echo "usage: run-make-sequence.sh --label <name> --summary-targets <a,b> [--summary-groups <name=a,b;name=c>] [--step <target> | --parallel-step <target>:<jobs>]..." >&2
 }
 
 add_step() {
@@ -46,6 +47,11 @@ while [[ "$#" -gt 0 ]]; do
     --summary-targets)
       [[ "$#" -ge 2 ]] || { usage; exit 2; }
       summary_targets_csv="$2"
+      shift 2
+      ;;
+    --summary-groups)
+      [[ "$#" -ge 2 ]] || { usage; exit 2; }
+      summary_groups_spec="$2"
       shift 2
       ;;
     --step)
@@ -92,8 +98,14 @@ run_summary() {
     return 0
   fi
 
+  local summary_args=()
+  if [[ -n "${summary_groups_spec}" ]]; then
+    summary_args+=(--summary-groups "${summary_groups_spec}")
+  fi
+
   NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_SCRIPT}" run-summary \
-    "${label}" "${status}" "${completed}" "${total}" "${aborted_after}" "${summary_targets[@]}"
+    "${label}" "${status}" "${completed}" "${total}" "${aborted_after}" \
+    "${summary_args[@]}" "${summary_targets[@]}"
 }
 
 run_step() {

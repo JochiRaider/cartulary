@@ -820,14 +820,52 @@ function handleTargetSummary(args) {
   return 0;
 }
 
-function handleRunSummary(args) {
-  const [label, requestedStatus = "pass", completedText = "0", totalText = "0", abortedAfter = "", ...targets] = args;
-  if (!label) {
-    throw new Error("usage: test-output.mjs run-summary <label> <pass|fail> <completed> <total> <aborted_after|-> [targets...]");
+function parseSummaryGroupsSpec(value) {
+  if (!value) {
+    return [];
   }
-  const completedTargets = Number.parseInt(completedText, 10) || 0;
-  const totalTargets = Number.parseInt(totalText, 10) || 0;
-  const aggregate = {
+  return value
+    .split(";")
+    .map((group) => group.trim())
+    .filter((group) => group.length > 0)
+    .map((group) => {
+      const separator = group.indexOf("=");
+      if (separator <= 0) {
+        throw new Error(`invalid summary group ${group}; expected <name>=<target,target>`);
+      }
+      const name = group.slice(0, separator).trim();
+      const targets = parseTargetList(group.slice(separator + 1));
+      if (targets.length === 0) {
+        throw new Error(`invalid summary group ${name}; expected at least one target`);
+      }
+      return { name, targets };
+    });
+}
+
+function parseRunSummaryArgs(args) {
+  const [label, requestedStatus = "pass", completedText = "0", totalText = "0", abortedAfter = "", ...remaining] = args;
+  if (!label) {
+    throw new Error("usage: test-output.mjs run-summary <label> <pass|fail> <completed> <total> <aborted_after|-> [--summary-groups <name=a,b;name=c>] [targets...]");
+  }
+  const targets = [];
+  const summaryGroups = [];
+  while (remaining.length > 0) {
+    const value = remaining.shift();
+    if (value === "--summary-groups") {
+      const spec = remaining.shift();
+      if (spec === undefined) {
+        throw new Error("--summary-groups requires <name=a,b;name=c>");
+      }
+      summaryGroups.push(...parseSummaryGroupsSpec(spec));
+      continue;
+    }
+    targets.push(value);
+  }
+  return { label, requestedStatus, completedText, totalText, abortedAfter, targets, summaryGroups };
+}
+
+function createDurationAggregate() {
+  return {
     phases: 0,
     ...createCounts(),
     duration_ms: 0,
@@ -835,46 +873,46 @@ function handleRunSummary(args) {
     logical_duration_ms: 0,
     wall_duration_ms: 0,
   };
+}
+
+function addSummaryToAggregate(aggregate, accountingModes, summary) {
+  aggregate.phases += summary.counts?.phases ?? 0;
+  aggregate.tests += summary.counts?.tests ?? 0;
+  aggregate.failed += summary.counts?.failed ?? 0;
+  aggregate.authoritative += summary.counts?.authoritative ?? 0;
+  aggregate.support += summary.counts?.support ?? 0;
+  aggregate.unmapped += summary.counts?.unmapped ?? 0;
+  aggregate.non_test += summary.counts?.non_test ?? 0;
+  aggregate.authoritative_failed += summary.counts?.authoritative_failed ?? 0;
+  aggregate.support_failed += summary.counts?.support_failed ?? 0;
+  aggregate.unmapped_failed += summary.counts?.unmapped_failed ?? 0;
+  aggregate.non_test_failed += summary.counts?.non_test_failed ?? 0;
+  const summaryLogicalDurationMs = clampDurationMs(
+    summary.logical_duration_ms ?? summary.duration_ms ?? 0,
+  );
+  aggregate.logical_duration_ms += summaryLogicalDurationMs;
+  aggregate.duration_ms += summaryLogicalDurationMs;
+  aggregate.executed_duration_ms += clampDurationMs(
+    summary.executed_duration_ms ?? summaryLogicalDurationMs,
+  );
+  aggregate.wall_duration_ms += clampDurationMs(
+    summary.wall_duration_ms ?? summaryLogicalDurationMs,
+  );
+  mergeAccountingModes(
+    accountingModes,
+    resolveAccountingModes(summary.accounting_modes, summary.counts?.phases ?? 0),
+  );
+}
+
+function summarizeTargetSummaries(summaries, missingTargetSummaries, requestedStatus = "pass") {
+  const aggregate = createDurationAggregate();
   const accountingModes = createAccountingModes();
-  let failed = requestedStatus === "fail";
+  let failed = requestedStatus === "fail" || missingTargetSummaries.length > 0;
   let startTime = "";
   let endTime = "";
-  const missingTargetSummaries = [];
-  const targetSummaries = [];
 
-  for (const target of targets) {
-    const summary = loadTargetSummary(target);
-    if (!summary) {
-      missingTargetSummaries.push(target);
-      continue;
-    }
-    targetSummaries.push(summary);
-    aggregate.phases += summary.counts?.phases ?? 0;
-    aggregate.tests += summary.counts?.tests ?? 0;
-    aggregate.failed += summary.counts?.failed ?? 0;
-    aggregate.authoritative += summary.counts?.authoritative ?? 0;
-    aggregate.support += summary.counts?.support ?? 0;
-    aggregate.unmapped += summary.counts?.unmapped ?? 0;
-    aggregate.non_test += summary.counts?.non_test ?? 0;
-    aggregate.authoritative_failed += summary.counts?.authoritative_failed ?? 0;
-    aggregate.support_failed += summary.counts?.support_failed ?? 0;
-    aggregate.unmapped_failed += summary.counts?.unmapped_failed ?? 0;
-    aggregate.non_test_failed += summary.counts?.non_test_failed ?? 0;
-    const summaryLogicalDurationMs = clampDurationMs(
-      summary.logical_duration_ms ?? summary.duration_ms ?? 0,
-    );
-    aggregate.logical_duration_ms += summaryLogicalDurationMs;
-    aggregate.duration_ms += summaryLogicalDurationMs;
-    aggregate.executed_duration_ms += clampDurationMs(
-      summary.executed_duration_ms ?? summaryLogicalDurationMs,
-    );
-    aggregate.wall_duration_ms += clampDurationMs(
-      summary.wall_duration_ms ?? summaryLogicalDurationMs,
-    );
-    mergeAccountingModes(
-      accountingModes,
-      resolveAccountingModes(summary.accounting_modes, summary.counts?.phases ?? 0),
-    );
+  for (const summary of summaries) {
+    addSummaryToAggregate(aggregate, accountingModes, summary);
     if (startTime === "" || (summary.start_time && summary.start_time < startTime)) {
       startTime = summary.start_time ?? "";
     }
@@ -895,14 +933,85 @@ function handleRunSummary(args) {
 
   const windowWallDurationMs = computeWindowDurationMs(startTime, endTime);
   const wallDurationMs = windowWallDurationMs > 0 ? windowWallDurationMs : aggregate.wall_duration_ms;
+  return { aggregate, accountingModes, failed, startTime, endTime, wallDurationMs };
+}
+
+function buildSummaryGroups(summaryGroups) {
+  return summaryGroups.map((group) => {
+    const groupSummaries = [];
+    const missingTargetSummaries = [];
+    for (const target of group.targets) {
+      const summary = loadTargetSummary(target);
+      if (!summary) {
+        missingTargetSummaries.push(target);
+        continue;
+      }
+      groupSummaries.push(summary);
+    }
+    const summarized = summarizeTargetSummaries(groupSummaries, missingTargetSummaries);
+    return {
+      name: group.name,
+      status: summarized.failed ? "fail" : "pass",
+      targets: group.targets,
+      missing_target_summaries: missingTargetSummaries,
+      start_time: summarized.startTime,
+      end_time: summarized.endTime,
+      executed_duration_ms: summarized.aggregate.executed_duration_ms,
+      logical_duration_ms: summarized.aggregate.logical_duration_ms,
+      duration_ms: summarized.aggregate.duration_ms,
+      wall_duration_ms: summarized.wallDurationMs,
+      accounting_modes: summarized.accountingModes,
+      counts: summarized.aggregate,
+    };
+  });
+}
+
+function writeSummaryGroupLines(stream, label, summaryGroups) {
+  for (const group of summaryGroups) {
+    const missing =
+      group.missing_target_summaries.length > 0
+        ? ` missing=${group.missing_target_summaries.join(",")}`
+        : "";
+    stream.write(
+      `[GROUP] ${label} ${group.name} targets=${group.targets.join(",")} status=${group.status} ${formatDurationFields(group.wall_duration_ms, group.executed_duration_ms, group.logical_duration_ms)} ${formatAccountingModeFields(group.accounting_modes)}${missing}\n`,
+    );
+  }
+}
+
+function handleRunSummary(args) {
+  const { label, requestedStatus, completedText, totalText, abortedAfter, targets, summaryGroups } =
+    parseRunSummaryArgs(args);
+  const completedTargets = Number.parseInt(completedText, 10) || 0;
+  const totalTargets = Number.parseInt(totalText, 10) || 0;
+  const missingTargetSummaries = [];
+  const targetSummaries = [];
+
+  for (const target of targets) {
+    const summary = loadTargetSummary(target);
+    if (!summary) {
+      missingTargetSummaries.push(target);
+      continue;
+    }
+    targetSummaries.push(summary);
+  }
+  const summarized = summarizeTargetSummaries(
+    targetSummaries,
+    missingTargetSummaries,
+    requestedStatus,
+  );
+  const aggregate = summarized.aggregate;
+  const accountingModes = summarized.accountingModes;
+  const wallDurationMs = summarized.wallDurationMs;
+  const renderedSummaryGroups = buildSummaryGroups(summaryGroups);
+  const failed = summarized.failed || renderedSummaryGroups.some((group) => group.status !== "pass");
 
   const runSummary = {
     label,
     status: failed ? "fail" : "pass",
     completed_targets: `${completedTargets}/${totalTargets}`,
     aborted_after: abortedAfter === "-" ? "" : abortedAfter,
-    start_time: startTime,
-    end_time: endTime,
+    start_time: summarized.startTime,
+    end_time: summarized.endTime,
     executed_duration_ms: aggregate.executed_duration_ms,
     logical_duration_ms: aggregate.logical_duration_ms,
     duration_ms: aggregate.duration_ms,
@@ -915,6 +1024,7 @@ function handleRunSummary(args) {
     targets,
     target_summaries: targetSummaries,
     missing_target_summaries: missingTargetSummaries,
+    summary_groups: renderedSummaryGroups,
   };
   writeJson(path.join(resultsRoot, runId, "run-summary.json"), runSummary);
 
@@ -922,13 +1032,15 @@ function handleRunSummary(args) {
     process.stdout.write(
       `[PASS] ${label} completed_targets=${completedTargets}/${totalTargets} phases=${aggregate.phases} tests=${aggregate.tests} authoritative=${aggregate.authoritative} support=${aggregate.support} unmapped=${aggregate.unmapped} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms)} ${formatAccountingModeFields(accountingModes)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
     );
+    writeSummaryGroupLines(process.stdout, label, renderedSummaryGroups);
     return 0;
   }
 
   process.stderr.write(
     `[FAIL] ${label} completed_targets=${completedTargets}/${totalTargets} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms)} ${formatAccountingModeFields(accountingModes)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
   );
-  return 0;
+  writeSummaryGroupLines(process.stderr, label, renderedSummaryGroups);
+  return 1;
 }
 
 function handleGoJSONStream() {

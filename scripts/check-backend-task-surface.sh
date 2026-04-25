@@ -529,12 +529,15 @@ fi
 if ! printf '%s\n' "$check_service_block" | grep -Fq '$(RUN_PHASE)'; then
   fail "check-service-backed must report the shared service wrapper through RUN_PHASE"
 fi
-if ! printf '%s\n' "$check_service_block" | grep -Fq '$(TARGET_SUMMARY) check-service-backed pass'; then
-  fail "check-service-backed must emit its target summary"
+if ! printf '%s\n' "$check_service_block" | grep -Fq 'target-summary check-service-backed pass --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)"'; then
+  fail "check-service-backed must emit its success target summary"
+fi
+if ! printf '%s\n' "$check_service_block" | grep -Fq 'target-summary check-service-backed fail --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)"'; then
+  fail "check-service-backed must emit its failure target summary"
 fi
 
 for lane in check-service-backed-lane-a check-service-backed-lane-b; do
-  if ! printf '%s\n' "$check_service_block" | rg -q "(^|[[:space:]])$lane($|[[:space:]])"; then
+  if ! printf '%s\n' "$check_service_block" | grep -Fq "$lane"; then
     fail "check-service-backed must invoke $lane"
   fi
 done
@@ -609,11 +612,14 @@ fi
 if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(RUN_PHASE)'; then
   fail "test-fast-service-backed must report the shared service wrapper through RUN_PHASE"
 fi
-if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(TARGET_SUMMARY) test-fast-service-backed pass'; then
-  fail "test-fast-service-backed must emit its target summary"
+if ! printf '%s\n' "$test_fast_service_block" | grep -Fq 'target-summary test-fast-service-backed pass --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)"'; then
+  fail "test-fast-service-backed must emit its success target summary"
+fi
+if ! printf '%s\n' "$test_fast_service_block" | grep -Fq 'target-summary test-fast-service-backed fail --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)"'; then
+  fail "test-fast-service-backed must emit its failure target summary"
 fi
 for lane in test-fast-service-backed-lane-a test-fast-service-backed-lane-b; do
-  if ! printf '%s\n' "$test_fast_service_block" | rg -q "(^|[[:space:]])$lane($|[[:space:]])"; then
+  if ! printf '%s\n' "$test_fast_service_block" | grep -Fq "$lane"; then
     fail "test-fast-service-backed must invoke $lane"
   fi
 done

@@ -161,16 +161,42 @@ success_output="$(
   FAKE_MAKE_LOG="${success_dir}/make.log" \
   CARTULARY_TEST_RESULTS_DIR="${success_results}" \
   CARTULARY_TEST_RUN_ID="success" \
-    "${SCRIPT}" --label smoke --summary-targets " alpha, beta " --step alpha --parallel-step beta:3 \
+    "${SCRIPT}" --label smoke --summary-targets " alpha, beta " --summary-groups "alpha-group=alpha;beta-group=beta" --step alpha --parallel-step beta:3 \
     2>&1
 )"
 assert_contains "${success_output}" "[PASS] smoke" "success run summary output"
+assert_contains "${success_output}" "[GROUP] smoke alpha-group targets=alpha status=pass" "success alpha group output"
+assert_contains "${success_output}" "[GROUP] smoke beta-group targets=beta status=pass" "success beta group output"
 success_summary="${success_results}/success/run-summary.json"
 assert_equals "$(json_field "${success_summary}" "status")" "pass" "success status"
 assert_equals "$(json_field "${success_summary}" "completed_targets")" "2/2" "success completed"
 assert_equals "$(json_field "${success_summary}" "targets.0")" "alpha" "success target 0"
 assert_equals "$(json_field "${success_summary}" "targets.1")" "beta" "success target 1"
+assert_equals "$(json_field "${success_summary}" "summary_groups.0.name")" "alpha-group" "success group 0"
+assert_equals "$(json_field "${success_summary}" "summary_groups.0.targets.0")" "alpha" "success group target 0"
+assert_equals "$(json_field "${success_summary}" "summary_groups.0.wall_duration_ms")" "1000" "success group wall duration"
 assert_contains "$(cat "${success_dir}/make.log")" "--output-sync=target -j3 beta" "parallel make invocation"
+
+aggregate_missing_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-aggregate-missing.XXXXXX")"
+cleanup_paths+=("${aggregate_missing_dir}")
+write_fake_make "${aggregate_missing_dir}"
+aggregate_missing_results="${aggregate_missing_dir}/results"
+set +e
+aggregate_missing_output="$(
+  MAKE="${aggregate_missing_dir}/fake-make" \
+  FAKE_MAKE_LOG="${aggregate_missing_dir}/make.log" \
+  CARTULARY_TEST_RESULTS_DIR="${aggregate_missing_results}" \
+  CARTULARY_TEST_RUN_ID="aggregate-missing" \
+    "${SCRIPT}" --label aggregate-missing --summary-targets alpha,missing-target --step alpha \
+    2>&1
+)"
+aggregate_missing_status=$?
+set -e
+assert_equals "${aggregate_missing_status}" "1" "aggregate missing target exit status"
+assert_contains "${aggregate_missing_output}" "[FAIL] aggregate-missing" "aggregate missing target run summary output"
+aggregate_missing_summary="${aggregate_missing_results}/aggregate-missing/run-summary.json"
+assert_equals "$(json_field "${aggregate_missing_summary}" "status")" "fail" "aggregate missing target status"
+assert_equals "$(json_field "${aggregate_missing_summary}" "missing_target_summaries.0")" "missing-target" "aggregate missing target list"
 
 failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-failure.XXXXXX")"
 cleanup_paths+=("${failure_dir}")
@@ -226,6 +252,7 @@ assert_file_absent "${invalid_dir}/make.log" "invalid usage child make log"
 makefile_content="$(cat "${ROOT_DIR}/Makefile")"
 assert_count "$(line_count '^TEST_SUMMARY_TARGETS :=')" "1" "test summary target list declaration"
 assert_count "$(line_count '^CHECK_SUMMARY_TARGETS :=')" "1" "check summary target list declaration"
+assert_count "$(line_count '^CHECK_SUMMARY_GROUPS :=')" "1" "check summary group declaration"
 assert_count "$(line_count '^TEST_FAST_SERVICE_BACKED_CHILD_TARGETS :=')" "1" "test-fast service-backed child target list declaration"
 assert_count "$(line_count '^CHECK_SERVICE_BACKED_CHILD_TARGETS :=')" "1" "check service-backed child target list declaration"
 assert_count "$(line_count '^RUN_MAKE_SEQUENCE_SCRIPT :=')" "1" "run sequence helper declaration"
@@ -241,13 +268,17 @@ assert_not_contains "${test_block}" "completed=" "make test inline completed cou
 assert_not_contains "${test_block}" "total=" "make test inline total counter"
 assert_contains "${check_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "make check helper invocation"
 assert_contains "${check_block}" '--summary-targets "$(CHECK_SUMMARY_TARGETS)"' "make check summary list"
+assert_contains "${check_block}" '--summary-groups "$(CHECK_SUMMARY_GROUPS)"' "make check summary group list"
 assert_contains "${check_block}" "--step check-setup-blockers --parallel-step check-parallel:\$(CHECK_JOBS) --step check-service-backed --step check-isolated" "make check sequence"
 assert_not_contains "${check_block}" "completed=" "make check inline completed counter"
 assert_not_contains "${check_block}" "total=" "make check inline total counter"
 assert_contains "${makefile_content}" "TEST_FAST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process" "test-fast service-backed child list"
 assert_contains "${makefile_content}" "CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed" "check service-backed child list"
-assert_contains "${test_fast_service_backed_block}" '$(TARGET_SUMMARY) test-fast-service-backed pass --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)"' "test-fast service-backed child summary"
-assert_contains "${check_service_backed_block}" '$(TARGET_SUMMARY) check-service-backed pass --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)"' "check service-backed child summary"
+assert_contains "${makefile_content}" "CHECK_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser-webserver-backed=browser-e2e-webserver-backed" "check summary group list"
+assert_contains "${test_fast_service_backed_block}" 'target-summary test-fast-service-backed pass --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)"' "test-fast service-backed success child summary"
+assert_contains "${test_fast_service_backed_block}" 'target-summary test-fast-service-backed fail --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)"' "test-fast service-backed failure child summary"
+assert_contains "${check_service_backed_block}" 'target-summary check-service-backed pass --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)"' "check service-backed success child summary"
+assert_contains "${check_service_backed_block}" 'target-summary check-service-backed fail --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)"' "check service-backed failure child summary"
 assert_not_contains "${makefile_content}" "RUN_SUMMARY =" "unused run summary helper variable"
 assert_not_contains "${makefile_content}" "RUN_SUMMARY_CMD =" "unused run summary command variable"
 
