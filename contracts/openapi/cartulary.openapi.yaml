@@ -222,18 +222,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TimelineQueryRequest"
+                "$ref": "#/components/schemas/WorkbookQueryRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Timeline query response",
+            "description": "Workbook query response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TimelineQueryEnvelope"
+                  "$ref": "#/components/schemas/WorkbookQueryEnvelope"
                 }
               }
             }
@@ -1096,20 +1096,20 @@
           "details"
         ]
       },
-      "TimelineQueryRequest": {
+      "WorkbookQueryRequest": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "sort": {
             "type": "array",
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/SortEntry"
             }
           },
           "filters": {
             "type": "array",
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/ViewQueryFilter"
             }
           },
           "group_by": {
@@ -2078,7 +2078,7 @@
       "TimelineRow": {
         "$ref": "#/components/schemas/ViewRow"
       },
-      "TimelineQueryData": {
+      "WorkbookQueryData": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -2087,7 +2087,7 @@
             "format": "uuid"
           },
           "view_schema_id": {
-            "const": "cartulary.view.timeline.v1"
+            "type": "string"
           },
           "rows": {
             "type": "array",
@@ -2102,12 +2102,12 @@
           "rows"
         ]
       },
-      "TimelineQueryEnvelope": {
+      "WorkbookQueryEnvelope": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/TimelineQueryData"
+            "$ref": "#/components/schemas/WorkbookQueryData"
           },
           "meta": {
             "$ref": "#/components/schemas/EnvelopeMeta"
@@ -2430,6 +2430,27 @@
         "required": [
           "field_key",
           "direction"
+        ]
+      },
+      "ViewQueryFilter": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field_key": {
+            "type": "string"
+          },
+          "op": {
+            "type": "string"
+          },
+          "arg": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "field_key",
+          "op",
+          "arg"
         ]
       },
       "SyntheticFilterPredicate": {

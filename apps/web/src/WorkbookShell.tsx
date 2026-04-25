@@ -187,7 +187,7 @@ type WorkbookShellProps = {
   onIncidentAccessLost?: (() => void) | undefined;
 };
 
-type TimelineQueryEnvelope = {
+type WorkbookQueryEnvelope = {
   data: {
     incident_id: string;
     view_schema_id: string;
@@ -1819,7 +1819,7 @@ export function TimelineWorkbook({
       }
       setLoadError(null);
 
-      const result = await fetchJSON<TimelineQueryEnvelope>(queryPath, {
+      const result = await fetchJSON<WorkbookQueryEnvelope>(queryPath, {
         method: "POST",
         body: queryBody,
       });
@@ -1837,7 +1837,7 @@ export function TimelineWorkbook({
         return;
       }
 
-      const envelope = readEnvelope<TimelineQueryEnvelope>(result.payload);
+      const envelope = readEnvelope<WorkbookQueryEnvelope>(result.payload);
       const projectedRows = [
         ...reconcileRecordRows(
           rowsRef.current.filter((row) => row.recordId !== null),
@@ -3618,7 +3618,7 @@ function EntityWorkbookSurface({
 
   const loadTimelinePreview = useCallback(
     async (recordId: string) => {
-      const result = await fetchJSON<TimelineQueryEnvelope>(
+      const result = await fetchJSON<WorkbookQueryEnvelope>(
         apiPath(
           apiBase,
           `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
@@ -3632,7 +3632,7 @@ function EntityWorkbookSurface({
         setTimelinePreviewRows([]);
         return;
       }
-      const envelope = readEnvelope<TimelineQueryEnvelope>(result.payload);
+      const envelope = readEnvelope<WorkbookQueryEnvelope>(result.payload);
       const draftKey = entityType === "host" ? "hostRefs" : "identityRefs";
       const previewRows = envelope.data.rows
         .map(rowFromApi)
@@ -4003,7 +4003,7 @@ function AssessmentWorkbookSurface({
   useEffect(() => {
     let isCurrent = true;
     async function loadSupportRows() {
-      const result = await fetchJSON<TimelineQueryEnvelope>(
+      const result = await fetchJSON<WorkbookQueryEnvelope>(
         apiPath(
           apiBase,
           `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
@@ -4020,7 +4020,7 @@ function AssessmentWorkbookSurface({
         setSupportRows([]);
         return;
       }
-      const envelope = readEnvelope<TimelineQueryEnvelope>(result.payload);
+      const envelope = readEnvelope<WorkbookQueryEnvelope>(result.payload);
       setSupportRows(envelope.data.rows);
     }
     void loadSupportRows();

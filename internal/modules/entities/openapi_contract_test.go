@@ -23,10 +23,44 @@ func TestOpenAPIPhase4MutationContractShape(t *testing.T) {
 		t.Fatalf("OpenAPI version still advertises Phase 3 scope: %q", version)
 	}
 
+	assertWorkbookQueryContract(t, document, schemas)
 	assertViewRowCreateContract(t, document)
 	assertMentionResolveContract(t, document, schemas)
 	assertRecordPatchChangeContract(t, schemas)
 	assertCollectionActionsContract(t, schemas)
+}
+
+func assertWorkbookQueryContract(t *testing.T, document map[string]any, schemas map[string]any) {
+	t.Helper()
+
+	post := objectAt(t, document, "paths", "/api/v1/incidents/{incident_id}/views/{view_schema_id}/query", "post")
+	if got := stringAt(t, post, "operationId"); got != "queryWorkbookView" {
+		t.Fatalf("unexpected workbook query operationId: %q", got)
+	}
+
+	requestSchema := objectAt(t, post, "requestBody", "content", "application/json", "schema")
+	if got := stringAt(t, requestSchema, "$ref"); got != "#/components/schemas/WorkbookQueryRequest" {
+		t.Fatalf("workbook query request should use WorkbookQueryRequest, got %q", got)
+	}
+	responseSchema := objectAt(t, post, "responses", "200", "content", "application/json", "schema")
+	if got := stringAt(t, responseSchema, "$ref"); got != "#/components/schemas/WorkbookQueryEnvelope" {
+		t.Fatalf("workbook query response should use WorkbookQueryEnvelope, got %q", got)
+	}
+
+	queryData := schema(t, schemas, "WorkbookQueryData")
+	viewSchemaID := objectAt(t, queryData, "properties", "view_schema_id")
+	if _, ok := viewSchemaID["const"]; ok {
+		t.Fatal("WorkbookQueryData.view_schema_id must not be constrained to the Timeline schema")
+	}
+	if got := stringAt(t, viewSchemaID, "type"); got != "string" {
+		t.Fatalf("WorkbookQueryData.view_schema_id type = %q, want string", got)
+	}
+
+	for _, staleSchema := range []string{"TimelineQueryRequest", "TimelineQueryData", "TimelineQueryEnvelope"} {
+		if _, ok := schemas[staleSchema]; ok {
+			t.Fatalf("stale Timeline-only query schema %q should not be present", staleSchema)
+		}
+	}
 }
 
 func assertViewRowCreateContract(t *testing.T, document map[string]any) {
