@@ -35,8 +35,6 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows", service.handleTimelineCreate)
-		mux.HandleFunc("PATCH /api/v1/records/{record_id}", service.handleTimelinePatch)
 		mux.HandleFunc("POST /api/v1/records/{record_id}/mark-reviewed", service.handleMarkReviewed)
 		mux.HandleFunc("POST /api/v1/records/{record_id}/supersede", service.handleSupersede)
 		return nil

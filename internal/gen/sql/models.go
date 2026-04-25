@@ -242,6 +242,18 @@ type Evidence struct {
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
+type HandoffRiskRef struct {
+	RiskRefID             pgtype.UUID        `json:"risk_ref_id"`
+	IncidentID            pgtype.UUID        `json:"incident_id"`
+	HandoffRecordID       pgtype.UUID        `json:"handoff_record_id"`
+	RiskRefText           string             `json:"risk_ref_text"`
+	NormalizedRiskRefText string             `json:"normalized_risk_ref_text"`
+	CreatedByUserID       pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	DeletedAt             pgtype.Timestamptz `json:"deleted_at"`
+	DeletedByUserID       pgtype.UUID        `json:"deleted_by_user_id"`
+}
+
 type Host struct {
 	RecordID            pgtype.UUID        `json:"record_id"`
 	IncidentID          pgtype.UUID        `json:"incident_id"`
@@ -488,6 +500,7 @@ type RecordLink struct {
 	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
 	DeletedByUserID pgtype.UUID        `json:"deleted_by_user_id"`
 	CreatedByUserID pgtype.UUID        `json:"created_by_user_id"`
+	FieldKey        pgtype.Text        `json:"field_key"`
 }
 
 type RecordRevision struct {

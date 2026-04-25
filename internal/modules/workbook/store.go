@@ -11,7 +11,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -30,6 +33,9 @@ const (
 
 type Store struct {
 	pool          *pgxpool.Pool
+	authStore     *authn.Store
+	recordStore   *records.Store
+	revisionStore *revisions.Store
 	timelineStore *timeline.Store
 	entityStore   *entities.Store
 }
@@ -37,6 +43,9 @@ type Store struct {
 func NewStore(pool *pgxpool.Pool) *Store {
 	return &Store{
 		pool:          pool,
+		authStore:     authn.NewStore(pool),
+		recordStore:   records.NewStore(),
+		revisionStore: revisions.NewStore(),
 		timelineStore: timeline.NewStore(pool),
 		entityStore:   entities.NewStore(pool),
 	}
@@ -581,10 +590,10 @@ LEFT JOIN LATERAL (
 		{key: "comm_log.summary", expr: "p.summary", kind: fieldKindText},
 		{key: "comm_log.next_report_at", expr: "p.next_report_at", kind: fieldKindTimestamp},
 		{key: "comm_log.privilege_tag", expr: "p.privilege_tag", kind: fieldKindText},
-		{key: "comm_log.decision_ids", expr: emptyCollectionExpr, kind: fieldKindCollection},
-		{key: "comm_log.action_task_ids", expr: emptyCollectionExpr, kind: fieldKindCollection},
-		{key: "comm_log.audience_party_ids", expr: emptyCollectionExpr, kind: fieldKindCollection},
-		{key: "comm_log.attendee_party_ids", expr: emptyCollectionExpr, kind: fieldKindCollection},
+		{key: "comm_log.decision_ids", expr: recordRefCollectionExpr("comm_log.decision_ids"), kind: fieldKindCollection},
+		{key: "comm_log.action_task_ids", expr: recordRefCollectionExpr("comm_log.action_task_ids"), kind: fieldKindCollection},
+		{key: "comm_log.audience_party_ids", expr: partyRefCollectionExpr("comm_log.audience_party_ids"), kind: fieldKindCollection},
+		{key: "comm_log.attendee_party_ids", expr: partyRefCollectionExpr("comm_log.attendee_party_ids"), kind: fieldKindCollection},
 		{key: "comm_log.comm_id", expr: "p.comm_id", kind: fieldKindText},
 		{key: "comm_log.timestamp_day", expr: "p.timestamp_day", kind: fieldKindDate},
 		{key: "comm_log.next_report_day", expr: "p.next_report_day", kind: fieldKindDate},
@@ -595,9 +604,9 @@ LEFT JOIN LATERAL (
 		{key: "handoff.outgoing_owner_user_id", expr: "p.outgoing_owner_user_id", kind: fieldKindText},
 		{key: "handoff.incoming_owner_user_id", expr: "p.incoming_owner_user_id", kind: fieldKindText},
 		{key: "handoff.current_state_summary", expr: "p.current_state_summary", kind: fieldKindText},
-		{key: "handoff.open_task_ids", expr: emptyCollectionExpr, kind: fieldKindCollection},
-		{key: "handoff.open_decision_ids", expr: emptyCollectionExpr, kind: fieldKindCollection},
-		{key: "handoff.open_risk_refs", expr: emptyCollectionExpr, kind: fieldKindCollection},
+		{key: "handoff.open_task_ids", expr: recordRefCollectionExpr("handoff.open_task_ids"), kind: fieldKindCollection},
+		{key: "handoff.open_decision_ids", expr: recordRefCollectionExpr("handoff.open_decision_ids"), kind: fieldKindCollection},
+		{key: "handoff.open_risk_refs", expr: riskRefCollectionExpr(), kind: fieldKindCollection},
 		{key: "handoff.next_checks", expr: "p.next_checks", kind: fieldKindText},
 		{key: "handoff.acknowledged_at", expr: "p.acknowledged_at", kind: fieldKindTimestamp},
 		{key: "handoff.handoff_id", expr: "p.handoff_id", kind: fieldKindText},
@@ -609,9 +618,9 @@ LEFT JOIN LATERAL (
 		{key: "status_review.timestamp_utc", expr: "p.timestamp_utc", kind: fieldKindTimestamp},
 		{key: "status_review.review_owner_user_id", expr: "p.review_owner_user_id", kind: fieldKindText},
 		{key: "status_review.current_state_summary", expr: "p.current_state_summary", kind: fieldKindText},
-		{key: "status_review.blocked_task_ids", expr: emptyCollectionExpr, kind: fieldKindCollection},
-		{key: "status_review.pending_evidence_ids", expr: emptyCollectionExpr, kind: fieldKindCollection},
-		{key: "status_review.open_decision_ids", expr: emptyCollectionExpr, kind: fieldKindCollection},
+		{key: "status_review.blocked_task_ids", expr: recordRefCollectionExpr("status_review.blocked_task_ids"), kind: fieldKindCollection},
+		{key: "status_review.pending_evidence_ids", expr: recordRefCollectionExpr("status_review.pending_evidence_ids"), kind: fieldKindCollection},
+		{key: "status_review.open_decision_ids", expr: recordRefCollectionExpr("status_review.open_decision_ids"), kind: fieldKindCollection},
 		{key: "status_review.active_risks_summary", expr: "p.active_risks_summary", kind: fieldKindText},
 		{key: "status_review.next_report_at", expr: "p.next_report_at", kind: fieldKindTimestamp},
 		{key: "status_review.status_review_id", expr: "p.status_review_id", kind: fieldKindText},
@@ -624,12 +633,67 @@ LEFT JOIN LATERAL (
 		{key: "lesson.summary", expr: "p.summary", kind: fieldKindText},
 		{key: "lesson.owner_user_id", expr: "p.owner_user_id", kind: fieldKindText},
 		{key: "lesson.closure_state", expr: "p.closure_state", kind: fieldKindText},
-		{key: "lesson.follow_up_task_ids", expr: emptyCollectionExpr, kind: fieldKindCollection},
-		{key: "lesson.evidence_refs", expr: emptyCollectionExpr, kind: fieldKindCollection},
+		{key: "lesson.follow_up_task_ids", expr: recordRefCollectionExpr("lesson.follow_up_task_ids"), kind: fieldKindCollection},
+		{key: "lesson.evidence_refs", expr: recordRefCollectionExpr("lesson.evidence_refs"), kind: fieldKindCollection},
 		{key: "lesson.lesson_id", expr: "p.lesson_id", kind: fieldKindText},
 		{key: "lesson.timestamp_day", expr: "p.timestamp_day", kind: fieldKindDate},
 		{key: "lesson.updated_at", expr: "p.updated_at", kind: fieldKindTimestamp},
 	}),
+}
+
+func recordRefCollectionExpr(fieldKey string) string {
+	return `(SELECT COALESCE(jsonb_agg(jsonb_build_object(
+        'item_ref', 'record_ref:' || dst.record_id::text,
+        'item_kind', 'record_ref',
+        'display_text', dst.record_type || ':' || dst.record_id::text,
+        'linked_record_id', dst.record_id::text
+    ) ORDER BY dst.record_type ASC, dst.record_id ASC), '[]'::jsonb)
+      FROM record_links rl
+      JOIN records dst
+        ON dst.incident_id = rl.incident_id
+       AND dst.record_id = rl.dst_record_id
+       AND dst.deleted_at IS NULL
+     WHERE rl.incident_id = p.incident_id
+       AND rl.src_record_id = p.record_id
+       AND rl.link_type = 'references_record'
+       AND rl.field_key = '` + fieldKey + `'
+       AND rl.deleted_at IS NULL)::text`
+}
+
+func partyRefCollectionExpr(fieldKey string) string {
+	return `(SELECT COALESCE(jsonb_agg(jsonb_build_object(
+        'item_ref', 'party_ref:' || party.record_id::text,
+        'item_kind', 'party_ref',
+        'display_text', party.display_name,
+        'party_id', party.record_id::text
+    ) ORDER BY party.display_name ASC, party.record_id ASC), '[]'::jsonb)
+      FROM record_links rl
+      JOIN parties party
+        ON party.incident_id = rl.incident_id
+       AND party.record_id = rl.dst_record_id
+      JOIN records dst
+        ON dst.incident_id = rl.incident_id
+       AND dst.record_id = rl.dst_record_id
+       AND dst.deleted_at IS NULL
+     WHERE rl.incident_id = p.incident_id
+       AND rl.src_record_id = p.record_id
+       AND rl.link_type = 'references_record'
+       AND rl.field_key = '` + fieldKey + `'
+       AND rl.deleted_at IS NULL)::text`
+}
+
+func riskRefCollectionExpr() string {
+	return `(SELECT COALESCE(jsonb_agg(jsonb_build_object(
+        'item_ref', 'risk_ref:' || risk_ref_id::text,
+        'item_kind', 'risk_ref',
+        'display_text', risk_ref_text,
+        'risk_ref_id', risk_ref_id::text,
+        'risk_ref_text', risk_ref_text
+    ) ORDER BY risk_ref_text ASC, risk_ref_id ASC), '[]'::jsonb)
+      FROM handoff_risk_refs hr
+     WHERE hr.incident_id = p.incident_id
+       AND hr.handoff_record_id = p.record_id
+       AND hr.deleted_at IS NULL)::text`
 }
 
 func artifactSurface(viewSchemaID string, artifactType string, fields []genericField) genericSurface {

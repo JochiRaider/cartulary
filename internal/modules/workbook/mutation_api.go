@@ -1,0 +1,687 @@
+package workbook
+
+import (
+	"crypto/sha256"
+	"encoding/json"
+	"io"
+	"net/http"
+	"slices"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+)
+
+const (
+	workbookCreateRouteKey = "workbook.rows.create"
+	workbookPatchRouteKey  = "workbook.records.patch"
+	maxPatchChanges        = 32
+	maxCollectionActions   = 64
+)
+
+type MutationResult struct {
+	Payload          map[string]any
+	StatusCode       int
+	Replayed         bool
+	IncidentID       uuid.UUID
+	RecordID         uuid.UUID
+	ChangeSetID      uuid.UUID
+	ClientTxnID      string
+	RowVersion       int64
+	ViewSchemaID     string
+	ChangedFieldKeys []string
+}
+
+type CreateRequest struct {
+	ViewSchemaID string
+	ClientTxnID  string
+	Values       map[string]ValueChange
+	Collections  map[string]CollectionActionPayload
+}
+
+type PatchRequest struct {
+	ViewSchemaID   string
+	BaseRowVersion int64
+	ClientTxnID    string
+	Changes        []PatchChange
+}
+
+type PatchChange struct {
+	FieldKey     string
+	Value        *ValueChange
+	Collection   *CollectionActionPayload
+	CanonicalAny any
+}
+
+type ValueChange struct {
+	Kind      string
+	Text      *string
+	Timestamp *time.Time
+	UUID      *uuid.UUID
+}
+
+type CollectionActionPayload struct {
+	Actions []CollectionAction
+}
+
+type CollectionAction struct {
+	Op             string
+	LinkedRecordID *uuid.UUID
+	PartyID        *uuid.UUID
+	ItemRef        string
+	RiskRefText    string
+	NormalizedText string
+}
+
+type MutationValidationError struct {
+	Field      string
+	ReasonCode string
+}
+
+func (e *MutationValidationError) Error() string {
+	return "workbook: invalid mutation request"
+}
+
+type RowVersionConflictError struct {
+	RecordID          uuid.UUID
+	BaseRowVersion    int64
+	CurrentRowVersion int64
+}
+
+func (e *RowVersionConflictError) Error() string {
+	return "workbook: row version conflict"
+}
+
+func (e *RowVersionConflictError) Details() map[string]any {
+	return map[string]any{
+		"record_id":           e.RecordID.String(),
+		"base_row_version":    e.BaseRowVersion,
+		"current_row_version": e.CurrentRowVersion,
+	}
+}
+
+type SameFieldConflictError struct {
+	Conflict map[string]any
+}
+
+func (e *SameFieldConflictError) Error() string {
+	return "workbook: same field conflict"
+}
+
+func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, *auth.APIError) {
+	if !isWorkbookMutationSurface(viewSchemaID) {
+		return CreateRequest{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
+	}
+	schema, ok := viewschema.Lookup(viewSchemaID)
+	if !ok {
+		return CreateRequest{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
+	}
+	raw, apiErr := decodeObject(reader)
+	if apiErr != nil {
+		return CreateRequest{}, apiErr
+	}
+	allowed := map[string]struct{}{"client_txn_id": {}}
+	for fieldKey, field := range schema.Fields() {
+		if field.Writable || field.CreateWritable {
+			allowed[fieldKey] = struct{}{}
+		}
+	}
+	for key := range raw {
+		if _, ok := allowed[key]; !ok {
+			return CreateRequest{}, invalidMutationPayload(key, "unknown_field")
+		}
+	}
+	request := CreateRequest{
+		ViewSchemaID: viewSchemaID,
+		Values:       map[string]ValueChange{},
+		Collections:  map[string]CollectionActionPayload{},
+	}
+	if value, ok := raw["client_txn_id"]; !ok {
+		return CreateRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
+		return CreateRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+	}
+	for fieldKey, field := range schema.Fields() {
+		value, ok := raw[fieldKey]
+		if !ok {
+			continue
+		}
+		if field.ConflictResolutionClass == "collection_review" {
+			payload, apiErr := decodeCollectionActionPayload(fieldKey, value)
+			if apiErr != nil {
+				return CreateRequest{}, apiErr
+			}
+			request.Collections[fieldKey] = payload
+			continue
+		}
+		change, canonical, apiErr := decodeDirectValue(fieldKey, field, value, false)
+		if apiErr != nil {
+			return CreateRequest{}, apiErr
+		}
+		request.Values[fieldKey] = change
+		_ = canonical
+	}
+	if len(request.Values) == 0 && len(request.Collections) == 0 && !schema.PermitsZeroFieldCreate {
+		return CreateRequest{}, invalidMutationPayload("payload", "at_least_one_value_required")
+	}
+	return request, nil
+}
+
+func DecodePatchRequest(reader io.Reader) (PatchRequest, *auth.APIError) {
+	raw, apiErr := decodeObject(reader)
+	if apiErr != nil {
+		return PatchRequest{}, apiErr
+	}
+	allowed := map[string]struct{}{
+		"view_schema_id":   {},
+		"base_row_version": {},
+		"client_txn_id":    {},
+		"changes":          {},
+	}
+	for key := range raw {
+		if _, ok := allowed[key]; !ok {
+			return PatchRequest{}, invalidMutationPayload(key, "unknown_field")
+		}
+	}
+	var request PatchRequest
+	if value, ok := raw["view_schema_id"]; !ok {
+		return PatchRequest{}, invalidMutationPayload("view_schema_id", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.ViewSchemaID); err != nil || !isWorkbookMutationSurface(request.ViewSchemaID) {
+		return PatchRequest{}, invalidMutationPayload("view_schema_id", "invalid_view_schema_id")
+	}
+	if value, ok := raw["base_row_version"]; !ok {
+		return PatchRequest{}, invalidMutationPayload("base_row_version", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.BaseRowVersion); err != nil || request.BaseRowVersion < 1 {
+		return PatchRequest{}, invalidMutationPayload("base_row_version", "invalid_base_row_version")
+	}
+	if value, ok := raw["client_txn_id"]; !ok {
+		return PatchRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
+		return PatchRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
+	}
+	value, ok := raw["changes"]
+	if !ok {
+		return PatchRequest{}, invalidMutationPayload("changes", "missing_required_field")
+	}
+	var rawChanges []json.RawMessage
+	if err := json.Unmarshal(value, &rawChanges); err != nil {
+		return PatchRequest{}, invalidMutationPayload("changes", "invalid_value")
+	}
+	if len(rawChanges) == 0 {
+		return PatchRequest{}, invalidMutationPayload("changes", "empty_changes")
+	}
+	if len(rawChanges) > maxPatchChanges {
+		return PatchRequest{}, invalidMutationPayloadWithDetails("changes", "change_count_exceeded", map[string]any{
+			"requested_count": len(rawChanges),
+			"max_count":       maxPatchChanges,
+		})
+	}
+	seen := map[string]struct{}{}
+	for _, rawChange := range rawChanges {
+		change, apiErr := decodePatchChange(request.ViewSchemaID, rawChange)
+		if apiErr != nil {
+			return PatchRequest{}, apiErr
+		}
+		if _, ok := seen[change.FieldKey]; ok {
+			return PatchRequest{}, invalidMutationPayload("changes", "duplicate_field_key")
+		}
+		seen[change.FieldKey] = struct{}{}
+		request.Changes = append(request.Changes, change)
+	}
+	slices.SortFunc(request.Changes, func(left PatchChange, right PatchChange) int {
+		return strings.Compare(left.FieldKey, right.FieldKey)
+	})
+	return request, nil
+}
+
+func decodePatchChange(viewSchemaID string, raw json.RawMessage) (PatchChange, *auth.APIError) {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &object); err != nil {
+		return PatchChange{}, invalidMutationPayload("changes", "invalid_change")
+	}
+	allowed := map[string]struct{}{"field_key": {}, "value": {}, "action_payload": {}}
+	for key := range object {
+		if _, ok := allowed[key]; !ok {
+			return PatchChange{}, invalidMutationPayload("changes", "unknown_field")
+		}
+	}
+	fieldValue, ok := object["field_key"]
+	if !ok {
+		return PatchChange{}, invalidMutationPayload("changes", "missing_field_key")
+	}
+	var fieldKey string
+	if err := json.Unmarshal(fieldValue, &fieldKey); err != nil {
+		return PatchChange{}, invalidMutationPayload("field_key", "invalid_value")
+	}
+	field, ok := viewschema.LookupField(viewSchemaID, fieldKey)
+	if !ok || !field.Writable {
+		return PatchChange{}, invalidMutationPayload("field_key", "unsupported_field_key")
+	}
+	if isReadOnlySystemField(fieldKey) {
+		return PatchChange{}, invalidMutationPayload("field_key", "unsupported_field_key")
+	}
+	value, hasValue := object["value"]
+	actionPayload, hasActionPayload := object["action_payload"]
+	if hasValue == hasActionPayload {
+		return PatchChange{}, invalidMutationPayload("changes", "invalid_change")
+	}
+	change := PatchChange{FieldKey: fieldKey}
+	if field.ConflictResolutionClass == "collection_review" {
+		if !hasActionPayload {
+			return PatchChange{}, invalidMutationPayload("action_payload", "missing_required_field")
+		}
+		payload, apiErr := decodeCollectionActionPayload(fieldKey, actionPayload)
+		if apiErr != nil {
+			return PatchChange{}, apiErr
+		}
+		change.Collection = &payload
+		change.CanonicalAny = canonicalCollectionActionPayload(payload)
+		return change, nil
+	}
+	if !hasValue {
+		return PatchChange{}, invalidMutationPayload("value", "missing_required_field")
+	}
+	direct, canonical, apiErr := decodeDirectValue(fieldKey, field, value, true)
+	if apiErr != nil {
+		return PatchChange{}, apiErr
+	}
+	change.Value = &direct
+	change.CanonicalAny = canonical
+	return change, nil
+}
+
+func decodeDirectValue(fieldKey string, field viewschema.Field, value json.RawMessage, patch bool) (ValueChange, any, *auth.APIError) {
+	if string(value) == "null" {
+		if patch && field.Clearable {
+			return ValueChange{Kind: "null"}, nil, nil
+		}
+		return ValueChange{}, nil, invalidMutationPayload(fieldKey, "field_not_nullable")
+	}
+	if field.DirectScalarContractID != nil && *field.DirectScalarContractID == "timestamp_instant_v1" {
+		var raw string
+		if err := json.Unmarshal(value, &raw); err != nil {
+			return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(raw))
+		if err != nil {
+			return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		utc := parsed.UTC()
+		return ValueChange{Kind: "timestamp", Timestamp: &utc}, utc.Format(time.RFC3339Nano), nil
+	}
+	if isUUIDField(fieldKey) {
+		var raw string
+		if err := json.Unmarshal(value, &raw); err != nil {
+			return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		parsed, err := uuid.Parse(strings.TrimSpace(raw))
+		if err != nil {
+			return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		return ValueChange{Kind: "uuid", UUID: &parsed}, parsed.String(), nil
+	}
+	var raw string
+	if err := json.Unmarshal(value, &raw); err != nil {
+		return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
+	}
+	normalized, ok := normalizeStringContract(field, raw)
+	if !ok {
+		return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
+	}
+	return ValueChange{Kind: "text", Text: &normalized}, normalized, nil
+}
+
+func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (CollectionActionPayload, *auth.APIError) {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &object); err != nil {
+		return CollectionActionPayload{}, invalidMutationPayload(fieldKey, "invalid_value")
+	}
+	if !objectHasOnlyFields(object, "kind", "actions") {
+		return CollectionActionPayload{}, invalidMutationPayload(fieldKey, "invalid_value")
+	}
+	var kind string
+	if err := json.Unmarshal(object["kind"], &kind); err != nil || kind != "collection_actions_v1" {
+		return CollectionActionPayload{}, invalidMutationPayload(fieldKey, "invalid_value")
+	}
+	var rawActions []json.RawMessage
+	if err := json.Unmarshal(object["actions"], &rawActions); err != nil {
+		return CollectionActionPayload{}, invalidMutationPayload(fieldKey, "invalid_value")
+	}
+	if len(rawActions) == 0 {
+		return CollectionActionPayload{}, invalidMutationPayloadWithDetails(fieldKey+".actions", "empty_collection_actions", map[string]any{"field_key": fieldKey})
+	}
+	if len(rawActions) > maxCollectionActions {
+		return CollectionActionPayload{}, invalidMutationPayloadWithDetails(fieldKey+".actions", "collection_action_count_exceeded", map[string]any{
+			"field_key":       fieldKey,
+			"requested_count": len(rawActions),
+			"max_count":       maxCollectionActions,
+		})
+	}
+	payload := CollectionActionPayload{Actions: make([]CollectionAction, 0, len(rawActions))}
+	for _, rawActionData := range rawActions {
+		action, apiErr := decodeCollectionAction(fieldKey, rawActionData)
+		if apiErr != nil {
+			return CollectionActionPayload{}, apiErr
+		}
+		payload.Actions = append(payload.Actions, action)
+	}
+	return payload, nil
+}
+
+func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAction, *auth.APIError) {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &object); err != nil {
+		return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+	}
+	var op string
+	if err := json.Unmarshal(object["op"], &op); err != nil {
+		return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+	}
+	action := CollectionAction{Op: op}
+	switch op {
+	case "add_record_ref":
+		if !isRecordRefCollection(fieldKey) || !objectHasOnlyFields(object, "op", "linked_record_id") {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		parsed, ok := decodeUUIDActionField(object, "linked_record_id")
+		if !ok {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		action.LinkedRecordID = &parsed
+	case "remove_record_ref":
+		if !isRecordRefCollection(fieldKey) || !objectHasOnlyFields(object, "op", "item_ref") {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		itemRef, ok := decodeStringActionField(object, "item_ref")
+		if !ok || !strings.HasPrefix(itemRef, "record_ref:") {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		action.ItemRef = itemRef
+	case "add_party_ref":
+		if !isPartyRefCollection(fieldKey) || !objectHasOnlyFields(object, "op", "party_id") {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		parsed, ok := decodeUUIDActionField(object, "party_id")
+		if !ok {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		action.PartyID = &parsed
+	case "remove_party_ref":
+		if !isPartyRefCollection(fieldKey) || !objectHasOnlyFields(object, "op", "item_ref") {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		itemRef, ok := decodeStringActionField(object, "item_ref")
+		if !ok || !strings.HasPrefix(itemRef, "party_ref:") {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		action.ItemRef = itemRef
+	case "add_risk_ref":
+		if fieldKey != "handoff.open_risk_refs" || !objectHasOnlyFields(object, "op", "risk_ref_text") {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		rawText, ok := decodeStringActionField(object, "risk_ref_text")
+		if !ok {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		normalized, ok := fieldnorm.NormalizeLine(rawText)
+		if !ok {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		action.RiskRefText = normalized
+		action.NormalizedText = normalized
+	case "remove_risk_ref":
+		if fieldKey != "handoff.open_risk_refs" || !objectHasOnlyFields(object, "op", "item_ref") {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		itemRef, ok := decodeStringActionField(object, "item_ref")
+		if !ok || !strings.HasPrefix(itemRef, "risk_ref:") {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		action.ItemRef = itemRef
+	default:
+		return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+	}
+	return action, nil
+}
+
+func CreateRequestHash(request CreateRequest) []byte {
+	payload := map[string]any{
+		"view_schema_id": request.ViewSchemaID,
+		"values":         canonicalValues(request.Values),
+		"collection_ops": canonicalCollections(request.Collections),
+	}
+	return hashRequestPayload(payload)
+}
+
+func PatchRequestHash(request PatchRequest) []byte {
+	changes := make([]map[string]any, 0, len(request.Changes))
+	for _, change := range request.Changes {
+		changes = append(changes, map[string]any{
+			"field_key": change.FieldKey,
+			"value":     change.CanonicalAny,
+		})
+	}
+	return hashRequestPayload(map[string]any{
+		"view_schema_id":   request.ViewSchemaID,
+		"base_row_version": request.BaseRowVersion,
+		"changes":          changes,
+	})
+}
+
+func BuildMutationPayload(viewSchemaID string, changeSetID uuid.UUID, row map[string]any) map[string]any {
+	return map[string]any{
+		"view_schema_id": viewSchemaID,
+		"change_set_id":  changeSetID.String(),
+		"row":            row,
+	}
+}
+
+func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
+	return invalidMutationPayloadWithDetails(field, reasonCode, nil)
+}
+
+func invalidMutationPayloadWithDetails(field string, reasonCode string, extra map[string]any) *auth.APIError {
+	details := map[string]any{}
+	if field != "" {
+		details["field"] = field
+	}
+	if reasonCode != "" {
+		details["reason_code"] = reasonCode
+	}
+	for key, value := range extra {
+		details[key] = value
+	}
+	return &auth.APIError{Status: http.StatusBadRequest, Code: "invalid_mutation_payload", Message: "invalid mutation payload", Details: details}
+}
+
+func rowVersionConflictError(details map[string]any) *auth.APIError {
+	return &auth.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: details}
+}
+
+func sameFieldConflictError(err *SameFieldConflictError) *auth.APIError {
+	conflict := any(nil)
+	if err != nil {
+		conflict = err.Conflict
+	}
+	return &auth.APIError{Status: http.StatusConflict, Code: "same_field_conflict", Message: "same field conflict", Details: map[string]any{}, Conflict: conflict}
+}
+
+func mutationValidationError(field string, reasonCode string) error {
+	return &MutationValidationError{Field: field, ReasonCode: reasonCode}
+}
+
+func decodeObject(reader io.Reader) (map[string]json.RawMessage, *auth.APIError) {
+	var raw map[string]json.RawMessage
+	decoder := json.NewDecoder(reader)
+	if err := decoder.Decode(&raw); err != nil {
+		return nil, invalidMutationPayload("", "request_not_object")
+	}
+	return raw, nil
+}
+
+func normalizeStringContract(field viewschema.Field, raw string) (string, bool) {
+	if field.StringContractID != nil && *field.StringContractID == "multiline_body_v1" {
+		return fieldnorm.NormalizeNote(raw)
+	}
+	return fieldnorm.NormalizeLine(raw)
+}
+
+func objectHasOnlyFields(object map[string]json.RawMessage, fields ...string) bool {
+	allowed := make(map[string]struct{}, len(fields))
+	for _, field := range fields {
+		allowed[field] = struct{}{}
+		if _, ok := object[field]; !ok {
+			return false
+		}
+	}
+	for key := range object {
+		if _, ok := allowed[key]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func decodeUUIDActionField(object map[string]json.RawMessage, field string) (uuid.UUID, bool) {
+	text, ok := decodeStringActionField(object, field)
+	if !ok {
+		return uuid.UUID{}, false
+	}
+	parsed, err := uuid.Parse(strings.TrimSpace(text))
+	return parsed, err == nil
+}
+
+func decodeStringActionField(object map[string]json.RawMessage, field string) (string, bool) {
+	value, ok := object[field]
+	if !ok {
+		return "", false
+	}
+	var text string
+	if err := json.Unmarshal(value, &text); err != nil || strings.TrimSpace(text) == "" {
+		return "", false
+	}
+	return strings.TrimSpace(text), true
+}
+
+func canonicalValues(values map[string]ValueChange) map[string]any {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	result := map[string]any{}
+	for _, key := range keys {
+		result[key] = canonicalValue(values[key])
+	}
+	return result
+}
+
+func canonicalValue(value ValueChange) any {
+	switch value.Kind {
+	case "timestamp":
+		if value.Timestamp == nil {
+			return nil
+		}
+		return value.Timestamp.UTC().Format(time.RFC3339Nano)
+	case "uuid":
+		if value.UUID == nil {
+			return nil
+		}
+		return value.UUID.String()
+	case "text":
+		if value.Text == nil {
+			return nil
+		}
+		return *value.Text
+	default:
+		return nil
+	}
+}
+
+func canonicalCollections(collections map[string]CollectionActionPayload) map[string]any {
+	keys := make([]string, 0, len(collections))
+	for key := range collections {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	result := map[string]any{}
+	for _, key := range keys {
+		result[key] = canonicalCollectionActionPayload(collections[key])
+	}
+	return result
+}
+
+func canonicalCollectionActionPayload(payload CollectionActionPayload) map[string]any {
+	actions := make([]map[string]any, 0, len(payload.Actions))
+	for _, action := range payload.Actions {
+		entry := map[string]any{"op": action.Op}
+		if action.LinkedRecordID != nil {
+			entry["linked_record_id"] = action.LinkedRecordID.String()
+		}
+		if action.PartyID != nil {
+			entry["party_id"] = action.PartyID.String()
+		}
+		if action.ItemRef != "" {
+			entry["item_ref"] = action.ItemRef
+		}
+		if action.NormalizedText != "" {
+			entry["risk_ref_text"] = action.NormalizedText
+		}
+		actions = append(actions, entry)
+	}
+	return map[string]any{"kind": "collection_actions_v1", "actions": actions}
+}
+
+func hashRequestPayload(payload any) []byte {
+	data, _ := json.Marshal(payload)
+	sum := sha256.Sum256(data)
+	hash := make([]byte, len(sum))
+	copy(hash, sum[:])
+	return hash
+}
+
+func isWorkbookMutationSurface(viewSchemaID string) bool {
+	switch viewSchemaID {
+	case PartiesViewSchemaID, CommLogViewSchemaID, HandoffViewSchemaID, StatusReviewViewSchemaID, LessonViewSchemaID:
+		return true
+	default:
+		return false
+	}
+}
+
+func isReadOnlySystemField(fieldKey string) bool {
+	switch fieldKey {
+	case "comm_log.comm_id", "handoff.handoff_id", "status_review.status_review_id", "lesson.lesson_id",
+		"comm_log.timestamp_day", "comm_log.next_report_day", "comm_log.updated_at",
+		"handoff.timestamp_day", "handoff.ack_state", "handoff.updated_at",
+		"status_review.timestamp_day", "status_review.next_report_day", "status_review.updated_at",
+		"lesson.timestamp_day", "lesson.updated_at", "party.updated_at":
+		return true
+	default:
+		return false
+	}
+}
+
+func isUUIDField(fieldKey string) bool {
+	return strings.HasSuffix(fieldKey, "_user_id")
+}
+
+func isRecordRefCollection(fieldKey string) bool {
+	switch fieldKey {
+	case "comm_log.decision_ids", "comm_log.action_task_ids",
+		"handoff.open_task_ids", "handoff.open_decision_ids",
+		"status_review.blocked_task_ids", "status_review.pending_evidence_ids", "status_review.open_decision_ids",
+		"lesson.follow_up_task_ids", "lesson.evidence_refs":
+		return true
+	default:
+		return false
+	}
+}
+
+func isPartyRefCollection(fieldKey string) bool {
+	return fieldKey == "comm_log.audience_party_ids" || fieldKey == "comm_log.attendee_party_ids"
+}
