@@ -461,6 +461,9 @@ fi
 if ! grep -Fq 'playwright-grep-many' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must build one multi-phase Playwright grep from manifest titles"
 fi
+if ! grep -Fq 'playwright-files-many' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must build one multi-phase Playwright file list from manifest rows"
+fi
 if ! grep -Fq 'list-phases' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must discover browser_functional phases through phase-manifest list-phases"
 fi
@@ -493,8 +496,11 @@ fi
 if ! grep -Fq 'CARTULARY_REPORT_SLICE=1' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must emit sliced Playwright summaries"
 fi
-if ! grep -Fq 'CARTULARY_PHASE_ACCOUNTING_MODE=derived' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must mark derived slices to avoid duration multiplication"
+if ! grep -Fq 'accounting_mode=actual' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must account browser_functional phase slices as actual timings"
+fi
+if grep -Fq 'if [[ "$index" == "0" ]]' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must not charge the full batch only to the first functional phase"
 fi
 if ! grep -Fq 'name: "functional"' "$webserver_batch_config"; then
   fail "apps/web/playwright.webserver-backed.config.ts must define the functional project"
@@ -505,6 +511,14 @@ fi
 if ! grep -Fq 'CARTULARY_PLAYWRIGHT_FUNCTIONAL_GREP' "$webserver_batch_config"; then
   fail "apps/web/playwright.webserver-backed.config.ts must scope manifest grep to the functional project"
 fi
+if ! grep -Fq 'CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES' "$webserver_batch_config"; then
+  fail "apps/web/playwright.webserver-backed.config.ts must scope functional files from the Playwright manifest"
+fi
+for hardcoded_browser_functional_file in phase1.spec.ts phase2.spec.ts phase3.spec.ts phase4.spec.ts; do
+  if grep -Fq "$hardcoded_browser_functional_file" "$webserver_batch_config"; then
+    fail "apps/web/playwright.webserver-backed.config.ts must not hardcode browser functional file $hardcoded_browser_functional_file"
+  fi
+done
 if ! grep -Fq 'webE2EBaseConfig' "$webserver_batch_config"; then
   fail "apps/web/playwright.webserver-backed.config.ts must use the shared Playwright web E2E config"
 fi

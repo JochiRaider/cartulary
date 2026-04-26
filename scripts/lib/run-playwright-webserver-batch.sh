@@ -57,6 +57,7 @@ if [[ "${#functional_specs[@]}" -eq 0 ]]; then
 fi
 
 functional_grep="$("$node_bin" "$manifest_script" playwright-grep-many "${functional_specs[@]}")"
+functional_files="$("$node_bin" "$manifest_script" playwright-files-many "${functional_specs[@]}")"
 output_mode="$(resolve_output_mode)"
 batch_dir="$(prepare_target_support_dir "playwright-${mode}-batch")"
 run_report="${batch_dir}/runner.json"
@@ -85,11 +86,13 @@ phase_capture_start BATCH
 set +e
 if [[ "$output_mode" != "quiet" ]]; then
   CARTULARY_PLAYWRIGHT_FUNCTIONAL_GREP="$functional_grep" \
+  CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES="$functional_files" \
   PLAYWRIGHT_JSON_OUTPUT_FILE="$run_report" \
     "${run_command[@]}" > >(tee "$stdout_log") 2> >(tee "$stderr_log" >&2)
   run_status=$?
 else
   CARTULARY_PLAYWRIGHT_FUNCTIONAL_GREP="$functional_grep" \
+  CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES="$functional_files" \
   PLAYWRIGHT_JSON_OUTPUT_FILE="$run_report" \
     "${run_command[@]}" >"$stdout_log" 2>"$stderr_log"
   run_status=$?
@@ -197,16 +200,10 @@ overall_status=0
 for index in "${!functional_phases[@]}"; do
   phase="${functional_phases[$index]}"
   label="browser-e2e-functional ${phase} authoritative"
-  accounting_mode=derived
-  logical_ms=0
-  executed_ms=0
-  wall_ms=0
-  if [[ "$index" == "0" ]]; then
-    accounting_mode=actual
-    logical_ms="$duration_ms"
-    executed_ms="$duration_ms"
-    wall_ms="${BATCH_WALL_DURATION_MS}"
-  fi
+  accounting_mode=actual
+  logical_ms="$duration_ms"
+  executed_ms="$duration_ms"
+  wall_ms="${BATCH_WALL_DURATION_MS}"
   if ! emit_playwright_manifest_slice "$label" "$phase" "$accounting_mode" "$logical_ms" "$executed_ms" "$wall_ms"; then
     overall_status=1
   fi

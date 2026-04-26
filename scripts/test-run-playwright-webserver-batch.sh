@@ -94,6 +94,23 @@ const path = require("node:path");
 const [outputFile, mode] = process.argv.slice(2);
 const root = process.cwd();
 const specs = [];
+const baseTimeMs = Date.parse("2026-04-24T00:00:00.000Z");
+let timingIndex = 0;
+
+function fakeResult(status, extra = {}) {
+  const duration = 100 + timingIndex;
+  const startTime = new Date(baseTimeMs + timingIndex * 1000).toISOString();
+  timingIndex += 1;
+  return {
+    status,
+    retry: 0,
+    duration,
+    startTime,
+    attachments: [],
+    errors: [],
+    ...extra,
+  };
+}
 
 for (const phase of ["phase1", "phase2", "phase3", "phase4"]) {
   const manifest = JSON.parse(
@@ -113,7 +130,7 @@ for (const phase of ["phase1", "phase2", "phase3", "phase4"]) {
     specs.push({
       title: entry.title,
       file: entry.file.replace(/^apps\/web\/e2e\//, ""),
-      tests: [{ results: [{ status: "passed", retry: 0, attachments: [], errors: [] }] }],
+      tests: [{ results: [fakeResult("passed")] }],
     });
   }
 }
@@ -133,12 +150,10 @@ for (const supportFile of ["phase2.support.spec.ts", "phase3.support.spec.ts"]) 
           results: [
             failed
               ? {
-                  status: "failed",
-                  retry: 0,
-                  attachments: [],
+                  ...fakeResult("failed"),
                   error: { message: "support assertion failed" },
                 }
-              : { status: "passed", retry: 0, attachments: [], errors: [] },
+              : fakeResult("passed"),
           ],
         },
       ],
@@ -166,13 +181,28 @@ assert_empty "$success_output" "playwright webserver batch success"
 success_root="$tmp_dir/results/batch-success/adhoc"
 phase1_summary="$success_root/browser-e2e-functional-phase1-authoritative/phase-summary.json"
 phase2_summary="$success_root/browser-e2e-functional-phase2-authoritative/phase-summary.json"
+phase4_summary="$success_root/browser-e2e-functional-phase4-authoritative/phase-summary.json"
 support_summary="$success_root/browser-e2e-support-raw/phase-summary.json"
 assert_equals "$(json_field "$phase1_summary" "status")" "pass" "phase1 batch success status"
 assert_equals "$(json_field "$phase1_summary" "accounting_mode")" "actual" "phase1 batch accounting"
 assert_equals "$(json_field "$phase2_summary" "status")" "pass" "phase2 batch success status"
-assert_equals "$(json_field "$phase2_summary" "accounting_mode")" "derived" "phase2 batch accounting"
+assert_equals "$(json_field "$phase2_summary" "accounting_mode")" "actual" "phase2 batch accounting"
+assert_equals "$(json_field "$phase4_summary" "accounting_mode")" "actual" "phase4 batch accounting"
 assert_equals "$(json_field "$support_summary" "status")" "pass" "support batch success status"
 assert_equals "$(json_field "$support_summary" "counts.support")" "6" "support batch support count"
+phase1_timing="$success_root/browser-e2e-functional-phase1-authoritative/playwright-timing.json"
+phase4_timing="$success_root/browser-e2e-functional-phase4-authoritative/playwright-timing.json"
+assert_equals "$(json_field "$phase1_timing" "source")" "playwright_result_timestamps" "phase1 timing source"
+assert_equals "$(json_field "$phase1_timing" "phase")" "phase1" "phase1 timing phase"
+assert_equals "$(json_field "$phase4_timing" "files.0.file")" "apps/web/e2e/phase4.autoresolve.spec.ts" "phase4 timing first file"
+assert_equals "$(json_field "$phase4_timing" "files.1.file")" "apps/web/e2e/phase4.mentions.spec.ts" "phase4 timing second file"
+assert_equals "$(json_field "$phase4_timing" "files.2.file")" "apps/web/e2e/phase4.merge.spec.ts" "phase4 timing third file"
+assert_equals "$(json_field "$phase4_timing" "files.3.file")" "apps/web/e2e/phase4.workbook.spec.ts" "phase4 timing fourth file"
+NODE_BIN="${NODE:-node}" CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" CARTULARY_TEST_RUN_ID="batch-success" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary adhoc pass >/dev/null
+success_target_summary="$success_root/target-summary.json"
+assert_equals "$(json_field "$success_target_summary" "accounting_modes.actual")" "4" "batch target actual phase count"
+assert_equals "$(json_field "$success_target_summary" "accounting_modes.derived")" "1" "batch target derived phase count"
 
 set +e
 support_failure_output="$(

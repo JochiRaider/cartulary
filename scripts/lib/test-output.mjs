@@ -683,8 +683,18 @@ function createBasePhaseContext(runner) {
 }
 
 function writePhaseArtifacts(context, details) {
+  const playwrightTimingPath = details.playwrightTiming
+    ? path.join(context.phaseDir, "playwright-timing.json")
+    : "";
+  if (details.playwrightTiming) {
+    writeJson(playwrightTimingPath, details.playwrightTiming);
+  }
+
   const artifacts = {};
-  for (const [key, value] of Object.entries(details.artifacts ?? {})) {
+  for (const [key, value] of Object.entries({
+    ...(details.artifacts ?? {}),
+    playwright_timing: playwrightTimingPath,
+  })) {
     if (!value) {
       continue;
     }
@@ -3214,6 +3224,111 @@ function flattenPlaywrightSuites(suites, specs = []) {
   return specs;
 }
 
+function parsePlaywrightStartTime(value) {
+  const parsed = Date.parse(value ?? "");
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function updateTimingWindow(window, startMs, durationMs) {
+  if (startMs === null) {
+    return;
+  }
+  const endMs = startMs + clampDurationMs(durationMs);
+  if (window.startMs === null || startMs < window.startMs) {
+    window.startMs = startMs;
+  }
+  if (window.endMs === null || endMs > window.endMs) {
+    window.endMs = endMs;
+  }
+}
+
+function timingWindowDurationMs(window) {
+  if (window.startMs === null || window.endMs === null || window.endMs < window.startMs) {
+    return 0;
+  }
+  return window.endMs - window.startMs;
+}
+
+function summarizePlaywrightTiming(specs, phase) {
+  const files = new Map();
+  const totalWindow = { startMs: null, endMs: null };
+  let tests = 0;
+  let executedDurationMs = 0;
+  let hasDuration = false;
+  let hasTimestamp = false;
+
+  for (const spec of specs) {
+    const file = normalizePlaywrightFile(spec.file ?? "");
+    if (!files.has(file)) {
+      files.set(file, {
+        file,
+        tests: 0,
+        executed_duration_ms: 0,
+        wall_duration_ms: 0,
+        window: { startMs: null, endMs: null },
+        hasTimestamp: false,
+      });
+    }
+    const fileTiming = files.get(file);
+    let executed = false;
+
+    for (const test of spec.tests ?? []) {
+      for (const result of test.results ?? []) {
+        if (!result.status || result.status === "skipped") {
+          continue;
+        }
+        executed = true;
+        const durationMs = clampDurationMs(result.duration ?? 0);
+        if (durationMs > 0) {
+          hasDuration = true;
+        }
+        executedDurationMs += durationMs;
+        fileTiming.executed_duration_ms += durationMs;
+
+        const startMs = parsePlaywrightStartTime(result.startTime);
+        if (startMs !== null) {
+          hasTimestamp = true;
+          fileTiming.hasTimestamp = true;
+          updateTimingWindow(totalWindow, startMs, durationMs);
+          updateTimingWindow(fileTiming.window, startMs, durationMs);
+        }
+      }
+    }
+
+    if (executed) {
+      tests += 1;
+      fileTiming.tests += 1;
+    }
+  }
+
+  const fileSummaries = Array.from(files.values())
+    .map((fileTiming) => ({
+      file: fileTiming.file,
+      tests: fileTiming.tests,
+      executed_duration_ms: fileTiming.executed_duration_ms,
+      wall_duration_ms: fileTiming.hasTimestamp
+        ? timingWindowDurationMs(fileTiming.window)
+        : fileTiming.executed_duration_ms,
+    }))
+    .sort((left, right) => left.file.localeCompare(right.file));
+
+  return {
+    phase,
+    files: fileSummaries,
+    tests,
+    executed_duration_ms: executedDurationMs,
+    wall_duration_ms: hasTimestamp ? timingWindowDurationMs(totalWindow) : executedDurationMs,
+    start_time:
+      hasTimestamp && totalWindow.startMs !== null ? new Date(totalWindow.startMs).toISOString() : "",
+    end_time: hasTimestamp && totalWindow.endMs !== null ? new Date(totalWindow.endMs).toISOString() : "",
+    source: hasTimestamp
+      ? "playwright_result_timestamps"
+      : hasDuration
+        ? "playwright_result_durations"
+        : "phase_window_fallback",
+  };
+}
+
 function summarizePlaywrightErrors(report) {
   const messages = (report.errors ?? [])
     .map((error) => error?.message)
@@ -3412,6 +3527,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
     owners: Array.from(owners).sort(),
     inventory,
     dossiers,
+    playwrightTiming: summarizePlaywrightTiming(specs, inferPhaseFromText(phaseLabel)),
   };
 }
 
@@ -3474,6 +3590,24 @@ function handlePlaywrightPhase({ manifestAware }) {
     context.label,
     createPlaywrightSelection({ manifestAware }),
   );
+  if (reportSlice && summary.playwrightTiming) {
+    const timing = summary.playwrightTiming;
+    const executedDurationMs = clampDurationMs(timing.executed_duration_ms ?? 0);
+    const wallDurationMs = clampDurationMs(timing.wall_duration_ms ?? 0);
+    if (executedDurationMs > 0) {
+      context.executedDurationMs = executedDurationMs;
+      context.logicalDurationMs = executedDurationMs;
+      context.reusedDurationMs = context.accountingMode === "reused" ? executedDurationMs : 0;
+      context.derivedDurationMs = context.accountingMode === "derived" ? executedDurationMs : 0;
+    }
+    if (wallDurationMs > 0) {
+      context.wallDurationMs = wallDurationMs;
+    }
+    if (timing.start_time && timing.end_time) {
+      context.startTime = timing.start_time;
+      context.endTime = timing.end_time;
+    }
+  }
   const selectedSlicePassed =
     summary.dossiers.length === 0 && (context.exitStatus === 0 || reportSlice);
   let status = selectedSlicePassed ? "pass" : "fail";
@@ -3505,6 +3639,7 @@ function handlePlaywrightPhase({ manifestAware }) {
     owners: summary.owners,
     inventory: summary.inventory,
     dossiers: summary.dossiers,
+    playwrightTiming: summary.playwrightTiming,
     manifestSummary,
     manifestMismatch,
     artifacts: {

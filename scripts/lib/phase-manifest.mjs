@@ -1171,6 +1171,13 @@ function main(argv) {
       return;
     }
 
+    case "playwright-files-many": {
+      const entries = selectPlaywrightEntriesForSpecs(root, rest);
+      const files = [...new Set(entries.map((entry) => normalizePlaywrightFile(entry.file)))].sort();
+      printLines(files);
+      return;
+    }
+
     case "playwright-grep": {
       const [phase, coverage, executionDependency = ""] = rest;
       const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);

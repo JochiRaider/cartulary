@@ -3,9 +3,21 @@ import { defineConfig } from "@playwright/test";
 import { webE2EBaseConfig } from "./playwright.shared.config";
 
 const functionalGrep = process.env.CARTULARY_PLAYWRIGHT_FUNCTIONAL_GREP;
+const functionalFiles = process.env.CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES;
 
 if (!functionalGrep || functionalGrep.trim() === "") {
   throw new Error("CARTULARY_PLAYWRIGHT_FUNCTIONAL_GREP is required");
+}
+
+if (!functionalFiles || functionalFiles.trim() === "") {
+  throw new Error("CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES is required");
+}
+
+function normalizeFunctionalMatch(file: string) {
+  return file
+    .trim()
+    .replace(/^apps\/web\/e2e\//u, "")
+    .replace(/^e2e\//u, "");
 }
 
 export default defineConfig(webE2EBaseConfig({
@@ -13,12 +25,10 @@ export default defineConfig(webE2EBaseConfig({
     {
       name: "functional",
       grep: new RegExp(functionalGrep),
-      testMatch: [
-        "phase1.spec.ts",
-        "phase2.spec.ts",
-        "phase3.spec.ts",
-        "phase4.spec.ts",
-      ],
+      testMatch: functionalFiles
+        .split(/\r?\n/u)
+        .map(normalizeFunctionalMatch)
+        .filter((file) => file.length > 0),
     },
     {
       name: "support",

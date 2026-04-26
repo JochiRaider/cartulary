@@ -1,0 +1,202 @@
+import {
+  rowInspectButtonTestId,
+  scrollGridToBottom,
+} from "@cartulary/test-utils";
+
+import { expect, test } from "./fixtures";
+import {
+  createIncident,
+  createViewRow,
+  queryViewRows,
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./helpers";
+import {
+  addRelationshipTokenViaUI,
+  collectionActionsPayload,
+  collectionItems,
+  createTimelineFillers,
+  expectTimelineContinuity,
+  findRow,
+  hostRefsFieldKey,
+  hostsViewSchemaId,
+  readTimelineMutation,
+  requireItemByRawText,
+  sanitizeTestId,
+  timelineViewSchemaId,
+  type ViewRow,
+  waitForTimelinePatch,
+} from "./phase4Helpers";
+
+test("E-4-04 auto-resolves only eligible exact-match Timeline tokens", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("E404"),
+    "Phase 4 E-4-04",
+  );
+  const autoTarget = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("e404-auto"),
+    "host.display_name": "Gateway node",
+    "host.hostname": "gateway-node.example.test",
+    "host.aliases": collectionActionsPayload(["VPN Gateway"]),
+  })) as ViewRow;
+  await createViewRow(page, incidentId, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("e404-competing-a"),
+    "host.display_name": "WS-023 A",
+    "host.hostname": "ws-023-a.example.test",
+    "host.aliases": collectionActionsPayload(["WS-023"]),
+  });
+  await createViewRow(page, incidentId, hostsViewSchemaId, {
+    client_txn_id: uniqueTxn("e404-competing-b"),
+    "host.display_name": "WS-023 B",
+    "host.hostname": "ws-023-b.example.test",
+    "host.aliases": collectionActionsPayload(["WS-023"]),
+  });
+
+  await createTimelineFillers(page, incidentId, "E-4-04 filler", 12);
+  const suppressedRow = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e404-suppressed"),
+      "timeline.summary": "E-4-04 suppressed row",
+    },
+  )) as ViewRow;
+  const eligibleRow = (await createViewRow(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    {
+      client_txn_id: uniqueTxn("e404-eligible"),
+      "timeline.summary": "E-4-04 eligible row",
+    },
+  )) as ViewRow;
+
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByText("Timeline workbook shell")).toBeVisible();
+  const eligibleHostRefsInput = page.getByTestId(
+    `row-${eligibleRow.record_id}-hostRefs-input`,
+  );
+  // Capture continuity baselines only after the specific row control exists;
+  // the shell can render before this hydrated input is ready.
+  await expect(eligibleHostRefsInput).toBeVisible();
+
+  const autoScroll = await scrollGridToBottom(page, "timeline");
+  expect(autoScroll.top).toBeGreaterThan(0);
+  const eligibleResponsePromise = waitForTimelinePatch(
+    page,
+    eligibleRow.record_id,
+  );
+  await eligibleHostRefsInput.fill(" vpn   gateway ");
+  await eligibleHostRefsInput.press("Enter");
+  const eligibleEnvelope = await readTimelineMutation(
+    await eligibleResponsePromise,
+  );
+  const eligibleItem = requireItemByRawText(
+    collectionItems(eligibleEnvelope.data.row, hostRefsFieldKey),
+    " vpn   gateway ",
+  );
+  const eligibleChipId = `chip-${sanitizeTestId(String(eligibleItem.item_ref))}`;
+  const eligibleRowItems = page.getByTestId(
+    `row-${eligibleRow.record_id}-hostRefs-items`,
+  );
+  const autoNotice = page.getByTestId(
+    `auto-resolution-notice-${sanitizeTestId(String(eligibleItem.item_ref))}`,
+  );
+
+  await expect(eligibleRowItems.getByTestId(eligibleChipId)).toContainText(
+    "Auto",
+  );
+  await expect(autoNotice).toContainText("vpn gateway");
+  await expect(autoNotice).toContainText("Gateway node");
+  await expect(autoNotice).toContainText("VPN Gateway");
+  await expect(autoNotice.getByRole("button", { name: "Undo" })).toBeVisible();
+  await expect(
+    autoNotice.getByRole("button", { name: "Review" }),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(rowInspectButtonTestId(eligibleRow.record_id)),
+  ).toBeFocused();
+  await expectTimelineContinuity(page, eligibleRow.record_id, autoScroll);
+
+  const undoScroll = await scrollGridToBottom(page, "timeline");
+  const undoResponsePromise = waitForTimelinePatch(page, eligibleRow.record_id);
+  await autoNotice.getByRole("button", { name: "Undo" }).click();
+  const undoEnvelope = await readTimelineMutation(await undoResponsePromise);
+  const undoneItem = requireItemByRawText(
+    collectionItems(undoEnvelope.data.row, hostRefsFieldKey),
+    " vpn   gateway ",
+  );
+
+  await expect(autoNotice).toHaveCount(0);
+  await expect(eligibleRowItems.getByTestId(eligibleChipId)).not.toContainText(
+    "Auto",
+  );
+  await expect(
+    page.getByTestId(rowInspectButtonTestId(eligibleRow.record_id)),
+  ).toBeFocused();
+  await expectTimelineContinuity(page, eligibleRow.record_id, undoScroll);
+
+  const suppressedTokens = [
+    "WS-023",
+    "WS-023?",
+    "WS-023??",
+    "WS-023 ~",
+    "WS-023 maybe",
+    "WS-023 prob",
+    "WS-023 probably",
+    "WS-023 approx",
+    "WS-023 approximately",
+    "(WS-023)",
+    "WS-023.",
+    "WS-023,",
+    "WS-023 likely",
+  ];
+  for (const token of suppressedTokens) {
+    await addRelationshipTokenViaUI(
+      page,
+      suppressedRow.record_id,
+      "hostRefs",
+      token,
+    );
+    await expect(
+      page.locator('[data-testid^="auto-resolution-notice-"]'),
+    ).toHaveCount(0);
+  }
+
+  const timelineRows = (await queryViewRows(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+  )) as ViewRow[];
+  const eligibleRowAfter = findRow(timelineRows, eligibleRow.record_id);
+  const suppressedRowAfter = findRow(timelineRows, suppressedRow.record_id);
+  const eligibleItemAfterUndo = requireItemByRawText(
+    collectionItems(eligibleRowAfter, hostRefsFieldKey),
+    " vpn   gateway ",
+  );
+  const suppressedItems = collectionItems(suppressedRowAfter, hostRefsFieldKey);
+
+  expect(String(eligibleItem.item_kind)).toBe("resolved_ref");
+  expect(String(eligibleItem.resolved_record_id)).toBe(autoTarget.record_id);
+  expect(eligibleItem.auto_resolved).toBe(true);
+  expect(String(eligibleItem.provenance)).toBe("auto_match");
+  expect(eligibleItem.confidence).toBe(100);
+  expect(String(eligibleItem.matched_alias_text)).toBe("VPN Gateway");
+  expect(String(undoneItem.item_kind)).toBe("unresolved_mention");
+  expect(undoneItem.resolved_record_id).toBeUndefined();
+  expect(String(eligibleItemAfterUndo.item_kind)).toBe("unresolved_mention");
+  expect(eligibleItemAfterUndo.resolved_record_id).toBeUndefined();
+
+  for (const token of suppressedTokens) {
+    const item = requireItemByRawText(suppressedItems, token);
+    expect(String(item.item_kind)).toBe("unresolved_mention");
+    expect(item.resolved_record_id).toBeUndefined();
+    expect(item.provenance).toBeUndefined();
+    expect(item.confidence).toBeUndefined();
+    expect(item.matched_alias_text).toBeUndefined();
+  }
+});
