@@ -4,8 +4,11 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 makefile="$repo_root/Makefile"
 functional_script="$repo_root/scripts/run-browser-e2e-functional.sh"
+browser_batch_script="$repo_root/scripts/run-browser-e2e-batch.sh"
+browser_batch_manifest="$repo_root/tools/browser_e2e_batch_manifest.json"
 webserver_batch_script="$repo_root/scripts/lib/run-playwright-webserver-batch.sh"
 webserver_batch_config="$repo_root/apps/web/playwright.webserver-backed.config.ts"
+shared_playwright_config="$repo_root/apps/web/playwright.shared.config.ts"
 stateful_script="$repo_root/scripts/run-browser-e2e-stateful.sh"
 measurement_script="$repo_root/scripts/run-browser-e2e-measurement.sh"
 resettable_script="$repo_root/scripts/run-browser-e2e-resettable.sh"
@@ -191,14 +194,14 @@ fi
 if ! printf '%s\n' "$browser_e2e_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
   fail 'browser-e2e must wrap aggregate browser children through $(TEST_SERVICES_BIN)'
 fi
-if ! printf '%s\n' "$browser_e2e_block" | grep -Fq -- '-j$(BROWSER_E2E_JOBS)'; then
-  fail 'browser-e2e must run aggregate browser children with -j$(BROWSER_E2E_JOBS)'
+if ! printf '%s\n' "$browser_e2e_block" | grep -Fq './scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh all'; then
+  fail "browser-e2e must run the all browser batch inside one owned stack"
 fi
-if ! printf '%s\n' "$browser_e2e_block" | grep -Fq -- '--output-sync=target'; then
-  fail "browser-e2e must use output-sync for parallel aggregate browser children"
+if printf '%s\n' "$browser_e2e_block" | grep -Fq -- '-j$(BROWSER_E2E_JOBS)'; then
+  fail 'browser-e2e must not fan out aggregate browser children with -j$(BROWSER_E2E_JOBS)'
 fi
-if ! printf '%s\n' "$browser_e2e_block" | grep -Fq 'browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-resettable'; then
-  fail "browser-e2e must run webserver-backed, stateful, and resettable browser children"
+if ! printf '%s\n' "$browser_e2e_block" | grep -Fq '$(BROWSER_E2E_ALL_CHILD_TARGETS)'; then
+  fail "browser-e2e must summarize the manifest-declared all-batch children"
 fi
 
 test_service_block="$(extract_target_block test-service-backed)"
@@ -282,6 +285,9 @@ fi
 if ! printf '%s\n' "$check_summary_groups_line" | grep -Fq 'browser-webserver-backed=browser-e2e-webserver-backed'; then
   fail "CHECK_SUMMARY_GROUPS must report browser webserver-backed duration separately"
 fi
+if ! printf '%s\n' "$check_summary_groups_line" | grep -Fq 'browser-isolated=browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual'; then
+  fail "CHECK_SUMMARY_GROUPS must report isolated browser batch children separately"
+fi
 backend_summary_group="$(printf '%s\n' "$check_summary_groups_line" | tr ';' '\n' | sed -n 's/^backend-service-backed=//p')"
 if [[ "$backend_summary_group" != "backend-integration,backend-integration-support,backend-store,backend-process" ]]; then
   fail "backend-service-backed summary group must contain backend service targets, found: ${backend_summary_group:-none}"
@@ -306,11 +312,14 @@ fi
 if ! printf '%s\n' "$check_isolated_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
   fail 'check-isolated must wrap isolated browser children through $(TEST_SERVICES_BIN)'
 fi
-if ! printf '%s\n' "$check_isolated_block" | grep -Fq 'browser-e2e-stateful browser-e2e-resettable'; then
-  fail "check-isolated must run browser-e2e-stateful and browser-e2e-resettable"
+if ! printf '%s\n' "$check_isolated_block" | grep -Fq './scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh isolated'; then
+  fail "check-isolated must run one isolated browser batch inside one owned stack"
 fi
-if printf '%s\n' "$check_isolated_block" | grep -Eq 'browser-e2e-measurement|browser-e2e-visual'; then
-  fail "check-isolated must not invoke measurement or visual as separate owned-stack targets"
+if ! printf '%s\n' "$check_isolated_block" | grep -Fq '$(BROWSER_E2E_ISOLATED_CHILD_TARGETS)'; then
+  fail "check-isolated must summarize isolated browser batch children"
+fi
+if printf '%s\n' "$check_isolated_block" | grep -Fq -- '-j$(BROWSER_E2E_ISOLATED_JOBS)'; then
+  fail "check-isolated must not parallelize stateful/resettable browser stacks"
 fi
 
 if ! rg -q '^browser-e2e-webserver-backed:' "$makefile"; then
@@ -326,7 +335,9 @@ if [[ -z "$browser_functional_block" ]]; then
   fail "Makefile must define a non-empty browser-e2e-functional block"
 fi
 if ! printf '%s\n' "$browser_functional_block" | grep -Fq './scripts/run-browser-e2e-functional.sh'; then
-  fail "browser-e2e-functional must delegate to scripts/run-browser-e2e-functional.sh"
+  if ! printf '%s\n' "$browser_functional_block" | grep -Fq './scripts/run-browser-e2e-batch.sh functional'; then
+    fail "browser-e2e-functional must delegate to the functional browser batch"
+  fi
 fi
 
 browser_stateful_block="$(awk '
@@ -338,7 +349,9 @@ if [[ -z "$browser_stateful_block" ]]; then
   fail "Makefile must define a non-empty browser-e2e-stateful block"
 fi
 if ! printf '%s\n' "$browser_stateful_block" | grep -Fq './scripts/run-browser-e2e-stateful.sh'; then
-  fail "browser-e2e-stateful must delegate to scripts/run-browser-e2e-stateful.sh"
+  if ! printf '%s\n' "$browser_stateful_block" | grep -Fq './scripts/run-browser-e2e-batch.sh stateful'; then
+    fail "browser-e2e-stateful must delegate to the stateful browser batch"
+  fi
 fi
 
 browser_measurement_block="$(awk '
@@ -350,7 +363,9 @@ if [[ -z "$browser_measurement_block" ]]; then
   fail "Makefile must define a non-empty browser-e2e-measurement block"
 fi
 if ! printf '%s\n' "$browser_measurement_block" | grep -Fq './scripts/run-browser-e2e-measurement.sh'; then
-  fail "browser-e2e-measurement must delegate to scripts/run-browser-e2e-measurement.sh"
+  if ! printf '%s\n' "$browser_measurement_block" | grep -Fq './scripts/run-browser-e2e-batch.sh measurement'; then
+    fail "browser-e2e-measurement must delegate to the measurement browser batch"
+  fi
 fi
 if printf '%s\n' "$browser_measurement_block" | grep -Fq 'Core 05-bound timing evidence'; then
   fail "browser-e2e-measurement must be labeled ordinary measurement, not Core 05-bound claim evidence"
@@ -359,11 +374,20 @@ fi
 if ! [[ -f "$functional_script" ]]; then
   fail "missing scripts/run-browser-e2e-functional.sh"
 fi
+if ! [[ -x "$browser_batch_script" ]]; then
+  fail "missing executable scripts/run-browser-e2e-batch.sh"
+fi
+if ! [[ -f "$browser_batch_manifest" ]]; then
+  fail "missing tools/browser_e2e_batch_manifest.json"
+fi
 if ! [[ -f "$webserver_batch_script" ]]; then
   fail "missing scripts/lib/run-playwright-webserver-batch.sh"
 fi
 if ! [[ -f "$webserver_batch_config" ]]; then
   fail "missing apps/web/playwright.webserver-backed.config.ts"
+fi
+if ! [[ -f "$shared_playwright_config" ]]; then
+  fail "missing apps/web/playwright.shared.config.ts"
 fi
 if ! [[ -f "$stateful_script" ]]; then
   fail "missing scripts/run-browser-e2e-stateful.sh"
@@ -397,6 +421,40 @@ if ! grep -Fq '"${DEV_SERVICES_SCRIPT}" wait' "$start_web_e2e_script"; then
 fi
 if ! grep -Fq 'docker compose -f "${COMPOSE_FILE}" up -d postgres minio' "$start_web_e2e_script"; then
   fail "scripts/start-web-e2e.sh must keep Compose-backed startup for standalone browser E2E"
+fi
+
+if ! grep -Fq 'cartulary.browser_e2e_batch_manifest.v1' "$browser_batch_manifest"; then
+  fail "browser E2E batch manifest must declare its schema"
+fi
+if ! grep -Fq '"name": "all"' "$browser_batch_manifest"; then
+  fail "browser E2E batch manifest must define the all stage"
+fi
+if ! grep -Fq '"name": "isolated"' "$browser_batch_manifest"; then
+  fail "browser E2E batch manifest must define the isolated stage"
+fi
+if ! grep -Fq '"reset_before": "stateful-to-measurement"' "$browser_batch_manifest"; then
+  fail "browser E2E batch manifest must reset between stateful and measurement groups"
+fi
+if ! grep -Fq '"reset_before": "measurement-to-visual"' "$browser_batch_manifest"; then
+  fail "browser E2E batch manifest must reset between measurement and visual groups"
+fi
+if ! grep -Fq 'reset-web-e2e-stack.sh' "$browser_batch_script"; then
+  fail "browser E2E batch runner must enforce reset boundaries"
+fi
+if ! grep -Fq 'run-browser-e2e-webserver-backed.sh' "$browser_batch_script"; then
+  fail "browser E2E batch runner must route the webserver-backed group"
+fi
+if ! grep -Fq 'run-browser-e2e-stateful.sh' "$browser_batch_script"; then
+  fail "browser E2E batch runner must route the stateful group"
+fi
+if ! grep -Fq 'run-browser-e2e-measurement.sh' "$browser_batch_script"; then
+  fail "browser E2E batch runner must route the measurement group"
+fi
+if ! grep -Fq 'run-browser-e2e-visual.sh' "$browser_batch_script"; then
+  fail "browser E2E batch runner must route the visual group"
+fi
+if ! grep -Fq 'target-summary "$target"' "$browser_batch_script"; then
+  fail "browser E2E batch runner must emit per-group target summaries"
 fi
 
 if ! grep -Fq 'run-playwright-webserver-batch.sh' "$functional_script"; then
@@ -458,6 +516,12 @@ fi
 if ! grep -Fq 'CARTULARY_PLAYWRIGHT_FUNCTIONAL_GREP' "$webserver_batch_config"; then
   fail "apps/web/playwright.webserver-backed.config.ts must scope manifest grep to the functional project"
 fi
+if ! grep -Fq 'webE2EBaseConfig' "$webserver_batch_config"; then
+  fail "apps/web/playwright.webserver-backed.config.ts must use the shared Playwright web E2E config"
+fi
+if ! grep -Fq 'webE2EBaseConfig' "$shared_playwright_config"; then
+  fail "apps/web/playwright.shared.config.ts must expose the shared Playwright web E2E config"
+fi
 
 if ! grep -Fq 'phase1 authoritative browser_stateful' "$stateful_script"; then
   fail "scripts/run-browser-e2e-stateful.sh must execute Phase 1 browser_stateful rows through the manifest"
@@ -474,17 +538,8 @@ fi
 if ! grep -Fq 'phase3 authoritative browser_measurement' "$measurement_script"; then
   fail "scripts/run-browser-e2e-measurement.sh must execute Phase 3 browser_measurement rows through the manifest"
 fi
-if ! grep -Fq 'CARTULARY_TEST_TARGET="$target"' "$resettable_script"; then
-  fail "scripts/run-browser-e2e-resettable.sh must run each child with its own CARTULARY_TEST_TARGET"
-fi
-if ! grep -Fq 'run-browser-e2e-measurement.sh' "$resettable_script"; then
-  fail "scripts/run-browser-e2e-resettable.sh must run browser-e2e-measurement inside the shared stack"
-fi
-if ! grep -Fq 'reset-web-e2e-stack.sh' "$resettable_script"; then
-  fail "scripts/run-browser-e2e-resettable.sh must reset the shared stack between suites"
-fi
-if ! grep -Fq 'run-browser-e2e-visual.sh' "$resettable_script"; then
-  fail "scripts/run-browser-e2e-resettable.sh must run browser-e2e-visual inside the shared stack"
+if ! grep -Fq 'run-browser-e2e-batch.sh" resettable' "$resettable_script"; then
+  fail "scripts/run-browser-e2e-resettable.sh must delegate resettable sequencing to the browser batch runner"
 fi
 if ! grep -Fq '/api/v1/test/runtime/reset' "$reset_script"; then
   fail "scripts/reset-web-e2e-stack.sh must call the test runtime reset route"

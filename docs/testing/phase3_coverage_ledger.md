@@ -14,8 +14,8 @@ This ledger is generated from `tools/phase3_test_map.json`. Update the manifest 
 - `backend-store` selects store-backed authoritative `U-3-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase3 unit authoritative backend_store`.
 - `backend-integration` selects authoritative `I-3-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase3 integration authoritative backend_integration`.
 - `frontend-unit` selects authoritative `U-3-*` workbook rows only through the Phase 3 Vitest manifest for `frontend_unit`.
-- `browser-e2e-webserver-backed` and helper `browser-e2e-functional` select authoritative functional `E-3-*` rows through the batched Playwright manifest selection for `browser_functional`.
-- `browser-e2e-measurement` selects authoritative measurement `E-3-*` rows only through the Phase 3 Playwright manifest for `browser_measurement`.
+- `browser-e2e-webserver-backed` and helper `browser-e2e-functional` select authoritative functional `E-3-*` rows through the browser batch manifest and Playwright manifest selection for `browser_functional`.
+- `browser-e2e-measurement` selects authoritative measurement `E-3-*` rows through the browser batch manifest and Phase 3 Playwright manifest for `browser_measurement`.
 
 ## Support-Only Execution
 

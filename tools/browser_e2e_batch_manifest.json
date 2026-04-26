@@ -1,0 +1,160 @@
+{
+  "schema_id": "cartulary.browser_e2e_batch_manifest.v1",
+  "stages": [
+    {
+      "name": "webserver-backed",
+      "children": ["browser-e2e-webserver-backed"],
+      "groups": [
+        {
+          "name": "functional-support",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "webserver-backed",
+          "workers": "default"
+        }
+      ]
+    },
+    {
+      "name": "functional",
+      "children": ["browser-e2e-functional"],
+      "groups": [
+        {
+          "name": "functional",
+          "target": "browser-e2e-functional",
+          "kind": "functional",
+          "workers": "default"
+        }
+      ]
+    },
+    {
+      "name": "support",
+      "children": ["browser-e2e-support"],
+      "groups": [
+        {
+          "name": "support",
+          "target": "browser-e2e-support",
+          "kind": "support",
+          "workers": "default"
+        }
+      ]
+    },
+    {
+      "name": "stateful",
+      "children": ["browser-e2e-stateful"],
+      "groups": [
+        {
+          "name": "stateful",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful",
+          "workers": "1"
+        }
+      ]
+    },
+    {
+      "name": "measurement",
+      "children": ["browser-e2e-measurement"],
+      "groups": [
+        {
+          "name": "measurement",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "workers": "1"
+        }
+      ]
+    },
+    {
+      "name": "visual",
+      "children": ["browser-e2e-visual"],
+      "groups": [
+        {
+          "name": "visual",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "workers": "1"
+        }
+      ]
+    },
+    {
+      "name": "resettable",
+      "children": ["browser-e2e-measurement", "browser-e2e-visual"],
+      "groups": [
+        {
+          "name": "measurement",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "workers": "1"
+        },
+        {
+          "name": "visual",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "workers": "1",
+          "reset_before": "measurement-to-visual"
+        }
+      ]
+    },
+    {
+      "name": "isolated",
+      "children": ["browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"],
+      "groups": [
+        {
+          "name": "stateful",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful",
+          "workers": "1"
+        },
+        {
+          "name": "measurement",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "workers": "1",
+          "reset_before": "stateful-to-measurement"
+        },
+        {
+          "name": "visual",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "workers": "1",
+          "reset_before": "measurement-to-visual"
+        }
+      ]
+    },
+    {
+      "name": "all",
+      "children": [
+        "browser-e2e-webserver-backed",
+        "browser-e2e-stateful",
+        "browser-e2e-measurement",
+        "browser-e2e-visual"
+      ],
+      "groups": [
+        {
+          "name": "functional-support",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "webserver-backed",
+          "workers": "default"
+        },
+        {
+          "name": "stateful",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful",
+          "workers": "1",
+          "reset_before": "webserver-backed-to-stateful"
+        },
+        {
+          "name": "measurement",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "workers": "1",
+          "reset_before": "stateful-to-measurement"
+        },
+        {
+          "name": "visual",
+          "target": "browser-e2e-visual",
+          "kind": "visual",
+          "workers": "1",
+          "reset_before": "measurement-to-visual"
+        }
+      ]
+    }
+  ]
+}

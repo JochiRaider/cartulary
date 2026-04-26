@@ -12,7 +12,7 @@ This ledger is generated from `tools/phase4_test_map.json`. Update the manifest 
 - `backend-unit` selects authoritative `U-4-*` decoder rows only through `RUN_GO_MANIFEST_PHASE ... phase4 unit authoritative backend_unit`.
 - `backend-store` selects authoritative store-backed `U-4-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase4 unit authoritative backend_store`.
 - `backend-integration` selects authoritative `I-4-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase4 integration authoritative backend_integration`.
-- `browser-e2e-webserver-backed` and helper `browser-e2e-functional` select authoritative `E-4-*` rows through the batched Playwright manifest selection for `browser_functional`.
+- `browser-e2e-webserver-backed` and helper `browser-e2e-functional` select authoritative `E-4-*` rows through the browser batch manifest and Playwright manifest selection for `browser_functional`.
 
 ## Support-Only Execution
 

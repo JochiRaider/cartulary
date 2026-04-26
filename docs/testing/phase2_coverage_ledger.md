@@ -12,7 +12,7 @@ This ledger is generated from `tools/phase2_test_map.json`. Update the manifest 
 - `backend-store` selects store-backed authoritative `U-2-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase2 unit authoritative backend_store`.
 - `backend-integration` selects authoritative `I-2-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase2 integration authoritative backend_integration`.
 - `frontend-unit` selects authoritative `U-2-*` rows only through the Phase 2 Vitest manifest for `frontend_unit`.
-- `browser-e2e-webserver-backed` and helper `browser-e2e-functional` select authoritative `E-2-*` rows through the batched Playwright manifest selection for `browser_functional`.
+- `browser-e2e-webserver-backed` and helper `browser-e2e-functional` select authoritative `E-2-*` rows through the browser batch manifest and Playwright manifest selection for `browser_functional`.
 
 ## Support-Only Execution
 
@@ -21,7 +21,7 @@ This ledger is generated from `tools/phase2_test_map.json`. Update the manifest 
 - `internal/modules/incidents/phase2_http_conformance_test.go` runs through `backend-integration-support` with `TestSupportPhase2_` and is forbidden from claiming `I-2-*` identifiers.
 - `internal/modules/incidents/phase2_pagination_integration_test.go` runs through `backend-integration-support` with `TestSupportPhase2_` and is forbidden from claiming `I-2-*` identifiers.
 - `backend-integration-support` emits a shared-capture support report rather than a second independent runtime.
-- `make browser-e2e-support` is a helper slice also exercised inside the batched `browser-e2e-webserver-backed` Playwright run and does not provide additional authoritative confirmation.
+- `make browser-e2e-support` is a helper slice also exercised inside the `browser-e2e-webserver-backed` browser batch and does not provide additional authoritative confirmation.
 - `make phase2-process-smoke` remains an isolated support target for flaky process smoke and does not participate in the default developer or CI gates.
 
 ## Unit

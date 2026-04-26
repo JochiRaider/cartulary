@@ -26,8 +26,6 @@ CHECK_JOBS ?= 4
 HARNESS_SMOKE_JOBS ?= 4
 SERVICE_BACKED_JOBS ?= 2
 TEST_SERVICE_BACKED_JOBS ?= 3
-BROWSER_E2E_JOBS ?= 3
-BROWSER_E2E_ISOLATED_JOBS ?= 2
 BACKEND_STORE_GO_TEST_P ?= 2
 BACKEND_INTEGRATION_GO_TEST_P ?= 2
 BACKEND_INTEGRATION_SHARD_JOBS ?= 4
@@ -76,13 +74,16 @@ RUN_VITEST_PHASE = $(Q)NODE_BIN=$(NODE_BIN) $(RUN_VITEST_PHASE_SCRIPT)
 RUN_VITEST_MANIFEST_PHASE = $(Q)NODE_BIN=$(NODE_BIN) $(RUN_VITEST_MANIFEST_PHASE_SCRIPT)
 RUN_PHASE_ALLOW_SUCCESS_LOG = $(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT)
 TARGET_SUMMARY = $(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary
-TEST_SUMMARY_TARGETS := test-service-backed,backend-unit,frontend-typecheck,frontend-unit,backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
-CHECK_SUMMARY_TARGETS := check-service-backed,backend-unit,frontend-typecheck,frontend-unit,backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
-TEST_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser-webserver-backed=browser-e2e-webserver-backed
-CHECK_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser-webserver-backed=browser-e2e-webserver-backed
+TEST_SUMMARY_TARGETS := test-service-backed,test-isolated,backend-unit,frontend-typecheck,frontend-unit,backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
+CHECK_SUMMARY_TARGETS := check-service-backed,check-isolated,backend-unit,frontend-typecheck,frontend-unit,backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
+TEST_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser-webserver-backed=browser-e2e-webserver-backed;browser-isolated=browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
+CHECK_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser-webserver-backed=browser-e2e-webserver-backed;browser-isolated=browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
 TEST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed
 TEST_FAST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process
 CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed
+BROWSER_E2E_ALL_CHILD_TARGETS := browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
+BROWSER_E2E_ISOLATED_CHILD_TARGETS := browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
+BROWSER_E2E_RESETTABLE_CHILD_TARGETS := browser-e2e-measurement,browser-e2e-visual
 HARNESS_SMOKE_CORE_TARGETS := harness-smoke-toolchain-pins,harness-smoke-bootstrap-node-runtime,harness-smoke-build-input-discovery,harness-smoke-check-migrations,harness-smoke-run-make-sequence,harness-smoke-release-task-surface,harness-smoke-benchmark-claim-check,harness-smoke-task-surface-report,harness-smoke-run-phase,harness-smoke-run-go-target,harness-smoke-print-target-plan,harness-smoke-service-backed-scheduler,harness-smoke-run-playwright-phase,harness-smoke-run-playwright-manifest-phase,harness-smoke-run-playwright-webserver-batch,harness-smoke-run-vitest-phase,harness-smoke-run-vitest-manifest-phase
 HARNESS_SMOKE_LIFECYCLE_TARGETS := harness-smoke-web-e2e-lifecycle,harness-smoke-dev-stack-lifecycle
 HARNESS_SMOKE_TARGETS := $(HARNESS_SMOKE_CORE_TARGETS),$(HARNESS_SMOKE_LIFECYCLE_TARGETS)
@@ -220,9 +221,9 @@ help:
 		'  make format                format authored frontend sources' \
 		'' \
 		'browser:' \
-		'  make browser-e2e           run all browser E2E suites' \
-		'  make browser-e2e-webserver-backed run shared-stack browser E2E' \
-		'  make browser-e2e-stateful  run isolated stateful browser E2E' \
+		'  make browser-e2e           run all browser E2E suites through one batch stack' \
+		'  make browser-e2e-webserver-backed run shared-stack browser E2E batch' \
+		'  make browser-e2e-stateful  run isolated stateful browser E2E batch' \
 		'  make browser-e2e-measurement run ordinary browser measurement evidence' \
 		'  make browser-e2e-visual    run isolated visual browser E2E' \
 		'' \
@@ -532,8 +533,8 @@ test-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-mi
 
 test-isolated: export CARTULARY_TEST_TARGET := test-isolated
 
-test-isolated: $(TEST_SERVICES_BIN)
-	$(Q)$(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(BROWSER_E2E_ISOLATED_JOBS) browser-e2e-stateful browser-e2e-resettable
+test-isolated: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN)
+	$(Q)status=0; $(TEST_SERVICES_BIN) run -- env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh isolated || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary test-isolated $$requested --children "$(BROWSER_E2E_ISOLATED_CHILD_TARGETS)"; exit "$$status"
 
 test: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label test --summary-targets "$(TEST_SUMMARY_TARGETS)" --summary-groups "$(TEST_SUMMARY_GROUPS)" --parallel-step test-local:3 --step test-service-backed --step test-isolated
@@ -607,52 +608,45 @@ e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 
 browser-e2e: export CARTULARY_TEST_TARGET := browser-e2e
 
-browser-e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
-	$(Q)$(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(BROWSER_E2E_JOBS) browser-e2e-webserver-backed browser-e2e-stateful browser-e2e-resettable
+browser-e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN)
+	$(Q)status=0; $(TEST_SERVICES_BIN) run -- env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh all || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e $$requested --children "$(BROWSER_E2E_ALL_CHILD_TARGETS)"; exit "$$status"
 
 browser-e2e-webserver-backed: export CARTULARY_TEST_TARGET := browser-e2e-webserver-backed
 
 browser-e2e-webserver-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-webserver-backed.sh
-	$(TARGET_SUMMARY) browser-e2e-webserver-backed pass
+	$(Q)status=0; env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh webserver-backed || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-webserver-backed $$requested; exit "$$status"
 
 browser-e2e-functional: export CARTULARY_TEST_TARGET := browser-e2e-functional
 
 browser-e2e-functional: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-functional.sh
-	$(TARGET_SUMMARY) browser-e2e-functional pass
+	$(Q)status=0; env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh functional || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-functional $$requested; exit "$$status"
 
 browser-e2e-support: export CARTULARY_TEST_TARGET := browser-e2e-support
 
 browser-e2e-support: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(RUN_PLAYWRIGHT_PHASE) "browser-e2e-support raw" -- env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) $(PNPM) --dir apps/web exec playwright test e2e/phase2.support.spec.ts e2e/phase3.support.spec.ts
-	$(TARGET_SUMMARY) browser-e2e-support pass
+	$(Q)status=0; env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh support || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-support $$requested; exit "$$status"
 
 browser-e2e-stateful: export CARTULARY_TEST_TARGET := browser-e2e-stateful
 
 # Browser evidence that mutates process-global backend state belongs here.
 browser-e2e-stateful: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-stateful.sh $(PLAYWRIGHT_TEST_FLAGS)
-	$(TARGET_SUMMARY) browser-e2e-stateful pass
+	$(Q)status=0; env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh stateful || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-stateful $$requested; exit "$$status"
 
 browser-e2e-resettable: export CARTULARY_TEST_TARGET := browser-e2e-resettable
 
 browser-e2e-resettable: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-resettable.sh
-	$(TARGET_SUMMARY) browser-e2e-resettable pass --children "browser-e2e-measurement,browser-e2e-visual"
+	$(Q)status=0; env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh resettable || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-resettable $$requested --children "$(BROWSER_E2E_RESETTABLE_CHILD_TARGETS)"; exit "$$status"
 
 browser-e2e-measurement: export CARTULARY_TEST_TARGET := browser-e2e-measurement
 
 # Ordinary implementation/regression measurement; not claim-bearing Core 05 publication evidence.
 browser-e2e-measurement: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-measurement.sh
-	$(TARGET_SUMMARY) browser-e2e-measurement pass
+	$(Q)status=0; env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh measurement || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-measurement $$requested; exit "$$status"
 
 browser-e2e-visual: export CARTULARY_TEST_TARGET := browser-e2e-visual
 
 browser-e2e-visual: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-visual.sh
-	$(TARGET_SUMMARY) browser-e2e-visual pass
+	$(Q)status=0; env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh visual || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-visual $$requested; exit "$$status"
 
 lint: lint-go lint-biome frontend-typecheck
 
@@ -708,8 +702,8 @@ check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-m
 
 check-isolated: export CARTULARY_TEST_TARGET := check-isolated
 
-check-isolated: $(TEST_SERVICES_BIN)
-	$(Q)$(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(BROWSER_E2E_ISOLATED_JOBS) browser-e2e-stateful browser-e2e-resettable
+check-isolated: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN)
+	$(Q)status=0; $(TEST_SERVICES_BIN) run -- env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh isolated || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary check-isolated $$requested --children "$(BROWSER_E2E_ISOLATED_CHILD_TARGETS)"; exit "$$status"
 
 check: $(NODE_BIN)
 	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label check --summary-targets "$(CHECK_SUMMARY_TARGETS)" --summary-groups "$(CHECK_SUMMARY_GROUPS)" --step check-setup-blockers --parallel-step check-parallel:$(CHECK_JOBS) --step check-service-backed --step check-isolated
