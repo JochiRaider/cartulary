@@ -143,7 +143,7 @@ write_manifest() {
     printf '{\n'
     printf '  "schema_id": "cartulary.service_backed_schedule.v2",\n'
     printf '  "schedules": [\n'
-    printf '    { "target": "%s", "resource_limits": { "postgres": 4, "minio": 4, "process": 2, "browser": 1, "browser-webserver": 1 }, "children": [\n' "$target"
+    printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "backend": 4, "process": 2, "browser": 1, "browser-webserver": 1 }, "children": [\n' "$target"
     local first=1
     local child
     for child in "$@"; do
@@ -200,7 +200,7 @@ run_scheduler() {
   FAKE_SCHEDULER_MAX="${dir}/max" \
   FAKE_SCHEDULER_LOG="${dir}/make.log" \
   FAKE_FAIL_TARGET="${FAKE_FAIL_TARGET:-}" \
-  FAKE_SCHEDULER_SLEEP="${FAKE_SCHEDULER_SLEEP:-0.05}" \
+  FAKE_SCHEDULER_SLEEP="${FAKE_SCHEDULER_SLEEP:-0.2}" \
   MAKE="${dir}/fake-make" \
   NODE_BIN="$NODE_BIN" \
   TEST_OUTPUT_SCRIPT="$TEST_OUTPUT_SCRIPT" \
@@ -221,30 +221,57 @@ weighted_output="$(run_scheduler "$weighted_dir" "$weighted_manifest" test-fast-
 assert_contains "$weighted_output" "[STEP] test-fast-service-backed 1/3 backend-process mode=scheduler jobs=1" "weighted first child"
 assert_contains "$weighted_output" "[STEP] test-fast-service-backed 2/3 backend-integration-support mode=scheduler jobs=1" "weighted second child"
 assert_contains "$weighted_output" "[STEP] test-fast-service-backed 3/3 backend-store mode=scheduler jobs=1" "weighted third child"
+assert_equals "$(cat "${weighted_dir}/max")" "3" "v2 resource capacity ignores global jobs cap for compatible children"
 
 parallel_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-parallel.XXXXXX")"
 cleanup_paths+=("$parallel_dir")
 write_fake_make "$parallel_dir"
 parallel_manifest="${parallel_dir}/manifest.json"
 write_manifest "$parallel_manifest" test-fast-service-backed \
-  'backend-integration|backend|10|"postgres", "minio"' \
-  'backend-store|backend|9|"postgres", "minio"' \
-  'backend-process|backend|8|"postgres", "minio", "process"' \
-  'backend-integration-support|backend|7|"postgres", "minio"'
-run_scheduler "$parallel_dir" "$parallel_manifest" test-fast-service-backed 2 parallel >/dev/null
-assert_equals "$(cat "${parallel_dir}/max")" "2" "parallel max active"
+  'backend-integration|backend|10|"postgres", "minio", "backend"' \
+  'backend-store|backend|9|"postgres", "minio", "backend"' \
+  'backend-process|backend|8|"postgres", "minio", "backend", "process"' \
+  'backend-integration-support|backend|7|"postgres", "minio", "backend"'
+run_scheduler "$parallel_dir" "$parallel_manifest" test-fast-service-backed 1 parallel >/dev/null
+assert_equals "$(cat "${parallel_dir}/max")" "4" "v2 backend lane starts all four current backend children"
+
+backend_capacity_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-backend-capacity.XXXXXX")"
+cleanup_paths+=("$backend_capacity_dir")
+write_fake_make "$backend_capacity_dir"
+backend_capacity_manifest="${backend_capacity_dir}/manifest.json"
+write_manifest "$backend_capacity_manifest" test-fast-service-backed \
+  'backend-integration|backend|10|"postgres", "minio", "backend"' \
+  'backend-store|backend|9|"postgres", "minio", "backend"' \
+  'backend-process|backend|8|"postgres", "minio", "backend", "process"' \
+  'backend-integration-support|backend|7|"postgres", "minio", "backend"' \
+  'phase0-process-e2e|backend|6|"postgres", "minio", "backend", "process"'
+run_scheduler "$backend_capacity_dir" "$backend_capacity_manifest" test-fast-service-backed 1 backend-capacity >/dev/null
+assert_equals "$(cat "${backend_capacity_dir}/max")" "4" "backend lane capacity max active"
 
 browser_parallel_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser-parallel.XXXXXX")"
 cleanup_paths+=("$browser_parallel_dir")
 write_fake_make "$browser_parallel_dir"
 browser_parallel_manifest="${browser_parallel_dir}/manifest.json"
 write_manifest "$browser_parallel_manifest" test-service-backed \
-  'backend-integration|backend|100|"postgres", "minio"' \
+  'backend-integration|backend|100|"postgres", "minio", "backend"' \
   'browser-e2e-webserver-backed|browser|95|"postgres", "minio", "browser", "browser-webserver"' \
-  'backend-store|backend|90|"postgres", "minio"'
-run_scheduler "$browser_parallel_dir" "$browser_parallel_manifest" test-service-backed 2 browser-parallel >/dev/null
-assert_equals "$(cat "${browser_parallel_dir}/max")" "2" "browser and backend max active"
+  'backend-store|backend|90|"postgres", "minio", "backend"'
+run_scheduler "$browser_parallel_dir" "$browser_parallel_manifest" test-service-backed 1 browser-parallel >/dev/null
+assert_equals "$(cat "${browser_parallel_dir}/max")" "3" "browser and backend max active"
 assert_contains "$(cat "${browser_parallel_dir}/make.log")" "start browser-e2e-webserver-backed active=2" "browser starts beside backend"
+
+mixed_parallel_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-mixed-parallel.XXXXXX")"
+cleanup_paths+=("$mixed_parallel_dir")
+write_fake_make "$mixed_parallel_dir"
+mixed_parallel_manifest="${mixed_parallel_dir}/manifest.json"
+write_manifest "$mixed_parallel_manifest" test-service-backed \
+  'backend-integration|backend|100|"postgres", "minio", "backend"' \
+  'browser-e2e-webserver-backed|browser|95|"postgres", "minio", "browser", "browser-webserver"' \
+  'backend-store|backend|90|"postgres", "minio", "backend"' \
+  'backend-process|backend|80|"postgres", "minio", "backend", "process"' \
+  'backend-integration-support|backend|60|"postgres", "minio", "backend"'
+run_scheduler "$mixed_parallel_dir" "$mixed_parallel_manifest" test-service-backed 1 mixed-parallel >/dev/null
+assert_equals "$(cat "${mixed_parallel_dir}/max")" "5" "current mixed service-backed schedule first wave"
 
 browser_capacity_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser-capacity.XXXXXX")"
 cleanup_paths+=("$browser_capacity_dir")
@@ -266,6 +293,17 @@ write_legacy_manifest "$exclusive_manifest" test-fast-service-backed \
   'backend-process|backend|8|"postgres"'
 run_scheduler "$exclusive_dir" "$exclusive_manifest" test-fast-service-backed 3 exclusive >/dev/null
 assert_equals "$(cat "${exclusive_dir}/max")" "1" "exclusive tag max active"
+
+legacy_jobs_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-legacy-jobs.XXXXXX")"
+cleanup_paths+=("$legacy_jobs_dir")
+write_fake_make "$legacy_jobs_dir"
+legacy_jobs_manifest="${legacy_jobs_dir}/manifest.json"
+write_legacy_manifest "$legacy_jobs_manifest" test-fast-service-backed \
+  'backend-integration|backend|10|' \
+  'backend-store|backend|9|' \
+  'backend-process|backend|8|'
+run_scheduler "$legacy_jobs_dir" "$legacy_jobs_manifest" test-fast-service-backed 2 legacy-jobs >/dev/null
+assert_equals "$(cat "${legacy_jobs_dir}/max")" "2" "legacy manifest honors global jobs fallback"
 
 failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-failure.XXXXXX")"
 cleanup_paths+=("$failure_dir")

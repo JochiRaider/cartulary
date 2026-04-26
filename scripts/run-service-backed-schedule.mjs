@@ -227,6 +227,7 @@ function findSchedule(manifest, target) {
   return {
     target,
     resourceLimits,
+    usesResourceCapacity: resourceLimits.size > 0,
     children,
     executionChildren: [...children].sort(
       (left, right) => right.weight - left.weight || left.target.localeCompare(right.target),
@@ -340,6 +341,33 @@ function removeResourceClaims(child, activeResourceClaims) {
   }
 }
 
+function formatResourceMap(values) {
+  const entries = Array.from(values.entries()).sort((left, right) => left[0].localeCompare(right[0]));
+  if (entries.length === 0) {
+    return "{}";
+  }
+  return `{${entries.map(([key, value]) => `${key}:${value}`).join(",")}}`;
+}
+
+function formatResourceLimits(resourceLimits) {
+  return formatResourceMap(resourceLimits);
+}
+
+function formatActiveResourceClaims(activeResourceClaims) {
+  return formatResourceMap(activeResourceClaims);
+}
+
+function formatActiveExclusiveTags(activeExclusiveTags) {
+  const tags = Array.from(activeExclusiveTags).sort();
+  return tags.length === 0 ? "[]" : `[${tags.join(",")}]`;
+}
+
+function formatBlockedChildren(children) {
+  return children
+    .map((child) => `${child.target} claims=[${child.resourceClaims.join(",")}] exclusive=[${child.exclusiveTags.join(",")}]`)
+    .join("; ");
+}
+
 async function runSchedule({ schedule, jobs, makeBin, testOutputScript }) {
   const childrenCsv = schedule.children.map((child) => child.target).join(",");
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "cartulary-service-backed-schedule-"));
@@ -380,16 +408,10 @@ async function runSchedule({ schedule, jobs, makeBin, testOutputScript }) {
       const logFile = path.join(tempDir, `${String(started).padStart(2, "0")}-${child.target}.log`);
       const promise = runChild(makeBin, child.target, logFile);
       running.set(promise, child);
-      promise.then(() => {
-        for (const tag of child.exclusiveTags) {
-          activeExclusiveTags.delete(tag);
-        }
-        removeResourceClaims(child, activeResourceClaims);
-      });
     };
 
     while (pending.length > 0 || running.size > 0) {
-      while (running.size < jobs) {
+      while (schedule.usesResourceCapacity || running.size < jobs) {
         const nextIndex = pending.findIndex((candidate) =>
           canStart(candidate, schedule.resourceLimits, activeExclusiveTags, activeResourceClaims),
         );
@@ -402,7 +424,7 @@ async function runSchedule({ schedule, jobs, makeBin, testOutputScript }) {
 
       if (running.size === 0) {
         throw new Error(
-          `scheduler deadlock for ${schedule.target}; check resource_limits, resource_claims, and exclusive_tags`,
+          `scheduler deadlock for ${schedule.target}; pending=${formatBlockedChildren(pending)} active_resource_claims=${formatActiveResourceClaims(activeResourceClaims)} active_exclusive_tags=${formatActiveExclusiveTags(activeExclusiveTags)} resource_limits=${formatResourceLimits(schedule.resourceLimits)}`,
         );
       }
 
@@ -410,6 +432,10 @@ async function runSchedule({ schedule, jobs, makeBin, testOutputScript }) {
       for (const [promise, candidate] of running.entries()) {
         if (candidate.target === result.target) {
           running.delete(promise);
+          for (const tag of candidate.exclusiveTags) {
+            activeExclusiveTags.delete(tag);
+          }
+          removeResourceClaims(candidate, activeResourceClaims);
           break;
         }
       }
