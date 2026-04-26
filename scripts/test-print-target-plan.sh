@@ -85,8 +85,22 @@ for (let index = 1; index < weights.length; index += 1) {
   }
 }
 const incidents = plan.aggregates.find((aggregate) => aggregate.name === "backend-integration-phase2-incidents");
-const entities = plan.aggregates.find((aggregate) => aggregate.name === "backend-integration-phase4-entities");
-if (!incidents || incidents.shards.length < 2 || !entities || entities.shards.length < 2) {
+if (!incidents || incidents.shards.length < 2) {
+  process.exit(1);
+}
+if (!plan.shards.every((shard) => Number.isInteger(shard.shard_target_ms) && shard.shard_target_ms > 0)) {
+  process.exit(1);
+}
+const integrationMultiItemShards = plan.shards.filter((shard) => shard.shard_target_ms === 18000 && (shard.has_authoritative || shard.has_support) && shard.item_count > 1);
+if (!integrationMultiItemShards.every((shard) => shard.weight_ms <= 18000 && shard.shard_target_ms === 18000)) {
+  process.exit(1);
+}
+const badIncidentShard = plan.shards.find((shard) =>
+  shard.aggregate_name === "backend-integration-phase2-incidents" &&
+  shard.items.some((item) => item.symbol.includes("ControlBoundary") && item.kind === "authoritative") &&
+  shard.items.some((item) => item.symbol.includes("ControlBoundary") && item.kind === "support")
+);
+if (badIncidentShard) {
   process.exit(1);
 }
 const authoritative = plan.shards.flatMap((shard) => shard.items).filter((item) => item.kind === "authoritative");

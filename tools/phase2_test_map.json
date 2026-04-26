@@ -45,14 +45,47 @@
       "file": "internal/modules/incidents/phase2_http_conformance_test.go",
       "symbols": [
         "TestSupportPhase2_IncidentCreateBootstrapsCreatorAndWorkbookPreferencesHTTPConformance",
-        "TestSupportPhase2_PublicRouteInventoryEnvelopes",
         "TestSupportPhase2_IncidentCreateReturnsStableLocationHeaderHTTPConformance",
         "TestSupportPhase2_IncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance",
         "TestSupportPhase2_MembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTPConformance",
-        "TestSupportPhase2_MembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConformance",
-        "TestSupportPhase2_ControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied"
+        "TestSupportPhase2_MembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConformance"
       ],
       "selection_pattern": "TestSupportPhase2_",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      }
+    },
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/modules/incidents",
+      "file": "internal/modules/incidents/phase2_http_conformance_test.go",
+      "symbols": [
+        "TestSupportPhase2_PublicRouteInventoryExtensionDiscoveryEnvelopes",
+        "TestSupportPhase2_PublicRouteInventoryIncidentCoreEnvelopes",
+        "TestSupportPhase2_PublicRouteInventoryMembershipAdminEnvelopes",
+        "TestSupportPhase2_PublicRouteInventoryWorkbookPreferencesEnvelopes"
+      ],
+      "selection_pattern": "TestSupportPhase2_",
+      "shard_isolation": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      }
+    },
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/modules/incidents",
+      "file": "internal/modules/incidents/phase2_http_conformance_test.go",
+      "symbols": [
+        "TestSupportPhase2_ControlBoundaryIncidentCoreDeploymentAdminWithoutMembershipDenied",
+        "TestSupportPhase2_ControlBoundaryMembershipAdminDeploymentAdminWithoutMembershipDenied",
+        "TestSupportPhase2_ControlBoundaryTimelineRecordAndLiveDeploymentAdminWithoutMembershipDenied",
+        "TestSupportPhase2_ControlBoundaryWorkbookPreferencesDeploymentAdminWithoutMembershipDenied",
+        "TestSupportPhase2_ControlBoundaryWorkbookQueriesDeploymentAdminWithoutMembershipDenied"
+      ],
+      "selection_pattern": "TestSupportPhase2_",
+      "shard_isolation": true,
       "fixture_policy": {
         "postgres": "template_clone"
       }
@@ -292,11 +325,18 @@
       "runner": "go_test",
       "package": "./internal/modules/incidents",
       "file": "internal/modules/incidents/phase2_integration_test.go",
-      "symbol": "TestPhase2_I_2_03_ControlBoundaryInventoryReDerivesAuthorizationImmediately",
+      "symbols": [
+        "TestPhase2_I_2_03_ControlBoundaryIncidentCoreReDerivesAuthorizationImmediately",
+        "TestPhase2_I_2_03_ControlBoundaryMembershipAdminReDerivesAuthorizationImmediately",
+        "TestPhase2_I_2_03_ControlBoundaryTimelineRecordAndLiveReDerivesAuthorizationImmediately",
+        "TestPhase2_I_2_03_ControlBoundaryWorkbookPreferencesReDerivesAuthorizationImmediately",
+        "TestPhase2_I_2_03_ControlBoundaryWorkbookQueriesReDerivesAuthorizationImmediately"
+      ],
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "One same-session role progression `no membership -> viewer -> reviewer -> admin -> removed` re-derives access immediately for every `ControlBoundaryInventory()` route, including workbook-preference reads, membership-admin routes, and the Timeline websocket boundary.",
       "out_of_scope": "Deployment-admin-without-membership breadth is paired with the support inventory sweep.",
+      "shard_isolation": true,
       "fixture_policy": {
         "postgres": "template_clone"
       }

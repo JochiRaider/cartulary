@@ -463,6 +463,7 @@ function manifestRowsForFamily(root, descriptor, family) {
     file: entry.file,
     package: entry.package,
     symbols: goEntrySymbols(entry),
+    shard_isolation: entry.shard_isolation === true,
     evidence_layer: entry.evidence_layer,
     fixture_policy: {
       postgres: effectiveGoEntryPostgresFixturePolicy(entry),
@@ -493,6 +494,7 @@ function supportRowsForFamily(root, descriptor, family) {
           file: entry.file,
           package: entry.package,
           symbols: [symbol],
+          shard_isolation: entry.shard_isolation === true,
           evidence_layer: "support",
           fixture_policy: {
             postgres: effectiveSupportGoEntryPostgresFixturePolicy(entry),

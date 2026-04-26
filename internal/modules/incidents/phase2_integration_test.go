@@ -251,8 +251,30 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 	}
 }
 
-func TestPhase2_I_2_03_ControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing.T) {
-	for _, route := range phase2test.ControlBoundaryInventory() {
+func TestPhase2_I_2_03_ControlBoundaryIncidentCoreReDerivesAuthorizationImmediately(t *testing.T) {
+	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, phase2test.ControlBoundaryInventoryIncidentCore())
+}
+
+func TestPhase2_I_2_03_ControlBoundaryMembershipAdminReDerivesAuthorizationImmediately(t *testing.T) {
+	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, phase2test.ControlBoundaryInventoryMembershipAdmin())
+}
+
+func TestPhase2_I_2_03_ControlBoundaryWorkbookPreferencesReDerivesAuthorizationImmediately(t *testing.T) {
+	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, phase2test.ControlBoundaryInventoryWorkbookPreferences())
+}
+
+func TestPhase2_I_2_03_ControlBoundaryWorkbookQueriesReDerivesAuthorizationImmediately(t *testing.T) {
+	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, phase2test.ControlBoundaryInventoryWorkbookQueries())
+}
+
+func TestPhase2_I_2_03_ControlBoundaryTimelineRecordAndLiveReDerivesAuthorizationImmediately(t *testing.T) {
+	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, phase2test.ControlBoundaryInventoryTimelineRecordAndLive())
+}
+
+func requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing.T, routes []phase2test.RouteInventoryEntry) {
+	t.Helper()
+
+	for _, route := range routes {
 		route := route
 		t.Run(route.Name, func(t *testing.T) {
 			fixtureCtx := newPhase2RouteFixture(t, "phase2-i-2-03-"+route.Name)

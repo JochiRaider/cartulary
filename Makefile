@@ -5,7 +5,7 @@ SHELL := /bin/bash
 .PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install
 .PHONY: db-up db-reset services-up services-wait postgres-wait minio-wait minio-init dev
 .PHONY: generate generate-drift toolchain-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-ledgers phase-ledger-drift benchmark-claim-check task-surface-report task-surface-check
-.PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check test-service-images run-harness-smoke-fast run-harness-smoke-fast-all run-harness-smoke-extended run-harness-smoke-extended-all run-harness-smoke-full run-harness-smoke-full-all run-phase-smoke run-phase-smoke-all phase-test-name-check
+.PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target go-test-duration-baselines backend-task-surface-check service-backed-unit-check test-service-images run-harness-smoke-fast run-harness-smoke-fast-all run-harness-smoke-extended run-harness-smoke-extended-all run-harness-smoke-full run-harness-smoke-full-all run-phase-smoke run-phase-smoke-all phase-test-name-check
 .PHONY: harness-smoke-toolchain-pins harness-smoke-bootstrap-node-runtime harness-smoke-build-input-discovery harness-smoke-check-migrations harness-smoke-run-make-sequence-fast harness-smoke-run-make-sequence harness-smoke-release-task-surface harness-smoke-benchmark-claim-check harness-smoke-task-surface-report harness-smoke-run-phase harness-smoke-run-go-target-fast harness-smoke-run-go-target harness-smoke-print-target-plan harness-smoke-service-backed-scheduler harness-smoke-run-playwright-phase harness-smoke-run-playwright-manifest-phase harness-smoke-run-playwright-webserver-batch harness-smoke-run-vitest-phase harness-smoke-run-vitest-manifest-phase harness-smoke-web-e2e-lifecycle harness-smoke-dev-stack-lifecycle
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck format format-frontend
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-resettable browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
@@ -218,6 +218,7 @@ help:
 		'  make target-plan           explain backend target execution families' \
 		'  make target-plan-json      emit deterministic backend target plan JSON' \
 		'  make explain-target TARGET=backend-store explain one backend target' \
+		'  make go-test-duration-baselines RESULTS_DIR=<dir> refresh Go test duration baselines' \
 		'' \
 		'frontend:' \
 		'  make frontend-typecheck    run TypeScript type checking' \
@@ -571,6 +572,10 @@ target-plan-json:
 explain-target:
 	$(Q)if [ -z "$(TARGET)" ]; then echo "usage: make explain-target TARGET=<backend target>" >&2; exit 2; fi
 	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/print-target-plan.mjs --target "$(TARGET)" $(if $(filter 0,$(DETAIL)),,--detail)
+
+go-test-duration-baselines:
+	$(Q)if [ -z "$(RESULTS_DIR)" ]; then echo "usage: make go-test-duration-baselines RESULTS_DIR=<successful test results dir>" >&2; exit 2; fi
+	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/update-go-test-durations.mjs $(if $(filter 1,$(PRUNE_OBSERVED_PACKAGES)),--prune-observed-packages) "$(RESULTS_DIR)"
 
 backend-store: export CARTULARY_TEST_TARGET := backend-store
 

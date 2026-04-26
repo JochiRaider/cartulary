@@ -1,6 +1,7 @@
 package phase2test
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -204,6 +205,37 @@ func PublicRouteInventory() []RouteInventoryEntry {
 			SuccessEnvelope: true,
 		},
 	}
+}
+
+func PublicRouteInventoryIncidentCore() []RouteInventoryEntry {
+	return routeInventoryByName(PublicRouteInventory(),
+		"incident list",
+		"incident create",
+		"incident get",
+		"incident patch",
+	)
+}
+
+func PublicRouteInventoryMembershipAdmin() []RouteInventoryEntry {
+	return routeInventoryByName(PublicRouteInventory(),
+		"memberships list",
+		"membership create",
+		"membership patch",
+		"membership delete",
+	)
+}
+
+func PublicRouteInventoryWorkbookPreferences() []RouteInventoryEntry {
+	return routeInventoryByName(PublicRouteInventory(),
+		"default workbook preferences",
+		"user workbook preferences",
+	)
+}
+
+func PublicRouteInventoryExtensionDiscovery() []RouteInventoryEntry {
+	return routeInventoryByName(PublicRouteInventory(),
+		"extensions list",
+	)
 }
 
 func ControlBoundaryInventory() []RouteInventoryEntry {
@@ -437,4 +469,63 @@ func ControlBoundaryInventory() []RouteInventoryEntry {
 			},
 		},
 	}
+}
+
+func ControlBoundaryInventoryIncidentCore() []RouteInventoryEntry {
+	return routeInventoryByName(ControlBoundaryInventory(),
+		"incident get",
+		"incident patch",
+	)
+}
+
+func ControlBoundaryInventoryMembershipAdmin() []RouteInventoryEntry {
+	return routeInventoryByName(ControlBoundaryInventory(),
+		"memberships list",
+		"membership create",
+		"membership patch",
+		"membership delete",
+	)
+}
+
+func ControlBoundaryInventoryWorkbookPreferences() []RouteInventoryEntry {
+	return routeInventoryByName(ControlBoundaryInventory(),
+		"default workbook preferences",
+		"user workbook preferences",
+	)
+}
+
+func ControlBoundaryInventoryWorkbookQueries() []RouteInventoryEntry {
+	return routeInventoryByName(ControlBoundaryInventory(),
+		"timeline query",
+		"hosts query",
+		"identities query",
+		"indicators query",
+	)
+}
+
+func ControlBoundaryInventoryTimelineRecordAndLive() []RouteInventoryEntry {
+	return routeInventoryByName(ControlBoundaryInventory(),
+		"timeline create",
+		"timeline websocket",
+		"record patch",
+		"mark reviewed",
+		"supersede",
+	)
+}
+
+func routeInventoryByName(inventory []RouteInventoryEntry, names ...string) []RouteInventoryEntry {
+	byName := make(map[string]RouteInventoryEntry, len(inventory))
+	for _, route := range inventory {
+		byName[route.Name] = route
+	}
+
+	routes := make([]RouteInventoryEntry, 0, len(names))
+	for _, name := range names {
+		route, ok := byName[name]
+		if !ok {
+			panic(fmt.Sprintf("missing phase2 route inventory entry %q", name))
+		}
+		routes = append(routes, route)
+	}
+	return routes
 }

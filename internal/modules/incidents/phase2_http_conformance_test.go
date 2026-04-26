@@ -54,8 +54,26 @@ func TestSupportPhase2_IncidentCreateBootstrapsCreatorAndWorkbookPreferencesHTTP
 	}
 }
 
-func TestSupportPhase2_PublicRouteInventoryEnvelopes(t *testing.T) {
-	for _, route := range phase2test.PublicRouteInventory() {
+func TestSupportPhase2_PublicRouteInventoryIncidentCoreEnvelopes(t *testing.T) {
+	requirePublicRouteInventoryEnvelopes(t, phase2test.PublicRouteInventoryIncidentCore())
+}
+
+func TestSupportPhase2_PublicRouteInventoryMembershipAdminEnvelopes(t *testing.T) {
+	requirePublicRouteInventoryEnvelopes(t, phase2test.PublicRouteInventoryMembershipAdmin())
+}
+
+func TestSupportPhase2_PublicRouteInventoryWorkbookPreferencesEnvelopes(t *testing.T) {
+	requirePublicRouteInventoryEnvelopes(t, phase2test.PublicRouteInventoryWorkbookPreferences())
+}
+
+func TestSupportPhase2_PublicRouteInventoryExtensionDiscoveryEnvelopes(t *testing.T) {
+	requirePublicRouteInventoryEnvelopes(t, phase2test.PublicRouteInventoryExtensionDiscovery())
+}
+
+func requirePublicRouteInventoryEnvelopes(t *testing.T, routes []phase2test.RouteInventoryEntry) {
+	t.Helper()
+
+	for _, route := range routes {
 		route := route
 		t.Run(route.Name, func(t *testing.T) {
 			fixtureCtx := newPhase2RouteFixture(t, "phase2-public-"+route.Name)
@@ -384,8 +402,30 @@ func TestSupportPhase2_MembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGua
 	httptestx.RequireErrorEnvelope(t, lastAdmin, http.StatusConflict, "last_incident_admin")
 }
 
-func TestSupportPhase2_ControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied(t *testing.T) {
-	for _, route := range phase2test.ControlBoundaryInventory() {
+func TestSupportPhase2_ControlBoundaryIncidentCoreDeploymentAdminWithoutMembershipDenied(t *testing.T) {
+	requireControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied(t, phase2test.ControlBoundaryInventoryIncidentCore())
+}
+
+func TestSupportPhase2_ControlBoundaryMembershipAdminDeploymentAdminWithoutMembershipDenied(t *testing.T) {
+	requireControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied(t, phase2test.ControlBoundaryInventoryMembershipAdmin())
+}
+
+func TestSupportPhase2_ControlBoundaryWorkbookPreferencesDeploymentAdminWithoutMembershipDenied(t *testing.T) {
+	requireControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied(t, phase2test.ControlBoundaryInventoryWorkbookPreferences())
+}
+
+func TestSupportPhase2_ControlBoundaryWorkbookQueriesDeploymentAdminWithoutMembershipDenied(t *testing.T) {
+	requireControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied(t, phase2test.ControlBoundaryInventoryWorkbookQueries())
+}
+
+func TestSupportPhase2_ControlBoundaryTimelineRecordAndLiveDeploymentAdminWithoutMembershipDenied(t *testing.T) {
+	requireControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied(t, phase2test.ControlBoundaryInventoryTimelineRecordAndLive())
+}
+
+func requireControlBoundaryInventoryDeploymentAdminWithoutMembershipDenied(t *testing.T, routes []phase2test.RouteInventoryEntry) {
+	t.Helper()
+
+	for _, route := range routes {
 		route := route
 		t.Run(route.Name, func(t *testing.T) {
 			fixtureCtx := newPhase2RouteFixture(t, "phase2-control-denied-"+route.Name)

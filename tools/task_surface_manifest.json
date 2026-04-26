@@ -40,6 +40,7 @@
     { "name": "target-plan", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/print-target-plan.mjs"] },
     { "name": "target-plan-json", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/print-target-plan.mjs"] },
     { "name": "explain-target", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/print-target-plan.mjs"] },
+    { "name": "go-test-duration-baselines", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/update-go-test-durations.mjs"] },
     { "name": "backend-task-surface-check", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/check-backend-task-surface.sh"] },
     { "name": "service-backed-unit-check", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/check-service-backed-unit-tests.sh"] },
     { "name": "test-service-images", "classification": "helper_only", "included_in": ["helper_only"] },

@@ -112,6 +112,23 @@ assert_less_than() {
 }
 
 node_bin="${NODE_BIN:-node}"
+
+find_planned_shard_for_symbol() {
+  local target="$1"
+  local symbol="$2"
+
+  "$node_bin" - "$ROOT_DIR" "$target" "$symbol" <<'EOF'
+const { execFileSync } = require("node:child_process");
+const path = require("node:path");
+const [root, target, symbol] = process.argv.slice(2);
+const plan = JSON.parse(execFileSync(process.execPath, [path.join(root, "scripts/print-go-shard-plan.mjs"), "--json", "--target", target], { encoding: "utf8", cwd: root }));
+const shard = plan.shards.find((candidate) => candidate.items.some((item) => item.symbol === symbol));
+if (!shard) {
+  process.exit(1);
+}
+process.stdout.write(shard.name);
+EOF
+}
 go_bin="${GO:-go}"
 
 verbose_go_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-verbose.XXXXXX")"
@@ -304,13 +321,15 @@ phase2_incidents_shared_command="$(
 assert_contains "$phase2_incidents_shared_command" "TestSupportPhase2_" "backend-integration phase2 incidents support selector"
 assert_contains "$phase2_incidents_shared_command" "TestPhase2_I_2_01" "backend-integration phase2 incidents authoritative selector"
 
+phase2_incidents_shard="$(find_planned_shard_for_symbol backend-integration TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomically)"
 phase2_incidents_shard_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration backend-integration-phase2-incidents-shard-02
+  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration "$phase2_incidents_shard"
 )"
 assert_contains "$phase2_incidents_shard_command" "TestPhase2_I_2_01" "backend-integration phase2 incidents planned shard selector"
 
+phase2_incidents_support_shard="$(find_planned_shard_for_symbol backend-integration-support TestSupportPhase2_ControlBoundaryIncidentCoreDeploymentAdminWithoutMembershipDenied)"
 phase2_incidents_support_shard_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration-support backend-integration-phase2-incidents-shard-04
+  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration-support "$phase2_incidents_support_shard"
 )"
 assert_contains "$phase2_incidents_support_shard_command" "TestSupportPhase2_" "backend-integration support phase2 planned shard selector"
 
@@ -733,11 +752,11 @@ assert_contains "$backend_integration_structure" "capture_jobs=4" "backend-integ
 assert_contains "$backend_integration_structure" "raw_calls=1" "backend-integration raw testutil phase count"
 assert_contains "$backend_integration_structure" "manifest_calls=7" "backend-integration manifest shard phase count"
 assert_contains "$backend_integration_structure" "phase4_manifest_calls=2" "backend-integration phase4 split phase count"
-assert_contains "$backend_integration_structure" "backend-integration-phase4-entities-shard-01 backend-integration-phase4-entities-shard-02" "backend-integration captures split phase4 entity shards"
-assert_contains "$backend_integration_structure" "backend-integration-phase2-incidents-shard-01" "backend-integration captures first split phase2 incident shard"
-assert_contains "$backend_integration_structure" "backend-integration-phase2-incidents-shard-02" "backend-integration captures second split phase2 incident shard"
+assert_contains "$backend_integration_structure" "backend-integration-phase4-entities-shard-" "backend-integration captures phase4 entity shards"
+assert_contains "$backend_integration_structure" "$phase2_incidents_shard" "backend-integration captures planned phase2 incident shard"
 assert_contains "$backend_integration_structure" "backend-integration-testutil-shard-01" "backend-integration captures raw testutil shard"
-assert_contains "$backend_integration_structure" "names= backend-integration-phase4-entities-shard-01" "backend-integration weighted shard order starts with heaviest shard"
+first_backend_integration_shard="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration | head -n 1)"
+assert_contains "$backend_integration_structure" "names= $first_backend_integration_shard" "backend-integration weighted shard order starts with heaviest shard"
 assert_contains "$backend_integration_structure" "finish_status=0" "backend-integration finish status"
 
 backend_integration_support_structure="$(
@@ -787,7 +806,8 @@ assert_contains "$backend_integration_support_structure" "capture_jobs=4" "backe
 assert_contains "$backend_integration_support_structure" "support_calls=5" "backend-integration-support support shard phase count"
 assert_contains "$backend_integration_support_structure" "backend-integration-phase4-entities-shard-" "backend-integration-support captures phase4 entities shards"
 assert_not_contains "$backend_integration_support_structure" "backend-integration-testutil" "backend-integration-support skips testutil shard"
-assert_contains "$backend_integration_support_structure" "names= backend-integration-phase4-entities-shard-" "backend-integration-support weighted shard order starts with heaviest support shard"
+first_backend_integration_support_shard="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration-support | head -n 1)"
+assert_contains "$backend_integration_support_structure" "names= $first_backend_integration_support_shard" "backend-integration-support weighted shard order starts with heaviest support shard"
 assert_contains "$backend_integration_support_structure" "finish_status=0" "backend-integration-support finish status"
 
 phase0_backend_unit_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase0 backend_unit ./internal/platform/... ./internal/app)"

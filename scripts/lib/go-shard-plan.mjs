@@ -3,10 +3,16 @@ import path from "node:path";
 import { collectTargetPlanRows } from "./target-plan.mjs";
 
 const defaultShardTargetMs = 30_000;
+const defaultBackendIntegrationShardTargetMs = 18_000;
 const defaultIntegrationWeightMs = 10_000;
 const baselinePath = path.join("tools", "go_test_duration_baselines.json");
 const shardTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
 const executionTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
+const defaultShardTargetMsByTarget = new Map([
+  ["backend-store", defaultShardTargetMs],
+  ["backend-integration", defaultBackendIntegrationShardTargetMs],
+  ["backend-integration-support", defaultBackendIntegrationShardTargetMs],
+]);
 
 const aggregateLabelOverrides = new Map([
   ["backend-integration-testutil", "backend-integration testutil"],
@@ -65,17 +71,28 @@ function loadDurationBaselines(root) {
   if (!existsSync(file)) {
     return {
       defaultShardTargetMs,
+      shardTargetMsByTarget: new Map(defaultShardTargetMsByTarget),
       defaultIntegrationWeightMs,
       tests: new Map(),
     };
   }
   const raw = JSON.parse(readFileSync(file, "utf8"));
   const tests = new Map(Object.entries(raw.tests ?? raw));
+  const shardTargetMsByTarget = new Map(defaultShardTargetMsByTarget);
+  for (const [target, targetMs] of Object.entries(raw.shard_target_ms_by_target ?? {})) {
+    if (shardTargets.has(target)) {
+      shardTargetMsByTarget.set(
+        target,
+        normalizePositiveInteger(targetMs, shardTargetMsByTarget.get(target)),
+      );
+    }
+  }
   return {
     defaultShardTargetMs: normalizePositiveInteger(
       raw.default_shard_target_ms,
       defaultShardTargetMs,
     ),
+    shardTargetMsByTarget,
     defaultIntegrationWeightMs: normalizePositiveInteger(
       raw.default_integration_weight_ms,
       defaultIntegrationWeightMs,
@@ -144,6 +161,7 @@ function buildExecutionItems(root) {
     if (row.target === "backend-integration" && row.coverage === "raw") {
       addAggregate(aggregates, row, "raw");
       executableItems.push({
+        target: row.target,
         aggregate_name: row.shared_report,
         kind: "raw",
         id: row.id,
@@ -153,6 +171,7 @@ function buildExecutionItems(root) {
         import_path: "",
         weight_ms: baselines.defaultIntegrationWeightMs,
         weight_source: "default",
+        shard_isolation: row.shard_isolation === true,
         postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
         postgres_fixture_budget: row.fixture_budget?.postgres ?? {},
       });
@@ -171,6 +190,7 @@ function buildExecutionItems(root) {
           baselines.defaultIntegrationWeightMs,
         );
         executableItems.push({
+          target: row.target,
           aggregate_name: row.shared_report,
           kind: "authoritative",
           id: row.id,
@@ -180,6 +200,7 @@ function buildExecutionItems(root) {
           import_path: importPath,
           weight_ms: weightMs,
           weight_source: baselines.tests.has(key) ? "baseline" : "default",
+          shard_isolation: row.shard_isolation === true,
           postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
           postgres_fixture_budget: row.fixture_budget?.postgres ?? {},
         });
@@ -196,6 +217,7 @@ function buildExecutionItems(root) {
           baselines.defaultIntegrationWeightMs,
         );
         executableItems.push({
+          target: row.target,
           aggregate_name: row.shared_report,
           kind: "support",
           id: row.id,
@@ -205,6 +227,7 @@ function buildExecutionItems(root) {
           import_path: importPath,
           weight_ms: weightMs,
           weight_source: baselines.tests.has(key) ? "baseline" : "default",
+          shard_isolation: row.shard_isolation === true,
           postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
           postgres_fixture_budget: row.fixture_budget?.postgres ?? {},
         });
@@ -229,8 +252,15 @@ function packAggregateItems(aggregateName, items, targetMs) {
   );
   const bins = [];
   for (const item of sorted) {
+    if (item.shard_isolation) {
+      bins.push({ aggregateName, items: [item], weight_ms: item.weight_ms, isolated: true });
+      continue;
+    }
     let selected = null;
     for (const bin of bins) {
+      if (bin.isolated) {
+        continue;
+      }
       if (bin.weight_ms + item.weight_ms <= targetMs) {
         selected = bin;
         break;
@@ -244,6 +274,27 @@ function packAggregateItems(aggregateName, items, targetMs) {
     selected.weight_ms += item.weight_ms;
   }
   return bins;
+}
+
+function shardTargetMsForItems(items, baselines, overrideTargetMs) {
+  if (Number.isInteger(overrideTargetMs)) {
+    return overrideTargetMs;
+  }
+  const targets = new Set(items.map((item) => item.target));
+  let targetMs = Number.POSITIVE_INFINITY;
+  for (const target of targets) {
+    targetMs = Math.min(
+      targetMs,
+      normalizePositiveInteger(
+        baselines.shardTargetMsByTarget.get(target),
+        baselines.defaultShardTargetMs,
+      ),
+    );
+  }
+  if (Number.isFinite(targetMs)) {
+    return targetMs;
+  }
+  return baselines.defaultShardTargetMs;
 }
 
 function targetOwnsShard(target, shard) {
@@ -284,9 +335,6 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
     Number.NaN,
   );
   const { baselines, aggregates, executableItems } = buildExecutionItems(root);
-  const targetMs = Number.isInteger(requestedTargetMs)
-    ? requestedTargetMs
-    : baselines.defaultShardTargetMs;
   const itemsByAggregate = new Map();
   for (const item of executableItems) {
     if (!itemsByAggregate.has(item.aggregate_name)) {
@@ -297,6 +345,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
 
   const shards = [];
   for (const [aggregateName, items] of [...itemsByAggregate.entries()].sort()) {
+    const targetMs = shardTargetMsForItems(items, baselines, requestedTargetMs);
     const bins = packAggregateItems(aggregateName, items, targetMs);
     bins.forEach((bin, index) => {
       const packages = new Set();
@@ -321,6 +370,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
       shards.push({
         name: shardName(aggregateName, index),
         aggregate_name: aggregateName,
+        shard_target_ms: targetMs,
         regex: hasRaw ? rawRegex : exactRegex(symbols.sort(compareStrings)),
         packages: Array.from(packages).sort(compareStrings),
         weight_ms: bin.weight_ms,
@@ -338,6 +388,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
             packages: item.packages,
             weight_ms: item.weight_ms,
             weight_source: item.weight_source,
+            shard_isolation: item.shard_isolation,
             postgres_fixture_policy: item.postgres_fixture_policy,
             postgres_fixture_budget: item.postgres_fixture_budget,
           }))
@@ -392,8 +443,13 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
   );
 
   return {
-    schema_id: "cartulary.go_shard_plan.v1",
-    shard_target_ms: targetMs,
+    schema_id: "cartulary.go_shard_plan.v2",
+    default_shard_target_ms: baselines.defaultShardTargetMs,
+    shard_target_ms_by_target: Object.fromEntries(
+      [...baselines.shardTargetMsByTarget.entries()].sort(([left], [right]) =>
+        compareStrings(left, right),
+      ),
+    ),
     default_integration_weight_ms: baselines.defaultIntegrationWeightMs,
     targets: Array.from(shardTargets).sort(compareStrings),
     aggregates: aggregateList,
