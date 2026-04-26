@@ -12,6 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -68,6 +71,11 @@ type Harness struct {
 type TestDatabase struct {
 	Name string
 	DSN  string
+}
+
+type RollbackDB struct {
+	tx   pgx.Tx
+	conn *pgx.Conn
 }
 
 type packageDatabase struct {
@@ -476,6 +484,88 @@ func (h *Harness) PreparePackageDatabaseT(t testing.TB, prefix string) *TestData
 	return fixture.db
 }
 
+func (h *Harness) OpenDBT(t testing.TB, prefix string) postgres.DB {
+	t.Helper()
+
+	db, _ := h.OpenDBAndSQLT(t, prefix)
+	return db
+}
+
+func (h *Harness) OpenDBAndSQLT(t testing.TB, prefix string) (postgres.DB, *sql.DB) {
+	t.Helper()
+
+	attribution := fixtureAttributionFor(t, "pgtest")
+	if resolvePostgresFixturePolicy(attribution) == postgresFixturePolicyTransaction {
+		return h.BeginRollbackDBT(t, prefix), nil
+	}
+
+	testDB := h.PreparePackageDatabaseT(t, prefix)
+	pool, err := pgxpool.New(context.Background(), testDB.DSN)
+	if err != nil {
+		t.Fatalf("open postgres pool: %v", err)
+	}
+	t.Cleanup(func() {
+		pool.Close()
+	})
+
+	sqlDB, err := sql.Open("pgx", testDB.DSN)
+	if err != nil {
+		t.Fatalf("open postgres sql handle: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = sqlDB.Close()
+	})
+	return pool, sqlDB
+}
+
+func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {
+	t.Helper()
+
+	attribution := fixtureAttributionFor(t, "pgtest")
+	attribution.PostgresFixturePolicy = postgresFixturePolicyTransaction
+	key := attribution.CallerPackage
+	if key == "" {
+		key = sanitizeIdentifier(prefix)
+	}
+	fixture := h.packageDatabase(key)
+	fixture.mu.Lock()
+
+	if fixture.db == nil {
+		testDB, _, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePackage, attribution)
+		if err != nil {
+			fixture.mu.Unlock()
+			t.Fatalf("prepare transaction postgres database: %v", err)
+		}
+		fixture.db = testDB
+	}
+
+	conn, err := pgx.Connect(context.Background(), fixture.db.DSN)
+	if err != nil {
+		fixture.mu.Unlock()
+		t.Fatalf("open transaction postgres connection: %v", err)
+	}
+
+	start := time.Now()
+	tx, err := conn.BeginTx(context.Background(), pgx.TxOptions{})
+	if err != nil {
+		_ = conn.Close(context.Background())
+		fixture.mu.Unlock()
+		t.Fatalf("begin postgres rollback transaction: %v", err)
+	}
+	recordSuiteEvent(suiteservices.Event{
+		Type:    suiteservices.EventPostgresTransaction,
+		Name:    fixture.db.Name,
+		Details: postgresFixtureDetails("", suiteservices.FixtureReuseTransaction, attribution, time.Since(start)),
+	})
+
+	t.Cleanup(func() {
+		_ = tx.Rollback(context.Background())
+		_ = conn.Close(context.Background())
+		fixture.mu.Unlock()
+	})
+	return &RollbackDB{tx: tx, conn: conn}
+}
+
 func (h *Harness) PrepareGroupDatabaseT(t testing.TB, prefix string, groupKey string) *TestDatabase {
 	t.Helper()
 
@@ -734,6 +824,22 @@ func BeginRollbackTxT(t testing.TB, db *sql.DB) *sql.Tx {
 		_ = tx.Rollback()
 	})
 	return tx
+}
+
+func (db *RollbackDB) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	return db.tx.Exec(ctx, sql, args...)
+}
+
+func (db *RollbackDB) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	return db.tx.Query(ctx, sql, args...)
+}
+
+func (db *RollbackDB) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	return db.tx.QueryRow(ctx, sql, args...)
+}
+
+func (db *RollbackDB) BeginTx(ctx context.Context, _ pgx.TxOptions) (pgx.Tx, error) {
+	return db.tx.Begin(ctx)
 }
 
 func (h *Harness) DropDatabase(ctx context.Context, name string) error {

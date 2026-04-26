@@ -47,7 +47,7 @@ if ! "$NODE_HELPER" - "$json_a" <<'EOF'
 const fs = require("node:fs");
 const rows = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const storeRows = rows.filter((row) => row.target === "backend-store");
-if (storeRows.length === 0 || !storeRows.every((row) => row.fixture_policy?.postgres === "package_reset")) {
+if (storeRows.length === 0 || !storeRows.every((row) => row.fixture_policy?.postgres === "template_clone")) {
   process.exit(1);
 }
 const rawPgtest = rows.find((row) => row.target === "backend-integration" && row.shared_report === "backend-integration-testutil");
@@ -61,6 +61,10 @@ if (serviceBackedGoRows.length === 0 || !serviceBackedGoRows.every((row) => vali
 }
 const packageResetRows = serviceBackedGoRows.filter((row) => row.fixture_policy?.postgres === "package_reset" && row.coverage !== "raw");
 if (!packageResetRows.every((row) => Number.isInteger(row.fixture_budget?.postgres?.max_package_resets) && Number.isInteger(row.fixture_budget?.postgres?.max_reset_duration_ms))) {
+  process.exit(1);
+}
+const templateCloneRows = serviceBackedGoRows.filter((row) => row.fixture_policy?.postgres === "template_clone");
+if (!templateCloneRows.every((row) => Number.isInteger(row.fixture_budget?.postgres?.max_template_clones))) {
   process.exit(1);
 }
 EOF
@@ -133,12 +137,12 @@ if (!plan.targets.includes("backend-store") || plan.shards.length === 0) {
   process.exit(1);
 }
 const items = plan.shards.flatMap((shard) => shard.items);
-if (items.length === 0 || !items.every((item) => item.kind === "authoritative" && item.postgres_fixture_policy === "package_reset")) {
+if (items.length === 0 || !items.every((item) => item.kind === "authoritative" && item.postgres_fixture_policy === "template_clone")) {
   process.exit(1);
 }
 EOF
 then
-  fail "backend-store go shard plan must expose authoritative package-reset fixture planning"
+  fail "backend-store go shard plan must expose authoritative template-clone fixture planning"
 fi
 
 backend_store_output="$("$NODE_HELPER" "$PLAN_SCRIPT" --target backend-store)"

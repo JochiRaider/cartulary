@@ -1,13 +1,12 @@
 package phase2test
 
 import (
-	"context"
 	"database/sql"
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -25,7 +24,7 @@ type ServerHarness struct {
 }
 
 type StoreHarness struct {
-	Pool *pgxpool.Pool
+	Pool postgres.DB
 	DB   *sql.DB
 }
 
@@ -33,28 +32,8 @@ func StartStore(t testing.TB, prefix string) *StoreHarness {
 	t.Helper()
 
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PreparePackageDatabaseT(t, prefix)
-
-	pool, err := pgxpool.New(context.Background(), testDB.DSN)
-	if err != nil {
-		t.Fatalf("open pgx pool: %v", err)
-	}
-	t.Cleanup(func() {
-		pool.Close()
-	})
-
-	db, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatalf("open sql db: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = db.Close()
-	})
-
-	return &StoreHarness{
-		Pool: pool,
-		DB:   db,
-	}
+	pool, db := postgresHarness.OpenDBAndSQLT(t, prefix)
+	return &StoreHarness{Pool: pool, DB: db}
 }
 
 func StartRuntime(t testing.TB) *RuntimeHarness {
@@ -96,28 +75,8 @@ func (h *RuntimeHarness) StartServer(t testing.TB, prefix string) *ServerHarness
 func (h *RuntimeHarness) StartStore(t testing.TB, prefix string) *StoreHarness {
 	t.Helper()
 
-	testDB := h.prepareDatabase(t, prefix)
-
-	pool, err := pgxpool.New(context.Background(), testDB.DSN)
-	if err != nil {
-		t.Fatalf("open pgx pool: %v", err)
-	}
-	t.Cleanup(func() {
-		pool.Close()
-	})
-
-	db, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatalf("open sql db: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = db.Close()
-	})
-
-	return &StoreHarness{
-		Pool: pool,
-		DB:   db,
-	}
+	pool, db := h.Postgres.OpenDBAndSQLT(t, prefix)
+	return &StoreHarness{Pool: pool, DB: db}
 }
 
 func (h *RuntimeHarness) prepareDatabase(t testing.TB, prefix string) *pgtest.TestDatabase {

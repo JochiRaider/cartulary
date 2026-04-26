@@ -13,17 +13,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type Store struct {
-	pool            *pgxpool.Pool
+	pool            postgres.DB
 	authStore       *authn.Store
 	recordStore     *records.Store
 	revisionsStore  *revisions.Store
@@ -31,7 +31,7 @@ type Store struct {
 	linkStore       *links.Store
 }
 
-func NewStore(pool *pgxpool.Pool) *Store {
+func NewStore(pool postgres.DB) *Store {
 	return &Store{
 		pool:            pool,
 		authStore:       authn.NewStore(pool),

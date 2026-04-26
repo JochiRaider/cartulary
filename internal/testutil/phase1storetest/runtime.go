@@ -11,11 +11,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 type StoreHarness struct {
-	Pool *pgxpool.Pool
+	Pool postgres.DB
 	DB   *sql.DB
 }
 
@@ -48,6 +49,6 @@ func StartStore(t testing.TB, prefix string) *StoreHarness {
 	t.Helper()
 
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PreparePackageDatabaseT(t, prefix)
-	return OpenStore(t, testDB.DSN)
+	pool, db := postgresHarness.OpenDBAndSQLT(t, prefix)
+	return &StoreHarness{Pool: pool, DB: db}
 }

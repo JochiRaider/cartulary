@@ -11,10 +11,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 var (
@@ -26,7 +26,7 @@ var (
 )
 
 type Store struct {
-	pool          *pgxpool.Pool
+	pool          postgres.DB
 	authStore     *authn.Store
 	revisionStore *revisions.Store
 }
@@ -122,7 +122,7 @@ type HandleRecord struct {
 	ConsumedAt   *time.Time
 }
 
-func NewStore(pool *pgxpool.Pool) *Store {
+func NewStore(pool postgres.DB) *Store {
 	return &Store{pool: pool, authStore: authn.NewStore(pool), revisionStore: revisions.NewStore()}
 }
 

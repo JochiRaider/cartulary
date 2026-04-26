@@ -204,6 +204,7 @@ function actualStats(events, target) {
     transactions: 0,
     migrationScratchCreates: 0,
     migrationScratchDetails: [],
+    forbiddenPackageResets: [],
     unplannedTemplateClones: [],
     unplannedGroupClones: [],
     unplannedTransactions: [],
@@ -249,6 +250,16 @@ function actualStats(events, target) {
     ) {
       stats.packageResetEvents += 1;
       stats.packageResetDurationMS += intDetail(details, "duration_ms");
+      const callerPackage = normalizePackage(details.caller_package ?? "");
+      if (
+        target === "backend-store" ||
+        callerPackage === "internal/app" ||
+        callerPackage.startsWith("internal/modules/")
+      ) {
+        stats.forbiddenPackageResets.push(
+          `${callerPackage || "(unknown package)"} ${testName || "(unknown test)"}`.trim(),
+        );
+      }
     }
     if (event.type === "postgres-transaction") {
       stats.transactions += 1;
@@ -311,6 +322,11 @@ function checkTarget(events, target) {
   failIfOver(target, "package reset duration", stats.packageResetDurationMS, budget.packageResetDurationMS);
   failIfOver(target, "transaction", stats.transactions, budget.transactions);
   failIfMigrationScratchOver(target, stats, budget);
+  if (stats.forbiddenPackageResets.length > 0) {
+    throw new Error(
+      `${target} used forbidden postgres package resets: ${stats.forbiddenPackageResets.join("; ")}`,
+    );
+  }
   if (stats.unplannedTemplateClones.length > 0) {
     throw new Error(`${target} used unplanned per-test postgres template clones: ${stats.unplannedTemplateClones.join("; ")}`);
   }

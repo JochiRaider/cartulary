@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type IncidentCreateReplaySelector struct {
@@ -30,7 +30,7 @@ type IncidentCreateReplaySideEffects struct {
 
 func CreateIncidentInStore(
 	t testing.TB,
-	pool *pgxpool.Pool,
+	pool postgres.DB,
 	actor authn.UserRecord,
 	request incidents.CreateIncidentRequest,
 ) incidents.CreateIncidentResult {
@@ -53,7 +53,7 @@ func CreateIncidentInStore(
 
 func CreateMembershipInStore(
 	t testing.TB,
-	pool *pgxpool.Pool,
+	pool postgres.DB,
 	actor authn.UserRecord,
 	incidentID uuid.UUID,
 	targetUser authn.UserRecord,
@@ -78,7 +78,7 @@ func CreateMembershipInStore(
 	return result
 }
 
-func LookupUserByEmail(t testing.TB, pool *pgxpool.Pool, email string) authn.UserRecord {
+func LookupUserByEmail(t testing.TB, pool postgres.DB, email string) authn.UserRecord {
 	t.Helper()
 
 	store := authn.NewStore(pool)
@@ -89,7 +89,7 @@ func LookupUserByEmail(t testing.TB, pool *pgxpool.Pool, email string) authn.Use
 	return record
 }
 
-func LookupUserByID(t testing.TB, pool *pgxpool.Pool, userID uuid.UUID) authn.UserRecord {
+func LookupUserByID(t testing.TB, pool postgres.DB, userID uuid.UUID) authn.UserRecord {
 	t.Helper()
 
 	store := authn.NewStore(pool)

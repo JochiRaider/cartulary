@@ -11,9 +11,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 var (
@@ -27,7 +27,7 @@ var (
 )
 
 type Store struct {
-	pool      *pgxpool.Pool
+	pool      postgres.DB
 	authStore *authn.Store
 	hooks     StoreHooks
 }
@@ -91,11 +91,11 @@ type MembershipCreateResult struct {
 	StatusCode int
 }
 
-func NewStore(pool *pgxpool.Pool) *Store {
+func NewStore(pool postgres.DB) *Store {
 	return NewStoreWithHooks(pool, currentStoreHooks())
 }
 
-func NewStoreWithHooks(pool *pgxpool.Pool, hooks StoreHooks) *Store {
+func NewStoreWithHooks(pool postgres.DB, hooks StoreHooks) *Store {
 	return &Store{
 		pool:      pool,
 		authStore: authn.NewStore(pool),

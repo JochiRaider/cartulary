@@ -12,7 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 var ErrNotFound = errors.New("authn: not found")
@@ -24,7 +25,7 @@ var ErrLastDeploymentAdmin = errors.New("authn: last deployment admin")
 var ErrUserVersionConflict = errors.New("authn: user version conflict")
 
 type Store struct {
-	pool *pgxpool.Pool
+	pool postgres.DB
 }
 
 type UserRecord struct {
@@ -147,7 +148,7 @@ type AdminRevokeAllResult struct {
 	Replayed          bool
 }
 
-func NewStore(pool *pgxpool.Pool) *Store {
+func NewStore(pool postgres.DB) *Store {
 	return &Store{pool: pool}
 }
 

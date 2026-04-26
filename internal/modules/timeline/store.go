@@ -16,7 +16,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
@@ -25,6 +24,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -80,7 +80,7 @@ type patchChangedField struct {
 }
 
 type Store struct {
-	pool            *pgxpool.Pool
+	pool            postgres.DB
 	authStore       *authn.Store
 	recordStore     *records.Store
 	revisionsStore  *revisions.Store
@@ -152,11 +152,11 @@ type RecordSubstrateSnapshot struct {
 	RecordRevisionCount int
 }
 
-func NewStore(pool *pgxpool.Pool) *Store {
+func NewStore(pool postgres.DB) *Store {
 	return NewStoreWithHooks(pool, currentStoreHooks())
 }
 
-func NewStoreWithHooks(pool *pgxpool.Pool, hooks StoreHooks) *Store {
+func NewStoreWithHooks(pool postgres.DB, hooks StoreHooks) *Store {
 	return &Store{
 		pool:            pool,
 		authStore:       authn.NewStore(pool),

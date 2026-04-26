@@ -648,6 +648,54 @@ SELECT EXISTS (
 	}
 }
 
+func TestBeginRollbackDBTIsolatesRowsWithoutPackageReset(t *testing.T) {
+	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyTransaction)
+	t.Setenv(suiteservices.SuiteIDEnv, "rollback-db")
+	t.Setenv(suiteservices.TargetEnv, "backend-store")
+	t.Setenv("CARTULARY_TEST_RESULTS_DIR", t.TempDir())
+	t.Setenv("CARTULARY_TEST_RUN_ID", "rollback-db")
+
+	harness := Start(t)
+
+	t.Run("insert rows inside rollback fixture", func(t *testing.T) {
+		db := harness.BeginRollbackDBT(t, "rollback-db")
+		if _, err := db.Exec(context.Background(), `INSERT INTO users (email, display_name, password_hash, mfa_required) VALUES ($1, $2, $3, false)`, "rollback@example.test", "Rollback", "hash"); err != nil {
+			t.Fatalf("seed rollback transaction: %v", err)
+		}
+	})
+
+	t.Run("next rollback fixture starts clean", func(t *testing.T) {
+		db := harness.BeginRollbackDBT(t, "rollback-db")
+		var count int
+		if err := db.QueryRow(context.Background(), `SELECT COUNT(*) FROM users WHERE email = $1`, "rollback@example.test").Scan(&count); err != nil {
+			t.Fatalf("count rollback rows: %v", err)
+		}
+		if count != 0 {
+			t.Fatalf("expected rollback fixture to discard rows, got %d", count)
+		}
+	})
+
+	scope, ok, err := suiteservices.Summarize(nil)
+	if err != nil {
+		t.Fatalf("summarize suite service events: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected suite service summary")
+	}
+	transactionCount := 0
+	for _, activity := range scope.Fixture.ByStrategy {
+		if activity.Operation == "database-reset" {
+			t.Fatalf("rollback fixture must not emit database-reset activity: %#v", activity)
+		}
+		if activity.Operation == "transaction" && activity.FixturePolicy == postgresFixturePolicyTransaction {
+			transactionCount += activity.Count
+		}
+	}
+	if transactionCount != 2 {
+		t.Fatalf("expected two rollback transaction events, got %d in %#v", transactionCount, scope.Fixture.ByStrategy)
+	}
+}
+
 func TestPreparePackageDatabaseTReusesAndResetsMutableTables(t *testing.T) {
 	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyPackageReset)
 	harness := Start(t)

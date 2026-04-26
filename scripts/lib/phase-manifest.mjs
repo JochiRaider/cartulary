@@ -268,6 +268,12 @@ function validatePostgresFixtureBudget(entry, policy, budget, label) {
     if (budget.max_reset_duration_ms === undefined) {
       throw new Error(`${label} package_reset must declare fixture_budget.postgres.max_reset_duration_ms`);
     }
+    if (!Array.isArray(budget.dirty_tables) || budget.dirty_tables.length === 0) {
+      throw new Error(`${label} package_reset must declare fixture_budget.postgres.dirty_tables`);
+    }
+    if (typeof entry.package_reset_reason !== "string" || entry.package_reset_reason.trim() === "") {
+      throw new Error(`${label} package_reset must declare package_reset_reason`);
+    }
     return;
   }
   if (policy === postgresFixturePolicyTemplateClone && budget.max_template_clones === undefined) {

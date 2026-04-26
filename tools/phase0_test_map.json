@@ -42,12 +42,11 @@
       "symbol": "TestSupportPhase0_ManagedServiceObjectStoreBinding",
       "selection_pattern": "TestSupportPhase0_",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       },
       "fixture_budget": {
         "postgres": {
-          "max_package_resets": 50,
-          "max_reset_duration_ms": 60000
+          "max_template_clones": 50
         }
       }
     }
@@ -183,12 +182,11 @@
       "claim": "Real S3-compatible object-store setup resolves disconnected `filesystem_root` bindings through the generic `CARTULARY_S3_*` contract and completes a live round trip.",
       "out_of_scope": "Managed-service object-store binding coverage remains supplemental.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       },
       "fixture_budget": {
         "postgres": {
-          "max_package_resets": 50,
-          "max_reset_duration_ms": 60000
+          "max_template_clones": 50
         }
       }
     },
@@ -204,12 +202,11 @@
       "claim": "Config failures on real Postgres and MinIO prevent ready state and stop handler, WebSocket, and job startup even when backing services are healthy.",
       "out_of_scope": "Real process exit behavior and connection refusal remain `E-0-02`.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       },
       "fixture_budget": {
         "postgres": {
-          "max_package_resets": 50,
-          "max_reset_duration_ms": 60000
+          "max_template_clones": 50
         }
       }
     },
@@ -245,12 +242,11 @@
       "claim": "Required bootstrap failures for missing, unreadable regular-file, non-regular, malformed, schema-invalid, and email-conflicting manifests block readiness and leave no partial bootstrap state.",
       "out_of_scope": "Process-boundary refusal and exit diagnostics remain `E-0-04`.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       },
       "fixture_budget": {
         "postgres": {
-          "max_package_resets": 50,
-          "max_reset_duration_ms": 60000
+          "max_template_clones": 50
         }
       }
     },
@@ -266,12 +262,11 @@
       "claim": "Existing active admins skip stale or invalid manifests, while bootstrap-completion with zero active admins fails closed without implicit recovery.",
       "out_of_scope": "Real process-boundary refusal remains `E-0-05`.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       },
       "fixture_budget": {
         "postgres": {
-          "max_package_resets": 50,
-          "max_reset_duration_ms": 60000
+          "max_template_clones": 50
         }
       }
     }

@@ -28,8 +28,9 @@ This guide also resolves one dependency error from the prior version: reviewer-f
 
 Service-backed Go tests must keep service ownership centralized in `tools/testservices`; phase helpers choose only the fixture isolation mode used inside that already-running Postgres and MinIO pair.
 
-- Use isolated per-test Postgres databases and buckets for startup, migration, rollback, process-boundary, and unclear isolation cases.
-- Use package-reused Postgres databases for store and ordinary route tests that only require a clean logical schema state; helpers reset mutable public tables and preserve migration metadata before each test.
+- Use isolated per-test Postgres template clones for startup, migration, rollback, process-boundary, HTTP/runtime, and unclear isolation cases.
+- Use transaction-backed Postgres fixtures for store-only tests once their seed and assertion helpers run through the shared `postgres.DB` test surface.
+- Use package-reused Postgres databases only for harness self-tests or rows with explicitly declared dirty-table reset scope; broad mutable-table resets are not a default fixture mode.
 - Use package-reused MinIO buckets for ordinary route tests; helpers clear object contents before each test. Prefix cleanup is available for tests that can route all object keys through a unique prefix.
 - Treat fixture churn diagnostics in `service-scope.json` and `target-summary.json` as the source of truth when deciding whether a test needs stronger isolation.
 

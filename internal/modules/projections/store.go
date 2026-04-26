@@ -10,11 +10,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type Store struct {
-	pool *pgxpool.Pool
+	pool postgres.DB
 }
 
 type TimelineProjectionInput struct {
@@ -34,7 +35,7 @@ type TimelineProjectionInput struct {
 	HasUnresolvedMentions bool
 }
 
-func NewStore(pool *pgxpool.Pool) *Store {
+func NewStore(pool postgres.DB) *Store {
 	return &Store{pool: pool}
 }
 

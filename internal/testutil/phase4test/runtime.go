@@ -10,20 +10,20 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 type StoreHarness struct {
-	Pool *pgxpool.Pool
+	Pool postgres.DB
 	DB   *sql.DB
 }
 
@@ -36,28 +36,8 @@ func StartStore(t testing.TB, prefix string) *StoreHarness {
 	t.Helper()
 
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PreparePackageDatabaseT(t, prefix)
-
-	pool, err := pgxpool.New(context.Background(), testDB.DSN)
-	if err != nil {
-		t.Fatalf("open pgx pool: %v", err)
-	}
-	t.Cleanup(func() {
-		pool.Close()
-	})
-
-	db, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatalf("open sql db: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = db.Close()
-	})
-
-	return &StoreHarness{
-		Pool: pool,
-		DB:   db,
-	}
+	pool, db := postgresHarness.OpenDBAndSQLT(t, prefix)
+	return &StoreHarness{Pool: pool, DB: db}
 }
 
 func DoJSON(t testing.TB, method string, url string, body any, options ...func(*http.Request)) *http.Response {
@@ -116,7 +96,7 @@ func CreateIncident(t testing.TB, server *httptestx.Server, admin LoginResult, b
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
-func CreateIncidentInStore(t testing.TB, pool *pgxpool.Pool, actor authn.UserRecord, clientTxnID string, incidentKey string, title string) incidents.IncidentRecord {
+func CreateIncidentInStore(t testing.TB, pool postgres.DB, actor authn.UserRecord, clientTxnID string, incidentKey string, title string) incidents.IncidentRecord {
 	t.Helper()
 
 	store := incidents.NewStore(pool)

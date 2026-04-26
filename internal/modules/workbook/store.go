@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -32,7 +32,7 @@ const (
 )
 
 type Store struct {
-	pool          *pgxpool.Pool
+	pool          postgres.DB
 	authStore     *authn.Store
 	recordStore   *records.Store
 	revisionStore *revisions.Store
@@ -40,7 +40,7 @@ type Store struct {
 	entityStore   *entities.Store
 }
 
-func NewStore(pool *pgxpool.Pool) *Store {
+func NewStore(pool postgres.DB) *Store {
 	return &Store{
 		pool:          pool,
 		authStore:     authn.NewStore(pool),
