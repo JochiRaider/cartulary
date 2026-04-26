@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -30,18 +31,24 @@ import (
 )
 
 const (
-	postgresStartupTimeout = 2 * time.Minute
-	templateStartupTimeout = 2 * time.Minute
-	minioStartupTimeout    = 5 * time.Minute
-	cleanupTimeout         = 2 * time.Minute
-	signalWaitTimeout      = 15 * time.Second
-	webE2ECleanupWorkers   = 4
+	postgresStartupTimeout     = 2 * time.Minute
+	templateStartupTimeout     = 2 * time.Minute
+	minioStartupTimeout        = 5 * time.Minute
+	cleanupTimeout             = 2 * time.Minute
+	signalWaitTimeout          = 15 * time.Second
+	webE2ECleanupWorkers       = 4
+	webE2ECleanupMaxWorkers    = 16
+	staleFixtureMaxCandidates  = 32
+	staleFixtureJanitorTimeout = 10 * time.Second
+
+	webE2ECleanupWorkersEnv = "CARTULARY_TEST_SERVICES_WEB_E2E_CLEANUP_WORKERS"
 
 	stagePostgresStart    = "postgres-start"
 	stagePostgresTemplate = "postgres-template"
 	stageMinIOStart       = "minio-start"
 	stageChildStart       = "child-start"
 	stageCleanupWebE2E    = "cleanup-web-e2e"
+	stageCleanupJanitor   = "cleanup-janitor"
 	stageCleanupPostgres  = "cleanup-postgres"
 	stageCleanupMinIO     = "cleanup-minio"
 
@@ -77,6 +84,15 @@ type postgresStartResult struct {
 
 type minioStartResult struct {
 	service minioService
+	start   time.Time
+	end     time.Time
+	err     error
+}
+
+type serviceCleanupResult struct {
+	service string
+	stage   string
+	label   string
 	start   time.Time
 	end     time.Time
 	err     error
@@ -287,6 +303,17 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 		},
 	})
 	deps.refreshSummary(ownedEnv)
+
+	janitorCtx, cancelJanitor := context.WithTimeout(context.Background(), staleFixtureJanitorTimeout)
+	janitorStart := time.Now().UTC()
+	err = cleanupStaleWebE2EFixtures(janitorCtx, deps, serviceBackedCleanupEnv(ownedEnv, postgresSvc, minioSvc))
+	recordTimingSpanStatus(deps, ownedEnv, bucketSetup, "test-services janitor stale browser fixtures", janitorStart, err)
+	cancelJanitor()
+	if err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupJanitor, "janitor stale browser e2e fixtures", err))
+		cleanupStatus = "startup_failed"
+		return 1
+	}
 
 	childEnv := cloneEnv(ownedEnv)
 	childEnv[suiteservices.PGAdminDSNEnv] = postgresSvc.adminDSN
@@ -697,44 +724,59 @@ func prepareWebE2EFixture(ctx context.Context, env map[string]string) (webE2EFix
 }
 
 func cleanupWebE2EFixture(ctx context.Context, metadata webE2EMetadata, env map[string]string) error {
-	var errs []error
+	errCh := make(chan error, 2)
+	var wg sync.WaitGroup
 
 	if strings.TrimSpace(metadata.DatabaseName) != "" {
-		if adminDSN := strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.PGAdminDSNEnv)); adminDSN != "" {
-			if err := dropDatabase(ctx, adminDSN, metadata.DatabaseName); err != nil {
-				errs = append(errs, err)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if adminDSN := strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.PGAdminDSNEnv)); adminDSN != "" {
+				if err := dropDatabase(ctx, adminDSN, metadata.DatabaseName); err != nil {
+					errCh <- err
+				}
+				return
 			}
-		} else {
 			postgresHarness, err := pgtest.StartShared(ctx)
 			if err != nil {
-				errs = append(errs, fmt.Errorf("attach suite postgres: %w", err))
+				errCh <- fmt.Errorf("attach suite postgres: %w", err)
 			} else if err := postgresHarness.DropDatabase(ctx, metadata.DatabaseName); err != nil {
-				errs = append(errs, err)
+				errCh <- err
 			}
-		}
+		}()
 	}
 
 	if strings.TrimSpace(metadata.Bucket) != "" {
-		if endpoint := strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.S3EndpointEnv)); endpoint != "" {
-			s3Harness := &s3test.Harness{
-				Endpoint:  endpoint,
-				AccessKey: suiteservices.LookupEnvValue(env, suiteservices.S3AccessKeyEnv),
-				SecretKey: suiteservices.LookupEnvValue(env, suiteservices.S3SecretKeyEnv),
-				Secure:    strings.EqualFold(suiteservices.LookupEnvValue(env, suiteservices.S3SecureEnv), "true"),
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if endpoint := strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.S3EndpointEnv)); endpoint != "" {
+				s3Harness := &s3test.Harness{
+					Endpoint:  endpoint,
+					AccessKey: suiteservices.LookupEnvValue(env, suiteservices.S3AccessKeyEnv),
+					SecretKey: suiteservices.LookupEnvValue(env, suiteservices.S3SecretKeyEnv),
+					Secure:    strings.EqualFold(suiteservices.LookupEnvValue(env, suiteservices.S3SecureEnv), "true"),
+				}
+				if err := s3Harness.CleanupBucket(ctx, metadata.Bucket); err != nil {
+					errCh <- err
+				}
+				return
 			}
-			if err := s3Harness.CleanupBucket(ctx, metadata.Bucket); err != nil {
-				errs = append(errs, err)
-			}
-		} else {
 			s3Harness, err := s3test.StartShared(ctx)
 			if err != nil {
-				errs = append(errs, fmt.Errorf("attach suite minio: %w", err))
+				errCh <- fmt.Errorf("attach suite minio: %w", err)
 			} else if err := s3Harness.CleanupBucket(ctx, metadata.Bucket); err != nil {
-				errs = append(errs, err)
+				errCh <- err
 			}
-		}
+		}()
 	}
 
+	wg.Wait()
+	close(errCh)
+	var errs []error
+	for err := range errCh {
+		errs = append(errs, err)
+	}
 	return errors.Join(errs...)
 }
 
@@ -857,11 +899,13 @@ func cleanupRetiredWebE2EFixtures(ctx context.Context, deps dependencies, env ma
 		return err
 	}
 
-	fixtures := pendingWebE2EFixtures(scope)
+	return cleanupWebE2EFixtures(ctx, deps, env, pendingWebE2EFixtures(scope))
+}
+
+func cleanupWebE2EFixtures(ctx context.Context, deps dependencies, env map[string]string, fixtures []webE2EMetadata) error {
 	if len(fixtures) == 0 {
 		return nil
 	}
-
 	cleanupEnv := cloneEnv(env)
 	var (
 		mu      sync.Mutex
@@ -869,7 +913,7 @@ func cleanupRetiredWebE2EFixtures(ctx context.Context, deps dependencies, env ma
 		cleaned []webE2EMetadata
 	)
 	jobs := make(chan webE2EMetadata)
-	workerCount := min(webE2ECleanupWorkers, len(fixtures))
+	workerCount := min(resolveWebE2ECleanupWorkers(env), len(fixtures))
 	var wg sync.WaitGroup
 	wg.Add(workerCount)
 	for range workerCount {
@@ -904,6 +948,144 @@ func cleanupRetiredWebE2EFixtures(ctx context.Context, deps dependencies, env ma
 	}
 
 	return errors.Join(errs...)
+}
+
+func resolveWebE2ECleanupWorkers(env map[string]string) int {
+	raw := strings.TrimSpace(suiteservices.LookupEnvValue(env, webE2ECleanupWorkersEnv))
+	if raw == "" {
+		return webE2ECleanupWorkers
+	}
+	workers, err := strconv.Atoi(raw)
+	if err != nil || workers < 1 {
+		return webE2ECleanupWorkers
+	}
+	if workers > webE2ECleanupMaxWorkers {
+		return webE2ECleanupMaxWorkers
+	}
+	return workers
+}
+
+func cleanupStaleWebE2EFixtures(ctx context.Context, deps dependencies, env map[string]string) error {
+	fixtures, err := staleWebE2EFixtures(env)
+	if err != nil || len(fixtures) == 0 {
+		return err
+	}
+	return cleanupWebE2EFixtures(ctx, deps, env, fixtures)
+}
+
+func staleWebE2EFixtures(env map[string]string) ([]webE2EMetadata, error) {
+	resultsRoot, err := suiteservices.ResolveResultsRoot(env)
+	if err != nil {
+		return nil, err
+	}
+	servicesRoot := filepath.Join(resultsRoot, suiteservices.ResolveRunID(env), "_shared", "test-services")
+
+	cleaned := make(map[string]struct{})
+	retired := make(map[string]webE2EMetadata)
+	err = filepath.WalkDir(servicesRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() || entry.Name() != "service-scope.json" {
+			return nil
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		var scope suiteservices.ServiceScope
+		if err := json.Unmarshal(raw, &scope); err != nil {
+			return err
+		}
+		for _, fixture := range scope.BrowserE2E.CleanedFixtures {
+			metadata := webE2EMetadata{
+				DatabaseName: fixture.DatabaseName,
+				Bucket:       fixture.Bucket,
+				Target:       fixture.Target,
+			}
+			if key := webE2EFixtureKey(metadata); key != "" {
+				cleaned[key] = struct{}{}
+			}
+		}
+		for _, fixture := range scope.BrowserE2E.RetiredFixtures {
+			metadata := webE2EMetadata{
+				DatabaseName: fixture.DatabaseName,
+				Bucket:       fixture.Bucket,
+				Target:       fixture.Target,
+			}
+			key := webE2EFixtureKey(metadata)
+			if key == "" || !generatedWebE2EFixture(metadata) {
+				continue
+			}
+			retired[key] = metadata
+		}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	fixtures := make([]webE2EMetadata, 0, len(retired))
+	for key, fixture := range retired {
+		if _, ok := cleaned[key]; ok {
+			continue
+		}
+		fixtures = append(fixtures, fixture)
+	}
+	slices.SortFunc(fixtures, func(left, right webE2EMetadata) int {
+		return strings.Compare(webE2EFixtureKey(left), webE2EFixtureKey(right))
+	})
+	if len(fixtures) > staleFixtureMaxCandidates {
+		fixtures = fixtures[:staleFixtureMaxCandidates]
+	}
+	return fixtures, nil
+}
+
+func generatedWebE2EFixture(metadata webE2EMetadata) bool {
+	databaseName := strings.TrimSpace(metadata.DatabaseName)
+	bucket := strings.TrimSpace(metadata.Bucket)
+	return generatedWebE2EDatabaseName(databaseName) && generatedWebE2EBucketName(bucket)
+}
+
+func generatedWebE2EDatabaseName(name string) bool {
+	if !strings.HasPrefix(name, "ct_") || !strings.HasSuffix(name, "_web_e2e") {
+		return false
+	}
+	for _, char := range name {
+		if char >= 'a' && char <= 'z' {
+			continue
+		}
+		if char >= '0' && char <= '9' {
+			continue
+		}
+		if char == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func generatedWebE2EBucketName(name string) bool {
+	if !strings.HasPrefix(name, "ct-") || !strings.HasSuffix(name, "-web-e2e") {
+		return false
+	}
+	for _, char := range name {
+		if char >= 'a' && char <= 'z' {
+			continue
+		}
+		if char >= '0' && char <= '9' {
+			continue
+		}
+		if char == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func pendingWebE2EFixtures(scope suiteservices.ServiceScope) []webE2EMetadata {
@@ -954,37 +1136,89 @@ func webE2EFixtureKey(metadata webE2EMetadata) string {
 func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc postgresService, minioSvc minioService, status string, childExitCode int) {
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
-	cleanupStart := time.Now().UTC()
 
 	cleanupStatus := status
 	if cleanupStatus == "" {
 		cleanupStatus = "succeeded"
 	}
 
+	cleanupEnv := serviceBackedCleanupEnv(env, postgresSvc, minioSvc)
 	webE2ECleanupStart := time.Now().UTC()
-	if err := cleanupRetiredWebE2EFixtures(cleanupCtx, deps, serviceBackedCleanupEnv(env, postgresSvc, minioSvc)); err != nil {
+	if err := cleanupRetiredWebE2EFixtures(cleanupCtx, deps, cleanupEnv); err != nil {
 		cleanupStatus = "cleanup_failed"
 		recordTimingSpanStatus(deps, env, bucketTeardown, "test-services cleanup pooled browser fixtures", webE2ECleanupStart, err)
 		printSuiteFailure(env, failureSummary("", stageCleanupWebE2E, "cleanup pooled browser e2e fixtures", err))
 	} else {
 		recordTimingSpan(deps, env, bucketTeardown, "test-services cleanup pooled browser fixtures", webE2ECleanupStart, time.Now().UTC(), "pass")
 	}
+	deps.refreshSummary(env)
 
-	if postgresSvc.close != nil {
-		if err := postgresSvc.close(cleanupCtx); err != nil {
+	janitorStart := time.Now().UTC()
+	if err := cleanupStaleWebE2EFixtures(cleanupCtx, deps, cleanupEnv); err != nil {
+		cleanupStatus = "cleanup_failed"
+		recordTimingSpanStatus(deps, env, bucketTeardown, "test-services janitor stale browser fixtures", janitorStart, err)
+		printSuiteFailure(env, failureSummary("", stageCleanupJanitor, "janitor stale browser e2e fixtures", err))
+	} else {
+		recordTimingSpan(deps, env, bucketTeardown, "test-services janitor stale browser fixtures", janitorStart, time.Now().UTC(), "pass")
+	}
+
+	for _, result := range cleanupServices(cleanupCtx, postgresSvc, minioSvc) {
+		recordTimingSpanStatusAt(deps, env, bucketTeardown, result.label, result.start, result.end, result.err)
+		if result.err != nil {
 			cleanupStatus = "cleanup_failed"
-			printSuiteFailure(env, failureSummary(suiteservices.ServicePostgres, stageCleanupPostgres, "cleanup suite postgres", err))
+			printSuiteFailure(env, failureSummary(result.service, result.stage, result.label, result.err))
 		}
+	}
+
+	recordCleanupAndRefresh(deps, env, cleanupStatus, childExitCode)
+}
+
+func cleanupServices(ctx context.Context, postgresSvc postgresService, minioSvc minioService) []serviceCleanupResult {
+	results := make(chan serviceCleanupResult, 2)
+	var wg sync.WaitGroup
+	if postgresSvc.close != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			start := time.Now().UTC()
+			err := postgresSvc.close(ctx)
+			results <- serviceCleanupResult{
+				service: suiteservices.ServicePostgres,
+				stage:   stageCleanupPostgres,
+				label:   "test-services terminate postgres",
+				start:   start,
+				end:     time.Now().UTC(),
+				err:     err,
+			}
+		}()
 	}
 	if minioSvc.close != nil {
-		if err := minioSvc.close(cleanupCtx); err != nil {
-			cleanupStatus = "cleanup_failed"
-			printSuiteFailure(env, failureSummary(suiteservices.ServiceMinIO, stageCleanupMinIO, "cleanup suite minio", err))
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			start := time.Now().UTC()
+			err := minioSvc.close(ctx)
+			results <- serviceCleanupResult{
+				service: suiteservices.ServiceMinIO,
+				stage:   stageCleanupMinIO,
+				label:   "test-services terminate minio",
+				start:   start,
+				end:     time.Now().UTC(),
+				err:     err,
+			}
+		}()
 	}
+	wg.Wait()
+	close(results)
 
-	recordTimingSpan(deps, env, bucketTeardown, "test-services cleanup owned services", cleanupStart, time.Now().UTC(), cleanupStatus)
-	recordCleanupAndRefresh(deps, env, cleanupStatus, childExitCode)
+	cleanups := make([]serviceCleanupResult, 0, len(results))
+	for result := range results {
+		cleanups = append(cleanups, result)
+	}
+	slices.SortFunc(cleanups, func(left, right serviceCleanupResult) int {
+		return strings.Compare(left.label, right.label)
+	})
+	return cleanups
 }
 
 func serviceBackedCleanupEnv(env map[string]string, postgresSvc postgresService, minioSvc minioService) map[string]string {

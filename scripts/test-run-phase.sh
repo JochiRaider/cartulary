@@ -276,6 +276,15 @@ CARTULARY_TEST_RESULTS_DIR="$teardown_accounting_results" \
 CARTULARY_TEST_RUN_ID="teardown-accounting" \
 CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
 CARTULARY_TIMING_BUCKET="teardown" \
+CARTULARY_TIMING_LABEL="browser-e2e overlapping process cleanup" \
+CARTULARY_TIMING_START_TIME="2026-01-01T00:00:00.500Z" \
+CARTULARY_TIMING_END_TIME="2026-01-01T00:00:01.500Z" \
+CARTULARY_TIMING_DURATION_MS="1000" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" timing-span
+CARTULARY_TEST_RESULTS_DIR="$teardown_accounting_results" \
+CARTULARY_TEST_RUN_ID="teardown-accounting" \
+CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
+CARTULARY_TIMING_BUCKET="teardown" \
 CARTULARY_TIMING_LABEL="browser-e2e remove runtime root" \
 CARTULARY_TIMING_START_TIME="2026-01-01T00:00:01.800Z" \
 CARTULARY_TIMING_END_TIME="2026-01-01T00:00:02.100Z" \
@@ -318,7 +327,7 @@ assert_equals "$(json_field "$teardown_accounting_timing" "start_time")" "2026-0
 assert_equals "$(json_field "$teardown_accounting_timing" "end_time")" "2026-01-01T00:00:02.100Z" "teardown accounting target timing end time"
 assert_equals "$(json_field "$teardown_accounting_timing" "buckets.0.name")" "teardown" "teardown accounting bucket"
 assert_equals "$(json_field "$teardown_accounting_timing" "buckets.0.duration_ms")" "2100" "teardown accounting disjoint duration"
-assert_equals "$(json_field "$teardown_accounting_timing" "buckets.0.spans.length")" "3" "teardown accounting span count"
+assert_equals "$(json_field "$teardown_accounting_timing" "buckets.0.spans.length")" "4" "teardown accounting span count"
 assert_equals "$(json_field "$teardown_accounting_timing" "slowest_lifecycle_bucket.name")" "teardown" "teardown accounting slowest bucket"
 
 child_run_output="$(

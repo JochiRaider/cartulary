@@ -1074,11 +1074,47 @@ function addTimingSpanToBuckets(buckets, span) {
   }
   const bucket = buckets.get(span.bucket);
   const durationMs = clampDurationMs(span.duration_ms ?? 0);
-  bucket.duration_ms += durationMs;
   bucket.spans.push({
     ...span,
     duration_ms: durationMs,
   });
+}
+
+function disjointSpanDurationMs(spans) {
+  const intervals = [];
+  let fallbackDurationMs = 0;
+  for (const span of spans) {
+    const durationMs = clampDurationMs(span.duration_ms ?? 0);
+    const startMs = Date.parse(span.start_time ?? "");
+    const endMs = Date.parse(span.end_time ?? "");
+    if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs >= startMs) {
+      intervals.push([startMs, endMs]);
+      continue;
+    }
+    fallbackDurationMs += durationMs;
+  }
+  intervals.sort((left, right) => left[0] - right[0] || left[1] - right[1]);
+  let total = fallbackDurationMs;
+  let currentStart = undefined;
+  let currentEnd = undefined;
+  for (const [startMs, endMs] of intervals) {
+    if (currentStart === undefined) {
+      currentStart = startMs;
+      currentEnd = endMs;
+      continue;
+    }
+    if (startMs <= currentEnd) {
+      currentEnd = Math.max(currentEnd, endMs);
+      continue;
+    }
+    total += currentEnd - currentStart;
+    currentStart = startMs;
+    currentEnd = endMs;
+  }
+  if (currentStart !== undefined) {
+    total += currentEnd - currentStart;
+  }
+  return clampDurationMs(total);
 }
 
 function lifecycleTimingSpans(target, targetDir) {
@@ -1196,8 +1232,14 @@ function accountableTargetWallSpan(span) {
 
 function summarizeAccountableTargetWindow(spans) {
   const accountableSpans = spans.filter(accountableTargetWallSpan);
-  const startTimes = accountableSpans.map((span) => span.start_time).filter(Boolean).sort();
-  const endTimes = accountableSpans.map((span) => span.end_time).filter(Boolean).sort();
+  const startTimes = accountableSpans
+    .map((span) => span.start_time)
+    .filter((value) => Number.isFinite(Date.parse(value)))
+    .sort((left, right) => Date.parse(left) - Date.parse(right));
+  const endTimes = accountableSpans
+    .map((span) => span.end_time)
+    .filter((value) => Number.isFinite(Date.parse(value)))
+    .sort((left, right) => Date.parse(left) - Date.parse(right));
   const startTime = startTimes[0] ?? "";
   const endTime = endTimes[endTimes.length - 1] ?? "";
   const windowDurationMs = computeWindowDurationMs(startTime, endTime);
@@ -1236,6 +1278,7 @@ function summarizeTargetTiming(
     .filter(Boolean)
     .map((bucket) => ({
       ...bucket,
+      duration_ms: disjointSpanDurationMs(bucket.spans),
       spans: bucket.spans.sort((left, right) =>
         `${left.start_time ?? ""}:${left.label ?? ""}`.localeCompare(
           `${right.start_time ?? ""}:${right.label ?? ""}`,

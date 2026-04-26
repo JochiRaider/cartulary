@@ -194,6 +194,7 @@ run_scheduler() {
   local target="$3"
   local jobs="$4"
   local run_id="$5"
+  shift 5
 
   FAKE_SCHEDULER_LOCK="${dir}/lock" \
   FAKE_SCHEDULER_ACTIVE="${dir}/active" \
@@ -206,7 +207,7 @@ run_scheduler() {
   TEST_OUTPUT_SCRIPT="$TEST_OUTPUT_SCRIPT" \
   CARTULARY_TEST_RESULTS_DIR="${dir}/results" \
   CARTULARY_TEST_RUN_ID="$run_id" \
-    "$NODE_BIN" "$SCRIPT" --target "$target" --jobs "$jobs" --manifest "$manifest"
+    "$NODE_BIN" "$SCRIPT" --target "$target" --jobs "$jobs" --manifest "$manifest" "$@"
 }
 
 weighted_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-weighted.XXXXXX")"
@@ -322,6 +323,17 @@ set -e
 assert_equals "$failure_status" "7" "child failure status"
 assert_contains "$failure_output" "fake failure for backend-store" "child failure output"
 assert_contains "$failure_output" "[FAIL] test-fast-service-backed" "failure target summary"
+
+defer_summary_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-defer-summary.XXXXXX")"
+cleanup_paths+=("$defer_summary_dir")
+write_fake_make "$defer_summary_dir"
+defer_summary_manifest="${defer_summary_dir}/manifest.json"
+write_manifest "$defer_summary_manifest" test-fast-service-backed \
+  'backend-integration|backend|10|"postgres", "minio"' \
+  'backend-store|backend|9|"postgres", "minio"'
+defer_summary_output="$(run_scheduler "$defer_summary_dir" "$defer_summary_manifest" test-fast-service-backed 2 defer-summary --defer-summary 2>&1)"
+assert_contains "$defer_summary_output" "[TARGET] start test-fast-service-backed" "defer-summary target start"
+assert_file_absent "${defer_summary_dir}/results/defer-summary/test-fast-service-backed/target-summary.json" "defer-summary parent target summary"
 
 unsafe_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-unsafe.XXXXXX")"
 cleanup_paths+=("$unsafe_dir")

@@ -212,6 +212,12 @@ fi
 if ! printf '%s\n' "$test_service_block" | grep -Fq '$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-service-backed --jobs $(TEST_SERVICE_BACKED_JOBS)'; then
   fail "test-service-backed must delegate to the service-backed scheduler with TEST_SERVICE_BACKED_JOBS"
 fi
+if ! printf '%s\n' "$test_service_block" | grep -Fq -- '--defer-summary'; then
+  fail "test-service-backed must defer target summary until after service teardown"
+fi
+if ! printf '%s\n' "$test_service_block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary test-service-backed $$requested --children "$(TEST_SERVICE_BACKED_CHILD_TARGETS)"'; then
+  fail "test-service-backed must finalize target summary after service teardown"
+fi
 if printf '%s\n' "$test_service_block" | rg -q 'test-service-backed-lane-(a|b|browser)'; then
   fail "test-service-backed must not invoke fixed service-backed lane targets"
 fi
@@ -248,6 +254,12 @@ fi
 
 if ! printf '%s\n' "$check_service_block" | grep -Fq '$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target check-service-backed --jobs $(SERVICE_BACKED_JOBS)'; then
   fail "check-service-backed must delegate to the service-backed scheduler with SERVICE_BACKED_JOBS"
+fi
+if ! printf '%s\n' "$check_service_block" | grep -Fq -- '--defer-summary'; then
+  fail "check-service-backed must defer target summary until after service teardown"
+fi
+if ! printf '%s\n' "$check_service_block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary check-service-backed $$requested --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)"'; then
+  fail "check-service-backed must finalize target summary after service teardown"
 fi
 if printf '%s\n' "$check_service_block" | rg -q 'check-service-backed-lane-[ab]'; then
   fail "check-service-backed must not invoke fixed service-backed lane targets"

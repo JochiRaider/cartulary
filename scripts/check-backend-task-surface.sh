@@ -621,14 +621,20 @@ fi
 if ! printf '%s\n' "$check_service_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
   fail "check-service-backed must wrap the shared service-backed scheduler through $(TEST_SERVICES_BIN)"
 fi
-if ! printf '%s\n' "$check_service_block" | grep -Fq '$(RUN_PHASE)'; then
-  fail "check-service-backed must report the shared service wrapper through RUN_PHASE"
+if ! printf '%s\n' "$check_service_block" | grep -Fq '$(RUN_PHASE_SCRIPT)'; then
+  fail "check-service-backed must report scheduler execution through RUN_PHASE_SCRIPT inside the service wrapper"
 fi
 if ! printf '%s\n' "$check_service_block" | grep -Fq '$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target check-service-backed --jobs $(SERVICE_BACKED_JOBS)'; then
   fail "check-service-backed must delegate to the service-backed scheduler with SERVICE_BACKED_JOBS"
 fi
 if ! printf '%s\n' "$check_service_block" | grep -Fq -- '--manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"'; then
   fail "check-service-backed must pass the service-backed schedule manifest"
+fi
+if ! printf '%s\n' "$check_service_block" | grep -Fq -- '--defer-summary'; then
+  fail "check-service-backed must defer target summary until after service teardown"
+fi
+if ! printf '%s\n' "$check_service_block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary check-service-backed $$requested --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)"'; then
+  fail "check-service-backed must finalize target summary after service teardown"
 fi
 if printf '%s\n' "$check_service_block" | rg -q 'check-service-backed-lane-[ab]'; then
   fail "check-service-backed must not invoke fixed service-backed lane targets"
@@ -694,14 +700,20 @@ fi
 if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
   fail "test-fast-service-backed must wrap the shared service-backed scheduler through $(TEST_SERVICES_BIN)"
 fi
-if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(RUN_PHASE)'; then
-  fail "test-fast-service-backed must report the shared service wrapper through RUN_PHASE"
+if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(RUN_PHASE_SCRIPT)'; then
+  fail "test-fast-service-backed must report scheduler execution through RUN_PHASE_SCRIPT inside the service wrapper"
 fi
 if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-fast-service-backed --jobs $(SERVICE_BACKED_JOBS)'; then
   fail "test-fast-service-backed must delegate to the service-backed scheduler with SERVICE_BACKED_JOBS"
 fi
 if ! printf '%s\n' "$test_fast_service_block" | grep -Fq -- '--manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"'; then
   fail "test-fast-service-backed must pass the service-backed schedule manifest"
+fi
+if ! printf '%s\n' "$test_fast_service_block" | grep -Fq -- '--defer-summary'; then
+  fail "test-fast-service-backed must defer target summary until after service teardown"
+fi
+if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary test-fast-service-backed $$requested --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)"'; then
+  fail "test-fast-service-backed must finalize target summary after service teardown"
 fi
 if printf '%s\n' "$test_fast_service_block" | rg -q 'test-fast-service-backed-lane-[ab]|(^|[[:space:]])(backend-process-support|phase2-process-smoke)($|[[:space:]])'; then
   fail "test-fast-service-backed must not invoke fixed lanes or Phase 2 process smoke coverage"

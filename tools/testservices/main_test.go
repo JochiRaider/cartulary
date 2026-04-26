@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -118,7 +119,8 @@ func TestRunCleansUpOwnedServicesOnChildFailureAndPropagatesStatus(t *testing.T)
 	requireTimingEvent(t, events, bucketServiceWait, "test-services start postgres")
 	requireTimingEvent(t, events, bucketMigration, "test-services prepare postgres template database")
 	requireTimingEvent(t, events, bucketServiceWait, "test-services start minio")
-	requireTimingEvent(t, events, bucketTeardown, "test-services cleanup owned services")
+	requireTimingEvent(t, events, bucketTeardown, "test-services terminate postgres")
+	requireTimingEvent(t, events, bucketTeardown, "test-services terminate minio")
 }
 
 func TestRunStartsMinIOWhilePostgresTemplateIsPreparing(t *testing.T) {
@@ -741,6 +743,111 @@ func TestCleanupOwnedServicesCleansRetiredWebE2EFixturesOnce(t *testing.T) {
 		t.Fatalf("expected one cleaned browser fixture, got %#v", scope.BrowserE2E)
 	}
 	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services cleanup pooled browser fixtures", "pass")
+	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services janitor stale browser fixtures", "pass")
+	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services terminate postgres", "pass")
+	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services terminate minio", "pass")
+}
+
+func TestCleanupOwnedServicesTerminatesServicesConcurrently(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "suite-concurrent-service-cleanup"
+	activeEnv[suiteservices.TargetEnv] = "check-service-backed"
+
+	postgresStarted := make(chan struct{})
+	minioStarted := make(chan struct{})
+	release := make(chan struct{})
+	done := make(chan struct{})
+
+	go func() {
+		cleanupOwnedServices(
+			deps.dependencies,
+			activeEnv,
+			postgresService{
+				close: func(context.Context) error {
+					close(postgresStarted)
+					<-minioStarted
+					<-release
+					return nil
+				},
+			},
+			minioService{
+				close: func(context.Context) error {
+					close(minioStarted)
+					<-postgresStarted
+					<-release
+					return nil
+				},
+			},
+			"succeeded",
+			0,
+		)
+		close(done)
+	}()
+
+	select {
+	case <-postgresStarted:
+	case <-time.After(time.Second):
+		t.Fatal("postgres cleanup did not start")
+	}
+	select {
+	case <-minioStarted:
+	case <-time.After(time.Second):
+		t.Fatal("minio cleanup did not start concurrently with postgres")
+	}
+	close(release)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("cleanup did not finish after releasing concurrent service termination")
+	}
+}
+
+func TestStaleWebE2EJanitorBoundsAndFiltersGeneratedFixtures(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	staleEnv := cloneEnv(deps.env)
+	staleEnv[suiteservices.ActiveEnv] = "1"
+	staleEnv[suiteservices.SuiteIDEnv] = "suite-stale-browser-fixtures"
+	staleEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
+
+	for index := range staleFixtureMaxCandidates + 3 {
+		metadata := webE2EMetadata{
+			DatabaseName: fmt.Sprintf("ct_abcd1234_ef567890_%06d_web_e2e", index+1),
+			Bucket:       fmt.Sprintf("ct-abcd1234-ef567890-%06d-web-e2e", index+1),
+			Target:       "browser-e2e-webserver-backed",
+		}
+		recordWebE2EFixtureEvent(deps.dependencies, staleEnv, suiteservices.EventWebE2EFixtureRetired, metadata)
+	}
+	recordWebE2EFixtureEvent(deps.dependencies, staleEnv, suiteservices.EventWebE2EFixtureRetired, webE2EMetadata{
+		DatabaseName: "not_cartulary",
+		Bucket:       "not-cartulary",
+		Target:       "browser-e2e-webserver-backed",
+	})
+	deps.refreshSummary(staleEnv)
+
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "suite-active-browser-fixtures"
+	activeEnv[suiteservices.TargetEnv] = "check-service-backed"
+
+	var cleaned []webE2EMetadata
+	deps.cleanupWebE2E = func(_ context.Context, metadata webE2EMetadata, _ map[string]string) error {
+		cleaned = append(cleaned, metadata)
+		return nil
+	}
+
+	if err := cleanupStaleWebE2EFixtures(context.Background(), deps.dependencies, activeEnv); err != nil {
+		t.Fatalf("cleanup stale browser fixtures: %v", err)
+	}
+	if len(cleaned) != staleFixtureMaxCandidates {
+		t.Fatalf("expected janitor to clean bounded generated fixtures, got %d want %d", len(cleaned), staleFixtureMaxCandidates)
+	}
+	for _, fixture := range cleaned {
+		if !generatedWebE2EFixture(fixture) {
+			t.Fatalf("janitor cleaned non-generated fixture: %#v", fixture)
+		}
+	}
 }
 
 func TestCleanupOwnedServicesRecordsFailedPooledWebE2ECleanup(t *testing.T) {

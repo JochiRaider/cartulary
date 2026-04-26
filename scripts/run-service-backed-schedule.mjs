@@ -19,7 +19,7 @@ const supportedSchemaIDs = new Set([
 
 function usage() {
   process.stderr.write(
-    "usage: run-service-backed-schedule.mjs --target <target> --jobs <n> [--manifest <path>]\n",
+    "usage: run-service-backed-schedule.mjs --target <target> --jobs <n> [--manifest <path>] [--defer-summary]\n",
   );
   process.exit(2);
 }
@@ -29,6 +29,7 @@ function parseArgs(argv) {
     manifest: defaultManifestPath,
     target: "",
     jobs: "",
+    deferSummary: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -45,6 +46,10 @@ function parseArgs(argv) {
     if (arg === "--manifest") {
       options.manifest = argv[index + 1] ?? "";
       index += 1;
+      continue;
+    }
+    if (arg === "--defer-summary") {
+      options.deferSummary = true;
       continue;
     }
     usage();
@@ -368,7 +373,7 @@ function formatBlockedChildren(children) {
     .join("; ");
 }
 
-async function runSchedule({ schedule, jobs, makeBin, testOutputScript }) {
+async function runSchedule({ schedule, jobs, makeBin, testOutputScript, deferSummary }) {
   const childrenCsv = schedule.children.map((child) => child.target).join(",");
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "cartulary-service-backed-schedule-"));
   const pending = [...schedule.executionChildren];
@@ -446,13 +451,15 @@ async function runSchedule({ schedule, jobs, makeBin, testOutputScript }) {
     }
 
     const requestedStatus = firstFailure === 0 ? "pass" : "fail";
-    await runLifecycle(testOutputScript, [
-      "target-summary",
-      schedule.target,
-      requestedStatus,
-      "--children",
-      childrenCsv,
-    ], requestedStatus === "pass" ? process.stdout : process.stderr);
+    if (!deferSummary) {
+      await runLifecycle(testOutputScript, [
+        "target-summary",
+        schedule.target,
+        requestedStatus,
+        "--children",
+        childrenCsv,
+      ], requestedStatus === "pass" ? process.stdout : process.stderr);
+    }
     return firstFailure;
   } finally {
     await rm(tempDir, { recursive: true, force: true });
@@ -478,6 +485,7 @@ async function main() {
     jobs: Math.min(options.jobs, schedule.children.length),
     makeBin,
     testOutputScript,
+    deferSummary: options.deferSummary,
   });
   process.exitCode = status;
 }
