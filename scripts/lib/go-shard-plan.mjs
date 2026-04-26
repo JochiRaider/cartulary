@@ -5,8 +5,8 @@ import { collectTargetPlanRows } from "./target-plan.mjs";
 const defaultShardTargetMs = 30_000;
 const defaultIntegrationWeightMs = 10_000;
 const baselinePath = path.join("tools", "go_test_duration_baselines.json");
-const integrationTargets = new Set(["backend-integration", "backend-integration-support"]);
-const executionTargets = new Set(["backend-integration", "backend-integration-support"]);
+const shardTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
+const executionTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
 
 const aggregateLabelOverrides = new Map([
   ["backend-integration-testutil", "backend-integration testutil"],
@@ -17,6 +17,7 @@ const aggregateLabelOverrides = new Map([
   ["backend-integration-phase3-timeline", "backend-integration phase3 authoritative"],
   ["backend-integration-phase4-entities", "backend-integration phase4 authoritative entities"],
   ["backend-integration-phase4-timeline", "backend-integration phase4 authoritative timeline"],
+  ["backend-store-shared", "backend-store authoritative"],
 ]);
 
 const supportLabelOverrides = new Map([
@@ -153,10 +154,14 @@ function buildExecutionItems(root) {
         weight_ms: baselines.defaultIntegrationWeightMs,
         weight_source: "default",
         postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
+        postgres_fixture_budget: row.fixture_budget?.postgres ?? {},
       });
       continue;
     }
-    if (row.target === "backend-integration" && row.coverage === "authoritative") {
+    if (
+      (row.target === "backend-integration" || row.target === "backend-store") &&
+      row.coverage === "authoritative"
+    ) {
       addAggregate(aggregates, row, "manifest");
       for (const symbol of row.symbols) {
         const importPath = toGoImportPath(modulePath, row.package);
@@ -176,6 +181,7 @@ function buildExecutionItems(root) {
           weight_ms: weightMs,
           weight_source: baselines.tests.has(key) ? "baseline" : "default",
           postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
+          postgres_fixture_budget: row.fixture_budget?.postgres ?? {},
         });
       }
       continue;
@@ -200,6 +206,7 @@ function buildExecutionItems(root) {
           weight_ms: weightMs,
           weight_source: baselines.tests.has(key) ? "baseline" : "default",
           postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
+          postgres_fixture_budget: row.fixture_budget?.postgres ?? {},
         });
       }
     }
@@ -246,6 +253,9 @@ function targetOwnsShard(target, shard) {
   if (target === "backend-integration-support") {
     return shard.items.some((item) => item.kind === "support");
   }
+  if (target === "backend-store") {
+    return shard.items.some((item) => item.kind === "authoritative");
+  }
   return false;
 }
 
@@ -255,6 +265,13 @@ function targetOwnsAggregate(target, aggregate) {
 
 function publicAggregateTargetForMode(mode) {
   return mode === "support" ? "backend-integration-support" : "backend-integration";
+}
+
+function publicAggregateTarget(aggregate) {
+  if (aggregate.target === "backend-store") {
+    return "backend-store";
+  }
+  return publicAggregateTargetForMode(aggregate.mode);
 }
 
 function shardName(aggregateName, index) {
@@ -322,6 +339,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
             weight_ms: item.weight_ms,
             weight_source: item.weight_source,
             postgres_fixture_policy: item.postgres_fixture_policy,
+            postgres_fixture_budget: item.postgres_fixture_budget,
           }))
           .sort(
             (left, right) =>
@@ -334,7 +352,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
   }
 
   for (const aggregate of aggregates.values()) {
-    aggregate.target = publicAggregateTargetForMode(aggregate.mode);
+    aggregate.target = publicAggregateTarget(aggregate);
   }
   for (const shard of shards) {
     for (const aggregate of aggregates.values()) {
@@ -377,7 +395,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
     schema_id: "cartulary.go_shard_plan.v1",
     shard_target_ms: targetMs,
     default_integration_weight_ms: baselines.defaultIntegrationWeightMs,
-    targets: Array.from(integrationTargets).sort(compareStrings),
+    targets: Array.from(shardTargets).sort(compareStrings),
     aggregates: aggregateList,
     shards: shardList,
   };
@@ -405,15 +423,42 @@ function fixturePolicyAssignmentsForShard(shard, mode) {
   return assignments.sort();
 }
 
+function resetTableAssignmentsForShard(shard, mode) {
+  const assignments = [];
+  for (const item of shard.items) {
+    const dirtyTables = item.postgres_fixture_budget?.dirty_tables ?? [];
+    if (dirtyTables.length === 0) {
+      continue;
+    }
+    if (mode === "tests" && item.symbol) {
+      assignments.push(`${item.symbol}=${dirtyTables.join("|")}`);
+      continue;
+    }
+    if (mode === "packages" && item.kind === "raw") {
+      for (const pkg of item.packages) {
+        assignments.push(`${pkg}=${dirtyTables.join("|")}`);
+      }
+    }
+  }
+  return assignments.sort();
+}
+
 function targetShards(plan, target) {
-  if (!integrationTargets.has(target)) {
+  if (!shardTargets.has(target)) {
     throw new Error(`unsupported Go shard target ${target}`);
   }
-  return plan.shards.filter((shard) => targetOwnsShard(target, shard));
+  const aggregateNames = new Set(
+    plan.aggregates
+      .filter((aggregate) => targetOwnsAggregate(target, aggregate))
+      .map((aggregate) => aggregate.name),
+  );
+  return plan.shards.filter(
+    (shard) => aggregateNames.has(shard.aggregate_name) && targetOwnsShard(target, shard),
+  );
 }
 
 function targetAggregates(plan, target) {
-  if (!integrationTargets.has(target)) {
+  if (!shardTargets.has(target)) {
     throw new Error(`unsupported Go shard target ${target}`);
   }
   return plan.aggregates.filter((aggregate) => targetOwnsAggregate(target, aggregate));
@@ -462,6 +507,16 @@ function main(argv) {
     case "shard-postgres-fixture-policy-packages": {
       const shard = findShard(plan, target, name);
       printLines([fixturePolicyAssignmentsForShard(shard, "packages").join(",")]);
+      return;
+    }
+    case "shard-postgres-reset-table-tests": {
+      const shard = findShard(plan, target, name);
+      printLines([resetTableAssignmentsForShard(shard, "tests").join(",")]);
+      return;
+    }
+    case "shard-postgres-reset-table-packages": {
+      const shard = findShard(plan, target, name);
+      printLines([resetTableAssignmentsForShard(shard, "packages").join(",")]);
       return;
     }
     case "shard-field": {

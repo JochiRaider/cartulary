@@ -43,7 +43,7 @@
       ],
       "selection_pattern": "TestSupportPhase4Integration_",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       }
     },
     {
@@ -71,7 +71,7 @@
       "claim": "Timeline mention fields prove `mention_origin` binding while representative Host and Identity writable plus alias fields prove `entity_origin`, and the store writes mentions versus entity rows without synthesizing the other substrate.",
       "out_of_scope": "HTTP route behavior and browser-visible resolution flows remain integration or browser evidence.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       }
     },
     {
@@ -86,7 +86,7 @@
       "claim": "Repeated identical mention tokens persist as separate durable mentions with distinct provenance locators, mention ids, and source-row attachment.",
       "out_of_scope": "Interactive resolve and dismiss route behavior remains integration and browser evidence.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       }
     },
     {
@@ -101,7 +101,7 @@
       "claim": "Create-from-mention store paths promote unresolved mentions into durable Host or Identity rows with stable lineage and immediate relationship state.",
       "out_of_scope": "The live resolve route and current-state HTTP readback remain integration evidence.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       }
     },
     {
@@ -116,7 +116,7 @@
       "claim": "Dismiss and restore store operations preserve raw mention text, mutate durable mention status correctly, and couple link removal or restoration to the lifecycle transition.",
       "out_of_scope": "Route idempotency and authorization re-derivation remain integration evidence.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       }
     },
     {
@@ -131,7 +131,7 @@
       "claim": "Exact-match precedence resolves reuse decisions through the owned identifier hierarchy and keeps suggestion-only aliases out of authoritative reuse.",
       "out_of_scope": "HTTP conflict payload shape and browser-visible merge prompts remain higher-layer evidence.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       }
     },
     {
@@ -146,7 +146,7 @@
       "claim": "Explicit merge store behavior repoints live mentions, links, and dependent rows onto the survivor while preserving loser lineage and replay stability.",
       "out_of_scope": "HTTP merge route envelopes, websocket invalidation, and auth checks remain integration evidence.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       }
     },
     {
@@ -161,7 +161,7 @@
       "claim": "Indicator storage keeps source-bound observations separate while fanning them into one canonical indicator record and lifecycle projection state.",
       "out_of_scope": "Current-state route readback and live authorization remain integration evidence.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       }
     },
     {
@@ -202,7 +202,7 @@
       "claim": "The mention resolve route persists durable resolve, dismiss, and revert transitions through the live HTTP surface with replay stability, websocket invalidation, and live target validation.",
       "out_of_scope": "Browser inspector workflows remain browser evidence.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       }
     },
     {
@@ -220,7 +220,7 @@
       "claim": "Host and Identity create routes reuse exact matches, keep suggestion-only aliases non-authoritative, expose contract-conformant current-state rows, reject unauthenticated or CSRF-invalid malformed create requests before body parsing without durable or websocket side effects, and rebuild deterministic entity projections through the real HTTP surface.",
       "out_of_scope": "End-user browser create flows remain browser evidence.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       }
     },
     {
@@ -235,7 +235,7 @@
       "claim": "The explicit merge route repoints live fan-out, preserves survivor reuse semantics, emits attributed history, and keeps loser lineage intact on Hosts and Identities.",
       "out_of_scope": "Browser-visible inspector merge choreography remains browser evidence.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       }
     },
     {
@@ -250,7 +250,7 @@
       "claim": "Indicator create and query routes persist canonical indicators, expose contract-conformant current-state rows, and rebuild deterministic indicator projections without collapsing source-bound observations.",
       "out_of_scope": "Browser-visible indicator discovery remains out of scope for this phase.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       }
     },
     {
@@ -265,7 +265,7 @@
       "claim": "Timeline patch and query routes auto-resolve only eligible exact matches, keep ineligible tokens unresolved, and return contract-conformant current-state rows before and after projection rebuilds.",
       "out_of_scope": "Browser-visible chip rendering and inspector affordances remain browser or support-only frontend evidence.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       }
     },
     {
@@ -280,7 +280,7 @@
       "claim": "Timeline create and patch routes persist manual relationship actions with null confidence only, reject override payloads, and expose contract-conformant current-state rows across create, patch, and create-from-mention paths.",
       "out_of_scope": "Browser inspector workflows remain browser or support-only frontend evidence.",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       }
     }
   ],

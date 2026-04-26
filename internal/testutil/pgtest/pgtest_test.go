@@ -224,6 +224,8 @@ func TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage(t *testing.T)
 	t.Setenv(postgresFixturePolicyTestsEnv, "TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage=template_clone")
 	t.Setenv(postgresFixturePolicyPackagesEnv, "internal/modules/auth=package_reset")
 	t.Setenv(postgresFixturePolicyDefaultEnv, "package_reset")
+	t.Setenv(postgresResetTablesTestsEnv, "TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage=users|sessions")
+	t.Setenv(postgresResetTablesPackagesEnv, "internal/modules/auth=audit_events|route_idempotency")
 
 	policy := resolvePostgresFixturePolicy(fixtureAttribution{
 		TestName:      "TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage/subcase",
@@ -232,14 +234,29 @@ func TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage(t *testing.T)
 	if policy != postgresFixturePolicyTemplateClone {
 		t.Fatalf("expected top-level test policy to win, got %q", policy)
 	}
+	tables := resolvePostgresResetTables(fixtureAttribution{
+		TestName:      "TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage/subcase",
+		CallerPackage: "internal/modules/auth",
+	})
+	if got, want := strings.Join(tables, ","), "users,sessions"; got != want {
+		t.Fatalf("expected top-level reset tables to win, got %q want %q", got, want)
+	}
 
 	t.Setenv(postgresFixturePolicyTestsEnv, "")
+	t.Setenv(postgresResetTablesTestsEnv, "")
 	policy = resolvePostgresFixturePolicy(fixtureAttribution{
 		TestName:      "TestOther/subcase",
 		CallerPackage: "./internal/modules/auth",
 	})
 	if policy != postgresFixturePolicyPackageReset {
 		t.Fatalf("expected package policy to win, got %q", policy)
+	}
+	tables = resolvePostgresResetTables(fixtureAttribution{
+		TestName:      "TestOther/subcase",
+		CallerPackage: "./internal/modules/auth",
+	})
+	if got, want := strings.Join(tables, ","), "audit_events,route_idempotency"; got != want {
+		t.Fatalf("expected package reset tables to win, got %q want %q", got, want)
 	}
 
 	t.Setenv(postgresFixturePolicyPackagesEnv, "")
@@ -250,6 +267,61 @@ func TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage(t *testing.T)
 	})
 	if policy != postgresFixturePolicyTemplateClone {
 		t.Fatalf("expected default policy to apply, got %q", policy)
+	}
+}
+
+func TestPrepareGroupDatabaseTReusesTemplateCloneForParentScopedGroup(t *testing.T) {
+	t.Setenv(suiteservices.SuiteIDEnv, "")
+
+	oldCreate := createDatabaseFn
+	oldDrop := dropDatabaseFn
+	t.Cleanup(func() {
+		createDatabaseFn = oldCreate
+		dropDatabaseFn = oldDrop
+	})
+
+	var creates []struct {
+		Name     string
+		Template string
+	}
+	createDatabaseFn = func(ctx context.Context, adminDSN string, name string, templateDB string) error {
+		creates = append(creates, struct {
+			Name     string
+			Template string
+		}{Name: name, Template: templateDB})
+		return nil
+	}
+	var drops []string
+	dropDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
+		drops = append(drops, name)
+		return nil
+	}
+
+	harness := &Harness{
+		adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
+		dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
+		templateDB:  "suite_template",
+		suiteHash:   "suitehash",
+		processHash: "procaaaa",
+	}
+
+	var firstName string
+	t.Run("group owner", func(t *testing.T) {
+		first := harness.PrepareGroupDatabaseT(t, "group-clone", "bootstrap-state")
+		second := harness.PrepareGroupDatabaseT(t, "group-clone", "bootstrap-state")
+		firstName = first.Name
+		if first.Name == "" || first.Name != second.Name {
+			t.Fatalf("expected grouped clone reuse, got first=%q second=%q", first.Name, second.Name)
+		}
+	})
+	if len(creates) != 1 {
+		t.Fatalf("expected one grouped template clone, got %#v", creates)
+	}
+	if creates[0].Template != "suite_template" {
+		t.Fatalf("expected grouped clone to use suite template, got %#v", creates[0])
+	}
+	if len(drops) != 1 || drops[0] != firstName {
+		t.Fatalf("expected grouped clone cleanup to drop %q, got %v", firstName, drops)
 	}
 }
 

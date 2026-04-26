@@ -39,29 +39,28 @@ function filterPlan(plan, target) {
   if (!target) {
     return plan;
   }
+  const aggregateNames = new Set(
+    plan.aggregates
+      .filter((aggregate) => aggregate.target === target)
+      .map((aggregate) => aggregate.name),
+  );
   return {
     ...plan,
     targets: plan.targets.filter((candidate) => candidate === target),
     aggregates: plan.aggregates.filter((aggregate) => aggregate.target === target),
-    shards: plan.shards.filter((shard) => {
-      if (target === "backend-integration") {
-        return shard.has_authoritative || shard.has_raw;
-      }
-      if (target === "backend-integration-support") {
-        return shard.has_support;
-      }
-      return false;
-    }),
+    shards: plan.shards.filter((shard) => aggregateNames.has(shard.aggregate_name)),
   };
 }
 
 function renderHuman(plan) {
   const lines = [];
   for (const target of plan.targets) {
-    const shards =
-      target === "backend-integration"
-        ? plan.shards.filter((shard) => shard.has_authoritative || shard.has_raw)
-        : plan.shards.filter((shard) => shard.has_support);
+    const aggregateNames = new Set(
+      plan.aggregates
+        .filter((aggregate) => aggregate.target === target)
+        .map((aggregate) => aggregate.name),
+    );
+    const shards = plan.shards.filter((shard) => aggregateNames.has(shard.aggregate_name));
     lines.push(`${target} shards=${shards.length}`);
     for (const shard of shards) {
       lines.push(

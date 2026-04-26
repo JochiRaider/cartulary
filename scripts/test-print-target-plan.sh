@@ -47,7 +47,7 @@ if ! "$NODE_HELPER" - "$json_a" <<'EOF'
 const fs = require("node:fs");
 const rows = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const storeRows = rows.filter((row) => row.target === "backend-store");
-if (storeRows.length === 0 || !storeRows.every((row) => row.fixture_policy?.postgres === "package_reset")) {
+if (storeRows.length === 0 || !storeRows.every((row) => row.fixture_policy?.postgres === "template_clone")) {
   process.exit(1);
 }
 const rawPgtest = rows.find((row) => row.target === "backend-integration" && row.shared_report === "backend-integration-testutil");
@@ -57,6 +57,10 @@ if (!rawPgtest || rawPgtest.fixture_policy?.postgres !== "package_reset") {
 const serviceBackedGoRows = rows.filter((row) => row.service_backed && row.runner_family === "go_test");
 const validPolicies = new Set(["template_clone", "package_reset", "migration_scratch"]);
 if (serviceBackedGoRows.length === 0 || !serviceBackedGoRows.every((row) => validPolicies.has(row.fixture_policy?.postgres))) {
+  process.exit(1);
+}
+const packageResetRows = serviceBackedGoRows.filter((row) => row.fixture_policy?.postgres === "package_reset" && row.coverage !== "raw");
+if (!packageResetRows.every((row) => Number.isInteger(row.fixture_budget?.postgres?.max_package_resets) && Number.isInteger(row.fixture_budget?.postgres?.max_reset_duration_ms))) {
   process.exit(1);
 }
 EOF
@@ -91,7 +95,7 @@ if (authoritative.length === 0 || !authoritative.every((item) => validPolicies.h
   process.exit(1);
 }
 const packageReset = authoritative.filter((item) => item.postgres_fixture_policy === "package_reset");
-if (packageReset.length === 0) {
+if (!packageReset.every((item) => Number.isInteger(item.postgres_fixture_budget?.max_package_resets) && Number.isInteger(item.postgres_fixture_budget?.max_reset_duration_ms))) {
   process.exit(1);
 }
 const shared = plan.shards.filter((shard) => shard.shared_across_targets);
@@ -104,6 +108,23 @@ if (!plan.shards.every((shard) => shard.shared_across_targets === (shard.has_aut
 EOF
 then
   fail "backend-integration go shard plan must be weighted, policy-bearing, split heavy aggregates, and mark cross-target shared shards"
+fi
+
+backend_store_shard_json="$tmp_dir/go-shard-plan-backend-store.json"
+"$NODE_HELPER" "$SHARD_PLAN_SCRIPT" --json --target backend-store >"$backend_store_shard_json"
+if ! "$NODE_HELPER" - "$backend_store_shard_json" <<'EOF'
+const fs = require("node:fs");
+const plan = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+if (!plan.targets.includes("backend-store") || plan.shards.length === 0) {
+  process.exit(1);
+}
+const items = plan.shards.flatMap((shard) => shard.items);
+if (items.length === 0 || !items.every((item) => item.kind === "authoritative" && item.postgres_fixture_policy === "template_clone")) {
+  process.exit(1);
+}
+EOF
+then
+  fail "backend-store go shard plan must expose authoritative template-clone fixture planning"
 fi
 
 backend_store_output="$("$NODE_HELPER" "$PLAN_SCRIPT" --target backend-store)"
@@ -228,4 +249,65 @@ JSON
 
 if CARTULARY_PHASE_MANIFEST_ROOT="$missing_policy_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase5 >/dev/null 2>&1; then
   fail "phase manifest validation must reject missing service-backed postgres fixture policies"
+fi
+
+missing_budget_root="$tmp_dir/missing-budget-root"
+mkdir -p "$missing_budget_root/tools"
+cat >"$missing_budget_root/tools/phase5_test_map.json" <<'JSON'
+{
+  "expected_ids": ["U-5-01"],
+  "unit": [
+    {
+      "id": "U-5-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_store_test.go",
+      "symbol": "TestPhase5_MissingBudget_U_5_01",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "store_domain",
+      "fixture_policy": { "postgres": "package_reset" },
+      "claim": "missing fixture budget smoke",
+      "out_of_scope": "missing fixture budget smoke"
+    }
+  ]
+}
+JSON
+
+if CARTULARY_PHASE_MANIFEST_ROOT="$missing_budget_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase5 >/dev/null 2>&1; then
+  fail "phase manifest validation must reject package_reset without postgres fixture budgets"
+fi
+
+invalid_budget_root="$tmp_dir/invalid-budget-root"
+mkdir -p "$invalid_budget_root/tools"
+cat >"$invalid_budget_root/tools/phase5_test_map.json" <<'JSON'
+{
+  "expected_ids": ["U-5-01"],
+  "unit": [
+    {
+      "id": "U-5-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_store_test.go",
+      "symbol": "TestPhase5_InvalidBudget_U_5_01",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "store_domain",
+      "fixture_policy": { "postgres": "package_reset" },
+      "fixture_budget": {
+        "postgres": {
+          "max_package_resets": 1,
+          "max_reset_duration_ms": 10000,
+          "dirty_tables": ["users", "users"]
+        }
+      },
+      "claim": "invalid fixture budget smoke",
+      "out_of_scope": "invalid fixture budget smoke"
+    }
+  ]
+}
+JSON
+
+if CARTULARY_PHASE_MANIFEST_ROOT="$invalid_budget_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase5 >/dev/null 2>&1; then
+  fail "phase manifest validation must reject invalid postgres fixture budgets"
 fi

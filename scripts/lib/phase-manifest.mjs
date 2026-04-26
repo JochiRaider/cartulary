@@ -37,6 +37,11 @@ const postgresFixturePolicyEnvAssignable = new Set([
   postgresFixturePolicyTemplateClone,
   postgresFixturePolicyPackageReset,
 ]);
+const validFixtureBudgetPostgresKeys = new Set([
+  "max_package_resets",
+  "max_reset_duration_ms",
+  "dirty_tables",
+]);
 const serviceBackedGoExecutionDependencies = new Set([
   "backend_store",
   "backend_integration",
@@ -122,12 +127,88 @@ function explicitPostgresFixturePolicy(entry, label) {
   return entry.fixture_policy.postgres;
 }
 
+function explicitPostgresFixtureBudget(entry, label) {
+  if (entry.fixture_budget === undefined) {
+    return {};
+  }
+  if (
+    entry.fixture_budget === null ||
+    Array.isArray(entry.fixture_budget) ||
+    typeof entry.fixture_budget !== "object"
+  ) {
+    throw new Error(`${label} fixture_budget must be an object when present`);
+  }
+  const keys = Object.keys(entry.fixture_budget);
+  const unexpected = keys.filter((key) => key !== "postgres");
+  if (unexpected.length > 0) {
+    throw new Error(`${label} fixture_budget has unsupported keys: ${unexpected.join(",")}`);
+  }
+  if (entry.fixture_budget.postgres === undefined) {
+    return {};
+  }
+  if (
+    entry.fixture_budget.postgres === null ||
+    Array.isArray(entry.fixture_budget.postgres) ||
+    typeof entry.fixture_budget.postgres !== "object"
+  ) {
+    throw new Error(`${label} fixture_budget.postgres must be an object when present`);
+  }
+  const postgresKeys = Object.keys(entry.fixture_budget.postgres);
+  const unexpectedPostgres = postgresKeys.filter(
+    (key) => !validFixtureBudgetPostgresKeys.has(key),
+  );
+  if (unexpectedPostgres.length > 0) {
+    throw new Error(
+      `${label} fixture_budget.postgres has unsupported keys: ${unexpectedPostgres.join(",")}`,
+    );
+  }
+  const budget = {};
+  for (const key of ["max_package_resets", "max_reset_duration_ms"]) {
+    if (entry.fixture_budget.postgres[key] === undefined) {
+      continue;
+    }
+    const value = entry.fixture_budget.postgres[key];
+    if (!Number.isInteger(value) || value < 0) {
+      throw new Error(`${label} fixture_budget.postgres.${key} must be a non-negative integer`);
+    }
+    budget[key] = value;
+  }
+  if (entry.fixture_budget.postgres.dirty_tables !== undefined) {
+    const dirtyTables = entry.fixture_budget.postgres.dirty_tables;
+    if (!Array.isArray(dirtyTables) || dirtyTables.length === 0) {
+      throw new Error(`${label} fixture_budget.postgres.dirty_tables must be a non-empty array`);
+    }
+    const seen = new Set();
+    for (const table of dirtyTables) {
+      if (typeof table !== "string" || !/^[a-z][a-z0-9_]*$/.test(table)) {
+        throw new Error(
+          `${label} fixture_budget.postgres.dirty_tables contains invalid table ${JSON.stringify(table)}`,
+        );
+      }
+      if (seen.has(table)) {
+        throw new Error(`${label} fixture_budget.postgres.dirty_tables contains duplicate ${table}`);
+      }
+      seen.add(table);
+    }
+    budget.dirty_tables = [...dirtyTables].sort();
+  }
+  return budget;
+}
+
 export function goEntryPostgresFixturePolicy(entry) {
   return explicitPostgresFixturePolicy(entry, `manifest entry ${entry.id}`);
 }
 
 export function supportGoEntryPostgresFixturePolicy(entry) {
   return explicitPostgresFixturePolicy(entry, supportGoEntryLabel(entry));
+}
+
+export function goEntryPostgresFixtureBudget(entry) {
+  return explicitPostgresFixtureBudget(entry, `manifest entry ${entry.id}`);
+}
+
+export function supportGoEntryPostgresFixtureBudget(entry) {
+  return explicitPostgresFixtureBudget(entry, supportGoEntryLabel(entry));
 }
 
 function defaultGoPostgresFixturePolicy(entry) {
@@ -146,6 +227,32 @@ export function effectiveGoEntryPostgresFixturePolicy(entry) {
 
 export function effectiveSupportGoEntryPostgresFixturePolicy(entry) {
   return supportGoEntryPostgresFixturePolicy(entry) || defaultSupportPostgresFixturePolicy(entry);
+}
+
+function resetTableAssignments(entries, symbolsForEntry, budgetForEntry) {
+  const assignments = [];
+  for (const entry of entries) {
+    const dirtyTables = budgetForEntry(entry).dirty_tables ?? [];
+    if (dirtyTables.length === 0) {
+      continue;
+    }
+    for (const symbol of symbolsForEntry(entry)) {
+      assignments.push(`${symbol}=${dirtyTables.join("|")}`);
+    }
+  }
+  return assignments.sort();
+}
+
+function validatePackageResetBudget(entry, policy, budget, label) {
+  if (policy !== postgresFixturePolicyPackageReset) {
+    return;
+  }
+  if (budget.max_package_resets === undefined) {
+    throw new Error(`${label} package_reset must declare fixture_budget.postgres.max_package_resets`);
+  }
+  if (budget.max_reset_duration_ms === undefined) {
+    throw new Error(`${label} package_reset must declare fixture_budget.postgres.max_reset_duration_ms`);
+  }
 }
 
 function fixturePolicyAssignments(entries, symbolsForEntry, policyForEntry) {
@@ -380,6 +487,12 @@ export function validateManifest(root, phase) {
             `manifest entry ${entry.id} must declare fixture_policy.postgres for service-backed execution_dependency ${entry.execution_dependency}`,
           );
         }
+        validatePackageResetBudget(
+          entry,
+          postgresFixturePolicy,
+          goEntryPostgresFixtureBudget(entry),
+          `manifest entry ${entry.id}`,
+        );
         if (typeof entry.package !== "string" || !entry.package.startsWith("./")) {
           throw new Error(`manifest entry ${entry.id} must declare a repo-relative Go package owner`);
         }
@@ -443,6 +556,12 @@ export function validateManifest(root, phase) {
         `${supportGoEntryLabel(entry)} must declare fixture_policy.postgres for service-backed support target ${entry.target}`,
       );
     }
+    validatePackageResetBudget(
+      entry,
+      postgresFixturePolicy,
+      supportGoEntryPostgresFixtureBudget(entry),
+      supportGoEntryLabel(entry),
+    );
     for (const symbol of symbols) {
       if (!selectionPattern.test(symbol)) {
         throw new Error(
@@ -911,6 +1030,13 @@ function main(argv) {
       return;
     }
 
+    case "go-postgres-reset-table-tests": {
+      const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
+      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, packagePatterns);
+      printLines([resetTableAssignments(entries, goEntrySymbols, goEntryPostgresFixtureBudget).join(",")]);
+      return;
+    }
+
     case "support-go-regex": {
       const [phase, target, ...packagePatterns] = rest;
       const entries = selectSupportGoEntries(root, phase, target, packagePatterns);
@@ -936,6 +1062,19 @@ function main(argv) {
           entries,
           supportGoEntrySymbols,
           effectiveSupportGoEntryPostgresFixturePolicy,
+        ).join(","),
+      ]);
+      return;
+    }
+
+    case "support-go-postgres-reset-table-tests": {
+      const [phase, target, ...packagePatterns] = rest;
+      const entries = selectSupportGoEntries(root, phase, target, packagePatterns);
+      printLines([
+        resetTableAssignments(
+          entries,
+          supportGoEntrySymbols,
+          supportGoEntryPostgresFixtureBudget,
         ).join(","),
       ]);
       return;

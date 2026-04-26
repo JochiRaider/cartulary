@@ -3,10 +3,12 @@ import {
   collectSupportGoEntries,
   effectiveGoEntryPostgresFixturePolicy,
   effectiveSupportGoEntryPostgresFixturePolicy,
+  goEntryPostgresFixtureBudget,
   goEntrySymbols,
   loadManifest,
   packageMatchesPattern,
   phaseManifestNames,
+  supportGoEntryPostgresFixtureBudget,
   supportGoEntrySymbols,
 } from "./phase-manifest.mjs";
 
@@ -465,6 +467,9 @@ function manifestRowsForFamily(root, descriptor, family) {
     fixture_policy: {
       postgres: effectiveGoEntryPostgresFixturePolicy(entry),
     },
+    fixture_budget: {
+      postgres: goEntryPostgresFixtureBudget(entry),
+    },
   }));
 }
 
@@ -491,6 +496,9 @@ function supportRowsForFamily(root, descriptor, family) {
           evidence_layer: "support",
           fixture_policy: {
             postgres: effectiveSupportGoEntryPostgresFixturePolicy(entry),
+          },
+          fixture_budget: {
+            postgres: supportGoEntryPostgresFixtureBudget(entry),
           },
         });
       }
