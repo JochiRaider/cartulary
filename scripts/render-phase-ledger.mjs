@@ -31,6 +31,7 @@ const supportTargetOrder = new Map([
   ["backend_unit", 0],
   ["backend_integration_support", 1],
 ]);
+const browserBatchManifestReference = "`tools/browser_e2e_batch_manifest.json`";
 
 const phaseConfigs = {
   phase0: {
@@ -87,8 +88,8 @@ const phaseConfigs = {
       "- `backend-store` selects store-backed authoritative `U-1-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase1 unit authoritative backend_store`.",
       "- `frontend-unit` selects authoritative `U-1-*` ordinary-shell Vitest rows only through the Phase 1 Vitest manifest for `frontend_unit`.",
       "- `backend-integration` selects authoritative `I-1-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase1 integration authoritative backend_integration`.",
-      "- `browser-e2e-webserver-backed` and helper `browser-e2e-functional` select authoritative functional `E-1-*` rows through the browser batch manifest and Playwright manifest selection for `browser_functional`.",
-      "- `browser-e2e-stateful` selects authoritative stateful `E-1-*` rows through the browser batch manifest and Phase 1 Playwright manifest for `browser_stateful`.",
+      `- ${browserBatchManifestReference} owns browser batch grouping for Phase 1: \`browser-e2e-webserver-backed\` is the default shared-stack batch used by \`test\`, \`check\`, and \`ci\`, while helper-only \`browser-e2e-functional\` selects the same authoritative functional \`E-1-*\` rows through Playwright manifest selection for \`browser_functional\`.`,
+      `- ${browserBatchManifestReference} also keeps \`browser-e2e-stateful\` as the isolated Phase 1 browser batch for authoritative stateful \`E-1-*\` rows selected through the Phase 1 Playwright manifest for \`browser_stateful\`.`,
     ],
     supportExecutionExtras: [
       "- `apps/web/src/App.phase1.support.test.tsx` remains smoke-only support coverage and is forbidden from claiming `U-1-*` identifiers.",
@@ -133,7 +134,7 @@ const phaseConfigs = {
       "- `backend-store` selects store-backed authoritative `U-2-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase2 unit authoritative backend_store`.",
       "- `backend-integration` selects authoritative `I-2-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase2 integration authoritative backend_integration`.",
       "- `frontend-unit` selects authoritative `U-2-*` rows only through the Phase 2 Vitest manifest for `frontend_unit`.",
-      "- `browser-e2e-webserver-backed` and helper `browser-e2e-functional` select authoritative `E-2-*` rows through the browser batch manifest and Playwright manifest selection for `browser_functional`.",
+      `- ${browserBatchManifestReference} owns browser batch grouping for Phase 2: \`browser-e2e-webserver-backed\` is the default shared-stack batch used by \`test\`, \`check\`, and \`ci\`, while helper-only \`browser-e2e-functional\` selects the same authoritative \`E-2-*\` rows through Playwright manifest selection for \`browser_functional\`.`,
     ],
     supportExecutionExtras: [
       "- `backend-integration-support` emits a shared-capture support report rather than a second independent runtime.",
@@ -182,8 +183,8 @@ const phaseConfigs = {
       "- `backend-store` selects store-backed authoritative `U-3-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase3 unit authoritative backend_store`.",
       "- `backend-integration` selects authoritative `I-3-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase3 integration authoritative backend_integration`.",
       "- `frontend-unit` selects authoritative `U-3-*` workbook rows only through the Phase 3 Vitest manifest for `frontend_unit`.",
-      "- `browser-e2e-webserver-backed` and helper `browser-e2e-functional` select authoritative functional `E-3-*` rows through the browser batch manifest and Playwright manifest selection for `browser_functional`.",
-      "- `browser-e2e-measurement` selects authoritative measurement `E-3-*` rows through the browser batch manifest and Phase 3 Playwright manifest for `browser_measurement`.",
+      `- ${browserBatchManifestReference} owns browser batch grouping for Phase 3: \`browser-e2e-webserver-backed\` is the default shared-stack batch used by \`test\`, \`check\`, and \`ci\`, while helper-only \`browser-e2e-functional\` selects the same authoritative functional \`E-3-*\` rows through Playwright manifest selection for \`browser_functional\`.`,
+      `- ${browserBatchManifestReference} also keeps \`browser-e2e-measurement\` as the isolated Phase 3 browser batch for authoritative measurement \`E-3-*\` rows selected through the Phase 3 Playwright manifest for \`browser_measurement\`.`,
     ],
     supportExecutionExtras: [],
     sections: [
@@ -219,7 +220,7 @@ const phaseConfigs = {
       "- `backend-unit` selects authoritative `U-4-*` decoder rows only through `RUN_GO_MANIFEST_PHASE ... phase4 unit authoritative backend_unit`.",
       "- `backend-store` selects authoritative store-backed `U-4-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase4 unit authoritative backend_store`.",
       "- `backend-integration` selects authoritative `I-4-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase4 integration authoritative backend_integration`.",
-      "- `browser-e2e-webserver-backed` and helper `browser-e2e-functional` select authoritative `E-4-*` rows through the browser batch manifest and Playwright manifest selection for `browser_functional`.",
+      `- ${browserBatchManifestReference} owns browser batch grouping for Phase 4: \`browser-e2e-webserver-backed\` is the default shared-stack batch used by \`test\`, \`check\`, and \`ci\`, while helper-only \`browser-e2e-functional\` selects the same authoritative \`E-4-*\` rows through Playwright manifest selection for \`browser_functional\`.`,
     ],
     supportExecutionExtras: [
       "- `apps/web/src/WorkbookShell.phase4.support.test.tsx` runs through `frontend-unit` and is forbidden from claiming `U-4-*`, `I-4-*`, or `E-4-*` identifiers.",
