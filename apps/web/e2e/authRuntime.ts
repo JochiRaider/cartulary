@@ -76,6 +76,12 @@ export type WorkerAdminControlPlane = {
   revokeAllSessions: (userId: string, reason: string) => Promise<void>;
 };
 
+export type DeploymentAdminMutationClient = {
+  listUsers: () => Promise<UserResource[]>;
+  loadUser: (userId: string) => Promise<UserResource>;
+  patchUser: (userId: string, body: PatchUserBody) => Promise<UserResource>;
+};
+
 export async function prepareWorkerAdminSuite(workerCount: number) {
   ensureWorkerAdminCleanupMarkerDirectory();
 
@@ -344,6 +350,75 @@ export async function patchUser(
   return ((await response.json()) as { data: UserResource }).data;
 }
 
+export function deploymentAdminMutationClient(
+  authRequests: APIRequestContext,
+): DeploymentAdminMutationClient {
+  return {
+    listUsers: async () => listUsers(authRequests),
+    loadUser: async (userId) => loadUser(authRequests, userId),
+    patchUser: async (userId, body) => patchUser(authRequests, userId, body),
+  };
+}
+
+export async function withOnlyActiveDeploymentAdmin<T>(
+  client: DeploymentAdminMutationClient,
+  retainedAdminUserId: string,
+  run: () => Promise<T>,
+) {
+  const demotedUserIds: string[] = [];
+  const activeAdmins = (await client.listUsers()).filter(
+    (user) =>
+      user.user_id !== retainedAdminUserId &&
+      user.is_active &&
+      user.is_deployment_admin,
+  );
+
+  let runError: unknown = null;
+  let result: T | undefined;
+  try {
+    for (const user of activeAdmins) {
+      await client.patchUser(user.user_id, {
+        base_user_version: user.user_version,
+        is_deployment_admin: false,
+      });
+      demotedUserIds.push(user.user_id);
+    }
+    result = await run();
+  } catch (error) {
+    runError = error;
+  }
+
+  const restoreFailures: string[] = [];
+  for (const userId of demotedUserIds) {
+    try {
+      const reloaded = await client.loadUser(userId);
+      if (reloaded.is_deployment_admin) {
+        continue;
+      }
+      await client.patchUser(userId, {
+        base_user_version: reloaded.user_version,
+        is_deployment_admin: true,
+      });
+    } catch (error) {
+      restoreFailures.push(`${userId}: ${formatUnknownError(error)}`);
+    }
+  }
+
+  if (restoreFailures.length > 0) {
+    const suffix =
+      runError === null
+        ? ""
+        : `\noriginal guarded block failure: ${formatUnknownError(runError)}`;
+    throw new Error(
+      `failed to restore deployment-admin status after last-admin probe: ${restoreFailures.join("; ")}${suffix}`,
+    );
+  }
+  if (runError !== null) {
+    throw runError;
+  }
+  return result as T;
+}
+
 export async function resetUserTotp(
   authRequests: APIRequestContext,
   userId: string,
@@ -423,6 +498,13 @@ export async function authenticatedRequestContextFromStorageState(
 
 async function authenticatedRequestContext(storageState: StorageState) {
   return authenticatedRequestContextFromStorageState(storageState);
+}
+
+function formatUnknownError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
 }
 
 export async function reconcileWorkerAdminManifest(

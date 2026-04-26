@@ -229,22 +229,8 @@ if ! printf '%s\n' "$test_service_block" | grep -Fq 'build-migrate'; then
 fi
 
 mapfile -t test_service_browser_targets < <(schedule_targets test-service-backed browser)
-if [[ "${#test_service_browser_targets[@]}" -ne 1 ]]; then
-  fail "test-service-backed schedule must include exactly one browser target, found: ${test_service_browser_targets[*]:-none}"
-fi
-if [[ "${test_service_browser_targets[0]}" != "browser-e2e-webserver-backed" ]]; then
-  fail "test-service-backed schedule must use browser-e2e-webserver-backed as its browser target, found: ${test_service_browser_targets[0]}"
-fi
-mapfile -t test_service_browser_claims < <(schedule_child_array test-service-backed browser-e2e-webserver-backed resource_claims)
-if ! printf '%s\n' "${test_service_browser_claims[@]}" | rg -q '^browser-webserver$'; then
-  fail "test-service-backed browser child must claim browser-webserver capacity"
-fi
-mapfile -t test_service_browser_exclusive < <(schedule_child_array test-service-backed browser-e2e-webserver-backed exclusive_tags)
-if printf '%s\n' "${test_service_browser_exclusive[@]}" | rg -q '^(postgres|minio)$'; then
-  fail "test-service-backed browser child must not declare broad postgres or minio exclusivity"
-fi
-if (( $(schedule_child_weight test-service-backed browser-e2e-webserver-backed) < 95 )); then
-  fail "test-service-backed browser child weight must keep it in the first scheduling wave"
+if [[ "${#test_service_browser_targets[@]}" -ne 0 ]]; then
+  fail "test-service-backed schedule must not own browser targets; use browser-e2e aggregate instead, found: ${test_service_browser_targets[*]}"
 fi
 
 check_service_block="$(extract_target_block check-service-backed)"
@@ -272,41 +258,27 @@ if ! printf '%s\n' "$check_service_block" | grep -Fq 'build-migrate'; then
 fi
 
 mapfile -t check_service_browser_targets < <(schedule_targets check-service-backed browser)
-if [[ "${#check_service_browser_targets[@]}" -ne 1 ]]; then
-  fail "check-service-backed schedule must include exactly one browser target, found: ${check_service_browser_targets[*]:-none}"
-fi
-if [[ "${check_service_browser_targets[0]}" != "browser-e2e-webserver-backed" ]]; then
-  fail "check-service-backed schedule must use browser-e2e-webserver-backed as its browser target, found: ${check_service_browser_targets[0]}"
-fi
-mapfile -t check_service_browser_claims < <(schedule_child_array check-service-backed browser-e2e-webserver-backed resource_claims)
-if ! printf '%s\n' "${check_service_browser_claims[@]}" | rg -q '^browser-webserver$'; then
-  fail "check-service-backed browser child must claim browser-webserver capacity"
-fi
-mapfile -t check_service_browser_exclusive < <(schedule_child_array check-service-backed browser-e2e-webserver-backed exclusive_tags)
-if printf '%s\n' "${check_service_browser_exclusive[@]}" | rg -q '^(postgres|minio)$'; then
-  fail "check-service-backed browser child must not declare broad postgres or minio exclusivity"
-fi
-if (( $(schedule_child_weight check-service-backed browser-e2e-webserver-backed) < 95 )); then
-  fail "check-service-backed browser child weight must keep it in the first scheduling wave"
+if [[ "${#check_service_browser_targets[@]}" -ne 0 ]]; then
+  fail "check-service-backed schedule must not own browser targets; use browser-e2e aggregate instead, found: ${check_service_browser_targets[*]}"
 fi
 
 check_summary_groups_line="$(sed -n 's/^CHECK_SUMMARY_GROUPS[[:space:]]*:=[[:space:]]*//p' "$makefile" | head -n 1)"
 if [[ -z "$check_summary_groups_line" ]]; then
   fail "Makefile must define CHECK_SUMMARY_GROUPS"
 fi
-if ! printf '%s\n' "$check_summary_groups_line" | grep -Fq 'browser-webserver-backed=browser-e2e-webserver-backed'; then
-  fail "CHECK_SUMMARY_GROUPS must report browser webserver-backed duration separately"
+if printf '%s\n' "$check_summary_groups_line" | grep -Eq 'browser-(webserver-backed|isolated)='; then
+  fail "CHECK_SUMMARY_GROUPS must use one aggregate browser group, not split browser groups"
 fi
-if ! printf '%s\n' "$check_summary_groups_line" | grep -Fq 'browser-isolated=browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual'; then
-  fail "CHECK_SUMMARY_GROUPS must report isolated browser batch children separately"
+if ! printf '%s\n' "$check_summary_groups_line" | grep -Fq 'browser=browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual'; then
+  fail "CHECK_SUMMARY_GROUPS must report all browser batch children in one browser group"
 fi
 backend_summary_group="$(printf '%s\n' "$check_summary_groups_line" | tr ';' '\n' | sed -n 's/^backend-service-backed=//p')"
 if [[ "$backend_summary_group" != "backend-integration,backend-integration-support,backend-store,backend-process" ]]; then
   fail "backend-service-backed summary group must contain backend service targets, found: ${backend_summary_group:-none}"
 fi
-browser_summary_group="$(printf '%s\n' "$check_summary_groups_line" | tr ';' '\n' | sed -n 's/^browser-webserver-backed=//p')"
-if [[ "$browser_summary_group" != "browser-e2e-webserver-backed" ]]; then
-  fail "browser-webserver-backed summary group must contain only browser-e2e-webserver-backed, found: ${browser_summary_group:-none}"
+browser_summary_group="$(printf '%s\n' "$check_summary_groups_line" | tr ';' '\n' | sed -n 's/^browser=//p')"
+if [[ "$browser_summary_group" != "browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual" ]]; then
+  fail "browser summary group must contain the all-batch browser children, found: ${browser_summary_group:-none}"
 fi
 
 test_summary_groups_line="$(sed -n 's/^TEST_SUMMARY_GROUPS[[:space:]]*:=[[:space:]]*//p' "$makefile" | head -n 1)"
@@ -314,24 +286,29 @@ if [[ -z "$test_summary_groups_line" ]]; then
   fail "Makefile must define TEST_SUMMARY_GROUPS"
 fi
 if [[ "$test_summary_groups_line" != "$check_summary_groups_line" ]]; then
-  fail "TEST_SUMMARY_GROUPS must match CHECK_SUMMARY_GROUPS so service-backed and browser webserver-backed durations stay comparable"
+  fail "TEST_SUMMARY_GROUPS must match CHECK_SUMMARY_GROUPS so backend and aggregate browser durations stay comparable"
 fi
 
-check_isolated_block="$(extract_target_block check-isolated)"
-if [[ -z "$check_isolated_block" ]]; then
-  fail "Makefile must define a non-empty check-isolated block"
+test_block="$(extract_target_block test)"
+if [[ -z "$test_block" ]]; then
+  fail "Makefile must define a non-empty test block"
 fi
-if ! printf '%s\n' "$check_isolated_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
-  fail 'check-isolated must wrap isolated browser children through $(TEST_SERVICES_BIN)'
+if ! printf '%s\n' "$test_block" | grep -Fq -- '--step test-service-backed --step browser-e2e'; then
+  fail "test must run service-backed backend work followed by the aggregate browser-e2e batch"
 fi
-if ! printf '%s\n' "$check_isolated_block" | grep -Fq './scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh isolated'; then
-  fail "check-isolated must run one isolated browser batch inside one owned stack"
+if printf '%s\n' "$test_block" | grep -Fq 'test-isolated'; then
+  fail "test must not route browser evidence through test-isolated"
 fi
-if ! printf '%s\n' "$check_isolated_block" | grep -Fq '$(BROWSER_E2E_ISOLATED_CHILD_TARGETS)'; then
-  fail "check-isolated must summarize isolated browser batch children"
+
+check_block="$(extract_target_block check)"
+if [[ -z "$check_block" ]]; then
+  fail "Makefile must define a non-empty check block"
 fi
-if printf '%s\n' "$check_isolated_block" | grep -Fq -- '-j$(BROWSER_E2E_ISOLATED_JOBS)'; then
-  fail "check-isolated must not parallelize stateful/resettable browser stacks"
+if ! printf '%s\n' "$check_block" | grep -Fq -- '--step check-service-backed --step browser-e2e'; then
+  fail "check must run service-backed backend work followed by the aggregate browser-e2e batch"
+fi
+if printf '%s\n' "$check_block" | grep -Fq 'check-isolated'; then
+  fail "check must not route browser evidence through check-isolated"
 fi
 
 if ! rg -q '^browser-e2e-webserver-backed:' "$makefile"; then
@@ -581,7 +558,10 @@ const root = process.argv[2];
 for (const [phase, expectedFor] of [
   [
     "phase1",
-    (entry) => (entry.id === "E-1-04" ? "browser_stateful" : "browser_functional"),
+    (entry) =>
+      new Set(["E-1-04", "E-1-05"]).has(entry.id)
+        ? "browser_stateful"
+        : "browser_functional",
   ],
   ["phase2", () => "browser_functional"],
   ["phase4", () => "browser_functional"],

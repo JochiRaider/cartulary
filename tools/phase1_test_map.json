@@ -446,7 +446,7 @@
       "runner": "playwright",
       "file": "apps/web/e2e/phase1.spec.ts",
       "title": "E-1-05 lets deployment admins create and patch users, rejects stale versions, and shows the last-admin guard on the ordinary shell",
-      "execution_dependency": "browser_functional",
+      "execution_dependency": "browser_stateful",
       "evidence_layer": "browser",
       "claim": "Browser deployment-user administration works on the ordinary shell, stale version conflicts surface in the normal admin panel, and the last-admin demotion and deactivation guard remain visible there.",
       "out_of_scope": "None."

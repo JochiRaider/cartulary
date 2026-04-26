@@ -2,7 +2,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import { reconcileWorkerAdminManifest, type UserResource } from "./authRuntime";
+import {
+  type DeploymentAdminMutationClient,
+  reconcileWorkerAdminManifest,
+  type UserResource,
+  withOnlyActiveDeploymentAdmin,
+} from "./authRuntime";
 import type { WorkerAdminBlueprint } from "./sessionSupport";
 
 type FakeUser = UserResource & {
@@ -10,7 +15,8 @@ type FakeUser = UserResource & {
 };
 
 type FakeControlPlane = {
-  controlPlane: Parameters<typeof reconcileWorkerAdminManifest>[0];
+  controlPlane: Parameters<typeof reconcileWorkerAdminManifest>[0] &
+    DeploymentAdminMutationClient;
   stats: {
     createCount: number;
     patchCount: number;
@@ -111,6 +117,80 @@ describe("reconcileWorkerAdminManifest", () => {
   });
 });
 
+describe("withOnlyActiveDeploymentAdmin", () => {
+  it("temporarily demotes active deployment admins except the retained admin", async () => {
+    const fake = createFakeControlPlane([
+      fakeUser("retained-admin", {
+        email: "retained@example.test",
+        is_deployment_admin: true,
+      }),
+      fakeUser("other-admin", {
+        email: "other@example.test",
+        is_deployment_admin: true,
+      }),
+      fakeUser("inactive-admin", {
+        email: "inactive@example.test",
+        is_active: false,
+        is_deployment_admin: true,
+      }),
+      fakeUser("ordinary-user", {
+        email: "ordinary@example.test",
+      }),
+    ]);
+
+    await withOnlyActiveDeploymentAdmin(
+      fake.controlPlane,
+      "retained-admin",
+      async () => {
+        expect(
+          requireUser(fake.users, "retained-admin").is_deployment_admin,
+        ).toBe(true);
+        expect(requireUser(fake.users, "other-admin").is_deployment_admin).toBe(
+          false,
+        );
+        expect(
+          requireUser(fake.users, "inactive-admin").is_deployment_admin,
+        ).toBe(true);
+        expect(
+          requireUser(fake.users, "ordinary-user").is_deployment_admin,
+        ).toBe(false);
+      },
+    );
+
+    expect(requireUser(fake.users, "other-admin").is_deployment_admin).toBe(
+      true,
+    );
+    expect(requireUser(fake.users, "other-admin").user_version).toBe(3);
+  });
+
+  it("restores demoted admins after a guarded block fails", async () => {
+    const fake = createFakeControlPlane([
+      fakeUser("retained-admin", {
+        email: "retained@example.test",
+        is_deployment_admin: true,
+      }),
+      fakeUser("other-admin", {
+        email: "other@example.test",
+        is_deployment_admin: true,
+      }),
+    ]);
+
+    await expect(
+      withOnlyActiveDeploymentAdmin(
+        fake.controlPlane,
+        "retained-admin",
+        async () => {
+          throw new Error("probe failed");
+        },
+      ),
+    ).rejects.toThrow("probe failed");
+
+    expect(requireUser(fake.users, "other-admin").is_deployment_admin).toBe(
+      true,
+    );
+  });
+});
+
 function buildBlueprints(workerCount: number) {
   return Array.from({ length: workerCount }, (_, parallelIndex) => ({
     parallelIndex,
@@ -161,6 +241,7 @@ function createFakeControlPlane(
       },
       listUsers: async () =>
         [...users.values()].map((user) => toUserResource(user)),
+      loadUser: async (userId) => toUserResource(requireUser(users, userId)),
       patchUser: async (userId, body) => {
         stats.patchCount += 1;
         const current = requireUser(users, userId);
@@ -191,6 +272,20 @@ function createFakeControlPlane(
     },
     stats,
     users,
+  };
+}
+
+function fakeUser(userId: string, overrides: Partial<FakeUser> = {}): FakeUser {
+  return {
+    user_id: userId,
+    email: `${userId}@example.test`,
+    display_name: userId,
+    user_version: 1,
+    is_active: true,
+    mfa_required: false,
+    is_deployment_admin: false,
+    password: "Password1!",
+    ...overrides,
   };
 }
 

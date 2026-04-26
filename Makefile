@@ -9,7 +9,7 @@ SHELL := /bin/bash
 .PHONY: harness-smoke-toolchain-pins harness-smoke-bootstrap-node-runtime harness-smoke-build-input-discovery harness-smoke-check-migrations harness-smoke-run-make-sequence-fast harness-smoke-run-make-sequence harness-smoke-release-task-surface harness-smoke-benchmark-claim-check harness-smoke-task-surface-report harness-smoke-run-phase harness-smoke-run-go-target-fast harness-smoke-run-go-target harness-smoke-print-target-plan harness-smoke-service-backed-scheduler harness-smoke-run-playwright-phase harness-smoke-run-playwright-manifest-phase harness-smoke-run-playwright-webserver-batch harness-smoke-run-vitest-phase harness-smoke-run-vitest-manifest-phase harness-smoke-web-e2e-lifecycle harness-smoke-dev-stack-lifecycle
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck format format-frontend
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-resettable browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
-.PHONY: test-local test-service-backed test-isolated test-fast test-fast-service-backed test lint lint-go check check-preflight check-setup-blockers check-static-validation check-harness-smoke check-parallel check-heavy check-service-backed check-isolated ci release-check license-report sbom
+.PHONY: test-local test-service-backed test-fast test-fast-service-backed test lint lint-go check check-preflight check-setup-blockers check-static-validation check-harness-smoke check-parallel check-heavy check-service-backed ci release-check license-report sbom
 .PHONY: build build-server build-migrate build-web
 .PHONY: clean distclean
 
@@ -74,13 +74,13 @@ RUN_VITEST_PHASE = $(Q)NODE_BIN=$(NODE_BIN) $(RUN_VITEST_PHASE_SCRIPT)
 RUN_VITEST_MANIFEST_PHASE = $(Q)NODE_BIN=$(NODE_BIN) $(RUN_VITEST_MANIFEST_PHASE_SCRIPT)
 RUN_PHASE_ALLOW_SUCCESS_LOG = $(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT)
 TARGET_SUMMARY = $(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary
-TEST_SUMMARY_TARGETS := test-service-backed,test-isolated,backend-unit,frontend-typecheck,frontend-unit,backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
-CHECK_SUMMARY_TARGETS := check-service-backed,check-isolated,backend-unit,frontend-typecheck,frontend-unit,backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
-TEST_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser-webserver-backed=browser-e2e-webserver-backed;browser-isolated=browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
-CHECK_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser-webserver-backed=browser-e2e-webserver-backed;browser-isolated=browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
-TEST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed
+TEST_SUMMARY_TARGETS := test-service-backed,browser-e2e,backend-unit,frontend-typecheck,frontend-unit,backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
+CHECK_SUMMARY_TARGETS := check-service-backed,browser-e2e,backend-unit,frontend-typecheck,frontend-unit,backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
+TEST_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser=browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
+CHECK_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser=browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
+TEST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process
 TEST_FAST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process
-CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed
+CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process
 BROWSER_E2E_ALL_CHILD_TARGETS := browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
 BROWSER_E2E_ISOLATED_CHILD_TARGETS := browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
 BROWSER_E2E_RESETTABLE_CHILD_TARGETS := browser-e2e-measurement,browser-e2e-visual
@@ -553,13 +553,8 @@ test-service-backed: export CARTULARY_TEST_TARGET := test-service-backed
 test-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN)
 	$(Q)status=0; $(TEST_SERVICES_BIN) run -- env MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_PHASE_SCRIPT) "test service-backed" -- $(NODE_BIN) $(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-service-backed --jobs $(TEST_SERVICE_BACKED_JOBS) --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)" --defer-summary || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary test-service-backed $$requested --children "$(TEST_SERVICE_BACKED_CHILD_TARGETS)"; summary_status=$$?; if [ "$$status" -ne 0 ]; then exit "$$status"; fi; exit "$$summary_status"
 
-test-isolated: export CARTULARY_TEST_TARGET := test-isolated
-
-test-isolated: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN)
-	$(Q)status=0; $(TEST_SERVICES_BIN) run -- env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh isolated || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary test-isolated $$requested --children "$(BROWSER_E2E_ISOLATED_CHILD_TARGETS)"; exit "$$status"
-
 test: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label test --summary-targets "$(TEST_SUMMARY_TARGETS)" --summary-groups "$(TEST_SUMMARY_GROUPS)" --parallel-step test-local:3 --step test-service-backed --step test-isolated
+	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label test --summary-targets "$(TEST_SUMMARY_TARGETS)" --summary-groups "$(TEST_SUMMARY_GROUPS)" --parallel-step test-local:3 --step test-service-backed --step browser-e2e
 
 backend-unit: export CARTULARY_TEST_TARGET := backend-unit
 backend-unit: export CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION := phase1:unit:authoritative:backend_unit:./internal/platform/...
@@ -711,8 +706,8 @@ check-static-validation:
 check-harness-smoke:
 	$(Q)$(MAKE) --no-print-directory run-harness-smoke-fast
 
-# Keep only parallel-safe work here. Service-backed Go phases and owned-stack
-# browser suites run after this block under serialized orchestration.
+# Keep only parallel-safe work here. Service-backed Go phases and the aggregate
+# owned-stack browser batch run after this block under serialized orchestration.
 check-heavy: test-service-images migration-drift lint-go frontend-typecheck backend-unit frontend-unit deployable-shape-verify
 
 check-parallel: check-heavy check-static-validation check-harness-smoke
@@ -722,13 +717,8 @@ check-service-backed: export CARTULARY_TEST_TARGET := check-service-backed
 check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate test-service-images
 	$(Q)status=0; $(TEST_SERVICES_BIN) run -- env MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_PHASE_SCRIPT) "check service-backed" -- $(NODE_BIN) $(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target check-service-backed --jobs $(SERVICE_BACKED_JOBS) --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)" --defer-summary || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary check-service-backed $$requested --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)"; summary_status=$$?; if [ "$$status" -ne 0 ]; then exit "$$status"; fi; exit "$$summary_status"
 
-check-isolated: export CARTULARY_TEST_TARGET := check-isolated
-
-check-isolated: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN)
-	$(Q)status=0; $(TEST_SERVICES_BIN) run -- env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh isolated || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary check-isolated $$requested --children "$(BROWSER_E2E_ISOLATED_CHILD_TARGETS)"; exit "$$status"
-
 check: $(NODE_BIN)
-	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label check --summary-targets "$(CHECK_SUMMARY_TARGETS)" --summary-groups "$(CHECK_SUMMARY_GROUPS)" --step check-setup-blockers --parallel-step check-parallel:$(CHECK_JOBS) --step check-service-backed --step check-isolated
+	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label check --summary-targets "$(CHECK_SUMMARY_TARGETS)" --summary-groups "$(CHECK_SUMMARY_GROUPS)" --step check-setup-blockers --parallel-step check-parallel:$(CHECK_JOBS) --step check-service-backed --step browser-e2e
 
 ci:
 	$(Q)./scripts/ci/verify.sh

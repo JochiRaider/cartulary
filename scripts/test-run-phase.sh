@@ -334,7 +334,7 @@ child_run_output="$(
   CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \
   CARTULARY_TEST_RUN_ID="child-summary" \
     "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "child run" pass 1 1 - \
-      --summary-groups "backend-service-backed=child-a,child-b;browser-webserver-backed=child-b" \
+      --summary-groups "backend-service-backed=child-a,child-b;browser=child-b" \
       parent-target \
     2>&1
 )"
@@ -346,7 +346,7 @@ assert_contains "$child_run_output" "teardown=" "child run teardown duration out
 assert_contains "$child_run_output" "slowest_target=parent-target(" "child run slowest target output"
 assert_contains "$child_run_output" "slowest_lifecycle_bucket=parent-target:" "child run slowest lifecycle bucket output"
 assert_contains "$child_run_output" "[GROUP] child run backend-service-backed targets=child-a,child-b status=pass wall=1.00s critical=1.00s exec=3.00s logical=3.00s teardown=0ms actual=5 reused=0 derived=0" "child run backend service group output"
-assert_contains "$child_run_output" "[GROUP] child run browser-webserver-backed targets=child-b status=pass wall=1.00s critical=1.00s exec=2.00s logical=2.00s teardown=0ms actual=3 reused=0 derived=0" "child run browser group output"
+assert_contains "$child_run_output" "[GROUP] child run browser targets=child-b status=pass wall=1.00s critical=1.00s exec=2.00s logical=2.00s teardown=0ms actual=3 reused=0 derived=0" "child run browser group output"
 assert_not_contains "$child_run_output" " duration=" "child run ambiguous duration output"
 child_run_summary="$child_summary_results/child-summary/run-summary.json"
 assert_not_negative "$(json_field "$child_run_summary" "wall_duration_ms")" "child run wall duration"
@@ -402,14 +402,14 @@ missing_group_output="$(
   CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \
   CARTULARY_TEST_RUN_ID="child-summary" \
     "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "child run missing group" pass 1 1 - \
-      --summary-groups "browser-webserver-backed=missing-browser" \
+      --summary-groups "browser=missing-browser" \
       parent-target \
     2>&1
 )"
 missing_group_status=$?
 set -e
 assert_equals "$missing_group_status" "1" "missing group run summary status"
-assert_contains "$missing_group_output" "[GROUP] child run missing group browser-webserver-backed targets=missing-browser status=fail" "missing group output"
+assert_contains "$missing_group_output" "[GROUP] child run missing group browser targets=missing-browser status=fail" "missing group output"
 assert_contains "$missing_group_output" "missing=missing-browser" "missing group target output"
 missing_group_summary="$child_summary_results/child-summary/run-summary.json"
 assert_equals "$(json_field "$missing_group_summary" "summary_groups.0.missing_target_summaries.0")" "missing-browser" "missing group summary list"

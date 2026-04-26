@@ -649,9 +649,9 @@ fi
 if printf '%s\n' "$check_service_block" | rg -q '(^|[[:space:]])(backend-process-support|phase2-process-smoke)($|[[:space:]])'; then
   fail "check-service-backed must not invoke Phase 2 process smoke coverage"
 fi
-mapfile -t check_service_browser_exclusive < <(schedule_child_array check-service-backed browser-e2e-webserver-backed exclusive_tags)
-if printf '%s\n' "${check_service_browser_exclusive[@]}" | rg -q '^(postgres|minio)$'; then
-  fail "check-service-backed browser child must not declare broad postgres or minio exclusivity"
+mapfile -t check_service_browser_schedule_targets < <(schedule_targets check-service-backed browser)
+if [[ "${#check_service_browser_schedule_targets[@]}" -ne 0 ]]; then
+  fail "check-service-backed schedule must not own browser targets; use browser-e2e aggregate instead, found: ${check_service_browser_schedule_targets[*]}"
 fi
 
 mapfile -t check_service_backend_schedule_targets < <(schedule_targets check-service-backed backend)

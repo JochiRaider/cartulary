@@ -3,10 +3,10 @@ import type { APIRequestContext, Page } from "@playwright/test";
 import {
   authenticatedRequestContextFromStorageState,
   createLocalUser,
-  listUsers,
+  deploymentAdminMutationClient,
   loadUser,
-  patchUser,
   resetUserTotp,
+  withOnlyActiveDeploymentAdmin,
 } from "./authRuntime";
 import { expect, restoreTrackedStorageState, test } from "./fixtures";
 import {
@@ -166,50 +166,33 @@ test("E-1-05 lets deployment admins create and patch users, rejects stale versio
   if (!currentAdminID) {
     throw new Error("missing current admin user id");
   }
-  const remainingAdmins = (await listUsers(workerAdminRequest)).filter(
-    (user) =>
-      user.user_id !== currentAdminID &&
-      user.is_active &&
-      user.is_deployment_admin,
-  );
-  for (const user of remainingAdmins) {
-    await patchUser(workerAdminRequest, user.user_id, {
-      base_user_version: user.user_version,
-      is_deployment_admin: false,
-    });
-  }
-  await phase1.loadTargetUser(currentAdminID);
-  await expect(
-    page.getByTestId("admin-patch-is-deployment-admin"),
-  ).toBeChecked();
-  await expect(page.getByTestId("admin-patch-is-active")).toBeChecked();
+  await withOnlyActiveDeploymentAdmin(
+    deploymentAdminMutationClient(workerAdminRequest),
+    currentAdminID,
+    async () => {
+      await phase1.loadTargetUser(currentAdminID);
+      await expect(
+        page.getByTestId("admin-patch-is-deployment-admin"),
+      ).toBeChecked();
+      await expect(page.getByTestId("admin-patch-is-active")).toBeChecked();
 
-  await phase1.setCheckbox("admin-patch-is-deployment-admin", false);
-  await phase1.patchTargetUser();
-  await expect(page.getByTestId("admin-error-code")).toHaveText(
-    "last_deployment_admin",
-  );
+      await phase1.setCheckbox("admin-patch-is-deployment-admin", false);
+      await phase1.patchTargetUser();
+      await expect(page.getByTestId("admin-error-code")).toHaveText(
+        "last_deployment_admin",
+      );
 
-  await phase1.loadTargetUser(currentAdminID);
-  await expect(
-    page.getByTestId("admin-patch-is-deployment-admin"),
-  ).toBeChecked();
-  await phase1.setCheckbox("admin-patch-is-active", false);
-  await phase1.patchTargetUser();
-  await expect(page.getByTestId("admin-error-code")).toHaveText(
-    "last_deployment_admin",
+      await phase1.loadTargetUser(currentAdminID);
+      await expect(
+        page.getByTestId("admin-patch-is-deployment-admin"),
+      ).toBeChecked();
+      await phase1.setCheckbox("admin-patch-is-active", false);
+      await phase1.patchTargetUser();
+      await expect(page.getByTestId("admin-error-code")).toHaveText(
+        "last_deployment_admin",
+      );
+    },
   );
-
-  for (const user of remainingAdmins) {
-    const reloaded = await loadUser(workerAdminRequest, user.user_id);
-    if (reloaded.is_deployment_admin) {
-      continue;
-    }
-    await patchUser(workerAdminRequest, user.user_id, {
-      base_user_version: reloaded.user_version,
-      is_deployment_admin: true,
-    });
-  }
 });
 
 test("E-1-06 follows the bootstrap-token enrollment sequence on the ordinary login shell and proves completion alone issues no session", async ({
