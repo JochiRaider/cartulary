@@ -364,6 +364,39 @@ assert_equals "$(json_field "$child_run_summary" "summary_groups.0.executed_dura
 assert_equals "$(json_field "$child_run_summary" "summary_groups.1.targets.0")" "child-b" "run summary browser group target"
 assert_equals "$(json_field "$child_run_summary" "summary_groups.1.status")" "pass" "run summary browser group status"
 
+shared_execution_results="$(mktemp -d "$ROOT_DIR/tmp/run-summary-shared-execution.XXXXXX")"
+cleanup_paths+=("$shared_execution_results")
+write_target_summary "$shared_execution_results" "shared-execution" "target-fast" 100 100 1 1
+write_target_summary "$shared_execution_results" "shared-execution" "target-slow" 2000 2000 1 1
+shared_execution_dir="$shared_execution_results/shared-execution/_shared/backend-integration-phase2-incidents-shard-01"
+mkdir -p "$shared_execution_dir"
+CARTULARY_TEST_RESULTS_DIR="$shared_execution_results" \
+CARTULARY_TEST_RUN_ID="shared-execution" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" shared-execution \
+    backend-integration-shards \
+    backend-integration-phase2-incidents-shard-01 \
+    pass \
+    2026-01-01T00:00:00Z \
+    2026-01-01T00:00:07Z \
+    7000 \
+    0 \
+    "$shared_execution_dir/shared-execution.json"
+shared_execution_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$shared_execution_results" \
+  CARTULARY_TEST_RUN_ID="shared-execution" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "shared execution run" pass 2 2 - target-fast target-slow \
+    2>&1
+)"
+assert_contains "$shared_execution_output" "slowest_target=target-slow(2.00s)" "shared execution run slowest target ignores shared group"
+assert_contains "$shared_execution_output" "[SHARED] shared execution run backend-integration-shards status=pass wall=7.00s exec=7.00s reports=1" "shared execution run group output"
+shared_execution_summary="$shared_execution_results/shared-execution/run-summary.json"
+assert_equals "$(json_field "$shared_execution_summary" "shared_execution_groups.0.schema_id")" "cartulary.test_shared_execution_group.v1" "shared execution group schema"
+assert_equals "$(json_field "$shared_execution_summary" "shared_execution_groups.0.name")" "backend-integration-shards" "shared execution group name"
+assert_equals "$(json_field "$shared_execution_summary" "shared_execution_groups.0.wall_duration_ms")" "7000" "shared execution group wall duration"
+assert_equals "$(json_field "$shared_execution_summary" "shared_execution_groups.0.executed_duration_ms")" "7000" "shared execution group executed duration"
+assert_equals "$(json_field "$shared_execution_summary" "shared_execution_groups.0.shared_reports.0")" "backend-integration-phase2-incidents-shard-01" "shared execution group report name"
+assert_equals "$(json_field "$shared_execution_summary" "slowest_target.target")" "target-slow" "shared execution JSON slowest target"
+
 set +e
 missing_group_output="$(
   CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \

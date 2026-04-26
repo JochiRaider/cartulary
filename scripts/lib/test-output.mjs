@@ -23,6 +23,7 @@ const phaseSummarySchemaID = "cartulary.test_phase_summary.v2";
 const targetTimingSchemaID = "cartulary.test_target_timing.v1";
 const targetSummarySchemaID = "cartulary.test_target_summary.v2";
 const runSummarySchemaID = "cartulary.test_run_summary.v2";
+const sharedExecutionGroupSchemaID = "cartulary.test_shared_execution_group.v1";
 const timingBucketOrder = [
   "setup",
   "service_wait",
@@ -70,6 +71,9 @@ function main() {
       break;
     case "timing-span":
       process.exit(handleTimingSpan());
+      break;
+    case "shared-execution":
+      process.exit(handleSharedExecution(rest));
       break;
     case "run-summary":
       process.exit(handleRunSummary(rest));
@@ -784,6 +788,40 @@ function handleTimingSpan() {
   return 0;
 }
 
+function handleSharedExecution(args) {
+  const [group, sharedReport, status, startTime, endTime, durationText, exitStatusText, outputPath] =
+    args;
+  if (
+    !group ||
+    !sharedReport ||
+    !status ||
+    !startTime ||
+    !endTime ||
+    durationText === undefined ||
+    exitStatusText === undefined ||
+    !outputPath
+  ) {
+    throw new Error(
+      "usage: test-output.mjs shared-execution <group> <shared-report> <status> <start-time> <end-time> <duration-ms> <exit-status> <output-path>",
+    );
+  }
+  const durationMs = clampDurationMs(Number.parseInt(durationText, 10));
+  writeJson(outputPath, {
+    schema_id: sharedExecutionGroupSchemaID,
+    execution_group: group,
+    shared_report: sharedReport,
+    status,
+    start_time: startTime,
+    end_time: endTime,
+    duration_ms: durationMs,
+    wall_duration_ms: durationMs,
+    executed_duration_ms: durationMs,
+    exit_status: Number.parseInt(exitStatusText, 10) || 0,
+    artifact: relToRepo(path.dirname(outputPath)),
+  });
+  return 0;
+}
+
 function loadTargetOwnedTimingSpans(targetDir) {
   const spansDir = path.join(targetDir, "timing-spans");
   if (!existsSync(spansDir)) {
@@ -1218,6 +1256,104 @@ function teardownStatus(teardownDurationMs, teardownFailures) {
     return "pass";
   }
   return "none";
+}
+
+function loadSharedExecutionRecords() {
+  const sharedRoot = path.join(resultsRoot, runId, "_shared");
+  if (!existsSync(sharedRoot)) {
+    return [];
+  }
+  const records = [];
+  const stack = [sharedRoot];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+        continue;
+      }
+      if (!entry.isFile() || entry.name !== "shared-execution.json") {
+        continue;
+      }
+      let record;
+      try {
+        record = JSON.parse(readFileSync(next, "utf8"));
+      } catch {
+        continue;
+      }
+      if (record?.schema_id !== sharedExecutionGroupSchemaID || !record.execution_group) {
+        continue;
+      }
+      records.push({
+        execution_group: record.execution_group,
+        shared_report: record.shared_report ?? "",
+        status: record.status ?? "",
+        start_time: record.start_time ?? "",
+        end_time: record.end_time ?? "",
+        duration_ms: clampDurationMs(record.duration_ms ?? 0),
+        wall_duration_ms: clampDurationMs(record.wall_duration_ms ?? record.duration_ms ?? 0),
+        executed_duration_ms: clampDurationMs(
+          record.executed_duration_ms ?? record.duration_ms ?? 0,
+        ),
+        exit_status: clampDurationMs(record.exit_status ?? 0),
+        artifact: record.artifact ?? relToRepo(path.dirname(next)),
+      });
+    }
+  }
+  return records.sort((left, right) =>
+    `${left.execution_group}:${left.shared_report}`.localeCompare(
+      `${right.execution_group}:${right.shared_report}`,
+    ),
+  );
+}
+
+function buildSharedExecutionGroups() {
+  const byGroup = new Map();
+  for (const record of loadSharedExecutionRecords()) {
+    if (!byGroup.has(record.execution_group)) {
+      byGroup.set(record.execution_group, []);
+    }
+    byGroup.get(record.execution_group).push(record);
+  }
+
+  return [...byGroup.entries()]
+    .sort((left, right) => left[0].localeCompare(right[0]))
+    .map(([name, records]) => {
+      const startTime = records
+        .map((record) => record.start_time)
+        .filter((value) => Number.isFinite(Date.parse(value)))
+        .sort((left, right) => Date.parse(left) - Date.parse(right))[0] ?? "";
+      const endTimes = records
+        .map((record) => record.end_time)
+        .filter((value) => Number.isFinite(Date.parse(value)))
+        .sort((left, right) => Date.parse(left) - Date.parse(right));
+      const endTime = endTimes[endTimes.length - 1] ?? "";
+      const wallDurationMs = disjointSpanDurationMs(
+        records.map((record) => ({
+          start_time: record.start_time,
+          end_time: record.end_time,
+          duration_ms: record.wall_duration_ms,
+        })),
+      );
+      const executedDurationMs = records.reduce(
+        (total, record) => total + clampDurationMs(record.executed_duration_ms),
+        0,
+      );
+      const failed = records.some((record) => timingStatusFailed(record.status));
+      return {
+        schema_id: sharedExecutionGroupSchemaID,
+        name,
+        status: failed ? "fail" : "pass",
+        start_time: startTime,
+        end_time: endTime,
+        wall_duration_ms: wallDurationMs,
+        critical_path_wall_duration_ms: wallDurationMs,
+        executed_duration_ms: executedDurationMs,
+        shared_reports: records.map((record) => record.shared_report).filter(Boolean).sort(),
+        reports: records.length,
+      };
+    });
 }
 
 function accountableTargetWallSpan(span) {
@@ -1892,6 +2028,14 @@ function writeSummaryGroupLines(stream, label, summaryGroups) {
   }
 }
 
+function writeSharedExecutionGroupLines(stream, label, sharedExecutionGroups) {
+  for (const group of sharedExecutionGroups) {
+    stream.write(
+      `[SHARED] ${label} ${group.name} status=${group.status} wall=${formatDuration(group.wall_duration_ms)} exec=${formatDuration(group.executed_duration_ms)} reports=${group.reports}\n`,
+    );
+  }
+}
+
 function findSlowestTarget(targetSummaries) {
   return targetSummaries.reduce((current, summary) => {
     const durationMs = clampDurationMs(
@@ -1956,7 +2100,11 @@ function handleRunSummary(args) {
   const wallDurationMs = summarized.wallDurationMs;
   const criticalPathWallDurationMs = summarized.criticalPathWallDurationMs;
   const renderedSummaryGroups = buildSummaryGroups(summaryGroups);
-  const failed = summarized.failed || renderedSummaryGroups.some((group) => group.status !== "pass");
+  const sharedExecutionGroups = buildSharedExecutionGroups();
+  const failed =
+    summarized.failed ||
+    renderedSummaryGroups.some((group) => group.status !== "pass") ||
+    sharedExecutionGroups.some((group) => group.status !== "pass");
   const slowestTarget = findSlowestTarget(targetSummaries);
   const slowestLifecycleBucket = findSlowestLifecycleBucket(targetSummaries);
 
@@ -1986,6 +2134,7 @@ function handleRunSummary(args) {
     target_summaries: targetSummaries,
     missing_target_summaries: missingTargetSummaries,
     summary_groups: renderedSummaryGroups,
+    shared_execution_groups: sharedExecutionGroups,
   };
   writeJson(path.join(resultsRoot, runId, "run-summary.json"), runSummary);
 
@@ -1994,6 +2143,7 @@ function handleRunSummary(args) {
       `[PASS] ${label} completed_targets=${completedTargets}/${totalTargets} phases=${aggregate.phases} tests=${aggregate.tests} authoritative=${aggregate.authoritative} support=${aggregate.support} unmapped=${aggregate.unmapped} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
     );
     writeSummaryGroupLines(process.stdout, label, renderedSummaryGroups);
+    writeSharedExecutionGroupLines(process.stdout, label, sharedExecutionGroups);
     return 0;
   }
 
@@ -2001,6 +2151,7 @@ function handleRunSummary(args) {
     `[FAIL] ${label} completed_targets=${completedTargets}/${totalTargets} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
   );
   writeSummaryGroupLines(process.stderr, label, renderedSummaryGroups);
+  writeSharedExecutionGroupLines(process.stderr, label, sharedExecutionGroups);
   return 1;
 }
 

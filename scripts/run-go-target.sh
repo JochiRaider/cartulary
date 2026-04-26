@@ -75,6 +75,10 @@ planned_shard_postgres_fixture_policy_packages() {
   "${NODE_HELPER}" "${SHARD_PLAN_SCRIPT}" shard-postgres-fixture-policy-packages "$@"
 }
 
+planned_shard_field() {
+  "${NODE_HELPER}" "${SHARD_PLAN_SCRIPT}" shard-field "$@"
+}
+
 planned_aggregate_names() {
   "${NODE_HELPER}" "${SHARD_PLAN_SCRIPT}" list-aggregates "$@"
 }
@@ -805,10 +809,68 @@ capture_go_report_locked() {
   printf '%s\n' "${end_time}" >"${shared_dir}/end_time.txt"
   printf '%s\n' "$(phase_clamp_duration_ms "${duration_ms}")" >"${shared_dir}/duration_ms.txt"
   printf '%s\n' "${run_status}" >"${shared_dir}/exit_status.txt"
+  write_cross_target_shared_execution_metadata \
+    "${shared_dir}" \
+    "${shared_name}" \
+    "${start_time}" \
+    "${end_time}" \
+    "${duration_ms}" \
+    "${run_status}"
   touch "${complete_file}"
 
   printf '%s\n' "${shared_dir}"
   printf '%s\n' actual
+}
+
+is_cross_target_shared_report() {
+  if [[ "$#" -ne 2 ]]; then
+    echo "is_cross_target_shared_report requires <target> <shared-name>" >&2
+    return 2
+  fi
+
+  local target="$1"
+  local shared_name="$2"
+  if [[ "${shared_name}" != *"-shard-"* ]]; then
+    return 1
+  fi
+
+  local shared_across_targets
+  shared_across_targets="$(planned_shard_field "${target}" "${shared_name}" shared_across_targets 2>/dev/null || true)"
+  [[ "${shared_across_targets}" == "true" ]]
+}
+
+write_cross_target_shared_execution_metadata() {
+  if [[ "$#" -ne 6 ]]; then
+    echo "write_cross_target_shared_execution_metadata requires <shared-dir> <shared-name> <start-time> <end-time> <duration-ms> <exit-status>" >&2
+    return 2
+  fi
+
+  local shared_dir="$1"
+  local shared_name="$2"
+  local start_time="$3"
+  local end_time="$4"
+  local duration_ms="$5"
+  local exit_status="$6"
+  local status="pass"
+
+  if ! is_cross_target_shared_report backend-integration "${shared_name}" && \
+     ! is_cross_target_shared_report backend-integration-support "${shared_name}"; then
+    return 0
+  fi
+
+  if [[ "${exit_status}" != "0" ]]; then
+    status="fail"
+  fi
+
+  NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" shared-execution \
+    backend-integration-shards \
+    "${shared_name}" \
+    "${status}" \
+    "${start_time}" \
+    "${end_time}" \
+    "$(phase_clamp_duration_ms "${duration_ms}")" \
+    "${exit_status}" \
+    "${shared_dir}/shared-execution.json" >/dev/null
 }
 
 assign_named_shared_report() {
@@ -831,6 +893,11 @@ assign_named_shared_report() {
   set_postgres_fixture_policy_env "${policy_tests}" "${policy_packages}" ""
   assign_captured_report "${dir_var}" "${usage_var}" "${shared_name}" "${shared_regex}" -- "${shared_args[@]}"
   clear_postgres_fixture_policy_env
+
+  local -n assigned_usage_ref="${usage_var}"
+  if [[ "${assigned_usage_ref}" == "actual" ]] && is_cross_target_shared_report "${target}" "${shared_name}"; then
+    assigned_usage_ref="reused"
+  fi
 }
 
 assign_captured_report() {
@@ -994,6 +1061,9 @@ create_aggregate_report() {
   local start_time=""
   local end_time=""
   local duration_ms=0
+  local actual_start_time=""
+  local actual_end_time=""
+  local actual_duration_ms=0
   local wall_duration_ms=0
   local exit_status=0
   local has_actual=0
@@ -1039,12 +1109,22 @@ create_aggregate_report() {
     fi
     if [[ "${shard_usage}" == "actual" ]]; then
       has_actual=1
+      actual_duration_ms="$((actual_duration_ms + shard_duration))"
+      if [[ -z "${actual_start_time}" || "${shard_start}" < "${actual_start_time}" ]]; then
+        actual_start_time="${shard_start}"
+      fi
+      if [[ -z "${actual_end_time}" || "${shard_end}" > "${actual_end_time}" ]]; then
+        actual_end_time="${shard_end}"
+      fi
     fi
   done
 
   usage_ref="reused"
   if [[ "${has_actual}" -eq 1 ]]; then
     usage_ref="actual"
+    start_time="${actual_start_time}"
+    end_time="${actual_end_time}"
+    duration_ms="${actual_duration_ms}"
     wall_duration_ms="$(iso_window_duration_ms "${start_time}" "${end_time}")"
   fi
 
@@ -1195,8 +1275,32 @@ emit_go_manifest_phase() {
     "${PHASE_EXIT_STATUS}"
 }
 
+emit_go_target_invocation_span() {
+  local status="$1"
+  if [[ -z "${GO_TARGET_INVOCATION_START_TIME:-}" || "${GO_TARGET_INVOCATION_EMITTED:-0}" == "1" ]]; then
+    return 0
+  fi
+
+  local span_status="pass"
+  if [[ "${status}" -ne 0 ]]; then
+    span_status="fail"
+  fi
+
+  phase_capture_finish GO_TARGET_INVOCATION
+  GO_TARGET_INVOCATION_EMITTED=1
+  emit_target_timing_span \
+    test_command \
+    "run-go-target ${CARTULARY_TEST_TARGET:-unknown}" \
+    "${GO_TARGET_INVOCATION_START_TIME}" \
+    "${GO_TARGET_INVOCATION_END_TIME}" \
+    "${GO_TARGET_INVOCATION_DURATION_MS}" \
+    "${span_status}" \
+    "${status}"
+}
+
 finish_target() {
   local status="$1"
+  emit_go_target_invocation_span "${status}"
   if [[ "${status}" -eq 0 ]]; then
     emit_target_summary pass
     return 0
@@ -1445,48 +1549,56 @@ main() {
       if [[ "$#" -ne 1 ]]; then
         usage
       fi
+      phase_capture_start GO_TARGET_INVOCATION
       run_backend_unit
       ;;
     backend-store)
       if [[ "$#" -ne 1 ]]; then
         usage
       fi
+      phase_capture_start GO_TARGET_INVOCATION
       run_backend_store
       ;;
     backend-integration)
       if [[ "$#" -ne 1 ]]; then
         usage
       fi
+      phase_capture_start GO_TARGET_INVOCATION
       run_backend_integration
       ;;
     backend-integration-support)
       if [[ "$#" -ne 1 ]]; then
         usage
       fi
+      phase_capture_start GO_TARGET_INVOCATION
       run_backend_integration_support
       ;;
     backend-process)
       if [[ "$#" -ne 1 ]]; then
         usage
       fi
+      phase_capture_start GO_TARGET_INVOCATION
       run_backend_process
       ;;
     phase0-process-e2e)
       if [[ "$#" -ne 1 ]]; then
         usage
       fi
+      phase_capture_start GO_TARGET_INVOCATION
       run_phase0_process_e2e
       ;;
     phase1-process-smoke)
       if [[ "$#" -ne 1 ]]; then
         usage
       fi
+      phase_capture_start GO_TARGET_INVOCATION
       run_phase1_process_smoke
       ;;
     phase2-process-smoke)
       if [[ "$#" -ne 1 ]]; then
         usage
       fi
+      phase_capture_start GO_TARGET_INVOCATION
       run_phase2_process_smoke
       ;;
     *)

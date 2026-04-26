@@ -310,6 +310,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
         has_authoritative: hasAuthoritative,
         has_support: hasSupport,
         has_raw: hasRaw,
+        shared_across_targets: hasAuthoritative && hasSupport,
         item_count: bin.items.length,
         items: bin.items
           .map((item) => ({
@@ -463,6 +464,13 @@ function main(argv) {
       printLines([fixturePolicyAssignmentsForShard(shard, "packages").join(",")]);
       return;
     }
+    case "shard-field": {
+      const field = argv[3];
+      const shard = findShard(plan, target, name);
+      const value = shard[field] ?? "";
+      process.stdout.write(`${String(value)}\n`);
+      return;
+    }
     case "list-aggregates":
       printLines(targetAggregates(plan, target).map((aggregate) => aggregate.name));
       return;
@@ -485,7 +493,7 @@ function main(argv) {
     }
     default:
       throw new Error(
-        "usage: go-shard-plan.mjs <json|list-shards|shard-spec|list-aggregates|aggregate-shards|aggregate-packages|aggregate-field> [target] [name] [field]",
+        "usage: go-shard-plan.mjs <json|list-shards|shard-spec|shard-field|list-aggregates|aggregate-shards|aggregate-packages|aggregate-field> [target] [name] [field]",
       );
   }
 }

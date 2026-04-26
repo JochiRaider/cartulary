@@ -94,9 +94,16 @@ const packageReset = authoritative.filter((item) => item.postgres_fixture_policy
 if (packageReset.length === 0) {
   process.exit(1);
 }
+const shared = plan.shards.filter((shard) => shard.shared_across_targets);
+if (shared.length === 0) {
+  process.exit(1);
+}
+if (!plan.shards.every((shard) => shard.shared_across_targets === (shard.has_authoritative && shard.has_support))) {
+  process.exit(1);
+}
 EOF
 then
-  fail "backend-integration go shard plan must be weighted, policy-bearing, and split heavy aggregates"
+  fail "backend-integration go shard plan must be weighted, policy-bearing, split heavy aggregates, and mark cross-target shared shards"
 fi
 
 backend_store_output="$("$NODE_HELPER" "$PLAN_SCRIPT" --target backend-store)"

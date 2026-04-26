@@ -238,6 +238,41 @@ assert_equals "$(json_field "$duration_run_summary" "accounting_modes.actual")" 
 assert_equals "$(json_field "$duration_run_summary" "accounting_modes.reused")" "1" "duration run reused accounting count"
 assert_equals "$(json_field "$duration_run_summary" "accounting_modes.derived")" "1" "duration run derived accounting count"
 
+reused_window_results_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-reused-window.XXXXXX")"
+cleanup_paths+=("$reused_window_results_dir")
+reused_window_report_dir="$reused_window_results_dir/shared-report"
+mkdir -p "$reused_window_report_dir"
+cp "$shared_report_dir/runner.jsonl" "$reused_window_report_dir/runner.jsonl"
+touch "$reused_window_report_dir/stderr.log"
+printf '%s\n' "env go test -json -run '^(TestSupportPhase4Integration_Smoke)$' ./internal/modules/entities" >"$reused_window_report_dir/command.txt"
+printf '%s\n' "2000-01-01T00:00:00Z" >"$reused_window_report_dir/start_time.txt"
+printf '%s\n' "2000-01-01T00:00:10Z" >"$reused_window_report_dir/end_time.txt"
+printf '%s\n' "10000" >"$reused_window_report_dir/duration_ms.txt"
+printf '%s\n' "0" >"$reused_window_report_dir/exit_status.txt"
+(
+  export CARTULARY_TEST_RESULTS_DIR="$reused_window_results_dir/results"
+  export CARTULARY_TEST_RUN_ID="reused-window"
+  export CARTULARY_TEST_TARGET="backend-integration-support"
+  export NODE_BIN="$node_bin"
+  source "$GO_TARGET_HELPER"
+  emit_go_raw_phase "reused window support" reused "$reused_window_report_dir" '^(TestSupportPhase4Integration_Smoke)$' ./internal/modules/entities
+  emit_target_timing_span \
+    test_command \
+    "run-go-target backend-integration-support" \
+    "2026-01-01T00:00:00Z" \
+    "2026-01-01T00:00:00.400Z" \
+    400 \
+    pass \
+    0
+  emit_target_summary pass >/dev/null
+)
+reused_window_summary="$reused_window_results_dir/results/reused-window/backend-integration-support/target-summary.json"
+assert_equals "$(json_field "$reused_window_summary" "accounting_modes.actual")" "0" "reused window actual accounting count"
+assert_equals "$(json_field "$reused_window_summary" "accounting_modes.reused")" "1" "reused window reused accounting count"
+assert_equals "$(json_field "$reused_window_summary" "wall_duration_ms")" "400" "reused window target wall follows invocation span"
+assert_equals "$(json_field "$reused_window_summary" "start_time")" "2026-01-01T00:00:00Z" "reused window target start follows invocation span"
+assert_equals "$(json_field "$reused_window_summary" "end_time")" "2026-01-01T00:00:00.400Z" "reused window target end follows invocation span"
+
 backend_unit_core_shared_command="$(
   NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-unit backend-unit-core
 )"
@@ -278,6 +313,17 @@ phase2_incidents_support_shard_command="$(
   NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration-support backend-integration-phase2-incidents-shard-04
 )"
 assert_contains "$phase2_incidents_support_shard_command" "TestSupportPhase2_" "backend-integration support phase2 planned shard selector"
+
+cross_target_shared_shard=""
+while IFS= read -r candidate_shard; do
+  if [[ "$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" shard-field backend-integration-support "$candidate_shard" shared_across_targets)" == "true" ]]; then
+    cross_target_shared_shard="$candidate_shard"
+    break
+  fi
+done < <("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration-support)
+if [[ -z "$cross_target_shared_shard" ]]; then
+  fail "expected at least one cross-target shared backend integration shard"
+fi
 
 phase3_timeline_shared_command="$(
   NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-shared-command backend-integration-support backend-integration-phase3-timeline
@@ -328,6 +374,88 @@ cleanup_paths+=("$shared_mismatch_results")
     fail "shared command mismatch: expected capture_go_report to fail"
   fi
   assert_contains "$mismatch_output" "shared_go_report_command_mismatch" "shared command mismatch marker"
+)
+
+shared_usage_override_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-shared-usage.XXXXXX")"
+cleanup_paths+=("$shared_usage_override_results")
+(
+  export CARTULARY_TEST_RESULTS_DIR="$shared_usage_override_results/results"
+  export CARTULARY_TEST_RUN_ID="shared-usage"
+  export NODE_BIN="$node_bin"
+  source "$GO_TARGET_HELPER"
+
+  fake_report_dir="$shared_usage_override_results/fake-report"
+  mkdir -p "$fake_report_dir"
+  capture_go_report() {
+    printf '%s\nactual\n' "$fake_report_dir"
+  }
+
+  assign_named_shared_report integration_dir integration_usage backend-integration "$cross_target_shared_shard"
+  assign_named_shared_report support_dir support_usage backend-integration-support "$cross_target_shared_shard"
+  assert_equals "$integration_usage" "reused" "cross-target backend-integration shard consumption mode"
+  assert_equals "$support_usage" "reused" "cross-target backend-integration-support shard consumption mode"
+)
+
+shared_execution_capture_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-shared-execution.XXXXXX")"
+cleanup_paths+=("$shared_execution_capture_dir")
+mkdir -p "$shared_execution_capture_dir/pkg"
+cat >"$shared_execution_capture_dir/pkg/shared_execution_capture_test.go" <<'EOF'
+package sharedexecutioncapture
+
+import "testing"
+
+func TestSharedExecutionCaptureSmoke(t *testing.T) {}
+EOF
+(
+  export CARTULARY_TEST_RESULTS_DIR="$shared_execution_capture_dir/results"
+  export CARTULARY_TEST_RUN_ID="shared-execution"
+  export NODE_BIN="$node_bin"
+  source "$GO_TARGET_HELPER"
+
+  mapfile -t first_capture < <(capture_go_report "$cross_target_shared_shard" '^(TestSharedExecutionCaptureSmoke)$' -- "./${shared_execution_capture_dir#"$ROOT_DIR"/}/pkg")
+  mapfile -t second_capture < <(capture_go_report "$cross_target_shared_shard" '^(TestSharedExecutionCaptureSmoke)$' -- "./${shared_execution_capture_dir#"$ROOT_DIR"/}/pkg")
+  assert_equals "${first_capture[1]}" "actual" "first cross-target shared capture mode"
+  assert_equals "${second_capture[1]}" "reused" "second cross-target shared capture mode"
+  shared_execution_file="${first_capture[0]}/shared-execution.json"
+  if [[ ! -f "$shared_execution_file" ]]; then
+    fail "cross-target shared capture must write shared-execution.json"
+  fi
+  assert_equals "$(find "${first_capture[0]}" -name shared-execution.json | wc -l | tr -d '[:space:]')" "1" "cross-target shared execution metadata count"
+  assert_equals "$(json_field "$shared_execution_file" "execution_group")" "backend-integration-shards" "cross-target shared execution group"
+  assert_equals "$(json_field "$shared_execution_file" "shared_report")" "$cross_target_shared_shard" "cross-target shared execution report"
+  assert_equals "$(json_field "$shared_execution_file" "status")" "pass" "cross-target shared execution status"
+)
+
+mixed_aggregate_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-mixed-aggregate.XXXXXX")"
+cleanup_paths+=("$mixed_aggregate_results")
+(
+  export CARTULARY_TEST_RESULTS_DIR="$mixed_aggregate_results/results"
+  export CARTULARY_TEST_RUN_ID="mixed-aggregate"
+  export NODE_BIN="$node_bin"
+  source "$GO_TARGET_HELPER"
+
+  metadata_dir="$mixed_aggregate_results/metadata"
+  mkdir -p "$metadata_dir/actual-shard" "$metadata_dir/reused-shard"
+  for shard in actual-shard reused-shard; do
+    printf '%s\n' "env go test -json -run '^Test$' ./internal/modules/entities" >"$metadata_dir/$shard/command.txt"
+    touch "$metadata_dir/$shard/runner.jsonl" "$metadata_dir/$shard/stderr.log"
+    printf '%s\n' "0" >"$metadata_dir/$shard/exit_status.txt"
+  done
+  printf '%s\n' "2026-01-01T00:00:00Z" >"$metadata_dir/reused-shard/start_time.txt"
+  printf '%s\n' "2026-01-01T00:00:10Z" >"$metadata_dir/reused-shard/end_time.txt"
+  printf '%s\n' "10000" >"$metadata_dir/reused-shard/duration_ms.txt"
+  printf '%s\n' "2026-01-01T00:00:20Z" >"$metadata_dir/actual-shard/start_time.txt"
+  printf '%s\n' "2026-01-01T00:00:22Z" >"$metadata_dir/actual-shard/end_time.txt"
+  printf '%s\n' "2000" >"$metadata_dir/actual-shard/duration_ms.txt"
+  printf '%s\n%s\n' "$metadata_dir/reused-shard" reused >"$metadata_dir/reused-shard.meta"
+  printf '%s\n%s\n' "$metadata_dir/actual-shard" actual >"$metadata_dir/actual-shard.meta"
+
+  create_aggregate_report aggregate_dir aggregate_usage "$metadata_dir" mixed-aggregate backend-integration reused-shard actual-shard
+  assert_equals "$aggregate_usage" "actual" "mixed aggregate usage"
+  assert_equals "$(<"$aggregate_dir/duration_ms.txt")" "2000" "mixed aggregate actual duration excludes reused shard"
+  assert_equals "$(<"$aggregate_dir/wall_duration_ms.txt")" "2000" "mixed aggregate wall excludes reused shard"
+  assert_equals "$(<"$aggregate_dir/start_time.txt")" "2026-01-01T00:00:20Z" "mixed aggregate start excludes reused shard"
+  assert_equals "$(<"$aggregate_dir/end_time.txt")" "2026-01-01T00:00:22Z" "mixed aggregate end excludes reused shard"
 )
 
 shared_reuse_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-shared-reuse.XXXXXX")"
