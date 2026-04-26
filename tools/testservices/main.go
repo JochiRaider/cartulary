@@ -35,11 +35,13 @@ const (
 	minioStartupTimeout    = 5 * time.Minute
 	cleanupTimeout         = 2 * time.Minute
 	signalWaitTimeout      = 15 * time.Second
+	webE2ECleanupWorkers   = 4
 
 	stagePostgresStart    = "postgres-start"
 	stagePostgresTemplate = "postgres-template"
 	stageMinIOStart       = "minio-start"
 	stageChildStart       = "child-start"
+	stageCleanupWebE2E    = "cleanup-web-e2e"
 	stageCleanupPostgres  = "cleanup-postgres"
 	stageCleanupMinIO     = "cleanup-minio"
 
@@ -93,6 +95,7 @@ type webE2EFixture struct {
 type webE2EMetadata struct {
 	DatabaseName string `json:"database_name"`
 	Bucket       string `json:"bucket"`
+	Target       string `json:"target,omitempty"`
 }
 
 type childProcess interface {
@@ -339,6 +342,7 @@ func runPrepareWebE2E(args []string, env map[string]string, deps dependencies) i
 	metadata := webE2EMetadata{
 		DatabaseName: fixture.DatabaseName,
 		Bucket:       fixture.Bucket,
+		Target:       suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
 	}
 	if err := writeWebE2EMetadata(metadataFile, metadata); err != nil {
 		_ = deps.cleanupWebE2E(context.Background(), metadata, env)
@@ -372,15 +376,9 @@ func runCleanupWebE2E(args []string, env map[string]string, deps dependencies) i
 		return 1
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
-	defer cancel()
-	cleanupStart := time.Now().UTC()
-	if err := deps.cleanupWebE2E(ctx, metadata, env); err != nil {
-		recordTimingSpanStatus(deps, env, bucketTeardown, "test-services cleanup browser e2e fixture", cleanupStart, err)
-		fmt.Fprintf(os.Stderr, "cleanup browser e2e fixture: %v\n", err)
-		return 1
-	}
-	recordTimingSpan(deps, env, bucketTeardown, "test-services cleanup browser e2e fixture", cleanupStart, time.Now().UTC(), "pass")
+	retireStart := time.Now().UTC()
+	recordWebE2EFixtureEvent(deps, env, suiteservices.EventWebE2EFixtureRetired, metadata)
+	recordTimingSpan(deps, env, bucketTeardown, "test-services retire browser e2e fixture", retireStart, time.Now().UTC(), "pass")
 	deps.refreshSummary(env)
 	return 0
 }
@@ -632,6 +630,19 @@ func createDatabase(ctx context.Context, adminDSN string, name string) error {
 	return nil
 }
 
+func dropDatabase(ctx context.Context, adminDSN string, name string) error {
+	admin, err := sql.Open("pgx", adminDSN)
+	if err != nil {
+		return fmt.Errorf("open postgres admin handle: %w", err)
+	}
+	defer admin.Close()
+
+	if _, err := admin.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE)`, name)); err != nil {
+		return fmt.Errorf("drop test database %s: %w", name, err)
+	}
+	return nil
+}
+
 func postgresPreparationDetails(env map[string]string, strategy string, templateDB string) map[string]any {
 	details := map[string]any{
 		"preparation_strategy": strategy,
@@ -686,24 +697,41 @@ func prepareWebE2EFixture(ctx context.Context, env map[string]string) (webE2EFix
 }
 
 func cleanupWebE2EFixture(ctx context.Context, metadata webE2EMetadata, env map[string]string) error {
-	_ = env
 	var errs []error
 
 	if strings.TrimSpace(metadata.DatabaseName) != "" {
-		postgresHarness, err := pgtest.StartShared(ctx)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("attach suite postgres: %w", err))
-		} else if err := postgresHarness.DropDatabase(ctx, metadata.DatabaseName); err != nil {
-			errs = append(errs, err)
+		if adminDSN := strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.PGAdminDSNEnv)); adminDSN != "" {
+			if err := dropDatabase(ctx, adminDSN, metadata.DatabaseName); err != nil {
+				errs = append(errs, err)
+			}
+		} else {
+			postgresHarness, err := pgtest.StartShared(ctx)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("attach suite postgres: %w", err))
+			} else if err := postgresHarness.DropDatabase(ctx, metadata.DatabaseName); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 
 	if strings.TrimSpace(metadata.Bucket) != "" {
-		s3Harness, err := s3test.StartShared(ctx)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("attach suite minio: %w", err))
-		} else if err := s3Harness.CleanupBucket(ctx, metadata.Bucket); err != nil {
-			errs = append(errs, err)
+		if endpoint := strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.S3EndpointEnv)); endpoint != "" {
+			s3Harness := &s3test.Harness{
+				Endpoint:  endpoint,
+				AccessKey: suiteservices.LookupEnvValue(env, suiteservices.S3AccessKeyEnv),
+				SecretKey: suiteservices.LookupEnvValue(env, suiteservices.S3SecretKeyEnv),
+				Secure:    strings.EqualFold(suiteservices.LookupEnvValue(env, suiteservices.S3SecureEnv), "true"),
+			}
+			if err := s3Harness.CleanupBucket(ctx, metadata.Bucket); err != nil {
+				errs = append(errs, err)
+			}
+		} else {
+			s3Harness, err := s3test.StartShared(ctx)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("attach suite minio: %w", err))
+			} else if err := s3Harness.CleanupBucket(ctx, metadata.Bucket); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 
@@ -808,6 +836,121 @@ func recordTimingSpan(deps dependencies, env map[string]string, bucket string, l
 	})
 }
 
+func recordWebE2EFixtureEvent(deps dependencies, env map[string]string, eventType string, metadata webE2EMetadata) {
+	target := metadata.Target
+	if strings.TrimSpace(target) == "" {
+		target = suiteservices.LookupEnvValue(env, suiteservices.TargetEnv)
+	}
+	deps.recordEvent(env, suiteservices.Event{
+		Type: eventType,
+		Details: map[string]any{
+			"database_name": metadata.DatabaseName,
+			"bucket":        metadata.Bucket,
+			"target":        target,
+		},
+	})
+}
+
+func cleanupRetiredWebE2EFixtures(ctx context.Context, deps dependencies, env map[string]string) error {
+	scope, ok, err := suiteservices.Summarize(env)
+	if err != nil || !ok {
+		return err
+	}
+
+	fixtures := pendingWebE2EFixtures(scope)
+	if len(fixtures) == 0 {
+		return nil
+	}
+
+	cleanupEnv := cloneEnv(env)
+	var (
+		mu      sync.Mutex
+		errs    []error
+		cleaned []webE2EMetadata
+	)
+	jobs := make(chan webE2EMetadata)
+	workerCount := min(webE2ECleanupWorkers, len(fixtures))
+	var wg sync.WaitGroup
+	wg.Add(workerCount)
+	for range workerCount {
+		go func() {
+			defer wg.Done()
+			for fixture := range jobs {
+				if err := deps.cleanupWebE2E(ctx, fixture, cleanupEnv); err != nil {
+					mu.Lock()
+					errs = append(errs, fmt.Errorf("cleanup browser e2e fixture database=%q bucket=%q: %w", fixture.DatabaseName, fixture.Bucket, err))
+					mu.Unlock()
+					continue
+				}
+				mu.Lock()
+				cleaned = append(cleaned, fixture)
+				mu.Unlock()
+			}
+		}()
+	}
+	for _, fixture := range fixtures {
+		jobs <- fixture
+	}
+	close(jobs)
+	wg.Wait()
+
+	slices.SortFunc(cleaned, func(left, right webE2EMetadata) int {
+		leftKey := webE2EFixtureKey(left)
+		rightKey := webE2EFixtureKey(right)
+		return strings.Compare(leftKey, rightKey)
+	})
+	for _, fixture := range cleaned {
+		recordWebE2EFixtureEvent(deps, env, suiteservices.EventWebE2EFixtureCleaned, fixture)
+	}
+
+	return errors.Join(errs...)
+}
+
+func pendingWebE2EFixtures(scope suiteservices.ServiceScope) []webE2EMetadata {
+	cleaned := make(map[string]struct{})
+	for _, fixture := range scope.BrowserE2E.CleanedFixtures {
+		metadata := webE2EMetadata{
+			DatabaseName: fixture.DatabaseName,
+			Bucket:       fixture.Bucket,
+			Target:       fixture.Target,
+		}
+		cleaned[webE2EFixtureKey(metadata)] = struct{}{}
+	}
+
+	pending := make(map[string]webE2EMetadata)
+	for _, fixture := range scope.BrowserE2E.RetiredFixtures {
+		metadata := webE2EMetadata{
+			DatabaseName: fixture.DatabaseName,
+			Bucket:       fixture.Bucket,
+			Target:       fixture.Target,
+		}
+		key := webE2EFixtureKey(metadata)
+		if key == "" {
+			continue
+		}
+		if _, ok := cleaned[key]; ok {
+			continue
+		}
+		pending[key] = metadata
+	}
+
+	fixtures := make([]webE2EMetadata, 0, len(pending))
+	for _, fixture := range pending {
+		fixtures = append(fixtures, fixture)
+	}
+	slices.SortFunc(fixtures, func(left, right webE2EMetadata) int {
+		return strings.Compare(webE2EFixtureKey(left), webE2EFixtureKey(right))
+	})
+	return fixtures
+}
+
+func webE2EFixtureKey(metadata webE2EMetadata) string {
+	return strings.Join([]string{
+		strings.TrimSpace(metadata.DatabaseName),
+		strings.TrimSpace(metadata.Bucket),
+	}, "\x1f")
+}
+
 func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc postgresService, minioSvc minioService, status string, childExitCode int) {
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
@@ -816,6 +959,15 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 	cleanupStatus := status
 	if cleanupStatus == "" {
 		cleanupStatus = "succeeded"
+	}
+
+	webE2ECleanupStart := time.Now().UTC()
+	if err := cleanupRetiredWebE2EFixtures(cleanupCtx, deps, serviceBackedCleanupEnv(env, postgresSvc, minioSvc)); err != nil {
+		cleanupStatus = "cleanup_failed"
+		recordTimingSpanStatus(deps, env, bucketTeardown, "test-services cleanup pooled browser fixtures", webE2ECleanupStart, err)
+		printSuiteFailure(env, failureSummary("", stageCleanupWebE2E, "cleanup pooled browser e2e fixtures", err))
+	} else {
+		recordTimingSpan(deps, env, bucketTeardown, "test-services cleanup pooled browser fixtures", webE2ECleanupStart, time.Now().UTC(), "pass")
 	}
 
 	if postgresSvc.close != nil {
@@ -833,6 +985,24 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 
 	recordTimingSpan(deps, env, bucketTeardown, "test-services cleanup owned services", cleanupStart, time.Now().UTC(), cleanupStatus)
 	recordCleanupAndRefresh(deps, env, cleanupStatus, childExitCode)
+}
+
+func serviceBackedCleanupEnv(env map[string]string, postgresSvc postgresService, minioSvc minioService) map[string]string {
+	cleanupEnv := cloneEnv(env)
+	if postgresSvc.adminDSN != "" {
+		cleanupEnv[suiteservices.PGAdminDSNEnv] = postgresSvc.adminDSN
+	}
+	if minioSvc.endpoint != "" {
+		cleanupEnv[suiteservices.S3EndpointEnv] = minioSvc.endpoint
+	}
+	if minioSvc.accessKey != "" {
+		cleanupEnv[suiteservices.S3AccessKeyEnv] = minioSvc.accessKey
+	}
+	if minioSvc.secretKey != "" {
+		cleanupEnv[suiteservices.S3SecretKeyEnv] = minioSvc.secretKey
+	}
+	cleanupEnv[suiteservices.S3SecureEnv] = fmt.Sprintf("%t", minioSvc.secure)
+	return cleanupEnv
 }
 
 func failureSummary(service string, stage string, operation string, err error) suiteservices.FailureSummary {

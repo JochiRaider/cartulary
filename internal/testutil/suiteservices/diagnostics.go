@@ -17,24 +17,26 @@ const (
 )
 
 const (
-	EventWrapperOwnedStart   = "wrapper-owned-start"
-	EventWrapperPassThrough  = "wrapper-pass-through"
-	EventServiceStarted      = "service-started"
-	EventFailureRecorded     = "failure-recorded"
-	EventCleanupCompleted    = "cleanup-completed"
-	EventPostgresAttach      = "postgres-attach"
-	EventPostgresDBCreated   = "postgres-db-created"
-	EventPostgresDBDropped   = "postgres-db-dropped"
-	EventPostgresDBMigrated  = "postgres-db-migrated"
-	EventPostgresDBRetained  = "postgres-db-retained"
-	EventPostgresDBReset     = "postgres-db-reset"
-	EventPostgresTransaction = "postgres-transaction"
-	EventPostgresTemplateUse = "postgres-template-clone"
-	EventS3Attach            = "s3-attach"
-	EventS3BucketCreated     = "s3-bucket-created"
-	EventS3BucketCleaned     = "s3-bucket-cleaned"
-	EventS3PrefixCleaned     = "s3-prefix-cleaned"
-	EventTimingSpan          = "timing-span"
+	EventWrapperOwnedStart    = "wrapper-owned-start"
+	EventWrapperPassThrough   = "wrapper-pass-through"
+	EventServiceStarted       = "service-started"
+	EventFailureRecorded      = "failure-recorded"
+	EventCleanupCompleted     = "cleanup-completed"
+	EventPostgresAttach       = "postgres-attach"
+	EventPostgresDBCreated    = "postgres-db-created"
+	EventPostgresDBDropped    = "postgres-db-dropped"
+	EventPostgresDBMigrated   = "postgres-db-migrated"
+	EventPostgresDBRetained   = "postgres-db-retained"
+	EventPostgresDBReset      = "postgres-db-reset"
+	EventPostgresTransaction  = "postgres-transaction"
+	EventPostgresTemplateUse  = "postgres-template-clone"
+	EventS3Attach             = "s3-attach"
+	EventS3BucketCreated      = "s3-bucket-created"
+	EventS3BucketCleaned      = "s3-bucket-cleaned"
+	EventS3PrefixCleaned      = "s3-prefix-cleaned"
+	EventTimingSpan           = "timing-span"
+	EventWebE2EFixtureRetired = "web-e2e-fixture-retired"
+	EventWebE2EFixtureCleaned = "web-e2e-fixture-cleaned"
 )
 
 const (
@@ -77,6 +79,7 @@ type ServiceScope struct {
 	Cleanup      CleanupSummary       `json:"cleanup"`
 	Postgres     PostgresSummary      `json:"postgres"`
 	MinIO        MinIOSummary         `json:"minio"`
+	BrowserE2E   BrowserE2ESummary    `json:"browser_e2e"`
 	Fixture      FixtureSummary       `json:"fixture"`
 	StartedNames StartedServiceRecord `json:"started_services"`
 }
@@ -138,6 +141,21 @@ type MinIOSummary struct {
 	BucketCleanupCount   int      `json:"bucket_cleanup_count"`
 	CreatedBuckets       []string `json:"created_buckets,omitempty"`
 	CleanedBuckets       []string `json:"cleaned_buckets,omitempty"`
+}
+
+type BrowserE2ESummary struct {
+	RetiredFixtureCount int                    `json:"retired_fixture_count"`
+	CleanedFixtureCount int                    `json:"cleaned_fixture_count"`
+	RetiredFixtures     []BrowserE2EFixtureRef `json:"retired_fixtures,omitempty"`
+	CleanedFixtures     []BrowserE2EFixtureRef `json:"cleaned_fixtures,omitempty"`
+}
+
+type BrowserE2EFixtureRef struct {
+	DatabaseName string `json:"database_name,omitempty"`
+	Bucket       string `json:"bucket,omitempty"`
+	Target       string `json:"target,omitempty"`
+	Timestamp    string `json:"timestamp,omitempty"`
+	PID          int    `json:"pid,omitempty"`
 }
 
 type FixtureSummary struct {
@@ -252,6 +270,8 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 	cleanedBuckets := make(map[string]struct{})
 	startedServices := make(map[string]struct{})
 	databasePreparations := make(map[string]PostgresDatabasePreparation)
+	retiredWebE2EFixtures := make(map[string]BrowserE2EFixtureRef)
+	cleanedWebE2EFixtures := make(map[string]BrowserE2EFixtureRef)
 	packageFixtures := make(map[string]FixtureActivity)
 	testFixtures := make(map[string]FixtureActivity)
 	strategyFixtures := make(map[string]FixtureActivity)
@@ -353,6 +373,12 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
 		case EventS3PrefixCleaned:
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
+		case EventWebE2EFixtureRetired:
+			scope.BrowserE2E.RetiredFixtureCount++
+			upsertWebE2EFixture(retiredWebE2EFixtures, event)
+		case EventWebE2EFixtureCleaned:
+			scope.BrowserE2E.CleanedFixtureCount++
+			upsertWebE2EFixture(cleanedWebE2EFixtures, event)
 		}
 	}
 
@@ -360,6 +386,8 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 	scope.Postgres.DatabasePreparations = sortedPostgresPreparations(databasePreparations)
 	scope.MinIO.CreatedBuckets = sortedKeys(createdBuckets)
 	scope.MinIO.CleanedBuckets = sortedKeys(cleanedBuckets)
+	scope.BrowserE2E.RetiredFixtures = sortedWebE2EFixtures(retiredWebE2EFixtures)
+	scope.BrowserE2E.CleanedFixtures = sortedWebE2EFixtures(cleanedWebE2EFixtures)
 	scope.StartedNames.Names = sortedKeys(startedServices)
 	scope.Fixture.ByPackage = sortedFixtureActivities(packageFixtures)
 	scope.Fixture.ByTest = sortedFixtureActivities(testFixtures)
@@ -599,6 +627,47 @@ func sortedPostgresPreparations(preparations map[string]PostgresDatabasePreparat
 	sort.Slice(values, func(i, j int) bool {
 		if values[i].Name != values[j].Name {
 			return values[i].Name < values[j].Name
+		}
+		return values[i].Timestamp < values[j].Timestamp
+	})
+	return values
+}
+
+func upsertWebE2EFixture(fixtures map[string]BrowserE2EFixtureRef, event Event) {
+	fixture := BrowserE2EFixtureRef{
+		DatabaseName: stringDetail(event.Details, "database_name"),
+		Bucket:       stringDetail(event.Details, "bucket"),
+		Target:       stringDetail(event.Details, "target"),
+		Timestamp:    event.Timestamp,
+		PID:          event.PID,
+	}
+	key := fixtureKey(fixture.DatabaseName, fixture.Bucket, fixture.Target)
+	if key == "" {
+		return
+	}
+	existing := fixtures[key]
+	if existing.Timestamp == "" || fixture.Timestamp > existing.Timestamp {
+		fixtures[key] = fixture
+	}
+}
+
+func sortedWebE2EFixtures(fixtures map[string]BrowserE2EFixtureRef) []BrowserE2EFixtureRef {
+	if len(fixtures) == 0 {
+		return nil
+	}
+	values := make([]BrowserE2EFixtureRef, 0, len(fixtures))
+	for _, fixture := range fixtures {
+		values = append(values, fixture)
+	}
+	sort.Slice(values, func(i, j int) bool {
+		if values[i].Target != values[j].Target {
+			return values[i].Target < values[j].Target
+		}
+		if values[i].DatabaseName != values[j].DatabaseName {
+			return values[i].DatabaseName < values[j].DatabaseName
+		}
+		if values[i].Bucket != values[j].Bucket {
+			return values[i].Bucket < values[j].Bucket
 		}
 		return values[i].Timestamp < values[j].Timestamp
 	})

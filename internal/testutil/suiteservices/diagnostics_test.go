@@ -202,6 +202,71 @@ func TestSummarizeReportsFixtureActivity(t *testing.T) {
 	}
 }
 
+func TestSummarizeReportsBrowserE2EFixtureLifecycle(t *testing.T) {
+	env := map[string]string{
+		SuiteIDEnv:        "suite-browser-fixtures",
+		TargetEnv:         "browser-e2e-webserver-backed",
+		testResultsDirEnv: t.TempDir(),
+		testRunIDEnv:      "run-browser-fixtures",
+	}
+
+	events := []Event{
+		{
+			Type:      EventWebE2EFixtureRetired,
+			Timestamp: "2026-04-25T12:00:00Z",
+			PID:       101,
+			Details: map[string]any{
+				"database_name": "ct_web",
+				"bucket":        "ct-web",
+				"target":        "browser-e2e-webserver-backed",
+			},
+		},
+		{
+			Type:      EventWebE2EFixtureRetired,
+			Timestamp: "2026-04-25T12:00:01Z",
+			PID:       102,
+			Details: map[string]any{
+				"database_name": "ct_web",
+				"bucket":        "ct-web",
+				"target":        "browser-e2e-webserver-backed",
+			},
+		},
+		{
+			Type:      EventWebE2EFixtureCleaned,
+			Timestamp: "2026-04-25T12:00:02Z",
+			PID:       103,
+			Details: map[string]any{
+				"database_name": "ct_web",
+				"bucket":        "ct-web",
+				"target":        "browser-e2e-webserver-backed",
+			},
+		},
+	}
+
+	for _, event := range events {
+		if err := RecordEvent(env, event); err != nil {
+			t.Fatalf("record event %s: %v", event.Type, err)
+		}
+	}
+
+	scope, ok, err := Summarize(env)
+	if err != nil {
+		t.Fatalf("summarize suite services: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected suite summary")
+	}
+	if scope.BrowserE2E.RetiredFixtureCount != 2 || len(scope.BrowserE2E.RetiredFixtures) != 1 {
+		t.Fatalf("expected deduplicated retired browser fixture summary, got %#v", scope.BrowserE2E)
+	}
+	if scope.BrowserE2E.CleanedFixtureCount != 1 || len(scope.BrowserE2E.CleanedFixtures) != 1 {
+		t.Fatalf("expected cleaned browser fixture summary, got %#v", scope.BrowserE2E)
+	}
+	if scope.BrowserE2E.RetiredFixtures[0].Timestamp != "2026-04-25T12:00:01Z" {
+		t.Fatalf("expected latest retired fixture event to win, got %#v", scope.BrowserE2E.RetiredFixtures[0])
+	}
+}
+
 func assertPreparation(t testing.TB, got PostgresDatabasePreparation, want PostgresDatabasePreparation) {
 	t.Helper()
 

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -634,7 +635,7 @@ func TestPrepareWebE2EWritesShellEnvAndMetadata(t *testing.T) {
 	requireTimingEvent(t, loadTestEventsForEnv(t, activeEnv), bucketMigration, "test-services prepare browser e2e fixture")
 }
 
-func TestCleanupWebE2EReadsMetadataAndCallsCleanup(t *testing.T) {
+func TestCleanupWebE2ERetiresFixtureWithoutImmediateCleanup(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	metadataFile := filepath.Join(t.TempDir(), "browser.json")
 	if err := writeWebE2EMetadata(metadataFile, webE2EMetadata{DatabaseName: "ct_web", Bucket: "ct-web"}); err != nil {
@@ -645,9 +646,8 @@ func TestCleanupWebE2EReadsMetadataAndCallsCleanup(t *testing.T) {
 	activeEnv[suiteservices.SuiteIDEnv] = "suite-web-e2e-cleanup"
 	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
 
-	var got webE2EMetadata
 	deps.cleanupWebE2E = func(ctx context.Context, metadata webE2EMetadata, env map[string]string) error {
-		got = metadata
+		t.Fatal("cleanup-web-e2e must retire active suite fixtures without immediate destructive cleanup")
 		return nil
 	}
 
@@ -655,32 +655,119 @@ func TestCleanupWebE2EReadsMetadataAndCallsCleanup(t *testing.T) {
 	if status != 0 {
 		t.Fatalf("unexpected cleanup status: got %d want 0", status)
 	}
-	if got.DatabaseName != "ct_web" || got.Bucket != "ct-web" {
-		t.Fatalf("cleanup received unexpected metadata: %#v", got)
+	scope, ok, err := suiteservices.Summarize(activeEnv)
+	if err != nil {
+		t.Fatalf("summarize retired browser fixture: %v", err)
 	}
-	requireTimingEvent(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services cleanup browser e2e fixture")
+	if !ok {
+		t.Fatal("expected suite summary")
+	}
+	if scope.BrowserE2E.RetiredFixtureCount != 1 || len(scope.BrowserE2E.RetiredFixtures) != 1 {
+		t.Fatalf("expected one retired browser fixture, got %#v", scope.BrowserE2E)
+	}
+	retired := scope.BrowserE2E.RetiredFixtures[0]
+	if retired.DatabaseName != "ct_web" || retired.Bucket != "ct-web" || retired.Target != "browser-e2e-webserver-backed" {
+		t.Fatalf("unexpected retired browser fixture: %#v", retired)
+	}
+	requireTimingEvent(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services retire browser e2e fixture")
 }
 
-func TestCleanupWebE2ERecordsFailedTimingEvent(t *testing.T) {
+func TestCleanupOwnedServicesCleansRetiredWebE2EFixturesOnce(t *testing.T) {
 	deps := defaultTestDependencies(t)
-	metadataFile := filepath.Join(t.TempDir(), "browser.json")
-	if err := writeWebE2EMetadata(metadataFile, webE2EMetadata{DatabaseName: "ct_web", Bucket: "ct-web"}); err != nil {
-		t.Fatalf("write metadata: %v", err)
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "suite-web-e2e-cleanup"
+	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
+	for range 2 {
+		recordWebE2EFixtureEvent(deps.dependencies, activeEnv, suiteservices.EventWebE2EFixtureRetired, webE2EMetadata{DatabaseName: "ct_web", Bucket: "ct-web"})
 	}
+
+	var (
+		mu       sync.Mutex
+		cleaned  []webE2EMetadata
+		closedPG bool
+		closedS3 bool
+	)
+	deps.cleanupWebE2E = func(ctx context.Context, metadata webE2EMetadata, env map[string]string) error {
+		mu.Lock()
+		defer mu.Unlock()
+		cleaned = append(cleaned, metadata)
+		if env[suiteservices.PGAdminDSNEnv] != "postgres://suite/postgres" {
+			t.Fatalf("cleanup missing postgres admin dsn: %#v", env)
+		}
+		if env[suiteservices.S3EndpointEnv] != "127.0.0.1:9000" {
+			t.Fatalf("cleanup missing minio endpoint: %#v", env)
+		}
+		return nil
+	}
+
+	cleanupOwnedServices(
+		deps.dependencies,
+		activeEnv,
+		postgresService{
+			adminDSN: "postgres://suite/postgres",
+			close: func(context.Context) error {
+				closedPG = true
+				return nil
+			},
+		},
+		minioService{
+			endpoint:  "127.0.0.1:9000",
+			accessKey: "access",
+			secretKey: "secret",
+			close: func(context.Context) error {
+				closedS3 = true
+				return nil
+			},
+		},
+		"succeeded",
+		0,
+	)
+
+	if len(cleaned) != 1 || cleaned[0].DatabaseName != "ct_web" || cleaned[0].Bucket != "ct-web" {
+		t.Fatalf("expected one deduplicated cleanup, got %#v", cleaned)
+	}
+	if !closedPG || !closedS3 {
+		t.Fatalf("expected suite services to close after browser fixture cleanup, postgres=%t minio=%t", closedPG, closedS3)
+	}
+	scope, ok, err := suiteservices.Summarize(activeEnv)
+	if err != nil {
+		t.Fatalf("summarize cleaned browser fixture: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected suite summary")
+	}
+	if scope.BrowserE2E.CleanedFixtureCount != 1 || len(scope.BrowserE2E.CleanedFixtures) != 1 {
+		t.Fatalf("expected one cleaned browser fixture, got %#v", scope.BrowserE2E)
+	}
+	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services cleanup pooled browser fixtures", "pass")
+}
+
+func TestCleanupOwnedServicesRecordsFailedPooledWebE2ECleanup(t *testing.T) {
+	deps := defaultTestDependencies(t)
 	activeEnv := cloneEnv(deps.env)
 	activeEnv[suiteservices.ActiveEnv] = "1"
 	activeEnv[suiteservices.SuiteIDEnv] = "suite-web-e2e-cleanup-fail"
 	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
+	recordWebE2EFixtureEvent(deps.dependencies, activeEnv, suiteservices.EventWebE2EFixtureRetired, webE2EMetadata{DatabaseName: "ct_web", Bucket: "ct-web"})
 
 	deps.cleanupWebE2E = func(context.Context, webE2EMetadata, map[string]string) error {
 		return errors.New("cleanup failed")
 	}
 
-	status := run([]string{"cleanup-web-e2e", "--metadata-file", metadataFile}, activeEnv, deps.dependencies)
-	if status != 1 {
-		t.Fatalf("cleanup failure status: got %d want 1", status)
+	cleanupOwnedServices(deps.dependencies, activeEnv, postgresService{}, minioService{}, "succeeded", 0)
+
+	scope, ok, err := suiteservices.Summarize(activeEnv)
+	if err != nil {
+		t.Fatalf("summarize failed browser fixture cleanup: %v", err)
 	}
-	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services cleanup browser e2e fixture", "fail")
+	if !ok {
+		t.Fatal("expected suite summary")
+	}
+	if scope.Cleanup.Status != "cleanup_failed" {
+		t.Fatalf("expected cleanup_failed status, got %#v", scope.Cleanup)
+	}
+	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services cleanup pooled browser fixtures", "fail")
 }
 
 func TestPrepareWebE2ECleansFixtureWhenEnvWriteFails(t *testing.T) {

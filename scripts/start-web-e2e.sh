@@ -313,6 +313,13 @@ stop_owned_process_group() {
   return "${status}"
 }
 
+cleanup_standalone_database() {
+  docker compose -f "${COMPOSE_FILE}" exec -T postgres \
+    psql -U cartulary -d postgres \
+    -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${E2E_DB}' AND pid <> pg_backend_pid();" \
+    -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null 2>&1
+}
+
 cleanup() {
   if [[ "${cleanup_done}" -eq 1 ]]; then
     return 0
@@ -353,8 +360,7 @@ cleanup() {
     step_start_time="$(phase_now_utc)"
     step_start_ms="$(phase_now_monotonic_ms)"
     step_status=0
-    docker compose -f "${COMPOSE_FILE}" exec -T postgres \
-      psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"${E2E_DB}\" WITH (FORCE);" >/dev/null 2>&1 || step_status=$?
+    cleanup_standalone_database || step_status=$?
     step_end_time="$(phase_now_utc)"
     step_end_ms="$(phase_now_monotonic_ms)"
     step_duration_ms="$(phase_elapsed_ms "${step_start_ms}" "${step_end_ms}")"
