@@ -5,6 +5,8 @@ import { collectTargetPlanRows } from "./target-plan.mjs";
 const defaultShardTargetMs = 30_000;
 const defaultBackendIntegrationShardTargetMs = 18_000;
 const defaultIntegrationWeightMs = 10_000;
+const cpuHeavyShardWeightMs = 12_000;
+const ioHeavyFixturePolicies = new Set(["group_clone", "migration_scratch", "package_reset"]);
 const baselinePath = path.join("tools", "go_test_duration_baselines.json");
 const shardTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
 const executionTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
@@ -335,6 +337,19 @@ function shardName(aggregateName, index) {
   return `${aggregateName}-shard-${String(index + 1).padStart(2, "0")}`;
 }
 
+function schedulerProfileForShard(items, weightMs) {
+  const hasIOHeavyFixture = items.some((item) =>
+    ioHeavyFixturePolicies.has(item.postgres_fixture_policy),
+  );
+  if (hasIOHeavyFixture) {
+    return "io_heavy";
+  }
+  if (weightMs >= cpuHeavyShardWeightMs) {
+    return "cpu_heavy";
+  }
+  return "balanced";
+}
+
 export function collectGoShardPlan(root = process.cwd(), options = {}) {
   const requestedTargetMs = normalizePositiveInteger(
     options.targetMs,
@@ -377,6 +392,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
         name: shardName(aggregateName, index),
         aggregate_name: aggregateName,
         shard_target_ms: targetMs,
+        scheduler_profile: schedulerProfileForShard(bin.items, bin.weight_ms),
         regex: hasRaw ? rawRegex : exactRegex(symbols.sort(compareStrings)),
         packages: Array.from(packages).sort(compareStrings),
         weight_ms: bin.weight_ms,
@@ -449,7 +465,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
   );
 
   return {
-    schema_id: "cartulary.go_shard_plan.v2",
+    schema_id: "cartulary.go_shard_plan.v3",
     default_shard_target_ms: baselines.defaultShardTargetMs,
     shard_target_ms_by_target: Object.fromEntries(
       [...baselines.shardTargetMsByTarget.entries()].sort(([left], [right]) =>

@@ -154,8 +154,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v4") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v4");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v5") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v5");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -212,8 +212,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, childTarget, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v4") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v4");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v5") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v5");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -266,6 +266,36 @@ trap 'rm -f "$target_plan_file"' EXIT
 mapfile -t target_plan_check_heavy_targets < <(target_plan_boolean_targets check_heavy_safe true)
 mapfile -t target_plan_service_backed_safe_targets < <(target_plan_boolean_targets check_service_backed_safe true)
 mapfile -t target_plan_service_backed_unsafe_targets < <(list_target_plan_service_backed_unsafe_targets)
+
+"$node_bin" - "$schedule_manifest" <<'EOF'
+const fs = require("node:fs");
+
+const [manifestFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v5") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v5");
+}
+for (const schedule of manifest.schedules ?? []) {
+  const limits = schedule.resource_limits ?? {};
+  if (Object.hasOwn(limits, "backend")) {
+    throw new Error(`${schedule.target} must not declare removed generic backend resource limit`);
+  }
+  for (const resource of ["go_cpu", "go_io"]) {
+    if (!Object.hasOwn(limits, resource)) {
+      throw new Error(`${schedule.target} must declare ${resource} resource limit`);
+    }
+  }
+  for (const source of schedule.work_unit_sources ?? []) {
+    const claims = source.resource_claims ?? {};
+    if (Object.hasOwn(claims, "backend")) {
+      throw new Error(`${schedule.target} ${source.target} must not claim removed generic backend resource`);
+    }
+    if (source.type === "go_shards" && (Object.hasOwn(claims, "go_cpu") || Object.hasOwn(claims, "go_io"))) {
+      throw new Error(`${schedule.target} ${source.target} go shard source must leave go_cpu/go_io to per-shard scheduler profiles`);
+    }
+  }
+}
+EOF
 
 check_build_prereqs_line="$(sed -n 's/^check-build-prereqs:[[:space:]]*//p' "$makefile" | head -n 1)"
 if [[ -z "$check_build_prereqs_line" ]]; then

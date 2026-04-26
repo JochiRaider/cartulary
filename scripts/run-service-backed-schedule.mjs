@@ -12,7 +12,12 @@ import { findTargetDescriptor } from "./lib/target-plan.mjs";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
-const supportedSchemaID = "cartulary.service_backed_schedule.v4";
+const supportedSchemaID = "cartulary.service_backed_schedule.v5";
+const goCPUResource = "go_cpu";
+const goIOResource = "go_io";
+const goCPULimitEnv = "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT";
+const goIOLimitEnv = "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT";
+const autoLimitResources = new Set([goCPUResource, goIOResource]);
 const validSourceTypes = new Set(["go_shards", "make_target"]);
 const validSourceClasses = new Set(["backend", "browser"]);
 const schedulerSafeBrowserTargetsBySchedule = new Map([
@@ -56,7 +61,7 @@ function parseArgs(argv) {
       continue;
     }
     if (arg === "--jobs") {
-      throw new Error("--jobs is obsolete for v4 service-backed schedules; use resource_limits");
+      throw new Error("--jobs is obsolete for v5 service-backed schedules; use resource_limits");
     }
     usage();
   }
@@ -94,8 +99,22 @@ function normalizeResourceLimits(value, label) {
     if (normalizedResource === "") {
       throw new Error(`${label} resource_limits keys must be non-empty strings`);
     }
+    if (normalizedResource === "backend") {
+      throw new Error(`${label} resource_limits must not declare removed generic backend resource`);
+    }
+    if (limit === "auto") {
+      if (!autoLimitResources.has(normalizedResource)) {
+        throw new Error(
+          `${label} resource_limits.${normalizedResource} may use "auto" only for ${goCPUResource} or ${goIOResource}`,
+        );
+      }
+      resourceLimits.set(normalizedResource, limit);
+      continue;
+    }
     if (!Number.isInteger(limit) || limit < 1) {
-      throw new Error(`${label} resource_limits.${normalizedResource} must be a positive integer`);
+      throw new Error(
+        `${label} resource_limits.${normalizedResource} must be a positive integer or "auto"`,
+      );
     }
     resourceLimits.set(normalizedResource, limit);
   }
@@ -112,6 +131,9 @@ function normalizeResourceClaims(value, label, resourceLimits) {
     const normalizedResource = resource.trim();
     if (normalizedResource === "") {
       throw new Error(`${label} resource_claims keys must be non-empty strings`);
+    }
+    if (normalizedResource === "backend") {
+      throw new Error(`${label} resource_claims must not declare removed generic backend resource`);
     }
     if (!Number.isInteger(amount) || amount < 1) {
       throw new Error(`${label} resource_claims.${normalizedResource} must be a positive integer`);
@@ -186,6 +208,11 @@ function validateSource(scheduleTarget, source, index, resourceLimits) {
     if (source.class !== "backend") {
       throw new Error(`${label} ${target} go_shards sources must declare class backend`);
     }
+    for (const resource of [goCPUResource, goIOResource]) {
+      if (!resourceLimits.has(resource)) {
+        throw new Error(`${label} ${target} go_shards sources require resource_limits.${resource}`);
+      }
+    }
     return {
       type: source.type,
       class: source.class,
@@ -247,6 +274,34 @@ function cloneResourceClaims(resourceClaims) {
   return new Map(resourceClaims.entries());
 }
 
+function schedulerClaimsForShard(shard) {
+  switch (shard.scheduler_profile) {
+    case "cpu_heavy":
+      return new Map([
+        [goCPUResource, 2],
+        [goIOResource, 1],
+      ]);
+    case "io_heavy":
+      return new Map([
+        [goCPUResource, 1],
+        [goIOResource, 2],
+      ]);
+    default:
+      return new Map([
+        [goCPUResource, 1],
+        [goIOResource, 1],
+      ]);
+  }
+}
+
+function mergeResourceClaims(baseClaims, extraClaims) {
+  const merged = cloneResourceClaims(baseClaims);
+  for (const [resource, amount] of extraClaims.entries()) {
+    merged.set(resource, (merged.get(resource) ?? 0) + amount);
+  }
+  return merged;
+}
+
 function expandSchedule(schedule) {
   const workUnits = [];
   const goFinalizers = [];
@@ -285,8 +340,9 @@ function expandSchedule(schedule) {
         target: source.target,
         aggregateTarget: source.target,
         shard: shard.name,
+        schedulerProfile: shard.scheduler_profile,
         weight: shard.weight_ms,
-        resourceClaims: cloneResourceClaims(source.resourceClaims),
+        resourceClaims: mergeResourceClaims(source.resourceClaims, schedulerClaimsForShard(shard)),
         order: source.order,
       };
       shardWorkByName.set(shard.name, unit);
@@ -302,9 +358,79 @@ function expandSchedule(schedule) {
   );
   return {
     ...schedule,
+    resourceLimits: resolveResourceLimits(schedule.resourceLimits, workUnits),
     workUnits,
     goFinalizers,
   };
+}
+
+function clampInteger(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function parsePositiveIntegerEnv(name) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") {
+    return null;
+  }
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+  return value;
+}
+
+function availableCPUCount() {
+  if (typeof os.availableParallelism === "function") {
+    return Math.max(1, os.availableParallelism());
+  }
+  return Math.max(1, os.cpus().length);
+}
+
+function estimateGoCPULimit(goShardUnits) {
+  if (goShardUnits.length === 0) {
+    return 1;
+  }
+  const totalWeight = goShardUnits.reduce((sum, unit) => sum + Math.max(1, unit.weight), 0);
+  const maxWeight = Math.max(...goShardUnits.map((unit) => Math.max(1, unit.weight)));
+  const weightedConcurrency = Math.ceil(totalWeight / Math.max(30_000, maxWeight));
+  const cpuCount = availableCPUCount();
+  const hostConcurrency = cpuCount <= 4 ? Math.max(2, cpuCount - 1) : Math.floor(cpuCount * 0.75);
+  return clampInteger(Math.max(4, Math.min(hostConcurrency, weightedConcurrency)), 4, 12);
+}
+
+function estimateGoIOLimit(goShardUnits, goCPULimit) {
+  if (goShardUnits.length === 0) {
+    return 1;
+  }
+  const balanced = goShardUnits.filter((unit) => unit.schedulerProfile === "balanced").length;
+  const ioHeavy = goShardUnits.filter((unit) => unit.schedulerProfile === "io_heavy").length;
+  const cpuHeavy = goShardUnits.filter((unit) => unit.schedulerProfile === "cpu_heavy").length;
+  const profileConcurrency = balanced + ioHeavy * 2 + Math.ceil(cpuHeavy / 2);
+  return clampInteger(Math.max(6, goCPULimit + 2, profileConcurrency), 6, 16);
+}
+
+function resolveResourceLimits(resourceLimits, workUnits) {
+  const goShardUnits = workUnits.filter((unit) => unit.type === "go_shard");
+  const computedGoCPU = estimateGoCPULimit(goShardUnits);
+  const goCPUOverride = parsePositiveIntegerEnv(goCPULimitEnv);
+  const effectiveGoCPU = goCPUOverride ?? computedGoCPU;
+  const computedGoIO = estimateGoIOLimit(goShardUnits, effectiveGoCPU);
+  const goIOOverride = parsePositiveIntegerEnv(goIOLimitEnv);
+  const effectiveGoIO = goIOOverride ?? computedGoIO;
+  const resolved = new Map();
+  for (const [resource, limit] of resourceLimits.entries()) {
+    if (resource === goCPUResource && (limit === "auto" || goCPUOverride !== null)) {
+      resolved.set(resource, effectiveGoCPU);
+      continue;
+    }
+    if (resource === goIOResource && (limit === "auto" || goIOOverride !== null)) {
+      resolved.set(resource, effectiveGoIO);
+      continue;
+    }
+    resolved.set(resource, limit);
+  }
+  return resolved;
 }
 
 function runLifecycle(testOutputScript, args, stream = process.stdout) {
@@ -448,13 +574,28 @@ function runFinalizer({ target, metadataDir, tempDir, testOutputScript }) {
 }
 
 function hasResourceCapacity(unit, resourceLimits, activeResourceClaims) {
+  return blockedResourcesForUnit(unit, resourceLimits, activeResourceClaims).length === 0;
+}
+
+function blockedResourcesForUnit(unit, resourceLimits, activeResourceClaims) {
+  const blocked = [];
   for (const [resource, amount] of unit.resourceClaims.entries()) {
     const limit = resourceLimits.get(resource);
     if (limit !== undefined && (activeResourceClaims.get(resource) ?? 0) + amount > limit) {
-      return false;
+      blocked.push(resource);
     }
   }
-  return true;
+  return blocked;
+}
+
+function blockedResourcesForPending(workUnits, resourceLimits, activeResourceClaims) {
+  const resources = new Set();
+  for (const unit of workUnits) {
+    for (const resource of blockedResourcesForUnit(unit, resourceLimits, activeResourceClaims)) {
+      resources.add(resource);
+    }
+  }
+  return Array.from(resources).sort((left, right) => left.localeCompare(right));
 }
 
 function addResourceClaims(unit, activeResourceClaims) {
@@ -500,6 +641,13 @@ function formatBlockedWorkUnits(workUnits) {
     .join("; ");
 }
 
+function formatResourceList(values) {
+  if (values.length === 0) {
+    return "none";
+  }
+  return values.join(",");
+}
+
 function schedulerTelemetry(schedule, event, fields) {
   process.stdout.write(`[SCHEDULER] ${schedule.target} ${event} ${fields.join(" ")}\n`);
 }
@@ -514,7 +662,7 @@ function schedulerStateFields({ pending, running, activeResourceClaims, resource
 }
 
 function displayCapacity(schedule) {
-  return schedule.resourceLimits.get("backend") ?? Math.max(...schedule.resourceLimits.values());
+  return schedule.resourceLimits.get(goCPUResource) ?? Math.max(...schedule.resourceLimits.values());
 }
 
 async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }) {
@@ -582,6 +730,9 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
       if (pending.length > 0 && running.size > 0) {
         schedulerTelemetry(schedule, "blocked", [
           "reason=resources",
+          `blocked_resources=${formatResourceList(
+            blockedResourcesForPending(pending, schedule.resourceLimits, activeResourceClaims),
+          )}`,
           ...schedulerStateFields({
             pending,
             running,
@@ -661,7 +812,12 @@ async function main() {
 
   if (isDryRun()) {
     process.stdout.write(
-      `[DRY-RUN] ${options.target} manifest=${path.relative(repoRoot, manifestPath)} work_units=${schedule.workUnits.map((unit) => unit.label).join(",")}\n`,
+      `[DRY-RUN] ${options.target} manifest=${path.relative(repoRoot, manifestPath)} resource_limits=${formatResourceLimits(schedule.resourceLimits)} work_units=${schedule.workUnits
+        .map((unit) => {
+          const profile = unit.schedulerProfile ? ` profile=${unit.schedulerProfile}` : "";
+          return `${unit.label}${profile} claims=${formatResourceClaims(unit.resourceClaims)}`;
+        })
+        .join(";")}\n`,
     );
     return;
   }

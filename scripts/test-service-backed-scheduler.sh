@@ -146,9 +146,9 @@ write_manifest() {
 
   {
     printf '{\n'
-    printf '  "schema_id": "cartulary.service_backed_schedule.v4",\n'
+    printf '  "schema_id": "cartulary.service_backed_schedule.v5",\n'
     printf '  "schedules": [\n'
-    printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "backend": 4, "process": 2, "browser": 1 }, "work_unit_sources": [\n' "$target"
+    printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 6, "go_io": 6, "process": 2, "browser": 1 }, "work_unit_sources": [\n' "$target"
     local first=1
     local source
     for source in "$@"; do
@@ -212,6 +212,8 @@ run_scheduler() {
   FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS="${FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS:-}" \
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED="${FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED:-}" \
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E="${FAKE_SCHEDULER_SLEEP_BROWSER_E2E:-}" \
+  CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT= \
+  CARTULARY_SERVICE_BACKED_GO_IO_LIMIT= \
   MAKE="${dir}/fake-make" \
   NODE_BIN="$NODE_BIN" \
   TEST_OUTPUT_SCRIPT="$TEST_OUTPUT_SCRIPT" \
@@ -225,16 +227,16 @@ cleanup_paths+=("$weighted_dir")
 write_fake_make "$weighted_dir"
 weighted_manifest="${weighted_dir}/manifest.json"
 write_manifest "$weighted_manifest" test-fast-service-backed \
-  'make_target|backend-store|1|"postgres": 1, "minio": 1, "backend": 1' \
-  'make_target|backend-process|10|"postgres": 1, "minio": 1, "backend": 1, "process": 1' \
-  'make_target|backend-integration-support|5|"postgres": 1, "minio": 1, "backend": 1'
+  'make_target|backend-store|1|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1' \
+  'make_target|backend-process|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1' \
+  'make_target|backend-integration-support|5|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1'
 weighted_output="$(run_scheduler "$weighted_dir" "$weighted_manifest" test-fast-service-backed weighted 2>&1)"
-assert_contains "$weighted_output" "[STEP] test-fast-service-backed 1/3 backend-process mode=scheduler jobs=4" "weighted first child"
-assert_contains "$weighted_output" "[STEP] test-fast-service-backed 2/3 backend-integration-support mode=scheduler jobs=4" "weighted second child"
-assert_contains "$weighted_output" "[STEP] test-fast-service-backed 3/3 backend-store mode=scheduler jobs=4" "weighted third child"
-assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-process claims={backend:1,minio:1,postgres:1,process:1} active=1 pending=2" "scheduler start telemetry"
-assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-store claims={backend:1,minio:1,postgres:1} active=3 pending=0 active_resource_claims={backend:3,minio:3,postgres:3,process:1}" "scheduler starts all compatible weighted children"
-assert_contains "$weighted_output" "resource_limits={backend:4,browser:1,minio:32,postgres:32,process:2}" "scheduler resource limit telemetry"
+assert_contains "$weighted_output" "[STEP] test-fast-service-backed 1/3 backend-process mode=scheduler jobs=6" "weighted first child"
+assert_contains "$weighted_output" "[STEP] test-fast-service-backed 2/3 backend-integration-support mode=scheduler jobs=6" "weighted second child"
+assert_contains "$weighted_output" "[STEP] test-fast-service-backed 3/3 backend-store mode=scheduler jobs=6" "weighted third child"
+assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-process claims={go_cpu:1,go_io:1,minio:1,postgres:1,process:1} active=1 pending=2" "scheduler start telemetry"
+assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-store claims={go_cpu:1,go_io:1,minio:1,postgres:1} active=3 pending=0 active_resource_claims={go_cpu:3,go_io:3,minio:3,postgres:3,process:1}" "scheduler starts all compatible weighted children"
+assert_contains "$weighted_output" "resource_limits={browser:1,go_cpu:6,go_io:6,minio:32,postgres:32,process:2}" "scheduler resource limit telemetry"
 assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed finish work_unit=backend-process status=0" "scheduler finish telemetry"
 
 resource_block_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-resource-block.XXXXXX")"
@@ -242,54 +244,49 @@ cleanup_paths+=("$resource_block_dir")
 write_fake_make "$resource_block_dir"
 resource_block_manifest="${resource_block_dir}/manifest.json"
 write_manifest "$resource_block_manifest" test-fast-service-backed \
-  'make_target|backend-integration|10|"postgres": 1, "minio": 1, "backend": 3' \
-  'make_target|backend-store|9|"postgres": 1, "minio": 1, "backend": 2' \
-  'make_target|backend-process|8|"postgres": 1, "minio": 1, "backend": 1, "process": 1'
+  'make_target|backend-integration|10|"postgres": 1, "minio": 1, "go_cpu": 4, "go_io": 1' \
+  'make_target|backend-store|9|"postgres": 1, "minio": 1, "go_cpu": 3, "go_io": 1' \
+  'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 2, "go_io": 1, "process": 1'
 resource_block_output="$(run_scheduler "$resource_block_dir" "$resource_block_manifest" test-fast-service-backed resource-block 2>&1)"
-assert_contains "$resource_block_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-process claims={backend:1,minio:1,postgres:1,process:1} active=2 pending=1 active_resource_claims={backend:4,minio:2,postgres:2,process:1}" "weighted backend resources fill capacity without oversubscription"
-assert_contains "$resource_block_output" "[SCHEDULER] test-fast-service-backed blocked reason=resources" "scheduler resource-blocked telemetry"
+assert_contains "$resource_block_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-process claims={go_cpu:2,go_io:1,minio:1,postgres:1,process:1} active=2 pending=1 active_resource_claims={go_cpu:6,go_io:2,minio:2,postgres:2,process:1}" "weighted go_cpu resources fill capacity without oversubscription"
+assert_contains "$resource_block_output" "[SCHEDULER] test-fast-service-backed blocked reason=resources blocked_resources=go_cpu" "scheduler go_cpu-blocked telemetry"
 
 backend_capacity_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-backend-capacity.XXXXXX")"
 cleanup_paths+=("$backend_capacity_dir")
 write_fake_make "$backend_capacity_dir"
 backend_capacity_manifest="${backend_capacity_dir}/manifest.json"
 write_manifest "$backend_capacity_manifest" test-fast-service-backed \
-  'make_target|backend-integration|10|"postgres": 1, "minio": 1, "backend": 1' \
-  'make_target|backend-store|9|"postgres": 1, "minio": 1, "backend": 1' \
-  'make_target|backend-process|8|"postgres": 1, "minio": 1, "backend": 1, "process": 1' \
-  'make_target|backend-integration-support|7|"postgres": 1, "minio": 1, "backend": 1' \
-  'make_target|phase0-process-e2e|6|"postgres": 1, "minio": 1, "backend": 1, "process": 1'
+  'make_target|backend-integration|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1' \
+  'make_target|backend-store|9|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1' \
+  'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1' \
+  'make_target|backend-integration-support|7|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1' \
+  'make_target|phase0-process-e2e|6|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1'
 backend_capacity_output="$(run_scheduler "$backend_capacity_dir" "$backend_capacity_manifest" test-fast-service-backed backend-capacity 2>&1)"
-assert_contains "$backend_capacity_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-integration-support claims={backend:1,minio:1,postgres:1} active=4 pending=1 active_resource_claims={backend:4,minio:4,postgres:4,process:1}" "backend resource capacity starts four compatible work units"
-assert_contains "$backend_capacity_output" "[SCHEDULER] test-fast-service-backed blocked reason=resources active=4 pending=1 active_resource_claims={backend:4,minio:4,postgres:4,process:1}" "backend capacity reports the fifth unit as resource-blocked"
-SCHEDULER_OUTPUT="$backend_capacity_output" "$NODE_BIN" - <<'EOF'
-const lines = (process.env.SCHEDULER_OUTPUT ?? "").split(/\n/);
-const firstFinish = lines.findIndex((line) =>
-  line.includes("[SCHEDULER] test-fast-service-backed finish "),
-);
-const fifthStart = lines.findIndex((line) =>
-  line.includes("[SCHEDULER] test-fast-service-backed start work_unit=phase0-process-e2e "),
-);
-if (firstFinish === -1) {
-  throw new Error("missing scheduler finish telemetry for backend capacity smoke");
-}
-if (fifthStart !== -1 && fifthStart < firstFinish) {
-  throw new Error("fifth backend work unit started before a running unit released capacity");
-}
-EOF
+assert_contains "$backend_capacity_output" "[SCHEDULER] test-fast-service-backed start work_unit=phase0-process-e2e claims={go_cpu:1,go_io:1,minio:1,postgres:1,process:1} active=5 pending=0 active_resource_claims={go_cpu:5,go_io:5,minio:5,postgres:5,process:2}" "go resource model starts more than four compatible backend work units"
+
+io_block_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-io-block.XXXXXX")"
+cleanup_paths+=("$io_block_dir")
+write_fake_make "$io_block_dir"
+io_block_manifest="${io_block_dir}/manifest.json"
+write_manifest "$io_block_manifest" test-fast-service-backed \
+  'make_target|backend-integration|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 4' \
+  'make_target|backend-store|9|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 3' \
+  'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 2, "process": 1'
+io_block_output="$(run_scheduler "$io_block_dir" "$io_block_manifest" test-fast-service-backed io-block 2>&1)"
+assert_contains "$io_block_output" "[SCHEDULER] test-fast-service-backed blocked reason=resources blocked_resources=go_io" "scheduler go_io-blocked telemetry"
 
 browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser.XXXXXX")"
 cleanup_paths+=("$browser_dir")
 write_fake_make "$browser_dir"
 browser_manifest="${browser_dir}/manifest.json"
 write_manifest "$browser_manifest" test-service-backed \
-  'make_target|backend-process|10|"postgres": 1, "minio": 1, "backend": 1, "process": 1|backend' \
+  'make_target|backend-process|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend' \
   'make_target|browser-e2e-webserver-backed|9|"postgres": 1, "minio": 1, "process": 1, "browser": 1|browser|webserver-backed'
 browser_output="$(run_scheduler "$browser_dir" "$browser_manifest" test-service-backed browser 2>&1)"
-assert_contains "$browser_output" "[STEP] test-service-backed 1/2 backend-process mode=scheduler jobs=4" "browser schedule backend child"
-assert_contains "$browser_output" "[STEP] test-service-backed 2/2 browser-e2e-webserver-backed mode=scheduler jobs=4" "browser schedule browser child"
+assert_contains "$browser_output" "[STEP] test-service-backed 1/2 backend-process mode=scheduler jobs=6" "browser schedule backend child"
+assert_contains "$browser_output" "[STEP] test-service-backed 2/2 browser-e2e-webserver-backed mode=scheduler jobs=6" "browser schedule browser child"
 assert_contains "$browser_output" "claims={browser:1,minio:1,postgres:1,process:1}" "browser resource claims telemetry"
-assert_contains "$browser_output" "resource_limits={backend:4,browser:1,minio:32,postgres:32,process:2}" "browser resource limits telemetry"
+assert_contains "$browser_output" "resource_limits={browser:1,go_cpu:6,go_io:6,minio:32,postgres:32,process:2}" "browser resource limits telemetry"
 
 check_browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-check-browser.XXXXXX")"
 cleanup_paths+=("$check_browser_dir")
@@ -298,16 +295,16 @@ check_browser_manifest="${check_browser_dir}/manifest.json"
 write_manifest "$check_browser_manifest" check-service-backed \
   'make_target|browser-e2e-webserver-backed|30|"postgres": 1, "minio": 1, "process": 1, "browser": 1|browser|webserver-backed' \
   'make_target|browser-e2e|20|"postgres": 1, "minio": 1, "process": 1, "browser": 1|browser|isolated' \
-  'make_target|backend-process|10|"postgres": 1, "minio": 1, "backend": 1, "process": 1|backend'
+  'make_target|backend-process|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend'
 check_browser_output="$(
   FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS=0.3
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.05
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.05
   run_scheduler "$check_browser_dir" "$check_browser_manifest" check-service-backed check-browser 2>&1
 )"
-assert_contains "$check_browser_output" "[STEP] check-service-backed 1/3 browser-e2e-webserver-backed mode=scheduler jobs=4" "check browser webserver child"
-assert_contains "$check_browser_output" "[STEP] check-service-backed 2/3 backend-process mode=scheduler jobs=4" "check browser backend child"
-assert_contains "$check_browser_output" "[STEP] check-service-backed 3/3 browser-e2e mode=scheduler jobs=4" "check browser isolated child"
+assert_contains "$check_browser_output" "[STEP] check-service-backed 1/3 browser-e2e-webserver-backed mode=scheduler jobs=6" "check browser webserver child"
+assert_contains "$check_browser_output" "[STEP] check-service-backed 2/3 backend-process mode=scheduler jobs=6" "check browser backend child"
+assert_contains "$check_browser_output" "[STEP] check-service-backed 3/3 browser-e2e mode=scheduler jobs=6" "check browser isolated child"
 check_browser_events="$(cat "${check_browser_dir}/make.log")"
 assert_contains "$check_browser_events" "start browser-e2e-webserver-backed" "check browser webserver start"
 assert_contains "$check_browser_events" "end browser-e2e-webserver-backed" "check browser webserver end"
@@ -406,6 +403,18 @@ dry_run_output="$(
 assert_contains "$dry_run_output" "[DRY-RUN] test-fast-service-backed manifest=" "dry-run output"
 assert_file_absent "${dry_run_dir}/make.log" "dry-run child make log"
 
+go_shard_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-go-shard-dry-run.XXXXXX")"
+cleanup_paths+=("$go_shard_dry_run_dir")
+write_fake_make "$go_shard_dry_run_dir"
+go_shard_dry_run_manifest="${go_shard_dry_run_dir}/manifest.json"
+write_manifest "$go_shard_dry_run_manifest" test-fast-service-backed \
+  'go_shards|backend-store|0|"postgres": 1, "minio": 1'
+go_shard_dry_run_output="$(
+  MAKEFLAGS=n \
+    run_scheduler "$go_shard_dry_run_dir" "$go_shard_dry_run_manifest" test-fast-service-backed go-shard-dry-run 2>&1
+)"
+assert_contains "$go_shard_dry_run_output" "backend-store/backend-store-shared-shard-01 profile=cpu_heavy claims={go_cpu:2,go_io:1,minio:1,postgres:1}" "go_shards dry-run includes per-shard cpu-heavy claims"
+
 invalid_resource_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-invalid-resource.XXXXXX")"
 cleanup_paths+=("$invalid_resource_dir")
 write_fake_make "$invalid_resource_dir"
@@ -418,6 +427,19 @@ invalid_resource_status=$?
 set -e
 assert_equals "$invalid_resource_status" "1" "invalid resource manifest status"
 assert_contains "$invalid_resource_output" "undeclared-resource is not declared in resource_limits" "invalid resource manifest output"
+
+removed_backend_resource_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-removed-backend-resource.XXXXXX")"
+cleanup_paths+=("$removed_backend_resource_dir")
+write_fake_make "$removed_backend_resource_dir"
+removed_backend_resource_manifest="${removed_backend_resource_dir}/manifest.json"
+write_manifest "$removed_backend_resource_manifest" test-fast-service-backed \
+  'make_target|backend-integration|10|"postgres": 1, "backend": 1'
+set +e
+removed_backend_resource_output="$(run_scheduler "$removed_backend_resource_dir" "$removed_backend_resource_manifest" test-fast-service-backed removed-backend-resource 2>&1)"
+removed_backend_resource_status=$?
+set -e
+assert_equals "$removed_backend_resource_status" "1" "removed backend resource manifest status"
+assert_contains "$removed_backend_resource_output" "removed generic backend resource" "removed backend resource manifest output"
 
 invalid_browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-invalid-browser.XXXXXX")"
 cleanup_paths+=("$invalid_browser_dir")
@@ -455,7 +477,7 @@ legacy_output="$(run_scheduler "$legacy_dir" "$legacy_manifest" test-fast-servic
 legacy_status=$?
 set -e
 assert_equals "$legacy_status" "1" "legacy manifest status"
-assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v4" "legacy manifest output"
+assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v5" "legacy manifest output"
 
 jobs_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-jobs.XXXXXX")"
 cleanup_paths+=("$jobs_dir")

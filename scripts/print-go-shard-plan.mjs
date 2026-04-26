@@ -64,7 +64,7 @@ function renderHuman(plan) {
     lines.push(`${target} shards=${shards.length}`);
     for (const shard of shards) {
       lines.push(
-        `  - ${shard.name} weight_ms=${shard.weight_ms} shard_target_ms=${shard.shard_target_ms} aggregate=${shard.aggregate_name} items=${shard.item_count}`,
+        `  - ${shard.name} weight_ms=${shard.weight_ms} shard_target_ms=${shard.shard_target_ms} scheduler_profile=${shard.scheduler_profile} aggregate=${shard.aggregate_name} items=${shard.item_count}`,
       );
     }
   }
