@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 makefile="$repo_root/Makefile"
 go_runner_script="$repo_root/scripts/run-go-target.sh"
 schedule_manifest="$repo_root/tools/service_backed_schedule_manifest.json"
+check_schedule_manifest="$repo_root/tools/check_schedule_manifest.json"
 node_bin="${NODE_BIN:-node}"
 
 fail() {
@@ -169,6 +170,38 @@ if (targets.length > 0) {
 EOF
 }
 
+check_schedule_field() {
+  local work_unit="$1"
+  local field="$2"
+
+  "$node_bin" - "$check_schedule_manifest" "$work_unit" "$field" <<'EOF'
+const fs = require("node:fs");
+
+const [manifestFile, workUnit, field] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+if (manifest.schema_id !== "cartulary.check_schedule.v1") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v1");
+}
+const schedules = manifest.schedules.filter((entry) => entry.target === "check");
+if (schedules.length !== 1) {
+  throw new Error(`expected exactly one check schedule, found ${schedules.length}`);
+}
+const units = schedules[0].work_units ?? [];
+const unit = units.find((entry) => entry.target === workUnit);
+if (!unit) {
+  throw new Error(`missing check schedule work unit ${workUnit}`);
+}
+const value = unit[field];
+if (Array.isArray(value)) {
+  process.stdout.write(value.join(","));
+} else if (value && typeof value === "object") {
+  process.stdout.write(Object.keys(value).sort().join(","));
+} else if (value !== undefined) {
+  process.stdout.write(String(value));
+}
+EOF
+}
+
 schedule_child_array() {
   local schedule_target="$1"
   local child_target="$2"
@@ -246,19 +279,6 @@ check_meta_validation_line="$(sed -n 's/^check-meta-validation:[[:space:]]*//p' 
 if [[ -z "$check_meta_validation_line" ]]; then
   fail "Makefile must define check-meta-validation prerequisites"
 fi
-check_pre_browser_line="$(sed -n 's/^check-pre-browser:[[:space:]]*//p' "$makefile" | head -n 1)"
-if [[ -z "$check_pre_browser_line" ]]; then
-  fail "Makefile must define check-pre-browser prerequisites"
-fi
-if ! printf '%s\n' "$check_pre_browser_line" | rg -q '^check-service-backed([[:space:]]|$)'; then
-  fail "check-pre-browser must list check-service-backed first so service-backed scheduling starts promptly"
-fi
-if ! printf '%s\n' "$check_pre_browser_line" | rg -q '(^|[[:space:]])check-local-product($|[[:space:]])'; then
-  fail "check-pre-browser must include local product checks alongside service-backed work"
-fi
-if ! printf '%s\n' "$check_pre_browser_line" | rg -q '(^|[[:space:]])check-meta-validation($|[[:space:]])'; then
-  fail "check-pre-browser must include meta validation alongside service-backed work"
-fi
 if ! printf '%s\n' "$check_meta_validation_line" | rg -q '(^|[[:space:]])check-static-validation($|[[:space:]])'; then
   fail "check-meta-validation must include static validation"
 fi
@@ -268,6 +288,43 @@ fi
 
 assert_text_contains_targets "check-local-product prerequisites" "$check_local_product_line" "${target_plan_check_heavy_targets[@]}"
 assert_text_excludes_targets "check-local-product prerequisites" "$check_local_product_line" "${target_plan_service_backed_safe_targets[@]}" "${target_plan_service_backed_unsafe_targets[@]}"
+
+if ! [[ -f "$check_schedule_manifest" ]]; then
+  fail "missing tools/check_schedule_manifest.json"
+fi
+check_block="$(extract_target_block check)"
+if [[ -z "$check_block" ]]; then
+  fail "Makefile must define a non-empty check block"
+fi
+if ! printf '%s\n' "$check_block" | grep -Fq '$(RUN_CHECK_SCHEDULE_SCRIPT)'; then
+  fail "check must delegate to the check scheduler"
+fi
+if ! printf '%s\n' "$check_block" | grep -Fq -- '--resource-limit cpu=$(CHECK_JOBS)'; then
+  fail "check must pass CHECK_JOBS as the check scheduler cpu resource limit"
+fi
+if printf '%s\n' "$check_block" | grep -Fq '$(RUN_MAKE_SEQUENCE_SCRIPT)'; then
+  fail "check must not use the serial make sequence runner"
+fi
+if printf '%s\n' "$check_block" | grep -Fq -- '--step browser-e2e'; then
+  fail "check must not run browser-e2e as a final serial step"
+fi
+if rg -q '^check-pre-browser:' "$makefile"; then
+  fail "check-pre-browser must not remain as legacy check orchestration"
+fi
+for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-local-product check-meta-validation; do
+  check_schedule_field "$scheduled_target" target >/dev/null
+done
+if [[ "$(check_schedule_field check-build-prereqs needs)" != "check-setup-blockers" ]]; then
+  fail "check-build-prereqs must depend on check-setup-blockers in the check schedule"
+fi
+for scheduled_target in check-service-backed check-local-product check-meta-validation; do
+  if [[ "$(check_schedule_field "$scheduled_target" needs)" != "check-build-prereqs" ]]; then
+    fail "$scheduled_target must depend on check-build-prereqs in the check schedule"
+  fi
+done
+if [[ "$(check_schedule_field check-service-backed resource_claims)" != "cpu,service_stack" ]]; then
+  fail "check-service-backed must claim cpu and service_stack resources in the check schedule"
+fi
 
 if grep -Fq 'rg --files' "$makefile"; then
   fail "Makefile must not use parse-time rg --files for build input discovery"
@@ -678,8 +735,8 @@ if printf '%s\n' "$check_service_block" | rg -q '(^|[[:space:]])(backend-process
   fail "check-service-backed must not invoke Phase 2 process smoke coverage"
 fi
 mapfile -t check_service_browser_schedule_targets < <(schedule_targets check-service-backed browser)
-if [[ "$(printf '%s\n' "${check_service_browser_schedule_targets[@]}")" != "browser-e2e-webserver-backed" ]]; then
-  fail "check-service-backed schedule must own only browser-e2e-webserver-backed as browser work, found: ${check_service_browser_schedule_targets[*]:-none}"
+if [[ "$(printf '%s\n' "${check_service_browser_schedule_targets[@]}")" != $'browser-e2e-webserver-backed\nbrowser-e2e' ]]; then
+  fail "check-service-backed schedule must own webserver-backed and isolated browser work, found: ${check_service_browser_schedule_targets[*]:-none}"
 fi
 
 mapfile -t check_service_backend_schedule_targets < <(schedule_targets check-service-backed backend)

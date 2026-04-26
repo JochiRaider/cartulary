@@ -124,6 +124,14 @@
           "browser_stage": "webserver-backed",
           "weight": 41900,
           "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser": 1 }
+        },
+        {
+          "type": "make_target",
+          "class": "browser",
+          "target": "browser-e2e",
+          "browser_stage": "isolated",
+          "weight": 40900,
+          "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser": 1 }
         }
       ]
     }

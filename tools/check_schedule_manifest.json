@@ -1,0 +1,49 @@
+{
+  "schema_id": "cartulary.check_schedule.v1",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": {
+        "cpu": 4,
+        "service_stack": 1
+      },
+      "work_units": [
+        {
+          "target": "check-setup-blockers",
+          "weight": 50000,
+          "needs": [],
+          "resource_claims": { "cpu": 1 },
+          "make_jobs": "cpu"
+        },
+        {
+          "target": "check-build-prereqs",
+          "weight": 40000,
+          "needs": ["check-setup-blockers"],
+          "resource_claims": { "cpu": "limit" },
+          "make_jobs": "cpu"
+        },
+        {
+          "target": "check-service-backed",
+          "weight": 30000,
+          "needs": ["check-build-prereqs"],
+          "resource_claims": { "cpu": 1, "service_stack": 1 },
+          "make_jobs": "cpu"
+        },
+        {
+          "target": "check-local-product",
+          "weight": 20000,
+          "needs": ["check-build-prereqs"],
+          "resource_claims": { "cpu": 1 },
+          "make_jobs": "cpu"
+        },
+        {
+          "target": "check-meta-validation",
+          "weight": 10000,
+          "needs": ["check-build-prereqs"],
+          "resource_claims": { "cpu": 1 },
+          "make_jobs": "cpu"
+        }
+      ]
+    }
+  ]
+}

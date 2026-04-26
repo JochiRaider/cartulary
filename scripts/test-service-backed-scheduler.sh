@@ -119,8 +119,13 @@ write_summary() {
 JSON
 }
 
+sleep_key="${target//-/_}"
+sleep_key="${sleep_key^^}"
+sleep_var="FAKE_SCHEDULER_SLEEP_${sleep_key}"
+sleep_duration="${!sleep_var:-${FAKE_SCHEDULER_SLEEP:-0.05}}"
+
 change_active 1
-sleep "${FAKE_SCHEDULER_SLEEP:-0.05}"
+sleep "$sleep_duration"
 change_active -1
 
 if [[ "${FAKE_FAIL_TARGET:-}" == "$target" ]]; then
@@ -204,6 +209,9 @@ run_scheduler() {
   FAKE_SCHEDULER_LOG="${dir}/make.log" \
   FAKE_FAIL_TARGET="${FAKE_FAIL_TARGET:-}" \
   FAKE_SCHEDULER_SLEEP="${FAKE_SCHEDULER_SLEEP:-0.2}" \
+  FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS="${FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS:-}" \
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED="${FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED:-}" \
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E="${FAKE_SCHEDULER_SLEEP_BROWSER_E2E:-}" \
   MAKE="${dir}/fake-make" \
   NODE_BIN="$NODE_BIN" \
   TEST_OUTPUT_SCRIPT="$TEST_OUTPUT_SCRIPT" \
@@ -224,8 +232,8 @@ weighted_output="$(run_scheduler "$weighted_dir" "$weighted_manifest" test-fast-
 assert_contains "$weighted_output" "[STEP] test-fast-service-backed 1/3 backend-process mode=scheduler jobs=4" "weighted first child"
 assert_contains "$weighted_output" "[STEP] test-fast-service-backed 2/3 backend-integration-support mode=scheduler jobs=4" "weighted second child"
 assert_contains "$weighted_output" "[STEP] test-fast-service-backed 3/3 backend-store mode=scheduler jobs=4" "weighted third child"
-assert_equals "$(cat "${weighted_dir}/max")" "3" "resource scheduler starts all compatible weighted children"
 assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-process claims={backend:1,minio:1,postgres:1,process:1} active=1 pending=2" "scheduler start telemetry"
+assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-store claims={backend:1,minio:1,postgres:1} active=3 pending=0 active_resource_claims={backend:3,minio:3,postgres:3,process:1}" "scheduler starts all compatible weighted children"
 assert_contains "$weighted_output" "resource_limits={backend:4,browser:1,minio:32,postgres:32,process:2}" "scheduler resource limit telemetry"
 assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed finish work_unit=backend-process status=0" "scheduler finish telemetry"
 
@@ -238,7 +246,7 @@ write_manifest "$resource_block_manifest" test-fast-service-backed \
   'make_target|backend-store|9|"postgres": 1, "minio": 1, "backend": 2' \
   'make_target|backend-process|8|"postgres": 1, "minio": 1, "backend": 1, "process": 1'
 resource_block_output="$(run_scheduler "$resource_block_dir" "$resource_block_manifest" test-fast-service-backed resource-block 2>&1)"
-assert_equals "$(cat "${resource_block_dir}/max")" "2" "weighted backend resources block oversubscription"
+assert_contains "$resource_block_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-process claims={backend:1,minio:1,postgres:1,process:1} active=2 pending=1 active_resource_claims={backend:4,minio:2,postgres:2,process:1}" "weighted backend resources fill capacity without oversubscription"
 assert_contains "$resource_block_output" "[SCHEDULER] test-fast-service-backed blocked reason=resources" "scheduler resource-blocked telemetry"
 
 backend_capacity_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-backend-capacity.XXXXXX")"
@@ -251,8 +259,24 @@ write_manifest "$backend_capacity_manifest" test-fast-service-backed \
   'make_target|backend-process|8|"postgres": 1, "minio": 1, "backend": 1, "process": 1' \
   'make_target|backend-integration-support|7|"postgres": 1, "minio": 1, "backend": 1' \
   'make_target|phase0-process-e2e|6|"postgres": 1, "minio": 1, "backend": 1, "process": 1'
-run_scheduler "$backend_capacity_dir" "$backend_capacity_manifest" test-fast-service-backed backend-capacity >/dev/null
-assert_equals "$(cat "${backend_capacity_dir}/max")" "4" "backend resource capacity limits active work units"
+backend_capacity_output="$(run_scheduler "$backend_capacity_dir" "$backend_capacity_manifest" test-fast-service-backed backend-capacity 2>&1)"
+assert_contains "$backend_capacity_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-integration-support claims={backend:1,minio:1,postgres:1} active=4 pending=1 active_resource_claims={backend:4,minio:4,postgres:4,process:1}" "backend resource capacity starts four compatible work units"
+assert_contains "$backend_capacity_output" "[SCHEDULER] test-fast-service-backed blocked reason=resources active=4 pending=1 active_resource_claims={backend:4,minio:4,postgres:4,process:1}" "backend capacity reports the fifth unit as resource-blocked"
+SCHEDULER_OUTPUT="$backend_capacity_output" "$NODE_BIN" - <<'EOF'
+const lines = (process.env.SCHEDULER_OUTPUT ?? "").split(/\n/);
+const firstFinish = lines.findIndex((line) =>
+  line.includes("[SCHEDULER] test-fast-service-backed finish "),
+);
+const fifthStart = lines.findIndex((line) =>
+  line.includes("[SCHEDULER] test-fast-service-backed start work_unit=phase0-process-e2e "),
+);
+if (firstFinish === -1) {
+  throw new Error("missing scheduler finish telemetry for backend capacity smoke");
+}
+if (fifthStart !== -1 && fifthStart < firstFinish) {
+  throw new Error("fifth backend work unit started before a running unit released capacity");
+}
+EOF
 
 browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser.XXXXXX")"
 cleanup_paths+=("$browser_dir")
@@ -266,6 +290,46 @@ assert_contains "$browser_output" "[STEP] test-service-backed 1/2 backend-proces
 assert_contains "$browser_output" "[STEP] test-service-backed 2/2 browser-e2e-webserver-backed mode=scheduler jobs=4" "browser schedule browser child"
 assert_contains "$browser_output" "claims={browser:1,minio:1,postgres:1,process:1}" "browser resource claims telemetry"
 assert_contains "$browser_output" "resource_limits={backend:4,browser:1,minio:32,postgres:32,process:2}" "browser resource limits telemetry"
+
+check_browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-check-browser.XXXXXX")"
+cleanup_paths+=("$check_browser_dir")
+write_fake_make "$check_browser_dir"
+check_browser_manifest="${check_browser_dir}/manifest.json"
+write_manifest "$check_browser_manifest" check-service-backed \
+  'make_target|browser-e2e-webserver-backed|30|"postgres": 1, "minio": 1, "process": 1, "browser": 1|browser|webserver-backed' \
+  'make_target|browser-e2e|20|"postgres": 1, "minio": 1, "process": 1, "browser": 1|browser|isolated' \
+  'make_target|backend-process|10|"postgres": 1, "minio": 1, "backend": 1, "process": 1|backend'
+check_browser_output="$(
+  FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS=0.3
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.05
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.05
+  run_scheduler "$check_browser_dir" "$check_browser_manifest" check-service-backed check-browser 2>&1
+)"
+assert_contains "$check_browser_output" "[STEP] check-service-backed 1/3 browser-e2e-webserver-backed mode=scheduler jobs=4" "check browser webserver child"
+assert_contains "$check_browser_output" "[STEP] check-service-backed 2/3 backend-process mode=scheduler jobs=4" "check browser backend child"
+assert_contains "$check_browser_output" "[STEP] check-service-backed 3/3 browser-e2e mode=scheduler jobs=4" "check browser isolated child"
+check_browser_events="$(cat "${check_browser_dir}/make.log")"
+assert_contains "$check_browser_events" "start browser-e2e-webserver-backed" "check browser webserver start"
+assert_contains "$check_browser_events" "end browser-e2e-webserver-backed" "check browser webserver end"
+assert_contains "$check_browser_events" "start browser-e2e" "check browser isolated start"
+assert_contains "$check_browser_events" "end backend-process" "check browser backend end"
+"$NODE_BIN" - "${check_browser_dir}/make.log" <<'EOF'
+const fs = require("node:fs");
+const [logFile] = process.argv.slice(2);
+const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
+const indexOf = (needle) => {
+  const index = lines.findIndex((line) => line.includes(needle));
+  if (index === -1) {
+    throw new Error(`missing ${needle}`);
+  }
+  return index;
+};
+const webEnd = indexOf("end browser-e2e-webserver-backed");
+const isolatedStart = indexOf("start browser-e2e ");
+if (!(webEnd < isolatedStart)) {
+  throw new Error("isolated browser batch started before webserver-backed released browser resource");
+}
+EOF
 
 set +e
 empty_budget_output="$("$NODE_BIN" "${ROOT_DIR}/scripts/check-postgres-fixture-budget.mjs" --targets "" 2>&1)"
@@ -367,6 +431,19 @@ invalid_browser_status=$?
 set -e
 assert_equals "$invalid_browser_status" "1" "invalid browser manifest status"
 assert_contains "$invalid_browser_output" "browser target browser-e2e-visual is not scheduler-safe" "invalid browser manifest output"
+
+invalid_isolated_browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-invalid-isolated-browser.XXXXXX")"
+cleanup_paths+=("$invalid_isolated_browser_dir")
+write_fake_make "$invalid_isolated_browser_dir"
+invalid_isolated_browser_manifest="${invalid_isolated_browser_dir}/manifest.json"
+write_manifest "$invalid_isolated_browser_manifest" test-service-backed \
+  'make_target|browser-e2e|10|"postgres": 1, "minio": 1, "browser": 1|browser|isolated'
+set +e
+invalid_isolated_browser_output="$(run_scheduler "$invalid_isolated_browser_dir" "$invalid_isolated_browser_manifest" test-service-backed invalid-isolated-browser 2>&1)"
+invalid_isolated_browser_status=$?
+set -e
+assert_equals "$invalid_isolated_browser_status" "1" "invalid isolated browser manifest status"
+assert_contains "$invalid_isolated_browser_output" "browser target browser-e2e is not scheduler-safe for test-service-backed" "invalid isolated browser manifest output"
 
 legacy_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-legacy.XXXXXX")"
 cleanup_paths+=("$legacy_dir")

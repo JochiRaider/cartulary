@@ -6,6 +6,7 @@ import {
   assertGridRows,
   type GridColumn,
   type GridRow,
+  type GridSortEntry,
   GridTable,
   GridViewport,
   reconcileRecordRows,
@@ -287,6 +288,124 @@ describe("grid-adapter", () => {
     ).toBe("Gamma");
     expect(screen.getByTestId("row-action").textContent).toBe("record-1");
     expect(screen.getByTestId("editable-grid-shell")).toBeTruthy();
+  });
+
+  it("keeps RDG row identity stable across reorder, sort, rerender, and editable cells", async () => {
+    type EditableHarnessRow = HarnessRow & {
+      readonly recordId: string;
+    };
+
+    function ReorderedGridHarness() {
+      const [rows, setRows] = useState<readonly EditableHarnessRow[]>([
+        { recordId: "record-1", label: "Alpha", state: "open" },
+        { recordId: "record-2", label: "Zulu", state: "reviewed" },
+      ]);
+      const [renderMarker, setRenderMarker] = useState(0);
+      const [sort, setSort] = useState<readonly GridSortEntry[]>([
+        { fieldKey: "label", direction: "asc" },
+      ]);
+      const editableColumns = useMemo<
+        readonly GridColumn<EditableHarnessRow>[]
+      >(
+        () => [
+          {
+            fieldKey: "label",
+            headerTestId: "reorder-label-header",
+            label: "Label",
+            renderCell: (row) => (
+              <input
+                data-testid={`editable-label-${row.recordId}`}
+                type="text"
+                value={row.label}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                  const nextLabel = event.target.value;
+                  setRows((current) =>
+                    current.map((candidate) =>
+                      candidate.recordId === row.recordId
+                        ? { ...candidate, label: nextLabel }
+                        : candidate,
+                    ),
+                  );
+                }}
+              />
+            ),
+            sortableFieldKey: "label",
+          },
+          {
+            fieldKey: "state",
+            label: "State",
+            renderCell: (row) => row.state,
+          },
+        ],
+        [],
+      );
+      const gridRows = useMemo<readonly GridRow<EditableHarnessRow>[]>(
+        () =>
+          rows.map((row) => ({
+            key: row.recordId,
+            recordId: row.recordId,
+            data: row,
+            testId: `rdg-row-${row.recordId}`,
+          })),
+        [rows],
+      );
+
+      return (
+        <GridViewport testId="reordered-grid-shell">
+          <button
+            data-testid="reverse-rows"
+            type="button"
+            onClick={() => {
+              setRows((current) => [...current].reverse());
+            }}
+          >
+            Reverse
+          </button>
+          <button
+            data-testid="rerender-reordered-grid"
+            type="button"
+            onClick={() => {
+              setRenderMarker((current) => current + 1);
+            }}
+          >
+            Render {renderMarker}
+          </button>
+          <GridTable
+            columns={editableColumns}
+            onToggleSort={(fieldKey) => {
+              setSort([{ fieldKey, direction: "desc" }]);
+              setRows((current) =>
+                [...current].sort((left, right) =>
+                  right.label.localeCompare(left.label),
+                ),
+              );
+            }}
+            rows={gridRows}
+            sort={sort}
+          />
+        </GridViewport>
+      );
+    }
+
+    render(<ReorderedGridHarness />);
+
+    fireEvent.click(await screen.findByTestId("reverse-rows"));
+    fireEvent.click(screen.getByTestId("reorder-label-header"));
+    fireEvent.click(screen.getByTestId("rerender-reordered-grid"));
+    fireEvent.change(screen.getByTestId("editable-label-record-1"), {
+      target: { value: "Alpha edited" },
+    });
+
+    const shell = screen.getByTestId("reordered-grid-shell");
+    const savedRows = Array.from(
+      shell.querySelectorAll('[role="row"][data-grid-record-id]'),
+    );
+    expect(
+      savedRows.map((row) => row.getAttribute("data-grid-record-id")),
+    ).toEqual(["record-2", "record-1"]);
+    expect(
+      (screen.getByTestId("editable-label-record-1") as HTMLInputElement).value,
+    ).toBe("Alpha edited");
   });
 
   it("survives jsdom layout measurement when row pending state rerenders the RDG grid", async () => {

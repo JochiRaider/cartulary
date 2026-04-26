@@ -15,7 +15,16 @@ const defaultManifestPath = path.join(repoRoot, "tools", "service_backed_schedul
 const supportedSchemaID = "cartulary.service_backed_schedule.v4";
 const validSourceTypes = new Set(["go_shards", "make_target"]);
 const validSourceClasses = new Set(["backend", "browser"]);
-const schedulerSafeBrowserTargets = new Map([["browser-e2e-webserver-backed", "webserver-backed"]]);
+const schedulerSafeBrowserTargetsBySchedule = new Map([
+  ["test-service-backed", new Map([["browser-e2e-webserver-backed", "webserver-backed"]])],
+  [
+    "check-service-backed",
+    new Map([
+      ["browser-e2e-webserver-backed", "webserver-backed"],
+      ["browser-e2e", "isolated"],
+    ]),
+  ],
+]);
 
 function usage() {
   process.stderr.write(
@@ -130,13 +139,14 @@ function validateBackendTarget(scheduleTarget, target, label) {
   }
 }
 
-function validateBrowserTarget(source, target, label) {
+function validateBrowserTarget(scheduleTarget, source, target, label) {
   if (source.type !== "make_target") {
     throw new Error(`${label} browser target ${target} must use type make_target`);
   }
-  const expectedStage = schedulerSafeBrowserTargets.get(target);
+  const schedulerSafeBrowserTargets = schedulerSafeBrowserTargetsBySchedule.get(scheduleTarget);
+  const expectedStage = schedulerSafeBrowserTargets?.get(target);
   if (!expectedStage) {
-    throw new Error(`${label} browser target ${target} is not scheduler-safe`);
+    throw new Error(`${label} browser target ${target} is not scheduler-safe for ${scheduleTarget}`);
   }
   if (source.browser_stage !== expectedStage) {
     throw new Error(`${label} browser target ${target} must declare browser_stage ${expectedStage}`);
@@ -169,7 +179,7 @@ function validateSource(scheduleTarget, source, index, resourceLimits) {
   if (source.class === "backend") {
     validateBackendTarget(scheduleTarget, target, label);
   } else {
-    validateBrowserTarget(source, target, label);
+    validateBrowserTarget(scheduleTarget, source, target, label);
   }
 
   if (source.type === "go_shards") {

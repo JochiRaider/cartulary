@@ -306,6 +306,7 @@ assert_count "$(line_count '^HARNESS_SMOKE_FULL_GROUPS :=')" "1" "harness smoke 
 assert_count "$(line_count '^HARNESS_SMOKE_GROUPS :=')" "1" "harness smoke group declaration"
 assert_count "$(line_count '^RUN_MAKE_SEQUENCE_SCRIPT :=')" "1" "run sequence helper declaration"
 assert_count "$(line_count '^RUN_SERVICE_BACKED_SCHEDULE_SCRIPT :=')" "1" "service-backed scheduler helper declaration"
+assert_count "$(line_count '^RUN_CHECK_SCHEDULE_SCRIPT :=')" "1" "check scheduler helper declaration"
 
 test_block="$(make_target_block test)"
 check_block="$(make_target_block check)"
@@ -325,10 +326,12 @@ assert_contains "${test_block}" "--parallel-step test-local:3 --step test-servic
 assert_not_contains "${test_block}" "--step test-isolated" "make test old split browser sequence"
 assert_not_contains "${test_block}" "completed=" "make test inline completed counter"
 assert_not_contains "${test_block}" "total=" "make test inline total counter"
-assert_contains "${check_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "make check helper invocation"
+assert_contains "${check_block}" '$(RUN_CHECK_SCHEDULE_SCRIPT)' "make check scheduler invocation"
 assert_contains "${check_block}" '--summary-targets "$(CHECK_SUMMARY_TARGETS)"' "make check summary list"
 assert_contains "${check_block}" '--summary-groups "$(CHECK_SUMMARY_GROUPS)"' "make check summary group list"
-assert_contains "${check_block}" "--step check-setup-blockers --parallel-step check-build-prereqs:\$(CHECK_JOBS) --parallel-step check-pre-browser:\$(CHECK_JOBS) --step browser-e2e" "make check sequence"
+assert_contains "${check_block}" '--resource-limit cpu=$(CHECK_JOBS)' "make check scheduler cpu resource"
+assert_not_contains "${check_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "make check no longer uses serial sequence helper"
+assert_not_contains "${check_block}" "--step browser-e2e" "make check no final serial browser step"
 assert_not_contains "${check_block}" "--step check-isolated" "make check old split browser sequence"
 assert_not_contains "${check_block}" "completed=" "make check inline completed counter"
 assert_not_contains "${check_block}" "total=" "make check inline total counter"
@@ -355,7 +358,7 @@ assert_not_contains "${check_harness_smoke_block}" "run-phase-smoke" "check-harn
 assert_contains "${makefile_content}" "TEST_SUMMARY_TARGETS := test-service-backed,browser-e2e,backend-unit,frontend-typecheck,frontend-unit,backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual" "test summary target list"
 assert_contains "${makefile_content}" "TEST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed" "test service-backed child list"
 assert_contains "${makefile_content}" "TEST_FAST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process" "test-fast service-backed child list"
-assert_contains "${makefile_content}" "CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed" "check service-backed child list"
+assert_contains "${makefile_content}" "CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed,browser-e2e" "check service-backed child list"
 assert_contains "${makefile_content}" "HARNESS_SMOKE_FAST_TARGETS :=" "harness smoke fast target list"
 assert_contains "${makefile_content}" "harness-smoke-run-make-sequence-fast" "harness smoke fast make sequence target"
 assert_contains "${makefile_content}" "harness-smoke-run-go-target-fast" "harness smoke fast go target"
@@ -384,7 +387,7 @@ assert_not_contains "${makefile_content}" "RUN_SUMMARY =" "unused run summary he
 assert_not_contains "${makefile_content}" "RUN_SUMMARY_CMD =" "unused run summary command variable"
 assert_not_contains "${makefile_content}" "bash -lc './scripts/test-check-toolchain-pins.sh &&" "old serialized harness smoke chain"
 
-for target in test check run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-full run-phase-smoke; do
+for target in test run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-full run-phase-smoke; do
   make_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-make-n-${target}.XXXXXX")"
   cleanup_paths+=("${make_dry_run_dir}")
   make_dry_run_output="$(
@@ -396,3 +399,15 @@ for target in test check run-harness-smoke-fast run-harness-smoke-extended run-h
   assert_contains "${make_dry_run_output}" "scripts/run-make-sequence.sh --label ${target}" "make -n ${target} helper command"
   assert_file_absent "${make_dry_run_dir}/results/make-n-${target}/run-summary.json" "make -n ${target} summary"
 done
+
+check_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-make-n-check.XXXXXX")"
+cleanup_paths+=("${check_dry_run_dir}")
+check_dry_run_output="$(
+  CARTULARY_TEST_RESULTS_DIR="${check_dry_run_dir}/results" \
+  CARTULARY_TEST_RUN_ID="make-n-check" \
+    make -n --no-print-directory check \
+    2>&1
+)"
+assert_contains "${check_dry_run_output}" "scripts/run-check-schedule.mjs --target check" "make -n check scheduler command"
+assert_not_contains "${check_dry_run_output}" "--step browser-e2e" "make -n check no final browser step"
+assert_file_absent "${check_dry_run_dir}/results/make-n-check/run-summary.json" "make -n check summary"

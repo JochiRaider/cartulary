@@ -34,6 +34,11 @@ import {
   TimelineWorkbook,
 } from "./WorkbookShell";
 
+vi.mock(
+  "@cartulary/grid-adapter",
+  async () => import("@cartulary/grid-adapter/test-support"),
+);
+
 const timelineContract = requireViewContract(timelineViewSchemaId);
 
 describe("Phase 3 Timeline workbook authoritative coverage", () => {

@@ -16,6 +16,7 @@ reset_script="$repo_root/scripts/reset-web-e2e-stack.sh"
 webserver_backed_script="$repo_root/scripts/run-browser-e2e-webserver-backed.sh"
 start_web_e2e_script="$repo_root/scripts/start-web-e2e.sh"
 schedule_manifest="$repo_root/tools/service_backed_schedule_manifest.json"
+check_schedule_manifest="$repo_root/tools/check_schedule_manifest.json"
 node_bin="${NODE_BIN:-node}"
 
 fail() {
@@ -129,6 +130,24 @@ process.stdout.write(`${child.weight ?? 0}\n`);
 EOF
 }
 
+check_schedule_targets() {
+  "$node_bin" - "$check_schedule_manifest" <<'EOF'
+const fs = require("node:fs");
+
+const [manifestFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+if (manifest.schema_id !== "cartulary.check_schedule.v1") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v1");
+}
+const schedules = manifest.schedules.filter((entry) => entry.target === "check");
+if (schedules.length !== 1) {
+  throw new Error(`expected exactly one check schedule, found ${schedules.length}`);
+}
+const targets = schedules[0].work_units.map((entry) => entry.target);
+process.stdout.write(`${targets.join("\n")}\n`);
+EOF
+}
+
 browser_e2e_owned_stack_env="$(sed -n 's/^BROWSER_E2E_OWNED_STACK_ENV[[:space:]]*:=//p' "$makefile" | head -n 1)"
 if [[ -z "$browser_e2e_owned_stack_env" ]]; then
   fail "Makefile must define BROWSER_E2E_OWNED_STACK_ENV"
@@ -165,19 +184,6 @@ fi
 check_meta_validation_line="$(sed -n 's/^check-meta-validation:[[:space:]]*//p' "$makefile" | head -n 1)"
 if [[ -z "$check_meta_validation_line" ]]; then
   fail "Makefile must define check-meta-validation prerequisites"
-fi
-check_pre_browser_line="$(sed -n 's/^check-pre-browser:[[:space:]]*//p' "$makefile" | head -n 1)"
-if [[ -z "$check_pre_browser_line" ]]; then
-  fail "Makefile must define check-pre-browser prerequisites"
-fi
-if ! printf '%s\n' "$check_pre_browser_line" | rg -q '^check-service-backed([[:space:]]|$)'; then
-  fail "check-pre-browser must list check-service-backed first"
-fi
-if ! printf '%s\n' "$check_pre_browser_line" | rg -q '(^|[[:space:]])check-local-product($|[[:space:]])'; then
-  fail "check-pre-browser must include local product checks"
-fi
-if ! printf '%s\n' "$check_pre_browser_line" | rg -q '(^|[[:space:]])check-meta-validation($|[[:space:]])'; then
-  fail "check-pre-browser must include meta validation"
 fi
 if ! printf '%s\n' "$check_meta_validation_line" | rg -q '(^|[[:space:]])check-static-validation($|[[:space:]])'; then
   fail "check-meta-validation must include static validation without moving browser suites into local product checks"
@@ -278,8 +284,8 @@ if ! printf '%s\n' "$check_service_block" | grep -Fq 'build-migrate'; then
 fi
 
 mapfile -t check_service_browser_targets < <(schedule_targets check-service-backed browser)
-if [[ "$(printf '%s\n' "${check_service_browser_targets[@]}")" != "browser-e2e-webserver-backed" ]]; then
-  fail "check-service-backed schedule must own only browser-e2e-webserver-backed as browser work, found: ${check_service_browser_targets[*]:-none}"
+if [[ "$(printf '%s\n' "${check_service_browser_targets[@]}")" != $'browser-e2e-webserver-backed\nbrowser-e2e' ]]; then
+  fail "check-service-backed schedule must own webserver-backed and isolated browser work, found: ${check_service_browser_targets[*]:-none}"
 fi
 
 mapfile -t test_fast_service_browser_targets < <(schedule_targets test-fast-service-backed browser)
@@ -329,12 +335,30 @@ check_block="$(extract_target_block check)"
 if [[ -z "$check_block" ]]; then
   fail "Makefile must define a non-empty check block"
 fi
-if ! printf '%s\n' "$check_block" | grep -Fq -- '--parallel-step check-pre-browser:$(CHECK_JOBS) --step browser-e2e'; then
-  fail "check must run pre-browser work before the aggregate browser-e2e batch"
+if ! printf '%s\n' "$check_block" | grep -Fq '$(RUN_CHECK_SCHEDULE_SCRIPT)'; then
+  fail "check must delegate to the check scheduler"
+fi
+if ! printf '%s\n' "$check_block" | grep -Fq -- '--resource-limit cpu=$(CHECK_JOBS)'; then
+  fail "check must pass CHECK_JOBS as the check scheduler cpu resource limit"
+fi
+if printf '%s\n' "$check_block" | grep -Fq -- '--step browser-e2e'; then
+  fail "check must not run browser-e2e as a final serial step"
 fi
 if printf '%s\n' "$check_block" | grep -Fq 'check-isolated'; then
   fail "check must not route browser evidence through check-isolated"
 fi
+if rg -q '^check-pre-browser:' "$makefile"; then
+  fail "check-pre-browser must not remain as legacy browser orchestration"
+fi
+if ! [[ -f "$check_schedule_manifest" ]]; then
+  fail "missing tools/check_schedule_manifest.json"
+fi
+check_schedule_text="$(check_schedule_targets)"
+for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-local-product check-meta-validation; do
+  if ! printf '%s\n' "$check_schedule_text" | rg -q "^${scheduled_target}$"; then
+    fail "check schedule must include $scheduled_target"
+  fi
+done
 
 if ! rg -q '^browser-e2e-webserver-backed:' "$makefile"; then
   fail "Makefile must define browser-e2e-webserver-backed"

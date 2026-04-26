@@ -15,6 +15,7 @@
     "vitest": "4.1.4"
   },
   "exports": {
-    ".": "./src/index.tsx"
+    ".": "./src/index.tsx",
+    "./test-support": "./src/test-support.tsx"
   }
 }
