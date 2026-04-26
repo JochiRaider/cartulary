@@ -12,6 +12,10 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
 const validKinds = new Set(["backend", "browser"]);
+const supportedSchemaIDs = new Set([
+  "cartulary.service_backed_schedule.v1",
+  "cartulary.service_backed_schedule.v2",
+]);
 
 function usage() {
   process.stderr.write(
@@ -63,8 +67,10 @@ function isDryRun() {
 async function loadManifest(file) {
   const manifestPath = path.isAbsolute(file) ? file : path.join(repoRoot, file);
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
-  if (manifest.schema_id !== "cartulary.service_backed_schedule.v1") {
-    throw new Error(`${manifestPath} must declare schema_id=cartulary.service_backed_schedule.v1`);
+  if (!supportedSchemaIDs.has(manifest.schema_id)) {
+    throw new Error(
+      `${manifestPath} must declare schema_id cartulary.service_backed_schedule.v1 or cartulary.service_backed_schedule.v2`,
+    );
   }
   if (!Array.isArray(manifest.schedules)) {
     throw new Error(`${manifestPath} must declare schedules[]`);
@@ -84,7 +90,38 @@ function normalizeStringArray(value, label) {
   });
 }
 
-function validateChild(scheduleTarget, child, index) {
+function normalizeResourceLimits(value, label, schemaID) {
+  if (value === undefined && schemaID === "cartulary.service_backed_schedule.v1") {
+    return new Map();
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} resource_limits must be an object`);
+  }
+
+  const resourceLimits = new Map();
+  for (const [resource, limit] of Object.entries(value)) {
+    const normalizedResource = resource.trim();
+    if (normalizedResource === "") {
+      throw new Error(`${label} resource_limits keys must be non-empty strings`);
+    }
+    if (!Number.isInteger(limit) || limit < 1) {
+      throw new Error(`${label} resource_limits.${normalizedResource} must be a positive integer`);
+    }
+    resourceLimits.set(normalizedResource, limit);
+  }
+  return resourceLimits;
+}
+
+function normalizeUniqueStringArray(value, label) {
+  const entries = normalizeStringArray(value, label);
+  const duplicates = entries.filter((entry, index) => entries.indexOf(entry) !== index);
+  if (duplicates.length > 0) {
+    throw new Error(`${label} contains duplicate entries: ${[...new Set(duplicates)].join(", ")}`);
+  }
+  return entries;
+}
+
+function validateChild(scheduleTarget, child, index, resourceLimits, schemaID) {
   const label = `${scheduleTarget} child ${index + 1}`;
   if (!child || typeof child !== "object" || Array.isArray(child)) {
     throw new Error(`${label} must be an object`);
@@ -98,13 +135,38 @@ function validateChild(scheduleTarget, child, index) {
   if (!Number.isFinite(child.weight) || child.weight < 0) {
     throw new Error(`${label} ${child.target} must declare non-negative weight`);
   }
-  const resourceTags = normalizeStringArray(child.resource_tags ?? [], `${label} resource_tags`);
-  const exclusiveTags = normalizeStringArray(child.exclusive_tags ?? [], `${label} exclusive_tags`);
+  const legacyResourceTags = normalizeUniqueStringArray(
+    child.resource_tags ?? [],
+    `${label} resource_tags`,
+  );
+  const exclusiveTags = normalizeUniqueStringArray(
+    child.exclusive_tags ?? [],
+    `${label} exclusive_tags`,
+  );
+  const resourceClaims = normalizeUniqueStringArray(
+    schemaID === "cartulary.service_backed_schedule.v2"
+      ? (child.resource_claims ?? [])
+      : legacyResourceTags,
+    `${label} resource_claims`,
+  );
+  if (schemaID === "cartulary.service_backed_schedule.v2" && child.resource_tags !== undefined) {
+    throw new Error(`${label} ${child.target} must use resource_claims, not resource_tags`);
+  }
+  if (schemaID === "cartulary.service_backed_schedule.v2" && child.exclusive_tags !== undefined) {
+    throw new Error(`${label} ${child.target} must not declare legacy exclusive_tags`);
+  }
+  for (const resource of resourceClaims) {
+    if (resourceLimits.size > 0 && !resourceLimits.has(resource)) {
+      throw new Error(
+        `${label} ${child.target} resource_claims entry ${resource} is not declared in resource_limits`,
+      );
+    }
+  }
   const normalized = {
     target: child.target.trim(),
     kind: child.kind,
     weight: child.weight,
-    resourceTags,
+    resourceClaims,
     exclusiveTags,
     order: index,
   };
@@ -128,8 +190,13 @@ function validateChild(scheduleTarget, child, index) {
   if (!normalized.target.startsWith("browser-e2e-")) {
     throw new Error(`${label} browser target ${normalized.target} must be a browser-e2e target`);
   }
-  if (!normalized.resourceTags.includes("browser")) {
-    throw new Error(`${label} browser target ${normalized.target} must declare browser resource tag`);
+  if (
+    !normalized.resourceClaims.includes("browser") &&
+    !normalized.resourceClaims.includes("browser-webserver")
+  ) {
+    throw new Error(
+      `${label} browser target ${normalized.target} must declare browser or browser-webserver resource claim`,
+    );
   }
   return normalized;
 }
@@ -143,7 +210,14 @@ function findSchedule(manifest, target) {
   if (!Array.isArray(schedule.children) || schedule.children.length === 0) {
     throw new Error(`schedule ${target} must declare at least one child`);
   }
-  const children = schedule.children.map((child, index) => validateChild(target, child, index));
+  const resourceLimits = normalizeResourceLimits(
+    schedule.resource_limits,
+    `schedule ${target}`,
+    manifest.schema_id,
+  );
+  const children = schedule.children.map((child, index) =>
+    validateChild(target, child, index, resourceLimits, manifest.schema_id),
+  );
   const duplicates = children
     .map((child) => child.target)
     .filter((targetName, index, targets) => targets.indexOf(targetName) !== index);
@@ -152,6 +226,7 @@ function findSchedule(manifest, target) {
   }
   return {
     target,
+    resourceLimits,
     children,
     executionChildren: [...children].sort(
       (left, right) => right.weight - left.weight || left.target.localeCompare(right.target),
@@ -221,33 +296,46 @@ function runChild(makeBin, target, logFile) {
   }).then((result) => ({ target, status: result.status, logFile }));
 }
 
-function hasActiveResource(tag, activeResourceTags) {
-  return (activeResourceTags.get(tag) ?? 0) > 0;
+function hasActiveResource(resource, activeResourceClaims) {
+  return (activeResourceClaims.get(resource) ?? 0) > 0;
 }
 
-function canStart(child, activeExclusiveTags, activeResourceTags) {
+function hasResourceCapacity(child, resourceLimits, activeResourceClaims) {
+  for (const resource of child.resourceClaims) {
+    const limit = resourceLimits.get(resource);
+    if (limit !== undefined && (activeResourceClaims.get(resource) ?? 0) + 1 > limit) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function canStart(child, resourceLimits, activeExclusiveTags, activeResourceClaims) {
   const exclusiveConflict = child.exclusiveTags.some(
-    (tag) => activeExclusiveTags.has(tag) || hasActiveResource(tag, activeResourceTags),
+    (tag) => activeExclusiveTags.has(tag) || hasActiveResource(tag, activeResourceClaims),
   );
   if (exclusiveConflict) {
     return false;
   }
-  return child.resourceTags.every((tag) => !activeExclusiveTags.has(tag));
+  if (child.resourceClaims.some((resource) => activeExclusiveTags.has(resource))) {
+    return false;
+  }
+  return hasResourceCapacity(child, resourceLimits, activeResourceClaims);
 }
 
-function addResourceTags(child, activeResourceTags) {
-  for (const tag of child.resourceTags) {
-    activeResourceTags.set(tag, (activeResourceTags.get(tag) ?? 0) + 1);
+function addResourceClaims(child, activeResourceClaims) {
+  for (const resource of child.resourceClaims) {
+    activeResourceClaims.set(resource, (activeResourceClaims.get(resource) ?? 0) + 1);
   }
 }
 
-function removeResourceTags(child, activeResourceTags) {
-  for (const tag of child.resourceTags) {
-    const next = (activeResourceTags.get(tag) ?? 0) - 1;
+function removeResourceClaims(child, activeResourceClaims) {
+  for (const resource of child.resourceClaims) {
+    const next = (activeResourceClaims.get(resource) ?? 0) - 1;
     if (next <= 0) {
-      activeResourceTags.delete(tag);
+      activeResourceClaims.delete(resource);
     } else {
-      activeResourceTags.set(tag, next);
+      activeResourceClaims.set(resource, next);
     }
   }
 }
@@ -258,7 +346,7 @@ async function runSchedule({ schedule, jobs, makeBin, testOutputScript }) {
   const pending = [...schedule.executionChildren];
   const running = new Map();
   const activeExclusiveTags = new Set();
-  const activeResourceTags = new Map();
+  const activeResourceClaims = new Map();
   let started = 0;
   let firstFailure = 0;
 
@@ -288,7 +376,7 @@ async function runSchedule({ schedule, jobs, makeBin, testOutputScript }) {
       for (const tag of child.exclusiveTags) {
         activeExclusiveTags.add(tag);
       }
-      addResourceTags(child, activeResourceTags);
+      addResourceClaims(child, activeResourceClaims);
       const logFile = path.join(tempDir, `${String(started).padStart(2, "0")}-${child.target}.log`);
       const promise = runChild(makeBin, child.target, logFile);
       running.set(promise, child);
@@ -296,14 +384,14 @@ async function runSchedule({ schedule, jobs, makeBin, testOutputScript }) {
         for (const tag of child.exclusiveTags) {
           activeExclusiveTags.delete(tag);
         }
-        removeResourceTags(child, activeResourceTags);
+        removeResourceClaims(child, activeResourceClaims);
       });
     };
 
     while (pending.length > 0 || running.size > 0) {
       while (running.size < jobs) {
         const nextIndex = pending.findIndex((candidate) =>
-          canStart(candidate, activeExclusiveTags, activeResourceTags),
+          canStart(candidate, schedule.resourceLimits, activeExclusiveTags, activeResourceClaims),
         );
         if (nextIndex === -1) {
           break;
@@ -313,7 +401,9 @@ async function runSchedule({ schedule, jobs, makeBin, testOutputScript }) {
       }
 
       if (running.size === 0) {
-        throw new Error(`scheduler deadlock for ${schedule.target}; check exclusive_tags`);
+        throw new Error(
+          `scheduler deadlock for ${schedule.target}; check resource_limits, resource_claims, and exclusive_tags`,
+        );
       }
 
       const result = await Promise.race(running.keys());

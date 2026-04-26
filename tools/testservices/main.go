@@ -33,7 +33,7 @@ const (
 	postgresStartupTimeout = 2 * time.Minute
 	templateStartupTimeout = 2 * time.Minute
 	minioStartupTimeout    = 5 * time.Minute
-	cleanupTimeout         = 30 * time.Second
+	cleanupTimeout         = 2 * time.Minute
 	signalWaitTimeout      = 15 * time.Second
 
 	stagePostgresStart    = "postgres-start"

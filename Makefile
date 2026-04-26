@@ -522,12 +522,12 @@ test-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
 
 test-fast-service-backed: export CARTULARY_TEST_TARGET := test-fast-service-backed
 
-test-fast-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
+test-fast-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server $(TEST_SERVICES_BIN)
 	$(RUN_PHASE) "test-fast service-backed" -- $(TEST_SERVICES_BIN) run -- env MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(NODE_BIN) $(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-fast-service-backed --jobs $(SERVICE_BACKED_JOBS) --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"
 
 test-service-backed: export CARTULARY_TEST_TARGET := test-service-backed
 
-test-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
+test-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN)
 	$(RUN_PHASE) "test service-backed" -- $(TEST_SERVICES_BIN) run -- env MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(NODE_BIN) $(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-service-backed --jobs $(TEST_SERVICE_BACKED_JOBS) --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"
 
 test-isolated: export CARTULARY_TEST_TARGET := test-isolated
@@ -703,7 +703,7 @@ check-parallel: check-heavy check-static-validation check-harness-smoke
 
 check-service-backed: export CARTULARY_TEST_TARGET := check-service-backed
 
-check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) test-service-images
+check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate test-service-images
 	$(RUN_PHASE) "check service-backed" -- $(TEST_SERVICES_BIN) run -- env MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(NODE_BIN) $(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target check-service-backed --jobs $(SERVICE_BACKED_JOBS) --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"
 
 check-isolated: export CARTULARY_TEST_TARGET := check-isolated

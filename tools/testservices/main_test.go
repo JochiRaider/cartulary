@@ -561,6 +561,16 @@ func TestPrepareWebE2EWritesShellEnvAndMetadata(t *testing.T) {
 		}); err != nil {
 			return webE2EFixture{}, err
 		}
+		if err := suiteservices.RecordEvent(env, suiteservices.Event{
+			Type: suiteservices.EventS3BucketCreated,
+			Name: "ct-web",
+			Details: map[string]any{
+				"reuse_scope": suiteservices.FixtureReusePerTest,
+				"target":      suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
+			},
+		}); err != nil {
+			return webE2EFixture{}, err
+		}
 		return webE2EFixture{
 			DatabaseName: "ct_web",
 			DSN:          "postgres://cartulary:pa'ss@127.0.0.1:5432/ct_web?sslmode=disable",
@@ -617,6 +627,9 @@ func TestPrepareWebE2EWritesShellEnvAndMetadata(t *testing.T) {
 		preparation.TemplateDatabase != "suite_template" ||
 		preparation.Target != "browser-e2e-webserver-backed" {
 		t.Fatalf("unexpected browser database preparation: %#v", preparation)
+	}
+	if scope.MinIO.BucketCreateCount != 1 || len(scope.MinIO.CreatedBuckets) != 1 || scope.MinIO.CreatedBuckets[0] != "ct-web" {
+		t.Fatalf("expected browser fixture to create one isolated bucket, got %#v", scope.MinIO)
 	}
 	requireTimingEvent(t, loadTestEventsForEnv(t, activeEnv), bucketMigration, "test-services prepare browser e2e fixture")
 }

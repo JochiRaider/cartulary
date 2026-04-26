@@ -57,8 +57,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v1") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v1");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v2") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v2");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -70,6 +70,58 @@ const targets = schedules[0].children
 if (targets.length > 0) {
   process.stdout.write(`${targets.join("\n")}\n`);
 }
+EOF
+}
+
+schedule_child_array() {
+  local schedule_target="$1"
+  local child_target="$2"
+  local field="$3"
+
+  "$node_bin" - "$schedule_manifest" "$schedule_target" "$child_target" "$field" <<'EOF'
+const fs = require("node:fs");
+
+const [manifestFile, scheduleTarget, childTarget, field] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v2") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v2");
+}
+const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
+if (schedules.length !== 1) {
+  throw new Error(`expected exactly one schedule for ${scheduleTarget}, found ${schedules.length}`);
+}
+const children = schedules[0].children.filter((entry) => entry.target === childTarget);
+if (children.length !== 1) {
+  throw new Error(`expected exactly one child ${childTarget} in ${scheduleTarget}, found ${children.length}`);
+}
+const value = children[0][field] ?? [];
+if (!Array.isArray(value)) {
+  throw new Error(`${scheduleTarget} child ${childTarget} ${field} must be an array`);
+}
+if (value.length > 0) {
+  process.stdout.write(`${value.join("\n")}\n`);
+}
+EOF
+}
+
+schedule_child_weight() {
+  local schedule_target="$1"
+  local child_target="$2"
+
+  "$node_bin" - "$schedule_manifest" "$schedule_target" "$child_target" <<'EOF'
+const fs = require("node:fs");
+
+const [manifestFile, scheduleTarget, childTarget] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+const schedule = manifest.schedules.find((entry) => entry.target === scheduleTarget);
+if (!schedule) {
+  throw new Error(`missing schedule ${scheduleTarget}`);
+}
+const child = schedule.children.find((entry) => entry.target === childTarget);
+if (!child) {
+  throw new Error(`missing child ${childTarget} in ${scheduleTarget}`);
+}
+process.stdout.write(`${child.weight}\n`);
 EOF
 }
 
@@ -160,6 +212,12 @@ fi
 if printf '%s\n' "$test_service_block" | rg -q 'test-service-backed-lane-(a|b|browser)'; then
   fail "test-service-backed must not invoke fixed service-backed lane targets"
 fi
+if ! printf '%s\n' "$test_service_block" | grep -Fq 'build-server'; then
+  fail "test-service-backed must prebuild server before service-backed scheduling"
+fi
+if ! printf '%s\n' "$test_service_block" | grep -Fq 'build-migrate'; then
+  fail "test-service-backed must prebuild migrate before service-backed scheduling"
+fi
 
 mapfile -t test_service_browser_targets < <(schedule_targets test-service-backed browser)
 if [[ "${#test_service_browser_targets[@]}" -ne 1 ]]; then
@@ -167,6 +225,17 @@ if [[ "${#test_service_browser_targets[@]}" -ne 1 ]]; then
 fi
 if [[ "${test_service_browser_targets[0]}" != "browser-e2e-webserver-backed" ]]; then
   fail "test-service-backed schedule must use browser-e2e-webserver-backed as its browser target, found: ${test_service_browser_targets[0]}"
+fi
+mapfile -t test_service_browser_claims < <(schedule_child_array test-service-backed browser-e2e-webserver-backed resource_claims)
+if ! printf '%s\n' "${test_service_browser_claims[@]}" | rg -q '^browser-webserver$'; then
+  fail "test-service-backed browser child must claim browser-webserver capacity"
+fi
+mapfile -t test_service_browser_exclusive < <(schedule_child_array test-service-backed browser-e2e-webserver-backed exclusive_tags)
+if printf '%s\n' "${test_service_browser_exclusive[@]}" | rg -q '^(postgres|minio)$'; then
+  fail "test-service-backed browser child must not declare broad postgres or minio exclusivity"
+fi
+if (( $(schedule_child_weight test-service-backed browser-e2e-webserver-backed) < 95 )); then
+  fail "test-service-backed browser child weight must keep it in the first scheduling wave"
 fi
 
 check_service_block="$(extract_target_block check-service-backed)"
@@ -180,6 +249,12 @@ fi
 if printf '%s\n' "$check_service_block" | rg -q 'check-service-backed-lane-[ab]'; then
   fail "check-service-backed must not invoke fixed service-backed lane targets"
 fi
+if ! printf '%s\n' "$check_service_block" | grep -Fq 'build-server'; then
+  fail "check-service-backed must prebuild server before service-backed scheduling"
+fi
+if ! printf '%s\n' "$check_service_block" | grep -Fq 'build-migrate'; then
+  fail "check-service-backed must prebuild migrate before service-backed scheduling"
+fi
 
 mapfile -t check_service_browser_targets < <(schedule_targets check-service-backed browser)
 if [[ "${#check_service_browser_targets[@]}" -ne 1 ]]; then
@@ -187,6 +262,17 @@ if [[ "${#check_service_browser_targets[@]}" -ne 1 ]]; then
 fi
 if [[ "${check_service_browser_targets[0]}" != "browser-e2e-webserver-backed" ]]; then
   fail "check-service-backed schedule must use browser-e2e-webserver-backed as its browser target, found: ${check_service_browser_targets[0]}"
+fi
+mapfile -t check_service_browser_claims < <(schedule_child_array check-service-backed browser-e2e-webserver-backed resource_claims)
+if ! printf '%s\n' "${check_service_browser_claims[@]}" | rg -q '^browser-webserver$'; then
+  fail "check-service-backed browser child must claim browser-webserver capacity"
+fi
+mapfile -t check_service_browser_exclusive < <(schedule_child_array check-service-backed browser-e2e-webserver-backed exclusive_tags)
+if printf '%s\n' "${check_service_browser_exclusive[@]}" | rg -q '^(postgres|minio)$'; then
+  fail "check-service-backed browser child must not declare broad postgres or minio exclusivity"
+fi
+if (( $(schedule_child_weight check-service-backed browser-e2e-webserver-backed) < 95 )); then
+  fail "check-service-backed browser child weight must keep it in the first scheduling wave"
 fi
 
 check_summary_groups_line="$(sed -n 's/^CHECK_SUMMARY_GROUPS[[:space:]]*:=[[:space:]]*//p' "$makefile" | head -n 1)"
