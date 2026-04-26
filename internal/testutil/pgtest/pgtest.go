@@ -376,8 +376,9 @@ func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string, command string
 	t.Helper()
 
 	// MigrationDatabaseT always creates a fresh scratch database and replays the
-	// requested migration path. Do not replace it with package reset or template
-	// clone in migration-path tests.
+	// requested migration path. Use PrepareDatabaseT or PreparePackageDatabaseT
+	// for current-head schema assertions; keep MigrationDatabaseT for tests that
+	// prove migration runner behavior, boundary upgrades, or backfills.
 	attribution := fixtureAttributionFor(t, "pgtest")
 	testDB, err := h.newDatabase(context.Background(), prefix, suiteservices.FixtureReuseMigrationScratch, attribution)
 	if err != nil {

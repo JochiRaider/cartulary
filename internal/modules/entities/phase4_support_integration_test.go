@@ -169,63 +169,68 @@ func TestSupportPhase4Integration_ProjectionAndWebsocketConsequences(t *testing.
 	}
 }
 
-func TestSupportPhase4Integration_RecordEnvelopeSubstrate(t *testing.T) {
+func TestSupportPhase4Integration_RecordEnvelopeHeadSchema(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
+	testDB := postgresHarness.PrepareDatabaseT(t, "phase4-records-head")
 
-	t.Run("fresh migrations expose record envelope schema", func(t *testing.T) {
-		db := postgresHarness.MigrationDatabaseT(t, "phase4-records-empty", "up")
-		requireColumns(t, db, "records", "record_id", "incident_id", "record_type", "created_by_user_id", "created_at", "updated_by_user_id", "updated_at", "row_version", "deleted_at", "deleted_by_user_id")
-		requireNoColumns(t, db, "record_id", "users", "user_sessions", "bootstrap_tokens", "pending_totp_enrollments", "incident_memberships", "deployment_bootstrap_state")
-		requireGenericRecordFKsDoNotTargetTimeline(t, db)
-	})
+	db, err := sql.Open("pgx", testDB.DSN)
+	if err != nil {
+		t.Fatalf("open head schema database: %v", err)
+	}
+	defer db.Close()
 
-	t.Run("migration backfills typed rows and tightens generic substrates", func(t *testing.T) {
-		db := postgresHarness.MigrationDatabaseT(t, "phase4-records-backfill", "up-to", dbmigrations.PreRecordEnvelopeVersion)
-		fixture := seedPreEnvelopeRows(t, db)
-		if _, err := postgres.Migrate(db, dbmigrations.Source(), "up"); err != nil {
-			t.Fatalf("migrate backfill database to latest: %v", err)
-		}
+	requireColumns(t, db, "records", "record_id", "incident_id", "record_type", "created_by_user_id", "created_at", "updated_by_user_id", "updated_at", "row_version", "deleted_at", "deleted_by_user_id")
+	requireNoColumns(t, db, "record_id", "users", "user_sessions", "bootstrap_tokens", "pending_totp_enrollments", "incident_memberships", "deployment_bootstrap_state")
+	requireGenericRecordFKsDoNotTargetTimeline(t, db)
+}
 
-		assertCount(t, db, `
+func TestSupportPhase4Integration_RecordEnvelopeBackfill(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	db := postgresHarness.MigrationDatabaseT(t, "phase4-records-backfill", "up-to", dbmigrations.PreRecordEnvelopeVersion)
+	fixture := seedPreEnvelopeRows(t, db)
+	if _, err := postgres.Migrate(db, dbmigrations.Source(), "up"); err != nil {
+		t.Fatalf("migrate backfill database to latest: %v", err)
+	}
+
+	assertCount(t, db, `
 SELECT COUNT(*)
   FROM records
  WHERE record_id IN ($1, $2, $3, $4, $5, $6)
 `, 6, fixture.timelineID, fixture.replacementTimelineID, fixture.hostID, fixture.identityID, fixture.indicatorID, fixture.assessmentID)
-		assertCount(t, db, `SELECT COUNT(*) FROM records WHERE record_type = 'assessment' AND record_id = $1`, 1, fixture.assessmentID)
-		assertCount(t, db, `SELECT COUNT(*) FROM records WHERE record_id = $1 AND row_version = 3`, 1, fixture.timelineID)
-		requireGenericRecordFKsDoNotTargetTimeline(t, db)
+	assertCount(t, db, `SELECT COUNT(*) FROM records WHERE record_type = 'assessment' AND record_id = $1`, 1, fixture.assessmentID)
+	assertCount(t, db, `SELECT COUNT(*) FROM records WHERE record_id = $1 AND row_version = 3`, 1, fixture.timelineID)
+	requireGenericRecordFKsDoNotTargetTimeline(t, db)
 
-		assertInsertFails(t, db, `
+	assertInsertFails(t, db, `
 INSERT INTO record_revisions (change_set_id, record_id, row_version)
 VALUES ($1, $2, 1)
 `, fixture.changeSetID, uuid.New())
-		assertInsertFails(t, db, `
+	assertInsertFails(t, db, `
 INSERT INTO record_links (incident_id, src_record_id, dst_record_id, link_type, provenance, owner_user_id, created_by_user_id)
 VALUES ($1, $2, $3, 'observed_on_host', 'manual', $4, $4)
 `, fixture.incidentID, uuid.New(), fixture.hostID, fixture.userID)
-		assertInsertFails(t, db, `
+	assertInsertFails(t, db, `
 INSERT INTO record_tags (incident_id, record_id, tag_name, normalized_tag_name, created_by_user_id)
 VALUES ($1, $2, 'missing', 'missing', $3)
 `, fixture.incidentID, uuid.New(), fixture.userID)
-		assertInsertFails(t, db, `
+	assertInsertFails(t, db, `
 INSERT INTO hosts (record_id, incident_id, display_name, host_state, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, 'missing envelope', 'canonical', $3, $3)
 `, uuid.New(), fixture.incidentID, fixture.userID)
 
-		otherIncidentID := seedIncident(t, db, fixture.userID, "IR-REC-OTHER")
-		otherTimelineID := uuid.New()
-		phase4test.SeedRecordEnvelope(t, db, otherIncidentID, fixture.userID, otherTimelineID, "timeline_event")
-		if _, err := db.ExecContext(context.Background(), `
+	otherIncidentID := seedIncident(t, db, fixture.userID, "IR-REC-OTHER")
+	otherTimelineID := uuid.New()
+	phase4test.SeedRecordEnvelope(t, db, otherIncidentID, fixture.userID, otherTimelineID, "timeline_event")
+	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO timeline_events (record_id, incident_id, summary, capture_state, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, 'other incident', 'rough', $3, $3)
 `, otherTimelineID, otherIncidentID, fixture.userID); err != nil {
-			t.Fatalf("seed cross-incident timeline row: %v", err)
-		}
-		assertInsertFails(t, db, `
+		t.Fatalf("seed cross-incident timeline row: %v", err)
+	}
+	assertInsertFails(t, db, `
 INSERT INTO record_links (incident_id, src_record_id, dst_record_id, link_type, provenance, owner_user_id, created_by_user_id)
 VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 `, fixture.incidentID, fixture.timelineID, otherTimelineID, fixture.userID)
-	})
 }
 
 type phase4SupportScenario struct {

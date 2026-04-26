@@ -58,13 +58,30 @@
       "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_support_integration_test.go",
       "selection_pattern": "TestSupportPhase4Integration_",
-      "symbol": "TestSupportPhase4Integration_RecordEnvelopeSubstrate",
+      "symbol": "TestSupportPhase4Integration_RecordEnvelopeHeadSchema",
       "fixture_policy": {
-        "postgres": "migration_scratch"
+        "postgres": "template_clone"
       },
       "fixture_budget": {
         "postgres": {
-          "max_migration_scratch": 2
+          "max_template_clones": 1
+        }
+      }
+    },
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/modules/entities",
+      "file": "internal/modules/entities/phase4_support_integration_test.go",
+      "selection_pattern": "TestSupportPhase4Integration_",
+      "symbol": "TestSupportPhase4Integration_RecordEnvelopeBackfill",
+      "fixture_policy": {
+        "postgres": "migration_scratch"
+      },
+      "migration_scratch_reason": "Replays the pre-record-envelope boundary to verify record envelope backfill behavior.",
+      "fixture_budget": {
+        "postgres": {
+          "max_migration_scratch": 1
         }
       }
     }

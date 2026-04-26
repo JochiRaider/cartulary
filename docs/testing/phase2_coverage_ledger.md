@@ -19,8 +19,6 @@ This ledger is generated from `tools/phase2_test_map.json`. Update the manifest 
 - `internal/modules/incidents/phase2_support_test.go` runs through `backend-unit` with `TestSupportPhase2Unit_` and is forbidden from claiming `U-2-*` identifiers.
 - `internal/modules/incidents/phase2_extra_integration_test.go` runs through `backend-integration-support` with `TestSupportPhase2_` and is forbidden from claiming `I-2-*` identifiers.
 - `internal/modules/incidents/phase2_http_conformance_test.go` runs through `backend-integration-support` with `TestSupportPhase2_` and is forbidden from claiming `I-2-*` identifiers.
-- `internal/modules/incidents/phase2_http_conformance_test.go` runs through `backend-integration-support` with `TestSupportPhase2_` and is forbidden from claiming `I-2-*` identifiers.
-- `internal/modules/incidents/phase2_http_conformance_test.go` runs through `backend-integration-support` with `TestSupportPhase2_` and is forbidden from claiming `I-2-*` identifiers.
 - `internal/modules/incidents/phase2_pagination_integration_test.go` runs through `backend-integration-support` with `TestSupportPhase2_` and is forbidden from claiming `I-2-*` identifiers.
 - `backend-integration-support` emits a shared-capture support report rather than a second independent runtime.
 - `make browser-e2e-support` is a helper slice also exercised inside the `browser-e2e-webserver-backed` browser batch and does not provide additional authoritative confirmation.

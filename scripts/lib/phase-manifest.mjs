@@ -287,6 +287,32 @@ function validatePostgresFixtureBudget(entry, policy, budget, label) {
   }
 }
 
+function validateSupportMigrationScratch(entry, symbols, policy, budget, label) {
+  if (policy !== postgresFixturePolicyMigrationScratch) {
+    return;
+  }
+  if (
+    typeof entry.migration_scratch_reason !== "string" ||
+    entry.migration_scratch_reason.trim() === ""
+  ) {
+    throw new Error(`${label} migration_scratch must declare migration_scratch_reason`);
+  }
+  if (
+    !/\b(backfill|boundary|migration|migrate|replay|upgrade)\b/i.test(
+      entry.migration_scratch_reason,
+    )
+  ) {
+    throw new Error(
+      `${label} migration_scratch_reason must justify migration, boundary, replay, upgrade, or backfill coverage`,
+    );
+  }
+  if (budget.max_migration_scratch > symbols.length) {
+    throw new Error(
+      `${label} migration_scratch budget must not exceed its support symbol count; split multi-database replay coverage into separate support symbols`,
+    );
+  }
+}
+
 function fixturePolicyAssignments(entries, symbolsForEntry, policyForEntry) {
   const assignments = [];
   for (const entry of entries) {
@@ -588,10 +614,18 @@ export function validateManifest(root, phase) {
         `${supportGoEntryLabel(entry)} must declare fixture_policy.postgres for service-backed support target ${entry.target}`,
       );
     }
+    const postgresFixtureBudget = supportGoEntryPostgresFixtureBudget(entry);
     validatePostgresFixtureBudget(
       entry,
       postgresFixturePolicy,
-      supportGoEntryPostgresFixtureBudget(entry),
+      postgresFixtureBudget,
+      supportGoEntryLabel(entry),
+    );
+    validateSupportMigrationScratch(
+      entry,
+      symbols,
+      postgresFixturePolicy,
+      postgresFixtureBudget,
       supportGoEntryLabel(entry),
     );
     for (const symbol of symbols) {

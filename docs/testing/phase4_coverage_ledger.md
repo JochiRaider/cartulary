@@ -17,7 +17,6 @@ This ledger is generated from `tools/phase4_test_map.json`. Update the manifest 
 ## Support-Only Execution
 
 - `internal/modules/entities/phase4_support_integration_test.go` runs through `backend-integration-support` with `TestSupportPhase4Integration_` and is forbidden from claiming `I-4-*` identifiers.
-- `internal/modules/entities/phase4_support_integration_test.go` runs through `backend-integration-support` with `TestSupportPhase4Integration_` and is forbidden from claiming `I-4-*` identifiers.
 - `apps/web/src/WorkbookShell.phase4.support.test.tsx` runs through `frontend-unit` and is forbidden from claiming `U-4-*`, `I-4-*`, or `E-4-*` identifiers.
 
 ## Unit

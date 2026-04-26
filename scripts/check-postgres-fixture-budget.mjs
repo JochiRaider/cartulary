@@ -203,6 +203,7 @@ function actualStats(events, target) {
     packageResetDurationMS: 0,
     transactions: 0,
     migrationScratchCreates: 0,
+    migrationScratchDetails: [],
     unplannedTemplateClones: [],
     unplannedGroupClones: [],
     unplannedTransactions: [],
@@ -237,6 +238,9 @@ function actualStats(events, target) {
       reuseScope === "migration-scratch"
     ) {
       stats.migrationScratchCreates += 1;
+      stats.migrationScratchDetails.push(
+        `${testName || "(unknown test)"} ${details.caller_file ?? ""}`.trim(),
+      );
     }
     if (
       event.type === "postgres-db-reset" &&
@@ -280,6 +284,23 @@ function failIfOver(target, name, actual, budget) {
   }
 }
 
+function failIfMigrationScratchOver(target, stats, budget) {
+  if (stats.migrationScratchCreates <= budget.migrationScratchCreates) {
+    return;
+  }
+  const actual =
+    stats.migrationScratchDetails.length > 0
+      ? stats.migrationScratchDetails.join("; ")
+      : "none";
+  const planned =
+    budget.migrationScratchTests.size > 0
+      ? [...budget.migrationScratchTests].sort().join(",")
+      : "none";
+  throw new Error(
+    `${target} exceeded postgres migration scratch create budget: got ${stats.migrationScratchCreates}, budget ${budget.migrationScratchCreates}; actual=${actual}; planned_manifest_symbols=${planned}`,
+  );
+}
+
 function checkTarget(events, target) {
   const budget = plannedBudget(target);
   const stats = actualStats(events, target);
@@ -289,7 +310,7 @@ function checkTarget(events, target) {
   failIfOver(target, "package reset event", stats.packageResetEvents, budget.packageResetEvents);
   failIfOver(target, "package reset duration", stats.packageResetDurationMS, budget.packageResetDurationMS);
   failIfOver(target, "transaction", stats.transactions, budget.transactions);
-  failIfOver(target, "migration scratch create", stats.migrationScratchCreates, budget.migrationScratchCreates);
+  failIfMigrationScratchOver(target, stats, budget);
   if (stats.unplannedTemplateClones.length > 0) {
     throw new Error(`${target} used unplanned per-test postgres template clones: ${stats.unplannedTemplateClones.join("; ")}`);
   }

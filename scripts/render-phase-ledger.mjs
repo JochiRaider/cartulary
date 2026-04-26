@@ -309,7 +309,7 @@ function renderSupportExecutionLines(phase, manifest, extras = []) {
       }
       return `- \`${entry.file}\` runs through \`${target}\` with \`${entry.selection_pattern}\` and is forbidden from claiming \`${sectionPrefix(entry.section)}-${phaseNumber}-*\` identifiers.`;
     });
-  return [...supportLines, ...extras];
+  return [...new Set(supportLines), ...extras];
 }
 
 function renderSection(title, entries) {

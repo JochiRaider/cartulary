@@ -325,3 +325,43 @@ JSON
 if CARTULARY_PHASE_MANIFEST_ROOT="$invalid_budget_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase5 >/dev/null 2>&1; then
   fail "phase manifest validation must reject invalid postgres fixture budgets"
 fi
+
+missing_migration_reason_root="$tmp_dir/missing-migration-reason-root"
+mkdir -p "$missing_migration_reason_root/tools"
+cat >"$missing_migration_reason_root/tools/phase5_test_map.json" <<'JSON'
+{
+  "expected_ids": ["U-5-01"],
+  "support_go_targets": [
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/platform/objectstore",
+      "file": "internal/platform/objectstore/objectstore_phase0_support_test.go",
+      "symbol": "TestSupportPhase0_ManagedServiceObjectStoreBinding",
+      "selection_pattern": "TestSupportPhase0_",
+      "fixture_policy": { "postgres": "migration_scratch" },
+      "fixture_budget": {
+        "postgres": {
+          "max_migration_scratch": 1
+        }
+      }
+    }
+  ],
+  "unit": [
+    {
+      "id": "U-5-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/app",
+      "file": "internal/app/bootstrap_phase0_test.go",
+      "symbol": "TestPhase0_BootstrapManifestValidation_U_0_07",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "fixture_policy_validation"
+    }
+  ]
+}
+JSON
+
+if CARTULARY_PHASE_MANIFEST_ROOT="$missing_migration_reason_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase5 >/dev/null 2>&1; then
+  fail "phase manifest validation must reject support migration_scratch without migration_scratch_reason"
+fi
