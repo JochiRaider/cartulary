@@ -232,7 +232,6 @@ function findSchedule(manifest, target) {
   return {
     target,
     resourceLimits,
-    usesResourceCapacity: resourceLimits.size > 0,
     children,
     executionChildren: [...children].sort(
       (left, right) => right.weight - left.weight || left.target.localeCompare(right.target),
@@ -397,6 +396,19 @@ function formatBlockedChildren(children) {
     .join("; ");
 }
 
+function schedulerTelemetry(schedule, event, fields) {
+  process.stdout.write(`[SCHEDULER] ${schedule.target} ${event} ${fields.join(" ")}\n`);
+}
+
+function schedulerStateFields({ jobs, pending, running, activeResourceClaims, resourceLimits }) {
+  return [
+    `active=${running.size}/${jobs}`,
+    `pending=${pending.length}`,
+    `active_resource_claims=${formatActiveResourceClaims(activeResourceClaims)}`,
+    `resource_limits=${formatResourceLimits(resourceLimits)}`,
+  ];
+}
+
 async function runSchedule({ schedule, jobs, makeBin, testOutputScript, deferSummary }) {
   const childrenCsv = schedule.children.map((child) => child.target).join(",");
   const backendBudgetTargets = schedule.children
@@ -440,10 +452,20 @@ async function runSchedule({ schedule, jobs, makeBin, testOutputScript, deferSum
       const logFile = path.join(tempDir, `${String(started).padStart(2, "0")}-${child.target}.log`);
       const promise = runChild(makeBin, child.target, logFile);
       running.set(promise, child);
+      schedulerTelemetry(schedule, "start", [
+        `target=${child.target}`,
+        ...schedulerStateFields({
+          jobs,
+          pending,
+          running,
+          activeResourceClaims,
+          resourceLimits: schedule.resourceLimits,
+        }),
+      ]);
     };
 
     while (pending.length > 0 || running.size > 0) {
-      while (schedule.usesResourceCapacity || running.size < jobs) {
+      while (running.size < jobs) {
         const nextIndex = pending.findIndex((candidate) =>
           canStart(candidate, schedule.resourceLimits, activeExclusiveTags, activeResourceClaims),
         );
@@ -452,6 +474,19 @@ async function runSchedule({ schedule, jobs, makeBin, testOutputScript, deferSum
         }
         const [child] = pending.splice(nextIndex, 1);
         await startChild(child);
+      }
+
+      if (pending.length > 0 && running.size > 0) {
+        schedulerTelemetry(schedule, "blocked", [
+          `reason=${running.size >= jobs ? "jobs" : "resources"}`,
+          ...schedulerStateFields({
+            jobs,
+            pending,
+            running,
+            activeResourceClaims,
+            resourceLimits: schedule.resourceLimits,
+          }),
+        ]);
       }
 
       if (running.size === 0) {
@@ -471,6 +506,17 @@ async function runSchedule({ schedule, jobs, makeBin, testOutputScript, deferSum
           break;
         }
       }
+      schedulerTelemetry(schedule, "finish", [
+        `target=${result.target}`,
+        `status=${result.status}`,
+        ...schedulerStateFields({
+          jobs,
+          pending,
+          running,
+          activeResourceClaims,
+          resourceLimits: schedule.resourceLimits,
+        }),
+      ]);
       await replayLog(result.logFile, result.status === 0 ? process.stdout : process.stderr);
       if (result.status !== 0 && firstFailure === 0) {
         firstFailure = result.status;

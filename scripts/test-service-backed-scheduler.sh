@@ -161,33 +161,6 @@ write_manifest() {
   } >"$file"
 }
 
-write_legacy_manifest() {
-  local file="$1"
-  local target="$2"
-  shift 2
-
-  {
-    printf '{\n'
-    printf '  "schema_id": "cartulary.service_backed_schedule.v1",\n'
-    printf '  "schedules": [\n'
-    printf '    { "target": "%s", "children": [\n' "$target"
-    local first=1
-    local child
-    for child in "$@"; do
-      IFS='|' read -r name kind weight exclusive <<<"$child"
-      if [[ "$first" -eq 0 ]]; then
-        printf ',\n'
-      fi
-      first=0
-      printf '      { "target": "%s", "kind": "%s", "weight": %s, "resource_tags": ["postgres", "minio"%s], "exclusive_tags": [%s] }' \
-        "$name" "$kind" "$weight" "$([[ "$kind" == browser ]] && printf ', "browser"' || true)" "$exclusive"
-    done
-    printf '\n    ] }\n'
-    printf '  ]\n'
-    printf '}\n'
-  } >"$file"
-}
-
 run_scheduler() {
   local dir="$1"
   local manifest="$2"
@@ -222,7 +195,11 @@ weighted_output="$(run_scheduler "$weighted_dir" "$weighted_manifest" test-fast-
 assert_contains "$weighted_output" "[STEP] test-fast-service-backed 1/3 backend-process mode=scheduler jobs=1" "weighted first child"
 assert_contains "$weighted_output" "[STEP] test-fast-service-backed 2/3 backend-integration-support mode=scheduler jobs=1" "weighted second child"
 assert_contains "$weighted_output" "[STEP] test-fast-service-backed 3/3 backend-store mode=scheduler jobs=1" "weighted third child"
-assert_equals "$(cat "${weighted_dir}/max")" "3" "v2 resource capacity ignores global jobs cap for compatible children"
+assert_equals "$(cat "${weighted_dir}/max")" "1" "global jobs cap limits weighted compatible children"
+assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start target=backend-process active=1/1 pending=2 active_resource_claims={minio:1,postgres:1,process:1}" "scheduler start telemetry"
+assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed blocked reason=jobs active=1/1 pending=2" "scheduler jobs-blocked telemetry"
+assert_contains "$weighted_output" "resource_limits={backend:4,browser:1,browser-webserver:1,minio:32,postgres:32,process:2}" "scheduler resource limit telemetry"
+assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed finish target=backend-process status=0 active=0/1 pending=2 active_resource_claims={}" "scheduler finish telemetry"
 
 parallel_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-parallel.XXXXXX")"
 cleanup_paths+=("$parallel_dir")
@@ -233,8 +210,8 @@ write_manifest "$parallel_manifest" test-fast-service-backed \
   'backend-store|backend|9|"postgres", "minio", "backend"' \
   'backend-process|backend|8|"postgres", "minio", "backend", "process"' \
   'backend-integration-support|backend|7|"postgres", "minio", "backend"'
-run_scheduler "$parallel_dir" "$parallel_manifest" test-fast-service-backed 1 parallel >/dev/null
-assert_equals "$(cat "${parallel_dir}/max")" "4" "v2 backend lane starts all four current backend children"
+run_scheduler "$parallel_dir" "$parallel_manifest" test-fast-service-backed 2 parallel >/dev/null
+assert_equals "$(cat "${parallel_dir}/max")" "2" "global jobs cap limits compatible backend children"
 
 backend_capacity_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-backend-capacity.XXXXXX")"
 cleanup_paths+=("$backend_capacity_dir")
@@ -246,8 +223,8 @@ write_manifest "$backend_capacity_manifest" test-fast-service-backed \
   'backend-process|backend|8|"postgres", "minio", "backend", "process"' \
   'backend-integration-support|backend|7|"postgres", "minio", "backend"' \
   'phase0-process-e2e|backend|6|"postgres", "minio", "backend", "process"'
-run_scheduler "$backend_capacity_dir" "$backend_capacity_manifest" test-fast-service-backed 1 backend-capacity >/dev/null
-assert_equals "$(cat "${backend_capacity_dir}/max")" "4" "backend lane capacity max active"
+run_scheduler "$backend_capacity_dir" "$backend_capacity_manifest" test-fast-service-backed 5 backend-capacity >/dev/null
+assert_equals "$(cat "${backend_capacity_dir}/max")" "4" "backend resource capacity limits below global jobs"
 
 browser_parallel_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser-parallel.XXXXXX")"
 cleanup_paths+=("$browser_parallel_dir")
@@ -257,8 +234,8 @@ write_manifest "$browser_parallel_manifest" test-service-backed \
   'backend-integration|backend|100|"postgres", "minio", "backend"' \
   'browser-e2e-webserver-backed|browser|95|"postgres", "minio", "browser", "browser-webserver"' \
   'backend-store|backend|90|"postgres", "minio", "backend"'
-run_scheduler "$browser_parallel_dir" "$browser_parallel_manifest" test-service-backed 1 browser-parallel >/dev/null
-assert_equals "$(cat "${browser_parallel_dir}/max")" "3" "browser and backend max active"
+run_scheduler "$browser_parallel_dir" "$browser_parallel_manifest" test-service-backed 2 browser-parallel >/dev/null
+assert_equals "$(cat "${browser_parallel_dir}/max")" "2" "browser and backend respect global jobs"
 assert_contains "$(cat "${browser_parallel_dir}/make.log")" "start browser-e2e-webserver-backed active=2" "browser starts beside backend"
 
 mixed_parallel_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-mixed-parallel.XXXXXX")"
@@ -271,8 +248,8 @@ write_manifest "$mixed_parallel_manifest" test-service-backed \
   'backend-store|backend|90|"postgres", "minio", "backend"' \
   'backend-process|backend|80|"postgres", "minio", "backend", "process"' \
   'backend-integration-support|backend|60|"postgres", "minio", "backend"'
-run_scheduler "$mixed_parallel_dir" "$mixed_parallel_manifest" test-service-backed 1 mixed-parallel >/dev/null
-assert_equals "$(cat "${mixed_parallel_dir}/max")" "5" "current mixed service-backed schedule first wave"
+run_scheduler "$mixed_parallel_dir" "$mixed_parallel_manifest" test-service-backed 2 mixed-parallel >/dev/null
+assert_equals "$(cat "${mixed_parallel_dir}/max")" "2" "mixed service-backed schedule respects global jobs"
 
 browser_capacity_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser-capacity.XXXXXX")"
 cleanup_paths+=("$browser_capacity_dir")
@@ -287,6 +264,7 @@ browser_capacity_status=$?
 set -e
 assert_equals "$browser_capacity_status" "0" "browser-only scheduler status"
 assert_equals "$(cat "${browser_capacity_dir}/max")" "1" "browser-webserver capacity max active"
+assert_contains "$browser_capacity_output" "[SCHEDULER] test-service-backed blocked reason=resources active=1/2 pending=1" "scheduler resource-blocked telemetry"
 
 set +e
 empty_budget_output="$("$NODE_BIN" "${ROOT_DIR}/scripts/check-postgres-fixture-budget.mjs" --targets "" 2>&1)"
@@ -294,28 +272,6 @@ empty_budget_status=$?
 set -e
 assert_equals "$empty_budget_status" "0" "empty postgres fixture budget target list status"
 assert_equals "$empty_budget_output" "" "empty postgres fixture budget target list output"
-
-exclusive_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-exclusive.XXXXXX")"
-cleanup_paths+=("$exclusive_dir")
-write_fake_make "$exclusive_dir"
-exclusive_manifest="${exclusive_dir}/manifest.json"
-write_legacy_manifest "$exclusive_manifest" test-fast-service-backed \
-  'backend-integration|backend|10|"postgres"' \
-  'backend-store|backend|9|"postgres"' \
-  'backend-process|backend|8|"postgres"'
-run_scheduler "$exclusive_dir" "$exclusive_manifest" test-fast-service-backed 3 exclusive >/dev/null
-assert_equals "$(cat "${exclusive_dir}/max")" "1" "exclusive tag max active"
-
-legacy_jobs_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-legacy-jobs.XXXXXX")"
-cleanup_paths+=("$legacy_jobs_dir")
-write_fake_make "$legacy_jobs_dir"
-legacy_jobs_manifest="${legacy_jobs_dir}/manifest.json"
-write_legacy_manifest "$legacy_jobs_manifest" test-fast-service-backed \
-  'backend-integration|backend|10|' \
-  'backend-store|backend|9|' \
-  'backend-process|backend|8|'
-run_scheduler "$legacy_jobs_dir" "$legacy_jobs_manifest" test-fast-service-backed 2 legacy-jobs >/dev/null
-assert_equals "$(cat "${legacy_jobs_dir}/max")" "2" "legacy manifest honors global jobs fallback"
 
 failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-failure.XXXXXX")"
 cleanup_paths+=("$failure_dir")
