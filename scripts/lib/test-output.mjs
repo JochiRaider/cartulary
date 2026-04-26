@@ -19,7 +19,10 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
 const resultsRoot = resolveResultsRoot();
 const runId = process.env.CARTULARY_TEST_RUN_ID || "adhoc";
+const phaseSummarySchemaID = "cartulary.test_phase_summary.v2";
 const targetTimingSchemaID = "cartulary.test_target_timing.v1";
+const targetSummarySchemaID = "cartulary.test_target_summary.v2";
+const runSummarySchemaID = "cartulary.test_run_summary.v2";
 const timingBucketOrder = [
   "setup",
   "service_wait",
@@ -233,11 +236,21 @@ function formatAccountingModeFields(accountingModes) {
   return `actual=${modes.actual ?? 0} reused=${modes.reused ?? 0} derived=${modes.derived ?? 0}`;
 }
 
-function formatDurationFields(wallDurationMs, executedDurationMs, logicalDurationMs = executedDurationMs) {
+function formatDurationFields(
+  wallDurationMs,
+  executedDurationMs,
+  logicalDurationMs = executedDurationMs,
+  criticalPathWallDurationMs = wallDurationMs,
+  teardownDurationMs = 0,
+) {
   const effectiveLogical = clampDurationMs(logicalDurationMs);
   const effectiveExecuted = clampDurationMs(executedDurationMs);
   const effectiveWall = Number.isFinite(wallDurationMs) ? wallDurationMs : effectiveLogical;
-  return `wall=${formatDuration(effectiveWall)} exec=${formatDuration(effectiveExecuted)} logical=${formatDuration(effectiveLogical)}`;
+  const effectiveCriticalPath = Number.isFinite(criticalPathWallDurationMs)
+    ? criticalPathWallDurationMs
+    : effectiveWall;
+  const effectiveTeardown = clampDurationMs(teardownDurationMs);
+  return `wall=${formatDuration(effectiveWall)} critical=${formatDuration(effectiveCriticalPath)} exec=${formatDuration(effectiveExecuted)} logical=${formatDuration(effectiveLogical)} teardown=${formatDuration(effectiveTeardown)}`;
 }
 
 function resolveOutputMode() {
@@ -656,9 +669,10 @@ function createBasePhaseContext(runner) {
     startTime: requiredEnv("CARTULARY_PHASE_START_TIME"),
     endTime: requiredEnv("CARTULARY_PHASE_END_TIME"),
     accountingMode,
-    durationMs: logicalDurationMs,
     executedDurationMs,
     logicalDurationMs,
+    reusedDurationMs: accountingMode === "reused" ? logicalDurationMs : 0,
+    derivedDurationMs: accountingMode === "derived" ? logicalDurationMs : 0,
     wallDurationMs: clampDurationMs(parseInteger("CARTULARY_PHASE_WALL_DURATION_MS", logicalDurationMs)),
     exitStatus: parseInteger("CARTULARY_PHASE_EXIT_STATUS", 0),
   };
@@ -683,8 +697,11 @@ function writePhaseArtifacts(context, details) {
     accounting_mode: context.accountingMode,
     executed_duration_ms: context.executedDurationMs,
     logical_duration_ms: context.logicalDurationMs,
-    duration_ms: context.durationMs,
+    reused_duration_ms: context.reusedDurationMs,
+    derived_duration_ms: context.derivedDurationMs,
     wall_duration_ms: context.wallDurationMs,
+    critical_path_wall_duration_ms: context.wallDurationMs,
+    teardown_duration_ms: context.timingBucket === "teardown" ? context.wallDurationMs : 0,
     timing_bucket: context.timingBucket,
     status: details.status,
     counts: details.counts,
@@ -700,6 +717,7 @@ function writePhaseArtifacts(context, details) {
   }
 
   const summary = {
+    schema_id: phaseSummarySchemaID,
     label: context.label,
     target: context.target,
     runner: context.runner,
@@ -711,8 +729,11 @@ function writePhaseArtifacts(context, details) {
     accounting_mode: context.accountingMode,
     executed_duration_ms: context.executedDurationMs,
     logical_duration_ms: context.logicalDurationMs,
-    duration_ms: context.durationMs,
+    reused_duration_ms: context.reusedDurationMs,
+    derived_duration_ms: context.derivedDurationMs,
     wall_duration_ms: context.wallDurationMs,
+    critical_path_wall_duration_ms: context.wallDurationMs,
+    teardown_duration_ms: context.timingBucket === "teardown" ? context.wallDurationMs : 0,
     timing_bucket: context.timingBucket,
     exit_status: context.exitStatus,
     artifacts,
@@ -1072,8 +1093,95 @@ function timingStatusFailed(status) {
   return true;
 }
 
-function hasFailedTimingSpan(spans) {
-  return spans.some((span) => timingStatusFailed(span.status));
+function createDurationFields() {
+  return {
+    wall_duration_ms: 0,
+    critical_path_wall_duration_ms: 0,
+    executed_duration_ms: 0,
+    logical_duration_ms: 0,
+    reused_duration_ms: 0,
+    derived_duration_ms: 0,
+    teardown_duration_ms: 0,
+  };
+}
+
+function readSummaryDurationFields(summary, accountingMode = normalizeAccountingMode(summary?.accounting_mode)) {
+  const logicalDurationMs = clampDurationMs(
+    summary?.logical_duration_ms ?? summary?.duration_ms ?? 0,
+  );
+  const wallDurationMs = clampDurationMs(
+    summary?.wall_duration_ms ?? (accountingMode === "actual" ? logicalDurationMs : 0),
+  );
+  return {
+    wall_duration_ms: wallDurationMs,
+    critical_path_wall_duration_ms: clampDurationMs(
+      summary?.critical_path_wall_duration_ms ?? wallDurationMs,
+    ),
+    executed_duration_ms: clampDurationMs(
+      summary?.executed_duration_ms ?? (accountingMode === "actual" ? logicalDurationMs : 0),
+    ),
+    logical_duration_ms: logicalDurationMs,
+    reused_duration_ms: clampDurationMs(
+      summary?.reused_duration_ms ?? (accountingMode === "reused" ? logicalDurationMs : 0),
+    ),
+    derived_duration_ms: clampDurationMs(
+      summary?.derived_duration_ms ?? (accountingMode === "derived" ? logicalDurationMs : 0),
+    ),
+    teardown_duration_ms: clampDurationMs(
+      summary?.teardown_duration_ms ?? (summary?.timing_bucket === "teardown" ? wallDurationMs : 0),
+    ),
+  };
+}
+
+function addDurationFields(target, fields) {
+  for (const key of Object.keys(createDurationFields())) {
+    target[key] += clampDurationMs(fields?.[key] ?? 0);
+  }
+}
+
+function durationFieldsForJSON(fields, overrides = {}) {
+  return {
+    wall_duration_ms: clampDurationMs(overrides.wall_duration_ms ?? fields.wall_duration_ms),
+    critical_path_wall_duration_ms: clampDurationMs(
+      overrides.critical_path_wall_duration_ms ?? fields.critical_path_wall_duration_ms,
+    ),
+    executed_duration_ms: clampDurationMs(
+      overrides.executed_duration_ms ?? fields.executed_duration_ms,
+    ),
+    logical_duration_ms: clampDurationMs(overrides.logical_duration_ms ?? fields.logical_duration_ms),
+    reused_duration_ms: clampDurationMs(overrides.reused_duration_ms ?? fields.reused_duration_ms),
+    derived_duration_ms: clampDurationMs(overrides.derived_duration_ms ?? fields.derived_duration_ms),
+    teardown_duration_ms: clampDurationMs(
+      overrides.teardown_duration_ms ?? fields.teardown_duration_ms,
+    ),
+  };
+}
+
+function timingFailureReference(span) {
+  return {
+    source: span.source ?? "",
+    bucket: span.bucket ?? "",
+    label: span.label ?? "",
+    status: span.status ?? "",
+    start_time: span.start_time ?? "",
+    end_time: span.end_time ?? "",
+    wall_duration_ms: clampDurationMs(span.duration_ms ?? 0),
+    artifact: span.artifact ?? "",
+  };
+}
+
+function timingFailuresFromSpans(spans) {
+  return spans.filter((span) => timingStatusFailed(span.status)).map(timingFailureReference);
+}
+
+function teardownStatus(teardownDurationMs, teardownFailures) {
+  if (teardownFailures.length > 0) {
+    return "fail";
+  }
+  if (teardownDurationMs > 0) {
+    return "pass";
+  }
+  return "none";
 }
 
 function accountableTargetWallSpan(span) {
@@ -1187,22 +1295,13 @@ function summarizeTargetDir(target) {
   let endTime = "";
   let actualStartTime = "";
   let actualEndTime = "";
-  let durationMs = 0;
-  let executedDurationMs = 0;
-  let logicalDurationMs = 0;
-  let wallDurationMs = 0;
+  const durations = createDurationFields();
   const accountingModes = createAccountingModes();
   let failed = false;
 
   for (const summary of summaries) {
     const accountingMode = normalizeAccountingMode(summary.accounting_mode);
-    const summaryLogicalDurationMs = clampDurationMs(
-      summary.logical_duration_ms ?? summary.duration_ms ?? 0,
-    );
-    const summaryExecutedDurationMs = clampDurationMs(
-      summary.executed_duration_ms ??
-        (accountingMode === "actual" ? summaryLogicalDurationMs : 0),
-    );
+    const summaryDurations = readSummaryDurationFields(summary, accountingMode);
     if (startTime === "" || summary.start_time < startTime) {
       startTime = summary.start_time;
     }
@@ -1217,10 +1316,7 @@ function summarizeTargetDir(target) {
         actualEndTime = summary.end_time;
       }
     }
-    logicalDurationMs += summaryLogicalDurationMs;
-    executedDurationMs += summaryExecutedDurationMs;
-    durationMs += summaryLogicalDurationMs;
-    wallDurationMs += clampDurationMs(summary.wall_duration_ms ?? summaryLogicalDurationMs);
+    addDurationFields(durations, summaryDurations);
     accountingModes[accountingMode] += 1;
     counts.tests += summary.counts?.tests ?? 0;
     counts.failed += summary.counts?.failed ?? 0;
@@ -1249,6 +1345,8 @@ function summarizeTargetDir(target) {
   counts.packages = owners.size;
 
   const actualWindowWallDurationMs = computeWindowDurationMs(actualStartTime, actualEndTime);
+  const wallDurationMs =
+    actualWindowWallDurationMs > 0 ? actualWindowWallDurationMs : durations.wall_duration_ms;
 
   return {
     target,
@@ -1257,10 +1355,17 @@ function summarizeTargetDir(target) {
     counts,
     startTime,
     endTime,
-    durationMs,
-    executedDurationMs,
-    logicalDurationMs,
-    wallDurationMs: actualWindowWallDurationMs > 0 ? actualWindowWallDurationMs : wallDurationMs,
+    durations: durationFieldsForJSON(durations, {
+      wall_duration_ms: wallDurationMs,
+      critical_path_wall_duration_ms: wallDurationMs,
+    }),
+    executedDurationMs: durations.executed_duration_ms,
+    logicalDurationMs: durations.logical_duration_ms,
+    wallDurationMs,
+    criticalPathWallDurationMs: wallDurationMs,
+    reusedDurationMs: durations.reused_duration_ms,
+    derivedDurationMs: durations.derived_duration_ms,
+    teardownDurationMs: durations.teardown_duration_ms,
     accountingModes,
     failed,
     authoritativeInventory,
@@ -1350,25 +1455,23 @@ function loadTargetSummary(target) {
 }
 
 function toTargetSummaryReference(summary, fallbackTarget) {
+  const durations = readSummaryDurationFields(summary);
   return {
+    schema_id: summary.schema_id ?? "",
     target: summary.target ?? fallbackTarget,
     status: summary.status ?? "",
     start_time: summary.start_time ?? "",
     end_time: summary.end_time ?? "",
-    executed_duration_ms: clampDurationMs(
-      summary.executed_duration_ms ?? summary.logical_duration_ms ?? summary.duration_ms ?? 0,
-    ),
-    logical_duration_ms: clampDurationMs(summary.logical_duration_ms ?? summary.duration_ms ?? 0),
-    duration_ms: clampDurationMs(summary.duration_ms ?? summary.logical_duration_ms ?? 0),
-    wall_duration_ms: clampDurationMs(
-      summary.wall_duration_ms ?? summary.logical_duration_ms ?? summary.duration_ms ?? 0,
-    ),
+    ...durations,
     counts: summary.counts ?? { phases: 0, ...createCounts() },
     accounting_modes: resolveAccountingModes(
       summary.accounting_modes,
       summary.counts?.phases ?? 0,
     ),
     slowest_lifecycle_bucket: summary.slowest_lifecycle_bucket ?? null,
+    timing_failures: summary.timing_failures ?? [],
+    teardown_status: summary.teardown_status ?? teardownStatus(durations.teardown_duration_ms, []),
+    teardown_failures: summary.teardown_failures ?? [],
     fixture: summary.fixture ?? {
       target: summary.target ?? fallbackTarget,
       total_count: 0,
@@ -1455,14 +1558,14 @@ function mergeFixtureAggregateList(map, values) {
 function writeTargetLine(stream, label, target, summary, targetDir) {
   const fixtureSummary = summary.fixture ?? { total_count: 0, total_duration_ms: 0 };
   stream.write(
-    `${label} ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} authoritative=${summary.counts.authoritative} support=${summary.counts.support} unmapped=${summary.counts.unmapped} packages=${summary.counts.packages} ${formatDurationFields(summary.wallDurationMs, summary.executedDurationMs, summary.logicalDurationMs)} ${formatAccountingModeFields(summary.accountingModes)} fixture_count=${fixtureSummary.total_count} fixture_duration=${formatDuration(fixtureSummary.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(summary.slowestLifecycleBucket)} artifacts=${relToRepo(targetDir)}\n`,
+    `${label} ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} authoritative=${summary.counts.authoritative} support=${summary.counts.support} unmapped=${summary.counts.unmapped} packages=${summary.counts.packages} ${formatDurationFields(summary.wallDurationMs, summary.executedDurationMs, summary.logicalDurationMs, summary.criticalPathWallDurationMs, summary.teardownDurationMs)} ${formatAccountingModeFields(summary.accountingModes)} fixture_count=${fixtureSummary.total_count} fixture_duration=${formatDuration(fixtureSummary.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(summary.slowestLifecycleBucket)} artifacts=${relToRepo(targetDir)}\n`,
   );
 }
 
 function writeChildTargetLines(stream, parentTarget, childTargets, missingChildTargetSummaries) {
   for (const child of childTargets) {
     stream.write(
-      `[CHILD] ${parentTarget} ${child.target} status=${child.status} phases=${child.counts?.phases ?? 0} tests=${child.counts?.tests ?? 0} ${formatDurationFields(child.wall_duration_ms, child.executed_duration_ms, child.logical_duration_ms)} ${formatAccountingModeFields(child.accounting_modes)} artifacts=${child.artifacts?.dir ?? ""}\n`,
+      `[CHILD] ${parentTarget} ${child.target} status=${child.status} phases=${child.counts?.phases ?? 0} tests=${child.counts?.tests ?? 0} ${formatDurationFields(child.wall_duration_ms, child.executed_duration_ms, child.logical_duration_ms, child.critical_path_wall_duration_ms, child.teardown_duration_ms)} ${formatAccountingModeFields(child.accounting_modes)} artifacts=${child.artifacts?.dir ?? ""}\n`,
     );
   }
   for (const childTarget of missingChildTargetSummaries) {
@@ -1478,11 +1581,18 @@ function handleTargetSummary(args) {
   const { target, requestedStatus, childTargetNames } = parseTargetSummaryArgs(args);
   const summary = summarizeTargetDir(target);
   const lifecycleSpans = lifecycleTimingSpans(target, summary.targetDir);
+  const timingFailures = timingFailuresFromSpans(lifecycleSpans);
+  const teardownFailures = timingFailures.filter((failure) => failure.bucket === "teardown");
   const { childTargets, missingChildTargetSummaries } =
     loadChildTargetSummaries(childTargetNames);
+  if (timingFailures.length > 0) {
+    summary.counts.failed += timingFailures.length;
+    summary.counts.non_test += timingFailures.length;
+    summary.counts.non_test_failed += timingFailures.length;
+  }
   const status =
     summary.failed ||
-    hasFailedTimingSpan(lifecycleSpans) ||
+    timingFailures.length > 0 ||
     missingChildTargetSummaries.length > 0 ||
     requestedStatus === "fail"
       ? "FAIL"
@@ -1506,22 +1616,32 @@ function handleTargetSummary(args) {
     lifecycleSpans,
   );
   summary.wallDurationMs = accountableWindow.wallDurationMs;
+  summary.criticalPathWallDurationMs = accountableWindow.wallDurationMs;
   summary.startTime = accountableWindow.startTime;
   summary.endTime = accountableWindow.endTime;
   summary.slowestLifecycleBucket = timing.slowest_lifecycle_bucket;
   summary.fixture = combineFixtureSummaries(target, summarizeFixtureActivities(target), childTargets);
+  summary.teardownDurationMs = clampDurationMs(
+    timing.buckets.find((bucket) => bucket.name === "teardown")?.duration_ms ?? 0,
+  );
+  summary.durations = durationFieldsForJSON(summary.durations, {
+    wall_duration_ms: summary.wallDurationMs,
+    critical_path_wall_duration_ms: summary.criticalPathWallDurationMs,
+    teardown_duration_ms: summary.teardownDurationMs,
+  });
   const targetSummary = {
+    schema_id: targetSummarySchemaID,
     target,
     status: status.toLowerCase(),
     start_time: summary.startTime,
     end_time: summary.endTime,
-    executed_duration_ms: summary.executedDurationMs,
-    logical_duration_ms: summary.logicalDurationMs,
-    duration_ms: summary.durationMs,
-    wall_duration_ms: summary.wallDurationMs,
+    ...summary.durations,
     accounting_modes: summary.accountingModes,
     counts: summary.counts,
     slowest_lifecycle_bucket: timing.slowest_lifecycle_bucket,
+    timing_failures: timingFailures,
+    teardown_status: teardownStatus(summary.teardownDurationMs, teardownFailures),
+    teardown_failures: teardownFailures,
     fixture: summary.fixture,
     artifacts: {
       dir: relToRepo(summary.targetDir),
@@ -1540,7 +1660,7 @@ function handleTargetSummary(args) {
   }
 
   process.stderr.write(
-    `[FAIL] ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} failed=${summary.counts.failed} authoritative_failed=${summary.counts.authoritative_failed} support_failed=${summary.counts.support_failed} unmapped_failed=${summary.counts.unmapped_failed} non_test_failed=${summary.counts.non_test_failed} ${formatDurationFields(summary.wallDurationMs, summary.executedDurationMs, summary.logicalDurationMs)} ${formatAccountingModeFields(summary.accountingModes)} fixture_count=${summary.fixture.total_count} fixture_duration=${formatDuration(summary.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(summary.slowestLifecycleBucket)} artifacts=${relToRepo(summary.targetDir)}\n`,
+    `[FAIL] ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} failed=${summary.counts.failed} authoritative_failed=${summary.counts.authoritative_failed} support_failed=${summary.counts.support_failed} unmapped_failed=${summary.counts.unmapped_failed} non_test_failed=${summary.counts.non_test_failed} ${formatDurationFields(summary.wallDurationMs, summary.executedDurationMs, summary.logicalDurationMs, summary.criticalPathWallDurationMs, summary.teardownDurationMs)} ${formatAccountingModeFields(summary.accountingModes)} fixture_count=${summary.fixture.total_count} fixture_duration=${formatDuration(summary.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(summary.slowestLifecycleBucket)} artifacts=${relToRepo(summary.targetDir)}\n`,
   );
   writeChildTargetLines(process.stderr, target, childTargets, missingChildTargetSummaries);
   return 0;
@@ -1594,10 +1714,7 @@ function createDurationAggregate() {
   return {
     phases: 0,
     ...createCounts(),
-    duration_ms: 0,
-    executed_duration_ms: 0,
-    logical_duration_ms: 0,
-    wall_duration_ms: 0,
+    ...createDurationFields(),
   };
 }
 
@@ -1613,21 +1730,28 @@ function addSummaryToAggregate(aggregate, accountingModes, summary) {
   aggregate.support_failed += summary.counts?.support_failed ?? 0;
   aggregate.unmapped_failed += summary.counts?.unmapped_failed ?? 0;
   aggregate.non_test_failed += summary.counts?.non_test_failed ?? 0;
-  const summaryLogicalDurationMs = clampDurationMs(
-    summary.logical_duration_ms ?? summary.duration_ms ?? 0,
-  );
-  aggregate.logical_duration_ms += summaryLogicalDurationMs;
-  aggregate.duration_ms += summaryLogicalDurationMs;
-  aggregate.executed_duration_ms += clampDurationMs(
-    summary.executed_duration_ms ?? summaryLogicalDurationMs,
-  );
-  aggregate.wall_duration_ms += clampDurationMs(
-    summary.wall_duration_ms ?? summaryLogicalDurationMs,
-  );
+  addDurationFields(aggregate, readSummaryDurationFields(summary));
   mergeAccountingModes(
     accountingModes,
     resolveAccountingModes(summary.accounting_modes, summary.counts?.phases ?? 0),
   );
+}
+
+function countsForJSON(aggregate) {
+  return {
+    phases: aggregate.phases,
+    tests: aggregate.tests,
+    failed: aggregate.failed,
+    authoritative: aggregate.authoritative,
+    support: aggregate.support,
+    unmapped: aggregate.unmapped,
+    non_test: aggregate.non_test,
+    authoritative_failed: aggregate.authoritative_failed,
+    support_failed: aggregate.support_failed,
+    unmapped_failed: aggregate.unmapped_failed,
+    non_test_failed: aggregate.non_test_failed,
+    packages: aggregate.packages,
+  };
 }
 
 function summarizeTargetSummaries(summaries, missingTargetSummaries, requestedStatus = "pass") {
@@ -1636,9 +1760,13 @@ function summarizeTargetSummaries(summaries, missingTargetSummaries, requestedSt
   let failed = requestedStatus === "fail" || missingTargetSummaries.length > 0;
   let startTime = "";
   let endTime = "";
+  const timingFailures = [];
+  const teardownFailures = [];
 
   for (const summary of summaries) {
     addSummaryToAggregate(aggregate, accountingModes, summary);
+    timingFailures.push(...(summary.timing_failures ?? []));
+    teardownFailures.push(...(summary.teardown_failures ?? []));
     if (startTime === "" || (summary.start_time && summary.start_time < startTime)) {
       startTime = summary.start_time ?? "";
     }
@@ -1659,7 +1787,18 @@ function summarizeTargetSummaries(summaries, missingTargetSummaries, requestedSt
 
   const windowWallDurationMs = computeWindowDurationMs(startTime, endTime);
   const wallDurationMs = windowWallDurationMs > 0 ? windowWallDurationMs : aggregate.wall_duration_ms;
-  return { aggregate, accountingModes, failed, startTime, endTime, wallDurationMs };
+  const criticalPathWallDurationMs = wallDurationMs;
+  return {
+    aggregate,
+    accountingModes,
+    failed,
+    startTime,
+    endTime,
+    wallDurationMs,
+    criticalPathWallDurationMs,
+    timingFailures,
+    teardownFailures,
+  };
 }
 
 function buildSummaryGroups(summaryGroups) {
@@ -1682,12 +1821,18 @@ function buildSummaryGroups(summaryGroups) {
       missing_target_summaries: missingTargetSummaries,
       start_time: summarized.startTime,
       end_time: summarized.endTime,
-      executed_duration_ms: summarized.aggregate.executed_duration_ms,
-      logical_duration_ms: summarized.aggregate.logical_duration_ms,
-      duration_ms: summarized.aggregate.duration_ms,
-      wall_duration_ms: summarized.wallDurationMs,
+      ...durationFieldsForJSON(summarized.aggregate, {
+        wall_duration_ms: summarized.wallDurationMs,
+        critical_path_wall_duration_ms: summarized.criticalPathWallDurationMs,
+      }),
       accounting_modes: summarized.accountingModes,
-      counts: summarized.aggregate,
+      counts: countsForJSON(summarized.aggregate),
+      timing_failures: summarized.timingFailures,
+      teardown_status: teardownStatus(
+        summarized.aggregate.teardown_duration_ms,
+        summarized.teardownFailures,
+      ),
+      teardown_failures: summarized.teardownFailures,
     };
   });
 }
@@ -1699,7 +1844,7 @@ function writeSummaryGroupLines(stream, label, summaryGroups) {
         ? ` missing=${group.missing_target_summaries.join(",")}`
         : "";
     stream.write(
-      `[GROUP] ${label} ${group.name} targets=${group.targets.join(",")} status=${group.status} ${formatDurationFields(group.wall_duration_ms, group.executed_duration_ms, group.logical_duration_ms)} ${formatAccountingModeFields(group.accounting_modes)}${missing}\n`,
+      `[GROUP] ${label} ${group.name} targets=${group.targets.join(",")} status=${group.status} ${formatDurationFields(group.wall_duration_ms, group.executed_duration_ms, group.logical_duration_ms, group.critical_path_wall_duration_ms, group.teardown_duration_ms)} ${formatAccountingModeFields(group.accounting_modes)}${missing}\n`,
     );
   }
 }
@@ -1707,10 +1852,18 @@ function writeSummaryGroupLines(stream, label, summaryGroups) {
 function findSlowestTarget(targetSummaries) {
   return targetSummaries.reduce((current, summary) => {
     const durationMs = clampDurationMs(
-      summary.wall_duration_ms ?? summary.logical_duration_ms ?? summary.duration_ms ?? 0,
+      summary.critical_path_wall_duration_ms ??
+        summary.wall_duration_ms ??
+        summary.logical_duration_ms ??
+        summary.duration_ms ??
+        0,
     );
-    if (!current || durationMs > current.duration_ms) {
-      return { target: summary.target, duration_ms: durationMs };
+    if (!current || durationMs > current.critical_path_wall_duration_ms) {
+      return {
+        target: summary.target,
+        critical_path_wall_duration_ms: durationMs,
+        basis: "critical_path_wall_duration_ms",
+      };
     }
     return current;
   }, null);
@@ -1758,26 +1911,31 @@ function handleRunSummary(args) {
   const aggregate = summarized.aggregate;
   const accountingModes = summarized.accountingModes;
   const wallDurationMs = summarized.wallDurationMs;
+  const criticalPathWallDurationMs = summarized.criticalPathWallDurationMs;
   const renderedSummaryGroups = buildSummaryGroups(summaryGroups);
   const failed = summarized.failed || renderedSummaryGroups.some((group) => group.status !== "pass");
   const slowestTarget = findSlowestTarget(targetSummaries);
   const slowestLifecycleBucket = findSlowestLifecycleBucket(targetSummaries);
 
   const runSummary = {
+    schema_id: runSummarySchemaID,
     label,
     status: failed ? "fail" : "pass",
     completed_targets: `${completedTargets}/${totalTargets}`,
     aborted_after: abortedAfter === "-" ? "" : abortedAfter,
     start_time: summarized.startTime,
     end_time: summarized.endTime,
-    executed_duration_ms: aggregate.executed_duration_ms,
-    logical_duration_ms: aggregate.logical_duration_ms,
-    duration_ms: aggregate.duration_ms,
-    wall_duration_ms: wallDurationMs,
+    ...durationFieldsForJSON(aggregate, {
+      wall_duration_ms: wallDurationMs,
+      critical_path_wall_duration_ms: criticalPathWallDurationMs,
+    }),
     accounting_modes: accountingModes,
-    counts: aggregate,
+    counts: countsForJSON(aggregate),
     slowest_target: slowestTarget,
     slowest_lifecycle_bucket: slowestLifecycleBucket,
+    timing_failures: summarized.timingFailures,
+    teardown_status: teardownStatus(aggregate.teardown_duration_ms, summarized.teardownFailures),
+    teardown_failures: summarized.teardownFailures,
     artifacts: {
       dir: relToRepo(path.join(resultsRoot, runId)),
     },
@@ -1790,14 +1948,14 @@ function handleRunSummary(args) {
 
   if (!failed) {
     process.stdout.write(
-      `[PASS] ${label} completed_targets=${completedTargets}/${totalTargets} phases=${aggregate.phases} tests=${aggregate.tests} authoritative=${aggregate.authoritative} support=${aggregate.support} unmapped=${aggregate.unmapped} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
+      `[PASS] ${label} completed_targets=${completedTargets}/${totalTargets} phases=${aggregate.phases} tests=${aggregate.tests} authoritative=${aggregate.authoritative} support=${aggregate.support} unmapped=${aggregate.unmapped} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
     );
     writeSummaryGroupLines(process.stdout, label, renderedSummaryGroups);
     return 0;
   }
 
   process.stderr.write(
-    `[FAIL] ${label} completed_targets=${completedTargets}/${totalTargets} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
+    `[FAIL] ${label} completed_targets=${completedTargets}/${totalTargets} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
   );
   writeSummaryGroupLines(process.stderr, label, renderedSummaryGroups);
   return 1;

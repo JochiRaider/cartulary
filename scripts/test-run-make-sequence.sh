@@ -34,6 +34,22 @@ process.stdout.write(String(value));
 ' "${file}" "${path}"
 }
 
+assert_json_field_absent() {
+  local file="$1"
+  local path="$2"
+  local label="$3"
+
+  if "${NODE:-node}" -e '
+const fs = require("node:fs");
+const [file, path] = process.argv.slice(1);
+const value = path.split(".").reduce((current, key) => current?.[key], JSON.parse(fs.readFileSync(file, "utf8")));
+process.exit(value === undefined ? 0 : 1);
+' "${file}" "${path}"; then
+    return 0
+  fi
+  fail "${label}: expected JSON field [${path}] to be absent"
+}
+
 assert_equals() {
   local actual="$1"
   local expected="$2"
@@ -129,8 +145,13 @@ if [[ -n "${CARTULARY_TEST_RESULTS_DIR:-}" && -n "${CARTULARY_TEST_RUN_ID:-}" ]]
   "status": "pass",
   "start_time": "2026-01-01T00:00:00Z",
   "end_time": "2026-01-01T00:00:01Z",
-  "duration_ms": 1,
+  "executed_duration_ms": 1,
+  "logical_duration_ms": 1,
+  "reused_duration_ms": 0,
+  "derived_duration_ms": 0,
   "wall_duration_ms": 1,
+  "critical_path_wall_duration_ms": 1,
+  "teardown_duration_ms": 0,
   "counts": {
     "phases": 1,
     "tests": 0,
@@ -178,6 +199,10 @@ assert_equals "$(json_field "${success_summary}" "targets.1")" "beta" "success t
 assert_equals "$(json_field "${success_summary}" "summary_groups.0.name")" "alpha-group" "success group 0"
 assert_equals "$(json_field "${success_summary}" "summary_groups.0.targets.0")" "alpha" "success group target 0"
 assert_equals "$(json_field "${success_summary}" "summary_groups.0.wall_duration_ms")" "1000" "success group wall duration"
+assert_equals "$(json_field "${success_summary}" "summary_groups.0.critical_path_wall_duration_ms")" "1000" "success group critical path duration"
+assert_equals "$(json_field "${success_summary}" "summary_groups.0.teardown_duration_ms")" "0" "success group teardown duration"
+assert_json_field_absent "${success_summary}" "duration_ms" "success legacy run duration"
+assert_json_field_absent "${success_summary}" "summary_groups.0.duration_ms" "success legacy group duration"
 assert_contains "$(cat "${success_dir}/make.log")" "--output-sync=target -j3 beta" "parallel make invocation"
 
 aggregate_missing_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-aggregate-missing.XXXXXX")"

@@ -22,6 +22,22 @@ process.stdout.write(String(value));
 ' "$file" "$path"
 }
 
+assert_json_field_absent() {
+  local file="$1"
+  local path="$2"
+  local label="$3"
+
+  if "${NODE:-node}" -e '
+const fs = require("node:fs");
+const [file, path] = process.argv.slice(1);
+const value = path.split(".").reduce((current, key) => current?.[key], JSON.parse(fs.readFileSync(file, "utf8")));
+process.exit(value === undefined ? 0 : 1);
+' "$file" "$path"; then
+    return 0
+  fi
+  fail "$label: expected JSON field [$path] to be absent"
+}
+
 cleanup() {
   local path
   for path in "${cleanup_paths[@]}"; do
@@ -113,8 +129,11 @@ write_target_summary() {
   "end_time": "2026-01-01T00:00:01Z",
   "executed_duration_ms": ${duration_ms},
   "logical_duration_ms": ${duration_ms},
-  "duration_ms": ${duration_ms},
+  "reused_duration_ms": 0,
+  "derived_duration_ms": 0,
   "wall_duration_ms": ${wall_duration_ms},
+  "critical_path_wall_duration_ms": ${wall_duration_ms},
+  "teardown_duration_ms": 0,
   "accounting_modes": {
     "actual": ${phases},
     "reused": 0,
@@ -220,15 +239,16 @@ child_target_output="$(
     2>&1
 )"
 assert_contains "$child_target_output" "[PASS] parent-target" "child target parent output"
-assert_contains "$child_target_output" "[CHILD] parent-target child-a status=pass phases=2 tests=7 wall=1.20s exec=1.00s logical=1.00s actual=2 reused=0 derived=0" "child target child-a output"
-assert_contains "$child_target_output" "[CHILD] parent-target child-b status=pass phases=3 tests=11 wall=2.00s exec=2.00s logical=2.00s actual=3 reused=0 derived=0" "child target child-b output"
+assert_contains "$child_target_output" "[CHILD] parent-target child-a status=pass phases=2 tests=7 wall=1.20s critical=1.20s exec=1.00s logical=1.00s teardown=0ms actual=2 reused=0 derived=0" "child target child-a output"
+assert_contains "$child_target_output" "[CHILD] parent-target child-b status=pass phases=3 tests=11 wall=2.00s critical=2.00s exec=2.00s logical=2.00s teardown=0ms actual=3 reused=0 derived=0" "child target child-b output"
 assert_not_contains "$child_target_output" " duration=" "child target ambiguous duration output"
 parent_target_summary="$child_summary_results/child-summary/parent-target/target-summary.json"
 parent_target_timing="$child_summary_results/child-summary/parent-target/target-timing.json"
 assert_not_negative "$(json_field "$parent_target_summary" "wall_duration_ms")" "parent target wall duration"
+assert_not_negative "$(json_field "$parent_target_summary" "critical_path_wall_duration_ms")" "parent target critical path duration"
 assert_not_negative "$(json_field "$parent_target_summary" "executed_duration_ms")" "parent target executed duration"
 assert_not_negative "$(json_field "$parent_target_summary" "logical_duration_ms")" "parent target logical duration"
-assert_not_negative "$(json_field "$parent_target_summary" "duration_ms")" "parent target legacy duration"
+assert_json_field_absent "$parent_target_summary" "duration_ms" "parent target legacy duration"
 assert_contains "$(json_field "$parent_target_summary" "artifacts.timing_json")" "target-timing.json" "parent timing artifact path"
 assert_equals "$(json_field "$parent_target_summary" "accounting_modes.actual")" "1" "parent target actual accounting count"
 assert_equals "$(json_field "$parent_target_summary" "child_targets.0.target")" "child-a" "child target summary first child"
@@ -286,6 +306,12 @@ teardown_accounting_timing="$teardown_accounting_results/teardown-accounting/bro
 assert_equals "$(json_field "$teardown_accounting_summary" "status")" "fail" "teardown accounting failed service span target summary status"
 assert_equals "$(json_field "$teardown_accounting_timing" "status")" "fail" "teardown accounting failed service span target timing status"
 assert_equals "$(json_field "$teardown_accounting_summary" "wall_duration_ms")" "2100" "teardown accounting target summary wall includes teardown"
+assert_equals "$(json_field "$teardown_accounting_summary" "critical_path_wall_duration_ms")" "2100" "teardown accounting target critical path includes teardown"
+assert_equals "$(json_field "$teardown_accounting_summary" "teardown_duration_ms")" "2100" "teardown accounting target teardown duration"
+assert_equals "$(json_field "$teardown_accounting_summary" "teardown_status")" "fail" "teardown accounting target teardown status"
+assert_equals "$(json_field "$teardown_accounting_summary" "teardown_failures.0.label")" "test-services cleanup browser e2e fixture" "teardown accounting target teardown failure"
+assert_equals "$(json_field "$teardown_accounting_summary" "timing_failures.0.bucket")" "teardown" "teardown accounting target timing failure"
+assert_equals "$(json_field "$teardown_accounting_summary" "counts.non_test_failed")" "1" "teardown accounting target non-test failed count"
 assert_equals "$(json_field "$teardown_accounting_summary" "start_time")" "2026-01-01T00:00:00Z" "teardown accounting target summary start time"
 assert_equals "$(json_field "$teardown_accounting_summary" "end_time")" "2026-01-01T00:00:02.100Z" "teardown accounting target summary end time"
 assert_equals "$(json_field "$teardown_accounting_timing" "start_time")" "2026-01-01T00:00:00Z" "teardown accounting target timing start time"
@@ -304,23 +330,27 @@ child_run_output="$(
     2>&1
 )"
 assert_contains "$child_run_output" "wall=" "child run wall duration output"
+assert_contains "$child_run_output" "critical=" "child run critical path duration output"
 assert_contains "$child_run_output" "exec=" "child run executed duration output"
 assert_contains "$child_run_output" "logical=" "child run logical duration output"
+assert_contains "$child_run_output" "teardown=" "child run teardown duration output"
 assert_contains "$child_run_output" "slowest_target=parent-target(" "child run slowest target output"
 assert_contains "$child_run_output" "slowest_lifecycle_bucket=parent-target:" "child run slowest lifecycle bucket output"
-assert_contains "$child_run_output" "[GROUP] child run backend-service-backed targets=child-a,child-b status=pass wall=1.00s exec=3.00s logical=3.00s actual=5 reused=0 derived=0" "child run backend service group output"
-assert_contains "$child_run_output" "[GROUP] child run browser-webserver-backed targets=child-b status=pass wall=1.00s exec=2.00s logical=2.00s actual=3 reused=0 derived=0" "child run browser group output"
+assert_contains "$child_run_output" "[GROUP] child run backend-service-backed targets=child-a,child-b status=pass wall=1.00s critical=1.00s exec=3.00s logical=3.00s teardown=0ms actual=5 reused=0 derived=0" "child run backend service group output"
+assert_contains "$child_run_output" "[GROUP] child run browser-webserver-backed targets=child-b status=pass wall=1.00s critical=1.00s exec=2.00s logical=2.00s teardown=0ms actual=3 reused=0 derived=0" "child run browser group output"
 assert_not_contains "$child_run_output" " duration=" "child run ambiguous duration output"
 child_run_summary="$child_summary_results/child-summary/run-summary.json"
 assert_not_negative "$(json_field "$child_run_summary" "wall_duration_ms")" "child run wall duration"
+assert_not_negative "$(json_field "$child_run_summary" "critical_path_wall_duration_ms")" "child run critical path duration"
 assert_not_negative "$(json_field "$child_run_summary" "executed_duration_ms")" "child run executed duration"
 assert_not_negative "$(json_field "$child_run_summary" "logical_duration_ms")" "child run logical duration"
-assert_not_negative "$(json_field "$child_run_summary" "duration_ms")" "child run legacy duration"
+assert_json_field_absent "$child_run_summary" "duration_ms" "child run legacy duration"
 assert_equals "$(json_field "$child_run_summary" "accounting_modes.actual")" "1" "child run actual accounting count"
 assert_equals "$(json_field "$child_run_summary" "target_summaries.0.target")" "parent-target" "run summary target object"
 assert_equals "$(json_field "$child_run_summary" "target_summaries.0.child_targets.1.target")" "child-b" "run summary preserved child target"
 assert_equals "$(json_field "$child_run_summary" "summary_groups.0.name")" "backend-service-backed" "run summary backend group name"
 assert_equals "$(json_field "$child_run_summary" "summary_groups.0.wall_duration_ms")" "1000" "run summary backend group wall duration"
+assert_equals "$(json_field "$child_run_summary" "summary_groups.0.critical_path_wall_duration_ms")" "1000" "run summary backend group critical path duration"
 assert_equals "$(json_field "$child_run_summary" "summary_groups.0.executed_duration_ms")" "3000" "run summary backend group executed duration"
 assert_equals "$(json_field "$child_run_summary" "summary_groups.1.targets.0")" "child-b" "run summary browser group target"
 assert_equals "$(json_field "$child_run_summary" "summary_groups.1.status")" "pass" "run summary browser group status"
