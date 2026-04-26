@@ -153,15 +153,15 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v2") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v2");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v3") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v3");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
   throw new Error(`expected exactly one schedule for ${scheduleTarget}, found ${schedules.length}`);
 }
-const targets = schedules[0].children
-  .filter((entry) => kind === "" || entry.kind === kind)
+const targets = schedules[0].work_unit_sources
+  .filter((entry) => kind === "" || (kind === "backend" && (entry.type === "go_shards" || entry.type === "make_target")) || entry.type === kind)
   .map((entry) => entry.target);
 if (targets.length > 0) {
   process.stdout.write(`${targets.join("\n")}\n`);
@@ -179,23 +179,24 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, childTarget, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v2") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v2");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v3") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v3");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
   throw new Error(`expected exactly one schedule for ${scheduleTarget}, found ${schedules.length}`);
 }
-const children = schedules[0].children.filter((entry) => entry.target === childTarget);
+const children = schedules[0].work_unit_sources.filter((entry) => entry.target === childTarget);
 if (children.length !== 1) {
   throw new Error(`expected exactly one child ${childTarget} in ${scheduleTarget}, found ${children.length}`);
 }
-const value = children[0][field] ?? [];
-if (!Array.isArray(value)) {
-  throw new Error(`${scheduleTarget} child ${childTarget} ${field} must be an array`);
+const value = children[0][field] ?? {};
+if (Array.isArray(value) || typeof value !== "object") {
+  throw new Error(`${scheduleTarget} child ${childTarget} ${field} must be an object`);
 }
-if (value.length > 0) {
-  process.stdout.write(`${value.join("\n")}\n`);
+const values = Object.keys(value).sort();
+if (values.length > 0) {
+  process.stdout.write(`${values.join("\n")}\n`);
 }
 EOF
 }
@@ -651,11 +652,11 @@ fi
 if ! printf '%s\n' "$check_service_block" | grep -Fq '$(RUN_PHASE_SCRIPT)'; then
   fail "check-service-backed must report scheduler execution through RUN_PHASE_SCRIPT inside the service wrapper"
 fi
-if ! printf '%s\n' "$check_service_block" | grep -Fq '$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target check-service-backed --jobs $(SERVICE_BACKED_JOBS)'; then
-  fail "check-service-backed must delegate to the service-backed scheduler with SERVICE_BACKED_JOBS"
+if ! printf '%s\n' "$check_service_block" | grep -Fq '$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target check-service-backed --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"'; then
+  fail "check-service-backed must delegate to the service-backed scheduler manifest"
 fi
-if ! printf '%s\n' "$check_service_block" | grep -Fq -- '--manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"'; then
-  fail "check-service-backed must pass the service-backed schedule manifest"
+if printf '%s\n' "$check_service_block" | grep -Fq -- '--jobs'; then
+  fail "check-service-backed must not pass a fixed scheduler job cap"
 fi
 if ! printf '%s\n' "$check_service_block" | grep -Fq -- '--defer-summary'; then
   fail "check-service-backed must defer target summary until after service teardown"
@@ -730,11 +731,11 @@ fi
 if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(RUN_PHASE_SCRIPT)'; then
   fail "test-fast-service-backed must report scheduler execution through RUN_PHASE_SCRIPT inside the service wrapper"
 fi
-if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-fast-service-backed --jobs $(SERVICE_BACKED_JOBS)'; then
-  fail "test-fast-service-backed must delegate to the service-backed scheduler with SERVICE_BACKED_JOBS"
+if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-fast-service-backed --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"'; then
+  fail "test-fast-service-backed must delegate to the service-backed scheduler manifest"
 fi
-if ! printf '%s\n' "$test_fast_service_block" | grep -Fq -- '--manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"'; then
-  fail "test-fast-service-backed must pass the service-backed schedule manifest"
+if printf '%s\n' "$test_fast_service_block" | grep -Fq -- '--jobs'; then
+  fail "test-fast-service-backed must not pass a fixed scheduler job cap"
 fi
 if ! printf '%s\n' "$test_fast_service_block" | grep -Fq -- '--defer-summary'; then
   fail "test-fast-service-backed must defer target summary until after service teardown"
@@ -743,7 +744,7 @@ if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) 
   fail "test-fast-service-backed must finalize target summary after service teardown"
 fi
 if printf '%s\n' "$test_fast_service_block" | rg -q 'test-fast-service-backed-lane-[ab]|(^|[[:space:]])(backend-process-support|phase2-process-smoke)($|[[:space:]])'; then
-  fail "test-fast-service-backed must not invoke fixed lanes or Phase 2 process smoke coverage"
+  fail "test-fast-service-backed must not invoke fixed legacy targets or Phase 2 process smoke coverage"
 fi
 test_fast_service_prereqs="$(extract_target_prereqs test-fast-service-backed)"
 if ! printf '%s\n' "$test_fast_service_prereqs" | rg -q '(^|[[:space:]])build-server($|[[:space:]])'; then

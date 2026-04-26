@@ -526,6 +526,11 @@ function targetAggregates(plan, target) {
   return plan.aggregates.filter((aggregate) => targetOwnsAggregate(target, aggregate));
 }
 
+export function collectGoShardsForTarget(root = process.cwd(), target) {
+  const plan = collectGoShardPlan(root);
+  return targetShards(plan, target);
+}
+
 function findShard(plan, target, name) {
   const shard = targetShards(plan, target).find((candidate) => candidate.name === name);
   if (!shard) {

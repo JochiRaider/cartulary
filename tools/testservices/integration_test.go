@@ -49,15 +49,13 @@ func TestMakeBackendStoreUsesSingleOwnedSuitePair(t *testing.T) {
 	assertPostgresFixturePolicy(t, scope, suiteservices.PostgresFixturePolicyTransaction)
 }
 
-func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedLanes(t *testing.T) {
+func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedWorkUnits(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
 	requireDocker(t)
 
-	scope, events := runMakeAndLoadScopeWithEvents(t, "test-fast-suite", map[string]string{
-		"SERVICE_BACKED_JOBS": "2",
-	}, "test-fast")
+	scope, events := runMakeAndLoadScopeWithEvents(t, "test-fast-suite", nil, "test-fast")
 
 	if scope.Wrapper.OwnedCount != 1 {
 		t.Fatalf("expected exactly one owned wrapper, got %#v", scope.Wrapper)

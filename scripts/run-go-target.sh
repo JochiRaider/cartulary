@@ -28,6 +28,8 @@ mkdir -p "${GO_CACHE_DIR}" "${GO_MOD_CACHE_DIR}"
 usage() {
   echo "usage: run-go-target.sh <backend-unit|backend-store|backend-integration|backend-integration-support|backend-process|phase0-process-e2e|phase1-process-smoke|phase2-process-smoke>" >&2
   echo "       run-go-target.sh inspect-shared-command <target> <shared-name>" >&2
+  echo "       run-go-target.sh capture-shard <target> <shard-name> <metadata-dir>" >&2
+  echo "       run-go-target.sh finalize-shards <target> <metadata-dir>" >&2
   exit 2
 }
 
@@ -527,7 +529,7 @@ resolve_target_shared_report_spec() {
   local args_var="$4"
   local planned_spec=()
 
-  if [[ "${target}" == "backend-integration" || "${target}" == "backend-integration-support" ]] && [[ "${shared_name}" == *"-shard-"* ]] && mapfile -t planned_spec < <(planned_shard_spec "${target}" "${shared_name}" 2>/dev/null); then
+  if [[ "${target}" == "backend-store" || "${target}" == "backend-integration" || "${target}" == "backend-integration-support" ]] && [[ "${shared_name}" == *"-shard-"* ]] && mapfile -t planned_spec < <(planned_shard_spec "${target}" "${shared_name}" 2>/dev/null); then
     if [[ "${#planned_spec[@]}" -lt 2 ]]; then
       echo "planned shard ${shared_name} for ${target} returned an incomplete spec" >&2
       return 2
@@ -1053,6 +1055,28 @@ capture_named_shared_reports_parallel() {
   return "${status}"
 }
 
+capture_scheduled_shard() {
+  if [[ "$#" -ne 3 ]]; then
+    echo "capture_scheduled_shard requires <target> <shared-name> <metadata-dir>" >&2
+    return 2
+  fi
+
+  local target="$1"
+  local shared_name="$2"
+  local metadata_dir="$3"
+  local report_dir
+  local report_usage
+  local metadata_file
+  local metadata_tmp
+
+  mkdir -p "${metadata_dir}"
+  assign_named_shared_report report_dir report_usage "${target}" "${shared_name}"
+  metadata_file="${metadata_dir}/${shared_name}.meta"
+  metadata_tmp="${metadata_file}.$$"
+  printf '%s\n%s\n' "${report_dir}" "${report_usage}" >"${metadata_tmp}"
+  mv -f -- "${metadata_tmp}" "${metadata_file}"
+}
+
 read_shared_report_metadata() {
   if [[ "$#" -ne 4 ]]; then
     echo "read_shared_report_metadata requires <dir-var> <usage-var> <metadata-dir> <shared-name>" >&2
@@ -1136,6 +1160,9 @@ create_aggregate_report() {
 
   for shard_name in "$@"; do
     read_shared_report_metadata shard_dir shard_usage "${metadata_dir}" "${shard_name}"
+    if [[ "${shard_usage}" == "actual" && "${target}" == "backend-integration-support" ]] && is_cross_target_shared_report "${target}" "${shard_name}"; then
+      shard_usage="reused"
+    fi
     if [[ -f "${shard_dir}/runner.jsonl" ]]; then
       cat "${shard_dir}/runner.jsonl" >>"${runner_log}"
     fi
@@ -1463,6 +1490,85 @@ run_backend_store() {
   finish_target "${status}"
 }
 
+finalize_scheduled_shards() {
+  if [[ "$#" -ne 2 ]]; then
+    echo "finalize_scheduled_shards requires <target> <metadata-dir>" >&2
+    return 2
+  fi
+
+  local target="$1"
+  local metadata_dir="$2"
+  local aggregate_names=()
+  local aggregate_name
+  local aggregate_dir
+  local aggregate_usage
+  local aggregate_mode
+  local aggregate_label
+  local aggregate_phase
+  local aggregate_section
+  local aggregate_coverage
+  local aggregate_dependency
+  local aggregate_regex
+  local aggregate_shards=()
+  local aggregate_packages=()
+  local status=0
+
+  case "${target}" in
+    backend-store)
+      mapfile -t aggregate_shards < <(planned_aggregate_shards backend-store backend-store-shared)
+      create_aggregate_report aggregate_dir aggregate_usage "${metadata_dir}" backend-store-shared backend-store "${aggregate_shards[@]}" || status=$?
+
+      clear_go_selection_env
+      emit_go_manifest_phase "backend-store phase4 authoritative" "${aggregate_usage}" "${aggregate_dir}" phase4 unit authoritative backend_store ./internal/modules/entities ./internal/modules/timeline || status=$?
+      clear_go_selection_env
+      emit_go_manifest_phase "backend-store phase1 authoritative" derived "${aggregate_dir}" phase1 unit authoritative backend_store ./internal/modules/auth || status=$?
+      clear_go_selection_env
+      emit_go_manifest_phase "backend-store phase2 authoritative" derived "${aggregate_dir}" phase2 unit authoritative backend_store ./internal/modules/incidents || status=$?
+      clear_go_selection_env
+      emit_go_manifest_phase "backend-store phase3 authoritative" derived "${aggregate_dir}" phase3 unit authoritative backend_store ./internal/modules/timeline || status=$?
+      ;;
+    backend-integration)
+      mapfile -t aggregate_names < <(planned_aggregate_names backend-integration)
+      for aggregate_name in "${aggregate_names[@]}"; do
+        mapfile -t aggregate_shards < <(planned_aggregate_shards backend-integration "${aggregate_name}")
+        mapfile -t aggregate_packages < <(planned_aggregate_packages backend-integration "${aggregate_name}")
+        create_aggregate_report aggregate_dir aggregate_usage "${metadata_dir}" "${aggregate_name}" backend-integration "${aggregate_shards[@]}" || status=$?
+        aggregate_mode="$(planned_aggregate_field backend-integration "${aggregate_name}" mode)"
+        aggregate_label="$(planned_aggregate_field backend-integration "${aggregate_name}" label)"
+        clear_go_selection_env
+        if [[ "${aggregate_mode}" == "raw" ]]; then
+          aggregate_regex="$(planned_aggregate_field backend-integration "${aggregate_name}" raw_selector)"
+          emit_go_raw_phase "${aggregate_label}" "${aggregate_usage}" "${aggregate_dir}" "${aggregate_regex}" "${aggregate_packages[@]}" || status=$?
+          continue
+        fi
+        aggregate_phase="$(planned_aggregate_field backend-integration "${aggregate_name}" phase)"
+        aggregate_section="$(planned_aggregate_field backend-integration "${aggregate_name}" section)"
+        aggregate_coverage="$(planned_aggregate_field backend-integration "${aggregate_name}" coverage)"
+        aggregate_dependency="$(planned_aggregate_field backend-integration "${aggregate_name}" execution_dependency)"
+        emit_go_manifest_phase "${aggregate_label}" "${aggregate_usage}" "${aggregate_dir}" "${aggregate_phase}" "${aggregate_section}" "${aggregate_coverage}" "${aggregate_dependency}" "${aggregate_packages[@]}" || status=$?
+      done
+      ;;
+    backend-integration-support)
+      mapfile -t aggregate_names < <(planned_aggregate_names backend-integration-support)
+      for aggregate_name in "${aggregate_names[@]}"; do
+        mapfile -t aggregate_shards < <(planned_aggregate_shards backend-integration-support "${aggregate_name}")
+        mapfile -t aggregate_packages < <(planned_aggregate_packages backend-integration-support "${aggregate_name}")
+        create_aggregate_report aggregate_dir aggregate_usage "${metadata_dir}" "${aggregate_name}" backend-integration-support "${aggregate_shards[@]}" || status=$?
+        aggregate_label="$(planned_aggregate_field backend-integration-support "${aggregate_name}" label)"
+        aggregate_phase="$(planned_aggregate_field backend-integration-support "${aggregate_name}" phase)"
+        clear_go_selection_env
+        emit_declared_support_phase "${aggregate_label}" "${aggregate_usage}" "${aggregate_dir}" "${aggregate_phase}" backend_integration_support "${aggregate_packages[@]}" || status=$?
+      done
+      ;;
+    *)
+      echo "unsupported scheduled shard target ${target}" >&2
+      return 2
+      ;;
+  esac
+
+  finish_target "${status}"
+}
+
 run_backend_integration() {
   local metadata_dir
   local shard_names=()
@@ -1606,6 +1712,19 @@ main() {
         usage
       fi
       inspect_shared_command "$2" "$3"
+      ;;
+    capture-shard)
+      if [[ "$#" -ne 4 ]]; then
+        usage
+      fi
+      capture_scheduled_shard "$2" "$3" "$4"
+      ;;
+    finalize-shards)
+      if [[ "$#" -ne 3 ]]; then
+        usage
+      fi
+      phase_capture_start GO_TARGET_INVOCATION
+      finalize_scheduled_shards "$2" "$3"
       ;;
     backend-unit)
       if [[ "$#" -ne 1 ]]; then

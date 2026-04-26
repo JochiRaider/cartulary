@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.service_backed_schedule.v2",
+  "schema_id": "cartulary.service_backed_schedule.v3",
   "schedules": [
     {
       "target": "test-service-backed",
@@ -9,30 +9,27 @@
         "backend": 4,
         "process": 4
       },
-      "children": [
+      "work_unit_sources": [
         {
+          "type": "go_shards",
           "target": "backend-integration",
-          "kind": "backend",
-          "weight": 100,
-          "resource_claims": ["postgres", "minio", "backend"]
+          "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
+          "type": "go_shards",
           "target": "backend-integration-support",
-          "kind": "backend",
-          "weight": 60,
-          "resource_claims": ["postgres", "minio", "backend"]
+          "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
+          "type": "go_shards",
           "target": "backend-store",
-          "kind": "backend",
-          "weight": 90,
-          "resource_claims": ["postgres", "minio", "backend"]
+          "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
+          "type": "make_target",
           "target": "backend-process",
-          "kind": "backend",
-          "weight": 80,
-          "resource_claims": ["postgres", "minio", "backend", "process"]
+          "weight": 80000,
+          "resource_claims": { "postgres": 1, "minio": 1, "backend": 1, "process": 1 }
         }
       ]
     },
@@ -44,30 +41,27 @@
         "backend": 4,
         "process": 4
       },
-      "children": [
+      "work_unit_sources": [
         {
+          "type": "go_shards",
           "target": "backend-integration",
-          "kind": "backend",
-          "weight": 100,
-          "resource_claims": ["postgres", "minio", "backend"]
+          "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
+          "type": "go_shards",
           "target": "backend-integration-support",
-          "kind": "backend",
-          "weight": 60,
-          "resource_claims": ["postgres", "minio", "backend"]
+          "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
+          "type": "go_shards",
           "target": "backend-store",
-          "kind": "backend",
-          "weight": 90,
-          "resource_claims": ["postgres", "minio", "backend"]
+          "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
+          "type": "make_target",
           "target": "backend-process",
-          "kind": "backend",
-          "weight": 80,
-          "resource_claims": ["postgres", "minio", "backend", "process"]
+          "weight": 80000,
+          "resource_claims": { "postgres": 1, "minio": 1, "backend": 1, "process": 1 }
         }
       ]
     },
@@ -79,30 +73,27 @@
         "backend": 4,
         "process": 4
       },
-      "children": [
+      "work_unit_sources": [
         {
+          "type": "go_shards",
           "target": "backend-integration",
-          "kind": "backend",
-          "weight": 100,
-          "resource_claims": ["postgres", "minio", "backend"]
+          "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
+          "type": "go_shards",
           "target": "backend-integration-support",
-          "kind": "backend",
-          "weight": 60,
-          "resource_claims": ["postgres", "minio", "backend"]
+          "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
+          "type": "go_shards",
           "target": "backend-store",
-          "kind": "backend",
-          "weight": 90,
-          "resource_claims": ["postgres", "minio", "backend"]
+          "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
+          "type": "make_target",
           "target": "backend-process",
-          "kind": "backend",
-          "weight": 80,
-          "resource_claims": ["postgres", "minio", "backend", "process"]
+          "weight": 80000,
+          "resource_claims": { "postgres": 1, "minio": 1, "backend": 1, "process": 1 }
         }
       ]
     }
