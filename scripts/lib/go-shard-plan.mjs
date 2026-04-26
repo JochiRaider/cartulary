@@ -144,7 +144,13 @@ function addAggregate(aggregates, row, mode) {
 }
 
 function normalizePostgresFixturePolicy(value) {
-  return value === "template_clone" || value === "package_reset" || value === "migration_scratch" ? value : "";
+  return value === "template_clone" ||
+    value === "package_reset" ||
+    value === "migration_scratch" ||
+    value === "transaction" ||
+    value === "group_clone"
+    ? value
+    : "";
 }
 
 function buildExecutionItems(root) {

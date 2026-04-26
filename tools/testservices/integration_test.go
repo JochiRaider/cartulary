@@ -3,12 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -21,7 +19,7 @@ func TestMakeBackendStoreUsesSingleOwnedSuitePair(t *testing.T) {
 	}
 	requireDocker(t)
 
-	scope, events := runMakeAndLoadScopeWithEvents(t, "backend-store-direct", nil, "backend-store")
+	scope, _ := runMakeAndLoadScopeWithEvents(t, "backend-store-direct", nil, "backend-store")
 	if scope.Wrapper.OwnedCount != 1 {
 		t.Fatalf("expected exactly one owned wrapper, got %#v", scope.Wrapper)
 	}
@@ -47,9 +45,8 @@ func TestMakeBackendStoreUsesSingleOwnedSuitePair(t *testing.T) {
 		t.Fatalf("expected backend-store fixture diagnostics, got %#v", scope.Fixture)
 	}
 	assertNoHotPathPostgresDrops(t, scope)
-	assertNoPostgresDatabaseResets(t, scope)
-	assertPostgresFixturePolicy(t, scope, suiteservices.PostgresFixturePolicyTemplateClone)
-	assertPostgresFixtureBudgetFromPlan(t, events, "backend-store")
+	assertPostgresDatabaseResets(t, scope)
+	assertPostgresFixturePolicy(t, scope, suiteservices.PostgresFixturePolicyPackageReset)
 }
 
 func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedLanes(t *testing.T) {
@@ -85,8 +82,6 @@ func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedLanes(t *testing.T) {
 	}
 	assertNoHotPathPostgresDrops(t, scope)
 	assertPostgresFixturePolicy(t, scope, suiteservices.PostgresFixturePolicyPackageReset)
-	assertPostgresFixtureBudgetFromPlan(t, events, "backend-integration")
-	assertPostgresFixtureBudgetFromPlan(t, events, "backend-integration-support")
 
 	postgresPIDs := uniqueEventPIDs(events, suiteservices.EventPostgresDBCreated)
 	minioPIDs := uniqueEventPIDs(events, suiteservices.EventS3BucketCreated)
@@ -159,235 +154,6 @@ func assertPostgresFixturePolicy(t testing.TB, scope suiteservices.ServiceScope,
 		}
 	}
 	t.Fatalf("expected postgres fixture policy %q in %#v", policy, scope.Fixture.ByStrategy)
-}
-
-type postgresFixtureBudget struct {
-	PackageResetGroups    int
-	PackageResetEvents    int
-	PackageResetDuration  int64
-	MigrationScratchTests int
-	TemplateCloneTests    map[string]struct{}
-	PackageResetTests     map[string]postgresResetBudget
-}
-
-type postgresFixtureStats struct {
-	PackageResetCreates     int
-	PackageResetEvents      int
-	PackageResetDuration    int64
-	PackageResetByPackage   map[string]int64
-	MigrationScratchCreates int
-	TemplateCloneCreates    int
-	UnplannedTemplateClones []string
-}
-
-type postgresResetBudget struct {
-	MaxPackageResets   int
-	MaxResetDurationMS int64
-}
-
-func assertPostgresFixtureBudgetFromPlan(t testing.TB, events []suiteservices.Event, target string) {
-	t.Helper()
-
-	budget := plannedPostgresFixtureBudget(t, target)
-	stats := postgresFixtureStatsFromEvents(events, target, budget)
-	if stats.PackageResetCreates > budget.PackageResetGroups {
-		t.Fatalf("target %s exceeded package-reset postgres fixture budget: got %d creates, budget %d", target, stats.PackageResetCreates, budget.PackageResetGroups)
-	}
-	if stats.MigrationScratchCreates > budget.MigrationScratchTests*2 {
-		t.Fatalf("target %s exceeded migration-scratch postgres fixture budget: got %d creates, budget %d tests", target, stats.MigrationScratchCreates, budget.MigrationScratchTests)
-	}
-	if len(stats.UnplannedTemplateClones) > 0 {
-		t.Fatalf("target %s used unplanned per-test postgres template clones: %s", target, strings.Join(stats.UnplannedTemplateClones, "; "))
-	}
-	if stats.TemplateCloneCreates > len(budget.TemplateCloneTests)*2 {
-		t.Fatalf("target %s exceeded template-clone postgres fixture budget: got %d creates, budget %d tests", target, stats.TemplateCloneCreates, len(budget.TemplateCloneTests))
-	}
-	if stats.PackageResetEvents > budget.PackageResetEvents {
-		t.Fatalf("target %s exceeded package-reset event budget: got %d resets, budget %d", target, stats.PackageResetEvents, budget.PackageResetEvents)
-	}
-	if stats.PackageResetDuration > budget.PackageResetDuration {
-		t.Fatalf("target %s exceeded package-reset duration budget: got %dms, budget %dms", target, stats.PackageResetDuration, budget.PackageResetDuration)
-	}
-	for pkg, duration := range stats.PackageResetByPackage {
-		if duration > 10000 {
-			t.Fatalf("target %s exceeded package reset package duration budget: package %s got %dms, budget 10000ms", target, pkg, duration)
-		}
-	}
-}
-
-func plannedPostgresFixtureBudget(t testing.TB, target string) postgresFixtureBudget {
-	t.Helper()
-
-	repoRoot, err := suiteservices.FindRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
-	}
-	command := exec.Command("node", "scripts/print-go-shard-plan.mjs", "--json", "--target", target)
-	command.Dir = repoRoot
-	raw, err := command.Output()
-	if err != nil {
-		t.Fatalf("load shard plan for %s: %v", target, err)
-	}
-
-	var plan struct {
-		Shards []struct {
-			Items []struct {
-				Kind                  string   `json:"kind"`
-				Symbol                string   `json:"symbol"`
-				ImportPath            string   `json:"import_path"`
-				Packages              []string `json:"packages"`
-				PostgresFixturePolicy string   `json:"postgres_fixture_policy"`
-				PostgresFixtureBudget struct {
-					MaxPackageResets   int   `json:"max_package_resets"`
-					MaxResetDurationMS int64 `json:"max_reset_duration_ms"`
-				} `json:"postgres_fixture_budget"`
-			} `json:"items"`
-		} `json:"shards"`
-	}
-	if err := json.Unmarshal(raw, &plan); err != nil {
-		t.Fatalf("decode shard plan for %s: %v", target, err)
-	}
-
-	budget := postgresFixtureBudget{
-		TemplateCloneTests: make(map[string]struct{}),
-		PackageResetTests:  make(map[string]postgresResetBudget),
-	}
-	for _, shard := range plan.Shards {
-		packageResetPackages := make(map[string]struct{})
-		for _, item := range shard.Items {
-			switch item.PostgresFixturePolicy {
-			case suiteservices.PostgresFixturePolicyPackageReset:
-				resetBudget := postgresResetBudget{
-					MaxPackageResets:   item.PostgresFixtureBudget.MaxPackageResets,
-					MaxResetDurationMS: item.PostgresFixtureBudget.MaxResetDurationMS,
-				}
-				if item.Symbol != "" && (resetBudget.MaxPackageResets > 0 || resetBudget.MaxResetDurationMS > 0) {
-					budget.PackageResetTests[item.Symbol] = resetBudget
-					budget.PackageResetEvents += resetBudget.MaxPackageResets
-					budget.PackageResetDuration += resetBudget.MaxResetDurationMS
-				}
-				if item.Kind == "raw" {
-					for _, pkg := range item.Packages {
-						packageResetPackages[normalizePlanPackage(pkg)] = struct{}{}
-					}
-					continue
-				}
-				packageResetPackages[normalizePlanPackage(item.ImportPath)] = struct{}{}
-			case suiteservices.PostgresFixturePolicyMigrationScratch:
-				budget.MigrationScratchTests++
-			case suiteservices.PostgresFixturePolicyTemplateClone:
-				if item.Symbol != "" {
-					budget.TemplateCloneTests[item.Symbol] = struct{}{}
-				}
-			}
-		}
-		budget.PackageResetGroups += len(packageResetPackages)
-	}
-	return budget
-}
-
-func postgresFixtureStatsFromEvents(events []suiteservices.Event, target string, budget postgresFixtureBudget) postgresFixtureStats {
-	stats := postgresFixtureStats{PackageResetByPackage: make(map[string]int64)}
-	for _, event := range events {
-		if event.Type == suiteservices.EventPostgresDBReset &&
-			stringEventDetail(event, "target") == target &&
-			stringEventDetail(event, "reuse_scope") == suiteservices.FixtureReusePackage &&
-			stringEventDetail(event, "fixture_policy") == suiteservices.PostgresFixturePolicyPackageReset {
-			testName := topLevelTestName(stringEventDetail(event, "test_name"))
-			if _, ok := budget.PackageResetTests[testName]; ok {
-				duration := int64EventDetail(event, "duration_ms")
-				stats.PackageResetEvents++
-				stats.PackageResetDuration += duration
-				stats.PackageResetByPackage[stringEventDetail(event, "caller_package")] += duration
-			}
-		}
-		if event.Type != suiteservices.EventPostgresDBCreated || event.Kind != suiteservices.PostgresPreparationTemplateClone {
-			if event.Type == suiteservices.EventPostgresDBCreated && event.Kind == "scratch" && stringEventDetail(event, "target") == target && stringEventDetail(event, "reuse_scope") == suiteservices.FixtureReuseMigrationScratch {
-				stats.MigrationScratchCreates++
-			}
-			continue
-		}
-		if stringEventDetail(event, "target") != target {
-			continue
-		}
-		reuseScope := stringEventDetail(event, "reuse_scope")
-		policy := stringEventDetail(event, "fixture_policy")
-		switch {
-		case reuseScope == suiteservices.FixtureReusePackage && policy == suiteservices.PostgresFixturePolicyPackageReset:
-			stats.PackageResetCreates++
-		case reuseScope == suiteservices.FixtureReusePerTest:
-			if isPgtestHarnessTemplateClone(event, target) {
-				continue
-			}
-			stats.TemplateCloneCreates++
-			testName := topLevelTestName(stringEventDetail(event, "test_name"))
-			if _, ok := budget.TemplateCloneTests[testName]; !ok {
-				stats.UnplannedTemplateClones = append(stats.UnplannedTemplateClones, fmt.Sprintf("%s %s", testName, stringEventDetail(event, "caller_file")))
-			}
-		}
-	}
-	return stats
-}
-
-func int64EventDetail(event suiteservices.Event, key string) int64 {
-	if event.Details == nil {
-		return 0
-	}
-	value, ok := event.Details[key]
-	if !ok || value == nil {
-		return 0
-	}
-	switch typed := value.(type) {
-	case float64:
-		return int64(typed)
-	case int64:
-		return typed
-	case int:
-		return int64(typed)
-	default:
-		return 0
-	}
-}
-
-func isPgtestHarnessTemplateClone(event suiteservices.Event, target string) bool {
-	if target != "backend-integration" {
-		return false
-	}
-	callerPackage := stringEventDetail(event, "caller_package")
-	callerFile := stringEventDetail(event, "caller_file")
-	testName := topLevelTestName(stringEventDetail(event, "test_name"))
-	if callerPackage == "internal/testutil/pgtest" || callerFile == "internal/testutil/pgtest/pgtest_test.go" {
-		return true
-	}
-	if strings.HasPrefix(testName, "TestPrepareDatabase") || strings.HasPrefix(testName, "TestMigrationDatabase") {
-		return true
-	}
-	return callerPackage == "" && callerFile == "" && testName == ""
-}
-
-func normalizePlanPackage(value string) string {
-	value = strings.TrimSpace(value)
-	value = strings.TrimPrefix(value, "./")
-	value = strings.TrimPrefix(value, "github.com/JochiRaider/cartulary/")
-	return value
-}
-
-func stringEventDetail(event suiteservices.Event, key string) string {
-	if event.Details == nil {
-		return ""
-	}
-	value, ok := event.Details[key]
-	if !ok || value == nil {
-		return ""
-	}
-	return strings.TrimSpace(fmt.Sprint(value))
-}
-
-func topLevelTestName(testName string) string {
-	if before, _, ok := strings.Cut(testName, "/"); ok {
-		return before
-	}
-	return testName
 }
 
 func TestMakeMigrationDriftDoesNotEmitSuiteServiceArtifacts(t *testing.T) {

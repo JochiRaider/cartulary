@@ -281,8 +281,19 @@ browser_capacity_manifest="${browser_capacity_dir}/manifest.json"
 write_manifest "$browser_capacity_manifest" test-service-backed \
   'browser-e2e-webserver-backed|browser|10|"postgres", "minio", "browser", "browser-webserver"' \
   'browser-e2e-functional|browser|9|"postgres", "minio", "browser", "browser-webserver"'
-run_scheduler "$browser_capacity_dir" "$browser_capacity_manifest" test-service-backed 2 browser-capacity >/dev/null
+set +e
+browser_capacity_output="$(run_scheduler "$browser_capacity_dir" "$browser_capacity_manifest" test-service-backed 2 browser-capacity 2>&1)"
+browser_capacity_status=$?
+set -e
+assert_equals "$browser_capacity_status" "0" "browser-only scheduler status"
 assert_equals "$(cat "${browser_capacity_dir}/max")" "1" "browser-webserver capacity max active"
+
+set +e
+empty_budget_output="$("$NODE_BIN" "${ROOT_DIR}/scripts/check-postgres-fixture-budget.mjs" --targets "" 2>&1)"
+empty_budget_status=$?
+set -e
+assert_equals "$empty_budget_status" "0" "empty postgres fixture budget target list status"
+assert_equals "$empty_budget_output" "" "empty postgres fixture budget target list output"
 
 exclusive_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-exclusive.XXXXXX")"
 cleanup_paths+=("$exclusive_dir")

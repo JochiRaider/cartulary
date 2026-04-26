@@ -254,6 +254,12 @@ const targetDescriptors = [
         fixturePolicy: {
           postgres: "package_reset",
         },
+        fixtureBudget: {
+          postgres: {
+            max_package_resets: 20,
+            max_reset_duration_ms: 30000,
+          },
+        },
       },
     ],
   },
@@ -321,6 +327,11 @@ const targetDescriptors = [
         fixturePolicy: {
           postgres: "template_clone",
         },
+        fixtureBudget: {
+          postgres: {
+            max_template_clones: 20,
+          },
+        },
       },
     ],
   },
@@ -361,6 +372,11 @@ const targetDescriptors = [
         fixturePolicy: {
           postgres: "template_clone",
         },
+        fixtureBudget: {
+          postgres: {
+            max_template_clones: 20,
+          },
+        },
       },
     ],
   },
@@ -381,6 +397,11 @@ const targetDescriptors = [
         sharedReport: "backend-process-shared",
         fixturePolicy: {
           postgres: "template_clone",
+        },
+        fixtureBudget: {
+          postgres: {
+            max_template_clones: 20,
+          },
         },
       },
     ],
@@ -529,6 +550,7 @@ function rawRowsForFamily(descriptor, family) {
       evidence_layer: "raw",
       label: family.label,
       fixture_policy: family.fixturePolicy ?? {},
+      fixture_budget: family.fixtureBudget ?? {},
     },
   ];
 }

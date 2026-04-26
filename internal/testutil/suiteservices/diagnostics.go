@@ -50,12 +50,15 @@ const (
 	PostgresFixturePolicyTemplateClone    = "template_clone"
 	PostgresFixturePolicyPackageReset     = "package_reset"
 	PostgresFixturePolicyMigrationScratch = "migration_scratch"
+	PostgresFixturePolicyTransaction      = "transaction"
+	PostgresFixturePolicyGroupClone       = "group_clone"
 )
 
 const (
 	FixtureReusePerTest          = "per-test"
 	FixtureReusePackage          = "package-reused"
 	FixtureReuseTransaction      = "transaction"
+	FixtureReuseGroup            = "group-reused"
 	FixtureReusePrefix           = "prefix-reused"
 	FixtureReuseSuiteTemplate    = "suite-template"
 	FixtureReuseMigrationScratch = "migration-scratch"

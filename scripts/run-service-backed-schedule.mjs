@@ -260,6 +260,30 @@ function runLifecycle(testOutputScript, args, stream = process.stdout) {
   });
 }
 
+function runPostgresFixtureBudgetCheck(targets) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      process.execPath,
+      [path.join(repoRoot, "scripts", "check-postgres-fixture-budget.mjs"), "--targets", targets.join(",")],
+      {
+        cwd: repoRoot,
+        env: process.env,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    child.stdout.pipe(process.stdout, { end: false });
+    child.stderr.pipe(process.stderr, { end: false });
+    child.on("error", reject);
+    child.on("close", (status) => {
+      if (status === 0) {
+        resolve(0);
+        return;
+      }
+      resolve(status ?? 1);
+    });
+  });
+}
+
 async function replayLog(file, stream) {
   await new Promise((resolve, reject) => {
     const reader = createReadStream(file);
@@ -375,6 +399,9 @@ function formatBlockedChildren(children) {
 
 async function runSchedule({ schedule, jobs, makeBin, testOutputScript, deferSummary }) {
   const childrenCsv = schedule.children.map((child) => child.target).join(",");
+  const backendBudgetTargets = schedule.children
+    .filter((child) => child.kind === "backend")
+    .map((child) => child.target);
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "cartulary-service-backed-schedule-"));
   const pending = [...schedule.executionChildren];
   const running = new Map();
@@ -448,6 +475,10 @@ async function runSchedule({ schedule, jobs, makeBin, testOutputScript, deferSum
       if (result.status !== 0 && firstFailure === 0) {
         firstFailure = result.status;
       }
+    }
+
+    if (firstFailure === 0 && backendBudgetTargets.length > 0) {
+      firstFailure = await runPostgresFixtureBudgetCheck(backendBudgetTargets);
     }
 
     const requestedStatus = firstFailure === 0 ? "pass" : "fail";

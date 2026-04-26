@@ -27,6 +27,8 @@ const postgresImage = "postgres:16-alpine"
 const (
 	postgresFixturePolicyTemplateClone = "template_clone"
 	postgresFixturePolicyPackageReset  = "package_reset"
+	postgresFixturePolicyTransaction   = "transaction"
+	postgresFixturePolicyGroupClone    = "group_clone"
 )
 
 const (
@@ -425,6 +427,12 @@ func (h *Harness) PreparePackageDatabaseT(t testing.TB, prefix string) *TestData
 	attribution := fixtureAttributionFor(t, "pgtest")
 	attribution.PostgresFixturePolicy = resolvePostgresFixturePolicy(attribution)
 	attribution.PostgresResetTables = resolvePostgresResetTables(attribution)
+	if attribution.PostgresFixturePolicy == postgresFixturePolicyTransaction {
+		t.Fatalf("postgres fixture policy %q requires BeginRollbackTxT, not PreparePackageDatabaseT", postgresFixturePolicyTransaction)
+	}
+	if attribution.PostgresFixturePolicy == postgresFixturePolicyGroupClone {
+		t.Fatalf("postgres fixture policy %q requires PrepareGroupDatabaseT, not PreparePackageDatabaseT", postgresFixturePolicyGroupClone)
+	}
 	if attribution.PostgresFixturePolicy == postgresFixturePolicyTemplateClone {
 		testDB, _, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePerTest, attribution)
 		if err != nil {
@@ -471,7 +479,7 @@ func (h *Harness) PrepareGroupDatabaseT(t testing.TB, prefix string, groupKey st
 	t.Helper()
 
 	attribution := fixtureAttributionFor(t, "pgtest")
-	attribution.PostgresFixturePolicy = postgresFixturePolicyTemplateClone
+	attribution.PostgresFixturePolicy = postgresFixturePolicyGroupClone
 	key := attribution.CallerPackage + ":" + topLevelTestName(attribution.TestName) + ":" + sanitizeIdentifier(groupKey)
 	if key == "::" {
 		key = sanitizeIdentifier(prefix)
@@ -481,7 +489,7 @@ func (h *Harness) PrepareGroupDatabaseT(t testing.TB, prefix string, groupKey st
 	defer fixture.mu.Unlock()
 
 	if fixture.db == nil {
-		testDB, _, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePerTest, attribution)
+		testDB, _, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReuseGroup, attribution)
 		if err != nil {
 			t.Fatalf("prepare grouped postgres database: %v", err)
 		}
@@ -491,10 +499,10 @@ func (h *Harness) PrepareGroupDatabaseT(t testing.TB, prefix string, groupKey st
 		fixture.cleanupRegistered = true
 		t.Cleanup(func() {
 			if h.retainPreparedDatabaseOnCleanup() {
-				h.recordRetainedDatabase(fixture.db.Name, suiteservices.FixtureReusePerTest, attribution)
+				h.recordRetainedDatabase(fixture.db.Name, suiteservices.FixtureReuseGroup, attribution)
 				return
 			}
-			if err := h.dropDatabase(context.Background(), fixture.db.Name, suiteservices.FixtureReusePerTest, attribution); err != nil {
+			if err := h.dropDatabase(context.Background(), fixture.db.Name, suiteservices.FixtureReuseGroup, attribution); err != nil {
 				t.Fatalf("drop grouped postgres database: %v", err)
 			}
 		})
@@ -708,6 +716,10 @@ func BeginRollbackTxT(t testing.TB, db *sql.DB) *sql.Tx {
 	t.Helper()
 
 	attribution := fixtureAttributionFor(t, "pgtest")
+	attribution.PostgresFixturePolicy = resolvePostgresFixturePolicy(attribution)
+	if attribution.PostgresFixturePolicy == "" || attribution.PostgresFixturePolicy == postgresFixturePolicyPackageReset {
+		attribution.PostgresFixturePolicy = postgresFixturePolicyTransaction
+	}
 	start := time.Now()
 	tx, err := db.BeginTx(context.Background(), nil)
 	if err != nil {
@@ -1035,6 +1047,10 @@ func normalizePostgresFixturePolicy(value string) string {
 		return postgresFixturePolicyTemplateClone
 	case postgresFixturePolicyPackageReset:
 		return postgresFixturePolicyPackageReset
+	case postgresFixturePolicyTransaction:
+		return postgresFixturePolicyTransaction
+	case postgresFixturePolicyGroupClone:
+		return postgresFixturePolicyGroupClone
 	default:
 		return ""
 	}

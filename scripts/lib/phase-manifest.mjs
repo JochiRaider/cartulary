@@ -28,18 +28,28 @@ const validSupportTargets = new Set(["backend_unit", "backend_integration_suppor
 const postgresFixturePolicyTemplateClone = "template_clone";
 const postgresFixturePolicyPackageReset = "package_reset";
 const postgresFixturePolicyMigrationScratch = "migration_scratch";
+const postgresFixturePolicyTransaction = "transaction";
+const postgresFixturePolicyGroupClone = "group_clone";
 const validPostgresFixturePolicies = new Set([
   postgresFixturePolicyTemplateClone,
   postgresFixturePolicyPackageReset,
   postgresFixturePolicyMigrationScratch,
+  postgresFixturePolicyTransaction,
+  postgresFixturePolicyGroupClone,
 ]);
 const postgresFixturePolicyEnvAssignable = new Set([
   postgresFixturePolicyTemplateClone,
   postgresFixturePolicyPackageReset,
+  postgresFixturePolicyTransaction,
+  postgresFixturePolicyGroupClone,
 ]);
 const validFixtureBudgetPostgresKeys = new Set([
+  "max_template_clones",
+  "max_group_clones",
   "max_package_resets",
   "max_reset_duration_ms",
+  "max_transactions",
+  "max_migration_scratch",
   "dirty_tables",
 ]);
 const serviceBackedGoExecutionDependencies = new Set([
@@ -121,7 +131,7 @@ function explicitPostgresFixturePolicy(entry, label) {
   }
   if (!validPostgresFixturePolicies.has(entry.fixture_policy.postgres)) {
     throw new Error(
-      `${label} fixture_policy.postgres must be template_clone|package_reset|migration_scratch`,
+      `${label} fixture_policy.postgres must be template_clone|package_reset|migration_scratch|transaction|group_clone`,
     );
   }
   return entry.fixture_policy.postgres;
@@ -163,7 +173,14 @@ function explicitPostgresFixtureBudget(entry, label) {
     );
   }
   const budget = {};
-  for (const key of ["max_package_resets", "max_reset_duration_ms"]) {
+  for (const key of [
+    "max_template_clones",
+    "max_group_clones",
+    "max_package_resets",
+    "max_reset_duration_ms",
+    "max_transactions",
+    "max_migration_scratch",
+  ]) {
     if (entry.fixture_budget.postgres[key] === undefined) {
       continue;
     }
@@ -243,15 +260,30 @@ function resetTableAssignments(entries, symbolsForEntry, budgetForEntry) {
   return assignments.sort();
 }
 
-function validatePackageResetBudget(entry, policy, budget, label) {
-  if (policy !== postgresFixturePolicyPackageReset) {
+function validatePostgresFixtureBudget(entry, policy, budget, label) {
+  if (policy === postgresFixturePolicyPackageReset) {
+    if (budget.max_package_resets === undefined) {
+      throw new Error(`${label} package_reset must declare fixture_budget.postgres.max_package_resets`);
+    }
+    if (budget.max_reset_duration_ms === undefined) {
+      throw new Error(`${label} package_reset must declare fixture_budget.postgres.max_reset_duration_ms`);
+    }
     return;
   }
-  if (budget.max_package_resets === undefined) {
-    throw new Error(`${label} package_reset must declare fixture_budget.postgres.max_package_resets`);
+  if (policy === postgresFixturePolicyTemplateClone && budget.max_template_clones === undefined) {
+    throw new Error(`${label} template_clone must declare fixture_budget.postgres.max_template_clones`);
   }
-  if (budget.max_reset_duration_ms === undefined) {
-    throw new Error(`${label} package_reset must declare fixture_budget.postgres.max_reset_duration_ms`);
+  if (policy === postgresFixturePolicyGroupClone && budget.max_group_clones === undefined) {
+    throw new Error(`${label} group_clone must declare fixture_budget.postgres.max_group_clones`);
+  }
+  if (policy === postgresFixturePolicyTransaction && budget.max_transactions === undefined) {
+    throw new Error(`${label} transaction must declare fixture_budget.postgres.max_transactions`);
+  }
+  if (
+    policy === postgresFixturePolicyMigrationScratch &&
+    budget.max_migration_scratch === undefined
+  ) {
+    throw new Error(`${label} migration_scratch must declare fixture_budget.postgres.max_migration_scratch`);
   }
 }
 
@@ -487,7 +519,7 @@ export function validateManifest(root, phase) {
             `manifest entry ${entry.id} must declare fixture_policy.postgres for service-backed execution_dependency ${entry.execution_dependency}`,
           );
         }
-        validatePackageResetBudget(
+        validatePostgresFixtureBudget(
           entry,
           postgresFixturePolicy,
           goEntryPostgresFixtureBudget(entry),
@@ -556,7 +588,7 @@ export function validateManifest(root, phase) {
         `${supportGoEntryLabel(entry)} must declare fixture_policy.postgres for service-backed support target ${entry.target}`,
       );
     }
-    validatePackageResetBudget(
+    validatePostgresFixtureBudget(
       entry,
       postgresFixturePolicy,
       supportGoEntryPostgresFixtureBudget(entry),
