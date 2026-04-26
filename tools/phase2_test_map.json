@@ -171,11 +171,11 @@
       "claim": "Store.CreateIncident commits the bootstrap `admin` membership plus both incident-wide and per-user workbook-preference rows.",
       "out_of_scope": "HTTP envelope and header emission remain support coverage.",
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "transaction"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 50
+          "max_transactions": 1
         }
       }
     },
@@ -191,11 +191,11 @@
       "claim": "The committed create result returns the stable `/api/v1/incidents/{incident_id}` location value.",
       "out_of_scope": "Actual `Location` header emission remains support coverage.",
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "transaction"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 50
+          "max_transactions": 1
         }
       }
     },
@@ -211,11 +211,11 @@
       "claim": "Incident create idempotency scopes by actor plus normalized request, exact replay returns the original committed result, divergent replay rejects, and replay keeps the incident row, bootstrap membership, workbook-preference rows, owner mutation artifacts, and route idempotency stable.",
       "out_of_scope": "HTTP replay envelope proof remains support coverage.",
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "transaction"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 50
+          "max_transactions": 1
         }
       }
     },
@@ -255,11 +255,11 @@
       "claim": "Store-backed membership patch and delete reject stale `base_membership_version` values without mutating durable membership state.",
       "out_of_scope": "Pure decoder shape and `last_incident_admin` guard coverage stay on the executed support-only unit surface.",
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "transaction"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 50
+          "max_transactions": 1
         }
       }
     },

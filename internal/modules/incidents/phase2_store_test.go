@@ -12,13 +12,13 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase2test"
+	phase2storetest "github.com/JochiRaider/cartulary/internal/testutil/phase2storetest"
 )
 
 func TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences(t *testing.T) {
-	harness := phase2test.StartStore(t, "phase2-u-2-02")
-	store := incidents.NewStore(harness.Pool)
-	actor := phase2test.SeedLocalUserRecord(
+	harness := phase2storetest.StartStore(t, "phase2-u-2-02")
+	store := incidents.NewStore(harness.DB)
+	actor := phase2storetest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"phase2-u202@example.test",
@@ -29,7 +29,7 @@ func TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPrefer
 		true,
 	)
 
-	result := phase2test.CreateIncidentInStore(t, harness.Pool, actor, incidents.CreateIncidentRequest{
+	result := phase2storetest.CreateIncidentInStore(t, harness.DB, actor, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-phase2-u-2-02-create",
 		IncidentKey: "IR-U202",
 		Title:       "Phase 2 U-2-02",
@@ -64,8 +64,8 @@ func TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPrefer
 }
 
 func TestPhase2_U_2_03_StoreCreateIncidentReturnsStableLocationValue(t *testing.T) {
-	harness := phase2test.StartStore(t, "phase2-u-2-03")
-	actor := phase2test.SeedLocalUserRecord(
+	harness := phase2storetest.StartStore(t, "phase2-u-2-03")
+	actor := phase2storetest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"phase2-u203@example.test",
@@ -76,7 +76,7 @@ func TestPhase2_U_2_03_StoreCreateIncidentReturnsStableLocationValue(t *testing.
 		true,
 	)
 
-	result := phase2test.CreateIncidentInStore(t, harness.Pool, actor, incidents.CreateIncidentRequest{
+	result := phase2storetest.CreateIncidentInStore(t, harness.DB, actor, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-phase2-u-2-03-create",
 		IncidentKey: "IR-U203",
 		Title:       "Phase 2 U-2-03",
@@ -90,9 +90,9 @@ func TestPhase2_U_2_03_StoreCreateIncidentReturnsStableLocationValue(t *testing.
 }
 
 func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor(t *testing.T) {
-	harness := phase2test.StartStore(t, "phase2-u-2-04")
-	store := incidents.NewStore(harness.Pool)
-	actor := phase2test.SeedLocalUserRecord(
+	harness := phase2storetest.StartStore(t, "phase2-u-2-04")
+	store := incidents.NewStore(harness.DB)
+	actor := phase2storetest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"phase2-u204@example.test",
@@ -102,7 +102,7 @@ func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndSc
 		false,
 		true,
 	)
-	secondActor := phase2test.SeedLocalUserRecord(
+	secondActor := phase2storetest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"phase2-u204-second@example.test",
@@ -137,12 +137,12 @@ func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndSc
 		t.Fatalf("unexpected first create status: got %d want %d", firstResult.StatusCode, http.StatusCreated)
 	}
 
-	selector := phase2test.IncidentCreateReplaySelector{
+	selector := phase2storetest.IncidentCreateReplaySelector{
 		ActorUserID: actor.ID,
 		ClientTxnID: firstRequest.ClientTxnID,
 		IncidentID:  firstResult.Incident.ID,
 	}
-	stableBefore := phase2test.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, selector)
+	stableBefore := phase2storetest.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, selector)
 
 	replayRequest, apiErr := incidents.DecodeIncidentCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-04",
@@ -169,7 +169,7 @@ func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndSc
 	if canonicalFirst := canonicalJSONMap(t, firstResult.Payload); !reflect.DeepEqual(canonicalFirst, replayResult.Payload) {
 		t.Fatalf("expected replayed payload to match original create payload: first=%#v replay=%#v", canonicalFirst, replayResult.Payload)
 	}
-	if stableAfter := phase2test.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, selector); stableAfter != stableBefore {
+	if stableAfter := phase2storetest.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, selector); stableAfter != stableBefore {
 		t.Fatalf("replay must keep durable side effects stable: before=%+v after=%+v", stableBefore, stableAfter)
 	}
 
@@ -191,7 +191,7 @@ func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndSc
 	); !errors.Is(err, authn.ErrClientTxnConflict) {
 		t.Fatalf("divergent replay must return client transaction conflict: %v", err)
 	}
-	if stableAfterConflict := phase2test.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, selector); stableAfterConflict != stableBefore {
+	if stableAfterConflict := phase2storetest.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, selector); stableAfterConflict != stableBefore {
 		t.Fatalf("divergent replay must not change durable side effects: before=%+v after=%+v", stableBefore, stableAfterConflict)
 	}
 
@@ -215,7 +215,7 @@ func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndSc
 		t.Fatalf("actor-scoped idempotency must allow a distinct create for a different actor: %#v", secondActorResult)
 	}
 
-	wantSecondActorSideEffects := phase2test.IncidentCreateReplaySideEffects{
+	wantSecondActorSideEffects := phase2storetest.IncidentCreateReplaySideEffects{
 		BootstrapMembershipRows:        1,
 		IncidentRows:                   1,
 		IncidentWorkbookPreferenceRows: 1,
@@ -223,7 +223,7 @@ func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndSc
 		RouteIdempotencyRows:           1,
 		UserWorkbookPreferenceRows:     1,
 	}
-	if got := phase2test.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, phase2test.IncidentCreateReplaySelector{
+	if got := phase2storetest.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, phase2storetest.IncidentCreateReplaySelector{
 		ActorUserID: secondActor.ID,
 		ClientTxnID: secondActorRequest.ClientTxnID,
 		IncidentID:  secondActorResult.Incident.ID,
@@ -233,9 +233,9 @@ func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndSc
 }
 
 func TestPhase2_U_2_07_StoreMembershipPatchAndDeleteRejectStaleBaseVersion(t *testing.T) {
-	harness := phase2test.StartStore(t, "phase2-u-2-07")
-	store := incidents.NewStore(harness.Pool)
-	admin := phase2test.SeedLocalUserRecord(
+	harness := phase2storetest.StartStore(t, "phase2-u-2-07")
+	store := incidents.NewStore(harness.DB)
+	admin := phase2storetest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"phase2-u207-admin@example.test",
@@ -245,7 +245,7 @@ func TestPhase2_U_2_07_StoreMembershipPatchAndDeleteRejectStaleBaseVersion(t *te
 		false,
 		true,
 	)
-	target := phase2test.SeedLocalUserRecord(
+	target := phase2storetest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"phase2-u207-target@example.test",
@@ -256,14 +256,14 @@ func TestPhase2_U_2_07_StoreMembershipPatchAndDeleteRejectStaleBaseVersion(t *te
 		true,
 	)
 
-	incidentResult := phase2test.CreateIncidentInStore(t, harness.Pool, admin, incidents.CreateIncidentRequest{
+	incidentResult := phase2storetest.CreateIncidentInStore(t, harness.DB, admin, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-phase2-u-2-07-incident",
 		IncidentKey: "IR-U207",
 		Title:       "Phase 2 U-2-07",
 	})
-	membershipResult := phase2test.CreateMembershipInStore(
+	membershipResult := phase2storetest.CreateMembershipInStore(
 		t,
-		harness.Pool,
+		harness.DB,
 		admin,
 		incidentResult.Incident.ID,
 		target,

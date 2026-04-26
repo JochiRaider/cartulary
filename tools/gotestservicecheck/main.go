@@ -16,15 +16,15 @@ import (
 var (
 	unitTestPattern     = regexp.MustCompile(`^TestPhase[0-9][A-Za-z0-9_]*_U_[0-9]_`)
 	disallowedSelectors = map[string]struct{}{
-		"pgtest.Start":            {},
-		"phase3test.StartStore":   {},
-		"s3test.Start":            {},
-		"phase1test.StartRuntime": {},
-		"phase2test.StartRuntime": {},
-		"phase2test.StartStore":   {},
-		"phase4test.StartRuntime": {},
-		"phase4test.StartServer":  {},
-		"phase4test.StartStore":   {},
+		"pgtest.Start":               {},
+		"s3test.Start":               {},
+		"phase1test.StartRuntime":    {},
+		"phase2test.StartRuntime":    {},
+		"phase2storetest.StartStore": {},
+		"phase3storetest.StartStore": {},
+		"phase4test.StartRuntime":    {},
+		"phase4test.StartServer":     {},
+		"phase4storetest.StartStore": {},
 	}
 )
 

@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type SessionRow struct {
@@ -37,14 +38,14 @@ type AuditEventRecord struct {
 	After        map[string]any
 }
 
-func SeedLocalUser(t testing.TB, db *sql.DB, email string, displayName string, password string, mfaRequired bool) string {
+func SeedLocalUser(t testing.TB, db postgres.DB, email string, displayName string, password string, mfaRequired bool) string {
 	t.Helper()
 	return SeedLocalUserFlags(t, db, email, displayName, password, mfaRequired, false, true)
 }
 
 func SeedLocalUserRecord(
 	t testing.TB,
-	db *sql.DB,
+	db postgres.DB,
 	email string,
 	displayName string,
 	password string,
@@ -60,7 +61,7 @@ func SeedLocalUserRecord(
 	}
 
 	var record authn.UserRecord
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, email, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
@@ -90,7 +91,7 @@ RETURNING id, email, display_name, password_hash, password_changed_at, mfa_requi
 
 func SeedLocalUserFlags(
 	t testing.TB,
-	db *sql.DB,
+	db postgres.DB,
 	email string,
 	displayName string,
 	password string,
@@ -104,7 +105,7 @@ func SeedLocalUserFlags(
 
 func SeedLocalUserWithActiveTOTP(
 	t testing.TB,
-	db *sql.DB,
+	db postgres.DB,
 	email string,
 	displayName string,
 	password string,
@@ -119,7 +120,7 @@ func SeedLocalUserWithActiveTOTP(
 
 func SeedLocalUserWithActiveTOTPRecord(
 	t testing.TB,
-	db *sql.DB,
+	db postgres.DB,
 	email string,
 	displayName string,
 	password string,
@@ -147,7 +148,7 @@ func SeedLocalUserWithActiveTOTPRecord(
 	}
 
 	var record authn.UserRecord
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin, totp_enrolled_at, totp_secret_ciphertext, totp_secret_nonce)
 VALUES ($1, $2, $3, $4, true, $5, now(), $6, $7)
 RETURNING id, email, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
@@ -177,7 +178,7 @@ RETURNING id, email, display_name, password_hash, password_changed_at, mfa_requi
 
 func SeedSession(
 	t testing.TB,
-	db *sql.DB,
+	db postgres.DB,
 	keys authn.MasterKeys,
 	userID uuid.UUID,
 	sessionToken string,
@@ -194,7 +195,7 @@ func SeedSession(
 	}
 
 	var session authn.SessionRecord
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 INSERT INTO user_sessions (
     user_id,
     token_fingerprint,
@@ -237,7 +238,7 @@ RETURNING id, user_id, authenticated_at, last_qualifying_activity_at, idle_expir
 
 func SeedPendingTOTPEnrollment(
 	t testing.TB,
-	db *sql.DB,
+	db postgres.DB,
 	keys authn.MasterKeys,
 	userID uuid.UUID,
 	sessionID *uuid.UUID,
@@ -260,7 +261,7 @@ func SeedPendingTOTPEnrollment(
 	}
 
 	var record authn.PendingTOTPEnrollmentRecord
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 INSERT INTO pending_totp_enrollments (
     user_id,
     auth_scope_kind,
@@ -306,7 +307,7 @@ RETURNING id, user_id, auth_scope_kind, auth_scope_session_id, auth_scope_bootst
 	return record
 }
 
-func QuerySessionRow(t testing.TB, db *sql.DB, userID string) SessionRow {
+func QuerySessionRow(t testing.TB, db postgres.DB, userID string) SessionRow {
 	t.Helper()
 	return QuerySingleSession(
 		t,
@@ -316,7 +317,7 @@ func QuerySessionRow(t testing.TB, db *sql.DB, userID string) SessionRow {
 	)
 }
 
-func QuerySessionByID(t testing.TB, db *sql.DB, sessionID string) SessionRow {
+func QuerySessionByID(t testing.TB, db postgres.DB, sessionID string) SessionRow {
 	t.Helper()
 	return QuerySingleSession(
 		t,
@@ -326,11 +327,11 @@ func QuerySessionByID(t testing.TB, db *sql.DB, sessionID string) SessionRow {
 	)
 }
 
-func QuerySingleSession(t testing.TB, db *sql.DB, query string, args ...any) SessionRow {
+func QuerySingleSession(t testing.TB, db postgres.DB, query string, args ...any) SessionRow {
 	t.Helper()
 
 	var row SessionRow
-	if err := db.QueryRowContext(context.Background(), query, args...).Scan(
+	if err := db.QueryRow(context.Background(), query, args...).Scan(
 		&row.AuthenticatedAt,
 		&row.SessionID,
 		&row.LastQualifyingActivityAt,
@@ -345,20 +346,20 @@ func QuerySingleSession(t testing.TB, db *sql.DB, query string, args ...any) Ses
 	return row
 }
 
-func QueryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
+func QueryCount(t testing.TB, db postgres.DB, query string, args ...any) int {
 	t.Helper()
 
 	var count int
-	if err := db.QueryRowContext(context.Background(), query, args...).Scan(&count); err != nil {
+	if err := db.QueryRow(context.Background(), query, args...).Scan(&count); err != nil {
 		t.Fatalf("query count: %v", err)
 	}
 	return count
 }
 
-func LookupUserAuditEvents(t testing.TB, db *sql.DB, targetUserID string) []AuditEventRecord {
+func LookupUserAuditEvents(t testing.TB, db postgres.DB, targetUserID string) []AuditEventRecord {
 	t.Helper()
 
-	rows, err := db.QueryContext(context.Background(), `
+	rows, err := db.Query(context.Background(), `
 SELECT event_kind,
        actor_user_id::text,
        target_user_id::text,

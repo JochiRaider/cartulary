@@ -144,11 +144,11 @@
       "claim": "The real login handler creates the sixth session through the real store, revokes the deterministic least-recently-used non-current victim, publishes `concurrency_limit` to the session hub, persists the durable revocation row, and records the matching deployment-local audit event while still returning the new session resource.",
       "out_of_scope": "Browser-visible session loss and shared-runtime socket closure remain higher-layer evidence.",
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "transaction"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 50
+          "max_transactions": 1
         }
       }
     },
@@ -164,11 +164,11 @@
       "claim": "One route matrix proves logout, password change, TOTP replacement completion, account disablement, admin password reset, admin TOTP reset, and explicit revoke-all drive the correct current-only or all-session revocation scope, publish the right hub fanout, clear auth cookies only when the actor loses the current session, and persist the resulting session-row state.",
       "out_of_scope": "Socket closure on revoked attached sessions remains integration evidence.",
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "transaction"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 50
+          "max_transactions": 7
         }
       }
     },
@@ -196,11 +196,11 @@
       "claim": "The real patch route rejects missing `base_user_version`, normalizes writable `email` and `display_name`, translates stale-version conflicts to `user_version_conflict`, and proves the last-active-deployment-admin demotion or deactivation guard against durable database state without publishing revocations or applying partial mutation.",
       "out_of_scope": "Browser-visible administration flows remain browser evidence.",
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "transaction"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 50
+          "max_transactions": 5
         }
       }
     },

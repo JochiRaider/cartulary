@@ -45,8 +45,8 @@ func TestMakeBackendStoreUsesSingleOwnedSuitePair(t *testing.T) {
 		t.Fatalf("expected backend-store fixture diagnostics, got %#v", scope.Fixture)
 	}
 	assertNoHotPathPostgresDrops(t, scope)
-	assertPostgresDatabaseResets(t, scope)
-	assertPostgresFixturePolicy(t, scope, suiteservices.PostgresFixturePolicyPackageReset)
+	assertNoPostgresDatabaseResets(t, scope)
+	assertPostgresFixturePolicy(t, scope, suiteservices.PostgresFixturePolicyTransaction)
 }
 
 func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedLanes(t *testing.T) {

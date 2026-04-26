@@ -78,11 +78,11 @@
       "claim": "A one-value Timeline create commits a real row, assigns `record_id`, starts at `row_version=1`, and persists the Timeline projection row.",
       "out_of_scope": "Browser-visible create flow and draft-row continuation remain browser evidence.",
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "transaction"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 50
+          "max_transactions": 1
         }
       }
     },
@@ -98,11 +98,11 @@
       "claim": "A committed Timeline create initializes `capture_state='rough'` on the persisted row and projection state.",
       "out_of_scope": "Obsolete lifecycle-token rejection remains supplemental helper coverage until a public executed submission path owns that proof.",
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "transaction"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 50
+          "max_transactions": 1
         }
       }
     },
@@ -118,11 +118,11 @@
       "claim": "The first material patch transitions `rough -> enriched`, and store-driven `mark-reviewed` persists an explicit `reviewed` transition on real store state.",
       "out_of_scope": "Reviewer or admin authorization is owned by `I-3-03`, not this store-only row.",
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "transaction"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 50
+          "max_transactions": 1
         }
       }
     },
@@ -138,11 +138,11 @@
       "claim": "A material edit demotes `reviewed -> enriched`, legal supersede persists `superseded`, and ordinary patch attempts fail closed afterwards.",
       "out_of_scope": "Replacement-target guards and rollback coupling are owned by `U-3-10` and integration rows.",
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "transaction"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 50
+          "max_transactions": 1
         }
       }
     },
@@ -181,11 +181,11 @@
       "claim": "Patch replay returns the original committed result and creates no second mutation row or record revision on the write substrate.",
       "out_of_scope": "Collaboration suppression remains integration and browser evidence.",
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "transaction"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 50
+          "max_transactions": 1
         }
       }
     },
@@ -213,11 +213,11 @@
       "claim": "Successful Timeline create and patch each write one attributed mutation entry and one new row revision on the real write substrate.",
       "out_of_scope": "Browser-visible history inspection is deferred to later phases.",
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "transaction"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 50
+          "max_transactions": 1
         }
       }
     },
@@ -233,11 +233,11 @@
       "claim": "Supersede-with-replacement rejects illegal targets, replays idempotently, writes one coupled `timeline_record` plus one `record_link` mutation in one change set, and rollback removes both lifecycle and link state together.",
       "out_of_scope": "End-to-end action routing and visible browser disclosure remain integration and browser evidence.",
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "transaction"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 50
+          "max_transactions": 2
         }
       }
     },
@@ -253,11 +253,11 @@
       "claim": "Stale Timeline patches derive committed writable field changes since the client base row version. Different-field edits rebase, same-field direct edits return `same_field_conflict`, collection fields use `collection_value_v1`, lifecycle-only stale edits apply against current state, and replay precedence remains idempotent.",
       "out_of_scope": "HTTP conflict envelope transport and browser-visible concurrent editing behavior remain integration or browser evidence.",
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "transaction"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 50
+          "max_transactions": 4
         }
       }
     },

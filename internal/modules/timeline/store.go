@@ -190,19 +190,25 @@ func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID, query views
 	}
 	defer rows.Close()
 
-	result := make([]map[string]any, 0)
+	projectedRows := make([]projectedRecord, 0)
 	for rows.Next() {
 		projected, err := scanProjectedRecord(rows)
 		if err != nil {
 			return nil, err
 		}
-		if err := hydrateProjectedCollections(ctx, s.pool, &projected); err != nil {
-			return nil, err
-		}
-		result = append(result, BuildRow(projected))
+		projectedRows = append(projectedRows, projected)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate timeline projection rows: %w", err)
+	}
+	rows.Close()
+
+	result := make([]map[string]any, 0, len(projectedRows))
+	for index := range projectedRows {
+		if err := hydrateProjectedCollections(ctx, s.pool, &projectedRows[index]); err != nil {
+			return nil, err
+		}
+		result = append(result, BuildRow(projectedRows[index]))
 	}
 	return result, nil
 }

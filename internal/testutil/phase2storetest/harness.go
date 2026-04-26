@@ -1,7 +1,4 @@
-// Package phase1storetest contains DB-backed Phase 1 helpers that stay free of
-// runtime and HTTP test dependencies so auth-package unit tests can import them
-// without a package cycle.
-package phase1storetest
+package phase2storetest
 
 import (
 	"testing"

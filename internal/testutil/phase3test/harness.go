@@ -6,7 +6,6 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -21,11 +20,6 @@ type RuntimeHarness struct {
 type ServerHarness struct {
 	Server *httptestx.Server
 	DB     *sql.DB
-}
-
-type StoreHarness struct {
-	Pool postgres.DB
-	DB   *sql.DB
 }
 
 func StartRuntime(t testing.TB) *RuntimeHarness {
@@ -63,12 +57,4 @@ func (h *RuntimeHarness) StartServer(t testing.TB, prefix string) *ServerHarness
 		Server: server,
 		DB:     db,
 	}
-}
-
-func StartStore(t testing.TB, prefix string) *StoreHarness {
-	t.Helper()
-
-	postgresHarness := pgtest.Start(t)
-	pool, db := postgresHarness.OpenDBAndSQLT(t, prefix)
-	return &StoreHarness{Pool: pool, DB: db}
 }

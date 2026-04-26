@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"database/sql"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase1storetest"
 )
@@ -29,7 +29,7 @@ func newPhase1StoreFixture(t testing.TB, prefix string, now time.Time) *phase1St
 
 	harness := phase1storetest.StartStore(t, prefix)
 	keys := loadUnitMasterKeys(t)
-	store := authn.NewStore(harness.Pool)
+	store := authn.NewStore(harness.DB)
 	hub := &hubStub{}
 
 	return &phase1StoreFixture{
@@ -706,7 +706,7 @@ func mustUserRecord(t testing.TB, store *authn.Store, userID uuid.UUID) authn.Us
 	return record
 }
 
-func requireSessionRevoked(t testing.TB, db *sql.DB, sessionID uuid.UUID, revokedAt time.Time, reasonCode string) {
+func requireSessionRevoked(t testing.TB, db postgres.DB, sessionID uuid.UUID, revokedAt time.Time, reasonCode string) {
 	t.Helper()
 
 	row := phase1storetest.QuerySessionByID(t, db, sessionID.String())
@@ -718,7 +718,7 @@ func requireSessionRevoked(t testing.TB, db *sql.DB, sessionID uuid.UUID, revoke
 	}
 }
 
-func requireSessionActive(t testing.TB, db *sql.DB, sessionID uuid.UUID) {
+func requireSessionActive(t testing.TB, db postgres.DB, sessionID uuid.UUID) {
 	t.Helper()
 
 	row := phase1storetest.QuerySessionByID(t, db, sessionID.String())

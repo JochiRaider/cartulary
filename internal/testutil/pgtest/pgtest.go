@@ -14,7 +14,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -482,40 +481,6 @@ func (h *Harness) PreparePackageDatabaseT(t testing.TB, prefix string) *TestData
 		fixture.mu.Unlock()
 	})
 	return fixture.db
-}
-
-func (h *Harness) OpenDBT(t testing.TB, prefix string) postgres.DB {
-	t.Helper()
-
-	db, _ := h.OpenDBAndSQLT(t, prefix)
-	return db
-}
-
-func (h *Harness) OpenDBAndSQLT(t testing.TB, prefix string) (postgres.DB, *sql.DB) {
-	t.Helper()
-
-	attribution := fixtureAttributionFor(t, "pgtest")
-	if resolvePostgresFixturePolicy(attribution) == postgresFixturePolicyTransaction {
-		return h.BeginRollbackDBT(t, prefix), nil
-	}
-
-	testDB := h.PreparePackageDatabaseT(t, prefix)
-	pool, err := pgxpool.New(context.Background(), testDB.DSN)
-	if err != nil {
-		t.Fatalf("open postgres pool: %v", err)
-	}
-	t.Cleanup(func() {
-		pool.Close()
-	})
-
-	sqlDB, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatalf("open postgres sql handle: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = sqlDB.Close()
-	})
-	return pool, sqlDB
 }
 
 func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {

@@ -551,6 +551,14 @@ export function validateManifest(root, phase) {
             `manifest entry ${entry.id} must declare fixture_policy.postgres for service-backed execution_dependency ${entry.execution_dependency}`,
           );
         }
+        if (
+          entry.execution_dependency === "backend_store" &&
+          postgresFixturePolicy === postgresFixturePolicyPackageReset
+        ) {
+          throw new Error(
+            `manifest entry ${entry.id} backend_store must not use fixture_policy.postgres=package_reset`,
+          );
+        }
         validatePostgresFixtureBudget(
           entry,
           postgresFixturePolicy,

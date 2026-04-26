@@ -1,4 +1,4 @@
-package phase4test
+package phase4storetest
 
 import (
 	"context"
@@ -19,11 +19,23 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
+
+type StoreHarness struct {
+	DB postgres.DB
+}
 
 type LoginResult struct {
 	SessionCookie *http.Cookie
 	CSRFCookie    *http.Cookie
+}
+
+func StartStore(t testing.TB, prefix string) *StoreHarness {
+	t.Helper()
+
+	postgresHarness := pgtest.Start(t)
+	return &StoreHarness{DB: postgresHarness.BeginRollbackDBT(t, prefix)}
 }
 
 func DoJSON(t testing.TB, method string, url string, body any, options ...func(*http.Request)) *http.Response {
@@ -97,7 +109,7 @@ func CreateIncidentInStore(t testing.TB, pool postgres.DB, actor authn.UserRecor
 	return result.Incident
 }
 
-func SeedLocalUserFlags(t testing.TB, db *sql.DB, email string, displayName string, password string, mfaRequired bool, isDeploymentAdmin bool, isActive bool) authn.UserRecord {
+func SeedLocalUserFlags(t testing.TB, db postgres.DB, email string, displayName string, password string, mfaRequired bool, isDeploymentAdmin bool, isActive bool) authn.UserRecord {
 	t.Helper()
 
 	hash, err := authn.HashPassword(password)
@@ -106,7 +118,7 @@ func SeedLocalUserFlags(t testing.TB, db *sql.DB, email string, displayName stri
 	}
 
 	var record authn.UserRecord
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, email, display_name, password_hash, mfa_required, is_active, is_deployment_admin, created_at, updated_at, user_version
@@ -127,10 +139,10 @@ RETURNING id, email, display_name, password_hash, mfa_required, is_active, is_de
 	return record
 }
 
-func SeedIncidentMembership(t testing.TB, db *sql.DB, incidentID uuid.UUID, userID uuid.UUID, displayName string, role string, addedByUserID uuid.UUID) {
+func SeedIncidentMembership(t testing.TB, db postgres.DB, incidentID uuid.UUID, userID uuid.UUID, displayName string, role string, addedByUserID uuid.UUID) {
 	t.Helper()
 
-	if _, err := db.ExecContext(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO incident_memberships (
     incident_id,
     user_id,
@@ -150,7 +162,7 @@ SET role = EXCLUDED.role,
 		t.Fatalf("seed incident membership: %v", err)
 	}
 
-	if _, err := db.ExecContext(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO user_workbook_preferences (incident_id, user_id, home_sheet_ref, created_at, updated_at)
 VALUES ($1, $2, NULL, now(), now())
 ON CONFLICT (incident_id, user_id) DO NOTHING
@@ -161,7 +173,7 @@ ON CONFLICT (incident_id, user_id) DO NOTHING
 	_ = displayName
 }
 
-func SeedHostRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, hostname string, fqdn string, aadDeviceID string) {
+func SeedHostRecord(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, hostname string, fqdn string, aadDeviceID string) {
 	t.Helper()
 	SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "host")
 
@@ -175,7 +187,7 @@ func SeedHostRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID 
 	if aadDeviceID != "" {
 		aadDeviceValue = aadDeviceID
 	}
-	if _, err := db.ExecContext(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO hosts (record_id, incident_id, display_name, hostname, fqdn, aad_device_id, host_state, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, $3, $4, $5, $6, 'canonical', $7, $7)
 `, recordID, incidentID, displayName, hostname, fqdnValue, aadDeviceValue, actorUserID); err != nil {
@@ -183,11 +195,11 @@ VALUES ($1, $2, $3, $4, $5, $6, 'canonical', $7, $7)
 	}
 }
 
-func SeedIdentityRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, upn string, email string, samAccountName string) {
+func SeedIdentityRecord(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, upn string, email string, samAccountName string) {
 	t.Helper()
 	SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "identity")
 
-	if _, err := db.ExecContext(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO identities (record_id, incident_id, display_name, upn, email, sam_account_name, identity_state, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, $3, $4, $5, $6, 'canonical', $7, $7)
 `, recordID, incidentID, displayName, upn, email, samAccountName, actorUserID); err != nil {
@@ -195,14 +207,14 @@ VALUES ($1, $2, $3, $4, $5, $6, 'canonical', $7, $7)
 	}
 }
 
-func SeedEntityAlias(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, entityType string, rawText string) {
+func SeedEntityAlias(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, entityType string, rawText string) {
 	t.Helper()
 
 	normalized, ok := fieldnorm.NormalizeLine(rawText)
 	if !ok {
 		t.Fatalf("normalize entity alias %q", rawText)
 	}
-	if _, err := db.ExecContext(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO entity_aliases (incident_id, record_id, entity_type, raw_text, normalized_text, classification, created_by_user_id, created_at)
 VALUES ($1, $2, $3, $4, $5, 'suggestion_only', $6, now())
 `, incidentID, recordID, entityType, rawText, normalized, actorUserID); err != nil {
@@ -210,11 +222,11 @@ VALUES ($1, $2, $3, $4, $5, 'suggestion_only', $6, now())
 	}
 }
 
-func SeedTimelineRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID) {
+func SeedTimelineRecord(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID) {
 	t.Helper()
 	SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "timeline_event")
 
-	if _, err := db.ExecContext(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO timeline_events (record_id, incident_id, summary, capture_state, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, 'phase4-source-row', 'reviewed', $3, $3)
 `, recordID, incidentID, actorUserID); err != nil {
@@ -222,13 +234,13 @@ VALUES ($1, $2, 'phase4-source-row', 'reviewed', $3, $3)
 	}
 }
 
-func SeedResolvedMention(t testing.TB, db *sql.DB, actorUserID uuid.UUID, mentionID uuid.UUID, sourceRecordID uuid.UUID, resolvedRecordID uuid.UUID, sourceFieldKey string, entityType string, rawText string) {
+func SeedResolvedMention(t testing.TB, db postgres.DB, actorUserID uuid.UUID, mentionID uuid.UUID, sourceRecordID uuid.UUID, resolvedRecordID uuid.UUID, sourceFieldKey string, entityType string, rawText string) {
 	t.Helper()
 
 	SeedMention(t, db, actorUserID, mentionID, sourceRecordID, sourceFieldKey, entityType, rawText, "resolved", &resolvedRecordID, resolutionMethodPointer("explicit_resolve_route"))
 }
 
-func SeedMention(t testing.TB, db *sql.DB, actorUserID uuid.UUID, mentionID uuid.UUID, sourceRecordID uuid.UUID, sourceFieldKey string, entityType string, rawText string, resolutionStatus string, resolvedRecordID *uuid.UUID, resolutionMethod *string) {
+func SeedMention(t testing.TB, db postgres.DB, actorUserID uuid.UUID, mentionID uuid.UUID, sourceRecordID uuid.UUID, sourceFieldKey string, entityType string, rawText string, resolutionStatus string, resolvedRecordID *uuid.UUID, resolutionMethod *string) {
 	t.Helper()
 
 	var (
@@ -241,7 +253,7 @@ func SeedMention(t testing.TB, db *sql.DB, actorUserID uuid.UUID, mentionID uuid
 		resolvedAt = time.Now().UTC()
 		methodValue = resolutionMethod
 	}
-	if _, err := db.ExecContext(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO entity_mentions (
     entity_mention_id,
     source_record_id,
@@ -266,10 +278,10 @@ VALUES ($1, $2, $3, $4, 'manual_entry', 'phase4test', $5, $6, $7, 1, 1, $8, $9, 
 	}
 }
 
-func SeedRecordLink(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordLinkID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, linkType string, provenance string, confidence *int) {
+func SeedRecordLink(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordLinkID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, linkType string, provenance string, confidence *int) {
 	t.Helper()
 
-	if _, err := db.ExecContext(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO record_links (
     record_link_id,
     incident_id,
@@ -289,10 +301,10 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, now(), now())
 	}
 }
 
-func SeedRecordTag(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordTagID uuid.UUID, recordID uuid.UUID, tagName string) {
+func SeedRecordTag(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordTagID uuid.UUID, recordID uuid.UUID, tagName string) {
 	t.Helper()
 
-	if _, err := db.ExecContext(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO record_tags (record_tag_id, incident_id, record_id, tag_name, normalized_tag_name, created_by_user_id)
 VALUES ($1, $2, $3, $4, $5, $6)
 `, recordTagID, incidentID, recordID, tagName, tagName, actorUserID); err != nil {
@@ -300,17 +312,17 @@ VALUES ($1, $2, $3, $4, $5, $6)
 	}
 }
 
-func SeedAssessment(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, assessmentID uuid.UUID, subjectID uuid.UUID, subjectType string, state string) {
+func SeedAssessment(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorUserID uuid.UUID, assessmentID uuid.UUID, subjectID uuid.UUID, subjectType string, state string) {
 	t.Helper()
 	SeedRecordEnvelope(t, db, incidentID, actorUserID, assessmentID, "assessment")
 
-	if _, err := db.ExecContext(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO assessments (record_id, incident_id, subject_record_id, subject_type, assessment_state, rationale, assessor_user_id)
 VALUES ($1, $2, $3, $4, $5, 'Seeded test assessment rationale.', $6)
 `, assessmentID, incidentID, subjectID, subjectType, state, actorUserID); err != nil {
 		t.Fatalf("seed assessment: %v", err)
 	}
-	if _, err := db.ExecContext(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO assessment_grid_projection (
     record_id,
     incident_id,
@@ -334,10 +346,10 @@ ON CONFLICT (record_id) DO NOTHING
 	}
 }
 
-func SeedRecordEnvelope(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, recordType string) {
+func SeedRecordEnvelope(t testing.TB, db postgres.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, recordType string) {
 	t.Helper()
 
-	if _, err := db.ExecContext(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, $3, $4, $4)
 ON CONFLICT (record_id) DO NOTHING
@@ -346,7 +358,7 @@ ON CONFLICT (record_id) DO NOTHING
 	}
 }
 
-func LookupHostState(t testing.TB, db *sql.DB, recordID uuid.UUID) (string, *uuid.UUID, int64, string) {
+func LookupHostState(t testing.TB, db postgres.DB, recordID uuid.UUID) (string, *uuid.UUID, int64, string) {
 	t.Helper()
 
 	var (
@@ -355,7 +367,7 @@ func LookupHostState(t testing.TB, db *sql.DB, recordID uuid.UUID) (string, *uui
 		rowVersion    int64
 		fqdn          sql.NullString
 	)
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 SELECT host_state, merged_into_record_id::text, row_version, COALESCE(fqdn, '')
   FROM hosts
  WHERE record_id = $1
@@ -370,7 +382,7 @@ SELECT host_state, merged_into_record_id::text, row_version, COALESCE(fqdn, '')
 	return state, mergedInto, rowVersion, fqdn.String
 }
 
-func LookupMention(t testing.TB, db *sql.DB, mentionID uuid.UUID) fixtures.EntityMentionFixture {
+func LookupMention(t testing.TB, db postgres.DB, mentionID uuid.UUID) fixtures.EntityMentionFixture {
 	t.Helper()
 
 	var mention fixtures.EntityMentionFixture
@@ -382,7 +394,7 @@ func LookupMention(t testing.TB, db *sql.DB, mentionID uuid.UUID) fixtures.Entit
 		resolvedAt       sql.NullTime
 		resolutionMethod sql.NullString
 	)
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 SELECT entity_mention_id::text, source_record_id::text, raw_text, resolution_status, row_version, resolved_record_id::text, resolved_by_user_id::text, resolved_at, resolution_method
   FROM entity_mentions
  WHERE entity_mention_id = $1
@@ -421,7 +433,7 @@ SELECT entity_mention_id::text, source_record_id::text, raw_text, resolution_sta
 	return mention
 }
 
-func LookupActiveLink(t testing.TB, db *sql.DB, incidentID uuid.UUID, sourceID uuid.UUID, targetID uuid.UUID, linkType string) fixtures.LinkFixture {
+func LookupActiveLink(t testing.TB, db postgres.DB, incidentID uuid.UUID, sourceID uuid.UUID, targetID uuid.UUID, linkType string) fixtures.LinkFixture {
 	t.Helper()
 
 	var (
@@ -433,7 +445,7 @@ func LookupActiveLink(t testing.TB, db *sql.DB, incidentID uuid.UUID, sourceID u
 		sourceRaw   string
 		targetRaw   string
 	)
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 SELECT record_link_id::text, incident_id::text, src_record_id::text, dst_record_id::text, link_type, provenance, confidence, deleted_at
   FROM record_links
  WHERE incident_id = $1
@@ -459,11 +471,11 @@ SELECT record_link_id::text, incident_id::text, src_record_id::text, dst_record_
 	return link
 }
 
-func LookupAssessmentSubject(t testing.TB, db *sql.DB, assessmentID uuid.UUID) uuid.UUID {
+func LookupAssessmentSubject(t testing.TB, db postgres.DB, assessmentID uuid.UUID) uuid.UUID {
 	t.Helper()
 
 	var subjectID string
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 SELECT subject_record_id::text
   FROM assessments
  WHERE record_id = $1
@@ -471,6 +483,108 @@ SELECT subject_record_id::text
 		t.Fatalf("lookup assessment subject: %v", err)
 	}
 	return MustUUID(t, subjectID)
+}
+
+type IndicatorProjectionRow struct {
+	RecordID            uuid.UUID
+	RowVersion          int64
+	IndicatorType       string
+	ValueKind           string
+	DisplayValue        string
+	NormalizedValue     *string
+	DefangedValue       *string
+	HashAlgorithm       *string
+	HashValue           *string
+	STIXPattern         *string
+	FirstObservedAt     *time.Time
+	LastObservedAt      *time.Time
+	ObservationCount    int
+	LifecycleSummary    *string
+	SupportingLinkCount int
+}
+
+type IndicatorLifecycleIntervalRow struct {
+	IntervalID     uuid.UUID
+	IndicatorID    uuid.UUID
+	LifecycleState string
+	ValidFrom      time.Time
+	ValidTo        *time.Time
+}
+
+func LookupIndicatorProjection(t testing.TB, db postgres.DB, recordID uuid.UUID) IndicatorProjectionRow {
+	t.Helper()
+
+	var (
+		row              IndicatorProjectionRow
+		recordIDRaw      string
+		normalizedValue  sql.NullString
+		defangedValue    sql.NullString
+		hashAlgorithm    sql.NullString
+		hashValue        sql.NullString
+		stixPattern      sql.NullString
+		firstObservedAt  sql.NullTime
+		lastObservedAt   sql.NullTime
+		lifecycleSummary sql.NullString
+	)
+	if err := db.QueryRow(context.Background(), `
+SELECT
+    record_id::text,
+    row_version,
+    indicator_type,
+    value_kind,
+    display_value,
+    normalized_value,
+    defanged_value,
+    hash_algorithm,
+    hash_value,
+    stix_pattern,
+    first_observed_at,
+    last_observed_at,
+    observation_count,
+    lifecycle_summary,
+    supporting_link_count
+  FROM indicator_grid_projection
+ WHERE record_id = $1
+`, recordID).Scan(&recordIDRaw, &row.RowVersion, &row.IndicatorType, &row.ValueKind, &row.DisplayValue, &normalizedValue, &defangedValue, &hashAlgorithm, &hashValue, &stixPattern, &firstObservedAt, &lastObservedAt, &row.ObservationCount, &lifecycleSummary, &row.SupportingLinkCount); err != nil {
+		t.Fatalf("lookup indicator projection: %v", err)
+	}
+	row.RecordID = MustUUID(t, recordIDRaw)
+	row.NormalizedValue = nullStringPointer(normalizedValue)
+	row.DefangedValue = nullStringPointer(defangedValue)
+	row.HashAlgorithm = nullStringPointer(hashAlgorithm)
+	row.HashValue = nullStringPointer(hashValue)
+	row.STIXPattern = nullStringPointer(stixPattern)
+	row.FirstObservedAt = nullTimePointer(firstObservedAt)
+	row.LastObservedAt = nullTimePointer(lastObservedAt)
+	row.LifecycleSummary = nullStringPointer(lifecycleSummary)
+	return row
+}
+
+func LookupIndicatorLifecycleInterval(t testing.TB, db postgres.DB, intervalID uuid.UUID) IndicatorLifecycleIntervalRow {
+	t.Helper()
+
+	var (
+		row            IndicatorLifecycleIntervalRow
+		intervalIDRaw  string
+		indicatorIDRaw string
+		validTo        sql.NullTime
+	)
+	if err := db.QueryRow(context.Background(), `
+SELECT
+    indicator_state_interval_id::text,
+    indicator_record_id::text,
+    lifecycle_state,
+    valid_from,
+    valid_to
+  FROM indicator_state_intervals
+ WHERE indicator_state_interval_id = $1
+`, intervalID).Scan(&intervalIDRaw, &indicatorIDRaw, &row.LifecycleState, &row.ValidFrom, &validTo); err != nil {
+		t.Fatalf("lookup indicator lifecycle interval: %v", err)
+	}
+	row.IntervalID = MustUUID(t, intervalIDRaw)
+	row.IndicatorID = MustUUID(t, indicatorIDRaw)
+	row.ValidTo = nullTimePointer(validTo)
+	return row
 }
 
 func RequireSuccessData(t testing.TB, resp *http.Response, wantStatus int) map[string]any {
@@ -498,14 +612,29 @@ func MustUUID(t testing.TB, value string) uuid.UUID {
 	return parsed
 }
 
-func QueryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
+func QueryCount(t testing.TB, db postgres.DB, query string, args ...any) int {
 	t.Helper()
 
 	var count int
-	if err := db.QueryRowContext(context.Background(), query, args...).Scan(&count); err != nil {
+	if err := db.QueryRow(context.Background(), query, args...).Scan(&count); err != nil {
 		t.Fatalf("query count: %v", err)
 	}
 	return count
+}
+
+func nullStringPointer(value sql.NullString) *string {
+	if !value.Valid {
+		return nil
+	}
+	return &value.String
+}
+
+func nullTimePointer(value sql.NullTime) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	timestamp := value.Time.UTC()
+	return &timestamp
 }
 
 func requireBootstrapLogin(t testing.TB, server *httptestx.Server, username string, password string) string {
