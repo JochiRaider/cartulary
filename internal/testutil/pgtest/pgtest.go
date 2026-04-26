@@ -337,7 +337,12 @@ func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope
 func (h *Harness) PrepareDatabaseT(t testing.TB, prefix string) *TestDatabase {
 	t.Helper()
 
+	// PrepareDatabaseT is the isolated-database path. Prefer
+	// PreparePackageDatabaseT for ordinary mutable integration tests, and keep
+	// this helper for tests that intentionally need per-test database identity
+	// or are asserting pgtest clone/cleanup semantics.
 	attribution := fixtureAttributionFor(t, "pgtest")
+	attribution.PostgresFixturePolicy = postgresFixturePolicyTemplateClone
 	testDB, _, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePerTest, attribution)
 	if err != nil {
 		t.Fatalf("prepare postgres database: %v", err)
@@ -357,6 +362,9 @@ func (h *Harness) PrepareDatabaseT(t testing.TB, prefix string) *TestDatabase {
 func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string, command string, args ...string) *sql.DB {
 	t.Helper()
 
+	// MigrationDatabaseT always creates a fresh scratch database and replays the
+	// requested migration path. Do not replace it with package reset or template
+	// clone in migration-path tests.
 	attribution := fixtureAttributionFor(t, "pgtest")
 	testDB, err := h.newDatabase(context.Background(), prefix, suiteservices.FixtureReuseMigrationScratch, attribution)
 	if err != nil {
@@ -400,6 +408,9 @@ func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string, command string
 func (h *Harness) PreparePackageDatabaseT(t testing.TB, prefix string) *TestDatabase {
 	t.Helper()
 
+	// PreparePackageDatabaseT is the default for mutable service-backed tests:
+	// it creates one migrated database per package and truncates mutable tables
+	// before each subsequent test that reuses it.
 	attribution := fixtureAttributionFor(t, "pgtest")
 	attribution.PostgresFixturePolicy = resolvePostgresFixturePolicy(attribution)
 	if attribution.PostgresFixturePolicy == postgresFixturePolicyTemplateClone {

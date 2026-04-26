@@ -22,7 +22,7 @@ import (
 
 func TestTestRuntimeResetRouteDisabledByDefault(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareDatabaseT(t, "test-runtime-reset-disabled")
+	testDB := postgresHarness.PreparePackageDatabaseT(t, "test-runtime-reset-disabled")
 	s3Harness := s3test.Start(t)
 	bucket := prepareTestRuntimeResetBucket(t, s3Harness, "test-runtime-reset-disabled")
 
@@ -40,7 +40,7 @@ func TestTestRuntimeResetRouteDisabledByDefault(t *testing.T) {
 
 func TestTestRuntimeResetRouteClearsStateAndRestoresBootstrap(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareDatabaseT(t, "test-runtime-reset")
+	testDB := postgresHarness.PreparePackageDatabaseT(t, "test-runtime-reset")
 	s3Harness := s3test.Start(t)
 	bucket := prepareTestRuntimeResetBucket(t, s3Harness, "test-runtime-reset")
 

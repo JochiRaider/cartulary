@@ -316,6 +316,9 @@ const targetDescriptors = [
         selector: "^(TestPhase1_.*_ProcessSmoke)$",
         packages: ["./cmd/server"],
         sharedReport: "backend-process-shared",
+        fixturePolicy: {
+          postgres: "template_clone",
+        },
       },
     ],
   },
@@ -353,6 +356,9 @@ const targetDescriptors = [
         selector: "^(TestPhase1_.*_ProcessSmoke)$",
         packages: ["./cmd/server"],
         sharedReport: "backend-process-shared",
+        fixturePolicy: {
+          postgres: "template_clone",
+        },
       },
     ],
   },
@@ -371,6 +377,9 @@ const targetDescriptors = [
         selector: "^(TestPhase2_ProcessSmoke_)",
         packages: ["./cmd/server"],
         sharedReport: "backend-process-shared",
+        fixturePolicy: {
+          postgres: "template_clone",
+        },
       },
     ],
   },

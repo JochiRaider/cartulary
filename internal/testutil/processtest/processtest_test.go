@@ -17,7 +17,7 @@ func TestStartServerAssignsAddressAndReachesReady(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)
 
-	testDB := postgresHarness.PrepareDatabaseT(t, "processtest-ready")
+	testDB := postgresHarness.PreparePackageDatabaseT(t, "processtest-ready")
 	bucket, err := s3Harness.BootstrapBucket(context.Background(), "processtest-ready")
 	if err != nil {
 		t.Fatalf("bootstrap bucket: %v", err)
@@ -49,7 +49,7 @@ func TestStartServerExitsBeforeReadyAndParsesDiagnostics(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)
 
-	testDB := postgresHarness.PrepareDatabaseT(t, "processtest-invalid")
+	testDB := postgresHarness.PreparePackageDatabaseT(t, "processtest-invalid")
 	bucket, err := s3Harness.BootstrapBucket(context.Background(), "processtest-invalid")
 	if err != nil {
 		t.Fatalf("bootstrap bucket: %v", err)

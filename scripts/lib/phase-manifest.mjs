@@ -25,7 +25,18 @@ const validExecutionDependencies = new Set([
   "browser_measurement",
 ]);
 const validSupportTargets = new Set(["backend_unit", "backend_integration_support"]);
-const validPostgresFixturePolicies = new Set(["template_clone", "package_reset"]);
+const postgresFixturePolicyTemplateClone = "template_clone";
+const postgresFixturePolicyPackageReset = "package_reset";
+const postgresFixturePolicyMigrationScratch = "migration_scratch";
+const validPostgresFixturePolicies = new Set([
+  postgresFixturePolicyTemplateClone,
+  postgresFixturePolicyPackageReset,
+  postgresFixturePolicyMigrationScratch,
+]);
+const postgresFixturePolicyEnvAssignable = new Set([
+  postgresFixturePolicyTemplateClone,
+  postgresFixturePolicyPackageReset,
+]);
 const serviceBackedGoExecutionDependencies = new Set([
   "backend_store",
   "backend_integration",
@@ -105,7 +116,7 @@ function explicitPostgresFixturePolicy(entry, label) {
   }
   if (!validPostgresFixturePolicies.has(entry.fixture_policy.postgres)) {
     throw new Error(
-      `${label} fixture_policy.postgres must be template_clone|package_reset`,
+      `${label} fixture_policy.postgres must be template_clone|package_reset|migration_scratch`,
     );
   }
   return entry.fixture_policy.postgres;
@@ -120,16 +131,12 @@ export function supportGoEntryPostgresFixturePolicy(entry) {
 }
 
 function defaultGoPostgresFixturePolicy(entry) {
-  if (typeof entry.execution_dependency === "string" && serviceBackedGoExecutionDependencies.has(entry.execution_dependency)) {
-    return "template_clone";
-  }
+  void entry;
   return "";
 }
 
 function defaultSupportPostgresFixturePolicy(entry) {
-  if (typeof entry.target === "string" && serviceBackedSupportTargets.has(entry.target)) {
-    return "template_clone";
-  }
+  void entry;
   return "";
 }
 
@@ -149,6 +156,9 @@ function fixturePolicyAssignments(entries, symbolsForEntry, policyForEntry) {
       continue;
     }
     for (const symbol of symbolsForEntry(entry)) {
+      if (!postgresFixturePolicyEnvAssignable.has(policy)) {
+        continue;
+      }
       assignments.push(`${symbol}=${policy}`);
     }
   }
@@ -360,7 +370,16 @@ export function validateManifest(root, phase) {
         }
       } else if (entry.runner === "go_test") {
         goEntrySymbols(entry);
-        goEntryPostgresFixturePolicy(entry);
+        const postgresFixturePolicy = goEntryPostgresFixturePolicy(entry);
+        if (
+          typeof entry.execution_dependency === "string" &&
+          serviceBackedGoExecutionDependencies.has(entry.execution_dependency) &&
+          postgresFixturePolicy === ""
+        ) {
+          throw new Error(
+            `manifest entry ${entry.id} must declare fixture_policy.postgres for service-backed execution_dependency ${entry.execution_dependency}`,
+          );
+        }
         if (typeof entry.package !== "string" || !entry.package.startsWith("./")) {
           throw new Error(`manifest entry ${entry.id} must declare a repo-relative Go package owner`);
         }
@@ -418,7 +437,12 @@ export function validateManifest(root, phase) {
       );
     }
     const symbols = supportGoEntrySymbols(entry);
-    supportGoEntryPostgresFixturePolicy(entry);
+    const postgresFixturePolicy = supportGoEntryPostgresFixturePolicy(entry);
+    if (serviceBackedSupportTargets.has(entry.target) && postgresFixturePolicy === "") {
+      throw new Error(
+        `${supportGoEntryLabel(entry)} must declare fixture_policy.postgres for service-backed support target ${entry.target}`,
+      );
+    }
     for (const symbol of symbols) {
       if (!selectionPattern.test(symbol)) {
         throw new Error(

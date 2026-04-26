@@ -197,6 +197,9 @@ func TestSummarizeReportsFixtureActivity(t *testing.T) {
 	if scope.Fixture.ByStrategy[0].FixturePolicy != PostgresFixturePolicyTemplateClone {
 		t.Fatalf("expected fixture policy in strategy diagnostics, got %#v", scope.Fixture.ByStrategy[0])
 	}
+	if scope.Fixture.ByStrategy[0].Target != "backend-integration" {
+		t.Fatalf("expected target in strategy diagnostics, got %#v", scope.Fixture.ByStrategy[0])
+	}
 	if len(scope.Fixture.Slowest) == 0 || scope.Fixture.Slowest[0].TestName != "TestAuth" {
 		t.Fatalf("expected slowest fixture event first, got %#v", scope.Fixture.Slowest)
 	}

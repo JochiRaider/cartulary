@@ -3,6 +3,7 @@ package s3test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -71,6 +72,12 @@ var (
 	sharedHarness     *Harness
 	startOwnedHarness = StartOwned
 	verifyAttachedFn  = verifyAttachedHarness
+	startContainerFn  = testcontainers.GenericContainer
+	waitReadyFn       = func(ctx context.Context, harness *Harness) error {
+		return harness.WaitReady(ctx)
+	}
+	startPreflightFn func(context.Context) (string, error)
+	startSleepFn     func(context.Context, time.Duration) error
 )
 
 func Start(t testing.TB) *Harness {
@@ -137,28 +144,47 @@ func startHarness(ctx context.Context) (*Harness, error) {
 		WaitingFor: minioPortWaitStrategy(),
 	}
 
-	container, err := testcontainersx.StartWithRetry(ctx, testcontainersx.StartConfig{
-		Service: "minio testcontainer",
-		Image:   minioImage,
-	}, func(ctx context.Context) (testcontainers.Container, error) {
-		return testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-			ContainerRequest: req,
-			Started:          true,
-		})
+	harness, err := testcontainersx.StartWithRetry(ctx, testcontainersx.StartConfig{
+		Service:   "minio testcontainer",
+		Image:     minioImage,
+		Preflight: startPreflightFn,
+		Retryable: isRetryableMinIOStartupFailure,
+		Sleep:     startSleepFn,
+	}, func(ctx context.Context) (*Harness, error) {
+		return startHarnessAttempt(ctx, req)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return harness, nil
+}
+
+func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerRequest) (*Harness, error) {
+	container, err := startContainerFn(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
 	})
 	if err != nil {
 		return nil, err
 	}
 
+	attemptSucceeded := false
+	defer func() {
+		if attemptSucceeded {
+			return
+		}
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = container.Terminate(cleanupCtx)
+	}()
+
 	host, err := container.Host(ctx)
 	if err != nil {
-		_ = container.Terminate(ctx)
 		return nil, fmt.Errorf("resolve minio host: %w", err)
 	}
 
 	port, err := container.MappedPort(ctx, minioAPIPort)
 	if err != nil {
-		_ = container.Terminate(ctx)
 		return nil, fmt.Errorf("resolve minio mapped port: %w", err)
 	}
 
@@ -172,11 +198,11 @@ func startHarness(ctx context.Context) (*Harness, error) {
 		processHash: suiteservices.ProcessHash(),
 	}
 
-	if err := harness.WaitReady(ctx); err != nil {
-		_ = harness.Close(ctx)
+	if err := waitReadyFn(ctx, harness); err != nil {
 		return nil, fmt.Errorf("wait for minio readiness: %w", err)
 	}
 
+	attemptSucceeded = true
 	return harness, nil
 }
 
@@ -234,6 +260,9 @@ func (h *Harness) WaitReady(ctx context.Context) error {
 		if err == nil {
 			return nil
 		}
+		if isNonRetryableMinIOReadinessError(err) {
+			return &minioReadinessError{LastErr: err}
+		}
 
 		lastErr = err
 		select {
@@ -241,10 +270,67 @@ func (h *Harness) WaitReady(ctx context.Context) error {
 			if lastErr == nil {
 				lastErr = readyCtx.Err()
 			}
-			return fmt.Errorf("minio did not become ready via authenticated api: %w", lastErr)
+			return &minioReadinessError{
+				LastErr:         lastErr,
+				DeadlineExpired: errors.Is(readyCtx.Err(), context.DeadlineExceeded),
+			}
 		case <-ticker.C:
 		}
 	}
+}
+
+type minioReadinessError struct {
+	LastErr         error
+	DeadlineExpired bool
+}
+
+func (e *minioReadinessError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.LastErr == nil {
+		return "minio did not become ready via authenticated api"
+	}
+	return fmt.Sprintf("minio did not become ready via authenticated api: %v", e.LastErr)
+}
+
+func (e *minioReadinessError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.LastErr
+}
+
+func isRetryableMinIOStartupFailure(err error) bool {
+	var readinessErr *minioReadinessError
+	if !errors.As(err, &readinessErr) {
+		return false
+	}
+	if !readinessErr.DeadlineExpired {
+		return false
+	}
+	return !isNonRetryableMinIOReadinessError(readinessErr.LastErr)
+}
+
+func isNonRetryableMinIOReadinessError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var response minio.ErrorResponse
+	if errors.As(err, &response) {
+		switch strings.ToLower(response.Code) {
+		case "accessdenied", "invalidaccesskeyid", "signaturedoesnotmatch":
+			return true
+		}
+	}
+
+	lower := strings.ToLower(err.Error())
+	return strings.Contains(lower, "invalid endpoint") ||
+		strings.Contains(lower, "access denied") ||
+		strings.Contains(lower, "invalid access key") ||
+		strings.Contains(lower, "signaturedoesnotmatch") ||
+		strings.Contains(lower, "signature does not match")
 }
 
 func (h *Harness) Client(ctx context.Context) (*minio.Client, error) {

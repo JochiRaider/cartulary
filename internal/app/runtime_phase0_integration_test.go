@@ -28,7 +28,7 @@ import (
 
 func TestPhase0_InvalidConfigNeverReachesReady_I_0_03(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareDatabaseT(t, "phase0-invalid-config")
+	testDB := postgresHarness.PreparePackageDatabaseT(t, "phase0-invalid-config")
 
 	s3Harness := s3test.Start(t)
 	bucket, err := s3Harness.BootstrapBucket(context.Background(), "phase0-invalid-config")
@@ -82,7 +82,7 @@ func TestPhase0_FirstAdminBootstrap_I_0_04(t *testing.T) {
 	s3Harness := s3test.Start(t)
 
 	t.Run("commits one deployment admin, bootstrap marker, and startup audit before readiness", func(t *testing.T) {
-		testDB := postgresHarness.PrepareDatabaseT(t, "phase0-bootstrap-success")
+		testDB := postgresHarness.PreparePackageDatabaseT(t, "phase0-bootstrap-success")
 
 		db := openPhase0SQL(t, testDB.DSN)
 		defer db.Close()
@@ -290,7 +290,7 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			testDB := postgresHarness.PrepareDatabaseT(t, "phase0-bootstrap-failure")
+			testDB := postgresHarness.PreparePackageDatabaseT(t, "phase0-bootstrap-failure")
 
 			db := openPhase0SQL(t, testDB.DSN)
 			defer db.Close()
@@ -329,7 +329,7 @@ func TestPhase0_BootstrapSkipAndRecovery_I_0_06(t *testing.T) {
 	s3Harness := s3test.Start(t)
 
 	t.Run("existing active deployment admin skips stale and invalid manifests", func(t *testing.T) {
-		testDB := postgresHarness.PrepareDatabaseT(t, "phase0-bootstrap-skip")
+		testDB := postgresHarness.PreparePackageDatabaseT(t, "phase0-bootstrap-skip")
 
 		db := openPhase0SQL(t, testDB.DSN)
 		defer db.Close()
@@ -379,7 +379,7 @@ func TestPhase0_BootstrapSkipAndRecovery_I_0_06(t *testing.T) {
 	})
 
 	t.Run("bootstrap recovery remains fail-closed when completion state exists without an active admin", func(t *testing.T) {
-		testDB := postgresHarness.PrepareDatabaseT(t, "phase0-bootstrap-recovery")
+		testDB := postgresHarness.PreparePackageDatabaseT(t, "phase0-bootstrap-recovery")
 
 		db := openPhase0SQL(t, testDB.DSN)
 		defer db.Close()

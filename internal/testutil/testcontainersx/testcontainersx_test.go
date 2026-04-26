@@ -93,6 +93,92 @@ func TestStartWithRetryRetriesTransientDockerStartupError(t *testing.T) {
 	}
 }
 
+func TestStartWithRetryRetriesCustomClassifiedStartupError(t *testing.T) {
+	t.Parallel()
+
+	readinessErr := errors.New("wait for minio readiness: minio did not become ready via authenticated api: context deadline exceeded")
+	startCalls := 0
+	sleepCalls := 0
+
+	value, err := StartWithRetry(context.Background(), StartConfig{
+		Service: "minio testcontainer",
+		Image:   "minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		Preflight: func(context.Context) (string, error) {
+			return "unix:///var/run/docker.sock", nil
+		},
+		Retryable: func(err error) bool {
+			return errors.Is(err, readinessErr)
+		},
+		Sleep: func(context.Context, time.Duration) error {
+			sleepCalls++
+			return nil
+		},
+	}, func(context.Context) (string, error) {
+		startCalls++
+		if startCalls == 1 {
+			return "", readinessErr
+		}
+		return "started", nil
+	})
+	if err != nil {
+		t.Fatalf("expected retry success, got %v", err)
+	}
+	if value != "started" {
+		t.Fatalf("unexpected startup result %q", value)
+	}
+	if startCalls != 2 {
+		t.Fatalf("expected two startup attempts, got %d", startCalls)
+	}
+	if sleepCalls != 1 {
+		t.Fatalf("expected one retry backoff, got %d", sleepCalls)
+	}
+}
+
+func TestStartWithRetryReportsCustomRetryMetadataAfterExhaustion(t *testing.T) {
+	t.Parallel()
+
+	readinessErr := errors.New("wait for minio readiness: context deadline exceeded")
+	startCalls := 0
+
+	_, err := StartWithRetry(context.Background(), StartConfig{
+		Service:     "minio testcontainer",
+		Image:       "minio/minio:RELEASE.2025-09-07T16-13-09Z",
+		MaxAttempts: 3,
+		Preflight: func(context.Context) (string, error) {
+			return "unix:///var/run/docker.sock", nil
+		},
+		Retryable: func(err error) bool {
+			return errors.Is(err, readinessErr)
+		},
+		Sleep: func(context.Context, time.Duration) error {
+			return nil
+		},
+	}, func(context.Context) (int, error) {
+		startCalls++
+		return 0, readinessErr
+	})
+	if err == nil {
+		t.Fatal("expected exhausted startup failure")
+	}
+	if startCalls != 3 {
+		t.Fatalf("expected three startup attempts, got %d", startCalls)
+	}
+
+	var startFailure *StartFailure
+	if !errors.As(err, &startFailure) {
+		t.Fatalf("expected StartFailure, got %T", err)
+	}
+	if !startFailure.Retryable {
+		t.Fatal("expected custom readiness failure to be marked retryable")
+	}
+	if startFailure.AttemptsStarted != 3 || startFailure.MaxAttempts != 3 {
+		t.Fatalf("unexpected attempts: got %d/%d", startFailure.AttemptsStarted, startFailure.MaxAttempts)
+	}
+	if startFailure.Cause != readinessErr {
+		t.Fatalf("expected original readiness cause to be preserved, got %#v", startFailure.Cause)
+	}
+}
+
 func TestStartWithRetryReturnsOriginalCauseWhenContextExpiresDuringBackoff(t *testing.T) {
 	t.Parallel()
 

@@ -7,10 +7,14 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/minio/minio-go/v7"
+	"github.com/moby/moby/api/types/network"
+	testcontainers "github.com/testcontainers/testcontainers-go"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
+	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
 
 func TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness(t *testing.T) {
@@ -140,6 +144,105 @@ func TestMinIOContainerWaitStrategyOnlyWaitsForPortMapping(t *testing.T) {
 	}
 }
 
+func TestOwnedMinIORetriesReadinessTimeoutAndTerminatesFailedAttempt(t *testing.T) {
+	stubOwnedMinIOStartup(t)
+
+	starts := 0
+	terminations := 0
+	readinessChecks := 0
+	ports := []network.Port{
+		network.MustParsePort("9001/tcp"),
+		network.MustParsePort("9002/tcp"),
+	}
+	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+		starts++
+		return fakeMinIOContainer{
+			host: "127.0.0.1",
+			port: ports[starts-1],
+			terminate: func(context.Context) error {
+				terminations++
+				return nil
+			},
+		}, nil
+	}
+	waitReadyFn = func(ctx context.Context, harness *Harness) error {
+		readinessChecks++
+		if readinessChecks == 1 {
+			return &minioReadinessError{
+				LastErr:         context.DeadlineExceeded,
+				DeadlineExpired: true,
+			}
+		}
+		return nil
+	}
+
+	harness, err := startHarness(context.Background())
+	if err != nil {
+		t.Fatalf("expected retry success, got %v", err)
+	}
+	if starts != 2 {
+		t.Fatalf("expected two container attempts, got %d", starts)
+	}
+	if readinessChecks != 2 {
+		t.Fatalf("expected two readiness checks, got %d", readinessChecks)
+	}
+	if terminations != 1 {
+		t.Fatalf("expected failed readiness attempt to terminate its container once, got %d", terminations)
+	}
+	if harness.Endpoint != "127.0.0.1:9002" {
+		t.Fatalf("expected second attempt endpoint, got %q", harness.Endpoint)
+	}
+}
+
+func TestOwnedMinIODoesNotRetryAuthenticationReadinessFailure(t *testing.T) {
+	stubOwnedMinIOStartup(t)
+
+	starts := 0
+	terminations := 0
+	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+		starts++
+		return fakeMinIOContainer{
+			host: "127.0.0.1",
+			port: network.MustParsePort("9000/tcp"),
+			terminate: func(context.Context) error {
+				terminations++
+				return nil
+			},
+		}, nil
+	}
+	waitReadyFn = func(ctx context.Context, harness *Harness) error {
+		return &minioReadinessError{
+			LastErr: minio.ErrorResponse{
+				Code:    "AccessDenied",
+				Message: "Access Denied",
+			},
+			DeadlineExpired: true,
+		}
+	}
+
+	_, err := startHarness(context.Background())
+	if err == nil {
+		t.Fatal("expected authentication readiness failure")
+	}
+	if starts != 1 {
+		t.Fatalf("expected no retry for auth failure, got %d starts", starts)
+	}
+	if terminations != 1 {
+		t.Fatalf("expected failed auth attempt to terminate its container once, got %d", terminations)
+	}
+
+	var startFailure *testcontainersx.StartFailure
+	if !errors.As(err, &startFailure) {
+		t.Fatalf("expected StartFailure, got %T", err)
+	}
+	if startFailure.Retryable {
+		t.Fatal("auth readiness failure must not be retryable")
+	}
+	if startFailure.AttemptsStarted != 1 || startFailure.MaxAttempts != testcontainersx.DefaultMaxAttempts {
+		t.Fatalf("unexpected attempts: got %d/%d", startFailure.AttemptsStarted, startFailure.MaxAttempts)
+	}
+}
+
 func TestHarnessStartsMinIOAndRoundTripsObjects(t *testing.T) {
 	harness := Start(t)
 
@@ -211,4 +314,48 @@ func resetSharedHarness(t testing.TB) {
 		sharedHarness = nil
 		sharedHarnessMu.Unlock()
 	})
+}
+
+func stubOwnedMinIOStartup(t testing.TB) {
+	t.Helper()
+
+	oldStartContainer := startContainerFn
+	oldWaitReady := waitReadyFn
+	oldPreflight := startPreflightFn
+	oldSleep := startSleepFn
+	t.Cleanup(func() {
+		startContainerFn = oldStartContainer
+		waitReadyFn = oldWaitReady
+		startPreflightFn = oldPreflight
+		startSleepFn = oldSleep
+	})
+
+	startPreflightFn = func(context.Context) (string, error) {
+		return "unix:///var/run/docker.sock", nil
+	}
+	startSleepFn = func(context.Context, time.Duration) error {
+		return nil
+	}
+}
+
+type fakeMinIOContainer struct {
+	testcontainers.Container
+	host      string
+	port      network.Port
+	terminate func(context.Context) error
+}
+
+func (c fakeMinIOContainer) Host(context.Context) (string, error) {
+	return c.host, nil
+}
+
+func (c fakeMinIOContainer) MappedPort(context.Context, string) (network.Port, error) {
+	return c.port, nil
+}
+
+func (c fakeMinIOContainer) Terminate(ctx context.Context, opts ...testcontainers.TerminateOption) error {
+	if c.terminate == nil {
+		return nil
+	}
+	return c.terminate(ctx)
 }

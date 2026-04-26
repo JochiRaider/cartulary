@@ -47,11 +47,16 @@ if ! "$NODE_HELPER" - "$json_a" <<'EOF'
 const fs = require("node:fs");
 const rows = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const storeRows = rows.filter((row) => row.target === "backend-store");
-if (storeRows.length === 0 || !storeRows.every((row) => row.fixture_policy?.postgres === "template_clone")) {
+if (storeRows.length === 0 || !storeRows.every((row) => row.fixture_policy?.postgres === "package_reset")) {
   process.exit(1);
 }
 const rawPgtest = rows.find((row) => row.target === "backend-integration" && row.shared_report === "backend-integration-testutil");
 if (!rawPgtest || rawPgtest.fixture_policy?.postgres !== "package_reset") {
+  process.exit(1);
+}
+const serviceBackedGoRows = rows.filter((row) => row.service_backed && row.runner_family === "go_test");
+const validPolicies = new Set(["template_clone", "package_reset", "migration_scratch"]);
+if (serviceBackedGoRows.length === 0 || !serviceBackedGoRows.every((row) => validPolicies.has(row.fixture_policy?.postgres))) {
   process.exit(1);
 }
 EOF
@@ -81,7 +86,12 @@ if (!incidents || incidents.shards.length < 2 || !entities || entities.shards.le
   process.exit(1);
 }
 const authoritative = plan.shards.flatMap((shard) => shard.items).filter((item) => item.kind === "authoritative");
-if (authoritative.length === 0 || !authoritative.every((item) => item.postgres_fixture_policy === "template_clone")) {
+const validPolicies = new Set(["template_clone", "package_reset", "migration_scratch"]);
+if (authoritative.length === 0 || !authoritative.every((item) => validPolicies.has(item.postgres_fixture_policy))) {
+  process.exit(1);
+}
+const packageReset = authoritative.filter((item) => item.postgres_fixture_policy === "package_reset");
+if (packageReset.length === 0) {
   process.exit(1);
 }
 EOF
@@ -185,4 +195,30 @@ JSON
 
 if CARTULARY_PHASE_MANIFEST_ROOT="$invalid_phase_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase5 >/dev/null 2>&1; then
   fail "phase manifest validation must reject unknown postgres fixture policies"
+fi
+
+missing_policy_root="$tmp_dir/missing-policy-root"
+mkdir -p "$missing_policy_root/tools"
+cat >"$missing_policy_root/tools/phase5_test_map.json" <<'JSON'
+{
+  "expected_ids": ["U-5-01"],
+  "unit": [
+    {
+      "id": "U-5-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_store_test.go",
+      "symbol": "TestPhase5_MissingPolicy_U_5_01",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "store_domain",
+      "claim": "missing fixture policy smoke",
+      "out_of_scope": "missing fixture policy smoke"
+    }
+  ]
+}
+JSON
+
+if CARTULARY_PHASE_MANIFEST_ROOT="$missing_policy_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase5 >/dev/null 2>&1; then
+  fail "phase manifest validation must reject missing service-backed postgres fixture policies"
 fi

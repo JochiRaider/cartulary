@@ -46,8 +46,9 @@ const (
 )
 
 const (
-	PostgresFixturePolicyTemplateClone = "template_clone"
-	PostgresFixturePolicyPackageReset  = "package_reset"
+	PostgresFixturePolicyTemplateClone    = "template_clone"
+	PostgresFixturePolicyPackageReset     = "package_reset"
+	PostgresFixturePolicyMigrationScratch = "migration_scratch"
 )
 
 const (
@@ -169,6 +170,7 @@ type FixtureSummary struct {
 
 type FixtureActivity struct {
 	Service         string `json:"service,omitempty"`
+	Target          string `json:"target,omitempty"`
 	Operation       string `json:"operation,omitempty"`
 	Strategy        string `json:"strategy,omitempty"`
 	FixturePolicy   string `json:"fixture_policy,omitempty"`
@@ -405,22 +407,25 @@ func recordFixtureActivity(summary *FixtureSummary, byPackage map[string]Fixture
 
 	summary.TotalCount++
 	summary.TotalDurationMS += activity.TotalDurationMS
-	upsertFixtureActivity(byPackage, fixtureKey(activity.Service, activity.CallerPackage, activity.FixturePolicy, activity.Operation, activity.ReuseScope), activity, func(existing *FixtureActivity) {
+	upsertFixtureActivity(byPackage, fixtureKey(activity.Service, activity.Target, activity.CallerPackage, activity.FixturePolicy, activity.Operation, activity.ReuseScope), activity, func(existing *FixtureActivity) {
 		existing.Service = activity.Service
+		existing.Target = activity.Target
 		existing.CallerPackage = activity.CallerPackage
 		existing.FixturePolicy = activity.FixturePolicy
 		existing.Operation = activity.Operation
 		existing.ReuseScope = activity.ReuseScope
 	})
-	upsertFixtureActivity(byTest, fixtureKey(activity.Service, activity.TestName, activity.FixturePolicy, activity.Operation, activity.ReuseScope), activity, func(existing *FixtureActivity) {
+	upsertFixtureActivity(byTest, fixtureKey(activity.Service, activity.Target, activity.TestName, activity.FixturePolicy, activity.Operation, activity.ReuseScope), activity, func(existing *FixtureActivity) {
 		existing.Service = activity.Service
+		existing.Target = activity.Target
 		existing.TestName = activity.TestName
 		existing.FixturePolicy = activity.FixturePolicy
 		existing.Operation = activity.Operation
 		existing.ReuseScope = activity.ReuseScope
 	})
-	upsertFixtureActivity(byStrategy, fixtureKey(activity.Service, activity.Strategy, activity.FixturePolicy, activity.Operation, activity.ReuseScope), activity, func(existing *FixtureActivity) {
+	upsertFixtureActivity(byStrategy, fixtureKey(activity.Service, activity.Target, activity.Strategy, activity.FixturePolicy, activity.Operation, activity.ReuseScope), activity, func(existing *FixtureActivity) {
 		existing.Service = activity.Service
+		existing.Target = activity.Target
 		existing.Strategy = activity.Strategy
 		existing.FixturePolicy = activity.FixturePolicy
 		existing.Operation = activity.Operation
@@ -436,6 +441,7 @@ func fixtureActivityFromEvent(event Event) FixtureActivity {
 	}
 	activity := FixtureActivity{
 		Service:         service,
+		Target:          stringDetail(event.Details, "target"),
 		Operation:       fixtureOperationForEvent(event.Type),
 		Strategy:        firstNonEmpty(stringDetail(event.Details, "strategy"), stringDetail(event.Details, "preparation_strategy")),
 		FixturePolicy:   stringDetail(event.Details, "fixture_policy"),
@@ -545,6 +551,7 @@ func fixtureKey(parts ...string) string {
 func fixtureActivitySortKey(activity FixtureActivity) string {
 	return strings.Join([]string{
 		activity.Service,
+		activity.Target,
 		activity.Operation,
 		activity.Strategy,
 		activity.FixturePolicy,

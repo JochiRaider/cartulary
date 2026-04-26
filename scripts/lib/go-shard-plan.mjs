@@ -126,7 +126,7 @@ function addAggregate(aggregates, row, mode) {
 }
 
 function normalizePostgresFixturePolicy(value) {
-  return value === "template_clone" || value === "package_reset" ? value : "";
+  return value === "template_clone" || value === "package_reset" || value === "migration_scratch" ? value : "";
 }
 
 function buildExecutionItems(root) {
@@ -386,6 +386,9 @@ function fixturePolicyAssignmentsForShard(shard, mode) {
   const assignments = [];
   for (const item of shard.items) {
     if (!item.postgres_fixture_policy) {
+      continue;
+    }
+    if (item.postgres_fixture_policy === "migration_scratch") {
       continue;
     }
     if (mode === "tests" && item.symbol) {

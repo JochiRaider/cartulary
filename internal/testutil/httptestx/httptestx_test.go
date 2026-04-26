@@ -12,7 +12,7 @@ import (
 
 func TestHarnessBootsServerAndAssertsEnvelopes(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareDatabaseT(t, "httptestx")
+	testDB := postgresHarness.PreparePackageDatabaseT(t, "httptestx")
 
 	s3Harness := s3test.Start(t)
 	bucket, err := s3Harness.BootstrapBucket(context.Background(), "httptestx")

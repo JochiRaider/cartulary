@@ -14,7 +14,7 @@ import (
 
 func TestHarnessOpensAndClosesSocketAgainstBootstrapBoundary(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareDatabaseT(t, "wstest")
+	testDB := postgresHarness.PreparePackageDatabaseT(t, "wstest")
 
 	s3Harness := s3test.Start(t)
 	bucket, err := s3Harness.BootstrapBucket(context.Background(), "wstest")

@@ -72,7 +72,10 @@
         "TestSupportPhase1_Integration_AuthorizationReDerivation",
         "TestSupportPhase1_Integration_RequestContracts"
       ],
-      "selection_pattern": "TestSupportPhase1_"
+      "selection_pattern": "TestSupportPhase1_",
+      "fixture_policy": {
+        "postgres": "package_reset"
+      }
     }
   ],
   "unit": [
@@ -134,7 +137,10 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "http_conformance",
       "claim": "The real login handler creates the sixth session through the real store, revokes the deterministic least-recently-used non-current victim, publishes `concurrency_limit` to the session hub, persists the durable revocation row, and records the matching deployment-local audit event while still returning the new session resource.",
-      "out_of_scope": "Browser-visible session loss and shared-runtime socket closure remain higher-layer evidence."
+      "out_of_scope": "Browser-visible session loss and shared-runtime socket closure remain higher-layer evidence.",
+      "fixture_policy": {
+        "postgres": "package_reset"
+      }
     },
     {
       "id": "U-1-06",
@@ -146,7 +152,10 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "http_conformance",
       "claim": "One route matrix proves logout, password change, TOTP replacement completion, account disablement, admin password reset, admin TOTP reset, and explicit revoke-all drive the correct current-only or all-session revocation scope, publish the right hub fanout, clear auth cookies only when the actor loses the current session, and persist the resulting session-row state.",
-      "out_of_scope": "Socket closure on revoked attached sessions remains integration evidence."
+      "out_of_scope": "Socket closure on revoked attached sessions remains integration evidence.",
+      "fixture_policy": {
+        "postgres": "package_reset"
+      }
     },
     {
       "id": "U-1-07",
@@ -170,7 +179,10 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "http_conformance",
       "claim": "The real patch route rejects missing `base_user_version`, normalizes writable `email` and `display_name`, translates stale-version conflicts to `user_version_conflict`, and proves the last-active-deployment-admin demotion or deactivation guard against durable database state without publishing revocations or applying partial mutation.",
-      "out_of_scope": "Browser-visible administration flows remain browser evidence."
+      "out_of_scope": "Browser-visible administration flows remain browser evidence.",
+      "fixture_policy": {
+        "postgres": "package_reset"
+      }
     },
     {
       "id": "U-1-09",
@@ -288,7 +300,10 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Real login creates one durable session row, session inspection exposes the singleton resource without idle slide, touch slides idle expiry, logout revokes the current session, idle expiry fails closed with `session_expired`, and sixth-login concurrency revokes the LRU non-current session with one deployment-local audit event.",
-      "out_of_scope": "None."
+      "out_of_scope": "None.",
+      "fixture_policy": {
+        "postgres": "package_reset"
+      }
     },
     {
       "id": "I-1-02",
@@ -300,7 +315,10 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "A real socket on `/ws/v1/test/session-lifecycle` receives `session_revoked` and then closes after logout. The Phase 1 shared socket helpers now route through `internal/testutil/phase1test` and `internal/testutil/wstest`.",
-      "out_of_scope": "None."
+      "out_of_scope": "None.",
+      "fixture_policy": {
+        "postgres": "package_reset"
+      }
     },
     {
       "id": "I-1-03",
@@ -316,7 +334,10 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "User create applies defaults, stores Argon2id password hashes, persists safe `response_json`, replays the original committed resource even after later mutation, rejects divergent replay with `client_txn_conflict`, keeps one idempotency row, proves stale-version and last-admin guard behavior, and records secret-safe deployment-admin audit before/after payloads.",
-      "out_of_scope": "Unit-level handler orchestration for create and patch remains thinner than the integration evidence."
+      "out_of_scope": "Unit-level handler orchestration for create and patch remains thinner than the integration evidence.",
+      "fixture_policy": {
+        "postgres": "package_reset"
+      }
     },
     {
       "id": "I-1-04",
@@ -333,7 +354,10 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Credential-state transitions prove first enrollment, replacement enrollment, begin replay and divergent conflict, bootstrap-token consumption, password change revocation, Argon2id password-hash replacement, exact replay of password change before fresh invalid-current-password evaluation, secret-safe stored `route_idempotency.response_json`, and one-row replay stability.",
-      "out_of_scope": "None for the declared Phase 1 contract."
+      "out_of_scope": "None for the declared Phase 1 contract.",
+      "fixture_policy": {
+        "postgres": "package_reset"
+      }
     },
     {
       "id": "I-1-05",
@@ -350,7 +374,10 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Admin password reset, TOTP reset, and revoke-all revoke attached sockets, preserve deployment-local authorization boundaries, store only secret-safe replay payloads, reject divergent replay with `client_txn_conflict`, keep one idempotency row per committed request, return original committed replay payloads, prove password-reset replay after later user mutation, and prove persisted Argon2id password-hash replacement on admin reset.",
-      "out_of_scope": "None for the declared Phase 1 contract."
+      "out_of_scope": "None for the declared Phase 1 contract.",
+      "fixture_policy": {
+        "postgres": "package_reset"
+      }
     },
     {
       "id": "I-1-06",
@@ -362,7 +389,10 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Bootstrap tokens work only on `totp/begin` and `totp/complete`, are rejected on ordinary session, credential-state, incident, and test-auth routes, and are rejected on the real WebSocket boundary with `credential_bootstrap_rejected`.",
-      "out_of_scope": "None."
+      "out_of_scope": "None.",
+      "fixture_policy": {
+        "postgres": "package_reset"
+      }
     }
   ],
   "e2e": [

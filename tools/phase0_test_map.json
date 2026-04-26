@@ -40,7 +40,10 @@
       "package": "./internal/platform/objectstore",
       "file": "internal/platform/objectstore/objectstore_phase0_support_test.go",
       "symbol": "TestSupportPhase0_ManagedServiceObjectStoreBinding",
-      "selection_pattern": "TestSupportPhase0_"
+      "selection_pattern": "TestSupportPhase0_",
+      "fixture_policy": {
+        "postgres": "package_reset"
+      }
     }
   ],
   "unit": [
@@ -152,7 +155,10 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "postgres_integration",
       "claim": "Real PostgreSQL bootstrap creates the required extensions and base tables and reruns without schema drift or duplicate objects.",
-      "out_of_scope": "Migration-text style guards remain support-only."
+      "out_of_scope": "Migration-text style guards remain support-only.",
+      "fixture_policy": {
+        "postgres": "migration_scratch"
+      }
     },
     {
       "id": "I-0-02",
@@ -164,7 +170,10 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "object_store_integration",
       "claim": "Real S3-compatible object-store setup resolves disconnected `filesystem_root` bindings through the generic `CARTULARY_S3_*` contract and completes a live round trip.",
-      "out_of_scope": "Managed-service object-store binding coverage remains supplemental."
+      "out_of_scope": "Managed-service object-store binding coverage remains supplemental.",
+      "fixture_policy": {
+        "postgres": "package_reset"
+      }
     },
     {
       "id": "I-0-03",
@@ -176,7 +185,10 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "runtime_integration",
       "claim": "Config failures on real Postgres and MinIO prevent ready state and stop handler, WebSocket, and job startup even when backing services are healthy.",
-      "out_of_scope": "Real process exit behavior and connection refusal remain `E-0-02`."
+      "out_of_scope": "Real process exit behavior and connection refusal remain `E-0-02`.",
+      "fixture_policy": {
+        "postgres": "package_reset"
+      }
     },
     {
       "id": "I-0-04",
@@ -188,7 +200,10 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "bootstrap_integration",
       "claim": "Successful bootstrap commits exactly one active deployment admin, one bootstrap marker, one audit row, zero incident memberships, and a local-auth-only safe user shape before readiness; rollback leaves no partial state.",
-      "out_of_scope": "Real OS process-boundary readiness and diagnostics remain `E-0-03`."
+      "out_of_scope": "Real OS process-boundary readiness and diagnostics remain `E-0-03`.",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      }
     },
     {
       "id": "I-0-05",
@@ -200,7 +215,10 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "bootstrap_failure_integration",
       "claim": "Required bootstrap failures for missing, unreadable regular-file, non-regular, malformed, schema-invalid, and email-conflicting manifests block readiness and leave no partial bootstrap state.",
-      "out_of_scope": "Process-boundary refusal and exit diagnostics remain `E-0-04`."
+      "out_of_scope": "Process-boundary refusal and exit diagnostics remain `E-0-04`.",
+      "fixture_policy": {
+        "postgres": "package_reset"
+      }
     },
     {
       "id": "I-0-06",
@@ -212,7 +230,10 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "bootstrap_recovery_integration",
       "claim": "Existing active admins skip stale or invalid manifests, while bootstrap-completion with zero active admins fails closed without implicit recovery.",
-      "out_of_scope": "Real process-boundary refusal remains `E-0-05`."
+      "out_of_scope": "Real process-boundary refusal remains `E-0-05`.",
+      "fixture_policy": {
+        "postgres": "package_reset"
+      }
     }
   ],
   "e2e": [
@@ -226,7 +247,10 @@
       "execution_dependency": "backend_process",
       "evidence_layer": "process_e2e",
       "claim": "A fresh process reaches health and ready only after configuration validation, Postgres bootstrap, object-store reachability, and successful bootstrap preflight.",
-      "out_of_scope": "Browser-visible UI evidence is out of scope for Phase 0."
+      "out_of_scope": "Browser-visible UI evidence is out of scope for Phase 0.",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      }
     },
     {
       "id": "E-0-02",
@@ -238,7 +262,10 @@
       "execution_dependency": "backend_process",
       "evidence_layer": "process_e2e",
       "claim": "Invalid config exits non-zero, emits structured startup diagnostics, and exposes no HTTP readiness or WebSocket surface.",
-      "out_of_scope": "Bootstrap-manifest-specific failure variants remain `E-0-04`."
+      "out_of_scope": "Bootstrap-manifest-specific failure variants remain `E-0-04`.",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      }
     },
     {
       "id": "E-0-03",
@@ -250,7 +277,10 @@
       "execution_dependency": "backend_process",
       "evidence_layer": "process_e2e",
       "claim": "A real process requiring bootstrap becomes ready only after durable bootstrap success and leaves one deployment admin, one bootstrap marker, one audit row, and zero incident memberships.",
-      "out_of_scope": "Bootstrap failure matrix coverage belongs to `E-0-04` and `E-0-05`."
+      "out_of_scope": "Bootstrap failure matrix coverage belongs to `E-0-04` and `E-0-05`.",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      }
     },
     {
       "id": "E-0-04",
@@ -262,7 +292,10 @@
       "execution_dependency": "backend_process",
       "evidence_layer": "process_e2e",
       "claim": "Required bootstrap failures on the real process boundary block startup before HTTP, readiness, or WebSocket surfaces exist and emit canonical invalid-deployment diagnostics.",
-      "out_of_scope": "Unreadable regular-file manifest parity is a follow-on process-boundary improvement, not part of the current authoritative row."
+      "out_of_scope": "Unreadable regular-file manifest parity is a follow-on process-boundary improvement, not part of the current authoritative row.",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      }
     },
     {
       "id": "E-0-05",
@@ -274,7 +307,10 @@
       "execution_dependency": "backend_process",
       "evidence_layer": "process_e2e",
       "claim": "Stale or invalid manifests are ignored when an active deployment admin exists, while lost-admin recovery fails closed with `bootstrap_recovery_not_supported` and no exposed surface.",
-      "out_of_scope": "It does not prove every bootstrap failure reason at the process boundary; those remain `E-0-04`."
+      "out_of_scope": "It does not prove every bootstrap failure reason at the process boundary; those remain `E-0-04`.",
+      "fixture_policy": {
+        "postgres": "template_clone"
+      }
     }
   ]
 }

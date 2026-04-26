@@ -26,6 +26,7 @@ type StartConfig struct {
 	RetryBackoff     time.Duration
 	MaxAttempts      int
 	Preflight        func(context.Context) (string, error)
+	Retryable        func(error) bool
 	Sleep            func(context.Context, time.Duration) error
 }
 
@@ -157,6 +158,9 @@ func StartWithRetry[T any](ctx context.Context, config StartConfig, startup func
 		}
 
 		retryable := isTransientDockerStartupError(startErr)
+		if config.Retryable != nil && config.Retryable(startErr) {
+			retryable = true
+		}
 		if attempt >= maxAttempts || !retryable {
 			return zero, newStartFailure("start", service, image, endpoint, attempt, maxAttempts, retryable, startErr)
 		}
