@@ -17,26 +17,27 @@ const (
 )
 
 const (
-	EventWrapperOwnedStart    = "wrapper-owned-start"
-	EventWrapperPassThrough   = "wrapper-pass-through"
-	EventServiceStarted       = "service-started"
-	EventFailureRecorded      = "failure-recorded"
-	EventCleanupCompleted     = "cleanup-completed"
-	EventPostgresAttach       = "postgres-attach"
-	EventPostgresDBCreated    = "postgres-db-created"
-	EventPostgresDBDropped    = "postgres-db-dropped"
-	EventPostgresDBMigrated   = "postgres-db-migrated"
-	EventPostgresDBRetained   = "postgres-db-retained"
-	EventPostgresDBReset      = "postgres-db-reset"
-	EventPostgresTransaction  = "postgres-transaction"
-	EventPostgresTemplateUse  = "postgres-template-clone"
-	EventS3Attach             = "s3-attach"
-	EventS3BucketCreated      = "s3-bucket-created"
-	EventS3BucketCleaned      = "s3-bucket-cleaned"
-	EventS3PrefixCleaned      = "s3-prefix-cleaned"
-	EventTimingSpan           = "timing-span"
-	EventWebE2EFixtureRetired = "web-e2e-fixture-retired"
-	EventWebE2EFixtureCleaned = "web-e2e-fixture-cleaned"
+	EventWrapperOwnedStart      = "wrapper-owned-start"
+	EventWrapperPassThrough     = "wrapper-pass-through"
+	EventServiceStarted         = "service-started"
+	EventFailureRecorded        = "failure-recorded"
+	EventCleanupCompleted       = "cleanup-completed"
+	EventPostgresAttach         = "postgres-attach"
+	EventPostgresDBCreated      = "postgres-db-created"
+	EventPostgresDBDropped      = "postgres-db-dropped"
+	EventPostgresDBMigrated     = "postgres-db-migrated"
+	EventPostgresDBRetained     = "postgres-db-retained"
+	EventPostgresDBReset        = "postgres-db-reset"
+	EventPostgresTransaction    = "postgres-transaction"
+	EventPostgresTemplateUse    = "postgres-template-clone"
+	EventS3Attach               = "s3-attach"
+	EventS3BucketCreated        = "s3-bucket-created"
+	EventS3BucketCleaned        = "s3-bucket-cleaned"
+	EventS3PrefixCleaned        = "s3-prefix-cleaned"
+	EventTimingSpan             = "timing-span"
+	EventWebE2EFixtureRetired   = "web-e2e-fixture-retired"
+	EventWebE2EFixtureCleaned   = "web-e2e-fixture-cleaned"
+	EventWebE2EFixtureReclaimed = "web-e2e-fixture-reclaimed"
 )
 
 const (
@@ -145,18 +146,21 @@ type MinIOSummary struct {
 }
 
 type BrowserE2ESummary struct {
-	RetiredFixtureCount int                    `json:"retired_fixture_count"`
-	CleanedFixtureCount int                    `json:"cleaned_fixture_count"`
-	RetiredFixtures     []BrowserE2EFixtureRef `json:"retired_fixtures,omitempty"`
-	CleanedFixtures     []BrowserE2EFixtureRef `json:"cleaned_fixtures,omitempty"`
+	RetiredFixtureCount   int                    `json:"retired_fixture_count"`
+	CleanedFixtureCount   int                    `json:"cleaned_fixture_count"`
+	ReclaimedFixtureCount int                    `json:"reclaimed_fixture_count"`
+	RetiredFixtures       []BrowserE2EFixtureRef `json:"retired_fixtures,omitempty"`
+	CleanedFixtures       []BrowserE2EFixtureRef `json:"cleaned_fixtures,omitempty"`
+	ReclaimedFixtures     []BrowserE2EFixtureRef `json:"reclaimed_fixtures,omitempty"`
 }
 
 type BrowserE2EFixtureRef struct {
-	DatabaseName string `json:"database_name,omitempty"`
-	Bucket       string `json:"bucket,omitempty"`
-	Target       string `json:"target,omitempty"`
-	Timestamp    string `json:"timestamp,omitempty"`
-	PID          int    `json:"pid,omitempty"`
+	DatabaseName    string `json:"database_name,omitempty"`
+	Bucket          string `json:"bucket,omitempty"`
+	Target          string `json:"target,omitempty"`
+	ReclaimStrategy string `json:"reclaim_strategy,omitempty"`
+	Timestamp       string `json:"timestamp,omitempty"`
+	PID             int    `json:"pid,omitempty"`
 }
 
 type FixtureSummary struct {
@@ -274,6 +278,7 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 	databasePreparations := make(map[string]PostgresDatabasePreparation)
 	retiredWebE2EFixtures := make(map[string]BrowserE2EFixtureRef)
 	cleanedWebE2EFixtures := make(map[string]BrowserE2EFixtureRef)
+	reclaimedWebE2EFixtures := make(map[string]BrowserE2EFixtureRef)
 	packageFixtures := make(map[string]FixtureActivity)
 	testFixtures := make(map[string]FixtureActivity)
 	strategyFixtures := make(map[string]FixtureActivity)
@@ -381,6 +386,9 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 		case EventWebE2EFixtureCleaned:
 			scope.BrowserE2E.CleanedFixtureCount++
 			upsertWebE2EFixture(cleanedWebE2EFixtures, event)
+		case EventWebE2EFixtureReclaimed:
+			scope.BrowserE2E.ReclaimedFixtureCount++
+			upsertWebE2EFixture(reclaimedWebE2EFixtures, event)
 		}
 	}
 
@@ -390,6 +398,7 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 	scope.MinIO.CleanedBuckets = sortedKeys(cleanedBuckets)
 	scope.BrowserE2E.RetiredFixtures = sortedWebE2EFixtures(retiredWebE2EFixtures)
 	scope.BrowserE2E.CleanedFixtures = sortedWebE2EFixtures(cleanedWebE2EFixtures)
+	scope.BrowserE2E.ReclaimedFixtures = sortedWebE2EFixtures(reclaimedWebE2EFixtures)
 	scope.StartedNames.Names = sortedKeys(startedServices)
 	scope.Fixture.ByPackage = sortedFixtureActivities(packageFixtures)
 	scope.Fixture.ByTest = sortedFixtureActivities(testFixtures)
@@ -642,11 +651,12 @@ func sortedPostgresPreparations(preparations map[string]PostgresDatabasePreparat
 
 func upsertWebE2EFixture(fixtures map[string]BrowserE2EFixtureRef, event Event) {
 	fixture := BrowserE2EFixtureRef{
-		DatabaseName: stringDetail(event.Details, "database_name"),
-		Bucket:       stringDetail(event.Details, "bucket"),
-		Target:       stringDetail(event.Details, "target"),
-		Timestamp:    event.Timestamp,
-		PID:          event.PID,
+		DatabaseName:    stringDetail(event.Details, "database_name"),
+		Bucket:          stringDetail(event.Details, "bucket"),
+		Target:          stringDetail(event.Details, "target"),
+		ReclaimStrategy: stringDetail(event.Details, "reclaim_strategy"),
+		Timestamp:       event.Timestamp,
+		PID:             event.PID,
 	}
 	key := fixtureKey(fixture.DatabaseName, fixture.Bucket, fixture.Target)
 	if key == "" {

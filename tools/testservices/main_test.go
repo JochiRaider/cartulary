@@ -648,11 +648,6 @@ func TestCleanupWebE2ERetiresFixtureWithoutImmediateCleanup(t *testing.T) {
 	activeEnv[suiteservices.SuiteIDEnv] = "suite-web-e2e-cleanup"
 	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
 
-	deps.cleanupWebE2E = func(ctx context.Context, metadata webE2EMetadata, env map[string]string) error {
-		t.Fatal("cleanup-web-e2e must retire active suite fixtures without immediate destructive cleanup")
-		return nil
-	}
-
 	status := run([]string{"cleanup-web-e2e", "--metadata-file", metadataFile}, activeEnv, deps.dependencies)
 	if status != 0 {
 		t.Fatalf("unexpected cleanup status: got %d want 0", status)
@@ -674,7 +669,7 @@ func TestCleanupWebE2ERetiresFixtureWithoutImmediateCleanup(t *testing.T) {
 	requireTimingEvent(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services retire browser e2e fixture")
 }
 
-func TestCleanupOwnedServicesCleansRetiredWebE2EFixturesOnce(t *testing.T) {
+func TestCleanupOwnedServicesReclaimsRetiredWebE2EFixturesOnce(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	activeEnv := cloneEnv(deps.env)
 	activeEnv[suiteservices.ActiveEnv] = "1"
@@ -685,20 +680,26 @@ func TestCleanupOwnedServicesCleansRetiredWebE2EFixturesOnce(t *testing.T) {
 	}
 
 	var (
-		mu       sync.Mutex
-		cleaned  []webE2EMetadata
 		closedPG bool
 		closedS3 bool
 	)
-	deps.cleanupWebE2E = func(ctx context.Context, metadata webE2EMetadata, env map[string]string) error {
-		mu.Lock()
-		defer mu.Unlock()
-		cleaned = append(cleaned, metadata)
+	deps.cleanupWebE2EDB = func(context.Context, webE2EMetadata, map[string]string) error {
+		t.Fatal("owned-stack teardown must not destructively drop browser fixture databases")
+		return nil
+	}
+	deps.cleanupWebE2EBucket = func(context.Context, webE2EMetadata, map[string]string) error {
+		t.Fatal("owned-stack teardown must not destructively clean browser fixture buckets")
+		return nil
+	}
+	deps.detectWebE2ELeaks = func(ctx context.Context, fixtures []webE2EMetadata, env map[string]string) error {
+		if len(fixtures) != 1 || fixtures[0].DatabaseName != "ct_web" || fixtures[0].Bucket != "ct-web" {
+			t.Fatalf("expected one deduplicated leak-check fixture, got %#v", fixtures)
+		}
 		if env[suiteservices.PGAdminDSNEnv] != "postgres://suite/postgres" {
-			t.Fatalf("cleanup missing postgres admin dsn: %#v", env)
+			t.Fatalf("leak check missing postgres admin dsn: %#v", env)
 		}
 		if env[suiteservices.S3EndpointEnv] != "127.0.0.1:9000" {
-			t.Fatalf("cleanup missing minio endpoint: %#v", env)
+			t.Fatalf("leak check missing minio endpoint: %#v", env)
 		}
 		return nil
 	}
@@ -726,23 +727,28 @@ func TestCleanupOwnedServicesCleansRetiredWebE2EFixturesOnce(t *testing.T) {
 		0,
 	)
 
-	if len(cleaned) != 1 || cleaned[0].DatabaseName != "ct_web" || cleaned[0].Bucket != "ct-web" {
-		t.Fatalf("expected one deduplicated cleanup, got %#v", cleaned)
-	}
 	if !closedPG || !closedS3 {
-		t.Fatalf("expected suite services to close after browser fixture cleanup, postgres=%t minio=%t", closedPG, closedS3)
+		t.Fatalf("expected suite services to close after browser fixture reclamation, postgres=%t minio=%t", closedPG, closedS3)
 	}
 	scope, ok, err := suiteservices.Summarize(activeEnv)
 	if err != nil {
-		t.Fatalf("summarize cleaned browser fixture: %v", err)
+		t.Fatalf("summarize reclaimed browser fixture: %v", err)
 	}
 	if !ok {
 		t.Fatal("expected suite summary")
 	}
-	if scope.BrowserE2E.CleanedFixtureCount != 1 || len(scope.BrowserE2E.CleanedFixtures) != 1 {
-		t.Fatalf("expected one cleaned browser fixture, got %#v", scope.BrowserE2E)
+	if scope.BrowserE2E.CleanedFixtureCount != 0 || len(scope.BrowserE2E.CleanedFixtures) != 0 {
+		t.Fatalf("owned-stack teardown must not record destructive cleanup, got %#v", scope.BrowserE2E)
 	}
-	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services cleanup pooled browser fixtures", "pass")
+	if scope.BrowserE2E.ReclaimedFixtureCount != 1 || len(scope.BrowserE2E.ReclaimedFixtures) != 1 {
+		t.Fatalf("expected one reclaimed browser fixture, got %#v", scope.BrowserE2E)
+	}
+	reclaimed := scope.BrowserE2E.ReclaimedFixtures[0]
+	if reclaimed.ReclaimStrategy != webE2EReclaimStrategyOwnedStack {
+		t.Fatalf("expected owned-stack reclaim strategy, got %#v", reclaimed)
+	}
+	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services check browser e2e fixture leaks", "pass")
+	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services reclaim pooled browser fixtures by owned stack", "pass")
 	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services janitor stale browser fixtures", "pass")
 	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services terminate postgres", "pass")
 	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services terminate minio", "pass")
@@ -831,11 +837,17 @@ func TestStaleWebE2EJanitorBoundsAndFiltersGeneratedFixtures(t *testing.T) {
 	activeEnv[suiteservices.SuiteIDEnv] = "suite-active-browser-fixtures"
 	activeEnv[suiteservices.TargetEnv] = "check-service-backed"
 
-	var cleaned []webE2EMetadata
-	deps.cleanupWebE2E = func(_ context.Context, metadata webE2EMetadata, _ map[string]string) error {
+	var (
+		cleanedMu sync.Mutex
+		cleaned   []webE2EMetadata
+	)
+	deps.cleanupWebE2EDB = func(_ context.Context, metadata webE2EMetadata, _ map[string]string) error {
+		cleanedMu.Lock()
+		defer cleanedMu.Unlock()
 		cleaned = append(cleaned, metadata)
 		return nil
 	}
+	deps.cleanupWebE2EBucket = func(context.Context, webE2EMetadata, map[string]string) error { return nil }
 
 	if err := cleanupStaleWebE2EFixtures(context.Background(), deps.dependencies, activeEnv); err != nil {
 		t.Fatalf("cleanup stale browser fixtures: %v", err)
@@ -848,9 +860,12 @@ func TestStaleWebE2EJanitorBoundsAndFiltersGeneratedFixtures(t *testing.T) {
 			t.Fatalf("janitor cleaned non-generated fixture: %#v", fixture)
 		}
 	}
+	events := loadTestEventsForEnv(t, activeEnv)
+	requireTimingEventStatus(t, events, bucketTeardown, "test-services cleanup browser e2e fixture database", "pass")
+	requireTimingEventStatus(t, events, bucketTeardown, "test-services cleanup browser e2e fixture bucket", "pass")
 }
 
-func TestCleanupOwnedServicesRecordsFailedPooledWebE2ECleanup(t *testing.T) {
+func TestCleanupOwnedServicesFailsFastOnBrowserFixtureLeak(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	activeEnv := cloneEnv(deps.env)
 	activeEnv[suiteservices.ActiveEnv] = "1"
@@ -858,8 +873,16 @@ func TestCleanupOwnedServicesRecordsFailedPooledWebE2ECleanup(t *testing.T) {
 	activeEnv[suiteservices.TargetEnv] = "browser-e2e-webserver-backed"
 	recordWebE2EFixtureEvent(deps.dependencies, activeEnv, suiteservices.EventWebE2EFixtureRetired, webE2EMetadata{DatabaseName: "ct_web", Bucket: "ct-web"})
 
-	deps.cleanupWebE2E = func(context.Context, webE2EMetadata, map[string]string) error {
-		return errors.New("cleanup failed")
+	deps.detectWebE2ELeaks = func(context.Context, []webE2EMetadata, map[string]string) error {
+		return errors.New("browser e2e fixture database \"ct_web\" has 1 active postgres connection")
+	}
+	deps.cleanupWebE2EDB = func(context.Context, webE2EMetadata, map[string]string) error {
+		t.Fatal("leaked owned-stack fixtures must not fall through to destructive db cleanup")
+		return nil
+	}
+	deps.cleanupWebE2EBucket = func(context.Context, webE2EMetadata, map[string]string) error {
+		t.Fatal("leaked owned-stack fixtures must not fall through to destructive bucket cleanup")
+		return nil
 	}
 
 	cleanupOwnedServices(deps.dependencies, activeEnv, postgresService{}, minioService{}, "succeeded", 0)
@@ -874,7 +897,10 @@ func TestCleanupOwnedServicesRecordsFailedPooledWebE2ECleanup(t *testing.T) {
 	if scope.Cleanup.Status != "cleanup_failed" {
 		t.Fatalf("expected cleanup_failed status, got %#v", scope.Cleanup)
 	}
-	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services cleanup pooled browser fixtures", "fail")
+	if scope.BrowserE2E.ReclaimedFixtureCount != 0 {
+		t.Fatalf("leaked fixture must not be reclaimed, got %#v", scope.BrowserE2E)
+	}
+	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services check browser e2e fixture leaks", "fail")
 }
 
 func TestPrepareWebE2ECleansFixtureWhenEnvWriteFails(t *testing.T) {
@@ -892,11 +918,19 @@ func TestPrepareWebE2ECleansFixtureWhenEnvWriteFails(t *testing.T) {
 			Bucket:       "ct-web",
 		}, nil
 	}
-	cleanupCalls := 0
-	deps.cleanupWebE2E = func(ctx context.Context, metadata webE2EMetadata, env map[string]string) error {
-		cleanupCalls++
+	cleanupDBCalls := 0
+	cleanupBucketCalls := 0
+	deps.cleanupWebE2EDB = func(ctx context.Context, metadata webE2EMetadata, env map[string]string) error {
+		cleanupDBCalls++
 		if metadata.DatabaseName != "ct_web" || metadata.Bucket != "ct-web" {
-			t.Fatalf("cleanup received unexpected metadata: %#v", metadata)
+			t.Fatalf("database cleanup received unexpected metadata: %#v", metadata)
+		}
+		return nil
+	}
+	deps.cleanupWebE2EBucket = func(ctx context.Context, metadata webE2EMetadata, env map[string]string) error {
+		cleanupBucketCalls++
+		if metadata.DatabaseName != "ct_web" || metadata.Bucket != "ct-web" {
+			t.Fatalf("bucket cleanup received unexpected metadata: %#v", metadata)
 		}
 		return nil
 	}
@@ -905,8 +939,8 @@ func TestPrepareWebE2ECleansFixtureWhenEnvWriteFails(t *testing.T) {
 	if status != 1 {
 		t.Fatalf("env write failure must return status 1, got %d", status)
 	}
-	if cleanupCalls != 1 {
-		t.Fatalf("expected cleanup after env write failure, got %d calls", cleanupCalls)
+	if cleanupDBCalls != 1 || cleanupBucketCalls != 1 {
+		t.Fatalf("expected database and bucket cleanup after env write failure, got db=%d bucket=%d", cleanupDBCalls, cleanupBucketCalls)
 	}
 }
 
@@ -936,9 +970,11 @@ func defaultTestDependencies(t testing.TB) testDeps {
 			startChild: func(argv []string, env map[string]string) (childProcess, error) {
 				return fakeChild{}, nil
 			},
-			createTemplate: func(context.Context, string, string) error { return nil },
-			prepareWebE2E:  func(context.Context, map[string]string) (webE2EFixture, error) { return webE2EFixture{}, nil },
-			cleanupWebE2E:  func(context.Context, webE2EMetadata, map[string]string) error { return nil },
+			createTemplate:      func(context.Context, string, string) error { return nil },
+			prepareWebE2E:       func(context.Context, map[string]string) (webE2EFixture, error) { return webE2EFixture{}, nil },
+			cleanupWebE2EDB:     func(context.Context, webE2EMetadata, map[string]string) error { return nil },
+			cleanupWebE2EBucket: func(context.Context, webE2EMetadata, map[string]string) error { return nil },
+			detectWebE2ELeaks:   func(context.Context, []webE2EMetadata, map[string]string) error { return nil },
 			recordEvent: func(env map[string]string, event suiteservices.Event) {
 				_ = suiteservices.RecordEvent(env, event)
 			},

@@ -244,6 +244,17 @@ func TestSummarizeReportsBrowserE2EFixtureLifecycle(t *testing.T) {
 				"target":        "browser-e2e-webserver-backed",
 			},
 		},
+		{
+			Type:      EventWebE2EFixtureReclaimed,
+			Timestamp: "2026-04-25T12:00:03Z",
+			PID:       104,
+			Details: map[string]any{
+				"database_name":    "ct_web",
+				"bucket":           "ct-web",
+				"target":           "browser-e2e-webserver-backed",
+				"reclaim_strategy": "owned_stack_termination",
+			},
+		},
 	}
 
 	for _, event := range events {
@@ -264,6 +275,12 @@ func TestSummarizeReportsBrowserE2EFixtureLifecycle(t *testing.T) {
 	}
 	if scope.BrowserE2E.CleanedFixtureCount != 1 || len(scope.BrowserE2E.CleanedFixtures) != 1 {
 		t.Fatalf("expected cleaned browser fixture summary, got %#v", scope.BrowserE2E)
+	}
+	if scope.BrowserE2E.ReclaimedFixtureCount != 1 || len(scope.BrowserE2E.ReclaimedFixtures) != 1 {
+		t.Fatalf("expected reclaimed browser fixture summary, got %#v", scope.BrowserE2E)
+	}
+	if scope.BrowserE2E.ReclaimedFixtures[0].ReclaimStrategy != "owned_stack_termination" {
+		t.Fatalf("expected reclaim strategy in browser fixture summary, got %#v", scope.BrowserE2E.ReclaimedFixtures[0])
 	}
 	if scope.BrowserE2E.RetiredFixtures[0].Timestamp != "2026-04-25T12:00:01Z" {
 		t.Fatalf("expected latest retired fixture event to win, got %#v", scope.BrowserE2E.RetiredFixtures[0])
