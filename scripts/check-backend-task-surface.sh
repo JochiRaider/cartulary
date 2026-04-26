@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 makefile="$repo_root/Makefile"
 go_runner_script="$repo_root/scripts/run-go-target.sh"
+schedule_manifest="$repo_root/tools/service_backed_schedule_manifest.json"
 node_bin="${NODE_BIN:-node}"
 
 fail() {
@@ -139,6 +140,31 @@ for (const row of rows) {
 const values = Array.from(targets).sort();
 if (values.length > 0) {
   process.stdout.write(`${values.join("\n")}\n`);
+}
+EOF
+}
+
+schedule_targets() {
+  local schedule_target="$1"
+  local kind="${2:-}"
+
+  "$node_bin" - "$schedule_manifest" "$schedule_target" "$kind" <<'EOF'
+const fs = require("node:fs");
+
+const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v1") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v1");
+}
+const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
+if (schedules.length !== 1) {
+  throw new Error(`expected exactly one schedule for ${scheduleTarget}, found ${schedules.length}`);
+}
+const targets = schedules[0].children
+  .filter((entry) => kind === "" || entry.kind === kind)
+  .map((entry) => entry.target);
+if (targets.length > 0) {
+  process.stdout.write(`${targets.join("\n")}\n`);
 }
 EOF
 }
@@ -562,48 +588,29 @@ if [[ -z "$check_service_block" ]]; then
   fail "Makefile must define a non-empty check-service-backed block"
 fi
 if ! printf '%s\n' "$check_service_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
-  fail "check-service-backed must wrap the shared service-backed lane block through $(TEST_SERVICES_BIN)"
+  fail "check-service-backed must wrap the shared service-backed scheduler through $(TEST_SERVICES_BIN)"
 fi
 if ! printf '%s\n' "$check_service_block" | grep -Fq '$(RUN_PHASE)'; then
   fail "check-service-backed must report the shared service wrapper through RUN_PHASE"
 fi
-if ! printf '%s\n' "$check_service_block" | grep -Fq 'target-summary check-service-backed pass --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)"'; then
-  fail "check-service-backed must emit its success target summary"
+if ! printf '%s\n' "$check_service_block" | grep -Fq '$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target check-service-backed --jobs $(SERVICE_BACKED_JOBS)'; then
+  fail "check-service-backed must delegate to the service-backed scheduler with SERVICE_BACKED_JOBS"
 fi
-if ! printf '%s\n' "$check_service_block" | grep -Fq 'target-summary check-service-backed fail --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)"'; then
-  fail "check-service-backed must emit its failure target summary"
+if ! printf '%s\n' "$check_service_block" | grep -Fq -- '--manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"'; then
+  fail "check-service-backed must pass the service-backed schedule manifest"
 fi
-
-for lane in check-service-backed-lane-a check-service-backed-lane-b; do
-  if ! printf '%s\n' "$check_service_block" | grep -Fq "$lane"; then
-    fail "check-service-backed must invoke $lane"
-  fi
-done
+if printf '%s\n' "$check_service_block" | rg -q 'check-service-backed-lane-[ab]'; then
+  fail "check-service-backed must not invoke fixed service-backed lane targets"
+fi
 
 if printf '%s\n' "$check_service_block" | rg -q '(^|[[:space:]])(backend-process-support|phase2-process-smoke)($|[[:space:]])'; then
   fail "check-service-backed must not invoke Phase 2 process smoke coverage"
 fi
 
-check_service_lane_a_block="$(extract_target_block check-service-backed-lane-a)"
-for target in backend-integration backend-integration-support; do
-  if ! printf '%s\n' "$check_service_lane_a_block" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
-    fail "check-service-backed-lane-a must invoke $target"
-  fi
-done
-
-check_service_lane_b_prereqs="$(extract_target_prereqs check-service-backed-lane-b)"
-check_service_lane_b_block="$(extract_target_block check-service-backed-lane-b)"
-check_service_backend_lane_text="${check_service_lane_a_block}"$'\n'"${check_service_lane_b_prereqs}"$'\n'"${check_service_lane_b_block}"
-assert_text_contains_targets "check-service-backed lanes" "$check_service_backend_lane_text" "${target_plan_service_backed_safe_targets[@]}"
-assert_text_excludes_targets "check-service-backed lanes" "$check_service_backend_lane_text" "${target_plan_check_heavy_targets[@]}" "${target_plan_service_backed_unsafe_targets[@]}"
-for target in backend-store backend-process; do
-  if ! printf '%s\n' "$check_service_lane_b_prereqs" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
-    fail "check-service-backed-lane-b must invoke $target"
-  fi
-done
-if printf '%s\n' "${check_service_lane_b_prereqs} ${check_service_lane_b_block}" | rg -q '(^|[[:space:]])phase2-process-smoke($|[[:space:]])'; then
-  fail "check-service-backed-lane-b must not invoke Phase 2 process smoke coverage"
-fi
+mapfile -t check_service_backend_schedule_targets < <(schedule_targets check-service-backed backend)
+check_service_backend_schedule_text="$(printf '%s\n' "${check_service_backend_schedule_targets[@]}")"
+assert_text_contains_targets "check-service-backed schedule" "$check_service_backend_schedule_text" "${target_plan_service_backed_safe_targets[@]}"
+assert_text_excludes_targets "check-service-backed schedule" "$check_service_backend_schedule_text" "${target_plan_check_heavy_targets[@]}" "${target_plan_service_backed_unsafe_targets[@]}"
 
 backend_integration_support_block="$(extract_target_block backend-integration-support)"
 if ! printf '%s\n' "$backend_integration_support_block" | grep -Fq 'run-go-target.sh backend-integration-support'; then
@@ -644,43 +651,22 @@ if [[ -z "$test_fast_service_block" ]]; then
   fail "Makefile must define a non-empty test-fast-service-backed block"
 fi
 if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
-  fail "test-fast-service-backed must wrap the shared service-backed lane block through $(TEST_SERVICES_BIN)"
+  fail "test-fast-service-backed must wrap the shared service-backed scheduler through $(TEST_SERVICES_BIN)"
 fi
 if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(RUN_PHASE)'; then
   fail "test-fast-service-backed must report the shared service wrapper through RUN_PHASE"
 fi
-if ! printf '%s\n' "$test_fast_service_block" | grep -Fq 'target-summary test-fast-service-backed pass --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)"'; then
-  fail "test-fast-service-backed must emit its success target summary"
+if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-fast-service-backed --jobs $(SERVICE_BACKED_JOBS)'; then
+  fail "test-fast-service-backed must delegate to the service-backed scheduler with SERVICE_BACKED_JOBS"
 fi
-if ! printf '%s\n' "$test_fast_service_block" | grep -Fq 'target-summary test-fast-service-backed fail --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)"'; then
-  fail "test-fast-service-backed must emit its failure target summary"
+if ! printf '%s\n' "$test_fast_service_block" | grep -Fq -- '--manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"'; then
+  fail "test-fast-service-backed must pass the service-backed schedule manifest"
 fi
-for lane in test-fast-service-backed-lane-a test-fast-service-backed-lane-b; do
-  if ! printf '%s\n' "$test_fast_service_block" | grep -Fq "$lane"; then
-    fail "test-fast-service-backed must invoke $lane"
-  fi
-done
-if printf '%s\n' "$test_fast_service_block" | rg -q '(^|[[:space:]])(backend-process-support|phase2-process-smoke)($|[[:space:]])'; then
-  fail "test-fast-service-backed must not invoke Phase 2 process smoke coverage"
+if printf '%s\n' "$test_fast_service_block" | rg -q 'test-fast-service-backed-lane-[ab]|(^|[[:space:]])(backend-process-support|phase2-process-smoke)($|[[:space:]])'; then
+  fail "test-fast-service-backed must not invoke fixed lanes or Phase 2 process smoke coverage"
 fi
 
-test_fast_lane_a_block="$(extract_target_block test-fast-service-backed-lane-a)"
-for target in backend-integration backend-integration-support; do
-  if ! printf '%s\n' "$test_fast_lane_a_block" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
-    fail "test-fast-service-backed-lane-a must invoke $target"
-  fi
-done
-
-test_fast_lane_b_prereqs="$(extract_target_prereqs test-fast-service-backed-lane-b)"
-test_fast_lane_b_block="$(extract_target_block test-fast-service-backed-lane-b)"
-test_fast_backend_lane_text="${test_fast_lane_a_block}"$'\n'"${test_fast_lane_b_prereqs}"$'\n'"${test_fast_lane_b_block}"
-assert_text_contains_targets "test-fast-service-backed lanes" "$test_fast_backend_lane_text" "${target_plan_service_backed_safe_targets[@]}"
-assert_text_excludes_targets "test-fast-service-backed lanes" "$test_fast_backend_lane_text" "${target_plan_check_heavy_targets[@]}" "${target_plan_service_backed_unsafe_targets[@]}"
-for target in backend-store backend-process; do
-  if ! printf '%s\n' "$test_fast_lane_b_prereqs" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
-    fail "test-fast-service-backed-lane-b must invoke $target"
-  fi
-done
-if printf '%s\n' "${test_fast_lane_b_prereqs} ${test_fast_lane_b_block}" | rg -q '(^|[[:space:]])phase2-process-smoke($|[[:space:]])'; then
-  fail "test-fast-service-backed-lane-b must not invoke Phase 2 process smoke coverage"
-fi
+mapfile -t test_fast_backend_schedule_targets < <(schedule_targets test-fast-service-backed backend)
+test_fast_backend_schedule_text="$(printf '%s\n' "${test_fast_backend_schedule_targets[@]}")"
+assert_text_contains_targets "test-fast-service-backed schedule" "$test_fast_backend_schedule_text" "${target_plan_service_backed_safe_targets[@]}"
+assert_text_excludes_targets "test-fast-service-backed schedule" "$test_fast_backend_schedule_text" "${target_plan_check_heavy_targets[@]}" "${target_plan_service_backed_unsafe_targets[@]}"

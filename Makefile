@@ -6,10 +6,10 @@ SHELL := /bin/bash
 .PHONY: db-up db-reset services-up services-wait postgres-wait minio-wait minio-init dev
 .PHONY: generate generate-drift toolchain-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-ledgers phase-ledger-drift benchmark-claim-check task-surface-report task-surface-check
 .PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check test-service-images run-phase-smoke run-phase-smoke-all phase-test-name-check
-.PHONY: harness-smoke-toolchain-pins harness-smoke-bootstrap-node-runtime harness-smoke-build-input-discovery harness-smoke-run-make-sequence harness-smoke-release-task-surface harness-smoke-benchmark-claim-check harness-smoke-task-surface-report harness-smoke-run-phase harness-smoke-run-go-target harness-smoke-print-target-plan harness-smoke-run-playwright-phase harness-smoke-run-playwright-manifest-phase harness-smoke-run-playwright-webserver-batch harness-smoke-run-vitest-phase harness-smoke-run-vitest-manifest-phase harness-smoke-web-e2e-lifecycle harness-smoke-dev-stack-lifecycle
+.PHONY: harness-smoke-toolchain-pins harness-smoke-bootstrap-node-runtime harness-smoke-build-input-discovery harness-smoke-run-make-sequence harness-smoke-release-task-surface harness-smoke-benchmark-claim-check harness-smoke-task-surface-report harness-smoke-run-phase harness-smoke-run-go-target harness-smoke-print-target-plan harness-smoke-service-backed-scheduler harness-smoke-run-playwright-phase harness-smoke-run-playwright-manifest-phase harness-smoke-run-playwright-webserver-batch harness-smoke-run-vitest-phase harness-smoke-run-vitest-manifest-phase harness-smoke-web-e2e-lifecycle harness-smoke-dev-stack-lifecycle
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck format format-frontend
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-resettable browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
-.PHONY: test-local test-service-backed test-service-backed-lane-a test-service-backed-lane-b test-service-backed-lane-browser test-isolated test-fast test-fast-service-backed test-fast-service-backed-lane-a test-fast-service-backed-lane-b test lint lint-go check check-preflight check-setup-blockers check-static-validation check-harness-smoke check-parallel check-heavy check-service-backed check-service-backed-lane-a check-service-backed-lane-b check-isolated ci release-check license-report sbom
+.PHONY: test-local test-service-backed test-isolated test-fast test-fast-service-backed test lint lint-go check check-preflight check-setup-blockers check-static-validation check-harness-smoke check-parallel check-heavy check-service-backed check-isolated ci release-check license-report sbom
 .PHONY: build build-server build-migrate build-web
 .PHONY: clean distclean
 
@@ -43,6 +43,7 @@ TOOLBIN_DIR ?= $(CURDIR)/tmp/toolbin
 SQLC_BIN ?= $(TOOLBIN_DIR)/sqlc-v1.30.0
 GOOSE_BIN ?= $(TOOLBIN_DIR)/goose-v3.27.0
 TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
+SERVICE_BACKED_SCHEDULE_MANIFEST ?= $(CURDIR)/tools/service_backed_schedule_manifest.json
 MINIO_BUCKET ?= cartulary
 FRONTEND_INSTALL_STAMP ?= $(CURDIR)/tmp/frontend-install/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
 PLAYWRIGHT_INSTALL_STAMP ?= $(CURDIR)/tmp/playwright/chromium.stamp
@@ -63,6 +64,7 @@ RUN_VITEST_MANIFEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-vitest-manifest-ph
 RUN_FRONTEND_BIOME_SCRIPT := $(CURDIR)/scripts/run-frontend-biome.sh
 TEST_OUTPUT_SCRIPT := $(CURDIR)/scripts/lib/test-output.sh
 RUN_MAKE_SEQUENCE_SCRIPT := $(CURDIR)/scripts/run-make-sequence.sh
+RUN_SERVICE_BACKED_SCHEDULE_SCRIPT := $(CURDIR)/scripts/run-service-backed-schedule.mjs
 BUILD_INPUTS_SCRIPT := $(CURDIR)/scripts/list-build-inputs.sh
 DEV_SERVICES_SCRIPT := $(CURDIR)/scripts/dev-services.sh
 RUN_PHASE = $(Q)$(RUN_PHASE_SCRIPT)
@@ -81,7 +83,7 @@ CHECK_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integ
 TEST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed
 TEST_FAST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process
 CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed
-HARNESS_SMOKE_CORE_TARGETS := harness-smoke-toolchain-pins,harness-smoke-bootstrap-node-runtime,harness-smoke-build-input-discovery,harness-smoke-run-make-sequence,harness-smoke-release-task-surface,harness-smoke-benchmark-claim-check,harness-smoke-task-surface-report,harness-smoke-run-phase,harness-smoke-run-go-target,harness-smoke-print-target-plan,harness-smoke-run-playwright-phase,harness-smoke-run-playwright-manifest-phase,harness-smoke-run-playwright-webserver-batch,harness-smoke-run-vitest-phase,harness-smoke-run-vitest-manifest-phase
+HARNESS_SMOKE_CORE_TARGETS := harness-smoke-toolchain-pins,harness-smoke-bootstrap-node-runtime,harness-smoke-build-input-discovery,harness-smoke-run-make-sequence,harness-smoke-release-task-surface,harness-smoke-benchmark-claim-check,harness-smoke-task-surface-report,harness-smoke-run-phase,harness-smoke-run-go-target,harness-smoke-print-target-plan,harness-smoke-service-backed-scheduler,harness-smoke-run-playwright-phase,harness-smoke-run-playwright-manifest-phase,harness-smoke-run-playwright-webserver-batch,harness-smoke-run-vitest-phase,harness-smoke-run-vitest-manifest-phase
 HARNESS_SMOKE_LIFECYCLE_TARGETS := harness-smoke-web-e2e-lifecycle,harness-smoke-dev-stack-lifecycle
 HARNESS_SMOKE_TARGETS := $(HARNESS_SMOKE_CORE_TARGETS),$(HARNESS_SMOKE_LIFECYCLE_TARGETS)
 HARNESS_SMOKE_GROUPS := core=$(HARNESS_SMOKE_CORE_TARGETS);lifecycle=$(HARNESS_SMOKE_LIFECYCLE_TARGETS)
@@ -479,6 +481,7 @@ $(eval $(call harness_smoke_target,harness-smoke-task-surface-report,scripts/tes
 $(eval $(call harness_smoke_target,harness-smoke-run-phase,scripts/test-run-phase.sh))
 $(eval $(call harness_smoke_target,harness-smoke-run-go-target,scripts/test-run-go-target.sh))
 $(eval $(call harness_smoke_target,harness-smoke-print-target-plan,scripts/test-print-target-plan.sh))
+$(eval $(call harness_smoke_target,harness-smoke-service-backed-scheduler,scripts/test-service-backed-scheduler.sh))
 $(eval $(call harness_smoke_target,harness-smoke-run-playwright-phase,scripts/test-run-playwright-phase.sh))
 $(eval $(call harness_smoke_target,harness-smoke-run-playwright-manifest-phase,scripts/test-run-playwright-manifest-phase.sh))
 $(eval $(call harness_smoke_target,harness-smoke-run-playwright-webserver-batch,scripts/test-run-playwright-webserver-batch.sh))
@@ -519,50 +522,12 @@ test-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
 test-fast-service-backed: export CARTULARY_TEST_TARGET := test-fast-service-backed
 
 test-fast-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
-	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-start test-fast-service-backed --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)" --service-backed 1
-	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) step-start test-fast-service-backed 1 2 test-fast-service-backed-lane-a --mode parallel --jobs $(SERVICE_BACKED_JOBS)
-	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) step-start test-fast-service-backed 2 2 test-fast-service-backed-lane-b --mode parallel --jobs $(SERVICE_BACKED_JOBS)
-	$(RUN_PHASE) "test-fast service-backed" -- $(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) test-fast-service-backed-lane-a test-fast-service-backed-lane-b; status=$$?; \
-	summary_status=0; \
-	if [ $$status -eq 0 ]; then \
-		NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary test-fast-service-backed pass --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)" || summary_status=$$?; \
-	else \
-		NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary test-fast-service-backed fail --children "$(TEST_FAST_SERVICE_BACKED_CHILD_TARGETS)" || summary_status=$$?; \
-	fi; \
-	if [ $$status -ne 0 ]; then exit $$status; fi; \
-	exit $$summary_status
-
-test-fast-service-backed-lane-a:
-	$(Q)$(MAKE) --no-print-directory backend-integration
-	$(Q)$(MAKE) --no-print-directory backend-integration-support
-
-test-fast-service-backed-lane-b: backend-store backend-process
+	$(RUN_PHASE) "test-fast service-backed" -- $(TEST_SERVICES_BIN) run -- env MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(NODE_BIN) $(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-fast-service-backed --jobs $(SERVICE_BACKED_JOBS) --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"
 
 test-service-backed: export CARTULARY_TEST_TARGET := test-service-backed
 
 test-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
-	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-start test-service-backed --children "$(TEST_SERVICE_BACKED_CHILD_TARGETS)" --service-backed 1
-	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) step-start test-service-backed 1 3 test-service-backed-lane-a --mode parallel --jobs $(TEST_SERVICE_BACKED_JOBS)
-	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) step-start test-service-backed 2 3 test-service-backed-lane-b --mode parallel --jobs $(TEST_SERVICE_BACKED_JOBS)
-	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) step-start test-service-backed 3 3 test-service-backed-lane-browser --mode parallel --jobs $(TEST_SERVICE_BACKED_JOBS)
-	$(RUN_PHASE) "test service-backed" -- $(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(TEST_SERVICE_BACKED_JOBS) test-service-backed-lane-a test-service-backed-lane-b test-service-backed-lane-browser; status=$$?; \
-	summary_status=0; \
-	if [ $$status -eq 0 ]; then \
-		NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary test-service-backed pass --children "$(TEST_SERVICE_BACKED_CHILD_TARGETS)" || summary_status=$$?; \
-	else \
-		NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary test-service-backed fail --children "$(TEST_SERVICE_BACKED_CHILD_TARGETS)" || summary_status=$$?; \
-	fi; \
-	if [ $$status -ne 0 ]; then exit $$status; fi; \
-	exit $$summary_status
-
-test-service-backed-lane-a:
-	$(Q)$(MAKE) --no-print-directory backend-integration
-	$(Q)$(MAKE) --no-print-directory backend-integration-support
-
-test-service-backed-lane-b: backend-store backend-process
-
-test-service-backed-lane-browser:
-	$(Q)$(MAKE) --no-print-directory browser-e2e-webserver-backed
+	$(RUN_PHASE) "test service-backed" -- $(TEST_SERVICES_BIN) run -- env MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(NODE_BIN) $(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-service-backed --jobs $(TEST_SERVICE_BACKED_JOBS) --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"
 
 test-isolated: export CARTULARY_TEST_TARGET := test-isolated
 
@@ -738,25 +703,7 @@ check-parallel: check-heavy check-static-validation check-harness-smoke
 check-service-backed: export CARTULARY_TEST_TARGET := check-service-backed
 
 check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) test-service-images
-	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-start check-service-backed --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)" --service-backed 1
-	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) step-start check-service-backed 1 2 check-service-backed-lane-a --mode parallel --jobs $(SERVICE_BACKED_JOBS)
-	$(Q)NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) step-start check-service-backed 2 2 check-service-backed-lane-b --mode parallel --jobs $(SERVICE_BACKED_JOBS)
-	$(RUN_PHASE) "check service-backed" -- $(TEST_SERVICES_BIN) run -- $(MAKE) --no-print-directory --output-sync=target -j$(SERVICE_BACKED_JOBS) check-service-backed-lane-a check-service-backed-lane-b; status=$$?; \
-	summary_status=0; \
-	if [ $$status -eq 0 ]; then \
-		NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary check-service-backed pass --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)" || summary_status=$$?; \
-	else \
-		NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary check-service-backed fail --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)" || summary_status=$$?; \
-	fi; \
-	if [ $$status -ne 0 ]; then exit $$status; fi; \
-	exit $$summary_status
-
-check-service-backed-lane-a:
-	$(Q)$(MAKE) --no-print-directory backend-integration
-	$(Q)$(MAKE) --no-print-directory backend-integration-support
-
-check-service-backed-lane-b: backend-store backend-process
-	$(Q)$(MAKE) --no-print-directory browser-e2e-webserver-backed
+	$(RUN_PHASE) "check service-backed" -- $(TEST_SERVICES_BIN) run -- env MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(NODE_BIN) $(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target check-service-backed --jobs $(SERVICE_BACKED_JOBS) --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"
 
 check-isolated: export CARTULARY_TEST_TARGET := check-isolated
 

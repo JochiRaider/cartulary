@@ -12,6 +12,7 @@ resettable_script="$repo_root/scripts/run-browser-e2e-resettable.sh"
 reset_script="$repo_root/scripts/reset-web-e2e-stack.sh"
 webserver_backed_script="$repo_root/scripts/run-browser-e2e-webserver-backed.sh"
 start_web_e2e_script="$repo_root/scripts/start-web-e2e.sh"
+schedule_manifest="$repo_root/tools/service_backed_schedule_manifest.json"
 node_bin="${NODE_BIN:-node}"
 
 fail() {
@@ -45,6 +46,31 @@ require_browser_owned_stack_target_uses_built_binaries() {
   if ! printf '%s\n' "$block" | grep -Fq '$(BROWSER_E2E_OWNED_STACK_ENV)'; then
     fail "$target must use BROWSER_E2E_OWNED_STACK_ENV"
   fi
+}
+
+schedule_targets() {
+  local schedule_target="$1"
+  local kind="${2:-}"
+
+  "$node_bin" - "$schedule_manifest" "$schedule_target" "$kind" <<'EOF'
+const fs = require("node:fs");
+
+const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v1") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v1");
+}
+const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
+if (schedules.length !== 1) {
+  throw new Error(`expected exactly one schedule for ${scheduleTarget}, found ${schedules.length}`);
+}
+const targets = schedules[0].children
+  .filter((entry) => kind === "" || entry.kind === kind)
+  .map((entry) => entry.target);
+if (targets.length > 0) {
+  process.stdout.write(`${targets.join("\n")}\n`);
+}
+EOF
 }
 
 browser_e2e_owned_stack_env="$(sed -n 's/^BROWSER_E2E_OWNED_STACK_ENV[[:space:]]*:=//p' "$makefile" | head -n 1)"
@@ -128,41 +154,19 @@ if [[ -z "$test_service_block" ]]; then
   fail "Makefile must define a non-empty test-service-backed block"
 fi
 
-for lane in test-service-backed-lane-a test-service-backed-lane-b test-service-backed-lane-browser; do
-  if ! printf '%s\n' "$test_service_block" | grep -Fq "$lane"; then
-    fail "test-service-backed must invoke $lane"
-  fi
-done
-
-test_service_browser_targets=()
-while IFS= read -r line; do
-  while IFS= read -r target; do
-    [[ -n "$target" ]] && test_service_browser_targets+=("$target")
-  done < <(printf '%s\n' "$line" | grep -o 'browser-e2e[^[:space:]]*' || true)
-done <<<"$test_service_block"
-
-if [[ "${#test_service_browser_targets[@]}" -ne 0 ]]; then
-  fail "test-service-backed must delegate browser work through its lane targets, found direct browser targets: ${test_service_browser_targets[*]}"
+if ! printf '%s\n' "$test_service_block" | grep -Fq '$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-service-backed --jobs $(TEST_SERVICE_BACKED_JOBS)'; then
+  fail "test-service-backed must delegate to the service-backed scheduler with TEST_SERVICE_BACKED_JOBS"
+fi
+if printf '%s\n' "$test_service_block" | rg -q 'test-service-backed-lane-(a|b|browser)'; then
+  fail "test-service-backed must not invoke fixed service-backed lane targets"
 fi
 
-test_service_lane_browser_block="$(extract_target_block test-service-backed-lane-browser)"
-if [[ -z "$test_service_lane_browser_block" ]]; then
-  fail "Makefile must define a non-empty test-service-backed-lane-browser block"
+mapfile -t test_service_browser_targets < <(schedule_targets test-service-backed browser)
+if [[ "${#test_service_browser_targets[@]}" -ne 1 ]]; then
+  fail "test-service-backed schedule must include exactly one browser target, found: ${test_service_browser_targets[*]:-none}"
 fi
-
-test_lane_browser_targets=()
-while IFS= read -r line; do
-  while IFS= read -r target; do
-    [[ -n "$target" ]] && test_lane_browser_targets+=("$target")
-  done < <(printf '%s\n' "$line" | grep -o 'browser-e2e[^[:space:]]*' || true)
-done <<<"$test_service_lane_browser_block"
-
-if [[ "${#test_lane_browser_targets[@]}" -ne 1 ]]; then
-  fail "test-service-backed-lane-browser must invoke exactly one browser-e2e* target, found: ${test_lane_browser_targets[*]:-none}"
-fi
-
-if [[ "${test_lane_browser_targets[0]}" != "browser-e2e-webserver-backed" ]]; then
-  fail "test-service-backed-lane-browser must use browser-e2e-webserver-backed as its only browser target, found: ${test_lane_browser_targets[0]}"
+if [[ "${test_service_browser_targets[0]}" != "browser-e2e-webserver-backed" ]]; then
+  fail "test-service-backed schedule must use browser-e2e-webserver-backed as its browser target, found: ${test_service_browser_targets[0]}"
 fi
 
 check_service_block="$(extract_target_block check-service-backed)"
@@ -170,41 +174,19 @@ if [[ -z "$check_service_block" ]]; then
   fail "Makefile must define a non-empty check-service-backed block"
 fi
 
-for lane in check-service-backed-lane-a check-service-backed-lane-b; do
-  if ! printf '%s\n' "$check_service_block" | grep -Fq "$lane"; then
-    fail "check-service-backed must invoke $lane"
-  fi
-done
-
-service_browser_targets=()
-while IFS= read -r line; do
-  while IFS= read -r target; do
-    [[ -n "$target" ]] && service_browser_targets+=("$target")
-  done < <(printf '%s\n' "$line" | grep -o 'browser-e2e[^[:space:]]*' || true)
-done <<<"$check_service_block"
-
-if [[ "${#service_browser_targets[@]}" -ne 0 ]]; then
-  fail "check-service-backed must delegate browser work through its lane targets, found direct browser targets: ${service_browser_targets[*]}"
+if ! printf '%s\n' "$check_service_block" | grep -Fq '$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target check-service-backed --jobs $(SERVICE_BACKED_JOBS)'; then
+  fail "check-service-backed must delegate to the service-backed scheduler with SERVICE_BACKED_JOBS"
+fi
+if printf '%s\n' "$check_service_block" | rg -q 'check-service-backed-lane-[ab]'; then
+  fail "check-service-backed must not invoke fixed service-backed lane targets"
 fi
 
-check_service_lane_b_block="$(extract_target_block check-service-backed-lane-b)"
-if [[ -z "$check_service_lane_b_block" ]]; then
-  fail "Makefile must define a non-empty check-service-backed-lane-b block"
+mapfile -t check_service_browser_targets < <(schedule_targets check-service-backed browser)
+if [[ "${#check_service_browser_targets[@]}" -ne 1 ]]; then
+  fail "check-service-backed schedule must include exactly one browser target, found: ${check_service_browser_targets[*]:-none}"
 fi
-
-lane_browser_targets=()
-while IFS= read -r line; do
-  while IFS= read -r target; do
-    [[ -n "$target" ]] && lane_browser_targets+=("$target")
-  done < <(printf '%s\n' "$line" | grep -o 'browser-e2e[^[:space:]]*' || true)
-done <<<"$check_service_lane_b_block"
-
-if [[ "${#lane_browser_targets[@]}" -ne 1 ]]; then
-  fail "check-service-backed-lane-b must invoke exactly one browser-e2e* target, found: ${lane_browser_targets[*]:-none}"
-fi
-
-if [[ "${lane_browser_targets[0]}" != "browser-e2e-webserver-backed" ]]; then
-  fail "check-service-backed-lane-b must use browser-e2e-webserver-backed as its only browser target, found: ${lane_browser_targets[0]}"
+if [[ "${check_service_browser_targets[0]}" != "browser-e2e-webserver-backed" ]]; then
+  fail "check-service-backed schedule must use browser-e2e-webserver-backed as its browser target, found: ${check_service_browser_targets[0]}"
 fi
 
 check_summary_groups_line="$(sed -n 's/^CHECK_SUMMARY_GROUPS[[:space:]]*:=[[:space:]]*//p' "$makefile" | head -n 1)"

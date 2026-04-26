@@ -1,0 +1,118 @@
+{
+  "schema_id": "cartulary.service_backed_schedule.v1",
+  "schedules": [
+    {
+      "target": "test-service-backed",
+      "children": [
+        {
+          "target": "backend-integration",
+          "kind": "backend",
+          "weight": 100,
+          "resource_tags": ["postgres", "minio"],
+          "exclusive_tags": []
+        },
+        {
+          "target": "backend-integration-support",
+          "kind": "backend",
+          "weight": 60,
+          "resource_tags": ["postgres", "minio"],
+          "exclusive_tags": []
+        },
+        {
+          "target": "backend-store",
+          "kind": "backend",
+          "weight": 90,
+          "resource_tags": ["postgres", "minio"],
+          "exclusive_tags": []
+        },
+        {
+          "target": "backend-process",
+          "kind": "backend",
+          "weight": 80,
+          "resource_tags": ["postgres", "minio", "process"],
+          "exclusive_tags": []
+        },
+        {
+          "target": "browser-e2e-webserver-backed",
+          "kind": "browser",
+          "weight": 70,
+          "resource_tags": ["postgres", "minio", "browser", "webserver"],
+          "exclusive_tags": ["postgres", "minio"]
+        }
+      ]
+    },
+    {
+      "target": "test-fast-service-backed",
+      "children": [
+        {
+          "target": "backend-integration",
+          "kind": "backend",
+          "weight": 100,
+          "resource_tags": ["postgres", "minio"],
+          "exclusive_tags": []
+        },
+        {
+          "target": "backend-integration-support",
+          "kind": "backend",
+          "weight": 60,
+          "resource_tags": ["postgres", "minio"],
+          "exclusive_tags": []
+        },
+        {
+          "target": "backend-store",
+          "kind": "backend",
+          "weight": 90,
+          "resource_tags": ["postgres", "minio"],
+          "exclusive_tags": []
+        },
+        {
+          "target": "backend-process",
+          "kind": "backend",
+          "weight": 80,
+          "resource_tags": ["postgres", "minio", "process"],
+          "exclusive_tags": []
+        }
+      ]
+    },
+    {
+      "target": "check-service-backed",
+      "children": [
+        {
+          "target": "backend-integration",
+          "kind": "backend",
+          "weight": 100,
+          "resource_tags": ["postgres", "minio"],
+          "exclusive_tags": []
+        },
+        {
+          "target": "backend-integration-support",
+          "kind": "backend",
+          "weight": 60,
+          "resource_tags": ["postgres", "minio"],
+          "exclusive_tags": []
+        },
+        {
+          "target": "backend-store",
+          "kind": "backend",
+          "weight": 90,
+          "resource_tags": ["postgres", "minio"],
+          "exclusive_tags": []
+        },
+        {
+          "target": "backend-process",
+          "kind": "backend",
+          "weight": 80,
+          "resource_tags": ["postgres", "minio", "process"],
+          "exclusive_tags": []
+        },
+        {
+          "target": "browser-e2e-webserver-backed",
+          "kind": "browser",
+          "weight": 70,
+          "resource_tags": ["postgres", "minio", "browser", "webserver"],
+          "exclusive_tags": ["postgres", "minio"]
+        }
+      ]
+    }
+  ]
+}
