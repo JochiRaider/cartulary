@@ -157,34 +157,44 @@ do
   require_browser_owned_stack_target_uses_built_binaries "$browser_owned_stack_target"
 done
 
-check_heavy_line="$(sed -n 's/^check-heavy:[[:space:]]*//p' "$makefile" | head -n 1)"
-if [[ -z "$check_heavy_line" ]]; then
-  fail "Makefile must define check-heavy prerequisites"
+check_local_product_line="$(sed -n 's/^check-local-product:[[:space:]]*//p' "$makefile" | head -n 1)"
+if [[ -z "$check_local_product_line" ]]; then
+  fail "Makefile must define check-local-product prerequisites"
 fi
-check_parallel_line="$(sed -n 's/^check-parallel:[[:space:]]*//p' "$makefile" | head -n 1)"
-if [[ -z "$check_parallel_line" ]]; then
-  fail "Makefile must define check-parallel prerequisites"
+check_meta_validation_line="$(sed -n 's/^check-meta-validation:[[:space:]]*//p' "$makefile" | head -n 1)"
+if [[ -z "$check_meta_validation_line" ]]; then
+  fail "Makefile must define check-meta-validation prerequisites"
 fi
-if ! printf '%s\n' "$check_parallel_line" | rg -q '(^|[[:space:]])check-heavy($|[[:space:]])'; then
-  fail "check-parallel must include check-heavy"
+check_pre_browser_line="$(sed -n 's/^check-pre-browser:[[:space:]]*//p' "$makefile" | head -n 1)"
+if [[ -z "$check_pre_browser_line" ]]; then
+  fail "Makefile must define check-pre-browser prerequisites"
 fi
-if ! printf '%s\n' "$check_parallel_line" | rg -q '(^|[[:space:]])check-static-validation($|[[:space:]])'; then
-  fail "check-parallel must include static validation without moving browser suites into check-heavy"
+if ! printf '%s\n' "$check_pre_browser_line" | rg -q '^check-service-backed([[:space:]]|$)'; then
+  fail "check-pre-browser must list check-service-backed first"
 fi
-if ! printf '%s\n' "$check_parallel_line" | rg -q '(^|[[:space:]])check-harness-smoke($|[[:space:]])'; then
-  fail "check-parallel must include harness smoke without moving browser suites into check-heavy"
+if ! printf '%s\n' "$check_pre_browser_line" | rg -q '(^|[[:space:]])check-local-product($|[[:space:]])'; then
+  fail "check-pre-browser must include local product checks"
+fi
+if ! printf '%s\n' "$check_pre_browser_line" | rg -q '(^|[[:space:]])check-meta-validation($|[[:space:]])'; then
+  fail "check-pre-browser must include meta validation"
+fi
+if ! printf '%s\n' "$check_meta_validation_line" | rg -q '(^|[[:space:]])check-static-validation($|[[:space:]])'; then
+  fail "check-meta-validation must include static validation without moving browser suites into local product checks"
+fi
+if ! printf '%s\n' "$check_meta_validation_line" | rg -q '(^|[[:space:]])check-harness-smoke($|[[:space:]])'; then
+  fail "check-meta-validation must include harness smoke without moving browser suites into local product checks"
 fi
 
-read -r -a heavy_prereqs <<<"$check_heavy_line"
+read -r -a local_product_prereqs <<<"$check_local_product_line"
 browser_targets=()
-for prereq in "${heavy_prereqs[@]}"; do
+for prereq in "${local_product_prereqs[@]}"; do
   if [[ "$prereq" == browser-e2e* ]]; then
     browser_targets+=("$prereq")
   fi
 done
 
 if [[ "${#browser_targets[@]}" -ne 0 ]]; then
-  fail "check-heavy must not include browser-e2e* prerequisites, found: ${browser_targets[*]}"
+  fail "check-local-product must not include browser-e2e* prerequisites, found: ${browser_targets[*]}"
 fi
 
 browser_e2e_block="$(extract_target_block browser-e2e)"
@@ -304,8 +314,8 @@ check_block="$(extract_target_block check)"
 if [[ -z "$check_block" ]]; then
   fail "Makefile must define a non-empty check block"
 fi
-if ! printf '%s\n' "$check_block" | grep -Fq -- '--step check-service-backed --step browser-e2e'; then
-  fail "check must run service-backed backend work followed by the aggregate browser-e2e batch"
+if ! printf '%s\n' "$check_block" | grep -Fq -- '--parallel-step check-pre-browser:$(CHECK_JOBS) --step browser-e2e'; then
+  fail "check must run pre-browser work before the aggregate browser-e2e batch"
 fi
 if printf '%s\n' "$check_block" | grep -Fq 'check-isolated'; then
   fail "check must not route browser evidence through check-isolated"

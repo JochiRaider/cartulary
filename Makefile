@@ -9,7 +9,7 @@ SHELL := /bin/bash
 .PHONY: harness-smoke-toolchain-pins harness-smoke-bootstrap-node-runtime harness-smoke-build-input-discovery harness-smoke-check-migrations harness-smoke-run-make-sequence-fast harness-smoke-run-make-sequence harness-smoke-release-task-surface harness-smoke-benchmark-claim-check harness-smoke-task-surface-report harness-smoke-run-phase harness-smoke-run-go-target-fast harness-smoke-run-go-target harness-smoke-print-target-plan harness-smoke-service-backed-scheduler harness-smoke-run-playwright-phase harness-smoke-run-playwright-manifest-phase harness-smoke-run-playwright-webserver-batch harness-smoke-run-vitest-phase harness-smoke-run-vitest-manifest-phase harness-smoke-web-e2e-lifecycle harness-smoke-dev-stack-lifecycle
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck format format-frontend
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-resettable browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
-.PHONY: test-local test-service-backed test-fast test-fast-service-backed test lint lint-go check check-preflight check-setup-blockers check-static-validation check-harness-smoke check-parallel check-heavy check-service-backed ci release-check license-report sbom
+.PHONY: test-local test-service-backed test-fast test-fast-service-backed test lint lint-go check check-preflight check-setup-blockers check-static-validation check-harness-smoke check-build-prereqs check-local-product check-meta-validation check-pre-browser check-service-backed ci release-check license-report sbom
 .PHONY: build build-server build-migrate build-web
 .PHONY: clean distclean
 
@@ -711,11 +711,16 @@ check-static-validation:
 check-harness-smoke:
 	$(Q)$(MAKE) --no-print-directory run-harness-smoke-fast
 
-# Keep only parallel-safe work here. Service-backed Go phases and the aggregate
-# owned-stack browser batch run after this block under serialized orchestration.
-check-heavy: test-service-images migration-drift lint-go frontend-typecheck backend-unit frontend-unit deployable-shape-verify
+# Build and service-image readiness gate the service-backed scheduler. Keep
+# independent static and harness validation outside this prerequisite aggregate
+# so service-backed work can start as soon as these artifacts are ready.
+check-build-prereqs: build-server build-migrate test-service-images
 
-check-parallel: check-heavy check-static-validation check-harness-smoke
+check-local-product: migration-drift lint-go frontend-typecheck backend-unit frontend-unit deployable-shape-verify
+
+check-meta-validation: check-static-validation check-harness-smoke
+
+check-pre-browser: check-service-backed check-local-product check-meta-validation
 
 check-service-backed: export CARTULARY_TEST_TARGET := check-service-backed
 
@@ -723,7 +728,7 @@ check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-m
 	$(Q)status=0; $(TEST_SERVICES_BIN) run -- env MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_PHASE_SCRIPT) "check service-backed" -- $(NODE_BIN) $(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target check-service-backed --jobs $(SERVICE_BACKED_JOBS) --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)" --defer-summary || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary check-service-backed $$requested --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)"; summary_status=$$?; if [ "$$status" -ne 0 ]; then exit "$$status"; fi; exit "$$summary_status"
 
 check: $(NODE_BIN)
-	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label check --summary-targets "$(CHECK_SUMMARY_TARGETS)" --summary-groups "$(CHECK_SUMMARY_GROUPS)" --step check-setup-blockers --parallel-step check-parallel:$(CHECK_JOBS) --step check-service-backed --step browser-e2e
+	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label check --summary-targets "$(CHECK_SUMMARY_TARGETS)" --summary-groups "$(CHECK_SUMMARY_GROUPS)" --step check-setup-blockers --parallel-step check-build-prereqs:$(CHECK_JOBS) --parallel-step check-pre-browser:$(CHECK_JOBS) --step browser-e2e
 
 ci:
 	$(Q)./scripts/ci/verify.sh

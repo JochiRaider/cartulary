@@ -233,27 +233,40 @@ mapfile -t target_plan_check_heavy_targets < <(target_plan_boolean_targets check
 mapfile -t target_plan_service_backed_safe_targets < <(target_plan_boolean_targets check_service_backed_safe true)
 mapfile -t target_plan_service_backed_unsafe_targets < <(list_target_plan_service_backed_unsafe_targets)
 
-check_heavy_line="$(sed -n 's/^check-heavy:[[:space:]]*//p' "$makefile" | head -n 1)"
-if [[ -z "$check_heavy_line" ]]; then
-  fail "Makefile must define check-heavy prerequisites"
+check_build_prereqs_line="$(sed -n 's/^check-build-prereqs:[[:space:]]*//p' "$makefile" | head -n 1)"
+if [[ -z "$check_build_prereqs_line" ]]; then
+  fail "Makefile must define check-build-prereqs prerequisites"
 fi
-check_parallel_line="$(sed -n 's/^check-parallel:[[:space:]]*//p' "$makefile" | head -n 1)"
-if [[ -z "$check_parallel_line" ]]; then
-  fail "Makefile must define check-parallel prerequisites"
+check_local_product_line="$(sed -n 's/^check-local-product:[[:space:]]*//p' "$makefile" | head -n 1)"
+if [[ -z "$check_local_product_line" ]]; then
+  fail "Makefile must define check-local-product prerequisites"
 fi
-if ! printf '%s\n' "$check_parallel_line" | rg -q '(^|[[:space:]])check-heavy($|[[:space:]])'; then
-  fail "check-parallel must include check-heavy"
+check_meta_validation_line="$(sed -n 's/^check-meta-validation:[[:space:]]*//p' "$makefile" | head -n 1)"
+if [[ -z "$check_meta_validation_line" ]]; then
+  fail "Makefile must define check-meta-validation prerequisites"
 fi
-if ! printf '%s\n' "$check_parallel_line" | rg -q '(^|[[:space:]])check-static-validation($|[[:space:]])'; then
-  fail "check-parallel must include static validation alongside backend product checks"
+check_pre_browser_line="$(sed -n 's/^check-pre-browser:[[:space:]]*//p' "$makefile" | head -n 1)"
+if [[ -z "$check_pre_browser_line" ]]; then
+  fail "Makefile must define check-pre-browser prerequisites"
 fi
-if ! printf '%s\n' "$check_parallel_line" | rg -q '(^|[[:space:]])check-harness-smoke($|[[:space:]])'; then
-  fail "check-parallel must include harness smoke alongside backend product checks"
+if ! printf '%s\n' "$check_pre_browser_line" | rg -q '^check-service-backed([[:space:]]|$)'; then
+  fail "check-pre-browser must list check-service-backed first so service-backed scheduling starts promptly"
+fi
+if ! printf '%s\n' "$check_pre_browser_line" | rg -q '(^|[[:space:]])check-local-product($|[[:space:]])'; then
+  fail "check-pre-browser must include local product checks alongside service-backed work"
+fi
+if ! printf '%s\n' "$check_pre_browser_line" | rg -q '(^|[[:space:]])check-meta-validation($|[[:space:]])'; then
+  fail "check-pre-browser must include meta validation alongside service-backed work"
+fi
+if ! printf '%s\n' "$check_meta_validation_line" | rg -q '(^|[[:space:]])check-static-validation($|[[:space:]])'; then
+  fail "check-meta-validation must include static validation"
+fi
+if ! printf '%s\n' "$check_meta_validation_line" | rg -q '(^|[[:space:]])check-harness-smoke($|[[:space:]])'; then
+  fail "check-meta-validation must include harness smoke"
 fi
 
-read -r -a heavy_prereqs <<<"$check_heavy_line"
-assert_text_contains_targets "check-heavy prerequisites" "$check_heavy_line" "${target_plan_check_heavy_targets[@]}"
-assert_text_excludes_targets "check-heavy prerequisites" "$check_heavy_line" "${target_plan_service_backed_safe_targets[@]}" "${target_plan_service_backed_unsafe_targets[@]}"
+assert_text_contains_targets "check-local-product prerequisites" "$check_local_product_line" "${target_plan_check_heavy_targets[@]}"
+assert_text_excludes_targets "check-local-product prerequisites" "$check_local_product_line" "${target_plan_service_backed_safe_targets[@]}" "${target_plan_service_backed_unsafe_targets[@]}"
 
 if grep -Fq 'rg --files' "$makefile"; then
   fail "Makefile must not use parse-time rg --files for build input discovery"
@@ -618,9 +631,9 @@ if ! printf '%s\n' "$test_service_images_block" | grep -Fq '$(TEST_SERVICES_BIN)
   fail "test-service-images must warm pinned service images through $(TEST_SERVICES_BIN)"
 fi
 
-check_heavy_prereqs="$(extract_target_prereqs check-heavy)"
-if ! printf '%s\n' "$check_heavy_prereqs" | rg -q '(^|[[:space:]])test-service-images($|[[:space:]])'; then
-  fail "check-heavy must warm service images during the parallel-safe check stage"
+check_build_prereqs="$(extract_target_prereqs check-build-prereqs)"
+if ! printf '%s\n' "$check_build_prereqs" | rg -q '(^|[[:space:]])test-service-images($|[[:space:]])'; then
+  fail "check-build-prereqs must warm service images before pre-browser check work"
 fi
 
 check_service_prereqs="$(extract_target_prereqs check-service-backed)"
