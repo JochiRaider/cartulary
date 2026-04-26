@@ -96,10 +96,11 @@ help_output="$(make --no-print-directory help)"
 
 assert_contains "$makefile_content" " test-fast " "release phony target group"
 assert_contains "$makefile_content" " release-check license-report sbom" "release phony targets"
-assert_contains "$release_check_block" "release-check: check license-report sbom build" "release-check dependencies"
+assert_contains "$release_check_block" "release-check: check run-harness-smoke-extended license-report sbom build" "release-check dependencies"
 assert_contains "$license_report_block" './scripts/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"' "license-report validation command"
 assert_contains "$sbom_block" './scripts/check-release-artifact.sh "SBOM" "$(SBOM_ARTIFACT)"' "sbom validation command"
 assert_contains "$help_output" "make release-check" "help release-check documentation"
+assert_contains "$help_output" "extended harness" "help release-check extended harness documentation"
 
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/release-task-surface.XXXXXX")"
 cleanup_paths+=("$tmp_dir")

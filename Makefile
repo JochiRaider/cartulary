@@ -5,8 +5,8 @@ SHELL := /bin/bash
 .PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install
 .PHONY: db-up db-reset services-up services-wait postgres-wait minio-wait minio-init dev
 .PHONY: generate generate-drift toolchain-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-ledgers phase-ledger-drift benchmark-claim-check task-surface-report task-surface-check
-.PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check test-service-images run-phase-smoke run-phase-smoke-all phase-test-name-check
-.PHONY: harness-smoke-toolchain-pins harness-smoke-bootstrap-node-runtime harness-smoke-build-input-discovery harness-smoke-check-migrations harness-smoke-run-make-sequence harness-smoke-release-task-surface harness-smoke-benchmark-claim-check harness-smoke-task-surface-report harness-smoke-run-phase harness-smoke-run-go-target harness-smoke-print-target-plan harness-smoke-service-backed-scheduler harness-smoke-run-playwright-phase harness-smoke-run-playwright-manifest-phase harness-smoke-run-playwright-webserver-batch harness-smoke-run-vitest-phase harness-smoke-run-vitest-manifest-phase harness-smoke-web-e2e-lifecycle harness-smoke-dev-stack-lifecycle
+.PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target backend-task-surface-check service-backed-unit-check test-service-images run-harness-smoke-fast run-harness-smoke-fast-all run-harness-smoke-extended run-harness-smoke-extended-all run-harness-smoke-full run-harness-smoke-full-all run-phase-smoke run-phase-smoke-all phase-test-name-check
+.PHONY: harness-smoke-toolchain-pins harness-smoke-bootstrap-node-runtime harness-smoke-build-input-discovery harness-smoke-check-migrations harness-smoke-run-make-sequence-fast harness-smoke-run-make-sequence harness-smoke-release-task-surface harness-smoke-benchmark-claim-check harness-smoke-task-surface-report harness-smoke-run-phase harness-smoke-run-go-target-fast harness-smoke-run-go-target harness-smoke-print-target-plan harness-smoke-service-backed-scheduler harness-smoke-run-playwright-phase harness-smoke-run-playwright-manifest-phase harness-smoke-run-playwright-webserver-batch harness-smoke-run-vitest-phase harness-smoke-run-vitest-manifest-phase harness-smoke-web-e2e-lifecycle harness-smoke-dev-stack-lifecycle
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck format format-frontend
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-resettable browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
 .PHONY: test-local test-service-backed test-isolated test-fast test-fast-service-backed test lint lint-go check check-preflight check-setup-blockers check-static-validation check-harness-smoke check-parallel check-heavy check-service-backed check-isolated ci release-check license-report sbom
@@ -84,10 +84,15 @@ CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-su
 BROWSER_E2E_ALL_CHILD_TARGETS := browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
 BROWSER_E2E_ISOLATED_CHILD_TARGETS := browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
 BROWSER_E2E_RESETTABLE_CHILD_TARGETS := browser-e2e-measurement,browser-e2e-visual
-HARNESS_SMOKE_CORE_TARGETS := harness-smoke-toolchain-pins,harness-smoke-bootstrap-node-runtime,harness-smoke-build-input-discovery,harness-smoke-check-migrations,harness-smoke-run-make-sequence,harness-smoke-release-task-surface,harness-smoke-benchmark-claim-check,harness-smoke-task-surface-report,harness-smoke-run-phase,harness-smoke-run-go-target,harness-smoke-print-target-plan,harness-smoke-service-backed-scheduler,harness-smoke-run-playwright-phase,harness-smoke-run-playwright-manifest-phase,harness-smoke-run-playwright-webserver-batch,harness-smoke-run-vitest-phase,harness-smoke-run-vitest-manifest-phase
+HARNESS_SMOKE_FAST_TARGETS := harness-smoke-toolchain-pins,harness-smoke-bootstrap-node-runtime,harness-smoke-build-input-discovery,harness-smoke-check-migrations,harness-smoke-run-make-sequence-fast,harness-smoke-release-task-surface,harness-smoke-benchmark-claim-check,harness-smoke-task-surface-report,harness-smoke-run-phase,harness-smoke-run-go-target-fast,harness-smoke-print-target-plan,harness-smoke-service-backed-scheduler,harness-smoke-run-playwright-phase,harness-smoke-run-playwright-manifest-phase,harness-smoke-run-playwright-webserver-batch,harness-smoke-run-vitest-phase,harness-smoke-run-vitest-manifest-phase
+HARNESS_SMOKE_EXTENDED_TARGETS := harness-smoke-run-make-sequence,harness-smoke-run-go-target
 HARNESS_SMOKE_LIFECYCLE_TARGETS := harness-smoke-web-e2e-lifecycle,harness-smoke-dev-stack-lifecycle
-HARNESS_SMOKE_TARGETS := $(HARNESS_SMOKE_CORE_TARGETS),$(HARNESS_SMOKE_LIFECYCLE_TARGETS)
-HARNESS_SMOKE_GROUPS := core=$(HARNESS_SMOKE_CORE_TARGETS);lifecycle=$(HARNESS_SMOKE_LIFECYCLE_TARGETS)
+HARNESS_SMOKE_FULL_TARGETS := $(HARNESS_SMOKE_FAST_TARGETS),$(HARNESS_SMOKE_EXTENDED_TARGETS),$(HARNESS_SMOKE_LIFECYCLE_TARGETS)
+HARNESS_SMOKE_TARGETS := $(HARNESS_SMOKE_FULL_TARGETS)
+HARNESS_SMOKE_FAST_GROUPS := fast=$(HARNESS_SMOKE_FAST_TARGETS)
+HARNESS_SMOKE_EXTENDED_GROUPS := extended=$(HARNESS_SMOKE_EXTENDED_TARGETS)
+HARNESS_SMOKE_FULL_GROUPS := fast=$(HARNESS_SMOKE_FAST_TARGETS);extended=$(HARNESS_SMOKE_EXTENDED_TARGETS);lifecycle=$(HARNESS_SMOKE_LIFECYCLE_TARGETS)
+HARNESS_SMOKE_GROUPS := $(HARNESS_SMOKE_FULL_GROUPS)
 
 define resolve_service_go_test_p
 $(if $(filter environment environment override command line override,$(origin $(1))),$($(1)),$(if $(filter environment environment override command line override,$(origin GO_TEST_SERVICE_PACKAGE_PARALLELISM)),$(GO_TEST_SERVICE_PACKAGE_PARALLELISM),$($(1))))
@@ -235,7 +240,7 @@ help:
 		'  make lint                  run backend and frontend lint/type checks' \
 		'  make check                 run the developer verification gate' \
 		'  make ci                    run the provider-neutral CI entrypoint' \
-		'  make release-check         run check plus release license, SBOM, and build verification' \
+		'  make release-check         run check, extended harness, release artifacts, and build verification' \
 		'' \
 		'build:' \
 		'  make build                 build backend binaries with embedded web assets' \
@@ -476,11 +481,13 @@ $(eval $(call harness_smoke_target,harness-smoke-toolchain-pins,scripts/test-che
 $(eval $(call harness_smoke_target,harness-smoke-bootstrap-node-runtime,scripts/test-bootstrap-node-runtime.sh))
 $(eval $(call harness_smoke_target,harness-smoke-build-input-discovery,scripts/test-build-input-discovery.sh))
 $(eval $(call harness_smoke_target,harness-smoke-check-migrations,scripts/test-check-migrations.sh))
+$(eval $(call harness_smoke_target,harness-smoke-run-make-sequence-fast,scripts/test-run-make-sequence-fast.sh))
 $(eval $(call harness_smoke_target,harness-smoke-run-make-sequence,scripts/test-run-make-sequence.sh))
 $(eval $(call harness_smoke_target,harness-smoke-release-task-surface,scripts/test-release-task-surface.sh))
 $(eval $(call harness_smoke_target,harness-smoke-benchmark-claim-check,scripts/test-benchmark-claim-check.sh))
 $(eval $(call harness_smoke_target,harness-smoke-task-surface-report,scripts/test-task-surface-report.sh))
 $(eval $(call harness_smoke_target,harness-smoke-run-phase,scripts/test-run-phase.sh))
+$(eval $(call harness_smoke_target,harness-smoke-run-go-target-fast,scripts/test-run-go-target-fast.sh))
 $(eval $(call harness_smoke_target,harness-smoke-run-go-target,scripts/test-run-go-target.sh))
 $(eval $(call harness_smoke_target,harness-smoke-print-target-plan,scripts/test-print-target-plan.sh))
 $(eval $(call harness_smoke_target,harness-smoke-service-backed-scheduler,scripts/test-service-backed-scheduler.sh))
@@ -492,10 +499,25 @@ $(eval $(call harness_smoke_target,harness-smoke-run-vitest-manifest-phase,scrip
 $(eval $(call harness_smoke_target,harness-smoke-web-e2e-lifecycle,scripts/test-web-e2e-lifecycle.sh))
 $(eval $(call harness_smoke_target,harness-smoke-dev-stack-lifecycle,scripts/test-dev-stack-lifecycle.sh))
 
-run-phase-smoke-all: $(subst $(comma), ,$(HARNESS_SMOKE_TARGETS))
+run-harness-smoke-fast-all: $(subst $(comma), ,$(HARNESS_SMOKE_FAST_TARGETS))
+
+run-harness-smoke-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label run-harness-smoke-fast --summary-targets "$(HARNESS_SMOKE_FAST_TARGETS)" --summary-groups "$(HARNESS_SMOKE_FAST_GROUPS)" --parallel-step run-harness-smoke-fast-all:$(HARNESS_SMOKE_JOBS)
+
+run-harness-smoke-extended-all: $(subst $(comma), ,$(HARNESS_SMOKE_EXTENDED_TARGETS))
+
+run-harness-smoke-extended: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label run-harness-smoke-extended --summary-targets "$(HARNESS_SMOKE_EXTENDED_TARGETS)" --summary-groups "$(HARNESS_SMOKE_EXTENDED_GROUPS)" --parallel-step run-harness-smoke-extended-all:$(HARNESS_SMOKE_JOBS)
+
+run-harness-smoke-full-all: $(subst $(comma), ,$(HARNESS_SMOKE_FULL_TARGETS))
+
+run-harness-smoke-full: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label run-harness-smoke-full --summary-targets "$(HARNESS_SMOKE_FULL_TARGETS)" --summary-groups "$(HARNESS_SMOKE_FULL_GROUPS)" --parallel-step run-harness-smoke-full-all:$(HARNESS_SMOKE_JOBS)
+
+run-phase-smoke-all: run-harness-smoke-full-all
 
 run-phase-smoke: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label run-phase-smoke --summary-targets "$(HARNESS_SMOKE_TARGETS)" --summary-groups "$(HARNESS_SMOKE_GROUPS)" --parallel-step run-phase-smoke-all:$(HARNESS_SMOKE_JOBS)
+	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label run-phase-smoke --summary-targets "$(HARNESS_SMOKE_FULL_TARGETS)" --summary-groups "$(HARNESS_SMOKE_FULL_GROUPS)" --parallel-step run-phase-smoke-all:$(HARNESS_SMOKE_JOBS)
 
 phase-test-name-check:
 	$(RUN_PHASE) "phase-test-name-check" -- ./scripts/check-phase-test-names.sh
@@ -687,7 +709,7 @@ check-static-validation:
 	$(Q)$(MAKE) --no-print-directory generate-drift
 
 check-harness-smoke:
-	$(Q)$(MAKE) --no-print-directory run-phase-smoke
+	$(Q)$(MAKE) --no-print-directory run-harness-smoke-fast
 
 # Keep only parallel-safe work here. Service-backed Go phases and owned-stack
 # browser suites run after this block under serialized orchestration.
@@ -711,7 +733,7 @@ check: $(NODE_BIN)
 ci:
 	$(Q)./scripts/ci/verify.sh
 
-release-check: check license-report sbom build
+release-check: check run-harness-smoke-extended license-report sbom build
 
 license-report:
 	$(RUN_PHASE) "license-report" -- ./scripts/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"
