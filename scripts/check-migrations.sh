@@ -2,8 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
-COMPOSE_FILE="$ROOT_DIR/docker-compose.dev.yml"
-DEV_SERVICES_SCRIPT="$ROOT_DIR/scripts/dev-services.sh"
+COMPOSE_FILE="${CARTULARY_COMPOSE_FILE:-$ROOT_DIR/docker-compose.dev.yml}"
+DEV_SERVICES_SCRIPT="${CARTULARY_DEV_SERVICES_SCRIPT:-$ROOT_DIR/scripts/dev-services.sh}"
+MIGRATIONS_DIR="${CARTULARY_MIGRATIONS_DIR:-$ROOT_DIR/db/migrations}"
 GO_BIN="${GO:-go}"
 MIGRATE_BIN="${CARTULARY_MIGRATE_BIN:-}"
 CONFIG_FILE="${CONFIG_FILE:-$ROOT_DIR/configs/dev/config.toml}"
@@ -13,8 +14,64 @@ EMPTY_DB="cartulary_migration_empty_$$"
 PRE_RECORD_ENVELOPE_DB="cartulary_migration_pre_record_envelope_$$"
 PRE_ASSESSMENTS_CORE02_DB="cartulary_migration_pre_assessments_core02_$$"
 PENULTIMATE_DB="cartulary_migration_penultimate_$$"
-PRE_RECORD_ENVELOPE_VERSION="5"
-PRE_ASSESSMENTS_CORE02_VERSION="7"
+
+fail() {
+  echo "migration verification failed: $*" >&2
+  exit 1
+}
+
+migration_version_from_file() {
+  local file="$1"
+  local name
+  local prefix
+
+  name="$(basename "$file")"
+  if [[ ! "$name" =~ ^([0-9]+)_.+\.sql$ ]]; then
+    fail "invalid migration filename \"$name\": expected numeric goose prefix like 00009_name.sql"
+  fi
+
+  prefix="${BASH_REMATCH[1]}"
+  printf "%d" "$((10#$prefix))"
+}
+
+migration_version_at_index() {
+  local index="$1"
+
+  if ((index < 0 || index >= MIGRATION_COUNT)); then
+    fail "migration index ${index} is outside the available migration range 0..$((MIGRATION_COUNT - 1))"
+  fi
+
+  migration_version_from_file "${MIGRATION_FILES[$index]}"
+}
+
+previous_migration_version_before_anchor() {
+  local anchor_pattern="$1"
+  local boundary_name="$2"
+  local anchor_index="-1"
+  local match_count="0"
+  local index
+  local name
+
+  for index in "${!MIGRATION_FILES[@]}"; do
+    name="$(basename "${MIGRATION_FILES[$index]}")"
+    if [[ "$name" == $anchor_pattern ]]; then
+      anchor_index="$index"
+      match_count=$((match_count + 1))
+    fi
+  done
+
+  if ((match_count == 0)); then
+    fail "missing migration anchor for ${boundary_name}: ${anchor_pattern}"
+  fi
+  if ((match_count > 1)); then
+    fail "multiple migration anchors for ${boundary_name}: ${anchor_pattern}"
+  fi
+  if ((anchor_index == 0)); then
+    fail "migration anchor for ${boundary_name} has no preceding migration: ${anchor_pattern}"
+  fi
+
+  migration_version_at_index "$((anchor_index - 1))"
+}
 
 cleanup() {
   local db_name
@@ -26,15 +83,24 @@ cleanup() {
 
 trap cleanup EXIT
 
-docker compose -f "$COMPOSE_FILE" up -d postgres >/dev/null
-"$DEV_SERVICES_SCRIPT" wait-postgres
-
-mapfile -t MIGRATION_FILES < <(find "$ROOT_DIR/db/migrations" -maxdepth 1 -type f -name '*.sql' | LC_ALL=C sort)
+mapfile -t MIGRATION_FILES < <(find "$MIGRATIONS_DIR" -maxdepth 1 -type f -name '*.sql' | LC_ALL=C sort)
 MIGRATION_COUNT="${#MIGRATION_FILES[@]}"
 if [ "$MIGRATION_COUNT" -eq 0 ]; then
-  echo "migration verification failed: no migration files present" >&2
-  exit 1
+  fail "no migration files present"
 fi
+for migration_file in "${MIGRATION_FILES[@]}"; do
+  migration_version_from_file "$migration_file" >/dev/null
+done
+
+PRE_RECORD_ENVELOPE_VERSION=""
+PRE_ASSESSMENTS_CORE02_VERSION=""
+if [ "$MIGRATION_COUNT" -ge 2 ]; then
+  PRE_RECORD_ENVELOPE_VERSION="$(previous_migration_version_before_anchor "*_phase4_record_envelope_backfill.sql" "pre-record-envelope boundary")"
+  PRE_ASSESSMENTS_CORE02_VERSION="$(previous_migration_version_before_anchor "*_phase4_assessments_core02.sql" "pre-assessments-Core02 boundary")"
+fi
+
+docker compose -f "$COMPOSE_FILE" up -d postgres >/dev/null
+"$DEV_SERVICES_SCRIPT" wait-postgres
 
 create_database() {
   local db_name="$1"
@@ -75,16 +141,22 @@ echo "migration verification: empty database apply to head"
 create_database "$EMPTY_DB"
 run_migrate "$EMPTY_DB" up
 
-run_upgrade_boundary "$PRE_RECORD_ENVELOPE_DB" "pre-record-envelope boundary" "$PRE_RECORD_ENVELOPE_VERSION"
-run_upgrade_boundary "$PRE_ASSESSMENTS_CORE02_DB" "pre-assessments-Core02 boundary" "$PRE_ASSESSMENTS_CORE02_VERSION"
+if [[ -n "$PRE_RECORD_ENVELOPE_VERSION" ]]; then
+  run_upgrade_boundary "$PRE_RECORD_ENVELOPE_DB" "pre-record-envelope boundary" "$PRE_RECORD_ENVELOPE_VERSION"
+else
+  echo "upgrade-path coverage limited: fewer than two migrations exist; skipping pre-record-envelope boundary" >&2
+fi
+if [[ -n "$PRE_ASSESSMENTS_CORE02_VERSION" ]]; then
+  run_upgrade_boundary "$PRE_ASSESSMENTS_CORE02_DB" "pre-assessments-Core02 boundary" "$PRE_ASSESSMENTS_CORE02_VERSION"
+else
+  echo "upgrade-path coverage limited: fewer than two migrations exist; skipping pre-assessments-Core02 boundary" >&2
+fi
 
 echo "migration verification: upgrade path from penultimate boundary"
 create_database "$PENULTIMATE_DB"
 if [ "$MIGRATION_COUNT" -ge 2 ]; then
-  PENULTIMATE_STEPS=$((MIGRATION_COUNT - 1))
-  for _ in $(seq 1 "$PENULTIMATE_STEPS"); do
-    run_migrate "$PENULTIMATE_DB" up-by-one
-  done
+  PENULTIMATE_VERSION="$(migration_version_at_index "$((MIGRATION_COUNT - 2))")"
+  run_migrate "$PENULTIMATE_DB" up-to "$PENULTIMATE_VERSION"
   run_migrate "$PENULTIMATE_DB" up
 else
   echo "upgrade-path coverage limited: only one migration exists; running best-available boundary" >&2
