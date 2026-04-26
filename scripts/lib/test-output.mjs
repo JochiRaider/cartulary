@@ -899,6 +899,7 @@ function loadServiceTimingSpans(target) {
         end_time: details.end_time ?? event.timestamp ?? "",
         duration_ms: clampDurationMs(details.duration_ms ?? 0),
         status: details.status ?? event.status ?? "",
+        janitorial: details.janitorial === true,
         artifact: relToRepo(path.dirname(path.dirname(next))),
       });
     }
@@ -1166,7 +1167,13 @@ function disjointSpanDurationMs(spans) {
 }
 
 function lifecycleTimingSpans(target, targetDir) {
-  return [...loadTargetOwnedTimingSpans(targetDir), ...loadServiceTimingSpans(target)];
+  return [...loadTargetOwnedTimingSpans(targetDir), ...loadServiceTimingSpans(target)].filter(
+    (span) => span.janitorial !== true,
+  );
+}
+
+function janitorialTimingSpans(target) {
+  return loadServiceTimingSpans(target).filter((span) => span.janitorial === true);
 }
 
 function timingStatusFailed(status) {
@@ -1829,6 +1836,7 @@ function handleTargetSummary(args) {
     counts: summary.counts,
     slowest_lifecycle_bucket: timing.slowest_lifecycle_bucket,
     timing_failures: timingFailures,
+    janitorial_timing: janitorialTimingSpans(target),
     teardown_status: teardownStatus(summary.teardownDurationMs, teardownFailures),
     teardown_failures: teardownFailures,
     fixture: summary.fixture,

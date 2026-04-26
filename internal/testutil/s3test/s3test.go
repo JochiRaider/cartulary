@@ -115,7 +115,11 @@ func StartShared(ctx context.Context) (*Harness, error) {
 }
 
 func StartOwned(ctx context.Context) (*Harness, error) {
-	return startHarness(ctx)
+	return StartOwnedWithLabels(ctx, nil)
+}
+
+func StartOwnedWithLabels(ctx context.Context, labels map[string]string) (*Harness, error) {
+	return startHarness(ctx, labels)
 }
 
 func StopShared(ctx context.Context) error {
@@ -132,7 +136,7 @@ func StopShared(ctx context.Context) error {
 	return container.Terminate(ctx)
 }
 
-func startHarness(ctx context.Context) (*Harness, error) {
+func startHarness(ctx context.Context, labels map[string]string) (*Harness, error) {
 	req := testcontainers.ContainerRequest{
 		Image:        minioImage,
 		ExposedPorts: []string{minioAPIPort, minioConsolePort},
@@ -142,6 +146,9 @@ func startHarness(ctx context.Context) (*Harness, error) {
 			"MINIO_ROOT_PASSWORD": "minioadmin",
 		},
 		WaitingFor: minioPortWaitStrategy(),
+	}
+	if len(labels) > 0 {
+		req.Labels = cloneLabels(labels)
 	}
 
 	harness, err := testcontainersx.StartWithRetry(ctx, testcontainersx.StartConfig{
@@ -537,6 +544,24 @@ func (h *Harness) Close(ctx context.Context) error {
 	}
 
 	return h.Container.Terminate(ctx)
+}
+
+func (h *Harness) ContainerID() string {
+	if h == nil || h.Container == nil {
+		return ""
+	}
+	return h.Container.GetContainerID()
+}
+
+func cloneLabels(labels map[string]string) map[string]string {
+	if len(labels) == 0 {
+		return nil
+	}
+	cloned := make(map[string]string, len(labels))
+	for key, value := range labels {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func sanitizeBucket(prefix string) string {

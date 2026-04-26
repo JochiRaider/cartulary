@@ -144,6 +144,28 @@ func TestMinIOContainerWaitStrategyOnlyWaitsForPortMapping(t *testing.T) {
 	}
 }
 
+func TestOwnedMinIOAppliesContainerLabels(t *testing.T) {
+	stubOwnedMinIOStartup(t)
+
+	var gotLabels map[string]string
+	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+		gotLabels = req.Labels
+		return fakeMinIOContainer{
+			host: "127.0.0.1",
+			port: network.MustParsePort("9000/tcp"),
+		}, nil
+	}
+	waitReadyFn = func(context.Context, *Harness) error { return nil }
+
+	labels := map[string]string{"cartulary.test": "suite"}
+	if _, err := StartOwnedWithLabels(context.Background(), labels); err != nil {
+		t.Fatalf("start labeled minio: %v", err)
+	}
+	if gotLabels["cartulary.test"] != "suite" {
+		t.Fatalf("container labels not applied: %#v", gotLabels)
+	}
+}
+
 func TestOwnedMinIORetriesReadinessTimeoutAndTerminatesFailedAttempt(t *testing.T) {
 	stubOwnedMinIOStartup(t)
 
@@ -176,7 +198,7 @@ func TestOwnedMinIORetriesReadinessTimeoutAndTerminatesFailedAttempt(t *testing.
 		return nil
 	}
 
-	harness, err := startHarness(context.Background())
+	harness, err := startHarness(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("expected retry success, got %v", err)
 	}
@@ -220,7 +242,7 @@ func TestOwnedMinIODoesNotRetryAuthenticationReadinessFailure(t *testing.T) {
 		}
 	}
 
-	_, err := startHarness(context.Background())
+	_, err := startHarness(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected authentication readiness failure")
 	}

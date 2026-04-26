@@ -9,7 +9,7 @@ SHELL := /bin/bash
 .PHONY: harness-smoke-toolchain-pins harness-smoke-bootstrap-node-runtime harness-smoke-build-input-discovery harness-smoke-check-migrations harness-smoke-run-make-sequence-fast harness-smoke-run-make-sequence harness-smoke-release-task-surface harness-smoke-benchmark-claim-check harness-smoke-task-surface-report harness-smoke-run-phase harness-smoke-run-go-target-fast harness-smoke-run-go-target harness-smoke-print-target-plan harness-smoke-service-backed-scheduler harness-smoke-check-scheduler harness-smoke-run-playwright-phase harness-smoke-run-playwright-manifest-phase harness-smoke-run-playwright-webserver-batch harness-smoke-run-vitest-phase harness-smoke-run-vitest-manifest-phase harness-smoke-web-e2e-lifecycle harness-smoke-dev-stack-lifecycle
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck format format-frontend
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-resettable browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
-.PHONY: test-local test-service-backed test-fast test-fast-service-backed test lint lint-go check check-preflight check-setup-blockers check-static-validation check-harness-smoke check-build-prereqs check-local-product check-meta-validation check-service-backed ci release-check license-report sbom
+.PHONY: test-local test-service-backed test-fast test-fast-service-backed test lint lint-go check check-preflight check-setup-blockers check-static-validation check-harness-smoke check-build-prereqs check-local-product check-frontend-unit check-meta-validation check-service-backed ci release-check license-report sbom
 .PHONY: build build-server build-migrate build-web
 .PHONY: clean distclean
 
@@ -716,7 +716,9 @@ check-harness-smoke:
 # so service-backed work can start as soon as these artifacts are ready.
 check-build-prereqs: build-server build-migrate test-service-images
 
-check-local-product: migration-drift lint-go frontend-typecheck backend-unit frontend-unit deployable-shape-verify
+check-local-product: migration-drift lint-go frontend-typecheck backend-unit deployable-shape-verify
+
+check-frontend-unit: frontend-unit
 
 check-meta-validation: check-static-validation check-harness-smoke
 

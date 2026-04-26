@@ -191,6 +191,7 @@
     { "name": "check-harness-smoke", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-build-prereqs", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-local-product", "classification": "check_internal", "included_in": ["check"] },
+    { "name": "check-frontend-unit", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-meta-validation", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-service-backed", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/run-service-backed-schedule.mjs"] },
     { "name": "ci", "classification": "public", "included_in": ["ci"], "backing_scripts": ["scripts/ci/verify.sh"] },

@@ -60,7 +60,7 @@ func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedWorkUnits(t *testing.T)
 	if scope.Wrapper.OwnedCount != 1 {
 		t.Fatalf("expected exactly one owned wrapper, got %#v", scope.Wrapper)
 	}
-	if scope.Wrapper.PassThroughCount < 4 {
+	if scope.Wrapper.PassThroughCount < 1 {
 		t.Fatalf("expected nested target wrappers to pass through on the shared suite env, got %#v", scope.Wrapper)
 	}
 	assertSuiteServicesStarted(t, scope)

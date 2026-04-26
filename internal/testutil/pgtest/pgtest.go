@@ -143,7 +143,11 @@ func StartShared(ctx context.Context) (*Harness, error) {
 }
 
 func StartOwned(ctx context.Context) (*Harness, error) {
-	return startHarness(ctx)
+	return StartOwnedWithLabels(ctx, nil)
+}
+
+func StartOwnedWithLabels(ctx context.Context, labels map[string]string) (*Harness, error) {
+	return startHarness(ctx, labels)
 }
 
 func StopShared(ctx context.Context) error {
@@ -160,7 +164,7 @@ func StopShared(ctx context.Context) error {
 	return container.Terminate(ctx)
 }
 
-func startHarness(ctx context.Context) (*Harness, error) {
+func startHarness(ctx context.Context, labels map[string]string) (*Harness, error) {
 	req := testcontainers.ContainerRequest{
 		Image:        postgresImage,
 		ExposedPorts: []string{"5432/tcp"},
@@ -170,6 +174,9 @@ func startHarness(ctx context.Context) (*Harness, error) {
 			"POSTGRES_PASSWORD": "cartulary",
 		},
 		WaitingFor: wait.ForListeningPort("5432/tcp").WithStartupTimeout(60 * time.Second),
+	}
+	if len(labels) > 0 {
+		req.Labels = cloneLabels(labels)
 	}
 
 	container, err := testcontainersx.StartWithRetry(ctx, testcontainersx.StartConfig{
@@ -868,6 +875,24 @@ func (h *Harness) Close(ctx context.Context) error {
 	}
 
 	return h.Container.Terminate(ctx)
+}
+
+func (h *Harness) ContainerID() string {
+	if h == nil || h.Container == nil {
+		return ""
+	}
+	return h.Container.GetContainerID()
+}
+
+func cloneLabels(labels map[string]string) map[string]string {
+	if len(labels) == 0 {
+		return nil
+	}
+	cloned := make(map[string]string, len(labels))
+	for key, value := range labels {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func (db *TestDatabase) Env() map[string]string {

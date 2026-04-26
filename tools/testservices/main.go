@@ -21,6 +21,7 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	dockerclient "github.com/moby/moby/client"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -44,10 +45,20 @@ const (
 
 	webE2ECleanupWorkersEnv = "CARTULARY_TEST_SERVICES_WEB_E2E_CLEANUP_WORKERS"
 
+	testServiceLabelManaged = "cartulary.test-services.managed"
+	testServiceLabelSuiteID = "cartulary.test-services.suite-id"
+	testServiceLabelRunID   = "cartulary.test-services.run-id"
+	testServiceLabelTarget  = "cartulary.test-services.target"
+	testServiceLabelService = "cartulary.test-services.service"
+
+	testServiceManagedValue = "true"
+
 	stagePostgresStart    = "postgres-start"
 	stagePostgresTemplate = "postgres-template"
 	stageMinIOStart       = "minio-start"
 	stageChildStart       = "child-start"
+	stageCleanupLease     = "cleanup-lease"
+	stageCleanupReaper    = "cleanup-reaper"
 	stageCleanupWebE2E    = "cleanup-web-e2e"
 	stageCleanupJanitor   = "cleanup-janitor"
 	stageCleanupPostgres  = "cleanup-postgres"
@@ -68,14 +79,22 @@ type postgresService struct {
 	port        string
 	user        string
 	close       func(context.Context) error
+	containerID string
+	name        string
+	image       string
+	labels      map[string]string
 }
 
 type minioService struct {
-	endpoint  string
-	accessKey string
-	secretKey string
-	secure    bool
-	close     func(context.Context) error
+	endpoint    string
+	accessKey   string
+	secretKey   string
+	secure      bool
+	close       func(context.Context) error
+	containerID string
+	name        string
+	image       string
+	labels      map[string]string
 }
 
 type postgresStartResult struct {
@@ -99,6 +118,23 @@ type serviceCleanupResult struct {
 	start   time.Time
 	end     time.Time
 	err     error
+}
+
+type serviceLease struct {
+	SchemaID  string               `json:"schema_id"`
+	SuiteID   string               `json:"suite_id"`
+	RunID     string               `json:"run_id"`
+	Target    string               `json:"target"`
+	CreatedAt string               `json:"created_at"`
+	Services  []serviceLeaseRecord `json:"services"`
+}
+
+type serviceLeaseRecord struct {
+	Service     string            `json:"service"`
+	ContainerID string            `json:"container_id"`
+	Name        string            `json:"name,omitempty"`
+	Image       string            `json:"image"`
+	Labels      map[string]string `json:"labels"`
 }
 
 type webE2EFixture struct {
@@ -125,9 +161,10 @@ type childProcess interface {
 }
 
 type dependencies struct {
-	startPostgres       func(context.Context) (postgresService, error)
-	startMinIO          func(context.Context) (minioService, error)
+	startPostgres       func(context.Context, map[string]string) (postgresService, error)
+	startMinIO          func(context.Context, map[string]string) (minioService, error)
 	startChild          func(argv []string, env map[string]string) (childProcess, error)
+	startReaper         func(leasePath string, env map[string]string) error
 	createTemplate      func(context.Context, string, string) error
 	prepareWebE2E       func(context.Context, map[string]string) (webE2EFixture, error)
 	cleanupWebE2EDB     func(context.Context, webE2EMetadata, map[string]string) error
@@ -147,7 +184,7 @@ func main() {
 
 func run(args []string, env map[string]string, deps dependencies) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | prepare-web-e2e --env-file <path> --metadata-file <path> | cleanup-web-e2e --metadata-file <path> | warm-images")
+		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | prepare-web-e2e --env-file <path> --metadata-file <path> | cleanup-web-e2e --metadata-file <path> | terminate-suite --lease <path> | warm-images")
 		return 2
 	}
 
@@ -158,6 +195,8 @@ func run(args []string, env map[string]string, deps dependencies) int {
 		return runPrepareWebE2E(args[1:], env, deps)
 	case "cleanup-web-e2e":
 		return runCleanupWebE2E(args[1:], env, deps)
+	case "terminate-suite":
+		return runTerminateSuite(args[1:], env, deps)
 	case "warm-images":
 		return runWarmImages(args[1:], deps)
 	default:
@@ -166,28 +205,28 @@ func run(args []string, env map[string]string, deps dependencies) int {
 	}
 }
 
-func startPostgresAsync(parent context.Context, deps dependencies) <-chan postgresStartResult {
+func startPostgresAsync(parent context.Context, deps dependencies, env map[string]string) <-chan postgresStartResult {
 	resultCh := make(chan postgresStartResult, 1)
 	go func() {
 		ctx, cancel := context.WithTimeout(parent, postgresStartupTimeout)
 		defer cancel()
 
 		result := postgresStartResult{start: time.Now().UTC()}
-		result.service, result.err = deps.startPostgres(ctx)
+		result.service, result.err = deps.startPostgres(ctx, env)
 		result.end = time.Now().UTC()
 		resultCh <- result
 	}()
 	return resultCh
 }
 
-func startMinIOAsync(parent context.Context, deps dependencies) <-chan minioStartResult {
+func startMinIOAsync(parent context.Context, deps dependencies, env map[string]string) <-chan minioStartResult {
 	resultCh := make(chan minioStartResult, 1)
 	go func() {
 		ctx, cancel := context.WithTimeout(parent, minioStartupTimeout)
 		defer cancel()
 
 		result := minioStartResult{start: time.Now().UTC()}
-		result.service, result.err = deps.startMinIO(ctx)
+		result.service, result.err = deps.startMinIO(ctx, env)
 		result.end = time.Now().UTC()
 		resultCh <- result
 	}()
@@ -230,11 +269,12 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	var minioSvc minioService
 	childExitCode := 1
 	cleanupStatus := "startup_failed"
+	leasePath := ""
 
 	startupCtx, cancelStartup := context.WithCancel(context.Background())
 	defer cancelStartup()
-	postgresResultCh := startPostgresAsync(startupCtx, deps)
-	minioResultCh := startMinIOAsync(startupCtx, deps)
+	postgresResultCh := startPostgresAsync(startupCtx, deps, ownedEnv)
+	minioResultCh := startMinIOAsync(startupCtx, deps, ownedEnv)
 
 	postgresResult := <-postgresResultCh
 	postgresSvc = postgresResult.service
@@ -245,11 +285,11 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 		minioSvc = minioResult.service
 		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start minio", minioResult.start, minioResult.end, minioResult.err)
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresStart, "start suite postgres", postgresResult.err))
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "startup_failed", childExitCode)
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, "", "startup_failed", childExitCode)
 		return 1
 	}
 	defer func() {
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, cleanupStatus, childExitCode)
+		cleanupOwnedServices(deps, ownedEnv, postgresSvc, minioSvc, leasePath, cleanupStatus, childExitCode)
 	}()
 
 	templateDB := templateDatabaseName(suiteID)
@@ -308,6 +348,13 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 		},
 	})
 	deps.refreshSummary(ownedEnv)
+
+	leasePath, err = writeServiceLease(ownedEnv, postgresSvc, minioSvc)
+	if err != nil {
+		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "write suite service lease", err))
+		cleanupStatus = "startup_failed"
+		return 1
+	}
 
 	janitorCtx, cancelJanitor := context.WithTimeout(context.Background(), staleFixtureJanitorTimeout)
 	janitorStart := time.Now().UTC()
@@ -415,6 +462,40 @@ func runCleanupWebE2E(args []string, env map[string]string, deps dependencies) i
 	return 0
 }
 
+func runTerminateSuite(args []string, env map[string]string, deps dependencies) int {
+	leasePath, err := parseTerminateSuiteArgs(args)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	lease, err := readServiceLease(leasePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "read suite service lease: %v\n", err)
+		return 1
+	}
+
+	leaseEnv := cloneEnv(env)
+	leaseEnv[suiteservices.ActiveEnv] = "1"
+	leaseEnv[suiteservices.SuiteIDEnv] = lease.SuiteID
+	if lease.Target != "" {
+		leaseEnv[suiteservices.TargetEnv] = lease.Target
+	}
+	if lease.RunID != "" {
+		leaseEnv["CARTULARY_TEST_RUN_ID"] = lease.RunID
+	}
+
+	status := 0
+	for _, result := range terminateSuiteServices(context.Background(), lease) {
+		recordTimingSpanStatusAt(deps, leaseEnv, bucketTeardown, result.label, result.start, result.end, result.err, true)
+		if result.err != nil {
+			status = 1
+			printSuiteFailure(leaseEnv, failureSummary(result.service, result.stage, result.label, result.err))
+		}
+	}
+	deps.refreshSummary(leaseEnv)
+	return status
+}
+
 func runWarmImages(args []string, deps dependencies) int {
 	if len(args) != 0 {
 		fmt.Fprintln(os.Stderr, "usage: testservices warm-images")
@@ -472,6 +553,20 @@ func parseCleanupWebE2EArgs(args []string) (string, error) {
 	return metadataFile, nil
 }
 
+func parseTerminateSuiteArgs(args []string) (string, error) {
+	values, err := parseFlagPairs(args, map[string]struct{}{
+		"--lease": {},
+	})
+	if err != nil {
+		return "", err
+	}
+	leasePath := strings.TrimSpace(values["--lease"])
+	if leasePath == "" {
+		return "", errors.New("usage: testservices terminate-suite --lease <path>")
+	}
+	return leasePath, nil
+}
+
 func parseFlagPairs(args []string, allowed map[string]struct{}) (map[string]string, error) {
 	if len(args)%2 != 0 {
 		return nil, errors.New("testservices command flags require <flag> <value> pairs")
@@ -499,6 +594,7 @@ func defaultDependencies() dependencies {
 		startPostgres:       startPostgresService,
 		startMinIO:          startMinIOService,
 		startChild:          startChildProcess,
+		startReaper:         startDetachedSuiteReaper,
 		createTemplate:      createTemplateDatabase,
 		prepareWebE2E:       prepareWebE2EFixture,
 		cleanupWebE2EDB:     cleanupWebE2EDatabase,
@@ -522,6 +618,91 @@ func serviceImages() []string {
 		pgtest.ContainerImage(),
 		s3test.ContainerImage(),
 	}
+}
+
+func suiteServiceLabels(env map[string]string, service string) map[string]string {
+	return map[string]string{
+		testServiceLabelManaged: testServiceManagedValue,
+		testServiceLabelSuiteID: suiteservices.SuiteID(env),
+		testServiceLabelRunID:   suiteservices.ResolveRunID(env),
+		testServiceLabelTarget:  suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
+		testServiceLabelService: service,
+	}
+}
+
+func writeServiceLease(env map[string]string, postgresSvc postgresService, minioSvc minioService) (string, error) {
+	suiteDir, ok, err := suiteservices.ResolveSuiteArtifactDir(env)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", errors.New("suite service lease requires an active suite artifact directory")
+	}
+	if err := os.MkdirAll(suiteDir, 0o755); err != nil {
+		return "", fmt.Errorf("create suite service artifact dir: %w", err)
+	}
+
+	lease := serviceLease{
+		SchemaID:  "cartulary.test_services.lease.v1",
+		SuiteID:   suiteservices.SuiteID(env),
+		RunID:     suiteservices.ResolveRunID(env),
+		Target:    suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
+		CreatedAt: time.Now().UTC().Format(time.RFC3339Nano),
+		Services: []serviceLeaseRecord{
+			{
+				Service:     suiteservices.ServicePostgres,
+				ContainerID: postgresSvc.containerID,
+				Name:        postgresSvc.name,
+				Image:       postgresSvc.image,
+				Labels:      cloneStringMap(postgresSvc.labels),
+			},
+			{
+				Service:     suiteservices.ServiceMinIO,
+				ContainerID: minioSvc.containerID,
+				Name:        minioSvc.name,
+				Image:       minioSvc.image,
+				Labels:      cloneStringMap(minioSvc.labels),
+			},
+		},
+	}
+	payload, err := json.MarshalIndent(lease, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("encode suite service lease: %w", err)
+	}
+	leasePath := filepath.Join(suiteDir, "service-lease.json")
+	if err := os.WriteFile(leasePath, append(payload, '\n'), 0o644); err != nil {
+		return "", fmt.Errorf("write suite service lease: %w", err)
+	}
+	return leasePath, nil
+}
+
+func readServiceLease(path string) (serviceLease, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return serviceLease{}, err
+	}
+	var lease serviceLease
+	if err := json.Unmarshal(raw, &lease); err != nil {
+		return serviceLease{}, err
+	}
+	if lease.SchemaID != "cartulary.test_services.lease.v1" {
+		return serviceLease{}, fmt.Errorf("unsupported suite service lease schema %q", lease.SchemaID)
+	}
+	if strings.TrimSpace(lease.SuiteID) == "" {
+		return serviceLease{}, errors.New("suite service lease missing suite_id")
+	}
+	return lease, nil
+}
+
+func cloneStringMap(values map[string]string) map[string]string {
+	if len(values) == 0 {
+		return nil
+	}
+	cloned := make(map[string]string, len(values))
+	for key, value := range values {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func warmServiceImages(ctx context.Context, images []string) error {
@@ -577,8 +758,9 @@ func (ioDiscard) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func startPostgresService(ctx context.Context) (postgresService, error) {
-	harness, err := pgtest.StartOwned(ctx)
+func startPostgresService(ctx context.Context, env map[string]string) (postgresService, error) {
+	labels := suiteServiceLabels(env, suiteservices.ServicePostgres)
+	harness, err := pgtest.StartOwnedWithLabels(ctx, labels)
 	if err != nil {
 		return postgresService{}, err
 	}
@@ -591,25 +773,49 @@ func startPostgresService(ctx context.Context) (postgresService, error) {
 			harness.Host,
 			harness.Port,
 		),
-		host:  harness.Host,
-		port:  harness.Port,
-		user:  harness.User,
-		close: harness.Close,
+		host:        harness.Host,
+		port:        harness.Port,
+		user:        harness.User,
+		close:       harness.Close,
+		containerID: harness.ContainerID(),
+		name:        containerName(ctx, harness.Container),
+		image:       pgtest.ContainerImage(),
+		labels:      labels,
 	}, nil
 }
 
-func startMinIOService(ctx context.Context) (minioService, error) {
-	harness, err := s3test.StartOwned(ctx)
+func startMinIOService(ctx context.Context, env map[string]string) (minioService, error) {
+	labels := suiteServiceLabels(env, suiteservices.ServiceMinIO)
+	harness, err := s3test.StartOwnedWithLabels(ctx, labels)
 	if err != nil {
 		return minioService{}, err
 	}
 	return minioService{
-		endpoint:  harness.Endpoint,
-		accessKey: harness.AccessKey,
-		secretKey: harness.SecretKey,
-		secure:    harness.Secure,
-		close:     harness.Close,
+		endpoint:    harness.Endpoint,
+		accessKey:   harness.AccessKey,
+		secretKey:   harness.SecretKey,
+		secure:      harness.Secure,
+		close:       harness.Close,
+		containerID: harness.ContainerID(),
+		name:        containerName(ctx, harness.Container),
+		image:       s3test.ContainerImage(),
+		labels:      labels,
 	}, nil
+}
+
+type namedContainer interface {
+	Name(context.Context) (string, error)
+}
+
+func containerName(ctx context.Context, container namedContainer) string {
+	if container == nil {
+		return ""
+	}
+	name, err := container.Name(ctx)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimPrefix(strings.TrimSpace(name), "/")
 }
 
 func createTemplateDatabase(ctx context.Context, adminDSN string, templateDB string) error {
@@ -918,6 +1124,17 @@ func recordCleanupAndRefresh(deps dependencies, env map[string]string, status st
 	deps.refreshSummary(env)
 }
 
+func recordServiceReaperScheduled(deps dependencies, env map[string]string, leasePath string) {
+	deps.recordEvent(env, suiteservices.Event{
+		Type:   "service-reaper-scheduled",
+		Status: "pass",
+		Details: map[string]any{
+			"target":     suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
+			"lease_path": leasePath,
+		},
+	})
+}
+
 func recordTimingSpanStatus(deps dependencies, env map[string]string, bucket string, label string, start time.Time, err error) {
 	status := "pass"
 	if err != nil {
@@ -926,15 +1143,15 @@ func recordTimingSpanStatus(deps dependencies, env map[string]string, bucket str
 	recordTimingSpan(deps, env, bucket, label, start, time.Now().UTC(), status)
 }
 
-func recordTimingSpanStatusAt(deps dependencies, env map[string]string, bucket string, label string, start time.Time, end time.Time, err error) {
+func recordTimingSpanStatusAt(deps dependencies, env map[string]string, bucket string, label string, start time.Time, end time.Time, err error, janitorial ...bool) {
 	status := "pass"
 	if err != nil {
 		status = "fail"
 	}
-	recordTimingSpan(deps, env, bucket, label, start, end, status)
+	recordTimingSpan(deps, env, bucket, label, start, end, status, janitorial...)
 }
 
-func recordTimingSpan(deps dependencies, env map[string]string, bucket string, label string, start time.Time, end time.Time, status string) {
+func recordTimingSpan(deps dependencies, env map[string]string, bucket string, label string, start time.Time, end time.Time, status string, janitorial ...bool) {
 	if end.Before(start) {
 		end = start
 	}
@@ -942,18 +1159,22 @@ func recordTimingSpan(deps dependencies, env map[string]string, bucket string, l
 	if duration < 0 {
 		duration = 0
 	}
+	details := map[string]any{
+		"target":      suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
+		"bucket":      bucket,
+		"label":       label,
+		"start_time":  start.Format(time.RFC3339Nano),
+		"end_time":    end.Format(time.RFC3339Nano),
+		"duration_ms": duration.Milliseconds(),
+		"status":      status,
+	}
+	if len(janitorial) > 0 && janitorial[0] {
+		details["janitorial"] = true
+	}
 	deps.recordEvent(env, suiteservices.Event{
-		Type:   suiteservices.EventTimingSpan,
-		Status: status,
-		Details: map[string]any{
-			"target":      suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
-			"bucket":      bucket,
-			"label":       label,
-			"start_time":  start.Format(time.RFC3339Nano),
-			"end_time":    end.Format(time.RFC3339Nano),
-			"duration_ms": duration.Milliseconds(),
-			"status":      status,
-		},
+		Type:    suiteservices.EventTimingSpan,
+		Status:  status,
+		Details: details,
 	})
 }
 
@@ -1260,7 +1481,7 @@ func webE2EFixtureKey(metadata webE2EMetadata) string {
 	}, "\x1f")
 }
 
-func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc postgresService, minioSvc minioService, status string, childExitCode int) {
+func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc postgresService, minioSvc minioService, leasePath string, status string, childExitCode int) {
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
 
@@ -1310,11 +1531,29 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 		}
 	}
 
-	for _, result := range cleanupServices(cleanupCtx, postgresSvc, minioSvc) {
-		recordTimingSpanStatusAt(deps, env, bucketTeardown, result.label, result.start, result.end, result.err)
-		if result.err != nil {
+	if strings.TrimSpace(leasePath) != "" {
+		reaperStart := time.Now().UTC()
+		err := deps.startReaper(leasePath, env)
+		recordTimingSpanStatus(deps, env, bucketTeardown, "test-services schedule service reaper", reaperStart, err)
+		if err != nil {
 			cleanupStatus = "cleanup_failed"
-			printSuiteFailure(env, failureSummary(result.service, result.stage, result.label, result.err))
+			printSuiteFailure(env, failureSummary("", stageCleanupReaper, "schedule suite service reaper", err))
+			for _, result := range cleanupServices(cleanupCtx, postgresSvc, minioSvc) {
+				recordTimingSpanStatusAt(deps, env, bucketTeardown, result.label, result.start, result.end, result.err)
+				if result.err != nil {
+					printSuiteFailure(env, failureSummary(result.service, result.stage, result.label, result.err))
+				}
+			}
+		} else {
+			recordServiceReaperScheduled(deps, env, leasePath)
+		}
+	} else {
+		for _, result := range cleanupServices(cleanupCtx, postgresSvc, minioSvc) {
+			recordTimingSpanStatusAt(deps, env, bucketTeardown, result.label, result.start, result.end, result.err)
+			if result.err != nil {
+				cleanupStatus = "cleanup_failed"
+				printSuiteFailure(env, failureSummary(result.service, result.stage, result.label, result.err))
+			}
 		}
 	}
 
@@ -1367,6 +1606,142 @@ func cleanupServices(ctx context.Context, postgresSvc postgresService, minioSvc 
 		return strings.Compare(left.label, right.label)
 	})
 	return cleanups
+}
+
+func terminateSuiteServices(parent context.Context, lease serviceLease) []serviceCleanupResult {
+	ctx, cancel := context.WithTimeout(parent, cleanupTimeout)
+	defer cancel()
+
+	cli, err := dockerclient.New(dockerclient.FromEnv)
+	if err != nil {
+		results := make([]serviceCleanupResult, 0, len(lease.Services))
+		for _, service := range lease.Services {
+			results = append(results, serviceCleanupResult{
+				service: service.Service,
+				stage:   cleanupStageForService(service.Service),
+				label:   cleanupLabelForService(service.Service),
+				start:   time.Now().UTC(),
+				end:     time.Now().UTC(),
+				err:     fmt.Errorf("create docker client: %w", err),
+			})
+		}
+		return results
+	}
+	defer cli.Close()
+
+	results := make([]serviceCleanupResult, 0, len(lease.Services))
+	for _, service := range lease.Services {
+		start := time.Now().UTC()
+		err := terminateLeasedService(ctx, cli, lease, service)
+		results = append(results, serviceCleanupResult{
+			service: service.Service,
+			stage:   cleanupStageForService(service.Service),
+			label:   cleanupLabelForService(service.Service),
+			start:   start,
+			end:     time.Now().UTC(),
+			err:     err,
+		})
+	}
+	slices.SortFunc(results, func(left, right serviceCleanupResult) int {
+		return strings.Compare(left.label, right.label)
+	})
+	return results
+}
+
+func terminateLeasedService(ctx context.Context, cli *dockerclient.Client, lease serviceLease, service serviceLeaseRecord) error {
+	containers, err := leasedServiceContainers(ctx, cli, lease, service)
+	if err != nil {
+		return err
+	}
+	if len(containers) == 0 {
+		return nil
+	}
+	var errs []error
+	for _, containerID := range containers {
+		_, err := cli.ContainerRemove(ctx, containerID, dockerclient.ContainerRemoveOptions{
+			RemoveVolumes: true,
+			Force:         true,
+		})
+		if err != nil && !isDockerNotFound(err) {
+			errs = append(errs, fmt.Errorf("remove container %s: %w", shortContainerID(containerID), err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func leasedServiceContainers(ctx context.Context, cli *dockerclient.Client, lease serviceLease, service serviceLeaseRecord) ([]string, error) {
+	filters := dockerclient.Filters{}
+	for key, value := range requiredLeaseLabels(lease, service) {
+		if strings.TrimSpace(value) == "" {
+			continue
+		}
+		filters = filters.Add("label", fmt.Sprintf("%s=%s", key, value))
+	}
+	result, err := cli.ContainerList(ctx, dockerclient.ContainerListOptions{
+		All:     true,
+		Filters: filters,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list leased %s containers: %w", service.Service, err)
+	}
+	ids := make([]string, 0, len(result.Items))
+	seen := make(map[string]struct{})
+	for _, item := range result.Items {
+		if service.ContainerID != "" && item.ID != service.ContainerID && !strings.HasPrefix(item.ID, service.ContainerID) && !strings.HasPrefix(service.ContainerID, item.ID) {
+			continue
+		}
+		if _, ok := seen[item.ID]; ok {
+			continue
+		}
+		seen[item.ID] = struct{}{}
+		ids = append(ids, item.ID)
+	}
+	slices.Sort(ids)
+	return ids, nil
+}
+
+func requiredLeaseLabels(lease serviceLease, service serviceLeaseRecord) map[string]string {
+	labels := map[string]string{
+		testServiceLabelManaged: testServiceManagedValue,
+		testServiceLabelSuiteID: lease.SuiteID,
+		testServiceLabelRunID:   lease.RunID,
+		testServiceLabelService: service.Service,
+	}
+	for key, value := range service.Labels {
+		if _, required := labels[key]; required {
+			labels[key] = value
+		}
+	}
+	return labels
+}
+
+func cleanupStageForService(service string) string {
+	if service == suiteservices.ServiceMinIO {
+		return stageCleanupMinIO
+	}
+	return stageCleanupPostgres
+}
+
+func cleanupLabelForService(service string) string {
+	if service == suiteservices.ServiceMinIO {
+		return "test-services terminate minio"
+	}
+	return "test-services terminate postgres"
+}
+
+func shortContainerID(containerID string) string {
+	if len(containerID) <= 12 {
+		return containerID
+	}
+	return containerID[:12]
+}
+
+func isDockerNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	lower := strings.ToLower(err.Error())
+	return strings.Contains(lower, "no such container") || strings.Contains(lower, "not found") || strings.Contains(lower, "404")
 }
 
 func serviceBackedCleanupEnv(env map[string]string, postgresSvc postgresService, minioSvc minioService) map[string]string {
@@ -1557,6 +1932,30 @@ func startChildProcess(argv []string, env map[string]string) (childProcess, erro
 		return nil, err
 	}
 	return &execChild{cmd: cmd}, nil
+}
+
+func startDetachedSuiteReaper(leasePath string, env map[string]string) error {
+	executable, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolve testservices executable: %w", err)
+	}
+	cmd := exec.Command(executable, "terminate-suite", "--lease", leasePath)
+	cmd.Env = envSlice(env)
+	cmd.Stdin = nil
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+	logPath := filepath.Join(filepath.Dir(leasePath), "service-reaper.log")
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return fmt.Errorf("open service reaper log: %w", err)
+	}
+	defer logFile.Close()
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *execChild) Wait() error {

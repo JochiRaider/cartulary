@@ -20,11 +20,11 @@ func TestRunPassThroughModeStartsNoServices(t *testing.T) {
 	receivedEnv := map[string]string{}
 	recordedEvents := []suiteservices.Event{}
 	deps := dependencies{
-		startPostgres: func(context.Context) (postgresService, error) {
+		startPostgres: func(context.Context, map[string]string) (postgresService, error) {
 			t.Fatal("startPostgres must not run in pass-through mode")
 			return postgresService{}, nil
 		},
-		startMinIO: func(context.Context) (minioService, error) {
+		startMinIO: func(context.Context, map[string]string) (minioService, error) {
 			t.Fatal("startMinIO must not run in pass-through mode")
 			return minioService{}, nil
 		},
@@ -61,33 +61,54 @@ func TestRunPassThroughModeStartsNoServices(t *testing.T) {
 	}
 }
 
-func TestRunCleansUpOwnedServicesOnChildFailureAndPropagatesStatus(t *testing.T) {
+func TestRunSchedulesServiceReaperOnChildFailureAndPropagatesStatus(t *testing.T) {
 	postgresClosed := 0
 	minioClosed := 0
+	reaperLease := ""
 	deps := defaultTestDependencies(t)
-	deps.startPostgres = func(context.Context) (postgresService, error) {
+	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
 		return postgresService{
 			adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
 			dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
 			host:        "127.0.0.1",
 			port:        "5432",
 			user:        "cartulary",
+			containerID: "postgres-container",
+			image:       "postgres:test",
+			labels: map[string]string{
+				testServiceLabelManaged: testServiceManagedValue,
+				testServiceLabelSuiteID: "suite-redaction",
+				testServiceLabelRunID:   "wrapper-tests",
+				testServiceLabelService: suiteservices.ServicePostgres,
+			},
 			close: func(context.Context) error {
 				postgresClosed++
 				return nil
 			},
 		}, nil
 	}
-	deps.startMinIO = func(context.Context) (minioService, error) {
+	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
 		return minioService{
-			endpoint:  "127.0.0.1:9000",
-			accessKey: "minio-access",
-			secretKey: "minio-secret",
+			endpoint:    "127.0.0.1:9000",
+			accessKey:   "minio-access",
+			secretKey:   "minio-secret",
+			containerID: "minio-container",
+			image:       "minio:test",
+			labels: map[string]string{
+				testServiceLabelManaged: testServiceManagedValue,
+				testServiceLabelSuiteID: "suite-redaction",
+				testServiceLabelRunID:   "wrapper-tests",
+				testServiceLabelService: suiteservices.ServiceMinIO,
+			},
 			close: func(context.Context) error {
 				minioClosed++
 				return nil
 			},
 		}, nil
+	}
+	deps.startReaper = func(leasePath string, env map[string]string) error {
+		reaperLease = leasePath
+		return nil
 	}
 	deps.startChild = func(argv []string, env map[string]string) (childProcess, error) {
 		return startChildProcess([]string{"bash", "-lc", "exit 7"}, env)
@@ -97,11 +118,21 @@ func TestRunCleansUpOwnedServicesOnChildFailureAndPropagatesStatus(t *testing.T)
 	if status != 7 {
 		t.Fatalf("unexpected exit status: got %d want 7", status)
 	}
-	if postgresClosed != 1 {
-		t.Fatalf("expected one postgres cleanup, got %d", postgresClosed)
+	if postgresClosed != 0 {
+		t.Fatalf("postgres termination must be delegated to the reaper, got %d direct cleanup call(s)", postgresClosed)
 	}
-	if minioClosed != 1 {
-		t.Fatalf("expected one minio cleanup, got %d", minioClosed)
+	if minioClosed != 0 {
+		t.Fatalf("minio termination must be delegated to the reaper, got %d direct cleanup call(s)", minioClosed)
+	}
+	if reaperLease == "" {
+		t.Fatal("expected service reaper to be scheduled")
+	}
+	lease, err := readServiceLease(reaperLease)
+	if err != nil {
+		t.Fatalf("read reaper lease: %v", err)
+	}
+	if lease.SuiteID != "suite-redaction" || len(lease.Services) != 2 {
+		t.Fatalf("unexpected lease: %#v", lease)
 	}
 	if loadScope(t, deps).Failure != nil {
 		t.Fatal("non-zero child exit after a successful start must not populate startup failure summary")
@@ -119,8 +150,55 @@ func TestRunCleansUpOwnedServicesOnChildFailureAndPropagatesStatus(t *testing.T)
 	requireTimingEvent(t, events, bucketServiceWait, "test-services start postgres")
 	requireTimingEvent(t, events, bucketMigration, "test-services prepare postgres template database")
 	requireTimingEvent(t, events, bucketServiceWait, "test-services start minio")
-	requireTimingEvent(t, events, bucketTeardown, "test-services terminate postgres")
-	requireTimingEvent(t, events, bucketTeardown, "test-services terminate minio")
+	requireTimingEvent(t, events, bucketTeardown, "test-services schedule service reaper")
+}
+
+func TestRunReturnsBeforeSlowServiceTerminationAfterChildSuccess(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	closeCalled := make(chan struct{}, 2)
+	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
+		return postgresService{
+			adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
+			dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
+			containerID: "postgres-container",
+			image:       "postgres:test",
+			labels:      suiteServiceLabels(map[string]string{suiteservices.SuiteIDEnv: "suite-redaction", "CARTULARY_TEST_RUN_ID": "wrapper-tests"}, suiteservices.ServicePostgres),
+			close:       func(context.Context) error { closeCalled <- struct{}{}; time.Sleep(time.Second); return nil },
+		}, nil
+	}
+	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
+		return minioService{
+			endpoint:    "127.0.0.1:9000",
+			accessKey:   "minio-access",
+			secretKey:   "minio-secret",
+			containerID: "minio-container",
+			image:       "minio:test",
+			labels:      suiteServiceLabels(map[string]string{suiteservices.SuiteIDEnv: "suite-redaction", "CARTULARY_TEST_RUN_ID": "wrapper-tests"}, suiteservices.ServiceMinIO),
+			close:       func(context.Context) error { closeCalled <- struct{}{}; time.Sleep(time.Second); return nil },
+		}, nil
+	}
+	reaperScheduled := false
+	deps.startReaper = func(string, map[string]string) error {
+		reaperScheduled = true
+		return nil
+	}
+
+	start := time.Now()
+	status := run([]string{"run", "--", "ignored"}, deps.env, deps.dependencies)
+	if status != 0 {
+		t.Fatalf("unexpected exit status: got %d want 0", status)
+	}
+	if elapsed := time.Since(start); elapsed > 500*time.Millisecond {
+		t.Fatalf("successful run waited on service termination: %v", elapsed)
+	}
+	if !reaperScheduled {
+		t.Fatal("expected detached service reaper to be scheduled")
+	}
+	select {
+	case <-closeCalled:
+		t.Fatal("service close must not run synchronously on successful child completion")
+	default:
+	}
 }
 
 func TestRunStartsMinIOWhilePostgresTemplateIsPreparing(t *testing.T) {
@@ -129,7 +207,7 @@ func TestRunStartsMinIOWhilePostgresTemplateIsPreparing(t *testing.T) {
 	releaseMinIO := make(chan struct{})
 	childStarted := false
 
-	deps.startPostgres = func(context.Context) (postgresService, error) {
+	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
 		return postgresService{
 			adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
 			dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
@@ -139,7 +217,7 @@ func TestRunStartsMinIOWhilePostgresTemplateIsPreparing(t *testing.T) {
 			close:       func(context.Context) error { return nil },
 		}, nil
 	}
-	deps.startMinIO = func(ctx context.Context) (minioService, error) {
+	deps.startMinIO = func(ctx context.Context, _ map[string]string) (minioService, error) {
 		close(minioStarted)
 		select {
 		case <-releaseMinIO:
@@ -196,10 +274,10 @@ func TestRunCleansUpMinIOWhenPostgresStartupFails(t *testing.T) {
 	minioClosed := 0
 	childStarted := false
 
-	deps.startPostgres = func(context.Context) (postgresService, error) {
+	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
 		return postgresService{}, errors.New("postgres refused startup")
 	}
-	deps.startMinIO = func(context.Context) (minioService, error) {
+	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
 		return minioService{
 			endpoint:  "127.0.0.1:9000",
 			accessKey: "minio-access",
@@ -237,7 +315,7 @@ func TestRunCleansUpMinIOWhenPostgresStartupFails(t *testing.T) {
 
 func TestRunRedactsCredentialsInDiagnostics(t *testing.T) {
 	deps := defaultTestDependencies(t)
-	deps.startPostgres = func(context.Context) (postgresService, error) {
+	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
 		return postgresService{
 			adminDSN:    "postgres://cartulary:supersecret@127.0.0.1:5432/postgres?sslmode=disable",
 			dsnTemplate: "postgres://cartulary:supersecret@127.0.0.1:5432/{database}?sslmode=disable",
@@ -247,7 +325,7 @@ func TestRunRedactsCredentialsInDiagnostics(t *testing.T) {
 			close:       func(context.Context) error { return nil },
 		}, nil
 	}
-	deps.startMinIO = func(context.Context) (minioService, error) {
+	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
 		return minioService{
 			endpoint:  "127.0.0.1:9000",
 			accessKey: "access-secret",
@@ -296,7 +374,7 @@ func TestRunRedactsCredentialsInDiagnostics(t *testing.T) {
 func TestRunRecordsMinIOStartupFailureWithStructuredSummary(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	childStarted := false
-	deps.startPostgres = func(context.Context) (postgresService, error) {
+	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
 		return postgresService{
 			adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
 			dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
@@ -306,7 +384,7 @@ func TestRunRecordsMinIOStartupFailureWithStructuredSummary(t *testing.T) {
 			close:       func(context.Context) error { return nil },
 		}, nil
 	}
-	deps.startMinIO = func(context.Context) (minioService, error) {
+	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
 		return minioService{}, &testcontainersx.StartFailure{
 			Operation:             "start",
 			Service:               "minio testcontainer",
@@ -373,7 +451,7 @@ func TestRunRecordsMinIOStartupFailureWithStructuredSummary(t *testing.T) {
 func TestRunRecordsPostgresTemplateFailureWithStructuredSummary(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	minioClosed := 0
-	deps.startPostgres = func(context.Context) (postgresService, error) {
+	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
 		return postgresService{
 			adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
 			dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
@@ -383,7 +461,7 @@ func TestRunRecordsPostgresTemplateFailureWithStructuredSummary(t *testing.T) {
 			close:       func(context.Context) error { return nil },
 		}, nil
 	}
-	deps.startMinIO = func(context.Context) (minioService, error) {
+	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
 		return minioService{
 			endpoint:  "127.0.0.1:9000",
 			accessKey: "access-secret",
@@ -429,7 +507,7 @@ func TestRunRecordsPostgresTemplateFailureWithStructuredSummary(t *testing.T) {
 
 func TestRunRecordsChildStartFailureWithStructuredSummary(t *testing.T) {
 	deps := defaultTestDependencies(t)
-	deps.startPostgres = func(context.Context) (postgresService, error) {
+	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
 		return postgresService{
 			adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
 			dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
@@ -439,7 +517,7 @@ func TestRunRecordsChildStartFailureWithStructuredSummary(t *testing.T) {
 			close:       func(context.Context) error { return nil },
 		}, nil
 	}
-	deps.startMinIO = func(context.Context) (minioService, error) {
+	deps.startMinIO = func(context.Context, map[string]string) (minioService, error) {
 		return minioService{
 			endpoint:  "127.0.0.1:9000",
 			accessKey: "minio-access",
@@ -723,6 +801,7 @@ func TestCleanupOwnedServicesReclaimsRetiredWebE2EFixturesOnce(t *testing.T) {
 				return nil
 			},
 		},
+		"",
 		"succeeded",
 		0,
 	)
@@ -786,6 +865,7 @@ func TestCleanupOwnedServicesTerminatesServicesConcurrently(t *testing.T) {
 					return nil
 				},
 			},
+			"",
 			"succeeded",
 			0,
 		)
@@ -885,7 +965,7 @@ func TestCleanupOwnedServicesFailsFastOnBrowserFixtureLeak(t *testing.T) {
 		return nil
 	}
 
-	cleanupOwnedServices(deps.dependencies, activeEnv, postgresService{}, minioService{}, "succeeded", 0)
+	cleanupOwnedServices(deps.dependencies, activeEnv, postgresService{}, minioService{}, "", "succeeded", 0)
 
 	scope, ok, err := suiteservices.Summarize(activeEnv)
 	if err != nil {
@@ -961,15 +1041,16 @@ func defaultTestDependencies(t testing.TB) testDeps {
 
 	return testDeps{
 		dependencies: dependencies{
-			startPostgres: func(context.Context) (postgresService, error) {
+			startPostgres: func(context.Context, map[string]string) (postgresService, error) {
 				return postgresService{}, nil
 			},
-			startMinIO: func(context.Context) (minioService, error) {
+			startMinIO: func(context.Context, map[string]string) (minioService, error) {
 				return minioService{}, nil
 			},
 			startChild: func(argv []string, env map[string]string) (childProcess, error) {
 				return fakeChild{}, nil
 			},
+			startReaper:         func(string, map[string]string) error { return nil },
 			createTemplate:      func(context.Context, string, string) error { return nil },
 			prepareWebE2E:       func(context.Context, map[string]string) (webE2EFixture, error) { return webE2EFixture{}, nil },
 			cleanupWebE2EDB:     func(context.Context, webE2EMetadata, map[string]string) error { return nil },
