@@ -153,15 +153,15 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v3") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v3");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v4") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v4");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
   throw new Error(`expected exactly one schedule for ${scheduleTarget}, found ${schedules.length}`);
 }
 const targets = schedules[0].work_unit_sources
-  .filter((entry) => kind === "" || (kind === "backend" && (entry.type === "go_shards" || entry.type === "make_target")) || entry.type === kind)
+  .filter((entry) => kind === "" || entry.class === kind)
   .map((entry) => entry.target);
 if (targets.length > 0) {
   process.stdout.write(`${targets.join("\n")}\n`);
@@ -179,8 +179,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, childTarget, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v3") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v3");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v4") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v4");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -678,8 +678,8 @@ if printf '%s\n' "$check_service_block" | rg -q '(^|[[:space:]])(backend-process
   fail "check-service-backed must not invoke Phase 2 process smoke coverage"
 fi
 mapfile -t check_service_browser_schedule_targets < <(schedule_targets check-service-backed browser)
-if [[ "${#check_service_browser_schedule_targets[@]}" -ne 0 ]]; then
-  fail "check-service-backed schedule must not own browser targets; use browser-e2e aggregate instead, found: ${check_service_browser_schedule_targets[*]}"
+if [[ "$(printf '%s\n' "${check_service_browser_schedule_targets[@]}")" != "browser-e2e-webserver-backed" ]]; then
+  fail "check-service-backed schedule must own only browser-e2e-webserver-backed as browser work, found: ${check_service_browser_schedule_targets[*]:-none}"
 fi
 
 mapfile -t check_service_backend_schedule_targets < <(schedule_targets check-service-backed backend)

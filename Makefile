@@ -76,10 +76,9 @@ TEST_SUMMARY_TARGETS := test-service-backed,browser-e2e,backend-unit,frontend-ty
 CHECK_SUMMARY_TARGETS := check-service-backed,browser-e2e,backend-unit,frontend-typecheck,frontend-unit,backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
 TEST_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser=browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
 CHECK_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser=browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
-TEST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process
+TEST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed
 TEST_FAST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process
-CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process
-BROWSER_E2E_ALL_CHILD_TARGETS := browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
+CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed
 BROWSER_E2E_ISOLATED_CHILD_TARGETS := browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
 BROWSER_E2E_RESETTABLE_CHILD_TARGETS := browser-e2e-measurement,browser-e2e-visual
 HARNESS_SMOKE_FAST_TARGETS := harness-smoke-toolchain-pins,harness-smoke-bootstrap-node-runtime,harness-smoke-build-input-discovery,harness-smoke-check-migrations,harness-smoke-run-make-sequence-fast,harness-smoke-release-task-surface,harness-smoke-benchmark-claim-check,harness-smoke-task-surface-report,harness-smoke-run-phase,harness-smoke-run-go-target-fast,harness-smoke-print-target-plan,harness-smoke-service-backed-scheduler,harness-smoke-run-playwright-phase,harness-smoke-run-playwright-manifest-phase,harness-smoke-run-playwright-webserver-batch,harness-smoke-run-vitest-phase,harness-smoke-run-vitest-manifest-phase
@@ -225,7 +224,7 @@ help:
 		'  make format                format authored frontend sources' \
 		'' \
 		'browser:' \
-		'  make browser-e2e           run all browser E2E suites through one batch stack' \
+		'  make browser-e2e           run final isolated browser E2E suites through one batch stack' \
 		'  make browser-e2e-webserver-backed run shared-stack browser E2E batch' \
 		'  make browser-e2e-stateful  run isolated stateful browser E2E batch' \
 		'  make browser-e2e-measurement run ordinary browser measurement evidence' \
@@ -629,7 +628,7 @@ e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 browser-e2e: export CARTULARY_TEST_TARGET := browser-e2e
 
 browser-e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN)
-	$(Q)status=0; $(TEST_SERVICES_BIN) run -- env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh all || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e $$requested --children "$(BROWSER_E2E_ALL_CHILD_TARGETS)"; exit "$$status"
+	$(Q)status=0; $(TEST_SERVICES_BIN) run -- env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh isolated || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e $$requested --children "$(BROWSER_E2E_ISOLATED_CHILD_TARGETS)"; exit "$$status"
 
 browser-e2e-webserver-backed: export CARTULARY_TEST_TARGET := browser-e2e-webserver-backed
 

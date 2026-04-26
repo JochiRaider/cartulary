@@ -60,15 +60,15 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v3") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v3");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v4") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v4");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
   throw new Error(`expected exactly one schedule for ${scheduleTarget}, found ${schedules.length}`);
 }
 const targets = schedules[0].work_unit_sources
-  .filter((entry) => kind === "" || (kind === "backend" && (entry.type === "go_shards" || entry.type === "make_target")) || entry.type === kind)
+  .filter((entry) => kind === "" || entry.class === kind)
   .map((entry) => entry.target);
 if (targets.length > 0) {
   process.stdout.write(`${targets.join("\n")}\n`);
@@ -86,8 +86,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, childTarget, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v3") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v3");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v4") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v4");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -205,14 +205,17 @@ fi
 if ! printf '%s\n' "$browser_e2e_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
   fail 'browser-e2e must wrap aggregate browser children through $(TEST_SERVICES_BIN)'
 fi
-if ! printf '%s\n' "$browser_e2e_block" | grep -Fq './scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh all'; then
-  fail "browser-e2e must run the all browser batch inside one owned stack"
+if ! printf '%s\n' "$browser_e2e_block" | grep -Fq './scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh isolated'; then
+  fail "browser-e2e must run the final isolated browser batch inside one owned stack"
 fi
 if printf '%s\n' "$browser_e2e_block" | grep -Fq -- '-j$(BROWSER_E2E_JOBS)'; then
   fail 'browser-e2e must not fan out aggregate browser children with -j$(BROWSER_E2E_JOBS)'
 fi
-if ! printf '%s\n' "$browser_e2e_block" | grep -Fq '$(BROWSER_E2E_ALL_CHILD_TARGETS)'; then
-  fail "browser-e2e must summarize the manifest-declared all-batch children"
+if printf '%s\n' "$browser_e2e_block" | grep -Fq 'run-browser-e2e-batch.sh all'; then
+  fail "browser-e2e must not run the removed all browser batch"
+fi
+if ! printf '%s\n' "$browser_e2e_block" | grep -Fq '$(BROWSER_E2E_ISOLATED_CHILD_TARGETS)'; then
+  fail "browser-e2e must summarize the manifest-declared isolated-batch children"
 fi
 
 test_service_block="$(extract_target_block test-service-backed)"
@@ -243,8 +246,8 @@ if ! printf '%s\n' "$test_service_block" | grep -Fq 'build-migrate'; then
 fi
 
 mapfile -t test_service_browser_targets < <(schedule_targets test-service-backed browser)
-if [[ "${#test_service_browser_targets[@]}" -ne 0 ]]; then
-  fail "test-service-backed schedule must not own browser targets; use browser-e2e aggregate instead, found: ${test_service_browser_targets[*]}"
+if [[ "$(printf '%s\n' "${test_service_browser_targets[@]}")" != "browser-e2e-webserver-backed" ]]; then
+  fail "test-service-backed schedule must own only browser-e2e-webserver-backed as browser work, found: ${test_service_browser_targets[*]:-none}"
 fi
 
 check_service_block="$(extract_target_block check-service-backed)"
@@ -275,8 +278,13 @@ if ! printf '%s\n' "$check_service_block" | grep -Fq 'build-migrate'; then
 fi
 
 mapfile -t check_service_browser_targets < <(schedule_targets check-service-backed browser)
-if [[ "${#check_service_browser_targets[@]}" -ne 0 ]]; then
-  fail "check-service-backed schedule must not own browser targets; use browser-e2e aggregate instead, found: ${check_service_browser_targets[*]}"
+if [[ "$(printf '%s\n' "${check_service_browser_targets[@]}")" != "browser-e2e-webserver-backed" ]]; then
+  fail "check-service-backed schedule must own only browser-e2e-webserver-backed as browser work, found: ${check_service_browser_targets[*]:-none}"
+fi
+
+mapfile -t test_fast_service_browser_targets < <(schedule_targets test-fast-service-backed browser)
+if [[ "${#test_fast_service_browser_targets[@]}" -ne 0 ]]; then
+  fail "test-fast-service-backed schedule must remain backend-only, found browser targets: ${test_fast_service_browser_targets[*]}"
 fi
 
 check_summary_groups_line="$(sed -n 's/^CHECK_SUMMARY_GROUPS[[:space:]]*:=[[:space:]]*//p' "$makefile" | head -n 1)"
@@ -287,7 +295,7 @@ if printf '%s\n' "$check_summary_groups_line" | grep -Eq 'browser-(webserver-bac
   fail "CHECK_SUMMARY_GROUPS must use one aggregate browser group, not split browser groups"
 fi
 if ! printf '%s\n' "$check_summary_groups_line" | grep -Fq 'browser=browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual'; then
-  fail "CHECK_SUMMARY_GROUPS must report all browser batch children in one browser group"
+  fail "CHECK_SUMMARY_GROUPS must report service-backed webserver and final isolated browser children in one browser group"
 fi
 backend_summary_group="$(printf '%s\n' "$check_summary_groups_line" | tr ';' '\n' | sed -n 's/^backend-service-backed=//p')"
 if [[ "$backend_summary_group" != "backend-integration,backend-integration-support,backend-store,backend-process" ]]; then
@@ -295,7 +303,7 @@ if [[ "$backend_summary_group" != "backend-integration,backend-integration-suppo
 fi
 browser_summary_group="$(printf '%s\n' "$check_summary_groups_line" | tr ';' '\n' | sed -n 's/^browser=//p')"
 if [[ "$browser_summary_group" != "browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual" ]]; then
-  fail "browser summary group must contain the all-batch browser children, found: ${browser_summary_group:-none}"
+  fail "browser summary group must contain the service-backed webserver and isolated browser children, found: ${browser_summary_group:-none}"
 fi
 
 test_summary_groups_line="$(sed -n 's/^TEST_SUMMARY_GROUPS[[:space:]]*:=[[:space:]]*//p' "$makefile" | head -n 1)"
@@ -432,8 +440,8 @@ fi
 if ! grep -Fq 'cartulary.browser_e2e_batch_manifest.v1' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must declare its schema"
 fi
-if ! grep -Fq '"name": "all"' "$browser_batch_manifest"; then
-  fail "browser E2E batch manifest must define the all stage"
+if grep -Fq '"name": "all"' "$browser_batch_manifest"; then
+  fail "browser E2E batch manifest must not keep the removed all stage"
 fi
 if ! grep -Fq '"name": "isolated"' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must define the isolated stage"

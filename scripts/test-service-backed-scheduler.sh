@@ -141,23 +141,28 @@ write_manifest() {
 
   {
     printf '{\n'
-    printf '  "schema_id": "cartulary.service_backed_schedule.v3",\n'
+    printf '  "schema_id": "cartulary.service_backed_schedule.v4",\n'
     printf '  "schedules": [\n'
-    printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "backend": 4, "process": 2 }, "work_unit_sources": [\n' "$target"
+    printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "backend": 4, "process": 2, "browser": 1 }, "work_unit_sources": [\n' "$target"
     local first=1
     local source
     for source in "$@"; do
-      IFS='|' read -r type name weight claims <<<"$source"
+      IFS='|' read -r type name weight claims class browser_stage <<<"$source"
+      class="${class:-backend}"
       if [[ "$first" -eq 0 ]]; then
         printf ',\n'
       fi
       first=0
       if [[ "$type" == "make_target" ]]; then
-        printf '      { "type": "make_target", "target": "%s", "weight": %s, "resource_claims": {%s} }' \
-          "$name" "$weight" "$claims"
+        printf '      { "type": "make_target", "class": "%s", "target": "%s", "weight": %s, "resource_claims": {%s}' \
+          "$class" "$name" "$weight" "$claims"
+        if [[ -n "${browser_stage:-}" ]]; then
+          printf ', "browser_stage": "%s"' "$browser_stage"
+        fi
+        printf ' }'
       else
-        printf '      { "type": "go_shards", "target": "%s", "resource_claims": {%s} }' \
-          "$name" "$claims"
+        printf '      { "type": "go_shards", "class": "%s", "target": "%s", "resource_claims": {%s} }' \
+          "$class" "$name" "$claims"
       fi
     done
     printf '\n    ] }\n'
@@ -221,7 +226,7 @@ assert_contains "$weighted_output" "[STEP] test-fast-service-backed 2/3 backend-
 assert_contains "$weighted_output" "[STEP] test-fast-service-backed 3/3 backend-store mode=scheduler jobs=4" "weighted third child"
 assert_equals "$(cat "${weighted_dir}/max")" "3" "resource scheduler starts all compatible weighted children"
 assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-process claims={backend:1,minio:1,postgres:1,process:1} active=1 pending=2" "scheduler start telemetry"
-assert_contains "$weighted_output" "resource_limits={backend:4,minio:32,postgres:32,process:2}" "scheduler resource limit telemetry"
+assert_contains "$weighted_output" "resource_limits={backend:4,browser:1,minio:32,postgres:32,process:2}" "scheduler resource limit telemetry"
 assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed finish work_unit=backend-process status=0" "scheduler finish telemetry"
 
 resource_block_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-resource-block.XXXXXX")"
@@ -248,6 +253,19 @@ write_manifest "$backend_capacity_manifest" test-fast-service-backed \
   'make_target|phase0-process-e2e|6|"postgres": 1, "minio": 1, "backend": 1, "process": 1'
 run_scheduler "$backend_capacity_dir" "$backend_capacity_manifest" test-fast-service-backed backend-capacity >/dev/null
 assert_equals "$(cat "${backend_capacity_dir}/max")" "4" "backend resource capacity limits active work units"
+
+browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser.XXXXXX")"
+cleanup_paths+=("$browser_dir")
+write_fake_make "$browser_dir"
+browser_manifest="${browser_dir}/manifest.json"
+write_manifest "$browser_manifest" test-service-backed \
+  'make_target|backend-process|10|"postgres": 1, "minio": 1, "backend": 1, "process": 1|backend' \
+  'make_target|browser-e2e-webserver-backed|9|"postgres": 1, "minio": 1, "process": 1, "browser": 1|browser|webserver-backed'
+browser_output="$(run_scheduler "$browser_dir" "$browser_manifest" test-service-backed browser 2>&1)"
+assert_contains "$browser_output" "[STEP] test-service-backed 1/2 backend-process mode=scheduler jobs=4" "browser schedule backend child"
+assert_contains "$browser_output" "[STEP] test-service-backed 2/2 browser-e2e-webserver-backed mode=scheduler jobs=4" "browser schedule browser child"
+assert_contains "$browser_output" "claims={browser:1,minio:1,postgres:1,process:1}" "browser resource claims telemetry"
+assert_contains "$browser_output" "resource_limits={backend:4,browser:1,minio:32,postgres:32,process:2}" "browser resource limits telemetry"
 
 set +e
 empty_budget_output="$("$NODE_BIN" "${ROOT_DIR}/scripts/check-postgres-fixture-budget.mjs" --targets "" 2>&1)"
@@ -337,6 +355,19 @@ set -e
 assert_equals "$invalid_resource_status" "1" "invalid resource manifest status"
 assert_contains "$invalid_resource_output" "undeclared-resource is not declared in resource_limits" "invalid resource manifest output"
 
+invalid_browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-invalid-browser.XXXXXX")"
+cleanup_paths+=("$invalid_browser_dir")
+write_fake_make "$invalid_browser_dir"
+invalid_browser_manifest="${invalid_browser_dir}/manifest.json"
+write_manifest "$invalid_browser_manifest" test-service-backed \
+  'make_target|browser-e2e-visual|10|"postgres": 1, "minio": 1, "browser": 1|browser|visual'
+set +e
+invalid_browser_output="$(run_scheduler "$invalid_browser_dir" "$invalid_browser_manifest" test-service-backed invalid-browser 2>&1)"
+invalid_browser_status=$?
+set -e
+assert_equals "$invalid_browser_status" "1" "invalid browser manifest status"
+assert_contains "$invalid_browser_output" "browser target browser-e2e-visual is not scheduler-safe" "invalid browser manifest output"
+
 legacy_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-legacy.XXXXXX")"
 cleanup_paths+=("$legacy_dir")
 write_fake_make "$legacy_dir"
@@ -347,7 +378,7 @@ legacy_output="$(run_scheduler "$legacy_dir" "$legacy_manifest" test-fast-servic
 legacy_status=$?
 set -e
 assert_equals "$legacy_status" "1" "legacy manifest status"
-assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v3" "legacy manifest output"
+assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v4" "legacy manifest output"
 
 jobs_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-jobs.XXXXXX")"
 cleanup_paths+=("$jobs_dir")

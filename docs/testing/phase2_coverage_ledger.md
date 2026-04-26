@@ -12,7 +12,7 @@ This ledger is generated from `tools/phase2_test_map.json`. Update the manifest 
 - `backend-store` selects store-backed authoritative `U-2-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase2 unit authoritative backend_store`.
 - `backend-integration` selects authoritative `I-2-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase2 integration authoritative backend_integration`.
 - `frontend-unit` selects authoritative `U-2-*` rows only through the Phase 2 Vitest manifest for `frontend_unit`.
-- `tools/browser_e2e_batch_manifest.json` owns browser batch grouping for Phase 2: `browser-e2e` is the default aggregate browser batch used by `test`, `check`, and `ci`, while `browser-e2e-webserver-backed` and helper-only `browser-e2e-functional` select the same authoritative `E-2-*` rows through Playwright manifest selection for `browser_functional`.
+- `tools/browser_e2e_batch_manifest.json` owns browser batch grouping for Phase 2: `browser-e2e-webserver-backed` carries authoritative `E-2-*` rows through the service-backed scheduler for `test` and `check`, while direct `browser-e2e-webserver-backed` and helper-only `browser-e2e-functional` select the same rows through Playwright manifest selection for `browser_functional`. The final `browser-e2e` aggregate is reserved for isolated stateful, measurement, and visual browser batches.
 
 ## Support-Only Execution
 

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.service_backed_schedule.v3",
+  "schema_id": "cartulary.service_backed_schedule.v4",
   "schedules": [
     {
       "target": "test-service-backed",
@@ -7,29 +7,42 @@
         "postgres": 32,
         "minio": 32,
         "backend": 4,
-        "process": 4
+        "process": 4,
+        "browser": 1
       },
       "work_unit_sources": [
         {
           "type": "go_shards",
+          "class": "backend",
           "target": "backend-integration",
           "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
           "type": "go_shards",
+          "class": "backend",
           "target": "backend-integration-support",
           "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
           "type": "go_shards",
+          "class": "backend",
           "target": "backend-store",
           "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
           "type": "make_target",
+          "class": "backend",
           "target": "backend-process",
           "weight": 80000,
           "resource_claims": { "postgres": 1, "minio": 1, "backend": 1, "process": 1 }
+        },
+        {
+          "type": "make_target",
+          "class": "browser",
+          "target": "browser-e2e-webserver-backed",
+          "browser_stage": "webserver-backed",
+          "weight": 41900,
+          "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser": 1 }
         }
       ]
     },
@@ -44,21 +57,25 @@
       "work_unit_sources": [
         {
           "type": "go_shards",
+          "class": "backend",
           "target": "backend-integration",
           "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
           "type": "go_shards",
+          "class": "backend",
           "target": "backend-integration-support",
           "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
           "type": "go_shards",
+          "class": "backend",
           "target": "backend-store",
           "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
           "type": "make_target",
+          "class": "backend",
           "target": "backend-process",
           "weight": 80000,
           "resource_claims": { "postgres": 1, "minio": 1, "backend": 1, "process": 1 }
@@ -71,29 +88,42 @@
         "postgres": 32,
         "minio": 32,
         "backend": 4,
-        "process": 4
+        "process": 4,
+        "browser": 1
       },
       "work_unit_sources": [
         {
           "type": "go_shards",
+          "class": "backend",
           "target": "backend-integration",
           "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
           "type": "go_shards",
+          "class": "backend",
           "target": "backend-integration-support",
           "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
           "type": "go_shards",
+          "class": "backend",
           "target": "backend-store",
           "resource_claims": { "postgres": 1, "minio": 1, "backend": 1 }
         },
         {
           "type": "make_target",
+          "class": "backend",
           "target": "backend-process",
           "weight": 80000,
           "resource_claims": { "postgres": 1, "minio": 1, "backend": 1, "process": 1 }
+        },
+        {
+          "type": "make_target",
+          "class": "browser",
+          "target": "browser-e2e-webserver-backed",
+          "browser_stage": "webserver-backed",
+          "weight": 41900,
+          "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser": 1 }
         }
       ]
     }

@@ -12,8 +12,10 @@ import { findTargetDescriptor } from "./lib/target-plan.mjs";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
-const supportedSchemaID = "cartulary.service_backed_schedule.v3";
+const supportedSchemaID = "cartulary.service_backed_schedule.v4";
 const validSourceTypes = new Set(["go_shards", "make_target"]);
+const validSourceClasses = new Set(["backend", "browser"]);
+const schedulerSafeBrowserTargets = new Map([["browser-e2e-webserver-backed", "webserver-backed"]]);
 
 function usage() {
   process.stderr.write(
@@ -45,7 +47,7 @@ function parseArgs(argv) {
       continue;
     }
     if (arg === "--jobs") {
-      throw new Error("--jobs is obsolete for v3 service-backed schedules; use resource_limits");
+      throw new Error("--jobs is obsolete for v4 service-backed schedules; use resource_limits");
     }
     usage();
   }
@@ -128,6 +130,19 @@ function validateBackendTarget(scheduleTarget, target, label) {
   }
 }
 
+function validateBrowserTarget(source, target, label) {
+  if (source.type !== "make_target") {
+    throw new Error(`${label} browser target ${target} must use type make_target`);
+  }
+  const expectedStage = schedulerSafeBrowserTargets.get(target);
+  if (!expectedStage) {
+    throw new Error(`${label} browser target ${target} is not scheduler-safe`);
+  }
+  if (source.browser_stage !== expectedStage) {
+    throw new Error(`${label} browser target ${target} must declare browser_stage ${expectedStage}`);
+  }
+}
+
 function validateSource(scheduleTarget, source, index, resourceLimits) {
   const label = `${scheduleTarget} work_unit_sources ${index + 1}`;
   if (!source || typeof source !== "object" || Array.isArray(source)) {
@@ -139,6 +154,9 @@ function validateSource(scheduleTarget, source, index, resourceLimits) {
   if (typeof source.target !== "string" || source.target.trim() === "") {
     throw new Error(`${label} must declare target`);
   }
+  if (!validSourceClasses.has(source.class)) {
+    throw new Error(`${label} must declare class backend or browser`);
+  }
   if (source.resource_tags !== undefined || source.exclusive_tags !== undefined) {
     throw new Error(`${label} must not declare legacy resource_tags or exclusive_tags`);
   }
@@ -148,11 +166,19 @@ function validateSource(scheduleTarget, source, index, resourceLimits) {
     `${label} ${target}`,
     resourceLimits,
   );
-  validateBackendTarget(scheduleTarget, target, label);
+  if (source.class === "backend") {
+    validateBackendTarget(scheduleTarget, target, label);
+  } else {
+    validateBrowserTarget(source, target, label);
+  }
 
   if (source.type === "go_shards") {
+    if (source.class !== "backend") {
+      throw new Error(`${label} ${target} go_shards sources must declare class backend`);
+    }
     return {
       type: source.type,
+      class: source.class,
       target,
       resourceClaims,
       order: index,
@@ -164,6 +190,7 @@ function validateSource(scheduleTarget, source, index, resourceLimits) {
   }
   return {
     type: source.type,
+    class: source.class,
     target,
     weight: source.weight,
     resourceClaims,
@@ -200,6 +227,9 @@ function findSchedule(manifest, target) {
     resourceLimits,
     sources,
     children: sources.map((source) => source.target),
+    backendChildren: sources
+      .filter((source) => source.class === "backend")
+      .map((source) => source.target),
   };
 }
 
@@ -218,6 +248,7 @@ function expandSchedule(schedule) {
         id: source.target,
         label: source.target,
         type: "make_target",
+        class: source.class,
         target: source.target,
         aggregateTarget: source.target,
         weight: source.weight,
@@ -240,6 +271,7 @@ function expandSchedule(schedule) {
         id: `${source.target}:${shard.name}`,
         label: `${source.target}/${shard.name}`,
         type: "go_shard",
+        class: source.class,
         target: source.target,
         aggregateTarget: source.target,
         shard: shard.name,
@@ -477,7 +509,7 @@ function displayCapacity(schedule) {
 
 async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }) {
   const childrenCsv = schedule.children.join(",");
-  const backendBudgetTargets = schedule.children;
+  const backendBudgetTargets = schedule.backendChildren;
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "cartulary-service-backed-schedule-"));
   const metadataDir = path.join(tempDir, "go-shard-metadata");
   const pending = [...schedule.workUnits];

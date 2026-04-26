@@ -252,24 +252,23 @@ const fs = require("node:fs");
 
 const manifest = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const stages = new Map((manifest.stages ?? []).map((stage) => [stage.name, stage]));
-for (const required of ["webserver-backed", "isolated", "all"]) {
+for (const required of ["webserver-backed", "isolated"]) {
   if (!stages.has(required)) {
     throw new Error(`missing browser batch stage ${required}`);
   }
 }
+if (stages.has("all")) {
+  throw new Error("browser batch manifest must not keep removed all stage");
+}
 const isolated = stages.get("isolated");
-const all = stages.get("all");
 const isolatedTargets = isolated.groups.map((group) => group.target).join(",");
-const allTargets = all.groups.map((group) => group.target).join(",");
 const resetLabels = [
   ...isolated.groups.map((group) => group.reset_before ?? ""),
-  ...all.groups.map((group) => group.reset_before ?? ""),
 ].filter(Boolean).join(",");
-process.stdout.write(`${isolatedTargets}\n${allTargets}\n${resetLabels}\n`);
+process.stdout.write(`${isolatedTargets}\n${resetLabels}\n`);
 NODE
 )"
 assert_contains "$batch_manifest_summary" "browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual" "isolated batch targets"
-assert_contains "$batch_manifest_summary" "browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual" "all batch targets"
 assert_contains "$batch_manifest_summary" "stateful-to-measurement" "isolated batch stateful reset"
 assert_contains "$batch_manifest_summary" "measurement-to-visual" "isolated batch visual reset"
 assert_contains "$(cat "$batch_runner")" 'target-summary "$target"' "batch runner child summary"
