@@ -36,6 +36,10 @@ export function schedulerTargetDir(repoRoot, target) {
   return path.join(resultsRoot, runID, target);
 }
 
+export function schedulerLogDir(repoRoot, target) {
+  return path.join(schedulerTargetDir(repoRoot, target), "scheduler-logs");
+}
+
 export function formatResourceMap(values) {
   const entries = Array.from(values.entries()).sort((left, right) => left[0].localeCompare(right[0]));
   if (entries.length === 0) {

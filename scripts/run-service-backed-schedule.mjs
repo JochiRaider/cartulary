@@ -13,6 +13,7 @@ import {
   relToRepo as relToRepoPath,
   resourceMapToObject,
   schedulerDryRunLine,
+  schedulerLogDir as schedulerLogResultsDir,
   schedulerProgressIntervalMs,
   schedulerProgressLine,
   schedulerStartLine,
@@ -89,6 +90,10 @@ function isDryRun() {
 
 function schedulerTargetDir(target) {
   return schedulerTargetResultsDir(repoRoot, target);
+}
+
+function schedulerLogDir(target) {
+  return schedulerLogResultsDir(repoRoot, target);
 }
 
 function relToRepo(value) {
@@ -781,7 +786,7 @@ function schedulerProgressDelay() {
 
 async function createSchedulerReporter(schedule) {
   const targetDir = schedulerTargetDir(schedule.target);
-  const logDir = path.join(targetDir, "scheduler-logs");
+  const logDir = schedulerLogDir(schedule.target);
   await mkdir(logDir, { recursive: true });
   return new SchedulerReporter(schedule, targetDir, logDir);
 }

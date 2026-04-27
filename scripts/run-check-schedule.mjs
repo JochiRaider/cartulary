@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -15,6 +14,7 @@ import {
   schedulerProgressLine,
   schedulerStartLine,
   schedulerSummaryLine,
+  schedulerLogDir,
   schedulerTargetDir,
   writeSchedulerTelemetry,
   verboseSchedulerOutput,
@@ -408,14 +408,16 @@ function schedulerProgressDelay() {
 
 async function createCheckSchedulerReporter(schedule) {
   const targetDir = schedulerTargetDir(repoRoot, schedule.target);
-  await mkdir(targetDir, { recursive: true });
-  return new CheckSchedulerReporter(schedule, targetDir);
+  const logDir = schedulerLogDir(repoRoot, schedule.target);
+  await mkdir(logDir, { recursive: true });
+  return new CheckSchedulerReporter(schedule, targetDir, logDir);
 }
 
 class CheckSchedulerReporter {
-  constructor(schedule, targetDir) {
+  constructor(schedule, targetDir, logDir) {
     this.schedule = schedule;
     this.targetDir = targetDir;
+    this.logDir = logDir;
     this.verbose = verboseSchedulerOutput();
     this.eventsPath = path.join(targetDir, "scheduler-events.jsonl");
     this.summaryPath = path.join(targetDir, "scheduler-summary.json");
@@ -612,6 +614,7 @@ class CheckSchedulerReporter {
           slowest_work_units: slowest,
           artifacts: {
             events_jsonl: relToRepo(this.eventsPath),
+            scheduler_logs_dir: relToRepo(this.logDir),
           },
         },
         null,
@@ -682,8 +685,8 @@ function skippedReasonForUnit(unit, completed, failedTarget, unitsByTarget, memo
   return "schedule_stopped_after_failure";
 }
 
-function runWorkUnit({ makeBin, unit, tempDir, started }) {
-  const logFile = path.join(tempDir, `${String(started).padStart(2, "0")}-${sanitizeLogName(unit.target)}.log`);
+function runWorkUnit({ makeBin, unit, logDir, started }) {
+  const logFile = path.join(logDir, `${String(started).padStart(2, "0")}-${sanitizeLogName(unit.target)}.log`);
   return runCommand(makeBin, ["--no-print-directory", "--output-sync=target", `-j${unit.makeJobs}`, unit.target], logFile).then((result) => ({
     id: unit.target,
     label: unit.label,
@@ -693,7 +696,6 @@ function runWorkUnit({ makeBin, unit, tempDir, started }) {
 }
 
 async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets, summaryGroups }) {
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "cartulary-check-schedule-"));
   const reporter = await createCheckSchedulerReporter(schedule);
   const pending = [...schedule.units];
   const running = new Map();
@@ -742,7 +744,7 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
         String(unit.makeJobs),
       ]);
       addResourceClaims(unit, activeClaims);
-      const promise = runWorkUnit({ makeBin, unit, tempDir, started });
+      const promise = runWorkUnit({ makeBin, unit, logDir: reporter.logDir, started });
       running.set(promise, unit);
       reporter.startUnit(unit, stateSnapshot());
     };
@@ -854,7 +856,6 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
     return firstFailure;
   } finally {
     await reporter.close();
-    await rm(tempDir, { recursive: true, force: true });
   }
 }
 

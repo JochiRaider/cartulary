@@ -82,11 +82,24 @@ assert_check_scheduler_artifacts() {
 
   assert_file_present "$summary_file" "$target scheduler summary"
   assert_file_present "$events_file" "$target scheduler events"
-  "$NODE_BIN" - "$summary_file" "$events_file" "$expected_status" "$expected_failed" "$expected_total" "$expected_event" <<'EOF'
+  "$NODE_BIN" - "$summary_file" "$events_file" "$expected_status" "$expected_failed" "$expected_total" "$expected_event" "$ROOT_DIR" <<'EOF'
 const fs = require("node:fs");
-const [summaryFile, eventsFile, expectedStatus, expectedFailed, expectedTotal, expectedEvent] = process.argv.slice(2);
+const path = require("node:path");
+const [summaryFile, eventsFile, expectedStatus, expectedFailed, expectedTotal, expectedEvent, repoRoot] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
+const resolveArtifact = (artifactPath) => path.resolve(repoRoot, artifactPath);
+const assertRepoRelativeArtifact = (artifactPath, label) => {
+  if (!artifactPath || typeof artifactPath !== "string") {
+    throw new Error(`${label} must be a non-empty string`);
+  }
+  if (path.isAbsolute(artifactPath)) {
+    throw new Error(`${label} must be repo-relative, got ${artifactPath}`);
+  }
+  if (artifactPath.includes("cartulary-check-schedule-")) {
+    throw new Error(`${label} must not point at obsolete temp scheduler logs, got ${artifactPath}`);
+  }
+};
 if (summary.schema_id !== "cartulary.check_scheduler_summary.v1") {
   throw new Error(`unexpected summary schema ${summary.schema_id}`);
 }
@@ -110,6 +123,15 @@ if (!Array.isArray(summary.slowest_work_units) || summary.slowest_work_units.len
 if (!summary.artifacts?.events_jsonl) {
   throw new Error("summary must record scheduler event artifact path");
 }
+if (!summary.artifacts?.scheduler_logs_dir) {
+  throw new Error("summary must record scheduler log artifact path");
+}
+assertRepoRelativeArtifact(summary.artifacts.events_jsonl, "events_jsonl");
+assertRepoRelativeArtifact(summary.artifacts.scheduler_logs_dir, "scheduler_logs_dir");
+const schedulerLogsDir = resolveArtifact(summary.artifacts.scheduler_logs_dir);
+if (!fs.statSync(schedulerLogsDir).isDirectory()) {
+  throw new Error(`scheduler log artifact path must be an existing directory: ${summary.artifacts.scheduler_logs_dir}`);
+}
 if (events.length === 0) {
   throw new Error("scheduler events must not be empty");
 }
@@ -121,6 +143,27 @@ if (expectedEvent !== "-" && !events.some((event) => event.event === expectedEve
 }
 if (!events.some((event) => event.resource_limits && Object.keys(event.resource_limits).length > 0)) {
   throw new Error("events must include resource limits");
+}
+const recordedLogPaths = [
+  ...summary.slowest_work_units.map((unit) => unit.log_file),
+  ...events.map((event) => event.log_file).filter(Boolean),
+];
+if (recordedLogPaths.length === 0) {
+  throw new Error("scheduler artifacts must record work-unit log paths");
+}
+for (const [index, logFile] of recordedLogPaths.entries()) {
+  assertRepoRelativeArtifact(logFile, `log_file[${index}]`);
+  if (!logFile.includes("/scheduler-logs/")) {
+    throw new Error(`log_file[${index}] must live under scheduler-logs, got ${logFile}`);
+  }
+  const absoluteLogFile = resolveArtifact(logFile);
+  const relativeToLogDir = path.relative(schedulerLogsDir, absoluteLogFile);
+  if (relativeToLogDir.startsWith("..") || path.isAbsolute(relativeToLogDir)) {
+    throw new Error(`log_file[${index}] must be inside scheduler_logs_dir, got ${logFile}`);
+  }
+  if (!fs.statSync(absoluteLogFile).isFile()) {
+    throw new Error(`log_file[${index}] must be readable after scheduler exit, got ${logFile}`);
+  }
 }
 EOF
 }
@@ -391,9 +434,10 @@ assert_equals "$(json_field "$failure_summary" "aborted_after")" "beta" "failure
 failure_scheduler_summary="${failure_dir}/results/failure/check/scheduler-summary.json"
 failure_scheduler_events="${failure_dir}/results/failure/check/scheduler-events.jsonl"
 assert_check_scheduler_artifacts "$failure_dir" failure check fail beta 4 skip
-"$NODE_BIN" - "$failure_scheduler_summary" "$failure_scheduler_events" <<'EOF'
+"$NODE_BIN" - "$failure_scheduler_summary" "$failure_scheduler_events" "$ROOT_DIR" <<'EOF'
 const fs = require("node:fs");
-const [summaryFile, eventsFile] = process.argv.slice(2);
+const path = require("node:path");
+const [summaryFile, eventsFile, repoRoot] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 const skipped = new Map(summary.skipped_work_units.map((unit) => [unit.id, unit]));
 if (skipped.get("delta")?.reason !== "dependency_failure") {
@@ -406,6 +450,23 @@ if (gamma && gamma.reason !== "schedule_stopped_after_failure") {
 const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).map((line) => JSON.parse(line));
 if (!events.some((event) => event.event === "skip" && event.work_unit === "delta" && event.skip_reason === "dependency_failure")) {
   throw new Error("scheduler events must record dependency-failure skips");
+}
+const slowestByLabel = new Map(summary.slowest_work_units.map((unit) => [unit.label, unit]));
+for (const [label, expectedText] of [
+  ["alpha", "fake pass for alpha"],
+  ["beta", "fake failure for beta"],
+]) {
+  const logFile = slowestByLabel.get(label)?.log_file;
+  if (!logFile) {
+    throw new Error(`failure summary must preserve ${label} work-unit log`);
+  }
+  if (path.isAbsolute(logFile) || logFile.includes("cartulary-check-schedule-")) {
+    throw new Error(`${label} log path must be persisted and repo-relative, got ${logFile}`);
+  }
+  const contents = fs.readFileSync(path.resolve(repoRoot, logFile), "utf8");
+  if (!contents.includes(expectedText)) {
+    throw new Error(`${label} log must remain readable after scheduler exit`);
+  }
 }
 EOF
 
