@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { collectGoShardsForTarget } from "./lib/go-shard-plan.mjs";
+import { loadBrowserBatchStages as loadBrowserBatchStagesFromManifest } from "./lib/browser-batch-manifest.mjs";
 import {
   formatResourceList,
   formatResourceMap,
@@ -29,7 +30,6 @@ const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
 const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
 const supportedSchemaID = "cartulary.service_backed_schedule.v6";
-const supportedBrowserBatchSchemaID = "cartulary.browser_e2e_batch_manifest.v2";
 const goCPUResource = "go_cpu";
 const goIOResource = "go_io";
 const browserStackResource = "browser_stack";
@@ -113,55 +113,7 @@ async function loadManifest(file) {
 }
 
 async function loadBrowserBatchStages() {
-  const manifest = JSON.parse(await readFile(defaultBrowserBatchManifestPath, "utf8"));
-  if (manifest.schema_id !== supportedBrowserBatchSchemaID) {
-    throw new Error(
-      `${defaultBrowserBatchManifestPath} must declare schema_id ${supportedBrowserBatchSchemaID}`,
-    );
-  }
-  if (!Array.isArray(manifest.stages)) {
-    throw new Error(`${defaultBrowserBatchManifestPath} must declare stages[]`);
-  }
-  const stages = new Map();
-  for (const [index, stage] of manifest.stages.entries()) {
-    const label = `browser batch manifest stage ${index + 1}`;
-    if (!stage || typeof stage !== "object" || Array.isArray(stage)) {
-      throw new Error(`${label} must be an object`);
-    }
-    for (const field of ["name", "target"]) {
-      if (typeof stage[field] !== "string" || stage[field].trim() === "") {
-        throw new Error(`${label} must declare ${field}`);
-      }
-    }
-    if (stages.has(stage.name)) {
-      throw new Error(`duplicate browser batch stage ${stage.name}`);
-    }
-    if (!Array.isArray(stage.children) || stage.children.length === 0) {
-      throw new Error(`browser batch stage ${stage.name} must declare children[]`);
-    }
-    if (!Array.isArray(stage.groups) || stage.groups.length === 0) {
-      throw new Error(`browser batch stage ${stage.name} must declare groups[]`);
-    }
-    for (const [groupIndex, group] of stage.groups.entries()) {
-      if (!group || typeof group !== "object" || Array.isArray(group)) {
-        throw new Error(`browser batch stage ${stage.name} group ${groupIndex + 1} must be an object`);
-      }
-      if (typeof group.target !== "string" || group.target.trim() === "") {
-        throw new Error(`browser batch stage ${stage.name} group ${groupIndex + 1} must declare target`);
-      }
-      if (!stage.children.includes(group.target)) {
-        throw new Error(
-          `browser batch stage ${stage.name} group ${group.name ?? groupIndex + 1} target ${group.target} must be listed in children[]`,
-        );
-      }
-    }
-    stages.set(stage.name, {
-      name: stage.name,
-      target: stage.target.trim(),
-      children: stage.children.map((child) => String(child).trim()),
-    });
-  }
-  return stages;
+  return loadBrowserBatchStagesFromManifest(defaultBrowserBatchManifestPath);
 }
 
 function normalizeResourceLimits(value, label) {

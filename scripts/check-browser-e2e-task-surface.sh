@@ -5,6 +5,8 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 makefile="$repo_root/Makefile"
 functional_script="$repo_root/scripts/run-browser-e2e-functional.sh"
 browser_batch_script="$repo_root/scripts/run-browser-e2e-batch.sh"
+browser_target_script="$repo_root/scripts/run-browser-e2e-target.sh"
+browser_batch_manifest_helper="$repo_root/scripts/lib/browser-batch-manifest.mjs"
 browser_batch_manifest="$repo_root/tools/browser_e2e_batch_manifest.json"
 webserver_batch_script="$repo_root/scripts/lib/run-playwright-webserver-batch.sh"
 browser_shard_plan_script="$repo_root/scripts/lib/browser-shard-plan.mjs"
@@ -246,8 +248,8 @@ fi
 if ! printf '%s\n' "$browser_e2e_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
   fail 'browser-e2e must wrap aggregate browser children through $(TEST_SERVICES_BIN)'
 fi
-if ! printf '%s\n' "$browser_e2e_block" | grep -Fq './scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh isolated'; then
-  fail "browser-e2e must run the final isolated browser batch inside one owned stack"
+if ! printf '%s\n' "$browser_e2e_block" | grep -Fq './scripts/run-browser-e2e-target.sh isolated'; then
+  fail "browser-e2e must delegate final isolated browser summary ownership to the browser target wrapper"
 fi
 if printf '%s\n' "$browser_e2e_block" | grep -Fq -- '-j$(BROWSER_E2E_JOBS)'; then
   fail 'browser-e2e must not fan out aggregate browser children with -j$(BROWSER_E2E_JOBS)'
@@ -255,8 +257,8 @@ fi
 if printf '%s\n' "$browser_e2e_block" | grep -Fq 'run-browser-e2e-batch.sh all'; then
   fail "browser-e2e must not run the removed all browser batch"
 fi
-if ! printf '%s\n' "$browser_e2e_block" | grep -Fq -- '--projection browser-e2e'; then
-  fail "browser-e2e must summarize the manifest-declared isolated-batch children through task-surface projection"
+if printf '%s\n' "$browser_e2e_block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary browser-e2e'; then
+  fail "browser-e2e Make target must not emit a duplicate browser target summary"
 fi
 
 test_service_block="$(extract_target_block test-service-backed)"
@@ -436,6 +438,16 @@ fi
 if ! rg -q '^browser-e2e-webserver-backed:' "$makefile"; then
   fail "Makefile must define browser-e2e-webserver-backed"
 fi
+browser_webserver_backed_block="$(extract_target_block browser-e2e-webserver-backed)"
+if [[ -z "$browser_webserver_backed_block" ]]; then
+  fail "Makefile must define a non-empty browser-e2e-webserver-backed block"
+fi
+if ! printf '%s\n' "$browser_webserver_backed_block" | grep -Fq './scripts/run-browser-e2e-target.sh webserver-backed'; then
+  fail "browser-e2e-webserver-backed must delegate to the browser target wrapper"
+fi
+if printf '%s\n' "$browser_webserver_backed_block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-webserver-backed'; then
+  fail "browser-e2e-webserver-backed Make target must not emit a duplicate browser target summary"
+fi
 
 browser_functional_block="$(awk '
   /^browser-e2e-functional:/ { in_block=1; next }
@@ -445,10 +457,11 @@ browser_functional_block="$(awk '
 if [[ -z "$browser_functional_block" ]]; then
   fail "Makefile must define a non-empty browser-e2e-functional block"
 fi
-if ! printf '%s\n' "$browser_functional_block" | grep -Fq './scripts/run-browser-e2e-functional.sh'; then
-  if ! printf '%s\n' "$browser_functional_block" | grep -Fq './scripts/run-browser-e2e-batch.sh functional'; then
-    fail "browser-e2e-functional must delegate to the functional browser batch"
-  fi
+if ! printf '%s\n' "$browser_functional_block" | grep -Fq './scripts/run-browser-e2e-target.sh functional'; then
+  fail "browser-e2e-functional must delegate to the browser target wrapper"
+fi
+if printf '%s\n' "$browser_functional_block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-functional'; then
+  fail "browser-e2e-functional Make target must not emit a duplicate browser target summary"
 fi
 
 browser_stateful_block="$(awk '
@@ -459,10 +472,11 @@ browser_stateful_block="$(awk '
 if [[ -z "$browser_stateful_block" ]]; then
   fail "Makefile must define a non-empty browser-e2e-stateful block"
 fi
-if ! printf '%s\n' "$browser_stateful_block" | grep -Fq './scripts/run-browser-e2e-stateful.sh'; then
-  if ! printf '%s\n' "$browser_stateful_block" | grep -Fq './scripts/run-browser-e2e-batch.sh stateful'; then
-    fail "browser-e2e-stateful must delegate to the stateful browser batch"
-  fi
+if ! printf '%s\n' "$browser_stateful_block" | grep -Fq './scripts/run-browser-e2e-target.sh stateful'; then
+  fail "browser-e2e-stateful must delegate to the browser target wrapper"
+fi
+if printf '%s\n' "$browser_stateful_block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-stateful'; then
+  fail "browser-e2e-stateful Make target must not emit a duplicate browser target summary"
 fi
 
 browser_measurement_block="$(awk '
@@ -473,10 +487,11 @@ browser_measurement_block="$(awk '
 if [[ -z "$browser_measurement_block" ]]; then
   fail "Makefile must define a non-empty browser-e2e-measurement block"
 fi
-if ! printf '%s\n' "$browser_measurement_block" | grep -Fq './scripts/run-browser-e2e-measurement.sh'; then
-  if ! printf '%s\n' "$browser_measurement_block" | grep -Fq './scripts/run-browser-e2e-batch.sh measurement'; then
-    fail "browser-e2e-measurement must delegate to the measurement browser batch"
-  fi
+if ! printf '%s\n' "$browser_measurement_block" | grep -Fq './scripts/run-browser-e2e-target.sh measurement'; then
+  fail "browser-e2e-measurement must delegate to the browser target wrapper"
+fi
+if printf '%s\n' "$browser_measurement_block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-measurement'; then
+  fail "browser-e2e-measurement Make target must not emit a duplicate browser target summary"
 fi
 if printf '%s\n' "$browser_measurement_block" | grep -Fq 'Core 05-bound timing evidence'; then
   fail "browser-e2e-measurement must be labeled ordinary measurement, not Core 05-bound claim evidence"
@@ -491,6 +506,10 @@ fi
 if ! [[ -f "$browser_batch_manifest" ]]; then
   fail "missing tools/browser_e2e_batch_manifest.json"
 fi
+if ! [[ -f "$browser_batch_manifest_helper" ]]; then
+  fail "missing scripts/lib/browser-batch-manifest.mjs"
+fi
+"$node_bin" "$browser_batch_manifest_helper" validate "$browser_batch_manifest"
 if ! [[ -f "$webserver_batch_script" ]]; then
   fail "missing scripts/lib/run-playwright-webserver-batch.sh"
 fi
@@ -540,8 +559,14 @@ if ! grep -Fq 'docker compose -f "${COMPOSE_FILE}" up -d postgres minio' "$start
   fail "scripts/start-web-e2e.sh must keep Compose-backed startup for standalone browser E2E"
 fi
 
-if ! grep -Fq 'cartulary.browser_e2e_batch_manifest.v2' "$browser_batch_manifest"; then
+if ! grep -Fq 'cartulary.browser_e2e_batch_manifest.v3' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must declare its schema"
+fi
+if grep -Fq '"children"' "$browser_batch_manifest"; then
+  fail "browser E2E batch manifest must not keep legacy children[]"
+fi
+if ! grep -Fq '"summary_children": ["browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"]' "$browser_batch_manifest"; then
+  fail "browser E2E batch manifest must declare isolated summary_children"
 fi
 if ! grep -Fq '"kind": "duration_balanced_specs"' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must route functional browser work through duration-balanced specs"
@@ -582,8 +607,20 @@ fi
 if ! grep -Fq 'run-browser-e2e-visual.sh' "$browser_batch_script"; then
   fail "browser E2E batch runner must route the visual group"
 fi
+if ! grep -Fq -- '--defer-summary' "$browser_batch_script"; then
+  fail "browser E2E batch runner must support deferred stage summaries"
+fi
 if ! grep -Fq 'target-summary "$target"' "$browser_batch_script"; then
-  fail "browser E2E batch runner must emit per-group target summaries"
+  fail "browser E2E batch runner must emit child target summaries"
+fi
+if ! [[ -x "$browser_target_script" ]]; then
+  fail "missing executable scripts/run-browser-e2e-target.sh"
+fi
+if ! grep -Fq 'run-browser-e2e-batch.sh" "$stage" --defer-summary' "$browser_target_script"; then
+  fail "browser E2E target wrapper must defer batch stage summary ownership"
+fi
+if ! grep -Fq 'target-summary "$target" "$requested"' "$browser_target_script"; then
+  fail "browser E2E target wrapper must emit the authoritative stage target summary"
 fi
 
 if ! grep -Fq 'run-playwright-webserver-batch.sh' "$functional_script"; then

@@ -207,6 +207,25 @@ fi
 EOF
 chmod +x "$fake_playwright"
 
+fake_pnpm="$tmp_dir/fake-pnpm.sh"
+cat >"$fake_pnpm" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "\${1:-}" == "--dir" ]]; then
+  shift 2
+fi
+if [[ "\${1:-}" == "exec" ]]; then
+  shift
+fi
+if [[ "\${1:-}" == "playwright" && "\${2:-}" == "test" ]]; then
+  shift 2
+fi
+
+exec "$fake_playwright" "\$@"
+EOF
+chmod +x "$fake_pnpm"
+
 success_invocations="$tmp_dir/batch-success-invocations.log"
 success_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
@@ -347,7 +366,34 @@ assert_contains "$batch_manifest_summary" "browser-e2e-stateful,browser-e2e-meas
 assert_contains "$batch_manifest_summary" "stateful-to-measurement" "isolated batch stateful reset"
 assert_contains "$batch_manifest_summary" "measurement-to-visual" "isolated batch visual reset"
 assert_contains "$(cat "$batch_runner")" 'target-summary "$target"' "batch runner child summary"
+assert_contains "$(cat "$batch_runner")" "--defer-summary" "batch runner deferred summary option"
 assert_contains "$(cat "$batch_runner")" "reset-web-e2e-stack.sh" "batch runner reset boundary"
+
+summary_ownership_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
+  CARTULARY_TEST_RUN_ID="summary-ownership" \
+  CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
+  NODE_BIN="${NODE:-node}" \
+  PNPM="$fake_pnpm" \
+    "$batch_runner" webserver-backed --defer-summary
+  CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
+  CARTULARY_TEST_RUN_ID="summary-ownership" \
+  CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
+  CARTULARY_TIMING_BUCKET="teardown" \
+  CARTULARY_TIMING_LABEL="browser-e2e stop owned processes" \
+  CARTULARY_TIMING_START_TIME="2026-04-24T00:00:10.000Z" \
+  CARTULARY_TIMING_END_TIME="2026-04-24T00:00:11.000Z" \
+  CARTULARY_TIMING_DURATION_MS="1000" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" timing-span
+  CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
+  CARTULARY_TEST_RUN_ID="summary-ownership" \
+  NODE_BIN="${NODE:-node}" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e-webserver-backed pass
+)"
+summary_pass_count="$(printf '%s\n' "$summary_ownership_output" | grep -c '^\[PASS\] browser-e2e-webserver-backed ')"
+assert_equals "$summary_pass_count" "1" "webserver-backed authoritative summary line count"
+assert_contains "$summary_ownership_output" "teardown=1.00s" "webserver-backed authoritative summary includes teardown"
 
 browser_aggregate_results="$tmp_dir/results/browser-aggregate"
 for target in browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; do

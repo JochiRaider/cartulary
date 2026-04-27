@@ -8,15 +8,29 @@ MANIFEST="${BROWSER_E2E_BATCH_MANIFEST:-$ROOT_DIR/tools/browser_e2e_batch_manife
 TEST_OUTPUT_HELPER="${TEST_OUTPUT_SCRIPT:-$ROOT_DIR/scripts/lib/test-output.sh}"
 
 usage() {
-  echo "usage: run-browser-e2e-batch.sh <stage>" >&2
+  echo "usage: run-browser-e2e-batch.sh <stage> [--defer-summary]" >&2
   exit 2
 }
 
-if [[ "$#" -ne 1 ]]; then
+if [[ "$#" -lt 1 || "$#" -gt 2 ]]; then
   usage
 fi
 
 stage="$1"
+shift
+defer_summary=0
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --defer-summary)
+      defer_summary=1
+      ;;
+    *)
+      usage
+      ;;
+  esac
+  shift
+done
+
 node_bin="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}"
 if [[ ! -x "$node_bin" ]]; then
   node_bin="node"
@@ -24,75 +38,10 @@ fi
 
 resolve_playwright_owned_stack_env "$ROOT_DIR"
 
-stage_children="$(
-  "$node_bin" - "$MANIFEST" "$stage" <<'EOF'
-const fs = require("node:fs");
-
-const [manifestPath, stageName] = process.argv.slice(2);
-const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-if (manifest.schema_id !== "cartulary.browser_e2e_batch_manifest.v2") {
-  throw new Error(`${manifestPath} must declare schema_id cartulary.browser_e2e_batch_manifest.v2`);
-}
-const matches = (manifest.stages ?? []).filter((entry) => entry?.name === stageName);
-if (matches.length !== 1) {
-  throw new Error(`expected exactly one browser E2E batch stage ${stageName}, found ${matches.length}`);
-}
-const stage = matches[0];
-const children = stage.children ?? [];
-if (!Array.isArray(children) || children.length === 0) {
-  throw new Error(`browser E2E batch stage ${stageName} must declare children[]`);
-}
-process.stdout.write(children.join(","));
-EOF
-)"
-
-mapfile -t stage_groups < <(
-  "$node_bin" - "$MANIFEST" "$stage" <<'EOF'
-const fs = require("node:fs");
-
-const [manifestPath, stageName] = process.argv.slice(2);
-const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-const stage = (manifest.stages ?? []).find((entry) => entry?.name === stageName);
-if (!stage) {
-  throw new Error(`missing browser E2E batch stage ${stageName}`);
-}
-const groups = stage.groups ?? [];
-if (!Array.isArray(groups) || groups.length === 0) {
-  throw new Error(`browser E2E batch stage ${stageName} must declare groups[]`);
-}
-const allowedKinds = new Set([
-  "webserver-backed",
-  "duration_balanced_specs",
-  "functional",
-  "support",
-  "stateful",
-  "measurement",
-  "visual",
-]);
-for (const [index, group] of groups.entries()) {
-  if (!group || typeof group !== "object" || Array.isArray(group)) {
-    throw new Error(`browser E2E batch stage ${stageName} group ${index + 1} must be an object`);
-  }
-  for (const key of ["name", "target", "kind"]) {
-    if (typeof group[key] !== "string" || group[key].trim() === "") {
-      throw new Error(`browser E2E batch stage ${stageName} group ${index + 1} must declare ${key}`);
-    }
-  }
-  if (!allowedKinds.has(group.kind)) {
-    throw new Error(`browser E2E batch group ${group.name} has unsupported kind ${group.kind}`);
-  }
-  const workers = group.workers === undefined ? "default" : String(group.workers);
-  const resetBefore = group.reset_before === undefined ? "" : String(group.reset_before);
-  process.stdout.write([
-    group.name,
-    group.target,
-    group.kind,
-    workers,
-    resetBefore,
-  ].join("\t") + "\n");
-}
-EOF
-)
+stage_metadata="$("$node_bin" "$ROOT_DIR/scripts/lib/browser-batch-manifest.mjs" stage-runner "$MANIFEST" "$stage")"
+stage_target="$(printf '%s\n' "$stage_metadata" | sed -n '1p')"
+stage_summary_children="$(printf '%s\n' "$stage_metadata" | sed -n '2p')"
+mapfile -t stage_groups < <(printf '%s\n' "$stage_metadata" | tail -n +3)
 
 run_target_summary() {
   local target="$1"
@@ -100,7 +49,7 @@ run_target_summary() {
   local children="${3:-}"
 
   if [[ -n "$children" ]]; then
-    NODE_BIN="$node_bin" "$TEST_OUTPUT_HELPER" target-summary "$target" "$status" --projection "$target"
+    NODE_BIN="$node_bin" "$TEST_OUTPUT_HELPER" target-summary "$target" "$status" --children "$children"
     return $?
   fi
 
@@ -169,16 +118,31 @@ run_group() {
   esac
 }
 
-if [[ -n "${CARTULARY_TEST_TARGET:-}" && "${CARTULARY_TEST_TARGET}" == "$stage" ]]; then
-  NODE_BIN="$node_bin" "$TEST_OUTPUT_HELPER" target-start "$stage" --children "$stage_children" || true
+if [[ -n "${CARTULARY_TEST_TARGET:-}" && "${CARTULARY_TEST_TARGET}" == "$stage_target" ]]; then
+  if [[ -n "$stage_summary_children" ]]; then
+    NODE_BIN="$node_bin" "$TEST_OUTPUT_HELPER" target-start "$stage_target" --children "$stage_summary_children" || true
+  else
+    NODE_BIN="$node_bin" "$TEST_OUTPUT_HELPER" target-start "$stage_target" || true
+  fi
 fi
 
 overall_status=0
+declare -A child_target_status=()
+declare -A summary_child_targets=()
+if [[ -n "$stage_summary_children" ]]; then
+  IFS=',' read -r -a summary_children_array <<<"$stage_summary_children"
+  for child_target in "${summary_children_array[@]}"; do
+    summary_child_targets["$child_target"]=1
+  done
+else
+  summary_children_array=()
+fi
+
 for group_row in "${stage_groups[@]}"; do
   IFS=$'\t' read -r group_name target kind workers reset_before <<<"$group_row"
 
   if [[ -n "$reset_before" ]]; then
-    env CARTULARY_TEST_TARGET="${CARTULARY_TEST_TARGET:-$stage}" \
+    env CARTULARY_TEST_TARGET="${CARTULARY_TEST_TARGET:-$stage_target}" \
       NODE_BIN="$node_bin" \
       "$ROOT_DIR/scripts/reset-web-e2e-stack.sh" --label "$reset_before"
   fi
@@ -188,10 +152,10 @@ for group_row in "${stage_groups[@]}"; do
   group_status=$?
   set -e
 
-  if [[ "$group_status" -eq 0 ]]; then
-    run_target_summary "$target" pass || group_status=$?
-  else
-    run_target_summary "$target" fail || true
+  if [[ -n "${summary_child_targets[$target]:-}" ]]; then
+    if [[ -z "${child_target_status[$target]:-}" || "${child_target_status[$target]}" -eq 0 ]]; then
+      child_target_status["$target"]="$group_status"
+    fi
   fi
 
   if [[ "$group_status" -ne 0 && "$overall_status" -eq 0 ]]; then
@@ -199,11 +163,23 @@ for group_row in "${stage_groups[@]}"; do
   fi
 done
 
-if [[ -n "${CARTULARY_TEST_TARGET:-}" && "${CARTULARY_TEST_TARGET}" == "$stage" ]]; then
-  if [[ "$overall_status" -eq 0 ]]; then
-    run_target_summary "$stage" pass "$stage_children" || overall_status=$?
+for child_target in "${summary_children_array[@]}"; do
+  child_status="${child_target_status[$child_target]:-0}"
+  if [[ "$child_status" -eq 0 ]]; then
+    run_target_summary "$child_target" pass || child_status=$?
   else
-    run_target_summary "$stage" fail "$stage_children" || true
+    run_target_summary "$child_target" fail || true
+  fi
+  if [[ "$child_status" -ne 0 && "$overall_status" -eq 0 ]]; then
+    overall_status="$child_status"
+  fi
+done
+
+if [[ "$defer_summary" -ne 1 && -n "${CARTULARY_TEST_TARGET:-}" && "${CARTULARY_TEST_TARGET}" == "$stage_target" ]]; then
+  if [[ "$overall_status" -eq 0 ]]; then
+    run_target_summary "$stage_target" pass "$stage_summary_children" || overall_status=$?
+  else
+    run_target_summary "$stage_target" fail "$stage_summary_children" || true
   fi
 fi
 

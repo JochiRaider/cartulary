@@ -412,12 +412,12 @@ test-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
 
 test-fast-service-backed: export CARTULARY_TEST_TARGET := test-fast-service-backed
 
-test-fast-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server $(TEST_SERVICES_BIN)
+test-fast-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server $(TEST_SERVICES_BIN) test-service-images
 	$(Q)status=0; $(TEST_SERVICES_BIN) run -- env MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(RUN_PHASE_SCRIPT) "test-fast service-backed" -- $(NODE_BIN) $(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-fast-service-backed --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)" --defer-summary || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(TEST_OUTPUT_SCRIPT) target-summary test-fast-service-backed $$requested --projection test-fast-service-backed; summary_status=$$?; if [ "$$status" -ne 0 ]; then exit "$$status"; fi; exit "$$summary_status"
 
 test-service-backed: export CARTULARY_TEST_TARGET := test-service-backed
 
-test-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN)
+test-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN) test-service-images
 	$(Q)status=0; $(TEST_SERVICES_BIN) run -- env MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(RUN_PHASE_SCRIPT) "test service-backed" -- $(NODE_BIN) $(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-service-backed --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)" --defer-summary || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(TEST_OUTPUT_SCRIPT) target-summary test-service-backed $$requested --projection test-service-backed; summary_status=$$?; if [ "$$status" -ne 0 ]; then exit "$$status"; fi; exit "$$summary_status"
 
 test: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
@@ -461,23 +461,23 @@ browser-e2e-duration-baseline-drift:
 
 backend-store: export CARTULARY_TEST_TARGET := backend-store
 
-backend-store: $(NODE_BIN) $(TEST_SERVICES_BIN)
+backend-store: $(NODE_BIN) $(TEST_SERVICES_BIN) test-service-images
 	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_PACKAGE_PARALLELISM=$(EFFECTIVE_BACKEND_STORE_GO_TEST_P) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(TEST_SERVICES_BIN) run -- ./scripts/run-go-target.sh backend-store
 
 backend-integration: export CARTULARY_TEST_TARGET := backend-integration
 
-backend-integration: $(NODE_BIN) $(TEST_SERVICES_BIN)
+backend-integration: $(NODE_BIN) $(TEST_SERVICES_BIN) test-service-images
 	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_PACKAGE_PARALLELISM=$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) BACKEND_INTEGRATION_SHARD_JOBS=$(BACKEND_INTEGRATION_SHARD_JOBS) $(TEST_SERVICES_BIN) run -- ./scripts/run-go-target.sh backend-integration
 
 backend-integration-support: export CARTULARY_TEST_TARGET := backend-integration-support
 
-backend-integration-support: $(NODE_BIN) $(TEST_SERVICES_BIN)
+backend-integration-support: $(NODE_BIN) $(TEST_SERVICES_BIN) test-service-images
 	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_PACKAGE_PARALLELISM=$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) BACKEND_INTEGRATION_SHARD_JOBS=$(BACKEND_INTEGRATION_SHARD_JOBS) $(TEST_SERVICES_BIN) run -- ./scripts/run-go-target.sh backend-integration-support
 
 backend-process: export CARTULARY_TEST_TARGET := backend-process
 
 # Phase 0 process evidence is part of the developer gate and must never be direct-run only.
-backend-process: $(NODE_BIN) build-server $(TEST_SERVICES_BIN)
+backend-process: $(NODE_BIN) build-server $(TEST_SERVICES_BIN) test-service-images
 	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(TEST_SERVICES_BIN) run -- ./scripts/run-go-target.sh backend-process
 
 frontend-unit: export CARTULARY_TEST_TARGET := frontend-unit
@@ -496,45 +496,45 @@ e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 
 browser-e2e: export CARTULARY_TEST_TARGET := browser-e2e
 
-browser-e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN)
-	$(Q)status=0; $(TEST_SERVICES_BIN) run -- env $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh isolated || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e $$requested --projection browser-e2e; exit "$$status"
+browser-e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN) test-service-images
+	$(Q)$(TEST_SERVICES_BIN) run -- env $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 ./scripts/run-browser-e2e-target.sh isolated
 
 browser-e2e-webserver-backed: export CARTULARY_TEST_TARGET := browser-e2e-webserver-backed
 
 browser-e2e-webserver-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)status=0; env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh webserver-backed || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-webserver-backed $$requested; exit "$$status"
+	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) ./scripts/run-browser-e2e-target.sh webserver-backed
 
 browser-e2e-functional: export CARTULARY_TEST_TARGET := browser-e2e-functional
 
 browser-e2e-functional: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)status=0; env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh functional || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-functional $$requested; exit "$$status"
+	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) ./scripts/run-browser-e2e-target.sh functional
 
 browser-e2e-support: export CARTULARY_TEST_TARGET := browser-e2e-support
 
 browser-e2e-support: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)status=0; env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh support || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-support $$requested; exit "$$status"
+	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) ./scripts/run-browser-e2e-target.sh support
 
 browser-e2e-stateful: export CARTULARY_TEST_TARGET := browser-e2e-stateful
 
 # Browser evidence that mutates process-global backend state belongs here.
 browser-e2e-stateful: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)status=0; env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh stateful || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-stateful $$requested; exit "$$status"
+	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/run-browser-e2e-target.sh stateful
 
 browser-e2e-resettable: export CARTULARY_TEST_TARGET := browser-e2e-resettable
 
 browser-e2e-resettable: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)status=0; env $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh resettable || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-resettable $$requested --projection browser-e2e-resettable; exit "$$status"
+	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 ./scripts/run-browser-e2e-target.sh resettable
 
 browser-e2e-measurement: export CARTULARY_TEST_TARGET := browser-e2e-measurement
 
 # Ordinary implementation/regression measurement; not claim-bearing Core 05 publication evidence.
 browser-e2e-measurement: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)status=0; env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh measurement || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-measurement $$requested; exit "$$status"
+	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/run-browser-e2e-target.sh measurement
 
 browser-e2e-visual: export CARTULARY_TEST_TARGET := browser-e2e-visual
 
 browser-e2e-visual: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)status=0; env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/start-web-e2e.sh -- ./scripts/run-browser-e2e-batch.sh visual || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary browser-e2e-visual $$requested; exit "$$status"
+	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/run-browser-e2e-target.sh visual
 
 lint: lint-go lint-biome frontend-typecheck
 

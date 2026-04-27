@@ -1,10 +1,9 @@
 {
-  "schema_id": "cartulary.browser_e2e_batch_manifest.v2",
+  "schema_id": "cartulary.browser_e2e_batch_manifest.v3",
   "stages": [
     {
       "name": "webserver-backed",
       "target": "browser-e2e-webserver-backed",
-      "children": ["browser-e2e-webserver-backed"],
       "groups": [
         {
           "name": "functional-support",
@@ -17,7 +16,6 @@
     {
       "name": "functional",
       "target": "browser-e2e-functional",
-      "children": ["browser-e2e-functional"],
       "groups": [
         {
           "name": "functional",
@@ -30,7 +28,6 @@
     {
       "name": "support",
       "target": "browser-e2e-support",
-      "children": ["browser-e2e-support"],
       "groups": [
         {
           "name": "support",
@@ -43,7 +40,6 @@
     {
       "name": "stateful",
       "target": "browser-e2e-stateful",
-      "children": ["browser-e2e-stateful"],
       "groups": [
         {
           "name": "stateful",
@@ -56,7 +52,6 @@
     {
       "name": "measurement",
       "target": "browser-e2e-measurement",
-      "children": ["browser-e2e-measurement"],
       "groups": [
         {
           "name": "measurement",
@@ -69,7 +64,6 @@
     {
       "name": "visual",
       "target": "browser-e2e-visual",
-      "children": ["browser-e2e-visual"],
       "groups": [
         {
           "name": "visual",
@@ -82,7 +76,7 @@
     {
       "name": "resettable",
       "target": "browser-e2e-resettable",
-      "children": ["browser-e2e-measurement", "browser-e2e-visual"],
+      "summary_children": ["browser-e2e-measurement", "browser-e2e-visual"],
       "groups": [
         {
           "name": "measurement",
@@ -102,7 +96,7 @@
     {
       "name": "isolated",
       "target": "browser-e2e",
-      "children": ["browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"],
+      "summary_children": ["browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"],
       "groups": [
         {
           "name": "stateful",
