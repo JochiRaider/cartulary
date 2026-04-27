@@ -3,6 +3,11 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  defaultGeneratedMakePath,
+  renderTaskSurfaceMake,
+  taskSurfaceSchemaID,
+} from "./lib/task-surface.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
@@ -14,12 +19,15 @@ const makefilePath = resolvePath(
 const manifestPath = resolvePath(
   process.env.CARTULARY_TASK_SURFACE_MANIFEST ?? "tools/task_surface_manifest.json",
 );
+const generatedMakePath = resolvePath(
+  process.env.CARTULARY_TASK_SURFACE_GENERATED_MAKE ?? defaultGeneratedMakePath,
+);
 
 const validClassifications = new Set(["public", "check_internal", "helper_only"]);
 const validInclusions = new Set(["test", "check", "ci", "release-check", "helper_only"]);
 
 function main() {
-  const makefile = readFileSync(makefilePath, "utf8");
+  const makefile = `${readFileSync(generatedMakePath, "utf8")}\n${readFileSync(makefilePath, "utf8")}`;
   const manifest = readJSON(manifestPath);
   const phonyTargets = collectPhonyTargets(makefile);
   const helpEntries = collectHelpEntries(makefile);
@@ -29,6 +37,7 @@ function main() {
   );
   const phaseDependencies = collectPhaseDependencies();
   const errors = validateTaskSurface({
+    generatedMakePath,
     helpEntries,
     manifest,
     phonyTargets,
@@ -158,15 +167,20 @@ function collectPhaseDependencies() {
   );
 }
 
-function validateTaskSurface({ helpEntries, manifest, phonyTargets, targetScriptRefs }) {
+function validateTaskSurface({ generatedMakePath, helpEntries, manifest, phonyTargets, targetScriptRefs }) {
   const errors = [];
 
-  if (manifest.schema_id !== "cartulary.task_surface_manifest.v1") {
-    errors.push("tools/task_surface_manifest.json must declare schema_id=cartulary.task_surface_manifest.v1");
+  if (manifest.schema_id !== taskSurfaceSchemaID) {
+    errors.push(`tools/task_surface_manifest.json must declare schema_id=${taskSurfaceSchemaID}`);
   }
   if (!Array.isArray(manifest.targets)) {
     errors.push("tools/task_surface_manifest.json must declare targets[]");
     return errors;
+  }
+  const renderedMake = renderTaskSurfaceMake(manifest);
+  const committedMake = readFileSync(generatedMakePath, "utf8");
+  if (renderedMake !== committedMake) {
+    errors.push("tools/task_surface.generated.mk is stale; run scripts/render-task-surface-make.mjs");
   }
 
   const phonySet = new Set(phonyTargets);

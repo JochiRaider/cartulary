@@ -5,6 +5,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadTaskSurfaceManifest, summaryProfileArgs } from "./lib/task-surface.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
@@ -13,7 +14,7 @@ const supportedSchemaID = "cartulary.check_schedule.v1";
 
 function usage() {
   process.stderr.write(
-    "usage: run-check-schedule.mjs --target <target> --summary-targets <a,b> [--summary-groups <spec>] [--manifest <path>] [--resource-limit <name=value>...]\n",
+    "usage: run-check-schedule.mjs --target <target> (--summary-profile <name> | --summary-targets <a,b>) [--summary-groups <spec>] [--manifest <path>] [--resource-limit <name=value>...]\n",
   );
   process.exit(2);
 }
@@ -22,6 +23,7 @@ function parseArgs(argv) {
   const options = {
     manifest: defaultManifestPath,
     target: "",
+    summaryProfile: "",
     summaryTargets: "",
     summaryGroups: "",
     resourceLimitOverrides: new Map(),
@@ -35,6 +37,11 @@ function parseArgs(argv) {
     }
     if (arg === "--summary-targets") {
       options.summaryTargets = argv[index + 1] ?? "";
+      index += 1;
+      continue;
+    }
+    if (arg === "--summary-profile") {
+      options.summaryProfile = argv[index + 1] ?? "";
       index += 1;
       continue;
     }
@@ -64,7 +71,13 @@ function parseArgs(argv) {
     }
     usage();
   }
-  if (!options.target || !options.summaryTargets || !options.manifest) {
+  if (!options.target || !options.manifest) {
+    usage();
+  }
+  if (options.summaryProfile && options.summaryTargets) {
+    throw new Error("--summary-profile and --summary-targets are mutually exclusive");
+  }
+  if (!options.summaryProfile && !options.summaryTargets) {
     usage();
   }
   return options;
@@ -505,9 +518,18 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const { manifest, manifestPath } = await loadManifest(options.manifest);
   const schedule = findSchedule(manifest, options.target, options.resourceLimitOverrides);
-  const summaryTargets = parseSummaryTargets(options.summaryTargets);
+  let summaryTargets = parseSummaryTargets(options.summaryTargets);
+  let summaryGroups = options.summaryGroups;
+  if (options.summaryProfile) {
+    const { manifest: taskSurface } = loadTaskSurfaceManifest(
+      process.env.TASK_SURFACE_MANIFEST ?? path.join(repoRoot, "tools", "task_surface_manifest.json"),
+    );
+    const profile = summaryProfileArgs(taskSurface, options.summaryProfile);
+    summaryTargets = profile.targets;
+    summaryGroups = profile.groupsSpec;
+  }
   if (summaryTargets.length === 0) {
-    throw new Error("--summary-targets must select at least one target");
+    throw new Error("summary profile must select at least one target");
   }
   const makeBin = process.env.MAKE || "make";
   const testOutputScript =
@@ -525,7 +547,7 @@ async function main() {
     makeBin,
     testOutputScript,
     summaryTargets,
-    summaryGroups: options.summaryGroups,
+    summaryGroups,
   });
   process.exitCode = status;
 }

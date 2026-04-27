@@ -945,7 +945,7 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
     if (!deferSummary) {
       await runLifecycle(
         testOutputScript,
-        ["target-summary", schedule.target, requestedStatus, "--children", childrenCsv],
+        ["target-summary", schedule.target, requestedStatus, "--projection", schedule.target],
         requestedStatus === "pass" ? process.stdout : process.stderr,
       );
     }

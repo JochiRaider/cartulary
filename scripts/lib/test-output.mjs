@@ -14,6 +14,11 @@ import { fileURLToPath } from "node:url";
 
 import { collectEntries, loadManifest } from "./phase-manifest.mjs";
 import { collectTargetPlanRows, findTargetDescriptor } from "./target-plan.mjs";
+import {
+  defaultTaskSurfaceManifestPath,
+  loadTaskSurfaceManifest,
+  projectionChildren,
+} from "./task-surface.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
@@ -1613,10 +1618,11 @@ function parseTargetList(value) {
 function parseTargetSummaryArgs(args) {
   const [target, ...rest] = args;
   if (!target) {
-    throw new Error("usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>]");
+    throw new Error("usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>] [--projection <target>]");
   }
 
   let requestedStatus = "pass";
+  let projectionTarget = "";
   const remaining = [...rest];
   if (remaining.length > 0 && !remaining[0].startsWith("--")) {
     requestedStatus = remaining.shift();
@@ -1625,6 +1631,13 @@ function parseTargetSummaryArgs(args) {
   const childTargetNames = [];
   while (remaining.length > 0) {
     const option = remaining.shift();
+    if (option === "--projection") {
+      projectionTarget = remaining.shift() ?? "";
+      if (projectionTarget === "") {
+        throw new Error("--projection requires a target name");
+      }
+      continue;
+    }
     if (option !== "--children") {
       throw new Error(`unknown target-summary option ${option}`);
     }
@@ -1633,6 +1646,13 @@ function parseTargetSummaryArgs(args) {
       throw new Error("--children requires a comma-separated target list");
     }
     childTargetNames.push(...parseTargetList(value));
+  }
+
+  if (projectionTarget && childTargetNames.length === 0) {
+    const { manifest } = loadTaskSurfaceManifest(
+      process.env.TASK_SURFACE_MANIFEST ?? defaultTaskSurfaceManifestPath,
+    );
+    childTargetNames.push(...projectionChildren(manifest, projectionTarget));
   }
 
   return { target, requestedStatus, childTargetNames };

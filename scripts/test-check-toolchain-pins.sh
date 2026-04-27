@@ -46,11 +46,13 @@ assert_not_contains() {
 copy_minimal_repo() {
   local dest="$1"
 
-  mkdir -p "${dest}/scripts"
+  mkdir -p "${dest}/scripts" "${dest}/tools"
   cp "${ROOT_DIR}/Makefile" "${dest}/Makefile"
   cp "${ROOT_DIR}/package.json" "${dest}/package.json"
   cp "${ROOT_DIR}/go.mod" "${dest}/go.mod"
   cp "${ROOT_DIR}/README.md" "${dest}/README.md"
+  cp "${ROOT_DIR}/tools/task_surface.generated.mk" "${dest}/tools/task_surface.generated.mk"
+  cp "${ROOT_DIR}/tools/task_surface_manifest.json" "${dest}/tools/task_surface_manifest.json"
   cp "${ROOT_DIR}/scripts/list-build-inputs.sh" "${dest}/scripts/list-build-inputs.sh"
   cp "${ROOT_DIR}/scripts/bootstrap-node-runtime.sh" "${dest}/scripts/bootstrap-node-runtime.sh"
   cp "${ROOT_DIR}/scripts/check-toolchain-pins.mjs" "${dest}/scripts/check-toolchain-pins.mjs"

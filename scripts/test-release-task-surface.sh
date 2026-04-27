@@ -88,7 +88,7 @@ assert_make_passes() {
   printf '%s' "$output"
 }
 
-makefile_content="$(cat "$ROOT_DIR/Makefile")"
+makefile_content="$(cat "$ROOT_DIR/Makefile"; printf '\n'; cat "$ROOT_DIR/tools/task_surface.generated.mk")"
 release_check_block="$(make_target_block release-check)"
 license_report_block="$(make_target_block license-report)"
 sbom_block="$(make_target_block sbom)"

@@ -164,77 +164,25 @@ fi
 assert_contains "${invalid_output}" "--parallel-step requires <target>:<jobs>" "invalid usage output"
 assert_file_absent "${invalid_dir}/make.log" "invalid usage child make log"
 
-NODE_BIN="${NODE_BIN:-node}" "${NODE_BIN:-node}" - "${ROOT_DIR}/Makefile" <<'EOF'
+NODE_BIN="${NODE_BIN:-node}" "${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" <<'EOF'
 const fs = require("node:fs");
 
-const [makefilePath] = process.argv.slice(2);
-const makefile = fs.readFileSync(makefilePath, "utf8");
-const vars = new Map();
-
-for (const line of makefile.split(/\n/)) {
-  const match = line.match(/^([A-Z0-9_]+)\s*:=\s*(.*)$/);
-  if (match) {
-    vars.set(match[1], match[2].trim());
-  }
-}
+const [manifestPath] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const { fast, extended, lifecycle, full } = manifest.harness_tiers;
 
 function fail(message) {
   console.error(message);
   process.exit(1);
 }
 
-function expand(value, stack = []) {
-  return value.replace(/\$\(([^)]+)\)/g, (_all, name) => {
-    if (stack.includes(name)) {
-      fail(`recursive Make variable expansion for ${name}`);
-    }
-    if (!vars.has(name)) {
-      fail(`missing Make variable ${name}`);
-    }
-    return expand(vars.get(name), [...stack, name]);
-  });
-}
-
-function list(name) {
-  if (!vars.has(name)) {
-    fail(`missing Make variable ${name}`);
-  }
-  return expand(vars.get(name)).split(",").map((value) => value.trim()).filter(Boolean);
-}
-
-for (const name of [
-  "HARNESS_SMOKE_FAST_TARGETS",
-  "HARNESS_SMOKE_EXTENDED_TARGETS",
-  "HARNESS_SMOKE_LIFECYCLE_TARGETS",
-  "HARNESS_SMOKE_FULL_TARGETS",
-  "HARNESS_SMOKE_TARGETS",
-  "HARNESS_SMOKE_FAST_GROUPS",
-  "HARNESS_SMOKE_EXTENDED_GROUPS",
-  "HARNESS_SMOKE_FULL_GROUPS",
-  "HARNESS_SMOKE_GROUPS",
-]) {
-  const count = (makefile.match(new RegExp(`^${name} :=`, "gm")) ?? []).length;
-  if (count !== 1) {
-    fail(`${name} must be declared exactly once, found ${count}`);
-  }
-}
-
-const fast = list("HARNESS_SMOKE_FAST_TARGETS");
-const extended = list("HARNESS_SMOKE_EXTENDED_TARGETS");
-const lifecycle = list("HARNESS_SMOKE_LIFECYCLE_TARGETS");
-const full = list("HARNESS_SMOKE_FULL_TARGETS");
-const compatibility = list("HARNESS_SMOKE_TARGETS");
-const expectedFull = [...fast, ...extended, ...lifecycle];
-
-if (JSON.stringify(full) !== JSON.stringify(expectedFull)) {
-  fail("HARNESS_SMOKE_FULL_TARGETS must equal fast + extended + lifecycle tiers");
-}
-if (JSON.stringify(compatibility) !== JSON.stringify(full)) {
-  fail("HARNESS_SMOKE_TARGETS must remain a compatibility alias for full harness smoke");
+const expectedFull = [...fast.targets, ...extended.targets, ...lifecycle.targets];
+if (JSON.stringify(full.targets) !== JSON.stringify(expectedFull)) {
+  fail("full harness tier must equal fast + extended + lifecycle tiers");
 }
 
 const tierMembership = new Map();
-for (const [tier, targets] of [["fast", fast], ["extended", extended], ["lifecycle", lifecycle]]) {
+for (const [tier, targets] of [["fast", fast.targets], ["extended", extended.targets], ["lifecycle", lifecycle.targets]]) {
   for (const target of targets) {
     if (tierMembership.has(target)) {
       fail(`${target} is present in both ${tierMembership.get(target)} and ${tier}`);
@@ -259,27 +207,24 @@ makefile_content="$(cat "${ROOT_DIR}/Makefile")"
 run_fast_block="$(make_target_block run-harness-smoke-fast)"
 run_extended_block="$(make_target_block run-harness-smoke-extended)"
 run_full_block="$(make_target_block run-harness-smoke-full)"
-run_phase_smoke_block="$(make_target_block run-phase-smoke)"
 check_harness_smoke_block="$(make_target_block check-harness-smoke)"
 release_check_block="$(make_target_block release-check)"
 ci_script="$(cat "${ROOT_DIR}/scripts/ci/verify.sh")"
 
-assert_contains "${run_fast_block}" '--summary-targets "$(HARNESS_SMOKE_FAST_TARGETS)"' "fast harness summary list"
-assert_contains "${run_fast_block}" '--summary-groups "$(HARNESS_SMOKE_FAST_GROUPS)"' "fast harness group list"
+assert_contains "${run_fast_block}" "--summary-profile run-harness-smoke-fast" "fast harness summary profile"
 assert_contains "${run_fast_block}" "--parallel-step run-harness-smoke-fast-all:\$(HARNESS_SMOKE_JOBS)" "fast harness parallel aggregate step"
-assert_contains "${run_extended_block}" '--summary-targets "$(HARNESS_SMOKE_EXTENDED_TARGETS)"' "extended harness summary list"
+assert_contains "${run_extended_block}" "--summary-profile run-harness-smoke-extended" "extended harness summary profile"
 assert_contains "${run_extended_block}" "--parallel-step run-harness-smoke-extended-all:\$(HARNESS_SMOKE_JOBS)" "extended harness parallel aggregate step"
-assert_contains "${run_full_block}" '--summary-targets "$(HARNESS_SMOKE_FULL_TARGETS)"' "full harness summary list"
-assert_contains "${run_phase_smoke_block}" '--summary-targets "$(HARNESS_SMOKE_FULL_TARGETS)"' "run-phase-smoke full compatibility list"
+assert_contains "${run_full_block}" "--summary-profile run-harness-smoke-full" "full harness summary profile"
 assert_contains "${check_harness_smoke_block}" "run-harness-smoke-fast" "check harness fast tier"
-assert_not_contains "${check_harness_smoke_block}" "run-phase-smoke" "check harness avoids full compatibility target"
+assert_contains "${check_harness_smoke_block}" "--projection check-harness-smoke" "check harness summary projection"
 assert_contains "${ci_script}" "make --no-print-directory check" "CI check invocation"
 assert_contains "${ci_script}" "make --no-print-directory run-harness-smoke-extended" "CI extended harness invocation"
 assert_contains "${release_check_block}" "release-check: check run-harness-smoke-extended license-report sbom build" "release-check extended harness dependency"
-assert_contains "${makefile_content}" "scripts/test-run-make-sequence-fast.sh" "fast make-sequence smoke backing script"
-assert_contains "${makefile_content}" "scripts/test-run-go-target-fast.sh" "fast run-go-target smoke backing script"
+assert_contains "$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")" "scripts/test-run-make-sequence-fast.sh" "fast make-sequence smoke backing script"
+assert_contains "$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")" "scripts/test-run-go-target-fast.sh" "fast run-go-target smoke backing script"
 
-for target in run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-full run-phase-smoke; do
+for target in run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-full; do
   make_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-make-n-${target}.XXXXXX")"
   cleanup_paths+=("${make_dry_run_dir}")
   make_dry_run_output="$(

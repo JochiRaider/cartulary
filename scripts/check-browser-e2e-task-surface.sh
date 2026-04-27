@@ -20,6 +20,7 @@ webserver_backed_script="$repo_root/scripts/run-browser-e2e-webserver-backed.sh"
 start_web_e2e_script="$repo_root/scripts/start-web-e2e.sh"
 schedule_manifest="$repo_root/tools/service_backed_schedule_manifest.json"
 check_schedule_manifest="$repo_root/tools/check_schedule_manifest.json"
+task_surface_manifest="$repo_root/tools/task_surface_manifest.json"
 node_bin="${NODE_BIN:-node}"
 
 fail() {
@@ -254,8 +255,8 @@ fi
 if printf '%s\n' "$browser_e2e_block" | grep -Fq 'run-browser-e2e-batch.sh all'; then
   fail "browser-e2e must not run the removed all browser batch"
 fi
-if ! printf '%s\n' "$browser_e2e_block" | grep -Fq '$(BROWSER_E2E_ISOLATED_CHILD_TARGETS)'; then
-  fail "browser-e2e must summarize the manifest-declared isolated-batch children"
+if ! printf '%s\n' "$browser_e2e_block" | grep -Fq -- '--projection browser-e2e'; then
+  fail "browser-e2e must summarize the manifest-declared isolated-batch children through task-surface projection"
 fi
 
 test_service_block="$(extract_target_block test-service-backed)"
@@ -272,7 +273,7 @@ fi
 if ! printf '%s\n' "$test_service_block" | grep -Fq -- '--defer-summary'; then
   fail "test-service-backed must defer target summary until after synchronous suite release checks"
 fi
-if ! printf '%s\n' "$test_service_block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary test-service-backed $$requested --children "$(TEST_SERVICE_BACKED_CHILD_TARGETS)"'; then
+if ! printf '%s\n' "$test_service_block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary test-service-backed $$requested --projection test-service-backed'; then
   fail "test-service-backed must finalize target summary after synchronous suite release checks"
 fi
 if printf '%s\n' "$test_service_block" | rg -q 'test-service-backed-lane-(a|b|browser)'; then
@@ -304,7 +305,7 @@ fi
 if ! printf '%s\n' "$check_service_block" | grep -Fq -- '--defer-summary'; then
   fail "check-service-backed must defer target summary until after synchronous suite release checks"
 fi
-if ! printf '%s\n' "$check_service_block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary check-service-backed $$requested --children "$(CHECK_SERVICE_BACKED_CHILD_TARGETS)"'; then
+if ! printf '%s\n' "$check_service_block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary check-service-backed $$requested --projection check-service-backed'; then
   fail "check-service-backed must finalize target summary after synchronous suite release checks"
 fi
 if printf '%s\n' "$check_service_block" | rg -q 'check-service-backed-lane-[ab]'; then
@@ -366,32 +367,25 @@ if [[ "${#test_fast_service_browser_targets[@]}" -ne 0 ]]; then
   fail "test-fast-service-backed schedule must remain backend-only, found browser targets: ${test_fast_service_browser_targets[*]}"
 fi
 
-check_summary_groups_line="$(sed -n 's/^CHECK_SUMMARY_GROUPS[[:space:]]*:=[[:space:]]*//p' "$makefile" | head -n 1)"
-if [[ -z "$check_summary_groups_line" ]]; then
-  fail "Makefile must define CHECK_SUMMARY_GROUPS"
-fi
-if printf '%s\n' "$check_summary_groups_line" | grep -Eq 'browser-(webserver-backed|isolated)='; then
-  fail "CHECK_SUMMARY_GROUPS must use one aggregate browser group, not split browser groups"
-fi
-if ! printf '%s\n' "$check_summary_groups_line" | grep -Fq 'browser=browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual'; then
-  fail "CHECK_SUMMARY_GROUPS must report service-backed webserver and final isolated browser children in one browser group"
-fi
-backend_summary_group="$(printf '%s\n' "$check_summary_groups_line" | tr ';' '\n' | sed -n 's/^backend-service-backed=//p')"
-if [[ "$backend_summary_group" != "backend-integration,backend-integration-support,backend-store,backend-process" ]]; then
-  fail "backend-service-backed summary group must contain backend service targets, found: ${backend_summary_group:-none}"
-fi
-browser_summary_group="$(printf '%s\n' "$check_summary_groups_line" | tr ';' '\n' | sed -n 's/^browser=//p')"
-if [[ "$browser_summary_group" != "browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual" ]]; then
-  fail "browser summary group must contain the service-backed webserver and isolated browser children, found: ${browser_summary_group:-none}"
-fi
+"$node_bin" - "$task_surface_manifest" <<'EOF'
+const fs = require("node:fs");
 
-test_summary_groups_line="$(sed -n 's/^TEST_SUMMARY_GROUPS[[:space:]]*:=[[:space:]]*//p' "$makefile" | head -n 1)"
-if [[ -z "$test_summary_groups_line" ]]; then
-  fail "Makefile must define TEST_SUMMARY_GROUPS"
-fi
-if [[ "$test_summary_groups_line" != "$check_summary_groups_line" ]]; then
-  fail "TEST_SUMMARY_GROUPS must match CHECK_SUMMARY_GROUPS so backend and aggregate browser durations stay comparable"
-fi
+const [manifestFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+for (const profileName of ["test", "check"]) {
+  const groups = manifest.summary_profiles?.[profileName]?.groups ?? [];
+  const browser = groups.find((group) => group.name === "browser");
+  const backend = groups.find((group) => group.name === "backend-service-backed");
+  const expectedBrowser = ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"];
+  const expectedBackend = ["backend-integration", "backend-integration-support", "backend-store", "backend-process"];
+  if (JSON.stringify(browser?.targets) !== JSON.stringify(expectedBrowser)) {
+    throw new Error(`${profileName} browser summary group must report service-backed webserver and isolated browser children`);
+  }
+  if (JSON.stringify(backend?.targets) !== JSON.stringify(expectedBackend)) {
+    throw new Error(`${profileName} backend-service-backed summary group must contain backend service targets`);
+  }
+}
+EOF
 
 test_block="$(extract_target_block test)"
 if [[ -z "$test_block" ]]; then

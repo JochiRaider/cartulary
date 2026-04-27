@@ -100,7 +100,7 @@ run_target_summary() {
   local children="${3:-}"
 
   if [[ -n "$children" ]]; then
-    NODE_BIN="$node_bin" "$TEST_OUTPUT_HELPER" target-summary "$target" "$status" --children "$children"
+    NODE_BIN="$node_bin" "$TEST_OUTPUT_HELPER" target-summary "$target" "$status" --projection "$target"
     return $?
   fi
 

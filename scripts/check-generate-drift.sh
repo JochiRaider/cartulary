@@ -7,17 +7,20 @@ GENERATED_PATHS=(
   "internal/gen/sql"
   "packages/protocol-ts/src/generated"
 )
-SCRATCH_INPUTS=(
+SCRATCH_CONTROL_INPUTS=(
   "Makefile"
   "sqlc.yaml"
   "go.mod"
   "go.sum"
+  "scripts/list-build-inputs.sh"
+  "scripts/lib"
+  "tools/task_surface_manifest.json"
+  "tools/contractgen"
+)
+SCRATCH_CODEGEN_INPUTS=(
   "contracts"
   "db/migrations"
   "db/queries"
-  "scripts/list-build-inputs.sh"
-  "scripts/lib"
-  "tools/contractgen"
 )
 SCRATCH_PLACEHOLDER_DIRS=(
   "apps/web"
@@ -72,9 +75,30 @@ copy_path() {
   cp -a "$ROOT_DIR/$source" "$destination"
 }
 
-for input in "${SCRATCH_INPUTS[@]}" "${GENERATED_PATHS[@]}"; do
+copy_required_make_includes() {
+  local directive include_path rest
+
+  while read -r directive rest; do
+    if [[ "$directive" != "include" ]]; then
+      continue
+    fi
+
+    for include_path in $rest; do
+      if [[ "$include_path" == \#* ]]; then
+        break
+      fi
+      if [[ "$include_path" == /* || "$include_path" == *'$'* ]]; then
+        continue
+      fi
+      copy_path "$include_path"
+    done
+  done <"$ROOT_DIR/Makefile"
+}
+
+for input in "${SCRATCH_CONTROL_INPUTS[@]}" "${SCRATCH_CODEGEN_INPUTS[@]}" "${GENERATED_PATHS[@]}"; do
   copy_path "$input"
 done
+copy_required_make_includes
 
 for placeholder_dir in "${SCRATCH_PLACEHOLDER_DIRS[@]}"; do
   mkdir -p "$scratch/$placeholder_dir"

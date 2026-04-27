@@ -1,5 +1,164 @@
 {
-  "schema_id": "cartulary.task_surface_manifest.v1",
+  "schema_id": "cartulary.task_surface_manifest.v2",
+  "help_sections": [
+    {
+      "name": "bootstrap",
+      "entries": [
+        { "target": "bootstrap", "description": "install pinned tools and frontend/browser dependencies" },
+        { "target": "bootstrap-node-runtime", "description": "install the pinned repo-local Node runtime" },
+        { "target": "frontend-toolchain", "description": "verify the pinned Node/pnpm toolchain" },
+        { "target": "frontend-install", "description": "install workspace dependencies" },
+        { "target": "playwright-install", "description": "install browser dependencies" }
+      ]
+    },
+    {
+      "name": "dev",
+      "entries": [
+        { "target": "services-up", "description": "start local Postgres and MinIO, then wait until ready" },
+        { "target": "db-up", "description": "compatibility alias for services-up plus MinIO bucket init" },
+        { "target": "db-reset", "description": "recreate the local database only; does not reset object storage" },
+        { "target": "minio-init", "description": "create the default local MinIO bucket if needed" },
+        { "target": "dev", "description": "run the Go server and Vite dev server" }
+      ]
+    },
+    {
+      "name": "generate",
+      "entries": [
+        { "target": "generate", "description": "regenerate sqlc and contract-derived outputs" },
+        { "target": "generate-drift", "description": "fail on generated artifact drift" },
+        { "target": "toolchain-drift", "description": "fail on repo-control toolchain pin drift" },
+        { "target": "migration-drift", "description": "verify migrations against a scratch database" },
+        { "target": "phase-ledgers", "description": "regenerate committed phase coverage ledgers" },
+        { "target": "phase-ledger-drift", "description": "fail on phase coverage ledger drift" },
+        { "target": "benchmark-claim-check", "description": "validate retained Core 05 benchmark claim artifacts" },
+        { "target": "task-surface-report", "description": "print the root Make task-surface inventory" }
+      ]
+    },
+    {
+      "name": "backend",
+      "entries": [
+        { "target": "backend-unit", "description": "run pure backend unit evidence" },
+        { "target": "backend-store", "description": "run service-backed store-domain evidence" },
+        { "target": "backend-integration", "description": "run backend integration evidence" },
+        { "target": "backend-process", "description": "run backend process evidence" },
+        { "target": "target-plan", "description": "explain backend target execution families" },
+        { "target": "target-plan-json", "description": "emit deterministic backend target plan JSON" },
+        { "target": "explain-target", "description": "TARGET=backend-store explain one backend target" },
+        { "target": "go-test-duration-baselines", "description": "RESULTS_DIR=<dir> refresh Go test duration baselines" },
+        { "target": "go-test-duration-baseline-drift", "description": "RESULTS_DIR=<dir> verify Go shard baseline freshness" },
+        { "target": "browser-e2e-duration-baseline-drift", "description": "RESULTS_DIR=<dir> verify browser spec baseline freshness" }
+      ]
+    },
+    {
+      "name": "frontend",
+      "entries": [
+        { "target": "frontend-typecheck", "description": "run TypeScript type checking" },
+        { "target": "frontend-unit", "description": "run the frontend unit suite" },
+        { "target": "lint-biome", "description": "run authored frontend Biome checks" },
+        { "target": "format", "description": "format authored frontend sources" }
+      ]
+    },
+    {
+      "name": "browser",
+      "entries": [
+        { "target": "browser-e2e", "description": "run final isolated browser E2E suites through one batch stack" },
+        { "target": "browser-e2e-webserver-backed", "description": "run shared-stack browser E2E batch" },
+        { "target": "browser-e2e-stateful", "description": "run isolated stateful browser E2E batch" },
+        { "target": "browser-e2e-measurement", "description": "run ordinary browser measurement evidence" },
+        { "target": "browser-e2e-visual", "description": "run isolated visual browser E2E" }
+      ]
+    },
+    {
+      "name": "check",
+      "entries": [
+        { "target": "help", "description": "print the grouped root task surface" },
+        { "target": "doctor", "description": "verify required local tools and versions" },
+        { "target": "test-fast", "description": "run the narrower local verification loop" },
+        { "target": "test", "description": "run the authoritative full test corpus" },
+        { "target": "lint", "description": "run backend and frontend lint/type checks" },
+        { "target": "check", "description": "run the developer verification gate" },
+        { "target": "ci", "description": "run the provider-neutral CI entrypoint" },
+        { "target": "release-check", "description": "run check, extended harness, release artifacts, and build verification" }
+      ]
+    },
+    {
+      "name": "build",
+      "entries": [
+        { "target": "build", "description": "build backend binaries with embedded web assets" },
+        { "target": "build-server", "description": "build the server binary" },
+        { "target": "build-migrate", "description": "build the migration binary" },
+        { "target": "build-web", "description": "build frontend web assets" }
+      ]
+    },
+    {
+      "name": "cleanup",
+      "entries": [
+        { "target": "clean", "description": "remove repo-local build and report artifacts" },
+        { "target": "distclean", "description": "also remove repo-local tool/runtime caches" }
+      ]
+    }
+  ],
+  "summary_profiles": {
+    "test": {
+      "targets": ["test-service-backed", "browser-e2e", "backend-unit", "frontend-typecheck", "frontend-unit", "backend-store", "backend-integration", "backend-integration-support", "backend-process", "browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"],
+      "groups": [
+        { "name": "backend-service-backed", "targets": ["backend-integration", "backend-integration-support", "backend-store", "backend-process"] },
+        { "name": "browser", "targets": ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"] }
+      ]
+    },
+    "check": {
+      "targets": ["check-service-backed", "browser-e2e", "check-harness-smoke", "backend-unit", "frontend-typecheck", "frontend-unit", "backend-store", "backend-integration", "backend-integration-support", "backend-process", "browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"],
+      "groups": [
+        { "name": "backend-service-backed", "targets": ["backend-integration", "backend-integration-support", "backend-store", "backend-process"] },
+        { "name": "browser", "targets": ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"] },
+        { "name": "harness", "targets": ["check-harness-smoke"] }
+      ]
+    },
+    "run-harness-smoke-fast": {
+      "targets": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase"],
+      "groups": [{ "name": "fast", "targets": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase"] }]
+    },
+    "run-harness-smoke-extended": {
+      "targets": ["harness-smoke-run-make-sequence", "harness-smoke-run-go-target"],
+      "groups": [{ "name": "extended", "targets": ["harness-smoke-run-make-sequence", "harness-smoke-run-go-target"] }]
+    },
+    "run-harness-smoke-full": {
+      "targets": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase", "harness-smoke-run-make-sequence", "harness-smoke-run-go-target", "harness-smoke-web-e2e-lifecycle", "harness-smoke-dev-stack-lifecycle"],
+      "groups": [
+        { "name": "fast", "targets": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase"] },
+        { "name": "extended", "targets": ["harness-smoke-run-make-sequence", "harness-smoke-run-go-target"] },
+        { "name": "lifecycle", "targets": ["harness-smoke-web-e2e-lifecycle", "harness-smoke-dev-stack-lifecycle"] }
+      ]
+    }
+  },
+  "sequences": {
+    "test": {
+      "summary_profile": "test",
+      "steps": [
+        { "type": "parallel", "target": "test-local", "jobs": 3 },
+        { "type": "step", "target": "test-service-backed" },
+        { "type": "step", "target": "browser-e2e" }
+      ]
+    },
+    "run-harness-smoke-fast": {
+      "summary_profile": "run-harness-smoke-fast",
+      "steps": [{ "type": "parallel", "target": "run-harness-smoke-fast-all", "jobs_variable": "HARNESS_SMOKE_JOBS" }]
+    },
+    "run-harness-smoke-extended": {
+      "summary_profile": "run-harness-smoke-extended",
+      "steps": [{ "type": "parallel", "target": "run-harness-smoke-extended-all", "jobs_variable": "HARNESS_SMOKE_JOBS" }]
+    },
+    "run-harness-smoke-full": {
+      "summary_profile": "run-harness-smoke-full",
+      "steps": [{ "type": "parallel", "target": "run-harness-smoke-full-all", "jobs_variable": "HARNESS_SMOKE_JOBS" }]
+    }
+  },
+  "harness_tiers": {
+    "fast": { "targets": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase"] },
+    "extended": { "targets": ["harness-smoke-run-make-sequence", "harness-smoke-run-go-target"] },
+    "lifecycle": { "targets": ["harness-smoke-web-e2e-lifecycle", "harness-smoke-dev-stack-lifecycle"] },
+    "full": { "targets": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase", "harness-smoke-run-make-sequence", "harness-smoke-run-go-target", "harness-smoke-web-e2e-lifecycle", "harness-smoke-dev-stack-lifecycle"] }
+  },
   "targets": [
     { "name": "help", "classification": "public", "included_in": ["helper_only"] },
     { "name": "doctor", "classification": "public", "included_in": ["helper_only"] },
@@ -29,8 +188,8 @@
     { "name": "phase-ledgers", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/render-phase-ledgers.mjs"] },
     { "name": "phase-ledger-drift", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/check-phase-ledger-drift.mjs"] },
     { "name": "benchmark-claim-check", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/check-benchmark-claim.mjs"] },
-    { "name": "task-surface-report", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/print-task-surface-report.mjs"] },
-    { "name": "task-surface-check", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/print-task-surface-report.mjs"] },
+    { "name": "task-surface-report", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/print-task-surface-report.mjs", "scripts/render-task-surface-make.mjs"] },
+    { "name": "task-surface-check", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/print-task-surface-report.mjs", "scripts/render-task-surface-make.mjs"] },
     { "name": "backend-unit", "classification": "public", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-go-target.sh"] },
     { "name": "backend-store", "classification": "public", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-go-target.sh"] },
     { "name": "backend-integration", "classification": "public", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-go-target.sh"] },
@@ -118,38 +277,6 @@
       ]
     },
     { "name": "run-harness-smoke-full-all", "classification": "helper_only", "included_in": ["helper_only"] },
-    {
-      "name": "run-phase-smoke",
-      "classification": "helper_only",
-      "included_in": ["helper_only"],
-      "backing_scripts": [
-        "scripts/test-benchmark-claim-check.sh",
-        "scripts/test-bootstrap-node-runtime.sh",
-        "scripts/test-build-input-discovery.sh",
-        "scripts/test-check-migrations.sh",
-        "scripts/test-check-scheduler.sh",
-        "scripts/test-check-toolchain-pins.sh",
-        "scripts/test-browser-shard-plan.sh",
-        "scripts/test-generate-drift.sh",
-        "scripts/test-go-test-duration-baselines.sh",
-        "scripts/test-dev-stack-lifecycle.sh",
-        "scripts/test-print-target-plan.sh",
-        "scripts/test-run-go-target-fast.sh",
-        "scripts/test-release-task-surface.sh",
-        "scripts/test-run-go-target.sh",
-        "scripts/test-run-make-sequence-fast.sh",
-        "scripts/test-run-make-sequence.sh",
-        "scripts/test-run-phase.sh",
-        "scripts/test-run-playwright-manifest-phase.sh",
-        "scripts/test-run-playwright-phase.sh",
-        "scripts/test-run-playwright-webserver-batch.sh",
-        "scripts/test-run-vitest-manifest-phase.sh",
-        "scripts/test-run-vitest-phase.sh",
-        "scripts/test-task-surface-report.sh",
-        "scripts/test-web-e2e-lifecycle.sh"
-      ]
-    },
-    { "name": "run-phase-smoke-all", "classification": "helper_only", "included_in": ["helper_only"] },
     { "name": "harness-smoke-toolchain-pins", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-check-toolchain-pins.sh"] },
     { "name": "harness-smoke-bootstrap-node-runtime", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-bootstrap-node-runtime.sh"] },
     { "name": "harness-smoke-build-input-discovery", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-build-input-discovery.sh"] },
@@ -184,19 +311,19 @@
     { "name": "format", "classification": "public", "included_in": ["helper_only"] },
     { "name": "format-frontend", "classification": "helper_only", "included_in": ["helper_only"] },
     { "name": "e2e", "classification": "helper_only", "included_in": ["helper_only"] },
-    { "name": "browser-e2e", "classification": "public", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-browser-e2e-batch.sh", "scripts/start-web-e2e.sh"] },
+    { "name": "browser-e2e", "classification": "public", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-browser-e2e-batch.sh", "scripts/start-web-e2e.sh"], "summary_projection": { "children": ["browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"] } },
     { "name": "browser-e2e-webserver-backed", "classification": "public", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-browser-e2e-batch.sh", "scripts/run-browser-e2e-webserver-backed.sh", "scripts/lib/run-playwright-webserver-batch.sh", "scripts/lib/browser-shard-plan.mjs", "scripts/start-web-e2e.sh"] },
     { "name": "browser-e2e-functional", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/run-browser-e2e-batch.sh", "scripts/run-browser-e2e-functional.sh", "scripts/lib/run-playwright-webserver-batch.sh", "scripts/lib/browser-shard-plan.mjs", "scripts/start-web-e2e.sh"] },
     { "name": "browser-e2e-support", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/run-browser-e2e-batch.sh", "scripts/start-web-e2e.sh"] },
     { "name": "browser-e2e-stateful", "classification": "public", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-browser-e2e-batch.sh", "scripts/run-browser-e2e-stateful.sh", "scripts/start-web-e2e.sh"] },
-    { "name": "browser-e2e-resettable", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/run-browser-e2e-batch.sh", "scripts/run-browser-e2e-resettable.sh", "scripts/start-web-e2e.sh"] },
+    { "name": "browser-e2e-resettable", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/run-browser-e2e-batch.sh", "scripts/run-browser-e2e-resettable.sh", "scripts/start-web-e2e.sh"], "summary_projection": { "children": ["browser-e2e-measurement", "browser-e2e-visual"] } },
     { "name": "browser-e2e-measurement", "classification": "public", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-browser-e2e-batch.sh", "scripts/run-browser-e2e-measurement.sh", "scripts/start-web-e2e.sh"] },
     { "name": "browser-e2e-visual", "classification": "public", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-browser-e2e-batch.sh", "scripts/run-browser-e2e-visual.sh", "scripts/start-web-e2e.sh"] },
     { "name": "browser-e2e-task-surface-check", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/check-browser-e2e-task-surface.sh"] },
     { "name": "test-local", "classification": "check_internal", "included_in": ["test", "ci"] },
-    { "name": "test-service-backed", "classification": "check_internal", "included_in": ["test", "ci"], "backing_scripts": ["scripts/run-service-backed-schedule.mjs"] },
+    { "name": "test-service-backed", "classification": "check_internal", "included_in": ["test", "ci"], "backing_scripts": ["scripts/run-service-backed-schedule.mjs"], "summary_projection": { "children": ["backend-integration", "backend-integration-support", "backend-store", "backend-process", "browser-e2e-webserver-backed"] } },
     { "name": "test-fast", "classification": "public", "included_in": ["test", "check", "ci"] },
-    { "name": "test-fast-service-backed", "classification": "check_internal", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-service-backed-schedule.mjs"] },
+    { "name": "test-fast-service-backed", "classification": "check_internal", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-service-backed-schedule.mjs"], "summary_projection": { "children": ["backend-integration", "backend-integration-support", "backend-store", "backend-process"] } },
     { "name": "test", "classification": "public", "included_in": ["test", "check", "ci"] },
     { "name": "lint", "classification": "public", "included_in": ["helper_only"] },
     { "name": "lint-go", "classification": "helper_only", "included_in": ["helper_only"] },
@@ -204,13 +331,13 @@
     { "name": "check-preflight", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-setup-blockers", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-static-validation", "classification": "check_internal", "included_in": ["check"] },
-    { "name": "check-harness-smoke", "classification": "check_internal", "included_in": ["check"] },
+    { "name": "check-harness-smoke", "classification": "check_internal", "included_in": ["check"], "summary_projection": { "children": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase"] } },
     { "name": "check-build-prereqs", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-local-product", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-go-test-duration-baseline-drift", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/check-go-test-duration-baseline-drift.mjs"] },
     { "name": "check-frontend-unit", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-meta-validation", "classification": "check_internal", "included_in": ["check"] },
-    { "name": "check-service-backed", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/run-service-backed-schedule.mjs"] },
+    { "name": "check-service-backed", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/run-service-backed-schedule.mjs"], "summary_projection": { "children": ["backend-integration", "backend-integration-support", "backend-store", "backend-process", "browser-e2e-webserver-backed"] } },
     { "name": "ci", "classification": "public", "included_in": ["ci"], "backing_scripts": ["scripts/ci/verify.sh"] },
     { "name": "release-check", "classification": "public", "included_in": ["release-check"] },
     { "name": "license-report", "classification": "helper_only", "included_in": ["release-check"], "backing_scripts": ["scripts/check-release-artifact.sh"] },

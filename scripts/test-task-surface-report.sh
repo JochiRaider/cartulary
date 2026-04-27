@@ -67,12 +67,15 @@ tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/task-surface-report.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 makefile_copy="$tmp_dir/Makefile"
 manifest_copy="$tmp_dir/task_surface_manifest.json"
+generated_make_copy="$tmp_dir/task_surface.generated.mk"
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
+cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
 
 run_report_copy() {
   CARTULARY_TASK_SURFACE_MAKEFILE="$makefile_copy" \
   CARTULARY_TASK_SURFACE_MANIFEST="$manifest_copy" \
+  CARTULARY_TASK_SURFACE_GENERATED_MAKE="$generated_make_copy" \
     "$NODE_BIN" "$REPORTER" --check
 }
 
@@ -82,6 +85,7 @@ assert_contains "$unclassified_output" "unclassified-target is missing task-surf
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
+cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
 printf '\n.PHONY: undocumented-public\nundocumented-public:\n\t@true\n' >>"$makefile_copy"
 "$NODE_BIN" - "$manifest_copy" <<'EOF'
 const { readFileSync, writeFileSync } = require("node:fs");
@@ -99,6 +103,7 @@ assert_contains "$undocumented_output" "public target undocumented-public is mis
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
+cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
 "$NODE_BIN" - "$manifest_copy" <<'EOF'
 const { readFileSync, writeFileSync } = require("node:fs");
 const manifestPath = process.argv[2];
@@ -112,6 +117,7 @@ assert_contains "$missing_script_output" "backing script missing: scripts/missin
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
+cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
 printf '\n.PHONY: undeclared-script-ref\nundeclared-script-ref:\n\t@node ./scripts/check-toolchain-pins.mjs\n' >>"$makefile_copy"
 "$NODE_BIN" - "$manifest_copy" <<'EOF'
 const { readFileSync, writeFileSync } = require("node:fs");
@@ -127,3 +133,10 @@ writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 undeclared_script_output="$(assert_fails "undeclared script reference" run_report_copy)"
 assert_contains "$undeclared_script_output" "references scripts/check-toolchain-pins.mjs" "undeclared script reference output"
+
+cp "$ROOT_DIR/Makefile" "$makefile_copy"
+cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
+cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
+printf '\n# stale generated task surface\n' >>"$generated_make_copy"
+stale_generated_output="$(assert_fails "stale generated task surface" run_report_copy)"
+assert_contains "$stale_generated_output" "tools/task_surface.generated.mk is stale" "stale generated task surface output"

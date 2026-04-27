@@ -8,10 +8,11 @@ MAKE_BIN="${MAKE:-make}"
 label=""
 summary_targets_csv=""
 summary_groups_spec=""
+summary_profile=""
 steps=()
 
 usage() {
-  echo "usage: run-make-sequence.sh --label <name> --summary-targets <a,b> [--summary-groups <name=a,b;name=c>] [--step <target> | --parallel-step <target>:<jobs>]..." >&2
+  echo "usage: run-make-sequence.sh --label <name> (--summary-profile <name> | --summary-targets <a,b>) [--summary-groups <name=a,b;name=c>] [--step <target> | --parallel-step <target>:<jobs>]..." >&2
 }
 
 add_step() {
@@ -49,6 +50,11 @@ while [[ "$#" -gt 0 ]]; do
       summary_targets_csv="$2"
       shift 2
       ;;
+    --summary-profile)
+      [[ "$#" -ge 2 ]] || { usage; exit 2; }
+      summary_profile="$2"
+      shift 2
+      ;;
     --summary-groups)
       [[ "$#" -ge 2 ]] || { usage; exit 2; }
       summary_groups_spec="$2"
@@ -71,7 +77,36 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
-if [[ -z "${label}" || -z "${summary_targets_csv}" || "${#steps[@]}" -eq 0 ]]; then
+if [[ -z "${label}" || "${#steps[@]}" -eq 0 ]]; then
+  usage
+  exit 2
+fi
+
+if [[ -n "${summary_profile}" && -n "${summary_targets_csv}" ]]; then
+  echo "--summary-profile and --summary-targets are mutually exclusive" >&2
+  exit 2
+fi
+
+if [[ -n "${summary_profile}" ]]; then
+  node_cmd="${NODE_BIN:-node}"
+  if [[ -n "${node_cmd}" && ! -x "${node_cmd}" ]]; then
+    node_cmd="node"
+  fi
+  mapfile -t resolved_summary < <(
+    "$node_cmd" --input-type=module - "${TASK_SURFACE_MANIFEST:-${ROOT_DIR}/tools/task_surface_manifest.json}" "${summary_profile}" <<'EOF'
+import { loadTaskSurfaceManifest, summaryProfileArgs } from "./scripts/lib/task-surface.mjs";
+
+const [manifestPath, profileName] = process.argv.slice(2);
+const { manifest } = loadTaskSurfaceManifest(manifestPath);
+const profile = summaryProfileArgs(manifest, profileName);
+process.stdout.write(`${profile.targets.join(",")}\n${profile.groupsSpec}\n`);
+EOF
+  )
+  summary_targets_csv="${resolved_summary[0]:-}"
+  summary_groups_spec="${resolved_summary[1]:-}"
+fi
+
+if [[ -z "${summary_targets_csv}" ]]; then
   usage
   exit 2
 fi
