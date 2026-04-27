@@ -63,6 +63,17 @@
           "make_jobs": "cpu"
         },
         {
+          "target": "check-browser-e2e-duration-baseline-drift",
+          "weight": 28000,
+          "needs": [
+            "check-service-backed"
+          ],
+          "resource_claims": {
+            "cpu": 1
+          },
+          "make_jobs": "cpu"
+        },
+        {
           "target": "check-local-product",
           "weight": 20000,
           "needs": [

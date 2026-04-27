@@ -108,10 +108,11 @@
       ]
     },
     "check": {
-      "targets": ["check-service-backed", "check-harness-smoke", "backend-unit", "frontend-typecheck", "frontend-unit"],
+      "targets": ["check-service-backed", "check-go-test-duration-baseline-drift", "check-browser-e2e-duration-baseline-drift", "check-harness-smoke", "backend-unit", "frontend-typecheck", "frontend-unit"],
       "groups": [
         { "name": "backend-service-backed", "targets": ["backend-integration", "backend-integration-support", "backend-store", "backend-process"] },
         { "name": "browser", "targets": ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"] },
+        { "name": "duration-baselines", "targets": ["check-go-test-duration-baseline-drift", "check-browser-e2e-duration-baseline-drift"] },
         { "name": "harness", "targets": ["check-harness-smoke"] }
       ]
     },
@@ -228,6 +229,7 @@
     { "name": "check-build-prereqs", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-local-product", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-go-test-duration-baseline-drift", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/check-go-test-duration-baseline-drift.mjs"] },
+    { "name": "check-browser-e2e-duration-baseline-drift", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/lib/browser-shard-plan.mjs"] },
     { "name": "check-frontend-unit", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-meta-validation", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-service-backed", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/run-service-backed-schedule-target.sh", "scripts/run-service-backed-schedule.mjs"], "summary_projection": { "children": ["backend-integration", "backend-integration-support", "backend-store", "backend-process", "browser-e2e-webserver-backed", "browser-e2e"] } },

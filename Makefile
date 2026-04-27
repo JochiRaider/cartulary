@@ -598,6 +598,11 @@ check-local-product: migration-drift lint-go frontend-typecheck backend-unit dep
 
 check-go-test-duration-baseline-drift:
 	$(Q)$(MAKE) --no-print-directory go-test-duration-baseline-drift
+	$(TARGET_SUMMARY) check-go-test-duration-baseline-drift pass
+
+check-browser-e2e-duration-baseline-drift:
+	$(Q)$(MAKE) --no-print-directory browser-e2e-duration-baseline-drift
+	$(TARGET_SUMMARY) check-browser-e2e-duration-baseline-drift pass
 
 check-frontend-unit: frontend-unit
 

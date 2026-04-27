@@ -459,6 +459,15 @@ for (const profileName of ["test", "check"]) {
     throw new Error(`${profileName} backend-service-backed summary group must contain backend service targets`);
   }
 }
+const checkGroups = manifest.summary_profiles?.check?.groups ?? [];
+const durationBaselines = checkGroups.find((group) => group.name === "duration-baselines");
+const expectedDurationBaselines = [
+  "check-go-test-duration-baseline-drift",
+  "check-browser-e2e-duration-baseline-drift",
+];
+if (JSON.stringify(durationBaselines?.targets) !== JSON.stringify(expectedDurationBaselines)) {
+  throw new Error("check duration-baselines summary group must report Go and browser duration drift gates");
+}
 const targetEntries = new Map((manifest.targets ?? []).map((entry) => [entry.name, entry]));
 for (const target of ["test-service-backed", "check-service-backed"]) {
   const children = targetEntries.get(target)?.summary_projection?.children ?? [];
@@ -510,7 +519,7 @@ if ! [[ -f "$check_schedule_manifest" ]]; then
   fail "missing tools/check_schedule_manifest.json"
 fi
 check_schedule_text="$(check_schedule_targets)"
-for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-go-test-duration-baseline-drift check-local-product check-frontend-unit check-meta-validation; do
+for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-go-test-duration-baseline-drift check-browser-e2e-duration-baseline-drift check-local-product check-frontend-unit check-meta-validation; do
   if ! printf '%s\n' "$check_schedule_text" | rg -q "^${scheduled_target}$"; then
     fail "check schedule must include $scheduled_target"
   fi
@@ -534,6 +543,16 @@ if (limits.cpu !== 12 || limits.io !== 12 || limits.service_stack !== 1) {
 const service = (schedule.work_units ?? []).find((entry) => entry.target === "check-service-backed");
 if (!service) {
   throw new Error("missing check-service-backed work unit");
+}
+const browserDrift = (schedule.work_units ?? []).find((entry) => entry.target === "check-browser-e2e-duration-baseline-drift");
+if (!browserDrift) {
+  throw new Error("missing check-browser-e2e-duration-baseline-drift work unit");
+}
+if (JSON.stringify(browserDrift.needs ?? []) !== JSON.stringify(["check-service-backed"])) {
+  throw new Error("check-browser-e2e-duration-baseline-drift must depend on check-service-backed");
+}
+if (browserDrift.resource_claims?.cpu !== 1 || Object.keys(browserDrift.resource_claims ?? {}).length !== 1) {
+  throw new Error("check-browser-e2e-duration-baseline-drift must claim only cpu=1");
 }
 const claims = service.resource_claims ?? {};
 if (claims.cpu !== "limit" || claims.io !== "limit" || claims.service_stack !== 1) {
