@@ -161,6 +161,24 @@ sleep_for() {
   local fallback="$3"
   local key specific
 
+  if [[ "$prefix" == "FAKE_GO_SLEEP_CAPTURE" && -n "${FAKE_GO_SLEEP_CAPTURE_SHARD:-}" && "${FAKE_GO_SLEEP_CAPTURE_SHARD}" == "$name" ]]; then
+    if [[ -z "${FAKE_GO_SLEEP_CAPTURE_SHARD_DURATION:-}" ]]; then
+      echo "FAKE_GO_SLEEP_CAPTURE_SHARD_DURATION is required when FAKE_GO_SLEEP_CAPTURE_SHARD matches $name" >&2
+      exit 2
+    fi
+    printf '%s\n' "${FAKE_GO_SLEEP_CAPTURE_SHARD_DURATION}"
+    return 0
+  fi
+
+  if [[ "$prefix" == "FAKE_GO_SLEEP_FINALIZE" && -n "${FAKE_GO_SLEEP_FINALIZE_TARGET:-}" && "${FAKE_GO_SLEEP_FINALIZE_TARGET}" == "$name" ]]; then
+    if [[ -z "${FAKE_GO_SLEEP_FINALIZE_TARGET_DURATION:-}" ]]; then
+      echo "FAKE_GO_SLEEP_FINALIZE_TARGET_DURATION is required when FAKE_GO_SLEEP_FINALIZE_TARGET matches $name" >&2
+      exit 2
+    fi
+    printf '%s\n' "${FAKE_GO_SLEEP_FINALIZE_TARGET_DURATION}"
+    return 0
+  fi
+
   key="$(sanitize_key "$name")"
   specific="${prefix}_${key}"
   if [[ -n "${!specific:-}" ]]; then
@@ -322,6 +340,32 @@ write_manifest() {
   } >"$file"
 }
 
+discover_shared_backend_integration_shard() {
+  "$NODE_BIN" - "$ROOT_DIR" <<'EOF'
+const { execFileSync } = require("node:child_process");
+const path = require("node:path");
+const [root] = process.argv.slice(2);
+const shardPlanScript = path.join(root, "scripts/lib/go-shard-plan.mjs");
+const runPlan = (...args) =>
+  execFileSync(process.execPath, [shardPlanScript, ...args], { encoding: "utf8", cwd: root });
+const names = (target) => new Set(runPlan("list-shards", target).trim().split(/\n/).filter(Boolean));
+const integrationShards = names("backend-integration");
+const supportShards = names("backend-integration-support");
+const plan = JSON.parse(runPlan("json"));
+const shard = plan.shards.find(
+  (candidate) =>
+    candidate.shared_across_targets === true &&
+    integrationShards.has(candidate.name) &&
+    supportShards.has(candidate.name),
+);
+if (!shard) {
+  console.error("expected at least one cross-target shared backend integration shard");
+  process.exit(1);
+}
+process.stdout.write(shard.name);
+EOF
+}
+
 write_legacy_manifest() {
   local file="$1"
   local schema_id="$2"
@@ -364,10 +408,11 @@ run_scheduler() {
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED="${FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED:-}" \
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E="${FAKE_SCHEDULER_SLEEP_BROWSER_E2E:-}" \
   FAKE_GO_SLEEP_CAPTURE="${FAKE_GO_SLEEP_CAPTURE:-}" \
+  FAKE_GO_SLEEP_CAPTURE_SHARD="${FAKE_GO_SLEEP_CAPTURE_SHARD:-}" \
+  FAKE_GO_SLEEP_CAPTURE_SHARD_DURATION="${FAKE_GO_SLEEP_CAPTURE_SHARD_DURATION:-}" \
   FAKE_GO_SLEEP_FINALIZE="${FAKE_GO_SLEEP_FINALIZE:-}" \
-  FAKE_GO_SLEEP_CAPTURE_BACKEND_INTEGRATION_PHASE4_ENTITIES_SHARD_02="${FAKE_GO_SLEEP_CAPTURE_BACKEND_INTEGRATION_PHASE4_ENTITIES_SHARD_02:-}" \
-  FAKE_GO_SLEEP_CAPTURE_BACKEND_INTEGRATION_PHASE2_INCIDENTS_SHARD_02="${FAKE_GO_SLEEP_CAPTURE_BACKEND_INTEGRATION_PHASE2_INCIDENTS_SHARD_02:-}" \
-  FAKE_GO_SLEEP_FINALIZE_BACKEND_INTEGRATION="${FAKE_GO_SLEEP_FINALIZE_BACKEND_INTEGRATION:-}" \
+  FAKE_GO_SLEEP_FINALIZE_TARGET="${FAKE_GO_SLEEP_FINALIZE_TARGET:-}" \
+  FAKE_GO_SLEEP_FINALIZE_TARGET_DURATION="${FAKE_GO_SLEEP_FINALIZE_TARGET_DURATION:-}" \
   FAKE_GO_FAIL_SHARD="${FAKE_GO_FAIL_SHARD:-}" \
   FAKE_GO_FAIL_SHARD_STATUS="${FAKE_GO_FAIL_SHARD_STATUS:-}" \
   FAKE_GO_FAIL_FINALIZER_TARGET="${FAKE_GO_FAIL_FINALIZER_TARGET:-}" \
@@ -505,20 +550,23 @@ shared_finalizer_manifest="${shared_finalizer_dir}/manifest.json"
 write_manifest "$shared_finalizer_manifest" test-fast-service-backed \
   'go_shards|backend-integration|0|"postgres": 1, "minio": 1' \
   'go_shards|backend-integration-support|0|"postgres": 1, "minio": 1'
+shared_finalizer_shard="$(discover_shared_backend_integration_shard)"
 shared_finalizer_output="$(
   FAKE_GO_SLEEP_CAPTURE=0.005 \
-  FAKE_GO_SLEEP_CAPTURE_BACKEND_INTEGRATION_PHASE4_ENTITIES_SHARD_02=0.8 \
+  FAKE_GO_SLEEP_CAPTURE_SHARD="$shared_finalizer_shard" \
+  FAKE_GO_SLEEP_CAPTURE_SHARD_DURATION=0.8 \
   FAKE_GO_SLEEP_FINALIZE=0.05 \
-  FAKE_GO_SLEEP_FINALIZE_BACKEND_INTEGRATION=1.5 \
+  FAKE_GO_SLEEP_FINALIZE_TARGET=backend-integration \
+  FAKE_GO_SLEEP_FINALIZE_TARGET_DURATION=1.5 \
     run_scheduler "$shared_finalizer_dir" "$shared_finalizer_manifest" test-fast-service-backed shared-finalizer 2>&1
 )"
 assert_contains "$shared_finalizer_output" "[SCHEDULER] test-fast-service-backed finalize-start target=backend-integration" "backend-integration finalizer starts"
 assert_contains "$shared_finalizer_output" "[SCHEDULER] test-fast-service-backed finalize-start target=backend-integration-support" "backend-integration-support finalizer starts"
 assert_contains "$shared_finalizer_output" "aggregate-reports/backend-integration/fake-aggregate" "backend-integration aggregate output is target-scoped"
 assert_contains "$shared_finalizer_output" "aggregate-reports/backend-integration-support/fake-aggregate" "backend-integration-support aggregate output is target-scoped"
-"$NODE_BIN" - "${shared_finalizer_dir}/make.log" <<'EOF'
+"$NODE_BIN" - "${shared_finalizer_dir}/make.log" "$shared_finalizer_shard" <<'EOF'
 const fs = require("node:fs");
-const [logFile] = process.argv.slice(2);
+const [logFile, sharedShard] = process.argv.slice(2);
 const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
 const indexOf = (needle) => {
   const index = lines.findIndex((line) => line.includes(needle));
@@ -527,7 +575,7 @@ const indexOf = (needle) => {
   }
   return index;
 };
-const sharedEnd = indexOf("end capture backend-integration backend-integration-phase4-entities-shard-02");
+const sharedEnd = indexOf(`end capture backend-integration ${sharedShard}`);
 const supportStart = indexOf("start finalize backend-integration-support");
 if (!(sharedEnd < supportStart)) {
   throw new Error("backend-integration-support finalizer started before shared shard captured under backend-integration completed");
