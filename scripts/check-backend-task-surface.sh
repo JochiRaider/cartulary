@@ -195,8 +195,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v6") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v6");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v7") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v7");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -253,8 +253,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, childTarget, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v6") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v6");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v7") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v7");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -313,8 +313,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v6") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v6");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v7") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v7");
 }
 for (const schedule of manifest.schedules ?? []) {
   const limits = schedule.resource_limits ?? {};

@@ -203,27 +203,29 @@ touch "$active_file" "$max_file" "$event_log"
 if [[ -n "${CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT:-}" || -n "${CARTULARY_SERVICE_BACKED_GO_IO_LIMIT:-}" ]]; then
   printf 'env %s go_cpu=%s go_io=%s\n' "$target" "${CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT:-}" "${CARTULARY_SERVICE_BACKED_GO_IO_LIMIT:-}" >>"$event_log"
 fi
+printf 'envflags %s MAKEFLAGS=%s MFLAGS=%s\n' "$target" "${MAKEFLAGS-}" "${MFLAGS-}" >>"$event_log"
 
 change_active() {
   local delta="$1"
   local active max action
-  exec 9>"$lock_file"
-  flock 9
-  active="$(cat "$active_file" 2>/dev/null || true)"
-  max="$(cat "$max_file" 2>/dev/null || true)"
-  active="${active:-0}"
-  max="${max:-0}"
-  active=$((active + delta))
-  printf '%s\n' "$active" >"$active_file"
-  if (( active > max )); then
-    printf '%s\n' "$active" >"$max_file"
-  fi
-  if [[ "$delta" -gt 0 ]]; then
-    action=start
-  else
-    action=end
-  fi
-  printf '%s %s active=%s\n' "$action" "$target" "$active" >>"$event_log"
+  {
+    flock 9
+    active="$(cat "$active_file" 2>/dev/null || true)"
+    max="$(cat "$max_file" 2>/dev/null || true)"
+    active="${active:-0}"
+    max="${max:-0}"
+    active=$((active + delta))
+    printf '%s\n' "$active" >"$active_file"
+    if (( active > max )); then
+      printf '%s\n' "$active" >"$max_file"
+    fi
+    if [[ "$delta" -gt 0 ]]; then
+      action=start
+    else
+      action=end
+    fi
+    printf '%s %s active=%s\n' "$action" "$target" "$active" >>"$event_log"
+  } 9>"$lock_file"
 }
 
 write_summary() {
@@ -430,6 +432,35 @@ assert_contains "$verbose_output" "[CHECK-SCHEDULER] check start work_unit=setup
 assert_contains "$verbose_output" "active_resource_claims={cpu:1}" "verbose scheduler active resource telemetry"
 assert_contains "$verbose_output" "resource_limits={cpu:2,io:3,service_stack:1}" "verbose scheduler resource limit telemetry"
 
+makeflags_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-makeflags.XXXXXX")"
+cleanup_paths+=("$makeflags_dir")
+write_fake_make "$makeflags_dir"
+makeflags_manifest="${makeflags_dir}/manifest.json"
+cat >"$makeflags_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.check_schedule.v2",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": { "cpu": 1 },
+      "work_units": [
+        { "target": "alpha", "weight": 1, "needs": [], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" }
+      ]
+    }
+  ]
+}
+JSON
+makeflags_output="$(
+  MAKEFLAGS='--jobserver-auth=3,4 -j --trace' \
+  MFLAGS='--jobserver-fds=3,4 -j' \
+    run_scheduler "$makeflags_dir" "$makeflags_manifest" makeflags --summary-targets alpha --resource-limit cpu=1 2>&1
+)"
+assert_contains "$makeflags_output" "[PASS] check" "makeflags sanitize summary"
+makeflags_events="$(cat "${makeflags_dir}/events.log")"
+assert_not_contains "$makeflags_events" "jobserver" "check child make env strips inherited jobserver tokens"
+assert_not_contains "$makeflags_events" "MFLAGS=-j" "check child make env strips inherited mflags jobs"
+assert_contains "$makeflags_events" "MAKEFLAGS=--trace" "check child make env preserves non-jobserver make flags"
+
 failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-failure.XXXXXX")"
 cleanup_paths+=("$failure_dir")
 write_fake_make "$failure_dir"
@@ -444,7 +475,7 @@ cat >"$failure_manifest" <<'JSON'
       "work_units": [
         { "target": "alpha", "weight": 30, "needs": [], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" },
         { "target": "beta", "weight": 20, "needs": [], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" },
-        { "target": "gamma", "weight": 10, "needs": [], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" },
+        { "target": "gamma", "weight": 10, "needs": [], "skipped_summary_targets": ["external-summary"], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" },
         { "target": "delta", "weight": 5, "needs": ["beta"], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" }
       ]
     }
@@ -456,7 +487,7 @@ failure_output="$(
   FAKE_FAIL_TARGET=beta
   FAKE_SLEEP_ALPHA=0.2
   FAKE_SLEEP_BETA=0.01
-  run_scheduler "$failure_dir" "$failure_manifest" failure --summary-targets alpha,beta,gamma --resource-limit cpu=2 2>&1
+  run_scheduler "$failure_dir" "$failure_manifest" failure --summary-targets alpha,beta,gamma,external-summary --resource-limit cpu=2 2>&1
 )"
 failure_status=$?
 set -e
@@ -472,6 +503,16 @@ assert_contains "$failure_events" "end alpha" "failure alpha drained"
 failure_summary="${failure_dir}/results/failure/run-summary.json"
 assert_equals "$(json_field "$failure_summary" "status")" "fail" "failure summary status"
 assert_equals "$(json_field "$failure_summary" "aborted_after")" "beta" "failure aborted after"
+assert_equals "$(json_field "$failure_summary" "skipped_after_failure.0")" "gamma" "failure skipped target"
+assert_equals "$(json_field "$failure_summary" "skipped_after_failure.1")" "external-summary" "failure skipped mapped summary target"
+"$NODE_BIN" - "$failure_summary" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+if (summary.missing_target_summaries.includes("external-summary")) {
+  throw new Error("mapped skipped summary target must not be reported missing");
+}
+EOF
 failure_scheduler_summary="${failure_dir}/results/failure/check/scheduler-summary.json"
 failure_scheduler_events="${failure_dir}/results/failure/check/scheduler-events.jsonl"
 assert_check_scheduler_artifacts "$failure_dir" failure check fail beta 4 skip

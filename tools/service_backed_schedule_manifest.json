@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.service_backed_schedule.v6",
+  "schema_id": "cartulary.service_backed_schedule.v7",
   "schedules": [
     {
       "target": "test-service-backed",
@@ -53,6 +53,13 @@
           "class": "browser",
           "target": "browser-e2e",
           "browser_stage": "isolated",
+          "needs": [
+            "backend-integration",
+            "backend-integration-support",
+            "backend-store",
+            "backend-process",
+            "browser-e2e-webserver-backed"
+          ],
           "weight": 21700,
           "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_isolated": 1 }
         }
@@ -148,6 +155,13 @@
           "class": "browser",
           "target": "browser-e2e",
           "browser_stage": "isolated",
+          "needs": [
+            "backend-integration",
+            "backend-integration-support",
+            "backend-store",
+            "backend-process",
+            "browser-e2e-webserver-backed"
+          ],
           "weight": 21700,
           "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_isolated": 1 }
         }

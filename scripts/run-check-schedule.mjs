@@ -183,6 +183,21 @@ function normalizeNeeds(value, label) {
   });
 }
 
+function normalizeTargetList(value, label) {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`);
+  }
+  return value.map((entry) => {
+    if (typeof entry !== "string" || entry.trim() === "") {
+      throw new Error(`${label} entries must be non-empty strings`);
+    }
+    return entry.trim();
+  });
+}
+
 function normalizeMakeJobs(value, label, resourceClaims) {
   if (value === undefined) {
     return 1;
@@ -283,6 +298,33 @@ function nestedSchedulerEnv(unit) {
   };
 }
 
+function sanitizeMakeFlags(value) {
+  if (!value) {
+    return "";
+  }
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((entry) => !entry.startsWith("--jobserver-auth="))
+    .filter((entry) => !entry.startsWith("--jobserver-fds="))
+    .filter((entry) => !entry.startsWith("--jobserver-style="))
+    .filter((entry) => !entry.startsWith("-j"))
+    .join(" ");
+}
+
+function makeChildEnv(env = process.env) {
+  const childEnv = { ...env };
+  for (const name of ["MAKEFLAGS", "MFLAGS"]) {
+    const sanitized = sanitizeMakeFlags(childEnv[name]);
+    if (sanitized) {
+      childEnv[name] = sanitized;
+    } else {
+      delete childEnv[name];
+    }
+  }
+  return childEnv;
+}
+
 function nestedSchedulerDetail(unit) {
   if (!unit.nestedScheduler) {
     return null;
@@ -330,6 +372,10 @@ function findSchedule(manifest, target, overrides) {
       label: unitTarget,
       weight: unit.weight,
       needs: normalizeNeeds(unit.needs, `${label} ${unitTarget}`),
+      skippedSummaryTargets: normalizeTargetList(
+        unit.skipped_summary_targets,
+        `${label} ${unitTarget} skipped_summary_targets`,
+      ),
       resourceClaims: claims,
       makeJobs: normalizeMakeJobs(unit.make_jobs, `${label} ${unitTarget}`, claims),
       nestedScheduler,
@@ -864,7 +910,7 @@ function runWorkUnit({ makeBin, unit, logDir, started }) {
     makeBin,
     ["--no-print-directory", "--output-sync=target", `-j${unit.makeJobs}`, unit.target],
     logFile,
-    nestedSchedulerEnv(unit),
+    makeChildEnv(nestedSchedulerEnv(unit)),
   ).then((result) => ({
     id: unit.target,
     label: unit.label,
@@ -882,6 +928,7 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
   const activeClaims = new Map();
   const totalUnits = schedule.units.length;
   const capacityDisplay = schedule.resourceLimits.get("cpu") ?? Math.max(...schedule.resourceLimits.values());
+  const skippedSummaryTargets = new Set();
   let started = 0;
   let completedCount = 0;
   let firstFailure = 0;
@@ -972,6 +1019,10 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
           const skipped = pending.splice(0);
           const skipMemo = new Map();
           for (const unit of skipped) {
+            skippedSummaryTargets.add(unit.target);
+            for (const target of unit.skippedSummaryTargets) {
+              skippedSummaryTargets.add(target);
+            }
             reporter.skipUnit(
               unit,
               stateSnapshot(skipped.length),
@@ -1026,6 +1077,20 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
     const summaryArgs = ["run-summary", schedule.target, requestedStatus, String(completedCount), String(totalUnits), firstFailureTarget];
     if (summaryGroups) {
       summaryArgs.push("--summary-groups", summaryGroups);
+    }
+    for (const skipped of reporter.skippedWork) {
+      const skippedUnit = unitsByTarget.get(skipped.id);
+      if (!skippedUnit) {
+        continue;
+      }
+      skippedSummaryTargets.add(skippedUnit.target);
+      for (const target of skippedUnit.skippedSummaryTargets) {
+        skippedSummaryTargets.add(target);
+      }
+    }
+    const skippedSummaryTargetsList = summaryTargets.filter((target) => skippedSummaryTargets.has(target));
+    if (skippedSummaryTargetsList.length > 0) {
+      summaryArgs.push("--skipped-after-failure", skippedSummaryTargetsList.join(","));
     }
     summaryArgs.push(...summaryTargets);
     await runLifecycle(testOutputScript, summaryArgs, requestedStatus === "pass" ? process.stdout : process.stderr).catch((error) => {

@@ -143,21 +143,29 @@ log_file="${FAKE_SCHEDULER_LOG:?}"
 mkdir -p "$(dirname "$active_file")"
 touch "$active_file" "$max_file" "$log_file"
 
+log_line() {
+  {
+    flock 8
+    printf '%s\n' "$*" >>"$log_file"
+  } 8>"$lock_file"
+}
+
 change_active() {
   local delta="$1"
   local active max
-  exec 9>"$lock_file"
-  flock 9
-  active="$(cat "$active_file" 2>/dev/null || true)"
-  max="$(cat "$max_file" 2>/dev/null || true)"
-  active="${active:-0}"
-  max="${max:-0}"
-  active=$((active + delta))
-  printf '%s\n' "$active" >"$active_file"
-  if (( active > max )); then
-    printf '%s\n' "$active" >"$max_file"
-  fi
-  printf '%s %s active=%s\n' "$([[ "$delta" -gt 0 ]] && printf start || printf end)" "$target" "$active" >>"$log_file"
+  {
+    flock 9
+    active="$(cat "$active_file" 2>/dev/null || true)"
+    max="$(cat "$max_file" 2>/dev/null || true)"
+    active="${active:-0}"
+    max="${max:-0}"
+    active=$((active + delta))
+    printf '%s\n' "$active" >"$active_file"
+    if (( active > max )); then
+      printf '%s\n' "$active" >"$max_file"
+    fi
+    printf '%s %s active=%s\n' "$([[ "$delta" -gt 0 ]] && printf start || printf end)" "$target" "$active" >>"$log_file"
+  } 9>"$lock_file"
 }
 
 write_summary() {
@@ -201,6 +209,8 @@ sleep_key="${sleep_key^^}"
 sleep_var="FAKE_SCHEDULER_SLEEP_${sleep_key}"
 sleep_duration="${!sleep_var:-${FAKE_SCHEDULER_SLEEP:-0.05}}"
 
+log_line "args $*"
+log_line "env ${target} MAKEFLAGS=${MAKEFLAGS-} MFLAGS=${MFLAGS-}"
 change_active 1
 sleep "$sleep_duration"
 change_active -1
@@ -387,13 +397,13 @@ write_manifest() {
 
   {
     printf '{\n'
-    printf '  "schema_id": "cartulary.service_backed_schedule.v6",\n'
+    printf '  "schema_id": "cartulary.service_backed_schedule.v7",\n'
     printf '  "schedules": [\n'
     printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 6, "go_io": 6, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1, "browser_stage_isolated": 1, "browser_stage_visual": 1 }, "work_unit_sources": [\n' "$target"
     local first=1
     local source
     for source in "$@"; do
-      IFS='|' read -r type name weight claims class browser_stage <<<"$source"
+      IFS='|' read -r type name weight claims class browser_stage needs <<<"$source"
       class="${class:-backend}"
       if [[ "$first" -eq 0 ]]; then
         printf ',\n'
@@ -405,10 +415,39 @@ write_manifest() {
         if [[ -n "${browser_stage:-}" ]]; then
           printf ', "browser_stage": "%s"' "$browser_stage"
         fi
+        if [[ -n "${needs:-}" ]]; then
+          printf ', "needs": ['
+          local first_need=1
+          local need
+          IFS=',' read -r -a need_list <<<"$needs"
+          for need in "${need_list[@]}"; do
+            if [[ "$first_need" -eq 0 ]]; then
+              printf ', '
+            fi
+            first_need=0
+            printf '"%s"' "$need"
+          done
+          printf ']'
+        fi
         printf ' }'
       else
-        printf '      { "type": "go_shards", "class": "%s", "target": "%s", "resource_claims": {%s} }' \
+        printf '      { "type": "go_shards", "class": "%s", "target": "%s", "resource_claims": {%s}' \
           "$class" "$name" "$claims"
+        if [[ -n "${needs:-}" ]]; then
+          printf ', "needs": ['
+          local first_need=1
+          local need
+          IFS=',' read -r -a need_list <<<"$needs"
+          for need in "${need_list[@]}"; do
+            if [[ "$first_need" -eq 0 ]]; then
+              printf ', '
+            fi
+            first_need=0
+            printf '"%s"' "$need"
+          done
+          printf ']'
+        fi
+        printf ' }'
       fi
     done
     printf '\n    ] }\n'
@@ -585,7 +624,7 @@ write_fake_go_target_runner "$eager_finalizer_dir"
 eager_finalizer_manifest="${eager_finalizer_dir}/manifest.json"
 cat >"$eager_finalizer_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v6",
+  "schema_id": "cartulary.service_backed_schedule.v7",
   "schedules": [
     {
       "target": "test-service-backed",
@@ -710,6 +749,127 @@ const isolatedStart = indexOf("start browser-e2e ");
 const isolatedEnd = indexOf("end browser-e2e ");
 if (!(webStart < isolatedEnd && isolatedStart < webEnd)) {
   throw new Error("distinct browser stages did not overlap when browser_stack capacity allowed it");
+}
+EOF
+
+dependency_order_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-dependency-order.XXXXXX")"
+cleanup_paths+=("$dependency_order_dir")
+write_fake_make "$dependency_order_dir"
+dependency_order_manifest="${dependency_order_dir}/manifest.json"
+write_manifest "$dependency_order_manifest" check-service-backed \
+  'make_target|backend-process|30|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend||' \
+  'make_target|browser-e2e-webserver-backed|20|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed|' \
+  'make_target|browser-e2e|10|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_isolated": 1|browser|isolated|backend-process,browser-e2e-webserver-backed'
+dependency_order_output="$(
+  CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
+  FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS=0.15 \
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.05 \
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.01 \
+    run_scheduler "$dependency_order_dir" "$dependency_order_manifest" check-service-backed dependency-order 2>&1
+)"
+assert_contains "$dependency_order_output" "blocked_by=dependencies unblocks_after=backend-process" "dependency-blocked browser progress"
+assert_scheduler_artifacts "$dependency_order_dir" dependency-order check-service-backed pass - blocked
+"$NODE_BIN" - "${dependency_order_dir}/make.log" <<'EOF'
+const fs = require("node:fs");
+const [logFile] = process.argv.slice(2);
+const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
+const indexOf = (needle) => {
+  const index = lines.findIndex((line) => line.includes(needle));
+  if (index === -1) {
+    throw new Error(`missing ${needle}`);
+  }
+  return index;
+};
+const backendEnd = indexOf("end backend-process");
+const webEnd = indexOf("end browser-e2e-webserver-backed");
+const isolatedStart = indexOf("start browser-e2e ");
+if (!(backendEnd < isolatedStart && webEnd < isolatedStart)) {
+  throw new Error("browser-e2e started before declared dependencies completed");
+}
+if (!lines.some((line) => line.includes("args --no-print-directory --output-sync=target -j1 browser-e2e"))) {
+  throw new Error("service-backed make_target children must run with explicit -j1");
+}
+EOF
+
+makeflags_sanitize_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-makeflags.XXXXXX")"
+cleanup_paths+=("$makeflags_sanitize_dir")
+write_fake_make "$makeflags_sanitize_dir"
+makeflags_sanitize_manifest="${makeflags_sanitize_dir}/manifest.json"
+write_manifest "$makeflags_sanitize_manifest" test-fast-service-backed \
+  'make_target|backend-process|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1'
+makeflags_sanitize_output="$(
+  MAKEFLAGS='--jobserver-auth=3,4 -j --trace' \
+  MFLAGS='--jobserver-fds=3,4 -j' \
+    run_scheduler "$makeflags_sanitize_dir" "$makeflags_sanitize_manifest" test-fast-service-backed makeflags-sanitize 2>&1
+)"
+assert_contains "$makeflags_sanitize_output" "[SCHEDULER] test-fast-service-backed summary status=pass completed=1/1 failed=none" "makeflags sanitize scheduler summary"
+assert_not_contains "$(cat "${makeflags_sanitize_dir}/make.log")" "jobserver" "child make env strips inherited jobserver tokens"
+assert_not_contains "$(cat "${makeflags_sanitize_dir}/make.log")" "MFLAGS=-j" "child make env strips inherited mflags jobs"
+assert_contains "$(cat "${makeflags_sanitize_dir}/make.log")" "MAKEFLAGS=--trace" "child make env preserves non-jobserver make flags"
+
+go_dependency_order_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-go-dependency-order.XXXXXX")"
+cleanup_paths+=("$go_dependency_order_dir")
+write_fake_make "$go_dependency_order_dir"
+write_fake_go_target_runner "$go_dependency_order_dir"
+go_dependency_order_manifest="${go_dependency_order_dir}/manifest.json"
+write_manifest "$go_dependency_order_manifest" check-service-backed \
+  'go_shards|backend-store|0|"postgres": 1, "minio": 1|backend||' \
+  'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed|backend-store'
+go_dependency_order_output="$(
+  FAKE_GO_SLEEP_CAPTURE=0.005 \
+  FAKE_GO_SLEEP_FINALIZE=0.15 \
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.01 \
+    run_scheduler "$go_dependency_order_dir" "$go_dependency_order_manifest" check-service-backed go-dependency-order 2>&1
+)"
+assert_contains "$go_dependency_order_output" "blocked_by=dependencies unblocks_after=backend-store" "go dependency waits for finalizer"
+"$NODE_BIN" - "${go_dependency_order_dir}/make.log" <<'EOF'
+const fs = require("node:fs");
+const [logFile] = process.argv.slice(2);
+const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
+const indexOf = (needle) => {
+  const index = lines.findIndex((line) => line.includes(needle));
+  if (index === -1) {
+    throw new Error(`missing ${needle}`);
+  }
+  return index;
+};
+const finalizeEnd = indexOf("end finalize backend-store");
+const browserStart = indexOf("start browser-e2e-webserver-backed");
+if (!(finalizeEnd < browserStart)) {
+  throw new Error("dependent browser work started before backend-store finalizer completed");
+}
+EOF
+
+dependency_failure_skip_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-dependency-failure.XXXXXX")"
+cleanup_paths+=("$dependency_failure_skip_dir")
+write_fake_make "$dependency_failure_skip_dir"
+write_fake_go_target_runner "$dependency_failure_skip_dir"
+dependency_failure_skip_manifest="${dependency_failure_skip_dir}/manifest.json"
+write_manifest "$dependency_failure_skip_manifest" check-service-backed \
+  'go_shards|backend-store|0|"postgres": 1, "minio": 1|backend||' \
+  'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed|backend-store'
+set +e
+dependency_failure_skip_output="$(
+  FAKE_GO_FAIL_SHARD=backend-store-shard-01 \
+  FAKE_GO_FINALIZER_FAILURE_STATUS=9 \
+    run_scheduler "$dependency_failure_skip_dir" "$dependency_failure_skip_manifest" check-service-backed dependency-failure 2>&1
+)"
+dependency_failure_skip_status=$?
+set -e
+assert_equals "$dependency_failure_skip_status" "9" "dependency failure status"
+assert_contains "$dependency_failure_skip_output" "skipped=1" "dependency failure summary skipped dependent work"
+assert_contains "$dependency_failure_skip_output" "[FAIL] check-service-backed" "dependency failure parent summary"
+assert_scheduler_artifacts "$dependency_failure_skip_dir" dependency-failure check-service-backed fail - skip
+"$NODE_BIN" - "${dependency_failure_skip_dir}/results/dependency-failure/check-service-backed/scheduler-events.jsonl" "${dependency_failure_skip_dir}/results/dependency-failure/check-service-backed/scheduler-summary.json" <<'EOF'
+const fs = require("node:fs");
+const [eventsFile, summaryFile] = process.argv.slice(2);
+const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).map((line) => JSON.parse(line));
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+if (!events.some((event) => event.event === "skip" && event.work_unit === "browser-e2e-webserver-backed" && event.skip_reason === "dependency_failure" && event.failed_dependency === "backend-store")) {
+  throw new Error("missing dependency failure skip event");
+}
+if (summary.skipped_work_units?.[0]?.failed_dependency !== "backend-store") {
+  throw new Error("summary must record skipped dependency");
 }
 EOF
 
@@ -867,7 +1027,7 @@ dry_run_output="$(
 )"
 assert_contains "$dry_run_output" "[DRY-RUN] test-service-backed manifest=" "dry-run output"
 assert_contains "$dry_run_output" "resource_limits={go_cpu:6,go_io:6,browser_stack:2,process:2,postgres:32,minio:32" "dry-run includes compact resolved resources"
-assert_contains "$dry_run_output" "work_units=1 classes={browser:1} types={make_target:1} finalizers=0 top_weighted=browser-e2e-webserver-backed:10" "dry-run includes compact work summary"
+assert_contains "$dry_run_output" "work_units=1 dependencies=0 classes={browser:1} types={make_target:1} finalizers=0 top_weighted=browser-e2e-webserver-backed:10" "dry-run includes compact work summary"
 assert_not_contains "$dry_run_output" "claims={" "default dry-run hides per-unit claims"
 assert_file_absent "${dry_run_dir}/make.log" "dry-run child make log"
 
@@ -901,7 +1061,7 @@ const claimsByProfile = {
 process.stdout.write(`backend-store/${shard.name} type=go_shard class=backend profile=${shard.scheduler_profile} claims=${claimsByProfile[shard.scheduler_profile]}`);
 EOF
 )"
-assert_contains "$go_shard_dry_run_output" "work_units=1 classes={backend:1} types={go_shard:1} finalizers=1" "go_shards dry-run compact summary"
+assert_contains "$go_shard_dry_run_output" "work_units=1 dependencies=0 classes={backend:1} types={go_shard:1} finalizers=1" "go_shards dry-run compact summary"
 assert_contains "$go_shard_dry_run_output" "$expected_go_shard_dry_run_line" "verbose go_shards dry-run includes per-shard resource claims"
 
 invalid_resource_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-invalid-resource.XXXXXX")"
@@ -916,6 +1076,33 @@ invalid_resource_status=$?
 set -e
 assert_equals "$invalid_resource_status" "1" "invalid resource manifest status"
 assert_contains "$invalid_resource_output" "undeclared-resource is not declared in resource_limits" "invalid resource manifest output"
+
+unknown_dependency_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-unknown-dependency.XXXXXX")"
+cleanup_paths+=("$unknown_dependency_dir")
+write_fake_make "$unknown_dependency_dir"
+unknown_dependency_manifest="${unknown_dependency_dir}/manifest.json"
+write_manifest "$unknown_dependency_manifest" test-fast-service-backed \
+  'make_target|backend-process|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend||missing-target'
+set +e
+unknown_dependency_output="$(run_scheduler "$unknown_dependency_dir" "$unknown_dependency_manifest" test-fast-service-backed unknown-dependency 2>&1)"
+unknown_dependency_status=$?
+set -e
+assert_equals "$unknown_dependency_status" "1" "unknown dependency manifest status"
+assert_contains "$unknown_dependency_output" "depends on unknown target missing-target" "unknown dependency manifest output"
+
+cycle_dependency_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-cycle-dependency.XXXXXX")"
+cleanup_paths+=("$cycle_dependency_dir")
+write_fake_make "$cycle_dependency_dir"
+cycle_dependency_manifest="${cycle_dependency_dir}/manifest.json"
+write_manifest "$cycle_dependency_manifest" test-fast-service-backed \
+  'make_target|backend-process|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend||backend-store' \
+  'make_target|backend-store|9|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1|backend||backend-process'
+set +e
+cycle_dependency_output="$(run_scheduler "$cycle_dependency_dir" "$cycle_dependency_manifest" test-fast-service-backed cycle-dependency 2>&1)"
+cycle_dependency_status=$?
+set -e
+assert_equals "$cycle_dependency_status" "1" "cycle dependency manifest status"
+assert_contains "$cycle_dependency_output" "has a dependency cycle" "cycle dependency manifest output"
 
 removed_backend_resource_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-removed-backend-resource.XXXXXX")"
 cleanup_paths+=("$removed_backend_resource_dir")
@@ -979,7 +1166,7 @@ legacy_output="$(run_scheduler "$legacy_dir" "$legacy_manifest" test-fast-servic
 legacy_status=$?
 set -e
 assert_equals "$legacy_status" "1" "legacy manifest status"
-assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v6" "legacy manifest output"
+assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v7" "legacy manifest output"
 
 jobs_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-jobs.XXXXXX")"
 cleanup_paths+=("$jobs_dir")

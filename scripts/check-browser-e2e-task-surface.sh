@@ -145,8 +145,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v6") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v6");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v7") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v7");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -171,8 +171,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, childTarget, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v6") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v6");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v7") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v7");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -386,8 +386,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v6") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v6");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v7") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v7");
 }
 for (const schedule of manifest.schedules ?? []) {
   const limits = schedule.resource_limits ?? {};
@@ -415,6 +415,18 @@ for (const schedule of manifest.schedules ?? []) {
     }
     if (!Object.hasOwn(claims, laneResource)) {
       throw new Error(`${schedule.target} ${source.target} must claim ${laneResource}`);
+    }
+    if (source.target === "browser-e2e" && ["test-service-backed", "check-service-backed"].includes(schedule.target)) {
+      const expectedNeeds = [
+        "backend-integration",
+        "backend-integration-support",
+        "backend-store",
+        "backend-process",
+        "browser-e2e-webserver-backed",
+      ];
+      if (JSON.stringify(source.needs ?? []) !== JSON.stringify(expectedNeeds)) {
+        throw new Error(`${schedule.target} browser-e2e must depend on heavy backend work and webserver-backed browser work`);
+      }
     }
   }
 }
