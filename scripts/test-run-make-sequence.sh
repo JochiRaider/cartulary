@@ -338,6 +338,27 @@ assert_contains "${check_harness_smoke_block}" "run-harness-smoke-fast" "check-h
 assert_contains "${check_harness_smoke_block}" "--projection check-harness-smoke" "check-harness-smoke summary projection"
 assert_contains "${manifest_content}" "\"summary_profiles\"" "manifest summary profiles"
 assert_contains "${manifest_content}" "\"summary_projection\"" "manifest summary projections"
+NODE_BIN="${NODE_BIN:-node}" "${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" <<'EOF'
+const fs = require("node:fs");
+
+const manifest = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const projectedChildren = new Map(
+  (manifest.targets ?? []).map((target) => [
+    target.name,
+    new Set(target.summary_projection?.children ?? []),
+  ]),
+);
+for (const profileName of ["test", "check"]) {
+  const roots = new Set(manifest.summary_profiles[profileName].targets);
+  for (const root of roots) {
+    for (const child of projectedChildren.get(root) ?? []) {
+      if (roots.has(child)) {
+        throw new Error(`${profileName} summary profile double-counts ${root} and ${child}`);
+      }
+    }
+  }
+}
+EOF
 assert_contains "${manifest_content}" "harness-smoke-run-make-sequence-fast" "harness smoke fast make sequence target"
 assert_contains "${manifest_content}" "harness-smoke-run-go-target-fast" "harness smoke fast go target"
 assert_contains "${test_service_backed_block}" '$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-service-backed --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)" --defer-summary' "test service-backed scheduler invocation"

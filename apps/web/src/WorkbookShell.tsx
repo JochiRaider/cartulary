@@ -802,7 +802,7 @@ function ensureDraftRowWithFreshIndex(
   const draftIndex = nextDraftIndex();
   return {
     rows: [...rows, createDraftRow(draftIndex)],
-    draftSummaryKey: `draft-${draftIndex}:summary`,
+    draftSummaryKey: inputFocusKey(`draft-${draftIndex}`, "summary"),
   };
 }
 
@@ -1093,21 +1093,28 @@ function sanitizeTestId(value: string) {
   return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
 }
 
+function inputFocusKey(
+  rowKey: string,
+  field: FocusFieldKey,
+  surface: TimelineScalarEditorSurface = "grid",
+) {
+  return `${rowKey}:${field}:${surface}`;
+}
+
 function focusTestIdForKey(focusKey: string) {
-  const separatorIndex = focusKey.indexOf(":");
-  if (separatorIndex < 0) {
+  const [rowKey, fieldKey, surface = "grid"] = focusKey.split(":");
+  if (!rowKey || !fieldKey) {
     return null;
   }
-  const rowKey = focusKey.slice(0, separatorIndex);
-  const fieldKey = focusKey.slice(separatorIndex + 1);
   const fieldSuffix =
     fieldKey === "hostRefs" || fieldKey === "identityRefs"
       ? `${fieldKey}-input`
       : fieldKey;
+  const surfaceSuffix = surface === "inspector" ? "-inspector" : "";
   if (rowKey.startsWith("draft-")) {
-    return `draft-row-${fieldSuffix}`;
+    return `draft-row-${fieldSuffix}${surfaceSuffix}`;
   }
-  return `row-${rowKey}-${fieldSuffix}`;
+  return `row-${rowKey}-${fieldSuffix}${surfaceSuffix}`;
 }
 
 function relationshipItemLabel(
@@ -2119,8 +2126,9 @@ export function TimelineWorkbook({
   const setRowValue = useCallback(
     (rowKey: string, field: keyof RowValues, value: string) => {
       setRows((current) => {
+        let changed = false;
         const nextRows = current.map((row) =>
-          row.key === rowKey
+          row.key === rowKey && row.values[field] !== value
             ? {
                 ...row,
                 values: {
@@ -2130,6 +2138,10 @@ export function TimelineWorkbook({
               }
             : row,
         );
+        changed = nextRows.some((row, index) => row !== current[index]);
+        if (!changed) {
+          return current;
+        }
         rowsRef.current = nextRows;
         return nextRows;
       });
@@ -2141,9 +2153,10 @@ export function TimelineWorkbook({
     (
       rowKey: string,
       field: FocusFieldKey,
+      surface: TimelineScalarEditorSurface,
       element: HTMLInputElement | HTMLTextAreaElement | null,
     ) => {
-      const key = `${rowKey}:${field}`;
+      const key = inputFocusKey(rowKey, field, surface);
       if (element === null) {
         rowInputRefs.current.delete(key);
         return;
@@ -2161,6 +2174,7 @@ export function TimelineWorkbook({
         allowZeroFieldCreate?: boolean;
         continueOnFreshDraft: boolean;
         preserveInputFocus: boolean;
+        surface: TimelineScalarEditorSurface;
         snapshotOverride?: WorkbookRow;
       },
     ) => {
@@ -2190,7 +2204,7 @@ export function TimelineWorkbook({
         options.preserveInputFocus
           ? {
               kind: "input",
-              focusKey: `${rowKey}:${focusField}`,
+              focusKey: inputFocusKey(rowKey, focusField, options.surface),
             }
           : {
               kind: "scroll-only",
@@ -2559,11 +2573,31 @@ export function TimelineWorkbook({
   }
 
   const handleBlur = useCallback(
-    (rowKey: string, focusField: keyof RowValues) => {
-      queueScalarSave(rowKey, focusField, {
+    (
+      rowKey: string,
+      focusField: keyof RowValues,
+      surface: TimelineScalarEditorSurface,
+      currentValue?: string,
+    ) => {
+      const snapshot =
+        currentValue === undefined
+          ? undefined
+          : rowsRef.current.find((candidate) => candidate.key === rowKey);
+      const saveOptions: Parameters<typeof queueScalarSave>[2] = {
         continueOnFreshDraft: false,
         preserveInputFocus: false,
-      });
+        surface,
+      };
+      if (snapshot !== undefined) {
+        saveOptions.snapshotOverride = {
+          ...snapshot,
+          values: {
+            ...snapshot.values,
+            [focusField]: currentValue,
+          },
+        };
+      }
+      queueScalarSave(rowKey, focusField, saveOptions);
     },
     [queueScalarSave],
   );
@@ -2573,12 +2607,14 @@ export function TimelineWorkbook({
       event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
       rowKey: string,
       focusField: keyof RowValues,
+      surface: TimelineScalarEditorSurface,
     ) => {
       if (event.key === "Enter" || event.key === "Tab") {
         event.preventDefault();
         queueScalarSave(rowKey, focusField, {
           continueOnFreshDraft: true,
           preserveInputFocus: true,
+          surface,
         });
       }
     },
@@ -2606,11 +2642,16 @@ export function TimelineWorkbook({
   );
 
   const handlePaste = useCallback(
-    (rowKey: string, focusField: keyof RowValues) => {
+    (
+      rowKey: string,
+      focusField: keyof RowValues,
+      surface: TimelineScalarEditorSurface,
+    ) => {
       window.setTimeout(() => {
         queueScalarSave(rowKey, focusField, {
           continueOnFreshDraft: false,
           preserveInputFocus: true,
+          surface,
         });
       }, 0);
     },
@@ -2641,6 +2682,7 @@ export function TimelineWorkbook({
         allowZeroFieldCreate: true,
         continueOnFreshDraft: true,
         preserveInputFocus: false,
+        surface: "grid",
         snapshotOverride: activeRow,
       });
     },
@@ -2676,10 +2718,12 @@ export function TimelineWorkbook({
         surface === "grid"
           ? `${label} ${row.recordId ?? "draft row"}`
           : undefined;
-      const dataTestId =
+      const gridDataTestId =
         row.recordId === null
           ? draftCellTestId(binding.key)
           : rowCellTestId(row.recordId, binding.key);
+      const dataTestId =
+        surface === "grid" ? gridDataTestId : `${gridDataTestId}-inspector`;
       if (binding.multiline) {
         return (
           <textarea
@@ -2687,13 +2731,18 @@ export function TimelineWorkbook({
             data-testid={dataTestId}
             id={controlId}
             ref={(element) => {
-              registerInput(row.key, binding.key, element);
+              registerInput(row.key, binding.key, surface, element);
             }}
             rows={3}
             style={textareaStyle}
             value={row.values[binding.key]}
-            onBlur={() => {
-              handleBlur(row.key, binding.key);
+            onBlur={(event) => {
+              handleBlur(
+                row.key,
+                binding.key,
+                surface,
+                event.currentTarget.value,
+              );
             }}
             onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
               setRowValue(row.key, binding.key, event.target.value);
@@ -2704,10 +2753,10 @@ export function TimelineWorkbook({
               }
             }}
             onKeyDown={(event) => {
-              handleKeyDown(event, row.key, binding.key);
+              handleKeyDown(event, row.key, binding.key, surface);
             }}
             onPaste={() => {
-              handlePaste(row.key, binding.key);
+              handlePaste(row.key, binding.key, surface);
             }}
           />
         );
@@ -2718,13 +2767,18 @@ export function TimelineWorkbook({
           data-testid={dataTestId}
           id={controlId}
           ref={(element) => {
-            registerInput(row.key, binding.key, element);
+            registerInput(row.key, binding.key, surface, element);
           }}
           style={inputStyle}
           type="text"
           value={row.values[binding.key]}
-          onBlur={() => {
-            handleBlur(row.key, binding.key);
+          onBlur={(event) => {
+            handleBlur(
+              row.key,
+              binding.key,
+              surface,
+              event.currentTarget.value,
+            );
           }}
           onChange={(event: ChangeEvent<HTMLInputElement>) => {
             setRowValue(row.key, binding.key, event.target.value);
@@ -2735,10 +2789,10 @@ export function TimelineWorkbook({
             }
           }}
           onKeyDown={(event) => {
-            handleKeyDown(event, row.key, binding.key);
+            handleKeyDown(event, row.key, binding.key, surface);
           }}
           onPaste={() => {
-            handlePaste(row.key, binding.key);
+            handlePaste(row.key, binding.key, surface);
           }}
         />
       );
@@ -2833,7 +2887,7 @@ export function TimelineWorkbook({
             }
             key={`${row.key}:${binding.draftKey}:${row.rowVersion ?? "draft"}`}
             ref={(element) => {
-              registerInput(row.key, binding.draftKey, element);
+              registerInput(row.key, binding.draftKey, "grid", element);
             }}
             style={inputStyle}
             type="text"

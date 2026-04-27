@@ -1096,6 +1096,19 @@ function selectVitestEntries(root, phase, coverage, executionDependency) {
   );
 }
 
+function selectVitestPhases(root, coverage, executionDependency) {
+  return phaseManifestNames(root).filter((phase) => {
+    const { manifest } = loadManifest(root, phase);
+    return collectEntries(manifest).some(
+      (entry) =>
+        entry.section === "unit" &&
+        entry.runner === "vitest" &&
+        entry.coverage === coverage &&
+        entryMatchesExecutionDependency(entry, executionDependency),
+    );
+  });
+}
+
 function normalizeVitestFile(file) {
   if (!file.startsWith("apps/web/")) {
     throw new Error(`vitest manifest file must live under apps/web/: ${file}`);
@@ -1515,6 +1528,16 @@ function main(argv) {
       }
       const files = [...new Set(entries.map((entry) => normalizeVitestFile(entry.file)))].sort();
       printLines(files);
+      return;
+    }
+
+    case "vitest-phases": {
+      const [coverage, executionDependency = ""] = rest;
+      const phases = selectVitestPhases(root, coverage, executionDependency);
+      if (phases.length === 0) {
+        throw new Error(`no ${coverage} vitest phases found`);
+      }
+      printLines(phases);
       return;
     }
 

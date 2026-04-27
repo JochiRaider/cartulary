@@ -196,6 +196,7 @@ export function collectTaskSurfaceManifestErrors(manifest) {
   }
 
   validateNamedTargetLists(errors, targets, manifest.summary_profiles, "summary_profiles");
+  validateSummaryProfileAccountingRoots(errors, targets, manifest.summary_profiles);
   validateNamedTargetLists(errors, targets, manifest.harness_tiers, "harness_tiers");
 
   if (!manifest.sequences || typeof manifest.sequences !== "object" || Array.isArray(manifest.sequences)) {
@@ -228,6 +229,44 @@ export function collectTaskSurfaceManifestErrors(manifest) {
   }
 
   return errors;
+}
+
+function projectedChildrenForTarget(targets, targetName, seen = new Set()) {
+  if (seen.has(targetName)) {
+    return new Set();
+  }
+  seen.add(targetName);
+  const entry = targets.get(targetName);
+  const projected = new Set();
+  for (const child of entry?.summary_projection?.children ?? []) {
+    projected.add(child);
+    for (const descendant of projectedChildrenForTarget(targets, child, seen)) {
+      projected.add(descendant);
+    }
+  }
+  return projected;
+}
+
+function validateSummaryProfileAccountingRoots(errors, targets, summaryProfiles) {
+  if (!summaryProfiles || typeof summaryProfiles !== "object" || Array.isArray(summaryProfiles)) {
+    return;
+  }
+
+  for (const [name, profile] of Object.entries(summaryProfiles)) {
+    if (!Array.isArray(profile?.targets)) {
+      continue;
+    }
+    const targetSet = new Set(profile.targets);
+    for (const target of profile.targets) {
+      for (const child of projectedChildrenForTarget(targets, target)) {
+        if (targetSet.has(child)) {
+          errors.push(
+            `summary_profiles.${name}.targets must not include both aggregate target ${target} and projected child ${child}`,
+          );
+        }
+      }
+    }
+  }
 }
 
 function validateNamedTargetLists(errors, targets, collection, label) {

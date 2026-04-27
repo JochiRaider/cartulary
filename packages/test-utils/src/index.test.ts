@@ -6,6 +6,7 @@ import {
   gridSavedRowsSelector,
   gridShellTestId,
   rowInspectButtonTestId,
+  rowInspectorFieldTestId,
 } from "./index";
 
 afterEach(() => {
@@ -15,6 +16,12 @@ afterEach(() => {
 });
 
 describe("@cartulary/test-utils workbook row selectors", () => {
+  it("derives inspector field ids from the stable row cell id", () => {
+    expect(rowInspectorFieldTestId("record-1", "details")).toBe(
+      "row-record-1-details-inspector",
+    );
+  });
+
   it("targets saved and draft workbook rows when scoped through the grid shell", () => {
     document.body.innerHTML = `
       <div data-testid="${gridShellTestId("timeline")}">
@@ -34,16 +41,18 @@ describe("@cartulary/test-utils workbook row selectors", () => {
       `[data-testid="${gridShellTestId("hosts")}"]`,
     );
 
-    expect(timelineShell?.querySelectorAll(gridSavedRowsSelector())).toHaveLength(
-      1,
-    );
-    expect(timelineShell?.querySelectorAll(gridDraftRowSelector())).toHaveLength(
-      1,
-    );
+    expect(
+      timelineShell?.querySelectorAll(gridSavedRowsSelector()),
+    ).toHaveLength(1);
+    expect(
+      timelineShell?.querySelectorAll(gridDraftRowSelector()),
+    ).toHaveLength(1);
     expect(hostsShell?.querySelectorAll(gridSavedRowsSelector())).toHaveLength(
       1,
     );
-    expect(hostsShell?.querySelectorAll(gridDraftRowSelector())).toHaveLength(0);
+    expect(hostsShell?.querySelectorAll(gridDraftRowSelector())).toHaveLength(
+      0,
+    );
   });
 });
 
@@ -165,7 +174,10 @@ function installGridContinuityFixture(
 
   const grid = document.querySelector(`[data-testid="${gridTestId}"]`);
   const focusTarget = document.querySelector(`[data-testid="${focusTestId}"]`);
-  if (!(grid instanceof HTMLDivElement) || !(focusTarget instanceof HTMLButtonElement)) {
+  if (
+    !(grid instanceof HTMLDivElement) ||
+    !(focusTarget instanceof HTMLButtonElement)
+  ) {
     throw new Error("Expected grid continuity fixture elements to exist");
   }
 
@@ -188,10 +200,13 @@ function installGridContinuityFixture(
 
   return {
     focusTestId,
-    page: createBrowserPage({
-      [focusTestId]: focusTarget,
-      [gridTestId]: grid,
-    }, pageOptions),
+    page: createBrowserPage(
+      {
+        [focusTestId]: focusTarget,
+        [gridTestId]: grid,
+      },
+      pageOptions,
+    ),
   };
 }
 

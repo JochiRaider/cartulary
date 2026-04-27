@@ -1,5 +1,8 @@
-import { gridSavedRowsSelector } from "@cartulary/test-utils";
+import { gridSavedRowsSelector, rowCellTestId } from "@cartulary/test-utils";
+import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
+import { vi } from "vitest";
 
+import { requireJSONBodyAt } from "./fetchMockTestSupport";
 import type { RecordChangedPayload } from "./workbookShellPhase4";
 
 export const timelineViewSchemaId = "cartulary.view.timeline.v1";
@@ -7,6 +10,8 @@ export const timelineViewSchemaId = "cartulary.view.timeline.v1";
 type WebSocketLike = {
   onmessage: ((event: MessageEvent) => void) | null;
 };
+
+type FetchMock = ReturnType<typeof vi.fn>;
 
 type TimelineRowOptions = {
   recordId: string;
@@ -47,6 +52,25 @@ export function deferred<T>() {
   });
 
   return { promise, resolve, reject };
+}
+
+export function installTimelineWorkbookTestGlobals() {
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+  vi.stubGlobal(
+    "WebSocket",
+    class {
+      onmessage: ((event: MessageEvent) => void) | null = null;
+
+      close() {}
+    } as unknown as typeof WebSocket,
+  );
+  return fetchMock;
+}
+
+export function cleanupTimelineWorkbookTestGlobals() {
+  cleanup();
+  vi.unstubAllGlobals();
 }
 
 export function successEnvelope(data: unknown, status = 200) {
@@ -183,6 +207,63 @@ export function requiredGridRow(
     );
   }
   return row;
+}
+
+export function gridScalarInput(
+  container: HTMLElement,
+  recordId: string,
+  fieldKey: string,
+) {
+  const row = Array.from(
+    container.querySelectorAll<HTMLElement>(gridSavedRowsSelector()),
+  ).find(
+    (candidate) => candidate.getAttribute("data-grid-record-id") === recordId,
+  );
+  if (!row) {
+    throw new Error(`Expected visible grid row for record ${recordId}.`);
+  }
+  return within(row).getByTestId(rowCellTestId(recordId, fieldKey));
+}
+
+export async function changeInputValue(
+  input: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+) {
+  setInputValueWithoutEvent(input, value);
+  fireEvent.input(input, { bubbles: true });
+  await waitFor(() => {
+    if (input.value !== value) {
+      throw new Error(`Expected input value ${value}, got ${input.value}.`);
+    }
+  });
+  await new Promise((resolve) => window.setTimeout(resolve, 0));
+}
+
+export function setInputValueWithoutEvent(
+  input: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+) {
+  const prototype =
+    input instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype;
+  const valueSetter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+  valueSetter?.call(input, value);
+}
+
+export function extractTimelinePatchBody(fetchSpy: FetchMock, index: number) {
+  return requireJSONBodyAt<{
+    base_row_version: number;
+    changes: Array<{ field_key: string; value: string | null }>;
+  }>(fetchSpy, index, `timeline request body at index ${index}`);
+}
+
+export function extractTimelineJSONBody(fetchSpy: FetchMock, index: number) {
+  return requireJSONBodyAt<Record<string, unknown>>(
+    fetchSpy,
+    index,
+    `timeline JSON request body at index ${index}`,
+  );
 }
 
 function collectionValue(

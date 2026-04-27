@@ -275,8 +275,9 @@ assert_equals "$(json_field "$phase4_timing" "files.3.file")" "apps/web/e2e/phas
 NODE_BIN="${NODE:-node}" CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" CARTULARY_TEST_RUN_ID="batch-success" \
   "$ROOT_DIR/scripts/lib/test-output.sh" target-summary adhoc pass >/dev/null
 success_target_summary="$success_root/target-summary.json"
-assert_equals "$(json_field "$success_target_summary" "accounting_modes.actual")" "4" "batch target actual phase count"
-assert_equals "$(json_field "$success_target_summary" "accounting_modes.derived")" "1" "batch target derived phase count"
+assert_equals "$(json_field "$success_target_summary" "kind")" "leaf" "batch target summary kind"
+assert_equals "$(json_field "$success_target_summary" "totals.accounting_modes.actual")" "4" "batch target actual phase count"
+assert_equals "$(json_field "$success_target_summary" "totals.accounting_modes.derived")" "1" "batch target derived phase count"
 
 set +e
 support_failure_output="$(
@@ -347,3 +348,47 @@ assert_contains "$batch_manifest_summary" "stateful-to-measurement" "isolated ba
 assert_contains "$batch_manifest_summary" "measurement-to-visual" "isolated batch visual reset"
 assert_contains "$(cat "$batch_runner")" 'target-summary "$target"' "batch runner child summary"
 assert_contains "$(cat "$batch_runner")" "reset-web-e2e-stack.sh" "batch runner reset boundary"
+
+browser_aggregate_results="$tmp_dir/results/browser-aggregate"
+for target in browser-e2e-stateful browser-e2e-measurement browser-e2e-visual; do
+  mkdir -p "$browser_aggregate_results/$target"
+  cat >"$browser_aggregate_results/$target/target-summary.json" <<JSON
+{
+  "target": "${target}",
+  "status": "pass",
+  "start_time": "2026-01-01T00:00:00Z",
+  "end_time": "2026-01-01T00:00:01Z",
+  "executed_duration_ms": 1,
+  "logical_duration_ms": 1,
+  "reused_duration_ms": 0,
+  "derived_duration_ms": 0,
+  "wall_duration_ms": 1,
+  "critical_path_wall_duration_ms": 1,
+  "teardown_duration_ms": 0,
+  "counts": {
+    "phases": 1,
+    "tests": 1,
+    "failed": 0,
+    "authoritative": 1,
+    "support": 0,
+    "unmapped": 0,
+    "non_test": 0,
+    "authoritative_failed": 0,
+    "support_failed": 0,
+    "unmapped_failed": 0,
+    "non_test_failed": 0,
+    "packages": 1
+  }
+}
+JSON
+done
+browser_aggregate_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
+  CARTULARY_TEST_RUN_ID="browser-aggregate" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e pass --projection browser-e2e \
+    2>&1
+)"
+assert_contains "$browser_aggregate_output" "[PASS] browser-e2e kind=aggregate children=3/3 child_tests=3 child_failed=0" "browser aggregate child tests"
+browser_aggregate_summary="$browser_aggregate_results/browser-e2e/target-summary.json"
+assert_equals "$(json_field "$browser_aggregate_summary" "children.counts.tests")" "3" "browser aggregate JSON child tests"
+assert_equals "$(json_field "$browser_aggregate_summary" "totals.counts.tests")" "3" "browser aggregate JSON total tests"

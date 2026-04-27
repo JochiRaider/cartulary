@@ -276,8 +276,9 @@ if [[ "${#manifest_phases[@]}" -eq 0 ]]; then
   fail "expected at least one phase to own authoritative frontend-unit vitest rows"
 fi
 
-for phase in "${manifest_phases[@]}"; do
-  if ! grep -Fq "frontend-unit ${phase} authoritative" "$runner_script"; then
-    fail "scripts/run-frontend-unit.sh must emit frontend-unit ${phase} authoritative"
-  fi
-done
+if ! grep -Fq 'vitest-phases authoritative frontend_unit' "$runner_script"; then
+  fail "scripts/run-frontend-unit.sh must discover frontend-unit Vitest phases from the manifest"
+fi
+if ! grep -Fq 'frontend-unit ${manifest_phase} authoritative' "$runner_script"; then
+  fail "scripts/run-frontend-unit.sh must emit one manifest summary per discovered frontend-unit phase"
+fi

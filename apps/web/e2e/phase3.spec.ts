@@ -1,4 +1,4 @@
-import { rowCellTestId } from "@cartulary/test-utils";
+import { rowCellTestId, rowInspectorFieldTestId } from "@cartulary/test-utils";
 import type { Route } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
@@ -163,7 +163,9 @@ test("E-3-03 drives review, demotion, and supersede through the visible workbook
     reviewerPage.getByTestId(`row-${recordId}-row-version`),
   ).toHaveText("2");
 
-  const detailsInput = reviewerPage.getByTestId(`row-${recordId}-details`);
+  const detailsInput = reviewerPage.getByTestId(
+    rowInspectorFieldTestId(recordId, "details"),
+  );
   await detailsInput.fill("Material edit after review");
   await reviewerPage.getByTestId("timeline-blur-surface").click();
   await expect(

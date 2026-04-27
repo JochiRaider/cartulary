@@ -63,6 +63,13 @@ export function rowCellTestId(recordId: string, fieldKey: string): string {
   return `row-${recordId}-${fieldKey}`;
 }
 
+export function rowInspectorFieldTestId(
+  recordId: string,
+  fieldKey: string,
+): string {
+  return `${rowCellTestId(recordId, fieldKey)}-inspector`;
+}
+
 export function rowInspectButtonTestId(recordId: string): string {
   return `row-${recordId}-inspect`;
 }
@@ -82,7 +89,9 @@ export function timelineRowVersionTestId(recordId: string): string {
   return `row-${recordId}-row-version`;
 }
 
-export function pasteMatrixText(matrix: readonly (readonly string[])[]): string {
+export function pasteMatrixText(
+  matrix: readonly (readonly string[])[],
+): string {
   return matrix.map((row) => row.join("\t")).join("\n");
 }
 
@@ -113,9 +122,9 @@ export async function applyFilterChip(
   fieldKey: string,
   value: string,
 ) {
-  await page.getByTestId(gridFilterFieldTestId(surface)).selectOption?.(
-    fieldKey,
-  );
+  await page
+    .getByTestId(gridFilterFieldTestId(surface))
+    .selectOption?.(fieldKey);
   const valueControl = page.getByTestId(gridFilterValueTestId(surface));
   try {
     await valueControl.selectOption?.(value);
@@ -138,9 +147,9 @@ export async function changeGrouping(
   surface: WorkbookSurface,
   fieldKey: string,
 ) {
-  await page.getByTestId(gridGroupingSelectTestId(surface)).selectOption?.(
-    fieldKey,
-  );
+  await page
+    .getByTestId(gridGroupingSelectTestId(surface))
+    .selectOption?.(fieldKey);
 }
 
 export async function scrollToCell(
@@ -358,7 +367,11 @@ async function assertGridFocusContinuityOnce(options: {
       `Expected ${focusTestId} to be focused within the ${surface} grid continuity restore`,
     );
   }
-  const viewportState = await readTestIdGridViewportState(page, surface, focusTestId);
+  const viewportState = await readTestIdGridViewportState(
+    page,
+    surface,
+    focusTestId,
+  );
   const isVisibleWithinViewport =
     viewportState.top >= -viewportVisibilityTolerancePx &&
     viewportState.left >= -viewportVisibilityTolerancePx &&

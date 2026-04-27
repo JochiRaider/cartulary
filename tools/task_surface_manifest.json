@@ -100,14 +100,14 @@
   ],
   "summary_profiles": {
     "test": {
-      "targets": ["test-service-backed", "browser-e2e", "backend-unit", "frontend-typecheck", "frontend-unit", "backend-store", "backend-integration", "backend-integration-support", "backend-process", "browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"],
+      "targets": ["test-service-backed", "browser-e2e", "backend-unit", "frontend-typecheck", "frontend-unit"],
       "groups": [
         { "name": "backend-service-backed", "targets": ["backend-integration", "backend-integration-support", "backend-store", "backend-process"] },
         { "name": "browser", "targets": ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"] }
       ]
     },
     "check": {
-      "targets": ["check-service-backed", "browser-e2e", "check-harness-smoke", "backend-unit", "frontend-typecheck", "frontend-unit", "backend-store", "backend-integration", "backend-integration-support", "backend-process", "browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"],
+      "targets": ["check-service-backed", "browser-e2e", "check-harness-smoke", "backend-unit", "frontend-typecheck", "frontend-unit"],
       "groups": [
         { "name": "backend-service-backed", "targets": ["backend-integration", "backend-integration-support", "backend-store", "backend-process"] },
         { "name": "browser", "targets": ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"] },

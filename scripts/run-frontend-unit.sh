@@ -44,13 +44,8 @@ start_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 start_ms="$(date +%s%3N)"
 
 set +e
-if [[ "${output_mode}" == "quiet" ]]; then
-  env PATH="${path_prefix}" COREPACK_HOME="${corepack_home}" "${run_command[@]}" >"${stdout_log}" 2>"${stderr_log}"
-  run_status=$?
-else
-  env PATH="${path_prefix}" COREPACK_HOME="${corepack_home}" "${run_command[@]}" > >(tee "${stdout_log}") 2> >(tee "${stderr_log}" >&2)
-  run_status=$?
-fi
+run_vitest_command_with_watchdog "frontend-unit" "${raw_dir}" "${stdout_log}" "${stderr_log}" "${output_mode}" env PATH="${path_prefix}" COREPACK_HOME="${corepack_home}" "${run_command[@]}"
+run_status=$?
 set -e
 
 end_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -62,6 +57,7 @@ export CARTULARY_REPORT_SLICE=1
 export CARTULARY_PHASE_RUNNER_LOG="${run_report}"
 export CARTULARY_PHASE_STDOUT_LOG="${stdout_log}"
 export CARTULARY_PHASE_STDERR_LOG="${stderr_log}"
+export CARTULARY_PHASE_WATCHDOG_LOG="${CARTULARY_VITEST_WATCHDOG_LOG:-}"
 
 unset CARTULARY_VITEST_FILES || true
 unset CARTULARY_VITEST_TITLES || true
@@ -70,20 +66,13 @@ unset CARTULARY_MANIFEST_COVERAGE || true
 unset CARTULARY_MANIFEST_EXECUTION_DEPENDENCY || true
 emit_report_phase_summary vitest-phase "frontend-unit" "${command_text}" "${start_time}" "${end_time}" "${duration_ms}" "${duration_ms}" "${run_status}" || status=$?
 
-export CARTULARY_MANIFEST_PHASE=phase1
 export CARTULARY_MANIFEST_COVERAGE=authoritative
 export CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=frontend_unit
-emit_report_phase_summary vitest-manifest-phase "frontend-unit phase1 authoritative" "${command_text}" "${end_time}" "${end_time}" 0 0 "${run_status}" || status=$?
-
-export CARTULARY_MANIFEST_PHASE=phase2
-export CARTULARY_MANIFEST_COVERAGE=authoritative
-export CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=frontend_unit
-emit_report_phase_summary vitest-manifest-phase "frontend-unit phase2 authoritative" "${command_text}" "${end_time}" "${end_time}" 0 0 "${run_status}" || status=$?
-
-export CARTULARY_MANIFEST_PHASE=phase3
-export CARTULARY_MANIFEST_COVERAGE=authoritative
-export CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=frontend_unit
-emit_report_phase_summary vitest-manifest-phase "frontend-unit phase3 authoritative" "${command_text}" "${end_time}" "${end_time}" 0 0 "${run_status}" || status=$?
+mapfile -t frontend_unit_phases < <("${NODE_HELPER}" "${ROOT_DIR}/scripts/lib/phase-manifest.mjs" vitest-phases authoritative frontend_unit)
+for manifest_phase in "${frontend_unit_phases[@]}"; do
+  export CARTULARY_MANIFEST_PHASE="${manifest_phase}"
+  emit_report_phase_summary vitest-manifest-phase "frontend-unit ${manifest_phase} authoritative" "${command_text}" "${end_time}" "${end_time}" 0 0 "${run_status}" || status=$?
+done
 
 if [[ "${status}" -eq 0 ]]; then
   emit_target_summary pass

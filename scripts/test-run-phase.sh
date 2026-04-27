@@ -123,38 +123,88 @@ write_target_summary() {
   mkdir -p "$target_dir"
   cat >"$target_dir/target-summary.json" <<JSON
 {
+  "schema_id": "cartulary.test_target_summary.v3",
   "target": "${target}",
+  "kind": "leaf",
   "status": "pass",
   "start_time": "2026-01-01T00:00:00Z",
   "end_time": "2026-01-01T00:00:01Z",
-  "executed_duration_ms": ${duration_ms},
-  "logical_duration_ms": ${duration_ms},
-  "reused_duration_ms": 0,
-  "derived_duration_ms": 0,
-  "wall_duration_ms": ${wall_duration_ms},
-  "critical_path_wall_duration_ms": ${wall_duration_ms},
-  "teardown_duration_ms": 0,
-  "accounting_modes": {
-    "actual": ${phases},
-    "reused": 0,
-    "derived": 0
+  "own": {
+    "target": "${target}",
+    "status": "pass",
+    "start_time": "2026-01-01T00:00:00Z",
+    "end_time": "2026-01-01T00:00:01Z",
+    "executed_duration_ms": ${duration_ms},
+    "logical_duration_ms": ${duration_ms},
+    "reused_duration_ms": 0,
+    "derived_duration_ms": 0,
+    "wall_duration_ms": ${wall_duration_ms},
+    "critical_path_wall_duration_ms": ${wall_duration_ms},
+    "teardown_duration_ms": 0,
+    "accounting_modes": { "actual": ${phases}, "reused": 0, "derived": 0 },
+    "counts": {
+      "phases": ${phases},
+      "tests": ${tests},
+      "failed": 0,
+      "authoritative": ${tests},
+      "support": 0,
+      "unmapped": 0,
+      "non_test": 0,
+      "authoritative_failed": 0,
+      "support_failed": 0,
+      "unmapped_failed": 0,
+      "non_test_failed": 0,
+      "packages": 1
+    },
+    "fixture": { "target": "${target}", "total_count": 0, "total_duration_ms": 0, "by_package": [], "by_test": [], "by_strategy": [], "slowest": [] },
+    "artifacts": { "dir": ".cartulary/test-results/${run_id}/${target}" }
   },
-  "counts": {
-    "phases": ${phases},
-    "tests": ${tests},
-    "failed": 0,
-    "authoritative": ${tests},
-    "support": 0,
-    "unmapped": 0,
-    "non_test": 0,
-    "authoritative_failed": 0,
-    "support_failed": 0,
-    "unmapped_failed": 0,
-    "non_test_failed": 0,
-    "packages": 1
+  "children": {
+    "target": "${target}",
+    "status": "pass",
+    "expected": [],
+    "present": [],
+    "missing": [],
+    "failed_targets": [],
+    "executed_duration_ms": 0,
+    "logical_duration_ms": 0,
+    "reused_duration_ms": 0,
+    "derived_duration_ms": 0,
+    "wall_duration_ms": 0,
+    "critical_path_wall_duration_ms": 0,
+    "teardown_duration_ms": 0,
+    "accounting_modes": { "actual": 0, "reused": 0, "derived": 0 },
+    "counts": { "phases": 0, "tests": 0, "failed": 0, "authoritative": 0, "support": 0, "unmapped": 0, "non_test": 0, "authoritative_failed": 0, "support_failed": 0, "unmapped_failed": 0, "non_test_failed": 0, "packages": 0 },
+    "fixture": { "target": "${target}", "total_count": 0, "total_duration_ms": 0, "by_package": [], "by_test": [], "by_strategy": [], "slowest": [] }
   },
-  "artifacts": {
-    "dir": ".cartulary/test-results/${run_id}/${target}"
+  "totals": {
+    "target": "${target}",
+    "status": "pass",
+    "start_time": "2026-01-01T00:00:00Z",
+    "end_time": "2026-01-01T00:00:01Z",
+    "executed_duration_ms": ${duration_ms},
+    "logical_duration_ms": ${duration_ms},
+    "reused_duration_ms": 0,
+    "derived_duration_ms": 0,
+    "wall_duration_ms": ${wall_duration_ms},
+    "critical_path_wall_duration_ms": ${wall_duration_ms},
+    "teardown_duration_ms": 0,
+    "accounting_modes": { "actual": ${phases}, "reused": 0, "derived": 0 },
+    "counts": {
+      "phases": ${phases},
+      "tests": ${tests},
+      "failed": 0,
+      "authoritative": ${tests},
+      "support": 0,
+      "unmapped": 0,
+      "non_test": 0,
+      "authoritative_failed": 0,
+      "support_failed": 0,
+      "unmapped_failed": 0,
+      "non_test_failed": 0,
+      "packages": 1
+    },
+    "fixture": { "target": "${target}", "total_count": 0, "total_duration_ms": 0, "by_package": [], "by_test": [], "by_strategy": [], "slowest": [] }
   }
 }
 JSON
@@ -238,26 +288,31 @@ child_target_output="$(
     "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-target pass --children child-a,child-b \
     2>&1
 )"
-assert_contains "$child_target_output" "[PASS] parent-target" "child target parent output"
-assert_contains "$child_target_output" "[CHILD] parent-target child-a status=pass phases=2 tests=7 wall=1.20s critical=1.20s exec=1.00s logical=1.00s teardown=0ms actual=2 reused=0 derived=0" "child target child-a output"
-assert_contains "$child_target_output" "[CHILD] parent-target child-b status=pass phases=3 tests=11 wall=2.00s critical=2.00s exec=2.00s logical=2.00s teardown=0ms actual=3 reused=0 derived=0" "child target child-b output"
+assert_contains "$child_target_output" "[PASS] parent-target kind=aggregate children=2/2 child_tests=18 child_failed=0 own_phases=1 own_tests=0 own_failed=0 total_tests=18 total_failed=0" "child target parent output"
+assert_contains "$child_target_output" "[CHILD] parent-target child-a status=pass phases=2 tests=7 failed=0 wall=1.20s critical=1.20s exec=1.00s logical=1.00s teardown=0ms actual=2 reused=0 derived=0" "child target child-a output"
+assert_contains "$child_target_output" "[CHILD] parent-target child-b status=pass phases=3 tests=11 failed=0 wall=2.00s critical=2.00s exec=2.00s logical=2.00s teardown=0ms actual=3 reused=0 derived=0" "child target child-b output"
 assert_not_contains "$child_target_output" " duration=" "child target ambiguous duration output"
 parent_target_summary="$child_summary_results/child-summary/parent-target/target-summary.json"
 parent_target_timing="$child_summary_results/child-summary/parent-target/target-timing.json"
-assert_not_negative "$(json_field "$parent_target_summary" "wall_duration_ms")" "parent target wall duration"
-assert_not_negative "$(json_field "$parent_target_summary" "critical_path_wall_duration_ms")" "parent target critical path duration"
-assert_not_negative "$(json_field "$parent_target_summary" "executed_duration_ms")" "parent target executed duration"
-assert_not_negative "$(json_field "$parent_target_summary" "logical_duration_ms")" "parent target logical duration"
+assert_equals "$(json_field "$parent_target_summary" "schema_id")" "cartulary.test_target_summary.v3" "parent target summary schema"
+assert_equals "$(json_field "$parent_target_summary" "kind")" "aggregate" "parent target summary kind"
+assert_not_negative "$(json_field "$parent_target_summary" "totals.wall_duration_ms")" "parent target wall duration"
+assert_not_negative "$(json_field "$parent_target_summary" "totals.critical_path_wall_duration_ms")" "parent target critical path duration"
+assert_not_negative "$(json_field "$parent_target_summary" "totals.executed_duration_ms")" "parent target executed duration"
+assert_not_negative "$(json_field "$parent_target_summary" "totals.logical_duration_ms")" "parent target logical duration"
 assert_json_field_absent "$parent_target_summary" "duration_ms" "parent target legacy duration"
-assert_contains "$(json_field "$parent_target_summary" "artifacts.timing_json")" "target-timing.json" "parent timing artifact path"
-assert_equals "$(json_field "$parent_target_summary" "accounting_modes.actual")" "1" "parent target actual accounting count"
-assert_equals "$(json_field "$parent_target_summary" "child_targets.0.target")" "child-a" "child target summary first child"
-assert_equals "$(json_field "$parent_target_summary" "child_targets.1.counts.tests")" "11" "child target summary second child tests"
-assert_equals "$(json_field "$parent_target_summary" "missing_child_target_summaries.length")" "0" "child target summary missing list"
+assert_contains "$(json_field "$parent_target_summary" "own.artifacts.timing_json")" "target-timing.json" "parent timing artifact path"
+assert_equals "$(json_field "$parent_target_summary" "own.counts.tests")" "0" "parent target own tests"
+assert_equals "$(json_field "$parent_target_summary" "children.counts.tests")" "18" "parent target child tests"
+assert_equals "$(json_field "$parent_target_summary" "totals.counts.tests")" "18" "parent target total tests"
+assert_equals "$(json_field "$parent_target_summary" "own.accounting_modes.actual")" "1" "parent target own accounting count"
+assert_equals "$(json_field "$parent_target_summary" "children.present.0.target")" "child-a" "child target summary first child"
+assert_equals "$(json_field "$parent_target_summary" "children.present.1.totals.counts.tests")" "11" "child target summary second child tests"
+assert_equals "$(json_field "$parent_target_summary" "children.missing.length")" "0" "child target summary missing list"
 assert_equals "$(json_field "$parent_target_timing" "schema_id")" "cartulary.test_target_timing.v1" "parent target timing schema"
 assert_equals "$(json_field "$parent_target_timing" "buckets.0.name")" "test_command" "parent target timing test command bucket"
 assert_equals "$(json_field "$parent_target_timing" "buckets.1.name")" "report_collation" "parent target timing report collation bucket"
-assert_equals "$(json_field "$parent_target_summary" "slowest_lifecycle_bucket.name")" "$(json_field "$parent_target_timing" "slowest_lifecycle_bucket.name")" "parent target summary slowest bucket"
+assert_equals "$(json_field "$parent_target_summary" "own.slowest_lifecycle_bucket.name")" "$(json_field "$parent_target_timing" "slowest_lifecycle_bucket.name")" "parent target summary slowest bucket"
 
 teardown_accounting_results="$(mktemp -d "$ROOT_DIR/tmp/target-timing-teardown-accounting.XXXXXX")"
 cleanup_paths+=("$teardown_accounting_results")
@@ -313,14 +368,16 @@ CARTULARY_TEST_RUN_ID="teardown-accounting" \
 teardown_accounting_summary="$teardown_accounting_results/teardown-accounting/browser-e2e-webserver-backed/target-summary.json"
 teardown_accounting_timing="$teardown_accounting_results/teardown-accounting/browser-e2e-webserver-backed/target-timing.json"
 assert_equals "$(json_field "$teardown_accounting_summary" "status")" "fail" "teardown accounting failed service span target summary status"
+assert_equals "$(json_field "$teardown_accounting_summary" "kind")" "leaf" "teardown accounting target summary kind"
 assert_equals "$(json_field "$teardown_accounting_timing" "status")" "fail" "teardown accounting failed service span target timing status"
-assert_equals "$(json_field "$teardown_accounting_summary" "wall_duration_ms")" "2100" "teardown accounting target summary wall includes teardown"
-assert_equals "$(json_field "$teardown_accounting_summary" "critical_path_wall_duration_ms")" "2100" "teardown accounting target critical path includes teardown"
-assert_equals "$(json_field "$teardown_accounting_summary" "teardown_duration_ms")" "2100" "teardown accounting target teardown duration"
-assert_equals "$(json_field "$teardown_accounting_summary" "teardown_status")" "fail" "teardown accounting target teardown status"
-assert_equals "$(json_field "$teardown_accounting_summary" "teardown_failures.0.label")" "test-services cleanup browser e2e fixture" "teardown accounting target teardown failure"
-assert_equals "$(json_field "$teardown_accounting_summary" "timing_failures.0.bucket")" "teardown" "teardown accounting target timing failure"
-assert_equals "$(json_field "$teardown_accounting_summary" "counts.non_test_failed")" "1" "teardown accounting target non-test failed count"
+assert_equals "$(json_field "$teardown_accounting_summary" "totals.wall_duration_ms")" "2100" "teardown accounting target summary wall includes teardown"
+assert_equals "$(json_field "$teardown_accounting_summary" "totals.critical_path_wall_duration_ms")" "2100" "teardown accounting target critical path includes teardown"
+assert_equals "$(json_field "$teardown_accounting_summary" "totals.teardown_duration_ms")" "2100" "teardown accounting target teardown duration"
+assert_equals "$(json_field "$teardown_accounting_summary" "children.expected.length")" "0" "teardown accounting target empty children"
+assert_equals "$(json_field "$teardown_accounting_summary" "totals.teardown_status")" "fail" "teardown accounting target teardown status"
+assert_equals "$(json_field "$teardown_accounting_summary" "totals.teardown_failures.0.label")" "test-services cleanup browser e2e fixture" "teardown accounting target teardown failure"
+assert_equals "$(json_field "$teardown_accounting_summary" "totals.timing_failures.0.bucket")" "teardown" "teardown accounting target timing failure"
+assert_equals "$(json_field "$teardown_accounting_summary" "own.counts.non_test_failed")" "1" "teardown accounting target non-test failed count"
 assert_equals "$(json_field "$teardown_accounting_summary" "start_time")" "2026-01-01T00:00:00Z" "teardown accounting target summary start time"
 assert_equals "$(json_field "$teardown_accounting_summary" "end_time")" "2026-01-01T00:00:02.100Z" "teardown accounting target summary end time"
 assert_equals "$(json_field "$teardown_accounting_timing" "start_time")" "2026-01-01T00:00:00Z" "teardown accounting target timing start time"
@@ -354,9 +411,9 @@ assert_not_negative "$(json_field "$child_run_summary" "critical_path_wall_durat
 assert_not_negative "$(json_field "$child_run_summary" "executed_duration_ms")" "child run executed duration"
 assert_not_negative "$(json_field "$child_run_summary" "logical_duration_ms")" "child run logical duration"
 assert_json_field_absent "$child_run_summary" "duration_ms" "child run legacy duration"
-assert_equals "$(json_field "$child_run_summary" "accounting_modes.actual")" "1" "child run actual accounting count"
+assert_equals "$(json_field "$child_run_summary" "accounting_modes.actual")" "6" "child run actual accounting count"
 assert_equals "$(json_field "$child_run_summary" "target_summaries.0.target")" "parent-target" "run summary target object"
-assert_equals "$(json_field "$child_run_summary" "target_summaries.0.child_targets.1.target")" "child-b" "run summary preserved child target"
+assert_equals "$(json_field "$child_run_summary" "target_summaries.0.children.present.1.target")" "child-b" "run summary preserved child target"
 assert_equals "$(json_field "$child_run_summary" "summary_groups.0.name")" "backend-service-backed" "run summary backend group name"
 assert_equals "$(json_field "$child_run_summary" "summary_groups.0.wall_duration_ms")" "1000" "run summary backend group wall duration"
 assert_equals "$(json_field "$child_run_summary" "summary_groups.0.critical_path_wall_duration_ms")" "1000" "run summary backend group critical path duration"
@@ -426,7 +483,9 @@ assert_contains "$missing_child_output" "[FAIL] parent-with-missing" "missing ch
 assert_contains "$missing_child_output" "[CHILD-MISSING] parent-with-missing missing-child" "missing child output"
 missing_child_summary="$missing_child_results/missing-child/parent-with-missing/target-summary.json"
 assert_equals "$(json_field "$missing_child_summary" "status")" "fail" "missing child status"
-assert_equals "$(json_field "$missing_child_summary" "missing_child_target_summaries.0")" "missing-child" "missing child summary list"
+assert_equals "$(json_field "$missing_child_summary" "kind")" "aggregate" "missing child aggregate kind"
+assert_equals "$(json_field "$missing_child_summary" "children.missing.0")" "missing-child" "missing child summary list"
+assert_equals "$(json_field "$missing_child_summary" "own.counts.non_test_failed")" "1" "missing child wrapper failure count"
 
 verbose_override_output="$(
   CARTULARY_OUTPUT_MODE=quiet \

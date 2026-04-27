@@ -103,9 +103,9 @@ write_summary() {
   "teardown_duration_ms": 0,
   "counts": {
     "phases": 1,
-    "tests": 0,
+    "tests": 1,
     "failed": 0,
-    "authoritative": 0,
+    "authoritative": 1,
     "support": 0,
     "unmapped": 0,
     "non_test": 0,
@@ -113,7 +113,7 @@ write_summary() {
     "support_failed": 0,
     "unmapped_failed": 0,
     "non_test_failed": 0,
-    "packages": 0
+    "packages": 1
   }
 }
 JSON
@@ -222,9 +222,9 @@ write_summary() {
   "teardown_duration_ms": 0,
   "counts": {
     "phases": 1,
-    "tests": 0,
+    "tests": 1,
     "failed": 0,
-    "authoritative": 0,
+    "authoritative": 1,
     "support": 0,
     "unmapped": 0,
     "non_test": 0,
@@ -232,7 +232,7 @@ write_summary() {
     "support_failed": 0,
     "unmapped_failed": 0,
     "non_test_failed": 0,
-    "packages": 0
+    "packages": 1
   }
 }
 JSON
@@ -491,6 +491,7 @@ write_manifest "$browser_manifest" test-service-backed \
 browser_output="$(run_scheduler "$browser_dir" "$browser_manifest" test-service-backed browser 2>&1)"
 assert_contains "$browser_output" "[STEP] test-service-backed 1/2 backend-process mode=scheduler jobs=6" "browser schedule backend child"
 assert_contains "$browser_output" "[STEP] test-service-backed 2/2 browser-e2e-webserver-backed mode=scheduler jobs=6" "browser schedule browser child"
+assert_contains "$browser_output" "[FAIL] test-service-backed kind=aggregate children=2/5 child_tests=2 child_failed=0" "browser schedule aggregate child tests"
 assert_contains "$browser_output" "claims={browser_stack:1,browser_stage_webserver_backed:1,minio:1,postgres:1,process:1}" "browser resource claims telemetry"
 assert_contains "$browser_output" "resource_limits={browser_stack:" "browser resource limits telemetry"
 
@@ -596,6 +597,7 @@ check_browser_output="$(
 )"
 assert_contains "$check_browser_output" "[STEP] check-service-backed 1/2 browser-e2e-webserver-backed mode=scheduler jobs=6" "check browser webserver child"
 assert_contains "$check_browser_output" "[STEP] check-service-backed 2/2 backend-process mode=scheduler jobs=6" "check browser backend child"
+assert_contains "$check_browser_output" "[FAIL] check-service-backed kind=aggregate children=2/5 child_tests=2 child_failed=0" "check browser aggregate child tests"
 check_browser_events="$(cat "${check_browser_dir}/make.log")"
 assert_contains "$check_browser_events" "start browser-e2e-webserver-backed" "check browser webserver start"
 assert_contains "$check_browser_events" "end browser-e2e-webserver-backed" "check browser webserver end"

@@ -59,13 +59,8 @@ command_text="$(render_command "${run_command[@]}")"
 phase_capture_start PHASE
 
 set +e
-if [[ "$output_mode" != "quiet" ]]; then
-  "${run_command[@]}" > >(tee "$stdout_log") 2> >(tee "$stderr_log" >&2)
-  run_status=$?
-else
-  "${run_command[@]}" >"$stdout_log" 2>"$stderr_log"
-  run_status=$?
-fi
+run_vitest_command_with_watchdog "$phase_label" "$phase_dir" "$stdout_log" "$stderr_log" "$output_mode" "${run_command[@]}"
+run_status=$?
 set -e
 
 phase_capture_finish PHASE
@@ -85,6 +80,7 @@ CARTULARY_PHASE_EXIT_STATUS="$run_status" \
 CARTULARY_PHASE_RUNNER_LOG="$run_report" \
 CARTULARY_PHASE_STDOUT_LOG="$stdout_log" \
 CARTULARY_PHASE_STDERR_LOG="$stderr_log" \
+CARTULARY_PHASE_WATCHDOG_LOG="${CARTULARY_VITEST_WATCHDOG_LOG:-}" \
 CARTULARY_MANIFEST_PHASE="$phase_manifest" \
 CARTULARY_MANIFEST_COVERAGE="$coverage" \
 CARTULARY_MANIFEST_EXECUTION_DEPENDENCY="$execution_dependency" \

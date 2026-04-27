@@ -113,6 +113,9 @@ JSON
 JSON
     exit 1
     ;;
+  timeout)
+    sleep 30
+    ;;
   *)
     echo "unsupported fake vitest mode ${FAKE_VITEST_MODE}" >&2
     exit 2
@@ -189,3 +192,30 @@ assert_contains "$suite_load_output" "message=ReferenceError: window is not defi
 phase_summary="$suite_load_results/suite-load/adhoc/vitest-raw-suite-load/phase-summary.json"
 assert_equals "$(json_field "$phase_summary" "counts.failed")" "1" "vitest raw suite load failed count"
 assert_equals "$(json_field "$phase_summary" "counts.unmapped_failed")" "1" "vitest raw suite load unmapped failed count"
+
+timeout_results="$tmp_dir/results-timeout"
+set +e
+timeout_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$timeout_results" \
+  CARTULARY_TEST_RUN_ID="timeout" \
+  CARTULARY_VITEST_WATCHDOG_SECONDS=1 \
+  CARTULARY_WATCHDOG_KILL_GRACE_SECONDS=1 \
+  NODE_BIN="${NODE:-node}" \
+  FAKE_VITEST_MODE=timeout \
+    "$HELPER" "vitest raw timeout" -- "$fake_vitest" \
+    2>&1
+)"
+timeout_status=$?
+set -e
+
+if [[ "$timeout_status" -eq 0 ]]; then
+  fail "vitest raw timeout: expected non-zero exit status"
+fi
+assert_contains "$timeout_output" "failure: vitest raw timeout" "vitest raw timeout failure label"
+assert_contains "$timeout_output" "coverage=non_test" "vitest raw timeout non-test coverage"
+assert_contains "$timeout_output" "vitest watchdog timed out before runner.json was written" "vitest raw timeout message"
+timeout_summary="$timeout_results/timeout/adhoc/vitest-raw-timeout/phase-summary.json"
+assert_equals "$(json_field "$timeout_summary" "counts.failed")" "1" "vitest raw timeout failed count"
+assert_equals "$(json_field "$timeout_summary" "counts.non_test_failed")" "1" "vitest raw timeout non-test failed count"
+assert_contains "$(json_field "$timeout_summary" "artifacts.watchdog_json")" "watchdog.json" "vitest raw timeout watchdog artifact"

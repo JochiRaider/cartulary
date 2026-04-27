@@ -26,8 +26,8 @@ const resultsRoot = resolveResultsRoot();
 const runId = process.env.CARTULARY_TEST_RUN_ID || "adhoc";
 const phaseSummarySchemaID = "cartulary.test_phase_summary.v2";
 const targetTimingSchemaID = "cartulary.test_target_timing.v1";
-const targetSummarySchemaID = "cartulary.test_target_summary.v2";
-const runSummarySchemaID = "cartulary.test_run_summary.v2";
+const targetSummarySchemaID = "cartulary.test_target_summary.v3";
+const runSummarySchemaID = "cartulary.test_run_summary.v3";
 const sharedExecutionGroupSchemaID = "cartulary.test_shared_execution_group.v1";
 const timingBucketOrder = [
   "setup",
@@ -1670,37 +1670,123 @@ function loadTargetSummary(target) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
-function toTargetSummaryReference(summary, fallbackTarget) {
+function normalizeCounts(counts = {}) {
+  return {
+    phases: clampDurationMs(counts.phases ?? 0),
+    tests: clampDurationMs(counts.tests ?? 0),
+    failed: clampDurationMs(counts.failed ?? 0),
+    authoritative: clampDurationMs(counts.authoritative ?? 0),
+    support: clampDurationMs(counts.support ?? 0),
+    unmapped: clampDurationMs(counts.unmapped ?? 0),
+    non_test: clampDurationMs(counts.non_test ?? 0),
+    authoritative_failed: clampDurationMs(counts.authoritative_failed ?? 0),
+    support_failed: clampDurationMs(counts.support_failed ?? 0),
+    unmapped_failed: clampDurationMs(counts.unmapped_failed ?? 0),
+    non_test_failed: clampDurationMs(counts.non_test_failed ?? 0),
+    packages: clampDurationMs(counts.packages ?? 0),
+  };
+}
+
+function addCounts(target, source) {
+  const normalized = normalizeCounts(source);
+  for (const key of Object.keys(normalized)) {
+    target[key] += normalized[key];
+  }
+}
+
+function emptyFixtureSummary(target) {
+  return {
+    target,
+    total_count: 0,
+    total_duration_ms: 0,
+    by_package: [],
+    by_test: [],
+    by_strategy: [],
+    slowest: [],
+  };
+}
+
+function normalizeFixtureSummary(target, fixture) {
+  if (!fixture) {
+    return emptyFixtureSummary(target);
+  }
+  return {
+    target: fixture.target ?? target,
+    total_count: clampDurationMs(fixture.total_count ?? 0),
+    total_duration_ms: clampDurationMs(fixture.total_duration_ms ?? 0),
+    by_package: fixture.by_package ?? [],
+    by_test: fixture.by_test ?? [],
+    by_strategy: fixture.by_strategy ?? [],
+    slowest: fixture.slowest ?? [],
+  };
+}
+
+function sectionFromFlatSummary(summary, fallbackTarget) {
   const durations = readSummaryDurationFields(summary);
+  const counts = normalizeCounts(summary?.counts ?? {});
+  return {
+    target: summary?.target ?? fallbackTarget,
+    status: summary?.status ?? "",
+    start_time: summary?.start_time ?? "",
+    end_time: summary?.end_time ?? "",
+    ...durations,
+    accounting_modes: resolveAccountingModes(summary?.accounting_modes, counts.phases),
+    counts,
+    slowest_lifecycle_bucket: summary?.slowest_lifecycle_bucket ?? null,
+    timing_failures: summary?.timing_failures ?? [],
+    teardown_status: summary?.teardown_status ?? teardownStatus(durations.teardown_duration_ms, []),
+    teardown_failures: summary?.teardown_failures ?? [],
+    fixture: normalizeFixtureSummary(summary?.target ?? fallbackTarget, summary?.fixture),
+    artifacts: {
+      dir: summary?.artifacts?.dir ?? relToRepo(path.join(resultsRoot, runId, fallbackTarget)),
+      timing_json: summary?.artifacts?.timing_json ?? "",
+    },
+  };
+}
+
+function targetSummarySection(summary, sectionName, fallbackTarget) {
+  if (summary?.[sectionName]) {
+    return sectionFromFlatSummary(summary[sectionName], summary.target ?? fallbackTarget);
+  }
+  return sectionFromFlatSummary(summary, fallbackTarget);
+}
+
+function targetSummaryAccountingView(summary, fallbackTarget = summary?.target ?? "") {
+  return targetSummarySection(summary, "totals", fallbackTarget);
+}
+
+function toTargetSummaryReference(summary, fallbackTarget) {
+  const own = targetSummarySection(summary, "own", fallbackTarget);
+  const totals = targetSummaryAccountingView(summary, fallbackTarget);
   return {
     schema_id: summary.schema_id ?? "",
+    kind: summary.kind ?? "leaf",
     target: summary.target ?? fallbackTarget,
     status: summary.status ?? "",
-    start_time: summary.start_time ?? "",
-    end_time: summary.end_time ?? "",
-    ...durations,
-    counts: summary.counts ?? { phases: 0, ...createCounts() },
-    accounting_modes: resolveAccountingModes(
-      summary.accounting_modes,
-      summary.counts?.phases ?? 0,
-    ),
-    slowest_lifecycle_bucket: summary.slowest_lifecycle_bucket ?? null,
-    timing_failures: summary.timing_failures ?? [],
-    teardown_status: summary.teardown_status ?? teardownStatus(durations.teardown_duration_ms, []),
-    teardown_failures: summary.teardown_failures ?? [],
-    fixture: summary.fixture ?? {
-      target: summary.target ?? fallbackTarget,
-      total_count: 0,
-      total_duration_ms: 0,
-      by_package: [],
-      by_test: [],
-      by_strategy: [],
-      slowest: [],
+    start_time: totals.start_time,
+    end_time: totals.end_time,
+    ...durationFieldsForJSON(totals),
+    counts: totals.counts,
+    accounting_modes: totals.accounting_modes,
+    slowest_lifecycle_bucket: totals.slowest_lifecycle_bucket,
+    timing_failures: totals.timing_failures,
+    teardown_status: totals.teardown_status,
+    teardown_failures: totals.teardown_failures,
+    fixture: totals.fixture,
+    artifacts: own.artifacts,
+    own,
+    children: summary.children ?? {
+      expected: [],
+      present: [],
+      missing: [],
+      status: "pass",
+      ...durationFieldsForJSON(createDurationFields()),
+      accounting_modes: createAccountingModes(),
+      counts: normalizeCounts(),
+      fixture: emptyFixtureSummary(summary.target ?? fallbackTarget),
+      failed_targets: [],
     },
-    artifacts: {
-      dir: summary.artifacts?.dir ?? relToRepo(path.join(resultsRoot, runId, fallbackTarget)),
-      timing_json: summary.artifacts?.timing_json ?? "",
-    },
+    totals,
   };
 }
 
@@ -1771,17 +1857,77 @@ function mergeFixtureAggregateList(map, values) {
   }
 }
 
-function writeTargetLine(stream, label, target, summary, targetDir) {
-  const fixtureSummary = summary.fixture ?? { total_count: 0, total_duration_ms: 0 };
+function combineSummarySections(target, sections, status = "pass") {
+  const aggregate = createDurationAggregate();
+  const accountingModes = createAccountingModes();
+  const timingFailures = [];
+  const teardownFailures = [];
+  let startTime = "";
+  let endTime = "";
+  let failed = status !== "pass";
+
+  for (const section of sections) {
+    const view = targetSummaryAccountingView(section, section?.target ?? target);
+    addCounts(aggregate, view.counts);
+    addDurationFields(aggregate, view);
+    mergeAccountingModes(accountingModes, view.accounting_modes);
+    timingFailures.push(...(view.timing_failures ?? []));
+    teardownFailures.push(...(view.teardown_failures ?? []));
+    if (startTime === "" || (view.start_time && view.start_time < startTime)) {
+      startTime = view.start_time ?? "";
+    }
+    if (endTime === "" || (view.end_time && view.end_time > endTime)) {
+      endTime = view.end_time ?? "";
+    }
+    if (view.status && view.status !== "pass") {
+      failed = true;
+    }
+  }
+
+  const windowWallDurationMs = computeWindowDurationMs(startTime, endTime);
+  const wallDurationMs = windowWallDurationMs > 0 ? windowWallDurationMs : aggregate.wall_duration_ms;
+  const criticalPathWallDurationMs = wallDurationMs;
+  return {
+    target,
+    status: failed ? "fail" : "pass",
+    start_time: startTime,
+    end_time: endTime,
+    ...durationFieldsForJSON(aggregate, {
+      wall_duration_ms: wallDurationMs,
+      critical_path_wall_duration_ms: criticalPathWallDurationMs,
+    }),
+    accounting_modes: accountingModes,
+    counts: countsForJSON(aggregate),
+    slowest_lifecycle_bucket: findSlowestLifecycleBucket(sections),
+    timing_failures: timingFailures,
+    teardown_status: teardownStatus(aggregate.teardown_duration_ms, teardownFailures),
+    teardown_failures: teardownFailures,
+  };
+}
+
+function writeTargetLine(stream, label, targetSummary) {
+  const target = targetSummary.target;
+  if (targetSummary.kind === "aggregate") {
+    const own = targetSummary.own;
+    const children = targetSummary.children;
+    const totals = targetSummary.totals;
+    stream.write(
+      `${label} ${target} kind=aggregate children=${children.present.length}/${children.expected.length} child_tests=${children.counts.tests} child_failed=${children.counts.failed} own_phases=${own.counts.phases} own_tests=${own.counts.tests} own_failed=${own.counts.failed} total_tests=${totals.counts.tests} total_failed=${totals.counts.failed} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} own_fixture_count=${own.fixture.total_count} own_fixture_duration=${formatDuration(own.fixture.total_duration_ms)} child_fixture_count=${children.fixture.total_count} child_fixture_duration=${formatDuration(children.fixture.total_duration_ms)} total_fixture_count=${totals.fixture.total_count} total_fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
+    );
+    return;
+  }
+
+  const totals = targetSummary.totals;
   stream.write(
-    `${label} ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} authoritative=${summary.counts.authoritative} support=${summary.counts.support} unmapped=${summary.counts.unmapped} packages=${summary.counts.packages} ${formatDurationFields(summary.wallDurationMs, summary.executedDurationMs, summary.logicalDurationMs, summary.criticalPathWallDurationMs, summary.teardownDurationMs)} ${formatAccountingModeFields(summary.accountingModes)} fixture_count=${fixtureSummary.total_count} fixture_duration=${formatDuration(fixtureSummary.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(summary.slowestLifecycleBucket)} artifacts=${relToRepo(targetDir)}\n`,
+    `${label} ${target} kind=leaf phases=${totals.counts.phases} tests=${totals.counts.tests} failed=${totals.counts.failed} authoritative=${totals.counts.authoritative} support=${totals.counts.support} unmapped=${totals.counts.unmapped} packages=${totals.counts.packages} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} fixture_count=${totals.fixture.total_count} fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
   );
 }
 
 function writeChildTargetLines(stream, parentTarget, childTargets, missingChildTargetSummaries) {
   for (const child of childTargets) {
+    const totals = child.totals ?? targetSummaryAccountingView(child, child.target);
     stream.write(
-      `[CHILD] ${parentTarget} ${child.target} status=${child.status} phases=${child.counts?.phases ?? 0} tests=${child.counts?.tests ?? 0} ${formatDurationFields(child.wall_duration_ms, child.executed_duration_ms, child.logical_duration_ms, child.critical_path_wall_duration_ms, child.teardown_duration_ms)} ${formatAccountingModeFields(child.accounting_modes)} artifacts=${child.artifacts?.dir ?? ""}\n`,
+      `[CHILD] ${parentTarget} ${child.target} status=${child.status} phases=${totals.counts?.phases ?? 0} tests=${totals.counts?.tests ?? 0} failed=${totals.counts?.failed ?? 0} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} artifacts=${child.artifacts?.dir ?? ""}\n`,
     );
   }
   for (const childTarget of missingChildTargetSummaries) {
@@ -1801,15 +1947,38 @@ function handleTargetSummary(args) {
   const teardownFailures = timingFailures.filter((failure) => failure.bucket === "teardown");
   const { childTargets, missingChildTargetSummaries } =
     loadChildTargetSummaries(childTargetNames);
+  const failedChildTargets = childTargets
+    .filter((child) => child.status !== "pass")
+    .map((child) => child.target);
   if (timingFailures.length > 0) {
     summary.counts.failed += timingFailures.length;
     summary.counts.non_test += timingFailures.length;
     summary.counts.non_test_failed += timingFailures.length;
   }
-  const status =
+  if (missingChildTargetSummaries.length > 0) {
+    summary.counts.failed += missingChildTargetSummaries.length;
+    summary.counts.non_test += missingChildTargetSummaries.length;
+    summary.counts.non_test_failed += missingChildTargetSummaries.length;
+  }
+  if (
+    requestedStatus === "fail" &&
+    summary.failed === false &&
+    timingFailures.length === 0 &&
+    missingChildTargetSummaries.length === 0 &&
+    failedChildTargets.length === 0
+  ) {
+    summary.counts.failed += 1;
+    summary.counts.non_test += 1;
+    summary.counts.non_test_failed += 1;
+  }
+  const ownFailed =
     summary.failed ||
     timingFailures.length > 0 ||
     missingChildTargetSummaries.length > 0 ||
+    (requestedStatus === "fail" && failedChildTargets.length === 0);
+  const status =
+    ownFailed ||
+    failedChildTargets.length > 0 ||
     requestedStatus === "fail"
       ? "FAIL"
       : "PASS";
@@ -1836,7 +2005,9 @@ function handleTargetSummary(args) {
   summary.startTime = accountableWindow.startTime;
   summary.endTime = accountableWindow.endTime;
   summary.slowestLifecycleBucket = timing.slowest_lifecycle_bucket;
-  summary.fixture = combineFixtureSummaries(target, summarizeFixtureActivities(target), childTargets);
+  const ownFixture = summarizeFixtureActivities(target);
+  const childFixture = combineFixtureSummaries(target, null, childTargets);
+  const totalFixture = combineFixtureSummaries(target, ownFixture, childTargets);
   summary.teardownDurationMs = clampDurationMs(
     timing.buckets.find((bucket) => bucket.name === "teardown")?.duration_ms ?? 0,
   );
@@ -1845,40 +2016,78 @@ function handleTargetSummary(args) {
     critical_path_wall_duration_ms: summary.criticalPathWallDurationMs,
     teardown_duration_ms: summary.teardownDurationMs,
   });
-  const targetSummary = {
-    schema_id: targetSummarySchemaID,
+  const ownSection = {
     target,
-    status: status.toLowerCase(),
+    status: ownFailed ? "fail" : "pass",
     start_time: summary.startTime,
     end_time: summary.endTime,
     ...summary.durations,
     accounting_modes: summary.accountingModes,
-    counts: summary.counts,
+    counts: normalizeCounts(summary.counts),
     slowest_lifecycle_bucket: timing.slowest_lifecycle_bucket,
     timing_failures: timingFailures,
     janitorial_timing: janitorialTimingSpans(target),
     teardown_status: teardownStatus(summary.teardownDurationMs, teardownFailures),
     teardown_failures: teardownFailures,
-    fixture: summary.fixture,
+    fixture: ownFixture,
     artifacts: {
       dir: relToRepo(summary.targetDir),
       timing_json: relToRepo(timingPath),
     },
-    child_targets: childTargets,
-    missing_child_target_summaries: missingChildTargetSummaries,
+  };
+  const childrenRollup = combineSummarySections(target, childTargets);
+  const childrenSection = {
+    target,
+    status:
+      failedChildTargets.length > 0 || missingChildTargetSummaries.length > 0 ? "fail" : "pass",
+    expected: childTargetNames,
+    present: childTargets,
+    missing: missingChildTargetSummaries,
+    failed_targets: failedChildTargets,
+    start_time: childrenRollup.start_time,
+    end_time: childrenRollup.end_time,
+    ...durationFieldsForJSON(childrenRollup),
+    accounting_modes: childrenRollup.accounting_modes,
+    counts: childrenRollup.counts,
+    slowest_lifecycle_bucket: childrenRollup.slowest_lifecycle_bucket,
+    timing_failures: childrenRollup.timing_failures,
+    teardown_status: childrenRollup.teardown_status,
+    teardown_failures: childrenRollup.teardown_failures,
+    fixture: childFixture,
+  };
+  const totalRollup =
+    childTargetNames.length === 0
+      ? ownSection
+      : combineSummarySections(target, [ownSection, childrenSection], status.toLowerCase());
+  const totalsSection =
+    childTargetNames.length === 0
+      ? { ...ownSection, fixture: ownFixture }
+      : {
+          ...totalRollup,
+          status: status.toLowerCase(),
+          fixture: totalFixture,
+        };
+  const targetSummary = {
+    schema_id: targetSummarySchemaID,
+    target,
+    kind: childTargetNames.length > 0 ? "aggregate" : "leaf",
+    status: status.toLowerCase(),
+    start_time: summary.startTime,
+    end_time: summary.endTime,
+    own: ownSection,
+    children: childrenSection,
+    totals: totalsSection,
   };
   writeJson(path.join(summary.targetDir, "target-summary.json"), targetSummary);
 
   if (status === "PASS") {
-    writeTargetLine(process.stdout, "[PASS]", target, summary, summary.targetDir);
+    writeTargetLine(process.stdout, "[PASS]", targetSummary);
     writeChildTargetLines(process.stdout, target, childTargets, missingChildTargetSummaries);
     printInventory(summary);
     return 0;
   }
 
-  process.stderr.write(
-    `[FAIL] ${target} phases=${summary.counts.phases} tests=${summary.counts.tests} failed=${summary.counts.failed} authoritative_failed=${summary.counts.authoritative_failed} support_failed=${summary.counts.support_failed} unmapped_failed=${summary.counts.unmapped_failed} non_test_failed=${summary.counts.non_test_failed} ${formatDurationFields(summary.wallDurationMs, summary.executedDurationMs, summary.logicalDurationMs, summary.criticalPathWallDurationMs, summary.teardownDurationMs)} ${formatAccountingModeFields(summary.accountingModes)} fixture_count=${summary.fixture.total_count} fixture_duration=${formatDuration(summary.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(summary.slowestLifecycleBucket)} artifacts=${relToRepo(summary.targetDir)}\n`,
-  );
+  writeTargetLine(process.stderr, "[FAIL]", targetSummary);
   writeChildTargetLines(process.stderr, target, childTargets, missingChildTargetSummaries);
   return 0;
 }
@@ -1936,21 +2145,12 @@ function createDurationAggregate() {
 }
 
 function addSummaryToAggregate(aggregate, accountingModes, summary) {
-  aggregate.phases += summary.counts?.phases ?? 0;
-  aggregate.tests += summary.counts?.tests ?? 0;
-  aggregate.failed += summary.counts?.failed ?? 0;
-  aggregate.authoritative += summary.counts?.authoritative ?? 0;
-  aggregate.support += summary.counts?.support ?? 0;
-  aggregate.unmapped += summary.counts?.unmapped ?? 0;
-  aggregate.non_test += summary.counts?.non_test ?? 0;
-  aggregate.authoritative_failed += summary.counts?.authoritative_failed ?? 0;
-  aggregate.support_failed += summary.counts?.support_failed ?? 0;
-  aggregate.unmapped_failed += summary.counts?.unmapped_failed ?? 0;
-  aggregate.non_test_failed += summary.counts?.non_test_failed ?? 0;
-  addDurationFields(aggregate, readSummaryDurationFields(summary));
+  const view = targetSummaryAccountingView(summary);
+  addCounts(aggregate, view.counts);
+  addDurationFields(aggregate, view);
   mergeAccountingModes(
     accountingModes,
-    resolveAccountingModes(summary.accounting_modes, summary.counts?.phases ?? 0),
+    resolveAccountingModes(view.accounting_modes, view.counts?.phases ?? 0),
   );
 }
 
@@ -1981,14 +2181,15 @@ function summarizeTargetSummaries(summaries, missingTargetSummaries, requestedSt
   const teardownFailures = [];
 
   for (const summary of summaries) {
+    const view = targetSummaryAccountingView(summary);
     addSummaryToAggregate(aggregate, accountingModes, summary);
-    timingFailures.push(...(summary.timing_failures ?? []));
-    teardownFailures.push(...(summary.teardown_failures ?? []));
-    if (startTime === "" || (summary.start_time && summary.start_time < startTime)) {
-      startTime = summary.start_time ?? "";
+    timingFailures.push(...(view.timing_failures ?? []));
+    teardownFailures.push(...(view.teardown_failures ?? []));
+    if (startTime === "" || (view.start_time && view.start_time < startTime)) {
+      startTime = view.start_time ?? "";
     }
-    if (endTime === "" || (summary.end_time && summary.end_time > endTime)) {
-      endTime = summary.end_time ?? "";
+    if (endTime === "" || (view.end_time && view.end_time > endTime)) {
+      endTime = view.end_time ?? "";
     }
     if (summary.status !== "pass") {
       failed = true;
@@ -2076,11 +2277,11 @@ function writeSharedExecutionGroupLines(stream, label, sharedExecutionGroups) {
 
 function findSlowestTarget(targetSummaries) {
   return targetSummaries.reduce((current, summary) => {
+    const view = targetSummaryAccountingView(summary);
     const durationMs = clampDurationMs(
-      summary.critical_path_wall_duration_ms ??
-        summary.wall_duration_ms ??
-        summary.logical_duration_ms ??
-        summary.duration_ms ??
+      view.critical_path_wall_duration_ms ??
+        view.wall_duration_ms ??
+        view.logical_duration_ms ??
         0,
     );
     if (!current || durationMs > current.critical_path_wall_duration_ms) {
@@ -2096,7 +2297,7 @@ function findSlowestTarget(targetSummaries) {
 
 function findSlowestLifecycleBucket(targetSummaries) {
   return targetSummaries.reduce((current, summary) => {
-    const bucket = summary.slowest_lifecycle_bucket;
+    const bucket = targetSummaryAccountingView(summary).slowest_lifecycle_bucket;
     if (!bucket) {
       return current;
     }
@@ -3148,8 +3349,46 @@ function handleVitestPhase({ manifestAware }) {
   const reportFile = requiredEnv("CARTULARY_PHASE_RUNNER_LOG");
   const stderrLog = optionalEnv("CARTULARY_PHASE_STDERR_LOG");
   const stdoutLog = optionalEnv("CARTULARY_PHASE_STDOUT_LOG");
+  const watchdogLog = optionalEnv("CARTULARY_PHASE_WATCHDOG_LOG");
   removeEmptyArtifact(stderrLog);
   removeEmptyArtifact(stdoutLog);
+
+  if (!existsSync(reportFile)) {
+    const counts = createCounts();
+    counts.failed += 1;
+    counts.non_test += 1;
+    counts.non_test_failed += 1;
+    const message = existsSync(watchdogLog)
+      ? "vitest watchdog timed out before runner.json was written"
+      : "vitest runner.json was not written";
+    const dossier = {
+      coverage: "non_test",
+      phase: inferPhaseFromText(context.label),
+      id: "",
+      runner: "vitest",
+      package_or_file: "(vitest runner)",
+      symbol_or_title: "(runner.json)",
+      message,
+      reproduce: context.command,
+      raw: renderRawList([watchdogLog, stdoutLog, stderrLog]),
+    };
+    writePhaseArtifacts(context, {
+      status: "fail",
+      phase: inferPhaseFromText(context.label),
+      counts,
+      owners: [],
+      inventory: [],
+      dossiers: [dossier],
+      artifacts: {
+        runner_json: reportFile,
+        stdout_log: existsSync(stdoutLog) ? stdoutLog : "",
+        stderr_log: existsSync(stderrLog) ? stderrLog : "",
+        watchdog_json: existsSync(watchdogLog) ? watchdogLog : "",
+      },
+    });
+    printBlock(`failure: ${context.label}`, dossier);
+    return 1;
+  }
 
   const summary = summarizeVitestRun(
     reportFile,
@@ -3190,6 +3429,7 @@ function handleVitestPhase({ manifestAware }) {
       runner_json: reportFile,
       stdout_log: existsSync(stdoutLog) ? stdoutLog : "",
       stderr_log: existsSync(stderrLog) ? stderrLog : "",
+      watchdog_json: existsSync(watchdogLog) ? watchdogLog : "",
     },
   });
 

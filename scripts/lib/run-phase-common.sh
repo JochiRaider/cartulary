@@ -161,6 +161,154 @@ resolve_output_mode() {
   printf '%s\n' "$output_mode"
 }
 
+json_escape_string() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//$'\n'/\\n}"
+  value="${value//$'\r'/\\r}"
+  value="${value//$'\t'/\\t}"
+  printf '%s' "$value"
+}
+
+write_vitest_watchdog_report() {
+  if [[ "$#" -ne 8 ]]; then
+    echo "write_vitest_watchdog_report requires <file> <label> <timeout-seconds> <grace-seconds> <pid> <started-at> <timed-out-at> <killed-at>" >&2
+    return 2
+  fi
+
+  local file="$1"
+  local label="$2"
+  local timeout_seconds="$3"
+  local grace_seconds="$4"
+  local pid="$5"
+  local started_at="$6"
+  local timed_out_at="$7"
+  local killed_at="$8"
+  mkdir -p "$(dirname "$file")"
+  cat >"$file" <<JSON
+{
+  "schema_id": "cartulary.vitest_watchdog.v1",
+  "status": "timed_out",
+  "label": "$(json_escape_string "$label")",
+  "timeout_seconds": ${timeout_seconds},
+  "kill_grace_seconds": ${grace_seconds},
+  "pid": ${pid},
+  "started_at": "$(json_escape_string "$started_at")",
+  "timed_out_at": "$(json_escape_string "$timed_out_at")",
+  "killed_at": "$(json_escape_string "$killed_at")"
+}
+JSON
+}
+
+run_vitest_command_with_watchdog() {
+  if [[ "$#" -lt 6 ]]; then
+    echo "run_vitest_command_with_watchdog requires <label> <phase-dir> <stdout-log> <stderr-log> <output-mode> <command...>" >&2
+    return 2
+  fi
+
+  local label="$1"
+  local phase_dir="$2"
+  local stdout_log="$3"
+  local stderr_log="$4"
+  local output_mode="$5"
+  shift 5
+
+  local timeout_seconds="${CARTULARY_VITEST_WATCHDOG_SECONDS:-300}"
+  local grace_seconds="${CARTULARY_WATCHDOG_KILL_GRACE_SECONDS:-10}"
+  if ! [[ "$timeout_seconds" =~ ^[0-9]+$ ]]; then
+    echo "invalid CARTULARY_VITEST_WATCHDOG_SECONDS=${timeout_seconds}" >&2
+    return 2
+  fi
+  if ! [[ "$grace_seconds" =~ ^[0-9]+$ ]]; then
+    echo "invalid CARTULARY_WATCHDOG_KILL_GRACE_SECONDS=${grace_seconds}" >&2
+    return 2
+  fi
+
+  mkdir -p "$(dirname "$stdout_log")" "$(dirname "$stderr_log")" "$phase_dir"
+  CARTULARY_VITEST_WATCHDOG_LOG="${phase_dir}/watchdog.json"
+  export CARTULARY_VITEST_WATCHDOG_LOG
+  RUN_VITEST_WATCHDOG_TIMED_OUT=0
+  export RUN_VITEST_WATCHDOG_TIMED_OUT
+
+  if [[ "$timeout_seconds" -eq 0 ]]; then
+    if [[ "$output_mode" != "quiet" ]]; then
+      "$@" > >(tee "$stdout_log") 2> >(tee "$stderr_log" >&2)
+    else
+      "$@" >"$stdout_log" 2>"$stderr_log"
+    fi
+    return $?
+  fi
+
+  local started_at
+  local start_ms
+  started_at="$(phase_now_utc)"
+  start_ms="$(phase_now_monotonic_ms)"
+
+  if command -v setsid >/dev/null 2>&1; then
+    setsid bash -c '
+      set -euo pipefail
+      output_mode="$1"
+      stdout_log="$2"
+      stderr_log="$3"
+      shift 3
+      if [[ "$output_mode" != "quiet" ]]; then
+        exec "$@" > >(tee "$stdout_log") 2> >(tee "$stderr_log" >&2)
+      fi
+      exec "$@" >"$stdout_log" 2>"$stderr_log"
+    ' bash "$output_mode" "$stdout_log" "$stderr_log" "$@" &
+  else
+    bash -c '
+      set -euo pipefail
+      output_mode="$1"
+      stdout_log="$2"
+      stderr_log="$3"
+      shift 3
+      if [[ "$output_mode" != "quiet" ]]; then
+        exec "$@" > >(tee "$stdout_log") 2> >(tee "$stderr_log" >&2)
+      fi
+      exec "$@" >"$stdout_log" 2>"$stderr_log"
+    ' bash "$output_mode" "$stdout_log" "$stderr_log" "$@" &
+  fi
+  local child_pid=$!
+  local child_group="-$child_pid"
+  local kill_target="$child_pid"
+  if command -v setsid >/dev/null 2>&1; then
+    kill_target="$child_group"
+  fi
+
+  while kill -0 "$child_pid" >/dev/null 2>&1; do
+    local now_ms
+    now_ms="$(phase_now_monotonic_ms)"
+    if (( now_ms - start_ms >= timeout_seconds * 1000 )); then
+      local timed_out_at
+      local killed_at
+      timed_out_at="$(phase_now_utc)"
+      kill -TERM "$kill_target" >/dev/null 2>&1 || true
+      local grace_start_ms
+      grace_start_ms="$(phase_now_monotonic_ms)"
+      while kill -0 "$child_pid" >/dev/null 2>&1; do
+        local grace_now_ms
+        grace_now_ms="$(phase_now_monotonic_ms)"
+        if (( grace_now_ms - grace_start_ms >= grace_seconds * 1000 )); then
+          kill -KILL "$kill_target" >/dev/null 2>&1 || true
+          break
+        fi
+        sleep 0.2
+      done
+      wait "$child_pid" >/dev/null 2>&1 || true
+      killed_at="$(phase_now_utc)"
+      write_vitest_watchdog_report "$CARTULARY_VITEST_WATCHDOG_LOG" "$label" "$timeout_seconds" "$grace_seconds" "$child_pid" "$started_at" "$timed_out_at" "$killed_at"
+      RUN_VITEST_WATCHDOG_TIMED_OUT=1
+      export RUN_VITEST_WATCHDOG_TIMED_OUT
+      return 124
+    fi
+    sleep 0.5
+  done
+
+  wait "$child_pid"
+}
+
 slugify_phase_label() {
   local label="$1"
   printf '%s' "$label" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//; s/--+/-/g'
