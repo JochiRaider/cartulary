@@ -78,6 +78,22 @@ assert_target_recipe_invokes() {
   assert_text_has_token "$target recipe" "$block" "$invoked_target" "$message"
 }
 
+assert_text_order() {
+  local label="$1"
+  local text="$2"
+  local first="$3"
+  local second="$4"
+  local message="$5"
+
+  if ! printf '%s\n' "$text" | awk -v first="$first" -v second="$second" '
+    index($0, first) && first_line == 0 { first_line = NR }
+    index($0, second) && second_line == 0 { second_line = NR }
+    END { exit first_line > 0 && second_line > first_line ? 0 : 1 }
+  '; then
+    fail "$message (${label} must order ${first} before ${second})"
+  fi
+}
+
 if ! rg -q '^frontend-task-surface-check:' "$makefile"; then
   fail "Makefile must define frontend-task-surface-check"
 fi
@@ -93,6 +109,17 @@ fi
 if ! rg -q '^toolchain-drift:' "$makefile"; then
   fail "Makefile must define toolchain-drift"
 fi
+assert_target_prereq codegen-toolchain '$(SQLC_BIN)' "codegen-toolchain must own pinned SQLC_BIN readiness"
+assert_target_prereq generate codegen-toolchain "generate must prepare the codegen toolchain before generating artifacts"
+assert_target_recipe_invokes generate generate-artifacts "generate must delegate to generate-artifacts"
+generate_artifacts_block="$(extract_target_block generate-artifacts)"
+if [[ -z "$generate_artifacts_block" ]]; then
+  fail "Makefile must define a non-empty generate-artifacts block"
+fi
+if ! printf '%s\n' "$generate_artifacts_block" | rg -q 'generate sqlc'; then
+  fail "generate-artifacts must run sqlc generation"
+fi
+assert_target_prereq generate-drift codegen-toolchain "generate-drift must prepare the codegen toolchain outside the drift body"
 check_preflight_prereqs="$(extract_target_prereqs check-preflight)"
 if ! printf '%s\n' "$check_preflight_prereqs" | rg -q '(^|[[:space:]])check-setup-blockers($|[[:space:]])'; then
   fail "check-preflight must remain a compatibility alias to check-setup-blockers"
@@ -104,9 +131,14 @@ fi
 if ! printf '%s\n' "$check_setup_block" | rg -q 'toolchain-drift'; then
   fail "check-setup-blockers must invoke toolchain-drift"
 fi
+if ! printf '%s\n' "$check_setup_block" | rg -q 'codegen-toolchain'; then
+  fail "check-setup-blockers must prepare the codegen toolchain after toolchain drift"
+fi
 if ! printf '%s\n' "$check_setup_block" | rg -q 'frontend-install'; then
   fail "check-setup-blockers must invoke frontend install after toolchain drift"
 fi
+assert_text_order "check-setup-blockers recipe" "$check_setup_block" "toolchain-drift" "codegen-toolchain" "check-setup-blockers must prepare codegen after toolchain drift"
+assert_text_order "check-setup-blockers recipe" "$check_setup_block" "codegen-toolchain" "frontend-install" "check-setup-blockers must install frontend dependencies after codegen readiness"
 if printf '%s\n' "$check_setup_block" | rg -q 'frontend-task-surface-check|phase-ledger-drift|run-phase-smoke|generate-drift|lint-biome'; then
   fail "check-setup-blockers must not include static validation or harness smoke work"
 fi

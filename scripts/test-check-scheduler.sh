@@ -199,24 +199,49 @@ cat >"$success_manifest" <<'JSON'
         { "target": "build", "weight": 40, "needs": ["setup"], "resource_claims": { "cpu": "limit" }, "make_jobs": "cpu" },
         { "target": "local", "weight": 30, "needs": ["build"], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" },
         { "target": "service", "weight": 20, "needs": ["build"], "resource_claims": { "cpu": 1, "service_stack": 1 }, "make_jobs": "cpu" },
-        { "target": "meta", "weight": 10, "needs": ["build"], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" }
+        { "target": "meta", "weight": 10, "needs": ["build"], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" },
+        { "target": "browser", "weight": 5, "needs": ["local", "service", "meta"], "resource_claims": { "cpu": 1, "service_stack": 1 }, "make_jobs": "cpu" }
       ]
     }
   ]
 }
 JSON
-success_output="$(run_scheduler "$success_dir" "$success_manifest" success --summary-targets local,service,meta --summary-groups "check-work=local,service,meta" --resource-limit cpu=2 2>&1)"
-assert_contains "$success_output" "[RUN] check steps=5 targets=3 jobs=2 run_id=success" "success run start"
-assert_contains "$success_output" "[STEP] check 1/5 setup mode=scheduler jobs=1" "success setup step"
-assert_contains "$success_output" "[STEP] check 2/5 build mode=scheduler jobs=2" "success build step"
-assert_contains "$success_output" "[STEP] check 3/5 local mode=scheduler jobs=1" "success higher-weight local step"
-assert_contains "$success_output" "[STEP] check 4/5 service mode=scheduler jobs=1" "success service step"
+success_output="$(run_scheduler "$success_dir" "$success_manifest" success --summary-targets local,service,meta,browser --summary-groups "check-work=local,service,meta,browser" --resource-limit cpu=2 2>&1)"
+assert_contains "$success_output" "[RUN] check steps=6 targets=4 jobs=2 run_id=success" "success run start"
+assert_contains "$success_output" "[STEP] check 1/6 setup mode=scheduler jobs=1" "success setup step"
+assert_contains "$success_output" "[STEP] check 2/6 build mode=scheduler jobs=2" "success build step"
+assert_contains "$success_output" "[STEP] check 3/6 local mode=scheduler jobs=1" "success higher-weight local step"
+assert_contains "$success_output" "[STEP] check 4/6 service mode=scheduler jobs=1" "success service step"
+assert_contains "$success_output" "[STEP] check 6/6 browser mode=scheduler jobs=1" "success final browser step"
 assert_contains "$success_output" "[PASS] check" "success summary"
 assert_equals "$(cat "${success_dir}/max")" "2" "success resource limit"
 assert_contains "$(cat "${success_dir}/make-args.log")" "--output-sync=target -j2 build" "build uses claimed cpu jobs"
+success_events="$(cat "${success_dir}/events.log")"
+assert_contains "$success_events" "end local" "success local completed"
+assert_contains "$success_events" "end service" "success service completed"
+assert_contains "$success_events" "end meta" "success meta completed"
+assert_contains "$success_events" "start browser" "success browser started"
+"$NODE_BIN" - "${success_dir}/events.log" <<'EOF'
+const fs = require("node:fs");
+const [logFile] = process.argv.slice(2);
+const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
+const indexOf = (needle) => {
+  const index = lines.findIndex((line) => line.includes(needle));
+  if (index === -1) {
+    throw new Error(`missing ${needle}`);
+  }
+  return index;
+};
+const browserStart = indexOf("start browser");
+for (const target of ["local", "service", "meta"]) {
+  if (!(indexOf(`end ${target}`) < browserStart)) {
+    throw new Error(`browser started before ${target} completed`);
+  }
+}
+EOF
 success_summary="${success_dir}/results/success/run-summary.json"
 assert_equals "$(json_field "$success_summary" "status")" "pass" "success summary status"
-assert_equals "$(json_field "$success_summary" "completed_targets")" "5/5" "success completed"
+assert_equals "$(json_field "$success_summary" "completed_targets")" "6/6" "success completed"
 
 failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-failure.XXXXXX")"
 cleanup_paths+=("$failure_dir")
@@ -288,7 +313,7 @@ cleanup_paths+=("$dry_run_dir")
 write_fake_make "$dry_run_dir"
 dry_run_output="$(
   MAKEFLAGS=n \
-    run_scheduler "$dry_run_dir" "$success_manifest" dry-run --summary-targets local,service,meta --resource-limit cpu=2 2>&1
+    run_scheduler "$dry_run_dir" "$success_manifest" dry-run --summary-targets local,service,meta,browser --resource-limit cpu=2 2>&1
 )"
 assert_contains "$dry_run_output" "[DRY-RUN] check manifest=" "dry-run output"
 assert_file_absent "${dry_run_dir}/make-args.log" "dry-run child make"

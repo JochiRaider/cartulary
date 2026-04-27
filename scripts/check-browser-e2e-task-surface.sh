@@ -151,6 +151,37 @@ process.stdout.write(`${targets.join("\n")}\n`);
 EOF
 }
 
+check_schedule_field() {
+  local work_unit="$1"
+  local field="$2"
+
+  "$node_bin" - "$check_schedule_manifest" "$work_unit" "$field" <<'EOF'
+const fs = require("node:fs");
+
+const [manifestFile, workUnit, field] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+if (manifest.schema_id !== "cartulary.check_schedule.v1") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v1");
+}
+const schedules = manifest.schedules.filter((entry) => entry.target === "check");
+if (schedules.length !== 1) {
+  throw new Error(`expected exactly one check schedule, found ${schedules.length}`);
+}
+const unit = (schedules[0].work_units ?? []).find((entry) => entry.target === workUnit);
+if (!unit) {
+  throw new Error(`missing check schedule work unit ${workUnit}`);
+}
+const value = unit[field];
+if (Array.isArray(value)) {
+  process.stdout.write(value.join(","));
+} else if (value && typeof value === "object") {
+  process.stdout.write(Object.keys(value).sort().join(","));
+} else if (value !== undefined) {
+  process.stdout.write(String(value));
+}
+EOF
+}
+
 browser_e2e_owned_stack_env="$(sed -n 's/^BROWSER_E2E_OWNED_STACK_ENV[[:space:]]*:=//p' "$makefile" | head -n 1)"
 if [[ -z "$browser_e2e_owned_stack_env" ]]; then
   fail "Makefile must define BROWSER_E2E_OWNED_STACK_ENV"
@@ -287,8 +318,8 @@ if ! printf '%s\n' "$check_service_block" | grep -Fq 'build-migrate'; then
 fi
 
 mapfile -t check_service_browser_targets < <(schedule_targets check-service-backed browser)
-if [[ "$(printf '%s\n' "${check_service_browser_targets[@]}")" != $'browser-e2e-webserver-backed\nbrowser-e2e' ]]; then
-  fail "check-service-backed schedule must own webserver-backed and isolated browser work, found: ${check_service_browser_targets[*]:-none}"
+if [[ "$(printf '%s\n' "${check_service_browser_targets[@]}")" != "browser-e2e-webserver-backed" ]]; then
+  fail "check-service-backed schedule must own only webserver-backed browser work, found: ${check_service_browser_targets[*]:-none}"
 fi
 
 "$node_bin" - "$schedule_manifest" <<'EOF'
@@ -396,11 +427,17 @@ if ! [[ -f "$check_schedule_manifest" ]]; then
   fail "missing tools/check_schedule_manifest.json"
 fi
 check_schedule_text="$(check_schedule_targets)"
-for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-local-product check-frontend-unit check-meta-validation; do
+for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-local-product check-frontend-unit check-meta-validation browser-e2e; do
   if ! printf '%s\n' "$check_schedule_text" | rg -q "^${scheduled_target}$"; then
     fail "check schedule must include $scheduled_target"
   fi
 done
+if [[ "$(check_schedule_field browser-e2e needs)" != "check-service-backed,check-go-test-duration-baseline-drift,check-local-product,check-frontend-unit,check-meta-validation" ]]; then
+  fail "check schedule must run browser-e2e after service-backed and heavy local check work"
+fi
+if [[ "$(check_schedule_field browser-e2e resource_claims)" != "cpu,service_stack" ]]; then
+  fail "check schedule browser-e2e must claim cpu and service_stack"
+fi
 
 if ! rg -q '^browser-e2e-webserver-backed:' "$makefile"; then
   fail "Makefile must define browser-e2e-webserver-backed"
@@ -572,6 +609,12 @@ if ! grep -Fq 'browser-shard-plan.mjs' "$webserver_batch_script"; then
 fi
 if ! grep -Fq 'PLAYWRIGHT_WORKERS=1' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must run each functional shard with one Playwright worker"
+fi
+if ! grep -Fq 'CARTULARY_PLAYWRIGHT_WORKER_COUNT="${#shard_names[@]}"' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must provision one worker-admin slot per parallel shard"
+fi
+if ! grep -Fq 'CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET="$shard_index"' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must offset each parallel shard to a distinct worker-admin slot"
 fi
 if ! grep -Fq 'merge-reports' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must merge functional shard reports before phase summaries"

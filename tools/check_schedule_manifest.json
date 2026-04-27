@@ -56,6 +56,19 @@
           "needs": ["check-build-prereqs"],
           "resource_claims": { "cpu": 1 },
           "make_jobs": "cpu"
+        },
+        {
+          "target": "browser-e2e",
+          "weight": 1000,
+          "needs": [
+            "check-service-backed",
+            "check-go-test-duration-baseline-drift",
+            "check-local-product",
+            "check-frontend-unit",
+            "check-meta-validation"
+          ],
+          "resource_claims": { "cpu": 1, "service_stack": 1 },
+          "make_jobs": "cpu"
         }
       ]
     }

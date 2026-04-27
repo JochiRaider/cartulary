@@ -97,7 +97,11 @@ if [[ -n "${FAKE_PLAYWRIGHT_INVOCATIONS:-}" ]]; then
     fi
     previous="$arg"
   done
-  printf 'project=%s files=%s\n' "$project" "${CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES//$'\n'/,}" >>"$FAKE_PLAYWRIGHT_INVOCATIONS"
+  printf 'project=%s worker_count=%s worker_offset=%s files=%s\n' \
+    "$project" \
+    "${CARTULARY_PLAYWRIGHT_WORKER_COUNT:-}" \
+    "${CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET:-}" \
+    "${CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES//$'\n'/,}" >>"$FAKE_PLAYWRIGHT_INVOCATIONS"
 fi
 
 node - "$output_file" "${FAKE_PLAYWRIGHT_MODE:-success}" "$@" <<'NODE'
@@ -221,6 +225,17 @@ const lines = fs.readFileSync(process.argv[2], "utf8").trim().split(/\n/u).filte
 const functional = lines.filter((line) => line.startsWith("project=functional "));
 if (functional.length < 2) {
   throw new Error(`expected at least two functional shard invocations, got ${functional.length}`);
+}
+const offsets = functional
+  .map((line) => line.match(/worker_offset=([^ ]*)/)?.[1] ?? "")
+  .sort();
+if (offsets.join(",") !== "0,1") {
+  throw new Error(`expected functional shard worker offsets 0,1, got ${offsets.join(",")}`);
+}
+for (const line of functional) {
+  if (!line.includes("worker_count=2 ")) {
+    throw new Error(`expected functional shard worker_count=2, got ${line}`);
+  }
 }
 if (!functional.some((line) => line.includes("phase4.workbook.spec.ts"))) {
   throw new Error("expected a functional shard containing phase4.workbook.spec.ts");

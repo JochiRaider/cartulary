@@ -540,72 +540,19 @@ write_fake_make "$check_browser_dir"
 check_browser_manifest="${check_browser_dir}/manifest.json"
 write_manifest "$check_browser_manifest" check-service-backed \
   'make_target|browser-e2e-webserver-backed|30|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed' \
-  'make_target|browser-e2e|20|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_isolated": 1|browser|isolated' \
   'make_target|backend-process|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend'
 check_browser_output="$(
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2
   FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS=0.3
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.05
-  FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.05
   run_scheduler "$check_browser_dir" "$check_browser_manifest" check-service-backed check-browser 2>&1
 )"
-assert_contains "$check_browser_output" "[STEP] check-service-backed 1/3 browser-e2e-webserver-backed mode=scheduler jobs=6" "check browser webserver child"
-assert_contains "$check_browser_output" "[STEP] check-service-backed 2/3 browser-e2e mode=scheduler jobs=6" "check browser isolated child"
-assert_contains "$check_browser_output" "[STEP] check-service-backed 3/3 backend-process mode=scheduler jobs=6" "check browser backend child"
+assert_contains "$check_browser_output" "[STEP] check-service-backed 1/2 browser-e2e-webserver-backed mode=scheduler jobs=6" "check browser webserver child"
+assert_contains "$check_browser_output" "[STEP] check-service-backed 2/2 backend-process mode=scheduler jobs=6" "check browser backend child"
 check_browser_events="$(cat "${check_browser_dir}/make.log")"
 assert_contains "$check_browser_events" "start browser-e2e-webserver-backed" "check browser webserver start"
 assert_contains "$check_browser_events" "end browser-e2e-webserver-backed" "check browser webserver end"
-assert_contains "$check_browser_events" "start browser-e2e" "check browser isolated start"
 assert_contains "$check_browser_events" "end backend-process" "check browser backend end"
-"$NODE_BIN" - "${check_browser_dir}/make.log" <<'EOF'
-const fs = require("node:fs");
-const [logFile] = process.argv.slice(2);
-const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
-const indexOf = (needle) => {
-  const index = lines.findIndex((line) => line.includes(needle));
-  if (index === -1) {
-    throw new Error(`missing ${needle}`);
-  }
-  return index;
-};
-const webEnd = indexOf("end browser-e2e-webserver-backed");
-const isolatedStart = indexOf("start browser-e2e ");
-if (!(isolatedStart < webEnd)) {
-  throw new Error("isolated browser batch did not overlap webserver-backed when browser_stack capacity allowed it");
-}
-EOF
-
-serialized_browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-serialized-browser.XXXXXX")"
-cleanup_paths+=("$serialized_browser_dir")
-write_fake_make "$serialized_browser_dir"
-serialized_browser_manifest="${serialized_browser_dir}/manifest.json"
-write_manifest "$serialized_browser_manifest" check-service-backed \
-  'make_target|browser-e2e-webserver-backed|30|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed' \
-  'make_target|browser-e2e|20|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_isolated": 1|browser|isolated'
-serialized_browser_output="$(
-  CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=1 \
-  FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.05 \
-  FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.05 \
-    run_scheduler "$serialized_browser_dir" "$serialized_browser_manifest" check-service-backed serialized-browser 2>&1
-)"
-assert_contains "$serialized_browser_output" "blocked_resources=browser_stack" "browser stack capacity blocks compatible browser lanes"
-"$NODE_BIN" - "${serialized_browser_dir}/make.log" <<'EOF'
-const fs = require("node:fs");
-const [logFile] = process.argv.slice(2);
-const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
-const indexOf = (needle) => {
-  const index = lines.findIndex((line) => line.includes(needle));
-  if (index === -1) {
-    throw new Error(`missing ${needle}`);
-  }
-  return index;
-};
-const webEnd = indexOf("end browser-e2e-webserver-backed");
-const isolatedStart = indexOf("start browser-e2e ");
-if (!(webEnd < isolatedStart)) {
-  throw new Error("isolated browser batch started before webserver-backed released browser_stack capacity");
-}
-EOF
 
 same_browser_lane_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-same-browser-lane.XXXXXX")"
 cleanup_paths+=("$same_browser_lane_dir")

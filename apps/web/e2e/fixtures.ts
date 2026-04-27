@@ -74,13 +74,15 @@ export const test = base.extend<{
   workerAdmin: [
     async ({ browserName }, use, workerInfo) => {
       void browserName;
+      const workerAdminIndex =
+        workerInfo.parallelIndex + workerAdminIndexOffset();
       const manifest = loadWorkerAdminManifest();
       const entry = manifest.worker_admins.find(
-        (candidate) => candidate.parallel_index === workerInfo.parallelIndex,
+        (candidate) => candidate.parallel_index === workerAdminIndex,
       );
       if (!entry) {
         throw new Error(
-          `missing worker admin manifest entry for parallelIndex=${workerInfo.parallelIndex}`,
+          `missing worker admin manifest entry for parallelIndex=${workerAdminIndex}`,
         );
       }
 
@@ -92,18 +94,18 @@ export const test = base.extend<{
         await revokeAllSessions(
           controlPlane.request,
           workerAdmin.user_id,
-          `playwright worker teardown worker=${workerInfo.parallelIndex}`,
+          `playwright worker teardown worker=${workerAdminIndex}`,
         );
         await verifySessionUnauthorized(
           workerAdmin.storageState,
           `${workerAdmin.user_id} (${workerAdmin.email}) worker admin cached session`,
         );
-        markWorkerAdminCleaned(workerInfo.parallelIndex);
+        markWorkerAdminCleaned(workerAdminIndex);
       } finally {
         await logoutAndVerify(
           controlPlane.request,
           controlPlane.storageState,
-          `bootstrap control-plane worker teardown worker=${workerInfo.parallelIndex}`,
+          `bootstrap control-plane worker teardown worker=${workerAdminIndex}`,
         );
         await controlPlane.request.dispose();
       }
@@ -222,4 +224,18 @@ export { expect };
 
 async function pageAuthStorageState(page: Page): Promise<StorageState> {
   return page.context().storageState();
+}
+
+function workerAdminIndexOffset() {
+  const value = process.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET;
+  if (value === undefined || value.trim() === "") {
+    return 0;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < 0 || String(parsed) !== value) {
+    throw new Error(
+      "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET must be a non-negative integer",
+    );
+  }
+  return parsed;
 }

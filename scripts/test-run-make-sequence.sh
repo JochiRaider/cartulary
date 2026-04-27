@@ -358,7 +358,7 @@ assert_not_contains "${check_harness_smoke_block}" "run-phase-smoke" "check-harn
 assert_contains "${makefile_content}" "TEST_SUMMARY_TARGETS := test-service-backed,browser-e2e,backend-unit,frontend-typecheck,frontend-unit,backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual" "test summary target list"
 assert_contains "${makefile_content}" "TEST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed" "test service-backed child list"
 assert_contains "${makefile_content}" "TEST_FAST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process" "test-fast service-backed child list"
-assert_contains "${makefile_content}" "CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed,browser-e2e" "check service-backed child list"
+assert_contains "${makefile_content}" "CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed" "check service-backed child list"
 assert_contains "${makefile_content}" "HARNESS_SMOKE_FAST_TARGETS :=" "harness smoke fast target list"
 assert_contains "${makefile_content}" "harness-smoke-run-make-sequence-fast" "harness smoke fast make sequence target"
 assert_contains "${makefile_content}" "harness-smoke-run-go-target-fast" "harness smoke fast go target"

@@ -4,9 +4,9 @@ SHELL := /bin/bash
 .PHONY: help doctor
 .PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install
 .PHONY: db-up db-reset services-up services-wait postgres-wait minio-wait minio-init dev
-.PHONY: generate generate-drift toolchain-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-ledgers phase-ledger-drift benchmark-claim-check task-surface-report task-surface-check
+.PHONY: codegen-toolchain generate generate-artifacts generate-drift toolchain-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-ledgers phase-ledger-drift benchmark-claim-check task-surface-report task-surface-check
 .PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target go-test-duration-baselines go-test-duration-baseline-drift browser-e2e-duration-baseline-drift backend-task-surface-check service-backed-unit-check test-service-images run-harness-smoke-fast run-harness-smoke-fast-all run-harness-smoke-extended run-harness-smoke-extended-all run-harness-smoke-full run-harness-smoke-full-all run-phase-smoke run-phase-smoke-all phase-test-name-check
-.PHONY: harness-smoke-toolchain-pins harness-smoke-bootstrap-node-runtime harness-smoke-build-input-discovery harness-smoke-check-migrations harness-smoke-run-make-sequence-fast harness-smoke-run-make-sequence harness-smoke-release-task-surface harness-smoke-benchmark-claim-check harness-smoke-task-surface-report harness-smoke-go-test-duration-baselines harness-smoke-browser-shard-plan harness-smoke-run-phase harness-smoke-run-go-target-fast harness-smoke-run-go-target harness-smoke-print-target-plan harness-smoke-service-backed-scheduler harness-smoke-check-scheduler harness-smoke-run-playwright-phase harness-smoke-run-playwright-manifest-phase harness-smoke-run-playwright-webserver-batch harness-smoke-run-vitest-phase harness-smoke-run-vitest-manifest-phase harness-smoke-web-e2e-lifecycle harness-smoke-dev-stack-lifecycle
+.PHONY: harness-smoke-toolchain-pins harness-smoke-bootstrap-node-runtime harness-smoke-build-input-discovery harness-smoke-check-migrations harness-smoke-generate-drift harness-smoke-run-make-sequence-fast harness-smoke-run-make-sequence harness-smoke-release-task-surface harness-smoke-benchmark-claim-check harness-smoke-task-surface-report harness-smoke-go-test-duration-baselines harness-smoke-browser-shard-plan harness-smoke-run-phase harness-smoke-run-go-target-fast harness-smoke-run-go-target harness-smoke-print-target-plan harness-smoke-service-backed-scheduler harness-smoke-check-scheduler harness-smoke-run-playwright-phase harness-smoke-run-playwright-manifest-phase harness-smoke-run-playwright-webserver-batch harness-smoke-run-vitest-phase harness-smoke-run-vitest-manifest-phase harness-smoke-web-e2e-lifecycle harness-smoke-dev-stack-lifecycle
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck format format-frontend
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-resettable browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
 .PHONY: test-local test-service-backed test-fast test-fast-service-backed test lint lint-go check check-preflight check-setup-blockers check-static-validation check-harness-smoke check-build-prereqs check-local-product check-go-test-duration-baseline-drift check-frontend-unit check-meta-validation check-service-backed ci release-check license-report sbom
@@ -80,10 +80,10 @@ TEST_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integr
 CHECK_SUMMARY_GROUPS := backend-service-backed=backend-integration,backend-integration-support,backend-store,backend-process;browser=browser-e2e-webserver-backed,browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
 TEST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed
 TEST_FAST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process
-CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed,browser-e2e
+CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed
 BROWSER_E2E_ISOLATED_CHILD_TARGETS := browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
 BROWSER_E2E_RESETTABLE_CHILD_TARGETS := browser-e2e-measurement,browser-e2e-visual
-HARNESS_SMOKE_FAST_TARGETS := harness-smoke-toolchain-pins,harness-smoke-bootstrap-node-runtime,harness-smoke-build-input-discovery,harness-smoke-check-migrations,harness-smoke-run-make-sequence-fast,harness-smoke-release-task-surface,harness-smoke-benchmark-claim-check,harness-smoke-task-surface-report,harness-smoke-go-test-duration-baselines,harness-smoke-browser-shard-plan,harness-smoke-run-phase,harness-smoke-run-go-target-fast,harness-smoke-print-target-plan,harness-smoke-service-backed-scheduler,harness-smoke-check-scheduler,harness-smoke-run-playwright-phase,harness-smoke-run-playwright-manifest-phase,harness-smoke-run-playwright-webserver-batch,harness-smoke-run-vitest-phase,harness-smoke-run-vitest-manifest-phase
+HARNESS_SMOKE_FAST_TARGETS := harness-smoke-toolchain-pins,harness-smoke-bootstrap-node-runtime,harness-smoke-build-input-discovery,harness-smoke-check-migrations,harness-smoke-generate-drift,harness-smoke-run-make-sequence-fast,harness-smoke-release-task-surface,harness-smoke-benchmark-claim-check,harness-smoke-task-surface-report,harness-smoke-go-test-duration-baselines,harness-smoke-browser-shard-plan,harness-smoke-run-phase,harness-smoke-run-go-target-fast,harness-smoke-print-target-plan,harness-smoke-service-backed-scheduler,harness-smoke-check-scheduler,harness-smoke-run-playwright-phase,harness-smoke-run-playwright-manifest-phase,harness-smoke-run-playwright-webserver-batch,harness-smoke-run-vitest-phase,harness-smoke-run-vitest-manifest-phase
 HARNESS_SMOKE_EXTENDED_TARGETS := harness-smoke-run-make-sequence,harness-smoke-run-go-target
 HARNESS_SMOKE_LIFECYCLE_TARGETS := harness-smoke-web-e2e-lifecycle,harness-smoke-dev-stack-lifecycle
 HARNESS_SMOKE_FULL_TARGETS := $(HARNESS_SMOKE_FAST_TARGETS),$(HARNESS_SMOKE_EXTENDED_TARGETS),$(HARNESS_SMOKE_LIFECYCLE_TARGETS)
@@ -426,13 +426,18 @@ db-reset:
 dev: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)env GO=$(GO) CONFIG_FILE=$(CONFIG_FILE) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) PNPM=$(PNPM) ./scripts/dev-stack.sh
 
-generate: $(SQLC_BIN)
+codegen-toolchain: $(SQLC_BIN)
+
+generate: codegen-toolchain
+	$(Q)$(MAKE) --no-print-directory generate-artifacts
+
+generate-artifacts:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "generate sqlc" -- $(SQLC_BIN) generate
 	$(RUN_PHASE) "generate contracts" -- $(GO_ENV) $(GO) run ./tools/contractgen
 
 # Codegen drift is distinct from migration drift.
-generate-drift:
+generate-drift: codegen-toolchain
 	$(RUN_PHASE) "generate-drift" -- ./scripts/check-generate-drift.sh
 
 toolchain-drift: $(NODE_BIN)
@@ -483,6 +488,7 @@ $(eval $(call harness_smoke_target,harness-smoke-toolchain-pins,scripts/test-che
 $(eval $(call harness_smoke_target,harness-smoke-bootstrap-node-runtime,scripts/test-bootstrap-node-runtime.sh))
 $(eval $(call harness_smoke_target,harness-smoke-build-input-discovery,scripts/test-build-input-discovery.sh))
 $(eval $(call harness_smoke_target,harness-smoke-check-migrations,scripts/test-check-migrations.sh))
+$(eval $(call harness_smoke_target,harness-smoke-generate-drift,scripts/test-generate-drift.sh))
 $(eval $(call harness_smoke_target,harness-smoke-run-make-sequence-fast,scripts/test-run-make-sequence-fast.sh))
 $(eval $(call harness_smoke_target,harness-smoke-run-make-sequence,scripts/test-run-make-sequence.sh))
 $(eval $(call harness_smoke_target,harness-smoke-release-task-surface,scripts/test-release-task-surface.sh))
@@ -700,6 +706,7 @@ check-preflight: check-setup-blockers
 
 check-setup-blockers: $(NODE_BIN)
 	$(Q)$(MAKE) --no-print-directory toolchain-drift
+	$(Q)$(MAKE) --no-print-directory codegen-toolchain
 	$(Q)if [ "$(CI)" = "1" ]; then \
 		$(MAKE) --no-print-directory frontend-install-ci; \
 	else \

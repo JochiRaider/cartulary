@@ -41,6 +41,16 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
+sqlc_bin="${SQLC_BIN:-$ROOT_DIR/tmp/toolbin/sqlc-v1.30.0}"
+if [[ "$sqlc_bin" != /* ]]; then
+  sqlc_bin="$ROOT_DIR/$sqlc_bin"
+fi
+if [[ ! -x "$sqlc_bin" ]]; then
+  echo "generate-drift requires an executable SQLC_BIN at $sqlc_bin" >&2
+  echo "run make codegen-toolchain before generate-drift or set SQLC_BIN to a ready sqlc binary" >&2
+  exit 1
+fi
+
 mkdir -p "$ROOT_DIR/tmp"
 scratch="$(mktemp -d "$ROOT_DIR/tmp/generate-drift.XXXXXX")"
 
@@ -70,8 +80,8 @@ for placeholder_dir in "${SCRATCH_PLACEHOLDER_DIRS[@]}"; do
   mkdir -p "$scratch/$placeholder_dir"
 done
 
-make -C "$scratch" --no-print-directory generate \
-  SQLC_BIN="${SQLC_BIN:-$ROOT_DIR/tmp/toolbin/sqlc-v1.30.0}" \
+make -C "$scratch" --no-print-directory generate-artifacts \
+  SQLC_BIN="$sqlc_bin" \
   GO="${GO:-go}" \
   GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}" \
   GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}" \
@@ -87,7 +97,7 @@ for generated_path in "${GENERATED_PATHS[@]}"; do
 done
 
 if [[ "$drift" -ne 0 ]]; then
-  echo "generated artifact drift detected after make generate" >&2
+  echo "generated artifact drift detected after make generate-artifacts" >&2
   echo "diff excerpt (first 200 lines):" >&2
   for generated_path in "${GENERATED_PATHS[@]}"; do
     diff -ruN \

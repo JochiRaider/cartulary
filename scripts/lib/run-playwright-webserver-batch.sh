@@ -167,6 +167,7 @@ JSON
 
 run_functional_shard() {
   local shard="$1"
+  local shard_index="$2"
   local grep
   local files
   local shard_report
@@ -191,6 +192,8 @@ run_functional_shard() {
   set +e
   CARTULARY_PLAYWRIGHT_FUNCTIONAL_GREP="$grep" \
   CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES="$files" \
+  CARTULARY_PLAYWRIGHT_WORKER_COUNT="${#shard_names[@]}" \
+  CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET="$shard_index" \
   PLAYWRIGHT_WORKERS=1 \
   PLAYWRIGHT_JSON_OUTPUT_FILE="$shard_report" \
     "${run_command[@]}" >"$shard_stdout" 2>"$shard_stderr"
@@ -203,8 +206,8 @@ run_functional_shard() {
 
 functional_status=0
 active_shards=0
-for shard in "${shard_names[@]}"; do
-  run_functional_shard "$shard" &
+for shard_index in "${!shard_names[@]}"; do
+  run_functional_shard "${shard_names[$shard_index]}" "$shard_index" &
   active_shards=$((active_shards + 1))
   if (( active_shards >= playwright_parallelism )); then
     if ! wait -n; then

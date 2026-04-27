@@ -14,11 +14,29 @@ export default async function globalSetup(config: FullConfig) {
     clearWorkerAdminSuiteState();
     clearSuiteAdminTotpSecret();
   }
-  const workerCount = typeof config.workers === "number" ? config.workers : 1;
+  const configuredWorkerCount = positiveIntegerEnv(
+    "CARTULARY_PLAYWRIGHT_WORKER_COUNT",
+  );
+  const workerCount = Math.max(
+    typeof config.workers === "number" ? config.workers : 1,
+    configuredWorkerCount ?? 1,
+  );
   await withSharedGlobalSetupLock(async () => {
     await prepareSuiteAdminState();
     await prepareWorkerAdminSuite(workerCount);
   });
+}
+
+function positiveIntegerEnv(name: string) {
+  const value = process.env[name];
+  if (value === undefined || value.trim() === "") {
+    return null;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < 1 || String(parsed) !== value) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+  return parsed;
 }
 
 async function withSharedGlobalSetupLock<T>(callback: () => Promise<T>) {
