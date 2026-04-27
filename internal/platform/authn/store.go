@@ -360,19 +360,42 @@ RETURNING id, user_id, authenticated_at, last_qualifying_activity_at, idle_expir
 	return created, revoked, nil
 }
 
-func (s *Store) SlideSession(ctx context.Context, sessionID uuid.UUID, timing SessionTiming) error {
-	_, err := s.pool.Exec(ctx, `
-UPDATE user_sessions
-   SET last_qualifying_activity_at = $2,
-       idle_expires_at = $3,
-       session_expires_at = $4,
-       updated_at = $2
- WHERE id = $1
-`, sessionID, timing.LastQualifyingActivityAt, timing.IdleExpiresAt, timing.SessionExpiresAt)
-	if err != nil {
-		return fmt.Errorf("slide session expiry: %w", err)
+func (s *Store) SlideSession(ctx context.Context, sessionID uuid.UUID, timing SessionTiming) (SessionTiming, error) {
+	var persisted SessionTiming
+	if err := s.pool.QueryRow(ctx, `
+WITH next_timing AS (
+    SELECT id,
+           authenticated_at,
+           absolute_expires_at,
+           GREATEST(last_qualifying_activity_at, $2::timestamptz) AS last_qualifying_activity_at
+      FROM user_sessions
+     WHERE id = $1
+)
+UPDATE user_sessions AS sessions
+   SET last_qualifying_activity_at = next_timing.last_qualifying_activity_at,
+       idle_expires_at = next_timing.last_qualifying_activity_at + ($3::bigint * interval '1 microsecond'),
+       session_expires_at = LEAST(next_timing.last_qualifying_activity_at + ($3::bigint * interval '1 microsecond'), next_timing.absolute_expires_at),
+       updated_at = next_timing.last_qualifying_activity_at
+  FROM next_timing
+ WHERE sessions.id = next_timing.id
+RETURNING sessions.authenticated_at,
+          sessions.last_qualifying_activity_at,
+          sessions.idle_expires_at,
+          sessions.absolute_expires_at,
+          sessions.session_expires_at
+`, sessionID, timing.LastQualifyingActivityAt, int64(SessionIdleTTL/time.Microsecond)).Scan(
+		&persisted.AuthenticatedAt,
+		&persisted.LastQualifyingActivityAt,
+		&persisted.IdleExpiresAt,
+		&persisted.AbsoluteExpiresAt,
+		&persisted.SessionExpiresAt,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return SessionTiming{}, ErrNotFound
+		}
+		return SessionTiming{}, fmt.Errorf("slide session expiry: %w", err)
 	}
-	return nil
+	return persisted, nil
 }
 
 func (s *Store) RevokeSession(ctx context.Context, sessionID uuid.UUID, reasonCode string, now time.Time) error {

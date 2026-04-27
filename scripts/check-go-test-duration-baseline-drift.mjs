@@ -9,6 +9,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultBaselineFile = path.join(repoRoot, "tools", "go_test_duration_baselines.json");
 const baselineFileEnv = "CARTULARY_GO_TEST_DURATION_BASELINE_FILE";
+const schemaID = "cartulary.go_test_duration_baselines.v4";
 const underRatio = 1.75;
 const underDeltaMs = 5000;
 const overRatio = 3;
@@ -31,10 +32,12 @@ function readBaseline(file) {
     throw new Error(`baseline file does not exist: ${path.relative(repoRoot, file)}`);
   }
   const baseline = JSON.parse(readFileSync(file, "utf8"));
-  if (baseline.schema_id !== "cartulary.go_test_duration_baselines.v3") {
-    throw new Error(`${path.relative(repoRoot, file)} must declare schema_id cartulary.go_test_duration_baselines.v3`);
+  if (baseline.schema_id !== schemaID) {
+    throw new Error(`${path.relative(repoRoot, file)} must declare schema_id ${schemaID}`);
   }
   return {
+    commandOverheadsByTarget: new Map(Object.entries(baseline.command_overheads_by_target ?? {})),
+    packageOverheads: new Map(Object.entries(baseline.package_overheads ?? {})),
     rawAggregates: new Map(Object.entries(baseline.raw_aggregates ?? {})),
     tests: new Map(Object.entries(baseline.tests ?? {})),
   };
@@ -78,6 +81,23 @@ function suggestedRefresh(resultsDir) {
   return `make go-test-duration-baselines RESULTS_DIR=${resultsDir} PRUNE_OBSERVED_PACKAGES=1`;
 }
 
+function validBaselineValue(value) {
+  return Number.isInteger(value) && value > 0;
+}
+
+function checkShardDrift(errors, artifact, planned) {
+  if (artifact.durationMs > planned * underRatio && artifact.durationMs - planned > underDeltaMs) {
+    errors.push(
+      `underplanned shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)}`,
+    );
+  }
+  if (planned > artifact.durationMs * overRatio && planned - artifact.durationMs > overDeltaMs) {
+    errors.push(
+      `overplanned shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)}`,
+    );
+  }
+}
+
 function main(argv) {
   const options = parseArgs(argv);
   const baselineFile = resolveBaselineFile(options.baselineFile);
@@ -95,22 +115,13 @@ function main(argv) {
   for (const artifact of artifacts) {
     if (artifact.rawAggregateKey) {
       const planned = baseline.rawAggregates.get(artifact.rawAggregateKey);
-      if (!Number.isInteger(planned) || planned <= 0) {
+      if (!validBaselineValue(planned)) {
         errors.push(
           `missing raw aggregate baseline key=${artifact.rawAggregateKey} shard=${artifact.shardName}`,
         );
         continue;
       }
-      if (artifact.durationMs > planned * underRatio && artifact.durationMs - planned > underDeltaMs) {
-        errors.push(
-          `underplanned shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)}`,
-        );
-      }
-      if (planned > artifact.durationMs * overRatio && planned - artifact.durationMs > overDeltaMs) {
-        errors.push(
-          `overplanned shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)}`,
-        );
-      }
+      checkShardDrift(errors, artifact, planned);
       continue;
     }
 
@@ -118,28 +129,33 @@ function main(argv) {
     const missing = [];
     for (const observedTest of artifact.observedTests) {
       const testWeight = baseline.tests.get(observedTest.key);
-      if (!Number.isInteger(testWeight) || testWeight <= 0) {
-        missing.push(observedTest.key);
+      if (!validBaselineValue(testWeight)) {
+        missing.push(`test baseline key=${observedTest.key}`);
         continue;
       }
       planned += testWeight;
     }
+    for (const observedPackage of artifact.observedPackageOverheads) {
+      const packageOverhead = baseline.packageOverheads.get(observedPackage.key);
+      if (!validBaselineValue(packageOverhead)) {
+        missing.push(`package overhead baseline key=${observedPackage.key}`);
+        continue;
+      }
+      planned += packageOverhead;
+    }
+    const commandOverhead = baseline.commandOverheadsByTarget.get(artifact.commandOverhead.target);
+    if (!validBaselineValue(commandOverhead)) {
+      missing.push(`command overhead baseline target=${artifact.commandOverhead.target}`);
+    } else {
+      planned += commandOverhead;
+    }
     for (const key of missing) {
-      errors.push(`missing test baseline key=${key} shard=${artifact.shardName}`);
+      errors.push(`missing ${key} shard=${artifact.shardName}`);
     }
     if (planned <= 0 || missing.length > 0) {
       continue;
     }
-    if (artifact.durationMs > planned * underRatio && artifact.durationMs - planned > underDeltaMs) {
-      errors.push(
-        `underplanned shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)}`,
-      );
-    }
-    if (planned > artifact.durationMs * overRatio && planned - artifact.durationMs > overDeltaMs) {
-      errors.push(
-        `overplanned shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)}`,
-      );
-    }
+    checkShardDrift(errors, artifact, planned);
   }
 
   if (errors.length > 0) {

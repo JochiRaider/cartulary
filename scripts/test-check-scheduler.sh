@@ -300,7 +300,8 @@ cat >"$failure_manifest" <<'JSON'
       "work_units": [
         { "target": "alpha", "weight": 30, "needs": [], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" },
         { "target": "beta", "weight": 20, "needs": [], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" },
-        { "target": "gamma", "weight": 10, "needs": [], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" }
+        { "target": "gamma", "weight": 10, "needs": [], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" },
+        { "target": "delta", "weight": 5, "needs": ["beta"], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" }
       ]
     }
   ]
@@ -318,6 +319,7 @@ set -e
 assert_equals "$failure_status" "7" "failure exit status"
 assert_contains "$failure_output" "fake failure for beta" "failure child output"
 assert_contains "$failure_output" "[FAIL] check" "failure summary"
+assert_contains "$failure_output" "[CHECK-SCHEDULER] check summary status=fail completed=2/4 failed=beta skipped=1" "failure scheduler skipped summary"
 failure_events="$(cat "${failure_dir}/events.log")"
 assert_contains "$failure_events" "start alpha" "failure alpha started"
 assert_contains "$failure_events" "start beta" "failure beta started"
@@ -325,6 +327,24 @@ assert_contains "$failure_events" "end alpha" "failure alpha drained"
 failure_summary="${failure_dir}/results/failure/run-summary.json"
 assert_equals "$(json_field "$failure_summary" "status")" "fail" "failure summary status"
 assert_equals "$(json_field "$failure_summary" "aborted_after")" "beta" "failure aborted after"
+failure_scheduler_summary="${failure_dir}/results/failure/check/scheduler-summary.json"
+failure_scheduler_events="${failure_dir}/results/failure/check/scheduler-events.jsonl"
+"$NODE_BIN" - "$failure_scheduler_summary" "$failure_scheduler_events" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile, eventsFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+const skipped = new Map(summary.skipped_work_units.map((unit) => [unit.id, unit]));
+if (summary.failed_work_unit !== "beta") {
+  throw new Error(`expected beta as failed work unit, got ${summary.failed_work_unit}`);
+}
+if (skipped.get("delta")?.reason !== "dependency_failure") {
+  throw new Error("delta must be marked skipped by dependency failure");
+}
+const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).map((line) => JSON.parse(line));
+if (!events.some((event) => event.event === "skip" && event.work_unit === "delta" && event.skip_reason === "dependency_failure")) {
+  throw new Error("scheduler events must record dependency-failure skips");
+}
+EOF
 
 invalid_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-invalid.XXXXXX")"
 cleanup_paths+=("$invalid_dir")

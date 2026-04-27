@@ -36,7 +36,7 @@ type authStore interface {
 	ListIncidentMembershipSummaries(context.Context, uuid.UUID) ([]authn.IncidentMembershipSummary, error)
 	GetSessionByFingerprint(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error)
 	CreateSessionWithConcurrency(context.Context, authn.UserRecord, []byte, authn.SessionTiming, string) (authn.SessionRecord, *authn.SessionRecord, error)
-	SlideSession(context.Context, uuid.UUID, authn.SessionTiming) error
+	SlideSession(context.Context, uuid.UUID, authn.SessionTiming) (authn.SessionTiming, error)
 	RevokeSession(context.Context, uuid.UUID, string, time.Time) error
 	IssueBootstrapToken(context.Context, uuid.UUID, []byte, time.Time) (authn.BootstrapTokenRecord, error)
 	GetBootstrapTokenByFingerprint(context.Context, []byte) (authn.BootstrapTokenRecord, authn.UserRecord, error)
@@ -1047,14 +1047,15 @@ func (s *Service) handleTouch(w http.ResponseWriter, r *http.Request) {
 		AbsoluteExpiresAt:        principal.Session.AbsoluteExpiresAt,
 		SessionExpiresAt:         principal.Session.SessionExpiresAt,
 	}.Slide(s.now())
-	if err := s.store.SlideSession(r.Context(), principal.Session.ID, sliding); err != nil {
+	persisted, err := s.store.SlideSession(r.Context(), principal.Session.ID, sliding)
+	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 
-	principal.Session.LastQualifyingActivityAt = sliding.LastQualifyingActivityAt
-	principal.Session.IdleExpiresAt = sliding.IdleExpiresAt
-	principal.Session.SessionExpiresAt = sliding.SessionExpiresAt
+	principal.Session.LastQualifyingActivityAt = persisted.LastQualifyingActivityAt
+	principal.Session.IdleExpiresAt = persisted.IdleExpiresAt
+	principal.Session.SessionExpiresAt = persisted.SessionExpiresAt
 	resource, err := s.buildSessionResource(r.Context(), principal.User, principal.Session)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -1354,12 +1355,13 @@ func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *SessionPr
 		AbsoluteExpiresAt:        principal.Session.AbsoluteExpiresAt,
 		SessionExpiresAt:         principal.Session.SessionExpiresAt,
 	}.Slide(s.now())
-	if err := s.store.SlideSession(ctx, principal.Session.ID, sliding); err != nil {
+	persisted, err := s.store.SlideSession(ctx, principal.Session.ID, sliding)
+	if err != nil {
 		return err
 	}
-	principal.Session.LastQualifyingActivityAt = sliding.LastQualifyingActivityAt
-	principal.Session.IdleExpiresAt = sliding.IdleExpiresAt
-	principal.Session.SessionExpiresAt = sliding.SessionExpiresAt
+	principal.Session.LastQualifyingActivityAt = persisted.LastQualifyingActivityAt
+	principal.Session.IdleExpiresAt = persisted.IdleExpiresAt
+	principal.Session.SessionExpiresAt = persisted.SessionExpiresAt
 	return nil
 }
 

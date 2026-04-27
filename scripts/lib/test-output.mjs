@@ -15,6 +15,13 @@ import { fileURLToPath } from "node:url";
 import { collectEntries, loadManifest } from "./phase-manifest.mjs";
 import { collectTargetPlanRows, findTargetDescriptor } from "./target-plan.mjs";
 import {
+  combineFixtureSummaries,
+  emptyFixtureSummary,
+  fixtureSummaryLine,
+  normalizeFixtureSummary,
+  summarizeFixtureActivities,
+} from "./fixture-reporting.mjs";
+import {
   defaultTaskSurfaceManifestPath,
   loadTaskSurfaceManifest,
   projectionChildren,
@@ -912,190 +919,6 @@ function loadServiceTimingSpans(target) {
   return spans;
 }
 
-function loadServiceFixtureActivities(target) {
-  const servicesRoot = path.join(resultsRoot, runId, "_shared", "test-services");
-  if (!existsSync(servicesRoot)) {
-    return [];
-  }
-  const fixtureEventTypes = new Set([
-    "postgres-db-created",
-    "postgres-db-dropped",
-    "postgres-db-retained",
-    "postgres-db-migrated",
-    "postgres-db-reset",
-    "postgres-transaction",
-    "s3-bucket-created",
-    "s3-bucket-cleaned",
-    "s3-prefix-cleaned",
-  ]);
-  const activities = [];
-  const stack = [servicesRoot];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-        continue;
-      }
-      if (!entry.isFile() || !entry.name.endsWith(".json")) {
-        continue;
-      }
-      let event;
-      try {
-        event = JSON.parse(readFileSync(next, "utf8"));
-      } catch {
-        continue;
-      }
-      if (!fixtureEventTypes.has(event.type)) {
-        continue;
-      }
-      const details = event.details ?? {};
-      if (details.target !== target) {
-        continue;
-      }
-      activities.push({
-        service: event.type.startsWith("postgres-") ? "postgres" : "minio",
-        operation: fixtureOperationForEvent(event.type),
-        name: event.name ?? "",
-        strategy: details.strategy ?? details.preparation_strategy ?? "",
-        fixture_policy: details.fixture_policy ?? "",
-        reuse_scope: details.reuse_scope ?? "per-test",
-        caller_package: details.caller_package ?? "",
-        caller_file: details.caller_file ?? "",
-        test_name: details.test_name ?? "",
-        duration_ms: clampDurationMs(details.duration_ms ?? 0),
-        artifact: relToRepo(path.dirname(path.dirname(next))),
-      });
-    }
-  }
-  return activities;
-}
-
-function fixtureOperationForEvent(type) {
-  switch (type) {
-    case "postgres-db-created":
-      return "database-create";
-    case "postgres-db-dropped":
-      return "database-drop";
-    case "postgres-db-retained":
-      return "database-retain";
-    case "postgres-db-migrated":
-      return "database-migrate";
-    case "postgres-db-reset":
-      return "database-reset";
-    case "postgres-transaction":
-      return "transaction";
-    case "s3-bucket-created":
-      return "bucket-create";
-    case "s3-bucket-cleaned":
-      return "bucket-clean";
-    case "s3-prefix-cleaned":
-      return "prefix-clean";
-    default:
-      return type;
-  }
-}
-
-function summarizeFixtureActivities(target) {
-  const activities = loadServiceFixtureActivities(target);
-  const byPackage = new Map();
-  const byTest = new Map();
-  const byStrategy = new Map();
-  let totalDurationMs = 0;
-
-  for (const activity of activities) {
-    totalDurationMs += activity.duration_ms;
-    addFixtureAggregate(byPackage, [
-      activity.service,
-      activity.operation,
-      activity.reuse_scope,
-      activity.fixture_policy,
-      activity.caller_package,
-    ], activity, {
-      service: activity.service,
-      operation: activity.operation,
-      reuse_scope: activity.reuse_scope,
-      fixture_policy: activity.fixture_policy,
-      caller_package: activity.caller_package,
-    });
-    addFixtureAggregate(byTest, [
-      activity.service,
-      activity.operation,
-      activity.reuse_scope,
-      activity.fixture_policy,
-      activity.test_name,
-    ], activity, {
-      service: activity.service,
-      operation: activity.operation,
-      reuse_scope: activity.reuse_scope,
-      fixture_policy: activity.fixture_policy,
-      test_name: activity.test_name,
-    });
-    addFixtureAggregate(byStrategy, [
-      activity.service,
-      activity.operation,
-      activity.reuse_scope,
-      activity.strategy,
-      activity.fixture_policy,
-    ], activity, {
-      service: activity.service,
-      operation: activity.operation,
-      reuse_scope: activity.reuse_scope,
-      strategy: activity.strategy,
-      fixture_policy: activity.fixture_policy,
-    });
-  }
-
-  const slowest = [...activities]
-    .sort(
-      (left, right) =>
-        right.duration_ms - left.duration_ms ||
-        fixtureSortKey(left).localeCompare(fixtureSortKey(right)),
-    )
-    .slice(0, 10);
-  return {
-    target,
-    total_count: activities.length,
-    total_duration_ms: totalDurationMs,
-    by_package: sortedFixtureAggregates(byPackage),
-    by_test: sortedFixtureAggregates(byTest),
-    by_strategy: sortedFixtureAggregates(byStrategy),
-    slowest,
-  };
-}
-
-function addFixtureAggregate(map, keyParts, activity, base) {
-  const key = keyParts.join("\u001f");
-  if (!map.has(key)) {
-    map.set(key, { ...base, count: 0, total_duration_ms: 0 });
-  }
-  const aggregate = map.get(key);
-  aggregate.count += 1;
-  aggregate.total_duration_ms += activity.duration_ms;
-}
-
-function sortedFixtureAggregates(map) {
-  return [...map.values()].sort(
-    (left, right) =>
-      right.total_duration_ms - left.total_duration_ms ||
-      right.count - left.count ||
-      fixtureSortKey(left).localeCompare(fixtureSortKey(right)),
-  );
-}
-
-function fixtureSortKey(value) {
-  return [
-    value.service ?? "",
-    value.operation ?? "",
-    value.strategy ?? "",
-    value.fixture_policy ?? "",
-    value.reuse_scope ?? "",
-    value.caller_package ?? "",
-    value.test_name ?? "",
-  ].join("\u001f");
-}
-
 function phaseSummaryTimingSpan(summary) {
   return {
     source: "phase",
@@ -1694,33 +1517,6 @@ function addCounts(target, source) {
   }
 }
 
-function emptyFixtureSummary(target) {
-  return {
-    target,
-    total_count: 0,
-    total_duration_ms: 0,
-    by_package: [],
-    by_test: [],
-    by_strategy: [],
-    slowest: [],
-  };
-}
-
-function normalizeFixtureSummary(target, fixture) {
-  if (!fixture) {
-    return emptyFixtureSummary(target);
-  }
-  return {
-    target: fixture.target ?? target,
-    total_count: clampDurationMs(fixture.total_count ?? 0),
-    total_duration_ms: clampDurationMs(fixture.total_duration_ms ?? 0),
-    by_package: fixture.by_package ?? [],
-    by_test: fixture.by_test ?? [],
-    by_strategy: fixture.by_strategy ?? [],
-    slowest: fixture.slowest ?? [],
-  };
-}
-
 function sectionFromFlatSummary(summary, fallbackTarget) {
   const durations = readSummaryDurationFields(summary);
   const counts = normalizeCounts(summary?.counts ?? {});
@@ -1804,59 +1600,6 @@ function loadChildTargetSummaries(childTargetNames) {
   return { childTargets, missingChildTargetSummaries };
 }
 
-function combineFixtureSummaries(target, ownFixture, childTargets) {
-  const byPackage = new Map();
-  const byTest = new Map();
-  const byStrategy = new Map();
-  const slowest = [];
-  const combined = {
-    target,
-    total_count: 0,
-    total_duration_ms: 0,
-    by_package: [],
-    by_test: [],
-    by_strategy: [],
-    slowest,
-  };
-
-  for (const fixture of [ownFixture, ...childTargets.map((child) => child.fixture)]) {
-    if (!fixture) {
-      continue;
-    }
-    combined.total_count += fixture.total_count ?? 0;
-    combined.total_duration_ms += fixture.total_duration_ms ?? 0;
-    mergeFixtureAggregateList(byPackage, fixture.by_package ?? []);
-    mergeFixtureAggregateList(byTest, fixture.by_test ?? []);
-    mergeFixtureAggregateList(byStrategy, fixture.by_strategy ?? []);
-    slowest.push(...(fixture.slowest ?? []));
-  }
-
-  combined.by_package = sortedFixtureAggregates(byPackage);
-  combined.by_test = sortedFixtureAggregates(byTest);
-  combined.by_strategy = sortedFixtureAggregates(byStrategy);
-  combined.slowest = slowest
-    .sort(
-      (left, right) =>
-        (right.duration_ms ?? right.total_duration_ms ?? 0) -
-          (left.duration_ms ?? left.total_duration_ms ?? 0) ||
-        fixtureSortKey(left).localeCompare(fixtureSortKey(right)),
-    )
-    .slice(0, 10);
-  return combined;
-}
-
-function mergeFixtureAggregateList(map, values) {
-  for (const value of values) {
-    const key = fixtureSortKey(value);
-    if (!map.has(key)) {
-      map.set(key, { ...value, count: 0, total_duration_ms: 0 });
-    }
-    const aggregate = map.get(key);
-    aggregate.count += value.count ?? 0;
-    aggregate.total_duration_ms += value.total_duration_ms ?? 0;
-  }
-}
-
 function combineSummarySections(target, sections, status = "pass") {
   const aggregate = createDurationAggregate();
   const accountingModes = createAccountingModes();
@@ -1921,6 +1664,21 @@ function writeTargetLine(stream, label, targetSummary) {
   stream.write(
     `${label} ${target} kind=leaf phases=${totals.counts.phases} tests=${totals.counts.tests} failed=${totals.counts.failed} authoritative=${totals.counts.authoritative} support=${totals.counts.support} unmapped=${totals.counts.unmapped} packages=${totals.counts.packages} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} fixture_count=${totals.fixture.total_count} fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
   );
+}
+
+function fixtureLineOptions() {
+  return {
+    thresholdMs:
+      process.env.FIXTURE_THRESHOLD_MS ?? process.env.CARTULARY_FIXTURE_THRESHOLD_MS,
+    top: process.env.FIXTURE_TOP ?? process.env.CARTULARY_FIXTURE_TOP,
+  };
+}
+
+function writeFixtureLine(stream, fixture) {
+  const line = fixtureSummaryLine(fixture, fixtureLineOptions());
+  if (line) {
+    stream.write(`${line}\n`);
+  }
 }
 
 function writeChildTargetLines(stream, parentTarget, childTargets, missingChildTargetSummaries) {
@@ -2005,7 +1763,7 @@ function handleTargetSummary(args) {
   summary.startTime = accountableWindow.startTime;
   summary.endTime = accountableWindow.endTime;
   summary.slowestLifecycleBucket = timing.slowest_lifecycle_bucket;
-  const ownFixture = summarizeFixtureActivities(target);
+  const ownFixture = summarizeFixtureActivities(target, { resultsRoot, runId, repoRoot });
   const childFixture = combineFixtureSummaries(target, null, childTargets);
   const totalFixture = combineFixtureSummaries(target, ownFixture, childTargets);
   summary.teardownDurationMs = clampDurationMs(
@@ -2082,12 +1840,14 @@ function handleTargetSummary(args) {
 
   if (status === "PASS") {
     writeTargetLine(process.stdout, "[PASS]", targetSummary);
+    writeFixtureLine(process.stdout, targetSummary.totals.fixture);
     writeChildTargetLines(process.stdout, target, childTargets, missingChildTargetSummaries);
     printInventory(summary);
     return 0;
   }
 
   writeTargetLine(process.stderr, "[FAIL]", targetSummary);
+  writeFixtureLine(process.stderr, targetSummary.totals.fixture);
   writeChildTargetLines(process.stderr, target, childTargets, missingChildTargetSummaries);
   return 0;
 }
@@ -2346,6 +2106,13 @@ function handleRunSummary(args) {
     sharedExecutionGroups.some((group) => group.status !== "pass");
   const slowestTarget = findSlowestTarget(targetSummaries);
   const slowestLifecycleBucket = findSlowestLifecycleBucket(targetSummaries);
+  const runFixture = combineFixtureSummaries(
+    label,
+    null,
+    targetSummaries.map((summary) => ({
+      fixture: targetSummaryAccountingView(summary, summary.target).fixture,
+    })),
+  );
 
   const runSummary = {
     schema_id: runSummarySchemaID,
@@ -2366,6 +2133,7 @@ function handleRunSummary(args) {
     timing_failures: summarized.timingFailures,
     teardown_status: teardownStatus(aggregate.teardown_duration_ms, summarized.teardownFailures),
     teardown_failures: summarized.teardownFailures,
+    fixture: runFixture,
     artifacts: {
       dir: relToRepo(path.join(resultsRoot, runId)),
     },
@@ -2381,6 +2149,7 @@ function handleRunSummary(args) {
     process.stdout.write(
       `[PASS] ${label} completed_targets=${completedTargets}/${totalTargets} phases=${aggregate.phases} tests=${aggregate.tests} authoritative=${aggregate.authoritative} support=${aggregate.support} unmapped=${aggregate.unmapped} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
     );
+    writeFixtureLine(process.stdout, runFixture);
     writeSummaryGroupLines(process.stdout, label, renderedSummaryGroups);
     writeSharedExecutionGroupLines(process.stdout, label, sharedExecutionGroups);
     return 0;
@@ -2389,6 +2158,7 @@ function handleRunSummary(args) {
   process.stderr.write(
     `[FAIL] ${label} completed_targets=${completedTargets}/${totalTargets} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
   );
+  writeFixtureLine(process.stderr, runFixture);
   writeSummaryGroupLines(process.stderr, label, renderedSummaryGroups);
   writeSharedExecutionGroupLines(process.stderr, label, sharedExecutionGroups);
   return 1;

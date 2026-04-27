@@ -71,7 +71,7 @@ Profiles: base
 Verified by: AC-123, AC-131, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
 
 **REQ-04-011**
-Qualifying activity MAY slide `idle_expires_at`, but MUST NOT extend the session beyond `absolute_expires_at`.
+Qualifying activity MAY slide `idle_expires_at`, but MUST NOT extend the session beyond `absolute_expires_at`. A qualifying-activity update MUST NOT move `last_qualifying_activity_at`, `idle_expires_at`, or `session_expires_at` backward.
 Profiles: base
 Verified by: AC-123, AC-131, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
 

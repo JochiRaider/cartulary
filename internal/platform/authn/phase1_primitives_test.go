@@ -68,4 +68,15 @@ func TestSupportPhase1_SessionTiming(t *testing.T) {
 	if !sliding.SessionExpiresAt.Equal(timing.AbsoluteExpiresAt) {
 		t.Fatalf("session_expires_at must clamp to absolute expiry: got %s want %s", sliding.SessionExpiresAt, timing.AbsoluteExpiresAt)
 	}
+
+	regressed := sliding.Slide(sliding.LastQualifyingActivityAt.Add(-time.Minute))
+	if !regressed.LastQualifyingActivityAt.Equal(sliding.LastQualifyingActivityAt) {
+		t.Fatalf("slide must not regress last_qualifying_activity_at: got %s want %s", regressed.LastQualifyingActivityAt, sliding.LastQualifyingActivityAt)
+	}
+	if !regressed.IdleExpiresAt.Equal(sliding.IdleExpiresAt) {
+		t.Fatalf("slide must not regress idle_expires_at: got %s want %s", regressed.IdleExpiresAt, sliding.IdleExpiresAt)
+	}
+	if !regressed.SessionExpiresAt.Equal(sliding.SessionExpiresAt) {
+		t.Fatalf("slide must not regress session_expires_at: got %s want %s", regressed.SessionExpiresAt, sliding.SessionExpiresAt)
+	}
 }

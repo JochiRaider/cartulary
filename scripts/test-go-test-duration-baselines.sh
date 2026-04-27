@@ -21,38 +21,57 @@ assert_contains() {
   fi
 }
 
-tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/go-test-duration-baselines.XXXXXX")"
-trap 'rm -rf "$tmp_dir"' EXIT
+write_empty_baseline() {
+  local file="$1"
 
-results_dir="$tmp_dir/results"
-shared_dir="$results_dir/_shared"
-mkdir -p "$shared_dir/backend-integration-auth-shard-01" "$shared_dir/backend-integration-testutil-shard-01"
-
-cat >"$tmp_dir/baseline.json" <<'JSON'
+  cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.go_test_duration_baselines.v3",
+  "schema_id": "cartulary.go_test_duration_baselines.v4",
   "default_shard_target_ms": 30000,
   "shard_target_ms_by_target": {
     "backend-integration": 18000,
     "backend-integration-support": 18000,
     "backend-store": 30000
   },
-  "default_integration_weight_ms": 10000,
+  "default_item_weight_ms": 10000,
+  "command_overheads_by_target": {},
+  "package_overheads": {},
   "raw_aggregates": {},
   "tests": {}
 }
 JSON
+}
+
+tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/go-test-duration-baselines.XXXXXX")"
+trap 'rm -rf "$tmp_dir"' EXIT
+
+results_dir="$tmp_dir/results"
+shared_dir="$results_dir/_shared"
+mkdir -p \
+  "$shared_dir/backend-integration-auth-shard-01" \
+  "$shared_dir/backend-integration-testutil-shard-01" \
+  "$shared_dir/backend-store-shard-01"
+
+write_empty_baseline "$tmp_dir/baseline.json"
 
 cat >"$shared_dir/backend-integration-auth-shard-01/runner.jsonl" <<'JSONL'
 {"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestPhase1_LoginSessionLifecycle_I_1_01","Elapsed":1}
 {"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestPhase1_UserAdminAudit_I_1_03","Elapsed":1}
+{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Elapsed":30}
 JSONL
-printf '4000\n' >"$shared_dir/backend-integration-auth-shard-01/duration_ms.txt"
+printf '50000\n' >"$shared_dir/backend-integration-auth-shard-01/duration_ms.txt"
 printf '0\n' >"$shared_dir/backend-integration-auth-shard-01/exit_status.txt"
 
 : >"$shared_dir/backend-integration-testutil-shard-01/runner.jsonl"
 printf '6000\n' >"$shared_dir/backend-integration-testutil-shard-01/duration_ms.txt"
 printf '0\n' >"$shared_dir/backend-integration-testutil-shard-01/exit_status.txt"
+
+cat >"$shared_dir/backend-store-shard-01/runner.jsonl" <<'JSONL'
+{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05","Elapsed":20}
+{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Elapsed":21}
+JSONL
+printf '22000\n' >"$shared_dir/backend-store-shard-01/duration_ms.txt"
+printf '0\n' >"$shared_dir/backend-store-shard-01/exit_status.txt"
 
 "$NODE_BIN" "$UPDATE_SCRIPT" --baseline-file "$tmp_dir/baseline.json" "$results_dir" >/dev/null
 
@@ -62,9 +81,23 @@ const [baselineFile] = process.argv.slice(2);
 const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
 const login = baseline.tests["github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01"];
 const audit = baseline.tests["github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_UserAdminAudit_I_1_03"];
+const store = baseline.tests["github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05"];
+const integrationAuthOverhead = baseline.package_overheads["backend-integration::github.com/JochiRaider/cartulary/internal/modules/auth"];
+const storeAuthOverhead = baseline.package_overheads["backend-store::github.com/JochiRaider/cartulary/internal/modules/auth"];
+const integrationCommand = baseline.command_overheads_by_target["backend-integration"];
+const storeCommand = baseline.command_overheads_by_target["backend-store"];
 const raw = baseline.raw_aggregates["backend-integration::backend-integration-testutil"];
-if (login !== 2000 || audit !== 2000) {
-  throw new Error(`expected allocated manifest shard wall duration of 2000/2000, got ${login}/${audit}`);
+if (baseline.schema_id !== "cartulary.go_test_duration_baselines.v4") {
+  throw new Error(`expected v4 schema, got ${baseline.schema_id}`);
+}
+if (login !== 1000 || audit !== 1000 || store !== 20000) {
+  throw new Error(`expected raw test elapsed baselines, got login=${login} audit=${audit} store=${store}`);
+}
+if (integrationAuthOverhead !== 28000 || storeAuthOverhead !== 1000) {
+  throw new Error(`expected package overhead baselines, got integration=${integrationAuthOverhead} store=${storeAuthOverhead}`);
+}
+if (integrationCommand !== 20000 || storeCommand !== 1000) {
+  throw new Error(`expected command overhead baselines, got integration=${integrationCommand} store=${storeCommand}`);
 }
 if (raw !== 6000) {
   throw new Error(`expected raw aggregate wall duration 6000, got ${raw}`);
@@ -73,51 +106,87 @@ EOF
 
 "$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/baseline.json" "$results_dir" >/dev/null
 
-cat >"$tmp_dir/underplanned.json" <<'JSON'
+cat >"$tmp_dir/underplanned-raw.json" <<'JSON'
 {
-  "schema_id": "cartulary.go_test_duration_baselines.v3",
-  "default_shard_target_ms": 30000,
-  "shard_target_ms_by_target": {
-    "backend-integration": 18000,
-    "backend-integration-support": 18000,
-    "backend-store": 30000
+  "schema_id": "cartulary.go_test_duration_baselines.v4",
+  "command_overheads_by_target": {
+    "backend-integration": 20000,
+    "backend-store": 1000
   },
-  "default_integration_weight_ms": 10000,
+  "package_overheads": {
+    "backend-integration::github.com/JochiRaider/cartulary/internal/modules/auth": 28000,
+    "backend-store::github.com/JochiRaider/cartulary/internal/modules/auth": 1000
+  },
   "raw_aggregates": {
     "backend-integration::backend-integration-testutil": 100
   },
   "tests": {
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01": 100,
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_UserAdminAudit_I_1_03": 100
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05": 20000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01": 1000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_UserAdminAudit_I_1_03": 1000
   }
 }
 JSON
 
 set +e
-underplanned_output="$("$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/underplanned.json" "$results_dir" 2>&1)"
-underplanned_status=$?
+underplanned_raw_output="$("$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/underplanned-raw.json" "$results_dir" 2>&1)"
+underplanned_raw_status=$?
 set -e
-if [[ "$underplanned_status" -eq 0 ]]; then
-  fail "underplanned drift should fail"
+if [[ "$underplanned_raw_status" -eq 0 ]]; then
+  fail "underplanned raw drift should fail"
 fi
-assert_contains "$underplanned_output" "underplanned shard=backend-integration-testutil-shard-01" "underplanned raw drift"
+assert_contains "$underplanned_raw_output" "underplanned shard=backend-integration-testutil-shard-01" "underplanned raw drift"
+
+cat >"$tmp_dir/underplanned-components.json" <<'JSON'
+{
+  "schema_id": "cartulary.go_test_duration_baselines.v4",
+  "command_overheads_by_target": {
+    "backend-integration": 100,
+    "backend-store": 1000
+  },
+  "package_overheads": {
+    "backend-integration::github.com/JochiRaider/cartulary/internal/modules/auth": 100,
+    "backend-store::github.com/JochiRaider/cartulary/internal/modules/auth": 1000
+  },
+  "raw_aggregates": {
+    "backend-integration::backend-integration-testutil": 6000
+  },
+  "tests": {
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05": 100,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01": 1000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_UserAdminAudit_I_1_03": 1000
+  }
+}
+JSON
+
+set +e
+underplanned_components_output="$("$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/underplanned-components.json" "$results_dir" 2>&1)"
+underplanned_components_status=$?
+set -e
+if [[ "$underplanned_components_status" -eq 0 ]]; then
+  fail "underplanned component drift should fail"
+fi
+assert_contains "$underplanned_components_output" "underplanned shard=backend-integration-auth-shard-01" "underplanned package and command drift"
+assert_contains "$underplanned_components_output" "underplanned shard=backend-store-shard-01" "underplanned test drift"
 
 cat >"$tmp_dir/overplanned.json" <<'JSON'
 {
-  "schema_id": "cartulary.go_test_duration_baselines.v3",
-  "default_shard_target_ms": 30000,
-  "shard_target_ms_by_target": {
-    "backend-integration": 18000,
-    "backend-integration-support": 18000,
-    "backend-store": 30000
+  "schema_id": "cartulary.go_test_duration_baselines.v4",
+  "command_overheads_by_target": {
+    "backend-integration": 80000,
+    "backend-store": 80000
   },
-  "default_integration_weight_ms": 10000,
+  "package_overheads": {
+    "backend-integration::github.com/JochiRaider/cartulary/internal/modules/auth": 80000,
+    "backend-store::github.com/JochiRaider/cartulary/internal/modules/auth": 80000
+  },
   "raw_aggregates": {
     "backend-integration::backend-integration-testutil": 30000
   },
   "tests": {
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01": 20000,
-    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_UserAdminAudit_I_1_03": 20000
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05": 80000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01": 80000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_UserAdminAudit_I_1_03": 80000
   }
 }
 JSON
@@ -131,20 +200,7 @@ if [[ "$overplanned_status" -eq 0 ]]; then
 fi
 assert_contains "$overplanned_output" "overplanned shard=backend-integration-auth-shard-01" "overplanned manifest drift"
 
-cat >"$tmp_dir/missing.json" <<'JSON'
-{
-  "schema_id": "cartulary.go_test_duration_baselines.v3",
-  "default_shard_target_ms": 30000,
-  "shard_target_ms_by_target": {
-    "backend-integration": 18000,
-    "backend-integration-support": 18000,
-    "backend-store": 30000
-  },
-  "default_integration_weight_ms": 10000,
-  "raw_aggregates": {},
-  "tests": {}
-}
-JSON
+write_empty_baseline "$tmp_dir/missing.json"
 
 set +e
 missing_output="$("$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/missing.json" "$results_dir" 2>&1)"
@@ -154,4 +210,6 @@ if [[ "$missing_status" -eq 0 ]]; then
   fail "missing baselines should fail"
 fi
 assert_contains "$missing_output" "missing test baseline" "missing test drift"
+assert_contains "$missing_output" "missing package overhead baseline" "missing package overhead drift"
+assert_contains "$missing_output" "missing command overhead baseline" "missing command overhead drift"
 assert_contains "$missing_output" "missing raw aggregate baseline" "missing raw drift"

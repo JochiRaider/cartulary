@@ -20,6 +20,8 @@ BACKEND_INTEGRATION_SHARD_JOBS ?= 4
 GO_TEST_SERVICE_PACKAGE_PARALLELISM ?= 1
 PLAYWRIGHT_WORKERS ?= 2
 VITEST_MAX_WORKERS ?= 2
+FIXTURE_THRESHOLD_MS ?= 30000
+FIXTURE_TOP ?= 5
 NODE_RUNTIME_DIR ?= $(CURDIR)/tmp/node-runtime
 NODE_BIN ?= $(NODE_RUNTIME_DIR)/bin/node
 PNPM ?= $(NODE_RUNTIME_DIR)/bin/pnpm
@@ -476,6 +478,16 @@ target-plan:
 
 target-plan-json:
 	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/print-target-plan.mjs --json
+
+fixture-report:
+	$(Q)set -euo pipefail; \
+	node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; \
+	results_dir="$(if $(RESULTS_DIR),$(RESULTS_DIR),$(CARTULARY_TEST_RESULTS_DIR))"; \
+	args=(--results-dir "$$results_dir" --threshold-ms "$(FIXTURE_THRESHOLD_MS)" --top "$(FIXTURE_TOP)"); \
+	if [ -n "$(RUN_ID)" ]; then args+=(--run-id "$(RUN_ID)"); fi; \
+	if [ -n "$(TARGET)" ]; then args+=(--target "$(TARGET)"); fi; \
+	if [ "$(JSON)" = "1" ]; then args+=(--json); fi; \
+	"$$node_cmd" ./scripts/print-fixture-report.mjs "$${args[@]}"
 
 explain-target:
 	$(Q)if [ -z "$(TARGET)" ]; then echo "usage: make explain-target TARGET=<backend target>" >&2; exit 2; fi

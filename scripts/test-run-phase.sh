@@ -210,6 +210,43 @@ write_target_summary() {
 JSON
 }
 
+write_fixture_event() {
+  local results_dir="$1"
+  local run_id="$2"
+  local suite_id="$3"
+  local sequence="$4"
+  local event_type="$5"
+  local target="$6"
+  local duration_ms="$7"
+  local fixture_policy="$8"
+  local reuse_scope="$9"
+  local caller_package="${10}"
+  local test_name="${11}"
+  local event_dir="${results_dir}/${run_id}/_shared/test-services/${suite_id}/events"
+
+  mkdir -p "$event_dir"
+  cat >"${event_dir}/2026-01-01T00-00-${sequence}Z-100-${sequence}-${event_type}.json" <<JSON
+{
+  "type": "${event_type}",
+  "timestamp": "2026-01-01T00:00:${sequence}Z",
+  "pid": 100,
+  "service": "postgres",
+  "name": "ct_fixture_${sequence}",
+  "kind": "template-clone",
+  "details": {
+    "target": "${target}",
+    "duration_ms": ${duration_ms},
+    "fixture_policy": "${fixture_policy}",
+    "reuse_scope": "${reuse_scope}",
+    "caller_package": "${caller_package}",
+    "caller_file": "${caller_package}/fixture_test.go",
+    "test_name": "${test_name}",
+    "preparation_strategy": "template-clone"
+  }
+}
+JSON
+}
+
 quiet_success_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
     "$HELPER" "quiet success" -- bash -lc 'echo hidden-success-output'
@@ -313,6 +350,67 @@ assert_equals "$(json_field "$parent_target_timing" "schema_id")" "cartulary.tes
 assert_equals "$(json_field "$parent_target_timing" "buckets.0.name")" "test_command" "parent target timing test command bucket"
 assert_equals "$(json_field "$parent_target_timing" "buckets.1.name")" "report_collation" "parent target timing report collation bucket"
 assert_equals "$(json_field "$parent_target_summary" "own.slowest_lifecycle_bucket.name")" "$(json_field "$parent_target_timing" "slowest_lifecycle_bucket.name")" "parent target summary slowest bucket"
+
+fixture_results="$(mktemp -d "$ROOT_DIR/tmp/fixture-reporting.XXXXXX")"
+cleanup_paths+=("$fixture_results")
+write_fixture_event "$fixture_results" "fixture-run" "fixture-suite" "01" "postgres-db-reset" "fixture-target" 20000 "package_reset" "package-reused" "internal/modules/auth" "TestSlowB"
+write_fixture_event "$fixture_results" "fixture-run" "fixture-suite" "02" "postgres-db-reset" "fixture-target" 15000 "package_reset" "package-reused" "internal/modules/auth" "TestSlowA"
+write_fixture_event "$fixture_results" "fixture-run" "fixture-suite" "03" "postgres-db-created" "fixture-target" 1000 "template_clone" "per-test" "internal/modules/entities" "TestClone"
+below_fixture_output="$(
+  FIXTURE_THRESHOLD_MS=40000 \
+  CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
+  CARTULARY_TEST_RUN_ID="fixture-run" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary fixture-target pass \
+    2>&1
+)"
+assert_not_contains "$below_fixture_output" "[FIXTURE]" "fixture output below threshold"
+fixture_target_output="$(
+  FIXTURE_THRESHOLD_MS=30000 \
+  FIXTURE_TOP=2 \
+  CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
+  CARTULARY_TEST_RUN_ID="fixture-run" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary fixture-target pass \
+    2>&1
+)"
+assert_contains "$fixture_target_output" "[FIXTURE] fixture-target total=36.0s count=3 top_strategy=postgres/database-reset/package_reset/package-reused count=2 duration=35.0s slowest=TestSlowB(20.0s),TestSlowA(15.0s)" "fixture target threshold output"
+assert_equals "$(json_field "$fixture_results/fixture-run/fixture-target/target-summary.json" "totals.fixture.total_duration_ms")" "36000" "fixture target summary duration"
+
+write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "01" "postgres-db-reset" "fixture-tie" 10000 "package_reset" "package-reused" "internal/modules/auth" "TestResetA"
+write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "02" "postgres-db-reset" "fixture-tie" 10000 "package_reset" "package-reused" "internal/modules/auth" "TestResetB"
+write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "03" "postgres-transaction" "fixture-tie" 20000 "transaction" "transaction" "internal/modules/auth" "TestTxn"
+fixture_tie_output="$(
+  FIXTURE_THRESHOLD_MS=1 \
+  CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
+  CARTULARY_TEST_RUN_ID="fixture-tie-run" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary fixture-tie pass \
+    2>&1
+)"
+assert_contains "$fixture_tie_output" "top_strategy=postgres/database-reset/package_reset/package-reused count=2 duration=20.0s" "fixture strategy tie prefers count"
+
+fixture_run_output="$(
+  FIXTURE_THRESHOLD_MS=30000 \
+  CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
+  CARTULARY_TEST_RUN_ID="fixture-run" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "fixture run" pass 1 1 - fixture-target \
+    2>&1
+)"
+assert_contains "$fixture_run_output" "[FIXTURE] fixture run total=36.0s count=3 top_strategy=postgres/database-reset/package_reset/package-reused count=2 duration=35.0s" "fixture run summary output"
+
+mkdir -p "$fixture_results/older-run"
+touch -d '2026-01-01T00:00:00Z' "$fixture_results/older-run"
+touch -d '2030-01-02T00:00:00Z' "$fixture_results/fixture-run"
+fixture_report_output="$(
+  "$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results" --threshold-ms 30000 --top 2 \
+    2>&1
+)"
+assert_contains "$fixture_report_output" "[FIXTURE] all total=36.0s count=3" "fixture report newest run aggregate output"
+assert_contains "$fixture_report_output" "[FIXTURE] fixture-target total=36.0s count=3" "fixture report newest run target output"
+fixture_report_json="$fixture_results/fixture-report.json"
+"$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results" --run-id fixture-run --threshold-ms 30000 --json >"$fixture_report_json"
+assert_equals "$(json_field "$fixture_report_json" "schema_id")" "cartulary.fixture_report.v1" "fixture report schema"
+assert_equals "$(json_field "$fixture_report_json" "run_id")" "fixture-run" "fixture report run id"
+assert_equals "$(json_field "$fixture_report_json" "aggregate.total_duration_ms")" "36000" "fixture report aggregate duration"
+assert_equals "$(json_field "$fixture_report_json" "targets.0.target")" "fixture-target" "fixture report target"
 
 teardown_accounting_results="$(mktemp -d "$ROOT_DIR/tmp/target-timing-teardown-accounting.XXXXXX")"
 cleanup_paths+=("$teardown_accounting_results")

@@ -270,9 +270,9 @@ func TestPhase1_SessionInspectionRoute_U_1_04(t *testing.T) {
 					{IncidentID: incidentID, Role: "viewer"},
 				}, nil
 			},
-			slideSessionFunc: func(context.Context, uuid.UUID, authn.SessionTiming) error {
+			slideSessionFunc: func(_ context.Context, _ uuid.UUID, timing authn.SessionTiming) (authn.SessionTiming, error) {
 				slideCalls++
-				return nil
+				return timing, nil
 			},
 		}
 		service := newUnitService(t, store, &hubStub{}, keys, now)
@@ -686,7 +686,7 @@ func TestPhase1_CredentialStateRoute_U_1_10(t *testing.T) {
 						}
 						return activeSessionRecord(sessionID, userID, now), tc.user, nil
 					},
-					slideSessionFunc: func(_ context.Context, gotSessionID uuid.UUID, timing authn.SessionTiming) error {
+					slideSessionFunc: func(_ context.Context, gotSessionID uuid.UUID, timing authn.SessionTiming) (authn.SessionTiming, error) {
 						slideCalls++
 						if gotSessionID != sessionID {
 							t.Fatalf("unexpected slide session id: got %s want %s", gotSessionID, sessionID)
@@ -694,7 +694,7 @@ func TestPhase1_CredentialStateRoute_U_1_10(t *testing.T) {
 						if !timing.LastQualifyingActivityAt.Equal(now) {
 							t.Fatalf("unexpected slide last_qualifying_activity_at: got %s want %s", timing.LastQualifyingActivityAt, now)
 						}
-						return nil
+						return timing, nil
 					},
 					getPendingTOTPEnrollmentForUserFunc: func(_ context.Context, gotUserID uuid.UUID, current time.Time) (*authn.PendingTOTPEnrollmentRecord, error) {
 						if gotUserID != userID {
@@ -1869,7 +1869,7 @@ type authStoreStub struct {
 	listIncidentMembershipSummariesFunc func(context.Context, uuid.UUID) ([]authn.IncidentMembershipSummary, error)
 	getSessionByFingerprintFunc         func(context.Context, []byte) (authn.SessionRecord, authn.UserRecord, error)
 	createSessionWithConcurrencyFunc    func(context.Context, authn.UserRecord, []byte, authn.SessionTiming, string) (authn.SessionRecord, *authn.SessionRecord, error)
-	slideSessionFunc                    func(context.Context, uuid.UUID, authn.SessionTiming) error
+	slideSessionFunc                    func(context.Context, uuid.UUID, authn.SessionTiming) (authn.SessionTiming, error)
 	revokeSessionFunc                   func(context.Context, uuid.UUID, string, time.Time) error
 	issueBootstrapTokenFunc             func(context.Context, uuid.UUID, []byte, time.Time) (authn.BootstrapTokenRecord, error)
 	getBootstrapTokenByFingerprintFunc  func(context.Context, []byte) (authn.BootstrapTokenRecord, authn.UserRecord, error)
@@ -1907,8 +1907,8 @@ func (s *authStoreStub) CreateSessionWithConcurrency(ctx context.Context, user a
 	return callStub4Result2(s.createSessionWithConcurrencyFunc, ctx, user, fingerprint, timing, requestID)
 }
 
-func (s *authStoreStub) SlideSession(ctx context.Context, sessionID uuid.UUID, timing authn.SessionTiming) error {
-	return callStubNoResult2(s.slideSessionFunc, ctx, sessionID, timing)
+func (s *authStoreStub) SlideSession(ctx context.Context, sessionID uuid.UUID, timing authn.SessionTiming) (authn.SessionTiming, error) {
+	return callStub2(s.slideSessionFunc, ctx, sessionID, timing)
 }
 
 func (s *authStoreStub) RevokeSession(ctx context.Context, sessionID uuid.UUID, reasonCode string, now time.Time) error {
@@ -2270,6 +2270,14 @@ func callStub1[Arg any, Result any](fn func(context.Context, Arg) (Result, error
 		return zero, errors.New("unexpected authStoreStub call")
 	}
 	return fn(ctx, arg)
+}
+
+func callStub2[Arg1 any, Arg2 any, Result any](fn func(context.Context, Arg1, Arg2) (Result, error), ctx context.Context, arg1 Arg1, arg2 Arg2) (Result, error) {
+	if fn == nil {
+		var zero Result
+		return zero, errors.New("unexpected authStoreStub call")
+	}
+	return fn(ctx, arg1, arg2)
 }
 
 func callStub1Result2[Arg any, Result1 any, Result2 any](fn func(context.Context, Arg) (Result1, Result2, error), ctx context.Context, arg Arg) (Result1, Result2, error) {

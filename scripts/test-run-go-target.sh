@@ -339,16 +339,17 @@ phase2_incidents_support_shard_command="$(
 )"
 assert_contains "$phase2_incidents_support_shard_command" "TestSupportPhase2_" "backend-integration support phase2 planned shard selector"
 
-cross_target_shared_shard=""
-while IFS= read -r candidate_shard; do
-  if [[ "$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" shard-field backend-integration-support "$candidate_shard" shared_across_targets)" == "true" ]]; then
-    cross_target_shared_shard="$candidate_shard"
-    break
-  fi
-done < <("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration-support)
-if [[ -z "$cross_target_shared_shard" ]]; then
-  fail "expected at least one cross-target shared backend integration shard"
-fi
+"$node_bin" - "$ROOT_DIR" <<'EOF'
+const { execFileSync } = require("node:child_process");
+const path = require("node:path");
+const [root] = process.argv.slice(2);
+const plan = JSON.parse(execFileSync(process.execPath, [path.join(root, "scripts/lib/go-shard-plan.mjs"), "json"], { encoding: "utf8", cwd: root }));
+const mixed = plan.shards.filter((shard) => shard.has_authoritative && shard.has_support);
+const shared = plan.shards.filter((shard) => shard.shared_across_targets);
+if (mixed.length > 0 || shared.length > 0) {
+  throw new Error(`backend integration shards must keep authoritative/support ownership separate; mixed=${mixed.map((shard) => shard.name).join(",")} shared=${shared.map((shard) => shard.name).join(",")}`);
+}
+EOF
 
 phase3_timeline_shared_command="$(
   NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-timeline
@@ -405,56 +406,6 @@ cleanup_paths+=("$shared_mismatch_results")
     fail "shared command mismatch: expected capture_go_report to fail"
   fi
   assert_contains "$mismatch_output" "shared_go_report_command_mismatch" "shared command mismatch marker"
-)
-
-shared_usage_override_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-shared-usage.XXXXXX")"
-cleanup_paths+=("$shared_usage_override_results")
-(
-  export CARTULARY_TEST_RESULTS_DIR="$shared_usage_override_results/results"
-  export CARTULARY_TEST_RUN_ID="shared-usage"
-  export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
-
-  fake_report_dir="$shared_usage_override_results/fake-report"
-  mkdir -p "$fake_report_dir"
-  capture_go_report() {
-    printf '%s\nactual\n' "$fake_report_dir"
-  }
-
-  assign_execution_family integration_dir integration_usage backend-integration "$cross_target_shared_shard"
-  assign_execution_family support_dir support_usage backend-integration-support "$cross_target_shared_shard"
-  assert_equals "$integration_usage" "reused" "cross-target backend-integration shard consumption mode"
-  assert_equals "$support_usage" "reused" "cross-target backend-integration-support shard consumption mode"
-)
-
-shared_execution_capture_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-shared-execution.XXXXXX")"
-cleanup_paths+=("$shared_execution_capture_dir")
-mkdir -p "$shared_execution_capture_dir/pkg"
-cat >"$shared_execution_capture_dir/pkg/shared_execution_capture_test.go" <<'EOF'
-package sharedexecutioncapture
-
-import "testing"
-
-func TestSharedExecutionCaptureSmoke(t *testing.T) {}
-EOF
-(
-  export CARTULARY_TEST_RESULTS_DIR="$shared_execution_capture_dir/results"
-  export CARTULARY_TEST_RUN_ID="shared-execution"
-  export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
-
-  mapfile -t first_capture < <(capture_go_report "$cross_target_shared_shard" '^(TestSharedExecutionCaptureSmoke)$' -- "./${shared_execution_capture_dir#"$ROOT_DIR"/}/pkg")
-  mapfile -t second_capture < <(capture_go_report "$cross_target_shared_shard" '^(TestSharedExecutionCaptureSmoke)$' -- "./${shared_execution_capture_dir#"$ROOT_DIR"/}/pkg")
-  assert_equals "${first_capture[1]}" "actual" "first cross-target shared capture mode"
-  assert_equals "${second_capture[1]}" "reused" "second cross-target shared capture mode"
-  shared_execution_file="${first_capture[0]}/shared-execution.json"
-  if [[ ! -f "$shared_execution_file" ]]; then
-    fail "cross-target shared capture must write shared-execution.json"
-  fi
-  assert_equals "$(find "${first_capture[0]}" -name shared-execution.json | wc -l | tr -d '[:space:]')" "1" "cross-target shared execution metadata count"
-  assert_equals "$(json_field "$shared_execution_file" "execution_group")" "backend-integration-shards" "cross-target shared execution group"
-  assert_equals "$(json_field "$shared_execution_file" "shared_report")" "$cross_target_shared_shard" "cross-target shared execution report"
-  assert_equals "$(json_field "$shared_execution_file" "status")" "pass" "cross-target shared execution status"
 )
 
 mixed_aggregate_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-mixed-aggregate.XXXXXX")"

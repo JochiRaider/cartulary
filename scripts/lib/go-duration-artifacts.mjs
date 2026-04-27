@@ -68,23 +68,33 @@ function topLevelTestEvents(events) {
   );
 }
 
-function rawAggregateTargets(root) {
+function packagePassEvents(events) {
+  return events.filter(
+    (event) =>
+      event.Action === "pass" &&
+      typeof event.Package === "string" &&
+      event.Test === undefined,
+  );
+}
+
+function shardMetadata(root) {
   const plan = collectGoShardPlan(root);
-  const targetsByAggregate = new Map();
-  for (const aggregate of plan.aggregates) {
-    if (aggregate.coverage === "raw") {
-      targetsByAggregate.set(aggregate.name, aggregate.target);
-    }
+  const byShard = new Map();
+  for (const shard of plan.shards) {
+    byShard.set(shard.name, {
+      target: shard.target,
+      rawAggregateKey: shard.has_raw ? `${shard.target}::${shard.aggregate_name}` : "",
+    });
   }
-  return targetsByAggregate;
+  return byShard;
 }
 
 function aggregateNameForShard(shardName) {
   return shardName.replace(shardNamePattern, "");
 }
 
-function allocateShardWallDuration(topLevelEvents, shardDurationMs) {
-  const observed = topLevelEvents
+function observedTests(topLevelEvents) {
+  return topLevelEvents
     .map((event) => ({
       key: `${event.Package}::${event.Test}`,
       packageName: event.Package,
@@ -92,35 +102,58 @@ function allocateShardWallDuration(topLevelEvents, shardDurationMs) {
       elapsedMs: Math.max(1, Math.round(Number(event.Elapsed ?? 0) * 1000)),
     }))
     .sort((left, right) => left.key.localeCompare(right.key));
-  if (observed.length === 0) {
-    return [];
+}
+
+function observedPackageOverheads(target, topLevelEvents, packageEvents) {
+  const testElapsedByPackage = new Map();
+  for (const event of topLevelEvents) {
+    const elapsedMs = Math.max(1, Math.round(Number(event.Elapsed ?? 0) * 1000));
+    testElapsedByPackage.set(event.Package, (testElapsedByPackage.get(event.Package) ?? 0) + elapsedMs);
   }
 
-  const elapsedTotal = observed.reduce((sum, event) => sum + event.elapsedMs, 0);
-  const overheadMs = Math.max(0, shardDurationMs - elapsedTotal);
-  const allocated = [];
-  let allocatedTotal = 0;
-  for (let index = 0; index < observed.length; index += 1) {
-    const event = observed[index];
-    let overheadShare = 0;
-    if (overheadMs > 0) {
-      if (elapsedTotal > 0) {
-        overheadShare = Math.floor((overheadMs * event.elapsedMs) / elapsedTotal);
-      } else {
-        overheadShare = Math.floor(overheadMs / observed.length);
-      }
-    }
-    const durationMs = event.elapsedMs + overheadShare;
-    allocated.push({ ...event, durationMs });
-    allocatedTotal += durationMs;
-  }
+  return packageEvents
+    .map((event) => {
+      const packageElapsedMs = Math.max(1, Math.round(Number(event.Elapsed ?? 0) * 1000));
+      const testElapsedMs = testElapsedByPackage.get(event.Package) ?? 0;
+      return {
+        key: `${target}::${event.Package}`,
+        target,
+        packageName: event.Package,
+        elapsedMs: packageElapsedMs,
+        overheadMs: Math.max(1, packageElapsedMs - testElapsedMs),
+      };
+    })
+    .sort((left, right) => left.key.localeCompare(right.key));
+}
 
-  let remainder = Math.max(0, shardDurationMs - allocatedTotal);
-  for (let index = 0; remainder > 0 && allocated.length > 0; index = (index + 1) % allocated.length) {
-    allocated[index].durationMs += 1;
-    remainder -= 1;
+function commandOverhead(target, shardDurationMs, packageEvents, topLevelEvents) {
+  let observedElapsedMs = 0;
+  if (packageEvents.length > 0) {
+    observedElapsedMs = packageEvents.reduce(
+      (sum, event) => sum + Math.max(1, Math.round(Number(event.Elapsed ?? 0) * 1000)),
+      0,
+    );
+  } else {
+    observedElapsedMs = topLevelEvents.reduce(
+      (sum, event) => sum + Math.max(1, Math.round(Number(event.Elapsed ?? 0) * 1000)),
+      0,
+    );
   }
-  return allocated;
+  return {
+    target,
+    overheadMs: Math.max(1, shardDurationMs - observedElapsedMs),
+  };
+}
+
+function observedPackageNames(topLevelEvents, packageEvents) {
+  const packages = new Set();
+  for (const event of topLevelEvents) {
+    packages.add(event.Package);
+  }
+  for (const event of packageEvents) {
+    packages.add(event.Package);
+  }
+  return packages;
 }
 
 export function collectObservedGoShardArtifacts(root, resultsDir) {
@@ -129,7 +162,7 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
     throw new Error(`results directory does not exist: ${resultsDir}`);
   }
 
-  const rawTargets = rawAggregateTargets(root);
+  const metadataByShard = shardMetadata(root);
   const shardDirs = walkDirs(absoluteResultsDir).filter((dir) => {
     const shardName = path.basename(dir);
     return (
@@ -147,17 +180,24 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
     }
     const durationMs = normalizePositiveInteger(readIntegerFile(path.join(dir, "duration_ms.txt"), 0), 1);
     const aggregateName = aggregateNameForShard(shardName);
-    const rawTarget = rawTargets.get(aggregateName);
+    const metadata = metadataByShard.get(shardName);
+    if (!metadata) {
+      throw new Error(`no Go shard plan metadata for observed shard ${shardName}`);
+    }
     const events = readRunnerEvents(path.join(dir, "runner.jsonl"));
     const topLevelEvents = topLevelTestEvents(events);
+    const packageEvents = packagePassEvents(events);
     artifacts.push({
       dir,
       shardName,
       aggregateName,
+      target: metadata.target,
       durationMs,
-      rawAggregateKey: rawTarget ? `${rawTarget}::${aggregateName}` : "",
-      observedTests: allocateShardWallDuration(topLevelEvents, durationMs),
-      observedPackages: new Set(topLevelEvents.map((event) => event.Package)),
+      rawAggregateKey: metadata.rawAggregateKey,
+      observedTests: observedTests(topLevelEvents),
+      observedPackageOverheads: observedPackageOverheads(metadata.target, topLevelEvents, packageEvents),
+      observedPackages: observedPackageNames(topLevelEvents, packageEvents),
+      commandOverhead: commandOverhead(metadata.target, durationMs, packageEvents, topLevelEvents),
     });
   }
   return artifacts;

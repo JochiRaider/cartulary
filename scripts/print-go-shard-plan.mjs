@@ -39,28 +39,18 @@ function filterPlan(plan, target) {
   if (!target) {
     return plan;
   }
-  const aggregateNames = new Set(
-    plan.aggregates
-      .filter((aggregate) => aggregate.target === target)
-      .map((aggregate) => aggregate.name),
-  );
   return {
     ...plan,
     targets: plan.targets.filter((candidate) => candidate === target),
     aggregates: plan.aggregates.filter((aggregate) => aggregate.target === target),
-    shards: plan.shards.filter((shard) => aggregateNames.has(shard.aggregate_name)),
+    shards: plan.shards.filter((shard) => shard.target === target),
   };
 }
 
 function renderHuman(plan) {
   const lines = [];
   for (const target of plan.targets) {
-    const aggregateNames = new Set(
-      plan.aggregates
-        .filter((aggregate) => aggregate.target === target)
-        .map((aggregate) => aggregate.name),
-    );
-    const shards = plan.shards.filter((shard) => aggregateNames.has(shard.aggregate_name));
+    const shards = plan.shards.filter((shard) => shard.target === target);
     lines.push(`${target} shards=${shards.length}`);
     for (const shard of shards) {
       lines.push(

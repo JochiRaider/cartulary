@@ -421,6 +421,7 @@ class CheckSchedulerReporter {
     this.events = createWriteStream(this.eventsPath, { flags: "w" });
     this.startedAt = new Map();
     this.completedWork = [];
+    this.skippedWork = [];
     this.completedCount = 0;
     this.failedWorkUnit = null;
     this.blockedReasonsSeen = new Set();
@@ -516,6 +517,32 @@ class CheckSchedulerReporter {
     this.lastBlockedKey = blockedKey;
   }
 
+  skipUnit(unit, state, reason, failedDependency) {
+    this.blockedReasonsSeen.add(reason);
+    const record = {
+      label: unit.label,
+      id: unit.target,
+      reason,
+      failed_dependency: failedDependency,
+    };
+    this.skippedWork.push(record);
+    this.emit(
+      "skip",
+      [
+        `work_unit=${unit.label}`,
+        `reason=${reason}`,
+        `failed_dependency=${failedDependency}`,
+        ...schedulerStateFields({ ...state, resourceLimits: this.schedule.resourceLimits }),
+      ],
+      state,
+      {
+        work_unit: unit.label,
+        skip_reason: reason,
+        failed_dependency: failedDependency,
+      },
+    );
+  }
+
   maybeProgress(state, reason = "none", blockedResources = [], { force = false } = {}) {
     const now = Date.now();
     if (!force && now - this.lastProgressAt < schedulerProgressIntervalMs) {
@@ -532,8 +559,10 @@ class CheckSchedulerReporter {
   async summary(status, { failedWorkUnit = null } = {}) {
     const failed = failedWorkUnit || this.failedWorkUnit || null;
     const slowest = this.slowestWork();
+    const skipped = this.skippedWork.length;
+    const skippedText = skipped > 0 ? ` skipped=${skipped}` : "";
     process.stdout.write(
-      `[CHECK-SCHEDULER] ${this.schedule.target} summary status=${status} completed=${this.completedCount}/${this.schedule.units.length} failed=${failed ?? "none"} slowest=${formatSlowestWork(slowest)}\n`,
+      `[CHECK-SCHEDULER] ${this.schedule.target} summary status=${status} completed=${this.completedCount}/${this.schedule.units.length} failed=${failed ?? "none"}${skippedText} slowest=${formatSlowestWork(slowest)}\n`,
     );
     await writeFile(
       this.summaryPath,
@@ -544,6 +573,7 @@ class CheckSchedulerReporter {
           status,
           total_work_units: this.schedule.units.length,
           completed_work_units: this.completedCount,
+          skipped_work_units: this.skippedWork,
           failed_work_unit: failed,
           blocked_reasons_seen: Array.from(this.blockedReasonsSeen).sort((left, right) =>
             left.localeCompare(right),
@@ -603,6 +633,27 @@ function blockedPendingUnits(pending, completed) {
   return pending.filter((unit) => !unit.needs.every((need) => completed.has(need)));
 }
 
+function skippedReasonForUnit(unit, completed, failedTarget, unitsByTarget, memo = new Map()) {
+  if (memo.has(unit.target)) {
+    return memo.get(unit.target);
+  }
+  for (const need of unit.needs) {
+    if (need === failedTarget) {
+      memo.set(unit.target, "dependency_failure");
+      return "dependency_failure";
+    }
+    if (!completed.has(need)) {
+      const upstream = unitsByTarget.get(need);
+      if (upstream && skippedReasonForUnit(upstream, completed, failedTarget, unitsByTarget, memo) === "dependency_failure") {
+        memo.set(unit.target, "dependency_failure");
+        return "dependency_failure";
+      }
+    }
+  }
+  memo.set(unit.target, "schedule_stopped_after_failure");
+  return "schedule_stopped_after_failure";
+}
+
 function runWorkUnit({ makeBin, unit, tempDir, started }) {
   const logFile = path.join(tempDir, `${String(started).padStart(2, "0")}-${sanitizeLogName(unit.target)}.log`);
   return runCommand(makeBin, ["--no-print-directory", "--output-sync=target", `-j${unit.makeJobs}`, unit.target], logFile).then((result) => ({
@@ -619,6 +670,7 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
   const pending = [...schedule.units];
   const running = new Map();
   const completed = new Set();
+  const unitsByTarget = new Map(schedule.units.map((unit) => [unit.target, unit]));
   const activeClaims = new Map();
   const totalUnits = schedule.units.length;
   const capacityDisplay = schedule.resourceLimits.get("cpu") ?? Math.max(...schedule.resourceLimits.values());
@@ -707,6 +759,16 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
 
       if (running.size === 0) {
         if (stopScheduling) {
+          const skipped = pending.splice(0);
+          const skipMemo = new Map();
+          for (const unit of skipped) {
+            reporter.skipUnit(
+              unit,
+              stateSnapshot(skipped.length),
+              skippedReasonForUnit(unit, completed, firstFailureTarget, unitsByTarget, skipMemo),
+              firstFailureTarget,
+            );
+          }
           break;
         }
         throw new Error(`check scheduler deadlock for ${schedule.target}; pending=${pending.map((unit) => unit.target).join(",")}`);

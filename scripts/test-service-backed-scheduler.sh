@@ -411,7 +411,7 @@ write_manifest() {
   } >"$file"
 }
 
-discover_shared_backend_integration_shard() {
+assert_no_shared_backend_integration_shards() {
   "$NODE_BIN" - "$ROOT_DIR" <<'EOF'
 const { execFileSync } = require("node:child_process");
 const path = require("node:path");
@@ -419,21 +419,13 @@ const [root] = process.argv.slice(2);
 const shardPlanScript = path.join(root, "scripts/lib/go-shard-plan.mjs");
 const runPlan = (...args) =>
   execFileSync(process.execPath, [shardPlanScript, ...args], { encoding: "utf8", cwd: root });
-const names = (target) => new Set(runPlan("list-shards", target).trim().split(/\n/).filter(Boolean));
-const integrationShards = names("backend-integration");
-const supportShards = names("backend-integration-support");
 const plan = JSON.parse(runPlan("json"));
-const shard = plan.shards.find(
-  (candidate) =>
-    candidate.shared_across_targets === true &&
-    integrationShards.has(candidate.name) &&
-    supportShards.has(candidate.name),
-);
-if (!shard) {
-  console.error("expected at least one cross-target shared backend integration shard");
+const mixed = plan.shards.filter((candidate) => candidate.has_authoritative && candidate.has_support);
+const shared = plan.shards.filter((candidate) => candidate.shared_across_targets);
+if (mixed.length > 0 || shared.length > 0) {
+  console.error(`expected no cross-target shared backend integration shards, got mixed=${mixed.map((candidate) => candidate.name).join(",")} shared=${shared.map((candidate) => candidate.name).join(",")}`);
   process.exit(1);
 }
-process.stdout.write(shard.name);
 EOF
 }
 
@@ -624,30 +616,28 @@ if (!(finalizeStart < browserEnd)) {
 }
 EOF
 
-shared_finalizer_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-shared-finalizer.XXXXXX")"
-cleanup_paths+=("$shared_finalizer_dir")
-write_fake_make "$shared_finalizer_dir"
-write_fake_go_target_runner "$shared_finalizer_dir"
-shared_finalizer_manifest="${shared_finalizer_dir}/manifest.json"
-write_manifest "$shared_finalizer_manifest" test-fast-service-backed \
+separate_finalizer_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-separate-finalizer.XXXXXX")"
+cleanup_paths+=("$separate_finalizer_dir")
+write_fake_make "$separate_finalizer_dir"
+write_fake_go_target_runner "$separate_finalizer_dir"
+separate_finalizer_manifest="${separate_finalizer_dir}/manifest.json"
+write_manifest "$separate_finalizer_manifest" test-fast-service-backed \
   'go_shards|backend-integration|0|"postgres": 1, "minio": 1' \
   'go_shards|backend-integration-support|0|"postgres": 1, "minio": 1'
-shared_finalizer_shard="$(discover_shared_backend_integration_shard)"
-shared_finalizer_output="$(
+assert_no_shared_backend_integration_shards
+separate_finalizer_output="$(
   FAKE_GO_SLEEP_CAPTURE=0.005 \
-  FAKE_GO_SLEEP_CAPTURE_SHARD="$shared_finalizer_shard" \
-  FAKE_GO_SLEEP_CAPTURE_SHARD_DURATION=0.8 \
   FAKE_GO_SLEEP_FINALIZE=0.05 \
   FAKE_GO_SLEEP_FINALIZE_TARGET=backend-integration \
   FAKE_GO_SLEEP_FINALIZE_TARGET_DURATION=1.5 \
-    run_scheduler "$shared_finalizer_dir" "$shared_finalizer_manifest" test-fast-service-backed shared-finalizer 2>&1
+    run_scheduler "$separate_finalizer_dir" "$separate_finalizer_manifest" test-fast-service-backed separate-finalizer 2>&1
 )"
-assert_contains "$shared_finalizer_output" "aggregate-reports/backend-integration/fake-aggregate" "backend-integration aggregate output is target-scoped"
-assert_contains "$shared_finalizer_output" "aggregate-reports/backend-integration-support/fake-aggregate" "backend-integration-support aggregate output is target-scoped"
-assert_scheduler_artifacts "$shared_finalizer_dir" shared-finalizer test-fast-service-backed pass - finalize-start
-"$NODE_BIN" - "${shared_finalizer_dir}/make.log" "$shared_finalizer_shard" <<'EOF'
+assert_contains "$separate_finalizer_output" "aggregate-reports/backend-integration/fake-aggregate" "backend-integration aggregate output is target-scoped"
+assert_contains "$separate_finalizer_output" "aggregate-reports/backend-integration-support/fake-aggregate" "backend-integration-support aggregate output is target-scoped"
+assert_scheduler_artifacts "$separate_finalizer_dir" separate-finalizer test-fast-service-backed pass - finalize-start
+"$NODE_BIN" - "${separate_finalizer_dir}/make.log" <<'EOF'
 const fs = require("node:fs");
-const [logFile, sharedShard] = process.argv.slice(2);
+const [logFile] = process.argv.slice(2);
 const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
 const indexOf = (needle) => {
   const index = lines.findIndex((line) => line.includes(needle));
@@ -656,11 +646,8 @@ const indexOf = (needle) => {
   }
   return index;
 };
-const sharedEnd = indexOf(`end capture backend-integration ${sharedShard}`);
-const supportStart = indexOf("start finalize backend-integration-support");
-if (!(sharedEnd < supportStart)) {
-  throw new Error("backend-integration-support finalizer started before shared shard captured under backend-integration completed");
-}
+indexOf("start finalize backend-integration");
+indexOf("start finalize backend-integration-support");
 EOF
 
 check_browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-check-browser.XXXXXX")"

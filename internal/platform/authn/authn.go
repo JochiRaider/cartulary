@@ -247,7 +247,12 @@ func NewSessionTiming(now time.Time) SessionTiming {
 }
 
 func (s SessionTiming) Slide(now time.Time) SessionTiming {
-	s.LastQualifyingActivityAt = now.UTC()
+	now = now.UTC()
+	last := s.LastQualifyingActivityAt.UTC()
+	if now.Before(last) {
+		now = last
+	}
+	s.LastQualifyingActivityAt = now
 	s.IdleExpiresAt = s.LastQualifyingActivityAt.Add(SessionIdleTTL)
 	s.SessionExpiresAt = earlierTime(s.IdleExpiresAt, s.AbsoluteExpiresAt)
 	return s

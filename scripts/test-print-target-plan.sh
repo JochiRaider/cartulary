@@ -109,15 +109,15 @@ if (!packageReset.every((item) => Number.isInteger(item.postgres_fixture_budget?
   process.exit(1);
 }
 const shared = plan.shards.filter((shard) => shard.shared_across_targets);
-if (shared.length === 0) {
+if (shared.length !== 0) {
   process.exit(1);
 }
-if (!plan.shards.every((shard) => shard.shared_across_targets === (shard.has_authoritative && shard.has_support))) {
+if (!plan.shards.every((shard) => !(shard.has_authoritative && shard.has_support))) {
   process.exit(1);
 }
 EOF
 then
-  fail "backend-integration go shard plan must be weighted, policy-bearing, split heavy aggregates, and mark cross-target shared shards"
+  fail "backend-integration go shard plan must be weighted, policy-bearing, split heavy aggregates, and keep authoritative/support shards separate"
 fi
 
 backend_store_shard_json="$tmp_dir/go-shard-plan-backend-store.json"

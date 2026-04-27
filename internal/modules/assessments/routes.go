@@ -185,12 +185,13 @@ func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.Sess
 		AbsoluteExpiresAt:        principal.Session.AbsoluteExpiresAt,
 		SessionExpiresAt:         principal.Session.SessionExpiresAt,
 	}.Slide(s.now())
-	if err := s.authStore.SlideSession(ctx, principal.Session.ID, sliding); err != nil {
+	persisted, err := s.authStore.SlideSession(ctx, principal.Session.ID, sliding)
+	if err != nil {
 		return err
 	}
-	principal.Session.LastQualifyingActivityAt = sliding.LastQualifyingActivityAt
-	principal.Session.IdleExpiresAt = sliding.IdleExpiresAt
-	principal.Session.SessionExpiresAt = sliding.SessionExpiresAt
+	principal.Session.LastQualifyingActivityAt = persisted.LastQualifyingActivityAt
+	principal.Session.IdleExpiresAt = persisted.IdleExpiresAt
+	principal.Session.SessionExpiresAt = persisted.SessionExpiresAt
 	return nil
 }
 

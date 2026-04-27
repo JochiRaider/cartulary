@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { loadServiceFixtureEvents } from "./lib/fixture-reporting.mjs";
 import { collectGoShardPlan } from "./lib/go-shard-plan.mjs";
 import { collectTargetPlanRows } from "./lib/target-plan.mjs";
 
@@ -46,7 +46,7 @@ function parseArgs(argv) {
   return options;
 }
 
-function eventDirs() {
+function loadEvents() {
   const resultsDir = path.resolve(
     repoRoot,
     process.env.CARTULARY_TEST_RESULTS_DIR || ".cartulary/test-results",
@@ -55,39 +55,9 @@ function eventDirs() {
   if (!runID) {
     throw new Error("CARTULARY_TEST_RUN_ID is required");
   }
-  const servicesRoot = path.join(resultsDir, runID, "_shared", "test-services");
-  if (!existsSync(servicesRoot)) {
-    return [];
-  }
-  return readdirSync(servicesRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => path.join(servicesRoot, entry.name, "events"))
-    .filter((dir) => existsSync(dir));
-}
-
-function loadEvents() {
-  const events = [];
-  const stack = eventDirs();
-  while (stack.length > 0) {
-    const current = stack.pop();
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-        continue;
-      }
-      if (!entry.isFile() || !entry.name.endsWith(".json")) {
-        continue;
-      }
-      events.push(JSON.parse(readFileSync(next, "utf8")));
-    }
-  }
-  events.sort(
-    (left, right) =>
-      String(left.timestamp ?? "").localeCompare(String(right.timestamp ?? "")) ||
-      String(left.name ?? "").localeCompare(String(right.name ?? "")),
+  return loadServiceFixtureEvents({ resultsRoot: resultsDir, runId: runID, repoRoot }).map(
+    ({ event }) => event,
   );
-  return events;
 }
 
 function topLevelTestName(testName) {

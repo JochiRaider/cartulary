@@ -115,6 +115,64 @@ func TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05(t *testing.T) {
 	}
 }
 
+func TestSupportPhase1_SlideSessionDoesNotRegressPersistedTiming(t *testing.T) {
+	now := time.Date(2026, time.April, 17, 12, 24, 0, 0, time.UTC)
+	fixture := newPhase1StoreFixture(t, "phase1-slide-session-non-regression", now)
+
+	user := phase1storetest.SeedLocalUserRecord(
+		t,
+		fixture.harness.DB,
+		"slide-session@example.test",
+		"Slide Session",
+		"Phase1SlideSessionPass!",
+		false,
+		false,
+		true,
+	)
+	session := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-slide-session", now.Add(-time.Hour), now)
+
+	future := authn.SessionTiming{
+		AuthenticatedAt:          session.AuthenticatedAt,
+		LastQualifyingActivityAt: session.LastQualifyingActivityAt,
+		IdleExpiresAt:            session.IdleExpiresAt,
+		AbsoluteExpiresAt:        session.AbsoluteExpiresAt,
+		SessionExpiresAt:         session.SessionExpiresAt,
+	}.Slide(now.Add(5 * time.Minute))
+	persistedFuture, err := fixture.store.SlideSession(context.Background(), session.ID, future)
+	if err != nil {
+		t.Fatalf("slide session forward: %v", err)
+	}
+	if !persistedFuture.LastQualifyingActivityAt.Equal(now.Add(5 * time.Minute)) {
+		t.Fatalf("unexpected forward activity time: got %s", persistedFuture.LastQualifyingActivityAt)
+	}
+
+	stale := authn.SessionTiming{
+		AuthenticatedAt:          session.AuthenticatedAt,
+		LastQualifyingActivityAt: session.LastQualifyingActivityAt,
+		IdleExpiresAt:            session.IdleExpiresAt,
+		AbsoluteExpiresAt:        session.AbsoluteExpiresAt,
+		SessionExpiresAt:         session.SessionExpiresAt,
+	}.Slide(now.Add(time.Minute))
+	persistedStale, err := fixture.store.SlideSession(context.Background(), session.ID, stale)
+	if err != nil {
+		t.Fatalf("slide session stale: %v", err)
+	}
+	if !persistedStale.LastQualifyingActivityAt.Equal(persistedFuture.LastQualifyingActivityAt) {
+		t.Fatalf("stale slide regressed activity: got %s want %s", persistedStale.LastQualifyingActivityAt, persistedFuture.LastQualifyingActivityAt)
+	}
+	if !persistedStale.IdleExpiresAt.Equal(persistedFuture.IdleExpiresAt) {
+		t.Fatalf("stale slide regressed idle expiry: got %s want %s", persistedStale.IdleExpiresAt, persistedFuture.IdleExpiresAt)
+	}
+	if !persistedStale.SessionExpiresAt.Equal(persistedFuture.SessionExpiresAt) {
+		t.Fatalf("stale slide regressed session expiry: got %s want %s", persistedStale.SessionExpiresAt, persistedFuture.SessionExpiresAt)
+	}
+
+	row := phase1storetest.QuerySessionByID(t, fixture.harness.DB, session.ID.String())
+	if !row.LastQualifyingActivityAt.Equal(persistedFuture.LastQualifyingActivityAt) {
+		t.Fatalf("stored activity regressed: got %s want %s", row.LastQualifyingActivityAt, persistedFuture.LastQualifyingActivityAt)
+	}
+}
+
 func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 	now := time.Date(2026, time.April, 17, 12, 30, 0, 0, time.UTC)
 

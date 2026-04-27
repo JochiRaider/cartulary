@@ -62,7 +62,7 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 			t.Fatalf("session inspection must not slide idle expiry: before=%s after=%s", stored.lastQualifyingActivityAt, afterInspect.lastQualifyingActivityAt)
 		}
 
-		time.Sleep(20 * time.Millisecond)
+		phase1test.SetClockOffset(t, server.HTTP.URL, 1)
 		touchResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/test/auth/touch", nil, withCookies(sessionCookie))
 		httptestx.RequireSuccessEnvelope(t, touchResp, http.StatusOK)
 
