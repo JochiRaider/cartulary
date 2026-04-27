@@ -4,7 +4,9 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  collectTaskSurfaceManifestErrors,
   defaultGeneratedMakePath,
+  harnessCheckEntries,
   renderTaskSurfaceMake,
   taskSurfaceSchemaID,
 } from "./lib/task-surface.mjs";
@@ -177,6 +179,7 @@ function validateTaskSurface({ generatedMakePath, helpEntries, manifest, phonyTa
     errors.push("tools/task_surface_manifest.json must declare targets[]");
     return errors;
   }
+  errors.push(...collectTaskSurfaceManifestErrors(manifest));
   const renderedMake = renderTaskSurfaceMake(manifest);
   const committedMake = readFileSync(generatedMakePath, "utf8");
   if (renderedMake !== committedMake) {
@@ -196,6 +199,36 @@ function validateTaskSurface({ generatedMakePath, helpEntries, manifest, phonyTa
     }
     entriesByName.set(entry.name, entry);
   }
+  const harnessChecksByName = new Map();
+  for (const entry of harnessCheckEntries(manifest)) {
+    if (typeof entry.name !== "string" || entry.name.trim() === "") {
+      errors.push("task-surface manifest harness check has missing name");
+      continue;
+    }
+    if (entriesByName.has(entry.name)) {
+      errors.push(`task-surface harness check ${entry.name} conflicts with a Makefile target`);
+      continue;
+    }
+    if (harnessChecksByName.has(entry.name)) {
+      errors.push(`task-surface manifest has duplicate harness check ${entry.name}`);
+      continue;
+    }
+    harnessChecksByName.set(entry.name, entry);
+    const declaredScripts = Array.isArray(entry.backing_scripts) ? entry.backing_scripts : [];
+    if (declaredScripts.length === 0) {
+      errors.push(`${entry.name} must declare non-empty backing_scripts[]`);
+    }
+    for (const script of declaredScripts) {
+      if (typeof script !== "string" || script.trim() === "") {
+        errors.push(`${entry.name} declares an invalid backing script`);
+        continue;
+      }
+      const scriptPath = path.join(repoRoot, script);
+      if (!existsSync(scriptPath) || !statSync(scriptPath).isFile()) {
+        errors.push(`${entry.name} backing script missing: ${script}`);
+      }
+    }
+  }
 
   for (const target of phonyTargets) {
     if (!entriesByName.has(target)) {
@@ -205,6 +238,11 @@ function validateTaskSurface({ generatedMakePath, helpEntries, manifest, phonyTa
   for (const target of entriesByName.keys()) {
     if (!phonySet.has(target)) {
       errors.push(`task-surface manifest target ${target} is not a Makefile .PHONY target`);
+    }
+  }
+  for (const check of harnessChecksByName.keys()) {
+    if (phonySet.has(check)) {
+      errors.push(`harness check ${check} must not be a Makefile .PHONY target`);
     }
   }
 
@@ -262,6 +300,10 @@ function validateTaskSurface({ generatedMakePath, helpEntries, manifest, phonyTa
 
 function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTargets, targetScriptRefs }) {
   const entriesByName = new Map((manifest.targets ?? []).map((entry) => [entry.name, entry]));
+  const harnessChecks = harnessCheckEntries(manifest).map((entry) => ({
+    name: entry.name,
+    backing_scripts: entry.backing_scripts ?? [],
+  }));
   const targets = phonyTargets.map((target) => {
     const entry = entriesByName.get(target) ?? {};
     return {
@@ -279,6 +321,7 @@ function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTa
     check_passed: errors.length === 0,
     errors,
     targets,
+    harness_checks: harnessChecks,
     help_entries: Array.from(helpEntries.keys()).sort(),
     phase_execution_dependencies: phaseDependencies,
   };
@@ -301,6 +344,13 @@ function printHumanReport(report) {
     console.log(
       `  ${target.name} classification=${target.classification} included_in=${target.included_in.join(",")} scripts=${scripts}`,
     );
+  }
+
+  console.log("");
+  console.log("logical harness checks:");
+  for (const check of report.harness_checks) {
+    const scripts = check.backing_scripts.length > 0 ? check.backing_scripts.join(",") : "-";
+    console.log(`  ${check.name} scripts=${scripts}`);
   }
 
   console.log("");

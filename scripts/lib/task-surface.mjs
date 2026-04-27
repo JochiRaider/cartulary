@@ -10,7 +10,7 @@ export const defaultTaskSurfaceManifestPath = path.join(
   "task_surface_manifest.json",
 );
 export const defaultGeneratedMakePath = path.join(repoRoot, "tools", "task_surface.generated.mk");
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v2";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v3";
 
 const validClassifications = new Set(["public", "check_internal", "helper_only"]);
 const validInclusions = new Set(["test", "check", "ci", "release-check", "helper_only"]);
@@ -36,6 +36,18 @@ export function targetEntries(manifest) {
 
 export function targetEntryMap(manifest) {
   return new Map(targetEntries(manifest).map((entry) => [entry.name, entry]));
+}
+
+export function harnessCheckEntries(manifest) {
+  return manifest.harness_checks ?? [];
+}
+
+export function harnessCheckEntryMap(manifest) {
+  return new Map(harnessCheckEntries(manifest).map((entry) => [entry.name, entry]));
+}
+
+export function summaryEntryMap(manifest) {
+  return new Map([...targetEntryMap(manifest), ...harnessCheckEntryMap(manifest)]);
 }
 
 export function summaryProfile(manifest, name) {
@@ -65,17 +77,28 @@ export function summaryProfileArgs(manifest, name) {
 }
 
 export function projectionChildren(manifest, target) {
-  const entry = targetEntryMap(manifest).get(target);
+  const entry = summaryEntryMap(manifest).get(target);
   const children = entry?.summary_projection?.children ?? [];
   return [...children];
 }
 
-export function harnessTierTargets(manifest, name) {
+export function harnessTierChecks(manifest, name) {
   const tier = manifest.harness_tiers?.[name];
   if (!tier) {
     throw new Error(`unknown harness tier ${name}`);
   }
-  return [...tier.targets];
+  return [...tier.checks];
+}
+
+export function harnessCheck(manifest, name) {
+  const check = harnessCheckEntryMap(manifest).get(name);
+  if (!check) {
+    throw new Error(`unknown harness check ${name}`);
+  }
+  return {
+    name: check.name,
+    backing_scripts: [...check.backing_scripts],
+  };
 }
 
 export function makeIdentifier(value) {
@@ -148,9 +171,53 @@ export function collectTaskSurfaceManifestErrors(manifest) {
     }
   }
 
-  for (const entry of targets.values()) {
+  const harnessChecks = new Map();
+  if (!Array.isArray(manifest.harness_checks)) {
+    errors.push("harness_checks[] must be an array");
+  } else {
+    for (const [index, entry] of manifest.harness_checks.entries()) {
+      const label = `harness_checks[${index + 1}]`;
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        errors.push(`${label} must be an object`);
+        continue;
+      }
+      if (typeof entry.name !== "string" || entry.name.trim() === "") {
+        errors.push(`${label}.name must be a non-empty string`);
+        continue;
+      }
+      if (targets.has(entry.name)) {
+        errors.push(`harness check ${entry.name} conflicts with a Make target`);
+        continue;
+      }
+      if (harnessChecks.has(entry.name)) {
+        errors.push(`duplicate harness check ${entry.name}`);
+        continue;
+      }
+      harnessChecks.set(entry.name, entry);
+      if (!Array.isArray(entry.backing_scripts) || entry.backing_scripts.length === 0) {
+        errors.push(`${entry.name}.backing_scripts must be a non-empty array`);
+      } else {
+        for (const script of entry.backing_scripts) {
+          if (typeof script !== "string" || script.trim() === "") {
+            errors.push(`${entry.name} declares an invalid backing script`);
+          } else if (!existsSync(path.join(repoRoot, script))) {
+            errors.push(`${entry.name} backing script missing: ${script}`);
+          }
+        }
+      }
+      if (entry.summary_projection !== undefined) {
+        const children = entry.summary_projection?.children;
+        if (!Array.isArray(children)) {
+          errors.push(`${entry.name}.summary_projection.children must be an array`);
+        }
+      }
+    }
+  }
+
+  const summaryEntries = new Map([...targets, ...harnessChecks]);
+  for (const entry of summaryEntries.values()) {
     for (const child of entry.summary_projection?.children ?? []) {
-      if (!targets.has(child)) {
+      if (!summaryEntries.has(child)) {
         errors.push(`${entry.name} summary projection references unknown child target ${child}`);
       }
     }
@@ -195,9 +262,9 @@ export function collectTaskSurfaceManifestErrors(manifest) {
     }
   }
 
-  validateNamedTargetLists(errors, targets, manifest.summary_profiles, "summary_profiles");
-  validateSummaryProfileAccountingRoots(errors, targets, manifest.summary_profiles);
-  validateNamedTargetLists(errors, targets, manifest.harness_tiers, "harness_tiers");
+  validateNamedTargetLists(errors, summaryEntries, manifest.summary_profiles, "summary_profiles");
+  validateSummaryProfileAccountingRoots(errors, summaryEntries, manifest.summary_profiles);
+  validateHarnessTiers(errors, harnessChecks, manifest.harness_tiers);
 
   if (!manifest.sequences || typeof manifest.sequences !== "object" || Array.isArray(manifest.sequences)) {
     errors.push("sequences must be an object");
@@ -311,6 +378,34 @@ function validateNamedTargetLists(errors, targets, collection, label) {
   }
 }
 
+function validateHarnessTiers(errors, harnessChecks, tiers) {
+  if (!tiers || typeof tiers !== "object" || Array.isArray(tiers)) {
+    errors.push("harness_tiers must be an object");
+    return;
+  }
+  for (const [name, tier] of Object.entries(tiers)) {
+    const checks = tier?.checks;
+    if (!Array.isArray(checks) || checks.length === 0) {
+      errors.push(`harness_tiers.${name}.checks must be a non-empty array`);
+      continue;
+    }
+    const seen = new Set();
+    for (const check of checks) {
+      if (typeof check !== "string" || check.trim() === "") {
+        errors.push(`harness_tiers.${name}.checks contains an invalid check`);
+        continue;
+      }
+      if (seen.has(check)) {
+        errors.push(`harness_tiers.${name}.checks contains duplicate check ${check}`);
+      }
+      seen.add(check);
+      if (!harnessChecks.has(check)) {
+        errors.push(`harness_tiers.${name}.checks references unknown harness check ${check}`);
+      }
+    }
+  }
+}
+
 export function renderTaskSurfaceMake(manifest) {
   const lines = [
     "# Code generated by scripts/render-task-surface-make.mjs; DO NOT EDIT.",
@@ -323,12 +418,6 @@ export function renderTaskSurfaceMake(manifest) {
     lines.push(`\t'${escapeMakeSingleQuoted(line)}' \\`);
   }
   lines.push("\t''");
-  lines.push("");
-  for (const [name, tier] of Object.entries(manifest.harness_tiers ?? {})) {
-    lines.push(
-      `TASK_SURFACE_HARNESS_TIER_${makeIdentifier(name)}_TARGETS := ${tier.targets.join(" ")}`,
-    );
-  }
   lines.push("");
   return `${lines.join("\n")}\n`;
 }

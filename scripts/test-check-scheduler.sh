@@ -60,6 +60,71 @@ assert_file_absent() {
   fi
 }
 
+assert_file_present() {
+  local path="$1"
+  local label="$2"
+
+  if [[ ! -f "$path" ]]; then
+    fail "$label: expected $path to exist"
+  fi
+}
+
+assert_check_scheduler_artifacts() {
+  local dir="$1"
+  local run_id="$2"
+  local target="$3"
+  local expected_status="$4"
+  local expected_failed="$5"
+  local expected_total="$6"
+  local expected_event="$7"
+  local summary_file="${dir}/results/${run_id}/${target}/scheduler-summary.json"
+  local events_file="${dir}/results/${run_id}/${target}/scheduler-events.jsonl"
+
+  assert_file_present "$summary_file" "$target scheduler summary"
+  assert_file_present "$events_file" "$target scheduler events"
+  "$NODE_BIN" - "$summary_file" "$events_file" "$expected_status" "$expected_failed" "$expected_total" "$expected_event" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile, eventsFile, expectedStatus, expectedFailed, expectedTotal, expectedEvent] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
+if (summary.schema_id !== "cartulary.check_scheduler_summary.v1") {
+  throw new Error(`unexpected summary schema ${summary.schema_id}`);
+}
+if (summary.status !== expectedStatus) {
+  throw new Error(`summary status got ${summary.status} want ${expectedStatus}`);
+}
+if (summary.total_work_units !== Number(expectedTotal)) {
+  throw new Error(`total work units got ${summary.total_work_units} want ${expectedTotal}`);
+}
+const failed = summary.failed_work_unit ?? null;
+if (expectedFailed === "-") {
+  if (failed !== null) {
+    throw new Error(`expected no failed work unit, got ${failed}`);
+  }
+} else if (failed !== expectedFailed) {
+  throw new Error(`failed work unit got ${failed} want ${expectedFailed}`);
+}
+if (!Array.isArray(summary.slowest_work_units) || summary.slowest_work_units.length === 0) {
+  throw new Error("summary must record slowest work");
+}
+if (!summary.artifacts?.events_jsonl) {
+  throw new Error("summary must record scheduler event artifact path");
+}
+if (events.length === 0) {
+  throw new Error("scheduler events must not be empty");
+}
+if (!events.every((event) => event.schema_id === "cartulary.check_scheduler_event.v1")) {
+  throw new Error("unexpected scheduler event schema");
+}
+if (expectedEvent !== "-" && !events.some((event) => event.event === expectedEvent)) {
+  throw new Error(`missing scheduler event ${expectedEvent}`);
+}
+if (!events.some((event) => event.resource_limits && Object.keys(event.resource_limits).length > 0)) {
+  throw new Error("events must include resource limits");
+}
+EOF
+}
+
 json_field() {
   local file="$1"
   local path="$2"
@@ -261,19 +326,13 @@ assert_equals "$(json_field "$success_summary" "status")" "pass" "success summar
 assert_equals "$(json_field "$success_summary" "completed_targets")" "6/6" "success completed"
 success_scheduler_summary="${success_dir}/results/success/check/scheduler-summary.json"
 success_scheduler_events="${success_dir}/results/success/check/scheduler-events.jsonl"
-assert_equals "$(json_field "$success_scheduler_summary" "schema_id")" "cartulary.check_scheduler_summary.v1" "success scheduler summary schema"
+assert_check_scheduler_artifacts "$success_dir" success check pass - 6 finish
 assert_equals "$(json_field "$success_scheduler_summary" "completed_work_units")" "6" "success scheduler completed count"
 "$NODE_BIN" - "$success_scheduler_summary" "$success_scheduler_events" <<'EOF'
 const fs = require("node:fs");
 const [summaryFile, eventsFile] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
-if (!Array.isArray(summary.slowest_work_units) || summary.slowest_work_units.length === 0) {
-  throw new Error("scheduler summary must record slowest work");
-}
 const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).map((line) => JSON.parse(line));
-if (!events.some((event) => event.schema_id === "cartulary.check_scheduler_event.v1")) {
-  throw new Error("scheduler events must carry the check scheduler schema");
-}
 if (!events.some((event) => event.active_resource_claims && Object.keys(event.active_resource_claims).length > 0)) {
   throw new Error("scheduler events must preserve active resource claims");
 }
@@ -320,7 +379,8 @@ set -e
 assert_equals "$failure_status" "7" "failure exit status"
 assert_contains "$failure_output" "fake failure for beta" "failure child output"
 assert_contains "$failure_output" "[FAIL] check" "failure summary"
-assert_contains "$failure_output" "[CHECK-SCHEDULER] check summary status=fail completed=2/4 failed=beta skipped=1" "failure scheduler skipped summary"
+assert_contains "$failure_output" "[CHECK-SCHEDULER] check summary status=fail" "failure scheduler status summary"
+assert_contains "$failure_output" "failed=beta" "failure scheduler failed work unit"
 failure_events="$(cat "${failure_dir}/events.log")"
 assert_contains "$failure_events" "start alpha" "failure alpha started"
 assert_contains "$failure_events" "start beta" "failure beta started"
@@ -330,16 +390,18 @@ assert_equals "$(json_field "$failure_summary" "status")" "fail" "failure summar
 assert_equals "$(json_field "$failure_summary" "aborted_after")" "beta" "failure aborted after"
 failure_scheduler_summary="${failure_dir}/results/failure/check/scheduler-summary.json"
 failure_scheduler_events="${failure_dir}/results/failure/check/scheduler-events.jsonl"
+assert_check_scheduler_artifacts "$failure_dir" failure check fail beta 4 skip
 "$NODE_BIN" - "$failure_scheduler_summary" "$failure_scheduler_events" <<'EOF'
 const fs = require("node:fs");
 const [summaryFile, eventsFile] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 const skipped = new Map(summary.skipped_work_units.map((unit) => [unit.id, unit]));
-if (summary.failed_work_unit !== "beta") {
-  throw new Error(`expected beta as failed work unit, got ${summary.failed_work_unit}`);
-}
 if (skipped.get("delta")?.reason !== "dependency_failure") {
   throw new Error("delta must be marked skipped by dependency failure");
+}
+const gamma = skipped.get("gamma");
+if (gamma && gamma.reason !== "schedule_stopped_after_failure") {
+  throw new Error(`gamma skip reason got ${gamma.reason} want schedule_stopped_after_failure`);
 }
 const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).map((line) => JSON.parse(line));
 if (!events.some((event) => event.event === "skip" && event.work_unit === "delta" && event.skip_reason === "dependency_failure")) {

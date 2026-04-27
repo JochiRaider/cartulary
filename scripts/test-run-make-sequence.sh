@@ -289,16 +289,18 @@ assert_file_absent "${invalid_dir}/make.log" "invalid usage child make log"
 
 makefile_content="$(cat "${ROOT_DIR}/Makefile")"
 generated_make="$(cat "${ROOT_DIR}/tools/task_surface.generated.mk")"
+generated_phony_line="$(printf '%s\n' "${generated_make}" | sed -n 's/^\\.PHONY: //p')"
 manifest_content="$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")"
 assert_count "$(line_count '^RUN_MAKE_SEQUENCE_SCRIPT :=')" "1" "run sequence helper declaration"
+assert_count "$(line_count '^RUN_HARNESS_SMOKE_SCRIPT :=')" "1" "harness smoke helper declaration"
 assert_count "$(line_count '^RUN_SERVICE_BACKED_SCHEDULE_SCRIPT :=')" "1" "service-backed scheduler helper declaration"
 assert_count "$(line_count '^RUN_CHECK_SCHEDULE_SCRIPT :=')" "1" "check scheduler helper declaration"
 assert_contains "${makefile_content}" "include tools/task_surface.generated.mk" "Makefile includes generated task surface"
-assert_contains "${generated_make}" "TASK_SURFACE_HARNESS_TIER_FAST_TARGETS :=" "generated fast harness tier"
-assert_contains "${generated_make}" "TASK_SURFACE_HARNESS_TIER_EXTENDED_TARGETS :=" "generated extended harness tier"
-assert_contains "${generated_make}" "TASK_SURFACE_HARNESS_TIER_LIFECYCLE_TARGETS :=" "generated lifecycle harness tier"
-assert_contains "${generated_make}" "TASK_SURFACE_HARNESS_TIER_FULL_TARGETS :=" "generated full harness tier"
+assert_not_contains "${generated_make}" "TASK_SURFACE_HARNESS_TIER_" "generated Make harness tier variables"
+assert_not_contains "${generated_phony_line}" "harness-smoke-toolchain-pins" "generated Make harness leaf targets"
+assert_not_contains "${generated_phony_line}" "run-harness-smoke-fast-all" "generated Make fast harness aggregate leaf"
 assert_count "$(line_count '^RUN_MAKE_SEQUENCE_SCRIPT :=')" "1" "run sequence helper declaration"
+assert_count "$(line_count '^RUN_HARNESS_SMOKE_SCRIPT :=')" "1" "harness smoke helper declaration"
 assert_count "$(line_count '^RUN_SERVICE_BACKED_SCHEDULE_SCRIPT :=')" "1" "service-backed scheduler helper declaration"
 assert_count "$(line_count '^RUN_CHECK_SCHEDULE_SCRIPT :=')" "1" "check scheduler helper declaration"
 
@@ -325,15 +327,9 @@ assert_not_contains "${check_block}" "--step browser-e2e" "make check no final s
 assert_not_contains "${check_block}" "--step check-isolated" "make check old split browser sequence"
 assert_not_contains "${check_block}" "completed=" "make check inline completed counter"
 assert_not_contains "${check_block}" "total=" "make check inline total counter"
-assert_contains "${run_harness_smoke_fast_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "run-harness-smoke-fast helper invocation"
-assert_contains "${run_harness_smoke_fast_block}" "--summary-profile run-harness-smoke-fast" "run-harness-smoke-fast summary profile"
-assert_contains "${run_harness_smoke_fast_block}" "--parallel-step run-harness-smoke-fast-all:\$(HARNESS_SMOKE_JOBS)" "run-harness-smoke-fast parallel aggregate step"
-assert_contains "${run_harness_smoke_extended_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "run-harness-smoke-extended helper invocation"
-assert_contains "${run_harness_smoke_extended_block}" "--summary-profile run-harness-smoke-extended" "run-harness-smoke-extended summary profile"
-assert_contains "${run_harness_smoke_extended_block}" "--parallel-step run-harness-smoke-extended-all:\$(HARNESS_SMOKE_JOBS)" "run-harness-smoke-extended parallel aggregate step"
-assert_contains "${run_harness_smoke_full_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "run-harness-smoke-full helper invocation"
-assert_contains "${run_harness_smoke_full_block}" "--summary-profile run-harness-smoke-full" "run-harness-smoke-full summary profile"
-assert_contains "${run_harness_smoke_full_block}" "--parallel-step run-harness-smoke-full-all:\$(HARNESS_SMOKE_JOBS)" "run-harness-smoke-full parallel aggregate step"
+assert_contains "${run_harness_smoke_fast_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier fast --jobs "$(HARNESS_SMOKE_JOBS)"' "run-harness-smoke-fast manifest runner"
+assert_contains "${run_harness_smoke_extended_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier extended --jobs "$(HARNESS_SMOKE_JOBS)"' "run-harness-smoke-extended manifest runner"
+assert_contains "${run_harness_smoke_full_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier full --jobs "$(HARNESS_SMOKE_JOBS)"' "run-harness-smoke-full manifest runner"
 assert_contains "${check_harness_smoke_block}" "run-harness-smoke-fast" "check-harness-smoke fast tier invocation"
 assert_contains "${check_harness_smoke_block}" "--projection check-harness-smoke" "check-harness-smoke summary projection"
 assert_contains "${manifest_content}" "\"summary_profiles\"" "manifest summary profiles"
@@ -359,7 +355,8 @@ for (const profileName of ["test", "check"]) {
   }
 }
 EOF
-assert_contains "${manifest_content}" "harness-smoke-run-make-sequence-fast" "harness smoke fast make sequence target"
+assert_contains "${manifest_content}" "\"harness_checks\"" "manifest logical harness checks"
+assert_contains "${manifest_content}" "harness-smoke-run-make-sequence-fast" "harness smoke fast make sequence check"
 assert_contains "${manifest_content}" "harness-smoke-run-go-target-fast" "harness smoke fast go target"
 assert_contains "${test_service_backed_block}" '$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-service-backed --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)" --defer-summary' "test service-backed scheduler invocation"
 assert_contains "${test_service_backed_block}" '$(TEST_OUTPUT_SCRIPT) target-summary test-service-backed $$requested --projection test-service-backed' "test service-backed post-wrapper summary"
@@ -389,7 +386,11 @@ for target in test run-harness-smoke-fast run-harness-smoke-extended run-harness
       make -n --no-print-directory "${target}" \
       2>&1
   )"
-  assert_contains "${make_dry_run_output}" "scripts/run-make-sequence.sh --label ${target}" "make -n ${target} helper command"
+  if [[ "${target}" == run-harness-smoke-* ]]; then
+    assert_contains "${make_dry_run_output}" "scripts/run-harness-smoke.mjs --tier ${target#run-harness-smoke-}" "make -n ${target} helper command"
+  else
+    assert_contains "${make_dry_run_output}" "scripts/run-make-sequence.sh --label ${target}" "make -n ${target} helper command"
+  fi
   assert_file_absent "${make_dry_run_dir}/results/make-n-${target}/run-summary.json" "make -n ${target} summary"
 done
 

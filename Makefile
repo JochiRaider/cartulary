@@ -54,6 +54,7 @@ RUN_FRONTEND_BIOME_SCRIPT := $(CURDIR)/scripts/run-frontend-biome.sh
 TEST_OUTPUT_SCRIPT := $(CURDIR)/scripts/lib/test-output.sh
 TASK_SURFACE_MANIFEST ?= $(CURDIR)/tools/task_surface_manifest.json
 RUN_MAKE_SEQUENCE_SCRIPT := $(CURDIR)/scripts/run-make-sequence.sh
+RUN_HARNESS_SMOKE_SCRIPT := $(CURDIR)/scripts/run-harness-smoke.mjs
 RUN_SERVICE_BACKED_SCHEDULE_SCRIPT := $(CURDIR)/scripts/run-service-backed-schedule.mjs
 RUN_CHECK_SCHEDULE_SCRIPT := $(CURDIR)/scripts/run-check-schedule.mjs
 BUILD_INPUTS_SCRIPT := $(CURDIR)/scripts/list-build-inputs.sh
@@ -376,59 +377,14 @@ task-surface-report: $(NODE_BIN)
 task-surface-check: $(NODE_BIN)
 	$(RUN_PHASE) "task-surface-check" -- $(NODE_BIN) ./scripts/print-task-surface-report.mjs --check
 
-define harness_smoke_target
-$(1): $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)CARTULARY_TEST_TARGET=$(1) $(RUN_PHASE_SCRIPT) "$(1)" -- env -u CARTULARY_TEST_TARGET ./$(2); status=$$$$?; \
-	summary_status=0; \
-	if [ $$$$status -eq 0 ]; then \
-		NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary $(1) pass || summary_status=$$$$?; \
-	else \
-		NODE_BIN=$(NODE_BIN) $(TEST_OUTPUT_SCRIPT) target-summary $(1) fail || summary_status=$$$$?; \
-	fi; \
-	if [ $$$$status -ne 0 ]; then exit $$$$status; fi; \
-	exit $$$$summary_status
-endef
-
-$(eval $(call harness_smoke_target,harness-smoke-toolchain-pins,scripts/test-check-toolchain-pins.sh))
-$(eval $(call harness_smoke_target,harness-smoke-bootstrap-node-runtime,scripts/test-bootstrap-node-runtime.sh))
-$(eval $(call harness_smoke_target,harness-smoke-build-input-discovery,scripts/test-build-input-discovery.sh))
-$(eval $(call harness_smoke_target,harness-smoke-check-migrations,scripts/test-check-migrations.sh))
-$(eval $(call harness_smoke_target,harness-smoke-generate-drift,scripts/test-generate-drift.sh))
-$(eval $(call harness_smoke_target,harness-smoke-run-make-sequence-fast,scripts/test-run-make-sequence-fast.sh))
-$(eval $(call harness_smoke_target,harness-smoke-run-make-sequence,scripts/test-run-make-sequence.sh))
-$(eval $(call harness_smoke_target,harness-smoke-release-task-surface,scripts/test-release-task-surface.sh))
-$(eval $(call harness_smoke_target,harness-smoke-benchmark-claim-check,scripts/test-benchmark-claim-check.sh))
-$(eval $(call harness_smoke_target,harness-smoke-task-surface-report,scripts/test-task-surface-report.sh))
-$(eval $(call harness_smoke_target,harness-smoke-go-test-duration-baselines,scripts/test-go-test-duration-baselines.sh))
-$(eval $(call harness_smoke_target,harness-smoke-browser-shard-plan,scripts/test-browser-shard-plan.sh))
-$(eval $(call harness_smoke_target,harness-smoke-run-phase,scripts/test-run-phase.sh))
-$(eval $(call harness_smoke_target,harness-smoke-run-go-target-fast,scripts/test-run-go-target-fast.sh))
-$(eval $(call harness_smoke_target,harness-smoke-run-go-target,scripts/test-run-go-target.sh))
-$(eval $(call harness_smoke_target,harness-smoke-print-target-plan,scripts/test-print-target-plan.sh))
-$(eval $(call harness_smoke_target,harness-smoke-service-backed-scheduler,scripts/test-service-backed-scheduler.sh))
-$(eval $(call harness_smoke_target,harness-smoke-check-scheduler,scripts/test-check-scheduler.sh))
-$(eval $(call harness_smoke_target,harness-smoke-run-playwright-phase,scripts/test-run-playwright-phase.sh))
-$(eval $(call harness_smoke_target,harness-smoke-run-playwright-manifest-phase,scripts/test-run-playwright-manifest-phase.sh))
-$(eval $(call harness_smoke_target,harness-smoke-run-playwright-webserver-batch,scripts/test-run-playwright-webserver-batch.sh))
-$(eval $(call harness_smoke_target,harness-smoke-run-vitest-phase,scripts/test-run-vitest-phase.sh))
-$(eval $(call harness_smoke_target,harness-smoke-run-vitest-manifest-phase,scripts/test-run-vitest-manifest-phase.sh))
-$(eval $(call harness_smoke_target,harness-smoke-web-e2e-lifecycle,scripts/test-web-e2e-lifecycle.sh))
-$(eval $(call harness_smoke_target,harness-smoke-dev-stack-lifecycle,scripts/test-dev-stack-lifecycle.sh))
-
-run-harness-smoke-fast-all: $(TASK_SURFACE_HARNESS_TIER_FAST_TARGETS)
-
 run-harness-smoke-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label run-harness-smoke-fast --summary-profile run-harness-smoke-fast --parallel-step run-harness-smoke-fast-all:$(HARNESS_SMOKE_JOBS)
-
-run-harness-smoke-extended-all: $(TASK_SURFACE_HARNESS_TIER_EXTENDED_TARGETS)
+	$(Q)NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_HARNESS_SMOKE_SCRIPT) --tier fast --jobs "$(HARNESS_SMOKE_JOBS)"
 
 run-harness-smoke-extended: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label run-harness-smoke-extended --summary-profile run-harness-smoke-extended --parallel-step run-harness-smoke-extended-all:$(HARNESS_SMOKE_JOBS)
-
-run-harness-smoke-full-all: $(TASK_SURFACE_HARNESS_TIER_FULL_TARGETS)
+	$(Q)NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_HARNESS_SMOKE_SCRIPT) --tier extended --jobs "$(HARNESS_SMOKE_JOBS)"
 
 run-harness-smoke-full: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label run-harness-smoke-full --summary-profile run-harness-smoke-full --parallel-step run-harness-smoke-full-all:$(HARNESS_SMOKE_JOBS)
+	$(Q)NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_HARNESS_SMOKE_SCRIPT) --tier full --jobs "$(HARNESS_SMOKE_JOBS)"
 
 phase-test-name-check:
 	$(RUN_PHASE) "phase-test-name-check" -- ./scripts/check-phase-test-names.sh

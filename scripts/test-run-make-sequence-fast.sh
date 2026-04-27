@@ -176,18 +176,18 @@ function fail(message) {
   process.exit(1);
 }
 
-const expectedFull = [...fast.targets, ...extended.targets, ...lifecycle.targets];
-if (JSON.stringify(full.targets) !== JSON.stringify(expectedFull)) {
+const expectedFull = [...fast.checks, ...extended.checks, ...lifecycle.checks];
+if (JSON.stringify(full.checks) !== JSON.stringify(expectedFull)) {
   fail("full harness tier must equal fast + extended + lifecycle tiers");
 }
 
 const tierMembership = new Map();
-for (const [tier, targets] of [["fast", fast.targets], ["extended", extended.targets], ["lifecycle", lifecycle.targets]]) {
-  for (const target of targets) {
-    if (tierMembership.has(target)) {
-      fail(`${target} is present in both ${tierMembership.get(target)} and ${tier}`);
+for (const [tier, checks] of [["fast", fast.checks], ["extended", extended.checks], ["lifecycle", lifecycle.checks]]) {
+  for (const check of checks) {
+    if (tierMembership.has(check)) {
+      fail(`${check} is present in both ${tierMembership.get(check)} and ${tier}`);
     }
-    tierMembership.set(target, tier);
+    tierMembership.set(check, tier);
   }
 }
 
@@ -211,11 +211,9 @@ check_harness_smoke_block="$(make_target_block check-harness-smoke)"
 release_check_block="$(make_target_block release-check)"
 ci_script="$(cat "${ROOT_DIR}/scripts/ci/verify.sh")"
 
-assert_contains "${run_fast_block}" "--summary-profile run-harness-smoke-fast" "fast harness summary profile"
-assert_contains "${run_fast_block}" "--parallel-step run-harness-smoke-fast-all:\$(HARNESS_SMOKE_JOBS)" "fast harness parallel aggregate step"
-assert_contains "${run_extended_block}" "--summary-profile run-harness-smoke-extended" "extended harness summary profile"
-assert_contains "${run_extended_block}" "--parallel-step run-harness-smoke-extended-all:\$(HARNESS_SMOKE_JOBS)" "extended harness parallel aggregate step"
-assert_contains "${run_full_block}" "--summary-profile run-harness-smoke-full" "full harness summary profile"
+assert_contains "${run_fast_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier fast --jobs "$(HARNESS_SMOKE_JOBS)"' "fast harness manifest runner"
+assert_contains "${run_extended_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier extended --jobs "$(HARNESS_SMOKE_JOBS)"' "extended harness manifest runner"
+assert_contains "${run_full_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier full --jobs "$(HARNESS_SMOKE_JOBS)"' "full harness manifest runner"
 assert_contains "${check_harness_smoke_block}" "run-harness-smoke-fast" "check harness fast tier"
 assert_contains "${check_harness_smoke_block}" "--projection check-harness-smoke" "check harness summary projection"
 assert_contains "${ci_script}" "make --no-print-directory check" "CI check invocation"
@@ -233,6 +231,6 @@ for target in run-harness-smoke-fast run-harness-smoke-extended run-harness-smok
       make -n --no-print-directory "${target}" \
       2>&1
   )"
-  assert_contains "${make_dry_run_output}" "scripts/run-make-sequence.sh --label ${target}" "make -n ${target} helper command"
+  assert_contains "${make_dry_run_output}" "scripts/run-harness-smoke.mjs --tier ${target#run-harness-smoke-}" "make -n ${target} helper command"
   assert_file_absent "${make_dry_run_dir}/results/make-n-${target}/run-summary.json" "make -n ${target} summary"
 done

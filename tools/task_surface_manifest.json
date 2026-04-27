@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.task_surface_manifest.v2",
+  "schema_id": "cartulary.task_surface_manifest.v3",
   "help_sections": [
     {
       "name": "bootstrap",
@@ -117,11 +117,15 @@
     },
     "run-harness-smoke-fast": {
       "targets": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase"],
-      "groups": [{ "name": "fast", "targets": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase"] }]
+      "groups": [
+        { "name": "fast", "targets": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase"] }
+      ]
     },
     "run-harness-smoke-extended": {
       "targets": ["harness-smoke-run-make-sequence", "harness-smoke-run-go-target"],
-      "groups": [{ "name": "extended", "targets": ["harness-smoke-run-make-sequence", "harness-smoke-run-go-target"] }]
+      "groups": [
+        { "name": "extended", "targets": ["harness-smoke-run-make-sequence", "harness-smoke-run-go-target"] }
+      ]
     },
     "run-harness-smoke-full": {
       "targets": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase", "harness-smoke-run-make-sequence", "harness-smoke-run-go-target", "harness-smoke-web-e2e-lifecycle", "harness-smoke-dev-stack-lifecycle"],
@@ -140,26 +144,9 @@
         { "type": "step", "target": "test-service-backed" },
         { "type": "step", "target": "browser-e2e" }
       ]
-    },
-    "run-harness-smoke-fast": {
-      "summary_profile": "run-harness-smoke-fast",
-      "steps": [{ "type": "parallel", "target": "run-harness-smoke-fast-all", "jobs_variable": "HARNESS_SMOKE_JOBS" }]
-    },
-    "run-harness-smoke-extended": {
-      "summary_profile": "run-harness-smoke-extended",
-      "steps": [{ "type": "parallel", "target": "run-harness-smoke-extended-all", "jobs_variable": "HARNESS_SMOKE_JOBS" }]
-    },
-    "run-harness-smoke-full": {
-      "summary_profile": "run-harness-smoke-full",
-      "steps": [{ "type": "parallel", "target": "run-harness-smoke-full-all", "jobs_variable": "HARNESS_SMOKE_JOBS" }]
     }
   },
-  "harness_tiers": {
-    "fast": { "targets": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase"] },
-    "extended": { "targets": ["harness-smoke-run-make-sequence", "harness-smoke-run-go-target"] },
-    "lifecycle": { "targets": ["harness-smoke-web-e2e-lifecycle", "harness-smoke-dev-stack-lifecycle"] },
-    "full": { "targets": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase", "harness-smoke-run-make-sequence", "harness-smoke-run-go-target", "harness-smoke-web-e2e-lifecycle", "harness-smoke-dev-stack-lifecycle"] }
-  },
+  "harness_tiers": { "fast": { "checks": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase"] }, "extended": { "checks": ["harness-smoke-run-make-sequence", "harness-smoke-run-go-target"] }, "lifecycle": { "checks": ["harness-smoke-web-e2e-lifecycle", "harness-smoke-dev-stack-lifecycle"] }, "full": { "checks": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase", "harness-smoke-run-make-sequence", "harness-smoke-run-go-target", "harness-smoke-web-e2e-lifecycle", "harness-smoke-dev-stack-lifecycle"] } },
   "targets": [
     { "name": "help", "classification": "public", "included_in": ["helper_only"] },
     { "name": "doctor", "classification": "public", "included_in": ["helper_only"] },
@@ -206,101 +193,9 @@
     { "name": "backend-task-surface-check", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/check-backend-task-surface.sh"] },
     { "name": "service-backed-unit-check", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/check-service-backed-unit-tests.sh"] },
     { "name": "test-service-images", "classification": "helper_only", "included_in": ["helper_only"] },
-    {
-      "name": "run-harness-smoke-fast",
-      "classification": "helper_only",
-      "included_in": ["helper_only"],
-      "backing_scripts": [
-        "scripts/test-benchmark-claim-check.sh",
-        "scripts/test-bootstrap-node-runtime.sh",
-        "scripts/test-build-input-discovery.sh",
-        "scripts/test-check-migrations.sh",
-        "scripts/test-check-scheduler.sh",
-        "scripts/test-check-toolchain-pins.sh",
-        "scripts/test-browser-shard-plan.sh",
-        "scripts/test-generate-drift.sh",
-        "scripts/test-go-test-duration-baselines.sh",
-        "scripts/test-print-target-plan.sh",
-        "scripts/test-release-task-surface.sh",
-        "scripts/test-run-go-target-fast.sh",
-        "scripts/test-run-make-sequence-fast.sh",
-        "scripts/test-run-phase.sh",
-        "scripts/test-run-playwright-manifest-phase.sh",
-        "scripts/test-run-playwright-phase.sh",
-        "scripts/test-run-playwright-webserver-batch.sh",
-        "scripts/test-run-vitest-manifest-phase.sh",
-        "scripts/test-run-vitest-phase.sh",
-        "scripts/test-task-surface-report.sh"
-      ]
-    },
-    { "name": "run-harness-smoke-fast-all", "classification": "helper_only", "included_in": ["helper_only"] },
-    {
-      "name": "run-harness-smoke-extended",
-      "classification": "helper_only",
-      "included_in": ["helper_only"],
-      "backing_scripts": [
-        "scripts/test-run-go-target.sh",
-        "scripts/test-run-make-sequence.sh"
-      ]
-    },
-    { "name": "run-harness-smoke-extended-all", "classification": "helper_only", "included_in": ["helper_only"] },
-    {
-      "name": "run-harness-smoke-full",
-      "classification": "helper_only",
-      "included_in": ["helper_only"],
-      "backing_scripts": [
-        "scripts/test-benchmark-claim-check.sh",
-        "scripts/test-bootstrap-node-runtime.sh",
-        "scripts/test-build-input-discovery.sh",
-        "scripts/test-check-migrations.sh",
-        "scripts/test-check-scheduler.sh",
-        "scripts/test-check-toolchain-pins.sh",
-        "scripts/test-browser-shard-plan.sh",
-        "scripts/test-generate-drift.sh",
-        "scripts/test-go-test-duration-baselines.sh",
-        "scripts/test-dev-stack-lifecycle.sh",
-        "scripts/test-print-target-plan.sh",
-        "scripts/test-release-task-surface.sh",
-        "scripts/test-run-go-target-fast.sh",
-        "scripts/test-run-go-target.sh",
-        "scripts/test-run-make-sequence-fast.sh",
-        "scripts/test-run-make-sequence.sh",
-        "scripts/test-run-phase.sh",
-        "scripts/test-run-playwright-manifest-phase.sh",
-        "scripts/test-run-playwright-phase.sh",
-        "scripts/test-run-playwright-webserver-batch.sh",
-        "scripts/test-run-vitest-manifest-phase.sh",
-        "scripts/test-run-vitest-phase.sh",
-        "scripts/test-task-surface-report.sh",
-        "scripts/test-web-e2e-lifecycle.sh"
-      ]
-    },
-    { "name": "run-harness-smoke-full-all", "classification": "helper_only", "included_in": ["helper_only"] },
-    { "name": "harness-smoke-toolchain-pins", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-check-toolchain-pins.sh"] },
-    { "name": "harness-smoke-bootstrap-node-runtime", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-bootstrap-node-runtime.sh"] },
-    { "name": "harness-smoke-build-input-discovery", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-build-input-discovery.sh"] },
-    { "name": "harness-smoke-check-migrations", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-check-migrations.sh"] },
-    { "name": "harness-smoke-generate-drift", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-generate-drift.sh", "scripts/check-generate-drift.sh"] },
-    { "name": "harness-smoke-run-make-sequence-fast", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-run-make-sequence-fast.sh"] },
-    { "name": "harness-smoke-run-make-sequence", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-run-make-sequence.sh"] },
-    { "name": "harness-smoke-release-task-surface", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-release-task-surface.sh"] },
-    { "name": "harness-smoke-benchmark-claim-check", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-benchmark-claim-check.sh"] },
-    { "name": "harness-smoke-task-surface-report", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-task-surface-report.sh"] },
-    { "name": "harness-smoke-go-test-duration-baselines", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-go-test-duration-baselines.sh"] },
-    { "name": "harness-smoke-browser-shard-plan", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-browser-shard-plan.sh", "scripts/lib/browser-shard-plan.mjs"] },
-    { "name": "harness-smoke-run-phase", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-run-phase.sh"] },
-    { "name": "harness-smoke-run-go-target-fast", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-run-go-target-fast.sh"] },
-    { "name": "harness-smoke-run-go-target", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-run-go-target.sh"] },
-    { "name": "harness-smoke-print-target-plan", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-print-target-plan.sh"] },
-    { "name": "harness-smoke-service-backed-scheduler", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-service-backed-scheduler.sh", "scripts/run-service-backed-schedule.mjs"] },
-    { "name": "harness-smoke-check-scheduler", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-check-scheduler.sh", "scripts/run-check-schedule.mjs"] },
-    { "name": "harness-smoke-run-playwright-phase", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-run-playwright-phase.sh"] },
-    { "name": "harness-smoke-run-playwright-manifest-phase", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-run-playwright-manifest-phase.sh"] },
-    { "name": "harness-smoke-run-playwright-webserver-batch", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-run-playwright-webserver-batch.sh"] },
-    { "name": "harness-smoke-run-vitest-phase", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-run-vitest-phase.sh"] },
-    { "name": "harness-smoke-run-vitest-manifest-phase", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-run-vitest-manifest-phase.sh"] },
-    { "name": "harness-smoke-web-e2e-lifecycle", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-web-e2e-lifecycle.sh"] },
-    { "name": "harness-smoke-dev-stack-lifecycle", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/test-dev-stack-lifecycle.sh"] },
+    { "name": "run-harness-smoke-fast", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/run-harness-smoke.mjs"] },
+    { "name": "run-harness-smoke-extended", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/run-harness-smoke.mjs"] },
+    { "name": "run-harness-smoke-full", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/run-harness-smoke.mjs"] },
     { "name": "phase-test-name-check", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/check-phase-test-names.sh"] },
     { "name": "frontend-typecheck", "classification": "public", "included_in": ["test", "check", "ci"] },
     { "name": "frontend-unit", "classification": "public", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-frontend-unit.sh"] },
@@ -347,5 +242,32 @@
     { "name": "build-web", "classification": "public", "included_in": ["helper_only"] },
     { "name": "clean", "classification": "public", "included_in": ["helper_only"] },
     { "name": "distclean", "classification": "public", "included_in": ["helper_only"] }
+  ],
+  "harness_checks": [
+    { "name": "harness-smoke-toolchain-pins", "backing_scripts": ["scripts/test-check-toolchain-pins.sh"] },
+    { "name": "harness-smoke-bootstrap-node-runtime", "backing_scripts": ["scripts/test-bootstrap-node-runtime.sh"] },
+    { "name": "harness-smoke-build-input-discovery", "backing_scripts": ["scripts/test-build-input-discovery.sh"] },
+    { "name": "harness-smoke-check-migrations", "backing_scripts": ["scripts/test-check-migrations.sh"] },
+    { "name": "harness-smoke-generate-drift", "backing_scripts": ["scripts/test-generate-drift.sh", "scripts/check-generate-drift.sh"] },
+    { "name": "harness-smoke-run-make-sequence-fast", "backing_scripts": ["scripts/test-run-make-sequence-fast.sh"] },
+    { "name": "harness-smoke-run-make-sequence", "backing_scripts": ["scripts/test-run-make-sequence.sh"] },
+    { "name": "harness-smoke-release-task-surface", "backing_scripts": ["scripts/test-release-task-surface.sh"] },
+    { "name": "harness-smoke-benchmark-claim-check", "backing_scripts": ["scripts/test-benchmark-claim-check.sh"] },
+    { "name": "harness-smoke-task-surface-report", "backing_scripts": ["scripts/test-task-surface-report.sh"] },
+    { "name": "harness-smoke-go-test-duration-baselines", "backing_scripts": ["scripts/test-go-test-duration-baselines.sh"] },
+    { "name": "harness-smoke-browser-shard-plan", "backing_scripts": ["scripts/test-browser-shard-plan.sh", "scripts/lib/browser-shard-plan.mjs"] },
+    { "name": "harness-smoke-run-phase", "backing_scripts": ["scripts/test-run-phase.sh"] },
+    { "name": "harness-smoke-run-go-target-fast", "backing_scripts": ["scripts/test-run-go-target-fast.sh"] },
+    { "name": "harness-smoke-run-go-target", "backing_scripts": ["scripts/test-run-go-target.sh"] },
+    { "name": "harness-smoke-print-target-plan", "backing_scripts": ["scripts/test-print-target-plan.sh"] },
+    { "name": "harness-smoke-service-backed-scheduler", "backing_scripts": ["scripts/test-service-backed-scheduler.sh", "scripts/run-service-backed-schedule.mjs"] },
+    { "name": "harness-smoke-check-scheduler", "backing_scripts": ["scripts/test-check-scheduler.sh", "scripts/run-check-schedule.mjs"] },
+    { "name": "harness-smoke-run-playwright-phase", "backing_scripts": ["scripts/test-run-playwright-phase.sh"] },
+    { "name": "harness-smoke-run-playwright-manifest-phase", "backing_scripts": ["scripts/test-run-playwright-manifest-phase.sh"] },
+    { "name": "harness-smoke-run-playwright-webserver-batch", "backing_scripts": ["scripts/test-run-playwright-webserver-batch.sh"] },
+    { "name": "harness-smoke-run-vitest-phase", "backing_scripts": ["scripts/test-run-vitest-phase.sh"] },
+    { "name": "harness-smoke-run-vitest-manifest-phase", "backing_scripts": ["scripts/test-run-vitest-manifest-phase.sh"] },
+    { "name": "harness-smoke-web-e2e-lifecycle", "backing_scripts": ["scripts/test-web-e2e-lifecycle.sh"] },
+    { "name": "harness-smoke-dev-stack-lifecycle", "backing_scripts": ["scripts/test-dev-stack-lifecycle.sh"] }
   ]
 }
