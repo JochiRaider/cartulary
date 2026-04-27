@@ -27,7 +27,7 @@ import { loadTaskSurfaceManifest, summaryProfileArgs } from "./lib/task-surface.
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
-const supportedSchemaID = "cartulary.check_schedule.v1";
+const supportedSchemaID = "cartulary.check_schedule.v2";
 const schedulerEventSchemaID = "cartulary.check_scheduler_event.v1";
 const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v1";
 
@@ -196,6 +196,106 @@ function normalizeMakeJobs(value, label, resourceClaims) {
   return value;
 }
 
+function normalizeNestedScheduler(value, label, unitTarget, resourceClaims) {
+  if (value === undefined) {
+    return null;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} nested_scheduler must be an object`);
+  }
+  if (value.type !== "service_backed") {
+    throw new Error(`${label} nested_scheduler.type must be service_backed`);
+  }
+  if (typeof value.target !== "string" || value.target.trim() === "") {
+    throw new Error(`${label} nested_scheduler.target must be a non-empty string`);
+  }
+  const nestedTarget = value.target.trim();
+  if (nestedTarget !== unitTarget) {
+    throw new Error(`${label} nested_scheduler.target must match work unit target ${unitTarget}`);
+  }
+  if (typeof value.manifest !== "string" || value.manifest.trim() === "") {
+    throw new Error(`${label} nested_scheduler.manifest must be a non-empty string`);
+  }
+  if (
+    !value.resource_limit_env ||
+    typeof value.resource_limit_env !== "object" ||
+    Array.isArray(value.resource_limit_env)
+  ) {
+    throw new Error(`${label} nested_scheduler.resource_limit_env must be an object`);
+  }
+  const resourceLimitEnv = new Map();
+  const envNames = new Set();
+  for (const [resource, envName] of Object.entries(value.resource_limit_env)) {
+    const normalizedResource = resource.trim();
+    if (normalizedResource === "") {
+      throw new Error(`${label} nested_scheduler.resource_limit_env keys must be non-empty strings`);
+    }
+    if (!resourceClaims.has(normalizedResource)) {
+      throw new Error(
+        `${label} nested_scheduler.resource_limit_env.${normalizedResource} must map a resource claimed by ${unitTarget}`,
+      );
+    }
+    if (typeof envName !== "string" || envName.trim() === "") {
+      throw new Error(`${label} nested_scheduler.resource_limit_env.${normalizedResource} must be a non-empty string`);
+    }
+    const normalizedEnvName = envName.trim();
+    if (envNames.has(normalizedEnvName)) {
+      throw new Error(`${label} nested_scheduler.resource_limit_env must not map multiple resources to ${normalizedEnvName}`);
+    }
+    envNames.add(normalizedEnvName);
+    resourceLimitEnv.set(normalizedResource, normalizedEnvName);
+  }
+  if (resourceLimitEnv.size === 0) {
+    throw new Error(`${label} nested_scheduler.resource_limit_env must not be empty`);
+  }
+  return {
+    type: value.type,
+    target: nestedTarget,
+    manifest: value.manifest.trim(),
+    resourceLimitEnv,
+  };
+}
+
+function nestedSchedulerForwardedLimits(unit) {
+  if (!unit.nestedScheduler) {
+    return new Map();
+  }
+  const limits = new Map();
+  for (const [resource, envName] of unit.nestedScheduler.resourceLimitEnv.entries()) {
+    limits.set(envName, unit.resourceClaims.get(resource));
+  }
+  return limits;
+}
+
+function nestedSchedulerEnv(unit) {
+  if (!unit.nestedScheduler) {
+    return process.env;
+  }
+  const forwarded = Object.fromEntries(
+    Array.from(nestedSchedulerForwardedLimits(unit).entries()).map(([envName, amount]) => [
+      envName,
+      String(amount),
+    ]),
+  );
+  return {
+    ...process.env,
+    ...forwarded,
+  };
+}
+
+function nestedSchedulerDetail(unit) {
+  if (!unit.nestedScheduler) {
+    return null;
+  }
+  return {
+    type: unit.nestedScheduler.type,
+    target: unit.nestedScheduler.target,
+    manifest: unit.nestedScheduler.manifest,
+    resource_limit_env: resourceMapToObject(unit.nestedScheduler.resourceLimitEnv),
+    forwarded_limits: resourceMapToObject(nestedSchedulerForwardedLimits(unit)),
+  };
+}
+
 function findSchedule(manifest, target, overrides) {
   const matches = manifest.schedules.filter((schedule) => schedule?.target === target);
   if (matches.length !== 1) {
@@ -218,13 +318,21 @@ function findSchedule(manifest, target, overrides) {
       throw new Error(`${label} ${unit.target} must declare non-negative weight`);
     }
     const claims = normalizeResourceClaims(unit.resource_claims, `${label} ${unit.target}`, resourceLimits);
+    const unitTarget = unit.target.trim();
+    const nestedScheduler = normalizeNestedScheduler(
+      unit.nested_scheduler,
+      `${label} ${unitTarget}`,
+      unitTarget,
+      claims,
+    );
     return {
-      target: unit.target.trim(),
-      label: unit.target.trim(),
+      target: unitTarget,
+      label: unitTarget,
       weight: unit.weight,
-      needs: normalizeNeeds(unit.needs, `${label} ${unit.target}`),
+      needs: normalizeNeeds(unit.needs, `${label} ${unitTarget}`),
       resourceClaims: claims,
-      makeJobs: normalizeMakeJobs(unit.make_jobs, `${label} ${unit.target}`, claims),
+      makeJobs: normalizeMakeJobs(unit.make_jobs, `${label} ${unitTarget}`, claims),
+      nestedScheduler,
       order: index,
     };
   });
@@ -447,7 +555,7 @@ class CheckSchedulerReporter {
         target: this.schedule.target,
         workUnitCount: this.schedule.units.length,
         resourceLimits: this.schedule.resourceLimits,
-        preferredResources: ["cpu", "service_stack"],
+        preferredResources: ["cpu", "io", "service_stack"],
         workUnits: this.schedule.units,
       }),
     );
@@ -487,6 +595,7 @@ class CheckSchedulerReporter {
       {
         work_unit: unit.label,
         resource_claims: resourceMapToObject(unit.resourceClaims),
+        nested_scheduler: nestedSchedulerDetail(unit),
       },
     );
   }
@@ -659,6 +768,12 @@ class CheckSchedulerReporter {
           max_running_work_units: this.maxRunningWorkUnits,
           max_running_groups: this.maxRunningGroups,
           max_active_resource_claims: resourceMapToObject(this.maxActiveResourceClaims),
+          nested_scheduler_limits: this.schedule.units
+            .filter((unit) => unit.nestedScheduler)
+            .map((unit) => ({
+              work_unit: unit.label,
+              ...nestedSchedulerDetail(unit),
+            })),
           blocked_reasons_seen: Array.from(this.blockedReasonsSeen).sort((left, right) =>
             left.localeCompare(right),
           ),
@@ -745,7 +860,12 @@ function skippedReasonForUnit(unit, completed, failedTarget, unitsByTarget, memo
 
 function runWorkUnit({ makeBin, unit, logDir, started }) {
   const logFile = path.join(logDir, `${String(started).padStart(2, "0")}-${sanitizeLogName(unit.target)}.log`);
-  return runCommand(makeBin, ["--no-print-directory", "--output-sync=target", `-j${unit.makeJobs}`, unit.target], logFile).then((result) => ({
+  return runCommand(
+    makeBin,
+    ["--no-print-directory", "--output-sync=target", `-j${unit.makeJobs}`, unit.target],
+    logFile,
+    nestedSchedulerEnv(unit),
+  ).then((result) => ({
     id: unit.target,
     label: unit.label,
     status: result.status,
@@ -954,15 +1074,18 @@ async function main() {
         target: options.target,
         manifest: path.relative(repoRoot, manifestPath),
         resourceLimits: schedule.resourceLimits,
-        preferredResources: ["cpu", "service_stack"],
+        preferredResources: ["cpu", "io", "service_stack"],
         workUnits: schedule.units,
         dependencies: dependencyCount,
       }),
     );
     if (verboseSchedulerOutput()) {
       for (const unit of schedule.units) {
+        const nested = unit.nestedScheduler
+          ? ` nested_scheduler=${JSON.stringify(nestedSchedulerDetail(unit))}`
+          : "";
         process.stdout.write(
-          `[DRY-RUN] ${options.target} unit ${unit.label} needs=${unit.needs.length === 0 ? "none" : unit.needs.join(",")} claims=${formatResourceMap(unit.resourceClaims)} make_jobs=${unit.makeJobs}\n`,
+          `[DRY-RUN] ${options.target} unit ${unit.label} needs=${unit.needs.length === 0 ? "none" : unit.needs.join(",")} claims=${formatResourceMap(unit.resourceClaims)} make_jobs=${unit.makeJobs}${nested}\n`,
         );
       }
     }

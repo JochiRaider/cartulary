@@ -220,8 +220,8 @@ const fs = require("node:fs");
 
 const [manifestFile, workUnit, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v1") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v1");
+if (manifest.schema_id !== "cartulary.check_schedule.v2") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v2");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -395,6 +395,9 @@ fi
 if ! printf '%s\n' "$check_block" | grep -Fq -- '--resource-limit cpu=$(CHECK_JOBS)'; then
   fail "check must pass CHECK_JOBS as the check scheduler cpu resource limit"
 fi
+if ! printf '%s\n' "$check_block" | grep -Fq -- '--resource-limit io=$(CHECK_IO_JOBS)'; then
+  fail "check must pass CHECK_IO_JOBS as the check scheduler io resource limit"
+fi
 if printf '%s\n' "$check_block" | grep -Fq '$(RUN_MAKE_SEQUENCE_SCRIPT)'; then
   fail "check must not use the serial make sequence runner"
 fi
@@ -412,15 +415,42 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v1") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v1");
+if (manifest.schema_id !== "cartulary.check_schedule.v2") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v2");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
   throw new Error(`expected exactly one check schedule, found ${schedules.length}`);
 }
-if ((schedules[0].work_units ?? []).some((entry) => entry.target === "browser-e2e")) {
+const schedule = schedules[0];
+if ((schedule.work_units ?? []).some((entry) => entry.target === "browser-e2e")) {
   throw new Error("browser-e2e must be service-backed scheduler work, not a top-level check work unit");
+}
+const limits = schedule.resource_limits ?? {};
+if (limits.cpu !== 8 || limits.io !== 12 || limits.service_stack !== 1) {
+  throw new Error("check schedule must declare cpu, io, and service_stack limits");
+}
+const service = (schedule.work_units ?? []).find((entry) => entry.target === "check-service-backed");
+if (!service) {
+  throw new Error("missing check-service-backed work unit");
+}
+const claims = service.resource_claims ?? {};
+if (claims.cpu !== "limit" || claims.io !== "limit" || claims.service_stack !== 1) {
+  throw new Error("check-service-backed must reserve full parent cpu/io plus service_stack");
+}
+const nested = service.nested_scheduler ?? {};
+if (nested.type !== "service_backed" || nested.target !== "check-service-backed") {
+  throw new Error("check-service-backed must declare service_backed nested scheduler metadata");
+}
+if (nested.manifest !== "tools/service_backed_schedule_manifest.json") {
+  throw new Error("check-service-backed nested scheduler must point at the service-backed manifest");
+}
+const env = nested.resource_limit_env ?? {};
+if (
+  env.cpu !== "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT" ||
+  env.io !== "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT"
+) {
+  throw new Error("check-service-backed nested scheduler must forward cpu/io limit env vars");
 }
 EOF
 if [[ "$(check_schedule_field check-build-prereqs needs)" != "check-setup-blockers" ]]; then
@@ -434,8 +464,8 @@ done
 if [[ "$(check_schedule_field check-go-test-duration-baseline-drift needs)" != "check-service-backed" ]]; then
   fail "check-go-test-duration-baseline-drift must depend on check-service-backed in the check schedule"
 fi
-if [[ "$(check_schedule_field check-service-backed resource_claims)" != "cpu,service_stack" ]]; then
-  fail "check-service-backed must claim cpu and service_stack resources in the check schedule"
+if [[ "$(check_schedule_field check-service-backed resource_claims)" != "cpu,io,service_stack" ]]; then
+  fail "check-service-backed must claim cpu, io, and service_stack resources in the check schedule"
 fi
 
 if grep -Fq 'rg --files' "$makefile"; then

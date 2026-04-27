@@ -12,7 +12,8 @@ GO_MOD_CACHE_DIR ?= /tmp/cartulary-go-mod
 GO_RUN_ENV := GOCACHE=$(GO_CACHE_DIR) GOMODCACHE=$(GO_MOD_CACHE_DIR)
 NODE_VERSION ?= 24.15.0
 PNPM_VERSION ?= 10.33.0
-CHECK_JOBS ?= 4
+CHECK_JOBS ?= 8
+CHECK_IO_JOBS ?= 12
 HARNESS_SMOKE_JOBS ?= 4
 BACKEND_STORE_GO_TEST_P ?= 2
 BACKEND_INTEGRATION_GO_TEST_P ?= 2
@@ -608,7 +609,7 @@ check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-m
 	$(call run_service_backed_schedule_target,check-service-backed,check service-backed)
 
 check: $(NODE_BIN)
-	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target check --manifest "$(CHECK_SCHEDULE_MANIFEST)" --summary-profile check --resource-limit cpu=$(CHECK_JOBS)
+	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target check --manifest "$(CHECK_SCHEDULE_MANIFEST)" --summary-profile check --resource-limit cpu=$(CHECK_JOBS) --resource-limit io=$(CHECK_IO_JOBS)
 
 ci:
 	$(Q)./scripts/ci/verify.sh

@@ -1,10 +1,11 @@
 {
-  "schema_id": "cartulary.check_schedule.v1",
+  "schema_id": "cartulary.check_schedule.v2",
   "schedules": [
     {
       "target": "check",
       "resource_limits": {
-        "cpu": 4,
+        "cpu": 8,
+        "io": 12,
         "service_stack": 1
       },
       "work_units": [
@@ -26,8 +27,17 @@
           "target": "check-service-backed",
           "weight": 30000,
           "needs": ["check-build-prereqs"],
-          "resource_claims": { "cpu": 1, "service_stack": 1 },
-          "make_jobs": "cpu"
+          "resource_claims": { "cpu": "limit", "io": "limit", "service_stack": 1 },
+          "make_jobs": "cpu",
+          "nested_scheduler": {
+            "type": "service_backed",
+            "target": "check-service-backed",
+            "manifest": "tools/service_backed_schedule_manifest.json",
+            "resource_limit_env": {
+              "cpu": "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT",
+              "io": "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT"
+            }
+          }
         },
         {
           "target": "check-go-test-duration-baseline-drift",
