@@ -55,7 +55,7 @@ const phaseConfigs = {
       "",
       "- `backend-unit` selects authoritative `U-0-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase0 unit authoritative backend_unit`.",
       "- `backend-integration` selects authoritative `I-0-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase0 integration authoritative backend_integration`.",
-      "- `backend-process` and `phase0-process-e2e` select authoritative `E-0-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase0 e2e authoritative backend_process`.",
+      "- `backend-process` selects authoritative `E-0-*` rows only through the manifest-owned `backend-process` execution family.",
     ],
     supportExecutionExtras: [],
     sections: [
@@ -100,7 +100,7 @@ const phaseConfigs = {
     ],
     supportExecutionExtras: [
       "- `apps/web/src/App.phase1.support.test.tsx` remains smoke-only support coverage and is forbidden from claiming `U-1-*` identifiers.",
-      "- `cmd/server/main_phase1_process_test.go` remains process-smoke evidence only. It runs through `backend-process`, `make test`, and `make check`, but it is not counted as the authoritative `E-*` surface below.",
+      "- `cmd/server/main_phase1_process_test.go` remains process-smoke evidence only. It is supplemental manifest coverage in the `backend-process` execution family, but it is not counted as the authoritative `E-*` surface below.",
     ],
     sections: [
       ["unit", "Unit"],
@@ -123,7 +123,7 @@ const phaseConfigs = {
       "- `internal/modules/auth/phase1_support_test.go` keeps helper-level regression coverage for session inspection helpers, CSRF helpers, credential-state builders, password-change decode, TOTP bootstrap helpers, user-create defaults, and deployment-admin credential-action guards. It does not replace `U-1-*`.",
       "- `internal/modules/auth/phase1_support_integration_test.go` keeps inventory-driven user-list pagination, success-envelope, bootstrap-boundary, CSRF, replay-stored-payload, mutation-audit, session-revocation, authorization re-derivation, and request-contract sweeps on the support runtime surface. It does not replace `I-1-*`.",
       "- `apps/web/src/App.phase1.support.test.tsx` remains ordinary-shell smoke-only coverage and is not completion evidence for Phase 1.",
-      "- `cmd/server/main_phase1_process_test.go` remains process-smoke evidence for startup and runtime confidence and is not authoritative `E-1-*` evidence.",
+      "- `cmd/server/main_phase1_process_test.go` remains supplemental process-smoke evidence for startup and runtime confidence and is not authoritative `E-1-*` evidence.",
     ],
   },
   phase2: {
@@ -146,7 +146,7 @@ const phaseConfigs = {
     supportExecutionExtras: [
       "- `backend-integration-support` emits a shared-capture support report rather than a second independent runtime.",
       "- `make browser-e2e-support` is a helper slice also exercised inside the `browser-e2e-webserver-backed` browser batch and does not provide additional authoritative confirmation.",
-      "- `make phase2-process-smoke` remains an isolated support target for flaky process smoke and does not participate in the default developer or CI gates.",
+      "- Phase 2 process smoke now runs as supplemental manifest coverage inside the `backend-process` execution family instead of a separate helper target.",
     ],
     sections: [
       ["unit", "Unit"],

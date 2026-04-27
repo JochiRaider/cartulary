@@ -2383,11 +2383,13 @@ function createGoSelection({ manifestAware }) {
     const section = requiredEnv("CARTULARY_MANIFEST_SECTION");
     const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
     const executionDependency = optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY");
+    const executionFamily = optionalEnv("CARTULARY_EXECUTION_FAMILY");
     const entries = selectGoManifestEntries(
       phase,
       section,
       coverage,
       executionDependency,
+      executionFamily,
       packagePatterns,
     );
     const selectedTests = new Set();
@@ -2612,13 +2614,23 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
   };
 }
 
-function selectGoManifestEntries(phase, section, coverage, executionDependency, packagePatterns) {
+function selectGoManifestEntries(
+  phase,
+  section,
+  coverage,
+  executionDependency,
+  executionFamily,
+  packagePatterns,
+) {
   const { manifest } = loadManifest(repoRoot, phase);
   return collectEntries(manifest).filter((entry) => {
     if (entry.runner !== "go_test" || entry.section !== section || entry.coverage !== coverage) {
       return false;
     }
     if (executionDependency && entry.execution_dependency !== executionDependency) {
+      return false;
+    }
+    if (executionFamily && entry.execution_family !== executionFamily) {
       return false;
     }
     return packagePatterns.some((pattern) => packageMatchesPattern(entry.package, pattern));
@@ -2638,12 +2650,14 @@ function evaluateGoManifest(summary) {
   const section = requiredEnv("CARTULARY_MANIFEST_SECTION");
   const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
   const executionDependency = optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY");
+  const executionFamily = optionalEnv("CARTULARY_EXECUTION_FAMILY");
   const packagePatterns = optionalLines("CARTULARY_GO_PACKAGE_PATTERNS");
   const entries = selectGoManifestEntries(
     phase,
     section,
     coverage,
     executionDependency,
+    executionFamily,
     packagePatterns,
   );
   const expectedByID = new Map();

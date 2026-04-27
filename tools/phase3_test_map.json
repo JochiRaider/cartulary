@@ -46,7 +46,9 @@
         "TestSupportPhase3Unit_PayloadBuildersExposeStableShapes",
         "TestSupportPhase3Unit_SupersedeGuardAndHashHelpers"
       ],
-      "selection_pattern": "TestSupportPhase3Unit_"
+      "selection_pattern": "TestSupportPhase3Unit_",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit support phase3"
     },
     {
       "target": "backend_integration_support",
@@ -54,7 +56,9 @@
       "package": "./internal/modules/timeline",
       "file": "internal/modules/timeline/phase3_support_integration_test.go",
       "symbol": "TestSupportPhase3Integration_AuthorizationMatrix",
-      "selection_pattern": "TestSupportPhase3Integration_"
+      "selection_pattern": "TestSupportPhase3Integration_",
+      "execution_family": "backend-integration-timeline",
+      "execution_label": "backend-integration support phase3 timeline"
     }
   ],
   "unit": [
@@ -68,7 +72,9 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "A one-value Timeline create commits a real row, assigns `record_id`, starts at `row_version=1`, and persists the Timeline projection row.",
-      "out_of_scope": "Browser-visible create flow and draft-row continuation remain browser evidence."
+      "out_of_scope": "Browser-visible create flow and draft-row continuation remain browser evidence.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase3 authoritative"
     },
     {
       "id": "U-3-02",
@@ -80,7 +86,9 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "A committed Timeline create initializes `capture_state='rough'` on the persisted row and projection state.",
-      "out_of_scope": "Obsolete lifecycle-token rejection remains supplemental helper coverage until a public executed submission path owns that proof."
+      "out_of_scope": "Obsolete lifecycle-token rejection remains supplemental helper coverage until a public executed submission path owns that proof.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase3 authoritative"
     },
     {
       "id": "U-3-03",
@@ -92,7 +100,9 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "The first material patch transitions `rough -> enriched`, and store-driven `mark-reviewed` persists an explicit `reviewed` transition on real store state.",
-      "out_of_scope": "Reviewer or admin authorization is owned by `I-3-03`, not this store-only row."
+      "out_of_scope": "Reviewer or admin authorization is owned by `I-3-03`, not this store-only row.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase3 authoritative"
     },
     {
       "id": "U-3-04",
@@ -104,7 +114,9 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "A material edit demotes `reviewed -> enriched`, legal supersede persists `superseded`, and ordinary patch attempts fail closed afterwards.",
-      "out_of_scope": "Replacement-target guards and rollback coupling are owned by `U-3-10` and integration rows."
+      "out_of_scope": "Replacement-target guards and rollback coupling are owned by `U-3-10` and integration rows.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase3 authoritative"
     },
     {
       "id": "U-3-05",
@@ -127,7 +139,9 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "decoder",
       "claim": "Patch decode fails closed on missing required members, duplicate `field_key` entries, empty `changes[]`, protected field mutations, and unknown top-level members.",
-      "out_of_scope": "Durable patch consequences remain store or integration evidence."
+      "out_of_scope": "Durable patch consequences remain store or integration evidence.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase3 authoritative"
     },
     {
       "id": "U-3-07",
@@ -139,7 +153,9 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "Patch replay returns the original committed result and creates no second mutation row or record revision on the write substrate.",
-      "out_of_scope": "Collaboration suppression remains integration and browser evidence."
+      "out_of_scope": "Collaboration suppression remains integration and browser evidence.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase3 authoritative"
     },
     {
       "id": "U-3-08",
@@ -151,7 +167,9 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "projection_contract",
       "claim": "Timeline projection rows expose the full grid-owned field contract and keep stable `record_id` and `row_version` binding plus derived field shapes.",
-      "out_of_scope": "Persisted rebuild maintenance remains integration evidence."
+      "out_of_scope": "Persisted rebuild maintenance remains integration evidence.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase3 authoritative"
     },
     {
       "id": "U-3-09",
@@ -163,7 +181,9 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "Successful Timeline create and patch each write one attributed mutation entry and one new row revision on the real write substrate.",
-      "out_of_scope": "Browser-visible history inspection is deferred to later phases."
+      "out_of_scope": "Browser-visible history inspection is deferred to later phases.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase3 authoritative"
     },
     {
       "id": "U-3-10",
@@ -175,7 +195,9 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "Supersede-with-replacement rejects illegal targets, replays idempotently, writes one coupled `timeline_record` plus one `record_link` mutation in one change set, and rollback removes both lifecycle and link state together.",
-      "out_of_scope": "End-to-end action routing and visible browser disclosure remain integration and browser evidence."
+      "out_of_scope": "End-to-end action routing and visible browser disclosure remain integration and browser evidence.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase3 authoritative"
     },
     {
       "id": "U-3-11",
@@ -187,7 +209,9 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "Stale Timeline patches derive committed writable field changes since the client base row version. Different-field edits rebase, same-field direct edits return `same_field_conflict`, collection fields use `collection_value_v1`, lifecycle-only stale edits apply against current state, and replay precedence remains idempotent.",
-      "out_of_scope": "HTTP conflict envelope transport and browser-visible concurrent editing behavior remain integration or browser evidence."
+      "out_of_scope": "HTTP conflict envelope transport and browser-visible concurrent editing behavior remain integration or browser evidence.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase3 authoritative"
     },
     {
       "id": "U-3-12",
@@ -256,7 +280,9 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Real HTTP create, patch, review, supersede, replay, mutation history, projection maintenance, WebSocket invalidation, and rollback stay transactionally coherent.",
-      "out_of_scope": "None."
+      "out_of_scope": "None.",
+      "execution_family": "backend-integration-timeline",
+      "execution_label": "backend-integration phase3 authoritative timeline"
     },
     {
       "id": "I-3-02",
@@ -268,7 +294,9 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "The query route reads projection rows instead of source rows, and deterministic rebuild restores the same Timeline query surface.",
-      "out_of_scope": "None."
+      "out_of_scope": "None.",
+      "execution_family": "backend-integration-timeline",
+      "execution_label": "backend-integration phase3 authoritative timeline"
     },
     {
       "id": "I-3-03",
@@ -280,7 +308,9 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Incident-role authorization, review and supersede legality, replay semantics, replacement-target guards, and supersede change-set shape all hold on the live route surface.",
-      "out_of_scope": "Systematic route-matrix inventory remains support-only evidence."
+      "out_of_scope": "Systematic route-matrix inventory remains support-only evidence.",
+      "execution_family": "backend-integration-timeline",
+      "execution_label": "backend-integration phase3 authoritative timeline"
     },
     {
       "id": "I-3-04",
@@ -292,7 +322,9 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Same-field Timeline patch conflicts are transported as `409 same_field_conflict` with `error.conflict` and no mutation or idempotency write.",
-      "out_of_scope": "Field-level rebase and conflict payload construction remain store-domain evidence; browser conflict resolution remains Phase 6 evidence."
+      "out_of_scope": "Field-level rebase and conflict payload construction remain store-domain evidence; browser conflict resolution remains Phase 6 evidence.",
+      "execution_family": "backend-integration-timeline",
+      "execution_label": "backend-integration phase3 authoritative timeline"
     }
   ],
   "e2e": [

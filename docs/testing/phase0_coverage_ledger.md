@@ -11,7 +11,7 @@ This ledger is generated from `tools/phase0_test_map.json`. Update the manifest 
 
 - `backend-unit` selects authoritative `U-0-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase0 unit authoritative backend_unit`.
 - `backend-integration` selects authoritative `I-0-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase0 integration authoritative backend_integration`.
-- `backend-process` and `phase0-process-e2e` select authoritative `E-0-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase0 e2e authoritative backend_process`.
+- `backend-process` selects authoritative `E-0-*` rows only through the manifest-owned `backend-process` execution family.
 
 ## Support-Only Execution
 

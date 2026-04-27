@@ -36,8 +36,8 @@ extract_target_prereqs() {
 
 inspect_shared_command() {
   local target="$1"
-  local shared_name="$2"
-  NODE_BIN="$node_bin" "$go_runner_script" inspect-shared-command "$target" "$shared_name"
+  local family="$2"
+  NODE_BIN="$node_bin" "$go_runner_script" inspect-aggregate-command "$target" "$family"
 }
 
 require_shared_command_match() {
@@ -77,18 +77,18 @@ require_shared_command_contains() {
 
 target_plan_support_patterns() {
   local target="$1"
-  local shared_report="$2"
+  local execution_family="$2"
 
-  "$node_bin" - "$target_plan_file" "$target" "$shared_report" <<'EOF'
+  "$node_bin" - "$target_plan_file" "$target" "$execution_family" <<'EOF'
 const fs = require("node:fs");
 
-const [planFile, target, sharedReport] = process.argv.slice(2);
+const [planFile, target, executionFamily] = process.argv.slice(2);
 const rows = JSON.parse(fs.readFileSync(planFile, "utf8"));
 const patterns = new Set();
 for (const row of rows) {
   if (
     row.target === target &&
-    row.shared_report === sharedReport &&
+    row.execution_family === executionFamily &&
     row.support_only === true &&
     typeof row.support_selector === "string" &&
     row.support_selector !== ""
@@ -452,13 +452,15 @@ if ! rg -q '^backend-store:' "$makefile"; then
   fail "Makefile must define backend-store"
 fi
 
-if ! rg -q '^phase2-process-smoke:' "$makefile"; then
-  fail "Makefile must define phase2-process-smoke"
+if rg -q '^backend-process-support:' "$makefile"; then
+  fail "Makefile must not define backend-process-support; process support belongs to backend-process manifests"
 fi
 
-if rg -q '^backend-process-support:' "$makefile"; then
-  fail "Makefile must not define backend-process-support; Phase 2 smoke must stay direct-run support-only via phase2-process-smoke"
-fi
+for removed_target in phase0-process-e2e phase1-process-smoke phase2-process-smoke; do
+  if rg -q "^${removed_target}:" "$makefile"; then
+    fail "Makefile must not define removed helper target ${removed_target}"
+  fi
+done
 
 if rg -q 'TestPhase0_.*_U_0_|TestPhase0_.*_I_0_|TestPhase0_.*_E_0_' "$makefile"; then
   fail "Makefile must not use regex-based Phase 0 Go selection"
@@ -467,6 +469,23 @@ fi
 if rg -q 'TestPhase4_.*_U_4_' "$go_runner_script"; then
   fail "scripts/run-go-target.sh must not use raw authoritative Phase 4 U-4-* Go selectors"
 fi
+
+for removed_runner_fragment in \
+  'manifest_go_regex' \
+  'manifest_go_count' \
+  'support_go_regex' \
+  'backend_unit_core_shared_spec' \
+  'backend_integration_phase' \
+  'backend-store-shared' \
+  'backend-process-shared' \
+  'phase0-process-e2e' \
+  'phase1-process-smoke' \
+  'phase2-process-smoke'
+do
+  if grep -Fq "$removed_runner_fragment" "$go_runner_script"; then
+    fail "scripts/run-go-target.sh must not retain phase/package-specific runner fragment: $removed_runner_fragment"
+  fi
+done
 
 if ! "$node_bin" - "$repo_root" "$target_plan_file" <<'EOF'
 const fs = require("node:fs");
@@ -533,9 +552,14 @@ for (const entry of manifestRows) {
     process.exit(1);
   }
   const row = matches[0];
-  if (row.execution_dependency !== entry.execution_dependency || row.section !== entry.section) {
+  if (
+    row.execution_dependency !== entry.execution_dependency ||
+    row.section !== entry.section ||
+    row.execution_family !== entry.execution_family ||
+    row.execution_label !== entry.execution_label
+  ) {
     console.error(
-      `${entry.phase} authoritative row ${entry.id} target-plan mismatch: expected ${entry.section}/${entry.execution_dependency}, found ${row.section}/${row.execution_dependency}`,
+      `${entry.phase} authoritative row ${entry.id} target-plan mismatch: expected ${entry.section}/${entry.execution_dependency}/${entry.execution_family}/${entry.execution_label}, found ${row.section}/${row.execution_dependency}/${row.execution_family}/${row.execution_label}`,
     );
     process.exit(1);
   }
@@ -560,6 +584,8 @@ for (const entry of supportRows) {
       row.support_only === true &&
       row.manifest_phase === entry.phase &&
       row.execution_dependency === entry.target &&
+      row.execution_family === entry.execution_family &&
+      row.execution_label === entry.execution_label &&
       row.file === entry.file &&
       row.support_selector === entry.selection_pattern &&
       Array.isArray(row.symbols) &&
@@ -582,21 +608,18 @@ if ! printf '%s\n' "$backend_unit_block" | grep -Fq 'run-go-target.sh backend-un
   fail "backend-unit must delegate to scripts/run-go-target.sh backend-unit"
 fi
 for expected in \
-  'manifest_go_regex phase0 unit authoritative backend_unit ./internal/platform/...' \
-  'manifest_go_regex phase0 unit authoritative backend_unit ./internal/app' \
-  'manifest_go_count phase1 unit authoritative backend_unit ./internal/platform/...' \
-  'manifest_go_regex phase1 unit authoritative backend_unit ./internal/modules/auth' \
-  'manifest_go_regex phase4 unit authoritative backend_unit ./internal/app ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline' \
-  'emit_go_manifest_phase "backend-unit phase2 authoritative"' \
-  'emit_go_manifest_phase "backend-unit phase3 authoritative"' \
-  'emit_go_manifest_phase "backend-unit phase4 authoritative"' \
-  'emit_declared_support_phase "backend-unit support phase0"' \
-  'emit_declared_support_phase "backend-unit support phase1"' \
-  'emit_declared_support_phase "backend-unit support phase2"' \
-  'emit_declared_support_phase "backend-unit support phase3"'
+  'target_aggregate_names "${target}"' \
+  'target_aggregate_spec "${target}" "${family}"' \
+  'target_aggregate_emission_count "${target}" "${family}"' \
+  'emit_execution_family "${target}" "${aggregate_name}"' \
+  'run_unsharded_target backend-unit' \
+  'run_sharded_target backend-store' \
+  'run_sharded_target backend-integration' \
+  'run_sharded_target backend-integration-support' \
+  'run_unsharded_target backend-process'
 do
   if ! grep -Fq "$expected" "$go_runner_script"; then
-    fail "scripts/run-go-target.sh must preserve backend-unit selection surface: missing $expected"
+    fail "scripts/run-go-target.sh must preserve generic target-plan-driven execution surface: missing $expected"
   fi
 done
 mapfile -t backend_unit_core_support_patterns < <(target_plan_support_patterns backend-unit backend-unit-core)
@@ -623,17 +646,8 @@ fi
 if ! printf '%s\n' "$backend_store_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
   fail "backend-store must run through $(TEST_SERVICES_BIN) for suite-scoped services"
 fi
-for expected in \
-  'manifest_go_regex phase4 unit authoritative backend_store ./internal/modules/entities ./internal/modules/timeline' \
-  'emit_go_manifest_phase "backend-store phase4 authoritative"' \
-  'emit_go_manifest_phase "backend-store phase2 authoritative"' \
-  'emit_go_manifest_phase "backend-store phase1 authoritative"' \
-  'emit_go_manifest_phase "backend-store phase3 authoritative"'
-do
-  if ! grep -Fq "$expected" "$go_runner_script"; then
-    fail "scripts/run-go-target.sh must preserve backend-store selection surface: missing $expected"
-  fi
-done
+require_shared_command_contains backend-store backend-store "TestPhase"
+require_shared_command_contains backend-store backend-store "CARTULARY_POSTGRES_FIXTURE_POLICY_TESTS"
 
 backend_integration_block="$(extract_target_block backend-integration)"
 if ! printf '%s\n' "$backend_integration_block" | grep -Fq 'run-go-target.sh backend-integration'; then
@@ -643,12 +657,12 @@ if ! printf '%s\n' "$backend_integration_block" | grep -Fq '$(TEST_SERVICES_BIN)
   fail "backend-integration must run through $(TEST_SERVICES_BIN) for suite-scoped services"
 fi
 for expected in \
-  'planned_shard_names backend-integration' \
-  'planned_aggregate_names backend-integration' \
-  'planned_shard_names backend-integration-support' \
-  'planned_aggregate_names backend-integration-support' \
-  'emit_go_manifest_phase "${aggregate_label}"' \
-  'emit_declared_support_phase "${aggregate_label}"'
+  'planned_shard_names()' \
+  'planned_aggregate_names()' \
+  'mapfile -t shard_names < <(planned_shard_names "${target}")' \
+  'mapfile -t aggregate_names < <(planned_aggregate_names "${target}")' \
+  'capture_named_shared_reports_parallel "${target}" "${BACKEND_INTEGRATION_SHARD_JOBS}"' \
+  'finalize_scheduled_shards "${target}"'
 do
   if ! grep -Fq "$expected" "$go_runner_script"; then
     fail "scripts/run-go-target.sh must preserve planned backend-integration selection surface: missing $expected"
@@ -660,7 +674,7 @@ const { execFileSync } = require("node:child_process");
 const path = require("node:path");
 const [root, nodeBin] = process.argv.slice(2);
 const plan = JSON.parse(execFileSync(nodeBin, [path.join(root, "scripts/print-go-shard-plan.mjs"), "--json"], { encoding: "utf8", cwd: root }));
-const incidents = plan.aggregates.find((aggregate) => aggregate.target === "backend-integration" && aggregate.name === "backend-integration-phase2-incidents");
+const incidents = plan.aggregates.find((aggregate) => aggregate.target === "backend-integration" && aggregate.name === "backend-integration-incidents");
 if (!incidents || incidents.shards.length < 2) {
   process.exit(1);
 }
@@ -694,41 +708,14 @@ fi
 if ! printf '%s\n' "$backend_process_block" | grep -Fq 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
   fail "backend-process must export CARTULARY_SERVER_BIN=$(SERVER_BIN)"
 fi
-if ! grep -Fq 'emit_go_manifest_phase "backend-process phase0 authoritative"' "$go_runner_script"; then
-  fail "scripts/run-go-target.sh must preserve backend-process Phase 0 manifest selection"
-fi
+backend_process_command="$(inspect_shared_command backend-process backend-process)"
+for expected in TestPhase0_ TestPhase1_ TestPhase2_; do
+  if [[ "$backend_process_command" != *"$expected"* ]]; then
+    fail "backend-process aggregate must include manifest-owned process coverage matching $expected"
+  fi
+done
 
-phase0_process_block="$(extract_target_block phase0-process-e2e)"
-if ! printf '%s\n' "$phase0_process_block" | grep -Fq 'run-go-target.sh phase0-process-e2e'; then
-  fail "phase0-process-e2e must delegate to scripts/run-go-target.sh phase0-process-e2e"
-fi
-if ! printf '%s\n' "$phase0_process_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
-  fail "phase0-process-e2e must run through $(TEST_SERVICES_BIN) for suite-scoped services"
-fi
-if ! printf '%s\n' "$phase0_process_block" | grep -Fq 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
-  fail "phase0-process-e2e must export CARTULARY_SERVER_BIN=$(SERVER_BIN)"
-fi
-if ! grep -Fq 'emit_go_manifest_phase "phase0-process-e2e"' "$go_runner_script"; then
-  fail "scripts/run-go-target.sh must preserve phase0-process-e2e Phase 0 manifest selection"
-fi
-
-phase1_process_block="$(extract_target_block phase1-process-smoke)"
-if ! printf '%s\n' "$phase1_process_block" | grep -Fq 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
-  fail "phase1-process-smoke must export CARTULARY_SERVER_BIN=$(SERVER_BIN)"
-fi
-if ! printf '%s\n' "$phase1_process_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
-  fail "phase1-process-smoke must run through $(TEST_SERVICES_BIN) for suite-scoped services"
-fi
-
-phase2_process_block="$(extract_target_block phase2-process-smoke)"
-if ! printf '%s\n' "$phase2_process_block" | grep -Fq 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
-  fail "phase2-process-smoke must export CARTULARY_SERVER_BIN=$(SERVER_BIN)"
-fi
-if ! printf '%s\n' "$phase2_process_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
-  fail "phase2-process-smoke must run through $(TEST_SERVICES_BIN) for suite-scoped services"
-fi
-
-for target in backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke; do
+for target in backend-process; do
   prereqs="$(extract_target_prereqs "$target")"
   if [[ -z "$prereqs" || "$prereqs" != *build-server* ]]; then
     fail "$target must depend on build-server"
@@ -806,23 +793,21 @@ if ! printf '%s\n' "$backend_integration_support_block" | grep -Fq '$(TEST_SERVI
   fail "backend-integration-support must run through $(TEST_SERVICES_BIN) for suite-scoped services"
 fi
 for shared_report in \
-  backend-integration-phase0-platform \
-  backend-integration-phase2-incidents \
-  backend-integration-phase3-timeline \
-  backend-integration-phase4-entities \
+  backend-integration-platform \
+  backend-integration-incidents \
+  backend-integration-timeline \
+  backend-integration-entities \
   backend-integration-auth
 do
-  require_shared_command_match "$shared_report" backend-integration backend-integration-support
   mapfile -t backend_integration_support_patterns < <(target_plan_support_patterns backend-integration-support "$shared_report")
   if [[ "${#backend_integration_support_patterns[@]}" -eq 0 ]]; then
     fail "$shared_report must have declared support selectors"
   fi
   for pattern in "${backend_integration_support_patterns[@]}"; do
     [[ -z "$pattern" ]] && continue
-    require_shared_command_contains backend-integration "$shared_report" "$pattern"
+    require_shared_command_contains backend-integration-support "$shared_report" "$pattern"
   done
 done
-require_shared_command_match backend-process-shared backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke
 
 test_fast_block="$(extract_target_block test-fast)"
 if [[ -z "$test_fast_block" ]]; then

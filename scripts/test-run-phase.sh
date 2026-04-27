@@ -368,13 +368,13 @@ shared_execution_results="$(mktemp -d "$ROOT_DIR/tmp/run-summary-shared-executio
 cleanup_paths+=("$shared_execution_results")
 write_target_summary "$shared_execution_results" "shared-execution" "target-fast" 100 100 1 1
 write_target_summary "$shared_execution_results" "shared-execution" "target-slow" 2000 2000 1 1
-shared_execution_dir="$shared_execution_results/shared-execution/_shared/backend-integration-phase2-incidents-shard-01"
+shared_execution_dir="$shared_execution_results/shared-execution/_shared/backend-integration-incidents-shard-01"
 mkdir -p "$shared_execution_dir"
 CARTULARY_TEST_RESULTS_DIR="$shared_execution_results" \
 CARTULARY_TEST_RUN_ID="shared-execution" \
   "$ROOT_DIR/scripts/lib/test-output.sh" shared-execution \
     backend-integration-shards \
-    backend-integration-phase2-incidents-shard-01 \
+    backend-integration-incidents-shard-01 \
     pass \
     2026-01-01T00:00:00Z \
     2026-01-01T00:00:07Z \
@@ -394,7 +394,7 @@ assert_equals "$(json_field "$shared_execution_summary" "shared_execution_groups
 assert_equals "$(json_field "$shared_execution_summary" "shared_execution_groups.0.name")" "backend-integration-shards" "shared execution group name"
 assert_equals "$(json_field "$shared_execution_summary" "shared_execution_groups.0.wall_duration_ms")" "7000" "shared execution group wall duration"
 assert_equals "$(json_field "$shared_execution_summary" "shared_execution_groups.0.executed_duration_ms")" "7000" "shared execution group executed duration"
-assert_equals "$(json_field "$shared_execution_summary" "shared_execution_groups.0.shared_reports.0")" "backend-integration-phase2-incidents-shard-01" "shared execution group report name"
+assert_equals "$(json_field "$shared_execution_summary" "shared_execution_groups.0.shared_reports.0")" "backend-integration-incidents-shard-01" "shared execution group report name"
 assert_equals "$(json_field "$shared_execution_summary" "slowest_target.target")" "target-slow" "shared execution JSON slowest target"
 
 set +e

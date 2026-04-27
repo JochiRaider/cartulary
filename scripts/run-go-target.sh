@@ -11,8 +11,8 @@ GO_TEST_SERVICE_PACKAGE_PARALLELISM="${GO_TEST_SERVICE_PACKAGE_PARALLELISM:-1}"
 GO_TEST_PACKAGE_PARALLELISM="${GO_TEST_PACKAGE_PARALLELISM:-${GO_TEST_SERVICE_PACKAGE_PARALLELISM}}"
 BACKEND_INTEGRATION_SHARD_JOBS="${BACKEND_INTEGRATION_SHARD_JOBS:-4}"
 NODE_HELPER="${NODE_BIN:-}"
-MANIFEST_SCRIPT="${ROOT_DIR}/scripts/lib/phase-manifest.mjs"
 SHARD_PLAN_SCRIPT="${ROOT_DIR}/scripts/lib/go-shard-plan.mjs"
+TARGET_PLAN_SCRIPT="${ROOT_DIR}/scripts/lib/target-plan.mjs"
 
 if [[ -z "${NODE_HELPER}" ]]; then
   if [[ -x "${ROOT_DIR}/tmp/node-runtime/bin/node" ]]; then
@@ -26,47 +26,11 @@ export NODE_BIN="${NODE_HELPER}"
 mkdir -p "${GO_CACHE_DIR}" "${GO_MOD_CACHE_DIR}"
 
 usage() {
-  echo "usage: run-go-target.sh <backend-unit|backend-store|backend-integration|backend-integration-support|backend-process|phase0-process-e2e|phase1-process-smoke|phase2-process-smoke>" >&2
-  echo "       run-go-target.sh inspect-shared-command <target> <shared-name>" >&2
+  echo "usage: run-go-target.sh <backend-unit|backend-store|backend-integration|backend-integration-support|backend-process>" >&2
+  echo "       run-go-target.sh inspect-aggregate-command <target> <execution-family-or-shard>" >&2
   echo "       run-go-target.sh capture-shard <target> <shard-name> <metadata-dir>" >&2
   echo "       run-go-target.sh finalize-shards <target> <metadata-dir>" >&2
   exit 2
-}
-
-manifest_go_regex() {
-  "${NODE_HELPER}" "${MANIFEST_SCRIPT}" go-regex "$@"
-}
-
-manifest_go_count() {
-  "${NODE_HELPER}" "${MANIFEST_SCRIPT}" go-count "$@"
-}
-
-support_go_regex() {
-  "${NODE_HELPER}" "${MANIFEST_SCRIPT}" support-go-regex "$@"
-}
-
-support_go_count() {
-  "${NODE_HELPER}" "${MANIFEST_SCRIPT}" support-go-count "$@"
-}
-
-manifest_go_postgres_fixture_policy_tests() {
-  "${NODE_HELPER}" "${MANIFEST_SCRIPT}" go-postgres-fixture-policy-tests "$@"
-}
-
-support_go_postgres_fixture_policy_tests() {
-  "${NODE_HELPER}" "${MANIFEST_SCRIPT}" support-go-postgres-fixture-policy-tests "$@"
-}
-
-manifest_go_postgres_reset_table_tests() {
-  "${NODE_HELPER}" "${MANIFEST_SCRIPT}" go-postgres-reset-table-tests "$@"
-}
-
-support_go_postgres_reset_table_tests() {
-  "${NODE_HELPER}" "${MANIFEST_SCRIPT}" support-go-postgres-reset-table-tests "$@"
-}
-
-manifest_phases() {
-  "${NODE_HELPER}" "${MANIFEST_SCRIPT}" list-phases
 }
 
 planned_shard_names() {
@@ -113,6 +77,46 @@ planned_aggregate_field() {
   "${NODE_HELPER}" "${SHARD_PLAN_SCRIPT}" aggregate-field "$@"
 }
 
+target_field() {
+  "${NODE_HELPER}" "${TARGET_PLAN_SCRIPT}" target-field "$@"
+}
+
+target_aggregate_names() {
+  "${NODE_HELPER}" "${TARGET_PLAN_SCRIPT}" list-aggregates "$@"
+}
+
+target_aggregate_spec() {
+  "${NODE_HELPER}" "${TARGET_PLAN_SCRIPT}" aggregate-spec "$@"
+}
+
+target_aggregate_postgres_fixture_policy_tests() {
+  "${NODE_HELPER}" "${TARGET_PLAN_SCRIPT}" aggregate-postgres-fixture-policy-tests "$@"
+}
+
+target_aggregate_postgres_fixture_policy_packages() {
+  "${NODE_HELPER}" "${TARGET_PLAN_SCRIPT}" aggregate-postgres-fixture-policy-packages "$@"
+}
+
+target_aggregate_postgres_reset_table_tests() {
+  "${NODE_HELPER}" "${TARGET_PLAN_SCRIPT}" aggregate-postgres-reset-table-tests "$@"
+}
+
+target_aggregate_postgres_reset_table_packages() {
+  "${NODE_HELPER}" "${TARGET_PLAN_SCRIPT}" aggregate-postgres-reset-table-packages "$@"
+}
+
+target_aggregate_emission_count() {
+  "${NODE_HELPER}" "${TARGET_PLAN_SCRIPT}" aggregate-emission-count "$@"
+}
+
+target_aggregate_emission_field() {
+  "${NODE_HELPER}" "${TARGET_PLAN_SCRIPT}" aggregate-emission-field "$@"
+}
+
+target_aggregate_emission_packages() {
+  "${NODE_HELPER}" "${TARGET_PLAN_SCRIPT}" aggregate-emission-packages "$@"
+}
+
 build_union_regex() {
   if [[ "$#" -eq 0 ]]; then
     echo "build_union_regex requires at least one regex component" >&2
@@ -154,36 +158,6 @@ join_nonempty_csv() {
   printf '%s\n' "${result}"
 }
 
-append_declared_support_policy_components() {
-  if [[ "$#" -lt 2 ]]; then
-    echo "append_declared_support_policy_components requires <components-var> <target> <packages...>" >&2
-    return 2
-  fi
-
-  local -n components_ref="$1"
-  shift
-
-  local target="$1"
-  shift
-
-  local phase
-  local count
-  local policy
-  while IFS= read -r phase; do
-    if [[ -z "${phase}" ]]; then
-      continue
-    fi
-    count="$(support_go_count "${phase}" "${target}" "$@")"
-    if [[ "${count}" == "0" ]]; then
-      continue
-    fi
-    policy="$(support_go_postgres_fixture_policy_tests "${phase}" "${target}" "$@")"
-    if [[ -n "${policy}" ]]; then
-      components_ref+=("${policy}")
-    fi
-  done < <(manifest_phases)
-}
-
 set_postgres_fixture_policy_env() {
   POSTGRES_FIXTURE_POLICY_TESTS="${1:-}"
   POSTGRES_FIXTURE_POLICY_PACKAGES="${2:-}"
@@ -198,32 +172,6 @@ clear_postgres_fixture_policy_env() {
   unset POSTGRES_FIXTURE_POLICY_DEFAULT || true
   unset POSTGRES_RESET_TABLES_TESTS || true
   unset POSTGRES_RESET_TABLES_PACKAGES || true
-}
-
-append_declared_support_regex_components() {
-  if [[ "$#" -lt 2 ]]; then
-    echo "append_declared_support_regex_components requires <components-var> <target> <packages...>" >&2
-    return 2
-  fi
-
-  local -n components_ref="$1"
-  shift
-
-  local target="$1"
-  shift
-
-  local phase
-  local count
-  while IFS= read -r phase; do
-    if [[ -z "${phase}" ]]; then
-      continue
-    fi
-    count="$(support_go_count "${phase}" "${target}" "$@")"
-    if [[ "${count}" == "0" ]]; then
-      continue
-    fi
-    components_ref+=("$(support_go_regex "${phase}" "${target}" "$@")")
-  done < <(manifest_phases)
 }
 
 render_go_test_command() {
@@ -262,26 +210,6 @@ render_go_test_command() {
   fi
 
   render_command env "${env_args[@]}" "${GO_BIN}" test -json -run "${test_regex}" "$@"
-}
-
-emit_declared_support_phase() {
-  if [[ "$#" -lt 6 ]]; then
-    echo "emit_declared_support_phase requires <label> <actual|reused|derived> <report-dir> <phase> <target> <packages...>" >&2
-    return 2
-  fi
-
-  local phase_label="$1"
-  local duration_mode="$2"
-  local report_dir="$3"
-  local manifest_phase="$4"
-  local target="$5"
-  shift 5
-
-  local packages=("$@")
-  local support_regex
-
-  support_regex="$(support_go_regex "${manifest_phase}" "${target}" "${packages[@]}")"
-  emit_go_raw_phase "${phase_label}" "${duration_mode}" "${report_dir}" "${support_regex}" "${packages[@]}"
 }
 
 acquire_shared_report_lock() {
@@ -342,344 +270,92 @@ release_shared_report_lock() {
   rm -rf -- "$1/capture.lock"
 }
 
-backend_integration_phase_shared_spec() {
-  if [[ "$#" -lt 4 ]]; then
-    echo "backend_integration_phase_shared_spec requires <phase> <regex-var> <args-var> <packages...>" >&2
+target_go_test_args() {
+  if [[ "$#" -ne 2 ]]; then
+    echo "target_go_test_args requires <args-var> <target>" >&2
     return 2
   fi
 
-  local manifest_phase="$1"
-  local regex_var="$2"
-  local args_var="$3"
-  shift 3
-
-  local -n regex_ref="${regex_var}"
+  local args_var="$1"
+  local target="$2"
+  local mode
   local -n args_ref="${args_var}"
-  local package_patterns=("$@")
-  local regex_components=()
-  local authoritative_count
+  args_ref=()
 
-  authoritative_count="$(manifest_go_count "${manifest_phase}" integration authoritative backend_integration "${package_patterns[@]}")"
-  if [[ "${authoritative_count}" != "0" ]]; then
-    regex_components+=("$(manifest_go_regex "${manifest_phase}" integration authoritative backend_integration "${package_patterns[@]}")")
-  fi
-  append_declared_support_regex_components regex_components backend_integration_support "${package_patterns[@]}"
-  regex_ref="$(build_union_regex "${regex_components[@]}")"
-  args_ref=(
-    -p "${GO_TEST_PACKAGE_PARALLELISM}"
-    "${package_patterns[@]}"
-  )
-}
-
-backend_integration_phase0_platform_shared_spec() {
-  backend_integration_phase_shared_spec phase0 "$1" "$2" ./internal/platform/...
-}
-
-backend_integration_phase0_app_shared_spec() {
-  backend_integration_phase_shared_spec phase0 "$1" "$2" ./internal/app
-}
-
-backend_integration_phase2_incidents_shared_spec() {
-  backend_integration_phase_shared_spec phase2 "$1" "$2" ./internal/modules/incidents
-}
-
-backend_integration_phase3_timeline_shared_spec() {
-  backend_integration_phase_shared_spec phase3 "$1" "$2" ./internal/modules/timeline
-}
-
-backend_integration_phase4_entities_shared_spec() {
-  backend_integration_phase_shared_spec phase4 "$1" "$2" ./internal/modules/entities
-}
-
-backend_integration_phase4_timeline_shared_spec() {
-  backend_integration_phase_shared_spec phase4 "$1" "$2" ./internal/modules/timeline
-}
-
-backend_integration_auth_shared_spec() {
-  if [[ "$#" -ne 2 ]]; then
-    echo "backend_integration_auth_shared_spec requires <regex-var> <args-var>" >&2
-    return 2
-  fi
-
-  local -n regex_ref="$1"
-  local -n args_ref="$2"
-  local package_patterns=(
-    ./internal/modules/auth
-  )
-  local regex_components=(
-    "$(manifest_go_regex phase1 integration authoritative backend_integration ./internal/modules/auth)"
-  )
-  append_declared_support_regex_components regex_components backend_integration_support "${package_patterns[@]}"
-  regex_ref="$(build_union_regex "${regex_components[@]}")"
-  args_ref=(
-    -p "${GO_TEST_PACKAGE_PARALLELISM}"
-    "${package_patterns[@]}"
-  )
-}
-
-backend_integration_testutil_shared_spec() {
-  if [[ "$#" -ne 2 ]]; then
-    echo "backend_integration_testutil_shared_spec requires <regex-var> <args-var>" >&2
-    return 2
-  fi
-
-  local -n regex_ref="$1"
-  local -n args_ref="$2"
-
-  regex_ref='^Test'
-  args_ref=(
-    -p "${GO_TEST_PACKAGE_PARALLELISM}"
-    ./internal/testutil/httptestx
-    ./internal/testutil/pgtest
-    ./internal/testutil/s3test
-    ./internal/testutil/testcontainersx
-    ./internal/testutil/wstest
-  )
-}
-
-backend_unit_core_shared_spec() {
-  if [[ "$#" -ne 2 ]]; then
-    echo "backend_unit_core_shared_spec requires <regex-var> <args-var>" >&2
-    return 2
-  fi
-
-  local -n regex_ref="$1"
-  local -n args_ref="$2"
-  local package_patterns=(
-    ./internal/platform/...
-    ./internal/app
-    ./internal/modules/incidents
-    ./internal/modules/entities
-    ./internal/modules/timeline
-  )
-  local regex_components=(
-    "$(manifest_go_regex phase0 unit authoritative backend_unit ./internal/platform/...)"
-    "$(manifest_go_regex phase0 unit authoritative backend_unit ./internal/app)"
-    "$(manifest_go_regex phase2 unit authoritative backend_unit ./internal/modules/incidents)"
-    "$(manifest_go_regex phase3 unit authoritative backend_unit ./internal/modules/timeline)"
-    "$(manifest_go_regex phase4 unit authoritative backend_unit ./internal/app ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline)"
-  )
-  local phase1_platform_count
-
-  phase1_platform_count="$(manifest_go_count phase1 unit authoritative backend_unit ./internal/platform/...)"
-  if [[ "${phase1_platform_count}" != "0" ]]; then
-    regex_components+=("$(manifest_go_regex phase1 unit authoritative backend_unit ./internal/platform/...)")
-  fi
-  append_declared_support_regex_components regex_components backend_unit "${package_patterns[@]}"
-
-  regex_ref="$(build_union_regex "${regex_components[@]}")"
-  args_ref=(
-    "${package_patterns[@]}"
-  )
-}
-
-backend_unit_auth_shared_spec() {
-  if [[ "$#" -ne 2 ]]; then
-    echo "backend_unit_auth_shared_spec requires <regex-var> <args-var>" >&2
-    return 2
-  fi
-
-  local -n regex_ref="$1"
-  local -n args_ref="$2"
-  local package_patterns=(
-    ./internal/modules/auth
-  )
-  local regex_components=(
-    "$(manifest_go_regex phase1 unit authoritative backend_unit ./internal/modules/auth)"
-  )
-
-  append_declared_support_regex_components regex_components backend_unit "${package_patterns[@]}"
-
-  regex_ref="$(build_union_regex "${regex_components[@]}")"
-  args_ref=(
-    "${package_patterns[@]}"
-  )
-}
-
-backend_process_shared_spec() {
-  if [[ "$#" -ne 2 ]]; then
-    echo "backend_process_shared_spec requires <regex-var> <args-var>" >&2
-    return 2
-  fi
-
-  local -n regex_ref="$1"
-  local -n args_ref="$2"
-
-  regex_ref="$(build_union_regex \
-    "$(manifest_go_regex phase0 e2e authoritative backend_process ./cmd/server)" \
-    '^(TestPhase1_.*_ProcessSmoke)$' \
-    '^(TestPhase2_ProcessSmoke_)')"
-  args_ref=(
-    -parallel 4
-    ./cmd/server
-  )
-}
-
-# Shared captures are intentionally reused across multiple targets, so both
-# execution and inspection resolve from the same named spec helpers.
-resolve_target_shared_report_spec() {
-  if [[ "$#" -ne 4 ]]; then
-    echo "resolve_target_shared_report_spec requires <target> <shared-name> <regex-var> <args-var>" >&2
-    return 2
-  fi
-
-  local target="$1"
-  local shared_name="$2"
-  local regex_var="$3"
-  local args_var="$4"
-  local planned_spec=()
-
-  if [[ "${target}" == "backend-store" || "${target}" == "backend-integration" || "${target}" == "backend-integration-support" ]] && [[ "${shared_name}" == *"-shard-"* ]] && mapfile -t planned_spec < <(planned_shard_spec "${target}" "${shared_name}" 2>/dev/null); then
-    if [[ "${#planned_spec[@]}" -lt 2 ]]; then
-      echo "planned shard ${shared_name} for ${target} returned an incomplete spec" >&2
-      return 2
-    fi
-    local -n regex_ref="${regex_var}"
-    local -n args_ref="${args_var}"
-    regex_ref="${planned_spec[0]}"
-    args_ref=(
-      -p "${GO_TEST_PACKAGE_PARALLELISM}"
-      "${planned_spec[@]:1}"
-    )
-    return 0
-  fi
-
-  case "${shared_name}" in
-    backend-unit-core)
-      case "${target}" in
-        backend-unit) ;;
-        *)
-          echo "shared report ${shared_name} is not defined for target ${target}" >&2
-          return 2
-          ;;
-      esac
-      backend_unit_core_shared_spec "${regex_var}" "${args_var}"
+  mode="$(target_field "${target}" goTestParallelism)"
+  case "${mode}" in
+    none)
       ;;
-    backend-unit-auth)
-      case "${target}" in
-        backend-unit) ;;
-        *)
-          echo "shared report ${shared_name} is not defined for target ${target}" >&2
-          return 2
-          ;;
-      esac
-      backend_unit_auth_shared_spec "${regex_var}" "${args_var}"
+    package)
+      args_ref=(-p "${GO_TEST_PACKAGE_PARALLELISM}")
       ;;
-    backend-integration-phase0-platform)
-      case "${target}" in
-        backend-integration|backend-integration-support) ;;
-        *)
-          echo "shared report ${shared_name} is not defined for target ${target}" >&2
-          return 2
-          ;;
-      esac
-      backend_integration_phase0_platform_shared_spec "${regex_var}" "${args_var}"
-      ;;
-    backend-integration-phase0-app)
-      case "${target}" in
-        backend-integration|backend-integration-support) ;;
-        *)
-          echo "shared report ${shared_name} is not defined for target ${target}" >&2
-          return 2
-          ;;
-      esac
-      backend_integration_phase0_app_shared_spec "${regex_var}" "${args_var}"
-      ;;
-    backend-integration-phase2-incidents)
-      case "${target}" in
-        backend-integration|backend-integration-support) ;;
-        *)
-          echo "shared report ${shared_name} is not defined for target ${target}" >&2
-          return 2
-          ;;
-      esac
-      backend_integration_phase2_incidents_shared_spec "${regex_var}" "${args_var}"
-      ;;
-    backend-integration-phase3-timeline)
-      case "${target}" in
-        backend-integration|backend-integration-support) ;;
-        *)
-          echo "shared report ${shared_name} is not defined for target ${target}" >&2
-          return 2
-          ;;
-      esac
-      backend_integration_phase3_timeline_shared_spec "${regex_var}" "${args_var}"
-      ;;
-    backend-integration-phase4-entities)
-      case "${target}" in
-        backend-integration|backend-integration-support) ;;
-        *)
-          echo "shared report ${shared_name} is not defined for target ${target}" >&2
-          return 2
-          ;;
-      esac
-      backend_integration_phase4_entities_shared_spec "${regex_var}" "${args_var}"
-      ;;
-    backend-integration-phase4-timeline)
-      case "${target}" in
-        backend-integration|backend-integration-support) ;;
-        *)
-          echo "shared report ${shared_name} is not defined for target ${target}" >&2
-          return 2
-          ;;
-      esac
-      backend_integration_phase4_timeline_shared_spec "${regex_var}" "${args_var}"
-      ;;
-    backend-integration-auth)
-      case "${target}" in
-        backend-integration|backend-integration-support) ;;
-        *)
-          echo "shared report ${shared_name} is not defined for target ${target}" >&2
-          return 2
-          ;;
-      esac
-      backend_integration_auth_shared_spec "${regex_var}" "${args_var}"
-      ;;
-    backend-integration-testutil)
-      case "${target}" in
-        backend-integration) ;;
-        *)
-          echo "shared report ${shared_name} is not defined for target ${target}" >&2
-          return 2
-          ;;
-      esac
-      backend_integration_testutil_shared_spec "${regex_var}" "${args_var}"
-      ;;
-    backend-process-shared)
-      case "${target}" in
-        backend-process|phase0-process-e2e|phase1-process-smoke|phase2-process-smoke) ;;
-        *)
-          echo "shared report ${shared_name} is not defined for target ${target}" >&2
-          return 2
-          ;;
-      esac
-      backend_process_shared_spec "${regex_var}" "${args_var}"
+    process)
+      args_ref=(-parallel 4)
       ;;
     *)
-      echo "unknown shared report ${shared_name}" >&2
+      echo "unsupported go_test_parallelism ${mode} for ${target}" >&2
       return 2
       ;;
   esac
 }
 
-resolve_target_shared_report_postgres_fixture_policy() {
-  if [[ "$#" -ne 6 ]]; then
-    echo "resolve_target_shared_report_postgres_fixture_policy requires <target> <shared-name> <test-policy-var> <package-policy-var> <reset-tests-var> <reset-packages-var>" >&2
+resolve_execution_family_spec() {
+  if [[ "$#" -ne 4 ]]; then
+    echo "resolve_execution_family_spec requires <target> <execution-family-or-shard> <regex-var> <args-var>" >&2
     return 2
   fi
 
   local target="$1"
-  local shared_name="$2"
+  local family="$2"
+  local regex_var="$3"
+  local args_var="$4"
+  local planned_spec=()
+  local target_args=()
+
+  if [[ "${family}" == *"-shard-"* ]] && mapfile -t planned_spec < <(planned_shard_spec "${target}" "${family}" 2>/dev/null); then
+    if [[ "${#planned_spec[@]}" -lt 2 ]]; then
+      echo "planned shard ${family} for ${target} returned an incomplete spec" >&2
+      return 2
+    fi
+    local -n regex_ref="${regex_var}"
+    local -n args_ref="${args_var}"
+    target_go_test_args target_args "${target}"
+    regex_ref="${planned_spec[0]}"
+    args_ref=(
+      "${target_args[@]}"
+      "${planned_spec[@]:1}"
+    )
+    return 0
+  fi
+
+  mapfile -t planned_spec < <(target_aggregate_spec "${target}" "${family}")
+  if [[ "${#planned_spec[@]}" -lt 2 ]]; then
+    echo "execution family ${family} for ${target} returned an incomplete spec" >&2
+    return 2
+  fi
+
+  local -n regex_ref="${regex_var}"
+  local -n args_ref="${args_var}"
+  target_go_test_args target_args "${target}"
+  regex_ref="${planned_spec[0]}"
+  args_ref=(
+    "${target_args[@]}"
+    "${planned_spec[@]:1}"
+  )
+}
+
+resolve_execution_family_postgres_fixture_policy() {
+  if [[ "$#" -ne 6 ]]; then
+    echo "resolve_execution_family_postgres_fixture_policy requires <target> <execution-family-or-shard> <test-policy-var> <package-policy-var> <reset-tests-var> <reset-packages-var>" >&2
+    return 2
+  fi
+
+  local target="$1"
+  local family="$2"
   local tests_var="$3"
   local packages_var="$4"
   local reset_tests_var="$5"
   local reset_packages_var="$6"
-  local planned_tests=""
-  local planned_packages=""
-  local planned_reset_tests=""
-  local planned_reset_packages=""
-  local components=()
-  local reset_components=()
 
   local -n tests_ref="${tests_var}"
   local -n packages_ref="${packages_var}"
@@ -690,65 +366,18 @@ resolve_target_shared_report_postgres_fixture_policy() {
   reset_tests_ref=""
   reset_packages_ref=""
 
-  if [[ "${target}" == "backend-store" || "${target}" == "backend-integration" || "${target}" == "backend-integration-support" ]] && [[ "${shared_name}" == *"-shard-"* ]]; then
-    planned_tests="$(planned_shard_postgres_fixture_policy_tests "${target}" "${shared_name}")"
-    planned_packages="$(planned_shard_postgres_fixture_policy_packages "${target}" "${shared_name}")"
-    planned_reset_tests="$(planned_shard_postgres_reset_table_tests "${target}" "${shared_name}")"
-    planned_reset_packages="$(planned_shard_postgres_reset_table_packages "${target}" "${shared_name}")"
-    tests_ref="${planned_tests}"
-    packages_ref="${planned_packages}"
-    reset_tests_ref="${planned_reset_tests}"
-    reset_packages_ref="${planned_reset_packages}"
+  if [[ "${family}" == *"-shard-"* ]]; then
+    tests_ref="$(planned_shard_postgres_fixture_policy_tests "${target}" "${family}")"
+    packages_ref="$(planned_shard_postgres_fixture_policy_packages "${target}" "${family}")"
+    reset_tests_ref="$(planned_shard_postgres_reset_table_tests "${target}" "${family}")"
+    reset_packages_ref="$(planned_shard_postgres_reset_table_packages "${target}" "${family}")"
     return 0
   fi
 
-  case "${shared_name}" in
-    backend-integration-phase0-platform)
-      components+=("$(manifest_go_postgres_fixture_policy_tests phase0 integration authoritative backend_integration ./internal/platform/...)")
-      reset_components+=("$(manifest_go_postgres_reset_table_tests phase0 integration authoritative backend_integration ./internal/platform/...)")
-      append_declared_support_policy_components components backend_integration_support ./internal/platform/...
-      ;;
-    backend-integration-phase0-app)
-      components+=("$(manifest_go_postgres_fixture_policy_tests phase0 integration authoritative backend_integration ./internal/app)")
-      reset_components+=("$(manifest_go_postgres_reset_table_tests phase0 integration authoritative backend_integration ./internal/app)")
-      ;;
-    backend-integration-auth)
-      components+=("$(manifest_go_postgres_fixture_policy_tests phase1 integration authoritative backend_integration ./internal/modules/auth)")
-      reset_components+=("$(manifest_go_postgres_reset_table_tests phase1 integration authoritative backend_integration ./internal/modules/auth)")
-      append_declared_support_policy_components components backend_integration_support ./internal/modules/auth
-      ;;
-    backend-integration-phase2-incidents)
-      components+=("$(manifest_go_postgres_fixture_policy_tests phase2 integration authoritative backend_integration ./internal/modules/incidents)")
-      reset_components+=("$(manifest_go_postgres_reset_table_tests phase2 integration authoritative backend_integration ./internal/modules/incidents)")
-      append_declared_support_policy_components components backend_integration_support ./internal/modules/incidents
-      ;;
-    backend-integration-phase3-timeline)
-      components+=("$(manifest_go_postgres_fixture_policy_tests phase3 integration authoritative backend_integration ./internal/modules/timeline)")
-      reset_components+=("$(manifest_go_postgres_reset_table_tests phase3 integration authoritative backend_integration ./internal/modules/timeline)")
-      append_declared_support_policy_components components backend_integration_support ./internal/modules/timeline
-      ;;
-    backend-integration-phase4-entities)
-      components+=("$(manifest_go_postgres_fixture_policy_tests phase4 integration authoritative backend_integration ./internal/modules/entities)")
-      reset_components+=("$(manifest_go_postgres_reset_table_tests phase4 integration authoritative backend_integration ./internal/modules/entities)")
-      append_declared_support_policy_components components backend_integration_support ./internal/modules/entities
-      ;;
-    backend-integration-phase4-timeline)
-      components+=("$(manifest_go_postgres_fixture_policy_tests phase4 integration authoritative backend_integration ./internal/modules/timeline)")
-      reset_components+=("$(manifest_go_postgres_reset_table_tests phase4 integration authoritative backend_integration ./internal/modules/timeline)")
-      ;;
-    backend-integration-testutil)
-      packages_ref="./internal/testutil/httptestx=package_reset,./internal/testutil/pgtest=package_reset,./internal/testutil/s3test=package_reset,./internal/testutil/testcontainersx=package_reset,./internal/testutil/wstest=package_reset"
-      ;;
-    backend-process-shared)
-      components+=("$(manifest_go_postgres_fixture_policy_tests phase0 e2e authoritative backend_process ./cmd/server)")
-      reset_components+=("$(manifest_go_postgres_reset_table_tests phase0 e2e authoritative backend_process ./cmd/server)")
-      ;;
-    *)
-      ;;
-  esac
-
-  tests_ref="$(join_nonempty_csv "${components[@]}")"
-  reset_tests_ref="$(join_nonempty_csv "${reset_components[@]}")"
+  tests_ref="$(target_aggregate_postgres_fixture_policy_tests "${target}" "${family}")"
+  packages_ref="$(target_aggregate_postgres_fixture_policy_packages "${target}" "${family}")"
+  reset_tests_ref="$(target_aggregate_postgres_reset_table_tests "${target}" "${family}")"
+  reset_packages_ref="$(target_aggregate_postgres_reset_table_packages "${target}" "${family}")"
 }
 
 capture_go_report() {
@@ -927,9 +556,9 @@ write_cross_target_shared_execution_metadata() {
     "${shared_dir}/shared-execution.json" >/dev/null
 }
 
-assign_named_shared_report() {
+assign_execution_family() {
   if [[ "$#" -ne 4 ]]; then
-    echo "assign_named_shared_report requires <dir-var> <usage-var> <target> <shared-name>" >&2
+    echo "assign_execution_family requires <dir-var> <usage-var> <target> <execution-family-or-shard>" >&2
     return 2
   fi
 
@@ -944,8 +573,8 @@ assign_named_shared_report() {
   local reset_tests=""
   local reset_packages=""
 
-  resolve_target_shared_report_spec "${target}" "${shared_name}" shared_regex shared_args
-  resolve_target_shared_report_postgres_fixture_policy "${target}" "${shared_name}" policy_tests policy_packages reset_tests reset_packages
+  resolve_execution_family_spec "${target}" "${shared_name}" shared_regex shared_args
+  resolve_execution_family_postgres_fixture_policy "${target}" "${shared_name}" policy_tests policy_packages reset_tests reset_packages
   set_postgres_fixture_policy_env "${policy_tests}" "${policy_packages}" "" "${reset_tests}" "${reset_packages}"
   assign_captured_report "${dir_var}" "${usage_var}" "${shared_name}" "${shared_regex}" -- "${shared_args[@]}"
   clear_postgres_fixture_policy_env
@@ -1040,7 +669,7 @@ capture_named_shared_reports_parallel() {
     (
       local report_dir
       local report_usage
-      assign_named_shared_report report_dir report_usage "${target}" "${shared_name}"
+      assign_execution_family report_dir report_usage "${target}" "${shared_name}"
       printf '%s\n%s\n' "${report_dir}" "${report_usage}" >"${metadata_dir}/${shared_name}.meta"
     ) &
     pids+=("$!")
@@ -1070,7 +699,7 @@ capture_scheduled_shard() {
   local metadata_tmp
 
   mkdir -p "${metadata_dir}"
-  assign_named_shared_report report_dir report_usage "${target}" "${shared_name}"
+  assign_execution_family report_dir report_usage "${target}" "${shared_name}"
   metadata_file="${metadata_dir}/${shared_name}.meta"
   metadata_tmp="${metadata_file}.$$"
   printf '%s\n%s\n' "${report_dir}" "${report_usage}" >"${metadata_tmp}"
@@ -1219,9 +848,9 @@ create_aggregate_report() {
   dir_ref="${output_dir}"
 }
 
-inspect_shared_command() {
+inspect_aggregate_command() {
   if [[ "$#" -ne 2 ]]; then
-    echo "inspect_shared_command requires <target> <shared-name>" >&2
+    echo "inspect_aggregate_command requires <target> <execution-family-or-shard>" >&2
     return 2
   fi
 
@@ -1234,8 +863,8 @@ inspect_shared_command() {
   local reset_tests=""
   local reset_packages=""
 
-  resolve_target_shared_report_spec "${target}" "${shared_name}" shared_regex shared_args
-  resolve_target_shared_report_postgres_fixture_policy "${target}" "${shared_name}" policy_tests policy_packages reset_tests reset_packages
+  resolve_execution_family_spec "${target}" "${shared_name}" shared_regex shared_args
+  resolve_execution_family_postgres_fixture_policy "${target}" "${shared_name}" policy_tests policy_packages reset_tests reset_packages
   set_postgres_fixture_policy_env "${policy_tests}" "${policy_packages}" "" "${reset_tests}" "${reset_packages}"
   render_go_test_command "${shared_regex}" -- "${shared_args[@]}"
   clear_postgres_fixture_policy_env
@@ -1287,6 +916,7 @@ clear_go_selection_env() {
   unset CARTULARY_MANIFEST_SECTION || true
   unset CARTULARY_MANIFEST_COVERAGE || true
   unset CARTULARY_MANIFEST_EXECUTION_DEPENDENCY || true
+  unset CARTULARY_EXECUTION_FAMILY || true
   unset CARTULARY_GO_PACKAGE_PATTERNS || true
 }
 
@@ -1322,8 +952,8 @@ emit_go_raw_phase() {
 }
 
 emit_go_manifest_phase() {
-  if [[ "$#" -lt 8 ]]; then
-    echo "emit_go_manifest_phase requires <label> <actual|reused|derived> <report-dir> <phase> <section> <coverage> <execution-dependency> <packages...>" >&2
+  if [[ "$#" -lt 9 ]]; then
+    echo "emit_go_manifest_phase requires <label> <actual|reused|derived> <report-dir> <phase> <section> <coverage> <execution-dependency> <execution-family> <packages...>" >&2
     return 2
   fi
 
@@ -1334,7 +964,8 @@ emit_go_manifest_phase() {
   local section="$5"
   local coverage="$6"
   local execution_dependency="$7"
-  shift 7
+  local execution_family="$8"
+  shift 8
 
   load_phase_window "${report_dir}" "${duration_mode}"
   export CARTULARY_REPORT_SLICE=1
@@ -1345,6 +976,7 @@ emit_go_manifest_phase() {
   export CARTULARY_MANIFEST_SECTION="${section}"
   export CARTULARY_MANIFEST_COVERAGE="${coverage}"
   export CARTULARY_MANIFEST_EXECUTION_DEPENDENCY="${execution_dependency}"
+  export CARTULARY_EXECUTION_FAMILY="${execution_family}"
   set_go_package_patterns "$@"
 
   emit_report_phase_summary \
@@ -1393,99 +1025,89 @@ finish_target() {
   return "${status}"
 }
 
-run_backend_unit() {
-  local core_regex
-  local core_args=()
-  local auth_regex
-  local auth_args=()
-  local core_dir
-  local core_usage
-  local auth_dir
-  local auth_usage
-  local config_dir
-  local config_usage
+emit_execution_family() {
+  if [[ "$#" -ne 4 ]]; then
+    echo "emit_execution_family requires <target> <execution-family> <usage> <report-dir>" >&2
+    return 2
+  fi
+
+  local target="$1"
+  local family="$2"
+  local usage="$3"
+  local report_dir="$4"
+  local emission_count
+  local index
+  local mode
+  local label
+  local phase
+  local section
+  local coverage
+  local dependency
+  local support_target
+  local regex
+  local packages=()
+  local emission_usage
   local status=0
 
-  backend_unit_core_shared_spec core_regex core_args
-  backend_unit_auth_shared_spec auth_regex auth_args
+  emission_count="$(target_aggregate_emission_count "${target}" "${family}")"
+  for ((index = 0; index < emission_count; index += 1)); do
+    mode="$(target_aggregate_emission_field "${target}" "${family}" "${index}" mode)"
+    label="$(target_aggregate_emission_field "${target}" "${family}" "${index}" label)"
+    mapfile -t packages < <(target_aggregate_emission_packages "${target}" "${family}" "${index}")
+    emission_usage="derived"
+    if [[ "${index}" -eq 0 ]]; then
+      emission_usage="${usage}"
+    fi
 
-  assign_captured_report core_dir core_usage backend-unit-core "${core_regex}" -- \
-    "${core_args[@]}"
-  assign_captured_report auth_dir auth_usage backend-unit-auth "${auth_regex}" -- \
-    "${auth_args[@]}"
-  assign_captured_report config_dir config_usage backend-unit-configtest '^Test' -- ./internal/testutil/configtest
-
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-unit phase0 authoritative platform" "${core_usage}" "${core_dir}" phase0 unit authoritative backend_unit ./internal/platform/... || status=$?
-  if [[ "$(manifest_go_count phase1 unit authoritative backend_unit ./internal/platform/...)" != "0" ]]; then
     clear_go_selection_env
-    emit_go_manifest_phase "backend-unit phase1 authoritative platform" derived "${core_dir}" phase1 unit authoritative backend_unit ./internal/platform/... || status=$?
-  fi
-  clear_go_selection_env
-  emit_go_raw_phase "backend-unit configtest" "${config_usage}" "${config_dir}" '^Test' ./internal/testutil/configtest || status=$?
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-unit phase0 authoritative app" derived "${core_dir}" phase0 unit authoritative backend_unit ./internal/app || status=$?
-  clear_go_selection_env
-  emit_declared_support_phase "backend-unit support phase0" derived "${core_dir}" phase0 backend_unit ./internal/platform/... ./internal/app || status=$?
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-unit phase1 authoritative auth" "${auth_usage}" "${auth_dir}" phase1 unit authoritative backend_unit ./internal/modules/auth || status=$?
-  clear_go_selection_env
-  emit_declared_support_phase "backend-unit support phase1" derived "${auth_dir}" phase1 backend_unit ./internal/modules/auth || status=$?
-  clear_go_selection_env
-  emit_declared_support_phase "backend-unit support phase2" derived "${core_dir}" phase2 backend_unit ./internal/modules/incidents || status=$?
-  clear_go_selection_env
-  emit_declared_support_phase "backend-unit support phase3" derived "${core_dir}" phase3 backend_unit ./internal/modules/timeline || status=$?
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-unit phase4 authoritative" derived "${core_dir}" phase4 unit authoritative backend_unit ./internal/app ./internal/modules/incidents ./internal/modules/entities ./internal/modules/timeline || status=$?
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-unit phase2 authoritative" derived "${core_dir}" phase2 unit authoritative backend_unit ./internal/modules/incidents || status=$?
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-unit phase3 authoritative" derived "${core_dir}" phase3 unit authoritative backend_unit ./internal/modules/timeline || status=$?
+    case "${mode}" in
+      manifest)
+        phase="$(target_aggregate_emission_field "${target}" "${family}" "${index}" phase)"
+        section="$(target_aggregate_emission_field "${target}" "${family}" "${index}" section)"
+        coverage="$(target_aggregate_emission_field "${target}" "${family}" "${index}" coverage)"
+        dependency="$(target_aggregate_emission_field "${target}" "${family}" "${index}" execution_dependency)"
+        emit_go_manifest_phase "${label}" "${emission_usage}" "${report_dir}" "${phase}" "${section}" "${coverage}" "${dependency}" "${family}" "${packages[@]}" || status=$?
+        ;;
+      support)
+        phase="$(target_aggregate_emission_field "${target}" "${family}" "${index}" phase)"
+        support_target="$(target_aggregate_emission_field "${target}" "${family}" "${index}" support_target)"
+        regex="$(target_aggregate_emission_field "${target}" "${family}" "${index}" regex)"
+        emit_go_raw_phase "${label}" "${emission_usage}" "${report_dir}" "${regex}" "${packages[@]}" || status=$?
+        ;;
+      raw)
+        regex="$(target_aggregate_emission_field "${target}" "${family}" "${index}" regex)"
+        emit_go_raw_phase "${label}" "${emission_usage}" "${report_dir}" "${regex}" "${packages[@]}" || status=$?
+        ;;
+      *)
+        echo "unsupported execution family emission mode ${mode}" >&2
+        return 2
+        ;;
+    esac
+  done
 
-  finish_target "${status}"
+  return "${status}"
 }
 
-run_backend_store() {
-  local shared_regex
-  local shared_policy_tests
-  local shared_reset_tests
-  local shared_dir
-  local shared_usage
+run_unsharded_target() {
+  if [[ "$#" -ne 1 ]]; then
+    echo "run_unsharded_target requires <target>" >&2
+    return 2
+  fi
+
+  local target="$1"
+  local aggregate_names=()
+  local aggregate_name
+  local aggregate_dir
+  local aggregate_usage
   local status=0
 
-  shared_regex="$(build_union_regex \
-    "$(manifest_go_regex phase4 unit authoritative backend_store ./internal/modules/entities ./internal/modules/timeline)" \
-    "$(manifest_go_regex phase1 unit authoritative backend_store ./internal/modules/auth)" \
-    "$(manifest_go_regex phase2 unit authoritative backend_store ./internal/modules/incidents)" \
-    "$(manifest_go_regex phase3 unit authoritative backend_store ./internal/modules/timeline)")"
-  shared_policy_tests="$(join_nonempty_csv \
-    "$(manifest_go_postgres_fixture_policy_tests phase4 unit authoritative backend_store ./internal/modules/entities ./internal/modules/timeline)" \
-    "$(manifest_go_postgres_fixture_policy_tests phase1 unit authoritative backend_store ./internal/modules/auth)" \
-    "$(manifest_go_postgres_fixture_policy_tests phase2 unit authoritative backend_store ./internal/modules/incidents)" \
-    "$(manifest_go_postgres_fixture_policy_tests phase3 unit authoritative backend_store ./internal/modules/timeline)")"
-  shared_reset_tests="$(join_nonempty_csv \
-    "$(manifest_go_postgres_reset_table_tests phase4 unit authoritative backend_store ./internal/modules/entities ./internal/modules/timeline)" \
-    "$(manifest_go_postgres_reset_table_tests phase1 unit authoritative backend_store ./internal/modules/auth)" \
-    "$(manifest_go_postgres_reset_table_tests phase2 unit authoritative backend_store ./internal/modules/incidents)" \
-    "$(manifest_go_postgres_reset_table_tests phase3 unit authoritative backend_store ./internal/modules/timeline)")"
-
-  set_postgres_fixture_policy_env "${shared_policy_tests}" "" "" "${shared_reset_tests}" ""
-  assign_captured_report shared_dir shared_usage backend-store-shared "${shared_regex}" -- \
-    -p "${GO_TEST_PACKAGE_PARALLELISM}" \
-    ./internal/modules/auth \
-    ./internal/modules/incidents \
-    ./internal/modules/entities \
-    ./internal/modules/timeline
-  clear_postgres_fixture_policy_env
-
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-store phase4 authoritative" "${shared_usage}" "${shared_dir}" phase4 unit authoritative backend_store ./internal/modules/entities ./internal/modules/timeline || status=$?
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-store phase1 authoritative" derived "${shared_dir}" phase1 unit authoritative backend_store ./internal/modules/auth || status=$?
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-store phase2 authoritative" derived "${shared_dir}" phase2 unit authoritative backend_store ./internal/modules/incidents || status=$?
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-store phase3 authoritative" derived "${shared_dir}" phase3 unit authoritative backend_store ./internal/modules/timeline || status=$?
+  mapfile -t aggregate_names < <(target_aggregate_names "${target}")
+  for aggregate_name in "${aggregate_names[@]}"; do
+    assign_execution_family aggregate_dir aggregate_usage "${target}" "${aggregate_name}" || status=$?
+    if [[ "${status}" -eq 0 ]]; then
+      emit_execution_family "${target}" "${aggregate_name}" "${aggregate_usage}" "${aggregate_dir}" || status=$?
+    fi
+  done
 
   finish_target "${status}"
 }
@@ -1502,203 +1124,42 @@ finalize_scheduled_shards() {
   local aggregate_name
   local aggregate_dir
   local aggregate_usage
-  local aggregate_mode
-  local aggregate_label
-  local aggregate_phase
-  local aggregate_section
-  local aggregate_coverage
-  local aggregate_dependency
-  local aggregate_regex
   local aggregate_shards=()
-  local aggregate_packages=()
   local status=0
 
-  case "${target}" in
-    backend-store)
-      mapfile -t aggregate_shards < <(planned_aggregate_shards backend-store backend-store-shared)
-      create_aggregate_report aggregate_dir aggregate_usage "${metadata_dir}" backend-store-shared backend-store "${aggregate_shards[@]}" || status=$?
-
-      clear_go_selection_env
-      emit_go_manifest_phase "backend-store phase4 authoritative" "${aggregate_usage}" "${aggregate_dir}" phase4 unit authoritative backend_store ./internal/modules/entities ./internal/modules/timeline || status=$?
-      clear_go_selection_env
-      emit_go_manifest_phase "backend-store phase1 authoritative" derived "${aggregate_dir}" phase1 unit authoritative backend_store ./internal/modules/auth || status=$?
-      clear_go_selection_env
-      emit_go_manifest_phase "backend-store phase2 authoritative" derived "${aggregate_dir}" phase2 unit authoritative backend_store ./internal/modules/incidents || status=$?
-      clear_go_selection_env
-      emit_go_manifest_phase "backend-store phase3 authoritative" derived "${aggregate_dir}" phase3 unit authoritative backend_store ./internal/modules/timeline || status=$?
-      ;;
-    backend-integration)
-      mapfile -t aggregate_names < <(planned_aggregate_names backend-integration)
-      for aggregate_name in "${aggregate_names[@]}"; do
-        mapfile -t aggregate_shards < <(planned_aggregate_shards backend-integration "${aggregate_name}")
-        mapfile -t aggregate_packages < <(planned_aggregate_packages backend-integration "${aggregate_name}")
-        create_aggregate_report aggregate_dir aggregate_usage "${metadata_dir}" "${aggregate_name}" backend-integration "${aggregate_shards[@]}" || status=$?
-        aggregate_mode="$(planned_aggregate_field backend-integration "${aggregate_name}" mode)"
-        aggregate_label="$(planned_aggregate_field backend-integration "${aggregate_name}" label)"
-        clear_go_selection_env
-        if [[ "${aggregate_mode}" == "raw" ]]; then
-          aggregate_regex="$(planned_aggregate_field backend-integration "${aggregate_name}" raw_selector)"
-          emit_go_raw_phase "${aggregate_label}" "${aggregate_usage}" "${aggregate_dir}" "${aggregate_regex}" "${aggregate_packages[@]}" || status=$?
-          continue
-        fi
-        aggregate_phase="$(planned_aggregate_field backend-integration "${aggregate_name}" phase)"
-        aggregate_section="$(planned_aggregate_field backend-integration "${aggregate_name}" section)"
-        aggregate_coverage="$(planned_aggregate_field backend-integration "${aggregate_name}" coverage)"
-        aggregate_dependency="$(planned_aggregate_field backend-integration "${aggregate_name}" execution_dependency)"
-        emit_go_manifest_phase "${aggregate_label}" "${aggregate_usage}" "${aggregate_dir}" "${aggregate_phase}" "${aggregate_section}" "${aggregate_coverage}" "${aggregate_dependency}" "${aggregate_packages[@]}" || status=$?
-      done
-      ;;
-    backend-integration-support)
-      mapfile -t aggregate_names < <(planned_aggregate_names backend-integration-support)
-      for aggregate_name in "${aggregate_names[@]}"; do
-        mapfile -t aggregate_shards < <(planned_aggregate_shards backend-integration-support "${aggregate_name}")
-        mapfile -t aggregate_packages < <(planned_aggregate_packages backend-integration-support "${aggregate_name}")
-        create_aggregate_report aggregate_dir aggregate_usage "${metadata_dir}" "${aggregate_name}" backend-integration-support "${aggregate_shards[@]}" || status=$?
-        aggregate_label="$(planned_aggregate_field backend-integration-support "${aggregate_name}" label)"
-        aggregate_phase="$(planned_aggregate_field backend-integration-support "${aggregate_name}" phase)"
-        clear_go_selection_env
-        emit_declared_support_phase "${aggregate_label}" "${aggregate_usage}" "${aggregate_dir}" "${aggregate_phase}" backend_integration_support "${aggregate_packages[@]}" || status=$?
-      done
-      ;;
-    *)
-      echo "unsupported scheduled shard target ${target}" >&2
-      return 2
-      ;;
-  esac
-
-  finish_target "${status}"
-}
-
-run_backend_integration() {
-  local metadata_dir
-  local shard_names=()
-  local aggregate_names=()
-  local status=0
-  local aggregate_name
-  local aggregate_dir
-  local aggregate_usage
-  local aggregate_mode
-  local aggregate_label
-  local aggregate_phase
-  local aggregate_section
-  local aggregate_coverage
-  local aggregate_dependency
-  local aggregate_regex
-  local aggregate_shards=()
-  local aggregate_packages=()
-
-  metadata_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-backend-integration-shards.XXXXXX")"
-  mapfile -t shard_names < <(planned_shard_names backend-integration)
-  capture_named_shared_reports_parallel backend-integration "${BACKEND_INTEGRATION_SHARD_JOBS}" "${metadata_dir}" "${shard_names[@]}" || status=$?
-
-  mapfile -t aggregate_names < <(planned_aggregate_names backend-integration)
+  mapfile -t aggregate_names < <(planned_aggregate_names "${target}")
   for aggregate_name in "${aggregate_names[@]}"; do
-    mapfile -t aggregate_shards < <(planned_aggregate_shards backend-integration "${aggregate_name}")
-    mapfile -t aggregate_packages < <(planned_aggregate_packages backend-integration "${aggregate_name}")
-    create_aggregate_report aggregate_dir aggregate_usage "${metadata_dir}" "${aggregate_name}" backend-integration "${aggregate_shards[@]}" || status=$?
-    aggregate_mode="$(planned_aggregate_field backend-integration "${aggregate_name}" mode)"
-    aggregate_label="$(planned_aggregate_field backend-integration "${aggregate_name}" label)"
-    clear_go_selection_env
-    if [[ "${aggregate_mode}" == "raw" ]]; then
-      aggregate_regex="$(planned_aggregate_field backend-integration "${aggregate_name}" raw_selector)"
-      emit_go_raw_phase "${aggregate_label}" "${aggregate_usage}" "${aggregate_dir}" "${aggregate_regex}" "${aggregate_packages[@]}" || status=$?
-      continue
+    mapfile -t aggregate_shards < <(planned_aggregate_shards "${target}" "${aggregate_name}")
+    create_aggregate_report aggregate_dir aggregate_usage "${metadata_dir}" "${aggregate_name}" "${target}" "${aggregate_shards[@]}" || status=$?
+    if [[ "${status}" -eq 0 ]]; then
+      emit_execution_family "${target}" "${aggregate_name}" "${aggregate_usage}" "${aggregate_dir}" || status=$?
     fi
-    aggregate_phase="$(planned_aggregate_field backend-integration "${aggregate_name}" phase)"
-    aggregate_section="$(planned_aggregate_field backend-integration "${aggregate_name}" section)"
-    aggregate_coverage="$(planned_aggregate_field backend-integration "${aggregate_name}" coverage)"
-    aggregate_dependency="$(planned_aggregate_field backend-integration "${aggregate_name}" execution_dependency)"
-    emit_go_manifest_phase "${aggregate_label}" "${aggregate_usage}" "${aggregate_dir}" "${aggregate_phase}" "${aggregate_section}" "${aggregate_coverage}" "${aggregate_dependency}" "${aggregate_packages[@]}" || status=$?
   done
-  rm -rf -- "${metadata_dir}"
 
   finish_target "${status}"
 }
 
-run_backend_integration_support() {
+run_sharded_target() {
+  if [[ "$#" -ne 1 ]]; then
+    echo "run_sharded_target requires <target>" >&2
+    return 2
+  fi
+
+  local target="$1"
   local metadata_dir
   local shard_names=()
-  local aggregate_names=()
   local status=0
-  local aggregate_name
-  local aggregate_dir
-  local aggregate_usage
-  local aggregate_label
-  local aggregate_phase
-  local aggregate_shards=()
-  local aggregate_packages=()
 
-  metadata_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-backend-integration-support-shards.XXXXXX")"
-  mapfile -t shard_names < <(planned_shard_names backend-integration-support)
-  capture_named_shared_reports_parallel backend-integration-support "${BACKEND_INTEGRATION_SHARD_JOBS}" "${metadata_dir}" "${shard_names[@]}" || status=$?
-
-  mapfile -t aggregate_names < <(planned_aggregate_names backend-integration-support)
-  for aggregate_name in "${aggregate_names[@]}"; do
-    mapfile -t aggregate_shards < <(planned_aggregate_shards backend-integration-support "${aggregate_name}")
-    mapfile -t aggregate_packages < <(planned_aggregate_packages backend-integration-support "${aggregate_name}")
-    create_aggregate_report aggregate_dir aggregate_usage "${metadata_dir}" "${aggregate_name}" backend-integration-support "${aggregate_shards[@]}" || status=$?
-    aggregate_label="$(planned_aggregate_field backend-integration-support "${aggregate_name}" label)"
-    aggregate_phase="$(planned_aggregate_field backend-integration-support "${aggregate_name}" phase)"
-    clear_go_selection_env
-    emit_declared_support_phase "${aggregate_label}" "${aggregate_usage}" "${aggregate_dir}" "${aggregate_phase}" backend_integration_support "${aggregate_packages[@]}" || status=$?
-  done
+  metadata_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-${target}-shards.XXXXXX")"
+  mapfile -t shard_names < <(planned_shard_names "${target}")
+  capture_named_shared_reports_parallel "${target}" "${BACKEND_INTEGRATION_SHARD_JOBS}" "${metadata_dir}" "${shard_names[@]}" || status=$?
+  if [[ "${status}" -eq 0 ]]; then
+    finalize_scheduled_shards "${target}" "${metadata_dir}" || status=$?
+  else
+    finish_target "${status}"
+  fi
   rm -rf -- "${metadata_dir}"
-
-  finish_target "${status}"
-}
-
-run_backend_process() {
-  local shared_dir
-  local shared_usage
-  local status=0
-
-  assign_named_shared_report shared_dir shared_usage backend-process backend-process-shared
-
-  clear_go_selection_env
-  emit_go_manifest_phase "backend-process phase0 authoritative" "${shared_usage}" "${shared_dir}" phase0 e2e authoritative backend_process ./cmd/server || status=$?
-  clear_go_selection_env
-  emit_go_raw_phase "backend-process phase1 smoke" derived "${shared_dir}" '^(TestPhase1_.*_ProcessSmoke)$' ./cmd/server || status=$?
-
-  finish_target "${status}"
-}
-
-run_phase0_process_e2e() {
-  local shared_dir
-  local shared_usage
-  local status=0
-
-  assign_named_shared_report shared_dir shared_usage phase0-process-e2e backend-process-shared
-
-  clear_go_selection_env
-  emit_go_manifest_phase "phase0-process-e2e" "${shared_usage}" "${shared_dir}" phase0 e2e authoritative backend_process ./cmd/server || status=$?
-
-  finish_target "${status}"
-}
-
-run_phase1_process_smoke() {
-  local shared_dir
-  local shared_usage
-  local status=0
-
-  assign_named_shared_report shared_dir shared_usage phase1-process-smoke backend-process-shared
-
-  clear_go_selection_env
-  emit_go_raw_phase "phase1-process-smoke" "${shared_usage}" "${shared_dir}" '^(TestPhase1_.*_ProcessSmoke)$' ./cmd/server || status=$?
-
-  finish_target "${status}"
-}
-
-run_phase2_process_smoke() {
-  local shared_dir
-  local shared_usage
-  local status=0
-
-  assign_named_shared_report shared_dir shared_usage phase2-process-smoke backend-process-shared
-
-  clear_go_selection_env
-  emit_go_raw_phase "phase2-process-smoke" "${shared_usage}" "${shared_dir}" '^(TestPhase2_ProcessSmoke_)' ./cmd/server || status=$?
-
-  finish_target "${status}"
+  return "${status}"
 }
 
 main() {
@@ -1707,11 +1168,11 @@ main() {
   fi
 
   case "$1" in
-    inspect-shared-command)
+    inspect-aggregate-command)
       if [[ "$#" -ne 3 ]]; then
         usage
       fi
-      inspect_shared_command "$2" "$3"
+      inspect_aggregate_command "$2" "$3"
       ;;
     capture-shard)
       if [[ "$#" -ne 4 ]]; then
@@ -1731,56 +1192,35 @@ main() {
         usage
       fi
       phase_capture_start GO_TARGET_INVOCATION
-      run_backend_unit
+      run_unsharded_target backend-unit
       ;;
     backend-store)
       if [[ "$#" -ne 1 ]]; then
         usage
       fi
       phase_capture_start GO_TARGET_INVOCATION
-      run_backend_store
+      run_sharded_target backend-store
       ;;
     backend-integration)
       if [[ "$#" -ne 1 ]]; then
         usage
       fi
       phase_capture_start GO_TARGET_INVOCATION
-      run_backend_integration
+      run_sharded_target backend-integration
       ;;
     backend-integration-support)
       if [[ "$#" -ne 1 ]]; then
         usage
       fi
       phase_capture_start GO_TARGET_INVOCATION
-      run_backend_integration_support
+      run_sharded_target backend-integration-support
       ;;
     backend-process)
       if [[ "$#" -ne 1 ]]; then
         usage
       fi
       phase_capture_start GO_TARGET_INVOCATION
-      run_backend_process
-      ;;
-    phase0-process-e2e)
-      if [[ "$#" -ne 1 ]]; then
-        usage
-      fi
-      phase_capture_start GO_TARGET_INVOCATION
-      run_phase0_process_e2e
-      ;;
-    phase1-process-smoke)
-      if [[ "$#" -ne 1 ]]; then
-        usage
-      fi
-      phase_capture_start GO_TARGET_INVOCATION
-      run_phase1_process_smoke
-      ;;
-    phase2-process-smoke)
-      if [[ "$#" -ne 1 ]]; then
-        usage
-      fi
-      phase_capture_start GO_TARGET_INVOCATION
-      run_phase2_process_smoke
+      run_unsharded_target backend-process
       ;;
     *)
       usage

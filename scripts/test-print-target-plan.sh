@@ -50,7 +50,7 @@ const storeRows = rows.filter((row) => row.target === "backend-store");
 if (storeRows.length === 0 || !storeRows.every((row) => row.fixture_policy?.postgres === "transaction")) {
   process.exit(1);
 }
-const rawPgtest = rows.find((row) => row.target === "backend-integration" && row.shared_report === "backend-integration-testutil");
+const rawPgtest = rows.find((row) => row.target === "backend-integration" && row.execution_family === "backend-integration-testutil");
 if (!rawPgtest || rawPgtest.fixture_policy?.postgres !== "package_reset") {
   process.exit(1);
 }
@@ -88,7 +88,7 @@ for (let index = 1; index < weights.length; index += 1) {
     process.exit(1);
   }
 }
-const incidents = plan.aggregates.find((aggregate) => aggregate.name === "backend-integration-phase2-incidents");
+const incidents = plan.aggregates.find((aggregate) => aggregate.name === "backend-integration-incidents");
 if (!incidents || incidents.shards.length < 2) {
   process.exit(1);
 }
@@ -140,7 +140,7 @@ fi
 backend_store_output="$("$NODE_HELPER" "$PLAN_SCRIPT" --target backend-store)"
 assert_contains "$backend_store_output" "backend-store service_backed=1" "backend-store compact target plan"
 assert_contains "$backend_store_output" "rows=" "backend-store compact row count"
-assert_contains "$backend_store_output" "shared_reports=" "backend-store compact shared report count"
+assert_contains "$backend_store_output" "execution_families=" "backend-store compact execution family count"
 
 default_output="$("$NODE_HELPER" "$PLAN_SCRIPT")"
 detail_output="$("$NODE_HELPER" "$PLAN_SCRIPT" --detail)"
@@ -186,6 +186,8 @@ cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_support_test.go",
       "selection_pattern": "TestSupportPhase5_",
+      "execution_family": "backend-unit-auth",
+      "execution_label": "Backend unit auth",
       "symbol": "TestSupportPhase5_Discovered"
     }
   ]
@@ -204,7 +206,7 @@ assert_contains "$phase99_plan" '"manifest_phase": "phase99"' "target-plan suppo
 phase99_shared_command="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" \
   NODE_BIN="$NODE_HELPER" \
-    "$ROOT_DIR/scripts/run-go-target.sh" inspect-shared-command backend-unit backend-unit-auth
+    "$ROOT_DIR/scripts/run-go-target.sh" inspect-aggregate-command backend-unit backend-unit-auth
 )"
 assert_contains "$phase99_shared_command" "TestSupportPhase5_Discovered" "run-go-target support selection includes discovered phase"
 
@@ -222,6 +224,8 @@ cat >"$invalid_phase_root/tools/phase99_test_map.json" <<'JSON'
       "file": "internal/modules/auth/phase1_store_test.go",
       "symbol": "TestPhase5_Invalid_U_5_01",
       "execution_dependency": "backend_store",
+      "execution_family": "backend-store",
+      "execution_label": "Backend store",
       "evidence_layer": "store_domain",
       "fixture_policy": { "postgres": "invalid" },
       "claim": "invalid fixture policy smoke",
@@ -249,6 +253,8 @@ cat >"$missing_policy_root/tools/phase99_test_map.json" <<'JSON'
       "file": "internal/modules/auth/phase1_store_test.go",
       "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05",
       "execution_dependency": "backend_store",
+      "execution_family": "backend-store",
+      "execution_label": "Backend store",
       "evidence_layer": "store_domain",
       "claim": "missing fixture policy smoke",
       "out_of_scope": "missing fixture policy smoke"
@@ -275,6 +281,8 @@ cat >"$missing_budget_root/tools/phase99_test_map.json" <<'JSON'
       "file": "internal/modules/auth/phase1_integration_test.go",
       "symbol": "TestPhase1_LoginSessionLifecycle_I_1_01",
       "execution_dependency": "backend_integration",
+      "execution_family": "backend-integration-auth",
+      "execution_label": "Backend integration auth",
       "evidence_layer": "integration",
       "fixture_policy": { "postgres": "package_reset" },
       "claim": "missing fixture budget smoke",
@@ -302,6 +310,8 @@ cat >"$invalid_budget_root/tools/phase99_test_map.json" <<'JSON'
       "file": "internal/modules/auth/phase1_integration_test.go",
       "symbol": "TestPhase1_LoginSessionLifecycle_I_1_01",
       "execution_dependency": "backend_integration",
+      "execution_family": "backend-integration-auth",
+      "execution_label": "Backend integration auth",
       "evidence_layer": "integration",
       "fixture_policy": { "postgres": "package_reset" },
       "fixture_budget": {
@@ -335,6 +345,8 @@ cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
       "file": "internal/platform/objectstore/objectstore_phase0_support_test.go",
       "symbol": "TestSupportPhase0_ManagedServiceObjectStoreBinding",
       "selection_pattern": "TestSupportPhase0_",
+      "execution_family": "backend-integration-platform",
+      "execution_label": "Backend integration platform",
       "fixture_policy": { "postgres": "migration_scratch" },
       "fixture_budget": {
         "postgres": {
@@ -352,6 +364,8 @@ cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
       "file": "internal/app/bootstrap_phase0_test.go",
       "symbol": "TestPhase0_BootstrapManifestValidation_U_0_07",
       "execution_dependency": "backend_unit",
+      "execution_family": "backend-unit-core",
+      "execution_label": "Backend unit core",
       "evidence_layer": "fixture_policy_validation"
     }
   ]

@@ -512,22 +512,6 @@ backend-process: export CARTULARY_TEST_TARGET := backend-process
 backend-process: $(NODE_BIN) build-server $(TEST_SERVICES_BIN)
 	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(TEST_SERVICES_BIN) run -- ./scripts/run-go-target.sh backend-process
 
-phase0-process-e2e: export CARTULARY_TEST_TARGET := phase0-process-e2e
-
-# Phase 0 process evidence is part of the developer gate and must never be direct-run only.
-phase0-process-e2e: $(NODE_BIN) build-server $(TEST_SERVICES_BIN)
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(TEST_SERVICES_BIN) run -- ./scripts/run-go-target.sh phase0-process-e2e
-
-phase1-process-smoke: export CARTULARY_TEST_TARGET := phase1-process-smoke
-
-phase1-process-smoke: $(NODE_BIN) build-server $(TEST_SERVICES_BIN)
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(TEST_SERVICES_BIN) run -- ./scripts/run-go-target.sh phase1-process-smoke
-
-phase2-process-smoke: export CARTULARY_TEST_TARGET := phase2-process-smoke
-
-phase2-process-smoke: $(NODE_BIN) build-server $(TEST_SERVICES_BIN)
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(TEST_SERVICES_BIN) run -- ./scripts/run-go-target.sh phase2-process-smoke
-
 frontend-unit: export CARTULARY_TEST_TARGET := frontend-unit
 
 frontend-typecheck: export CARTULARY_TEST_TARGET := frontend-typecheck
@@ -588,7 +572,7 @@ lint: lint-go lint-biome frontend-typecheck
 
 lint-go:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
-	$(RUN_PHASE) "lint go-vet" -- $(GO_ENV) $(GO) vet ./...
+	$(RUN_PHASE) "lint go-vet" -- bash ./scripts/run-go-vet.sh
 
 format: format-frontend
 

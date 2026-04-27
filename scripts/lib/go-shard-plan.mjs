@@ -17,26 +17,6 @@ const defaultShardTargetMsByTarget = new Map([
   ["backend-integration-support", defaultBackendIntegrationShardTargetMs],
 ]);
 
-const aggregateLabelOverrides = new Map([
-  ["backend-integration-testutil", "backend-integration testutil"],
-  ["backend-integration-phase0-platform", "backend-integration phase0 authoritative platform"],
-  ["backend-integration-phase0-app", "backend-integration phase0 authoritative app"],
-  ["backend-integration-auth", "backend-integration phase1 authoritative"],
-  ["backend-integration-phase2-incidents", "backend-integration phase2 authoritative"],
-  ["backend-integration-phase3-timeline", "backend-integration phase3 authoritative"],
-  ["backend-integration-phase4-entities", "backend-integration phase4 authoritative entities"],
-  ["backend-integration-phase4-timeline", "backend-integration phase4 authoritative timeline"],
-  ["backend-store-shared", "backend-store authoritative"],
-]);
-
-const supportLabelOverrides = new Map([
-  ["backend-integration-phase0-platform", "backend-integration support phase0 platform"],
-  ["backend-integration-auth", "backend-integration support phase1"],
-  ["backend-integration-phase2-incidents", "backend-integration support phase2"],
-  ["backend-integration-phase3-timeline", "backend-integration support phase3"],
-  ["backend-integration-phase4-entities", "backend-integration support phase4 entities"],
-]);
-
 function compareStrings(left, right) {
   return String(left).localeCompare(String(right));
 }
@@ -128,16 +108,13 @@ function rowPackages(row) {
 }
 
 function addAggregate(aggregates, row, mode) {
-  const key = `${row.target}\u001f${row.shared_report}`;
+  const key = `${row.target}\u001f${row.execution_family}`;
   if (!aggregates.has(key)) {
     aggregates.set(key, {
       target: row.target,
-      name: row.shared_report,
+      name: row.execution_family,
       mode,
-      label:
-        mode === "support"
-          ? supportLabelOverrides.get(row.shared_report) ?? `${row.shared_report} support`
-          : aggregateLabelOverrides.get(row.shared_report) ?? row.label ?? row.shared_report,
+      label: row.execution_label ?? row.label ?? row.execution_family,
       phase: row.manifest_phase,
       section: row.section,
       coverage: row.coverage,
@@ -178,14 +155,14 @@ function buildExecutionItems(root) {
     }
     if (row.target === "backend-integration" && row.coverage === "raw") {
       addAggregate(aggregates, row, "raw");
-      const key = `${row.target}::${row.shared_report}`;
+      const key = `${row.target}::${row.execution_family}`;
       const weightMs = normalizePositiveInteger(
         baselines.rawAggregates.get(key),
         baselines.defaultIntegrationWeightMs,
       );
       executableItems.push({
         target: row.target,
-        aggregate_name: row.shared_report,
+        aggregate_name: row.execution_family,
         kind: "raw",
         id: row.id,
         packages: [...row.packages],
@@ -214,7 +191,7 @@ function buildExecutionItems(root) {
         );
         executableItems.push({
           target: row.target,
-          aggregate_name: row.shared_report,
+          aggregate_name: row.execution_family,
           kind: "authoritative",
           id: row.id,
           packages: rowPackages(row),
@@ -241,7 +218,7 @@ function buildExecutionItems(root) {
         );
         executableItems.push({
           target: row.target,
-          aggregate_name: row.shared_report,
+          aggregate_name: row.execution_family,
           kind: "support",
           id: row.id,
           packages: rowPackages(row),

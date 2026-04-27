@@ -466,10 +466,9 @@ write_manifest "$backend_capacity_manifest" test-fast-service-backed \
   'make_target|backend-integration|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1' \
   'make_target|backend-store|9|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1' \
   'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1' \
-  'make_target|backend-integration-support|7|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1' \
-  'make_target|phase0-process-e2e|6|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1'
+  'make_target|backend-integration-support|7|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1'
 backend_capacity_output="$(run_scheduler "$backend_capacity_dir" "$backend_capacity_manifest" test-fast-service-backed backend-capacity 2>&1)"
-assert_contains "$backend_capacity_output" "[SCHEDULER] test-fast-service-backed start work_unit=phase0-process-e2e claims={go_cpu:1,go_io:1,minio:1,postgres:1,process:1} active=5 pending=0 active_resource_claims={go_cpu:5,go_io:5,minio:5,postgres:5,process:2}" "go resource model starts more than four compatible backend work units"
+assert_contains "$backend_capacity_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-integration-support claims={go_cpu:1,go_io:1,minio:1,postgres:1} active=4 pending=0 active_resource_claims={go_cpu:4,go_io:4,minio:4,postgres:4,process:1}" "go resource model starts all compatible backend work units"
 
 io_block_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-io-block.XXXXXX")"
 cleanup_paths+=("$io_block_dir")
@@ -668,14 +667,14 @@ write_manifest "$failed_shard_manifest" test-fast-service-backed \
   'go_shards|backend-store|0|"postgres": 1, "minio": 1'
 set +e
 failed_shard_output="$(
-  FAKE_GO_FAIL_SHARD=backend-store-shared-shard-01 \
+  FAKE_GO_FAIL_SHARD=backend-store-shard-01 \
   FAKE_GO_FINALIZER_FAILURE_STATUS=9 \
     run_scheduler "$failed_shard_dir" "$failed_shard_manifest" test-fast-service-backed failed-shard 2>&1
 )"
 failed_shard_status=$?
 set -e
 assert_equals "$failed_shard_status" "9" "failed shard finalizer status"
-assert_contains "$failed_shard_output" "fake shard failure for backend-store-shared-shard-01" "failed shard output"
+assert_contains "$failed_shard_output" "fake shard failure for backend-store-shard-01" "failed shard output"
 assert_contains "$failed_shard_output" "[SCHEDULER] test-fast-service-backed finalize-start target=backend-store" "failed shard still finalizes target"
 assert_contains "$failed_shard_output" "[SCHEDULER] test-fast-service-backed finalize-finish target=backend-store status=9" "failed shard finalizer reports failure"
 assert_contains "$failed_shard_output" "[FAIL] test-fast-service-backed" "failed shard parent summary"
@@ -696,13 +695,13 @@ cleanup_paths+=("$unsafe_dir")
 write_fake_make "$unsafe_dir"
 unsafe_manifest="${unsafe_dir}/manifest.json"
 write_manifest "$unsafe_manifest" check-service-backed \
-  'make_target|phase0-process-e2e|10|"postgres": 1, "minio": 1'
+  'make_target|backend-unit|10|"postgres": 1, "minio": 1'
 set +e
 unsafe_output="$(run_scheduler "$unsafe_dir" "$unsafe_manifest" check-service-backed unsafe 2>&1)"
 unsafe_status=$?
 set -e
 assert_equals "$unsafe_status" "1" "unsafe manifest status"
-assert_contains "$unsafe_output" "is not check-service-backed safe" "unsafe manifest output"
+assert_contains "$unsafe_output" "is not service-backed" "unsafe manifest output"
 
 unknown_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-unknown.XXXXXX")"
 cleanup_paths+=("$unknown_dir")
@@ -749,7 +748,7 @@ const { execFileSync } = require("node:child_process");
 const path = require("node:path");
 const [root] = process.argv.slice(2);
 const plan = JSON.parse(execFileSync(process.execPath, [path.join(root, "scripts/lib/go-shard-plan.mjs"), "json"], { encoding: "utf8", cwd: root }));
-const shard = plan.shards.find((candidate) => candidate.name === "backend-store-shared-shard-01");
+const shard = plan.shards.find((candidate) => candidate.name === "backend-store-shard-01");
 if (!shard) {
   process.exit(1);
 }

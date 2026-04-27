@@ -36,7 +36,9 @@
       "package": "./internal/modules/incidents",
       "file": "internal/modules/incidents/phase2_support_test.go",
       "symbol": "TestSupportPhase2Unit_MembershipPatchAndDeleteDecodeAndLastAdminGuardStayStable",
-      "selection_pattern": "TestSupportPhase2Unit_"
+      "selection_pattern": "TestSupportPhase2Unit_",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit support phase2"
     },
     {
       "target": "backend_integration_support",
@@ -50,7 +52,9 @@
         "TestSupportPhase2_MembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTPConformance",
         "TestSupportPhase2_MembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConformance"
       ],
-      "selection_pattern": "TestSupportPhase2_"
+      "selection_pattern": "TestSupportPhase2_",
+      "execution_family": "backend-integration-incidents",
+      "execution_label": "backend-integration support phase2 incidents"
     },
     {
       "target": "backend_integration_support",
@@ -63,7 +67,9 @@
         "TestSupportPhase2_PublicRouteInventoryMembershipAdminEnvelopes",
         "TestSupportPhase2_PublicRouteInventoryWorkbookPreferencesEnvelopes"
       ],
-      "selection_pattern": "TestSupportPhase2_"
+      "selection_pattern": "TestSupportPhase2_",
+      "execution_family": "backend-integration-incidents",
+      "execution_label": "backend-integration support phase2 incidents"
     },
     {
       "target": "backend_integration_support",
@@ -77,7 +83,9 @@
         "TestSupportPhase2_ControlBoundaryWorkbookPreferencesDeploymentAdminWithoutMembershipDenied",
         "TestSupportPhase2_ControlBoundaryWorkbookQueriesDeploymentAdminWithoutMembershipDenied"
       ],
-      "selection_pattern": "TestSupportPhase2_"
+      "selection_pattern": "TestSupportPhase2_",
+      "execution_family": "backend-integration-incidents",
+      "execution_label": "backend-integration support phase2 incidents"
     },
     {
       "target": "backend_integration_support",
@@ -89,7 +97,9 @@
         "TestSupportPhase2_IncidentListContinuationUsesSnapshotStableRows",
         "TestSupportPhase2_MembershipListContinuationUsesSnapshotStableRows"
       ],
-      "selection_pattern": "TestSupportPhase2_"
+      "selection_pattern": "TestSupportPhase2_",
+      "execution_family": "backend-integration-incidents",
+      "execution_label": "backend-integration support phase2 incidents"
     },
     {
       "target": "backend_integration_support",
@@ -101,7 +111,9 @@
         "TestSupportPhase2_IncidentPatchWritesAuditBeforeAfter",
         "TestSupportPhase2_MembershipMutationsWriteAuditBeforeAfter"
       ],
-      "selection_pattern": "TestSupportPhase2_"
+      "selection_pattern": "TestSupportPhase2_",
+      "execution_family": "backend-integration-incidents",
+      "execution_label": "backend-integration support phase2 incidents"
     }
   ],
   "unit": [
@@ -115,7 +127,9 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "decoder_normalization",
       "claim": "Incident create decode rejects undeclared members, rejects `initial_memberships`, and normalizes `incident_key` with trim plus NFC before uniqueness.",
-      "out_of_scope": "Durable create persistence remains integration evidence."
+      "out_of_scope": "Durable create persistence remains integration evidence.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase2 authoritative"
     },
     {
       "id": "U-2-02",
@@ -127,7 +141,9 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "Store.CreateIncident commits the bootstrap `admin` membership plus both incident-wide and per-user workbook-preference rows.",
-      "out_of_scope": "HTTP envelope and header emission remain support coverage."
+      "out_of_scope": "HTTP envelope and header emission remain support coverage.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase2 authoritative"
     },
     {
       "id": "U-2-03",
@@ -139,7 +155,9 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "The committed create result returns the stable `/api/v1/incidents/{incident_id}` location value.",
-      "out_of_scope": "Actual `Location` header emission remains support coverage."
+      "out_of_scope": "Actual `Location` header emission remains support coverage.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase2 authoritative"
     },
     {
       "id": "U-2-04",
@@ -151,7 +169,9 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "Incident create idempotency scopes by actor plus normalized request, exact replay returns the original committed result, divergent replay rejects, and replay keeps the incident row, bootstrap membership, workbook-preference rows, owner mutation artifacts, and route idempotency stable.",
-      "out_of_scope": "HTTP replay envelope proof remains support coverage."
+      "out_of_scope": "HTTP replay envelope proof remains support coverage.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase2 authoritative"
     },
     {
       "id": "U-2-05",
@@ -163,7 +183,9 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "decoder_projection",
       "claim": "Incident patch decode allows only promoted fields, requires `base_incident_version`, and keeps structural no-ops version-stable.",
-      "out_of_scope": "Persisted patch consequences remain integration evidence."
+      "out_of_scope": "Persisted patch consequences remain integration evidence.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase2 authoritative"
     },
     {
       "id": "U-2-06",
@@ -175,7 +197,9 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "lookup_only_resolution",
       "claim": "Membership create requires exactly one selector, resolves targets by lookup-only `user_id` or `email`, returns canonical `user_not_found` or `user_inactive`, and rejects invitation-only fields without any auto-create path.",
-      "out_of_scope": "Live HTTP envelope proof remains support coverage."
+      "out_of_scope": "Live HTTP envelope proof remains support coverage.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase2 authoritative"
     },
     {
       "id": "U-2-07",
@@ -187,7 +211,9 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "Store-backed membership patch and delete reject stale `base_membership_version` values without mutating durable membership state.",
-      "out_of_scope": "Pure decoder shape and `last_incident_admin` guard coverage stay on the executed support-only unit surface."
+      "out_of_scope": "Pure decoder shape and `last_incident_admin` guard coverage stay on the executed support-only unit surface.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase2 authoritative"
     },
     {
       "id": "U-2-08",
@@ -199,7 +225,9 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "incident_access_decision",
       "claim": "The incident access decision helper returns `incident_not_found` for no membership and `authorization_denied` for insufficient incident role.",
-      "out_of_scope": "Deployment-admin-without-membership route breadth remains paired support or integration inventory coverage."
+      "out_of_scope": "Deployment-admin-without-membership route breadth remains paired support or integration inventory coverage.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase2 authoritative"
     },
     {
       "id": "U-2-09",
@@ -211,7 +239,9 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "contract_dispatch",
       "claim": "Extension discovery keeps the singleton route shape, exact profile fields, canonical ordering, and no pagination members.",
-      "out_of_scope": "Runtime auth and leak checks remain integration evidence."
+      "out_of_scope": "Runtime auth and leak checks remain integration evidence.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase2 authoritative"
     },
     {
       "id": "U-2-10",
@@ -223,7 +253,9 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "contract_dispatch",
       "claim": "Reserved-family dispatch preserves base-route precedence, claimed-family routing, reserved-but-unclaimed canonical 404s, and ordinary outside-family 404s.",
-      "out_of_scope": "Real authenticated dispatch remains integration evidence."
+      "out_of_scope": "Real authenticated dispatch remains integration evidence.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase2 authoritative"
     },
     {
       "id": "U-2-11",
@@ -270,7 +302,9 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Incident create persists the incident row, bootstrap membership, workbook preferences, and owner-level mutation artifacts on the current Phase 2 audit substrate atomically, while hook-forced rollback leaves no surviving Phase 2 mutation artifacts.",
-      "out_of_scope": "`change_sets` migration remains an owner/docs follow-on, not Phase 2 evidence."
+      "out_of_scope": "`change_sets` migration remains an owner/docs follow-on, not Phase 2 evidence.",
+      "execution_family": "backend-integration-incidents",
+      "execution_label": "backend-integration phase2 authoritative incidents"
     },
     {
       "id": "I-2-02",
@@ -282,7 +316,9 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Real create with trimmed decomposed input normalizes the response key, replay with the composed form returns the original committed resource, divergent replay rejects, opposite-form duplicates on distinct requests fail with `incident_key_conflict`, and the incident row, bootstrap membership, workbook-preference rows, owner mutation artifacts, and route idempotency remain stable.",
-      "out_of_scope": "None for the declared replay and normalization contract."
+      "out_of_scope": "None for the declared replay and normalization contract.",
+      "execution_family": "backend-integration-incidents",
+      "execution_label": "backend-integration phase2 authoritative incidents"
     },
     {
       "id": "I-2-03",
@@ -300,7 +336,9 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "One same-session role progression `no membership -> viewer -> reviewer -> admin -> removed` re-derives access immediately for every `ControlBoundaryInventory()` route, including workbook-preference reads, membership-admin routes, and the Timeline websocket boundary.",
-      "out_of_scope": "Deployment-admin-without-membership breadth is paired with the support inventory sweep."
+      "out_of_scope": "Deployment-admin-without-membership breadth is paired with the support inventory sweep.",
+      "execution_family": "backend-integration-incidents",
+      "execution_label": "backend-integration phase2 authoritative incidents"
     },
     {
       "id": "I-2-04",
@@ -312,7 +350,9 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Real incident patch persists only promoted fields, rejects stale versions, and advances `incident_version` only on material change.",
-      "out_of_scope": "None for the declared patch contract."
+      "out_of_scope": "None for the declared patch contract.",
+      "execution_family": "backend-integration-incidents",
+      "execution_label": "backend-integration phase2 authoritative incidents"
     },
     {
       "id": "I-2-05",
@@ -324,7 +364,9 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Extension discovery succeeds for an authenticated zero-membership session and leaks no provider secrets or live claim payloads.",
-      "out_of_scope": "None for the declared discovery contract."
+      "out_of_scope": "None for the declared discovery contract.",
+      "execution_family": "backend-integration-incidents",
+      "execution_label": "backend-integration phase2 authoritative incidents"
     },
     {
       "id": "I-2-06",
@@ -336,7 +378,9 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Reserved but unclaimed family roots and descendants return canonical `extension_profile_not_claimed`, while outside-family paths preserve ordinary 404 handling.",
-      "out_of_scope": "None for the declared dispatch contract."
+      "out_of_scope": "None for the declared dispatch contract.",
+      "execution_family": "backend-integration-incidents",
+      "execution_label": "backend-integration phase2 authoritative incidents"
     }
   ],
   "e2e": [
@@ -372,6 +416,27 @@
       "evidence_layer": "browser",
       "claim": "Incident admins manage memberships on the ordinary shell and non-admin incident members do not receive those controls.",
       "out_of_scope": "None for the declared browser membership contract."
+    },
+    {
+      "id": "E-2-SMOKE-01",
+      "coverage": "supplemental",
+      "runner": "go_test",
+      "package": "./cmd/server",
+      "file": "cmd/server/main_phase2_smoke_test.go",
+      "symbols": [
+        "TestPhase2_ProcessSmoke_IncidentCreateListAndWorkbookPrefs",
+        "TestPhase2_ProcessSmoke_IncidentValidationAndPatch",
+        "TestPhase2_ProcessSmoke_MembershipAdminFlow",
+        "TestPhase2_ProcessSmoke_MembershipPatchDeleteAndLastAdmin",
+        "TestPhase2_ProcessSmoke_ExtensionDiscoveryAndReservedRoutes",
+        "TestPhase2_ProcessSmoke_DeploymentAdminBoundary"
+      ],
+      "execution_dependency": "backend_process",
+      "execution_family": "backend-process",
+      "execution_label": "backend-process phase2 process smoke",
+      "evidence_layer": "process_smoke",
+      "claim": "Phase 2 process smoke exercises incident creation, validation, membership, extension discovery, and deployment-admin boundaries through the standalone server process.",
+      "out_of_scope": "Authoritative Phase 2 completion evidence remains owned by the existing E-2-* browser rows and I-2-* backend integration rows."
     }
   ]
 }

@@ -32,7 +32,9 @@
       "package": "./internal/platform/postgres",
       "file": "internal/platform/postgres/postgres_phase0_support_test.go",
       "symbol": "TestSupportPhase0_SchemaBootstrapMigrationGuard",
-      "selection_pattern": "TestSupportPhase0_"
+      "selection_pattern": "TestSupportPhase0_",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit support phase0"
     },
     {
       "target": "backend_integration_support",
@@ -40,7 +42,9 @@
       "package": "./internal/platform/objectstore",
       "file": "internal/platform/objectstore/objectstore_phase0_support_test.go",
       "symbol": "TestSupportPhase0_ManagedServiceObjectStoreBinding",
-      "selection_pattern": "TestSupportPhase0_"
+      "selection_pattern": "TestSupportPhase0_",
+      "execution_family": "backend-integration-platform",
+      "execution_label": "backend-integration support phase0 platform"
     }
   ],
   "unit": [
@@ -54,7 +58,9 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "config_validation",
       "claim": "Configuration discovery enforces canonical selector precedence, rejects unknown keys, and fails closed on unsupported schema or profile combinations before startup composition.",
-      "out_of_scope": "Runtime-root compatibility and startup filesystem canonicalization belong to later Phase 0 rows."
+      "out_of_scope": "Runtime-root compatibility and startup filesystem canonicalization belong to later Phase 0 rows.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase0 authoritative"
     },
     {
       "id": "U-0-02",
@@ -66,7 +72,9 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "config_validation",
       "claim": "Every supported deployment profile requires the full runtime-root set, rejects unknown or malformed bindings, accepts `cloud` managed-service bindings for the service-backed roots, and keeps the always-filesystem roots closed.",
-      "out_of_scope": "Lexical path rejection, overlap detection, and effective escape-write prevention are owned by `U-0-03`."
+      "out_of_scope": "Lexical path rejection, overlap detection, and effective escape-write prevention are owned by `U-0-03`.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase0 authoritative"
     },
     {
       "id": "U-0-03",
@@ -78,7 +86,9 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "path_validation",
       "claim": "Filesystem-root validation rejects non-absolute, shell-expanded, `.`, `..`, NUL-bearing, overlapping, non-writable, and attempted escape-write paths against configured roots.",
-      "out_of_scope": "Real runtime fail-closed startup consequences remain integration and process evidence."
+      "out_of_scope": "Real runtime fail-closed startup consequences remain integration and process evidence.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase0 authoritative"
     },
     {
       "id": "U-0-04",
@@ -90,7 +100,9 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "config_defaults",
       "claim": "Disconnected defaults apply only where allowed and never synthesize missing or malformed roots away for other profiles.",
-      "out_of_scope": "Profile-specific binding-kind compatibility is covered by `U-0-02`."
+      "out_of_scope": "Profile-specific binding-kind compatibility is covered by `U-0-02`.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase0 authoritative"
     },
     {
       "id": "U-0-05",
@@ -102,7 +114,9 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "startup_fail_closed",
       "claim": "Invalid deployment config and bootstrap-preflight failure stop dependency wiring before HTTP, WebSocket, or job startup begins.",
-      "out_of_scope": "Whole-payload diagnostics and durable bootstrap side effects are integration or process evidence."
+      "out_of_scope": "Whole-payload diagnostics and durable bootstrap side effects are integration or process evidence.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase0 authoritative"
     },
     {
       "id": "U-0-07",
@@ -114,7 +128,9 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "bootstrap_manifest_validation",
       "claim": "Bootstrap manifest validation accepts only the v1 schema, defaults omitted `mfa_required` to true, and rejects explicit false, unknown members, and forbidden deployment-admin, incident, or provider fields.",
-      "out_of_scope": "Manifest filesystem errors and durable bootstrap persistence stay with higher Phase 0 layers."
+      "out_of_scope": "Manifest filesystem errors and durable bootstrap persistence stay with higher Phase 0 layers.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase0 authoritative"
     },
     {
       "id": "U-0-08",
@@ -126,7 +142,9 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "bootstrap_preflight",
       "claim": "Bootstrap preflight queries bootstrap state first, skips manifest access when an active admin exists, and emits canonical diagnostics for missing, unreadable, non-regular, malformed, and recovery-failure cases.",
-      "out_of_scope": "Real Postgres-backed bootstrap creation and rollback belong to `I-0-04` through `I-0-06`."
+      "out_of_scope": "Real Postgres-backed bootstrap creation and rollback belong to `I-0-04` through `I-0-06`.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase0 authoritative"
     },
     {
       "id": "U-0-09",
@@ -138,7 +156,9 @@
       "execution_dependency": "backend_unit",
       "evidence_layer": "resource_limit_validation",
       "claim": "Resource-limit validation resolves defaults deterministically, enforces closed numeric domains, rejects unknown limit keys, and preserves the fixed public ceilings.",
-      "out_of_scope": "Runtime use of those limits on later import, archive, and preview routes belongs to later phases."
+      "out_of_scope": "Runtime use of those limits on later import, archive, and preview routes belongs to later phases.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase0 authoritative"
     }
   ],
   "integration": [
@@ -161,7 +181,9 @@
           "max_migration_scratch": 2
         }
       },
-      "migration_scratch_reason": "Exercises fresh migration and schema bootstrap behavior from an empty database boundary."
+      "migration_scratch_reason": "Exercises fresh migration and schema bootstrap behavior from an empty database boundary.",
+      "execution_family": "backend-integration-platform",
+      "execution_label": "backend-integration phase0 authoritative platform"
     },
     {
       "id": "I-0-02",
@@ -173,7 +195,9 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "object_store_integration",
       "claim": "Real S3-compatible object-store setup resolves disconnected `filesystem_root` bindings through the generic `CARTULARY_S3_*` contract and completes a live round trip.",
-      "out_of_scope": "Managed-service object-store binding coverage remains supplemental."
+      "out_of_scope": "Managed-service object-store binding coverage remains supplemental.",
+      "execution_family": "backend-integration-platform",
+      "execution_label": "backend-integration phase0 authoritative platform"
     },
     {
       "id": "I-0-03",
@@ -185,7 +209,9 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "runtime_integration",
       "claim": "Config failures on real Postgres and MinIO prevent ready state and stop handler, WebSocket, and job startup even when backing services are healthy.",
-      "out_of_scope": "Real process exit behavior and connection refusal remain `E-0-02`."
+      "out_of_scope": "Real process exit behavior and connection refusal remain `E-0-02`.",
+      "execution_family": "backend-integration-app",
+      "execution_label": "backend-integration phase0 authoritative app"
     },
     {
       "id": "I-0-04",
@@ -206,7 +232,9 @@
           "max_template_clones": 2
         }
       },
-      "template_clone_reason": "Installs a rollback trigger in one subtest, so the top-level test needs schema-isolated databases."
+      "template_clone_reason": "Installs a rollback trigger in one subtest, so the top-level test needs schema-isolated databases.",
+      "execution_family": "backend-integration-app",
+      "execution_label": "backend-integration phase0 authoritative app"
     },
     {
       "id": "I-0-05",
@@ -218,7 +246,9 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "bootstrap_failure_integration",
       "claim": "Required bootstrap failures for missing, unreadable regular-file, non-regular, malformed, schema-invalid, and email-conflicting manifests block readiness and leave no partial bootstrap state.",
-      "out_of_scope": "Process-boundary refusal and exit diagnostics remain `E-0-04`."
+      "out_of_scope": "Process-boundary refusal and exit diagnostics remain `E-0-04`.",
+      "execution_family": "backend-integration-app",
+      "execution_label": "backend-integration phase0 authoritative app"
     },
     {
       "id": "I-0-06",
@@ -230,7 +260,9 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "bootstrap_recovery_integration",
       "claim": "Existing active admins skip stale or invalid manifests, while bootstrap-completion with zero active admins fails closed without implicit recovery.",
-      "out_of_scope": "Real process-boundary refusal remains `E-0-05`."
+      "out_of_scope": "Real process-boundary refusal remains `E-0-05`.",
+      "execution_family": "backend-integration-app",
+      "execution_label": "backend-integration phase0 authoritative app"
     }
   ],
   "e2e": [
@@ -252,7 +284,9 @@
         "postgres": {
           "max_template_clones": 4
         }
-      }
+      },
+      "execution_family": "backend-process",
+      "execution_label": "backend-process phase0 authoritative"
     },
     {
       "id": "E-0-02",
@@ -272,7 +306,9 @@
         "postgres": {
           "max_template_clones": 4
         }
-      }
+      },
+      "execution_family": "backend-process",
+      "execution_label": "backend-process phase0 authoritative"
     },
     {
       "id": "E-0-03",
@@ -292,7 +328,9 @@
         "postgres": {
           "max_template_clones": 4
         }
-      }
+      },
+      "execution_family": "backend-process",
+      "execution_label": "backend-process phase0 authoritative"
     },
     {
       "id": "E-0-04",
@@ -312,7 +350,9 @@
         "postgres": {
           "max_template_clones": 4
         }
-      }
+      },
+      "execution_family": "backend-process",
+      "execution_label": "backend-process phase0 authoritative"
     },
     {
       "id": "E-0-05",
@@ -332,7 +372,9 @@
         "postgres": {
           "max_template_clones": 4
         }
-      }
+      },
+      "execution_family": "backend-process",
+      "execution_label": "backend-process phase0 authoritative"
     }
   ]
 }

@@ -98,6 +98,18 @@ function supportGoEntryLabel(entry) {
   return `support_go_target ${entry.target ?? "(missing target)"} ${entry.file ?? "(missing file)"}`;
 }
 
+function validateExecutionFamily(entry, label) {
+  if (typeof entry.execution_family !== "string" || entry.execution_family.trim() === "") {
+    throw new Error(`${label} must declare execution_family`);
+  }
+  if (!/^[a-z][a-z0-9-]*$/.test(entry.execution_family)) {
+    throw new Error(`${label} execution_family must be a lowercase hyphenated identifier`);
+  }
+  if (typeof entry.execution_label !== "string" || entry.execution_label.trim() === "") {
+    throw new Error(`${label} must declare execution_label`);
+  }
+}
+
 export function supportGoEntrySymbols(entry) {
   const label = supportGoEntryLabel(entry);
   if (entry.symbol !== undefined && entry.symbols !== undefined) {
@@ -646,6 +658,7 @@ export function validateManifest(root, phase) {
           throw new Error(`manifest entry ${entry.id} must point at an apps/web file`);
         }
       } else if (entry.runner === "go_test") {
+        validateExecutionFamily(entry, `manifest entry ${entry.id}`);
         goEntrySymbols(entry);
         const postgresFixturePolicy = effectiveGoEntryPostgresFixturePolicy(entry);
         if (
@@ -736,6 +749,7 @@ export function validateManifest(root, phase) {
       );
     }
     const symbols = supportGoEntrySymbols(entry);
+    validateExecutionFamily(entry, supportGoEntryLabel(entry));
     const postgresFixturePolicy = effectiveSupportGoEntryPostgresFixturePolicy(entry);
     if (serviceBackedSupportTargets.has(entry.target) && postgresFixturePolicy === "") {
       throw new Error(
@@ -901,7 +915,15 @@ function entryMatchesExecutionDependency(entry, executionDependency) {
   return executionDependency === "" || entry.execution_dependency === executionDependency;
 }
 
-function selectGoEntries(root, phase, section, coverage, executionDependency, packagePatterns) {
+function selectGoEntries(
+  root,
+  phase,
+  section,
+  coverage,
+  executionDependency,
+  executionFamily,
+  packagePatterns,
+) {
   if (!validGoSections.has(section)) {
     throw new Error(`invalid go manifest section ${section}`);
   }
@@ -915,11 +937,12 @@ function selectGoEntries(root, phase, section, coverage, executionDependency, pa
       entry.runner === "go_test" &&
       entry.coverage === coverage &&
       entryMatchesExecutionDependency(entry, executionDependency) &&
+      (executionFamily === "" || entry.execution_family === executionFamily) &&
       packagePatterns.some((pattern) => packageMatchesPattern(entry.package, pattern)),
   );
 }
 
-function selectSupportGoEntries(root, phase, target, packagePatterns) {
+function selectSupportGoEntries(root, phase, target, executionFamily, packagePatterns) {
   if (!validSupportTargets.has(target)) {
     throw new Error(`invalid support target ${target}`);
   }
@@ -930,6 +953,7 @@ function selectSupportGoEntries(root, phase, target, packagePatterns) {
   return collectSupportGoEntries(manifest).filter(
     (entry) =>
       entry.target === target &&
+      (executionFamily === "" || entry.execution_family === executionFamily) &&
       packagePatterns.some((pattern) => packageMatchesPattern(entry.package, pattern)),
   );
 }
@@ -1197,7 +1221,7 @@ function main(argv) {
 
     case "go-regex": {
       const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
-      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, packagePatterns);
+      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, "", packagePatterns);
       if (entries.length === 0) {
         throw new Error(`no ${coverage} go tests found for ${phase} ${section} in ${packagePatterns.join(", ")}`);
       }
@@ -1207,14 +1231,14 @@ function main(argv) {
 
     case "go-count": {
       const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
-      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, packagePatterns);
+      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, "", packagePatterns);
       printLines([String(entries.length)]);
       return;
     }
 
     case "go-postgres-fixture-policy-tests": {
       const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
-      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, packagePatterns);
+      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, "", packagePatterns);
       printLines([
         fixturePolicyAssignments(
           entries,
@@ -1227,14 +1251,49 @@ function main(argv) {
 
     case "go-postgres-reset-table-tests": {
       const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
-      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, packagePatterns);
+      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, "", packagePatterns);
       printLines([resetTableAssignments(entries, goEntrySymbols, goEntryPostgresFixtureBudget).join(",")]);
+      return;
+    }
+
+    case "go-family-regex": {
+      const [phase, section, coverage, executionDependency = "", executionFamily = "", ...packagePatterns] = rest;
+      const entries = selectGoEntries(
+        root,
+        phase,
+        section,
+        coverage,
+        executionDependency,
+        executionFamily,
+        packagePatterns,
+      );
+      if (entries.length === 0) {
+        throw new Error(
+          `no ${coverage} go tests found for ${phase} ${section} ${executionFamily} in ${packagePatterns.join(", ")}`,
+        );
+      }
+      printLines([exactRegex(entries.flatMap((entry) => goEntrySymbols(entry)))]);
+      return;
+    }
+
+    case "go-family-count": {
+      const [phase, section, coverage, executionDependency = "", executionFamily = "", ...packagePatterns] = rest;
+      const entries = selectGoEntries(
+        root,
+        phase,
+        section,
+        coverage,
+        executionDependency,
+        executionFamily,
+        packagePatterns,
+      );
+      printLines([String(entries.length)]);
       return;
     }
 
     case "support-go-regex": {
       const [phase, target, ...packagePatterns] = rest;
-      const entries = selectSupportGoEntries(root, phase, target, packagePatterns);
+      const entries = selectSupportGoEntries(root, phase, target, "", packagePatterns);
       if (entries.length === 0) {
         throw new Error(`no support go tests found for ${phase} ${target} in ${packagePatterns.join(", ")}`);
       }
@@ -1244,14 +1303,14 @@ function main(argv) {
 
     case "support-go-count": {
       const [phase, target, ...packagePatterns] = rest;
-      const entries = selectSupportGoEntries(root, phase, target, packagePatterns);
+      const entries = selectSupportGoEntries(root, phase, target, "", packagePatterns);
       printLines([String(entries.length)]);
       return;
     }
 
     case "support-go-postgres-fixture-policy-tests": {
       const [phase, target, ...packagePatterns] = rest;
-      const entries = selectSupportGoEntries(root, phase, target, packagePatterns);
+      const entries = selectSupportGoEntries(root, phase, target, "", packagePatterns);
       printLines([
         fixturePolicyAssignments(
           entries,
@@ -1264,7 +1323,7 @@ function main(argv) {
 
     case "support-go-postgres-reset-table-tests": {
       const [phase, target, ...packagePatterns] = rest;
-      const entries = selectSupportGoEntries(root, phase, target, packagePatterns);
+      const entries = selectSupportGoEntries(root, phase, target, "", packagePatterns);
       printLines([
         resetTableAssignments(
           entries,
@@ -1275,9 +1334,28 @@ function main(argv) {
       return;
     }
 
+    case "support-go-family-regex": {
+      const [phase, target, executionFamily = "", ...packagePatterns] = rest;
+      const entries = selectSupportGoEntries(root, phase, target, executionFamily, packagePatterns);
+      if (entries.length === 0) {
+        throw new Error(
+          `no support go tests found for ${phase} ${target} ${executionFamily} in ${packagePatterns.join(", ")}`,
+        );
+      }
+      printLines([exactRegex(entries.flatMap((entry) => supportGoEntrySymbols(entry)))]);
+      return;
+    }
+
+    case "support-go-family-count": {
+      const [phase, target, executionFamily = "", ...packagePatterns] = rest;
+      const entries = selectSupportGoEntries(root, phase, target, executionFamily, packagePatterns);
+      printLines([String(entries.length)]);
+      return;
+    }
+
     case "go-verify-log": {
       const [phase, section, coverage, executionDependency = "", logFile, ...packagePatterns] = rest;
-      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, packagePatterns);
+      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, "", packagePatterns);
       if (entries.length === 0) {
         throw new Error(`no ${coverage} go tests found for ${phase} ${section} in ${packagePatterns.join(", ")}`);
       }

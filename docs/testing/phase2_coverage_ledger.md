@@ -22,7 +22,7 @@ This ledger is generated from `tools/phase2_test_map.json`. Update the manifest 
 - `internal/modules/incidents/phase2_pagination_integration_test.go` runs through `backend-integration-support` with `TestSupportPhase2_` and is forbidden from claiming `I-2-*` identifiers.
 - `backend-integration-support` emits a shared-capture support report rather than a second independent runtime.
 - `make browser-e2e-support` is a helper slice also exercised inside the `browser-e2e-webserver-backed` browser batch and does not provide additional authoritative confirmation.
-- `make phase2-process-smoke` remains an isolated support target for flaky process smoke and does not participate in the default developer or CI gates.
+- Phase 2 process smoke now runs as supplemental manifest coverage inside the `backend-process` execution family instead of a separate helper target.
 
 ## Unit
 

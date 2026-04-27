@@ -68,7 +68,7 @@ function describeRow(row) {
       ? ` selector=${row.raw_selector}`
       : "";
   return [
-    `  - ${row.id}: ${base}; dependency=${dependency}; shared=${row.shared_report}; safety=${describeSafety(row)}${selector}`,
+    `  - ${row.id}: ${base}; dependency=${dependency}; family=${row.execution_family}; safety=${describeSafety(row)}${selector}`,
     `    packages: ${row.packages.join(", ")}`,
   ];
 }
@@ -104,7 +104,7 @@ function aggregateTargetRows(rows) {
         support: 0,
         raw: 0,
         phases: new Set(),
-        shared_reports: new Set(),
+        execution_families: new Set(),
         safety: new Set(),
       });
     }
@@ -121,8 +121,8 @@ function aggregateTargetRows(rows) {
     if (row.manifest_phase) {
       aggregate.phases.add(row.manifest_phase);
     }
-    if (row.shared_report) {
-      aggregate.shared_reports.add(row.shared_report);
+    if (row.execution_family) {
+      aggregate.execution_families.add(row.execution_family);
     }
     if (row.check_heavy_safe) {
       aggregate.safety.add("check-local-product");
@@ -148,7 +148,7 @@ function renderCompact(rows, target) {
     }
     const safety = aggregate.safety.size === 0 ? "direct-only" : Array.from(aggregate.safety).sort().join(",");
     lines.push(
-      `${aggregate.target} service_backed=${aggregate.service_backed ? 1 : 0} phases=${aggregate.phases.size} rows=${aggregate.rows} authoritative=${aggregate.authoritative} support=${aggregate.support} raw=${aggregate.raw} safety=${safety} shared_reports=${aggregate.shared_reports.size}`,
+      `${aggregate.target} service_backed=${aggregate.service_backed ? 1 : 0} phases=${aggregate.phases.size} rows=${aggregate.rows} authoritative=${aggregate.authoritative} support=${aggregate.support} raw=${aggregate.raw} safety=${safety} execution_families=${aggregate.execution_families.size}`,
     );
   }
   return lines.join("\n");
