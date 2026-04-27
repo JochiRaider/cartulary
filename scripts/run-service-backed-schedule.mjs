@@ -13,10 +13,13 @@ import {
   formatResourceMap,
   relToRepo as relToRepoPath,
   resourceMapToObject,
+  schedulerActiveGroups,
+  schedulerBlockedBy,
   schedulerDryRunLine,
   schedulerLogDir as schedulerLogResultsDir,
   schedulerProgressIntervalMs,
   schedulerProgressLine,
+  schedulerSlowestRunning,
   schedulerStartLine,
   schedulerSummaryLine,
   schedulerTargetDir as schedulerTargetResultsDir,
@@ -755,11 +758,13 @@ class SchedulerReporter {
     this.startedAt = new Map();
     this.completedWork = [];
     this.blockedResourcesSeen = new Set();
+    this.blockedExplanationsSeen = new Set();
     this.lastProgressAt = 0;
     this.lastBlockedKey = null;
     this.completedCount = 0;
     this.failedWorkUnit = null;
     this.finalizerFailures = 0;
+    this.maxRunningGroups = 0;
   }
 
   start() {
@@ -788,6 +793,24 @@ class SchedulerReporter {
       writeSchedulerTelemetry(process.stdout, "SCHEDULER", this.schedule.target, event, fields);
     }
     this.writeEvent(event, state, detail);
+  }
+
+  runningDisplayUnits(state) {
+    return [
+      ...Array.from(state.running.values()),
+      ...Array.from(state.runningFinalizers.values()).map((finalizer) => ({
+        id: `finalize:${finalizer.target}`,
+        label: `finalize:${finalizer.target}`,
+        group: finalizer.target,
+      })),
+    ];
+  }
+
+  observeState(state) {
+    this.maxRunningGroups = Math.max(
+      this.maxRunningGroups,
+      schedulerActiveGroups(this.runningDisplayUnits(state)).size,
+    );
   }
 
   startUnit(unit, logFile, state) {
@@ -933,8 +956,11 @@ class SchedulerReporter {
       return;
     }
     this.lastProgressAt = now;
-    const runningLabels = Array.from(state.running.values()).map((unit) => unit.label);
-    const pendingLabels = state.pending.map((unit) => unit.label);
+    const runningUnits = this.runningDisplayUnits(state);
+    const blockedBy = schedulerBlockedBy({ reason: blockedResources.length > 0 ? "resources" : "none", blockedResources });
+    for (const explanation of blockedBy) {
+      this.blockedExplanationsSeen.add(explanation);
+    }
     const blockedCount = state.pending.filter(
       (unit) =>
         blockedResourcesForUnit(unit, this.schedule.resourceLimits, state.activeResourceClaims).length > 0,
@@ -949,11 +975,30 @@ class SchedulerReporter {
         pending: state.pending.length,
         blocked: blockedCount,
         finalizing: state.runningFinalizers.size,
-        runningLabels,
-        blockedResources,
-        nextLabels: pendingLabels,
+        activeGroups: schedulerActiveGroups(runningUnits),
+        blockedBy,
+        unblocksAfter: this.unblocksAfter(state, blockedResources),
+        slowestRunning: schedulerSlowestRunning(runningUnits, this.startedAt, now),
+        artifacts: relToRepo(this.targetDir),
       }),
     );
+  }
+
+  unblocksAfter(state, blockedResources) {
+    if (blockedResources.length === 0) {
+      return "none";
+    }
+    const candidates = Array.from(state.running.values())
+      .filter((unit) => blockedResources.some((resource) => unit.resourceClaims.has(resource)))
+      .sort((left, right) => {
+        const leftStarted = this.startedAt.get(left.id) ?? Number.MAX_SAFE_INTEGER;
+        const rightStarted = this.startedAt.get(right.id) ?? Number.MAX_SAFE_INTEGER;
+        return leftStarted - rightStarted || left.label.localeCompare(right.label);
+      });
+    if (candidates.length > 0) {
+      return candidates[0].label;
+    }
+    return "none";
   }
 
   async summary(status, { started, failedWorkUnit = null } = {}) {
@@ -984,7 +1029,11 @@ class SchedulerReporter {
           started_count: started,
           finalizer_count: this.schedule.goFinalizers.length,
           finalizer_failures: this.finalizerFailures,
+          max_running_groups: this.maxRunningGroups,
           blocked_resources_seen: Array.from(this.blockedResourcesSeen).sort((left, right) =>
+            left.localeCompare(right),
+          ),
+          blocked_explanations_seen: Array.from(this.blockedExplanationsSeen).sort((left, right) =>
             left.localeCompare(right),
           ),
           slowest_work_units: slowest,
@@ -1006,6 +1055,7 @@ class SchedulerReporter {
   }
 
   writeEvent(event, state, detail) {
+    this.observeState(state);
     this.events.write(
       `${JSON.stringify({
         schema_id: schedulerEventSchemaID,
@@ -1106,17 +1156,19 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
 
     const startUnit = async (unit) => {
       started += 1;
-      await runLifecycle(testOutputScript, [
-        "step-start",
-        schedule.target,
-        String(started),
-        String(schedule.workUnits.length),
-        unit.label,
-        "--mode",
-        "scheduler",
-        "--jobs",
-        String(capacityDisplay),
-      ]);
+      if (reporter.verbose) {
+        await runLifecycle(testOutputScript, [
+          "step-start",
+          schedule.target,
+          String(started),
+          String(schedule.workUnits.length),
+          unit.label,
+          "--mode",
+          "scheduler",
+          "--jobs",
+          String(capacityDisplay),
+        ]);
+      }
       const logFile = workUnitLogFile(reporter.logDir, unit, started);
       addResourceClaims(unit, activeResourceClaims);
       const promise = runWorkUnit({

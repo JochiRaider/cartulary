@@ -430,7 +430,7 @@ test-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-mi
 	$(call run_service_backed_schedule_target,test-service-backed,test service-backed)
 
 test: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label test --summary-profile test --parallel-step test-local:3 --step test-service-backed --step browser-e2e
+	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label test --summary-profile test --parallel-step test-local:3 --step test-service-backed
 
 backend-unit: export CARTULARY_TEST_TARGET := backend-unit
 backend-unit: export CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION := phase1:unit:authoritative:backend_unit:./internal/platform/...

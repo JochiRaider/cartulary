@@ -404,9 +404,25 @@ fi
 if rg -q '^check-pre-browser:' "$makefile"; then
   fail "check-pre-browser must not remain as legacy check orchestration"
 fi
-for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-local-product check-frontend-unit check-meta-validation browser-e2e; do
+for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-go-test-duration-baseline-drift check-local-product check-frontend-unit check-meta-validation; do
   check_schedule_field "$scheduled_target" target >/dev/null
 done
+"$node_bin" - "$check_schedule_manifest" <<'EOF'
+const fs = require("node:fs");
+
+const [manifestFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+if (manifest.schema_id !== "cartulary.check_schedule.v1") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v1");
+}
+const schedules = manifest.schedules.filter((entry) => entry.target === "check");
+if (schedules.length !== 1) {
+  throw new Error(`expected exactly one check schedule, found ${schedules.length}`);
+}
+if ((schedules[0].work_units ?? []).some((entry) => entry.target === "browser-e2e")) {
+  throw new Error("browser-e2e must be service-backed scheduler work, not a top-level check work unit");
+}
+EOF
 if [[ "$(check_schedule_field check-build-prereqs needs)" != "check-setup-blockers" ]]; then
   fail "check-build-prereqs must depend on check-setup-blockers in the check schedule"
 fi
@@ -418,14 +434,8 @@ done
 if [[ "$(check_schedule_field check-go-test-duration-baseline-drift needs)" != "check-service-backed" ]]; then
   fail "check-go-test-duration-baseline-drift must depend on check-service-backed in the check schedule"
 fi
-if [[ "$(check_schedule_field browser-e2e needs)" != "check-service-backed,check-go-test-duration-baseline-drift,check-local-product,check-frontend-unit,check-meta-validation" ]]; then
-  fail "browser-e2e must be the final check work unit after service-backed and heavy local check work"
-fi
 if [[ "$(check_schedule_field check-service-backed resource_claims)" != "cpu,service_stack" ]]; then
   fail "check-service-backed must claim cpu and service_stack resources in the check schedule"
-fi
-if [[ "$(check_schedule_field browser-e2e resource_claims)" != "cpu,service_stack" ]]; then
-  fail "browser-e2e must claim cpu and service_stack resources in the check schedule"
 fi
 
 if grep -Fq 'rg --files' "$makefile"; then
@@ -798,8 +808,8 @@ fi
 require_service_backed_schedule_target check-service-backed "check service-backed" 1
 
 mapfile -t check_service_browser_schedule_targets < <(schedule_targets check-service-backed browser)
-if [[ "$(printf '%s\n' "${check_service_browser_schedule_targets[@]}")" != "browser-e2e-webserver-backed" ]]; then
-  fail "check-service-backed schedule must own only webserver-backed browser work, found: ${check_service_browser_schedule_targets[*]:-none}"
+if [[ "$(printf '%s\n' "${check_service_browser_schedule_targets[@]}")" != $'browser-e2e-webserver-backed\nbrowser-e2e' ]]; then
+  fail "check-service-backed schedule must own webserver-backed and isolated browser work, found: ${check_service_browser_schedule_targets[*]:-none}"
 fi
 
 mapfile -t check_service_backend_schedule_targets < <(schedule_targets check-service-backed backend)

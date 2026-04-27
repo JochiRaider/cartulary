@@ -370,15 +370,15 @@ if [[ "$service_schedule_target_content" == *'--jobs'* ]]; then
 fi
 
 mapfile -t test_service_browser_targets < <(schedule_targets test-service-backed browser)
-if [[ "$(printf '%s\n' "${test_service_browser_targets[@]}")" != "browser-e2e-webserver-backed" ]]; then
-  fail "test-service-backed schedule must own only browser-e2e-webserver-backed as browser work, found: ${test_service_browser_targets[*]:-none}"
+if [[ "$(printf '%s\n' "${test_service_browser_targets[@]}")" != $'browser-e2e-webserver-backed\nbrowser-e2e' ]]; then
+  fail "test-service-backed schedule must own webserver-backed and isolated browser work, found: ${test_service_browser_targets[*]:-none}"
 fi
 
 require_service_backed_schedule_target check-service-backed "check service-backed" 1
 
 mapfile -t check_service_browser_targets < <(schedule_targets check-service-backed browser)
-if [[ "$(printf '%s\n' "${check_service_browser_targets[@]}")" != "browser-e2e-webserver-backed" ]]; then
-  fail "check-service-backed schedule must own only webserver-backed browser work, found: ${check_service_browser_targets[*]:-none}"
+if [[ "$(printf '%s\n' "${check_service_browser_targets[@]}")" != $'browser-e2e-webserver-backed\nbrowser-e2e' ]]; then
+  fail "check-service-backed schedule must own webserver-backed and isolated browser work, found: ${check_service_browser_targets[*]:-none}"
 fi
 
 "$node_bin" - "$schedule_manifest" <<'EOF'
@@ -431,16 +431,29 @@ const fs = require("node:fs");
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
 for (const profileName of ["test", "check"]) {
+  const profileTargets = manifest.summary_profiles?.[profileName]?.targets ?? [];
+  if (profileTargets.includes("browser-e2e")) {
+    throw new Error(`${profileName} summary profile must count browser-e2e through the service-backed scheduler root`);
+  }
   const groups = manifest.summary_profiles?.[profileName]?.groups ?? [];
   const browser = groups.find((group) => group.name === "browser");
   const backend = groups.find((group) => group.name === "backend-service-backed");
   const expectedBrowser = ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"];
   const expectedBackend = ["backend-integration", "backend-integration-support", "backend-store", "backend-process"];
   if (JSON.stringify(browser?.targets) !== JSON.stringify(expectedBrowser)) {
-    throw new Error(`${profileName} browser summary group must report service-backed webserver and isolated browser children`);
+    throw new Error(`${profileName} browser summary group must report service-backed webserver and isolated browser leaf targets`);
   }
   if (JSON.stringify(backend?.targets) !== JSON.stringify(expectedBackend)) {
     throw new Error(`${profileName} backend-service-backed summary group must contain backend service targets`);
+  }
+}
+const targetEntries = new Map((manifest.targets ?? []).map((entry) => [entry.name, entry]));
+for (const target of ["test-service-backed", "check-service-backed"]) {
+  const children = targetEntries.get(target)?.summary_projection?.children ?? [];
+  for (const child of ["browser-e2e-webserver-backed", "browser-e2e"]) {
+    if (!children.includes(child)) {
+      throw new Error(`${target} summary projection must include ${child}`);
+    }
   }
 }
 EOF
@@ -449,8 +462,11 @@ test_block="$(extract_target_block test)"
 if [[ -z "$test_block" ]]; then
   fail "Makefile must define a non-empty test block"
 fi
-if ! printf '%s\n' "$test_block" | grep -Fq -- '--step test-service-backed --step browser-e2e'; then
-  fail "test must run service-backed backend work followed by the aggregate browser-e2e batch"
+if ! printf '%s\n' "$test_block" | grep -Fq -- '--step test-service-backed'; then
+  fail "test must run service-backed scheduler work"
+fi
+if printf '%s\n' "$test_block" | grep -Fq -- '--step browser-e2e'; then
+  fail "test must not run browser-e2e as a final serial step"
 fi
 if printf '%s\n' "$test_block" | grep -Fq 'test-isolated'; then
   fail "test must not route browser evidence through test-isolated"
@@ -479,16 +495,13 @@ if ! [[ -f "$check_schedule_manifest" ]]; then
   fail "missing tools/check_schedule_manifest.json"
 fi
 check_schedule_text="$(check_schedule_targets)"
-for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-local-product check-frontend-unit check-meta-validation browser-e2e; do
+for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-go-test-duration-baseline-drift check-local-product check-frontend-unit check-meta-validation; do
   if ! printf '%s\n' "$check_schedule_text" | rg -q "^${scheduled_target}$"; then
     fail "check schedule must include $scheduled_target"
   fi
 done
-if [[ "$(check_schedule_field browser-e2e needs)" != "check-service-backed,check-go-test-duration-baseline-drift,check-local-product,check-frontend-unit,check-meta-validation" ]]; then
-  fail "check schedule must run browser-e2e after service-backed and heavy local check work"
-fi
-if [[ "$(check_schedule_field browser-e2e resource_claims)" != "cpu,service_stack" ]]; then
-  fail "check schedule browser-e2e must claim cpu and service_stack"
+if printf '%s\n' "$check_schedule_text" | rg -q '^browser-e2e$'; then
+  fail "browser-e2e must be service-backed scheduler work, not a top-level check work unit"
 fi
 
 if ! rg -q '^browser-e2e-webserver-backed:' "$makefile"; then

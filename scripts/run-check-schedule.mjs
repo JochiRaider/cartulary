@@ -9,9 +9,12 @@ import {
   formatResourceMap,
   relToRepo as relToRepoPath,
   resourceMapToObject,
+  schedulerActiveGroups,
+  schedulerBlockedBy,
   schedulerDryRunLine,
   schedulerProgressIntervalMs,
   schedulerProgressLine,
+  schedulerSlowestRunning,
   schedulerStartLine,
   schedulerSummaryLine,
   schedulerLogDir,
@@ -429,9 +432,11 @@ class CheckSchedulerReporter {
     this.failedWorkUnit = null;
     this.blockedReasonsSeen = new Set();
     this.blockedResourcesSeen = new Set();
+    this.blockedExplanationsSeen = new Set();
     this.lastProgressAt = 0;
     this.lastBlockedKey = null;
     this.maxRunningWorkUnits = 0;
+    this.maxRunningGroups = 0;
     this.maxActiveResourceClaims = new Map();
   }
 
@@ -457,6 +462,10 @@ class CheckSchedulerReporter {
 
   observeState(state) {
     this.maxRunningWorkUnits = Math.max(this.maxRunningWorkUnits, state.running.size);
+    this.maxRunningGroups = Math.max(
+      this.maxRunningGroups,
+      schedulerActiveGroups(Array.from(state.running.values())).size,
+    );
     for (const [resource, amount] of state.activeClaims.entries()) {
       this.maxActiveResourceClaims.set(
         resource,
@@ -571,8 +580,11 @@ class CheckSchedulerReporter {
       return;
     }
     this.lastProgressAt = now;
-    const runningLabels = Array.from(state.running.values()).map((unit) => unit.label);
-    const pendingLabels = state.pending.map((unit) => unit.label);
+    const runningUnits = Array.from(state.running.values());
+    const blockedBy = schedulerBlockedBy({ reason, blockedResources });
+    for (const explanation of blockedBy) {
+      this.blockedExplanationsSeen.add(explanation);
+    }
     process.stdout.write(
       schedulerProgressLine({
         prefix: "CHECK-SCHEDULER",
@@ -582,12 +594,39 @@ class CheckSchedulerReporter {
         running: state.running.size,
         pending: state.pending.length,
         blocked: state.blockedCount ?? 0,
-        reason,
-        runningLabels,
-        blockedResources,
-        nextLabels: pendingLabels,
+        activeGroups: schedulerActiveGroups(runningUnits),
+        blockedBy,
+        unblocksAfter: this.unblocksAfter(state, blockedResources),
+        slowestRunning: schedulerSlowestRunning(runningUnits, this.startedAt, now),
+        artifacts: relToRepo(this.targetDir),
       }),
     );
+  }
+
+  unblocksAfter(state, blockedResources) {
+    const runningUnits = Array.from(state.running.values());
+    if (blockedResources.length > 0) {
+      const candidates = runningUnits
+        .filter((unit) => blockedResources.some((resource) => unit.resourceClaims.has(resource)))
+        .sort((left, right) => {
+          const leftStarted = this.startedAt.get(left.target) ?? Number.MAX_SAFE_INTEGER;
+          const rightStarted = this.startedAt.get(right.target) ?? Number.MAX_SAFE_INTEGER;
+          return leftStarted - rightStarted || left.label.localeCompare(right.label);
+        });
+      if (candidates.length > 0) {
+        return candidates[0].label;
+      }
+    }
+    const runningByTarget = new Map(runningUnits.map((unit) => [unit.target, unit]));
+    for (const unit of state.pending) {
+      for (const need of unit.needs) {
+        const runningNeed = runningByTarget.get(need);
+        if (runningNeed) {
+          return runningNeed.label;
+        }
+      }
+    }
+    return "none";
   }
 
   async summary(status, { failedWorkUnit = null } = {}) {
@@ -618,11 +657,15 @@ class CheckSchedulerReporter {
           skipped_work_units: this.skippedWork,
           failed_work_unit: failed,
           max_running_work_units: this.maxRunningWorkUnits,
+          max_running_groups: this.maxRunningGroups,
           max_active_resource_claims: resourceMapToObject(this.maxActiveResourceClaims),
           blocked_reasons_seen: Array.from(this.blockedReasonsSeen).sort((left, right) =>
             left.localeCompare(right),
           ),
           blocked_resources_seen: Array.from(this.blockedResourcesSeen).sort((left, right) =>
+            left.localeCompare(right),
+          ),
+          blocked_explanations_seen: Array.from(this.blockedExplanationsSeen).sort((left, right) =>
             left.localeCompare(right),
           ),
           slowest_work_units: slowest,
@@ -747,17 +790,19 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
 
     const startUnit = async (unit) => {
       started += 1;
-      await runLifecycle(testOutputScript, [
-        "step-start",
-        schedule.target,
-        String(started),
-        String(totalUnits),
-        unit.label,
-        "--mode",
-        "scheduler",
-        "--jobs",
-        String(unit.makeJobs),
-      ]);
+      if (reporter.verbose) {
+        await runLifecycle(testOutputScript, [
+          "step-start",
+          schedule.target,
+          String(started),
+          String(totalUnits),
+          unit.label,
+          "--mode",
+          "scheduler",
+          "--jobs",
+          String(unit.makeJobs),
+        ]);
+      }
       addResourceClaims(unit, activeClaims);
       const promise = runWorkUnit({ makeBin, unit, logDir: reporter.logDir, started });
       running.set(promise, unit);

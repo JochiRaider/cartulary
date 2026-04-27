@@ -37,7 +37,7 @@ function renderBrowserBatchGroupingLine(phaseNumber, { functionalRows = false } 
   const rowPattern = `E-${phaseNumber}-*`;
   const rowDescription = functionalRows ? `functional \`${rowPattern}\`` : `\`${rowPattern}\``;
 
-  return `- ${browserBatchManifestReference} owns browser batch grouping for Phase ${phaseNumber}: \`browser-e2e-webserver-backed\` carries authoritative ${rowDescription} rows through duration-balanced Playwright spec shards for \`test\` and \`check\`, while direct \`browser-e2e-webserver-backed\` and helper-only \`browser-e2e-functional\` select the same rows through manifest-driven \`browser_functional\` shard planning. The final \`browser-e2e\` aggregate is reserved for isolated stateful, measurement, and visual browser batches.`;
+  return `- ${browserBatchManifestReference} owns browser batch grouping for Phase ${phaseNumber}: \`browser-e2e-webserver-backed\` carries authoritative ${rowDescription} rows through duration-balanced Playwright spec shards for \`test\` and \`check\`, while direct \`browser-e2e-webserver-backed\` and helper-only \`browser-e2e-functional\` select the same rows through manifest-driven \`browser_functional\` shard planning. The scheduler-visible \`browser-e2e\` aggregate is reserved for isolated stateful, measurement, and visual browser batches.`;
 }
 
 const phaseConfigs = {

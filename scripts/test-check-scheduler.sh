@@ -317,59 +317,40 @@ cat >"$success_manifest" <<'JSON'
         { "target": "build", "weight": 40, "needs": ["setup"], "resource_claims": { "cpu": "limit" }, "make_jobs": "cpu" },
         { "target": "local", "weight": 30, "needs": ["build"], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" },
         { "target": "service", "weight": 20, "needs": ["build"], "resource_claims": { "cpu": 1, "service_stack": 1 }, "make_jobs": "cpu" },
-        { "target": "meta", "weight": 10, "needs": ["build"], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" },
-        { "target": "browser", "weight": 5, "needs": ["local", "service", "meta"], "resource_claims": { "cpu": 1, "service_stack": 1 }, "make_jobs": "cpu" }
+        { "target": "meta", "weight": 10, "needs": ["build"], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" }
       ]
     }
   ]
 }
 JSON
-success_output="$(run_scheduler "$success_dir" "$success_manifest" success --summary-targets local,service,meta,browser --summary-groups "check-work=local,service,meta,browser" --resource-limit cpu=2 2>&1)"
-assert_contains "$success_output" "[RUN] check steps=6 targets=4 jobs=2 run_id=success" "success run start"
-assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=6 capacity={cpu:2,service_stack:1}" "success concise scheduler start"
+success_output="$(run_scheduler "$success_dir" "$success_manifest" success --summary-targets local,service,meta --summary-groups "check-work=local,service,meta" --resource-limit cpu=2 2>&1)"
+assert_contains "$success_output" "[RUN] check steps=5 targets=3 jobs=2 run_id=success" "success run start"
+assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={cpu:2,service_stack:1}" "success concise scheduler start"
 assert_contains "$success_output" "top_weighted=setup:50,build:40,local:30,service:20,meta:10" "success concise scheduler start shows top weighted work"
-assert_contains "$success_output" "[CHECK-SCHEDULER] check progress completed=0/6 running=1 pending=5 blocked=5 reason=dependencies" "success concise scheduler progress"
-assert_contains "$success_output" "[CHECK-SCHEDULER] check summary status=pass completed=6/6 failed=none slowest=" "success concise scheduler summary"
+assert_contains "$success_output" "[CHECK-SCHEDULER] check progress completed=0/5 running=1 pending=4 blocked=4 active_groups=setup:1 blocked_by=dependencies unblocks_after=setup slowest_running=setup:" "success concise scheduler progress"
+assert_contains "$success_output" "artifacts=tmp/check-scheduler-success" "success concise scheduler progress artifact path"
+assert_contains "$success_output" "/results/success/check" "success concise scheduler progress artifact path suffix"
+assert_contains "$success_output" "[CHECK-SCHEDULER] check summary status=pass completed=5/5 failed=none slowest=" "success concise scheduler summary"
 assert_not_contains "$success_output" "active_resource_claims=" "default scheduler output hides raw active resources"
 assert_not_contains "$success_output" "resource_limits=" "default scheduler output hides raw resource limits"
 assert_not_contains "$success_output" "claims={" "default scheduler output hides raw claims"
-assert_contains "$success_output" "[STEP] check 1/6 setup mode=scheduler jobs=1" "success setup step"
-assert_contains "$success_output" "[STEP] check 2/6 build mode=scheduler jobs=2" "success build step"
-assert_contains "$success_output" "[STEP] check 3/6 local mode=scheduler jobs=1" "success higher-weight local step"
-assert_contains "$success_output" "[STEP] check 4/6 service mode=scheduler jobs=1" "success service step"
-assert_contains "$success_output" "[STEP] check 6/6 browser mode=scheduler jobs=1" "success final browser step"
+assert_not_contains "$success_output" "[STEP] check" "default scheduler output hides per-unit steps"
+assert_not_contains "$success_output" "running_units=" "default scheduler output hides raw running units"
+assert_not_contains "$success_output" "blocked_resources=" "default scheduler output hides raw blocked resources"
 assert_contains "$success_output" "[PASS] check" "success summary"
 assert_contains "$(cat "${success_dir}/make-args.log")" "--output-sync=target -j2 build" "build uses claimed cpu jobs"
 success_events="$(cat "${success_dir}/events.log")"
 assert_contains "$success_events" "end local" "success local completed"
 assert_contains "$success_events" "end service" "success service completed"
 assert_contains "$success_events" "end meta" "success meta completed"
-assert_contains "$success_events" "start browser" "success browser started"
-"$NODE_BIN" - "${success_dir}/events.log" <<'EOF'
-const fs = require("node:fs");
-const [logFile] = process.argv.slice(2);
-const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
-const indexOf = (needle) => {
-  const index = lines.findIndex((line) => line.includes(needle));
-  if (index === -1) {
-    throw new Error(`missing ${needle}`);
-  }
-  return index;
-};
-const browserStart = indexOf("start browser");
-for (const target of ["local", "service", "meta"]) {
-  if (!(indexOf(`end ${target}`) < browserStart)) {
-    throw new Error(`browser started before ${target} completed`);
-  }
-}
-EOF
+assert_not_contains "$success_events" "browser" "success check schedule has no browser tail"
 success_summary="${success_dir}/results/success/run-summary.json"
 assert_equals "$(json_field "$success_summary" "status")" "pass" "success summary status"
-assert_equals "$(json_field "$success_summary" "completed_targets")" "6/6" "success completed"
+assert_equals "$(json_field "$success_summary" "completed_targets")" "5/5" "success completed"
 success_scheduler_summary="${success_dir}/results/success/check/scheduler-summary.json"
 success_scheduler_events="${success_dir}/results/success/check/scheduler-events.jsonl"
-assert_check_scheduler_artifacts "$success_dir" success check pass - 6 finish
-assert_equals "$(json_field "$success_scheduler_summary" "completed_work_units")" "6" "success scheduler completed count"
+assert_check_scheduler_artifacts "$success_dir" success check pass - 5 finish
+assert_equals "$(json_field "$success_scheduler_summary" "completed_work_units")" "5" "success scheduler completed count"
 "$NODE_BIN" - "$success_scheduler_summary" "$success_scheduler_events" <<'EOF'
 const fs = require("node:fs");
 const [summaryFile, eventsFile] = process.argv.slice(2);
@@ -383,6 +364,12 @@ if (!events.some((event) => event.resource_limits?.cpu === 2 && event.resource_l
 }
 if (summary.max_running_work_units !== 2) {
   throw new Error(`max running work units got ${summary.max_running_work_units} want 2`);
+}
+if (summary.max_running_groups < 1) {
+  throw new Error(`max running groups got ${summary.max_running_groups} want at least 1`);
+}
+if (!summary.blocked_explanations_seen.includes("dependencies")) {
+  throw new Error("summary must record dependency blocked explanation");
 }
 if (summary.max_active_resource_claims?.cpu !== 2) {
   throw new Error(`max active cpu claims got ${summary.max_active_resource_claims?.cpu} want 2`);
@@ -404,8 +391,8 @@ for (const [index, event] of events.entries()) {
 }
 EOF
 
-verbose_output="$(VERBOSE=1 run_scheduler "$success_dir" "$success_manifest" verbose --summary-targets local,service,meta,browser --summary-groups "check-work=local,service,meta,browser" --resource-limit cpu=2 2>&1)"
-assert_contains "$verbose_output" "[CHECK-SCHEDULER] check start work_unit=setup claims={cpu:1} active=1 pending=5" "verbose scheduler start telemetry"
+verbose_output="$(VERBOSE=1 run_scheduler "$success_dir" "$success_manifest" verbose --summary-targets local,service,meta --summary-groups "check-work=local,service,meta" --resource-limit cpu=2 2>&1)"
+assert_contains "$verbose_output" "[CHECK-SCHEDULER] check start work_unit=setup claims={cpu:1} active=1 pending=4" "verbose scheduler start telemetry"
 assert_contains "$verbose_output" "active_resource_claims={cpu:1}" "verbose scheduler active resource telemetry"
 assert_contains "$verbose_output" "resource_limits={cpu:2,service_stack:1}" "verbose scheduler resource limit telemetry"
 
@@ -520,16 +507,16 @@ cleanup_paths+=("$dry_run_dir")
 write_fake_make "$dry_run_dir"
 dry_run_output="$(
   MAKEFLAGS=n \
-    run_scheduler "$dry_run_dir" "$success_manifest" dry-run --summary-targets local,service,meta,browser --resource-limit cpu=2 2>&1
+    run_scheduler "$dry_run_dir" "$success_manifest" dry-run --summary-targets local,service,meta --resource-limit cpu=2 2>&1
 )"
 assert_contains "$dry_run_output" "[DRY-RUN] check manifest=" "dry-run output"
-assert_contains "$dry_run_output" "resource_limits={cpu:2,service_stack:1} work_units=6 dependencies=7 top_weighted=setup:50,build:40,local:30,service:20,meta:10" "dry-run compact summary"
+assert_contains "$dry_run_output" "resource_limits={cpu:2,service_stack:1} work_units=5 dependencies=4 top_weighted=setup:50,build:40,local:30,service:20,meta:10" "dry-run compact summary"
 assert_not_contains "$dry_run_output" "[DRY-RUN] check unit" "dry-run default hides unit expansion"
 assert_not_contains "$dry_run_output" "claims={" "dry-run default hides raw claims"
 assert_file_absent "${dry_run_dir}/make-args.log" "dry-run child make"
 
 dry_run_verbose_output="$(
   MAKEFLAGS=n VERBOSE=1 \
-    run_scheduler "$dry_run_dir" "$success_manifest" dry-run-verbose --summary-targets local,service,meta,browser --resource-limit cpu=2 2>&1
+    run_scheduler "$dry_run_dir" "$success_manifest" dry-run-verbose --summary-targets local,service,meta --resource-limit cpu=2 2>&1
 )"
 assert_contains "$dry_run_verbose_output" "[DRY-RUN] check unit setup needs=none claims={cpu:1} make_jobs=1" "verbose dry-run includes unit claims"

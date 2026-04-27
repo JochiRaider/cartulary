@@ -10,7 +10,8 @@
         "go_io": "auto",
         "process": 4,
         "browser_stack": "auto",
-        "browser_stage_webserver_backed": 1
+        "browser_stage_webserver_backed": 1,
+        "browser_stage_isolated": 1
       },
       "work_unit_sources": [
         {
@@ -45,6 +46,14 @@
           "browser_stage": "webserver-backed",
           "weight": 41900,
           "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1 }
+        },
+        {
+          "type": "make_target",
+          "class": "browser",
+          "target": "browser-e2e",
+          "browser_stage": "isolated",
+          "weight": 21700,
+          "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_isolated": 1 }
         }
       ]
     },
@@ -94,7 +103,8 @@
         "go_io": "auto",
         "process": 4,
         "browser_stack": "auto",
-        "browser_stage_webserver_backed": 1
+        "browser_stage_webserver_backed": 1,
+        "browser_stage_isolated": 1
       },
       "work_unit_sources": [
         {
@@ -129,6 +139,14 @@
           "browser_stage": "webserver-backed",
           "weight": 41900,
           "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1 }
+        },
+        {
+          "type": "make_target",
+          "class": "browser",
+          "target": "browser-e2e",
+          "browser_stage": "isolated",
+          "weight": 21700,
+          "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_isolated": 1 }
         }
       ]
     }

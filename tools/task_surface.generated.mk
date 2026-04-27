@@ -49,7 +49,7 @@ TASK_SURFACE_HELP_LINES := \
 	'  make format                 format authored frontend sources' \
 	'' \
 	'browser:' \
-	'  make browser-e2e            run final isolated browser E2E suites through one batch stack' \
+	'  make browser-e2e            run isolated browser E2E suites through one batch stack' \
 	'  make browser-e2e-webserver-backed run shared-stack browser E2E batch' \
 	'  make browser-e2e-stateful   run isolated stateful browser E2E batch' \
 	'  make browser-e2e-measurement run ordinary browser measurement evidence' \

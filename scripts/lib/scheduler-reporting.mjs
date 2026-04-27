@@ -84,6 +84,63 @@ export function formatSlowestWork(work) {
   return work.map((entry) => `${entry.label}:${formatDurationMs(entry.duration_ms)}`).join(",");
 }
 
+export function formatCountMap(values) {
+  const entries = Array.from(values.entries()).sort((left, right) => left[0].localeCompare(right[0]));
+  if (entries.length === 0) {
+    return "none";
+  }
+  return entries.map(([key, value]) => `${key}:${value}`).join(",");
+}
+
+export function schedulerUnitGroup(unit) {
+  return unit.group ?? unit.aggregateTarget ?? unit.class ?? unit.target ?? unit.label ?? "work";
+}
+
+export function schedulerActiveGroups(units) {
+  const groups = new Map();
+  for (const unit of units) {
+    const group = schedulerUnitGroup(unit);
+    groups.set(group, (groups.get(group) ?? 0) + 1);
+  }
+  return groups;
+}
+
+export function schedulerBlockedBy({ reason = null, blockedResources = [] } = {}) {
+  const values = new Set();
+  if (reason) {
+    for (const entry of String(reason).split(",")) {
+      const normalized = entry.trim();
+      if (normalized && normalized !== "none" && normalized !== "resources") {
+        values.add(normalized);
+      }
+    }
+  }
+  for (const resource of blockedResources) {
+    if (resource) {
+      values.add(resource);
+    }
+  }
+  return Array.from(values).sort((left, right) => left.localeCompare(right));
+}
+
+export function schedulerSlowestRunning(runningUnits, startedAt, now = Date.now()) {
+  let slowest = null;
+  for (const unit of runningUnits) {
+    const started = startedAt.get(unit.id ?? unit.target ?? unit.label);
+    if (!Number.isFinite(started)) {
+      continue;
+    }
+    const durationMs = Math.max(0, now - started);
+    if (!slowest || durationMs > slowest.duration_ms || (durationMs === slowest.duration_ms && unit.label.localeCompare(slowest.label) < 0)) {
+      slowest = { label: unit.label, duration_ms: durationMs };
+    }
+  }
+  if (!slowest) {
+    return "none";
+  }
+  return `${slowest.label}:${formatDurationMs(slowest.duration_ms)}`;
+}
+
 export function resourceLimitSummary(resourceLimits, preferred = []) {
   const seen = new Set();
   const entries = [];
@@ -171,22 +228,24 @@ export function schedulerProgressLine({
   running,
   pending,
   blocked,
-  reason = null,
   finalizing = null,
-  runningLabels = [],
-  blockedResources = [],
-  nextLabels = [],
+  activeGroups = new Map(),
+  blockedBy = [],
+  unblocksAfter = "none",
+  slowestRunning = "none",
+  artifacts = "",
 }) {
   return schedulerTelemetryLine(prefix, target, "progress", [
     `completed=${completed}/${total}`,
     `running=${running}`,
     `pending=${pending}`,
     `blocked=${blocked}`,
-    reason === null ? null : `reason=${reason}`,
     finalizing === null ? null : `finalizing=${finalizing}`,
-    `running_units=${formatLabelList(runningLabels)}`,
-    `blocked_resources=${formatResourceList(blockedResources)}`,
-    `next=${formatLabelList(nextLabels)}`,
+    `active_groups=${formatCountMap(activeGroups)}`,
+    `blocked_by=${formatResourceList(blockedBy)}`,
+    `unblocks_after=${unblocksAfter || "none"}`,
+    `slowest_running=${slowestRunning || "none"}`,
+    artifacts ? `artifacts=${artifacts}` : null,
   ]);
 }
 
