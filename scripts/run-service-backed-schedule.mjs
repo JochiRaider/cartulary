@@ -8,18 +8,17 @@ import { fileURLToPath } from "node:url";
 
 import { collectGoShardsForTarget } from "./lib/go-shard-plan.mjs";
 import {
-  countBy,
-  formatDurationMs,
-  formatLabelList,
   formatResourceList,
   formatResourceMap,
-  formatSlowestWork,
   relToRepo as relToRepoPath,
-  resourceLimitSummary as summarizeResourceLimits,
   resourceMapToObject,
+  schedulerDryRunLine,
   schedulerProgressIntervalMs,
+  schedulerProgressLine,
+  schedulerStartLine,
+  schedulerSummaryLine,
   schedulerTargetDir as schedulerTargetResultsDir,
-  topWeightedUnits,
+  writeSchedulerTelemetry,
   verboseSchedulerOutput,
 } from "./lib/scheduler-reporting.mjs";
 import { findTargetDescriptor } from "./lib/target-plan.mjs";
@@ -750,21 +749,6 @@ function formatBlockedWorkUnits(workUnits) {
     .join("; ");
 }
 
-function resourceLimitSummary(resourceLimits) {
-  return summarizeResourceLimits(resourceLimits, [
-    goCPUResource,
-    goIOResource,
-    browserStackResource,
-    "process",
-    "postgres",
-    "minio",
-  ]);
-}
-
-function schedulerTelemetry(schedule, event, fields) {
-  process.stdout.write(`[SCHEDULER] ${schedule.target} ${event} ${fields.join(" ")}\n`);
-}
-
 function schedulerStateFields({ pending, running, activeResourceClaims, resourceLimits }) {
   return [
     `active=${running.size}`,
@@ -818,17 +802,33 @@ class SchedulerReporter {
     this.lastBlockedKey = null;
     this.completedCount = 0;
     this.failedWorkUnit = null;
+    this.finalizerFailures = 0;
   }
 
   start() {
     process.stdout.write(
-      `[SCHEDULER] ${this.schedule.target} start work_units=${this.schedule.workUnits.length} finalizers=${this.schedule.goFinalizers.length} capacity={${resourceLimitSummary(this.schedule.resourceLimits)}}\n`,
+      schedulerStartLine({
+        prefix: "SCHEDULER",
+        target: this.schedule.target,
+        workUnitCount: this.schedule.workUnits.length,
+        finalizerCount: this.schedule.goFinalizers.length,
+        resourceLimits: this.schedule.resourceLimits,
+        preferredResources: [
+          goCPUResource,
+          goIOResource,
+          browserStackResource,
+          "process",
+          "postgres",
+          "minio",
+        ],
+        workUnits: this.schedule.workUnits,
+      }),
     );
   }
 
   emit(event, fields, state, detail = {}) {
     if (this.verbose) {
-      schedulerTelemetry(this.schedule, event, fields);
+      writeSchedulerTelemetry(process.stdout, "SCHEDULER", this.schedule.target, event, fields);
     }
     this.writeEvent(event, state, detail);
   }
@@ -926,6 +926,9 @@ class SchedulerReporter {
     if (result.status !== 0 && !this.failedWorkUnit) {
       this.failedWorkUnit = result.label;
     }
+    if (result.status !== 0) {
+      this.finalizerFailures += 1;
+    }
     this.emit(
       "finalize-finish",
       [
@@ -980,7 +983,19 @@ class SchedulerReporter {
         blockedResourcesForUnit(unit, this.schedule.resourceLimits, state.activeResourceClaims).length > 0,
     ).length;
     process.stdout.write(
-      `[SCHEDULER] ${this.schedule.target} progress completed=${this.completedCount}/${this.schedule.workUnits.length} running=${state.running.size} pending=${state.pending.length} blocked=${blockedCount} finalizing=${state.runningFinalizers.size} running_units=${formatLabelList(runningLabels)} blocked_resources=${formatResourceList(blockedResources)} next=${formatLabelList(pendingLabels)}\n`,
+      schedulerProgressLine({
+        prefix: "SCHEDULER",
+        target: this.schedule.target,
+        completed: this.completedCount,
+        total: this.schedule.workUnits.length,
+        running: state.running.size,
+        pending: state.pending.length,
+        blocked: blockedCount,
+        finalizing: state.runningFinalizers.size,
+        runningLabels,
+        blockedResources,
+        nextLabels: pendingLabels,
+      }),
     );
   }
 
@@ -988,7 +1003,16 @@ class SchedulerReporter {
     const failed = failedWorkUnit || this.failedWorkUnit || null;
     const slowest = this.slowestWork();
     process.stdout.write(
-      `[SCHEDULER] ${this.schedule.target} summary status=${status} completed=${this.completedCount}/${this.schedule.workUnits.length} failed=${failed ?? "none"} slowest=${formatSlowestWork(slowest)}\n`,
+      schedulerSummaryLine({
+        prefix: "SCHEDULER",
+        target: this.schedule.target,
+        status,
+        completed: this.completedCount,
+        total: this.schedule.workUnits.length,
+        failed,
+        finalizerFailures: this.finalizerFailures,
+        slowest,
+      }),
     );
     await writeFile(
       this.summaryPath,
@@ -1002,6 +1026,7 @@ class SchedulerReporter {
           failed_work_unit: failed,
           started_count: started,
           finalizer_count: this.schedule.goFinalizers.length,
+          finalizer_failures: this.finalizerFailures,
           blocked_resources_seen: Array.from(this.blockedResourcesSeen).sort((left, right) =>
             left.localeCompare(right),
           ),
@@ -1053,7 +1078,21 @@ class SchedulerReporter {
 
 function writeDryRun(schedule, manifestPath, target) {
   process.stdout.write(
-    `[DRY-RUN] ${target} manifest=${path.relative(repoRoot, manifestPath)} resource_limits={${resourceLimitSummary(schedule.resourceLimits)}} work_units=${schedule.workUnits.length} classes={${countBy(schedule.workUnits, "class")}} types={${countBy(schedule.workUnits, "type")}} finalizers=${schedule.goFinalizers.length} top_weighted=${topWeightedUnits(schedule.workUnits)}\n`,
+    schedulerDryRunLine({
+      target,
+      manifest: path.relative(repoRoot, manifestPath),
+      resourceLimits: schedule.resourceLimits,
+      preferredResources: [
+        goCPUResource,
+        goIOResource,
+        browserStackResource,
+        "process",
+        "postgres",
+        "minio",
+      ],
+      workUnits: schedule.workUnits,
+      finalizerCount: schedule.goFinalizers.length,
+    }),
   );
   if (!verboseSchedulerOutput()) {
     return;

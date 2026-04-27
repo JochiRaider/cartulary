@@ -507,6 +507,7 @@ assert_contains "$weighted_output" "[STEP] test-fast-service-backed 1/3 backend-
 assert_contains "$weighted_output" "[STEP] test-fast-service-backed 2/3 backend-integration-support mode=scheduler jobs=6" "weighted second child"
 assert_contains "$weighted_output" "[STEP] test-fast-service-backed 3/3 backend-store mode=scheduler jobs=6" "weighted third child"
 assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_units=3 finalizers=0 capacity={go_cpu:6,go_io:6,browser_stack:" "scheduler concise start"
+assert_contains "$weighted_output" "classes={backend:3} types={make_target:3} top_weighted=backend-process:10,backend-integration-support:5,backend-store:1" "scheduler concise start shows compact work metadata"
 assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed progress completed=0/3 running=3 pending=0 blocked=0 finalizing=0" "scheduler concise progress"
 assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed summary status=pass completed=3/3 failed=none slowest=" "scheduler concise summary"
 assert_not_contains "$weighted_output" "active_resource_claims=" "default scheduler output hides raw active resources"
@@ -748,8 +749,17 @@ set -e
 assert_equals "$failed_shard_status" "9" "failed shard finalizer status"
 assert_contains "$failed_shard_output" "fake shard failure for backend-store-shard-01" "failed shard output"
 assert_contains "$failed_shard_output" "[SCHEDULER] test-fast-service-backed summary status=fail completed=1/1 failed=finalize/backend-store" "failed shard scheduler summary"
+assert_contains "$failed_shard_output" "finalizer_failures=1" "failed shard scheduler finalizer failure count"
 assert_contains "$failed_shard_output" "[FAIL] test-fast-service-backed" "failed shard parent summary"
 assert_scheduler_artifacts "$failed_shard_dir" failed-shard test-fast-service-backed fail - finalize-finish
+"$NODE_BIN" - "${failed_shard_dir}/results/failed-shard/test-fast-service-backed/scheduler-summary.json" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+if (summary.finalizer_failures !== 1) {
+  throw new Error(`expected one finalizer failure, got ${summary.finalizer_failures}`);
+}
+EOF
 
 defer_summary_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-defer-summary.XXXXXX")"
 cleanup_paths+=("$defer_summary_dir")

@@ -6,16 +6,17 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  formatLabelList,
   formatResourceList,
   formatResourceMap,
-  formatSlowestWork,
   relToRepo as relToRepoPath,
-  resourceLimitSummary,
   resourceMapToObject,
+  schedulerDryRunLine,
   schedulerProgressIntervalMs,
+  schedulerProgressLine,
+  schedulerStartLine,
+  schedulerSummaryLine,
   schedulerTargetDir,
-  topWeightedUnits,
+  writeSchedulerTelemetry,
   verboseSchedulerOutput,
 } from "./lib/scheduler-reporting.mjs";
 import { loadTaskSurfaceManifest, summaryProfileArgs } from "./lib/task-surface.mjs";
@@ -432,13 +433,20 @@ class CheckSchedulerReporter {
 
   start() {
     process.stdout.write(
-      `[CHECK-SCHEDULER] ${this.schedule.target} start work_units=${this.schedule.units.length} capacity={${resourceLimitSummary(this.schedule.resourceLimits, ["cpu", "service_stack"])}}\n`,
+      schedulerStartLine({
+        prefix: "CHECK-SCHEDULER",
+        target: this.schedule.target,
+        workUnitCount: this.schedule.units.length,
+        resourceLimits: this.schedule.resourceLimits,
+        preferredResources: ["cpu", "service_stack"],
+        workUnits: this.schedule.units,
+      }),
     );
   }
 
   emit(event, fields, state, detail = {}) {
     if (this.verbose) {
-      process.stdout.write(`[CHECK-SCHEDULER] ${this.schedule.target} ${event} ${fields.join(" ")}\n`);
+      writeSchedulerTelemetry(process.stdout, "CHECK-SCHEDULER", this.schedule.target, event, fields);
     }
     this.writeEvent(event, state, detail);
   }
@@ -552,7 +560,19 @@ class CheckSchedulerReporter {
     const runningLabels = Array.from(state.running.values()).map((unit) => unit.label);
     const pendingLabels = state.pending.map((unit) => unit.label);
     process.stdout.write(
-      `[CHECK-SCHEDULER] ${this.schedule.target} progress completed=${this.completedCount}/${this.schedule.units.length} running=${state.running.size} pending=${state.pending.length} blocked=${state.blockedCount ?? 0} reason=${reason} running_units=${formatLabelList(runningLabels)} blocked_resources=${formatResourceList(blockedResources)} next=${formatLabelList(pendingLabels)}\n`,
+      schedulerProgressLine({
+        prefix: "CHECK-SCHEDULER",
+        target: this.schedule.target,
+        completed: this.completedCount,
+        total: this.schedule.units.length,
+        running: state.running.size,
+        pending: state.pending.length,
+        blocked: state.blockedCount ?? 0,
+        reason,
+        runningLabels,
+        blockedResources,
+        nextLabels: pendingLabels,
+      }),
     );
   }
 
@@ -560,9 +580,17 @@ class CheckSchedulerReporter {
     const failed = failedWorkUnit || this.failedWorkUnit || null;
     const slowest = this.slowestWork();
     const skipped = this.skippedWork.length;
-    const skippedText = skipped > 0 ? ` skipped=${skipped}` : "";
     process.stdout.write(
-      `[CHECK-SCHEDULER] ${this.schedule.target} summary status=${status} completed=${this.completedCount}/${this.schedule.units.length} failed=${failed ?? "none"}${skippedText} slowest=${formatSlowestWork(slowest)}\n`,
+      schedulerSummaryLine({
+        prefix: "CHECK-SCHEDULER",
+        target: this.schedule.target,
+        status,
+        completed: this.completedCount,
+        total: this.schedule.units.length,
+        failed,
+        skipped,
+        slowest,
+      }),
     );
     await writeFile(
       this.summaryPath,
@@ -861,7 +889,14 @@ async function main() {
   if (isDryRun()) {
     const dependencyCount = schedule.units.reduce((sum, unit) => sum + unit.needs.length, 0);
     process.stdout.write(
-      `[DRY-RUN] ${options.target} manifest=${path.relative(repoRoot, manifestPath)} resource_limits={${resourceLimitSummary(schedule.resourceLimits, ["cpu", "service_stack"])}} work_units=${schedule.units.length} dependencies=${dependencyCount} top_weighted=${topWeightedUnits(schedule.units)}\n`,
+      schedulerDryRunLine({
+        target: options.target,
+        manifest: path.relative(repoRoot, manifestPath),
+        resourceLimits: schedule.resourceLimits,
+        preferredResources: ["cpu", "service_stack"],
+        workUnits: schedule.units,
+        dependencies: dependencyCount,
+      }),
     );
     if (verboseSchedulerOutput()) {
       for (const unit of schedule.units) {

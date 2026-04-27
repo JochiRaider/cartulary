@@ -219,6 +219,7 @@ JSON
 success_output="$(run_scheduler "$success_dir" "$success_manifest" success --summary-targets local,service,meta,browser --summary-groups "check-work=local,service,meta,browser" --resource-limit cpu=2 2>&1)"
 assert_contains "$success_output" "[RUN] check steps=6 targets=4 jobs=2 run_id=success" "success run start"
 assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=6 capacity={cpu:2,service_stack:1}" "success concise scheduler start"
+assert_contains "$success_output" "top_weighted=setup:50,build:40,local:30,service:20,meta:10" "success concise scheduler start shows top weighted work"
 assert_contains "$success_output" "[CHECK-SCHEDULER] check progress completed=0/6 running=1 pending=5 blocked=5 reason=dependencies" "success concise scheduler progress"
 assert_contains "$success_output" "[CHECK-SCHEDULER] check summary status=pass completed=6/6 failed=none slowest=" "success concise scheduler summary"
 assert_not_contains "$success_output" "active_resource_claims=" "default scheduler output hides raw active resources"
