@@ -43,7 +43,7 @@
         { "target": "backend-process", "description": "run backend process evidence" },
         { "target": "target-plan", "description": "explain backend target execution families" },
         { "target": "target-plan-json", "description": "emit deterministic backend target plan JSON" },
-        { "target": "fixture-report", "description": "RESULTS_DIR=<dir> report fixture cost hotspots" },
+        { "target": "fixture-report", "description": "RESULTS_DIR=<root|run-dir> report fixture cost hotspots" },
         { "target": "explain-target", "description": "TARGET=backend-store explain one backend target" },
         { "target": "go-test-duration-baselines", "description": "RESULTS_DIR=<dir> refresh Go test duration baselines" },
         { "target": "go-test-duration-baseline-drift", "description": "RESULTS_DIR=<dir> verify Go shard baseline freshness" },

@@ -36,7 +36,7 @@ TASK_SURFACE_HELP_LINES := \
 	'  make backend-process        run backend process evidence' \
 	'  make target-plan            explain backend target execution families' \
 	'  make target-plan-json       emit deterministic backend target plan JSON' \
-	'  make fixture-report         RESULTS_DIR=<dir> report fixture cost hotspots' \
+	'  make fixture-report         RESULTS_DIR=<root|run-dir> report fixture cost hotspots' \
 	'  make explain-target         TARGET=backend-store explain one backend target' \
 	'  make go-test-duration-baselines RESULTS_DIR=<dir> refresh Go test duration baselines' \
 	'  make go-test-duration-baseline-drift RESULTS_DIR=<dir> verify Go shard baseline freshness' \

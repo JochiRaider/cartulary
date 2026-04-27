@@ -363,6 +363,35 @@ function mergeFixtureAggregateList(map, values) {
   }
 }
 
+function readJsonIfExists(filePath) {
+  if (!existsSync(filePath)) {
+    return null;
+  }
+  return JSON.parse(readFileSync(filePath, "utf8"));
+}
+
+function runSummaryPath(resultsRoot, runId) {
+  return path.join(resultsRoot, runId, "run-summary.json");
+}
+
+function targetSummaryPath(resultsRoot, runId, target) {
+  return path.join(resultsRoot, runId, target, "target-summary.json");
+}
+
+function hasFixtureSummary(value) {
+  return value && typeof value === "object";
+}
+
+function loadRunSummary({ resultsRoot, runId } = {}) {
+  return readJsonIfExists(runSummaryPath(resultsRoot, runId));
+}
+
+function loadTargetFixtureSummary({ resultsRoot, runId, target } = {}) {
+  const summary = readJsonIfExists(targetSummaryPath(resultsRoot, runId, target));
+  const fixture = summary?.totals?.fixture ?? summary?.fixture;
+  return hasFixtureSummary(fixture) ? normalizeFixtureSummary(target, fixture) : null;
+}
+
 function loadFixtureSummariesFromTargetSummaries({ resultsRoot, runId, target = "" } = {}) {
   const runRoot = path.join(resultsRoot, runId);
   if (!existsSync(runRoot)) {
@@ -381,7 +410,10 @@ function loadFixtureSummariesFromTargetSummaries({ resultsRoot, runId, target = 
       continue;
     }
     const summary = JSON.parse(readFileSync(summaryPath, "utf8"));
-    summaries.push(normalizeFixtureSummary(entry.name, summary.totals?.fixture ?? summary.fixture));
+    const fixture = summary.totals?.fixture ?? summary.fixture;
+    if (hasFixtureSummary(fixture)) {
+      summaries.push(normalizeFixtureSummary(entry.name, fixture));
+    }
   }
   return summaries.sort((left, right) => left.target.localeCompare(right.target));
 }
@@ -394,10 +426,52 @@ export function newestRunID(resultsRoot) {
     .filter((entry) => entry.isDirectory())
     .map((entry) => {
       const runPath = path.join(resultsRoot, entry.name);
-      return { name: entry.name, mtimeMs: statSync(runPath).mtimeMs };
+      return {
+        name: entry.name,
+        mtimeMs: statSync(runPath).mtimeMs,
+        hasRunSummary: existsSync(path.join(runPath, "run-summary.json")),
+      };
     })
+    .filter((entry) => entry.hasRunSummary)
     .sort((left, right) => right.mtimeMs - left.mtimeMs || right.name.localeCompare(left.name));
   return runs[0]?.name ?? "";
+}
+
+export function resolveFixtureResultLocation({
+  resultsDir,
+  runId = "",
+  repoRoot = process.cwd(),
+} = {}) {
+  const configured = resultsDir || ".cartulary/test-results";
+  const absoluteResultsDir = path.isAbsolute(configured)
+    ? configured
+    : path.join(repoRoot, configured);
+  const concreteRunSummaryPath = path.join(absoluteResultsDir, "run-summary.json");
+
+  if (existsSync(concreteRunSummaryPath)) {
+    const derivedRunId = path.basename(absoluteResultsDir);
+    if (runId && runId !== derivedRunId) {
+      throw new Error(
+        `RESULTS_DIR points to run ${derivedRunId}, but RUN_ID requested ${runId}`,
+      );
+    }
+    return {
+      resultsRoot: path.dirname(absoluteResultsDir),
+      runId: derivedRunId,
+      runDir: absoluteResultsDir,
+    };
+  }
+
+  const resolvedRunId = runId || newestRunID(absoluteResultsDir);
+  if (!resolvedRunId) {
+    throw new Error(`no test runs found under ${absoluteResultsDir}`);
+  }
+
+  return {
+    resultsRoot: absoluteResultsDir,
+    runId: resolvedRunId,
+    runDir: path.join(absoluteResultsDir, resolvedRunId),
+  };
 }
 
 export function buildFixtureReport({
@@ -407,25 +481,49 @@ export function buildFixtureReport({
   thresholdMs = defaultFixtureThresholdMS,
   repoRoot = process.cwd(),
 } = {}) {
-  const summaryTargets = target
-    ? loadFixtureSummariesFromTargetSummaries({ resultsRoot, runId, target })
-    : [];
-  const activities = loadServiceFixtureActivities({ resultsRoot, runId, target, repoRoot });
-  let targets = summaryTargets;
-  if (targets.length === 0 && activities.length > 0) {
-    targets = fixtureSummariesFromActivities(activities);
+  const runSummary = loadRunSummary({ resultsRoot, runId });
+  const runFixture = hasFixtureSummary(runSummary?.fixture)
+    ? normalizeFixtureSummary((runSummary.label ?? target) || "all", runSummary.fixture)
+    : null;
+  let targets = [];
+  let aggregate = null;
+
+  if (target) {
+    if (runSummary?.label === target && runFixture) {
+      aggregate = normalizeFixtureSummary(target, runFixture);
+    } else {
+      const targetFixture = loadTargetFixtureSummary({ resultsRoot, runId, target });
+      if (targetFixture) {
+        targets = [targetFixture];
+        aggregate = targetFixture;
+      }
+    }
+  } else {
+    targets = loadFixtureSummariesFromTargetSummaries({ resultsRoot, runId });
+    aggregate = runFixture;
   }
-  if (targets.length === 0) {
-    targets = loadFixtureSummariesFromTargetSummaries({ resultsRoot, runId, target });
+
+  if (!aggregate) {
+    const activities = loadServiceFixtureActivities({ resultsRoot, runId, target, repoRoot });
+    if (targets.length === 0 && activities.length > 0) {
+      targets = fixtureSummariesFromActivities(activities);
+    }
+    if (targets.length === 0 && !target) {
+      targets = loadFixtureSummariesFromTargetSummaries({ resultsRoot, runId });
+    }
+    aggregate = combineFixtureSummaries(
+      target || "all",
+      null,
+      targets.map((fixture) => ({ fixture })),
+    );
   }
-  const aggregate = combineFixtureSummaries(
-    target || "all",
-    null,
-    targets.map((fixture) => ({ fixture })),
-  );
+
+  const runDir = path.join(resultsRoot, runId);
   return {
     schema_id: fixtureReportSchemaID,
     results_dir: resultsRoot,
+    results_root: resultsRoot,
+    run_dir: runDir,
     run_id: runId,
     threshold_ms: thresholdMs,
     targets,

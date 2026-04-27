@@ -432,14 +432,49 @@ fixture_report_output="$(
   "$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results" --threshold-ms 30000 --top 2 \
     2>&1
 )"
-assert_contains "$fixture_report_output" "[FIXTURE] all total=36.0s count=3" "fixture report newest run aggregate output"
+assert_contains "$fixture_report_output" "[FIXTURE] fixture run total=36.0s count=3" "fixture report newest run aggregate output"
 assert_contains "$fixture_report_output" "[FIXTURE] fixture-target total=36.0s count=3" "fixture report newest run target output"
+fixture_report_concrete_output="$(
+  "$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results/fixture-run" --threshold-ms 30000 --top 2 \
+    2>&1
+)"
+assert_contains "$fixture_report_concrete_output" "[FIXTURE] fixture run total=36.0s count=3" "fixture report concrete run aggregate output"
+assert_contains "$fixture_report_concrete_output" "[FIXTURE] fixture-target total=36.0s count=3" "fixture report concrete run target output"
+if fixture_report_mismatch_output="$(
+  "$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results/fixture-run" --run-id fixture-tie-run --threshold-ms 1 \
+    2>&1
+)"; then
+  fail "fixture report concrete run mismatch: expected failure"
+fi
+assert_contains "$fixture_report_mismatch_output" "RESULTS_DIR points to run fixture-run, but RUN_ID requested fixture-tie-run" "fixture report concrete run mismatch error"
 fixture_report_json="$fixture_results/fixture-report.json"
 "$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results" --run-id fixture-run --threshold-ms 30000 --json >"$fixture_report_json"
 assert_equals "$(json_field "$fixture_report_json" "schema_id")" "cartulary.fixture_report.v1" "fixture report schema"
 assert_equals "$(json_field "$fixture_report_json" "run_id")" "fixture-run" "fixture report run id"
+assert_equals "$(json_field "$fixture_report_json" "run_dir")" "$fixture_results/fixture-run" "fixture report run dir"
 assert_equals "$(json_field "$fixture_report_json" "aggregate.total_duration_ms")" "36000" "fixture report aggregate duration"
 assert_equals "$(json_field "$fixture_report_json" "targets.0.target")" "fixture-target" "fixture report target"
+
+write_fixture_event "$fixture_results" "fixture-aggregate-run" "fixture-suite" "01" "postgres-db-reset" "fixture-child" 32000 "package_reset" "package-reused" "internal/modules/auth" "TestAggregateChild"
+CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
+CARTULARY_TEST_RUN_ID="fixture-aggregate-run" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary fixture-child pass >/dev/null 2>&1
+CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
+CARTULARY_TEST_RUN_ID="fixture-aggregate-run" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary fixture-parent pass --children fixture-child >/dev/null 2>&1
+CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
+CARTULARY_TEST_RUN_ID="fixture-aggregate-run" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" run-summary check pass 1 1 - fixture-parent >/dev/null 2>&1
+fixture_report_run_label_output="$(
+  "$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results" --run-id fixture-aggregate-run --target check --threshold-ms 1 \
+    2>&1
+)"
+assert_contains "$fixture_report_run_label_output" "[FIXTURE] check total=32.0s count=1" "fixture report run label target uses run summary"
+fixture_report_aggregate_target_output="$(
+  "$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results" --run-id fixture-aggregate-run --target fixture-parent --threshold-ms 1 \
+    2>&1
+)"
+assert_contains "$fixture_report_aggregate_target_output" "[FIXTURE] fixture-parent total=32.0s count=1" "fixture report aggregate target uses target summary totals"
 
 teardown_accounting_results="$(mktemp -d "$ROOT_DIR/tmp/target-timing-teardown-accounting.XXXXXX")"
 cleanup_paths+=("$teardown_accounting_results")

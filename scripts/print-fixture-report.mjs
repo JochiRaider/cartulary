@@ -6,9 +6,9 @@ import {
   buildFixtureReport,
   fixtureSummaryLine,
   fixtureSummaryLines,
-  newestRunID,
   normalizeFixtureThreshold,
   normalizeFixtureTop,
+  resolveFixtureResultLocation,
 } from "./lib/fixture-reporting.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -21,7 +21,7 @@ function usage() {
   process.exit(2);
 }
 
-function resolveResultsRoot(value) {
+function resolveResultsDir(value) {
   const configured =
     value ||
     process.env.RESULTS_DIR ||
@@ -74,13 +74,14 @@ function parseArgs(argv) {
     }
     usage();
   }
-  options.resultsRoot = resolveResultsRoot(options.resultsRoot);
-  if (!options.runId) {
-    options.runId = newestRunID(options.resultsRoot);
-  }
-  if (!options.runId) {
-    throw new Error(`no test runs found under ${options.resultsRoot}`);
-  }
+  const location = resolveFixtureResultLocation({
+    resultsDir: resolveResultsDir(options.resultsRoot),
+    runId: options.runId,
+    repoRoot,
+  });
+  options.resultsRoot = location.resultsRoot;
+  options.runId = location.runId;
+  options.runDir = location.runDir;
   return options;
 }
 

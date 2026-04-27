@@ -729,7 +729,7 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make backend-store` | Run service-backed store-domain `U-*` backend evidence that keeps unit-layer IDs while using real Postgres   |
 | `make target-plan`   | Print the backend Go target execution plan without running tests                                             |
 | `make target-plan-json` | Emit deterministic backend Go target-plan JSON for task-surface checks                                    |
-| `make fixture-report RESULTS_DIR=<dir>` | Report thresholded fixture-cost hotspots from an existing test results directory            |
+| `make fixture-report RESULTS_DIR=<root|run-dir>` | Report thresholded fixture-cost hotspots from an existing results root or concrete run directory |
 | `make explain-target TARGET=backend-store` | Explain one backend Go target without running tests                                      |
 | `make test-fast`     | Run the narrower pure-unit, service-backed backend, frontend type-check, and frontend unit/process loop      |
 | `make test`          | Run the authoritative full test corpus with shared service-backed backend and webserver browser orchestration |
@@ -778,7 +778,7 @@ Backend verification MUST distinguish phase evidence from execution dependency. 
 
 `backend-unit` is reserved for pure backend tests with no `pgtest`, `s3test`, or real runtime startup. `backend-store` owns the service-backed store-domain `U-*` slice, while `backend-integration`, `backend-process`, and browser suites continue to own runtime, process, and browser-backed evidence respectively.
 
-The backend Go target plan is inspectable without executing tests. `make target-plan` renders the human execution plan, `make target-plan-json` emits the deterministic JSON consumed by task-surface checks, and `make explain-target TARGET=<backend target>` focuses on one backend target's authoritative rows, support-only selectors, shared reports, package sets, service-backed requirement, and check-stage safety classification. `make fixture-report RESULTS_DIR=<dir>` inspects an existing run's fixture diagnostics and prints thresholded hotspots without rerunning tests.
+The backend Go target plan is inspectable without executing tests. `make target-plan` renders the human execution plan, `make target-plan-json` emits the deterministic JSON consumed by task-surface checks, and `make explain-target TARGET=<backend target>` focuses on one backend target's authoritative rows, support-only selectors, shared reports, package sets, service-backed requirement, and check-stage safety classification. `make fixture-report RESULTS_DIR=<root|run-dir>` inspects an existing results root or concrete run directory's fixture diagnostics and prints thresholded hotspots without rerunning tests.
 
 ### 7.3 Local development loop
 

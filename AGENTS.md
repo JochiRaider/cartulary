@@ -39,7 +39,7 @@
 - `make backend-store`
 - `make target-plan`
 - `make target-plan-json`
-- `make fixture-report RESULTS_DIR=<dir>`
+- `make fixture-report RESULTS_DIR=<root|run-dir>`
 - `make explain-target TARGET=<backend target>`
 - `make go-test-duration-baseline-drift RESULTS_DIR=<dir>`
 - `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>`
@@ -74,7 +74,7 @@
 - `make phase-ledger-drift` verifies committed phase coverage ledgers match the phase manifests without requiring Docker or service-backed tests.
 - `make backend-store` runs the service-backed store-domain `U-*` backend slice that keeps unit-layer phase IDs while using real Postgres.
 - `make target-plan`, `make target-plan-json`, and `make explain-target TARGET=<backend target>` inspect the backend Go target execution plan without running tests or starting services.
-- `make fixture-report RESULTS_DIR=<dir>` reports thresholded fixture-cost hotspots from an existing test results directory without rerunning tests.
+- `make fixture-report RESULTS_DIR=<root|run-dir>` reports thresholded fixture-cost hotspots from an existing results root or concrete run directory without rerunning tests.
 - `make go-test-duration-baseline-drift RESULTS_DIR=<dir>` verifies committed Go shard duration baselines against successful service-backed shard artifacts and fails when the planned weights are badly stale.
 - `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>` verifies committed browser functional spec duration baselines against successful Playwright timing artifacts and fails when planned weights are badly stale.
 - `make test-fast` runs the pure backend unit slice, the service-backed backend store and integration slices, the backend process or E2E slice, frontend type-checking, and the frontend unit suite for the narrower local loop.
