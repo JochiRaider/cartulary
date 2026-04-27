@@ -39,7 +39,7 @@
         {
           "target": "check-frontend-unit",
           "weight": 15000,
-          "needs": ["check-build-prereqs", "check-service-backed"],
+          "needs": ["check-build-prereqs"],
           "resource_claims": { "cpu": 1 },
           "make_jobs": "cpu"
         },

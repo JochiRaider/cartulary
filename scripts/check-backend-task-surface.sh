@@ -341,13 +341,13 @@ fi
 if rg -q '^check-pre-browser:' "$makefile"; then
   fail "check-pre-browser must not remain as legacy check orchestration"
 fi
-for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-local-product check-meta-validation; do
+for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-local-product check-frontend-unit check-meta-validation; do
   check_schedule_field "$scheduled_target" target >/dev/null
 done
 if [[ "$(check_schedule_field check-build-prereqs needs)" != "check-setup-blockers" ]]; then
   fail "check-build-prereqs must depend on check-setup-blockers in the check schedule"
 fi
-for scheduled_target in check-service-backed check-local-product check-meta-validation; do
+for scheduled_target in check-service-backed check-local-product check-frontend-unit check-meta-validation; do
   if [[ "$(check_schedule_field "$scheduled_target" needs)" != "check-build-prereqs" ]]; then
     fail "$scheduled_target must depend on check-build-prereqs in the check schedule"
   fi

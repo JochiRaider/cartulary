@@ -354,7 +354,7 @@ if ! [[ -f "$check_schedule_manifest" ]]; then
   fail "missing tools/check_schedule_manifest.json"
 fi
 check_schedule_text="$(check_schedule_targets)"
-for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-local-product check-meta-validation; do
+for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-local-product check-frontend-unit check-meta-validation; do
   if ! printf '%s\n' "$check_schedule_text" | rg -q "^${scheduled_target}$"; then
     fail "check schedule must include $scheduled_target"
   fi
