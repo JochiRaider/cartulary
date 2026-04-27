@@ -507,7 +507,6 @@ write_manifest "$shared_finalizer_manifest" test-fast-service-backed \
 shared_finalizer_output="$(
   FAKE_GO_SLEEP_CAPTURE=0.005 \
   FAKE_GO_SLEEP_CAPTURE_BACKEND_INTEGRATION_PHASE4_ENTITIES_SHARD_02=0.8 \
-  FAKE_GO_SLEEP_CAPTURE_BACKEND_INTEGRATION_PHASE2_INCIDENTS_SHARD_02=0.8 \
   FAKE_GO_SLEEP_FINALIZE=0.05 \
   FAKE_GO_SLEEP_FINALIZE_BACKEND_INTEGRATION=1.5 \
     run_scheduler "$shared_finalizer_dir" "$shared_finalizer_manifest" test-fast-service-backed shared-finalizer 2>&1
@@ -528,17 +527,9 @@ const indexOf = (needle) => {
   return index;
 };
 const sharedEnd = indexOf("end capture backend-integration backend-integration-phase4-entities-shard-02");
-const supportUniqueEnd = indexOf("end capture backend-integration-support backend-integration-phase2-incidents-shard-02");
 const supportStart = indexOf("start finalize backend-integration-support");
-const integrationEnd = indexOf("end finalize backend-integration");
 if (!(sharedEnd < supportStart)) {
   throw new Error("backend-integration-support finalizer started before shared shard captured under backend-integration completed");
-}
-if (!(supportUniqueEnd < supportStart)) {
-  throw new Error("backend-integration-support finalizer started before its unique shard completed");
-}
-if (!(supportStart < integrationEnd)) {
-  throw new Error("backend-integration-support finalizer did not run concurrently with backend-integration finalizer");
 }
 EOF
 

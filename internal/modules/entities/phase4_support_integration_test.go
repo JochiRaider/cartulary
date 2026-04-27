@@ -171,7 +171,7 @@ func TestSupportPhase4Integration_ProjectionAndWebsocketConsequences(t *testing.
 
 func TestSupportPhase4Integration_RecordEnvelopeHeadSchema(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareDatabaseT(t, "phase4-records-head")
+	testDB := postgresHarness.PreparePackageDatabaseT(t, "phase4-records-head")
 
 	db, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {

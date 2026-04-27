@@ -14,6 +14,14 @@ const defaultTargets = [
   "backend-integration-support",
   "backend-process",
 ];
+const harnessTemplateCloneBudgets = [
+  {
+    target: "backend-integration",
+    package: "internal/testutil/pgtest",
+    test: "TestPrepareDatabaseTReturnsMigratedDatabase",
+    maxTemplateClones: 1,
+  },
+];
 
 function usage() {
   process.stderr.write("usage: check-postgres-fixture-budget.mjs [--targets <csv>]\n");
@@ -113,12 +121,48 @@ function emptyBudget() {
     transactionTests: new Set(),
     migrationScratchTests: new Set(),
     packageResetPackages: new Set(),
+    packageBudgets: new Map(),
   };
+}
+
+function emptyPackageBudget() {
+  return {
+    packageResetCreates: 0,
+    packageResetEvents: 0,
+    packageResetDurationMS: 0,
+    packageResetTests: new Set(),
+  };
+}
+
+function packageBudgetFor(budget, pkg) {
+  if (!budget.packageBudgets.has(pkg)) {
+    budget.packageBudgets.set(pkg, emptyPackageBudget());
+  }
+  return budget.packageBudgets.get(pkg);
+}
+
+function packageStatsFor(stats, pkg) {
+  if (!stats.packageStats.has(pkg)) {
+    stats.packageStats.set(pkg, {
+      packageResetCreates: 0,
+      packageResetEvents: 0,
+      packageResetDurationMS: 0,
+      details: [],
+    });
+  }
+  return stats.packageStats.get(pkg);
+}
+
+function itemPackages(item) {
+  const packages = item.packages?.length
+    ? item.packages
+    : [item.import_path || item.package].filter(Boolean);
+  return packages.map((pkg) => normalizePackage(pkg)).filter(Boolean);
 }
 
 function addBudgetValue(targetBudget, policy, budget, item) {
   const symbol = item.symbol ?? "";
-  const pkg = normalizePackage(item.import_path || item.package || item.packages?.[0] || "");
+  const packages = itemPackages(item);
   switch (policy) {
     case "template_clone":
       targetBudget.templateClones += budget.max_template_clones ?? 0;
@@ -132,7 +176,13 @@ function addBudgetValue(targetBudget, policy, budget, item) {
       targetBudget.packageResetEvents += budget.max_package_resets ?? 0;
       targetBudget.packageResetDurationMS += budget.max_reset_duration_ms ?? 0;
       if (symbol) targetBudget.packageResetTests.add(symbol);
-      if (pkg) targetBudget.packageResetPackages.add(pkg);
+      for (const pkg of packages) {
+        targetBudget.packageResetPackages.add(pkg);
+        const packageBudget = packageBudgetFor(targetBudget, pkg);
+        packageBudget.packageResetEvents += budget.max_package_resets ?? 0;
+        packageBudget.packageResetDurationMS += budget.max_reset_duration_ms ?? 0;
+        if (symbol) packageBudget.packageResetTests.add(symbol);
+      }
       break;
     case "transaction":
       targetBudget.transactions += budget.max_transactions ?? 0;
@@ -174,7 +224,11 @@ function plannedBudget(target) {
         }
       }
       budget.packageResetCreates += shardPackageResetPackages.size;
+      for (const pkg of shardPackageResetPackages) {
+        packageBudgetFor(budget, pkg).packageResetCreates += 1;
+      }
     }
+    addHarnessSelfTestBudgets(budget, target);
     return budget;
   }
 
@@ -191,7 +245,18 @@ function plannedBudget(target) {
     }
   }
   budget.packageResetCreates = budget.packageResetPackages.size;
+  addHarnessSelfTestBudgets(budget, target);
   return budget;
+}
+
+function addHarnessSelfTestBudgets(budget, target) {
+  for (const item of harnessTemplateCloneBudgets) {
+    if (item.target !== target) {
+      continue;
+    }
+    budget.templateClones += item.maxTemplateClones;
+    budget.templateCloneTests.add(item.test);
+  }
 }
 
 function actualStats(events, target) {
@@ -209,6 +274,7 @@ function actualStats(events, target) {
     unplannedGroupClones: [],
     unplannedTransactions: [],
   };
+  stats.packageStats = new Map();
 
   for (const event of events) {
     const details = event.details ?? {};
@@ -232,6 +298,12 @@ function actualStats(events, target) {
       policy === "package_reset"
     ) {
       stats.packageResetCreates += 1;
+      const callerPackage = normalizePackage(details.caller_package ?? "");
+      if (callerPackage) {
+        const packageStats = packageStatsFor(stats, callerPackage);
+        packageStats.packageResetCreates += 1;
+        packageStats.details.push(`${testName || "(unknown test)"} database-create`.trim());
+      }
     }
     if (
       event.type === "postgres-db-created" &&
@@ -251,11 +323,15 @@ function actualStats(events, target) {
       stats.packageResetEvents += 1;
       stats.packageResetDurationMS += intDetail(details, "duration_ms");
       const callerPackage = normalizePackage(details.caller_package ?? "");
-      if (
-        target === "backend-store" ||
-        callerPackage === "internal/app" ||
-        callerPackage.startsWith("internal/modules/")
-      ) {
+      if (callerPackage) {
+        const packageStats = packageStatsFor(stats, callerPackage);
+        packageStats.packageResetEvents += 1;
+        packageStats.packageResetDurationMS += intDetail(details, "duration_ms");
+        packageStats.details.push(
+          `${testName || "(unknown test)"} database-reset ${intDetail(details, "duration_ms")}ms`.trim(),
+        );
+      }
+      if (target === "backend-store") {
         stats.forbiddenPackageResets.push(
           `${callerPackage || "(unknown package)"} ${testName || "(unknown test)"}`.trim(),
         );
@@ -312,6 +388,43 @@ function failIfMigrationScratchOver(target, stats, budget) {
   );
 }
 
+function failIfPackageBudgetsOver(target, stats, budget) {
+  const failures = [];
+  for (const [pkg, actual] of stats.packageStats.entries()) {
+    const planned = budget.packageBudgets.get(pkg) ?? emptyPackageBudget();
+    if (actual.packageResetCreates > planned.packageResetCreates) {
+      failures.push(
+        `${pkg} package database creates got ${actual.packageResetCreates}, budget ${planned.packageResetCreates}`,
+      );
+    }
+    if (actual.packageResetEvents > planned.packageResetEvents) {
+      failures.push(
+        `${pkg} package reset events got ${actual.packageResetEvents}, budget ${planned.packageResetEvents}`,
+      );
+    }
+    if (actual.packageResetDurationMS > planned.packageResetDurationMS) {
+      failures.push(
+        `${pkg} package reset duration got ${actual.packageResetDurationMS}ms, budget ${planned.packageResetDurationMS}ms`,
+      );
+    }
+  }
+  if (failures.length === 0) {
+    return;
+  }
+  const topPackages = [...stats.packageStats.entries()]
+    .sort(
+      ([, left], [, right]) =>
+        right.packageResetDurationMS - left.packageResetDurationMS ||
+        right.packageResetEvents - left.packageResetEvents,
+    )
+    .slice(0, 5)
+    .map(([pkg, value]) => `${pkg}: ${value.details.slice(0, 3).join(", ")}`)
+    .join("; ");
+  throw new Error(
+    `${target} exceeded postgres package-level fixture budgets: ${failures.join("; ")}; top_activity=${topPackages || "none"}`,
+  );
+}
+
 function checkTarget(events, target) {
   const budget = plannedBudget(target);
   const stats = actualStats(events, target);
@@ -322,6 +435,7 @@ function checkTarget(events, target) {
   failIfOver(target, "package reset duration", stats.packageResetDurationMS, budget.packageResetDurationMS);
   failIfOver(target, "transaction", stats.transactions, budget.transactions);
   failIfMigrationScratchOver(target, stats, budget);
+  failIfPackageBudgetsOver(target, stats, budget);
   if (stats.forbiddenPackageResets.length > 0) {
     throw new Error(
       `${target} used forbidden postgres package resets: ${stats.forbiddenPackageResets.join("; ")}`,

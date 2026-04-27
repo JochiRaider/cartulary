@@ -50,15 +50,7 @@
         "TestSupportPhase2_MembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTPConformance",
         "TestSupportPhase2_MembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConformance"
       ],
-      "selection_pattern": "TestSupportPhase2_",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 50
-        }
-      }
+      "selection_pattern": "TestSupportPhase2_"
     },
     {
       "target": "backend_integration_support",
@@ -71,16 +63,7 @@
         "TestSupportPhase2_PublicRouteInventoryMembershipAdminEnvelopes",
         "TestSupportPhase2_PublicRouteInventoryWorkbookPreferencesEnvelopes"
       ],
-      "selection_pattern": "TestSupportPhase2_",
-      "shard_isolation": true,
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 50
-        }
-      }
+      "selection_pattern": "TestSupportPhase2_"
     },
     {
       "target": "backend_integration_support",
@@ -94,16 +77,7 @@
         "TestSupportPhase2_ControlBoundaryWorkbookPreferencesDeploymentAdminWithoutMembershipDenied",
         "TestSupportPhase2_ControlBoundaryWorkbookQueriesDeploymentAdminWithoutMembershipDenied"
       ],
-      "selection_pattern": "TestSupportPhase2_",
-      "shard_isolation": true,
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 50
-        }
-      }
+      "selection_pattern": "TestSupportPhase2_"
     },
     {
       "target": "backend_integration_support",
@@ -115,15 +89,7 @@
         "TestSupportPhase2_IncidentListContinuationUsesSnapshotStableRows",
         "TestSupportPhase2_MembershipListContinuationUsesSnapshotStableRows"
       ],
-      "selection_pattern": "TestSupportPhase2_",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 50
-        }
-      }
+      "selection_pattern": "TestSupportPhase2_"
     },
     {
       "target": "backend_integration_support",
@@ -135,15 +101,7 @@
         "TestSupportPhase2_IncidentPatchWritesAuditBeforeAfter",
         "TestSupportPhase2_MembershipMutationsWriteAuditBeforeAfter"
       ],
-      "selection_pattern": "TestSupportPhase2_",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 50
-        }
-      }
+      "selection_pattern": "TestSupportPhase2_"
     }
   ],
   "unit": [
@@ -169,15 +127,7 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "Store.CreateIncident commits the bootstrap `admin` membership plus both incident-wide and per-user workbook-preference rows.",
-      "out_of_scope": "HTTP envelope and header emission remain support coverage.",
-      "fixture_policy": {
-        "postgres": "transaction"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_transactions": 1
-        }
-      }
+      "out_of_scope": "HTTP envelope and header emission remain support coverage."
     },
     {
       "id": "U-2-03",
@@ -189,15 +139,7 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "The committed create result returns the stable `/api/v1/incidents/{incident_id}` location value.",
-      "out_of_scope": "Actual `Location` header emission remains support coverage.",
-      "fixture_policy": {
-        "postgres": "transaction"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_transactions": 1
-        }
-      }
+      "out_of_scope": "Actual `Location` header emission remains support coverage."
     },
     {
       "id": "U-2-04",
@@ -209,15 +151,7 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "Incident create idempotency scopes by actor plus normalized request, exact replay returns the original committed result, divergent replay rejects, and replay keeps the incident row, bootstrap membership, workbook-preference rows, owner mutation artifacts, and route idempotency stable.",
-      "out_of_scope": "HTTP replay envelope proof remains support coverage.",
-      "fixture_policy": {
-        "postgres": "transaction"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_transactions": 1
-        }
-      }
+      "out_of_scope": "HTTP replay envelope proof remains support coverage."
     },
     {
       "id": "U-2-05",
@@ -253,15 +187,7 @@
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "Store-backed membership patch and delete reject stale `base_membership_version` values without mutating durable membership state.",
-      "out_of_scope": "Pure decoder shape and `last_incident_admin` guard coverage stay on the executed support-only unit surface.",
-      "fixture_policy": {
-        "postgres": "transaction"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_transactions": 1
-        }
-      }
+      "out_of_scope": "Pure decoder shape and `last_incident_admin` guard coverage stay on the executed support-only unit surface."
     },
     {
       "id": "U-2-08",
@@ -344,15 +270,7 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Incident create persists the incident row, bootstrap membership, workbook preferences, and owner-level mutation artifacts on the current Phase 2 audit substrate atomically, while hook-forced rollback leaves no surviving Phase 2 mutation artifacts.",
-      "out_of_scope": "`change_sets` migration remains an owner/docs follow-on, not Phase 2 evidence.",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 50
-        }
-      }
+      "out_of_scope": "`change_sets` migration remains an owner/docs follow-on, not Phase 2 evidence."
     },
     {
       "id": "I-2-02",
@@ -364,15 +282,7 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Real create with trimmed decomposed input normalizes the response key, replay with the composed form returns the original committed resource, divergent replay rejects, opposite-form duplicates on distinct requests fail with `incident_key_conflict`, and the incident row, bootstrap membership, workbook-preference rows, owner mutation artifacts, and route idempotency remain stable.",
-      "out_of_scope": "None for the declared replay and normalization contract.",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 50
-        }
-      }
+      "out_of_scope": "None for the declared replay and normalization contract."
     },
     {
       "id": "I-2-03",
@@ -390,16 +300,7 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "One same-session role progression `no membership -> viewer -> reviewer -> admin -> removed` re-derives access immediately for every `ControlBoundaryInventory()` route, including workbook-preference reads, membership-admin routes, and the Timeline websocket boundary.",
-      "out_of_scope": "Deployment-admin-without-membership breadth is paired with the support inventory sweep.",
-      "shard_isolation": true,
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 50
-        }
-      }
+      "out_of_scope": "Deployment-admin-without-membership breadth is paired with the support inventory sweep."
     },
     {
       "id": "I-2-04",
@@ -411,15 +312,7 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Real incident patch persists only promoted fields, rejects stale versions, and advances `incident_version` only on material change.",
-      "out_of_scope": "None for the declared patch contract.",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 50
-        }
-      }
+      "out_of_scope": "None for the declared patch contract."
     },
     {
       "id": "I-2-05",
@@ -431,15 +324,7 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Extension discovery succeeds for an authenticated zero-membership session and leaks no provider secrets or live claim payloads.",
-      "out_of_scope": "None for the declared discovery contract.",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 50
-        }
-      }
+      "out_of_scope": "None for the declared discovery contract."
     },
     {
       "id": "I-2-06",
@@ -451,15 +336,7 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Reserved but unclaimed family roots and descendants return canonical `extension_profile_not_claimed`, while outside-family paths preserve ordinary 404 handling.",
-      "out_of_scope": "None for the declared dispatch contract.",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 50
-        }
-      }
+      "out_of_scope": "None for the declared dispatch contract."
     }
   ],
   "e2e": [

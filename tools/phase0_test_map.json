@@ -40,15 +40,7 @@
       "package": "./internal/platform/objectstore",
       "file": "internal/platform/objectstore/objectstore_phase0_support_test.go",
       "symbol": "TestSupportPhase0_ManagedServiceObjectStoreBinding",
-      "selection_pattern": "TestSupportPhase0_",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 50
-        }
-      }
+      "selection_pattern": "TestSupportPhase0_"
     }
   ],
   "unit": [
@@ -168,7 +160,8 @@
         "postgres": {
           "max_migration_scratch": 2
         }
-      }
+      },
+      "migration_scratch_reason": "Exercises fresh migration and schema bootstrap behavior from an empty database boundary."
     },
     {
       "id": "I-0-02",
@@ -180,15 +173,7 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "object_store_integration",
       "claim": "Real S3-compatible object-store setup resolves disconnected `filesystem_root` bindings through the generic `CARTULARY_S3_*` contract and completes a live round trip.",
-      "out_of_scope": "Managed-service object-store binding coverage remains supplemental.",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 50
-        }
-      }
+      "out_of_scope": "Managed-service object-store binding coverage remains supplemental."
     },
     {
       "id": "I-0-03",
@@ -200,15 +185,7 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "runtime_integration",
       "claim": "Config failures on real Postgres and MinIO prevent ready state and stop handler, WebSocket, and job startup even when backing services are healthy.",
-      "out_of_scope": "Real process exit behavior and connection refusal remain `E-0-02`.",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 50
-        }
-      }
+      "out_of_scope": "Real process exit behavior and connection refusal remain `E-0-02`."
     },
     {
       "id": "I-0-04",
@@ -226,9 +203,10 @@
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 8
+          "max_template_clones": 2
         }
-      }
+      },
+      "template_clone_reason": "Installs a rollback trigger in one subtest, so the top-level test needs schema-isolated databases."
     },
     {
       "id": "I-0-05",
@@ -240,15 +218,7 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "bootstrap_failure_integration",
       "claim": "Required bootstrap failures for missing, unreadable regular-file, non-regular, malformed, schema-invalid, and email-conflicting manifests block readiness and leave no partial bootstrap state.",
-      "out_of_scope": "Process-boundary refusal and exit diagnostics remain `E-0-04`.",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 50
-        }
-      }
+      "out_of_scope": "Process-boundary refusal and exit diagnostics remain `E-0-04`."
     },
     {
       "id": "I-0-06",
@@ -260,15 +230,7 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "bootstrap_recovery_integration",
       "claim": "Existing active admins skip stale or invalid manifests, while bootstrap-completion with zero active admins fails closed without implicit recovery.",
-      "out_of_scope": "Real process-boundary refusal remains `E-0-05`.",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 50
-        }
-      }
+      "out_of_scope": "Real process-boundary refusal remains `E-0-05`."
     }
   ],
   "e2e": [

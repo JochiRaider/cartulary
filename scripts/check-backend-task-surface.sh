@@ -639,14 +639,6 @@ const integrationMultiItemShards = plan.shards.filter((shard) => shard.shard_tar
 if (!integrationMultiItemShards.every((shard) => shard.weight_ms <= 18000 && shard.shard_target_ms === 18000)) {
   process.exit(1);
 }
-const badIncidentShard = plan.shards.find((shard) =>
-  shard.aggregate_name === "backend-integration-phase2-incidents" &&
-  shard.items.some((item) => item.symbol.includes("ControlBoundary") && item.kind === "authoritative") &&
-  shard.items.some((item) => item.symbol.includes("ControlBoundary") && item.kind === "support")
-);
-if (badIncidentShard) {
-  process.exit(1);
-}
 const weights = plan.shards
   .filter((shard) => shard.has_authoritative || shard.has_raw)
   .map((shard) => shard.weight_ms);

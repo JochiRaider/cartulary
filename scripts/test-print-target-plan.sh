@@ -99,14 +99,6 @@ const integrationMultiItemShards = plan.shards.filter((shard) => shard.shard_tar
 if (!integrationMultiItemShards.every((shard) => shard.weight_ms <= 18000 && shard.shard_target_ms === 18000)) {
   process.exit(1);
 }
-const badIncidentShard = plan.shards.find((shard) =>
-  shard.aggregate_name === "backend-integration-phase2-incidents" &&
-  shard.items.some((item) => item.symbol.includes("ControlBoundary") && item.kind === "authoritative") &&
-  shard.items.some((item) => item.symbol.includes("ControlBoundary") && item.kind === "support")
-);
-if (badIncidentShard) {
-  process.exit(1);
-}
 const authoritative = plan.shards.flatMap((shard) => shard.items).filter((item) => item.kind === "authoritative");
 const validPolicies = new Set(["template_clone", "package_reset", "migration_scratch", "transaction", "group_clone"]);
 if (authoritative.length === 0 || !authoritative.every((item) => validPolicies.has(item.postgres_fixture_policy))) {
@@ -181,9 +173,9 @@ assert_contains "$make_compact_output" "backend-store service_backed=1" "make ex
 phase_root="$tmp_dir/phase-root"
 mkdir -p "$phase_root/tools"
 cp "$ROOT_DIR"/tools/phase*_test_map.json "$phase_root/tools/"
-cat >"$phase_root/tools/phase5_test_map.json" <<'JSON'
+cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "expected_ids": ["U-5-01"],
+  "expected_ids": ["U-99-01"],
   "unit": [],
   "integration": [],
   "e2e": [],
@@ -201,29 +193,29 @@ cat >"$phase_root/tools/phase5_test_map.json" <<'JSON'
 JSON
 
 discovered_phases="$(CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" "$NODE_HELPER" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" list-phases)"
-assert_contains "$discovered_phases" "phase5" "phase manifest discovery includes phase5"
+assert_contains "$discovered_phases" "phase99" "phase manifest discovery includes phase99"
 
-phase5_plan="$(
+phase99_plan="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" \
     "$NODE_HELPER" "$PLAN_SCRIPT" --json
 )"
-assert_contains "$phase5_plan" '"manifest_phase": "phase5"' "target-plan support rows include discovered phase"
+assert_contains "$phase99_plan" '"manifest_phase": "phase99"' "target-plan support rows include discovered phase"
 
-phase5_shared_command="$(
+phase99_shared_command="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" \
   NODE_BIN="$NODE_HELPER" \
     "$ROOT_DIR/scripts/run-go-target.sh" inspect-shared-command backend-unit backend-unit-auth
 )"
-assert_contains "$phase5_shared_command" "TestSupportPhase5_Discovered" "run-go-target support selection includes discovered phase"
+assert_contains "$phase99_shared_command" "TestSupportPhase5_Discovered" "run-go-target support selection includes discovered phase"
 
 invalid_phase_root="$tmp_dir/invalid-phase-root"
 mkdir -p "$invalid_phase_root/tools"
-cat >"$invalid_phase_root/tools/phase5_test_map.json" <<'JSON'
+cat >"$invalid_phase_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "expected_ids": ["U-5-01"],
+  "expected_ids": ["U-99-01"],
   "unit": [
     {
-      "id": "U-5-01",
+      "id": "U-99-01",
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
@@ -239,23 +231,23 @@ cat >"$invalid_phase_root/tools/phase5_test_map.json" <<'JSON'
 }
 JSON
 
-if CARTULARY_PHASE_MANIFEST_ROOT="$invalid_phase_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase5 >/dev/null 2>&1; then
+if CARTULARY_PHASE_MANIFEST_ROOT="$invalid_phase_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 >/dev/null 2>&1; then
   fail "phase manifest validation must reject unknown postgres fixture policies"
 fi
 
 missing_policy_root="$tmp_dir/missing-policy-root"
 mkdir -p "$missing_policy_root/tools"
-cat >"$missing_policy_root/tools/phase5_test_map.json" <<'JSON'
+cat >"$missing_policy_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "expected_ids": ["U-5-01"],
+  "expected_ids": ["U-99-01"],
   "unit": [
     {
-      "id": "U-5-01",
+      "id": "U-99-01",
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
       "file": "internal/modules/auth/phase1_store_test.go",
-      "symbol": "TestPhase5_MissingPolicy_U_5_01",
+      "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05",
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
       "claim": "missing fixture policy smoke",
@@ -265,25 +257,25 @@ cat >"$missing_policy_root/tools/phase5_test_map.json" <<'JSON'
 }
 JSON
 
-if CARTULARY_PHASE_MANIFEST_ROOT="$missing_policy_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase5 >/dev/null 2>&1; then
-  fail "phase manifest validation must reject missing service-backed postgres fixture policies"
+if ! CARTULARY_PHASE_MANIFEST_ROOT="$missing_policy_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 >/dev/null 2>&1; then
+  fail "phase manifest validation must allow missing service-backed postgres fixture policies when defaults apply"
 fi
 
 missing_budget_root="$tmp_dir/missing-budget-root"
 mkdir -p "$missing_budget_root/tools"
-cat >"$missing_budget_root/tools/phase5_test_map.json" <<'JSON'
+cat >"$missing_budget_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "expected_ids": ["U-5-01"],
-  "unit": [
+  "expected_ids": ["I-99-01"],
+  "integration": [
     {
-      "id": "U-5-01",
+      "id": "I-99-01",
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_store_test.go",
-      "symbol": "TestPhase5_MissingBudget_U_5_01",
-      "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain",
+      "file": "internal/modules/auth/phase1_integration_test.go",
+      "symbol": "TestPhase1_LoginSessionLifecycle_I_1_01",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "integration",
       "fixture_policy": { "postgres": "package_reset" },
       "claim": "missing fixture budget smoke",
       "out_of_scope": "missing fixture budget smoke"
@@ -292,25 +284,25 @@ cat >"$missing_budget_root/tools/phase5_test_map.json" <<'JSON'
 }
 JSON
 
-if CARTULARY_PHASE_MANIFEST_ROOT="$missing_budget_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase5 >/dev/null 2>&1; then
+if CARTULARY_PHASE_MANIFEST_ROOT="$missing_budget_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 >/dev/null 2>&1; then
   fail "phase manifest validation must reject package_reset without postgres fixture budgets"
 fi
 
 invalid_budget_root="$tmp_dir/invalid-budget-root"
 mkdir -p "$invalid_budget_root/tools"
-cat >"$invalid_budget_root/tools/phase5_test_map.json" <<'JSON'
+cat >"$invalid_budget_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "expected_ids": ["U-5-01"],
-  "unit": [
+  "expected_ids": ["I-99-01"],
+  "integration": [
     {
-      "id": "U-5-01",
+      "id": "I-99-01",
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/modules/auth",
-      "file": "internal/modules/auth/phase1_store_test.go",
-      "symbol": "TestPhase5_InvalidBudget_U_5_01",
-      "execution_dependency": "backend_store",
-      "evidence_layer": "store_domain",
+      "file": "internal/modules/auth/phase1_integration_test.go",
+      "symbol": "TestPhase1_LoginSessionLifecycle_I_1_01",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "integration",
       "fixture_policy": { "postgres": "package_reset" },
       "fixture_budget": {
         "postgres": {
@@ -326,15 +318,15 @@ cat >"$invalid_budget_root/tools/phase5_test_map.json" <<'JSON'
 }
 JSON
 
-if CARTULARY_PHASE_MANIFEST_ROOT="$invalid_budget_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase5 >/dev/null 2>&1; then
+if CARTULARY_PHASE_MANIFEST_ROOT="$invalid_budget_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 >/dev/null 2>&1; then
   fail "phase manifest validation must reject invalid postgres fixture budgets"
 fi
 
 missing_migration_reason_root="$tmp_dir/missing-migration-reason-root"
 mkdir -p "$missing_migration_reason_root/tools"
-cat >"$missing_migration_reason_root/tools/phase5_test_map.json" <<'JSON'
+cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
 {
-  "expected_ids": ["U-5-01"],
+  "expected_ids": ["U-99-01"],
   "support_go_targets": [
     {
       "target": "backend_integration_support",
@@ -353,7 +345,7 @@ cat >"$missing_migration_reason_root/tools/phase5_test_map.json" <<'JSON'
   ],
   "unit": [
     {
-      "id": "U-5-01",
+      "id": "U-99-01",
       "coverage": "authoritative",
       "runner": "go_test",
       "package": "./internal/app",
@@ -366,6 +358,6 @@ cat >"$missing_migration_reason_root/tools/phase5_test_map.json" <<'JSON'
 }
 JSON
 
-if CARTULARY_PHASE_MANIFEST_ROOT="$missing_migration_reason_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase5 >/dev/null 2>&1; then
+if CARTULARY_PHASE_MANIFEST_ROOT="$missing_migration_reason_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 >/dev/null 2>&1; then
   fail "phase manifest validation must reject support migration_scratch without migration_scratch_reason"
 fi

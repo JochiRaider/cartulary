@@ -52,6 +52,16 @@ const validFixtureBudgetPostgresKeys = new Set([
   "max_migration_scratch",
   "dirty_tables",
 ]);
+const defaultPackageResetBudget = Object.freeze({
+  max_package_resets_per_symbol: 8,
+  max_reset_duration_ms_per_symbol: 10000,
+});
+const defaultProcessTemplateCloneBudget = Object.freeze({
+  max_template_clones_per_symbol: 4,
+});
+const defaultTransactionBudget = Object.freeze({
+  max_transactions_per_symbol: 8,
+});
 const serviceBackedGoExecutionDependencies = new Set([
   "backend_store",
   "backend_integration",
@@ -229,12 +239,22 @@ export function supportGoEntryPostgresFixtureBudget(entry) {
 }
 
 function defaultGoPostgresFixturePolicy(entry) {
-  void entry;
+  if (entry.execution_dependency === "backend_store") {
+    return postgresFixturePolicyTransaction;
+  }
+  if (entry.execution_dependency === "backend_integration") {
+    return postgresFixturePolicyPackageReset;
+  }
+  if (entry.execution_dependency === "backend_process") {
+    return postgresFixturePolicyTemplateClone;
+  }
   return "";
 }
 
 function defaultSupportPostgresFixturePolicy(entry) {
-  void entry;
+  if (entry.target === "backend_integration_support") {
+    return postgresFixturePolicyPackageReset;
+  }
   return "";
 }
 
@@ -244,6 +264,56 @@ export function effectiveGoEntryPostgresFixturePolicy(entry) {
 
 export function effectiveSupportGoEntryPostgresFixturePolicy(entry) {
   return supportGoEntryPostgresFixturePolicy(entry) || defaultSupportPostgresFixturePolicy(entry);
+}
+
+function symbolCount(symbols) {
+  return Math.max(1, symbols.length);
+}
+
+function mergeDefaultPostgresBudget(explicitBudget, defaults) {
+  return {
+    ...defaults,
+    ...explicitBudget,
+  };
+}
+
+function defaultPostgresFixtureBudget(policy, symbols) {
+  const count = symbolCount(symbols);
+  switch (policy) {
+    case postgresFixturePolicyPackageReset:
+      return {
+        max_package_resets: count * defaultPackageResetBudget.max_package_resets_per_symbol,
+        max_reset_duration_ms:
+          count * defaultPackageResetBudget.max_reset_duration_ms_per_symbol,
+      };
+    case postgresFixturePolicyTemplateClone:
+      return {
+        max_template_clones:
+          count * defaultProcessTemplateCloneBudget.max_template_clones_per_symbol,
+      };
+    case postgresFixturePolicyTransaction:
+      return {
+        max_transactions: count * defaultTransactionBudget.max_transactions_per_symbol,
+      };
+    default:
+      return {};
+  }
+}
+
+export function effectiveGoEntryPostgresFixtureBudget(entry) {
+  const policy = effectiveGoEntryPostgresFixturePolicy(entry);
+  return mergeDefaultPostgresBudget(
+    goEntryPostgresFixtureBudget(entry),
+    defaultPostgresFixtureBudget(policy, goEntrySymbols(entry)),
+  );
+}
+
+export function effectiveSupportGoEntryPostgresFixtureBudget(entry) {
+  const policy = effectiveSupportGoEntryPostgresFixturePolicy(entry);
+  return mergeDefaultPostgresBudget(
+    supportGoEntryPostgresFixtureBudget(entry),
+    defaultPostgresFixtureBudget(policy, supportGoEntrySymbols(entry)),
+  );
 }
 
 function resetTableAssignments(entries, symbolsForEntry, budgetForEntry) {
@@ -262,19 +332,37 @@ function resetTableAssignments(entries, symbolsForEntry, budgetForEntry) {
 
 function validatePostgresFixtureBudget(entry, policy, budget, label) {
   if (policy === postgresFixturePolicyPackageReset) {
+    if (
+      entry.fixture_policy?.postgres === postgresFixturePolicyPackageReset &&
+      entry.fixture_budget?.postgres === undefined
+    ) {
+      throw new Error(`${label} explicit package_reset must declare fixture_budget.postgres`);
+    }
     if (budget.max_package_resets === undefined) {
       throw new Error(`${label} package_reset must declare fixture_budget.postgres.max_package_resets`);
     }
     if (budget.max_reset_duration_ms === undefined) {
       throw new Error(`${label} package_reset must declare fixture_budget.postgres.max_reset_duration_ms`);
     }
-    if (!Array.isArray(budget.dirty_tables) || budget.dirty_tables.length === 0) {
-      throw new Error(`${label} package_reset must declare fixture_budget.postgres.dirty_tables`);
-    }
-    if (typeof entry.package_reset_reason !== "string" || entry.package_reset_reason.trim() === "") {
-      throw new Error(`${label} package_reset must declare package_reset_reason`);
+    if (
+      entry.fixture_policy?.postgres === postgresFixturePolicyPackageReset &&
+      entry.fixture_budget?.postgres !== undefined
+    ) {
+      if (!Array.isArray(budget.dirty_tables) || budget.dirty_tables.length === 0) {
+        throw new Error(`${label} explicit package_reset budgets must declare fixture_budget.postgres.dirty_tables`);
+      }
+      if (typeof entry.package_reset_reason !== "string" || entry.package_reset_reason.trim() === "") {
+        throw new Error(`${label} explicit package_reset budgets must declare package_reset_reason`);
+      }
     }
     return;
+  }
+  if (
+    policy === postgresFixturePolicyTemplateClone &&
+    entry.fixture_policy?.postgres === postgresFixturePolicyTemplateClone &&
+    entry.fixture_budget?.postgres === undefined
+  ) {
+    throw new Error(`${label} explicit template_clone must declare fixture_budget.postgres`);
   }
   if (policy === postgresFixturePolicyTemplateClone && budget.max_template_clones === undefined) {
     throw new Error(`${label} template_clone must declare fixture_budget.postgres.max_template_clones`);
@@ -287,13 +375,19 @@ function validatePostgresFixtureBudget(entry, policy, budget, label) {
   }
   if (
     policy === postgresFixturePolicyMigrationScratch &&
+    entry.fixture_budget?.postgres === undefined
+  ) {
+    throw new Error(`${label} migration_scratch must declare fixture_budget.postgres`);
+  }
+  if (
+    policy === postgresFixturePolicyMigrationScratch &&
     budget.max_migration_scratch === undefined
   ) {
     throw new Error(`${label} migration_scratch must declare fixture_budget.postgres.max_migration_scratch`);
   }
 }
 
-function validateSupportMigrationScratch(entry, symbols, policy, budget, label) {
+function validateMigrationScratch(entry, symbols, policy, budget, label) {
   if (policy !== postgresFixturePolicyMigrationScratch) {
     return;
   }
@@ -312,10 +406,22 @@ function validateSupportMigrationScratch(entry, symbols, policy, budget, label) 
       `${label} migration_scratch_reason must justify migration, boundary, replay, upgrade, or backfill coverage`,
     );
   }
-  if (budget.max_migration_scratch > symbols.length) {
+  if (entry.target !== undefined && budget.max_migration_scratch > symbols.length) {
     throw new Error(
       `${label} migration_scratch budget must not exceed its support symbol count; split multi-database replay coverage into separate support symbols`,
     );
+  }
+}
+
+function validateTemplateCloneReason(entry, policy, label) {
+  if (policy !== postgresFixturePolicyTemplateClone) {
+    return;
+  }
+  if (entry.execution_dependency === "backend_process") {
+    return;
+  }
+  if (typeof entry.template_clone_reason !== "string" || entry.template_clone_reason.trim() === "") {
+    throw new Error(`${label} template_clone outside backend_process must declare template_clone_reason`);
   }
 }
 
@@ -541,7 +647,7 @@ export function validateManifest(root, phase) {
         }
       } else if (entry.runner === "go_test") {
         goEntrySymbols(entry);
-        const postgresFixturePolicy = goEntryPostgresFixturePolicy(entry);
+        const postgresFixturePolicy = effectiveGoEntryPostgresFixturePolicy(entry);
         if (
           typeof entry.execution_dependency === "string" &&
           serviceBackedGoExecutionDependencies.has(entry.execution_dependency) &&
@@ -562,9 +668,17 @@ export function validateManifest(root, phase) {
         validatePostgresFixtureBudget(
           entry,
           postgresFixturePolicy,
-          goEntryPostgresFixtureBudget(entry),
+          effectiveGoEntryPostgresFixtureBudget(entry),
           `manifest entry ${entry.id}`,
         );
+        validateMigrationScratch(
+          entry,
+          goEntrySymbols(entry),
+          postgresFixturePolicy,
+          effectiveGoEntryPostgresFixtureBudget(entry),
+          `manifest entry ${entry.id}`,
+        );
+        validateTemplateCloneReason(entry, postgresFixturePolicy, `manifest entry ${entry.id}`);
         if (typeof entry.package !== "string" || !entry.package.startsWith("./")) {
           throw new Error(`manifest entry ${entry.id} must declare a repo-relative Go package owner`);
         }
@@ -622,26 +736,27 @@ export function validateManifest(root, phase) {
       );
     }
     const symbols = supportGoEntrySymbols(entry);
-    const postgresFixturePolicy = supportGoEntryPostgresFixturePolicy(entry);
+    const postgresFixturePolicy = effectiveSupportGoEntryPostgresFixturePolicy(entry);
     if (serviceBackedSupportTargets.has(entry.target) && postgresFixturePolicy === "") {
       throw new Error(
         `${supportGoEntryLabel(entry)} must declare fixture_policy.postgres for service-backed support target ${entry.target}`,
       );
     }
-    const postgresFixtureBudget = supportGoEntryPostgresFixtureBudget(entry);
+    const postgresFixtureBudget = effectiveSupportGoEntryPostgresFixtureBudget(entry);
     validatePostgresFixtureBudget(
       entry,
       postgresFixturePolicy,
       postgresFixtureBudget,
       supportGoEntryLabel(entry),
     );
-    validateSupportMigrationScratch(
+    validateMigrationScratch(
       entry,
       symbols,
       postgresFixturePolicy,
       postgresFixtureBudget,
       supportGoEntryLabel(entry),
     );
+    validateTemplateCloneReason(entry, postgresFixturePolicy, supportGoEntryLabel(entry));
     for (const symbol of symbols) {
       if (!selectionPattern.test(symbol)) {
         throw new Error(
