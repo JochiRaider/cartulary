@@ -31,13 +31,13 @@
     "lint": "bash ../../scripts/run-frontend-biome.sh check",
     "test": "vitest",
     "test:e2e": "pnpm run test:e2e:functional && pnpm run test:e2e:stateful",
-    "test:e2e:functional": "playwright test e2e/phase1.spec.ts e2e/phase2.spec.ts e2e/phase3.spec.ts e2e/phase4.mentions.spec.ts e2e/phase4.merge.spec.ts e2e/phase4.autoresolve.spec.ts e2e/phase4.workbook.spec.ts --grep-invert \"E-1-05\"",
-    "test:e2e:stateful": "PLAYWRIGHT_WORKERS=1 playwright test e2e/phase1.spec.ts e2e/phase1.clock.spec.ts -g \"E-1-04|E-1-05\"",
-    "test:e2e:phase1": "PLAYWRIGHT_WORKERS=1 playwright test e2e/phase1.spec.ts e2e/phase1.clock.spec.ts",
-    "test:e2e:phase2": "playwright test e2e/phase2.spec.ts",
-    "test:e2e:phase3": "playwright test e2e/phase3.spec.ts",
-    "test:e2e:phase4": "playwright test e2e/phase4.mentions.spec.ts e2e/phase4.merge.spec.ts e2e/phase4.autoresolve.spec.ts e2e/phase4.workbook.spec.ts",
-    "test:e2e:visual": "playwright test e2e/workbook.visual.spec.ts",
+    "test:e2e:functional": "bash ../../scripts/run-browser-e2e-functional.sh",
+    "test:e2e:stateful": "bash ../../scripts/run-browser-e2e-stateful.sh",
+    "test:e2e:phase1": "bash ../../scripts/run-browser-e2e-functional.sh",
+    "test:e2e:phase2": "bash ../../scripts/run-browser-e2e-functional.sh",
+    "test:e2e:phase3": "bash ../../scripts/run-browser-e2e-functional.sh",
+    "test:e2e:phase4": "bash ../../scripts/run-browser-e2e-functional.sh",
+    "test:e2e:visual": "bash ../../scripts/run-browser-e2e-visual.sh",
     "typecheck": "tsc --noEmit"
   }
 }

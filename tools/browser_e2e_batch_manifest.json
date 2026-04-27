@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.browser_e2e_batch_manifest.v1",
+  "schema_id": "cartulary.browser_e2e_batch_manifest.v2",
   "stages": [
     {
       "name": "webserver-backed",
@@ -9,7 +9,7 @@
         {
           "name": "functional-support",
           "target": "browser-e2e-webserver-backed",
-          "kind": "webserver-backed",
+          "kind": "duration_balanced_specs",
           "workers": "default"
         }
       ]
@@ -22,7 +22,7 @@
         {
           "name": "functional",
           "target": "browser-e2e-functional",
-          "kind": "functional",
+          "kind": "duration_balanced_specs",
           "workers": "default"
         }
       ]

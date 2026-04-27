@@ -30,8 +30,8 @@ const fs = require("node:fs");
 
 const [manifestPath, stageName] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-if (manifest.schema_id !== "cartulary.browser_e2e_batch_manifest.v1") {
-  throw new Error(`${manifestPath} must declare schema_id cartulary.browser_e2e_batch_manifest.v1`);
+if (manifest.schema_id !== "cartulary.browser_e2e_batch_manifest.v2") {
+  throw new Error(`${manifestPath} must declare schema_id cartulary.browser_e2e_batch_manifest.v2`);
 }
 const matches = (manifest.stages ?? []).filter((entry) => entry?.name === stageName);
 if (matches.length !== 1) {
@@ -62,6 +62,7 @@ if (!Array.isArray(groups) || groups.length === 0) {
 }
 const allowedKinds = new Set([
   "webserver-backed",
+  "duration_balanced_specs",
   "functional",
   "support",
   "stateful",
@@ -125,6 +126,13 @@ run_group() {
   case "$kind" in
     webserver-backed)
       "${group_env[@]}" "$ROOT_DIR/scripts/run-browser-e2e-webserver-backed.sh"
+      ;;
+    duration_balanced_specs)
+      if [[ "$target" == "browser-e2e-webserver-backed" ]]; then
+        "${group_env[@]}" "$ROOT_DIR/scripts/run-browser-e2e-webserver-backed.sh"
+      else
+        "${group_env[@]}" "$ROOT_DIR/scripts/run-browser-e2e-functional.sh"
+      fi
       ;;
     functional)
       "${group_env[@]}" "$ROOT_DIR/scripts/run-browser-e2e-functional.sh"

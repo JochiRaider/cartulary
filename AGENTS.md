@@ -41,6 +41,7 @@
 - `make target-plan-json`
 - `make explain-target TARGET=<backend target>`
 - `make go-test-duration-baseline-drift RESULTS_DIR=<dir>`
+- `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>`
 - `make test`
 - `make lint`
 - `make check`
@@ -73,6 +74,7 @@
 - `make backend-store` runs the service-backed store-domain `U-*` backend slice that keeps unit-layer phase IDs while using real Postgres.
 - `make target-plan`, `make target-plan-json`, and `make explain-target TARGET=<backend target>` inspect the backend Go target execution plan without running tests or starting services.
 - `make go-test-duration-baseline-drift RESULTS_DIR=<dir>` verifies committed Go shard duration baselines against successful service-backed shard artifacts and fails when the planned weights are badly stale.
+- `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>` verifies committed browser functional spec duration baselines against successful Playwright timing artifacts and fails when planned weights are badly stale.
 - `make test-fast` runs the pure backend unit slice, the service-backed backend store and integration slices, the backend process or E2E slice, frontend type-checking, and the frontend unit suite for the narrower local loop.
 - `make test` is the authoritative full-corpus test surface. It runs pure backend unit, frontend type-check, and frontend unit work first, then shares one service-backed stage across backend service-backed work and `browser-e2e-webserver-backed`, and finally runs stateful, measurement, and visual browser suites through one isolated browser batch with explicit reset boundaries. The Phase 0 process evidence under `cmd/server` is part of this surface and is not a direct-only command.
 - `make check` is the developer verification gate. Toolchain drift and frontend install are early setup blockers. After setup, `tools/check_schedule_manifest.json` schedules the readiness gate and independent check work by declared resources. The gate runs service-backed backend work, shared-stack browser verification, and the isolated `browser-e2e` aggregate through one capacity-aware service-backed scheduler stage with a single browser slot, while static validation, harness smoke, migration verification, backend lint and tests, frontend type-check and tests, plus backend and frontend builds remain explicit scheduler work.

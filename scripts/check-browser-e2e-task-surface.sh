@@ -7,8 +7,11 @@ functional_script="$repo_root/scripts/run-browser-e2e-functional.sh"
 browser_batch_script="$repo_root/scripts/run-browser-e2e-batch.sh"
 browser_batch_manifest="$repo_root/tools/browser_e2e_batch_manifest.json"
 webserver_batch_script="$repo_root/scripts/lib/run-playwright-webserver-batch.sh"
+browser_shard_plan_script="$repo_root/scripts/lib/browser-shard-plan.mjs"
+browser_duration_baselines="$repo_root/tools/browser_e2e_duration_baselines.json"
 webserver_batch_config="$repo_root/apps/web/playwright.webserver-backed.config.ts"
 shared_playwright_config="$repo_root/apps/web/playwright.shared.config.ts"
+web_package_json="$repo_root/apps/web/package.json"
 stateful_script="$repo_root/scripts/run-browser-e2e-stateful.sh"
 measurement_script="$repo_root/scripts/run-browser-e2e-measurement.sh"
 resettable_script="$repo_root/scripts/run-browser-e2e-resettable.sh"
@@ -460,6 +463,12 @@ fi
 if ! [[ -f "$webserver_batch_script" ]]; then
   fail "missing scripts/lib/run-playwright-webserver-batch.sh"
 fi
+if ! [[ -f "$browser_shard_plan_script" ]]; then
+  fail "missing scripts/lib/browser-shard-plan.mjs"
+fi
+if ! [[ -f "$browser_duration_baselines" ]]; then
+  fail "missing tools/browser_e2e_duration_baselines.json"
+fi
 if ! [[ -f "$webserver_batch_config" ]]; then
   fail "missing apps/web/playwright.webserver-backed.config.ts"
 fi
@@ -500,8 +509,20 @@ if ! grep -Fq 'docker compose -f "${COMPOSE_FILE}" up -d postgres minio' "$start
   fail "scripts/start-web-e2e.sh must keep Compose-backed startup for standalone browser E2E"
 fi
 
-if ! grep -Fq 'cartulary.browser_e2e_batch_manifest.v1' "$browser_batch_manifest"; then
+if ! grep -Fq 'cartulary.browser_e2e_batch_manifest.v2' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must declare its schema"
+fi
+if ! grep -Fq '"kind": "duration_balanced_specs"' "$browser_batch_manifest"; then
+  fail "browser E2E batch manifest must route functional browser work through duration-balanced specs"
+fi
+if ! grep -Fq 'cartulary.browser_e2e_duration_baselines.v1' "$browser_duration_baselines"; then
+  fail "browser E2E duration baselines must declare their schema"
+fi
+if ! grep -Fq 'browser_functional' "$browser_shard_plan_script"; then
+  fail "browser shard planner must select authoritative browser_functional rows"
+fi
+if ! grep -Fq 'shard_target_ms' "$browser_duration_baselines"; then
+  fail "browser E2E duration baselines must declare shard_target_ms"
 fi
 if grep -Fq '"name": "all"' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must not keep the removed all stage"
@@ -546,20 +567,23 @@ fi
 if grep -Fq 'run-playwright-manifest-phase.sh' "$functional_script"; then
   fail "scripts/run-browser-e2e-functional.sh must not launch one Playwright process per manifest phase"
 fi
-if ! grep -Fq 'playwright-grep-many' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must build one multi-phase Playwright grep from manifest titles"
+if ! grep -Fq 'browser-shard-plan.mjs' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must use the browser shard planner"
 fi
-if ! grep -Fq 'playwright-files-many' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must build one multi-phase Playwright file list from manifest rows"
+if ! grep -Fq 'PLAYWRIGHT_WORKERS=1' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must run each functional shard with one Playwright worker"
 fi
-if ! grep -Fq 'list-phases' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must discover browser_functional phases through phase-manifest list-phases"
+if ! grep -Fq 'merge-reports' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must merge functional shard reports before phase summaries"
 fi
-if ! grep -Fq 'playwright-count "$phase" authoritative browser_functional' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must filter discovered phases by authoritative browser_functional manifest rows"
+if ! grep -Fq 'playwright_parallelism' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must cap browser spec shard parallelism by PLAYWRIGHT_WORKERS"
 fi
-if ! grep -Fq ':authoritative:browser_functional' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must select authoritative browser_functional manifest rows"
+if ! grep -Fq 'browser_functional' "$browser_shard_plan_script"; then
+  fail "scripts/lib/browser-shard-plan.mjs must select authoritative browser_functional manifest rows"
+fi
+if grep -Fq 'playwright-grep-many' "$webserver_batch_script"; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must not keep the old all-phase Playwright grep batch"
 fi
 browser_functional_phases=()
 while IFS= read -r phase; do
@@ -589,6 +613,9 @@ if ! grep -Fq 'accounting_mode=actual' "$webserver_batch_script"; then
 fi
 if grep -Fq 'if [[ "$index" == "0" ]]' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must not charge the full batch only to the first functional phase"
+fi
+if grep -Eq 'playwright test e2e/phase[0-9]' "$web_package_json"; then
+  fail "apps/web/package.json must not hardcode browser phase spec lists"
 fi
 if ! grep -Fq 'name: "functional"' "$webserver_batch_config"; then
   fail "apps/web/playwright.webserver-backed.config.ts must define the functional project"

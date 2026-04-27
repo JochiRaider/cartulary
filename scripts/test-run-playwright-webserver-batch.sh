@@ -87,15 +87,37 @@ if [[ -z "$output_file" ]]; then
 fi
 mkdir -p "$(dirname "$output_file")"
 
-node - "$output_file" "${FAKE_PLAYWRIGHT_MODE:-success}" <<'NODE'
+if [[ -n "${FAKE_PLAYWRIGHT_INVOCATIONS:-}" ]]; then
+  project="(none)"
+  previous=""
+  for arg in "$@"; do
+    if [[ "$previous" == "--project" ]]; then
+      project="$arg"
+      break
+    fi
+    previous="$arg"
+  done
+  printf 'project=%s files=%s\n' "$project" "${CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES//$'\n'/,}" >>"$FAKE_PLAYWRIGHT_INVOCATIONS"
+fi
+
+node - "$output_file" "${FAKE_PLAYWRIGHT_MODE:-success}" "$@" <<'NODE'
 const fs = require("node:fs");
 const path = require("node:path");
 
-const [outputFile, mode] = process.argv.slice(2);
+const [outputFile, mode, ...args] = process.argv.slice(2);
 const root = process.cwd();
 const specs = [];
 const baseTimeMs = Date.parse("2026-04-24T00:00:00.000Z");
 let timingIndex = 0;
+const projectIndex = args.indexOf("--project");
+const project = projectIndex === -1 ? "functional" : args[projectIndex + 1];
+const functionalFiles = new Set(
+  (process.env.CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES ?? "")
+    .split(/\r?\n/u)
+    .map((file) => file.trim().replace(/^apps\/web\/e2e\//u, ""))
+    .filter(Boolean),
+);
+const functionalGrep = new RegExp(process.env.CARTULARY_PLAYWRIGHT_FUNCTIONAL_GREP ?? ".*");
 
 function fakeResult(status, extra = {}) {
   const duration = 100 + timingIndex;
@@ -112,52 +134,63 @@ function fakeResult(status, extra = {}) {
   };
 }
 
-for (const phase of ["phase1", "phase2", "phase3", "phase4"]) {
-  const manifest = JSON.parse(
-    fs.readFileSync(path.join(root, "tools", `${phase}_test_map.json`), "utf8"),
-  );
-  for (const entry of manifest.e2e ?? []) {
-    if (
-      entry.runner !== "playwright" ||
-      entry.coverage !== "authoritative" ||
-      entry.execution_dependency !== "browser_functional"
-    ) {
-      continue;
+if (project === "functional") {
+  for (const phase of ["phase1", "phase2", "phase3", "phase4"]) {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(root, "tools", `${phase}_test_map.json`), "utf8"),
+    );
+    for (const entry of manifest.e2e ?? []) {
+      if (
+        entry.runner !== "playwright" ||
+        entry.coverage !== "authoritative" ||
+        entry.execution_dependency !== "browser_functional"
+      ) {
+        continue;
+      }
+      const file = entry.file.replace(/^apps\/web\/e2e\//, "");
+      if (functionalFiles.size > 0 && !functionalFiles.has(file)) {
+        continue;
+      }
+      if (!functionalGrep.test(entry.title)) {
+        continue;
+      }
+      if (mode === "mismatch" && (entry.id === "E-2-02" || entry.id === "E-2-03")) {
+        continue;
+      }
+      specs.push({
+        title: entry.title,
+        file,
+        tests: [{ results: [fakeResult("passed")] }],
+      });
     }
-    if (mode === "mismatch" && (entry.id === "E-2-02" || entry.id === "E-2-03")) {
-      continue;
-    }
-    specs.push({
-      title: entry.title,
-      file: entry.file.replace(/^apps\/web\/e2e\//, ""),
-      tests: [{ results: [fakeResult("passed")] }],
-    });
   }
 }
 
-for (const supportFile of ["phase2.support.spec.ts", "phase3.support.spec.ts"]) {
-  const source = fs.readFileSync(path.join(root, "apps", "web", "e2e", supportFile), "utf8");
-  for (const match of source.matchAll(/\btest\("([^"]+)"/g)) {
-    const failed =
-      mode === "support-failure" &&
-      supportFile === "phase3.support.spec.ts" &&
-      match[1].includes("sort, filter, and group");
-    specs.push({
-      title: match[1],
-      file: supportFile,
-      tests: [
-        {
-          results: [
-            failed
-              ? {
-                  ...fakeResult("failed"),
-                  error: { message: "support assertion failed" },
-                }
-              : fakeResult("passed"),
-          ],
-        },
-      ],
-    });
+if (project === "support") {
+  for (const supportFile of ["phase2.support.spec.ts", "phase3.support.spec.ts"]) {
+    const source = fs.readFileSync(path.join(root, "apps", "web", "e2e", supportFile), "utf8");
+    for (const match of source.matchAll(/\btest\("([^"]+)"/g)) {
+      const failed =
+        mode === "support-failure" &&
+        supportFile === "phase3.support.spec.ts" &&
+        match[1].includes("sort, filter, and group");
+      specs.push({
+        title: match[1],
+        file: supportFile,
+        tests: [
+          {
+            results: [
+              failed
+                ? {
+                    ...fakeResult("failed"),
+                    error: { message: "support assertion failed" },
+                  }
+                : fakeResult("passed"),
+            ],
+          },
+        ],
+      });
+    }
   }
 }
 
@@ -170,14 +203,40 @@ fi
 EOF
 chmod +x "$fake_playwright"
 
+success_invocations="$tmp_dir/batch-success-invocations.log"
 success_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
   CARTULARY_TEST_RUN_ID="batch-success" \
   NODE_BIN="${NODE:-node}" \
+  FAKE_PLAYWRIGHT_INVOCATIONS="$success_invocations" \
     "$HELPER" webserver-backed -- "$fake_playwright"
 )"
 assert_empty "$success_output" "playwright webserver batch success"
+assert_contains "$(cat "$success_invocations")" "project=functional" "functional shard invocation"
+assert_contains "$(cat "$success_invocations")" "project=support" "support project invocation"
+"${NODE:-node}" - "$success_invocations" <<'NODE'
+const fs = require("node:fs");
+const lines = fs.readFileSync(process.argv[2], "utf8").trim().split(/\n/u).filter(Boolean);
+const functional = lines.filter((line) => line.startsWith("project=functional "));
+if (functional.length < 2) {
+  throw new Error(`expected at least two functional shard invocations, got ${functional.length}`);
+}
+if (!functional.some((line) => line.includes("phase4.workbook.spec.ts"))) {
+  throw new Error("expected a functional shard containing phase4.workbook.spec.ts");
+}
+if (!functional.some((line) => line.includes("phase4.mentions.spec.ts"))) {
+  throw new Error("expected a functional shard containing phase4.mentions.spec.ts");
+}
+if (functional.some((line) =>
+  line.includes("phase4.autoresolve.spec.ts") &&
+  line.includes("phase4.mentions.spec.ts") &&
+  line.includes("phase4.merge.spec.ts") &&
+  line.includes("phase4.workbook.spec.ts")
+)) {
+  throw new Error("phase4 specs were not split across duration-balanced shards");
+}
+NODE
 success_root="$tmp_dir/results/batch-success/adhoc"
 phase1_summary="$success_root/browser-e2e-functional-phase1-authoritative/phase-summary.json"
 phase2_summary="$success_root/browser-e2e-functional-phase2-authoritative/phase-summary.json"

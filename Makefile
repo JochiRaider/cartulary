@@ -5,8 +5,8 @@ SHELL := /bin/bash
 .PHONY: bootstrap bootstrap-node-runtime frontend-toolchain frontend-install frontend-install-ci playwright-install
 .PHONY: db-up db-reset services-up services-wait postgres-wait minio-wait minio-init dev
 .PHONY: generate generate-drift toolchain-drift migration-drift deployable-shape deployable-shape-verify phase-map-check phase-ledgers phase-ledger-drift benchmark-claim-check task-surface-report task-surface-check
-.PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target go-test-duration-baselines go-test-duration-baseline-drift backend-task-surface-check service-backed-unit-check test-service-images run-harness-smoke-fast run-harness-smoke-fast-all run-harness-smoke-extended run-harness-smoke-extended-all run-harness-smoke-full run-harness-smoke-full-all run-phase-smoke run-phase-smoke-all phase-test-name-check
-.PHONY: harness-smoke-toolchain-pins harness-smoke-bootstrap-node-runtime harness-smoke-build-input-discovery harness-smoke-check-migrations harness-smoke-run-make-sequence-fast harness-smoke-run-make-sequence harness-smoke-release-task-surface harness-smoke-benchmark-claim-check harness-smoke-task-surface-report harness-smoke-go-test-duration-baselines harness-smoke-run-phase harness-smoke-run-go-target-fast harness-smoke-run-go-target harness-smoke-print-target-plan harness-smoke-service-backed-scheduler harness-smoke-check-scheduler harness-smoke-run-playwright-phase harness-smoke-run-playwright-manifest-phase harness-smoke-run-playwright-webserver-batch harness-smoke-run-vitest-phase harness-smoke-run-vitest-manifest-phase harness-smoke-web-e2e-lifecycle harness-smoke-dev-stack-lifecycle
+.PHONY: backend-unit backend-store backend-integration backend-integration-support backend-process phase0-process-e2e phase1-process-smoke phase2-process-smoke target-plan target-plan-json explain-target go-test-duration-baselines go-test-duration-baseline-drift browser-e2e-duration-baseline-drift backend-task-surface-check service-backed-unit-check test-service-images run-harness-smoke-fast run-harness-smoke-fast-all run-harness-smoke-extended run-harness-smoke-extended-all run-harness-smoke-full run-harness-smoke-full-all run-phase-smoke run-phase-smoke-all phase-test-name-check
+.PHONY: harness-smoke-toolchain-pins harness-smoke-bootstrap-node-runtime harness-smoke-build-input-discovery harness-smoke-check-migrations harness-smoke-run-make-sequence-fast harness-smoke-run-make-sequence harness-smoke-release-task-surface harness-smoke-benchmark-claim-check harness-smoke-task-surface-report harness-smoke-go-test-duration-baselines harness-smoke-browser-shard-plan harness-smoke-run-phase harness-smoke-run-go-target-fast harness-smoke-run-go-target harness-smoke-print-target-plan harness-smoke-service-backed-scheduler harness-smoke-check-scheduler harness-smoke-run-playwright-phase harness-smoke-run-playwright-manifest-phase harness-smoke-run-playwright-webserver-batch harness-smoke-run-vitest-phase harness-smoke-run-vitest-manifest-phase harness-smoke-web-e2e-lifecycle harness-smoke-dev-stack-lifecycle
 .PHONY: frontend-typecheck frontend-unit frontend-task-surface-check lint-biome lint-typecheck format format-frontend
 .PHONY: e2e browser-e2e browser-e2e-webserver-backed browser-e2e-functional browser-e2e-support browser-e2e-stateful browser-e2e-resettable browser-e2e-measurement browser-e2e-visual browser-e2e-task-surface-check
 .PHONY: test-local test-service-backed test-fast test-fast-service-backed test lint lint-go check check-preflight check-setup-blockers check-static-validation check-harness-smoke check-build-prereqs check-local-product check-go-test-duration-baseline-drift check-frontend-unit check-meta-validation check-service-backed ci release-check license-report sbom
@@ -83,7 +83,7 @@ TEST_FAST_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integratio
 CHECK_SERVICE_BACKED_CHILD_TARGETS := backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed,browser-e2e
 BROWSER_E2E_ISOLATED_CHILD_TARGETS := browser-e2e-stateful,browser-e2e-measurement,browser-e2e-visual
 BROWSER_E2E_RESETTABLE_CHILD_TARGETS := browser-e2e-measurement,browser-e2e-visual
-HARNESS_SMOKE_FAST_TARGETS := harness-smoke-toolchain-pins,harness-smoke-bootstrap-node-runtime,harness-smoke-build-input-discovery,harness-smoke-check-migrations,harness-smoke-run-make-sequence-fast,harness-smoke-release-task-surface,harness-smoke-benchmark-claim-check,harness-smoke-task-surface-report,harness-smoke-go-test-duration-baselines,harness-smoke-run-phase,harness-smoke-run-go-target-fast,harness-smoke-print-target-plan,harness-smoke-service-backed-scheduler,harness-smoke-check-scheduler,harness-smoke-run-playwright-phase,harness-smoke-run-playwright-manifest-phase,harness-smoke-run-playwright-webserver-batch,harness-smoke-run-vitest-phase,harness-smoke-run-vitest-manifest-phase
+HARNESS_SMOKE_FAST_TARGETS := harness-smoke-toolchain-pins,harness-smoke-bootstrap-node-runtime,harness-smoke-build-input-discovery,harness-smoke-check-migrations,harness-smoke-run-make-sequence-fast,harness-smoke-release-task-surface,harness-smoke-benchmark-claim-check,harness-smoke-task-surface-report,harness-smoke-go-test-duration-baselines,harness-smoke-browser-shard-plan,harness-smoke-run-phase,harness-smoke-run-go-target-fast,harness-smoke-print-target-plan,harness-smoke-service-backed-scheduler,harness-smoke-check-scheduler,harness-smoke-run-playwright-phase,harness-smoke-run-playwright-manifest-phase,harness-smoke-run-playwright-webserver-batch,harness-smoke-run-vitest-phase,harness-smoke-run-vitest-manifest-phase
 HARNESS_SMOKE_EXTENDED_TARGETS := harness-smoke-run-make-sequence,harness-smoke-run-go-target
 HARNESS_SMOKE_LIFECYCLE_TARGETS := harness-smoke-web-e2e-lifecycle,harness-smoke-dev-stack-lifecycle
 HARNESS_SMOKE_FULL_TARGETS := $(HARNESS_SMOKE_FAST_TARGETS),$(HARNESS_SMOKE_EXTENDED_TARGETS),$(HARNESS_SMOKE_LIFECYCLE_TARGETS)
@@ -219,6 +219,7 @@ help:
 		'  make explain-target TARGET=backend-store explain one backend target' \
 		'  make go-test-duration-baselines RESULTS_DIR=<dir> refresh Go test duration baselines' \
 		'  make go-test-duration-baseline-drift RESULTS_DIR=<dir> verify Go shard baseline freshness' \
+		'  make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir> verify browser spec baseline freshness' \
 		'' \
 		'frontend:' \
 		'  make frontend-typecheck    run TypeScript type checking' \
@@ -488,6 +489,7 @@ $(eval $(call harness_smoke_target,harness-smoke-release-task-surface,scripts/te
 $(eval $(call harness_smoke_target,harness-smoke-benchmark-claim-check,scripts/test-benchmark-claim-check.sh))
 $(eval $(call harness_smoke_target,harness-smoke-task-surface-report,scripts/test-task-surface-report.sh))
 $(eval $(call harness_smoke_target,harness-smoke-go-test-duration-baselines,scripts/test-go-test-duration-baselines.sh))
+$(eval $(call harness_smoke_target,harness-smoke-browser-shard-plan,scripts/test-browser-shard-plan.sh))
 $(eval $(call harness_smoke_target,harness-smoke-run-phase,scripts/test-run-phase.sh))
 $(eval $(call harness_smoke_target,harness-smoke-run-go-target-fast,scripts/test-run-go-target-fast.sh))
 $(eval $(call harness_smoke_target,harness-smoke-run-go-target,scripts/test-run-go-target.sh))
@@ -581,6 +583,9 @@ go-test-duration-baselines:
 
 go-test-duration-baseline-drift:
 	$(Q)results_dir="$(RESULTS_DIR)"; if [ -z "$$results_dir" ]; then results_dir="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)"; fi; node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/check-go-test-duration-baseline-drift.mjs $(if $(BASELINE_FILE),--baseline-file "$(BASELINE_FILE)") "$$results_dir"
+
+browser-e2e-duration-baseline-drift:
+	$(Q)results_dir="$(RESULTS_DIR)"; if [ -z "$$results_dir" ]; then results_dir="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)"; fi; node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/lib/browser-shard-plan.mjs check-baseline-drift $(if $(BASELINE_FILE),--baseline-file "$(BASELINE_FILE)") "$$results_dir"
 
 backend-store: export CARTULARY_TEST_TARGET := backend-store
 
