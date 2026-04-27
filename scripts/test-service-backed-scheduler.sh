@@ -41,6 +41,25 @@ assert_contains() {
   fi
 }
 
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  local label="$3"
+
+  if [[ "$haystack" == *"$needle"* ]]; then
+    fail "$label: expected output not to contain [$needle]"
+  fi
+}
+
+assert_file_present() {
+  local path="$1"
+  local label="$2"
+
+  if [[ ! -f "$path" ]]; then
+    fail "$label: expected $path to exist"
+  fi
+}
+
 assert_file_absent() {
   local path="$1"
   local label="$2"
@@ -48,6 +67,58 @@ assert_file_absent() {
   if [[ -e "$path" ]]; then
     fail "$label: expected $path to be absent"
   fi
+}
+
+assert_scheduler_artifacts() {
+  local dir="$1"
+  local run_id="$2"
+  local target="$3"
+  local expected_status="$4"
+  local expected_blocked="$5"
+  local expected_event="$6"
+  local summary_file="${dir}/results/${run_id}/${target}/scheduler-summary.json"
+  local events_file="${dir}/results/${run_id}/${target}/scheduler-events.jsonl"
+
+  assert_file_present "$summary_file" "$target scheduler summary"
+  assert_file_present "$events_file" "$target scheduler events"
+  "$NODE_BIN" - "$summary_file" "$events_file" "$expected_status" "$expected_blocked" "$expected_event" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile, eventsFile, expectedStatus, expectedBlocked, expectedEvent] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
+if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v1") {
+  throw new Error(`unexpected summary schema ${summary.schema_id}`);
+}
+if (summary.status !== expectedStatus) {
+  throw new Error(`summary status got ${summary.status} want ${expectedStatus}`);
+}
+if (!Array.isArray(summary.slowest_work_units) || summary.slowest_work_units.length === 0) {
+  throw new Error("summary must record slowest work");
+}
+if (!summary.artifacts?.events_jsonl || !summary.artifacts?.scheduler_logs_dir) {
+  throw new Error("summary must record scheduler artifact paths");
+}
+if (expectedBlocked !== "-") {
+  if (!summary.blocked_resources_seen.includes(expectedBlocked)) {
+    throw new Error(`summary missing blocked resource ${expectedBlocked}`);
+  }
+}
+if (events.length === 0) {
+  throw new Error("scheduler events must not be empty");
+}
+if (!events.every((event) => event.schema_id === "cartulary.service_backed_scheduler_event.v1")) {
+  throw new Error("unexpected scheduler event schema");
+}
+if (expectedEvent !== "-" && !events.some((event) => event.event === expectedEvent)) {
+  throw new Error(`missing scheduler event ${expectedEvent}`);
+}
+if (!events.some((event) => event.resource_limits && Object.keys(event.resource_limits).length > 0)) {
+  throw new Error("events must include resource limits");
+}
+if (!events.some((event) => event.resource_claims && Object.keys(event.resource_claims).length > 0)) {
+  throw new Error("events must include resource claims");
+}
+EOF
 }
 
 write_fake_make() {
@@ -417,6 +488,8 @@ run_scheduler() {
   FAKE_GO_FAIL_SHARD_STATUS="${FAKE_GO_FAIL_SHARD_STATUS:-}" \
   FAKE_GO_FAIL_FINALIZER_TARGET="${FAKE_GO_FAIL_FINALIZER_TARGET:-}" \
   FAKE_GO_FINALIZER_FAILURE_STATUS="${FAKE_GO_FINALIZER_FAILURE_STATUS:-}" \
+  VERBOSE="${VERBOSE:-}" \
+  CI_VERBOSE="${CI_VERBOSE:-}" \
   CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT= \
   CARTULARY_SERVICE_BACKED_GO_IO_LIMIT= \
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT="${CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT:-}" \
@@ -441,10 +514,18 @@ weighted_output="$(run_scheduler "$weighted_dir" "$weighted_manifest" test-fast-
 assert_contains "$weighted_output" "[STEP] test-fast-service-backed 1/3 backend-process mode=scheduler jobs=6" "weighted first child"
 assert_contains "$weighted_output" "[STEP] test-fast-service-backed 2/3 backend-integration-support mode=scheduler jobs=6" "weighted second child"
 assert_contains "$weighted_output" "[STEP] test-fast-service-backed 3/3 backend-store mode=scheduler jobs=6" "weighted third child"
-assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-process claims={go_cpu:1,go_io:1,minio:1,postgres:1,process:1} active=1 pending=2" "scheduler start telemetry"
-assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-store claims={go_cpu:1,go_io:1,minio:1,postgres:1} active=3 pending=0 active_resource_claims={go_cpu:3,go_io:3,minio:3,postgres:3,process:1}" "scheduler starts all compatible weighted children"
-assert_contains "$weighted_output" "resource_limits={browser_stack:" "scheduler resource limit telemetry includes browser stack"
-assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed finish work_unit=backend-process status=0" "scheduler finish telemetry"
+assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_units=3 finalizers=0 capacity={go_cpu:6,go_io:6,browser_stack:" "scheduler concise start"
+assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed progress completed=0/3 running=3 pending=0 blocked=0 finalizing=0" "scheduler concise progress"
+assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed summary status=pass completed=3/3 failed=none slowest=" "scheduler concise summary"
+assert_not_contains "$weighted_output" "active_resource_claims=" "default scheduler output hides raw active resources"
+assert_not_contains "$weighted_output" "claims={" "default scheduler output hides raw claims"
+assert_scheduler_artifacts "$weighted_dir" weighted test-fast-service-backed pass - start
+
+weighted_verbose_output="$(VERBOSE=1 run_scheduler "$weighted_dir" "$weighted_manifest" test-fast-service-backed weighted-verbose 2>&1)"
+assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-process claims={go_cpu:1,go_io:1,minio:1,postgres:1,process:1} active=1 pending=2" "verbose scheduler start telemetry"
+assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-store claims={go_cpu:1,go_io:1,minio:1,postgres:1} active=3 pending=0 active_resource_claims={go_cpu:3,go_io:3,minio:3,postgres:3,process:1}" "verbose scheduler starts all compatible weighted children"
+assert_contains "$weighted_verbose_output" "resource_limits={browser_stack:" "verbose scheduler resource limit telemetry includes browser stack"
+assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed finish work_unit=backend-process status=0" "verbose scheduler finish telemetry"
 
 resource_block_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-resource-block.XXXXXX")"
 cleanup_paths+=("$resource_block_dir")
@@ -455,8 +536,9 @@ write_manifest "$resource_block_manifest" test-fast-service-backed \
   'make_target|backend-store|9|"postgres": 1, "minio": 1, "go_cpu": 3, "go_io": 1' \
   'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 2, "go_io": 1, "process": 1'
 resource_block_output="$(run_scheduler "$resource_block_dir" "$resource_block_manifest" test-fast-service-backed resource-block 2>&1)"
-assert_contains "$resource_block_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-process claims={go_cpu:2,go_io:1,minio:1,postgres:1,process:1} active=2 pending=1 active_resource_claims={go_cpu:6,go_io:2,minio:2,postgres:2,process:1}" "weighted go_cpu resources fill capacity without oversubscription"
-assert_contains "$resource_block_output" "[SCHEDULER] test-fast-service-backed blocked reason=resources blocked_resources=go_cpu" "scheduler go_cpu-blocked telemetry"
+assert_contains "$resource_block_output" "blocked_resources=go_cpu" "scheduler go_cpu-blocked progress"
+assert_not_contains "$resource_block_output" "active_resource_claims=" "default blocked output hides raw active resources"
+assert_scheduler_artifacts "$resource_block_dir" resource-block test-fast-service-backed pass go_cpu blocked
 
 backend_capacity_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-backend-capacity.XXXXXX")"
 cleanup_paths+=("$backend_capacity_dir")
@@ -468,7 +550,7 @@ write_manifest "$backend_capacity_manifest" test-fast-service-backed \
   'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1' \
   'make_target|backend-integration-support|7|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1'
 backend_capacity_output="$(run_scheduler "$backend_capacity_dir" "$backend_capacity_manifest" test-fast-service-backed backend-capacity 2>&1)"
-assert_contains "$backend_capacity_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-integration-support claims={go_cpu:1,go_io:1,minio:1,postgres:1} active=4 pending=0 active_resource_claims={go_cpu:4,go_io:4,minio:4,postgres:4,process:1}" "go resource model starts all compatible backend work units"
+assert_contains "$backend_capacity_output" "[SCHEDULER] test-fast-service-backed summary status=pass completed=4/4 failed=none" "go resource model starts all compatible backend work units"
 
 io_block_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-io-block.XXXXXX")"
 cleanup_paths+=("$io_block_dir")
@@ -479,7 +561,7 @@ write_manifest "$io_block_manifest" test-fast-service-backed \
   'make_target|backend-store|9|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 3' \
   'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 2, "process": 1'
 io_block_output="$(run_scheduler "$io_block_dir" "$io_block_manifest" test-fast-service-backed io-block 2>&1)"
-assert_contains "$io_block_output" "[SCHEDULER] test-fast-service-backed blocked reason=resources blocked_resources=go_io" "scheduler go_io-blocked telemetry"
+assert_contains "$io_block_output" "blocked_resources=go_io" "scheduler go_io-blocked progress"
 
 browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser.XXXXXX")"
 cleanup_paths+=("$browser_dir")
@@ -492,8 +574,9 @@ browser_output="$(run_scheduler "$browser_dir" "$browser_manifest" test-service-
 assert_contains "$browser_output" "[STEP] test-service-backed 1/2 backend-process mode=scheduler jobs=6" "browser schedule backend child"
 assert_contains "$browser_output" "[STEP] test-service-backed 2/2 browser-e2e-webserver-backed mode=scheduler jobs=6" "browser schedule browser child"
 assert_contains "$browser_output" "[FAIL] test-service-backed kind=aggregate children=2/5 child_tests=2 child_failed=0" "browser schedule aggregate child tests"
-assert_contains "$browser_output" "claims={browser_stack:1,browser_stage_webserver_backed:1,minio:1,postgres:1,process:1}" "browser resource claims telemetry"
-assert_contains "$browser_output" "resource_limits={browser_stack:" "browser resource limits telemetry"
+assert_contains "$browser_output" "[SCHEDULER] test-service-backed summary status=pass completed=2/2 failed=none" "browser concise scheduler summary"
+assert_not_contains "$browser_output" "claims={browser_stack:1" "browser default output hides resource claims"
+assert_scheduler_artifacts "$browser_dir" browser test-service-backed pass - start
 
 eager_finalizer_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-eager-finalizer.XXXXXX")"
 cleanup_paths+=("$eager_finalizer_dir")
@@ -521,9 +604,8 @@ eager_finalizer_output="$(
   FAKE_GO_SLEEP_FINALIZE=0.05 \
     run_scheduler "$eager_finalizer_dir" "$eager_finalizer_manifest" test-service-backed eager-finalizer 2>&1
 )"
-assert_contains "$eager_finalizer_output" "[SCHEDULER] test-service-backed finalize-start target=backend-store" "go finalizer starts eagerly"
-assert_contains "$eager_finalizer_output" "[SCHEDULER] test-service-backed finalize-finish target=backend-store status=0" "go finalizer finishes eagerly"
 assert_contains "$eager_finalizer_output" "aggregate-reports/backend-store/fake-aggregate" "go finalizer uses target-scoped aggregate output"
+assert_scheduler_artifacts "$eager_finalizer_dir" eager-finalizer test-service-backed pass - finalize-start
 "$NODE_BIN" - "${eager_finalizer_dir}/make.log" <<'EOF'
 const fs = require("node:fs");
 const [logFile] = process.argv.slice(2);
@@ -560,10 +642,9 @@ shared_finalizer_output="$(
   FAKE_GO_SLEEP_FINALIZE_TARGET_DURATION=1.5 \
     run_scheduler "$shared_finalizer_dir" "$shared_finalizer_manifest" test-fast-service-backed shared-finalizer 2>&1
 )"
-assert_contains "$shared_finalizer_output" "[SCHEDULER] test-fast-service-backed finalize-start target=backend-integration" "backend-integration finalizer starts"
-assert_contains "$shared_finalizer_output" "[SCHEDULER] test-fast-service-backed finalize-start target=backend-integration-support" "backend-integration-support finalizer starts"
 assert_contains "$shared_finalizer_output" "aggregate-reports/backend-integration/fake-aggregate" "backend-integration aggregate output is target-scoped"
 assert_contains "$shared_finalizer_output" "aggregate-reports/backend-integration-support/fake-aggregate" "backend-integration-support aggregate output is target-scoped"
+assert_scheduler_artifacts "$shared_finalizer_dir" shared-finalizer test-fast-service-backed pass - finalize-start
 "$NODE_BIN" - "${shared_finalizer_dir}/make.log" "$shared_finalizer_shard" <<'EOF'
 const fs = require("node:fs");
 const [logFile, sharedShard] = process.argv.slice(2);
@@ -658,7 +739,9 @@ failure_status=$?
 set -e
 assert_equals "$failure_status" "7" "child failure status"
 assert_contains "$failure_output" "fake failure for backend-store" "child failure output"
+assert_contains "$failure_output" "[SCHEDULER] test-fast-service-backed summary status=fail completed=2/2 failed=backend-store" "failure scheduler summary"
 assert_contains "$failure_output" "[FAIL] test-fast-service-backed" "failure target summary"
+assert_scheduler_artifacts "$failure_dir" failure test-fast-service-backed fail - finish
 
 failed_shard_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-failed-shard.XXXXXX")"
 cleanup_paths+=("$failed_shard_dir")
@@ -677,9 +760,9 @@ failed_shard_status=$?
 set -e
 assert_equals "$failed_shard_status" "9" "failed shard finalizer status"
 assert_contains "$failed_shard_output" "fake shard failure for backend-store-shard-01" "failed shard output"
-assert_contains "$failed_shard_output" "[SCHEDULER] test-fast-service-backed finalize-start target=backend-store" "failed shard still finalizes target"
-assert_contains "$failed_shard_output" "[SCHEDULER] test-fast-service-backed finalize-finish target=backend-store status=9" "failed shard finalizer reports failure"
+assert_contains "$failed_shard_output" "[SCHEDULER] test-fast-service-backed summary status=fail completed=1/1 failed=finalize/backend-store" "failed shard scheduler summary"
 assert_contains "$failed_shard_output" "[FAIL] test-fast-service-backed" "failed shard parent summary"
+assert_scheduler_artifacts "$failed_shard_dir" failed-shard test-fast-service-backed fail - finalize-finish
 
 defer_summary_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-defer-summary.XXXXXX")"
 cleanup_paths+=("$defer_summary_dir")
@@ -730,8 +813,9 @@ dry_run_output="$(
     run_scheduler "$dry_run_dir" "$dry_run_manifest" test-service-backed dry-run 2>&1
 )"
 assert_contains "$dry_run_output" "[DRY-RUN] test-service-backed manifest=" "dry-run output"
-assert_contains "$dry_run_output" "resource_limits={browser_stack:2,browser_stage_isolated:1,browser_stage_visual:1,browser_stage_webserver_backed:1" "dry-run includes resolved browser stack and lanes"
-assert_contains "$dry_run_output" "browser-e2e-webserver-backed claims={browser_stack:1,browser_stage_webserver_backed:1,minio:1,postgres:1,process:1}" "dry-run includes browser lane claims"
+assert_contains "$dry_run_output" "resource_limits={go_cpu:6,go_io:6,browser_stack:2,process:2,postgres:32,minio:32" "dry-run includes compact resolved resources"
+assert_contains "$dry_run_output" "work_units=1 classes={browser:1} types={make_target:1} finalizers=0 top_weighted=browser-e2e-webserver-backed:10" "dry-run includes compact work summary"
+assert_not_contains "$dry_run_output" "claims={" "default dry-run hides per-unit claims"
 assert_file_absent "${dry_run_dir}/make.log" "dry-run child make log"
 
 go_shard_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-go-shard-dry-run.XXXXXX")"
@@ -741,6 +825,7 @@ go_shard_dry_run_manifest="${go_shard_dry_run_dir}/manifest.json"
 write_manifest "$go_shard_dry_run_manifest" test-fast-service-backed \
   'go_shards|backend-store|0|"postgres": 1, "minio": 1'
 go_shard_dry_run_output="$(
+  VERBOSE=1 \
   MAKEFLAGS=n \
     run_scheduler "$go_shard_dry_run_dir" "$go_shard_dry_run_manifest" test-fast-service-backed go-shard-dry-run 2>&1
 )"
@@ -759,10 +844,11 @@ const claimsByProfile = {
   cpu_heavy: "{go_cpu:2,go_io:1,minio:1,postgres:1}",
   io_heavy: "{go_cpu:1,go_io:2,minio:1,postgres:1}",
 };
-process.stdout.write(`backend-store/${shard.name} profile=${shard.scheduler_profile} claims=${claimsByProfile[shard.scheduler_profile]}`);
+process.stdout.write(`backend-store/${shard.name} type=go_shard class=backend profile=${shard.scheduler_profile} claims=${claimsByProfile[shard.scheduler_profile]}`);
 EOF
 )"
-assert_contains "$go_shard_dry_run_output" "$expected_go_shard_dry_run_line" "go_shards dry-run includes per-shard resource claims"
+assert_contains "$go_shard_dry_run_output" "work_units=1 classes={backend:1} types={go_shard:1} finalizers=1" "go_shards dry-run compact summary"
+assert_contains "$go_shard_dry_run_output" "$expected_go_shard_dry_run_line" "verbose go_shards dry-run includes per-shard resource claims"
 
 invalid_resource_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-invalid-resource.XXXXXX")"
 cleanup_paths+=("$invalid_resource_dir")

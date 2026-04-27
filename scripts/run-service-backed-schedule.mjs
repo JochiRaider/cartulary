@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,6 +22,9 @@ const goCPULimitEnv = "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT";
 const goIOLimitEnv = "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT";
 const browserStackLimitEnv = "CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
+const schedulerEventSchemaID = "cartulary.service_backed_scheduler_event.v1";
+const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v1";
+const schedulerProgressIntervalMs = 10_000;
 const autoLimitResources = new Set([goCPUResource, goIOResource, browserStackResource]);
 const validSourceTypes = new Set(["go_shards", "make_target"]);
 const validSourceClasses = new Set(["backend", "browser"]);
@@ -69,6 +72,42 @@ function parseArgs(argv) {
 function isDryRun() {
   const flags = ` ${process.env.MAKEFLAGS ?? ""} `;
   return flags.includes(" n") || flags.includes(" --just-print") || flags.includes(" --dry-run");
+}
+
+function verboseSchedulerOutput() {
+  return process.env.VERBOSE === "1" || process.env.CI_VERBOSE === "1";
+}
+
+function resolveResultsRoot() {
+  const configured = process.env.CARTULARY_TEST_RESULTS_DIR;
+  if (!configured) {
+    return path.join(repoRoot, ".cartulary", "test-results");
+  }
+  return path.isAbsolute(configured) ? configured : path.join(repoRoot, configured);
+}
+
+function schedulerTargetDir(target) {
+  const runID = process.env.CARTULARY_TEST_RUN_ID || "adhoc";
+  return path.join(resolveResultsRoot(), runID, target);
+}
+
+function normalizePath(value) {
+  return value.replaceAll("\\", "/");
+}
+
+function relToRepo(value) {
+  if (!value) {
+    return "";
+  }
+  const normalized = normalizePath(value);
+  if (!path.isAbsolute(value)) {
+    return normalized;
+  }
+  const relative = normalizePath(path.relative(repoRoot, value));
+  if (!relative.startsWith("../") && relative !== "..") {
+    return relative;
+  }
+  return normalized;
 }
 
 async function loadManifest(file) {
@@ -629,12 +668,16 @@ function unitCommand({ makeBin, unit, metadataDir, goTargetRunner }) {
   };
 }
 
-function runWorkUnit({ makeBin, unit, metadataDir, tempDir, started, goTargetRunner }) {
+function workUnitLogFile(logDir, unit, started) {
+  return path.join(logDir, `${String(started).padStart(2, "0")}-${sanitizeLogName(unit.id)}.log`);
+}
+
+function finalizerLogFile(logDir, target) {
+  return path.join(logDir, `finalize-${sanitizeLogName(target)}.log`);
+}
+
+function runWorkUnit({ makeBin, unit, metadataDir, logFile, goTargetRunner }) {
   const { command, args, env } = unitCommand({ makeBin, unit, metadataDir, goTargetRunner });
-  const logFile = path.join(
-    tempDir,
-    `${String(started).padStart(2, "0")}-${sanitizeLogName(unit.id)}.log`,
-  );
   return runCommand(command, args, logFile, env).then((result) => ({
     id: unit.id,
     label: unit.label,
@@ -643,8 +686,7 @@ function runWorkUnit({ makeBin, unit, metadataDir, tempDir, started, goTargetRun
   }));
 }
 
-function runFinalizer({ target, metadataDir, tempDir, testOutputScript, goTargetRunner }) {
-  const logFile = path.join(tempDir, `finalize-${sanitizeLogName(target)}.log`);
+function runFinalizer({ target, metadataDir, logFile, testOutputScript, goTargetRunner }) {
   return runCommand(
     goTargetRunner,
     ["finalize-shards", target, metadataDir],
@@ -737,6 +779,48 @@ function formatResourceList(values) {
   return values.join(",");
 }
 
+function formatLabelList(values, limit = 3) {
+  if (values.length === 0) {
+    return "none";
+  }
+  const displayed = values.slice(0, limit);
+  const suffix = values.length > limit ? `,+${values.length - limit}` : "";
+  return `${displayed.join(",")}${suffix}`;
+}
+
+function formatDurationMs(value) {
+  if (!Number.isFinite(value)) {
+    return "0.00s";
+  }
+  return `${(value / 1000).toFixed(2)}s`;
+}
+
+function resourceMapToObject(values) {
+  return Object.fromEntries(
+    Array.from(values.entries()).sort((left, right) => left[0].localeCompare(right[0])),
+  );
+}
+
+function resourceLimitSummary(resourceLimits) {
+  const preferred = [goCPUResource, goIOResource, browserStackResource, "process", "postgres", "minio"];
+  const seen = new Set();
+  const entries = [];
+  for (const resource of preferred) {
+    if (resourceLimits.has(resource)) {
+      entries.push(`${resource}:${resourceLimits.get(resource)}`);
+      seen.add(resource);
+    }
+  }
+  for (const [resource, value] of Array.from(resourceLimits.entries()).sort((left, right) =>
+    left[0].localeCompare(right[0]),
+  )) {
+    if (!seen.has(resource)) {
+      entries.push(`${resource}:${value}`);
+    }
+  }
+  return entries.join(",");
+}
+
 function schedulerTelemetry(schedule, event, fields) {
   process.stdout.write(`[SCHEDULER] ${schedule.target} ${event} ${fields.join(" ")}\n`);
 }
@@ -758,10 +842,321 @@ function finalizerIsReady(finalizer, completedShards) {
   return finalizer.shardNames.every((shardName) => completedShards.has(shardName));
 }
 
+function schedulerProgressDelay() {
+  let timeout;
+  const promise = new Promise((resolve) => {
+    timeout = setTimeout(() => resolve({ schedulerProgressTick: true }), schedulerProgressIntervalMs);
+  });
+  return {
+    promise,
+    cancel() {
+      clearTimeout(timeout);
+    },
+  };
+}
+
+async function createSchedulerReporter(schedule) {
+  const targetDir = schedulerTargetDir(schedule.target);
+  const logDir = path.join(targetDir, "scheduler-logs");
+  await mkdir(logDir, { recursive: true });
+  return new SchedulerReporter(schedule, targetDir, logDir);
+}
+
+class SchedulerReporter {
+  constructor(schedule, targetDir, logDir) {
+    this.schedule = schedule;
+    this.targetDir = targetDir;
+    this.logDir = logDir;
+    this.verbose = verboseSchedulerOutput();
+    this.eventsPath = path.join(targetDir, "scheduler-events.jsonl");
+    this.summaryPath = path.join(targetDir, "scheduler-summary.json");
+    this.events = createWriteStream(this.eventsPath, { flags: "w" });
+    this.startedAt = new Map();
+    this.completedWork = [];
+    this.blockedResourcesSeen = new Set();
+    this.lastProgressAt = 0;
+    this.lastBlockedKey = null;
+    this.completedCount = 0;
+    this.failedWorkUnit = null;
+  }
+
+  start() {
+    process.stdout.write(
+      `[SCHEDULER] ${this.schedule.target} start work_units=${this.schedule.workUnits.length} finalizers=${this.schedule.goFinalizers.length} capacity={${resourceLimitSummary(this.schedule.resourceLimits)}}\n`,
+    );
+  }
+
+  emit(event, fields, state, detail = {}) {
+    if (this.verbose) {
+      schedulerTelemetry(this.schedule, event, fields);
+    }
+    this.writeEvent(event, state, detail);
+  }
+
+  startUnit(unit, logFile, state) {
+    this.startedAt.set(unit.id, Date.now());
+    this.emit(
+      "start",
+      [
+        `work_unit=${unit.label}`,
+        `claims=${formatResourceClaims(unit.resourceClaims)}`,
+        ...schedulerStateFields(state),
+      ],
+      state,
+      {
+        work_unit: unit.label,
+        work_unit_id: unit.id,
+        work_unit_type: unit.type,
+        work_unit_class: unit.class,
+        aggregate_target: unit.aggregateTarget,
+        resource_claims: resourceMapToObject(unit.resourceClaims),
+        log_file: relToRepo(logFile),
+      },
+    );
+  }
+
+  finishUnit(unit, result, state) {
+    const durationMs = Math.max(0, Date.now() - (this.startedAt.get(unit.id) ?? Date.now()));
+    this.startedAt.delete(unit.id);
+    this.completedCount += 1;
+    const record = {
+      label: result.label,
+      id: result.id,
+      kind: "work_unit",
+      status: result.status,
+      duration_ms: durationMs,
+      log_file: relToRepo(result.logFile),
+    };
+    this.completedWork.push(record);
+    if (result.status !== 0 && !this.failedWorkUnit) {
+      this.failedWorkUnit = result.label;
+    }
+    this.emit(
+      "finish",
+      [
+        `work_unit=${result.label}`,
+        `status=${result.status}`,
+        ...schedulerStateFields(state),
+      ],
+      state,
+      {
+        work_unit: result.label,
+        work_unit_id: result.id,
+        status: result.status,
+        duration_ms: durationMs,
+        log_file: relToRepo(result.logFile),
+      },
+    );
+  }
+
+  startFinalizer(finalizer, logFile, state) {
+    const id = `finalize:${finalizer.target}`;
+    this.startedAt.set(id, Date.now());
+    this.emit(
+      "finalize-start",
+      [
+        `target=${finalizer.target}`,
+        `shards=${finalizer.shardNames.length}`,
+        `active_finalizers=${state.runningFinalizers.size}`,
+        `pending_finalizers=${state.pendingFinalizers.length}`,
+      ],
+      state,
+      {
+        finalizer: finalizer.target,
+        finalizer_id: id,
+        shards: finalizer.shardNames.length,
+        log_file: relToRepo(logFile),
+      },
+    );
+  }
+
+  finishFinalizer(finalizer, result, state) {
+    const id = `finalize:${finalizer.target}`;
+    const durationMs = Math.max(0, Date.now() - (this.startedAt.get(id) ?? Date.now()));
+    this.startedAt.delete(id);
+    const record = {
+      label: result.label,
+      id: result.id,
+      kind: "finalizer",
+      status: result.status,
+      duration_ms: durationMs,
+      log_file: relToRepo(result.logFile),
+    };
+    this.completedWork.push(record);
+    if (result.status !== 0 && !this.failedWorkUnit) {
+      this.failedWorkUnit = result.label;
+    }
+    this.emit(
+      "finalize-finish",
+      [
+        `target=${finalizer.target}`,
+        `status=${result.status}`,
+        `active_finalizers=${state.runningFinalizers.size}`,
+        `pending_finalizers=${state.pendingFinalizers.length}`,
+      ],
+      state,
+      {
+        finalizer: finalizer.target,
+        finalizer_id: id,
+        status: result.status,
+        duration_ms: durationMs,
+        log_file: relToRepo(result.logFile),
+      },
+    );
+  }
+
+  blocked(state, blockedResources) {
+    const blockedKey = blockedResources.join(",");
+    for (const resource of blockedResources) {
+      this.blockedResourcesSeen.add(resource);
+    }
+    this.emit(
+      "blocked",
+      [
+        "reason=resources",
+        `blocked_resources=${formatResourceList(blockedResources)}`,
+        ...schedulerStateFields(state),
+      ],
+      state,
+      {
+        reason: "resources",
+        blocked_resources: blockedResources,
+      },
+    );
+    this.maybeProgress(state, blockedResources, { force: blockedKey !== this.lastBlockedKey });
+    this.lastBlockedKey = blockedKey;
+  }
+
+  maybeProgress(state, blockedResources = [], { force = false } = {}) {
+    const now = Date.now();
+    if (!force && now - this.lastProgressAt < schedulerProgressIntervalMs) {
+      return;
+    }
+    this.lastProgressAt = now;
+    const runningLabels = Array.from(state.running.values()).map((unit) => unit.label);
+    const pendingLabels = state.pending.map((unit) => unit.label);
+    const blockedCount = state.pending.filter(
+      (unit) =>
+        blockedResourcesForUnit(unit, this.schedule.resourceLimits, state.activeResourceClaims).length > 0,
+    ).length;
+    process.stdout.write(
+      `[SCHEDULER] ${this.schedule.target} progress completed=${this.completedCount}/${this.schedule.workUnits.length} running=${state.running.size} pending=${state.pending.length} blocked=${blockedCount} finalizing=${state.runningFinalizers.size} running_units=${formatLabelList(runningLabels)} blocked_resources=${formatResourceList(blockedResources)} next=${formatLabelList(pendingLabels)}\n`,
+    );
+  }
+
+  async summary(status, { started, failedWorkUnit = null } = {}) {
+    const failed = failedWorkUnit || this.failedWorkUnit || null;
+    const slowest = this.slowestWork();
+    process.stdout.write(
+      `[SCHEDULER] ${this.schedule.target} summary status=${status} completed=${this.completedCount}/${this.schedule.workUnits.length} failed=${failed ?? "none"} slowest=${formatSlowestWork(slowest)}\n`,
+    );
+    await writeFile(
+      this.summaryPath,
+      `${JSON.stringify(
+        {
+          schema_id: schedulerSummarySchemaID,
+          target: this.schedule.target,
+          status,
+          total_work_units: this.schedule.workUnits.length,
+          completed_work_units: this.completedCount,
+          failed_work_unit: failed,
+          started_count: started,
+          finalizer_count: this.schedule.goFinalizers.length,
+          blocked_resources_seen: Array.from(this.blockedResourcesSeen).sort((left, right) =>
+            left.localeCompare(right),
+          ),
+          slowest_work_units: slowest,
+          artifacts: {
+            events_jsonl: relToRepo(this.eventsPath),
+            scheduler_logs_dir: relToRepo(this.logDir),
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+  }
+
+  slowestWork() {
+    return [...this.completedWork]
+      .sort((left, right) => right.duration_ms - left.duration_ms || left.label.localeCompare(right.label))
+      .slice(0, 5);
+  }
+
+  writeEvent(event, state, detail) {
+    this.events.write(
+      `${JSON.stringify({
+        schema_id: schedulerEventSchemaID,
+        target: this.schedule.target,
+        event,
+        timestamp: new Date().toISOString(),
+        pending: state.pending.length,
+        running: state.running.size,
+        completed: this.completedCount,
+        pending_finalizers: state.pendingFinalizers.length,
+        running_finalizers: state.runningFinalizers.size,
+        blocked_resources: detail.blocked_resources ?? [],
+        active_resource_claims: resourceMapToObject(state.activeResourceClaims),
+        resource_limits: resourceMapToObject(this.schedule.resourceLimits),
+        ...detail,
+      })}\n`,
+    );
+  }
+
+  close() {
+    return new Promise((resolve, reject) => {
+      this.events.on("error", reject);
+      this.events.end(resolve);
+    });
+  }
+}
+
+function formatSlowestWork(work) {
+  if (work.length === 0) {
+    return "none";
+  }
+  return work.map((entry) => `${entry.label}:${formatDurationMs(entry.duration_ms)}`).join(",");
+}
+
+function countBy(values, field) {
+  const counts = new Map();
+  for (const value of values) {
+    counts.set(value[field], (counts.get(value[field]) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .sort((left, right) => left[0].localeCompare(right[0]))
+    .map(([key, count]) => `${key}:${count}`)
+    .join(",");
+}
+
+function topWeightedUnits(workUnits, limit = 5) {
+  return [...workUnits]
+    .sort((left, right) => right.weight - left.weight || left.label.localeCompare(right.label))
+    .slice(0, limit)
+    .map((unit) => `${unit.label}:${unit.weight}`)
+    .join(",");
+}
+
+function writeDryRun(schedule, manifestPath, target) {
+  process.stdout.write(
+    `[DRY-RUN] ${target} manifest=${path.relative(repoRoot, manifestPath)} resource_limits={${resourceLimitSummary(schedule.resourceLimits)}} work_units=${schedule.workUnits.length} classes={${countBy(schedule.workUnits, "class")}} types={${countBy(schedule.workUnits, "type")}} finalizers=${schedule.goFinalizers.length} top_weighted=${topWeightedUnits(schedule.workUnits)}\n`,
+  );
+  if (!verboseSchedulerOutput()) {
+    return;
+  }
+  for (const unit of schedule.workUnits) {
+    const profile = unit.schedulerProfile ? ` profile=${unit.schedulerProfile}` : "";
+    process.stdout.write(
+      `[DRY-RUN] ${target} unit ${unit.label} type=${unit.type} class=${unit.class}${profile} claims=${formatResourceClaims(unit.resourceClaims)}\n`,
+    );
+  }
+}
+
 async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }) {
   const childrenCsv = schedule.children.join(",");
   const backendBudgetTargets = schedule.backendChildren;
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "cartulary-service-backed-schedule-"));
+  const reporter = await createSchedulerReporter(schedule);
   const metadataDir = path.join(tempDir, "go-shard-metadata");
   const pending = [...schedule.workUnits];
   const pendingFinalizers = schedule.goFinalizers.map((finalizer) => ({
@@ -777,8 +1172,18 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
     process.env[goTargetRunnerEnv] || path.join(repoRoot, "scripts", "run-go-target.sh");
   let started = 0;
   let firstFailure = 0;
+  let firstFailureLabel = null;
 
   try {
+    const stateSnapshot = () => ({
+      pending,
+      running,
+      pendingFinalizers,
+      runningFinalizers,
+      activeResourceClaims,
+      resourceLimits: schedule.resourceLimits,
+    });
+
     await runLifecycle(testOutputScript, [
       "target-start",
       schedule.target,
@@ -787,6 +1192,7 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
       "--service-backed",
       "1",
     ]);
+    reporter.start();
 
     const startUnit = async (unit) => {
       started += 1;
@@ -801,26 +1207,17 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
         "--jobs",
         String(capacityDisplay),
       ]);
+      const logFile = workUnitLogFile(reporter.logDir, unit, started);
       addResourceClaims(unit, activeResourceClaims);
       const promise = runWorkUnit({
         makeBin,
         unit,
         metadataDir,
-        tempDir,
-        started,
+        logFile,
         goTargetRunner,
       });
       running.set(promise, unit);
-      schedulerTelemetry(schedule, "start", [
-        `work_unit=${unit.label}`,
-        `claims=${formatResourceClaims(unit.resourceClaims)}`,
-        ...schedulerStateFields({
-          pending,
-          running,
-          activeResourceClaims,
-          resourceLimits: schedule.resourceLimits,
-        }),
-      ]);
+      reporter.startUnit(unit, logFile, stateSnapshot());
     };
 
     const startReadyFinalizers = () => {
@@ -831,20 +1228,16 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
           continue;
         }
         pendingFinalizers.splice(index, 1);
+        const logFile = finalizerLogFile(reporter.logDir, finalizer.target);
         const promise = runFinalizer({
           target: finalizer.target,
           metadataDir,
-          tempDir,
+          logFile,
           testOutputScript,
           goTargetRunner,
         });
         runningFinalizers.set(promise, finalizer);
-        schedulerTelemetry(schedule, "finalize-start", [
-          `target=${finalizer.target}`,
-          `shards=${finalizer.shardNames.length}`,
-          `active_finalizers=${runningFinalizers.size}`,
-          `pending_finalizers=${pendingFinalizers.length}`,
-        ]);
+        reporter.startFinalizer(finalizer, logFile, stateSnapshot());
       }
     };
 
@@ -865,19 +1258,14 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
         await startUnit(unit);
       }
 
-      if (pending.length > 0 && running.size > 0) {
-        schedulerTelemetry(schedule, "blocked", [
-          "reason=resources",
-          `blocked_resources=${formatResourceList(
-            blockedResourcesForPending(pending, schedule.resourceLimits, activeResourceClaims),
-          )}`,
-          ...schedulerStateFields({
-            pending,
-            running,
-            activeResourceClaims,
-            resourceLimits: schedule.resourceLimits,
-          }),
-        ]);
+      const blockedResources =
+        pending.length > 0 && running.size > 0
+          ? blockedResourcesForPending(pending, schedule.resourceLimits, activeResourceClaims)
+          : [];
+      if (blockedResources.length > 0) {
+        reporter.blocked(stateSnapshot(), blockedResources);
+      } else {
+        reporter.maybeProgress(stateSnapshot());
       }
 
       const waitables = [...running.keys(), ...runningFinalizers.keys()];
@@ -887,7 +1275,13 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
         );
       }
 
-      const result = await Promise.race(waitables);
+      const progressDelay = schedulerProgressDelay();
+      const result = await Promise.race([...waitables, progressDelay.promise]);
+      if (result?.schedulerProgressTick === true) {
+        reporter.maybeProgress(stateSnapshot(), blockedResources, { force: true });
+        continue;
+      }
+      progressDelay.cancel();
       let finishedUnit = null;
       for (const [promise, candidate] of running.entries()) {
         if (candidate.id === result.id) {
@@ -898,18 +1292,10 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
         }
       }
       if (finishedUnit) {
-        schedulerTelemetry(schedule, "finish", [
-          `work_unit=${result.label}`,
-          `status=${result.status}`,
-          ...schedulerStateFields({
-            pending,
-            running,
-            activeResourceClaims,
-            resourceLimits: schedule.resourceLimits,
-          }),
-        ]);
+        reporter.finishUnit(finishedUnit, result, stateSnapshot());
         if (result.status !== 0 && firstFailure === 0) {
           firstFailure = result.status;
+          firstFailureLabel = result.label;
         }
         if (finishedUnit.type === "go_shard") {
           completedShards.add(finishedUnit.shard);
@@ -922,15 +1308,11 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
       for (const [promise, finalizer] of runningFinalizers.entries()) {
         if (finalizer.target === result.id.replace(/^finalize:/, "")) {
           runningFinalizers.delete(promise);
-          schedulerTelemetry(schedule, "finalize-finish", [
-            `target=${finalizer.target}`,
-            `status=${result.status}`,
-            `active_finalizers=${runningFinalizers.size}`,
-            `pending_finalizers=${pendingFinalizers.length}`,
-          ]);
+          reporter.finishFinalizer(finalizer, result, stateSnapshot());
           await replayLog(result.logFile, result.status === 0 ? process.stdout : process.stderr);
           if (result.status !== 0 && firstFailure === 0) {
             firstFailure = result.status;
+            firstFailureLabel = result.label;
           }
           break;
         }
@@ -939,9 +1321,13 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
 
     if (firstFailure === 0 && backendBudgetTargets.length > 0) {
       firstFailure = await runPostgresFixtureBudgetCheck(backendBudgetTargets);
+      if (firstFailure !== 0) {
+        firstFailureLabel = "postgres-fixture-budget";
+      }
     }
 
     const requestedStatus = firstFailure === 0 ? "pass" : "fail";
+    await reporter.summary(requestedStatus, { started, failedWorkUnit: firstFailureLabel });
     if (!deferSummary) {
       await runLifecycle(
         testOutputScript,
@@ -951,6 +1337,7 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
     }
     return firstFailure;
   } finally {
+    await reporter.close();
     await rm(tempDir, { recursive: true, force: true });
   }
 }
@@ -965,14 +1352,7 @@ async function main() {
     process.env.TEST_OUTPUT_SCRIPT || path.join(repoRoot, "scripts", "lib", "test-output.sh");
 
   if (isDryRun()) {
-    process.stdout.write(
-      `[DRY-RUN] ${options.target} manifest=${path.relative(repoRoot, manifestPath)} resource_limits=${formatResourceLimits(schedule.resourceLimits)} work_units=${schedule.workUnits
-        .map((unit) => {
-          const profile = unit.schedulerProfile ? ` profile=${unit.schedulerProfile}` : "";
-          return `${unit.label}${profile} claims=${formatResourceClaims(unit.resourceClaims)}`;
-        })
-        .join(";")}\n`,
-    );
+    writeDryRun(schedule, manifestPath, options.target);
     return;
   }
 
