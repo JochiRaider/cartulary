@@ -1172,6 +1172,8 @@ The current Base claim manifest is:
 
 The phase tables above are the authoritative **test-id to REQ / AC mapping**. This section adds the summary views needed to keep the guide from drifting again.
 
+Repository phase maps under `tools/phase*_test_map.json` own the generated coverage-ledger metadata consumed by `make phase-ledgers` and `make phase-ledger-drift`. Every authoritative manifest row in every numbered phase map must declare non-empty `claim` and `out_of_scope` text so future phases receive the same ledger guarantees without validator code changes.
+
 ### 16.1 Phase-to-owner-section map
 
 | Phase    | Primary owner sections                                                                                                    |

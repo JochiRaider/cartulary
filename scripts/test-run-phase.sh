@@ -781,7 +781,9 @@ cat >"$go_manifest_tools/phase9_test_map.json" <<EOF
       "file": "${go_manifest_rel#./}/run_go_manifest_phase_smoke_test.go",
       "symbol": "TestPhase9_RunGoManifest_U_9_01",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "smoke"
+      "evidence_layer": "smoke",
+      "claim": "synthetic run-go manifest smoke",
+      "out_of_scope": "synthetic run-go manifest smoke"
     }
   ]
 }
@@ -798,7 +800,9 @@ cat >"$go_manifest_tools/phase10_test_map.json" <<EOF
       "file": "${go_manifest_rel#./}/run_go_manifest_phase_smoke_test.go",
       "symbol": "TestPhase10_RunGoManifest_U_10_01",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "smoke"
+      "evidence_layer": "smoke",
+      "claim": "synthetic run-go manifest skip smoke",
+      "out_of_scope": "synthetic run-go manifest skip smoke"
     }
   ]
 }
@@ -861,7 +865,9 @@ cat >"$go_manifest_tools/phase11_test_map.json" <<EOF
       "file": "${go_manifest_pkg_setup_rel#./}/run_go_manifest_phase_package_setup_test.go",
       "symbol": "TestPhase11_RunGoManifestPackageSetup_U_11_01",
       "execution_dependency": "backend_unit",
-      "evidence_layer": "smoke"
+      "evidence_layer": "smoke",
+      "claim": "synthetic run-go manifest package setup smoke",
+      "out_of_scope": "synthetic run-go manifest package setup smoke"
     }
   ]
 }

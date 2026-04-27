@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -10,6 +10,7 @@ import {
   renderTaskSurfaceMake,
   taskSurfaceSchemaID,
 } from "./lib/task-surface.mjs";
+import { collectEntries, loadManifest, phaseManifestNames } from "./lib/phase-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
@@ -134,28 +135,17 @@ function collectDirectScriptRefs(source) {
 }
 
 function collectPhaseDependencies() {
-  const toolsDir = path.join(repoRoot, "tools");
   const rows = [];
-  if (!existsSync(toolsDir)) {
-    return rows;
-  }
 
-  for (const file of readdirSync(toolsDir).sort()) {
-    const match = /^(phase\d+)_test_map\.json$/.exec(file);
-    if (!match) {
-      continue;
-    }
-    const phase = match[1];
-    const manifest = readJSON(path.join(toolsDir, file));
+  for (const phase of phaseManifestNames(repoRoot)) {
+    const { manifest } = loadManifest(repoRoot, phase);
     const counts = new Map();
-    for (const section of ["unit", "integration", "e2e"]) {
-      for (const entry of manifest[section] ?? []) {
-        if (typeof entry.execution_dependency !== "string" || entry.execution_dependency === "") {
-          continue;
-        }
-        const key = `${section}:${entry.execution_dependency}`;
-        counts.set(key, (counts.get(key) ?? 0) + 1);
+    for (const entry of collectEntries(manifest)) {
+      if (typeof entry.execution_dependency !== "string" || entry.execution_dependency === "") {
+        continue;
       }
+      const key = `${entry.section}:${entry.execution_dependency}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     for (const [key, count] of counts.entries()) {
       const [section, executionDependency] = key.split(":", 2);

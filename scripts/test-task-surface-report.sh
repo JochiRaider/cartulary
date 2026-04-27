@@ -63,6 +63,36 @@ assert_contains "$valid_output" "Cartulary task-surface report" "current report 
 assert_contains "$valid_output" "browser-e2e-measurement" "current report measurement target"
 assert_contains "$valid_output" "phase-map execution dependencies" "current report phase dependency section"
 
+phase_root="$(mktemp -d "$ROOT_DIR/tmp/task-surface-phase-root.XXXXXX")"
+cleanup_paths+=("$phase_root")
+mkdir -p "$phase_root/tools"
+cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
+{
+  "expected_ids": ["U-99-01"],
+  "unit": [
+    {
+      "id": "U-99-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_store_test.go",
+      "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05",
+      "execution_dependency": "backend_store",
+      "execution_family": "backend-store",
+      "execution_label": "Backend store",
+      "evidence_layer": "store_domain",
+      "claim": "task surface report discovers future phase dependencies",
+      "out_of_scope": "task surface report discovers future phase dependencies"
+    }
+  ]
+}
+JSON
+synthetic_report="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" "$NODE_BIN" "$REPORTER" --json
+)"
+assert_contains "$synthetic_report" '"phase": "phase99"' "synthetic task-surface phase dependency"
+assert_contains "$synthetic_report" '"execution_dependency": "backend_store"' "synthetic task-surface execution dependency"
+
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/task-surface-report.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 makefile_copy="$tmp_dir/Makefile"

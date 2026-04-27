@@ -825,7 +825,9 @@ cat >"$manifest_smoke_tools/phase20_test_map.json" <<EOF
       "execution_dependency": "backend_unit",
       "execution_family": "backend-unit-core",
       "execution_label": "Backend unit core",
-      "evidence_layer": "smoke"
+      "evidence_layer": "smoke",
+      "claim": "synthetic support manifest smoke",
+      "out_of_scope": "synthetic support manifest smoke"
     }
   ]
 }
@@ -858,7 +860,9 @@ cat >"$manifest_smoke_tools/phase21_test_map.json" <<EOF
       "execution_dependency": "backend_unit",
       "execution_family": "backend-unit-core",
       "execution_label": "Backend unit core",
-      "evidence_layer": "smoke"
+      "evidence_layer": "smoke",
+      "claim": "synthetic missing support symbol smoke",
+      "out_of_scope": "synthetic missing support symbol smoke"
     }
   ]
 }
@@ -901,7 +905,9 @@ cat >"$manifest_smoke_tools/phase22_test_map.json" <<EOF
       "execution_dependency": "backend_unit",
       "execution_family": "backend-unit-core",
       "execution_label": "Backend unit core",
-      "evidence_layer": "smoke"
+      "evidence_layer": "smoke",
+      "claim": "synthetic invalid support target smoke",
+      "out_of_scope": "synthetic invalid support target smoke"
     }
   ]
 }
@@ -944,7 +950,9 @@ cat >"$manifest_smoke_tools/phase23_test_map.json" <<EOF
       "execution_dependency": "backend_unit",
       "execution_family": "backend-unit-core",
       "execution_label": "Backend unit core",
-      "evidence_layer": "smoke"
+      "evidence_layer": "smoke",
+      "claim": "synthetic support selection mismatch smoke",
+      "out_of_scope": "synthetic support selection mismatch smoke"
     }
   ]
 }
@@ -987,7 +995,9 @@ cat >"$manifest_smoke_tools/phase24_test_map.json" <<EOF
       "execution_dependency": "backend_unit",
       "execution_family": "backend-unit-core",
       "execution_label": "Backend unit core",
-      "evidence_layer": "smoke"
+      "evidence_layer": "smoke",
+      "claim": "synthetic support package mismatch smoke",
+      "out_of_scope": "synthetic support package mismatch smoke"
     }
   ]
 }

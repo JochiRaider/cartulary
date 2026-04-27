@@ -1,5 +1,48 @@
 {
   "note": "Phase 2 authoritative execution manifest. Support-only unit decoder regressions, HTTP conformance, browser-request probes, smoke tests, and extra regressions stay outside this map.",
+  "ledger": {
+    "title": "Phase 2 Coverage Ledger",
+    "scope": "incident create or list or get or patch, bootstrap membership and workbook preferences, incident membership administration, incident-scoped authorization, extension discovery and reserved-family dispatch, plus the ordinary landing and incident-shell Phase 2 UI.",
+    "normative_owners": "Core 01 `§3.3.1`, `§3.3.3`, `§3.3.5.1`, `§3.3.5.2`, `§3.3.5.3`; Core 02 `§4.5`; Core 04 `§2`, `§3`.",
+    "notes": [],
+    "authoritative_execution": [
+      "`backend-unit` selects authoritative `U-2-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase2 unit authoritative backend_unit`.",
+      "`backend-store` selects store-backed authoritative `U-2-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase2 unit authoritative backend_store`.",
+      "`backend-integration` selects authoritative `I-2-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase2 integration authoritative backend_integration`.",
+      "`frontend-unit` selects authoritative `U-2-*` rows only through the Phase 2 Vitest manifest for `frontend_unit`.",
+      "`tools/browser_e2e_batch_manifest.json` owns browser batch grouping for Phase 2: `browser-e2e-webserver-backed` carries authoritative `E-2-*` rows through duration-balanced Playwright spec shards for `test` and `check`, while direct `browser-e2e-webserver-backed` and helper-only `browser-e2e-functional` select the same rows through manifest-driven `browser_functional` shard planning. The scheduler-visible `browser-e2e` aggregate is reserved for isolated stateful, measurement, and visual browser batches."
+    ],
+    "support_execution_extras": [
+      "`backend-integration-support` emits a shared-capture support report rather than a second independent runtime.",
+      "`make browser-e2e-support` is a helper slice also exercised inside the `browser-e2e-webserver-backed` browser batch and does not provide additional authoritative confirmation.",
+      "Phase 2 process smoke now runs as supplemental manifest coverage inside the `backend-process` execution family instead of a separate helper target."
+    ],
+    "sections": {
+      "unit": "Unit",
+      "integration": "Integration",
+      "e2e": "Browser E2E"
+    },
+    "shared_harness": [
+      "| Harness | Phase 2 evidence |",
+      "| --- | --- |",
+      "| Public-route inventory ownership | `internal/testutil/phase2test.PublicRouteInventory()` owns the Phase 2 HTTP success-envelope inventory and is the source of truth for success status, CSRF expectation, envelope coverage, and mutation-owner metadata across Phase 2 owned routes. |",
+      "| Role-aware control boundary inventory | `internal/testutil/phase2test.ControlBoundaryInventory()` owns the incident-scoped control boundary matrix exercised by `I-2-03` and the deployment-admin-without-membership support sweep, including workbook-preference reads, membership administration, Timeline or entity queries, lifecycle actions, and the websocket boundary. |",
+      "| Route inventory groups | The grouped helpers under `internal/testutil/phase2test` split public and control-boundary inventory by stable route family so backend integration shards stay independently schedulable as future phases add routes. |",
+      "| Owner-aware mutation helpers | `internal/testutil/phase2test.LookupOwnerMutations()`, `RequireOwnerMutationEvent()`, `CountMutationArtifacts()`, and `RequireNoMutationArtifacts()` keep Phase 2 tests tied to incident resource or membership mutation ownership on the current audit substrate instead of naming `deployment_admin_audit_events` directly. |",
+      "| Store-domain incident helpers | `internal/testutil/phase2storetest.StartStore()`, `SeedLocalUserRecord()`, `CreateIncidentInStore()`, `CreateMembershipInStore()`, `LookupUserByID()`, `LookupUserByEmail()`, and `SnapshotIncidentCreateReplaySideEffects()` keep Phase 2 store-backed unit rows aligned with the Phase 3 helper pattern instead of embedding one-off SQL in each test. |",
+      "| Reusable incident route fixture helpers | `internal/modules/incidents/phase2_inventory_helpers_test.go` centralizes the seeded incident, membership, and record fixture setup plus route execution helpers shared by the Phase 2 support and integration matrices. |",
+      "| Frontend ordinary-shell component coverage | `apps/web/src/App.landing.test.tsx` and `apps/web/src/IncidentAdminPanel.test.tsx` keep the authoritative frontend-unit evidence on the ordinary landing or incident shell rather than the debug-only `Phase2Harness`. |",
+      "| Audit-substrate follow-on | Phase 2 currently proves owner-level mutation attribution through the existing audit substrate only. Whether Phase 2 incident mutations should migrate onto `change_sets` is a separate owner decision and is not asserted by this ledger. |"
+    ],
+    "support_only": [
+      "`internal/modules/incidents/phase2_http_conformance_test.go::TestSupportPhase2_PublicRouteInventory*Envelopes` loops grouped `PublicRouteInventory*()` entries and proves the success-envelope contract stays attached to the shared inventory rather than scattered route lists.",
+      "`internal/modules/incidents/phase2_http_conformance_test.go::TestSupportPhase2_ControlBoundary*DeploymentAdminWithoutMembershipDenied` loops grouped `ControlBoundaryInventory*()` entries and proves deployment-admin-without-membership denial across the same incident-scoped surface that `I-2-03` re-derives through same-session role changes.",
+      "`internal/modules/incidents/phase2_support_test.go::TestSupportPhase2Unit_MembershipPatchAndDeleteDecodeAndLastAdminGuardStayStable` keeps pure decoder-shape and `last_incident_admin` guard regression coverage on the executed `backend-unit` support surface. It does not replace `U-2-07`.",
+      "`internal/modules/incidents/phase2_extra_integration_test.go` keeps membership replay and before-or-after mutation payload regressions that strengthen confidence but do not replace the authoritative `I-2-*` rows.",
+      "`apps/web/e2e/phase2.support.spec.ts` and browser-authenticated request probes remain supplemental browser evidence for request-shape regressions and reserved-route behavior.",
+      "`apps/web/src/Phase2Harness.tsx` remains a debug-only probe surface behind `?debug=harness` and is not completion evidence."
+    ]
+  },
   "expected_ids": [
     "U-2-01",
     "U-2-02",

@@ -50,7 +50,7 @@ function main() {
   const drifts = [];
 
   try {
-    for (const { phase, outputPath } of phaseLedgerOutputs) {
+    for (const { phase, outputPath } of phaseLedgerOutputs(root)) {
       const committedPath = path.join(root, outputPath);
       const renderedPath = renderTempLedger(root, tempRoot, phase, outputPath);
       const committed = readFileSync(committedPath, "utf8");

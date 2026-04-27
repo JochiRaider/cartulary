@@ -200,6 +200,36 @@ JSON
 discovered_phases="$(CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" "$NODE_HELPER" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" list-phases)"
 assert_contains "$discovered_phases" "phase99" "phase manifest discovery includes phase99"
 
+phase_map_discovery_root="$tmp_dir/phase-map-discovery-root"
+mkdir -p "$phase_map_discovery_root/tools"
+cat >"$phase_map_discovery_root/tools/phase5_test_map.json" <<'JSON'
+{
+  "expected_ids": ["U-5-01"],
+  "unit": [
+    {
+      "id": "U-5-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_store_test.go",
+      "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05",
+      "execution_dependency": "backend_store",
+      "execution_family": "backend-store",
+      "execution_label": "Backend store",
+      "evidence_layer": "store_domain",
+      "claim": "phase-map discovery validates future phase manifests",
+      "out_of_scope": "phase-map discovery validates future phase manifests"
+    }
+  ]
+}
+JSON
+phase5_check_maps_output="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$phase_map_discovery_root" \
+  NODE_BIN="$NODE_HELPER" \
+    "$ROOT_DIR/scripts/check-phase-maps.sh"
+)"
+assert_contains "$phase5_check_maps_output" "phase5 traceability map verified" "check-phase-maps discovers phase5"
+
 phase99_plan="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" \
     "$NODE_HELPER" "$PLAN_SCRIPT" --json
@@ -269,6 +299,40 @@ JSON
 if ! CARTULARY_PHASE_MANIFEST_ROOT="$missing_policy_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 >/dev/null 2>&1; then
   fail "phase manifest validation must allow missing service-backed postgres fixture policies when defaults apply"
 fi
+
+missing_claim_root="$tmp_dir/missing-claim-root"
+mkdir -p "$missing_claim_root/tools"
+cat >"$missing_claim_root/tools/phase99_test_map.json" <<'JSON'
+{
+  "expected_ids": ["U-99-01"],
+  "unit": [
+    {
+      "id": "U-99-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_store_test.go",
+      "symbol": "TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05",
+      "execution_dependency": "backend_store",
+      "execution_family": "backend-store",
+      "execution_label": "Backend store",
+      "evidence_layer": "store_domain",
+      "out_of_scope": "missing claim smoke"
+    }
+  ]
+}
+JSON
+
+set +e
+missing_claim_output="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$missing_claim_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 2>&1
+)"
+missing_claim_status=$?
+set -e
+if [[ "$missing_claim_status" -eq 0 ]]; then
+  fail "phase manifest validation must reject authoritative entries without claim"
+fi
+assert_contains "$missing_claim_output" "must declare a non-empty claim" "missing claim validation output"
 
 missing_budget_root="$tmp_dir/missing-budget-root"
 mkdir -p "$missing_budget_root/tools"
@@ -369,7 +433,9 @@ cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
       "execution_dependency": "backend_unit",
       "execution_family": "backend-unit-core",
       "execution_label": "Backend unit core",
-      "evidence_layer": "fixture_policy_validation"
+      "evidence_layer": "fixture_policy_validation",
+      "claim": "synthetic migration scratch validation smoke",
+      "out_of_scope": "synthetic migration scratch validation smoke"
     }
   ]
 }
@@ -378,3 +444,65 @@ JSON
 if CARTULARY_PHASE_MANIFEST_ROOT="$missing_migration_reason_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 >/dev/null 2>&1; then
   fail "phase manifest validation must reject support migration_scratch without migration_scratch_reason"
 fi
+
+ledger_root="$tmp_dir/ledger-root"
+mkdir -p "$ledger_root/tools" "$ledger_root/internal/modules/auth" "$ledger_root/cmd/server"
+cat >"$ledger_root/internal/modules/auth/phase99_test.go" <<'EOF'
+package auth
+
+func TestPhase99_Ledger_U_99_01() {}
+EOF
+cat >"$ledger_root/tools/phase99_test_map.json" <<'JSON'
+{
+  "note": "Synthetic ledger phase.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "scope": "synthetic future phase ledger smoke.",
+    "normative_owners": "Synthetic owner.",
+    "notes": ["Synthetic note."],
+    "authoritative_execution": [
+      "`backend-unit` selects authoritative `U-99-*` rows through manifest discovery."
+    ],
+    "support_execution_extras": [],
+    "sections": {
+      "unit": "Unit"
+    },
+    "shared_harness": [
+      "| Harness | Phase 99 evidence |",
+      "| --- | --- |",
+      "| Synthetic harness | Synthetic future phase ledger smoke. |"
+    ],
+    "support_only": [
+      "Synthetic support-only evidence."
+    ]
+  },
+  "expected_ids": ["U-99-01"],
+  "unit": [
+    {
+      "id": "U-99-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase99_test.go",
+      "symbol": "TestPhase99_Ledger_U_99_01",
+      "execution_dependency": "backend_unit",
+      "execution_family": "backend-unit-auth",
+      "execution_label": "Backend unit auth",
+      "evidence_layer": "ledger_smoke",
+      "claim": "synthetic future phases render ledger metadata without renderer code changes",
+      "out_of_scope": "synthetic future phases render ledger metadata without renderer code changes"
+    }
+  ]
+}
+JSON
+
+ledger_render_output="$(
+  cd "$ledger_root"
+  CARTULARY_PHASE_MANIFEST_ROOT="$ledger_root" "$NODE_HELPER" "$ROOT_DIR/scripts/render-phase-ledgers.mjs"
+)"
+assert_contains "$ledger_render_output" "rendered docs/testing/phase99_coverage_ledger.md" "future phase ledger render"
+ledger_drift_output="$(
+  cd "$ledger_root"
+  CARTULARY_PHASE_MANIFEST_ROOT="$ledger_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-ledger-drift.mjs"
+)"
+assert_contains "$ledger_drift_output" "phase coverage ledgers verified" "future phase ledger drift check"

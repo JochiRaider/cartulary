@@ -610,12 +610,6 @@ export function collectSupportGoEntries(manifest) {
 export function validateManifest(root, phase) {
   const phaseNumber = phaseNumberFromPhase(phase);
   const { manifestPath, manifest } = loadManifest(root, phase);
-  const requireLedgerClaims =
-    phase === "phase0" ||
-    phase === "phase1" ||
-    phase === "phase2" ||
-    phase === "phase3" ||
-    phase === "phase4";
 
   if (!Array.isArray(manifest.expected_ids) || manifest.expected_ids.length === 0) {
     throw new Error(`manifest ${manifestPath} must define a non-empty expected_ids array`);
@@ -707,7 +701,7 @@ export function validateManifest(root, phase) {
       if (typeof entry.evidence_layer !== "string" || entry.evidence_layer.trim() === "") {
         throw new Error(`manifest entry ${entry.id} must declare evidence_layer`);
       }
-      if (requireLedgerClaims) {
+      if (entry.coverage === "authoritative") {
         if (typeof entry.claim !== "string" || entry.claim.trim() === "") {
           throw new Error(`manifest entry ${entry.id} must declare a non-empty claim`);
         }
@@ -820,7 +814,9 @@ export function validateManifest(root, phase) {
     );
   }
 
-  const guideExpectedIDs = loadGuideExpectedIDs(root, phaseNumber);
+  const guideExpectedIDs = process.env.CARTULARY_PHASE_MANIFEST_ROOT
+    ? []
+    : loadGuideExpectedIDs(root, phaseNumber);
   if (guideExpectedIDs.length > 0) {
     const guideMissing = guideExpectedIDs.filter((id) => !expected.includes(id));
     const guideUnexpected = expected.filter((id) => !guideExpectedIDs.includes(id));

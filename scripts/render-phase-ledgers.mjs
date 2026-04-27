@@ -7,7 +7,7 @@ import { phaseLedgerOutputs, renderPhaseLedger } from "./render-phase-ledger.mjs
 function main() {
   const root = process.cwd();
 
-  for (const { phase, outputPath } of phaseLedgerOutputs) {
+  for (const { phase, outputPath } of phaseLedgerOutputs(root)) {
     validateManifest(root, phase);
     const rendered = renderPhaseLedger(root, phase);
     const absoluteOutputPath = path.join(root, outputPath);
