@@ -568,9 +568,10 @@ func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string, command string
 func (h *Harness) PreparePackageDatabaseT(t testing.TB, prefix string) *TestDatabase {
 	t.Helper()
 
-	// PreparePackageDatabaseT is the default for mutable service-backed tests:
-	// it creates one migrated database per package and truncates mutable tables
-	// before each subsequent test that reuses it.
+	// PreparePackageDatabaseT selects the fixture policy assigned by the target
+	// plan. Package reset is an explicit compatibility path for tests that prove
+	// reset behavior; ordinary integration tests should use template clones, and
+	// store-domain tests should use BeginRollbackDBT.
 	attribution := fixtureAttributionFor(t, "pgtest")
 	attribution.PostgresFixturePolicy = resolvePostgresFixturePolicy(attribution)
 	attribution.PostgresResetTables = resolvePostgresResetTables(attribution)
@@ -1187,7 +1188,7 @@ func resolvePostgresFixturePolicy(attribution fixtureAttribution) string {
 	if policy := normalizePostgresFixturePolicy(suiteservices.LookupEnvValue(nil, postgresFixturePolicyDefaultEnv)); policy != "" {
 		return policy
 	}
-	return postgresFixturePolicyPackageReset
+	return postgresFixturePolicyTemplateClone
 }
 
 func lookupFixturePolicy(envName string, key string) string {

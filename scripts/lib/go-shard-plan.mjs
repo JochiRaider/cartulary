@@ -6,7 +6,7 @@ const defaultShardTargetMs = 30_000;
 const defaultBackendIntegrationShardTargetMs = 18_000;
 const defaultItemWeightMs = 10_000;
 const cpuHeavyShardWeightMs = 12_000;
-const ioHeavyFixturePolicies = new Set(["group_clone", "migration_scratch", "package_reset"]);
+const ioHeavyFixturePolicies = new Set(["group_clone", "migration_scratch"]);
 const baselinePath = path.join("tools", "go_test_duration_baselines.json");
 const baselinePathEnv = "CARTULARY_GO_TEST_DURATION_BASELINE_FILE";
 const shardTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
@@ -387,6 +387,15 @@ function shardName(aggregateName, index) {
 }
 
 function schedulerProfileForShard(items, weightMs) {
+  const hasResetHeavyFixture = items.some(
+    (item) =>
+      item.postgres_fixture_policy === "package_reset" &&
+      ((item.postgres_fixture_budget?.max_package_resets ?? 0) > 0 ||
+        (item.postgres_fixture_budget?.max_reset_duration_ms ?? 0) > 0),
+  );
+  if (hasResetHeavyFixture) {
+    return "reset_heavy";
+  }
   const hasIOHeavyFixture = items.some((item) =>
     ioHeavyFixturePolicies.has(item.postgres_fixture_policy),
   );

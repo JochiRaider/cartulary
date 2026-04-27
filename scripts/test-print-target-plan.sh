@@ -51,7 +51,7 @@ if (storeRows.length === 0 || !storeRows.every((row) => row.fixture_policy?.post
   process.exit(1);
 }
 const rawPgtest = rows.find((row) => row.target === "backend-integration" && row.execution_family === "backend-integration-testutil");
-if (!rawPgtest || rawPgtest.fixture_policy?.postgres !== "package_reset") {
+if (!rawPgtest || rawPgtest.fixture_policy?.postgres !== "template_clone" || !Number.isInteger(rawPgtest.fixture_budget?.postgres?.max_template_clones)) {
   process.exit(1);
 }
 const serviceBackedGoRows = rows.filter((row) => row.service_backed && row.runner_family === "go_test");
@@ -88,8 +88,11 @@ for (let index = 1; index < weights.length; index += 1) {
     process.exit(1);
   }
 }
-const incidents = plan.aggregates.find((aggregate) => aggregate.name === "backend-integration-incidents");
-if (!incidents || incidents.shards.length < 2) {
+const heavyIntegrationAggregates = plan.aggregates.filter((aggregate) => aggregate.weight_ms > 18000);
+if (
+  heavyIntegrationAggregates.length === 0 ||
+  heavyIntegrationAggregates.some((aggregate) => aggregate.shards.length < 2)
+) {
   process.exit(1);
 }
 if (!plan.shards.every((shard) => Number.isInteger(shard.shard_target_ms) && shard.shard_target_ms > 0)) {

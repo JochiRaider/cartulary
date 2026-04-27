@@ -22,6 +22,42 @@ const harnessTemplateCloneBudgets = [
     maxTemplateClones: 1,
   },
 ];
+const harnessPackageResetBudgets = [
+  {
+    target: "backend-integration",
+    package: "internal/testutil/pgtest",
+    test: "TestPreparePackageDatabaseTReusesAndResetsMutableTables",
+    maxPackageResetCreates: 1,
+    maxPackageResets: 2,
+    maxResetDurationMS: 10000,
+  },
+];
+const harnessGroupCloneBudgets = [
+  {
+    target: "backend-integration",
+    test: "TestPrepareGroupDatabaseTReusesTemplateCloneForParentScopedGroup",
+    maxGroupClones: 1,
+  },
+];
+const harnessTransactionBudgets = [
+  {
+    target: "backend-integration",
+    test: "TestBeginRollbackDBTIsolatesRowsWithoutPackageReset",
+    maxTransactions: 2,
+  },
+];
+const harnessMigrationScratchBudgets = [
+  {
+    target: "backend-integration",
+    test: "TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase",
+    maxMigrationScratch: 1,
+  },
+  {
+    target: "backend-integration",
+    test: "TestMigrationDatabaseTCleanupRetainsAttachedSuiteScratchDatabase",
+    maxMigrationScratch: 1,
+  },
+];
 
 function usage() {
   process.stderr.write("usage: check-postgres-fixture-budget.mjs [--targets <csv>]\n");
@@ -226,6 +262,43 @@ function addHarnessSelfTestBudgets(budget, target) {
     }
     budget.templateClones += item.maxTemplateClones;
     budget.templateCloneTests.add(item.test);
+  }
+  for (const item of harnessPackageResetBudgets) {
+    if (item.target !== target) {
+      continue;
+    }
+    const pkg = normalizePackage(item.package);
+    budget.packageResetCreates += item.maxPackageResetCreates;
+    budget.packageResetEvents += item.maxPackageResets;
+    budget.packageResetDurationMS += item.maxResetDurationMS;
+    budget.packageResetTests.add(item.test);
+    budget.packageResetPackages.add(pkg);
+    const packageBudget = packageBudgetFor(budget, pkg);
+    packageBudget.packageResetCreates += item.maxPackageResetCreates;
+    packageBudget.packageResetEvents += item.maxPackageResets;
+    packageBudget.packageResetDurationMS += item.maxResetDurationMS;
+    packageBudget.packageResetTests.add(item.test);
+  }
+  for (const item of harnessGroupCloneBudgets) {
+    if (item.target !== target) {
+      continue;
+    }
+    budget.groupClones += item.maxGroupClones;
+    budget.groupCloneTests.add(item.test);
+  }
+  for (const item of harnessTransactionBudgets) {
+    if (item.target !== target) {
+      continue;
+    }
+    budget.transactions += item.maxTransactions;
+    budget.transactionTests.add(item.test);
+  }
+  for (const item of harnessMigrationScratchBudgets) {
+    if (item.target !== target) {
+      continue;
+    }
+    budget.migrationScratchCreates += item.maxMigrationScratch;
+    budget.migrationScratchTests.add(item.test);
   }
 }
 

@@ -87,12 +87,11 @@
       "execution_family": "backend-integration-testutil",
       "execution_label": "backend-integration testutil",
       "fixture_policy": {
-        "postgres": "package_reset"
+        "postgres": "template_clone"
       },
       "fixture_budget": {
         "postgres": {
-          "max_package_resets": 20,
-          "max_reset_duration_ms": 30000
+          "max_template_clones": 20
         }
       }
     }

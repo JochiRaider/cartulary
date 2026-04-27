@@ -35,6 +35,7 @@ const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2
 const supportedSchemaID = "cartulary.service_backed_schedule.v6";
 const goCPUResource = "go_cpu";
 const goIOResource = "go_io";
+const postgresResetResource = "postgres_reset";
 const browserStackResource = "browser_stack";
 const goCPULimitEnv = "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT";
 const goIOLimitEnv = "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT";
@@ -316,7 +317,7 @@ function cloneResourceClaims(resourceClaims) {
   return new Map(resourceClaims.entries());
 }
 
-function schedulerClaimsForShard(shard) {
+function schedulerClaimsForShard(shard, resourceLimits) {
   switch (shard.scheduler_profile) {
     case "cpu_heavy":
       return new Map([
@@ -327,6 +328,17 @@ function schedulerClaimsForShard(shard) {
       return new Map([
         [goCPUResource, 1],
         [goIOResource, 2],
+      ]);
+    case "reset_heavy":
+      if (!resourceLimits.has(postgresResetResource)) {
+        throw new Error(
+          `go shard ${shard.name} has reset_heavy profile but schedule is missing resource_limits.${postgresResetResource}`,
+        );
+      }
+      return new Map([
+        [goCPUResource, 1],
+        [goIOResource, 3],
+        [postgresResetResource, 1],
       ]);
     default:
       return new Map([
@@ -387,7 +399,10 @@ function expandSchedule(schedule) {
         shard: shard.name,
         schedulerProfile: shard.scheduler_profile,
         weight: shard.weight_ms,
-        resourceClaims: mergeResourceClaims(source.resourceClaims, schedulerClaimsForShard(shard)),
+        resourceClaims: mergeResourceClaims(
+          source.resourceClaims,
+          schedulerClaimsForShard(shard, schedule.resourceLimits),
+        ),
         order: source.order,
       };
       shardWorkByName.set(shard.name, unit);
@@ -450,8 +465,9 @@ function estimateGoIOLimit(goShardUnits, goCPULimit) {
   }
   const balanced = goShardUnits.filter((unit) => unit.schedulerProfile === "balanced").length;
   const ioHeavy = goShardUnits.filter((unit) => unit.schedulerProfile === "io_heavy").length;
+  const resetHeavy = goShardUnits.filter((unit) => unit.schedulerProfile === "reset_heavy").length;
   const cpuHeavy = goShardUnits.filter((unit) => unit.schedulerProfile === "cpu_heavy").length;
-  const profileConcurrency = balanced + ioHeavy * 2 + Math.ceil(cpuHeavy / 2);
+  const profileConcurrency = balanced + ioHeavy * 2 + resetHeavy * 3 + Math.ceil(cpuHeavy / 2);
   return clampInteger(Math.max(6, goCPULimit + 2, profileConcurrency), 6, 16);
 }
 
@@ -1092,6 +1108,7 @@ function writeDryRun(schedule, manifestPath, target) {
       preferredResources: [
         goCPUResource,
         goIOResource,
+        postgresResetResource,
         browserStackResource,
         "process",
         "postgres",

@@ -754,8 +754,13 @@ const { execFileSync } = require("node:child_process");
 const path = require("node:path");
 const [root, nodeBin] = process.argv.slice(2);
 const plan = JSON.parse(execFileSync(nodeBin, [path.join(root, "scripts/print-go-shard-plan.mjs"), "--json"], { encoding: "utf8", cwd: root }));
-const incidents = plan.aggregates.find((aggregate) => aggregate.target === "backend-integration" && aggregate.name === "backend-integration-incidents");
-if (!incidents || incidents.shards.length < 2) {
+const heavyIntegrationAggregates = plan.aggregates.filter(
+  (aggregate) => aggregate.target === "backend-integration" && aggregate.weight_ms > 18000,
+);
+if (
+  heavyIntegrationAggregates.length === 0 ||
+  heavyIntegrationAggregates.some((aggregate) => aggregate.shards.length < 2)
+) {
   process.exit(1);
 }
 if (!plan.shards.every((shard) => Number.isInteger(shard.shard_target_ms) && shard.shard_target_ms > 0)) {

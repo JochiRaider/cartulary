@@ -428,13 +428,13 @@ func TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage(t *testing.T)
 	}
 
 	t.Setenv(postgresFixturePolicyPackagesEnv, "")
-	t.Setenv(postgresFixturePolicyDefaultEnv, "template_clone")
+	t.Setenv(postgresFixturePolicyDefaultEnv, "")
 	policy = resolvePostgresFixturePolicy(fixtureAttribution{
 		TestName:      "TestOther/subcase",
 		CallerPackage: "internal/modules/timeline",
 	})
 	if policy != postgresFixturePolicyTemplateClone {
-		t.Fatalf("expected default policy to apply, got %q", policy)
+		t.Fatalf("expected no-env fallback to use template clone, got %q", policy)
 	}
 }
 

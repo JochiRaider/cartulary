@@ -8,6 +8,7 @@
         "minio": 32,
         "go_cpu": "auto",
         "go_io": "auto",
+        "postgres_reset": 1,
         "process": 4,
         "browser_stack": "auto",
         "browser_stage_webserver_backed": 1,
@@ -64,6 +65,7 @@
         "minio": 32,
         "go_cpu": "auto",
         "go_io": "auto",
+        "postgres_reset": 1,
         "process": 4
       },
       "work_unit_sources": [
@@ -101,6 +103,7 @@
         "minio": 32,
         "go_cpu": "auto",
         "go_io": "auto",
+        "postgres_reset": 1,
         "process": 4,
         "browser_stack": "auto",
         "browser_stage_webserver_backed": 1,

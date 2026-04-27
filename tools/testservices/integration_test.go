@@ -79,7 +79,8 @@ func TestMakeTestFastSharesSingleSuiteAcrossServiceBackedWorkUnits(t *testing.T)
 		t.Fatalf("expected fixture diagnostics grouped by package, got %#v", scope.Fixture)
 	}
 	assertNoHotPathPostgresDrops(t, scope)
-	assertPostgresFixturePolicy(t, scope, suiteservices.PostgresFixturePolicyPackageReset)
+	assertPostgresFixturePolicy(t, scope, suiteservices.PostgresFixturePolicyTemplateClone)
+	assertPostgresPackageResetsLimitedToHarnessPolicy(t, scope)
 
 	postgresPIDs := uniqueEventPIDs(events, suiteservices.EventPostgresDBCreated)
 	minioPIDs := uniqueEventPIDs(events, suiteservices.EventS3BucketCreated)
@@ -136,7 +137,7 @@ func assertPostgresPackageResetsLimitedToHarnessPolicy(t testing.TB, scope suite
 		if activity.Service != suiteservices.ServicePostgres || activity.Operation != "database-reset" {
 			continue
 		}
-		if activity.FixturePolicy == suiteservices.PostgresFixturePolicyPackageReset {
+		if activity.FixturePolicy == suiteservices.PostgresFixturePolicyPackageReset && activity.CallerPackage == "internal/testutil/pgtest" {
 			continue
 		}
 		t.Fatalf("unexpected non-harness postgres package reset activity: %#v", activity)

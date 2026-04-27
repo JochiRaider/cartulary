@@ -896,6 +896,7 @@ const claimsByProfile = {
   balanced: "{go_cpu:1,go_io:1,minio:1,postgres:1}",
   cpu_heavy: "{go_cpu:2,go_io:1,minio:1,postgres:1}",
   io_heavy: "{go_cpu:1,go_io:2,minio:1,postgres:1}",
+  reset_heavy: "{go_cpu:1,go_io:3,minio:1,postgres:1,postgres_reset:1}",
 };
 process.stdout.write(`backend-store/${shard.name} type=go_shard class=backend profile=${shard.scheduler_profile} claims=${claimsByProfile[shard.scheduler_profile]}`);
 EOF
