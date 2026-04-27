@@ -30,6 +30,13 @@
           "make_jobs": "cpu"
         },
         {
+          "target": "check-go-test-duration-baseline-drift",
+          "weight": 29000,
+          "needs": ["check-service-backed"],
+          "resource_claims": { "cpu": 1 },
+          "make_jobs": "cpu"
+        },
+        {
           "target": "check-local-product",
           "weight": 20000,
           "needs": ["check-build-prereqs"],

@@ -688,7 +688,25 @@ go_shard_dry_run_output="$(
   MAKEFLAGS=n \
     run_scheduler "$go_shard_dry_run_dir" "$go_shard_dry_run_manifest" test-fast-service-backed go-shard-dry-run 2>&1
 )"
-assert_contains "$go_shard_dry_run_output" "backend-store/backend-store-shared-shard-01 profile=cpu_heavy claims={go_cpu:2,go_io:1,minio:1,postgres:1}" "go_shards dry-run includes per-shard cpu-heavy claims"
+expected_go_shard_dry_run_line="$(
+  "$NODE_BIN" - "$ROOT_DIR" <<'EOF'
+const { execFileSync } = require("node:child_process");
+const path = require("node:path");
+const [root] = process.argv.slice(2);
+const plan = JSON.parse(execFileSync(process.execPath, [path.join(root, "scripts/lib/go-shard-plan.mjs"), "json"], { encoding: "utf8", cwd: root }));
+const shard = plan.shards.find((candidate) => candidate.name === "backend-store-shared-shard-01");
+if (!shard) {
+  process.exit(1);
+}
+const claimsByProfile = {
+  balanced: "{go_cpu:1,go_io:1,minio:1,postgres:1}",
+  cpu_heavy: "{go_cpu:2,go_io:1,minio:1,postgres:1}",
+  io_heavy: "{go_cpu:1,go_io:2,minio:1,postgres:1}",
+};
+process.stdout.write(`backend-store/${shard.name} profile=${shard.scheduler_profile} claims=${claimsByProfile[shard.scheduler_profile]}`);
+EOF
+)"
+assert_contains "$go_shard_dry_run_output" "$expected_go_shard_dry_run_line" "go_shards dry-run includes per-shard resource claims"
 
 invalid_resource_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-invalid-resource.XXXXXX")"
 cleanup_paths+=("$invalid_resource_dir")

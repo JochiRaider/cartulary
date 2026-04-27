@@ -8,6 +8,7 @@ const defaultIntegrationWeightMs = 10_000;
 const cpuHeavyShardWeightMs = 12_000;
 const ioHeavyFixturePolicies = new Set(["group_clone", "migration_scratch", "package_reset"]);
 const baselinePath = path.join("tools", "go_test_duration_baselines.json");
+const baselinePathEnv = "CARTULARY_GO_TEST_DURATION_BASELINE_FILE";
 const shardTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
 const executionTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
 const defaultShardTargetMsByTarget = new Map([
@@ -69,17 +70,25 @@ function toGoImportPath(modulePath, repoRelativePackage) {
 }
 
 function loadDurationBaselines(root) {
-  const file = path.join(root, baselinePath);
+  const configuredFile = process.env[baselinePathEnv];
+  const file = configuredFile
+    ? path.resolve(root, configuredFile)
+    : path.join(root, baselinePath);
   if (!existsSync(file)) {
     return {
       defaultShardTargetMs,
       shardTargetMsByTarget: new Map(defaultShardTargetMsByTarget),
       defaultIntegrationWeightMs,
       tests: new Map(),
+      rawAggregates: new Map(),
     };
   }
   const raw = JSON.parse(readFileSync(file, "utf8"));
-  const tests = new Map(Object.entries(raw.tests ?? raw));
+  if (raw.schema_id !== "cartulary.go_test_duration_baselines.v3") {
+    throw new Error(`${file} must declare schema_id cartulary.go_test_duration_baselines.v3`);
+  }
+  const tests = new Map(Object.entries(raw.tests ?? {}));
+  const rawAggregates = new Map(Object.entries(raw.raw_aggregates ?? {}));
   const shardTargetMsByTarget = new Map(defaultShardTargetMsByTarget);
   for (const [target, targetMs] of Object.entries(raw.shard_target_ms_by_target ?? {})) {
     if (shardTargets.has(target)) {
@@ -100,6 +109,7 @@ function loadDurationBaselines(root) {
       defaultIntegrationWeightMs,
     ),
     tests,
+    rawAggregates,
   };
 }
 
@@ -168,6 +178,11 @@ function buildExecutionItems(root) {
     }
     if (row.target === "backend-integration" && row.coverage === "raw") {
       addAggregate(aggregates, row, "raw");
+      const key = `${row.target}::${row.shared_report}`;
+      const weightMs = normalizePositiveInteger(
+        baselines.rawAggregates.get(key),
+        baselines.defaultIntegrationWeightMs,
+      );
       executableItems.push({
         target: row.target,
         aggregate_name: row.shared_report,
@@ -177,8 +192,8 @@ function buildExecutionItems(root) {
         regex: row.raw_selector,
         symbol: "",
         import_path: "",
-        weight_ms: baselines.defaultIntegrationWeightMs,
-        weight_source: "default",
+        weight_ms: weightMs,
+        weight_source: baselines.rawAggregates.has(key) ? "baseline" : "default",
         shard_isolation: row.shard_isolation === true,
         postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
         postgres_fixture_budget: row.fixture_budget?.postgres ?? {},

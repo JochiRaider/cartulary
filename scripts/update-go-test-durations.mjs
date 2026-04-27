@@ -1,8 +1,17 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const baselineFile = path.join("tools", "go_test_duration_baselines.json");
+import {
+  collectObservedGoShardArtifacts,
+  sortedObject,
+} from "./lib/go-duration-artifacts.mjs";
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(scriptDir, "..");
+const defaultBaselineFile = path.join(repoRoot, "tools", "go_test_duration_baselines.json");
+const baselineFileEnv = "CARTULARY_GO_TEST_DURATION_BASELINE_FILE";
 const defaultShardTargetMsByTarget = {
   "backend-integration": 18000,
   "backend-integration-support": 18000,
@@ -10,87 +19,49 @@ const defaultShardTargetMsByTarget = {
 };
 
 function usage() {
-  process.stderr.write("usage: update-go-test-durations.mjs [--prune-observed-packages] <results-dir>\n");
+  process.stderr.write(
+    "usage: update-go-test-durations.mjs [--prune-observed-packages] [--baseline-file <path>] <results-dir>\n",
+  );
   process.exit(2);
 }
 
-function walkFiles(root, predicate, files = []) {
-  for (const entry of readdirSync(root, { withFileTypes: true })) {
-    const fullPath = path.join(root, entry.name);
-    if (entry.isDirectory()) {
-      walkFiles(fullPath, predicate, files);
-      continue;
-    }
-    if (entry.isFile() && predicate(fullPath)) {
-      files.push(fullPath);
-    }
-  }
-  return files;
+function resolveBaselineFile(file) {
+  const configured = file || process.env[baselineFileEnv] || defaultBaselineFile;
+  return path.isAbsolute(configured) ? configured : path.join(repoRoot, configured);
 }
 
-function readBaseline() {
-  if (!existsSync(baselineFile)) {
+function readBaseline(file) {
+  if (!existsSync(file)) {
     return {
-      schema_id: "cartulary.go_test_duration_baselines.v2",
+      schema_id: "cartulary.go_test_duration_baselines.v3",
       default_shard_target_ms: 30000,
       shard_target_ms_by_target: defaultShardTargetMsByTarget,
       default_integration_weight_ms: 10000,
+      raw_aggregates: {},
       tests: {},
     };
   }
-  return JSON.parse(readFileSync(baselineFile, "utf8"));
-}
-
-function collectDurations(resultsDir) {
-  const durations = new Map();
-  const observedPackages = new Set();
-  const logs = walkFiles(resultsDir, (file) => path.basename(file) === "runner.jsonl");
-  for (const log of logs) {
-    const statusFile = path.join(path.dirname(log), "exit_status.txt");
-    if (existsSync(statusFile) && readFileSync(statusFile, "utf8").trim() !== "0") {
-      continue;
-    }
-    for (const rawLine of readFileSync(log, "utf8").split(/\r?\n/)) {
-      const line = rawLine.trim();
-      if (line === "") {
-        continue;
-      }
-      let event;
-      try {
-        event = JSON.parse(line);
-      } catch {
-        continue;
-      }
-      if (
-        event.Action !== "pass" ||
-        typeof event.Package !== "string" ||
-        typeof event.Test !== "string" ||
-        event.Test.includes("/") ||
-        !event.Test.startsWith("Test")
-      ) {
-        continue;
-      }
-      observedPackages.add(event.Package);
-      const elapsedMs = Math.max(1, Math.round(Number(event.Elapsed ?? 0) * 1000));
-      const key = `${event.Package}::${event.Test}`;
-      durations.set(key, Math.max(durations.get(key) ?? 0, elapsedMs));
-    }
-  }
-  return { durations, observedPackages };
-}
-
-function sortedObject(value) {
-  return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)));
+  return JSON.parse(readFileSync(file, "utf8"));
 }
 
 function parseArgs(argv) {
   const options = {
+    baselineFile: "",
     pruneObservedPackages: false,
     resultsDir: "",
   };
-  for (const arg of argv) {
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
     if (arg === "--prune-observed-packages") {
       options.pruneObservedPackages = true;
+      continue;
+    }
+    if (arg === "--baseline-file") {
+      options.baselineFile = argv[index + 1] ?? "";
+      index += 1;
+      if (!options.baselineFile) {
+        usage();
+      }
       continue;
     }
     if (!options.resultsDir) {
@@ -99,47 +70,85 @@ function parseArgs(argv) {
     }
     usage();
   }
+  if (!options.resultsDir) {
+    usage();
+  }
   return options;
 }
 
 function main(argv) {
   const options = parseArgs(argv);
-  const resultsDir = options.resultsDir;
-  if (!resultsDir) {
-    usage();
-  }
-  const absoluteResultsDir = path.resolve(resultsDir);
-  if (!existsSync(absoluteResultsDir)) {
-    throw new Error(`results directory does not exist: ${resultsDir}`);
+  const baselineFile = resolveBaselineFile(options.baselineFile);
+  const previousBaselineOverride = process.env[baselineFileEnv];
+  process.env[baselineFileEnv] = baselineFile;
+  const artifacts = collectObservedGoShardArtifacts(repoRoot, options.resultsDir);
+  if (previousBaselineOverride === undefined) {
+    delete process.env[baselineFileEnv];
+  } else {
+    process.env[baselineFileEnv] = previousBaselineOverride;
   }
 
-  const baseline = readBaseline();
-  const { durations, observedPackages } = collectDurations(absoluteResultsDir);
-  baseline.schema_id = "cartulary.go_test_duration_baselines.v2";
+  const baseline = readBaseline(baselineFile);
+  const testDurations = new Map();
+  const rawAggregateDurations = new Map();
+  const observedPackages = new Set();
+
+  for (const artifact of artifacts) {
+    if (artifact.rawAggregateKey) {
+      rawAggregateDurations.set(
+        artifact.rawAggregateKey,
+        Math.max(rawAggregateDurations.get(artifact.rawAggregateKey) ?? 0, artifact.durationMs),
+      );
+      continue;
+    }
+    for (const packageName of artifact.observedPackages) {
+      observedPackages.add(packageName);
+    }
+    for (const observedTest of artifact.observedTests) {
+      testDurations.set(
+        observedTest.key,
+        Math.max(testDurations.get(observedTest.key) ?? 0, observedTest.durationMs),
+      );
+    }
+  }
+
+  baseline.schema_id = "cartulary.go_test_duration_baselines.v3";
+  baseline.note =
+    "Advisory backend service-backed shard weights. Refresh from successful shard artifacts with scripts/update-go-test-durations.mjs <results-dir>.";
   baseline.default_shard_target_ms ??= 30000;
   baseline.shard_target_ms_by_target = {
     ...defaultShardTargetMsByTarget,
     ...(baseline.shard_target_ms_by_target ?? {}),
   };
   baseline.default_integration_weight_ms ??= 10000;
+  baseline.raw_aggregates ??= {};
   baseline.tests ??= {};
+
   if (options.pruneObservedPackages) {
     for (const key of Object.keys(baseline.tests)) {
       const [packageName] = key.split("::", 1);
-      if (observedPackages.has(packageName) && !durations.has(key)) {
+      if (observedPackages.has(packageName) && !testDurations.has(key)) {
         delete baseline.tests[key];
       }
     }
   }
-  for (const [key, durationMs] of durations) {
+
+  for (const [key, durationMs] of testDurations) {
     baseline.tests[key] = durationMs;
   }
+  for (const [key, durationMs] of rawAggregateDurations) {
+    baseline.raw_aggregates[key] = durationMs;
+  }
+
   baseline.updated_at = new Date().toISOString();
   baseline.shard_target_ms_by_target = sortedObject(baseline.shard_target_ms_by_target);
+  baseline.raw_aggregates = sortedObject(baseline.raw_aggregates);
   baseline.tests = sortedObject(baseline.tests);
 
   writeFileSync(baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
-  process.stdout.write(`updated ${durations.size} Go test duration baselines\n`);
+  process.stdout.write(
+    `updated ${testDurations.size} Go test duration baselines and ${rawAggregateDurations.size} raw aggregate baselines\n`,
+  );
 }
 
 try {
