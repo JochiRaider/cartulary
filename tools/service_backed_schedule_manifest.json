@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.service_backed_schedule.v5",
+  "schema_id": "cartulary.service_backed_schedule.v6",
   "schedules": [
     {
       "target": "test-service-backed",
@@ -9,7 +9,8 @@
         "go_cpu": "auto",
         "go_io": "auto",
         "process": 4,
-        "browser": 1
+        "browser_stack": "auto",
+        "browser_stage_webserver_backed": 1
       },
       "work_unit_sources": [
         {
@@ -43,7 +44,7 @@
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
           "weight": 41900,
-          "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser": 1 }
+          "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1 }
         }
       ]
     },
@@ -92,7 +93,9 @@
         "go_cpu": "auto",
         "go_io": "auto",
         "process": 4,
-        "browser": 1
+        "browser_stack": "auto",
+        "browser_stage_webserver_backed": 1,
+        "browser_stage_isolated": 1
       },
       "work_unit_sources": [
         {
@@ -126,7 +129,7 @@
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
           "weight": 41900,
-          "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser": 1 }
+          "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1 }
         },
         {
           "type": "make_target",
@@ -134,7 +137,7 @@
           "target": "browser-e2e",
           "browser_stage": "isolated",
           "weight": 40900,
-          "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser": 1 }
+          "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_isolated": 1 }
         }
       ]
     }

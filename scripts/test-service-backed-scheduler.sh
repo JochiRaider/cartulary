@@ -292,9 +292,9 @@ write_manifest() {
 
   {
     printf '{\n'
-    printf '  "schema_id": "cartulary.service_backed_schedule.v5",\n'
+    printf '  "schema_id": "cartulary.service_backed_schedule.v6",\n'
     printf '  "schedules": [\n'
-    printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 6, "go_io": 6, "process": 2, "browser": 1 }, "work_unit_sources": [\n' "$target"
+    printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 6, "go_io": 6, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1, "browser_stage_isolated": 1, "browser_stage_visual": 1 }, "work_unit_sources": [\n' "$target"
     local first=1
     local source
     for source in "$@"; do
@@ -374,6 +374,7 @@ run_scheduler() {
   FAKE_GO_FINALIZER_FAILURE_STATUS="${FAKE_GO_FINALIZER_FAILURE_STATUS:-}" \
   CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT= \
   CARTULARY_SERVICE_BACKED_GO_IO_LIMIT= \
+  CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT="${CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT:-}" \
   MAKE="${dir}/fake-make" \
   CARTULARY_TEST_GO_TARGET_RUNNER="${go_target_runner}" \
   NODE_BIN="$NODE_BIN" \
@@ -397,7 +398,7 @@ assert_contains "$weighted_output" "[STEP] test-fast-service-backed 2/3 backend-
 assert_contains "$weighted_output" "[STEP] test-fast-service-backed 3/3 backend-store mode=scheduler jobs=6" "weighted third child"
 assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-process claims={go_cpu:1,go_io:1,minio:1,postgres:1,process:1} active=1 pending=2" "scheduler start telemetry"
 assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-store claims={go_cpu:1,go_io:1,minio:1,postgres:1} active=3 pending=0 active_resource_claims={go_cpu:3,go_io:3,minio:3,postgres:3,process:1}" "scheduler starts all compatible weighted children"
-assert_contains "$weighted_output" "resource_limits={browser:1,go_cpu:6,go_io:6,minio:32,postgres:32,process:2}" "scheduler resource limit telemetry"
+assert_contains "$weighted_output" "resource_limits={browser_stack:" "scheduler resource limit telemetry includes browser stack"
 assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed finish work_unit=backend-process status=0" "scheduler finish telemetry"
 
 resource_block_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-resource-block.XXXXXX")"
@@ -442,12 +443,12 @@ write_fake_make "$browser_dir"
 browser_manifest="${browser_dir}/manifest.json"
 write_manifest "$browser_manifest" test-service-backed \
   'make_target|backend-process|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend' \
-  'make_target|browser-e2e-webserver-backed|9|"postgres": 1, "minio": 1, "process": 1, "browser": 1|browser|webserver-backed'
+  'make_target|browser-e2e-webserver-backed|9|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed'
 browser_output="$(run_scheduler "$browser_dir" "$browser_manifest" test-service-backed browser 2>&1)"
 assert_contains "$browser_output" "[STEP] test-service-backed 1/2 backend-process mode=scheduler jobs=6" "browser schedule backend child"
 assert_contains "$browser_output" "[STEP] test-service-backed 2/2 browser-e2e-webserver-backed mode=scheduler jobs=6" "browser schedule browser child"
-assert_contains "$browser_output" "claims={browser:1,minio:1,postgres:1,process:1}" "browser resource claims telemetry"
-assert_contains "$browser_output" "resource_limits={browser:1,go_cpu:6,go_io:6,minio:32,postgres:32,process:2}" "browser resource limits telemetry"
+assert_contains "$browser_output" "claims={browser_stack:1,browser_stage_webserver_backed:1,minio:1,postgres:1,process:1}" "browser resource claims telemetry"
+assert_contains "$browser_output" "resource_limits={browser_stack:" "browser resource limits telemetry"
 
 eager_finalizer_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-eager-finalizer.XXXXXX")"
 cleanup_paths+=("$eager_finalizer_dir")
@@ -456,14 +457,14 @@ write_fake_go_target_runner "$eager_finalizer_dir"
 eager_finalizer_manifest="${eager_finalizer_dir}/manifest.json"
 cat >"$eager_finalizer_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v5",
+  "schema_id": "cartulary.service_backed_schedule.v6",
   "schedules": [
     {
       "target": "test-service-backed",
-      "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 64, "go_io": 64, "process": 2, "browser": 1 },
+      "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 64, "go_io": 64, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1 },
       "work_unit_sources": [
         { "type": "go_shards", "class": "backend", "target": "backend-store", "resource_claims": { "postgres": 1, "minio": 1 } },
-        { "type": "make_target", "class": "browser", "target": "browser-e2e-webserver-backed", "browser_stage": "webserver-backed", "weight": 9, "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser": 1 } }
+        { "type": "make_target", "class": "browser", "target": "browser-e2e-webserver-backed", "browser_stage": "webserver-backed", "weight": 9, "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1 } }
       ]
     }
   ]
@@ -538,18 +539,19 @@ cleanup_paths+=("$check_browser_dir")
 write_fake_make "$check_browser_dir"
 check_browser_manifest="${check_browser_dir}/manifest.json"
 write_manifest "$check_browser_manifest" check-service-backed \
-  'make_target|browser-e2e-webserver-backed|30|"postgres": 1, "minio": 1, "process": 1, "browser": 1|browser|webserver-backed' \
-  'make_target|browser-e2e|20|"postgres": 1, "minio": 1, "process": 1, "browser": 1|browser|isolated' \
+  'make_target|browser-e2e-webserver-backed|30|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed' \
+  'make_target|browser-e2e|20|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_isolated": 1|browser|isolated' \
   'make_target|backend-process|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1|backend'
 check_browser_output="$(
+  CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2
   FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS=0.3
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.05
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.05
   run_scheduler "$check_browser_dir" "$check_browser_manifest" check-service-backed check-browser 2>&1
 )"
 assert_contains "$check_browser_output" "[STEP] check-service-backed 1/3 browser-e2e-webserver-backed mode=scheduler jobs=6" "check browser webserver child"
-assert_contains "$check_browser_output" "[STEP] check-service-backed 2/3 backend-process mode=scheduler jobs=6" "check browser backend child"
-assert_contains "$check_browser_output" "[STEP] check-service-backed 3/3 browser-e2e mode=scheduler jobs=6" "check browser isolated child"
+assert_contains "$check_browser_output" "[STEP] check-service-backed 2/3 browser-e2e mode=scheduler jobs=6" "check browser isolated child"
+assert_contains "$check_browser_output" "[STEP] check-service-backed 3/3 backend-process mode=scheduler jobs=6" "check browser backend child"
 check_browser_events="$(cat "${check_browser_dir}/make.log")"
 assert_contains "$check_browser_events" "start browser-e2e-webserver-backed" "check browser webserver start"
 assert_contains "$check_browser_events" "end browser-e2e-webserver-backed" "check browser webserver end"
@@ -568,8 +570,72 @@ const indexOf = (needle) => {
 };
 const webEnd = indexOf("end browser-e2e-webserver-backed");
 const isolatedStart = indexOf("start browser-e2e ");
+if (!(isolatedStart < webEnd)) {
+  throw new Error("isolated browser batch did not overlap webserver-backed when browser_stack capacity allowed it");
+}
+EOF
+
+serialized_browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-serialized-browser.XXXXXX")"
+cleanup_paths+=("$serialized_browser_dir")
+write_fake_make "$serialized_browser_dir"
+serialized_browser_manifest="${serialized_browser_dir}/manifest.json"
+write_manifest "$serialized_browser_manifest" check-service-backed \
+  'make_target|browser-e2e-webserver-backed|30|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed' \
+  'make_target|browser-e2e|20|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_isolated": 1|browser|isolated'
+serialized_browser_output="$(
+  CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=1 \
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.05 \
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.05 \
+    run_scheduler "$serialized_browser_dir" "$serialized_browser_manifest" check-service-backed serialized-browser 2>&1
+)"
+assert_contains "$serialized_browser_output" "blocked_resources=browser_stack" "browser stack capacity blocks compatible browser lanes"
+"$NODE_BIN" - "${serialized_browser_dir}/make.log" <<'EOF'
+const fs = require("node:fs");
+const [logFile] = process.argv.slice(2);
+const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
+const indexOf = (needle) => {
+  const index = lines.findIndex((line) => line.includes(needle));
+  if (index === -1) {
+    throw new Error(`missing ${needle}`);
+  }
+  return index;
+};
+const webEnd = indexOf("end browser-e2e-webserver-backed");
+const isolatedStart = indexOf("start browser-e2e ");
 if (!(webEnd < isolatedStart)) {
-  throw new Error("isolated browser batch started before webserver-backed released browser resource");
+  throw new Error("isolated browser batch started before webserver-backed released browser_stack capacity");
+}
+EOF
+
+same_browser_lane_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-same-browser-lane.XXXXXX")"
+cleanup_paths+=("$same_browser_lane_dir")
+write_fake_make "$same_browser_lane_dir"
+same_browser_lane_manifest="${same_browser_lane_dir}/manifest.json"
+write_manifest "$same_browser_lane_manifest" test-fast-service-backed \
+  'make_target|backend-process|30|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1, "browser_stage_isolated": 1|backend' \
+  'make_target|backend-store|20|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "browser_stage_isolated": 1|backend'
+same_browser_lane_output="$(
+  CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
+  FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS=0.05 \
+  FAKE_SCHEDULER_SLEEP_BACKEND_STORE=0.05 \
+    run_scheduler "$same_browser_lane_dir" "$same_browser_lane_manifest" test-fast-service-backed same-browser-lane 2>&1
+)"
+assert_contains "$same_browser_lane_output" "blocked_resources=browser_stage_isolated" "same browser stage lane blocks overlapping work"
+"$NODE_BIN" - "${same_browser_lane_dir}/make.log" <<'EOF'
+const fs = require("node:fs");
+const [logFile] = process.argv.slice(2);
+const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
+const indexOf = (needle) => {
+  const index = lines.findIndex((line) => line.includes(needle));
+  if (index === -1) {
+    throw new Error(`missing ${needle}`);
+  }
+  return index;
+};
+const processEnd = indexOf("end backend-process");
+const storeStart = indexOf("start backend-store");
+if (!(processEnd < storeStart)) {
+  throw new Error("same browser_stage_isolated lane work overlapped");
 }
 EOF
 
@@ -660,13 +726,16 @@ dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-dry-run.XXXXX
 cleanup_paths+=("$dry_run_dir")
 write_fake_make "$dry_run_dir"
 dry_run_manifest="${dry_run_dir}/manifest.json"
-write_manifest "$dry_run_manifest" test-fast-service-backed \
-  'make_target|backend-integration|10|"postgres": 1, "minio": 1'
+write_manifest "$dry_run_manifest" test-service-backed \
+  'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed'
 dry_run_output="$(
+  CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
   MAKEFLAGS=n \
-    run_scheduler "$dry_run_dir" "$dry_run_manifest" test-fast-service-backed dry-run 2>&1
+    run_scheduler "$dry_run_dir" "$dry_run_manifest" test-service-backed dry-run 2>&1
 )"
-assert_contains "$dry_run_output" "[DRY-RUN] test-fast-service-backed manifest=" "dry-run output"
+assert_contains "$dry_run_output" "[DRY-RUN] test-service-backed manifest=" "dry-run output"
+assert_contains "$dry_run_output" "resource_limits={browser_stack:2,browser_stage_isolated:1,browser_stage_visual:1,browser_stage_webserver_backed:1" "dry-run includes resolved browser stack and lanes"
+assert_contains "$dry_run_output" "browser-e2e-webserver-backed claims={browser_stack:1,browser_stage_webserver_backed:1,minio:1,postgres:1,process:1}" "dry-run includes browser lane claims"
 assert_file_absent "${dry_run_dir}/make.log" "dry-run child make log"
 
 go_shard_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-go-shard-dry-run.XXXXXX")"
@@ -730,26 +799,39 @@ cleanup_paths+=("$invalid_browser_dir")
 write_fake_make "$invalid_browser_dir"
 invalid_browser_manifest="${invalid_browser_dir}/manifest.json"
 write_manifest "$invalid_browser_manifest" test-service-backed \
-  'make_target|browser-e2e-visual|10|"postgres": 1, "minio": 1, "browser": 1|browser|visual'
+  'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "minio": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|missing-stage'
 set +e
 invalid_browser_output="$(run_scheduler "$invalid_browser_dir" "$invalid_browser_manifest" test-service-backed invalid-browser 2>&1)"
 invalid_browser_status=$?
 set -e
 assert_equals "$invalid_browser_status" "1" "invalid browser manifest status"
-assert_contains "$invalid_browser_output" "browser target browser-e2e-visual is not scheduler-safe" "invalid browser manifest output"
+assert_contains "$invalid_browser_output" "declares unknown browser_stage missing-stage" "invalid browser manifest output"
 
-invalid_isolated_browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-invalid-isolated-browser.XXXXXX")"
-cleanup_paths+=("$invalid_isolated_browser_dir")
-write_fake_make "$invalid_isolated_browser_dir"
-invalid_isolated_browser_manifest="${invalid_isolated_browser_dir}/manifest.json"
-write_manifest "$invalid_isolated_browser_manifest" test-service-backed \
-  'make_target|browser-e2e|10|"postgres": 1, "minio": 1, "browser": 1|browser|isolated'
+invalid_browser_target_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-invalid-browser-target.XXXXXX")"
+cleanup_paths+=("$invalid_browser_target_dir")
+write_fake_make "$invalid_browser_target_dir"
+invalid_browser_target_manifest="${invalid_browser_target_dir}/manifest.json"
+write_manifest "$invalid_browser_target_manifest" test-service-backed \
+  'make_target|browser-e2e-visual|10|"postgres": 1, "minio": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed'
 set +e
-invalid_isolated_browser_output="$(run_scheduler "$invalid_isolated_browser_dir" "$invalid_isolated_browser_manifest" test-service-backed invalid-isolated-browser 2>&1)"
-invalid_isolated_browser_status=$?
+invalid_browser_target_output="$(run_scheduler "$invalid_browser_target_dir" "$invalid_browser_target_manifest" test-service-backed invalid-browser-target 2>&1)"
+invalid_browser_target_status=$?
 set -e
-assert_equals "$invalid_isolated_browser_status" "1" "invalid isolated browser manifest status"
-assert_contains "$invalid_isolated_browser_output" "browser target browser-e2e is not scheduler-safe for test-service-backed" "invalid isolated browser manifest output"
+assert_equals "$invalid_browser_target_status" "1" "invalid browser target manifest status"
+assert_contains "$invalid_browser_target_output" "must match browser_stage webserver-backed aggregate target browser-e2e-webserver-backed" "invalid browser target manifest output"
+
+obsolete_browser_resource_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-obsolete-browser-resource.XXXXXX")"
+cleanup_paths+=("$obsolete_browser_resource_dir")
+write_fake_make "$obsolete_browser_resource_dir"
+obsolete_browser_resource_manifest="${obsolete_browser_resource_dir}/manifest.json"
+write_manifest "$obsolete_browser_resource_manifest" test-service-backed \
+  'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "minio": 1, "browser": 1|browser|webserver-backed'
+set +e
+obsolete_browser_resource_output="$(run_scheduler "$obsolete_browser_resource_dir" "$obsolete_browser_resource_manifest" test-service-backed obsolete-browser-resource 2>&1)"
+obsolete_browser_resource_status=$?
+set -e
+assert_equals "$obsolete_browser_resource_status" "1" "obsolete browser resource manifest status"
+assert_contains "$obsolete_browser_resource_output" "removed generic browser resource" "obsolete browser resource manifest output"
 
 legacy_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-legacy.XXXXXX")"
 cleanup_paths+=("$legacy_dir")
@@ -761,7 +843,7 @@ legacy_output="$(run_scheduler "$legacy_dir" "$legacy_manifest" test-fast-servic
 legacy_status=$?
 set -e
 assert_equals "$legacy_status" "1" "legacy manifest status"
-assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v5" "legacy manifest output"
+assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v6" "legacy manifest output"
 
 jobs_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-jobs.XXXXXX")"
 cleanup_paths+=("$jobs_dir")

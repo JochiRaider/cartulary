@@ -12,25 +12,19 @@ import { findTargetDescriptor } from "./lib/target-plan.mjs";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
-const supportedSchemaID = "cartulary.service_backed_schedule.v5";
+const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
+const supportedSchemaID = "cartulary.service_backed_schedule.v6";
+const supportedBrowserBatchSchemaID = "cartulary.browser_e2e_batch_manifest.v1";
 const goCPUResource = "go_cpu";
 const goIOResource = "go_io";
+const browserStackResource = "browser_stack";
 const goCPULimitEnv = "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT";
 const goIOLimitEnv = "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT";
+const browserStackLimitEnv = "CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
-const autoLimitResources = new Set([goCPUResource, goIOResource]);
+const autoLimitResources = new Set([goCPUResource, goIOResource, browserStackResource]);
 const validSourceTypes = new Set(["go_shards", "make_target"]);
 const validSourceClasses = new Set(["backend", "browser"]);
-const schedulerSafeBrowserTargetsBySchedule = new Map([
-  ["test-service-backed", new Map([["browser-e2e-webserver-backed", "webserver-backed"]])],
-  [
-    "check-service-backed",
-    new Map([
-      ["browser-e2e-webserver-backed", "webserver-backed"],
-      ["browser-e2e", "isolated"],
-    ]),
-  ],
-]);
 
 function usage() {
   process.stderr.write(
@@ -62,7 +56,7 @@ function parseArgs(argv) {
       continue;
     }
     if (arg === "--jobs") {
-      throw new Error("--jobs is obsolete for v5 service-backed schedules; use resource_limits");
+      throw new Error("--jobs is obsolete for v6 service-backed schedules; use resource_limits");
     }
     usage();
   }
@@ -89,6 +83,58 @@ async function loadManifest(file) {
   return { manifest, manifestPath };
 }
 
+async function loadBrowserBatchStages() {
+  const manifest = JSON.parse(await readFile(defaultBrowserBatchManifestPath, "utf8"));
+  if (manifest.schema_id !== supportedBrowserBatchSchemaID) {
+    throw new Error(
+      `${defaultBrowserBatchManifestPath} must declare schema_id ${supportedBrowserBatchSchemaID}`,
+    );
+  }
+  if (!Array.isArray(manifest.stages)) {
+    throw new Error(`${defaultBrowserBatchManifestPath} must declare stages[]`);
+  }
+  const stages = new Map();
+  for (const [index, stage] of manifest.stages.entries()) {
+    const label = `browser batch manifest stage ${index + 1}`;
+    if (!stage || typeof stage !== "object" || Array.isArray(stage)) {
+      throw new Error(`${label} must be an object`);
+    }
+    for (const field of ["name", "target"]) {
+      if (typeof stage[field] !== "string" || stage[field].trim() === "") {
+        throw new Error(`${label} must declare ${field}`);
+      }
+    }
+    if (stages.has(stage.name)) {
+      throw new Error(`duplicate browser batch stage ${stage.name}`);
+    }
+    if (!Array.isArray(stage.children) || stage.children.length === 0) {
+      throw new Error(`browser batch stage ${stage.name} must declare children[]`);
+    }
+    if (!Array.isArray(stage.groups) || stage.groups.length === 0) {
+      throw new Error(`browser batch stage ${stage.name} must declare groups[]`);
+    }
+    for (const [groupIndex, group] of stage.groups.entries()) {
+      if (!group || typeof group !== "object" || Array.isArray(group)) {
+        throw new Error(`browser batch stage ${stage.name} group ${groupIndex + 1} must be an object`);
+      }
+      if (typeof group.target !== "string" || group.target.trim() === "") {
+        throw new Error(`browser batch stage ${stage.name} group ${groupIndex + 1} must declare target`);
+      }
+      if (!stage.children.includes(group.target)) {
+        throw new Error(
+          `browser batch stage ${stage.name} group ${group.name ?? groupIndex + 1} target ${group.target} must be listed in children[]`,
+        );
+      }
+    }
+    stages.set(stage.name, {
+      name: stage.name,
+      target: stage.target.trim(),
+      children: stage.children.map((child) => String(child).trim()),
+    });
+  }
+  return stages;
+}
+
 function normalizeResourceLimits(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${label} resource_limits must be an object`);
@@ -103,10 +149,13 @@ function normalizeResourceLimits(value, label) {
     if (normalizedResource === "backend") {
       throw new Error(`${label} resource_limits must not declare removed generic backend resource`);
     }
+    if (normalizedResource === "browser") {
+      throw new Error(`${label} resource_limits must not declare removed generic browser resource`);
+    }
     if (limit === "auto") {
       if (!autoLimitResources.has(normalizedResource)) {
         throw new Error(
-          `${label} resource_limits.${normalizedResource} may use "auto" only for ${goCPUResource} or ${goIOResource}`,
+          `${label} resource_limits.${normalizedResource} may use "auto" only for ${goCPUResource}, ${goIOResource}, or ${browserStackResource}`,
         );
       }
       resourceLimits.set(normalizedResource, limit);
@@ -136,6 +185,9 @@ function normalizeResourceClaims(value, label, resourceLimits) {
     if (normalizedResource === "backend") {
       throw new Error(`${label} resource_claims must not declare removed generic backend resource`);
     }
+    if (normalizedResource === "browser") {
+      throw new Error(`${label} resource_claims must not declare removed generic browser resource`);
+    }
     if (!Number.isInteger(amount) || amount < 1) {
       throw new Error(`${label} resource_claims.${normalizedResource} must be a positive integer`);
     }
@@ -162,21 +214,26 @@ function validateBackendTarget(scheduleTarget, target, label) {
   }
 }
 
-function validateBrowserTarget(scheduleTarget, source, target, label) {
+function validateBrowserTarget(source, target, label, browserStages) {
   if (source.type !== "make_target") {
     throw new Error(`${label} browser target ${target} must use type make_target`);
   }
-  const schedulerSafeBrowserTargets = schedulerSafeBrowserTargetsBySchedule.get(scheduleTarget);
-  const expectedStage = schedulerSafeBrowserTargets?.get(target);
-  if (!expectedStage) {
-    throw new Error(`${label} browser target ${target} is not scheduler-safe for ${scheduleTarget}`);
+  if (typeof source.browser_stage !== "string" || source.browser_stage.trim() === "") {
+    throw new Error(`${label} browser target ${target} must declare browser_stage`);
   }
-  if (source.browser_stage !== expectedStage) {
-    throw new Error(`${label} browser target ${target} must declare browser_stage ${expectedStage}`);
+  const browserStage = source.browser_stage.trim();
+  const stage = browserStages.get(browserStage);
+  if (!stage) {
+    throw new Error(`${label} browser target ${target} declares unknown browser_stage ${browserStage}`);
+  }
+  if (stage.target !== target) {
+    throw new Error(
+      `${label} browser target ${target} must match browser_stage ${browserStage} aggregate target ${stage.target}`,
+    );
   }
 }
 
-function validateSource(scheduleTarget, source, index, resourceLimits) {
+function validateSource(scheduleTarget, source, index, resourceLimits, browserStages) {
   const label = `${scheduleTarget} work_unit_sources ${index + 1}`;
   if (!source || typeof source !== "object" || Array.isArray(source)) {
     throw new Error(`${label} must be an object`);
@@ -202,7 +259,7 @@ function validateSource(scheduleTarget, source, index, resourceLimits) {
   if (source.class === "backend") {
     validateBackendTarget(scheduleTarget, target, label);
   } else {
-    validateBrowserTarget(scheduleTarget, source, target, label);
+    validateBrowserTarget(source, target, label, browserStages);
   }
 
   if (source.type === "go_shards") {
@@ -236,7 +293,7 @@ function validateSource(scheduleTarget, source, index, resourceLimits) {
   };
 }
 
-function findSchedule(manifest, target) {
+function findSchedule(manifest, target, browserStages) {
   const matches = manifest.schedules.filter((schedule) => schedule?.target === target);
   if (matches.length !== 1) {
     throw new Error(`expected exactly one schedule for ${target}, found ${matches.length}`);
@@ -250,7 +307,7 @@ function findSchedule(manifest, target) {
   }
   const resourceLimits = normalizeResourceLimits(schedule.resource_limits, `schedule ${target}`);
   const sources = schedule.work_unit_sources.map((source, index) =>
-    validateSource(target, source, index, resourceLimits),
+    validateSource(target, source, index, resourceLimits, browserStages),
   );
   const duplicateTargets = sources
     .map((source) => source.target)
@@ -414,6 +471,27 @@ function estimateGoIOLimit(goShardUnits, goCPULimit) {
   return clampInteger(Math.max(6, goCPULimit + 2, profileConcurrency), 6, 16);
 }
 
+function browserStageLaneCount(workUnits) {
+  const lanes = new Set();
+  for (const unit of workUnits) {
+    for (const resource of unit.resourceClaims.keys()) {
+      if (resource.startsWith("browser_stage_")) {
+        lanes.add(resource);
+      }
+    }
+  }
+  return lanes.size;
+}
+
+function estimateBrowserStackLimit(workUnits) {
+  const laneCount = browserStageLaneCount(workUnits);
+  if (laneCount === 0) {
+    return 1;
+  }
+  const hostLimit = availableCPUCount() >= 8 ? 2 : 1;
+  return clampInteger(hostLimit, 1, laneCount);
+}
+
 function resolveResourceLimits(resourceLimits, workUnits) {
   const goShardUnits = workUnits.filter((unit) => unit.type === "go_shard");
   const computedGoCPU = estimateGoCPULimit(goShardUnits);
@@ -422,6 +500,9 @@ function resolveResourceLimits(resourceLimits, workUnits) {
   const computedGoIO = estimateGoIOLimit(goShardUnits, effectiveGoCPU);
   const goIOOverride = parsePositiveIntegerEnv(goIOLimitEnv);
   const effectiveGoIO = goIOOverride ?? computedGoIO;
+  const computedBrowserStack = estimateBrowserStackLimit(workUnits);
+  const browserStackOverride = parsePositiveIntegerEnv(browserStackLimitEnv);
+  const effectiveBrowserStack = browserStackOverride ?? computedBrowserStack;
   const resolved = new Map();
   for (const [resource, limit] of resourceLimits.entries()) {
     if (resource === goCPUResource && (limit === "auto" || goCPUOverride !== null)) {
@@ -430,6 +511,10 @@ function resolveResourceLimits(resourceLimits, workUnits) {
     }
     if (resource === goIOResource && (limit === "auto" || goIOOverride !== null)) {
       resolved.set(resource, effectiveGoIO);
+      continue;
+    }
+    if (resource === browserStackResource && (limit === "auto" || browserStackOverride !== null)) {
+      resolved.set(resource, effectiveBrowserStack);
       continue;
     }
     resolved.set(resource, limit);
@@ -873,7 +958,8 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const { manifest, manifestPath } = await loadManifest(options.manifest);
-  const schedule = expandSchedule(findSchedule(manifest, options.target));
+  const browserStages = await loadBrowserBatchStages();
+  const schedule = expandSchedule(findSchedule(manifest, options.target, browserStages));
   const makeBin = process.env.MAKE || "make";
   const testOutputScript =
     process.env.TEST_OUTPUT_SCRIPT || path.join(repoRoot, "scripts", "lib", "test-output.sh");

@@ -154,8 +154,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v5") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v5");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v6") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v6");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -212,8 +212,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, childTarget, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v5") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v5");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v6") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v6");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -272,13 +272,16 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v5") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v5");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v6") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v6");
 }
 for (const schedule of manifest.schedules ?? []) {
   const limits = schedule.resource_limits ?? {};
   if (Object.hasOwn(limits, "backend")) {
     throw new Error(`${schedule.target} must not declare removed generic backend resource limit`);
+  }
+  if (Object.hasOwn(limits, "browser")) {
+    throw new Error(`${schedule.target} must not declare removed generic browser resource limit`);
   }
   for (const resource of ["go_cpu", "go_io"]) {
     if (!Object.hasOwn(limits, resource)) {
@@ -290,8 +293,27 @@ for (const schedule of manifest.schedules ?? []) {
     if (Object.hasOwn(claims, "backend")) {
       throw new Error(`${schedule.target} ${source.target} must not claim removed generic backend resource`);
     }
+    if (Object.hasOwn(claims, "browser")) {
+      throw new Error(`${schedule.target} ${source.target} must not claim removed generic browser resource`);
+    }
     if (source.type === "go_shards" && (Object.hasOwn(claims, "go_cpu") || Object.hasOwn(claims, "go_io"))) {
       throw new Error(`${schedule.target} ${source.target} go shard source must leave go_cpu/go_io to per-shard scheduler profiles`);
+    }
+    if (source.class === "browser") {
+      const browserStage = String(source.browser_stage ?? "");
+      const laneResource = `browser_stage_${browserStage.replaceAll("-", "_")}`;
+      if (!Object.hasOwn(limits, "browser_stack")) {
+        throw new Error(`${schedule.target} must declare browser_stack resource limit for browser work`);
+      }
+      if (!Object.hasOwn(limits, laneResource)) {
+        throw new Error(`${schedule.target} must declare ${laneResource} resource limit for ${source.target}`);
+      }
+      if (!Object.hasOwn(claims, "browser_stack")) {
+        throw new Error(`${schedule.target} ${source.target} must claim browser_stack`);
+      }
+      if (!Object.hasOwn(claims, laneResource)) {
+        throw new Error(`${schedule.target} ${source.target} must claim ${laneResource}`);
+      }
     }
   }
 }
