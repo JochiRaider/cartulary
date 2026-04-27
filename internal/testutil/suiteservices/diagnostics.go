@@ -119,6 +119,7 @@ type PostgresSummary struct {
 	Port                  string                        `json:"port,omitempty"`
 	User                  string                        `json:"user,omitempty"`
 	TemplateDatabase      string                        `json:"template_database,omitempty"`
+	Startup               ServiceStartupSummary         `json:"startup"`
 	AttachedHarnessCount  int                           `json:"attached_harness_count"`
 	CreatedDatabaseCount  int                           `json:"created_database_count"`
 	MigratedDatabaseCount int                           `json:"migrated_database_count"`
@@ -137,15 +138,39 @@ type PostgresDatabasePreparation struct {
 }
 
 type MinIOSummary struct {
-	Started              bool     `json:"started"`
-	StartedAt            string   `json:"started_at,omitempty"`
-	Endpoint             string   `json:"endpoint,omitempty"`
-	Secure               bool     `json:"secure"`
-	AttachedHarnessCount int      `json:"attached_harness_count"`
-	BucketCreateCount    int      `json:"bucket_create_count"`
-	BucketCleanupCount   int      `json:"bucket_cleanup_count"`
-	CreatedBuckets       []string `json:"created_buckets,omitempty"`
-	CleanedBuckets       []string `json:"cleaned_buckets,omitempty"`
+	Started              bool                  `json:"started"`
+	StartedAt            string                `json:"started_at,omitempty"`
+	Endpoint             string                `json:"endpoint,omitempty"`
+	Secure               bool                  `json:"secure"`
+	Startup              ServiceStartupSummary `json:"startup"`
+	AttachedHarnessCount int                   `json:"attached_harness_count"`
+	BucketCreateCount    int                   `json:"bucket_create_count"`
+	BucketCleanupCount   int                   `json:"bucket_cleanup_count"`
+	CreatedBuckets       []string              `json:"created_buckets,omitempty"`
+	CleanedBuckets       []string              `json:"cleaned_buckets,omitempty"`
+}
+
+type ServiceStartupSummary struct {
+	AttemptCount               int                     `json:"attempt_count"`
+	RetryCount                 int                     `json:"retry_count"`
+	SlowestAttemptDurationMS   int64                   `json:"slowest_attempt_duration_ms"`
+	FinalAttempt               int                     `json:"final_attempt"`
+	FinalStatus                string                  `json:"final_status,omitempty"`
+	FinalRetryable             bool                    `json:"final_retryable"`
+	FinalRetryBlockedByContext bool                    `json:"final_retry_blocked_by_context"`
+	Attempts                   []ServiceStartupAttempt `json:"attempts,omitempty"`
+}
+
+type ServiceStartupAttempt struct {
+	Attempt               int    `json:"attempt"`
+	MaxAttempts           int    `json:"max_attempts"`
+	Status                string `json:"status,omitempty"`
+	DurationMS            int64  `json:"duration_ms"`
+	Retryable             bool   `json:"retryable"`
+	RetryScheduled        bool   `json:"retry_scheduled"`
+	RetryBlockedByContext bool   `json:"retry_blocked_by_context"`
+	Message               string `json:"message,omitempty"`
+	Timestamp             string `json:"timestamp,omitempty"`
 }
 
 type BrowserE2ESummary struct {
@@ -383,6 +408,8 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
 		case EventS3PrefixCleaned:
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
+		case EventTimingSpan:
+			recordStartupAttempt(&scope, event)
 		case EventWebE2EFixtureRetired:
 			scope.BrowserE2E.RetiredFixtureCount++
 			upsertWebE2EFixture(retiredWebE2EFixtures, event)
@@ -399,6 +426,8 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 	scope.Postgres.DatabasePreparations = sortedPostgresPreparations(databasePreparations)
 	scope.MinIO.CreatedBuckets = sortedKeys(createdBuckets)
 	scope.MinIO.CleanedBuckets = sortedKeys(cleanedBuckets)
+	scope.Postgres.Startup = finalizeStartupSummary(scope.Postgres.Startup)
+	scope.MinIO.Startup = finalizeStartupSummary(scope.MinIO.Startup)
 	scope.BrowserE2E.RetiredFixtures = sortedWebE2EFixtures(retiredWebE2EFixtures)
 	scope.BrowserE2E.CleanedFixtures = sortedWebE2EFixtures(cleanedWebE2EFixtures)
 	scope.BrowserE2E.ReclaimedFixtures = sortedWebE2EFixtures(reclaimedWebE2EFixtures)
@@ -409,6 +438,60 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 	scope.Fixture.Slowest = topFixtureActivities(slowestFixtures, 10)
 
 	return scope, true, nil
+}
+
+func recordStartupAttempt(scope *ServiceScope, event Event) {
+	if !boolDetail(event.Details, "startup_attempt") {
+		return
+	}
+	service := stringDetail(event.Details, "service")
+	attempt := ServiceStartupAttempt{
+		Attempt:               intValue(event.Details, "attempt"),
+		MaxAttempts:           intValue(event.Details, "max_attempts"),
+		Status:                stringDetail(event.Details, "status"),
+		DurationMS:            int64Value(event.Details, "duration_ms"),
+		Retryable:             boolDetail(event.Details, "retryable"),
+		RetryScheduled:        boolDetail(event.Details, "retry_scheduled"),
+		RetryBlockedByContext: boolDetail(event.Details, "retry_blocked_by_context"),
+		Message:               stringDetail(event.Details, "message"),
+		Timestamp:             event.Timestamp,
+	}
+	if attempt.Attempt < 1 {
+		return
+	}
+	switch service {
+	case ServicePostgres:
+		scope.Postgres.Startup.Attempts = append(scope.Postgres.Startup.Attempts, attempt)
+	case ServiceMinIO:
+		scope.MinIO.Startup.Attempts = append(scope.MinIO.Startup.Attempts, attempt)
+	}
+}
+
+func finalizeStartupSummary(summary ServiceStartupSummary) ServiceStartupSummary {
+	if len(summary.Attempts) == 0 {
+		return summary
+	}
+	sort.Slice(summary.Attempts, func(i, j int) bool {
+		if summary.Attempts[i].Attempt != summary.Attempts[j].Attempt {
+			return summary.Attempts[i].Attempt < summary.Attempts[j].Attempt
+		}
+		return summary.Attempts[i].Timestamp < summary.Attempts[j].Timestamp
+	})
+	summary.AttemptCount = len(summary.Attempts)
+	for _, attempt := range summary.Attempts {
+		if attempt.RetryScheduled {
+			summary.RetryCount++
+		}
+		if attempt.DurationMS > summary.SlowestAttemptDurationMS {
+			summary.SlowestAttemptDurationMS = attempt.DurationMS
+		}
+	}
+	finalAttempt := summary.Attempts[len(summary.Attempts)-1]
+	summary.FinalAttempt = finalAttempt.Attempt
+	summary.FinalStatus = finalAttempt.Status
+	summary.FinalRetryable = finalAttempt.Retryable
+	summary.FinalRetryBlockedByContext = finalAttempt.RetryBlockedByContext
+	return summary
 }
 
 func recordFixtureActivity(summary *FixtureSummary, byPackage map[string]FixtureActivity, byTest map[string]FixtureActivity, byStrategy map[string]FixtureActivity, slowest *[]FixtureActivity, event Event) {

@@ -448,6 +448,71 @@ func TestRunRecordsMinIOStartupFailureWithStructuredSummary(t *testing.T) {
 	}
 }
 
+func TestServiceStartupAttemptTimingSummarizesRetries(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "suite-startup-attempts"
+	activeEnv[suiteservices.TargetEnv] = "browser-e2e"
+
+	start := time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC)
+	recordServiceStartupAttempt(activeEnv, suiteservices.ServicePostgres, testcontainersx.StartEvent{
+		Attempt:     1,
+		MaxAttempts: 3,
+		StartTime:   start,
+		EndTime:     start.Add(20 * time.Millisecond),
+		Duration:    20 * time.Millisecond,
+		Status:      "fail",
+		Retryable:   true,
+		Err:         errors.New("wait for postgres readiness: postgres://cartulary:secret@127.0.0.1:5432/postgres password=secret"),
+	})
+	recordServiceStartupAttempt(activeEnv, suiteservices.ServicePostgres, testcontainersx.StartEvent{
+		Attempt:     2,
+		MaxAttempts: 3,
+		StartTime:   start.Add(25 * time.Millisecond),
+		EndTime:     start.Add(30 * time.Millisecond),
+		Duration:    5 * time.Millisecond,
+		Status:      "pass",
+	})
+	recordServiceStartupAttempt(activeEnv, suiteservices.ServiceMinIO, testcontainersx.StartEvent{
+		Attempt:     1,
+		MaxAttempts: 2,
+		StartTime:   start,
+		EndTime:     start.Add(10 * time.Millisecond),
+		Duration:    10 * time.Millisecond,
+		Status:      "pass",
+	})
+	deps.refreshSummary(activeEnv)
+
+	scope, ok, err := suiteservices.Summarize(activeEnv)
+	if err != nil {
+		t.Fatalf("summarize startup attempts: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected startup attempt summary")
+	}
+	if scope.Postgres.Startup.AttemptCount != 2 || scope.Postgres.Startup.RetryCount != 1 {
+		t.Fatalf("unexpected postgres startup summary: %#v", scope.Postgres.Startup)
+	}
+	if scope.Postgres.Startup.SlowestAttemptDurationMS != 20 {
+		t.Fatalf("unexpected slowest postgres attempt: %#v", scope.Postgres.Startup)
+	}
+	if scope.Postgres.Startup.FinalAttempt != 2 || scope.Postgres.Startup.FinalStatus != "pass" {
+		t.Fatalf("unexpected final postgres attempt: %#v", scope.Postgres.Startup)
+	}
+	if len(scope.Postgres.Startup.Attempts) != 2 || !scope.Postgres.Startup.Attempts[0].RetryScheduled {
+		t.Fatalf("expected retry-scheduled first postgres attempt, got %#v", scope.Postgres.Startup.Attempts)
+	}
+	if strings.Contains(scope.Postgres.Startup.Attempts[0].Message, "secret") || strings.Contains(scope.Postgres.Startup.Attempts[0].Message, "postgres://") {
+		t.Fatalf("startup attempt message must be redacted, got %q", scope.Postgres.Startup.Attempts[0].Message)
+	}
+	if scope.MinIO.Startup.AttemptCount != 1 || scope.MinIO.Startup.FinalStatus != "pass" {
+		t.Fatalf("unexpected minio startup summary: %#v", scope.MinIO.Startup)
+	}
+	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketServiceWait, "test-services start postgres attempt 1", "fail")
+	requireTimingEventStatus(t, loadTestEventsForEnv(t, activeEnv), bucketServiceWait, "test-services start postgres attempt 2", "pass")
+}
+
 func TestRunRecordsPostgresTemplateFailureWithStructuredSummary(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	minioClosed := 0

@@ -172,6 +172,7 @@ func TestOwnedMinIORetriesReadinessTimeoutAndTerminatesFailedAttempt(t *testing.
 	starts := 0
 	terminations := 0
 	readinessChecks := 0
+	var events []testcontainersx.StartEvent
 	ports := []network.Port{
 		network.MustParsePort("9001/tcp"),
 		network.MustParsePort("9002/tcp"),
@@ -198,7 +199,11 @@ func TestOwnedMinIORetriesReadinessTimeoutAndTerminatesFailedAttempt(t *testing.
 		return nil
 	}
 
-	harness, err := startHarness(context.Background(), nil)
+	harness, err := StartOwnedWithOptions(context.Background(), StartOptions{
+		Observer: func(event testcontainersx.StartEvent) {
+			events = append(events, event)
+		},
+	})
 	if err != nil {
 		t.Fatalf("expected retry success, got %v", err)
 	}
@@ -213,6 +218,9 @@ func TestOwnedMinIORetriesReadinessTimeoutAndTerminatesFailedAttempt(t *testing.
 	}
 	if harness.Endpoint != "127.0.0.1:9002" {
 		t.Fatalf("expected second attempt endpoint, got %q", harness.Endpoint)
+	}
+	if !observedMinIORetry(events) {
+		t.Fatalf("expected observer to record retryable attempt and retry decision, got %#v", events)
 	}
 }
 
@@ -336,6 +344,20 @@ func resetSharedHarness(t testing.TB) {
 		sharedHarness = nil
 		sharedHarnessMu.Unlock()
 	})
+}
+
+func observedMinIORetry(events []testcontainersx.StartEvent) bool {
+	sawRetryableAttempt := false
+	sawRetryScheduled := false
+	for _, event := range events {
+		if event.Type == testcontainersx.StartEventAttemptEnd && event.Attempt == 1 && event.Retryable && event.Status == "fail" {
+			sawRetryableAttempt = true
+		}
+		if event.Type == testcontainersx.StartEventRetryScheduled && event.Attempt == 1 {
+			sawRetryScheduled = true
+		}
+	}
+	return sawRetryableAttempt && sawRetryScheduled
 }
 
 func stubOwnedMinIOStartup(t testing.TB) {

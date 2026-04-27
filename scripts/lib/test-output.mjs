@@ -1877,10 +1877,11 @@ function parseSummaryGroupsSpec(value) {
 function parseRunSummaryArgs(args) {
   const [label, requestedStatus = "pass", completedText = "0", totalText = "0", abortedAfter = "", ...remaining] = args;
   if (!label) {
-    throw new Error("usage: test-output.mjs run-summary <label> <pass|fail> <completed> <total> <aborted_after|-> [--summary-groups <name=a,b;name=c>] [targets...]");
+    throw new Error("usage: test-output.mjs run-summary <label> <pass|fail> <completed> <total> <aborted_after|-> [--summary-groups <name=a,b;name=c>] [--skipped-after-failure <target,target>] [targets...]");
   }
   const targets = [];
   const summaryGroups = [];
+  const skippedAfterFailure = [];
   while (remaining.length > 0) {
     const value = remaining.shift();
     if (value === "--summary-groups") {
@@ -1891,9 +1892,17 @@ function parseRunSummaryArgs(args) {
       summaryGroups.push(...parseSummaryGroupsSpec(spec));
       continue;
     }
+    if (value === "--skipped-after-failure") {
+      const spec = remaining.shift();
+      if (spec === undefined) {
+        throw new Error("--skipped-after-failure requires <target,target>");
+      }
+      skippedAfterFailure.push(...parseTargetList(spec));
+      continue;
+    }
     targets.push(value);
   }
-  return { label, requestedStatus, completedText, totalText, abortedAfter, targets, summaryGroups };
+  return { label, requestedStatus, completedText, totalText, abortedAfter, targets, summaryGroups, skippedAfterFailure };
 }
 
 function createDurationAggregate() {
@@ -1979,13 +1988,18 @@ function summarizeTargetSummaries(summaries, missingTargetSummaries, requestedSt
   };
 }
 
-function buildSummaryGroups(summaryGroups) {
+function buildSummaryGroups(summaryGroups, skippedAfterFailureSet = new Set()) {
   return summaryGroups.map((group) => {
     const groupSummaries = [];
     const missingTargetSummaries = [];
+    const skippedAfterFailure = [];
     for (const target of group.targets) {
       const summary = loadTargetSummary(target);
       if (!summary) {
+        if (skippedAfterFailureSet.has(target)) {
+          skippedAfterFailure.push(target);
+          continue;
+        }
         missingTargetSummaries.push(target);
         continue;
       }
@@ -1997,6 +2011,7 @@ function buildSummaryGroups(summaryGroups) {
       status: summarized.failed ? "fail" : "pass",
       targets: group.targets,
       missing_target_summaries: missingTargetSummaries,
+      skipped_after_failure: skippedAfterFailure,
       start_time: summarized.startTime,
       end_time: summarized.endTime,
       ...durationFieldsForJSON(summarized.aggregate, {
@@ -2021,8 +2036,12 @@ function writeSummaryGroupLines(stream, label, summaryGroups) {
       group.missing_target_summaries.length > 0
         ? ` missing=${group.missing_target_summaries.join(",")}`
         : "";
+    const skipped =
+      group.skipped_after_failure.length > 0
+        ? ` skipped_after_failure=${group.skipped_after_failure.join(",")}`
+        : "";
     stream.write(
-      `[GROUP] ${label} ${group.name} targets=${group.targets.join(",")} status=${group.status} ${formatDurationFields(group.wall_duration_ms, group.executed_duration_ms, group.logical_duration_ms, group.critical_path_wall_duration_ms, group.teardown_duration_ms)} ${formatAccountingModeFields(group.accounting_modes)}${missing}\n`,
+      `[GROUP] ${label} ${group.name} targets=${group.targets.join(",")} status=${group.status} ${formatDurationFields(group.wall_duration_ms, group.executed_duration_ms, group.logical_duration_ms, group.critical_path_wall_duration_ms, group.teardown_duration_ms)} ${formatAccountingModeFields(group.accounting_modes)}${missing}${skipped}\n`,
     );
   }
 }
@@ -2074,16 +2093,20 @@ function findSlowestLifecycleBucket(targetSummaries) {
 }
 
 function handleRunSummary(args) {
-  const { label, requestedStatus, completedText, totalText, abortedAfter, targets, summaryGroups } =
+  const { label, requestedStatus, completedText, totalText, abortedAfter, targets, summaryGroups, skippedAfterFailure } =
     parseRunSummaryArgs(args);
   const completedTargets = Number.parseInt(completedText, 10) || 0;
   const totalTargets = Number.parseInt(totalText, 10) || 0;
+  const skippedAfterFailureSet = new Set(skippedAfterFailure);
   const missingTargetSummaries = [];
   const targetSummaries = [];
 
   for (const target of targets) {
     const summary = loadTargetSummary(target);
     if (!summary) {
+      if (skippedAfterFailureSet.has(target)) {
+        continue;
+      }
       missingTargetSummaries.push(target);
       continue;
     }
@@ -2098,7 +2121,7 @@ function handleRunSummary(args) {
   const accountingModes = summarized.accountingModes;
   const wallDurationMs = summarized.wallDurationMs;
   const criticalPathWallDurationMs = summarized.criticalPathWallDurationMs;
-  const renderedSummaryGroups = buildSummaryGroups(summaryGroups);
+  const renderedSummaryGroups = buildSummaryGroups(summaryGroups, skippedAfterFailureSet);
   const sharedExecutionGroups = buildSharedExecutionGroups();
   const failed =
     summarized.failed ||
@@ -2140,6 +2163,7 @@ function handleRunSummary(args) {
     targets,
     target_summaries: targetSummaries,
     missing_target_summaries: missingTargetSummaries,
+    skipped_after_failure: skippedAfterFailure,
     summary_groups: renderedSummaryGroups,
     shared_execution_groups: sharedExecutionGroups,
   };

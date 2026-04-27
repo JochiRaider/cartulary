@@ -3,6 +3,7 @@ package pgtest
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -27,6 +28,11 @@ import (
 const postgresImage = "postgres:16-alpine"
 
 const (
+	postgresPortMappingTimeout   = 15 * time.Second
+	postgresClientReadyTimeout   = 15 * time.Second
+	postgresHealthPollInterval   = 250 * time.Millisecond
+	postgresClientAttemptTimeout = 5 * time.Second
+
 	postgresFixturePolicyTemplateClone = "template_clone"
 	postgresFixturePolicyPackageReset  = "package_reset"
 	postgresFixturePolicyTransaction   = "transaction"
@@ -72,6 +78,11 @@ type TestDatabase struct {
 	DSN  string
 }
 
+type StartOptions struct {
+	Labels   map[string]string
+	Observer testcontainersx.StartObserver
+}
+
 type RollbackDB struct {
 	tx   pgx.Tx
 	conn *pgx.Conn
@@ -98,9 +109,15 @@ type fixtureAttribution struct {
 }
 
 var (
-	sharedHarnessMu     sync.Mutex
-	sharedHarness       *Harness
-	startOwnedHarness   = StartOwned
+	sharedHarnessMu   sync.Mutex
+	sharedHarness     *Harness
+	startOwnedHarness = StartOwned
+	startContainerFn  = testcontainers.GenericContainer
+	waitReadyFn       = func(ctx context.Context, harness *Harness) error {
+		return harness.WaitReady(ctx)
+	}
+	startPreflightFn    func(context.Context) (string, error)
+	startSleepFn        func(context.Context, time.Duration) error
 	pingAdminDSNFn      = pingAdminDSN
 	migrateDatabaseFn   = postgres.Migrate
 	createDatabaseFn    = createDatabase
@@ -147,7 +164,11 @@ func StartOwned(ctx context.Context) (*Harness, error) {
 }
 
 func StartOwnedWithLabels(ctx context.Context, labels map[string]string) (*Harness, error) {
-	return startHarness(ctx, labels)
+	return StartOwnedWithOptions(ctx, StartOptions{Labels: labels})
+}
+
+func StartOwnedWithOptions(ctx context.Context, options StartOptions) (*Harness, error) {
+	return startHarnessWithOptions(ctx, options)
 }
 
 func StopShared(ctx context.Context) error {
@@ -165,6 +186,10 @@ func StopShared(ctx context.Context) error {
 }
 
 func startHarness(ctx context.Context, labels map[string]string) (*Harness, error) {
+	return startHarnessWithOptions(ctx, StartOptions{Labels: labels})
+}
+
+func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harness, error) {
 	req := testcontainers.ContainerRequest{
 		Image:        postgresImage,
 		ExposedPorts: []string{"5432/tcp"},
@@ -173,34 +198,57 @@ func startHarness(ctx context.Context, labels map[string]string) (*Harness, erro
 			"POSTGRES_USER":     "cartulary",
 			"POSTGRES_PASSWORD": "cartulary",
 		},
-		WaitingFor: wait.ForListeningPort("5432/tcp").WithStartupTimeout(60 * time.Second),
+		WaitingFor: postgresPortWaitStrategy(),
 	}
-	if len(labels) > 0 {
-		req.Labels = cloneLabels(labels)
+	if len(options.Labels) > 0 {
+		req.Labels = cloneLabels(options.Labels)
 	}
 
-	container, err := testcontainersx.StartWithRetry(ctx, testcontainersx.StartConfig{
-		Service: "postgres testcontainer",
-		Image:   postgresImage,
-	}, func(ctx context.Context) (testcontainers.Container, error) {
-		return testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-			ContainerRequest: req,
-			Started:          true,
-		})
+	harness, err := testcontainersx.StartWithRetry(ctx, testcontainersx.StartConfig{
+		Service:      "postgres testcontainer",
+		Image:        postgresImage,
+		MaxAttempts:  3,
+		RetryBackoff: 500 * time.Millisecond,
+		Preflight:    startPreflightFn,
+		Retryable:    isRetryablePostgresStartupFailure,
+		Sleep:        startSleepFn,
+		Observer:     options.Observer,
+	}, func(ctx context.Context) (*Harness, error) {
+		return startHarnessAttempt(ctx, req)
 	})
 	if err != nil {
 		return nil, err
 	}
 
+	return harness, nil
+}
+
+func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerRequest) (*Harness, error) {
+	container, err := startContainerFn(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	attemptSucceeded := false
+	defer func() {
+		if attemptSucceeded {
+			return
+		}
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = container.Terminate(cleanupCtx)
+	}()
+
 	host, err := container.Host(ctx)
 	if err != nil {
-		_ = container.Terminate(ctx)
 		return nil, fmt.Errorf("resolve postgres host: %w", err)
 	}
 
 	port, err := container.MappedPort(ctx, "5432/tcp")
 	if err != nil {
-		_ = container.Terminate(ctx)
 		return nil, fmt.Errorf("resolve postgres mapped port: %w", err)
 	}
 
@@ -215,12 +263,16 @@ func startHarness(ctx context.Context, labels map[string]string) (*Harness, erro
 	}
 	harness.adminDSN = harness.dsnFor("postgres")
 
-	if err := harness.WaitReady(ctx); err != nil {
-		_ = harness.Close(ctx)
+	if err := waitReadyFn(ctx, harness); err != nil {
 		return nil, fmt.Errorf("wait for postgres readiness: %w", err)
 	}
 
+	attemptSucceeded = true
 	return harness, nil
+}
+
+func postgresPortWaitStrategy() *wait.HostPortStrategy {
+	return wait.ForMappedPort("5432/tcp").WithStartupTimeout(postgresPortMappingTimeout)
 }
 
 func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
@@ -252,19 +304,99 @@ func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
 }
 
 func (h *Harness) WaitReady(ctx context.Context) error {
-	deadline := time.Now().Add(30 * time.Second)
+	readyCtx, cancel := context.WithTimeout(ctx, postgresClientReadyTimeout)
+	defer cancel()
+
+	ticker := time.NewTicker(postgresHealthPollInterval)
+	defer ticker.Stop()
+
 	var lastErr error
 	for {
-		err := pingAdminDSNFn(ctx, h.adminDSN)
+		attemptCtx, attemptCancel := context.WithTimeout(readyCtx, postgresClientAttemptTimeout)
+		err := pingAdminDSNFn(attemptCtx, h.adminDSN)
+		attemptCancel()
 		if err == nil {
 			return nil
 		}
-		lastErr = err
-		if time.Now().After(deadline) {
-			return fmt.Errorf("postgres did not become ready: %w", lastErr)
+		if isNonRetryablePostgresReadinessError(err) {
+			return &postgresReadinessError{LastErr: err}
 		}
-		time.Sleep(250 * time.Millisecond)
+
+		lastErr = err
+		select {
+		case <-readyCtx.Done():
+			if lastErr == nil {
+				lastErr = readyCtx.Err()
+			}
+			return &postgresReadinessError{
+				LastErr:         lastErr,
+				DeadlineExpired: errors.Is(readyCtx.Err(), context.DeadlineExceeded),
+			}
+		case <-ticker.C:
+		}
 	}
+}
+
+type postgresReadinessError struct {
+	LastErr         error
+	DeadlineExpired bool
+}
+
+func (e *postgresReadinessError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.LastErr == nil {
+		return "postgres did not become ready"
+	}
+	return fmt.Sprintf("postgres did not become ready: %v", e.LastErr)
+}
+
+func (e *postgresReadinessError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.LastErr
+}
+
+func isRetryablePostgresStartupFailure(err error) bool {
+	var readinessErr *postgresReadinessError
+	if errors.As(err, &readinessErr) {
+		if !readinessErr.DeadlineExpired {
+			return false
+		}
+		return !isNonRetryablePostgresReadinessError(readinessErr.LastErr)
+	}
+
+	lower := strings.ToLower(err.Error())
+	return strings.Contains(lower, "context deadline exceeded") &&
+		(strings.Contains(lower, "5432") ||
+			strings.Contains(lower, "mapped port") ||
+			strings.Contains(lower, "listening port") ||
+			strings.Contains(lower, "port wait") ||
+			strings.Contains(lower, "wait until ready"))
+}
+
+func isNonRetryablePostgresReadinessError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		case "28P01", "28000", "3D000":
+			return true
+		}
+	}
+
+	lower := strings.ToLower(err.Error())
+	return strings.Contains(lower, "password authentication failed") ||
+		strings.Contains(lower, "authentication failed") ||
+		strings.Contains(lower, "role") && strings.Contains(lower, "does not exist") ||
+		strings.Contains(lower, "database") && strings.Contains(lower, "does not exist") ||
+		strings.Contains(lower, "no pg_hba.conf entry") ||
+		strings.Contains(lower, "invalid connection")
 }
 
 func (h *Harness) AdminDSN() string {

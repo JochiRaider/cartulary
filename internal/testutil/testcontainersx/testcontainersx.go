@@ -19,6 +19,15 @@ const (
 	DefaultMaxAttempts      = 2
 )
 
+const (
+	StartEventPreflightStart = "preflight-start"
+	StartEventPreflightEnd   = "preflight-end"
+	StartEventAttemptStart   = "attempt-start"
+	StartEventAttemptEnd     = "attempt-end"
+	StartEventRetryScheduled = "retry-scheduled"
+	StartEventRetryBlocked   = "retry-blocked"
+)
+
 type StartConfig struct {
 	Service          string
 	Image            string
@@ -28,6 +37,26 @@ type StartConfig struct {
 	Preflight        func(context.Context) (string, error)
 	Retryable        func(error) bool
 	Sleep            func(context.Context, time.Duration) error
+	Observer         StartObserver
+}
+
+type StartObserver func(StartEvent)
+
+type StartEvent struct {
+	Type                  string
+	Operation             string
+	Service               string
+	Image                 string
+	DockerEndpoint        string
+	Attempt               int
+	MaxAttempts           int
+	StartTime             time.Time
+	EndTime               time.Time
+	Duration              time.Duration
+	Status                string
+	Retryable             bool
+	RetryBlockedByContext bool
+	Err                   error
 }
 
 type StartFailure struct {
@@ -137,9 +166,32 @@ func StartWithRetry[T any](ctx context.Context, config StartConfig, startup func
 		maxAttempts = DefaultMaxAttempts
 	}
 
+	preflightStart := time.Now().UTC()
+	observeStart(config.Observer, StartEvent{
+		Type:        StartEventPreflightStart,
+		Operation:   "docker preflight",
+		Service:     service,
+		Image:       image,
+		MaxAttempts: maxAttempts,
+		StartTime:   preflightStart,
+	})
 	preflightCtx, cancel := context.WithTimeout(ctx, preflightTimeout)
 	endpoint, err := preflight(preflightCtx)
 	cancel()
+	preflightEnd := time.Now().UTC()
+	observeStart(config.Observer, StartEvent{
+		Type:           StartEventPreflightEnd,
+		Operation:      "docker preflight",
+		Service:        service,
+		Image:          image,
+		DockerEndpoint: endpoint,
+		MaxAttempts:    maxAttempts,
+		StartTime:      preflightStart,
+		EndTime:        preflightEnd,
+		Duration:       preflightEnd.Sub(preflightStart),
+		Status:         statusForErr(err),
+		Err:            err,
+	})
 	if err != nil {
 		return zero, newStartFailure("docker preflight", service, image, endpoint, 0, maxAttempts, false, err)
 	}
@@ -148,12 +200,50 @@ func StartWithRetry[T any](ctx context.Context, config StartConfig, startup func
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		if attempt > 1 {
 			if err := ctx.Err(); err != nil && lastRetryableErr != nil {
+				observeStart(config.Observer, StartEvent{
+					Type:                  StartEventRetryBlocked,
+					Operation:             "start",
+					Service:               service,
+					Image:                 image,
+					DockerEndpoint:        endpoint,
+					Attempt:               attempt - 1,
+					MaxAttempts:           maxAttempts,
+					Status:                "fail",
+					Retryable:             true,
+					RetryBlockedByContext: true,
+					Err:                   err,
+				})
 				return zero, newRetryBlockedFailure("start", service, image, endpoint, attempt-1, maxAttempts, lastRetryableErr, err)
 			}
 		}
 
+		attemptStart := time.Now().UTC()
+		observeStart(config.Observer, StartEvent{
+			Type:           StartEventAttemptStart,
+			Operation:      "start",
+			Service:        service,
+			Image:          image,
+			DockerEndpoint: endpoint,
+			Attempt:        attempt,
+			MaxAttempts:    maxAttempts,
+			StartTime:      attemptStart,
+		})
 		value, startErr := startup(ctx)
+		attemptEnd := time.Now().UTC()
 		if startErr == nil {
+			observeStart(config.Observer, StartEvent{
+				Type:           StartEventAttemptEnd,
+				Operation:      "start",
+				Service:        service,
+				Image:          image,
+				DockerEndpoint: endpoint,
+				Attempt:        attempt,
+				MaxAttempts:    maxAttempts,
+				StartTime:      attemptStart,
+				EndTime:        attemptEnd,
+				Duration:       attemptEnd.Sub(attemptStart),
+				Status:         "pass",
+			})
 			return value, nil
 		}
 
@@ -161,13 +251,53 @@ func StartWithRetry[T any](ctx context.Context, config StartConfig, startup func
 		if config.Retryable != nil && config.Retryable(startErr) {
 			retryable = true
 		}
+		observeStart(config.Observer, StartEvent{
+			Type:           StartEventAttemptEnd,
+			Operation:      "start",
+			Service:        service,
+			Image:          image,
+			DockerEndpoint: endpoint,
+			Attempt:        attempt,
+			MaxAttempts:    maxAttempts,
+			StartTime:      attemptStart,
+			EndTime:        attemptEnd,
+			Duration:       attemptEnd.Sub(attemptStart),
+			Status:         "fail",
+			Retryable:      retryable,
+			Err:            startErr,
+		})
 		if attempt >= maxAttempts || !retryable {
 			return zero, newStartFailure("start", service, image, endpoint, attempt, maxAttempts, retryable, startErr)
 		}
 		lastRetryableErr = startErr
 
+		observeStart(config.Observer, StartEvent{
+			Type:           StartEventRetryScheduled,
+			Operation:      "start",
+			Service:        service,
+			Image:          image,
+			DockerEndpoint: endpoint,
+			Attempt:        attempt,
+			MaxAttempts:    maxAttempts,
+			Status:         "pass",
+			Retryable:      true,
+			Err:            startErr,
+		})
 		if err := sleep(ctx, retryBackoff); err != nil {
 			if isContextCompletion(err) {
+				observeStart(config.Observer, StartEvent{
+					Type:                  StartEventRetryBlocked,
+					Operation:             "start",
+					Service:               service,
+					Image:                 image,
+					DockerEndpoint:        endpoint,
+					Attempt:               attempt,
+					MaxAttempts:           maxAttempts,
+					Status:                "fail",
+					Retryable:             true,
+					RetryBlockedByContext: true,
+					Err:                   err,
+				})
 				return zero, newRetryBlockedFailure("start", service, image, endpoint, attempt, maxAttempts, startErr, err)
 			}
 			return zero, newStartFailure("start", service, image, endpoint, attempt, maxAttempts, retryable, fmt.Errorf("wait for retry backoff: %w", err))
@@ -178,6 +308,26 @@ func StartWithRetry[T any](ctx context.Context, config StartConfig, startup func
 		return zero, newStartFailure("start", service, image, endpoint, maxAttempts, maxAttempts, true, lastRetryableErr)
 	}
 	return zero, newStartFailure("start", service, image, endpoint, maxAttempts, maxAttempts, false, errors.New("startup failed without an attributed cause"))
+}
+
+func observeStart(observer StartObserver, event StartEvent) {
+	if observer == nil {
+		return
+	}
+	if event.EndTime.Before(event.StartTime) {
+		event.EndTime = event.StartTime
+	}
+	if event.Duration < 0 {
+		event.Duration = 0
+	}
+	observer(event)
+}
+
+func statusForErr(err error) string {
+	if err == nil {
+		return "pass"
+	}
+	return "fail"
 }
 
 func defaultDockerPreflight(ctx context.Context) (string, error) {

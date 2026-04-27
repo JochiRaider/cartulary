@@ -310,6 +310,35 @@ assert_equals "$(json_field "$missing_target_summary" "counts.non_test")" "1" "m
 assert_equals "$(json_field "$missing_target_summary" "counts.non_test_failed")" "1" "missing target non-test failed count"
 assert_equals "$(json_field "$missing_target_summary" "missing_target_summaries.0")" "test-fast-service-backed" "missing target summary list"
 
+skipped_after_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-summary-skipped-after-failure.XXXXXX")"
+cleanup_paths+=("$skipped_after_failure_results")
+CARTULARY_TEST_RESULTS_DIR="$skipped_after_failure_results" \
+CARTULARY_TEST_RUN_ID="skipped-after-failure" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary failed-check fail >/dev/null 2>&1
+set +e
+skipped_after_failure_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$skipped_after_failure_results" \
+  CARTULARY_TEST_RUN_ID="skipped-after-failure" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "skipped after failure" fail 0 1 failed-check \
+      --summary-groups "harness=failed-check,skipped-check" \
+      --skipped-after-failure skipped-check \
+      failed-check skipped-check \
+    2>&1
+)"
+skipped_after_failure_status=$?
+set -e
+assert_equals "$skipped_after_failure_status" "1" "skipped after failure run summary status"
+assert_contains "$skipped_after_failure_output" "aborted_after=failed-check" "skipped after failure root cause output"
+assert_contains "$skipped_after_failure_output" "skipped_after_failure=skipped-check" "skipped after failure group output"
+assert_not_contains "$skipped_after_failure_output" "missing=skipped-check" "skipped after failure missing output"
+skipped_after_failure_summary="$skipped_after_failure_results/skipped-after-failure/run-summary.json"
+assert_equals "$(json_field "$skipped_after_failure_summary" "counts.failed")" "1" "skipped after failure failed count"
+assert_equals "$(json_field "$skipped_after_failure_summary" "counts.non_test_failed")" "1" "skipped after failure non-test failed count"
+assert_equals "$(json_field "$skipped_after_failure_summary" "missing_target_summaries.length")" "0" "skipped after failure missing target count"
+assert_equals "$(json_field "$skipped_after_failure_summary" "skipped_after_failure.0")" "skipped-check" "skipped after failure summary list"
+assert_equals "$(json_field "$skipped_after_failure_summary" "summary_groups.0.skipped_after_failure.0")" "skipped-check" "skipped after failure group list"
+assert_equals "$(json_field "$skipped_after_failure_summary" "summary_groups.0.missing_target_summaries.length")" "0" "skipped after failure group missing count"
+
 child_summary_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-children.XXXXXX")"
 cleanup_paths+=("$child_summary_results")
 write_target_summary "$child_summary_results" "child-summary" "child-a" 1000 1200 2 7

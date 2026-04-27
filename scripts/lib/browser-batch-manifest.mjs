@@ -1,0 +1,175 @@
+#!/usr/bin/env node
+import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+
+export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v3";
+
+const allowedGroupKinds = new Set([
+  "webserver-backed",
+  "duration_balanced_specs",
+  "functional",
+  "support",
+  "stateful",
+  "measurement",
+  "visual",
+]);
+
+export function loadBrowserBatchManifest(manifestPath) {
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  if (manifest.schema_id !== browserBatchManifestSchemaID) {
+    throw new Error(`${manifestPath} must declare schema_id ${browserBatchManifestSchemaID}`);
+  }
+  if (!Array.isArray(manifest.stages)) {
+    throw new Error(`${manifestPath} must declare stages[]`);
+  }
+  return manifest;
+}
+
+export function loadBrowserBatchStages(manifestPath) {
+  const manifest = loadBrowserBatchManifest(manifestPath);
+  const stages = new Map();
+  for (const [index, rawStage] of manifest.stages.entries()) {
+    const stage = normalizeStage(rawStage, index + 1);
+    if (stages.has(stage.name)) {
+      throw new Error(`duplicate browser batch stage ${stage.name}`);
+    }
+    stages.set(stage.name, stage);
+  }
+  return stages;
+}
+
+export function resolveBrowserBatchStage(manifestPath, stageName) {
+  const stages = loadBrowserBatchStages(manifestPath);
+  const stage = stages.get(stageName);
+  if (!stage) {
+    throw new Error(`expected exactly one browser E2E batch stage ${stageName}, found 0`);
+  }
+  return stage;
+}
+
+function normalizeStage(stage, index) {
+  const label = `browser E2E batch stage ${index}`;
+  if (!stage || typeof stage !== "object" || Array.isArray(stage)) {
+    throw new Error(`${label} must be an object`);
+  }
+  for (const field of ["name", "target"]) {
+    if (typeof stage[field] !== "string" || stage[field].trim() === "") {
+      throw new Error(`${label} must declare ${field}`);
+    }
+  }
+  if (stage.children !== undefined) {
+    throw new Error(`browser E2E batch stage ${stage.name} must use summary_children[], not legacy children[]`);
+  }
+
+  const summaryChildren = stage.summary_children ?? [];
+  if (!Array.isArray(summaryChildren)) {
+    throw new Error(`browser E2E batch stage ${stage.name} summary_children must be an array`);
+  }
+  const normalizedSummaryChildren = summaryChildren.map((child, childIndex) => {
+    if (typeof child !== "string" || child.trim() === "") {
+      throw new Error(
+        `browser E2E batch stage ${stage.name} summary_children ${childIndex + 1} must be a non-empty string`,
+      );
+    }
+    return child.trim();
+  });
+  const duplicateSummaryChild = normalizedSummaryChildren.find(
+    (child, childIndex, children) => children.indexOf(child) !== childIndex,
+  );
+  if (duplicateSummaryChild) {
+    throw new Error(
+      `browser E2E batch stage ${stage.name} summary_children contains duplicate ${duplicateSummaryChild}`,
+    );
+  }
+
+  const groups = stage.groups ?? [];
+  if (!Array.isArray(groups) || groups.length === 0) {
+    throw new Error(`browser E2E batch stage ${stage.name} must declare groups[]`);
+  }
+  const normalizedGroups = groups.map((group, groupIndex) => normalizeGroup(stage.name, group, groupIndex + 1));
+  const groupTargets = new Set(normalizedGroups.map((group) => group.target));
+  for (const child of normalizedSummaryChildren) {
+    if (!groupTargets.has(child)) {
+      throw new Error(`browser E2E batch stage ${stage.name} summary child ${child} must match a group target`);
+    }
+  }
+
+  return {
+    name: stage.name.trim(),
+    target: stage.target.trim(),
+    summaryChildren: normalizedSummaryChildren,
+    groups: normalizedGroups,
+  };
+}
+
+function normalizeGroup(stageName, group, index) {
+  if (!group || typeof group !== "object" || Array.isArray(group)) {
+    throw new Error(`browser E2E batch stage ${stageName} group ${index} must be an object`);
+  }
+  for (const key of ["name", "target", "kind"]) {
+    if (typeof group[key] !== "string" || group[key].trim() === "") {
+      throw new Error(`browser E2E batch stage ${stageName} group ${index} must declare ${key}`);
+    }
+  }
+  if (!allowedGroupKinds.has(group.kind)) {
+    throw new Error(`browser E2E batch group ${group.name} has unsupported kind ${group.kind}`);
+  }
+  return {
+    name: group.name.trim(),
+    target: group.target.trim(),
+    kind: group.kind.trim(),
+    workers: group.workers === undefined ? "default" : String(group.workers),
+    resetBefore: group.reset_before === undefined ? "" : String(group.reset_before),
+  };
+}
+
+function printTargetMetadata(stage) {
+  process.stdout.write(`${stage.target}\n`);
+  process.stdout.write(`${stage.summaryChildren.join(",")}\n`);
+}
+
+function printRunnerMetadata(stage) {
+  printTargetMetadata(stage);
+  for (const group of stage.groups) {
+    process.stdout.write(
+      [group.name, group.target, group.kind, group.workers, group.resetBefore].join("\t") + "\n",
+    );
+  }
+}
+
+function main(argv) {
+  const [command, manifestPath, stageName] = argv;
+  switch (command) {
+    case "validate":
+      if (!manifestPath || stageName !== undefined) {
+        throw new Error("usage: browser-batch-manifest.mjs validate <manifest>");
+      }
+      loadBrowserBatchStages(manifestPath);
+      return;
+    case "stage-target":
+      if (!manifestPath || !stageName) {
+        throw new Error("usage: browser-batch-manifest.mjs stage-target <manifest> <stage>");
+      }
+      printTargetMetadata(resolveBrowserBatchStage(manifestPath, stageName));
+      return;
+    case "stage-runner":
+      if (!manifestPath || !stageName) {
+        throw new Error("usage: browser-batch-manifest.mjs stage-runner <manifest> <stage>");
+      }
+      printRunnerMetadata(resolveBrowserBatchStage(manifestPath, stageName));
+      return;
+    default:
+      throw new Error(
+        "usage: browser-batch-manifest.mjs <validate|stage-target|stage-runner> <manifest> [stage]",
+      );
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    main(process.argv.slice(2));
+  } catch (error) {
+    process.stderr.write(`${error.message}\n`);
+    process.exit(1);
+  }
+}

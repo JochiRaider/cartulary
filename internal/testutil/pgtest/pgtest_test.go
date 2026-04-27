@@ -8,12 +8,16 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/moby/moby/api/types/network"
+	testcontainers "github.com/testcontainers/testcontainers-go"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
+	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
 
 func TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness(t *testing.T) {
@@ -124,6 +128,170 @@ func TestDatabaseNamesAreUniqueAcrossSimulatedProcesses(t *testing.T) {
 			}
 			seen[name] = struct{}{}
 		}
+	}
+}
+
+func TestPostgresContainerWaitStrategyOnlyWaitsForPortMapping(t *testing.T) {
+	strategy := postgresPortWaitStrategy()
+	if got := strategy.String(); !strings.Contains(got, "to be mapped") {
+		t.Fatalf("expected mapped-port-only wait strategy, got %q", got)
+	}
+	if timeout := strategy.Timeout(); timeout == nil || *timeout != postgresPortMappingTimeout {
+		t.Fatalf("unexpected port mapping timeout: got %v want %v", timeout, postgresPortMappingTimeout)
+	}
+}
+
+func TestOwnedPostgresAppliesContainerLabels(t *testing.T) {
+	stubOwnedPostgresStartup(t)
+
+	var gotLabels map[string]string
+	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+		gotLabels = req.Labels
+		return fakePostgresContainer{
+			host: "127.0.0.1",
+			port: network.MustParsePort("5432/tcp"),
+		}, nil
+	}
+	waitReadyFn = func(context.Context, *Harness) error { return nil }
+
+	labels := map[string]string{"cartulary.test": "suite"}
+	if _, err := StartOwnedWithLabels(context.Background(), labels); err != nil {
+		t.Fatalf("start labeled postgres: %v", err)
+	}
+	if gotLabels["cartulary.test"] != "suite" {
+		t.Fatalf("container labels not applied: %#v", gotLabels)
+	}
+}
+
+func TestOwnedPostgresRetriesReadinessTimeoutAndTerminatesFailedAttempt(t *testing.T) {
+	stubOwnedPostgresStartup(t)
+
+	starts := 0
+	terminations := 0
+	readinessChecks := 0
+	var events []testcontainersx.StartEvent
+	ports := []network.Port{
+		network.MustParsePort("5433/tcp"),
+		network.MustParsePort("5434/tcp"),
+	}
+	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+		starts++
+		return fakePostgresContainer{
+			host: "127.0.0.1",
+			port: ports[starts-1],
+			terminate: func(context.Context) error {
+				terminations++
+				return nil
+			},
+		}, nil
+	}
+	waitReadyFn = func(ctx context.Context, harness *Harness) error {
+		readinessChecks++
+		if readinessChecks == 1 {
+			return &postgresReadinessError{
+				LastErr:         context.DeadlineExceeded,
+				DeadlineExpired: true,
+			}
+		}
+		return nil
+	}
+
+	harness, err := StartOwnedWithOptions(context.Background(), StartOptions{
+		Observer: func(event testcontainersx.StartEvent) {
+			events = append(events, event)
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected retry success, got %v", err)
+	}
+	if starts != 2 {
+		t.Fatalf("expected two container attempts, got %d", starts)
+	}
+	if readinessChecks != 2 {
+		t.Fatalf("expected two readiness checks, got %d", readinessChecks)
+	}
+	if terminations != 1 {
+		t.Fatalf("expected failed readiness attempt to terminate its container once, got %d", terminations)
+	}
+	if harness.Port != "5434" {
+		t.Fatalf("expected second attempt port, got %q", harness.Port)
+	}
+	if !observedRetry(events) {
+		t.Fatalf("expected observer to record retryable attempt and retry decision, got %#v", events)
+	}
+}
+
+func TestOwnedPostgresDoesNotRetryAuthenticationReadinessFailure(t *testing.T) {
+	stubOwnedPostgresStartup(t)
+
+	starts := 0
+	terminations := 0
+	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+		starts++
+		return fakePostgresContainer{
+			host: "127.0.0.1",
+			port: network.MustParsePort("5432/tcp"),
+			terminate: func(context.Context) error {
+				terminations++
+				return nil
+			},
+		}, nil
+	}
+	waitReadyFn = func(ctx context.Context, harness *Harness) error {
+		return &postgresReadinessError{
+			LastErr:         errors.New("password authentication failed for user cartulary"),
+			DeadlineExpired: true,
+		}
+	}
+
+	_, err := StartOwnedWithOptions(context.Background(), StartOptions{})
+	if err == nil {
+		t.Fatal("expected authentication readiness failure")
+	}
+	if starts != 1 {
+		t.Fatalf("expected no retry for auth failure, got %d starts", starts)
+	}
+	if terminations != 1 {
+		t.Fatalf("expected failed auth attempt to terminate its container once, got %d", terminations)
+	}
+
+	var startFailure *testcontainersx.StartFailure
+	if !errors.As(err, &startFailure) {
+		t.Fatalf("expected StartFailure, got %T", err)
+	}
+	if startFailure.Retryable {
+		t.Fatal("auth readiness failure must not be retryable")
+	}
+	if startFailure.AttemptsStarted != 1 || startFailure.MaxAttempts != 3 {
+		t.Fatalf("unexpected attempts: got %d/%d", startFailure.AttemptsStarted, startFailure.MaxAttempts)
+	}
+}
+
+func TestPostgresWaitReadyRespectsContextCancellation(t *testing.T) {
+	oldPing := pingAdminDSNFn
+	t.Cleanup(func() {
+		pingAdminDSNFn = oldPing
+	})
+	pingAdminDSNFn = func(ctx context.Context, dsn string) error {
+		return ctx.Err()
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	start := time.Now()
+	err := (&Harness{adminDSN: "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable"}).WaitReady(ctx)
+	if err == nil {
+		t.Fatal("expected context cancellation readiness error")
+	}
+	if elapsed := time.Since(start); elapsed > 100*time.Millisecond {
+		t.Fatalf("WaitReady did not respect context cancellation promptly: %v", elapsed)
+	}
+	var readinessErr *postgresReadinessError
+	if !errors.As(err, &readinessErr) {
+		t.Fatalf("expected postgresReadinessError, got %T", err)
+	}
+	if readinessErr.DeadlineExpired {
+		t.Fatal("context cancellation must not be marked as deadline expiry")
 	}
 }
 
@@ -796,4 +964,62 @@ func resetSharedHarness(t testing.TB) {
 		sharedHarness = nil
 		sharedHarnessMu.Unlock()
 	})
+}
+
+func stubOwnedPostgresStartup(t testing.TB) {
+	t.Helper()
+
+	oldStartContainer := startContainerFn
+	oldWaitReady := waitReadyFn
+	oldPreflight := startPreflightFn
+	oldSleep := startSleepFn
+	t.Cleanup(func() {
+		startContainerFn = oldStartContainer
+		waitReadyFn = oldWaitReady
+		startPreflightFn = oldPreflight
+		startSleepFn = oldSleep
+	})
+
+	startPreflightFn = func(context.Context) (string, error) {
+		return "unix:///var/run/docker.sock", nil
+	}
+	startSleepFn = func(context.Context, time.Duration) error {
+		return nil
+	}
+}
+
+func observedRetry(events []testcontainersx.StartEvent) bool {
+	sawRetryableAttempt := false
+	sawRetryScheduled := false
+	for _, event := range events {
+		if event.Type == testcontainersx.StartEventAttemptEnd && event.Attempt == 1 && event.Retryable && event.Status == "fail" {
+			sawRetryableAttempt = true
+		}
+		if event.Type == testcontainersx.StartEventRetryScheduled && event.Attempt == 1 {
+			sawRetryScheduled = true
+		}
+	}
+	return sawRetryableAttempt && sawRetryScheduled
+}
+
+type fakePostgresContainer struct {
+	testcontainers.Container
+	host      string
+	port      network.Port
+	terminate func(context.Context) error
+}
+
+func (c fakePostgresContainer) Host(context.Context) (string, error) {
+	return c.host, nil
+}
+
+func (c fakePostgresContainer) MappedPort(context.Context, string) (network.Port, error) {
+	return c.port, nil
+}
+
+func (c fakePostgresContainer) Terminate(ctx context.Context, opts ...testcontainers.TerminateOption) error {
+	if c.terminate == nil {
+		return nil
+	}
+	return c.terminate(ctx)
 }

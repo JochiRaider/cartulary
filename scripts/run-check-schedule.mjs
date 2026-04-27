@@ -431,6 +431,8 @@ class CheckSchedulerReporter {
     this.blockedResourcesSeen = new Set();
     this.lastProgressAt = 0;
     this.lastBlockedKey = null;
+    this.maxRunningWorkUnits = 0;
+    this.maxActiveResourceClaims = new Map();
   }
 
   start() {
@@ -451,6 +453,16 @@ class CheckSchedulerReporter {
       writeSchedulerTelemetry(process.stdout, "CHECK-SCHEDULER", this.schedule.target, event, fields);
     }
     this.writeEvent(event, state, detail);
+  }
+
+  observeState(state) {
+    this.maxRunningWorkUnits = Math.max(this.maxRunningWorkUnits, state.running.size);
+    for (const [resource, amount] of state.activeClaims.entries()) {
+      this.maxActiveResourceClaims.set(
+        resource,
+        Math.max(this.maxActiveResourceClaims.get(resource) ?? 0, amount),
+      );
+    }
   }
 
   startUnit(unit, state) {
@@ -605,6 +617,8 @@ class CheckSchedulerReporter {
           completed_work_units: this.completedCount,
           skipped_work_units: this.skippedWork,
           failed_work_unit: failed,
+          max_running_work_units: this.maxRunningWorkUnits,
+          max_active_resource_claims: resourceMapToObject(this.maxActiveResourceClaims),
           blocked_reasons_seen: Array.from(this.blockedReasonsSeen).sort((left, right) =>
             left.localeCompare(right),
           ),
@@ -630,6 +644,7 @@ class CheckSchedulerReporter {
   }
 
   writeEvent(event, state, detail) {
+    this.observeState(state);
     this.events.write(
       `${JSON.stringify({
         schema_id: schedulerEventSchemaID,

@@ -102,8 +102,19 @@ async function runChecks(checks, jobs) {
   let next = 0;
   let firstFailure = null;
   let active = 0;
+  let resolved = false;
 
   return new Promise((resolve) => {
+    const finishIfDone = () => {
+      if (resolved || active !== 0 || (next < checks.length && firstFailure === null)) {
+        return;
+      }
+      resolved = true;
+      resolve({
+        failure: firstFailure,
+        skippedAfterFailure: firstFailure ? checks.slice(next).map((check) => check.name) : [],
+      });
+    };
     const schedule = () => {
       while (active < jobs && next < checks.length && firstFailure === null) {
         const check = checks[next];
@@ -115,14 +126,10 @@ async function runChecks(checks, jobs) {
             firstFailure = { check: check.name, status };
           }
           schedule();
-          if (active === 0 && (next >= checks.length || firstFailure !== null)) {
-            resolve(firstFailure);
-          }
+          finishIfDone();
         });
       }
-      if (active === 0 && (next >= checks.length || firstFailure !== null)) {
-        resolve(firstFailure);
-      }
+      finishIfDone();
     };
     schedule();
   });
@@ -140,7 +147,7 @@ async function main() {
   await emitTestOutput(["run-start", label, "--steps", "1", "--targets", String(checks.length), "--jobs", String(jobs)]);
   await emitTestOutput(["step-start", label, "1", "1", options.tier, "--mode", "parallel", "--jobs", String(jobs)]);
 
-  const failure = await runChecks(checks, jobs);
+  const { failure, skippedAfterFailure } = await runChecks(checks, jobs);
   const summaryArgs = ["run-summary", label];
   if (failure) {
     summaryArgs.push("fail", "0", "1", failure.check);
@@ -149,6 +156,9 @@ async function main() {
   }
   if (profile.groupsSpec) {
     summaryArgs.push("--summary-groups", profile.groupsSpec);
+  }
+  if (skippedAfterFailure.length > 0) {
+    summaryArgs.push("--skipped-after-failure", skippedAfterFailure.join(","));
   }
   summaryArgs.push(...profile.targets);
   const summaryStatus = await emitTestOutput(summaryArgs);

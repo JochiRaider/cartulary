@@ -760,7 +760,10 @@ func (ioDiscard) Write(p []byte) (int, error) {
 
 func startPostgresService(ctx context.Context, env map[string]string) (postgresService, error) {
 	labels := suiteServiceLabels(env, suiteservices.ServicePostgres)
-	harness, err := pgtest.StartOwnedWithLabels(ctx, labels)
+	harness, err := pgtest.StartOwnedWithOptions(ctx, pgtest.StartOptions{
+		Labels:   labels,
+		Observer: suiteServiceStartObserver(env, suiteservices.ServicePostgres),
+	})
 	if err != nil {
 		return postgresService{}, err
 	}
@@ -786,7 +789,10 @@ func startPostgresService(ctx context.Context, env map[string]string) (postgresS
 
 func startMinIOService(ctx context.Context, env map[string]string) (minioService, error) {
 	labels := suiteServiceLabels(env, suiteservices.ServiceMinIO)
-	harness, err := s3test.StartOwnedWithLabels(ctx, labels)
+	harness, err := s3test.StartOwnedWithOptions(ctx, s3test.StartOptions{
+		Labels:   labels,
+		Observer: suiteServiceStartObserver(env, suiteservices.ServiceMinIO),
+	})
 	if err != nil {
 		return minioService{}, err
 	}
@@ -801,6 +807,67 @@ func startMinIOService(ctx context.Context, env map[string]string) (minioService
 		image:       s3test.ContainerImage(),
 		labels:      labels,
 	}, nil
+}
+
+func suiteServiceStartObserver(env map[string]string, service string) testcontainersx.StartObserver {
+	return func(event testcontainersx.StartEvent) {
+		if event.Type != testcontainersx.StartEventAttemptEnd {
+			return
+		}
+		recordServiceStartupAttempt(env, service, event)
+	}
+}
+
+func recordServiceStartupAttempt(env map[string]string, service string, event testcontainersx.StartEvent) {
+	start := event.StartTime
+	end := event.EndTime
+	if start.IsZero() {
+		start = time.Now().UTC()
+	}
+	if end.IsZero() || end.Before(start) {
+		end = start
+	}
+	duration := event.Duration
+	if duration <= 0 {
+		duration = end.Sub(start)
+	}
+	if duration < 0 {
+		duration = 0
+	}
+
+	status := event.Status
+	if strings.TrimSpace(status) == "" {
+		status = "pass"
+		if event.Err != nil {
+			status = "fail"
+		}
+	}
+	label := fmt.Sprintf("test-services start %s attempt %d", service, event.Attempt)
+	details := map[string]any{
+		"target":                   suiteservices.LookupEnvValue(env, suiteservices.TargetEnv),
+		"bucket":                   bucketServiceWait,
+		"label":                    label,
+		"start_time":               start.Format(time.RFC3339Nano),
+		"end_time":                 end.Format(time.RFC3339Nano),
+		"duration_ms":              duration.Milliseconds(),
+		"status":                   status,
+		"service":                  service,
+		"startup_attempt":          true,
+		"attempt":                  event.Attempt,
+		"max_attempts":             event.MaxAttempts,
+		"retryable":                event.Retryable,
+		"retry_scheduled":          status == "fail" && event.Retryable && event.Attempt < event.MaxAttempts && !event.RetryBlockedByContext,
+		"retry_blocked_by_context": event.RetryBlockedByContext,
+	}
+	if event.Err != nil {
+		details["message"] = suiteservices.SanitizeDiagnosticText(event.Err.Error())
+	}
+	_ = suiteservices.RecordEvent(env, suiteservices.Event{
+		Type:    suiteservices.EventTimingSpan,
+		Service: service,
+		Status:  status,
+		Details: details,
+	})
 }
 
 type namedContainer interface {

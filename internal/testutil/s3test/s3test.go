@@ -56,6 +56,11 @@ type Harness struct {
 	packageBuckets  map[string]*packageBucket
 }
 
+type StartOptions struct {
+	Labels   map[string]string
+	Observer testcontainersx.StartObserver
+}
+
 type packageBucket struct {
 	mu     sync.Mutex
 	bucket string
@@ -119,7 +124,11 @@ func StartOwned(ctx context.Context) (*Harness, error) {
 }
 
 func StartOwnedWithLabels(ctx context.Context, labels map[string]string) (*Harness, error) {
-	return startHarness(ctx, labels)
+	return StartOwnedWithOptions(ctx, StartOptions{Labels: labels})
+}
+
+func StartOwnedWithOptions(ctx context.Context, options StartOptions) (*Harness, error) {
+	return startHarnessWithOptions(ctx, options)
 }
 
 func StopShared(ctx context.Context) error {
@@ -137,6 +146,10 @@ func StopShared(ctx context.Context) error {
 }
 
 func startHarness(ctx context.Context, labels map[string]string) (*Harness, error) {
+	return startHarnessWithOptions(ctx, StartOptions{Labels: labels})
+}
+
+func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harness, error) {
 	req := testcontainers.ContainerRequest{
 		Image:        minioImage,
 		ExposedPorts: []string{minioAPIPort, minioConsolePort},
@@ -147,8 +160,8 @@ func startHarness(ctx context.Context, labels map[string]string) (*Harness, erro
 		},
 		WaitingFor: minioPortWaitStrategy(),
 	}
-	if len(labels) > 0 {
-		req.Labels = cloneLabels(labels)
+	if len(options.Labels) > 0 {
+		req.Labels = cloneLabels(options.Labels)
 	}
 
 	harness, err := testcontainersx.StartWithRetry(ctx, testcontainersx.StartConfig{
@@ -157,6 +170,7 @@ func startHarness(ctx context.Context, labels map[string]string) (*Harness, erro
 		Preflight: startPreflightFn,
 		Retryable: isRetryableMinIOStartupFailure,
 		Sleep:     startSleepFn,
+		Observer:  options.Observer,
 	}, func(ctx context.Context) (*Harness, error) {
 		return startHarnessAttempt(ctx, req)
 	})

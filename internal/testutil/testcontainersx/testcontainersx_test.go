@@ -93,6 +93,59 @@ func TestStartWithRetryRetriesTransientDockerStartupError(t *testing.T) {
 	}
 }
 
+func TestStartWithRetryEmitsObserverEvents(t *testing.T) {
+	t.Parallel()
+
+	startCalls := 0
+	var events []StartEvent
+
+	value, err := StartWithRetry(context.Background(), StartConfig{
+		Service: "postgres testcontainer",
+		Image:   "postgres:16-alpine",
+		Preflight: func(context.Context) (string, error) {
+			return "unix:///var/run/docker.sock", nil
+		},
+		Sleep: func(context.Context, time.Duration) error {
+			return nil
+		},
+		Observer: func(event StartEvent) {
+			events = append(events, event)
+		},
+	}, func(context.Context) (string, error) {
+		startCalls++
+		if startCalls == 1 {
+			return "", errors.New(`wait until ready: get state: Get "http://%2Fvar%2Frun%2Fdocker.sock/v1.51/containers/id/json": context deadline exceeded`)
+		}
+		return "started", nil
+	})
+	if err != nil {
+		t.Fatalf("expected retry success, got %v", err)
+	}
+	if value != "started" {
+		t.Fatalf("unexpected value: %q", value)
+	}
+
+	got := eventTypes(events)
+	want := strings.Join([]string{
+		StartEventPreflightStart,
+		StartEventPreflightEnd,
+		StartEventAttemptStart,
+		StartEventAttemptEnd,
+		StartEventRetryScheduled,
+		StartEventAttemptStart,
+		StartEventAttemptEnd,
+	}, ",")
+	if got != want {
+		t.Fatalf("unexpected observer events: got %s want %s", got, want)
+	}
+	if events[3].Attempt != 1 || !events[3].Retryable || events[3].Status != "fail" || events[3].Err == nil {
+		t.Fatalf("unexpected failed attempt event: %#v", events[3])
+	}
+	if events[6].Attempt != 2 || events[6].Status != "pass" || events[6].Duration < 0 {
+		t.Fatalf("unexpected successful attempt event: %#v", events[6])
+	}
+}
+
 func TestStartWithRetryRetriesCustomClassifiedStartupError(t *testing.T) {
 	t.Parallel()
 
@@ -201,6 +254,11 @@ func TestStartWithRetryReturnsOriginalCauseWhenContextExpiresDuringBackoff(t *te
 			<-ctx.Done()
 			return ctx.Err()
 		},
+		Observer: func(event StartEvent) {
+			if event.Type == StartEventRetryBlocked && !event.RetryBlockedByContext {
+				t.Fatalf("retry-blocked event must mark context blocking: %#v", event)
+			}
+		},
 	}, func(context.Context) (int, error) {
 		startCalls++
 		return 0, retryableErr
@@ -245,6 +303,14 @@ func TestStartWithRetryReturnsOriginalCauseWhenContextExpiresDuringBackoff(t *te
 			t.Fatalf("expected error message to contain %q, got %q", want, message)
 		}
 	}
+}
+
+func eventTypes(events []StartEvent) string {
+	types := make([]string, 0, len(events))
+	for _, event := range events {
+		types = append(types, event.Type)
+	}
+	return strings.Join(types, ",")
 }
 
 func TestStartWithRetryDoesNotRetryLogicalReadinessFailure(t *testing.T) {

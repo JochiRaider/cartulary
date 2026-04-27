@@ -339,7 +339,6 @@ assert_contains "$success_output" "[STEP] check 3/6 local mode=scheduler jobs=1"
 assert_contains "$success_output" "[STEP] check 4/6 service mode=scheduler jobs=1" "success service step"
 assert_contains "$success_output" "[STEP] check 6/6 browser mode=scheduler jobs=1" "success final browser step"
 assert_contains "$success_output" "[PASS] check" "success summary"
-assert_equals "$(cat "${success_dir}/max")" "2" "success resource limit"
 assert_contains "$(cat "${success_dir}/make-args.log")" "--output-sync=target -j2 build" "build uses claimed cpu jobs"
 success_events="$(cat "${success_dir}/events.log")"
 assert_contains "$success_events" "end local" "success local completed"
@@ -381,6 +380,27 @@ if (!events.some((event) => event.active_resource_claims && Object.keys(event.ac
 }
 if (!events.some((event) => event.resource_limits?.cpu === 2 && event.resource_limits?.service_stack === 1)) {
   throw new Error("scheduler events must preserve resource limits");
+}
+if (summary.max_running_work_units !== 2) {
+  throw new Error(`max running work units got ${summary.max_running_work_units} want 2`);
+}
+if (summary.max_active_resource_claims?.cpu !== 2) {
+  throw new Error(`max active cpu claims got ${summary.max_active_resource_claims?.cpu} want 2`);
+}
+if (!events.some((event) => event.running >= 2 && event.active_resource_claims?.cpu === 2)) {
+  throw new Error("scheduler events must record two logically admitted cpu work units");
+}
+for (const [index, event] of events.entries()) {
+  const limits = event.resource_limits ?? {};
+  for (const [resource, amount] of Object.entries(event.active_resource_claims ?? {})) {
+    const limit = limits[resource];
+    if (!Number.isInteger(limit)) {
+      throw new Error(`event ${index} active claim ${resource} has no integer resource limit`);
+    }
+    if (amount > limit) {
+      throw new Error(`event ${index} active claim ${resource}=${amount} exceeds limit ${limit}`);
+    }
+  }
 }
 EOF
 
