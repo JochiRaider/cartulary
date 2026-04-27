@@ -11,12 +11,14 @@ import {
   resourceMapToObject,
   schedulerActiveGroups,
   schedulerBlockedBy,
+  schedulerBlockedUnitRecords,
   schedulerDryRunLine,
   schedulerProgressIntervalMs,
   schedulerProgressLine,
   schedulerSlowestRunning,
   schedulerStartLine,
   schedulerSummaryLine,
+  schedulerWaitingOnForUnits,
   schedulerLogDir,
   schedulerTargetDir,
   writeSchedulerTelemetry,
@@ -28,8 +30,8 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
 const supportedSchemaID = "cartulary.check_schedule.v2";
-const schedulerEventSchemaID = "cartulary.check_scheduler_event.v1";
-const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v1";
+const schedulerEventSchemaID = "cartulary.check_scheduler_event.v2";
+const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v2";
 
 function usage() {
   process.stderr.write(
@@ -587,6 +589,7 @@ class CheckSchedulerReporter {
     this.blockedReasonsSeen = new Set();
     this.blockedResourcesSeen = new Set();
     this.blockedExplanationsSeen = new Set();
+    this.waitingOnSeen = new Set();
     this.lastProgressAt = 0;
     this.lastBlockedKey = null;
     this.maxRunningWorkUnits = 0;
@@ -680,10 +683,13 @@ class CheckSchedulerReporter {
     );
   }
 
-  blocked(state, reason, blockedResources) {
+  blocked(state, reason, blockedResources, { waitingOn = [], blockedUnits = [] } = {}) {
     this.blockedReasonsSeen.add(reason);
     for (const resource of blockedResources) {
       this.blockedResourcesSeen.add(resource);
+    }
+    for (const dependency of waitingOn) {
+      this.waitingOnSeen.add(dependency);
     }
     this.emit(
       "blocked",
@@ -696,10 +702,16 @@ class CheckSchedulerReporter {
       {
         blocked_reason: reason,
         blocked_resources: blockedResources,
+        waiting_on: waitingOn,
+        blocked_units: blockedUnits,
       },
     );
-    const blockedKey = `${reason}:${blockedResources.join(",")}`;
-    this.maybeProgress(state, reason, blockedResources, { force: blockedKey !== this.lastBlockedKey });
+    const blockedKey = `${reason}:${blockedResources.join(",")}:${waitingOn.join(",")}:${JSON.stringify(blockedUnits)}`;
+    this.maybeProgress(state, reason, blockedResources, {
+      force: blockedKey !== this.lastBlockedKey,
+      waitingOn,
+      blockedUnits,
+    });
     this.lastBlockedKey = blockedKey;
   }
 
@@ -729,7 +741,12 @@ class CheckSchedulerReporter {
     );
   }
 
-  maybeProgress(state, reason = "none", blockedResources = [], { force = false } = {}) {
+  maybeProgress(
+    state,
+    reason = "none",
+    blockedResources = [],
+    { force = false, waitingOn = [], blockedUnits = [] } = {},
+  ) {
     const now = Date.now();
     if (!force && now - this.lastProgressAt < schedulerProgressIntervalMs) {
       return;
@@ -740,6 +757,15 @@ class CheckSchedulerReporter {
     for (const explanation of blockedBy) {
       this.blockedExplanationsSeen.add(explanation);
     }
+    for (const dependency of waitingOn) {
+      this.waitingOnSeen.add(dependency);
+    }
+    this.writeEvent("progress", state, {
+      blocked_reason: reason,
+      blocked_resources: blockedResources,
+      waiting_on: waitingOn,
+      blocked_units: blockedUnits,
+    });
     process.stdout.write(
       schedulerProgressLine({
         prefix: "CHECK-SCHEDULER",
@@ -751,6 +777,7 @@ class CheckSchedulerReporter {
         blocked: state.blockedCount ?? 0,
         activeGroups: schedulerActiveGroups(runningUnits),
         blockedBy,
+        waitingOn,
         unblocksAfter: this.unblocksAfter(state, blockedResources),
         slowestRunning: schedulerSlowestRunning(runningUnits, this.startedAt, now),
         artifacts: relToRepo(this.targetDir),
@@ -829,6 +856,9 @@ class CheckSchedulerReporter {
           blocked_explanations_seen: Array.from(this.blockedExplanationsSeen).sort((left, right) =>
             left.localeCompare(right),
           ),
+          waiting_on_seen: Array.from(this.waitingOnSeen).sort((left, right) =>
+            left.localeCompare(right),
+          ),
           slowest_work_units: slowest,
           artifacts: {
             events_jsonl: relToRepo(this.eventsPath),
@@ -860,6 +890,8 @@ class CheckSchedulerReporter {
         completed: this.completedCount,
         blocked_reason: detail.blocked_reason ?? null,
         blocked_resources: detail.blocked_resources ?? [],
+        waiting_on: detail.waiting_on ?? [],
+        blocked_units: detail.blocked_units ?? [],
         active_resource_claims: resourceMapToObject(state.activeClaims),
         resource_limits: resourceMapToObject(this.schedule.resourceLimits),
         ...detail,
@@ -979,6 +1011,8 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
     while (pending.length > 0 || running.size > 0) {
       let waitProgressReason = "none";
       let waitProgressResources = [];
+      let waitProgressWaitingOn = [];
+      let waitProgressBlockedUnits = [];
       let waitProgressBlockedCount = 0;
       if (!stopScheduling) {
         while (true) {
@@ -998,6 +1032,14 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
           (unit) => !hasResourceCapacity(unit, schedule.resourceLimits, activeClaims),
         );
         const blockedResources = blockedResourcesForUnits(readyBlocked, schedule.resourceLimits, activeClaims);
+        const waitingOn = schedulerWaitingOnForUnits(dependencyBlocked, completed);
+        const blockedUnits = schedulerBlockedUnitRecords({
+          dependencyBlocked,
+          resourceBlocked: readyBlocked,
+          completed,
+          blockedResourcesForUnit: (unit) =>
+            blockedResourcesForUnit(unit, schedule.resourceLimits, activeClaims),
+        });
         let reason = "none";
         if (dependencyBlocked.length > 0 && readyBlocked.length > 0) {
           reason = "dependencies,resources";
@@ -1008,8 +1050,13 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
         }
         waitProgressReason = reason;
         waitProgressResources = blockedResources;
+        waitProgressWaitingOn = waitingOn;
+        waitProgressBlockedUnits = blockedUnits;
         waitProgressBlockedCount = dependencyBlocked.length + readyBlocked.length;
-        reporter.blocked(stateSnapshot(dependencyBlocked.length + readyBlocked.length), reason, blockedResources);
+        reporter.blocked(stateSnapshot(dependencyBlocked.length + readyBlocked.length), reason, blockedResources, {
+          waitingOn,
+          blockedUnits,
+        });
       } else {
         reporter.maybeProgress(stateSnapshot(), "none", []);
       }
@@ -1043,7 +1090,11 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
           stateSnapshot(waitProgressBlockedCount),
           waitProgressReason,
           waitProgressResources,
-          { force: true },
+          {
+            force: true,
+            waitingOn: waitProgressWaitingOn,
+            blockedUnits: waitProgressBlockedUnits,
+          },
         );
         continue;
       }

@@ -15,6 +15,7 @@ import {
   resourceMapToObject,
   schedulerActiveGroups,
   schedulerBlockedBy,
+  schedulerBlockedUnitRecords,
   schedulerDryRunLine,
   schedulerLogDir as schedulerLogResultsDir,
   schedulerProgressIntervalMs,
@@ -22,6 +23,7 @@ import {
   schedulerSlowestRunning,
   schedulerStartLine,
   schedulerSummaryLine,
+  schedulerWaitingOnForUnits,
   schedulerTargetDir as schedulerTargetResultsDir,
   writeSchedulerTelemetry,
   verboseSchedulerOutput,
@@ -41,8 +43,8 @@ const goCPULimitEnv = "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT";
 const goIOLimitEnv = "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT";
 const browserStackLimitEnv = "CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
-const schedulerEventSchemaID = "cartulary.service_backed_scheduler_event.v1";
-const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v1";
+const schedulerEventSchemaID = "cartulary.service_backed_scheduler_event.v2";
+const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v2";
 const autoLimitResources = new Set([goCPUResource, goIOResource, browserStackResource]);
 const validSourceTypes = new Set(["go_shards", "make_target"]);
 const validSourceClasses = new Set(["backend", "browser"]);
@@ -884,6 +886,7 @@ class SchedulerReporter {
     this.skippedWork = [];
     this.blockedResourcesSeen = new Set();
     this.blockedExplanationsSeen = new Set();
+    this.waitingOnSeen = new Set();
     this.lastProgressAt = 0;
     this.lastBlockedKey = null;
     this.completedCount = 0;
@@ -1053,10 +1056,13 @@ class SchedulerReporter {
     );
   }
 
-  blocked(state, reason, blockedResources) {
-    const blockedKey = `${reason}:${blockedResources.join(",")}`;
+  blocked(state, reason, blockedResources, { waitingOn = [], blockedUnits = [] } = {}) {
+    const blockedKey = `${reason}:${blockedResources.join(",")}:${waitingOn.join(",")}:${JSON.stringify(blockedUnits)}`;
     for (const resource of blockedResources) {
       this.blockedResourcesSeen.add(resource);
+    }
+    for (const dependency of waitingOn) {
+      this.waitingOnSeen.add(dependency);
     }
     this.emit(
       "blocked",
@@ -1067,11 +1073,17 @@ class SchedulerReporter {
       ],
       state,
       {
-        reason,
+        blocked_reason: reason,
         blocked_resources: blockedResources,
+        waiting_on: waitingOn,
+        blocked_units: blockedUnits,
       },
     );
-    this.maybeProgress(state, reason, blockedResources, { force: blockedKey !== this.lastBlockedKey });
+    this.maybeProgress(state, reason, blockedResources, {
+      force: blockedKey !== this.lastBlockedKey,
+      waitingOn,
+      blockedUnits,
+    });
     this.lastBlockedKey = blockedKey;
   }
 
@@ -1103,7 +1115,12 @@ class SchedulerReporter {
     );
   }
 
-  maybeProgress(state, reason = "none", blockedResources = [], { force = false } = {}) {
+  maybeProgress(
+    state,
+    reason = "none",
+    blockedResources = [],
+    { force = false, waitingOn = [], blockedUnits = [] } = {},
+  ) {
     const now = Date.now();
     if (!force && now - this.lastProgressAt < schedulerProgressIntervalMs) {
       return;
@@ -1114,6 +1131,15 @@ class SchedulerReporter {
     for (const explanation of blockedBy) {
       this.blockedExplanationsSeen.add(explanation);
     }
+    for (const dependency of waitingOn) {
+      this.waitingOnSeen.add(dependency);
+    }
+    this.writeEvent("progress", state, {
+      blocked_reason: reason,
+      blocked_resources: blockedResources,
+      waiting_on: waitingOn,
+      blocked_units: blockedUnits,
+    });
     process.stdout.write(
       schedulerProgressLine({
         prefix: "SCHEDULER",
@@ -1126,6 +1152,7 @@ class SchedulerReporter {
         finalizing: state.runningFinalizers.size,
         activeGroups: schedulerActiveGroups(runningUnits),
         blockedBy,
+        waitingOn,
         unblocksAfter: this.unblocksAfter(state, blockedResources),
         slowestRunning: schedulerSlowestRunning(runningUnits, this.startedAt, now),
         artifacts: relToRepo(this.targetDir),
@@ -1199,6 +1226,9 @@ class SchedulerReporter {
           blocked_explanations_seen: Array.from(this.blockedExplanationsSeen).sort((left, right) =>
             left.localeCompare(right),
           ),
+          waiting_on_seen: Array.from(this.waitingOnSeen).sort((left, right) =>
+            left.localeCompare(right),
+          ),
           slowest_work_units: slowest,
           artifacts: {
             events_jsonl: relToRepo(this.eventsPath),
@@ -1230,7 +1260,10 @@ class SchedulerReporter {
         completed: this.completedCount,
         pending_finalizers: state.pendingFinalizers.length,
         running_finalizers: state.runningFinalizers.size,
+        blocked_reason: detail.blocked_reason ?? null,
         blocked_resources: detail.blocked_resources ?? [],
+        waiting_on: detail.waiting_on ?? [],
+        blocked_units: detail.blocked_units ?? [],
         active_resource_claims: resourceMapToObject(state.activeResourceClaims),
         resource_limits: resourceMapToObject(this.schedule.resourceLimits),
         ...detail,
@@ -1435,6 +1468,14 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
         readyBlocked.length > 0
           ? blockedResourcesForPending(readyBlocked, schedule.resourceLimits, activeResourceClaims)
           : [];
+      const waitingOn = schedulerWaitingOnForUnits(dependencyBlocked, completedSources);
+      const blockedUnits = schedulerBlockedUnitRecords({
+        dependencyBlocked,
+        resourceBlocked: readyBlocked,
+        completed: completedSources,
+        blockedResourcesForUnit: (unit) =>
+          blockedResourcesForUnit(unit, schedule.resourceLimits, activeResourceClaims),
+      });
       const blockedCount = dependencyBlocked.length + readyBlocked.length;
       if (blockedCount > 0 && (running.size > 0 || runningFinalizers.size > 0)) {
         let reason = "none";
@@ -1445,7 +1486,10 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
         } else if (blockedResources.length > 0) {
           reason = "resources";
         }
-        reporter.blocked({ ...stateSnapshot(), blockedCount }, reason, blockedResources);
+        reporter.blocked({ ...stateSnapshot(), blockedCount }, reason, blockedResources, {
+          waitingOn,
+          blockedUnits,
+        });
       } else {
         reporter.maybeProgress(stateSnapshot());
       }
@@ -1471,6 +1515,14 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
           readyBlockedNow.length > 0
             ? blockedResourcesForPending(readyBlockedNow, schedule.resourceLimits, activeResourceClaims)
             : [];
+        const waitingOnNow = schedulerWaitingOnForUnits(dependencyBlockedNow, completedSources);
+        const blockedUnitsNow = schedulerBlockedUnitRecords({
+          dependencyBlocked: dependencyBlockedNow,
+          resourceBlocked: readyBlockedNow,
+          completed: completedSources,
+          blockedResourcesForUnit: (unit) =>
+            blockedResourcesForUnit(unit, schedule.resourceLimits, activeResourceClaims),
+        });
         let reason = "none";
         if (dependencyBlockedNow.length > 0 && blockedResourcesNow.length > 0) {
           reason = "dependencies,resources";
@@ -1483,7 +1535,11 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
           { ...stateSnapshot(), blockedCount: dependencyBlockedNow.length + readyBlockedNow.length },
           reason,
           blockedResourcesNow,
-          { force: true },
+          {
+            force: true,
+            waitingOn: waitingOnNow,
+            blockedUnits: blockedUnitsNow,
+          },
         );
         continue;
       }

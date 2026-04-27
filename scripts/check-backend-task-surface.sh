@@ -427,7 +427,7 @@ if ((schedule.work_units ?? []).some((entry) => entry.target === "browser-e2e"))
   throw new Error("browser-e2e must be service-backed scheduler work, not a top-level check work unit");
 }
 const limits = schedule.resource_limits ?? {};
-if (limits.cpu !== 8 || limits.io !== 12 || limits.service_stack !== 1) {
+if (limits.cpu !== 12 || limits.io !== 12 || limits.service_stack !== 1) {
   throw new Error("check schedule must declare cpu, io, and service_stack limits");
 }
 const service = (schedule.work_units ?? []).find((entry) => entry.target === "check-service-backed");

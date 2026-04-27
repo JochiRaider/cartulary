@@ -61,6 +61,49 @@ export function formatResourceList(values) {
   return values.join(",");
 }
 
+export function sortedUnique(values) {
+  return Array.from(new Set(values.filter(Boolean))).sort((left, right) => left.localeCompare(right));
+}
+
+export function schedulerWaitingOnForUnit(unit, completed) {
+  return sortedUnique((unit.needs ?? []).filter((need) => !completed.has(need)));
+}
+
+export function schedulerWaitingOnForUnits(units, completed) {
+  return sortedUnique(units.flatMap((unit) => schedulerWaitingOnForUnit(unit, completed)));
+}
+
+export function schedulerBlockedUnitRecords({
+  dependencyBlocked = [],
+  resourceBlocked = [],
+  completed,
+  blockedResourcesForUnit = () => [],
+}) {
+  const recordsByWorkUnit = new Map();
+  const ensureRecord = (unit) => {
+    const workUnit = unit.label ?? unit.target ?? unit.id ?? unit.aggregateTarget;
+    if (!recordsByWorkUnit.has(workUnit)) {
+      recordsByWorkUnit.set(workUnit, {
+        work_unit: workUnit,
+        waiting_on: [],
+        blocked_resources: [],
+      });
+    }
+    return recordsByWorkUnit.get(workUnit);
+  };
+
+  for (const unit of dependencyBlocked) {
+    ensureRecord(unit).waiting_on = schedulerWaitingOnForUnit(unit, completed);
+  }
+  for (const unit of resourceBlocked) {
+    ensureRecord(unit).blocked_resources = sortedUnique(blockedResourcesForUnit(unit));
+  }
+
+  return Array.from(recordsByWorkUnit.values()).sort((left, right) =>
+    left.work_unit.localeCompare(right.work_unit),
+  );
+}
+
 export function formatLabelList(values, limit = 3) {
   if (values.length === 0) {
     return "none";
@@ -231,6 +274,7 @@ export function schedulerProgressLine({
   finalizing = null,
   activeGroups = new Map(),
   blockedBy = [],
+  waitingOn = [],
   unblocksAfter = "none",
   slowestRunning = "none",
   artifacts = "",
@@ -243,6 +287,7 @@ export function schedulerProgressLine({
     finalizing === null ? null : `finalizing=${finalizing}`,
     `active_groups=${formatCountMap(activeGroups)}`,
     `blocked_by=${formatResourceList(blockedBy)}`,
+    waitingOn.length > 0 ? `waiting_on=${formatResourceList(waitingOn)}` : null,
     `unblocks_after=${unblocksAfter || "none"}`,
     `slowest_running=${slowestRunning || "none"}`,
     artifacts ? `artifacts=${artifacts}` : null,

@@ -4,7 +4,7 @@
     {
       "target": "check",
       "resource_limits": {
-        "cpu": 8,
+        "cpu": 12,
         "io": 12,
         "service_stack": 1
       },
@@ -13,21 +13,33 @@
           "target": "check-setup-blockers",
           "weight": 50000,
           "needs": [],
-          "resource_claims": { "cpu": 1 },
+          "resource_claims": {
+            "cpu": 1
+          },
           "make_jobs": "cpu"
         },
         {
           "target": "check-build-prereqs",
           "weight": 40000,
-          "needs": ["check-setup-blockers"],
-          "resource_claims": { "cpu": "limit" },
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "cpu": "limit"
+          },
           "make_jobs": "cpu"
         },
         {
           "target": "check-service-backed",
           "weight": 30000,
-          "needs": ["check-build-prereqs"],
-          "resource_claims": { "cpu": "limit", "io": "limit", "service_stack": 1 },
+          "needs": [
+            "check-build-prereqs"
+          ],
+          "resource_claims": {
+            "cpu": "limit",
+            "io": "limit",
+            "service_stack": 1
+          },
           "make_jobs": "cpu",
           "nested_scheduler": {
             "type": "service_backed",
@@ -42,32 +54,55 @@
         {
           "target": "check-go-test-duration-baseline-drift",
           "weight": 29000,
-          "needs": ["check-service-backed"],
-          "resource_claims": { "cpu": 1 },
+          "needs": [
+            "check-service-backed"
+          ],
+          "resource_claims": {
+            "cpu": 1
+          },
           "make_jobs": "cpu"
         },
         {
           "target": "check-local-product",
           "weight": 20000,
-          "needs": ["check-build-prereqs"],
-          "skipped_summary_targets": ["backend-unit", "frontend-typecheck"],
-          "resource_claims": { "cpu": 1 },
+          "needs": [
+            "check-build-prereqs"
+          ],
+          "skipped_summary_targets": [
+            "backend-unit",
+            "frontend-typecheck"
+          ],
+          "resource_claims": {
+            "cpu": 1
+          },
           "make_jobs": "cpu"
         },
         {
           "target": "check-frontend-unit",
           "weight": 15000,
-          "needs": ["check-build-prereqs"],
-          "skipped_summary_targets": ["frontend-unit"],
-          "resource_claims": { "cpu": 1 },
+          "needs": [
+            "check-build-prereqs"
+          ],
+          "skipped_summary_targets": [
+            "frontend-unit"
+          ],
+          "resource_claims": {
+            "cpu": 1
+          },
           "make_jobs": "cpu"
         },
         {
           "target": "check-meta-validation",
           "weight": 10000,
-          "needs": ["check-build-prereqs"],
-          "skipped_summary_targets": ["check-harness-smoke"],
-          "resource_claims": { "cpu": 1 },
+          "needs": [
+            "check-build-prereqs"
+          ],
+          "skipped_summary_targets": [
+            "check-harness-smoke"
+          ],
+          "resource_claims": {
+            "cpu": 1
+          },
           "make_jobs": "cpu"
         }
       ]

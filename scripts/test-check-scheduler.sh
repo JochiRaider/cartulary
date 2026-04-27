@@ -100,7 +100,7 @@ const assertRepoRelativeArtifact = (artifactPath, label) => {
     throw new Error(`${label} must not point at obsolete temp scheduler logs, got ${artifactPath}`);
   }
 };
-if (summary.schema_id !== "cartulary.check_scheduler_summary.v1") {
+if (summary.schema_id !== "cartulary.check_scheduler_summary.v2") {
   throw new Error(`unexpected summary schema ${summary.schema_id}`);
 }
 if (summary.status !== expectedStatus) {
@@ -135,7 +135,7 @@ if (!fs.statSync(schedulerLogsDir).isDirectory()) {
 if (events.length === 0) {
   throw new Error("scheduler events must not be empty");
 }
-if (!events.every((event) => event.schema_id === "cartulary.check_scheduler_event.v1")) {
+if (!events.every((event) => event.schema_id === "cartulary.check_scheduler_event.v2")) {
   throw new Error("unexpected scheduler event schema");
 }
 if (expectedEvent !== "-" && !events.some((event) => event.event === expectedEvent)) {
@@ -348,7 +348,7 @@ success_output="$(run_scheduler "$success_dir" "$success_manifest" success --sum
 assert_contains "$success_output" "[RUN] check steps=5 targets=3 jobs=2 run_id=success" "success run start"
 assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={cpu:2,io:3,service_stack:1}" "success concise scheduler start"
 assert_contains "$success_output" "top_weighted=setup:50,build:40,local:30,service:20,meta:10" "success concise scheduler start shows top weighted work"
-assert_contains "$success_output" "[CHECK-SCHEDULER] check progress completed=0/5 running=1 pending=4 blocked=4 active_groups=setup:1 blocked_by=dependencies unblocks_after=setup slowest_running=setup:" "success concise scheduler progress"
+assert_contains "$success_output" "[CHECK-SCHEDULER] check progress completed=0/5 running=1 pending=4 blocked=4 active_groups=setup:1 blocked_by=dependencies waiting_on=build,setup unblocks_after=setup slowest_running=setup:" "success concise scheduler progress"
 assert_contains "$success_output" "artifacts=tmp/check-scheduler-success" "success concise scheduler progress artifact path"
 assert_contains "$success_output" "/results/success/check" "success concise scheduler progress artifact path suffix"
 assert_contains "$success_output" "[CHECK-SCHEDULER] check summary status=pass completed=5/5 failed=none slowest=" "success concise scheduler summary"
@@ -392,6 +392,20 @@ if (summary.max_running_groups < 1) {
 }
 if (!summary.blocked_explanations_seen.includes("dependencies")) {
   throw new Error("summary must record dependency blocked explanation");
+}
+if (!summary.waiting_on_seen?.includes("setup")) {
+  throw new Error("summary must record dependency waiting_on target");
+}
+const dependencyBlocked = events.find((event) => event.event === "blocked" && event.blocked_reason === "dependencies");
+if (!dependencyBlocked) {
+  throw new Error("scheduler events must record dependency blocked event");
+}
+if (!dependencyBlocked.waiting_on?.includes("setup")) {
+  throw new Error("dependency blocked event must record waiting_on setup");
+}
+const buildBlocked = dependencyBlocked.blocked_units?.find((entry) => entry.work_unit === "build");
+if (!buildBlocked?.waiting_on?.includes("setup")) {
+  throw new Error("blocked_units must record build waiting on setup");
 }
 if (summary.max_active_resource_claims?.cpu !== 2) {
   throw new Error(`max active cpu claims got ${summary.max_active_resource_claims?.cpu} want 2`);

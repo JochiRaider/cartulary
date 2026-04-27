@@ -86,7 +86,7 @@ const fs = require("node:fs");
 const [summaryFile, eventsFile, expectedStatus, expectedBlocked, expectedEvent] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
-if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v1") {
+if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v2") {
   throw new Error(`unexpected summary schema ${summary.schema_id}`);
 }
 if (summary.status !== expectedStatus) {
@@ -112,7 +112,7 @@ if (expectedBlocked !== "-") {
 if (events.length === 0) {
   throw new Error("scheduler events must not be empty");
 }
-if (!events.every((event) => event.schema_id === "cartulary.service_backed_scheduler_event.v1")) {
+if (!events.every((event) => event.schema_id === "cartulary.service_backed_scheduler_event.v2")) {
   throw new Error("unexpected scheduler event schema");
 }
 if (expectedEvent !== "-" && !events.some((event) => event.event === expectedEvent)) {
@@ -767,8 +767,28 @@ dependency_order_output="$(
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.01 \
     run_scheduler "$dependency_order_dir" "$dependency_order_manifest" check-service-backed dependency-order 2>&1
 )"
-assert_contains "$dependency_order_output" "blocked_by=dependencies unblocks_after=backend-process" "dependency-blocked browser progress"
+assert_contains "$dependency_order_output" "blocked_by=dependencies waiting_on=backend-process,browser-e2e-webserver-backed unblocks_after=backend-process" "dependency-blocked browser progress"
 assert_scheduler_artifacts "$dependency_order_dir" dependency-order check-service-backed pass - blocked
+"$NODE_BIN" - "${dependency_order_dir}/results/dependency-order/check-service-backed/scheduler-events.jsonl" "${dependency_order_dir}/results/dependency-order/check-service-backed/scheduler-summary.json" <<'EOF'
+const fs = require("node:fs");
+const [eventsFile, summaryFile] = process.argv.slice(2);
+const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).map((line) => JSON.parse(line));
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+if (!summary.waiting_on_seen?.includes("backend-process") || !summary.waiting_on_seen?.includes("browser-e2e-webserver-backed")) {
+  throw new Error("summary must record service-backed waiting_on targets");
+}
+const dependencyBlocked = events.find((event) => event.event === "blocked" && event.blocked_reason === "dependencies");
+if (!dependencyBlocked) {
+  throw new Error("missing service-backed dependency blocked event");
+}
+if (!dependencyBlocked.waiting_on?.includes("backend-process") || !dependencyBlocked.waiting_on?.includes("browser-e2e-webserver-backed")) {
+  throw new Error("dependency blocked event must record direct waiting_on targets");
+}
+const browserBlocked = dependencyBlocked.blocked_units?.find((entry) => entry.work_unit === "browser-e2e");
+if (!browserBlocked?.waiting_on?.includes("backend-process") || !browserBlocked?.waiting_on?.includes("browser-e2e-webserver-backed")) {
+  throw new Error("blocked_units must record browser-e2e direct dependencies");
+}
+EOF
 "$NODE_BIN" - "${dependency_order_dir}/make.log" <<'EOF'
 const fs = require("node:fs");
 const [logFile] = process.argv.slice(2);
@@ -821,7 +841,7 @@ go_dependency_order_output="$(
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.01 \
     run_scheduler "$go_dependency_order_dir" "$go_dependency_order_manifest" check-service-backed go-dependency-order 2>&1
 )"
-assert_contains "$go_dependency_order_output" "blocked_by=dependencies unblocks_after=backend-store" "go dependency waits for finalizer"
+assert_contains "$go_dependency_order_output" "blocked_by=dependencies waiting_on=backend-store unblocks_after=backend-store" "go dependency waits for finalizer"
 "$NODE_BIN" - "${go_dependency_order_dir}/make.log" <<'EOF'
 const fs = require("node:fs");
 const [logFile] = process.argv.slice(2);
