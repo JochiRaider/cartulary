@@ -7,6 +7,21 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { collectGoShardsForTarget } from "./lib/go-shard-plan.mjs";
+import {
+  countBy,
+  formatDurationMs,
+  formatLabelList,
+  formatResourceList,
+  formatResourceMap,
+  formatSlowestWork,
+  relToRepo as relToRepoPath,
+  resourceLimitSummary as summarizeResourceLimits,
+  resourceMapToObject,
+  schedulerProgressIntervalMs,
+  schedulerTargetDir as schedulerTargetResultsDir,
+  topWeightedUnits,
+  verboseSchedulerOutput,
+} from "./lib/scheduler-reporting.mjs";
 import { findTargetDescriptor } from "./lib/target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -24,7 +39,6 @@ const browserStackLimitEnv = "CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
 const schedulerEventSchemaID = "cartulary.service_backed_scheduler_event.v1";
 const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v1";
-const schedulerProgressIntervalMs = 10_000;
 const autoLimitResources = new Set([goCPUResource, goIOResource, browserStackResource]);
 const validSourceTypes = new Set(["go_shards", "make_target"]);
 const validSourceClasses = new Set(["backend", "browser"]);
@@ -74,40 +88,12 @@ function isDryRun() {
   return flags.includes(" n") || flags.includes(" --just-print") || flags.includes(" --dry-run");
 }
 
-function verboseSchedulerOutput() {
-  return process.env.VERBOSE === "1" || process.env.CI_VERBOSE === "1";
-}
-
-function resolveResultsRoot() {
-  const configured = process.env.CARTULARY_TEST_RESULTS_DIR;
-  if (!configured) {
-    return path.join(repoRoot, ".cartulary", "test-results");
-  }
-  return path.isAbsolute(configured) ? configured : path.join(repoRoot, configured);
-}
-
 function schedulerTargetDir(target) {
-  const runID = process.env.CARTULARY_TEST_RUN_ID || "adhoc";
-  return path.join(resolveResultsRoot(), runID, target);
-}
-
-function normalizePath(value) {
-  return value.replaceAll("\\", "/");
+  return schedulerTargetResultsDir(repoRoot, target);
 }
 
 function relToRepo(value) {
-  if (!value) {
-    return "";
-  }
-  const normalized = normalizePath(value);
-  if (!path.isAbsolute(value)) {
-    return normalized;
-  }
-  const relative = normalizePath(path.relative(repoRoot, value));
-  if (!relative.startsWith("../") && relative !== "..") {
-    return relative;
-  }
-  return normalized;
+  return relToRepoPath(repoRoot, value);
 }
 
 async function loadManifest(file) {
@@ -746,14 +732,6 @@ function removeResourceClaims(unit, activeResourceClaims) {
   }
 }
 
-function formatResourceMap(values) {
-  const entries = Array.from(values.entries()).sort((left, right) => left[0].localeCompare(right[0]));
-  if (entries.length === 0) {
-    return "{}";
-  }
-  return `{${entries.map(([key, value]) => `${key}:${value}`).join(",")}}`;
-}
-
 function formatResourceLimits(resourceLimits) {
   return formatResourceMap(resourceLimits);
 }
@@ -772,53 +750,15 @@ function formatBlockedWorkUnits(workUnits) {
     .join("; ");
 }
 
-function formatResourceList(values) {
-  if (values.length === 0) {
-    return "none";
-  }
-  return values.join(",");
-}
-
-function formatLabelList(values, limit = 3) {
-  if (values.length === 0) {
-    return "none";
-  }
-  const displayed = values.slice(0, limit);
-  const suffix = values.length > limit ? `,+${values.length - limit}` : "";
-  return `${displayed.join(",")}${suffix}`;
-}
-
-function formatDurationMs(value) {
-  if (!Number.isFinite(value)) {
-    return "0.00s";
-  }
-  return `${(value / 1000).toFixed(2)}s`;
-}
-
-function resourceMapToObject(values) {
-  return Object.fromEntries(
-    Array.from(values.entries()).sort((left, right) => left[0].localeCompare(right[0])),
-  );
-}
-
 function resourceLimitSummary(resourceLimits) {
-  const preferred = [goCPUResource, goIOResource, browserStackResource, "process", "postgres", "minio"];
-  const seen = new Set();
-  const entries = [];
-  for (const resource of preferred) {
-    if (resourceLimits.has(resource)) {
-      entries.push(`${resource}:${resourceLimits.get(resource)}`);
-      seen.add(resource);
-    }
-  }
-  for (const [resource, value] of Array.from(resourceLimits.entries()).sort((left, right) =>
-    left[0].localeCompare(right[0]),
-  )) {
-    if (!seen.has(resource)) {
-      entries.push(`${resource}:${value}`);
-    }
-  }
-  return entries.join(",");
+  return summarizeResourceLimits(resourceLimits, [
+    goCPUResource,
+    goIOResource,
+    browserStackResource,
+    "process",
+    "postgres",
+    "minio",
+  ]);
 }
 
 function schedulerTelemetry(schedule, event, fields) {
@@ -1109,32 +1049,6 @@ class SchedulerReporter {
       this.events.end(resolve);
     });
   }
-}
-
-function formatSlowestWork(work) {
-  if (work.length === 0) {
-    return "none";
-  }
-  return work.map((entry) => `${entry.label}:${formatDurationMs(entry.duration_ms)}`).join(",");
-}
-
-function countBy(values, field) {
-  const counts = new Map();
-  for (const value of values) {
-    counts.set(value[field], (counts.get(value[field]) ?? 0) + 1);
-  }
-  return Array.from(counts.entries())
-    .sort((left, right) => left[0].localeCompare(right[0]))
-    .map(([key, count]) => `${key}:${count}`)
-    .join(",");
-}
-
-function topWeightedUnits(workUnits, limit = 5) {
-  return [...workUnits]
-    .sort((left, right) => right.weight - left.weight || left.label.localeCompare(right.label))
-    .slice(0, limit)
-    .map((unit) => `${unit.label}:${unit.weight}`)
-    .join(",");
 }
 
 function writeDryRun(schedule, manifestPath, target) {

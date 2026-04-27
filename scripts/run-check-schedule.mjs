@@ -1,16 +1,31 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  formatLabelList,
+  formatResourceList,
+  formatResourceMap,
+  formatSlowestWork,
+  relToRepo as relToRepoPath,
+  resourceLimitSummary,
+  resourceMapToObject,
+  schedulerProgressIntervalMs,
+  schedulerTargetDir,
+  topWeightedUnits,
+  verboseSchedulerOutput,
+} from "./lib/scheduler-reporting.mjs";
 import { loadTaskSurfaceManifest, summaryProfileArgs } from "./lib/task-surface.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
 const supportedSchemaID = "cartulary.check_schedule.v1";
+const schedulerEventSchemaID = "cartulary.check_scheduler_event.v1";
+const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v1";
 
 function usage() {
   process.stderr.write(
@@ -344,18 +359,6 @@ function removeResourceClaims(unit, activeClaims) {
   }
 }
 
-function formatResourceMap(values) {
-  const entries = Array.from(values.entries()).sort((left, right) => left[0].localeCompare(right[0]));
-  if (entries.length === 0) {
-    return "{}";
-  }
-  return `{${entries.map(([key, value]) => `${key}:${value}`).join(",")}}`;
-}
-
-function schedulerTelemetry(schedule, event, fields) {
-  process.stdout.write(`[CHECK-SCHEDULER] ${schedule.target} ${event} ${fields.join(" ")}\n`);
-}
-
 function schedulerStateFields({ pending, running, activeClaims, resourceLimits }) {
   return [
     `active=${running.size}`,
@@ -363,6 +366,233 @@ function schedulerStateFields({ pending, running, activeClaims, resourceLimits }
     `active_resource_claims=${formatResourceMap(activeClaims)}`,
     `resource_limits=${formatResourceMap(resourceLimits)}`,
   ];
+}
+
+function blockedResourcesForUnit(unit, resourceLimits, activeClaims) {
+  const blocked = [];
+  for (const [resource, amount] of unit.resourceClaims.entries()) {
+    if ((activeClaims.get(resource) ?? 0) + amount > resourceLimits.get(resource)) {
+      blocked.push(resource);
+    }
+  }
+  return blocked.sort((left, right) => left.localeCompare(right));
+}
+
+function blockedResourcesForUnits(units, resourceLimits, activeClaims) {
+  const resources = new Set();
+  for (const unit of units) {
+    for (const resource of blockedResourcesForUnit(unit, resourceLimits, activeClaims)) {
+      resources.add(resource);
+    }
+  }
+  return Array.from(resources).sort((left, right) => left.localeCompare(right));
+}
+
+function relToRepo(value) {
+  return relToRepoPath(repoRoot, value);
+}
+
+function schedulerProgressDelay() {
+  let timeout;
+  const promise = new Promise((resolve) => {
+    timeout = setTimeout(() => resolve({ schedulerProgressTick: true }), schedulerProgressIntervalMs);
+  });
+  return {
+    promise,
+    cancel() {
+      clearTimeout(timeout);
+    },
+  };
+}
+
+async function createCheckSchedulerReporter(schedule) {
+  const targetDir = schedulerTargetDir(repoRoot, schedule.target);
+  await mkdir(targetDir, { recursive: true });
+  return new CheckSchedulerReporter(schedule, targetDir);
+}
+
+class CheckSchedulerReporter {
+  constructor(schedule, targetDir) {
+    this.schedule = schedule;
+    this.targetDir = targetDir;
+    this.verbose = verboseSchedulerOutput();
+    this.eventsPath = path.join(targetDir, "scheduler-events.jsonl");
+    this.summaryPath = path.join(targetDir, "scheduler-summary.json");
+    this.events = createWriteStream(this.eventsPath, { flags: "w" });
+    this.startedAt = new Map();
+    this.completedWork = [];
+    this.completedCount = 0;
+    this.failedWorkUnit = null;
+    this.blockedReasonsSeen = new Set();
+    this.blockedResourcesSeen = new Set();
+    this.lastProgressAt = 0;
+    this.lastBlockedKey = null;
+  }
+
+  start() {
+    process.stdout.write(
+      `[CHECK-SCHEDULER] ${this.schedule.target} start work_units=${this.schedule.units.length} capacity={${resourceLimitSummary(this.schedule.resourceLimits, ["cpu", "service_stack"])}}\n`,
+    );
+  }
+
+  emit(event, fields, state, detail = {}) {
+    if (this.verbose) {
+      process.stdout.write(`[CHECK-SCHEDULER] ${this.schedule.target} ${event} ${fields.join(" ")}\n`);
+    }
+    this.writeEvent(event, state, detail);
+  }
+
+  startUnit(unit, state) {
+    this.startedAt.set(unit.target, Date.now());
+    this.emit(
+      "start",
+      [
+        `work_unit=${unit.label}`,
+        `claims=${formatResourceMap(unit.resourceClaims)}`,
+        ...schedulerStateFields({ ...state, resourceLimits: this.schedule.resourceLimits }),
+      ],
+      state,
+      {
+        work_unit: unit.label,
+        resource_claims: resourceMapToObject(unit.resourceClaims),
+      },
+    );
+  }
+
+  finishUnit(unit, result, state) {
+    const durationMs = Math.max(0, Date.now() - (this.startedAt.get(unit.target) ?? Date.now()));
+    this.startedAt.delete(unit.target);
+    if (result.status === 0) {
+      this.completedCount += 1;
+    }
+    const record = {
+      label: result.label,
+      id: result.id,
+      status: result.status,
+      duration_ms: durationMs,
+      log_file: relToRepo(result.logFile),
+    };
+    this.completedWork.push(record);
+    if (result.status !== 0 && !this.failedWorkUnit) {
+      this.failedWorkUnit = result.label;
+    }
+    this.emit(
+      "finish",
+      [
+        `work_unit=${result.label}`,
+        `status=${result.status}`,
+        ...schedulerStateFields({ ...state, resourceLimits: this.schedule.resourceLimits }),
+      ],
+      state,
+      {
+        work_unit: result.label,
+        status: result.status,
+        duration_ms: durationMs,
+        log_file: relToRepo(result.logFile),
+      },
+    );
+  }
+
+  blocked(state, reason, blockedResources) {
+    this.blockedReasonsSeen.add(reason);
+    for (const resource of blockedResources) {
+      this.blockedResourcesSeen.add(resource);
+    }
+    this.emit(
+      "blocked",
+      [
+        `reason=${reason}`,
+        `blocked_resources=${formatResourceList(blockedResources)}`,
+        ...schedulerStateFields({ ...state, resourceLimits: this.schedule.resourceLimits }),
+      ],
+      state,
+      {
+        blocked_reason: reason,
+        blocked_resources: blockedResources,
+      },
+    );
+    const blockedKey = `${reason}:${blockedResources.join(",")}`;
+    this.maybeProgress(state, reason, blockedResources, { force: blockedKey !== this.lastBlockedKey });
+    this.lastBlockedKey = blockedKey;
+  }
+
+  maybeProgress(state, reason = "none", blockedResources = [], { force = false } = {}) {
+    const now = Date.now();
+    if (!force && now - this.lastProgressAt < schedulerProgressIntervalMs) {
+      return;
+    }
+    this.lastProgressAt = now;
+    const runningLabels = Array.from(state.running.values()).map((unit) => unit.label);
+    const pendingLabels = state.pending.map((unit) => unit.label);
+    process.stdout.write(
+      `[CHECK-SCHEDULER] ${this.schedule.target} progress completed=${this.completedCount}/${this.schedule.units.length} running=${state.running.size} pending=${state.pending.length} blocked=${state.blockedCount ?? 0} reason=${reason} running_units=${formatLabelList(runningLabels)} blocked_resources=${formatResourceList(blockedResources)} next=${formatLabelList(pendingLabels)}\n`,
+    );
+  }
+
+  async summary(status, { failedWorkUnit = null } = {}) {
+    const failed = failedWorkUnit || this.failedWorkUnit || null;
+    const slowest = this.slowestWork();
+    process.stdout.write(
+      `[CHECK-SCHEDULER] ${this.schedule.target} summary status=${status} completed=${this.completedCount}/${this.schedule.units.length} failed=${failed ?? "none"} slowest=${formatSlowestWork(slowest)}\n`,
+    );
+    await writeFile(
+      this.summaryPath,
+      `${JSON.stringify(
+        {
+          schema_id: schedulerSummarySchemaID,
+          target: this.schedule.target,
+          status,
+          total_work_units: this.schedule.units.length,
+          completed_work_units: this.completedCount,
+          failed_work_unit: failed,
+          blocked_reasons_seen: Array.from(this.blockedReasonsSeen).sort((left, right) =>
+            left.localeCompare(right),
+          ),
+          blocked_resources_seen: Array.from(this.blockedResourcesSeen).sort((left, right) =>
+            left.localeCompare(right),
+          ),
+          slowest_work_units: slowest,
+          artifacts: {
+            events_jsonl: relToRepo(this.eventsPath),
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+  }
+
+  slowestWork() {
+    return [...this.completedWork]
+      .sort((left, right) => right.duration_ms - left.duration_ms || left.label.localeCompare(right.label))
+      .slice(0, 5);
+  }
+
+  writeEvent(event, state, detail) {
+    this.events.write(
+      `${JSON.stringify({
+        schema_id: schedulerEventSchemaID,
+        target: this.schedule.target,
+        event,
+        timestamp: new Date().toISOString(),
+        pending: state.pending.length,
+        running: state.running.size,
+        completed: this.completedCount,
+        blocked_reason: detail.blocked_reason ?? null,
+        blocked_resources: detail.blocked_resources ?? [],
+        active_resource_claims: resourceMapToObject(state.activeClaims),
+        resource_limits: resourceMapToObject(this.schedule.resourceLimits),
+        ...detail,
+      })}\n`,
+    );
+  }
+
+  close() {
+    return new Promise((resolve, reject) => {
+      this.events.on("error", reject);
+      this.events.end(resolve);
+    });
+  }
 }
 
 function readyPendingUnits(pending, completed) {
@@ -385,6 +615,7 @@ function runWorkUnit({ makeBin, unit, tempDir, started }) {
 
 async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets, summaryGroups }) {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "cartulary-check-schedule-"));
+  const reporter = await createCheckSchedulerReporter(schedule);
   const pending = [...schedule.units];
   const running = new Map();
   const completed = new Set();
@@ -398,6 +629,13 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
   let stopScheduling = false;
 
   try {
+    const stateSnapshot = (blockedCount = 0) => ({
+      pending,
+      running,
+      activeClaims,
+      blockedCount,
+    });
+
     await runLifecycle(testOutputScript, [
       "run-start",
       schedule.target,
@@ -408,6 +646,7 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
       "--jobs",
       String(capacityDisplay),
     ]);
+    reporter.start();
 
     const startUnit = async (unit) => {
       started += 1;
@@ -425,14 +664,13 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
       addResourceClaims(unit, activeClaims);
       const promise = runWorkUnit({ makeBin, unit, tempDir, started });
       running.set(promise, unit);
-      schedulerTelemetry(schedule, "start", [
-        `work_unit=${unit.label}`,
-        `claims=${formatResourceMap(unit.resourceClaims)}`,
-        ...schedulerStateFields({ pending, running, activeClaims, resourceLimits: schedule.resourceLimits }),
-      ]);
+      reporter.startUnit(unit, stateSnapshot());
     };
 
     while (pending.length > 0 || running.size > 0) {
+      let waitProgressReason = "none";
+      let waitProgressResources = [];
+      let waitProgressBlockedCount = 0;
       if (!stopScheduling) {
         while (true) {
           const ready = readyPendingUnits(pending, completed);
@@ -446,12 +684,25 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
       }
 
       if (pending.length > 0 && running.size > 0 && !stopScheduling) {
-        const blockedByDeps = blockedPendingUnits(pending, completed).length;
-        const reason = blockedByDeps === pending.length ? "dependencies" : "resources";
-        schedulerTelemetry(schedule, "blocked", [
-          `reason=${reason}`,
-          ...schedulerStateFields({ pending, running, activeClaims, resourceLimits: schedule.resourceLimits }),
-        ]);
+        const dependencyBlocked = blockedPendingUnits(pending, completed);
+        const readyBlocked = readyPendingUnits(pending, completed).filter(
+          (unit) => !hasResourceCapacity(unit, schedule.resourceLimits, activeClaims),
+        );
+        const blockedResources = blockedResourcesForUnits(readyBlocked, schedule.resourceLimits, activeClaims);
+        let reason = "none";
+        if (dependencyBlocked.length > 0 && readyBlocked.length > 0) {
+          reason = "dependencies,resources";
+        } else if (dependencyBlocked.length > 0) {
+          reason = "dependencies";
+        } else if (readyBlocked.length > 0) {
+          reason = "resources";
+        }
+        waitProgressReason = reason;
+        waitProgressResources = blockedResources;
+        waitProgressBlockedCount = dependencyBlocked.length + readyBlocked.length;
+        reporter.blocked(stateSnapshot(dependencyBlocked.length + readyBlocked.length), reason, blockedResources);
+      } else {
+        reporter.maybeProgress(stateSnapshot(), "none", []);
       }
 
       if (running.size === 0) {
@@ -461,7 +712,19 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
         throw new Error(`check scheduler deadlock for ${schedule.target}; pending=${pending.map((unit) => unit.target).join(",")}`);
       }
 
-      const result = await Promise.race(running.keys());
+      const progressDelay = schedulerProgressDelay();
+      const result = await Promise.race([...running.keys(), progressDelay.promise]);
+      if (result?.schedulerProgressTick === true) {
+        progressDelay.cancel();
+        reporter.maybeProgress(
+          stateSnapshot(waitProgressBlockedCount),
+          waitProgressReason,
+          waitProgressResources,
+          { force: true },
+        );
+        continue;
+      }
+      progressDelay.cancel();
       let finishedUnit;
       for (const [promise, candidate] of running.entries()) {
         if (candidate.target === result.id) {
@@ -471,11 +734,10 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
           break;
         }
       }
-      schedulerTelemetry(schedule, "finish", [
-        `work_unit=${result.label}`,
-        `status=${result.status}`,
-        ...schedulerStateFields({ pending, running, activeClaims, resourceLimits: schedule.resourceLimits }),
-      ]);
+      if (!finishedUnit) {
+        throw new Error(`finished unknown check work unit ${result.id}`);
+      }
+      reporter.finishUnit(finishedUnit, result, stateSnapshot());
       await replayLog(result.logFile, result.status === 0 ? process.stdout : process.stderr);
       if (result.status === 0) {
         completed.add(result.id);
@@ -485,12 +747,10 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
         firstFailureTarget = result.label;
         stopScheduling = true;
       }
-      if (!finishedUnit) {
-        throw new Error(`finished unknown check work unit ${result.id}`);
-      }
     }
 
     const requestedStatus = firstFailure === 0 ? "pass" : "fail";
+    await reporter.summary(requestedStatus, { failedWorkUnit: firstFailureTarget === "-" ? null : firstFailureTarget });
     const summaryArgs = ["run-summary", schedule.target, requestedStatus, String(completedCount), String(totalUnits), firstFailureTarget];
     if (summaryGroups) {
       summaryArgs.push("--summary-groups", summaryGroups);
@@ -503,6 +763,7 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
     });
     return firstFailure;
   } finally {
+    await reporter.close();
     await rm(tempDir, { recursive: true, force: true });
   }
 }
@@ -536,9 +797,17 @@ async function main() {
     process.env.TEST_OUTPUT_SCRIPT || path.join(repoRoot, "scripts", "lib", "test-output.sh");
 
   if (isDryRun()) {
+    const dependencyCount = schedule.units.reduce((sum, unit) => sum + unit.needs.length, 0);
     process.stdout.write(
-      `[DRY-RUN] ${options.target} manifest=${path.relative(repoRoot, manifestPath)} work_units=${schedule.units.map((unit) => unit.target).join(",")}\n`,
+      `[DRY-RUN] ${options.target} manifest=${path.relative(repoRoot, manifestPath)} resource_limits={${resourceLimitSummary(schedule.resourceLimits, ["cpu", "service_stack"])}} work_units=${schedule.units.length} dependencies=${dependencyCount} top_weighted=${topWeightedUnits(schedule.units)}\n`,
     );
+    if (verboseSchedulerOutput()) {
+      for (const unit of schedule.units) {
+        process.stdout.write(
+          `[DRY-RUN] ${options.target} unit ${unit.label} needs=${unit.needs.length === 0 ? "none" : unit.needs.join(",")} claims=${formatResourceMap(unit.resourceClaims)} make_jobs=${unit.makeJobs}\n`,
+        );
+      }
+    }
     return;
   }
 

@@ -41,6 +41,16 @@ assert_contains() {
   fi
 }
 
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  local label="$3"
+
+  if [[ "$haystack" == *"$needle"* ]]; then
+    fail "$label: expected output not to contain [$needle]"
+  fi
+}
+
 assert_file_absent() {
   local path="$1"
   local label="$2"
@@ -208,6 +218,12 @@ cat >"$success_manifest" <<'JSON'
 JSON
 success_output="$(run_scheduler "$success_dir" "$success_manifest" success --summary-targets local,service,meta,browser --summary-groups "check-work=local,service,meta,browser" --resource-limit cpu=2 2>&1)"
 assert_contains "$success_output" "[RUN] check steps=6 targets=4 jobs=2 run_id=success" "success run start"
+assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=6 capacity={cpu:2,service_stack:1}" "success concise scheduler start"
+assert_contains "$success_output" "[CHECK-SCHEDULER] check progress completed=0/6 running=1 pending=5 blocked=5 reason=dependencies" "success concise scheduler progress"
+assert_contains "$success_output" "[CHECK-SCHEDULER] check summary status=pass completed=6/6 failed=none slowest=" "success concise scheduler summary"
+assert_not_contains "$success_output" "active_resource_claims=" "default scheduler output hides raw active resources"
+assert_not_contains "$success_output" "resource_limits=" "default scheduler output hides raw resource limits"
+assert_not_contains "$success_output" "claims={" "default scheduler output hides raw claims"
 assert_contains "$success_output" "[STEP] check 1/6 setup mode=scheduler jobs=1" "success setup step"
 assert_contains "$success_output" "[STEP] check 2/6 build mode=scheduler jobs=2" "success build step"
 assert_contains "$success_output" "[STEP] check 3/6 local mode=scheduler jobs=1" "success higher-weight local step"
@@ -242,6 +258,33 @@ EOF
 success_summary="${success_dir}/results/success/run-summary.json"
 assert_equals "$(json_field "$success_summary" "status")" "pass" "success summary status"
 assert_equals "$(json_field "$success_summary" "completed_targets")" "6/6" "success completed"
+success_scheduler_summary="${success_dir}/results/success/check/scheduler-summary.json"
+success_scheduler_events="${success_dir}/results/success/check/scheduler-events.jsonl"
+assert_equals "$(json_field "$success_scheduler_summary" "schema_id")" "cartulary.check_scheduler_summary.v1" "success scheduler summary schema"
+assert_equals "$(json_field "$success_scheduler_summary" "completed_work_units")" "6" "success scheduler completed count"
+"$NODE_BIN" - "$success_scheduler_summary" "$success_scheduler_events" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile, eventsFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+if (!Array.isArray(summary.slowest_work_units) || summary.slowest_work_units.length === 0) {
+  throw new Error("scheduler summary must record slowest work");
+}
+const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).map((line) => JSON.parse(line));
+if (!events.some((event) => event.schema_id === "cartulary.check_scheduler_event.v1")) {
+  throw new Error("scheduler events must carry the check scheduler schema");
+}
+if (!events.some((event) => event.active_resource_claims && Object.keys(event.active_resource_claims).length > 0)) {
+  throw new Error("scheduler events must preserve active resource claims");
+}
+if (!events.some((event) => event.resource_limits?.cpu === 2 && event.resource_limits?.service_stack === 1)) {
+  throw new Error("scheduler events must preserve resource limits");
+}
+EOF
+
+verbose_output="$(VERBOSE=1 run_scheduler "$success_dir" "$success_manifest" verbose --summary-targets local,service,meta,browser --summary-groups "check-work=local,service,meta,browser" --resource-limit cpu=2 2>&1)"
+assert_contains "$verbose_output" "[CHECK-SCHEDULER] check start work_unit=setup claims={cpu:1} active=1 pending=5" "verbose scheduler start telemetry"
+assert_contains "$verbose_output" "active_resource_claims={cpu:1}" "verbose scheduler active resource telemetry"
+assert_contains "$verbose_output" "resource_limits={cpu:2,service_stack:1}" "verbose scheduler resource limit telemetry"
 
 failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-failure.XXXXXX")"
 cleanup_paths+=("$failure_dir")
@@ -316,4 +359,13 @@ dry_run_output="$(
     run_scheduler "$dry_run_dir" "$success_manifest" dry-run --summary-targets local,service,meta,browser --resource-limit cpu=2 2>&1
 )"
 assert_contains "$dry_run_output" "[DRY-RUN] check manifest=" "dry-run output"
+assert_contains "$dry_run_output" "resource_limits={cpu:2,service_stack:1} work_units=6 dependencies=7 top_weighted=setup:50,build:40,local:30,service:20,meta:10" "dry-run compact summary"
+assert_not_contains "$dry_run_output" "[DRY-RUN] check unit" "dry-run default hides unit expansion"
+assert_not_contains "$dry_run_output" "claims={" "dry-run default hides raw claims"
 assert_file_absent "${dry_run_dir}/make-args.log" "dry-run child make"
+
+dry_run_verbose_output="$(
+  MAKEFLAGS=n VERBOSE=1 \
+    run_scheduler "$dry_run_dir" "$success_manifest" dry-run-verbose --summary-targets local,service,meta,browser --resource-limit cpu=2 2>&1
+)"
+assert_contains "$dry_run_verbose_output" "[DRY-RUN] check unit setup needs=none claims={cpu:1} make_jobs=1" "verbose dry-run includes unit claims"
