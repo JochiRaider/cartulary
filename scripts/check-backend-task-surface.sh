@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 makefile="$repo_root/Makefile"
 generated_make="$repo_root/tools/task_surface.generated.mk"
 go_runner_script="$repo_root/scripts/run-go-target.sh"
+service_schedule_target_script="$repo_root/scripts/run-service-backed-schedule-target.sh"
 schedule_manifest="$repo_root/tools/service_backed_schedule_manifest.json"
 check_schedule_manifest="$repo_root/tools/check_schedule_manifest.json"
 node_bin="${NODE_BIN:-node}"
@@ -32,6 +33,45 @@ extract_target_prereqs() {
       exit
     }
   ' "$makefile"
+}
+
+require_service_backed_schedule_target() {
+  local target="$1"
+  local phase_label="$2"
+  local require_migrate="$3"
+  local block
+  local prereqs
+
+  block="$(extract_target_block "$target")"
+  if [[ -z "$block" ]]; then
+    fail "Makefile must define a non-empty $target block"
+  fi
+  if ! printf '%s\n' "$block" | grep -Fq '$(call run_service_backed_schedule_target'; then
+    fail "$target must delegate through run_service_backed_schedule_target"
+  fi
+  if ! printf '%s\n' "$block" | grep -Fq "$target,$phase_label"; then
+    fail "$target must pass its target and phase label to run_service_backed_schedule_target"
+  fi
+  if printf '%s\n' "$block" | grep -Fq -- '--jobs'; then
+    fail "$target must not pass a fixed scheduler job cap"
+  fi
+  if printf '%s\n' "$block" | rg -q "$target-lane-[ab]|(^|[[:space:]])(backend-process-support|phase2-process-smoke)($|[[:space:]])"; then
+    fail "$target must not invoke fixed legacy targets or Phase 2 process smoke coverage"
+  fi
+
+  prereqs="$(extract_target_prereqs "$target")"
+  if ! printf '%s\n' "$prereqs" | rg -q '(^|[[:space:]])test-service-images($|[[:space:]])'; then
+    fail "$target must depend on test-service-images for direct runs"
+  fi
+  if ! printf '%s\n' "$prereqs" | rg -q '(^|[[:space:]])build-server($|[[:space:]])'; then
+    fail "$target must prebuild server before service-backed scheduling"
+  fi
+  if [[ "$require_migrate" == "1" ]] && ! printf '%s\n' "$prereqs" | rg -q '(^|[[:space:]])build-migrate($|[[:space:]])'; then
+    fail "$target must prebuild migrate before service-backed scheduling"
+  fi
+  if [[ "$require_migrate" == "0" ]] && printf '%s\n' "$prereqs" | rg -q '(^|[[:space:]])build-migrate($|[[:space:]])'; then
+    fail "$target must not require build-migrate"
+  fi
 }
 
 inspect_shared_command() {
@@ -735,46 +775,28 @@ if ! printf '%s\n' "$check_build_prereqs" | rg -q '(^|[[:space:]])test-service-i
   fail "check-build-prereqs must warm service images before pre-browser check work"
 fi
 
-check_service_prereqs="$(extract_target_prereqs check-service-backed)"
-if ! printf '%s\n' "$check_service_prereqs" | rg -q '(^|[[:space:]])test-service-images($|[[:space:]])'; then
-  fail "check-service-backed must depend on test-service-images for direct runs"
+if [[ ! -x "$service_schedule_target_script" ]]; then
+  fail "missing executable scripts/run-service-backed-schedule-target.sh"
+fi
+service_schedule_target_content="$(cat "$service_schedule_target_script")"
+for required_service_schedule_fragment in \
+  'TEST_SERVICES_BIN' \
+  'run -- "${scheduler_command[@]}"' \
+  'RUN_PHASE_SCRIPT' \
+  'RUN_SERVICE_BACKED_SCHEDULE_SCRIPT' \
+  '--defer-summary' \
+  'target-summary "$target" "$requested" --projection "$projection"'
+do
+  if [[ "$service_schedule_target_content" != *"$required_service_schedule_fragment"* ]]; then
+    fail "scripts/run-service-backed-schedule-target.sh must contain $required_service_schedule_fragment"
+  fi
+done
+if [[ "$service_schedule_target_content" == *'--jobs'* ]]; then
+  fail "scripts/run-service-backed-schedule-target.sh must not pass a fixed scheduler job cap"
 fi
 
-check_service_block="$(extract_target_block check-service-backed)"
-if [[ -z "$check_service_block" ]]; then
-  fail "Makefile must define a non-empty check-service-backed block"
-fi
-if ! printf '%s\n' "$check_service_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
-  fail "check-service-backed must wrap the shared service-backed scheduler through $(TEST_SERVICES_BIN)"
-fi
-if ! printf '%s\n' "$check_service_block" | grep -Fq '$(RUN_PHASE_SCRIPT)'; then
-  fail "check-service-backed must report scheduler execution through RUN_PHASE_SCRIPT inside the service wrapper"
-fi
-if ! printf '%s\n' "$check_service_block" | grep -Fq '$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target check-service-backed --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"'; then
-  fail "check-service-backed must delegate to the service-backed scheduler manifest"
-fi
-if printf '%s\n' "$check_service_block" | grep -Fq -- '--jobs'; then
-  fail "check-service-backed must not pass a fixed scheduler job cap"
-fi
-if ! printf '%s\n' "$check_service_block" | grep -Fq -- '--defer-summary'; then
-  fail "check-service-backed must defer target summary until after synchronous suite release checks"
-fi
-if ! printf '%s\n' "$check_service_block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary check-service-backed $$requested --projection check-service-backed'; then
-  fail "check-service-backed must finalize target summary after synchronous suite release checks"
-fi
-if printf '%s\n' "$check_service_block" | rg -q 'check-service-backed-lane-[ab]'; then
-  fail "check-service-backed must not invoke fixed service-backed lane targets"
-fi
-if ! printf '%s\n' "$check_service_prereqs" | rg -q '(^|[[:space:]])build-server($|[[:space:]])'; then
-  fail "check-service-backed must prebuild server before service-backed scheduling"
-fi
-if ! printf '%s\n' "$check_service_prereqs" | rg -q '(^|[[:space:]])build-migrate($|[[:space:]])'; then
-  fail "check-service-backed must prebuild migrate before service-backed scheduling"
-fi
+require_service_backed_schedule_target check-service-backed "check service-backed" 1
 
-if printf '%s\n' "$check_service_block" | rg -q '(^|[[:space:]])(backend-process-support|phase2-process-smoke)($|[[:space:]])'; then
-  fail "check-service-backed must not invoke Phase 2 process smoke coverage"
-fi
 mapfile -t check_service_browser_schedule_targets < <(schedule_targets check-service-backed browser)
 if [[ "$(printf '%s\n' "${check_service_browser_schedule_targets[@]}")" != "browser-e2e-webserver-backed" ]]; then
   fail "check-service-backed schedule must own only webserver-backed browser work, found: ${check_service_browser_schedule_targets[*]:-none}"
@@ -817,35 +839,7 @@ if ! printf '%s\n' "$test_fast_block" | rg -q '(^|[[:space:]])test-fast-service-
   fail "test-fast must invoke test-fast-service-backed"
 fi
 
-test_fast_service_block="$(extract_target_block test-fast-service-backed)"
-if [[ -z "$test_fast_service_block" ]]; then
-  fail "Makefile must define a non-empty test-fast-service-backed block"
-fi
-if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
-  fail "test-fast-service-backed must wrap the shared service-backed scheduler through $(TEST_SERVICES_BIN)"
-fi
-if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(RUN_PHASE_SCRIPT)'; then
-  fail "test-fast-service-backed must report scheduler execution through RUN_PHASE_SCRIPT inside the service wrapper"
-fi
-if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-fast-service-backed --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"'; then
-  fail "test-fast-service-backed must delegate to the service-backed scheduler manifest"
-fi
-if printf '%s\n' "$test_fast_service_block" | grep -Fq -- '--jobs'; then
-  fail "test-fast-service-backed must not pass a fixed scheduler job cap"
-fi
-if ! printf '%s\n' "$test_fast_service_block" | grep -Fq -- '--defer-summary'; then
-  fail "test-fast-service-backed must defer target summary until after synchronous suite release checks"
-fi
-if ! printf '%s\n' "$test_fast_service_block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary test-fast-service-backed $$requested --projection test-fast-service-backed'; then
-  fail "test-fast-service-backed must finalize target summary after synchronous suite release checks"
-fi
-if printf '%s\n' "$test_fast_service_block" | rg -q 'test-fast-service-backed-lane-[ab]|(^|[[:space:]])(backend-process-support|phase2-process-smoke)($|[[:space:]])'; then
-  fail "test-fast-service-backed must not invoke fixed legacy targets or Phase 2 process smoke coverage"
-fi
-test_fast_service_prereqs="$(extract_target_prereqs test-fast-service-backed)"
-if ! printf '%s\n' "$test_fast_service_prereqs" | rg -q '(^|[[:space:]])build-server($|[[:space:]])'; then
-  fail "test-fast-service-backed must prebuild server before service-backed scheduling"
-fi
+require_service_backed_schedule_target test-fast-service-backed "test-fast service-backed" 0
 
 mapfile -t test_fast_backend_schedule_targets < <(schedule_targets test-fast-service-backed backend)
 test_fast_backend_schedule_text="$(printf '%s\n' "${test_fast_backend_schedule_targets[@]}")"

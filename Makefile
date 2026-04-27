@@ -56,6 +56,7 @@ TASK_SURFACE_MANIFEST ?= $(CURDIR)/tools/task_surface_manifest.json
 RUN_MAKE_SEQUENCE_SCRIPT := $(CURDIR)/scripts/run-make-sequence.sh
 RUN_HARNESS_SMOKE_SCRIPT := $(CURDIR)/scripts/run-harness-smoke.mjs
 RUN_SERVICE_BACKED_SCHEDULE_SCRIPT := $(CURDIR)/scripts/run-service-backed-schedule.mjs
+RUN_SERVICE_BACKED_SCHEDULE_TARGET_SCRIPT := $(CURDIR)/scripts/run-service-backed-schedule-target.sh
 RUN_CHECK_SCHEDULE_SCRIPT := $(CURDIR)/scripts/run-check-schedule.mjs
 BUILD_INPUTS_SCRIPT := $(CURDIR)/scripts/list-build-inputs.sh
 DEV_SERVICES_SCRIPT := $(CURDIR)/scripts/dev-services.sh
@@ -68,6 +69,14 @@ RUN_VITEST_PHASE = $(Q)NODE_BIN=$(NODE_BIN) $(RUN_VITEST_PHASE_SCRIPT)
 RUN_VITEST_MANIFEST_PHASE = $(Q)NODE_BIN=$(NODE_BIN) $(RUN_VITEST_MANIFEST_PHASE_SCRIPT)
 RUN_PHASE_ALLOW_SUCCESS_LOG = $(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT)
 TARGET_SUMMARY = $(Q)NODE_BIN=$(NODE_BIN) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(TEST_OUTPUT_SCRIPT) target-summary
+
+define run_service_backed_schedule_target
+$(Q)env MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)" SERVICE_BACKED_SCHEDULE_MANIFEST="$(SERVICE_BACKED_SCHEDULE_MANIFEST)" $(RUN_SERVICE_BACKED_SCHEDULE_TARGET_SCRIPT) --target $(1) --phase-label "$(2)" --service-wrapper test-services
+endef
+
+define run_browser_batch_target
+$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=$(2) $(if $(filter test-services,$(3)),$(TEST_SERVICES_BIN) run -- ,)./scripts/run-browser-e2e-target.sh $(1)
+endef
 
 define resolve_service_go_test_p
 $(if $(filter environment environment override command line override,$(origin $(1))),$($(1)),$(if $(filter environment environment override command line override,$(origin GO_TEST_SERVICE_PACKAGE_PARALLELISM)),$(GO_TEST_SERVICE_PACKAGE_PARALLELISM),$($(1))))
@@ -413,12 +422,12 @@ test-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
 test-fast-service-backed: export CARTULARY_TEST_TARGET := test-fast-service-backed
 
 test-fast-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server $(TEST_SERVICES_BIN) test-service-images
-	$(Q)status=0; $(TEST_SERVICES_BIN) run -- env MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(RUN_PHASE_SCRIPT) "test-fast service-backed" -- $(NODE_BIN) $(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-fast-service-backed --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)" --defer-summary || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(TEST_OUTPUT_SCRIPT) target-summary test-fast-service-backed $$requested --projection test-fast-service-backed; summary_status=$$?; if [ "$$status" -ne 0 ]; then exit "$$status"; fi; exit "$$summary_status"
+	$(call run_service_backed_schedule_target,test-fast-service-backed,test-fast service-backed)
 
 test-service-backed: export CARTULARY_TEST_TARGET := test-service-backed
 
 test-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN) test-service-images
-	$(Q)status=0; $(TEST_SERVICES_BIN) run -- env MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(RUN_PHASE_SCRIPT) "test service-backed" -- $(NODE_BIN) $(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target test-service-backed --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)" --defer-summary || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(TEST_OUTPUT_SCRIPT) target-summary test-service-backed $$requested --projection test-service-backed; summary_status=$$?; if [ "$$status" -ne 0 ]; then exit "$$status"; fi; exit "$$summary_status"
+	$(call run_service_backed_schedule_target,test-service-backed,test service-backed)
 
 test: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label test --summary-profile test --parallel-step test-local:3 --step test-service-backed --step browser-e2e
@@ -497,44 +506,44 @@ e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 browser-e2e: export CARTULARY_TEST_TARGET := browser-e2e
 
 browser-e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN) test-service-images
-	$(Q)$(TEST_SERVICES_BIN) run -- env $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 ./scripts/run-browser-e2e-target.sh isolated
+	$(call run_browser_batch_target,isolated,1,test-services)
 
 browser-e2e-webserver-backed: export CARTULARY_TEST_TARGET := browser-e2e-webserver-backed
 
 browser-e2e-webserver-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) ./scripts/run-browser-e2e-target.sh webserver-backed
+	$(call run_browser_batch_target,webserver-backed,$(PLAYWRIGHT_WORKERS),direct)
 
 browser-e2e-functional: export CARTULARY_TEST_TARGET := browser-e2e-functional
 
 browser-e2e-functional: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) ./scripts/run-browser-e2e-target.sh functional
+	$(call run_browser_batch_target,functional,$(PLAYWRIGHT_WORKERS),direct)
 
 browser-e2e-support: export CARTULARY_TEST_TARGET := browser-e2e-support
 
 browser-e2e-support: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=$(PLAYWRIGHT_WORKERS) ./scripts/run-browser-e2e-target.sh support
+	$(call run_browser_batch_target,support,$(PLAYWRIGHT_WORKERS),direct)
 
 browser-e2e-stateful: export CARTULARY_TEST_TARGET := browser-e2e-stateful
 
 # Browser evidence that mutates process-global backend state belongs here.
 browser-e2e-stateful: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/run-browser-e2e-target.sh stateful
+	$(call run_browser_batch_target,stateful,1,direct)
 
 browser-e2e-resettable: export CARTULARY_TEST_TARGET := browser-e2e-resettable
 
 browser-e2e-resettable: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 ./scripts/run-browser-e2e-target.sh resettable
+	$(call run_browser_batch_target,resettable,1,direct)
 
 browser-e2e-measurement: export CARTULARY_TEST_TARGET := browser-e2e-measurement
 
 # Ordinary implementation/regression measurement; not claim-bearing Core 05 publication evidence.
 browser-e2e-measurement: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/run-browser-e2e-target.sh measurement
+	$(call run_browser_batch_target,measurement,1,direct)
 
 browser-e2e-visual: export CARTULARY_TEST_TARGET := browser-e2e-visual
 
 browser-e2e-visual: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) PLAYWRIGHT_WORKERS=1 ./scripts/run-browser-e2e-target.sh visual
+	$(call run_browser_batch_target,visual,1,direct)
 
 lint: lint-go lint-biome frontend-typecheck
 
@@ -596,7 +605,7 @@ check-meta-validation: check-static-validation check-harness-smoke
 check-service-backed: export CARTULARY_TEST_TARGET := check-service-backed
 
 check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate test-service-images
-	$(Q)status=0; $(TEST_SERVICES_BIN) run -- env MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(RUN_PHASE_SCRIPT) "check service-backed" -- $(NODE_BIN) $(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT) --target check-service-backed --manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)" --defer-summary || status=$$?; if [ "$$status" -eq 0 ]; then requested=pass; else requested=fail; fi; NODE_BIN=$(NODE_BIN) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(TEST_OUTPUT_SCRIPT) target-summary check-service-backed $$requested --projection check-service-backed; summary_status=$$?; if [ "$$status" -ne 0 ]; then exit "$$status"; fi; exit "$$summary_status"
+	$(call run_service_backed_schedule_target,check-service-backed,check service-backed)
 
 check: $(NODE_BIN)
 	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target check --manifest "$(CHECK_SCHEDULE_MANIFEST)" --summary-profile check --resource-limit cpu=$(CHECK_JOBS)
