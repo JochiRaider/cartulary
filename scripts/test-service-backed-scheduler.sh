@@ -139,6 +139,152 @@ EOF
   chmod +x "${dir}/fake-make"
 }
 
+write_fake_go_target_runner() {
+  local dir="$1"
+
+  cat >"${dir}/fake-go-target" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+log_file="${FAKE_SCHEDULER_LOG:?}"
+lock_file="${FAKE_SCHEDULER_LOCK:?}"
+
+sanitize_key() {
+  local value="$1"
+  value="${value//[^[:alnum:]]/_}"
+  printf '%s\n' "${value^^}"
+}
+
+sleep_for() {
+  local prefix="$1"
+  local name="$2"
+  local fallback="$3"
+  local key specific
+
+  key="$(sanitize_key "$name")"
+  specific="${prefix}_${key}"
+  if [[ -n "${!specific:-}" ]]; then
+    printf '%s\n' "${!specific}"
+    return 0
+  fi
+  if [[ -n "${!prefix:-}" ]]; then
+    printf '%s\n' "${!prefix}"
+    return 0
+  fi
+  printf '%s\n' "$fallback"
+}
+
+log_event() {
+  exec 9>"$lock_file"
+  flock 9
+  printf '%s\n' "$*" >>"$log_file"
+}
+
+write_summary() {
+  local target="$1"
+  local status="$2"
+
+  if [[ -z "${CARTULARY_TEST_RESULTS_DIR:-}" || -z "${CARTULARY_TEST_RUN_ID:-}" ]]; then
+    return 0
+  fi
+
+  mkdir -p "${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}"
+  cat >"${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}/target-summary.json" <<JSON
+{
+  "target": "${target}",
+  "status": "${status}",
+  "start_time": "2026-01-01T00:00:00Z",
+  "end_time": "2026-01-01T00:00:01Z",
+  "executed_duration_ms": 1,
+  "logical_duration_ms": 1,
+  "reused_duration_ms": 0,
+  "derived_duration_ms": 0,
+  "wall_duration_ms": 1,
+  "critical_path_wall_duration_ms": 1,
+  "teardown_duration_ms": 0,
+  "counts": {
+    "phases": 1,
+    "tests": 0,
+    "failed": 0,
+    "authoritative": 0,
+    "support": 0,
+    "unmapped": 0,
+    "non_test": 0,
+    "authoritative_failed": 0,
+    "support_failed": 0,
+    "unmapped_failed": 0,
+    "non_test_failed": 0,
+    "packages": 0
+  }
+}
+JSON
+}
+
+case "${1:-}" in
+  capture-shard)
+    if [[ "$#" -ne 4 ]]; then
+      echo "usage: fake-go-target capture-shard <target> <shard> <metadata-dir>" >&2
+      exit 2
+    fi
+
+    target="$2"
+    shard="$3"
+    metadata_dir="$4"
+    report_dir="${metadata_dir}/fake-reports/${shard}"
+    status=0
+
+    log_event "start capture ${target} ${shard}"
+    sleep "$(sleep_for FAKE_GO_SLEEP_CAPTURE "$shard" 0.01)"
+    mkdir -p "$report_dir" "${metadata_dir}/fake-failed-shards"
+    : >"${report_dir}/runner.jsonl"
+    : >"${report_dir}/stderr.log"
+    printf 'fake go test %s %s\n' "$target" "$shard" >"${report_dir}/command.txt"
+    printf '2026-01-01T00:00:00Z\n' >"${report_dir}/start_time.txt"
+    printf '2026-01-01T00:00:01Z\n' >"${report_dir}/end_time.txt"
+    printf '1\n' >"${report_dir}/duration_ms.txt"
+    if [[ "${FAKE_GO_FAIL_SHARD:-}" == "$shard" ]]; then
+      status="${FAKE_GO_FAIL_SHARD_STATUS:-5}"
+      printf '%s\n' "$target" >"${metadata_dir}/fake-failed-shards/${shard}"
+      printf 'fake shard failure for %s\n' "$shard" >&2
+    fi
+    printf '%s\n' "$status" >"${report_dir}/exit_status.txt"
+    printf '%s\n%s\n' "$report_dir" actual >"${metadata_dir}/${shard}.meta"
+    log_event "end capture ${target} ${shard}"
+    ;;
+  finalize-shards)
+    if [[ "$#" -ne 3 ]]; then
+      echo "usage: fake-go-target finalize-shards <target> <metadata-dir>" >&2
+      exit 2
+    fi
+
+    target="$2"
+    metadata_dir="$3"
+    aggregate_dir="${metadata_dir}/aggregate-reports/${target}/fake-aggregate"
+    status=0
+    summary_status=pass
+
+    log_event "start finalize ${target}"
+    sleep "$(sleep_for FAKE_GO_SLEEP_FINALIZE "$target" 0.05)"
+    mkdir -p "$aggregate_dir"
+    printf 'fake aggregate for %s\n' "$target" >"${aggregate_dir}/artifact.txt"
+    if [[ "${FAKE_GO_FAIL_FINALIZER_TARGET:-}" == "$target" || -n "$(find "${metadata_dir}/fake-failed-shards" -type f -print -quit 2>/dev/null)" ]]; then
+      status="${FAKE_GO_FINALIZER_FAILURE_STATUS:-9}"
+      summary_status=fail
+    fi
+    write_summary "$target" "$summary_status"
+    printf 'fake finalized %s status=%s aggregate_dir=%s\n' "$target" "$summary_status" "$aggregate_dir"
+    log_event "end finalize ${target}"
+    exit "$status"
+    ;;
+  *)
+    echo "usage: fake-go-target <capture-shard|finalize-shards> ..." >&2
+    exit 2
+    ;;
+esac
+EOF
+  chmod +x "${dir}/fake-go-target"
+}
+
 write_manifest() {
   local file="$1"
   local target="$2"
@@ -202,6 +348,11 @@ run_scheduler() {
   local target="$3"
   local run_id="$4"
   shift 4
+  local go_target_runner=""
+
+  if [[ -x "${dir}/fake-go-target" ]]; then
+    go_target_runner="${dir}/fake-go-target"
+  fi
 
   FAKE_SCHEDULER_LOCK="${dir}/lock" \
   FAKE_SCHEDULER_ACTIVE="${dir}/active" \
@@ -212,9 +363,19 @@ run_scheduler() {
   FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS="${FAKE_SCHEDULER_SLEEP_BACKEND_PROCESS:-}" \
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED="${FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED:-}" \
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E="${FAKE_SCHEDULER_SLEEP_BROWSER_E2E:-}" \
+  FAKE_GO_SLEEP_CAPTURE="${FAKE_GO_SLEEP_CAPTURE:-}" \
+  FAKE_GO_SLEEP_FINALIZE="${FAKE_GO_SLEEP_FINALIZE:-}" \
+  FAKE_GO_SLEEP_CAPTURE_BACKEND_INTEGRATION_PHASE4_ENTITIES_SHARD_02="${FAKE_GO_SLEEP_CAPTURE_BACKEND_INTEGRATION_PHASE4_ENTITIES_SHARD_02:-}" \
+  FAKE_GO_SLEEP_CAPTURE_BACKEND_INTEGRATION_PHASE2_INCIDENTS_SHARD_02="${FAKE_GO_SLEEP_CAPTURE_BACKEND_INTEGRATION_PHASE2_INCIDENTS_SHARD_02:-}" \
+  FAKE_GO_SLEEP_FINALIZE_BACKEND_INTEGRATION="${FAKE_GO_SLEEP_FINALIZE_BACKEND_INTEGRATION:-}" \
+  FAKE_GO_FAIL_SHARD="${FAKE_GO_FAIL_SHARD:-}" \
+  FAKE_GO_FAIL_SHARD_STATUS="${FAKE_GO_FAIL_SHARD_STATUS:-}" \
+  FAKE_GO_FAIL_FINALIZER_TARGET="${FAKE_GO_FAIL_FINALIZER_TARGET:-}" \
+  FAKE_GO_FINALIZER_FAILURE_STATUS="${FAKE_GO_FINALIZER_FAILURE_STATUS:-}" \
   CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT= \
   CARTULARY_SERVICE_BACKED_GO_IO_LIMIT= \
   MAKE="${dir}/fake-make" \
+  CARTULARY_TEST_GO_TARGET_RUNNER="${go_target_runner}" \
   NODE_BIN="$NODE_BIN" \
   TEST_OUTPUT_SCRIPT="$TEST_OUTPUT_SCRIPT" \
   CARTULARY_TEST_RESULTS_DIR="${dir}/results" \
@@ -288,6 +449,99 @@ assert_contains "$browser_output" "[STEP] test-service-backed 2/2 browser-e2e-we
 assert_contains "$browser_output" "claims={browser:1,minio:1,postgres:1,process:1}" "browser resource claims telemetry"
 assert_contains "$browser_output" "resource_limits={browser:1,go_cpu:6,go_io:6,minio:32,postgres:32,process:2}" "browser resource limits telemetry"
 
+eager_finalizer_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-eager-finalizer.XXXXXX")"
+cleanup_paths+=("$eager_finalizer_dir")
+write_fake_make "$eager_finalizer_dir"
+write_fake_go_target_runner "$eager_finalizer_dir"
+eager_finalizer_manifest="${eager_finalizer_dir}/manifest.json"
+cat >"$eager_finalizer_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.service_backed_schedule.v5",
+  "schedules": [
+    {
+      "target": "test-service-backed",
+      "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 64, "go_io": 64, "process": 2, "browser": 1 },
+      "work_unit_sources": [
+        { "type": "go_shards", "class": "backend", "target": "backend-store", "resource_claims": { "postgres": 1, "minio": 1 } },
+        { "type": "make_target", "class": "browser", "target": "browser-e2e-webserver-backed", "browser_stage": "webserver-backed", "weight": 9, "resource_claims": { "postgres": 1, "minio": 1, "process": 1, "browser": 1 } }
+      ]
+    }
+  ]
+}
+JSON
+eager_finalizer_output="$(
+  FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=5 \
+  FAKE_GO_SLEEP_CAPTURE=0.01 \
+  FAKE_GO_SLEEP_FINALIZE=0.05 \
+    run_scheduler "$eager_finalizer_dir" "$eager_finalizer_manifest" test-service-backed eager-finalizer 2>&1
+)"
+assert_contains "$eager_finalizer_output" "[SCHEDULER] test-service-backed finalize-start target=backend-store" "go finalizer starts eagerly"
+assert_contains "$eager_finalizer_output" "[SCHEDULER] test-service-backed finalize-finish target=backend-store status=0" "go finalizer finishes eagerly"
+assert_contains "$eager_finalizer_output" "aggregate-reports/backend-store/fake-aggregate" "go finalizer uses target-scoped aggregate output"
+"$NODE_BIN" - "${eager_finalizer_dir}/make.log" <<'EOF'
+const fs = require("node:fs");
+const [logFile] = process.argv.slice(2);
+const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
+const indexOf = (needle) => {
+  const index = lines.findIndex((line) => line.includes(needle));
+  if (index === -1) {
+    throw new Error(`missing ${needle}`);
+  }
+  return index;
+};
+const finalizeStart = indexOf("start finalize backend-store");
+const browserEnd = indexOf("end browser-e2e-webserver-backed");
+if (!(finalizeStart < browserEnd)) {
+  throw new Error("backend-store finalizer waited for browser tail");
+}
+EOF
+
+shared_finalizer_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-shared-finalizer.XXXXXX")"
+cleanup_paths+=("$shared_finalizer_dir")
+write_fake_make "$shared_finalizer_dir"
+write_fake_go_target_runner "$shared_finalizer_dir"
+shared_finalizer_manifest="${shared_finalizer_dir}/manifest.json"
+write_manifest "$shared_finalizer_manifest" test-fast-service-backed \
+  'go_shards|backend-integration|0|"postgres": 1, "minio": 1' \
+  'go_shards|backend-integration-support|0|"postgres": 1, "minio": 1'
+shared_finalizer_output="$(
+  FAKE_GO_SLEEP_CAPTURE=0.005 \
+  FAKE_GO_SLEEP_CAPTURE_BACKEND_INTEGRATION_PHASE4_ENTITIES_SHARD_02=0.8 \
+  FAKE_GO_SLEEP_CAPTURE_BACKEND_INTEGRATION_PHASE2_INCIDENTS_SHARD_02=0.8 \
+  FAKE_GO_SLEEP_FINALIZE=0.05 \
+  FAKE_GO_SLEEP_FINALIZE_BACKEND_INTEGRATION=1.5 \
+    run_scheduler "$shared_finalizer_dir" "$shared_finalizer_manifest" test-fast-service-backed shared-finalizer 2>&1
+)"
+assert_contains "$shared_finalizer_output" "[SCHEDULER] test-fast-service-backed finalize-start target=backend-integration" "backend-integration finalizer starts"
+assert_contains "$shared_finalizer_output" "[SCHEDULER] test-fast-service-backed finalize-start target=backend-integration-support" "backend-integration-support finalizer starts"
+assert_contains "$shared_finalizer_output" "aggregate-reports/backend-integration/fake-aggregate" "backend-integration aggregate output is target-scoped"
+assert_contains "$shared_finalizer_output" "aggregate-reports/backend-integration-support/fake-aggregate" "backend-integration-support aggregate output is target-scoped"
+"$NODE_BIN" - "${shared_finalizer_dir}/make.log" <<'EOF'
+const fs = require("node:fs");
+const [logFile] = process.argv.slice(2);
+const lines = fs.readFileSync(logFile, "utf8").trim().split(/\n/);
+const indexOf = (needle) => {
+  const index = lines.findIndex((line) => line.includes(needle));
+  if (index === -1) {
+    throw new Error(`missing ${needle}`);
+  }
+  return index;
+};
+const sharedEnd = indexOf("end capture backend-integration backend-integration-phase4-entities-shard-02");
+const supportUniqueEnd = indexOf("end capture backend-integration-support backend-integration-phase2-incidents-shard-02");
+const supportStart = indexOf("start finalize backend-integration-support");
+const integrationEnd = indexOf("end finalize backend-integration");
+if (!(sharedEnd < supportStart)) {
+  throw new Error("backend-integration-support finalizer started before shared shard captured under backend-integration completed");
+}
+if (!(supportUniqueEnd < supportStart)) {
+  throw new Error("backend-integration-support finalizer started before its unique shard completed");
+}
+if (!(supportStart < integrationEnd)) {
+  throw new Error("backend-integration-support finalizer did not run concurrently with backend-integration finalizer");
+}
+EOF
+
 check_browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-check-browser.XXXXXX")"
 cleanup_paths+=("$check_browser_dir")
 write_fake_make "$check_browser_dir"
@@ -352,6 +606,27 @@ set -e
 assert_equals "$failure_status" "7" "child failure status"
 assert_contains "$failure_output" "fake failure for backend-store" "child failure output"
 assert_contains "$failure_output" "[FAIL] test-fast-service-backed" "failure target summary"
+
+failed_shard_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-failed-shard.XXXXXX")"
+cleanup_paths+=("$failed_shard_dir")
+write_fake_make "$failed_shard_dir"
+write_fake_go_target_runner "$failed_shard_dir"
+failed_shard_manifest="${failed_shard_dir}/manifest.json"
+write_manifest "$failed_shard_manifest" test-fast-service-backed \
+  'go_shards|backend-store|0|"postgres": 1, "minio": 1'
+set +e
+failed_shard_output="$(
+  FAKE_GO_FAIL_SHARD=backend-store-shared-shard-01 \
+  FAKE_GO_FINALIZER_FAILURE_STATUS=9 \
+    run_scheduler "$failed_shard_dir" "$failed_shard_manifest" test-fast-service-backed failed-shard 2>&1
+)"
+failed_shard_status=$?
+set -e
+assert_equals "$failed_shard_status" "9" "failed shard finalizer status"
+assert_contains "$failed_shard_output" "fake shard failure for backend-store-shared-shard-01" "failed shard output"
+assert_contains "$failed_shard_output" "[SCHEDULER] test-fast-service-backed finalize-start target=backend-store" "failed shard still finalizes target"
+assert_contains "$failed_shard_output" "[SCHEDULER] test-fast-service-backed finalize-finish target=backend-store status=9" "failed shard finalizer reports failure"
+assert_contains "$failed_shard_output" "[FAIL] test-fast-service-backed" "failed shard parent summary"
 
 defer_summary_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-defer-summary.XXXXXX")"
 cleanup_paths+=("$defer_summary_dir")

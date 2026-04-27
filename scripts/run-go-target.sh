@@ -1131,7 +1131,7 @@ create_aggregate_report() {
   local target="$5"
   shift 5
 
-  local aggregate_root="${metadata_dir}/aggregate-reports"
+  local aggregate_root="${metadata_dir}/aggregate-reports/${target}"
   local output_dir="${aggregate_root}/${aggregate_name}"
   local runner_log="${output_dir}/runner.jsonl"
   local stderr_log="${output_dir}/stderr.log"

@@ -17,6 +17,7 @@ const goCPUResource = "go_cpu";
 const goIOResource = "go_io";
 const goCPULimitEnv = "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT";
 const goIOLimitEnv = "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT";
+const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
 const autoLimitResources = new Set([goCPUResource, goIOResource]);
 const validSourceTypes = new Set(["go_shards", "make_target"]);
 const validSourceClasses = new Set(["backend", "browser"]);
@@ -323,11 +324,14 @@ function expandSchedule(schedule) {
       continue;
     }
 
-    goFinalizers.push(source.target);
     const shards = collectGoShardsForTarget(repoRoot, source.target);
     if (shards.length === 0) {
       throw new Error(`go_shards source ${source.target} selected no shards`);
     }
+    goFinalizers.push({
+      target: source.target,
+      shardNames: shards.map((shard) => shard.name),
+    });
     for (const shard of shards) {
       if (shardWorkByName.has(shard.name)) {
         continue;
@@ -522,7 +526,7 @@ function runCommand(command, args, logFile, env = process.env) {
   });
 }
 
-function unitCommand({ makeBin, unit, metadataDir }) {
+function unitCommand({ makeBin, unit, metadataDir, goTargetRunner }) {
   if (unit.type === "make_target") {
     return {
       command: makeBin,
@@ -531,7 +535,7 @@ function unitCommand({ makeBin, unit, metadataDir }) {
     };
   }
   return {
-    command: path.join(repoRoot, "scripts", "run-go-target.sh"),
+    command: goTargetRunner,
     args: ["capture-shard", unit.target, unit.shard, metadataDir],
     env: {
       ...process.env,
@@ -540,8 +544,8 @@ function unitCommand({ makeBin, unit, metadataDir }) {
   };
 }
 
-function runWorkUnit({ makeBin, unit, metadataDir, tempDir, started }) {
-  const { command, args, env } = unitCommand({ makeBin, unit, metadataDir });
+function runWorkUnit({ makeBin, unit, metadataDir, tempDir, started, goTargetRunner }) {
+  const { command, args, env } = unitCommand({ makeBin, unit, metadataDir, goTargetRunner });
   const logFile = path.join(
     tempDir,
     `${String(started).padStart(2, "0")}-${sanitizeLogName(unit.id)}.log`,
@@ -554,10 +558,10 @@ function runWorkUnit({ makeBin, unit, metadataDir, tempDir, started }) {
   }));
 }
 
-function runFinalizer({ target, metadataDir, tempDir, testOutputScript }) {
+function runFinalizer({ target, metadataDir, tempDir, testOutputScript, goTargetRunner }) {
   const logFile = path.join(tempDir, `finalize-${sanitizeLogName(target)}.log`);
   return runCommand(
-    path.join(repoRoot, "scripts", "run-go-target.sh"),
+    goTargetRunner,
     ["finalize-shards", target, metadataDir],
     logFile,
     {
@@ -665,15 +669,27 @@ function displayCapacity(schedule) {
   return schedule.resourceLimits.get(goCPUResource) ?? Math.max(...schedule.resourceLimits.values());
 }
 
+function finalizerIsReady(finalizer, completedShards) {
+  return finalizer.shardNames.every((shardName) => completedShards.has(shardName));
+}
+
 async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }) {
   const childrenCsv = schedule.children.join(",");
   const backendBudgetTargets = schedule.backendChildren;
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "cartulary-service-backed-schedule-"));
   const metadataDir = path.join(tempDir, "go-shard-metadata");
   const pending = [...schedule.workUnits];
+  const pendingFinalizers = schedule.goFinalizers.map((finalizer) => ({
+    target: finalizer.target,
+    shardNames: [...finalizer.shardNames],
+  }));
   const running = new Map();
+  const runningFinalizers = new Map();
+  const completedShards = new Set();
   const activeResourceClaims = new Map();
   const capacityDisplay = displayCapacity(schedule);
+  const goTargetRunner =
+    process.env[goTargetRunnerEnv] || path.join(repoRoot, "scripts", "run-go-target.sh");
   let started = 0;
   let firstFailure = 0;
 
@@ -701,7 +717,14 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
         String(capacityDisplay),
       ]);
       addResourceClaims(unit, activeResourceClaims);
-      const promise = runWorkUnit({ makeBin, unit, metadataDir, tempDir, started });
+      const promise = runWorkUnit({
+        makeBin,
+        unit,
+        metadataDir,
+        tempDir,
+        started,
+        goTargetRunner,
+      });
       running.set(promise, unit);
       schedulerTelemetry(schedule, "start", [
         `work_unit=${unit.label}`,
@@ -715,7 +738,37 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
       ]);
     };
 
-    while (pending.length > 0 || running.size > 0) {
+    const startReadyFinalizers = () => {
+      for (let index = 0; index < pendingFinalizers.length; ) {
+        const finalizer = pendingFinalizers[index];
+        if (!finalizerIsReady(finalizer, completedShards)) {
+          index += 1;
+          continue;
+        }
+        pendingFinalizers.splice(index, 1);
+        const promise = runFinalizer({
+          target: finalizer.target,
+          metadataDir,
+          tempDir,
+          testOutputScript,
+          goTargetRunner,
+        });
+        runningFinalizers.set(promise, finalizer);
+        schedulerTelemetry(schedule, "finalize-start", [
+          `target=${finalizer.target}`,
+          `shards=${finalizer.shardNames.length}`,
+          `active_finalizers=${runningFinalizers.size}`,
+          `pending_finalizers=${pendingFinalizers.length}`,
+        ]);
+      }
+    };
+
+    while (
+      pending.length > 0 ||
+      running.size > 0 ||
+      pendingFinalizers.length > 0 ||
+      runningFinalizers.size > 0
+    ) {
       while (true) {
         const nextIndex = pending.findIndex((candidate) =>
           hasResourceCapacity(candidate, schedule.resourceLimits, activeResourceClaims),
@@ -742,45 +795,60 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
         ]);
       }
 
-      if (running.size === 0) {
+      const waitables = [...running.keys(), ...runningFinalizers.keys()];
+      if (waitables.length === 0) {
         throw new Error(
-          `scheduler deadlock for ${schedule.target}; pending=${formatBlockedWorkUnits(pending)} active_resource_claims=${formatActiveResourceClaims(activeResourceClaims)} resource_limits=${formatResourceLimits(schedule.resourceLimits)}`,
+          `scheduler deadlock for ${schedule.target}; pending=${formatBlockedWorkUnits(pending)} pending_finalizers=${pendingFinalizers.map((finalizer) => finalizer.target).join(",")} completed_shards=${Array.from(completedShards).sort().join(",")} active_resource_claims=${formatActiveResourceClaims(activeResourceClaims)} resource_limits=${formatResourceLimits(schedule.resourceLimits)}`,
         );
       }
 
-      const result = await Promise.race(running.keys());
+      const result = await Promise.race(waitables);
+      let finishedUnit = null;
       for (const [promise, candidate] of running.entries()) {
         if (candidate.id === result.id) {
           running.delete(promise);
           removeResourceClaims(candidate, activeResourceClaims);
+          finishedUnit = candidate;
           break;
         }
       }
-      schedulerTelemetry(schedule, "finish", [
-        `work_unit=${result.label}`,
-        `status=${result.status}`,
-        ...schedulerStateFields({
-          pending,
-          running,
-          activeResourceClaims,
-          resourceLimits: schedule.resourceLimits,
-        }),
-      ]);
-      await replayLog(result.logFile, result.status === 0 ? process.stdout : process.stderr);
-      if (result.status !== 0 && firstFailure === 0) {
-        firstFailure = result.status;
+      if (finishedUnit) {
+        schedulerTelemetry(schedule, "finish", [
+          `work_unit=${result.label}`,
+          `status=${result.status}`,
+          ...schedulerStateFields({
+            pending,
+            running,
+            activeResourceClaims,
+            resourceLimits: schedule.resourceLimits,
+          }),
+        ]);
+        if (result.status !== 0 && firstFailure === 0) {
+          firstFailure = result.status;
+        }
+        if (finishedUnit.type === "go_shard") {
+          completedShards.add(finishedUnit.shard);
+          startReadyFinalizers();
+        }
+        await replayLog(result.logFile, result.status === 0 ? process.stdout : process.stderr);
+        continue;
       }
-    }
 
-    for (const target of schedule.goFinalizers) {
-      const result = await runFinalizer({ target, metadataDir, tempDir, testOutputScript });
-      schedulerTelemetry(schedule, "finalize", [
-        `target=${target}`,
-        `status=${result.status}`,
-      ]);
-      await replayLog(result.logFile, result.status === 0 ? process.stdout : process.stderr);
-      if (result.status !== 0 && firstFailure === 0) {
-        firstFailure = result.status;
+      for (const [promise, finalizer] of runningFinalizers.entries()) {
+        if (finalizer.target === result.id.replace(/^finalize:/, "")) {
+          runningFinalizers.delete(promise);
+          schedulerTelemetry(schedule, "finalize-finish", [
+            `target=${finalizer.target}`,
+            `status=${result.status}`,
+            `active_finalizers=${runningFinalizers.size}`,
+            `pending_finalizers=${pendingFinalizers.length}`,
+          ]);
+          await replayLog(result.logFile, result.status === 0 ? process.stdout : process.stderr);
+          if (result.status !== 0 && firstFailure === 0) {
+            firstFailure = result.status;
+          }
+          break;
+        }
       }
     }
 
