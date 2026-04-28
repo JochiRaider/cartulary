@@ -1,6 +1,18 @@
 import path from "node:path";
 
-export const schedulerProgressIntervalMs = 10_000;
+function configuredProgressIntervalMs() {
+  const raw = process.env.CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS;
+  if (raw === undefined || raw === "") {
+    return 10_000;
+  }
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error("CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS must be a positive integer");
+  }
+  return value;
+}
+
+export const schedulerProgressIntervalMs = configuredProgressIntervalMs();
 
 export function verboseSchedulerOutput() {
   return process.env.VERBOSE === "1" || process.env.CI_VERBOSE === "1";
@@ -127,8 +139,18 @@ export function formatSlowestWork(work) {
   return work.map((entry) => `${entry.label}:${formatDurationMs(entry.duration_ms)}`).join(",");
 }
 
+function countMapEntries(values) {
+  if (values instanceof Map) {
+    return Array.from(values.entries());
+  }
+  if (values && typeof values === "object" && !Array.isArray(values)) {
+    return Object.entries(values);
+  }
+  return [];
+}
+
 export function formatCountMap(values) {
-  const entries = Array.from(values.entries()).sort((left, right) => left[0].localeCompare(right[0]));
+  const entries = countMapEntries(values).sort((left, right) => left[0].localeCompare(right[0]));
   if (entries.length === 0) {
     return "none";
   }
@@ -166,7 +188,7 @@ export function schedulerBlockedBy({ reason = null, blockedResources = [] } = {}
   return Array.from(values).sort((left, right) => left.localeCompare(right));
 }
 
-export function schedulerSlowestRunning(runningUnits, startedAt, now = Date.now()) {
+export function schedulerSlowestRunningRecord(runningUnits, startedAt, now = Date.now()) {
   let slowest = null;
   for (const unit of runningUnits) {
     const started = startedAt.get(unit.id ?? unit.target ?? unit.label);
@@ -178,10 +200,42 @@ export function schedulerSlowestRunning(runningUnits, startedAt, now = Date.now(
       slowest = { label: unit.label, duration_ms: durationMs };
     }
   }
-  if (!slowest) {
+  return slowest;
+}
+
+export function formatSlowestRunning(value) {
+  if (!value) {
     return "none";
   }
-  return `${slowest.label}:${formatDurationMs(slowest.duration_ms)}`;
+  return `${value.label}:${formatDurationMs(value.duration_ms)}`;
+}
+
+export function schedulerProgressSnapshot({
+  runningUnits,
+  startedAt,
+  now = Date.now(),
+  reason = "none",
+  blockedResources = [],
+  waitingOn = [],
+  unblocksAfter = "none",
+}) {
+  const activeGroups = schedulerActiveGroups(runningUnits);
+  return {
+    activeGroups,
+    blockedBy: schedulerBlockedBy({ reason, blockedResources }),
+    waitingOn,
+    unblocksAfter: unblocksAfter && unblocksAfter !== "none" ? unblocksAfter : null,
+    slowestRunning: schedulerSlowestRunningRecord(runningUnits, startedAt, now),
+  };
+}
+
+export function schedulerProgressEventFields(snapshot) {
+  return {
+    active_groups: resourceMapToObject(snapshot.activeGroups),
+    blocked_by: snapshot.blockedBy,
+    unblocks_after: snapshot.unblocksAfter,
+    slowest_running: snapshot.slowestRunning,
+  };
 }
 
 export function resourceLimitSummary(resourceLimits, preferred = []) {
@@ -289,7 +343,42 @@ export function schedulerProgressLine({
     `blocked_by=${formatResourceList(blockedBy)}`,
     waitingOn.length > 0 ? `waiting_on=${formatResourceList(waitingOn)}` : null,
     `unblocks_after=${unblocksAfter || "none"}`,
-    `slowest_running=${slowestRunning || "none"}`,
+    `slowest_running=${formatSlowestRunning(slowestRunning)}`,
+    artifacts ? `artifacts=${artifacts}` : null,
+  ]);
+}
+
+export function schedulerNestedProgressLine({
+  prefix,
+  target,
+  workUnit,
+  nestedTarget,
+  completed,
+  total,
+  running,
+  pending,
+  blocked,
+  finalizing = null,
+  activeGroups = {},
+  blockedBy = [],
+  waitingOn = [],
+  unblocksAfter = null,
+  slowestRunning = null,
+  artifacts = "",
+}) {
+  return schedulerTelemetryLine(prefix, target, "nested-progress", [
+    `work_unit=${workUnit}`,
+    `nested_target=${nestedTarget}`,
+    `completed=${completed}/${total}`,
+    `running=${running}`,
+    `pending=${pending}`,
+    `blocked=${blocked}`,
+    finalizing === null ? null : `finalizing=${finalizing}`,
+    `active_groups=${formatCountMap(activeGroups)}`,
+    `blocked_by=${formatResourceList(blockedBy)}`,
+    waitingOn.length > 0 ? `waiting_on=${formatResourceList(waitingOn)}` : null,
+    `unblocks_after=${unblocksAfter || "none"}`,
+    `slowest_running=${formatSlowestRunning(slowestRunning)}`,
     artifacts ? `artifacts=${artifacts}` : null,
   ]);
 }

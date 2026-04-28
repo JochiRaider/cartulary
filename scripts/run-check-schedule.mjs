@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -10,12 +10,13 @@ import {
   relToRepo as relToRepoPath,
   resourceMapToObject,
   schedulerActiveGroups,
-  schedulerBlockedBy,
   schedulerBlockedUnitRecords,
   schedulerDryRunLine,
+  schedulerNestedProgressLine,
   schedulerProgressIntervalMs,
+  schedulerProgressEventFields,
   schedulerProgressLine,
-  schedulerSlowestRunning,
+  schedulerProgressSnapshot,
   schedulerStartLine,
   schedulerSummaryLine,
   schedulerWaitingOnForUnits,
@@ -30,8 +31,8 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
 const supportedSchemaID = "cartulary.check_schedule.v3";
-const schedulerEventSchemaID = "cartulary.check_scheduler_event.v2";
-const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v2";
+const schedulerEventSchemaID = "cartulary.check_scheduler_event.v3";
+const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v3";
 
 function usage() {
   process.stderr.write(
@@ -622,6 +623,150 @@ async function createCheckSchedulerReporter(schedule) {
   return new CheckSchedulerReporter(schedule, targetDir, logDir);
 }
 
+function integerOrZero(value) {
+  return Number.isInteger(value) && value >= 0 ? value : 0;
+}
+
+function stringArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((entry) => typeof entry === "string" && entry !== "");
+}
+
+function countObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter((entry) => Number.isInteger(entry[1]) && entry[1] >= 0)
+      .sort((left, right) => left[0].localeCompare(right[0])),
+  );
+}
+
+function slowestRunningObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  if (typeof value.label !== "string" || value.label === "" || !Number.isFinite(value.duration_ms)) {
+    return null;
+  }
+  return {
+    label: value.label,
+    duration_ms: Math.max(0, value.duration_ms),
+  };
+}
+
+class NestedSchedulerProgressReader {
+  constructor(unit) {
+    this.workUnit = unit.label;
+    this.nestedTarget = unit.nestedScheduler.target;
+    this.targetDir = schedulerTargetDir(repoRoot, this.nestedTarget);
+    this.eventsPath = path.join(this.targetDir, "scheduler-events.jsonl");
+    this.offset = 0;
+    this.partialLine = "";
+    this.latest = null;
+    this.observedProgressEvents = 0;
+  }
+
+  async readAvailable() {
+    let handle;
+    try {
+      handle = await open(this.eventsPath, "r");
+      const stats = await handle.stat();
+      if (stats.size < this.offset) {
+        this.offset = 0;
+        this.partialLine = "";
+      }
+      const length = stats.size - this.offset;
+      if (length <= 0) {
+        return { latest: this.latest, updated: false };
+      }
+      const buffer = Buffer.alloc(length);
+      const { bytesRead } = await handle.read(buffer, 0, length, this.offset);
+      this.offset += bytesRead;
+      return this.consume(buffer.subarray(0, bytesRead).toString("utf8"));
+    } catch (error) {
+      if (error?.code === "ENOENT") {
+        return { latest: this.latest, updated: false };
+      }
+      return { latest: this.latest, updated: false };
+    } finally {
+      await handle?.close();
+    }
+  }
+
+  consume(chunk) {
+    if (chunk === "") {
+      return { latest: this.latest, updated: false };
+    }
+    const lines = `${this.partialLine}${chunk}`.split("\n");
+    this.partialLine = lines.pop() ?? "";
+    let updated = false;
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (line === "") {
+        continue;
+      }
+      let event;
+      try {
+        event = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      const progress = this.progressFromEvent(event);
+      if (!progress) {
+        continue;
+      }
+      this.latest = progress;
+      this.observedProgressEvents += 1;
+      updated = true;
+    }
+    return { latest: this.latest, updated };
+  }
+
+  progressFromEvent(event) {
+    if (!event || typeof event !== "object" || event.event !== "progress") {
+      return null;
+    }
+    if (event.target !== this.nestedTarget) {
+      return null;
+    }
+    return {
+      work_unit: this.workUnit,
+      nested_target: this.nestedTarget,
+      timestamp: typeof event.timestamp === "string" ? event.timestamp : "",
+      completed: integerOrZero(event.completed),
+      total_work_units: integerOrZero(event.total_work_units),
+      running: integerOrZero(event.running),
+      pending: integerOrZero(event.pending),
+      blocked: integerOrZero(event.blocked),
+      finalizing: Number.isInteger(event.running_finalizers) ? event.running_finalizers : null,
+      active_groups: countObject(event.active_groups),
+      blocked_by: stringArray(event.blocked_by),
+      waiting_on: stringArray(event.waiting_on),
+      unblocks_after: typeof event.unblocks_after === "string" ? event.unblocks_after : null,
+      slowest_running: slowestRunningObject(event.slowest_running),
+      artifacts: relToRepo(this.targetDir),
+      events_jsonl: relToRepo(this.eventsPath),
+    };
+  }
+
+  summaryRecord() {
+    return {
+      work_unit: this.workUnit,
+      nested_target: this.nestedTarget,
+      observed_progress_events: this.observedProgressEvents,
+      latest_progress: this.latest,
+      artifacts: {
+        events_jsonl: relToRepo(this.eventsPath),
+        dir: relToRepo(this.targetDir),
+      },
+    };
+  }
+}
+
 class CheckSchedulerReporter {
   constructor(schedule, targetDir, logDir) {
     this.schedule = schedule;
@@ -645,6 +790,8 @@ class CheckSchedulerReporter {
     this.maxRunningWorkUnits = 0;
     this.maxRunningGroups = 0;
     this.maxActiveResourceClaims = new Map();
+    this.nestedProgressReaders = new Map();
+    this.lastNestedProgressKeys = new Map();
   }
 
   start() {
@@ -733,7 +880,7 @@ class CheckSchedulerReporter {
     );
   }
 
-  blocked(state, reason, blockedResources, { waitingOn = [], blockedUnits = [] } = {}) {
+  async blocked(state, reason, blockedResources, { waitingOn = [], blockedUnits = [] } = {}) {
     this.blockedReasonsSeen.add(reason);
     for (const resource of blockedResources) {
       this.blockedResourcesSeen.add(resource);
@@ -757,7 +904,7 @@ class CheckSchedulerReporter {
       },
     );
     const blockedKey = `${reason}:${blockedResources.join(",")}:${waitingOn.join(",")}:${JSON.stringify(blockedUnits)}`;
-    this.maybeProgress(state, reason, blockedResources, {
+    await this.maybeProgress(state, reason, blockedResources, {
       force: blockedKey !== this.lastBlockedKey,
       waitingOn,
       blockedUnits,
@@ -791,7 +938,7 @@ class CheckSchedulerReporter {
     );
   }
 
-  maybeProgress(
+  async maybeProgress(
     state,
     reason = "none",
     blockedResources = [],
@@ -803,8 +950,17 @@ class CheckSchedulerReporter {
     }
     this.lastProgressAt = now;
     const runningUnits = Array.from(state.running.values());
-    const blockedBy = schedulerBlockedBy({ reason, blockedResources });
-    for (const explanation of blockedBy) {
+    const progress = schedulerProgressSnapshot({
+      runningUnits,
+      startedAt: this.startedAt,
+      now,
+      reason,
+      blockedResources,
+      waitingOn,
+      unblocksAfter: this.unblocksAfter(state, blockedResources),
+    });
+    const nestedProgress = await this.collectNestedSchedulerProgress(runningUnits);
+    for (const explanation of progress.blockedBy) {
       this.blockedExplanationsSeen.add(explanation);
     }
     for (const dependency of waitingOn) {
@@ -815,6 +971,8 @@ class CheckSchedulerReporter {
       blocked_resources: blockedResources,
       waiting_on: waitingOn,
       blocked_units: blockedUnits,
+      ...schedulerProgressEventFields(progress),
+      nested_scheduler_progress: nestedProgress,
     });
     process.stdout.write(
       schedulerProgressLine({
@@ -825,14 +983,84 @@ class CheckSchedulerReporter {
         running: state.running.size,
         pending: state.pending.length,
         blocked: state.blockedCount ?? 0,
-        activeGroups: schedulerActiveGroups(runningUnits),
-        blockedBy,
+        activeGroups: progress.activeGroups,
+        blockedBy: progress.blockedBy,
         waitingOn,
-        unblocksAfter: this.unblocksAfter(state, blockedResources),
-        slowestRunning: schedulerSlowestRunning(runningUnits, this.startedAt, now),
+        unblocksAfter: progress.unblocksAfter,
+        slowestRunning: progress.slowestRunning,
         artifacts: relToRepo(this.targetDir),
       }),
     );
+    this.writeNestedProgressLines(nestedProgress);
+  }
+
+  nestedReader(unit) {
+    if (!unit.nestedScheduler) {
+      return null;
+    }
+    if (!this.nestedProgressReaders.has(unit.target)) {
+      this.nestedProgressReaders.set(unit.target, new NestedSchedulerProgressReader(unit));
+    }
+    return this.nestedProgressReaders.get(unit.target);
+  }
+
+  async collectNestedSchedulerProgress(runningUnits) {
+    const progress = [];
+    for (const unit of runningUnits) {
+      const reader = this.nestedReader(unit);
+      if (!reader) {
+        continue;
+      }
+      const result = await reader.readAvailable();
+      if (result.latest) {
+        progress.push(result.latest);
+      }
+    }
+    return progress.sort((left, right) => left.work_unit.localeCompare(right.work_unit));
+  }
+
+  writeNestedProgressLines(progressRecords) {
+    for (const progress of progressRecords) {
+      const key = JSON.stringify({
+        work_unit: progress.work_unit,
+        nested_target: progress.nested_target,
+        timestamp: progress.timestamp,
+        completed: progress.completed,
+        running: progress.running,
+        pending: progress.pending,
+        blocked: progress.blocked,
+        finalizing: progress.finalizing,
+        active_groups: progress.active_groups,
+        blocked_by: progress.blocked_by,
+        waiting_on: progress.waiting_on,
+        unblocks_after: progress.unblocks_after,
+        slowest_running: progress.slowest_running,
+      });
+      if (this.lastNestedProgressKeys.get(progress.work_unit) === key) {
+        continue;
+      }
+      this.lastNestedProgressKeys.set(progress.work_unit, key);
+      process.stdout.write(
+        schedulerNestedProgressLine({
+          prefix: "CHECK-SCHEDULER",
+          target: this.schedule.target,
+          workUnit: progress.work_unit,
+          nestedTarget: progress.nested_target,
+          completed: progress.completed,
+          total: progress.total_work_units,
+          running: progress.running,
+          pending: progress.pending,
+          blocked: progress.blocked,
+          finalizing: progress.finalizing,
+          activeGroups: progress.active_groups,
+          blockedBy: progress.blocked_by,
+          waitingOn: progress.waiting_on,
+          unblocksAfter: progress.unblocks_after,
+          slowestRunning: progress.slowest_running,
+          artifacts: progress.artifacts,
+        }),
+      );
+    }
   }
 
   unblocksAfter(state, blockedResources) {
@@ -897,6 +1125,9 @@ class CheckSchedulerReporter {
               work_unit: unit.label,
               ...nestedSchedulerDetail(unit),
             })),
+          nested_scheduler_observations: Array.from(this.nestedProgressReaders.values())
+            .map((reader) => reader.summaryRecord())
+            .sort((left, right) => left.work_unit.localeCompare(right.work_unit)),
           blocked_reasons_seen: Array.from(this.blockedReasonsSeen).sort((left, right) =>
             left.localeCompare(right),
           ),
@@ -937,6 +1168,8 @@ class CheckSchedulerReporter {
         timestamp: new Date().toISOString(),
         pending: state.pending.length,
         running: state.running.size,
+        total_work_units: this.schedule.units.length,
+        blocked: state.blockedCount ?? 0,
         completed: this.completedCount,
         blocked_reason: detail.blocked_reason ?? null,
         blocked_resources: detail.blocked_resources ?? [],
@@ -1103,12 +1336,12 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
         waitProgressWaitingOn = waitingOn;
         waitProgressBlockedUnits = blockedUnits;
         waitProgressBlockedCount = dependencyBlocked.length + readyBlocked.length;
-        reporter.blocked(stateSnapshot(dependencyBlocked.length + readyBlocked.length), reason, blockedResources, {
+        await reporter.blocked(stateSnapshot(dependencyBlocked.length + readyBlocked.length), reason, blockedResources, {
           waitingOn,
           blockedUnits,
         });
       } else {
-        reporter.maybeProgress(stateSnapshot(), "none", []);
+        await reporter.maybeProgress(stateSnapshot(), "none", []);
       }
 
       if (running.size === 0) {
@@ -1136,7 +1369,7 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
       const result = await Promise.race([...running.keys(), progressDelay.promise]);
       if (result?.schedulerProgressTick === true) {
         progressDelay.cancel();
-        reporter.maybeProgress(
+        await reporter.maybeProgress(
           stateSnapshot(waitProgressBlockedCount),
           waitProgressReason,
           waitProgressResources,

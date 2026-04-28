@@ -88,7 +88,7 @@ const fs = require("node:fs");
 const [summaryFile, eventsFile, expectedStatus, expectedBlocked, expectedEvent] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
-if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v2") {
+if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v3") {
   throw new Error(`unexpected summary schema ${summary.schema_id}`);
 }
 if (summary.status !== expectedStatus) {
@@ -114,7 +114,7 @@ if (expectedBlocked !== "-") {
 if (events.length === 0) {
   throw new Error("scheduler events must not be empty");
 }
-if (!events.every((event) => event.schema_id === "cartulary.service_backed_scheduler_event.v2")) {
+if (!events.every((event) => event.schema_id === "cartulary.service_backed_scheduler_event.v3")) {
   throw new Error("unexpected scheduler event schema");
 }
 if (expectedEvent !== "-" && !events.some((event) => event.event === expectedEvent)) {
@@ -125,6 +125,16 @@ if (!events.some((event) => event.resource_limits && Object.keys(event.resource_
 }
 if (!events.some((event) => event.resource_claims && Object.keys(event.resource_claims).length > 0)) {
   throw new Error("events must include resource claims");
+}
+const progress = events.find((event) => event.event === "progress");
+if (!progress) {
+  throw new Error("scheduler events must include progress events");
+}
+if (!progress.active_groups || !Array.isArray(progress.blocked_by) || !Object.hasOwn(progress, "unblocks_after") || !Object.hasOwn(progress, "slowest_running")) {
+  throw new Error("progress events must include structured v3 progress fields");
+}
+if (!Number.isInteger(progress.total_work_units) || !Number.isInteger(progress.blocked)) {
+  throw new Error("progress events must include total_work_units and blocked counts");
 }
 EOF
 }

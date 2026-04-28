@@ -102,7 +102,7 @@ const assertRepoRelativeArtifact = (artifactPath, label) => {
     throw new Error(`${label} must not point at obsolete temp scheduler logs, got ${artifactPath}`);
   }
 };
-if (summary.schema_id !== "cartulary.check_scheduler_summary.v2") {
+if (summary.schema_id !== "cartulary.check_scheduler_summary.v3") {
   throw new Error(`unexpected summary schema ${summary.schema_id}`);
 }
 if (summary.status !== expectedStatus) {
@@ -137,7 +137,7 @@ if (!fs.statSync(schedulerLogsDir).isDirectory()) {
 if (events.length === 0) {
   throw new Error("scheduler events must not be empty");
 }
-if (!events.every((event) => event.schema_id === "cartulary.check_scheduler_event.v2")) {
+if (!events.every((event) => event.schema_id === "cartulary.check_scheduler_event.v3")) {
   throw new Error("unexpected scheduler event schema");
 }
 if (expectedEvent !== "-" && !events.some((event) => event.event === expectedEvent)) {
@@ -266,12 +266,32 @@ write_summary() {
 JSON
 }
 
+write_nested_scheduler_progress() {
+  if [[ "$target" != "service" && "$target" != "partial-service" ]]; then
+    return 0
+  fi
+  if [[ -z "${CARTULARY_TEST_RESULTS_DIR:-}" || -z "${CARTULARY_TEST_RUN_ID:-}" ]]; then
+    return 0
+  fi
+  local nested_dir="${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}"
+  mkdir -p "$nested_dir"
+  if [[ "$target" == "partial-service" ]]; then
+    printf '{"schema_id":"cartulary.service_backed_scheduler_event.v3","target":"partial-service","event":"progress"' >"${nested_dir}/scheduler-events.jsonl"
+    return 0
+  fi
+  {
+    printf 'not-json-diagnostic\n'
+    printf '%s\n' '{"schema_id":"cartulary.service_backed_scheduler_event.v3","target":"service","event":"progress","timestamp":"2026-01-01T00:00:00Z","pending":2,"running":1,"total_work_units":6,"blocked":2,"completed":3,"pending_finalizers":0,"running_finalizers":0,"blocked_reason":"resources","blocked_resources":["go_io"],"waiting_on":["backend-store"],"blocked_units":[],"active_resource_claims":{"go_cpu":1},"resource_limits":{"go_cpu":1,"go_io":1},"active_groups":{"backend-integration":1},"blocked_by":["go_io"],"unblocks_after":"backend-integration/shard-a","slowest_running":{"label":"backend-integration/shard-a","duration_ms":1234}}'
+  } >"${nested_dir}/scheduler-events.jsonl"
+}
+
 sleep_key="${target//-/_}"
 sleep_key="${sleep_key^^}"
 sleep_var="FAKE_SLEEP_${sleep_key}"
 sleep_duration="${!sleep_var:-${FAKE_SLEEP_DEFAULT:-0.05}}"
 
 change_active 1
+write_nested_scheduler_progress
 sleep "$sleep_duration"
 if [[ "${FAKE_FAIL_TARGET:-}" == "$target" ]]; then
   echo "fake failure for $target" >&2
@@ -300,10 +320,13 @@ run_scheduler() {
   FAKE_SLEEP_DEFAULT="${FAKE_SLEEP_DEFAULT:-0.05}" \
   FAKE_SLEEP_ALPHA="${FAKE_SLEEP_ALPHA:-}" \
   FAKE_SLEEP_BETA="${FAKE_SLEEP_BETA:-}" \
+  FAKE_SLEEP_SERVICE="${FAKE_SLEEP_SERVICE:-}" \
+  FAKE_SLEEP_PARTIAL_SERVICE="${FAKE_SLEEP_PARTIAL_SERVICE:-}" \
   FAKE_FAIL_TARGET="${FAKE_FAIL_TARGET:-}" \
   MAKE="${dir}/fake-make" \
   NODE_BIN="$NODE_BIN" \
   TEST_OUTPUT_SCRIPT="$TEST_OUTPUT_SCRIPT" \
+  CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS="${CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS:-}" \
   CARTULARY_TEST_RESULTS_DIR="${dir}/results" \
   CARTULARY_TEST_RUN_ID="$run_id" \
     "$NODE_BIN" "$SCRIPT" --target check --manifest "$manifest" "$@"
@@ -350,11 +373,12 @@ cat >"$success_manifest" <<'JSON'
   ]
 }
 JSON
-success_output="$(run_scheduler "$success_dir" "$success_manifest" success --summary-targets local,service,meta --summary-groups "check-work=local,service,meta" --resource-limit cpu=2 --resource-limit io=3 2>&1)"
+success_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_SERVICE=0.2 run_scheduler "$success_dir" "$success_manifest" success --summary-targets local,service,meta --summary-groups "check-work=local,service,meta" --resource-limit cpu=2 --resource-limit io=3 2>&1)"
 assert_contains "$success_output" "[RUN] check steps=5 targets=3 jobs=2 run_id=success" "success run start"
 assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={cpu:2,io:3,service_stack:1}" "success concise scheduler start"
 assert_contains "$success_output" "top_weighted=setup:50,build:40,local:30,service:20,meta:10" "success concise scheduler start shows top weighted work"
 assert_contains "$success_output" "[CHECK-SCHEDULER] check progress completed=0/5 running=1 pending=4 blocked=4 active_groups=setup:1 blocked_by=dependencies waiting_on=build,setup unblocks_after=setup slowest_running=setup:" "success concise scheduler progress"
+assert_contains "$success_output" "[CHECK-SCHEDULER] check nested-progress work_unit=service nested_target=service completed=3/6 running=1 pending=2 blocked=2 finalizing=0 active_groups=backend-integration:1 blocked_by=go_io waiting_on=backend-store unblocks_after=backend-integration/shard-a slowest_running=backend-integration/shard-a:1.23s" "success concise nested scheduler progress"
 assert_contains "$success_output" "artifacts=tmp/check-scheduler-success" "success concise scheduler progress artifact path"
 assert_contains "$success_output" "/results/success/check" "success concise scheduler progress artifact path suffix"
 assert_contains "$success_output" "[CHECK-SCHEDULER] check summary status=pass completed=5/5 failed=none slowest=" "success concise scheduler summary"
@@ -434,6 +458,39 @@ if (serviceSummary?.forwarded_limits?.CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT !== 
 if (serviceSummary?.forwarded_limits?.CARTULARY_SERVICE_BACKED_GO_IO_LIMIT !== 1) {
   throw new Error("summary must record forwarded bounded nested go io limit");
 }
+const progressEvent = events.find((event) => event.event === "progress" && event.nested_scheduler_progress?.length > 0);
+if (!progressEvent) {
+  throw new Error("outer scheduler progress events must record nested scheduler progress");
+}
+if (!progressEvent.active_groups || progressEvent.blocked_by === undefined || !Object.hasOwn(progressEvent, "unblocks_after") || !Object.hasOwn(progressEvent, "slowest_running")) {
+  throw new Error("outer progress event must expose structured v3 progress fields");
+}
+const nestedProgress = progressEvent.nested_scheduler_progress.find((entry) => entry.work_unit === "service");
+if (!nestedProgress) {
+  throw new Error("outer progress event must include service nested scheduler snapshot");
+}
+if (nestedProgress.active_groups?.["backend-integration"] !== 1) {
+  throw new Error("nested progress must preserve active_groups");
+}
+if (!nestedProgress.blocked_by?.includes("go_io")) {
+  throw new Error("nested progress must preserve blocked_by");
+}
+if (!nestedProgress.waiting_on?.includes("backend-store")) {
+  throw new Error("nested progress must preserve waiting_on");
+}
+if (nestedProgress.unblocks_after !== "backend-integration/shard-a") {
+  throw new Error(`nested progress unblocks_after got ${nestedProgress.unblocks_after}`);
+}
+if (nestedProgress.slowest_running?.label !== "backend-integration/shard-a") {
+  throw new Error("nested progress must preserve structured slowest_running");
+}
+const serviceObservation = summary.nested_scheduler_observations?.find((entry) => entry.work_unit === "service");
+if (!serviceObservation || serviceObservation.observed_progress_events < 1) {
+  throw new Error("summary must record nested scheduler observations");
+}
+if (serviceObservation.latest_progress?.events_jsonl?.includes("service/scheduler-events.jsonl") !== true) {
+  throw new Error("nested observation must include nested event artifact");
+}
 for (const [index, event] of events.entries()) {
   const limits = event.resource_limits ?? {};
   for (const [resource, amount] of Object.entries(event.active_resource_claims ?? {})) {
@@ -452,6 +509,43 @@ verbose_output="$(VERBOSE=1 run_scheduler "$success_dir" "$success_manifest" ver
 assert_contains "$verbose_output" "[CHECK-SCHEDULER] check start work_unit=setup claims={cpu:1} active=1 pending=4" "verbose scheduler start telemetry"
 assert_contains "$verbose_output" "active_resource_claims={cpu:1}" "verbose scheduler active resource telemetry"
 assert_contains "$verbose_output" "resource_limits={cpu:2,io:3,service_stack:1}" "verbose scheduler resource limit telemetry"
+
+partial_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-partial-nested.XXXXXX")"
+cleanup_paths+=("$partial_dir")
+write_fake_make "$partial_dir"
+partial_manifest="${partial_dir}/manifest.json"
+cat >"$partial_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.check_schedule.v3",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": { "cpu": 1, "io": 1 },
+      "work_units": [
+        {
+          "target": "partial-service",
+          "weight": 1,
+          "needs": [],
+          "resource_claims": { "cpu": 1, "io": 1 },
+          "make_jobs": "cpu",
+          "nested_scheduler": {
+            "type": "service_backed",
+            "target": "partial-service",
+            "manifest": "tools/service_backed_schedule_manifest.json",
+            "resource_limit_env": {
+              "cpu": "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT",
+              "io": "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+JSON
+partial_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_PARTIAL_SERVICE=0.15 run_scheduler "$partial_dir" "$partial_manifest" partial --summary-targets partial-service --resource-limit cpu=1 --resource-limit io=1 2>&1)"
+assert_contains "$partial_output" "[PASS] check" "partial nested event does not fail check scheduler"
+assert_not_contains "$partial_output" "nested-progress work_unit=partial-service" "partial nested event is ignored until newline-complete"
 
 makeflags_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-makeflags.XXXXXX")"
 cleanup_paths+=("$makeflags_dir")

@@ -14,13 +14,13 @@ import {
   relToRepo as relToRepoPath,
   resourceMapToObject,
   schedulerActiveGroups,
-  schedulerBlockedBy,
   schedulerBlockedUnitRecords,
   schedulerDryRunLine,
   schedulerLogDir as schedulerLogResultsDir,
   schedulerProgressIntervalMs,
+  schedulerProgressEventFields,
   schedulerProgressLine,
-  schedulerSlowestRunning,
+  schedulerProgressSnapshot,
   schedulerStartLine,
   schedulerSummaryLine,
   schedulerWaitingOnForUnits,
@@ -43,8 +43,8 @@ const goCPULimitEnv = "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT";
 const goIOLimitEnv = "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT";
 const browserStackLimitEnv = "CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
-const schedulerEventSchemaID = "cartulary.service_backed_scheduler_event.v2";
-const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v2";
+const schedulerEventSchemaID = "cartulary.service_backed_scheduler_event.v3";
+const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v3";
 const autoLimitResources = new Set([goCPUResource, goIOResource, browserStackResource]);
 const validSourceTypes = new Set(["go_shards", "make_target"]);
 const validSourceClasses = new Set(["backend", "browser"]);
@@ -1127,8 +1127,16 @@ class SchedulerReporter {
     }
     this.lastProgressAt = now;
     const runningUnits = this.runningDisplayUnits(state);
-    const blockedBy = schedulerBlockedBy({ reason, blockedResources });
-    for (const explanation of blockedBy) {
+    const progress = schedulerProgressSnapshot({
+      runningUnits,
+      startedAt: this.startedAt,
+      now,
+      reason,
+      blockedResources,
+      waitingOn,
+      unblocksAfter: this.unblocksAfter(state, blockedResources),
+    });
+    for (const explanation of progress.blockedBy) {
       this.blockedExplanationsSeen.add(explanation);
     }
     for (const dependency of waitingOn) {
@@ -1139,6 +1147,7 @@ class SchedulerReporter {
       blocked_resources: blockedResources,
       waiting_on: waitingOn,
       blocked_units: blockedUnits,
+      ...schedulerProgressEventFields(progress),
     });
     process.stdout.write(
       schedulerProgressLine({
@@ -1150,11 +1159,11 @@ class SchedulerReporter {
         pending: state.pending.length,
         blocked: state.blockedCount ?? 0,
         finalizing: state.runningFinalizers.size,
-        activeGroups: schedulerActiveGroups(runningUnits),
-        blockedBy,
+        activeGroups: progress.activeGroups,
+        blockedBy: progress.blockedBy,
         waitingOn,
-        unblocksAfter: this.unblocksAfter(state, blockedResources),
-        slowestRunning: schedulerSlowestRunning(runningUnits, this.startedAt, now),
+        unblocksAfter: progress.unblocksAfter,
+        slowestRunning: progress.slowestRunning,
         artifacts: relToRepo(this.targetDir),
       }),
     );
@@ -1257,6 +1266,8 @@ class SchedulerReporter {
         timestamp: new Date().toISOString(),
         pending: state.pending.length,
         running: state.running.size,
+        total_work_units: this.schedule.workUnits.length,
+        blocked: state.blockedCount ?? 0,
         completed: this.completedCount,
         pending_finalizers: state.pendingFinalizers.length,
         running_finalizers: state.runningFinalizers.size,
