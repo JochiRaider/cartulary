@@ -38,6 +38,13 @@ function readIntegerFile(file, fallback = 0) {
   return Number.isInteger(value) ? value : fallback;
 }
 
+function readTextFile(file) {
+  if (!existsSync(file)) {
+    return "";
+  }
+  return readFileSync(file, "utf8");
+}
+
 function readRunnerEvents(runnerLog) {
   const events = [];
   if (!existsSync(runnerLog)) {
@@ -165,6 +172,20 @@ function observedPackageNames(topLevelEvents, packageEvents) {
   return packages;
 }
 
+function timingContamination(stderrLog) {
+  const moduleDownloadCount = readTextFile(stderrLog)
+    .split(/\r?\n/)
+    .filter((line) => /^go: downloading\s+\S+/.test(line.trim())).length;
+  const reasons = [];
+  if (moduleDownloadCount > 0) {
+    reasons.push("go-module-download");
+  }
+  return {
+    moduleDownloadCount,
+    timingContaminationReasons: reasons,
+  };
+}
+
 export function collectObservedGoShardArtifacts(root, resultsDir) {
   const absoluteResultsDir = path.resolve(resultsDir);
   if (!existsSync(absoluteResultsDir) || !statSync(absoluteResultsDir).isDirectory()) {
@@ -193,6 +214,7 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
     const topLevelEvents = topLevelTestEvents(events);
     const packageEvents = packagePassEvents(events);
     const observedTestEntries = observedTests(topLevelEvents);
+    const contamination = timingContamination(path.join(dir, "stderr.log"));
     let shardMetadataEntry = metadata.byShard.get(shardName);
     if (!shardMetadataEntry) {
       const observedTargets = new Set();
@@ -226,6 +248,7 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
       observedPackageOverheads: observedPackageOverheads(shardMetadataEntry.target, topLevelEvents, packageEvents),
       observedPackages: observedPackageNames(topLevelEvents, packageEvents),
       commandOverhead: commandOverhead(shardMetadataEntry.target, durationMs, packageEvents, topLevelEvents),
+      ...contamination,
     });
   }
   return artifacts;

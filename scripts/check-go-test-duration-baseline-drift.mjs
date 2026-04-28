@@ -62,8 +62,22 @@ function suggestedRefresh(resultsDir) {
   return `make go-test-duration-baselines RESULTS_DIR=${resultsDir} PRUNE_OBSERVED_PACKAGES=1`;
 }
 
-function checkShardDrift(errors, artifact, planned) {
+function contaminationDescription(artifact) {
+  if (!artifact.timingContaminationReasons?.includes("go-module-download")) {
+    return "";
+  }
+  return `go_module_downloads=${artifact.moduleDownloadCount}`;
+}
+
+function checkShardDrift(errors, warnings, artifact, planned) {
   if (artifact.durationMs > planned * underRatio && artifact.durationMs - planned > underDeltaMs) {
+    const contamination = contaminationDescription(artifact);
+    if (contamination) {
+      warnings.push(
+        `ignored underplanned contaminated shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)} ${contamination}`,
+      );
+      return;
+    }
     errors.push(
       `underplanned shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)}`,
     );
@@ -84,6 +98,7 @@ function main(argv) {
   );
 
   const errors = [];
+  const warnings = [];
   for (const artifact of artifacts) {
     if (artifact.rawAggregateKey) {
       const planned = baseline.rawAggregates.get(artifact.rawAggregateKey);
@@ -93,7 +108,7 @@ function main(argv) {
         );
         continue;
       }
-      checkShardDrift(errors, artifact, planned);
+      checkShardDrift(errors, warnings, artifact, planned);
       continue;
     }
 
@@ -127,7 +142,15 @@ function main(argv) {
     if (planned <= 0 || missing.length > 0) {
       continue;
     }
-    checkShardDrift(errors, artifact, planned);
+    checkShardDrift(errors, warnings, artifact, planned);
+  }
+
+  if (warnings.length > 0) {
+    process.stderr.write("Go test duration baseline drift ignored contaminated timing evidence:\n");
+    for (const warning of warnings) {
+      process.stderr.write(`- ${warning}\n`);
+    }
+    process.stderr.write("Rerun after Go module cache warm-up; do not refresh baselines from contaminated timing evidence.\n");
   }
 
   if (errors.length > 0) {
@@ -135,7 +158,7 @@ function main(argv) {
     for (const error of errors) {
       process.stderr.write(`- ${error}\n`);
     }
-    process.stderr.write(`Refresh with: ${suggestedRefresh(options.resultsDir)}\n`);
+    process.stderr.write(`Refresh from an uncontaminated successful run with: ${suggestedRefresh(options.resultsDir)}\n`);
     process.exit(1);
   }
 

@@ -25,6 +25,101 @@ export NODE_BIN="${NODE_HELPER}"
 
 mkdir -p "${GO_CACHE_DIR}" "${GO_MOD_CACHE_DIR}"
 
+hash_go_test_dependency_inputs() {
+  {
+    "${GO_BIN}" version 2>/dev/null || true
+    printf '\n-- go.mod --\n'
+    cat "${ROOT_DIR}/go.mod"
+    printf '\n-- go.sum --\n'
+    cat "${ROOT_DIR}/go.sum"
+  } | if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | awk '{print $1}'
+  else
+    cksum | awk '{print $1 "-" $2}'
+  fi
+}
+
+warm_go_test_dependencies() {
+  local warm_root="${GO_MOD_CACHE_DIR}/.cartulary-go-test-warm"
+  local lock_dir="${warm_root}/lock"
+  local timeout_seconds="${CARTULARY_GO_TEST_WARM_LOCK_TIMEOUT_SECONDS:-300}"
+  local start_ms
+  local now_ms
+  local elapsed_ms
+  local owner_pid
+  local warm_key
+  local stamp_file
+  local stamp_tmp
+
+  if [[ ! "${timeout_seconds}" =~ ^[0-9]+$ ]] || (( timeout_seconds < 1 )); then
+    echo "invalid CARTULARY_GO_TEST_WARM_LOCK_TIMEOUT_SECONDS=${timeout_seconds}" >&2
+    return 2
+  fi
+
+  mkdir -p "${warm_root}"
+  warm_key="$(hash_go_test_dependency_inputs)"
+  stamp_file="${warm_root}/${warm_key}.stamp"
+  if [[ -f "${stamp_file}" ]]; then
+    return 0
+  fi
+
+  start_ms="$(phase_now_monotonic_ms)"
+  while true; do
+    if mkdir "${lock_dir}" 2>/dev/null; then
+      printf '%s\n' "$$" >"${lock_dir}/pid"
+      printf '%s\n' "$(phase_now_utc)" >"${lock_dir}/acquired_at"
+      break
+    fi
+
+    owner_pid="$(cat "${lock_dir}/pid" 2>/dev/null || true)"
+    if [[ "${owner_pid}" =~ ^[0-9]+$ ]] && ! kill -0 "${owner_pid}" 2>/dev/null; then
+      rm -rf -- "${lock_dir}"
+      continue
+    fi
+
+    now_ms="$(phase_now_monotonic_ms)"
+    elapsed_ms="$(phase_elapsed_ms "${start_ms}" "${now_ms}")"
+    if (( elapsed_ms >= timeout_seconds * 1000 )); then
+      echo "go_test_dependency_warm_lock_timeout lock=${lock_dir}" >&2
+      return 1
+    fi
+
+    sleep 0.1
+  done
+
+  if [[ -f "${stamp_file}" ]]; then
+    rm -rf -- "${lock_dir}"
+    return 0
+  fi
+
+  local list_status=0
+
+  set +e
+  env GOCACHE="${GO_CACHE_DIR}" GOMODCACHE="${GO_MOD_CACHE_DIR}" "${GO_BIN}" mod download
+  local download_status=$?
+  if [[ "${download_status}" -eq 0 ]]; then
+    env GOCACHE="${GO_CACHE_DIR}" GOMODCACHE="${GO_MOD_CACHE_DIR}" "${GO_BIN}" list -deps -test ./... >/dev/null
+    list_status=$?
+  fi
+  set -e
+
+  if [[ "${download_status}" -ne 0 || "${list_status}" -ne 0 ]]; then
+    rm -rf -- "${lock_dir}"
+    if [[ "${download_status}" -ne 0 ]]; then
+      return "${download_status}"
+    fi
+    return "${list_status}"
+  fi
+
+  stamp_tmp="${stamp_file}.$$"
+  {
+    printf 'warmed_at=%s\n' "$(phase_now_utc)"
+    printf 'go=%s\n' "$("${GO_BIN}" version 2>/dev/null || true)"
+  } >"${stamp_tmp}"
+  mv -f -- "${stamp_tmp}" "${stamp_file}"
+  rm -rf -- "${lock_dir}"
+}
+
 usage() {
   echo "usage: run-go-target.sh <backend-unit|backend-store|backend-integration|backend-integration-support|backend-process>" >&2
   echo "       run-go-target.sh inspect-aggregate-command <target> <execution-family-or-shard>" >&2
@@ -450,6 +545,8 @@ capture_go_report_locked() {
     printf '%s\n' reused
     return 0
   fi
+
+  warm_go_test_dependencies
 
   output_mode="$(resolve_output_mode)"
   phase_capture_start PHASE

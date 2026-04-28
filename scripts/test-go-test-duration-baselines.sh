@@ -50,6 +50,7 @@ results_dir="$tmp_dir/results"
 shared_dir="$results_dir/_shared"
 mkdir -p \
   "$shared_dir/backend-integration-auth-shard-01" \
+  "$shared_dir/backend-integration-auth-shard-02" \
   "$shared_dir/backend-integration-testutil-shard-01" \
   "$shared_dir/backend-store-shard-01"
 
@@ -63,6 +64,18 @@ JSONL
 printf '50000\n' >"$shared_dir/backend-integration-auth-shard-01/duration_ms.txt"
 printf '0\n' >"$shared_dir/backend-integration-auth-shard-01/exit_status.txt"
 
+cat >"$shared_dir/backend-integration-auth-shard-02/runner.jsonl" <<'JSONL'
+{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestPhase1_LoginSessionLifecycle_I_1_01","Elapsed":1}
+{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestPhase1_UserAdminAudit_I_1_03","Elapsed":1}
+{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Elapsed":30}
+JSONL
+cat >"$shared_dir/backend-integration-auth-shard-02/stderr.log" <<'LOG'
+go: downloading example.org/slow/module v1.2.3
+go: downloading example.org/slow/other v4.5.6
+LOG
+printf '100000\n' >"$shared_dir/backend-integration-auth-shard-02/duration_ms.txt"
+printf '0\n' >"$shared_dir/backend-integration-auth-shard-02/exit_status.txt"
+
 : >"$shared_dir/backend-integration-testutil-shard-01/runner.jsonl"
 printf '6000\n' >"$shared_dir/backend-integration-testutil-shard-01/duration_ms.txt"
 printf '0\n' >"$shared_dir/backend-integration-testutil-shard-01/exit_status.txt"
@@ -74,7 +87,9 @@ JSONL
 printf '22000\n' >"$shared_dir/backend-store-shard-01/duration_ms.txt"
 printf '0\n' >"$shared_dir/backend-store-shard-01/exit_status.txt"
 
-"$NODE_BIN" "$UPDATE_SCRIPT" --baseline-file "$tmp_dir/baseline.json" "$results_dir" >/dev/null
+update_output="$("$NODE_BIN" "$UPDATE_SCRIPT" --baseline-file "$tmp_dir/baseline.json" "$results_dir" 2>&1)"
+assert_contains "$update_output" "skipped contaminated Go shard timing artifacts" "contaminated refresh skip output"
+assert_contains "$update_output" "shard=backend-integration-auth-shard-02 go_module_downloads=2" "contaminated refresh skip shard"
 
 "$NODE_BIN" - "$tmp_dir/baseline.json" <<'EOF'
 const fs = require("node:fs");
@@ -105,7 +120,11 @@ if (raw !== 6000) {
 }
 EOF
 
-"$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/baseline.json" "$results_dir" >/dev/null
+"$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/baseline.json" "$results_dir" >/dev/null 2>/dev/null
+
+drift_warning_output="$("$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/baseline.json" "$results_dir" 2>&1 >/dev/null)"
+assert_contains "$drift_warning_output" "ignored underplanned contaminated shard=backend-integration-auth-shard-02" "contaminated underplanned drift warning"
+assert_contains "$drift_warning_output" "go_module_downloads=2" "contaminated underplanned download count"
 
 cat >"$tmp_dir/underplanned-raw.json" <<'JSON'
 {

@@ -74,8 +74,13 @@ function main(argv) {
   const rawAggregateDurations = new Map();
   const observedPackages = new Set();
   const observedPackagesByTarget = new Map();
+  const skippedContaminated = [];
 
   for (const artifact of artifacts) {
+    if (artifact.timingContaminationReasons?.length > 0) {
+      skippedContaminated.push(artifact);
+      continue;
+    }
     if (artifact.rawAggregateKey) {
       rawAggregateDurations.set(
         artifact.rawAggregateKey,
@@ -158,9 +163,21 @@ function main(argv) {
   baseline.tests = sortedObject(baseline.tests);
 
   writeFileSync(baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
+  if (skippedContaminated.length > 0) {
+    process.stderr.write("skipped contaminated Go shard timing artifacts:\n");
+    for (const artifact of skippedContaminated) {
+      process.stderr.write(
+        `- shard=${artifact.shardName} go_module_downloads=${artifact.moduleDownloadCount}\n`,
+      );
+    }
+  }
   process.stdout.write(
-    `updated ${testDurations.size} Go test baselines, ${packageOverheads.size} package overhead baselines, ${commandOverheads.size} command overhead baselines, and ${rawAggregateDurations.size} raw aggregate baselines\n`,
+    `updated ${testDurations.size} Go test baselines, ${packageOverheads.size} package overhead baselines, ${commandOverheads.size} command overhead baselines, and ${rawAggregateDurations.size} raw aggregate baselines`,
   );
+  if (skippedContaminated.length > 0) {
+    process.stdout.write(`; skipped ${skippedContaminated.length} contaminated shard artifacts`);
+  }
+  process.stdout.write("\n");
 }
 
 try {
