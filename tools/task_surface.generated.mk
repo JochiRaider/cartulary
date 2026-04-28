@@ -97,3 +97,9 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make phase-schedule-drift           fail on phase-derived schedule drift' \
 	''
 
+test: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(RUN_MAKE_SEQUENCE_SCRIPT) --sequence test
+
+check: $(NODE_BIN)
+	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target check --manifest "$(CHECK_SCHEDULE_MANIFEST)" --summary-profile check --resource-limit cpu=$(CHECK_JOBS) --resource-limit io=$(CHECK_IO_JOBS)
+

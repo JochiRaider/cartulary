@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 makefile="$repo_root/Makefile"
+generated_make="$repo_root/tools/task_surface.generated.mk"
 functional_script="$repo_root/scripts/run-browser-e2e-functional.sh"
 browser_batch_script="$repo_root/scripts/run-browser-e2e-batch.sh"
 browser_target_script="$repo_root/scripts/run-browser-e2e-target.sh"
@@ -33,11 +34,11 @@ fail() {
 
 extract_target_block() {
   local target="$1"
-  awk -v target="$target" '
+  cat "$generated_make" "$makefile" | awk -v target="$target" '
     $0 ~ "^" target ":" { in_block=1; print; next }
     in_block && /^[^[:space:]].*:/ { exit }
     in_block { print }
-  ' "$makefile"
+  '
 }
 
 require_browser_owned_stack_target_uses_built_binaries() {
@@ -483,8 +484,8 @@ test_block="$(extract_target_block test)"
 if [[ -z "$test_block" ]]; then
   fail "Makefile must define a non-empty test block"
 fi
-if ! printf '%s\n' "$test_block" | grep -Fq -- '--step test-service-backed'; then
-  fail "test must run service-backed scheduler work"
+if ! printf '%s\n' "$test_block" | grep -Fq -- '--sequence test'; then
+  fail "test must delegate to the manifest-owned test sequence"
 fi
 if printf '%s\n' "$test_block" | grep -Fq -- '--step browser-e2e'; then
   fail "test must not run browser-e2e as a final serial step"
@@ -492,6 +493,16 @@ fi
 if printf '%s\n' "$test_block" | grep -Fq 'test-isolated'; then
   fail "test must not route browser evidence through test-isolated"
 fi
+"$node_bin" - "$task_surface_manifest" <<'EOF'
+const fs = require("node:fs");
+
+const [manifestFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+const steps = manifest.sequences?.test?.steps ?? [];
+if (!steps.some((step) => step.target === "test-service-backed")) {
+  throw new Error("manifest test sequence must run service-backed scheduler work");
+}
+EOF
 
 check_block="$(extract_target_block check)"
 if [[ -z "$check_block" ]]; then

@@ -8,66 +8,24 @@ MAKE_BIN="${MAKE:-make}"
 label=""
 summary_targets_csv=""
 summary_groups_spec=""
-summary_profile=""
+sequence=""
+manifest_path="${TASK_SURFACE_MANIFEST:-${ROOT_DIR}/tools/task_surface_manifest.json}"
 steps=()
 
 usage() {
-  echo "usage: run-make-sequence.sh --label <name> (--summary-profile <name> | --summary-targets <a,b>) [--summary-groups <name=a,b;name=c>] [--step <target> | --parallel-step <target>:<jobs>]..." >&2
-}
-
-add_step() {
-  local kind="$1"
-  local spec="$2"
-
-  if [[ -z "${spec}" ]]; then
-    usage
-    return 2
-  fi
-
-  case "${kind}" in
-    step)
-      steps+=("step:${spec}")
-      ;;
-    parallel)
-      if [[ "${spec}" != *:* ]]; then
-        echo "--parallel-step requires <target>:<jobs>, got ${spec}" >&2
-        return 2
-      fi
-      steps+=("parallel:${spec}")
-      ;;
-  esac
+  echo "usage: run-make-sequence.sh --sequence <name> [--manifest <path>]" >&2
 }
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
-    --label)
+    --sequence)
       [[ "$#" -ge 2 ]] || { usage; exit 2; }
-      label="$2"
+      sequence="$2"
       shift 2
       ;;
-    --summary-targets)
+    --manifest)
       [[ "$#" -ge 2 ]] || { usage; exit 2; }
-      summary_targets_csv="$2"
-      shift 2
-      ;;
-    --summary-profile)
-      [[ "$#" -ge 2 ]] || { usage; exit 2; }
-      summary_profile="$2"
-      shift 2
-      ;;
-    --summary-groups)
-      [[ "$#" -ge 2 ]] || { usage; exit 2; }
-      summary_groups_spec="$2"
-      shift 2
-      ;;
-    --step)
-      [[ "$#" -ge 2 ]] || { usage; exit 2; }
-      add_step step "$2"
-      shift 2
-      ;;
-    --parallel-step)
-      [[ "$#" -ge 2 ]] || { usage; exit 2; }
-      add_step parallel "$2"
+      manifest_path="$2"
       shift 2
       ;;
     *)
@@ -77,36 +35,44 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
-if [[ -z "${label}" || "${#steps[@]}" -eq 0 ]]; then
+if [[ -z "${sequence}" ]]; then
   usage
   exit 2
 fi
 
-if [[ -n "${summary_profile}" && -n "${summary_targets_csv}" ]]; then
-  echo "--summary-profile and --summary-targets are mutually exclusive" >&2
-  exit 2
+label="${sequence}"
+node_cmd="${NODE_BIN:-node}"
+if [[ -n "${node_cmd}" && ! -x "${node_cmd}" ]]; then
+  node_cmd="node"
 fi
+mapfile -t resolved_sequence < <(
+  "$node_cmd" --input-type=module - "${manifest_path}" "${sequence}" <<'EOF'
+import { loadTaskSurfaceManifest, sequenceDefinition, summaryProfileArgs } from "./scripts/lib/task-surface.mjs";
 
-if [[ -n "${summary_profile}" ]]; then
-  node_cmd="${NODE_BIN:-node}"
-  if [[ -n "${node_cmd}" && ! -x "${node_cmd}" ]]; then
-    node_cmd="node"
-  fi
-  mapfile -t resolved_summary < <(
-    "$node_cmd" --input-type=module - "${TASK_SURFACE_MANIFEST:-${ROOT_DIR}/tools/task_surface_manifest.json}" "${summary_profile}" <<'EOF'
-import { loadTaskSurfaceManifest, summaryProfileArgs } from "./scripts/lib/task-surface.mjs";
-
-const [manifestPath, profileName] = process.argv.slice(2);
+const [manifestPath, sequenceName] = process.argv.slice(2);
 const { manifest } = loadTaskSurfaceManifest(manifestPath);
-const profile = summaryProfileArgs(manifest, profileName);
-process.stdout.write(`${profile.summaryTargets.join(",")}\n${profile.groupsSpec}\n`);
+const sequence = sequenceDefinition(manifest, sequenceName);
+const profile = summaryProfileArgs(manifest, sequence.summaryProfile);
+const lines = [profile.summaryTargets.join(","), profile.groupsSpec];
+for (const step of sequence.steps) {
+  if (step.type === "step") {
+    lines.push(`step:${step.target}`);
+    continue;
+  }
+  const jobs = step.jobs ?? (step.jobsVariable ? process.env[step.jobsVariable] : "");
+  if (!/^[1-9][0-9]*$/.test(String(jobs))) {
+    throw new Error(`sequence ${sequenceName} parallel step ${step.target} has invalid jobs value`);
+  }
+  lines.push(`parallel:${step.target}:${jobs}`);
+}
+process.stdout.write(`${lines.join("\n")}\n`);
 EOF
-  )
-  summary_targets_csv="${resolved_summary[0]:-}"
-  summary_groups_spec="${resolved_summary[1]:-}"
-fi
+)
+summary_targets_csv="${resolved_sequence[0]:-}"
+summary_groups_spec="${resolved_sequence[1]:-}"
+steps=("${resolved_sequence[@]:2}")
 
-if [[ -z "${summary_targets_csv}" ]]; then
+if [[ -z "${summary_targets_csv}" || "${#steps[@]}" -eq 0 ]]; then
   usage
   exit 2
 fi

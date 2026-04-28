@@ -1,8 +1,6 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-include tools/task_surface.generated.mk
-
 .SECONDEXPANSION:
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
@@ -168,6 +166,8 @@ if [ -d "$$dir" ]; then \
 	find "$$dir" -mindepth 1 -maxdepth 1 ! -name '.keep' -exec rm -rf -- {} +; \
 fi
 endef
+
+include tools/task_surface.generated.mk
 
 help:
 	$(Q)printf '%s\n' $(TASK_SURFACE_HELP_LINES)
@@ -439,9 +439,6 @@ test-service-backed: export CARTULARY_TEST_TARGET := test-service-backed
 test-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN) test-service-images
 	$(call run_service_backed_schedule_target,test-service-backed,test service-backed)
 
-test: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(RUN_MAKE_SEQUENCE_SCRIPT) --label test --summary-profile test --parallel-step test-local:3 --step test-service-backed
-
 backend-unit: export CARTULARY_TEST_TARGET := backend-unit
 backend-unit: export CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION := phase1:unit:authoritative:backend_unit:./internal/platform/...
 
@@ -628,9 +625,6 @@ check-service-backed: export CARTULARY_TEST_TARGET := check-service-backed
 
 check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate test-service-images
 	$(call run_service_backed_schedule_target,check-service-backed,check service-backed)
-
-check: $(NODE_BIN)
-	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target check --manifest "$(CHECK_SCHEDULE_MANIFEST)" --summary-profile check --resource-limit cpu=$(CHECK_JOBS) --resource-limit io=$(CHECK_IO_JOBS)
 
 ci:
 	$(Q)./scripts/ci/verify.sh

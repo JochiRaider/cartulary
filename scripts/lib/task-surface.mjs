@@ -10,12 +10,17 @@ export const defaultTaskSurfaceManifestPath = path.join(
   "task_surface_manifest.json",
 );
 export const defaultGeneratedMakePath = path.join(repoRoot, "tools", "task_surface.generated.mk");
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v5";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v6";
 
 const validClassifications = new Set(["public", "check_internal", "helper_only"]);
 const validInclusions = new Set(["test", "check", "ci", "release-check", "helper_only"]);
 const defaultHelpTierName = "daily";
 const defaultHelpMaxEntries = 20;
+const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/;
+const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
+const makeResourcePattern = /^[A-Za-z0-9_.-]+$/;
+const makePrerequisitePattern = /^(?:[A-Za-z0-9_.\/-]+|\$\([A-Z][A-Z0-9_]*\))$/;
+const repoJSONPathPattern = /^[A-Za-z0-9_.\/-]+\.json$/;
 
 export function resolveRepoPath(value) {
   return path.isAbsolute(value) ? value : path.join(repoRoot, value);
@@ -105,6 +110,27 @@ export function harnessCheck(manifest, name) {
     name: check.name,
     backing_scripts: [...check.backing_scripts],
   };
+}
+
+export function sequenceDefinition(manifest, name) {
+  const sequence = manifest.sequences?.[name];
+  if (!sequence) {
+    throw new Error(`unknown task-surface sequence ${name}`);
+  }
+  return {
+    name,
+    summaryProfile: sequence.summary_profile,
+    steps: sequence.steps.map((step) => ({
+      type: step.type,
+      target: step.target,
+      jobs: step.jobs,
+      jobsVariable: step.jobs_variable,
+    })),
+  };
+}
+
+export function makeRecipeEntries(manifest) {
+  return Object.entries(manifest.make_recipes ?? {}).map(([target, recipe]) => ({ target, ...recipe }));
 }
 
 export function makeIdentifier(value) {
@@ -264,7 +290,96 @@ export function collectTaskSurfaceManifestErrors(manifest) {
     }
   }
 
+  validateMakeRecipes(errors, targets, manifest.summary_profiles, manifest.sequences, manifest.make_recipes);
+
   return errors;
+}
+
+function validateMakeRecipes(errors, targets, summaryProfiles, sequences, recipes) {
+  if (!recipes || typeof recipes !== "object" || Array.isArray(recipes)) {
+    errors.push("make_recipes must be an object");
+    return;
+  }
+
+  for (const [target, recipe] of Object.entries(recipes)) {
+    const label = `make_recipes.${target}`;
+    if (!makeTargetPattern.test(target)) {
+      errors.push(`${label} target name must be a Make target identifier`);
+    }
+    if (!targets.has(target)) {
+      errors.push(`${label} references unknown target`);
+    }
+    if (!recipe || typeof recipe !== "object" || Array.isArray(recipe)) {
+      errors.push(`${label} must be an object`);
+      continue;
+    }
+    if (!Array.isArray(recipe.prerequisites)) {
+      errors.push(`${label}.prerequisites must be an array`);
+    } else {
+      for (const prerequisite of recipe.prerequisites) {
+        if (typeof prerequisite !== "string" || !makePrerequisitePattern.test(prerequisite)) {
+          errors.push(`${label}.prerequisites contains unsafe prerequisite ${JSON.stringify(prerequisite)}`);
+        }
+      }
+    }
+
+    if (recipe.type === "sequence") {
+      if (typeof recipe.sequence !== "string" || !sequences?.[recipe.sequence]) {
+        errors.push(`${label}.sequence references unknown sequence ${JSON.stringify(recipe.sequence)}`);
+      }
+      continue;
+    }
+
+    if (recipe.type === "check_schedule") {
+      if (typeof recipe.target !== "string" || !targets.has(recipe.target)) {
+        errors.push(`${label}.target references unknown schedule target ${JSON.stringify(recipe.target)}`);
+      }
+      if (
+        typeof recipe.summary_profile !== "string" ||
+        !summaryProfiles ||
+        !summaryProfiles[recipe.summary_profile]
+      ) {
+        errors.push(`${label}.summary_profile references unknown profile ${JSON.stringify(recipe.summary_profile)}`);
+      }
+      if (typeof recipe.manifest_variable !== "string" || !makeVariablePattern.test(recipe.manifest_variable)) {
+        errors.push(`${label}.manifest_variable must be a safe Make variable name`);
+      }
+      if (
+        typeof recipe.schedule_manifest !== "string" ||
+        !repoJSONPathPattern.test(recipe.schedule_manifest) ||
+        recipe.schedule_manifest.includes("..")
+      ) {
+        errors.push(`${label}.schedule_manifest must be a safe repo-local JSON path`);
+      } else {
+        const scheduleManifestPath = path.join(repoRoot, recipe.schedule_manifest);
+        if (!existsSync(scheduleManifestPath)) {
+          errors.push(`${label}.schedule_manifest missing: ${recipe.schedule_manifest}`);
+        } else {
+          const scheduleManifest = readJSON(recipe.schedule_manifest);
+          const scheduleTargets = new Set((scheduleManifest.schedules ?? []).map((schedule) => schedule.target));
+          if (!scheduleTargets.has(recipe.target)) {
+            errors.push(`${label}.target ${recipe.target} is missing from ${recipe.schedule_manifest}`);
+          }
+        }
+      }
+      if (!Array.isArray(recipe.resource_limits)) {
+        errors.push(`${label}.resource_limits must be an array`);
+      } else {
+        for (const [index, limit] of recipe.resource_limits.entries()) {
+          const limitLabel = `${label}.resource_limits[${index + 1}]`;
+          if (typeof limit?.resource !== "string" || !makeResourcePattern.test(limit.resource)) {
+            errors.push(`${limitLabel}.resource must be a safe resource name`);
+          }
+          if (typeof limit?.variable !== "string" || !makeVariablePattern.test(limit.variable)) {
+            errors.push(`${limitLabel}.variable must be a safe Make variable name`);
+          }
+        }
+      }
+      continue;
+    }
+
+    errors.push(`${label}.type must be sequence or check_schedule`);
+  }
 }
 
 function projectedChildrenForTarget(targets, targetName, seen = new Set()) {
@@ -473,7 +588,44 @@ export function renderTaskSurfaceMake(manifest) {
   }
   lines.push("\t''");
   lines.push("");
+  for (const recipe of makeRecipeEntries(manifest)) {
+    lines.push(...renderMakeRecipe(recipe, manifest));
+    lines.push("");
+  }
   return `${lines.join("\n")}\n`;
+}
+
+function renderMakeRecipe(recipe, manifest) {
+  const prerequisites = (recipe.prerequisites ?? []).join(" ");
+  const header = prerequisites ? `${recipe.target}: ${prerequisites}` : `${recipe.target}:`;
+  if (recipe.type === "sequence") {
+    const sequence = sequenceDefinition(manifest, recipe.sequence);
+    const env = [
+      'MAKE="$(MAKE)"',
+      'NODE_BIN="$(NODE_BIN)"',
+      'TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)"',
+      'TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)"',
+    ];
+    for (const step of sequence.steps) {
+      if (step.jobsVariable) {
+        env.push(`${step.jobsVariable}="$(${step.jobsVariable})"`);
+      }
+    }
+    return [
+      header,
+      `\t$(Q)${env.join(" ")} $(RUN_MAKE_SEQUENCE_SCRIPT) --sequence ${recipe.sequence}`,
+    ];
+  }
+  if (recipe.type === "check_schedule") {
+    const resourceArgs = (recipe.resource_limits ?? [])
+      .map((limit) => ` --resource-limit ${limit.resource}=$(${limit.variable})`)
+      .join("");
+    return [
+      header,
+      `\t$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target ${recipe.target} --manifest "$(${recipe.manifest_variable})" --summary-profile ${recipe.summary_profile}${resourceArgs}`,
+    ];
+  }
+  throw new Error(`unsupported Make recipe type ${recipe.type}`);
 }
 
 export function helpLines(manifest) {

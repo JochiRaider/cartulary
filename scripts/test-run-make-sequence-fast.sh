@@ -61,7 +61,7 @@ assert_file_absent() {
 make_target_block() {
   local target="$1"
 
-  awk -v target="${target}" '
+  cat "${ROOT_DIR}/tools/task_surface.generated.mk" "${ROOT_DIR}/Makefile" | awk -v target="${target}" '
     $0 ~ "^" target ":" {
       in_target = 1
       print
@@ -73,7 +73,7 @@ make_target_block() {
     in_target {
       print
     }
-  ' "${ROOT_DIR}/Makefile"
+  '
 }
 
 write_fake_make() {
@@ -122,6 +122,42 @@ EOF
   chmod +x "${dir}/fake-make"
 }
 
+manifest_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-manifest.XXXXXX")"
+cleanup_paths+=("${manifest_dir}")
+sequence_manifest="${manifest_dir}/task_surface_manifest.json"
+"${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" "${sequence_manifest}" <<'EOF'
+const fs = require("node:fs");
+const [source, destination] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
+for (const name of ["alpha", "beta", "smoke", "dry-run"]) {
+  if (!manifest.targets.some((target) => target.name === name)) {
+    manifest.targets.push({ name, classification: "helper_only", included_in: ["helper_only"] });
+  }
+}
+manifest.summary_profiles.smoke = {
+  summary_targets: ["alpha", "beta"],
+  groups: [
+    { name: "alpha-group", summary_targets: ["alpha"] },
+    { name: "beta-group", summary_targets: ["beta"] },
+  ],
+};
+manifest.summary_profiles["dry-run"] = {
+  summary_targets: ["alpha"],
+};
+manifest.sequences.smoke = {
+  summary_profile: "smoke",
+  steps: [
+    { type: "step", target: "alpha" },
+    { type: "parallel", target: "beta", jobs: 3 },
+  ],
+};
+manifest.sequences["dry-run"] = {
+  summary_profile: "dry-run",
+  steps: [{ type: "step", target: "alpha" }],
+};
+fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
+
 success_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-success.XXXXXX")"
 cleanup_paths+=("${success_dir}")
 write_fake_make "${success_dir}"
@@ -133,7 +169,8 @@ success_output="$(
   FAKE_MAKE_LOG="${success_dir}/make.log" \
   CARTULARY_TEST_RESULTS_DIR="${success_dir}/results" \
   CARTULARY_TEST_RUN_ID="success" \
-    "${SCRIPT}" --label smoke --summary-targets " alpha, beta " --summary-groups "alpha-group=alpha;beta-group=beta" --step alpha --parallel-step beta:3 \
+  TASK_SURFACE_MANIFEST="${sequence_manifest}" \
+    "${SCRIPT}" --sequence smoke \
     2>&1
 )"
 assert_contains "${success_output}" "[RUN] smoke work_units=2 summary_targets=2 helper_units=0 jobs=3 run_id=success" "success run start output"
@@ -154,7 +191,8 @@ dry_run_output="$(
   FAKE_MAKE_LOG="${dry_run_dir}/make.log" \
   CARTULARY_TEST_RESULTS_DIR="${dry_run_dir}/results" \
   CARTULARY_TEST_RUN_ID="dry-run" \
-    "${SCRIPT}" --label dry-run --summary-targets alpha --step alpha \
+  TASK_SURFACE_MANIFEST="${sequence_manifest}" \
+    "${SCRIPT}" --sequence dry-run \
     2>&1
 )"
 assert_not_contains "${dry_run_output}" "[RUN]" "script dry-run run start output"
@@ -224,7 +262,7 @@ set +e
 invalid_output="$(
   MAKE="${invalid_dir}/fake-make" \
   FAKE_MAKE_LOG="${invalid_dir}/make.log" \
-    "${SCRIPT}" --label invalid --summary-targets alpha --parallel-step alpha \
+    "${SCRIPT}" --summary-targets alpha \
     2>&1
 )"
 invalid_status=$?
@@ -232,7 +270,7 @@ set -e
 if [[ "${invalid_status}" != "2" ]]; then
   fail "invalid usage status: expected [2], got [${invalid_status}]"
 fi
-assert_contains "${invalid_output}" "--parallel-step requires <target>:<jobs>" "invalid usage output"
+assert_contains "${invalid_output}" "usage: run-make-sequence.sh --sequence <name>" "invalid usage output"
 assert_file_absent "${invalid_dir}/make.log" "invalid usage child make log"
 
 NODE_BIN="${NODE_BIN:-node}" "${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" <<'EOF'

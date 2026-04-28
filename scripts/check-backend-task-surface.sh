@@ -17,11 +17,11 @@ fail() {
 
 extract_target_block() {
   local target="$1"
-  awk -v target="$target" '
+  cat "$generated_make" "$makefile" | awk -v target="$target" '
     $0 ~ "^" target ":" { in_block=1; next }
     in_block && /^[^[:space:]].*:/ { exit }
     in_block { print }
-  ' "$makefile"
+  '
 }
 
 extract_target_prereqs() {

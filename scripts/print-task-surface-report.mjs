@@ -8,6 +8,7 @@ import {
   defaultGeneratedMakePath,
   harnessCheckEntries,
   helpTiers,
+  makeRecipeEntries,
   renderTaskSurfaceMake,
   taskSurfaceSchemaID,
 } from "./lib/task-surface.mjs";
@@ -32,11 +33,15 @@ const validClassifications = new Set(["public", "check_internal", "helper_only"]
 const validInclusions = new Set(["test", "check", "ci", "release-check", "helper_only"]);
 
 function main() {
-  const makefile = `${readFileSync(generatedMakePath, "utf8")}\n${readFileSync(makefilePath, "utf8")}`;
+  const generatedMake = readFileSync(generatedMakePath, "utf8");
+  const authoredMake = readFileSync(makefilePath, "utf8");
+  const makefile = `${generatedMake}\n${authoredMake}`;
   const manifest = readJSON(manifestPath);
   const phonyTargets = collectPhonyTargets(makefile);
   const helpEntries = collectHelpEntries(makefile);
   const targetBlocks = collectTargetBlocks(makefile, phonyTargets);
+  const authoredRecipeTargets = makeRecipeEntries(manifest).map((entry) => entry.target);
+  const authoredGeneratedRecipeBlocks = collectTargetBlocks(authoredMake, authoredRecipeTargets);
   const targetScriptRefs = new Map(
     phonyTargets.map((target) => [target, collectDirectScriptRefs(targetBlocks.get(target) ?? "")]),
   );
@@ -45,6 +50,7 @@ function main() {
     generatedMakePath,
     helpEntries,
     manifest,
+    authoredGeneratedRecipeBlocks,
     phonyTargets,
     targetScriptRefs,
   });
@@ -161,7 +167,14 @@ function collectPhaseDependencies() {
   );
 }
 
-function validateTaskSurface({ generatedMakePath, helpEntries, manifest, phonyTargets, targetScriptRefs }) {
+function validateTaskSurface({
+  generatedMakePath,
+  helpEntries,
+  manifest,
+  authoredGeneratedRecipeBlocks,
+  phonyTargets,
+  targetScriptRefs,
+}) {
   const errors = [];
 
   if (manifest.schema_id !== taskSurfaceSchemaID) {
@@ -176,6 +189,11 @@ function validateTaskSurface({ generatedMakePath, helpEntries, manifest, phonyTa
   const committedMake = readFileSync(generatedMakePath, "utf8");
   if (renderedMake !== committedMake) {
     errors.push("tools/task_surface.generated.mk is stale; run scripts/render-task-surface-make.mjs");
+  }
+  for (const recipe of makeRecipeEntries(manifest)) {
+    if (authoredGeneratedRecipeBlocks.has(recipe.target)) {
+      errors.push(`generated Make recipe target ${recipe.target} must not be hand-defined in Makefile`);
+    }
   }
 
   const phonySet = new Set(phonyTargets);

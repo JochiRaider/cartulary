@@ -100,7 +100,7 @@ assert_count() {
 make_target_block() {
   local target="$1"
 
-  awk -v target="${target}" '
+  cat "${ROOT_DIR}/tools/task_surface.generated.mk" "${ROOT_DIR}/Makefile" | awk -v target="${target}" '
     $0 ~ "^" target ":" {
       in_target = 1
       print
@@ -112,7 +112,7 @@ make_target_block() {
     in_target {
       print
     }
-  ' "${ROOT_DIR}/Makefile"
+  '
 }
 
 line_count() {
@@ -173,6 +173,60 @@ EOF
   chmod +x "${dir}/fake-make"
 }
 
+manifest_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-manifest.XXXXXX")"
+cleanup_paths+=("${manifest_dir}")
+sequence_manifest="${manifest_dir}/task_surface_manifest.json"
+"${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" "${sequence_manifest}" <<'EOF'
+const fs = require("node:fs");
+const [source, destination] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
+for (const name of ["alpha", "beta", "missing-target", "fail-step", "smoke", "aggregate-missing", "fail-smoke", "dry-run"]) {
+  if (!manifest.targets.some((target) => target.name === name)) {
+    manifest.targets.push({ name, classification: "helper_only", included_in: ["helper_only"] });
+  }
+}
+manifest.summary_profiles.smoke = {
+  summary_targets: ["alpha", "beta"],
+  groups: [
+    { name: "alpha-group", summary_targets: ["alpha"] },
+    { name: "beta-group", summary_targets: ["beta"] },
+  ],
+};
+manifest.summary_profiles["aggregate-missing"] = {
+  summary_targets: ["alpha", "missing-target"],
+};
+manifest.summary_profiles["fail-smoke"] = {
+  summary_targets: ["alpha", "beta"],
+};
+manifest.summary_profiles["dry-run"] = {
+  summary_targets: ["alpha"],
+};
+manifest.sequences.smoke = {
+  summary_profile: "smoke",
+  steps: [
+    { type: "step", target: "alpha" },
+    { type: "parallel", target: "beta", jobs: 3 },
+  ],
+};
+manifest.sequences["aggregate-missing"] = {
+  summary_profile: "aggregate-missing",
+  steps: [{ type: "step", target: "alpha" }],
+};
+manifest.sequences["fail-smoke"] = {
+  summary_profile: "fail-smoke",
+  steps: [
+    { type: "step", target: "alpha" },
+    { type: "step", target: "fail-step" },
+    { type: "step", target: "beta" },
+  ],
+};
+manifest.sequences["dry-run"] = {
+  summary_profile: "dry-run",
+  steps: [{ type: "step", target: "alpha" }],
+};
+fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
+
 success_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-success.XXXXXX")"
 cleanup_paths+=("${success_dir}")
 write_fake_make "${success_dir}"
@@ -185,7 +239,8 @@ success_output="$(
   FAKE_MAKE_LOG="${success_dir}/make.log" \
   CARTULARY_TEST_RESULTS_DIR="${success_results}" \
   CARTULARY_TEST_RUN_ID="success" \
-    "${SCRIPT}" --label smoke --summary-targets " alpha, beta " --summary-groups "alpha-group=alpha;beta-group=beta" --step alpha --parallel-step beta:3 \
+  TASK_SURFACE_MANIFEST="${sequence_manifest}" \
+    "${SCRIPT}" --sequence smoke \
     2>&1
 )"
 assert_contains "${success_output}" "[RUN] smoke work_units=2 summary_targets=2 helper_units=0 jobs=3 run_id=success" "success run start output"
@@ -222,7 +277,8 @@ aggregate_missing_output="$(
   FAKE_MAKE_LOG="${aggregate_missing_dir}/make.log" \
   CARTULARY_TEST_RESULTS_DIR="${aggregate_missing_results}" \
   CARTULARY_TEST_RUN_ID="aggregate-missing" \
-    "${SCRIPT}" --label aggregate-missing --summary-targets alpha,missing-target --step alpha \
+  TASK_SURFACE_MANIFEST="${sequence_manifest}" \
+    "${SCRIPT}" --sequence aggregate-missing \
     2>&1
 )"
 aggregate_missing_status=$?
@@ -248,7 +304,8 @@ failure_output="$(
   FAKE_MAKE_LOG="${failure_dir}/make.log" \
   CARTULARY_TEST_RESULTS_DIR="${failure_results}" \
   CARTULARY_TEST_RUN_ID="failure" \
-    "${SCRIPT}" --label fail-smoke --summary-targets alpha,beta --step alpha --step fail-step --step beta \
+  TASK_SURFACE_MANIFEST="${sequence_manifest}" \
+    "${SCRIPT}" --sequence fail-smoke \
     2>&1
 )"
 failure_status=$?
@@ -277,7 +334,8 @@ dry_run_output="$(
   FAKE_MAKE_LOG="${dry_run_dir}/make.log" \
   CARTULARY_TEST_RESULTS_DIR="${dry_run_dir}/results" \
   CARTULARY_TEST_RUN_ID="dry-run" \
-    "${SCRIPT}" --label dry-run --summary-targets alpha --step alpha \
+  TASK_SURFACE_MANIFEST="${sequence_manifest}" \
+    "${SCRIPT}" --sequence dry-run \
     2>&1
 )"
 assert_not_contains "${dry_run_output}" "[RUN]" "script dry-run run start output"
@@ -292,13 +350,13 @@ set +e
 invalid_output="$(
   MAKE="${invalid_dir}/fake-make" \
   FAKE_MAKE_LOG="${invalid_dir}/make.log" \
-    "${SCRIPT}" --label invalid --summary-targets alpha --parallel-step alpha \
+    "${SCRIPT}" --summary-targets alpha \
     2>&1
 )"
 invalid_status=$?
 set -e
 assert_equals "${invalid_status}" "2" "invalid usage status"
-assert_contains "${invalid_output}" "--parallel-step requires <target>:<jobs>" "invalid usage output"
+assert_contains "${invalid_output}" "usage: run-make-sequence.sh --sequence <name>" "invalid usage output"
 assert_file_absent "${invalid_dir}/make.log" "invalid usage child make log"
 
 makefile_content="$(cat "${ROOT_DIR}/Makefile")"
@@ -329,8 +387,9 @@ test_service_backed_block="$(make_target_block test-service-backed)"
 test_fast_service_backed_block="$(make_target_block test-fast-service-backed)"
 check_service_backed_block="$(make_target_block check-service-backed)"
 assert_contains "${test_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "make test helper invocation"
-assert_contains "${test_block}" "--summary-profile test" "make test summary profile"
-assert_contains "${test_block}" "--parallel-step test-local:3 --step test-service-backed" "make test sequence"
+assert_contains "${test_block}" "--sequence test" "make test manifest sequence"
+assert_not_contains "${test_block}" "--summary-profile test" "make test no inline summary profile"
+assert_not_contains "${test_block}" "--parallel-step test-local:3 --step test-service-backed" "make test no inline sequence"
 assert_not_contains "${test_block}" "--step browser-e2e" "make test no final serial browser step"
 assert_not_contains "${test_block}" "--step test-isolated" "make test old split browser sequence"
 assert_not_contains "${test_block}" "completed=" "make test inline completed counter"
@@ -404,7 +463,7 @@ for target in test run-harness-smoke-fast run-harness-smoke-extended run-harness
   if [[ "${target}" == run-harness-smoke-* ]]; then
     assert_contains "${make_dry_run_output}" "scripts/run-harness-smoke.mjs --tier ${target#run-harness-smoke-}" "make -n ${target} helper command"
   else
-    assert_contains "${make_dry_run_output}" "scripts/run-make-sequence.sh --label ${target}" "make -n ${target} helper command"
+    assert_contains "${make_dry_run_output}" "scripts/run-make-sequence.sh --sequence ${target}" "make -n ${target} helper command"
   fi
   assert_file_absent "${make_dry_run_dir}/results/make-n-${target}/run-summary.json" "make -n ${target} summary"
 done
