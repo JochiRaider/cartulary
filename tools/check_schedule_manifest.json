@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.check_schedule.v3",
+  "schema_id": "cartulary.check_schedule.v4",
   "schedules": [
     {
       "target": "check",
@@ -89,7 +89,7 @@
           "needs": [
             "check-build-prereqs"
           ],
-          "skipped_summary_targets": [
+          "produces_summary_targets": [
             "backend-unit",
             "frontend-typecheck"
           ],
@@ -104,7 +104,7 @@
           "needs": [
             "check-build-prereqs"
           ],
-          "skipped_summary_targets": [
+          "produces_summary_targets": [
             "frontend-unit"
           ],
           "resource_claims": {
@@ -118,7 +118,7 @@
           "needs": [
             "check-build-prereqs"
           ],
-          "skipped_summary_targets": [
+          "produces_summary_targets": [
             "check-harness-smoke"
           ],
           "resource_claims": {

@@ -34,7 +34,7 @@ const runId = process.env.CARTULARY_TEST_RUN_ID || "adhoc";
 const phaseSummarySchemaID = "cartulary.test_phase_summary.v2";
 const targetTimingSchemaID = "cartulary.test_target_timing.v1";
 const targetSummarySchemaID = "cartulary.test_target_summary.v3";
-const runSummarySchemaID = "cartulary.test_run_summary.v3";
+const runSummarySchemaID = "cartulary.test_run_summary.v4";
 const sharedExecutionGroupSchemaID = "cartulary.test_shared_execution_group.v1";
 const timingBucketOrder = [
   "setup",
@@ -328,16 +328,17 @@ function parseTargetListValue(value) {
 function handleRunStart(args) {
   const options = parseLifecycleOptions(args);
   const [label] = options.positional;
-  if (!label || options.steps === undefined || options.targets === undefined || options.jobs === undefined) {
-    throw new Error("usage: test-output.mjs run-start <label> --steps <n> --targets <n> --jobs <n> [--force]");
+  if (!label || options.steps === undefined || options.summary_targets === undefined || options.jobs === undefined) {
+    throw new Error("usage: test-output.mjs run-start <label> --steps <n> --summary-targets <n> [--helper-units <n>] --jobs <n> [--force]");
   }
   if (!shouldEmitLifecycle(options)) {
     return 0;
   }
-  const steps = parseNonNegativeInteger(options.steps, "steps");
-  const targets = parseNonNegativeInteger(options.targets, "targets");
+  const workUnits = parseNonNegativeInteger(options.steps, "steps");
+  const summaryTargets = parseNonNegativeInteger(options.summary_targets, "summary-targets");
+  const helperUnits = parseNonNegativeInteger(options.helper_units ?? "0", "helper-units");
   const jobs = parseNonNegativeInteger(options.jobs, "jobs");
-  process.stdout.write(`[RUN] ${label} steps=${steps} targets=${targets} jobs=${jobs} run_id=${runId}\n`);
+  process.stdout.write(`[RUN] ${label} work_units=${workUnits} summary_targets=${summaryTargets} helper_units=${helperUnits} jobs=${jobs} run_id=${runId}\n`);
   return 0;
 }
 
@@ -1906,22 +1907,24 @@ function parseSummaryGroupsSpec(value) {
         throw new Error(`invalid summary group ${group}; expected <name>=<target,target>`);
       }
       const name = group.slice(0, separator).trim();
-      const targets = parseTargetList(group.slice(separator + 1));
-      if (targets.length === 0) {
+      const summaryTargets = parseTargetList(group.slice(separator + 1));
+      if (summaryTargets.length === 0) {
         throw new Error(`invalid summary group ${name}; expected at least one target`);
       }
-      return { name, targets };
+      return { name, summaryTargets };
     });
 }
 
 function parseRunSummaryArgs(args) {
   const [label, requestedStatus = "pass", completedText = "0", totalText = "0", abortedAfter = "", ...remaining] = args;
   if (!label) {
-    throw new Error("usage: test-output.mjs run-summary <label> <pass|fail> <completed> <total> <aborted_after|-> [--summary-groups <name=a,b;name=c>] [--skipped-after-failure <target,target>] [--quiet-success] [targets...]");
+    throw new Error("usage: test-output.mjs run-summary <label> <pass|fail> <completed> <total> <aborted_after|-> [--summary-groups <name=a,b;name=c>] [--skipped-after-failure <target,target>] [--helper-units <unit,unit>] [--completed-helper-units <unit,unit>] [--quiet-success] [summary_targets...]");
   }
-  const targets = [];
+  const summaryTargets = [];
   const summaryGroups = [];
   const skippedAfterFailure = [];
+  let helperUnits = [];
+  let completedHelperUnits = [];
   let quietSuccess = false;
   while (remaining.length > 0) {
     const value = remaining.shift();
@@ -1945,9 +1948,25 @@ function parseRunSummaryArgs(args) {
       skippedAfterFailure.push(...parseTargetList(spec));
       continue;
     }
-    targets.push(value);
+    if (value === "--helper-units") {
+      const spec = remaining.shift();
+      if (spec === undefined) {
+        throw new Error("--helper-units requires <unit,unit>");
+      }
+      helperUnits = parseTargetList(spec);
+      continue;
+    }
+    if (value === "--completed-helper-units") {
+      const spec = remaining.shift();
+      if (spec === undefined) {
+        throw new Error("--completed-helper-units requires <unit,unit>");
+      }
+      completedHelperUnits = parseTargetList(spec);
+      continue;
+    }
+    summaryTargets.push(value);
   }
-  return { label, requestedStatus, completedText, totalText, abortedAfter, targets, summaryGroups, skippedAfterFailure, quietSuccess };
+  return { label, requestedStatus, completedText, totalText, abortedAfter, summaryTargets, summaryGroups, skippedAfterFailure, helperUnits, completedHelperUnits, quietSuccess };
 }
 
 function createDurationAggregate() {
@@ -2036,26 +2055,26 @@ function summarizeTargetSummaries(summaries, missingTargetSummaries, requestedSt
 function buildSummaryGroups(summaryGroups, skippedAfterFailureSet = new Set()) {
   return summaryGroups.map((group) => {
     const groupSummaries = [];
-    const missingTargetSummaries = [];
+    const missingSummaryTargets = [];
     const skippedAfterFailure = [];
-    for (const target of group.targets) {
-      const summary = loadTargetSummary(target);
+    for (const summaryTarget of group.summaryTargets) {
+      const summary = loadTargetSummary(summaryTarget);
       if (!summary) {
-        if (skippedAfterFailureSet.has(target)) {
-          skippedAfterFailure.push(target);
+        if (skippedAfterFailureSet.has(summaryTarget)) {
+          skippedAfterFailure.push(summaryTarget);
           continue;
         }
-        missingTargetSummaries.push(target);
+        missingSummaryTargets.push(summaryTarget);
         continue;
       }
       groupSummaries.push(summary);
     }
-    const summarized = summarizeTargetSummaries(groupSummaries, missingTargetSummaries);
+    const summarized = summarizeTargetSummaries(groupSummaries, missingSummaryTargets);
     return {
       name: group.name,
       status: summarized.failed ? "fail" : "pass",
-      targets: group.targets,
-      missing_target_summaries: missingTargetSummaries,
+      summary_targets: group.summaryTargets,
+      missing_summary_targets: missingSummaryTargets,
       skipped_after_failure: skippedAfterFailure,
       start_time: summarized.startTime,
       end_time: summarized.endTime,
@@ -2078,15 +2097,15 @@ function buildSummaryGroups(summaryGroups, skippedAfterFailureSet = new Set()) {
 function writeSummaryGroupLines(stream, label, summaryGroups) {
   for (const group of summaryGroups) {
     const missing =
-      group.missing_target_summaries.length > 0
-        ? ` missing=${group.missing_target_summaries.join(",")}`
+      group.missing_summary_targets.length > 0
+        ? ` missing_summary_targets=${group.missing_summary_targets.join(",")}`
         : "";
     const skipped =
       group.skipped_after_failure.length > 0
         ? ` skipped_after_failure=${group.skipped_after_failure.join(",")}`
         : "";
     stream.write(
-      `[GROUP] ${label} ${group.name} targets=${group.targets.join(",")} status=${group.status} ${formatDurationFields(group.wall_duration_ms, group.executed_duration_ms, group.logical_duration_ms, group.critical_path_wall_duration_ms, group.teardown_duration_ms)} ${formatAccountingModeFields(group.accounting_modes)}${missing}${skipped}\n`,
+      `[GROUP] ${label} ${group.name} summary_targets=${group.summary_targets.join(",")} status=${group.status} ${formatDurationFields(group.wall_duration_ms, group.executed_duration_ms, group.logical_duration_ms, group.critical_path_wall_duration_ms, group.teardown_duration_ms)} ${formatAccountingModeFields(group.accounting_modes)}${missing}${skipped}\n`,
     );
   }
 }
@@ -2138,28 +2157,28 @@ function findSlowestLifecycleBucket(targetSummaries) {
 }
 
 function handleRunSummary(args) {
-  const { label, requestedStatus, completedText, totalText, abortedAfter, targets, summaryGroups, skippedAfterFailure, quietSuccess } =
+  const { label, requestedStatus, completedText, totalText, abortedAfter, summaryTargets, summaryGroups, skippedAfterFailure, helperUnits, completedHelperUnits, quietSuccess } =
     parseRunSummaryArgs(args);
-  const completedTargets = Number.parseInt(completedText, 10) || 0;
-  const totalTargets = Number.parseInt(totalText, 10) || 0;
+  const completedWorkUnits = Number.parseInt(completedText, 10) || 0;
+  const totalWorkUnits = Number.parseInt(totalText, 10) || 0;
   const skippedAfterFailureSet = new Set(skippedAfterFailure);
-  const missingTargetSummaries = [];
-  const targetSummaries = [];
+  const missingSummaryTargets = [];
+  const evidenceTargetSummaries = [];
 
-  for (const target of targets) {
-    const summary = loadTargetSummary(target);
+  for (const summaryTarget of summaryTargets) {
+    const summary = loadTargetSummary(summaryTarget);
     if (!summary) {
-      if (skippedAfterFailureSet.has(target)) {
+      if (skippedAfterFailureSet.has(summaryTarget)) {
         continue;
       }
-      missingTargetSummaries.push(target);
+      missingSummaryTargets.push(summaryTarget);
       continue;
     }
-    targetSummaries.push(summary);
+    evidenceTargetSummaries.push(summary);
   }
   const summarized = summarizeTargetSummaries(
-    targetSummaries,
-    missingTargetSummaries,
+    evidenceTargetSummaries,
+    missingSummaryTargets,
     requestedStatus,
   );
   const aggregate = summarized.aggregate;
@@ -2172,22 +2191,41 @@ function handleRunSummary(args) {
     summarized.failed ||
     renderedSummaryGroups.some((group) => group.status !== "pass") ||
     sharedExecutionGroups.some((group) => group.status !== "pass");
-  const slowestTarget = findSlowestTarget(targetSummaries);
-  const slowestLifecycleBucket = findSlowestLifecycleBucket(targetSummaries);
+  const slowestTarget = findSlowestTarget(evidenceTargetSummaries);
+  const slowestLifecycleBucket = findSlowestLifecycleBucket(evidenceTargetSummaries);
   const runFixture = combineFixtureSummaries(
     label,
     null,
-    targetSummaries.map((summary) => ({
+    evidenceTargetSummaries.map((summary) => ({
       fixture: targetSummaryAccountingView(summary, summary.target).fixture,
     })),
   );
+  const workUnits = {
+    completed: completedWorkUnits,
+    total: totalWorkUnits,
+    aborted_after: abortedAfter === "-" ? "" : abortedAfter,
+  };
+  const summaryTargetFields = {
+    expected: summaryTargets,
+    missing: missingSummaryTargets,
+    skipped_after_failure: skippedAfterFailure,
+  };
+  const evidenceTargets = {
+    present: evidenceTargetSummaries.map((summary) => summary.target),
+    summaries: evidenceTargetSummaries,
+  };
+  const helperUnitFields = {
+    total: helperUnits.length,
+    completed: completedHelperUnits.length,
+    names: helperUnits,
+  };
+  const expectedEvidenceTargetCount = Math.max(0, summaryTargets.length - skippedAfterFailure.length);
 
   const runSummary = {
     schema_id: runSummarySchemaID,
     label,
     status: failed ? "fail" : "pass",
-    completed_targets: `${completedTargets}/${totalTargets}`,
-    aborted_after: abortedAfter === "-" ? "" : abortedAfter,
+    work_units: workUnits,
     start_time: summarized.startTime,
     end_time: summarized.endTime,
     ...durationFieldsForJSON(aggregate, {
@@ -2205,10 +2243,9 @@ function handleRunSummary(args) {
     artifacts: {
       dir: relToRepo(path.join(resultsRoot, runId)),
     },
-    targets,
-    target_summaries: targetSummaries,
-    missing_target_summaries: missingTargetSummaries,
-    skipped_after_failure: skippedAfterFailure,
+    summary_targets: summaryTargetFields,
+    evidence_targets: evidenceTargets,
+    helper_units: helperUnitFields,
     summary_groups: renderedSummaryGroups,
     shared_execution_groups: sharedExecutionGroups,
   };
@@ -2219,7 +2256,7 @@ function handleRunSummary(args) {
       return 0;
     }
     process.stdout.write(
-      `[PASS] ${label} completed_targets=${completedTargets}/${totalTargets} phases=${aggregate.phases} tests=${aggregate.tests} authoritative=${aggregate.authoritative} support=${aggregate.support} unmapped=${aggregate.unmapped} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
+      `[PASS] ${label} work_units=${completedWorkUnits}/${totalWorkUnits} summary_targets=${summaryTargets.length} evidence_targets=${evidenceTargetSummaries.length}/${expectedEvidenceTargetCount} helper_units=${helperUnits.length} phases=${aggregate.phases} tests=${aggregate.tests} authoritative=${aggregate.authoritative} support=${aggregate.support} unmapped=${aggregate.unmapped} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
     );
     writeFixtureLine(process.stdout, runFixture);
     writeSummaryGroupLines(process.stdout, label, renderedSummaryGroups);
@@ -2228,7 +2265,7 @@ function handleRunSummary(args) {
   }
 
   process.stderr.write(
-    `[FAIL] ${label} completed_targets=${completedTargets}/${totalTargets} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
+    `[FAIL] ${label} work_units=${completedWorkUnits}/${totalWorkUnits} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} summary_targets=${summaryTargets.length} evidence_targets=${evidenceTargetSummaries.length}/${expectedEvidenceTargetCount} helper_units=${helperUnits.length} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
   );
   writeFixtureLine(process.stderr, runFixture);
   writeSummaryGroupLines(process.stderr, label, renderedSummaryGroups);

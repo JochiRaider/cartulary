@@ -10,7 +10,7 @@ export const defaultTaskSurfaceManifestPath = path.join(
   "task_surface_manifest.json",
 );
 export const defaultGeneratedMakePath = path.join(repoRoot, "tools", "task_surface.generated.mk");
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v4";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v5";
 
 const validClassifications = new Set(["public", "check_internal", "helper_only"]);
 const validInclusions = new Set(["test", "check", "ci", "release-check", "helper_only"]);
@@ -63,10 +63,10 @@ export function summaryProfile(manifest, name) {
   }
   return {
     name,
-    targets: [...profile.targets],
+    summaryTargets: [...profile.summary_targets],
     groups: (profile.groups ?? []).map((group) => ({
       name: group.name,
-      targets: [...group.targets],
+      summaryTargets: [...group.summary_targets],
     })),
   };
 }
@@ -74,9 +74,9 @@ export function summaryProfile(manifest, name) {
 export function summaryProfileArgs(manifest, name) {
   const profile = summaryProfile(manifest, name);
   const args = {
-    targets: profile.targets,
+    summaryTargets: profile.summaryTargets,
     groupsSpec: profile.groups
-      .map((group) => `${group.name}=${group.targets.join(",")}`)
+      .map((group) => `${group.name}=${group.summaryTargets.join(",")}`)
       .join(";"),
   };
   return args;
@@ -289,15 +289,15 @@ function validateSummaryProfileAccountingRoots(errors, targets, summaryProfiles)
   }
 
   for (const [name, profile] of Object.entries(summaryProfiles)) {
-    if (!Array.isArray(profile?.targets)) {
+    if (!Array.isArray(profile?.summary_targets)) {
       continue;
     }
-    const targetSet = new Set(profile.targets);
-    for (const target of profile.targets) {
+    const targetSet = new Set(profile.summary_targets);
+    for (const target of profile.summary_targets) {
       for (const child of projectedChildrenForTarget(targets, target)) {
         if (targetSet.has(child)) {
           errors.push(
-            `summary_profiles.${name}.targets must not include both aggregate target ${target} and projected child ${child}`,
+            `summary_profiles.${name}.summary_targets must not include both aggregate target ${target} and projected child ${child}`,
           );
         }
       }
@@ -311,36 +311,36 @@ function validateNamedTargetLists(errors, targets, collection, label) {
     return;
   }
   for (const [name, value] of Object.entries(collection)) {
-    const targetList = value?.targets;
+    const targetList = value?.summary_targets;
     if (!Array.isArray(targetList) || targetList.length === 0) {
-      errors.push(`${label}.${name}.targets must be a non-empty array`);
+      errors.push(`${label}.${name}.summary_targets must be a non-empty array`);
       continue;
     }
     const seen = new Set();
     for (const target of targetList) {
       if (typeof target !== "string" || target.trim() === "") {
-        errors.push(`${label}.${name}.targets contains an invalid target`);
+        errors.push(`${label}.${name}.summary_targets contains an invalid target`);
         continue;
       }
       if (seen.has(target)) {
-        errors.push(`${label}.${name}.targets contains duplicate target ${target}`);
+        errors.push(`${label}.${name}.summary_targets contains duplicate target ${target}`);
       }
       seen.add(target);
       if (!targets.has(target)) {
-        errors.push(`${label}.${name}.targets references unknown target ${target}`);
+        errors.push(`${label}.${name}.summary_targets references unknown target ${target}`);
       }
     }
     for (const group of value.groups ?? []) {
       if (typeof group?.name !== "string" || group.name.trim() === "") {
         errors.push(`${label}.${name}.groups contains an invalid group name`);
       }
-      if (!Array.isArray(group?.targets) || group.targets.length === 0) {
-        errors.push(`${label}.${name}.groups.${group?.name ?? "unknown"}.targets must be non-empty`);
+      if (!Array.isArray(group?.summary_targets) || group.summary_targets.length === 0) {
+        errors.push(`${label}.${name}.groups.${group?.name ?? "unknown"}.summary_targets must be non-empty`);
         continue;
       }
-      for (const target of group.targets) {
+      for (const target of group.summary_targets) {
         if (!targets.has(target)) {
-          errors.push(`${label}.${name}.groups.${group.name} references unknown target ${target}`);
+          errors.push(`${label}.${name}.groups.${group.name}.summary_targets references unknown target ${target}`);
         }
       }
     }

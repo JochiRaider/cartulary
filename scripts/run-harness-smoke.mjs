@@ -153,7 +153,7 @@ async function main() {
   const profile = summaryProfileArgs(manifest, label);
 
   if (verboseOutput()) {
-    await emitTestOutput(["run-start", label, "--steps", "1", "--targets", String(checks.length), "--jobs", String(jobs)]);
+    await emitTestOutput(["run-start", label, "--steps", "1", "--summary-targets", String(profile.summaryTargets.length), "--helper-units", "0", "--jobs", String(jobs)]);
     await emitTestOutput(["step-start", label, "1", "1", options.tier, "--mode", "parallel", "--jobs", String(jobs)]);
   }
 
@@ -171,7 +171,7 @@ async function main() {
     summaryArgs.push("--skipped-after-failure", skippedAfterFailure.join(","));
   }
   summaryArgs.push("--quiet-success");
-  summaryArgs.push(...profile.targets);
+  summaryArgs.push(...profile.summaryTargets);
   const summaryStatus = await emitTestOutput(summaryArgs);
   if (failure) {
     process.exit(failure.status);

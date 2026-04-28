@@ -220,8 +220,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v3") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v3");
+if (manifest.schema_id !== "cartulary.check_schedule.v4") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v4");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -241,8 +241,8 @@ const fs = require("node:fs");
 
 const [manifestFile, workUnit, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v3") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v3");
+if (manifest.schema_id !== "cartulary.check_schedule.v4") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v4");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -443,7 +443,7 @@ const fs = require("node:fs");
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
 for (const profileName of ["test", "check"]) {
-  const profileTargets = manifest.summary_profiles?.[profileName]?.targets ?? [];
+  const profileTargets = manifest.summary_profiles?.[profileName]?.summary_targets ?? [];
   if (profileTargets.includes("browser-e2e")) {
     throw new Error(`${profileName} summary profile must count browser-e2e through the service-backed scheduler root`);
   }
@@ -452,10 +452,10 @@ for (const profileName of ["test", "check"]) {
   const backend = groups.find((group) => group.name === "backend-service-backed");
   const expectedBrowser = ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"];
   const expectedBackend = ["backend-integration", "backend-integration-support", "backend-store", "backend-process"];
-  if (JSON.stringify(browser?.targets) !== JSON.stringify(expectedBrowser)) {
+  if (JSON.stringify(browser?.summary_targets) !== JSON.stringify(expectedBrowser)) {
     throw new Error(`${profileName} browser summary group must report service-backed webserver and isolated browser leaf targets`);
   }
-  if (JSON.stringify(backend?.targets) !== JSON.stringify(expectedBackend)) {
+  if (JSON.stringify(backend?.summary_targets) !== JSON.stringify(expectedBackend)) {
     throw new Error(`${profileName} backend-service-backed summary group must contain backend service targets`);
   }
 }
@@ -465,7 +465,7 @@ const expectedDurationBaselines = [
   "check-go-test-duration-baseline-drift",
   "check-browser-e2e-duration-baseline-drift",
 ];
-if (JSON.stringify(durationBaselines?.targets) !== JSON.stringify(expectedDurationBaselines)) {
+if (JSON.stringify(durationBaselines?.summary_targets) !== JSON.stringify(expectedDurationBaselines)) {
   throw new Error("check duration-baselines summary group must report Go and browser duration drift gates");
 }
 const targetEntries = new Map((manifest.targets ?? []).map((entry) => [entry.name, entry]));

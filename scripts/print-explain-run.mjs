@@ -167,10 +167,18 @@ function writeRunSummary(runDir, runSummary) {
     return;
   }
   const c = counts(runSummary);
-  process.stdout.write(
-    `[RUN] ${runSummary.label} status=${runSummary.status} completed=${runSummary.completed_targets} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${duration(runSummary)} slowest_target=${slowestTarget(runSummary)} artifacts=${runSummary.artifacts?.dir ?? relToRepo(runDir)}\n`,
+  const workUnits = runSummary.work_units ?? { completed: 0, total: 0 };
+  const summaryTargets = runSummary.summary_targets ?? { expected: [], missing: [] };
+  const evidenceTargets = runSummary.evidence_targets ?? { present: [] };
+  const helperUnits = runSummary.helper_units ?? { total: 0 };
+  const expectedEvidenceTargets = Math.max(
+    0,
+    summaryTargets.expected.length - (summaryTargets.skipped_after_failure?.length ?? 0),
   );
-  const missing = runSummary.missing_target_summaries ?? [];
+  process.stdout.write(
+    `[RUN] ${runSummary.label} status=${runSummary.status} work_units=${workUnits.completed}/${workUnits.total} summary_targets=${summaryTargets.expected.length} evidence_targets=${evidenceTargets.present.length}/${expectedEvidenceTargets} helper_units=${helperUnits.total} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${duration(runSummary)} slowest_target=${slowestTarget(runSummary)} artifacts=${runSummary.artifacts?.dir ?? relToRepo(runDir)}\n`,
+  );
+  const missing = summaryTargets.missing ?? [];
   if (missing.length > 0) {
     process.stdout.write(`[RUN-MISSING] ${missing.join(",")}\n`);
   }
@@ -199,7 +207,7 @@ function writeSchedulerSummary(summary) {
     .map((entry) => `${entry.label}(${formatDuration(entry.duration_ms)})`)
     .join(",") || "none";
   process.stdout.write(
-    `[SCHEDULER] ${summary.target} status=${summary.status} completed=${summary.completed_work_units}/${summary.total_work_units} failed=${summary.failed_work_unit ?? "none"} slowest=${slowest} logs=${summary.artifacts?.scheduler_logs_dir ?? ""}\n`,
+    `[SCHEDULER] ${summary.target} status=${summary.status} completed_work_units=${summary.completed_work_units}/${summary.total_work_units} failed=${summary.failed_work_unit ?? "none"} slowest=${slowest} logs=${summary.artifacts?.scheduler_logs_dir ?? ""}\n`,
   );
 }
 
@@ -219,7 +227,7 @@ function writeChildren(targetSummary) {
 }
 
 function writeRunChildren(runSummary) {
-  const targets = runSummary?.target_summaries ?? [];
+  const targets = runSummary?.evidence_targets?.summaries ?? [];
   if (targets.length === 0) {
     process.stdout.write("[CHILDREN] none\n");
     return;

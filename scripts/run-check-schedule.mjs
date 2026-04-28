@@ -30,7 +30,7 @@ import { loadTaskSurfaceManifest, summaryProfileArgs } from "./lib/task-surface.
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
-const supportedSchemaID = "cartulary.check_schedule.v3";
+const supportedSchemaID = "cartulary.check_schedule.v4";
 const schedulerEventSchemaID = "cartulary.check_scheduler_event.v3";
 const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v3";
 
@@ -425,9 +425,9 @@ function findSchedule(manifest, target, overrides) {
       label: unitTarget,
       weight: unit.weight,
       needs: normalizeNeeds(unit.needs, `${label} ${unitTarget}`),
-      skippedSummaryTargets: normalizeTargetList(
-        unit.skipped_summary_targets,
-        `${label} ${unitTarget} skipped_summary_targets`,
+      producesSummaryTargets: normalizeTargetList(
+        unit.produces_summary_targets,
+        `${label} ${unitTarget} produces_summary_targets`,
       ),
       resourceClaims: claims,
       makeJobs: normalizeMakeJobs(unit.make_jobs, `${label} ${unitTarget}`, claims),
@@ -1243,6 +1243,9 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
   const activeClaims = new Map();
   const totalUnits = schedule.units.length;
   const capacityDisplay = schedule.resourceLimits.get("cpu") ?? Math.max(...schedule.resourceLimits.values());
+  const summaryTargetSet = new Set(summaryTargets);
+  const helperUnits = schedule.units.filter((unit) => !summaryTargetSet.has(unit.target));
+  const helperUnitNames = helperUnits.map((unit) => unit.target);
   const skippedSummaryTargets = new Set();
   let started = 0;
   let completedCount = 0;
@@ -1263,8 +1266,10 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
       schedule.target,
       "--steps",
       String(totalUnits),
-      "--targets",
+      "--summary-targets",
       String(summaryTargets.length),
+      "--helper-units",
+      String(helperUnits.length),
       "--jobs",
       String(capacityDisplay),
     ]);
@@ -1349,8 +1354,10 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
           const skipped = pending.splice(0);
           const skipMemo = new Map();
           for (const unit of skipped) {
-            skippedSummaryTargets.add(unit.target);
-            for (const target of unit.skippedSummaryTargets) {
+            if (summaryTargetSet.has(unit.target)) {
+              skippedSummaryTargets.add(unit.target);
+            }
+            for (const target of unit.producesSummaryTargets) {
               skippedSummaryTargets.add(target);
             }
             reporter.skipUnit(
@@ -1412,13 +1419,19 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
     if (summaryGroups) {
       summaryArgs.push("--summary-groups", summaryGroups);
     }
+    if (helperUnitNames.length > 0) {
+      summaryArgs.push("--helper-units", helperUnitNames.join(","));
+      summaryArgs.push("--completed-helper-units", helperUnitNames.filter((name) => completed.has(name)).join(","));
+    }
     for (const skipped of reporter.skippedWork) {
       const skippedUnit = unitsByTarget.get(skipped.id);
       if (!skippedUnit) {
         continue;
       }
-      skippedSummaryTargets.add(skippedUnit.target);
-      for (const target of skippedUnit.skippedSummaryTargets) {
+      if (summaryTargetSet.has(skippedUnit.target)) {
+        skippedSummaryTargets.add(skippedUnit.target);
+      }
+      for (const target of skippedUnit.producesSummaryTargets) {
         skippedSummaryTargets.add(target);
       }
     }
@@ -1456,7 +1469,7 @@ async function main() {
       process.env.TASK_SURFACE_MANIFEST ?? path.join(repoRoot, "tools", "task_surface_manifest.json"),
     );
     const profile = summaryProfileArgs(taskSurface, options.summaryProfile);
-    summaryTargets = profile.targets;
+    summaryTargets = profile.summaryTargets;
     summaryGroups = profile.groupsSpec;
   }
   if (summaryTargets.length === 0) {

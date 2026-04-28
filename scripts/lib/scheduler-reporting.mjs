@@ -334,7 +334,7 @@ export function schedulerProgressLine({
   artifacts = "",
 }) {
   return schedulerTelemetryLine(prefix, target, "progress", [
-    `completed=${completed}/${total}`,
+    `completed_work_units=${completed}/${total}`,
     `running=${running}`,
     `pending=${pending}`,
     `blocked=${blocked}`,
@@ -369,7 +369,7 @@ export function schedulerNestedProgressLine({
   return schedulerTelemetryLine(prefix, target, "nested-progress", [
     `work_unit=${workUnit}`,
     `nested_target=${nestedTarget}`,
-    `completed=${completed}/${total}`,
+    `completed_work_units=${completed}/${total}`,
     `running=${running}`,
     `pending=${pending}`,
     `blocked=${blocked}`,
@@ -396,7 +396,7 @@ export function schedulerSummaryLine({
 }) {
   return schedulerTelemetryLine(prefix, target, "summary", [
     `status=${status}`,
-    `completed=${completed}/${total}`,
+    `completed_work_units=${completed}/${total}`,
     `failed=${failed ?? "none"}`,
     skipped > 0 ? `skipped=${skipped}` : null,
     finalizerFailures > 0 ? `finalizer_failures=${finalizerFailures}` : null,

@@ -188,19 +188,20 @@ success_output="$(
     "${SCRIPT}" --label smoke --summary-targets " alpha, beta " --summary-groups "alpha-group=alpha;beta-group=beta" --step alpha --parallel-step beta:3 \
     2>&1
 )"
-assert_contains "${success_output}" "[RUN] smoke steps=2 targets=2 jobs=3 run_id=success" "success run start output"
+assert_contains "${success_output}" "[RUN] smoke work_units=2 summary_targets=2 helper_units=0 jobs=3 run_id=success" "success run start output"
 assert_contains "${success_output}" "[STEP] smoke 1/2 alpha mode=serial jobs=1" "success serial step output"
 assert_contains "${success_output}" "[STEP] smoke 2/2 beta mode=parallel jobs=3" "success parallel step output"
 assert_contains "${success_output}" "[PASS] smoke" "success run summary output"
-assert_contains "${success_output}" "[GROUP] smoke alpha-group targets=alpha status=pass" "success alpha group output"
-assert_contains "${success_output}" "[GROUP] smoke beta-group targets=beta status=pass" "success beta group output"
+assert_contains "${success_output}" "[GROUP] smoke alpha-group summary_targets=alpha status=pass" "success alpha group output"
+assert_contains "${success_output}" "[GROUP] smoke beta-group summary_targets=beta status=pass" "success beta group output"
 success_summary="${success_results}/success/run-summary.json"
 assert_equals "$(json_field "${success_summary}" "status")" "pass" "success status"
-assert_equals "$(json_field "${success_summary}" "completed_targets")" "2/2" "success completed"
-assert_equals "$(json_field "${success_summary}" "targets.0")" "alpha" "success target 0"
-assert_equals "$(json_field "${success_summary}" "targets.1")" "beta" "success target 1"
+assert_equals "$(json_field "${success_summary}" "work_units.completed")" "2" "success completed work units"
+assert_equals "$(json_field "${success_summary}" "work_units.total")" "2" "success total work units"
+assert_equals "$(json_field "${success_summary}" "summary_targets.expected.0")" "alpha" "success summary target 0"
+assert_equals "$(json_field "${success_summary}" "summary_targets.expected.1")" "beta" "success summary target 1"
 assert_equals "$(json_field "${success_summary}" "summary_groups.0.name")" "alpha-group" "success group 0"
-assert_equals "$(json_field "${success_summary}" "summary_groups.0.targets.0")" "alpha" "success group target 0"
+assert_equals "$(json_field "${success_summary}" "summary_groups.0.summary_targets.0")" "alpha" "success group target 0"
 assert_equals "$(json_field "${success_summary}" "summary_groups.0.wall_duration_ms")" "1000" "success group wall duration"
 assert_equals "$(json_field "${success_summary}" "summary_groups.0.critical_path_wall_duration_ms")" "1000" "success group critical path duration"
 assert_equals "$(json_field "${success_summary}" "summary_groups.0.teardown_duration_ms")" "0" "success group teardown duration"
@@ -227,12 +228,12 @@ aggregate_missing_output="$(
 aggregate_missing_status=$?
 set -e
 assert_equals "${aggregate_missing_status}" "1" "aggregate missing target exit status"
-assert_contains "${aggregate_missing_output}" "[RUN] aggregate-missing steps=1 targets=2 jobs=1 run_id=aggregate-missing" "aggregate missing run start output"
+assert_contains "${aggregate_missing_output}" "[RUN] aggregate-missing work_units=1 summary_targets=2 helper_units=0 jobs=1 run_id=aggregate-missing" "aggregate missing run start output"
 assert_contains "${aggregate_missing_output}" "[STEP] aggregate-missing 1/1 alpha mode=serial jobs=1" "aggregate missing step output"
 assert_contains "${aggregate_missing_output}" "[FAIL] aggregate-missing" "aggregate missing target run summary output"
 aggregate_missing_summary="${aggregate_missing_results}/aggregate-missing/run-summary.json"
 assert_equals "$(json_field "${aggregate_missing_summary}" "status")" "fail" "aggregate missing target status"
-assert_equals "$(json_field "${aggregate_missing_summary}" "missing_target_summaries.0")" "missing-target" "aggregate missing target list"
+assert_equals "$(json_field "${aggregate_missing_summary}" "summary_targets.missing.0")" "missing-target" "aggregate missing target list"
 
 failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-failure.XXXXXX")"
 cleanup_paths+=("${failure_dir}")
@@ -253,14 +254,15 @@ failure_output="$(
 failure_status=$?
 set -e
 assert_equals "${failure_status}" "7" "failure child exit status"
-assert_contains "${failure_output}" "[RUN] fail-smoke steps=3 targets=2 jobs=1 run_id=failure" "failure run start output"
+assert_contains "${failure_output}" "[RUN] fail-smoke work_units=3 summary_targets=2 helper_units=1 jobs=1 run_id=failure" "failure run start output"
 assert_contains "${failure_output}" "[STEP] fail-smoke 1/3 alpha mode=serial jobs=1" "failure alpha step output"
 assert_contains "${failure_output}" "[STEP] fail-smoke 2/3 fail-step mode=serial jobs=1" "failure failing step output"
 assert_contains "${failure_output}" "[FAIL] fail-smoke" "failure run summary output"
 failure_summary="${failure_results}/failure/run-summary.json"
 assert_equals "$(json_field "${failure_summary}" "status")" "fail" "failure status"
-assert_equals "$(json_field "${failure_summary}" "completed_targets")" "1/3" "failure completed"
-assert_equals "$(json_field "${failure_summary}" "aborted_after")" "fail-step" "failure aborted_after"
+assert_equals "$(json_field "${failure_summary}" "work_units.completed")" "1" "failure completed work units"
+assert_equals "$(json_field "${failure_summary}" "work_units.total")" "3" "failure total work units"
+assert_equals "$(json_field "${failure_summary}" "work_units.aborted_after")" "fail-step" "failure aborted_after"
 assert_equals "$(json_field "${failure_summary}" "counts.non_test_failed")" "1" "failure non-test count"
 
 dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-dry-run.XXXXXX")"
@@ -360,7 +362,7 @@ const projectedChildren = new Map(
   ]),
 );
 for (const profileName of ["test", "check"]) {
-  const roots = new Set(manifest.summary_profiles[profileName].targets);
+  const roots = new Set(manifest.summary_profiles[profileName].summary_targets);
   for (const root of roots) {
     for (const child of projectedChildren.get(root) ?? []) {
       if (roots.has(child)) {

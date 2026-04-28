@@ -338,7 +338,7 @@ write_fake_make "$success_dir"
 success_manifest="${success_dir}/manifest.json"
 cat >"$success_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v3",
+  "schema_id": "cartulary.check_schedule.v4",
   "schedules": [
     {
       "target": "check",
@@ -374,14 +374,14 @@ cat >"$success_manifest" <<'JSON'
 }
 JSON
 success_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_SERVICE=0.2 run_scheduler "$success_dir" "$success_manifest" success --summary-targets local,service,meta --summary-groups "check-work=local,service,meta" --resource-limit cpu=2 --resource-limit io=3 2>&1)"
-assert_contains "$success_output" "[RUN] check steps=5 targets=3 jobs=2 run_id=success" "success run start"
+assert_contains "$success_output" "[RUN] check work_units=5 summary_targets=3 helper_units=2 jobs=2 run_id=success" "success run start"
 assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={cpu:2,io:3,service_stack:1}" "success concise scheduler start"
 assert_contains "$success_output" "top_weighted=setup:50,build:40,local:30,service:20,meta:10" "success concise scheduler start shows top weighted work"
-assert_contains "$success_output" "[CHECK-SCHEDULER] check progress completed=0/5 running=1 pending=4 blocked=4 active_groups=setup:1 blocked_by=dependencies waiting_on=build,setup unblocks_after=setup slowest_running=setup:" "success concise scheduler progress"
-assert_contains "$success_output" "[CHECK-SCHEDULER] check nested-progress work_unit=service nested_target=service completed=3/6 running=1 pending=2 blocked=2 finalizing=0 active_groups=backend-integration:1 blocked_by=go_io waiting_on=backend-store unblocks_after=backend-integration/shard-a slowest_running=backend-integration/shard-a:1.23s" "success concise nested scheduler progress"
+assert_contains "$success_output" "[CHECK-SCHEDULER] check progress completed_work_units=0/5 running=1 pending=4 blocked=4 active_groups=setup:1 blocked_by=dependencies waiting_on=build,setup unblocks_after=setup slowest_running=setup:" "success concise scheduler progress"
+assert_contains "$success_output" "[CHECK-SCHEDULER] check nested-progress work_unit=service nested_target=service completed_work_units=3/6 running=1 pending=2 blocked=2 finalizing=0 active_groups=backend-integration:1 blocked_by=go_io waiting_on=backend-store unblocks_after=backend-integration/shard-a slowest_running=backend-integration/shard-a:1.23s" "success concise nested scheduler progress"
 assert_contains "$success_output" "artifacts=tmp/check-scheduler-success" "success concise scheduler progress artifact path"
 assert_contains "$success_output" "/results/success/check" "success concise scheduler progress artifact path suffix"
-assert_contains "$success_output" "[CHECK-SCHEDULER] check summary status=pass completed=5/5 failed=none slowest=" "success concise scheduler summary"
+assert_contains "$success_output" "[CHECK-SCHEDULER] check summary status=pass completed_work_units=5/5 failed=none slowest=" "success concise scheduler summary"
 assert_not_contains "$success_output" "active_resource_claims=" "default scheduler output hides raw active resources"
 assert_not_contains "$success_output" "resource_limits=" "default scheduler output hides raw resource limits"
 assert_not_contains "$success_output" "claims={" "default scheduler output hides raw claims"
@@ -399,7 +399,11 @@ assert_contains "$success_events" "end meta" "success meta completed"
 assert_not_contains "$success_events" "browser" "success check schedule has no browser tail"
 success_summary="${success_dir}/results/success/run-summary.json"
 assert_equals "$(json_field "$success_summary" "status")" "pass" "success summary status"
-assert_equals "$(json_field "$success_summary" "completed_targets")" "5/5" "success completed"
+assert_equals "$(json_field "$success_summary" "work_units.completed")" "5" "success completed work units"
+assert_equals "$(json_field "$success_summary" "work_units.total")" "5" "success total work units"
+assert_equals "$(json_field "$success_summary" "summary_targets.expected.length")" "3" "success summary target count"
+assert_equals "$(json_field "$success_summary" "evidence_targets.present.length")" "3" "success evidence target count"
+assert_equals "$(json_field "$success_summary" "helper_units.total")" "2" "success helper unit count"
 success_scheduler_summary="${success_dir}/results/success/check/scheduler-summary.json"
 success_scheduler_events="${success_dir}/results/success/check/scheduler-events.jsonl"
 assert_check_scheduler_artifacts "$success_dir" success check pass - 5 finish
@@ -516,7 +520,7 @@ write_fake_make "$partial_dir"
 partial_manifest="${partial_dir}/manifest.json"
 cat >"$partial_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v3",
+  "schema_id": "cartulary.check_schedule.v4",
   "schedules": [
     {
       "target": "check",
@@ -553,7 +557,7 @@ write_fake_make "$makeflags_dir"
 makeflags_manifest="${makeflags_dir}/manifest.json"
 cat >"$makeflags_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v3",
+  "schema_id": "cartulary.check_schedule.v4",
   "schedules": [
     {
       "target": "check",
@@ -582,7 +586,7 @@ write_fake_make "$failure_dir"
 failure_manifest="${failure_dir}/manifest.json"
 cat >"$failure_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v3",
+  "schema_id": "cartulary.check_schedule.v4",
   "schedules": [
     {
       "target": "check",
@@ -590,7 +594,7 @@ cat >"$failure_manifest" <<'JSON'
       "work_units": [
         { "target": "alpha", "weight": 30, "needs": [], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" },
         { "target": "beta", "weight": 20, "needs": [], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" },
-        { "target": "gamma", "weight": 10, "needs": [], "skipped_summary_targets": ["external-summary"], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" },
+        { "target": "gamma", "weight": 10, "needs": [], "produces_summary_targets": ["external-summary"], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" },
         { "target": "delta", "weight": 5, "needs": ["beta"], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" }
       ]
     }
@@ -617,14 +621,14 @@ assert_contains "$failure_events" "start beta" "failure beta started"
 assert_contains "$failure_events" "end alpha" "failure alpha drained"
 failure_summary="${failure_dir}/results/failure/run-summary.json"
 assert_equals "$(json_field "$failure_summary" "status")" "fail" "failure summary status"
-assert_equals "$(json_field "$failure_summary" "aborted_after")" "beta" "failure aborted after"
-assert_equals "$(json_field "$failure_summary" "skipped_after_failure.0")" "gamma" "failure skipped target"
-assert_equals "$(json_field "$failure_summary" "skipped_after_failure.1")" "external-summary" "failure skipped mapped summary target"
+assert_equals "$(json_field "$failure_summary" "work_units.aborted_after")" "beta" "failure aborted after"
+assert_equals "$(json_field "$failure_summary" "summary_targets.skipped_after_failure.0")" "gamma" "failure skipped target"
+assert_equals "$(json_field "$failure_summary" "summary_targets.skipped_after_failure.1")" "external-summary" "failure skipped mapped summary target"
 "$NODE_BIN" - "$failure_summary" <<'EOF'
 const fs = require("node:fs");
 const [summaryFile] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
-if (summary.missing_target_summaries.includes("external-summary")) {
+if (summary.summary_targets.missing.includes("external-summary")) {
   throw new Error("mapped skipped summary target must not be reported missing");
 }
 EOF
@@ -673,7 +677,7 @@ write_fake_make "$invalid_dir"
 invalid_manifest="${invalid_dir}/manifest.json"
 cat >"$invalid_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v3",
+  "schema_id": "cartulary.check_schedule.v4",
   "schedules": [
     {
       "target": "check",
@@ -695,7 +699,7 @@ assert_contains "$invalid_output" "depends on unknown target missing" "invalid d
 invalid_nested_manifest="${invalid_dir}/invalid-nested-manifest.json"
 cat >"$invalid_nested_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v3",
+  "schema_id": "cartulary.check_schedule.v4",
   "schedules": [
     {
       "target": "check",
@@ -730,7 +734,7 @@ assert_contains "$invalid_nested_output" "nested_scheduler.resource_limit_env.io
 invalid_bounded_manifest="${invalid_dir}/invalid-bounded-manifest.json"
 cat >"$invalid_bounded_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v3",
+  "schema_id": "cartulary.check_schedule.v4",
   "schedules": [
     {
       "target": "check",

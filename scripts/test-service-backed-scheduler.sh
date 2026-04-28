@@ -561,7 +561,7 @@ write_manifest "$weighted_manifest" test-fast-service-backed \
 weighted_output="$(run_scheduler "$weighted_dir" "$weighted_manifest" test-fast-service-backed weighted 2>&1)"
 assert_not_contains "$weighted_output" "[STEP] test-fast-service-backed" "default service scheduler output hides per-unit steps"
 assert_not_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start" "quiet scheduler hides success start"
-assert_not_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed progress completed=0/3" "quiet scheduler hides immediate unblocked progress"
+assert_not_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed progress completed_work_units=0/3" "quiet scheduler hides immediate unblocked progress"
 assert_not_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed summary status=pass" "quiet scheduler hides success summary"
 assert_not_contains "$weighted_output" "fake pass for backend-store" "quiet scheduler hides successful child logs"
 assert_not_contains "$weighted_output" "active_resource_claims=" "default scheduler output hides raw active resources"
@@ -977,7 +977,7 @@ failure_status=$?
 set -e
 assert_equals "$failure_status" "7" "child failure status"
 assert_contains "$failure_output" "fake failure for backend-store" "child failure output"
-assert_contains "$failure_output" "[SCHEDULER] test-fast-service-backed summary status=fail completed=2/2 failed=backend-store" "failure scheduler summary"
+assert_contains "$failure_output" "[SCHEDULER] test-fast-service-backed summary status=fail completed_work_units=2/2 failed=backend-store" "failure scheduler summary"
 assert_contains "$failure_output" "[FAIL] test-fast-service-backed" "failure target summary"
 assert_scheduler_artifacts "$failure_dir" failure test-fast-service-backed fail - finish
 
@@ -998,7 +998,7 @@ failed_shard_status=$?
 set -e
 assert_equals "$failed_shard_status" "9" "failed shard finalizer status"
 assert_contains "$failed_shard_output" "fake shard failure for backend-store-shard-01" "failed shard output"
-assert_contains "$failed_shard_output" "[SCHEDULER] test-fast-service-backed summary status=fail completed=1/1 failed=finalize/backend-store" "failed shard scheduler summary"
+assert_contains "$failed_shard_output" "[SCHEDULER] test-fast-service-backed summary status=fail completed_work_units=1/1 failed=finalize/backend-store" "failed shard scheduler summary"
 assert_contains "$failed_shard_output" "finalizer_failures=1" "failed shard scheduler finalizer failure count"
 assert_contains "$failed_shard_output" "[FAIL] test-fast-service-backed" "failed shard parent summary"
 assert_scheduler_artifacts "$failed_shard_dir" failed-shard test-fast-service-backed fail - finalize-finish

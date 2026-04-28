@@ -99,7 +99,7 @@ import { loadTaskSurfaceManifest, summaryProfileArgs } from "./scripts/lib/task-
 const [manifestPath, profileName] = process.argv.slice(2);
 const { manifest } = loadTaskSurfaceManifest(manifestPath);
 const profile = summaryProfileArgs(manifest, profileName);
-process.stdout.write(`${profile.targets.join(",")}\n${profile.groupsSpec}\n`);
+process.stdout.write(`${profile.summaryTargets.join(",")}\n${profile.groupsSpec}\n`);
 EOF
   )
   summary_targets_csv="${resolved_summary[0]:-}"
@@ -126,10 +126,27 @@ completed=0
 total="${#steps[@]}"
 target_count="${#summary_targets[@]}"
 max_jobs=1
+helper_units=()
+completed_helper_units=()
+
+is_summary_target() {
+  local candidate="$1"
+  local summary_target
+  for summary_target in "${summary_targets[@]}"; do
+    if [[ "${summary_target}" == "${candidate}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
 
 for step in "${steps[@]}"; do
   step_kind="${step%%:*}"
   step_rest="${step#*:}"
+  step_target="${step_rest%%:*}"
+  if ! is_summary_target "${step_target}"; then
+    helper_units+=("${step_target}")
+  fi
   if [[ "${step_kind}" != "parallel" ]]; then
     continue
   fi
@@ -145,7 +162,7 @@ emit_run_start() {
   fi
 
   NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_SCRIPT}" run-start \
-    "${label}" --steps "${total}" --targets "${target_count}" --jobs "${max_jobs}"
+    "${label}" --steps "${total}" --summary-targets "${target_count}" --helper-units "${#helper_units[@]}" --jobs "${max_jobs}"
 }
 
 emit_step_start() {
@@ -190,6 +207,12 @@ run_summary() {
   local summary_args=()
   if [[ -n "${summary_groups_spec}" ]]; then
     summary_args+=(--summary-groups "${summary_groups_spec}")
+  fi
+  if [[ "${#helper_units[@]}" -gt 0 ]]; then
+    local helper_units_csv completed_helper_units_csv
+    helper_units_csv="$(IFS=,; echo "${helper_units[*]}")"
+    completed_helper_units_csv="$(IFS=,; echo "${completed_helper_units[*]}")"
+    summary_args+=(--helper-units "${helper_units_csv}" --completed-helper-units "${completed_helper_units_csv}")
   fi
 
   NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_SCRIPT}" run-summary \
@@ -242,6 +265,9 @@ for index in "${!steps[@]}"; do
 
   if [[ "${status}" -eq 0 ]]; then
     completed=$((completed + 1))
+    if ! is_summary_target "${step_target}"; then
+      completed_helper_units+=("${step_target}")
+    fi
     continue
   fi
 

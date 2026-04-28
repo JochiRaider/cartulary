@@ -136,7 +136,7 @@ success_output="$(
     "${SCRIPT}" --label smoke --summary-targets " alpha, beta " --summary-groups "alpha-group=alpha;beta-group=beta" --step alpha --parallel-step beta:3 \
     2>&1
 )"
-assert_contains "${success_output}" "[RUN] smoke steps=2 targets=2 jobs=3 run_id=success" "success run start output"
+assert_contains "${success_output}" "[RUN] smoke work_units=2 summary_targets=2 helper_units=0 jobs=3 run_id=success" "success run start output"
 assert_contains "${success_output}" "[STEP] smoke 1/2 alpha mode=serial jobs=1" "success serial step output"
 assert_contains "${success_output}" "[STEP] smoke 2/2 beta mode=parallel jobs=3" "success parallel step output"
 assert_contains "${success_output}" "[PASS] smoke" "success run summary output"
@@ -184,8 +184,8 @@ const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
 const checks = ["harness-quiet-a", "harness-quiet-b"];
 manifest.harness_tiers.fast = { checks };
 manifest.summary_profiles["run-harness-smoke-fast"] = {
-  targets: checks,
-  groups: [{ name: "fast", targets: checks }],
+  summary_targets: checks,
+  groups: [{ name: "fast", summary_targets: checks }],
 };
 manifest.harness_checks.push(
   { name: "harness-quiet-a", backing_scripts: [`${scriptDir}/check-a.sh`] },
