@@ -25,6 +25,7 @@
 
 ## Canonical command surface
 
+- Help: `make help`, `make help-all`.
 - Bootstrap: `make bootstrap`, `make bootstrap-node-runtime`, `make frontend-toolchain`, `make frontend-install`, `make playwright-install`.
 - Dev: `make services-up`, `make db-up`, `make db-reset`, `make minio-init`, `make dev`.
 - Generate: `make generate`, `make generate-drift`, `make toolchain-drift`, `make migration-drift`, `make phase-ledgers`, `make phase-ledger-drift`, `make benchmark-claim-check`, `make task-surface-report`.
@@ -32,7 +33,7 @@
 - Baselines: `make go-test-duration-baselines RESULTS_DIR=<dir>`, `make go-test-duration-baseline-drift RESULTS_DIR=<dir>`, `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>`.
 - Frontend: `make frontend-typecheck`, `make frontend-unit`, `make lint-biome`, `make format`.
 - Browser: `make browser-e2e`, `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make browser-e2e-measurement`, `make browser-e2e-visual`.
-- Check: `make help`, `make doctor`, `make test-fast`, `make test`, `make lint`, `make check`, `make ci`, `make release-check`.
+- Check: `make doctor`, `make test-fast`, `make test`, `make lint`, `make check`, `make ci`, `make release-check`.
 - Build: `make build`, `make build-server`, `make build-migrate`, `make build-web`.
 - Cleanup: `make clean`, `make distclean`.
 
@@ -51,7 +52,9 @@
 - Start local backing services with `make db-up`.
 - Then run `make dev`.
 - The local bootstrap server uses `configs/dev/config.toml` through `CARTULARY_CONFIG_FILE`.
-- `make help` prints the grouped root task surface without bootstrapping Node or pnpm.
+- `make help` prints the compact daily task surface without bootstrapping Node or pnpm.
+- `make help-all` prints the exhaustive public task surface without bootstrapping Node or pnpm.
+- `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all` prints public targets plus private/check-internal task-surface diagnostics.
 - `make doctor` verifies required local tools and pinned toolchain versions without installing them.
 - `make bootstrap` installs the pinned Go CLI tools and workspace dependencies.
 - `make phase-ledgers` regenerates the committed phase coverage ledgers from `tools/phase*_test_map.json`.

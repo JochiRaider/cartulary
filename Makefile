@@ -54,6 +54,7 @@ RUN_VITEST_MANIFEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-vitest-manifest-ph
 RUN_FRONTEND_BIOME_SCRIPT := $(CURDIR)/scripts/run-frontend-biome.sh
 TEST_OUTPUT_SCRIPT := $(CURDIR)/scripts/lib/test-output.sh
 TASK_SURFACE_MANIFEST ?= $(CURDIR)/tools/task_surface_manifest.json
+TASK_SURFACE_REPORT_ARGS ?=
 RUN_MAKE_SEQUENCE_SCRIPT := $(CURDIR)/scripts/run-make-sequence.sh
 RUN_HARNESS_SMOKE_SCRIPT := $(CURDIR)/scripts/run-harness-smoke.mjs
 RUN_SERVICE_BACKED_SCHEDULE_SCRIPT := $(CURDIR)/scripts/run-service-backed-schedule.mjs
@@ -169,6 +170,9 @@ endef
 
 help:
 	$(Q)printf '%s\n' $(TASK_SURFACE_HELP_LINES)
+
+help-all:
+	$(Q)printf '%s\n' $(TASK_SURFACE_HELP_ALL_LINES)
 
 doctor:
 	$(Q)set -e; \
@@ -380,7 +384,7 @@ benchmark-claim-check: $(NODE_BIN)
 	$(RUN_PHASE) "benchmark-claim-check" -- $(NODE_BIN) ./scripts/check-benchmark-claim.mjs "$(BENCHMARK_MANIFEST)"
 
 task-surface-report: $(NODE_BIN)
-	$(Q)$(NODE_BIN) ./scripts/print-task-surface-report.mjs
+	$(Q)$(NODE_BIN) ./scripts/print-task-surface-report.mjs $(TASK_SURFACE_REPORT_ARGS)
 
 task-surface-check: $(NODE_BIN)
 	$(RUN_PHASE) "task-surface-check" -- $(NODE_BIN) ./scripts/print-task-surface-report.mjs --check

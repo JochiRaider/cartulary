@@ -10,10 +10,12 @@ export const defaultTaskSurfaceManifestPath = path.join(
   "task_surface_manifest.json",
 );
 export const defaultGeneratedMakePath = path.join(repoRoot, "tools", "task_surface.generated.mk");
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v3";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v4";
 
 const validClassifications = new Set(["public", "check_internal", "helper_only"]);
 const validInclusions = new Set(["test", "check", "ci", "release-check", "helper_only"]);
+const defaultHelpTierName = "daily";
+const defaultHelpMaxEntries = 20;
 
 export function resolveRepoPath(value) {
   return path.isAbsolute(value) ? value : path.join(repoRoot, value);
@@ -44,6 +46,10 @@ export function harnessCheckEntries(manifest) {
 
 export function harnessCheckEntryMap(manifest) {
   return new Map(harnessCheckEntries(manifest).map((entry) => [entry.name, entry]));
+}
+
+export function helpTiers(manifest) {
+  return manifest.help_tiers ?? [];
 }
 
 export function summaryEntryMap(manifest) {
@@ -223,44 +229,7 @@ export function collectTaskSurfaceManifestErrors(manifest) {
     }
   }
 
-  if (!Array.isArray(manifest.help_sections) || manifest.help_sections.length === 0) {
-    errors.push("help_sections[] must be a non-empty array");
-  } else {
-    const helped = new Set();
-    for (const [sectionIndex, section] of manifest.help_sections.entries()) {
-      if (typeof section?.name !== "string" || section.name.trim() === "") {
-        errors.push(`help_sections[${sectionIndex + 1}].name must be a non-empty string`);
-      }
-      if (!Array.isArray(section?.entries)) {
-        errors.push(`help_sections[${sectionIndex + 1}].entries must be an array`);
-        continue;
-      }
-      for (const [entryIndex, helpEntry] of section.entries.entries()) {
-        const label = `help_sections[${sectionIndex + 1}].entries[${entryIndex + 1}]`;
-        if (typeof helpEntry?.target !== "string" || helpEntry.target.trim() === "") {
-          errors.push(`${label}.target must be a non-empty string`);
-          continue;
-        }
-        const target = targets.get(helpEntry.target);
-        if (!target) {
-          errors.push(`${label} references unknown target ${helpEntry.target}`);
-          continue;
-        }
-        helped.add(helpEntry.target);
-        if (target.classification !== "public") {
-          errors.push(`${helpEntry.target} has help text but is not classified public`);
-        }
-        if (typeof helpEntry.description !== "string" || helpEntry.description.trim() === "") {
-          errors.push(`${label}.description must be a non-empty string`);
-        }
-      }
-    }
-    for (const target of targets.values()) {
-      if (target.classification === "public" && !helped.has(target.name)) {
-        errors.push(`public target ${target.name} is missing help text`);
-      }
-    }
-  }
+  validateHelpTiers(errors, targets, manifest.help_tiers);
 
   validateNamedTargetLists(errors, summaryEntries, manifest.summary_profiles, "summary_profiles");
   validateSummaryProfileAccountingRoots(errors, summaryEntries, manifest.summary_profiles);
@@ -406,6 +375,85 @@ function validateHarnessTiers(errors, harnessChecks, tiers) {
   }
 }
 
+function validateHelpTiers(errors, targets, tiers) {
+  if (!Array.isArray(tiers) || tiers.length === 0) {
+    errors.push("help_tiers[] must be a non-empty array");
+    return;
+  }
+
+  const tierNames = new Set();
+  const placements = new Map();
+  let dailyTier;
+
+  for (const [tierIndex, tier] of tiers.entries()) {
+    const tierLabel = `help_tiers[${tierIndex + 1}]`;
+    const tierName = tier?.name;
+    if (typeof tierName !== "string" || tierName.trim() === "") {
+      errors.push(`${tierLabel}.name must be a non-empty string`);
+    } else {
+      if (tierNames.has(tierName)) {
+        errors.push(`help_tiers contains duplicate tier ${tierName}`);
+      }
+      tierNames.add(tierName);
+      if (tierName === defaultHelpTierName) {
+        dailyTier = tier;
+      }
+    }
+
+    if (!Array.isArray(tier?.entries) || tier.entries.length === 0) {
+      errors.push(`${tierLabel}.entries must be a non-empty array`);
+      continue;
+    }
+
+    const tierTargets = new Set();
+    for (const [entryIndex, helpEntry] of tier.entries.entries()) {
+      const label = `${tierLabel}.entries[${entryIndex + 1}]`;
+      if (typeof helpEntry?.target !== "string" || helpEntry.target.trim() === "") {
+        errors.push(`${label}.target must be a non-empty string`);
+        continue;
+      }
+      if (tierTargets.has(helpEntry.target)) {
+        errors.push(`${label} contains duplicate target ${helpEntry.target}`);
+      }
+      tierTargets.add(helpEntry.target);
+
+      const target = targets.get(helpEntry.target);
+      if (!target) {
+        errors.push(`${label} references unknown target ${helpEntry.target}`);
+        continue;
+      }
+      if (target.classification !== "public") {
+        errors.push(`${helpEntry.target} appears in help tier ${tierName ?? "unknown"} but is not classified public`);
+      }
+      const targetPlacements = placements.get(helpEntry.target) ?? [];
+      targetPlacements.push(tierName ?? "unknown");
+      placements.set(helpEntry.target, targetPlacements);
+
+      if (typeof helpEntry.description !== "string" || helpEntry.description.trim() === "") {
+        errors.push(`${label}.description must be a non-empty string`);
+      }
+    }
+  }
+
+  if (!dailyTier) {
+    errors.push(`help_tiers must include a ${defaultHelpTierName} tier`);
+  } else if (dailyTier.entries.length > defaultHelpMaxEntries) {
+    errors.push(`help_tiers.${defaultHelpTierName} entries must not exceed ${defaultHelpMaxEntries} default help entries`);
+  }
+
+  for (const target of targets.values()) {
+    if (target.classification !== "public") {
+      continue;
+    }
+    const targetPlacements = placements.get(target.name) ?? [];
+    if (targetPlacements.length === 0) {
+      errors.push(`public target ${target.name} is missing help tier placement`);
+    } else if (targetPlacements.length > 1) {
+      errors.push(`public target ${target.name} appears in multiple help tiers: ${targetPlacements.join(",")}`);
+    }
+  }
+}
+
 export function renderTaskSurfaceMake(manifest) {
   const lines = [
     "# Code generated by scripts/render-task-surface-make.mjs; DO NOT EDIT.",
@@ -419,18 +467,44 @@ export function renderTaskSurfaceMake(manifest) {
   }
   lines.push("\t''");
   lines.push("");
+  lines.push("TASK_SURFACE_HELP_ALL_LINES := \\");
+  for (const line of helpAllLines(manifest)) {
+    lines.push(`\t'${escapeMakeSingleQuoted(line)}' \\`);
+  }
+  lines.push("\t''");
+  lines.push("");
   return `${lines.join("\n")}\n`;
 }
 
 export function helpLines(manifest) {
-  const lines = ["Cartulary developer task surface", ""];
-  for (const section of manifest.help_sections) {
-    lines.push(`${section.name}:`);
-    for (const entry of section.entries) {
-      lines.push(`  make ${entry.target.padEnd(22)} ${entry.description}`);
-    }
+  const lines = ["Cartulary daily task surface", ""];
+  appendHelpTierLines(lines, helpTiers(manifest).find((tier) => tier.name === defaultHelpTierName));
+  lines.push("");
+  lines.push("For all public targets, run: make help-all");
+  lines.push("For private/check internals, run: make task-surface-report TASK_SURFACE_REPORT_ARGS=--all");
+  return trimTrailingBlank(lines);
+}
+
+export function helpAllLines(manifest) {
+  const lines = ["Cartulary public task surface", ""];
+  for (const tier of helpTiers(manifest)) {
+    appendHelpTierLines(lines, tier);
     lines.push("");
   }
+  return trimTrailingBlank(lines);
+}
+
+function appendHelpTierLines(lines, tier) {
+  if (!tier) {
+    return;
+  }
+  lines.push(`${tier.name}:`);
+  for (const entry of tier.entries) {
+    lines.push(`  make ${entry.target.padEnd(30)} ${entry.description}`);
+  }
+}
+
+function trimTrailingBlank(lines) {
   if (lines[lines.length - 1] === "") {
     lines.pop();
   }

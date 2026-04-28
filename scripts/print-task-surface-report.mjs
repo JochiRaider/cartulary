@@ -7,6 +7,7 @@ import {
   collectTaskSurfaceManifestErrors,
   defaultGeneratedMakePath,
   harnessCheckEntries,
+  helpTiers,
   renderTaskSurfaceMake,
   taskSurfaceSchemaID,
 } from "./lib/task-surface.mjs";
@@ -291,6 +292,18 @@ function validateTaskSurface({ generatedMakePath, helpEntries, manifest, phonyTa
 
 function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTargets, targetScriptRefs }) {
   const entriesByName = new Map((manifest.targets ?? []).map((entry) => [entry.name, entry]));
+  const helpTierByTarget = new Map();
+  const helpTierSummaries = helpTiers(manifest).map((tier) => {
+    const targets = (tier.entries ?? []).map((entry) => entry.target);
+    for (const target of targets) {
+      helpTierByTarget.set(target, tier.name);
+    }
+    return {
+      name: tier.name,
+      count: targets.length,
+      targets,
+    };
+  });
   const harnessChecks = harnessCheckEntries(manifest).map((entry) => ({
     name: entry.name,
     backing_scripts: entry.backing_scripts ?? [],
@@ -301,6 +314,7 @@ function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTa
       name: target,
       classification: entry.classification ?? "unclassified",
       has_help: helpEntries.has(target),
+      help_tier: helpTierByTarget.get(target) ?? null,
       included_in: entry.included_in ?? [],
       backing_scripts: entry.backing_scripts ?? [],
       makefile_script_refs: targetScriptRefs.get(target) ?? [],
@@ -308,12 +322,13 @@ function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTa
   });
 
   return {
-    schema_id: "cartulary.task_surface_report.v1",
+    schema_id: "cartulary.task_surface_report.v2",
     check_passed: errors.length === 0,
     errors,
     targets,
     harness_checks: harnessChecks,
     help_entries: Array.from(helpEntries.keys()).sort(),
+    help_tiers: helpTierSummaries,
     phase_execution_dependencies: phaseDependencies,
   };
 }
@@ -336,14 +351,20 @@ function printHumanReport(report, { allMode = false } = {}) {
   }
 
   console.log("");
-  console.log("public Make targets:");
-  for (const target of report.targets.filter((entry) => entry.classification === "public")) {
-    console.log(
-      `  ${target.name} help=${target.has_help ? "yes" : "no"} included_in=${target.included_in.join(",")}`,
-    );
+  console.log("help tier counts:");
+  for (const tier of report.help_tiers) {
+    console.log(`  ${tier.name}: ${tier.count}`);
   }
 
   if (allMode) {
+    console.log("");
+    console.log("public Make targets:");
+    for (const target of report.targets.filter((entry) => entry.classification === "public")) {
+      console.log(
+        `  ${target.name} help=${target.has_help ? "yes" : "no"} help_tier=${target.help_tier ?? "-"} included_in=${target.included_in.join(",")}`,
+      );
+    }
+
     console.log("");
     console.log("task classifications:");
     for (const target of report.targets) {
@@ -371,7 +392,7 @@ function printHumanReport(report, { allMode = false } = {}) {
     console.log("");
     console.log(`logical harness checks: ${report.harness_checks.length}`);
     console.log(`phase-map execution dependencies: ${report.phase_execution_dependencies.length}`);
-    console.log("use --all to print private targets, harness checks, and phase dependency rows");
+    console.log("use --all to print public targets, private targets, harness checks, and phase dependency rows");
   }
 
   if (report.errors.length > 0) {

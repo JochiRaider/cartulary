@@ -13,7 +13,7 @@ At bootstrap completion, the repository should satisfy all of the following:
 - one modular-monolith application skeleton, not a set of future microservices.[^3]
 - one root Go module and one top-level pnpm workspace with the baseline monorepo layout already in place.[^4]
 - local PostgreSQL and S3-compatible object storage available through `docker-compose.dev.yml` for development and integration tests.[^3][^5]
-- a root `Makefile` with the canonical developer task surface, including `help`, `doctor`, `bootstrap`, `db-up`, `db-reset`, `dev`, `generate`, `test`, `lint`, `check`, `build`, `clean`, and `distclean`.[^6]
+- a root `Makefile` with the canonical developer task surface, including `help`, `help-all`, `doctor`, `bootstrap`, `db-up`, `db-reset`, `dev`, `generate`, `test`, `lint`, `check`, `build`, `clean`, and `distclean`.[^6]
 - a live contract derivation path from owner sections to `/contracts/*` to generated code, with drift detection wired into `make check`.[^7]
 - reusable unit, integration, and black-box end-to-end harnesses, plus the shared cross-cutting harnesses that must apply across phases.[^8]
 - the first red tests for Phase 0 checked in before any feature code beyond the bootstrap shell is treated as complete.[^9]
@@ -260,6 +260,7 @@ For the initial greenfield phase, it is enough for `make generate` to prove the 
 Implement the root `Makefile` next. It should expose the baseline human-facing tasks from the development guide:[^6]
 
 - `make help`
+- `make help-all`
 - `make doctor`
 - `make bootstrap`
 - `make db-up`
@@ -278,7 +279,8 @@ Implement the root `Makefile` next. It should expose the baseline human-facing t
 
 Repository-local recommended meanings:
 
-- `make help`: print the grouped root task surface without bootstrapping local toolchains.
+- `make help`: print the compact daily root task surface without bootstrapping local toolchains.
+- `make help-all`: print the exhaustive public root task surface without bootstrapping local toolchains.
 - `make doctor`: verify required local tools and pinned toolchain versions without installing them.
 - `make bootstrap`: install Go tools, install pnpm dependencies, and prepare local service prerequisites.
 - `make db-up`: start PostgreSQL and MinIO through Compose.

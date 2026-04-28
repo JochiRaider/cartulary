@@ -718,7 +718,8 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 
 | Command              | Minimum responsibility                                                                                       |
 | -------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `make help`          | Print the grouped root task surface without bootstrapping local toolchains                                   |
+| `make help`          | Print the compact daily root task surface without bootstrapping local toolchains                             |
+| `make help-all`      | Print the exhaustive public root task surface without bootstrapping local toolchains                         |
 | `make doctor`        | Verify required local tools and pinned toolchain versions without installing them                            |
 | `make bootstrap`     | Install tools, install workspace dependencies, prepare local services                                        |
 | `make db-up`         | Start local Postgres and MinIO                                                                               |
