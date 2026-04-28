@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.check_schedule.v2",
+  "schema_id": "cartulary.check_schedule.v3",
   "schedules": [
     {
       "target": "check",
@@ -36,8 +36,18 @@
             "check-build-prereqs"
           ],
           "resource_claims": {
-            "cpu": "limit",
-            "io": "limit",
+            "cpu": {
+              "mode": "bounded_limit",
+              "reserve": 3,
+              "min": 1,
+              "max": 8
+            },
+            "io": {
+              "mode": "bounded_limit",
+              "reserve": 4,
+              "min": 1,
+              "max": 10
+            },
             "service_stack": 1
           },
           "make_jobs": "cpu",

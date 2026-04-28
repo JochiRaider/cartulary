@@ -5,6 +5,8 @@ ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 HELPER="$ROOT_DIR/scripts/lib/run-playwright-phase.sh"
 cleanup_paths=()
 
+unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE
+
 cleanup() {
   local path
   for path in "${cleanup_paths[@]}"; do

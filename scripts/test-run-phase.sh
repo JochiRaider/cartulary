@@ -7,6 +7,8 @@ GO_HELPER="$ROOT_DIR/scripts/lib/run-go-phase.sh"
 GO_MANIFEST_HELPER="$ROOT_DIR/scripts/lib/run-go-manifest-phase.sh"
 cleanup_paths=()
 
+unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE
+
 json_field() {
   local file="$1"
   local path="$2"

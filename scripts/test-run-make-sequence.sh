@@ -178,6 +178,9 @@ cleanup_paths+=("${success_dir}")
 write_fake_make "${success_dir}"
 success_results="${success_dir}/results"
 success_output="$(
+  VERBOSE= \
+  CI_VERBOSE= \
+  CARTULARY_OUTPUT_MODE= \
   MAKE="${success_dir}/fake-make" \
   FAKE_MAKE_LOG="${success_dir}/make.log" \
   CARTULARY_TEST_RESULTS_DIR="${success_results}" \
@@ -211,6 +214,9 @@ write_fake_make "${aggregate_missing_dir}"
 aggregate_missing_results="${aggregate_missing_dir}/results"
 set +e
 aggregate_missing_output="$(
+  VERBOSE= \
+  CI_VERBOSE= \
+  CARTULARY_OUTPUT_MODE= \
   MAKE="${aggregate_missing_dir}/fake-make" \
   FAKE_MAKE_LOG="${aggregate_missing_dir}/make.log" \
   CARTULARY_TEST_RESULTS_DIR="${aggregate_missing_results}" \
@@ -234,6 +240,9 @@ write_fake_make "${failure_dir}"
 failure_results="${failure_dir}/results"
 set +e
 failure_output="$(
+  VERBOSE= \
+  CI_VERBOSE= \
+  CARTULARY_OUTPUT_MODE= \
   MAKE="${failure_dir}/fake-make" \
   FAKE_MAKE_LOG="${failure_dir}/make.log" \
   CARTULARY_TEST_RESULTS_DIR="${failure_results}" \
@@ -258,6 +267,9 @@ dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-dry-run.XXXXXX")"
 cleanup_paths+=("${dry_run_dir}")
 write_fake_make "${dry_run_dir}"
 dry_run_output="$(
+  VERBOSE= \
+  CI_VERBOSE= \
+  CARTULARY_OUTPUT_MODE= \
   MAKEFLAGS="n" \
   MAKE="${dry_run_dir}/fake-make" \
   FAKE_MAKE_LOG="${dry_run_dir}/make.log" \

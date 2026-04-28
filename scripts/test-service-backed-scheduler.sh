@@ -7,6 +7,8 @@ TEST_OUTPUT_SCRIPT="${ROOT_DIR}/scripts/lib/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
 
+unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE
+
 cleanup() {
   local path
   for path in "${cleanup_paths[@]}"; do

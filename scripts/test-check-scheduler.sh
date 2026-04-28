@@ -7,6 +7,8 @@ TEST_OUTPUT_SCRIPT="${ROOT_DIR}/scripts/lib/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
 
+unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE
+
 cleanup() {
   local path
   for path in "${cleanup_paths[@]}"; do
@@ -313,11 +315,11 @@ write_fake_make "$success_dir"
 success_manifest="${success_dir}/manifest.json"
 cat >"$success_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v2",
+  "schema_id": "cartulary.check_schedule.v3",
   "schedules": [
     {
       "target": "check",
-      "resource_limits": { "cpu": 2, "io": 3, "service_stack": 1 },
+      "resource_limits": { "cpu": 12, "io": 12, "service_stack": 1 },
       "work_units": [
         { "target": "setup", "weight": 50, "needs": [], "resource_claims": { "cpu": 1 }, "make_jobs": "cpu" },
         { "target": "build", "weight": 40, "needs": ["setup"], "resource_claims": { "cpu": "limit" }, "make_jobs": "cpu" },
@@ -326,7 +328,11 @@ cat >"$success_manifest" <<'JSON'
           "target": "service",
           "weight": 20,
           "needs": ["build"],
-          "resource_claims": { "cpu": "limit", "io": "limit", "service_stack": 1 },
+          "resource_claims": {
+            "cpu": { "mode": "bounded_limit", "reserve": 3, "min": 1, "max": 8 },
+            "io": { "mode": "bounded_limit", "reserve": 4, "min": 1, "max": 10 },
+            "service_stack": 1
+          },
           "make_jobs": "cpu",
           "nested_scheduler": {
             "type": "service_backed",
@@ -362,7 +368,8 @@ assert_contains "$success_output" "[PASS] check" "success summary"
 assert_contains "$(cat "${success_dir}/make-args.log")" "--output-sync=target -j2 build" "build uses claimed cpu jobs"
 success_events="$(cat "${success_dir}/events.log")"
 assert_contains "$success_events" "end local" "success local completed"
-assert_contains "$success_events" "env service go_cpu=2 go_io=3" "success service forwarded nested scheduler limits"
+assert_contains "$success_events" "start service active=2" "success service overlapped with cheap local work"
+assert_contains "$success_events" "env service go_cpu=1 go_io=1" "success service forwarded bounded nested scheduler limits"
 assert_contains "$success_events" "end service" "success service completed"
 assert_contains "$success_events" "end meta" "success meta completed"
 assert_not_contains "$success_events" "browser" "success check schedule has no browser tail"
@@ -414,18 +421,18 @@ if (!events.some((event) => event.running >= 2 && event.active_resource_claims?.
   throw new Error("scheduler events must record two logically admitted cpu work units");
 }
 const serviceStart = events.find((event) => event.event === "start" && event.work_unit === "service");
-if (serviceStart?.nested_scheduler?.forwarded_limits?.CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT !== 2) {
-  throw new Error("service start event must record forwarded nested go cpu limit");
+if (serviceStart?.nested_scheduler?.forwarded_limits?.CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT !== 1) {
+  throw new Error("service start event must record forwarded bounded nested go cpu limit");
 }
-if (serviceStart?.nested_scheduler?.forwarded_limits?.CARTULARY_SERVICE_BACKED_GO_IO_LIMIT !== 3) {
-  throw new Error("service start event must record forwarded nested go io limit");
+if (serviceStart?.nested_scheduler?.forwarded_limits?.CARTULARY_SERVICE_BACKED_GO_IO_LIMIT !== 1) {
+  throw new Error("service start event must record forwarded bounded nested go io limit");
 }
 const serviceSummary = summary.nested_scheduler_limits?.find((entry) => entry.work_unit === "service");
-if (serviceSummary?.forwarded_limits?.CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT !== 2) {
-  throw new Error("summary must record forwarded nested go cpu limit");
+if (serviceSummary?.forwarded_limits?.CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT !== 1) {
+  throw new Error("summary must record forwarded bounded nested go cpu limit");
 }
-if (serviceSummary?.forwarded_limits?.CARTULARY_SERVICE_BACKED_GO_IO_LIMIT !== 3) {
-  throw new Error("summary must record forwarded nested go io limit");
+if (serviceSummary?.forwarded_limits?.CARTULARY_SERVICE_BACKED_GO_IO_LIMIT !== 1) {
+  throw new Error("summary must record forwarded bounded nested go io limit");
 }
 for (const [index, event] of events.entries()) {
   const limits = event.resource_limits ?? {};
@@ -452,7 +459,7 @@ write_fake_make "$makeflags_dir"
 makeflags_manifest="${makeflags_dir}/manifest.json"
 cat >"$makeflags_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v2",
+  "schema_id": "cartulary.check_schedule.v3",
   "schedules": [
     {
       "target": "check",
@@ -481,7 +488,7 @@ write_fake_make "$failure_dir"
 failure_manifest="${failure_dir}/manifest.json"
 cat >"$failure_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v2",
+  "schema_id": "cartulary.check_schedule.v3",
   "schedules": [
     {
       "target": "check",
@@ -572,7 +579,7 @@ write_fake_make "$invalid_dir"
 invalid_manifest="${invalid_dir}/manifest.json"
 cat >"$invalid_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v2",
+  "schema_id": "cartulary.check_schedule.v3",
   "schedules": [
     {
       "target": "check",
@@ -594,7 +601,7 @@ assert_contains "$invalid_output" "depends on unknown target missing" "invalid d
 invalid_nested_manifest="${invalid_dir}/invalid-nested-manifest.json"
 cat >"$invalid_nested_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v2",
+  "schema_id": "cartulary.check_schedule.v3",
   "schedules": [
     {
       "target": "check",
@@ -626,12 +633,41 @@ set -e
 assert_equals "$invalid_nested_status" "1" "invalid nested scheduler status"
 assert_contains "$invalid_nested_output" "nested_scheduler.resource_limit_env.io must map a resource claimed by service" "invalid nested scheduler output"
 
+invalid_bounded_manifest="${invalid_dir}/invalid-bounded-manifest.json"
+cat >"$invalid_bounded_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.check_schedule.v3",
+  "schedules": [
+    {
+      "target": "check",
+      "resource_limits": { "cpu": 2 },
+      "work_units": [
+        {
+          "target": "alpha",
+          "weight": 1,
+          "needs": [],
+          "resource_claims": {
+            "cpu": { "mode": "bounded_limit", "reserve": 1, "min": 1, "max": 2, "legacy": true }
+          }
+        }
+      ]
+    }
+  ]
+}
+JSON
+set +e
+invalid_bounded_output="$(run_scheduler "$invalid_dir" "$invalid_bounded_manifest" invalid-bounded --summary-targets alpha 2>&1)"
+invalid_bounded_status=$?
+set -e
+assert_equals "$invalid_bounded_status" "1" "invalid bounded claim status"
+assert_contains "$invalid_bounded_output" "resource_claims.cpu bounded_limit has unknown key legacy" "invalid bounded claim output"
+
 dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-dry-run.XXXXXX")"
 cleanup_paths+=("$dry_run_dir")
 write_fake_make "$dry_run_dir"
 dry_run_output="$(
   MAKEFLAGS=n \
-    run_scheduler "$dry_run_dir" "$success_manifest" dry-run --summary-targets local,service,meta --resource-limit cpu=2 2>&1
+    run_scheduler "$dry_run_dir" "$success_manifest" dry-run --summary-targets local,service,meta --resource-limit cpu=2 --resource-limit io=3 2>&1
 )"
 assert_contains "$dry_run_output" "[DRY-RUN] check manifest=" "dry-run output"
 assert_contains "$dry_run_output" "resource_limits={cpu:2,io:3,service_stack:1} work_units=5 dependencies=4 top_weighted=setup:50,build:40,local:30,service:20,meta:10" "dry-run compact summary"
@@ -641,7 +677,7 @@ assert_file_absent "${dry_run_dir}/make-args.log" "dry-run child make"
 
 dry_run_verbose_output="$(
   MAKEFLAGS=n VERBOSE=1 \
-    run_scheduler "$dry_run_dir" "$success_manifest" dry-run-verbose --summary-targets local,service,meta --resource-limit cpu=2 2>&1
+    run_scheduler "$dry_run_dir" "$success_manifest" dry-run-verbose --summary-targets local,service,meta --resource-limit cpu=2 --resource-limit io=3 2>&1
 )"
 assert_contains "$dry_run_verbose_output" "[DRY-RUN] check unit setup needs=none claims={cpu:1} make_jobs=1" "verbose dry-run includes unit claims"
 assert_contains "$dry_run_verbose_output" "nested_scheduler={\"type\":\"service_backed\",\"target\":\"service\"" "verbose dry-run includes nested scheduler metadata"

@@ -116,6 +116,9 @@ success_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-success.XXXXXX"
 cleanup_paths+=("${success_dir}")
 write_fake_make "${success_dir}"
 success_output="$(
+  VERBOSE= \
+  CI_VERBOSE= \
+  CARTULARY_OUTPUT_MODE= \
   MAKE="${success_dir}/fake-make" \
   FAKE_MAKE_LOG="${success_dir}/make.log" \
   CARTULARY_TEST_RESULTS_DIR="${success_dir}/results" \
@@ -133,6 +136,9 @@ dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-dry-run.XXXXXX"
 cleanup_paths+=("${dry_run_dir}")
 write_fake_make "${dry_run_dir}"
 dry_run_output="$(
+  VERBOSE= \
+  CI_VERBOSE= \
+  CARTULARY_OUTPUT_MODE= \
   MAKEFLAGS="n" \
   MAKE="${dry_run_dir}/fake-make" \
   FAKE_MAKE_LOG="${dry_run_dir}/make.log" \

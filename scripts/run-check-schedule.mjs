@@ -29,7 +29,7 @@ import { loadTaskSurfaceManifest, summaryProfileArgs } from "./lib/task-surface.
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
-const supportedSchemaID = "cartulary.check_schedule.v2";
+const supportedSchemaID = "cartulary.check_schedule.v3";
 const schedulerEventSchemaID = "cartulary.check_scheduler_event.v2";
 const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v2";
 
@@ -158,9 +158,16 @@ function normalizeResourceClaims(value, label, resourceLimits) {
     if (!resourceLimits.has(normalizedResource)) {
       throw new Error(`${label} resource_claims entry ${normalizedResource} is not declared in resource_limits`);
     }
-    const amount = rawAmount === "limit" ? resourceLimits.get(normalizedResource) : rawAmount;
+    const amount = normalizeResourceClaimAmount(
+      rawAmount,
+      label,
+      normalizedResource,
+      resourceLimits.get(normalizedResource),
+    );
     if (!Number.isInteger(amount) || amount < 1) {
-      throw new Error(`${label} resource_claims.${normalizedResource} must be a positive integer or \"limit\"`);
+      throw new Error(
+        `${label} resource_claims.${normalizedResource} must be a positive integer, \"limit\", or bounded_limit object`,
+      );
     }
     if (amount > resourceLimits.get(normalizedResource)) {
       throw new Error(`${label} resource_claims.${normalizedResource} exceeds resource limit`);
@@ -168,6 +175,49 @@ function normalizeResourceClaims(value, label, resourceLimits) {
     claims.set(normalizedResource, amount);
   }
   return claims;
+}
+
+function normalizeResourceClaimAmount(rawAmount, label, resource, resourceLimit) {
+  if (rawAmount === "limit") {
+    return resourceLimit;
+  }
+  if (Number.isInteger(rawAmount)) {
+    return rawAmount;
+  }
+  if (!rawAmount || typeof rawAmount !== "object" || Array.isArray(rawAmount)) {
+    return rawAmount;
+  }
+  return normalizeBoundedLimitClaim(rawAmount, label, resource, resourceLimit);
+}
+
+function normalizeBoundedLimitClaim(value, label, resource, resourceLimit) {
+  const allowedKeys = new Set(["mode", "reserve", "min", "max"]);
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) {
+      throw new Error(`${label} resource_claims.${resource} bounded_limit has unknown key ${key}`);
+    }
+  }
+  if (value.mode !== "bounded_limit") {
+    throw new Error(`${label} resource_claims.${resource}.mode must be bounded_limit`);
+  }
+  for (const key of ["reserve", "min", "max"]) {
+    if (!Object.hasOwn(value, key)) {
+      throw new Error(`${label} resource_claims.${resource} bounded_limit must declare ${key}`);
+    }
+  }
+  if (!Number.isInteger(value.reserve) || value.reserve < 0) {
+    throw new Error(`${label} resource_claims.${resource}.reserve must be a non-negative integer`);
+  }
+  if (!Number.isInteger(value.min) || value.min < 1) {
+    throw new Error(`${label} resource_claims.${resource}.min must be a positive integer`);
+  }
+  if (!Number.isInteger(value.max) || value.max < 1) {
+    throw new Error(`${label} resource_claims.${resource}.max must be a positive integer`);
+  }
+  if (value.max < value.min) {
+    throw new Error(`${label} resource_claims.${resource}.max must be greater than or equal to min`);
+  }
+  return Math.min(resourceLimit, value.max, Math.max(value.min, resourceLimit - value.reserve));
 }
 
 function normalizeNeeds(value, label) {

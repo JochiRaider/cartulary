@@ -220,8 +220,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v2") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v2");
+if (manifest.schema_id !== "cartulary.check_schedule.v3") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v3");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -241,8 +241,8 @@ const fs = require("node:fs");
 
 const [manifestFile, workUnit, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v2") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v2");
+if (manifest.schema_id !== "cartulary.check_schedule.v3") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v3");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -555,8 +555,24 @@ if (browserDrift.resource_claims?.cpu !== 1 || Object.keys(browserDrift.resource
   throw new Error("check-browser-e2e-duration-baseline-drift must claim only cpu=1");
 }
 const claims = service.resource_claims ?? {};
-if (claims.cpu !== "limit" || claims.io !== "limit" || claims.service_stack !== 1) {
-  throw new Error("check-service-backed must reserve full parent cpu/io plus service_stack");
+const assertBoundedClaim = (claim, resource, expected) => {
+  if (!claim || typeof claim !== "object" || Array.isArray(claim)) {
+    throw new Error(`check-service-backed ${resource} claim must use bounded_limit`);
+  }
+  const keys = Object.keys(claim).sort().join(",");
+  if (keys !== "max,min,mode,reserve") {
+    throw new Error(`check-service-backed ${resource} bounded claim has unexpected keys ${keys}`);
+  }
+  for (const [key, value] of Object.entries(expected)) {
+    if (claim[key] !== value) {
+      throw new Error(`check-service-backed ${resource}.${key} got ${claim[key]} want ${value}`);
+    }
+  }
+};
+assertBoundedClaim(claims.cpu, "cpu", { mode: "bounded_limit", reserve: 3, min: 1, max: 8 });
+assertBoundedClaim(claims.io, "io", { mode: "bounded_limit", reserve: 4, min: 1, max: 10 });
+if (claims.service_stack !== 1) {
+  throw new Error("check-service-backed must claim exclusive service_stack");
 }
 const nested = service.nested_scheduler ?? {};
 if (nested.type !== "service_backed" || nested.target !== "check-service-backed") {
