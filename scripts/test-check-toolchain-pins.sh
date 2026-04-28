@@ -186,14 +186,14 @@ preflight_output="$(
     NODE_BIN="${NODE_BIN}" \
     PNPM="${preflight_dir}/fake-pnpm" \
     NODE_RUNTIME_DIR="${preflight_dir}/node-runtime" \
-    check-preflight \
+    check-setup-blockers \
     2>&1
 )"
 preflight_status=$?
 set -e
 
 if [[ "${preflight_status}" -eq 0 ]]; then
-  fail "check-preflight mismatch: expected failure"
+  fail "check-setup-blockers mismatch: expected failure"
 fi
-assert_contains "${preflight_output}" "package.json: engines.node mismatch: expected 24.15.0, got 24.16.0" "check-preflight diagnostic"
-assert_not_contains "${preflight_output}" "frontend install" "check-preflight early failure"
+assert_contains "${preflight_output}" "package.json: engines.node mismatch: expected 24.15.0, got 24.16.0" "check-setup-blockers diagnostic"
+assert_not_contains "${preflight_output}" "frontend install" "check-setup-blockers early failure"

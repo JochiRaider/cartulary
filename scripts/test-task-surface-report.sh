@@ -60,8 +60,14 @@ assert_fails() {
 
 valid_output="$(assert_passes "current task-surface report" "$NODE_BIN" "$REPORTER" --check)"
 assert_contains "$valid_output" "Cartulary task-surface report" "current report header"
+assert_contains "$valid_output" "classification counts:" "current report classification summary"
 assert_contains "$valid_output" "browser-e2e-measurement" "current report measurement target"
-assert_contains "$valid_output" "phase-map execution dependencies" "current report phase dependency section"
+assert_contains "$valid_output" "use --all to print private targets" "current report compact output hint"
+
+valid_all_output="$(assert_passes "current exhaustive task-surface report" "$NODE_BIN" "$REPORTER" --check --all)"
+assert_contains "$valid_all_output" "task classifications:" "current exhaustive report target section"
+assert_contains "$valid_all_output" "logical harness checks:" "current exhaustive report harness section"
+assert_contains "$valid_all_output" "phase-map execution dependencies:" "current exhaustive report phase dependency section"
 
 phase_root="$(mktemp -d "$ROOT_DIR/tmp/task-surface-phase-root.XXXXXX")"
 cleanup_paths+=("$phase_root")

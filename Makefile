@@ -364,9 +364,7 @@ toolchain-drift: $(NODE_BIN)
 migration-drift: build-migrate
 	$(RUN_PHASE) "migration-drift" -- env GO=$(GO) CONFIG_FILE=$(CONFIG_FILE) GOCACHE=$(GO_CACHE_DIR) GOMODCACHE=$(GO_MOD_CACHE_DIR) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) ./scripts/check-migrations.sh
 
-deployable-shape: deployable-shape-verify
-
-deployable-shape-verify: build-server build-migrate
+deployable-shape: build-server build-migrate
 	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "deployable-shape" -- ./scripts/ci/check-deployable-shape.sh
 
 phase-map-check: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
@@ -501,9 +499,6 @@ frontend-typecheck: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 frontend-unit: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)env PNPM=$(PNPM) NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) VITEST_FLAGS="$(VITEST_FLAGS)" VITEST_MAX_WORKERS=$(VITEST_MAX_WORKERS) ./scripts/run-frontend-unit.sh
 
-e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)$(MAKE) --no-print-directory browser-e2e
-
 browser-e2e: export CARTULARY_TEST_TARGET := browser-e2e
 
 browser-e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN) test-service-images
@@ -560,10 +555,6 @@ format-frontend: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 lint-biome: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)CARTULARY_PHASE_FAILURE_NOTE="run make format to apply the authoritative frontend Biome scope" CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT) "lint biome" -- bash $(RUN_FRONTEND_BIOME_SCRIPT) check $(BIOME_CHECK_FLAGS)
 
-lint-typecheck: frontend-typecheck
-
-check-preflight: check-setup-blockers
-
 check-setup-blockers: $(NODE_BIN)
 	$(Q)$(MAKE) --no-print-directory toolchain-drift
 	$(Q)$(MAKE) --no-print-directory codegen-toolchain
@@ -594,7 +585,7 @@ check-harness-smoke:
 # so service-backed work can start as soon as these artifacts are ready.
 check-build-prereqs: build-server build-migrate test-service-images
 
-check-local-product: migration-drift lint-go frontend-typecheck backend-unit deployable-shape-verify
+check-local-product: migration-drift lint-go frontend-typecheck backend-unit deployable-shape
 
 check-go-test-duration-baseline-drift:
 	$(Q)$(MAKE) --no-print-directory go-test-duration-baseline-drift

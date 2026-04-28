@@ -120,9 +120,8 @@ if ! printf '%s\n' "$generate_artifacts_block" | rg -q 'generate sqlc'; then
   fail "generate-artifacts must run sqlc generation"
 fi
 assert_target_prereq generate-drift codegen-toolchain "generate-drift must prepare the codegen toolchain outside the drift body"
-check_preflight_prereqs="$(extract_target_prereqs check-preflight)"
-if ! printf '%s\n' "$check_preflight_prereqs" | rg -q '(^|[[:space:]])check-setup-blockers($|[[:space:]])'; then
-  fail "check-preflight must remain a compatibility alias to check-setup-blockers"
+if rg -q '^check-preflight:' "$makefile"; then
+  fail "check-preflight must not remain as a legacy alias; use check-setup-blockers"
 fi
 check_setup_block="$(extract_target_block check-setup-blockers)"
 if [[ -z "$check_setup_block" ]]; then
@@ -188,8 +187,8 @@ if ! printf '%s\n' "$frontend_typecheck_block" | grep -Fq '$(TARGET_SUMMARY) fro
   fail "frontend-typecheck must emit a target summary"
 fi
 
-if ! rg -q '^lint-typecheck:[[:space:]]+frontend-typecheck$$' "$makefile"; then
-  fail "lint-typecheck must remain a compatibility alias to frontend-typecheck"
+if rg -q '^lint-typecheck:' "$makefile"; then
+  fail "lint-typecheck must not remain as a legacy alias; use frontend-typecheck"
 fi
 
 if ! rg -q '^format:[[:space:]]+format-frontend$$' "$makefile"; then

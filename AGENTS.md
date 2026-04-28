@@ -25,32 +25,16 @@
 
 ## Canonical command surface
 
-- `make help`
-- `make doctor`
-- `make bootstrap`
-- `make db-up`
-- `make db-reset`
-- `make dev`
-- `make generate`
-- `make format`
-- `make phase-ledgers`
-- `make phase-ledger-drift`
-- `make test-fast`
-- `make backend-store`
-- `make target-plan`
-- `make target-plan-json`
-- `make fixture-report RESULTS_DIR=<root|run-dir>`
-- `make explain-target TARGET=<backend target>`
-- `make go-test-duration-baseline-drift RESULTS_DIR=<dir>`
-- `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>`
-- `make test`
-- `make lint`
-- `make check`
-- `make ci`
-- `make release-check`
-- `make build`
-- `make clean`
-- `make distclean`
+- Bootstrap: `make bootstrap`, `make bootstrap-node-runtime`, `make frontend-toolchain`, `make frontend-install`, `make playwright-install`.
+- Dev: `make services-up`, `make db-up`, `make db-reset`, `make minio-init`, `make dev`.
+- Generate: `make generate`, `make generate-drift`, `make toolchain-drift`, `make migration-drift`, `make phase-ledgers`, `make phase-ledger-drift`, `make benchmark-claim-check`, `make task-surface-report`.
+- Backend: `make backend-unit`, `make backend-store`, `make backend-integration`, `make backend-process`, `make target-plan`, `make target-plan-json`, `make fixture-report RESULTS_DIR=<root|run-dir>`, `make explain-target TARGET=<backend target>`.
+- Baselines: `make go-test-duration-baselines RESULTS_DIR=<dir>`, `make go-test-duration-baseline-drift RESULTS_DIR=<dir>`, `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>`.
+- Frontend: `make frontend-typecheck`, `make frontend-unit`, `make lint-biome`, `make format`.
+- Browser: `make browser-e2e`, `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make browser-e2e-measurement`, `make browser-e2e-visual`.
+- Check: `make help`, `make doctor`, `make test-fast`, `make test`, `make lint`, `make check`, `make ci`, `make release-check`.
+- Build: `make build`, `make build-server`, `make build-migrate`, `make build-web`.
+- Cleanup: `make clean`, `make distclean`.
 
 ## Artifact ownership and edit rules
 
@@ -75,6 +59,7 @@
 - `make backend-store` runs the service-backed store-domain `U-*` backend slice that keeps unit-layer phase IDs while using real Postgres.
 - `make target-plan`, `make target-plan-json`, and `make explain-target TARGET=<backend target>` inspect the backend Go target execution plan without running tests or starting services.
 - `make fixture-report RESULTS_DIR=<root|run-dir>` reports thresholded fixture-cost hotspots from an existing results root or concrete run directory without rerunning tests.
+- `make go-test-duration-baselines RESULTS_DIR=<dir>` refreshes committed Go shard duration baselines from successful service-backed shard artifacts.
 - `make go-test-duration-baseline-drift RESULTS_DIR=<dir>` verifies committed Go shard duration baselines against successful service-backed shard artifacts and fails when the planned weights are badly stale.
 - `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>` verifies committed browser functional spec duration baselines against successful Playwright timing artifacts and fails when planned weights are badly stale.
 - `make test-fast` runs the pure backend unit slice, the service-backed backend store and integration slices, the backend process or E2E slice, frontend type-checking, and the frontend unit suite for the narrower local loop.

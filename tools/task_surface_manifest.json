@@ -15,7 +15,7 @@
       "name": "dev",
       "entries": [
         { "target": "services-up", "description": "start local Postgres and MinIO, then wait until ready" },
-        { "target": "db-up", "description": "compatibility alias for services-up plus MinIO bucket init" },
+        { "target": "db-up", "description": "start local Postgres and MinIO, then initialize the default MinIO bucket" },
         { "target": "db-reset", "description": "recreate the local database only; does not reset object storage" },
         { "target": "minio-init", "description": "create the default local MinIO bucket if needed" },
         { "target": "dev", "description": "run the Go server and Vite dev server" }
@@ -44,7 +44,12 @@
         { "target": "target-plan", "description": "explain backend target execution families" },
         { "target": "target-plan-json", "description": "emit deterministic backend target plan JSON" },
         { "target": "fixture-report", "description": "RESULTS_DIR=<root|run-dir> report fixture cost hotspots" },
-        { "target": "explain-target", "description": "TARGET=backend-store explain one backend target" },
+        { "target": "explain-target", "description": "TARGET=backend-store explain one backend target" }
+      ]
+    },
+    {
+      "name": "baselines",
+      "entries": [
         { "target": "go-test-duration-baselines", "description": "RESULTS_DIR=<dir> refresh Go test duration baselines" },
         { "target": "go-test-duration-baseline-drift", "description": "RESULTS_DIR=<dir> verify Go shard baseline freshness" },
         { "target": "browser-e2e-duration-baseline-drift", "description": "RESULTS_DIR=<dir> verify browser spec baseline freshness" }
@@ -170,8 +175,7 @@
     { "name": "generate-drift", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/check-generate-drift.sh"] },
     { "name": "toolchain-drift", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/check-toolchain-pins.mjs"] },
     { "name": "migration-drift", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/check-migrations.sh"] },
-    { "name": "deployable-shape", "classification": "helper_only", "included_in": ["helper_only"] },
-    { "name": "deployable-shape-verify", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/ci/check-deployable-shape.sh"] },
+    { "name": "deployable-shape", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/ci/check-deployable-shape.sh"] },
     { "name": "phase-map-check", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/check-phase-maps.sh"] },
     { "name": "phase-ledgers", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/render-phase-ledgers.mjs"] },
     { "name": "phase-ledger-drift", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/check-phase-ledger-drift.mjs"] },
@@ -201,10 +205,8 @@
     { "name": "frontend-unit", "classification": "public", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-frontend-unit.sh"] },
     { "name": "frontend-task-surface-check", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/check-frontend-task-surface.sh"] },
     { "name": "lint-biome", "classification": "public", "included_in": ["helper_only"] },
-    { "name": "lint-typecheck", "classification": "helper_only", "included_in": ["helper_only"] },
     { "name": "format", "classification": "public", "included_in": ["helper_only"] },
     { "name": "format-frontend", "classification": "helper_only", "included_in": ["helper_only"] },
-    { "name": "e2e", "classification": "helper_only", "included_in": ["helper_only"] },
     { "name": "browser-e2e", "classification": "public", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-browser-e2e-target.sh", "scripts/run-browser-e2e-batch.sh", "scripts/lib/browser-batch-manifest.mjs", "scripts/start-web-e2e.sh"], "summary_projection": { "children": ["browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"] } },
     { "name": "browser-e2e-webserver-backed", "classification": "public", "included_in": ["test", "check", "ci"], "backing_scripts": ["scripts/run-browser-e2e-target.sh", "scripts/run-browser-e2e-batch.sh", "scripts/lib/browser-batch-manifest.mjs", "scripts/run-browser-e2e-webserver-backed.sh", "scripts/lib/run-playwright-webserver-batch.sh", "scripts/lib/browser-shard-plan.mjs", "scripts/start-web-e2e.sh"] },
     { "name": "browser-e2e-functional", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/run-browser-e2e-target.sh", "scripts/run-browser-e2e-batch.sh", "scripts/lib/browser-batch-manifest.mjs", "scripts/run-browser-e2e-functional.sh", "scripts/lib/run-playwright-webserver-batch.sh", "scripts/lib/browser-shard-plan.mjs", "scripts/start-web-e2e.sh"] },
@@ -222,7 +224,6 @@
     { "name": "lint", "classification": "public", "included_in": ["helper_only"] },
     { "name": "lint-go", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/run-go-vet.sh"] },
     { "name": "check", "classification": "public", "included_in": ["check"], "backing_scripts": ["scripts/run-check-schedule.mjs"] },
-    { "name": "check-preflight", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-setup-blockers", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-static-validation", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-harness-smoke", "classification": "check_internal", "included_in": ["check"], "summary_projection": { "children": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-run-service-backed-schedule-target", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase"] } },

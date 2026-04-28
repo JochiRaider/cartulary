@@ -16,6 +16,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const checkMode = process.argv.includes("--check");
 const jsonMode = process.argv.includes("--json");
+const allMode = process.argv.includes("--all");
 const makefilePath = resolvePath(
   process.env.CARTULARY_TASK_SURFACE_MAKEFILE ?? "Makefile",
 );
@@ -58,7 +59,7 @@ function main() {
   if (jsonMode) {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   } else {
-    printHumanReport(report);
+    printHumanReport(report, { allMode });
   }
 
   if (checkMode && errors.length > 0) {
@@ -317,8 +318,23 @@ function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTa
   };
 }
 
-function printHumanReport(report) {
+function printHumanReport(report, { allMode = false } = {}) {
   console.log("Cartulary task-surface report");
+  console.log(`check=${report.check_passed ? "pass" : "fail"}`);
+
+  const counts = new Map();
+  for (const target of report.targets) {
+    counts.set(target.classification, (counts.get(target.classification) ?? 0) + 1);
+  }
+  console.log("");
+  console.log("classification counts:");
+  for (const classification of ["public", "check_internal", "helper_only", "unclassified"]) {
+    const count = counts.get(classification) ?? 0;
+    if (count > 0) {
+      console.log(`  ${classification}: ${count}`);
+    }
+  }
+
   console.log("");
   console.log("public Make targets:");
   for (const target of report.targets.filter((entry) => entry.classification === "public")) {
@@ -327,28 +343,35 @@ function printHumanReport(report) {
     );
   }
 
-  console.log("");
-  console.log("task classifications:");
-  for (const target of report.targets) {
-    const scripts = target.backing_scripts.length > 0 ? target.backing_scripts.join(",") : "-";
-    console.log(
-      `  ${target.name} classification=${target.classification} included_in=${target.included_in.join(",")} scripts=${scripts}`,
-    );
-  }
+  if (allMode) {
+    console.log("");
+    console.log("task classifications:");
+    for (const target of report.targets) {
+      const scripts = target.backing_scripts.length > 0 ? target.backing_scripts.join(",") : "-";
+      console.log(
+        `  ${target.name} classification=${target.classification} included_in=${target.included_in.join(",")} scripts=${scripts}`,
+      );
+    }
 
-  console.log("");
-  console.log("logical harness checks:");
-  for (const check of report.harness_checks) {
-    const scripts = check.backing_scripts.length > 0 ? check.backing_scripts.join(",") : "-";
-    console.log(`  ${check.name} scripts=${scripts}`);
-  }
+    console.log("");
+    console.log("logical harness checks:");
+    for (const check of report.harness_checks) {
+      const scripts = check.backing_scripts.length > 0 ? check.backing_scripts.join(",") : "-";
+      console.log(`  ${check.name} scripts=${scripts}`);
+    }
 
-  console.log("");
-  console.log("phase-map execution dependencies:");
-  for (const row of report.phase_execution_dependencies) {
-    console.log(
-      `  ${row.phase} ${row.section} ${row.execution_dependency} rows=${row.count}`,
-    );
+    console.log("");
+    console.log("phase-map execution dependencies:");
+    for (const row of report.phase_execution_dependencies) {
+      console.log(
+        `  ${row.phase} ${row.section} ${row.execution_dependency} rows=${row.count}`,
+      );
+    }
+  } else {
+    console.log("");
+    console.log(`logical harness checks: ${report.harness_checks.length}`);
+    console.log(`phase-map execution dependencies: ${report.phase_execution_dependencies.length}`);
+    console.log("use --all to print private targets, harness checks, and phase dependency rows");
   }
 
   if (report.errors.length > 0) {
