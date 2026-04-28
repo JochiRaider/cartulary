@@ -1,0 +1,118 @@
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+
+export const goDurationBaselineSchemaID = "cartulary.go_test_duration_baselines.v4";
+export const goDurationBaselineFileEnv = "CARTULARY_GO_TEST_DURATION_BASELINE_FILE";
+export const goDurationBaselineRelativePath = path.join("tools", "go_test_duration_baselines.json");
+export const defaultShardTargetMs = 30_000;
+export const defaultBackendIntegrationShardTargetMs = 18_000;
+export const defaultItemWeightMs = 10_000;
+export const baselineNote =
+  "Advisory backend service-backed shard weights with explicit test, package, and command timing components. Refresh from successful shard artifacts with scripts/update-go-test-durations.mjs <results-dir>.";
+
+export const defaultShardTargetMsByTargetEntries = [
+  ["backend-store", defaultShardTargetMs],
+  ["backend-integration", defaultBackendIntegrationShardTargetMs],
+  ["backend-integration-support", defaultBackendIntegrationShardTargetMs],
+];
+
+export const defaultShardTargetMsByTarget = Object.fromEntries(defaultShardTargetMsByTargetEntries);
+
+export function normalizePositiveInteger(value, fallback = 0) {
+  if (Number.isInteger(value) && value > 0) {
+    return value;
+  }
+  return fallback;
+}
+
+export function validBaselineValue(value) {
+  return Number.isInteger(value) && value > 0;
+}
+
+export function resolveGoDurationBaselineFile(repoRoot, file = "") {
+  const configured = file || process.env[goDurationBaselineFileEnv] || goDurationBaselineRelativePath;
+  return path.isAbsolute(configured) ? configured : path.join(repoRoot, configured);
+}
+
+export function emptyGoDurationBaseline() {
+  return {
+    schema_id: goDurationBaselineSchemaID,
+    note: baselineNote,
+    default_shard_target_ms: defaultShardTargetMs,
+    shard_target_ms_by_target: { ...defaultShardTargetMsByTarget },
+    default_item_weight_ms: defaultItemWeightMs,
+    command_overheads_by_target: {},
+    package_overheads: {},
+    raw_aggregates: {},
+    tests: {},
+  };
+}
+
+export function readGoDurationBaseline(repoRoot, file = "", options = {}) {
+  const baselineFile = resolveGoDurationBaselineFile(repoRoot, file);
+  if (!existsSync(baselineFile)) {
+    if (options.allowMissing) {
+      return { baseline: emptyGoDurationBaseline(), baselineFile };
+    }
+    throw new Error(`baseline file does not exist: ${path.relative(repoRoot, baselineFile)}`);
+  }
+  const baseline = JSON.parse(readFileSync(baselineFile, "utf8"));
+  if (baseline.schema_id !== goDurationBaselineSchemaID) {
+    throw new Error(
+      `${path.relative(repoRoot, baselineFile)} must declare schema_id ${goDurationBaselineSchemaID}`,
+    );
+  }
+  return { baseline, baselineFile };
+}
+
+export function toGoDurationBaselineMaps(baseline) {
+  const shardTargetMsByTarget = new Map(defaultShardTargetMsByTargetEntries);
+  for (const [target, targetMs] of Object.entries(baseline.shard_target_ms_by_target ?? {})) {
+    shardTargetMsByTarget.set(target, normalizePositiveInteger(targetMs, shardTargetMsByTarget.get(target)));
+  }
+  return {
+    defaultShardTargetMs: normalizePositiveInteger(
+      baseline.default_shard_target_ms,
+      defaultShardTargetMs,
+    ),
+    shardTargetMsByTarget,
+    defaultItemWeightMs: normalizePositiveInteger(baseline.default_item_weight_ms, defaultItemWeightMs),
+    commandOverheadsByTarget: new Map(Object.entries(baseline.command_overheads_by_target ?? {})),
+    packageOverheads: new Map(Object.entries(baseline.package_overheads ?? {})),
+    rawAggregates: new Map(Object.entries(baseline.raw_aggregates ?? {})),
+    tests: new Map(Object.entries(baseline.tests ?? {})),
+  };
+}
+
+export function readGoDurationBaselineMaps(repoRoot, file = "", options = {}) {
+  const { baseline, baselineFile } = readGoDurationBaseline(repoRoot, file, options);
+  return { baselineFile, ...toGoDurationBaselineMaps(baseline) };
+}
+
+export function withGoDurationBaselineFile(repoRoot, baselineFile, fn) {
+  const previousBaselineOverride = process.env[goDurationBaselineFileEnv];
+  process.env[goDurationBaselineFileEnv] = path.isAbsolute(baselineFile)
+    ? baselineFile
+    : path.join(repoRoot, baselineFile);
+  try {
+    return fn();
+  } finally {
+    if (previousBaselineOverride === undefined) {
+      delete process.env[goDurationBaselineFileEnv];
+    } else {
+      process.env[goDurationBaselineFileEnv] = previousBaselineOverride;
+    }
+  }
+}
+
+export function testBaselineKey(importPath, symbol) {
+  return `${importPath}::${symbol}`;
+}
+
+export function rawAggregateBaselineKey(target, aggregateName) {
+  return `${target}::${aggregateName}`;
+}
+
+export function packageOverheadBaselineKey(target, importPath) {
+  return `${target}::${importPath}`;
+}

@@ -546,14 +546,14 @@
       "package": "./cmd/server",
       "file": "cmd/server/main_phase1_process_test.go",
       "symbols": [
-        "TestPhase1_LoginSessionAndLogout_ProcessSmoke",
-        "TestPhase1_CSRFFailClosed_ProcessSmoke",
-        "TestPhase1_ConcurrencyCapRevokesSocket_ProcessSmoke",
-        "TestPhase1_FirstEnrollmentFlow_ProcessSmoke",
-        "TestPhase1_PasswordChangeFlow_ProcessSmoke",
-        "TestPhase1_UserAdminAndRevokeAll_ProcessSmoke",
-        "TestPhase1_AdminPasswordReset_ProcessSmoke",
-        "TestPhase1_AdminTOTPResetAndBootstrapBoundaries_ProcessSmoke"
+        "TestPhase1_LoginSessionAndLogout_E_1_SMOKE_01_ProcessSmoke",
+        "TestPhase1_CSRFFailClosed_E_1_SMOKE_01_ProcessSmoke",
+        "TestPhase1_ConcurrencyCapRevokesSocket_E_1_SMOKE_01_ProcessSmoke",
+        "TestPhase1_FirstEnrollmentFlow_E_1_SMOKE_01_ProcessSmoke",
+        "TestPhase1_PasswordChangeFlow_E_1_SMOKE_01_ProcessSmoke",
+        "TestPhase1_UserAdminAndRevokeAll_E_1_SMOKE_01_ProcessSmoke",
+        "TestPhase1_AdminPasswordReset_E_1_SMOKE_01_ProcessSmoke",
+        "TestPhase1_AdminTOTPResetAndBootstrapBoundaries_E_1_SMOKE_01_ProcessSmoke"
       ],
       "execution_dependency": "backend_process",
       "execution_family": "backend-process",

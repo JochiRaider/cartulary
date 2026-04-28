@@ -94,6 +94,16 @@
       "selection_pattern": "TestSupportPhase3Integration_",
       "execution_family": "backend-integration-timeline",
       "execution_label": "backend-integration support phase3 timeline"
+    },
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/modules/timeline",
+      "file": "internal/modules/timeline/phase3_integration_test.go",
+      "symbol": "TestSupportPhase3Integration_RouteIdempotencyIsActorScoped",
+      "selection_pattern": "TestSupportPhase3Integration_",
+      "execution_family": "backend-integration-timeline",
+      "execution_label": "backend-integration support phase3 timeline"
     }
   ],
   "unit": [

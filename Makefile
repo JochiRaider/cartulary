@@ -405,8 +405,8 @@ run-harness-smoke-extended: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 run-harness-smoke-full: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_HARNESS_SMOKE_SCRIPT) --tier full --jobs "$(HARNESS_SMOKE_JOBS)"
 
-phase-test-name-check:
-	$(RUN_PHASE) "phase-test-name-check" -- ./scripts/check-phase-test-names.sh
+phase-test-name-check: $(NODE_BIN)
+	$(RUN_PHASE) "phase-test-name-check" -- $(NODE_BIN) ./scripts/check-phase-test-names.mjs
 
 browser-e2e-task-surface-check:
 	$(RUN_PHASE) "browser-e2e-task-surface-check" -- ./scripts/check-browser-e2e-task-surface.sh
@@ -480,6 +480,9 @@ explain-target:
 go-test-duration-baselines:
 	$(Q)if [ -z "$(RESULTS_DIR)" ]; then echo "usage: make go-test-duration-baselines RESULTS_DIR=<successful test results dir>" >&2; exit 2; fi
 	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/update-go-test-durations.mjs $(if $(filter 1,$(PRUNE_OBSERVED_PACKAGES)),--prune-observed-packages) $(if $(BASELINE_FILE),--baseline-file "$(BASELINE_FILE)") "$(RESULTS_DIR)"
+
+go-test-duration-baseline-coverage:
+	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/check-go-test-duration-baseline-coverage.mjs $(if $(BASELINE_FILE),--baseline-file "$(BASELINE_FILE)")
 
 go-test-duration-baseline-drift:
 	$(Q)results_dir="$(RESULTS_DIR)"; if [ -z "$$results_dir" ]; then results_dir="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)"; fi; node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/check-go-test-duration-baseline-drift.mjs $(if $(BASELINE_FILE),--baseline-file "$(BASELINE_FILE)") "$$results_dir"
@@ -592,6 +595,7 @@ check-static-validation:
 	$(Q)$(MAKE) --no-print-directory frontend-task-surface-check
 	$(Q)$(MAKE) --no-print-directory backend-task-surface-check
 	$(Q)$(MAKE) --no-print-directory phase-map-check
+	$(Q)$(MAKE) --no-print-directory go-test-duration-baseline-coverage
 	$(Q)$(MAKE) --no-print-directory phase-ledger-drift
 	$(Q)$(MAKE) --no-print-directory phase-schedule-drift
 	$(Q)$(MAKE) --no-print-directory service-backed-unit-check

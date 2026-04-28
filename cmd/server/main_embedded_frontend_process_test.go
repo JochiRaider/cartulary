@@ -11,7 +11,7 @@ import (
 
 var processEmbeddedAssetPathPattern = regexp.MustCompile(`(?:src|href)="(/assets/[^"]+)"`)
 
-func TestPhase1_EmbeddedFrontend_ProcessSmoke(t *testing.T) {
+func TestServerEmbeddedFrontendAssets_ProcessSmoke(t *testing.T) {
 	t.Parallel()
 
 	server := startPhase1ServerProcess(t, "phase1-e-1-09")

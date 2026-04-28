@@ -107,6 +107,16 @@
       },
       "execution_family": "backend-integration-entities",
       "execution_label": "backend-integration support phase4 entities"
+    },
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/modules/entities",
+      "file": "internal/modules/entities/phase4_integration_test.go",
+      "selection_pattern": "TestSupportPhase4Integration_",
+      "symbol": "TestSupportPhase4Integration_EntityCreateIdempotencyIsActorScoped",
+      "execution_family": "backend-integration-entities",
+      "execution_label": "backend-integration support phase4 entities"
     }
   ],
   "unit": [

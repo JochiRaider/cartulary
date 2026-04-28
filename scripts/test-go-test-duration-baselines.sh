@@ -5,6 +5,7 @@ ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
 UPDATE_SCRIPT="$ROOT_DIR/scripts/update-go-test-durations.mjs"
 DRIFT_SCRIPT="$ROOT_DIR/scripts/check-go-test-duration-baseline-drift.mjs"
+COVERAGE_SCRIPT="$ROOT_DIR/scripts/check-go-test-duration-baseline-coverage.mjs"
 
 fail() {
   echo "$*" >&2
@@ -213,3 +214,74 @@ assert_contains "$missing_output" "missing test baseline" "missing test drift"
 assert_contains "$missing_output" "missing package overhead baseline" "missing package overhead drift"
 assert_contains "$missing_output" "missing command overhead baseline" "missing command overhead drift"
 assert_contains "$missing_output" "missing raw aggregate baseline" "missing raw drift"
+
+cp "$ROOT_DIR/tools/go_test_duration_baselines.json" "$tmp_dir/coverage-complete.json"
+"$NODE_BIN" "$COVERAGE_SCRIPT" --baseline-file "$tmp_dir/coverage-complete.json" >/dev/null
+
+"$NODE_BIN" - "$tmp_dir/coverage-complete.json" "$tmp_dir/coverage-missing-test.json" <<'EOF'
+const fs = require("node:fs");
+const [source, target] = process.argv.slice(2);
+const baseline = JSON.parse(fs.readFileSync(source, "utf8"));
+delete baseline.tests["github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01"];
+fs.writeFileSync(target, `${JSON.stringify(baseline, null, 2)}\n`);
+EOF
+
+set +e
+missing_test_coverage_output="$("$NODE_BIN" "$COVERAGE_SCRIPT" --baseline-file "$tmp_dir/coverage-missing-test.json" 2>&1)"
+missing_test_coverage_status=$?
+set -e
+if [[ "$missing_test_coverage_status" -eq 0 ]]; then
+  fail "missing test baseline coverage should fail"
+fi
+assert_contains "$missing_test_coverage_output" "missing test baseline key=github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01" "missing test baseline coverage"
+
+"$NODE_BIN" - "$tmp_dir/coverage-complete.json" "$tmp_dir/coverage-missing-raw.json" <<'EOF'
+const fs = require("node:fs");
+const [source, target] = process.argv.slice(2);
+const baseline = JSON.parse(fs.readFileSync(source, "utf8"));
+delete baseline.raw_aggregates["backend-integration::backend-integration-testutil"];
+fs.writeFileSync(target, `${JSON.stringify(baseline, null, 2)}\n`);
+EOF
+
+set +e
+missing_raw_coverage_output="$("$NODE_BIN" "$COVERAGE_SCRIPT" --baseline-file "$tmp_dir/coverage-missing-raw.json" 2>&1)"
+missing_raw_coverage_status=$?
+set -e
+if [[ "$missing_raw_coverage_status" -eq 0 ]]; then
+  fail "missing raw aggregate baseline coverage should fail"
+fi
+assert_contains "$missing_raw_coverage_output" "missing raw aggregate baseline key=backend-integration::backend-integration-testutil" "missing raw baseline coverage"
+
+"$NODE_BIN" - "$tmp_dir/coverage-complete.json" "$tmp_dir/coverage-missing-package.json" <<'EOF'
+const fs = require("node:fs");
+const [source, target] = process.argv.slice(2);
+const baseline = JSON.parse(fs.readFileSync(source, "utf8"));
+delete baseline.package_overheads["backend-integration::github.com/JochiRaider/cartulary/internal/modules/auth"];
+fs.writeFileSync(target, `${JSON.stringify(baseline, null, 2)}\n`);
+EOF
+
+set +e
+missing_package_coverage_output="$("$NODE_BIN" "$COVERAGE_SCRIPT" --baseline-file "$tmp_dir/coverage-missing-package.json" 2>&1)"
+missing_package_coverage_status=$?
+set -e
+if [[ "$missing_package_coverage_status" -eq 0 ]]; then
+  fail "missing package overhead baseline coverage should fail"
+fi
+assert_contains "$missing_package_coverage_output" "missing package overhead baseline key=backend-integration::github.com/JochiRaider/cartulary/internal/modules/auth" "missing package overhead coverage"
+
+"$NODE_BIN" - "$tmp_dir/coverage-complete.json" "$tmp_dir/coverage-missing-command.json" <<'EOF'
+const fs = require("node:fs");
+const [source, target] = process.argv.slice(2);
+const baseline = JSON.parse(fs.readFileSync(source, "utf8"));
+delete baseline.command_overheads_by_target["backend-store"];
+fs.writeFileSync(target, `${JSON.stringify(baseline, null, 2)}\n`);
+EOF
+
+set +e
+missing_command_coverage_output="$("$NODE_BIN" "$COVERAGE_SCRIPT" --baseline-file "$tmp_dir/coverage-missing-command.json" 2>&1)"
+missing_command_coverage_status=$?
+set -e
+if [[ "$missing_command_coverage_status" -eq 0 ]]; then
+  fail "missing command overhead baseline coverage should fail"
+fi
+assert_contains "$missing_command_coverage_output" "missing command overhead baseline target=backend-store" "missing command overhead coverage"

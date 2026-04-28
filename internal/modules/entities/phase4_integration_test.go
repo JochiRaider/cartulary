@@ -1267,7 +1267,7 @@ UPDATE incident_memberships
 	})
 }
 
-func TestPhase4_I_4_12_EntityCreateIdempotencyIsActorScoped(t *testing.T) {
+func TestSupportPhase4Integration_EntityCreateIdempotencyIsActorScoped(t *testing.T) {
 	harness := phase4test.StartServer(t, "phase4-entity-create-actor-scope")
 	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
 	editor := phase4test.SeedLocalUserFlags(t, harness.DB, "phase4-entity-scope-editor@example.test", "Entity Scope Editor", "EntityScopeEditor1!", false, false, true)

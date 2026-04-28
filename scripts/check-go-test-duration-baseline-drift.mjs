@@ -1,15 +1,17 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { collectObservedGoShardArtifacts } from "./lib/go-duration-artifacts.mjs";
+import {
+  readGoDurationBaselineMaps,
+  resolveGoDurationBaselineFile,
+  validBaselineValue,
+  withGoDurationBaselineFile,
+} from "./lib/go-duration-baselines.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const defaultBaselineFile = path.join(repoRoot, "tools", "go_test_duration_baselines.json");
-const baselineFileEnv = "CARTULARY_GO_TEST_DURATION_BASELINE_FILE";
-const schemaID = "cartulary.go_test_duration_baselines.v4";
 const underRatio = 1.75;
 const underDeltaMs = 5000;
 const overRatio = 3;
@@ -20,27 +22,6 @@ function usage() {
     "usage: check-go-test-duration-baseline-drift.mjs [--baseline-file <path>] <results-dir>\n",
   );
   process.exit(2);
-}
-
-function resolveBaselineFile(file) {
-  const configured = file || process.env[baselineFileEnv] || defaultBaselineFile;
-  return path.isAbsolute(configured) ? configured : path.join(repoRoot, configured);
-}
-
-function readBaseline(file) {
-  if (!existsSync(file)) {
-    throw new Error(`baseline file does not exist: ${path.relative(repoRoot, file)}`);
-  }
-  const baseline = JSON.parse(readFileSync(file, "utf8"));
-  if (baseline.schema_id !== schemaID) {
-    throw new Error(`${path.relative(repoRoot, file)} must declare schema_id ${schemaID}`);
-  }
-  return {
-    commandOverheadsByTarget: new Map(Object.entries(baseline.command_overheads_by_target ?? {})),
-    packageOverheads: new Map(Object.entries(baseline.package_overheads ?? {})),
-    rawAggregates: new Map(Object.entries(baseline.raw_aggregates ?? {})),
-    tests: new Map(Object.entries(baseline.tests ?? {})),
-  };
 }
 
 function parseArgs(argv) {
@@ -81,10 +62,6 @@ function suggestedRefresh(resultsDir) {
   return `make go-test-duration-baselines RESULTS_DIR=${resultsDir} PRUNE_OBSERVED_PACKAGES=1`;
 }
 
-function validBaselineValue(value) {
-  return Number.isInteger(value) && value > 0;
-}
-
 function checkShardDrift(errors, artifact, planned) {
   if (artifact.durationMs > planned * underRatio && artifact.durationMs - planned > underDeltaMs) {
     errors.push(
@@ -100,16 +77,11 @@ function checkShardDrift(errors, artifact, planned) {
 
 function main(argv) {
   const options = parseArgs(argv);
-  const baselineFile = resolveBaselineFile(options.baselineFile);
-  const baseline = readBaseline(baselineFile);
-  const previousBaselineOverride = process.env[baselineFileEnv];
-  process.env[baselineFileEnv] = baselineFile;
-  const artifacts = collectObservedGoShardArtifacts(repoRoot, options.resultsDir);
-  if (previousBaselineOverride === undefined) {
-    delete process.env[baselineFileEnv];
-  } else {
-    process.env[baselineFileEnv] = previousBaselineOverride;
-  }
+  const baselineFile = resolveGoDurationBaselineFile(repoRoot, options.baselineFile);
+  const baseline = readGoDurationBaselineMaps(repoRoot, baselineFile);
+  const artifacts = withGoDurationBaselineFile(repoRoot, baselineFile, () =>
+    collectObservedGoShardArtifacts(repoRoot, options.resultsDir),
+  );
 
   const errors = [];
   for (const artifact of artifacts) {

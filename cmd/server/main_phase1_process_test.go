@@ -22,7 +22,7 @@ const (
 
 // These are process-level smoke tests for the standalone server binary.
 // They are intentionally not the authoritative Phase 1 browser E2E ledger.
-func TestPhase1_LoginSessionAndLogout_ProcessSmoke(t *testing.T) {
+func TestPhase1_LoginSessionAndLogout_E_1_SMOKE_01_ProcessSmoke(t *testing.T) {
 	t.Parallel()
 
 	server := startPhase1ServerProcess(t, "phase1-e-1-01")
@@ -58,7 +58,7 @@ func TestPhase1_LoginSessionAndLogout_ProcessSmoke(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, postLogout, http.StatusUnauthorized, "session_required")
 }
 
-func TestPhase1_CSRFFailClosed_ProcessSmoke(t *testing.T) {
+func TestPhase1_CSRFFailClosed_E_1_SMOKE_01_ProcessSmoke(t *testing.T) {
 	t.Parallel()
 
 	server := startPhase1ServerProcess(t, "phase1-e-1-02")
@@ -103,7 +103,7 @@ func TestPhase1_CSRFFailClosed_ProcessSmoke(t *testing.T) {
 	httptestx.RequireSuccessEnvelope(t, validHeader, http.StatusOK)
 }
 
-func TestPhase1_ConcurrencyCapRevokesSocket_ProcessSmoke(t *testing.T) {
+func TestPhase1_ConcurrencyCapRevokesSocket_E_1_SMOKE_01_ProcessSmoke(t *testing.T) {
 	t.Parallel()
 
 	server, db := startPhase1ServerProcessWithDB(t, "phase1-e-1-03")
@@ -148,7 +148,7 @@ func TestPhase1_ConcurrencyCapRevokesSocket_ProcessSmoke(t *testing.T) {
 	httptestx.RequireSuccessEnvelope(t, activeSession, http.StatusOK)
 }
 
-func TestPhase1_FirstEnrollmentFlow_ProcessSmoke(t *testing.T) {
+func TestPhase1_FirstEnrollmentFlow_E_1_SMOKE_01_ProcessSmoke(t *testing.T) {
 	t.Parallel()
 
 	server := startPhase1ServerProcess(t, "phase1-e-1-04")
@@ -189,7 +189,7 @@ func TestPhase1_FirstEnrollmentFlow_ProcessSmoke(t *testing.T) {
 	}
 }
 
-func TestPhase1_PasswordChangeFlow_ProcessSmoke(t *testing.T) {
+func TestPhase1_PasswordChangeFlow_E_1_SMOKE_01_ProcessSmoke(t *testing.T) {
 	t.Parallel()
 
 	server := startPhase1ServerProcess(t, "phase1-e-1-05")
@@ -244,7 +244,7 @@ func TestPhase1_PasswordChangeFlow_ProcessSmoke(t *testing.T) {
 	_ = phase1LoginLocalUserWithSecondFactor(t, server, "phase1-e-1-05@example.test", "Phase1E105Changed!", phase1GenerateTOTPCode(t, secretBase32))
 }
 
-func TestPhase1_UserAdminAndRevokeAll_ProcessSmoke(t *testing.T) {
+func TestPhase1_UserAdminAndRevokeAll_E_1_SMOKE_01_ProcessSmoke(t *testing.T) {
 	t.Parallel()
 
 	server := startPhase1ServerProcess(t, "phase1-e-1-06")
@@ -331,7 +331,7 @@ func TestPhase1_UserAdminAndRevokeAll_ProcessSmoke(t *testing.T) {
 	_ = phase1LoginLocalUserWithSecondFactor(t, server, "phase1-e-1-06@example.test", "Phase1E106Pass!", "")
 }
 
-func TestPhase1_AdminPasswordReset_ProcessSmoke(t *testing.T) {
+func TestPhase1_AdminPasswordReset_E_1_SMOKE_01_ProcessSmoke(t *testing.T) {
 	t.Parallel()
 
 	server := startPhase1ServerProcess(t, "phase1-e-1-07")
@@ -382,7 +382,7 @@ func TestPhase1_AdminPasswordReset_ProcessSmoke(t *testing.T) {
 	_ = phase1LoginLocalUserWithSecondFactor(t, server, "phase1-e-1-07@example.test", "Phase1E107Reset!", phase1GenerateTOTPCode(t, secretBase32))
 }
 
-func TestPhase1_AdminTOTPResetAndBootstrapBoundaries_ProcessSmoke(t *testing.T) {
+func TestPhase1_AdminTOTPResetAndBootstrapBoundaries_E_1_SMOKE_01_ProcessSmoke(t *testing.T) {
 	t.Parallel()
 
 	server := startPhase1ServerProcess(t, "phase1-e-1-08")

@@ -30,7 +30,7 @@
 - Dev: `make services-up`, `make db-up`, `make db-reset`, `make minio-init`, `make dev`.
 - Generate: `make generate`, `make generate-drift`, `make toolchain-drift`, `make migration-drift`, `make phase-ledgers`, `make phase-ledger-drift`, `make benchmark-claim-check`, `make task-surface-report`.
 - Backend: `make backend-unit`, `make backend-store`, `make backend-integration`, `make backend-process`, `make target-plan`, `make target-plan-json`, `make fixture-report RESULTS_DIR=<root|run-dir>`, `make explain-run RESULTS_DIR=<root|run-dir>`, `make explain-target TARGET=<backend target>`.
-- Baselines: `make go-test-duration-baselines RESULTS_DIR=<dir>`, `make go-test-duration-baseline-drift RESULTS_DIR=<dir>`, `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>`.
+- Baselines: `make go-test-duration-baselines RESULTS_DIR=<dir>`, `make go-test-duration-baseline-coverage`, `make go-test-duration-baseline-drift RESULTS_DIR=<dir>`, `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>`.
 - Frontend: `make frontend-typecheck`, `make frontend-unit`, `make lint-biome`, `make format`.
 - Browser: `make browser-e2e`, `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make browser-e2e-measurement`, `make browser-e2e-visual`.
 - Check: `make doctor`, `make test-fast`, `make test`, `make lint`, `make check`, `make ci`, `make release-check`.
@@ -64,6 +64,7 @@
 - `make fixture-report RESULTS_DIR=<root|run-dir>` reports thresholded fixture-cost hotspots from an existing results root or concrete run directory without rerunning tests.
 - `make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs]` inspects retained run summary, child, and scheduler-log artifacts without rerunning tests.
 - `make go-test-duration-baselines RESULTS_DIR=<dir>` refreshes committed Go shard duration baselines from successful service-backed shard artifacts.
+- `make go-test-duration-baseline-coverage` verifies every service-backed Go shard-plan item has committed baseline timing components before service-backed execution.
 - `make go-test-duration-baseline-drift RESULTS_DIR=<dir>` verifies committed Go shard duration baselines against successful service-backed shard artifacts and fails when the planned weights are badly stale.
 - `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>` verifies committed browser functional spec duration baselines against successful Playwright timing artifacts and fails when planned weights are badly stale.
 - `make test-fast` runs the pure backend unit slice, the service-backed backend store and integration slices, the backend process or E2E slice, frontend type-checking, and the frontend unit suite for the narrower local loop.

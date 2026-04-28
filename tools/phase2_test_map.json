@@ -494,12 +494,12 @@
       "package": "./cmd/server",
       "file": "cmd/server/main_phase2_smoke_test.go",
       "symbols": [
-        "TestPhase2_ProcessSmoke_IncidentCreateListAndWorkbookPrefs",
-        "TestPhase2_ProcessSmoke_IncidentValidationAndPatch",
-        "TestPhase2_ProcessSmoke_MembershipAdminFlow",
-        "TestPhase2_ProcessSmoke_MembershipPatchDeleteAndLastAdmin",
-        "TestPhase2_ProcessSmoke_ExtensionDiscoveryAndReservedRoutes",
-        "TestPhase2_ProcessSmoke_DeploymentAdminBoundary"
+        "TestPhase2_IncidentCreateListAndWorkbookPrefs_E_2_SMOKE_01_ProcessSmoke",
+        "TestPhase2_IncidentValidationAndPatch_E_2_SMOKE_01_ProcessSmoke",
+        "TestPhase2_MembershipAdminFlow_E_2_SMOKE_01_ProcessSmoke",
+        "TestPhase2_MembershipPatchDeleteAndLastAdmin_E_2_SMOKE_01_ProcessSmoke",
+        "TestPhase2_ExtensionDiscoveryAndReservedRoutes_E_2_SMOKE_01_ProcessSmoke",
+        "TestPhase2_DeploymentAdminBoundary_E_2_SMOKE_01_ProcessSmoke"
       ],
       "execution_dependency": "backend_process",
       "execution_family": "backend-process",

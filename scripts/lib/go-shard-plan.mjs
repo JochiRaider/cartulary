@@ -1,21 +1,19 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  defaultShardTargetMsByTargetEntries,
+  normalizePositiveInteger,
+  rawAggregateBaselineKey,
+  readGoDurationBaselineMaps,
+  testBaselineKey,
+} from "./go-duration-baselines.mjs";
 import { collectTargetPlanRows } from "./target-plan.mjs";
 
-const defaultShardTargetMs = 30_000;
-const defaultBackendIntegrationShardTargetMs = 18_000;
-const defaultItemWeightMs = 10_000;
 const cpuHeavyShardWeightMs = 12_000;
 const ioHeavyFixturePolicies = new Set(["group_clone", "migration_scratch"]);
-const baselinePath = path.join("tools", "go_test_duration_baselines.json");
-const baselinePathEnv = "CARTULARY_GO_TEST_DURATION_BASELINE_FILE";
 const shardTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
 const executionTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
-const defaultShardTargetMsByTarget = new Map([
-  ["backend-store", defaultShardTargetMs],
-  ["backend-integration", defaultBackendIntegrationShardTargetMs],
-  ["backend-integration-support", defaultBackendIntegrationShardTargetMs],
-]);
+const defaultShardTargetMsByTarget = new Map(defaultShardTargetMsByTargetEntries);
 
 function compareStrings(left, right) {
   return String(left).localeCompare(String(right));
@@ -47,63 +45,6 @@ function toGoImportPath(modulePath, repoRelativePackage) {
   }
   const suffix = repoRelativePackage.slice(2);
   return suffix === "" ? modulePath : `${modulePath}/${suffix}`;
-}
-
-function loadDurationBaselines(root) {
-  const configuredFile = process.env[baselinePathEnv];
-  const file = configuredFile
-    ? path.resolve(root, configuredFile)
-    : path.join(root, baselinePath);
-  if (!existsSync(file)) {
-    return {
-      defaultShardTargetMs,
-      shardTargetMsByTarget: new Map(defaultShardTargetMsByTarget),
-      defaultItemWeightMs,
-      tests: new Map(),
-      packageOverheads: new Map(),
-      commandOverheadsByTarget: new Map(),
-      rawAggregates: new Map(),
-    };
-  }
-  const raw = JSON.parse(readFileSync(file, "utf8"));
-  if (raw.schema_id !== "cartulary.go_test_duration_baselines.v4") {
-    throw new Error(`${file} must declare schema_id cartulary.go_test_duration_baselines.v4`);
-  }
-  const tests = new Map(Object.entries(raw.tests ?? {}));
-  const packageOverheads = new Map(Object.entries(raw.package_overheads ?? {}));
-  const commandOverheadsByTarget = new Map(Object.entries(raw.command_overheads_by_target ?? {}));
-  const rawAggregates = new Map(Object.entries(raw.raw_aggregates ?? {}));
-  const shardTargetMsByTarget = new Map(defaultShardTargetMsByTarget);
-  for (const [target, targetMs] of Object.entries(raw.shard_target_ms_by_target ?? {})) {
-    if (shardTargets.has(target)) {
-      shardTargetMsByTarget.set(
-        target,
-        normalizePositiveInteger(targetMs, shardTargetMsByTarget.get(target)),
-      );
-    }
-  }
-  return {
-    defaultShardTargetMs: normalizePositiveInteger(
-      raw.default_shard_target_ms,
-      defaultShardTargetMs,
-    ),
-    shardTargetMsByTarget,
-    defaultItemWeightMs: normalizePositiveInteger(
-      raw.default_item_weight_ms,
-      defaultItemWeightMs,
-    ),
-    tests,
-    packageOverheads,
-    commandOverheadsByTarget,
-    rawAggregates,
-  };
-}
-
-function normalizePositiveInteger(value, fallback) {
-  if (Number.isInteger(value) && value > 0) {
-    return value;
-  }
-  return fallback;
 }
 
 function rowPackages(row) {
@@ -154,7 +95,7 @@ function normalizePostgresFixturePolicy(value) {
 
 function buildExecutionItems(root) {
   const modulePath = loadGoModulePath(root);
-  const baselines = loadDurationBaselines(root);
+  const baselines = readGoDurationBaselineMaps(root, "", { allowMissing: true });
   const rows = collectTargetPlanRows(root);
   const aggregates = new Map();
   const executableItems = [];
@@ -165,7 +106,7 @@ function buildExecutionItems(root) {
     }
     if (row.target === "backend-integration" && row.coverage === "raw") {
       addAggregate(aggregates, row, "raw");
-      const key = `${row.target}::${row.execution_family}`;
+      const key = rawAggregateBaselineKey(row.target, row.execution_family);
       const weightMs = normalizePositiveInteger(
         baselines.rawAggregates.get(key),
         baselines.defaultItemWeightMs,
@@ -182,6 +123,7 @@ function buildExecutionItems(root) {
         package_import_paths: rowPackageImportPaths(modulePath, row),
         weight_ms: weightMs,
         weight_source: baselines.rawAggregates.has(key) ? "baseline" : "default",
+        baseline_key: key,
         shard_isolation: row.shard_isolation === true,
         postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
         postgres_fixture_budget: row.fixture_budget?.postgres ?? {},
@@ -195,7 +137,7 @@ function buildExecutionItems(root) {
       addAggregate(aggregates, row, "manifest");
       for (const symbol of row.symbols) {
         const importPath = toGoImportPath(modulePath, row.package);
-        const key = `${importPath}::${symbol}`;
+        const key = testBaselineKey(importPath, symbol);
         const weightMs = normalizePositiveInteger(
           baselines.tests.get(key),
           baselines.defaultItemWeightMs,
@@ -212,6 +154,7 @@ function buildExecutionItems(root) {
           package_import_paths: rowPackageImportPaths(modulePath, row),
           weight_ms: weightMs,
           weight_source: baselines.tests.has(key) ? "baseline" : "default",
+          baseline_key: key,
           shard_isolation: row.shard_isolation === true,
           postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
           postgres_fixture_budget: row.fixture_budget?.postgres ?? {},
@@ -223,7 +166,7 @@ function buildExecutionItems(root) {
       addAggregate(aggregates, row, "support");
       for (const symbol of row.symbols) {
         const importPath = toGoImportPath(modulePath, row.package);
-        const key = `${importPath}::${symbol}`;
+        const key = testBaselineKey(importPath, symbol);
         const weightMs = normalizePositiveInteger(
           baselines.tests.get(key),
           baselines.defaultItemWeightMs,
@@ -240,6 +183,7 @@ function buildExecutionItems(root) {
           package_import_paths: rowPackageImportPaths(modulePath, row),
           weight_ms: weightMs,
           weight_source: baselines.tests.has(key) ? "baseline" : "default",
+          baseline_key: key,
           shard_isolation: row.shard_isolation === true,
           postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
           postgres_fixture_budget: row.fixture_budget?.postgres ?? {},
@@ -473,6 +417,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
             packages: item.packages,
             weight_ms: item.weight_ms,
             weight_source: item.weight_source,
+            baseline_key: item.baseline_key,
             shard_isolation: item.shard_isolation,
             postgres_fixture_policy: item.postgres_fixture_policy,
             postgres_fixture_budget: item.postgres_fixture_budget,

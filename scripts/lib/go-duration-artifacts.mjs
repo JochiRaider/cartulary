@@ -80,13 +80,22 @@ function packagePassEvents(events) {
 function shardMetadata(root) {
   const plan = collectGoShardPlan(root);
   const byShard = new Map();
+  const targetByTestKey = new Map();
+  const rawAggregateKeyByAggregate = new Map();
   for (const shard of plan.shards) {
     byShard.set(shard.name, {
       target: shard.target,
       rawAggregateKey: shard.has_raw ? `${shard.target}::${shard.aggregate_name}` : "",
     });
+    for (const item of shard.items ?? []) {
+      if (item.kind === "raw") {
+        rawAggregateKeyByAggregate.set(shard.aggregate_name, item.baseline_key);
+        continue;
+      }
+      targetByTestKey.set(item.baseline_key, item.target);
+    }
   }
-  return byShard;
+  return { byShard, rawAggregateKeyByAggregate, targetByTestKey };
 }
 
 function aggregateNameForShard(shardName) {
@@ -162,7 +171,7 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
     throw new Error(`results directory does not exist: ${resultsDir}`);
   }
 
-  const metadataByShard = shardMetadata(root);
+  const metadata = shardMetadata(root);
   const shardDirs = walkDirs(absoluteResultsDir).filter((dir) => {
     const shardName = path.basename(dir);
     return (
@@ -180,24 +189,43 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
     }
     const durationMs = normalizePositiveInteger(readIntegerFile(path.join(dir, "duration_ms.txt"), 0), 1);
     const aggregateName = aggregateNameForShard(shardName);
-    const metadata = metadataByShard.get(shardName);
-    if (!metadata) {
-      throw new Error(`no Go shard plan metadata for observed shard ${shardName}`);
-    }
     const events = readRunnerEvents(path.join(dir, "runner.jsonl"));
     const topLevelEvents = topLevelTestEvents(events);
     const packageEvents = packagePassEvents(events);
+    const observedTestEntries = observedTests(topLevelEvents);
+    let shardMetadataEntry = metadata.byShard.get(shardName);
+    if (!shardMetadataEntry) {
+      const observedTargets = new Set();
+      for (const observedTest of observedTestEntries) {
+        const target = metadata.targetByTestKey.get(observedTest.key);
+        if (target) {
+          observedTargets.add(target);
+        }
+      }
+      if (observedTargets.size === 1) {
+        shardMetadataEntry = { target: [...observedTargets][0], rawAggregateKey: "" };
+      } else if (observedTestEntries.length === 0) {
+        const rawAggregateKey = metadata.rawAggregateKeyByAggregate.get(aggregateName);
+        if (rawAggregateKey) {
+          const [target] = rawAggregateKey.split("::", 1);
+          shardMetadataEntry = { target, rawAggregateKey };
+        }
+      }
+    }
+    if (!shardMetadataEntry) {
+      throw new Error(`no Go shard plan metadata for observed shard ${shardName}`);
+    }
     artifacts.push({
       dir,
       shardName,
       aggregateName,
-      target: metadata.target,
+      target: shardMetadataEntry.target,
       durationMs,
-      rawAggregateKey: metadata.rawAggregateKey,
-      observedTests: observedTests(topLevelEvents),
-      observedPackageOverheads: observedPackageOverheads(metadata.target, topLevelEvents, packageEvents),
+      rawAggregateKey: shardMetadataEntry.rawAggregateKey,
+      observedTests: observedTestEntries,
+      observedPackageOverheads: observedPackageOverheads(shardMetadataEntry.target, topLevelEvents, packageEvents),
       observedPackages: observedPackageNames(topLevelEvents, packageEvents),
-      commandOverhead: commandOverhead(metadata.target, durationMs, packageEvents, topLevelEvents),
+      commandOverhead: commandOverhead(shardMetadataEntry.target, durationMs, packageEvents, topLevelEvents),
     });
   }
   return artifacts;

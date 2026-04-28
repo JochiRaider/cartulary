@@ -443,7 +443,7 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 	})
 }
 
-func TestPhase3_I_3_12_RouteIdempotencyIsActorScoped(t *testing.T) {
+func TestSupportPhase3Integration_RouteIdempotencyIsActorScoped(t *testing.T) {
 	runtime := phase3test.StartRuntime(t)
 	server, db := startPhase3Server(t, runtime, "phase3-idempotency-actor-scope")
 	defer db.Close()

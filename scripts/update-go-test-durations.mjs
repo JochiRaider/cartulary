@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -7,48 +7,25 @@ import {
   collectObservedGoShardArtifacts,
   sortedObject,
 } from "./lib/go-duration-artifacts.mjs";
+import {
+  baselineNote,
+  defaultItemWeightMs,
+  defaultShardTargetMs,
+  defaultShardTargetMsByTarget,
+  goDurationBaselineSchemaID,
+  readGoDurationBaseline,
+  resolveGoDurationBaselineFile,
+  withGoDurationBaselineFile,
+} from "./lib/go-duration-baselines.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const defaultBaselineFile = path.join(repoRoot, "tools", "go_test_duration_baselines.json");
-const baselineFileEnv = "CARTULARY_GO_TEST_DURATION_BASELINE_FILE";
-const schemaID = "cartulary.go_test_duration_baselines.v4";
-const defaultShardTargetMsByTarget = {
-  "backend-integration": 18000,
-  "backend-integration-support": 18000,
-  "backend-store": 30000,
-};
 
 function usage() {
   process.stderr.write(
     "usage: update-go-test-durations.mjs [--prune-observed-packages] [--baseline-file <path>] <results-dir>\n",
   );
   process.exit(2);
-}
-
-function resolveBaselineFile(file) {
-  const configured = file || process.env[baselineFileEnv] || defaultBaselineFile;
-  return path.isAbsolute(configured) ? configured : path.join(repoRoot, configured);
-}
-
-function readBaseline(file) {
-  if (!existsSync(file)) {
-    return {
-      schema_id: schemaID,
-      default_shard_target_ms: 30000,
-      shard_target_ms_by_target: defaultShardTargetMsByTarget,
-      default_item_weight_ms: 10000,
-      command_overheads_by_target: {},
-      package_overheads: {},
-      raw_aggregates: {},
-      tests: {},
-    };
-  }
-  const baseline = JSON.parse(readFileSync(file, "utf8"));
-  if (baseline.schema_id !== schemaID) {
-    throw new Error(`${path.relative(repoRoot, file)} must declare schema_id ${schemaID}`);
-  }
-  return baseline;
 }
 
 function parseArgs(argv) {
@@ -85,17 +62,12 @@ function parseArgs(argv) {
 
 function main(argv) {
   const options = parseArgs(argv);
-  const baselineFile = resolveBaselineFile(options.baselineFile);
-  const previousBaselineOverride = process.env[baselineFileEnv];
-  process.env[baselineFileEnv] = baselineFile;
-  const artifacts = collectObservedGoShardArtifacts(repoRoot, options.resultsDir);
-  if (previousBaselineOverride === undefined) {
-    delete process.env[baselineFileEnv];
-  } else {
-    process.env[baselineFileEnv] = previousBaselineOverride;
-  }
+  const baselineFile = resolveGoDurationBaselineFile(repoRoot, options.baselineFile);
+  const artifacts = withGoDurationBaselineFile(repoRoot, baselineFile, () =>
+    collectObservedGoShardArtifacts(repoRoot, options.resultsDir),
+  );
 
-  const baseline = readBaseline(baselineFile);
+  const { baseline } = readGoDurationBaseline(repoRoot, baselineFile, { allowMissing: true });
   const testDurations = new Map();
   const packageOverheads = new Map();
   const commandOverheads = new Map();
@@ -136,15 +108,14 @@ function main(argv) {
     }
   }
 
-  baseline.schema_id = schemaID;
-  baseline.note =
-    "Advisory backend service-backed shard weights with explicit test, package, and command timing components. Refresh from successful shard artifacts with scripts/update-go-test-durations.mjs <results-dir>.";
-  baseline.default_shard_target_ms ??= 30000;
+  baseline.schema_id = goDurationBaselineSchemaID;
+  baseline.note = baselineNote;
+  baseline.default_shard_target_ms ??= defaultShardTargetMs;
   baseline.shard_target_ms_by_target = {
     ...defaultShardTargetMsByTarget,
     ...(baseline.shard_target_ms_by_target ?? {}),
   };
-  baseline.default_item_weight_ms ??= 10000;
+  baseline.default_item_weight_ms ??= defaultItemWeightMs;
   baseline.command_overheads_by_target ??= {};
   baseline.package_overheads ??= {};
   baseline.raw_aggregates ??= {};

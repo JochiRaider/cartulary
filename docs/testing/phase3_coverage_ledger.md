@@ -20,6 +20,7 @@ This ledger is generated from `tools/phase3_test_map.json`. Update the manifest 
 ## Support-Only Execution
 
 - `internal/modules/timeline/phase3_support_test.go` runs through `backend-unit` with `TestSupportPhase3Unit_` and is forbidden from claiming `U-3-*` identifiers.
+- `internal/modules/timeline/phase3_integration_test.go` runs through `backend-integration-support` with `TestSupportPhase3Integration_` and is forbidden from claiming `I-3-*` identifiers.
 - `internal/modules/timeline/phase3_support_integration_test.go` runs through `backend-integration-support` with `TestSupportPhase3Integration_` and is forbidden from claiming `I-3-*` identifiers.
 
 ## Unit
