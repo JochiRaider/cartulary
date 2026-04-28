@@ -276,6 +276,10 @@ function resolveOutputMode() {
   return process.env.CARTULARY_OUTPUT_MODE || "quiet";
 }
 
+function quietOutputMode() {
+  return resolveOutputMode() === "quiet";
+}
+
 function parseLifecycleOptions(args) {
   const options = { positional: [], force: false };
   for (let index = 0; index < args.length; index += 1) {
@@ -1448,11 +1452,12 @@ function parseTargetList(value) {
 function parseTargetSummaryArgs(args) {
   const [target, ...rest] = args;
   if (!target) {
-    throw new Error("usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>] [--projection <target>]");
+    throw new Error("usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>] [--projection <target>] [--quiet-success]");
   }
 
   let requestedStatus = "pass";
   let projectionTarget = "";
+  let quietSuccess = false;
   const remaining = [...rest];
   if (remaining.length > 0 && !remaining[0].startsWith("--")) {
     requestedStatus = remaining.shift();
@@ -1461,6 +1466,10 @@ function parseTargetSummaryArgs(args) {
   const childTargetNames = [];
   while (remaining.length > 0) {
     const option = remaining.shift();
+    if (option === "--quiet-success") {
+      quietSuccess = true;
+      continue;
+    }
     if (option === "--projection") {
       projectionTarget = remaining.shift() ?? "";
       if (projectionTarget === "") {
@@ -1485,7 +1494,7 @@ function parseTargetSummaryArgs(args) {
     childTargetNames.push(...projectionChildren(manifest, projectionTarget));
   }
 
-  return { target, requestedStatus, childTargetNames };
+  return { target, requestedStatus, childTargetNames, quietSuccess };
 }
 
 function targetSummaryPath(target) {
@@ -1661,8 +1670,14 @@ function writeTargetLine(stream, label, targetSummary) {
     const own = targetSummary.own;
     const children = targetSummary.children;
     const totals = targetSummary.totals;
+    const slowestChild = findSlowestTarget(children.present ?? []);
+    const slowestChildField = slowestChild
+      ? `${slowestChild.target}(${formatDuration(slowestChild.critical_path_wall_duration_ms)})`
+      : "none";
+    const failedChildren =
+      (children.failed_targets ?? []).length > 0 ? children.failed_targets.join(",") : "none";
     stream.write(
-      `${label} ${target} kind=aggregate children=${children.present.length}/${children.expected.length} child_tests=${children.counts.tests} child_failed=${children.counts.failed} own_phases=${own.counts.phases} own_tests=${own.counts.tests} own_failed=${own.counts.failed} total_tests=${totals.counts.tests} total_failed=${totals.counts.failed} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} own_fixture_count=${own.fixture.total_count} own_fixture_duration=${formatDuration(own.fixture.total_duration_ms)} child_fixture_count=${children.fixture.total_count} child_fixture_duration=${formatDuration(children.fixture.total_duration_ms)} total_fixture_count=${totals.fixture.total_count} total_fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
+      `${label} ${target} kind=aggregate children=${children.present.length}/${children.expected.length} child_tests=${children.counts.tests} child_failed=${children.counts.failed} failed_children=${failedChildren} slowest_child=${slowestChildField} own_phases=${own.counts.phases} own_tests=${own.counts.tests} own_failed=${own.counts.failed} total_tests=${totals.counts.tests} total_failed=${totals.counts.failed} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} own_fixture_count=${own.fixture.total_count} own_fixture_duration=${formatDuration(own.fixture.total_duration_ms)} child_fixture_count=${children.fixture.total_count} child_fixture_duration=${formatDuration(children.fixture.total_duration_ms)} total_fixture_count=${totals.fixture.total_count} total_fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
     );
     return;
   }
@@ -1705,7 +1720,7 @@ function writeChildTargetLines(stream, parentTarget, childTargets, missingChildT
 function handleTargetSummary(args) {
   const reportCollationStartMs = Date.now();
   const reportCollationStartTime = new Date(reportCollationStartMs).toISOString();
-  const { target, requestedStatus, childTargetNames } = parseTargetSummaryArgs(args);
+  const { target, requestedStatus, childTargetNames, quietSuccess } = parseTargetSummaryArgs(args);
   const summary = summarizeTargetDir(target);
   const lifecycleSpans = lifecycleTimingSpans(target, summary.targetDir);
   const timingFailures = timingFailuresFromSpans(lifecycleSpans);
@@ -1846,9 +1861,14 @@ function handleTargetSummary(args) {
   writeJson(path.join(summary.targetDir, "target-summary.json"), targetSummary);
 
   if (status === "PASS") {
+    if (quietSuccess && quietOutputMode()) {
+      return 0;
+    }
     writeTargetLine(process.stdout, "[PASS]", targetSummary);
     writeFixtureLine(process.stdout, targetSummary.totals.fixture);
-    writeChildTargetLines(process.stdout, target, childTargets, missingChildTargetSummaries);
+    if (!quietOutputMode()) {
+      writeChildTargetLines(process.stdout, target, childTargets, missingChildTargetSummaries);
+    }
     printInventory(summary);
     return 0;
   }
@@ -1884,13 +1904,18 @@ function parseSummaryGroupsSpec(value) {
 function parseRunSummaryArgs(args) {
   const [label, requestedStatus = "pass", completedText = "0", totalText = "0", abortedAfter = "", ...remaining] = args;
   if (!label) {
-    throw new Error("usage: test-output.mjs run-summary <label> <pass|fail> <completed> <total> <aborted_after|-> [--summary-groups <name=a,b;name=c>] [--skipped-after-failure <target,target>] [targets...]");
+    throw new Error("usage: test-output.mjs run-summary <label> <pass|fail> <completed> <total> <aborted_after|-> [--summary-groups <name=a,b;name=c>] [--skipped-after-failure <target,target>] [--quiet-success] [targets...]");
   }
   const targets = [];
   const summaryGroups = [];
   const skippedAfterFailure = [];
+  let quietSuccess = false;
   while (remaining.length > 0) {
     const value = remaining.shift();
+    if (value === "--quiet-success") {
+      quietSuccess = true;
+      continue;
+    }
     if (value === "--summary-groups") {
       const spec = remaining.shift();
       if (spec === undefined) {
@@ -1909,7 +1934,7 @@ function parseRunSummaryArgs(args) {
     }
     targets.push(value);
   }
-  return { label, requestedStatus, completedText, totalText, abortedAfter, targets, summaryGroups, skippedAfterFailure };
+  return { label, requestedStatus, completedText, totalText, abortedAfter, targets, summaryGroups, skippedAfterFailure, quietSuccess };
 }
 
 function createDurationAggregate() {
@@ -2100,7 +2125,7 @@ function findSlowestLifecycleBucket(targetSummaries) {
 }
 
 function handleRunSummary(args) {
-  const { label, requestedStatus, completedText, totalText, abortedAfter, targets, summaryGroups, skippedAfterFailure } =
+  const { label, requestedStatus, completedText, totalText, abortedAfter, targets, summaryGroups, skippedAfterFailure, quietSuccess } =
     parseRunSummaryArgs(args);
   const completedTargets = Number.parseInt(completedText, 10) || 0;
   const totalTargets = Number.parseInt(totalText, 10) || 0;
@@ -2177,6 +2202,9 @@ function handleRunSummary(args) {
   writeJson(path.join(resultsRoot, runId, "run-summary.json"), runSummary);
 
   if (!failed) {
+    if (quietSuccess && quietOutputMode()) {
+      return 0;
+    }
     process.stdout.write(
       `[PASS] ${label} completed_targets=${completedTargets}/${totalTargets} phases=${aggregate.phases} tests=${aggregate.tests} authoritative=${aggregate.authoritative} support=${aggregate.support} unmapped=${aggregate.unmapped} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
     );

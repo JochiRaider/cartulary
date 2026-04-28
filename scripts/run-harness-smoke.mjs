@@ -76,7 +76,15 @@ async function emitTestOutput(args) {
 }
 
 async function summarizeCheck(name, status) {
-  return emitTestOutput(["target-summary", name, status === 0 ? "pass" : "fail"]);
+  return emitTestOutput(["target-summary", name, status === 0 ? "pass" : "fail", "--quiet-success"]);
+}
+
+function verboseOutput() {
+  return (
+    process.env.VERBOSE === "1" ||
+    process.env.CI_VERBOSE === "1" ||
+    (process.env.CARTULARY_OUTPUT_MODE ?? "quiet") !== "quiet"
+  );
 }
 
 async function runCheck(check) {
@@ -144,8 +152,10 @@ async function main() {
   const checks = checkNames.map((name) => harnessCheck(manifest, name));
   const profile = summaryProfileArgs(manifest, label);
 
-  await emitTestOutput(["run-start", label, "--steps", "1", "--targets", String(checks.length), "--jobs", String(jobs)]);
-  await emitTestOutput(["step-start", label, "1", "1", options.tier, "--mode", "parallel", "--jobs", String(jobs)]);
+  if (verboseOutput()) {
+    await emitTestOutput(["run-start", label, "--steps", "1", "--targets", String(checks.length), "--jobs", String(jobs)]);
+    await emitTestOutput(["step-start", label, "1", "1", options.tier, "--mode", "parallel", "--jobs", String(jobs)]);
+  }
 
   const { failure, skippedAfterFailure } = await runChecks(checks, jobs);
   const summaryArgs = ["run-summary", label];
@@ -160,6 +170,7 @@ async function main() {
   if (skippedAfterFailure.length > 0) {
     summaryArgs.push("--skipped-after-failure", skippedAfterFailure.join(","));
   }
+  summaryArgs.push("--quiet-success");
   summaryArgs.push(...profile.targets);
   const summaryStatus = await emitTestOutput(summaryArgs);
   if (failure) {

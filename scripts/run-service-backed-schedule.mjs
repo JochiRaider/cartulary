@@ -883,11 +883,12 @@ class SchedulerReporter {
     this.events = createWriteStream(this.eventsPath, { flags: "w" });
     this.startedAt = new Map();
     this.completedWork = [];
+    this.completedLogFilesByTarget = new Map();
     this.skippedWork = [];
     this.blockedResourcesSeen = new Set();
     this.blockedExplanationsSeen = new Set();
     this.waitingOnSeen = new Set();
-    this.lastProgressAt = 0;
+    this.lastProgressAt = Date.now();
     this.lastBlockedKey = null;
     this.completedCount = 0;
     this.failedWorkUnit = null;
@@ -896,6 +897,9 @@ class SchedulerReporter {
   }
 
   start() {
+    if (!this.verbose) {
+      return;
+    }
     process.stdout.write(
       schedulerStartLine({
         prefix: "SCHEDULER",
@@ -976,6 +980,10 @@ class SchedulerReporter {
       log_file: relToRepo(result.logFile),
     };
     this.completedWork.push(record);
+    if (!this.completedLogFilesByTarget.has(unit.aggregateTarget)) {
+      this.completedLogFilesByTarget.set(unit.aggregateTarget, []);
+    }
+    this.completedLogFilesByTarget.get(unit.aggregateTarget).push(result.logFile);
     if (result.status !== 0 && !this.failedWorkUnit) {
       this.failedWorkUnit = result.label;
     }
@@ -995,6 +1003,10 @@ class SchedulerReporter {
         log_file: relToRepo(result.logFile),
       },
     );
+  }
+
+  completedLogFilesForTarget(target) {
+    return this.completedLogFilesByTarget.get(target) ?? [];
   }
 
   startFinalizer(finalizer, logFile, state) {
@@ -1201,19 +1213,21 @@ class SchedulerReporter {
     const failed = failedWorkUnit || this.failedWorkUnit || null;
     const slowest = this.slowestWork();
     const skipped = this.skippedWork.length;
-    process.stdout.write(
-      schedulerSummaryLine({
-        prefix: "SCHEDULER",
-        target: this.schedule.target,
-        status,
-        completed: this.completedCount,
-        total: this.schedule.workUnits.length,
-        failed,
-        skipped,
-        finalizerFailures: this.finalizerFailures,
-        slowest,
-      }),
-    );
+    if (this.verbose || status !== "pass") {
+      process.stdout.write(
+        schedulerSummaryLine({
+          prefix: "SCHEDULER",
+          target: this.schedule.target,
+          status,
+          completed: this.completedCount,
+          total: this.schedule.workUnits.length,
+          failed,
+          skipped,
+          finalizerFailures: this.finalizerFailures,
+          slowest,
+        }),
+      );
+    }
     await writeFile(
       this.summaryPath,
       `${JSON.stringify(
@@ -1357,14 +1371,16 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
       resourceLimits: schedule.resourceLimits,
     });
 
-    await runLifecycle(testOutputScript, [
-      "target-start",
-      schedule.target,
-      "--children",
-      childrenCsv,
-      "--service-backed",
-      "1",
-    ]);
+    if (reporter.verbose) {
+      await runLifecycle(testOutputScript, [
+        "target-start",
+        schedule.target,
+        "--children",
+        childrenCsv,
+        "--service-backed",
+        "1",
+      ]);
+    }
     reporter.start();
 
     const startUnit = async (unit) => {
@@ -1581,7 +1597,9 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
           completedShards.add(finishedUnit.shard);
           startReadyFinalizers();
         }
-        await replayLog(result.logFile, result.status === 0 ? process.stdout : process.stderr);
+        if (result.status !== 0 || reporter.verbose) {
+          await replayLog(result.logFile, result.status === 0 ? process.stdout : process.stderr);
+        }
         continue;
       }
 
@@ -1589,7 +1607,14 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
         if (finalizer.target === result.id.replace(/^finalize:/, "")) {
           runningFinalizers.delete(promise);
           reporter.finishFinalizer(finalizer, result, stateSnapshot());
-          await replayLog(result.logFile, result.status === 0 ? process.stdout : process.stderr);
+          if (result.status !== 0 && !reporter.verbose) {
+            for (const logFile of reporter.completedLogFilesForTarget(finalizer.target)) {
+              await replayLog(logFile, process.stderr);
+            }
+          }
+          if (result.status !== 0 || reporter.verbose) {
+            await replayLog(result.logFile, result.status === 0 ? process.stdout : process.stderr);
+          }
           if (result.status !== 0 && firstFailure === 0) {
             firstFailure = result.status;
             firstFailureLabel = result.label;

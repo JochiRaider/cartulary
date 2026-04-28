@@ -356,9 +356,10 @@ child_target_output="$(
     "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-target pass --children child-a,child-b \
     2>&1
 )"
-assert_contains "$child_target_output" "[PASS] parent-target kind=aggregate children=2/2 child_tests=18 child_failed=0 own_phases=1 own_tests=0 own_failed=0 total_tests=18 total_failed=0" "child target parent output"
-assert_contains "$child_target_output" "[CHILD] parent-target child-a status=pass phases=2 tests=7 failed=0 wall=1.20s critical=1.20s exec=1.00s logical=1.00s teardown=0ms actual=2 reused=0 derived=0" "child target child-a output"
-assert_contains "$child_target_output" "[CHILD] parent-target child-b status=pass phases=3 tests=11 failed=0 wall=2.00s critical=2.00s exec=2.00s logical=2.00s teardown=0ms actual=3 reused=0 derived=0" "child target child-b output"
+assert_contains "$child_target_output" "[PASS] parent-target kind=aggregate children=2/2 child_tests=18 child_failed=0 failed_children=none slowest_child=child-b(2.00s) own_phases=1 own_tests=0 own_failed=0 total_tests=18 total_failed=0" "child target parent output"
+assert_contains "$child_target_output" "failed_children=none slowest_child=child-b(2.00s)" "child target compact child hints"
+assert_not_contains "$child_target_output" "[CHILD] parent-target child-a" "quiet child target hides child-a detail"
+assert_not_contains "$child_target_output" "[CHILD] parent-target child-b" "quiet child target hides child-b detail"
 assert_not_contains "$child_target_output" " duration=" "child target ambiguous duration output"
 parent_target_summary="$child_summary_results/child-summary/parent-target/target-summary.json"
 parent_target_timing="$child_summary_results/child-summary/parent-target/target-timing.json"
@@ -381,6 +382,29 @@ assert_equals "$(json_field "$parent_target_timing" "schema_id")" "cartulary.tes
 assert_equals "$(json_field "$parent_target_timing" "buckets.0.name")" "test_command" "parent target timing test command bucket"
 assert_equals "$(json_field "$parent_target_timing" "buckets.1.name")" "report_collation" "parent target timing report collation bucket"
 assert_equals "$(json_field "$parent_target_summary" "own.slowest_lifecycle_bucket.name")" "$(json_field "$parent_target_timing" "slowest_lifecycle_bucket.name")" "parent target summary slowest bucket"
+
+explain_run_summary="$(
+  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$child_summary_results" --run-id child-summary --target parent-target \
+    2>&1
+)"
+assert_contains "$explain_run_summary" "[RUN] missing" "explain-run missing run summary"
+assert_contains "$explain_run_summary" "[TARGET] parent-target status=pass kind=aggregate tests=18 failed=0" "explain-run target summary"
+assert_contains "$explain_run_summary" "failed_children=none missing_children=none slowest_child=child-b(2.00s)" "explain-run compact child hints"
+explain_run_children="$(
+  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$child_summary_results/child-summary" --target parent-target --detail children \
+    2>&1
+)"
+assert_contains "$explain_run_children" "[CHILD] child-a status=pass tests=7 failed=0 duration=1.20s" "explain-run child-a detail"
+assert_contains "$explain_run_children" "[CHILD] child-b status=pass tests=11 failed=0 duration=2.00s" "explain-run child-b detail"
+set +e
+explain_run_logs_output="$(
+  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$child_summary_results/child-summary" --detail logs \
+    2>&1
+)"
+explain_run_logs_status=$?
+set -e
+assert_equals "$explain_run_logs_status" "1" "explain-run logs requires target status"
+assert_contains "$explain_run_logs_output" "DETAIL=logs requires TARGET=<target>" "explain-run logs requires target output"
 
 fixture_results="$(mktemp -d "$ROOT_DIR/tmp/fixture-reporting.XXXXXX")"
 cleanup_paths+=("$fixture_results")

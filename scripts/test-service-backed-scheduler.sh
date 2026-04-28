@@ -127,14 +127,13 @@ if (!events.some((event) => event.resource_claims && Object.keys(event.resource_
   throw new Error("events must include resource claims");
 }
 const progress = events.find((event) => event.event === "progress");
-if (!progress) {
-  throw new Error("scheduler events must include progress events");
-}
-if (!progress.active_groups || !Array.isArray(progress.blocked_by) || !Object.hasOwn(progress, "unblocks_after") || !Object.hasOwn(progress, "slowest_running")) {
-  throw new Error("progress events must include structured v3 progress fields");
-}
-if (!Number.isInteger(progress.total_work_units) || !Number.isInteger(progress.blocked)) {
-  throw new Error("progress events must include total_work_units and blocked counts");
+if (progress) {
+  if (!progress.active_groups || !Array.isArray(progress.blocked_by) || !Object.hasOwn(progress, "unblocks_after") || !Object.hasOwn(progress, "slowest_running")) {
+    throw new Error("progress events must include structured v3 progress fields");
+  }
+  if (!Number.isInteger(progress.total_work_units) || !Number.isInteger(progress.blocked)) {
+    throw new Error("progress events must include total_work_units and blocked counts");
+  }
 }
 EOF
 }
@@ -561,11 +560,10 @@ write_manifest "$weighted_manifest" test-fast-service-backed \
   'make_target|backend-integration-support|5|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1'
 weighted_output="$(run_scheduler "$weighted_dir" "$weighted_manifest" test-fast-service-backed weighted 2>&1)"
 assert_not_contains "$weighted_output" "[STEP] test-fast-service-backed" "default service scheduler output hides per-unit steps"
-assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_units=3 finalizers=0 capacity={go_cpu:6,go_io:6,browser_stack:" "scheduler concise start"
-assert_contains "$weighted_output" "classes={backend:3} types={make_target:3} top_weighted=backend-process:10,backend-integration-support:5,backend-store:1" "scheduler concise start shows compact work metadata"
-assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed progress completed=0/3 running=3 pending=0 blocked=0 finalizing=0 active_groups=backend-integration-support:1,backend-process:1,backend-store:1 blocked_by=none unblocks_after=none slowest_running=" "scheduler concise progress"
-assert_contains "$weighted_output" "artifacts=tmp/service-backed-scheduler-weighted" "scheduler concise progress artifact path"
-assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed summary status=pass completed=3/3 failed=none slowest=" "scheduler concise summary"
+assert_not_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start" "quiet scheduler hides success start"
+assert_not_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed progress completed=0/3" "quiet scheduler hides immediate unblocked progress"
+assert_not_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed summary status=pass" "quiet scheduler hides success summary"
+assert_not_contains "$weighted_output" "fake pass for backend-store" "quiet scheduler hides successful child logs"
 assert_not_contains "$weighted_output" "active_resource_claims=" "default scheduler output hides raw active resources"
 assert_not_contains "$weighted_output" "claims={" "default scheduler output hides raw claims"
 assert_not_contains "$weighted_output" "running_units=" "default scheduler output hides raw running units"
@@ -573,10 +571,12 @@ assert_not_contains "$weighted_output" "blocked_resources=" "default scheduler o
 assert_scheduler_artifacts "$weighted_dir" weighted test-fast-service-backed pass - start
 
 weighted_verbose_output="$(VERBOSE=1 run_scheduler "$weighted_dir" "$weighted_manifest" test-fast-service-backed weighted-verbose 2>&1)"
+assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed start work_units=3 finalizers=0 capacity={go_cpu:6,go_io:6,browser_stack:" "verbose scheduler aggregate start"
 assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-process claims={go_cpu:1,go_io:1,minio:1,postgres:1,process:1} active=1 pending=2" "verbose scheduler start telemetry"
 assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-store claims={go_cpu:1,go_io:1,minio:1,postgres:1} active=3 pending=0 active_resource_claims={go_cpu:3,go_io:3,minio:3,postgres:3,process:1}" "verbose scheduler starts all compatible weighted children"
 assert_contains "$weighted_verbose_output" "resource_limits={browser_stack:" "verbose scheduler resource limit telemetry includes browser stack"
 assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed finish work_unit=backend-process status=0" "verbose scheduler finish telemetry"
+assert_contains "$weighted_verbose_output" "fake pass for backend-store" "verbose scheduler replays successful child logs"
 
 resource_block_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-resource-block.XXXXXX")"
 cleanup_paths+=("$resource_block_dir")
@@ -602,7 +602,7 @@ write_manifest "$backend_capacity_manifest" test-fast-service-backed \
   'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1' \
   'make_target|backend-integration-support|7|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1'
 backend_capacity_output="$(run_scheduler "$backend_capacity_dir" "$backend_capacity_manifest" test-fast-service-backed backend-capacity 2>&1)"
-assert_contains "$backend_capacity_output" "[SCHEDULER] test-fast-service-backed summary status=pass completed=4/4 failed=none" "go resource model starts all compatible backend work units"
+assert_not_contains "$backend_capacity_output" "[SCHEDULER] test-fast-service-backed summary status=pass" "quiet go resource model hides success scheduler summary"
 
 io_block_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-io-block.XXXXXX")"
 cleanup_paths+=("$io_block_dir")
@@ -625,7 +625,7 @@ write_manifest "$browser_manifest" test-service-backed \
 browser_output="$(run_scheduler "$browser_dir" "$browser_manifest" test-service-backed browser 2>&1)"
 assert_not_contains "$browser_output" "[STEP] test-service-backed" "browser schedule hides default scheduler steps"
 assert_contains "$browser_output" "[FAIL] test-service-backed kind=aggregate children=2/6 child_tests=2 child_failed=0" "browser schedule aggregate child tests"
-assert_contains "$browser_output" "[SCHEDULER] test-service-backed summary status=pass completed=2/2 failed=none" "browser concise scheduler summary"
+assert_not_contains "$browser_output" "[SCHEDULER] test-service-backed summary status=pass" "browser quiet scheduler hides success summary"
 assert_not_contains "$browser_output" "claims={browser_stack:1" "browser default output hides resource claims"
 assert_scheduler_artifacts "$browser_dir" browser test-service-backed pass - start
 
@@ -655,7 +655,8 @@ eager_finalizer_output="$(
   FAKE_GO_SLEEP_FINALIZE=0.05 \
     run_scheduler "$eager_finalizer_dir" "$eager_finalizer_manifest" test-service-backed eager-finalizer 2>&1
 )"
-assert_contains "$eager_finalizer_output" "aggregate-reports/backend-store/fake-aggregate" "go finalizer uses target-scoped aggregate output"
+assert_not_contains "$eager_finalizer_output" "aggregate-reports/backend-store/fake-aggregate" "quiet scheduler hides successful finalizer log output"
+assert_contains "$(cat "${eager_finalizer_dir}/results/eager-finalizer/test-service-backed/scheduler-logs/finalize-backend-store.log")" "aggregate-reports/backend-store/fake-aggregate" "go finalizer uses target-scoped aggregate output"
 assert_scheduler_artifacts "$eager_finalizer_dir" eager-finalizer test-service-backed pass - finalize-start
 "$NODE_BIN" - "${eager_finalizer_dir}/results/eager-finalizer/test-service-backed/scheduler-events.jsonl" <<'EOF'
 const fs = require("node:fs");
@@ -691,8 +692,9 @@ separate_finalizer_output="$(
   FAKE_GO_SLEEP_FINALIZE_TARGET_DURATION=1.5 \
     run_scheduler "$separate_finalizer_dir" "$separate_finalizer_manifest" test-fast-service-backed separate-finalizer 2>&1
 )"
-assert_contains "$separate_finalizer_output" "aggregate-reports/backend-integration/fake-aggregate" "backend-integration aggregate output is target-scoped"
-assert_contains "$separate_finalizer_output" "aggregate-reports/backend-integration-support/fake-aggregate" "backend-integration-support aggregate output is target-scoped"
+assert_not_contains "$separate_finalizer_output" "aggregate-reports/backend-integration/fake-aggregate" "quiet scheduler hides backend-integration finalizer log output"
+assert_contains "$(cat "${separate_finalizer_dir}/results/separate-finalizer/test-fast-service-backed/scheduler-logs/finalize-backend-integration.log")" "aggregate-reports/backend-integration/fake-aggregate" "backend-integration aggregate output is target-scoped"
+assert_contains "$(cat "${separate_finalizer_dir}/results/separate-finalizer/test-fast-service-backed/scheduler-logs/finalize-backend-integration-support.log")" "aggregate-reports/backend-integration-support/fake-aggregate" "backend-integration-support aggregate output is target-scoped"
 assert_scheduler_artifacts "$separate_finalizer_dir" separate-finalizer test-fast-service-backed pass - finalize-start
 "$NODE_BIN" - "${separate_finalizer_dir}/make.log" <<'EOF'
 const fs = require("node:fs");
@@ -834,7 +836,7 @@ makeflags_sanitize_output="$(
   MFLAGS='--jobserver-fds=3,4 -j' \
     run_scheduler "$makeflags_sanitize_dir" "$makeflags_sanitize_manifest" test-fast-service-backed makeflags-sanitize 2>&1
 )"
-assert_contains "$makeflags_sanitize_output" "[SCHEDULER] test-fast-service-backed summary status=pass completed=1/1 failed=none" "makeflags sanitize scheduler summary"
+assert_not_contains "$makeflags_sanitize_output" "[SCHEDULER] test-fast-service-backed summary status=pass" "makeflags sanitize quiet scheduler hides success summary"
 assert_not_contains "$(cat "${makeflags_sanitize_dir}/make.log")" "jobserver" "child make env strips inherited jobserver tokens"
 assert_not_contains "$(cat "${makeflags_sanitize_dir}/make.log")" "MFLAGS=-j" "child make env strips inherited mflags jobs"
 assert_contains "$(cat "${makeflags_sanitize_dir}/make.log")" "MAKEFLAGS=--trace" "child make env preserves non-jobserver make flags"
@@ -1017,7 +1019,7 @@ write_manifest "$defer_summary_manifest" test-fast-service-backed \
   'make_target|backend-integration|10|"postgres": 1, "minio": 1' \
   'make_target|backend-store|9|"postgres": 1, "minio": 1'
 defer_summary_output="$(run_scheduler "$defer_summary_dir" "$defer_summary_manifest" test-fast-service-backed defer-summary --defer-summary 2>&1)"
-assert_contains "$defer_summary_output" "[TARGET] start test-fast-service-backed" "defer-summary target start"
+assert_not_contains "$defer_summary_output" "[TARGET] start test-fast-service-backed" "defer-summary quiet output hides target start"
 assert_file_absent "${defer_summary_dir}/results/defer-summary/test-fast-service-backed/target-summary.json" "defer-summary parent target summary"
 
 unsafe_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-unsafe.XXXXXX")"

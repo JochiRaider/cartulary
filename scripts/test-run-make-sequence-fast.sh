@@ -39,6 +39,16 @@ assert_not_contains() {
   fi
 }
 
+assert_equals() {
+  local actual="$1"
+  local expected="$2"
+  local label="$3"
+
+  if [[ "${actual}" != "${expected}" ]]; then
+    fail "${label}: expected [${expected}], got [${actual}]"
+  fi
+}
+
 assert_file_absent() {
   local path="$1"
   local label="$2"
@@ -151,6 +161,61 @@ assert_not_contains "${dry_run_output}" "[RUN]" "script dry-run run start output
 assert_not_contains "${dry_run_output}" "[STEP]" "script dry-run step output"
 assert_file_absent "${dry_run_dir}/results/dry-run/run-summary.json" "script dry-run summary"
 assert_contains "$(cat "${dry_run_dir}/make.log")" "--no-print-directory alpha" "script dry-run child make"
+
+harness_quiet_dir="$(mktemp -d "${ROOT_DIR}/tmp/harness-smoke-quiet.XXXXXX")"
+cleanup_paths+=("${harness_quiet_dir}")
+mkdir -p "${harness_quiet_dir}/scripts"
+cat >"${harness_quiet_dir}/scripts/check-a.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+EOF
+cat >"${harness_quiet_dir}/scripts/check-b.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+EOF
+chmod +x "${harness_quiet_dir}/scripts/check-a.sh" "${harness_quiet_dir}/scripts/check-b.sh"
+harness_manifest="${harness_quiet_dir}/manifest.json"
+"${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" "${harness_manifest}" "${harness_quiet_dir#${ROOT_DIR}/}/scripts" <<'EOF'
+const fs = require("node:fs");
+const [source, destination, scriptDir] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
+const checks = ["harness-quiet-a", "harness-quiet-b"];
+manifest.harness_tiers.fast = { checks };
+manifest.summary_profiles["run-harness-smoke-fast"] = {
+  targets: checks,
+  groups: [{ name: "fast", targets: checks }],
+};
+manifest.harness_checks.push(
+  { name: "harness-quiet-a", backing_scripts: [`${scriptDir}/check-a.sh`] },
+  { name: "harness-quiet-b", backing_scripts: [`${scriptDir}/check-b.sh`] },
+);
+fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
+harness_quiet_output="$(
+  VERBOSE= \
+  CI_VERBOSE= \
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="${harness_quiet_dir}/results" \
+  CARTULARY_TEST_RUN_ID="quiet" \
+  TASK_SURFACE_MANIFEST="${harness_manifest}" \
+    "${NODE_BIN:-node}" "${ROOT_DIR}/scripts/run-harness-smoke.mjs" --tier fast --jobs 2 --manifest "${harness_manifest}" \
+    2>&1
+)"
+assert_equals "${harness_quiet_output}" "" "quiet harness internal success output"
+check_harness_quiet_output="$(
+  VERBOSE= \
+  CI_VERBOSE= \
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="${harness_quiet_dir}/results" \
+  CARTULARY_TEST_RUN_ID="quiet" \
+    "${ROOT_DIR}/scripts/lib/test-output.sh" target-summary check-harness-smoke pass --children harness-quiet-a,harness-quiet-b \
+    2>&1
+)"
+assert_contains "${check_harness_quiet_output}" "[PASS] check-harness-smoke kind=aggregate children=2/2" "quiet check harness aggregate summary"
+assert_contains "${check_harness_quiet_output}" "failed_children=none" "quiet check harness failure hint"
+assert_not_contains "${check_harness_quiet_output}" "[CHILD]" "quiet check harness hides child detail"
 
 invalid_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-invalid.XXXXXX")"
 cleanup_paths+=("${invalid_dir}")

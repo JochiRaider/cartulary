@@ -464,6 +464,15 @@ fixture-report:
 	if [ "$(JSON)" = "1" ]; then args+=(--json); fi; \
 	"$$node_cmd" ./scripts/print-fixture-report.mjs "$${args[@]}"
 
+explain-run:
+	$(Q)if [ -z "$(RESULTS_DIR)" ]; then echo "usage: make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs]" >&2; exit 2; fi
+	$(Q)set -euo pipefail; \
+	node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; \
+	args=(--results-dir "$(RESULTS_DIR)" --detail "$(if $(DETAIL),$(DETAIL),summary)"); \
+	if [ -n "$(RUN_ID)" ]; then args+=(--run-id "$(RUN_ID)"); fi; \
+	if [ -n "$(TARGET)" ]; then args+=(--target "$(TARGET)"); fi; \
+	"$$node_cmd" ./scripts/print-explain-run.mjs "$${args[@]}"
+
 explain-target:
 	$(Q)if [ -z "$(TARGET)" ]; then echo "usage: make explain-target TARGET=<backend target>" >&2; exit 2; fi
 	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/print-target-plan.mjs --target "$(TARGET)" $(if $(filter 0,$(DETAIL)),,--detail)
