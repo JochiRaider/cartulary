@@ -969,6 +969,10 @@ function addTimingSpanToBuckets(buckets, span) {
 }
 
 function disjointSpanDurationMs(spans) {
+  if (spans.length === 1) {
+    return clampDurationMs(spans[0]?.duration_ms ?? 0);
+  }
+
   const intervals = [];
   let fallbackDurationMs = 0;
   for (const span of spans) {
@@ -1224,6 +1228,10 @@ function accountableTargetWallSpan(span) {
 
 function summarizeAccountableTargetWindow(spans) {
   const accountableSpans = spans.filter(accountableTargetWallSpan);
+  const summedDurationMs = accountableSpans.reduce(
+    (total, span) => total + clampDurationMs(span.duration_ms ?? 0),
+    0,
+  );
   const startTimes = accountableSpans
     .map((span) => span.start_time)
     .filter((value) => Number.isFinite(Date.parse(value)))
@@ -1235,14 +1243,16 @@ function summarizeAccountableTargetWindow(spans) {
   const startTime = startTimes[0] ?? "";
   const endTime = endTimes[endTimes.length - 1] ?? "";
   const windowDurationMs = computeWindowDurationMs(startTime, endTime);
-  const summedDurationMs = accountableSpans.reduce(
-    (total, span) => total + clampDurationMs(span.duration_ms ?? 0),
-    0,
-  );
+  const wallDurationMs =
+    accountableSpans.length === 1
+      ? summedDurationMs
+      : windowDurationMs > 0
+        ? windowDurationMs
+        : summedDurationMs;
   return {
     startTime,
     endTime,
-    wallDurationMs: windowDurationMs > 0 ? windowDurationMs : summedDurationMs,
+    wallDurationMs,
   };
 }
 
@@ -1854,6 +1864,9 @@ function handleTargetSummary(args) {
     status: status.toLowerCase(),
     start_time: summary.startTime,
     end_time: summary.endTime,
+    ...durationFieldsForJSON(totalsSection),
+    accounting_modes: totalsSection.accounting_modes,
+    artifacts: ownSection.artifacts,
     own: ownSection,
     children: childrenSection,
     totals: totalsSection,

@@ -5,7 +5,29 @@ RUN_PHASE_REPO_ROOT="$(cd "${RUN_PHASE_COMMON_DIR}/../.." && pwd)"
 TEST_OUTPUT_HELPER="${RUN_PHASE_COMMON_DIR}/test-output.sh"
 
 phase_now_utc() {
-  date -u +%Y-%m-%dT%H:%M:%SZ
+  local timestamp
+  timestamp="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ 2>/dev/null || true)"
+  if [[ "${timestamp}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$ ]]; then
+    printf '%s\n' "${timestamp}"
+    return
+  fi
+
+  if [[ -n "${NODE_BIN:-}" && -x "${NODE_BIN}" ]]; then
+    "${NODE_BIN}" -e 'process.stdout.write(new Date().toISOString() + "\n")'
+    return
+  fi
+
+  if [[ -x "${RUN_PHASE_REPO_ROOT}/tmp/node-runtime/bin/node" ]]; then
+    "${RUN_PHASE_REPO_ROOT}/tmp/node-runtime/bin/node" -e 'process.stdout.write(new Date().toISOString() + "\n")'
+    return
+  fi
+
+  if command -v node >/dev/null 2>&1; then
+    node -e 'process.stdout.write(new Date().toISOString() + "\n")'
+    return
+  fi
+
+  printf '%s.000Z\n' "$(date -u +%Y-%m-%dT%H:%M:%S)"
 }
 
 phase_now_monotonic_ms() {

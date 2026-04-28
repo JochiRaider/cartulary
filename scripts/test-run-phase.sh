@@ -64,6 +64,16 @@ assert_contains() {
   fi
 }
 
+assert_matches() {
+  local value="$1"
+  local pattern="$2"
+  local label="$3"
+
+  if [[ ! "$value" =~ $pattern ]]; then
+    fail "$label: expected [$value] to match /$pattern/"
+  fi
+}
+
 assert_not_contains() {
   local haystack="$1"
   local needle="$2"
@@ -292,6 +302,61 @@ assert_equals "$(json_field "$short_failure_summary" "counts.failed")" "1" "shor
 assert_equals "$(json_field "$short_failure_summary" "counts.non_test")" "1" "short failure non-test count"
 assert_equals "$(json_field "$short_failure_summary" "counts.non_test_failed")" "1" "short failure non-test failed count"
 assert_equals "$(json_field "$short_failure_summary" "counts.unmapped_failed")" "0" "short failure unmapped failed count"
+assert_matches "$(json_field "$short_failure_summary" "start_time")" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$' "short failure millisecond start time"
+assert_matches "$(json_field "$short_failure_summary" "end_time")" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$' "short failure millisecond end time"
+
+single_span_results="$(mktemp -d "$ROOT_DIR/tmp/single-span-duration.XXXXXX")"
+cleanup_paths+=("$single_span_results")
+single_span_phase_dir="$single_span_results/single-span/short-target/short-phase"
+mkdir -p "$single_span_phase_dir"
+cat >"$single_span_phase_dir/phase-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.test_phase_summary.v2",
+  "label": "short phase",
+  "target": "short-target",
+  "runner": "shell",
+  "status": "pass",
+  "phase": "non_test",
+  "command": "true",
+  "start_time": "2026-01-01T00:00:00Z",
+  "end_time": "2026-01-01T00:00:01Z",
+  "accounting_mode": "actual",
+  "executed_duration_ms": 660,
+  "logical_duration_ms": 660,
+  "reused_duration_ms": 0,
+  "derived_duration_ms": 0,
+  "wall_duration_ms": 660,
+  "critical_path_wall_duration_ms": 660,
+  "teardown_duration_ms": 0,
+  "timing_bucket": "test_command",
+  "exit_status": 0,
+  "artifacts": {},
+  "counts": {
+    "tests": 0,
+    "failed": 0,
+    "authoritative": 0,
+    "support": 0,
+    "unmapped": 0,
+    "non_test": 1,
+    "authoritative_failed": 0,
+    "support_failed": 0,
+    "unmapped_failed": 0,
+    "non_test_failed": 0
+  },
+  "owners": [],
+  "inventory": [],
+  "dossiers": [],
+  "manifest_mismatch": null
+}
+JSON
+CARTULARY_TEST_RESULTS_DIR="$single_span_results" \
+CARTULARY_TEST_RUN_ID="single-span" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary short-target pass >/dev/null 2>&1
+single_span_summary="$single_span_results/single-span/short-target/target-summary.json"
+single_span_timing="$single_span_results/single-span/short-target/target-timing.json"
+assert_equals "$(json_field "$single_span_summary" "totals.wall_duration_ms")" "660" "single span target wall uses monotonic duration"
+assert_equals "$(json_field "$single_span_summary" "totals.critical_path_wall_duration_ms")" "660" "single span target critical uses monotonic duration"
+assert_equals "$(json_field "$single_span_timing" "buckets.0.duration_ms")" "660" "single span timing bucket uses monotonic duration"
 
 missing_target_results="$(mktemp -d "$ROOT_DIR/tmp/run-summary-missing-target.XXXXXX")"
 cleanup_paths+=("$missing_target_results")

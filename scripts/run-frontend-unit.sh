@@ -40,17 +40,17 @@ else
 fi
 
 command_text="$(render_command env PATH="${path_prefix}" COREPACK_HOME="${corepack_home}" "${run_command[@]}")"
-start_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-start_ms="$(date +%s%3N)"
+phase_capture_start PHASE
 
 set +e
 run_vitest_command_with_watchdog "frontend-unit" "${raw_dir}" "${stdout_log}" "${stderr_log}" "${output_mode}" env PATH="${path_prefix}" COREPACK_HOME="${corepack_home}" "${run_command[@]}"
 run_status=$?
 set -e
 
-end_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-end_ms="$(date +%s%3N)"
-duration_ms="$((end_ms - start_ms))"
+phase_capture_finish PHASE
+start_time="${PHASE_START_TIME}"
+end_time="${PHASE_END_TIME}"
+duration_ms="${PHASE_DURATION_MS}"
 
 status=0
 export CARTULARY_REPORT_SLICE=1
