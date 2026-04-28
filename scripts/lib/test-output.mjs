@@ -520,6 +520,7 @@ function loadManifestIndex() {
     authoritativeGo: new Map(),
     authoritativeVitest: new Map(),
     authoritativePlaywright: new Map(),
+    manifestPlaywright: new Map(),
     forbiddenFilesByPhase: new Map(),
   };
 
@@ -539,6 +540,12 @@ function loadManifestIndex() {
       index.forbiddenFilesByPhase.get(phase).add(normalizePath(forbidden));
     }
     for (const entry of entries) {
+      if (entry.runner === "playwright") {
+        index.manifestPlaywright.set(
+          `${normalizePath(entry.file)}::${entry.title}`,
+          { ...entry, phase },
+        );
+      }
       if (entry.coverage !== "authoritative") {
         continue;
       }
@@ -3266,6 +3273,15 @@ function isForbiddenFile(file, phase) {
 
 function classifyPlaywrightCase(file, title, phaseLabel) {
   const normalizedFile = normalizePlaywrightFile(file);
+  const manifested = loadManifestIndex().manifestPlaywright.get(`${normalizedFile}::${title}`);
+  if (manifested && manifested.coverage !== "authoritative") {
+    return {
+      coverage: "support",
+      phase: manifested.phase,
+      id: manifested.id,
+      owner: normalizedFile,
+    };
+  }
   const authoritative = loadManifestIndex().authoritativePlaywright.get(`${normalizedFile}::${title}`);
   if (authoritative) {
     return {
@@ -3626,9 +3642,10 @@ function evaluatePlaywrightManifest(summary) {
   const executionDependency = optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY");
   const entries = selectPlaywrightManifestEntries(phase, coverage, executionDependency);
   const expectedKeys = new Set(entries.map((entry) => `${entry.file}::${entry.title}`));
+  const expectedCoverage = coverage === "authoritative" ? "authoritative" : "support";
   const executedKeys = new Set(
     summary.inventory
-      .filter((item) => item.coverage === "authoritative")
+      .filter((item) => item.coverage === expectedCoverage)
       .map((item) => `${item.package_or_file}::${item.symbol_or_title}`),
   );
   const missingIDs = entries
@@ -3637,7 +3654,7 @@ function evaluatePlaywrightManifest(summary) {
     .sort();
   const expectedIDs = new Set(entries.map((entry) => entry.id));
   const unexpectedIDs = summary.inventory
-    .filter((item) => item.coverage === "authoritative" && item.id && !expectedIDs.has(item.id))
+    .filter((item) => item.coverage === expectedCoverage && item.id && !expectedIDs.has(item.id))
     .map((item) => item.id)
     .sort();
   return {

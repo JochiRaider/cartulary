@@ -683,6 +683,12 @@ fi
 if ! grep -Fq '"kind": "duration_balanced_specs"' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must route functional browser work through duration-balanced specs"
 fi
+if ! grep -Fq '"execution_dependency": "browser_functional"' "$browser_batch_manifest"; then
+  fail "browser E2E batch manifest must declare manifest execution dependencies for browser groups"
+fi
+if ! grep -Fq '"execution_dependency": "browser_support"' "$browser_batch_manifest"; then
+  fail "browser E2E batch manifest must declare browser_support manifest selection for support groups"
+fi
 if ! grep -Fq 'cartulary.browser_e2e_duration_baselines.v1' "$browser_duration_baselines"; then
   fail "browser E2E duration baselines must declare their schema"
 fi
@@ -768,8 +774,8 @@ fi
 if ! grep -Fq 'browser_functional' "$browser_shard_plan_script"; then
   fail "scripts/lib/browser-shard-plan.mjs must select authoritative browser_functional manifest rows"
 fi
-if grep -Fq 'playwright-grep-many' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must not keep the old all-phase Playwright grep batch"
+if grep -F 'playwright-grep-many' "$webserver_batch_script" | grep -Fq 'browser_functional'; then
+  fail "scripts/lib/run-playwright-webserver-batch.sh must not keep the old all-phase functional Playwright grep batch"
 fi
 browser_functional_phases=()
 while IFS= read -r phase; do
@@ -783,11 +789,10 @@ while IFS= read -r phase; do
   browser_functional_phases+=("$phase")
 done < <("$node_bin" "$repo_root/scripts/lib/phase-manifest.mjs" list-phases)
 
-for required_browser_functional_phase in phase1 phase2 phase3 phase4; do
-  if ! printf '%s\n' "${browser_functional_phases[@]}" | grep -Fxq "$required_browser_functional_phase"; then
-    fail "authoritative browser_functional manifest phases must include $required_browser_functional_phase, found: ${browser_functional_phases[*]:-none}"
-  fi
-done
+mapfile -t expected_browser_functional_phases < <("$node_bin" "$repo_root/scripts/lib/phase-manifest.mjs" playwright-phases authoritative browser_functional)
+if [[ "$(printf '%s\n' "${browser_functional_phases[@]}")" != "$(printf '%s\n' "${expected_browser_functional_phases[@]}")" ]]; then
+  fail "authoritative browser_functional phases must be manifest-derived, found: ${browser_functional_phases[*]:-none}; expected: ${expected_browser_functional_phases[*]:-none}"
+fi
 if printf '%s\n' "${browser_functional_phases[@]}" | grep -Fxq phase0; then
   fail "authoritative browser_functional manifest phases must skip phase0, found: ${browser_functional_phases[*]}"
 fi
@@ -815,9 +820,20 @@ fi
 if ! grep -Fq 'CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES' "$webserver_batch_config"; then
   fail "apps/web/playwright.webserver-backed.config.ts must scope functional files from the Playwright manifest"
 fi
+if ! grep -Fq 'CARTULARY_PLAYWRIGHT_SUPPORT_GREP' "$webserver_batch_config"; then
+  fail "apps/web/playwright.webserver-backed.config.ts must scope support grep from the Playwright manifest"
+fi
+if ! grep -Fq 'CARTULARY_PLAYWRIGHT_SUPPORT_FILES' "$webserver_batch_config"; then
+  fail "apps/web/playwright.webserver-backed.config.ts must scope support files from the Playwright manifest"
+fi
 for hardcoded_browser_functional_file in phase1.spec.ts phase2.spec.ts phase3.spec.ts phase4.spec.ts; do
   if grep -Fq "$hardcoded_browser_functional_file" "$webserver_batch_config"; then
     fail "apps/web/playwright.webserver-backed.config.ts must not hardcode browser functional file $hardcoded_browser_functional_file"
+  fi
+done
+for hardcoded_browser_support_file in phase2.support.spec.ts phase3.support.spec.ts; do
+  if grep -Fq "$hardcoded_browser_support_file" "$webserver_batch_config" "$browser_batch_script" "$webserver_batch_script"; then
+    fail "browser support execution must not hardcode support file $hardcoded_browser_support_file"
   fi
 done
 if ! grep -Fq 'webE2EBaseConfig' "$webserver_batch_config"; then
@@ -827,8 +843,11 @@ if ! grep -Fq 'webE2EBaseConfig' "$shared_playwright_config"; then
   fail "apps/web/playwright.shared.config.ts must expose the shared Playwright web E2E config"
 fi
 
-if ! grep -Fq 'phase1 authoritative browser_stateful' "$stateful_script"; then
-  fail "scripts/run-browser-e2e-stateful.sh must execute Phase 1 browser_stateful rows through the manifest"
+if ! grep -Fq 'browser_stateful' "$stateful_script"; then
+  fail "scripts/run-browser-e2e-stateful.sh must execute browser_stateful rows through the manifest"
+fi
+if ! grep -Fq 'run-browser-e2e-manifest-dependency.sh' "$stateful_script"; then
+  fail "scripts/run-browser-e2e-stateful.sh must use manifest-derived phase discovery"
 fi
 if grep -Fq 'e2e/phase1.clock.spec.ts' "$stateful_script"; then
   fail "scripts/run-browser-e2e-stateful.sh must not raw-select e2e/phase1.clock.spec.ts"
@@ -839,8 +858,11 @@ fi
 if ! grep -Fq 'evidence_kind": "ordinary_measurement"' "$measurement_script"; then
   fail "scripts/run-browser-e2e-measurement.sh must emit ordinary_measurement evidence_kind metadata"
 fi
-if ! grep -Fq 'phase3 authoritative browser_measurement' "$measurement_script"; then
-  fail "scripts/run-browser-e2e-measurement.sh must execute Phase 3 browser_measurement rows through the manifest"
+if ! grep -Fq 'browser_measurement' "$measurement_script"; then
+  fail "scripts/run-browser-e2e-measurement.sh must execute browser_measurement rows through the manifest"
+fi
+if ! grep -Fq 'run-browser-e2e-manifest-dependency.sh' "$measurement_script"; then
+  fail "scripts/run-browser-e2e-measurement.sh must use manifest-derived phase discovery"
 fi
 if ! grep -Fq 'run-browser-e2e-batch.sh" resettable' "$resettable_script"; then
   fail "scripts/run-browser-e2e-resettable.sh must delegate resettable sequencing to the browser batch runner"
@@ -870,17 +892,7 @@ const fs = require("fs");
 const path = require("path");
 
 const root = process.argv[2];
-for (const [phase, expectedFor] of [
-  [
-    "phase1",
-    (entry) =>
-      new Set(["E-1-04", "E-1-05"]).has(entry.id)
-        ? "browser_stateful"
-        : "browser_functional",
-  ],
-  ["phase2", () => "browser_functional"],
-  ["phase4", () => "browser_functional"],
-]) {
+for (const phase of manifestPhases()) {
   const manifest = JSON.parse(
     fs.readFileSync(path.join(root, "tools", `${phase}_test_map.json`), "utf8"),
   );
@@ -888,16 +900,21 @@ for (const [phase, expectedFor] of [
     if (entry.coverage !== "authoritative" || entry.runner !== "playwright") {
       continue;
     }
-    const expected = expectedFor(entry);
-    if (entry.execution_dependency !== expected) {
+    if (!["browser_functional", "browser_stateful", "browser_measurement"].includes(entry.execution_dependency)) {
       console.error(
-        `${phase} authoritative e2e row ${entry.id} must declare execution_dependency=${expected}`,
+        `${phase} authoritative e2e row ${entry.id} must declare a canonical browser execution_dependency`,
       );
       process.exit(1);
     }
   }
 }
+function manifestPhases() {
+  return fs.readdirSync(path.join(root, "tools"))
+    .filter((entry) => /^phase\d+_test_map\.json$/.test(entry))
+    .map((entry) => entry.replace(/_test_map\.json$/, ""))
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+}
 EOF
 then
-  fail "Phase 1 and Phase 2 authoritative browser manifest rows must carry the canonical execution_dependency for their layer"
+  fail "Authoritative browser manifest rows must carry canonical execution_dependency values"
 fi

@@ -124,6 +124,13 @@ const functionalFiles = new Set(
     .filter(Boolean),
 );
 const functionalGrep = new RegExp(process.env.CARTULARY_PLAYWRIGHT_FUNCTIONAL_GREP ?? ".*");
+const supportFiles = new Set(
+  (process.env.CARTULARY_PLAYWRIGHT_SUPPORT_FILES ?? "")
+    .split(/\r?\n/u)
+    .map((file) => file.trim().replace(/^apps\/web\/e2e\//u, "").replace(/^e2e\//u, ""))
+    .filter(Boolean),
+);
+const supportGrep = new RegExp(process.env.CARTULARY_PLAYWRIGHT_SUPPORT_GREP ?? ".*");
 
 function fakeResult(status, extra = {}) {
   const duration = 100 + timingIndex;
@@ -141,7 +148,11 @@ function fakeResult(status, extra = {}) {
 }
 
 if (project === "functional") {
-  for (const phase of ["phase1", "phase2", "phase3", "phase4"]) {
+  const phases = fs.readdirSync(path.join(root, "tools"))
+    .filter((entry) => /^phase\d+_test_map\.json$/.test(entry))
+    .map((entry) => entry.replace(/_test_map\.json$/, ""))
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+  for (const phase of phases) {
     const manifest = JSON.parse(
       fs.readFileSync(path.join(root, "tools", `${phase}_test_map.json`), "utf8"),
     );
@@ -173,9 +184,12 @@ if (project === "functional") {
 }
 
 if (project === "support") {
-  for (const supportFile of ["phase2.support.spec.ts", "phase3.support.spec.ts"]) {
+  for (const supportFile of [...supportFiles].sort()) {
     const source = fs.readFileSync(path.join(root, "apps", "web", "e2e", supportFile), "utf8");
     for (const match of source.matchAll(/\btest\("([^"]+)"/g)) {
+      if (!supportGrep.test(match[1])) {
+        continue;
+      }
       const failed =
         mode === "support-failure" &&
         supportFile === "phase3.support.spec.ts" &&
@@ -277,14 +291,17 @@ success_root="$tmp_dir/results/batch-success/adhoc"
 phase1_summary="$success_root/browser-e2e-functional-phase1-authoritative/phase-summary.json"
 phase2_summary="$success_root/browser-e2e-functional-phase2-authoritative/phase-summary.json"
 phase4_summary="$success_root/browser-e2e-functional-phase4-authoritative/phase-summary.json"
-support_summary="$success_root/browser-e2e-support-raw/phase-summary.json"
 assert_equals "$(json_field "$phase1_summary" "status")" "pass" "phase1 batch success status"
 assert_equals "$(json_field "$phase1_summary" "accounting_mode")" "actual" "phase1 batch accounting"
 assert_equals "$(json_field "$phase2_summary" "status")" "pass" "phase2 batch success status"
 assert_equals "$(json_field "$phase2_summary" "accounting_mode")" "actual" "phase2 batch accounting"
 assert_equals "$(json_field "$phase4_summary" "accounting_mode")" "actual" "phase4 batch accounting"
-assert_equals "$(json_field "$support_summary" "status")" "pass" "support batch success status"
-assert_equals "$(json_field "$support_summary" "counts.support")" "6" "support batch support count"
+support_phase2_summary="$success_root/browser-e2e-support-phase2-supplemental/phase-summary.json"
+support_phase3_summary="$success_root/browser-e2e-support-phase3-supplemental/phase-summary.json"
+assert_equals "$(json_field "$support_phase2_summary" "status")" "pass" "phase2 support batch success status"
+assert_equals "$(json_field "$support_phase2_summary" "counts.support")" "3" "phase2 support batch support count"
+assert_equals "$(json_field "$support_phase3_summary" "status")" "pass" "phase3 support batch success status"
+assert_equals "$(json_field "$support_phase3_summary" "counts.support")" "3" "phase3 support batch support count"
 phase1_timing="$success_root/browser-e2e-functional-phase1-authoritative/playwright-timing.json"
 phase4_timing="$success_root/browser-e2e-functional-phase4-authoritative/playwright-timing.json"
 assert_equals "$(json_field "$phase1_timing" "source")" "playwright_result_timestamps" "phase1 timing source"
@@ -298,7 +315,7 @@ NODE_BIN="${NODE:-node}" CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" CARTULARY
 success_target_summary="$success_root/target-summary.json"
 assert_equals "$(json_field "$success_target_summary" "kind")" "leaf" "batch target summary kind"
 assert_equals "$(json_field "$success_target_summary" "totals.accounting_modes.actual")" "4" "batch target actual phase count"
-assert_equals "$(json_field "$success_target_summary" "totals.accounting_modes.derived")" "1" "batch target derived phase count"
+assert_equals "$(json_field "$success_target_summary" "totals.accounting_modes.derived")" "2" "batch target derived phase count"
 
 set +e
 support_failure_output="$(
@@ -315,7 +332,7 @@ set -e
 if [[ "$support_failure_status" -eq 0 ]]; then
   fail "playwright webserver batch support failure: expected non-zero exit status"
 fi
-assert_contains "$support_failure_output" "failure: browser-e2e-support raw" "support failure label"
+assert_contains "$support_failure_output" "failure: browser-e2e-support phase3 supplemental" "support failure label"
 assert_contains "$support_failure_output" "coverage=support" "support failure coverage"
 assert_not_contains "$support_failure_output" "coverage=unmapped" "support failure unmapped coverage"
 support_failure_phase1="$tmp_dir/results/batch-support-failure/adhoc/browser-e2e-functional-phase1-authoritative/phase-summary.json"

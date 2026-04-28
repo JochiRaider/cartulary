@@ -33,6 +33,7 @@ SQLC_BIN ?= $(TOOLBIN_DIR)/sqlc-v1.30.0
 GOOSE_BIN ?= $(TOOLBIN_DIR)/goose-v3.27.0
 TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
 SERVICE_BACKED_SCHEDULE_MANIFEST ?= $(CURDIR)/tools/service_backed_schedule_manifest.json
+SERVICE_BACKED_SCHEDULE_PROFILE ?= $(CURDIR)/tools/service_backed_schedule_profiles.json
 CHECK_SCHEDULE_MANIFEST ?= $(CURDIR)/tools/check_schedule_manifest.json
 MINIO_BUCKET ?= cartulary
 FRONTEND_INSTALL_STAMP ?= $(CURDIR)/tmp/frontend-install/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
@@ -380,6 +381,12 @@ phase-ledgers: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 phase-ledger-drift: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(RUN_PHASE) "phase-ledger-drift" -- $(PNPM_ENV) env NODE_BIN=$(NODE_BIN) $(NODE_BIN) ./scripts/check-phase-ledger-drift.mjs
 
+phase-schedules: $(NODE_BIN)
+	$(RUN_PHASE) "phase-schedules" -- $(NODE_BIN) ./scripts/render-service-backed-schedule-manifest.mjs --profile "$(SERVICE_BACKED_SCHEDULE_PROFILE)" --output "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"
+
+phase-schedule-drift: $(NODE_BIN)
+	$(RUN_PHASE) "phase-schedule-drift" -- $(NODE_BIN) ./scripts/render-service-backed-schedule-manifest.mjs --check --profile "$(SERVICE_BACKED_SCHEDULE_PROFILE)" --output "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"
+
 benchmark-claim-check: $(NODE_BIN)
 	$(RUN_PHASE) "benchmark-claim-check" -- $(NODE_BIN) ./scripts/check-benchmark-claim.mjs "$(BENCHMARK_MANIFEST)"
 
@@ -577,6 +584,7 @@ check-static-validation:
 	$(Q)$(MAKE) --no-print-directory backend-task-surface-check
 	$(Q)$(MAKE) --no-print-directory phase-map-check
 	$(Q)$(MAKE) --no-print-directory phase-ledger-drift
+	$(Q)$(MAKE) --no-print-directory phase-schedule-drift
 	$(Q)$(MAKE) --no-print-directory service-backed-unit-check
 	$(Q)$(MAKE) --no-print-directory generate-drift
 

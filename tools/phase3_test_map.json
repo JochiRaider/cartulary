@@ -406,6 +406,33 @@
       "evidence_layer": "browser",
       "claim": "Real browser replay preserves the original committed result, avoids duplicate history growth, and suppresses duplicate visible invalidation.",
       "out_of_scope": "The disclosed snapshot harness is intentionally test-only and not part of runtime behavior."
+    },
+    {
+      "id": "E-3-SUPPORT-01",
+      "coverage": "supplemental",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase3.support.spec.ts",
+      "title": "support Phase 3 grid controls submit sort, filter, and group query members through the shared route",
+      "execution_dependency": "browser_support",
+      "evidence_layer": "browser_support"
+    },
+    {
+      "id": "E-3-SUPPORT-02",
+      "coverage": "supplemental",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase3.support.spec.ts",
+      "title": "support Phase 3 keeps a pending edit anchored to its record under sort, filter, group, and live invalidation",
+      "execution_dependency": "browser_support",
+      "evidence_layer": "browser_support"
+    },
+    {
+      "id": "E-3-SUPPORT-03",
+      "coverage": "supplemental",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase3.support.spec.ts",
+      "title": "support Phase 3 keeps repeated scalar grid edits out of the RDG measured-width crash path",
+      "execution_dependency": "browser_support",
+      "evidence_layer": "browser_support"
     }
   ]
 }

@@ -9,6 +9,8 @@
           "name": "functional-support",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
           "workers": "default"
         }
       ]
@@ -21,6 +23,8 @@
           "name": "functional",
           "target": "browser-e2e-functional",
           "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
           "workers": "default"
         }
       ]
@@ -33,6 +37,8 @@
           "name": "support",
           "target": "browser-e2e-support",
           "kind": "support",
+          "coverage": "supplemental",
+          "execution_dependency": "browser_support",
           "workers": "default"
         }
       ]
@@ -45,6 +51,8 @@
           "name": "stateful",
           "target": "browser-e2e-stateful",
           "kind": "stateful",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
           "workers": "1"
         }
       ]
@@ -57,6 +65,8 @@
           "name": "measurement",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
           "workers": "1"
         }
       ]
@@ -69,6 +79,8 @@
           "name": "visual",
           "target": "browser-e2e-visual",
           "kind": "visual",
+          "coverage": "raw",
+          "execution_dependency": "",
           "workers": "1"
         }
       ]
@@ -82,12 +94,16 @@
           "name": "measurement",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
           "workers": "1"
         },
         {
           "name": "visual",
           "target": "browser-e2e-visual",
           "kind": "visual",
+          "coverage": "raw",
+          "execution_dependency": "",
           "workers": "1",
           "reset_before": "measurement-to-visual"
         }
@@ -102,12 +118,16 @@
           "name": "stateful",
           "target": "browser-e2e-stateful",
           "kind": "stateful",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
           "workers": "1"
         },
         {
           "name": "measurement",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
           "workers": "1",
           "reset_before": "stateful-to-measurement"
         },
@@ -115,6 +135,8 @@
           "name": "visual",
           "target": "browser-e2e-visual",
           "kind": "visual",
+          "coverage": "raw",
+          "execution_dependency": "",
           "workers": "1",
           "reset_before": "measurement-to-visual"
         }

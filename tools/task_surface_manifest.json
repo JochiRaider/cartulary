@@ -76,7 +76,9 @@
         { "target": "toolchain-drift", "description": "fail on repo-control toolchain pin drift" },
         { "target": "migration-drift", "description": "verify migrations against a scratch database" },
         { "target": "phase-ledgers", "description": "regenerate committed phase coverage ledgers" },
-        { "target": "phase-ledger-drift", "description": "fail on phase coverage ledger drift" }
+        { "target": "phase-ledger-drift", "description": "fail on phase coverage ledger drift" },
+        { "target": "phase-schedules", "description": "regenerate committed phase-derived schedules" },
+        { "target": "phase-schedule-drift", "description": "fail on phase-derived schedule drift" }
       ]
     }
   ],
@@ -156,6 +158,8 @@
     { "name": "phase-map-check", "classification": "helper_only", "included_in": ["helper_only"], "backing_scripts": ["scripts/check-phase-maps.sh"] },
     { "name": "phase-ledgers", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/render-phase-ledgers.mjs"] },
     { "name": "phase-ledger-drift", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/check-phase-ledger-drift.mjs"] },
+    { "name": "phase-schedules", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/render-service-backed-schedule-manifest.mjs"] },
+    { "name": "phase-schedule-drift", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/render-service-backed-schedule-manifest.mjs"] },
     { "name": "benchmark-claim-check", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/check-benchmark-claim.mjs"] },
     { "name": "task-surface-report", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/print-task-surface-report.mjs", "scripts/render-task-surface-make.mjs"] },
     { "name": "task-surface-check", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/print-task-surface-report.mjs", "scripts/render-task-surface-make.mjs"] },

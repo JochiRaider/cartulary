@@ -15,7 +15,6 @@ cat >"$measurement_metadata_file" <<EOF
   "evidence_kind": "ordinary_measurement",
   "claim_bearing": false,
   "target": "browser-e2e-measurement",
-  "manifest_phase": "phase3",
   "execution_dependency": "browser_measurement",
   "sample_count_per_predicate": 12,
   "warmup_samples_per_predicate": 1,
@@ -25,9 +24,6 @@ cat >"$measurement_metadata_file" <<EOF
 }
 EOF
 
-exec "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" \
-  NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
-  "$ROOT_DIR/scripts/lib/run-playwright-manifest-phase.sh" \
-  "browser-e2e-measurement phase3 authoritative" \
-  phase3 authoritative browser_measurement -- \
+exec "$ROOT_DIR/scripts/run-browser-e2e-manifest-dependency.sh" \
+  browser-e2e-measurement authoritative browser_measurement -- \
   "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test

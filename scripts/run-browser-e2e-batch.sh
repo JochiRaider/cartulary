@@ -60,7 +60,9 @@ run_group() {
   local target="$1"
   local kind="$2"
   local workers="$3"
-  shift 3
+  local coverage="$4"
+  local execution_dependency="$5"
+  shift 5
 
   local -a group_env=(
     env
@@ -87,20 +89,10 @@ run_group() {
       "${group_env[@]}" "$ROOT_DIR/scripts/run-browser-e2e-functional.sh"
       ;;
     support)
-      local -a support_env=(
-        "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}"
-        "CARTULARY_TEST_TARGET=$target"
-        "NODE_BIN=$PLAYWRIGHT_OWNED_STACK_NODE_BIN"
-      )
-      if [[ "$workers" != "default" ]]; then
-        support_env+=("PLAYWRIGHT_WORKERS=$workers")
-      fi
-      "${support_env[@]}" \
-        "$ROOT_DIR/scripts/lib/run-playwright-phase.sh" \
-        "browser-e2e-support raw" \
-        -- \
-        "$PLAYWRIGHT_OWNED_STACK_PNPM_BIN" --dir apps/web exec playwright test \
-        e2e/phase2.support.spec.ts e2e/phase3.support.spec.ts
+      env CARTULARY_TEST_TARGET="$target" \
+        "$ROOT_DIR/scripts/run-browser-e2e-manifest-dependency.sh" \
+        "$target" "${coverage:-supplemental}" "${execution_dependency:-browser_support}" -- \
+        "$PLAYWRIGHT_OWNED_STACK_PNPM_BIN" --dir apps/web exec playwright test
       ;;
     stateful)
       "${group_env[@]}" "$ROOT_DIR/scripts/run-browser-e2e-stateful.sh"
@@ -139,7 +131,7 @@ else
 fi
 
 for group_row in "${stage_groups[@]}"; do
-  IFS=$'\t' read -r group_name target kind workers reset_before <<<"$group_row"
+  IFS=$'\t' read -r group_name target kind workers reset_before coverage execution_dependency <<<"$group_row"
 
   if [[ -n "$reset_before" ]]; then
     env CARTULARY_TEST_TARGET="${CARTULARY_TEST_TARGET:-$stage_target}" \
@@ -148,7 +140,7 @@ for group_row in "${stage_groups[@]}"; do
   fi
 
   set +e
-  run_group "$target" "$kind" "$workers"
+  run_group "$target" "$kind" "$workers" "$coverage" "$execution_dependency"
   group_status=$?
   set -e
 

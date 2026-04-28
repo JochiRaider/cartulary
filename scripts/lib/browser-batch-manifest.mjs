@@ -13,6 +13,7 @@ const allowedGroupKinds = new Set([
   "measurement",
   "visual",
 ]);
+const allowedCoverage = new Set(["authoritative", "supplemental", "raw"]);
 
 export function loadBrowserBatchManifest(manifestPath) {
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
@@ -118,9 +119,23 @@ function normalizeGroup(stageName, group, index) {
     name: group.name.trim(),
     target: group.target.trim(),
     kind: group.kind.trim(),
+    coverage: normalizeCoverage(group),
+    executionDependency:
+      group.execution_dependency === undefined ? "" : String(group.execution_dependency).trim(),
     workers: group.workers === undefined ? "default" : String(group.workers),
     resetBefore: group.reset_before === undefined ? "" : String(group.reset_before),
   };
+}
+
+function normalizeCoverage(group) {
+  if (group.coverage === undefined) {
+    return group.kind === "support" ? "supplemental" : "";
+  }
+  const coverage = String(group.coverage).trim();
+  if (!allowedCoverage.has(coverage)) {
+    throw new Error(`browser E2E batch group ${group.name} has unsupported coverage ${coverage}`);
+  }
+  return coverage;
 }
 
 function printTargetMetadata(stage) {
@@ -132,7 +147,15 @@ function printRunnerMetadata(stage) {
   printTargetMetadata(stage);
   for (const group of stage.groups) {
     process.stdout.write(
-      [group.name, group.target, group.kind, group.workers, group.resetBefore].join("\t") + "\n",
+      [
+        group.name,
+        group.target,
+        group.kind,
+        group.workers,
+        group.resetBefore,
+        group.coverage,
+        group.executionDependency,
+      ].join("\t") + "\n",
     );
   }
 }

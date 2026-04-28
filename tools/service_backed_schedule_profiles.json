@@ -1,0 +1,97 @@
+{
+  "schema_id": "cartulary.service_backed_schedule_profiles.v1",
+  "backend_target_order": [
+    "backend-integration",
+    "backend-integration-support",
+    "backend-store",
+    "backend-process"
+  ],
+  "defaults": {
+    "go_shards_resource_claims": { "postgres": 1, "minio": 1 },
+    "backend_make_target_weights": {
+      "backend-process": 80000
+    },
+    "backend_make_target_resource_claims": {
+      "backend-process": {
+        "postgres": 1,
+        "minio": 1,
+        "go_cpu": 1,
+        "go_io": 1,
+        "process": 1
+      }
+    },
+    "browser_make_target_resource_claims": {
+      "postgres": 1,
+      "minio": 1,
+      "process": 1,
+      "browser_stack": 1
+    }
+  },
+  "schedules": [
+    {
+      "target": "test-service-backed",
+      "resource_limits": {
+        "postgres": 32,
+        "minio": 32,
+        "go_cpu": "auto",
+        "go_io": "auto",
+        "postgres_reset": 1,
+        "process": 4,
+        "browser_stack": "auto",
+        "browser_stage_webserver_backed": 1,
+        "browser_stage_isolated": 1
+      },
+      "include_service_backed_backend_targets": true,
+      "browser_stages": [
+        { "name": "webserver-backed", "weight": 41900 },
+        {
+          "name": "isolated",
+          "weight": 21700,
+          "needs": {
+            "include_backend_targets": true,
+            "include_prior_browser_stages": true
+          }
+        }
+      ]
+    },
+    {
+      "target": "test-fast-service-backed",
+      "resource_limits": {
+        "postgres": 32,
+        "minio": 32,
+        "go_cpu": "auto",
+        "go_io": "auto",
+        "postgres_reset": 1,
+        "process": 4
+      },
+      "include_service_backed_backend_targets": true,
+      "browser_stages": []
+    },
+    {
+      "target": "check-service-backed",
+      "resource_limits": {
+        "postgres": 32,
+        "minio": 32,
+        "go_cpu": "auto",
+        "go_io": "auto",
+        "postgres_reset": 1,
+        "process": 4,
+        "browser_stack": "auto",
+        "browser_stage_webserver_backed": 1,
+        "browser_stage_isolated": 1
+      },
+      "include_service_backed_backend_targets": true,
+      "browser_stages": [
+        { "name": "webserver-backed", "weight": 41900 },
+        {
+          "name": "isolated",
+          "weight": 21700,
+          "needs": {
+            "include_backend_targets": true,
+            "include_prior_browser_stages": true
+          }
+        }
+      ]
+    }
+  ]
+}

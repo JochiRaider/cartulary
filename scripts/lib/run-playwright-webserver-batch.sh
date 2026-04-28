@@ -87,6 +87,15 @@ for (const phase of [...phases].sort((left, right) => left.localeCompare(right, 
 EOF
 )
 
+mapfile -t support_phases < <(
+  "$node_bin" "$manifest_script" playwright-phases supplemental browser_support 2>/dev/null || true
+)
+
+support_selection_specs=()
+for support_phase in "${support_phases[@]}"; do
+  support_selection_specs+=("${support_phase}:supplemental:browser_support")
+done
+
 all_functional_grep="$(
   "$node_bin" - "$shard_plan" <<'EOF'
 const fs = require("node:fs");
@@ -112,6 +121,13 @@ for (const spec of plan.specs ?? []) {
 process.stdout.write(`${[...files].sort().join("\n")}\n`);
 EOF
 )"
+if [[ "${#support_selection_specs[@]}" -gt 0 ]]; then
+  all_support_grep="$("$node_bin" "$manifest_script" playwright-grep-many "${support_selection_specs[@]}")"
+  all_support_files="$("$node_bin" "$manifest_script" playwright-files-many "${support_selection_specs[@]}")"
+else
+  all_support_grep="(?!)"
+  all_support_files="__no_browser_support__.spec.ts"
+fi
 
 if [[ "$output_mode" != "quiet" && "${RUN_PHASE_SHOW_BANNER:-1}" == "1" ]]; then
   echo "== browser-e2e-${mode} duration-balanced batch =="
@@ -192,6 +208,8 @@ run_functional_shard() {
   set +e
   CARTULARY_PLAYWRIGHT_FUNCTIONAL_GREP="$grep" \
   CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES="$files" \
+  CARTULARY_PLAYWRIGHT_SUPPORT_GREP="$all_support_grep" \
+  CARTULARY_PLAYWRIGHT_SUPPORT_FILES="$all_support_files" \
   CARTULARY_PLAYWRIGHT_WORKER_COUNT="${#shard_names[@]}" \
   CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET="$shard_index" \
   PLAYWRIGHT_WORKERS=1 \
@@ -250,6 +268,8 @@ if [[ "$mode" == "webserver-backed" ]]; then
   set +e
   CARTULARY_PLAYWRIGHT_FUNCTIONAL_GREP="$all_functional_grep" \
   CARTULARY_PLAYWRIGHT_FUNCTIONAL_FILES="$all_functional_files" \
+  CARTULARY_PLAYWRIGHT_SUPPORT_GREP="$all_support_grep" \
+  CARTULARY_PLAYWRIGHT_SUPPORT_FILES="$all_support_files" \
   PLAYWRIGHT_JSON_OUTPUT_FILE="$support_report" \
     "${support_run_command[@]}" >"$support_stdout_log" 2>"$support_stderr_log"
   support_status=$?
@@ -312,13 +332,15 @@ emit_playwright_manifest_slice() {
 }
 
 emit_playwright_support_slice() {
-  local label="browser-e2e-support raw"
+  local phase="$1"
+  local label="browser-e2e-support ${phase} supplemental"
   local phase_dir
+  local selection_report
   local helper_status
-  local support_files
 
   phase_dir="$(prepare_phase_artifact_dir "$label")"
-  support_files=$'apps/web/e2e/phase2.support.spec.ts\napps/web/e2e/phase3.support.spec.ts'
+  selection_report="${phase_dir}/manifest-selection.json"
+  "$node_bin" "$manifest_script" playwright-selection-report "$phase" supplemental browser_support >"$selection_report"
 
   set +e
   CARTULARY_REPORT_SLICE=1 \
@@ -334,13 +356,16 @@ emit_playwright_support_slice() {
   CARTULARY_PHASE_WALL_DURATION_MS=0 \
   CARTULARY_PHASE_EXIT_STATUS="$support_status" \
   CARTULARY_PHASE_RUNNER_LOG="$support_report" \
+  CARTULARY_PLAYWRIGHT_SELECTION_REPORT="$selection_report" \
   CARTULARY_PHASE_STDOUT_LOG="$support_stdout_log" \
   CARTULARY_PHASE_STDERR_LOG="$support_stderr_log" \
   CARTULARY_PLAYWRIGHT_OUTPUT_DIR="$output_dir" \
-  CARTULARY_PLAYWRIGHT_FILES="$support_files" \
   CARTULARY_WEB_E2E_SERVER_LOG="${CARTULARY_WEB_E2E_SERVER_LOG:-}" \
   CARTULARY_WEB_E2E_WEB_LOG="${CARTULARY_WEB_E2E_WEB_LOG:-}" \
-    NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" playwright-phase
+  CARTULARY_MANIFEST_PHASE="$phase" \
+  CARTULARY_MANIFEST_COVERAGE=supplemental \
+  CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=browser_support \
+    NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" playwright-manifest-phase
   helper_status=$?
   set -e
   return "$helper_status"
@@ -359,9 +384,11 @@ for phase in "${functional_phases[@]}"; do
 done
 
 if [[ "$mode" == "webserver-backed" ]]; then
-  if ! emit_playwright_support_slice; then
-    overall_status=1
-  fi
+  for phase in "${support_phases[@]}"; do
+    if ! emit_playwright_support_slice "$phase"; then
+      overall_status=1
+    fi
+  done
 fi
 
 if [[ "$functional_status" -ne 0 && "$overall_status" -eq 0 ]]; then

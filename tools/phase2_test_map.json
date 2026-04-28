@@ -461,6 +461,33 @@
       "out_of_scope": "None for the declared browser membership contract."
     },
     {
+      "id": "E-2-SUPPORT-01",
+      "coverage": "supplemental",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase2.support.spec.ts",
+      "title": "supports route-owned incident validation errors through browser-authenticated request probes",
+      "execution_dependency": "browser_support",
+      "evidence_layer": "browser_support"
+    },
+    {
+      "id": "E-2-SUPPORT-02",
+      "coverage": "supplemental",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase2.support.spec.ts",
+      "title": "supports zero-membership extension discovery and singleton pagination rejection through browser-authenticated request probes",
+      "execution_dependency": "browser_support",
+      "evidence_layer": "browser_support"
+    },
+    {
+      "id": "E-2-SUPPORT-03",
+      "coverage": "supplemental",
+      "runner": "playwright",
+      "file": "apps/web/e2e/phase2.support.spec.ts",
+      "title": "supports reserved-family dispatch precedence probes while ordinary base and outside paths keep their dispatch",
+      "execution_dependency": "browser_support",
+      "evidence_layer": "browser_support"
+    },
+    {
       "id": "E-2-SMOKE-01",
       "coverage": "supplemental",
       "runner": "go_test",

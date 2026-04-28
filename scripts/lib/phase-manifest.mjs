@@ -23,6 +23,7 @@ const validExecutionDependencies = new Set([
   "browser_functional",
   "browser_stateful",
   "browser_measurement",
+  "browser_support",
 ]);
 const validSupportTargets = new Set(["backend_unit", "backend_integration_support"]);
 const postgresFixturePolicyTemplateClone = "template_clone";
@@ -1053,6 +1054,19 @@ function selectPlaywrightEntries(root, phase, coverage, executionDependency) {
   );
 }
 
+function selectPlaywrightPhases(root, coverage, executionDependency) {
+  return phaseManifestNames(root).filter((phase) => {
+    const { manifest } = loadManifest(root, phase);
+    return collectEntries(manifest).some(
+      (entry) =>
+        entry.section === "e2e" &&
+        entry.runner === "playwright" &&
+        entry.coverage === coverage &&
+        entryMatchesExecutionDependency(entry, executionDependency),
+    );
+  });
+}
+
 function parsePlaywrightSelectionSpec(spec) {
   const [phase, coverage, executionDependency = ""] = spec.split(":");
   if (!phase || !coverage) {
@@ -1445,6 +1459,16 @@ function main(argv) {
       const [phase, coverage, executionDependency = ""] = rest;
       const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
       printLines([String(entries.length)]);
+      return;
+    }
+
+    case "playwright-phases": {
+      const [coverage, executionDependency = ""] = rest;
+      const phases = selectPlaywrightPhases(root, coverage, executionDependency);
+      if (phases.length === 0) {
+        throw new Error(`no ${coverage} playwright phases found`);
+      }
+      printLines(phases);
       return;
     }
 

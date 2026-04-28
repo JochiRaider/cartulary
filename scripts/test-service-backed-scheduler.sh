@@ -1096,6 +1096,42 @@ EOF
 assert_contains "$go_shard_dry_run_output" "work_units=1 dependencies=0 classes={backend:1} types={go_shard:1} finalizers=1" "go_shards dry-run compact summary"
 assert_contains "$go_shard_dry_run_output" "$expected_go_shard_dry_run_line" "verbose go_shards dry-run includes per-shard resource claims"
 
+rendered_schedule_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-rendered.XXXXXX")"
+cleanup_paths+=("$rendered_schedule_dir")
+rendered_schedule_manifest="${rendered_schedule_dir}/service-backed.json"
+"$NODE_BIN" "$ROOT_DIR/scripts/render-service-backed-schedule-manifest.mjs" --output "$rendered_schedule_manifest"
+"$NODE_BIN" - "$rendered_schedule_manifest" <<'EOF'
+const fs = require("node:fs");
+const manifest = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const byTarget = new Map((manifest.schedules ?? []).map((schedule) => [schedule.target, schedule]));
+const sourceTargets = (target) => (byTarget.get(target)?.work_unit_sources ?? []).map((source) => source.target);
+const testSources = sourceTargets("test-service-backed");
+const checkSources = sourceTargets("check-service-backed");
+const fastSources = sourceTargets("test-fast-service-backed");
+if (JSON.stringify(testSources) !== JSON.stringify(checkSources)) {
+  throw new Error(`test-service-backed and check-service-backed sources differ: ${testSources} vs ${checkSources}`);
+}
+if (fastSources.some((target) => target.startsWith("browser-e2e"))) {
+  throw new Error(`test-fast-service-backed must remain backend-only, got ${fastSources.join(",")}`);
+}
+const isolated = (byTarget.get("test-service-backed")?.work_unit_sources ?? []).find(
+  (source) => source.target === "browser-e2e",
+);
+const expectedNeeds = [
+  "backend-integration",
+  "backend-integration-support",
+  "backend-store",
+  "backend-process",
+  "browser-e2e-webserver-backed",
+];
+if (JSON.stringify(isolated?.needs ?? []) !== JSON.stringify(expectedNeeds)) {
+  throw new Error(`isolated browser needs got ${JSON.stringify(isolated?.needs ?? [])}`);
+}
+if (manifest.generated?.generator !== "scripts/render-service-backed-schedule-manifest.mjs") {
+  throw new Error("rendered schedule must record generator metadata");
+}
+EOF
+
 invalid_resource_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-invalid-resource.XXXXXX")"
 cleanup_paths+=("$invalid_resource_dir")
 write_fake_make "$invalid_resource_dir"

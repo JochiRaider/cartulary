@@ -119,6 +119,25 @@ cat >"$tmp_dir/manifests/tools/phase2_test_map.json" <<'JSON'
 }
 JSON
 
+cat >"$tmp_dir/manifests/tools/phase12_test_map.json" <<'JSON'
+{
+  "expected_ids": ["E-12-01"],
+  "e2e": [
+    {
+      "id": "E-12-01",
+      "coverage": "authoritative",
+      "runner": "playwright",
+      "file": "apps/web/e2e/future.spec.ts",
+      "title": "E-12-01 future phase functional browser row",
+      "execution_dependency": "browser_functional",
+      "evidence_layer": "browser",
+      "claim": "future",
+      "out_of_scope": "none"
+    }
+  ]
+}
+JSON
+
 cat >"$tmp_dir/baseline.json" <<'JSON'
 {
   "schema_id": "cartulary.browser_e2e_duration_baselines.v1",
@@ -136,10 +155,11 @@ node_cmd="${NODE:-node}"
 CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
   "$node_cmd" "$PLANNER" plan --baseline-file "$tmp_dir/baseline.json" --max-shards 3 >"$tmp_dir/plan.json"
 
-assert_equals "$(json_field "$tmp_dir/plan.json" "spec_count")" "3" "spec count collapses duplicate manifest rows"
+assert_equals "$(json_field "$tmp_dir/plan.json" "spec_count")" "4" "spec count collapses duplicate manifest rows"
 assert_equals "$(json_field "$tmp_dir/plan.json" "shard_count")" "3" "shard count respects max and target weight"
 assert_equals "$(json_field "$tmp_dir/plan.json" "specs.0.file")" "apps/web/e2e/alpha.spec.ts" "deterministic spec ordering"
 assert_equals "$(json_field "$tmp_dir/plan.json" "specs.2.weight_ms")" "7000" "missing baseline uses default weight"
+assert_equals "$(json_field "$tmp_dir/plan.json" "specs.3.file")" "apps/web/e2e/gamma.spec.ts" "numeric future phase discovery keeps deterministic files"
 assert_equals "$(json_field "$tmp_dir/plan.json" "shards.0.files")" "apps/web/e2e/alpha.spec.ts" "long spec gets first stable shard"
 assert_equals "$(json_field "$tmp_dir/plan.json" "shards.0.entries.0.id")" "E-1-01" "duplicate spec keeps first row"
 assert_equals "$(json_field "$tmp_dir/plan.json" "shards.0.entries.1.id")" "E-1-02" "duplicate spec keeps second row"
@@ -152,3 +172,12 @@ if (files.has("apps/web/e2e/ignored-stateful.spec.ts")) {
   throw new Error("stateful browser row leaked into functional shard plan");
 }
 ' "$tmp_dir/plan.json"
+
+future_phases="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+    "$node_cmd" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" playwright-phases authoritative browser_functional
+)"
+case "$future_phases" in
+  *phase12*) ;;
+  *) fail "future phase browser rows must be discovered from phase manifests, got [$future_phases]" ;;
+esac
