@@ -179,9 +179,11 @@ duration_artifacts_root="$duration_results_dir/results"
   export CARTULARY_TEST_TARGET="backend-unit-smoke"
   export NODE_BIN="$node_bin"
   source "$GO_TARGET_HELPER"
+  export CARTULARY_GO_ACCOUNTING_COVERAGE=raw
   emit_go_raw_phase "duration actual" actual "$shared_report_dir" '^(TestSupportPhase4Integration_Smoke)$' ./internal/modules/entities
   emit_go_raw_phase "duration reused" reused "$shared_report_dir" '^(TestSupportPhase4Integration_Smoke)$' ./internal/modules/entities
   emit_go_raw_phase "duration derived" derived "$shared_report_dir" '^(TestSupportPhase4Integration_Smoke)$' ./internal/modules/entities
+  unset CARTULARY_GO_ACCOUNTING_COVERAGE || true
   "$ROOT_DIR/scripts/lib/test-output.sh" target-summary backend-unit-smoke pass >/dev/null
   "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "duration smoke" pass 1 1 - backend-unit-smoke >/dev/null
 )
@@ -197,6 +199,8 @@ assert_json_field_absent "$duration_actual_summary" "duration_ms" "duration actu
 assert_not_negative "$(json_field "$duration_actual_summary" "wall_duration_ms")" "duration actual phase wall duration"
 assert_not_negative "$(json_field "$duration_actual_summary" "critical_path_wall_duration_ms")" "duration actual phase critical path duration"
 assert_equals "$(json_field "$duration_actual_summary" "accounting_mode")" "actual" "duration actual accounting mode"
+assert_equals "$(json_field "$duration_actual_summary" "counts.raw")" "1" "duration actual raw count"
+assert_equals "$(json_field "$duration_actual_summary" "counts.support")" "0" "duration actual support count"
 assert_equals "$(json_field "$duration_actual_summary" "executed_duration_ms")" "1200" "duration actual executed duration"
 assert_equals "$(json_field "$duration_actual_summary" "logical_duration_ms")" "1200" "duration actual logical duration"
 assert_equals "$(json_field "$duration_actual_summary" "reused_duration_ms")" "0" "duration actual reused duration"
@@ -233,6 +237,8 @@ assert_equals "$(json_field "$duration_target_summary" "end_time")" "2000-01-01T
 assert_equals "$(json_field "$duration_target_summary" "accounting_modes.actual")" "1" "duration target actual accounting count"
 assert_equals "$(json_field "$duration_target_summary" "accounting_modes.reused")" "1" "duration target reused accounting count"
 assert_equals "$(json_field "$duration_target_summary" "accounting_modes.derived")" "1" "duration target derived accounting count"
+assert_equals "$(json_field "$duration_target_summary" "own.counts.raw")" "3" "duration target raw count"
+assert_equals "$(json_field "$duration_target_summary" "own.counts.unmapped")" "0" "duration target unmapped count"
 assert_contains "$(json_field "$duration_target_summary" "artifacts.timing_json")" "target-timing.json" "duration target timing artifact"
 assert_equals "$(json_field "$duration_target_timing" "schema_id")" "cartulary.test_target_timing.v1" "duration target timing schema"
 assert_equals "$(json_field "$duration_target_timing" "start_time")" "2000-01-01T00:00:00Z" "duration target timing start time"
@@ -254,6 +260,34 @@ assert_equals "$(json_field "$duration_run_summary" "derived_duration_ms")" "0" 
 assert_equals "$(json_field "$duration_run_summary" "accounting_modes.actual")" "1" "duration run actual accounting count"
 assert_equals "$(json_field "$duration_run_summary" "accounting_modes.reused")" "1" "duration run reused accounting count"
 assert_equals "$(json_field "$duration_run_summary" "accounting_modes.derived")" "1" "duration run derived accounting count"
+
+raw_failure_results_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-raw-failure.XXXXXX")"
+cleanup_paths+=("$raw_failure_results_dir")
+raw_failure_report_dir="$raw_failure_results_dir/shared-report"
+mkdir -p "$raw_failure_report_dir"
+cat >"$raw_failure_report_dir/runner.jsonl" <<'EOF'
+{"Time":"2000-01-01T00:00:00Z","Action":"output","Package":"github.com/JochiRaider/cartulary/internal/testutil/configtest","Output":"setup failed before test attribution\n"}
+{"Time":"2000-01-01T00:00:00Z","Action":"fail","Package":"github.com/JochiRaider/cartulary/internal/testutil/configtest","Elapsed":0.001}
+EOF
+touch "$raw_failure_report_dir/stderr.log"
+printf '%s\n' "env go test -json -run '^(Test)$' ./internal/testutil/configtest" >"$raw_failure_report_dir/command.txt"
+printf '%s\n' "2000-01-01T00:00:00Z" >"$raw_failure_report_dir/start_time.txt"
+printf '%s\n' "2000-01-01T00:00:00Z" >"$raw_failure_report_dir/end_time.txt"
+printf '%s\n' "100" >"$raw_failure_report_dir/duration_ms.txt"
+printf '%s\n' "1" >"$raw_failure_report_dir/exit_status.txt"
+(
+  export CARTULARY_TEST_RESULTS_DIR="$raw_failure_results_dir/results"
+  export CARTULARY_TEST_RUN_ID="raw-failure"
+  export CARTULARY_TEST_TARGET="backend-unit-configtest"
+  export NODE_BIN="$node_bin"
+  source "$GO_TARGET_HELPER"
+  export CARTULARY_GO_ACCOUNTING_COVERAGE=raw
+  emit_go_raw_phase "backend-unit configtest" actual "$raw_failure_report_dir" '^(Test)$' ./internal/testutil/configtest >/dev/null 2>&1 || true
+)
+raw_failure_summary="$raw_failure_results_dir/results/raw-failure/backend-unit-configtest/backend-unit-configtest/phase-summary.json"
+assert_equals "$(json_field "$raw_failure_summary" "counts.failed")" "1" "raw package setup failed count"
+assert_equals "$(json_field "$raw_failure_summary" "counts.raw_failed")" "1" "raw package setup raw failed count"
+assert_equals "$(json_field "$raw_failure_summary" "counts.unmapped_failed")" "0" "raw package setup unmapped failed count"
 
 reused_window_results_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-reused-window.XXXXXX")"
 cleanup_paths+=("$reused_window_results_dir")

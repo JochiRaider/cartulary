@@ -24,6 +24,8 @@ This guide also resolves one dependency error from the prior version: reviewer-f
 - **E2E test**: verifies a user-observable flow through the full deployed stack against the visible contract and the cited ACs.
 - **Visual regression test**: verifies deterministic browser-rendered workbook states against stable screenshot or DOM-visual fixtures. It is developer-gate evidence for UI drift. It is not a claim-bearing benchmark unless Core 05 publication requirements are separately satisfied.
 
+Runner summaries use the following accounting buckets. `authoritative` is phase completion evidence with owned IDs. `support` is phase-owned support evidence. `raw` is an explicitly declared raw aggregate suite, currently owned through `tools/go_execution_targets.json`. `tooling_support` is helper, harness, config, or runner-support coverage. `unowned_regression` is intentional product regression coverage that has not been promoted into a phase-owned row. `unmapped` is reserved for unexpected executed tests that need an ownership decision. Non-phase classifications belong in `tools/test_accounting_classification.json`; do not add filename heuristics when a manifest rule can express the ownership.
+
 ### 1.1.1 Service-backed fixture modes
 
 Service-backed Go tests must keep service ownership centralized in `tools/testservices`; phase helpers choose only the fixture isolation mode used inside that already-running Postgres and MinIO pair.

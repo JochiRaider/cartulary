@@ -114,6 +114,11 @@ function counts(summary) {
   return summary?.counts ?? {};
 }
 
+function coverageCounts(summary) {
+  const c = counts(summary);
+  return `authoritative=${c.authoritative ?? 0} support=${c.support ?? 0} raw=${c.raw ?? 0} tooling_support=${c.tooling_support ?? 0} unowned_regression=${c.unowned_regression ?? 0} unmapped=${c.unmapped ?? 0}`;
+}
+
 function duration(summary) {
   return formatDuration(
     summary?.critical_path_wall_duration_ms ?? summary?.wall_duration_ms ?? summary?.logical_duration_ms ?? 0,
@@ -189,7 +194,7 @@ function writeRunSummary(runDir, runSummary) {
     summaryTargets.expected.length - (summaryTargets.skipped_after_failure?.length ?? 0),
   );
   process.stdout.write(
-    `[RUN] ${runSummary.label} status=${runSummary.status}${failureClassField(runSummary)} work_units=${workUnits.completed}/${workUnits.total} summary_targets=${summaryTargets.expected.length} evidence_targets=${evidenceTargets.present.length}/${expectedEvidenceTargets} helper_units=${helperUnits.total} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${duration(runSummary)} slowest_target=${slowestTarget(runSummary)} artifacts=${runSummary.artifacts?.dir ?? relToRepo(runDir)}\n`,
+    `[RUN] ${runSummary.label} status=${runSummary.status}${failureClassField(runSummary)} work_units=${workUnits.completed}/${workUnits.total} summary_targets=${summaryTargets.expected.length} evidence_targets=${evidenceTargets.present.length}/${expectedEvidenceTargets} helper_units=${helperUnits.total} tests=${c.tests ?? 0} failed=${c.failed ?? 0} ${coverageCounts(runSummary)} duration=${duration(runSummary)} slowest_target=${slowestTarget(runSummary)} artifacts=${runSummary.artifacts?.dir ?? relToRepo(runDir)}\n`,
   );
   writeFailureHeadline(runSummary.label, runSummary);
   const missing = summaryTargets.missing ?? [];
@@ -209,7 +214,7 @@ function writeTargetSummary(runDir, targetSummary) {
     ? ` children=${children.present?.length ?? 0}/${children.expected?.length ?? 0} failed_children=${(children.failed_targets ?? []).join(",") || "none"} missing_children=${(children.missing ?? []).join(",") || "none"} skipped_children=${(children.skipped ?? []).map((child) => child.target).join(",") || "none"} slowest_child=${slowestChild(targetSummary)}`
     : "";
   process.stdout.write(
-    `[TARGET] ${targetSummary.target} status=${targetSummary.status}${failureClassField(targetSummary)} kind=${targetSummary.kind ?? "leaf"} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${duration(totals)}${childFields} artifacts=${targetSummary.own?.artifacts?.dir ?? relToRepo(path.join(runDir, targetSummary.target))}\n`,
+    `[TARGET] ${targetSummary.target} status=${targetSummary.status}${failureClassField(targetSummary)} kind=${targetSummary.kind ?? "leaf"} tests=${c.tests ?? 0} failed=${c.failed ?? 0} ${coverageCounts(totals)} duration=${duration(totals)}${childFields} artifacts=${targetSummary.own?.artifacts?.dir ?? relToRepo(path.join(runDir, targetSummary.target))}\n`,
   );
   writeFailureHeadline(targetSummary.target, targetSummary);
 }
@@ -238,7 +243,7 @@ function writeChildren(targetSummary) {
     const totals = child.totals ?? child;
     const c = counts(totals);
     process.stdout.write(
-      `[CHILD] ${child.target} status=${child.status}${failureClassField(child)} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${duration(totals)} artifacts=${child.artifacts?.dir ?? child.own?.artifacts?.dir ?? ""}\n`,
+      `[CHILD] ${child.target} status=${child.status}${failureClassField(child)} tests=${c.tests ?? 0} failed=${c.failed ?? 0} ${coverageCounts(totals)} duration=${duration(totals)} artifacts=${child.artifacts?.dir ?? child.own?.artifacts?.dir ?? ""}\n`,
     );
     writeFailureHeadline(child.target, child);
   }
@@ -259,7 +264,7 @@ function writeRunChildren(runSummary) {
     const totals = summary.totals ?? summary;
     const c = counts(totals);
     process.stdout.write(
-      `[TARGET] ${summary.target} status=${summary.status}${failureClassField(summary)} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${duration(totals)} artifacts=${summary.own?.artifacts?.dir ?? summary.artifacts?.dir ?? ""}\n`,
+      `[TARGET] ${summary.target} status=${summary.status}${failureClassField(summary)} tests=${c.tests ?? 0} failed=${c.failed ?? 0} ${coverageCounts(totals)} duration=${duration(totals)} artifacts=${summary.own?.artifacts?.dir ?? summary.artifacts?.dir ?? ""}\n`,
     );
     writeFailureHeadline(summary.target, summary);
   }

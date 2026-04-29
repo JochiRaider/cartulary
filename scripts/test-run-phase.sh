@@ -568,8 +568,8 @@ explain_run_children="$(
   "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$child_summary_results/child-summary" --target parent-target --detail children \
     2>&1
 )"
-assert_contains "$explain_run_children" "[CHILD] child-a status=pass tests=7 failed=0 duration=1.20s" "explain-run child-a detail"
-assert_contains "$explain_run_children" "[CHILD] child-b status=pass tests=11 failed=0 duration=2.00s" "explain-run child-b detail"
+assert_contains "$explain_run_children" "[CHILD] child-a status=pass tests=7 failed=0 authoritative=7 support=0 raw=0 tooling_support=0 unowned_regression=0 unmapped=0 duration=1.20s" "explain-run child-a detail"
+assert_contains "$explain_run_children" "[CHILD] child-b status=pass tests=11 failed=0 authoritative=11 support=0 raw=0 tooling_support=0 unowned_regression=0 unmapped=0 duration=2.00s" "explain-run child-b detail"
 set +e
 explain_run_logs_output="$(
   "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$child_summary_results/child-summary" --detail logs \

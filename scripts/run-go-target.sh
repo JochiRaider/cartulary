@@ -1009,6 +1009,8 @@ set_go_package_patterns() {
 
 clear_go_selection_env() {
   unset CARTULARY_GO_TEST_REGEX || true
+  unset CARTULARY_ACCOUNTING_COVERAGE || true
+  unset CARTULARY_GO_ACCOUNTING_COVERAGE || true
   unset CARTULARY_MANIFEST_PHASE || true
   unset CARTULARY_MANIFEST_SECTION || true
   unset CARTULARY_MANIFEST_COVERAGE || true
@@ -1035,6 +1037,7 @@ emit_go_raw_phase() {
   export CARTULARY_PHASE_RUNNER_LOG="${report_dir}/runner.jsonl"
   export CARTULARY_PHASE_STDERR_LOG="${report_dir}/stderr.log"
   export CARTULARY_GO_TEST_REGEX="${test_regex}"
+  export CARTULARY_ACCOUNTING_COVERAGE="${CARTULARY_GO_ACCOUNTING_COVERAGE:-}"
   set_go_package_patterns "$@"
 
   emit_report_phase_summary \
@@ -1169,11 +1172,17 @@ emit_execution_family() {
         phase="$(target_aggregate_emission_field "${target}" "${family}" "${index}" phase)"
         support_target="$(target_aggregate_emission_field "${target}" "${family}" "${index}" support_target)"
         regex="$(target_aggregate_emission_field "${target}" "${family}" "${index}" regex)"
+        export CARTULARY_GO_ACCOUNTING_COVERAGE=support
         emit_go_raw_phase "${label}" "${emission_usage}" "${report_dir}" "${regex}" "${packages[@]}" || status=$?
+        unset CARTULARY_ACCOUNTING_COVERAGE || true
+        unset CARTULARY_GO_ACCOUNTING_COVERAGE || true
         ;;
       raw)
         regex="$(target_aggregate_emission_field "${target}" "${family}" "${index}" regex)"
+        export CARTULARY_GO_ACCOUNTING_COVERAGE=raw
         emit_go_raw_phase "${label}" "${emission_usage}" "${report_dir}" "${regex}" "${packages[@]}" || status=$?
+        unset CARTULARY_ACCOUNTING_COVERAGE || true
+        unset CARTULARY_GO_ACCOUNTING_COVERAGE || true
         ;;
       *)
         echo "unsupported execution family emission mode ${mode}" >&2

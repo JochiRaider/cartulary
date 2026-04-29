@@ -24,6 +24,7 @@ import {
   readTimelineMutation,
   requireItemByRawText,
   sanitizeTestId,
+  timelineFixtureOccurredAt,
   timelineViewSchemaId,
   type ViewRow,
   waitForTimelinePatch,
@@ -229,13 +230,18 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
     },
   )) as ViewRow;
 
-  await createTimelineFillers(page, incidentId, "E-4-02 filler before", 6);
+  await createTimelineFillers(page, incidentId, "E-4-02 filler before", 6, {
+    occurredAtStart: timelineFixtureOccurredAt(0),
+  });
   const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e402-row"),
+    "timeline.occurred_at": timelineFixtureOccurredAt(6),
     "timeline.summary": "E-4-02 lifecycle row",
     [hostRefsFieldKey]: collectionActionsPayload(["WS-023?"]),
   })) as ViewRow;
-  await createTimelineFillers(page, incidentId, "E-4-02 filler after", 6);
+  await createTimelineFillers(page, incidentId, "E-4-02 filler after", 6, {
+    occurredAtStart: timelineFixtureOccurredAt(7),
+  });
   const seededMention = requireItemByRawText(
     collectionItems(row, hostRefsFieldKey),
     "WS-023?",

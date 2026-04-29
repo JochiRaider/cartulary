@@ -188,6 +188,9 @@ export function formatFailureHeadline({ failureClass, failures = [], counts = {}
   const failedTests =
     (counts.authoritative_failed ?? 0) +
     (counts.support_failed ?? 0) +
+    (counts.raw_failed ?? 0) +
+    (counts.tooling_support_failed ?? 0) +
+    (counts.unowned_regression_failed ?? 0) +
     (counts.unmapped_failed ?? 0);
   const testsPassedPrefix = (counts.tests ?? 0) > 0 && failedTests === 0 ? "tests passed; " : "";
   const kind = primary.kind && primary.kind !== "failure" ? `${primary.kind} ` : "";

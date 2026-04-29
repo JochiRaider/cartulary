@@ -128,10 +128,15 @@ byFile.set(path.join(root, "apps/web/src/App.phase1.support.test.tsx"), [
 ]);
 byFile.set(path.join(root, "apps/web/src/Unmapped.frontend-unit.test.tsx"), [
   assertion(
-    "unmapped frontend residual smoke",
+    "classified frontend residual smoke",
     mode === "residual-failure" ? "failed" : "passed",
   ),
 ]);
+if (mode === "unknown-failure") {
+  byFile.set(path.join(root, "apps/web/src/Unknown.frontend-unit.test.tsx"), [
+    assertion("unknown frontend residual smoke", "failed"),
+  ]);
+}
 
 const testResults = [...byFile.entries()].map(([name, assertionResults]) => {
   const failed = assertionResults.some((entry) => entry.status === "failed");
@@ -201,14 +206,21 @@ success_summary="$(run_case success success pass)"
 assert_equals "$(json_field "$success_summary" "own.counts.tests")" "15" "success total tests"
 assert_equals "$(json_field "$success_summary" "own.counts.authoritative")" "13" "success authoritative count"
 assert_equals "$(json_field "$success_summary" "own.counts.support")" "1" "success support count"
-assert_equals "$(json_field "$success_summary" "own.counts.unmapped")" "1" "success unmapped count"
+assert_equals "$(json_field "$success_summary" "own.counts.unowned_regression")" "1" "success unowned regression count"
+assert_equals "$(json_field "$success_summary" "own.counts.unmapped")" "0" "success unmapped count"
 assert_equals "$(json_field "$success_summary" "own.accounting_modes.actual")" "1" "success raw actual phase"
 assert_equals "$(json_field "$success_summary" "own.accounting_modes.derived")" "4" "success derived slices"
 
 residual_summary="$(run_case residual residual-failure fail)"
 assert_equals "$(json_field "$residual_summary" "own.counts.failed")" "1" "residual failure count"
-assert_equals "$(json_field "$residual_summary" "own.counts.unmapped_failed")" "1" "residual unmapped failure count"
+assert_equals "$(json_field "$residual_summary" "own.counts.unowned_regression_failed")" "1" "residual unowned regression failure count"
+assert_equals "$(json_field "$residual_summary" "own.counts.unmapped_failed")" "0" "residual unmapped failure count"
 assert_equals "$(json_field "$residual_summary" "own.counts.authoritative_failed")" "0" "residual authoritative failure count"
+
+unknown_summary="$(run_case unknown unknown-failure fail)"
+assert_equals "$(json_field "$unknown_summary" "own.counts.failed")" "1" "unknown residual failure count"
+assert_equals "$(json_field "$unknown_summary" "own.counts.unmapped_failed")" "1" "unknown residual unmapped failure count"
+assert_equals "$(json_field "$unknown_summary" "own.counts.unowned_regression_failed")" "0" "unknown residual unowned regression failure count"
 
 authoritative_summary="$(run_case authoritative authoritative-failure fail)"
 assert_equals "$(json_field "$authoritative_summary" "own.counts.failed")" "1" "authoritative failure count"

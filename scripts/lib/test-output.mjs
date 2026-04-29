@@ -45,6 +45,16 @@ const targetTimingSchemaID = "cartulary.test_target_timing.v1";
 const targetSummarySchemaID = "cartulary.test_target_summary.v4";
 const runSummarySchemaID = "cartulary.test_run_summary.v5";
 const sharedExecutionGroupSchemaID = "cartulary.test_shared_execution_group.v1";
+const testAccountingClassificationSchemaID = "cartulary.test_accounting_classification.v1";
+const testCoverageBuckets = [
+  "authoritative",
+  "support",
+  "raw",
+  "tooling_support",
+  "unowned_regression",
+  "unmapped",
+];
+const testCoverageBucketSet = new Set(testCoverageBuckets);
 const timingBucketOrder = [
   "setup",
   "service_wait",
@@ -60,6 +70,7 @@ const validPhaseCountingModes = new Set(["counted", "none"]);
 
 let cachedGoModulePath;
 let cachedManifestIndex;
+let cachedTestAccountingClassification;
 
 function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -186,19 +197,50 @@ function writeJson(file, value) {
 }
 
 function createCounts() {
-  return {
+  const counts = {
     tests: 0,
     failed: 0,
-    authoritative: 0,
-    support: 0,
-    unmapped: 0,
     non_test: 0,
-    authoritative_failed: 0,
-    support_failed: 0,
-    unmapped_failed: 0,
     non_test_failed: 0,
     packages: 0,
   };
+  for (const coverage of testCoverageBuckets) {
+    counts[coverage] = 0;
+    counts[`${coverage}_failed`] = 0;
+  }
+  return counts;
+}
+
+function normalizeTestCoverage(value, fallback = "unmapped") {
+  const normalized = String(value ?? "").trim();
+  if (testCoverageBucketSet.has(normalized)) {
+    return normalized;
+  }
+  return testCoverageBucketSet.has(fallback) ? fallback : "unmapped";
+}
+
+function addCoverageCount(counts, coverage, amount = 1) {
+  counts[normalizeTestCoverage(coverage)] += amount;
+}
+
+function addCoverageFailureCount(counts, coverage, amount = 1) {
+  counts[`${normalizeTestCoverage(coverage)}_failed`] += amount;
+}
+
+function failedTestCount(counts = {}) {
+  return testCoverageBuckets.reduce(
+    (total, coverage) => total + (counts[`${coverage}_failed`] ?? 0),
+    0,
+  );
+}
+
+function formatCoverageCountFields(counts = {}, { failed = false } = {}) {
+  return testCoverageBuckets
+    .map((coverage) => {
+      const key = failed ? `${coverage}_failed` : coverage;
+      return `${key}=${counts[key] ?? 0}`;
+    })
+    .join(" ");
 }
 
 function clampDurationMs(value) {
@@ -599,6 +641,150 @@ function loadManifestIndex() {
 
   cachedManifestIndex = index;
   return index;
+}
+
+function globToRegExp(pattern) {
+  const escaped = String(pattern)
+    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    .replace(/\*\*/g, "\u0000")
+    .replace(/\*/g, "[^/]*")
+    .replace(/\u0000/g, ".*");
+  return new RegExp(`^${escaped}$`);
+}
+
+function normalizeAccountingRule(rule, label, scope) {
+  if (!rule || typeof rule !== "object") {
+    throw new Error(`${label} must be an object`);
+  }
+  const requiresFile = scope === "vitest" || scope === "playwright";
+  const requiresPackage = scope === "go_packages" || scope === "go_tests";
+  if (requiresFile && typeof rule.file !== "string" && typeof rule.file_pattern !== "string") {
+    throw new Error(`${label} must declare file or file_pattern`);
+  }
+  if (requiresPackage && typeof rule.package !== "string" && typeof rule.package_pattern !== "string") {
+    throw new Error(`${label} must declare package or package_pattern`);
+  }
+  const coverage = normalizeTestCoverage(rule.coverage, "");
+  if (coverage === "unmapped") {
+    throw new Error(`${label}.coverage must be raw|tooling_support|unowned_regression|support|authoritative`);
+  }
+  return {
+    ...rule,
+    coverage,
+    phase: typeof rule.phase === "string" ? rule.phase : "",
+    reason: typeof rule.reason === "string" ? rule.reason : "",
+  };
+}
+
+function loadTestAccountingClassification() {
+  if (cachedTestAccountingClassification) {
+    return cachedTestAccountingClassification;
+  }
+  const file = path.join(repoRoot, "tools", "test_accounting_classification.json");
+  const empty = {
+    vitest: [],
+    go_packages: [],
+    go_tests: [],
+    playwright: [],
+  };
+  if (!existsSync(file)) {
+    cachedTestAccountingClassification = empty;
+    return cachedTestAccountingClassification;
+  }
+  const manifest = JSON.parse(readFileSync(file, "utf8"));
+  if (manifest.schema_id !== testAccountingClassificationSchemaID) {
+    throw new Error(`${file} must declare schema_id ${testAccountingClassificationSchemaID}`);
+  }
+  cachedTestAccountingClassification = {
+    vitest: (manifest.vitest ?? []).map((rule, index) =>
+      normalizeAccountingRule(rule, `${file}.vitest[${index}]`, "vitest"),
+    ),
+    go_packages: (manifest.go_packages ?? []).map((rule, index) =>
+      normalizeAccountingRule(rule, `${file}.go_packages[${index}]`, "go_packages"),
+    ),
+    go_tests: (manifest.go_tests ?? []).map((rule, index) =>
+      normalizeAccountingRule(rule, `${file}.go_tests[${index}]`, "go_tests"),
+    ),
+    playwright: (manifest.playwright ?? []).map((rule, index) =>
+      normalizeAccountingRule(rule, `${file}.playwright[${index}]`, "playwright"),
+    ),
+  };
+  return cachedTestAccountingClassification;
+}
+
+function ruleStringMatches(rule, exactKey, patternKey, value) {
+  const normalized = normalizePath(value ?? "");
+  if (typeof rule[exactKey] === "string" && normalizePath(rule[exactKey]) !== normalized) {
+    return false;
+  }
+  if (typeof rule[patternKey] === "string" && !globToRegExp(normalizePath(rule[patternKey])).test(normalized)) {
+    return false;
+  }
+  return true;
+}
+
+function ruleTitleMatches(rule, title) {
+  if (typeof rule.title === "string" && rule.title !== title) {
+    return false;
+  }
+  if (typeof rule.title_pattern === "string" && !globToRegExp(rule.title_pattern).test(title)) {
+    return false;
+  }
+  return true;
+}
+
+function ruleTargetMatches(rule) {
+  const target = optionalEnv("CARTULARY_TEST_TARGET");
+  return typeof rule.target !== "string" || rule.target === target;
+}
+
+function accountingOverrideClassification(owner, phase = "") {
+  const override = optionalEnv("CARTULARY_ACCOUNTING_COVERAGE");
+  if (override === "") {
+    return null;
+  }
+  return {
+    coverage: normalizeTestCoverage(override),
+    phase,
+    id: "",
+    owner,
+  };
+}
+
+function accountingManifestClassification(runner, owner, title = "", fallbackPhase = "") {
+  const manifest = loadTestAccountingClassification();
+  const rules = manifest[runner] ?? [];
+  for (const rule of rules) {
+    if (!ruleTargetMatches(rule)) {
+      continue;
+    }
+    if (runner === "vitest" || runner === "playwright") {
+      if (!ruleStringMatches(rule, "file", "file_pattern", owner)) {
+        continue;
+      }
+      if (!ruleTitleMatches(rule, title)) {
+        continue;
+      }
+    } else if (runner === "go_packages") {
+      if (!ruleStringMatches(rule, "package", "package_pattern", owner)) {
+        continue;
+      }
+    } else if (runner === "go_tests") {
+      if (!ruleStringMatches(rule, "package", "package_pattern", owner)) {
+        continue;
+      }
+      if (!ruleTitleMatches(rule, title)) {
+        continue;
+      }
+    }
+    return {
+      coverage: rule.coverage,
+      phase: rule.phase || fallbackPhase,
+      id: "",
+      owner,
+    };
+  }
+  return null;
 }
 
 function inferPhaseFromText(value) {
@@ -1395,8 +1581,7 @@ function summarizeTargetDir(target) {
   summaries.sort((left, right) => left.start_time.localeCompare(right.start_time));
 
   const owners = new Set();
-  const authoritativeInventory = [];
-  const supportInventory = [];
+  const inventoryByCoverage = Object.fromEntries(testCoverageBuckets.map((coverage) => [coverage, []]));
   const counts = {
     phases: summaries.length,
     ...createCounts(),
@@ -1432,12 +1617,10 @@ function summarizeTargetDir(target) {
     accountingModes[accountingMode] += 1;
     if (countingMode !== "none") {
       counts.tests += summary.counts?.tests ?? 0;
-      counts.authoritative += summary.counts?.authoritative ?? 0;
-      counts.support += summary.counts?.support ?? 0;
-      counts.unmapped += summary.counts?.unmapped ?? 0;
-      counts.authoritative_failed += summary.counts?.authoritative_failed ?? 0;
-      counts.support_failed += summary.counts?.support_failed ?? 0;
-      counts.unmapped_failed += summary.counts?.unmapped_failed ?? 0;
+      for (const coverage of testCoverageBuckets) {
+        counts[coverage] += summary.counts?.[coverage] ?? 0;
+        counts[`${coverage}_failed`] += summary.counts?.[`${coverage}_failed`] ?? 0;
+      }
     }
     counts.failed += summary.counts?.failed ?? 0;
     counts.non_test += summary.counts?.non_test ?? 0;
@@ -1448,10 +1631,9 @@ function summarizeTargetDir(target) {
     }
     if (countingMode !== "none") {
       for (const item of summary.inventory ?? []) {
-        if (item.coverage === "authoritative") {
-          authoritativeInventory.push(item);
-        } else if (item.coverage === "support") {
-          supportInventory.push(item);
+        const coverage = normalizeTestCoverage(item.coverage);
+        if (inventoryByCoverage[coverage]) {
+          inventoryByCoverage[coverage].push({ ...item, coverage });
         }
       }
     }
@@ -1486,8 +1668,7 @@ function summarizeTargetDir(target) {
     accountingModes,
     failures,
     failed,
-    authoritativeInventory,
-    supportInventory,
+    inventoryByCoverage,
   };
 }
 
@@ -1495,10 +1676,10 @@ function printInventory(targetSummary) {
   if (process.env.CARTULARY_TEST_INVENTORY !== "1") {
     return;
   }
-  const sections = [
-    ["authoritative", targetSummary.authoritativeInventory],
-    ["support", targetSummary.supportInventory],
-  ];
+  const sections = testCoverageBuckets.map((coverage) => [
+    coverage,
+    targetSummary.inventoryByCoverage?.[coverage] ?? [],
+  ]);
   for (const [coverage, items] of sections) {
     if (items.length === 0) {
       continue;
@@ -1607,20 +1788,19 @@ function loadSchedulerSummary(target) {
 }
 
 function normalizeCounts(counts = {}) {
-  return {
+  const normalized = {
     phases: clampDurationMs(counts.phases ?? 0),
     tests: clampDurationMs(counts.tests ?? 0),
     failed: clampDurationMs(counts.failed ?? 0),
-    authoritative: clampDurationMs(counts.authoritative ?? 0),
-    support: clampDurationMs(counts.support ?? 0),
-    unmapped: clampDurationMs(counts.unmapped ?? 0),
     non_test: clampDurationMs(counts.non_test ?? 0),
-    authoritative_failed: clampDurationMs(counts.authoritative_failed ?? 0),
-    support_failed: clampDurationMs(counts.support_failed ?? 0),
-    unmapped_failed: clampDurationMs(counts.unmapped_failed ?? 0),
     non_test_failed: clampDurationMs(counts.non_test_failed ?? 0),
     packages: clampDurationMs(counts.packages ?? 0),
   };
+  for (const coverage of testCoverageBuckets) {
+    normalized[coverage] = clampDurationMs(counts[coverage] ?? 0);
+    normalized[`${coverage}_failed`] = clampDurationMs(counts[`${coverage}_failed`] ?? 0);
+  }
+  return normalized;
 }
 
 function addCounts(target, source) {
@@ -1635,8 +1815,7 @@ function sectionFromFlatSummary(summary, fallbackTarget) {
   const counts = normalizeCounts(summary?.counts ?? {});
   let failures = summary?.failures ?? [];
   if (failures.length === 0 && summary?.status && summary.status !== "pass") {
-    const failedTests =
-      counts.authoritative_failed + counts.support_failed + counts.unmapped_failed;
+    const failedTests = failedTestCount(counts);
     failures =
       failedTests > 0
         ? [
@@ -1848,7 +2027,7 @@ function writeTargetLine(stream, label, targetSummary) {
 
   const totals = targetSummary.totals;
   stream.write(
-    `${label} ${target} kind=leaf${failureClassField} phases=${totals.counts.phases} tests=${totals.counts.tests} failed=${totals.counts.failed} authoritative=${totals.counts.authoritative} support=${totals.counts.support} unmapped=${totals.counts.unmapped} packages=${totals.counts.packages} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} fixture_count=${totals.fixture.total_count} fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
+    `${label} ${target} kind=leaf${failureClassField} phases=${totals.counts.phases} tests=${totals.counts.tests} failed=${totals.counts.failed} ${formatCoverageCountFields(totals.counts)} packages=${totals.counts.packages} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} fixture_count=${totals.fixture.total_count} fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
   );
 }
 
@@ -2029,6 +2208,7 @@ function handleTargetSummary(args) {
     teardown_status: teardownStatus(summary.teardownDurationMs, teardownFailures),
     teardown_failures: teardownFailures,
     fixture: ownFixture,
+    inventory_by_coverage: summary.inventoryByCoverage,
     artifacts: {
       dir: relToRepo(summary.targetDir),
       timing_json: relToRepo(timingPath),
@@ -2212,20 +2392,19 @@ function addSummaryToAggregate(aggregate, accountingModes, summary) {
 }
 
 function countsForJSON(aggregate) {
-  return {
+  const counts = {
     phases: aggregate.phases,
     tests: aggregate.tests,
     failed: aggregate.failed,
-    authoritative: aggregate.authoritative,
-    support: aggregate.support,
-    unmapped: aggregate.unmapped,
     non_test: aggregate.non_test,
-    authoritative_failed: aggregate.authoritative_failed,
-    support_failed: aggregate.support_failed,
-    unmapped_failed: aggregate.unmapped_failed,
     non_test_failed: aggregate.non_test_failed,
     packages: aggregate.packages,
   };
+  for (const coverage of testCoverageBuckets) {
+    counts[coverage] = aggregate[coverage];
+    counts[`${coverage}_failed`] = aggregate[`${coverage}_failed`];
+  }
+  return counts;
 }
 
 function summarizeTargetSummaries(
@@ -2545,7 +2724,7 @@ function handleRunSummary(args) {
       return 0;
     }
     process.stdout.write(
-      `[PASS] ${label} work_units=${completedWorkUnits}/${totalWorkUnits} summary_targets=${summaryTargets.length} evidence_targets=${evidenceTargetSummaries.length}/${expectedEvidenceTargetCount} helper_units=${helperUnits.length} phases=${aggregate.phases} tests=${aggregate.tests} authoritative=${aggregate.authoritative} support=${aggregate.support} unmapped=${aggregate.unmapped} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
+      `[PASS] ${label} work_units=${completedWorkUnits}/${totalWorkUnits} summary_targets=${summaryTargets.length} evidence_targets=${evidenceTargetSummaries.length}/${expectedEvidenceTargetCount} helper_units=${helperUnits.length} phases=${aggregate.phases} tests=${aggregate.tests} ${formatCoverageCountFields(aggregate)} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
     );
     writeFixtureLine(process.stdout, runFixture);
     writeSummaryGroupLines(process.stdout, label, renderedSummaryGroups);
@@ -2554,7 +2733,7 @@ function handleRunSummary(args) {
   }
 
   process.stderr.write(
-    `[FAIL] ${label} failure_class=${runSummary.failure_class ?? "helper"} work_units=${completedWorkUnits}/${totalWorkUnits} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} summary_targets=${summaryTargets.length} evidence_targets=${evidenceTargetSummaries.length}/${expectedEvidenceTargetCount} helper_units=${helperUnits.length} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
+    `[FAIL] ${label} failure_class=${runSummary.failure_class ?? "helper"} work_units=${completedWorkUnits}/${totalWorkUnits} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} summary_targets=${summaryTargets.length} evidence_targets=${evidenceTargetSummaries.length}/${expectedEvidenceTargetCount} helper_units=${helperUnits.length} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} ${formatCoverageCountFields(aggregate, { failed: true })} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
   );
   writeFailureHeadline(process.stderr, label, runSummary);
   writeFixtureLine(process.stderr, runFixture);
@@ -2699,6 +2878,7 @@ function readGoEvents(logFile) {
 function classifyGoTest(importPath, testName, phaseLabel) {
   const manifestIndex = loadManifestIndex();
   const authoritative = manifestIndex.authoritativeGo.get(`${importPath}::${testName}`);
+  const owner = toRepoRelativePackage(importPath);
   if (authoritative) {
     return {
       coverage: "authoritative",
@@ -2709,39 +2889,64 @@ function classifyGoTest(importPath, testName, phaseLabel) {
   }
 
   const inferredPhase = inferPhaseFromText(testName) || inferPhaseFromText(phaseLabel);
+  const override = accountingOverrideClassification(owner, inferredPhase);
+  if (override) {
+    return override;
+  }
   const support =
     /^TestSupportPhase\d+_/.test(testName) ||
     /ProcessSmoke/.test(testName) ||
     /\bsupport\b/i.test(phaseLabel) ||
     /\bsmoke\b/i.test(phaseLabel);
+  if (support) {
+    return {
+      coverage: "support",
+      phase: inferredPhase,
+      id: "",
+      owner,
+    };
+  }
 
-  return {
-    coverage: support ? "support" : "unmapped",
+  return accountingManifestClassification("go_tests", owner, testName, inferredPhase) ?? {
+    coverage: "unmapped",
     phase: inferredPhase,
     id: "",
-    owner: toRepoRelativePackage(importPath),
+    owner,
   };
 }
 
 function classifyGoPackageFailure(importPath, phaseLabel) {
+  const owner = toRepoRelativePackage(importPath);
   const manifestPhase = optionalEnv("CARTULARY_MANIFEST_PHASE");
   const manifestCoverage = optionalEnv("CARTULARY_MANIFEST_COVERAGE");
   if (manifestPhase !== "" && manifestCoverage !== "") {
     return {
-      coverage: manifestCoverage,
+      coverage: normalizeTestCoverage(manifestCoverage === "supplemental" ? "support" : manifestCoverage),
       phase: manifestPhase,
       id: "",
-      owner: toRepoRelativePackage(importPath),
+      owner,
     };
   }
 
   const inferredPhase = inferPhaseFromText(phaseLabel);
+  const override = accountingOverrideClassification(owner, inferredPhase);
+  if (override) {
+    return override;
+  }
   const support = /\bsupport\b/i.test(phaseLabel) || /\bsmoke\b/i.test(phaseLabel);
-  return {
-    coverage: support ? "support" : "unmapped",
+  if (support) {
+    return {
+      coverage: "support",
+      phase: inferredPhase,
+      id: "",
+      owner,
+    };
+  }
+  return accountingManifestClassification("go_packages", owner, "", inferredPhase) ?? {
+    coverage: "unmapped",
     phase: inferredPhase,
     id: "",
-    owner: toRepoRelativePackage(importPath),
+    owner,
   };
 }
 
@@ -2879,7 +3084,7 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
     owners.add(owner);
     if (testCase.status !== "skip") {
       counts.tests += 1;
-      counts[classification.coverage] += 1;
+      addCoverageCount(counts, classification.coverage);
     }
     if (testCase.status === "pass") {
       passedCount += 1;
@@ -2897,7 +3102,7 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
     }
     if (testCase.status === "fail") {
       counts.failed += 1;
-      counts[`${classification.coverage}_failed`] += 1;
+      addCoverageFailureCount(counts, classification.coverage);
       dossiers.push({
         coverage: classification.coverage,
         phase: classification.phase,
@@ -2926,7 +3131,7 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
       continue;
     }
     counts.failed += 1;
-    counts[`${classification.coverage}_failed`] += 1;
+    addCoverageFailureCount(counts, classification.coverage);
     dossiers.push({
       coverage: classification.coverage,
       phase: classification.phase,
@@ -2943,7 +3148,13 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
   }
 
   if (exitStatus === 0 && (passedCount === 0 || skippedCount > 0 || incompleteCount > 0)) {
-    const coverage = /\bsupport\b/i.test(phaseLabel) ? "support" : "unmapped";
+    const coverageOverride = optionalEnv("CARTULARY_ACCOUNTING_COVERAGE");
+    const coverage =
+      coverageOverride !== ""
+        ? normalizeTestCoverage(coverageOverride)
+        : /\bsupport\b/i.test(phaseLabel)
+          ? "support"
+          : "unmapped";
     const message =
       passedCount === 0 && skippedCount === 0 && incompleteCount === 0
         ? coverage === "support"
@@ -2962,7 +3173,7 @@ function summarizeGoRun(logFile, phaseLabel, exitStatus, selection = null) {
       raw: relToRepo(logFile),
     });
     counts.failed += 1;
-    counts[`${coverage}_failed`] += 1;
+    addCoverageFailureCount(counts, coverage);
   }
 
   counts.packages = owners.size;
@@ -3153,9 +3364,18 @@ function classifyVitestCase(ownerPath, title, phaseLabel) {
     supportNamedTitle(title) ||
     isForbiddenFile(ownerPath, inferPhaseFromText(ownerPath) || inferPhaseFromText(title)) ||
     /\bsupport\b/i.test(phaseLabel);
-  return {
-    coverage: support ? "support" : "unmapped",
-    phase: inferPhaseFromText(ownerPath) || inferPhaseFromText(title) || inferPhaseFromText(phaseLabel),
+  const inferredPhase = inferPhaseFromText(ownerPath) || inferPhaseFromText(title) || inferPhaseFromText(phaseLabel);
+  if (support) {
+    return {
+      coverage: "support",
+      phase: inferredPhase,
+      id: "",
+      owner: ownerPath,
+    };
+  }
+  return accountingManifestClassification("vitest", ownerPath, title, inferredPhase) ?? {
+    coverage: "unmapped",
+    phase: inferredPhase,
     id: "",
     owner: ownerPath,
   };
@@ -3370,8 +3590,16 @@ function classifyVitestFileFailure(ownerPath, phaseLabel, selection = null) {
     ownerPath.includes(".support.") ||
     isForbiddenFile(ownerPath, inferredPhase) ||
     /\bsupport\b/i.test(phaseLabel);
-  return {
-    coverage: support ? "support" : "unmapped",
+  if (support) {
+    return {
+      coverage: "support",
+      phase: inferredPhase,
+      id: "",
+      owner: ownerPath,
+    };
+  }
+  return accountingManifestClassification("vitest", ownerPath, "", inferredPhase) ?? {
+    coverage: "unmapped",
     phase: inferredPhase,
     id: "",
     owner: ownerPath,
@@ -3402,7 +3630,7 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
       );
       owners.add(classification.owner);
       counts.failed += 1;
-      counts[`${classification.coverage}_failed`] += 1;
+      addCoverageFailureCount(counts, classification.coverage);
       dossiers.push({
         coverage: classification.coverage,
         phase: classification.phase,
@@ -3428,7 +3656,7 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
       const classification = classifyVitestCase(ownerPath, assertion.title ?? "", phaseLabel);
       owners.add(classification.owner);
       counts.tests += 1;
-      counts[classification.coverage] += 1;
+      addCoverageCount(counts, classification.coverage);
       if (assertion.status === "passed") {
         inventory.push(
           createInventoryItem({
@@ -3442,7 +3670,7 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
         continue;
       }
       counts.failed += 1;
-      counts[`${classification.coverage}_failed`] += 1;
+      addCoverageFailureCount(counts, classification.coverage);
       const failureMessage = Array.isArray(assertion.failureMessages) ? assertion.failureMessages[0] ?? "" : "";
       dossiers.push({
         coverage: classification.coverage,
@@ -3478,7 +3706,7 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
       raw: relToRepo(reportFile),
     });
     counts.failed += 1;
-    counts.unmapped_failed += 1;
+    addCoverageFailureCount(counts, "unmapped");
   }
 
   counts.packages = owners.size;
@@ -3715,8 +3943,16 @@ function classifyPlaywrightCase(file, title, phaseLabel) {
     isForbiddenFile(normalizedFile, inferredPhase) ||
     /\bsupport\b/i.test(phaseLabel) ||
     /\bsmoke\b/i.test(phaseLabel);
-  return {
-    coverage: support ? "support" : "unmapped",
+  if (support) {
+    return {
+      coverage: "support",
+      phase: inferredPhase,
+      id: "",
+      owner: normalizedFile,
+    };
+  }
+  return accountingManifestClassification("playwright", normalizedFile, title, inferredPhase) ?? {
+    coverage: "unmapped",
     phase: inferredPhase,
     id: "",
     owner: normalizedFile,
@@ -3901,7 +4137,13 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
     );
   });
   if (specs.length === 0 && (report.errors ?? []).length > 0) {
-    const coverage = /\bsupport\b/i.test(phaseLabel) ? "support" : "unmapped";
+    const coverageOverride = optionalEnv("CARTULARY_ACCOUNTING_COVERAGE");
+    const coverage =
+      coverageOverride !== ""
+        ? normalizeTestCoverage(coverageOverride)
+        : /\bsupport\b/i.test(phaseLabel)
+          ? "support"
+          : "unmapped";
     const message = (report.errors ?? [])
       .map((error) => error?.message)
       .find((entry) => typeof entry === "string" && entry.trim() !== "");
@@ -3918,7 +4160,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
       raw: relToRepo(reportFile),
     });
     counts.failed += 1;
-    counts[`${coverage}_failed`] += 1;
+    addCoverageFailureCount(counts, coverage);
     return {
       report,
       counts,
@@ -3966,7 +4208,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
     }
 
     counts.tests += 1;
-    counts[classification.coverage] += 1;
+    addCoverageCount(counts, classification.coverage);
     const successful = executedResults.some(
       (entry) => entry.status === "passed" || entry.status === "flaky",
     );
@@ -3987,7 +4229,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
     }
 
     counts.failed += 1;
-    counts[`${classification.coverage}_failed`] += 1;
+    addCoverageFailureCount(counts, classification.coverage);
     for (const attempt of executedResults.filter((entry) => entry.status !== "passed" && entry.status !== "flaky")) {
       const attachments = (attempt.result.attachments ?? [])
         .map((attachment) => attachment?.path)
@@ -4017,7 +4259,13 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
 
   counts.packages = owners.size;
   if (counts.tests === 0 && dossiers.length === 0) {
-    const coverage = /\bsupport\b/i.test(phaseLabel) ? "support" : "unmapped";
+    const coverageOverride = optionalEnv("CARTULARY_ACCOUNTING_COVERAGE");
+    const coverage =
+      coverageOverride !== ""
+        ? normalizeTestCoverage(coverageOverride)
+        : /\bsupport\b/i.test(phaseLabel)
+          ? "support"
+          : "unmapped";
     dossiers.push({
       coverage,
       phase: inferPhaseFromText(phaseLabel),
@@ -4030,7 +4278,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
       raw: relToRepo(reportFile),
     });
     counts.failed += 1;
-    counts[`${coverage}_failed`] += 1;
+    addCoverageFailureCount(counts, coverage);
   }
   return {
     report,

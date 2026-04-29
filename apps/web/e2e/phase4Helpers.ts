@@ -47,17 +47,55 @@ type MergeEnvelope = {
 
 type CollectionItem = Record<string, unknown>;
 
+export const timelineFixtureBaseOccurredAt = "2026-04-10T10:00:00.000Z";
+
+type TimelineFillerOptions = {
+  occurredAtStart?: string;
+  occurredAtStepMinutes?: number;
+};
+
+export function timelineFixtureOccurredAt(
+  offsetMinutes: number,
+  baseOccurredAt = timelineFixtureBaseOccurredAt,
+) {
+  const baseMs = Date.parse(baseOccurredAt);
+  if (!Number.isFinite(baseMs)) {
+    throw new Error(
+      `invalid timeline fixture base timestamp: ${baseOccurredAt}`,
+    );
+  }
+  return new Date(baseMs + offsetMinutes * 60_000).toISOString();
+}
+
 export async function createTimelineFillers(
   page: Page,
   incidentId: string,
   prefix: string,
   count: number,
+  options: TimelineFillerOptions = {},
 ) {
+  const occurredAtStartMs =
+    options.occurredAtStart === undefined
+      ? null
+      : Date.parse(options.occurredAtStart);
+  if (occurredAtStartMs !== null && !Number.isFinite(occurredAtStartMs)) {
+    throw new Error(
+      `invalid timeline filler start timestamp: ${options.occurredAtStart}`,
+    );
+  }
+  const occurredAtStepMs = (options.occurredAtStepMinutes ?? 1) * 60_000;
+
   for (let index = 1; index <= count; index += 1) {
-    await createViewRow(page, incidentId, timelineViewSchemaId, {
+    const payload: Record<string, unknown> = {
       client_txn_id: uniqueTxn(`${prefix}-${index}`),
       "timeline.summary": `${prefix} ${index}`,
-    });
+    };
+    if (occurredAtStartMs !== null) {
+      payload["timeline.occurred_at"] = new Date(
+        occurredAtStartMs + (index - 1) * occurredAtStepMs,
+      ).toISOString();
+    }
+    await createViewRow(page, incidentId, timelineViewSchemaId, payload);
   }
 }
 
