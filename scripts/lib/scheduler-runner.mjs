@@ -320,9 +320,6 @@ class SchedulerReporter {
   }
 
   start() {
-    if (this.schedule.quietStart === true && !this.verbose) {
-      return;
-    }
     process.stdout.write(
       schedulerStartLine({
         prefix: this.schedule.prefix,
@@ -332,6 +329,7 @@ class SchedulerReporter {
         resourceLimits: this.schedule.resourceLimits,
         preferredResources: preferredResourcesForScheduler(this.schedule.resourceScheduler),
         workUnits: this.schedule.workUnits.filter(counted),
+        artifacts: relToRepo(this.repoRoot, this.targetDir),
       }),
     );
   }
@@ -658,22 +656,21 @@ class SchedulerReporter {
             },
           ],
     );
-    if (this.schedule.summaryOnPass !== false || status !== "pass" || this.verbose) {
-      process.stdout.write(
-        schedulerSummaryLine({
-          prefix: this.schedule.prefix,
-          target: this.schedule.target,
-          status,
-          completed: this.completedCount,
-          total: this.schedule.totalWorkUnits,
-          failed,
-          failureClass,
-          skipped,
-          finalizerFailures: this.finalizerFailures,
-          slowest,
-        }),
-      );
-    }
+    process.stdout.write(
+      schedulerSummaryLine({
+        prefix: this.schedule.prefix,
+        target: this.schedule.target,
+        status,
+        completed: this.completedCount,
+        total: this.schedule.totalWorkUnits,
+        failed,
+        failureClass,
+        skipped,
+        finalizerFailures: this.finalizerFailures,
+        slowest,
+        artifacts: relToRepo(this.repoRoot, this.targetDir),
+      }),
+    );
     const baseSummary = {
       schema_id: this.schedule.summarySchemaID,
       target: this.schedule.target,

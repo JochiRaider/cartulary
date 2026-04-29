@@ -625,8 +625,6 @@ function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTa
     eventSchemaID: schedulerEventSchemaID,
     summarySchemaID: schedulerSummarySchemaID,
     resourceScheduler: "service_backed",
-    quietStart: true,
-    summaryOnPass: false,
     showFinalizing: true,
     initialProgressAt: Date.now(),
     stopOnFirstFailure: false,

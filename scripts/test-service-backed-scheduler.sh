@@ -566,9 +566,15 @@ write_manifest "$weighted_manifest" test-fast-service-backed \
   'make_target|backend-integration-support|5|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1'
 weighted_output="$(run_scheduler "$weighted_dir" "$weighted_manifest" test-fast-service-backed weighted 2>&1)"
 assert_not_contains "$weighted_output" "[STEP] test-fast-service-backed" "default service scheduler output hides per-unit steps"
-assert_not_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start" "quiet scheduler hides success start"
+assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed start work_units=3 finalizers=0 capacity={go_cpu:6,go_io:6,browser_stack:" "quiet scheduler shows aggregate start"
+assert_contains "$weighted_output" "classes={backend:3}" "quiet scheduler start shows work classes"
+assert_contains "$weighted_output" "types={make_target:3}" "quiet scheduler start shows work types"
+assert_contains "$weighted_output" "top_weighted=backend-process:10,backend-integration-support:5,backend-store:1" "quiet scheduler start shows top weighted work"
+assert_contains "$weighted_output" "artifacts=tmp/service-backed-scheduler-weighted." "quiet scheduler start shows artifact field"
+assert_contains "$weighted_output" "/results/weighted/test-fast-service-backed" "quiet scheduler start shows artifact path"
 assert_not_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed progress completed_work_units=0/3" "quiet scheduler hides immediate unblocked progress"
-assert_not_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed summary status=pass" "quiet scheduler hides success summary"
+assert_contains "$weighted_output" "[SCHEDULER] test-fast-service-backed summary status=pass completed_work_units=3/3 failed=none slowest=" "quiet scheduler shows pass summary"
+assert_contains "$weighted_output" "/results/weighted/test-fast-service-backed" "quiet scheduler summary shows artifact path"
 assert_not_contains "$weighted_output" "fake pass for backend-store" "quiet scheduler hides successful child logs"
 assert_not_contains "$weighted_output" "active_resource_claims=" "default scheduler output hides raw active resources"
 assert_not_contains "$weighted_output" "claims={" "default scheduler output hides raw claims"
@@ -608,7 +614,7 @@ write_manifest "$backend_capacity_manifest" test-fast-service-backed \
   'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1' \
   'make_target|backend-integration-support|7|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1'
 backend_capacity_output="$(run_scheduler "$backend_capacity_dir" "$backend_capacity_manifest" test-fast-service-backed backend-capacity 2>&1)"
-assert_not_contains "$backend_capacity_output" "[SCHEDULER] test-fast-service-backed summary status=pass" "quiet go resource model hides success scheduler summary"
+assert_contains "$backend_capacity_output" "[SCHEDULER] test-fast-service-backed summary status=pass" "quiet go resource model shows success scheduler summary"
 
 io_block_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-host_io-block.XXXXXX")"
 cleanup_paths+=("$io_block_dir")
@@ -631,7 +637,10 @@ write_manifest "$browser_manifest" test-service-backed \
 browser_output="$(run_scheduler "$browser_dir" "$browser_manifest" test-service-backed browser 2>&1)"
 assert_not_contains "$browser_output" "[STEP] test-service-backed" "browser schedule hides default scheduler steps"
 assert_contains "$browser_output" "[PASS] test-service-backed kind=aggregate children=2/2 child_tests=2 child_failed=0" "browser schedule aggregate child tests"
-assert_not_contains "$browser_output" "[SCHEDULER] test-service-backed summary status=pass" "browser quiet scheduler hides success summary"
+assert_contains "$browser_output" "[SCHEDULER] test-service-backed start work_units=2 finalizers=0" "browser quiet scheduler shows aggregate start"
+assert_contains "$browser_output" "classes={backend:1,browser:1}" "browser quiet scheduler start shows classes"
+assert_contains "$browser_output" "top_weighted=backend-process:10,browser-e2e-webserver-backed:9" "browser quiet scheduler start shows top weighted work"
+assert_contains "$browser_output" "[SCHEDULER] test-service-backed summary status=pass" "browser quiet scheduler shows success summary"
 assert_not_contains "$browser_output" "claims={browser_stack:1" "browser default output hides resource claims"
 assert_scheduler_artifacts "$browser_dir" browser test-service-backed pass - start
 
@@ -842,7 +851,7 @@ makeflags_sanitize_output="$(
   MFLAGS='--jobserver-fds=3,4 -j' \
     run_scheduler "$makeflags_sanitize_dir" "$makeflags_sanitize_manifest" test-fast-service-backed makeflags-sanitize 2>&1
 )"
-assert_not_contains "$makeflags_sanitize_output" "[SCHEDULER] test-fast-service-backed summary status=pass" "makeflags sanitize quiet scheduler hides success summary"
+assert_contains "$makeflags_sanitize_output" "[SCHEDULER] test-fast-service-backed summary status=pass" "makeflags sanitize quiet scheduler shows success summary"
 assert_not_contains "$(cat "${makeflags_sanitize_dir}/make.log")" "jobserver" "child make env strips inherited jobserver tokens"
 assert_not_contains "$(cat "${makeflags_sanitize_dir}/make.log")" "MFLAGS=-j" "child make env strips inherited mflags jobs"
 assert_contains "$(cat "${makeflags_sanitize_dir}/make.log")" "MAKEFLAGS=--trace" "child make env preserves non-jobserver make flags"

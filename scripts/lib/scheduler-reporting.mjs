@@ -281,6 +281,7 @@ export function schedulerStartLine({
   preferredResources = [],
   finalizerCount = null,
   workUnits = [],
+  artifacts = "",
   extraFields = [],
 }) {
   const fields = [
@@ -296,6 +297,9 @@ export function schedulerStartLine({
   }
   if (workUnits.length > 0) {
     fields.push(`top_weighted=${topWeightedUnits(workUnits)}`);
+  }
+  if (artifacts) {
+    fields.push(`artifacts=${artifacts}`);
   }
   fields.push(...extraFields);
   return schedulerTelemetryLine(prefix, target, "start", fields);
@@ -378,6 +382,7 @@ export function schedulerSummaryLine({
   skipped = 0,
   finalizerFailures = 0,
   slowest = [],
+  artifacts = "",
 }) {
   return schedulerTelemetryLine(prefix, target, "summary", [
     `status=${status}`,
@@ -387,6 +392,7 @@ export function schedulerSummaryLine({
     skipped > 0 ? `skipped=${skipped}` : null,
     finalizerFailures > 0 ? `finalizer_failures=${finalizerFailures}` : null,
     `slowest=${formatSlowestWork(slowest)}`,
+    artifacts ? `artifacts=${artifacts}` : null,
   ]);
 }
 

@@ -578,8 +578,6 @@ function attachRuntime(schedule, { makeBin, testOutputScript, summaryTargets, su
     eventSchemaID: schedulerEventSchemaID,
     summarySchemaID: schedulerSummarySchemaID,
     resourceScheduler: "check",
-    quietStart: false,
-    summaryOnPass: true,
     stopOnFirstFailure: true,
     progressExtras: nestedProgress.progressExtras,
     countCompletedUnit: (_unit, result) => result.status === 0,
