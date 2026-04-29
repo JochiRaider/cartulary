@@ -61,11 +61,22 @@ export CARTULARY_PHASE_WATCHDOG_LOG="${CARTULARY_VITEST_WATCHDOG_LOG:-}"
 
 unset CARTULARY_VITEST_FILES || true
 unset CARTULARY_VITEST_TITLES || true
+unset CARTULARY_VITEST_EXCLUDE_MANIFEST_EXECUTION_DEPENDENCY || true
+unset CARTULARY_VITEST_ALLOW_EMPTY_SELECTION || true
 unset CARTULARY_MANIFEST_PHASE || true
 unset CARTULARY_MANIFEST_COVERAGE || true
 unset CARTULARY_MANIFEST_EXECUTION_DEPENDENCY || true
+unset CARTULARY_PHASE_ACCOUNTING_MODE || true
+export CARTULARY_PHASE_COUNTING_MODE=none
 emit_report_phase_summary vitest-phase "frontend-unit" "${command_text}" "${start_time}" "${end_time}" "${duration_ms}" "${duration_ms}" "${run_status}" || status=$?
+unset CARTULARY_PHASE_COUNTING_MODE || true
 
+if [[ ! -f "${run_report}" ]]; then
+  emit_target_summary fail || true
+  exit "${status:-1}"
+fi
+
+export CARTULARY_PHASE_ACCOUNTING_MODE=derived
 export CARTULARY_MANIFEST_COVERAGE=authoritative
 export CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=frontend_unit
 mapfile -t frontend_unit_phases < <("${NODE_HELPER}" "${ROOT_DIR}/scripts/lib/phase-manifest.mjs" vitest-phases authoritative frontend_unit)
@@ -73,6 +84,13 @@ for manifest_phase in "${frontend_unit_phases[@]}"; do
   export CARTULARY_MANIFEST_PHASE="${manifest_phase}"
   emit_report_phase_summary vitest-manifest-phase "frontend-unit ${manifest_phase} authoritative" "${command_text}" "${end_time}" "${end_time}" 0 0 "${run_status}" || status=$?
 done
+
+unset CARTULARY_MANIFEST_PHASE || true
+unset CARTULARY_MANIFEST_COVERAGE || true
+unset CARTULARY_MANIFEST_EXECUTION_DEPENDENCY || true
+export CARTULARY_VITEST_EXCLUDE_MANIFEST_EXECUTION_DEPENDENCY=frontend_unit
+export CARTULARY_VITEST_ALLOW_EMPTY_SELECTION=1
+emit_report_phase_summary vitest-phase "frontend-unit residual" "${command_text}" "${end_time}" "${end_time}" 0 0 "${run_status}" || status=$?
 
 if [[ "${status}" -eq 0 ]]; then
   emit_target_summary pass

@@ -12,7 +12,7 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { collectEntries, loadManifest } from "./phase-manifest.mjs";
+import { collectEntries, loadManifest, phaseManifestNames } from "./phase-manifest.mjs";
 import { collectTargetPlanRows, findTargetDescriptor } from "./target-plan.mjs";
 import {
   combineFixtureSummaries,
@@ -56,6 +56,7 @@ const timingBucketOrder = [
   "report_collation",
 ];
 const timingBucketSet = new Set(timingBucketOrder);
+const validPhaseCountingModes = new Set(["counted", "none"]);
 
 let cachedGoModulePath;
 let cachedManifestIndex;
@@ -228,6 +229,13 @@ function normalizeAccountingMode(value) {
     return value;
   }
   return "actual";
+}
+
+function normalizePhaseCountingMode(value) {
+  if (validPhaseCountingModes.has(value)) {
+    return value;
+  }
+  return "counted";
 }
 
 function createAccountingModes() {
@@ -691,6 +699,7 @@ function createBasePhaseContext(runner) {
     optionalEnv("CARTULARY_REPORT_SLICE") === "1"
       ? normalizeAccountingMode(optionalEnv("CARTULARY_PHASE_ACCOUNTING_MODE", "actual"))
       : "actual";
+  const countingMode = normalizePhaseCountingMode(optionalEnv("CARTULARY_PHASE_COUNTING_MODE", "counted"));
   const legacyDurationMs = parseInteger("CARTULARY_PHASE_DURATION_MS", 0);
   const logicalDurationMs = clampDurationMs(
     parseInteger("CARTULARY_PHASE_LOGICAL_DURATION_MS", legacyDurationMs),
@@ -711,6 +720,7 @@ function createBasePhaseContext(runner) {
     startTime: requiredEnv("CARTULARY_PHASE_START_TIME"),
     endTime: requiredEnv("CARTULARY_PHASE_END_TIME"),
     accountingMode,
+    countingMode,
     executedDurationMs,
     logicalDurationMs,
     reusedDurationMs: accountingMode === "reused" ? logicalDurationMs : 0,
@@ -766,6 +776,7 @@ function writePhaseArtifacts(context, details) {
     start_time: context.startTime,
     end_time: context.endTime,
     exit_status: context.exitStatus,
+    counting_mode: context.countingMode,
     accounting_mode: context.accountingMode,
     executed_duration_ms: context.executedDurationMs,
     logical_duration_ms: context.logicalDurationMs,
@@ -811,6 +822,7 @@ function writePhaseArtifacts(context, details) {
     teardown_duration_ms: context.timingBucket === "teardown" ? context.wallDurationMs : 0,
     timing_bucket: context.timingBucket,
     exit_status: context.exitStatus,
+    counting_mode: context.countingMode,
     artifacts,
     counts: details.counts,
     ...failureFields,
@@ -1400,6 +1412,7 @@ function summarizeTargetDir(target) {
 
   for (const summary of summaries) {
     const accountingMode = normalizeAccountingMode(summary.accounting_mode);
+    const countingMode = normalizePhaseCountingMode(summary.counting_mode ?? "counted");
     const summaryDurations = readSummaryDurationFields(summary, accountingMode);
     if (startTime === "" || summary.start_time < startTime) {
       startTime = summary.start_time;
@@ -1417,25 +1430,29 @@ function summarizeTargetDir(target) {
     }
     addDurationFields(durations, summaryDurations);
     accountingModes[accountingMode] += 1;
-    counts.tests += summary.counts?.tests ?? 0;
+    if (countingMode !== "none") {
+      counts.tests += summary.counts?.tests ?? 0;
+      counts.authoritative += summary.counts?.authoritative ?? 0;
+      counts.support += summary.counts?.support ?? 0;
+      counts.unmapped += summary.counts?.unmapped ?? 0;
+      counts.authoritative_failed += summary.counts?.authoritative_failed ?? 0;
+      counts.support_failed += summary.counts?.support_failed ?? 0;
+      counts.unmapped_failed += summary.counts?.unmapped_failed ?? 0;
+    }
     counts.failed += summary.counts?.failed ?? 0;
-    counts.authoritative += summary.counts?.authoritative ?? 0;
-    counts.support += summary.counts?.support ?? 0;
-    counts.unmapped += summary.counts?.unmapped ?? 0;
     counts.non_test += summary.counts?.non_test ?? 0;
-    counts.authoritative_failed += summary.counts?.authoritative_failed ?? 0;
-    counts.support_failed += summary.counts?.support_failed ?? 0;
-    counts.unmapped_failed += summary.counts?.unmapped_failed ?? 0;
     counts.non_test_failed += summary.counts?.non_test_failed ?? 0;
     failures.push(...(summary.failures ?? []));
     for (const owner of summary.owners ?? []) {
       owners.add(owner);
     }
-    for (const item of summary.inventory ?? []) {
-      if (item.coverage === "authoritative") {
-        authoritativeInventory.push(item);
-      } else if (item.coverage === "support") {
-        supportInventory.push(item);
+    if (countingMode !== "none") {
+      for (const item of summary.inventory ?? []) {
+        if (item.coverage === "authoritative") {
+          authoritativeInventory.push(item);
+        } else if (item.coverage === "support") {
+          supportInventory.push(item);
+        }
       }
     }
     if (summary.status !== "pass") {
@@ -3160,15 +3177,28 @@ function createVitestSelection({ manifestAware }) {
     };
   }
 
+  const excludedManifestDependency = optionalEnv("CARTULARY_VITEST_EXCLUDE_MANIFEST_EXECUTION_DEPENDENCY");
+  const excluded = new Set();
+  const excludedFiles = new Set();
+  if (excludedManifestDependency !== "") {
+    for (const entry of collectVitestManifestEntries("authoritative", excludedManifestDependency)) {
+      excluded.add(`${normalizePath(entry.file)}::${entry.title}`);
+      excludedFiles.add(normalizePath(entry.file));
+    }
+  }
+
   const selectedFiles = new Set(
     optionalLines("CARTULARY_VITEST_FILES").map((value) => normalizeVitestSelectionFile(value)),
   );
   const selectedTitles = optionalSetFromLines("CARTULARY_VITEST_TITLES");
-  if (selectedFiles.size === 0 && selectedTitles.size === 0) {
+  if (selectedFiles.size === 0 && selectedTitles.size === 0 && excluded.size === 0) {
     return null;
   }
   return {
     matches(ownerPath, title) {
+      if (excluded.has(`${vitestOwnerToSelectionFile(ownerPath)}::${title}`)) {
+        return false;
+      }
       if (
         selectedFiles.size > 0 &&
         !selectedFiles.has(vitestOwnerToSelectionFile(ownerPath))
@@ -3181,6 +3211,9 @@ function createVitestSelection({ manifestAware }) {
       return true;
     },
     matchesFile(ownerPath) {
+      if (excludedFiles.has(vitestOwnerToSelectionFile(ownerPath))) {
+        return false;
+      }
       if (selectedFiles.size === 0) {
         return selectedTitles.size === 0;
       }
@@ -3368,7 +3401,11 @@ function summarizeVitestRun(reportFile, phaseLabel, selection = null) {
     }
   }
 
-  if (counts.tests === 0 && dossiers.length === 0) {
+  if (
+    counts.tests === 0 &&
+    dossiers.length === 0 &&
+    optionalEnv("CARTULARY_VITEST_ALLOW_EMPTY_SELECTION") !== "1"
+  ) {
     dossiers.push({
       coverage: "unmapped",
       phase: inferPhaseFromText(phaseLabel),
@@ -3406,6 +3443,12 @@ function selectVitestManifestEntries(phase, coverage, executionDependency) {
     }
     return true;
   });
+}
+
+function collectVitestManifestEntries(coverage, executionDependency) {
+  return phaseManifestNames(repoRoot).flatMap((phase) =>
+    selectVitestManifestEntries(phase, coverage, executionDependency),
+  );
 }
 
 function evaluateVitestManifest(summary) {
@@ -3484,16 +3527,37 @@ function handleVitestPhase({ manifestAware }) {
     return 1;
   }
 
+  if (context.countingMode === "none") {
+    writePhaseArtifacts(context, {
+      status: "pass",
+      phase: inferPhaseFromText(context.label),
+      counts: createCounts(),
+      owners: [],
+      inventory: [],
+      dossiers: [],
+      artifacts: {
+        runner_json: reportFile,
+        stdout_log: existsSync(stdoutLog) ? stdoutLog : "",
+        stderr_log: existsSync(stderrLog) ? stderrLog : "",
+        watchdog_json: existsSync(watchdogLog) ? watchdogLog : "",
+      },
+    });
+    return 0;
+  }
+
   const summary = summarizeVitestRun(
     reportFile,
     context.label,
     createVitestSelection({ manifestAware }),
   );
-  let status = context.exitStatus === 0 && summary.dossiers.length === 0 ? "pass" : "fail";
+  const selectedSlicePassed =
+    summary.dossiers.length === 0 &&
+    (context.exitStatus === 0 || optionalEnv("CARTULARY_REPORT_SLICE") === "1");
+  let status = selectedSlicePassed ? "pass" : "fail";
   let manifestSummary = null;
   let manifestMismatch = null;
 
-  if (manifestAware && context.exitStatus === 0 && summary.dossiers.length === 0) {
+  if (manifestAware && selectedSlicePassed) {
     const verification = evaluateVitestManifest(summary);
     manifestSummary = {
       missing_ids: verification.missingIDs,
