@@ -374,12 +374,14 @@ export function schedulerSummaryLine({
   completed,
   total,
   failed,
+  failureClass = null,
   skipped = 0,
   finalizerFailures = 0,
   slowest = [],
 }) {
   return schedulerTelemetryLine(prefix, target, "summary", [
     `status=${status}`,
+    status === "pass" ? null : `failure_class=${failureClass ?? "helper"}`,
     `completed_work_units=${completed}/${total}`,
     `failed=${failed ?? "none"}`,
     skipped > 0 ? `skipped=${skipped}` : null,

@@ -1831,9 +1831,10 @@ func serviceBackedCleanupEnv(env map[string]string, postgresSvc postgresService,
 
 func failureSummary(service string, stage string, operation string, err error) suiteservices.FailureSummary {
 	failure := suiteservices.FailureSummary{
-		Service:   service,
-		Stage:     stage,
-		Operation: operation,
+		FailureClass: classifyFailureStage(service, stage),
+		Service:      service,
+		Stage:        stage,
+		Operation:    operation,
 	}
 
 	var startFailure *testcontainersx.StartFailure
@@ -1854,11 +1855,27 @@ func failureSummary(service string, stage string, operation string, err error) s
 	return failure
 }
 
+func classifyFailureStage(service string, stage string) string {
+	switch stage {
+	case stagePostgresStart, stagePostgresTemplate, stageMinIOStart:
+		return suiteservices.FailureClassInfra
+	case stageChildStart:
+		return suiteservices.FailureClassHelper
+	case stageCleanupLease, stageCleanupReaper, stageCleanupWebE2E, stageCleanupJanitor, stageCleanupPostgres, stageCleanupMinIO:
+		return suiteservices.FailureClassArtifact
+	}
+	if strings.TrimSpace(service) != "" {
+		return suiteservices.FailureClassInfra
+	}
+	return suiteservices.FailureClassHelper
+}
+
 func recordFailureAndRefresh(deps dependencies, env map[string]string, failure suiteservices.FailureSummary) {
 	deps.recordEvent(env, suiteservices.Event{
 		Type:    suiteservices.EventFailureRecorded,
 		Service: failure.Service,
 		Details: map[string]any{
+			"failure_class":            failure.FailureClass,
 			"stage":                    failure.Stage,
 			"operation":                failure.Operation,
 			"message":                  failure.Message,
@@ -1888,7 +1905,7 @@ func printSuiteFailure(env map[string]string, failure suiteservices.FailureSumma
 	if strings.TrimSpace(message) == "" {
 		message = "unknown failure"
 	}
-	fmt.Fprintf(os.Stderr, "suite failure %s: %s [artifacts: %s]\n", label, message, artifactDir)
+	fmt.Fprintf(os.Stderr, "suite failure failure_class=%s %s: %s [artifacts: %s]\n", failure.FailureClass, label, message, artifactDir)
 }
 
 func waitForChild(command []string, child childProcess, deps dependencies) int {

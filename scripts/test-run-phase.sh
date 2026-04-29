@@ -135,7 +135,7 @@ write_target_summary() {
   mkdir -p "$target_dir"
   cat >"$target_dir/target-summary.json" <<JSON
 {
-  "schema_id": "cartulary.test_target_summary.v3",
+  "schema_id": "cartulary.test_target_summary.v4",
   "target": "${target}",
   "kind": "leaf",
   "status": "pass",
@@ -302,6 +302,9 @@ assert_equals "$(json_field "$short_failure_summary" "counts.failed")" "1" "shor
 assert_equals "$(json_field "$short_failure_summary" "counts.non_test")" "1" "short failure non-test count"
 assert_equals "$(json_field "$short_failure_summary" "counts.non_test_failed")" "1" "short failure non-test failed count"
 assert_equals "$(json_field "$short_failure_summary" "counts.unmapped_failed")" "0" "short failure unmapped failed count"
+assert_equals "$(json_field "$short_failure_summary" "failure_class")" "helper" "short failure class"
+assert_equals "$(json_field "$short_failure_summary" "failure_classes.helper")" "1" "short failure helper count"
+assert_equals "$(json_field "$short_failure_summary" "failures.0.failure_class")" "helper" "short failure record class"
 assert_matches "$(json_field "$short_failure_summary" "start_time")" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$' "short failure millisecond start time"
 assert_matches "$(json_field "$short_failure_summary" "end_time")" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$' "short failure millisecond end time"
 
@@ -330,7 +333,7 @@ single_span_phase_dir="$single_span_results/single-span/short-target/short-phase
 mkdir -p "$single_span_phase_dir"
 cat >"$single_span_phase_dir/phase-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.test_phase_summary.v2",
+  "schema_id": "cartulary.test_phase_summary.v3",
   "label": "short phase",
   "target": "short-target",
   "runner": "shell",
@@ -362,6 +365,10 @@ cat >"$single_span_phase_dir/phase-summary.json" <<'JSON'
     "unmapped_failed": 0,
     "non_test_failed": 0
   },
+  "failure_class": null,
+  "failure_classes": { "test": 0, "infra": 0, "timing": 0, "artifact": 0, "helper": 0 },
+  "failures": [],
+  "failure_headline": "",
   "owners": [],
   "inventory": [],
   "dossiers": [],
@@ -390,11 +397,93 @@ missing_target_status=$?
 set -e
 assert_equals "$missing_target_status" "1" "missing target run summary status"
 assert_contains "$missing_target_output" "non_test_failed=1" "missing target run summary output"
+assert_contains "$missing_target_output" "failure_class=artifact" "missing target run summary failure class"
+assert_contains "$missing_target_output" "artifact failure: missing target summary: test-fast-service-backed" "missing target run summary headline"
 missing_target_summary="$missing_target_results/missing-target/run-summary.json"
 assert_equals "$(json_field "$missing_target_summary" "counts.failed")" "1" "missing target failed count"
 assert_equals "$(json_field "$missing_target_summary" "counts.non_test")" "1" "missing target non-test count"
 assert_equals "$(json_field "$missing_target_summary" "counts.non_test_failed")" "1" "missing target non-test failed count"
+assert_equals "$(json_field "$missing_target_summary" "failure_class")" "artifact" "missing target failure class"
+assert_equals "$(json_field "$missing_target_summary" "failure_classes.artifact")" "1" "missing target artifact count"
 assert_equals "$(json_field "$missing_target_summary" "summary_targets.missing.0")" "test-fast-service-backed" "missing target summary list"
+
+infra_timing_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-infra-timing.XXXXXX")"
+cleanup_paths+=("$infra_timing_results")
+infra_phase_dir="$infra_timing_results/infra-timing/infra-target/pass-phase"
+infra_service_dir="$infra_timing_results/infra-timing/_shared/test-services/suite/events"
+mkdir -p "$infra_phase_dir" "$infra_service_dir"
+cat >"$infra_phase_dir/phase-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.test_phase_summary.v3",
+  "label": "infra passing tests",
+  "target": "infra-target",
+  "runner": "shell",
+  "status": "pass",
+  "phase": "phase0",
+  "command": "true",
+  "start_time": "2026-01-01T00:00:00Z",
+  "end_time": "2026-01-01T00:00:01Z",
+  "accounting_mode": "actual",
+  "executed_duration_ms": 1000,
+  "logical_duration_ms": 1000,
+  "reused_duration_ms": 0,
+  "derived_duration_ms": 0,
+  "wall_duration_ms": 1000,
+  "critical_path_wall_duration_ms": 1000,
+  "teardown_duration_ms": 0,
+  "timing_bucket": "test_command",
+  "exit_status": 0,
+  "artifacts": {},
+  "counts": {
+    "tests": 1,
+    "failed": 0,
+    "authoritative": 1,
+    "support": 0,
+    "unmapped": 0,
+    "non_test": 0,
+    "authoritative_failed": 0,
+    "support_failed": 0,
+    "unmapped_failed": 0,
+    "non_test_failed": 0,
+    "packages": 1
+  },
+  "failure_class": null,
+  "failure_classes": { "test": 0, "infra": 0, "timing": 0, "artifact": 0, "helper": 0 },
+  "failures": [],
+  "failure_headline": "",
+  "owners": [],
+  "inventory": [],
+  "dossiers": [],
+  "manifest_mismatch": null
+}
+JSON
+cat >"$infra_service_dir/001.json" <<'JSON'
+{
+  "type": "timing-span",
+  "timestamp": "2026-01-01T00:00:02Z",
+  "details": {
+    "target": "infra-target",
+    "bucket": "service_wait",
+    "label": "test-services start minio",
+    "start_time": "2026-01-01T00:00:01Z",
+    "end_time": "2026-01-01T00:00:02Z",
+    "duration_ms": 1000,
+    "status": "fail"
+  }
+}
+JSON
+infra_timing_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$infra_timing_results" \
+  CARTULARY_TEST_RUN_ID="infra-timing" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary infra-target pass \
+    2>&1
+)"
+assert_contains "$infra_timing_output" "failure_class=infra" "infra timing target failure class"
+assert_contains "$infra_timing_output" "tests passed; infra timing failure: test-services start minio" "infra timing target headline"
+infra_timing_summary="$infra_timing_results/infra-timing/infra-target/target-summary.json"
+assert_equals "$(json_field "$infra_timing_summary" "failure_class")" "infra" "infra timing JSON failure class"
+assert_equals "$(json_field "$infra_timing_summary" "failure_classes.infra")" "1" "infra timing JSON class count"
+assert_equals "$(json_field "$infra_timing_summary" "failures.0.kind")" "timing" "infra timing JSON failure kind"
 
 skipped_after_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-summary-skipped-after-failure.XXXXXX")"
 cleanup_paths+=("$skipped_after_failure_results")
@@ -420,6 +509,7 @@ assert_not_contains "$skipped_after_failure_output" "missing_summary_targets=ski
 skipped_after_failure_summary="$skipped_after_failure_results/skipped-after-failure/run-summary.json"
 assert_equals "$(json_field "$skipped_after_failure_summary" "counts.failed")" "1" "skipped after failure failed count"
 assert_equals "$(json_field "$skipped_after_failure_summary" "counts.non_test_failed")" "1" "skipped after failure non-test failed count"
+assert_equals "$(json_field "$skipped_after_failure_summary" "failure_class")" "helper" "skipped after failure class"
 assert_equals "$(json_field "$skipped_after_failure_summary" "summary_targets.missing.length")" "0" "skipped after failure missing target count"
 assert_equals "$(json_field "$skipped_after_failure_summary" "summary_targets.skipped_after_failure.0")" "skipped-check" "skipped after failure summary list"
 assert_equals "$(json_field "$skipped_after_failure_summary" "summary_groups.0.skipped_after_failure.0")" "skipped-check" "skipped after failure group list"
@@ -447,7 +537,7 @@ assert_not_contains "$child_target_output" "[CHILD] parent-target child-b" "quie
 assert_not_contains "$child_target_output" " duration=" "child target ambiguous duration output"
 parent_target_summary="$child_summary_results/child-summary/parent-target/target-summary.json"
 parent_target_timing="$child_summary_results/child-summary/parent-target/target-timing.json"
-assert_equals "$(json_field "$parent_target_summary" "schema_id")" "cartulary.test_target_summary.v3" "parent target summary schema"
+assert_equals "$(json_field "$parent_target_summary" "schema_id")" "cartulary.test_target_summary.v4" "parent target summary schema"
 assert_equals "$(json_field "$parent_target_summary" "kind")" "aggregate" "parent target summary kind"
 assert_not_negative "$(json_field "$parent_target_summary" "totals.wall_duration_ms")" "parent target wall duration"
 assert_not_negative "$(json_field "$parent_target_summary" "totals.critical_path_wall_duration_ms")" "parent target critical path duration"
@@ -650,6 +740,8 @@ assert_equals "$(json_field "$teardown_accounting_summary" "totals.teardown_stat
 assert_equals "$(json_field "$teardown_accounting_summary" "totals.teardown_failures.0.label")" "test-services cleanup browser e2e fixture" "teardown accounting target teardown failure"
 assert_equals "$(json_field "$teardown_accounting_summary" "totals.timing_failures.0.bucket")" "teardown" "teardown accounting target timing failure"
 assert_equals "$(json_field "$teardown_accounting_summary" "own.counts.non_test_failed")" "1" "teardown accounting target non-test failed count"
+assert_equals "$(json_field "$teardown_accounting_summary" "failure_class")" "artifact" "teardown accounting failure class"
+assert_equals "$(json_field "$teardown_accounting_summary" "failure_classes.artifact")" "1" "teardown accounting artifact count"
 assert_equals "$(json_field "$teardown_accounting_summary" "start_time")" "2026-01-01T00:00:00Z" "teardown accounting target summary start time"
 assert_equals "$(json_field "$teardown_accounting_summary" "end_time")" "2026-01-01T00:00:02.100Z" "teardown accounting target summary end time"
 assert_equals "$(json_field "$teardown_accounting_timing" "start_time")" "2026-01-01T00:00:00Z" "teardown accounting target timing start time"
@@ -758,6 +850,7 @@ assert_equals "$(json_field "$missing_child_summary" "status")" "fail" "missing 
 assert_equals "$(json_field "$missing_child_summary" "kind")" "aggregate" "missing child aggregate kind"
 assert_equals "$(json_field "$missing_child_summary" "children.missing.0")" "missing-child" "missing child summary list"
 assert_equals "$(json_field "$missing_child_summary" "own.counts.non_test_failed")" "1" "missing child wrapper failure count"
+assert_equals "$(json_field "$missing_child_summary" "failure_class")" "artifact" "missing child failure class"
 
 verbose_override_output="$(
   CARTULARY_OUTPUT_MODE=quiet \

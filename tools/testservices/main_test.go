@@ -308,6 +308,9 @@ func TestRunCleansUpMinIOWhenPostgresStartupFails(t *testing.T) {
 	if scope.Failure == nil || scope.Failure.Service != suiteservices.ServicePostgres || scope.Failure.Stage != stagePostgresStart {
 		t.Fatalf("unexpected startup failure summary: %#v", scope.Failure)
 	}
+	if scope.Failure.FailureClass != suiteservices.FailureClassInfra {
+		t.Fatalf("unexpected startup failure class: got %q", scope.Failure.FailureClass)
+	}
 	if scope.Cleanup.Status != "startup_failed" {
 		t.Fatalf("unexpected cleanup status: %#v", scope.Cleanup)
 	}
@@ -413,6 +416,9 @@ func TestRunRecordsMinIOStartupFailureWithStructuredSummary(t *testing.T) {
 	scope := loadScope(t, deps)
 	if scope.Failure == nil {
 		t.Fatal("expected startup failure summary")
+	}
+	if scope.Failure.FailureClass != suiteservices.FailureClassInfra {
+		t.Fatalf("unexpected minio failure class: got %q", scope.Failure.FailureClass)
 	}
 	if scope.Failure.Service != suiteservices.ServiceMinIO {
 		t.Fatalf("unexpected failure service: got %q", scope.Failure.Service)
@@ -550,6 +556,9 @@ func TestRunRecordsPostgresTemplateFailureWithStructuredSummary(t *testing.T) {
 	if scope.Failure == nil {
 		t.Fatal("expected template failure summary")
 	}
+	if scope.Failure.FailureClass != suiteservices.FailureClassInfra {
+		t.Fatalf("unexpected template failure class: got %q", scope.Failure.FailureClass)
+	}
 	if scope.Failure.Service != suiteservices.ServicePostgres {
 		t.Fatalf("unexpected failure service: got %q", scope.Failure.Service)
 	}
@@ -603,6 +612,9 @@ func TestRunRecordsChildStartFailureWithStructuredSummary(t *testing.T) {
 	scope := loadScope(t, deps)
 	if scope.Failure == nil {
 		t.Fatal("expected child-start failure summary")
+	}
+	if scope.Failure.FailureClass != suiteservices.FailureClassHelper {
+		t.Fatalf("unexpected child-start failure class: got %q", scope.Failure.FailureClass)
 	}
 	if scope.Failure.Stage != stageChildStart {
 		t.Fatalf("unexpected failure stage: got %q", scope.Failure.Stage)

@@ -108,6 +108,12 @@ if (summary.schema_id !== "cartulary.check_scheduler_summary.v4") {
 if (summary.status !== expectedStatus) {
   throw new Error(`summary status got ${summary.status} want ${expectedStatus}`);
 }
+if (expectedStatus === "fail" && summary.failure_class !== "helper") {
+  throw new Error(`summary failure_class got ${summary.failure_class} want helper`);
+}
+if (expectedStatus === "pass" && summary.failure_class !== null) {
+  throw new Error(`passing summary failure_class got ${summary.failure_class}`);
+}
 if (summary.total_work_units !== Number(expectedTotal)) {
   throw new Error(`total work units got ${summary.total_work_units} want ${expectedTotal}`);
 }
@@ -668,6 +674,7 @@ assert_equals "$failure_status" "7" "failure exit status"
 assert_contains "$failure_output" "fake failure for beta" "failure child output"
 assert_contains "$failure_output" "[FAIL] check" "failure summary"
 assert_contains "$failure_output" "[CHECK-SCHEDULER] check summary status=fail" "failure scheduler status summary"
+assert_contains "$failure_output" "failure_class=helper" "failure scheduler class output"
 assert_contains "$failure_output" "failed=beta" "failure scheduler failed work unit"
 failure_events="$(cat "${failure_dir}/events.log")"
 assert_contains "$failure_events" "start alpha" "failure alpha started"
@@ -675,6 +682,7 @@ assert_contains "$failure_events" "start beta" "failure beta started"
 assert_contains "$failure_events" "end alpha" "failure alpha drained"
 failure_summary="${failure_dir}/results/failure/run-summary.json"
 assert_equals "$(json_field "$failure_summary" "status")" "fail" "failure summary status"
+assert_equals "$(json_field "$failure_summary" "failure_class")" "helper" "failure summary class"
 assert_equals "$(json_field "$failure_summary" "work_units.aborted_after")" "beta" "failure aborted after"
 assert_equals "$(json_field "$failure_summary" "summary_targets.skipped_after_failure.0")" "gamma" "failure skipped target"
 assert_equals "$(json_field "$failure_summary" "summary_targets.skipped_after_failure.1")" "external-summary" "failure skipped mapped summary target"
@@ -687,6 +695,7 @@ if (summary.summary_targets.missing.includes("external-summary")) {
 }
 EOF
 failure_scheduler_summary="${failure_dir}/results/failure/check/scheduler-summary.json"
+assert_equals "$(json_field "$failure_scheduler_summary" "failure_class")" "helper" "failure scheduler summary class"
 failure_scheduler_events="${failure_dir}/results/failure/check/scheduler-events.jsonl"
 assert_check_scheduler_artifacts "$failure_dir" failure check fail beta 4 skip
 "$NODE_BIN" - "$failure_scheduler_summary" "$failure_scheduler_events" "$ROOT_DIR" <<'EOF'

@@ -27,6 +27,10 @@ import {
   preferredResourcesForScheduler,
   resourceLimitSourcesToObject,
 } from "./scheduler-resources.mjs";
+import {
+  classifyExecutionFailure,
+  failureFieldsForJSON,
+} from "./failure-taxonomy.mjs";
 
 export function isDryRunFromMakeFlags(env = process.env) {
   const flags = ` ${env.MAKEFLAGS ?? ""} `;
@@ -634,6 +638,26 @@ class SchedulerReporter {
     const failed = failedWorkUnit || this.failedWorkUnit || null;
     const slowest = slowestWork(this.completedWork);
     const skipped = this.skippedWork.length;
+    const failureClass =
+      status === "pass"
+        ? null
+        : classifyExecutionFailure(failed ?? this.schedule.target, this.schedule.target);
+    const failureFields = failureFieldsForJSON(
+      status === "pass"
+        ? []
+        : [
+            {
+              failure_class: failureClass,
+              kind: "scheduler",
+              source: "scheduler",
+              target: this.schedule.target,
+              label: failed ?? this.schedule.target,
+              message: failed
+                ? `scheduler work unit failed: ${failed}`
+                : `scheduler target failed: ${this.schedule.target}`,
+            },
+          ],
+    );
     if (this.schedule.summaryOnPass !== false || status !== "pass" || this.verbose) {
       process.stdout.write(
         schedulerSummaryLine({
@@ -643,6 +667,7 @@ class SchedulerReporter {
           completed: this.completedCount,
           total: this.schedule.totalWorkUnits,
           failed,
+          failureClass,
           skipped,
           finalizerFailures: this.finalizerFailures,
           slowest,
@@ -653,6 +678,7 @@ class SchedulerReporter {
       schema_id: this.schedule.summarySchemaID,
       target: this.schedule.target,
       status,
+      ...failureFields,
       total_work_units: this.schedule.totalWorkUnits,
       completed_work_units: this.completedCount,
       skipped_work_units: this.skippedWork,

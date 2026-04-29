@@ -22,6 +22,15 @@ import {
   summarizeFixtureActivities,
 } from "./fixture-reporting.mjs";
 import {
+  artifactFailureRecord,
+  classifyExecutionFailure,
+  failureFieldsForJSON,
+  failureHeadlineForSummary,
+  failuresFromDossiers,
+  manifestMismatchFailureRecord,
+  timingFailureRecord,
+} from "./failure-taxonomy.mjs";
+import {
   defaultTaskSurfaceManifestPath,
   loadSummaryTopologyContext,
   summaryProjectionChildren,
@@ -31,10 +40,10 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
 const resultsRoot = resolveResultsRoot();
 const runId = process.env.CARTULARY_TEST_RUN_ID || "adhoc";
-const phaseSummarySchemaID = "cartulary.test_phase_summary.v2";
+const phaseSummarySchemaID = "cartulary.test_phase_summary.v3";
 const targetTimingSchemaID = "cartulary.test_target_timing.v1";
-const targetSummarySchemaID = "cartulary.test_target_summary.v3";
-const runSummarySchemaID = "cartulary.test_run_summary.v4";
+const targetSummarySchemaID = "cartulary.test_target_summary.v4";
+const runSummarySchemaID = "cartulary.test_run_summary.v5";
 const sharedExecutionGroupSchemaID = "cartulary.test_shared_execution_group.v1";
 const timingBucketOrder = [
   "setup",
@@ -729,6 +738,26 @@ function writePhaseArtifacts(context, details) {
     }
     artifacts[key] = relToRepo(value);
   }
+  const failureRecords = [
+    ...failuresFromDossiers(details.dossiers ?? [], {
+      target: context.target,
+      label: context.label,
+      command: context.command,
+      runner: context.runner,
+      phase: details.phase,
+    }),
+    ...(details.manifestMismatch
+      ? [
+          manifestMismatchFailureRecord(details.manifestMismatch, {
+            target: context.target,
+            phase: details.phase,
+            runner: context.runner,
+          }),
+        ]
+      : []),
+    ...(details.failures ?? []),
+  ];
+  const failureFields = failureFieldsForJSON(failureRecords, details.counts ?? {});
 
   const meta = {
     label: context.label,
@@ -748,6 +777,9 @@ function writePhaseArtifacts(context, details) {
     timing_bucket: context.timingBucket,
     status: details.status,
     counts: details.counts,
+    failure_class: failureFields.failure_class,
+    failure_classes: failureFields.failure_classes,
+    failure_headline: failureFields.failure_headline,
   };
 
   writeJson(path.join(context.phaseDir, "meta.json"), meta);
@@ -781,6 +813,7 @@ function writePhaseArtifacts(context, details) {
     exit_status: context.exitStatus,
     artifacts,
     counts: details.counts,
+    ...failureFields,
     owners: details.owners,
     inventory: details.inventory,
     dossiers: details.dossiers,
@@ -1207,6 +1240,19 @@ function buildSharedExecutionGroups() {
         0,
       );
       const failed = records.some((record) => timingStatusFailed(record.status));
+      const failureFields = failureFieldsForJSON(
+        failed
+          ? [
+              {
+                failure_class: "helper",
+                kind: "shared",
+                source: "shared-execution",
+                label: name,
+                message: `shared execution group failed: ${name}`,
+              },
+            ]
+          : [],
+      );
       return {
         schema_id: sharedExecutionGroupSchemaID,
         name,
@@ -1218,6 +1264,7 @@ function buildSharedExecutionGroups() {
         executed_duration_ms: executedDurationMs,
         shared_reports: records.map((record) => record.shared_report).filter(Boolean).sort(),
         reports: records.length,
+        ...failureFields,
       };
     });
 }
@@ -1348,6 +1395,7 @@ function summarizeTargetDir(target) {
   let actualEndTime = "";
   const durations = createDurationFields();
   const accountingModes = createAccountingModes();
+  const failures = [];
   let failed = false;
 
   for (const summary of summaries) {
@@ -1379,6 +1427,7 @@ function summarizeTargetDir(target) {
     counts.support_failed += summary.counts?.support_failed ?? 0;
     counts.unmapped_failed += summary.counts?.unmapped_failed ?? 0;
     counts.non_test_failed += summary.counts?.non_test_failed ?? 0;
+    failures.push(...(summary.failures ?? []));
     for (const owner of summary.owners ?? []) {
       owners.add(owner);
     }
@@ -1418,6 +1467,7 @@ function summarizeTargetDir(target) {
     derivedDurationMs: durations.derived_duration_ms,
     teardownDurationMs: durations.teardown_duration_ms,
     accountingModes,
+    failures,
     failed,
     authoritativeInventory,
     supportInventory,
@@ -1554,6 +1604,32 @@ function addCounts(target, source) {
 function sectionFromFlatSummary(summary, fallbackTarget) {
   const durations = readSummaryDurationFields(summary);
   const counts = normalizeCounts(summary?.counts ?? {});
+  let failures = summary?.failures ?? [];
+  if (failures.length === 0 && summary?.status && summary.status !== "pass") {
+    const failedTests =
+      counts.authoritative_failed + counts.support_failed + counts.unmapped_failed;
+    failures =
+      failedTests > 0
+        ? [
+            {
+              failure_class: "test",
+              kind: "test",
+              target: summary?.target ?? fallbackTarget,
+              message: "reported test failure",
+            },
+          ]
+        : counts.non_test_failed > 0
+          ? [
+              {
+                failure_class: classifyExecutionFailure(summary?.target ?? fallbackTarget),
+                kind: "failure",
+                target: summary?.target ?? fallbackTarget,
+                message: "reported non-test failure",
+              },
+            ]
+          : [];
+  }
+  const failureFields = failureFieldsForJSON(failures, counts);
   return {
     target: summary?.target ?? fallbackTarget,
     status: summary?.status ?? "",
@@ -1562,6 +1638,10 @@ function sectionFromFlatSummary(summary, fallbackTarget) {
     ...durations,
     accounting_modes: resolveAccountingModes(summary?.accounting_modes, counts.phases),
     counts,
+    failure_class: summary?.failure_class ?? failureFields.failure_class,
+    failure_classes: summary?.failure_classes ?? failureFields.failure_classes,
+    failures: summary?.failures ?? failureFields.failures,
+    failure_headline: summary?.failure_headline ?? failureFields.failure_headline,
     slowest_lifecycle_bucket: summary?.slowest_lifecycle_bucket ?? null,
     timing_failures: summary?.timing_failures ?? [],
     teardown_status: summary?.teardown_status ?? teardownStatus(durations.teardown_duration_ms, []),
@@ -1597,6 +1677,10 @@ function toTargetSummaryReference(summary, fallbackTarget) {
     end_time: totals.end_time,
     ...durationFieldsForJSON(totals),
     counts: totals.counts,
+    failure_class: totals.failure_class,
+    failure_classes: totals.failure_classes,
+    failures: totals.failures,
+    failure_headline: totals.failure_headline,
     accounting_modes: totals.accounting_modes,
     slowest_lifecycle_bucket: totals.slowest_lifecycle_bucket,
     timing_failures: totals.timing_failures,
@@ -1613,6 +1697,7 @@ function toTargetSummaryReference(summary, fallbackTarget) {
       ...durationFieldsForJSON(createDurationFields()),
       accounting_modes: createAccountingModes(),
       counts: normalizeCounts(),
+      ...failureFieldsForJSON([], normalizeCounts()),
       fixture: emptyFixtureSummary(summary.target ?? fallbackTarget),
       failed_targets: [],
     },
@@ -1639,6 +1724,7 @@ function combineSummarySections(target, sections, status = "pass") {
   const accountingModes = createAccountingModes();
   const timingFailures = [];
   const teardownFailures = [];
+  const failures = [];
   let startTime = "";
   let endTime = "";
   let failed = status !== "pass";
@@ -1650,6 +1736,7 @@ function combineSummarySections(target, sections, status = "pass") {
     mergeAccountingModes(accountingModes, view.accounting_modes);
     timingFailures.push(...(view.timing_failures ?? []));
     teardownFailures.push(...(view.teardown_failures ?? []));
+    failures.push(...(view.failures ?? []));
     if (startTime === "" || (view.start_time && view.start_time < startTime)) {
       startTime = view.start_time ?? "";
     }
@@ -1664,6 +1751,7 @@ function combineSummarySections(target, sections, status = "pass") {
   const windowWallDurationMs = computeWindowDurationMs(startTime, endTime);
   const wallDurationMs = windowWallDurationMs > 0 ? windowWallDurationMs : aggregate.wall_duration_ms;
   const criticalPathWallDurationMs = wallDurationMs;
+  const failureFields = failureFieldsForJSON(failures, countsForJSON(aggregate));
   return {
     target,
     status: failed ? "fail" : "pass",
@@ -1675,6 +1763,7 @@ function combineSummarySections(target, sections, status = "pass") {
     }),
     accounting_modes: accountingModes,
     counts: countsForJSON(aggregate),
+    ...failureFields,
     slowest_lifecycle_bucket: findSlowestLifecycleBucket(sections),
     timing_failures: timingFailures,
     teardown_status: teardownStatus(aggregate.teardown_duration_ms, teardownFailures),
@@ -1684,6 +1773,9 @@ function combineSummarySections(target, sections, status = "pass") {
 
 function writeTargetLine(stream, label, targetSummary) {
   const target = targetSummary.target;
+  const failureClassField = targetSummary.failure_class
+    ? ` failure_class=${targetSummary.failure_class}`
+    : "";
   if (targetSummary.kind === "aggregate") {
     const own = targetSummary.own;
     const children = targetSummary.children;
@@ -1695,15 +1787,22 @@ function writeTargetLine(stream, label, targetSummary) {
     const failedChildren =
       (children.failed_targets ?? []).length > 0 ? children.failed_targets.join(",") : "none";
     stream.write(
-      `${label} ${target} kind=aggregate children=${children.present.length}/${children.expected.length} child_tests=${children.counts.tests} child_failed=${children.counts.failed} failed_children=${failedChildren} slowest_child=${slowestChildField} own_phases=${own.counts.phases} own_tests=${own.counts.tests} own_failed=${own.counts.failed} total_tests=${totals.counts.tests} total_failed=${totals.counts.failed} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} own_fixture_count=${own.fixture.total_count} own_fixture_duration=${formatDuration(own.fixture.total_duration_ms)} child_fixture_count=${children.fixture.total_count} child_fixture_duration=${formatDuration(children.fixture.total_duration_ms)} total_fixture_count=${totals.fixture.total_count} total_fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
+      `${label} ${target} kind=aggregate${failureClassField} children=${children.present.length}/${children.expected.length} child_tests=${children.counts.tests} child_failed=${children.counts.failed} failed_children=${failedChildren} slowest_child=${slowestChildField} own_phases=${own.counts.phases} own_tests=${own.counts.tests} own_failed=${own.counts.failed} total_tests=${totals.counts.tests} total_failed=${totals.counts.failed} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} own_fixture_count=${own.fixture.total_count} own_fixture_duration=${formatDuration(own.fixture.total_duration_ms)} child_fixture_count=${children.fixture.total_count} child_fixture_duration=${formatDuration(children.fixture.total_duration_ms)} total_fixture_count=${totals.fixture.total_count} total_fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
     );
     return;
   }
 
   const totals = targetSummary.totals;
   stream.write(
-    `${label} ${target} kind=leaf phases=${totals.counts.phases} tests=${totals.counts.tests} failed=${totals.counts.failed} authoritative=${totals.counts.authoritative} support=${totals.counts.support} unmapped=${totals.counts.unmapped} packages=${totals.counts.packages} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} fixture_count=${totals.fixture.total_count} fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
+    `${label} ${target} kind=leaf${failureClassField} phases=${totals.counts.phases} tests=${totals.counts.tests} failed=${totals.counts.failed} authoritative=${totals.counts.authoritative} support=${totals.counts.support} unmapped=${totals.counts.unmapped} packages=${totals.counts.packages} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} fixture_count=${totals.fixture.total_count} fixture_duration=${formatDuration(totals.fixture.total_duration_ms)} slowest_lifecycle_bucket=${formatBucketSummary(totals.slowest_lifecycle_bucket)} artifacts=${targetSummary.own.artifacts.dir}\n`,
   );
+}
+
+function writeFailureHeadline(stream, label, summary) {
+  const headline = failureHeadlineForSummary(summary);
+  if (headline) {
+    stream.write(`[FAILURE] ${label} ${headline}\n`);
+  }
 }
 
 function fixtureLineOptions() {
@@ -1724,8 +1823,9 @@ function writeFixtureLine(stream, fixture) {
 function writeChildTargetLines(stream, parentTarget, childTargets, missingChildTargetSummaries) {
   for (const child of childTargets) {
     const totals = child.totals ?? targetSummaryAccountingView(child, child.target);
+    const failureClass = child.failure_class ? ` failure_class=${child.failure_class}` : "";
     stream.write(
-      `[CHILD] ${parentTarget} ${child.target} status=${child.status} phases=${totals.counts?.phases ?? 0} tests=${totals.counts?.tests ?? 0} failed=${totals.counts?.failed ?? 0} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} artifacts=${child.artifacts?.dir ?? ""}\n`,
+      `[CHILD] ${parentTarget} ${child.target} status=${child.status}${failureClass} phases=${totals.counts?.phases ?? 0} tests=${totals.counts?.tests ?? 0} failed=${totals.counts?.failed ?? 0} ${formatDurationFields(totals.wall_duration_ms, totals.executed_duration_ms, totals.logical_duration_ms, totals.critical_path_wall_duration_ms, totals.teardown_duration_ms)} ${formatAccountingModeFields(totals.accounting_modes)} artifacts=${child.artifacts?.dir ?? ""}\n`,
     );
   }
   for (const childTarget of missingChildTargetSummaries) {
@@ -1769,6 +1869,36 @@ function handleTargetSummary(args) {
     summary.counts.non_test += 1;
     summary.counts.non_test_failed += 1;
   }
+  const requestedFallbackFailure =
+    requestedStatus === "fail" &&
+    summary.failed === false &&
+    timingFailures.length === 0 &&
+    missingChildTargetSummaries.length === 0 &&
+    failedChildTargets.length === 0
+      ? [
+          {
+            failure_class: classifyExecutionFailure(target),
+            kind: "failure",
+            source: "target-summary",
+            target,
+            message: `${target} failed before a test or child failure was attributed`,
+          },
+        ]
+      : [];
+  const ownFailureFields = failureFieldsForJSON(
+    [
+      ...summary.failures,
+      ...timingFailures.map((failure) => timingFailureRecord(failure, { target })),
+      ...missingChildTargetSummaries.map((childTarget) =>
+        artifactFailureRecord(`missing child target summary: ${childTarget}`, {
+          target,
+          source: "target-summary",
+        }),
+      ),
+      ...requestedFallbackFailure,
+    ],
+    normalizeCounts(summary.counts),
+  );
   const ownFailed =
     summary.failed ||
     timingFailures.length > 0 ||
@@ -1822,6 +1952,7 @@ function handleTargetSummary(args) {
     ...summary.durations,
     accounting_modes: summary.accountingModes,
     counts: normalizeCounts(summary.counts),
+    ...ownFailureFields,
     slowest_lifecycle_bucket: timing.slowest_lifecycle_bucket,
     timing_failures: timingFailures,
     janitorial_timing: janitorialTimingSpans(target),
@@ -1847,6 +1978,10 @@ function handleTargetSummary(args) {
     ...durationFieldsForJSON(childrenRollup),
     accounting_modes: childrenRollup.accounting_modes,
     counts: childrenRollup.counts,
+    failure_class: childrenRollup.failure_class,
+    failure_classes: childrenRollup.failure_classes,
+    failures: childrenRollup.failures,
+    failure_headline: childrenRollup.failure_headline,
     slowest_lifecycle_bucket: childrenRollup.slowest_lifecycle_bucket,
     timing_failures: childrenRollup.timing_failures,
     teardown_status: childrenRollup.teardown_status,
@@ -1874,6 +2009,10 @@ function handleTargetSummary(args) {
     end_time: summary.endTime,
     ...durationFieldsForJSON(totalsSection),
     accounting_modes: totalsSection.accounting_modes,
+    failure_class: totalsSection.failure_class,
+    failure_classes: totalsSection.failure_classes,
+    failures: totalsSection.failures,
+    failure_headline: totalsSection.failure_headline,
     artifacts: ownSection.artifacts,
     own: ownSection,
     children: childrenSection,
@@ -1895,6 +2034,7 @@ function handleTargetSummary(args) {
   }
 
   writeTargetLine(process.stderr, "[FAIL]", targetSummary);
+  writeFailureHeadline(process.stderr, target, targetSummary);
   writeFixtureLine(process.stderr, targetSummary.totals.fixture);
   writeChildTargetLines(process.stderr, target, childTargets, missingChildTargetSummaries);
   return 0;
@@ -2011,7 +2151,12 @@ function countsForJSON(aggregate) {
   };
 }
 
-function summarizeTargetSummaries(summaries, missingTargetSummaries, requestedStatus = "pass") {
+function summarizeTargetSummaries(
+  summaries,
+  missingTargetSummaries,
+  requestedStatus = "pass",
+  failureContext = {},
+) {
   const aggregate = createDurationAggregate();
   const accountingModes = createAccountingModes();
   let failed = requestedStatus === "fail" || missingTargetSummaries.length > 0;
@@ -2019,12 +2164,14 @@ function summarizeTargetSummaries(summaries, missingTargetSummaries, requestedSt
   let endTime = "";
   const timingFailures = [];
   const teardownFailures = [];
+  const failures = [];
 
   for (const summary of summaries) {
     const view = targetSummaryAccountingView(summary);
     addSummaryToAggregate(aggregate, accountingModes, summary);
     timingFailures.push(...(view.timing_failures ?? []));
     teardownFailures.push(...(view.teardown_failures ?? []));
+    failures.push(...(view.failures ?? []));
     if (startTime === "" || (view.start_time && view.start_time < startTime)) {
       startTime = view.start_time ?? "";
     }
@@ -2041,11 +2188,52 @@ function summarizeTargetSummaries(summaries, missingTargetSummaries, requestedSt
     aggregate.failed += 1;
     aggregate.non_test += 1;
     aggregate.non_test_failed += 1;
+    const failureTarget =
+      failureContext.abortedAfter && failureContext.abortedAfter !== "-"
+        ? failureContext.abortedAfter
+        : failureContext.target ?? "";
+    failures.push({
+      failure_class: classifyExecutionFailure(
+        failureTarget,
+        failureContext.label ?? "",
+        failureContext.command ?? "",
+      ),
+      kind: "failure",
+      source: "run-summary",
+      target: failureContext.target ?? "",
+      label: failureTarget,
+      message: failureTarget
+        ? `${failureTarget} failed before a test failure was attributed`
+        : "run failed before a test failure was attributed",
+    });
+  }
+  const abortedAfter = failureContext.abortedAfter ?? "";
+  for (const missingTarget of missingTargetSummaries) {
+    if (requestedStatus === "fail" && abortedAfter && abortedAfter !== "-") {
+      continue;
+    }
+    const abortedClass =
+      abortedAfter && abortedAfter !== "-"
+        ? classifyExecutionFailure(abortedAfter, failureContext.label ?? "")
+        : "";
+    const missingClass =
+      abortedClass ||
+      (classifyExecutionFailure(missingTarget) === "timing" ? "timing" : "artifact");
+    failures.push({
+      failure_class: missingClass,
+      kind: missingClass === "timing" ? "timing" : "artifact",
+      source: "run-summary",
+      target: failureContext.target ?? "",
+      label: missingTarget,
+      message: `missing target summary: ${missingTarget}`,
+      artifact: relToRepo(targetSummaryPath(missingTarget)),
+    });
   }
 
   const windowWallDurationMs = computeWindowDurationMs(startTime, endTime);
   const wallDurationMs = windowWallDurationMs > 0 ? windowWallDurationMs : aggregate.wall_duration_ms;
   const criticalPathWallDurationMs = wallDurationMs;
+  const failureFields = failureFieldsForJSON(failures, countsForJSON(aggregate));
   return {
     aggregate,
     accountingModes,
@@ -2056,6 +2244,7 @@ function summarizeTargetSummaries(summaries, missingTargetSummaries, requestedSt
     criticalPathWallDurationMs,
     timingFailures,
     teardownFailures,
+    ...failureFields,
   };
 }
 
@@ -2091,6 +2280,10 @@ function buildSummaryGroups(summaryGroups, skippedAfterFailureSet = new Set()) {
       }),
       accounting_modes: summarized.accountingModes,
       counts: countsForJSON(summarized.aggregate),
+      failure_class: summarized.failure_class,
+      failure_classes: summarized.failure_classes,
+      failures: summarized.failures,
+      failure_headline: summarized.failure_headline,
       timing_failures: summarized.timingFailures,
       teardown_status: teardownStatus(
         summarized.aggregate.teardown_duration_ms,
@@ -2111,16 +2304,18 @@ function writeSummaryGroupLines(stream, label, summaryGroups) {
       group.skipped_after_failure.length > 0
         ? ` skipped_after_failure=${group.skipped_after_failure.join(",")}`
         : "";
+    const failureClass = group.failure_class ? ` failure_class=${group.failure_class}` : "";
     stream.write(
-      `[GROUP] ${label} ${group.name} summary_targets=${group.summary_targets.join(",")} status=${group.status} ${formatDurationFields(group.wall_duration_ms, group.executed_duration_ms, group.logical_duration_ms, group.critical_path_wall_duration_ms, group.teardown_duration_ms)} ${formatAccountingModeFields(group.accounting_modes)}${missing}${skipped}\n`,
+      `[GROUP] ${label} ${group.name} summary_targets=${group.summary_targets.join(",")} status=${group.status}${failureClass} ${formatDurationFields(group.wall_duration_ms, group.executed_duration_ms, group.logical_duration_ms, group.critical_path_wall_duration_ms, group.teardown_duration_ms)} ${formatAccountingModeFields(group.accounting_modes)}${missing}${skipped}\n`,
     );
   }
 }
 
 function writeSharedExecutionGroupLines(stream, label, sharedExecutionGroups) {
   for (const group of sharedExecutionGroups) {
+    const failureClass = group.failure_class ? ` failure_class=${group.failure_class}` : "";
     stream.write(
-      `[SHARED] ${label} ${group.name} status=${group.status} wall=${formatDuration(group.wall_duration_ms)} exec=${formatDuration(group.executed_duration_ms)} reports=${group.reports}\n`,
+      `[SHARED] ${label} ${group.name} status=${group.status}${failureClass} wall=${formatDuration(group.wall_duration_ms)} exec=${formatDuration(group.executed_duration_ms)} reports=${group.reports}\n`,
     );
   }
 }
@@ -2187,6 +2382,7 @@ function handleRunSummary(args) {
     evidenceTargetSummaries,
     missingSummaryTargets,
     requestedStatus,
+    { target: label, label, abortedAfter },
   );
   const aggregate = summarized.aggregate;
   const accountingModes = summarized.accountingModes;
@@ -2194,6 +2390,14 @@ function handleRunSummary(args) {
   const criticalPathWallDurationMs = summarized.criticalPathWallDurationMs;
   const renderedSummaryGroups = buildSummaryGroups(summaryGroups, skippedAfterFailureSet);
   const sharedExecutionGroups = buildSharedExecutionGroups();
+  const runFailureFields = failureFieldsForJSON(
+    [
+      ...(summarized.failures ?? []),
+      ...renderedSummaryGroups.flatMap((group) => group.failures ?? []),
+      ...sharedExecutionGroups.flatMap((group) => group.failures ?? []),
+    ],
+    countsForJSON(aggregate),
+  );
   const failed =
     summarized.failed ||
     renderedSummaryGroups.some((group) => group.status !== "pass") ||
@@ -2241,6 +2445,7 @@ function handleRunSummary(args) {
     }),
     accounting_modes: accountingModes,
     counts: countsForJSON(aggregate),
+    ...runFailureFields,
     slowest_target: slowestTarget,
     slowest_lifecycle_bucket: slowestLifecycleBucket,
     timing_failures: summarized.timingFailures,
@@ -2272,8 +2477,9 @@ function handleRunSummary(args) {
   }
 
   process.stderr.write(
-    `[FAIL] ${label} work_units=${completedWorkUnits}/${totalWorkUnits} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} summary_targets=${summaryTargets.length} evidence_targets=${evidenceTargetSummaries.length}/${expectedEvidenceTargetCount} helper_units=${helperUnits.length} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
+    `[FAIL] ${label} failure_class=${runSummary.failure_class ?? "helper"} work_units=${completedWorkUnits}/${totalWorkUnits} aborted_after=${abortedAfter === "-" ? "-" : abortedAfter} summary_targets=${summaryTargets.length} evidence_targets=${evidenceTargetSummaries.length}/${expectedEvidenceTargetCount} helper_units=${helperUnits.length} phases=${aggregate.phases} tests=${aggregate.tests} failed=${aggregate.failed} authoritative_failed=${aggregate.authoritative_failed} support_failed=${aggregate.support_failed} unmapped_failed=${aggregate.unmapped_failed} non_test_failed=${aggregate.non_test_failed} ${formatDurationFields(wallDurationMs, aggregate.executed_duration_ms, aggregate.logical_duration_ms, criticalPathWallDurationMs, aggregate.teardown_duration_ms)} ${formatAccountingModeFields(accountingModes)} slowest_target=${slowestTarget ? `${slowestTarget.target}(${formatDuration(slowestTarget.critical_path_wall_duration_ms)})` : "none"} slowest_lifecycle_bucket=${formatTargetBucketSummary(slowestLifecycleBucket)} artifacts=${relToRepo(path.join(resultsRoot, runId))}\n`,
   );
+  writeFailureHeadline(process.stderr, label, runSummary);
   writeFixtureLine(process.stderr, runFixture);
   writeSummaryGroupLines(process.stderr, label, renderedSummaryGroups);
   writeSharedExecutionGroupLines(process.stderr, label, sharedExecutionGroups);
@@ -2386,6 +2592,7 @@ function handleShellPhase() {
     inventory: [],
     dossiers: [
       {
+        failure_class: classifyExecutionFailure(context.target, context.label, context.command),
         coverage: "non_test",
         phase: inferPhaseFromText(context.label),
         id: "",
@@ -3248,6 +3455,7 @@ function handleVitestPhase({ manifestAware }) {
       ? "vitest watchdog timed out before runner.json was written"
       : "vitest runner.json was not written";
     const dossier = {
+      failure_class: "artifact",
       coverage: "non_test",
       phase: inferPhaseFromText(context.label),
       id: "",
@@ -3574,6 +3782,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
       .map((error) => error?.message)
       .find((entry) => typeof entry === "string" && entry.trim() !== "");
     dossiers.push({
+      failure_class: "helper",
       coverage,
       phase: inferPhaseFromText(phaseLabel),
       id: "",
@@ -3598,6 +3807,7 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
   const topLevelErrorSummary = summarizePlaywrightErrors(report);
   if (topLevelErrorSummary !== "") {
     dossiers.push({
+      failure_class: "helper",
       coverage: "non_test",
       phase: inferPhaseFromText(phaseLabel),
       id: "",

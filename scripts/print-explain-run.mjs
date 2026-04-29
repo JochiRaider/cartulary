@@ -4,6 +4,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { failureHeadlineForSummary } from "./lib/failure-taxonomy.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const validDetails = new Set(["summary", "children", "logs"]);
@@ -140,6 +142,17 @@ function slowestChild(targetSummary) {
   return slowest ? `${slowest.target}(${formatDuration(slowest.duration_ms)})` : "none";
 }
 
+function failureClassField(summary) {
+  return summary?.failure_class ? ` failure_class=${summary.failure_class}` : "";
+}
+
+function writeFailureHeadline(label, summary) {
+  const headline = failureHeadlineForSummary(summary);
+  if (headline) {
+    process.stdout.write(`[FAILURE] ${label} ${headline}\n`);
+  }
+}
+
 function loadRunSummary(runDir) {
   const file = path.join(runDir, "run-summary.json");
   return existsSync(file) ? readJSON(file) : null;
@@ -176,8 +189,9 @@ function writeRunSummary(runDir, runSummary) {
     summaryTargets.expected.length - (summaryTargets.skipped_after_failure?.length ?? 0),
   );
   process.stdout.write(
-    `[RUN] ${runSummary.label} status=${runSummary.status} work_units=${workUnits.completed}/${workUnits.total} summary_targets=${summaryTargets.expected.length} evidence_targets=${evidenceTargets.present.length}/${expectedEvidenceTargets} helper_units=${helperUnits.total} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${duration(runSummary)} slowest_target=${slowestTarget(runSummary)} artifacts=${runSummary.artifacts?.dir ?? relToRepo(runDir)}\n`,
+    `[RUN] ${runSummary.label} status=${runSummary.status}${failureClassField(runSummary)} work_units=${workUnits.completed}/${workUnits.total} summary_targets=${summaryTargets.expected.length} evidence_targets=${evidenceTargets.present.length}/${expectedEvidenceTargets} helper_units=${helperUnits.total} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${duration(runSummary)} slowest_target=${slowestTarget(runSummary)} artifacts=${runSummary.artifacts?.dir ?? relToRepo(runDir)}\n`,
   );
+  writeFailureHeadline(runSummary.label, runSummary);
   const missing = summaryTargets.missing ?? [];
   if (missing.length > 0) {
     process.stdout.write(`[RUN-MISSING] ${missing.join(",")}\n`);
@@ -195,8 +209,9 @@ function writeTargetSummary(runDir, targetSummary) {
     ? ` children=${children.present?.length ?? 0}/${children.expected?.length ?? 0} failed_children=${(children.failed_targets ?? []).join(",") || "none"} missing_children=${(children.missing ?? []).join(",") || "none"} slowest_child=${slowestChild(targetSummary)}`
     : "";
   process.stdout.write(
-    `[TARGET] ${targetSummary.target} status=${targetSummary.status} kind=${targetSummary.kind ?? "leaf"} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${duration(totals)}${childFields} artifacts=${targetSummary.own?.artifacts?.dir ?? relToRepo(path.join(runDir, targetSummary.target))}\n`,
+    `[TARGET] ${targetSummary.target} status=${targetSummary.status}${failureClassField(targetSummary)} kind=${targetSummary.kind ?? "leaf"} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${duration(totals)}${childFields} artifacts=${targetSummary.own?.artifacts?.dir ?? relToRepo(path.join(runDir, targetSummary.target))}\n`,
   );
+  writeFailureHeadline(targetSummary.target, targetSummary);
 }
 
 function writeSchedulerSummary(summary) {
@@ -207,8 +222,9 @@ function writeSchedulerSummary(summary) {
     .map((entry) => `${entry.label}(${formatDuration(entry.duration_ms)})`)
     .join(",") || "none";
   process.stdout.write(
-    `[SCHEDULER] ${summary.target} status=${summary.status} completed_work_units=${summary.completed_work_units}/${summary.total_work_units} failed=${summary.failed_work_unit ?? "none"} slowest=${slowest} logs=${summary.artifacts?.scheduler_logs_dir ?? ""}\n`,
+    `[SCHEDULER] ${summary.target} status=${summary.status}${failureClassField(summary)} completed_work_units=${summary.completed_work_units}/${summary.total_work_units} failed=${summary.failed_work_unit ?? "none"} slowest=${slowest} logs=${summary.artifacts?.scheduler_logs_dir ?? ""}\n`,
   );
+  writeFailureHeadline(summary.target, summary);
 }
 
 function writeChildren(targetSummary) {
@@ -221,8 +237,9 @@ function writeChildren(targetSummary) {
     const totals = child.totals ?? child;
     const c = counts(totals);
     process.stdout.write(
-      `[CHILD] ${child.target} status=${child.status} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${duration(totals)} artifacts=${child.artifacts?.dir ?? child.own?.artifacts?.dir ?? ""}\n`,
+      `[CHILD] ${child.target} status=${child.status}${failureClassField(child)} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${duration(totals)} artifacts=${child.artifacts?.dir ?? child.own?.artifacts?.dir ?? ""}\n`,
     );
+    writeFailureHeadline(child.target, child);
   }
 }
 
@@ -236,8 +253,9 @@ function writeRunChildren(runSummary) {
     const totals = summary.totals ?? summary;
     const c = counts(totals);
     process.stdout.write(
-      `[TARGET] ${summary.target} status=${summary.status} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${duration(totals)} artifacts=${summary.own?.artifacts?.dir ?? summary.artifacts?.dir ?? ""}\n`,
+      `[TARGET] ${summary.target} status=${summary.status}${failureClassField(summary)} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${duration(totals)} artifacts=${summary.own?.artifacts?.dir ?? summary.artifacts?.dir ?? ""}\n`,
     );
+    writeFailureHeadline(summary.target, summary);
   }
 }
 

@@ -64,6 +64,12 @@ const (
 	FixtureReuseMigrationScratch = "migration-scratch"
 )
 
+const (
+	FailureClassInfra    = "infra"
+	FailureClassHelper   = "helper"
+	FailureClassArtifact = "artifact"
+)
+
 type Event struct {
 	Type      string         `json:"type"`
 	Timestamp string         `json:"timestamp"`
@@ -95,6 +101,7 @@ type WrapperSummary struct {
 }
 
 type FailureSummary struct {
+	FailureClass          string `json:"failure_class,omitempty"`
 	Service               string `json:"service,omitempty"`
 	Stage                 string `json:"stage,omitempty"`
 	Operation             string `json:"operation,omitempty"`
@@ -331,6 +338,7 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 		case EventFailureRecorded:
 			if scope.Failure == nil {
 				scope.Failure = &FailureSummary{
+					FailureClass:          stringDetail(event.Details, "failure_class"),
 					Service:               event.Service,
 					Stage:                 stringDetail(event.Details, "stage"),
 					Operation:             stringDetail(event.Details, "operation"),
