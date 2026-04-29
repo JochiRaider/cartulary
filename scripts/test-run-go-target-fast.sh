@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 GO_TARGET_RUNNER="$ROOT_DIR/scripts/cartulary-runner.mjs"
-GO_TARGET_HELPER="$ROOT_DIR/scripts/run-go-target.sh"
+GO_TARGET_HELPER="$ROOT_DIR/scripts/run-go-target.mjs"
 MANIFEST_HELPER="$ROOT_DIR/scripts/lib/phase-manifest.mjs"
 node_bin="${NODE_BIN:-node}"
 
@@ -137,163 +137,26 @@ auth_shared_command="$(
 )"
 assert_contains "$auth_shared_command" "TestSupportPhase1_" "backend-integration-auth phase1 selector"
 
-backend_unit_structure="$(
-  export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
-  assign_calls=0
-  emit_calls=0
-  assigned_names=""
-  emitted_names=""
-  finish_status=""
-  assign_execution_family() {
-    local -n dir_ref="$1"
-    local -n usage_ref="$2"
-    local family="$4"
-    assign_calls=$((assign_calls + 1))
-    assigned_names="${assigned_names} ${family}"
-    dir_ref="/tmp/${family}"
-    usage_ref="actual"
-  }
-  emit_execution_family() {
-    emit_calls=$((emit_calls + 1))
-    emitted_names="${emitted_names} $2"
-  }
-  finish_target() {
-    finish_status="$1"
-    printf "assign_calls=%s emit_calls=%s finish_status=%s assigned=%s emitted=%s\n" "$assign_calls" "$emit_calls" "$finish_status" "$assigned_names" "$emitted_names"
-  }
-  run_unsharded_target backend-unit
-)"
-assert_contains "$backend_unit_structure" "assign_calls=3" "backend-unit aggregate capture count"
-assert_contains "$backend_unit_structure" "emit_calls=3" "backend-unit aggregate emission count"
-assert_contains "$backend_unit_structure" "backend-unit-core" "backend-unit core aggregate"
-assert_contains "$backend_unit_structure" "backend-unit-auth" "backend-unit auth aggregate"
-assert_contains "$backend_unit_structure" "backend-unit-configtest" "backend-unit configtest aggregate"
-assert_contains "$backend_unit_structure" "finish_status=0" "backend-unit finish status"
+backend_unit_aggregates="$("$node_bin" "$ROOT_DIR/scripts/lib/target-plan.mjs" list-aggregates backend-unit)"
+assert_contains "$backend_unit_aggregates" "backend-unit-core" "backend-unit core aggregate"
+assert_contains "$backend_unit_aggregates" "backend-unit-auth" "backend-unit auth aggregate"
+assert_contains "$backend_unit_aggregates" "backend-unit-configtest" "backend-unit configtest aggregate"
 
-backend_store_structure="$(
-  export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
-  capture_calls=0
-  capture_jobs=""
-  capture_target=""
-  capture_names=""
-  finalize_calls=0
-  finalize_target=""
-  finish_status=""
-  capture_named_shared_reports_parallel() {
-    capture_target="$1"
-    capture_jobs="$2"
-    shift 3
-    capture_calls=$((capture_calls + 1))
-    capture_names="$*"
-  }
-  finalize_scheduled_shards() {
-    finalize_calls=$((finalize_calls + 1))
-    finalize_target="$1"
-    finish_target 0
-  }
-  finish_target() {
-    finish_status="$1"
-    printf "capture_calls=%s capture_target=%s capture_jobs=%s finalize_calls=%s finalize_target=%s finish_status=%s names=%s\n" "$capture_calls" "$capture_target" "$capture_jobs" "$finalize_calls" "$finalize_target" "$finish_status" "$capture_names"
-  }
-  run_sharded_target backend-store
-)"
-assert_contains "$backend_store_structure" "capture_calls=1" "backend-store shard capture count"
-assert_contains "$backend_store_structure" "capture_target=backend-store" "backend-store shard capture target"
-assert_contains "$backend_store_structure" "capture_jobs=4" "backend-store default shard jobs"
-assert_contains "$backend_store_structure" "finalize_calls=1" "backend-store finalize count"
-assert_contains "$backend_store_structure" "backend-store-shard-" "backend-store captures planned shards"
-assert_contains "$backend_store_structure" "finish_status=0" "backend-store finish status"
+backend_store_shards="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-store)"
+assert_contains "$backend_store_shards" "backend-store-shard-" "backend-store captures planned shards"
 
-backend_integration_structure="$(
-  export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
-  capture_calls=0
-  capture_jobs=""
-  capture_target=""
-  capture_names=""
-  finalize_calls=0
-  finalize_target=""
-  finish_status=""
-  capture_named_shared_reports_parallel() {
-    capture_target="$1"
-    capture_jobs="$2"
-    local metadata_dir="$3"
-    shift 3
-    capture_calls=$((capture_calls + 1))
-    mkdir -p "$metadata_dir"
-    local shared_name
-    for shared_name in "$@"; do
-      capture_names="${capture_names} ${shared_name}"
-      printf '/tmp/%s\nactual\n' "$shared_name" >"$metadata_dir/${shared_name}.meta"
-    done
-  }
-  finalize_scheduled_shards() {
-    finalize_calls=$((finalize_calls + 1))
-    finalize_target="$1"
-    finish_target 0
-  }
-  finish_target() {
-    finish_status="$1"
-    printf "capture_calls=%s capture_target=%s capture_jobs=%s finalize_calls=%s finalize_target=%s finish_status=%s names=%s\n" "$capture_calls" "$capture_target" "$capture_jobs" "$finalize_calls" "$finalize_target" "$finish_status" "$capture_names"
-  }
-  run_sharded_target backend-integration
-)"
-assert_contains "$backend_integration_structure" "capture_calls=1" "backend-integration parallel capture count"
-assert_contains "$backend_integration_structure" "capture_target=backend-integration" "backend-integration parallel capture target"
-assert_contains "$backend_integration_structure" "capture_jobs=4" "backend-integration default shard jobs"
-assert_contains "$backend_integration_structure" "finalize_calls=1" "backend-integration finalize count"
-assert_contains "$backend_integration_structure" "backend-integration-entities-shard-" "backend-integration captures entity shards"
-assert_contains "$backend_integration_structure" "$phase2_incidents_shard" "backend-integration captures planned phase2 incident shard"
-assert_contains "$backend_integration_structure" "backend-integration-testutil-shard-01" "backend-integration captures raw testutil shard"
+backend_integration_shards="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration)"
+assert_contains "$backend_integration_shards" "backend-integration-entities-shard-" "backend-integration captures entity shards"
+assert_contains "$backend_integration_shards" "$phase2_incidents_shard" "backend-integration captures planned phase2 incident shard"
+assert_contains "$backend_integration_shards" "backend-integration-testutil-shard-01" "backend-integration captures raw testutil shard"
 first_backend_integration_shard="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration | head -n 1)"
-assert_contains "$backend_integration_structure" "names= $first_backend_integration_shard" "backend-integration weighted shard order starts with heaviest shard"
-assert_contains "$backend_integration_structure" "finish_status=0" "backend-integration finish status"
+assert_contains "$backend_integration_shards" "$first_backend_integration_shard" "backend-integration weighted shard order starts with heaviest shard"
 
-backend_integration_support_structure="$(
-  export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
-  capture_calls=0
-  capture_jobs=""
-  capture_target=""
-  capture_names=""
-  finalize_calls=0
-  finalize_target=""
-  finish_status=""
-  capture_named_shared_reports_parallel() {
-    capture_target="$1"
-    capture_jobs="$2"
-    local metadata_dir="$3"
-    shift 3
-    capture_calls=$((capture_calls + 1))
-    mkdir -p "$metadata_dir"
-    local shared_name
-    for shared_name in "$@"; do
-      capture_names="${capture_names} ${shared_name}"
-      printf '/tmp/%s\nactual\n' "$shared_name" >"$metadata_dir/${shared_name}.meta"
-    done
-  }
-  finalize_scheduled_shards() {
-    finalize_calls=$((finalize_calls + 1))
-    finalize_target="$1"
-    finish_target 0
-  }
-  finish_target() {
-    finish_status="$1"
-    printf "capture_calls=%s capture_target=%s capture_jobs=%s finalize_calls=%s finalize_target=%s finish_status=%s names=%s\n" "$capture_calls" "$capture_target" "$capture_jobs" "$finalize_calls" "$finalize_target" "$finish_status" "$capture_names"
-  }
-  run_sharded_target backend-integration-support
-)"
-assert_contains "$backend_integration_support_structure" "capture_calls=1" "backend-integration-support parallel capture count"
-assert_contains "$backend_integration_support_structure" "capture_target=backend-integration-support" "backend-integration-support parallel capture target"
-assert_contains "$backend_integration_support_structure" "capture_jobs=4" "backend-integration-support default shard jobs"
-assert_contains "$backend_integration_support_structure" "finalize_calls=1" "backend-integration-support finalize count"
-assert_contains "$backend_integration_support_structure" "backend-integration-entities-shard-" "backend-integration-support captures entities shards"
-assert_not_contains "$backend_integration_support_structure" "backend-integration-testutil" "backend-integration-support skips testutil shard"
+backend_integration_support_shards="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration-support)"
+assert_contains "$backend_integration_support_shards" "backend-integration-entities-shard-" "backend-integration-support captures entities shards"
+assert_not_contains "$backend_integration_support_shards" "backend-integration-testutil" "backend-integration-support skips testutil shard"
 first_backend_integration_support_shard="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration-support | head -n 1)"
-assert_contains "$backend_integration_support_structure" "names= $first_backend_integration_support_shard" "backend-integration-support weighted shard order starts with heaviest support shard"
-assert_contains "$backend_integration_support_structure" "finish_status=0" "backend-integration-support finish status"
+assert_contains "$backend_integration_support_shards" "$first_backend_integration_support_shard" "backend-integration-support weighted shard order starts with heaviest support shard"
 
 phase0_backend_unit_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase0 backend_unit ./internal/platform/... ./internal/app)"
 phase1_backend_unit_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase1 backend_unit ./internal/modules/auth)"

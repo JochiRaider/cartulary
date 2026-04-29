@@ -5,7 +5,8 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 makefile="$repo_root/Makefile"
 generated_make="$repo_root/tools/task_surface.generated.mk"
 cartulary_runner_script="$repo_root/scripts/cartulary-runner.mjs"
-go_runner_script="$repo_root/scripts/run-go-target.sh"
+go_runner_script="$repo_root/scripts/run-go-target.mjs"
+go_runner_module="$repo_root/scripts/lib/go-target-runner.mjs"
 schedule_manifest="$repo_root/tools/service_backed_schedule_manifest.json"
 schedule_profile="$repo_root/tools/service_backed_schedule_profiles.json"
 browser_batch_manifest="$repo_root/tools/browser_e2e_batch_manifest.json"
@@ -617,18 +618,14 @@ if ! printf '%s\n' "$backend_unit_block" | grep -Fq '$(CARTULARY_RUNNER_SCRIPT) 
   fail "backend-unit must delegate to cartulary-runner.mjs go-target backend-unit"
 fi
 for expected in \
-  'target_aggregate_names "${target}"' \
-  'target_aggregate_spec "${target}" "${family}"' \
-  'target_aggregate_emission_count "${target}" "${family}"' \
-  'emit_execution_family "${target}" "${aggregate_name}"' \
-  'run_unsharded_target backend-unit' \
-  'run_sharded_target backend-store' \
-  'run_sharded_target backend-integration' \
-  'run_sharded_target backend-integration-support' \
-  'run_unsharded_target backend-process'
+  'runUnshardedTarget' \
+  'runShardedTarget' \
+  'emitExecutionFamily' \
+  'assignExecutionFamily' \
+  'inspectAggregateCommand'
 do
-  if ! grep -Fq "$expected" "$go_runner_script"; then
-    fail "scripts/run-go-target.sh must preserve generic target-plan-driven execution surface: missing $expected"
+  if ! grep -Fq "$expected" "$go_runner_module"; then
+    fail "scripts/lib/go-target-runner.mjs must preserve generic target-plan-driven execution surface: missing $expected"
   fi
 done
 mapfile -t backend_unit_core_support_patterns < <(target_plan_support_patterns backend-unit backend-unit-core)
@@ -666,15 +663,13 @@ if ! printf '%s\n' "$backend_integration_block" | grep -Fq '$(TEST_SERVICES_BIN)
   fail "backend-integration must run through $(TEST_SERVICES_BIN) for suite-scoped services"
 fi
 for expected in \
-  'planned_shard_names()' \
-  'planned_aggregate_names()' \
-  'mapfile -t shard_names < <(planned_shard_names "${target}")' \
-  'mapfile -t aggregate_names < <(planned_aggregate_names "${target}")' \
-  'capture_named_shared_reports_parallel "${target}" "${BACKEND_INTEGRATION_SHARD_JOBS}"' \
-  'finalize_scheduled_shards "${target}"'
+  'targetShards' \
+  'targetAggregates' \
+  'captureNamedSharedReportsParallel' \
+  'finalizeScheduledShards'
 do
-  if ! grep -Fq "$expected" "$go_runner_script"; then
-    fail "scripts/run-go-target.sh must preserve planned backend-integration selection surface: missing $expected"
+  if ! grep -Fq "$expected" "$go_runner_module"; then
+    fail "scripts/lib/go-target-runner.mjs must preserve planned backend-integration selection surface: missing $expected"
   fi
 done
 

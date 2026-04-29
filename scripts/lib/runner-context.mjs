@@ -44,7 +44,7 @@ export function createRunnerContext(options = {}) {
     makeBin: process.env.MAKE_BIN || process.env.MAKE || "make",
     runnerScript: envPath("CARTULARY_RUNNER_SCRIPT", "scripts/cartulary-runner.mjs", repoRoot),
     runPhaseScript: envPath("RUN_PHASE_SCRIPT", "scripts/lib/run-phase.sh", repoRoot),
-    runGoTargetScript: envPath("RUN_GO_TARGET_SCRIPT", "scripts/run-go-target.sh", repoRoot),
+    runGoTargetScript: envPath("RUN_GO_TARGET_SCRIPT", "scripts/run-go-target.mjs", repoRoot),
     serviceBackedScheduleScript: envPath(
       "RUN_SERVICE_BACKED_SCHEDULE_SCRIPT",
       "scripts/run-service-backed-schedule.mjs",

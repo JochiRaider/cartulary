@@ -176,7 +176,13 @@ function goTarget(context, argv) {
   if (argv.length === 0) {
     usage();
   }
-  return runWithContext(context, context.runGoTargetScript, argv, {
+  const command = context.runGoTargetScript.endsWith(".mjs")
+    ? context.nodeBin
+    : context.runGoTargetScript;
+  const args = context.runGoTargetScript.endsWith(".mjs")
+    ? [context.runGoTargetScript, ...argv]
+    : argv;
+  return runWithContext(context, command, args, {
     env: runnerEnv(context),
   });
 }

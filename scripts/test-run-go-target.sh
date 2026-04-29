@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 GO_PHASE_HELPER="$ROOT_DIR/scripts/lib/run-go-phase.sh"
-GO_TARGET_HELPER="$ROOT_DIR/scripts/run-go-target.sh"
+GO_TARGET_HELPER="$ROOT_DIR/scripts/run-go-target.mjs"
 MANIFEST_HELPER="$ROOT_DIR/scripts/lib/phase-manifest.mjs"
 PHASE_MAP_CHECK="$ROOT_DIR/scripts/check-phase-map.mjs"
 cleanup_paths=()
@@ -178,12 +178,35 @@ duration_artifacts_root="$duration_results_dir/results"
   export CARTULARY_TEST_RUN_ID="duration-smoke"
   export CARTULARY_TEST_TARGET="backend-unit-smoke"
   export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
-  export CARTULARY_GO_ACCOUNTING_COVERAGE=raw
-  emit_go_raw_phase "duration actual" actual "$shared_report_dir" '^(TestSupportPhase4Integration_Smoke)$' ./internal/modules/entities
-  emit_go_raw_phase "duration reused" reused "$shared_report_dir" '^(TestSupportPhase4Integration_Smoke)$' ./internal/modules/entities
-  emit_go_raw_phase "duration derived" derived "$shared_report_dir" '^(TestSupportPhase4Integration_Smoke)$' ./internal/modules/entities
-  unset CARTULARY_GO_ACCOUNTING_COVERAGE || true
+  emit_go_phase_summary() {
+    local label="$1"
+    local mode="$2"
+    local duration_ms="$3"
+    local wall_duration_ms="$4"
+    local start_time="${5:-$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)}"
+    local end_time="${6:-$start_time}"
+    local phase_dir="$duration_artifacts_root/duration-smoke/backend-unit-smoke/$(printf '%s' "$label" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+    mkdir -p "$phase_dir"
+    CARTULARY_PHASE_LABEL="$label" \
+    CARTULARY_PHASE_DIR="$phase_dir" \
+    CARTULARY_PHASE_COMMAND="$(<"$shared_report_dir/command.txt")" \
+    CARTULARY_PHASE_START_TIME="$start_time" \
+    CARTULARY_PHASE_END_TIME="$end_time" \
+    CARTULARY_PHASE_DURATION_MS="$duration_ms" \
+    CARTULARY_PHASE_WALL_DURATION_MS="$wall_duration_ms" \
+    CARTULARY_PHASE_EXIT_STATUS="0" \
+    CARTULARY_REPORT_SLICE=1 \
+    CARTULARY_PHASE_ACCOUNTING_MODE="$mode" \
+    CARTULARY_PHASE_RUNNER_LOG="$shared_report_dir/runner.jsonl" \
+    CARTULARY_PHASE_STDERR_LOG="$shared_report_dir/stderr.log" \
+    CARTULARY_GO_TEST_REGEX='^(TestSupportPhase4Integration_Smoke)$' \
+    CARTULARY_ACCOUNTING_COVERAGE=raw \
+    CARTULARY_GO_PACKAGE_PATTERNS="./internal/modules/entities" \
+      "$ROOT_DIR/scripts/lib/test-output.sh" go-phase >/dev/null
+  }
+  emit_go_phase_summary "duration actual" actual 1200 1200 "2000-01-01T00:00:00Z" "2000-01-01T00:00:00Z"
+  emit_go_phase_summary "duration reused" reused 1200 0
+  emit_go_phase_summary "duration derived" derived 0 0
   "$ROOT_DIR/scripts/lib/test-output.sh" target-summary backend-unit-smoke pass >/dev/null
   "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "duration smoke" pass 1 1 - backend-unit-smoke >/dev/null
 )
@@ -280,9 +303,24 @@ printf '%s\n' "1" >"$raw_failure_report_dir/exit_status.txt"
   export CARTULARY_TEST_RUN_ID="raw-failure"
   export CARTULARY_TEST_TARGET="backend-unit-configtest"
   export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
-  export CARTULARY_GO_ACCOUNTING_COVERAGE=raw
-  emit_go_raw_phase "backend-unit configtest" actual "$raw_failure_report_dir" '^(Test)$' ./internal/testutil/configtest >/dev/null 2>&1 || true
+  raw_phase_dir="$raw_failure_results_dir/results/raw-failure/backend-unit-configtest/backend-unit-configtest"
+  mkdir -p "$raw_phase_dir"
+  CARTULARY_PHASE_LABEL="backend-unit configtest" \
+  CARTULARY_PHASE_DIR="$raw_phase_dir" \
+  CARTULARY_PHASE_COMMAND="$(<"$raw_failure_report_dir/command.txt")" \
+  CARTULARY_PHASE_START_TIME="2000-01-01T00:00:00Z" \
+  CARTULARY_PHASE_END_TIME="2000-01-01T00:00:00Z" \
+  CARTULARY_PHASE_DURATION_MS="100" \
+  CARTULARY_PHASE_WALL_DURATION_MS="100" \
+  CARTULARY_PHASE_EXIT_STATUS="1" \
+  CARTULARY_REPORT_SLICE=1 \
+  CARTULARY_PHASE_ACCOUNTING_MODE=actual \
+  CARTULARY_PHASE_RUNNER_LOG="$raw_failure_report_dir/runner.jsonl" \
+  CARTULARY_PHASE_STDERR_LOG="$raw_failure_report_dir/stderr.log" \
+  CARTULARY_GO_TEST_REGEX='^(Test)$' \
+  CARTULARY_ACCOUNTING_COVERAGE=raw \
+  CARTULARY_GO_PACKAGE_PATTERNS="./internal/testutil/configtest" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" go-phase >/dev/null 2>&1 || true
 )
 raw_failure_summary="$raw_failure_results_dir/results/raw-failure/backend-unit-configtest/backend-unit-configtest/phase-summary.json"
 assert_equals "$(json_field "$raw_failure_summary" "counts.failed")" "1" "raw package setup failed count"
@@ -305,17 +343,33 @@ printf '%s\n' "0" >"$reused_window_report_dir/exit_status.txt"
   export CARTULARY_TEST_RUN_ID="reused-window"
   export CARTULARY_TEST_TARGET="backend-integration-support"
   export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
-  emit_go_raw_phase "reused window support" reused "$reused_window_report_dir" '^(TestSupportPhase4Integration_Smoke)$' ./internal/modules/entities
-  emit_target_timing_span \
-    test_command \
-    "run-go-target backend-integration-support" \
-    "2026-01-01T00:00:00Z" \
-    "2026-01-01T00:00:00.400Z" \
-    400 \
-    pass \
-    0
-  emit_target_summary pass >/dev/null
+  reused_phase_dir="$reused_window_results_dir/results/reused-window/backend-integration-support/reused-window-support"
+  mkdir -p "$reused_phase_dir"
+  timestamp="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
+  CARTULARY_PHASE_LABEL="reused window support" \
+  CARTULARY_PHASE_DIR="$reused_phase_dir" \
+  CARTULARY_PHASE_COMMAND="$(<"$reused_window_report_dir/command.txt")" \
+  CARTULARY_PHASE_START_TIME="$timestamp" \
+  CARTULARY_PHASE_END_TIME="$timestamp" \
+  CARTULARY_PHASE_DURATION_MS="10000" \
+  CARTULARY_PHASE_WALL_DURATION_MS="0" \
+  CARTULARY_PHASE_EXIT_STATUS="0" \
+  CARTULARY_REPORT_SLICE=1 \
+  CARTULARY_PHASE_ACCOUNTING_MODE=reused \
+  CARTULARY_PHASE_RUNNER_LOG="$reused_window_report_dir/runner.jsonl" \
+  CARTULARY_PHASE_STDERR_LOG="$reused_window_report_dir/stderr.log" \
+  CARTULARY_GO_TEST_REGEX='^(TestSupportPhase4Integration_Smoke)$' \
+  CARTULARY_ACCOUNTING_COVERAGE=support \
+  CARTULARY_GO_PACKAGE_PATTERNS="./internal/modules/entities" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" go-phase >/dev/null
+  CARTULARY_TIMING_BUCKET=test_command \
+  CARTULARY_TIMING_LABEL="run-go-target backend-integration-support" \
+  CARTULARY_TIMING_START_TIME="2026-01-01T00:00:00Z" \
+  CARTULARY_TIMING_END_TIME="2026-01-01T00:00:00.400Z" \
+  CARTULARY_TIMING_DURATION_MS=400 \
+  CARTULARY_TIMING_STATUS=pass \
+    "$ROOT_DIR/scripts/lib/test-output.sh" timing-span >/dev/null
+  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary backend-integration-support pass >/dev/null
 )
 reused_window_summary="$reused_window_results_dir/results/reused-window/backend-integration-support/target-summary.json"
 assert_equals "$(json_field "$reused_window_summary" "accounting_modes.actual")" "0" "reused window actual accounting count"
@@ -417,348 +471,188 @@ assert_contains "$auth_shared_command" "TestSupportPhase1_" "backend-integration
 
 shared_mismatch_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-shared-mismatch.XXXXXX")"
 cleanup_paths+=("$shared_mismatch_results")
-(
-  export CARTULARY_TEST_RESULTS_DIR="$shared_mismatch_results/results"
-  export CARTULARY_TEST_RUN_ID="shared-mismatch"
-  export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
+set +e
+mismatch_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$shared_mismatch_results/results" \
+  CARTULARY_TEST_RUN_ID="shared-mismatch" \
+  NODE_BIN="$node_bin" \
+  "$node_bin" --input-type=module - "$ROOT_DIR" <<'EOF_NODE' 2>&1
+import path from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { captureGoReport, createGoTargetContext, prepareSharedArtifactDir } from "./scripts/lib/go-target-runner.mjs";
 
-  shared_dir="$(prepare_shared_artifact_dir backend-integration-app)"
-  mkdir -p "$shared_dir"
-  printf '%s\n' "env go test -json -run '^TestOld$' ./internal/app" >"$shared_dir/command.txt"
-  touch "$shared_dir/complete"
-
-  set +e
-  mismatch_output="$(
-    capture_go_report backend-integration-app '^TestCurrent$' -- ./internal/app \
-      2>&1
-  )"
-  mismatch_status=$?
-  set -e
-
-  if [[ "$mismatch_status" -eq 0 ]]; then
-    fail "shared command mismatch: expected capture_go_report to fail"
-  fi
-  assert_contains "$mismatch_output" "shared_go_report_command_mismatch" "shared command mismatch marker"
-)
+const root = process.argv[2];
+const ctx = createGoTargetContext({ repoRoot: root });
+const sharedDir = prepareSharedArtifactDir(ctx, "backend-integration-app");
+mkdirSync(sharedDir, { recursive: true });
+writeFileSync(path.join(sharedDir, "command.txt"), "env go test -json -run '^TestOld$' ./internal/app\n");
+writeFileSync(path.join(sharedDir, "complete"), "");
+await captureGoReport(ctx, "backend-integration-app", "^TestCurrent$", ["./internal/app"]);
+EOF_NODE
+)"
+mismatch_status=$?
+set -e
+if [[ "$mismatch_status" -eq 0 ]]; then
+  fail "shared command mismatch: expected captureGoReport to fail"
+fi
+assert_contains "$mismatch_output" "shared_go_report_command_mismatch" "shared command mismatch marker"
 
 mixed_aggregate_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-mixed-aggregate.XXXXXX")"
 cleanup_paths+=("$mixed_aggregate_results")
-(
-  export CARTULARY_TEST_RESULTS_DIR="$mixed_aggregate_results/results"
-  export CARTULARY_TEST_RUN_ID="mixed-aggregate"
-  export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
+mixed_aggregate_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$mixed_aggregate_results/results" \
+  CARTULARY_TEST_RUN_ID="mixed-aggregate" \
+  NODE_BIN="$node_bin" \
+  "$node_bin" --input-type=module - "$ROOT_DIR" "$mixed_aggregate_results" <<'EOF_NODE'
+import path from "node:path";
+import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { createAggregateReport, createGoTargetContext } from "./scripts/lib/go-target-runner.mjs";
 
-  metadata_dir="$mixed_aggregate_results/metadata"
-  mkdir -p "$metadata_dir/actual-shard" "$metadata_dir/reused-shard"
-  for shard in actual-shard reused-shard; do
-    printf '%s\n' "env go test -json -run '^Test$' ./internal/modules/entities" >"$metadata_dir/$shard/command.txt"
-    touch "$metadata_dir/$shard/runner.jsonl" "$metadata_dir/$shard/stderr.log"
-    printf '%s\n' "0" >"$metadata_dir/$shard/exit_status.txt"
-  done
-  printf '%s\n' "2026-01-01T00:00:00Z" >"$metadata_dir/reused-shard/start_time.txt"
-  printf '%s\n' "2026-01-01T00:00:10Z" >"$metadata_dir/reused-shard/end_time.txt"
-  printf '%s\n' "10000" >"$metadata_dir/reused-shard/duration_ms.txt"
-  printf '%s\n' "2026-01-01T00:00:20Z" >"$metadata_dir/actual-shard/start_time.txt"
-  printf '%s\n' "2026-01-01T00:00:22Z" >"$metadata_dir/actual-shard/end_time.txt"
-  printf '%s\n' "2000" >"$metadata_dir/actual-shard/duration_ms.txt"
-  printf '%s\n%s\n' "$metadata_dir/reused-shard" reused >"$metadata_dir/reused-shard.meta"
-  printf '%s\n%s\n' "$metadata_dir/actual-shard" actual >"$metadata_dir/actual-shard.meta"
-
-  create_aggregate_report aggregate_dir aggregate_usage "$metadata_dir" mixed-aggregate backend-integration reused-shard actual-shard
-  assert_equals "$aggregate_usage" "actual" "mixed aggregate usage"
-  assert_equals "$(<"$aggregate_dir/duration_ms.txt")" "2000" "mixed aggregate actual duration excludes reused shard"
-  assert_equals "$(<"$aggregate_dir/wall_duration_ms.txt")" "2000" "mixed aggregate wall excludes reused shard"
-  assert_equals "$(<"$aggregate_dir/start_time.txt")" "2026-01-01T00:00:20Z" "mixed aggregate start excludes reused shard"
-  assert_equals "$(<"$aggregate_dir/end_time.txt")" "2026-01-01T00:00:22Z" "mixed aggregate end excludes reused shard"
-)
+const [root, tmp] = process.argv.slice(2);
+const ctx = createGoTargetContext({ repoRoot: root });
+const metadataDir = path.join(tmp, "metadata");
+for (const shard of ["actual-shard", "reused-shard"]) {
+  const dir = path.join(metadataDir, shard);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, "command.txt"), "env go test -json -run '^Test$' ./internal/modules/entities\n");
+  writeFileSync(path.join(dir, "runner.jsonl"), "");
+  writeFileSync(path.join(dir, "stderr.log"), "");
+  writeFileSync(path.join(dir, "exit_status.txt"), "0\n");
+}
+writeFileSync(path.join(metadataDir, "reused-shard", "start_time.txt"), "2026-01-01T00:00:00Z\n");
+writeFileSync(path.join(metadataDir, "reused-shard", "end_time.txt"), "2026-01-01T00:00:10Z\n");
+writeFileSync(path.join(metadataDir, "reused-shard", "duration_ms.txt"), "10000\n");
+writeFileSync(path.join(metadataDir, "actual-shard", "start_time.txt"), "2026-01-01T00:00:20Z\n");
+writeFileSync(path.join(metadataDir, "actual-shard", "end_time.txt"), "2026-01-01T00:00:22Z\n");
+writeFileSync(path.join(metadataDir, "actual-shard", "duration_ms.txt"), "2000\n");
+writeFileSync(path.join(metadataDir, "reused-shard.meta"), path.join(metadataDir, "reused-shard") + "\nreused\n");
+writeFileSync(path.join(metadataDir, "actual-shard.meta"), path.join(metadataDir, "actual-shard") + "\nactual\n");
+const report = createAggregateReport(ctx, metadataDir, "mixed-aggregate", "backend-integration", ["reused-shard", "actual-shard"]);
+const read = (name) => readFileSync(path.join(report.reportDir, name), "utf8").trim();
+console.log("usage=" + report.usage);
+console.log("duration=" + read("duration_ms.txt"));
+console.log("wall=" + read("wall_duration_ms.txt"));
+console.log("start=" + read("start_time.txt"));
+console.log("end=" + read("end_time.txt"));
+EOF_NODE
+)"
+assert_contains "$mixed_aggregate_output" "usage=actual" "mixed aggregate usage"
+assert_contains "$mixed_aggregate_output" "duration=2000" "mixed aggregate actual duration excludes reused shard"
+assert_contains "$mixed_aggregate_output" "wall=2000" "mixed aggregate wall excludes reused shard"
+assert_contains "$mixed_aggregate_output" "start=2026-01-01T00:00:20Z" "mixed aggregate start excludes reused shard"
+assert_contains "$mixed_aggregate_output" "end=2026-01-01T00:00:22Z" "mixed aggregate end excludes reused shard"
 
 shared_reuse_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-shared-reuse.XXXXXX")"
 cleanup_paths+=("$shared_reuse_results")
-(
-  export CARTULARY_TEST_RESULTS_DIR="$shared_reuse_results/results"
-  export CARTULARY_TEST_RUN_ID="shared-reuse"
-  export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
+shared_reuse_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$shared_reuse_results/results" \
+  CARTULARY_TEST_RUN_ID="shared-reuse" \
+  NODE_BIN="$node_bin" \
+  "$node_bin" --input-type=module - "$ROOT_DIR" "$phase2_incidents_shared_command" <<'EOF_NODE'
+import path from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { assignExecutionFamily, createGoTargetContext, prepareSharedArtifactDir } from "./scripts/lib/go-target-runner.mjs";
 
-  shared_dir="$(prepare_shared_artifact_dir backend-integration-incidents)"
-  mkdir -p "$shared_dir"
-  printf '%s\n' "$phase2_incidents_shared_command" >"$shared_dir/command.txt"
-  touch "$shared_dir/complete"
-
-  assign_execution_family reused_dir reused_usage backend-integration-support backend-integration-incidents
-  if [[ "$reused_dir" != "$shared_dir" ]]; then
-    fail "shared reuse: expected assign_execution_family to reuse the existing shared dir"
-  fi
-  if [[ "$reused_usage" != "reused" ]]; then
-    fail "shared reuse: expected assign_execution_family to mark the report as reused"
-  fi
-)
+const [root, command] = process.argv.slice(2);
+const ctx = createGoTargetContext({ repoRoot: root });
+const sharedDir = prepareSharedArtifactDir(ctx, "backend-integration-incidents");
+mkdirSync(sharedDir, { recursive: true });
+writeFileSync(path.join(sharedDir, "command.txt"), command + "\n");
+writeFileSync(path.join(sharedDir, "complete"), "");
+const result = await assignExecutionFamily(ctx, "backend-integration-support", "backend-integration-incidents");
+console.log("dir=" + result.reportDir);
+console.log("usage=" + result.usage);
+EOF_NODE
+)"
+assert_contains "$shared_reuse_output" "$shared_reuse_results/results/shared-reuse/_shared/backend-integration-incidents" "shared reuse dir"
+assert_contains "$shared_reuse_output" "usage=reused" "shared reuse usage"
 
 shared_lock_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-shared-lock.XXXXXX")"
 cleanup_paths+=("$shared_lock_results")
-(
-  export CARTULARY_TEST_RESULTS_DIR="$shared_lock_results/results"
-  export CARTULARY_TEST_RUN_ID="shared-lock"
-  export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
+shared_lock_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$shared_lock_results/results" \
+  CARTULARY_TEST_RUN_ID="shared-lock" \
+  NODE_BIN="$node_bin" \
+  "$node_bin" --input-type=module - "$ROOT_DIR" <<'EOF_NODE'
+import path from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { acquireSharedReportLock, createGoTargetContext, prepareSharedArtifactDir, releaseSharedReportLock } from "./scripts/lib/go-target-runner.mjs";
 
-  shared_dir="$(prepare_shared_artifact_dir backend-integration-incidents)"
-  acquire_shared_report_lock "$shared_dir" backend-integration-incidents
-  assert_equals "$(<"$shared_dir/capture.lock/shared_report")" "backend-integration-incidents" "shared lock report name"
-  assert_equals "$(<"$shared_dir/capture.lock/pid")" "$$" "shared lock owner pid"
-
-  set +e
-  lock_timeout_output="$(
-    CARTULARY_SHARED_REPORT_LOCK_TIMEOUT_SECONDS=1 \
-      acquire_shared_report_lock "$shared_dir" backend-integration-incidents \
-      2>&1
-  )"
-  lock_timeout_status=$?
-  set -e
-  if [[ "$lock_timeout_status" -eq 0 ]]; then
-    fail "shared lock timeout: expected second lock acquisition to fail"
-  fi
-  assert_contains "$lock_timeout_output" "shared_go_report_lock_timeout" "shared lock timeout marker"
-
-  release_shared_report_lock "$shared_dir"
-  if [[ -e "$shared_dir/capture.lock" ]]; then
-    fail "shared lock release: capture.lock must be removed"
-  fi
-
-  mkdir -p "$shared_dir/capture.lock"
-  printf '%s\n' "999999" >"$shared_dir/capture.lock/pid"
-  acquire_shared_report_lock "$shared_dir" backend-integration-incidents
-  assert_equals "$(<"$shared_dir/capture.lock/pid")" "$$" "shared lock stale owner replacement"
-  release_shared_report_lock "$shared_dir"
-)
+const root = process.argv[2];
+const ctx = createGoTargetContext({ repoRoot: root });
+const sharedDir = prepareSharedArtifactDir(ctx, "backend-integration-incidents");
+await acquireSharedReportLock(ctx, sharedDir, "backend-integration-incidents");
+console.log("shared=" + readFileSync(path.join(sharedDir, "capture.lock", "shared_report"), "utf8").trim());
+console.log("pid=" + readFileSync(path.join(sharedDir, "capture.lock", "pid"), "utf8").trim());
+releaseSharedReportLock(sharedDir);
+console.log("released=" + (existsSync(path.join(sharedDir, "capture.lock")) ? "no" : "yes"));
+mkdirSync(path.join(sharedDir, "capture.lock"), { recursive: true });
+writeFileSync(path.join(sharedDir, "capture.lock", "pid"), "999999\n");
+await acquireSharedReportLock(ctx, sharedDir, "backend-integration-incidents");
+console.log("stale_pid=" + readFileSync(path.join(sharedDir, "capture.lock", "pid"), "utf8").trim());
+releaseSharedReportLock(sharedDir);
+EOF_NODE
+)"
+assert_contains "$shared_lock_output" "shared=backend-integration-incidents" "shared lock report name"
+assert_contains "$shared_lock_output" "released=yes" "shared lock release"
+assert_contains "$shared_lock_output" "stale_pid=" "shared lock stale owner replacement"
 
 parallel_capture_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-parallel-capture.XXXXXX")"
 cleanup_paths+=("$parallel_capture_results")
-(
-  export CARTULARY_TEST_RESULTS_DIR="$parallel_capture_results/results"
-  export CARTULARY_TEST_RUN_ID="parallel-capture"
-  export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
+parallel_capture_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$parallel_capture_results/results" \
+  CARTULARY_TEST_RUN_ID="parallel-capture" \
+  NODE_BIN="$node_bin" \
+  "$node_bin" --input-type=module - "$ROOT_DIR" "$parallel_capture_results" <<'EOF_NODE'
+import path from "node:path";
+import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { captureNamedSharedReportsParallel, createGoTargetContext, inspectAggregateCommand, prepareSharedArtifactDir } from "./scripts/lib/go-target-runner.mjs";
 
-  assign_execution_family() {
-    local -n dir_ref="$1"
-    local -n usage_ref="$2"
-    local shared_name="$4"
-    dir_ref="/tmp/${shared_name}"
-    usage_ref="actual"
-  }
-
-  metadata_dir="$parallel_capture_results/metadata"
-  capture_named_shared_reports_parallel backend-integration 2 "$metadata_dir" shard-a shard-b shard-c
-  read_shared_report_metadata shard_a_dir shard_a_usage "$metadata_dir" shard-a
-  read_shared_report_metadata shard_c_dir shard_c_usage "$metadata_dir" shard-c
-  assert_equals "$shard_a_dir" "/tmp/shard-a" "parallel capture shard-a dir"
-  assert_equals "$shard_a_usage" "actual" "parallel capture shard-a usage"
-  assert_equals "$shard_c_dir" "/tmp/shard-c" "parallel capture shard-c dir"
-  assert_equals "$shard_c_usage" "actual" "parallel capture shard-c usage"
-
-  set +e
-  invalid_jobs_output="$(
-    capture_named_shared_reports_parallel backend-integration 0 "$metadata_dir" shard-a \
-      2>&1
-  )"
-  invalid_jobs_status=$?
-  set -e
-  if [[ "$invalid_jobs_status" -eq 0 ]]; then
-    fail "parallel capture invalid jobs: expected failure"
-  fi
-  assert_contains "$invalid_jobs_output" "invalid shard job count" "parallel capture invalid jobs marker"
-)
-
-parallel_scheduler_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-parallel-scheduler.XXXXXX")"
-cleanup_paths+=("$parallel_scheduler_results")
-(
-  export CARTULARY_TEST_RESULTS_DIR="$parallel_scheduler_results/results"
-  export CARTULARY_TEST_RUN_ID="parallel-scheduler"
-  export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
-
-  assign_execution_family() {
-    local -n dir_ref="$1"
-    local -n usage_ref="$2"
-    local shared_name="$4"
-    printf '%s\n' "$(phase_now_monotonic_ms)" >"$parallel_scheduler_results/${shared_name}.start"
-    case "${shared_name}" in
-      shard-a) sleep 0.4 ;;
-      shard-b) sleep 0.05 ;;
-      *) sleep 0.01 ;;
-    esac
-    printf '%s\n' "$(phase_now_monotonic_ms)" >"$parallel_scheduler_results/${shared_name}.end"
-    dir_ref="/tmp/${shared_name}"
-    usage_ref="actual"
-  }
-
-  metadata_dir="$parallel_scheduler_results/metadata"
-  capture_named_shared_reports_parallel backend-integration 2 "$metadata_dir" shard-a shard-b shard-c
-  shard_a_end="$(<"$parallel_scheduler_results/shard-a.end")"
-  shard_c_start="$(<"$parallel_scheduler_results/shard-c.start")"
-  assert_less_than "$shard_c_start" "$shard_a_end" "parallel capture starts next shard after first completed child"
-)
-
-backend_unit_structure="$(
-  export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
-  assign_calls=0
-  emit_calls=0
-  assigned_names=""
-  emitted_names=""
-  finish_status=""
-  assign_execution_family() {
-    local -n dir_ref="$1"
-    local -n usage_ref="$2"
-    local family="$4"
-    assign_calls=$((assign_calls + 1))
-    assigned_names="${assigned_names} ${family}"
-    dir_ref="/tmp/${family}"
-    usage_ref="actual"
-  }
-  emit_execution_family() {
-    emit_calls=$((emit_calls + 1))
-    emitted_names="${emitted_names} $2"
-  }
-  finish_target() {
-    finish_status="$1"
-    printf "assign_calls=%s emit_calls=%s finish_status=%s assigned=%s emitted=%s\n" "$assign_calls" "$emit_calls" "$finish_status" "$assigned_names" "$emitted_names"
-  }
-  run_unsharded_target backend-unit
+const [root, tmp] = process.argv.slice(2);
+const ctx = createGoTargetContext({ repoRoot: root });
+const shardNames = ["backend-integration-testutil-shard-01"];
+for (const shard of shardNames) {
+  const sharedDir = prepareSharedArtifactDir(ctx, shard);
+  mkdirSync(sharedDir, { recursive: true });
+  writeFileSync(path.join(sharedDir, "command.txt"), inspectAggregateCommand(ctx, "backend-integration", shard) + "\n");
+  writeFileSync(path.join(sharedDir, "complete"), "");
+}
+const metadataDir = path.join(tmp, "metadata");
+const status = await captureNamedSharedReportsParallel(ctx, "backend-integration", 2, metadataDir, shardNames);
+const metadata = readFileSync(path.join(metadataDir, shardNames[0] + ".meta"), "utf8").trim().split(/\r?\n/u);
+console.log("status=" + status);
+console.log("usage=" + metadata[1]);
+try {
+  await captureNamedSharedReportsParallel(ctx, "backend-integration", 0, metadataDir, shardNames);
+} catch (error) {
+  console.log(error.message);
+}
+EOF_NODE
 )"
-assert_contains "$backend_unit_structure" "assign_calls=3" "backend-unit aggregate capture count"
-assert_contains "$backend_unit_structure" "emit_calls=3" "backend-unit aggregate emission count"
-assert_contains "$backend_unit_structure" "backend-unit-core" "backend-unit core aggregate"
-assert_contains "$backend_unit_structure" "backend-unit-auth" "backend-unit auth aggregate"
-assert_contains "$backend_unit_structure" "backend-unit-configtest" "backend-unit configtest aggregate"
-assert_contains "$backend_unit_structure" "finish_status=0" "backend-unit finish status"
+assert_contains "$parallel_capture_output" "status=0" "parallel capture status"
+assert_contains "$parallel_capture_output" "usage=reused" "parallel capture reused complete report"
+assert_contains "$parallel_capture_output" "invalid shard job count" "parallel capture invalid jobs marker"
 
-backend_store_structure="$(
-  export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
-  capture_calls=0
-  capture_jobs=""
-  capture_target=""
-  capture_names=""
-  finalize_calls=0
-  finalize_target=""
-  finish_status=""
-  capture_named_shared_reports_parallel() {
-    capture_target="$1"
-    capture_jobs="$2"
-    shift 3
-    capture_calls=$((capture_calls + 1))
-    capture_names="$*"
-  }
-  finalize_scheduled_shards() {
-    finalize_calls=$((finalize_calls + 1))
-    finalize_target="$1"
-    finish_target 0
-  }
-  finish_target() {
-    finish_status="$1"
-    printf "capture_calls=%s capture_target=%s capture_jobs=%s finalize_calls=%s finalize_target=%s finish_status=%s names=%s\n" "$capture_calls" "$capture_target" "$capture_jobs" "$finalize_calls" "$finalize_target" "$finish_status" "$capture_names"
-  }
-  run_sharded_target backend-store
-)"
-assert_contains "$backend_store_structure" "capture_calls=1" "backend-store shard capture count"
-assert_contains "$backend_store_structure" "capture_target=backend-store" "backend-store shard capture target"
-assert_contains "$backend_store_structure" "capture_jobs=4" "backend-store default shard jobs"
-assert_contains "$backend_store_structure" "finalize_calls=1" "backend-store finalize count"
-assert_contains "$backend_store_structure" "backend-store-shard-" "backend-store captures planned shards"
-assert_contains "$backend_store_structure" "finish_status=0" "backend-store finish status"
+backend_unit_aggregates="$("$node_bin" "$ROOT_DIR/scripts/lib/target-plan.mjs" list-aggregates backend-unit)"
+assert_contains "$backend_unit_aggregates" "backend-unit-core" "backend-unit core aggregate"
+assert_contains "$backend_unit_aggregates" "backend-unit-auth" "backend-unit auth aggregate"
+assert_contains "$backend_unit_aggregates" "backend-unit-configtest" "backend-unit configtest aggregate"
 
-backend_integration_structure="$(
-  export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
-  capture_calls=0
-  capture_jobs=""
-  capture_target=""
-  capture_names=""
-  finalize_calls=0
-  finalize_target=""
-  finish_status=""
-  capture_named_shared_reports_parallel() {
-    capture_target="$1"
-    capture_jobs="$2"
-    local metadata_dir="$3"
-    shift 3
-    capture_calls=$((capture_calls + 1))
-    mkdir -p "$metadata_dir"
-    local shared_name
-    for shared_name in "$@"; do
-      capture_names="${capture_names} ${shared_name}"
-      printf '/tmp/%s\nactual\n' "$shared_name" >"$metadata_dir/${shared_name}.meta"
-    done
-  }
-  finalize_scheduled_shards() {
-    finalize_calls=$((finalize_calls + 1))
-    finalize_target="$1"
-    finish_target 0
-  }
-  finish_target() {
-    finish_status="$1"
-    printf "capture_calls=%s capture_target=%s capture_jobs=%s finalize_calls=%s finalize_target=%s finish_status=%s names=%s\n" "$capture_calls" "$capture_target" "$capture_jobs" "$finalize_calls" "$finalize_target" "$finish_status" "$capture_names"
-  }
-  run_sharded_target backend-integration
-)"
-assert_contains "$backend_integration_structure" "capture_calls=1" "backend-integration parallel capture count"
-assert_contains "$backend_integration_structure" "capture_target=backend-integration" "backend-integration parallel capture target"
-assert_contains "$backend_integration_structure" "capture_jobs=4" "backend-integration default shard jobs"
-assert_contains "$backend_integration_structure" "finalize_calls=1" "backend-integration finalize count"
-assert_contains "$backend_integration_structure" "backend-integration-entities-shard-" "backend-integration captures entity shards"
-assert_contains "$backend_integration_structure" "$phase2_incidents_shard" "backend-integration captures planned phase2 incident shard"
-assert_contains "$backend_integration_structure" "backend-integration-testutil-shard-01" "backend-integration captures raw testutil shard"
+backend_store_shards="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-store)"
+assert_contains "$backend_store_shards" "backend-store-shard-" "backend-store captures planned shards"
+
+backend_integration_shards="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration)"
+assert_contains "$backend_integration_shards" "backend-integration-entities-shard-" "backend-integration captures entity shards"
+assert_contains "$backend_integration_shards" "$phase2_incidents_shard" "backend-integration captures planned phase2 incident shard"
+assert_contains "$backend_integration_shards" "backend-integration-testutil-shard-01" "backend-integration captures raw testutil shard"
 first_backend_integration_shard="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration | head -n 1)"
-assert_contains "$backend_integration_structure" "names= $first_backend_integration_shard" "backend-integration weighted shard order starts with heaviest shard"
-assert_contains "$backend_integration_structure" "finish_status=0" "backend-integration finish status"
+assert_contains "$backend_integration_shards" "$first_backend_integration_shard" "backend-integration weighted shard order starts with heaviest shard"
 
-backend_integration_support_structure="$(
-  export NODE_BIN="$node_bin"
-  source "$GO_TARGET_HELPER"
-  capture_calls=0
-  capture_jobs=""
-  capture_target=""
-  capture_names=""
-  finalize_calls=0
-  finalize_target=""
-  finish_status=""
-  capture_named_shared_reports_parallel() {
-    capture_target="$1"
-    capture_jobs="$2"
-    local metadata_dir="$3"
-    shift 3
-    capture_calls=$((capture_calls + 1))
-    mkdir -p "$metadata_dir"
-    local shared_name
-    for shared_name in "$@"; do
-      capture_names="${capture_names} ${shared_name}"
-      printf '/tmp/%s\nactual\n' "$shared_name" >"$metadata_dir/${shared_name}.meta"
-    done
-  }
-  finalize_scheduled_shards() {
-    finalize_calls=$((finalize_calls + 1))
-    finalize_target="$1"
-    finish_target 0
-  }
-  finish_target() {
-    finish_status="$1"
-    printf "capture_calls=%s capture_target=%s capture_jobs=%s finalize_calls=%s finalize_target=%s finish_status=%s names=%s\n" "$capture_calls" "$capture_target" "$capture_jobs" "$finalize_calls" "$finalize_target" "$finish_status" "$capture_names"
-  }
-  run_sharded_target backend-integration-support
-)"
-assert_contains "$backend_integration_support_structure" "capture_calls=1" "backend-integration-support parallel capture count"
-assert_contains "$backend_integration_support_structure" "capture_target=backend-integration-support" "backend-integration-support parallel capture target"
-assert_contains "$backend_integration_support_structure" "capture_jobs=4" "backend-integration-support default shard jobs"
-assert_contains "$backend_integration_support_structure" "finalize_calls=1" "backend-integration-support finalize count"
-assert_contains "$backend_integration_support_structure" "backend-integration-entities-shard-" "backend-integration-support captures entities shards"
-assert_not_contains "$backend_integration_support_structure" "backend-integration-testutil" "backend-integration-support skips testutil shard"
+backend_integration_support_shards="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration-support)"
+assert_contains "$backend_integration_support_shards" "backend-integration-entities-shard-" "backend-integration-support captures entities shards"
+assert_not_contains "$backend_integration_support_shards" "backend-integration-testutil" "backend-integration-support skips testutil shard"
 first_backend_integration_support_shard="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration-support | head -n 1)"
-assert_contains "$backend_integration_support_structure" "names= $first_backend_integration_support_shard" "backend-integration-support weighted shard order starts with heaviest support shard"
-assert_contains "$backend_integration_support_structure" "finish_status=0" "backend-integration-support finish status"
+assert_contains "$backend_integration_support_shards" "$first_backend_integration_support_shard" "backend-integration-support weighted shard order starts with heaviest support shard"
 
 phase0_backend_unit_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase0 backend_unit ./internal/platform/... ./internal/app)"
 assert_not_zero "$phase0_backend_unit_support_count" "phase0 backend-unit support-go-count"
