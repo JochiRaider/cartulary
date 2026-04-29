@@ -17,16 +17,28 @@ export const defaultTaskSurfaceManifestPath = path.join(
   "task_surface_manifest.json",
 );
 export const defaultGeneratedMakePath = path.join(repoRoot, "tools", "task_surface.generated.mk");
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v7";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v8";
 
 const validClassifications = new Set(["public", "check_internal", "helper_only"]);
 const validInclusions = new Set(["test", "check", "ci", "release-check", "helper_only"]);
+const validMakeRecipeTypes = new Set([
+  "sequence",
+  "check_schedule",
+  "go_target",
+  "service_backed_target",
+  "service_backed_schedule",
+  "browser_batch",
+  "phase_command",
+  "summary_target",
+]);
 const defaultHelpTierName = "daily";
 const defaultHelpMaxEntries = 20;
 const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const makeResourcePattern = /^[A-Za-z0-9_.-]+$/;
 const makePrerequisitePattern = /^(?:[A-Za-z0-9_.\/-]+|\$\([A-Z][A-Z0-9_]*\))$/;
+const makeValuePattern = /^[A-Za-z0-9_.$()/:, -]+$/;
+const makeTokenPattern = /^[A-Za-z0-9_.$()/:,="./-]+$/;
 const repoJSONPathPattern = /^[A-Za-z0-9_.\/-]+\.json$/;
 
 export function resolveRepoPath(value) {
@@ -286,6 +298,12 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
         }
       }
     }
+    if (!validMakeRecipeTypes.has(recipe.type)) {
+      errors.push(`${label}.type must be one of ${Array.from(validMakeRecipeTypes).join(", ")}`);
+      continue;
+    }
+    validateMakeExports(errors, recipe.exports, `${label}.exports`);
+    validateMakeComments(errors, recipe.comments, `${label}.comments`);
 
     if (recipe.type === "sequence") {
       if (typeof recipe.sequence !== "string" || !sequences?.[recipe.sequence]) {
@@ -344,7 +362,148 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
       continue;
     }
 
-    errors.push(`${label}.type must be sequence or check_schedule`);
+    if (recipe.type === "go_target") {
+      validateEnvEntries(errors, recipe.env, `${label}.env`);
+      continue;
+    }
+
+    if (recipe.type === "service_backed_target") {
+      validateEnvEntries(errors, recipe.env, `${label}.env`);
+      continue;
+    }
+
+    if (recipe.type === "service_backed_schedule") {
+      if (typeof recipe.phase_label !== "string" || recipe.phase_label.trim() === "") {
+        errors.push(`${label}.phase_label must be a non-empty string`);
+      }
+      if (!["test-services"].includes(recipe.service_wrapper)) {
+        errors.push(`${label}.service_wrapper must be test-services`);
+      }
+      continue;
+    }
+
+    if (recipe.type === "browser_batch") {
+      if (typeof recipe.stage !== "string" || !makeTargetPattern.test(recipe.stage)) {
+        errors.push(`${label}.stage must be a safe browser stage name`);
+      }
+      if (typeof recipe.workers !== "string" || !makeValuePattern.test(recipe.workers)) {
+        errors.push(`${label}.workers must be a safe Make value`);
+      }
+      if (!["direct", "test-services"].includes(recipe.service_wrapper)) {
+        errors.push(`${label}.service_wrapper must be direct or test-services`);
+      }
+      continue;
+    }
+
+    if (recipe.type === "phase_command") {
+      if (!["run_phase", "node", "command"].includes(recipe.mode)) {
+        errors.push(`${label}.mode must be run_phase, node, or command`);
+      }
+      validateEnvEntries(errors, recipe.env, `${label}.env`);
+      validateCommandTokens(errors, recipe.command, `${label}.command`, { required: recipe.mode !== "node" });
+      validateCommandTokens(errors, recipe.args, `${label}.args`, { required: false });
+      if (recipe.mode === "run_phase" && (typeof recipe.phase_label !== "string" || recipe.phase_label.trim() === "")) {
+        errors.push(`${label}.phase_label must be a non-empty string for run_phase`);
+      }
+      if (recipe.mode === "node") {
+        if (typeof recipe.script !== "string" || !makeTokenPattern.test(recipe.script)) {
+          errors.push(`${label}.script must be a safe node script token`);
+        } else {
+          validateScriptTokenExists(errors, recipe.script, `${label}.script`);
+        }
+      }
+      continue;
+    }
+
+    if (recipe.type === "summary_target") {
+      if (typeof recipe.child_target !== "string" || !targets.has(recipe.child_target)) {
+        errors.push(`${label}.child_target references unknown target ${JSON.stringify(recipe.child_target)}`);
+      }
+      if (recipe.status !== undefined && !["pass", "fail"].includes(recipe.status)) {
+        errors.push(`${label}.status must be pass or fail`);
+      }
+      if (recipe.projection !== undefined && (typeof recipe.projection !== "string" || !makeTargetPattern.test(recipe.projection))) {
+        errors.push(`${label}.projection must be a safe target token`);
+      }
+      continue;
+    }
+
+    errors.push(`${label}.type is unsupported`);
+  }
+}
+
+function validateMakeExports(errors, exports, label) {
+  if (exports === undefined) {
+    return;
+  }
+  if (!exports || typeof exports !== "object" || Array.isArray(exports)) {
+    errors.push(`${label} must be an object`);
+    return;
+  }
+  for (const [name, value] of Object.entries(exports)) {
+    if (!makeVariablePattern.test(name)) {
+      errors.push(`${label}.${name} must be a safe Make variable name`);
+    }
+    if (typeof value !== "string" || !makeValuePattern.test(value)) {
+      errors.push(`${label}.${name} must be a safe Make value`);
+    }
+  }
+}
+
+function validateMakeComments(errors, comments, label) {
+  if (comments === undefined) {
+    return;
+  }
+  if (!Array.isArray(comments)) {
+    errors.push(`${label} must be an array`);
+    return;
+  }
+  for (const [index, comment] of comments.entries()) {
+    if (typeof comment !== "string" || comment.trim() === "" || comment.includes("\n")) {
+      errors.push(`${label}[${index + 1}] must be a single-line comment`);
+    }
+  }
+}
+
+function validateEnvEntries(errors, env, label) {
+  if (env === undefined) {
+    return;
+  }
+  if (!env || typeof env !== "object" || Array.isArray(env)) {
+    errors.push(`${label} must be an object`);
+    return;
+  }
+  for (const [name, value] of Object.entries(env)) {
+    if (!makeVariablePattern.test(name)) {
+      errors.push(`${label}.${name} must be a safe environment variable name`);
+    }
+    if (typeof value !== "string" || !makeValuePattern.test(value)) {
+      errors.push(`${label}.${name} must be a safe Make value`);
+    }
+  }
+}
+
+function validateCommandTokens(errors, tokens, label, { required = true } = {}) {
+  if (tokens === undefined && !required) {
+    return;
+  }
+  if (!Array.isArray(tokens) || (required && tokens.length === 0)) {
+    errors.push(`${label} must be a ${required ? "non-empty " : ""}array`);
+    return;
+  }
+  for (const [index, token] of tokens.entries()) {
+    if (typeof token !== "string" || !makeTokenPattern.test(token)) {
+      errors.push(`${label}[${index + 1}] must be a safe command token`);
+      continue;
+    }
+    validateScriptTokenExists(errors, token, `${label}[${index + 1}]`);
+  }
+}
+
+function validateScriptTokenExists(errors, token, label) {
+  const script = token.startsWith("./scripts/") ? token.slice(2) : token.startsWith("scripts/") ? token : "";
+  if (script && !existsSync(path.join(repoRoot, script))) {
+    errors.push(`${label} references missing script ${script}`);
   }
 }
 
@@ -522,6 +681,7 @@ export function renderTaskSurfaceMake(manifest) {
 function renderMakeRecipe(recipe, manifest) {
   const prerequisites = (recipe.prerequisites ?? []).join(" ");
   const header = prerequisites ? `${recipe.target}: ${prerequisites}` : `${recipe.target}:`;
+  const prefix = renderRecipePrefix(recipe);
   if (recipe.type === "sequence") {
     const sequence = sequenceDefinition(manifest, recipe.sequence);
     const env = [
@@ -536,6 +696,7 @@ function renderMakeRecipe(recipe, manifest) {
       }
     }
     return [
+      ...prefix,
       header,
       `\t$(Q)${env.join(" ")} $(RUN_MAKE_SEQUENCE_SCRIPT) --sequence ${recipe.sequence}`,
     ];
@@ -545,11 +706,103 @@ function renderMakeRecipe(recipe, manifest) {
       .map((limit) => ` --resource-limit ${limit.resource}=$(${limit.variable})`)
       .join("");
     return [
+      ...prefix,
       header,
       `\t$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target ${recipe.target} --manifest "$(${recipe.manifest_variable})"${resourceArgs}`,
     ];
   }
+  if (recipe.type === "go_target") {
+    return [
+      ...prefix,
+      header,
+      `\t$(Q)env ${goTargetEnv(recipe).join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target ${recipe.target}`,
+    ];
+  }
+  if (recipe.type === "service_backed_target") {
+    return [
+      ...prefix,
+      header,
+      `\t$(Q)env ${goTargetEnv(recipe).join(" ")} $(TEST_SERVICES_BIN) run -- $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target ${recipe.target}`,
+    ];
+  }
+  if (recipe.type === "service_backed_schedule") {
+    const env = [
+      'NODE_BIN="$(NODE_BIN)"',
+      'TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)"',
+      'TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)"',
+      'TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)"',
+      'RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)"',
+      'RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)"',
+      'SERVICE_BACKED_SCHEDULE_MANIFEST="$(SERVICE_BACKED_SCHEDULE_MANIFEST)"',
+      'CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)"',
+    ];
+    return [
+      ...prefix,
+      header,
+      `\t$(Q)env ${env.join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target ${recipe.target} --phase-label "${recipe.phase_label}" --service-wrapper ${recipe.service_wrapper}`,
+    ];
+  }
+  if (recipe.type === "browser_batch") {
+    const wrapper = recipe.service_wrapper === "test-services" ? "$(TEST_SERVICES_BIN) run -- " : "";
+    return [
+      ...prefix,
+      header,
+      `\t$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=${recipe.workers} ${wrapper}./scripts/run-browser-e2e-target.sh ${recipe.stage}`,
+    ];
+  }
+  if (recipe.type === "phase_command") {
+    return [...prefix, header, ...renderPhaseCommandRecipe(recipe)];
+  }
+  if (recipe.type === "summary_target") {
+    const status = recipe.status ?? "pass";
+    const projection = recipe.projection ? ` --projection ${recipe.projection}` : "";
+    return [
+      ...prefix,
+      header,
+      `\t$(Q)$(MAKE) --no-print-directory ${recipe.child_target}`,
+      `\t$(TARGET_SUMMARY) ${recipe.target} ${status}${projection}`,
+    ];
+  }
   throw new Error(`unsupported Make recipe type ${recipe.type}`);
+}
+
+function renderRecipePrefix(recipe) {
+  const lines = [];
+  for (const comment of recipe.comments ?? []) {
+    lines.push(`# ${comment}`);
+  }
+  for (const [name, value] of Object.entries(recipe.exports ?? {})) {
+    lines.push(`${recipe.target}: export ${name} := ${value}`);
+  }
+  return lines;
+}
+
+function goTargetEnv(recipe) {
+  return [
+    "GO=$(GO)",
+    "GO_CACHE_DIR=$(GO_CACHE_DIR)",
+    "GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR)",
+    "NODE_BIN=$(NODE_BIN)",
+    ...Object.entries(recipe.env ?? {}).map(([name, value]) => `${name}=${value}`),
+    "GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM)",
+  ];
+}
+
+function renderPhaseCommandRecipe(recipe) {
+  const env = Object.entries(recipe.env ?? {}).map(([name, value]) => `${name}=${value}`);
+  const envPrefix = env.length > 0 ? `${env.join(" ")} ` : "";
+  const args = (recipe.args ?? []).join(" ");
+  const argsSuffix = args ? ` ${args}` : "";
+  if (recipe.mode === "run_phase") {
+    return [`\t$(RUN_PHASE) "${recipe.phase_label}" -- ${envPrefix}${recipe.command.join(" ")}${argsSuffix}`];
+  }
+  if (recipe.mode === "node") {
+    return [`\t$(Q)${envPrefix}$(NODE_BIN) ${recipe.script}${argsSuffix}`];
+  }
+  if (recipe.mode === "command") {
+    return [`\t$(Q)${envPrefix}${recipe.command.join(" ")}${argsSuffix}`];
+  }
+  throw new Error(`unsupported phase command mode ${recipe.mode}`);
 }
 
 export function helpLines(manifest) {

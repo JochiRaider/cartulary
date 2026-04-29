@@ -17,11 +17,11 @@ fail() {
 
 extract_target_block() {
   local target="$1"
-  cat "$generated_make" "$makefile" | awk -v target="$target" '
+  awk -v target="$target" '
     $0 ~ "^" target ":" { in_block=1; next }
     in_block && /^[^[:space:]].*:/ { exit }
     in_block { print }
-  '
+  ' "$generated_make" "$makefile"
 }
 
 extract_target_prereqs() {
@@ -32,7 +32,7 @@ extract_target_prereqs() {
       print
       exit
     }
-  ' "$makefile"
+  ' "$generated_make" "$makefile"
 }
 
 require_service_backed_schedule_target() {
@@ -46,11 +46,17 @@ require_service_backed_schedule_target() {
   if [[ -z "$block" ]]; then
     fail "Makefile must define a non-empty $target block"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq '$(call run_service_backed_schedule_target'; then
-    fail "$target must delegate through the canonical service-backed runner macro"
+  if ! printf '%s\n' "$block" | grep -Fq 'service-backed-target'; then
+    fail "$target must delegate through the canonical service-backed target runner"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq "$target,$phase_label"; then
-    fail "$target must pass its target and phase label to run_service_backed_schedule_target"
+  if ! printf '%s\n' "$block" | grep -Fq -- "--target $target"; then
+    fail "$target must pass its target to the service-backed target runner"
+  fi
+  if ! printf '%s\n' "$block" | grep -Fq -- "--phase-label \"$phase_label\""; then
+    fail "$target must pass phase label=$phase_label to the service-backed target runner"
+  fi
+  if ! printf '%s\n' "$block" | grep -Fq -- "--service-wrapper test-services"; then
+    fail "$target must run through the test-services service wrapper"
   fi
   if printf '%s\n' "$block" | grep -Fq -- '--jobs'; then
     fail "$target must not pass a fixed scheduler job cap"
@@ -540,7 +546,7 @@ if ! printf '%s\n' "$help_text" | grep -Fq 'does not reset object storage'; then
   fail "help must document db-reset object-storage scope"
 fi
 
-if ! rg -q '^backend-store:' "$makefile"; then
+if ! rg -q '^backend-store:' "$generated_make" "$makefile"; then
   fail "Makefile must define backend-store"
 fi
 

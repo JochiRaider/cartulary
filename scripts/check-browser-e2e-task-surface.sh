@@ -34,11 +34,11 @@ fail() {
 
 extract_target_block() {
   local target="$1"
-  cat "$generated_make" "$makefile" | awk -v target="$target" '
+  awk -v target="$target" '
     $0 ~ "^" target ":" { in_block=1; print; next }
     in_block && /^[^[:space:]].*:/ { exit }
     in_block { print }
-  '
+  ' "$generated_make" "$makefile"
 }
 
 require_browser_owned_stack_target_uses_built_binaries() {
@@ -70,11 +70,20 @@ require_browser_batch_target() {
   if [[ -z "$block" ]]; then
     fail "Makefile must define a non-empty $target block"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq '$(call run_browser_batch_target'; then
-    fail "$target must delegate through run_browser_batch_target"
+  if ! printf '%s\n' "$block" | grep -Fq './scripts/run-browser-e2e-target.sh'; then
+    fail "$target must delegate through the browser E2E target wrapper"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq "$stage,$workers,$service_wrapper"; then
-    fail "$target must pass stage=$stage workers=$workers wrapper=$service_wrapper to run_browser_batch_target"
+  if ! printf '%s\n' "$block" | grep -Fq "./scripts/run-browser-e2e-target.sh $stage"; then
+    fail "$target must pass stage=$stage to the browser E2E target wrapper"
+  fi
+  if ! printf '%s\n' "$block" | grep -Fq "PLAYWRIGHT_WORKERS=$workers"; then
+    fail "$target must set PLAYWRIGHT_WORKERS=$workers"
+  fi
+  if [[ "$service_wrapper" == "test-services" ]] && ! printf '%s\n' "$block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+    fail "$target must wrap the browser target through test services"
+  fi
+  if [[ "$service_wrapper" != "test-services" ]] && printf '%s\n' "$block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+    fail "$target must not wrap direct browser target through test services"
   fi
   if printf '%s\n' "$block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary'; then
     fail "$target Make target must not emit a duplicate browser target summary"
@@ -111,11 +120,17 @@ require_service_backed_schedule_target() {
   if [[ -z "$block" ]]; then
     fail "Makefile must define a non-empty $target block"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq '$(call run_service_backed_schedule_target'; then
-    fail "$target must delegate through run_service_backed_schedule_target"
+  if ! printf '%s\n' "$block" | grep -Fq 'service-backed-target'; then
+    fail "$target must delegate through the service-backed target runner"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq "$target,$phase_label"; then
-    fail "$target must pass target=$target and phase label=$phase_label to run_service_backed_schedule_target"
+  if ! printf '%s\n' "$block" | grep -Fq -- "--target $target"; then
+    fail "$target must pass target=$target to the service-backed target runner"
+  fi
+  if ! printf '%s\n' "$block" | grep -Fq -- "--phase-label \"$phase_label\""; then
+    fail "$target must pass phase label=$phase_label to the service-backed target runner"
+  fi
+  if ! printf '%s\n' "$block" | grep -Fq -- "--service-wrapper test-services"; then
+    fail "$target must run through the test-services service wrapper"
   fi
   if printf '%s\n' "$block" | grep -Fq -- '--jobs'; then
     fail "$target must not pass a fixed scheduler job cap"
@@ -280,23 +295,9 @@ fi
 if ! printf '%s\n' "$browser_e2e_owned_stack_env" | grep -Fq 'CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES=1'; then
   fail "BROWSER_E2E_OWNED_STACK_ENV must opt Makefile-owned browser E2E into built repo-root binaries"
 fi
-if ! grep -Fq 'define run_browser_batch_target' "$makefile"; then
-  fail "Makefile must define run_browser_batch_target"
+if grep -Fq 'define run_browser_batch_target' "$makefile"; then
+  fail "Makefile must not keep the legacy run_browser_batch_target macro"
 fi
-run_browser_batch_helper="$(awk '
-  /^define run_browser_batch_target$/ { in_define=1; print; next }
-  in_define && /^endef$/ { print; exit }
-  in_define { print }
-' "$makefile")"
-for required_browser_helper_fragment in \
-  '$(BROWSER_E2E_OWNED_STACK_ENV)' \
-  'PLAYWRIGHT_WORKERS=$(2)' \
-  './scripts/run-browser-e2e-target.sh $(1)'
-do
-  if [[ "$run_browser_batch_helper" != *"$required_browser_helper_fragment"* ]]; then
-    fail "run_browser_batch_target must contain $required_browser_helper_fragment"
-  fi
-done
 
 for browser_owned_stack_target in \
   browser-e2e-webserver-backed \
@@ -599,7 +600,7 @@ if (nested.forwarding !== "check_host_to_service_backed_go") {
 }
 EOF
 
-if ! rg -q '^browser-e2e-webserver-backed:' "$makefile"; then
+if ! rg -q '^browser-e2e-webserver-backed:' "$generated_make" "$makefile"; then
   fail "Makefile must define browser-e2e-webserver-backed"
 fi
 browser_webserver_backed_block="$(extract_target_block browser-e2e-webserver-backed)"

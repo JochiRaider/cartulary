@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 makefile="$repo_root/Makefile"
+generated_make="$repo_root/tools/task_surface.generated.mk"
 runner_script="$repo_root/scripts/run-frontend-unit.sh"
 node_bin="${NODE_BIN:-node}"
 
@@ -18,7 +19,7 @@ extract_target_block() {
     $0 ~ "^" target ":" { in_block=1; next }
     in_block && /^[^[:space:]].*:/ { exit }
     in_block { print }
-  ' "$makefile"
+  ' "$generated_make" "$makefile"
 }
 
 extract_target_prereqs() {
@@ -29,7 +30,7 @@ extract_target_prereqs() {
       print
       exit
     }
-  ' "$makefile"
+  ' "$generated_make" "$makefile"
 }
 
 assert_text_has_token() {
@@ -94,7 +95,7 @@ assert_text_order() {
   fi
 }
 
-if ! rg -q '^frontend-task-surface-check:' "$makefile"; then
+if ! rg -q '^frontend-task-surface-check:' "$generated_make" "$makefile"; then
   fail "Makefile must define frontend-task-surface-check"
 fi
 

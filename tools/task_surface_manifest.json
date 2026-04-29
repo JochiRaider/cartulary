@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.task_surface_manifest.v7",
+  "schema_id": "cartulary.task_surface_manifest.v8",
   "help_tiers": [
     {
       "name": "daily",
@@ -97,22 +97,422 @@
     }
   },
   "make_recipes": {
-    "test": {
-      "type": "sequence",
-      "sequence": "test",
-      "prerequisites": ["$(NODE_BIN)", "$(FRONTEND_INSTALL_STAMP)"]
-    },
-    "check": {
-      "type": "check_schedule",
-      "target": "check",
-      "schedule_manifest": "tools/check_schedule_manifest.json",
-      "manifest_variable": "CHECK_SCHEDULE_MANIFEST",
-      "resource_limits": [
-        { "resource": "host_cpu", "variable": "CHECK_HOST_CPU_JOBS" },
-        { "resource": "host_io", "variable": "CHECK_HOST_IO_JOBS" }
-      ],
-      "prerequisites": ["$(NODE_BIN)"]
-    }
+      "test": {
+          "type": "sequence",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)"
+          ],
+          "sequence": "test"
+      },
+      "check": {
+          "type": "check_schedule",
+          "prerequisites": [
+              "$(NODE_BIN)"
+          ],
+          "target": "check",
+          "schedule_manifest": "tools/check_schedule_manifest.json",
+          "manifest_variable": "CHECK_SCHEDULE_MANIFEST",
+          "resource_limits": [
+              {
+                  "resource": "host_cpu",
+                  "variable": "CHECK_HOST_CPU_JOBS"
+              },
+              {
+                  "resource": "host_io",
+                  "variable": "CHECK_HOST_IO_JOBS"
+              }
+          ]
+      },
+      "run-harness-smoke-fast": {
+          "type": "phase_command",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)"
+          ],
+          "mode": "node",
+          "env": {
+              "NODE_BIN": "$(NODE_BIN)",
+              "TEST_OUTPUT_SCRIPT": "$(TEST_OUTPUT_SCRIPT)",
+              "TASK_SURFACE_MANIFEST": "$(TASK_SURFACE_MANIFEST)"
+          },
+          "script": "$(RUN_HARNESS_SMOKE_SCRIPT)",
+          "args": [
+              "--tier",
+              "fast",
+              "--jobs",
+              "\"$(HARNESS_SMOKE_JOBS)\""
+          ]
+      },
+      "run-harness-smoke-extended": {
+          "type": "phase_command",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)"
+          ],
+          "mode": "node",
+          "env": {
+              "NODE_BIN": "$(NODE_BIN)",
+              "TEST_OUTPUT_SCRIPT": "$(TEST_OUTPUT_SCRIPT)",
+              "TASK_SURFACE_MANIFEST": "$(TASK_SURFACE_MANIFEST)"
+          },
+          "script": "$(RUN_HARNESS_SMOKE_SCRIPT)",
+          "args": [
+              "--tier",
+              "extended",
+              "--jobs",
+              "\"$(HARNESS_SMOKE_JOBS)\""
+          ]
+      },
+      "run-harness-smoke-full": {
+          "type": "phase_command",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)"
+          ],
+          "mode": "node",
+          "env": {
+              "NODE_BIN": "$(NODE_BIN)",
+              "TEST_OUTPUT_SCRIPT": "$(TEST_OUTPUT_SCRIPT)",
+              "TASK_SURFACE_MANIFEST": "$(TASK_SURFACE_MANIFEST)"
+          },
+          "script": "$(RUN_HARNESS_SMOKE_SCRIPT)",
+          "args": [
+              "--tier",
+              "full",
+              "--jobs",
+              "\"$(HARNESS_SMOKE_JOBS)\""
+          ]
+      },
+      "phase-test-name-check": {
+          "type": "phase_command",
+          "prerequisites": [
+              "$(NODE_BIN)"
+          ],
+          "mode": "run_phase",
+          "phase_label": "phase-test-name-check",
+          "command": [
+              "$(NODE_BIN)",
+              "./scripts/check-phase-test-names.mjs"
+          ]
+      },
+      "browser-e2e-task-surface-check": {
+          "type": "phase_command",
+          "prerequisites": [],
+          "mode": "run_phase",
+          "phase_label": "browser-e2e-task-surface-check",
+          "command": [
+              "./scripts/check-browser-e2e-task-surface.sh"
+          ]
+      },
+      "frontend-task-surface-check": {
+          "type": "phase_command",
+          "prerequisites": [
+              "$(NODE_BIN)"
+          ],
+          "mode": "run_phase",
+          "phase_label": "frontend-task-surface-check",
+          "command": [
+              "env",
+              "NODE_BIN=$(NODE_BIN)",
+              "./scripts/check-frontend-task-surface.sh"
+          ]
+      },
+      "backend-task-surface-check": {
+          "type": "phase_command",
+          "prerequisites": [
+              "$(NODE_BIN)"
+          ],
+          "mode": "run_phase",
+          "phase_label": "backend-task-surface-check",
+          "command": [
+              "env",
+              "NODE_BIN=$(NODE_BIN)",
+              "./scripts/check-backend-task-surface.sh"
+          ]
+      },
+      "service-backed-unit-check": {
+          "type": "phase_command",
+          "prerequisites": [],
+          "mode": "run_phase",
+          "phase_label": "service-backed-unit-check",
+          "command": [
+              "./scripts/check-service-backed-unit-tests.sh"
+          ]
+      },
+      "test-fast-service-backed": {
+          "type": "service_backed_schedule",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)",
+              "build-server",
+              "$(TEST_SERVICES_BIN)",
+              "test-service-images"
+          ],
+          "exports": {
+              "CARTULARY_TEST_TARGET": "test-fast-service-backed"
+          },
+          "phase_label": "test-fast service-backed",
+          "service_wrapper": "test-services"
+      },
+      "test-service-backed": {
+          "type": "service_backed_schedule",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)",
+              "build-server",
+              "build-migrate",
+              "$(TEST_SERVICES_BIN)",
+              "test-service-images"
+          ],
+          "exports": {
+              "CARTULARY_TEST_TARGET": "test-service-backed"
+          },
+          "phase_label": "test service-backed",
+          "service_wrapper": "test-services"
+      },
+      "backend-unit": {
+          "type": "go_target",
+          "prerequisites": [
+              "$(NODE_BIN)"
+          ],
+          "exports": {
+              "CARTULARY_TEST_TARGET": "backend-unit",
+              "CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION": "phase1:unit:authoritative:backend_unit:./internal/platform/..."
+          }
+      },
+      "backend-store": {
+          "type": "service_backed_target",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(TEST_SERVICES_BIN)",
+              "test-service-images"
+          ],
+          "exports": {
+              "CARTULARY_TEST_TARGET": "backend-store"
+          },
+          "env": {
+              "GO_TEST_PACKAGE_PARALLELISM": "$(EFFECTIVE_BACKEND_STORE_GO_TEST_P)"
+          }
+      },
+      "backend-integration": {
+          "type": "service_backed_target",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(TEST_SERVICES_BIN)",
+              "test-service-images"
+          ],
+          "exports": {
+              "CARTULARY_TEST_TARGET": "backend-integration"
+          },
+          "env": {
+              "GO_TEST_PACKAGE_PARALLELISM": "$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P)",
+              "BACKEND_INTEGRATION_SHARD_JOBS": "$(BACKEND_INTEGRATION_SHARD_JOBS)"
+          }
+      },
+      "backend-integration-support": {
+          "type": "service_backed_target",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(TEST_SERVICES_BIN)",
+              "test-service-images"
+          ],
+          "exports": {
+              "CARTULARY_TEST_TARGET": "backend-integration-support"
+          },
+          "env": {
+              "GO_TEST_PACKAGE_PARALLELISM": "$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P)",
+              "BACKEND_INTEGRATION_SHARD_JOBS": "$(BACKEND_INTEGRATION_SHARD_JOBS)"
+          }
+      },
+      "backend-process": {
+          "type": "service_backed_target",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "build-server",
+              "$(TEST_SERVICES_BIN)",
+              "test-service-images"
+          ],
+          "comments": [
+              "Phase 0 process evidence is part of the developer gate and must never be direct-run only."
+          ],
+          "exports": {
+              "CARTULARY_TEST_TARGET": "backend-process"
+          },
+          "env": {
+              "CARTULARY_SERVER_BIN": "$(SERVER_BIN)"
+          }
+      },
+      "browser-e2e": {
+          "type": "browser_batch",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)",
+              "build-server",
+              "build-migrate",
+              "$(TEST_SERVICES_BIN)",
+              "test-service-images"
+          ],
+          "exports": {
+              "CARTULARY_TEST_TARGET": "browser-e2e"
+          },
+          "stage": "isolated",
+          "workers": "1",
+          "service_wrapper": "test-services"
+      },
+      "browser-e2e-webserver-backed": {
+          "type": "browser_batch",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)",
+              "build-server",
+              "build-migrate"
+          ],
+          "exports": {
+              "CARTULARY_TEST_TARGET": "browser-e2e-webserver-backed"
+          },
+          "stage": "webserver-backed",
+          "workers": "$(PLAYWRIGHT_WORKERS)",
+          "service_wrapper": "direct"
+      },
+      "browser-e2e-functional": {
+          "type": "browser_batch",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)",
+              "build-server",
+              "build-migrate"
+          ],
+          "exports": {
+              "CARTULARY_TEST_TARGET": "browser-e2e-functional"
+          },
+          "stage": "functional",
+          "workers": "$(PLAYWRIGHT_WORKERS)",
+          "service_wrapper": "direct"
+      },
+      "browser-e2e-support": {
+          "type": "browser_batch",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)",
+              "build-server",
+              "build-migrate"
+          ],
+          "exports": {
+              "CARTULARY_TEST_TARGET": "browser-e2e-support"
+          },
+          "stage": "support",
+          "workers": "$(PLAYWRIGHT_WORKERS)",
+          "service_wrapper": "direct"
+      },
+      "browser-e2e-stateful": {
+          "type": "browser_batch",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)",
+              "build-server",
+              "build-migrate"
+          ],
+          "comments": [
+              "Browser evidence that mutates process-global backend state belongs here."
+          ],
+          "exports": {
+              "CARTULARY_TEST_TARGET": "browser-e2e-stateful"
+          },
+          "stage": "stateful",
+          "workers": "1",
+          "service_wrapper": "direct"
+      },
+      "browser-e2e-resettable": {
+          "type": "browser_batch",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)",
+              "build-server",
+              "build-migrate"
+          ],
+          "exports": {
+              "CARTULARY_TEST_TARGET": "browser-e2e-resettable"
+          },
+          "stage": "resettable",
+          "workers": "1",
+          "service_wrapper": "direct"
+      },
+      "browser-e2e-measurement": {
+          "type": "browser_batch",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)",
+              "build-server",
+              "build-migrate"
+          ],
+          "comments": [
+              "Ordinary implementation/regression measurement; not claim-bearing Core 05 publication evidence."
+          ],
+          "exports": {
+              "CARTULARY_TEST_TARGET": "browser-e2e-measurement"
+          },
+          "stage": "measurement",
+          "workers": "1",
+          "service_wrapper": "direct"
+      },
+      "browser-e2e-visual": {
+          "type": "browser_batch",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)",
+              "build-server",
+              "build-migrate"
+          ],
+          "exports": {
+              "CARTULARY_TEST_TARGET": "browser-e2e-visual"
+          },
+          "stage": "visual",
+          "workers": "1",
+          "service_wrapper": "direct"
+      },
+      "check-go-test-duration-baseline-drift": {
+          "type": "summary_target",
+          "prerequisites": [],
+          "child_target": "go-test-duration-baseline-drift",
+          "status": "pass"
+      },
+      "check-browser-e2e-duration-baseline-drift": {
+          "type": "summary_target",
+          "prerequisites": [],
+          "child_target": "browser-e2e-duration-baseline-drift",
+          "status": "pass"
+      },
+      "check-service-backed": {
+          "type": "service_backed_schedule",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)",
+              "build-server",
+              "build-migrate",
+              "test-service-images"
+          ],
+          "exports": {
+              "CARTULARY_TEST_TARGET": "check-service-backed"
+          },
+          "phase_label": "check service-backed",
+          "service_wrapper": "test-services"
+      },
+      "task-surface-check": {
+          "type": "phase_command",
+          "prerequisites": [
+              "$(NODE_BIN)"
+          ],
+          "mode": "run_phase",
+          "phase_label": "task-surface-check",
+          "command": [
+              "$(NODE_BIN)",
+              "./scripts/print-task-surface-report.mjs"
+          ],
+          "args": [
+              "--check"
+          ]
+      }
   },
   "harness_tiers": { "fast": { "checks": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-phase-test-names", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-cartulary-runner-service-backed-target", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase"] }, "extended": { "checks": ["harness-smoke-run-make-sequence", "harness-smoke-run-go-target"] }, "lifecycle": { "checks": ["harness-smoke-web-e2e-lifecycle", "harness-smoke-dev-stack-lifecycle"] }, "full": { "checks": ["harness-smoke-toolchain-pins", "harness-smoke-bootstrap-node-runtime", "harness-smoke-build-input-discovery", "harness-smoke-check-migrations", "harness-smoke-generate-drift", "harness-smoke-run-make-sequence-fast", "harness-smoke-release-task-surface", "harness-smoke-benchmark-claim-check", "harness-smoke-task-surface-report", "harness-smoke-go-test-duration-baselines", "harness-smoke-browser-shard-plan", "harness-smoke-phase-test-names", "harness-smoke-run-phase", "harness-smoke-run-go-target-fast", "harness-smoke-print-target-plan", "harness-smoke-service-backed-scheduler", "harness-smoke-cartulary-runner-service-backed-target", "harness-smoke-check-scheduler", "harness-smoke-run-playwright-phase", "harness-smoke-run-playwright-manifest-phase", "harness-smoke-run-playwright-webserver-batch", "harness-smoke-run-vitest-phase", "harness-smoke-run-vitest-manifest-phase", "harness-smoke-run-make-sequence", "harness-smoke-run-go-target", "harness-smoke-web-e2e-lifecycle", "harness-smoke-dev-stack-lifecycle"] } },
   "targets": [

@@ -71,14 +71,6 @@ RUN_VITEST_MANIFEST_PHASE = $(Q)NODE_BIN=$(NODE_BIN) $(RUN_VITEST_MANIFEST_PHASE
 RUN_PHASE_ALLOW_SUCCESS_LOG = $(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT)
 TARGET_SUMMARY = $(Q)NODE_BIN=$(NODE_BIN) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) target-summary
 
-define run_service_backed_schedule_target
-$(Q)env MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)" SERVICE_BACKED_SCHEDULE_MANIFEST="$(SERVICE_BACKED_SCHEDULE_MANIFEST)" CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)" $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target $(1) --phase-label "$(2)" --service-wrapper test-services
-endef
-
-define run_browser_batch_target
-$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=$(2) $(if $(filter test-services,$(3)),$(TEST_SERVICES_BIN) run -- ,)./scripts/run-browser-e2e-target.sh $(1)
-endef
-
 define resolve_service_go_test_p
 $(if $(filter environment environment override command line override,$(origin $(1))),$($(1)),$(if $(filter environment environment override command line override,$(origin GO_TEST_SERVICE_PACKAGE_PARALLELISM)),$(GO_TEST_SERVICE_PACKAGE_PARALLELISM),$($(1))))
 endef
@@ -393,33 +385,6 @@ benchmark-claim-check: $(NODE_BIN)
 task-surface-report: $(NODE_BIN)
 	$(Q)$(NODE_BIN) ./scripts/print-task-surface-report.mjs $(TASK_SURFACE_REPORT_ARGS)
 
-task-surface-check: $(NODE_BIN)
-	$(RUN_PHASE) "task-surface-check" -- $(NODE_BIN) ./scripts/print-task-surface-report.mjs --check
-
-run-harness-smoke-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_HARNESS_SMOKE_SCRIPT) --tier fast --jobs "$(HARNESS_SMOKE_JOBS)"
-
-run-harness-smoke-extended: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_HARNESS_SMOKE_SCRIPT) --tier extended --jobs "$(HARNESS_SMOKE_JOBS)"
-
-run-harness-smoke-full: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_HARNESS_SMOKE_SCRIPT) --tier full --jobs "$(HARNESS_SMOKE_JOBS)"
-
-phase-test-name-check: $(NODE_BIN)
-	$(RUN_PHASE) "phase-test-name-check" -- $(NODE_BIN) ./scripts/check-phase-test-names.mjs
-
-browser-e2e-task-surface-check:
-	$(RUN_PHASE) "browser-e2e-task-surface-check" -- ./scripts/check-browser-e2e-task-surface.sh
-
-frontend-task-surface-check: $(NODE_BIN)
-	$(RUN_PHASE) "frontend-task-surface-check" -- env NODE_BIN=$(NODE_BIN) ./scripts/check-frontend-task-surface.sh
-
-backend-task-surface-check: $(NODE_BIN)
-	$(RUN_PHASE) "backend-task-surface-check" -- env NODE_BIN=$(NODE_BIN) ./scripts/check-backend-task-surface.sh
-
-service-backed-unit-check:
-	$(RUN_PHASE) "service-backed-unit-check" -- ./scripts/check-service-backed-unit-tests.sh
-
 test-service-images: $(TEST_SERVICES_BIN)
 	$(RUN_PHASE) "warm test service images" -- $(TEST_SERVICES_BIN) warm-images
 
@@ -428,22 +393,6 @@ test-local: backend-unit frontend-typecheck frontend-unit
 test-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
 	$(Q)$(MAKE) --no-print-directory --output-sync=target -j3 test-local
 	$(Q)$(MAKE) --no-print-directory test-fast-service-backed
-
-test-fast-service-backed: export CARTULARY_TEST_TARGET := test-fast-service-backed
-
-test-fast-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server $(TEST_SERVICES_BIN) test-service-images
-	$(call run_service_backed_schedule_target,test-fast-service-backed,test-fast service-backed)
-
-test-service-backed: export CARTULARY_TEST_TARGET := test-service-backed
-
-test-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN) test-service-images
-	$(call run_service_backed_schedule_target,test-service-backed,test service-backed)
-
-backend-unit: export CARTULARY_TEST_TARGET := backend-unit
-backend-unit: export CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION := phase1:unit:authoritative:backend_unit:./internal/platform/...
-
-backend-unit: $(NODE_BIN)
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target backend-unit
 
 target-plan:
 	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/print-target-plan.mjs
@@ -487,27 +436,6 @@ go-test-duration-baseline-drift:
 browser-e2e-duration-baseline-drift:
 	$(Q)results_dir="$(RESULTS_DIR)"; if [ -z "$$results_dir" ]; then results_dir="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)"; fi; node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/lib/browser-shard-plan.mjs check-baseline-drift $(if $(BASELINE_FILE),--baseline-file "$(BASELINE_FILE)") "$$results_dir"
 
-backend-store: export CARTULARY_TEST_TARGET := backend-store
-
-backend-store: $(NODE_BIN) $(TEST_SERVICES_BIN) test-service-images
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_PACKAGE_PARALLELISM=$(EFFECTIVE_BACKEND_STORE_GO_TEST_P) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(TEST_SERVICES_BIN) run -- $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target backend-store
-
-backend-integration: export CARTULARY_TEST_TARGET := backend-integration
-
-backend-integration: $(NODE_BIN) $(TEST_SERVICES_BIN) test-service-images
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_PACKAGE_PARALLELISM=$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) BACKEND_INTEGRATION_SHARD_JOBS=$(BACKEND_INTEGRATION_SHARD_JOBS) $(TEST_SERVICES_BIN) run -- $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target backend-integration
-
-backend-integration-support: export CARTULARY_TEST_TARGET := backend-integration-support
-
-backend-integration-support: $(NODE_BIN) $(TEST_SERVICES_BIN) test-service-images
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) GO_TEST_PACKAGE_PARALLELISM=$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) BACKEND_INTEGRATION_SHARD_JOBS=$(BACKEND_INTEGRATION_SHARD_JOBS) $(TEST_SERVICES_BIN) run -- $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target backend-integration-support
-
-backend-process: export CARTULARY_TEST_TARGET := backend-process
-
-# Phase 0 process evidence is part of the developer gate and must never be direct-run only.
-backend-process: $(NODE_BIN) build-server $(TEST_SERVICES_BIN) test-service-images
-	$(Q)env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_BIN=$(NODE_BIN) CARTULARY_SERVER_BIN=$(SERVER_BIN) GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM) $(TEST_SERVICES_BIN) run -- $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target backend-process
-
 frontend-unit: export CARTULARY_TEST_TARGET := frontend-unit
 
 frontend-typecheck: export CARTULARY_TEST_TARGET := frontend-typecheck
@@ -518,48 +446,6 @@ frontend-typecheck: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 
 frontend-unit: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)env PNPM=$(PNPM) NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) VITEST_FLAGS="$(VITEST_FLAGS)" VITEST_MAX_WORKERS=$(VITEST_MAX_WORKERS) ./scripts/run-frontend-unit.sh
-
-browser-e2e: export CARTULARY_TEST_TARGET := browser-e2e
-
-browser-e2e: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate $(TEST_SERVICES_BIN) test-service-images
-	$(call run_browser_batch_target,isolated,1,test-services)
-
-browser-e2e-webserver-backed: export CARTULARY_TEST_TARGET := browser-e2e-webserver-backed
-
-browser-e2e-webserver-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(call run_browser_batch_target,webserver-backed,$(PLAYWRIGHT_WORKERS),direct)
-
-browser-e2e-functional: export CARTULARY_TEST_TARGET := browser-e2e-functional
-
-browser-e2e-functional: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(call run_browser_batch_target,functional,$(PLAYWRIGHT_WORKERS),direct)
-
-browser-e2e-support: export CARTULARY_TEST_TARGET := browser-e2e-support
-
-browser-e2e-support: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(call run_browser_batch_target,support,$(PLAYWRIGHT_WORKERS),direct)
-
-browser-e2e-stateful: export CARTULARY_TEST_TARGET := browser-e2e-stateful
-
-# Browser evidence that mutates process-global backend state belongs here.
-browser-e2e-stateful: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(call run_browser_batch_target,stateful,1,direct)
-
-browser-e2e-resettable: export CARTULARY_TEST_TARGET := browser-e2e-resettable
-
-browser-e2e-resettable: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(call run_browser_batch_target,resettable,1,direct)
-
-browser-e2e-measurement: export CARTULARY_TEST_TARGET := browser-e2e-measurement
-
-# Ordinary implementation/regression measurement; not claim-bearing Core 05 publication evidence.
-browser-e2e-measurement: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(call run_browser_batch_target,measurement,1,direct)
-
-browser-e2e-visual: export CARTULARY_TEST_TARGET := browser-e2e-visual
-
-browser-e2e-visual: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
-	$(call run_browser_batch_target,visual,1,direct)
 
 lint: lint-go lint-biome frontend-typecheck
 
@@ -609,22 +495,9 @@ check-build-prereqs: build-server build-migrate test-service-images
 
 check-local-product: migration-drift lint-go frontend-typecheck backend-unit deployable-shape
 
-check-go-test-duration-baseline-drift:
-	$(Q)$(MAKE) --no-print-directory go-test-duration-baseline-drift
-	$(TARGET_SUMMARY) check-go-test-duration-baseline-drift pass
-
-check-browser-e2e-duration-baseline-drift:
-	$(Q)$(MAKE) --no-print-directory browser-e2e-duration-baseline-drift
-	$(TARGET_SUMMARY) check-browser-e2e-duration-baseline-drift pass
-
 check-frontend-unit: frontend-unit
 
 check-meta-validation: check-static-validation check-harness-smoke
-
-check-service-backed: export CARTULARY_TEST_TARGET := check-service-backed
-
-check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate test-service-images
-	$(call run_service_backed_schedule_target,check-service-backed,check service-backed)
 
 ci:
 	$(Q)./scripts/ci/verify.sh
