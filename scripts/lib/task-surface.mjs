@@ -3,6 +3,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { assertKnownResource } from "./scheduler-resources.mjs";
+import {
+  collectExplicitSummaryProjectionErrors,
+  loadSummaryTopologyContext,
+  resolveSummaryGroups,
+} from "./summary-topology.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..");
@@ -12,7 +17,7 @@ export const defaultTaskSurfaceManifestPath = path.join(
   "task_surface_manifest.json",
 );
 export const defaultGeneratedMakePath = path.join(repoRoot, "tools", "task_surface.generated.mk");
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v6";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v7";
 
 const validClassifications = new Set(["public", "check_internal", "helper_only"]);
 const validInclusions = new Set(["test", "check", "ci", "release-check", "helper_only"]);
@@ -63,38 +68,6 @@ export function summaryEntryMap(manifest) {
   return new Map([...targetEntryMap(manifest), ...harnessCheckEntryMap(manifest)]);
 }
 
-export function summaryProfile(manifest, name) {
-  const profile = manifest.summary_profiles?.[name];
-  if (!profile) {
-    throw new Error(`unknown task-surface summary profile ${name}`);
-  }
-  return {
-    name,
-    summaryTargets: [...profile.summary_targets],
-    groups: (profile.groups ?? []).map((group) => ({
-      name: group.name,
-      summaryTargets: [...group.summary_targets],
-    })),
-  };
-}
-
-export function summaryProfileArgs(manifest, name) {
-  const profile = summaryProfile(manifest, name);
-  const args = {
-    summaryTargets: profile.summaryTargets,
-    groupsSpec: profile.groups
-      .map((group) => `${group.name}=${group.summaryTargets.join(",")}`)
-      .join(";"),
-  };
-  return args;
-}
-
-export function projectionChildren(manifest, target) {
-  const entry = summaryEntryMap(manifest).get(target);
-  const children = entry?.summary_projection?.children ?? [];
-  return [...children];
-}
-
 export function harnessTierChecks(manifest, name) {
   const tier = manifest.harness_tiers?.[name];
   if (!tier) {
@@ -121,12 +94,13 @@ export function sequenceDefinition(manifest, name) {
   }
   return {
     name,
-    summaryProfile: sequence.summary_profile,
+    summaryGroups: sequence.summary_groups ?? [],
     steps: sequence.steps.map((step) => ({
       type: step.type,
       target: step.target,
       jobs: step.jobs,
       jobsVariable: step.jobs_variable,
+      producesSummaryTargets: [...(step.produces_summary_targets ?? [])],
     })),
   };
 }
@@ -197,12 +171,6 @@ export function collectTaskSurfaceManifestErrors(manifest) {
         }
       }
     }
-    if (entry.summary_projection !== undefined) {
-      const children = entry.summary_projection?.children;
-      if (!Array.isArray(children)) {
-        errors.push(`${entry.name}.summary_projection.children must be an array`);
-      }
-    }
   }
 
   const harnessChecks = new Map();
@@ -239,28 +207,15 @@ export function collectTaskSurfaceManifestErrors(manifest) {
           }
         }
       }
-      if (entry.summary_projection !== undefined) {
-        const children = entry.summary_projection?.children;
-        if (!Array.isArray(children)) {
-          errors.push(`${entry.name}.summary_projection.children must be an array`);
-        }
-      }
     }
   }
 
   const summaryEntries = new Map([...targets, ...harnessChecks]);
-  for (const entry of summaryEntries.values()) {
-    for (const child of entry.summary_projection?.children ?? []) {
-      if (!summaryEntries.has(child)) {
-        errors.push(`${entry.name} summary projection references unknown child target ${child}`);
-      }
-    }
-  }
+  const topologyContext = loadSummaryTopologyContext({ taskSurfaceManifest: manifest });
+  errors.push(...collectExplicitSummaryProjectionErrors(manifest, topologyContext));
 
   validateHelpTiers(errors, targets, manifest.help_tiers);
 
-  validateNamedTargetLists(errors, summaryEntries, manifest.summary_profiles, "summary_profiles");
-  validateSummaryProfileAccountingRoots(errors, summaryEntries, manifest.summary_profiles);
   validateHarnessTiers(errors, harnessChecks, manifest.harness_tiers);
 
   if (!manifest.sequences || typeof manifest.sequences !== "object" || Array.isArray(manifest.sequences)) {
@@ -270,8 +225,12 @@ export function collectTaskSurfaceManifestErrors(manifest) {
       if (!targets.has(name)) {
         errors.push(`sequence ${name} does not match a declared target`);
       }
-      if (typeof sequence.summary_profile !== "string" || !manifest.summary_profiles?.[sequence.summary_profile]) {
-        errors.push(`sequence ${name} references unknown summary profile ${JSON.stringify(sequence.summary_profile)}`);
+      if (sequence.summary_profile !== undefined) {
+        errors.push(`sequence ${name} must use summary_groups and step produces_summary_targets, not summary_profile`);
+      }
+      validateSummaryGroups(errors, summaryEntries, topologyContext, sequence.summary_groups, `sequence ${name}`);
+      if (!sequence.steps?.some((step) => Array.isArray(step.produces_summary_targets) && step.produces_summary_targets.length > 0)) {
+        errors.push(`sequence ${name} must declare step produces_summary_targets`);
       }
       if (!Array.isArray(sequence.steps) || sequence.steps.length === 0) {
         errors.push(`sequence ${name} must declare steps[]`);
@@ -288,16 +247,19 @@ export function collectTaskSurfaceManifestErrors(manifest) {
         if (step.type === "parallel" && typeof step.jobs_variable !== "string" && !Number.isInteger(step.jobs)) {
           errors.push(`${label} parallel step must declare jobs or jobs_variable`);
         }
+        validateNamedTargetList(errors, summaryEntries, step.produces_summary_targets, `${label}.produces_summary_targets`, {
+          required: false,
+        });
       }
     }
   }
 
-  validateMakeRecipes(errors, targets, manifest.summary_profiles, manifest.sequences, manifest.make_recipes);
+  validateMakeRecipes(errors, targets, manifest.sequences, manifest.make_recipes);
 
   return errors;
 }
 
-function validateMakeRecipes(errors, targets, summaryProfiles, sequences, recipes) {
+function validateMakeRecipes(errors, targets, sequences, recipes) {
   if (!recipes || typeof recipes !== "object" || Array.isArray(recipes)) {
     errors.push("make_recipes must be an object");
     return;
@@ -336,12 +298,8 @@ function validateMakeRecipes(errors, targets, summaryProfiles, sequences, recipe
       if (typeof recipe.target !== "string" || !targets.has(recipe.target)) {
         errors.push(`${label}.target references unknown schedule target ${JSON.stringify(recipe.target)}`);
       }
-      if (
-        typeof recipe.summary_profile !== "string" ||
-        !summaryProfiles ||
-        !summaryProfiles[recipe.summary_profile]
-      ) {
-        errors.push(`${label}.summary_profile references unknown profile ${JSON.stringify(recipe.summary_profile)}`);
+      if (recipe.summary_profile !== undefined) {
+        errors.push(`${label}.summary_profile is obsolete; summary targets derive from the check schedule`);
       }
       if (typeof recipe.manifest_variable !== "string" || !makeVariablePattern.test(recipe.manifest_variable)) {
         errors.push(`${label}.manifest_variable must be a safe Make variable name`);
@@ -390,83 +348,41 @@ function validateMakeRecipes(errors, targets, summaryProfiles, sequences, recipe
   }
 }
 
-function projectedChildrenForTarget(targets, targetName, seen = new Set()) {
-  if (seen.has(targetName)) {
-    return new Set();
-  }
-  seen.add(targetName);
-  const entry = targets.get(targetName);
-  const projected = new Set();
-  for (const child of entry?.summary_projection?.children ?? []) {
-    projected.add(child);
-    for (const descendant of projectedChildrenForTarget(targets, child, seen)) {
-      projected.add(descendant);
-    }
-  }
-  return projected;
-}
-
-function validateSummaryProfileAccountingRoots(errors, targets, summaryProfiles) {
-  if (!summaryProfiles || typeof summaryProfiles !== "object" || Array.isArray(summaryProfiles)) {
+function validateNamedTargetList(errors, targets, targetList, label, { required = true } = {}) {
+  if (targetList === undefined && !required) {
     return;
   }
-
-  for (const [name, profile] of Object.entries(summaryProfiles)) {
-    if (!Array.isArray(profile?.summary_targets)) {
+  if (!Array.isArray(targetList) || (required && targetList.length === 0)) {
+    errors.push(`${label} must be a ${required ? "non-empty " : ""}array`);
+    return;
+  }
+  const seen = new Set();
+  for (const target of targetList) {
+    if (typeof target !== "string" || target.trim() === "") {
+      errors.push(`${label} contains an invalid target`);
       continue;
     }
-    const targetSet = new Set(profile.summary_targets);
-    for (const target of profile.summary_targets) {
-      for (const child of projectedChildrenForTarget(targets, target)) {
-        if (targetSet.has(child)) {
-          errors.push(
-            `summary_profiles.${name}.summary_targets must not include both aggregate target ${target} and projected child ${child}`,
-          );
-        }
-      }
+    if (seen.has(target)) {
+      errors.push(`${label} contains duplicate target ${target}`);
+    }
+    seen.add(target);
+    if (!targets.has(target)) {
+      errors.push(`${label} references unknown target ${target}`);
     }
   }
 }
 
-function validateNamedTargetLists(errors, targets, collection, label) {
-  if (!collection || typeof collection !== "object" || Array.isArray(collection)) {
-    errors.push(`${label} must be an object`);
+function validateSummaryGroups(errors, targets, topologyContext, groups, label) {
+  if (!Array.isArray(groups)) {
+    errors.push(`${label}.summary_groups must be an array`);
     return;
   }
-  for (const [name, value] of Object.entries(collection)) {
-    const targetList = value?.summary_targets;
-    if (!Array.isArray(targetList) || targetList.length === 0) {
-      errors.push(`${label}.${name}.summary_targets must be a non-empty array`);
-      continue;
+  try {
+    for (const group of resolveSummaryGroups(topologyContext, groups)) {
+      validateNamedTargetList(errors, targets, group.summaryTargets, `${label}.summary_groups.${group.name}.summary_targets`);
     }
-    const seen = new Set();
-    for (const target of targetList) {
-      if (typeof target !== "string" || target.trim() === "") {
-        errors.push(`${label}.${name}.summary_targets contains an invalid target`);
-        continue;
-      }
-      if (seen.has(target)) {
-        errors.push(`${label}.${name}.summary_targets contains duplicate target ${target}`);
-      }
-      seen.add(target);
-      if (!targets.has(target)) {
-        errors.push(`${label}.${name}.summary_targets references unknown target ${target}`);
-      }
-    }
-    for (const group of value.groups ?? []) {
-      if (typeof group?.name !== "string" || group.name.trim() === "") {
-        errors.push(`${label}.${name}.groups contains an invalid group name`);
-      }
-      if (!Array.isArray(group?.summary_targets) || group.summary_targets.length === 0) {
-        errors.push(`${label}.${name}.groups.${group?.name ?? "unknown"}.summary_targets must be non-empty`);
-        continue;
-      }
-      for (const target of group.summary_targets) {
-        if (!targets.has(target)) {
-          errors.push(`${label}.${name}.groups.${group.name}.summary_targets references unknown target ${target}`);
-        }
-      }
-    }
+  } catch (error) {
+    errors.push(`${label}.summary_groups invalid: ${error.message}`);
   }
 }
 
@@ -630,7 +546,7 @@ function renderMakeRecipe(recipe, manifest) {
       .join("");
     return [
       header,
-      `\t$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target ${recipe.target} --manifest "$(${recipe.manifest_variable})" --summary-profile ${recipe.summary_profile}${resourceArgs}`,
+      `\t$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target ${recipe.target} --manifest "$(${recipe.manifest_variable})"${resourceArgs}`,
     ];
   }
   throw new Error(`unsupported Make recipe type ${recipe.type}`);

@@ -55,13 +55,24 @@ if [[ -n "${node_cmd}" && ! -x "${node_cmd}" ]]; then
 fi
 mapfile -t resolved_sequence < <(
   "$node_cmd" --input-type=module - "${manifest_path}" "${sequence}" <<'EOF'
-import { loadTaskSurfaceManifest, sequenceDefinition, summaryProfileArgs } from "./scripts/lib/task-surface.mjs";
+import { loadTaskSurfaceManifest, sequenceDefinition } from "./scripts/lib/task-surface.mjs";
+import {
+  loadSummaryTopologyContext,
+  resolveSummaryGroups,
+  summaryGroupsSpec,
+} from "./scripts/lib/summary-topology.mjs";
 
 const [manifestPath, sequenceName] = process.argv.slice(2);
 const { manifest } = loadTaskSurfaceManifest(manifestPath);
 const sequence = sequenceDefinition(manifest, sequenceName);
-const profile = summaryProfileArgs(manifest, sequence.summaryProfile);
-const lines = [profile.summaryTargets.join(","), profile.groupsSpec];
+const context = loadSummaryTopologyContext({
+  taskSurfaceManifest: manifest,
+  serviceBackedScheduleManifestPath: process.env.SERVICE_BACKED_SCHEDULE_MANIFEST,
+  browserBatchManifestPath: process.env.BROWSER_E2E_BATCH_MANIFEST,
+});
+const summaryTargets = sequence.steps.flatMap((step) => step.producesSummaryTargets);
+const groups = resolveSummaryGroups(context, sequence.summaryGroups);
+const lines = [summaryTargets.join(","), summaryGroupsSpec(groups)];
 for (const step of sequence.steps) {
   if (step.type === "step") {
     lines.push(`step:${step.target}`);

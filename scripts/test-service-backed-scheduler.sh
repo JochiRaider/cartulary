@@ -624,7 +624,7 @@ write_manifest "$browser_manifest" test-service-backed \
   'make_target|browser-e2e-webserver-backed|9|"postgres": 1, "minio": 1, "process": 1, "browser_stack": 1, "browser_stage_webserver_backed": 1|browser|webserver-backed'
 browser_output="$(run_scheduler "$browser_dir" "$browser_manifest" test-service-backed browser 2>&1)"
 assert_not_contains "$browser_output" "[STEP] test-service-backed" "browser schedule hides default scheduler steps"
-assert_contains "$browser_output" "[FAIL] test-service-backed kind=aggregate children=2/6 child_tests=2 child_failed=0" "browser schedule aggregate child tests"
+assert_contains "$browser_output" "[PASS] test-service-backed kind=aggregate children=2/2 child_tests=2 child_failed=0" "browser schedule aggregate child tests"
 assert_not_contains "$browser_output" "[SCHEDULER] test-service-backed summary status=pass" "browser quiet scheduler hides success summary"
 assert_not_contains "$browser_output" "claims={browser_stack:1" "browser default output hides resource claims"
 assert_scheduler_artifacts "$browser_dir" browser test-service-backed pass - start
@@ -725,7 +725,7 @@ check_browser_output="$(
   run_scheduler "$check_browser_dir" "$check_browser_manifest" check-service-backed check-browser 2>&1
 )"
 assert_not_contains "$check_browser_output" "[STEP] check-service-backed" "check browser schedule hides default scheduler steps"
-assert_contains "$check_browser_output" "[FAIL] check-service-backed kind=aggregate children=2/6 child_tests=2 child_failed=0" "check browser aggregate child tests"
+assert_contains "$check_browser_output" "[PASS] check-service-backed kind=aggregate children=2/2 child_tests=2 child_failed=0" "check browser aggregate child tests"
 check_browser_events="$(cat "${check_browser_dir}/make.log")"
 assert_contains "$check_browser_events" "start browser-e2e-webserver-backed" "check browser webserver start"
 assert_contains "$check_browser_events" "end browser-e2e-webserver-backed" "check browser webserver end"
@@ -744,7 +744,7 @@ dual_browser_output="$(
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.2 \
     run_scheduler "$dual_browser_dir" "$dual_browser_manifest" check-service-backed dual-browser 2>&1
 )"
-assert_contains "$dual_browser_output" "[FAIL] check-service-backed kind=aggregate children=2/6 child_tests=2 child_failed=0" "dual browser aggregate child tests"
+assert_contains "$dual_browser_output" "[PASS] check-service-backed kind=aggregate children=2/2 child_tests=2 child_failed=0" "dual browser aggregate child tests"
 assert_scheduler_artifacts "$dual_browser_dir" dual-browser check-service-backed pass - start
 "$NODE_BIN" - "${dual_browser_dir}/make.log" <<'EOF'
 const fs = require("node:fs");

@@ -34,18 +34,22 @@ import {
   resourceLimitSourcesToObject,
   resourceMapToObject as schedulerResourceMapToObject,
 } from "./lib/scheduler-resources.mjs";
-import { loadTaskSurfaceManifest, summaryProfileArgs } from "./lib/task-surface.mjs";
+import {
+  loadSummaryTopologyContext,
+  resolveSummaryGroups,
+  summaryGroupsSpec,
+} from "./lib/summary-topology.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
-const supportedSchemaID = "cartulary.check_schedule.v5";
+const supportedSchemaID = "cartulary.check_schedule.v6";
 const schedulerEventSchemaID = "cartulary.check_scheduler_event.v4";
 const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v4";
 
 function usage() {
   process.stderr.write(
-    "usage: run-check-schedule.mjs --target <target> (--summary-profile <name> | --summary-targets <a,b>) [--summary-groups <spec>] [--manifest <path>] [--resource-limit <name=value>...]\n",
+    "usage: run-check-schedule.mjs --target <target> [--manifest <path>] [--resource-limit <name=value>...]\n",
   );
   process.exit(2);
 }
@@ -54,30 +58,12 @@ function parseArgs(argv) {
   const options = {
     manifest: defaultManifestPath,
     target: "",
-    summaryProfile: "",
-    summaryTargets: "",
-    summaryGroups: "",
     resourceLimitOverrides: new Map(),
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--target") {
       options.target = argv[index + 1] ?? "";
-      index += 1;
-      continue;
-    }
-    if (arg === "--summary-targets") {
-      options.summaryTargets = argv[index + 1] ?? "";
-      index += 1;
-      continue;
-    }
-    if (arg === "--summary-profile") {
-      options.summaryProfile = argv[index + 1] ?? "";
-      index += 1;
-      continue;
-    }
-    if (arg === "--summary-groups") {
-      options.summaryGroups = argv[index + 1] ?? "";
       index += 1;
       continue;
     }
@@ -103,12 +89,6 @@ function parseArgs(argv) {
     usage();
   }
   if (!options.target || !options.manifest) {
-    usage();
-  }
-  if (options.summaryProfile && options.summaryTargets) {
-    throw new Error("--summary-profile and --summary-targets are mutually exclusive");
-  }
-  if (!options.summaryProfile && !options.summaryTargets) {
     usage();
   }
   return options;
@@ -354,10 +334,13 @@ function findSchedule(manifest, target, overrides) {
     }
   }
   assertAcyclic(target, units);
+  const summaryTargets = units.flatMap((unit) => unit.producesSummaryTargets);
   return {
     target,
     resourceLimits,
     resourceLimitSources: normalizedLimits.sources,
+    summaryTargets,
+    summaryGroups: schedule.summary_groups ?? [],
     units: units.sort((left, right) => right.weight - left.weight || left.order - right.order || left.target.localeCompare(right.target)),
   };
 }
@@ -1359,29 +1342,19 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
   }
 }
 
-function parseSummaryTargets(value) {
-  return value
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const { manifest, manifestPath } = await loadManifest(options.manifest);
   const schedule = findSchedule(manifest, options.target, options.resourceLimitOverrides);
-  let summaryTargets = parseSummaryTargets(options.summaryTargets);
-  let summaryGroups = options.summaryGroups;
-  if (options.summaryProfile) {
-    const { manifest: taskSurface } = loadTaskSurfaceManifest(
-      process.env.TASK_SURFACE_MANIFEST ?? path.join(repoRoot, "tools", "task_surface_manifest.json"),
-    );
-    const profile = summaryProfileArgs(taskSurface, options.summaryProfile);
-    summaryTargets = profile.summaryTargets;
-    summaryGroups = profile.groupsSpec;
-  }
+  const topologyContext = loadSummaryTopologyContext({
+    taskSurfaceManifestPath: process.env.TASK_SURFACE_MANIFEST ?? path.join(repoRoot, "tools", "task_surface_manifest.json"),
+    serviceBackedScheduleManifestPath: process.env.SERVICE_BACKED_SCHEDULE_MANIFEST,
+    browserBatchManifestPath: process.env.BROWSER_E2E_BATCH_MANIFEST,
+  });
+  const summaryTargets = schedule.summaryTargets;
+  const summaryGroups = summaryGroupsSpec(resolveSummaryGroups(topologyContext, schedule.summaryGroups));
   if (summaryTargets.length === 0) {
-    throw new Error("summary profile must select at least one target");
+    throw new Error("check schedule must produce at least one summary target");
   }
   const makeBin = process.env.MAKE || "make";
   const testOutputScript =

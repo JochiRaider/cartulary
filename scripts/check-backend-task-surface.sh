@@ -220,8 +220,8 @@ const fs = require("node:fs");
 
 const [manifestFile, workUnit, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v5") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v5");
+if (manifest.schema_id !== "cartulary.check_schedule.v6") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v6");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -415,8 +415,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v5") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v5");
+if (manifest.schema_id !== "cartulary.check_schedule.v6") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v6");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -842,7 +842,7 @@ for required_service_schedule_fragment in \
   'context.runPhaseScript' \
   'context.serviceBackedScheduleScript' \
   '--defer-summary' \
-  '"--projection"'
+  '"--children"'
 do
   if [[ "$service_schedule_target_content" != *"$required_service_schedule_fragment"* ]]; then
     fail "scripts/cartulary-runner.mjs must contain $required_service_schedule_fragment"

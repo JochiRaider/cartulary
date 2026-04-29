@@ -185,44 +185,31 @@ for (const name of ["alpha", "beta", "missing-target", "fail-step", "smoke", "ag
     manifest.targets.push({ name, classification: "helper_only", included_in: ["helper_only"] });
   }
 }
-manifest.summary_profiles.smoke = {
-  summary_targets: ["alpha", "beta"],
-  groups: [
+manifest.sequences.smoke = {
+  summary_groups: [
     { name: "alpha-group", summary_targets: ["alpha"] },
     { name: "beta-group", summary_targets: ["beta"] },
   ],
-};
-manifest.summary_profiles["aggregate-missing"] = {
-  summary_targets: ["alpha", "missing-target"],
-};
-manifest.summary_profiles["fail-smoke"] = {
-  summary_targets: ["alpha", "beta"],
-};
-manifest.summary_profiles["dry-run"] = {
-  summary_targets: ["alpha"],
-};
-manifest.sequences.smoke = {
-  summary_profile: "smoke",
   steps: [
-    { type: "step", target: "alpha" },
-    { type: "parallel", target: "beta", jobs: 3 },
+    { type: "step", target: "alpha", produces_summary_targets: ["alpha"] },
+    { type: "parallel", target: "beta", jobs: 3, produces_summary_targets: ["beta"] },
   ],
 };
 manifest.sequences["aggregate-missing"] = {
-  summary_profile: "aggregate-missing",
-  steps: [{ type: "step", target: "alpha" }],
+  summary_groups: [],
+  steps: [{ type: "step", target: "alpha", produces_summary_targets: ["alpha", "missing-target"] }],
 };
 manifest.sequences["fail-smoke"] = {
-  summary_profile: "fail-smoke",
+  summary_groups: [],
   steps: [
-    { type: "step", target: "alpha" },
+    { type: "step", target: "alpha", produces_summary_targets: ["alpha"] },
     { type: "step", target: "fail-step" },
-    { type: "step", target: "beta" },
+    { type: "step", target: "beta", produces_summary_targets: ["beta"] },
   ],
 };
 manifest.sequences["dry-run"] = {
-  summary_profile: "dry-run",
-  steps: [{ type: "step", target: "alpha" }],
+  summary_groups: [],
+  steps: [{ type: "step", target: "alpha", produces_summary_targets: ["alpha"] }],
 };
 fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
@@ -395,7 +382,7 @@ assert_not_contains "${test_block}" "--step test-isolated" "make test old split 
 assert_not_contains "${test_block}" "completed=" "make test inline completed counter"
 assert_not_contains "${test_block}" "total=" "make test inline total counter"
 assert_contains "${check_block}" '$(RUN_CHECK_SCHEDULE_SCRIPT)' "make check scheduler invocation"
-assert_contains "${check_block}" "--summary-profile check" "make check summary profile"
+assert_not_contains "${check_block}" "--summary-profile check" "make check no copied summary profile"
 assert_contains "${check_block}" '--resource-limit host_cpu=$(CHECK_HOST_CPU_JOBS)' "make check scheduler cpu resource"
 assert_contains "${check_block}" '--resource-limit host_io=$(CHECK_HOST_IO_JOBS)' "make check scheduler io resource"
 assert_not_contains "${check_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "make check no longer uses serial sequence helper"
@@ -408,27 +395,31 @@ assert_contains "${run_harness_smoke_extended_block}" '$(RUN_HARNESS_SMOKE_SCRIP
 assert_contains "${run_harness_smoke_full_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier full --jobs "$(HARNESS_SMOKE_JOBS)"' "run-harness-smoke-full manifest runner"
 assert_contains "${check_harness_smoke_block}" "run-harness-smoke-fast" "check-harness-smoke fast tier invocation"
 assert_contains "${check_harness_smoke_block}" "--projection check-harness-smoke" "check-harness-smoke summary projection"
-assert_contains "${manifest_content}" "\"summary_profiles\"" "manifest summary profiles"
-assert_contains "${manifest_content}" "\"summary_projection\"" "manifest summary projections"
-NODE_BIN="${NODE_BIN:-node}" "${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" <<'EOF'
-const fs = require("node:fs");
+assert_not_contains "${manifest_content}" "\"summary_profiles\"" "manifest copied summary profiles"
+assert_not_contains "${manifest_content}" "\"summary_projection\"" "manifest copied summary projections"
+NODE_BIN="${NODE_BIN:-node}" "${NODE_BIN:-node}" --input-type=module - "${ROOT_DIR}/tools/task_surface_manifest.json" "${ROOT_DIR}/tools/service_backed_schedule_manifest.json" "${ROOT_DIR}/tools/browser_e2e_batch_manifest.json" <<'EOF'
+import fs from "node:fs";
+import { loadSummaryTopologyContext, resolveSummaryGroups } from "./scripts/lib/summary-topology.mjs";
 
-const manifest = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-const projectedChildren = new Map(
-  (manifest.targets ?? []).map((target) => [
-    target.name,
-    new Set(target.summary_projection?.children ?? []),
-  ]),
-);
-for (const profileName of ["test", "check"]) {
-  const roots = new Set(manifest.summary_profiles[profileName].summary_targets);
-  for (const root of roots) {
-    for (const child of projectedChildren.get(root) ?? []) {
-      if (roots.has(child)) {
-        throw new Error(`${profileName} summary profile double-counts ${root} and ${child}`);
-      }
-    }
+const [manifestFile, serviceManifest, browserManifest] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+const context = loadSummaryTopologyContext({
+  taskSurfaceManifest: manifest,
+  serviceBackedScheduleManifestPath: serviceManifest,
+  browserBatchManifestPath: browserManifest,
+});
+const sequence = manifest.sequences.test;
+const testTargets = sequence.steps.flatMap((step) => step.produces_summary_targets ?? []);
+for (const target of ["backend-unit", "frontend-typecheck", "frontend-unit", "test-service-backed"]) {
+  if (!testTargets.includes(target)) {
+    throw new Error(`test sequence must produce ${target}`);
   }
+}
+const groups = resolveSummaryGroups(context, sequence.summary_groups);
+const browser = groups.find((group) => group.name === "browser");
+const expectedBrowser = ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"];
+if (JSON.stringify(browser?.summaryTargets) !== JSON.stringify(expectedBrowser)) {
+  throw new Error("test browser summary group must derive browser leaves from schedules");
 }
 EOF
 assert_contains "${manifest_content}" "\"harness_checks\"" "manifest logical harness checks"
@@ -437,7 +428,7 @@ assert_contains "${manifest_content}" "harness-smoke-run-go-target-fast" "harnes
 assert_contains "${test_service_backed_block}" '$(call run_service_backed_schedule_target,test-service-backed,test service-backed)' "test service-backed scheduler invocation"
 assert_contains "${test_fast_service_backed_block}" '$(call run_service_backed_schedule_target,test-fast-service-backed,test-fast service-backed)' "test-fast service-backed scheduler invocation"
 assert_contains "${check_service_backed_block}" '$(call run_service_backed_schedule_target,check-service-backed,check service-backed)' "check service-backed scheduler invocation"
-assert_contains "${service_schedule_target_content}" '"--projection"' "service-backed runner summary projection"
+assert_contains "${service_schedule_target_content}" '"--children"' "service-backed runner summary children"
 assert_not_contains "${test_service_backed_block}" "--jobs" "test service-backed fixed scheduler jobs"
 assert_not_contains "${test_fast_service_backed_block}" "--jobs" "test-fast service-backed fixed scheduler jobs"
 assert_not_contains "${check_service_backed_block}" "--jobs" "check service-backed fixed scheduler jobs"

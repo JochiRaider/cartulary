@@ -221,8 +221,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v5") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v5");
+if (manifest.schema_id !== "cartulary.check_schedule.v6") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v6");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -242,8 +242,8 @@ const fs = require("node:fs");
 
 const [manifestFile, workUnit, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v5") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v5");
+if (manifest.schema_id !== "cartulary.check_schedule.v6") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v6");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -360,7 +360,7 @@ for required_service_schedule_fragment in \
   'context.runPhaseScript' \
   'context.serviceBackedScheduleScript' \
   '--defer-summary' \
-  '"--projection"'
+  '"--children"'
 do
   if [[ "$service_schedule_target_content" != *"$required_service_schedule_fragment"* ]]; then
     fail "scripts/cartulary-runner.mjs must contain $required_service_schedule_fragment"
@@ -438,43 +438,45 @@ if [[ "${#test_fast_service_browser_targets[@]}" -ne 0 ]]; then
   fail "test-fast-service-backed schedule must remain backend-only, found browser targets: ${test_fast_service_browser_targets[*]}"
 fi
 
-"$node_bin" - "$task_surface_manifest" <<'EOF'
-const fs = require("node:fs");
+"$node_bin" --input-type=module - "$task_surface_manifest" "$check_schedule_manifest" <<'EOF'
+import fs from "node:fs";
+import {
+  loadSummaryTopologyContext,
+  resolveSummaryGroups,
+  serviceBackedScheduleChildren,
+} from "./scripts/lib/summary-topology.mjs";
 
-const [manifestFile] = process.argv.slice(2);
+const [manifestFile, checkScheduleFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-for (const profileName of ["test", "check"]) {
-  const profileTargets = manifest.summary_profiles?.[profileName]?.summary_targets ?? [];
-  if (profileTargets.includes("browser-e2e")) {
-    throw new Error(`${profileName} summary profile must count browser-e2e through the service-backed scheduler root`);
+const checkSchedule = JSON.parse(fs.readFileSync(checkScheduleFile, "utf8"));
+if (manifest.summary_profiles !== undefined) {
+  throw new Error("task-surface manifest must not hard-code copied summary_profiles");
+}
+for (const entry of manifest.targets ?? []) {
+  if (entry.summary_projection !== undefined) {
+    throw new Error(`${entry.name} must not hard-code derived summary_projection children`);
   }
-  const groups = manifest.summary_profiles?.[profileName]?.groups ?? [];
+}
+const context = loadSummaryTopologyContext({ taskSurfaceManifest: manifest });
+const expectedBrowser = ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"];
+const expectedBackend = ["backend-integration", "backend-integration-support", "backend-store", "backend-process"];
+const testGroups = resolveSummaryGroups(context, manifest.sequences?.test?.summary_groups ?? []);
+const checkGroups = resolveSummaryGroups(context, (checkSchedule.schedules ?? []).find((entry) => entry.target === "check")?.summary_groups ?? []);
+for (const [label, groups] of [["test", testGroups], ["check", checkGroups]]) {
   const browser = groups.find((group) => group.name === "browser");
   const backend = groups.find((group) => group.name === "backend-service-backed");
-  const expectedBrowser = ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"];
-  const expectedBackend = ["backend-integration", "backend-integration-support", "backend-store", "backend-process"];
-  if (JSON.stringify(browser?.summary_targets) !== JSON.stringify(expectedBrowser)) {
-    throw new Error(`${profileName} browser summary group must report service-backed webserver and isolated browser leaf targets`);
+  if (JSON.stringify(browser?.summaryTargets) !== JSON.stringify(expectedBrowser)) {
+    throw new Error(`${label} browser summary group must derive service-backed browser leaves`);
   }
-  if (JSON.stringify(backend?.summary_targets) !== JSON.stringify(expectedBackend)) {
-    throw new Error(`${profileName} backend-service-backed summary group must contain backend service targets`);
+  if (JSON.stringify(backend?.summaryTargets) !== JSON.stringify(expectedBackend)) {
+    throw new Error(`${label} backend-service-backed summary group must derive backend service targets`);
   }
 }
-const checkGroups = manifest.summary_profiles?.check?.groups ?? [];
-const durationBaselines = checkGroups.find((group) => group.name === "duration-baselines");
-const expectedDurationBaselines = [
-  "check-go-test-duration-baseline-drift",
-  "check-browser-e2e-duration-baseline-drift",
-];
-if (JSON.stringify(durationBaselines?.summary_targets) !== JSON.stringify(expectedDurationBaselines)) {
-  throw new Error("check duration-baselines summary group must report Go and browser duration drift gates");
-}
-const targetEntries = new Map((manifest.targets ?? []).map((entry) => [entry.name, entry]));
 for (const target of ["test-service-backed", "check-service-backed"]) {
-  const children = targetEntries.get(target)?.summary_projection?.children ?? [];
+  const children = serviceBackedScheduleChildren(context, target);
   for (const child of ["browser-e2e-webserver-backed", "browser-e2e"]) {
     if (!children.includes(child)) {
-      throw new Error(`${target} summary projection must include ${child}`);
+      throw new Error(`${target} service-backed schedule must include ${child}`);
     }
   }
 }

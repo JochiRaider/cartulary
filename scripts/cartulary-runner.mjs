@@ -2,6 +2,10 @@
 import { spawnSync } from "node:child_process";
 
 import { createRunnerContext, runnerEnv } from "./lib/runner-context.mjs";
+import {
+  loadSummaryTopologyContext,
+  serviceBackedScheduleChildren,
+} from "./lib/summary-topology.mjs";
 
 const goTargetCommands = new Set([
   "inspect-aggregate-command",
@@ -16,7 +20,7 @@ const goTargetCommands = new Set([
 
 function usage() {
   process.stderr.write(`usage:
-  cartulary-runner.mjs service-backed-target --target <target> --phase-label <label> [--projection <target>] --service-wrapper <test-services|none>
+  cartulary-runner.mjs service-backed-target --target <target> --phase-label <label> --service-wrapper <test-services|none>
   cartulary-runner.mjs go-target <target-or-command> [...]
   cartulary-runner.mjs target-summary <target> [pass|fail] [...]
 `);
@@ -68,9 +72,8 @@ function serviceBackedTarget(context, argv) {
   const options = parseFlagArgs(argv);
   const target = options.target || "";
   const phaseLabel = options.phase_label || "";
-  const projection = options.projection || target;
   const serviceWrapper = options.service_wrapper || "";
-  if (!target || !phaseLabel || !serviceWrapper) {
+  if (!target || !phaseLabel || !serviceWrapper || options.projection !== undefined) {
     usage();
   }
 
@@ -107,11 +110,19 @@ function serviceBackedTarget(context, argv) {
   }
 
   const requested = status === 0 ? "pass" : "fail";
+  const topologyContext = loadSummaryTopologyContext({
+    serviceBackedScheduleManifestPath: context.serviceBackedScheduleManifest,
+  });
+  const children = serviceBackedScheduleChildren(topologyContext, target);
+  if (children.length === 0) {
+    process.stderr.write(`service-backed schedule ${target} has no derived summary children\n`);
+    return 2;
+  }
   const summaryStatus = runTargetSummary(context, [
     target,
     requested,
-    "--projection",
-    projection,
+    "--children",
+    children.join(","),
   ]);
   return status === 0 ? summaryStatus : status;
 }

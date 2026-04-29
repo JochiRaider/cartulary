@@ -131,13 +131,13 @@ run_case() {
 }
 
 run_case pass 0 0 0
-assert_contains "$(cat "$tmp_dir/pass.log")" "summary args=target-summary test-service-backed pass --projection test-service-backed" "pass summary"
+assert_contains "$(cat "$tmp_dir/pass.log")" "summary args=target-summary test-service-backed pass --children backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed,browser-e2e" "pass summary"
 
 run_case scheduler-fail 7 0 7
-assert_contains "$(cat "$tmp_dir/scheduler-fail.log")" "summary args=target-summary test-service-backed fail --projection test-service-backed" "scheduler fail summary"
+assert_contains "$(cat "$tmp_dir/scheduler-fail.log")" "summary args=target-summary test-service-backed fail --children backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed,browser-e2e" "scheduler fail summary"
 
 run_case summary-fail 0 9 9
-assert_contains "$(cat "$tmp_dir/summary-fail.log")" "summary args=target-summary test-service-backed pass --projection test-service-backed" "summary fail summary"
+assert_contains "$(cat "$tmp_dir/summary-fail.log")" "summary args=target-summary test-service-backed pass --children backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed,browser-e2e" "summary fail summary"
 
 run_case scheduler-and-summary-fail 7 9 7
-assert_contains "$(cat "$tmp_dir/scheduler-and-summary-fail.log")" "summary args=target-summary test-service-backed fail --projection test-service-backed" "scheduler precedence summary"
+assert_contains "$(cat "$tmp_dir/scheduler-and-summary-fail.log")" "summary args=target-summary test-service-backed fail --children backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed,browser-e2e" "scheduler precedence summary"

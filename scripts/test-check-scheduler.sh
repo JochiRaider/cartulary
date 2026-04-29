@@ -393,19 +393,23 @@ write_fake_make "$success_dir"
 success_manifest="${success_dir}/manifest.json"
 cat >"$success_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v5",
+  "schema_id": "cartulary.check_schedule.v6",
   "schedules": [
     {
       "target": "check",
       "resource_limits": { "host_cpu": 12, "host_io": 12, "service_stack": 1 },
+      "summary_groups": [
+        { "name": "check-work", "summary_targets": ["local", "service", "meta"] }
+      ],
       "work_units": [
         { "target": "setup", "weight": 50, "needs": [], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
         { "target": "build", "weight": 40, "needs": ["setup"], "resource_claims": { "host_cpu": "limit" }, "make_jobs": "host_cpu" },
-        { "target": "local", "weight": 30, "needs": ["build"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "local", "weight": 30, "needs": ["build"], "produces_summary_targets": ["local"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
         {
           "target": "service",
           "weight": 20,
           "needs": ["build"],
+          "produces_summary_targets": ["service"],
           "resource_claims": {
             "host_cpu": { "mode": "bounded_limit", "reserve": 3, "min": 1, "max": 8 },
             "host_io": { "mode": "bounded_limit", "reserve": 4, "min": 1, "max": 10 },
@@ -419,13 +423,13 @@ cat >"$success_manifest" <<'JSON'
             "forwarding": "check_host_to_service_backed_go"
           }
         },
-        { "target": "meta", "weight": 10, "needs": ["build"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+        { "target": "meta", "weight": 10, "needs": ["build"], "produces_summary_targets": ["meta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
       ]
     }
   ]
 }
 JSON
-success_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_SERVICE=0.2 run_scheduler "$success_dir" "$success_manifest" success --summary-targets local,service,meta --summary-groups "check-work=local,service,meta" --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
+success_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_SERVICE=0.2 run_scheduler "$success_dir" "$success_manifest" success --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
 assert_contains "$success_output" "[RUN] check work_units=5 summary_targets=3 helper_units=2 jobs=2 run_id=success" "success run start"
 assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:2,host_io:3,service_stack:1}" "success concise scheduler start"
 assert_contains "$success_output" "top_weighted=setup:50,build:40,local:30,service:20,meta:10" "success concise scheduler start shows top weighted work"
@@ -561,7 +565,7 @@ for (const [index, event] of events.entries()) {
 }
 EOF
 
-verbose_output="$(VERBOSE=1 run_scheduler "$success_dir" "$success_manifest" verbose --summary-targets local,service,meta --summary-groups "check-work=local,service,meta" --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
+verbose_output="$(VERBOSE=1 run_scheduler "$success_dir" "$success_manifest" verbose --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
 assert_contains "$verbose_output" "[CHECK-SCHEDULER] check start work_unit=setup claims={host_cpu:1} active=1 pending=4" "verbose scheduler start telemetry"
 assert_contains "$verbose_output" "active_resource_claims={host_cpu:1}" "verbose scheduler active resource telemetry"
 assert_contains "$verbose_output" "resource_limits={host_cpu:2,host_io:3,service_stack:1}" "verbose scheduler resource limit telemetry"
@@ -572,7 +576,7 @@ write_fake_make "$partial_dir"
 partial_manifest="${partial_dir}/manifest.json"
 cat >"$partial_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v5",
+  "schema_id": "cartulary.check_schedule.v6",
   "schedules": [
     {
       "target": "check",
@@ -582,6 +586,7 @@ cat >"$partial_manifest" <<'JSON'
           "target": "partial-service",
           "weight": 1,
           "needs": [],
+          "produces_summary_targets": ["partial-service"],
           "resource_claims": { "host_cpu": 1, "host_io": 1 },
           "make_jobs": "host_cpu",
           "nested_scheduler": {
@@ -596,7 +601,7 @@ cat >"$partial_manifest" <<'JSON'
   ]
 }
 JSON
-partial_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_PARTIAL_SERVICE=0.15 run_scheduler "$partial_dir" "$partial_manifest" partial --summary-targets partial-service --resource-limit host_cpu=1 --resource-limit host_io=1 2>&1)"
+partial_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_PARTIAL_SERVICE=0.15 run_scheduler "$partial_dir" "$partial_manifest" partial --resource-limit host_cpu=1 --resource-limit host_io=1 2>&1)"
 assert_contains "$partial_output" "[PASS] check" "partial nested event does not fail check scheduler"
 assert_not_contains "$partial_output" "nested-progress work_unit=partial-service" "partial nested event is ignored until newline-complete"
 
@@ -606,13 +611,13 @@ write_fake_make "$makeflags_dir"
 makeflags_manifest="${makeflags_dir}/manifest.json"
 cat >"$makeflags_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v5",
+  "schema_id": "cartulary.check_schedule.v6",
   "schedules": [
     {
       "target": "check",
       "resource_limits": { "host_cpu": 1 },
       "work_units": [
-        { "target": "alpha", "weight": 1, "needs": [], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
+        { "target": "alpha", "weight": 1, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
       ]
     }
   ]
@@ -621,7 +626,7 @@ JSON
 makeflags_output="$(
   MAKEFLAGS='--jobserver-auth=3,4 -j --trace' \
   MFLAGS='--jobserver-fds=3,4 -j' \
-    run_scheduler "$makeflags_dir" "$makeflags_manifest" makeflags --summary-targets alpha --resource-limit host_cpu=1 2>&1
+    run_scheduler "$makeflags_dir" "$makeflags_manifest" makeflags --resource-limit host_cpu=1 2>&1
 )"
 assert_contains "$makeflags_output" "[PASS] check" "makeflags sanitize summary"
 makeflags_events="$(cat "${makeflags_dir}/events.log")"
@@ -635,15 +640,15 @@ write_fake_make "$failure_dir"
 failure_manifest="${failure_dir}/manifest.json"
 cat >"$failure_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v5",
+  "schema_id": "cartulary.check_schedule.v6",
   "schedules": [
     {
       "target": "check",
       "resource_limits": { "host_cpu": 2, "service_stack": 1 },
       "work_units": [
-        { "target": "alpha", "weight": 30, "needs": [], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "beta", "weight": 20, "needs": [], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
-        { "target": "gamma", "weight": 10, "needs": [], "produces_summary_targets": ["external-summary"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "alpha", "weight": 30, "needs": [], "produces_summary_targets": ["alpha"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "beta", "weight": 20, "needs": [], "produces_summary_targets": ["beta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
+        { "target": "gamma", "weight": 10, "needs": [], "produces_summary_targets": ["gamma", "external-summary"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" },
         { "target": "delta", "weight": 5, "needs": ["beta"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu" }
       ]
     }
@@ -655,7 +660,7 @@ failure_output="$(
   FAKE_FAIL_TARGET=beta
   FAKE_SLEEP_ALPHA=0.2
   FAKE_SLEEP_BETA=0.01
-  run_scheduler "$failure_dir" "$failure_manifest" failure --summary-targets alpha,beta,gamma,external-summary --resource-limit host_cpu=2 2>&1
+  run_scheduler "$failure_dir" "$failure_manifest" failure --resource-limit host_cpu=2 2>&1
 )"
 failure_status=$?
 set -e
@@ -726,7 +731,7 @@ write_fake_make "$invalid_dir"
 invalid_manifest="${invalid_dir}/manifest.json"
 cat >"$invalid_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v5",
+  "schema_id": "cartulary.check_schedule.v6",
   "schedules": [
     {
       "target": "check",
@@ -739,7 +744,7 @@ cat >"$invalid_manifest" <<'JSON'
 }
 JSON
 set +e
-invalid_output="$(run_scheduler "$invalid_dir" "$invalid_manifest" invalid --summary-targets alpha 2>&1)"
+invalid_output="$(run_scheduler "$invalid_dir" "$invalid_manifest" invalid 2>&1)"
 invalid_status=$?
 set -e
 assert_equals "$invalid_status" "1" "invalid dependency status"
@@ -748,7 +753,7 @@ assert_contains "$invalid_output" "depends on unknown target missing" "invalid d
 invalid_nested_manifest="${invalid_dir}/invalid-nested-manifest.json"
 cat >"$invalid_nested_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v5",
+  "schema_id": "cartulary.check_schedule.v6",
   "schedules": [
     {
       "target": "check",
@@ -772,7 +777,7 @@ cat >"$invalid_nested_manifest" <<'JSON'
 }
 JSON
 set +e
-invalid_nested_output="$(run_scheduler "$invalid_dir" "$invalid_nested_manifest" invalid-nested --summary-targets service 2>&1)"
+invalid_nested_output="$(run_scheduler "$invalid_dir" "$invalid_nested_manifest" invalid-nested 2>&1)"
 invalid_nested_status=$?
 set -e
 assert_equals "$invalid_nested_status" "1" "invalid nested scheduler status"
@@ -781,7 +786,7 @@ assert_contains "$invalid_nested_output" "source host_io must be claimed by work
 invalid_bounded_manifest="${invalid_dir}/invalid-bounded-manifest.json"
 cat >"$invalid_bounded_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.check_schedule.v5",
+  "schema_id": "cartulary.check_schedule.v6",
   "schedules": [
     {
       "target": "check",
@@ -801,7 +806,7 @@ cat >"$invalid_bounded_manifest" <<'JSON'
 }
 JSON
 set +e
-invalid_bounded_output="$(run_scheduler "$invalid_dir" "$invalid_bounded_manifest" invalid-bounded --summary-targets alpha 2>&1)"
+invalid_bounded_output="$(run_scheduler "$invalid_dir" "$invalid_bounded_manifest" invalid-bounded 2>&1)"
 invalid_bounded_status=$?
 set -e
 assert_equals "$invalid_bounded_status" "1" "invalid bounded claim status"
@@ -812,7 +817,7 @@ cleanup_paths+=("$dry_run_dir")
 write_fake_make "$dry_run_dir"
 dry_run_output="$(
   MAKEFLAGS=n \
-    run_scheduler "$dry_run_dir" "$success_manifest" dry-run --summary-targets local,service,meta --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1
+    run_scheduler "$dry_run_dir" "$success_manifest" dry-run --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1
 )"
 assert_contains "$dry_run_output" "[DRY-RUN] check manifest=" "dry-run output"
 assert_contains "$dry_run_output" "resource_limits={host_cpu:2,host_io:3,service_stack:1} work_units=5 dependencies=4 top_weighted=setup:50,build:40,local:30,service:20,meta:10" "dry-run compact summary"
@@ -822,7 +827,7 @@ assert_file_absent "${dry_run_dir}/make-args.log" "dry-run child make"
 
 dry_run_verbose_output="$(
   MAKEFLAGS=n VERBOSE=1 \
-    run_scheduler "$dry_run_dir" "$success_manifest" dry-run-verbose --summary-targets local,service,meta --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1
+    run_scheduler "$dry_run_dir" "$success_manifest" dry-run-verbose --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1
 )"
 assert_contains "$dry_run_verbose_output" "[DRY-RUN] check unit setup needs=none claims={host_cpu:1} make_jobs=1" "verbose dry-run includes unit claims"
 assert_contains "$dry_run_verbose_output" "nested_scheduler={\"type\":\"service_backed\",\"target\":\"service\"" "verbose dry-run includes nested scheduler metadata"

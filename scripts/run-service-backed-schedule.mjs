@@ -1593,7 +1593,7 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
     if (!deferSummary) {
       await runLifecycle(
         testOutputScript,
-        ["target-summary", schedule.target, requestedStatus, "--projection", schedule.target],
+        ["target-summary", schedule.target, requestedStatus, "--children", schedule.children.join(",")],
         requestedStatus === "pass" ? process.stdout : process.stderr,
       );
     }

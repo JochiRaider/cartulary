@@ -23,9 +23,9 @@ import {
 } from "./fixture-reporting.mjs";
 import {
   defaultTaskSurfaceManifestPath,
-  loadTaskSurfaceManifest,
-  projectionChildren,
-} from "./task-surface.mjs";
+  loadSummaryTopologyContext,
+  summaryProjectionChildren,
+} from "./summary-topology.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
@@ -1499,10 +1499,12 @@ function parseTargetSummaryArgs(args) {
   }
 
   if (projectionTarget && childTargetNames.length === 0) {
-    const { manifest } = loadTaskSurfaceManifest(
-      process.env.TASK_SURFACE_MANIFEST ?? defaultTaskSurfaceManifestPath,
-    );
-    childTargetNames.push(...projectionChildren(manifest, projectionTarget));
+    const context = loadSummaryTopologyContext({
+      taskSurfaceManifestPath: process.env.TASK_SURFACE_MANIFEST ?? defaultTaskSurfaceManifestPath,
+      serviceBackedScheduleManifestPath: process.env.SERVICE_BACKED_SCHEDULE_MANIFEST,
+      browserBatchManifestPath: process.env.BROWSER_E2E_BATCH_MANIFEST,
+    });
+    childTargetNames.push(...summaryProjectionChildren(context, projectionTarget));
   }
 
   return { target, requestedStatus, childTargetNames, quietSuccess };

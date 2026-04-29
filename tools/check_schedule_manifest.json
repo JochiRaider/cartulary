@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.check_schedule.v5",
+  "schema_id": "cartulary.check_schedule.v6",
   "schedules": [
     {
       "target": "check",
@@ -8,6 +8,37 @@
         "host_io": 12,
         "service_stack": 1
       },
+      "summary_groups": [
+        {
+          "name": "backend-service-backed",
+          "source": {
+            "type": "service_backed_schedule",
+            "target": "check-service-backed",
+            "class": "backend"
+          }
+        },
+        {
+          "name": "browser",
+          "source": {
+            "type": "service_backed_schedule",
+            "target": "check-service-backed",
+            "class": "browser_leaves"
+          }
+        },
+        {
+          "name": "duration-baselines",
+          "summary_targets": [
+            "check-go-test-duration-baseline-drift",
+            "check-browser-e2e-duration-baseline-drift"
+          ]
+        },
+        {
+          "name": "harness",
+          "summary_targets": [
+            "check-harness-smoke"
+          ]
+        }
+      ],
       "work_units": [
         {
           "target": "check-setup-blockers",
@@ -34,6 +65,9 @@
           "weight": 30000,
           "needs": [
             "check-build-prereqs"
+          ],
+          "produces_summary_targets": [
+            "check-service-backed"
           ],
           "resource_claims": {
             "host_cpu": {
@@ -64,6 +98,9 @@
           "needs": [
             "check-service-backed"
           ],
+          "produces_summary_targets": [
+            "check-go-test-duration-baseline-drift"
+          ],
           "resource_claims": {
             "host_cpu": 1
           },
@@ -74,6 +111,9 @@
           "weight": 28000,
           "needs": [
             "check-service-backed"
+          ],
+          "produces_summary_targets": [
+            "check-browser-e2e-duration-baseline-drift"
           ],
           "resource_claims": {
             "host_cpu": 1

@@ -7,8 +7,13 @@ import {
   harnessTierChecks,
   loadTaskSurfaceManifest,
   repoRoot,
-  summaryProfileArgs,
 } from "./lib/task-surface.mjs";
+import {
+  harnessSummaryGroups,
+  harnessSummaryTargets,
+  loadSummaryTopologyContext,
+  summaryGroupsSpec,
+} from "./lib/summary-topology.mjs";
 
 function parseArgs(argv) {
   const options = {
@@ -153,10 +158,12 @@ async function main() {
   const label = `run-harness-smoke-${options.tier}`;
   const checkNames = harnessTierChecks(manifest, options.tier);
   const checks = checkNames.map((name) => harnessCheck(manifest, name));
-  const profile = summaryProfileArgs(manifest, label);
+  const topologyContext = loadSummaryTopologyContext({ taskSurfaceManifest: manifest });
+  const summaryTargets = harnessSummaryTargets(topologyContext, options.tier);
+  const groupsSpec = summaryGroupsSpec(harnessSummaryGroups(topologyContext, options.tier));
 
   if (verboseOutput()) {
-    await emitTestOutput(["run-start", label, "--steps", "1", "--summary-targets", String(profile.summaryTargets.length), "--helper-units", "0", "--jobs", String(jobs)]);
+    await emitTestOutput(["run-start", label, "--steps", "1", "--summary-targets", String(summaryTargets.length), "--helper-units", "0", "--jobs", String(jobs)]);
     await emitTestOutput(["step-start", label, "1", "1", options.tier, "--mode", "parallel", "--jobs", String(jobs)]);
   }
 
@@ -167,14 +174,14 @@ async function main() {
   } else {
     summaryArgs.push("pass", "1", "1", "-");
   }
-  if (profile.groupsSpec) {
-    summaryArgs.push("--summary-groups", profile.groupsSpec);
+  if (groupsSpec) {
+    summaryArgs.push("--summary-groups", groupsSpec);
   }
   if (skippedAfterFailure.length > 0) {
     summaryArgs.push("--skipped-after-failure", skippedAfterFailure.join(","));
   }
   summaryArgs.push("--quiet-success");
-  summaryArgs.push(...profile.summaryTargets);
+  summaryArgs.push(...summaryTargets);
   const summaryStatus = await emitTestOutput(summaryArgs);
   if (failure) {
     process.exit(failure.status);

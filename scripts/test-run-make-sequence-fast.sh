@@ -134,26 +134,19 @@ for (const name of ["alpha", "beta", "smoke", "dry-run"]) {
     manifest.targets.push({ name, classification: "helper_only", included_in: ["helper_only"] });
   }
 }
-manifest.summary_profiles.smoke = {
-  summary_targets: ["alpha", "beta"],
-  groups: [
+manifest.sequences.smoke = {
+  summary_groups: [
     { name: "alpha-group", summary_targets: ["alpha"] },
     { name: "beta-group", summary_targets: ["beta"] },
   ],
-};
-manifest.summary_profiles["dry-run"] = {
-  summary_targets: ["alpha"],
-};
-manifest.sequences.smoke = {
-  summary_profile: "smoke",
   steps: [
-    { type: "step", target: "alpha" },
-    { type: "parallel", target: "beta", jobs: 3 },
+    { type: "step", target: "alpha", produces_summary_targets: ["alpha"] },
+    { type: "parallel", target: "beta", jobs: 3, produces_summary_targets: ["beta"] },
   ],
 };
 manifest.sequences["dry-run"] = {
-  summary_profile: "dry-run",
-  steps: [{ type: "step", target: "alpha" }],
+  summary_groups: [],
+  steps: [{ type: "step", target: "alpha", produces_summary_targets: ["alpha"] }],
 };
 fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
@@ -221,10 +214,6 @@ const [source, destination, scriptDir] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
 const checks = ["harness-quiet-a", "harness-quiet-b"];
 manifest.harness_tiers.fast = { checks };
-manifest.summary_profiles["run-harness-smoke-fast"] = {
-  summary_targets: checks,
-  groups: [{ name: "fast", summary_targets: checks }],
-};
 manifest.harness_checks.push(
   { name: "harness-quiet-a", backing_scripts: [`${scriptDir}/check-a.sh`] },
   { name: "harness-quiet-b", backing_scripts: [`${scriptDir}/check-b.sh`] },
