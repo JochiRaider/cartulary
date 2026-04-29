@@ -487,6 +487,8 @@ describe("Support Phase 4 TimelineWorkbook", () => {
   });
 
   it("preserves continuity through create-from-mention entity refresh rerenders", async () => {
+    let inspectContentTop = 560;
+    let maxScrollTop = 400;
     const createdIdentity = buildEntityRow({
       entityType: "identity",
       recordId: "identity-1",
@@ -554,6 +556,8 @@ describe("Support Phase 4 TimelineWorkbook", () => {
       | ReturnType<typeof render>["rerender"]
       | undefined;
     const onRefreshEntities = vi.fn(async () => {
+      inspectContentTop = 80;
+      maxScrollTop = 120;
       rerenderTimelineWorkbook?.(
         <TimelineWorkbook
           incidentId="incident-1"
@@ -574,11 +578,25 @@ describe("Support Phase 4 TimelineWorkbook", () => {
     );
     rerenderTimelineWorkbook = renderResult.rerender;
 
-    fireEvent.click(
-      await screen.findByTestId(rowInspectButtonTestId("record-1")),
+    const inspectButton = await screen.findByTestId(
+      rowInspectButtonTestId("record-1"),
     );
+    installTimelineGridScrollClamp(() => maxScrollTop);
+    installTimelineInspectGeometry("record-1", {
+      containerHeight: 300,
+      containerLeft: 40,
+      containerTop: 100,
+      containerWidth: 400,
+      contentLeft: 220,
+      contentTop: () => inspectContentTop,
+      targetHeight: 40,
+      targetWidth: 80,
+    });
+
+    fireEvent.click(inspectButton);
     fireEvent.click(screen.getByTestId("mention-identity-create"));
-    const preservedScroll = setTimelineGridScroll(280, 175);
+    const preservedScroll = setTimelineGridScroll(400, 175);
+    expect(isInspectButtonFullyVisibleWithinGrid("record-1")).toBe(true);
     fireEvent.click(screen.getByText("Create identity"));
 
     await waitFor(() => {
@@ -592,7 +610,10 @@ describe("Support Phase 4 TimelineWorkbook", () => {
         "VPN User",
       );
     });
-    await expectTimelineFocusAndScroll("record-1", preservedScroll);
+    await expectTimelineFocusAndScroll("record-1", preservedScroll, {
+      expectedTop: 0,
+      requireVisibleWithinGrid: true,
+    });
   });
 
   it("reveals a clipped inspect action after an auto-resolution collection patch", async () => {
@@ -1139,7 +1160,7 @@ function installTimelineInspectGeometry(
     containerTop: number;
     containerWidth: number;
     contentLeft: number;
-    contentTop: number;
+    contentTop: number | (() => number);
     targetHeight: number;
     targetWidth: number;
   },
@@ -1161,16 +1182,36 @@ function installTimelineInspectGeometry(
       }
       if (testId === inspectTestId) {
         const grid = screen.getByTestId(gridTestId) as HTMLDivElement;
+        const contentTop =
+          typeof options.contentTop === "function"
+            ? options.contentTop()
+            : options.contentTop;
         return rectFromBox({
           height: options.targetHeight,
           left: options.containerLeft + options.contentLeft - grid.scrollLeft,
-          top: options.containerTop + options.contentTop - grid.scrollTop,
+          top: options.containerTop + contentTop - grid.scrollTop,
           width: options.targetWidth,
         });
       }
       return original.call(this);
     },
   );
+}
+
+function installTimelineGridScrollClamp(maxTop: () => number) {
+  const grid = screen.getByTestId(
+    gridShellTestId("timeline"),
+  ) as HTMLDivElement;
+  let scrollTop = grid.scrollTop;
+  Object.defineProperty(grid, "scrollTop", {
+    configurable: true,
+    get: () => scrollTop,
+    set: (value: number) => {
+      const numericValue =
+        typeof value === "number" && Number.isFinite(value) ? value : 0;
+      scrollTop = Math.max(0, Math.min(numericValue, maxTop()));
+    },
+  });
 }
 
 function isInspectButtonFullyVisibleWithinGrid(recordId: string) {

@@ -37,6 +37,7 @@ describe("workbookContinuity", () => {
     expect(
       computeRestoredViewportScroll({
         preservedScroll: { top: 240, left: 18 },
+        currentScroll: { top: 240, left: 18 },
         preservedAnchor: anchor,
         containerRect,
         elementRect,
@@ -55,6 +56,7 @@ describe("workbookContinuity", () => {
     expect(
       computeRestoredViewportScroll({
         preservedScroll: { top: 240, left: 18 },
+        currentScroll: { top: 240, left: 18 },
         preservedAnchor,
         containerRect,
         elementRect: {
@@ -80,6 +82,7 @@ describe("workbookContinuity", () => {
     expect(
       computeRestoredViewportScroll({
         preservedScroll: { top: 240, left: 18 },
+        currentScroll: { top: 240, left: 18 },
         preservedAnchor,
         containerRect,
         elementRect: {
@@ -107,6 +110,7 @@ describe("workbookContinuity", () => {
     expect(
       computeRestoredViewportScroll({
         preservedScroll: { top: 240, left: 18 },
+        currentScroll: { top: 240, left: 18 },
         preservedAnchor: {
           top: 70,
           left: 45,
@@ -136,6 +140,7 @@ describe("workbookContinuity", () => {
     expect(
       computeRestoredViewportScroll({
         preservedScroll: { top: 240, left: 18 },
+        currentScroll: { top: 240, left: 18 },
         preservedAnchor: {
           top: 240,
           left: 45,
@@ -153,5 +158,29 @@ describe("workbookContinuity", () => {
         },
       }),
     ).toEqual({ top: 280, left: 48 });
+  });
+
+  it("bases visibility repair on the actual clamped scroll after restoring the preserved scroll", () => {
+    expect(
+      computeRestoredViewportScroll({
+        preservedScroll: { top: 800, left: 18 },
+        currentScroll: { top: 500, left: 18 },
+        preservedAnchor: {
+          top: 160,
+          left: 45,
+          width: 140,
+          height: 40,
+        },
+        containerRect,
+        elementRect: {
+          top: -20,
+          left: 85,
+          right: 225,
+          bottom: 20,
+          width: 140,
+          height: 40,
+        },
+      }),
+    ).toEqual({ top: 220, left: 18 });
   });
 });

@@ -1584,17 +1584,29 @@ export function TimelineWorkbook({
         ) {
           return false;
         }
-        restoreGridScroll(
-          computeRestoredViewportScroll({
-            preservedScroll,
-            preservedAnchor: currentViewport.anchor,
-            containerRect: currentGridShell.getBoundingClientRect(),
-            elementRect: currentElement.getBoundingClientRect(),
-          }),
-        );
+        const restoredScroll = computeRestoredViewportScroll({
+          preservedScroll,
+          currentScroll: {
+            top: currentGridShell.scrollTop,
+            left: currentGridShell.scrollLeft,
+          },
+          preservedAnchor: currentViewport.anchor,
+          containerRect: currentGridShell.getBoundingClientRect(),
+          elementRect: currentElement.getBoundingClientRect(),
+        });
+        restoreGridScroll(restoredScroll);
+        const updatedGridShell = gridShellRef.current;
+        const updatedElement = resolveElement();
+        if (
+          updatedGridShell === null ||
+          updatedElement === null ||
+          !updatedElement.isConnected
+        ) {
+          return false;
+        }
         return isRectFullyVisibleWithinContainer(
-          currentGridShell.getBoundingClientRect(),
-          currentElement.getBoundingClientRect(),
+          updatedGridShell.getBoundingClientRect(),
+          updatedElement.getBoundingClientRect(),
         );
       };
       const restoredNow = restoreViewportGeometryNow();

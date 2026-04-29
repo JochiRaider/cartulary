@@ -305,6 +305,25 @@ assert_equals "$(json_field "$short_failure_summary" "counts.unmapped_failed")" 
 assert_matches "$(json_field "$short_failure_summary" "start_time")" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$' "short failure millisecond start time"
 assert_matches "$(json_field "$short_failure_summary" "end_time")" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$' "short failure millisecond end time"
 
+shell_progress_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-phase-progress-results.XXXXXX")"
+cleanup_paths+=("$shell_progress_failure_results")
+set +e
+shell_progress_failure_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$shell_progress_failure_results" \
+  CARTULARY_TEST_RUN_ID="shell-progress-failure" \
+    "$HELPER" "shell progress failure" -- bash -lc 'printf "%s\n" "[TARGET] start browser-e2e-webserver-backed service_backed=1 expected_phases=0 expected_tests=0" "real-shell-failure" >&2; exit 9' \
+    2>&1
+)"
+shell_progress_failure_status=$?
+set -e
+if [[ "$shell_progress_failure_status" -ne 9 ]]; then
+  fail "shell progress failure: expected exit status 9, got $shell_progress_failure_status"
+fi
+assert_contains "$shell_progress_failure_output" "message=real-shell-failure" "shell progress failure message"
+shell_progress_failure_summary="$shell_progress_failure_results/shell-progress-failure/adhoc/shell-progress-failure/phase-summary.json"
+assert_equals "$(json_field "$shell_progress_failure_summary" "dossiers.0.message")" "real-shell-failure" "shell progress failure summary message"
+
 single_span_results="$(mktemp -d "$ROOT_DIR/tmp/single-span-duration.XXXXXX")"
 cleanup_paths+=("$single_span_results")
 single_span_phase_dir="$single_span_results/single-span/short-target/short-phase"

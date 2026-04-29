@@ -38,25 +38,31 @@ export function captureViewportAnchor(
 
 export function computeRestoredViewportScroll(options: {
   preservedScroll: ScrollPosition | null;
+  currentScroll: ScrollPosition | null;
   preservedAnchor: ViewportAnchor | null;
   containerRect: RectLike;
   elementRect: RectLike;
 }): ScrollPosition | null {
-  const { preservedAnchor, preservedScroll, containerRect, elementRect } =
-    options;
-  if (preservedScroll === null) {
+  const {
+    currentScroll,
+    preservedAnchor,
+    preservedScroll,
+    containerRect,
+    elementRect,
+  } = options;
+  if (preservedScroll === null || currentScroll === null) {
     return null;
   }
 
   const currentTop = elementRect.top - containerRect.top;
   const currentLeft = elementRect.left - containerRect.left;
 
-  let nextTop = preservedScroll.top;
+  let nextTop = currentScroll.top;
   if (preservedAnchor !== null) {
     nextTop += currentTop - preservedAnchor.top;
   }
 
-  const predictedTop = currentTop - (nextTop - preservedScroll.top);
+  const predictedTop = currentTop - (nextTop - currentScroll.top);
   const predictedBottom = predictedTop + elementRect.height;
   if (predictedTop < 0) {
     nextTop += roundVisibilityDelta(predictedTop);
@@ -64,7 +70,7 @@ export function computeRestoredViewportScroll(options: {
     nextTop += Math.ceil(predictedBottom - containerRect.height);
   }
 
-  let nextLeft = preservedScroll.left;
+  let nextLeft = currentScroll.left;
   const predictedLeft = currentLeft;
   const predictedRight = predictedLeft + elementRect.width;
   if (predictedLeft < 0) {

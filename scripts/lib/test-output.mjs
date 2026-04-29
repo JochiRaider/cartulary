@@ -619,6 +619,7 @@ function firstActionableLine(lines) {
       line.startsWith("--- SKIP") ||
       line === "PASS" ||
       line === "FAIL" ||
+      isShellOrchestrationLine(line) ||
       /^ok\s/.test(line) ||
       /^\?\s/.test(line)
     ) {
@@ -627,6 +628,10 @@ function firstActionableLine(lines) {
     return line;
   }
   return "";
+}
+
+function isShellOrchestrationLine(line) {
+  return /^\[TARGET\]\s+start\s+\S+\s/.test(line);
 }
 
 function firstGoActionableLine(lines) {
