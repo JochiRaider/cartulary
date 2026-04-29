@@ -66,11 +66,27 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 node_bin="${NODE_BIN:-node}"
 manifest_script="$repo_root/scripts/lib/phase-manifest.mjs"
+if [[ -n "${CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION:-}" ]]; then
+  echo "CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION is retired; use tools/phase_policy_exceptions.json for temporary empty manifest selection exceptions" >&2
+  exit 2
+fi
 match_count="$("$node_bin" "$manifest_script" go-count "$phase_manifest" "$section" "$coverage" "$execution_dependency" "${package_patterns[@]}")"
 if [[ "$match_count" == "0" ]]; then
-  selection_key="${phase_manifest}:${section}:${coverage}:${execution_dependency}:${package_patterns[*]}"
-  if [[ "${CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION:-}" == "$selection_key" ]]; then
+  allow_output=""
+  allow_status=0
+  set +e
+  allow_output="$(
+    "$node_bin" "$manifest_script" empty-go-manifest-selection-allowed \
+      "$phase_manifest" "$section" "$coverage" "$execution_dependency" "${package_patterns[@]}" 2>&1
+  )"
+  allow_status=$?
+  set -e
+  if [[ "$allow_status" -eq 0 ]]; then
     exit 0
+  fi
+  if [[ -n "$allow_output" ]]; then
+    printf '%s\n' "$allow_output" >&2
+    exit "$allow_status"
   fi
   echo "no ${coverage} go tests found for ${phase_manifest} ${section} in ${package_patterns[*]}" >&2
   exit 1

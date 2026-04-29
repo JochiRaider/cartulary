@@ -160,6 +160,24 @@ function printRunnerMetadata(stage) {
   }
 }
 
+function printGroupSelections(manifestPath) {
+  const stages = loadBrowserBatchStages(manifestPath);
+  for (const stage of stages.values()) {
+    for (const group of stage.groups) {
+      process.stdout.write(
+        [
+          stage.name,
+          group.name,
+          group.target,
+          group.kind,
+          group.coverage,
+          group.executionDependency,
+        ].join("\t") + "\n",
+      );
+    }
+  }
+}
+
 function main(argv) {
   const [command, manifestPath, stageName] = argv;
   switch (command) {
@@ -181,9 +199,15 @@ function main(argv) {
       }
       printRunnerMetadata(resolveBrowserBatchStage(manifestPath, stageName));
       return;
+    case "group-selections":
+      if (!manifestPath || stageName !== undefined) {
+        throw new Error("usage: browser-batch-manifest.mjs group-selections <manifest>");
+      }
+      printGroupSelections(manifestPath);
+      return;
     default:
       throw new Error(
-        "usage: browser-batch-manifest.mjs <validate|stage-target|stage-runner> <manifest> [stage]",
+        "usage: browser-batch-manifest.mjs <validate|stage-target|stage-runner|group-selections> <manifest> [stage]",
       );
   }
 }

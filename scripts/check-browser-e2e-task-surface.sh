@@ -8,6 +8,7 @@ functional_script="$repo_root/scripts/run-browser-e2e-functional.sh"
 browser_batch_script="$repo_root/scripts/run-browser-e2e-batch.sh"
 browser_target_script="$repo_root/scripts/run-browser-e2e-target.sh"
 cartulary_runner_script="$repo_root/scripts/cartulary-runner.mjs"
+phase_manifest_helper="$repo_root/scripts/lib/phase-manifest.mjs"
 browser_batch_manifest_helper="$repo_root/scripts/lib/browser-batch-manifest.mjs"
 browser_batch_manifest="$repo_root/tools/browser_e2e_batch_manifest.json"
 webserver_batch_script="$repo_root/scripts/lib/run-playwright-webserver-batch.sh"
@@ -277,6 +278,38 @@ if (Array.isArray(value)) {
   process.stdout.write(String(value));
 }
 EOF
+}
+
+manifest_playwright_files_all() {
+  local coverage="$1"
+  local execution_dependency="$2"
+  "$node_bin" "$phase_manifest_helper" playwright-files-all "$coverage" "$execution_dependency"
+}
+
+assert_manifest_owned_files_not_raw_selected() {
+  local label="$1"
+  local coverage="$2"
+  local execution_dependency="$3"
+  shift 3
+
+  local manifest_files=()
+  mapfile -t manifest_files < <(manifest_playwright_files_all "$coverage" "$execution_dependency")
+
+  local manifest_file
+  local web_relative
+  local e2e_relative
+  local candidate_file
+  for manifest_file in "${manifest_files[@]}"; do
+    web_relative="${manifest_file#apps/web/}"
+    e2e_relative="${web_relative#e2e/}"
+    for candidate_file in "$@"; do
+      if grep -Fq "$manifest_file" "$candidate_file" ||
+        grep -Fq "$web_relative" "$candidate_file" ||
+        grep -Fq "$e2e_relative" "$candidate_file"; then
+        fail "$label must not raw-select manifest-owned Playwright file $manifest_file in $candidate_file"
+      fi
+    done
+  done
 }
 
 browser_e2e_owned_stack_env="$(sed -n 's/^BROWSER_E2E_OWNED_STACK_ENV[[:space:]]*:=//p' "$makefile" | head -n 1)"
@@ -632,6 +665,18 @@ if ! [[ -f "$browser_batch_manifest_helper" ]]; then
   fail "missing scripts/lib/browser-batch-manifest.mjs"
 fi
 "$node_bin" "$browser_batch_manifest_helper" validate "$browser_batch_manifest"
+while IFS=$'\t' read -r stage_name group_name group_target group_kind group_coverage group_execution_dependency; do
+  if [[ "$group_coverage" == "raw" || -z "$group_coverage" ]]; then
+    continue
+  fi
+  if [[ -z "$group_execution_dependency" ]]; then
+    fail "browser batch group $stage_name/$group_name must declare execution_dependency for $group_coverage coverage"
+  fi
+  group_count="$("$node_bin" "$phase_manifest_helper" playwright-count-all "$group_coverage" "$group_execution_dependency")"
+  if [[ "$group_count" == "0" ]]; then
+    fail "browser batch group $stage_name/$group_name target=$group_target must match manifest Playwright rows for $group_coverage $group_execution_dependency"
+  fi
+done < <("$node_bin" "$browser_batch_manifest_helper" group-selections "$browser_batch_manifest")
 if ! [[ -f "$webserver_batch_script" ]]; then
   fail "missing scripts/lib/run-playwright-webserver-batch.sh"
 fi
@@ -818,6 +863,23 @@ fi
 if grep -Eq 'playwright test e2e/phase[0-9]' "$web_package_json"; then
   fail "apps/web/package.json must not hardcode browser phase spec lists"
 fi
+if "$node_bin" - "$web_package_json" <<'EOF'
+const fs = require("node:fs");
+const [packageFile] = process.argv.slice(2);
+const packageJSON = JSON.parse(fs.readFileSync(packageFile, "utf8"));
+const phaseScripts = Object.keys(packageJSON.scripts ?? {}).filter((name) =>
+  /^test:e2e:phase\d+$/.test(name),
+);
+if (phaseScripts.length > 0) {
+  console.error(`apps/web/package.json must not expose phase-numbered browser E2E aliases: ${phaseScripts.join(",")}`);
+  process.exit(1);
+}
+EOF
+then
+  :
+else
+  fail "apps/web/package.json must not expose phase-numbered browser E2E aliases"
+fi
 if ! grep -Fq 'name: "functional"' "$webserver_batch_config"; then
   fail "apps/web/playwright.webserver-backed.config.ts must define the functional project"
 fi
@@ -836,16 +898,24 @@ fi
 if ! grep -Fq 'CARTULARY_PLAYWRIGHT_SUPPORT_FILES' "$webserver_batch_config"; then
   fail "apps/web/playwright.webserver-backed.config.ts must scope support files from the Playwright manifest"
 fi
-for hardcoded_browser_functional_file in phase1.spec.ts phase2.spec.ts phase3.spec.ts phase4.spec.ts; do
-  if grep -Fq "$hardcoded_browser_functional_file" "$webserver_batch_config"; then
-    fail "apps/web/playwright.webserver-backed.config.ts must not hardcode browser functional file $hardcoded_browser_functional_file"
-  fi
-done
-for hardcoded_browser_support_file in phase2.support.spec.ts phase3.support.spec.ts; do
-  if grep -Fq "$hardcoded_browser_support_file" "$webserver_batch_config" "$browser_batch_script" "$webserver_batch_script"; then
-    fail "browser support execution must not hardcode support file $hardcoded_browser_support_file"
-  fi
-done
+assert_manifest_owned_files_not_raw_selected \
+  "browser functional execution" \
+  authoritative \
+  browser_functional \
+  "$webserver_batch_config" \
+  "$web_package_json" \
+  "$functional_script" \
+  "$webserver_backed_script" \
+  "$browser_batch_script" \
+  "$webserver_batch_script"
+assert_manifest_owned_files_not_raw_selected \
+  "browser support execution" \
+  supplemental \
+  browser_support \
+  "$webserver_batch_config" \
+  "$web_package_json" \
+  "$browser_batch_script" \
+  "$webserver_batch_script"
 if ! grep -Fq 'webE2EBaseConfig' "$webserver_batch_config"; then
   fail "apps/web/playwright.webserver-backed.config.ts must use the shared Playwright web E2E config"
 fi
@@ -859,9 +929,12 @@ fi
 if ! grep -Fq 'run-browser-e2e-manifest-dependency.sh' "$stateful_script"; then
   fail "scripts/run-browser-e2e-stateful.sh must use manifest-derived phase discovery"
 fi
-if grep -Fq 'e2e/phase1.clock.spec.ts' "$stateful_script"; then
-  fail "scripts/run-browser-e2e-stateful.sh must not raw-select e2e/phase1.clock.spec.ts"
-fi
+assert_manifest_owned_files_not_raw_selected \
+  "browser stateful execution" \
+  authoritative \
+  browser_stateful \
+  "$stateful_script" \
+  "$web_package_json"
 if ! grep -Fq 'claim_bearing": false' "$measurement_script"; then
   fail "scripts/run-browser-e2e-measurement.sh must emit claim_bearing=false ordinary measurement metadata"
 fi
@@ -874,6 +947,12 @@ fi
 if ! grep -Fq 'run-browser-e2e-manifest-dependency.sh' "$measurement_script"; then
   fail "scripts/run-browser-e2e-measurement.sh must use manifest-derived phase discovery"
 fi
+assert_manifest_owned_files_not_raw_selected \
+  "browser measurement execution" \
+  authoritative \
+  browser_measurement \
+  "$measurement_script" \
+  "$web_package_json"
 if ! grep -Fq 'run-browser-e2e-batch.sh" resettable' "$resettable_script"; then
   fail "scripts/run-browser-e2e-resettable.sh must delegate resettable sequencing to the browser batch runner"
 fi

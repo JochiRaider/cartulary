@@ -564,6 +564,10 @@ if rg -q 'TestPhase0_.*_U_0_|TestPhase0_.*_I_0_|TestPhase0_.*_E_0_' "$makefile";
   fail "Makefile must not use regex-based Phase 0 Go selection"
 fi
 
+if rg -q 'CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION' "$makefile" "$generated_make" "$repo_root/tools/task_surface_manifest.json"; then
+  fail "Make and task-surface manifests must not retain CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION"
+fi
+
 if rg -q 'TestPhase4_.*_U_4_' "$go_runner_script"; then
   fail "scripts/run-go-target.sh must not use raw authoritative Phase 4 U-4-* Go selectors"
 fi

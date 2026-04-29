@@ -360,6 +360,15 @@ assert_contains "$mismatch_output" "runner=" "batch mismatch runner path"
 
 batch_manifest="$ROOT_DIR/tools/browser_e2e_batch_manifest.json"
 batch_runner="$ROOT_DIR/scripts/run-browser-e2e-batch.sh"
+batch_group_selections="$("${NODE:-node}" "$ROOT_DIR/scripts/lib/browser-batch-manifest.mjs" group-selections "$batch_manifest")"
+assert_contains \
+  "$batch_group_selections" \
+  $'webserver-backed\tfunctional-support\tbrowser-e2e-webserver-backed\tduration_balanced_specs\tauthoritative\tbrowser_functional' \
+  "browser batch group selection metadata"
+assert_contains \
+  "$batch_group_selections" \
+  $'support\tsupport\tbrowser-e2e-support\tsupport\tsupplemental\tbrowser_support' \
+  "browser support group selection metadata"
 batch_manifest_summary="$("${NODE:-node}" - "$batch_manifest" <<'NODE'
 const fs = require("node:fs");
 

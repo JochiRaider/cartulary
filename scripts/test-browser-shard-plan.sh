@@ -44,6 +44,16 @@ assert_equals() {
   fi
 }
 
+assert_contains() {
+  local haystack="$1"
+  local needle="$2"
+  local label="$3"
+
+  if [[ "$haystack" != *"$needle"* ]]; then
+    fail "$label: expected output to contain [$needle], got [$haystack]"
+  fi
+}
+
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/browser-shard-plan.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 mkdir -p "$tmp_dir/manifests/tools"
@@ -181,3 +191,15 @@ case "$future_phases" in
   *phase12*) ;;
   *) fail "future phase browser rows must be discovered from phase manifests, got [$future_phases]" ;;
 esac
+
+future_files="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+    "$node_cmd" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" playwright-files-all authoritative browser_functional
+)"
+assert_contains "$future_files" "e2e/gamma.spec.ts" "future phase browser file discovery"
+
+future_count="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+    "$node_cmd" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" playwright-count-all authoritative browser_functional
+)"
+assert_equals "$future_count" "5" "future phase browser row count discovery"

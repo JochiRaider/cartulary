@@ -776,7 +776,9 @@ The repository MUST distinguish **codegen drift** from **migration drift**:
 - **codegen drift** means generated outputs change after `make generate`,
 - **migration drift** means schema-affecting behavior or query changes are not represented in the numbered migration path or migrations do not apply cleanly in CI.
 
-Browser verification MUST keep isolated ordering and reset policy in `tools/browser_e2e_batch_manifest.json`. Webserver-backed functional browser evidence MUST be split into duration-balanced Playwright spec shards using `tools/browser_e2e_duration_baselines.json` rather than by phase number. The default developer gate schedules both webserver-backed browser evidence and the isolated `browser-e2e` aggregate through the service-backed scheduler with explicit `browser_stage_*` lane claims, so browser phase growth remains resource-visible instead of becoming a fixed top-level check tail.
+Browser verification MUST keep isolated ordering and reset policy in `tools/browser_e2e_batch_manifest.json`. Webserver-backed functional browser evidence MUST be discovered from phase manifests and split into duration-balanced Playwright spec shards using `tools/browser_e2e_duration_baselines.json` rather than by phase number. Frontend package scripts should expose stable task aliases, not `test:e2e:phaseN` aliases. The default developer gate schedules both webserver-backed browser evidence and the isolated `browser-e2e` aggregate through the service-backed scheduler with explicit `browser_stage_*` lane claims, so browser phase growth remains resource-visible instead of becoming a fixed top-level check tail.
+
+Temporary phase-policy exceptions belong in `tools/phase_policy_exceptions.json`. Each exception must name an owner, reason, and expiration, and task-surface runners must not accept ad hoc environment-variable allowances for empty manifest selections.
 
 Backend verification MUST distinguish phase evidence from execution dependency. The repository now uses two axes:
 

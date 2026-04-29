@@ -1056,6 +1056,218 @@ go_manifest_success_output="$(
 assert_empty "$go_manifest_success_output" "run-go-manifest-phase success"
 
 set +e
+go_manifest_empty_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
+  NODE_BIN="$node_bin" \
+    "$GO_MANIFEST_HELPER" "run-go-manifest-phase empty" phase9 unit authoritative backend_unit -- "$go_bin" test ./internal/platform/... \
+    2>&1
+)"
+go_manifest_empty_status=$?
+set -e
+if [[ "$go_manifest_empty_status" -eq 0 ]]; then
+  fail "run-go-manifest-phase empty: expected non-zero exit status"
+fi
+assert_contains "$go_manifest_empty_output" "no authoritative go tests found for phase9 unit in ./internal/platform/..." "run-go-manifest-phase empty output"
+
+set +e
+go_manifest_raw_allow_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
+  CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION="phase9:unit:authoritative:backend_unit:./internal/platform/..." \
+  NODE_BIN="$node_bin" \
+    "$GO_MANIFEST_HELPER" "run-go-manifest-phase raw allow" phase9 unit authoritative backend_unit -- "$go_bin" test ./internal/platform/... \
+    2>&1
+)"
+go_manifest_raw_allow_status=$?
+set -e
+if [[ "$go_manifest_raw_allow_status" -eq 0 ]]; then
+  fail "run-go-manifest-phase raw allow: expected non-zero exit status"
+fi
+assert_contains "$go_manifest_raw_allow_output" "CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION is retired" "run-go-manifest-phase raw allow output"
+
+go_manifest_valid_exception="$go_manifest_root/phase-policy-valid.json"
+cat >"$go_manifest_valid_exception" <<'JSON'
+{
+  "schema_id": "cartulary.phase_policy_exceptions.v1",
+  "exceptions": [
+    {
+      "id": "allow-empty-platform-phase9",
+      "type": "allowed_empty_go_manifest_selection",
+      "owner": "task-surface",
+      "reason": "synthetic test-only empty selection allowance",
+      "expires_before_phase": "phase99",
+      "selection": {
+        "phase": "phase9",
+        "section": "unit",
+        "coverage": "authoritative",
+        "execution_dependency": "backend_unit",
+        "package_patterns": ["./internal/platform/..."]
+      }
+    }
+  ]
+}
+JSON
+go_manifest_exception_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
+  CARTULARY_PHASE_POLICY_EXCEPTIONS="$go_manifest_valid_exception" \
+  NODE_BIN="$node_bin" \
+    "$GO_MANIFEST_HELPER" "run-go-manifest-phase exception" phase9 unit authoritative backend_unit -- "$go_bin" test ./internal/platform/...
+)"
+assert_empty "$go_manifest_exception_output" "run-go-manifest-phase exception"
+
+go_manifest_missing_owner_exception="$go_manifest_root/phase-policy-missing-owner.json"
+cat >"$go_manifest_missing_owner_exception" <<'JSON'
+{
+  "schema_id": "cartulary.phase_policy_exceptions.v1",
+  "exceptions": [
+    {
+      "id": "missing-owner",
+      "type": "allowed_empty_go_manifest_selection",
+      "reason": "synthetic invalid exception",
+      "expires_before_phase": "phase99",
+      "selection": {
+        "phase": "phase9",
+        "section": "unit",
+        "coverage": "authoritative",
+        "execution_dependency": "backend_unit",
+        "package_patterns": ["./internal/platform/..."]
+      }
+    }
+  ]
+}
+JSON
+set +e
+go_manifest_missing_owner_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
+  CARTULARY_PHASE_POLICY_EXCEPTIONS="$go_manifest_missing_owner_exception" \
+  NODE_BIN="$node_bin" \
+    "$GO_MANIFEST_HELPER" "run-go-manifest-phase missing owner" phase9 unit authoritative backend_unit -- "$go_bin" test ./internal/platform/... \
+    2>&1
+)"
+go_manifest_missing_owner_status=$?
+set -e
+if [[ "$go_manifest_missing_owner_status" -eq 0 ]]; then
+  fail "run-go-manifest-phase missing owner: expected non-zero exit status"
+fi
+assert_contains "$go_manifest_missing_owner_output" ".owner must be a non-empty string" "run-go-manifest-phase missing owner output"
+
+go_manifest_missing_reason_exception="$go_manifest_root/phase-policy-missing-reason.json"
+cat >"$go_manifest_missing_reason_exception" <<'JSON'
+{
+  "schema_id": "cartulary.phase_policy_exceptions.v1",
+  "exceptions": [
+    {
+      "id": "missing-reason",
+      "type": "allowed_empty_go_manifest_selection",
+      "owner": "task-surface",
+      "expires_before_phase": "phase99",
+      "selection": {
+        "phase": "phase9",
+        "section": "unit",
+        "coverage": "authoritative",
+        "execution_dependency": "backend_unit",
+        "package_patterns": ["./internal/platform/..."]
+      }
+    }
+  ]
+}
+JSON
+set +e
+go_manifest_missing_reason_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
+  CARTULARY_PHASE_POLICY_EXCEPTIONS="$go_manifest_missing_reason_exception" \
+  NODE_BIN="$node_bin" \
+    "$GO_MANIFEST_HELPER" "run-go-manifest-phase missing reason" phase9 unit authoritative backend_unit -- "$go_bin" test ./internal/platform/... \
+    2>&1
+)"
+go_manifest_missing_reason_status=$?
+set -e
+if [[ "$go_manifest_missing_reason_status" -eq 0 ]]; then
+  fail "run-go-manifest-phase missing reason: expected non-zero exit status"
+fi
+assert_contains "$go_manifest_missing_reason_output" ".reason must be a non-empty string" "run-go-manifest-phase missing reason output"
+
+go_manifest_missing_expiration_exception="$go_manifest_root/phase-policy-missing-expiration.json"
+cat >"$go_manifest_missing_expiration_exception" <<'JSON'
+{
+  "schema_id": "cartulary.phase_policy_exceptions.v1",
+  "exceptions": [
+    {
+      "id": "missing-expiration",
+      "type": "allowed_empty_go_manifest_selection",
+      "owner": "task-surface",
+      "reason": "synthetic invalid exception",
+      "selection": {
+        "phase": "phase9",
+        "section": "unit",
+        "coverage": "authoritative",
+        "execution_dependency": "backend_unit",
+        "package_patterns": ["./internal/platform/..."]
+      }
+    }
+  ]
+}
+JSON
+set +e
+go_manifest_missing_expiration_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
+  CARTULARY_PHASE_POLICY_EXCEPTIONS="$go_manifest_missing_expiration_exception" \
+  NODE_BIN="$node_bin" \
+    "$GO_MANIFEST_HELPER" "run-go-manifest-phase missing expiration" phase9 unit authoritative backend_unit -- "$go_bin" test ./internal/platform/... \
+    2>&1
+)"
+go_manifest_missing_expiration_status=$?
+set -e
+if [[ "$go_manifest_missing_expiration_status" -eq 0 ]]; then
+  fail "run-go-manifest-phase missing expiration: expected non-zero exit status"
+fi
+assert_contains "$go_manifest_missing_expiration_output" "must declare exactly one of expires_before_phase or expires_on" "run-go-manifest-phase missing expiration output"
+
+go_manifest_expired_exception="$go_manifest_root/phase-policy-expired.json"
+cat >"$go_manifest_expired_exception" <<'JSON'
+{
+  "schema_id": "cartulary.phase_policy_exceptions.v1",
+  "exceptions": [
+    {
+      "id": "expired-exception",
+      "type": "allowed_empty_go_manifest_selection",
+      "owner": "task-surface",
+      "reason": "synthetic expired exception",
+      "expires_on": "2000-01-01",
+      "selection": {
+        "phase": "phase9",
+        "section": "unit",
+        "coverage": "authoritative",
+        "execution_dependency": "backend_unit",
+        "package_patterns": ["./internal/platform/..."]
+      }
+    }
+  ]
+}
+JSON
+set +e
+go_manifest_expired_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \
+  CARTULARY_PHASE_POLICY_EXCEPTIONS="$go_manifest_expired_exception" \
+  CARTULARY_PHASE_POLICY_TODAY="2026-01-01" \
+  NODE_BIN="$node_bin" \
+    "$GO_MANIFEST_HELPER" "run-go-manifest-phase expired" phase9 unit authoritative backend_unit -- "$go_bin" test ./internal/platform/... \
+    2>&1
+)"
+go_manifest_expired_status=$?
+set -e
+if [[ "$go_manifest_expired_status" -eq 0 ]]; then
+  fail "run-go-manifest-phase expired: expected non-zero exit status"
+fi
+assert_contains "$go_manifest_expired_output" "expired on 2000-01-01" "run-go-manifest-phase expired output"
+
+set +e
 go_manifest_skip_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_PHASE_MANIFEST_ROOT="$go_manifest_root" \

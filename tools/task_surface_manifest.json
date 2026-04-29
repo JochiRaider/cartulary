@@ -298,8 +298,7 @@
               "$(NODE_BIN)"
           ],
           "exports": {
-              "CARTULARY_TEST_TARGET": "backend-unit",
-              "CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION": "phase1:unit:authoritative:backend_unit:./internal/platform/..."
+              "CARTULARY_TEST_TARGET": "backend-unit"
           }
       },
       "backend-store": {
