@@ -1,57 +1,95 @@
 {
-  "schema_id": "cartulary.task_surface_manifest.v8",
+  "schema_id": "cartulary.task_surface_manifest.v9",
+  "compact_help": {
+    "entries": [
+      { "target": "help", "description": "print the compact workflow task surface" },
+      { "target": "help-all", "description": "print the exhaustive public workflow task surface" },
+      { "target": "doctor", "description": "verify required local tools and versions" },
+      { "target": "bootstrap", "description": "install pinned tools and frontend/browser dependencies" },
+      { "target": "db-up", "description": "start local Postgres and MinIO, then initialize the default MinIO bucket" },
+      { "target": "db-reset", "description": "recreate the local database only; does not reset object storage" },
+      { "target": "dev", "description": "run the Go server and Vite dev server" },
+      { "target": "generate", "description": "regenerate sqlc and contract-derived outputs" },
+      { "target": "format", "description": "format authored frontend sources" },
+      { "target": "test-fast", "description": "run the narrower local verification loop" },
+      { "target": "check", "description": "run the developer verification gate" },
+      { "target": "clean", "description": "remove repo-local build and report artifacts" }
+    ]
+  },
   "help_tiers": [
     {
-      "name": "daily",
+      "name": "local dev",
       "entries": [
-        { "target": "help", "description": "print the daily root task surface" },
-        { "target": "help-all", "description": "print the exhaustive public task surface" },
+        { "target": "help", "description": "print the compact workflow task surface" },
+        { "target": "help-all", "description": "print the exhaustive public workflow task surface" },
         { "target": "doctor", "description": "verify required local tools and versions" },
         { "target": "bootstrap", "description": "install pinned tools and frontend/browser dependencies" },
+        { "target": "bootstrap-node-runtime", "description": "install the pinned repo-local Node runtime" },
+        { "target": "frontend-toolchain", "description": "verify the pinned Node/pnpm toolchain" },
+        { "target": "frontend-install", "description": "install workspace dependencies" },
+        { "target": "playwright-install", "description": "install browser dependencies" },
         { "target": "db-up", "description": "start local Postgres and MinIO, then initialize the default MinIO bucket" },
         { "target": "db-reset", "description": "recreate the local database only; does not reset object storage" },
+        { "target": "services-up", "description": "start local Postgres and MinIO, then wait until ready" },
+        { "target": "minio-init", "description": "create the default local MinIO bucket if needed" },
         { "target": "dev", "description": "run the Go server and Vite dev server" },
         { "target": "generate", "description": "regenerate sqlc and contract-derived outputs" },
         { "target": "format", "description": "format authored frontend sources" },
-        { "target": "test-fast", "description": "run the narrower local verification loop" },
-        { "target": "test", "description": "run the authoritative full test corpus" },
-        { "target": "lint", "description": "run backend and frontend lint/type checks" },
-        { "target": "check", "description": "run the developer verification gate" },
-        { "target": "build", "description": "build backend binaries with embedded web assets" },
         { "target": "clean", "description": "remove repo-local build and report artifacts" }
       ]
     },
     {
-      "name": "diagnostics",
+      "name": "fast verification",
       "entries": [
+        { "target": "test-fast", "description": "run the narrower local verification loop" },
         { "target": "backend-unit", "description": "run pure backend unit evidence" },
         { "target": "backend-store", "description": "run service-backed store-domain evidence" },
         { "target": "backend-integration", "description": "run backend integration evidence" },
         { "target": "backend-process", "description": "run backend process evidence" },
-        { "target": "target-plan", "description": "explain backend target execution families" },
-        { "target": "target-plan-json", "description": "emit deterministic backend target plan JSON" },
-        { "target": "fixture-report", "description": "RESULTS_DIR=<root|run-dir> report fixture cost hotspots" },
-        { "target": "explain-run", "description": "RESULTS_DIR=<root|run-dir> inspect run summary artifacts" },
-        { "target": "explain-target", "description": "TARGET=backend-store explain one backend target" },
         { "target": "frontend-typecheck", "description": "run TypeScript type checking" },
         { "target": "frontend-unit", "description": "run the frontend unit suite" },
-        { "target": "lint-biome", "description": "run authored frontend Biome checks" },
+        { "target": "lint", "description": "run backend and frontend lint/type checks" },
+        { "target": "lint-biome", "description": "run authored frontend Biome checks" }
+      ]
+    },
+    {
+      "name": "full gates",
+      "entries": [
+        { "target": "test", "description": "run the authoritative full test corpus" },
+        { "target": "check", "description": "run the developer verification gate" },
         { "target": "browser-e2e", "description": "run isolated browser E2E suites through one batch stack" },
         { "target": "browser-e2e-webserver-backed", "description": "run shared-stack browser E2E batch" },
         { "target": "browser-e2e-stateful", "description": "run isolated stateful browser E2E batch" },
         { "target": "browser-e2e-measurement", "description": "run ordinary browser measurement evidence" },
-        { "target": "browser-e2e-visual", "description": "run isolated visual browser E2E" },
-        { "target": "task-surface-report", "description": "print the root Make task-surface inventory" }
+        { "target": "browser-e2e-visual", "description": "run isolated visual browser E2E" }
       ]
     },
     {
-      "name": "baselines",
+      "name": "investigate a run",
       "entries": [
+        { "target": "task-surface-report", "description": "print the root Make task-surface inventory" },
+        { "target": "target-plan", "description": "explain backend target execution families" },
+        { "target": "target-plan-json", "description": "emit deterministic backend target plan JSON" },
+        { "target": "explain-target", "description": "TARGET=backend-store explain one backend target" },
+        { "target": "explain-run", "description": "RESULTS_DIR=<root|run-dir> inspect run summary artifacts" },
+        { "target": "fixture-report", "description": "RESULTS_DIR=<root|run-dir> report fixture cost hotspots" }
+      ]
+    },
+    {
+      "name": "phase maintenance",
+      "entries": [
+        { "target": "generate-drift", "description": "fail on generated artifact drift" },
+        { "target": "toolchain-drift", "description": "fail on repo-control toolchain pin drift" },
+        { "target": "migration-drift", "description": "verify migrations against a scratch database" },
+        { "target": "phase-ledgers", "description": "regenerate committed phase coverage ledgers" },
+        { "target": "phase-ledger-drift", "description": "fail on phase coverage ledger drift" },
+        { "target": "phase-schedules", "description": "regenerate committed phase-derived schedules" },
+        { "target": "phase-schedule-drift", "description": "fail on phase-derived schedule drift" },
+        { "target": "benchmark-claim-check", "description": "validate retained Core 05 benchmark claim artifacts" },
         { "target": "go-test-duration-baselines", "description": "RESULTS_DIR=<dir> refresh Go test duration baselines" },
         { "target": "go-test-duration-baseline-coverage", "description": "verify Go shard baseline coverage" },
         { "target": "go-test-duration-baseline-drift", "description": "RESULTS_DIR=<dir> verify Go shard baseline freshness" },
-        { "target": "browser-e2e-duration-baseline-drift", "description": "RESULTS_DIR=<dir> verify browser spec baseline freshness" },
-        { "target": "benchmark-claim-check", "description": "validate retained Core 05 benchmark claim artifacts" }
+        { "target": "browser-e2e-duration-baseline-drift", "description": "RESULTS_DIR=<dir> verify browser spec baseline freshness" }
       ]
     },
     {
@@ -59,28 +97,11 @@
       "entries": [
         { "target": "ci", "description": "run the provider-neutral CI entrypoint" },
         { "target": "release-check", "description": "run check, extended harness, release artifacts, and build verification" },
+        { "target": "build", "description": "build backend binaries with embedded web assets" },
         { "target": "build-server", "description": "build the server binary" },
         { "target": "build-migrate", "description": "build the migration binary" },
         { "target": "build-web", "description": "build frontend web assets" },
         { "target": "distclean", "description": "also remove repo-local tool/runtime caches" }
-      ]
-    },
-    {
-      "name": "advanced phase tooling",
-      "entries": [
-        { "target": "bootstrap-node-runtime", "description": "install the pinned repo-local Node runtime" },
-        { "target": "frontend-toolchain", "description": "verify the pinned Node/pnpm toolchain" },
-        { "target": "frontend-install", "description": "install workspace dependencies" },
-        { "target": "playwright-install", "description": "install browser dependencies" },
-        { "target": "services-up", "description": "start local Postgres and MinIO, then wait until ready" },
-        { "target": "minio-init", "description": "create the default local MinIO bucket if needed" },
-        { "target": "generate-drift", "description": "fail on generated artifact drift" },
-        { "target": "toolchain-drift", "description": "fail on repo-control toolchain pin drift" },
-        { "target": "migration-drift", "description": "verify migrations against a scratch database" },
-        { "target": "phase-ledgers", "description": "regenerate committed phase coverage ledgers" },
-        { "target": "phase-ledger-drift", "description": "fail on phase coverage ledger drift" },
-        { "target": "phase-schedules", "description": "regenerate committed phase-derived schedules" },
-        { "target": "phase-schedule-drift", "description": "fail on phase-derived schedule drift" }
       ]
     }
   ],

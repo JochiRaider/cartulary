@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   collectTaskSurfaceManifestErrors,
+  compactHelpEntries,
   defaultGeneratedMakePath,
   harnessCheckEntries,
   helpTiers,
@@ -310,6 +311,7 @@ function validateTaskSurface({
 
 function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTargets, targetScriptRefs }) {
   const entriesByName = new Map((manifest.targets ?? []).map((entry) => [entry.name, entry]));
+  const compactTargets = compactHelpEntries(manifest).map((entry) => entry.target);
   const helpTierByTarget = new Map();
   const helpTierSummaries = helpTiers(manifest).map((tier) => {
     const targets = (tier.entries ?? []).map((entry) => entry.target);
@@ -340,11 +342,15 @@ function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTa
   });
 
   return {
-    schema_id: "cartulary.task_surface_report.v2",
+    schema_id: "cartulary.task_surface_report.v3",
     check_passed: errors.length === 0,
     errors,
     targets,
     harness_checks: harnessChecks,
+    compact_help: {
+      count: compactTargets.length,
+      targets: compactTargets,
+    },
     help_entries: Array.from(helpEntries.keys()).sort(),
     help_tiers: helpTierSummaries,
     phase_execution_dependencies: phaseDependencies,
@@ -367,6 +373,10 @@ function printHumanReport(report, { allMode = false } = {}) {
       console.log(`  ${classification}: ${count}`);
     }
   }
+
+  console.log("");
+  console.log("compact help count:");
+  console.log(`  compact: ${report.compact_help.count}`);
 
   console.log("");
   console.log("help tier counts:");

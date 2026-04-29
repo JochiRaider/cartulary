@@ -708,18 +708,14 @@ The base implementation MUST NOT design ordinary workflows around disabled virtu
 **Profile applicability:** Base  
 **Owner references:** Core 04 §9, plus the contract-derivation and generated-artifact rules in this guide.
 
-### Pending repo-control revalidation
-
-This section remains an intended command and workflow baseline, not a verified task-surface inventory. Until the live `Makefile`, scripts, and CI control surface are revalidated, the command table and verification-tier statements below are intended baseline only.
-
 ### 7.1 Canonical commands
 
-If the repository exposes a root `Makefile`, it SHOULD remain the stable human-facing task surface. Treat the command table below as the intended implementation baseline until revalidated against the live repo control surface.
+If the repository exposes a root `Makefile`, it SHOULD remain the stable human-facing task surface. `make help` is the compact workflow surface; `make help-all` is the exhaustive public workflow-tiered surface.
 
 | Command              | Minimum responsibility                                                                                       |
 | -------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `make help`          | Print the compact daily root task surface without bootstrapping local toolchains                             |
-| `make help-all`      | Print the exhaustive public root task surface without bootstrapping local toolchains                         |
+| `make help`          | Print the compact workflow task surface without bootstrapping local toolchains                               |
+| `make help-all`      | Print the exhaustive public workflow task surface without bootstrapping local toolchains                     |
 | `make doctor`        | Verify required local tools and pinned toolchain versions without installing them                            |
 | `make bootstrap`     | Install tools, install workspace dependencies, prepare local services                                        |
 | `make db-up`         | Start local Postgres and MinIO                                                                               |
@@ -744,6 +740,15 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make distclean`     | Remove repo-local tool/runtime caches after printing the removal list                                        |
 
 If the repository uses both a root task-surface `Makefile` and `AGENTS.md`, both MUST be updated together when this task surface changes.
+
+The exhaustive public help surface is grouped by operator workflow rather than implementation type:
+
+- `local dev`: setup, local services, generation, formatting, and cleanup.
+- `fast verification`: focused backend/frontend verification and lint helpers for the local loop.
+- `full gates`: authoritative test/check gates and browser evidence entrypoints.
+- `investigate a run`: task-surface, target-plan, run-summary, and fixture-cost inspection without rerunning tests.
+- `phase maintenance`: drift checks, phase ledgers and schedules, benchmark claims, and duration-baseline maintenance.
+- `release`: CI, release gate, build outputs, and deep cleanup.
 
 Repo-control helper targets MAY expose narrower frontend or browser slices. When present, `make frontend-unit`, `make browser-e2e-support`, and `make browser-e2e-visual` SHOULD remain stable helper targets under the same root task surface. `make browser-e2e-visual` is the dedicated Playwright screenshot suite and belongs in the reset-bounded browser batch rather than the functional group.
 

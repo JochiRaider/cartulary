@@ -25,17 +25,14 @@
 
 ## Canonical command surface
 
-- Help: `make help`, `make help-all`.
-- Bootstrap: `make bootstrap`, `make bootstrap-node-runtime`, `make frontend-toolchain`, `make frontend-install`, `make playwright-install`.
-- Dev: `make services-up`, `make db-up`, `make db-reset`, `make minio-init`, `make dev`.
-- Generate: `make generate`, `make generate-drift`, `make toolchain-drift`, `make migration-drift`, `make phase-ledgers`, `make phase-ledger-drift`, `make benchmark-claim-check`, `make task-surface-report`.
-- Backend: `make backend-unit`, `make backend-store`, `make backend-integration`, `make backend-process`, `make target-plan`, `make target-plan-json`, `make fixture-report RESULTS_DIR=<root|run-dir>`, `make explain-run RESULTS_DIR=<root|run-dir>`, `make explain-target TARGET=<backend target>`.
-- Baselines: `make go-test-duration-baselines RESULTS_DIR=<dir>`, `make go-test-duration-baseline-coverage`, `make go-test-duration-baseline-drift RESULTS_DIR=<dir>`, `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>`.
-- Frontend: `make frontend-typecheck`, `make frontend-unit`, `make lint-biome`, `make format`.
-- Browser: `make browser-e2e`, `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make browser-e2e-measurement`, `make browser-e2e-visual`.
-- Check: `make doctor`, `make test-fast`, `make test`, `make lint`, `make check`, `make ci`, `make release-check`.
-- Build: `make build`, `make build-server`, `make build-migrate`, `make build-web`.
-- Cleanup: `make clean`, `make distclean`.
+- Compact help: `make help`.
+- Exhaustive workflow help: `make help-all`.
+- Local dev: `make doctor`, `make bootstrap`, `make bootstrap-node-runtime`, `make frontend-toolchain`, `make frontend-install`, `make playwright-install`, `make db-up`, `make db-reset`, `make services-up`, `make minio-init`, `make dev`, `make generate`, `make format`, `make clean`.
+- Fast verification: `make test-fast`, `make backend-unit`, `make backend-store`, `make backend-integration`, `make backend-process`, `make frontend-typecheck`, `make frontend-unit`, `make lint`, `make lint-biome`.
+- Full gates: `make test`, `make check`, `make browser-e2e`, `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make browser-e2e-measurement`, `make browser-e2e-visual`.
+- Investigate a run: `make task-surface-report`, `make target-plan`, `make target-plan-json`, `make explain-target TARGET=<backend target>`, `make explain-run RESULTS_DIR=<root|run-dir>`, `make fixture-report RESULTS_DIR=<root|run-dir>`.
+- Phase maintenance: `make generate-drift`, `make toolchain-drift`, `make migration-drift`, `make phase-ledgers`, `make phase-ledger-drift`, `make phase-schedules`, `make phase-schedule-drift`, `make benchmark-claim-check`, `make go-test-duration-baselines RESULTS_DIR=<dir>`, `make go-test-duration-baseline-coverage`, `make go-test-duration-baseline-drift RESULTS_DIR=<dir>`, `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>`.
+- Release: `make ci`, `make release-check`, `make build`, `make build-server`, `make build-migrate`, `make build-web`, `make distclean`.
 
 ## Artifact ownership and edit rules
 
@@ -52,8 +49,8 @@
 - Start local backing services with `make db-up`.
 - Then run `make dev`.
 - The local bootstrap server uses `configs/dev/config.toml` through `CARTULARY_CONFIG_FILE`.
-- `make help` prints the compact daily task surface without bootstrapping Node or pnpm.
-- `make help-all` prints the exhaustive public task surface without bootstrapping Node or pnpm.
+- `make help` prints the compact workflow task surface without bootstrapping Node or pnpm.
+- `make help-all` prints the exhaustive public workflow-tiered task surface without bootstrapping Node or pnpm.
 - `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all` prints public targets plus private/check-internal task-surface diagnostics.
 - `make doctor` verifies required local tools and pinned toolchain versions without installing them.
 - `make bootstrap` installs the pinned Go CLI tools and workspace dependencies.
@@ -61,8 +58,7 @@
 - `make phase-ledger-drift` verifies committed phase coverage ledgers match the phase manifests without requiring Docker or service-backed tests.
 - `make backend-store` runs the service-backed store-domain `U-*` backend slice that keeps unit-layer phase IDs while using real Postgres.
 - `make target-plan`, `make target-plan-json`, and `make explain-target TARGET=<backend target>` inspect the backend Go target execution plan without running tests or starting services.
-- `make fixture-report RESULTS_DIR=<root|run-dir>` reports thresholded fixture-cost hotspots from an existing results root or concrete run directory without rerunning tests.
-- `make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs]` inspects retained run summary, child, and scheduler-log artifacts without rerunning tests.
+- Investigation commands include `make target-plan`, `make target-plan-json`, `make explain-target TARGET=<backend target>`, `make fixture-report RESULTS_DIR=<root|run-dir>`, and `make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs]`; they inspect existing plans or retained run artifacts without rerunning tests.
 - `make go-test-duration-baselines RESULTS_DIR=<dir>` refreshes committed Go shard duration baselines from successful service-backed shard artifacts.
 - `make go-test-duration-baseline-coverage` verifies every service-backed Go shard-plan item has committed baseline timing components before service-backed execution.
 - `make go-test-duration-baseline-drift RESULTS_DIR=<dir>` verifies committed Go shard duration baselines against successful service-backed shard artifacts and fails when the planned weights are badly stale.

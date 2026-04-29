@@ -71,8 +71,15 @@ assert_fails() {
 valid_output="$(assert_passes "current task-surface report" "$NODE_BIN" "$REPORTER" --check)"
 assert_contains "$valid_output" "Cartulary task-surface report" "current report header"
 assert_contains "$valid_output" "classification counts:" "current report classification summary"
+assert_contains "$valid_output" "compact help count:" "current report compact help summary"
 assert_contains "$valid_output" "help tier counts:" "current report help tier summary"
-assert_contains "$valid_output" "daily: 15" "current report daily help tier count"
+assert_contains "$valid_output" "compact: 12" "current report compact help count"
+assert_contains "$valid_output" "local dev: 16" "current report local dev help tier count"
+assert_contains "$valid_output" "fast verification: 9" "current report fast verification help tier count"
+assert_contains "$valid_output" "full gates: 7" "current report full gates help tier count"
+assert_contains "$valid_output" "investigate a run: 6" "current report investigation help tier count"
+assert_contains "$valid_output" "phase maintenance: 12" "current report phase maintenance help tier count"
+assert_contains "$valid_output" "release: 7" "current report release help tier count"
 assert_not_contains "$valid_output" "public Make targets:" "current report compact output omits public target list"
 assert_not_contains "$valid_output" "browser-e2e-measurement" "current report compact output omits target rows"
 assert_contains "$valid_output" "use --all to print public targets" "current report compact output hint"
@@ -159,8 +166,8 @@ cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
 const { readFileSync, writeFileSync } = require("node:fs");
 const manifestPath = process.argv[2];
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-const diagnostics = manifest.help_tiers.find((tier) => tier.name === "diagnostics");
-diagnostics.entries.push({
+const investigation = manifest.help_tiers.find((tier) => tier.name === "investigate a run");
+investigation.entries.push({
   target: "help",
   description: "duplicate target for synthetic coverage"
 });
@@ -176,8 +183,8 @@ cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
 const { readFileSync, writeFileSync } = require("node:fs");
 const manifestPath = process.argv[2];
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-const daily = manifest.help_tiers.find((tier) => tier.name === "daily");
-daily.entries = daily.entries.filter((entry) => entry.target !== "clean");
+const localDev = manifest.help_tiers.find((tier) => tier.name === "local dev");
+localDev.entries = localDev.entries.filter((entry) => entry.target !== "clean");
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 missing_help_tier_output="$(assert_fails "missing help tier target" run_report_copy)"
@@ -190,43 +197,61 @@ cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
 const { readFileSync, writeFileSync } = require("node:fs");
 const manifestPath = process.argv[2];
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-const daily = manifest.help_tiers.find((tier) => tier.name === "daily");
-daily.entries.push({
+const compact = manifest.compact_help;
+compact.entries.push({
   target: "task-surface-check",
   description: "synthetic non-public help tier entry"
 });
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
-non_public_help_tier_output="$(assert_fails "non-public help tier target" run_report_copy)"
-assert_contains "$non_public_help_tier_output" "task-surface-check appears in help tier daily but is not classified public" "non-public help tier output"
+non_public_help_tier_output="$(assert_fails "non-public compact help target" run_report_copy)"
+assert_contains "$non_public_help_tier_output" "task-surface-check appears in compact_help but is not classified public" "non-public compact help output"
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
 cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
-for index in 1 2 3 4 5 6; do
+"$NODE_BIN" - "$manifest_copy" <<'EOF'
+const { readFileSync, writeFileSync } = require("node:fs");
+const manifestPath = process.argv[2];
+const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+manifest.compact_help.entries[1].target = "help";
+writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
+duplicate_compact_help_output="$(assert_fails "duplicate compact help target" run_report_copy)"
+assert_contains "$duplicate_compact_help_output" "compact_help.entries[2] contains duplicate target help" "duplicate compact help output"
+
+cp "$ROOT_DIR/Makefile" "$makefile_copy"
+cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
+cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
+for index in 1; do
   printf '\n.PHONY: cap-target-%s\ncap-target-%s:\n\t@true\n' "$index" "$index" >>"$makefile_copy"
 done
 "$NODE_BIN" - "$manifest_copy" <<'EOF'
 const { readFileSync, writeFileSync } = require("node:fs");
 const manifestPath = process.argv[2];
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-const daily = manifest.help_tiers.find((tier) => tier.name === "daily");
-for (let index = 1; index <= 6; index += 1) {
+const localDev = manifest.help_tiers.find((tier) => tier.name === "local dev");
+const compact = manifest.compact_help;
+for (let index = 1; index <= 1; index += 1) {
   const target = `cap-target-${index}`;
   manifest.targets.push({
     name: target,
     classification: "public",
     included_in: ["helper_only"]
   });
-  daily.entries.push({
+  localDev.entries.push({
+    target,
+    description: "synthetic default help cap target"
+  });
+  compact.entries.push({
     target,
     description: "synthetic default help cap target"
   });
 }
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
-default_help_cap_output="$(assert_fails "default help cap" run_report_copy)"
-assert_contains "$default_help_cap_output" "help_tiers.daily entries must not exceed 20 default help entries" "default help cap output"
+default_help_cap_output="$(assert_fails "compact help cap" run_report_copy)"
+assert_contains "$default_help_cap_output" "compact_help.entries must not exceed 12 entries" "compact help cap output"
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"

@@ -279,14 +279,17 @@ Implement the root `Makefile` next. It should expose the baseline human-facing t
 
 Repository-local recommended meanings:
 
-- `make help`: print the compact daily root task surface without bootstrapping local toolchains.
-- `make help-all`: print the exhaustive public root task surface without bootstrapping local toolchains.
+- `make help`: print the compact workflow task surface without bootstrapping local toolchains.
+- `make help-all`: print the exhaustive public workflow-tiered task surface without bootstrapping local toolchains.
 - `make doctor`: verify required local tools and pinned toolchain versions without installing them.
 - `make bootstrap`: install Go tools, install pnpm dependencies, and prepare local service prerequisites.
 - `make db-up`: start PostgreSQL and MinIO through Compose.
 - `make db-reset`: recreate the local database and apply migrations.
 - `make dev`: run the Go server and, once present, the Vite dev server.
 - `make generate`: regenerate `sqlc` outputs and contract-derived outputs.
+- `make help-all` groups public commands by operator workflow: local dev, fast verification, full gates, investigate a run, phase maintenance, and release.
+- `make task-surface-report`, `make target-plan`, `make target-plan-json`, `make explain-target`, `make explain-run`, and `make fixture-report` are investigation commands for existing task-surface, target-plan, run-summary, scheduler-log, and fixture-cost artifacts.
+- Duration-baseline refresh and drift commands belong to phase maintenance with generated-artifact, toolchain, migration, phase-ledger, phase-schedule, and benchmark-claim checks.
 - `make backend-store`: run the service-backed store-domain `U-*` backend slice that preserves unit-layer phase IDs while using real Postgres.
 - `make test-fast`: run the pure backend unit slice, the service-backed backend store and integration slices, explicit support integration and process-smoke coverage, frontend type-checking, and frontend unit tests.
 - `make test`: run the authoritative full corpus, including manifest-verified browser E2E and explicit supplemental support suites. Backend service-backed work, webserver-backed browser evidence, and the isolated `browser-e2e` batch should run through one service-backed stage scheduled from `tools/service_backed_schedule_manifest.json` by declared resource capacity; authoritative browser functional rows are selected from phase manifests but executed as duration-balanced Playwright spec shards using `tools/browser_e2e_duration_baselines.json`, while the isolated stage keeps stateful, measurement, and visual browser reset boundaries in `tools/browser_e2e_batch_manifest.json`. Aggregate target summaries are finalized after the `cartulary-test-services` wrapper has completed teardown so leak-check, janitor, and service-termination spans remain visible. Summary artifacts report wall, critical-path wall, executed, logical, reused, derived, and teardown durations as separate fields, with backend service-backed and aggregate browser duration groups reported separately.

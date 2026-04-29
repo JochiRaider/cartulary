@@ -17,7 +17,7 @@ export const defaultTaskSurfaceManifestPath = path.join(
   "task_surface_manifest.json",
 );
 export const defaultGeneratedMakePath = path.join(repoRoot, "tools", "task_surface.generated.mk");
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v8";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v9";
 
 const validClassifications = new Set(["public", "check_internal", "helper_only"]);
 const validInclusions = new Set(["test", "check", "ci", "release-check", "helper_only"]);
@@ -31,8 +31,7 @@ const validMakeRecipeTypes = new Set([
   "phase_command",
   "summary_target",
 ]);
-const defaultHelpTierName = "daily";
-const defaultHelpMaxEntries = 20;
+const compactHelpMaxEntries = 12;
 const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const makeResourcePattern = /^[A-Za-z0-9_.-]+$/;
@@ -74,6 +73,10 @@ export function harnessCheckEntryMap(manifest) {
 
 export function helpTiers(manifest) {
   return manifest.help_tiers ?? [];
+}
+
+export function compactHelpEntries(manifest) {
+  return manifest.compact_help?.entries ?? [];
 }
 
 export function summaryEntryMap(manifest) {
@@ -225,6 +228,8 @@ export function collectTaskSurfaceManifestErrors(manifest) {
   const summaryEntries = new Map([...targets, ...harnessChecks]);
   const topologyContext = loadSummaryTopologyContext({ taskSurfaceManifest: manifest });
   errors.push(...collectExplicitSummaryProjectionErrors(manifest, topologyContext));
+
+  validateCompactHelp(errors, targets, manifest.compact_help);
 
   validateHelpTiers(errors, targets, manifest.help_tiers);
 
@@ -573,6 +578,45 @@ function validateHarnessTiers(errors, harnessChecks, tiers) {
   }
 }
 
+function validateCompactHelp(errors, targets, compactHelp) {
+  if (!compactHelp || typeof compactHelp !== "object" || Array.isArray(compactHelp)) {
+    errors.push("compact_help must be an object");
+    return;
+  }
+  if (!Array.isArray(compactHelp.entries) || compactHelp.entries.length === 0) {
+    errors.push("compact_help.entries must be a non-empty array");
+    return;
+  }
+  if (compactHelp.entries.length > compactHelpMaxEntries) {
+    errors.push(`compact_help.entries must not exceed ${compactHelpMaxEntries} entries`);
+  }
+
+  const compactTargets = new Set();
+  for (const [entryIndex, helpEntry] of compactHelp.entries.entries()) {
+    const label = `compact_help.entries[${entryIndex + 1}]`;
+    if (typeof helpEntry?.target !== "string" || helpEntry.target.trim() === "") {
+      errors.push(`${label}.target must be a non-empty string`);
+      continue;
+    }
+    if (compactTargets.has(helpEntry.target)) {
+      errors.push(`${label} contains duplicate target ${helpEntry.target}`);
+    }
+    compactTargets.add(helpEntry.target);
+
+    const target = targets.get(helpEntry.target);
+    if (!target) {
+      errors.push(`${label} references unknown target ${helpEntry.target}`);
+      continue;
+    }
+    if (target.classification !== "public") {
+      errors.push(`${helpEntry.target} appears in compact_help but is not classified public`);
+    }
+    if (typeof helpEntry.description !== "string" || helpEntry.description.trim() === "") {
+      errors.push(`${label}.description must be a non-empty string`);
+    }
+  }
+}
+
 function validateHelpTiers(errors, targets, tiers) {
   if (!Array.isArray(tiers) || tiers.length === 0) {
     errors.push("help_tiers[] must be a non-empty array");
@@ -581,7 +625,6 @@ function validateHelpTiers(errors, targets, tiers) {
 
   const tierNames = new Set();
   const placements = new Map();
-  let dailyTier;
 
   for (const [tierIndex, tier] of tiers.entries()) {
     const tierLabel = `help_tiers[${tierIndex + 1}]`;
@@ -593,9 +636,6 @@ function validateHelpTiers(errors, targets, tiers) {
         errors.push(`help_tiers contains duplicate tier ${tierName}`);
       }
       tierNames.add(tierName);
-      if (tierName === defaultHelpTierName) {
-        dailyTier = tier;
-      }
     }
 
     if (!Array.isArray(tier?.entries) || tier.entries.length === 0) {
@@ -631,12 +671,6 @@ function validateHelpTiers(errors, targets, tiers) {
         errors.push(`${label}.description must be a non-empty string`);
       }
     }
-  }
-
-  if (!dailyTier) {
-    errors.push(`help_tiers must include a ${defaultHelpTierName} tier`);
-  } else if (dailyTier.entries.length > defaultHelpMaxEntries) {
-    errors.push(`help_tiers.${defaultHelpTierName} entries must not exceed ${defaultHelpMaxEntries} default help entries`);
   }
 
   for (const target of targets.values()) {
@@ -806,8 +840,8 @@ function renderPhaseCommandRecipe(recipe) {
 }
 
 export function helpLines(manifest) {
-  const lines = ["Cartulary daily task surface", ""];
-  appendHelpTierLines(lines, helpTiers(manifest).find((tier) => tier.name === defaultHelpTierName));
+  const lines = ["Cartulary compact workflow task surface", ""];
+  appendHelpTierLines(lines, { name: "compact", entries: compactHelpEntries(manifest) });
   lines.push("");
   lines.push("For all public targets, run: make help-all");
   lines.push("For private/check internals, run: make task-surface-report TASK_SURFACE_REPORT_ARGS=--all");
