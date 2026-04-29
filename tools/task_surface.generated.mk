@@ -190,12 +190,10 @@ browser-e2e-visual: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-mig
 	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 ./scripts/run-browser-e2e-target.sh visual
 
 check-go-test-duration-baseline-drift:
-	$(Q)$(MAKE) --no-print-directory go-test-duration-baseline-drift
-	$(TARGET_SUMMARY) check-go-test-duration-baseline-drift pass
+	$(Q)env MAKE_BIN="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target check-go-test-duration-baseline-drift --child-target go-test-duration-baseline-drift --status pass --phase-label "check-go-test-duration-baseline-drift child go-test-duration-baseline-drift"
 
 check-browser-e2e-duration-baseline-drift:
-	$(Q)$(MAKE) --no-print-directory browser-e2e-duration-baseline-drift
-	$(TARGET_SUMMARY) check-browser-e2e-duration-baseline-drift pass
+	$(Q)env MAKE_BIN="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target check-browser-e2e-duration-baseline-drift --child-target browser-e2e-duration-baseline-drift --status pass --phase-label "check-browser-e2e-duration-baseline-drift child browser-e2e-duration-baseline-drift"
 
 check-service-backed: export CARTULARY_TEST_TARGET := check-service-backed
 check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate test-service-images

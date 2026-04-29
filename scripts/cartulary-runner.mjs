@@ -21,6 +21,7 @@ const goTargetCommands = new Set([
 function usage() {
   process.stderr.write(`usage:
   cartulary-runner.mjs service-backed-target --target <target> --phase-label <label> --service-wrapper <test-services|none>
+  cartulary-runner.mjs summary-target --target <target> --child-target <target> --status <pass|fail> [--phase-label <label>] [--projection <target>]
   cartulary-runner.mjs go-target <target-or-command> [...]
   cartulary-runner.mjs target-summary <target> [pass|fail] [...]
 `);
@@ -127,6 +128,50 @@ function serviceBackedTarget(context, argv) {
   return status === 0 ? summaryStatus : status;
 }
 
+function summaryTarget(context, argv) {
+  const options = parseFlagArgs(argv);
+  const target = options.target || "";
+  const childTarget = options.child_target || "";
+  const requestedStatus = options.status || "";
+  const projection = options.projection || "";
+  const phaseLabel =
+    options.phase_label || `${target} child ${childTarget}`;
+  if (
+    !target ||
+    !childTarget ||
+    !["pass", "fail"].includes(requestedStatus) ||
+    (projection !== "" && projection.startsWith("--"))
+  ) {
+    usage();
+  }
+
+  const childStatus = runWithContext(
+    context,
+    context.runPhaseScript,
+    [
+      phaseLabel,
+      "--",
+      context.makeBin,
+      "--no-print-directory",
+      childTarget,
+    ],
+    {
+      env: runnerEnv(context, {
+        CARTULARY_TEST_TARGET: target,
+      }),
+    },
+  );
+  const summaryArgs = [
+    target,
+    childStatus === 0 ? requestedStatus : "fail",
+  ];
+  if (projection) {
+    summaryArgs.push("--projection", projection);
+  }
+  const summaryStatus = runTargetSummary(context, summaryArgs);
+  return childStatus === 0 ? summaryStatus : childStatus;
+}
+
 function goTarget(context, argv) {
   if (argv.length === 0) {
     usage();
@@ -145,6 +190,9 @@ function main() {
   switch (command) {
     case "service-backed-target":
       process.exit(serviceBackedTarget(context, rest));
+      break;
+    case "summary-target":
+      process.exit(summaryTarget(context, rest));
       break;
     case "go-target":
       process.exit(goTarget(context, rest));

@@ -427,6 +427,16 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
       if (recipe.status !== undefined && !["pass", "fail"].includes(recipe.status)) {
         errors.push(`${label}.status must be pass or fail`);
       }
+      if (
+        recipe.phase_label !== undefined &&
+        (
+          typeof recipe.phase_label !== "string" ||
+          !makeValuePattern.test(recipe.phase_label) ||
+          recipe.phase_label.trim() === ""
+        )
+      ) {
+        errors.push(`${label}.phase_label must be a safe non-empty Make value`);
+      }
       if (recipe.projection !== undefined && (typeof recipe.projection !== "string" || !makeTargetPattern.test(recipe.projection))) {
         errors.push(`${label}.projection must be a safe target token`);
       }
@@ -789,12 +799,19 @@ function renderMakeRecipe(recipe, manifest) {
   }
   if (recipe.type === "summary_target") {
     const status = recipe.status ?? "pass";
+    const phaseLabel = recipe.phase_label ?? `${recipe.target} child ${recipe.child_target}`;
     const projection = recipe.projection ? ` --projection ${recipe.projection}` : "";
+    const env = [
+      'MAKE_BIN="$(MAKE)"',
+      'NODE_BIN="$(NODE_BIN)"',
+      'TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)"',
+      'TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)"',
+      'RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)"',
+    ];
     return [
       ...prefix,
       header,
-      `\t$(Q)$(MAKE) --no-print-directory ${recipe.child_target}`,
-      `\t$(TARGET_SUMMARY) ${recipe.target} ${status}${projection}`,
+      `\t$(Q)env ${env.join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target ${recipe.target} --child-target ${recipe.child_target} --status ${status} --phase-label "${phaseLabel}"${projection}`,
     ];
   }
   throw new Error(`unsupported Make recipe type ${recipe.type}`);

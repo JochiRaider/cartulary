@@ -41,7 +41,7 @@ export function createRunnerContext(options = {}) {
     goBin: process.env.GO || "go",
     goCacheDir: process.env.GO_CACHE_DIR || "/tmp/cartulary-go-build",
     goModCacheDir: process.env.GO_MOD_CACHE_DIR || "/tmp/cartulary-go-mod",
-    makeBin: process.env.MAKE || "make",
+    makeBin: process.env.MAKE_BIN || process.env.MAKE || "make",
     runnerScript: envPath("CARTULARY_RUNNER_SCRIPT", "scripts/cartulary-runner.mjs", repoRoot),
     runPhaseScript: envPath("RUN_PHASE_SCRIPT", "scripts/lib/run-phase.sh", repoRoot),
     runGoTargetScript: envPath("RUN_GO_TARGET_SCRIPT", "scripts/run-go-target.sh", repoRoot),
