@@ -28,6 +28,9 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 		server, db := startPhase1Server(t, runtime, "phase1-i-1-01-lifecycle")
 		defer db.Close()
 
+		loginAt := time.Date(2026, time.April, 29, 17, 35, 4, 261991000, time.UTC)
+		httptestx.SetClockFixed(t, server, loginAt)
+
 		userID := seedLocalUser(t, db, "analyst@example.test", "Analyst One", "  parol\u00e9 secret  ", false)
 		sessionCookie, csrfCookie := loginLocalUser(t, server, "analyst@example.test", "  parol\u00e9 secret  ", nil)
 
@@ -62,7 +65,7 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 			t.Fatalf("session inspection must not slide idle expiry: before=%s after=%s", stored.lastQualifyingActivityAt, afterInspect.lastQualifyingActivityAt)
 		}
 
-		phase1test.SetClockOffset(t, server.HTTP.URL, 1)
+		httptestx.SetClockAfter(t, server, afterInspect.lastQualifyingActivityAt, time.Second)
 		touchResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/test/auth/touch", nil, withCookies(sessionCookie))
 		httptestx.RequireSuccessEnvelope(t, touchResp, http.StatusOK)
 
@@ -90,15 +93,14 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 		server, db := startPhase1Server(t, runtime, "phase1-i-1-01-expiry")
 		defer db.Close()
 
+		loginAt := time.Date(2026, time.April, 29, 18, 0, 0, 0, time.UTC)
+		httptestx.SetClockFixed(t, server, loginAt)
+
 		userID := seedLocalUser(t, db, "idle-expiry@example.test", "Idle Expiry", "IdleExpiryPass1!", false)
 		sessionCookie, _ := loginLocalUser(t, server, "idle-expiry@example.test", "IdleExpiryPass1!", nil)
 		sessionBeforeExpiry := querySessionRow(t, db, userID)
 
-		phase1test.WithClockOffset(
-			t,
-			server.HTTP.URL,
-			int64((30*time.Minute/time.Second)+1),
-		)
+		httptestx.SetClockAfter(t, server, sessionBeforeExpiry.idleExpiresAt, time.Second)
 
 		expiredSession := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(sessionCookie))
 		httptestx.RequireErrorEnvelope(t, expiredSession, http.StatusUnauthorized, "session_required")
@@ -115,15 +117,13 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 	t.Run("sixth login revokes least recently used non-current session", func(t *testing.T) {
 		server, db := startPhase1Server(t, runtime, "phase1-i-1-01-concurrency")
 		defer db.Close()
-		t.Cleanup(func() {
-			phase1test.ResetClockOffset(t, server.HTTP.URL)
-		})
 
 		userID := seedLocalUser(t, db, "analyst2@example.test", "Analyst Two", "ConcurrencyPass1!", false)
+		loginBase := time.Date(2026, time.April, 29, 18, 30, 0, 0, time.UTC)
 
 		var expectedVictimSessionID string
 		for i := 0; i < 6; i++ {
-			phase1test.SetClockOffset(t, server.HTTP.URL, int64(i))
+			httptestx.SetClockFixed(t, server, loginBase.Add(time.Duration(i)*time.Second))
 			sessionCookie, _ := loginLocalUser(t, server, "analyst2@example.test", "ConcurrencyPass1!", nil)
 			if i == 0 {
 				expectedVictimSessionID = queryLeastRecentlyUsedSessionRow(t, db, userID).sessionID
@@ -185,11 +185,10 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 	t.Run("concurrency limit revokes attached least recently used session socket", func(t *testing.T) {
 		server, db := startPhase1Server(t, runtime, "phase1-i-1-02-concurrency-socket")
 		defer db.Close()
-		t.Cleanup(func() {
-			phase1test.ResetClockOffset(t, server.HTTP.URL)
-		})
 
 		userID := seedLocalUser(t, db, "socket-concurrency@example.test", "Socket Concurrency", "SocketConcurrencyPass1!", false)
+		loginBase := time.Date(2026, time.April, 29, 19, 0, 0, 0, time.UTC)
+		httptestx.SetClockFixed(t, server, loginBase)
 		sessionCookie, _ := loginLocalUser(t, server, "socket-concurrency@example.test", "SocketConcurrencyPass1!", nil)
 		firstSessionID := queryLeastRecentlyUsedSessionRow(t, db, userID).sessionID
 		if sessionCount := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1`, userID); sessionCount != 1 {
@@ -199,11 +198,11 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 		defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
 		for i := 0; i < 4; i++ {
-			phase1test.SetClockOffset(t, server.HTTP.URL, int64(i+1))
+			httptestx.SetClockFixed(t, server, loginBase.Add(time.Duration(i+1)*time.Second))
 			_, _ = loginLocalUser(t, server, "socket-concurrency@example.test", "SocketConcurrencyPass1!", nil)
 		}
 
-		phase1test.SetClockOffset(t, server.HTTP.URL, 5)
+		httptestx.SetClockFixed(t, server, loginBase.Add(5*time.Second))
 		activeSessionCookie, _ := loginLocalUser(t, server, "socket-concurrency@example.test", "SocketConcurrencyPass1!", nil)
 		if activeCount := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1 AND revoked_at IS NULL`, userID); activeCount != 5 {
 			t.Fatalf("expected five active sessions after sixth login, got %d; sessions=%s", activeCount, phase1test.FormatUserSessions(t, db, userID))

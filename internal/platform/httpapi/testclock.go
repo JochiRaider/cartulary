@@ -9,8 +9,10 @@ import (
 )
 
 type TestClock struct {
-	mu     sync.RWMutex
-	offset time.Duration
+	mu       sync.RWMutex
+	offset   time.Duration
+	fixed    time.Time
+	fixedSet bool
 }
 
 func NewTestClock() *TestClock {
@@ -18,13 +20,43 @@ func NewTestClock() *TestClock {
 }
 
 func (c *TestClock) Now() time.Time {
-	offset := c.currentOffset()
-	return time.Now().UTC().Add(offset)
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.fixedSet {
+		return c.fixed
+	}
+	return time.Now().UTC().Add(c.offset)
 }
 
 func (c *TestClock) SetOffset(duration time.Duration) time.Time {
 	c.mu.Lock()
 	c.offset = duration
+	c.fixed = time.Time{}
+	c.fixedSet = false
+	now := time.Now().UTC().Add(c.offset)
+	c.mu.Unlock()
+	return now
+}
+
+func (c *TestClock) SetFixed(now time.Time) time.Time {
+	c.mu.Lock()
+	c.offset = 0
+	c.fixed = now.UTC()
+	c.fixedSet = true
+	fixed := c.fixed
+	c.mu.Unlock()
+	return fixed
+}
+
+func (c *TestClock) Advance(duration time.Duration) time.Time {
+	c.mu.Lock()
+	if c.fixedSet {
+		c.fixed = c.fixed.Add(duration).UTC()
+		advanced := c.fixed
+		c.mu.Unlock()
+		return advanced
+	}
+	c.offset += duration
 	now := time.Now().UTC().Add(c.offset)
 	c.mu.Unlock()
 	return now

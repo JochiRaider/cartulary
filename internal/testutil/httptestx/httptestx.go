@@ -8,6 +8,7 @@ import (
 	"net/http"
 	stdhttptest "net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
@@ -88,6 +89,27 @@ func (s *Server) Close() {
 	if s.Runtime != nil {
 		s.Runtime.Close()
 	}
+}
+
+func SetClockFixed(t testing.TB, server *Server, now time.Time) time.Time {
+	t.Helper()
+	if server == nil || server.Clock == nil {
+		t.Fatal("test server clock is required")
+	}
+	return server.Clock.SetFixed(now)
+}
+
+func SetClockAfter(t testing.TB, server *Server, baseline time.Time, delta time.Duration) time.Time {
+	t.Helper()
+	return SetClockFixed(t, server, baseline.UTC().Add(delta))
+}
+
+func AdvanceClock(t testing.TB, server *Server, delta time.Duration) time.Time {
+	t.Helper()
+	if server == nil || server.Clock == nil {
+		t.Fatal("test server clock is required")
+	}
+	return server.Clock.Advance(delta)
 }
 
 func NewJSONRequest(t testing.TB, method string, url string, body any) *http.Request {
