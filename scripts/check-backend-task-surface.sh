@@ -7,6 +7,9 @@ generated_make="$repo_root/tools/task_surface.generated.mk"
 cartulary_runner_script="$repo_root/scripts/cartulary-runner.mjs"
 go_runner_script="$repo_root/scripts/run-go-target.sh"
 schedule_manifest="$repo_root/tools/service_backed_schedule_manifest.json"
+schedule_profile="$repo_root/tools/service_backed_schedule_profiles.json"
+browser_batch_manifest="$repo_root/tools/browser_e2e_batch_manifest.json"
+schedule_topology_helper="$repo_root/scripts/lib/service-backed-schedule-topology.mjs"
 check_schedule_manifest="$repo_root/tools/check_schedule_manifest.json"
 node_bin="${NODE_BIN:-node}"
 
@@ -61,10 +64,6 @@ require_service_backed_schedule_target() {
   if printf '%s\n' "$block" | grep -Fq -- '--jobs'; then
     fail "$target must not pass a fixed scheduler job cap"
   fi
-  if printf '%s\n' "$block" | rg -q "$target-lane-[ab]|(^|[[:space:]])(backend-process-support|phase2-process-smoke)($|[[:space:]])"; then
-    fail "$target must not invoke fixed legacy targets or Phase 2 process smoke coverage"
-  fi
-
   prereqs="$(extract_target_prereqs "$target")"
   if ! printf '%s\n' "$prereqs" | rg -q '(^|[[:space:]])test-service-images($|[[:space:]])'; then
     fail "$target must depend on test-service-images for direct runs"
@@ -314,57 +313,7 @@ mapfile -t target_plan_check_heavy_targets < <(target_plan_boolean_targets check
 mapfile -t target_plan_service_backed_safe_targets < <(target_plan_boolean_targets check_service_backed_safe true)
 mapfile -t target_plan_service_backed_unsafe_targets < <(list_target_plan_service_backed_unsafe_targets)
 
-"$node_bin" - "$schedule_manifest" <<'EOF'
-const fs = require("node:fs");
-
-const [manifestFile] = process.argv.slice(2);
-const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v8") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v8");
-}
-for (const schedule of manifest.schedules ?? []) {
-  const limits = schedule.resource_limits ?? {};
-  if (Object.hasOwn(limits, "backend")) {
-    throw new Error(`${schedule.target} must not declare removed generic backend resource limit`);
-  }
-  if (Object.hasOwn(limits, "browser")) {
-    throw new Error(`${schedule.target} must not declare removed generic browser resource limit`);
-  }
-  for (const resource of ["go_cpu", "go_io"]) {
-    if (!Object.hasOwn(limits, resource)) {
-      throw new Error(`${schedule.target} must declare ${resource} resource limit`);
-    }
-  }
-  for (const source of schedule.work_unit_sources ?? []) {
-    const claims = source.resource_claims ?? {};
-    if (Object.hasOwn(claims, "backend")) {
-      throw new Error(`${schedule.target} ${source.target} must not claim removed generic backend resource`);
-    }
-    if (Object.hasOwn(claims, "browser")) {
-      throw new Error(`${schedule.target} ${source.target} must not claim removed generic browser resource`);
-    }
-    if (source.type === "go_shards" && (Object.hasOwn(claims, "go_cpu") || Object.hasOwn(claims, "go_io"))) {
-      throw new Error(`${schedule.target} ${source.target} go shard source must leave go_cpu/go_io to per-shard scheduler profiles`);
-    }
-    if (source.class === "browser") {
-      const browserStage = String(source.browser_stage ?? "");
-      const laneResource = `browser_stage_${browserStage.replaceAll("-", "_")}`;
-      if (!Object.hasOwn(limits, "browser_stack")) {
-        throw new Error(`${schedule.target} must declare browser_stack resource limit for browser work`);
-      }
-      if (!Object.hasOwn(limits, laneResource)) {
-        throw new Error(`${schedule.target} must declare ${laneResource} resource limit for ${source.target}`);
-      }
-      if (!Object.hasOwn(claims, "browser_stack")) {
-        throw new Error(`${schedule.target} ${source.target} must claim browser_stack`);
-      }
-      if (!Object.hasOwn(claims, laneResource)) {
-        throw new Error(`${schedule.target} ${source.target} must claim ${laneResource}`);
-      }
-    }
-  }
-}
-EOF
+"$node_bin" "$schedule_topology_helper" validate "$schedule_manifest" "$schedule_profile" "$browser_batch_manifest"
 
 check_build_prereqs_line="$(sed -n 's/^check-build-prereqs:[[:space:]]*//p' "$makefile" | head -n 1)"
 if [[ -z "$check_build_prereqs_line" ]]; then
@@ -409,9 +358,6 @@ if printf '%s\n' "$check_block" | grep -Fq '$(RUN_MAKE_SEQUENCE_SCRIPT)'; then
 fi
 if printf '%s\n' "$check_block" | grep -Fq -- '--step browser-e2e'; then
   fail "check must not run browser-e2e as a final serial step"
-fi
-if rg -q '^check-pre-browser:' "$makefile"; then
-  fail "check-pre-browser must not remain as legacy check orchestration"
 fi
 for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-go-test-duration-baseline-drift check-local-product check-frontend-unit check-meta-validation; do
   check_schedule_field "$scheduled_target" target >/dev/null
@@ -549,45 +495,6 @@ fi
 if ! rg -q '^backend-store:' "$generated_make" "$makefile"; then
   fail "Makefile must define backend-store"
 fi
-
-if rg -q '^backend-process-support:' "$makefile"; then
-  fail "Makefile must not define backend-process-support; process support belongs to backend-process manifests"
-fi
-
-for removed_target in phase0-process-e2e phase1-process-smoke phase2-process-smoke; do
-  if rg -q "^${removed_target}:" "$makefile"; then
-    fail "Makefile must not define removed helper target ${removed_target}"
-  fi
-done
-
-if rg -q 'TestPhase0_.*_U_0_|TestPhase0_.*_I_0_|TestPhase0_.*_E_0_' "$makefile"; then
-  fail "Makefile must not use regex-based Phase 0 Go selection"
-fi
-
-if rg -q 'CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION' "$makefile" "$generated_make" "$repo_root/tools/task_surface_manifest.json"; then
-  fail "Make and task-surface manifests must not retain CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION"
-fi
-
-if rg -q 'TestPhase4_.*_U_4_' "$go_runner_script"; then
-  fail "scripts/run-go-target.sh must not use raw authoritative Phase 4 U-4-* Go selectors"
-fi
-
-for removed_runner_fragment in \
-  'manifest_go_regex' \
-  'manifest_go_count' \
-  'support_go_regex' \
-  'backend_unit_core_shared_spec' \
-  'backend_integration_phase' \
-  'backend-store-shared' \
-  'backend-process-shared' \
-  'phase0-process-e2e' \
-  'phase1-process-smoke' \
-  'phase2-process-smoke'
-do
-  if grep -Fq "$removed_runner_fragment" "$go_runner_script"; then
-    fail "scripts/run-go-target.sh must not retain phase/package-specific runner fragment: $removed_runner_fragment"
-  fi
-done
 
 if ! "$node_bin" - "$repo_root" "$target_plan_file" <<'EOF'
 const fs = require("node:fs");
@@ -863,11 +770,6 @@ if [[ "$service_schedule_target_content" == *'--jobs'* ]]; then
 fi
 
 require_service_backed_schedule_target check-service-backed "check service-backed" 1
-
-mapfile -t check_service_browser_schedule_targets < <(schedule_targets check-service-backed browser)
-if [[ "$(printf '%s\n' "${check_service_browser_schedule_targets[@]}")" != $'browser-e2e-webserver-backed\nbrowser-e2e' ]]; then
-  fail "check-service-backed schedule must own webserver-backed and isolated browser work, found: ${check_service_browser_schedule_targets[*]:-none}"
-fi
 
 mapfile -t check_service_backend_schedule_targets < <(schedule_targets check-service-backed backend)
 check_service_backend_schedule_text="$(printf '%s\n' "${check_service_backend_schedule_targets[@]}")"

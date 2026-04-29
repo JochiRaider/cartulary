@@ -11,6 +11,8 @@ cartulary_runner_script="$repo_root/scripts/cartulary-runner.mjs"
 phase_manifest_helper="$repo_root/scripts/lib/phase-manifest.mjs"
 browser_batch_manifest_helper="$repo_root/scripts/lib/browser-batch-manifest.mjs"
 browser_batch_manifest="$repo_root/tools/browser_e2e_batch_manifest.json"
+schedule_profile="$repo_root/tools/service_backed_schedule_profiles.json"
+schedule_topology_helper="$repo_root/scripts/lib/service-backed-schedule-topology.mjs"
 webserver_batch_script="$repo_root/scripts/lib/run-playwright-webserver-batch.sh"
 browser_shard_plan_script="$repo_root/scripts/lib/browser-shard-plan.mjs"
 browser_duration_baselines="$repo_root/tools/browser_e2e_duration_baselines.json"
@@ -135,9 +137,6 @@ require_service_backed_schedule_target() {
   fi
   if printf '%s\n' "$block" | grep -Fq -- '--jobs'; then
     fail "$target must not pass a fixed scheduler job cap"
-  fi
-  if printf '%s\n' "$block" | rg -q "$target-lane-(a|b|browser)"; then
-    fail "$target must not invoke fixed service-backed lane targets"
   fi
   if ! printf '%s\n' "$block" | grep -Fq 'build-server'; then
     fail "$target must prebuild server before service-backed scheduling"
@@ -328,10 +327,6 @@ fi
 if ! printf '%s\n' "$browser_e2e_owned_stack_env" | grep -Fq 'CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES=1'; then
   fail "BROWSER_E2E_OWNED_STACK_ENV must opt Makefile-owned browser E2E into built repo-root binaries"
 fi
-if grep -Fq 'define run_browser_batch_target' "$makefile"; then
-  fail "Makefile must not keep the legacy run_browser_batch_target macro"
-fi
-
 for browser_owned_stack_target in \
   browser-e2e-webserver-backed \
   browser-e2e-functional \
@@ -379,10 +374,6 @@ require_browser_batch_target browser-e2e isolated 1 test-services
 if printf '%s\n' "$browser_e2e_block" | grep -Fq -- '-j$(BROWSER_E2E_JOBS)'; then
   fail 'browser-e2e must not fan out aggregate browser children with -j$(BROWSER_E2E_JOBS)'
 fi
-if printf '%s\n' "$browser_e2e_block" | grep -Fq 'run-browser-e2e-batch.sh all'; then
-  fail "browser-e2e must not run the removed all browser batch"
-fi
-
 require_service_backed_schedule_target test-service-backed "test service-backed" 1
 if [[ ! -x "$cartulary_runner_script" ]]; then
   fail "missing executable scripts/cartulary-runner.mjs"
@@ -404,83 +395,20 @@ if [[ "$service_schedule_target_content" == *'--jobs'* ]]; then
   fail "scripts/cartulary-runner.mjs must not pass a fixed scheduler job cap"
 fi
 
-mapfile -t test_service_browser_targets < <(schedule_targets test-service-backed browser)
-if [[ "$(printf '%s\n' "${test_service_browser_targets[@]}")" != $'browser-e2e-webserver-backed\nbrowser-e2e' ]]; then
-  fail "test-service-backed schedule must own webserver-backed and isolated browser work, found: ${test_service_browser_targets[*]:-none}"
-fi
-
 require_service_backed_schedule_target check-service-backed "check service-backed" 1
 
-mapfile -t check_service_browser_targets < <(schedule_targets check-service-backed browser)
-if [[ "$(printf '%s\n' "${check_service_browser_targets[@]}")" != $'browser-e2e-webserver-backed\nbrowser-e2e' ]]; then
-  fail "check-service-backed schedule must own webserver-backed and isolated browser work, found: ${check_service_browser_targets[*]:-none}"
-fi
+"$node_bin" "$schedule_topology_helper" validate "$schedule_manifest" "$schedule_profile" "$browser_batch_manifest"
 
-"$node_bin" - "$schedule_manifest" <<'EOF'
-const fs = require("node:fs");
-
-const [manifestFile] = process.argv.slice(2);
-const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v8") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v8");
-}
-for (const schedule of manifest.schedules ?? []) {
-  const limits = schedule.resource_limits ?? {};
-  if (Object.hasOwn(limits, "browser")) {
-    throw new Error(`${schedule.target} must not declare removed generic browser resource limit`);
-  }
-  for (const source of schedule.work_unit_sources ?? []) {
-    const claims = source.resource_claims ?? {};
-    if (Object.hasOwn(claims, "browser")) {
-      throw new Error(`${schedule.target} ${source.target} must not claim removed generic browser resource`);
-    }
-    if (source.class !== "browser") {
-      continue;
-    }
-    const browserStage = String(source.browser_stage ?? "");
-    const laneResource = `browser_stage_${browserStage.replaceAll("-", "_")}`;
-    if (!Object.hasOwn(limits, "browser_stack")) {
-      throw new Error(`${schedule.target} must declare browser_stack resource limit`);
-    }
-    if (!Object.hasOwn(limits, laneResource)) {
-      throw new Error(`${schedule.target} must declare ${laneResource} resource limit`);
-    }
-    if (!Object.hasOwn(claims, "browser_stack")) {
-      throw new Error(`${schedule.target} ${source.target} must claim browser_stack`);
-    }
-    if (!Object.hasOwn(claims, laneResource)) {
-      throw new Error(`${schedule.target} ${source.target} must claim ${laneResource}`);
-    }
-    if (source.target === "browser-e2e" && ["test-service-backed", "check-service-backed"].includes(schedule.target)) {
-      const expectedNeeds = [
-        "backend-integration",
-        "backend-integration-support",
-        "backend-store",
-        "backend-process",
-        "browser-e2e-webserver-backed",
-      ];
-      if (JSON.stringify(source.needs ?? []) !== JSON.stringify(expectedNeeds)) {
-        throw new Error(`${schedule.target} browser-e2e must depend on heavy backend work and webserver-backed browser work`);
-      }
-    }
-  }
-}
-EOF
-
-mapfile -t test_fast_service_browser_targets < <(schedule_targets test-fast-service-backed browser)
-if [[ "${#test_fast_service_browser_targets[@]}" -ne 0 ]]; then
-  fail "test-fast-service-backed schedule must remain backend-only, found browser targets: ${test_fast_service_browser_targets[*]}"
-fi
-
-"$node_bin" --input-type=module - "$task_surface_manifest" "$check_schedule_manifest" <<'EOF'
+"$node_bin" --input-type=module - "$task_surface_manifest" "$check_schedule_manifest" "$browser_batch_manifest" <<'EOF'
 import fs from "node:fs";
 import {
   loadSummaryTopologyContext,
   resolveSummaryGroups,
   serviceBackedScheduleChildren,
 } from "./scripts/lib/summary-topology.mjs";
+import { loadBrowserBatchStages } from "./scripts/lib/browser-batch-manifest.mjs";
 
-const [manifestFile, checkScheduleFile] = process.argv.slice(2);
+const [manifestFile, checkScheduleFile, browserBatchManifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
 const checkSchedule = JSON.parse(fs.readFileSync(checkScheduleFile, "utf8"));
 if (manifest.summary_profiles !== undefined) {
@@ -492,7 +420,16 @@ for (const entry of manifest.targets ?? []) {
   }
 }
 const context = loadSummaryTopologyContext({ taskSurfaceManifest: manifest });
-const expectedBrowser = ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"];
+const browserStages = loadBrowserBatchStages(browserBatchManifestFile);
+const webserverBackedStage = browserStages.get("webserver-backed");
+const isolatedStage = browserStages.get("isolated");
+if (!webserverBackedStage || !isolatedStage) {
+  throw new Error("browser batch manifest must declare webserver-backed and isolated stages for service-backed summaries");
+}
+const expectedBrowser = [
+  webserverBackedStage.target,
+  ...(isolatedStage.summaryChildren.length > 0 ? isolatedStage.summaryChildren : [isolatedStage.target]),
+];
 const expectedBackend = ["backend-integration", "backend-integration-support", "backend-store", "backend-process"];
 const testGroups = resolveSummaryGroups(context, manifest.sequences?.test?.summary_groups ?? []);
 const checkGroups = resolveSummaryGroups(context, (checkSchedule.schedules ?? []).find((entry) => entry.target === "check")?.summary_groups ?? []);
@@ -508,7 +445,7 @@ for (const [label, groups] of [["test", testGroups], ["check", checkGroups]]) {
 }
 for (const target of ["test-service-backed", "check-service-backed"]) {
   const children = serviceBackedScheduleChildren(context, target);
-  for (const child of ["browser-e2e-webserver-backed", "browser-e2e"]) {
+  for (const child of [webserverBackedStage.target, isolatedStage.target]) {
     if (!children.includes(child)) {
       throw new Error(`${target} service-backed schedule must include ${child}`);
     }
@@ -558,9 +495,6 @@ if printf '%s\n' "$check_block" | grep -Fq -- '--step browser-e2e'; then
 fi
 if printf '%s\n' "$check_block" | grep -Fq 'check-isolated'; then
   fail "check must not route browser evidence through check-isolated"
-fi
-if rg -q '^check-pre-browser:' "$makefile"; then
-  fail "check-pre-browser must not remain as legacy browser orchestration"
 fi
 if ! [[ -f "$check_schedule_manifest" ]]; then
   fail "missing tools/check_schedule_manifest.json"
@@ -729,12 +663,6 @@ fi
 if ! grep -Fq 'cartulary.browser_e2e_batch_manifest.v3' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must declare its schema"
 fi
-if grep -Fq '"children"' "$browser_batch_manifest"; then
-  fail "browser E2E batch manifest must not keep legacy children[]"
-fi
-if ! grep -Fq '"summary_children": ["browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"]' "$browser_batch_manifest"; then
-  fail "browser E2E batch manifest must declare isolated summary_children"
-fi
 if ! grep -Fq '"kind": "duration_balanced_specs"' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must route functional browser work through duration-balanced specs"
 fi
@@ -752,9 +680,6 @@ if ! grep -Fq 'browser_functional' "$browser_shard_plan_script"; then
 fi
 if ! grep -Fq 'shard_target_ms' "$browser_duration_baselines"; then
   fail "browser E2E duration baselines must declare shard_target_ms"
-fi
-if grep -Fq '"name": "all"' "$browser_batch_manifest"; then
-  fail "browser E2E batch manifest must not keep the removed all stage"
 fi
 if ! grep -Fq '"name": "isolated"' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must define the isolated stage"

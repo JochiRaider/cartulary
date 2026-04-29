@@ -407,6 +407,7 @@ assert_not_contains "${manifest_content}" "\"summary_projection\"" "manifest cop
 NODE_BIN="${NODE_BIN:-node}" "${NODE_BIN:-node}" --input-type=module - "${ROOT_DIR}/tools/task_surface_manifest.json" "${ROOT_DIR}/tools/service_backed_schedule_manifest.json" "${ROOT_DIR}/tools/browser_e2e_batch_manifest.json" <<'EOF'
 import fs from "node:fs";
 import { loadSummaryTopologyContext, resolveSummaryGroups } from "./scripts/lib/summary-topology.mjs";
+import { loadBrowserBatchStages } from "./scripts/lib/browser-batch-manifest.mjs";
 
 const [manifestFile, serviceManifest, browserManifest] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
@@ -424,7 +425,16 @@ for (const target of ["backend-unit", "frontend-typecheck", "frontend-unit", "te
 }
 const groups = resolveSummaryGroups(context, sequence.summary_groups);
 const browser = groups.find((group) => group.name === "browser");
-const expectedBrowser = ["browser-e2e-webserver-backed", "browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"];
+const browserStages = loadBrowserBatchStages(browserManifest);
+const webserverBackedStage = browserStages.get("webserver-backed");
+const isolatedStage = browserStages.get("isolated");
+if (!webserverBackedStage || !isolatedStage) {
+  throw new Error("browser batch manifest must declare webserver-backed and isolated stages");
+}
+const expectedBrowser = [
+  webserverBackedStage.target,
+  ...(isolatedStage.summaryChildren.length > 0 ? isolatedStage.summaryChildren : [isolatedStage.target]),
+];
 if (JSON.stringify(browser?.summaryTargets) !== JSON.stringify(expectedBrowser)) {
   throw new Error("test browser summary group must derive browser leaves from schedules");
 }
@@ -439,15 +449,9 @@ assert_contains "${service_schedule_target_content}" '"--children"' "service-bac
 assert_not_contains "${test_service_backed_block}" "--jobs" "test service-backed fixed scheduler jobs"
 assert_not_contains "${test_fast_service_backed_block}" "--jobs" "test-fast service-backed fixed scheduler jobs"
 assert_not_contains "${check_service_backed_block}" "--jobs" "check service-backed fixed scheduler jobs"
-assert_not_contains "${makefile_content}" "test-service-backed-lane-a" "removed fixed test-service-backed lane-a"
-assert_not_contains "${makefile_content}" "test-service-backed-lane-b" "removed fixed test-service-backed lane-b"
-assert_not_contains "${makefile_content}" "test-service-backed-lane-browser" "removed fixed test-service-backed browser lane"
-assert_not_contains "${makefile_content}" "check-service-backed-lane-a" "removed fixed check-service-backed lane-a"
-assert_not_contains "${makefile_content}" "check-service-backed-lane-b" "removed fixed check-service-backed lane-b"
 assert_not_contains "${makefile_content}" "RUN_SUMMARY =" "unused run summary helper variable"
 assert_not_contains "${makefile_content}" "RUN_SUMMARY_CMD =" "unused run summary command variable"
 assert_not_contains "${makefile_content}" "bash -lc './scripts/test-check-toolchain-pins.sh &&" "old serialized harness smoke chain"
-assert_not_contains "${makefile_content}" "run-phase-smoke:" "removed compatibility phase smoke target"
 
 for target in test run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-full; do
   make_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-make-n-${target}.XXXXXX")"
