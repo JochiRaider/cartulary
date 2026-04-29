@@ -1,4 +1,9 @@
 import path from "node:path";
+import {
+  formatResourceMap as formatSchedulerResourceMap,
+  resourceLimitSummary as schedulerResourceLimitSummary,
+  resourceMapToObject as schedulerResourceMapToObject,
+} from "./scheduler-resources.mjs";
 
 function configuredProgressIntervalMs() {
   const raw = process.env.CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS;
@@ -53,17 +58,11 @@ export function schedulerLogDir(repoRoot, target) {
 }
 
 export function formatResourceMap(values) {
-  const entries = Array.from(values.entries()).sort((left, right) => left[0].localeCompare(right[0]));
-  if (entries.length === 0) {
-    return "{}";
-  }
-  return `{${entries.map(([key, value]) => `${key}:${value}`).join(",")}}`;
+  return formatSchedulerResourceMap(values);
 }
 
 export function resourceMapToObject(values) {
-  return Object.fromEntries(
-    Array.from(values.entries()).sort((left, right) => left[0].localeCompare(right[0])),
-  );
+  return schedulerResourceMapToObject(values);
 }
 
 export function formatResourceList(values) {
@@ -239,22 +238,7 @@ export function schedulerProgressEventFields(snapshot) {
 }
 
 export function resourceLimitSummary(resourceLimits, preferred = []) {
-  const seen = new Set();
-  const entries = [];
-  for (const resource of preferred) {
-    if (resourceLimits.has(resource)) {
-      entries.push(`${resource}:${resourceLimits.get(resource)}`);
-      seen.add(resource);
-    }
-  }
-  for (const [resource, value] of Array.from(resourceLimits.entries()).sort((left, right) =>
-    left[0].localeCompare(right[0]),
-  )) {
-    if (!seen.has(resource)) {
-      entries.push(`${resource}:${value}`);
-    }
-  }
-  return entries.join(",");
+  return schedulerResourceLimitSummary(resourceLimits, preferred);
 }
 
 export function countBy(values, field) {

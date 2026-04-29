@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.service_backed_schedule.v7",
+  "schema_id": "cartulary.service_backed_schedule.v8",
   "generated": {
     "generator": "scripts/render-service-backed-schedule-manifest.mjs",
     "profile": "tools/service_backed_schedule_profiles.json",

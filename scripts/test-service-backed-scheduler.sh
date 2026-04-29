@@ -88,7 +88,7 @@ const fs = require("node:fs");
 const [summaryFile, eventsFile, expectedStatus, expectedBlocked, expectedEvent] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
-if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v3") {
+if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v4") {
   throw new Error(`unexpected summary schema ${summary.schema_id}`);
 }
 if (summary.status !== expectedStatus) {
@@ -114,7 +114,7 @@ if (expectedBlocked !== "-") {
 if (events.length === 0) {
   throw new Error("scheduler events must not be empty");
 }
-if (!events.every((event) => event.schema_id === "cartulary.service_backed_scheduler_event.v3")) {
+if (!events.every((event) => event.schema_id === "cartulary.service_backed_scheduler_event.v4")) {
   throw new Error("unexpected scheduler event schema");
 }
 if (expectedEvent !== "-" && !events.some((event) => event.event === expectedEvent)) {
@@ -408,7 +408,7 @@ write_manifest() {
 
   {
     printf '{\n'
-    printf '  "schema_id": "cartulary.service_backed_schedule.v7",\n'
+    printf '  "schema_id": "cartulary.service_backed_schedule.v8",\n'
     printf '  "schedules": [\n'
     printf '    { "target": "%s", "resource_limits": { "postgres": 32, "minio": 32, "go_cpu": 6, "go_io": 6, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1, "browser_stage_isolated": 1, "browser_stage_visual": 1 }, "work_unit_sources": [\n' "$target"
     local first=1
@@ -574,7 +574,7 @@ weighted_verbose_output="$(VERBOSE=1 run_scheduler "$weighted_dir" "$weighted_ma
 assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed start work_units=3 finalizers=0 capacity={go_cpu:6,go_io:6,browser_stack:" "verbose scheduler aggregate start"
 assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-process claims={go_cpu:1,go_io:1,minio:1,postgres:1,process:1} active=1 pending=2" "verbose scheduler start telemetry"
 assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed start work_unit=backend-store claims={go_cpu:1,go_io:1,minio:1,postgres:1} active=3 pending=0 active_resource_claims={go_cpu:3,go_io:3,minio:3,postgres:3,process:1}" "verbose scheduler starts all compatible weighted children"
-assert_contains "$weighted_verbose_output" "resource_limits={browser_stack:" "verbose scheduler resource limit telemetry includes browser stack"
+assert_contains "$weighted_verbose_output" "resource_limits={go_cpu:6,go_io:6,browser_stack:" "verbose scheduler resource limit telemetry includes browser stack"
 assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed finish work_unit=backend-process status=0" "verbose scheduler finish telemetry"
 assert_contains "$weighted_verbose_output" "fake pass for backend-store" "verbose scheduler replays successful child logs"
 
@@ -604,7 +604,7 @@ write_manifest "$backend_capacity_manifest" test-fast-service-backed \
 backend_capacity_output="$(run_scheduler "$backend_capacity_dir" "$backend_capacity_manifest" test-fast-service-backed backend-capacity 2>&1)"
 assert_not_contains "$backend_capacity_output" "[SCHEDULER] test-fast-service-backed summary status=pass" "quiet go resource model hides success scheduler summary"
 
-io_block_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-io-block.XXXXXX")"
+io_block_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-host_io-block.XXXXXX")"
 cleanup_paths+=("$io_block_dir")
 write_fake_make "$io_block_dir"
 io_block_manifest="${io_block_dir}/manifest.json"
@@ -612,7 +612,7 @@ write_manifest "$io_block_manifest" test-fast-service-backed \
   'make_target|backend-integration|10|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 4' \
   'make_target|backend-store|9|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 3' \
   'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 2, "process": 1'
-io_block_output="$(run_scheduler "$io_block_dir" "$io_block_manifest" test-fast-service-backed io-block 2>&1)"
+io_block_output="$(run_scheduler "$io_block_dir" "$io_block_manifest" test-fast-service-backed host_io-block 2>&1)"
 assert_contains "$io_block_output" "blocked_by=go_io unblocks_after=backend-integration" "scheduler go_io-blocked progress"
 
 browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser.XXXXXX")"
@@ -636,7 +636,7 @@ write_fake_go_target_runner "$eager_finalizer_dir"
 eager_finalizer_manifest="${eager_finalizer_dir}/manifest.json"
 cat >"$eager_finalizer_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule.v7",
+  "schema_id": "cartulary.service_backed_schedule.v8",
   "schedules": [
     {
       "target": "test-service-backed",
@@ -1060,7 +1060,7 @@ dry_run_output="$(
     run_scheduler "$dry_run_dir" "$dry_run_manifest" test-service-backed dry-run 2>&1
 )"
 assert_contains "$dry_run_output" "[DRY-RUN] test-service-backed manifest=" "dry-run output"
-assert_contains "$dry_run_output" "resource_limits={go_cpu:6,go_io:6,browser_stack:2,process:2,postgres:32,minio:32" "dry-run includes compact resolved resources"
+assert_contains "$dry_run_output" "resource_limits={go_cpu:6,go_io:6,browser_stack:2,minio:32,postgres:32,process:2" "dry-run includes compact resolved resources"
 assert_contains "$dry_run_output" "work_units=1 dependencies=0 classes={browser:1} types={make_target:1} finalizers=0 top_weighted=browser-e2e-webserver-backed:10" "dry-run includes compact work summary"
 assert_not_contains "$dry_run_output" "claims={" "default dry-run hides per-unit claims"
 assert_file_absent "${dry_run_dir}/make.log" "dry-run child make log"
@@ -1145,7 +1145,7 @@ invalid_resource_output="$(run_scheduler "$invalid_resource_dir" "$invalid_resou
 invalid_resource_status=$?
 set -e
 assert_equals "$invalid_resource_status" "1" "invalid resource manifest status"
-assert_contains "$invalid_resource_output" "undeclared-resource is not declared in resource_limits" "invalid resource manifest output"
+assert_contains "$invalid_resource_output" "uses undeclared scheduler resource undeclared-resource" "invalid resource manifest output"
 
 unknown_dependency_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-unknown-dependency.XXXXXX")"
 cleanup_paths+=("$unknown_dependency_dir")
@@ -1185,7 +1185,7 @@ removed_backend_resource_output="$(run_scheduler "$removed_backend_resource_dir"
 removed_backend_resource_status=$?
 set -e
 assert_equals "$removed_backend_resource_status" "1" "removed backend resource manifest status"
-assert_contains "$removed_backend_resource_output" "removed generic backend resource" "removed backend resource manifest output"
+assert_contains "$removed_backend_resource_output" "uses retired resource backend" "removed backend resource manifest output"
 
 invalid_browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-invalid-browser.XXXXXX")"
 cleanup_paths+=("$invalid_browser_dir")
@@ -1224,7 +1224,7 @@ obsolete_browser_resource_output="$(run_scheduler "$obsolete_browser_resource_di
 obsolete_browser_resource_status=$?
 set -e
 assert_equals "$obsolete_browser_resource_status" "1" "obsolete browser resource manifest status"
-assert_contains "$obsolete_browser_resource_output" "removed generic browser resource" "obsolete browser resource manifest output"
+assert_contains "$obsolete_browser_resource_output" "uses retired resource browser" "obsolete browser resource manifest output"
 
 legacy_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-legacy.XXXXXX")"
 cleanup_paths+=("$legacy_dir")
@@ -1236,7 +1236,7 @@ legacy_output="$(run_scheduler "$legacy_dir" "$legacy_manifest" test-fast-servic
 legacy_status=$?
 set -e
 assert_equals "$legacy_status" "1" "legacy manifest status"
-assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v7" "legacy manifest output"
+assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v8" "legacy manifest output"
 
 jobs_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-jobs.XXXXXX")"
 cleanup_paths+=("$jobs_dir")

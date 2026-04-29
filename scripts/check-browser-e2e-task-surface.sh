@@ -7,7 +7,7 @@ generated_make="$repo_root/tools/task_surface.generated.mk"
 functional_script="$repo_root/scripts/run-browser-e2e-functional.sh"
 browser_batch_script="$repo_root/scripts/run-browser-e2e-batch.sh"
 browser_target_script="$repo_root/scripts/run-browser-e2e-target.sh"
-service_schedule_target_script="$repo_root/scripts/run-service-backed-schedule-target.sh"
+cartulary_runner_script="$repo_root/scripts/cartulary-runner.mjs"
 browser_batch_manifest_helper="$repo_root/scripts/lib/browser-batch-manifest.mjs"
 browser_batch_manifest="$repo_root/tools/browser_e2e_batch_manifest.json"
 webserver_batch_script="$repo_root/scripts/lib/run-playwright-webserver-batch.sh"
@@ -146,8 +146,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v7") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v7");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v8") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v8");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -172,8 +172,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, childTarget, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v7") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v7");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v8") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v8");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -221,8 +221,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v4") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v4");
+if (manifest.schema_id !== "cartulary.check_schedule.v5") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v5");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -242,8 +242,8 @@ const fs = require("node:fs");
 
 const [manifestFile, workUnit, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v4") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v4");
+if (manifest.schema_id !== "cartulary.check_schedule.v5") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v5");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -350,24 +350,24 @@ if printf '%s\n' "$browser_e2e_block" | grep -Fq 'run-browser-e2e-batch.sh all';
 fi
 
 require_service_backed_schedule_target test-service-backed "test service-backed" 1
-if [[ ! -x "$service_schedule_target_script" ]]; then
-  fail "missing executable scripts/run-service-backed-schedule-target.sh"
+if [[ ! -x "$cartulary_runner_script" ]]; then
+  fail "missing executable scripts/cartulary-runner.mjs"
 fi
-service_schedule_target_content="$(cat "$service_schedule_target_script")"
+service_schedule_target_content="$(cat "$cartulary_runner_script")"
 for required_service_schedule_fragment in \
   'TEST_SERVICES_BIN' \
-  'run -- "${scheduler_command[@]}"' \
-  'RUN_PHASE_SCRIPT' \
-  'RUN_SERVICE_BACKED_SCHEDULE_SCRIPT' \
+  'service-backed-target' \
+  'context.runPhaseScript' \
+  'context.serviceBackedScheduleScript' \
   '--defer-summary' \
-  'target-summary "$target" "$requested" --projection "$projection"'
+  '"--projection"'
 do
   if [[ "$service_schedule_target_content" != *"$required_service_schedule_fragment"* ]]; then
-    fail "scripts/run-service-backed-schedule-target.sh must contain $required_service_schedule_fragment"
+    fail "scripts/cartulary-runner.mjs must contain $required_service_schedule_fragment"
   fi
 done
 if [[ "$service_schedule_target_content" == *'--jobs'* ]]; then
-  fail "scripts/run-service-backed-schedule-target.sh must not pass a fixed scheduler job cap"
+  fail "scripts/cartulary-runner.mjs must not pass a fixed scheduler job cap"
 fi
 
 mapfile -t test_service_browser_targets < <(schedule_targets test-service-backed browser)
@@ -387,8 +387,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v7") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v7");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v8") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v8");
 }
 for (const schedule of manifest.schedules ?? []) {
   const limits = schedule.resource_limits ?? {};
@@ -511,11 +511,11 @@ fi
 if ! printf '%s\n' "$check_block" | grep -Fq '$(RUN_CHECK_SCHEDULE_SCRIPT)'; then
   fail "check must delegate to the check scheduler"
 fi
-if ! printf '%s\n' "$check_block" | grep -Fq -- '--resource-limit cpu=$(CHECK_JOBS)'; then
-  fail "check must pass CHECK_JOBS as the check scheduler cpu resource limit"
+if ! printf '%s\n' "$check_block" | grep -Fq -- '--resource-limit host_cpu=$(CHECK_HOST_CPU_JOBS)'; then
+  fail "check must pass CHECK_HOST_CPU_JOBS as the check scheduler host_cpu resource limit"
 fi
-if ! printf '%s\n' "$check_block" | grep -Fq -- '--resource-limit io=$(CHECK_IO_JOBS)'; then
-  fail "check must pass CHECK_IO_JOBS as the check scheduler io resource limit"
+if ! printf '%s\n' "$check_block" | grep -Fq -- '--resource-limit host_io=$(CHECK_HOST_IO_JOBS)'; then
+  fail "check must pass CHECK_HOST_IO_JOBS as the check scheduler host_io resource limit"
 fi
 if printf '%s\n' "$check_block" | grep -Fq -- '--step browser-e2e'; then
   fail "check must not run browser-e2e as a final serial step"
@@ -548,8 +548,8 @@ if (!schedule) {
   throw new Error("missing check schedule");
 }
 const limits = schedule.resource_limits ?? {};
-if (limits.cpu !== 12 || limits.io !== 12 || limits.service_stack !== 1) {
-  throw new Error("check schedule must declare cpu, io, and service_stack limits");
+if (limits.host_cpu !== 12 || limits.host_io !== 12 || limits.service_stack !== 1) {
+  throw new Error("check schedule must declare host_cpu, host_io, and service_stack limits");
 }
 const service = (schedule.work_units ?? []).find((entry) => entry.target === "check-service-backed");
 if (!service) {
@@ -562,8 +562,8 @@ if (!browserDrift) {
 if (JSON.stringify(browserDrift.needs ?? []) !== JSON.stringify(["check-service-backed"])) {
   throw new Error("check-browser-e2e-duration-baseline-drift must depend on check-service-backed");
 }
-if (browserDrift.resource_claims?.cpu !== 1 || Object.keys(browserDrift.resource_claims ?? {}).length !== 1) {
-  throw new Error("check-browser-e2e-duration-baseline-drift must claim only cpu=1");
+if (browserDrift.resource_claims?.host_cpu !== 1 || Object.keys(browserDrift.resource_claims ?? {}).length !== 1) {
+  throw new Error("check-browser-e2e-duration-baseline-drift must claim only host_cpu=1");
 }
 const claims = service.resource_claims ?? {};
 const assertBoundedClaim = (claim, resource, expected) => {
@@ -580,8 +580,8 @@ const assertBoundedClaim = (claim, resource, expected) => {
     }
   }
 };
-assertBoundedClaim(claims.cpu, "cpu", { mode: "bounded_limit", reserve: 3, min: 1, max: 8 });
-assertBoundedClaim(claims.io, "io", { mode: "bounded_limit", reserve: 4, min: 1, max: 10 });
+assertBoundedClaim(claims.host_cpu, "host_cpu", { mode: "bounded_limit", reserve: 3, min: 1, max: 8 });
+assertBoundedClaim(claims.host_io, "host_io", { mode: "bounded_limit", reserve: 4, min: 1, max: 10 });
 if (claims.service_stack !== 1) {
   throw new Error("check-service-backed must claim exclusive service_stack");
 }
@@ -592,12 +592,8 @@ if (nested.type !== "service_backed" || nested.target !== "check-service-backed"
 if (nested.manifest !== "tools/service_backed_schedule_manifest.json") {
   throw new Error("check-service-backed nested scheduler must point at the service-backed manifest");
 }
-const env = nested.resource_limit_env ?? {};
-if (
-  env.cpu !== "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT" ||
-  env.io !== "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT"
-) {
-  throw new Error("check-service-backed nested scheduler must forward cpu/io limit env vars");
+if (nested.forwarding !== "check_host_to_service_backed_go") {
+  throw new Error("check-service-backed nested scheduler must use the host-to-service-backed forwarding profile");
 }
 EOF
 

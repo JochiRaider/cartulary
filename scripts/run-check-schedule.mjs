@@ -25,14 +25,23 @@ import {
   writeSchedulerTelemetry,
   verboseSchedulerOutput,
 } from "./lib/scheduler-reporting.mjs";
+import {
+  assertKnownResource,
+  normalizeResourceClaims as normalizeSchedulerResourceClaims,
+  normalizeResourceLimits as normalizeSchedulerResourceLimits,
+  preferredResourcesForScheduler,
+  resolveForwardingProfile,
+  resourceLimitSourcesToObject,
+  resourceMapToObject as schedulerResourceMapToObject,
+} from "./lib/scheduler-resources.mjs";
 import { loadTaskSurfaceManifest, summaryProfileArgs } from "./lib/task-surface.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
-const supportedSchemaID = "cartulary.check_schedule.v4";
-const schedulerEventSchemaID = "cartulary.check_scheduler_event.v3";
-const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v3";
+const supportedSchemaID = "cartulary.check_schedule.v5";
+const schedulerEventSchemaID = "cartulary.check_scheduler_event.v4";
+const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v4";
 
 function usage() {
   process.stderr.write(
@@ -123,102 +132,18 @@ async function loadManifest(file) {
 }
 
 function normalizeResourceLimits(value, label, overrides) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${label} resource_limits must be an object`);
-  }
-  const limits = new Map();
-  for (const [resource, amount] of Object.entries(value)) {
-    const normalizedResource = resource.trim();
-    if (normalizedResource === "") {
-      throw new Error(`${label} resource_limits keys must be non-empty strings`);
-    }
-    if (!Number.isInteger(amount) || amount < 1) {
-      throw new Error(`${label} resource_limits.${normalizedResource} must be a positive integer`);
-    }
-    limits.set(normalizedResource, amount);
-  }
-  for (const [resource, amount] of overrides.entries()) {
-    if (!limits.has(resource)) {
-      throw new Error(`${label} resource limit override ${resource} is not declared`);
-    }
-    limits.set(resource, amount);
-  }
-  return limits;
+  return normalizeSchedulerResourceLimits(value, label, {
+    scheduler: "check",
+    overrides,
+    allowAuto: false,
+  });
 }
 
 function normalizeResourceClaims(value, label, resourceLimits) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${label} resource_claims must be an object`);
-  }
-  const claims = new Map();
-  for (const [resource, rawAmount] of Object.entries(value)) {
-    const normalizedResource = resource.trim();
-    if (normalizedResource === "") {
-      throw new Error(`${label} resource_claims keys must be non-empty strings`);
-    }
-    if (!resourceLimits.has(normalizedResource)) {
-      throw new Error(`${label} resource_claims entry ${normalizedResource} is not declared in resource_limits`);
-    }
-    const amount = normalizeResourceClaimAmount(
-      rawAmount,
-      label,
-      normalizedResource,
-      resourceLimits.get(normalizedResource),
-    );
-    if (!Number.isInteger(amount) || amount < 1) {
-      throw new Error(
-        `${label} resource_claims.${normalizedResource} must be a positive integer, \"limit\", or bounded_limit object`,
-      );
-    }
-    if (amount > resourceLimits.get(normalizedResource)) {
-      throw new Error(`${label} resource_claims.${normalizedResource} exceeds resource limit`);
-    }
-    claims.set(normalizedResource, amount);
-  }
-  return claims;
-}
-
-function normalizeResourceClaimAmount(rawAmount, label, resource, resourceLimit) {
-  if (rawAmount === "limit") {
-    return resourceLimit;
-  }
-  if (Number.isInteger(rawAmount)) {
-    return rawAmount;
-  }
-  if (!rawAmount || typeof rawAmount !== "object" || Array.isArray(rawAmount)) {
-    return rawAmount;
-  }
-  return normalizeBoundedLimitClaim(rawAmount, label, resource, resourceLimit);
-}
-
-function normalizeBoundedLimitClaim(value, label, resource, resourceLimit) {
-  const allowedKeys = new Set(["mode", "reserve", "min", "max"]);
-  for (const key of Object.keys(value)) {
-    if (!allowedKeys.has(key)) {
-      throw new Error(`${label} resource_claims.${resource} bounded_limit has unknown key ${key}`);
-    }
-  }
-  if (value.mode !== "bounded_limit") {
-    throw new Error(`${label} resource_claims.${resource}.mode must be bounded_limit`);
-  }
-  for (const key of ["reserve", "min", "max"]) {
-    if (!Object.hasOwn(value, key)) {
-      throw new Error(`${label} resource_claims.${resource} bounded_limit must declare ${key}`);
-    }
-  }
-  if (!Number.isInteger(value.reserve) || value.reserve < 0) {
-    throw new Error(`${label} resource_claims.${resource}.reserve must be a non-negative integer`);
-  }
-  if (!Number.isInteger(value.min) || value.min < 1) {
-    throw new Error(`${label} resource_claims.${resource}.min must be a positive integer`);
-  }
-  if (!Number.isInteger(value.max) || value.max < 1) {
-    throw new Error(`${label} resource_claims.${resource}.max must be a positive integer`);
-  }
-  if (value.max < value.min) {
-    throw new Error(`${label} resource_claims.${resource}.max must be greater than or equal to min`);
-  }
-  return Math.min(resourceLimit, value.max, Math.max(value.min, resourceLimit - value.reserve));
+  return normalizeSchedulerResourceClaims(value, label, resourceLimits, {
+    scheduler: "check",
+    allowBounded: true,
+  });
 }
 
 function normalizeNeeds(value, label) {
@@ -255,11 +180,12 @@ function normalizeMakeJobs(value, label, resourceClaims) {
   if (value === undefined) {
     return 1;
   }
-  if (value === "cpu") {
-    return resourceClaims.get("cpu") ?? 1;
+  if (typeof value === "string") {
+    const resource = assertKnownResource(value, `${label} make_jobs`, { scheduler: "check" });
+    return resourceClaims.get(resource) ?? 1;
   }
   if (!Number.isInteger(value) || value < 1) {
-    throw new Error(`${label} make_jobs must be a positive integer or \"cpu\"`);
+    throw new Error(`${label} make_jobs must be a positive integer or check scheduler resource name`);
   }
   return value;
 }
@@ -284,43 +210,15 @@ function normalizeNestedScheduler(value, label, unitTarget, resourceClaims) {
   if (typeof value.manifest !== "string" || value.manifest.trim() === "") {
     throw new Error(`${label} nested_scheduler.manifest must be a non-empty string`);
   }
-  if (
-    !value.resource_limit_env ||
-    typeof value.resource_limit_env !== "object" ||
-    Array.isArray(value.resource_limit_env)
-  ) {
-    throw new Error(`${label} nested_scheduler.resource_limit_env must be an object`);
+  if (value.resource_limit_env !== undefined) {
+    throw new Error(`${label} nested_scheduler.resource_limit_env is obsolete; use forwarding`);
   }
-  const resourceLimitEnv = new Map();
-  const envNames = new Set();
-  for (const [resource, envName] of Object.entries(value.resource_limit_env)) {
-    const normalizedResource = resource.trim();
-    if (normalizedResource === "") {
-      throw new Error(`${label} nested_scheduler.resource_limit_env keys must be non-empty strings`);
-    }
-    if (!resourceClaims.has(normalizedResource)) {
-      throw new Error(
-        `${label} nested_scheduler.resource_limit_env.${normalizedResource} must map a resource claimed by ${unitTarget}`,
-      );
-    }
-    if (typeof envName !== "string" || envName.trim() === "") {
-      throw new Error(`${label} nested_scheduler.resource_limit_env.${normalizedResource} must be a non-empty string`);
-    }
-    const normalizedEnvName = envName.trim();
-    if (envNames.has(normalizedEnvName)) {
-      throw new Error(`${label} nested_scheduler.resource_limit_env must not map multiple resources to ${normalizedEnvName}`);
-    }
-    envNames.add(normalizedEnvName);
-    resourceLimitEnv.set(normalizedResource, normalizedEnvName);
-  }
-  if (resourceLimitEnv.size === 0) {
-    throw new Error(`${label} nested_scheduler.resource_limit_env must not be empty`);
-  }
+  const forwarding = resolveForwardingProfile(value.forwarding, resourceClaims, `${label} nested_scheduler`);
   return {
     type: value.type,
     target: nestedTarget,
     manifest: value.manifest.trim(),
-    resourceLimitEnv,
+    ...forwarding,
   };
 }
 
@@ -329,8 +227,8 @@ function nestedSchedulerForwardedLimits(unit) {
     return new Map();
   }
   const limits = new Map();
-  for (const [resource, envName] of unit.nestedScheduler.resourceLimitEnv.entries()) {
-    limits.set(envName, unit.resourceClaims.get(resource));
+  for (const [envName, amount] of unit.nestedScheduler.resourceLimitEnv.entries()) {
+    limits.set(envName, amount);
   }
   return limits;
 }
@@ -386,8 +284,10 @@ function nestedSchedulerDetail(unit) {
     type: unit.nestedScheduler.type,
     target: unit.nestedScheduler.target,
     manifest: unit.nestedScheduler.manifest,
-    resource_limit_env: resourceMapToObject(unit.nestedScheduler.resourceLimitEnv),
+    forwarding: unit.nestedScheduler.profile,
+    forwarding_mappings: unit.nestedScheduler.forwardingMappings,
     forwarded_limits: resourceMapToObject(nestedSchedulerForwardedLimits(unit)),
+    forwarded_resource_limits: schedulerResourceMapToObject(unit.nestedScheduler.forwardedResourceLimits),
   };
 }
 
@@ -400,7 +300,8 @@ function findSchedule(manifest, target, overrides) {
   if (!Array.isArray(schedule.work_units) || schedule.work_units.length === 0) {
     throw new Error(`check schedule ${target} must declare work_units[]`);
   }
-  const resourceLimits = normalizeResourceLimits(schedule.resource_limits, `check schedule ${target}`, overrides);
+  const normalizedLimits = normalizeResourceLimits(schedule.resource_limits, `check schedule ${target}`, overrides);
+  const resourceLimits = normalizedLimits.limits;
   const units = schedule.work_units.map((unit, index) => {
     const label = `check schedule ${target} work_units ${index + 1}`;
     if (!unit || typeof unit !== "object" || Array.isArray(unit)) {
@@ -456,6 +357,7 @@ function findSchedule(manifest, target, overrides) {
   return {
     target,
     resourceLimits,
+    resourceLimitSources: normalizedLimits.sources,
     units: units.sort((left, right) => right.weight - left.weight || left.order - right.order || left.target.localeCompare(right.target)),
   };
 }
@@ -485,7 +387,11 @@ function assertAcyclic(target, units) {
 
 function runLifecycle(testOutputScript, args, stream = process.stdout) {
   return new Promise((resolve, reject) => {
-    const child = spawn(testOutputScript, args, {
+    const command = testOutputScript.endsWith(".mjs")
+      ? process.env.NODE_BIN || process.execPath
+      : testOutputScript;
+    const commandArgs = testOutputScript.endsWith(".mjs") ? [testOutputScript, ...args] : args;
+    const child = spawn(command, commandArgs, {
       cwd: repoRoot,
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
@@ -801,7 +707,7 @@ class CheckSchedulerReporter {
         target: this.schedule.target,
         workUnitCount: this.schedule.units.length,
         resourceLimits: this.schedule.resourceLimits,
-        preferredResources: ["cpu", "io", "service_stack"],
+        preferredResources: preferredResourcesForScheduler("check"),
         workUnits: this.schedule.units,
       }),
     );
@@ -1119,6 +1025,7 @@ class CheckSchedulerReporter {
           max_running_work_units: this.maxRunningWorkUnits,
           max_running_groups: this.maxRunningGroups,
           max_active_resource_claims: resourceMapToObject(this.maxActiveResourceClaims),
+          resource_limit_sources: resourceLimitSourcesToObject(this.schedule.resourceLimitSources),
           nested_scheduler_limits: this.schedule.units
             .filter((unit) => unit.nestedScheduler)
             .map((unit) => ({
@@ -1177,6 +1084,7 @@ class CheckSchedulerReporter {
         blocked_units: detail.blocked_units ?? [],
         active_resource_claims: resourceMapToObject(state.activeClaims),
         resource_limits: resourceMapToObject(this.schedule.resourceLimits),
+        resource_limit_sources: resourceLimitSourcesToObject(this.schedule.resourceLimitSources),
         ...detail,
       })}\n`,
     );
@@ -1242,7 +1150,7 @@ async function runSchedule({ schedule, makeBin, testOutputScript, summaryTargets
   const unitsByTarget = new Map(schedule.units.map((unit) => [unit.target, unit]));
   const activeClaims = new Map();
   const totalUnits = schedule.units.length;
-  const capacityDisplay = schedule.resourceLimits.get("cpu") ?? Math.max(...schedule.resourceLimits.values());
+  const capacityDisplay = schedule.resourceLimits.get("host_cpu") ?? Math.max(...schedule.resourceLimits.values());
   const summaryTargetSet = new Set(summaryTargets);
   const helperUnits = schedule.units.filter((unit) => !summaryTargetSet.has(unit.target));
   const helperUnitNames = helperUnits.map((unit) => unit.target);
@@ -1477,7 +1385,7 @@ async function main() {
   }
   const makeBin = process.env.MAKE || "make";
   const testOutputScript =
-    process.env.TEST_OUTPUT_SCRIPT || path.join(repoRoot, "scripts", "lib", "test-output.sh");
+    process.env.TEST_OUTPUT_SCRIPT || path.join(repoRoot, "scripts", "lib", "test-output.mjs");
 
   if (isDryRun()) {
     const dependencyCount = schedule.units.reduce((sum, unit) => sum + unit.needs.length, 0);
@@ -1486,7 +1394,7 @@ async function main() {
         target: options.target,
         manifest: path.relative(repoRoot, manifestPath),
         resourceLimits: schedule.resourceLimits,
-        preferredResources: ["cpu", "io", "service_stack"],
+        preferredResources: preferredResourcesForScheduler("check"),
         workUnits: schedule.units,
         dependencies: dependencyCount,
       }),

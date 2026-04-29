@@ -28,13 +28,20 @@ import {
   writeSchedulerTelemetry,
   verboseSchedulerOutput,
 } from "./lib/scheduler-reporting.mjs";
+import {
+  normalizeResourceClaims as normalizeSchedulerResourceClaims,
+  normalizeResourceLimits as normalizeSchedulerResourceLimits,
+  preferredResourcesForScheduler,
+  resourceLimitSourcesToObject,
+} from "./lib/scheduler-resources.mjs";
+import { createRunnerContext } from "./lib/runner-context.mjs";
 import { findTargetDescriptor } from "./lib/target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
 const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
-const supportedSchemaID = "cartulary.service_backed_schedule.v7";
+const supportedSchemaID = "cartulary.service_backed_schedule.v8";
 const goCPUResource = "go_cpu";
 const goIOResource = "go_io";
 const postgresResetResource = "postgres_reset";
@@ -43,9 +50,8 @@ const goCPULimitEnv = "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT";
 const goIOLimitEnv = "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT";
 const browserStackLimitEnv = "CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
-const schedulerEventSchemaID = "cartulary.service_backed_scheduler_event.v3";
-const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v3";
-const autoLimitResources = new Set([goCPUResource, goIOResource, browserStackResource]);
+const schedulerEventSchemaID = "cartulary.service_backed_scheduler_event.v4";
+const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v4";
 const validSourceTypes = new Set(["go_shards", "make_target"]);
 const validSourceClasses = new Set(["backend", "browser"]);
 
@@ -123,69 +129,17 @@ async function loadBrowserBatchStages() {
 }
 
 function normalizeResourceLimits(value, label) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${label} resource_limits must be an object`);
-  }
-
-  const resourceLimits = new Map();
-  for (const [resource, limit] of Object.entries(value)) {
-    const normalizedResource = resource.trim();
-    if (normalizedResource === "") {
-      throw new Error(`${label} resource_limits keys must be non-empty strings`);
-    }
-    if (normalizedResource === "backend") {
-      throw new Error(`${label} resource_limits must not declare removed generic backend resource`);
-    }
-    if (normalizedResource === "browser") {
-      throw new Error(`${label} resource_limits must not declare removed generic browser resource`);
-    }
-    if (limit === "auto") {
-      if (!autoLimitResources.has(normalizedResource)) {
-        throw new Error(
-          `${label} resource_limits.${normalizedResource} may use "auto" only for ${goCPUResource}, ${goIOResource}, or ${browserStackResource}`,
-        );
-      }
-      resourceLimits.set(normalizedResource, limit);
-      continue;
-    }
-    if (!Number.isInteger(limit) || limit < 1) {
-      throw new Error(
-        `${label} resource_limits.${normalizedResource} must be a positive integer or "auto"`,
-      );
-    }
-    resourceLimits.set(normalizedResource, limit);
-  }
-  return resourceLimits;
+  return normalizeSchedulerResourceLimits(value, label, {
+    scheduler: "service_backed",
+    allowAuto: true,
+  });
 }
 
 function normalizeResourceClaims(value, label, resourceLimits) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${label} resource_claims must be an object`);
-  }
-
-  const resourceClaims = new Map();
-  for (const [resource, amount] of Object.entries(value)) {
-    const normalizedResource = resource.trim();
-    if (normalizedResource === "") {
-      throw new Error(`${label} resource_claims keys must be non-empty strings`);
-    }
-    if (normalizedResource === "backend") {
-      throw new Error(`${label} resource_claims must not declare removed generic backend resource`);
-    }
-    if (normalizedResource === "browser") {
-      throw new Error(`${label} resource_claims must not declare removed generic browser resource`);
-    }
-    if (!Number.isInteger(amount) || amount < 1) {
-      throw new Error(`${label} resource_claims.${normalizedResource} must be a positive integer`);
-    }
-    if (!resourceLimits.has(normalizedResource)) {
-      throw new Error(
-        `${label} resource_claims entry ${normalizedResource} is not declared in resource_limits`,
-      );
-    }
-    resourceClaims.set(normalizedResource, amount);
-  }
-  return resourceClaims;
+  return normalizeSchedulerResourceClaims(value, label, resourceLimits, {
+    scheduler: "service_backed",
+    allowBounded: false,
+  });
 }
 
 function normalizeNeeds(value, label) {
@@ -333,7 +287,8 @@ function findSchedule(manifest, target, browserStages) {
   if (schedule.children !== undefined) {
     throw new Error(`schedule ${target} must use work_unit_sources, not legacy children`);
   }
-  const resourceLimits = normalizeResourceLimits(schedule.resource_limits, `schedule ${target}`);
+  const normalizedLimits = normalizeResourceLimits(schedule.resource_limits, `schedule ${target}`);
+  const resourceLimits = normalizedLimits.limits;
   const sources = schedule.work_unit_sources.map((source, index) =>
     validateSource(target, source, index, resourceLimits, browserStages),
   );
@@ -360,6 +315,7 @@ function findSchedule(manifest, target, browserStages) {
   return {
     target,
     resourceLimits,
+    resourceLimitSources: normalizedLimits.sources,
     sources,
     children: sources.map((source) => source.target),
     backendChildren: sources
@@ -476,7 +432,7 @@ function expandSchedule(schedule) {
   );
   return {
     ...schedule,
-    resourceLimits: resolveResourceLimits(schedule.resourceLimits, workUnits),
+    ...resolveResourceLimits(schedule.resourceLimits, schedule.resourceLimitSources, workUnits),
     workUnits,
     goFinalizers,
   };
@@ -550,7 +506,7 @@ function estimateBrowserStackLimit(workUnits) {
   return clampInteger(hostLimit, 1, laneCount);
 }
 
-function resolveResourceLimits(resourceLimits, workUnits) {
+function resolveResourceLimits(resourceLimits, resourceLimitSources, workUnits) {
   const goShardUnits = workUnits.filter((unit) => unit.type === "go_shard");
   const computedGoCPU = estimateGoCPULimit(goShardUnits);
   const goCPUOverride = parsePositiveIntegerEnv(goCPULimitEnv);
@@ -562,27 +518,35 @@ function resolveResourceLimits(resourceLimits, workUnits) {
   const browserStackOverride = parsePositiveIntegerEnv(browserStackLimitEnv);
   const effectiveBrowserStack = browserStackOverride ?? computedBrowserStack;
   const resolved = new Map();
+  const sources = new Map(resourceLimitSources.entries());
   for (const [resource, limit] of resourceLimits.entries()) {
     if (resource === goCPUResource && (limit === "auto" || goCPUOverride !== null)) {
       resolved.set(resource, effectiveGoCPU);
+      sources.set(resource, goCPUOverride === null ? "auto" : `env:${goCPULimitEnv}`);
       continue;
     }
     if (resource === goIOResource && (limit === "auto" || goIOOverride !== null)) {
       resolved.set(resource, effectiveGoIO);
+      sources.set(resource, goIOOverride === null ? "auto" : `env:${goIOLimitEnv}`);
       continue;
     }
     if (resource === browserStackResource && (limit === "auto" || browserStackOverride !== null)) {
       resolved.set(resource, effectiveBrowserStack);
+      sources.set(resource, browserStackOverride === null ? "auto" : `env:${browserStackLimitEnv}`);
       continue;
     }
     resolved.set(resource, limit);
   }
-  return resolved;
+  return { resourceLimits: resolved, resourceLimitSources: sources };
 }
 
 function runLifecycle(testOutputScript, args, stream = process.stdout) {
   return new Promise((resolve, reject) => {
-    const child = spawn(testOutputScript, args, {
+    const command = testOutputScript.endsWith(".mjs")
+      ? process.env.NODE_BIN || process.execPath
+      : testOutputScript;
+    const commandArgs = testOutputScript.endsWith(".mjs") ? [testOutputScript, ...args] : args;
+    const child = spawn(command, commandArgs, {
       cwd: repoRoot,
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
@@ -907,14 +871,7 @@ class SchedulerReporter {
         workUnitCount: this.schedule.workUnits.length,
         finalizerCount: this.schedule.goFinalizers.length,
         resourceLimits: this.schedule.resourceLimits,
-        preferredResources: [
-          goCPUResource,
-          goIOResource,
-          browserStackResource,
-          "process",
-          "postgres",
-          "minio",
-        ],
+        preferredResources: preferredResourcesForScheduler("service_backed"),
         workUnits: this.schedule.workUnits,
       }),
     );
@@ -1243,6 +1200,7 @@ class SchedulerReporter {
           finalizer_count: this.schedule.goFinalizers.length,
           finalizer_failures: this.finalizerFailures,
           max_running_groups: this.maxRunningGroups,
+          resource_limit_sources: resourceLimitSourcesToObject(this.schedule.resourceLimitSources),
           blocked_resources_seen: Array.from(this.blockedResourcesSeen).sort((left, right) =>
             left.localeCompare(right),
           ),
@@ -1291,6 +1249,7 @@ class SchedulerReporter {
         blocked_units: detail.blocked_units ?? [],
         active_resource_claims: resourceMapToObject(state.activeResourceClaims),
         resource_limits: resourceMapToObject(this.schedule.resourceLimits),
+        resource_limit_sources: resourceLimitSourcesToObject(this.schedule.resourceLimitSources),
         ...detail,
       })}\n`,
     );
@@ -1311,15 +1270,7 @@ function writeDryRun(schedule, manifestPath, target) {
       target,
       manifest: path.relative(repoRoot, manifestPath),
       resourceLimits: schedule.resourceLimits,
-      preferredResources: [
-        goCPUResource,
-        goIOResource,
-        postgresResetResource,
-        browserStackResource,
-        "process",
-        "postgres",
-        "minio",
-      ],
+      preferredResources: preferredResourcesForScheduler("service_backed"),
       workUnits: schedule.workUnits,
       dependencies: dependencyCount,
       finalizerCount: schedule.goFinalizers.length,
@@ -1338,6 +1289,7 @@ function writeDryRun(schedule, manifestPath, target) {
 }
 
 async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }) {
+  const context = createRunnerContext({ repoRoot });
   const childrenCsv = schedule.children.join(",");
   const backendBudgetTargets = schedule.backendChildren;
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "cartulary-service-backed-schedule-"));
@@ -1356,7 +1308,7 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
   const activeResourceClaims = new Map();
   const capacityDisplay = displayCapacity(schedule);
   const goTargetRunner =
-    process.env[goTargetRunnerEnv] || path.join(repoRoot, "scripts", "run-go-target.sh");
+    process.env[goTargetRunnerEnv] || context.runnerScript;
   let started = 0;
   let firstFailure = 0;
   let firstFailureLabel = null;
@@ -1653,13 +1605,13 @@ async function runSchedule({ schedule, makeBin, testOutputScript, deferSummary }
 }
 
 async function main() {
+  const context = createRunnerContext({ repoRoot });
   const options = parseArgs(process.argv.slice(2));
   const { manifest, manifestPath } = await loadManifest(options.manifest);
   const browserStages = await loadBrowserBatchStages();
   const schedule = expandSchedule(findSchedule(manifest, options.target, browserStages));
-  const makeBin = process.env.MAKE || "make";
-  const testOutputScript =
-    process.env.TEST_OUTPUT_SCRIPT || path.join(repoRoot, "scripts", "lib", "test-output.sh");
+  const makeBin = process.env.MAKE || context.makeBin;
+  const testOutputScript = process.env.TEST_OUTPUT_SCRIPT || context.testOutputScript;
 
   if (isDryRun()) {
     writeDryRun(schedule, manifestPath, options.target);

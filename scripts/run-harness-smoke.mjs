@@ -71,7 +71,10 @@ function runCommand(command, args, env = process.env) {
 }
 
 async function emitTestOutput(args) {
-  const script = process.env.TEST_OUTPUT_SCRIPT ?? path.join(repoRoot, "scripts", "lib", "test-output.sh");
+  const script = process.env.TEST_OUTPUT_SCRIPT ?? path.join(repoRoot, "scripts", "lib", "test-output.mjs");
+  if (script.endsWith(".mjs")) {
+    return runCommand(process.env.NODE_BIN || process.execPath, [script, ...args]);
+  }
   return runCommand(script, args);
 }
 

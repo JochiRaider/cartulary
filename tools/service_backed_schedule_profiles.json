@@ -37,9 +37,7 @@
         "go_io": "auto",
         "postgres_reset": 1,
         "process": 4,
-        "browser_stack": "auto",
-        "browser_stage_webserver_backed": 1,
-        "browser_stage_isolated": 1
+        "browser_stack": "auto"
       },
       "include_service_backed_backend_targets": true,
       "browser_stages": [
@@ -76,9 +74,7 @@
         "go_io": "auto",
         "postgres_reset": 1,
         "process": 4,
-        "browser_stack": "auto",
-        "browser_stage_webserver_backed": 1,
-        "browser_stage_isolated": 1
+        "browser_stack": "auto"
       },
       "include_service_backed_backend_targets": true,
       "browser_stages": [

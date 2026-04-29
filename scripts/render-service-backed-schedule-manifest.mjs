@@ -4,12 +4,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadBrowserBatchStages } from "./lib/browser-batch-manifest.mjs";
+import { browserStageResource } from "./lib/scheduler-resources.mjs";
 import { collectTargetNames, findTargetDescriptor } from "./lib/target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const profileSchemaID = "cartulary.service_backed_schedule_profiles.v1";
-const scheduleSchemaID = "cartulary.service_backed_schedule.v7";
+const scheduleSchemaID = "cartulary.service_backed_schedule.v8";
 const defaultProfilePath = path.join(repoRoot, "tools", "service_backed_schedule_profiles.json");
 const defaultOutputPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
 const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
@@ -89,10 +90,6 @@ function cloneObject(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function laneResourceForStage(stageName) {
-  return `browser_stage_${stageName.replaceAll("-", "_")}`;
-}
-
 function orderedServiceBackedBackendTargets(profile) {
   const preferred = requireArray(profile.backend_target_order ?? [], "backend_target_order").map(
     (target, index) => requireString(target, `backend_target_order[${index}]`),
@@ -149,7 +146,7 @@ function backendSource(profile, target) {
 
 function browserSource(profile, stageProfile, stage, backendTargets, priorBrowserTargets) {
   const stageName = requireString(stageProfile.name, "browser_stages[].name");
-  const laneResource = laneResourceForStage(stageName);
+  const laneResource = browserStageResource(stageName);
   const claims = {
     ...cloneObject(profile.defaults.browser_make_target_resource_claims),
     [laneResource]: 1,
@@ -174,7 +171,7 @@ function browserSource(profile, stageProfile, stage, backendTargets, priorBrowse
 
 function renderSchedule(profile, scheduleProfile, browserStages) {
   const target = requireString(scheduleProfile.target, "schedules[].target");
-  const resourceLimits = requireObject(scheduleProfile.resource_limits, `${target}.resource_limits`);
+  const resourceLimits = cloneObject(requireObject(scheduleProfile.resource_limits, `${target}.resource_limits`));
   const sources = [];
   if (scheduleProfile.include_service_backed_backend_targets === true) {
     for (const backendTarget of orderedServiceBackedBackendTargets(profile)) {
@@ -194,13 +191,14 @@ function renderSchedule(profile, scheduleProfile, browserStages) {
     if (!Number.isFinite(stageProfile.weight) || stageProfile.weight < 0) {
       throw new Error(`${target} browser stage ${stageName} must declare a non-negative weight`);
     }
+    resourceLimits[browserStageResource(stageName)] = 1;
     const source = browserSource(profile, stageProfile, stage, backendTargets, priorBrowserTargets);
     sources.push(source);
     priorBrowserTargets.push(source.target);
   }
   return {
     target,
-    resource_limits: cloneObject(resourceLimits),
+    resource_limits: resourceLimits,
     work_unit_sources: sources,
   };
 }

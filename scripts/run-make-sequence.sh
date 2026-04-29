@@ -2,7 +2,15 @@
 set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
-TEST_OUTPUT_SCRIPT="${TEST_OUTPUT_SCRIPT:-${ROOT_DIR}/scripts/lib/test-output.sh}"
+TEST_OUTPUT_SCRIPT="${TEST_OUTPUT_SCRIPT:-${ROOT_DIR}/scripts/lib/test-output.mjs}"
+
+emit_test_output() {
+  if [[ "${TEST_OUTPUT_SCRIPT}" == *.mjs ]]; then
+    "${NODE_BIN:-node}" "${TEST_OUTPUT_SCRIPT}" "$@"
+    return $?
+  fi
+  NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_SCRIPT}" "$@"
+}
 MAKE_BIN="${MAKE:-make}"
 
 label=""
@@ -127,7 +135,7 @@ emit_run_start() {
     return 0
   fi
 
-  NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_SCRIPT}" run-start \
+  emit_test_output run-start \
     "${label}" --steps "${total}" --summary-targets "${target_count}" --helper-units "${#helper_units[@]}" --jobs "${max_jobs}"
 }
 
@@ -158,7 +166,7 @@ emit_step_start() {
       ;;
   esac
 
-  NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_SCRIPT}" step-start \
+  emit_test_output step-start \
     "${label}" "${index}" "${total}" "${target}" --mode "${mode}" --jobs "${jobs}"
 }
 
@@ -181,7 +189,7 @@ run_summary() {
     summary_args+=(--helper-units "${helper_units_csv}" --completed-helper-units "${completed_helper_units_csv}")
   fi
 
-  NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_SCRIPT}" run-summary \
+  emit_test_output run-summary \
     "${label}" "${status}" "${completed}" "${total}" "${aborted_after}" \
     "${summary_args[@]}" "${summary_targets[@]}"
 }

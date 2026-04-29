@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+GO_TARGET_RUNNER="$ROOT_DIR/scripts/cartulary-runner.mjs"
 GO_TARGET_HELPER="$ROOT_DIR/scripts/run-go-target.sh"
 MANIFEST_HELPER="$ROOT_DIR/scripts/lib/phase-manifest.mjs"
 node_bin="${NODE_BIN:-node}"
@@ -58,81 +59,81 @@ EOF
 }
 
 backend_unit_core_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-unit backend-unit-core
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_RUNNER" go-target inspect-aggregate-command backend-unit backend-unit-core
 )"
 assert_contains "$backend_unit_core_shared_command" "TestSupportPhase0_" "backend-unit-core phase0 selector"
 assert_contains "$backend_unit_core_shared_command" "TestSupportPhase2Unit_" "backend-unit-core phase2 selector"
 assert_contains "$backend_unit_core_shared_command" "TestSupportPhase3Unit_" "backend-unit-core phase3 selector"
 
 backend_unit_auth_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-unit backend-unit-auth
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_RUNNER" go-target inspect-aggregate-command backend-unit backend-unit-auth
 )"
 assert_contains "$backend_unit_auth_shared_command" "TestSupportPhase1_" "backend-unit-auth phase1 selector"
 
 phase0_platform_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-platform
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_RUNNER" go-target inspect-aggregate-command backend-integration-support backend-integration-platform
 )"
 assert_contains "$phase0_platform_shared_command" "TestSupportPhase0_" "backend-integration phase0 platform support selector"
 phase0_platform_authoritative_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-platform
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_RUNNER" go-target inspect-aggregate-command backend-integration backend-integration-platform
 )"
 assert_contains "$phase0_platform_authoritative_command" "TestPhase0_SchemaBootstrap" "backend-integration phase0 platform authoritative selector"
 assert_not_contains "$phase0_platform_authoritative_command" "TestPhase0_FirstAdminBootstrap" "backend-integration phase0 platform excludes app selector"
 
 phase0_app_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-app
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_RUNNER" go-target inspect-aggregate-command backend-integration backend-integration-app
 )"
 assert_contains "$phase0_app_shared_command" "TestPhase0_FirstAdminBootstrap" "backend-integration phase0 app selector"
 assert_not_contains "$phase0_app_shared_command" "TestSupportPhase0_" "backend-integration phase0 app excludes platform support selector"
 
 phase2_incidents_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-incidents
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_RUNNER" go-target inspect-aggregate-command backend-integration-support backend-integration-incidents
 )"
 assert_contains "$phase2_incidents_shared_command" "TestSupportPhase2_" "backend-integration phase2 incidents support selector"
 phase2_incidents_authoritative_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-incidents
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_RUNNER" go-target inspect-aggregate-command backend-integration backend-integration-incidents
 )"
 assert_contains "$phase2_incidents_authoritative_command" "TestPhase2_I_2_01" "backend-integration phase2 incidents authoritative selector"
 
 phase2_incidents_shard="$(find_planned_shard_for_symbol backend-integration TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomically)"
 phase2_incidents_shard_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration "$phase2_incidents_shard"
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_RUNNER" go-target inspect-aggregate-command backend-integration "$phase2_incidents_shard"
 )"
 assert_contains "$phase2_incidents_shard_command" "TestPhase2_I_2_01" "backend-integration phase2 incidents planned shard selector"
 
 phase2_incidents_support_shard="$(find_planned_shard_for_symbol backend-integration-support TestSupportPhase2_ControlBoundaryIncidentCoreDeploymentAdminWithoutMembershipDenied)"
 phase2_incidents_support_shard_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support "$phase2_incidents_support_shard"
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_RUNNER" go-target inspect-aggregate-command backend-integration-support "$phase2_incidents_support_shard"
 )"
 assert_contains "$phase2_incidents_support_shard_command" "TestSupportPhase2_" "backend-integration support phase2 planned shard selector"
 
 phase3_timeline_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-timeline
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_RUNNER" go-target inspect-aggregate-command backend-integration-support backend-integration-timeline
 )"
 assert_contains "$phase3_timeline_shared_command" "TestSupportPhase3Integration_" "backend-integration phase3 timeline support selector"
 phase3_timeline_authoritative_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-timeline
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_RUNNER" go-target inspect-aggregate-command backend-integration backend-integration-timeline
 )"
 assert_contains "$phase3_timeline_authoritative_command" "TestPhase3_I_3_01" "backend-integration phase3 timeline authoritative selector"
 
 phase4_entities_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-entities
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_RUNNER" go-target inspect-aggregate-command backend-integration-support backend-integration-entities
 )"
 assert_contains "$phase4_entities_shared_command" "TestSupportPhase4Integration_" "backend-integration phase4 entities support selector"
 phase4_entities_authoritative_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-entities
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_RUNNER" go-target inspect-aggregate-command backend-integration backend-integration-entities
 )"
 assert_contains "$phase4_entities_authoritative_command" "TestPhase4_ResolveRoute" "backend-integration phase4 entities authoritative selector"
 assert_not_contains "$phase4_entities_authoritative_command" "TestPhase4_AutoResolutionEligibility" "backend-integration phase4 entities excludes timeline selector"
 
 phase4_timeline_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-timeline
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_RUNNER" go-target inspect-aggregate-command backend-integration backend-integration-timeline
 )"
 assert_contains "$phase4_timeline_shared_command" "TestPhase4_AutoResolutionEligibility" "backend-integration phase4 timeline selector"
 assert_not_contains "$phase4_timeline_shared_command" "TestSupportPhase4Integration_" "backend-integration phase4 timeline excludes entities support selector"
 
 auth_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-auth
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_RUNNER" go-target inspect-aggregate-command backend-integration-support backend-integration-auth
 )"
 assert_contains "$auth_shared_command" "TestSupportPhase1_" "backend-integration-auth phase1 selector"
 

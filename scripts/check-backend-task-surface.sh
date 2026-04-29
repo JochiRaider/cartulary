@@ -4,8 +4,8 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 makefile="$repo_root/Makefile"
 generated_make="$repo_root/tools/task_surface.generated.mk"
+cartulary_runner_script="$repo_root/scripts/cartulary-runner.mjs"
 go_runner_script="$repo_root/scripts/run-go-target.sh"
-service_schedule_target_script="$repo_root/scripts/run-service-backed-schedule-target.sh"
 schedule_manifest="$repo_root/tools/service_backed_schedule_manifest.json"
 check_schedule_manifest="$repo_root/tools/check_schedule_manifest.json"
 node_bin="${NODE_BIN:-node}"
@@ -47,7 +47,7 @@ require_service_backed_schedule_target() {
     fail "Makefile must define a non-empty $target block"
   fi
   if ! printf '%s\n' "$block" | grep -Fq '$(call run_service_backed_schedule_target'; then
-    fail "$target must delegate through run_service_backed_schedule_target"
+    fail "$target must delegate through the canonical service-backed runner macro"
   fi
   if ! printf '%s\n' "$block" | grep -Fq "$target,$phase_label"; then
     fail "$target must pass its target and phase label to run_service_backed_schedule_target"
@@ -77,7 +77,7 @@ require_service_backed_schedule_target() {
 inspect_shared_command() {
   local target="$1"
   local family="$2"
-  NODE_BIN="$node_bin" "$go_runner_script" inspect-aggregate-command "$target" "$family"
+  NODE_BIN="$node_bin" "$node_bin" "$cartulary_runner_script" go-target inspect-aggregate-command "$target" "$family"
 }
 
 require_shared_command_match() {
@@ -195,8 +195,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, kind] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v7") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v7");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v8") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v8");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -220,8 +220,8 @@ const fs = require("node:fs");
 
 const [manifestFile, workUnit, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v4") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v4");
+if (manifest.schema_id !== "cartulary.check_schedule.v5") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v5");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -253,8 +253,8 @@ const fs = require("node:fs");
 
 const [manifestFile, scheduleTarget, childTarget, field] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v7") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v7");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v8") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v8");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === scheduleTarget);
 if (schedules.length !== 1) {
@@ -313,8 +313,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.service_backed_schedule.v7") {
-  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v7");
+if (manifest.schema_id !== "cartulary.service_backed_schedule.v8") {
+  throw new Error("service-backed schedule manifest must declare schema_id=cartulary.service_backed_schedule.v8");
 }
 for (const schedule of manifest.schedules ?? []) {
   const limits = schedule.resource_limits ?? {};
@@ -392,11 +392,11 @@ fi
 if ! printf '%s\n' "$check_block" | grep -Fq '$(RUN_CHECK_SCHEDULE_SCRIPT)'; then
   fail "check must delegate to the check scheduler"
 fi
-if ! printf '%s\n' "$check_block" | grep -Fq -- '--resource-limit cpu=$(CHECK_JOBS)'; then
-  fail "check must pass CHECK_JOBS as the check scheduler cpu resource limit"
+if ! printf '%s\n' "$check_block" | grep -Fq -- '--resource-limit host_cpu=$(CHECK_HOST_CPU_JOBS)'; then
+  fail "check must pass CHECK_HOST_CPU_JOBS as the check scheduler host_cpu resource limit"
 fi
-if ! printf '%s\n' "$check_block" | grep -Fq -- '--resource-limit io=$(CHECK_IO_JOBS)'; then
-  fail "check must pass CHECK_IO_JOBS as the check scheduler io resource limit"
+if ! printf '%s\n' "$check_block" | grep -Fq -- '--resource-limit host_io=$(CHECK_HOST_IO_JOBS)'; then
+  fail "check must pass CHECK_HOST_IO_JOBS as the check scheduler host_io resource limit"
 fi
 if printf '%s\n' "$check_block" | grep -Fq '$(RUN_MAKE_SEQUENCE_SCRIPT)'; then
   fail "check must not use the serial make sequence runner"
@@ -415,8 +415,8 @@ const fs = require("node:fs");
 
 const [manifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-if (manifest.schema_id !== "cartulary.check_schedule.v4") {
-  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v4");
+if (manifest.schema_id !== "cartulary.check_schedule.v5") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v5");
 }
 const schedules = manifest.schedules.filter((entry) => entry.target === "check");
 if (schedules.length !== 1) {
@@ -427,8 +427,8 @@ if ((schedule.work_units ?? []).some((entry) => entry.target === "browser-e2e"))
   throw new Error("browser-e2e must be service-backed scheduler work, not a top-level check work unit");
 }
 const limits = schedule.resource_limits ?? {};
-if (limits.cpu !== 12 || limits.io !== 12 || limits.service_stack !== 1) {
-  throw new Error("check schedule must declare cpu, io, and service_stack limits");
+if (limits.host_cpu !== 12 || limits.host_io !== 12 || limits.service_stack !== 1) {
+  throw new Error("check schedule must declare host_cpu, host_io, and service_stack limits");
 }
 const service = (schedule.work_units ?? []).find((entry) => entry.target === "check-service-backed");
 if (!service) {
@@ -449,8 +449,8 @@ const assertBoundedClaim = (claim, resource, expected) => {
     }
   }
 };
-assertBoundedClaim(claims.cpu, "cpu", { mode: "bounded_limit", reserve: 3, min: 1, max: 8 });
-assertBoundedClaim(claims.io, "io", { mode: "bounded_limit", reserve: 4, min: 1, max: 10 });
+assertBoundedClaim(claims.host_cpu, "host_cpu", { mode: "bounded_limit", reserve: 3, min: 1, max: 8 });
+assertBoundedClaim(claims.host_io, "host_io", { mode: "bounded_limit", reserve: 4, min: 1, max: 10 });
 if (claims.service_stack !== 1) {
   throw new Error("check-service-backed must claim exclusive service_stack");
 }
@@ -461,12 +461,8 @@ if (nested.type !== "service_backed" || nested.target !== "check-service-backed"
 if (nested.manifest !== "tools/service_backed_schedule_manifest.json") {
   throw new Error("check-service-backed nested scheduler must point at the service-backed manifest");
 }
-const env = nested.resource_limit_env ?? {};
-if (
-  env.cpu !== "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT" ||
-  env.io !== "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT"
-) {
-  throw new Error("check-service-backed nested scheduler must forward cpu/io limit env vars");
+if (nested.forwarding !== "check_host_to_service_backed_go") {
+  throw new Error("check-service-backed nested scheduler must use the host-to-service-backed forwarding profile");
 }
 EOF
 if [[ "$(check_schedule_field check-build-prereqs needs)" != "check-setup-blockers" ]]; then
@@ -480,8 +476,8 @@ done
 if [[ "$(check_schedule_field check-go-test-duration-baseline-drift needs)" != "check-service-backed" ]]; then
   fail "check-go-test-duration-baseline-drift must depend on check-service-backed in the check schedule"
 fi
-if [[ "$(check_schedule_field check-service-backed resource_claims)" != "cpu,io,service_stack" ]]; then
-  fail "check-service-backed must claim cpu, io, and service_stack resources in the check schedule"
+if [[ "$(check_schedule_field check-service-backed resource_claims)" != "host_cpu,host_io,service_stack" ]]; then
+  fail "check-service-backed must claim host_cpu, host_io, and service_stack resources in the check schedule"
 fi
 
 if grep -Fq 'rg --files' "$makefile"; then
@@ -700,8 +696,8 @@ then
 fi
 
 backend_unit_block="$(extract_target_block backend-unit)"
-if ! printf '%s\n' "$backend_unit_block" | grep -Fq 'run-go-target.sh backend-unit'; then
-  fail "backend-unit must delegate to scripts/run-go-target.sh backend-unit"
+if ! printf '%s\n' "$backend_unit_block" | grep -Fq '$(CARTULARY_RUNNER_SCRIPT) go-target backend-unit'; then
+  fail "backend-unit must delegate to cartulary-runner.mjs go-target backend-unit"
 fi
 for expected in \
   'target_aggregate_names "${target}"' \
@@ -736,8 +732,8 @@ for pattern in "${backend_unit_auth_support_patterns[@]}"; do
 done
 
 backend_store_block="$(extract_target_block backend-store)"
-if ! printf '%s\n' "$backend_store_block" | grep -Fq 'run-go-target.sh backend-store'; then
-  fail "backend-store must delegate to scripts/run-go-target.sh backend-store"
+if ! printf '%s\n' "$backend_store_block" | grep -Fq '$(CARTULARY_RUNNER_SCRIPT) go-target backend-store'; then
+  fail "backend-store must delegate to cartulary-runner.mjs go-target backend-store"
 fi
 if ! printf '%s\n' "$backend_store_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
   fail "backend-store must run through $(TEST_SERVICES_BIN) for suite-scoped services"
@@ -746,8 +742,8 @@ require_shared_command_contains backend-store backend-store "TestPhase"
 require_shared_command_contains backend-store backend-store "CARTULARY_POSTGRES_FIXTURE_POLICY_TESTS"
 
 backend_integration_block="$(extract_target_block backend-integration)"
-if ! printf '%s\n' "$backend_integration_block" | grep -Fq 'run-go-target.sh backend-integration'; then
-  fail "backend-integration must delegate to scripts/run-go-target.sh backend-integration"
+if ! printf '%s\n' "$backend_integration_block" | grep -Fq '$(CARTULARY_RUNNER_SCRIPT) go-target backend-integration'; then
+  fail "backend-integration must delegate to cartulary-runner.mjs go-target backend-integration"
 fi
 if ! printf '%s\n' "$backend_integration_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
   fail "backend-integration must run through $(TEST_SERVICES_BIN) for suite-scoped services"
@@ -800,8 +796,8 @@ then
 fi
 
 backend_process_block="$(extract_target_block backend-process)"
-if ! printf '%s\n' "$backend_process_block" | grep -Fq 'run-go-target.sh backend-process'; then
-  fail "backend-process must delegate to scripts/run-go-target.sh backend-process"
+if ! printf '%s\n' "$backend_process_block" | grep -Fq '$(CARTULARY_RUNNER_SCRIPT) go-target backend-process'; then
+  fail "backend-process must delegate to cartulary-runner.mjs go-target backend-process"
 fi
 if ! printf '%s\n' "$backend_process_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
   fail "backend-process must run through $(TEST_SERVICES_BIN) for suite-scoped services"
@@ -836,24 +832,24 @@ if ! printf '%s\n' "$check_build_prereqs" | rg -q '(^|[[:space:]])test-service-i
   fail "check-build-prereqs must warm service images before pre-browser check work"
 fi
 
-if [[ ! -x "$service_schedule_target_script" ]]; then
-  fail "missing executable scripts/run-service-backed-schedule-target.sh"
+if [[ ! -x "$cartulary_runner_script" ]]; then
+  fail "missing executable scripts/cartulary-runner.mjs"
 fi
-service_schedule_target_content="$(cat "$service_schedule_target_script")"
+service_schedule_target_content="$(cat "$cartulary_runner_script")"
 for required_service_schedule_fragment in \
   'TEST_SERVICES_BIN' \
-  'run -- "${scheduler_command[@]}"' \
-  'RUN_PHASE_SCRIPT' \
-  'RUN_SERVICE_BACKED_SCHEDULE_SCRIPT' \
+  'service-backed-target' \
+  'context.runPhaseScript' \
+  'context.serviceBackedScheduleScript' \
   '--defer-summary' \
-  'target-summary "$target" "$requested" --projection "$projection"'
+  '"--projection"'
 do
   if [[ "$service_schedule_target_content" != *"$required_service_schedule_fragment"* ]]; then
-    fail "scripts/run-service-backed-schedule-target.sh must contain $required_service_schedule_fragment"
+    fail "scripts/cartulary-runner.mjs must contain $required_service_schedule_fragment"
   fi
 done
 if [[ "$service_schedule_target_content" == *'--jobs'* ]]; then
-  fail "scripts/run-service-backed-schedule-target.sh must not pass a fixed scheduler job cap"
+  fail "scripts/cartulary-runner.mjs must not pass a fixed scheduler job cap"
 fi
 
 require_service_backed_schedule_target check-service-backed "check service-backed" 1
@@ -869,8 +865,8 @@ assert_text_contains_targets "check-service-backed schedule" "$check_service_bac
 assert_text_excludes_targets "check-service-backed schedule" "$check_service_backend_schedule_text" "${target_plan_check_heavy_targets[@]}" "${target_plan_service_backed_unsafe_targets[@]}"
 
 backend_integration_support_block="$(extract_target_block backend-integration-support)"
-if ! printf '%s\n' "$backend_integration_support_block" | grep -Fq 'run-go-target.sh backend-integration-support'; then
-  fail "backend-integration-support must delegate to scripts/run-go-target.sh backend-integration-support"
+if ! printf '%s\n' "$backend_integration_support_block" | grep -Fq '$(CARTULARY_RUNNER_SCRIPT) go-target backend-integration-support'; then
+  fail "backend-integration-support must delegate to cartulary-runner.mjs go-target backend-integration-support"
 fi
 if ! printf '%s\n' "$backend_integration_support_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
   fail "backend-integration-support must run through $(TEST_SERVICES_BIN) for suite-scoped services"

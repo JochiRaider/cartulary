@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
-HELPER="$ROOT_DIR/scripts/run-service-backed-schedule-target.sh"
+HELPER="$ROOT_DIR/scripts/cartulary-runner.mjs"
+node_bin="${NODE_BIN:-node}"
 cleanup_paths=()
 
 cleanup() {
@@ -39,7 +40,7 @@ assert_contains() {
   fi
 }
 
-tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/run-service-backed-schedule-target.XXXXXX")"
+tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/cartulary-runner-service-backed-target.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 
 fake_test_services="$tmp_dir/fake-test-services.sh"
@@ -109,14 +110,14 @@ run_case() {
     FAKE_SCHEDULER_STATUS="$scheduler_status" \
     FAKE_SUMMARY_STATUS="$summary_status" \
     MAKE="fake-make" \
-    NODE_BIN="${NODE_BIN:-node}" \
+    NODE_BIN="$node_bin" \
     TEST_SERVICES_BIN="$fake_test_services" \
     RUN_PHASE_SCRIPT="$fake_run_phase" \
     RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$fake_scheduler" \
     TEST_OUTPUT_SCRIPT="$fake_test_output" \
     TASK_SURFACE_MANIFEST="$ROOT_DIR/tools/task_surface_manifest.json" \
     SERVICE_BACKED_SCHEDULE_MANIFEST="$ROOT_DIR/tools/service_backed_schedule_manifest.json" \
-      "$HELPER" --target test-service-backed --phase-label "test service-backed" --service-wrapper test-services \
+      "$node_bin" "$HELPER" service-backed-target --target test-service-backed --phase-label "test service-backed" --service-wrapper test-services \
       2>&1
   )"
   status=$?
@@ -124,7 +125,7 @@ run_case() {
 
   assert_equals "$status" "$expected_status" "$name exit status"
   assert_equals "$output" "" "$name output"
-  assert_contains "$(cat "$log_file")" "test-services env" "$name service wrapper"
+  assert_contains "$(cat "$log_file")" "test-services $fake_run_phase" "$name service wrapper"
   assert_contains "$(cat "$log_file")" "phase-label=test service-backed" "$name phase label"
   assert_contains "$(cat "$log_file")" "scheduler args=--target test-service-backed --manifest $ROOT_DIR/tools/service_backed_schedule_manifest.json --defer-summary" "$name scheduler args"
 }

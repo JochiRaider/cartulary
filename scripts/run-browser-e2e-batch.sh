@@ -5,7 +5,7 @@ ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 source "$ROOT_DIR/scripts/lib/playwright-owned-stack.sh"
 
 MANIFEST="${BROWSER_E2E_BATCH_MANIFEST:-$ROOT_DIR/tools/browser_e2e_batch_manifest.json}"
-TEST_OUTPUT_HELPER="${TEST_OUTPUT_SCRIPT:-$ROOT_DIR/scripts/lib/test-output.sh}"
+TEST_OUTPUT_HELPER="${TEST_OUTPUT_SCRIPT:-$ROOT_DIR/scripts/lib/test-output.mjs}"
 
 usage() {
   echo "usage: run-browser-e2e-batch.sh <stage> [--defer-summary]" >&2
@@ -36,6 +36,14 @@ if [[ ! -x "$node_bin" ]]; then
   node_bin="node"
 fi
 
+emit_test_output() {
+  if [[ "$TEST_OUTPUT_HELPER" == *.mjs ]]; then
+    "$node_bin" "$TEST_OUTPUT_HELPER" "$@"
+    return $?
+  fi
+  NODE_BIN="$node_bin" "$TEST_OUTPUT_HELPER" "$@"
+}
+
 resolve_playwright_owned_stack_env "$ROOT_DIR"
 
 stage_metadata="$("$node_bin" "$ROOT_DIR/scripts/lib/browser-batch-manifest.mjs" stage-runner "$MANIFEST" "$stage")"
@@ -49,11 +57,11 @@ run_target_summary() {
   local children="${3:-}"
 
   if [[ -n "$children" ]]; then
-    NODE_BIN="$node_bin" "$TEST_OUTPUT_HELPER" target-summary "$target" "$status" --children "$children"
+    emit_test_output target-summary "$target" "$status" --children "$children"
     return $?
   fi
 
-  NODE_BIN="$node_bin" "$TEST_OUTPUT_HELPER" target-summary "$target" "$status"
+  emit_test_output target-summary "$target" "$status"
 }
 
 run_group() {
@@ -112,9 +120,9 @@ run_group() {
 
 if [[ -n "${CARTULARY_TEST_TARGET:-}" && "${CARTULARY_TEST_TARGET}" == "$stage_target" ]]; then
   if [[ -n "$stage_summary_children" ]]; then
-    NODE_BIN="$node_bin" "$TEST_OUTPUT_HELPER" target-start "$stage_target" --children "$stage_summary_children" || true
+    emit_test_output target-start "$stage_target" --children "$stage_summary_children" || true
   else
-    NODE_BIN="$node_bin" "$TEST_OUTPUT_HELPER" target-start "$stage_target" || true
+    emit_test_output target-start "$stage_target" || true
   fi
 fi
 

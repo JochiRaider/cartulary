@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { assertKnownResource } from "./scheduler-resources.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..");
 export const defaultTaskSurfaceManifestPath = path.join(
@@ -369,6 +371,12 @@ function validateMakeRecipes(errors, targets, summaryProfiles, sequences, recipe
           const limitLabel = `${label}.resource_limits[${index + 1}]`;
           if (typeof limit?.resource !== "string" || !makeResourcePattern.test(limit.resource)) {
             errors.push(`${limitLabel}.resource must be a safe resource name`);
+          } else {
+            try {
+              assertKnownResource(limit.resource, `${limitLabel}.resource`, { scheduler: "check" });
+            } catch (error) {
+              errors.push(error.message);
+            }
           }
           if (typeof limit?.variable !== "string" || !makeVariablePattern.test(limit.variable)) {
             errors.push(`${limitLabel}.variable must be a safe Make variable name`);

@@ -1,0 +1,149 @@
+#!/usr/bin/env node
+import { spawnSync } from "node:child_process";
+
+import { createRunnerContext, runnerEnv } from "./lib/runner-context.mjs";
+
+const goTargetCommands = new Set([
+  "inspect-aggregate-command",
+  "capture-shard",
+  "finalize-shards",
+  "backend-unit",
+  "backend-store",
+  "backend-integration",
+  "backend-integration-support",
+  "backend-process",
+]);
+
+function usage() {
+  process.stderr.write(`usage:
+  cartulary-runner.mjs service-backed-target --target <target> --phase-label <label> [--projection <target>] --service-wrapper <test-services|none>
+  cartulary-runner.mjs go-target <target-or-command> [...]
+  cartulary-runner.mjs target-summary <target> [pass|fail] [...]
+`);
+  process.exit(2);
+}
+
+function parseFlagArgs(argv) {
+  const options = {};
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (!arg.startsWith("--")) {
+      usage();
+    }
+    const value = argv[index + 1];
+    if (value === undefined) {
+      usage();
+    }
+    options[arg.slice(2).replaceAll("-", "_")] = value;
+    index += 1;
+  }
+  return options;
+}
+
+function runWithContext(context, command, args, { env = process.env, stdio = "inherit" } = {}) {
+  const result = spawnSync(command, args, {
+    cwd: context.repoRoot,
+    env,
+    stdio,
+  });
+  if (result.error) {
+    throw result.error;
+  }
+  return result.status ?? 1;
+}
+
+function runTargetSummary(context, args) {
+  const command = context.testOutputScript.endsWith(".mjs")
+    ? context.nodeBin
+    : context.testOutputScript;
+  const commandArgs = context.testOutputScript.endsWith(".mjs")
+    ? [context.testOutputScript, "target-summary", ...args]
+    : ["target-summary", ...args];
+  return runWithContext(context, command, commandArgs, {
+    env: runnerEnv(context),
+  });
+}
+
+function serviceBackedTarget(context, argv) {
+  const options = parseFlagArgs(argv);
+  const target = options.target || "";
+  const phaseLabel = options.phase_label || "";
+  const projection = options.projection || target;
+  const serviceWrapper = options.service_wrapper || "";
+  if (!target || !phaseLabel || !serviceWrapper) {
+    usage();
+  }
+
+  const env = runnerEnv(context, {
+    CARTULARY_TEST_GO_TARGET_RUNNER:
+      process.env.CARTULARY_TEST_GO_TARGET_RUNNER || context.runnerScript,
+  });
+  const schedulerArgs = [
+    context.runPhaseScript,
+    phaseLabel,
+    "--",
+    context.nodeBin,
+    context.serviceBackedScheduleScript,
+    "--target",
+    target,
+    "--manifest",
+    context.serviceBackedScheduleManifest,
+    "--defer-summary",
+  ];
+
+  let status = 0;
+  if (serviceWrapper === "test-services") {
+    if (!context.testServicesBin) {
+      process.stderr.write("TEST_SERVICES_BIN is required for --service-wrapper test-services\n");
+      return 2;
+    }
+    status = runWithContext(context, context.testServicesBin, ["run", "--", ...schedulerArgs], {
+      env,
+    });
+  } else if (serviceWrapper === "none") {
+    status = runWithContext(context, schedulerArgs[0], schedulerArgs.slice(1), { env });
+  } else {
+    usage();
+  }
+
+  const requested = status === 0 ? "pass" : "fail";
+  const summaryStatus = runTargetSummary(context, [
+    target,
+    requested,
+    "--projection",
+    projection,
+  ]);
+  return status === 0 ? summaryStatus : status;
+}
+
+function goTarget(context, argv) {
+  if (argv.length === 0) {
+    usage();
+  }
+  return runWithContext(context, context.runGoTargetScript, argv, {
+    env: runnerEnv(context),
+  });
+}
+
+function main() {
+  const [command, ...rest] = process.argv.slice(2);
+  const context = createRunnerContext();
+  if (goTargetCommands.has(command)) {
+    process.exit(goTarget(context, [command, ...rest]));
+  }
+  switch (command) {
+    case "service-backed-target":
+      process.exit(serviceBackedTarget(context, rest));
+      break;
+    case "go-target":
+      process.exit(goTarget(context, rest));
+      break;
+    case "target-summary":
+      process.exit(runTargetSummary(context, rest));
+      break;
+    default:
+      usage();
+  }
+}
+
+main();
