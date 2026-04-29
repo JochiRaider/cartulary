@@ -8,24 +8,18 @@ import (
 	"go/token"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 )
 
 var (
-	unitTestPattern     = regexp.MustCompile(`^TestPhase[0-9][A-Za-z0-9_]*_U_[0-9]_`)
-	disallowedSelectors = map[string]struct{}{
-		"pgtest.Start":               {},
-		"s3test.Start":               {},
-		"phase1test.StartRuntime":    {},
-		"phase2test.StartRuntime":    {},
-		"phase2storetest.StartStore": {},
-		"phase3storetest.StartStore": {},
-		"phase4test.StartRuntime":    {},
-		"phase4test.StartServer":     {},
-		"phase4storetest.StartStore": {},
-	}
+	phaseUnitTestPattern      = regexp.MustCompile(`^TestPhase([0-9]+)[A-Za-z0-9_]*_U_([0-9]+)_`)
+	phaseHelperImportPattern  = regexp.MustCompile(`(?:^|/)internal/testutil/phase[0-9]+(?:store)?test$`)
+	serviceHelperImportSuffix = regexp.MustCompile(`(?:^|/)internal/testutil/(?:pgtest|s3test)$`)
+	startHelperPattern        = regexp.MustCompile(`^Start[A-Za-z0-9_]*$`)
 )
 
 type manifestEntry struct {
@@ -41,10 +35,11 @@ type phaseManifest struct {
 }
 
 type finding struct {
-	Test     string
-	File     string
-	Line     int
-	Selector string
+	Test       string
+	File       string
+	Line       int
+	Selector   string
+	ImportPath string
 }
 
 func main() {
@@ -67,28 +62,39 @@ func main() {
 		if findings[i].Line != findings[j].Line {
 			return findings[i].Line < findings[j].Line
 		}
-		return findings[i].Selector < findings[j].Selector
+		if findings[i].Selector != findings[j].Selector {
+			return findings[i].Selector < findings[j].Selector
+		}
+		return findings[i].ImportPath < findings[j].ImportPath
 	})
 
 	fmt.Fprintln(os.Stderr, "Service-backed unit-test guard failed.")
 	fmt.Fprintln(os.Stderr, "Only authoritative Go U-tests whose manifest entry declares execution_dependency=backend_store may start pgtest/s3test or runtime helpers directly.")
 	for _, finding := range findings {
-		fmt.Fprintf(os.Stderr, "  %s: %s:%d uses %s\n", finding.Test, finding.File, finding.Line, finding.Selector)
+		fmt.Fprintf(os.Stderr, "  %s: %s:%d uses %s from %s\n", finding.Test, finding.File, finding.Line, finding.Selector, finding.ImportPath)
 	}
 	os.Exit(1)
 }
 
 func scan() ([]finding, error) {
+	return scanRoot(".")
+}
+
+func scanRoot(repoRoot string) ([]finding, error) {
 	fset := token.NewFileSet()
 	var findings []finding
-	allowedTests, err := loadBackendStoreUnitTests()
+	allowedTests, err := loadBackendStoreUnitTests(repoRoot)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, root := range []string{"internal", filepath.Join("cmd", "server")} {
+	for _, relativeRoot := range []string{"internal", filepath.Join("cmd", "server")} {
+		root := filepath.Join(repoRoot, relativeRoot)
 		err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
+				if os.IsNotExist(err) {
+					return nil
+				}
 				return err
 			}
 			if d.IsDir() {
@@ -105,13 +111,14 @@ func scan() ([]finding, error) {
 			if err != nil {
 				return fmt.Errorf("parse %s: %w", path, err)
 			}
+			imports := importAliases(file)
 
 			for _, decl := range file.Decls {
 				fn, ok := decl.(*ast.FuncDecl)
 				if !ok || fn.Body == nil || fn.Name == nil {
 					continue
 				}
-				if !unitTestPattern.MatchString(fn.Name.Name) {
+				if !isCanonicalPhaseUnitTest(fn.Name.Name) {
 					continue
 				}
 				if _, ok := allowedTests[fn.Name.Name]; ok {
@@ -123,16 +130,21 @@ func scan() ([]finding, error) {
 					if !ok {
 						return true
 					}
-					selector := selectorString(call.Fun)
-					if _, blocked := disallowedSelectors[selector]; !blocked {
+					selector, importPath, blocked := blockedServiceHelperCall(call.Fun, imports)
+					if !blocked {
 						return true
 					}
 					position := fset.Position(call.Pos())
+					filePath := position.Filename
+					if relativePath, err := filepath.Rel(repoRoot, filePath); err == nil {
+						filePath = relativePath
+					}
 					findings = append(findings, finding{
-						Test:     fn.Name.Name,
-						File:     position.Filename,
-						Line:     position.Line,
-						Selector: selector,
+						Test:       fn.Name.Name,
+						File:       filepath.ToSlash(filePath),
+						Line:       position.Line,
+						Selector:   selector,
+						ImportPath: importPath,
 					})
 					return true
 				})
@@ -147,11 +159,16 @@ func scan() ([]finding, error) {
 	return findings, nil
 }
 
-func loadBackendStoreUnitTests() (map[string]struct{}, error) {
-	paths, err := filepath.Glob(filepath.Join("tools", "phase*_test_map.json"))
+func loadBackendStoreUnitTests(repoRoot string) (map[string]struct{}, error) {
+	root := repoRoot
+	if override := os.Getenv("CARTULARY_PHASE_MANIFEST_ROOT"); override != "" {
+		root = override
+	}
+	paths, err := filepath.Glob(filepath.Join(root, "tools", "phase*_test_map.json"))
 	if err != nil {
 		return nil, fmt.Errorf("glob phase manifests: %w", err)
 	}
+	sort.Strings(paths)
 
 	allowed := make(map[string]struct{})
 	for _, manifestPath := range paths {
@@ -182,14 +199,60 @@ func loadBackendStoreUnitTests() (map[string]struct{}, error) {
 	return allowed, nil
 }
 
-func selectorString(expr ast.Expr) string {
+func isCanonicalPhaseUnitTest(name string) bool {
+	match := phaseUnitTestPattern.FindStringSubmatch(name)
+	if match == nil {
+		return false
+	}
+	testPhase, err := strconv.Atoi(match[1])
+	if err != nil {
+		return false
+	}
+	unitPhase, err := strconv.Atoi(match[2])
+	if err != nil {
+		return false
+	}
+	return testPhase == unitPhase
+}
+
+func importAliases(file *ast.File) map[string]string {
+	aliases := make(map[string]string)
+	for _, importSpec := range file.Imports {
+		importPath, err := strconv.Unquote(importSpec.Path.Value)
+		if err != nil || importPath == "" {
+			continue
+		}
+		if importSpec.Name != nil {
+			if importSpec.Name.Name == "." || importSpec.Name.Name == "_" {
+				continue
+			}
+			aliases[importSpec.Name.Name] = importPath
+			continue
+		}
+		aliases[path.Base(importPath)] = importPath
+	}
+	return aliases
+}
+
+func blockedServiceHelperCall(expr ast.Expr, imports map[string]string) (string, string, bool) {
 	selector, ok := expr.(*ast.SelectorExpr)
 	if !ok {
-		return ""
+		return "", "", false
 	}
 	ident, ok := selector.X.(*ast.Ident)
 	if !ok {
-		return ""
+		return "", "", false
 	}
-	return ident.Name + "." + selector.Sel.Name
+	if !startHelperPattern.MatchString(selector.Sel.Name) {
+		return "", "", false
+	}
+	importPath, ok := imports[ident.Name]
+	if !ok || !isBlockedHelperImport(importPath) {
+		return "", "", false
+	}
+	return ident.Name + "." + selector.Sel.Name, importPath, true
+}
+
+func isBlockedHelperImport(importPath string) bool {
+	return serviceHelperImportSuffix.MatchString(importPath) || phaseHelperImportPattern.MatchString(importPath)
 }

@@ -1174,6 +1174,8 @@ The phase tables above are the authoritative **test-id to REQ / AC mapping**. Th
 
 Repository phase maps under `tools/phase*_test_map.json` own the generated coverage-ledger metadata consumed by `make phase-ledgers` and `make phase-ledger-drift`. Every authoritative manifest row in every numbered phase map must declare non-empty `claim` and `out_of_scope` text so future phases receive the same ledger guarantees without validator code changes.
 
+Service-backed Go unit helper starts are manifest-authorized, not phase-hardcoded. `make service-backed-unit-check` treats canonical `TestPhaseN..._U_N_...` Go tests as pure unit rows unless their manifest entry is an authoritative `go_test` unit row with `execution_dependency=backend_store`; only those rows may start `pgtest`, `s3test`, or `internal/testutil/phaseNtest` / `phaseNstoretest` helpers directly. The guard is convention-driven for all numbered phases, including multi-digit phases, so adding a future phase helper package must not require checker code changes.
+
 ### 16.1 Phase-to-owner-section map
 
 | Phase    | Primary owner sections                                                                                                    |
