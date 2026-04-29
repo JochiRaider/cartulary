@@ -280,12 +280,18 @@ SELECT id, user_id, authenticated_at, last_qualifying_activity_at, idle_expires_
 	defer rows.Close()
 
 	active := make([]SessionRecord, 0, 6)
+	activeSummaries := make([]SessionSummary, 0, 6)
 	for rows.Next() {
 		session, err := scanSession(rows)
 		if err != nil {
 			return SessionRecord{}, nil, err
 		}
 		active = append(active, session)
+		activeSummaries = append(activeSummaries, SessionSummary{
+			SessionID:                session.ID,
+			LastQualifyingActivityAt: session.LastQualifyingActivityAt,
+			AuthenticatedAt:          session.AuthenticatedAt,
+		})
 	}
 	if err := rows.Err(); err != nil {
 		return SessionRecord{}, nil, fmt.Errorf("iterate active sessions: %w", err)
@@ -293,7 +299,20 @@ SELECT id, user_id, authenticated_at, last_qualifying_activity_at, idle_expires_
 
 	var revoked *SessionRecord
 	if len(active) >= 5 {
-		session := active[0]
+		victim, ok := SelectSessionForConcurrencyLimit(activeSummaries, uuid.Nil)
+		if !ok {
+			return SessionRecord{}, nil, fmt.Errorf("select concurrency victim: no eligible active session")
+		}
+		var session SessionRecord
+		for _, activeSession := range active {
+			if activeSession.ID == victim.SessionID {
+				session = activeSession
+				break
+			}
+		}
+		if session.ID == uuid.Nil {
+			return SessionRecord{}, nil, fmt.Errorf("select concurrency victim: selected session %s was not loaded", victim.SessionID)
+		}
 		revokedAt := timing.AuthenticatedAt
 		if _, err := tx.Exec(ctx, `
 UPDATE user_sessions

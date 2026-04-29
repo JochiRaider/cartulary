@@ -563,7 +563,7 @@ explain_run_summary="$(
 )"
 assert_contains "$explain_run_summary" "[RUN] missing" "explain-run missing run summary"
 assert_contains "$explain_run_summary" "[TARGET] parent-target status=pass kind=aggregate tests=18 failed=0" "explain-run target summary"
-assert_contains "$explain_run_summary" "failed_children=none missing_children=none slowest_child=child-b(2.00s)" "explain-run compact child hints"
+assert_contains "$explain_run_summary" "failed_children=none missing_children=none skipped_children=none slowest_child=child-b(2.00s)" "explain-run compact child hints"
 explain_run_children="$(
   "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$child_summary_results/child-summary" --target parent-target --detail children \
     2>&1
@@ -851,6 +851,70 @@ assert_equals "$(json_field "$missing_child_summary" "kind")" "aggregate" "missi
 assert_equals "$(json_field "$missing_child_summary" "children.missing.0")" "missing-child" "missing child summary list"
 assert_equals "$(json_field "$missing_child_summary" "own.counts.non_test_failed")" "1" "missing child wrapper failure count"
 assert_equals "$(json_field "$missing_child_summary" "failure_class")" "artifact" "missing child failure class"
+
+skipped_child_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-skipped-child.XXXXXX")"
+cleanup_paths+=("$skipped_child_results")
+skipped_child_run="$skipped_child_results/skipped-child"
+mkdir -p "$skipped_child_run/failed-backend" "$skipped_child_run/parent-with-skipped"
+cat >"$skipped_child_run/failed-backend/target-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.test_target_summary.v4",
+  "target": "failed-backend",
+  "kind": "leaf",
+  "status": "fail",
+  "start_time": "2026-01-01T00:00:00Z",
+  "end_time": "2026-01-01T00:00:01Z",
+  "executed_duration_ms": 1000,
+  "logical_duration_ms": 1000,
+  "reused_duration_ms": 0,
+  "derived_duration_ms": 0,
+  "wall_duration_ms": 1000,
+  "critical_path_wall_duration_ms": 1000,
+  "teardown_duration_ms": 0,
+  "accounting_modes": { "actual": 1, "reused": 0, "derived": 0 },
+  "counts": { "phases": 1, "tests": 1, "failed": 1, "authoritative": 1, "support": 0, "unmapped": 0, "non_test": 0, "authoritative_failed": 1, "support_failed": 0, "unmapped_failed": 0, "non_test_failed": 0, "packages": 1 },
+  "failure_class": "test",
+  "failure_classes": { "test": 1, "infra": 0, "timing": 0, "artifact": 0, "helper": 0 },
+  "failures": [{ "failure_class": "test", "kind": "test", "target": "failed-backend", "message": "reported test failure" }],
+  "failure_headline": "test: reported test failure",
+  "artifacts": { "dir": ".cartulary/test-results/skipped-child/failed-backend" }
+}
+JSON
+cat >"$skipped_child_run/parent-with-skipped/scheduler-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.scheduler_summary.v1",
+  "target": "parent-with-skipped",
+  "status": "fail",
+  "failed_work_unit": "failed-backend",
+  "skipped_work_units": [
+    {
+      "label": "skipped-browser",
+      "id": "skipped-browser",
+      "aggregate_target": "skipped-browser",
+      "reason": "dependency_failure",
+      "failed_dependency": "failed-backend"
+    }
+  ]
+}
+JSON
+skipped_child_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$skipped_child_results" \
+  CARTULARY_TEST_RUN_ID="skipped-child" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-with-skipped fail --children failed-backend,skipped-browser \
+    2>&1
+)"
+assert_contains "$skipped_child_output" "[FAIL] parent-with-skipped" "skipped child parent output"
+assert_contains "$skipped_child_output" "[CHILD] parent-with-skipped failed-backend status=fail failure_class=test" "skipped child failed dependency output"
+assert_contains "$skipped_child_output" "[CHILD-SKIPPED] parent-with-skipped skipped-browser reason=dependency_failure failed_dependency=failed-backend" "skipped child cascade output"
+assert_not_contains "$skipped_child_output" "[CHILD-MISSING] parent-with-skipped skipped-browser" "skipped child is not missing output"
+skipped_child_summary="$skipped_child_run/parent-with-skipped/target-summary.json"
+assert_equals "$(json_field "$skipped_child_summary" "status")" "fail" "skipped child status"
+assert_equals "$(json_field "$skipped_child_summary" "failure_class")" "test" "skipped child preserves root failure class"
+assert_equals "$(json_field "$skipped_child_summary" "children.failed_targets.0")" "failed-backend" "skipped child failed target"
+assert_equals "$(json_field "$skipped_child_summary" "children.skipped.0.target")" "skipped-browser" "skipped child summary target"
+assert_equals "$(json_field "$skipped_child_summary" "children.skipped.0.failed_dependency")" "failed-backend" "skipped child summary dependency"
+assert_equals "$(json_field "$skipped_child_summary" "children.missing.length")" "0" "skipped child not missing"
+assert_equals "$(json_field "$skipped_child_summary" "own.counts.non_test_failed")" "0" "skipped child does not create artifact failure"
 
 verbose_override_output="$(
   CARTULARY_OUTPUT_MODE=quiet \

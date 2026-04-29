@@ -689,6 +689,16 @@ func QuerySessionRow(t testing.TB, db *sql.DB, userID string) SessionRow {
 	)
 }
 
+func QueryLeastRecentlyUsedSessionRow(t testing.TB, db *sql.DB, userID string) SessionRow {
+	t.Helper()
+	return QuerySingleSession(
+		t,
+		db,
+		`SELECT authenticated_at, id::text, last_qualifying_activity_at, idle_expires_at, absolute_expires_at, session_expires_at, revoked_at, revoke_reason_code FROM user_sessions WHERE user_id = $1 ORDER BY last_qualifying_activity_at ASC, authenticated_at ASC, id ASC LIMIT 1`,
+		userID,
+	)
+}
+
 func QuerySessionByID(t testing.TB, db *sql.DB, sessionID string) SessionRow {
 	t.Helper()
 	return QuerySingleSession(
@@ -747,9 +757,9 @@ SELECT authenticated_at,
        last_qualifying_activity_at,
        revoked_at,
        revoke_reason_code
-  FROM user_sessions
+ FROM user_sessions
  WHERE user_id::text = $1
- ORDER BY authenticated_at ASC, id ASC
+ ORDER BY last_qualifying_activity_at ASC, authenticated_at ASC, id ASC
 `, userID)
 	if err != nil {
 		t.Fatalf("query user sessions: %v", err)

@@ -121,32 +121,39 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 
 		userID := seedLocalUser(t, db, "analyst2@example.test", "Analyst Two", "ConcurrencyPass1!", false)
 
-		var firstSessionID string
+		var expectedVictimSessionID string
 		for i := 0; i < 6; i++ {
 			phase1test.SetClockOffset(t, server.HTTP.URL, int64(i))
 			sessionCookie, _ := loginLocalUser(t, server, "analyst2@example.test", "ConcurrencyPass1!", nil)
 			if i == 0 {
-				firstSessionID = querySessionRow(t, db, userID).sessionID
+				expectedVictimSessionID = queryLeastRecentlyUsedSessionRow(t, db, userID).sessionID
 			}
 			_ = sessionCookie
 		}
 
 		activeCount := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1 AND revoked_at IS NULL`, userID)
 		if activeCount != 5 {
-			t.Fatalf("expected five active sessions after sixth login, got %d", activeCount)
+			t.Fatalf("expected five active sessions after sixth login, got %d; sessions=%s", activeCount, phase1test.FormatUserSessions(t, db, userID))
 		}
 
-		firstSession := querySessionByID(t, db, firstSessionID)
-		if !firstSession.revokedAt.Valid {
-			t.Fatal("expected least-recently-used non-current session to be revoked")
+		expectedVictimSession := querySessionByID(t, db, expectedVictimSessionID)
+		if !expectedVictimSession.revokedAt.Valid {
+			t.Fatalf(
+				"expected least-recently-used non-current session %s to be revoked; active_count=%d revoked_concurrency_session_ids=%s audit_events=%s sessions=%s",
+				expectedVictimSessionID,
+				activeCount,
+				strings.Join(queryRevokedSessionIDsByReason(t, db, userID, authn.ConcurrencyLimitReasonCode), ","),
+				formatAuditEventsByReason(t, db, userID, authn.ConcurrencyLimitReasonCode),
+				phase1test.FormatUserSessions(t, db, userID),
+			)
 		}
-		if firstSession.revokeReasonCode.String != authn.ConcurrencyLimitReasonCode {
-			t.Fatalf("unexpected concurrency revoke_reason_code: got %q", firstSession.revokeReasonCode.String)
+		if expectedVictimSession.revokeReasonCode.String != authn.ConcurrencyLimitReasonCode {
+			t.Fatalf("unexpected concurrency revoke_reason_code for session %s: got %q want %q; sessions=%s", expectedVictimSessionID, expectedVictimSession.revokeReasonCode.String, authn.ConcurrencyLimitReasonCode, phase1test.FormatUserSessions(t, db, userID))
 		}
 
 		auditCount := queryCount(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE target_user_id = $1 AND reason_code = $2`, userID, authn.ConcurrencyLimitReasonCode)
 		if auditCount != 1 {
-			t.Fatalf("expected one concurrency_limit audit event, got %d", auditCount)
+			t.Fatalf("expected one concurrency_limit audit event, got %d; audit_events=%s sessions=%s", auditCount, formatAuditEventsByReason(t, db, userID, authn.ConcurrencyLimitReasonCode), phase1test.FormatUserSessions(t, db, userID))
 		}
 	})
 }
@@ -184,7 +191,7 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 
 		userID := seedLocalUser(t, db, "socket-concurrency@example.test", "Socket Concurrency", "SocketConcurrencyPass1!", false)
 		sessionCookie, _ := loginLocalUser(t, server, "socket-concurrency@example.test", "SocketConcurrencyPass1!", nil)
-		firstSessionID := querySessionRow(t, db, userID).sessionID
+		firstSessionID := queryLeastRecentlyUsedSessionRow(t, db, userID).sessionID
 		if sessionCount := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1`, userID); sessionCount != 1 {
 			t.Fatalf("expected one session row after initial login, got %d; sessions=%s", sessionCount, phase1test.FormatUserSessions(t, db, userID))
 		}
@@ -1698,6 +1705,17 @@ func querySessionRow(t testing.TB, db *sql.DB, userID string) sessionRow {
 	return row
 }
 
+func queryLeastRecentlyUsedSessionRow(t testing.TB, db *sql.DB, userID string) sessionRow {
+	t.Helper()
+
+	return querySingleSession(
+		t,
+		db,
+		`SELECT authenticated_at, id::text, last_qualifying_activity_at, idle_expires_at, absolute_expires_at, session_expires_at, revoked_at, revoke_reason_code FROM user_sessions WHERE user_id = $1 ORDER BY last_qualifying_activity_at ASC, authenticated_at ASC, id ASC LIMIT 1`,
+		userID,
+	)
+}
+
 func querySessionByID(t testing.TB, db *sql.DB, sessionID string) sessionRow {
 	t.Helper()
 	return querySingleSession(t, db, `SELECT authenticated_at, id::text, last_qualifying_activity_at, idle_expires_at, absolute_expires_at, session_expires_at, revoked_at, revoke_reason_code FROM user_sessions WHERE id::text = $1`, sessionID)
@@ -1730,6 +1748,36 @@ func queryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 		t.Fatalf("query count: %v", err)
 	}
 	return count
+}
+
+func queryRevokedSessionIDsByReason(t testing.TB, db *sql.DB, userID string, reasonCode string) []string {
+	t.Helper()
+
+	rows, err := db.QueryContext(context.Background(), `
+SELECT id::text
+  FROM user_sessions
+ WHERE user_id::text = $1
+   AND revoked_at IS NOT NULL
+   AND revoke_reason_code = $2
+ ORDER BY revoked_at ASC, id ASC
+`, userID, reasonCode)
+	if err != nil {
+		t.Fatalf("query revoked session ids: %v", err)
+	}
+	defer rows.Close()
+
+	sessionIDs := []string{}
+	for rows.Next() {
+		var sessionID string
+		if err := rows.Scan(&sessionID); err != nil {
+			t.Fatalf("scan revoked session id: %v", err)
+		}
+		sessionIDs = append(sessionIDs, sessionID)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate revoked session ids: %v", err)
+	}
+	return sessionIDs
 }
 
 type auditEventRecord struct {
@@ -1797,6 +1845,28 @@ SELECT event_kind,
 		t.Fatalf("iterate user audit events: %v", err)
 	}
 	return events
+}
+
+func formatAuditEventsByReason(t testing.TB, db *sql.DB, targetUserID string, reasonCode string) string {
+	t.Helper()
+
+	events := lookupUserAuditEvents(t, db, targetUserID)
+	parts := make([]string, 0, len(events))
+	for _, event := range events {
+		if event.ReasonCode != reasonCode {
+			continue
+		}
+		beforeJSON, err := json.Marshal(event.Before)
+		if err != nil {
+			t.Fatalf("marshal audit before_json: %v", err)
+		}
+		afterJSON, err := json.Marshal(event.After)
+		if err != nil {
+			t.Fatalf("marshal audit after_json: %v", err)
+		}
+		parts = append(parts, "source="+event.EventSource+" kind="+event.EventKind+" request_id="+event.RequestID+" before="+string(beforeJSON)+" after="+string(afterJSON))
+	}
+	return strings.Join(parts, "; ")
 }
 
 func decodeJSONMap(t testing.TB, payload []byte) map[string]any {

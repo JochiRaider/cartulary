@@ -1586,8 +1586,20 @@ function targetSummaryPath(target) {
   return path.join(resultsRoot, runId, target, "target-summary.json");
 }
 
+function schedulerSummaryPath(target) {
+  return path.join(resultsRoot, runId, target, "scheduler-summary.json");
+}
+
 function loadTargetSummary(target) {
   const file = targetSummaryPath(target);
+  if (!existsSync(file)) {
+    return undefined;
+  }
+  return JSON.parse(readFileSync(file, "utf8"));
+}
+
+function loadSchedulerSummary(target) {
+  const file = schedulerSummaryPath(target);
   if (!existsSync(file)) {
     return undefined;
   }
@@ -1710,6 +1722,7 @@ function toTargetSummaryReference(summary, fallbackTarget) {
       expected: [],
       present: [],
       missing: [],
+      skipped: [],
       status: "pass",
       ...durationFieldsForJSON(createDurationFields()),
       accounting_modes: createAccountingModes(),
@@ -1734,6 +1747,30 @@ function loadChildTargetSummaries(childTargetNames) {
     childTargets.push(toTargetSummaryReference(summary, childTarget));
   }
   return { childTargets, missingChildTargetSummaries };
+}
+
+function skippedChildTargetSummaries(parentTarget, missingChildTargetSummaries) {
+  const schedulerSummary = loadSchedulerSummary(parentTarget);
+  const missing = new Set(missingChildTargetSummaries);
+  if (!schedulerSummary || missing.size === 0) {
+    return [];
+  }
+  const skippedByTarget = new Map();
+  for (const skipped of schedulerSummary.skipped_work_units ?? []) {
+    const childTarget = skipped.aggregate_target;
+    if (!missing.has(childTarget) || skippedByTarget.has(childTarget)) {
+      continue;
+    }
+    skippedByTarget.set(childTarget, {
+      target: childTarget,
+      work_unit: skipped.label ?? childTarget,
+      reason: skipped.reason ?? "unknown",
+      failed_dependency: skipped.failed_dependency ?? schedulerSummary.failed_work_unit ?? "",
+    });
+  }
+  return missingChildTargetSummaries
+    .filter((childTarget) => skippedByTarget.has(childTarget))
+    .map((childTarget) => skippedByTarget.get(childTarget));
 }
 
 function combineSummarySections(target, sections, status = "pass") {
@@ -1852,6 +1889,14 @@ function writeChildTargetLines(stream, parentTarget, childTargets, missingChildT
   }
 }
 
+function writeSkippedChildTargetLines(stream, parentTarget, skippedChildTargets) {
+  for (const child of skippedChildTargets) {
+    stream.write(
+      `[CHILD-SKIPPED] ${parentTarget} ${child.target} reason=${child.reason} failed_dependency=${child.failed_dependency || "unknown"} work_unit=${child.work_unit}\n`,
+    );
+  }
+}
+
 function handleTargetSummary(args) {
   const reportCollationStartMs = Date.now();
   const reportCollationStartTime = new Date(reportCollationStartMs).toISOString();
@@ -1862,6 +1907,14 @@ function handleTargetSummary(args) {
   const teardownFailures = timingFailures.filter((failure) => failure.bucket === "teardown");
   const { childTargets, missingChildTargetSummaries } =
     loadChildTargetSummaries(childTargetNames);
+  const skippedChildTargets = skippedChildTargetSummaries(
+    target,
+    missingChildTargetSummaries,
+  );
+  const skippedChildTargetNames = new Set(skippedChildTargets.map((child) => child.target));
+  const unresolvedMissingChildTargetSummaries = missingChildTargetSummaries.filter(
+    (childTarget) => !skippedChildTargetNames.has(childTarget),
+  );
   const failedChildTargets = childTargets
     .filter((child) => child.status !== "pass")
     .map((child) => child.target);
@@ -1870,16 +1923,16 @@ function handleTargetSummary(args) {
     summary.counts.non_test += timingFailures.length;
     summary.counts.non_test_failed += timingFailures.length;
   }
-  if (missingChildTargetSummaries.length > 0) {
-    summary.counts.failed += missingChildTargetSummaries.length;
-    summary.counts.non_test += missingChildTargetSummaries.length;
-    summary.counts.non_test_failed += missingChildTargetSummaries.length;
+  if (unresolvedMissingChildTargetSummaries.length > 0) {
+    summary.counts.failed += unresolvedMissingChildTargetSummaries.length;
+    summary.counts.non_test += unresolvedMissingChildTargetSummaries.length;
+    summary.counts.non_test_failed += unresolvedMissingChildTargetSummaries.length;
   }
   if (
     requestedStatus === "fail" &&
     summary.failed === false &&
     timingFailures.length === 0 &&
-    missingChildTargetSummaries.length === 0 &&
+    unresolvedMissingChildTargetSummaries.length === 0 &&
     failedChildTargets.length === 0
   ) {
     summary.counts.failed += 1;
@@ -1890,7 +1943,7 @@ function handleTargetSummary(args) {
     requestedStatus === "fail" &&
     summary.failed === false &&
     timingFailures.length === 0 &&
-    missingChildTargetSummaries.length === 0 &&
+    unresolvedMissingChildTargetSummaries.length === 0 &&
     failedChildTargets.length === 0
       ? [
           {
@@ -1906,7 +1959,7 @@ function handleTargetSummary(args) {
     [
       ...summary.failures,
       ...timingFailures.map((failure) => timingFailureRecord(failure, { target })),
-      ...missingChildTargetSummaries.map((childTarget) =>
+      ...unresolvedMissingChildTargetSummaries.map((childTarget) =>
         artifactFailureRecord(`missing child target summary: ${childTarget}`, {
           target,
           source: "target-summary",
@@ -1919,7 +1972,7 @@ function handleTargetSummary(args) {
   const ownFailed =
     summary.failed ||
     timingFailures.length > 0 ||
-    missingChildTargetSummaries.length > 0 ||
+    unresolvedMissingChildTargetSummaries.length > 0 ||
     (requestedStatus === "fail" && failedChildTargets.length === 0);
   const status =
     ownFailed ||
@@ -1985,10 +2038,15 @@ function handleTargetSummary(args) {
   const childrenSection = {
     target,
     status:
-      failedChildTargets.length > 0 || missingChildTargetSummaries.length > 0 ? "fail" : "pass",
+      failedChildTargets.length > 0 ||
+      unresolvedMissingChildTargetSummaries.length > 0 ||
+      skippedChildTargets.length > 0
+        ? "fail"
+        : "pass",
     expected: childTargetNames,
     present: childTargets,
-    missing: missingChildTargetSummaries,
+    missing: unresolvedMissingChildTargetSummaries,
+    skipped: skippedChildTargets,
     failed_targets: failedChildTargets,
     start_time: childrenRollup.start_time,
     end_time: childrenRollup.end_time,
@@ -2044,7 +2102,8 @@ function handleTargetSummary(args) {
     writeTargetLine(process.stdout, "[PASS]", targetSummary);
     writeFixtureLine(process.stdout, targetSummary.totals.fixture);
     if (!quietOutputMode()) {
-      writeChildTargetLines(process.stdout, target, childTargets, missingChildTargetSummaries);
+      writeChildTargetLines(process.stdout, target, childTargets, unresolvedMissingChildTargetSummaries);
+      writeSkippedChildTargetLines(process.stdout, target, skippedChildTargets);
     }
     printInventory(summary);
     return 0;
@@ -2053,7 +2112,8 @@ function handleTargetSummary(args) {
   writeTargetLine(process.stderr, "[FAIL]", targetSummary);
   writeFailureHeadline(process.stderr, target, targetSummary);
   writeFixtureLine(process.stderr, targetSummary.totals.fixture);
-  writeChildTargetLines(process.stderr, target, childTargets, missingChildTargetSummaries);
+  writeChildTargetLines(process.stderr, target, childTargets, unresolvedMissingChildTargetSummaries);
+  writeSkippedChildTargetLines(process.stderr, target, skippedChildTargets);
   return 0;
 }
 

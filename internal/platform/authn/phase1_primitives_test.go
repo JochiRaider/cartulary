@@ -3,6 +3,8 @@ package authn
 import (
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestSupportPhase1_LoginNormalizationAndPasswordExactness(t *testing.T) {
@@ -78,5 +80,36 @@ func TestSupportPhase1_SessionTiming(t *testing.T) {
 	}
 	if !regressed.SessionExpiresAt.Equal(sliding.SessionExpiresAt) {
 		t.Fatalf("slide must not regress session_expires_at: got %s want %s", regressed.SessionExpiresAt, sliding.SessionExpiresAt)
+	}
+}
+
+func TestSupportPhase1_SelectSessionForConcurrencyLimitTieBreaks(t *testing.T) {
+	now := time.Date(2026, time.April, 17, 12, 0, 0, 0, time.UTC)
+	currentID := uuid.MustParse("00000000-0000-0000-0000-000000000009")
+	victimID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	laterID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+
+	victim, ok := SelectSessionForConcurrencyLimit([]SessionSummary{
+		{
+			SessionID:                currentID,
+			LastQualifyingActivityAt: now.Add(-20 * time.Minute),
+			AuthenticatedAt:          now.Add(-5 * time.Hour),
+		},
+		{
+			SessionID:                laterID,
+			LastQualifyingActivityAt: now.Add(-10 * time.Minute),
+			AuthenticatedAt:          now.Add(-4 * time.Hour),
+		},
+		{
+			SessionID:                victimID,
+			LastQualifyingActivityAt: now.Add(-10 * time.Minute),
+			AuthenticatedAt:          now.Add(-4 * time.Hour),
+		},
+	}, currentID)
+	if !ok {
+		t.Fatal("expected an eligible non-current session")
+	}
+	if victim.SessionID != victimID {
+		t.Fatalf("unexpected concurrency victim: got %s want %s", victim.SessionID, victimID)
 	}
 }

@@ -86,7 +86,7 @@ Profiles: base
 Verified by: AC-123, AC-131, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
 
 **REQ-04-014**
-When a new login would exceed the concurrent-session cap, the server MUST revoke the least-recently-used non-current session before issuing the new session and MUST record an attributed audit event with stable reason code `concurrency_limit`.
+When a new login would exceed the concurrent-session cap, the server MUST revoke the least-recently-used non-current session before issuing the new session and MUST record an attributed audit event with stable reason code `concurrency_limit`. Least-recently-used ordering MUST sort by `last_qualifying_activity_at ASC`, then `authenticated_at ASC`, then stable session identifier ASC.
 Profiles: base
 Verified by: AC-123, AC-131, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
 

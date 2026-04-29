@@ -206,7 +206,7 @@ function writeTargetSummary(runDir, targetSummary) {
   const c = counts(totals);
   const children = targetSummary.children;
   const childFields = children
-    ? ` children=${children.present?.length ?? 0}/${children.expected?.length ?? 0} failed_children=${(children.failed_targets ?? []).join(",") || "none"} missing_children=${(children.missing ?? []).join(",") || "none"} slowest_child=${slowestChild(targetSummary)}`
+    ? ` children=${children.present?.length ?? 0}/${children.expected?.length ?? 0} failed_children=${(children.failed_targets ?? []).join(",") || "none"} missing_children=${(children.missing ?? []).join(",") || "none"} skipped_children=${(children.skipped ?? []).map((child) => child.target).join(",") || "none"} slowest_child=${slowestChild(targetSummary)}`
     : "";
   process.stdout.write(
     `[TARGET] ${targetSummary.target} status=${targetSummary.status}${failureClassField(targetSummary)} kind=${targetSummary.kind ?? "leaf"} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${duration(totals)}${childFields} artifacts=${targetSummary.own?.artifacts?.dir ?? relToRepo(path.join(runDir, targetSummary.target))}\n`,
@@ -229,7 +229,8 @@ function writeSchedulerSummary(summary) {
 
 function writeChildren(targetSummary) {
   const children = targetSummary?.children?.present ?? [];
-  if (children.length === 0) {
+  const skipped = targetSummary?.children?.skipped ?? [];
+  if (children.length === 0 && skipped.length === 0) {
     process.stdout.write("[CHILDREN] none\n");
     return;
   }
@@ -240,6 +241,11 @@ function writeChildren(targetSummary) {
       `[CHILD] ${child.target} status=${child.status}${failureClassField(child)} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${duration(totals)} artifacts=${child.artifacts?.dir ?? child.own?.artifacts?.dir ?? ""}\n`,
     );
     writeFailureHeadline(child.target, child);
+  }
+  for (const child of skipped) {
+    process.stdout.write(
+      `[CHILD-SKIPPED] ${child.target} reason=${child.reason} failed_dependency=${child.failed_dependency || "unknown"} work_unit=${child.work_unit}\n`,
+    );
   }
 }
 
