@@ -304,7 +304,7 @@ func TestWorkbook_QueryCursorSnapshotExpiry(t *testing.T) {
 	}
 }
 
-func TestWorkbook_NewRequiredSurfacesQuerySeededRows(t *testing.T) {
+func TestPhase4_CoordinationProjectionQueries_I_4_COORD_03(t *testing.T) {
 	harness := phase4test.StartServer(t, "workbook-seeded-surfaces")
 	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -319,6 +319,8 @@ func TestWorkbook_NewRequiredSurfacesQuerySeededRows(t *testing.T) {
 		recordType   string
 		insertChild  func(recordID uuid.UUID)
 		filter       map[string]any
+		sortField    string
+		groupBy      string
 		wantField    string
 		wantValue    any
 	}{
@@ -436,6 +438,8 @@ VALUES ($1, $2, 'comm_log', 'briefing', 'leadership', 'Bridge', 'Initial update'
 `, recordID, incidentID, adminUserID)
 			},
 			filter:    prefixFilter("comm_log.comm_type", "brief"),
+			sortField: "comm_log.timestamp_day",
+			groupBy:   "comm_log.comm_type",
 			wantField: "comm_log.summary",
 			wantValue: "Initial update",
 		},
@@ -449,6 +453,8 @@ VALUES ($1, $2, 'handoff', $3, 'Night shift takes containment', '2026-04-24T14:0
 `, recordID, incidentID, adminUserID)
 			},
 			filter:    eqFilter("handoff.ack_state", "pending"),
+			sortField: "handoff.timestamp_day",
+			groupBy:   "handoff.incoming_owner_user_id",
 			wantField: "handoff.current_state_summary",
 			wantValue: "Night shift takes containment",
 		},
@@ -462,6 +468,8 @@ VALUES ($1, $2, 'status_review', 'Containment in progress', '2026-04-24T15:00:00
 `, recordID, incidentID, adminUserID)
 			},
 			filter:    map[string]any{"field_key": "status_review.timestamp_day", "op": "eq", "arg": map[string]any{"value": "2026-04-24"}},
+			sortField: "status_review.next_report_day",
+			groupBy:   "status_review.review_owner_user_id",
 			wantField: "status_review.current_state_summary",
 			wantValue: "Containment in progress",
 		},
@@ -475,6 +483,8 @@ VALUES ($1, $2, 'lesson', 'Preserve VPN logs earlier', $3, 'open', '2026-04-24T1
 `, recordID, incidentID, adminUserID)
 			},
 			filter:    prefixFilter("lesson.closure_state", "op"),
+			sortField: "lesson.timestamp_day",
+			groupBy:   "lesson.closure_state",
 			wantField: "lesson.summary",
 			wantValue: "Preserve VPN logs earlier",
 		},
@@ -486,11 +496,18 @@ VALUES ($1, $2, 'lesson', 'Preserve VPN logs earlier', $3, 'open', '2026-04-24T1
 			seedRecordEnvelope(t, harness, incidentID, adminUserID, recordID, seed.recordType)
 			seed.insertChild(recordID)
 
+			queryBody := map[string]any{"filters": []map[string]any{seed.filter}}
+			if seed.sortField != "" {
+				queryBody["sort"] = []map[string]any{{"field_key": seed.sortField, "direction": "asc"}}
+			}
+			if seed.groupBy != "" {
+				queryBody["group_by"] = seed.groupBy
+			}
 			resp := phase4test.DoJSON(
 				t,
 				http.MethodPost,
 				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+seed.viewSchemaID+"/query",
-				map[string]any{"filters": []map[string]any{seed.filter}},
+				queryBody,
 				phase4test.WithCookies(adminLogin.SessionCookie),
 			)
 			if resp.StatusCode != http.StatusOK {
@@ -509,6 +526,12 @@ VALUES ($1, $2, 'lesson', 'Preserve VPN logs earlier', $3, 'open', '2026-04-24T1
 			cells := row["cells"].(map[string]any)
 			if got := cells[seed.wantField].(map[string]any)["value"]; got != seed.wantValue {
 				t.Fatalf("unexpected %s value: got %#v want %#v", seed.wantField, got, seed.wantValue)
+			}
+			if seed.groupBy != "" {
+				groupValues := row["group_values"].(map[string]any)
+				if _, ok := groupValues[seed.groupBy]; !ok {
+					t.Fatalf("expected group_values to include %s, got %#v", seed.groupBy, groupValues)
+				}
 			}
 		})
 	}

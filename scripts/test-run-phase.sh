@@ -916,6 +916,27 @@ assert_equals "$(json_field "$skipped_child_summary" "children.skipped.0.failed_
 assert_equals "$(json_field "$skipped_child_summary" "children.missing.length")" "0" "skipped child not missing"
 assert_equals "$(json_field "$skipped_child_summary" "own.counts.non_test_failed")" "0" "skipped child does not create artifact failure"
 
+explicit_skipped_child_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$skipped_child_results" \
+  CARTULARY_TEST_RUN_ID="skipped-child" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-with-explicit-skipped fail \
+      --children failed-backend,explicit-skipped \
+      --skipped-after-failure explicit-skipped \
+      --failed-dependency failed-backend \
+    2>&1
+)"
+assert_contains "$explicit_skipped_child_output" "[FAIL] parent-with-explicit-skipped" "explicit skipped child parent output"
+assert_contains "$explicit_skipped_child_output" "[CHILD] parent-with-explicit-skipped failed-backend status=fail failure_class=test" "explicit skipped child failed dependency output"
+assert_contains "$explicit_skipped_child_output" "[CHILD-SKIPPED] parent-with-explicit-skipped explicit-skipped reason=schedule_stopped_after_failure failed_dependency=failed-backend" "explicit skipped child cascade output"
+assert_not_contains "$explicit_skipped_child_output" "[CHILD-MISSING] parent-with-explicit-skipped explicit-skipped" "explicit skipped child is not missing output"
+explicit_skipped_child_summary="$skipped_child_run/parent-with-explicit-skipped/target-summary.json"
+assert_equals "$(json_field "$explicit_skipped_child_summary" "children.failed_targets.0")" "failed-backend" "explicit skipped child failed target"
+assert_equals "$(json_field "$explicit_skipped_child_summary" "children.skipped.0.target")" "explicit-skipped" "explicit skipped child summary target"
+assert_equals "$(json_field "$explicit_skipped_child_summary" "children.skipped.0.reason")" "schedule_stopped_after_failure" "explicit skipped child reason"
+assert_equals "$(json_field "$explicit_skipped_child_summary" "children.skipped.0.failed_dependency")" "failed-backend" "explicit skipped child dependency"
+assert_equals "$(json_field "$explicit_skipped_child_summary" "children.missing.length")" "0" "explicit skipped child not missing"
+assert_equals "$(json_field "$explicit_skipped_child_summary" "own.counts.non_test_failed")" "0" "explicit skipped child does not create artifact failure"
+
 verbose_override_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   VERBOSE=1 \

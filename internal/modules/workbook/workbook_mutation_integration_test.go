@@ -12,7 +12,179 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
 
-func TestWorkbook_PartiesAndCoordinationMutations(t *testing.T) {
+func TestPhase4_PartiesSurface_I_4_PARTIES_01(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase4-parties-surface")
+	adminLogin, _ := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase4-parties-surface-incident",
+		"incident_key":  "IR-PHASE4-PARTIES",
+		"title":         "Phase 4 parties surface",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	listResp := phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas", nil, phase4test.WithCookies(adminLogin.SessionCookie))
+	listData := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)["data"].(map[string]any)
+	if !viewSchemaListContains(listData["view_schemas"].([]any), "cartulary.view.parties.v1") {
+		t.Fatalf("Parties schema missing from base-profile discovery: %#v", listData["view_schemas"])
+	}
+	singleResp := phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.parties.v1", nil, phase4test.WithCookies(adminLogin.SessionCookie))
+	singleData := httptestx.RequireSuccessEnvelope(t, singleResp, http.StatusOK)["data"].(map[string]any)
+	if singleData["view_schema_id"] != "cartulary.view.parties.v1" || singleData["surface_kind"] != "system_view" {
+		t.Fatalf("unexpected Parties singleton schema: %#v", singleData)
+	}
+
+	beforeRecords := countIncidentRecords(t, harness, incidentID)
+	beforeProjection := countViewRows(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1")
+	invalidParty := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.parties.v1", uuid.Nil, map[string]any{
+		"client_txn_id":    "txn-phase4-party-invalid",
+		"party.party_kind": "organization",
+	})
+	httptestx.RequireErrorEnvelope(t, invalidParty, http.StatusBadRequest, "invalid_mutation_payload")
+	if got := countIncidentRecords(t, harness, incidentID); got != beforeRecords {
+		t.Fatalf("rejected party create wrote records: got %d want %d", got, beforeRecords)
+	}
+	if got := countViewRows(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1"); got != beforeProjection {
+		t.Fatalf("rejected party create changed query rows: got %d want %d", got, beforeProjection)
+	}
+
+	partyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
+		"client_txn_id":       "txn-phase4-party-create",
+		"party.display_name":  "  Acme Legal  ",
+		"party.party_kind":    "organization",
+		"party.primary_email": " legal@example.test ",
+	})
+	partyRow := partyData["row"].(map[string]any)
+	partyID := phase4test.MustUUID(t, partyRow["record_id"].(string))
+	requireCellValue(t, partyRow, "party.display_name", "Acme Legal")
+	requireCellValue(t, partyRow, "party.party_kind", "organization")
+
+	queryResp := phase4test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.parties.v1/query",
+		map[string]any{"filters": []map[string]any{prefixFilter("party.display_name", "acme")}},
+		phase4test.WithCookies(adminLogin.SessionCookie),
+	)
+	queryData := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)
+	rows := queryData["rows"].([]any)
+	if len(rows) != 1 || rows[0].(map[string]any)["record_id"] != partyID.String() {
+		t.Fatalf("expected incident-scoped Parties query to return created row, got %#v", rows)
+	}
+}
+
+func TestPhase4_CoordinationDefaults_I_4_COORD_01(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase4-coordination-defaults")
+	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase4-coordination-defaults-incident",
+		"incident_key":  "IR-PHASE4-COORD-DEFAULTS",
+		"title":         "Phase 4 coordination defaults",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	beforeRecords := countIncidentRecords(t, harness, incidentID)
+	for _, invalid := range []struct {
+		viewSchemaID string
+		body         map[string]any
+	}{
+		{"cartulary.view.comm_log.v1", map[string]any{"client_txn_id": "txn-phase4-comm-invalid", "comm_log.comm_type": "briefing"}},
+		{"cartulary.view.handoff.v1", map[string]any{"client_txn_id": "txn-phase4-handoff-invalid", "handoff.incoming_owner_user_id": adminUserID.String()}},
+		{"cartulary.view.status_review.v1", map[string]any{"client_txn_id": "txn-phase4-status-invalid"}},
+		{"cartulary.view.lesson.v1", map[string]any{"client_txn_id": "txn-phase4-lesson-invalid"}},
+	} {
+		resp := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, invalid.viewSchemaID, uuid.Nil, invalid.body)
+		httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
+	}
+	if got := countIncidentRecords(t, harness, incidentID); got != beforeRecords {
+		t.Fatalf("rejected coordination creates wrote records: got %d want %d", got, beforeRecords)
+	}
+
+	commData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1", map[string]any{
+		"client_txn_id":               "txn-phase4-comm-defaults-create",
+		"comm_log.comm_type":          "briefing",
+		"comm_log.audience":           "leadership",
+		"comm_log.channel_or_meeting": "Bridge",
+		"comm_log.summary":            "Initial coordination update",
+	})
+	commRow := commData["row"].(map[string]any)
+	commID := phase4test.MustUUID(t, commRow["record_id"].(string))
+	requireNonEmptyCellValue(t, commRow, "comm_log.timestamp_utc")
+	requireCollectionItemCount(t, commRow, "comm_log.decision_ids", 0)
+	requireCollectionItemCount(t, commRow, "comm_log.action_task_ids", 0)
+	requireCollectionItemCount(t, commRow, "comm_log.audience_party_ids", 0)
+	requireCollectionItemCount(t, commRow, "comm_log.attendee_party_ids", 0)
+	requireCellValue(t, commRow, "comm_log.next_report_at", nil)
+	requireCellValue(t, commRow, "comm_log.privilege_tag", nil)
+
+	immutableCommID := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
+		"view_schema_id":   "cartulary.view.comm_log.v1",
+		"base_row_version": 1,
+		"client_txn_id":    "txn-phase4-comm-immutable-id",
+		"changes":          []map[string]any{{"field_key": "comm_log.comm_id", "value": "client-supplied"}},
+	})
+	httptestx.RequireErrorEnvelope(t, immutableCommID, http.StatusBadRequest, "invalid_mutation_payload")
+	commSetNextReport := requireWorkbookPatch(t, harness, adminLogin, commID, map[string]any{
+		"view_schema_id":   "cartulary.view.comm_log.v1",
+		"base_row_version": 1,
+		"client_txn_id":    "txn-phase4-comm-set-next-report",
+		"changes":          []map[string]any{{"field_key": "comm_log.next_report_at", "value": "2026-04-24T18:00:00Z"}},
+	})
+	requireNonEmptyCellValue(t, commSetNextReport["row"].(map[string]any), "comm_log.next_report_at")
+	commClear := requireWorkbookPatch(t, harness, adminLogin, commID, map[string]any{
+		"view_schema_id":   "cartulary.view.comm_log.v1",
+		"base_row_version": 2,
+		"client_txn_id":    "txn-phase4-comm-clear-next-report",
+		"changes":          []map[string]any{{"field_key": "comm_log.next_report_at", "value": nil}},
+	})
+	requireCellValue(t, commClear["row"].(map[string]any), "comm_log.next_report_at", nil)
+	commNullTimestamp := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
+		"view_schema_id":   "cartulary.view.comm_log.v1",
+		"base_row_version": 3,
+		"client_txn_id":    "txn-phase4-comm-null-timestamp",
+		"changes":          []map[string]any{{"field_key": "comm_log.timestamp_utc", "value": nil}},
+	})
+	httptestx.RequireErrorEnvelope(t, commNullTimestamp, http.StatusBadRequest, "invalid_mutation_payload")
+
+	handoffData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.handoff.v1", map[string]any{
+		"client_txn_id":                  "txn-phase4-handoff-defaults-create",
+		"handoff.incoming_owner_user_id": adminUserID.String(),
+		"handoff.current_state_summary":  "Night shift owns containment",
+	})
+	handoffRow := handoffData["row"].(map[string]any)
+	requireNonEmptyCellValue(t, handoffRow, "handoff.timestamp_utc")
+	requireCellValue(t, handoffRow, "handoff.outgoing_owner_user_id", adminUserID.String())
+	requireCollectionItemCount(t, handoffRow, "handoff.open_task_ids", 0)
+	requireCollectionItemCount(t, handoffRow, "handoff.open_decision_ids", 0)
+	requireCollectionItemCount(t, handoffRow, "handoff.open_risk_refs", 0)
+	requireCellValue(t, handoffRow, "handoff.next_checks", nil)
+	requireCellValue(t, handoffRow, "handoff.acknowledged_at", nil)
+
+	statusData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.status_review.v1", map[string]any{
+		"client_txn_id":                       "txn-phase4-status-defaults-create",
+		"status_review.current_state_summary": "Containment is stable",
+	})
+	statusRow := statusData["row"].(map[string]any)
+	requireNonEmptyCellValue(t, statusRow, "status_review.timestamp_utc")
+	requireCellValue(t, statusRow, "status_review.review_owner_user_id", adminUserID.String())
+	requireCollectionItemCount(t, statusRow, "status_review.blocked_task_ids", 0)
+	requireCollectionItemCount(t, statusRow, "status_review.pending_evidence_ids", 0)
+	requireCollectionItemCount(t, statusRow, "status_review.open_decision_ids", 0)
+	requireCellValue(t, statusRow, "status_review.active_risks_summary", nil)
+	requireCellValue(t, statusRow, "status_review.next_report_at", nil)
+
+	lessonData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.lesson.v1", map[string]any{
+		"client_txn_id":  "txn-phase4-lesson-defaults-create",
+		"lesson.summary": "Preserve VPN logs earlier",
+	})
+	lessonRow := lessonData["row"].(map[string]any)
+	requireNonEmptyCellValue(t, lessonRow, "lesson.timestamp_utc")
+	requireCellValue(t, lessonRow, "lesson.owner_user_id", adminUserID.String())
+	requireCellValue(t, lessonRow, "lesson.closure_state", "open")
+	requireCollectionItemCount(t, lessonRow, "lesson.follow_up_task_ids", 0)
+	requireCollectionItemCount(t, lessonRow, "lesson.evidence_refs", 0)
+}
+
+func TestPhase4_CoordinationCollections_I_4_COORD_02(t *testing.T) {
 	harness := phase4test.StartServer(t, "workbook-coordination-mutations")
 	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -93,6 +265,55 @@ func TestWorkbook_PartiesAndCoordinationMutations(t *testing.T) {
 	if currentValue["kind"] != "collection_value_v1" {
 		t.Fatalf("expected typed collection conflict value, got %#v", currentValue)
 	}
+	rawArrayPatch := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
+		"view_schema_id":   "cartulary.view.comm_log.v1",
+		"base_row_version": 2,
+		"client_txn_id":    "txn-workbook-comm-raw-array",
+		"changes": []map[string]any{
+			{"field_key": "comm_log.decision_ids", "value": []any{}},
+		},
+	})
+	httptestx.RequireErrorEnvelope(t, rawArrayPatch, http.StatusBadRequest, "invalid_mutation_payload")
+	rawNullPatch := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
+		"view_schema_id":   "cartulary.view.comm_log.v1",
+		"base_row_version": 2,
+		"client_txn_id":    "txn-workbook-comm-raw-null",
+		"changes": []map[string]any{
+			{"field_key": "comm_log.decision_ids", "value": nil},
+		},
+	})
+	httptestx.RequireErrorEnvelope(t, rawNullPatch, http.StatusBadRequest, "invalid_mutation_payload")
+	wrongTarget := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
+		"view_schema_id":   "cartulary.view.comm_log.v1",
+		"base_row_version": 2,
+		"client_txn_id":    "txn-workbook-comm-wrong-target",
+		"changes": []map[string]any{
+			{"field_key": "comm_log.decision_ids", "action_payload": collectionActions(addRecordRef(partyID))},
+		},
+	})
+	httptestx.RequireErrorEnvelope(t, wrongTarget, http.StatusBadRequest, "invalid_mutation_payload")
+
+	otherIncident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-workbook-coordination-other-incident",
+		"incident_key":  "IR-WORKBOOK-MUTATE-OTHER",
+		"title":         "Workbook coordination other incident",
+	})
+	otherIncidentID := phase4test.MustUUID(t, otherIncident["incident_id"].(string))
+	foreignPartyData := requireWorkbookCreate(t, harness, adminLogin, otherIncidentID, "cartulary.view.parties.v1", map[string]any{
+		"client_txn_id":      "txn-workbook-foreign-party-create",
+		"party.display_name": "Foreign Party",
+		"party.party_kind":   "person",
+	})
+	foreignPartyID := phase4test.MustUUID(t, foreignPartyData["row"].(map[string]any)["record_id"].(string))
+	foreignPartyRef := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", commID, map[string]any{
+		"view_schema_id":   "cartulary.view.comm_log.v1",
+		"base_row_version": 2,
+		"client_txn_id":    "txn-workbook-comm-foreign-party",
+		"changes": []map[string]any{
+			{"field_key": "comm_log.audience_party_ids", "action_payload": collectionActions(addPartyRef(foreignPartyID))},
+		},
+	})
+	httptestx.RequireErrorEnvelope(t, foreignPartyRef, http.StatusBadRequest, "invalid_mutation_payload")
 
 	handoffData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.handoff.v1", map[string]any{
 		"client_txn_id":                  "txn-workbook-handoff-create",
@@ -380,6 +601,28 @@ func countIncidentRecords(t testing.TB, harness *phase4test.ServerHarness, incid
 		t.Fatalf("count incident records: %v", err)
 	}
 	return count
+}
+
+func countViewRows(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, viewSchemaID string) int {
+	t.Helper()
+	resp := phase4test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/query",
+		map[string]any{},
+		phase4test.WithCookies(login.SessionCookie),
+	)
+	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
+	return len(body["data"].(map[string]any)["rows"].([]any))
+}
+
+func viewSchemaListContains(items []any, viewSchemaID string) bool {
+	for _, item := range items {
+		if item.(map[string]any)["view_schema_id"] == viewSchemaID {
+			return true
+		}
+	}
+	return false
 }
 
 func seedDecisionRecord(t testing.TB, harness *phase4test.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, summary string) uuid.UUID {

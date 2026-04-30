@@ -353,7 +353,7 @@ Browser tests bound to Core 05 measurement predicates or p95 fixture-sensitive e
 
 ### 6.4.1 Scope
 
-This phase introduces progressive normalization and exact-match entity behavior:
+This phase introduces progressive normalization, exact-match entity behavior, and the remaining Phase 4 base-profile HTTP/workbook evidence:
 
 - `mention_origin` vs `entity_origin`,
 - entity-mention lifecycle (`unresolved`, `resolved`, `dismissed`),
@@ -362,7 +362,9 @@ This phase introduces progressive normalization and exact-match entity behavior:
 - exact-match reuse precedence,
 - no auto-merge of pre-existing entities,
 - explicit merge,
-- source-bound indicator observations vs canonical indicators.
+- source-bound indicator observations vs canonical indicators,
+- Parties and coordination workbook surfaces,
+- object-blob creation and evidence handle issuance.
 
 ### 6.4.2 Primary owner sections
 
@@ -372,8 +374,12 @@ This phase introduces progressive normalization and exact-match entity behavior:
 - Core 02 §8 deduplication and exact-match reuse
 - Core 02 §9 merge behavior
 - Core 02 §10 indicator model foundations
+- Core 02 §13 evidence and object metadata
+- Core 02 §19 incident-scoped party model
+- Core 03 §8.4 evidence access
 - Core 03 §9 resolution workflows and auto-resolution boundaries
 - Core 03 §16 inspector and entity/evidence interaction
+- Core 03 §20 Parties system-view and linking flows
 
 ### 6.4.3 Unit tests
 
@@ -401,6 +407,12 @@ Execution dependency is distinct from evidence layer in this phase. `U-4-01..U-4
 | I-4-07 | The Indicators create and query routes persist canonical indicators through the real HTTP surface, re-derive live authorization at the route boundary, emit attributed mutation history, and expose observation or lifecycle projection consequences through current-state reads without collapsing source-bound observations into one row.                                               | REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082                                                                                                 | AC-017, AC-077..AC-079         |
 | I-4-08 | Interactive auto-resolution uses only the explicit exact-match eligibility contract, creates `provenance='auto_match'` links with `confidence=100` only for eligible committed Timeline tokens, never strips hedge or punctuation forms into matches, never backfills matches later through projection rebuild or background cleanup, and rolls back cleanly when the owning patch fails. | REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 | AC-205, AC-388..AC-392         |
 | I-4-09 | Manual Timeline relationship mutations on `timeline.host_refs` or `timeline.identity_refs` commit with `provenance='manual'`, `confidence=null`, reject client-supplied `confidence`, and preserve authoritative `null` through current-state API reads on both the real create and patch route boundaries.                                                                               | REQ-01-311, REQ-01-314..REQ-01-320, REQ-02-248, REQ-03-280                                                                                                 | AC-394, AC-396, AC-397         |
+| I-4-BLOB-01 | `POST /api/v1/object-blobs` enforces the object-blob request contract, normalizes accepted optional fields, rejects oversize declared byte counts before slot creation, and preserves idempotent replay or divergent replay semantics. | REQ-01-243..REQ-01-247, REQ-01-355..REQ-01-366, REQ-02-186..REQ-02-204, REQ-03-116..REQ-03-119, REQ-03-121..REQ-03-128, REQ-04-048 | AC-128 |
+| I-4-COORD-01 | Communications Log, Handoff, Status Review, and Lesson creates enforce minimum semantic fields, default server-owned values and empty collections, keep server ids immutable, distinguish clearable and non-clearable scalar fields, and leave no partial state on rejection. | REQ-01-302, REQ-01-307..REQ-01-311, REQ-01-358, REQ-01-503..REQ-01-506, REQ-02-123..REQ-02-133, REQ-03-010..REQ-03-011, REQ-03-259, REQ-03-265 | AC-281..AC-284 |
+| I-4-COORD-02 | Coordination collection fields use typed `collection_value_v1` record, party, and risk references, mutate through collection actions, coalesce duplicates, reject raw arrays/nulls and invalid targets, and return typed same-field conflict payloads. | REQ-01-302, REQ-01-307..REQ-01-311, REQ-01-358, REQ-01-503..REQ-01-506, REQ-02-123..REQ-02-133, REQ-03-010..REQ-03-011, REQ-03-259, REQ-03-265 | AC-281..AC-284 |
+| I-4-COORD-03 | Parties and coordination system views query incident rows through contract-declared filters, sorts, grouping values, row ids, and cell values. | REQ-01-302, REQ-01-307..REQ-01-311, REQ-01-358, REQ-01-503..REQ-01-506, REQ-02-123..REQ-02-133, REQ-03-010..REQ-03-011, REQ-03-259, REQ-03-265 | AC-277, AC-281..AC-284 |
+| I-4-HANDLE-01 | Preview and download handle issuance accepts `{}` only, rejects zero-length, `null`, non-object, unknown, and `client_txn_id` bodies, and returns distinct preview versus download contracts. | REQ-01-032, REQ-01-234, REQ-01-247, REQ-01-459, REQ-01-465 | AC-251 |
+| I-4-PARTIES-01 | The Parties system view is discoverable in the base-profile schema registry, fetchable by singleton route, incident-scoped in query behavior, and enforces create-time display-name and party-kind requirements without partial state on rejection. | REQ-01-296, REQ-01-343, REQ-01-497..REQ-01-501, REQ-02-003, REQ-02-006, REQ-02-009, REQ-02-022, REQ-02-202, REQ-02-222..REQ-02-225, REQ-03-005, REQ-03-266 | AC-277 |
 
 ### 6.4.5 E2E tests
 
@@ -1188,7 +1200,7 @@ Service-backed Go unit helper starts are manifest-authorized, not phase-hardcode
 | Phase 1  | Core 01 §3.3.2; Core 01 §3.3.2.2; Core 01 §3.3.5.1; Core 01 §3.3.10; Core 04 §1; Core 04 §3                               |
 | Phase 2  | Core 01 §3.3.1; Core 01 §3.3.3; Core 01 §3.3.5.1–§3.3.5.3; Core 02 §4.5; Core 04 §2–§3                                    |
 | Phase 3  | Core 01 §3.3.5; Core 01 §7.4; Core 01 §8; Core 02 §5 and §14; Core 03 §1, §4, §6, §7, and §15                             |
-| Phase 4  | Core 01 §3.3.5 mention and merge routes; Core 02 §6–§10; Core 03 §9 and §16                                               |
+| Phase 4  | Core 01 §3.3.5 mention and merge routes; Core 02 §6–§10, §13, and §19; Core 03 §8.4, §9, §16, and §20                    |
 | Phase 5  | Core 01 §3.3.8; Core 01 §16; Core 02 §4.5 and §13; Core 03 §8 and §16; Core 04 §4.3 and §4.5                              |
 | Phase 6  | Core 01 §3.3.10; Core 01 §3.3.5; Core 03 §3–§4; Core 04 §1–§2 and §4.5                                                    |
 | Phase 7  | Core 01 §3.3.4.2 and §3.3.5; Core 02 §14–§15; Core 03 §10; Core 04 §2–§3                                                  |
@@ -1206,12 +1218,12 @@ Service-backed Go unit helper starts are manifest-authorized, not phase-hardcode
 | Phase-owned          | `AC-170..AC-174`, `AC-211..AC-214`, `AC-219..AC-220`, `AC-261`, `AC-370..AC-371`                                                                                                         | Phase 2                                                          | Incident create or patch, membership control, deployment-admin incident boundary, and extension discovery.                                               |
 | Phase-owned          | `AC-001..AC-002`, `AC-107..AC-111`, `AC-125`, `AC-191..AC-199`, `AC-299`, `AC-329..AC-331`                                                                                               | Phase 3                                                          | Timeline create or patch hot path, lifecycle, patch idempotency, and supersede-with-replacement.                                                         |
 | Shared               | `AC-009`, `AC-126`, `AC-203`                                                                                                                                                              | Phase 3 / Phase 6                                                | Phase 3 covers server-side field-level patch rebase, same-field conflict transport, and collection conflict values. Phase 6 remains owner for resolver, concurrent-client, and local pending-queue behavior. |
-| Phase-owned          | `AC-006`, `AC-017`, `AC-019..AC-023`, `AC-077..AC-079`, `AC-186`, `AC-188..AC-190`, `AC-201..AC-202`, `AC-205`, `AC-209`, `AC-221..AC-225`, `AC-388..AC-394`                             | Phase 4                                                          | Mention lifecycle, exact-match reuse, alias handling, interactive auto-resolution, merge, and manual Timeline link semantics.                            |
-| Phase-owned          | `AC-004`, `AC-015..AC-016`, `AC-053`, `AC-102..AC-103`, `AC-128`, `AC-154..AC-155`, `AC-251..AC-255`, `AC-321..AC-322`, `AC-405`                                                         | Phase 5                                                          | Evidence lifecycle, blob contracts, safe preview or download behavior, and binary-evidence storage boundary.                                             |
+| Phase-owned          | `AC-006`, `AC-017`, `AC-019..AC-023`, `AC-077..AC-079`, `AC-128`, `AC-186`, `AC-188..AC-190`, `AC-201..AC-202`, `AC-205`, `AC-209`, `AC-221..AC-225`, `AC-251`, `AC-277`, `AC-281..AC-284`, `AC-388..AC-394` | Phase 4                                                          | Mention lifecycle, exact-match reuse, alias handling, interactive auto-resolution, merge, Parties, coordination surfaces, object-blob create, and evidence handle issuance. |
+| Phase-owned          | `AC-004`, `AC-015..AC-016`, `AC-053`, `AC-102..AC-103`, `AC-154..AC-155`, `AC-252..AC-255`, `AC-321..AC-322`, `AC-405`                                                                   | Phase 5                                                          | Evidence lifecycle, safe preview or download redemption behavior, and binary-evidence storage boundary beyond Phase 4 route-shape evidence.              |
 | Phase-owned          | `AC-008`, `AC-037..AC-042`, `AC-129`, `AC-131..AC-136`, `AC-156..AC-163`, `AC-204`, `AC-226..AC-230`, `AC-376..AC-382`                                                                    | Phase 6                                                          | WebSocket lifecycle, presence, same-field conflict resolver behavior, local pending queue, and save-state semantics.                                    |
 | Phase-owned          | `AC-007`, `AC-010..AC-012`, `AC-181..AC-183`, `AC-187`, `AC-215..AC-218`, `AC-353`, `AC-383..AC-385`                                                                                     | Phase 7                                                          | Reviewer history, delete or restore, rollback, destructive-operation lock precedence, and retained-history invariants.                                   |
 | Phase-owned          | `AC-013..AC-014`, `AC-024..AC-026`, `AC-124`, `AC-127`, `AC-146..AC-153`, `AC-184..AC-185`, `AC-200`, `AC-206..AC-208`, `AC-210`, `AC-359..AC-368`, `AC-372..AC-375`, `AC-387`           | Phase 8                                                          | Links, tags, saved views, query-shape contract, view discovery, sparse patches, and snapshot-stable pagination.                                          |
-| Phase-owned          | `AC-003`, `AC-005`, `AC-018`, `AC-068..AC-090`, `AC-112`, `AC-116..AC-122`, `AC-137..AC-145`, `AC-277..AC-287`, `AC-300..AC-304`, `AC-313..AC-319`, `AC-354`, `AC-395..AC-397`, `AC-410` | Phase 9                                                          | Keyboard contract, built-in and system surfaces, timestamp and direct-reference contracts, coordination surfaces, and registry closure.                  |
+| Phase-owned          | `AC-003`, `AC-005`, `AC-018`, `AC-068..AC-090`, `AC-112`, `AC-116..AC-122`, `AC-137..AC-145`, `AC-278..AC-280`, `AC-285..AC-287`, `AC-300..AC-304`, `AC-313..AC-319`, `AC-354`, `AC-395..AC-397`, `AC-410` | Phase 9                                                          | Keyboard contract, built-in and remaining system surfaces, timestamp and direct-reference contracts, remaining coordination and party-linking flows, and registry closure. |
 | Phase-owned          | `AC-398..AC-403`                                                                                                                                                                         | Phase 10                                                         | Operational backup, restore, restore verification, and backup-storage binding.                                                                           |
 | Shared harness-owned | `AC-043..AC-047`, `AC-048..AC-055`, `AC-097..AC-103`, `AC-231`, `AC-238..AC-260`, `AC-404..AC-408`                                                                                       | Shared harnesses in §14                                          | Timing, security, aggregate claim gate, hostile-content and authorization boundaries, topology, rough-capture preservation, and audit-source invariants. |
 | Conditional          | `AC-285..AC-287`                                                                                                                                                                         | Phase 9 when the surface is exposed; otherwise `N/A` under §16.4 | Optional standardized workbook surfaces remain additive only.                                                                                            |

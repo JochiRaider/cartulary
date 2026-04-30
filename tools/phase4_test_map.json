@@ -2,10 +2,10 @@
   "note": "Phase 4 authoritative execution manifest. Support-only matrix harness and workbook helper coverage stay outside the authoritative row inventory.",
   "ledger": {
     "title": "Phase 4 Coverage Ledger",
-    "scope": "entity mentions, resolve and merge routes, entity-origin Host and Identity creation, indicator create and query surfaces, Timeline auto-resolution and manual relationship HTTP behavior, and the owned Phase 4 browser inspector flows.",
-    "normative_owners": "Core 01 `§3.3.5`; Core 02 `§6` through `§10`; Core 03 `§9`, `§16`; Core 04 `AC-017`, `AC-019` through `AC-023`, `AC-077` through `AC-079`, `AC-186`, `AC-188` through `AC-190`, `AC-205`, `AC-209`, `AC-221` through `AC-225`, `AC-388` through `AC-397`.",
+    "scope": "entity mentions, resolve and merge routes, entity-origin Host and Identity creation, indicator create and query surfaces, Parties and coordination workbook surfaces, object-blob creation, evidence handle issuance, Timeline auto-resolution and manual relationship HTTP behavior, and the owned Phase 4 browser inspector flows.",
+    "normative_owners": "Core 01 `§3.3.5`; Core 02 `§6` through `§10`, `§13`, `§19`; Core 03 `§8.4`, `§9`, `§16`, `§20`; Core 04 `AC-017`, `AC-019` through `AC-023`, `AC-077` through `AC-079`, `AC-128`, `AC-186`, `AC-188` through `AC-190`, `AC-205`, `AC-209`, `AC-221` through `AC-225`, `AC-251`, `AC-277`, `AC-281` through `AC-284`, `AC-388` through `AC-397`.",
     "notes": [
-      "Binding-mode note: the authoritative Phase 4 row set stays fixed. Contract-derived binding-mode, row-field, and projection-determinism assertions are absorbed into the existing authoritative rows instead of creating new Phase 4 IDs."
+      "Binding-mode note: contract-derived binding-mode, row-field, and projection-determinism assertions are absorbed into the owning authoritative rows instead of creating separate helper-only completion evidence."
     ],
     "authoritative_execution": [
       "`backend-unit` selects authoritative `U-4-*` decoder rows only through `RUN_GO_MANIFEST_PHASE ... phase4 unit authoritative backend_unit`.",
@@ -50,6 +50,12 @@
     "I-4-07",
     "I-4-08",
     "I-4-09",
+    "I-4-BLOB-01",
+    "I-4-COORD-01",
+    "I-4-COORD-02",
+    "I-4-COORD-03",
+    "I-4-HANDLE-01",
+    "I-4-PARTIES-01",
     "E-4-01",
     "E-4-02",
     "E-4-03",
@@ -334,6 +340,90 @@
       "out_of_scope": "Browser inspector workflows remain browser or support-only frontend evidence.",
       "execution_family": "backend-integration-timeline",
       "execution_label": "backend-integration phase4 authoritative timeline"
+    },
+    {
+      "id": "I-4-BLOB-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/evidence",
+      "file": "internal/modules/evidence/evidence_integration_test.go",
+      "symbol": "TestPhase4_ObjectBlobCreate_I_4_BLOB_01",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "The object-blob create route enforces request shape and declared-size limits, records the normalized accepted contract, returns stable idempotent replay, rejects divergent replay, and creates no blob state on oversize rejection.",
+      "out_of_scope": "Browser upload UX and attach route lifecycle coverage remain separate evidence.",
+      "execution_family": "backend-integration-evidence",
+      "execution_label": "backend-integration phase4 authoritative evidence"
+    },
+    {
+      "id": "I-4-COORD-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/workbook",
+      "file": "internal/modules/workbook/workbook_mutation_integration_test.go",
+      "symbol": "TestPhase4_CoordinationDefaults_I_4_COORD_01",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "Communications Log, Handoff, Status Review, and Lesson creates enforce their minimum semantic fields, apply server defaults, expose immutable server ids as read-only fields, distinguish clearable from non-clearable scalars, and leave no partial rows on rejected creates.",
+      "out_of_scope": "End-user browser flows for coordination surfaces remain future browser evidence.",
+      "execution_family": "backend-integration-workbook",
+      "execution_label": "backend-integration phase4 authoritative workbook"
+    },
+    {
+      "id": "I-4-COORD-02",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/workbook",
+      "file": "internal/modules/workbook/workbook_mutation_integration_test.go",
+      "symbol": "TestPhase4_CoordinationCollections_I_4_COORD_02",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "Coordination collection fields round-trip typed record, party, and risk references, coalesce duplicates, reject raw arrays and nulls, reject wrong or foreign targets, and return typed collection conflict payloads for stale same-field writes.",
+      "out_of_scope": "Bulk browser editing of coordination collections remains browser evidence when UI ownership is introduced.",
+      "execution_family": "backend-integration-workbook",
+      "execution_label": "backend-integration phase4 authoritative workbook"
+    },
+    {
+      "id": "I-4-COORD-03",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/workbook",
+      "file": "internal/modules/workbook/workbook_integration_test.go",
+      "symbol": "TestPhase4_CoordinationProjectionQueries_I_4_COORD_03",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "Parties and coordination system views query seeded incident rows through projection-backed or projection-shaped state with contract-declared filters, sorts, grouping values, row ids, and cell values.",
+      "out_of_scope": "Optional artifact-backed surfaces outside the base profile remain outside this Phase 4 row.",
+      "execution_family": "backend-integration-workbook",
+      "execution_label": "backend-integration phase4 authoritative workbook"
+    },
+    {
+      "id": "I-4-HANDLE-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/evidence",
+      "file": "internal/modules/evidence/evidence_integration_test.go",
+      "symbol": "TestPhase4_EvidenceHandles_I_4_HANDLE_01",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "Preview and download handle issuance accepts only an empty JSON object body, rejects zero-length, null, non-object, unknown, and client_txn_id bodies, and returns distinct preview versus download handle contracts.",
+      "out_of_scope": "Detailed redeem expiry, revocation, and browser preview behavior remain separate evidence.",
+      "execution_family": "backend-integration-evidence",
+      "execution_label": "backend-integration phase4 authoritative evidence"
+    },
+    {
+      "id": "I-4-PARTIES-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/workbook",
+      "file": "internal/modules/workbook/workbook_mutation_integration_test.go",
+      "symbol": "TestPhase4_PartiesSurface_I_4_PARTIES_01",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "The Parties system view is discoverable as a base-profile system view, fetchable by singleton schema route, incident-scoped in query behavior, rejects incomplete creates without partial state, and successfully creates normalized party rows.",
+      "out_of_scope": "Inspector-driven party linking and browser party creation affordances remain browser or later route evidence.",
+      "execution_family": "backend-integration-workbook",
+      "execution_label": "backend-integration phase4 authoritative workbook"
     }
   ],
   "e2e": [

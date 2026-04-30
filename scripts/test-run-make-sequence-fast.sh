@@ -318,6 +318,57 @@ assert_contains "${check_harness_quiet_output}" "[PASS] check-harness-smoke kind
 assert_contains "${check_harness_quiet_output}" "failed_children=none" "quiet check harness failure hint"
 assert_not_contains "${check_harness_quiet_output}" "[CHILD]" "quiet check harness hides child detail"
 
+harness_failure_dir="$(mktemp -d "${ROOT_DIR}/tmp/harness-smoke-failure.XXXXXX")"
+cleanup_paths+=("${harness_failure_dir}")
+mkdir -p "${harness_failure_dir}/scripts"
+cat >"${harness_failure_dir}/scripts/check-fail.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+exit 7
+EOF
+cat >"${harness_failure_dir}/scripts/check-skipped.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+EOF
+chmod +x "${harness_failure_dir}/scripts/check-fail.sh" "${harness_failure_dir}/scripts/check-skipped.sh"
+harness_failure_manifest="${harness_failure_dir}/manifest.json"
+"${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" "${harness_failure_manifest}" "${harness_failure_dir#${ROOT_DIR}/}/scripts" <<'EOF'
+const fs = require("node:fs");
+const [source, destination, scriptDir] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
+const checks = ["harness-fail-a", "harness-skipped-b"];
+manifest.harness_tiers.fast = { checks };
+manifest.harness_checks.push(
+  { name: "harness-fail-a", backing_scripts: [`${scriptDir}/check-fail.sh`] },
+  { name: "harness-skipped-b", backing_scripts: [`${scriptDir}/check-skipped.sh`] },
+);
+fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
+set +e
+harness_failure_output="$(
+  VERBOSE= \
+  CI_VERBOSE= \
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="${harness_failure_dir}/results" \
+  CARTULARY_TEST_RUN_ID="failure" \
+  TASK_SURFACE_MANIFEST="${harness_failure_manifest}" \
+    "${NODE_BIN:-node}" "${ROOT_DIR}/scripts/run-harness-smoke.mjs" --tier fast --jobs 1 --manifest "${harness_failure_manifest}" \
+    2>&1
+)"
+harness_failure_status=$?
+set -e
+assert_equals "${harness_failure_status}" "7" "failing harness preserves child status"
+assert_contains "${harness_failure_output}" "[CHILD-SKIPPED] run-harness-smoke-fast harness-skipped-b reason=schedule_stopped_after_failure failed_dependency=harness-fail-a" "failing harness reports skipped child"
+assert_not_contains "${harness_failure_output}" "[CHILD-MISSING] run-harness-smoke-fast harness-skipped-b" "failing harness does not report skipped child missing"
+assert_not_contains "${harness_failure_output}" "missing child target summary: harness-skipped-b" "failing harness does not create missing child artifact failure"
+harness_failure_summary="${harness_failure_dir}/results/failure/run-harness-smoke-fast/target-summary.json"
+assert_equals "$(json_field "${harness_failure_summary}" "children.missing.length")" "0" "failing harness skipped child missing list"
+assert_equals "$(json_field "${harness_failure_summary}" "children.skipped.0.target")" "harness-skipped-b" "failing harness skipped child target"
+assert_equals "$(json_field "${harness_failure_summary}" "children.skipped.0.reason")" "schedule_stopped_after_failure" "failing harness skipped child reason"
+assert_equals "$(json_field "${harness_failure_summary}" "children.skipped.0.failed_dependency")" "harness-fail-a" "failing harness skipped child dependency"
+assert_equals "$(json_field "${harness_failure_summary}" "children.failed_targets.0")" "harness-fail-a" "failing harness failed child"
+
 invalid_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-invalid.XXXXXX")"
 cleanup_paths+=("${invalid_dir}")
 write_fake_make "${invalid_dir}"
