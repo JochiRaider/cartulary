@@ -1,14 +1,17 @@
 {
   "compilerOptions": {
     "strict": true,
+    "noImplicitReturns": true,
     "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
     "useDefineForClassFields": true,
     "noEmit": true,
     "skipLibCheck": true
   }
 }
-

@@ -191,12 +191,15 @@ fi
 if ! [[ -f "$repo_root/tsconfig.json" ]]; then
   fail "missing root TypeScript solution config"
 fi
+if ! [[ -f "$repo_root/tsconfig.base.json" ]]; then
+  fail "missing root TypeScript base config"
+fi
 if ! [[ -f "$repo_root/apps/web/tsconfig.e2e.json" ]]; then
   fail "missing apps/web e2e TypeScript config"
 fi
-"$node_bin" - "$repo_root/package.json" "$repo_root/tsconfig.json" "$repo_root/apps/web/tsconfig.e2e.json" <<'EOF'
+"$node_bin" - "$repo_root/package.json" "$repo_root/tsconfig.json" "$repo_root/tsconfig.base.json" "$repo_root/apps/web/tsconfig.e2e.json" <<'EOF'
 const fs = require("node:fs");
-const [packagePath, rootConfigPath, e2eConfigPath] = process.argv.slice(2);
+const [packagePath, rootConfigPath, baseConfigPath, e2eConfigPath] = process.argv.slice(2);
 const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"));
 if (packageJson.scripts?.typecheck !== "tsc -b tsconfig.json --noEmit --incremental false --pretty false") {
   throw new Error("root package.json must expose the canonical workspace typecheck script");
@@ -213,6 +216,17 @@ for (const required of [
 ]) {
   if (!references.has(required)) {
     throw new Error(`root tsconfig.json references are missing ${required}`);
+  }
+}
+const baseConfig = JSON.parse(fs.readFileSync(baseConfigPath, "utf8"));
+for (const required of [
+  "noImplicitReturns",
+  "noUnusedLocals",
+  "noUnusedParameters",
+  "verbatimModuleSyntax",
+]) {
+  if (baseConfig.compilerOptions?.[required] !== true) {
+    throw new Error(`tsconfig.base.json compilerOptions.${required} must be true`);
   }
 }
 const e2eConfig = JSON.parse(fs.readFileSync(e2eConfigPath, "utf8"));
