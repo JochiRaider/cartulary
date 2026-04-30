@@ -7,12 +7,12 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 
-import type { StorageState } from "@playwright/test";
 import {
   resolvePlaywrightStateDirectory,
   resolvePlaywrightStateFile,
 } from "./harnessState";
 import { cookieValueFromStorageState, sessionCookieName } from "./helpers";
+import type { StorageState } from "./playwrightTypes";
 
 export type WorkerAdminBlueprint = {
   parallelIndex: number;

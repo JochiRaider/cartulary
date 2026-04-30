@@ -16,6 +16,7 @@ const underRatio = 1.75;
 const underDeltaMs = 5000;
 const overRatio = 3;
 const overDeltaMs = 15000;
+const rawPackageDetailLimit = 5;
 
 function usage() {
   process.stderr.write(
@@ -73,6 +74,9 @@ function componentDescription(components) {
   if (!components) {
     return "";
   }
+  if (components.rawPackages) {
+    return rawPackageComponentDescription(components.rawPackages);
+  }
   return [
     `planned_tests_ms=${components.plannedTestsMs}`,
     `actual_tests_ms=${components.actualTestsMs}`,
@@ -81,6 +85,38 @@ function componentDescription(components) {
     `planned_command_overhead_ms=${components.plannedCommandOverheadMs}`,
     `actual_command_overhead_ms=${components.actualCommandOverheadMs}`,
   ].join(" ");
+}
+
+function formatSignedMs(value) {
+  return value > 0 ? `+${value}` : String(value);
+}
+
+function rawPackageComponentDescription(components) {
+  if (!components || components.length === 0) {
+    return "";
+  }
+  const selected = [...components]
+    .sort(
+      (left, right) =>
+        Math.abs(right.actualMs - right.plannedMs) -
+          Math.abs(left.actualMs - left.plannedMs) ||
+        right.actualMs - left.actualMs ||
+        left.packageName.localeCompare(right.packageName),
+    )
+    .slice(0, rawPackageDetailLimit);
+  const details = selected
+    .map((component) =>
+      [
+        `package=${component.packageName}`,
+        `planned_ms=${component.plannedMs}`,
+        `actual_ms=${component.actualMs}`,
+        `delta_ms=${formatSignedMs(component.actualMs - component.plannedMs)}`,
+        `ratio=${formatRatio(component.actualMs, component.plannedMs)}`,
+      ].join(" "),
+    )
+    .join("; ");
+  const omitted = components.length - selected.length;
+  return `raw_packages=[${details}]${omitted > 0 ? ` raw_package_omitted=${omitted}` : ""}`;
 }
 
 function checkShardDrift(errors, warnings, artifact, planned, components = null) {
@@ -119,6 +155,7 @@ function main(argv) {
     if (artifact.observedRawPackages?.length > 0) {
       let planned = 0;
       const missing = [];
+      const rawPackageComponents = [];
       for (const observedPackage of artifact.observedRawPackages) {
         const rawPackageWeight = baseline.rawAggregates.get(observedPackage.key);
         if (!validBaselineValue(rawPackageWeight)) {
@@ -126,6 +163,11 @@ function main(argv) {
           continue;
         }
         planned += rawPackageWeight;
+        rawPackageComponents.push({
+          packageName: observedPackage.packageName,
+          plannedMs: rawPackageWeight,
+          actualMs: observedPackage.durationMs,
+        });
       }
       for (const key of missing) {
         errors.push(`missing ${key} shard=${artifact.shardName}`);
@@ -133,7 +175,9 @@ function main(argv) {
       if (planned <= 0 || missing.length > 0) {
         continue;
       }
-      checkShardDrift(errors, warnings, artifact, planned);
+      checkShardDrift(errors, warnings, artifact, planned, {
+        rawPackages: rawPackageComponents,
+      });
       continue;
     }
 

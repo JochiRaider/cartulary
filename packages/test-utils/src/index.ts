@@ -101,7 +101,7 @@ type BrowserLocator = {
   fill: (value: string) => Promise<void>;
   press?: (value: string) => Promise<void>;
   scrollIntoViewIfNeeded?: () => Promise<void>;
-  selectOption?: (value: string) => Promise<void>;
+  selectOption?: (value: string | readonly string[]) => Promise<unknown>;
 };
 
 type BrowserPageLike = {

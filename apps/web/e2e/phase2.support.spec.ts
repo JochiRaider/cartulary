@@ -175,24 +175,26 @@ test("supports reserved-family dispatch precedence probes while ordinary base an
   expect(await readyResponse.text()).toContain("ready");
 
   const importProfile = extensionProfile("import");
+  const importRouteFamily = routeFamily(importProfile);
   await expectAPIError(
-    await page.request.get(`${apiBase}${importProfile.route_families[0]}`),
+    await page.request.get(`${apiBase}${importRouteFamily}`),
     "extension_profile_not_claimed",
     {
       profile_id: importProfile.profile_id,
-      route_family: importProfile.route_families[0],
+      route_family: importRouteFamily,
     },
   );
 
   const enterpriseProfile = extensionProfile("enterprise_authentication");
+  const enterpriseRouteFamily = routeFamily(enterpriseProfile);
   await expectAPIError(
     await page.request.get(
-      `${apiBase}${enterpriseProfile.route_families[0].replace("{user_id}", "00000000-0000-0000-0000-000000000001")}/provider`,
+      `${apiBase}${enterpriseRouteFamily.replace("{user_id}", "00000000-0000-0000-0000-000000000001")}/provider`,
     ),
     "extension_profile_not_claimed",
     {
       profile_id: enterpriseProfile.profile_id,
-      route_family: enterpriseProfile.route_families[0],
+      route_family: enterpriseRouteFamily,
     },
   );
 
@@ -224,7 +226,7 @@ async function expectAPIError(
 
 function errorContract(code: string): ErrorContract {
   const registry = JSON.parse(
-    contractArtifactIndex["contracts/errors/index.json"].json,
+    contractArtifactJSON("contracts/errors/index.json"),
   ) as {
     errors: ErrorContract[];
   };
@@ -237,9 +239,7 @@ function errorContract(code: string): ErrorContract {
 
 function extensionRegistry(): ExtensionProfileContract[] {
   return (
-    JSON.parse(
-      contractArtifactIndex["contracts/extensions/index.json"].json,
-    ) as {
+    JSON.parse(contractArtifactJSON("contracts/extensions/index.json")) as {
       profiles: ExtensionProfileContract[];
     }
   ).profiles;
@@ -253,4 +253,22 @@ function extensionProfile(profileID: string): ExtensionProfileContract {
     throw new Error(`missing extension profile contract for ${profileID}`);
   }
   return match;
+}
+
+function routeFamily(profile: ExtensionProfileContract) {
+  const route = profile.route_families[0];
+  if (!route) {
+    throw new Error(
+      `missing route family for extension profile ${profile.profile_id}`,
+    );
+  }
+  return route;
+}
+
+function contractArtifactJSON(path: string) {
+  const artifact = contractArtifactIndex[path];
+  if (!artifact) {
+    throw new Error(`missing contract artifact ${path}`);
+  }
+  return artifact.json;
 }

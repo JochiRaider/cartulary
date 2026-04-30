@@ -49,16 +49,17 @@ describe("reconcileWorkerAdminManifest", () => {
 
   it("rediscovers deterministic worker-admin users when local manifest state is missing", async () => {
     const blueprints = buildBlueprints(1);
+    const blueprint = requireBlueprint(blueprints, 0);
     const fake = createFakeControlPlane([
       {
         user_id: "worker-0",
-        email: blueprints[0].email,
+        email: blueprint.email,
         display_name: "Outdated Worker Admin",
         user_version: 3,
         is_active: false,
         mfa_required: true,
         is_deployment_admin: false,
-        password: blueprints[0].password,
+        password: blueprint.password,
       },
     ]);
 
@@ -74,19 +75,20 @@ describe("reconcileWorkerAdminManifest", () => {
       {
         parallel_index: 0,
         user_id: "worker-0",
-        email: blueprints[0].email,
-        password: blueprints[0].password,
+        email: blueprint.email,
+        password: blueprint.password,
       },
     ]);
   });
 
   it("resets the canonical password when a reused worker-admin user can no longer log in", async () => {
     const blueprints = buildBlueprints(1);
+    const blueprint = requireBlueprint(blueprints, 0);
     const fake = createFakeControlPlane([
       {
         user_id: "worker-0",
-        email: blueprints[0].email,
-        display_name: blueprints[0].displayName,
+        email: blueprint.email,
+        display_name: blueprint.displayName,
         user_version: 1,
         is_active: true,
         mfa_required: false,
@@ -103,8 +105,8 @@ describe("reconcileWorkerAdminManifest", () => {
           {
             parallel_index: 0,
             user_id: "worker-0",
-            email: blueprints[0].email,
-            password: blueprints[0].password,
+            email: blueprint.email,
+            password: blueprint.password,
           },
         ],
       },
@@ -198,6 +200,17 @@ function buildBlueprints(workerCount: number) {
     password: `PlaywrightWorker${parallelIndex}Pass!`,
     displayName: `Playwright Worker Admin ${parallelIndex}`,
   })) satisfies WorkerAdminBlueprint[];
+}
+
+function requireBlueprint(
+  blueprints: WorkerAdminBlueprint[],
+  index: number,
+): WorkerAdminBlueprint {
+  const blueprint = blueprints[index];
+  if (!blueprint) {
+    throw new Error(`missing worker admin blueprint ${index}`);
+  }
+  return blueprint;
 }
 
 function createFakeControlPlane(

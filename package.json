@@ -8,9 +8,11 @@
   },
   "scripts": {
     "build": "pnpm --dir apps/web build",
-    "test": "pnpm --dir apps/web test --run"
+    "test": "pnpm --dir apps/web test --run",
+    "typecheck": "tsc -b tsconfig.json --noEmit --incremental false --pretty false"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.12"
+    "@biomejs/biome": "2.4.12",
+    "typescript": "6.0.2"
   }
 }

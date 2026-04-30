@@ -1,0 +1,11 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/protocol-ts" },
+    { "path": "./packages/view-contracts" },
+    { "path": "./packages/test-utils" },
+    { "path": "./packages/grid-adapter" },
+    { "path": "./apps/web" },
+    { "path": "./apps/web/tsconfig.e2e.json" }
+  ]
+}

@@ -6,7 +6,6 @@ import {
   expect,
   type Page,
   request,
-  type StorageState,
 } from "@playwright/test";
 import {
   loginBootstrapControlPlaneContext,
@@ -23,6 +22,7 @@ import {
   applyStorageState,
   authHeadersForStorageState,
 } from "./helpers";
+import type { StorageState } from "./playwrightTypes";
 import {
   loadWorkerAdminManifest,
   markWorkerAdminCleaned,
@@ -65,153 +65,164 @@ type SessionTracker = {
   ) => Promise<BrowserContext>;
 };
 
-export const test = base.extend<{
+type CartularyTestFixtures = {
   sessionTracker: SessionTracker;
-  workerAdmin: WorkerAdmin;
   workerAdminPage: Page;
   workerAdminRequest: APIRequestContext;
-}>({
-  workerAdmin: [
-    async ({ browserName }, use, workerInfo) => {
-      void browserName;
-      const workerAdminIndex =
-        workerInfo.parallelIndex + workerAdminIndexOffset();
-      const manifest = loadWorkerAdminManifest();
-      const entry = manifest.worker_admins.find(
-        (candidate) => candidate.parallel_index === workerAdminIndex,
-      );
-      if (!entry) {
-        throw new Error(
-          `missing worker admin manifest entry for parallelIndex=${workerAdminIndex}`,
-        );
-      }
+};
 
-      const workerAdmin = await loginWorkerAdminContext(entry);
-      await use(workerAdmin);
+type CartularyWorkerFixtures = {
+  workerAdmin: WorkerAdmin;
+};
 
-      const controlPlane = await loginBootstrapControlPlaneContext();
-      try {
-        await revokeAllSessions(
-          controlPlane.request,
-          workerAdmin.user_id,
-          `playwright worker teardown worker=${workerAdminIndex}`,
+export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
+  {
+    workerAdmin: [
+      async ({ browserName }, use, workerInfo) => {
+        void browserName;
+        const workerAdminIndex =
+          workerInfo.parallelIndex + workerAdminIndexOffset();
+        const manifest = loadWorkerAdminManifest();
+        const entry = manifest.worker_admins.find(
+          (candidate) => candidate.parallel_index === workerAdminIndex,
         );
-        await verifySessionUnauthorized(
-          workerAdmin.storageState,
-          `${workerAdmin.user_id} (${workerAdmin.email}) worker admin cached session`,
-        );
-        markWorkerAdminCleaned(workerAdminIndex);
-      } finally {
-        await logoutAndVerify(
-          controlPlane.request,
-          controlPlane.storageState,
-          `bootstrap control-plane worker teardown worker=${workerAdminIndex}`,
-        );
-        await controlPlane.request.dispose();
-      }
+        if (!entry) {
+          throw new Error(
+            `missing worker admin manifest entry for parallelIndex=${workerAdminIndex}`,
+          );
+        }
+
+        const workerAdmin = await loginWorkerAdminContext(entry);
+        await use(workerAdmin);
+
+        const controlPlane = await loginBootstrapControlPlaneContext();
+        try {
+          await revokeAllSessions(
+            controlPlane.request,
+            workerAdmin.user_id,
+            `playwright worker teardown worker=${workerAdminIndex}`,
+          );
+          await verifySessionUnauthorized(
+            workerAdmin.storageState,
+            `${workerAdmin.user_id} (${workerAdmin.email}) worker admin cached session`,
+          );
+          markWorkerAdminCleaned(workerAdminIndex);
+        } finally {
+          await logoutAndVerify(
+            controlPlane.request,
+            controlPlane.storageState,
+            `bootstrap control-plane worker teardown worker=${workerAdminIndex}`,
+          );
+          await controlPlane.request.dispose();
+        }
+      },
+      { scope: "worker" },
+    ],
+
+    context: async ({ browser, workerAdmin }, use) => {
+      const context = await browser.newContext({
+        storageState: workerAdmin.storageState,
+      });
+      await use(context);
+      await context.close();
     },
-    { scope: "worker" },
-  ],
 
-  context: async ({ browser, workerAdmin }, use) => {
-    const context = await browser.newContext({
-      storageState: workerAdmin.storageState,
-    });
-    await use(context);
-    await context.close();
-  },
+    page: async ({ context }, use) => {
+      const page = await context.newPage();
+      await use(page);
+    },
 
-  page: async ({ context }, use) => {
-    const page = await context.newPage();
-    await use(page);
-  },
+    workerAdminPage: async ({ page }, use) => {
+      await use(page);
+    },
 
-  workerAdminPage: async ({ page }, use) => {
-    await use(page);
-  },
+    workerAdminRequest: async ({ workerAdmin }, use) => {
+      const authRequests = await request.newContext({
+        baseURL: apiBase,
+        extraHTTPHeaders: authHeadersForStorageState(workerAdmin.storageState),
+      });
+      await use(authRequests);
+      await authRequests.dispose();
+    },
 
-  workerAdminRequest: async ({ workerAdmin }, use) => {
-    const authRequests = await request.newContext({
-      baseURL: apiBase,
-      extraHTTPHeaders: authHeadersForStorageState(workerAdmin.storageState),
-    });
-    await use(authRequests);
-    await authRequests.dispose();
-  },
-
-  sessionTracker: async ({ workerAdminRequest }, use, testInfo) => {
-    const tracker = new OwnedSessionTracker({
-      label: `${testInfo.file} :: ${testInfo.title}`,
-      revokeAllSessions: async (userId, reason) => {
-        await revokeAllSessions(workerAdminRequest, userId, reason);
-      },
-      verifyRevokedSession,
-    });
-
-    const sessionTracker = {
-      captureCurrentSession: async (
-        page: Page,
-        details: {
-          createdBy: string;
-          email: string;
-          purpose: string;
-          userId: string;
+    sessionTracker: async ({ workerAdminRequest }, use, testInfo) => {
+      const tracker = new OwnedSessionTracker({
+        label: `${testInfo.file} :: ${testInfo.title}`,
+        revokeAllSessions: async (userId, reason) => {
+          await revokeAllSessions(workerAdminRequest, userId, reason);
         },
-      ) => {
-        tracker.registerSession({
-          ...details,
-          storageState: await pageAuthStorageState(page),
-        });
-      },
+        verifyRevokedSession,
+      });
 
-      captureStorageState: async (
-        storageState: StorageState,
-        details: {
-          createdBy: string;
-          email: string;
-          purpose: string;
-          userId: string;
+      const sessionTracker = {
+        captureCurrentSession: async (
+          page: Page,
+          details: {
+            createdBy: string;
+            email: string;
+            purpose: string;
+            userId: string;
+          },
+        ) => {
+          tracker.registerSession({
+            ...details,
+            storageState: await pageAuthStorageState(page),
+          });
         },
-      ) => {
-        tracker.registerSession({
-          ...details,
-          storageState,
-        });
-      },
 
-      loginTrackedUser: async (
-        page: Page,
-        details: {
-          createdBy: string;
-          email: string;
-          password: string;
-          purpose: string;
-          secondFactorCode?: string | null;
-          userId: string;
+        captureStorageState: async (
+          storageState: StorageState,
+          details: {
+            createdBy: string;
+            email: string;
+            purpose: string;
+            userId: string;
+          },
+        ) => {
+          tracker.registerSession({
+            ...details,
+            storageState,
+          });
         },
-      ) => {
-        await loginTrackedUserViaPage(page, {
-          email: details.email,
-          password: details.password,
-          secondFactorCode: details.secondFactorCode,
-        });
-        tracker.registerSession({
-          createdBy: details.createdBy,
-          email: details.email,
-          purpose: details.purpose,
-          storageState: await pageAuthStorageState(page),
-          userId: details.userId,
-        });
-      },
 
-      newTrackedContext: async (browser: Browser, storageState: StorageState) =>
-        tracker.newTrackedContext(browser, storageState),
-    } satisfies SessionTracker;
+        loginTrackedUser: async (
+          page: Page,
+          details: {
+            createdBy: string;
+            email: string;
+            password: string;
+            purpose: string;
+            secondFactorCode?: string | null;
+            userId: string;
+          },
+        ) => {
+          await loginTrackedUserViaPage(page, {
+            email: details.email,
+            password: details.password,
+            ...(details.secondFactorCode === undefined
+              ? {}
+              : { secondFactorCode: details.secondFactorCode }),
+          });
+          tracker.registerSession({
+            createdBy: details.createdBy,
+            email: details.email,
+            purpose: details.purpose,
+            storageState: await pageAuthStorageState(page),
+            userId: details.userId,
+          });
+        },
 
-    await use(sessionTracker);
-    await tracker.cleanup();
+        newTrackedContext: async (
+          browser: Browser,
+          storageState: StorageState,
+        ) => tracker.newTrackedContext(browser, storageState),
+      } satisfies SessionTracker;
+
+      await use(sessionTracker);
+      await tracker.cleanup();
+    },
   },
-});
+);
 
 export async function restoreTrackedStorageState(
   page: Page,

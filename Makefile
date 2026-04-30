@@ -393,7 +393,7 @@ frontend-unit: export CARTULARY_TEST_TARGET := frontend-unit
 frontend-typecheck: export CARTULARY_TEST_TARGET := frontend-typecheck
 
 frontend-typecheck: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "frontend typecheck" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec tsc --noEmit $(TSC_FLAGS)
+	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "frontend typecheck" -- $(PNPM_ENV) $(PNPM) typecheck
 	$(TARGET_SUMMARY) frontend-typecheck pass
 
 frontend-unit: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)

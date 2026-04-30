@@ -326,7 +326,7 @@ export async function waitForViewRowByCell(
   viewSchemaId: string,
   fieldKey: string,
   value: string,
-) {
+): Promise<ViewRow> {
   let match: ViewRow | null = null;
   await expect
     .poll(async () => {
@@ -339,7 +339,19 @@ export async function waitForViewRowByCell(
       return match !== null;
     })
     .toBe(true);
-  return match as ViewRow;
+  return requirePolledViewRow(match, viewSchemaId, fieldKey, value);
+}
+
+function requirePolledViewRow(
+  row: ViewRow | null,
+  viewSchemaId: string,
+  fieldKey: string,
+  value: string,
+) {
+  if (row === null) {
+    throw new Error(`missing ${viewSchemaId} row where ${fieldKey}=${value}`);
+  }
+  return row;
 }
 
 export async function editGenericCell(

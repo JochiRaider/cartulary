@@ -18,7 +18,17 @@ export function webE2EBaseConfig(
 ): PlaywrightTestConfig {
   const useExternalServer =
     process.env.CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER === "1";
-  const { use, ...rest } = overrides;
+  const { use, webServer, ...rest } = overrides;
+  const defaultWebServer = {
+    command: "bash ./scripts/start-web-e2e.sh",
+    cwd: path.resolve(currentDirectory, "..", ".."),
+    url: publicOrigin,
+    reuseExistingServer: false,
+    timeout: 180_000,
+  };
+  const resolvedWebServer = useExternalServer
+    ? undefined
+    : (webServer ?? defaultWebServer);
 
   return {
     testDir: "./e2e",
@@ -35,15 +45,9 @@ export function webE2EBaseConfig(
       trace: "retain-on-failure",
       ...use,
     },
-    webServer: useExternalServer
-      ? undefined
-      : {
-          command: "bash ./scripts/start-web-e2e.sh",
-          cwd: path.resolve(currentDirectory, "..", ".."),
-          url: publicOrigin,
-          reuseExistingServer: false,
-          timeout: 180_000,
-        },
+    ...(resolvedWebServer === undefined
+      ? {}
+      : { webServer: resolvedWebServer }),
     ...rest,
   };
 }

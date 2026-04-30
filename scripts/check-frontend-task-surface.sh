@@ -185,8 +185,57 @@ fi
 if ! rg -q '^frontend-typecheck:[[:space:]]+export CARTULARY_TEST_TARGET := frontend-typecheck$' "$makefile"; then
   fail "frontend-typecheck must export CARTULARY_TEST_TARGET"
 fi
-if ! printf '%s\n' "$frontend_typecheck_block" | grep -Fq 'tsc --noEmit'; then
-  fail "frontend-typecheck must run the frontend TypeScript compiler"
+if ! printf '%s\n' "$frontend_typecheck_block" | grep -Fq '$(PNPM) typecheck'; then
+  fail "frontend-typecheck must run the root workspace TypeScript typecheck script"
+fi
+if ! [[ -f "$repo_root/tsconfig.json" ]]; then
+  fail "missing root TypeScript solution config"
+fi
+if ! [[ -f "$repo_root/apps/web/tsconfig.e2e.json" ]]; then
+  fail "missing apps/web e2e TypeScript config"
+fi
+"$node_bin" - "$repo_root/package.json" "$repo_root/tsconfig.json" "$repo_root/apps/web/tsconfig.e2e.json" <<'EOF'
+const fs = require("node:fs");
+const [packagePath, rootConfigPath, e2eConfigPath] = process.argv.slice(2);
+const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+if (packageJson.scripts?.typecheck !== "tsc -b tsconfig.json --noEmit --incremental false --pretty false") {
+  throw new Error("root package.json must expose the canonical workspace typecheck script");
+}
+const rootConfig = JSON.parse(fs.readFileSync(rootConfigPath, "utf8"));
+const references = new Set((rootConfig.references ?? []).map((entry) => entry.path));
+for (const required of [
+  "./apps/web",
+  "./apps/web/tsconfig.e2e.json",
+  "./packages/grid-adapter",
+  "./packages/protocol-ts",
+  "./packages/test-utils",
+  "./packages/view-contracts",
+]) {
+  if (!references.has(required)) {
+    throw new Error(`root tsconfig.json references are missing ${required}`);
+  }
+}
+const e2eConfig = JSON.parse(fs.readFileSync(e2eConfigPath, "utf8"));
+const includes = new Set(e2eConfig.include ?? []);
+for (const required of [
+  "playwright.config.ts",
+  "playwright.shared.config.ts",
+  "playwright.webserver-backed.config.ts",
+  "e2e/**/*.ts",
+]) {
+  if (!includes.has(required)) {
+    throw new Error(`apps/web/tsconfig.e2e.json include is missing ${required}`);
+  }
+}
+const types = new Set(e2eConfig.compilerOptions?.types ?? []);
+for (const required of ["node", "@playwright/test"]) {
+  if (!types.has(required)) {
+    throw new Error(`apps/web/tsconfig.e2e.json compilerOptions.types is missing ${required}`);
+  }
+}
+EOF
+if printf '%s\n' "$frontend_typecheck_block" | grep -Fq -- '--dir apps/web exec tsc'; then
+  fail "frontend-typecheck must not remain app-only"
 fi
 if ! printf '%s\n' "$frontend_typecheck_block" | grep -Fq '$(TARGET_SUMMARY) frontend-typecheck pass'; then
   fail "frontend-typecheck must emit a target summary"

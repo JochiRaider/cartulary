@@ -225,6 +225,8 @@ if [[ "$underplanned_raw_status" -eq 0 ]]; then
   fail "underplanned raw drift should fail"
 fi
 assert_contains "$underplanned_raw_output" "underplanned shard=backend-integration-testutil-shard-01" "underplanned raw drift"
+assert_contains "$underplanned_raw_output" "raw_packages=[" "underplanned raw package detail"
+assert_contains "$underplanned_raw_output" "package=github.com/JochiRaider/cartulary/internal/testutil/pgtest planned_ms=100 actual_ms=5000 delta_ms=+4900 ratio=50.00" "underplanned raw pgtest detail"
 
 cat >"$tmp_dir/underplanned-components.json" <<'JSON'
 {

@@ -1,9 +1,4 @@
-import {
-  type APIRequestContext,
-  type Page,
-  request,
-  type StorageState,
-} from "@playwright/test";
+import { type APIRequestContext, type Page, request } from "@playwright/test";
 
 import {
   apiBase,
@@ -21,6 +16,7 @@ import {
   uniqueTxn,
   waitForAPIReady,
 } from "./helpers";
+import type { StorageState } from "./playwrightTypes";
 import {
   buildWorkerAdminBlueprints,
   clearWorkerAdminCleanupMarkers,

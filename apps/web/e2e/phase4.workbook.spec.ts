@@ -61,19 +61,29 @@ test("E-4-05 creates append-only assessment history through the workbook UI", as
     subject.record_id,
   );
 
-  const created: Record<string, ViewRow> = {};
-  for (const entry of [
+  type AssessmentState =
+    | "cleared"
+    | "confirmed"
+    | "disproven"
+    | "suspected"
+    | "unknown";
+  const assessmentEntries: Array<{
+    state: AssessmentState;
+    band: string;
+    assessedAt: string;
+    supportRefs: string[];
+  }> = [
     {
       state: "unknown",
       band: "unset",
       assessedAt: "2026-04-24T10:00:00Z",
-      supportRefs: [] as string[],
+      supportRefs: [],
     },
     {
       state: "suspected",
       band: "low",
       assessedAt: "2026-04-24T11:00:00Z",
-      supportRefs: [] as string[],
+      supportRefs: [],
     },
     {
       state: "confirmed",
@@ -85,15 +95,17 @@ test("E-4-05 creates append-only assessment history through the workbook UI", as
       state: "disproven",
       band: "medium",
       assessedAt: "2026-04-24T13:00:00Z",
-      supportRefs: [] as string[],
+      supportRefs: [],
     },
     {
       state: "cleared",
       band: "high",
       assessedAt: "2026-04-24T14:00:00Z",
-      supportRefs: [] as string[],
+      supportRefs: [],
     },
-  ]) {
+  ];
+  const created = {} as Record<AssessmentState, ViewRow>;
+  for (const entry of assessmentEntries) {
     created[entry.state] = await createAssessmentViaUI(page, {
       assessedAt: entry.assessedAt,
       confidenceBand: entry.band,

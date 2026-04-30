@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node", "@playwright/test", "vitest/globals"],
+    "noEmit": true
+  },
+  "include": [
+    "playwright.config.ts",
+    "playwright.shared.config.ts",
+    "playwright.webserver-backed.config.ts",
+    "e2e/**/*.ts"
+  ]
+}

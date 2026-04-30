@@ -14,7 +14,6 @@ import {
   type Page,
   type Route,
   request,
-  type StorageState,
 } from "@playwright/test";
 
 import {
@@ -22,6 +21,7 @@ import {
   resolvePlaywrightStateFile,
   sharedPlaywrightStateDir,
 } from "./harnessState";
+import type { StorageState } from "./playwrightTypes";
 
 export const bootstrapEmail = "dev-admin@example.test";
 export const bootstrapPassword = "DevBootstrap1!";
@@ -461,13 +461,24 @@ export async function createIncidentMemberUser(
     is_deployment_admin?: boolean;
   },
 ) {
-  const user = await createLocalUser(page, {
+  const userOptions: {
+    email: string;
+    display_name: string;
+    initial_password: string;
+    mfa_required?: boolean;
+    is_deployment_admin?: boolean;
+  } = {
     email: options.email,
     display_name: options.display_name,
     initial_password: options.initial_password,
-    mfa_required: options.mfa_required,
-    is_deployment_admin: options.is_deployment_admin,
-  });
+  };
+  if (options.mfa_required !== undefined) {
+    userOptions.mfa_required = options.mfa_required;
+  }
+  if (options.is_deployment_admin !== undefined) {
+    userOptions.is_deployment_admin = options.is_deployment_admin;
+  }
+  const user = await createLocalUser(page, userOptions);
   await createIncidentMembership(page, incidentId, options.email, options.role);
   return {
     ...user,
@@ -656,12 +667,29 @@ export function generateTotpCode(secretBase32: string) {
   const counterBuffer = Buffer.alloc(8);
   counterBuffer.writeBigUInt64BE(BigInt(counter));
   const digest = createHmac("sha1", secret).update(counterBuffer).digest();
-  const offset = digest[digest.length - 1] & 0x0f;
+  const offsetSource = digest.at(-1);
+  if (offsetSource === undefined) {
+    throw new Error("empty TOTP digest");
+  }
+  const offset = offsetSource & 0x0f;
+  const codeBytes = digest.subarray(offset, offset + 4);
+  if (codeBytes.length !== 4) {
+    throw new Error("short TOTP digest window");
+  }
+  const [byte0, byte1, byte2, byte3] = codeBytes;
+  if (
+    byte0 === undefined ||
+    byte1 === undefined ||
+    byte2 === undefined ||
+    byte3 === undefined
+  ) {
+    throw new Error("short TOTP digest window");
+  }
   const code =
-    ((digest[offset] & 0x7f) << 24) |
-    ((digest[offset + 1] & 0xff) << 16) |
-    ((digest[offset + 2] & 0xff) << 8) |
-    (digest[offset + 3] & 0xff);
+    ((byte0 & 0x7f) << 24) |
+    ((byte1 & 0xff) << 16) |
+    ((byte2 & 0xff) << 8) |
+    (byte3 & 0xff);
   return String(code % 1_000_000).padStart(6, "0");
 }
 
@@ -1029,7 +1057,7 @@ function suiteAdminAuthClient(
       const response = await loginLocalAPIContext(authRequests, {
         email: bootstrapEmail,
         password: bootstrapPassword,
-        secondFactorCode,
+        ...(secondFactorCode === undefined ? {} : { secondFactorCode }),
       });
       return readLocalLoginResult(response);
     },
