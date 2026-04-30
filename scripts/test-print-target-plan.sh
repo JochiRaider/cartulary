@@ -192,6 +192,10 @@ fi
 make_rows_output="$("$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" explain-target TARGET=backend-store DETAIL=rows)"
 assert_contains "$make_rows_output" "phase1 unit authoritative" "make explain-target row mode"
 
+make_target_plan_json="$tmp_dir/make-target-plan.json"
+"$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" target-plan-json >"$make_target_plan_json"
+"$NODE_HELPER" -e 'const plan = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); if (!Array.isArray(plan) || plan.length === 0) process.exit(1);' "$make_target_plan_json"
+
 phase_root="$tmp_dir/phase-root"
 mkdir -p "$phase_root/tools"
 cp "$ROOT_DIR"/tools/phase*_test_map.json "$phase_root/tools/"

@@ -383,86 +383,10 @@ phase-schedule-drift: $(NODE_BIN)
 benchmark-claim-check: $(NODE_BIN)
 	$(RUN_PHASE) "benchmark-claim-check" -- $(NODE_BIN) ./scripts/check-benchmark-claim.mjs "$(BENCHMARK_MANIFEST)"
 
-task-surface-report: $(NODE_BIN)
-	$(Q)$(NODE_BIN) ./scripts/print-task-surface-report.mjs $(TASK_SURFACE_REPORT_ARGS)
-
-task-guide:
-	$(Q)set -euo pipefail; \
-	node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; \
-	args=(); \
-	if [ -n "$(ROLE)" ]; then args+=(--role "$(ROLE)"); fi; \
-	if [ -n "$(PHASE)" ]; then args+=(--phase "$(PHASE)"); fi; \
-	if [ "$(JSON)" = "1" ]; then args+=(--json); fi; \
-	"$$node_cmd" ./scripts/print-task-guide.mjs "$${args[@]}"
-
 test-service-images: $(TEST_SERVICES_BIN)
 	$(RUN_PHASE) "warm test service images" -- $(TEST_SERVICES_BIN) warm-images
 
 test-local: backend-unit frontend-typecheck frontend-unit
-
-target-plan:
-	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/print-target-plan.mjs
-
-target-plan-json:
-	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/print-target-plan.mjs --json
-
-fixture-report:
-	$(Q)set -euo pipefail; \
-	node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; \
-	results_dir="$(if $(RESULTS_DIR),$(RESULTS_DIR),$(CARTULARY_TEST_RESULTS_DIR))"; \
-	args=(--results-dir "$$results_dir" --threshold-ms "$(FIXTURE_THRESHOLD_MS)" --top "$(FIXTURE_TOP)"); \
-	if [ -n "$(RUN_ID)" ]; then args+=(--run-id "$(RUN_ID)"); fi; \
-	if [ -n "$(TARGET)" ]; then args+=(--target "$(TARGET)"); fi; \
-	if [ "$(JSON)" = "1" ]; then args+=(--json); fi; \
-	"$$node_cmd" ./scripts/print-fixture-report.mjs "$${args[@]}"
-
-explain-run:
-	$(Q)if [ -z "$(RESULTS_DIR)" ]; then echo "usage: make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs]" >&2; exit 2; fi
-	$(Q)set -euo pipefail; \
-	node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; \
-	args=(--results-dir "$(RESULTS_DIR)" --detail "$(if $(DETAIL),$(DETAIL),summary)"); \
-	if [ -n "$(RUN_ID)" ]; then args+=(--run-id "$(RUN_ID)"); fi; \
-	if [ -n "$(TARGET)" ]; then args+=(--target "$(TARGET)"); fi; \
-	"$$node_cmd" ./scripts/print-explain-run.mjs "$${args[@]}"
-
-explain-phase:
-	$(Q)if [ -z "$(PHASE)" ]; then echo "usage: make explain-phase PHASE=<phaseN>" >&2; exit 2; fi
-	$(Q)set -euo pipefail; \
-	node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; \
-	args=(--phase "$(PHASE)"); \
-	if [ "$(JSON)" = "1" ]; then args+=(--json); fi; \
-	"$$node_cmd" ./scripts/print-explain-phase.mjs "$${args[@]}"
-
-explain-target:
-	$(Q)if [ -z "$(TARGET)" ]; then echo "usage: make explain-target TARGET=<target> [DETAIL=summary|rows|artifacts]" >&2; exit 2; fi
-	$(Q)set -euo pipefail; \
-	node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; \
-	args=(--target "$(TARGET)" --detail "$(if $(DETAIL),$(DETAIL),summary)"); \
-	if [ "$(JSON)" = "1" ]; then args+=(--json); fi; \
-	"$$node_cmd" ./scripts/print-explain-target.mjs "$${args[@]}"
-
-go-test-duration-baselines:
-	$(Q)if [ -z "$(RESULTS_DIR)" ]; then echo "usage: make go-test-duration-baselines RESULTS_DIR=<successful test results dir>" >&2; exit 2; fi
-	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/update-go-test-durations.mjs $(if $(filter 1,$(PRUNE_OBSERVED_PACKAGES)),--prune-observed-packages) $(if $(BASELINE_FILE),--baseline-file "$(BASELINE_FILE)") "$(RESULTS_DIR)"
-
-go-test-duration-baseline-coverage:
-	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/check-go-test-duration-baseline-coverage.mjs $(if $(BASELINE_FILE),--baseline-file "$(BASELINE_FILE)")
-
-go-test-duration-baseline-drift:
-	$(Q)results_dir="$(RESULTS_DIR)"; if [ -z "$$results_dir" ]; then results_dir="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)"; fi; node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/check-go-test-duration-baseline-drift.mjs $(if $(BASELINE_FILE),--baseline-file "$(BASELINE_FILE)") "$$results_dir"
-
-browser-e2e-duration-baseline-drift:
-	$(Q)results_dir="$(RESULTS_DIR)"; if [ -z "$$results_dir" ]; then results_dir="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)"; fi; node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/lib/browser-shard-plan.mjs check-baseline-drift $(if $(BASELINE_FILE),--baseline-file "$(BASELINE_FILE)") "$$results_dir"
-
-service-backed-make-target-duration-baselines:
-	$(Q)if [ -z "$(RESULTS_DIR)" ]; then echo "usage: make service-backed-make-target-duration-baselines RESULTS_DIR=<successful test results dir>" >&2; exit 2; fi
-	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/service-backed-make-target-durations.mjs update --baseline-file "$(SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE)" "$(RESULTS_DIR)"
-
-service-backed-make-target-duration-baseline-drift:
-	$(Q)results_dir="$(RESULTS_DIR)"; if [ -z "$$results_dir" ]; then results_dir="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)"; fi; node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/service-backed-make-target-durations.mjs check-drift --baseline-file "$(SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE)" --profile "$(SERVICE_BACKED_SCHEDULE_PROFILE)" --schedule-manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)" "$$results_dir"
-
-scheduler-event-order-drift:
-	$(Q)results_dir="$(RESULTS_DIR)"; if [ -z "$$results_dir" ]; then results_dir="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)"; fi; node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; args=(); if [ -n "$(TARGET)" ]; then args+=(--target "$(TARGET)"); fi; "$$node_cmd" ./scripts/check-scheduler-event-order-drift.mjs "$${args[@]}" "$$results_dir"
 
 frontend-unit: export CARTULARY_TEST_TARGET := frontend-unit
 

@@ -259,14 +259,26 @@ assert_contains "$unknown_target_output" "unknown target no-such-target" "unknow
 make_task_guide="$("$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" task-guide ROLE=feature-dev)"
 assert_contains "$make_task_guide" "role=feature-dev" "make task-guide role"
 
+make_task_guide_json="$tmp_dir/make-task-guide.json"
+"$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" task-guide ROLE=feature-dev PHASE=phase4 JSON=1 >"$make_task_guide_json"
+"$NODE_BIN" -e 'const guide = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); if (guide.role !== "feature-dev" || guide.phase !== "phase4") process.exit(1);' "$make_task_guide_json"
+
 make_phase="$("$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" explain-phase PHASE=phase1)"
 assert_contains "$make_phase" "Cartulary phase guidance: phase1" "make explain-phase"
+
+make_phase_json="$tmp_dir/make-explain-phase.json"
+"$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" explain-phase PHASE=phase1 JSON=1 >"$make_phase_json"
+"$NODE_BIN" -e 'const phase = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); if (phase.phase !== "phase1") process.exit(1);' "$make_phase_json"
 
 make_target="$(
   CARTULARY_TEST_RESULTS_DIR="$results_dir" \
     "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" explain-target TARGET=backend-store DETAIL=rows
 )"
 assert_contains "$make_target" "U-1-05" "make explain-target rows"
+
+make_fixture_report_json="$tmp_dir/make-fixture-report.json"
+RESULTS_DIR="$results_dir" "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" fixture-report JSON=1 >"$make_fixture_report_json"
+"$NODE_BIN" -e 'const report = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); if (report.schema_id !== "cartulary.fixture_report.v1") process.exit(1);' "$make_fixture_report_json"
 
 detail_zero_output="$(assert_fails "obsolete DETAIL=0" "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" explain-target TARGET=backend-store DETAIL=0)"
 assert_contains "$detail_zero_output" "usage: print-explain-target.mjs" "DETAIL=0 rejected"

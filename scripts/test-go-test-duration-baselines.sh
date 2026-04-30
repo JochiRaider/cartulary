@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
+MAKE_HELPER="${MAKE:-make}"
 UPDATE_SCRIPT="$ROOT_DIR/scripts/update-go-test-durations.mjs"
 DRIFT_SCRIPT="$ROOT_DIR/scripts/check-go-test-duration-baseline-drift.mjs"
 COVERAGE_SCRIPT="$ROOT_DIR/scripts/check-go-test-duration-baseline-coverage.mjs"
@@ -95,6 +96,18 @@ printf '0\n' >"$shared_dir/backend-store-shard-01/exit_status.txt"
 update_output="$("$NODE_BIN" "$UPDATE_SCRIPT" --baseline-file "$tmp_dir/baseline.json" "$results_dir" 2>&1)"
 assert_contains "$update_output" "skipped contaminated Go shard timing artifacts" "contaminated refresh skip output"
 assert_contains "$update_output" "shard=backend-integration-auth-shard-02 go_module_downloads=2" "contaminated refresh skip shard"
+
+write_empty_baseline "$tmp_dir/make-baseline.json"
+make_update_output="$(
+  RESULTS_DIR="$results_dir" \
+  BASELINE_FILE="$tmp_dir/make-baseline.json" \
+  PRUNE_OBSERVED_PACKAGES=1 \
+    "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" go-test-duration-baselines 2>&1
+)"
+assert_contains "$make_update_output" "skipped contaminated Go shard timing artifacts" "make contaminated refresh skip output"
+RESULTS_DIR="$results_dir" \
+BASELINE_FILE="$tmp_dir/make-baseline.json" \
+  "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" go-test-duration-baseline-drift >/dev/null 2>/dev/null
 
 "$NODE_BIN" - "$tmp_dir/baseline.json" <<'EOF'
 const fs = require("node:fs");

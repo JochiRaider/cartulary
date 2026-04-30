@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { assertKnownResource } from "./scheduler-resources.mjs";
+import { hasMakeNodeTool, makeNodeToolEnvVars } from "./make-node-tools.mjs";
 import {
   collectExplicitSummaryProjectionErrors,
   loadSummaryTopologyContext,
@@ -30,6 +31,7 @@ const validMakeRecipeTypes = new Set([
   "browser_batch",
   "phase_command",
   "summary_target",
+  "node_tool",
 ]);
 const compactHelpMaxEntries = 12;
 const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/;
@@ -443,6 +445,13 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
       continue;
     }
 
+    if (recipe.type === "node_tool") {
+      if (!hasMakeNodeTool(target)) {
+        errors.push(`${label} has no scripts/lib/make-node-tools.mjs registry entry`);
+      }
+      continue;
+    }
+
     errors.push(`${label}.type is unsupported`);
   }
 }
@@ -812,6 +821,17 @@ function renderMakeRecipe(recipe, manifest) {
       ...prefix,
       header,
       `\t$(Q)env ${env.join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target ${recipe.target} --child-target ${recipe.child_target} --status ${status} --phase-label "${phaseLabel}"${projection}`,
+    ];
+  }
+  if (recipe.type === "node_tool") {
+    const env = [
+      'NODE_BIN="$(NODE_BIN)"',
+      ...makeNodeToolEnvVars.map((name) => `${name}="$(${name})"`),
+    ];
+    return [
+      ...prefix,
+      header,
+      `\t$(Q)env ${env.join(" ")} ./scripts/run-make-node-tool.sh ${recipe.target}`,
     ];
   }
   throw new Error(`unsupported Make recipe type ${recipe.type}`);

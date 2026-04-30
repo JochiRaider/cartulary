@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
+MAKE_HELPER="${MAKE:-make}"
 SCRIPT="$ROOT_DIR/scripts/service-backed-make-target-durations.mjs"
 
 fail() {
@@ -128,6 +129,25 @@ for (const ignored of ["backend-store", "failed-target", "browser-e2e"]) {
 EOF
 
 "$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/baseline.json" --profile "$tmp_dir/profile.json" --schedule-manifest "$tmp_dir/schedule.json" "$results_dir" >/dev/null
+
+cat >"$tmp_dir/make-baseline.json" <<'JSON'
+{
+  "schema_id": "cartulary.service_backed_make_target_duration_baselines.v1",
+  "default_make_target_weight_ms": 10000,
+  "targets": {}
+}
+JSON
+make_update_output="$(
+  RESULTS_DIR="$results_dir" \
+  SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
+    "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" service-backed-make-target-duration-baselines 2>&1
+)"
+assert_contains "$make_update_output" "updated 2 service-backed make-target duration baselines" "make baseline update output"
+RESULTS_DIR="$results_dir" \
+SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
+SERVICE_BACKED_SCHEDULE_PROFILE="$tmp_dir/profile.json" \
+SERVICE_BACKED_SCHEDULE_MANIFEST="$tmp_dir/schedule.json" \
+  "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" service-backed-make-target-duration-baseline-drift >/dev/null
 
 cat >"$tmp_dir/missing.json" <<'JSON'
 {

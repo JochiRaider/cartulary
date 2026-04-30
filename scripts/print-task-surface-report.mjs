@@ -42,6 +42,7 @@ function main() {
   const helpEntries = collectHelpEntries(makefile);
   const targetBlocks = collectTargetBlocks(makefile, phonyTargets);
   const authoredRecipeTargets = makeRecipeEntries(manifest).map((entry) => entry.target);
+  const recipeByTarget = new Map(makeRecipeEntries(manifest).map((entry) => [entry.target, entry]));
   const authoredGeneratedRecipeBlocks = collectTargetBlocks(authoredMake, authoredRecipeTargets);
   const targetScriptRefs = new Map(
     phonyTargets.map((target) => [target, collectDirectScriptRefs(targetBlocks.get(target) ?? "")]),
@@ -53,6 +54,7 @@ function main() {
     manifest,
     authoredGeneratedRecipeBlocks,
     phonyTargets,
+    recipeByTarget,
     targetScriptRefs,
   });
   const report = buildReport({
@@ -174,6 +176,7 @@ function validateTaskSurface({
   manifest,
   authoredGeneratedRecipeBlocks,
   phonyTargets,
+  recipeByTarget,
   targetScriptRefs,
 }) {
   const errors = [];
@@ -294,6 +297,9 @@ function validateTaskSurface({
     const actualScriptRefs = targetScriptRefs.get(target) ?? [];
     const declaredScriptSet = new Set(declaredScripts);
     for (const script of actualScriptRefs) {
+      if (script === "scripts/run-make-node-tool.sh" && recipeByTarget.get(target)?.type === "node_tool") {
+        continue;
+      }
       if (!declaredScriptSet.has(script)) {
         errors.push(`${target} references ${script} but does not declare it in task_surface_manifest.json`);
       }
