@@ -32,6 +32,7 @@ GOOSE_BIN ?= $(TOOLBIN_DIR)/goose-v3.27.0
 TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
 SERVICE_BACKED_SCHEDULE_MANIFEST ?= $(CURDIR)/tools/service_backed_schedule_manifest.json
 SERVICE_BACKED_SCHEDULE_PROFILE ?= $(CURDIR)/tools/service_backed_schedule_profiles.json
+SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE ?= $(CURDIR)/tools/service_backed_make_target_duration_baselines.json
 CHECK_SCHEDULE_MANIFEST ?= $(CURDIR)/tools/check_schedule_manifest.json
 MINIO_BUCKET ?= cartulary
 FRONTEND_INSTALL_STAMP ?= $(CURDIR)/tmp/frontend-install/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp
@@ -452,6 +453,13 @@ go-test-duration-baseline-drift:
 
 browser-e2e-duration-baseline-drift:
 	$(Q)results_dir="$(RESULTS_DIR)"; if [ -z "$$results_dir" ]; then results_dir="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)"; fi; node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/lib/browser-shard-plan.mjs check-baseline-drift $(if $(BASELINE_FILE),--baseline-file "$(BASELINE_FILE)") "$$results_dir"
+
+service-backed-make-target-duration-baselines:
+	$(Q)if [ -z "$(RESULTS_DIR)" ]; then echo "usage: make service-backed-make-target-duration-baselines RESULTS_DIR=<successful test results dir>" >&2; exit 2; fi
+	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/service-backed-make-target-durations.mjs update --baseline-file "$(SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE)" "$(RESULTS_DIR)"
+
+service-backed-make-target-duration-baseline-drift:
+	$(Q)results_dir="$(RESULTS_DIR)"; if [ -z "$$results_dir" ]; then results_dir="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)"; fi; node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/service-backed-make-target-durations.mjs check-drift --baseline-file "$(SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE)" --profile "$(SERVICE_BACKED_SCHEDULE_PROFILE)" --schedule-manifest "$(SERVICE_BACKED_SCHEDULE_MANIFEST)" "$$results_dir"
 
 scheduler-event-order-drift:
 	$(Q)results_dir="$(RESULTS_DIR)"; if [ -z "$$results_dir" ]; then results_dir="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)"; fi; node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; args=(); if [ -n "$(TARGET)" ]; then args+=(--target "$(TARGET)"); fi; "$$node_cmd" ./scripts/check-scheduler-event-order-drift.mjs "$${args[@]}" "$$results_dir"

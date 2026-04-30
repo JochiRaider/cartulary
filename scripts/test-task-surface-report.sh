@@ -78,7 +78,7 @@ assert_contains "$valid_output" "local dev: 16" "current report local dev help t
 assert_contains "$valid_output" "fast verification: 9" "current report fast verification help tier count"
 assert_contains "$valid_output" "full gates: 7" "current report full gates help tier count"
 assert_contains "$valid_output" "investigate a run: 8" "current report investigation help tier count"
-assert_contains "$valid_output" "phase maintenance: 13" "current report phase maintenance help tier count"
+assert_contains "$valid_output" "phase maintenance: 15" "current report phase maintenance help tier count"
 assert_contains "$valid_output" "release: 7" "current report release help tier count"
 assert_not_contains "$valid_output" "public Make targets:" "current report compact output omits public target list"
 assert_not_contains "$valid_output" "browser-e2e-measurement" "current report compact output omits target rows"

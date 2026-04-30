@@ -354,6 +354,7 @@ for scheduled_target in \
   check-service-backed \
   check-go-test-duration-baseline-drift \
   check-browser-e2e-duration-baseline-drift \
+  check-service-backed-make-target-duration-baseline-drift \
   migration-drift \
   deployable-shape \
   backend-unit \
@@ -488,6 +489,9 @@ if [[ "$(check_schedule_field check-go-test-duration-baseline-drift needs)" != "
 fi
 if [[ "$(check_schedule_field check-browser-e2e-duration-baseline-drift needs)" != "check-service-backed" ]]; then
   fail "check-browser-e2e-duration-baseline-drift must depend on check-service-backed in the check schedule"
+fi
+if [[ "$(check_schedule_field check-service-backed-make-target-duration-baseline-drift needs)" != "check-service-backed" ]]; then
+  fail "check-service-backed-make-target-duration-baseline-drift must depend on check-service-backed in the check schedule"
 fi
 if [[ "$(check_schedule_field check-service-backed resource_claims)" != "host_cpu,host_io,service_stack" ]]; then
   fail "check-service-backed must claim host_cpu, host_io, and service_stack resources in the check schedule"

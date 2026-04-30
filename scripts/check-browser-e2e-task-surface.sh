@@ -485,6 +485,7 @@ for scheduled_target in \
   check-service-backed \
   check-go-test-duration-baseline-drift \
   check-browser-e2e-duration-baseline-drift \
+  check-service-backed-make-target-duration-baseline-drift \
   migration-drift \
   deployable-shape \
   backend-unit \

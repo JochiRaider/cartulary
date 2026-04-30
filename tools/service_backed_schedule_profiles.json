@@ -1,10 +1,9 @@
 {
-  "schema_id": "cartulary.service_backed_schedule_profiles.v2",
+  "schema_id": "cartulary.service_backed_schedule_profiles.v3",
   "defaults": {
     "go_shards_resource_claims": { "postgres": 1, "minio": 1 },
-    "backend_make_target_weights": {
-      "backend-process": 80000
-    },
+    "make_target_duration_baseline": "service_backed_make_target_duration_baselines.json",
+    "make_target_weight_overrides": {},
     "backend_make_target_resource_claims": {
       "backend-process": {
         "postgres": 1,
@@ -19,10 +18,6 @@
       "minio": 1,
       "process": 1,
       "browser_stack": 1
-    },
-    "browser_stage_weights": {
-      "webserver-backed": 41900,
-      "isolated": 21700
     }
   },
   "schedules": [

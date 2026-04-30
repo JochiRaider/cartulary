@@ -16,7 +16,7 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
-const profileSchemaID = "cartulary.service_backed_schedule_profiles.v2";
+const profileSchemaID = "cartulary.service_backed_schedule_profiles.v3";
 const scheduleSchemaID = "cartulary.service_backed_schedule.v8";
 
 function resolveRepoPath(file) {

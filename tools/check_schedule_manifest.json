@@ -29,7 +29,8 @@
           "name": "duration-baselines",
           "summary_targets": [
             "check-go-test-duration-baseline-drift",
-            "check-browser-e2e-duration-baseline-drift"
+            "check-browser-e2e-duration-baseline-drift",
+            "check-service-backed-make-target-duration-baseline-drift"
           ]
         },
         {
@@ -119,6 +120,20 @@
           ],
           "produces_summary_targets": [
             "check-browser-e2e-duration-baseline-drift"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "check-service-backed-make-target-duration-baseline-drift",
+          "weight": 27900,
+          "needs": [
+            "check-service-backed"
+          ],
+          "produces_summary_targets": [
+            "check-service-backed-make-target-duration-baseline-drift"
           ],
           "resource_claims": {
             "host_cpu": 1

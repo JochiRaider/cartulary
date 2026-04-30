@@ -1,0 +1,362 @@
+#!/usr/bin/env node
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(scriptDir, "..");
+const baselineSchemaID = "cartulary.service_backed_make_target_duration_baselines.v1";
+const profileSchemaID = "cartulary.service_backed_schedule_profiles.v3";
+const scheduleSchemaID = "cartulary.service_backed_schedule.v8";
+const defaultBaselineFile = path.join(
+  repoRoot,
+  "tools",
+  "service_backed_make_target_duration_baselines.json",
+);
+const defaultProfileFile = path.join(repoRoot, "tools", "service_backed_schedule_profiles.json");
+const defaultScheduleManifestFile = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
+const baselineNote =
+  "Service-backed scheduler make-target duration weights generated from successful scheduler artifacts. Refresh with make service-backed-make-target-duration-baselines RESULTS_DIR=<dir>.";
+const defaultMakeTargetWeightMs = 10000;
+const underRatio = 1.75;
+const underDeltaMs = 5000;
+const overRatio = 3;
+const overDeltaMs = 15000;
+
+function usage() {
+  process.stderr.write(
+    [
+      "usage:",
+      "  service-backed-make-target-durations.mjs update [--baseline-file <path>] <results-dir>",
+      "  service-backed-make-target-durations.mjs check-drift [--baseline-file <path>] [--profile <path>] [--schedule-manifest <path>] <results-dir>",
+    ].join("\n") + "\n",
+  );
+  process.exit(2);
+}
+
+function resolvePath(file) {
+  return path.isAbsolute(file) ? file : path.join(repoRoot, file);
+}
+
+function rel(file) {
+  return path.relative(repoRoot, file);
+}
+
+function readJSON(file) {
+  return JSON.parse(readFileSync(resolvePath(file), "utf8"));
+}
+
+function sortedObject(entries) {
+  return Object.fromEntries([...entries].sort(([left], [right]) => left.localeCompare(right)));
+}
+
+function positiveInteger(value, fallback) {
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
+function parseCommonArgs(argv, { includeProfile = false } = {}) {
+  const options = {
+    baselineFile: defaultBaselineFile,
+    profileFile: defaultProfileFile,
+    scheduleManifestFile: defaultScheduleManifestFile,
+    resultsDir: "",
+  };
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--baseline-file") {
+      options.baselineFile = resolvePath(argv[index + 1] ?? "");
+      index += 1;
+      if (!options.baselineFile) {
+        usage();
+      }
+      continue;
+    }
+    if (includeProfile && arg === "--profile") {
+      options.profileFile = resolvePath(argv[index + 1] ?? "");
+      index += 1;
+      if (!options.profileFile) {
+        usage();
+      }
+      continue;
+    }
+    if (includeProfile && arg === "--schedule-manifest") {
+      options.scheduleManifestFile = resolvePath(argv[index + 1] ?? "");
+      index += 1;
+      if (!options.scheduleManifestFile) {
+        usage();
+      }
+      continue;
+    }
+    if (arg.startsWith("--")) {
+      usage();
+    }
+    if (options.resultsDir) {
+      usage();
+    }
+    options.resultsDir = resolvePath(arg);
+  }
+  if (!options.resultsDir) {
+    usage();
+  }
+  return options;
+}
+
+function schedulerSummaryFiles(root) {
+  const files = [];
+  const stack = [resolvePath(root)];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    let entries = [];
+    try {
+      entries = readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+        continue;
+      }
+      if (entry.isFile() && entry.name === "scheduler-summary.json") {
+        files.push(next);
+      }
+    }
+  }
+  return files.sort();
+}
+
+function readSchedulerEvents(eventsFile) {
+  if (!existsSync(eventsFile)) {
+    return [];
+  }
+  return readFileSync(eventsFile, "utf8")
+    .trim()
+    .split(/\n/)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
+function collectObservedMakeTargetDurations(resultsDir) {
+  const observed = new Map();
+  let passedSchedulerCount = 0;
+  for (const summaryFile of schedulerSummaryFiles(resultsDir)) {
+    const summary = readJSON(summaryFile);
+    if (summary.scheduler_kind !== "service-backed" || summary.status !== "pass") {
+      continue;
+    }
+    const events = readSchedulerEvents(path.join(path.dirname(summaryFile), "scheduler-events.jsonl"));
+    if (events.length === 0) {
+      continue;
+    }
+    passedSchedulerCount += 1;
+    const starts = new Map();
+    for (const event of events) {
+      if (event.event === "start" && typeof event.work_unit_id === "string") {
+        starts.set(event.work_unit_id, event);
+      }
+    }
+    for (const event of events) {
+      if (event.event !== "finish" || event.status !== 0) {
+        continue;
+      }
+      const start = starts.get(event.work_unit_id);
+      if (start?.work_unit_type !== "make_target") {
+        continue;
+      }
+      const target = start.aggregate_target || start.work_unit || event.work_unit;
+      const durationMs = Math.max(1, Math.round(Number(event.duration_ms ?? 0)));
+      if (typeof target === "string" && target !== "" && durationMs > 0) {
+        observed.set(target, Math.max(observed.get(target) ?? 0, durationMs));
+      }
+    }
+  }
+  return { observed, passedSchedulerCount };
+}
+
+function readBaseline(file, { allowMissing = false } = {}) {
+  const baselineFile = resolvePath(file);
+  if (!existsSync(baselineFile)) {
+    if (allowMissing) {
+      return {
+        schema_id: baselineSchemaID,
+        note: baselineNote,
+        default_make_target_weight_ms: defaultMakeTargetWeightMs,
+        targets: {},
+      };
+    }
+    throw new Error(`${rel(baselineFile)} is missing`);
+  }
+  const baseline = readJSON(baselineFile);
+  if (baseline.schema_id !== baselineSchemaID) {
+    throw new Error(`${rel(baselineFile)} must declare schema_id ${baselineSchemaID}`);
+  }
+  if (!baseline.targets || typeof baseline.targets !== "object" || Array.isArray(baseline.targets)) {
+    throw new Error(`${rel(baselineFile)} targets must be an object`);
+  }
+  for (const [target, weight] of Object.entries(baseline.targets)) {
+    if (!Number.isInteger(weight) || weight <= 0) {
+      throw new Error(`${rel(baselineFile)} targets.${target} must be positive integer weight ms`);
+    }
+  }
+  return baseline;
+}
+
+function readProfile(file) {
+  const profileFile = resolvePath(file);
+  const profile = readJSON(profileFile);
+  if (profile.schema_id !== profileSchemaID) {
+    throw new Error(`${rel(profileFile)} must declare schema_id ${profileSchemaID}`);
+  }
+  if (!profile.defaults || typeof profile.defaults !== "object" || Array.isArray(profile.defaults)) {
+    throw new Error(`${rel(profileFile)} defaults must be an object`);
+  }
+  return profile;
+}
+
+function readScheduleMakeTargets(file) {
+  const scheduleFile = resolvePath(file);
+  const manifest = readJSON(scheduleFile);
+  if (manifest.schema_id !== scheduleSchemaID) {
+    throw new Error(`${rel(scheduleFile)} must declare schema_id ${scheduleSchemaID}`);
+  }
+  const targets = new Set();
+  for (const schedule of manifest.schedules ?? []) {
+    for (const source of schedule.work_unit_sources ?? []) {
+      if (source?.type === "make_target" && typeof source.target === "string") {
+        targets.add(source.target);
+      }
+    }
+  }
+  return targets;
+}
+
+function validatedOverrides(profile, scheduledTargets) {
+  const raw = profile.defaults.make_target_weight_overrides ?? {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("defaults.make_target_weight_overrides must be an object when present");
+  }
+  const errors = [];
+  const overrides = new Map();
+  const now = Date.now();
+  for (const [target, override] of Object.entries(raw)) {
+    if (!scheduledTargets.has(target)) {
+      errors.push(`override target=${target} is not present in generated service-backed schedules`);
+      continue;
+    }
+    if (!override || typeof override !== "object" || Array.isArray(override)) {
+      errors.push(`override target=${target} must be an object`);
+      continue;
+    }
+    if (!Number.isInteger(override.weight_ms) || override.weight_ms <= 0) {
+      errors.push(`override target=${target} must declare positive integer weight_ms`);
+    }
+    if (typeof override.reason !== "string" || override.reason.trim() === "") {
+      errors.push(`override target=${target} must declare reason`);
+    }
+    if (typeof override.expires_at !== "string" || Number.isNaN(Date.parse(override.expires_at))) {
+      errors.push(`override target=${target} must declare ISO expires_at`);
+    } else if (Date.parse(override.expires_at) <= now) {
+      errors.push(`override target=${target} expired at ${override.expires_at}`);
+    }
+    if (errors.length === 0 || !errors.some((error) => error.includes(`target=${target}`))) {
+      overrides.set(target, override.weight_ms);
+    }
+  }
+  return { overrides, errors };
+}
+
+function plannedWeight(target, baseline, overrides) {
+  if (overrides.has(target)) {
+    return overrides.get(target);
+  }
+  const weight = baseline.targets[target];
+  if (Number.isInteger(weight) && weight > 0) {
+    return weight;
+  }
+  return null;
+}
+
+function formatRatio(actual, planned) {
+  if (planned <= 0) {
+    return "inf";
+  }
+  return (actual / planned).toFixed(2);
+}
+
+function update(argv) {
+  const options = parseCommonArgs(argv);
+  const baseline = readBaseline(options.baselineFile, { allowMissing: true });
+  const { observed, passedSchedulerCount } = collectObservedMakeTargetDurations(options.resultsDir);
+  baseline.schema_id = baselineSchemaID;
+  baseline.note = baselineNote;
+  baseline.default_make_target_weight_ms = positiveInteger(
+    baseline.default_make_target_weight_ms,
+    defaultMakeTargetWeightMs,
+  );
+  baseline.targets ??= {};
+  for (const [target, durationMs] of observed.entries()) {
+    baseline.targets[target] = durationMs;
+  }
+  baseline.updated_at = new Date().toISOString();
+  baseline.targets = sortedObject(Object.entries(baseline.targets));
+  writeFileSync(options.baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
+  process.stdout.write(
+    `updated ${observed.size} service-backed make-target duration baselines from ${passedSchedulerCount} successful scheduler artifact(s)\n`,
+  );
+}
+
+function checkDrift(argv) {
+  const options = parseCommonArgs(argv, { includeProfile: true });
+  const baseline = readBaseline(options.baselineFile);
+  const profile = readProfile(options.profileFile);
+  const scheduledTargets = readScheduleMakeTargets(options.scheduleManifestFile);
+  const { overrides, errors } = validatedOverrides(profile, scheduledTargets);
+  const { observed, passedSchedulerCount } = collectObservedMakeTargetDurations(options.resultsDir);
+
+  for (const [target, actual] of observed.entries()) {
+    const planned = plannedWeight(target, baseline, overrides);
+    if (!planned) {
+      errors.push(`missing make-target baseline target=${target} actual_ms=${actual}`);
+      continue;
+    }
+    if (actual > planned * underRatio && actual - planned > underDeltaMs) {
+      errors.push(
+        `underplanned target=${target} planned_ms=${planned} actual_ms=${actual} ratio=${formatRatio(actual, planned)}`,
+      );
+    }
+    if (planned > actual * overRatio && planned - actual > overDeltaMs) {
+      errors.push(
+        `overplanned target=${target} planned_ms=${planned} actual_ms=${actual} ratio=${formatRatio(actual, planned)}`,
+      );
+    }
+  }
+
+  if (errors.length > 0) {
+    process.stderr.write("Service-backed make-target duration baseline drift detected:\n");
+    for (const error of errors) {
+      process.stderr.write(`- ${error}\n`);
+    }
+    process.stderr.write(
+      `Refresh from a successful service-backed run with: make service-backed-make-target-duration-baselines RESULTS_DIR=${options.resultsDir}\n`,
+    );
+    process.exit(1);
+  }
+  process.stdout.write(
+    `Service-backed make-target duration baselines match ${observed.size} observed make target(s) from ${passedSchedulerCount} successful scheduler artifact(s)\n`,
+  );
+}
+
+try {
+  const [command, ...rest] = process.argv.slice(2);
+  if (command === "update") {
+    update(rest);
+  } else if (command === "check-drift") {
+    checkDrift(rest);
+  } else {
+    usage();
+  }
+} catch (error) {
+  process.stderr.write(`${error.message}\n`);
+  process.exit(1);
+}

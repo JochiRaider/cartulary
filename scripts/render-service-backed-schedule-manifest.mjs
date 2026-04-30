@@ -18,11 +18,12 @@ import { collectTargetPlanRows, findTargetDescriptor } from "./lib/target-plan.m
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const profileSchemaID = "cartulary.service_backed_schedule_profiles.v2";
+const profileSchemaID = "cartulary.service_backed_schedule_profiles.v3";
 const scheduleSchemaID = "cartulary.service_backed_schedule.v8";
 const defaultProfilePath = path.join(repoRoot, "tools", "service_backed_schedule_profiles.json");
 const defaultOutputPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
 const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
+const makeTargetBaselineSchemaID = "cartulary.service_backed_make_target_duration_baselines.v1";
 
 function usage() {
   throw new Error(
@@ -126,6 +127,84 @@ function cloneObject(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function repoRelativeOrResolved(file) {
+  const resolved = resolvePath(file);
+  return path.relative(repoRoot, resolved);
+}
+
+function loadMakeTargetDurationBaselines(profile, profilePath) {
+  const baselinePath = requireString(
+    profile.defaults.make_target_duration_baseline,
+    "defaults.make_target_duration_baseline",
+  );
+  const resolved = path.isAbsolute(baselinePath)
+    ? baselinePath
+    : path.join(path.dirname(resolvePath(profilePath)), baselinePath);
+  const baseline = readJSON(resolved);
+  if (baseline.schema_id !== makeTargetBaselineSchemaID) {
+    throw new Error(
+      `${path.relative(repoRoot, resolved)} must declare schema_id ${makeTargetBaselineSchemaID}`,
+    );
+  }
+  if (!Number.isInteger(baseline.default_make_target_weight_ms) || baseline.default_make_target_weight_ms <= 0) {
+    throw new Error(
+      `${path.relative(repoRoot, resolved)} must declare positive integer default_make_target_weight_ms`,
+    );
+  }
+  if (!baseline.targets || typeof baseline.targets !== "object" || Array.isArray(baseline.targets)) {
+    throw new Error(`${path.relative(repoRoot, resolved)} targets must be an object`);
+  }
+  for (const [target, weight] of Object.entries(baseline.targets)) {
+    if (!Number.isInteger(weight) || weight <= 0) {
+      throw new Error(`${path.relative(repoRoot, resolved)} targets.${target} must be positive integer weight ms`);
+    }
+  }
+  return {
+    path: resolved,
+    defaultWeightMs: baseline.default_make_target_weight_ms,
+    targets: new Map(Object.entries(baseline.targets)),
+  };
+}
+
+function loadMakeTargetWeightOverrides(profile) {
+  const raw = profile.defaults.make_target_weight_overrides ?? {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("defaults.make_target_weight_overrides must be an object when present");
+  }
+  const now = Date.now();
+  const overrides = new Map();
+  for (const [target, override] of Object.entries(raw)) {
+    if (!override || typeof override !== "object" || Array.isArray(override)) {
+      throw new Error(`defaults.make_target_weight_overrides.${target} must be an object`);
+    }
+    if (!Number.isInteger(override.weight_ms) || override.weight_ms <= 0) {
+      throw new Error(`defaults.make_target_weight_overrides.${target}.weight_ms must be positive integer`);
+    }
+    if (typeof override.reason !== "string" || override.reason.trim() === "") {
+      throw new Error(`defaults.make_target_weight_overrides.${target}.reason must be non-empty string`);
+    }
+    if (typeof override.expires_at !== "string" || Number.isNaN(Date.parse(override.expires_at))) {
+      throw new Error(`defaults.make_target_weight_overrides.${target}.expires_at must be an ISO timestamp`);
+    }
+    if (Date.parse(override.expires_at) <= now) {
+      throw new Error(`defaults.make_target_weight_overrides.${target} expired at ${override.expires_at}`);
+    }
+    overrides.set(target, override.weight_ms);
+  }
+  return overrides;
+}
+
+function makeTargetWeight(timing, target) {
+  if (timing.overrides.has(target)) {
+    return timing.overrides.get(target);
+  }
+  const baselineWeight = timing.baseline.targets.get(target);
+  if (Number.isInteger(baselineWeight) && baselineWeight > 0) {
+    return baselineWeight;
+  }
+  return timing.baseline.defaultWeightMs;
+}
+
 function minExecutionDependency(target) {
   const descriptor = findTargetDescriptor(target, repoRoot);
   const dependencies = [
@@ -211,7 +290,7 @@ function orderedServiceBackedBackendTargets(scheduleProfile) {
     .sort(compareBackendTargets);
 }
 
-function backendSource(profile, target) {
+function backendSource(profile, timing, target) {
   const descriptor = findTargetDescriptor(target, repoRoot);
   if (!descriptor) {
     throw new Error(`unknown backend target ${target}`);
@@ -227,17 +306,10 @@ function backendSource(profile, target) {
       resource_claims: cloneObject(profile.defaults.go_shards_resource_claims),
     };
   }
-  const weights = requireObject(
-    profile.defaults.backend_make_target_weights,
-    "defaults.backend_make_target_weights",
-  );
   const claims = requireObject(
     profile.defaults.backend_make_target_resource_claims,
     "defaults.backend_make_target_resource_claims",
   );
-  if (!Number.isFinite(weights[target])) {
-    throw new Error(`defaults.backend_make_target_weights must declare ${target}`);
-  }
   if (!claims[target]) {
     throw new Error(`defaults.backend_make_target_resource_claims must declare ${target}`);
   }
@@ -245,7 +317,7 @@ function backendSource(profile, target) {
     type: "make_target",
     class: "backend",
     target,
-    weight: weights[target],
+    weight: makeTargetWeight(timing, target),
     resource_claims: cloneObject(claims[target]),
   };
 }
@@ -258,7 +330,7 @@ function includePriorBrowserDependencies(policy) {
   return policy === "after_prior_browser" || policy === "after_backend_and_prior_browser";
 }
 
-function browserSource(profile, stage, backendTargets, priorBrowserTargets, weight) {
+function browserSource(profile, timing, stage, backendTargets, priorBrowserTargets) {
   const stageName = stage.name;
   const laneResource = browserStageResource(stageName);
   const claims = {
@@ -278,7 +350,7 @@ function browserSource(profile, stage, backendTargets, priorBrowserTargets, weig
     target: stage.target,
     browser_stage: stageName,
     ...(needs.length > 0 ? { needs } : {}),
-    weight,
+    weight: makeTargetWeight(timing, stage.target),
     resource_claims: claims,
   };
 }
@@ -338,17 +410,6 @@ function hasPlaywrightRows(coverage, executionDependency) {
   return false;
 }
 
-function stageWeight(profile, stage, scheduleTarget) {
-  const weights = profile.defaults.browser_stage_weights ?? {};
-  if (!weights || typeof weights !== "object" || Array.isArray(weights)) {
-    throw new Error("defaults.browser_stage_weights must be an object when present");
-  }
-  if (!Number.isFinite(weights[stage.name]) || weights[stage.name] < 0) {
-    throw new Error(`defaults.browser_stage_weights must declare non-negative weight for ${scheduleTarget} ${stage.name}`);
-  }
-  return weights[stage.name];
-}
-
 function selectedBrowserStages(scheduleProfile, browserStages) {
   const selector = browserSelector(scheduleProfile);
   if (!selector) {
@@ -370,12 +431,12 @@ function selectedBrowserStages(scheduleProfile, browserStages) {
   return stages;
 }
 
-function renderSchedule(profile, scheduleProfile, browserStages) {
+function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   const target = requireString(scheduleProfile.target, "schedules[].target");
   const resourceLimits = cloneObject(requireObject(scheduleProfile.resource_limits, `${target}.resource_limits`));
   const sources = [];
   for (const backendTarget of orderedServiceBackedBackendTargets(scheduleProfile)) {
-    sources.push(backendSource(profile, backendTarget));
+    sources.push(backendSource(profile, timing, backendTarget));
   }
   const backendTargets = sources
     .filter((source) => source.class === "backend")
@@ -385,10 +446,10 @@ function renderSchedule(profile, scheduleProfile, browserStages) {
     resourceLimits[browserStageResource(stage.name)] = 1;
     const source = browserSource(
       profile,
+      timing,
       stage,
       backendTargets,
       priorBrowserTargets,
-      stageWeight(profile, stage, target),
     );
     sources.push(source);
     priorBrowserTargets.push(source.target);
@@ -406,6 +467,16 @@ function renderManifest(options) {
     throw new Error(`${options.profile} must declare schema_id ${profileSchemaID}`);
   }
   requireObject(profile.defaults, "defaults");
+  if (profile.defaults.backend_make_target_weights !== undefined) {
+    throw new Error("defaults.backend_make_target_weights is obsolete; use make_target_duration_baseline");
+  }
+  if (profile.defaults.browser_stage_weights !== undefined) {
+    throw new Error("defaults.browser_stage_weights is obsolete; use make_target_duration_baseline");
+  }
+  const timing = {
+    baseline: loadMakeTargetDurationBaselines(profile, options.profile),
+    overrides: loadMakeTargetWeightOverrides(profile),
+  };
   const browserStages = loadBrowserBatchStages(resolvePath(options.browserBatchManifest));
   return {
     schema_id: scheduleSchemaID,
@@ -413,9 +484,10 @@ function renderManifest(options) {
       generator: "scripts/render-service-backed-schedule-manifest.mjs",
       profile: path.relative(repoRoot, resolvePath(options.profile)),
       browser_batch_manifest: path.relative(repoRoot, resolvePath(options.browserBatchManifest)),
+      make_target_duration_baseline: repoRelativeOrResolved(timing.baseline.path),
     },
     schedules: requireArray(profile.schedules, "schedules").map((schedule) =>
-      renderSchedule(profile, schedule, browserStages),
+      renderSchedule(profile, timing, schedule, browserStages),
     ),
   };
 }
