@@ -23,6 +23,15 @@
         {
           "type": "go_shards",
           "class": "backend",
+          "target": "backend-store",
+          "resource_claims": {
+            "postgres": 1,
+            "minio": 1
+          }
+        },
+        {
+          "type": "go_shards",
+          "class": "backend",
           "target": "backend-integration",
           "resource_claims": {
             "postgres": 1,
@@ -33,15 +42,6 @@
           "type": "go_shards",
           "class": "backend",
           "target": "backend-integration-support",
-          "resource_claims": {
-            "postgres": 1,
-            "minio": 1
-          }
-        },
-        {
-          "type": "go_shards",
-          "class": "backend",
-          "target": "backend-store",
           "resource_claims": {
             "postgres": 1,
             "minio": 1
@@ -80,9 +80,9 @@
           "target": "browser-e2e",
           "browser_stage": "isolated",
           "needs": [
+            "backend-store",
             "backend-integration",
             "backend-integration-support",
-            "backend-store",
             "backend-process",
             "browser-e2e-webserver-backed"
           ],
@@ -111,6 +111,15 @@
         {
           "type": "go_shards",
           "class": "backend",
+          "target": "backend-store",
+          "resource_claims": {
+            "postgres": 1,
+            "minio": 1
+          }
+        },
+        {
+          "type": "go_shards",
+          "class": "backend",
           "target": "backend-integration",
           "resource_claims": {
             "postgres": 1,
@@ -121,15 +130,6 @@
           "type": "go_shards",
           "class": "backend",
           "target": "backend-integration-support",
-          "resource_claims": {
-            "postgres": 1,
-            "minio": 1
-          }
-        },
-        {
-          "type": "go_shards",
-          "class": "backend",
-          "target": "backend-store",
           "resource_claims": {
             "postgres": 1,
             "minio": 1
@@ -167,6 +167,15 @@
         {
           "type": "go_shards",
           "class": "backend",
+          "target": "backend-store",
+          "resource_claims": {
+            "postgres": 1,
+            "minio": 1
+          }
+        },
+        {
+          "type": "go_shards",
+          "class": "backend",
           "target": "backend-integration",
           "resource_claims": {
             "postgres": 1,
@@ -177,15 +186,6 @@
           "type": "go_shards",
           "class": "backend",
           "target": "backend-integration-support",
-          "resource_claims": {
-            "postgres": 1,
-            "minio": 1
-          }
-        },
-        {
-          "type": "go_shards",
-          "class": "backend",
-          "target": "backend-store",
           "resource_claims": {
             "postgres": 1,
             "minio": 1
@@ -224,9 +224,9 @@
           "target": "browser-e2e",
           "browser_stage": "isolated",
           "needs": [
+            "backend-store",
             "backend-integration",
             "backend-integration-support",
-            "backend-store",
             "backend-process",
             "browser-e2e-webserver-backed"
           ],

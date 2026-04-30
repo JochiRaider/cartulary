@@ -5,6 +5,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { loadBrowserBatchStages } from "./browser-batch-manifest.mjs";
 import {
+  compareExecutionDependencies,
+  executionDependencyInfo,
+} from "./execution-dependencies.mjs";
+import {
   browserStageResource,
   normalizeResourceClaims,
   normalizeResourceLimits,
@@ -12,7 +16,7 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
-const profileSchemaID = "cartulary.service_backed_schedule_profiles.v1";
+const profileSchemaID = "cartulary.service_backed_schedule_profiles.v2";
 const scheduleSchemaID = "cartulary.service_backed_schedule.v8";
 
 function resolveRepoPath(file) {
@@ -57,6 +61,99 @@ function assertSameList(actual, expected, label) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(`${label} got ${JSON.stringify(actual)} want ${JSON.stringify(expected)}`);
   }
+}
+
+function requireStringArray(value, label) {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`);
+  }
+  const seen = new Set();
+  return value.map((item, index) => {
+    const normalized = requireString(item, `${label}[${index}]`);
+    if (seen.has(normalized)) {
+      throw new Error(`${label} contains duplicate ${normalized}`);
+    }
+    seen.add(normalized);
+    return normalized;
+  });
+}
+
+function browserSelector(scheduleProfile, scheduleTarget) {
+  const selector = scheduleProfile.selectors?.browser;
+  if (selector === undefined) {
+    return null;
+  }
+  if (!selector || typeof selector !== "object" || Array.isArray(selector)) {
+    throw new Error(`${scheduleTarget}.selectors.browser must be an object when present`);
+  }
+  const scheduleTags = requireStringArray(selector.schedule_tags, `${scheduleTarget}.selectors.browser.schedule_tags`);
+  if (scheduleTags.length === 0) {
+    throw new Error(`${scheduleTarget}.selectors.browser.schedule_tags must not be empty`);
+  }
+  return { scheduleTags };
+}
+
+function stageHasRequiredTag(stage, requiredTags) {
+  const tags = new Set(stage.scheduleTags ?? []);
+  return requiredTags.every((tag) => tags.has(tag));
+}
+
+function stageNonRawExecutionDependencies(stage) {
+  return Array.from(
+    new Set(
+      stage.groups
+        .filter((group) => group.coverage !== "raw")
+        .map((group) => group.executionDependency)
+        .filter((dependency) => dependency !== ""),
+    ),
+  );
+}
+
+function validateStageHasServiceBackedEvidence(stage, scheduleTarget) {
+  const dependencies = stageNonRawExecutionDependencies(stage);
+  if (dependencies.length === 0) {
+    throw new Error(`${scheduleTarget} browser stage ${stage.name} has no non-raw execution dependencies`);
+  }
+  for (const dependency of dependencies) {
+    const info = executionDependencyInfo(dependency);
+    if (!info || info.category !== "browser" || info.service_backed !== true) {
+      throw new Error(
+        `${scheduleTarget} browser stage ${stage.name} dependency ${dependency} is not service-backed browser evidence`,
+      );
+    }
+  }
+}
+
+function selectedBrowserStages(scheduleProfile, scheduleTarget, browserStages) {
+  const selector = browserSelector(scheduleProfile, scheduleTarget);
+  if (!selector) {
+    return [];
+  }
+  const stages = Array.from(browserStages.values()).filter((stage) =>
+    stageHasRequiredTag(stage, selector.scheduleTags),
+  ).sort((left, right) => {
+    const leftDependency = stageNonRawExecutionDependencies(left).sort(compareExecutionDependencies)[0] ?? "";
+    const rightDependency = stageNonRawExecutionDependencies(right).sort(compareExecutionDependencies)[0] ?? "";
+    return (
+      compareExecutionDependencies(leftDependency, rightDependency) ||
+      left.name.localeCompare(right.name)
+    );
+  });
+  for (const stage of stages) {
+    validateStageHasServiceBackedEvidence(stage, scheduleTarget);
+  }
+  return stages;
+}
+
+function expectedNeedsForPolicy(policy, backendTargets, priorBrowserTargets) {
+  const needs = [];
+  if (policy === "after_backend" || policy === "after_backend_and_prior_browser") {
+    needs.push(...backendTargets);
+  }
+  if (policy === "after_prior_browser" || policy === "after_backend_and_prior_browser") {
+    needs.push(...priorBrowserTargets);
+  }
+  return needs;
 }
 
 function validateResourceShape(schedule) {
@@ -150,25 +247,18 @@ export function validateServiceBackedScheduleTopology({
     const priorBrowserTargets = [];
     const expectedBrowserTargets = [];
 
-    for (const stageProfile of requireArray(scheduleProfile.browser_stages ?? [], `${scheduleTarget}.browser_stages`)) {
-      const stageName = requireString(stageProfile.name, `${scheduleTarget}.browser_stages[].name`);
-      const stage = browserStages.get(stageName);
-      if (!stage) {
-        throw new Error(`${scheduleTarget} references unknown browser batch stage ${stageName}`);
-      }
+    for (const stage of selectedBrowserStages(scheduleProfile, scheduleTarget, browserStages)) {
       expectedBrowserTargets.push(stage.target);
-      const source = browserSources.find((entry) => entry.browser_stage === stageName);
+      const source = browserSources.find((entry) => entry.browser_stage === stage.name);
       if (!source) {
-        throw new Error(`${scheduleTarget} must include browser stage ${stageName} target ${stage.target}`);
+        throw new Error(`${scheduleTarget} must include browser stage ${stage.name} target ${stage.target}`);
       }
       validateBrowserSource(schedule, source, stage, resourceLimits);
-      const expectedNeeds = [];
-      if (stageProfile.needs?.include_backend_targets === true) {
-        expectedNeeds.push(...backendTargets);
-      }
-      if (stageProfile.needs?.include_prior_browser_stages === true) {
-        expectedNeeds.push(...priorBrowserTargets);
-      }
+      const expectedNeeds = expectedNeedsForPolicy(
+        stage.schedulerDependencyPolicy,
+        backendTargets,
+        priorBrowserTargets,
+      );
       assertSameList(source.needs ?? [], expectedNeeds, `${scheduleTarget} ${source.target} needs`);
       priorBrowserTargets.push(stage.target);
     }

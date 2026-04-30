@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v3";
+export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v4";
 
 const allowedGroupKinds = new Set([
   "webserver-backed",
@@ -14,6 +14,12 @@ const allowedGroupKinds = new Set([
   "visual",
 ]);
 const allowedCoverage = new Set(["authoritative", "supplemental", "raw"]);
+const allowedSchedulerDependencyPolicies = new Set([
+  "parallel",
+  "after_backend",
+  "after_prior_browser",
+  "after_backend_and_prior_browser",
+]);
 
 export function loadBrowserBatchManifest(manifestPath) {
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
@@ -99,8 +105,49 @@ function normalizeStage(stage, index) {
     name: stage.name.trim(),
     target: stage.target.trim(),
     summaryChildren: normalizedSummaryChildren,
+    scheduleTags: normalizeScheduleTags(stage),
+    schedulerDependencyPolicy: normalizeSchedulerDependencyPolicy(stage),
     groups: normalizedGroups,
   };
+}
+
+function normalizeScheduleTags(stage) {
+  if (stage.schedule_tags === undefined) {
+    return [];
+  }
+  if (!Array.isArray(stage.schedule_tags)) {
+    throw new Error(`browser E2E batch stage ${stage.name} schedule_tags must be an array`);
+  }
+  const tags = [];
+  const seen = new Set();
+  for (const [index, tag] of stage.schedule_tags.entries()) {
+    if (typeof tag !== "string" || !/^[a-z][a-z0-9_]*$/.test(tag)) {
+      throw new Error(
+        `browser E2E batch stage ${stage.name} schedule_tags ${index + 1} must be a snake_case token`,
+      );
+    }
+    if (seen.has(tag)) {
+      throw new Error(`browser E2E batch stage ${stage.name} schedule_tags contains duplicate ${tag}`);
+    }
+    seen.add(tag);
+    tags.push(tag);
+  }
+  return tags;
+}
+
+function normalizeSchedulerDependencyPolicy(stage) {
+  if (stage.scheduler_dependency_policy === undefined) {
+    return "parallel";
+  }
+  const policy = String(stage.scheduler_dependency_policy).trim();
+  if (!allowedSchedulerDependencyPolicies.has(policy)) {
+    throw new Error(
+      `browser E2E batch stage ${stage.name} scheduler_dependency_policy must be ${Array.from(
+        allowedSchedulerDependencyPolicies,
+      ).join("|")}`,
+    );
+  }
+  return policy;
 }
 
 function normalizeGroup(stageName, group, index) {
@@ -155,6 +202,8 @@ function printRunnerMetadata(stage) {
         group.resetBefore,
         group.coverage,
         group.executionDependency,
+        stage.scheduleTags.join(","),
+        stage.schedulerDependencyPolicy,
       ].join("\t") + "\n",
     );
   }

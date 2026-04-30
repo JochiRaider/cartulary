@@ -1188,27 +1188,72 @@ rendered_schedule_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-ren
 cleanup_paths+=("$rendered_schedule_dir")
 rendered_schedule_manifest="${rendered_schedule_dir}/service-backed.json"
 "$NODE_BIN" "$ROOT_DIR/scripts/render-service-backed-schedule-manifest.mjs" --output "$rendered_schedule_manifest"
-"$NODE_BIN" - "$rendered_schedule_manifest" <<'EOF'
-const fs = require("node:fs");
-const manifest = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+"$NODE_BIN" --input-type=module - "$ROOT_DIR" "$rendered_schedule_manifest" <<'EOF'
+import fs from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+
+const [root, manifestPath] = process.argv.slice(2);
+process.chdir(root);
+const { compareExecutionDependencies } = await import(
+  pathToFileURL(path.join(root, "scripts/lib/execution-dependencies.mjs"))
+);
+const { collectTargetPlanRows, findTargetDescriptor } = await import(
+  pathToFileURL(path.join(root, "scripts/lib/target-plan.mjs"))
+);
+
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 const byTarget = new Map((manifest.schedules ?? []).map((schedule) => [schedule.target, schedule]));
 const sourceTargets = (target) => (byTarget.get(target)?.work_unit_sources ?? []).map((source) => source.target);
 const testSources = sourceTargets("test-service-backed");
 const checkSources = sourceTargets("check-service-backed");
 const fastSources = sourceTargets("test-fast-service-backed");
+const backendSourceTargets = (target) =>
+  (byTarget.get(target)?.work_unit_sources ?? [])
+    .filter((source) => source.class === "backend")
+    .map((source) => source.target);
+function minDependency(target) {
+  const descriptor = findTargetDescriptor(target, root);
+  return [
+    ...(descriptor?.executionDependencies ?? []),
+    ...(descriptor?.supportTargets ?? []),
+  ].sort(compareExecutionDependencies)[0] ?? "";
+}
+const expectedBackendTargets = Array.from(
+  new Set(
+    collectTargetPlanRows(root)
+      .filter((row) => row.runner_family === "go_test" && row.service_backed && row.check_service_backed_safe)
+      .map((row) => row.target),
+  ),
+).sort(
+  (left, right) =>
+    compareExecutionDependencies(minDependency(left), minDependency(right)) ||
+    left.localeCompare(right),
+);
+for (const target of ["test-service-backed", "test-fast-service-backed", "check-service-backed"]) {
+  const actualBackendTargets = backendSourceTargets(target);
+  if (JSON.stringify(actualBackendTargets) !== JSON.stringify(expectedBackendTargets)) {
+    throw new Error(`${target} backend sources got ${actualBackendTargets} want ${expectedBackendTargets}`);
+  }
+}
 if (JSON.stringify(testSources) !== JSON.stringify(checkSources)) {
   throw new Error(`test-service-backed and check-service-backed sources differ: ${testSources} vs ${checkSources}`);
 }
 if (fastSources.some((target) => target.startsWith("browser-e2e"))) {
   throw new Error(`test-fast-service-backed must remain backend-only, got ${fastSources.join(",")}`);
 }
+for (const excluded of ["browser-e2e-functional", "browser-e2e-support"]) {
+  if (testSources.includes(excluded)) {
+    throw new Error(`untagged helper stage ${excluded} must not enter service-backed schedules`);
+  }
+}
 const isolated = (byTarget.get("test-service-backed")?.work_unit_sources ?? []).find(
   (source) => source.target === "browser-e2e",
 );
 const expectedNeeds = [
+  "backend-store",
   "backend-integration",
   "backend-integration-support",
-  "backend-store",
   "backend-process",
   "browser-e2e-webserver-backed",
 ];
@@ -1219,6 +1264,43 @@ if (manifest.generated?.generator !== "scripts/render-service-backed-schedule-ma
   throw new Error("rendered schedule must record generator metadata");
 }
 EOF
+
+invalid_derivation_manifest="${rendered_schedule_dir}/invalid-browser-batch.json"
+"$NODE_BIN" - "$ROOT_DIR/tools/browser_e2e_batch_manifest.json" "$invalid_derivation_manifest" <<'EOF'
+const fs = require("node:fs");
+const [sourcePath, outputPath] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(sourcePath, "utf8"));
+manifest.stages.push({
+  name: "tagged-without-rows",
+  target: "browser-e2e-support",
+  schedule_tags: ["service_backed_full"],
+  scheduler_dependency_policy: "parallel",
+  groups: [
+    {
+      name: "missing-phase-map-rows",
+      target: "browser-e2e-support",
+      kind: "support",
+      coverage: "supplemental",
+      execution_dependency: "browser_measurement",
+      workers: "default",
+    },
+  ],
+});
+fs.writeFileSync(outputPath, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
+set +e
+invalid_derivation_output="$(
+  "$NODE_BIN" "$ROOT_DIR/scripts/render-service-backed-schedule-manifest.mjs" \
+    --browser-batch-manifest "$invalid_derivation_manifest" \
+    --output "${rendered_schedule_dir}/invalid-service-backed.json" \
+    2>&1
+)"
+invalid_derivation_status=$?
+set -e
+if [[ "$invalid_derivation_status" -eq 0 ]]; then
+  fail "tagged browser schedule stage without matching phase-map rows must fail schedule derivation"
+fi
+assert_contains "$invalid_derivation_output" "no phase-map Playwright rows" "tagged browser stage without phase-map rows"
 
 invalid_resource_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-invalid-resource.XXXXXX")"
 cleanup_paths+=("$invalid_resource_dir")

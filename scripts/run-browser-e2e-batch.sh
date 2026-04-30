@@ -139,7 +139,7 @@ else
 fi
 
 for group_row in "${stage_groups[@]}"; do
-  IFS=$'\t' read -r group_name target kind workers reset_before coverage execution_dependency <<<"$group_row"
+  IFS=$'\t' read -r group_name target kind workers reset_before coverage execution_dependency stage_schedule_tags stage_dependency_policy <<<"$group_row"
 
   if [[ -n "$reset_before" ]]; then
     env CARTULARY_TEST_TARGET="${CARTULARY_TEST_TARGET:-$stage_target}" \

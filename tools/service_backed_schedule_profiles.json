@@ -1,11 +1,5 @@
 {
-  "schema_id": "cartulary.service_backed_schedule_profiles.v1",
-  "backend_target_order": [
-    "backend-integration",
-    "backend-integration-support",
-    "backend-store",
-    "backend-process"
-  ],
+  "schema_id": "cartulary.service_backed_schedule_profiles.v2",
   "defaults": {
     "go_shards_resource_claims": { "postgres": 1, "minio": 1 },
     "backend_make_target_weights": {
@@ -25,6 +19,10 @@
       "minio": 1,
       "process": 1,
       "browser_stack": 1
+    },
+    "browser_stage_weights": {
+      "webserver-backed": 41900,
+      "isolated": 21700
     }
   },
   "schedules": [
@@ -39,18 +37,15 @@
         "process": 4,
         "browser_stack": "auto"
       },
-      "include_service_backed_backend_targets": true,
-      "browser_stages": [
-        { "name": "webserver-backed", "weight": 41900 },
-        {
-          "name": "isolated",
-          "weight": 21700,
-          "needs": {
-            "include_backend_targets": true,
-            "include_prior_browser_stages": true
-          }
+      "selectors": {
+        "backend": {
+          "service_backed": true,
+          "check_service_backed_safe": true
+        },
+        "browser": {
+          "schedule_tags": ["service_backed_full"]
         }
-      ]
+      }
     },
     {
       "target": "test-fast-service-backed",
@@ -62,8 +57,12 @@
         "postgres_reset": 1,
         "process": 4
       },
-      "include_service_backed_backend_targets": true,
-      "browser_stages": []
+      "selectors": {
+        "backend": {
+          "service_backed": true,
+          "check_service_backed_safe": true
+        }
+      }
     },
     {
       "target": "check-service-backed",
@@ -76,18 +75,15 @@
         "process": 4,
         "browser_stack": "auto"
       },
-      "include_service_backed_backend_targets": true,
-      "browser_stages": [
-        { "name": "webserver-backed", "weight": 41900 },
-        {
-          "name": "isolated",
-          "weight": 21700,
-          "needs": {
-            "include_backend_targets": true,
-            "include_prior_browser_stages": true
-          }
+      "selectors": {
+        "backend": {
+          "service_backed": true,
+          "check_service_backed_safe": true
+        },
+        "browser": {
+          "schedule_tags": ["service_backed_full"]
         }
-      ]
+      }
     }
   ]
 }

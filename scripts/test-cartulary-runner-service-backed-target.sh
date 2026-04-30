@@ -166,16 +166,17 @@ run_case() {
 }
 
 run_case pass 0 0 0
-assert_contains "$(cat "$tmp_dir/pass.log")" "summary args=target-summary test-service-backed pass --children backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed,browser-e2e" "pass summary"
+expected_children="backend-store,backend-integration,backend-integration-support,backend-process,browser-e2e-webserver-backed,browser-e2e"
+assert_contains "$(cat "$tmp_dir/pass.log")" "summary args=target-summary test-service-backed pass --children $expected_children" "pass summary"
 
 run_case scheduler-fail 7 0 7
-assert_contains "$(cat "$tmp_dir/scheduler-fail.log")" "summary args=target-summary test-service-backed fail --children backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed,browser-e2e" "scheduler fail summary"
+assert_contains "$(cat "$tmp_dir/scheduler-fail.log")" "summary args=target-summary test-service-backed fail --children $expected_children" "scheduler fail summary"
 
 run_case summary-fail 0 9 9
-assert_contains "$(cat "$tmp_dir/summary-fail.log")" "summary args=target-summary test-service-backed pass --children backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed,browser-e2e" "summary fail summary"
+assert_contains "$(cat "$tmp_dir/summary-fail.log")" "summary args=target-summary test-service-backed pass --children $expected_children" "summary fail summary"
 
 run_case scheduler-and-summary-fail 7 9 7
-assert_contains "$(cat "$tmp_dir/scheduler-and-summary-fail.log")" "summary args=target-summary test-service-backed fail --children backend-integration,backend-integration-support,backend-store,backend-process,browser-e2e-webserver-backed,browser-e2e" "scheduler precedence summary"
+assert_contains "$(cat "$tmp_dir/scheduler-and-summary-fail.log")" "summary args=target-summary test-service-backed fail --children $expected_children" "scheduler precedence summary"
 
 summary_make="$tmp_dir/fake-summary-make.sh"
 cat >"$summary_make" <<'EOF'

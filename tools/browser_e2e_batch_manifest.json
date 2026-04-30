@@ -1,9 +1,11 @@
 {
-  "schema_id": "cartulary.browser_e2e_batch_manifest.v3",
+  "schema_id": "cartulary.browser_e2e_batch_manifest.v4",
   "stages": [
     {
       "name": "webserver-backed",
       "target": "browser-e2e-webserver-backed",
+      "schedule_tags": ["service_backed_full"],
+      "scheduler_dependency_policy": "parallel",
       "groups": [
         {
           "name": "functional-support",
@@ -113,6 +115,8 @@
       "name": "isolated",
       "target": "browser-e2e",
       "summary_children": ["browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"],
+      "schedule_tags": ["service_backed_full"],
+      "scheduler_dependency_policy": "after_backend_and_prior_browser",
       "groups": [
         {
           "name": "stateful",

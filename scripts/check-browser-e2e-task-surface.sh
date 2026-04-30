@@ -409,7 +409,7 @@ const expectedBrowser = [
   webserverBackedStage.target,
   ...(isolatedStage.summaryChildren.length > 0 ? isolatedStage.summaryChildren : [isolatedStage.target]),
 ];
-const expectedBackend = ["backend-integration", "backend-integration-support", "backend-store", "backend-process"];
+const expectedBackend = ["backend-store", "backend-integration", "backend-integration-support", "backend-process"];
 const testGroups = resolveSummaryGroups(context, manifest.sequences?.test?.summary_groups ?? []);
 const checkGroups = resolveSummaryGroups(context, (checkSchedule.schedules ?? []).find((entry) => entry.target === "check")?.summary_groups ?? []);
 for (const [label, groups] of [["test", testGroups], ["check", checkGroups]]) {
@@ -608,7 +608,7 @@ if ! [[ -f "$browser_batch_manifest_helper" ]]; then
   fail "missing scripts/lib/browser-batch-manifest.mjs"
 fi
 "$node_bin" "$browser_batch_manifest_helper" validate "$browser_batch_manifest"
-while IFS=$'\t' read -r stage_name group_name group_target group_kind group_coverage group_execution_dependency; do
+while IFS=$'\t' read -r stage_name group_name group_target group_kind group_coverage group_execution_dependency stage_schedule_tags stage_dependency_policy; do
   if [[ "$group_coverage" == "raw" || -z "$group_coverage" ]]; then
     continue
   fi
@@ -669,8 +669,14 @@ if ! grep -Fq 'docker compose -f "${COMPOSE_FILE}" up -d postgres minio' "$start
   fail "scripts/start-web-e2e.sh must keep Compose-backed startup for standalone browser E2E"
 fi
 
-if ! grep -Fq 'cartulary.browser_e2e_batch_manifest.v3' "$browser_batch_manifest"; then
+if ! grep -Fq 'cartulary.browser_e2e_batch_manifest.v4' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must declare its schema"
+fi
+if ! grep -Fq '"schedule_tags": ["service_backed_full"]' "$browser_batch_manifest"; then
+  fail "browser E2E batch manifest must tag service-backed scheduler stages"
+fi
+if ! grep -Fq '"scheduler_dependency_policy": "after_backend_and_prior_browser"' "$browser_batch_manifest"; then
+  fail "browser E2E batch manifest must declare scheduler dependency policy for isolated work"
 fi
 if ! grep -Fq '"kind": "duration_balanced_specs"' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must route functional browser work through duration-balanced specs"

@@ -4,12 +4,21 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadBrowserBatchStages } from "./lib/browser-batch-manifest.mjs";
+import {
+  compareExecutionDependencies,
+  executionDependencyInfo,
+} from "./lib/execution-dependencies.mjs";
+import {
+  collectEntries,
+  loadManifest,
+  phaseManifestNames,
+} from "./lib/phase-manifest.mjs";
 import { browserStageResource } from "./lib/scheduler-resources.mjs";
-import { collectTargetNames, findTargetDescriptor } from "./lib/target-plan.mjs";
+import { collectTargetPlanRows, findTargetDescriptor } from "./lib/target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const profileSchemaID = "cartulary.service_backed_schedule_profiles.v1";
+const profileSchemaID = "cartulary.service_backed_schedule_profiles.v2";
 const scheduleSchemaID = "cartulary.service_backed_schedule.v8";
 const defaultProfilePath = path.join(repoRoot, "tools", "service_backed_schedule_profiles.json");
 const defaultOutputPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
@@ -86,23 +95,120 @@ function requireString(value, label) {
   return value.trim();
 }
 
+function requireBoolean(value, label) {
+  if (typeof value !== "boolean") {
+    throw new Error(`${label} must be a boolean`);
+  }
+  return value;
+}
+
+function requireStringArray(value, label) {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`);
+  }
+  const seen = new Set();
+  const result = [];
+  for (const [index, item] of value.entries()) {
+    const normalized = requireString(item, `${label}[${index}]`);
+    if (seen.has(normalized)) {
+      throw new Error(`${label} must not contain duplicate ${normalized}`);
+    }
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
+}
+
 function cloneObject(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function orderedServiceBackedBackendTargets(profile) {
-  const preferred = requireArray(profile.backend_target_order ?? [], "backend_target_order").map(
-    (target, index) => requireString(target, `backend_target_order[${index}]`),
+function minExecutionDependency(target) {
+  const descriptor = findTargetDescriptor(target, repoRoot);
+  const dependencies = [
+    ...(descriptor?.executionDependencies ?? []),
+    ...(descriptor?.supportTargets ?? []),
+  ].filter((dependency) => dependency !== "");
+  if (dependencies.length === 0) {
+    return "";
+  }
+  return dependencies.sort(compareExecutionDependencies)[0];
+}
+
+function compareBackendTargets(left, right) {
+  const leftDependency = minExecutionDependency(left);
+  const rightDependency = minExecutionDependency(right);
+  return (
+    compareExecutionDependencies(leftDependency, rightDependency) ||
+    String(left).localeCompare(String(right))
   );
-  const preferredSet = new Set(preferred);
-  const discovered = collectTargetNames(repoRoot).filter((target) => {
-    const descriptor = findTargetDescriptor(target, repoRoot);
-    return descriptor?.serviceBacked === true && !preferredSet.has(target);
-  });
-  return [...preferred, ...discovered].filter((target) => {
-    const descriptor = findTargetDescriptor(target, repoRoot);
-    return descriptor?.serviceBacked === true;
-  });
+}
+
+function backendSelector(scheduleProfile) {
+  const selector = scheduleProfile.selectors?.backend ?? {};
+  if (!selector || typeof selector !== "object" || Array.isArray(selector)) {
+    throw new Error(`${scheduleProfile.target}.selectors.backend must be an object when present`);
+  }
+  return {
+    serviceBacked:
+      selector.service_backed === undefined
+        ? true
+        : requireBoolean(selector.service_backed, `${scheduleProfile.target}.selectors.backend.service_backed`),
+    checkServiceBackedSafe:
+      selector.check_service_backed_safe === undefined
+        ? true
+        : requireBoolean(
+            selector.check_service_backed_safe,
+            `${scheduleProfile.target}.selectors.backend.check_service_backed_safe`,
+          ),
+  };
+}
+
+function browserSelector(scheduleProfile) {
+  const selector = scheduleProfile.selectors?.browser;
+  if (selector === undefined) {
+    return null;
+  }
+  if (!selector || typeof selector !== "object" || Array.isArray(selector)) {
+    throw new Error(`${scheduleProfile.target}.selectors.browser must be an object when present`);
+  }
+  const tags = requireStringArray(selector.schedule_tags, `${scheduleProfile.target}.selectors.browser.schedule_tags`);
+  if (tags.length === 0) {
+    throw new Error(`${scheduleProfile.target}.selectors.browser.schedule_tags must not be empty`);
+  }
+  return { scheduleTags: tags };
+}
+
+function orderedServiceBackedBackendTargets(scheduleProfile) {
+  const selector = backendSelector(scheduleProfile);
+  const targetsWithRows = new Set(
+    collectTargetPlanRows(repoRoot)
+      .filter((row) => {
+        if (row.runner_family !== "go_test") {
+          return false;
+        }
+        if (selector.serviceBacked && row.service_backed !== true) {
+          return false;
+        }
+        if (selector.checkServiceBackedSafe && row.check_service_backed_safe !== true) {
+          return false;
+        }
+        return true;
+      })
+      .map((row) => row.target),
+  );
+  return Array.from(targetsWithRows)
+    .filter((target) => {
+      const descriptor = findTargetDescriptor(target, repoRoot);
+      return (
+        descriptor?.serviceBacked === selector.serviceBacked &&
+        (!selector.checkServiceBackedSafe || descriptor?.checkServiceBackedSafe === true)
+      );
+    })
+    .sort(compareBackendTargets);
 }
 
 function backendSource(profile, target) {
@@ -144,18 +250,26 @@ function backendSource(profile, target) {
   };
 }
 
-function browserSource(profile, stageProfile, stage, backendTargets, priorBrowserTargets) {
-  const stageName = requireString(stageProfile.name, "browser_stages[].name");
+function includeBackendDependencies(policy) {
+  return policy === "after_backend" || policy === "after_backend_and_prior_browser";
+}
+
+function includePriorBrowserDependencies(policy) {
+  return policy === "after_prior_browser" || policy === "after_backend_and_prior_browser";
+}
+
+function browserSource(profile, stage, backendTargets, priorBrowserTargets, weight) {
+  const stageName = stage.name;
   const laneResource = browserStageResource(stageName);
   const claims = {
     ...cloneObject(profile.defaults.browser_make_target_resource_claims),
     [laneResource]: 1,
   };
   const needs = [];
-  if (stageProfile.needs?.include_backend_targets === true) {
+  if (includeBackendDependencies(stage.schedulerDependencyPolicy)) {
     needs.push(...backendTargets);
   }
-  if (stageProfile.needs?.include_prior_browser_stages === true) {
+  if (includePriorBrowserDependencies(stage.schedulerDependencyPolicy)) {
     needs.push(...priorBrowserTargets);
   }
   return {
@@ -164,35 +278,118 @@ function browserSource(profile, stageProfile, stage, backendTargets, priorBrowse
     target: stage.target,
     browser_stage: stageName,
     ...(needs.length > 0 ? { needs } : {}),
-    weight: stageProfile.weight,
+    weight,
     resource_claims: claims,
   };
+}
+
+function stageHasRequiredTag(stage, requiredTags) {
+  const tags = new Set(stage.scheduleTags ?? []);
+  return requiredTags.every((tag) => tags.has(tag));
+}
+
+function stageNonRawExecutionDependencies(stage) {
+  return Array.from(
+    new Set(
+      stage.groups
+        .filter((group) => group.coverage !== "raw")
+        .map((group) => group.executionDependency)
+        .filter((dependency) => dependency !== ""),
+    ),
+  );
+}
+
+function validateStageHasServiceBackedEvidence(stage, scheduleTarget) {
+  const dependencies = stageNonRawExecutionDependencies(stage);
+  if (dependencies.length === 0) {
+    throw new Error(`${scheduleTarget} browser stage ${stage.name} has no non-raw execution dependencies`);
+  }
+  for (const group of stage.groups.filter((candidate) => candidate.coverage !== "raw")) {
+    const dependency = group.executionDependency;
+    const info = executionDependencyInfo(dependency);
+    if (!info || info.category !== "browser" || info.service_backed !== true) {
+      throw new Error(
+        `${scheduleTarget} browser stage ${stage.name} dependency ${dependency} is not service-backed browser evidence`,
+      );
+    }
+    if (!hasPlaywrightRows(group.coverage, dependency)) {
+      throw new Error(
+        `${scheduleTarget} browser stage ${stage.name} has no phase-map Playwright rows for ${group.coverage} ${dependency}`,
+      );
+    }
+  }
+}
+
+function hasPlaywrightRows(coverage, executionDependency) {
+  for (const phase of phaseManifestNames(repoRoot)) {
+    const { manifest } = loadManifest(repoRoot, phase);
+    if (
+      collectEntries(manifest).some(
+        (entry) =>
+          entry.section === "e2e" &&
+          entry.runner === "playwright" &&
+          entry.coverage === coverage &&
+          entry.execution_dependency === executionDependency,
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function stageWeight(profile, stage, scheduleTarget) {
+  const weights = profile.defaults.browser_stage_weights ?? {};
+  if (!weights || typeof weights !== "object" || Array.isArray(weights)) {
+    throw new Error("defaults.browser_stage_weights must be an object when present");
+  }
+  if (!Number.isFinite(weights[stage.name]) || weights[stage.name] < 0) {
+    throw new Error(`defaults.browser_stage_weights must declare non-negative weight for ${scheduleTarget} ${stage.name}`);
+  }
+  return weights[stage.name];
+}
+
+function selectedBrowserStages(scheduleProfile, browserStages) {
+  const selector = browserSelector(scheduleProfile);
+  if (!selector) {
+    return [];
+  }
+  const stages = Array.from(browserStages.values())
+    .filter((stage) => stageHasRequiredTag(stage, selector.scheduleTags))
+    .sort((left, right) => {
+      const leftDependency = stageNonRawExecutionDependencies(left).sort(compareExecutionDependencies)[0] ?? "";
+      const rightDependency = stageNonRawExecutionDependencies(right).sort(compareExecutionDependencies)[0] ?? "";
+      return (
+        compareExecutionDependencies(leftDependency, rightDependency) ||
+        left.name.localeCompare(right.name)
+      );
+    });
+  for (const stage of stages) {
+    validateStageHasServiceBackedEvidence(stage, scheduleProfile.target);
+  }
+  return stages;
 }
 
 function renderSchedule(profile, scheduleProfile, browserStages) {
   const target = requireString(scheduleProfile.target, "schedules[].target");
   const resourceLimits = cloneObject(requireObject(scheduleProfile.resource_limits, `${target}.resource_limits`));
   const sources = [];
-  if (scheduleProfile.include_service_backed_backend_targets === true) {
-    for (const backendTarget of orderedServiceBackedBackendTargets(profile)) {
-      sources.push(backendSource(profile, backendTarget));
-    }
+  for (const backendTarget of orderedServiceBackedBackendTargets(scheduleProfile)) {
+    sources.push(backendSource(profile, backendTarget));
   }
   const backendTargets = sources
     .filter((source) => source.class === "backend")
     .map((source) => source.target);
   const priorBrowserTargets = [];
-  for (const stageProfile of requireArray(scheduleProfile.browser_stages ?? [], `${target}.browser_stages`)) {
-    const stageName = requireString(stageProfile.name, `${target}.browser_stages[].name`);
-    const stage = browserStages.get(stageName);
-    if (!stage) {
-      throw new Error(`${target} references unknown browser batch stage ${stageName}`);
-    }
-    if (!Number.isFinite(stageProfile.weight) || stageProfile.weight < 0) {
-      throw new Error(`${target} browser stage ${stageName} must declare a non-negative weight`);
-    }
-    resourceLimits[browserStageResource(stageName)] = 1;
-    const source = browserSource(profile, stageProfile, stage, backendTargets, priorBrowserTargets);
+  for (const stage of selectedBrowserStages(scheduleProfile, browserStages)) {
+    resourceLimits[browserStageResource(stage.name)] = 1;
+    const source = browserSource(
+      profile,
+      stage,
+      backendTargets,
+      priorBrowserTargets,
+      stageWeight(profile, stage, target),
+    );
     sources.push(source);
     priorBrowserTargets.push(source.target);
   }
