@@ -238,6 +238,58 @@ process.stdout.write(String(value));
 ' "$file" "$path"
 }
 
+assert_fake_make_overlap() {
+  local event_log="$1"
+  local left_target="$2"
+  local right_target="$3"
+  local message="$4"
+
+  "$NODE_BIN" - "$event_log" "$left_target" "$right_target" "$message" <<'EOF'
+const fs = require("node:fs");
+const [eventLog, leftTarget, rightTarget, message] = process.argv.slice(2);
+const lines = fs.readFileSync(eventLog, "utf8").trim().split(/\n/).filter(Boolean);
+const expected = new Set([leftTarget, rightTarget]);
+const started = new Set();
+const ended = new Set();
+const running = new Set();
+let overlapped = false;
+
+for (const line of lines) {
+  const match = /^(start|end) (\S+) active=(\d+)$/.exec(line);
+  if (!match) {
+    continue;
+  }
+  const [, action, target, activeText] = match;
+  if (!expected.has(target)) {
+    continue;
+  }
+  if (action === "start") {
+    started.add(target);
+    running.add(target);
+  } else {
+    ended.add(target);
+    running.delete(target);
+  }
+  const active = Number(activeText);
+  if (running.has(leftTarget) && running.has(rightTarget) && active >= 2) {
+    overlapped = true;
+  }
+}
+
+for (const target of expected) {
+  if (!started.has(target)) {
+    throw new Error(`${message}: missing start event for ${target}`);
+  }
+  if (!ended.has(target)) {
+    throw new Error(`${message}: missing end event for ${target}`);
+  }
+}
+if (!overlapped) {
+  throw new Error(`${message}: ${leftTarget} and ${rightTarget} never overlapped with active>=2`);
+}
+EOF
+}
+
 write_fake_make() {
   local dir="$1"
 
@@ -553,7 +605,7 @@ assert_contains "$success_output" "[PASS] check" "success summary"
 assert_contains "$(cat "${success_dir}/make-args.log")" "--output-sync=target -j2 build" "build uses claimed host_cpu jobs"
 success_events="$(cat "${success_dir}/events.log")"
 assert_contains "$success_events" "end local" "success local completed"
-assert_contains "$success_events" "start service active=2" "success service overlapped with cheap local work"
+assert_fake_make_overlap "${success_dir}/events.log" local service "success service overlapped with cheap local work"
 assert_contains "$success_events" "env service go_cpu=1 go_io=1" "success service forwarded bounded nested scheduler limits"
 assert_contains "$success_events" "end service" "success service completed"
 assert_contains "$success_events" "end meta" "success meta completed"

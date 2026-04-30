@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { assertKnownResource } from "./scheduler-resources.mjs";
-import { hasMakeNodeTool, makeNodeToolEnvVars } from "./make-node-tools.mjs";
+import { hasMakeNodeTool, makeNodeToolMakeEnvVars } from "./make-node-tools.mjs";
 import {
   collectExplicitSummaryProjectionErrors,
   loadSummaryTopologyContext,
@@ -724,6 +724,8 @@ export function renderTaskSurfaceMake(manifest) {
   }
   lines.push("\t''");
   lines.push("");
+  lines.push('RUN_MAKE_NODE_TOOL = env NODE_BIN="$(NODE_BIN)" $(2) ./scripts/run-make-node-tool.sh $(1)');
+  lines.push("");
   for (const recipe of makeRecipeEntries(manifest)) {
     lines.push(...renderMakeRecipe(recipe, manifest));
     lines.push("");
@@ -824,14 +826,13 @@ function renderMakeRecipe(recipe, manifest) {
     ];
   }
   if (recipe.type === "node_tool") {
-    const env = [
-      'NODE_BIN="$(NODE_BIN)"',
-      ...makeNodeToolEnvVars.map((name) => `${name}="$(${name})"`),
-    ];
+    const env = makeNodeToolMakeEnvVars(recipe.target)
+      .map((name) => `${name}="$(${name})"`)
+      .join(" ");
     return [
       ...prefix,
       header,
-      `\t$(Q)env ${env.join(" ")} ./scripts/run-make-node-tool.sh ${recipe.target}`,
+      `\t$(Q)$(call RUN_MAKE_NODE_TOOL,${recipe.target},${env})`,
     ];
   }
   throw new Error(`unsupported Make recipe type ${recipe.type}`);

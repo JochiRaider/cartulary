@@ -2,7 +2,12 @@
 
 import { spawnSync } from "node:child_process";
 
-import { buildMakeNodeToolInvocation, makeNodeToolNames, UsageError } from "./lib/make-node-tools.mjs";
+import {
+  buildMakeNodeToolChildEnv,
+  buildMakeNodeToolInvocation,
+  makeNodeToolNames,
+  UsageError,
+} from "./lib/make-node-tools.mjs";
 
 function usage() {
   process.stderr.write(`usage: run-make-node-tool.mjs <${makeNodeToolNames().join("|")}>\n`);
@@ -27,7 +32,7 @@ function main(argv) {
   }
 
   const child = spawnSync(process.execPath, [invocation.script, ...invocation.args], {
-    env: process.env,
+    env: buildMakeNodeToolChildEnv(target, process.env),
     stdio: "inherit",
   });
   if (child.error) {

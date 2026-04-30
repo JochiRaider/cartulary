@@ -423,8 +423,7 @@ check-setup-blockers: $(NODE_BIN)
 	fi
 
 check-harness-smoke:
-	$(Q)$(MAKE) --no-print-directory run-harness-smoke-fast
-	$(TARGET_SUMMARY) check-harness-smoke pass --projection check-harness-smoke
+	$(Q)NODE_BIN=$(NODE_BIN) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target check-harness-smoke --child-target run-harness-smoke-fast --status pass --phase-label check-harness-smoke --projection check-harness-smoke
 
 # Build and service-image readiness gate the service-backed scheduler. Keep
 # independent static and harness validation outside this prerequisite aggregate

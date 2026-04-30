@@ -62,28 +62,9 @@ export class UsageError extends Error {
   }
 }
 
-export const makeNodeToolEnvVars = [
-  "BASELINE_FILE",
-  "CARTULARY_TEST_RESULTS_DIR",
-  "CARTULARY_TEST_RUN_ID",
-  "DETAIL",
-  "EXECUTION_TOPOLOGY_MANIFEST",
-  "FIXTURE_THRESHOLD_MS",
-  "FIXTURE_TOP",
-  "JSON",
-  "PHASE",
-  "PRUNE_OBSERVED_PACKAGES",
-  "RESULTS_DIR",
-  "ROLE",
-  "RUN_ID",
-  "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
-  "SERVICE_BACKED_SCHEDULE_MANIFEST",
-  "TARGET",
-  "TASK_SURFACE_REPORT_ARGS",
-];
-
 export const makeNodeTools = {
   "task-surface-report": {
+    inputs: ["TASK_SURFACE_REPORT_ARGS"],
     script: "./scripts/print-task-surface-report.mjs",
     usage: "usage: make task-surface-report [TASK_SURFACE_REPORT_ARGS=--all]",
     buildArgs(env) {
@@ -91,6 +72,8 @@ export const makeNodeTools = {
     },
   },
   "task-guide": {
+    inputs: ["ROLE", "PHASE", "JSON"],
+    runtimeEnv: ["CARTULARY_TEST_RESULTS_DIR"],
     script: "./scripts/print-task-guide.mjs",
     usage: "usage: make task-guide [ROLE=<role>] [PHASE=phaseN] [JSON=1]",
     buildArgs(env) {
@@ -102,6 +85,13 @@ export const makeNodeTools = {
     },
   },
   "phase-slice": {
+    inputs: ["PHASE"],
+    runtimeEnv: [
+      "MAKE",
+      "TEST_OUTPUT_SCRIPT",
+      "CARTULARY_TEST_RESULTS_DIR",
+      "CARTULARY_TEST_RUN_ID",
+    ],
     script: "./scripts/run-phase-slice.mjs",
     usage: "usage: make phase-slice PHASE=<phaseN>",
     buildArgs(env) {
@@ -112,6 +102,13 @@ export const makeNodeTools = {
     },
   },
   "service-backed-slice": {
+    inputs: ["PHASE"],
+    runtimeEnv: [
+      "MAKE",
+      "TEST_OUTPUT_SCRIPT",
+      "CARTULARY_TEST_RESULTS_DIR",
+      "CARTULARY_TEST_RUN_ID",
+    ],
     script: "./scripts/run-phase-slice.mjs",
     usage: "usage: make service-backed-slice PHASE=<phaseN>",
     buildArgs(env) {
@@ -122,6 +119,7 @@ export const makeNodeTools = {
     },
   },
   "target-plan": {
+    inputs: [],
     script: "./scripts/print-target-plan.mjs",
     usage: "usage: make target-plan",
     buildArgs() {
@@ -129,6 +127,7 @@ export const makeNodeTools = {
     },
   },
   "target-plan-json": {
+    inputs: [],
     script: "./scripts/print-target-plan.mjs",
     usage: "usage: make target-plan-json",
     buildArgs() {
@@ -136,6 +135,7 @@ export const makeNodeTools = {
     },
   },
   "fixture-report": {
+    inputs: ["FIXTURE_THRESHOLD_MS", "FIXTURE_TOP", "RUN_ID", "TARGET", "JSON"],
     script: "./scripts/print-fixture-report.mjs",
     resultDir: { mode: "resultsRootDefault", flag: "--results-dir" },
     usage:
@@ -154,6 +154,7 @@ export const makeNodeTools = {
     },
   },
   "explain-run": {
+    inputs: ["DETAIL", "RUN_ID", "TARGET"],
     script: "./scripts/print-explain-run.mjs",
     resultDir: { mode: "required", flag: "--results-dir" },
     usage:
@@ -166,6 +167,7 @@ export const makeNodeTools = {
     },
   },
   "explain-phase": {
+    inputs: ["PHASE", "JSON"],
     script: "./scripts/print-explain-phase.mjs",
     usage: "usage: make explain-phase PHASE=<phaseN>",
     buildArgs(env) {
@@ -178,6 +180,7 @@ export const makeNodeTools = {
     },
   },
   "explain-target": {
+    inputs: ["TARGET", "DETAIL", "JSON"],
     script: "./scripts/print-explain-target.mjs",
     usage: "usage: make explain-target TARGET=<target> [DETAIL=summary|rows|artifacts]",
     buildArgs(env) {
@@ -193,6 +196,7 @@ export const makeNodeTools = {
     },
   },
   "go-test-duration-baselines": {
+    inputs: ["PRUNE_OBSERVED_PACKAGES", "BASELINE_FILE"],
     script: "./scripts/update-go-test-durations.mjs",
     resultDir: { mode: "required", positional: true },
     usage: "usage: make go-test-duration-baselines RESULTS_DIR=<successful test results dir>",
@@ -206,6 +210,7 @@ export const makeNodeTools = {
     },
   },
   "go-test-duration-baseline-coverage": {
+    inputs: ["BASELINE_FILE"],
     script: "./scripts/check-go-test-duration-baseline-coverage.mjs",
     usage: "usage: make go-test-duration-baseline-coverage [BASELINE_FILE=<path>]",
     buildArgs(env) {
@@ -215,6 +220,7 @@ export const makeNodeTools = {
     },
   },
   "go-test-duration-baseline-drift": {
+    inputs: ["BASELINE_FILE"],
     script: "./scripts/check-go-test-duration-baseline-drift.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
     usage: "usage: make go-test-duration-baseline-drift [RESULTS_DIR=<dir>] [BASELINE_FILE=<path>]",
@@ -225,6 +231,7 @@ export const makeNodeTools = {
     },
   },
   "browser-e2e-duration-baseline-drift": {
+    inputs: ["BASELINE_FILE"],
     script: "./scripts/lib/browser-shard-plan.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
     usage:
@@ -236,6 +243,7 @@ export const makeNodeTools = {
     },
   },
   "service-backed-make-target-duration-baselines": {
+    inputs: ["SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE"],
     script: "./scripts/service-backed-make-target-durations.mjs",
     resultDir: { mode: "required", positional: true },
     usage:
@@ -252,6 +260,11 @@ export const makeNodeTools = {
     },
   },
   "service-backed-make-target-duration-baseline-drift": {
+    inputs: [
+      "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
+      "EXECUTION_TOPOLOGY_MANIFEST",
+      "SERVICE_BACKED_SCHEDULE_MANIFEST",
+    ],
     script: "./scripts/service-backed-make-target-durations.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
     usage:
@@ -270,6 +283,7 @@ export const makeNodeTools = {
     },
   },
   "scheduler-event-order-drift": {
+    inputs: ["TARGET"],
     script: "./scripts/check-scheduler-event-order-drift.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
     usage: "usage: make scheduler-event-order-drift [RESULTS_DIR=<dir>] [TARGET=<target>]",
@@ -281,6 +295,49 @@ export const makeNodeTools = {
   },
 };
 
+function uniqueNames(names) {
+  return Array.from(new Set(names));
+}
+
+function resultDirMakeEnvVars(resultDir) {
+  if (!resultDir) {
+    return [];
+  }
+  if (resultDir.mode === "required") {
+    return ["RESULTS_DIR"];
+  }
+  if (resultDir.mode === "resultsRootDefault") {
+    return ["RESULTS_DIR", "CARTULARY_TEST_RESULTS_DIR"];
+  }
+  if (resultDir.mode === "currentRunDefault") {
+    return ["RESULTS_DIR", "CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID"];
+  }
+  throw new Error(`unsupported result-dir mode ${resultDir.mode}`);
+}
+
+function makeNodeTool(name) {
+  const tool = makeNodeTools[name];
+  if (!tool) {
+    throw new UsageError(
+      `unknown make node tool ${name}`,
+      `usage: run-make-node-tool.mjs <${makeNodeToolNames().join("|")}>`,
+    );
+  }
+  return tool;
+}
+
+function scopedEnv(env, allowedNames, label) {
+  const allowed = new Set(allowedNames);
+  return new Proxy(env, {
+    get(target, property) {
+      if (typeof property === "string" && !allowed.has(property)) {
+        throw new Error(`${label} read undeclared Make env var ${property}`);
+      }
+      return target[property];
+    },
+  });
+}
+
 export function makeNodeToolNames() {
   return Object.keys(makeNodeTools).sort();
 }
@@ -289,18 +346,43 @@ export function hasMakeNodeTool(name) {
   return Object.hasOwn(makeNodeTools, name);
 }
 
-export function buildMakeNodeToolInvocation(name, env = process.env) {
-  const tool = makeNodeTools[name];
-  if (!tool) {
-    throw new UsageError(
-      `unknown make node tool ${name}`,
-      `usage: run-make-node-tool.mjs <${makeNodeToolNames().join("|")}>`,
-    );
-  }
+export function makeNodeToolRuntimeEnvVars(name) {
+  return uniqueNames(makeNodeTool(name).runtimeEnv ?? []);
+}
 
-  const args = tool.buildArgs(env);
+export function makeNodeToolMakeEnvVars(name) {
+  const tool = makeNodeTool(name);
+  return uniqueNames([
+    ...(tool.inputs ?? []),
+    ...resultDirMakeEnvVars(tool.resultDir),
+    ...(tool.runtimeEnv ?? []),
+  ]);
+}
+
+export function makeNodeToolKnownEnvVars() {
+  return uniqueNames(makeNodeToolNames().flatMap((name) => makeNodeToolMakeEnvVars(name)));
+}
+
+export function buildMakeNodeToolChildEnv(name, env = process.env) {
+  const childEnv = { ...env };
+  const runtimeEnv = new Set(makeNodeToolRuntimeEnvVars(name));
+  for (const envVar of makeNodeToolKnownEnvVars()) {
+    if (!runtimeEnv.has(envVar)) {
+      delete childEnv[envVar];
+    }
+  }
+  return childEnv;
+}
+
+export function buildMakeNodeToolInvocation(name, env = process.env) {
+  const tool = makeNodeTool(name);
+
+  const args = tool.buildArgs(scopedEnv(env, tool.inputs ?? [], name));
   if (tool.resultDir) {
-    const resultsDir = resultDirForMode(env, tool.resultDir.mode);
+    const resultsDir = resultDirForMode(
+      scopedEnv(env, resultDirMakeEnvVars(tool.resultDir), `${name} result-dir`),
+      tool.resultDir.mode,
+    );
     if (!resultsDir) {
       throw new UsageError("RESULTS_DIR is required", tool.usage);
     }
@@ -310,5 +392,10 @@ export function buildMakeNodeToolInvocation(name, env = process.env) {
       args.unshift(tool.resultDir.flag, resultsDir);
     }
   }
-  return { args, script: tool.script, usage: tool.usage };
+  return {
+    args,
+    runtimeEnv: makeNodeToolRuntimeEnvVars(name),
+    script: tool.script,
+    usage: tool.usage,
+  };
 }
