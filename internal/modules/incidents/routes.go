@@ -186,7 +186,7 @@ func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 			writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
 			return
 		case errors.Is(err, ErrIncidentKeyConflict):
-			writeAPIError(w, r, incidentKeyConflictError())
+			writeAPIError(w, r, incidentKeyConflictError(request.IncidentKey))
 			return
 		case err != nil:
 			writeAPIError(w, r, internalAPIError(err))

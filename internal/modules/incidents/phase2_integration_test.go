@@ -233,19 +233,79 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 		t.Fatalf("divergent create replay must not change durable side effects: before=%+v after=%+v", stableBefore, stableAfterConflict)
 	}
 
+	duplicateClientTxnID := "txn-i-2-02-duplicate"
+	type duplicateConflictSideEffects struct {
+		BootstrapMembershipRows        int
+		IncidentRows                   int
+		IncidentWorkbookPreferenceRows int
+		OwnerMutationRows              int
+		RouteIdempotencyRows           int
+		UserWorkbookPreferenceRows     int
+	}
+	snapshotDuplicateConflictSideEffects := func() duplicateConflictSideEffects {
+		return duplicateConflictSideEffects{
+			BootstrapMembershipRows: phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships`),
+			IncidentRows:            phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents`),
+			IncidentWorkbookPreferenceRows: phase2test.QueryCount(
+				t,
+				harness.DB,
+				`SELECT COUNT(*) FROM incident_workbook_preferences`,
+			),
+			OwnerMutationRows: phase2test.CountMutationArtifacts(
+				t,
+				harness.DB,
+				phase2test.MutationSelector{ClientTxnID: duplicateClientTxnID},
+				phase2test.MutationOwnerIncidentResource,
+				phase2test.MutationOwnerIncidentMembership,
+			),
+			RouteIdempotencyRows: phase2test.QueryCount(
+				t,
+				harness.DB,
+				`
+SELECT COUNT(*)
+  FROM route_idempotency
+ WHERE route_key = 'incidents.create'
+   AND actor_user_id::text = $1
+   AND scope_key = 'actor'
+   AND client_txn_id = $2
+`,
+				replaySelector.ActorUserID.String(),
+				duplicateClientTxnID,
+			),
+			UserWorkbookPreferenceRows: phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences`),
+		}
+	}
+	duplicateBefore := snapshotDuplicateConflictSideEffects()
 	duplicateKey := phase2test.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents",
 		map[string]any{
-			"client_txn_id": "txn-i-2-02-duplicate",
+			"client_txn_id": duplicateClientTxnID,
 			"incident_key":  normalizedIncidentKey,
 			"title":         "Duplicate key",
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
-	httptestx.RequireErrorEnvelope(t, duplicateKey, http.StatusConflict, "incident_key_conflict")
+	duplicateBody := httptestx.RequireErrorEnvelope(t, duplicateKey, http.StatusConflict, "incident_key_conflict")
+	duplicateDetails := duplicateBody["error"].(map[string]any)["details"].(map[string]any)
+	if duplicateDetails["field"] != "incident_key" {
+		t.Fatalf("expected duplicate conflict field detail incident_key, got %#v", duplicateDetails)
+	}
+	if duplicateDetails["incident_key_canonical"] != normalizedIncidentKey {
+		t.Fatalf("expected duplicate conflict canonical key %q, got %#v", normalizedIncidentKey, duplicateDetails)
+	}
+	duplicateAfter := snapshotDuplicateConflictSideEffects()
+	if duplicateAfter != duplicateBefore {
+		t.Fatalf("duplicate incident key conflict must not change durable side effects: before=%+v after=%+v", duplicateBefore, duplicateAfter)
+	}
+	if duplicateAfter.OwnerMutationRows != 0 {
+		t.Fatalf("duplicate incident key conflict must not leave mutation artifacts for %s, got %d", duplicateClientTxnID, duplicateAfter.OwnerMutationRows)
+	}
+	if duplicateAfter.RouteIdempotencyRows != 0 {
+		t.Fatalf("duplicate incident key conflict must not leave create idempotency rows for %s, got %d", duplicateClientTxnID, duplicateAfter.RouteIdempotencyRows)
+	}
 	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, normalizedIncidentKey); got != 1 {
 		t.Fatalf("expected one canonical incident row after composed-vs-decomposed duplicate conflict, got %d", got)
 	}
