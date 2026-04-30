@@ -7,6 +7,7 @@ generated_make="$repo_root/tools/task_surface.generated.mk"
 cartulary_runner_script="$repo_root/scripts/cartulary-runner.mjs"
 go_runner_script="$repo_root/scripts/run-go-target.mjs"
 go_runner_module="$repo_root/scripts/lib/go-target-runner.mjs"
+go_target_plan_coverage_helper="$repo_root/scripts/check-go-target-plan-coverage.mjs"
 schedule_manifest="$repo_root/tools/service_backed_schedule_manifest.json"
 execution_topology_manifest="$repo_root/tools/execution_topology_manifest.json"
 browser_batch_manifest="$repo_root/tools/browser_e2e_batch_manifest.json"
@@ -561,118 +562,7 @@ if ! rg -q '^backend-store:' "$generated_make" "$makefile"; then
   fail "Makefile must define backend-store"
 fi
 
-if ! "$node_bin" - "$repo_root" "$target_plan_file" <<'EOF'
-const fs = require("node:fs");
-const path = require("node:path");
-
-const [root, planFile] = process.argv.slice(2);
-const rows = JSON.parse(fs.readFileSync(planFile, "utf8"));
-const backendDependencies = new Set([
-  "backend_unit",
-  "backend_store",
-  "backend_integration",
-  "backend_process",
-]);
-
-function supportSymbols(entry) {
-  if (entry.symbol !== undefined && entry.symbols !== undefined) {
-    throw new Error(`${entry.file} must not declare both symbol and symbols`);
-  }
-  if (entry.symbols !== undefined) {
-    return entry.symbols;
-  }
-  return [entry.symbol];
-}
-
-const manifestRows = [];
-const supportRows = [];
-for (const file of fs.readdirSync(path.join(root, "tools")).sort()) {
-  if (!/^phase\d+_test_map\.json$/.test(file)) {
-    continue;
-  }
-  const phase = file.replace(/_test_map\.json$/, "");
-  const manifest = JSON.parse(fs.readFileSync(path.join(root, "tools", file), "utf8"));
-  for (const section of ["unit", "integration", "e2e"]) {
-    for (const entry of manifest[section] ?? []) {
-      if (
-        entry.coverage === "authoritative" &&
-        entry.runner === "go_test" &&
-        backendDependencies.has(entry.execution_dependency)
-      ) {
-        manifestRows.push({ ...entry, phase, section });
-      }
-    }
-  }
-  for (const entry of manifest.support_go_targets ?? []) {
-    for (const symbol of supportSymbols(entry)) {
-      supportRows.push({ ...entry, phase, symbol });
-    }
-  }
-}
-
-for (const entry of manifestRows) {
-  const matches = rows.filter(
-    (row) =>
-      row.canonical_authoritative === true &&
-      row.support_only === false &&
-      row.coverage === "authoritative" &&
-      row.id === entry.id &&
-      row.manifest_phase === entry.phase,
-  );
-  if (matches.length !== 1) {
-    console.error(
-      `${entry.phase} authoritative ${entry.section} row ${entry.id} must appear in exactly one canonical target-plan row, found ${matches.length}`,
-    );
-    process.exit(1);
-  }
-  const row = matches[0];
-  if (
-    row.execution_dependency !== entry.execution_dependency ||
-    row.section !== entry.section ||
-    row.execution_family !== entry.execution_family ||
-    row.execution_label !== entry.execution_label
-  ) {
-    console.error(
-      `${entry.phase} authoritative row ${entry.id} target-plan mismatch: expected ${entry.section}/${entry.execution_dependency}/${entry.execution_family}/${entry.execution_label}, found ${row.section}/${row.execution_dependency}/${row.execution_family}/${row.execution_label}`,
-    );
-    process.exit(1);
-  }
-}
-
-const manifestKeys = new Set(manifestRows.map((entry) => `${entry.phase}:${entry.id}`));
-for (const row of rows) {
-  if (
-    row.canonical_authoritative === true &&
-    row.support_only === false &&
-    row.coverage === "authoritative" &&
-    !manifestKeys.has(`${row.manifest_phase}:${row.id}`)
-  ) {
-    console.error(`target-plan row ${row.target} ${row.manifest_phase} ${row.id} is not backed by an authoritative backend manifest row`);
-    process.exit(1);
-  }
-}
-
-for (const entry of supportRows) {
-  const matches = rows.filter(
-    (row) =>
-      row.support_only === true &&
-      row.manifest_phase === entry.phase &&
-      row.execution_dependency === entry.target &&
-      row.execution_family === entry.execution_family &&
-      row.execution_label === entry.execution_label &&
-      row.file === entry.file &&
-      row.support_selector === entry.selection_pattern &&
-      Array.isArray(row.symbols) &&
-      row.symbols.includes(entry.symbol),
-  );
-  if (matches.length !== 1) {
-    console.error(
-      `${entry.phase} support row ${entry.file}::${entry.symbol} must appear in exactly one target-plan support row, found ${matches.length}`,
-    );
-    process.exit(1);
-  }
-}
-EOF
+if ! "$node_bin" "$go_target_plan_coverage_helper" --root "$repo_root" --quiet
 then
   fail "Backend target plan must match authoritative manifests and support selectors"
 fi

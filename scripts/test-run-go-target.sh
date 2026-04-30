@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 GO_PHASE_HELPER="$ROOT_DIR/scripts/lib/run-go-phase.sh"
 GO_TARGET_HELPER="$ROOT_DIR/scripts/run-go-target.mjs"
-MANIFEST_HELPER="$ROOT_DIR/scripts/lib/phase-manifest.mjs"
+GO_TARGET_PLAN_COVERAGE_HELPER="$ROOT_DIR/scripts/check-go-target-plan-coverage.mjs"
 PHASE_MAP_CHECK="$ROOT_DIR/scripts/check-phase-map.mjs"
 cleanup_paths=()
 
@@ -80,15 +80,6 @@ assert_equals() {
 
   if [[ "$actual" != "$expected" ]]; then
     fail "$label: expected [$expected], got [$actual]"
-  fi
-}
-
-assert_not_zero() {
-  local actual="$1"
-  local label="$2"
-
-  if [[ -z "$actual" || "$actual" == "0" ]]; then
-    fail "$label: expected a non-zero value, got [$actual]"
   fi
 }
 
@@ -378,17 +369,7 @@ assert_equals "$(json_field "$reused_window_summary" "wall_duration_ms")" "400" 
 assert_equals "$(json_field "$reused_window_summary" "start_time")" "2026-01-01T00:00:00Z" "reused window target start follows invocation span"
 assert_equals "$(json_field "$reused_window_summary" "end_time")" "2026-01-01T00:00:00.400Z" "reused window target end follows invocation span"
 
-backend_unit_core_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-unit backend-unit-core
-)"
-assert_contains "$backend_unit_core_shared_command" "TestSupportPhase0_" "backend-unit-core phase0 selector"
-assert_contains "$backend_unit_core_shared_command" "TestSupportPhase2Unit_" "backend-unit-core phase2 selector"
-assert_contains "$backend_unit_core_shared_command" "TestSupportPhase3Unit_" "backend-unit-core phase3 selector"
-
-backend_unit_auth_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-unit backend-unit-auth
-)"
-assert_contains "$backend_unit_auth_shared_command" "TestSupportPhase1_" "backend-unit-auth phase1 selector"
+NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_PLAN_COVERAGE_HELPER" --root "$ROOT_DIR" --commands --quiet
 
 phase0_platform_shared_command="$(
   NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-platform
@@ -439,15 +420,6 @@ if (mixed.length > 0 || shared.length > 0) {
 }
 EOF
 
-phase3_timeline_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-timeline
-)"
-assert_contains "$phase3_timeline_shared_command" "TestSupportPhase3Integration_" "backend-integration phase3 timeline support selector"
-phase3_timeline_authoritative_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-timeline
-)"
-assert_contains "$phase3_timeline_authoritative_command" "TestPhase3_I_3_01" "backend-integration phase3 timeline authoritative selector"
-
 phase4_entities_shared_command="$(
   NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-entities
 )"
@@ -463,11 +435,6 @@ phase4_timeline_shared_command="$(
 )"
 assert_contains "$phase4_timeline_shared_command" "TestPhase4_AutoResolutionEligibility" "backend-integration phase4 timeline selector"
 assert_not_contains "$phase4_timeline_shared_command" "TestSupportPhase4Integration_" "backend-integration phase4 timeline excludes entities support selector"
-
-auth_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-auth
-)"
-assert_contains "$auth_shared_command" "TestSupportPhase1_" "backend-integration-auth phase1 selector"
 
 shared_mismatch_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-shared-mismatch.XXXXXX")"
 cleanup_paths+=("$shared_mismatch_results")
@@ -653,24 +620,6 @@ assert_contains "$backend_integration_support_shards" "backend-integration-entit
 assert_not_contains "$backend_integration_support_shards" "backend-integration-testutil" "backend-integration-support skips testutil shard"
 first_backend_integration_support_shard="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration-support | head -n 1)"
 assert_contains "$backend_integration_support_shards" "$first_backend_integration_support_shard" "backend-integration-support weighted shard order starts with heaviest support shard"
-
-phase0_backend_unit_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase0 backend_unit ./internal/platform/... ./internal/app)"
-assert_not_zero "$phase0_backend_unit_support_count" "phase0 backend-unit support-go-count"
-phase1_backend_unit_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase1 backend_unit ./internal/modules/auth)"
-assert_not_zero "$phase1_backend_unit_support_count" "phase1 backend-unit support-go-count"
-phase2_backend_unit_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase2 backend_unit ./internal/modules/incidents)"
-assert_not_zero "$phase2_backend_unit_support_count" "phase2 backend-unit support-go-count"
-phase3_backend_unit_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase3 backend_unit ./internal/modules/timeline)"
-assert_not_zero "$phase3_backend_unit_support_count" "phase3 backend-unit support-go-count"
-
-phase1_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase1 backend_integration_support ./internal/modules/auth)"
-assert_not_zero "$phase1_support_count" "phase1 support-go-count"
-phase2_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase2 backend_integration_support ./internal/modules/incidents)"
-assert_not_zero "$phase2_support_count" "phase2 support-go-count"
-phase3_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase3 backend_integration_support ./internal/modules/timeline)"
-assert_not_zero "$phase3_support_count" "phase3 support-go-count"
-phase4_support_count="$("$node_bin" "$MANIFEST_HELPER" support-go-count phase4 backend_integration_support ./internal/modules/entities ./internal/modules/timeline)"
-assert_not_zero "$phase4_support_count" "phase4 support-go-count"
 
 support_zero_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-support-zero.XXXXXX")"
 cleanup_paths+=("$support_zero_dir")
