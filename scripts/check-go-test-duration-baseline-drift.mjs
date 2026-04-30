@@ -100,6 +100,27 @@ function main(argv) {
   const errors = [];
   const warnings = [];
   for (const artifact of artifacts) {
+    if (artifact.observedRawPackages?.length > 0) {
+      let planned = 0;
+      const missing = [];
+      for (const observedPackage of artifact.observedRawPackages) {
+        const rawPackageWeight = baseline.rawAggregates.get(observedPackage.key);
+        if (!validBaselineValue(rawPackageWeight)) {
+          missing.push(`raw package baseline key=${observedPackage.key}`);
+          continue;
+        }
+        planned += rawPackageWeight;
+      }
+      for (const key of missing) {
+        errors.push(`missing ${key} shard=${artifact.shardName}`);
+      }
+      if (planned <= 0 || missing.length > 0) {
+        continue;
+      }
+      checkShardDrift(errors, warnings, artifact, planned);
+      continue;
+    }
+
     if (artifact.rawAggregateKey) {
       const planned = baseline.rawAggregates.get(artifact.rawAggregateKey);
       if (!validBaselineValue(planned)) {

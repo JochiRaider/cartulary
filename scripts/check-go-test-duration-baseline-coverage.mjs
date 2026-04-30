@@ -53,7 +53,7 @@ function checkBaselineCoverage(plan, baseline) {
         if (!validBaselineValue(baseline.rawAggregates.get(item.baseline_key))) {
           addMissing(
             missing,
-            `raw aggregate baseline key=${item.baseline_key} shard=${shard.name}`,
+            `raw package baseline key=${item.baseline_key} shard=${shard.name}`,
           );
         }
         continue;

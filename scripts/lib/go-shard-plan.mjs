@@ -4,6 +4,7 @@ import {
   defaultShardTargetMsByTargetEntries,
   normalizePositiveInteger,
   rawAggregateBaselineKey,
+  rawPackageBaselineKey,
   readGoDurationBaselineMaps,
   testBaselineKey,
 } from "./go-duration-baselines.mjs";
@@ -58,6 +59,38 @@ function rowPackageImportPaths(modulePath, row) {
   return rowPackages(row).map((pkg) => toGoImportPath(modulePath, pkg));
 }
 
+function rawItemWeight(baselines, key, aggregateKey, rawPackageCount) {
+  const packageWeight = baselines.rawAggregates.get(key);
+  if (normalizePositiveInteger(packageWeight, 0) > 0) {
+    return {
+      weightMs: packageWeight,
+      weightSource: "baseline",
+    };
+  }
+  const aggregateWeight = baselines.rawAggregates.get(aggregateKey);
+  if (normalizePositiveInteger(aggregateWeight, 0) > 0 && rawPackageCount > 0) {
+    return {
+      weightMs: Math.max(1, Math.ceil(aggregateWeight / rawPackageCount)),
+      weightSource: "aggregate_baseline",
+    };
+  }
+  return {
+    weightMs: baselines.defaultItemWeightMs,
+    weightSource: "default",
+  };
+}
+
+function unionRegex(regexes) {
+  const values = Array.from(regexes).sort(compareStrings);
+  if (values.length === 0) {
+    throw new Error("cannot build raw shard regex from an empty selection");
+  }
+  if (values.length === 1) {
+    return values[0];
+  }
+  return values.map((regex) => `(${regex})`).join("|");
+}
+
 function addAggregate(aggregates, row, mode) {
   const key = `${row.target}\u001f${row.execution_family}`;
   if (!aggregates.has(key)) {
@@ -106,28 +139,35 @@ function buildExecutionItems(root) {
     }
     if (row.target === "backend-integration" && row.coverage === "raw") {
       addAggregate(aggregates, row, "raw");
-      const key = rawAggregateBaselineKey(row.target, row.execution_family);
-      const weightMs = normalizePositiveInteger(
-        baselines.rawAggregates.get(key),
-        baselines.defaultItemWeightMs,
-      );
-      executableItems.push({
-        target: row.target,
-        aggregate_name: row.execution_family,
-        kind: "raw",
-        id: row.id,
-        packages: [...row.packages],
-        regex: row.raw_selector,
-        symbol: "",
-        import_path: "",
-        package_import_paths: rowPackageImportPaths(modulePath, row),
-        weight_ms: weightMs,
-        weight_source: baselines.rawAggregates.has(key) ? "baseline" : "default",
-        baseline_key: key,
-        shard_isolation: row.shard_isolation === true,
-        postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
-        postgres_fixture_budget: row.fixture_budget?.postgres ?? {},
-      });
+      const aggregateKey = rawAggregateBaselineKey(row.target, row.execution_family);
+      for (const pkg of row.packages) {
+        const importPath = toGoImportPath(modulePath, pkg);
+        const key = rawPackageBaselineKey(row.target, row.execution_family, importPath);
+        const { weightMs, weightSource } = rawItemWeight(
+          baselines,
+          key,
+          aggregateKey,
+          row.packages.length,
+        );
+        executableItems.push({
+          target: row.target,
+          aggregate_name: row.execution_family,
+          kind: "raw",
+          id: `${row.id}:${pkg}`,
+          packages: [pkg],
+          regex: row.raw_selector,
+          symbol: "",
+          import_path: importPath,
+          package_import_paths: [importPath],
+          weight_ms: weightMs,
+          weight_source: weightSource,
+          baseline_key: key,
+          legacy_baseline_key: aggregateKey,
+          shard_isolation: row.shard_isolation === true,
+          postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
+          postgres_fixture_budget: row.fixture_budget?.postgres ?? {},
+        });
+      }
       continue;
     }
     if (
@@ -196,9 +236,8 @@ function buildExecutionItems(root) {
 }
 
 function shardWeightMs(items, baselines) {
-  const rawItem = items.find((item) => item.kind === "raw");
-  if (rawItem) {
-    return rawItem.weight_ms;
+  if (items.length > 0 && items.every((item) => item.kind === "raw")) {
+    return items.reduce((sum, item) => sum + item.weight_ms, 0);
   }
   let weightMs = items.reduce((sum, item) => sum + item.weight_ms, 0);
   const packageKeys = new Set();
@@ -258,9 +297,6 @@ function packShardLane(aggregateName, items, targetMs, baselines) {
 function packAggregateItems(aggregateName, items, targetMs, baselines) {
   if (items.length === 0) {
     return [];
-  }
-  if (items.length === 1 && items[0].kind === "raw") {
-    return [{ aggregateName, items: [...items], weight_ms: items[0].weight_ms }];
   }
   const lanes = new Map();
   for (const item of items) {
@@ -375,6 +411,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
       const symbols = [];
       const targets = new Set();
       let rawRegex = "";
+      const rawRegexes = new Set();
       let hasAuthoritative = false;
       let hasSupport = false;
       let hasRaw = false;
@@ -384,7 +421,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
           packages.add(pkg);
         }
         if (item.kind === "raw") {
-          rawRegex = item.regex;
+          rawRegexes.add(item.regex);
           hasRaw = true;
         } else {
           symbols.push(item.symbol);
@@ -398,7 +435,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
         aggregate_name: aggregateName,
         shard_target_ms: targetMs,
         scheduler_profile: schedulerProfileForShard(bin.items, bin.weight_ms),
-        regex: hasRaw ? rawRegex : exactRegex(symbols.sort(compareStrings)),
+        regex: hasRaw ? unionRegex(rawRegexes) : exactRegex(symbols.sort(compareStrings)),
         packages: Array.from(packages).sort(compareStrings),
         weight_ms: bin.weight_ms,
         has_authoritative: hasAuthoritative,
@@ -418,6 +455,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
             weight_ms: item.weight_ms,
             weight_source: item.weight_source,
             baseline_key: item.baseline_key,
+            legacy_baseline_key: item.legacy_baseline_key ?? "",
             shard_isolation: item.shard_isolation,
             postgres_fixture_policy: item.postgres_fixture_policy,
             postgres_fixture_budget: item.postgres_fixture_budget,

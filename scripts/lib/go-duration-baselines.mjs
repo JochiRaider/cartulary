@@ -8,7 +8,7 @@ export const defaultShardTargetMs = 30_000;
 export const defaultBackendIntegrationShardTargetMs = 18_000;
 export const defaultItemWeightMs = 10_000;
 export const baselineNote =
-  "Advisory backend service-backed shard weights with explicit test, package, and command timing components. Refresh from successful shard artifacts with scripts/update-go-test-durations.mjs <results-dir>.";
+  "Advisory backend service-backed shard weights with explicit test, package, command, and raw package timing components. Refresh from successful shard artifacts with scripts/update-go-test-durations.mjs <results-dir>.";
 
 export const defaultShardTargetMsByTargetEntries = [
   ["backend-store", defaultShardTargetMs],
@@ -111,6 +111,10 @@ export function testBaselineKey(importPath, symbol) {
 
 export function rawAggregateBaselineKey(target, aggregateName) {
   return `${target}::${aggregateName}`;
+}
+
+export function rawPackageBaselineKey(target, aggregateName, packageName) {
+  return `${target}::${aggregateName}::${packageName}`;
 }
 
 export function packageOverheadBaselineKey(target, importPath) {

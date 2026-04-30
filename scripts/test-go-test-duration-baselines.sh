@@ -76,7 +76,12 @@ LOG
 printf '100000\n' >"$shared_dir/backend-integration-auth-shard-02/duration_ms.txt"
 printf '0\n' >"$shared_dir/backend-integration-auth-shard-02/exit_status.txt"
 
-: >"$shared_dir/backend-integration-testutil-shard-01/runner.jsonl"
+cat >"$shared_dir/backend-integration-testutil-shard-01/runner.jsonl" <<'JSONL'
+{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/testutil/httptestx","Test":"TestHarnessBootsServerAndAssertsEnvelopes","Elapsed":1}
+{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/testutil/httptestx","Elapsed":1}
+{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/testutil/pgtest","Test":"TestPreparePackageDatabaseTReusesAndResetsMutableTables","Elapsed":5}
+{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/testutil/pgtest","Elapsed":5}
+JSONL
 printf '6000\n' >"$shared_dir/backend-integration-testutil-shard-01/duration_ms.txt"
 printf '0\n' >"$shared_dir/backend-integration-testutil-shard-01/exit_status.txt"
 
@@ -102,7 +107,9 @@ const integrationAuthOverhead = baseline.package_overheads["backend-integration:
 const storeAuthOverhead = baseline.package_overheads["backend-store::github.com/JochiRaider/cartulary/internal/modules/auth"];
 const integrationCommand = baseline.command_overheads_by_target["backend-integration"];
 const storeCommand = baseline.command_overheads_by_target["backend-store"];
-const raw = baseline.raw_aggregates["backend-integration::backend-integration-testutil"];
+const rawHTTP = baseline.raw_aggregates["backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/httptestx"];
+const rawPG = baseline.raw_aggregates["backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/pgtest"];
+const legacyRaw = baseline.raw_aggregates["backend-integration::backend-integration-testutil"];
 if (baseline.schema_id !== "cartulary.go_test_duration_baselines.v4") {
   throw new Error(`expected v4 schema, got ${baseline.schema_id}`);
 }
@@ -115,8 +122,8 @@ if (integrationAuthOverhead !== 28000 || storeAuthOverhead !== 1000) {
 if (integrationCommand !== 20000 || storeCommand !== 1000) {
   throw new Error(`expected command overhead baselines, got integration=${integrationCommand} store=${storeCommand}`);
 }
-if (raw !== 6000) {
-  throw new Error(`expected raw aggregate wall duration 6000, got ${raw}`);
+if (rawHTTP !== 1000 || rawPG !== 5000 || legacyRaw !== undefined) {
+  throw new Error(`expected raw package baselines http=1000 pg=5000 and no legacy aggregate, got http=${rawHTTP} pg=${rawPG} legacy=${legacyRaw}`);
 }
 EOF
 
@@ -138,7 +145,8 @@ cat >"$tmp_dir/underplanned-raw.json" <<'JSON'
     "backend-store::github.com/JochiRaider/cartulary/internal/modules/auth": 1000
   },
   "raw_aggregates": {
-    "backend-integration::backend-integration-testutil": 100
+    "backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/httptestx": 100,
+    "backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/pgtest": 100
   },
   "tests": {
     "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05": 20000,
@@ -169,7 +177,8 @@ cat >"$tmp_dir/underplanned-components.json" <<'JSON'
     "backend-store::github.com/JochiRaider/cartulary/internal/modules/auth": 1000
   },
   "raw_aggregates": {
-    "backend-integration::backend-integration-testutil": 6000
+    "backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/httptestx": 1000,
+    "backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/pgtest": 5000
   },
   "tests": {
     "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05": 100,
@@ -201,7 +210,8 @@ cat >"$tmp_dir/overplanned.json" <<'JSON'
     "backend-store::github.com/JochiRaider/cartulary/internal/modules/auth": 80000
   },
   "raw_aggregates": {
-    "backend-integration::backend-integration-testutil": 30000
+    "backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/httptestx": 1000,
+    "backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/pgtest": 5000
   },
   "tests": {
     "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05": 80000,
@@ -232,7 +242,7 @@ fi
 assert_contains "$missing_output" "missing test baseline" "missing test drift"
 assert_contains "$missing_output" "missing package overhead baseline" "missing package overhead drift"
 assert_contains "$missing_output" "missing command overhead baseline" "missing command overhead drift"
-assert_contains "$missing_output" "missing raw aggregate baseline" "missing raw drift"
+assert_contains "$missing_output" "missing raw package baseline" "missing raw drift"
 
 cp "$ROOT_DIR/tools/go_test_duration_baselines.json" "$tmp_dir/coverage-complete.json"
 "$NODE_BIN" "$COVERAGE_SCRIPT" --baseline-file "$tmp_dir/coverage-complete.json" >/dev/null
@@ -258,7 +268,7 @@ assert_contains "$missing_test_coverage_output" "missing test baseline key=githu
 const fs = require("node:fs");
 const [source, target] = process.argv.slice(2);
 const baseline = JSON.parse(fs.readFileSync(source, "utf8"));
-delete baseline.raw_aggregates["backend-integration::backend-integration-testutil"];
+delete baseline.raw_aggregates["backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/pgtest"];
 fs.writeFileSync(target, `${JSON.stringify(baseline, null, 2)}\n`);
 EOF
 
@@ -267,9 +277,9 @@ missing_raw_coverage_output="$("$NODE_BIN" "$COVERAGE_SCRIPT" --baseline-file "$
 missing_raw_coverage_status=$?
 set -e
 if [[ "$missing_raw_coverage_status" -eq 0 ]]; then
-  fail "missing raw aggregate baseline coverage should fail"
+  fail "missing raw package baseline coverage should fail"
 fi
-assert_contains "$missing_raw_coverage_output" "missing raw aggregate baseline key=backend-integration::backend-integration-testutil" "missing raw baseline coverage"
+assert_contains "$missing_raw_coverage_output" "missing raw package baseline key=backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/pgtest" "missing raw baseline coverage"
 
 "$NODE_BIN" - "$tmp_dir/coverage-complete.json" "$tmp_dir/coverage-missing-package.json" <<'EOF'
 const fs = require("node:fs");

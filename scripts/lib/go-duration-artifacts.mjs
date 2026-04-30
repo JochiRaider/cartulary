@@ -1,6 +1,10 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
+import {
+  rawAggregateBaselineKey,
+  rawPackageBaselineKey,
+} from "./go-duration-baselines.mjs";
 import { collectGoShardPlan } from "./go-shard-plan.mjs";
 
 const shardNamePattern = /-shard-\d+$/;
@@ -90,13 +94,17 @@ function shardMetadata(root) {
   const targetByTestKey = new Map();
   const rawAggregateKeyByAggregate = new Map();
   for (const shard of plan.shards) {
+    const rawAggregateKey = shard.has_raw
+      ? rawAggregateBaselineKey(shard.target, shard.aggregate_name)
+      : "";
     byShard.set(shard.name, {
       target: shard.target,
-      rawAggregateKey: shard.has_raw ? `${shard.target}::${shard.aggregate_name}` : "",
+      rawAggregateName: shard.has_raw ? shard.aggregate_name : "",
+      rawAggregateKey,
     });
     for (const item of shard.items ?? []) {
       if (item.kind === "raw") {
-        rawAggregateKeyByAggregate.set(shard.aggregate_name, item.baseline_key);
+        rawAggregateKeyByAggregate.set(shard.aggregate_name, rawAggregateKey);
         continue;
       }
       targetByTestKey.set(item.baseline_key, item.target);
@@ -172,6 +180,51 @@ function observedPackageNames(topLevelEvents, packageEvents) {
   return packages;
 }
 
+function observedRawPackages(target, aggregateName, durationMs, topLevelEvents, packageEvents) {
+  if (!aggregateName) {
+    return [];
+  }
+  const elapsedByPackage = new Map();
+  for (const event of packageEvents) {
+    elapsedByPackage.set(
+      event.Package,
+      Math.max(1, Math.round(Number(event.Elapsed ?? 0) * 1000)),
+    );
+  }
+  if (elapsedByPackage.size === 0) {
+    for (const event of topLevelEvents) {
+      const elapsedMs = Math.max(1, Math.round(Number(event.Elapsed ?? 0) * 1000));
+      elapsedByPackage.set(event.Package, (elapsedByPackage.get(event.Package) ?? 0) + elapsedMs);
+    }
+  }
+  if (elapsedByPackage.size === 0) {
+    return [];
+  }
+
+  const entries = Array.from(elapsedByPackage.entries()).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  const totalElapsedMs = entries.reduce((sum, [, elapsedMs]) => sum + elapsedMs, 0);
+  const overheadMs = Math.max(0, durationMs - totalElapsedMs);
+  let remainingOverheadMs = overheadMs;
+  return entries.map(([packageName, elapsedMs], index) => {
+    const overheadShareMs =
+      index === entries.length - 1
+        ? remainingOverheadMs
+        : Math.min(
+            remainingOverheadMs,
+            Math.round((overheadMs * elapsedMs) / Math.max(1, totalElapsedMs)),
+          );
+    remainingOverheadMs -= overheadShareMs;
+    return {
+      key: rawPackageBaselineKey(target, aggregateName, packageName),
+      packageName,
+      elapsedMs,
+      durationMs: elapsedMs + overheadShareMs,
+    };
+  });
+}
+
 function timingContamination(stderrLog) {
   const moduleDownloadCount = readTextFile(stderrLog)
     .split(/\r?\n/)
@@ -226,11 +279,11 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
       }
       if (observedTargets.size === 1) {
         shardMetadataEntry = { target: [...observedTargets][0], rawAggregateKey: "" };
-      } else if (observedTestEntries.length === 0) {
+      } else {
         const rawAggregateKey = metadata.rawAggregateKeyByAggregate.get(aggregateName);
         if (rawAggregateKey) {
           const [target] = rawAggregateKey.split("::", 1);
-          shardMetadataEntry = { target, rawAggregateKey };
+          shardMetadataEntry = { target, rawAggregateName: aggregateName, rawAggregateKey };
         }
       }
     }
@@ -244,6 +297,13 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
       target: shardMetadataEntry.target,
       durationMs,
       rawAggregateKey: shardMetadataEntry.rawAggregateKey,
+      observedRawPackages: observedRawPackages(
+        shardMetadataEntry.target,
+        shardMetadataEntry.rawAggregateName,
+        durationMs,
+        topLevelEvents,
+        packageEvents,
+      ),
       observedTests: observedTestEntries,
       observedPackageOverheads: observedPackageOverheads(shardMetadataEntry.target, topLevelEvents, packageEvents),
       observedPackages: observedPackageNames(topLevelEvents, packageEvents),

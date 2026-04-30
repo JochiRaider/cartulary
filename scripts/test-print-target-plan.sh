@@ -111,6 +111,25 @@ const packageReset = authoritative.filter((item) => item.postgres_fixture_policy
 if (!packageReset.every((item) => Number.isInteger(item.postgres_fixture_budget?.max_package_resets) && Number.isInteger(item.postgres_fixture_budget?.max_reset_duration_ms))) {
   process.exit(1);
 }
+const rawTestutilItems = plan.shards
+  .filter((shard) => shard.aggregate_name === "backend-integration-testutil")
+  .flatMap((shard) => shard.items)
+  .filter((item) => item.kind === "raw");
+const rawPackages = rawTestutilItems.flatMap((item) => item.packages).sort();
+const expectedRawPackages = [
+  "./internal/testutil/httptestx",
+  "./internal/testutil/pgtest",
+  "./internal/testutil/s3test",
+  "./internal/testutil/testcontainersx",
+  "./internal/testutil/wstest",
+];
+if (
+  rawTestutilItems.length !== expectedRawPackages.length ||
+  rawPackages.join("\n") !== expectedRawPackages.join("\n") ||
+  !rawTestutilItems.every((item) => item.baseline_key.includes("backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/"))
+) {
+  process.exit(1);
+}
 const shared = plan.shards.filter((shard) => shard.shared_across_targets);
 if (shared.length !== 0) {
   process.exit(1);
