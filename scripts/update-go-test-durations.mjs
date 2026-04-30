@@ -20,16 +20,19 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
+const suspiciousCommandOverheadDecreaseRatio = 0.75;
+const suspiciousCommandOverheadDecreaseDeltaMs = 500;
 
 function usage() {
   process.stderr.write(
-    "usage: update-go-test-durations.mjs [--prune-observed-packages] [--baseline-file <path>] <results-dir>\n",
+    "usage: update-go-test-durations.mjs [--prune-observed-packages] [--allow-command-overhead-decrease] [--baseline-file <path>] <results-dir>\n",
   );
   process.exit(2);
 }
 
 function parseArgs(argv) {
   const options = {
+    allowCommandOverheadDecrease: false,
     baselineFile: "",
     pruneObservedPackages: false,
     resultsDir: "",
@@ -38,6 +41,10 @@ function parseArgs(argv) {
     const arg = argv[index];
     if (arg === "--prune-observed-packages") {
       options.pruneObservedPackages = true;
+      continue;
+    }
+    if (arg === "--allow-command-overhead-decrease") {
+      options.allowCommandOverheadDecrease = true;
       continue;
     }
     if (arg === "--baseline-file") {
@@ -60,6 +67,19 @@ function parseArgs(argv) {
   return options;
 }
 
+function isPositiveInteger(value) {
+  return Number.isInteger(value) && value > 0;
+}
+
+function isSuspiciousCommandOverheadDecrease(existingMs, observedMs) {
+  return (
+    isPositiveInteger(existingMs) &&
+    isPositiveInteger(observedMs) &&
+    observedMs < existingMs * suspiciousCommandOverheadDecreaseRatio &&
+    existingMs - observedMs > suspiciousCommandOverheadDecreaseDeltaMs
+  );
+}
+
 function main(argv) {
   const options = parseArgs(argv);
   const baselineFile = resolveGoDurationBaselineFile(repoRoot, options.baselineFile);
@@ -76,6 +96,7 @@ function main(argv) {
   const observedPackages = new Set();
   const observedPackagesByTarget = new Map();
   const skippedContaminated = [];
+  const keptCommandOverheadDecreases = [];
 
   for (const artifact of artifacts) {
     if (artifact.timingContaminationReasons?.length > 0) {
@@ -167,6 +188,14 @@ function main(argv) {
     baseline.tests[key] = durationMs;
   }
   for (const [target, overheadMs] of commandOverheads) {
+    const existingMs = baseline.command_overheads_by_target[target];
+    if (
+      !options.allowCommandOverheadDecrease &&
+      isSuspiciousCommandOverheadDecrease(existingMs, overheadMs)
+    ) {
+      keptCommandOverheadDecreases.push({ target, existingMs, observedMs: overheadMs });
+      continue;
+    }
     baseline.command_overheads_by_target[target] = overheadMs;
   }
   for (const [key, overheadMs] of packageOverheads) {
@@ -189,6 +218,14 @@ function main(argv) {
     for (const artifact of skippedContaminated) {
       process.stderr.write(
         `- shard=${artifact.shardName} go_module_downloads=${artifact.moduleDownloadCount}\n`,
+      );
+    }
+  }
+  if (keptCommandOverheadDecreases.length > 0) {
+    process.stderr.write("kept existing Go command overhead baselines after suspicious decreases:\n");
+    for (const decrease of keptCommandOverheadDecreases) {
+      process.stderr.write(
+        `- target=${decrease.target} existing_ms=${decrease.existingMs} observed_ms=${decrease.observedMs} override_with=ALLOW_COMMAND_OVERHEAD_DECREASE=1\n`,
       );
     }
   }

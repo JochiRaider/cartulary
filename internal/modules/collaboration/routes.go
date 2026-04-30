@@ -135,8 +135,6 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 	lastSent := s.now()
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-	expiryTimer := time.NewTimer(time.Until(principal.Session.SessionExpiresAt))
-	defer expiryTimer.Stop()
 
 	for {
 		select {
@@ -152,9 +150,6 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 				closed = true
 			}
 			return
-		case <-expiryTimer.C:
-			_ = s.authStore.RevokeSession(context.Background(), principal.Session.ID, "session_expired", s.now())
-			s.hub.RevokeSession(principal.Session.ID, "session_expired")
 		case message := <-messages:
 			if writeMessage(ctx, conn, message) != nil {
 				return
@@ -169,6 +164,14 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 			return
 		case <-ticker.C:
 			now := s.now()
+			if !principal.Session.SessionExpiresAt.After(now) {
+				_ = s.authStore.RevokeSession(context.Background(), principal.Session.ID, "session_expired", now)
+				s.hub.RevokeSession(principal.Session.ID, "session_expired")
+				if s.writeSessionRevoked(ctx, conn, incidentID, "session_expired") {
+					closed = true
+				}
+				return
+			}
 			if now.Sub(lastInbound) > platformws.HeartbeatTimeout {
 				_ = conn.Close(websocket.StatusPolicyViolation, heartbeatCloseReason)
 				closed = true
@@ -361,47 +364,12 @@ func writeThenClose(ctx context.Context, conn *websocket.Conn, message platformw
 }
 
 func (s *Service) authenticateSessionRequest(r *http.Request) (auth.SessionPrincipal, *auth.APIError) {
-	header := r.Header.Get("Authorization")
-	if strings.HasPrefix(header, "Bearer ") {
-		token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
-		if token == "" {
-			return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
-		}
-		return s.authenticateSessionToken(r, auth.AuthSourceBearer, token)
-	}
-	cookie, err := r.Cookie(authn.SessionCookieName)
-	if err != nil {
-		if errors.Is(err, http.ErrNoCookie) {
-			return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
-		}
-		return auth.SessionPrincipal{}, internalAPIError(err)
-	}
-	return s.authenticateSessionToken(r, auth.AuthSourceCookie, cookie.Value)
-}
-
-func (s *Service) authenticateSessionToken(r *http.Request, authSource auth.AuthSource, sessionToken string) (auth.SessionPrincipal, *auth.APIError) {
-	session, user, err := s.authStore.GetSessionByFingerprint(r.Context(), authn.FingerprintToken(s.keys, sessionToken))
-	if errors.Is(err, authn.ErrNotFound) {
-		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
-	}
-	if err != nil {
-		return auth.SessionPrincipal{}, internalAPIError(err)
-	}
-	if !user.IsActive || session.RevokedAt != nil {
-		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
-	}
-	now := s.now()
-	if !session.SessionExpiresAt.After(now) {
-		_ = s.authStore.RevokeSession(context.Background(), session.ID, "session_expired", now)
-		s.hub.RevokeSession(session.ID, "session_expired")
-		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
-	}
-	return auth.SessionPrincipal{
-		AuthSource:   authSource,
-		SessionToken: sessionToken,
-		Session:      session,
-		User:         user,
-	}, nil
+	return auth.AuthenticateSessionRequest(r, auth.SessionAuthOptions{
+		Store: s.authStore,
+		Keys:  s.keys,
+		Hub:   s.hub,
+		Now:   s.now,
+	})
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *auth.APIError) {

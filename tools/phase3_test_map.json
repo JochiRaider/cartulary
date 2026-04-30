@@ -3,7 +3,7 @@
   "ledger": {
     "title": "Phase 3 Coverage Ledger",
     "scope": "Timeline workbook create, patch, query, lifecycle actions, replay stability, projection rebuild, save-state UI, and browser-visible collaboration behavior.",
-    "normative_owners": "Core 03 `§6`, `§7`, `§15`; Core 01 `§3.3.5`, `§7.4.1`; Core 04 `AC-043`, `AC-191` through `AC-199`, `AC-329` through `AC-331`.",
+    "normative_owners": "Core 03 `§6`, `§7`, `§15`; Core 01 `§3.3.5`, `§7.4.1`; Core 04 `AC-043`, `AC-131`, `AC-136`, `AC-162`, `AC-191` through `AC-199`, `AC-329` through `AC-331`.",
     "notes": [
       "Timeline zero-field create traceability: cite Core 01 `REQ-01-057` plus Core 04 `AC-191` and `AC-192` for the owner rule. `contracts/view-schemas/cartulary.view.timeline.v1.json` is derived evidence only and is not the behavior source.",
       "Grid note: the workbook currently renders through the RDG-backed `@cartulary/grid-adapter`. `U-3-GRID-01/02/03` own workbook binding behavior, while vendor-specific RDG semantics stay with adapter tests."
@@ -25,7 +25,7 @@
     "shared_harness": [
       "| Harness | Phase 3 evidence |",
       "| --- | --- |",
-      "| Real runtime and store harnesses | `internal/testutil/phase3test` centralizes the Postgres + MinIO runtime boot path, HTTP session helpers, and Timeline WebSocket assertions for integration tests, while `internal/testutil/phase3storetest` owns rollback-backed incident, membership, and store helpers for service-backed unit rows. |",
+      "| Real runtime and store harnesses | `internal/testutil/phase3test` centralizes the Postgres + MinIO runtime boot path and HTTP session helpers, `internal/testutil/incidentwstest` owns canonical incident WebSocket handshakes and revocation assertions, and `internal/testutil/phase3storetest` owns rollback-backed incident, membership, and store helpers for service-backed unit rows. |",
       "| Cross-cutting HTTP and replay helpers | `internal/testutil/httptestx` owns success or error envelope checks, replay scaffolding, mutation attribution helpers, and closed-vocabulary assertions used across the Phase 3 backend suite. |",
       "| Timeline substrate inspection helpers | `internal/testutil/timelinetest` owns projection-row, change-set, mutation-row, revision-count, and supersede-link inspection used by the Phase 3 store and integration slices. |",
       "| Browser timing and replay helpers | `apps/web/e2e/helpers.ts` provides the Phase 3 timing predicates, tracked-user browser auth helpers, and substrate snapshot accessors shared by `E-3-02`, `E-3-03`, and `E-3-04`. |"
@@ -56,6 +56,7 @@
     "I-3-02",
     "I-3-03",
     "I-3-04",
+    "I-3-05",
     "E-3-01",
     "E-3-02",
     "E-3-03",
@@ -368,6 +369,20 @@
       "evidence_layer": "integration",
       "claim": "Same-field Timeline patch conflicts are transported as `409 same_field_conflict` with `error.conflict` and no mutation or idempotency write.",
       "out_of_scope": "Field-level rebase and conflict payload construction remain store-domain evidence; browser conflict resolution remains Phase 6 evidence.",
+      "execution_family": "backend-integration-timeline",
+      "execution_label": "backend-integration phase3 authoritative timeline"
+    },
+    {
+      "id": "I-3-05",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/timeline",
+      "file": "internal/modules/timeline/phase3_integration_test.go",
+      "symbol": "TestPhase3_CanonicalIncidentWebSocket_I_3_05",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "integration",
+      "claim": "The canonical incident WebSocket route proves hello, hello_ack, presence_snapshot ordering, membership-gated acceptance, browser-origin rejection, and incident-access revocation while preserving access to other authorized incidents.",
+      "out_of_scope": "Session-wide logout and concurrency revocation consequences remain Phase 1 evidence.",
       "execution_family": "backend-integration-timeline",
       "execution_label": "backend-integration phase3 authoritative timeline"
     }

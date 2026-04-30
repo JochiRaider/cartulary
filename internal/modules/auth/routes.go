@@ -10,24 +10,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 const unauthorizedCode = "session_required"
 
 type Service struct {
-	store        authStore
-	hub          sessionHub
-	keys         authn.MasterKeys
-	pagination   *pagination.Registry
-	publicOrigin string
-	now          func() time.Time
+	store      authStore
+	hub        sessionHub
+	keys       authn.MasterKeys
+	pagination *pagination.Registry
+	now        func() time.Time
 }
 
 type authStore interface {
@@ -101,7 +98,6 @@ func RegisterTestRoutes() httpapi.RouteRegistrar {
 		}
 
 		mux.HandleFunc("/api/v1/test/auth/touch", service.handleTouch)
-		mux.HandleFunc("/ws/v1/test/session-lifecycle", service.handleTestSocket)
 		return nil
 	}
 }
@@ -121,12 +117,11 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	}
 
 	return &Service{
-		store:        authn.NewStore(deps.Postgres),
-		hub:          deps.WSHub,
-		keys:         keys,
-		pagination:   paginator,
-		publicOrigin: deps.Config.Application.PublicOrigin,
-		now:          now,
+		store:      authn.NewStore(deps.Postgres),
+		hub:        deps.WSHub,
+		keys:       keys,
+		pagination: paginator,
+		now:        now,
 	}, nil
 }
 
@@ -1062,80 +1057,6 @@ func (s *Service) handleTouch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
-}
-
-func (s *Service) handleTestSocket(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := s.authenticateSessionRequest(r, false)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-
-	conn, err := platformws.Accept(w, r, s.publicOrigin)
-	if err != nil {
-		return
-	}
-	closed := false
-	defer func() {
-		if !closed {
-			conn.CloseNow()
-		}
-	}()
-
-	revocations, unregister := s.hub.RegisterSession(principal.Session.ID)
-	defer unregister()
-
-	ctx := context.Background()
-	if err := platformws.WriteJSON(ctx, conn, platformws.Message{
-		Type:    "connected",
-		Payload: platformws.RawPayload(map[string]any{"session_id": principal.Session.ID.String()}),
-	}); err != nil {
-		return
-	}
-
-	type readResult struct {
-		closeRequested bool
-	}
-	readResults := make(chan readResult, 1)
-	go func() {
-		for {
-			var message platformws.Message
-			if err := platformws.ReadJSON(context.Background(), conn, &message); err != nil {
-				readResults <- readResult{}
-				return
-			}
-			if message.Type == "close_me" {
-				readResults <- readResult{closeRequested: true}
-				return
-			}
-		}
-	}()
-
-	for {
-		select {
-		case reasonCode := <-revocations:
-			writeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			err := platformws.WriteJSON(writeCtx, conn, platformws.Message{
-				Type:    "session_revoked",
-				Payload: platformws.RawPayload(map[string]any{"reason_code": reasonCode}),
-			})
-			cancel()
-			if err != nil {
-				return
-			}
-			if err := conn.Close(websocket.StatusPolicyViolation, "session_revoked"); err == nil {
-				closed = true
-			}
-			return
-		case result := <-readResults:
-			if result.closeRequested {
-				if err := conn.Close(websocket.StatusNormalClosure, "client_complete"); err == nil {
-					closed = true
-				}
-			}
-			return
-		}
-	}
 }
 
 func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (SessionPrincipal, *APIError) {

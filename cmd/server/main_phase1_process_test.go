@@ -114,6 +114,7 @@ func TestPhase1_ConcurrencyCapRevokesSocket_E_1_SMOKE_01_ProcessSmoke(t *testing
 	initialLogin, adminSecret := phase1ProvisionBootstrapAdmin(t, server)
 	adminUserID := phase1test.QueryUserIDByEmail(t, db, phase1BootstrapAdminEmail)
 	firstSessionID := phase1test.QuerySessionRow(t, db, adminUserID).SessionID
+	socketIncidentID := phase1CreateSocketIncident(t, server, initialLogin, "e-1-03-socket")
 
 	sessions := make([]loginResult, 0, 6)
 	sessions = append(sessions, initialLogin)
@@ -122,7 +123,7 @@ func TestPhase1_ConcurrencyCapRevokesSocket_E_1_SMOKE_01_ProcessSmoke(t *testing
 		sessions = append(sessions, phase1LoginLocalUserWithSecondFactor(t, server, phase1BootstrapAdminEmail, phase1BootstrapAdminPassword, phase1GenerateTOTPCode(t, adminSecret)))
 	}
 
-	socket := phase1ConnectSessionSocket(t, server, sessions[0].sessionCookie.Value)
+	socket := phase1ConnectExistingIncidentSocket(t, server, socketIncidentID, sessions[0].sessionCookie.Value)
 	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
 	phase1test.SetClockOffset(t, phase1ServerURL(server), 5)
@@ -200,7 +201,7 @@ func TestPhase1_PasswordChangeFlow_E_1_SMOKE_01_ProcessSmoke(t *testing.T) {
 	_, secretBase32 := phase1ProvisionTOTPUser(t, server, adminSession, adminCSRF, "phase1-e-1-05@example.test", "Phase1 E105", "Phase1E105Pass!")
 
 	userLogin := phase1LoginLocalUserWithSecondFactor(t, server, "phase1-e-1-05@example.test", "Phase1E105Pass!", phase1GenerateTOTPCode(t, secretBase32))
-	socket := phase1ConnectSessionSocket(t, server, userLogin.sessionCookie.Value)
+	socket := phase1ConnectSessionSocket(t, server, userLogin, "e-1-05-socket")
 	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
 	changeResp := phase1DoJSON(
@@ -307,7 +308,7 @@ func TestPhase1_UserAdminAndRevokeAll_E_1_SMOKE_01_ProcessSmoke(t *testing.T) {
 	)
 	httptestx.RequireErrorEnvelope(t, nonAdminAction, http.StatusUnauthorized, "session_required")
 
-	socket := phase1ConnectSessionSocket(t, server, userLogin.sessionCookie.Value)
+	socket := phase1ConnectSessionSocket(t, server, userLogin, "e-1-06-socket")
 	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
 	revokeResp := phase1DoJSON(
@@ -343,7 +344,7 @@ func TestPhase1_AdminPasswordReset_E_1_SMOKE_01_ProcessSmoke(t *testing.T) {
 	targetUserID := user["user_id"].(string)
 
 	targetLogin := phase1LoginLocalUserWithSecondFactor(t, server, "phase1-e-1-07@example.test", "Phase1E107Pass!", phase1GenerateTOTPCode(t, secretBase32))
-	socket := phase1ConnectSessionSocket(t, server, targetLogin.sessionCookie.Value)
+	socket := phase1ConnectSessionSocket(t, server, targetLogin, "e-1-07-socket")
 	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
 	resetResp := phase1DoJSON(
@@ -394,7 +395,7 @@ func TestPhase1_AdminTOTPResetAndBootstrapBoundaries_E_1_SMOKE_01_ProcessSmoke(t
 	targetUserID := user["user_id"].(string)
 
 	targetLogin := phase1LoginLocalUserWithSecondFactor(t, server, "phase1-e-1-08@example.test", "Phase1E108Pass!", phase1GenerateTOTPCode(t, secretBase32))
-	socket := phase1ConnectSessionSocket(t, server, targetLogin.sessionCookie.Value)
+	socket := phase1ConnectSessionSocket(t, server, targetLogin, "e-1-08-socket")
 	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
 	resetResp := phase1DoJSON(
@@ -432,7 +433,8 @@ func TestPhase1_AdminTOTPResetAndBootstrapBoundaries_E_1_SMOKE_01_ProcessSmoke(t
 		t.Fatalf("unexpected bootstrap route rejection: %#v", rejectedDetails)
 	}
 
-	phase1RequireBootstrapWebsocketRejected(t, server, bootstrapToken)
+	incidentID := phase1CreateSocketIncident(t, server, adminLogin, "e-1-08-bootstrap")
+	phase1RequireBootstrapWebsocketRejected(t, server, incidentID, bootstrapToken)
 
 	begin := phase1BeginTOTPEnrollment(t, server, bootstrapToken, map[string]any{
 		"client_txn_id": "txn-e-1-08-begin",
@@ -576,9 +578,15 @@ func phase1GenerateTOTPCode(t testing.TB, secretBase32 string) string {
 	return phase1test.GenerateTOTPCode(t, secretBase32)
 }
 
-func phase1ConnectSessionSocket(t testing.TB, server *processtest.Server, sessionToken string) *phase1test.SessionSocketClient {
+func phase1ConnectSessionSocket(t testing.TB, server *processtest.Server, login loginResult, tag string) *phase1test.SessionSocketClient {
 	t.Helper()
-	return phase1test.ConnectSessionSocket(t, phase1ServerURL(server), sessionToken)
+	incidentID := phase1CreateSocketIncident(t, server, login, tag)
+	return phase1test.ConnectSessionSocket(t, phase1ServerURL(server), incidentID, login.sessionCookie.Value)
+}
+
+func phase1ConnectExistingIncidentSocket(t testing.TB, server *processtest.Server, incidentID string, sessionToken string) *phase1test.SessionSocketClient {
+	t.Helper()
+	return phase1test.ConnectSessionSocket(t, phase1ServerURL(server), incidentID, sessionToken)
 }
 
 func phase1ExpectSessionRevoked(t testing.TB, conn *phase1test.SessionSocketClient, wantReasonCode string) {
@@ -586,9 +594,29 @@ func phase1ExpectSessionRevoked(t testing.TB, conn *phase1test.SessionSocketClie
 	phase1test.ExpectSessionRevoked(t, conn, wantReasonCode)
 }
 
-func phase1RequireBootstrapWebsocketRejected(t testing.TB, server *processtest.Server, bootstrapToken string) {
+func phase1RequireBootstrapWebsocketRejected(t testing.TB, server *processtest.Server, incidentID string, bootstrapToken string) {
 	t.Helper()
-	phase1test.RequireBootstrapWebsocketRejected(t, phase1ServerURL(server), bootstrapToken)
+	phase1test.RequireBootstrapWebsocketRejected(t, phase1ServerURL(server), incidentID, bootstrapToken)
+}
+
+func phase1CreateSocketIncident(t testing.TB, server *processtest.Server, login loginResult, tag string) string {
+	t.Helper()
+
+	resp := phase1DoJSON(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/incidents",
+		map[string]any{
+			"client_txn_id": "txn-" + tag,
+			"incident_key":  "IR-" + tag,
+			"title":         "Process socket " + tag,
+		},
+		withCookies(login.sessionCookie, login.csrfCookie),
+		withHeader(authn.CSRFHeaderName, login.csrfCookie.Value),
+	)
+	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+	return data["incident_id"].(string)
 }
 
 func withCookies(cookies ...*http.Cookie) func(*http.Request) {

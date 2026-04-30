@@ -72,7 +72,8 @@ const (
 )
 
 type RouteInventoryFixture struct {
-	UserID string
+	UserID     string
+	IncidentID string
 }
 
 type RouteClosedVocabularyContract struct {
@@ -116,6 +117,7 @@ func Phase1RouteHarnessClasses() []RouteHarnessClass {
 func BuildRoutePath(template string, fixture RouteInventoryFixture) string {
 	replacer := strings.NewReplacer(
 		"{user_id}", fixture.UserID,
+		"{incident_id}", fixture.IncidentID,
 	)
 	return replacer.Replace(template)
 }
@@ -487,7 +489,7 @@ func PublicRouteInventory() []RouteInventoryEntry {
 			ID:                  RouteSessionLifecycleWS,
 			Transport:           RouteTransportWebSocket,
 			Method:              http.MethodGet,
-			Template:            "/ws/v1/test/session-lifecycle",
+			Template:            "/ws/v1/incidents/{incident_id}",
 			SuccessStatus:       http.StatusSwitchingProtocols,
 			AuthorizationChange: RouteAuthorizationNotApplicable,
 			HarnessRequirements: routeHarnessRequirements(

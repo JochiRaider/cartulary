@@ -150,6 +150,22 @@ func UpdateMembershipRole(t testing.TB, server *httptestx.Server, incidentID str
 	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }
 
+func DeleteMembership(t testing.TB, server *httptestx.Server, incidentID string, userID string, baseVersion int64, admin LoginResult) {
+	t.Helper()
+
+	resp := DoJSON(
+		t,
+		http.MethodDelete,
+		server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+userID,
+		map[string]any{
+			"base_membership_version": baseVersion,
+		},
+		WithCookies(admin.SessionCookie, admin.CSRFCookie),
+		WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value),
+	)
+	httptestx.RequireStatus(t, resp, http.StatusNoContent)
+}
+
 func SeedLocalUserFlags(t testing.TB, db *sql.DB, email string, displayName string, password string, mfaRequired bool, isDeploymentAdmin bool, isActive bool) authn.UserRecord {
 	t.Helper()
 

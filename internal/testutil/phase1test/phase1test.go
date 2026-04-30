@@ -5,22 +5,19 @@ import (
 	"database/sql"
 	"encoding/base32"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
 	"github.com/google/uuid"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
+	"github.com/JochiRaider/cartulary/internal/testutil/incidentwstest"
 )
 
 type LoginResult struct {
@@ -52,25 +49,7 @@ type AuditEventRecord struct {
 	After        map[string]any
 }
 
-const sessionSocketWaitTimeout = 5 * time.Second
-
-type SessionSocketClient struct {
-	raw    *wstest.Client
-	events chan sessionSocketEvent
-}
-
-type sessionSocketEvent struct {
-	message *platformws.Message
-	err     error
-}
-
-type unexpectedSessionSocketMessageError struct {
-	messageType string
-}
-
-func (e unexpectedSessionSocketMessageError) Error() string {
-	return fmt.Sprintf("unexpected websocket message before close: got %q", e.messageType)
-}
+type SessionSocketClient = incidentwstest.Client
 
 func DoJSON(t testing.TB, method string, url string, body any, options ...func(*http.Request)) *http.Response {
 	t.Helper()
@@ -515,168 +494,54 @@ func GenerateTOTPCode(t testing.TB, secretBase32 string) string {
 	return code
 }
 
-func ConnectSessionSocket(t testing.TB, serverURL string, sessionToken string) *SessionSocketClient {
+func ConnectSessionSocket(t testing.TB, serverURL string, incidentID string, sessionToken string) *SessionSocketClient {
 	t.Helper()
 
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+sessionToken)
-	rawClient := wstest.ConnectWithHeaders(t, serverURL, "/ws/v1/test/session-lifecycle", headers)
-
-	return newSessionSocketClient(t, rawClient)
-}
-
-func newSessionSocketClient(t testing.TB, rawClient *wstest.Client) *SessionSocketClient {
-	t.Helper()
-
-	ctx, cancel := context.WithTimeout(context.Background(), sessionSocketWaitTimeout)
-	defer cancel()
-
-	connected, err := rawClient.Receive(ctx)
-	if err != nil {
-		t.Fatalf("read connected websocket message: %v", err)
-	}
-	wstest.RequireMessageType(t, connected, "connected")
-
-	client := &SessionSocketClient{
-		raw:    rawClient,
-		events: make(chan sessionSocketEvent, 8),
-	}
-	go client.readLoop()
-	return client
-}
-
-func (c *SessionSocketClient) readLoop() {
-	defer close(c.events)
-
-	for {
-		message, err := c.raw.Receive(context.Background())
-		if err != nil {
-			c.events <- sessionSocketEvent{err: err}
-			return
-		}
-
-		current := message
-		c.events <- sessionSocketEvent{message: &current}
-	}
-}
-
-func (c *SessionSocketClient) awaitEvent(timeout time.Duration) (sessionSocketEvent, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	select {
-	case event, ok := <-c.events:
-		if !ok {
-			return sessionSocketEvent{}, fmt.Errorf("session socket event stream closed")
-		}
-		return event, nil
-	case <-ctx.Done():
-		return sessionSocketEvent{}, ctx.Err()
-	}
-}
-
-func (c *SessionSocketClient) AwaitNextMessage(timeout time.Duration) (platformws.Message, error) {
-	event, err := c.awaitEvent(timeout)
-	if err != nil {
-		return platformws.Message{}, err
-	}
-	if event.err != nil {
-		return platformws.Message{}, event.err
-	}
-	return *event.message, nil
-}
-
-func (c *SessionSocketClient) AwaitClose(timeout time.Duration) error {
-	event, err := c.awaitEvent(timeout)
-	if err != nil {
-		return err
-	}
-	if event.err == nil {
-		return unexpectedSessionSocketMessageError{messageType: event.message.Type}
-	}
-	return event.err
-}
-
-func (c *SessionSocketClient) Close(code websocket.StatusCode, reason string) {
-	if c == nil || c.raw == nil {
-		return
-	}
-	c.raw.Close(code, reason)
+	return incidentwstest.ConnectAndHello(t, serverURL, incidentID, incidentwstest.ConnectOptions{
+		SessionToken: sessionToken,
+	})
 }
 
 func AwaitSessionRevoked(client *SessionSocketClient, wantReasonCode string) error {
-	revoked, err := client.AwaitNextMessage(sessionSocketWaitTimeout)
-	if err != nil {
-		switch {
-		case errors.Is(err, context.DeadlineExceeded):
-			return fmt.Errorf("timed out waiting for session_revoked message")
-		case websocket.CloseStatus(err) >= 0:
-			return fmt.Errorf("websocket closed before session_revoked message: %w", err)
-		default:
-			return fmt.Errorf("read session_revoked message: %w", err)
-		}
-	}
-	if revoked.Type != "session_revoked" {
-		return fmt.Errorf("unexpected websocket message before close: got %q want %q", revoked.Type, "session_revoked")
-	}
-
-	var payload map[string]any
-	if err := json.Unmarshal(revoked.Payload, &payload); err != nil {
-		return fmt.Errorf("decode session_revoked payload: %w", err)
-	}
-	if payload["reason_code"] != wantReasonCode {
-		return fmt.Errorf("unexpected session_revoked payload reason_code: got %v want %q", payload["reason_code"], wantReasonCode)
-	}
-
-	closeErr := client.AwaitClose(sessionSocketWaitTimeout)
-	switch {
-	case closeErr == nil:
-		return nil
-	case errors.Is(closeErr, context.DeadlineExceeded):
-		return fmt.Errorf("timed out waiting for websocket close after session_revoked")
-	default:
-		var unexpectedMessageErr unexpectedSessionSocketMessageError
-		if errors.As(closeErr, &unexpectedMessageErr) {
-			return closeErr
-		}
-
-		closeStatus := websocket.CloseStatus(closeErr)
-		if closeStatus != websocket.StatusPolicyViolation {
-			return fmt.Errorf("unexpected websocket close status: got %d want %d: %w", closeStatus, websocket.StatusPolicyViolation, closeErr)
-		}
-		if !strings.Contains(closeErr.Error(), "session_revoked") {
-			return fmt.Errorf("unexpected websocket close error: %v", closeErr)
-		}
-		return nil
-	}
+	return incidentwstest.AwaitSessionRevoked(client, wantReasonCode)
 }
 
 func ExpectSessionRevoked(t testing.TB, client *SessionSocketClient, wantReasonCode string) {
 	t.Helper()
 
-	if err := AwaitSessionRevoked(client, wantReasonCode); err != nil {
-		t.Fatal(err)
-	}
+	incidentwstest.ExpectSessionRevoked(t, client, wantReasonCode)
 }
 
-func RequireBootstrapWebsocketRejected(t testing.TB, serverURL string, bootstrapToken string) {
+func RequireBootstrapWebsocketRejected(t testing.TB, serverURL string, incidentID string, bootstrapToken string) {
 	t.Helper()
 
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+bootstrapToken)
+	incidentwstest.RequireBootstrapTokenRejected(t, serverURL, incidentID, bootstrapToken)
+}
 
-	_, resp, err := wstest.TryConnect(serverURL, "/ws/v1/test/session-lifecycle", headers)
-	if err == nil {
-		t.Fatal("expected bootstrap-token websocket dial to fail")
+func SeedIncidentMembership(t testing.TB, db *sql.DB, userID string, tag string) string {
+	t.Helper()
+
+	now := time.Now().UTC()
+	incidentKey := strings.ToUpper(strings.ReplaceAll(tag, "_", "-") + "-" + uuid.NewString()[:8])
+	var incidentID string
+	if err := db.QueryRowContext(context.Background(), `
+INSERT INTO incidents (
+    incident_key, incident_key_canonical, title, status, created_by_user_id, created_at, updated_at, updated_by_user_id
+)
+VALUES ($1, $2, $3, 'active', $4, $5, $5, $4)
+RETURNING id::text
+`, incidentKey, strings.ToLower(incidentKey), "Phase 1 socket "+tag, userID, now).Scan(&incidentID); err != nil {
+		t.Fatalf("seed incident: %v", err)
 	}
-	if resp == nil {
-		t.Fatalf("expected HTTP rejection response for bootstrap-token websocket dial, err=%v", err)
+	if _, err := db.ExecContext(context.Background(), `
+INSERT INTO incident_memberships (
+    incident_id, user_id, role, joined_at, added_by_user_id, updated_at, updated_by_user_id, membership_version
+)
+VALUES ($1, $2, 'admin', $3, $2, $3, $2, 1)
+`, incidentID, userID, now); err != nil {
+		t.Fatalf("seed incident membership: %v", err)
 	}
-	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "credential_bootstrap_rejected")
-	details := body["error"].(map[string]any)["details"].(map[string]any)
-	if details["reason_code"] != "not_allowed_for_route" {
-		t.Fatalf("unexpected websocket bootstrap rejection: %#v", details)
-	}
+	return incidentID
 }
 
 func QuerySessionRow(t testing.TB, db *sql.DB, userID string) SessionRow {

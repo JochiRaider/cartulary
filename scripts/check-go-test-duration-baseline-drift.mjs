@@ -69,22 +69,38 @@ function contaminationDescription(artifact) {
   return `go_module_downloads=${artifact.moduleDownloadCount}`;
 }
 
-function checkShardDrift(errors, warnings, artifact, planned) {
+function componentDescription(components) {
+  if (!components) {
+    return "";
+  }
+  return [
+    `planned_tests_ms=${components.plannedTestsMs}`,
+    `actual_tests_ms=${components.actualTestsMs}`,
+    `planned_package_overhead_ms=${components.plannedPackageOverheadMs}`,
+    `actual_package_overhead_ms=${components.actualPackageOverheadMs}`,
+    `planned_command_overhead_ms=${components.plannedCommandOverheadMs}`,
+    `actual_command_overhead_ms=${components.actualCommandOverheadMs}`,
+  ].join(" ");
+}
+
+function checkShardDrift(errors, warnings, artifact, planned, components = null) {
+  const details = componentDescription(components);
+  const componentDetails = details ? ` ${details}` : "";
   if (artifact.durationMs > planned * underRatio && artifact.durationMs - planned > underDeltaMs) {
     const contamination = contaminationDescription(artifact);
     if (contamination) {
       warnings.push(
-        `ignored underplanned contaminated shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)} ${contamination}`,
+        `ignored underplanned contaminated shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)}${componentDetails} ${contamination}`,
       );
       return;
     }
     errors.push(
-      `underplanned shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)}`,
+      `underplanned shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)}${componentDetails}`,
     );
   }
   if (planned > artifact.durationMs * overRatio && planned - artifact.durationMs > overDeltaMs) {
     errors.push(
-      `overplanned shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)}`,
+      `overplanned shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)}${componentDetails}`,
     );
   }
 }
@@ -134,6 +150,15 @@ function main(argv) {
     }
 
     let planned = 0;
+    let plannedTestsMs = 0;
+    let plannedPackageOverheadMs = 0;
+    let plannedCommandOverheadMs = 0;
+    const actualTestsMs = artifact.observedTests.reduce((sum, observedTest) => sum + observedTest.elapsedMs, 0);
+    const actualPackageOverheadMs = artifact.observedPackageOverheads.reduce(
+      (sum, observedPackage) => sum + observedPackage.overheadMs,
+      0,
+    );
+    const actualCommandOverheadMs = artifact.commandOverhead.overheadMs;
     const missing = [];
     for (const observedTest of artifact.observedTests) {
       const testWeight = baseline.tests.get(observedTest.key);
@@ -141,6 +166,7 @@ function main(argv) {
         missing.push(`test baseline key=${observedTest.key}`);
         continue;
       }
+      plannedTestsMs += testWeight;
       planned += testWeight;
     }
     for (const observedPackage of artifact.observedPackageOverheads) {
@@ -149,12 +175,14 @@ function main(argv) {
         missing.push(`package overhead baseline key=${observedPackage.key}`);
         continue;
       }
+      plannedPackageOverheadMs += packageOverhead;
       planned += packageOverhead;
     }
     const commandOverhead = baseline.commandOverheadsByTarget.get(artifact.commandOverhead.target);
     if (!validBaselineValue(commandOverhead)) {
       missing.push(`command overhead baseline target=${artifact.commandOverhead.target}`);
     } else {
+      plannedCommandOverheadMs += commandOverhead;
       planned += commandOverhead;
     }
     for (const key of missing) {
@@ -163,7 +191,14 @@ function main(argv) {
     if (planned <= 0 || missing.length > 0) {
       continue;
     }
-    checkShardDrift(errors, warnings, artifact, planned);
+    checkShardDrift(errors, warnings, artifact, planned, {
+      plannedTestsMs,
+      actualTestsMs,
+      plannedPackageOverheadMs,
+      actualPackageOverheadMs,
+      plannedCommandOverheadMs,
+      actualCommandOverheadMs,
+    });
   }
 
   if (warnings.length > 0) {

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/timelinetest"
 )
@@ -1249,6 +1251,112 @@ func TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions(t *testing.
 	})
 }
 
+func TestPhase3_CanonicalIncidentWebSocket_I_3_05(t *testing.T) {
+	runtime := phase3test.StartRuntime(t)
+
+	t.Run("handshake membership and presence snapshot use the canonical incident route", func(t *testing.T) {
+		server, db := startPhase3Server(t, runtime, "phase3-i-3-05-handshake")
+		defer db.Close()
+
+		adminLogin, _ := provisionBootstrapAdmin(t, server)
+		incident := createIncident(t, server, adminLogin, map[string]any{
+			"client_txn_id": "txn-i-3-05-incident",
+			"incident_key":  "IR-I305-A",
+			"title":         "Canonical socket handshake",
+		})
+		incidentID := incident["incident_id"].(string)
+
+		first := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
+			SessionToken:     adminLogin.sessionCookie.Value,
+			ClientInstanceID: "phase3-i-3-05-first",
+			Presence:         timelinePresence(),
+		})
+		defer first.Close(websocket.StatusNormalClosure, "test_complete")
+		if len(first.PresenceSnapshot) != 1 {
+			t.Fatalf("expected first presence_snapshot to include one active connection, got %#v", first.PresenceSnapshot)
+		}
+
+		second := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
+			SessionToken:     adminLogin.sessionCookie.Value,
+			ClientInstanceID: "phase3-i-3-05-second",
+			Presence:         timelinePresence(),
+		})
+		defer second.Close(websocket.StatusNormalClosure, "test_complete")
+		if len(second.PresenceSnapshot) != 2 {
+			t.Fatalf("expected second presence_snapshot to include both active connections, got %#v", second.PresenceSnapshot)
+		}
+		if second.PresenceSnapshot[0].ConnectionID > second.PresenceSnapshot[1].ConnectionID {
+			t.Fatalf("presence_snapshot must be sorted by connection_id: %#v", second.PresenceSnapshot)
+		}
+
+		outsiderID := seedLocalUserFlags(t, db, "phase3-i-3-05-outsider@example.test", "Phase 3 WS Outsider", "Phase3OutsiderPass1!", false, false, true)
+		if outsiderID == "" {
+			t.Fatal("expected outsider user")
+		}
+		outsiderSession, _ := loginLocalUser(t, server, "phase3-i-3-05-outsider@example.test", "Phase3OutsiderPass1!")
+		incidentwstest.RequireDialErrorEnvelope(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
+			SessionToken: outsiderSession.Value,
+		}, http.StatusNotFound, "incident_not_found")
+
+		incidentwstest.RequireDialRejectedStatus(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
+			Cookies: []*http.Cookie{adminLogin.sessionCookie},
+			Origin:  "https://untrusted.example.test",
+		}, http.StatusForbidden)
+	})
+
+	t.Run("incident membership removal revokes only that incident socket", func(t *testing.T) {
+		server, db := startPhase3Server(t, runtime, "phase3-i-3-05-revocation")
+		defer db.Close()
+
+		adminLogin, _ := provisionBootstrapAdmin(t, server)
+		incidentA := createIncident(t, server, adminLogin, map[string]any{
+			"client_txn_id": "txn-i-3-05-incident-a",
+			"incident_key":  "IR-I305-B",
+			"title":         "Canonical socket revoked incident",
+		})
+		incidentB := createIncident(t, server, adminLogin, map[string]any{
+			"client_txn_id": "txn-i-3-05-incident-b",
+			"incident_key":  "IR-I305-C",
+			"title":         "Canonical socket retained incident",
+		})
+		incidentAID := incidentA["incident_id"].(string)
+		incidentBID := incidentB["incident_id"].(string)
+
+		userID := seedLocalUserFlags(t, db, "phase3-i-3-05-member@example.test", "Phase 3 WS Member", "Phase3MemberPass1!", false, false, true)
+		createMembership(t, server, incidentAID, userID, "phase3-i-3-05-member@example.test", "editor", adminLogin)
+		createMembership(t, server, incidentBID, userID, "phase3-i-3-05-member@example.test", "editor", adminLogin)
+		membershipVersion := queryMembershipVersion(t, db, incidentAID, userID)
+
+		sessionCookie, _ := loginLocalUser(t, server, "phase3-i-3-05-member@example.test", "Phase3MemberPass1!")
+		socketA := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentAID, incidentwstest.ConnectOptions{
+			SessionToken:     sessionCookie.Value,
+			ClientInstanceID: "phase3-i-3-05-revoked",
+			Presence:         timelinePresence(),
+		})
+		defer socketA.Close(websocket.StatusNormalClosure, "test_complete")
+
+		phase3test.DeleteMembership(t, server, incidentAID, userID, membershipVersion, toPhase3Login(adminLogin))
+		incidentwstest.ExpectSessionRevoked(t, socketA, "incident_access_revoked")
+
+		socketB := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentBID, incidentwstest.ConnectOptions{
+			SessionToken:     sessionCookie.Value,
+			ClientInstanceID: "phase3-i-3-05-retained",
+			Presence:         timelinePresence(),
+		})
+		defer socketB.Close(websocket.StatusNormalClosure, "test_complete")
+	})
+}
+
+func timelinePresence() platformws.PresenceInput {
+	return platformws.PresenceInput{
+		SheetRef: map[string]string{
+			"kind": "view_schema",
+			"id":   timeline.TimelineViewSchemaID,
+		},
+		Mode: "viewing",
+	}
+}
+
 type loginResult struct {
 	sessionCookie *http.Cookie
 	csrfCookie    *http.Cookie
@@ -1425,4 +1533,18 @@ func queryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 	t.Helper()
 
 	return phase3test.QueryCount(t, db, query, args...)
+}
+
+func queryMembershipVersion(t testing.TB, db *sql.DB, incidentID string, userID string) int64 {
+	t.Helper()
+
+	var version int64
+	if err := db.QueryRowContext(context.Background(), `
+SELECT membership_version
+FROM incident_memberships
+WHERE incident_id::text = $1 AND user_id::text = $2
+`, incidentID, userID).Scan(&version); err != nil {
+		t.Fatalf("query incident membership version: %v", err)
+	}
+	return version
 }

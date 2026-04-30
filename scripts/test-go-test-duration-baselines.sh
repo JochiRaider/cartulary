@@ -140,6 +140,54 @@ if (rawHTTP !== 1000 || rawPG !== 5000 || legacyRaw !== undefined) {
 }
 EOF
 
+write_empty_baseline "$tmp_dir/guarded-command-overhead.json"
+"$NODE_BIN" - "$tmp_dir/guarded-command-overhead.json" <<'EOF'
+const fs = require("node:fs");
+const [baselineFile] = process.argv.slice(2);
+const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
+baseline.command_overheads_by_target["backend-store"] = 4000;
+fs.writeFileSync(baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
+EOF
+
+guarded_output="$("$NODE_BIN" "$UPDATE_SCRIPT" --baseline-file "$tmp_dir/guarded-command-overhead.json" "$results_dir" 2>&1)"
+assert_contains "$guarded_output" "kept existing Go command overhead baselines after suspicious decreases" "guarded command overhead output"
+assert_contains "$guarded_output" "target=backend-store existing_ms=4000 observed_ms=1000" "guarded command overhead target"
+
+"$NODE_BIN" - "$tmp_dir/guarded-command-overhead.json" <<'EOF'
+const fs = require("node:fs");
+const [baselineFile] = process.argv.slice(2);
+const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
+if (baseline.command_overheads_by_target["backend-store"] !== 4000) {
+  throw new Error(`expected guarded backend-store command overhead to remain 4000, got ${baseline.command_overheads_by_target["backend-store"]}`);
+}
+EOF
+
+write_empty_baseline "$tmp_dir/allowed-command-overhead.json"
+"$NODE_BIN" - "$tmp_dir/allowed-command-overhead.json" <<'EOF'
+const fs = require("node:fs");
+const [baselineFile] = process.argv.slice(2);
+const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
+baseline.command_overheads_by_target["backend-store"] = 4000;
+fs.writeFileSync(baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
+EOF
+
+allowed_output="$(
+  RESULTS_DIR="$results_dir" \
+  BASELINE_FILE="$tmp_dir/allowed-command-overhead.json" \
+  ALLOW_COMMAND_OVERHEAD_DECREASE=1 \
+    "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" go-test-duration-baselines 2>&1
+)"
+assert_contains "$allowed_output" "updated 3 Go test baselines" "allowed command overhead update output"
+
+"$NODE_BIN" - "$tmp_dir/allowed-command-overhead.json" <<'EOF'
+const fs = require("node:fs");
+const [baselineFile] = process.argv.slice(2);
+const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
+if (baseline.command_overheads_by_target["backend-store"] !== 1000) {
+  throw new Error(`expected allowed backend-store command overhead to decrease to 1000, got ${baseline.command_overheads_by_target["backend-store"]}`);
+}
+EOF
+
 "$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/baseline.json" "$results_dir" >/dev/null 2>/dev/null
 
 drift_warning_output="$("$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/baseline.json" "$results_dir" 2>&1 >/dev/null)"
@@ -210,6 +258,10 @@ if [[ "$underplanned_components_status" -eq 0 ]]; then
 fi
 assert_contains "$underplanned_components_output" "underplanned shard=backend-integration-auth-shard-01" "underplanned package and command drift"
 assert_contains "$underplanned_components_output" "underplanned shard=backend-store-shard-01" "underplanned test drift"
+assert_contains "$underplanned_components_output" "planned_tests_ms=" "underplanned component planned test detail"
+assert_contains "$underplanned_components_output" "actual_tests_ms=" "underplanned component actual test detail"
+assert_contains "$underplanned_components_output" "planned_package_overhead_ms=" "underplanned component planned package detail"
+assert_contains "$underplanned_components_output" "actual_command_overhead_ms=" "underplanned component actual command detail"
 
 cat >"$tmp_dir/overplanned.json" <<'JSON'
 {

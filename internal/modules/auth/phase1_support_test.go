@@ -142,7 +142,7 @@ func TestSupportPhase1_TOTPBootstrapHelpers(t *testing.T) {
 	if AllowsBootstrapTokenRoute("/api/v1/auth/credential-state") {
 		t.Fatal("credential-state must reject bootstrap_token")
 	}
-	if AllowsBootstrapTokenRoute("/ws/v1/test/session-lifecycle") {
+	if AllowsBootstrapTokenRoute("/ws/v1/incidents/10000000-0000-0000-0000-000000000001") {
 		t.Fatal("/ws/v1/* must reject bootstrap_token")
 	}
 

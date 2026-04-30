@@ -196,7 +196,7 @@ export const makeNodeTools = {
     },
   },
   "go-test-duration-baselines": {
-    inputs: ["PRUNE_OBSERVED_PACKAGES", "BASELINE_FILE"],
+    inputs: ["PRUNE_OBSERVED_PACKAGES", "ALLOW_COMMAND_OVERHEAD_DECREASE", "BASELINE_FILE"],
     script: "./scripts/update-go-test-durations.mjs",
     resultDir: { mode: "required", positional: true },
     usage: "usage: make go-test-duration-baselines RESULTS_DIR=<successful test results dir>",
@@ -204,6 +204,9 @@ export const makeNodeTools = {
       const args = [];
       if (value(env, "PRUNE_OBSERVED_PACKAGES") === "1") {
         args.push("--prune-observed-packages");
+      }
+      if (value(env, "ALLOW_COMMAND_OVERHEAD_DECREASE") === "1") {
+        args.push("--allow-command-overhead-decrease");
       }
       optionalFlag(args, env, "BASELINE_FILE", "--baseline-file");
       return args;

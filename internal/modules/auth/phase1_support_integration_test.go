@@ -120,8 +120,9 @@ func TestSupportPhase1_Integration_BootstrapBoundaries(t *testing.T) {
 	ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-bootstrap")
 	defer ctx.db.Close()
 
-	_, bootstrapEmail, bootstrapPassword := ctx.newLocalUser(t, "bootstrap-boundary", true, false, true)
+	bootstrapUserID, bootstrapEmail, bootstrapPassword := ctx.newLocalUser(t, "bootstrap-boundary", true, false, true)
 	bootstrapToken := requireBootstrapLogin(t, ctx.server, bootstrapEmail, bootstrapPassword)
+	bootstrapIncidentID := phase1support.SeedIncidentMembership(t, ctx.db, bootstrapUserID, "phase1-support-bootstrap-ws")
 	targetUserID, _, _ := ctx.newLocalUser(t, "bootstrap-target", false, false, true)
 	totpTargetID, _, _, _, _ := ctx.newActiveTOTPLoggedInUser(t, "bootstrap-totp-target", false)
 	revokeTargetID, _, _, _, _ := ctx.newLoggedInLocalUser(t, "bootstrap-revoke-target", false, false, true)
@@ -129,7 +130,7 @@ func TestSupportPhase1_Integration_BootstrapBoundaries(t *testing.T) {
 	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessBootstrapBoundary) {
 		t.Run(string(route.ID), func(t *testing.T) {
 			if route.Transport == phase1test.RouteTransportWebSocket {
-				phase1support.RequireBootstrapWebsocketRejected(t, ctx.server.HTTP.URL, bootstrapToken)
+				phase1support.RequireBootstrapWebsocketRejected(t, ctx.server.HTTP.URL, bootstrapIncidentID, bootstrapToken)
 				return
 			}
 
@@ -277,7 +278,8 @@ func TestSupportPhase1_Integration_SessionRevocation(t *testing.T) {
 				if socketUserID == "" {
 					t.Fatal("expected socket test user")
 				}
-				socket := connectSessionSocket(t, ctx.server, socketSession.Value)
+				incidentID := phase1support.SeedIncidentMembership(t, ctx.db, socketUserID, "phase1-support-socket-bootstrap")
+				socket := connectSessionSocket(t, ctx.server, incidentID, socketSession.Value)
 				socket.Close(websocket.StatusNormalClosure, "support_cleanup")
 			case phase1test.RouteLogout:
 				_, _, _, sessionCookie, csrfCookie, socket := ctx.newSocketSession(t, "support-logout", false)
@@ -295,7 +297,8 @@ func TestSupportPhase1_Integration_SessionRevocation(t *testing.T) {
 				expectSessionRevoked(t, socket, "session_revoked")
 			case phase1test.RoutePasswordChange:
 				userID, _, password, secretBase32, login := ctx.newActiveTOTPLoggedInUser(t, "support-password-change", false)
-				socket := connectSessionSocket(t, ctx.server, login.sessionCookie.Value)
+				incidentID := phase1support.SeedIncidentMembership(t, ctx.db, userID, "phase1-support-password-change")
+				socket := connectSessionSocket(t, ctx.server, incidentID, login.sessionCookie.Value)
 				defer socket.Close(websocket.StatusNormalClosure, "support_cleanup")
 
 				resp := doJSON(
@@ -345,7 +348,8 @@ func TestSupportPhase1_Integration_SessionRevocation(t *testing.T) {
 				}
 			case phase1test.RouteUsersTOTPReset:
 				targetID, _, _, _, targetLogin := ctx.newActiveTOTPLoggedInUser(t, "support-totp-reset-target", false)
-				socket := connectSessionSocket(t, ctx.server, targetLogin.sessionCookie.Value)
+				incidentID := phase1support.SeedIncidentMembership(t, ctx.db, targetID, "phase1-support-totp-reset")
+				socket := connectSessionSocket(t, ctx.server, incidentID, targetLogin.sessionCookie.Value)
 				defer socket.Close(websocket.StatusNormalClosure, "support_cleanup")
 
 				resp := doJSON(
@@ -1206,12 +1210,14 @@ func (c *phase1SupportRouteContext) newSocketSession(
 
 	if activeTOTP {
 		userID, _, _, _, login := c.newActiveTOTPLoggedInUser(t, tag, false)
-		socket := connectSessionSocket(t, c.server, login.sessionCookie.Value)
+		incidentID := phase1support.SeedIncidentMembership(t, c.db, userID, tag+"-socket")
+		socket := connectSessionSocket(t, c.server, incidentID, login.sessionCookie.Value)
 		return userID, "", "", login.sessionCookie, login.csrfCookie, socket
 	}
 
 	userID, _, _, sessionCookie, csrfCookie := c.newLoggedInLocalUser(t, tag, false, false, true)
-	socket := connectSessionSocket(t, c.server, sessionCookie.Value)
+	incidentID := phase1support.SeedIncidentMembership(t, c.db, userID, tag+"-socket")
+	socket := connectSessionSocket(t, c.server, incidentID, sessionCookie.Value)
 	return userID, "", "", sessionCookie, csrfCookie, socket
 }
 

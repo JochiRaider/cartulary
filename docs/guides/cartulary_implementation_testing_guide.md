@@ -174,11 +174,11 @@ Shared harness owners for this phase are explicit:
 | ID     | Test                                                                                                                                                                                                                                                        | Exact REQs                                                                         | Exact ACs                      |
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------ |
 | I-1-01 | Login, session inspection, idle sliding, and logout all persist against a real PostgreSQL session store.                                                                                                                                                    | REQ-01-023..REQ-01-031, REQ-04-005..REQ-04-017                                     | AC-123, AC-131, AC-156..AC-163 |
-| I-1-02 | Session revocation pushes `session_revoked` to an attached socket owned by that session and then closes the connection.                                                                                                                                     | REQ-01-029, REQ-01-250..REQ-01-277, REQ-04-015..REQ-04-016                         | AC-131, AC-136, AC-156..AC-163 |
+| I-1-02 | Session revocation pushes `session_revoked` to an attached canonical incident WebSocket owned by that session and then closes the connection.                                                                                                                | REQ-01-029, REQ-01-250..REQ-01-277, REQ-04-015..REQ-04-016                         | AC-131, AC-136, AC-156..AC-163 |
 | I-1-03 | Deployment-admin user creation and patch persist the expected defaults, version changes, and administrative audit records.                                                                                                                                  | REQ-01-117..REQ-01-126, REQ-04-038                                                 | AC-175..AC-180, AC-231         |
 | I-1-04 | Credential-state inspection, TOTP begin and complete, and password change persist the expected deployment-local credential-state transitions and revoke sessions according to the route-owned rules.                                                        | REQ-01-523..REQ-01-526, REQ-04-016, REQ-04-083..REQ-04-084                         | AC-335..AC-339                 |
 | I-1-05 | Deployment-admin password reset, TOTP reset, and revoke-all persist safe administrative audit records, update or preserve credential state exactly as required, and revoke attached sockets immediately.                                                    | REQ-01-527..REQ-01-529, REQ-01-250..REQ-01-277, REQ-04-016, REQ-04-085..REQ-04-086 | AC-340..AC-342                 |
-| I-1-06 | A bootstrap token is accepted only by `POST /api/v1/auth/mfa/totp/begin` and `POST /api/v1/auth/mfa/totp/complete`; the same token fails closed on session, credential-state, ordinary incident routes, and `/ws/v1/*` with the route-owned rejection code. | REQ-01-522..REQ-01-523, REQ-04-084                                                 | AC-334, AC-339                 |
+| I-1-06 | A bootstrap token is accepted only by `POST /api/v1/auth/mfa/totp/begin` and `POST /api/v1/auth/mfa/totp/complete`; the same token fails closed on session, credential-state, ordinary incident routes, and canonical `/ws/v1/incidents/{incident_id}` with the route-owned rejection code. | REQ-01-522..REQ-01-523, REQ-04-084                                                 | AC-334, AC-339                 |
 
 ### 3.1.5 E2E tests
 
@@ -304,6 +304,7 @@ This is the first phase where record-row history exists at all. Phase 7 will lat
 - Core 03 §6 Timeline lifecycle
 - Core 03 §7 Timeline create workflow
 - Core 03 §15 Timeline read and write contract
+- Core 04 AC-131, AC-136, and AC-162 canonical incident WebSocket behavior
 
 ### 5.3.3 Unit tests
 
@@ -336,6 +337,7 @@ The Phase 3 workbook currently renders through the RDG-backed `@cartulary/grid-a
 | I-3-02 | The Timeline query route reads from projection rows and returns stable row identity and deterministic ordering without scanning source blobs. | REQ-01-034..REQ-01-037, REQ-01-355..REQ-01-366, REQ-03-236..REQ-03-241 | AC-124, AC-184, AC-191..AC-193 |
 | I-3-03 | Incident-role authorization, review and supersede lifecycle transitions, replay semantics, and replacement-target legality hold on the live route surface, including the coupled supersede change-set shape. | REQ-01-083..REQ-01-088, REQ-03-104..REQ-03-110                         | AC-107..AC-111, AC-194..AC-199 |
 | I-3-04 | Same-field Timeline patch conflicts are transported as `409 same_field_conflict` with `error.conflict` and no mutation or idempotency write.  | REQ-03-063..REQ-03-068                                                 | AC-126                         |
+| I-3-05 | The canonical incident WebSocket route proves handshake, presence snapshot ordering, membership-gated acceptance, browser-origin rejection, and incident-access revocation while preserving access to other authorized incidents. | REQ-01-250..REQ-01-277, REQ-04-005..REQ-04-017                         | AC-131, AC-136, AC-162         |
 
 ### 5.3.5 E2E tests
 

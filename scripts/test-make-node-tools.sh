@@ -92,7 +92,12 @@ const expectedMakeEnvVars = {
     "CARTULARY_TEST_RESULTS_DIR",
     "CARTULARY_TEST_RUN_ID",
   ],
-  "go-test-duration-baselines": ["PRUNE_OBSERVED_PACKAGES", "BASELINE_FILE", "RESULTS_DIR"],
+  "go-test-duration-baselines": [
+    "PRUNE_OBSERVED_PACKAGES",
+    "ALLOW_COMMAND_OVERHEAD_DECREASE",
+    "BASELINE_FILE",
+    "RESULTS_DIR",
+  ],
   "phase-slice": [
     "PHASE",
     "MAKE",
@@ -195,6 +200,22 @@ assertArgs(
     "--target",
     "backend-store",
     "--json",
+  ],
+);
+assertArgs(
+  "go-test-duration-baselines",
+  {
+    ALLOW_COMMAND_OVERHEAD_DECREASE: "1",
+    BASELINE_FILE: "/tmp/baseline.json",
+    PRUNE_OBSERVED_PACKAGES: "1",
+    RESULTS_DIR: "/tmp/cartulary-results/run-a",
+  },
+  [
+    "--prune-observed-packages",
+    "--allow-command-overhead-decrease",
+    "--baseline-file",
+    "/tmp/baseline.json",
+    "/tmp/cartulary-results/run-a",
   ],
 );
 assertArgs(

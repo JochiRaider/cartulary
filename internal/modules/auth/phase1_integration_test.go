@@ -165,9 +165,10 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 		server, db := startPhase1Server(t, runtime, "phase1-i-1-02-session-revoked")
 		defer db.Close()
 
-		seedLocalUser(t, db, "socket-owner@example.test", "Socket Owner", "SocketPass123!", false)
+		userID := seedLocalUser(t, db, "socket-owner@example.test", "Socket Owner", "SocketPass123!", false)
+		incidentID := phase1test.SeedIncidentMembership(t, db, userID, "phase1-i-1-02-logout")
 		sessionCookie, csrfCookie := loginLocalUser(t, server, "socket-owner@example.test", "SocketPass123!", nil)
-		socket := connectSessionSocket(t, server, sessionCookie.Value)
+		socket := connectSessionSocket(t, server, incidentID, sessionCookie.Value)
 		defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
 		logoutResp := doJSON(
@@ -187,6 +188,7 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 		defer db.Close()
 
 		userID := seedLocalUser(t, db, "socket-concurrency@example.test", "Socket Concurrency", "SocketConcurrencyPass1!", false)
+		incidentID := phase1test.SeedIncidentMembership(t, db, userID, "phase1-i-1-02-concurrency")
 		loginBase := time.Date(2026, time.April, 29, 19, 0, 0, 0, time.UTC)
 		httptestx.SetClockFixed(t, server, loginBase)
 		sessionCookie, _ := loginLocalUser(t, server, "socket-concurrency@example.test", "SocketConcurrencyPass1!", nil)
@@ -194,7 +196,7 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 		if sessionCount := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1`, userID); sessionCount != 1 {
 			t.Fatalf("expected one session row after initial login, got %d; sessions=%s", sessionCount, phase1test.FormatUserSessions(t, db, userID))
 		}
-		socket := connectSessionSocket(t, server, sessionCookie.Value)
+		socket := connectSessionSocket(t, server, incidentID, sessionCookie.Value)
 		defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
 		for i := 0; i < 4; i++ {
@@ -395,6 +397,8 @@ func TestPhase1_BootstrapTokenRouteBoundaries_I_1_06(t *testing.T) {
 
 	seedLocalUser(t, db, "bootstrap-boundary@example.test", "Bootstrap Boundary", "BootstrapRoute123!", true)
 	bootstrapToken := requireBootstrapLogin(t, server, "bootstrap-boundary@example.test", "BootstrapRoute123!")
+	targetUserID := seedLocalUser(t, db, "bootstrap-ws-target@example.test", "Bootstrap WS Target", "BootstrapTarget123!", false)
+	incidentID := phase1test.SeedIncidentMembership(t, db, targetUserID, "phase1-i-1-06-bootstrap")
 
 	begin := beginTOTPEnrollment(t, server, bootstrapToken, map[string]any{
 		"client_txn_id": "txn-bootstrap-boundary-begin",
@@ -415,7 +419,7 @@ func TestPhase1_BootstrapTokenRouteBoundaries_I_1_06(t *testing.T) {
 		}
 	}
 
-	phase1test.RequireBootstrapWebsocketRejected(t, server.HTTP.URL, bootstrapToken)
+	phase1test.RequireBootstrapWebsocketRejected(t, server.HTTP.URL, incidentID, bootstrapToken)
 
 	completeInitialEnrollment(
 		t,
@@ -544,8 +548,9 @@ func TestPhase1_AdminCredentialActions_I_1_05(t *testing.T) {
 
 		targetSecret := "JBSWY3DPEHPK3PXP"
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-reset@example.test", "Target Reset", "TargetResetPass123!", true, false, targetSecret)
+		targetIncidentID := phase1test.SeedIncidentMembership(t, db, targetID, "phase1-i-1-05-password-reset")
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-reset@example.test", "TargetResetPass123!", generateTOTPCode(t, targetSecret))
-		targetSocket := connectSessionSocket(t, server, targetLogin.sessionCookie.Value)
+		targetSocket := connectSessionSocket(t, server, targetIncidentID, targetLogin.sessionCookie.Value)
 		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
 		resetResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/password/reset", map[string]any{
@@ -588,8 +593,9 @@ func TestPhase1_AdminCredentialActions_I_1_05(t *testing.T) {
 
 		targetSecret := "JBSWY3DPEHPK3QAA"
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-totp-reset@example.test", "Target TOTP Reset", "TargetTotpPass123!", true, false, targetSecret)
+		targetIncidentID := phase1test.SeedIncidentMembership(t, db, targetID, "phase1-i-1-05-totp-reset")
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-totp-reset@example.test", "TargetTotpPass123!", generateTOTPCode(t, targetSecret))
-		targetSocket := connectSessionSocket(t, server, targetLogin.sessionCookie.Value)
+		targetSocket := connectSessionSocket(t, server, targetIncidentID, targetLogin.sessionCookie.Value)
 		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
 		resetResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/mfa/totp/reset", map[string]any{
@@ -623,8 +629,9 @@ func TestPhase1_AdminCredentialActions_I_1_05(t *testing.T) {
 
 		targetSecret := "JBSWY3DPEHPK3QAB"
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-revoke-all@example.test", "Target Revoke All", "TargetRevokePass123!", true, false, targetSecret)
+		targetIncidentID := phase1test.SeedIncidentMembership(t, db, targetID, "phase1-i-1-05-revoke-all")
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-revoke-all@example.test", "TargetRevokePass123!", generateTOTPCode(t, targetSecret))
-		targetSocket := connectSessionSocket(t, server, targetLogin.sessionCookie.Value)
+		targetSocket := connectSessionSocket(t, server, targetIncidentID, targetLogin.sessionCookie.Value)
 		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
 
 		revokeResp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/sessions/revoke-all", map[string]any{
@@ -1661,9 +1668,9 @@ func generateTOTPCode(t testing.TB, secretBase32 string) string {
 	return code
 }
 
-func connectSessionSocket(t testing.TB, server *httptestx.Server, sessionToken string) *phase1test.SessionSocketClient {
+func connectSessionSocket(t testing.TB, server *httptestx.Server, incidentID string, sessionToken string) *phase1test.SessionSocketClient {
 	t.Helper()
-	return phase1test.ConnectSessionSocket(t, server.HTTP.URL, sessionToken)
+	return phase1test.ConnectSessionSocket(t, server.HTTP.URL, incidentID, sessionToken)
 }
 
 func expectSessionRevoked(t testing.TB, conn *phase1test.SessionSocketClient, wantReasonCode string) {

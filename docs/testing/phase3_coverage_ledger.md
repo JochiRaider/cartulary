@@ -3,7 +3,7 @@
 This ledger is generated from `tools/phase3_test_map.json`. Update the manifest row metadata first, then regenerate this file.
 
 - Scope: Timeline workbook create, patch, query, lifecycle actions, replay stability, projection rebuild, save-state UI, and browser-visible collaboration behavior.
-- Normative owners: Core 03 `§6`, `§7`, `§15`; Core 01 `§3.3.5`, `§7.4.1`; Core 04 `AC-043`, `AC-191` through `AC-199`, `AC-329` through `AC-331`.
+- Normative owners: Core 03 `§6`, `§7`, `§15`; Core 01 `§3.3.5`, `§7.4.1`; Core 04 `AC-043`, `AC-131`, `AC-136`, `AC-162`, `AC-191` through `AC-199`, `AC-329` through `AC-331`.
 - Authority: `tools/phase3_test_map.json` is the enforced Phase 3 traceability source. This ledger is a rendered companion and does not control the mechanical row inventory.
 - Timeline zero-field create traceability: cite Core 01 `REQ-01-057` plus Core 04 `AC-191` and `AC-192` for the owner rule. `contracts/view-schemas/cartulary.view.timeline.v1.json` is derived evidence only and is not the behavior source.
 - Grid note: the workbook currently renders through the RDG-backed `@cartulary/grid-adapter`. `U-3-GRID-01/02/03` own workbook binding behavior, while vendor-specific RDG semantics stay with adapter tests.
@@ -52,6 +52,7 @@ This ledger is generated from `tools/phase3_test_map.json`. Update the manifest 
 | `I-3-02` | `internal/modules/timeline/phase3_integration_test.go::TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild` | `backend_integration` | The query route reads projection rows instead of source rows, and deterministic rebuild restores the same Timeline query surface. | None. |
 | `I-3-03` | `internal/modules/timeline/phase3_integration_test.go::TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions` | `backend_integration` | Incident-role authorization, review and supersede legality, replay semantics, replacement-target guards, and supersede change-set shape all hold on the live route surface. | Systematic route-matrix inventory remains support-only evidence. |
 | `I-3-04` | `internal/modules/timeline/phase3_integration_test.go::TestPhase3_PatchSameFieldConflictEnvelope_I_3_04` | `backend_integration` | Same-field Timeline patch conflicts are transported as `409 same_field_conflict` with `error.conflict` and no mutation or idempotency write. | Field-level rebase and conflict payload construction remain store-domain evidence; browser conflict resolution remains Phase 6 evidence. |
+| `I-3-05` | `internal/modules/timeline/phase3_integration_test.go::TestPhase3_CanonicalIncidentWebSocket_I_3_05` | `backend_integration` | The canonical incident WebSocket route proves hello, hello_ack, presence_snapshot ordering, membership-gated acceptance, browser-origin rejection, and incident-access revocation while preserving access to other authorized incidents. | Session-wide logout and concurrency revocation consequences remain Phase 1 evidence. |
 
 ## Browser E2E
 
@@ -66,7 +67,7 @@ This ledger is generated from `tools/phase3_test_map.json`. Update the manifest 
 
 | Harness | Phase 3 evidence |
 | --- | --- |
-| Real runtime and store harnesses | `internal/testutil/phase3test` centralizes the Postgres + MinIO runtime boot path, HTTP session helpers, and Timeline WebSocket assertions for integration tests, while `internal/testutil/phase3storetest` owns rollback-backed incident, membership, and store helpers for service-backed unit rows. |
+| Real runtime and store harnesses | `internal/testutil/phase3test` centralizes the Postgres + MinIO runtime boot path and HTTP session helpers, `internal/testutil/incidentwstest` owns canonical incident WebSocket handshakes and revocation assertions, and `internal/testutil/phase3storetest` owns rollback-backed incident, membership, and store helpers for service-backed unit rows. |
 | Cross-cutting HTTP and replay helpers | `internal/testutil/httptestx` owns success or error envelope checks, replay scaffolding, mutation attribution helpers, and closed-vocabulary assertions used across the Phase 3 backend suite. |
 | Timeline substrate inspection helpers | `internal/testutil/timelinetest` owns projection-row, change-set, mutation-row, revision-count, and supersede-link inspection used by the Phase 3 store and integration slices. |
 | Browser timing and replay helpers | `apps/web/e2e/helpers.ts` provides the Phase 3 timing predicates, tracked-user browser auth helpers, and substrate snapshot accessors shared by `E-3-02`, `E-3-03`, and `E-3-04`. |

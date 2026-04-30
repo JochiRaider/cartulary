@@ -3,8 +3,7 @@ package phase3test
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"net/http"
+	"errors"
 	"testing"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
@@ -24,93 +24,39 @@ type RecordChangeSocketPayload struct {
 }
 
 type TimelineSocketClient struct {
-	raw      *wstest.Client
-	messages chan platformws.Message
-	errors   chan error
+	incident *incidentwstest.Client
 }
 
 func (c *TimelineSocketClient) Close(code int, reason string) {
-	if c == nil || c.raw == nil {
+	if c == nil || c.incident == nil {
 		return
 	}
-	c.raw.Close(websocket.StatusCode(code), reason)
+	c.incident.Close(websocket.StatusCode(code), reason)
 }
 
 func ConnectTimelineSocket(t testing.TB, server *httptestx.Server, incidentID string, sessionToken string) *TimelineSocketClient {
 	t.Helper()
 
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+sessionToken)
-	rawClient := wstest.ConnectWithHeaders(t, server.HTTP.URL, "/ws/v1/incidents/"+incidentID, headers)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := rawClient.Send(ctx, platformws.Message{
-		Type: "hello",
-		Payload: platformws.RawPayload(map[string]any{
-			"client_instance_id": "phase3-test-" + incidentID,
-			"presence": map[string]any{
-				"sheet_ref": map[string]any{
-					"kind": "view_schema",
-					"id":   timelineViewSchemaID,
-				},
-				"mode": "viewing",
+	client := incidentwstest.ConnectAndHello(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
+		SessionToken:     sessionToken,
+		ClientInstanceID: "phase3-test-" + incidentID,
+		Presence: platformws.PresenceInput{
+			SheetRef: map[string]string{
+				"kind": "view_schema",
+				"id":   timelineViewSchemaID,
 			},
-		}),
-	}); err != nil {
-		t.Fatalf("send websocket hello: %v", err)
-	}
-	message, err := rawClient.Receive(ctx)
-	if err != nil {
-		t.Fatalf("receive websocket hello_ack message: %v", err)
-	}
-	wstest.RequireMessageType(t, message, "hello_ack")
-	message, err = rawClient.Receive(ctx)
-	if err != nil {
-		t.Fatalf("receive websocket presence_snapshot message: %v", err)
-	}
-	wstest.RequireMessageType(t, message, "presence_snapshot")
-
-	client := &TimelineSocketClient{
-		raw:      rawClient,
-		messages: make(chan platformws.Message, 32),
-		errors:   make(chan error, 1),
-	}
-	go func() {
-		for {
-			message, err := rawClient.Receive(context.Background())
-			if err != nil {
-				select {
-				case client.errors <- err:
-				default:
-				}
-				return
-			}
-			select {
-			case client.messages <- message:
-			default:
-				select {
-				case client.errors <- fmt.Errorf("timeline websocket buffer overflow"):
-				default:
-				}
-				return
-			}
-		}
-	}()
-	return client
+			Mode: "viewing",
+		},
+	})
+	return &TimelineSocketClient{incident: client}
 }
 
 func RequireTimelineSocketChange(t testing.TB, client *TimelineSocketClient, wantRecordID string, wantRowVersion int64) RecordChangeSocketPayload {
 	t.Helper()
 
-	var message platformws.Message
-	select {
-	case message = <-client.messages:
-	case err := <-client.errors:
+	message, err := client.incident.AwaitNextMessage(5 * time.Second)
+	if err != nil {
 		t.Fatalf("receive websocket record_changed: %v", err)
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for websocket record_changed")
 	}
 	wstest.RequireMessageType(t, message, "record_changed")
 
@@ -130,11 +76,11 @@ func RequireTimelineSocketChange(t testing.TB, client *TimelineSocketClient, wan
 func ExpectNoTimelineSocketMessage(t testing.TB, client *TimelineSocketClient) {
 	t.Helper()
 
-	select {
-	case message := <-client.messages:
+	message, err := client.incident.AwaitNextMessage(300 * time.Millisecond)
+	if err == nil {
 		t.Fatalf("expected no websocket message, got %#v", message)
-	case err := <-client.errors:
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected no websocket message, got read error %v", err)
-	case <-time.After(300 * time.Millisecond):
 	}
 }

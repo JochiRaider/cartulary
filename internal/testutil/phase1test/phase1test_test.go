@@ -15,25 +15,48 @@ import (
 
 func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/ws/v1/test/session-lifecycle", func(w http.ResponseWriter, r *http.Request) {
+	incidentID := "10000000-0000-0000-0000-000000000001"
+	mux.HandleFunc("/ws/v1/incidents/"+incidentID, func(w http.ResponseWriter, r *http.Request) {
 		conn, err := platformws.Accept(w, r, "")
 		if err != nil {
 			return
 		}
 		defer conn.CloseNow()
 
+		var hello platformws.Message
+		if err := platformws.ReadJSON(context.Background(), conn, &hello); err != nil {
+			return
+		}
+		if hello.Type != "hello" {
+			_ = conn.Close(websocket.StatusPolicyViolation, "unexpected_message")
+			return
+		}
+		now := time.Now().UTC()
 		if err := platformws.WriteJSON(context.Background(), conn, platformws.Message{
-			Type:    "connected",
-			Payload: platformws.RawPayload(map[string]any{"session_id": "test-session"}),
+			Type: "hello_ack",
+			Payload: platformws.RawPayload(map[string]any{
+				"connection_id":         "20000000-0000-0000-0000-000000000001",
+				"resume_token":          "resume-token",
+				"server_time":           now.Format(time.RFC3339Nano),
+				"heartbeat_interval_ms": int(platformws.HeartbeatInterval / time.Millisecond),
+				"presence_ttl_ms":       int(platformws.PresenceTTL / time.Millisecond),
+				"resume_window_ms":      int(platformws.ResumeWindow / time.Millisecond),
+			}),
+		}); err != nil {
+			return
+		}
+		if err := platformws.WriteJSON(context.Background(), conn, platformws.Message{
+			Type:    "presence_snapshot",
+			Payload: platformws.RawPayload(map[string]any{"presences": []any{}}),
 		}); err != nil {
 			return
 		}
 
-		var message platformws.Message
-		if err := platformws.ReadJSON(context.Background(), conn, &message); err != nil {
+		var trigger platformws.Message
+		if err := platformws.ReadJSON(context.Background(), conn, &trigger); err != nil {
 			return
 		}
-		if message.Type != "trigger_session_revoked" {
+		if trigger.Type != "trigger_session_revoked" {
 			_ = conn.Close(websocket.StatusPolicyViolation, "unexpected_message")
 			return
 		}
@@ -50,12 +73,9 @@ func TestSessionSocketClientCapturesRevocationThenClose(t *testing.T) {
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer session-token")
-	rawClient := wstest.ConnectWithHeaders(t, server.URL, "/ws/v1/test/session-lifecycle", headers)
-	client := newSessionSocketClient(t, rawClient)
+	client := ConnectSessionSocket(t, server.URL, incidentID, "session-token")
 
-	if err := rawClient.Send(context.Background(), platformws.Message{Type: "trigger_session_revoked"}); err != nil {
+	if err := client.Send(context.Background(), platformws.Message{Type: "trigger_session_revoked"}); err != nil {
 		t.Fatalf("send trigger_session_revoked: %v", err)
 	}
 

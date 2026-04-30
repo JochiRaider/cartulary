@@ -136,7 +136,7 @@ explain-target:
 	$(Q)$(call RUN_MAKE_NODE_TOOL,explain-target,TARGET="$(TARGET)" DETAIL="$(DETAIL)" JSON="$(JSON)")
 
 go-test-duration-baselines:
-	$(Q)$(call RUN_MAKE_NODE_TOOL,go-test-duration-baselines,PRUNE_OBSERVED_PACKAGES="$(PRUNE_OBSERVED_PACKAGES)" BASELINE_FILE="$(BASELINE_FILE)" RESULTS_DIR="$(RESULTS_DIR)")
+	$(Q)$(call RUN_MAKE_NODE_TOOL,go-test-duration-baselines,PRUNE_OBSERVED_PACKAGES="$(PRUNE_OBSERVED_PACKAGES)" ALLOW_COMMAND_OVERHEAD_DECREASE="$(ALLOW_COMMAND_OVERHEAD_DECREASE)" BASELINE_FILE="$(BASELINE_FILE)" RESULTS_DIR="$(RESULTS_DIR)")
 
 go-test-duration-baseline-coverage:
 	$(Q)$(call RUN_MAKE_NODE_TOOL,go-test-duration-baseline-coverage,BASELINE_FILE="$(BASELINE_FILE)")
