@@ -34,6 +34,10 @@ export function loadBrowserBatchManifest(manifestPath) {
 
 export function loadBrowserBatchStages(manifestPath) {
   const manifest = loadBrowserBatchManifest(manifestPath);
+  return normalizeBrowserBatchStages(manifest);
+}
+
+export function normalizeBrowserBatchStages(manifest) {
   const stages = new Map();
   for (const [index, rawStage] of manifest.stages.entries()) {
     const stage = normalizeStage(rawStage, index + 1);

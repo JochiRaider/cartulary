@@ -4,7 +4,9 @@
     {
       "name": "webserver-backed",
       "target": "browser-e2e-webserver-backed",
-      "schedule_tags": ["service_backed_full"],
+      "schedule_tags": [
+        "service_backed_full"
+      ],
       "scheduler_dependency_policy": "parallel",
       "groups": [
         {
@@ -90,7 +92,10 @@
     {
       "name": "resettable",
       "target": "browser-e2e-resettable",
-      "summary_children": ["browser-e2e-measurement", "browser-e2e-visual"],
+      "summary_children": [
+        "browser-e2e-measurement",
+        "browser-e2e-visual"
+      ],
       "groups": [
         {
           "name": "measurement",
@@ -114,8 +119,14 @@
     {
       "name": "isolated",
       "target": "browser-e2e",
-      "summary_children": ["browser-e2e-stateful", "browser-e2e-measurement", "browser-e2e-visual"],
-      "schedule_tags": ["service_backed_full"],
+      "summary_children": [
+        "browser-e2e-stateful",
+        "browser-e2e-measurement",
+        "browser-e2e-visual"
+      ],
+      "schedule_tags": [
+        "service_backed_full"
+      ],
       "scheduler_dependency_policy": "after_backend_and_prior_browser",
       "groups": [
         {

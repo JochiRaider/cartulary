@@ -2,7 +2,7 @@
   "schema_id": "cartulary.service_backed_schedule.v8",
   "generated": {
     "generator": "scripts/render-service-backed-schedule-manifest.mjs",
-    "profile": "tools/service_backed_schedule_profiles.json",
+    "topology": "tools/execution_topology_manifest.json",
     "browser_batch_manifest": "tools/browser_e2e_batch_manifest.json",
     "make_target_duration_baseline": "tools/service_backed_make_target_duration_baselines.json"
   },

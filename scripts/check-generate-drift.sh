@@ -14,7 +14,14 @@ SCRATCH_CONTROL_INPUTS=(
   "go.sum"
   "scripts/list-build-inputs.sh"
   "scripts/lib"
+  "tools/execution_topology_manifest.json"
+  "tools/scheduler_resource_registry.json"
+  "tools/service_backed_make_target_duration_baselines.json"
   "tools/task_surface_manifest.json"
+  "tools/task_surface.generated.mk"
+  "tools/check_schedule_manifest.json"
+  "tools/service_backed_schedule_manifest.json"
+  "tools/browser_e2e_batch_manifest.json"
   "tools/contractgen"
 )
 SCRATCH_CODEGEN_INPUTS=(

@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { loadExecutionTopology } from "./execution-topology.mjs";
 import {
   collectEntries,
   collectSupportGoEntries,
@@ -15,7 +15,6 @@ import {
   supportGoEntrySymbols,
 } from "./phase-manifest.mjs";
 
-const executionTargetsPath = path.join("tools", "go_execution_targets.json");
 const validShardModes = new Set(["none", "go_shards"]);
 const validParallelismModes = new Set(["none", "package", "process"]);
 const postgresFixturePolicyEnvAssignable = new Set([
@@ -46,120 +45,24 @@ function requireString(value, label) {
   return value.trim();
 }
 
-function requireBoolean(value, label) {
-  if (typeof value !== "boolean") {
-    throw new Error(`${label} must be a boolean`);
-  }
-  return value;
-}
-
-function requireStringArray(value, label) {
-  if (!Array.isArray(value)) {
-    throw new Error(`${label} must be an array`);
-  }
-  const result = [];
-  const seen = new Set();
-  for (const [index, item] of value.entries()) {
-    const normalized = requireString(item, `${label}[${index}]`);
-    if (seen.has(normalized)) {
-      throw new Error(`${label} must not contain duplicate ${normalized}`);
-    }
-    seen.add(normalized);
-    result.push(normalized);
-  }
-  return result;
-}
-
 function loadExecutionTargets(root) {
-  const file = path.join(root, executionTargetsPath);
-  const manifest = JSON.parse(readFileSync(file, "utf8"));
-  if (manifest.schema_id !== "cartulary.go_execution_targets.v1") {
-    throw new Error(`${file} must declare schema_id cartulary.go_execution_targets.v1`);
-  }
-  if (!Array.isArray(manifest.targets) || manifest.targets.length === 0) {
-    throw new Error(`${file} must declare non-empty targets[]`);
-  }
-
-  const descriptors = [];
-  const byName = new Map();
-  const dependencyTargets = new Map();
-  const supportTargets = new Map();
-  for (const [index, target] of manifest.targets.entries()) {
-    const label = `${file} targets[${index}]`;
-    const descriptor = {
-      name: requireString(target.name, `${label}.name`),
-      serviceBacked: requireBoolean(target.service_backed, `${label}.service_backed`),
-      checkHeavySafe: requireBoolean(target.check_heavy_safe, `${label}.check_heavy_safe`),
-      checkServiceBackedSafe: requireBoolean(
-        target.check_service_backed_safe,
-        `${label}.check_service_backed_safe`,
-      ),
-      checkIsolatedSafe: requireBoolean(target.check_isolated_safe, `${label}.check_isolated_safe`),
-      canonicalAuthoritative: requireBoolean(
-        target.canonical_authoritative,
-        `${label}.canonical_authoritative`,
-      ),
-      sharding: requireString(target.sharding, `${label}.sharding`),
-      goTestParallelism: requireString(
-        target.go_test_parallelism,
-        `${label}.go_test_parallelism`,
-      ),
-      executionDependencies: requireStringArray(
-        target.execution_dependencies ?? [],
-        `${label}.execution_dependencies`,
-      ),
-      supportTargets: requireStringArray(target.support_targets ?? [], `${label}.support_targets`),
-    };
+  const topology = loadExecutionTopology({ root });
+  for (const descriptor of topology.goTargets.targets) {
+    const label = `execution topology go target ${descriptor.name}`;
     if (!validShardModes.has(descriptor.sharding)) {
       throw new Error(`${label}.sharding must be none|go_shards`);
     }
     if (!validParallelismModes.has(descriptor.goTestParallelism)) {
       throw new Error(`${label}.go_test_parallelism must be none|package|process`);
     }
-    if (byName.has(descriptor.name)) {
-      throw new Error(`${file} declares duplicate target ${descriptor.name}`);
-    }
-    byName.set(descriptor.name, descriptor);
-    descriptors.push(descriptor);
-    for (const dependency of descriptor.executionDependencies) {
-      if (dependencyTargets.has(dependency)) {
-        throw new Error(`${file} maps execution dependency ${dependency} more than once`);
-      }
-      dependencyTargets.set(dependency, descriptor);
-    }
-    for (const supportTarget of descriptor.supportTargets) {
-      if (supportTargets.has(supportTarget)) {
-        throw new Error(`${file} maps support target ${supportTarget} more than once`);
-      }
-      supportTargets.set(supportTarget, descriptor);
-    }
   }
-
-  const rawAggregates = [];
-  for (const [index, aggregate] of (manifest.raw_go_aggregates ?? []).entries()) {
-    const label = `${file} raw_go_aggregates[${index}]`;
-    const target = requireString(aggregate.target, `${label}.target`);
-    if (!byName.has(target)) {
-      throw new Error(`${label}.target ${target} is not declared in targets[]`);
-    }
-    const packages = requireStringArray(aggregate.packages, `${label}.packages`);
-    if (packages.length === 0) {
-      throw new Error(`${label}.packages must not be empty`);
-    }
-    rawAggregates.push({
-      id: requireString(aggregate.id, `${label}.id`),
-      target,
-      section: requireString(aggregate.section, `${label}.section`),
-      packages,
-      selectionPattern: requireString(aggregate.selection_pattern, `${label}.selection_pattern`),
-      executionFamily: requireString(aggregate.execution_family, `${label}.execution_family`),
-      executionLabel: requireString(aggregate.execution_label, `${label}.execution_label`),
-      fixturePolicy: aggregate.fixture_policy ?? {},
-      fixtureBudget: aggregate.fixture_budget ?? {},
-    });
-  }
-
-  return { descriptors, byName, dependencyTargets, supportTargets, rawAggregates };
+  return {
+    descriptors: topology.goTargets.targets,
+    byName: topology.goTargets.byName,
+    dependencyTargets: topology.goTargets.dependencyTargets,
+    supportTargets: topology.goTargets.supportTargets,
+    rawAggregates: topology.goTargets.rawAggregates,
+  };
 }
 
 function rowBase(descriptor) {

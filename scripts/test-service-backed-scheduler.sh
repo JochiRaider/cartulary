@@ -1265,12 +1265,14 @@ if (manifest.generated?.generator !== "scripts/render-service-backed-schedule-ma
 }
 EOF
 
-invalid_derivation_manifest="${rendered_schedule_dir}/invalid-browser-batch.json"
-"$NODE_BIN" - "$ROOT_DIR/tools/browser_e2e_batch_manifest.json" "$invalid_derivation_manifest" <<'EOF'
+invalid_derivation_manifest="${rendered_schedule_dir}/invalid-topology.json"
+cp "$ROOT_DIR/tools/service_backed_make_target_duration_baselines.json" \
+  "$rendered_schedule_dir/service_backed_make_target_duration_baselines.json"
+"$NODE_BIN" - "$ROOT_DIR/tools/execution_topology_manifest.json" "$invalid_derivation_manifest" <<'EOF'
 const fs = require("node:fs");
 const [sourcePath, outputPath] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(sourcePath, "utf8"));
-manifest.stages.push({
+manifest.browser_e2e_batch.stages.push({
   name: "tagged-without-rows",
   target: "browser-e2e-support",
   schedule_tags: ["service_backed_full"],
@@ -1291,7 +1293,7 @@ EOF
 set +e
 invalid_derivation_output="$(
   "$NODE_BIN" "$ROOT_DIR/scripts/render-service-backed-schedule-manifest.mjs" \
-    --browser-batch-manifest "$invalid_derivation_manifest" \
+    --topology "$invalid_derivation_manifest" \
     --output "${rendered_schedule_dir}/invalid-service-backed.json" \
     2>&1
 )"

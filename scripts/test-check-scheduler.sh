@@ -373,6 +373,8 @@ run_scheduler() {
   FAKE_SLEEP_DEFAULT="${FAKE_SLEEP_DEFAULT:-0.05}" \
   FAKE_SLEEP_ALPHA="${FAKE_SLEEP_ALPHA:-}" \
   FAKE_SLEEP_BETA="${FAKE_SLEEP_BETA:-}" \
+  FAKE_SLEEP_LOCAL="${FAKE_SLEEP_LOCAL:-}" \
+  FAKE_SLEEP_META="${FAKE_SLEEP_META:-}" \
   FAKE_SLEEP_SERVICE="${FAKE_SLEEP_SERVICE:-}" \
   FAKE_SLEEP_PARTIAL_SERVICE="${FAKE_SLEEP_PARTIAL_SERVICE:-}" \
   FAKE_FAIL_TARGET="${FAKE_FAIL_TARGET:-}" \
@@ -526,7 +528,7 @@ cat >"$success_manifest" <<'JSON'
   ]
 }
 JSON
-success_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_SERVICE=0.2 run_scheduler "$success_dir" "$success_manifest" success --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
+success_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.2 FAKE_SLEEP_SERVICE=0.2 run_scheduler "$success_dir" "$success_manifest" success --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
 assert_contains "$success_output" "[RUN] check work_units=5 summary_targets=3 helper_units=2 jobs=2 run_id=success" "success run start"
 assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:2,host_io:3,service_stack:1}" "success concise scheduler start"
 assert_contains "$success_output" "top_weighted=setup:50,build:40,local:30,service:20,meta:10" "success concise scheduler start shows top weighted work"

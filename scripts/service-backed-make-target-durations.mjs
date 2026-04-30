@@ -3,17 +3,22 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  defaultExecutionTopologyManifestPath,
+  loadExecutionTopology,
+  renderServiceBackedScheduleProfile,
+} from "./lib/execution-topology.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const baselineSchemaID = "cartulary.service_backed_make_target_duration_baselines.v1";
-const profileSchemaID = "cartulary.service_backed_schedule_profiles.v3";
 const scheduleSchemaID = "cartulary.service_backed_schedule.v8";
 const defaultBaselineFile = path.join(
   repoRoot,
   "tools",
   "service_backed_make_target_duration_baselines.json",
 );
-const defaultProfileFile = path.join(repoRoot, "tools", "service_backed_schedule_profiles.json");
+const defaultTopologyFile = defaultExecutionTopologyManifestPath;
 const defaultScheduleManifestFile = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
 const baselineNote =
   "Service-backed scheduler make-target duration weights generated from successful scheduler artifacts. Refresh with make service-backed-make-target-duration-baselines RESULTS_DIR=<dir>.";
@@ -28,7 +33,7 @@ function usage() {
     [
       "usage:",
       "  service-backed-make-target-durations.mjs update [--baseline-file <path>] <results-dir>",
-      "  service-backed-make-target-durations.mjs check-drift [--baseline-file <path>] [--profile <path>] [--schedule-manifest <path>] <results-dir>",
+      "  service-backed-make-target-durations.mjs check-drift [--baseline-file <path>] [--topology <path>] [--schedule-manifest <path>] <results-dir>",
     ].join("\n") + "\n",
   );
   process.exit(2);
@@ -54,10 +59,10 @@ function positiveInteger(value, fallback) {
   return Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
-function parseCommonArgs(argv, { includeProfile = false } = {}) {
+function parseCommonArgs(argv, { includeTopology = false } = {}) {
   const options = {
     baselineFile: defaultBaselineFile,
-    profileFile: defaultProfileFile,
+    topologyFile: defaultTopologyFile,
     scheduleManifestFile: defaultScheduleManifestFile,
     resultsDir: "",
   };
@@ -71,15 +76,15 @@ function parseCommonArgs(argv, { includeProfile = false } = {}) {
       }
       continue;
     }
-    if (includeProfile && arg === "--profile") {
-      options.profileFile = resolvePath(argv[index + 1] ?? "");
+    if (includeTopology && arg === "--topology") {
+      options.topologyFile = resolvePath(argv[index + 1] ?? "");
       index += 1;
-      if (!options.profileFile) {
+      if (!options.topologyFile) {
         usage();
       }
       continue;
     }
-    if (includeProfile && arg === "--schedule-manifest") {
+    if (includeTopology && arg === "--schedule-manifest") {
       options.scheduleManifestFile = resolvePath(argv[index + 1] ?? "");
       index += 1;
       if (!options.scheduleManifestFile) {
@@ -202,14 +207,10 @@ function readBaseline(file, { allowMissing = false } = {}) {
   return baseline;
 }
 
-function readProfile(file) {
-  const profileFile = resolvePath(file);
-  const profile = readJSON(profileFile);
-  if (profile.schema_id !== profileSchemaID) {
-    throw new Error(`${rel(profileFile)} must declare schema_id ${profileSchemaID}`);
-  }
+function readTopologyProfile(file) {
+  const profile = renderServiceBackedScheduleProfile(loadExecutionTopology({ manifestPath: resolvePath(file) }));
   if (!profile.defaults || typeof profile.defaults !== "object" || Array.isArray(profile.defaults)) {
-    throw new Error(`${rel(profileFile)} defaults must be an object`);
+    throw new Error(`${rel(resolvePath(file))} service_backed_schedules.defaults must be an object`);
   }
   return profile;
 }
@@ -307,9 +308,9 @@ function update(argv) {
 }
 
 function checkDrift(argv) {
-  const options = parseCommonArgs(argv, { includeProfile: true });
+  const options = parseCommonArgs(argv, { includeTopology: true });
   const baseline = readBaseline(options.baselineFile);
-  const profile = readProfile(options.profileFile);
+  const profile = readTopologyProfile(options.topologyFile);
   const scheduledTargets = readScheduleMakeTargets(options.scheduleManifestFile);
   const { overrides, errors } = validatedOverrides(profile, scheduledTargets);
   const { observed, passedSchedulerCount } = collectObservedMakeTargetDurations(options.resultsDir);

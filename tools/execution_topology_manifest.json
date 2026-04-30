@@ -1,0 +1,3064 @@
+{
+  "schema_id": "cartulary.execution_topology.v1",
+  "generated_outputs": {
+    "task_surface_manifest": "tools/task_surface_manifest.json",
+    "task_surface_make": "tools/task_surface.generated.mk",
+    "check_schedule_manifest": "tools/check_schedule_manifest.json",
+    "service_backed_schedule_manifest": "tools/service_backed_schedule_manifest.json",
+    "browser_e2e_batch_manifest": "tools/browser_e2e_batch_manifest.json"
+  },
+  "execution_dependencies": [
+    {
+      "id": "backend_unit",
+      "target": "backend-unit",
+      "category": "backend",
+      "order": 10,
+      "service_backed": false,
+      "support_target": true
+    },
+    {
+      "id": "backend_store",
+      "target": "backend-store",
+      "category": "backend",
+      "order": 20,
+      "service_backed": true
+    },
+    {
+      "id": "backend_integration",
+      "target": "backend-integration",
+      "category": "backend",
+      "order": 30,
+      "service_backed": true
+    },
+    {
+      "id": "backend_integration_support",
+      "target": "backend-integration-support",
+      "category": "backend",
+      "order": 40,
+      "service_backed": true,
+      "support_target": true
+    },
+    {
+      "id": "backend_process",
+      "target": "backend-process",
+      "category": "backend",
+      "order": 50,
+      "service_backed": true
+    },
+    {
+      "id": "frontend_unit",
+      "target": "frontend-unit",
+      "category": "frontend",
+      "order": 60,
+      "service_backed": false
+    },
+    {
+      "id": "browser_functional",
+      "target": "browser-e2e-webserver-backed",
+      "category": "browser",
+      "order": 70,
+      "service_backed": true
+    },
+    {
+      "id": "browser_stateful",
+      "target": "browser-e2e-stateful",
+      "category": "browser",
+      "order": 80,
+      "service_backed": true
+    },
+    {
+      "id": "browser_measurement",
+      "target": "browser-e2e-measurement",
+      "category": "browser",
+      "order": 90,
+      "service_backed": true
+    },
+    {
+      "id": "browser_support",
+      "target": "browser-e2e-support",
+      "category": "browser",
+      "order": 100,
+      "service_backed": true
+    }
+  ],
+  "go_targets": {
+    "targets": [
+      {
+        "name": "backend-unit",
+        "service_backed": false,
+        "check_heavy_safe": true,
+        "check_service_backed_safe": false,
+        "check_isolated_safe": false,
+        "canonical_authoritative": true,
+        "sharding": "none",
+        "go_test_parallelism": "none",
+        "execution_dependencies": [
+          "backend_unit"
+        ],
+        "support_targets": [
+          "backend_unit"
+        ]
+      },
+      {
+        "name": "backend-store",
+        "service_backed": true,
+        "check_heavy_safe": false,
+        "check_service_backed_safe": true,
+        "check_isolated_safe": false,
+        "canonical_authoritative": true,
+        "sharding": "go_shards",
+        "go_test_parallelism": "package",
+        "execution_dependencies": [
+          "backend_store"
+        ],
+        "support_targets": []
+      },
+      {
+        "name": "backend-integration",
+        "service_backed": true,
+        "check_heavy_safe": false,
+        "check_service_backed_safe": true,
+        "check_isolated_safe": false,
+        "canonical_authoritative": true,
+        "sharding": "go_shards",
+        "go_test_parallelism": "package",
+        "execution_dependencies": [
+          "backend_integration"
+        ],
+        "support_targets": []
+      },
+      {
+        "name": "backend-integration-support",
+        "service_backed": true,
+        "check_heavy_safe": false,
+        "check_service_backed_safe": true,
+        "check_isolated_safe": false,
+        "canonical_authoritative": false,
+        "sharding": "go_shards",
+        "go_test_parallelism": "package",
+        "execution_dependencies": [],
+        "support_targets": [
+          "backend_integration_support"
+        ]
+      },
+      {
+        "name": "backend-process",
+        "service_backed": true,
+        "check_heavy_safe": false,
+        "check_service_backed_safe": true,
+        "check_isolated_safe": false,
+        "canonical_authoritative": true,
+        "sharding": "none",
+        "go_test_parallelism": "process",
+        "execution_dependencies": [
+          "backend_process"
+        ],
+        "support_targets": []
+      }
+    ],
+    "raw_go_aggregates": [
+      {
+        "id": "backend-unit-configtest",
+        "target": "backend-unit",
+        "section": "unit",
+        "packages": [
+          "./internal/testutil/configtest"
+        ],
+        "selection_pattern": "^Test",
+        "execution_family": "backend-unit-configtest",
+        "execution_label": "backend-unit configtest"
+      },
+      {
+        "id": "backend-integration-testutil",
+        "target": "backend-integration",
+        "section": "integration",
+        "packages": [
+          "./internal/testutil/httptestx",
+          "./internal/testutil/pgtest",
+          "./internal/testutil/s3test",
+          "./internal/testutil/testcontainersx",
+          "./internal/testutil/wstest"
+        ],
+        "selection_pattern": "^Test",
+        "execution_family": "backend-integration-testutil",
+        "execution_label": "backend-integration testutil",
+        "fixture_policy": {
+          "postgres": "template_clone"
+        },
+        "fixture_budget": {
+          "postgres": {
+            "max_template_clones": 20
+          }
+        }
+      }
+    ]
+  },
+  "task_surface": {
+    "compact_help": {
+      "entries": [
+        {
+          "target": "help",
+          "description": "print the compact workflow task surface"
+        },
+        {
+          "target": "task-guide",
+          "description": "recommend targets by role, phase, services, and artifacts"
+        },
+        {
+          "target": "doctor",
+          "description": "verify required local tools and versions"
+        },
+        {
+          "target": "bootstrap",
+          "description": "install pinned tools and frontend/browser dependencies"
+        },
+        {
+          "target": "db-up",
+          "description": "start local Postgres and MinIO, then initialize the default MinIO bucket"
+        },
+        {
+          "target": "db-reset",
+          "description": "recreate the local database only; does not reset object storage"
+        },
+        {
+          "target": "dev",
+          "description": "run the Go server and Vite dev server"
+        },
+        {
+          "target": "generate",
+          "description": "regenerate sqlc and contract-derived outputs"
+        },
+        {
+          "target": "format",
+          "description": "format authored frontend sources"
+        },
+        {
+          "target": "test-fast",
+          "description": "run the narrower local verification loop"
+        },
+        {
+          "target": "check",
+          "description": "run the developer verification gate"
+        },
+        {
+          "target": "clean",
+          "description": "remove repo-local build and report artifacts"
+        }
+      ]
+    },
+    "help_tiers": [
+      {
+        "name": "local dev",
+        "entries": [
+          {
+            "target": "help",
+            "description": "print the compact workflow task surface"
+          },
+          {
+            "target": "help-all",
+            "description": "print the exhaustive public workflow task surface"
+          },
+          {
+            "target": "doctor",
+            "description": "verify required local tools and versions"
+          },
+          {
+            "target": "bootstrap",
+            "description": "install pinned tools and frontend/browser dependencies"
+          },
+          {
+            "target": "bootstrap-node-runtime",
+            "description": "install the pinned repo-local Node runtime"
+          },
+          {
+            "target": "frontend-toolchain",
+            "description": "verify the pinned Node/pnpm toolchain"
+          },
+          {
+            "target": "frontend-install",
+            "description": "install workspace dependencies"
+          },
+          {
+            "target": "playwright-install",
+            "description": "install browser dependencies"
+          },
+          {
+            "target": "db-up",
+            "description": "start local Postgres and MinIO, then initialize the default MinIO bucket"
+          },
+          {
+            "target": "db-reset",
+            "description": "recreate the local database only; does not reset object storage"
+          },
+          {
+            "target": "services-up",
+            "description": "start local Postgres and MinIO, then wait until ready"
+          },
+          {
+            "target": "minio-init",
+            "description": "create the default local MinIO bucket if needed"
+          },
+          {
+            "target": "dev",
+            "description": "run the Go server and Vite dev server"
+          },
+          {
+            "target": "generate",
+            "description": "regenerate sqlc and contract-derived outputs"
+          },
+          {
+            "target": "format",
+            "description": "format authored frontend sources"
+          },
+          {
+            "target": "clean",
+            "description": "remove repo-local build and report artifacts"
+          }
+        ]
+      },
+      {
+        "name": "fast verification",
+        "entries": [
+          {
+            "target": "test-fast",
+            "description": "run the narrower local verification loop"
+          },
+          {
+            "target": "backend-unit",
+            "description": "run pure backend unit evidence"
+          },
+          {
+            "target": "backend-store",
+            "description": "run service-backed store-domain evidence"
+          },
+          {
+            "target": "backend-integration",
+            "description": "run backend integration evidence"
+          },
+          {
+            "target": "backend-process",
+            "description": "run backend process evidence"
+          },
+          {
+            "target": "frontend-typecheck",
+            "description": "run TypeScript type checking"
+          },
+          {
+            "target": "frontend-unit",
+            "description": "run the frontend unit suite"
+          },
+          {
+            "target": "lint",
+            "description": "run backend and frontend lint/type checks"
+          },
+          {
+            "target": "lint-biome",
+            "description": "run authored frontend Biome checks"
+          }
+        ]
+      },
+      {
+        "name": "full gates",
+        "entries": [
+          {
+            "target": "test",
+            "description": "run the authoritative full test corpus"
+          },
+          {
+            "target": "check",
+            "description": "run the developer verification gate"
+          },
+          {
+            "target": "browser-e2e",
+            "description": "run isolated browser E2E suites through one batch stack"
+          },
+          {
+            "target": "browser-e2e-webserver-backed",
+            "description": "run shared-stack browser E2E batch"
+          },
+          {
+            "target": "browser-e2e-stateful",
+            "description": "run isolated stateful browser E2E batch"
+          },
+          {
+            "target": "browser-e2e-measurement",
+            "description": "run ordinary browser measurement evidence"
+          },
+          {
+            "target": "browser-e2e-visual",
+            "description": "run isolated visual browser E2E"
+          }
+        ]
+      },
+      {
+        "name": "investigate a run",
+        "entries": [
+          {
+            "target": "task-guide",
+            "description": "ROLE=feature-dev PHASE=phase2 recommend what to run"
+          },
+          {
+            "target": "task-surface-report",
+            "description": "print the root Make task-surface inventory"
+          },
+          {
+            "target": "target-plan",
+            "description": "explain backend target execution families"
+          },
+          {
+            "target": "target-plan-json",
+            "description": "emit deterministic backend target plan JSON"
+          },
+          {
+            "target": "explain-phase",
+            "description": "PHASE=phase2 explain phase evidence and target coverage"
+          },
+          {
+            "target": "explain-target",
+            "description": "TARGET=backend-store DETAIL=rows explain one target"
+          },
+          {
+            "target": "explain-run",
+            "description": "RESULTS_DIR=<root|run-dir> inspect run summary artifacts"
+          },
+          {
+            "target": "fixture-report",
+            "description": "RESULTS_DIR=<root|run-dir> report fixture cost hotspots"
+          }
+        ]
+      },
+      {
+        "name": "phase maintenance",
+        "entries": [
+          {
+            "target": "generate-drift",
+            "description": "fail on generated artifact drift"
+          },
+          {
+            "target": "toolchain-drift",
+            "description": "fail on repo-control toolchain pin drift"
+          },
+          {
+            "target": "migration-drift",
+            "description": "verify migrations against a scratch database"
+          },
+          {
+            "target": "phase-ledgers",
+            "description": "regenerate committed phase coverage ledgers"
+          },
+          {
+            "target": "phase-ledger-drift",
+            "description": "fail on phase coverage ledger drift"
+          },
+          {
+            "target": "phase-schedules",
+            "description": "regenerate committed phase-derived schedules"
+          },
+          {
+            "target": "phase-schedule-drift",
+            "description": "fail on phase-derived schedule drift"
+          },
+          {
+            "target": "benchmark-claim-check",
+            "description": "validate retained Core 05 benchmark claim artifacts"
+          },
+          {
+            "target": "go-test-duration-baselines",
+            "description": "RESULTS_DIR=<dir> refresh Go test duration baselines"
+          },
+          {
+            "target": "go-test-duration-baseline-coverage",
+            "description": "verify Go shard baseline coverage"
+          },
+          {
+            "target": "go-test-duration-baseline-drift",
+            "description": "RESULTS_DIR=<dir> verify Go shard baseline freshness"
+          },
+          {
+            "target": "browser-e2e-duration-baseline-drift",
+            "description": "RESULTS_DIR=<dir> verify browser spec baseline freshness"
+          },
+          {
+            "target": "service-backed-make-target-duration-baselines",
+            "description": "RESULTS_DIR=<dir> refresh service-backed make-target baselines"
+          },
+          {
+            "target": "service-backed-make-target-duration-baseline-drift",
+            "description": "RESULTS_DIR=<dir> verify service-backed make-target baseline freshness"
+          },
+          {
+            "target": "scheduler-event-order-drift",
+            "description": "RESULTS_DIR=<dir> verify scheduler event stream ordering"
+          }
+        ]
+      },
+      {
+        "name": "release",
+        "entries": [
+          {
+            "target": "ci",
+            "description": "run the provider-neutral CI entrypoint"
+          },
+          {
+            "target": "release-check",
+            "description": "run check, extended harness, release artifacts, and build verification"
+          },
+          {
+            "target": "build",
+            "description": "build backend binaries with embedded web assets"
+          },
+          {
+            "target": "build-server",
+            "description": "build the server binary"
+          },
+          {
+            "target": "build-migrate",
+            "description": "build the migration binary"
+          },
+          {
+            "target": "build-web",
+            "description": "build frontend web assets"
+          },
+          {
+            "target": "distclean",
+            "description": "also remove repo-local tool/runtime caches"
+          }
+        ]
+      }
+    ],
+    "sequences": {
+      "test-fast": {
+        "summary_groups": [
+          {
+            "name": "local",
+            "summary_targets": [
+              "backend-unit",
+              "frontend-typecheck",
+              "frontend-unit"
+            ]
+          },
+          {
+            "name": "backend-service-backed",
+            "source": {
+              "type": "service_backed_schedule",
+              "target": "test-fast-service-backed",
+              "class": "backend"
+            }
+          }
+        ],
+        "steps": [
+          {
+            "type": "parallel",
+            "target": "test-local",
+            "jobs": 3,
+            "produces_summary_targets": [
+              "backend-unit",
+              "frontend-typecheck",
+              "frontend-unit"
+            ]
+          },
+          {
+            "type": "step",
+            "target": "test-fast-service-backed",
+            "produces_summary_targets": [
+              "test-fast-service-backed"
+            ]
+          }
+        ]
+      },
+      "test": {
+        "summary_groups": [
+          {
+            "name": "backend-service-backed",
+            "source": {
+              "type": "service_backed_schedule",
+              "target": "test-service-backed",
+              "class": "backend"
+            }
+          },
+          {
+            "name": "browser",
+            "source": {
+              "type": "service_backed_schedule",
+              "target": "test-service-backed",
+              "class": "browser_leaves"
+            }
+          }
+        ],
+        "steps": [
+          {
+            "type": "parallel",
+            "target": "test-local",
+            "jobs": 3,
+            "produces_summary_targets": [
+              "backend-unit",
+              "frontend-typecheck",
+              "frontend-unit"
+            ]
+          },
+          {
+            "type": "step",
+            "target": "test-service-backed",
+            "produces_summary_targets": [
+              "test-service-backed"
+            ]
+          }
+        ]
+      },
+      "ci": {
+        "summary_groups": [
+          {
+            "name": "developer-gate",
+            "summary_targets": [
+              "check"
+            ]
+          },
+          {
+            "name": "extended-harness",
+            "summary_targets": [
+              "run-harness-smoke-extended"
+            ]
+          }
+        ],
+        "steps": [
+          {
+            "type": "step",
+            "target": "check",
+            "produces_summary_targets": [
+              "check"
+            ]
+          },
+          {
+            "type": "step",
+            "target": "run-harness-smoke-extended",
+            "produces_summary_targets": [
+              "run-harness-smoke-extended"
+            ]
+          }
+        ]
+      },
+      "release-check": {
+        "summary_groups": [
+          {
+            "name": "developer-gate",
+            "summary_targets": [
+              "check"
+            ]
+          },
+          {
+            "name": "extended-harness",
+            "summary_targets": [
+              "run-harness-smoke-extended"
+            ]
+          }
+        ],
+        "steps": [
+          {
+            "type": "step",
+            "target": "check",
+            "produces_summary_targets": [
+              "check"
+            ]
+          },
+          {
+            "type": "step",
+            "target": "run-harness-smoke-extended",
+            "produces_summary_targets": [
+              "run-harness-smoke-extended"
+            ]
+          },
+          {
+            "type": "step",
+            "target": "license-report"
+          },
+          {
+            "type": "step",
+            "target": "sbom"
+          },
+          {
+            "type": "step",
+            "target": "build"
+          }
+        ]
+      }
+    },
+    "make_recipes": {
+      "task-surface-report": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "task-guide": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "target-plan": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "target-plan-json": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "fixture-report": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "explain-run": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "explain-phase": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "explain-target": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "go-test-duration-baselines": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "go-test-duration-baseline-coverage": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "go-test-duration-baseline-drift": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "browser-e2e-duration-baseline-drift": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "service-backed-make-target-duration-baselines": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "service-backed-make-target-duration-baseline-drift": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "scheduler-event-order-drift": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "test-fast": {
+        "type": "sequence",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(TEST_SERVICES_BIN)"
+        ],
+        "sequence": "test-fast"
+      },
+      "test": {
+        "type": "sequence",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "sequence": "test"
+      },
+      "ci": {
+        "type": "sequence",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "exports": {
+          "CI": "1"
+        },
+        "sequence": "ci"
+      },
+      "release-check": {
+        "type": "sequence",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "sequence": "release-check"
+      },
+      "check": {
+        "type": "check_schedule",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "target": "check",
+        "schedule_manifest": "tools/check_schedule_manifest.json",
+        "manifest_variable": "CHECK_SCHEDULE_MANIFEST",
+        "resource_limits": [
+          {
+            "resource": "host_cpu",
+            "variable": "CHECK_HOST_CPU_JOBS"
+          },
+          {
+            "resource": "host_io",
+            "variable": "CHECK_HOST_IO_JOBS"
+          }
+        ]
+      },
+      "run-harness-smoke-fast": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "mode": "node",
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)",
+          "TEST_OUTPUT_SCRIPT": "$(TEST_OUTPUT_SCRIPT)",
+          "TASK_SURFACE_MANIFEST": "$(TASK_SURFACE_MANIFEST)"
+        },
+        "script": "$(RUN_HARNESS_SMOKE_SCRIPT)",
+        "args": [
+          "--tier",
+          "fast",
+          "--jobs",
+          "\"$(HARNESS_SMOKE_JOBS)\""
+        ]
+      },
+      "run-harness-smoke-extended": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "mode": "node",
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)",
+          "TEST_OUTPUT_SCRIPT": "$(TEST_OUTPUT_SCRIPT)",
+          "TASK_SURFACE_MANIFEST": "$(TASK_SURFACE_MANIFEST)"
+        },
+        "script": "$(RUN_HARNESS_SMOKE_SCRIPT)",
+        "args": [
+          "--tier",
+          "extended",
+          "--jobs",
+          "\"$(HARNESS_SMOKE_JOBS)\""
+        ]
+      },
+      "run-harness-smoke-full": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "mode": "node",
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)",
+          "TEST_OUTPUT_SCRIPT": "$(TEST_OUTPUT_SCRIPT)",
+          "TASK_SURFACE_MANIFEST": "$(TASK_SURFACE_MANIFEST)"
+        },
+        "script": "$(RUN_HARNESS_SMOKE_SCRIPT)",
+        "args": [
+          "--tier",
+          "full",
+          "--jobs",
+          "\"$(HARNESS_SMOKE_JOBS)\""
+        ]
+      },
+      "phase-test-name-check": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_phase",
+        "phase_label": "phase-test-name-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./scripts/check-phase-test-names.mjs"
+        ]
+      },
+      "browser-e2e-task-surface-check": {
+        "type": "phase_command",
+        "prerequisites": [],
+        "mode": "run_phase",
+        "phase_label": "browser-e2e-task-surface-check",
+        "command": [
+          "./scripts/check-browser-e2e-task-surface.sh"
+        ]
+      },
+      "frontend-task-surface-check": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_phase",
+        "phase_label": "frontend-task-surface-check",
+        "command": [
+          "env",
+          "NODE_BIN=$(NODE_BIN)",
+          "./scripts/check-frontend-task-surface.sh"
+        ]
+      },
+      "backend-task-surface-check": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_phase",
+        "phase_label": "backend-task-surface-check",
+        "command": [
+          "env",
+          "NODE_BIN=$(NODE_BIN)",
+          "./scripts/check-backend-task-surface.sh"
+        ]
+      },
+      "service-backed-unit-check": {
+        "type": "phase_command",
+        "prerequisites": [],
+        "mode": "run_phase",
+        "phase_label": "service-backed-unit-check",
+        "command": [
+          "./scripts/check-service-backed-unit-tests.sh"
+        ]
+      },
+      "test-fast-service-backed": {
+        "type": "service_backed_schedule",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "$(TEST_SERVICES_BIN)",
+          "test-service-images"
+        ],
+        "exports": {
+          "CARTULARY_TEST_TARGET": "test-fast-service-backed"
+        },
+        "phase_label": "test-fast service-backed",
+        "service_wrapper": "test-services"
+      },
+      "test-service-backed": {
+        "type": "service_backed_schedule",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate",
+          "$(TEST_SERVICES_BIN)",
+          "test-service-images"
+        ],
+        "exports": {
+          "CARTULARY_TEST_TARGET": "test-service-backed"
+        },
+        "phase_label": "test service-backed",
+        "service_wrapper": "test-services"
+      },
+      "backend-unit": {
+        "type": "go_target",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "exports": {
+          "CARTULARY_TEST_TARGET": "backend-unit"
+        }
+      },
+      "backend-store": {
+        "type": "service_backed_target",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(TEST_SERVICES_BIN)",
+          "test-service-images"
+        ],
+        "exports": {
+          "CARTULARY_TEST_TARGET": "backend-store"
+        },
+        "env": {
+          "GO_TEST_PACKAGE_PARALLELISM": "$(EFFECTIVE_BACKEND_STORE_GO_TEST_P)"
+        }
+      },
+      "backend-integration": {
+        "type": "service_backed_target",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(TEST_SERVICES_BIN)",
+          "test-service-images"
+        ],
+        "exports": {
+          "CARTULARY_TEST_TARGET": "backend-integration"
+        },
+        "env": {
+          "GO_TEST_PACKAGE_PARALLELISM": "$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P)",
+          "BACKEND_INTEGRATION_SHARD_JOBS": "$(BACKEND_INTEGRATION_SHARD_JOBS)"
+        }
+      },
+      "backend-integration-support": {
+        "type": "service_backed_target",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(TEST_SERVICES_BIN)",
+          "test-service-images"
+        ],
+        "exports": {
+          "CARTULARY_TEST_TARGET": "backend-integration-support"
+        },
+        "env": {
+          "GO_TEST_PACKAGE_PARALLELISM": "$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P)",
+          "BACKEND_INTEGRATION_SHARD_JOBS": "$(BACKEND_INTEGRATION_SHARD_JOBS)"
+        }
+      },
+      "backend-process": {
+        "type": "service_backed_target",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "build-server",
+          "$(TEST_SERVICES_BIN)",
+          "test-service-images"
+        ],
+        "comments": [
+          "Phase 0 process evidence is part of the developer gate and must never be direct-run only."
+        ],
+        "exports": {
+          "CARTULARY_TEST_TARGET": "backend-process"
+        },
+        "env": {
+          "CARTULARY_SERVER_BIN": "$(SERVER_BIN)"
+        }
+      },
+      "browser-e2e": {
+        "type": "browser_batch",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate",
+          "$(TEST_SERVICES_BIN)",
+          "test-service-images"
+        ],
+        "exports": {
+          "CARTULARY_TEST_TARGET": "browser-e2e"
+        },
+        "stage": "isolated",
+        "workers": "1",
+        "service_wrapper": "test-services"
+      },
+      "browser-e2e-webserver-backed": {
+        "type": "browser_batch",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate"
+        ],
+        "exports": {
+          "CARTULARY_TEST_TARGET": "browser-e2e-webserver-backed"
+        },
+        "stage": "webserver-backed",
+        "workers": "$(PLAYWRIGHT_WORKERS)",
+        "service_wrapper": "direct"
+      },
+      "browser-e2e-functional": {
+        "type": "browser_batch",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate"
+        ],
+        "exports": {
+          "CARTULARY_TEST_TARGET": "browser-e2e-functional"
+        },
+        "stage": "functional",
+        "workers": "$(PLAYWRIGHT_WORKERS)",
+        "service_wrapper": "direct"
+      },
+      "browser-e2e-support": {
+        "type": "browser_batch",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate"
+        ],
+        "exports": {
+          "CARTULARY_TEST_TARGET": "browser-e2e-support"
+        },
+        "stage": "support",
+        "workers": "$(PLAYWRIGHT_WORKERS)",
+        "service_wrapper": "direct"
+      },
+      "browser-e2e-stateful": {
+        "type": "browser_batch",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate"
+        ],
+        "comments": [
+          "Browser evidence that mutates process-global backend state belongs here."
+        ],
+        "exports": {
+          "CARTULARY_TEST_TARGET": "browser-e2e-stateful"
+        },
+        "stage": "stateful",
+        "workers": "1",
+        "service_wrapper": "direct"
+      },
+      "browser-e2e-resettable": {
+        "type": "browser_batch",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate"
+        ],
+        "exports": {
+          "CARTULARY_TEST_TARGET": "browser-e2e-resettable"
+        },
+        "stage": "resettable",
+        "workers": "1",
+        "service_wrapper": "direct"
+      },
+      "browser-e2e-measurement": {
+        "type": "browser_batch",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate"
+        ],
+        "comments": [
+          "Ordinary implementation/regression measurement; not claim-bearing Core 05 publication evidence."
+        ],
+        "exports": {
+          "CARTULARY_TEST_TARGET": "browser-e2e-measurement"
+        },
+        "stage": "measurement",
+        "workers": "1",
+        "service_wrapper": "direct"
+      },
+      "browser-e2e-visual": {
+        "type": "browser_batch",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate"
+        ],
+        "exports": {
+          "CARTULARY_TEST_TARGET": "browser-e2e-visual"
+        },
+        "stage": "visual",
+        "workers": "1",
+        "service_wrapper": "direct"
+      },
+      "check-go-test-duration-baseline-drift": {
+        "type": "summary_target",
+        "prerequisites": [],
+        "child_target": "go-test-duration-baseline-drift",
+        "status": "pass"
+      },
+      "check-browser-e2e-duration-baseline-drift": {
+        "type": "summary_target",
+        "prerequisites": [],
+        "child_target": "browser-e2e-duration-baseline-drift",
+        "status": "pass"
+      },
+      "check-service-backed-make-target-duration-baseline-drift": {
+        "type": "summary_target",
+        "prerequisites": [],
+        "child_target": "service-backed-make-target-duration-baseline-drift",
+        "status": "pass"
+      },
+      "check-service-backed": {
+        "type": "service_backed_schedule",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate",
+          "test-service-images"
+        ],
+        "exports": {
+          "CARTULARY_TEST_TARGET": "check-service-backed"
+        },
+        "phase_label": "check service-backed",
+        "service_wrapper": "test-services"
+      },
+      "task-surface-check": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_phase",
+        "phase_label": "task-surface-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./scripts/print-task-surface-report.mjs"
+        ],
+        "args": [
+          "--check"
+        ]
+      }
+    },
+    "targets": [
+      {
+        "name": "help",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "help-all",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "doctor",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "bootstrap",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "bootstrap-node-runtime",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "frontend-toolchain",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "frontend-install",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "frontend-install-ci",
+        "classification": "helper_only",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "playwright-install",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "db-up",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "db-reset",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "services-up",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "services-wait",
+        "classification": "helper_only",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "postgres-wait",
+        "classification": "helper_only",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "minio-wait",
+        "classification": "helper_only",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "minio-init",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "dev",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/dev-stack.sh"
+        ]
+      },
+      {
+        "name": "codegen-toolchain",
+        "classification": "helper_only",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "generate",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "generate-artifacts",
+        "classification": "helper_only",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "generate-drift",
+        "classification": "public",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/check-generate-drift.sh"
+        ]
+      },
+      {
+        "name": "toolchain-drift",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/check-toolchain-pins.mjs"
+        ]
+      },
+      {
+        "name": "migration-drift",
+        "classification": "public",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/check-migrations.sh"
+        ]
+      },
+      {
+        "name": "deployable-shape",
+        "classification": "helper_only",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/ci/check-deployable-shape.sh"
+        ]
+      },
+      {
+        "name": "phase-map-check",
+        "classification": "helper_only",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/check-phase-maps.sh"
+        ]
+      },
+      {
+        "name": "phase-ledgers",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/render-phase-ledgers.mjs"
+        ]
+      },
+      {
+        "name": "phase-ledger-drift",
+        "classification": "public",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/check-phase-ledger-drift.mjs"
+        ]
+      },
+      {
+        "name": "phase-schedules",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/render-execution-topology-artifacts.mjs"
+        ]
+      },
+      {
+        "name": "phase-schedule-drift",
+        "classification": "public",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/render-execution-topology-artifacts.mjs"
+        ]
+      },
+      {
+        "name": "benchmark-claim-check",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/check-benchmark-claim.mjs"
+        ]
+      },
+      {
+        "name": "task-surface-report",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/print-task-surface-report.mjs",
+          "scripts/render-task-surface-make.mjs"
+        ]
+      },
+      {
+        "name": "task-guide",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/print-task-guide.mjs",
+          "scripts/lib/task-guidance.mjs"
+        ]
+      },
+      {
+        "name": "task-surface-check",
+        "classification": "check_internal",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/print-task-surface-report.mjs",
+          "scripts/render-task-surface-make.mjs"
+        ]
+      },
+      {
+        "name": "backend-unit",
+        "classification": "public",
+        "included_in": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "backing_scripts": [
+          "scripts/cartulary-runner.mjs",
+          "scripts/run-go-target.mjs"
+        ]
+      },
+      {
+        "name": "backend-store",
+        "classification": "public",
+        "included_in": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "backing_scripts": [
+          "scripts/cartulary-runner.mjs",
+          "scripts/run-go-target.mjs"
+        ]
+      },
+      {
+        "name": "backend-integration",
+        "classification": "public",
+        "included_in": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "backing_scripts": [
+          "scripts/cartulary-runner.mjs",
+          "scripts/run-go-target.mjs"
+        ]
+      },
+      {
+        "name": "backend-integration-support",
+        "classification": "check_internal",
+        "included_in": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "backing_scripts": [
+          "scripts/cartulary-runner.mjs",
+          "scripts/run-go-target.mjs"
+        ]
+      },
+      {
+        "name": "backend-process",
+        "classification": "public",
+        "included_in": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "backing_scripts": [
+          "scripts/cartulary-runner.mjs",
+          "scripts/run-go-target.mjs"
+        ]
+      },
+      {
+        "name": "target-plan",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/print-target-plan.mjs"
+        ]
+      },
+      {
+        "name": "target-plan-json",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/print-target-plan.mjs"
+        ]
+      },
+      {
+        "name": "fixture-report",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/print-fixture-report.mjs",
+          "scripts/lib/fixture-reporting.mjs"
+        ]
+      },
+      {
+        "name": "explain-run",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/print-explain-run.mjs"
+        ]
+      },
+      {
+        "name": "explain-phase",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/print-explain-phase.mjs",
+          "scripts/lib/task-guidance.mjs"
+        ]
+      },
+      {
+        "name": "explain-target",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/print-explain-target.mjs",
+          "scripts/lib/task-guidance.mjs",
+          "scripts/print-target-plan.mjs"
+        ]
+      },
+      {
+        "name": "go-test-duration-baselines",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/update-go-test-durations.mjs"
+        ]
+      },
+      {
+        "name": "go-test-duration-baseline-coverage",
+        "classification": "public",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/check-go-test-duration-baseline-coverage.mjs"
+        ]
+      },
+      {
+        "name": "go-test-duration-baseline-drift",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/check-go-test-duration-baseline-drift.mjs"
+        ]
+      },
+      {
+        "name": "browser-e2e-duration-baseline-drift",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/lib/browser-shard-plan.mjs"
+        ]
+      },
+      {
+        "name": "service-backed-make-target-duration-baselines",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/service-backed-make-target-durations.mjs"
+        ]
+      },
+      {
+        "name": "service-backed-make-target-duration-baseline-drift",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/service-backed-make-target-durations.mjs"
+        ]
+      },
+      {
+        "name": "scheduler-event-order-drift",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/check-scheduler-event-order-drift.mjs",
+          "scripts/lib/scheduler/event-order.mjs"
+        ]
+      },
+      {
+        "name": "backend-task-surface-check",
+        "classification": "check_internal",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/check-backend-task-surface.sh"
+        ]
+      },
+      {
+        "name": "service-backed-unit-check",
+        "classification": "check_internal",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/check-service-backed-unit-tests.sh"
+        ]
+      },
+      {
+        "name": "test-service-images",
+        "classification": "helper_only",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "run-harness-smoke-fast",
+        "classification": "helper_only",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/run-harness-smoke.mjs"
+        ]
+      },
+      {
+        "name": "run-harness-smoke-extended",
+        "classification": "helper_only",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/run-harness-smoke.mjs"
+        ]
+      },
+      {
+        "name": "run-harness-smoke-full",
+        "classification": "helper_only",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/run-harness-smoke.mjs"
+        ]
+      },
+      {
+        "name": "phase-test-name-check",
+        "classification": "check_internal",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/check-phase-test-names.mjs"
+        ]
+      },
+      {
+        "name": "frontend-typecheck",
+        "classification": "public",
+        "included_in": [
+          "test",
+          "check",
+          "ci"
+        ]
+      },
+      {
+        "name": "frontend-unit",
+        "classification": "public",
+        "included_in": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "backing_scripts": [
+          "scripts/run-frontend-unit.sh"
+        ]
+      },
+      {
+        "name": "frontend-task-surface-check",
+        "classification": "check_internal",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/check-frontend-task-surface.sh"
+        ]
+      },
+      {
+        "name": "lint-biome",
+        "classification": "public",
+        "included_in": [
+          "check"
+        ]
+      },
+      {
+        "name": "format",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "format-frontend",
+        "classification": "helper_only",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "browser-e2e",
+        "classification": "public",
+        "included_in": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "backing_scripts": [
+          "scripts/run-browser-e2e-target.sh",
+          "scripts/run-browser-e2e-batch.sh",
+          "scripts/lib/browser-batch-manifest.mjs",
+          "scripts/start-web-e2e.sh"
+        ]
+      },
+      {
+        "name": "browser-e2e-webserver-backed",
+        "classification": "public",
+        "included_in": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "backing_scripts": [
+          "scripts/run-browser-e2e-target.sh",
+          "scripts/run-browser-e2e-batch.sh",
+          "scripts/lib/browser-batch-manifest.mjs",
+          "scripts/run-browser-e2e-webserver-backed.sh",
+          "scripts/lib/run-playwright-webserver-batch.sh",
+          "scripts/lib/browser-shard-plan.mjs",
+          "scripts/start-web-e2e.sh"
+        ]
+      },
+      {
+        "name": "browser-e2e-functional",
+        "classification": "helper_only",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/run-browser-e2e-target.sh",
+          "scripts/run-browser-e2e-batch.sh",
+          "scripts/lib/browser-batch-manifest.mjs",
+          "scripts/run-browser-e2e-functional.sh",
+          "scripts/lib/run-playwright-webserver-batch.sh",
+          "scripts/lib/browser-shard-plan.mjs",
+          "scripts/start-web-e2e.sh"
+        ]
+      },
+      {
+        "name": "browser-e2e-support",
+        "classification": "helper_only",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/run-browser-e2e-target.sh",
+          "scripts/run-browser-e2e-batch.sh",
+          "scripts/lib/browser-batch-manifest.mjs",
+          "scripts/start-web-e2e.sh"
+        ]
+      },
+      {
+        "name": "browser-e2e-stateful",
+        "classification": "public",
+        "included_in": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "backing_scripts": [
+          "scripts/run-browser-e2e-target.sh",
+          "scripts/run-browser-e2e-batch.sh",
+          "scripts/lib/browser-batch-manifest.mjs",
+          "scripts/run-browser-e2e-stateful.sh",
+          "scripts/start-web-e2e.sh"
+        ]
+      },
+      {
+        "name": "browser-e2e-resettable",
+        "classification": "helper_only",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/run-browser-e2e-target.sh",
+          "scripts/run-browser-e2e-batch.sh",
+          "scripts/lib/browser-batch-manifest.mjs",
+          "scripts/run-browser-e2e-resettable.sh",
+          "scripts/start-web-e2e.sh"
+        ]
+      },
+      {
+        "name": "browser-e2e-measurement",
+        "classification": "public",
+        "included_in": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "backing_scripts": [
+          "scripts/run-browser-e2e-target.sh",
+          "scripts/run-browser-e2e-batch.sh",
+          "scripts/lib/browser-batch-manifest.mjs",
+          "scripts/run-browser-e2e-measurement.sh",
+          "scripts/start-web-e2e.sh"
+        ]
+      },
+      {
+        "name": "browser-e2e-visual",
+        "classification": "public",
+        "included_in": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "backing_scripts": [
+          "scripts/run-browser-e2e-target.sh",
+          "scripts/run-browser-e2e-batch.sh",
+          "scripts/lib/browser-batch-manifest.mjs",
+          "scripts/run-browser-e2e-visual.sh",
+          "scripts/start-web-e2e.sh"
+        ]
+      },
+      {
+        "name": "browser-e2e-task-surface-check",
+        "classification": "check_internal",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/check-browser-e2e-task-surface.sh"
+        ]
+      },
+      {
+        "name": "test-local",
+        "classification": "check_internal",
+        "included_in": [
+          "test",
+          "ci"
+        ]
+      },
+      {
+        "name": "test-service-backed",
+        "classification": "check_internal",
+        "included_in": [
+          "test",
+          "ci"
+        ],
+        "backing_scripts": [
+          "scripts/cartulary-runner.mjs",
+          "scripts/run-service-backed-schedule.mjs"
+        ]
+      },
+      {
+        "name": "test-fast",
+        "classification": "public",
+        "included_in": [
+          "test",
+          "check",
+          "ci"
+        ]
+      },
+      {
+        "name": "test-fast-service-backed",
+        "classification": "check_internal",
+        "included_in": [
+          "test",
+          "check",
+          "ci"
+        ],
+        "backing_scripts": [
+          "scripts/cartulary-runner.mjs",
+          "scripts/run-service-backed-schedule.mjs"
+        ]
+      },
+      {
+        "name": "test",
+        "classification": "public",
+        "included_in": [
+          "test",
+          "check",
+          "ci"
+        ]
+      },
+      {
+        "name": "lint",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "lint-go",
+        "classification": "helper_only",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/run-go-vet.sh"
+        ]
+      },
+      {
+        "name": "check",
+        "classification": "public",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/run-check-schedule.mjs"
+        ]
+      },
+      {
+        "name": "check-setup-blockers",
+        "classification": "check_internal",
+        "included_in": [
+          "check"
+        ]
+      },
+      {
+        "name": "check-harness-smoke",
+        "classification": "check_internal",
+        "included_in": [
+          "check"
+        ]
+      },
+      {
+        "name": "check-build-prereqs",
+        "classification": "check_internal",
+        "included_in": [
+          "check"
+        ]
+      },
+      {
+        "name": "check-go-test-duration-baseline-drift",
+        "classification": "check_internal",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/check-go-test-duration-baseline-drift.mjs"
+        ]
+      },
+      {
+        "name": "check-browser-e2e-duration-baseline-drift",
+        "classification": "check_internal",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/lib/browser-shard-plan.mjs"
+        ]
+      },
+      {
+        "name": "check-service-backed-make-target-duration-baseline-drift",
+        "classification": "check_internal",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/service-backed-make-target-durations.mjs"
+        ]
+      },
+      {
+        "name": "check-frontend-unit",
+        "classification": "check_internal",
+        "included_in": [
+          "check"
+        ]
+      },
+      {
+        "name": "check-service-backed",
+        "classification": "check_internal",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/cartulary-runner.mjs",
+          "scripts/run-service-backed-schedule.mjs"
+        ]
+      },
+      {
+        "name": "ci",
+        "classification": "public",
+        "included_in": [
+          "ci"
+        ],
+        "backing_scripts": [
+          "scripts/run-make-sequence.sh"
+        ]
+      },
+      {
+        "name": "release-check",
+        "classification": "public",
+        "included_in": [
+          "release-check"
+        ],
+        "backing_scripts": [
+          "scripts/run-make-sequence.sh"
+        ]
+      },
+      {
+        "name": "license-report",
+        "classification": "helper_only",
+        "included_in": [
+          "release-check"
+        ],
+        "backing_scripts": [
+          "scripts/check-release-artifact.sh"
+        ]
+      },
+      {
+        "name": "sbom",
+        "classification": "helper_only",
+        "included_in": [
+          "release-check"
+        ],
+        "backing_scripts": [
+          "scripts/check-release-artifact.sh"
+        ]
+      },
+      {
+        "name": "build",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "build-server",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "build-migrate",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "build-web",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "clean",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
+        "name": "distclean",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ]
+      }
+    ],
+    "harness_tiers": {
+      "fast": {
+        "checks": [
+          "harness-smoke-toolchain-pins",
+          "harness-smoke-bootstrap-node-runtime",
+          "harness-smoke-build-input-discovery",
+          "harness-smoke-check-migrations",
+          "harness-smoke-generate-drift",
+          "harness-smoke-run-make-sequence-fast",
+          "harness-smoke-release-task-surface",
+          "harness-smoke-benchmark-claim-check",
+          "harness-smoke-task-surface-report",
+          "harness-smoke-make-node-tools",
+          "harness-smoke-execution-topology",
+          "harness-smoke-task-guidance",
+          "harness-smoke-go-test-duration-baselines",
+          "harness-smoke-service-backed-make-target-duration-baselines",
+          "harness-smoke-browser-shard-plan",
+          "harness-smoke-phase-test-names",
+          "harness-smoke-run-phase",
+          "harness-smoke-run-go-target-fast",
+          "harness-smoke-print-target-plan",
+          "harness-smoke-service-backed-scheduler",
+          "harness-smoke-cartulary-runner-service-backed-target",
+          "harness-smoke-check-scheduler",
+          "harness-smoke-run-playwright-phase",
+          "harness-smoke-run-playwright-manifest-phase",
+          "harness-smoke-run-playwright-webserver-batch",
+          "harness-smoke-run-vitest-phase",
+          "harness-smoke-run-vitest-manifest-phase",
+          "harness-smoke-run-frontend-unit"
+        ]
+      },
+      "extended": {
+        "checks": [
+          "harness-smoke-run-make-sequence",
+          "harness-smoke-run-go-target"
+        ]
+      },
+      "lifecycle": {
+        "checks": [
+          "harness-smoke-web-e2e-lifecycle",
+          "harness-smoke-dev-stack-lifecycle"
+        ]
+      },
+      "full": {
+        "checks": [
+          "harness-smoke-toolchain-pins",
+          "harness-smoke-bootstrap-node-runtime",
+          "harness-smoke-build-input-discovery",
+          "harness-smoke-check-migrations",
+          "harness-smoke-generate-drift",
+          "harness-smoke-run-make-sequence-fast",
+          "harness-smoke-release-task-surface",
+          "harness-smoke-benchmark-claim-check",
+          "harness-smoke-task-surface-report",
+          "harness-smoke-make-node-tools",
+          "harness-smoke-execution-topology",
+          "harness-smoke-task-guidance",
+          "harness-smoke-go-test-duration-baselines",
+          "harness-smoke-service-backed-make-target-duration-baselines",
+          "harness-smoke-browser-shard-plan",
+          "harness-smoke-phase-test-names",
+          "harness-smoke-run-phase",
+          "harness-smoke-run-go-target-fast",
+          "harness-smoke-print-target-plan",
+          "harness-smoke-service-backed-scheduler",
+          "harness-smoke-cartulary-runner-service-backed-target",
+          "harness-smoke-check-scheduler",
+          "harness-smoke-run-playwright-phase",
+          "harness-smoke-run-playwright-manifest-phase",
+          "harness-smoke-run-playwright-webserver-batch",
+          "harness-smoke-run-vitest-phase",
+          "harness-smoke-run-vitest-manifest-phase",
+          "harness-smoke-run-frontend-unit",
+          "harness-smoke-run-make-sequence",
+          "harness-smoke-run-go-target",
+          "harness-smoke-web-e2e-lifecycle",
+          "harness-smoke-dev-stack-lifecycle"
+        ]
+      }
+    },
+    "harness_checks": [
+      {
+        "name": "harness-smoke-toolchain-pins",
+        "backing_scripts": [
+          "scripts/test-check-toolchain-pins.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-bootstrap-node-runtime",
+        "backing_scripts": [
+          "scripts/test-bootstrap-node-runtime.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-build-input-discovery",
+        "backing_scripts": [
+          "scripts/test-build-input-discovery.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-check-migrations",
+        "backing_scripts": [
+          "scripts/test-check-migrations.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-generate-drift",
+        "backing_scripts": [
+          "scripts/test-generate-drift.sh",
+          "scripts/check-generate-drift.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-run-make-sequence-fast",
+        "backing_scripts": [
+          "scripts/test-run-make-sequence-fast.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-run-make-sequence",
+        "backing_scripts": [
+          "scripts/test-run-make-sequence.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-release-task-surface",
+        "backing_scripts": [
+          "scripts/test-release-task-surface.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-benchmark-claim-check",
+        "backing_scripts": [
+          "scripts/test-benchmark-claim-check.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-task-surface-report",
+        "backing_scripts": [
+          "scripts/test-task-surface-report.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-make-node-tools",
+        "backing_scripts": [
+          "scripts/test-make-node-tools.sh",
+          "scripts/run-make-node-tool.sh",
+          "scripts/run-make-node-tool.mjs",
+          "scripts/lib/make-node-tools.mjs"
+        ]
+      },
+      {
+        "name": "harness-smoke-execution-topology",
+        "backing_scripts": [
+          "scripts/test-execution-topology.sh",
+          "scripts/lib/execution-topology.mjs",
+          "scripts/render-execution-topology-artifacts.mjs"
+        ]
+      },
+      {
+        "name": "harness-smoke-task-guidance",
+        "backing_scripts": [
+          "scripts/test-task-guidance.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-go-test-duration-baselines",
+        "backing_scripts": [
+          "scripts/test-go-test-duration-baselines.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-service-backed-make-target-duration-baselines",
+        "backing_scripts": [
+          "scripts/test-service-backed-make-target-duration-baselines.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-browser-shard-plan",
+        "backing_scripts": [
+          "scripts/test-browser-shard-plan.sh",
+          "scripts/lib/browser-shard-plan.mjs"
+        ]
+      },
+      {
+        "name": "harness-smoke-phase-test-names",
+        "backing_scripts": [
+          "scripts/test-check-phase-test-names.sh",
+          "scripts/check-phase-test-names.mjs"
+        ]
+      },
+      {
+        "name": "harness-smoke-run-phase",
+        "backing_scripts": [
+          "scripts/test-run-phase.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-run-go-target-fast",
+        "backing_scripts": [
+          "scripts/test-run-go-target-fast.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-run-go-target",
+        "backing_scripts": [
+          "scripts/test-run-go-target.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-print-target-plan",
+        "backing_scripts": [
+          "scripts/test-print-target-plan.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-service-backed-scheduler",
+        "backing_scripts": [
+          "scripts/test-service-backed-scheduler.sh",
+          "scripts/run-service-backed-schedule.mjs"
+        ]
+      },
+      {
+        "name": "harness-smoke-cartulary-runner-service-backed-target",
+        "backing_scripts": [
+          "scripts/test-cartulary-runner-service-backed-target.sh",
+          "scripts/cartulary-runner.mjs"
+        ]
+      },
+      {
+        "name": "harness-smoke-check-scheduler",
+        "backing_scripts": [
+          "scripts/test-check-scheduler.sh",
+          "scripts/run-check-schedule.mjs"
+        ]
+      },
+      {
+        "name": "harness-smoke-run-playwright-phase",
+        "backing_scripts": [
+          "scripts/test-run-playwright-phase.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-run-playwright-manifest-phase",
+        "backing_scripts": [
+          "scripts/test-run-playwright-manifest-phase.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-run-playwright-webserver-batch",
+        "backing_scripts": [
+          "scripts/test-run-playwright-webserver-batch.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-run-vitest-phase",
+        "backing_scripts": [
+          "scripts/test-run-vitest-phase.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-run-vitest-manifest-phase",
+        "backing_scripts": [
+          "scripts/test-run-vitest-manifest-phase.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-run-frontend-unit",
+        "backing_scripts": [
+          "scripts/test-run-frontend-unit.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-web-e2e-lifecycle",
+        "backing_scripts": [
+          "scripts/test-web-e2e-lifecycle.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-dev-stack-lifecycle",
+        "backing_scripts": [
+          "scripts/test-dev-stack-lifecycle.sh"
+        ]
+      }
+    ]
+  },
+  "check_schedules": [
+    {
+      "target": "check",
+      "resource_limits": {
+        "host_cpu": 12,
+        "host_io": 12,
+        "service_stack": 1
+      },
+      "summary_groups": [
+        {
+          "name": "backend-service-backed",
+          "source": {
+            "type": "service_backed_schedule",
+            "target": "check-service-backed",
+            "class": "backend"
+          }
+        },
+        {
+          "name": "browser",
+          "source": {
+            "type": "service_backed_schedule",
+            "target": "check-service-backed",
+            "class": "browser_leaves"
+          }
+        },
+        {
+          "name": "duration-baselines",
+          "summary_targets": [
+            "check-go-test-duration-baseline-drift",
+            "check-browser-e2e-duration-baseline-drift",
+            "check-service-backed-make-target-duration-baseline-drift"
+          ]
+        },
+        {
+          "name": "harness",
+          "summary_targets": [
+            "check-harness-smoke"
+          ]
+        }
+      ],
+      "work_units": [
+        {
+          "target": "check-setup-blockers",
+          "weight": 50000,
+          "needs": [],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "check-build-prereqs",
+          "weight": 40000,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": {
+              "mode": "bounded_limit",
+              "reserve": 3,
+              "min": 1,
+              "max": 8
+            }
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "check-service-backed",
+          "weight": 30000,
+          "needs": [
+            "check-build-prereqs"
+          ],
+          "produces_summary_targets": [
+            "check-service-backed"
+          ],
+          "resource_claims": {
+            "host_cpu": {
+              "mode": "bounded_limit",
+              "reserve": 3,
+              "min": 1,
+              "max": 8
+            },
+            "host_io": {
+              "mode": "bounded_limit",
+              "reserve": 4,
+              "min": 1,
+              "max": 10
+            },
+            "service_stack": 1
+          },
+          "make_jobs": "host_cpu",
+          "nested_scheduler": {
+            "type": "service_backed",
+            "target": "check-service-backed",
+            "manifest": "tools/service_backed_schedule_manifest.json",
+            "forwarding": "check_host_to_service_backed_go"
+          }
+        },
+        {
+          "target": "check-go-test-duration-baseline-drift",
+          "weight": 29000,
+          "needs": [
+            "check-service-backed"
+          ],
+          "produces_summary_targets": [
+            "check-go-test-duration-baseline-drift"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "check-browser-e2e-duration-baseline-drift",
+          "weight": 28000,
+          "needs": [
+            "check-service-backed"
+          ],
+          "produces_summary_targets": [
+            "check-browser-e2e-duration-baseline-drift"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "check-service-backed-make-target-duration-baseline-drift",
+          "weight": 27900,
+          "needs": [
+            "check-service-backed"
+          ],
+          "produces_summary_targets": [
+            "check-service-backed-make-target-duration-baseline-drift"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "migration-drift",
+          "weight": 27000,
+          "needs": [
+            "check-build-prereqs"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "deployable-shape",
+          "weight": 26000,
+          "needs": [
+            "check-build-prereqs"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "backend-unit",
+          "weight": 25000,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "produces_summary_targets": [
+            "backend-unit"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "frontend-typecheck",
+          "weight": 24000,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "produces_summary_targets": [
+            "frontend-typecheck"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "lint-go",
+          "weight": 23000,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "check-frontend-unit",
+          "weight": 15000,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "produces_summary_targets": [
+            "frontend-unit"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "check-harness-smoke",
+          "weight": 14000,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "produces_summary_targets": [
+            "check-harness-smoke"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "lint-biome",
+          "weight": 13000,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "phase-test-name-check",
+          "weight": 12000,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "task-surface-check",
+          "weight": 11900,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "browser-e2e-task-surface-check",
+          "weight": 11800,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "frontend-task-surface-check",
+          "weight": 11700,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "backend-task-surface-check",
+          "weight": 11600,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "phase-map-check",
+          "weight": 11500,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "go-test-duration-baseline-coverage",
+          "weight": 11400,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "phase-ledger-drift",
+          "weight": 11300,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "phase-schedule-drift",
+          "weight": 11200,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "service-backed-unit-check",
+          "weight": 11100,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "generate-drift",
+          "weight": 11000,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        }
+      ]
+    }
+  ],
+  "service_backed_schedules": {
+    "defaults": {
+      "go_shards_resource_claims": {
+        "postgres": 1,
+        "minio": 1
+      },
+      "make_target_duration_baseline": "service_backed_make_target_duration_baselines.json",
+      "make_target_weight_overrides": {},
+      "backend_make_target_resource_claims": {
+        "backend-process": {
+          "postgres": 1,
+          "minio": 1,
+          "go_cpu": 1,
+          "go_io": 1,
+          "process": 1
+        }
+      },
+      "browser_make_target_resource_claims": {
+        "postgres": 1,
+        "minio": 1,
+        "process": 1,
+        "browser_stack": 1
+      }
+    },
+    "schedules": [
+      {
+        "target": "test-service-backed",
+        "resource_limits": {
+          "postgres": 32,
+          "minio": 32,
+          "go_cpu": "auto",
+          "go_io": "auto",
+          "postgres_reset": 1,
+          "process": 4,
+          "browser_stack": "auto"
+        },
+        "selectors": {
+          "backend": {
+            "service_backed": true,
+            "check_service_backed_safe": true
+          },
+          "browser": {
+            "schedule_tags": [
+              "service_backed_full"
+            ]
+          }
+        }
+      },
+      {
+        "target": "test-fast-service-backed",
+        "resource_limits": {
+          "postgres": 32,
+          "minio": 32,
+          "go_cpu": "auto",
+          "go_io": "auto",
+          "postgres_reset": 1,
+          "process": 4
+        },
+        "selectors": {
+          "backend": {
+            "service_backed": true,
+            "check_service_backed_safe": true
+          }
+        }
+      },
+      {
+        "target": "check-service-backed",
+        "resource_limits": {
+          "postgres": 32,
+          "minio": 32,
+          "go_cpu": "auto",
+          "go_io": "auto",
+          "postgres_reset": 1,
+          "process": 4,
+          "browser_stack": "auto"
+        },
+        "selectors": {
+          "backend": {
+            "service_backed": true,
+            "check_service_backed_safe": true
+          },
+          "browser": {
+            "schedule_tags": [
+              "service_backed_full"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "browser_e2e_batch": {
+    "stages": [
+      {
+        "name": "webserver-backed",
+        "target": "browser-e2e-webserver-backed",
+        "schedule_tags": [
+          "service_backed_full"
+        ],
+        "scheduler_dependency_policy": "parallel",
+        "groups": [
+          {
+            "name": "functional-support",
+            "target": "browser-e2e-webserver-backed",
+            "kind": "duration_balanced_specs",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_functional",
+            "workers": "default"
+          }
+        ]
+      },
+      {
+        "name": "functional",
+        "target": "browser-e2e-functional",
+        "groups": [
+          {
+            "name": "functional",
+            "target": "browser-e2e-functional",
+            "kind": "duration_balanced_specs",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_functional",
+            "workers": "default"
+          }
+        ]
+      },
+      {
+        "name": "support",
+        "target": "browser-e2e-support",
+        "groups": [
+          {
+            "name": "support",
+            "target": "browser-e2e-support",
+            "kind": "support",
+            "coverage": "supplemental",
+            "execution_dependency": "browser_support",
+            "workers": "default"
+          }
+        ]
+      },
+      {
+        "name": "stateful",
+        "target": "browser-e2e-stateful",
+        "groups": [
+          {
+            "name": "stateful",
+            "target": "browser-e2e-stateful",
+            "kind": "stateful",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_stateful",
+            "workers": "1"
+          }
+        ]
+      },
+      {
+        "name": "measurement",
+        "target": "browser-e2e-measurement",
+        "groups": [
+          {
+            "name": "measurement",
+            "target": "browser-e2e-measurement",
+            "kind": "measurement",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_measurement",
+            "workers": "1"
+          }
+        ]
+      },
+      {
+        "name": "visual",
+        "target": "browser-e2e-visual",
+        "groups": [
+          {
+            "name": "visual",
+            "target": "browser-e2e-visual",
+            "kind": "visual",
+            "coverage": "raw",
+            "execution_dependency": "",
+            "workers": "1"
+          }
+        ]
+      },
+      {
+        "name": "resettable",
+        "target": "browser-e2e-resettable",
+        "summary_children": [
+          "browser-e2e-measurement",
+          "browser-e2e-visual"
+        ],
+        "groups": [
+          {
+            "name": "measurement",
+            "target": "browser-e2e-measurement",
+            "kind": "measurement",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_measurement",
+            "workers": "1"
+          },
+          {
+            "name": "visual",
+            "target": "browser-e2e-visual",
+            "kind": "visual",
+            "coverage": "raw",
+            "execution_dependency": "",
+            "workers": "1",
+            "reset_before": "measurement-to-visual"
+          }
+        ]
+      },
+      {
+        "name": "isolated",
+        "target": "browser-e2e",
+        "summary_children": [
+          "browser-e2e-stateful",
+          "browser-e2e-measurement",
+          "browser-e2e-visual"
+        ],
+        "schedule_tags": [
+          "service_backed_full"
+        ],
+        "scheduler_dependency_policy": "after_backend_and_prior_browser",
+        "groups": [
+          {
+            "name": "stateful",
+            "target": "browser-e2e-stateful",
+            "kind": "stateful",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_stateful",
+            "workers": "1"
+          },
+          {
+            "name": "measurement",
+            "target": "browser-e2e-measurement",
+            "kind": "measurement",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_measurement",
+            "workers": "1",
+            "reset_before": "stateful-to-measurement"
+          },
+          {
+            "name": "visual",
+            "target": "browser-e2e-visual",
+            "kind": "visual",
+            "coverage": "raw",
+            "execution_dependency": "",
+            "workers": "1",
+            "reset_before": "measurement-to-visual"
+          }
+        ]
+      }
+    ]
+  }
+}

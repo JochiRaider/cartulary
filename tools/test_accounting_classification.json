@@ -122,32 +122,32 @@
     {
       "package": "./internal/testutil/configtest",
       "coverage": "raw",
-      "reason": "Declared as raw backend-unit configtest aggregate in tools/go_execution_targets.json."
+      "reason": "Declared as raw backend-unit configtest aggregate in tools/execution_topology_manifest.json."
     },
     {
       "package": "./internal/testutil/httptestx",
       "coverage": "raw",
-      "reason": "Declared as raw backend-integration testutil aggregate in tools/go_execution_targets.json."
+      "reason": "Declared as raw backend-integration testutil aggregate in tools/execution_topology_manifest.json."
     },
     {
       "package": "./internal/testutil/pgtest",
       "coverage": "raw",
-      "reason": "Declared as raw backend-integration testutil aggregate in tools/go_execution_targets.json."
+      "reason": "Declared as raw backend-integration testutil aggregate in tools/execution_topology_manifest.json."
     },
     {
       "package": "./internal/testutil/s3test",
       "coverage": "raw",
-      "reason": "Declared as raw backend-integration testutil aggregate in tools/go_execution_targets.json."
+      "reason": "Declared as raw backend-integration testutil aggregate in tools/execution_topology_manifest.json."
     },
     {
       "package": "./internal/testutil/testcontainersx",
       "coverage": "raw",
-      "reason": "Declared as raw backend-integration testutil aggregate in tools/go_execution_targets.json."
+      "reason": "Declared as raw backend-integration testutil aggregate in tools/execution_topology_manifest.json."
     },
     {
       "package": "./internal/testutil/wstest",
       "coverage": "raw",
-      "reason": "Declared as raw backend-integration testutil aggregate in tools/go_execution_targets.json."
+      "reason": "Declared as raw backend-integration testutil aggregate in tools/execution_topology_manifest.json."
     }
   ],
   "go_tests": [],

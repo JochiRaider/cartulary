@@ -11,7 +11,7 @@ cartulary_runner_script="$repo_root/scripts/cartulary-runner.mjs"
 phase_manifest_helper="$repo_root/scripts/lib/phase-manifest.mjs"
 browser_batch_manifest_helper="$repo_root/scripts/lib/browser-batch-manifest.mjs"
 browser_batch_manifest="$repo_root/tools/browser_e2e_batch_manifest.json"
-schedule_profile="$repo_root/tools/service_backed_schedule_profiles.json"
+execution_topology_manifest="$repo_root/tools/execution_topology_manifest.json"
 schedule_topology_helper="$repo_root/scripts/lib/service-backed-schedule-topology.mjs"
 webserver_batch_script="$repo_root/scripts/lib/run-playwright-webserver-batch.sh"
 browser_shard_plan_script="$repo_root/scripts/lib/browser-shard-plan.mjs"
@@ -376,7 +376,7 @@ fi
 
 require_service_backed_schedule_target check-service-backed "check service-backed" 1
 
-"$node_bin" "$schedule_topology_helper" validate "$schedule_manifest" "$schedule_profile" "$browser_batch_manifest"
+"$node_bin" "$schedule_topology_helper" validate "$schedule_manifest" "$execution_topology_manifest"
 
 "$node_bin" --input-type=module - "$task_surface_manifest" "$check_schedule_manifest" "$browser_batch_manifest" <<'EOF'
 import fs from "node:fs";
@@ -673,9 +673,14 @@ fi
 if ! grep -Fq 'cartulary.browser_e2e_batch_manifest.v4' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must declare its schema"
 fi
-if ! grep -Fq '"schedule_tags": ["service_backed_full"]' "$browser_batch_manifest"; then
-  fail "browser E2E batch manifest must tag service-backed scheduler stages"
-fi
+"$node_bin" - "$browser_batch_manifest" <<'EOF' || fail "browser E2E batch manifest must tag service-backed scheduler stages"
+const fs = require("node:fs");
+const [manifestFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+if (!(manifest.stages ?? []).some((stage) => (stage.schedule_tags ?? []).includes("service_backed_full"))) {
+  throw new Error("missing service_backed_full schedule tag");
+}
+EOF
 if ! grep -Fq '"scheduler_dependency_policy": "after_backend_and_prior_browser"' "$browser_batch_manifest"; then
   fail "browser E2E batch manifest must declare scheduler dependency policy for isolated work"
 fi

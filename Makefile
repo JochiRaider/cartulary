@@ -31,7 +31,7 @@ SQLC_BIN ?= $(TOOLBIN_DIR)/sqlc-v1.30.0
 GOOSE_BIN ?= $(TOOLBIN_DIR)/goose-v3.27.0
 TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
 SERVICE_BACKED_SCHEDULE_MANIFEST ?= $(CURDIR)/tools/service_backed_schedule_manifest.json
-SERVICE_BACKED_SCHEDULE_PROFILE ?= $(CURDIR)/tools/service_backed_schedule_profiles.json
+EXECUTION_TOPOLOGY_MANIFEST ?= $(CURDIR)/tools/execution_topology_manifest.json
 SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE ?= $(CURDIR)/tools/service_backed_make_target_duration_baselines.json
 CHECK_SCHEDULE_MANIFEST ?= $(CURDIR)/tools/check_schedule_manifest.json
 MINIO_BUCKET ?= cartulary
@@ -375,10 +375,10 @@ phase-ledger-drift: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(RUN_PHASE) "phase-ledger-drift" -- $(PNPM_ENV) env NODE_BIN=$(NODE_BIN) $(NODE_BIN) ./scripts/check-phase-ledger-drift.mjs
 
 phase-schedules: $(NODE_BIN)
-	$(RUN_PHASE) "phase-schedules" -- $(NODE_BIN) ./scripts/render-service-backed-schedule-manifest.mjs --profile "$(SERVICE_BACKED_SCHEDULE_PROFILE)" --output "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"
+	$(RUN_PHASE) "phase-schedules" -- $(NODE_BIN) ./scripts/render-execution-topology-artifacts.mjs --topology "$(EXECUTION_TOPOLOGY_MANIFEST)"
 
 phase-schedule-drift: $(NODE_BIN)
-	$(RUN_PHASE) "phase-schedule-drift" -- $(NODE_BIN) ./scripts/render-service-backed-schedule-manifest.mjs --check --profile "$(SERVICE_BACKED_SCHEDULE_PROFILE)" --output "$(SERVICE_BACKED_SCHEDULE_MANIFEST)"
+	$(RUN_PHASE) "phase-schedule-drift" -- $(NODE_BIN) ./scripts/render-execution-topology-artifacts.mjs --check --topology "$(EXECUTION_TOPOLOGY_MANIFEST)"
 
 benchmark-claim-check: $(NODE_BIN)
 	$(RUN_PHASE) "benchmark-claim-check" -- $(NODE_BIN) ./scripts/check-benchmark-claim.mjs "$(BENCHMARK_MANIFEST)"

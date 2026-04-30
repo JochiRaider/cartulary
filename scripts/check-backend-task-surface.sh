@@ -8,7 +8,7 @@ cartulary_runner_script="$repo_root/scripts/cartulary-runner.mjs"
 go_runner_script="$repo_root/scripts/run-go-target.mjs"
 go_runner_module="$repo_root/scripts/lib/go-target-runner.mjs"
 schedule_manifest="$repo_root/tools/service_backed_schedule_manifest.json"
-schedule_profile="$repo_root/tools/service_backed_schedule_profiles.json"
+execution_topology_manifest="$repo_root/tools/execution_topology_manifest.json"
 browser_batch_manifest="$repo_root/tools/browser_e2e_batch_manifest.json"
 schedule_topology_helper="$repo_root/scripts/lib/service-backed-schedule-topology.mjs"
 check_schedule_manifest="$repo_root/tools/check_schedule_manifest.json"
@@ -314,7 +314,7 @@ mapfile -t target_plan_check_heavy_targets < <(target_plan_boolean_targets check
 mapfile -t target_plan_service_backed_safe_targets < <(target_plan_boolean_targets check_service_backed_safe true)
 mapfile -t target_plan_service_backed_unsafe_targets < <(list_target_plan_service_backed_unsafe_targets)
 
-"$node_bin" "$schedule_topology_helper" validate "$schedule_manifest" "$schedule_profile" "$browser_batch_manifest"
+"$node_bin" "$schedule_topology_helper" validate "$schedule_manifest" "$execution_topology_manifest"
 
 check_build_prereqs_line="$(sed -n 's/^check-build-prereqs:[[:space:]]*//p' "$makefile" | head -n 1)"
 if [[ -z "$check_build_prereqs_line" ]]; then

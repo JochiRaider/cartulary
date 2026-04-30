@@ -3,7 +3,13 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { loadBrowserBatchStages } from "./browser-batch-manifest.mjs";
+import { normalizeBrowserBatchStages } from "./browser-batch-manifest.mjs";
+import {
+  defaultExecutionTopologyManifestPath,
+  loadExecutionTopology,
+  renderBrowserBatchManifest,
+  renderServiceBackedScheduleProfile,
+} from "./execution-topology.mjs";
 import {
   compareExecutionDependencies,
   executionDependencyInfo,
@@ -16,7 +22,6 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
-const profileSchemaID = "cartulary.service_backed_schedule_profiles.v3";
 const scheduleSchemaID = "cartulary.service_backed_schedule.v8";
 
 function resolveRepoPath(file) {
@@ -39,14 +44,6 @@ function requireString(value, label) {
     throw new Error(`${label} must be a non-empty string`);
   }
   return value.trim();
-}
-
-function loadProfile(file) {
-  const profile = readJSON(file);
-  if (profile.schema_id !== profileSchemaID) {
-    throw new Error(`${file} must declare schema_id ${profileSchemaID}`);
-  }
-  return profile;
 }
 
 function loadScheduleManifest(file) {
@@ -218,12 +215,12 @@ function validateBrowserSource(schedule, source, stage, resourceLimits) {
 
 export function validateServiceBackedScheduleTopology({
   scheduleManifestPath,
-  profilePath,
-  browserBatchManifestPath,
+  topologyPath = defaultExecutionTopologyManifestPath,
 }) {
   const scheduleManifest = loadScheduleManifest(scheduleManifestPath);
-  const profile = loadProfile(profilePath);
-  const browserStages = loadBrowserBatchStages(resolveRepoPath(browserBatchManifestPath));
+  const topology = loadExecutionTopology({ manifestPath: topologyPath });
+  const profile = renderServiceBackedScheduleProfile(topology);
+  const browserStages = normalizeBrowserBatchStages(renderBrowserBatchManifest(topology));
   const schedulesByTarget = new Map();
   for (const schedule of requireArray(scheduleManifest.schedules, "schedules")) {
     const target = requireString(schedule?.target, "schedules[].target");
@@ -273,19 +270,18 @@ export function validateServiceBackedScheduleTopology({
 
 function usage() {
   throw new Error(
-    "usage: service-backed-schedule-topology.mjs validate <schedule-manifest> <profile> <browser-batch-manifest>",
+    "usage: service-backed-schedule-topology.mjs validate <schedule-manifest> [topology-manifest]",
   );
 }
 
 function main(argv) {
-  const [command, scheduleManifestPath, profilePath, browserBatchManifestPath] = argv;
-  if (command !== "validate" || !scheduleManifestPath || !profilePath || !browserBatchManifestPath) {
+  const [command, scheduleManifestPath, topologyPath = defaultExecutionTopologyManifestPath] = argv;
+  if (command !== "validate" || !scheduleManifestPath) {
     usage();
   }
   validateServiceBackedScheduleTopology({
     scheduleManifestPath,
-    profilePath,
-    browserBatchManifestPath,
+    topologyPath,
   });
 }
 

@@ -67,6 +67,7 @@ export const makeNodeToolEnvVars = [
   "CARTULARY_TEST_RESULTS_DIR",
   "CARTULARY_TEST_RUN_ID",
   "DETAIL",
+  "EXECUTION_TOPOLOGY_MANIFEST",
   "FIXTURE_THRESHOLD_MS",
   "FIXTURE_TOP",
   "JSON",
@@ -77,7 +78,6 @@ export const makeNodeToolEnvVars = [
   "RUN_ID",
   "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
   "SERVICE_BACKED_SCHEDULE_MANIFEST",
-  "SERVICE_BACKED_SCHEDULE_PROFILE",
   "TARGET",
   "TASK_SURFACE_REPORT_ARGS",
 ];
@@ -244,7 +244,7 @@ export const makeNodeTools = {
         "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
         "--baseline-file",
       );
-      optionalFlag(args, env, "SERVICE_BACKED_SCHEDULE_PROFILE", "--profile");
+      optionalFlag(args, env, "EXECUTION_TOPOLOGY_MANIFEST", "--topology");
       optionalFlag(args, env, "SERVICE_BACKED_SCHEDULE_MANIFEST", "--schedule-manifest");
       return args;
     },

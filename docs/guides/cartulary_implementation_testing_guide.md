@@ -24,7 +24,7 @@ This guide also resolves one dependency error from the prior version: reviewer-f
 - **E2E test**: verifies a user-observable flow through the full deployed stack against the visible contract and the cited ACs.
 - **Visual regression test**: verifies deterministic browser-rendered workbook states against stable screenshot or DOM-visual fixtures. It is developer-gate evidence for UI drift. It is not a claim-bearing benchmark unless Core 05 publication requirements are separately satisfied.
 
-Runner summaries use the following accounting buckets. `authoritative` is phase completion evidence with owned IDs. `support` is phase-owned support evidence. `raw` is an explicitly declared raw aggregate suite, currently owned through `tools/go_execution_targets.json`. `tooling_support` is helper, harness, config, or runner-support coverage. `unowned_regression` is intentional product regression coverage that has not been promoted into a phase-owned row. `unmapped` is reserved for unexpected executed tests that need an ownership decision. Non-phase classifications belong in `tools/test_accounting_classification.json`; do not add filename heuristics when a manifest rule can express the ownership.
+Runner summaries use the following accounting buckets. `authoritative` is phase completion evidence with owned IDs. `support` is phase-owned support evidence. `raw` is an explicitly declared raw aggregate suite, owned through `tools/execution_topology_manifest.json`. `tooling_support` is helper, harness, config, or runner-support coverage. `unowned_regression` is intentional product regression coverage that has not been promoted into a phase-owned row. `unmapped` is reserved for unexpected executed tests that need an ownership decision. Non-phase classifications belong in `tools/test_accounting_classification.json`; do not add filename heuristics when a manifest rule can express the ownership.
 
 ### 1.1.1 Service-backed fixture modes
 
@@ -1175,6 +1175,8 @@ The current Base claim manifest is:
 The phase tables above are the authoritative **test-id to REQ / AC mapping**. This section adds the summary views needed to keep the guide from drifting again.
 
 Repository phase maps under `tools/phase*_test_map.json` own the generated coverage-ledger metadata consumed by `make phase-ledgers` and `make phase-ledger-drift`. Every authoritative manifest row in every numbered phase map must declare non-empty `claim` and `out_of_scope` text so future phases receive the same ledger guarantees without validator code changes.
+
+Execution topology is owned separately by `tools/execution_topology_manifest.json`, which renders the task surface, check schedule, service-backed schedules, and browser batch manifest. Future phase evidence should normally be added only to the phase maps; change the execution topology only when adding a new target class, scheduler resource, gate policy, or browser stage/reset policy.
 
 Service-backed Go unit helper starts are manifest-authorized, not phase-hardcoded. `make service-backed-unit-check` treats canonical `TestPhaseN..._U_N_...` Go tests as pure unit rows unless their manifest entry is an authoritative `go_test` unit row with `execution_dependency=backend_store`; only those rows may start `pgtest`, `s3test`, or `internal/testutil/phaseNtest` / `phaseNstoretest` helpers directly. The guard is convention-driven for all numbered phases, including multi-digit phases, so adding a future phase helper package must not require checker code changes.
 

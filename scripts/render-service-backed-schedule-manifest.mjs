@@ -3,7 +3,13 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadBrowserBatchStages } from "./lib/browser-batch-manifest.mjs";
+import { normalizeBrowserBatchStages } from "./lib/browser-batch-manifest.mjs";
+import {
+  defaultExecutionTopologyManifestPath,
+  loadExecutionTopology,
+  renderBrowserBatchManifest,
+  renderServiceBackedScheduleProfile,
+} from "./lib/execution-topology.mjs";
 import {
   compareExecutionDependencies,
   executionDependencyInfo,
@@ -18,25 +24,21 @@ import { collectTargetPlanRows, findTargetDescriptor } from "./lib/target-plan.m
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const profileSchemaID = "cartulary.service_backed_schedule_profiles.v3";
 const scheduleSchemaID = "cartulary.service_backed_schedule.v8";
-const defaultProfilePath = path.join(repoRoot, "tools", "service_backed_schedule_profiles.json");
 const defaultOutputPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
-const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
 const makeTargetBaselineSchemaID = "cartulary.service_backed_make_target_duration_baselines.v1";
 
 function usage() {
   throw new Error(
-    "usage: render-service-backed-schedule-manifest.mjs [--check] [--profile <path>] [--output <path>] [--browser-batch-manifest <path>]",
+    "usage: render-service-backed-schedule-manifest.mjs [--check] [--topology <path>] [--output <path>]",
   );
 }
 
 function parseArgs(argv) {
   const options = {
     check: false,
-    profile: defaultProfilePath,
+    topology: defaultExecutionTopologyManifestPath,
     output: defaultOutputPath,
-    browserBatchManifest: defaultBrowserBatchManifestPath,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -44,8 +46,8 @@ function parseArgs(argv) {
       options.check = true;
       continue;
     }
-    if (arg === "--profile") {
-      options.profile = argv[index + 1] ?? "";
+    if (arg === "--topology") {
+      options.topology = argv[index + 1] ?? "";
       index += 1;
       continue;
     }
@@ -54,14 +56,9 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
-    if (arg === "--browser-batch-manifest") {
-      options.browserBatchManifest = argv[index + 1] ?? "";
-      index += 1;
-      continue;
-    }
     usage();
   }
-  if (!options.profile || !options.output || !options.browserBatchManifest) {
+  if (!options.topology || !options.output) {
     usage();
   }
   return options;
@@ -132,14 +129,14 @@ function repoRelativeOrResolved(file) {
   return path.relative(repoRoot, resolved);
 }
 
-function loadMakeTargetDurationBaselines(profile, profilePath) {
+function loadMakeTargetDurationBaselines(profile, topologyPath) {
   const baselinePath = requireString(
     profile.defaults.make_target_duration_baseline,
     "defaults.make_target_duration_baseline",
   );
   const resolved = path.isAbsolute(baselinePath)
     ? baselinePath
-    : path.join(path.dirname(resolvePath(profilePath)), baselinePath);
+    : path.join(path.dirname(resolvePath(topologyPath)), baselinePath);
   const baseline = readJSON(resolved);
   if (baseline.schema_id !== makeTargetBaselineSchemaID) {
     throw new Error(
@@ -461,11 +458,10 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   };
 }
 
-function renderManifest(options) {
-  const profile = readJSON(options.profile);
-  if (profile.schema_id !== profileSchemaID) {
-    throw new Error(`${options.profile} must declare schema_id ${profileSchemaID}`);
-  }
+export function renderServiceBackedScheduleManifest(options = {}) {
+  const topologyPath = options.topology ?? defaultExecutionTopologyManifestPath;
+  const topology = options.topologyObject ?? loadExecutionTopology({ manifestPath: topologyPath });
+  const profile = renderServiceBackedScheduleProfile(topology);
   requireObject(profile.defaults, "defaults");
   if (profile.defaults.backend_make_target_weights !== undefined) {
     throw new Error("defaults.backend_make_target_weights is obsolete; use make_target_duration_baseline");
@@ -474,16 +470,16 @@ function renderManifest(options) {
     throw new Error("defaults.browser_stage_weights is obsolete; use make_target_duration_baseline");
   }
   const timing = {
-    baseline: loadMakeTargetDurationBaselines(profile, options.profile),
+    baseline: loadMakeTargetDurationBaselines(profile, topologyPath),
     overrides: loadMakeTargetWeightOverrides(profile),
   };
-  const browserStages = loadBrowserBatchStages(resolvePath(options.browserBatchManifest));
+  const browserStages = normalizeBrowserBatchStages(renderBrowserBatchManifest(topology));
   return {
     schema_id: scheduleSchemaID,
     generated: {
       generator: "scripts/render-service-backed-schedule-manifest.mjs",
-      profile: path.relative(repoRoot, resolvePath(options.profile)),
-      browser_batch_manifest: path.relative(repoRoot, resolvePath(options.browserBatchManifest)),
+      topology: path.relative(repoRoot, resolvePath(topologyPath)),
+      browser_batch_manifest: topology.generatedOutputs.browser_e2e_batch_manifest,
       make_target_duration_baseline: repoRelativeOrResolved(timing.baseline.path),
     },
     schedules: requireArray(profile.schedules, "schedules").map((schedule) =>
@@ -494,7 +490,7 @@ function renderManifest(options) {
 
 function main() {
   const options = parseArgs(process.argv.slice(2));
-  const rendered = `${JSON.stringify(renderManifest(options), null, 2)}\n`;
+  const rendered = `${JSON.stringify(renderServiceBackedScheduleManifest(options), null, 2)}\n`;
   const outputPath = resolvePath(options.output);
   if (options.check) {
     const existing = readFileSync(outputPath, "utf8");
@@ -506,10 +502,12 @@ function main() {
   writeFileSync(outputPath, rendered);
 }
 
-try {
-  main();
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`service-backed schedule render failed: ${message}`);
-  process.exit(1);
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    main();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`service-backed schedule render failed: ${message}`);
+    process.exit(1);
+  }
 }

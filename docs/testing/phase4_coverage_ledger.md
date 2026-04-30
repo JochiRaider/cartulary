@@ -12,7 +12,7 @@ This ledger is generated from `tools/phase4_test_map.json`. Update the manifest 
 - `backend-unit` selects authoritative `U-4-*` decoder rows only through `RUN_GO_MANIFEST_PHASE ... phase4 unit authoritative backend_unit`.
 - `backend-store` selects authoritative store-backed `U-4-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase4 unit authoritative backend_store`.
 - `backend-integration` selects authoritative `I-4-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase4 integration authoritative backend_integration`.
-- `tools/browser_e2e_batch_manifest.json` owns browser batch grouping for Phase 4: `browser-e2e-webserver-backed` carries authoritative `E-4-*` rows through duration-balanced Playwright spec shards for `test` and `check`, while direct `browser-e2e-webserver-backed` and helper-only `browser-e2e-functional` select the same rows through manifest-driven `browser_functional` shard planning. The scheduler-visible `browser-e2e` aggregate is reserved for isolated stateful, measurement, and visual browser batches.
+- `tools/execution_topology_manifest.json` owns browser batch grouping and renders `tools/browser_e2e_batch_manifest.json` for Phase 4: `browser-e2e-webserver-backed` carries authoritative `E-4-*` rows through duration-balanced Playwright spec shards for `test` and `check`, while direct `browser-e2e-webserver-backed` and helper-only `browser-e2e-functional` select the same rows through manifest-driven `browser_functional` shard planning. The scheduler-visible `browser-e2e` aggregate is reserved for isolated stateful, measurement, and visual browser batches.
 
 ## Support-Only Execution
 

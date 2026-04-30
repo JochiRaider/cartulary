@@ -80,16 +80,9 @@ cat >"$tmp_dir/baseline.json" <<'JSON'
   "targets": {}
 }
 JSON
-cat >"$tmp_dir/profile.json" <<'JSON'
-{
-  "schema_id": "cartulary.service_backed_schedule_profiles.v3",
-  "defaults": {
-    "make_target_duration_baseline": "baseline.json",
-    "make_target_weight_overrides": {}
-  },
-  "schedules": []
-}
-JSON
+cp "$ROOT_DIR/tools/execution_topology_manifest.json" "$tmp_dir/topology.json"
+cp "$ROOT_DIR/tools/service_backed_make_target_duration_baselines.json" \
+  "$tmp_dir/service_backed_make_target_duration_baselines.json"
 cat >"$tmp_dir/schedule.json" <<'JSON'
 {
   "schema_id": "cartulary.service_backed_schedule.v8",
@@ -128,7 +121,7 @@ for (const ignored of ["backend-store", "failed-target", "browser-e2e"]) {
 }
 EOF
 
-"$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/baseline.json" --profile "$tmp_dir/profile.json" --schedule-manifest "$tmp_dir/schedule.json" "$results_dir" >/dev/null
+"$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/baseline.json" --topology "$tmp_dir/topology.json" --schedule-manifest "$tmp_dir/schedule.json" "$results_dir" >/dev/null
 
 cat >"$tmp_dir/make-baseline.json" <<'JSON'
 {
@@ -145,7 +138,7 @@ make_update_output="$(
 assert_contains "$make_update_output" "updated 2 service-backed make-target duration baselines" "make baseline update output"
 RESULTS_DIR="$results_dir" \
 SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
-SERVICE_BACKED_SCHEDULE_PROFILE="$tmp_dir/profile.json" \
+EXECUTION_TOPOLOGY_MANIFEST="$tmp_dir/topology.json" \
 SERVICE_BACKED_SCHEDULE_MANIFEST="$tmp_dir/schedule.json" \
   "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" service-backed-make-target-duration-baseline-drift >/dev/null
 
@@ -159,7 +152,7 @@ cat >"$tmp_dir/missing.json" <<'JSON'
 }
 JSON
 set +e
-missing_output="$("$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/missing.json" --profile "$tmp_dir/profile.json" --schedule-manifest "$tmp_dir/schedule.json" "$results_dir" 2>&1)"
+missing_output="$("$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/missing.json" --topology "$tmp_dir/topology.json" --schedule-manifest "$tmp_dir/schedule.json" "$results_dir" 2>&1)"
 missing_status=$?
 set -e
 if [[ "$missing_status" -eq 0 ]]; then
@@ -178,7 +171,7 @@ cat >"$tmp_dir/underplanned.json" <<'JSON'
 }
 JSON
 set +e
-underplanned_output="$("$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/underplanned.json" --profile "$tmp_dir/profile.json" --schedule-manifest "$tmp_dir/schedule.json" "$results_dir" 2>&1)"
+underplanned_output="$("$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/underplanned.json" --topology "$tmp_dir/topology.json" --schedule-manifest "$tmp_dir/schedule.json" "$results_dir" 2>&1)"
 underplanned_status=$?
 set -e
 if [[ "$underplanned_status" -eq 0 ]]; then
@@ -197,7 +190,7 @@ cat >"$tmp_dir/overplanned.json" <<'JSON'
 }
 JSON
 set +e
-overplanned_output="$("$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/overplanned.json" --profile "$tmp_dir/profile.json" --schedule-manifest "$tmp_dir/schedule.json" "$results_dir" 2>&1)"
+overplanned_output="$("$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/overplanned.json" --topology "$tmp_dir/topology.json" --schedule-manifest "$tmp_dir/schedule.json" "$results_dir" 2>&1)"
 overplanned_status=$?
 set -e
 if [[ "$overplanned_status" -eq 0 ]]; then
@@ -205,24 +198,21 @@ if [[ "$overplanned_status" -eq 0 ]]; then
 fi
 assert_contains "$overplanned_output" "overplanned target=browser-e2e-webserver-backed" "overplanned baseline drift"
 
-cat >"$tmp_dir/expired-profile.json" <<'JSON'
-{
-  "schema_id": "cartulary.service_backed_schedule_profiles.v3",
-  "defaults": {
-    "make_target_duration_baseline": "baseline.json",
-    "make_target_weight_overrides": {
-      "backend-process": {
-        "weight_ms": 9000,
-        "reason": "temporary timing investigation",
-        "expires_at": "2026-01-01T00:00:00.000Z"
-      }
-    }
+"$NODE_BIN" - "$tmp_dir/topology.json" "$tmp_dir/expired-topology.json" <<'EOF'
+const fs = require("node:fs");
+const [source, output] = process.argv.slice(2);
+const topology = JSON.parse(fs.readFileSync(source, "utf8"));
+topology.service_backed_schedules.defaults.make_target_weight_overrides = {
+  "backend-process": {
+    weight_ms: 9000,
+    reason: "temporary timing investigation",
+    expires_at: "2026-01-01T00:00:00.000Z",
   },
-  "schedules": []
-}
-JSON
+};
+fs.writeFileSync(output, `${JSON.stringify(topology, null, 2)}\n`);
+EOF
 set +e
-expired_output="$("$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/baseline.json" --profile "$tmp_dir/expired-profile.json" --schedule-manifest "$tmp_dir/schedule.json" "$results_dir" 2>&1)"
+expired_output="$("$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/baseline.json" --topology "$tmp_dir/expired-topology.json" --schedule-manifest "$tmp_dir/schedule.json" "$results_dir" 2>&1)"
 expired_status=$?
 set -e
 if [[ "$expired_status" -eq 0 ]]; then
@@ -230,24 +220,21 @@ if [[ "$expired_status" -eq 0 ]]; then
 fi
 assert_contains "$expired_output" "override target=backend-process expired" "expired override drift"
 
-cat >"$tmp_dir/unknown-override-profile.json" <<'JSON'
-{
-  "schema_id": "cartulary.service_backed_schedule_profiles.v3",
-  "defaults": {
-    "make_target_duration_baseline": "baseline.json",
-    "make_target_weight_overrides": {
-      "removed-target": {
-        "weight_ms": 9000,
-        "reason": "temporary timing investigation",
-        "expires_at": "2099-01-01T00:00:00.000Z"
-      }
-    }
+"$NODE_BIN" - "$tmp_dir/topology.json" "$tmp_dir/unknown-override-topology.json" <<'EOF'
+const fs = require("node:fs");
+const [source, output] = process.argv.slice(2);
+const topology = JSON.parse(fs.readFileSync(source, "utf8"));
+topology.service_backed_schedules.defaults.make_target_weight_overrides = {
+  "removed-target": {
+    weight_ms: 9000,
+    reason: "temporary timing investigation",
+    expires_at: "2099-01-01T00:00:00.000Z",
   },
-  "schedules": []
-}
-JSON
+};
+fs.writeFileSync(output, `${JSON.stringify(topology, null, 2)}\n`);
+EOF
 set +e
-unknown_override_output="$("$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/baseline.json" --profile "$tmp_dir/unknown-override-profile.json" --schedule-manifest "$tmp_dir/schedule.json" "$results_dir" 2>&1)"
+unknown_override_output="$("$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/baseline.json" --topology "$tmp_dir/unknown-override-topology.json" --schedule-manifest "$tmp_dir/schedule.json" "$results_dir" 2>&1)"
 unknown_override_status=$?
 set -e
 if [[ "$unknown_override_status" -eq 0 ]]; then
