@@ -13,7 +13,7 @@ At bootstrap completion, the repository should satisfy all of the following:
 - one modular-monolith application skeleton, not a set of future microservices.[^3]
 - one root Go module and one top-level pnpm workspace with the baseline monorepo layout already in place.[^4]
 - local PostgreSQL and S3-compatible object storage available through `docker-compose.dev.yml` for development and integration tests.[^3][^5]
-- a root `Makefile` with the canonical developer task surface, including `help`, `help-all`, `doctor`, `bootstrap`, `db-up`, `db-reset`, `dev`, `generate`, `test`, `lint`, `check`, `build`, `clean`, and `distclean`.[^6]
+- a root `Makefile` with the canonical developer task surface, including `help`, `task-guide`, `help-all`, `doctor`, `bootstrap`, `db-up`, `db-reset`, `dev`, `generate`, `test`, `lint`, `check`, `build`, `clean`, and `distclean`.[^6]
 - a live contract derivation path from owner sections to `/contracts/*` to generated code, with drift detection wired into `make check`.[^7]
 - reusable unit, integration, and black-box end-to-end harnesses, plus the shared cross-cutting harnesses that must apply across phases.[^8]
 - the first red tests for Phase 0 checked in before any feature code beyond the bootstrap shell is treated as complete.[^9]
@@ -260,6 +260,7 @@ For the initial greenfield phase, it is enough for `make generate` to prove the 
 Implement the root `Makefile` next. It should expose the baseline human-facing tasks from the development guide:[^6]
 
 - `make help`
+- `make task-guide`
 - `make help-all`
 - `make doctor`
 - `make bootstrap`
@@ -280,6 +281,7 @@ Implement the root `Makefile` next. It should expose the baseline human-facing t
 Repository-local recommended meanings:
 
 - `make help`: print the compact workflow task surface without bootstrapping local toolchains.
+- `make task-guide`: print the concise role and phase oriented target-selection view without bootstrapping local toolchains.
 - `make help-all`: print the exhaustive public workflow-tiered task surface without bootstrapping local toolchains.
 - `make doctor`: verify required local tools and pinned toolchain versions without installing them.
 - `make bootstrap`: install Go tools, install pnpm dependencies, and prepare local service prerequisites.
@@ -287,8 +289,8 @@ Repository-local recommended meanings:
 - `make db-reset`: recreate the local database and apply migrations.
 - `make dev`: run the Go server and, once present, the Vite dev server.
 - `make generate`: regenerate `sqlc` outputs and contract-derived outputs.
-- `make help-all` groups public commands by operator workflow: local dev, fast verification, full gates, investigate a run, phase maintenance, and release.
-- `make task-surface-report`, `make target-plan`, `make target-plan-json`, `make explain-target`, `make explain-run`, and `make fixture-report` are investigation commands for existing task-surface, target-plan, run-summary, scheduler-log, and fixture-cost artifacts.
+- `make help-all` remains the exhaustive public catalog grouped by operator workflow: local dev, fast verification, full gates, investigate a run, phase maintenance, and release.
+- `make task-guide`, `make task-surface-report`, `make target-plan`, `make target-plan-json`, `make explain-phase`, `make explain-target`, `make explain-run`, and `make fixture-report` are investigation commands for role or phase guidance, existing task-surface, target-plan, phase-manifest, run-summary, scheduler-log, and fixture-cost artifacts.
 - Duration-baseline refresh and drift commands belong to phase maintenance with generated-artifact, toolchain, migration, phase-ledger, phase-schedule, and benchmark-claim checks.
 - `make backend-store`: run the service-backed store-domain `U-*` backend slice that preserves unit-layer phase IDs while using real Postgres.
 - `make test-fast`: run the pure backend unit slice, the service-backed backend store and integration slices, explicit support integration and process-smoke coverage, frontend type-checking, and frontend unit tests.

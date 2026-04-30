@@ -385,6 +385,15 @@ benchmark-claim-check: $(NODE_BIN)
 task-surface-report: $(NODE_BIN)
 	$(Q)$(NODE_BIN) ./scripts/print-task-surface-report.mjs $(TASK_SURFACE_REPORT_ARGS)
 
+task-guide:
+	$(Q)set -euo pipefail; \
+	node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; \
+	args=(); \
+	if [ -n "$(ROLE)" ]; then args+=(--role "$(ROLE)"); fi; \
+	if [ -n "$(PHASE)" ]; then args+=(--phase "$(PHASE)"); fi; \
+	if [ "$(JSON)" = "1" ]; then args+=(--json); fi; \
+	"$$node_cmd" ./scripts/print-task-guide.mjs "$${args[@]}"
+
 test-service-images: $(TEST_SERVICES_BIN)
 	$(RUN_PHASE) "warm test service images" -- $(TEST_SERVICES_BIN) warm-images
 
@@ -419,9 +428,21 @@ explain-run:
 	if [ -n "$(TARGET)" ]; then args+=(--target "$(TARGET)"); fi; \
 	"$$node_cmd" ./scripts/print-explain-run.mjs "$${args[@]}"
 
+explain-phase:
+	$(Q)if [ -z "$(PHASE)" ]; then echo "usage: make explain-phase PHASE=<phaseN>" >&2; exit 2; fi
+	$(Q)set -euo pipefail; \
+	node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; \
+	args=(--phase "$(PHASE)"); \
+	if [ "$(JSON)" = "1" ]; then args+=(--json); fi; \
+	"$$node_cmd" ./scripts/print-explain-phase.mjs "$${args[@]}"
+
 explain-target:
-	$(Q)if [ -z "$(TARGET)" ]; then echo "usage: make explain-target TARGET=<backend target>" >&2; exit 2; fi
-	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/print-target-plan.mjs --target "$(TARGET)" $(if $(filter 0,$(DETAIL)),,--detail)
+	$(Q)if [ -z "$(TARGET)" ]; then echo "usage: make explain-target TARGET=<target> [DETAIL=summary|rows|artifacts]" >&2; exit 2; fi
+	$(Q)set -euo pipefail; \
+	node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; \
+	args=(--target "$(TARGET)" --detail "$(if $(DETAIL),$(DETAIL),summary)"); \
+	if [ "$(JSON)" = "1" ]; then args+=(--json); fi; \
+	"$$node_cmd" ./scripts/print-explain-target.mjs "$${args[@]}"
 
 go-test-duration-baselines:
 	$(Q)if [ -z "$(RESULTS_DIR)" ]; then echo "usage: make go-test-duration-baselines RESULTS_DIR=<successful test results dir>" >&2; exit 2; fi

@@ -183,14 +183,14 @@ make_output="$(
   CARTULARY_TEST_RESULTS_DIR="$results_dir" \
     "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" explain-target TARGET=backend-store
 )"
-assert_contains "$make_output" "backend-store" "make explain-target"
-assert_contains "$make_output" "phase1 unit authoritative" "make explain-target detailed default"
+assert_contains "$make_output" "Cartulary target guidance: backend-store" "make explain-target"
+assert_contains "$make_output" "phase_coverage:" "make explain-target summary"
 if [[ -d "$results_dir" ]] && [[ -n "$(find "$results_dir" -mindepth 1 -print -quit)" ]]; then
   fail "make explain-target must not create test report artifacts"
 fi
 
-make_compact_output="$("$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" explain-target TARGET=backend-store DETAIL=0)"
-assert_contains "$make_compact_output" "backend-store service_backed=1" "make explain-target compact mode"
+make_rows_output="$("$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" explain-target TARGET=backend-store DETAIL=rows)"
+assert_contains "$make_rows_output" "phase1 unit authoritative" "make explain-target row mode"
 
 phase_root="$tmp_dir/phase-root"
 mkdir -p "$phase_root/tools"
