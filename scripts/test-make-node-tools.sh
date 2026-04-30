@@ -63,6 +63,18 @@ assertArgs("task-guide", { ROLE: "feature-dev", PHASE: "phase4", JSON: "1" }, [
   "phase4",
   "--json",
 ]);
+assertArgs("phase-slice", { PHASE: "phase4" }, [
+  "--phase",
+  "phase4",
+  "--mode",
+  "phase",
+]);
+assertArgs("service-backed-slice", { PHASE: "phase4" }, [
+  "--phase",
+  "phase4",
+  "--mode",
+  "service-backed",
+]);
 assertArgs("explain-target", { TARGET: "backend-store" }, [
   "--target",
   "backend-store",
@@ -132,6 +144,8 @@ assertArgs("task-surface-report", { TASK_SURFACE_REPORT_ARGS: "--check --all" },
   "--all",
 ]);
 assertUsage("explain-run", {}, "make explain-run RESULTS_DIR=<root|run-dir>");
+assertUsage("phase-slice", {}, "make phase-slice PHASE=<phaseN>");
+assertUsage("service-backed-slice", {}, "make service-backed-slice PHASE=<phaseN>");
 assertUsage("go-test-duration-baselines", {}, "make go-test-duration-baselines RESULTS_DIR=<successful test results dir>");
 assertUsage("scheduler-event-order-drift", { CARTULARY_TEST_RESULTS_DIR: "/tmp/results" }, "make scheduler-event-order-drift");
 

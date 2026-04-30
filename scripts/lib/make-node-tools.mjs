@@ -101,6 +101,26 @@ export const makeNodeTools = {
       return args;
     },
   },
+  "phase-slice": {
+    script: "./scripts/run-phase-slice.mjs",
+    usage: "usage: make phase-slice PHASE=<phaseN>",
+    buildArgs(env) {
+      if (!hasValue(env, "PHASE")) {
+        throw new UsageError("PHASE is required", "usage: make phase-slice PHASE=<phaseN>");
+      }
+      return ["--phase", value(env, "PHASE"), "--mode", "phase"];
+    },
+  },
+  "service-backed-slice": {
+    script: "./scripts/run-phase-slice.mjs",
+    usage: "usage: make service-backed-slice PHASE=<phaseN>",
+    buildArgs(env) {
+      if (!hasValue(env, "PHASE")) {
+        throw new UsageError("PHASE is required", "usage: make service-backed-slice PHASE=<phaseN>");
+      }
+      return ["--phase", value(env, "PHASE"), "--mode", "service-backed"];
+    },
+  },
   "target-plan": {
     script: "./scripts/print-target-plan.mjs",
     usage: "usage: make target-plan",

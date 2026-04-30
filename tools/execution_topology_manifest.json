@@ -324,6 +324,14 @@
             "description": "run the narrower local verification loop"
           },
           {
+            "target": "phase-slice",
+            "description": "PHASE=phaseN run the selected phase target slice"
+          },
+          {
+            "target": "service-backed-slice",
+            "description": "PHASE=phaseN run the selected phase service-backed slice"
+          },
+          {
             "target": "backend-unit",
             "description": "run pure backend unit evidence"
           },
@@ -688,6 +696,14 @@
         "prerequisites": []
       },
       "task-guide": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "phase-slice": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "service-backed-slice": {
         "type": "node_tool",
         "prerequisites": []
       },
@@ -1460,6 +1476,28 @@
         ]
       },
       {
+        "name": "phase-slice",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/run-phase-slice.mjs",
+          "scripts/lib/task-guidance.mjs"
+        ]
+      },
+      {
+        "name": "service-backed-slice",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/run-phase-slice.mjs",
+          "scripts/lib/task-guidance.mjs"
+        ]
+      },
+      {
         "name": "task-surface-check",
         "classification": "check_internal",
         "included_in": [
@@ -2168,6 +2206,7 @@
           "harness-smoke-make-node-tools",
           "harness-smoke-execution-topology",
           "harness-smoke-task-guidance",
+          "harness-smoke-phase-slice",
           "harness-smoke-go-test-duration-baselines",
           "harness-smoke-service-backed-make-target-duration-baselines",
           "harness-smoke-browser-shard-plan",
@@ -2212,6 +2251,7 @@
           "harness-smoke-make-node-tools",
           "harness-smoke-execution-topology",
           "harness-smoke-task-guidance",
+          "harness-smoke-phase-slice",
           "harness-smoke-go-test-duration-baselines",
           "harness-smoke-service-backed-make-target-duration-baselines",
           "harness-smoke-browser-shard-plan",
@@ -2318,6 +2358,13 @@
         "name": "harness-smoke-task-guidance",
         "backing_scripts": [
           "scripts/test-task-guidance.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-phase-slice",
+        "backing_scripts": [
+          "scripts/test-run-phase-slice.sh",
+          "scripts/run-phase-slice.mjs"
         ]
       },
       {

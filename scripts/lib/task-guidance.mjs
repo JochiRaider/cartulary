@@ -366,6 +366,11 @@ function phaseRowsForTarget(target, rows) {
   return rows.filter((row) => row.target === target);
 }
 
+function phaseRowsForTargets(targets, rows) {
+  const targetSet = new Set(targets);
+  return rows.filter((row) => targetSet.has(row.target));
+}
+
 function summarizeRows(rows) {
   const counts = sectionCounts(rows);
   return {
@@ -457,6 +462,8 @@ export function phaseGuidance(phase, { root = repoRoot } = {}) {
       target,
       service_requirements: guidance?.service_requirements ?? [],
       scheduler_owner: guidance?.scheduler_owner ?? ["direct Make target"],
+      classification: guidance?.classification ?? null,
+      included_in: guidance?.included_in ?? [],
       counts: sectionCounts(rowsForTarget),
       execution_dependencies: executionDependencies,
       execution_categories: executionDependencyCategories(executionDependencies),
@@ -481,14 +488,39 @@ export function phaseGuidance(phase, { root = repoRoot } = {}) {
   };
 }
 
-function rowsByTarget(rows) {
-  const result = new Map();
-  for (const row of rows) {
-    const values = result.get(row.target) ?? [];
-    values.push(row);
-    result.set(row.target, values);
+export function phaseSlice(phase, { root = repoRoot, serviceBackedOnly = false } = {}) {
+  const phaseInfo = phaseGuidance(phase, { root });
+  if (!phaseInfo) {
+    return null;
   }
-  return result;
+  const childTargets = phaseInfo.targets
+    .filter((target) => !serviceBackedOnly || target.service_requirements.length > 0 || target.service_backed)
+    .map((target) => ({
+      target: target.target,
+      classification: target.classification,
+      included_in: target.included_in,
+      service_requirements: target.service_requirements,
+      scheduler_owner: target.scheduler_owner,
+      counts: target.counts,
+      execution_dependencies: target.execution_dependencies,
+      execution_categories: target.execution_categories,
+      service_backed: target.service_backed,
+    }));
+  const childTargetNames = childTargets.map((target) => target.target);
+  const rows = phaseRowsForTargets(childTargetNames, phaseInfo.rows);
+  const requirements = Array.from(
+    new Set(childTargets.flatMap((target) => target.service_requirements)),
+  );
+  return {
+    target: serviceBackedOnly ? "service-backed-slice" : "phase-slice",
+    phase: phaseInfo.phase,
+    mode: serviceBackedOnly ? "service_backed" : "phase",
+    service_backed_only: serviceBackedOnly,
+    child_targets: childTargets,
+    service_requirements: requirements,
+    phase_coverage: summarizeRows(rows),
+    no_op: childTargets.length === 0,
+  };
 }
 
 function recommendationForTarget(
@@ -520,6 +552,33 @@ function recommendationForTarget(
   };
 }
 
+function recommendationForPhaseSlice(
+  slice,
+  {
+    root = repoRoot,
+    phaseRelevance,
+    summaryOverride,
+  } = {},
+) {
+  const guidance = targetGuidance(slice.target, { root });
+  const coverage = slice.phase_coverage;
+  const executionDependencies = coverage?.execution_dependencies ?? [];
+  return {
+    target: `${slice.target} PHASE=${slice.phase}`,
+    summary: summaryOverride,
+    phase_relevance: phaseRelevance,
+    execution_dependencies: executionDependencies,
+    execution_categories: executionDependencyCategories(executionDependencies),
+    service_backed: executionDependencyServiceBacked(executionDependencies),
+    service_requirements: slice.service_requirements,
+    scheduler_owner: guidance?.scheduler_owner ?? ["direct Make target"],
+    latest_artifact: guidance?.artifact.latest?.path ?? "none",
+    expected_artifacts: guidance?.artifact.expected ?? [],
+    phase_coverage: coverage,
+    child_targets: slice.child_targets,
+  };
+}
+
 function defaultRecommendationTiers(definition, { phase = "", root = repoRoot } = {}) {
   return [
     {
@@ -538,7 +597,6 @@ function defaultRecommendationTiers(definition, { phase = "", root = repoRoot } 
 }
 
 function featureDevPhaseRecommendationTiers(definition, phaseInfo, { root = repoRoot } = {}) {
-  const phaseRowsByTarget = rowsByTarget(phaseInfo.rows);
   const phaseTargets = [...phaseInfo.targets].sort(comparePhaseTargets);
   const phaseTargetNames = new Set(phaseTargets.map((target) => target.target));
   const fullLocalGateTargets = ["test-fast", "check"];
@@ -546,24 +604,20 @@ function featureDevPhaseRecommendationTiers(definition, phaseInfo, { root = repo
     (target) => !phaseTargetNames.has(target) && !fullLocalGateTargets.includes(target),
   );
 
-  const phaseRecommendations = phaseTargets.map((target) =>
-    recommendationForTarget(target.target, {
+  const phaseRecommendations = [
+    recommendationForPhaseSlice(phaseSlice(phaseInfo.phase, { root }), {
       root,
-      phaseRows: phaseRowsByTarget.get(target.target) ?? [],
       phaseRelevance: "phase_slice",
-      summaryOverride: "selected phase execution dependency",
+      summaryOverride: "selected phase target slice",
     }),
-  );
-  const serviceBackedRecommendations = phaseTargets
-    .filter((target) => target.service_requirements.length > 0 || target.service_backed)
-    .map((target) =>
-      recommendationForTarget(target.target, {
-        root,
-        phaseRows: phaseRowsByTarget.get(target.target) ?? [],
-        phaseRelevance: "service_backed_slice",
-        summaryOverride: "selected phase service-backed execution dependency",
-      }),
-    );
+  ];
+  const serviceBackedRecommendations = [
+    recommendationForPhaseSlice(phaseSlice(phaseInfo.phase, { root, serviceBackedOnly: true }), {
+      root,
+      phaseRelevance: "service_backed_slice",
+      summaryOverride: "selected phase service-backed target slice",
+    }),
+  ];
   const fullLocalGateRecommendations = fullLocalGateTargets.map((target) =>
     recommendationForTarget(target, {
       root,

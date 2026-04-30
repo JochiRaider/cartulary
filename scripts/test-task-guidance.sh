@@ -96,11 +96,13 @@ phase4_feature_output="$(CARTULARY_TEST_RESULTS_DIR="$results_dir" "$NODE_BIN" "
 assert_contains "$phase4_feature_output" "minimal phase slice: direct targets that cover phase4" "phase4 feature-dev minimal tier"
 assert_contains "$phase4_feature_output" "service-backed slice: service-backed targets that cover phase4" "phase4 feature-dev service tier"
 assert_contains "$phase4_feature_output" "general hygiene: useful non-phase checks" "phase4 feature-dev hygiene tier"
-assert_contains "$phase4_feature_output" "make backend-unit | selected phase execution dependency | phase_relevance=phase_slice" "phase4 backend-unit phase slice"
-assert_contains "$phase4_feature_output" "make backend-store | selected phase execution dependency | phase_relevance=phase_slice" "phase4 backend-store phase slice"
-assert_contains "$phase4_feature_output" "make backend-integration | selected phase execution dependency | phase_relevance=phase_slice" "phase4 backend-integration phase slice"
-assert_contains "$phase4_feature_output" "make backend-integration-support | selected phase execution dependency | phase_relevance=phase_slice" "phase4 backend-integration-support phase slice"
-assert_contains "$phase4_feature_output" "make browser-e2e-webserver-backed | selected phase execution dependency | phase_relevance=phase_slice" "phase4 browser phase slice"
+assert_contains "$phase4_feature_output" "make phase-slice PHASE=phase4 | selected phase target slice | phase_relevance=phase_slice" "phase4 public phase slice"
+assert_contains "$phase4_feature_output" "make service-backed-slice PHASE=phase4 | selected phase service-backed target slice | phase_relevance=service_backed_slice" "phase4 public service-backed slice"
+assert_not_contains "$phase4_feature_output" "make backend-unit | selected phase execution dependency | phase_relevance=phase_slice" "phase4 backend-unit not direct phase slice"
+assert_not_contains "$phase4_feature_output" "make backend-store | selected phase execution dependency | phase_relevance=phase_slice" "phase4 backend-store not direct phase slice"
+assert_not_contains "$phase4_feature_output" "make backend-integration | selected phase execution dependency | phase_relevance=phase_slice" "phase4 backend-integration not direct phase slice"
+assert_not_contains "$phase4_feature_output" "make backend-integration-support | selected phase execution dependency | phase_relevance=phase_slice" "phase4 backend-integration-support not direct phase slice"
+assert_not_contains "$phase4_feature_output" "make browser-e2e-webserver-backed | selected phase execution dependency | phase_relevance=phase_slice" "phase4 browser not direct phase slice"
 assert_contains "$phase4_feature_output" "make frontend-unit | general hygiene outside the selected phase slice | phase_relevance=general_hygiene" "phase4 frontend-unit hygiene"
 assert_contains "$phase4_feature_output" "make lint | general hygiene outside the selected phase slice | phase_relevance=general_hygiene" "phase4 lint hygiene"
 assert_not_contains "$phase4_feature_output" "make frontend-unit | selected phase execution dependency | phase_relevance=phase_slice" "phase4 frontend-unit not phase slice"
@@ -108,9 +110,10 @@ assert_not_contains "$phase4_feature_output" "make lint | selected phase executi
 
 phase4_guide_json="$tmp_dir/task-guide-phase4.json"
 "$NODE_BIN" "$TASK_GUIDE" --role feature-dev --phase phase4 --json >"$phase4_guide_json"
-"$NODE_BIN" - "$phase4_guide_json" <<'EOF'
+"$NODE_BIN" - "$phase4_guide_json" "$ROOT_DIR/tools/task_surface_manifest.json" <<'EOF'
 const fs = require("node:fs");
 const guide = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const manifestPath = process.argv[3];
 const role = guide.roles.find((entry) => entry.role === "feature-dev");
 if (!role || !Array.isArray(role.recommendation_tiers)) {
   throw new Error("feature-dev must expose recommendation_tiers");
@@ -124,7 +127,22 @@ for (const name of ["minimal phase slice", "service-backed slice", "full local g
     throw new Error(`missing tier ${name}`);
   }
 }
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const classificationByTarget = new Map(manifest.targets.map((target) => [target.name, target.classification]));
+for (const tier of role.recommendation_tiers) {
+  for (const item of tier.recommendations) {
+    const commandTarget = item.target.split(/\s+/)[0];
+    if (classificationByTarget.get(commandTarget) !== "public") {
+      throw new Error(`task-guide recommendation ${item.target} must reference a public target`);
+    }
+  }
+}
 const minimalTargets = new Set(tierByName.get("minimal phase slice").recommendations.map((item) => item.target));
+if (minimalTargets.size !== 1 || !minimalTargets.has("phase-slice PHASE=phase4")) {
+  throw new Error("phase4 minimal slice must recommend only phase-slice PHASE=phase4");
+}
+const phaseSlice = tierByName.get("minimal phase slice").recommendations[0];
+const phaseSliceChildren = new Set(phaseSlice.child_targets.map((item) => item.target));
 for (const target of [
   "backend-unit",
   "backend-store",
@@ -132,13 +150,17 @@ for (const target of [
   "backend-integration-support",
   "browser-e2e-webserver-backed",
 ]) {
-  if (!minimalTargets.has(target)) {
-    throw new Error(`phase4 minimal slice missing ${target}`);
+  if (!phaseSliceChildren.has(target)) {
+    throw new Error(`phase4 minimal slice children missing ${target}`);
   }
 }
+const supportChild = phaseSlice.child_targets.find((item) => item.target === "backend-integration-support");
+if (!supportChild || supportChild.classification !== "check_internal") {
+  throw new Error("phase4 support child must remain check_internal");
+}
 for (const target of ["frontend-unit", "lint"]) {
-  if (minimalTargets.has(target)) {
-    throw new Error(`phase4 minimal slice must not include ${target}`);
+  if (phaseSliceChildren.has(target)) {
+    throw new Error(`phase4 minimal slice children must not include ${target}`);
   }
 }
 for (const item of tierByName.get("minimal phase slice").recommendations) {
@@ -147,17 +169,22 @@ for (const item of tierByName.get("minimal phase slice").recommendations) {
   }
 }
 const serviceTargets = new Set(tierByName.get("service-backed slice").recommendations.map((item) => item.target));
+if (serviceTargets.size !== 1 || !serviceTargets.has("service-backed-slice PHASE=phase4")) {
+  throw new Error("phase4 service-backed slice must recommend only service-backed-slice PHASE=phase4");
+}
+const serviceSlice = tierByName.get("service-backed slice").recommendations[0];
+const serviceChildren = new Set(serviceSlice.child_targets.map((item) => item.target));
 for (const target of [
   "backend-store",
   "backend-integration",
   "backend-integration-support",
   "browser-e2e-webserver-backed",
 ]) {
-  if (!serviceTargets.has(target)) {
-    throw new Error(`phase4 service-backed slice missing ${target}`);
+  if (!serviceChildren.has(target)) {
+    throw new Error(`phase4 service-backed slice children missing ${target}`);
   }
 }
-if (serviceTargets.has("backend-unit")) {
+if (serviceChildren.has("backend-unit")) {
   throw new Error("backend-unit must not be in the service-backed slice");
 }
 const gateTargets = new Set(tierByName.get("full local gate").recommendations.map((item) => item.target));
@@ -182,9 +209,10 @@ const fs = require("node:fs");
 const guide = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const role = guide.roles.find((entry) => entry.role === "feature-dev");
 const tierByName = new Map(role.recommendation_tiers.map((tier) => [tier.name, tier]));
-const minimalTargets = new Set(tierByName.get("minimal phase slice").recommendations.map((item) => item.target));
-if (!minimalTargets.has("frontend-unit")) {
-  throw new Error("phase3 frontend-unit evidence must stay in the minimal phase slice");
+const phaseSlice = tierByName.get("minimal phase slice").recommendations[0];
+const phaseSliceChildren = new Set(phaseSlice.child_targets.map((item) => item.target));
+if (!phaseSliceChildren.has("frontend-unit")) {
+  throw new Error("phase3 frontend-unit evidence must stay in the minimal phase slice children");
 }
 const hygieneTargets = new Set(tierByName.get("general hygiene").recommendations.map((item) => item.target));
 if (hygieneTargets.has("frontend-unit")) {
@@ -196,6 +224,8 @@ phase_output="$("$NODE_BIN" "$EXPLAIN_PHASE" --phase phase1)"
 assert_contains "$phase_output" "Cartulary phase guidance: phase1" "explain-phase header"
 assert_contains "$phase_output" "targets:" "explain-phase targets"
 assert_contains "$phase_output" "make backend-store" "explain-phase backend-store target"
+assert_not_contains "$phase_output" "make backend-integration-support" "explain-phase does not recommend internal support target"
+assert_contains "$phase_output" "internal target backend-integration-support classification=check_internal" "explain-phase shows internal support coverage"
 assert_contains "$phase_output" "ledger: docs/testing/phase1_coverage_ledger.md" "explain-phase ledger"
 
 phase_json="$tmp_dir/explain-phase.json"

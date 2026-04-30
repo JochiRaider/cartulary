@@ -49,8 +49,16 @@ function renderHuman(phase) {
   lines.push("");
   lines.push("targets:");
   for (const target of phase.targets) {
+    const command =
+      target.classification === "public"
+        ? `make ${target.target}`
+        : `internal target ${target.target}`;
+    const classification =
+      target.classification && target.classification !== "public"
+        ? ` classification=${target.classification}`
+        : "";
     lines.push(
-      `  make ${target.target} services=${formatRequirements(target.service_requirements)} scheduler=${target.scheduler_owner.join(";")} coverage=${formatPhaseCoverage({ ...target.counts, phases: [phase.phase], execution_dependencies: target.execution_dependencies })}`,
+      `  ${command}${classification} services=${formatRequirements(target.service_requirements)} scheduler=${target.scheduler_owner.join(";")} coverage=${formatPhaseCoverage({ ...target.counts, phases: [phase.phase], execution_dependencies: target.execution_dependencies })}`,
     );
   }
   return lines.join("\n");

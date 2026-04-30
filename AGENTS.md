@@ -27,9 +27,10 @@
 
 - Compact help: `make help`.
 - Guided target selection: `make task-guide [ROLE=<role>] [PHASE=phaseN]`.
+- Phase slices: `make phase-slice PHASE=phaseN`, `make service-backed-slice PHASE=phaseN`.
 - Exhaustive workflow help: `make help-all`.
 - Local dev: `make doctor`, `make bootstrap`, `make bootstrap-node-runtime`, `make frontend-toolchain`, `make frontend-install`, `make playwright-install`, `make db-up`, `make db-reset`, `make services-up`, `make minio-init`, `make dev`, `make generate`, `make format`, `make clean`.
-- Fast verification: `make test-fast`, `make backend-unit`, `make backend-store`, `make backend-integration`, `make backend-process`, `make frontend-typecheck`, `make frontend-unit`, `make lint`, `make lint-biome`.
+- Fast verification: `make test-fast`, `make phase-slice PHASE=phaseN`, `make service-backed-slice PHASE=phaseN`, `make backend-unit`, `make backend-store`, `make backend-integration`, `make backend-process`, `make frontend-typecheck`, `make frontend-unit`, `make lint`, `make lint-biome`.
 - Full gates: `make test`, `make check`, `make browser-e2e`, `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make browser-e2e-measurement`, `make browser-e2e-visual`.
 - Investigate a run: `make task-guide [ROLE=<role>] [PHASE=phaseN]`, `make task-surface-report`, `make target-plan`, `make target-plan-json`, `make explain-phase PHASE=phaseN`, `make explain-target TARGET=<target> [DETAIL=summary|rows|artifacts]`, `make explain-run RESULTS_DIR=<root|run-dir>`, `make fixture-report RESULTS_DIR=<root|run-dir>`.
 - Phase maintenance: `make generate-drift`, `make toolchain-drift`, `make migration-drift`, `make phase-ledgers`, `make phase-ledger-drift`, `make phase-schedules`, `make phase-schedule-drift`, `make benchmark-claim-check`, `make go-test-duration-baselines RESULTS_DIR=<dir>`, `make go-test-duration-baseline-coverage`, `make go-test-duration-baseline-drift RESULTS_DIR=<dir>`, `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>`, `make scheduler-event-order-drift RESULTS_DIR=<dir> [TARGET=<target>]`.
@@ -51,7 +52,7 @@
 - Then run `make dev`.
 - The local bootstrap server uses `configs/dev/config.toml` through `CARTULARY_CONFIG_FILE`.
 - `make help` prints the compact workflow task surface without bootstrapping Node or pnpm.
-- `make task-guide [ROLE=<local-dev|feature-dev|phase-author|ci-investigator|release>] [PHASE=phaseN]` prints the concise role and phase oriented "which target should I run?" view with service requirements, scheduler ownership, latest artifact paths, and phase coverage.
+- `make task-guide [ROLE=<local-dev|feature-dev|phase-author|ci-investigator|release>] [PHASE=phaseN]` prints the concise role and phase oriented "which target should I run?" view with service requirements, scheduler ownership, latest artifact paths, and phase coverage; feature-dev phase guidance recommends the public `phase-slice` and `service-backed-slice` wrappers rather than internal support targets.
 - `make help-all` prints the exhaustive public workflow-tiered task surface without bootstrapping Node or pnpm.
 - `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all` prints public targets plus private/check-internal task-surface diagnostics.
 - `make doctor` verifies required local tools and pinned toolchain versions without installing them.
@@ -59,6 +60,8 @@
 - `make phase-ledgers` regenerates the committed phase coverage ledgers from `tools/phase*_test_map.json`.
 - `make phase-ledger-drift` verifies committed phase coverage ledgers match the phase manifests without requiring Docker or service-backed tests.
 - `make backend-store` runs the service-backed store-domain `U-*` backend slice that keeps unit-layer phase IDs while using real Postgres.
+- `make phase-slice PHASE=phaseN` runs the public target-level slice selected from the phase manifest, including internal support evidence as child work when the phase declares it.
+- `make service-backed-slice PHASE=phaseN` runs the selected phase's service-backed target-level slice and reports an explicit no-op when the phase has no service-backed work.
 - `make target-plan` and `make target-plan-json` inspect the backend Go target execution plan without running tests or starting services.
 - `make explain-phase PHASE=phaseN` inspects one phase manifest, coverage ledger path, execution dependencies, service requirements, and target coverage without running tests or starting services.
 - `make explain-target TARGET=<target> [DETAIL=summary|rows|artifacts]` inspects backend, frontend, browser, aggregate, check, and release targets without running tests or starting services.
