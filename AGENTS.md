@@ -77,7 +77,7 @@
 - `make clean` removes reproducible repo-local build and report artifacts while preserving checked-in files and external Go caches.
 - `make distclean` additionally removes repo-local tool/runtime caches after printing the removal list.
 - `make check` and `make ci` quiet output is the default. Use `VERBOSE=1` when you need the full streaming logs for investigation.
-- If a `check-heavy` child fails under parallel execution, GNU Make may still print `Waiting for unfinished jobs....` while sibling jobs drain; that line is expected orchestration output, not a second root cause.
+- If a check-scheduler work unit fails under parallel execution, GNU Make may still print `Waiting for unfinished jobs....` while sibling jobs drain; that line is expected orchestration output, not a second root cause.
 - Shell-backed verification wrappers such as frontend lint or migration drift report as non-test failures rather than unmapped test inventory when they exit non-zero.
 - From PowerShell, prefer repo commands through `wsl.exe -d Ubuntu-24.04 --cd /home/askahn/code/cartulary ...`; for Node/pnpm, prepend `/home/askahn/code/cartulary/tmp/node-runtime/bin` to `PATH` and use `corepack pnpm`.
 - If Git on the UNC WSL path reports dubious ownership, retry with `git -c safe.directory=//wsl.localhost/Ubuntu-24.04/home/askahn/code/cartulary ...`.

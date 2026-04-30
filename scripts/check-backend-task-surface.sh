@@ -320,23 +320,11 @@ check_build_prereqs_line="$(sed -n 's/^check-build-prereqs:[[:space:]]*//p' "$ma
 if [[ -z "$check_build_prereqs_line" ]]; then
   fail "Makefile must define check-build-prereqs prerequisites"
 fi
-check_local_product_line="$(sed -n 's/^check-local-product:[[:space:]]*//p' "$makefile" | head -n 1)"
-if [[ -z "$check_local_product_line" ]]; then
-  fail "Makefile must define check-local-product prerequisites"
-fi
-check_meta_validation_line="$(sed -n 's/^check-meta-validation:[[:space:]]*//p' "$makefile" | head -n 1)"
-if [[ -z "$check_meta_validation_line" ]]; then
-  fail "Makefile must define check-meta-validation prerequisites"
-fi
-if ! printf '%s\n' "$check_meta_validation_line" | rg -q '(^|[[:space:]])check-static-validation($|[[:space:]])'; then
-  fail "check-meta-validation must include static validation"
-fi
-if ! printf '%s\n' "$check_meta_validation_line" | rg -q '(^|[[:space:]])check-harness-smoke($|[[:space:]])'; then
-  fail "check-meta-validation must include harness smoke"
-fi
-
-assert_text_contains_targets "check-local-product prerequisites" "$check_local_product_line" "${target_plan_check_heavy_targets[@]}"
-assert_text_excludes_targets "check-local-product prerequisites" "$check_local_product_line" "${target_plan_service_backed_safe_targets[@]}" "${target_plan_service_backed_unsafe_targets[@]}"
+for removed_check_bundle in check-static-validation check-local-product check-meta-validation; do
+  if rg -q "^${removed_check_bundle}:" "$generated_make" "$makefile"; then
+    fail "$removed_check_bundle must not remain as a scheduled check bundle target"
+  fi
+done
 
 if ! [[ -f "$check_schedule_manifest" ]]; then
   fail "missing tools/check_schedule_manifest.json"
@@ -360,7 +348,32 @@ fi
 if printf '%s\n' "$check_block" | grep -Fq -- '--step browser-e2e'; then
   fail "check must not run browser-e2e as a final serial step"
 fi
-for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-go-test-duration-baseline-drift check-local-product check-frontend-unit check-meta-validation; do
+for scheduled_target in \
+  check-setup-blockers \
+  check-build-prereqs \
+  check-service-backed \
+  check-go-test-duration-baseline-drift \
+  check-browser-e2e-duration-baseline-drift \
+  migration-drift \
+  deployable-shape \
+  backend-unit \
+  frontend-typecheck \
+  lint-go \
+  check-frontend-unit \
+  check-harness-smoke \
+  lint-biome \
+  phase-test-name-check \
+  task-surface-check \
+  browser-e2e-task-surface-check \
+  frontend-task-surface-check \
+  backend-task-surface-check \
+  phase-map-check \
+  go-test-duration-baseline-coverage \
+  phase-ledger-drift \
+  phase-schedule-drift \
+  service-backed-unit-check \
+  generate-drift
+do
   check_schedule_field "$scheduled_target" target >/dev/null
 done
 "$node_bin" - "$check_schedule_manifest" <<'EOF'
@@ -379,9 +392,30 @@ const schedule = schedules[0];
 if ((schedule.work_units ?? []).some((entry) => entry.target === "browser-e2e")) {
   throw new Error("browser-e2e must be service-backed scheduler work, not a top-level check work unit");
 }
+for (const removed of ["check-static-validation", "check-local-product", "check-meta-validation"]) {
+  if ((schedule.work_units ?? []).some((entry) => entry.target === removed)) {
+    throw new Error(`${removed} must not remain in the check schedule`);
+  }
+}
 const limits = schedule.resource_limits ?? {};
 if (limits.host_cpu !== 12 || limits.host_io !== 12 || limits.service_stack !== 1) {
   throw new Error("check schedule must declare host_cpu, host_io, and service_stack limits");
+}
+const build = (schedule.work_units ?? []).find((entry) => entry.target === "check-build-prereqs");
+if (!build) {
+  throw new Error("missing check-build-prereqs work unit");
+}
+const buildCpu = build.resource_claims?.host_cpu;
+if (
+  !buildCpu ||
+  typeof buildCpu !== "object" ||
+  Array.isArray(buildCpu) ||
+  buildCpu.mode !== "bounded_limit" ||
+  buildCpu.reserve !== 3 ||
+  buildCpu.min !== 1 ||
+  buildCpu.max !== 8
+) {
+  throw new Error("check-build-prereqs must claim bounded host_cpu with reserve=3 min=1 max=8");
 }
 const service = (schedule.work_units ?? []).find((entry) => entry.target === "check-service-backed");
 if (!service) {
@@ -421,13 +455,39 @@ EOF
 if [[ "$(check_schedule_field check-build-prereqs needs)" != "check-setup-blockers" ]]; then
   fail "check-build-prereqs must depend on check-setup-blockers in the check schedule"
 fi
-for scheduled_target in check-service-backed check-local-product check-frontend-unit check-meta-validation; do
+for scheduled_target in check-service-backed migration-drift deployable-shape; do
   if [[ "$(check_schedule_field "$scheduled_target" needs)" != "check-build-prereqs" ]]; then
     fail "$scheduled_target must depend on check-build-prereqs in the check schedule"
   fi
 done
+for scheduled_target in \
+  backend-unit \
+  frontend-typecheck \
+  lint-go \
+  check-frontend-unit \
+  check-harness-smoke \
+  lint-biome \
+  phase-test-name-check \
+  task-surface-check \
+  browser-e2e-task-surface-check \
+  frontend-task-surface-check \
+  backend-task-surface-check \
+  phase-map-check \
+  go-test-duration-baseline-coverage \
+  phase-ledger-drift \
+  phase-schedule-drift \
+  service-backed-unit-check \
+  generate-drift
+do
+  if [[ "$(check_schedule_field "$scheduled_target" needs)" != "check-setup-blockers" ]]; then
+    fail "$scheduled_target must depend on check-setup-blockers in the check schedule"
+  fi
+done
 if [[ "$(check_schedule_field check-go-test-duration-baseline-drift needs)" != "check-service-backed" ]]; then
   fail "check-go-test-duration-baseline-drift must depend on check-service-backed in the check schedule"
+fi
+if [[ "$(check_schedule_field check-browser-e2e-duration-baseline-drift needs)" != "check-service-backed" ]]; then
+  fail "check-browser-e2e-duration-baseline-drift must depend on check-service-backed in the check schedule"
 fi
 if [[ "$(check_schedule_field check-service-backed resource_claims)" != "host_cpu,host_io,service_stack" ]]; then
   fail "check-service-backed must claim host_cpu, host_io, and service_stack resources in the check schedule"

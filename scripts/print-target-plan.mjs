@@ -46,7 +46,7 @@ function parseArgs(argv) {
 function describeSafety(row) {
   const values = [];
   if (row.check_heavy_safe) {
-    values.push("check-local-product");
+    values.push("backend-unit");
   }
   if (row.check_service_backed_safe) {
     values.push("check-service-backed");
@@ -125,7 +125,7 @@ function aggregateTargetRows(rows) {
       aggregate.execution_families.add(row.execution_family);
     }
     if (row.check_heavy_safe) {
-      aggregate.safety.add("check-local-product");
+      aggregate.safety.add("backend-unit");
     }
     if (row.check_service_backed_safe) {
       aggregate.safety.add("check-service-backed");

@@ -490,20 +490,6 @@ check-setup-blockers: $(NODE_BIN)
 		$(MAKE) --no-print-directory frontend-install; \
 	fi
 
-check-static-validation:
-	$(Q)$(MAKE) --no-print-directory lint-biome
-	$(Q)$(MAKE) --no-print-directory phase-test-name-check
-	$(Q)$(MAKE) --no-print-directory task-surface-check
-	$(Q)$(MAKE) --no-print-directory browser-e2e-task-surface-check
-	$(Q)$(MAKE) --no-print-directory frontend-task-surface-check
-	$(Q)$(MAKE) --no-print-directory backend-task-surface-check
-	$(Q)$(MAKE) --no-print-directory phase-map-check
-	$(Q)$(MAKE) --no-print-directory go-test-duration-baseline-coverage
-	$(Q)$(MAKE) --no-print-directory phase-ledger-drift
-	$(Q)$(MAKE) --no-print-directory phase-schedule-drift
-	$(Q)$(MAKE) --no-print-directory service-backed-unit-check
-	$(Q)$(MAKE) --no-print-directory generate-drift
-
 check-harness-smoke:
 	$(Q)$(MAKE) --no-print-directory run-harness-smoke-fast
 	$(TARGET_SUMMARY) check-harness-smoke pass --projection check-harness-smoke
@@ -513,11 +499,7 @@ check-harness-smoke:
 # so service-backed work can start as soon as these artifacts are ready.
 check-build-prereqs: build-server build-migrate test-service-images
 
-check-local-product: migration-drift lint-go frontend-typecheck backend-unit deployable-shape
-
 check-frontend-unit: frontend-unit
-
-check-meta-validation: check-static-validation check-harness-smoke
 
 license-report:
 	$(RUN_PHASE) "license-report" -- ./scripts/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"

@@ -339,32 +339,11 @@ do
   require_browser_owned_stack_target_uses_built_binaries "$browser_owned_stack_target"
 done
 
-check_local_product_line="$(sed -n 's/^check-local-product:[[:space:]]*//p' "$makefile" | head -n 1)"
-if [[ -z "$check_local_product_line" ]]; then
-  fail "Makefile must define check-local-product prerequisites"
-fi
-check_meta_validation_line="$(sed -n 's/^check-meta-validation:[[:space:]]*//p' "$makefile" | head -n 1)"
-if [[ -z "$check_meta_validation_line" ]]; then
-  fail "Makefile must define check-meta-validation prerequisites"
-fi
-if ! printf '%s\n' "$check_meta_validation_line" | rg -q '(^|[[:space:]])check-static-validation($|[[:space:]])'; then
-  fail "check-meta-validation must include static validation without moving browser suites into local product checks"
-fi
-if ! printf '%s\n' "$check_meta_validation_line" | rg -q '(^|[[:space:]])check-harness-smoke($|[[:space:]])'; then
-  fail "check-meta-validation must include harness smoke without moving browser suites into local product checks"
-fi
-
-read -r -a local_product_prereqs <<<"$check_local_product_line"
-browser_targets=()
-for prereq in "${local_product_prereqs[@]}"; do
-  if [[ "$prereq" == browser-e2e* ]]; then
-    browser_targets+=("$prereq")
+for removed_check_bundle in check-static-validation check-local-product check-meta-validation; do
+  if rg -q "^${removed_check_bundle}:" "$generated_make" "$makefile"; then
+    fail "$removed_check_bundle must not remain as a scheduled check bundle target"
   fi
 done
-
-if [[ "${#browser_targets[@]}" -ne 0 ]]; then
-  fail "check-local-product must not include browser-e2e* prerequisites, found: ${browser_targets[*]}"
-fi
 
 browser_e2e_block="$(extract_target_block browser-e2e)"
 if [[ -z "$browser_e2e_block" ]]; then
@@ -500,9 +479,39 @@ if ! [[ -f "$check_schedule_manifest" ]]; then
   fail "missing tools/check_schedule_manifest.json"
 fi
 check_schedule_text="$(check_schedule_targets)"
-for scheduled_target in check-setup-blockers check-build-prereqs check-service-backed check-go-test-duration-baseline-drift check-browser-e2e-duration-baseline-drift check-local-product check-frontend-unit check-meta-validation; do
+for scheduled_target in \
+  check-setup-blockers \
+  check-build-prereqs \
+  check-service-backed \
+  check-go-test-duration-baseline-drift \
+  check-browser-e2e-duration-baseline-drift \
+  migration-drift \
+  deployable-shape \
+  backend-unit \
+  frontend-typecheck \
+  lint-go \
+  check-frontend-unit \
+  check-harness-smoke \
+  lint-biome \
+  phase-test-name-check \
+  task-surface-check \
+  browser-e2e-task-surface-check \
+  frontend-task-surface-check \
+  backend-task-surface-check \
+  phase-map-check \
+  go-test-duration-baseline-coverage \
+  phase-ledger-drift \
+  phase-schedule-drift \
+  service-backed-unit-check \
+  generate-drift
+do
   if ! printf '%s\n' "$check_schedule_text" | rg -q "^${scheduled_target}$"; then
     fail "check schedule must include $scheduled_target"
+  fi
+done
+for removed_check_bundle in check-static-validation check-local-product check-meta-validation; do
+  if printf '%s\n' "$check_schedule_text" | rg -q "^${removed_check_bundle}$"; then
+    fail "check schedule must not include removed bundle $removed_check_bundle"
   fi
 done
 if printf '%s\n' "$check_schedule_text" | rg -q '^browser-e2e$'; then

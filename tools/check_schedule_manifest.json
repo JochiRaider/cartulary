@@ -56,7 +56,12 @@
             "check-setup-blockers"
           ],
           "resource_claims": {
-            "host_cpu": "limit"
+            "host_cpu": {
+              "mode": "bounded_limit",
+              "reserve": 3,
+              "min": 1,
+              "max": 8
+            }
           },
           "make_jobs": "host_cpu"
         },
@@ -121,14 +126,62 @@
           "make_jobs": "host_cpu"
         },
         {
-          "target": "check-local-product",
-          "weight": 20000,
+          "target": "migration-drift",
+          "weight": 27000,
           "needs": [
             "check-build-prereqs"
           ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "deployable-shape",
+          "weight": 26000,
+          "needs": [
+            "check-build-prereqs"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "backend-unit",
+          "weight": 25000,
+          "needs": [
+            "check-setup-blockers"
+          ],
           "produces_summary_targets": [
-            "backend-unit",
+            "backend-unit"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "frontend-typecheck",
+          "weight": 24000,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "produces_summary_targets": [
             "frontend-typecheck"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "lint-go",
+          "weight": 23000,
+          "needs": [
+            "check-setup-blockers"
           ],
           "resource_claims": {
             "host_cpu": 1
@@ -139,7 +192,7 @@
           "target": "check-frontend-unit",
           "weight": 15000,
           "needs": [
-            "check-build-prereqs"
+            "check-setup-blockers"
           ],
           "produces_summary_targets": [
             "frontend-unit"
@@ -150,16 +203,152 @@
           "make_jobs": "host_cpu"
         },
         {
-          "target": "check-meta-validation",
-          "weight": 10000,
+          "target": "check-harness-smoke",
+          "weight": 14000,
           "needs": [
-            "check-build-prereqs"
+            "check-setup-blockers"
           ],
           "produces_summary_targets": [
             "check-harness-smoke"
           ],
           "resource_claims": {
             "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "lint-biome",
+          "weight": 13000,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "phase-test-name-check",
+          "weight": 12000,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "task-surface-check",
+          "weight": 11900,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "browser-e2e-task-surface-check",
+          "weight": 11800,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "frontend-task-surface-check",
+          "weight": 11700,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "backend-task-surface-check",
+          "weight": 11600,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "phase-map-check",
+          "weight": 11500,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "go-test-duration-baseline-coverage",
+          "weight": 11400,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "phase-ledger-drift",
+          "weight": 11300,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "phase-schedule-drift",
+          "weight": 11200,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "service-backed-unit-check",
+          "weight": 11100,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "generate-drift",
+          "weight": 11000,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
           },
           "make_jobs": "host_cpu"
         }

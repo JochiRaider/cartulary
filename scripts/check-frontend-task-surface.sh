@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 makefile="$repo_root/Makefile"
 generated_make="$repo_root/tools/task_surface.generated.mk"
+check_schedule_manifest="$repo_root/tools/check_schedule_manifest.json"
 runner_script="$repo_root/scripts/run-frontend-unit.sh"
 node_bin="${NODE_BIN:-node}"
 
@@ -146,28 +147,31 @@ check_prereqs="$(extract_target_prereqs check)"
 if printf '%s\n' "$check_prereqs" | rg -q 'FRONTEND_INSTALL_STAMP'; then
   fail "check must not depend directly on FRONTEND_INSTALL_STAMP"
 fi
-check_meta_validation_prereqs="$(extract_target_prereqs check-meta-validation)"
-if ! printf '%s\n' "$check_meta_validation_prereqs" | rg -q '(^|[[:space:]])check-static-validation($|[[:space:]])'; then
-  fail "check-meta-validation must include check-static-validation"
-fi
-if ! printf '%s\n' "$check_meta_validation_prereqs" | rg -q '(^|[[:space:]])check-harness-smoke($|[[:space:]])'; then
-  fail "check-meta-validation must include check-harness-smoke"
-fi
-check_static_block="$(extract_target_block check-static-validation)"
-if [[ -z "$check_static_block" ]]; then
-  fail "Makefile must define a non-empty check-static-validation block"
-fi
-if ! printf '%s\n' "$check_static_block" | rg -q 'frontend-task-surface-check'; then
-  fail "check-static-validation must invoke frontend-task-surface-check"
-fi
+"$node_bin" - "$check_schedule_manifest" <<'EOF'
+const fs = require("node:fs");
+const [manifestFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+const schedule = (manifest.schedules ?? []).find((entry) => entry.target === "check");
+if (!schedule) {
+  throw new Error("missing check schedule");
+}
+const targets = new Set((schedule.work_units ?? []).map((entry) => entry.target));
+for (const removed of ["check-static-validation", "check-local-product", "check-meta-validation"]) {
+  if (targets.has(removed)) {
+    throw new Error(`${removed} must not remain scheduled after leaf check expansion`);
+  }
+}
+for (const required of ["frontend-typecheck", "frontend-task-surface-check", "lint-biome", "check-harness-smoke"]) {
+  if (!targets.has(required)) {
+    throw new Error(`check schedule must include ${required}`);
+  }
+}
+EOF
 if ! rg -q '^phase-ledgers:' "$makefile"; then
   fail "Makefile must define phase-ledgers"
 fi
 if ! rg -q '^phase-ledger-drift:' "$makefile"; then
   fail "Makefile must define phase-ledger-drift"
-fi
-if ! printf '%s\n' "$check_static_block" | rg -q 'phase-ledger-drift'; then
-  fail "check-static-validation must invoke phase-ledger-drift"
 fi
 
 if ! [[ -f "$runner_script" ]]; then
@@ -233,14 +237,6 @@ for (const target of ["test-local", "test-fast-service-backed"]) {
   }
 }
 EOF
-
-check_local_product_prereqs="$(extract_target_prereqs check-local-product)"
-if [[ -z "$check_local_product_prereqs" ]]; then
-  fail "Makefile must define non-empty check-local-product prerequisites"
-fi
-if ! printf '%s\n' "$check_local_product_prereqs" | rg -q '(^|[[:space:]])frontend-typecheck($|[[:space:]])'; then
-  fail "check-local-product must invoke frontend-typecheck"
-fi
 
 mapfile -t manifest_phases < <("$node_bin" - "$repo_root" <<'EOF'
 const fs = require("fs");
