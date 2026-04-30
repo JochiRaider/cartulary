@@ -61,6 +61,93 @@ func TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPrefer
 	if userPrefs.IncidentID != result.Incident.ID || userPrefs.UserID != actor.ID {
 		t.Fatalf("unexpected user workbook preferences: %#v", userPrefs)
 	}
+
+	secondActor := phase2storetest.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"phase2-u202-second@example.test",
+		"Phase 2 U202 Second",
+		"Phase2U202Second1!",
+		false,
+		false,
+		true,
+	)
+
+	ctx := context.Background()
+	timelineRef := []byte(`{"kind":"view_schema","id":"cartulary.view.timeline.v1"}`)
+	timelineRefReordered := []byte(`{"id":"cartulary.view.timeline.v1","kind":"view_schema"}`)
+	hostsRef := []byte(`{"kind":"view_schema","id":"cartulary.view.hosts.v1"}`)
+	firstTime := time.Date(2026, 4, 17, 10, 0, 0, 0, time.UTC)
+	noOpTime := firstTime.Add(time.Hour)
+	changeTime := firstTime.Add(2 * time.Hour)
+
+	if _, err := harness.DB.Exec(ctx, `
+DELETE FROM user_workbook_preferences
+ WHERE incident_id = $1
+   AND user_id = $2
+`, result.Incident.ID, actor.ID); err != nil {
+		t.Fatalf("delete bootstrap user workbook preferences: %v", err)
+	}
+	userCreated, err := store.PutUserWorkbookPreferences(ctx, result.Incident.ID, actor.ID, timelineRef, firstTime)
+	if err != nil {
+		t.Fatalf("create user workbook preferences: %v", err)
+	}
+	requireWorkbookSheetRefID(t, userCreated.HomeSheetRef, "cartulary.view.timeline.v1")
+	if !userCreated.CreatedAt.Equal(firstTime) || !userCreated.UpdatedAt.Equal(firstTime) {
+		t.Fatalf("unexpected created user preference timestamps: %#v", userCreated)
+	}
+
+	userNoOp, err := store.PutUserWorkbookPreferences(ctx, result.Incident.ID, actor.ID, timelineRefReordered, noOpTime)
+	if err != nil {
+		t.Fatalf("no-op user workbook preferences: %v", err)
+	}
+	if !userNoOp.UpdatedAt.Equal(firstTime) {
+		t.Fatalf("structural no-op must preserve user updated_at: before=%s after=%s", firstTime, userNoOp.UpdatedAt)
+	}
+
+	userChanged, err := store.PutUserWorkbookPreferences(ctx, result.Incident.ID, actor.ID, hostsRef, changeTime)
+	if err != nil {
+		t.Fatalf("update user workbook preferences: %v", err)
+	}
+	requireWorkbookSheetRefID(t, userChanged.HomeSheetRef, "cartulary.view.hosts.v1")
+	if !userChanged.UpdatedAt.Equal(changeTime) {
+		t.Fatalf("effective user update must advance updated_at once: %#v", userChanged)
+	}
+
+	if _, err := harness.DB.Exec(ctx, `
+DELETE FROM incident_workbook_preferences
+ WHERE incident_id = $1
+`, result.Incident.ID); err != nil {
+		t.Fatalf("delete bootstrap default workbook preferences: %v", err)
+	}
+	defaultCreated, err := store.PutIncidentWorkbookPreferences(ctx, result.Incident.ID, actor.ID, timelineRef, firstTime)
+	if err != nil {
+		t.Fatalf("create default workbook preferences: %v", err)
+	}
+	requireWorkbookSheetRefID(t, defaultCreated.DefaultSheetRef, "cartulary.view.timeline.v1")
+	if defaultCreated.UpdatedByUserID == nil || *defaultCreated.UpdatedByUserID != actor.ID {
+		t.Fatalf("default preference create must attribute admin actor: %#v", defaultCreated)
+	}
+	if !defaultCreated.CreatedAt.Equal(firstTime) || !defaultCreated.UpdatedAt.Equal(firstTime) {
+		t.Fatalf("unexpected created default preference timestamps: %#v", defaultCreated)
+	}
+
+	defaultNoOp, err := store.PutIncidentWorkbookPreferences(ctx, result.Incident.ID, secondActor.ID, timelineRefReordered, noOpTime)
+	if err != nil {
+		t.Fatalf("no-op default workbook preferences: %v", err)
+	}
+	if !defaultNoOp.UpdatedAt.Equal(firstTime) || defaultNoOp.UpdatedByUserID == nil || *defaultNoOp.UpdatedByUserID != actor.ID {
+		t.Fatalf("structural no-op must preserve default updated_at and updated_by_user_id: %#v", defaultNoOp)
+	}
+
+	defaultChanged, err := store.PutIncidentWorkbookPreferences(ctx, result.Incident.ID, secondActor.ID, hostsRef, changeTime)
+	if err != nil {
+		t.Fatalf("update default workbook preferences: %v", err)
+	}
+	requireWorkbookSheetRefID(t, defaultChanged.DefaultSheetRef, "cartulary.view.hosts.v1")
+	if !defaultChanged.UpdatedAt.Equal(changeTime) || defaultChanged.UpdatedByUserID == nil || *defaultChanged.UpdatedByUserID != secondActor.ID {
+		t.Fatalf("effective default update must advance timestamp and actor once: %#v", defaultChanged)
+	}
 }
 
 func TestPhase2_U_2_03_StoreCreateIncidentReturnsStableLocationValue(t *testing.T) {
@@ -410,4 +497,15 @@ func canonicalJSONMap(t testing.TB, value map[string]any) map[string]any {
 		t.Fatalf("decode canonical json map: %v", err)
 	}
 	return decoded
+}
+
+func requireWorkbookSheetRefID(t testing.TB, raw []byte, wantID string) {
+	t.Helper()
+	var ref map[string]string
+	if err := json.Unmarshal(raw, &ref); err != nil {
+		t.Fatalf("decode workbook sheet_ref: %v", err)
+	}
+	if ref["kind"] != "view_schema" || ref["id"] != wantID {
+		t.Fatalf("unexpected workbook sheet_ref: got %#v want id %q", ref, wantID)
+	}
 }

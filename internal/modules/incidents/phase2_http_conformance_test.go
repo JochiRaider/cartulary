@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase2test"
@@ -52,6 +53,133 @@ func TestSupportPhase2_IncidentCreateBootstrapsCreatorAndWorkbookPreferencesHTTP
 	if userPrefs["incident_id"] != incidentID || userPrefs["user_id"] != adminID || userPrefs["home_sheet_ref"] != nil {
 		t.Fatalf("unexpected user workbook preferences payload: %#v", userPrefs)
 	}
+
+	viewerID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase2-u202-viewer@example.test", "Phase2 U202 Viewer", "Phase2U202Viewer1!", false, false, true)
+	viewerSession, viewerCSRF := phase2test.LoginLocalUser(t, harness.Server, "phase2-u202-viewer@example.test", "Phase2U202Viewer1!")
+	reviewerID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase2-u202-reviewer@example.test", "Phase2 U202 Reviewer", "Phase2U202Reviewer1!", false, false, true)
+	reviewerSession, reviewerCSRF := phase2test.LoginLocalUser(t, harness.Server, "phase2-u202-reviewer@example.test", "Phase2U202Reviewer1!")
+	phase2test.SeedLocalUserFlags(t, harness.DB, "phase2-u202-nonmember@example.test", "Phase2 U202 Nonmember", "Phase2U202Nonmember1!", false, false, true)
+	nonMemberSession, nonMemberCSRF := phase2test.LoginLocalUser(t, harness.Server, "phase2-u202-nonmember@example.test", "Phase2U202Nonmember1!")
+	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
+		"client_txn_id": "txn-u-2-02-viewer",
+		"user_id":       viewerID,
+		"role":          "viewer",
+	})
+	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
+		"client_txn_id": "txn-u-2-02-reviewer",
+		"user_id":       reviewerID,
+		"role":          "reviewer",
+	})
+
+	viewerPut := phase2test.DoJSON(
+		t,
+		http.MethodPut,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me",
+		map[string]any{
+			"home_sheet_ref": map[string]any{
+				"kind": "view_schema",
+				"id":   timeline.TimelineViewSchemaID,
+			},
+		},
+		phase2test.WithCookies(viewerSession, viewerCSRF),
+		phase2test.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+	)
+	viewerPrefs := httptestx.RequireSuccessEnvelope(t, viewerPut, http.StatusOK)["data"].(map[string]any)
+	if viewerPrefs["incident_id"] != incidentID || viewerPrefs["user_id"] != viewerID {
+		t.Fatalf("unexpected viewer workbook preferences payload: %#v", viewerPrefs)
+	}
+	requireWorkbookSheetRef(t, viewerPrefs["home_sheet_ref"], timeline.TimelineViewSchemaID)
+
+	viewerGet := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me", nil, phase2test.WithCookies(viewerSession))
+	viewerGetPrefs := httptestx.RequireSuccessEnvelope(t, viewerGet, http.StatusOK)["data"].(map[string]any)
+	requireWorkbookSheetRef(t, viewerGetPrefs["home_sheet_ref"], timeline.TimelineViewSchemaID)
+
+	adminUserPrefsResp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me", nil, phase2test.WithCookies(adminLogin.SessionCookie))
+	adminUserPrefs := httptestx.RequireSuccessEnvelope(t, adminUserPrefsResp, http.StatusOK)["data"].(map[string]any)
+	if adminUserPrefs["user_id"] != adminID || adminUserPrefs["home_sheet_ref"] != nil {
+		t.Fatalf("user workbook preferences PUT must only update the caller row: %#v", adminUserPrefs)
+	}
+
+	defaultBody := map[string]any{
+		"default_sheet_ref": map[string]any{
+			"kind": "view_schema",
+			"id":   timeline.TimelineViewSchemaID,
+		},
+	}
+	viewerDefault := phase2test.DoJSON(
+		t,
+		http.MethodPut,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default",
+		defaultBody,
+		phase2test.WithCookies(viewerSession, viewerCSRF),
+		phase2test.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, viewerDefault, http.StatusForbidden, "authorization_denied")
+	reviewerDefault := phase2test.DoJSON(
+		t,
+		http.MethodPut,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default",
+		defaultBody,
+		phase2test.WithCookies(reviewerSession, reviewerCSRF),
+		phase2test.WithHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, reviewerDefault, http.StatusForbidden, "authorization_denied")
+
+	adminDefault := phase2test.DoJSON(
+		t,
+		http.MethodPut,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default",
+		defaultBody,
+		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	)
+	adminDefaultPrefs := httptestx.RequireSuccessEnvelope(t, adminDefault, http.StatusOK)["data"].(map[string]any)
+	if adminDefaultPrefs["incident_id"] != incidentID || adminDefaultPrefs["updated_by_user_id"] != adminID {
+		t.Fatalf("unexpected admin default workbook preferences payload: %#v", adminDefaultPrefs)
+	}
+	requireWorkbookSheetRef(t, adminDefaultPrefs["default_sheet_ref"], timeline.TimelineViewSchemaID)
+
+	defaultGet := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default", nil, phase2test.WithCookies(adminLogin.SessionCookie))
+	defaultGetPrefs := httptestx.RequireSuccessEnvelope(t, defaultGet, http.StatusOK)["data"].(map[string]any)
+	requireWorkbookSheetRef(t, defaultGetPrefs["default_sheet_ref"], timeline.TimelineViewSchemaID)
+
+	missingCSRF := phase2test.DoJSON(
+		t,
+		http.MethodPut,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me",
+		map[string]any{
+			"home_sheet_ref": map[string]any{
+				"kind": "view_schema",
+				"id":   "cartulary.view.hosts.v1",
+			},
+		},
+		phase2test.WithCookies(viewerSession),
+	)
+	httptestx.RequireErrorEnvelope(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
+	viewerAfterCSRF := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me", nil, phase2test.WithCookies(viewerSession))
+	viewerAfterCSRFPrefs := httptestx.RequireSuccessEnvelope(t, viewerAfterCSRF, http.StatusOK)["data"].(map[string]any)
+	requireWorkbookSheetRef(t, viewerAfterCSRFPrefs["home_sheet_ref"], timeline.TimelineViewSchemaID)
+
+	nonMemberPut := phase2test.DoJSON(
+		t,
+		http.MethodPut,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me",
+		map[string]any{"home_sheet_ref": nil},
+		phase2test.WithCookies(nonMemberSession, nonMemberCSRF),
+		phase2test.WithHeader(authn.CSRFHeaderName, nonMemberCSRF.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, nonMemberPut, http.StatusNotFound, "incident_not_found")
+
+	invalidDefault := phase2test.DoJSON(
+		t,
+		http.MethodPut,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default",
+		map[string]any{"default_sheet_ref": nil, "unexpected": true},
+		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	)
+	invalidDefaultBody := httptestx.RequireErrorEnvelope(t, invalidDefault, http.StatusBadRequest, "invalid_mutation_payload")
+	requireErrorDetails(t, invalidDefaultBody, "unexpected", "unknown_field")
 }
 
 func TestSupportPhase2_PublicRouteInventoryIncidentCoreEnvelopes(t *testing.T) {
@@ -469,5 +597,17 @@ func requireErrorDetails(t testing.TB, envelope map[string]any, wantField string
 	}
 	if details["reason_code"] != wantReasonCode {
 		t.Fatalf("unexpected error reason_code: got %v want %q", details["reason_code"], wantReasonCode)
+	}
+}
+
+func requireWorkbookSheetRef(t testing.TB, value any, wantID string) {
+	t.Helper()
+
+	ref, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("expected sheet_ref object, got %#v", value)
+	}
+	if ref["kind"] != "view_schema" || ref["id"] != wantID {
+		t.Fatalf("unexpected sheet_ref: got %#v want view_schema %q", ref, wantID)
 	}
 }

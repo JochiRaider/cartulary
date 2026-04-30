@@ -1,6 +1,7 @@
 package incidents
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"io"
@@ -15,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 var membershipRoles = []string{"viewer", "editor", "reviewer", "admin"}
@@ -44,6 +46,14 @@ type MembershipPatchRequest struct {
 
 type MembershipDeleteRequest struct {
 	BaseMembershipVersion int64
+}
+
+type UserWorkbookPreferencesPutRequest struct {
+	HomeSheetRef []byte
+}
+
+type DefaultWorkbookPreferencesPutRequest struct {
+	DefaultSheetRef []byte
 }
 
 type OptionalNullableString struct {
@@ -320,6 +330,52 @@ func DecodeMembershipDeleteRequest(reader io.Reader) (MembershipDeleteRequest, *
 	return request, nil
 }
 
+func DecodeUserWorkbookPreferencesPutRequest(reader io.Reader) (UserWorkbookPreferencesPutRequest, *auth.APIError) {
+	raw, apiErr := decodeObject(reader, invalidMutationPayload)
+	if apiErr != nil {
+		return UserWorkbookPreferencesPutRequest{}, apiErr
+	}
+
+	for key := range raw {
+		if key != "home_sheet_ref" {
+			return UserWorkbookPreferencesPutRequest{}, invalidMutationPayload(key, "unknown_field")
+		}
+	}
+
+	value, ok := raw["home_sheet_ref"]
+	if !ok {
+		return UserWorkbookPreferencesPutRequest{}, invalidMutationPayload("home_sheet_ref", "missing_required_field")
+	}
+	sheetRef, apiErr := canonicalSheetRef(value, "home_sheet_ref")
+	if apiErr != nil {
+		return UserWorkbookPreferencesPutRequest{}, apiErr
+	}
+	return UserWorkbookPreferencesPutRequest{HomeSheetRef: sheetRef}, nil
+}
+
+func DecodeDefaultWorkbookPreferencesPutRequest(reader io.Reader) (DefaultWorkbookPreferencesPutRequest, *auth.APIError) {
+	raw, apiErr := decodeObject(reader, invalidMutationPayload)
+	if apiErr != nil {
+		return DefaultWorkbookPreferencesPutRequest{}, apiErr
+	}
+
+	for key := range raw {
+		if key != "default_sheet_ref" {
+			return DefaultWorkbookPreferencesPutRequest{}, invalidMutationPayload(key, "unknown_field")
+		}
+	}
+
+	value, ok := raw["default_sheet_ref"]
+	if !ok {
+		return DefaultWorkbookPreferencesPutRequest{}, invalidMutationPayload("default_sheet_ref", "missing_required_field")
+	}
+	sheetRef, apiErr := canonicalSheetRef(value, "default_sheet_ref")
+	if apiErr != nil {
+		return DefaultWorkbookPreferencesPutRequest{}, apiErr
+	}
+	return DefaultWorkbookPreferencesPutRequest{DefaultSheetRef: sheetRef}, nil
+}
+
 func BuildIncidentResource(record IncidentRecord) map[string]any {
 	return map[string]any{
 		"incident_id":               record.ID,
@@ -563,6 +619,69 @@ func decodeObject(reader io.Reader, invalid func(string, string) *auth.APIError)
 		return nil, invalid("", "request_not_object")
 	}
 	return raw, nil
+}
+
+func canonicalSheetRef(value json.RawMessage, field string) ([]byte, *auth.APIError) {
+	if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+		return nil, nil
+	}
+
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(value, &object); err != nil {
+		return nil, invalidMutationPayload(field, "invalid_sheet_ref")
+	}
+	allowed := map[string]struct{}{
+		"kind": {},
+		"id":   {},
+	}
+	for key := range object {
+		if _, ok := allowed[key]; !ok {
+			return nil, invalidMutationPayload(field+"."+key, "unknown_field")
+		}
+	}
+
+	var kind string
+	if rawKind, ok := object["kind"]; !ok {
+		return nil, invalidMutationPayload(field+".kind", "missing_required_field")
+	} else if err := json.Unmarshal(rawKind, &kind); err != nil || strings.TrimSpace(kind) == "" {
+		return nil, invalidMutationPayload(field+".kind", "invalid_sheet_ref")
+	}
+	var id string
+	if rawID, ok := object["id"]; !ok {
+		return nil, invalidMutationPayload(field+".id", "missing_required_field")
+	} else if err := json.Unmarshal(rawID, &id); err != nil || strings.TrimSpace(id) == "" {
+		return nil, invalidMutationPayload(field+".id", "invalid_sheet_ref")
+	}
+
+	if apiErr := resolveWorkbookPreferenceSheetRef(kind, id, field); apiErr != nil {
+		return nil, apiErr
+	}
+
+	canonical, err := json.Marshal(struct {
+		Kind string `json:"kind"`
+		ID   string `json:"id"`
+	}{
+		Kind: kind,
+		ID:   id,
+	})
+	if err != nil {
+		return nil, internalAPIError(err)
+	}
+	return canonical, nil
+}
+
+func resolveWorkbookPreferenceSheetRef(kind string, id string, field string) *auth.APIError {
+	switch kind {
+	case "view_schema":
+		if _, ok := viewschema.Lookup(id); !ok {
+			return invalidMutationPayload(field+".id", "unknown_view_schema")
+		}
+		return nil
+	case "saved_view":
+		return invalidMutationPayload(field, "unsupported_sheet_ref")
+	default:
+		return invalidMutationPayload(field+".kind", "unsupported_sheet_ref_kind")
+	}
 }
 
 func normalizeLineValue(value json.RawMessage) (string, bool) {

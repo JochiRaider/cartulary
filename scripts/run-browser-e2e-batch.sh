@@ -97,10 +97,19 @@ run_group() {
       "${group_env[@]}" "$ROOT_DIR/scripts/run-browser-e2e-functional.sh"
       ;;
     support)
-      env CARTULARY_TEST_TARGET="$target" \
-        "$ROOT_DIR/scripts/run-browser-e2e-manifest-dependency.sh" \
-        "$target" "${coverage:-supplemental}" "${execution_dependency:-browser_support}" -- \
-        "$PLAYWRIGHT_OWNED_STACK_PNPM_BIN" --dir apps/web exec playwright test
+      local -a support_env=(
+        "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}"
+        "CARTULARY_TEST_TARGET=$target"
+        "NODE_BIN=$PLAYWRIGHT_OWNED_STACK_NODE_BIN"
+      )
+      if [[ "$workers" != "default" ]]; then
+        support_env+=("PLAYWRIGHT_WORKERS=$workers")
+      fi
+      "${support_env[@]}" "$ROOT_DIR/scripts/lib/run-playwright-webserver-batch.sh" \
+        support \
+        -- \
+        "$PLAYWRIGHT_OWNED_STACK_PNPM_BIN" --dir apps/web exec playwright test \
+        --config playwright.webserver-backed.config.ts
       ;;
     stateful)
       "${group_env[@]}" "$ROOT_DIR/scripts/run-browser-e2e-stateful.sh"

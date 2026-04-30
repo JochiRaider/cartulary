@@ -189,12 +189,46 @@ func PublicRouteInventory() []RouteInventoryEntry {
 			SuccessEnvelope: true,
 		},
 		{
+			Name:            "default workbook preferences update",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPut,
+			Template:        "/api/v1/incidents/{incident_id}/workbook-preferences/default",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			RequiresCSRF:    true,
+			Body: func(RouteInventoryFixture) map[string]any {
+				return map[string]any{
+					"default_sheet_ref": map[string]any{
+						"kind": "view_schema",
+						"id":   timeline.TimelineViewSchemaID,
+					},
+				}
+			},
+		},
+		{
 			Name:            "user workbook preferences",
 			Transport:       RouteTransportHTTP,
 			Method:          http.MethodGet,
 			Template:        "/api/v1/incidents/{incident_id}/workbook-preferences/me",
 			SuccessStatus:   http.StatusOK,
 			SuccessEnvelope: true,
+		},
+		{
+			Name:            "user workbook preferences update",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPut,
+			Template:        "/api/v1/incidents/{incident_id}/workbook-preferences/me",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			RequiresCSRF:    true,
+			Body: func(RouteInventoryFixture) map[string]any {
+				return map[string]any{
+					"home_sheet_ref": map[string]any{
+						"kind": "view_schema",
+						"id":   timeline.TimelineViewSchemaID,
+					},
+				}
+			},
 		},
 		{
 			Name:            "extensions list",
@@ -228,7 +262,9 @@ func PublicRouteInventoryMembershipAdmin() []RouteInventoryEntry {
 func PublicRouteInventoryWorkbookPreferences() []RouteInventoryEntry {
 	return routeInventoryByName(PublicRouteInventory(),
 		"default workbook preferences",
+		"default workbook preferences update",
 		"user workbook preferences",
+		"user workbook preferences update",
 	)
 }
 
@@ -332,6 +368,24 @@ func ControlBoundaryInventory() []RouteInventoryEntry {
 			AllowedRole:     ControlRoleMembershipRequired,
 		},
 		{
+			Name:            "default workbook preferences update",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPut,
+			Template:        "/api/v1/incidents/{incident_id}/workbook-preferences/default",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			RequiresCSRF:    true,
+			AllowedRole:     ControlRoleAdminOnly,
+			Body: func(RouteInventoryFixture) map[string]any {
+				return map[string]any{
+					"default_sheet_ref": map[string]any{
+						"kind": "view_schema",
+						"id":   timeline.TimelineViewSchemaID,
+					},
+				}
+			},
+		},
+		{
 			Name:            "user workbook preferences",
 			Transport:       RouteTransportHTTP,
 			Method:          http.MethodGet,
@@ -339,6 +393,24 @@ func ControlBoundaryInventory() []RouteInventoryEntry {
 			SuccessStatus:   http.StatusOK,
 			SuccessEnvelope: true,
 			AllowedRole:     ControlRoleMembershipRequired,
+		},
+		{
+			Name:            "user workbook preferences update",
+			Transport:       RouteTransportHTTP,
+			Method:          http.MethodPut,
+			Template:        "/api/v1/incidents/{incident_id}/workbook-preferences/me",
+			SuccessStatus:   http.StatusOK,
+			SuccessEnvelope: true,
+			RequiresCSRF:    true,
+			AllowedRole:     ControlRoleMembershipRequired,
+			Body: func(RouteInventoryFixture) map[string]any {
+				return map[string]any{
+					"home_sheet_ref": map[string]any{
+						"kind": "view_schema",
+						"id":   timeline.TimelineViewSchemaID,
+					},
+				}
+			},
 		},
 		{
 			Name:            "timeline query",
@@ -490,7 +562,9 @@ func ControlBoundaryInventoryMembershipAdmin() []RouteInventoryEntry {
 func ControlBoundaryInventoryWorkbookPreferences() []RouteInventoryEntry {
 	return routeInventoryByName(ControlBoundaryInventory(),
 		"default workbook preferences",
+		"default workbook preferences update",
 		"user workbook preferences",
+		"user workbook preferences update",
 	)
 }
 

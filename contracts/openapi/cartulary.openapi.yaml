@@ -198,7 +198,48 @@
           "workbook-preferences"
         ],
         "operationId": "getIncidentDefaultWorkbookPreferences",
-        "summary": "Read the incident-wide default workbook preferences row."
+        "summary": "Read the incident-wide default workbook preferences row.",
+        "responses": {
+          "200": {
+            "description": "Incident default workbook preferences response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultWorkbookPreferencesEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "workbook-preferences"
+        ],
+        "operationId": "putIncidentDefaultWorkbookPreferences",
+        "summary": "Set or clear the incident-wide default workbook sheet reference.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefaultWorkbookPreferencesPutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Incident default workbook preferences response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultWorkbookPreferencesEnvelope"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/incidents/{incident_id}/workbook-preferences/me": {
@@ -207,7 +248,48 @@
           "workbook-preferences"
         ],
         "operationId": "getCurrentUserWorkbookPreferences",
-        "summary": "Read the caller's per-incident workbook preferences row."
+        "summary": "Read the caller's per-incident workbook preferences row.",
+        "responses": {
+          "200": {
+            "description": "Current user workbook preferences response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserWorkbookPreferencesEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "workbook-preferences"
+        ],
+        "operationId": "putCurrentUserWorkbookPreferences",
+        "summary": "Set or clear the caller's per-incident home workbook sheet reference.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserWorkbookPreferencesPutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current user workbook preferences response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserWorkbookPreferencesEnvelope"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/incidents/{incident_id}/views/{view_schema_id}/query": {
@@ -1112,6 +1194,175 @@
           "request_id",
           "retryable",
           "details"
+        ]
+      },
+      "SheetRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "view_schema",
+              "saved_view"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ]
+      },
+      "DefaultWorkbookPreferencesPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "default_sheet_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SheetRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "default_sheet_ref"
+        ]
+      },
+      "UserWorkbookPreferencesPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "home_sheet_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SheetRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "home_sheet_ref"
+        ]
+      },
+      "DefaultWorkbookPreferencesResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "default_sheet_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SheetRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_by_user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "incident_id",
+          "default_sheet_ref",
+          "created_at",
+          "updated_at",
+          "updated_by_user_id"
+        ]
+      },
+      "UserWorkbookPreferencesResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "home_sheet_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SheetRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "incident_id",
+          "user_id",
+          "home_sheet_ref",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "DefaultWorkbookPreferencesEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DefaultWorkbookPreferencesResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "UserWorkbookPreferencesEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/UserWorkbookPreferencesResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       },
       "WorkbookQueryRequest": {

@@ -250,6 +250,51 @@ SELECT incident_id, user_id, home_sheet_ref, created_at, updated_at
 	return record, nil
 }
 
+func (s *Store) PutIncidentWorkbookPreferences(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, defaultSheetRef []byte, now time.Time) (IncidentWorkbookPreferencesRecord, error) {
+	row := s.pool.QueryRow(ctx, `
+INSERT INTO incident_workbook_preferences (incident_id, default_sheet_ref, created_at, updated_at, updated_by_user_id)
+VALUES ($1, $2::jsonb, $3, $3, $4)
+ON CONFLICT (incident_id) DO UPDATE
+   SET default_sheet_ref = EXCLUDED.default_sheet_ref,
+       updated_at = CASE
+           WHEN incident_workbook_preferences.default_sheet_ref IS NOT DISTINCT FROM EXCLUDED.default_sheet_ref
+           THEN incident_workbook_preferences.updated_at
+           ELSE EXCLUDED.updated_at
+       END,
+       updated_by_user_id = CASE
+           WHEN incident_workbook_preferences.default_sheet_ref IS NOT DISTINCT FROM EXCLUDED.default_sheet_ref
+           THEN incident_workbook_preferences.updated_by_user_id
+           ELSE EXCLUDED.updated_by_user_id
+       END
+RETURNING incident_id, default_sheet_ref, created_at, updated_at, updated_by_user_id
+`, incidentID, workbookSheetRefParam(defaultSheetRef), now.UTC(), actorUserID)
+	var record IncidentWorkbookPreferencesRecord
+	if err := row.Scan(&record.IncidentID, &record.DefaultSheetRef, &record.CreatedAt, &record.UpdatedAt, &record.UpdatedByUserID); err != nil {
+		return IncidentWorkbookPreferencesRecord{}, err
+	}
+	return record, nil
+}
+
+func (s *Store) PutUserWorkbookPreferences(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, homeSheetRef []byte, now time.Time) (UserWorkbookPreferencesRecord, error) {
+	row := s.pool.QueryRow(ctx, `
+INSERT INTO user_workbook_preferences (incident_id, user_id, home_sheet_ref, created_at, updated_at)
+VALUES ($1, $2, $3::jsonb, $4, $4)
+ON CONFLICT (incident_id, user_id) DO UPDATE
+   SET home_sheet_ref = EXCLUDED.home_sheet_ref,
+       updated_at = CASE
+           WHEN user_workbook_preferences.home_sheet_ref IS NOT DISTINCT FROM EXCLUDED.home_sheet_ref
+           THEN user_workbook_preferences.updated_at
+           ELSE EXCLUDED.updated_at
+       END
+RETURNING incident_id, user_id, home_sheet_ref, created_at, updated_at
+`, incidentID, userID, workbookSheetRefParam(homeSheetRef), now.UTC())
+	var record UserWorkbookPreferencesRecord
+	if err := row.Scan(&record.IncidentID, &record.UserID, &record.HomeSheetRef, &record.CreatedAt, &record.UpdatedAt); err != nil {
+		return UserWorkbookPreferencesRecord{}, err
+	}
+	return record, nil
+}
+
 func (s *Store) CreateIncident(ctx context.Context, actor authn.UserRecord, request CreateIncidentRequest, requestHash []byte, requestID string, now time.Time) (CreateIncidentResult, error) {
 	key := authn.ActorOnlyRouteIdempotencyKey("incidents.create", actor.ID, request.ClientTxnID)
 	if existing, err := s.authStore.GetRouteIdempotency(ctx, key); err == nil {
@@ -849,6 +894,13 @@ func jsonOrNil(value any) any {
 		return nil
 	}
 	return payload
+}
+
+func workbookSheetRefParam(value []byte) any {
+	if len(value) == 0 {
+		return nil
+	}
+	return string(value)
 }
 
 type rowScanner interface {

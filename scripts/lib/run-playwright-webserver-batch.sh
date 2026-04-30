@@ -4,7 +4,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/run-phase-common.sh"
 
 usage() {
-  echo "usage: run-playwright-webserver-batch.sh <webserver-backed|functional> -- <playwright test command...>" >&2
+  echo "usage: run-playwright-webserver-batch.sh <webserver-backed|functional|support> -- <playwright test command...>" >&2
   exit 2
 }
 
@@ -25,7 +25,7 @@ if [[ "$#" -eq 0 ]]; then
 fi
 
 case "$mode" in
-  webserver-backed | functional)
+  webserver-backed | functional | support)
     ;;
   *)
     usage
@@ -223,43 +223,48 @@ run_functional_shard() {
 }
 
 functional_status=0
-active_shards=0
-for shard_index in "${!shard_names[@]}"; do
-  run_functional_shard "${shard_names[$shard_index]}" "$shard_index" &
-  active_shards=$((active_shards + 1))
-  if (( active_shards >= playwright_parallelism )); then
+if [[ "$mode" != "support" ]]; then
+  active_shards=0
+  for shard_index in "${!shard_names[@]}"; do
+    run_functional_shard "${shard_names[$shard_index]}" "$shard_index" &
+    active_shards=$((active_shards + 1))
+    if (( active_shards >= playwright_parallelism )); then
+      if ! wait -n; then
+        functional_status=1
+      fi
+      active_shards=$((active_shards - 1))
+    fi
+  done
+  while (( active_shards > 0 )); do
     if ! wait -n; then
       functional_status=1
     fi
     active_shards=$((active_shards - 1))
-  fi
-done
-while (( active_shards > 0 )); do
-  if ! wait -n; then
-    functional_status=1
-  fi
-  active_shards=$((active_shards - 1))
-done
+  done
 
-if compgen -G "${batch_dir}/browser-functional-shard-*.stdout.log" >/dev/null; then
-  cat "${batch_dir}"/browser-functional-shard-*.stdout.log >"$stdout_log"
+  if compgen -G "${batch_dir}/browser-functional-shard-*.stdout.log" >/dev/null; then
+    cat "${batch_dir}"/browser-functional-shard-*.stdout.log >"$stdout_log"
+  else
+    : >"$stdout_log"
+  fi
+  if compgen -G "${batch_dir}/browser-functional-shard-*.stderr.log" >/dev/null; then
+    cat "${batch_dir}"/browser-functional-shard-*.stderr.log >"$stderr_log"
+  else
+    : >"$stderr_log"
+  fi
+  if [[ "$output_mode" != "quiet" ]]; then
+    cat "$stdout_log"
+    cat "$stderr_log" >&2
+  fi
+
+  "$node_bin" "$shard_plan_script" merge-reports "$run_report" "${batch_dir}"/browser-functional-shard-*.json
 else
   : >"$stdout_log"
-fi
-if compgen -G "${batch_dir}/browser-functional-shard-*.stderr.log" >/dev/null; then
-  cat "${batch_dir}"/browser-functional-shard-*.stderr.log >"$stderr_log"
-else
   : >"$stderr_log"
 fi
-if [[ "$output_mode" != "quiet" ]]; then
-  cat "$stdout_log"
-  cat "$stderr_log" >&2
-fi
-
-"$node_bin" "$shard_plan_script" merge-reports "$run_report" "${batch_dir}"/browser-functional-shard-*.json
 
 support_status=0
-if [[ "$mode" == "webserver-backed" ]]; then
+if [[ "$mode" == "webserver-backed" || "$mode" == "support" ]]; then
   support_run_command=("${command[@]}" --reporter=json --output "${output_dir}/support" --project support)
   if [[ "$output_mode" != "quiet" ]]; then
     support_run_command=("${command[@]}" --reporter=dot,json --output "${output_dir}/support" --project support)
@@ -373,6 +378,9 @@ emit_playwright_support_slice() {
 
 overall_status=0
 for phase in "${functional_phases[@]}"; do
+  if [[ "$mode" == "support" ]]; then
+    continue
+  fi
   label="browser-e2e-functional ${phase} authoritative"
   accounting_mode=actual
   logical_ms="$duration_ms"
@@ -383,7 +391,7 @@ for phase in "${functional_phases[@]}"; do
   fi
 done
 
-if [[ "$mode" == "webserver-backed" ]]; then
+if [[ "$mode" == "webserver-backed" || "$mode" == "support" ]]; then
   for phase in "${support_phases[@]}"; do
     if ! emit_playwright_support_slice "$phase"; then
       overall_status=1

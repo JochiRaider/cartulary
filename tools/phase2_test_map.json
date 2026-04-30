@@ -26,7 +26,7 @@
       "| Harness | Phase 2 evidence |",
       "| --- | --- |",
       "| Public-route inventory ownership | `internal/testutil/phase2test.PublicRouteInventory()` owns the Phase 2 HTTP success-envelope inventory and is the source of truth for success status, CSRF expectation, envelope coverage, and mutation-owner metadata across Phase 2 owned routes. |",
-      "| Role-aware control boundary inventory | `internal/testutil/phase2test.ControlBoundaryInventory()` owns the incident-scoped control boundary matrix exercised by `I-2-03` and the deployment-admin-without-membership support sweep, including workbook-preference reads, membership administration, Timeline or entity queries, lifecycle actions, and the websocket boundary. |",
+      "| Role-aware control boundary inventory | `internal/testutil/phase2test.ControlBoundaryInventory()` owns the incident-scoped control boundary matrix exercised by `I-2-03` and the deployment-admin-without-membership support sweep, including workbook-preference reads and writes, membership administration, Timeline or entity queries, lifecycle actions, and the websocket boundary. |",
       "| Route inventory groups | The grouped helpers under `internal/testutil/phase2test` split public and control-boundary inventory by stable route family so backend integration shards stay independently schedulable as future phases add routes. |",
       "| Owner-aware mutation helpers | `internal/testutil/phase2test.LookupOwnerMutations()`, `RequireOwnerMutationEvent()`, `CountMutationArtifacts()`, and `RequireNoMutationArtifacts()` keep Phase 2 tests tied to incident resource or membership mutation ownership on the current audit substrate instead of naming `deployment_admin_audit_events` directly. |",
       "| Store-domain incident helpers | `internal/testutil/phase2storetest.StartStore()`, `SeedLocalUserRecord()`, `CreateIncidentInStore()`, `CreateMembershipInStore()`, `LookupUserByID()`, `LookupUserByEmail()`, and `SnapshotIncidentCreateReplaySideEffects()` keep Phase 2 store-backed unit rows aligned with the Phase 3 helper pattern instead of embedding one-off SQL in each test. |",
@@ -37,6 +37,7 @@
     "support_only": [
       "`internal/modules/incidents/phase2_http_conformance_test.go::TestSupportPhase2_PublicRouteInventory*Envelopes` loops grouped `PublicRouteInventory*()` entries and proves the success-envelope contract stays attached to the shared inventory rather than scattered route lists.",
       "`internal/modules/incidents/phase2_http_conformance_test.go::TestSupportPhase2_ControlBoundary*DeploymentAdminWithoutMembershipDenied` loops grouped `ControlBoundaryInventory*()` entries and proves deployment-admin-without-membership denial across the same incident-scoped surface that `I-2-03` re-derives through same-session role changes.",
+      "`internal/modules/incidents/phase2_request_test.go::TestSupportPhase2_WorkbookPreferencesPut*` and `TestSupportPhase2_OpenAPIWorkbookPreferencesExposeGetAndPutContracts` keep workbook-preference PUT decoder and contract-shape regressions on the executed `backend-unit` support surface.",
       "`internal/modules/incidents/phase2_support_test.go::TestSupportPhase2Unit_MembershipPatchAndDeleteDecodeAndLastAdminGuardStayStable` keeps pure decoder-shape and `last_incident_admin` guard regression coverage on the executed `backend-unit` support surface. It does not replace `U-2-07`.",
       "`internal/modules/incidents/phase2_extra_integration_test.go` keeps membership replay and before-or-after mutation payload regressions that strengthen confidence but do not replace the authoritative `I-2-*` rows.",
       "`apps/web/e2e/phase2.support.spec.ts` and browser-authenticated request probes remain supplemental browser evidence for request-shape regressions and reserved-route behavior.",
@@ -81,6 +82,20 @@
       "file": "internal/modules/incidents/phase2_support_test.go",
       "symbol": "TestSupportPhase2Unit_MembershipPatchAndDeleteDecodeAndLastAdminGuardStayStable",
       "selection_pattern": "TestSupportPhase2Unit_",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit support phase2"
+    },
+    {
+      "target": "backend_unit",
+      "section": "unit",
+      "package": "./internal/modules/incidents",
+      "file": "internal/modules/incidents/phase2_request_test.go",
+      "symbols": [
+        "TestSupportPhase2_OpenAPIWorkbookPreferencesExposeGetAndPutContracts",
+        "TestSupportPhase2_WorkbookPreferencesPutDecodersCanonicalizeSheetRefs",
+        "TestSupportPhase2_WorkbookPreferencesPutDecodersRejectInvalidPayloads"
+      ],
+      "selection_pattern": "TestSupportPhase2_",
       "execution_family": "backend-unit-core",
       "execution_label": "backend-unit support phase2"
     },
@@ -184,7 +199,7 @@
       "symbol": "TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences",
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
-      "claim": "Store.CreateIncident commits the bootstrap `admin` membership plus both incident-wide and per-user workbook-preference rows.",
+      "claim": "Store.CreateIncident commits the bootstrap `admin` membership plus both incident-wide and per-user workbook-preference rows, and workbook-preference PUT upserts preserve structural no-op timestamps and default actors.",
       "out_of_scope": "HTTP envelope and header emission remain support coverage.",
       "execution_family": "backend-store",
       "execution_label": "backend-store phase2 authoritative"
@@ -393,7 +408,7 @@
       ],
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
-      "claim": "One same-session role progression `no membership -> viewer -> reviewer -> admin -> removed` re-derives access immediately for every `ControlBoundaryInventory()` route, including workbook-preference reads, membership-admin routes, and the Timeline websocket boundary.",
+      "claim": "One same-session role progression `no membership -> viewer -> reviewer -> admin -> removed` re-derives access immediately for every `ControlBoundaryInventory()` route, including workbook-preference reads and writes, membership-admin routes, and the Timeline websocket boundary.",
       "out_of_scope": "Deployment-admin-without-membership breadth is paired with the support inventory sweep.",
       "execution_family": "backend-integration-incidents",
       "execution_label": "backend-integration phase2 authoritative incidents"
