@@ -10,6 +10,10 @@ export type ViewFieldContract = {
   readonly label: string;
   readonly createWritable: boolean;
   readonly defaultHidden: boolean;
+  readonly stringContractId: string | null;
+  readonly directScalarContractId: string | null;
+  readonly directReferenceContractId: string | null;
+  readonly writeAction: string | null;
   readonly enumValues: readonly string[] | null;
   readonly headerSortFieldKey: string | null;
   readonly filterOps: readonly string[];
@@ -53,6 +57,8 @@ type RawField = {
   readonly conflict_resolution_class?: string | null;
   readonly create_writable?: boolean;
   readonly default_hidden?: boolean;
+  readonly direct_reference_contract_id?: string | null;
+  readonly direct_scalar_contract_id?: string | null;
   readonly entity_binding_mode?: string | null;
   readonly enum_values?: readonly string[] | null;
   readonly field_key: string;
@@ -62,6 +68,8 @@ type RawField = {
   readonly label: string;
   readonly read_kind?: string;
   readonly sortable?: boolean;
+  readonly string_contract_id?: string | null;
+  readonly write_action?: string | null;
   readonly write_kind?: "read_only" | "direct_value" | "action_payload";
 };
 
@@ -103,6 +111,10 @@ function parseContract(json: string): ViewContract {
         label: field.label,
         createWritable: field.create_writable ?? false,
         defaultHidden: field.default_hidden ?? false,
+        stringContractId: field.string_contract_id ?? null,
+        directScalarContractId: field.direct_scalar_contract_id ?? null,
+        directReferenceContractId: field.direct_reference_contract_id ?? null,
+        writeAction: field.write_action ?? null,
         enumValues:
           field.enum_values === null || field.enum_values === undefined
             ? null

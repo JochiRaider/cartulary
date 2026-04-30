@@ -144,7 +144,10 @@
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
       "clearable": false,
-      "enum_values": null,
+      "enum_values": [
+        "open",
+        "closed"
+      ],
       "writable": true,
       "read_model": "closure_state",
       "write_target": "lesson.closure_state"

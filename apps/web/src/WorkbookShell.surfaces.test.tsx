@@ -1,5 +1,10 @@
 import { gridShellTestId } from "@cartulary/test-utils";
 import {
+  requireViewContract,
+  type ViewContract,
+  type ViewFieldContract,
+} from "@cartulary/view-contracts";
+import {
   cleanup,
   fireEvent,
   render,
@@ -8,13 +13,28 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { successEnvelope } from "./timelineWorkbookTestSupport";
-import { WorkbookShell } from "./WorkbookShell";
+import {
+  buildGenericCreatePayload,
+  buildGenericPatchChange,
+  WorkbookShell,
+} from "./WorkbookShell";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v1";
 const hostsViewSchemaId = "cartulary.view.hosts.v1";
 const identitiesViewSchemaId = "cartulary.view.identities.v1";
 const evidenceViewSchemaId = "cartulary.view.evidence.v1";
 const indicatorsViewSchemaId = "cartulary.view.indicators.v1";
+
+function requireField(
+  contract: ViewContract,
+  fieldKey: string,
+): ViewFieldContract {
+  const field = contract.fieldMap[fieldKey];
+  if (!field) {
+    throw new Error(`Missing field ${fieldKey} on ${contract.viewSchemaId}`);
+  }
+  return field;
+}
 
 describe("WorkbookShell surface selection", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -201,5 +221,92 @@ describe("WorkbookShell surface selection", () => {
       ),
       expect.objectContaining({ method: "POST", body: "{}" }),
     );
+  });
+});
+
+describe("generic workbook mutation payloads", () => {
+  it("builds required creates with direct values, timestamps, and explicit clears", () => {
+    const evidence = requireViewContract(evidenceViewSchemaId);
+
+    expect(
+      buildGenericCreatePayload(evidence, {}, "txn-evidence-missing"),
+    ).toBeNull();
+    expect(
+      buildGenericCreatePayload(
+        evidence,
+        {
+          "evidence.title": " Endpoint package ",
+          "evidence.requested_at": "2026-04-24T12:00:00Z",
+          "evidence.collector_party_id": "",
+        },
+        "txn-evidence-create",
+      ),
+    ).toMatchObject({
+      client_txn_id: "txn-evidence-create",
+      "evidence.title": "Endpoint package",
+      "evidence.requested_at": "2026-04-24T12:00:00Z",
+      "evidence.collector_party_id": null,
+    });
+  });
+
+  it("builds direct clears and typed collection actions", () => {
+    const evidence = requireViewContract(evidenceViewSchemaId);
+    const notes = requireViewContract("cartulary.view.notes.v1");
+    const commLog = requireViewContract("cartulary.view.comm_log.v1");
+    const handoff = requireViewContract("cartulary.view.handoff.v1");
+    const decisions = requireViewContract("cartulary.view.decisions.v1");
+
+    expect(
+      buildGenericPatchChange(
+        requireField(evidence, "evidence.source_party_id"),
+        "",
+      ),
+    ).toEqual({ field_key: "evidence.source_party_id", value: null });
+    expect(
+      buildGenericPatchChange(requireField(notes, "note.tags"), " urgent "),
+    ).toEqual({
+      field_key: "note.tags",
+      action_payload: {
+        kind: "collection_actions_v1",
+        actions: [{ op: "add_token", raw_text: "urgent" }],
+      },
+    });
+    expect(
+      buildGenericPatchChange(
+        requireField(commLog, "comm_log.audience_party_ids"),
+        "party-1",
+      ),
+    ).toEqual({
+      field_key: "comm_log.audience_party_ids",
+      action_payload: {
+        kind: "collection_actions_v1",
+        actions: [{ op: "add_party_ref", party_id: "party-1" }],
+      },
+    });
+    expect(
+      buildGenericPatchChange(
+        requireField(decisions, "decision.support_refs"),
+        "record-1",
+      ),
+    ).toEqual({
+      field_key: "decision.support_refs",
+      action_payload: {
+        kind: "collection_actions_v1",
+        actions: [{ op: "add_record_ref", linked_record_id: "record-1" }],
+      },
+    });
+    expect(
+      buildGenericPatchChange(
+        requireField(handoff, "handoff.open_risk_refs"),
+        "risk_ref:abc",
+        "remove",
+      ),
+    ).toEqual({
+      field_key: "handoff.open_risk_refs",
+      action_payload: {
+        kind: "collection_actions_v1",
+        actions: [{ op: "remove_risk_ref", item_ref: "risk_ref:abc" }],
+      },
+    });
   });
 });

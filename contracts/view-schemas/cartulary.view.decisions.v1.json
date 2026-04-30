@@ -103,7 +103,13 @@
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
       "clearable": false,
-      "enum_values": null,
+      "enum_values": [
+        "proposed",
+        "approved",
+        "rejected",
+        "superseded",
+        "executed"
+      ],
       "writable": true,
       "read_model": "status",
       "write_target": "decisions.status"
@@ -151,7 +157,13 @@
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
       "clearable": false,
-      "enum_values": null,
+      "enum_values": [
+        "scope",
+        "containment",
+        "communication",
+        "evidence",
+        "reporting"
+      ],
       "writable": true,
       "read_model": "decision_type",
       "write_target": "decisions.decision_type"

@@ -13,9 +13,15 @@ export const timelineViewSchemaId = "cartulary.view.timeline.v1";
 export const hostsViewSchemaId = "cartulary.view.hosts.v1";
 export const identitiesViewSchemaId = "cartulary.view.identities.v1";
 export const assessmentsViewSchemaId = "cartulary.view.assessments.v1";
+export const partiesViewSchemaId = "cartulary.view.parties.v1";
+export const evidenceViewSchemaId = "cartulary.view.evidence.v1";
 export const notesViewSchemaId = "cartulary.view.notes.v1";
 export const taskRequestsViewSchemaId = "cartulary.view.task_requests.v1";
 export const decisionsViewSchemaId = "cartulary.view.decisions.v1";
+export const commLogViewSchemaId = "cartulary.view.comm_log.v1";
+export const handoffViewSchemaId = "cartulary.view.handoff.v1";
+export const statusReviewViewSchemaId = "cartulary.view.status_review.v1";
+export const lessonViewSchemaId = "cartulary.view.lesson.v1";
 export const hostRefsFieldKey = "timeline.host_refs";
 export const identityRefsFieldKey = "timeline.identity_refs";
 
@@ -275,7 +281,7 @@ export async function expectTimelineContinuity(
 ) {
   await expect
     .poll(() => new URL(page.url()).searchParams.get("surface"))
-    .toBe("timeline");
+    .toBeNull();
   await assertGridFocusContinuity({
     focusTestId: rowInspectButtonTestId(recordId),
     page,
@@ -341,7 +347,7 @@ export async function editGenericCell(
   viewSchemaId: string,
   recordId: string,
   fieldKey: string,
-  value: string,
+  value: string | string[],
 ) {
   await page
     .getByTestId(`generic-edit-record-${viewSchemaId}`)
@@ -349,6 +355,12 @@ export async function editGenericCell(
   await page
     .getByTestId(`generic-edit-field-${viewSchemaId}`)
     .selectOption(fieldKey);
-  await page.getByTestId(`generic-edit-value-${viewSchemaId}`).fill(value);
+  const input = page.getByTestId(`generic-edit-value-${viewSchemaId}`);
+  const tagName = await input.evaluate((element) => element.tagName);
+  if (tagName === "SELECT") {
+    await input.selectOption(value);
+  } else {
+    await input.fill(Array.isArray(value) ? value.join("\n") : value);
+  }
   await page.getByTestId(`generic-edit-submit-${viewSchemaId}`).click();
 }

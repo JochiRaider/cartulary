@@ -72,6 +72,137 @@ func TestPhase4_PartiesSurface_I_4_PARTIES_01(t *testing.T) {
 	}
 }
 
+func TestWorkbook_EvidenceMutations(t *testing.T) {
+	harness := phase4test.StartServer(t, "workbook-evidence-mutations")
+	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-workbook-evidence-incident",
+		"incident_key":  "IR-WORKBOOK-EVIDENCE",
+		"title":         "Workbook evidence mutations",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	partyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
+		"client_txn_id":      "txn-workbook-evidence-party-create",
+		"party.display_name": "Forensics Vendor",
+		"party.party_kind":   "organization",
+	})
+	partyID := phase4test.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
+
+	beforeMinimumFailures := countIncidentRecords(t, harness, incidentID)
+	blankEvidence := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.evidence.v1", uuid.Nil, map[string]any{
+		"client_txn_id": "txn-workbook-evidence-blank",
+	})
+	httptestx.RequireErrorEnvelope(t, blankEvidence, http.StatusBadRequest, "invalid_mutation_payload")
+	refOnlyEvidence := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.evidence.v1", uuid.Nil, map[string]any{
+		"client_txn_id":               "txn-workbook-evidence-ref-only",
+		"evidence.collector_party_id": partyID.String(),
+	})
+	httptestx.RequireErrorEnvelope(t, refOnlyEvidence, http.StatusBadRequest, "invalid_mutation_payload")
+	if got := countIncidentRecords(t, harness, incidentID); got != beforeMinimumFailures {
+		t.Fatalf("rejected evidence minimum creates wrote records: got %d want %d", got, beforeMinimumFailures)
+	}
+
+	otherIncident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-workbook-evidence-other-incident",
+		"incident_key":  "IR-WORKBOOK-EVIDENCE-OTHER",
+		"title":         "Workbook evidence other incident",
+	})
+	otherIncidentID := phase4test.MustUUID(t, otherIncident["incident_id"].(string))
+	foreignPartyData := requireWorkbookCreate(t, harness, adminLogin, otherIncidentID, "cartulary.view.parties.v1", map[string]any{
+		"client_txn_id":      "txn-workbook-evidence-foreign-party-create",
+		"party.display_name": "Foreign Collector",
+		"party.party_kind":   "person",
+	})
+	foreignPartyID := phase4test.MustUUID(t, foreignPartyData["row"].(map[string]any)["record_id"].(string))
+	deletedPartyID := uuid.New()
+	seedRecordEnvelope(t, harness, incidentID, adminUserID, deletedPartyID, "party")
+	execSeed(t, harness, `
+INSERT INTO parties (record_id, incident_id, display_name, party_kind)
+VALUES ($1, $2, 'Deleted Party', 'person')
+`, deletedPartyID, incidentID)
+	execSeed(t, harness, `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, deletedPartyID, adminUserID)
+
+	beforeReferenceFailures := countIncidentRecords(t, harness, incidentID)
+	for _, invalid := range []struct {
+		name string
+		body map[string]any
+	}{
+		{
+			name: "foreign-party",
+			body: map[string]any{
+				"client_txn_id":                 "txn-workbook-evidence-foreign-create",
+				"evidence.collector_party_text": "External",
+				"evidence.collector_party_id":   foreignPartyID.String(),
+			},
+		},
+		{
+			name: "deleted-party",
+			body: map[string]any{
+				"client_txn_id":                 "txn-workbook-evidence-deleted-create",
+				"evidence.collector_party_text": "Deleted",
+				"evidence.collector_party_id":   deletedPartyID.String(),
+			},
+		},
+	} {
+		resp := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, "cartulary.view.evidence.v1", uuid.Nil, invalid.body)
+		httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
+	}
+	if got := countIncidentRecords(t, harness, incidentID); got != beforeReferenceFailures {
+		t.Fatalf("rejected evidence reference creates wrote records: got %d want %d", got, beforeReferenceFailures)
+	}
+
+	evidenceData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.evidence.v1", map[string]any{
+		"client_txn_id":                 "txn-workbook-evidence-create",
+		"evidence.title":                "  Endpoint package  ",
+		"evidence.storage_ref":          " s3://case/pkg ",
+		"evidence.collector_party_text": "Forensics Vendor",
+		"evidence.collector_party_id":   partyID.String(),
+	})
+	evidenceRow := evidenceData["row"].(map[string]any)
+	evidenceID := phase4test.MustUUID(t, evidenceRow["record_id"].(string))
+	requireCellValue(t, evidenceRow, "evidence.title", "Endpoint package")
+	requireCellValue(t, evidenceRow, "evidence.storage_ref", "s3://case/pkg")
+	requireCellValue(t, evidenceRow, "evidence.lifecycle_state", "requested")
+	requireCellValue(t, evidenceRow, "evidence.collector_party_id", partyID.String())
+	requireNonEmptyCellValue(t, evidenceRow, "evidence.requested_at")
+
+	clearedCollector := requireWorkbookPatch(t, harness, adminLogin, evidenceID, map[string]any{
+		"view_schema_id":   "cartulary.view.evidence.v1",
+		"base_row_version": 1,
+		"client_txn_id":    "txn-workbook-evidence-clear-collector",
+		"changes": []map[string]any{
+			{"field_key": "evidence.collector_party_id", "value": nil},
+		},
+	})
+	clearedCollectorRow := clearedCollector["row"].(map[string]any)
+	requireCellValue(t, clearedCollectorRow, "evidence.collector_party_id", nil)
+	requireCellValue(t, clearedCollectorRow, "evidence.collector_party_text", "Forensics Vendor")
+
+	setSource := requireWorkbookPatch(t, harness, adminLogin, evidenceID, map[string]any{
+		"view_schema_id":   "cartulary.view.evidence.v1",
+		"base_row_version": 2,
+		"client_txn_id":    "txn-workbook-evidence-set-source",
+		"changes": []map[string]any{
+			{"field_key": "evidence.source_party_id", "value": partyID.String()},
+			{"field_key": "evidence.lifecycle_state", "value": "received"},
+		},
+	})
+	setSourceRow := setSource["row"].(map[string]any)
+	requireCellValue(t, setSourceRow, "evidence.source_party_id", partyID.String())
+	requireCellValue(t, setSourceRow, "evidence.lifecycle_state", "received")
+
+	invalidForeignPatch := doWorkbookJSON(t, harness, adminLogin, http.MethodPatch, uuid.Nil, "", evidenceID, map[string]any{
+		"view_schema_id":   "cartulary.view.evidence.v1",
+		"base_row_version": 3,
+		"client_txn_id":    "txn-workbook-evidence-foreign-patch",
+		"changes": []map[string]any{
+			{"field_key": "evidence.source_party_id", "value": foreignPartyID.String()},
+		},
+	})
+	httptestx.RequireErrorEnvelope(t, invalidForeignPatch, http.StatusBadRequest, "invalid_mutation_payload")
+}
+
 func TestPhase4_CoordinationDefaults_I_4_COORD_01(t *testing.T) {
 	harness := phase4test.StartServer(t, "phase4-coordination-defaults")
 	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
@@ -166,6 +297,7 @@ func TestPhase4_CoordinationDefaults_I_4_COORD_01(t *testing.T) {
 	statusRow := statusData["row"].(map[string]any)
 	requireNonEmptyCellValue(t, statusRow, "status_review.timestamp_utc")
 	requireCellValue(t, statusRow, "status_review.review_owner_user_id", adminUserID.String())
+	requireCellValue(t, statusRow, "status_review.current_state_summary", "Containment is stable")
 	requireCollectionItemCount(t, statusRow, "status_review.blocked_task_ids", 0)
 	requireCollectionItemCount(t, statusRow, "status_review.pending_evidence_ids", 0)
 	requireCollectionItemCount(t, statusRow, "status_review.open_decision_ids", 0)
@@ -178,6 +310,7 @@ func TestPhase4_CoordinationDefaults_I_4_COORD_01(t *testing.T) {
 	})
 	lessonRow := lessonData["row"].(map[string]any)
 	requireNonEmptyCellValue(t, lessonRow, "lesson.timestamp_utc")
+	requireCellValue(t, lessonRow, "lesson.summary", "Preserve VPN logs earlier")
 	requireCellValue(t, lessonRow, "lesson.owner_user_id", adminUserID.String())
 	requireCellValue(t, lessonRow, "lesson.closure_state", "open")
 	requireCollectionItemCount(t, lessonRow, "lesson.follow_up_task_ids", 0)
@@ -349,6 +482,7 @@ func TestPhase4_CoordinationCollections_I_4_COORD_02(t *testing.T) {
 	})
 	statusRow := statusData["row"].(map[string]any)
 	requireCellValue(t, statusRow, "status_review.review_owner_user_id", adminUserID.String())
+	requireCellValue(t, statusRow, "status_review.current_state_summary", "Containment is stable")
 	requireCollectionItemCount(t, statusRow, "status_review.pending_evidence_ids", 1)
 
 	lessonData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.lesson.v1", map[string]any{
@@ -359,6 +493,7 @@ func TestPhase4_CoordinationCollections_I_4_COORD_02(t *testing.T) {
 	})
 	lessonRow := lessonData["row"].(map[string]any)
 	lessonID := phase4test.MustUUID(t, lessonRow["record_id"].(string))
+	requireCellValue(t, lessonRow, "lesson.summary", "Preserve VPN logs earlier")
 	requireCellValue(t, lessonRow, "lesson.owner_user_id", adminUserID.String())
 	requireCellValue(t, lessonRow, "lesson.closure_state", "open")
 	requireCollectionItemCount(t, lessonRow, "lesson.follow_up_task_ids", 1)

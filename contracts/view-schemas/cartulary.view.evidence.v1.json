@@ -109,7 +109,14 @@
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
       "clearable": false,
-      "enum_values": null,
+      "enum_values": [
+        "requested",
+        "pending_receipt",
+        "received",
+        "available",
+        "quarantined",
+        "released"
+      ],
       "writable": true,
       "read_model": "lifecycle_state",
       "write_target": "evidence_records.lifecycle_state"
@@ -318,7 +325,12 @@
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
       "clearable": false,
-      "enum_values": null,
+      "enum_values": [
+        "pending",
+        "available",
+        "failed",
+        "quarantined"
+      ],
       "writable": false,
       "read_model": "upload_state"
     },

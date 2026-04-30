@@ -307,7 +307,7 @@ func decodePatchChange(viewSchemaID string, raw json.RawMessage) (PatchChange, *
 
 func decodeDirectValue(fieldKey string, field viewschema.Field, value json.RawMessage, patch bool) (ValueChange, any, *auth.APIError) {
 	if string(value) == "null" {
-		if patch && field.Clearable {
+		if field.Clearable {
 			return ValueChange{Kind: "null"}, nil, nil
 		}
 		return ValueChange{}, nil, invalidMutationPayload(fieldKey, "field_not_nullable")
@@ -673,7 +673,7 @@ func hashRequestPayload(payload any) []byte {
 
 func isWorkbookMutationSurface(viewSchemaID string) bool {
 	switch viewSchemaID {
-	case PartiesViewSchemaID, NotesViewSchemaID, TaskRequestsViewSchemaID, DecisionsViewSchemaID,
+	case EvidenceViewSchemaID, PartiesViewSchemaID, NotesViewSchemaID, TaskRequestsViewSchemaID, DecisionsViewSchemaID,
 		CommLogViewSchemaID, HandoffViewSchemaID, StatusReviewViewSchemaID, LessonViewSchemaID:
 		return true
 	default:
@@ -688,6 +688,7 @@ func isReadOnlySystemField(fieldKey string) bool {
 		"handoff.timestamp_day", "handoff.ack_state", "handoff.updated_at",
 		"status_review.timestamp_day", "status_review.next_report_day", "status_review.updated_at",
 		"lesson.timestamp_day", "lesson.updated_at", "party.updated_at",
+		"evidence.blob_hash", "evidence.upload_state", "evidence.linked_record_count", "evidence.edited_at",
 		"note.linked_record_count", "note.updated_at", "note.created_by_user_id",
 		"task.linked_record_count", "task.updated_at", "task.no_owner",
 		"decision.affected_record_count", "decision.supersedes_record_id", "decision.updated_at", "decision.is_superseded":

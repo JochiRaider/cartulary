@@ -78,6 +78,16 @@ func assertViewRowCreateContract(t *testing.T, document map[string]any) {
 		"#/components/schemas/HostCreateRequest",
 		"#/components/schemas/IdentityCreateRequest",
 		"#/components/schemas/IndicatorCreateRequest",
+		"#/components/schemas/AssessmentCreateRequest",
+		"#/components/schemas/EvidenceCreateRequest",
+		"#/components/schemas/NoteCreateRequest",
+		"#/components/schemas/TaskRequestCreateRequest",
+		"#/components/schemas/DecisionCreateRequest",
+		"#/components/schemas/PartyCreateRequest",
+		"#/components/schemas/CommLogCreateRequest",
+		"#/components/schemas/HandoffCreateRequest",
+		"#/components/schemas/StatusReviewCreateRequest",
+		"#/components/schemas/LessonCreateRequest",
 	} {
 		if !slices.Contains(refs, ref) {
 			t.Fatalf("row-create request schema missing %s; got %v", ref, refs)
@@ -171,11 +181,13 @@ func assertCollectionActionsContract(t *testing.T, schemas map[string]any) {
 
 	refs := refsFromOneOf(t, objectAt(t, actions, "items"))
 	actionSchemas := map[string]string{
-		"CollectionAddTokenAction":           "add_token",
-		"CollectionAddResolvedRefAction":     "add_resolved_ref",
-		"CollectionResolveItemAction":        "resolve_item",
-		"CollectionDismissItemAction":        "dismiss_item",
-		"CollectionRevertToUnresolvedAction": "revert_to_unresolved",
+		"CollectionAddTokenAction":        "add_token",
+		"CollectionAddRecordRefAction":    "add_record_ref",
+		"CollectionRemoveRecordRefAction": "remove_record_ref",
+		"CollectionAddPartyRefAction":     "add_party_ref",
+		"CollectionRemovePartyRefAction":  "remove_party_ref",
+		"CollectionAddRiskRefAction":      "add_risk_ref",
+		"CollectionRemoveRiskRefAction":   "remove_risk_ref",
 	}
 	for name, op := range actionSchemas {
 		ref := "#/components/schemas/" + name

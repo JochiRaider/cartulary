@@ -3,6 +3,7 @@ import {
   removeFilterChip,
   rowCellTestId,
 } from "@cartulary/test-utils";
+import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
@@ -13,12 +14,18 @@ import {
 } from "./helpers";
 import {
   assessmentsViewSchemaId,
+  commLogViewSchemaId,
   createAssessmentViaUI,
   decisionsViewSchemaId,
   editGenericCell,
+  evidenceViewSchemaId,
   expectAssessmentGridOrder,
+  handoffViewSchemaId,
   hostsViewSchemaId,
+  lessonViewSchemaId,
   notesViewSchemaId,
+  partiesViewSchemaId,
+  statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
   type ViewRow,
@@ -174,7 +181,7 @@ test("E-4-05 creates append-only assessment history through the workbook UI", as
   await expectAssessmentGridOrder(page, [created.cleared.record_id]);
 });
 
-test("E-4-06 creates and edits Notes, Task Requests, and Decisions through generic workbook surfaces", async ({
+test("E-4-06 creates and edits required workbook mutation surfaces through typed generic controls", async ({
   page,
 }) => {
   const incidentId = await createIncident(
@@ -187,23 +194,41 @@ test("E-4-06 creates and edits Notes, Task Requests, and Decisions through gener
     "timeline.summary": "Generic surface support event",
   })) as ViewRow;
 
-  await page.goto(
-    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
-      notesViewSchemaId,
-    )}`,
+  await openGenericSurface(page, incidentId, partiesViewSchemaId, "Parties");
+  await expectGenericCreateMinimum(page, partiesViewSchemaId, "Display name");
+  await setGenericCreateField(page, "party.display_name", "Browser Party");
+  await setGenericCreateField(page, "party.party_kind", "organization");
+  await page
+    .getByTestId(`generic-create-submit-${partiesViewSchemaId}`)
+    .click();
+  const party = await waitForViewRowByCell(
+    page,
+    incidentId,
+    partiesViewSchemaId,
+    "party.display_name",
+    "Browser Party",
   );
+  await editGenericCell(
+    page,
+    partiesViewSchemaId,
+    party.record_id,
+    "party.primary_email",
+    "ir@example.test",
+  );
+  await expect(
+    page.getByTestId(rowCellTestId(party.record_id, "party.primary_email")),
+  ).toHaveText("ir@example.test");
+
+  await openGenericSurface(page, incidentId, notesViewSchemaId, "Notes");
   await expect(page.getByRole("heading", { name: "Notes" })).toBeVisible();
-  await page.getByTestId(`generic-create-submit-${notesViewSchemaId}`).click();
-  await expect(page.getByTestId("generic-mutation-error")).toContainText(
-    "invalid_mutation_payload",
+  await expectGenericCreateMinimum(page, notesViewSchemaId, "Title or body");
+  await setGenericCreateField(page, "note.title", "Browser note");
+  await setGenericCreateField(
+    page,
+    "note.body",
+    "Created from generic workbook UI",
   );
-  await page
-    .getByTestId("generic-create-field-note.title")
-    .fill("Browser note");
-  await page
-    .getByTestId("generic-create-field-note.body")
-    .fill("Created from generic workbook UI");
-  await page.getByTestId("generic-create-field-note.tags").fill("browser");
+  await setGenericCreateField(page, "note.tags", "browser");
   await page.getByTestId(`generic-create-submit-${notesViewSchemaId}`).click();
   const note = await waitForViewRowByCell(
     page,
@@ -226,24 +251,31 @@ test("E-4-06 creates and edits Notes, Task Requests, and Decisions through gener
     page.getByTestId(rowCellTestId(note.record_id, "note.body")),
   ).toHaveText("Updated browser note");
 
-  await page.goto(
-    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
-      decisionsViewSchemaId,
-    )}`,
+  await openGenericSurface(
+    page,
+    incidentId,
+    decisionsViewSchemaId,
+    "Decisions",
   );
   await expect(page.getByRole("heading", { name: "Decisions" })).toBeVisible();
-  await page
-    .getByTestId("generic-create-field-decision.summary")
-    .fill("Browser decision");
-  await page
-    .getByTestId("generic-create-field-decision.decision_type")
-    .fill("containment");
-  await page
-    .getByTestId("generic-create-field-decision.rationale")
-    .fill("Generic UI decision rationale.");
-  await page
-    .getByTestId("generic-create-field-decision.support_refs")
-    .fill(support.record_id);
+  await expectGenericCreateMinimum(
+    page,
+    decisionsViewSchemaId,
+    "Summary, decision type",
+  );
+  await setGenericCreateField(page, "decision.summary", "Browser decision");
+  await setGenericCreateField(page, "decision.decision_type", "containment");
+  await setGenericCreateField(
+    page,
+    "decision.rationale",
+    "Generic UI decision rationale.",
+  );
+  await waitForGenericOption(
+    page,
+    "generic-create-field-decision.support_refs",
+    support.record_id,
+  );
+  await setGenericCreateField(page, "decision.support_refs", support.record_id);
   await page
     .getByTestId(`generic-create-submit-${decisionsViewSchemaId}`)
     .click();
@@ -268,26 +300,38 @@ test("E-4-06 creates and edits Notes, Task Requests, and Decisions through gener
     page.getByTestId(rowCellTestId(decision.record_id, "decision.summary")),
   ).toHaveText("Updated browser decision");
 
-  await page.goto(
-    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
-      taskRequestsViewSchemaId,
-    )}`,
+  await openGenericSurface(
+    page,
+    incidentId,
+    taskRequestsViewSchemaId,
+    "Task Requests",
   );
   await expect(
     page.getByRole("heading", { name: "Task Requests" }),
   ).toBeVisible();
-  await page
-    .getByTestId("generic-create-field-task.title")
-    .fill("Browser task");
-  await page
-    .getByTestId("generic-create-field-task.task_kind")
-    .fill("collection");
-  await page
-    .getByTestId("generic-create-field-task.decision_record_id")
-    .fill(decision.record_id);
-  await page
-    .getByTestId("generic-create-field-task.linked_record_ids")
-    .fill(support.record_id);
+  await expectGenericCreateMinimum(page, taskRequestsViewSchemaId, "Title");
+  await setGenericCreateField(page, "task.title", "Browser task");
+  await setGenericCreateField(page, "task.task_kind", "collection");
+  await waitForGenericOption(
+    page,
+    "generic-create-field-task.decision_record_id",
+    decision.record_id,
+  );
+  await setGenericCreateField(
+    page,
+    "task.decision_record_id",
+    decision.record_id,
+  );
+  await waitForGenericOption(
+    page,
+    "generic-create-field-task.linked_record_ids",
+    support.record_id,
+  );
+  await setGenericCreateField(
+    page,
+    "task.linked_record_ids",
+    support.record_id,
+  );
   await page
     .getByTestId(`generic-create-submit-${taskRequestsViewSchemaId}`)
     .click();
@@ -317,4 +361,246 @@ test("E-4-06 creates and edits Notes, Task Requests, and Decisions through gener
   await expect(
     page.getByTestId(rowCellTestId(task.record_id, "task.title")),
   ).toHaveText("Updated browser task");
+
+  await openGenericSurface(page, incidentId, evidenceViewSchemaId, "Evidence");
+  await expectGenericCreateMinimum(
+    page,
+    evidenceViewSchemaId,
+    "Evidence needs",
+  );
+  await setGenericCreateField(page, "evidence.title", "Browser evidence");
+  await setGenericCreateField(page, "evidence.storage_ref", "slot/browser");
+  await waitForGenericOption(
+    page,
+    "generic-create-field-evidence.collector_party_id",
+    party.record_id,
+  );
+  await setGenericCreateField(
+    page,
+    "evidence.collector_party_id",
+    party.record_id,
+  );
+  await page
+    .getByTestId(`generic-create-submit-${evidenceViewSchemaId}`)
+    .click();
+  const evidence = await waitForViewRowByCell(
+    page,
+    incidentId,
+    evidenceViewSchemaId,
+    "evidence.title",
+    "Browser evidence",
+  );
+  await expect(
+    page.getByTestId(rowCellTestId(evidence.record_id, "evidence.storage_ref")),
+  ).toHaveText("slot/browser");
+
+  await openGenericSurface(
+    page,
+    incidentId,
+    commLogViewSchemaId,
+    "Communications Log",
+  );
+  await expectGenericCreateMinimum(page, commLogViewSchemaId, "Type");
+  await setGenericCreateField(page, "comm_log.comm_type", "briefing");
+  await setGenericCreateField(page, "comm_log.audience", "leadership");
+  await setGenericCreateField(page, "comm_log.channel_or_meeting", "Bridge");
+  await setGenericCreateField(page, "comm_log.summary", "Browser comm log");
+  await waitForGenericOption(
+    page,
+    "generic-create-field-comm_log.audience_party_ids",
+    party.record_id,
+  );
+  await setGenericCreateField(
+    page,
+    "comm_log.audience_party_ids",
+    party.record_id,
+  );
+  await page
+    .getByTestId(`generic-create-submit-${commLogViewSchemaId}`)
+    .click();
+  const commLog = await waitForViewRowByCell(
+    page,
+    incidentId,
+    commLogViewSchemaId,
+    "comm_log.summary",
+    "Browser comm log",
+  );
+  await editGenericCell(
+    page,
+    commLogViewSchemaId,
+    commLog.record_id,
+    "comm_log.summary",
+    "Updated browser comm log",
+  );
+  await expect(
+    page.getByTestId(rowCellTestId(commLog.record_id, "comm_log.summary")),
+  ).toHaveText("Updated browser comm log");
+
+  await openGenericSurface(page, incidentId, handoffViewSchemaId, "Handoff");
+  await expectGenericCreateMinimum(page, handoffViewSchemaId, "current state");
+  await setGenericCreateField(
+    page,
+    "handoff.current_state_summary",
+    "Browser handoff",
+  );
+  await waitForGenericOption(
+    page,
+    "generic-create-field-handoff.open_task_ids",
+    task.record_id,
+  );
+  await setGenericCreateField(page, "handoff.open_task_ids", task.record_id);
+  await waitForGenericOption(
+    page,
+    "generic-create-field-handoff.open_decision_ids",
+    decision.record_id,
+  );
+  await setGenericCreateField(
+    page,
+    "handoff.open_decision_ids",
+    decision.record_id,
+  );
+  await setGenericCreateField(page, "handoff.open_risk_refs", "Browser risk");
+  await page
+    .getByTestId(`generic-create-submit-${handoffViewSchemaId}`)
+    .click();
+  const handoff = await waitForViewRowByCell(
+    page,
+    incidentId,
+    handoffViewSchemaId,
+    "handoff.current_state_summary",
+    "Browser handoff",
+  );
+  await expect(
+    page.getByTestId(
+      rowCellTestId(handoff.record_id, "handoff.current_state_summary"),
+    ),
+  ).toHaveText("Browser handoff");
+
+  await openGenericSurface(
+    page,
+    incidentId,
+    statusReviewViewSchemaId,
+    "Status Review",
+  );
+  await expectGenericCreateMinimum(
+    page,
+    statusReviewViewSchemaId,
+    "Current state",
+  );
+  await setGenericCreateField(
+    page,
+    "status_review.current_state_summary",
+    "Browser status review",
+  );
+  await waitForGenericOption(
+    page,
+    "generic-create-field-status_review.pending_evidence_ids",
+    evidence.record_id,
+  );
+  await setGenericCreateField(
+    page,
+    "status_review.pending_evidence_ids",
+    evidence.record_id,
+  );
+  await setGenericCreateField(
+    page,
+    "status_review.blocked_task_ids",
+    task.record_id,
+  );
+  await page
+    .getByTestId(`generic-create-submit-${statusReviewViewSchemaId}`)
+    .click();
+  const statusReview = await waitForViewRowByCell(
+    page,
+    incidentId,
+    statusReviewViewSchemaId,
+    "status_review.current_state_summary",
+    "Browser status review",
+  );
+  await expect(
+    page.getByTestId(
+      rowCellTestId(
+        statusReview.record_id,
+        "status_review.current_state_summary",
+      ),
+    ),
+  ).toHaveText("Browser status review");
+
+  await openGenericSurface(page, incidentId, lessonViewSchemaId, "Lesson");
+  await expectGenericCreateMinimum(page, lessonViewSchemaId, "Summary");
+  await setGenericCreateField(page, "lesson.summary", "Browser lesson");
+  await waitForGenericOption(
+    page,
+    "generic-create-field-lesson.evidence_refs",
+    evidence.record_id,
+  );
+  await setGenericCreateField(page, "lesson.evidence_refs", evidence.record_id);
+  await setGenericCreateField(
+    page,
+    "lesson.follow_up_task_ids",
+    task.record_id,
+  );
+  await page.getByTestId(`generic-create-submit-${lessonViewSchemaId}`).click();
+  const lesson = await waitForViewRowByCell(
+    page,
+    incidentId,
+    lessonViewSchemaId,
+    "lesson.summary",
+    "Browser lesson",
+  );
+  await editGenericCell(
+    page,
+    lessonViewSchemaId,
+    lesson.record_id,
+    "lesson.closure_state",
+    "closed",
+  );
+  await expect(
+    page.getByTestId(rowCellTestId(lesson.record_id, "lesson.closure_state")),
+  ).toHaveText("closed");
 });
+
+async function openGenericSurface(
+  page: Page,
+  incidentId: string,
+  viewSchemaId: string,
+  heading: string,
+) {
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      viewSchemaId,
+    )}`,
+  );
+  await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+}
+
+async function expectGenericCreateMinimum(
+  page: Page,
+  viewSchemaId: string,
+  message: string,
+) {
+  await page.getByTestId(`generic-create-submit-${viewSchemaId}`).click();
+  await expect(page.getByTestId("generic-mutation-error")).toContainText(
+    message,
+  );
+}
+
+async function setGenericCreateField(
+  page: Page,
+  fieldKey: string,
+  value: string | string[],
+) {
+  const input = page.getByTestId(`generic-create-field-${fieldKey}`);
+  const tagName = await input.evaluate((element) => element.tagName);
+  if (tagName === "SELECT") {
+    await input.selectOption(value);
+    return;
+  }
+  await input.fill(Array.isArray(value) ? value.join("\n") : value);
+}
+
+async function waitForGenericOption(page: Page, testId: string, value: string) {
+  await expect(
+    page.getByTestId(testId).locator(`option[value="${value}"]`),
+  ).toHaveCount(1);
+}

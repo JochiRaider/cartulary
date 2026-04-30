@@ -48,4 +48,26 @@ describe("view-contracts", () => {
       ["unset", "low", "medium", "high"],
     );
   });
+
+  it("exposes mutation metadata needed by workbook controls", () => {
+    const evidence = requireViewContract("cartulary.view.evidence.v1");
+
+    expect(evidence.fieldMap["evidence.title"]?.stringContractId).toBe(
+      "single_line_title_v1",
+    );
+    expect(evidence.fieldMap["evidence.requested_at"]?.directScalarContractId).toBe(
+      "timestamp_instant_v1",
+    );
+    expect(
+      evidence.fieldMap["evidence.collector_party_id"]?.directReferenceContractId,
+    ).toBe("same_incident_party_ref_v1");
+    expect(evidence.fieldMap["evidence.lifecycle_state"]?.enumValues).toEqual([
+      "requested",
+      "pending_receipt",
+      "received",
+      "available",
+      "quarantined",
+      "released",
+    ]);
+  });
 });

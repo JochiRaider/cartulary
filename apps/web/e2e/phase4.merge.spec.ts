@@ -133,7 +133,11 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
     ],
   });
 
-  await page.goto(`/?incident_id=${incidentId}&surface=hosts`);
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      hostsViewSchemaId,
+    )}`,
+  );
   await expect(page.getByText("Timeline workbook shell")).toBeVisible();
   await expect(page.getByText("Current incident role: admin")).toBeVisible();
   await expect(
@@ -212,7 +216,11 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
     survivor.record_id,
   );
 
-  await page.goto(`/?incident_id=${incidentId}&surface=identities`);
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      identitiesViewSchemaId,
+    )}`,
+  );
   await expect(page.getByText("Timeline workbook shell")).toBeVisible();
   await expect(
     page.getByTestId(`identity-row-${identitySurvivor.record_id}`),

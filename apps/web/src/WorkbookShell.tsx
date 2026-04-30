@@ -71,6 +71,13 @@ const identitiesViewSchemaId = "cartulary.view.identities.v1";
 const evidenceViewSchemaId = "cartulary.view.evidence.v1";
 const notesViewSchemaId = "cartulary.view.notes.v1";
 const assessmentsViewSchemaId = "cartulary.view.assessments.v1";
+const taskRequestsViewSchemaId = "cartulary.view.task_requests.v1";
+const decisionsViewSchemaId = "cartulary.view.decisions.v1";
+const partiesViewSchemaId = "cartulary.view.parties.v1";
+const commLogViewSchemaId = "cartulary.view.comm_log.v1";
+const handoffViewSchemaId = "cartulary.view.handoff.v1";
+const statusReviewViewSchemaId = "cartulary.view.status_review.v1";
+const lessonViewSchemaId = "cartulary.view.lesson.v1";
 const timelineContract = requireViewContract(timelineViewSchemaId);
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
@@ -83,11 +90,6 @@ const builtInSurfaceIDs = [
   evidenceViewSchemaId,
   notesViewSchemaId,
 ] as const;
-const legacySurfaceParamToViewSchemaID: Readonly<Record<string, string>> = {
-  hosts: hostsViewSchemaId,
-  identities: identitiesViewSchemaId,
-  timeline: timelineViewSchemaId,
-};
 const csrfCookieName = "cartulary_csrf";
 const csrfHeaderName = "X-CSRF-Token";
 
@@ -217,6 +219,7 @@ type TimelineActionEnvelope = {
 
 type SessionEnvelope = {
   data: {
+    user_id: string;
     memberships: Array<{
       incident_id: string;
       role: IncidentRole;
@@ -321,6 +324,24 @@ type AssessmentCreateDraft = {
   subjectType: AssessmentSubjectType;
   supportRecordIds: string[];
 };
+
+type GenericReferenceOption = {
+  recordId: string;
+  label: string;
+  viewSchemaId: string;
+};
+
+type GenericReferenceOptions = {
+  parties: GenericReferenceOption[];
+  taskRequests: GenericReferenceOption[];
+  decisions: GenericReferenceOption[];
+  evidence: GenericReferenceOption[];
+  notes: GenericReferenceOption[];
+  timeline: GenericReferenceOption[];
+  allRecords: GenericReferenceOption[];
+};
+
+type GenericCollectionMode = "add" | "remove";
 
 type ViewportContinuityFollowup = "none" | "entity-refresh";
 
@@ -4373,6 +4394,7 @@ function AssessmentWorkbookSurface({
 function GenericWorkbookSurface({
   apiBase,
   contract,
+  currentUserId,
   filterDraft,
   incidentId,
   loadError,
@@ -4387,6 +4409,7 @@ function GenericWorkbookSurface({
 }: {
   apiBase?: string | undefined;
   contract: ViewContract;
+  currentUserId: string | null;
   filterDraft: FilterDraft;
   incidentId: string;
   loadError: string | null;
@@ -4404,10 +4427,19 @@ function GenericWorkbookSurface({
     () => contract.fields.filter((field) => field.writeKind !== "read_only"),
     [contract],
   );
-  const [createDraft, setCreateDraft] = useState<Record<string, string>>({});
+  const [createDraft, setCreateDraft] = useState<Record<string, string>>(() =>
+    initialGenericCreateDraft(contract, currentUserId),
+  );
   const [editRecordId, setEditRecordId] = useState("");
   const [editFieldKey, setEditFieldKey] = useState("");
   const [editValue, setEditValue] = useState("");
+  const [editCollectionMode, setEditCollectionMode] =
+    useState<GenericCollectionMode>("add");
+  const [referenceOptions, setReferenceOptions] =
+    useState<GenericReferenceOptions>(() => emptyGenericReferenceOptions());
+  const [referenceLoadError, setReferenceLoadError] = useState<string | null>(
+    null,
+  );
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [mutationState, setMutationState] = useState<SaveState>("Saved");
   const [evidenceMessageByRecordID, setEvidenceMessageByRecordID] = useState<
@@ -4416,6 +4448,103 @@ function GenericWorkbookSurface({
   const [evidencePreview, setEvidencePreview] =
     useState<EvidencePreviewState | null>(null);
   const isEvidenceSurface = contract.viewSchemaId === evidenceViewSchemaId;
+
+  useEffect(() => {
+    setCreateDraft((current) => {
+      const defaults = initialGenericCreateDraft(contract, currentUserId);
+      return { ...defaults, ...current };
+    });
+  }, [contract, currentUserId]);
+
+  const refreshReferenceOptions = useCallback(async () => {
+    setReferenceLoadError(null);
+    const targetViewSchemaIds = [
+      timelineViewSchemaId,
+      partiesViewSchemaId,
+      taskRequestsViewSchemaId,
+      decisionsViewSchemaId,
+      evidenceViewSchemaId,
+      notesViewSchemaId,
+    ];
+    const loaded = await Promise.all(
+      targetViewSchemaIds.map(async (viewSchemaId) => {
+        const targetContract = requireViewContract(viewSchemaId);
+        const result = await fetchJSON<ViewQueryEnvelope>(
+          apiPath(
+            apiBase,
+            `/api/v1/incidents/${incidentId}/views/${viewSchemaId}/query`,
+          ),
+          {
+            method: "POST",
+            body: JSON.stringify(
+              buildQueryRequest(targetContract, emptyWorkbookQueryState()),
+            ),
+          },
+        );
+        if (!result.ok) {
+          throw new Error(parseErrorMessage(result.payload));
+        }
+        const envelope = readEnvelope<ViewQueryEnvelope>(result.payload);
+        return [viewSchemaId, envelope.data.rows] as const;
+      }),
+    );
+    const rowsByView = Object.fromEntries(loaded) as Record<
+      string,
+      EntityApiRow[]
+    >;
+    const next: GenericReferenceOptions = {
+      parties: genericReferenceOptionsFromRows(
+        partiesViewSchemaId,
+        rowsByView[partiesViewSchemaId] ?? [],
+      ),
+      taskRequests: genericReferenceOptionsFromRows(
+        taskRequestsViewSchemaId,
+        rowsByView[taskRequestsViewSchemaId] ?? [],
+      ),
+      decisions: genericReferenceOptionsFromRows(
+        decisionsViewSchemaId,
+        rowsByView[decisionsViewSchemaId] ?? [],
+      ),
+      evidence: genericReferenceOptionsFromRows(
+        evidenceViewSchemaId,
+        rowsByView[evidenceViewSchemaId] ?? [],
+      ),
+      notes: genericReferenceOptionsFromRows(
+        notesViewSchemaId,
+        rowsByView[notesViewSchemaId] ?? [],
+      ),
+      timeline: genericReferenceOptionsFromRows(
+        timelineViewSchemaId,
+        rowsByView[timelineViewSchemaId] ?? [],
+      ),
+      allRecords: [],
+    };
+    next.allRecords = [
+      ...next.timeline,
+      ...next.evidence,
+      ...next.notes,
+      ...next.taskRequests,
+      ...next.decisions,
+      ...next.parties,
+    ];
+    setReferenceOptions(next);
+  }, [apiBase, incidentId]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    refreshReferenceOptions().catch((error: unknown) => {
+      if (!isCurrent) {
+        return;
+      }
+      setReferenceOptions(emptyGenericReferenceOptions());
+      setReferenceLoadError(
+        error instanceof Error ? error.message : "Reference options failed.",
+      );
+    });
+    return () => {
+      isCurrent = false;
+    };
+  }, [refreshReferenceOptions]);
 
   const setEvidenceMessage = useCallback(
     (recordId: string, message: string | null) => {
@@ -4563,15 +4692,43 @@ function GenericWorkbookSurface({
     writableFields.find((field) => field.fieldKey === editFieldKey) ??
     writableFields[0] ??
     null;
+  const selectedEditCollectionItems =
+    selectedEditRow !== null && selectedEditField !== null
+      ? genericCollectionItems(selectedEditRow, selectedEditField.fieldKey)
+      : [];
+
+  useEffect(() => {
+    if (selectedEditField?.writeKind !== "action_payload") {
+      setEditCollectionMode("add");
+    } else if (
+      !genericCollectionSupportsRemove(selectedEditField.fieldKey) &&
+      editCollectionMode === "remove"
+    ) {
+      setEditCollectionMode("add");
+    }
+  }, [editCollectionMode, selectedEditField]);
+
+  useEffect(() => {
+    if (selectedEditRow === null || selectedEditField === null) {
+      setEditValue("");
+      return;
+    }
+    if (selectedEditField.writeKind === "action_payload") {
+      setEditValue("");
+      return;
+    }
+    const value = selectedEditRow.cells[selectedEditField.fieldKey]?.value;
+    setEditValue(value === null || value === undefined ? "" : String(value));
+  }, [selectedEditField, selectedEditRow]);
 
   const submitCreate = async () => {
     const payload = buildGenericCreatePayload(
-      writableFields,
+      contract,
       createDraft,
       `generic-create-${contract.viewSchemaId}-${Date.now()}`,
     );
     if (payload === null) {
-      setMutationError("invalid_mutation_payload");
+      setMutationError(genericCreateMinimumMessage(contract.viewSchemaId));
       return;
     }
     setMutationState("Syncing");
@@ -4585,12 +4742,13 @@ function GenericWorkbookSurface({
     );
     if (!result.ok) {
       setMutationState("Conflict");
-      setMutationError(parseErrorMessage(result.payload));
+      setMutationError(parseMutationError(result.payload));
       return;
     }
-    setCreateDraft({});
+    setCreateDraft(initialGenericCreateDraft(contract, currentUserId));
     setMutationState("Saved");
     await onRefresh();
+    await refreshReferenceOptions();
   };
 
   const submitEdit = async () => {
@@ -4598,9 +4756,15 @@ function GenericWorkbookSurface({
       setMutationError("invalid_mutation_payload");
       return;
     }
-    const change = buildGenericPatchChange(selectedEditField, editValue);
+    const change = buildGenericPatchChange(
+      selectedEditField,
+      editValue,
+      editCollectionMode,
+    );
     if (change === null) {
-      setMutationError("invalid_mutation_payload");
+      setMutationError(
+        "Provide a value, or leave clearable fields empty to clear them.",
+      );
       return;
     }
     setMutationState("Syncing");
@@ -4619,12 +4783,13 @@ function GenericWorkbookSurface({
     );
     if (!result.ok) {
       setMutationState("Conflict");
-      setMutationError(parseErrorMessage(result.payload));
+      setMutationError(parseMutationError(result.payload));
       return;
     }
     setEditValue("");
     setMutationState("Saved");
     await onRefresh();
+    await refreshReferenceOptions();
   };
 
   return (
@@ -4654,38 +4819,26 @@ function GenericWorkbookSurface({
                 style={labelStyle}
               >
                 {field.label}
-                {field.writeKind === "action_payload" ? (
-                  <textarea
-                    data-testid={`generic-create-field-${field.fieldKey}`}
-                    id={`generic-create-input-${field.fieldKey}`}
-                    style={textareaStyle}
-                    value={createDraft[field.fieldKey] ?? ""}
-                    onChange={(event) => {
-                      setCreateDraft((current) => ({
-                        ...current,
-                        [field.fieldKey]: event.target.value,
-                      }));
-                    }}
-                  />
-                ) : (
-                  <input
-                    data-testid={`generic-create-field-${field.fieldKey}`}
-                    id={`generic-create-input-${field.fieldKey}`}
-                    style={inputStyle}
-                    value={createDraft[field.fieldKey] ?? ""}
-                    onChange={(event) => {
-                      setCreateDraft((current) => ({
-                        ...current,
-                        [field.fieldKey]: event.target.value,
-                      }));
-                    }}
-                  />
-                )}
+                <GenericMutationControl
+                  collectionMode="add"
+                  field={field}
+                  id={`generic-create-input-${field.fieldKey}`}
+                  referenceOptions={referenceOptions}
+                  testId={`generic-create-field-${field.fieldKey}`}
+                  value={createDraft[field.fieldKey] ?? ""}
+                  onChange={(value) => {
+                    setCreateDraft((current) => ({
+                      ...current,
+                      [field.fieldKey]: value,
+                    }));
+                  }}
+                />
               </label>
             ))}
           </div>
           <button
             data-testid={`generic-create-submit-${contract.viewSchemaId}`}
+            disabled={mutationState === "Syncing"}
             style={actionButtonStyle}
             type="button"
             onClick={() => {
@@ -4708,7 +4861,7 @@ function GenericWorkbookSurface({
                 <option value="">Row</option>
                 {rows.map((row) => (
                   <option key={row.record_id} value={row.record_id}>
-                    {row.record_id}
+                    {genericRowLabel(contract, row)}
                   </option>
                 ))}
               </select>
@@ -4727,27 +4880,36 @@ function GenericWorkbookSurface({
                   </option>
                 ))}
               </select>
-              {selectedEditField.writeKind === "action_payload" ? (
-                <textarea
-                  data-testid={`generic-edit-value-${contract.viewSchemaId}`}
-                  style={textareaStyle}
-                  value={editValue}
+              {selectedEditField.writeKind === "action_payload" &&
+              genericCollectionSupportsRemove(selectedEditField.fieldKey) ? (
+                <select
+                  aria-label="Collection edit action"
+                  data-testid={`generic-edit-action-${contract.viewSchemaId}`}
+                  style={selectStyle}
+                  value={editCollectionMode}
                   onChange={(event) => {
-                    setEditValue(event.target.value);
+                    setEditCollectionMode(
+                      event.target.value === "remove" ? "remove" : "add",
+                    );
+                    setEditValue("");
                   }}
-                />
-              ) : (
-                <input
-                  data-testid={`generic-edit-value-${contract.viewSchemaId}`}
-                  style={inputStyle}
-                  value={editValue}
-                  onChange={(event) => {
-                    setEditValue(event.target.value);
-                  }}
-                />
-              )}
+                >
+                  <option value="add">Add</option>
+                  <option value="remove">Remove</option>
+                </select>
+              ) : null}
+              <GenericMutationControl
+                collectionItems={selectedEditCollectionItems}
+                collectionMode={editCollectionMode}
+                field={selectedEditField}
+                referenceOptions={referenceOptions}
+                testId={`generic-edit-value-${contract.viewSchemaId}`}
+                value={editValue}
+                onChange={setEditValue}
+              />
               <button
                 data-testid={`generic-edit-submit-${contract.viewSchemaId}`}
+                disabled={mutationState === "Syncing"}
                 style={actionButtonStyle}
                 type="button"
                 onClick={() => {
@@ -4757,6 +4919,12 @@ function GenericWorkbookSurface({
                 Update
               </button>
             </div>
+          ) : null}
+
+          {referenceLoadError ? (
+            <p data-testid="generic-reference-load-error" style={bodyStyle}>
+              {referenceLoadError}
+            </p>
           ) : null}
 
           {mutationError ? (
@@ -4841,6 +5009,170 @@ function GenericWorkbookSurface({
   );
 }
 
+function GenericMutationControl({
+  collectionItems = [],
+  collectionMode,
+  field,
+  id,
+  referenceOptions,
+  testId,
+  value,
+  onChange,
+}: {
+  collectionItems?: Array<{ itemRef: string; displayText: string }>;
+  collectionMode: GenericCollectionMode;
+  field: ViewFieldContract;
+  id?: string;
+  referenceOptions: GenericReferenceOptions;
+  testId: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  if (field.writeKind === "action_payload") {
+    if (collectionMode === "remove") {
+      return (
+        <select
+          data-testid={testId}
+          id={id}
+          multiple
+          size={Math.min(Math.max(collectionItems.length, 2), 6)}
+          style={selectStyle}
+          value={splitDraftValues(value)}
+          onChange={(event) => {
+            onChange(
+              Array.from(event.currentTarget.selectedOptions)
+                .map((option) => option.value)
+                .join("\n"),
+            );
+          }}
+        >
+          {collectionItems.map((item) => (
+            <option key={item.itemRef} value={item.itemRef}>
+              {item.displayText}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    const options = referenceOptionsForField(field, referenceOptions);
+    if (genericFieldUsesReferenceOptions(field)) {
+      return (
+        <select
+          data-testid={testId}
+          id={id}
+          multiple
+          size={Math.min(Math.max(options.length, 2), 6)}
+          style={selectStyle}
+          value={splitDraftValues(value)}
+          onChange={(event) => {
+            onChange(
+              Array.from(event.currentTarget.selectedOptions)
+                .map((option) => option.value)
+                .join("\n"),
+            );
+          }}
+        >
+          {options.map((option) => (
+            <option key={option.recordId} value={option.recordId}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    return (
+      <textarea
+        data-testid={testId}
+        id={id}
+        rows={3}
+        style={textareaStyle}
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+      />
+    );
+  }
+
+  const referenceChoices = referenceOptionsForField(field, referenceOptions);
+  if (genericFieldUsesReferenceOptions(field)) {
+    return (
+      <select
+        data-testid={testId}
+        id={id}
+        style={selectStyle}
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+      >
+        <option value="">{field.clearable ? "None" : "Select"}</option>
+        {referenceChoices.map((option) => (
+          <option key={option.recordId} value={option.recordId}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  if (field.enumValues && field.enumValues.length > 0) {
+    return (
+      <select
+        data-testid={testId}
+        id={id}
+        style={selectStyle}
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+      >
+        <option value="">Select</option>
+        {field.enumValues.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  if (isMultilineGenericField(field)) {
+    return (
+      <textarea
+        data-testid={testId}
+        id={id}
+        rows={3}
+        style={textareaStyle}
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+      />
+    );
+  }
+
+  return (
+    <input
+      data-testid={testId}
+      id={id}
+      placeholder={
+        field.directScalarContractId === "timestamp_instant_v1"
+          ? "RFC3339 timestamp"
+          : undefined
+      }
+      style={inputStyle}
+      type="text"
+      value={value}
+      onChange={(event) => {
+        onChange(event.target.value);
+      }}
+    />
+  );
+}
+
 function genericCellLabel(value: unknown): string {
   if (value === null || value === undefined || value === "") {
     return "None";
@@ -4860,21 +5192,34 @@ function genericCellLabel(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function buildGenericCreatePayload(
-  fields: readonly ViewFieldContract[],
+export function buildGenericCreatePayload(
+  contract: ViewContract,
   draft: Record<string, string>,
   clientTxnId: string,
 ): Record<string, unknown> | null {
+  if (!workbookCreateMinimumSatisfied(contract.viewSchemaId, draft)) {
+    return null;
+  }
   const payload: Record<string, unknown> = { client_txn_id: clientTxnId };
+  const fields = contract.fields.filter(
+    (field) => field.writeKind !== "read_only",
+  );
   for (const field of fields) {
     const value = normalizeValue(draft[field.fieldKey] ?? "");
-    if (value === "") {
-      continue;
-    }
     if (field.writeKind === "action_payload") {
-      const actionPayload = buildGenericCollectionActions(field, value);
+      if (value === "") {
+        continue;
+      }
+      const actionPayload = buildGenericCollectionActions(field, value, "add");
       if (actionPayload !== null) {
         payload[field.fieldKey] = actionPayload;
+      }
+      continue;
+    }
+
+    if (value === "") {
+      if (field.clearable) {
+        payload[field.fieldKey] = null;
       }
       continue;
     }
@@ -4883,19 +5228,24 @@ function buildGenericCreatePayload(
   return Object.keys(payload).length > 1 ? payload : null;
 }
 
-function buildGenericPatchChange(
+export function buildGenericPatchChange(
   field: ViewFieldContract,
   rawValue: string,
+  collectionMode: GenericCollectionMode = "add",
 ): Record<string, unknown> | null {
   const value = normalizeValue(rawValue);
-  if (value === "" && !field.clearable) {
-    return null;
-  }
   if (field.writeKind === "action_payload") {
-    const actionPayload = buildGenericCollectionActions(field, value);
+    const actionPayload = buildGenericCollectionActions(
+      field,
+      value,
+      collectionMode,
+    );
     return actionPayload === null
       ? null
       : { field_key: field.fieldKey, action_payload: actionPayload };
+  }
+  if (value === "" && !field.clearable) {
+    return null;
   }
   return {
     field_key: field.fieldKey,
@@ -4906,20 +5256,314 @@ function buildGenericPatchChange(
 function buildGenericCollectionActions(
   field: ViewFieldContract,
   rawValue: string,
+  mode: GenericCollectionMode,
 ): Record<string, unknown> | null {
-  const tokens = rawValue
-    .split(/\r?\n/u)
-    .map((value) => normalizeValue(value))
-    .filter((value) => value !== "");
+  const tokens = splitDraftValues(rawValue);
   if (tokens.length === 0) {
     return null;
   }
-  const actions = tokens.map((value) =>
-    field.fieldKey === "note.tags"
-      ? { op: "add_token", raw_text: value }
-      : { op: "add_record_ref", linked_record_id: value },
-  );
+  const actions = tokens.map((value) => {
+    if (field.fieldKey === "note.tags") {
+      return { op: "add_token", raw_text: value };
+    }
+    if (isPartyRefCollection(field.fieldKey)) {
+      return mode === "remove"
+        ? { op: "remove_party_ref", item_ref: value }
+        : { op: "add_party_ref", party_id: value };
+    }
+    if (field.fieldKey === "handoff.open_risk_refs") {
+      return mode === "remove"
+        ? { op: "remove_risk_ref", item_ref: value }
+        : { op: "add_risk_ref", risk_ref_text: value };
+    }
+    return mode === "remove"
+      ? { op: "remove_record_ref", item_ref: value }
+      : { op: "add_record_ref", linked_record_id: value };
+  });
   return { kind: "collection_actions_v1", actions };
+}
+
+function splitDraftValues(rawValue: string): string[] {
+  return rawValue
+    .split(/\r?\n/u)
+    .map((value) => normalizeValue(value))
+    .filter((value) => value !== "");
+}
+
+function workbookCreateMinimumSatisfied(
+  viewSchemaId: string,
+  draft: Record<string, string>,
+): boolean {
+  const has = (fieldKey: string) =>
+    normalizeValue(draft[fieldKey] ?? "") !== "";
+  switch (viewSchemaId) {
+    case partiesViewSchemaId:
+      return has("party.display_name") && has("party.party_kind");
+    case notesViewSchemaId:
+      return has("note.title") || has("note.body");
+    case taskRequestsViewSchemaId:
+      return has("task.title") && has("task.task_kind");
+    case decisionsViewSchemaId:
+      return (
+        has("decision.summary") &&
+        has("decision.decision_type") &&
+        has("decision.rationale")
+      );
+    case evidenceViewSchemaId:
+      return (
+        has("evidence.title") ||
+        has("evidence.storage_ref") ||
+        has("evidence.collector_party_text") ||
+        has("evidence.source_party_text")
+      );
+    case commLogViewSchemaId:
+      return (
+        has("comm_log.comm_type") &&
+        has("comm_log.audience") &&
+        has("comm_log.channel_or_meeting") &&
+        has("comm_log.summary")
+      );
+    case handoffViewSchemaId:
+      return (
+        has("handoff.incoming_owner_user_id") &&
+        has("handoff.current_state_summary")
+      );
+    case statusReviewViewSchemaId:
+      return has("status_review.current_state_summary");
+    case lessonViewSchemaId:
+      return has("lesson.summary");
+    default:
+      return Object.values(draft).some((value) => normalizeValue(value) !== "");
+  }
+}
+
+function genericCreateMinimumMessage(viewSchemaId: string): string {
+  switch (viewSchemaId) {
+    case partiesViewSchemaId:
+      return "Display name and kind are required.";
+    case notesViewSchemaId:
+      return "Title or body is required.";
+    case taskRequestsViewSchemaId:
+      return "Title and task kind are required.";
+    case decisionsViewSchemaId:
+      return "Summary, decision type, and rationale are required.";
+    case evidenceViewSchemaId:
+      return "Evidence needs a title, storage ref, collector, or source.";
+    case commLogViewSchemaId:
+      return "Type, audience, channel or meeting, and summary are required.";
+    case handoffViewSchemaId:
+      return "Incoming owner and current state summary are required.";
+    case statusReviewViewSchemaId:
+      return "Current state summary is required.";
+    case lessonViewSchemaId:
+      return "Summary is required.";
+    default:
+      return "At least one value is required.";
+  }
+}
+
+function initialGenericCreateDraft(
+  contract: ViewContract,
+  currentUserId: string | null,
+): Record<string, string> {
+  const draft: Record<string, string> = {};
+  for (const field of contract.fields) {
+    if (field.writeKind === "read_only") {
+      continue;
+    }
+    if (
+      currentUserId &&
+      (field.fieldKey === "handoff.incoming_owner_user_id" ||
+        field.fieldKey === "task.owner_user_id" ||
+        field.fieldKey === "decision.owner_user_id" ||
+        field.fieldKey === "status_review.review_owner_user_id" ||
+        field.fieldKey === "lesson.owner_user_id")
+    ) {
+      draft[field.fieldKey] = currentUserId;
+    }
+  }
+  return draft;
+}
+
+function emptyGenericReferenceOptions(): GenericReferenceOptions {
+  return {
+    parties: [],
+    taskRequests: [],
+    decisions: [],
+    evidence: [],
+    notes: [],
+    timeline: [],
+    allRecords: [],
+  };
+}
+
+function genericReferenceOptionsFromRows(
+  viewSchemaId: string,
+  rows: EntityApiRow[],
+): GenericReferenceOption[] {
+  return rows.map((row) => ({
+    recordId: row.record_id,
+    label: genericRowLabel(requireViewContract(viewSchemaId), row),
+    viewSchemaId,
+  }));
+}
+
+function genericRowLabel(contract: ViewContract, row: EntityApiRow): string {
+  const preferredFieldKeys = [
+    "timeline.summary",
+    "party.display_name",
+    "task.title",
+    "decision.summary",
+    "evidence.title",
+    "evidence.storage_ref",
+    "note.title",
+    "note.body",
+    "comm_log.summary",
+    "handoff.current_state_summary",
+    "status_review.current_state_summary",
+    "lesson.summary",
+  ];
+  for (const fieldKey of preferredFieldKeys) {
+    if (!contract.fieldMap[fieldKey]) {
+      continue;
+    }
+    const label = stringifyGridValue(row.cells[fieldKey]?.value).trim();
+    if (label !== "") {
+      return `${label} (${row.record_id})`;
+    }
+  }
+  return row.record_id;
+}
+
+function referenceOptionsForField(
+  field: ViewFieldContract,
+  options: GenericReferenceOptions,
+): GenericReferenceOption[] {
+  if (field.directReferenceContractId === "same_incident_party_ref_v1") {
+    return options.parties;
+  }
+  if (field.directReferenceContractId === "same_incident_decision_ref_v1") {
+    return options.decisions;
+  }
+  if (isPartyRefCollection(field.fieldKey)) {
+    return options.parties;
+  }
+  switch (field.fieldKey) {
+    case "comm_log.decision_ids":
+    case "handoff.open_decision_ids":
+    case "status_review.open_decision_ids":
+      return options.decisions;
+    case "comm_log.action_task_ids":
+    case "handoff.open_task_ids":
+    case "status_review.blocked_task_ids":
+    case "lesson.follow_up_task_ids":
+      return options.taskRequests;
+    case "status_review.pending_evidence_ids":
+    case "lesson.evidence_refs":
+      return options.evidence;
+    case "task.linked_record_ids":
+    case "decision.support_refs":
+      return options.allRecords;
+    default:
+      return [];
+  }
+}
+
+function genericFieldUsesReferenceOptions(field: ViewFieldContract): boolean {
+  if (
+    field.directReferenceContractId === "same_incident_party_ref_v1" ||
+    field.directReferenceContractId === "same_incident_decision_ref_v1" ||
+    isPartyRefCollection(field.fieldKey)
+  ) {
+    return true;
+  }
+  switch (field.fieldKey) {
+    case "comm_log.decision_ids":
+    case "handoff.open_decision_ids":
+    case "status_review.open_decision_ids":
+    case "comm_log.action_task_ids":
+    case "handoff.open_task_ids":
+    case "status_review.blocked_task_ids":
+    case "lesson.follow_up_task_ids":
+    case "status_review.pending_evidence_ids":
+    case "lesson.evidence_refs":
+    case "task.linked_record_ids":
+    case "decision.support_refs":
+      return true;
+    default:
+      return false;
+  }
+}
+
+function isPartyRefCollection(fieldKey: string): boolean {
+  return (
+    fieldKey === "comm_log.audience_party_ids" ||
+    fieldKey === "comm_log.attendee_party_ids"
+  );
+}
+
+function genericCollectionSupportsRemove(fieldKey: string): boolean {
+  return fieldKey !== "note.tags";
+}
+
+function genericCollectionItems(
+  row: EntityApiRow,
+  fieldKey: string,
+): Array<{ itemRef: string; displayText: string }> {
+  const value = row.cells[fieldKey]?.value;
+  if (!value || typeof value !== "object" || !("items" in value)) {
+    return [];
+  }
+  const rawItems = (value as { items?: unknown }).items;
+  if (!Array.isArray(rawItems)) {
+    return [];
+  }
+  return rawItems.flatMap((item) => {
+    if (!item || typeof item !== "object") {
+      return [];
+    }
+    const raw = item as Record<string, unknown>;
+    const itemRef = typeof raw.item_ref === "string" ? raw.item_ref : "";
+    if (itemRef === "") {
+      return [];
+    }
+    const displayText =
+      typeof raw.display_text === "string" && raw.display_text.trim() !== ""
+        ? raw.display_text
+        : itemRef;
+    return [{ itemRef, displayText }];
+  });
+}
+
+function isMultilineGenericField(field: ViewFieldContract): boolean {
+  return (
+    field.stringContractId === "multiline_body_v1" ||
+    field.fieldKey.endsWith(".body") ||
+    field.fieldKey.endsWith(".notes") ||
+    field.fieldKey.endsWith(".rationale") ||
+    field.fieldKey.endsWith("_summary") ||
+    field.fieldKey.endsWith(".details")
+  );
+}
+
+function parseMutationError(payload: unknown): string {
+  const base = parseErrorMessage(payload);
+  if (!payload || typeof payload !== "object" || !("error" in payload)) {
+    return base;
+  }
+  const error = payload.error;
+  if (!error || typeof error !== "object" || !("conflict" in error)) {
+    return base;
+  }
+  const conflict = error.conflict;
+  if (!conflict || typeof conflict !== "object") {
+    return base;
+  }
+  const fieldKey =
+    "field_key" in conflict && typeof conflict.field_key === "string"
+      ? conflict.field_key
+      : null;
+  return fieldKey ? `${base}: ${fieldKey}` : base;
 }
 
 function enumValuesFor(
@@ -4987,12 +5631,7 @@ function supportRowLabel(row: TimelineApiRow): string {
 }
 
 function surfaceSlug(viewSchemaID: string): string {
-  return (
-    Object.entries(legacySurfaceParamToViewSchemaID).find(
-      ([, mappedViewSchemaID]) => mappedViewSchemaID === viewSchemaID,
-    )?.[0] ??
-    viewSchemaID.replace(/^cartulary\.view\./, "").replace(/\.v1$/, "")
-  );
+  return viewSchemaID.replace(/^cartulary\.view\./, "").replace(/\.v1$/, "");
 }
 
 export function WorkbookShell({
@@ -5012,10 +5651,7 @@ export function WorkbookShell({
     ) {
       return explicit;
     }
-    const legacySurface = params.get("surface") ?? "timeline";
-    return (
-      legacySurfaceParamToViewSchemaID[legacySurface] ?? timelineViewSchemaId
-    );
+    return timelineViewSchemaId;
   }, [params]);
   const [surface, setSurface] = useState<SurfaceKind>(initialViewSchemaID);
   const [hostRows, setHostRows] = useState<EntityRow[]>([]);
@@ -5027,6 +5663,7 @@ export function WorkbookShell({
   const [assessmentLoadError, setAssessmentLoadError] = useState<string | null>(
     null,
   );
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentIncidentRole, setCurrentIncidentRole] =
     useState<IncidentRole | null>(null);
   const [hostQueryState, setHostQueryState] = useState<WorkbookQueryState>(() =>
@@ -5070,11 +5707,13 @@ export function WorkbookShell({
       apiPath(apiBase, "/api/v1/auth/session"),
     );
     if (!result.ok) {
+      setCurrentUserId(null);
       setCurrentIncidentRole("");
       onIncidentAccessLost?.();
       return;
     }
     const envelope = readEnvelope<SessionEnvelope>(result.payload);
+    setCurrentUserId(envelope.data.user_id || null);
     const membership =
       envelope.data.memberships.find(
         (entry) => entry.incident_id === incidentId,
@@ -5281,14 +5920,7 @@ export function WorkbookShell({
     const next = new URLSearchParams(window.location.search);
     next.set("incident_id", incidentId);
     next.set("view_schema_id", surface);
-    const legacySurface = Object.entries(legacySurfaceParamToViewSchemaID).find(
-      ([, viewSchemaID]) => viewSchemaID === surface,
-    )?.[0];
-    if (legacySurface) {
-      next.set("surface", legacySurface);
-    } else {
-      next.delete("surface");
-    }
+    next.delete("surface");
     window.history.replaceState({}, "", `/?${next.toString()}`);
   }, [incidentId, surface]);
 
@@ -5498,6 +6130,7 @@ export function WorkbookShell({
           key={activeContract.viewSchemaId}
           apiBase={apiBase}
           contract={activeContract}
+          currentUserId={currentUserId}
           filterDraft={genericFilterDraft}
           incidentId={incidentId}
           loadError={genericLoadError}

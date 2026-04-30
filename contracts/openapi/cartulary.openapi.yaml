@@ -247,7 +247,7 @@
           "workbook"
         ],
         "operationId": "createViewRow",
-        "summary": "Create one row through the view-scoped row-create route for Timeline, Host, Identity, Indicator, Assessments, Notes, Task Requests, or Decisions surfaces.",
+        "summary": "Create one row through the view-scoped row-create route for writable workbook surfaces.",
         "requestBody": {
           "required": true,
           "content": {
@@ -270,6 +270,9 @@
                     "$ref": "#/components/schemas/AssessmentCreateRequest"
                   },
                   {
+                    "$ref": "#/components/schemas/EvidenceCreateRequest"
+                  },
+                  {
                     "$ref": "#/components/schemas/NoteCreateRequest"
                   },
                   {
@@ -277,6 +280,21 @@
                   },
                   {
                     "$ref": "#/components/schemas/DecisionCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PartyCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CommLogCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/HandoffCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/StatusReviewCreateRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LessonCreateRequest"
                   }
                 ]
               }
@@ -1356,6 +1374,69 @@
           "assessment.rationale"
         ]
       },
+      "EvidenceCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "evidence.title": {
+            "type": "string"
+          },
+          "evidence.lifecycle_state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "pending_receipt",
+              "received",
+              "available",
+              "quarantined",
+              "released"
+            ]
+          },
+          "evidence.requested_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "evidence.received_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "evidence.storage_ref": {
+            "type": "string"
+          },
+          "evidence.collector_party_text": {
+            "type": "string"
+          },
+          "evidence.collector_party_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "evidence.source_party_text": {
+            "type": "string"
+          },
+          "evidence.source_party_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
       "NoteCreateRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -1474,6 +1555,230 @@
           "client_txn_id"
         ]
       },
+      "PartyCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "party.display_name": {
+            "type": "string"
+          },
+          "party.party_kind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "team",
+              "organization",
+              "distribution_list",
+              "other"
+            ]
+          },
+          "party.organization_name": {
+            "type": "string"
+          },
+          "party.role_title": {
+            "type": "string"
+          },
+          "party.primary_email": {
+            "type": "string"
+          },
+          "party.timezone_name": {
+            "type": "string"
+          },
+          "party.external_ref": {
+            "type": "string"
+          },
+          "party.notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "CommLogCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "comm_log.timestamp_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "comm_log.comm_type": {
+            "type": "string",
+            "enum": [
+              "meeting",
+              "notification",
+              "approval",
+              "briefing",
+              "handoff"
+            ]
+          },
+          "comm_log.audience": {
+            "type": "string"
+          },
+          "comm_log.channel_or_meeting": {
+            "type": "string"
+          },
+          "comm_log.summary": {
+            "type": "string"
+          },
+          "comm_log.next_report_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "comm_log.privilege_tag": {
+            "type": "string"
+          },
+          "comm_log.decision_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "comm_log.action_task_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "comm_log.audience_party_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "comm_log.attendee_party_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "HandoffCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "handoff.timestamp_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "handoff.outgoing_owner_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handoff.incoming_owner_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handoff.current_state_summary": {
+            "type": "string"
+          },
+          "handoff.open_task_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "handoff.open_decision_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "handoff.open_risk_refs": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "handoff.next_checks": {
+            "type": "string"
+          },
+          "handoff.acknowledged_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "StatusReviewCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "status_review.timestamp_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status_review.review_owner_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status_review.current_state_summary": {
+            "type": "string"
+          },
+          "status_review.blocked_task_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "status_review.pending_evidence_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "status_review.open_decision_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "status_review.active_risks_summary": {
+            "type": "string"
+          },
+          "status_review.next_report_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "LessonCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "lesson.timestamp_utc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lesson.summary": {
+            "type": "string"
+          },
+          "lesson.owner_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lesson.closure_state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "lesson.follow_up_task_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "lesson.evidence_refs": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
       "RecordPatchRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -1557,19 +1862,22 @@
                   "$ref": "#/components/schemas/CollectionAddTokenAction"
                 },
                 {
-                  "$ref": "#/components/schemas/CollectionAddResolvedRefAction"
-                },
-                {
                   "$ref": "#/components/schemas/CollectionAddRecordRefAction"
                 },
                 {
-                  "$ref": "#/components/schemas/CollectionResolveItemAction"
+                  "$ref": "#/components/schemas/CollectionRemoveRecordRefAction"
                 },
                 {
-                  "$ref": "#/components/schemas/CollectionDismissItemAction"
+                  "$ref": "#/components/schemas/CollectionAddPartyRefAction"
                 },
                 {
-                  "$ref": "#/components/schemas/CollectionRevertToUnresolvedAction"
+                  "$ref": "#/components/schemas/CollectionRemovePartyRefAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionAddRiskRefAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionRemoveRiskRefAction"
                 }
               ]
             }
@@ -1596,27 +1904,6 @@
           "raw_text"
         ]
       },
-      "CollectionAddResolvedRefAction": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "op": {
-            "const": "add_resolved_ref"
-          },
-          "raw_text": {
-            "type": "string"
-          },
-          "resolved_record_id": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        "required": [
-          "op",
-          "raw_text",
-          "resolved_record_id"
-        ]
-      },
       "CollectionAddRecordRefAction": {
         "type": "object",
         "additionalProperties": false,
@@ -1634,35 +1921,50 @@
           "linked_record_id"
         ]
       },
-      "CollectionResolveItemAction": {
+      "CollectionRemoveRecordRefAction": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "op": {
-            "const": "resolve_item"
+            "const": "remove_record_ref"
           },
           "item_ref": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^record_ref:"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
+        ]
+      },
+      "CollectionAddPartyRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_party_ref"
           },
-          "resolved_record_id": {
+          "party_id": {
             "type": "string",
             "format": "uuid"
           }
         },
         "required": [
           "op",
-          "item_ref"
+          "party_id"
         ]
       },
-      "CollectionDismissItemAction": {
+      "CollectionRemovePartyRefAction": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "op": {
-            "const": "dismiss_item"
+            "const": "remove_party_ref"
           },
           "item_ref": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^party_ref:"
           }
         },
         "required": [
@@ -1670,15 +1972,32 @@
           "item_ref"
         ]
       },
-      "CollectionRevertToUnresolvedAction": {
+      "CollectionAddRiskRefAction": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "op": {
-            "const": "revert_to_unresolved"
+            "const": "add_risk_ref"
+          },
+          "risk_ref_text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "risk_ref_text"
+        ]
+      },
+      "CollectionRemoveRiskRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "remove_risk_ref"
           },
           "item_ref": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^risk_ref:"
           }
         },
         "required": [
@@ -2129,7 +2448,16 @@
               "cartulary.view.hosts.v1",
               "cartulary.view.identities.v1",
               "cartulary.view.indicators.v1",
-              "cartulary.view.assessments.v1"
+              "cartulary.view.assessments.v1",
+              "cartulary.view.evidence.v1",
+              "cartulary.view.notes.v1",
+              "cartulary.view.task_requests.v1",
+              "cartulary.view.decisions.v1",
+              "cartulary.view.parties.v1",
+              "cartulary.view.comm_log.v1",
+              "cartulary.view.handoff.v1",
+              "cartulary.view.status_review.v1",
+              "cartulary.view.lesson.v1"
             ]
           },
           "change_set_id": {

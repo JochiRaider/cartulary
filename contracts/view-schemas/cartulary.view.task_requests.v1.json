@@ -120,7 +120,13 @@
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
       "clearable": false,
-      "enum_values": null,
+      "enum_values": [
+        "open",
+        "in_progress",
+        "blocked",
+        "done",
+        "canceled"
+      ],
       "writable": true,
       "read_model": "status",
       "write_target": "task_requests.status"
@@ -168,7 +174,12 @@
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
       "clearable": false,
-      "enum_values": null,
+      "enum_values": [
+        "low",
+        "normal",
+        "high",
+        "urgent"
+      ],
       "writable": true,
       "read_model": "priority",
       "write_target": "task_requests.priority"
@@ -192,7 +203,13 @@
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
       "clearable": false,
-      "enum_values": null,
+      "enum_values": [
+        "question",
+        "request",
+        "collection",
+        "containment",
+        "follow_up"
+      ],
       "writable": true,
       "read_model": "task_kind",
       "write_target": "task_requests.task_kind"

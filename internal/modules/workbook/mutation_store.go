@@ -69,6 +69,10 @@ func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, i
 		return MutationResult{}, err
 	}
 	switch request.ViewSchemaID {
+	case EvidenceViewSchemaID:
+		if err := insertEvidenceTx(ctx, tx, recordID, incidentID, request, now.UTC()); err != nil {
+			return MutationResult{}, err
+		}
 	case PartiesViewSchemaID:
 		if err := insertPartyTx(ctx, tx, recordID, incidentID, request, now.UTC()); err != nil {
 			return MutationResult{}, err
@@ -408,6 +412,16 @@ func validateCreateRequest(request CreateRequest) error {
 		if !hasTextValue(request.Values, "note.title") && !hasTextValue(request.Values, "note.body") {
 			return mutationValidationError("payload", "missing_minimum_create_signal")
 		}
+	case EvidenceViewSchemaID:
+		if !hasTextValue(request.Values, "evidence.title") &&
+			!hasTextValue(request.Values, "evidence.storage_ref") &&
+			!hasTextValue(request.Values, "evidence.collector_party_text") &&
+			!hasTextValue(request.Values, "evidence.source_party_text") {
+			return mutationValidationError("payload", "missing_minimum_create_signal")
+		}
+		if value, ok := request.Values["evidence.lifecycle_state"]; ok && !validEvidenceLifecycleState(derefText(value.Text)) {
+			return mutationValidationError("evidence.lifecycle_state", "invalid_value")
+		}
 	case PartiesViewSchemaID:
 		if !hasTextValue(request.Values, "party.display_name") {
 			return mutationValidationError("party.display_name", "missing_required_field")
@@ -478,6 +492,42 @@ func validateCreateRequest(request CreateRequest) error {
 	return nil
 }
 
+func insertEvidenceTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, request CreateRequest, now time.Time) error {
+	lifecycleState := nullableTextValue(request.Values, "evidence.lifecycle_state")
+	if lifecycleState == nil {
+		lifecycleState = "requested"
+	}
+	requestedAt := nullableTimestampValue(request.Values, "evidence.requested_at")
+	if requestedAt == nil && lifecycleState == "requested" {
+		requestedAt = now
+	}
+	_, err := tx.Exec(ctx, `
+INSERT INTO evidence (
+    record_id, incident_id, title, lifecycle_state, requested_at, received_at,
+    storage_ref, collector_party_text, collector_party_id, source_party_text,
+    source_party_id, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6,
+    $7, $8, $9, $10,
+    $11, $12, $12
+)
+`, recordID, incidentID,
+		nullableTextValue(request.Values, "evidence.title"),
+		lifecycleState,
+		requestedAt,
+		nullableTimestampValue(request.Values, "evidence.received_at"),
+		nullableTextValue(request.Values, "evidence.storage_ref"),
+		nullableTextValue(request.Values, "evidence.collector_party_text"),
+		nullableUUIDValue(request.Values, "evidence.collector_party_id"),
+		nullableTextValue(request.Values, "evidence.source_party_text"),
+		nullableUUIDValue(request.Values, "evidence.source_party_id"),
+		now)
+	if err != nil {
+		return fmt.Errorf("insert evidence: %w", err)
+	}
+	return nil
+}
+
 func insertPartyTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, request CreateRequest, now time.Time) error {
 	_, err := tx.Exec(ctx, `
 INSERT INTO parties (
@@ -521,6 +571,18 @@ func insertArtifactTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incide
 	if request.ViewSchemaID == HandoffViewSchemaID && outgoingOwner == nil {
 		outgoingOwner = actorID
 	}
+	currentStateSummary := nullableTextValue(request.Values, "handoff.current_state_summary")
+	if request.ViewSchemaID == StatusReviewViewSchemaID {
+		currentStateSummary = nullableTextValue(request.Values, "status_review.current_state_summary")
+	}
+	summary := nullableTextValue(request.Values, "comm_log.summary")
+	if request.ViewSchemaID == LessonViewSchemaID {
+		summary = nullableTextValue(request.Values, "lesson.summary")
+	}
+	nextReportAt := nullableTimestampValue(request.Values, "comm_log.next_report_at")
+	if request.ViewSchemaID == StatusReviewViewSchemaID {
+		nextReportAt = nullableTimestampValue(request.Values, "status_review.next_report_at")
+	}
 	reviewOwner := nullableUUIDValue(request.Values, "status_review.review_owner_user_id")
 	if request.ViewSchemaID == StatusReviewViewSchemaID && reviewOwner == nil {
 		reviewOwner = actorID
@@ -549,10 +611,10 @@ INSERT INTO artifacts (
     $21, $22, $23,
     $24, $25, $26, $27
 )
-`, recordID, incidentID, artifactType, timestamp, now,
+	`, recordID, incidentID, artifactType, timestamp, now,
 		nullableTextValue(request.Values, "note.title"), nullableTextValue(request.Values, "note.body"),
-		commID, nullableTextValue(request.Values, "comm_log.comm_type"), nullableTextValue(request.Values, "comm_log.audience"), nullableTextValue(request.Values, "comm_log.channel_or_meeting"), nullableTextValue(request.Values, "comm_log.summary"), nullableTimestampValue(request.Values, "comm_log.next_report_at"), nullableTextValue(request.Values, "comm_log.privilege_tag"),
-		handoffID, outgoingOwner, nullableUUIDValue(request.Values, "handoff.incoming_owner_user_id"), nullableTextValue(request.Values, "handoff.current_state_summary"), nullableTextValue(request.Values, "handoff.next_checks"), nullableTimestampValue(request.Values, "handoff.acknowledged_at"),
+		commID, nullableTextValue(request.Values, "comm_log.comm_type"), nullableTextValue(request.Values, "comm_log.audience"), nullableTextValue(request.Values, "comm_log.channel_or_meeting"), summary, nextReportAt, nullableTextValue(request.Values, "comm_log.privilege_tag"),
+		handoffID, outgoingOwner, nullableUUIDValue(request.Values, "handoff.incoming_owner_user_id"), currentStateSummary, nullableTextValue(request.Values, "handoff.next_checks"), nullableTimestampValue(request.Values, "handoff.acknowledged_at"),
 		statusReviewID, reviewOwner, nullableTextValue(request.Values, "status_review.active_risks_summary"),
 		lessonID, lessonOwner, closureState, actorID)
 	if err != nil {
@@ -720,6 +782,8 @@ func validateDirectReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.U
 		return validateTargetRecordTx(ctx, tx, incidentID, recordID, "party", fieldKey)
 	case "task.decision_record_id":
 		return validateTargetRecordTx(ctx, tx, incidentID, recordID, "decision", fieldKey)
+	case "evidence.collector_party_id", "evidence.source_party_id":
+		return validateTargetRecordTx(ctx, tx, incidentID, recordID, "party", fieldKey)
 	default:
 		return nil
 	}
@@ -866,6 +930,10 @@ func validateDirectFieldValue(change PatchChange) error {
 		}
 	case "decision.decision_type":
 		if !validDecisionType(value) {
+			return mutationValidationError(change.FieldKey, "invalid_value")
+		}
+	case "evidence.lifecycle_state":
+		if !validEvidenceLifecycleState(value) {
 			return mutationValidationError(change.FieldKey, "invalid_value")
 		}
 	}
@@ -1143,6 +1211,8 @@ func recordTypeMatchesView(recordType string, viewSchemaID string) bool {
 
 func recordTypeForView(viewSchemaID string) string {
 	switch viewSchemaID {
+	case EvidenceViewSchemaID:
+		return "evidence"
 	case PartiesViewSchemaID:
 		return "party"
 	case TaskRequestsViewSchemaID:
@@ -1158,6 +1228,8 @@ func recordTypeForView(viewSchemaID string) string {
 
 func sourceTableForView(viewSchemaID string) string {
 	switch recordTypeForView(viewSchemaID) {
+	case "evidence":
+		return "evidence"
 	case "party":
 		return "parties"
 	case "task_request":
@@ -1190,6 +1262,8 @@ func artifactTypeForView(viewSchemaID string) string {
 
 func tableColumnForField(fieldKey string) (string, string) {
 	switch {
+	case strings.HasPrefix(fieldKey, "evidence."):
+		return "evidence", strings.TrimPrefix(fieldKey, "evidence.")
 	case strings.HasPrefix(fieldKey, "party."):
 		return "parties", strings.TrimPrefix(fieldKey, "party.")
 	case fieldKey == "note.title":
@@ -1320,6 +1394,15 @@ func linkTypeForField(fieldKey string) string {
 func validPartyKind(value string) bool {
 	switch value {
 	case "person", "team", "organization", "distribution_list", "other":
+		return true
+	default:
+		return false
+	}
+}
+
+func validEvidenceLifecycleState(value string) bool {
+	switch value {
+	case "requested", "pending_receipt", "received", "available", "quarantined", "released":
 		return true
 	default:
 		return false

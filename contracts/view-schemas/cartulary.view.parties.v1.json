@@ -103,7 +103,13 @@
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
       "clearable": false,
-      "enum_values": null,
+      "enum_values": [
+        "person",
+        "team",
+        "organization",
+        "distribution_list",
+        "other"
+      ],
       "writable": true,
       "read_model": "party_kind",
       "write_target": "parties.party_kind"
