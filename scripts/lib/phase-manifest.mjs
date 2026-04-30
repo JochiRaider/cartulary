@@ -1,6 +1,13 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
+import {
+  serviceBackedGoExecutionDependencies,
+  serviceBackedSupportTargets,
+  validExecutionDependencies,
+  validSupportTargets,
+} from "./execution-dependencies.mjs";
+
 const sectionDefinitions = [
   ["unit", "U-"],
   ["integration", "I-"],
@@ -16,18 +23,6 @@ const validCoverage = new Set(["authoritative", "supplemental"]);
 const validGoSections = new Set(["unit", "integration", "e2e"]);
 const phasePolicyExceptionsSchemaID = "cartulary.phase_policy_exceptions.v1";
 const validPhasePolicyExceptionTypes = new Set(["allowed_empty_go_manifest_selection"]);
-const validExecutionDependencies = new Set([
-  "backend_unit",
-  "backend_store",
-  "backend_integration",
-  "backend_process",
-  "frontend_unit",
-  "browser_functional",
-  "browser_stateful",
-  "browser_measurement",
-  "browser_support",
-]);
-const validSupportTargets = new Set(["backend_unit", "backend_integration_support"]);
 const postgresFixturePolicyTemplateClone = "template_clone";
 const postgresFixturePolicyPackageReset = "package_reset";
 const postgresFixturePolicyMigrationScratch = "migration_scratch";
@@ -65,12 +60,6 @@ const defaultProcessTemplateCloneBudget = Object.freeze({
 const defaultTransactionBudget = Object.freeze({
   max_transactions_per_symbol: 8,
 });
-const serviceBackedGoExecutionDependencies = new Set([
-  "backend_store",
-  "backend_integration",
-  "backend_process",
-]);
-const serviceBackedSupportTargets = new Set(["backend_integration_support"]);
 const supportTargetSections = new Map([
   ["backend_unit", "unit"],
   ["backend_integration_support", "integration"],

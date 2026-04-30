@@ -92,6 +92,106 @@ guide_json="$tmp_dir/task-guide.json"
 "$NODE_BIN" "$TASK_GUIDE" --role feature-dev --json >"$guide_json"
 "$NODE_BIN" -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' "$guide_json"
 
+phase4_feature_output="$(CARTULARY_TEST_RESULTS_DIR="$results_dir" "$NODE_BIN" "$TASK_GUIDE" --role feature-dev --phase phase4)"
+assert_contains "$phase4_feature_output" "minimal phase slice: direct targets that cover phase4" "phase4 feature-dev minimal tier"
+assert_contains "$phase4_feature_output" "service-backed slice: service-backed targets that cover phase4" "phase4 feature-dev service tier"
+assert_contains "$phase4_feature_output" "general hygiene: useful non-phase checks" "phase4 feature-dev hygiene tier"
+assert_contains "$phase4_feature_output" "make backend-unit | selected phase execution dependency | phase_relevance=phase_slice" "phase4 backend-unit phase slice"
+assert_contains "$phase4_feature_output" "make backend-store | selected phase execution dependency | phase_relevance=phase_slice" "phase4 backend-store phase slice"
+assert_contains "$phase4_feature_output" "make backend-integration | selected phase execution dependency | phase_relevance=phase_slice" "phase4 backend-integration phase slice"
+assert_contains "$phase4_feature_output" "make backend-integration-support | selected phase execution dependency | phase_relevance=phase_slice" "phase4 backend-integration-support phase slice"
+assert_contains "$phase4_feature_output" "make browser-e2e-webserver-backed | selected phase execution dependency | phase_relevance=phase_slice" "phase4 browser phase slice"
+assert_contains "$phase4_feature_output" "make frontend-unit | general hygiene outside the selected phase slice | phase_relevance=general_hygiene" "phase4 frontend-unit hygiene"
+assert_contains "$phase4_feature_output" "make lint | general hygiene outside the selected phase slice | phase_relevance=general_hygiene" "phase4 lint hygiene"
+assert_not_contains "$phase4_feature_output" "make frontend-unit | selected phase execution dependency | phase_relevance=phase_slice" "phase4 frontend-unit not phase slice"
+assert_not_contains "$phase4_feature_output" "make lint | selected phase execution dependency | phase_relevance=phase_slice" "phase4 lint not phase slice"
+
+phase4_guide_json="$tmp_dir/task-guide-phase4.json"
+"$NODE_BIN" "$TASK_GUIDE" --role feature-dev --phase phase4 --json >"$phase4_guide_json"
+"$NODE_BIN" - "$phase4_guide_json" <<'EOF'
+const fs = require("node:fs");
+const guide = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const role = guide.roles.find((entry) => entry.role === "feature-dev");
+if (!role || !Array.isArray(role.recommendation_tiers)) {
+  throw new Error("feature-dev must expose recommendation_tiers");
+}
+if ("recommendations" in role) {
+  throw new Error("legacy flat recommendations must not be present");
+}
+const tierByName = new Map(role.recommendation_tiers.map((tier) => [tier.name, tier]));
+for (const name of ["minimal phase slice", "service-backed slice", "full local gate", "general hygiene"]) {
+  if (!tierByName.has(name)) {
+    throw new Error(`missing tier ${name}`);
+  }
+}
+const minimalTargets = new Set(tierByName.get("minimal phase slice").recommendations.map((item) => item.target));
+for (const target of [
+  "backend-unit",
+  "backend-store",
+  "backend-integration",
+  "backend-integration-support",
+  "browser-e2e-webserver-backed",
+]) {
+  if (!minimalTargets.has(target)) {
+    throw new Error(`phase4 minimal slice missing ${target}`);
+  }
+}
+for (const target of ["frontend-unit", "lint"]) {
+  if (minimalTargets.has(target)) {
+    throw new Error(`phase4 minimal slice must not include ${target}`);
+  }
+}
+for (const item of tierByName.get("minimal phase slice").recommendations) {
+  if (item.phase_relevance !== "phase_slice") {
+    throw new Error(`minimal slice item ${item.target} has phase_relevance=${item.phase_relevance}`);
+  }
+}
+const serviceTargets = new Set(tierByName.get("service-backed slice").recommendations.map((item) => item.target));
+for (const target of [
+  "backend-store",
+  "backend-integration",
+  "backend-integration-support",
+  "browser-e2e-webserver-backed",
+]) {
+  if (!serviceTargets.has(target)) {
+    throw new Error(`phase4 service-backed slice missing ${target}`);
+  }
+}
+if (serviceTargets.has("backend-unit")) {
+  throw new Error("backend-unit must not be in the service-backed slice");
+}
+const gateTargets = new Set(tierByName.get("full local gate").recommendations.map((item) => item.target));
+if (!gateTargets.has("test-fast") || !gateTargets.has("check")) {
+  throw new Error("full local gate must include test-fast and check");
+}
+const hygieneTargets = new Set(tierByName.get("general hygiene").recommendations.map((item) => item.target));
+if (!hygieneTargets.has("frontend-unit") || !hygieneTargets.has("lint")) {
+  throw new Error("phase4 hygiene must include frontend-unit and lint");
+}
+for (const item of tierByName.get("general hygiene").recommendations) {
+  if (item.phase_relevance !== "general_hygiene") {
+    throw new Error(`hygiene item ${item.target} has phase_relevance=${item.phase_relevance}`);
+  }
+}
+EOF
+
+phase3_guide_json="$tmp_dir/task-guide-phase3.json"
+"$NODE_BIN" "$TASK_GUIDE" --role feature-dev --phase phase3 --json >"$phase3_guide_json"
+"$NODE_BIN" - "$phase3_guide_json" <<'EOF'
+const fs = require("node:fs");
+const guide = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+const role = guide.roles.find((entry) => entry.role === "feature-dev");
+const tierByName = new Map(role.recommendation_tiers.map((tier) => [tier.name, tier]));
+const minimalTargets = new Set(tierByName.get("minimal phase slice").recommendations.map((item) => item.target));
+if (!minimalTargets.has("frontend-unit")) {
+  throw new Error("phase3 frontend-unit evidence must stay in the minimal phase slice");
+}
+const hygieneTargets = new Set(tierByName.get("general hygiene").recommendations.map((item) => item.target));
+if (hygieneTargets.has("frontend-unit")) {
+  throw new Error("phase3 frontend-unit must not be general hygiene");
+}
+EOF
+
 phase_output="$("$NODE_BIN" "$EXPLAIN_PHASE" --phase phase1)"
 assert_contains "$phase_output" "Cartulary phase guidance: phase1" "explain-phase header"
 assert_contains "$phase_output" "targets:" "explain-phase targets"

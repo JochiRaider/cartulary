@@ -281,7 +281,7 @@ Implement the root `Makefile` next. It should expose the baseline human-facing t
 Repository-local recommended meanings:
 
 - `make help`: print the compact workflow task surface without bootstrapping local toolchains.
-- `make task-guide`: print the concise role and phase oriented target-selection view without bootstrapping local toolchains.
+- `make task-guide`: print the concise role and phase oriented target-selection view without bootstrapping local toolchains; phase-filtered feature guidance is derived from the selected phase manifest and labels non-phase checks as general hygiene.
 - `make help-all`: print the exhaustive public workflow-tiered task surface without bootstrapping local toolchains.
 - `make doctor`: verify required local tools and pinned toolchain versions without installing them.
 - `make bootstrap`: install Go tools, install pnpm dependencies, and prepare local service prerequisites.

@@ -4,6 +4,11 @@ import { fileURLToPath } from "node:url";
 
 import { loadBrowserBatchStages } from "./browser-batch-manifest.mjs";
 import {
+  compareExecutionDependencies,
+  executionDependencyInfo,
+  targetForExecutionDependency,
+} from "./execution-dependencies.mjs";
+import {
   collectEntries,
   collectSupportGoEntries,
   loadManifest,
@@ -24,19 +29,6 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..");
-
-const executionDependencyTargets = new Map([
-  ["backend_unit", "backend-unit"],
-  ["backend_store", "backend-store"],
-  ["backend_integration", "backend-integration"],
-  ["backend_process", "backend-process"],
-  ["backend_integration_support", "backend-integration-support"],
-  ["frontend_unit", "frontend-unit"],
-  ["browser_functional", "browser-e2e-webserver-backed"],
-  ["browser_stateful", "browser-e2e-stateful"],
-  ["browser_measurement", "browser-e2e-measurement"],
-  ["browser_support", "browser-e2e-support"],
-]);
 
 const roleDefinitions = [
   {
@@ -95,11 +87,17 @@ function resolveResultsRoot(root = repoRoot) {
 }
 
 function targetForEntry(entry) {
-  return executionDependencyTargets.get(entry.execution_dependency ?? "") ?? "";
+  return targetForExecutionDependency(
+    entry.execution_dependency ?? "",
+    `manifest entry ${entry.id} execution_dependency`,
+  );
 }
 
 function targetForSupportEntry(entry) {
-  return executionDependencyTargets.get(entry.target ?? "") ?? "";
+  return targetForExecutionDependency(
+    entry.target ?? "",
+    `support_go_target ${entry.file ?? "(missing file)"} target`,
+  );
 }
 
 function sectionCounts(rows) {
@@ -379,6 +377,30 @@ function summarizeRows(rows) {
   };
 }
 
+function executionDependencyCategories(values) {
+  return uniqueSorted(
+    values.map((value) => executionDependencyInfo(value)?.category ?? ""),
+  );
+}
+
+function executionDependencyServiceBacked(values) {
+  return values.some((value) => executionDependencyInfo(value)?.service_backed === true);
+}
+
+function firstExecutionDependencyOrder(values) {
+  const dependencies = uniqueSorted(values).sort(compareExecutionDependencies);
+  const first = dependencies[0] ?? "";
+  return executionDependencyInfo(first)?.order ?? Number.MAX_SAFE_INTEGER;
+}
+
+function comparePhaseTargets(left, right) {
+  return (
+    firstExecutionDependencyOrder(left.execution_dependencies) -
+      firstExecutionDependencyOrder(right.execution_dependencies) ||
+    compareStrings(left.target, right.target)
+  );
+}
+
 export function knownRoles() {
   return roleDefinitions.map((role) => role.role);
 }
@@ -428,14 +450,19 @@ export function phaseGuidance(phase, { root = repoRoot } = {}) {
   const targetSummaries = byTarget.map((target) => {
     const guidance = targetGuidance(target, { root });
     const rowsForTarget = rows.filter((row) => row.target === target);
+    const executionDependencies = uniqueSorted(
+      rowsForTarget.map((row) => row.execution_dependency),
+    ).sort(compareExecutionDependencies);
     return {
       target,
       service_requirements: guidance?.service_requirements ?? [],
       scheduler_owner: guidance?.scheduler_owner ?? ["direct Make target"],
       counts: sectionCounts(rowsForTarget),
-      execution_dependencies: uniqueSorted(rowsForTarget.map((row) => row.execution_dependency)),
+      execution_dependencies: executionDependencies,
+      execution_categories: executionDependencyCategories(executionDependencies),
+      service_backed: executionDependencyServiceBacked(executionDependencies),
     };
-  });
+  }).sort(comparePhaseTargets);
   return {
     phase,
     manifest_path: relToRepo(manifestPath, root),
@@ -446,10 +473,141 @@ export function phaseGuidance(phase, { root = repoRoot } = {}) {
     counts,
     phases: [phase],
     known_phases: known,
-    execution_dependencies: uniqueSorted(rows.map((row) => row.execution_dependency)),
+    execution_dependencies: uniqueSorted(rows.map((row) => row.execution_dependency)).sort(
+      compareExecutionDependencies,
+    ),
     targets: targetSummaries,
     rows,
   };
+}
+
+function rowsByTarget(rows) {
+  const result = new Map();
+  for (const row of rows) {
+    const values = result.get(row.target) ?? [];
+    values.push(row);
+    result.set(row.target, values);
+  }
+  return result;
+}
+
+function recommendationForTarget(
+  target,
+  {
+    root = repoRoot,
+    actualTarget = target,
+    phaseRows = null,
+    phaseRelevance = "general",
+    summaryOverride = "",
+  } = {},
+) {
+  const guidance = targetGuidance(target, { root });
+  const targetRows = phaseRows ?? null;
+  const coverage = targetRows ? summarizeRows(targetRows) : (guidance?.phase_coverage ?? null);
+  const executionDependencies = coverage?.execution_dependencies ?? [];
+  return {
+    target: actualTarget,
+    summary: summaryOverride || (guidance ? guidanceSummary(guidance) : "inspect phase evidence"),
+    phase_relevance: phaseRelevance,
+    execution_dependencies: executionDependencies,
+    execution_categories: executionDependencyCategories(executionDependencies),
+    service_backed: executionDependencyServiceBacked(executionDependencies),
+    service_requirements: guidance?.service_requirements ?? [],
+    scheduler_owner: guidance?.scheduler_owner ?? ["direct Make target"],
+    latest_artifact: guidance?.artifact.latest?.path ?? "none",
+    expected_artifacts: guidance?.artifact.expected ?? [],
+    phase_coverage: coverage,
+  };
+}
+
+function defaultRecommendationTiers(definition, { phase = "", root = repoRoot } = {}) {
+  return [
+    {
+      name: "recommended targets",
+      summary: "role-oriented targets from the stable task surface",
+      recommendations: definition.targets.map((target) => {
+        const actualTarget = target === "explain-phase" && phase ? `explain-phase PHASE=${phase}` : target;
+        return recommendationForTarget(target, {
+          root,
+          actualTarget,
+          phaseRelevance: phase ? "phase_context" : "general",
+        });
+      }),
+    },
+  ];
+}
+
+function featureDevPhaseRecommendationTiers(definition, phaseInfo, { root = repoRoot } = {}) {
+  const phaseRowsByTarget = rowsByTarget(phaseInfo.rows);
+  const phaseTargets = [...phaseInfo.targets].sort(comparePhaseTargets);
+  const phaseTargetNames = new Set(phaseTargets.map((target) => target.target));
+  const fullLocalGateTargets = ["test-fast", "check"];
+  const hygieneTargets = definition.targets.filter(
+    (target) => !phaseTargetNames.has(target) && !fullLocalGateTargets.includes(target),
+  );
+
+  const phaseRecommendations = phaseTargets.map((target) =>
+    recommendationForTarget(target.target, {
+      root,
+      phaseRows: phaseRowsByTarget.get(target.target) ?? [],
+      phaseRelevance: "phase_slice",
+      summaryOverride: "selected phase execution dependency",
+    }),
+  );
+  const serviceBackedRecommendations = phaseTargets
+    .filter((target) => target.service_requirements.length > 0 || target.service_backed)
+    .map((target) =>
+      recommendationForTarget(target.target, {
+        root,
+        phaseRows: phaseRowsByTarget.get(target.target) ?? [],
+        phaseRelevance: "service_backed_slice",
+        summaryOverride: "selected phase service-backed execution dependency",
+      }),
+    );
+  const fullLocalGateRecommendations = fullLocalGateTargets.map((target) =>
+    recommendationForTarget(target, {
+      root,
+      phaseRelevance: "full_local_gate",
+      summaryOverride: "aggregate local verification gate",
+    }),
+  );
+  const hygieneRecommendations = hygieneTargets.map((target) =>
+    recommendationForTarget(target, {
+      root,
+      phaseRelevance: "general_hygiene",
+      summaryOverride: "general hygiene outside the selected phase slice",
+    }),
+  );
+
+  return [
+    {
+      name: "minimal phase slice",
+      summary: `direct targets that cover ${phaseInfo.phase}`,
+      recommendations: phaseRecommendations,
+    },
+    {
+      name: "service-backed slice",
+      summary: `service-backed targets that cover ${phaseInfo.phase}`,
+      recommendations: serviceBackedRecommendations,
+    },
+    {
+      name: "full local gate",
+      summary: "aggregate verification before handoff or review",
+      recommendations: fullLocalGateRecommendations,
+    },
+    {
+      name: "general hygiene",
+      summary: "useful non-phase checks that do not claim selected phase evidence",
+      recommendations: hygieneRecommendations,
+    },
+  ].filter((tier) => tier.recommendations.length > 0);
+}
+
+function recommendationTiersForRole(definition, { phase = "", phaseInfo = null, root = repoRoot } = {}) {
+  if (definition.role === "feature-dev" && phaseInfo) {
+    return featureDevPhaseRecommendationTiers(definition, phaseInfo, { root });
+  }
+  return defaultRecommendationTiers(definition, { phase, root });
 }
 
 export function taskGuide({ role = "", phase = "", root = repoRoot } = {}) {
@@ -466,19 +624,12 @@ export function taskGuide({ role = "", phase = "", root = repoRoot } = {}) {
     phase: phase || "",
     phase_guidance: phaseInfo,
     roles: roles.map((definition) => ({
-      ...definition,
-      recommendations: definition.targets.map((target) => {
-        const actualTarget = target === "explain-phase" && phase ? `explain-phase PHASE=${phase}` : target;
-        const guidance = targetGuidance(target, { root });
-        return {
-          target: actualTarget,
-          summary: guidance ? guidanceSummary(guidance) : "inspect phase evidence",
-          service_requirements: guidance?.service_requirements ?? [],
-          scheduler_owner: guidance?.scheduler_owner ?? ["direct Make target"],
-          latest_artifact: guidance?.artifact.latest?.path ?? "none",
-          expected_artifacts: guidance?.artifact.expected ?? [],
-          phase_coverage: guidance?.phase_coverage ?? null,
-        };
+      role: definition.role,
+      summary: definition.summary,
+      recommendation_tiers: recommendationTiersForRole(definition, {
+        phase,
+        phaseInfo,
+        root,
       }),
     })),
   };

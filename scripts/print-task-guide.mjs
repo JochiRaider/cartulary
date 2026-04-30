@@ -53,12 +53,15 @@ function renderHuman(guide) {
   }
   for (const role of guide.roles) {
     lines.push(`${role.role}: ${role.summary}`);
-    for (const item of role.recommendations) {
-      lines.push(
-        `  make ${item.target} | ${item.summary} | services=${formatRequirements(item.service_requirements)} | scheduler=${item.scheduler_owner.join(";")} | latest_artifact=${item.latest_artifact}`,
-      );
-      if (item.phase_coverage) {
-        lines.push(`    phase_coverage: ${formatPhaseCoverage(item.phase_coverage)}`);
+    for (const tier of role.recommendation_tiers) {
+      lines.push(`  ${tier.name}: ${tier.summary}`);
+      for (const item of tier.recommendations) {
+        lines.push(
+          `    make ${item.target} | ${item.summary} | phase_relevance=${item.phase_relevance} | services=${formatRequirements(item.service_requirements)} | scheduler=${item.scheduler_owner.join(";")} | latest_artifact=${item.latest_artifact}`,
+        );
+        if (item.phase_coverage) {
+          lines.push(`      phase_coverage: ${formatPhaseCoverage(item.phase_coverage)}`);
+        }
       }
     }
     lines.push("");
