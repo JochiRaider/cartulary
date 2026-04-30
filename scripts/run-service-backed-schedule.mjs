@@ -29,7 +29,7 @@ const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "service_backed_schedule_manifest.json");
 const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
 const supportedSchemaID = "cartulary.service_backed_schedule.v8";
-const schedulerEventSchemaID = "cartulary.service_backed_scheduler_event.v4";
+const schedulerEventSchemaID = "cartulary.service_backed_scheduler_event.v5";
 const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v5";
 const goCPUResource = "go_cpu";
 const goIOResource = "go_io";
@@ -626,7 +626,7 @@ function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTa
     summarySchemaID: schedulerSummarySchemaID,
     resourceScheduler: "service_backed",
     showFinalizing: true,
-    initialProgressAt: Date.now(),
+    deferInitialProgress: true,
     stopOnFirstFailure: false,
     runningDisplayUnits(state) {
       return Array.from(state.running.values()).map((unit) =>

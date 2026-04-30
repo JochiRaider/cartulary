@@ -201,7 +201,7 @@ export function schedulerBlockedBy({ reason = null, blockedResources = [] } = {}
   return Array.from(values).sort((left, right) => left.localeCompare(right));
 }
 
-export function schedulerSlowestRunningRecord(runningUnits, startedAt, now = Date.now()) {
+export function schedulerSlowestRunningRecord(runningUnits, startedAt, now = 0) {
   let slowest = null;
   for (const unit of runningUnits) {
     const started = startedAt.get(unit.id ?? unit.target ?? unit.label);
@@ -233,7 +233,7 @@ export function formatHumanSlowestRunning(value) {
 export function schedulerProgressSnapshot({
   runningUnits,
   startedAt,
-  now = Date.now(),
+  now = 0,
   reason = "none",
   blockedResources = [],
   waitingOn = [],

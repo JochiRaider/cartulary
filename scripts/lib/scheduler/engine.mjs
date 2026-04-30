@@ -30,6 +30,7 @@ import {
   classifyExecutionFailure,
   failureFieldsForJSON,
 } from "../failure-taxonomy.mjs";
+import { SchedulerClock } from "./clock.mjs";
 import { replayLog, runCommand, sanitizeLogName } from "./process-executor.mjs";
 import {
   addResourceClaims,
@@ -99,6 +100,7 @@ class SchedulerReporter {
     this.eventsPath = path.join(targetDir, "scheduler-events.jsonl");
     this.summaryPath = path.join(targetDir, "scheduler-summary.json");
     this.events = createWriteStream(this.eventsPath, { flags: "w" });
+    this.clock = new SchedulerClock();
     this.machine = machineSchedulerOutput();
     this.startedAt = new Map();
     this.completedWork = [];
@@ -111,7 +113,10 @@ class SchedulerReporter {
     this.blockedResourcesSeen = new Set();
     this.blockedExplanationsSeen = new Set();
     this.waitingOnSeen = new Set();
-    this.lastProgressAt = schedule.initialProgressAt ?? 0;
+    this.lastProgressAt = schedule.deferInitialProgress ? this.clock.monotonicMs() : 0;
+    this.eventSequence = 0;
+    this.lastEventSequence = 0;
+    this.lastEventMonotonicMs = -1;
     this.lastBlockedKey = null;
     this.maxRunningWorkUnits = 0;
     this.maxRunningGroups = 0;
@@ -160,7 +165,7 @@ class SchedulerReporter {
   }
 
   startUnit(unit, logFile, state) {
-    this.startedAt.set(unit.id, Date.now());
+    this.startedAt.set(unit.id, this.clock.monotonicMs());
     if (finalizer(unit)) {
       this.emit(
         "finalize-start",
@@ -204,7 +209,8 @@ class SchedulerReporter {
   }
 
   finishUnit(unit, result, state) {
-    const durationMs = Math.max(0, Date.now() - (this.startedAt.get(unit.id) ?? Date.now()));
+    const now = this.clock.monotonicMs();
+    const durationMs = Math.max(0, now - (this.startedAt.get(unit.id) ?? now));
     this.startedAt.delete(unit.id);
     if (this.schedule.countCompletedUnit(unit, result)) {
       this.completedCount += 1;
@@ -341,7 +347,7 @@ class SchedulerReporter {
     blockedResources = [],
     { force = false, waitingOn = [], blockedUnits = [] } = {},
   ) {
-    const now = Date.now();
+    const now = this.clock.monotonicMs();
     if (!force && now - this.lastProgressAt < schedulerProgressIntervalMs) {
       return;
     }
@@ -535,12 +541,39 @@ class SchedulerReporter {
   }
 
   writeEvent(event, state, detail) {
+    const skew = this.clock.observeRawWallClock();
+    if (skew) {
+      this.writeEventRecord("clock-skew", state, {
+        clock_skew: skew,
+      });
+    }
+    this.writeEventRecord(event, state, detail);
+  }
+
+  writeEventRecord(event, state, detail) {
     this.observeState(state);
+    const monotonicMs = this.clock.monotonicMs();
+    const eventSequence = this.eventSequence + 1;
+    if (eventSequence !== this.lastEventSequence + 1) {
+      throw new Error(
+        `scheduler event sequence regression for ${this.schedule.target}: got ${eventSequence}, want ${this.lastEventSequence + 1}`,
+      );
+    }
+    if (monotonicMs < this.lastEventMonotonicMs) {
+      throw new Error(
+        `scheduler monotonic clock regression for ${this.schedule.target}: got ${monotonicMs}, previous ${this.lastEventMonotonicMs}`,
+      );
+    }
+    this.eventSequence = eventSequence;
+    this.lastEventSequence = eventSequence;
+    this.lastEventMonotonicMs = monotonicMs;
     const base = {
       schema_id: this.schedule.eventSchemaID,
       target: this.schedule.target,
       event,
-      timestamp: new Date().toISOString(),
+      event_sequence: eventSequence,
+      monotonic_ms: monotonicMs,
+      wall_timestamp: this.clock.wallTimestamp(monotonicMs),
       pending: visiblePendingCount(state.pending),
       running: visibleRunningCount(state.running),
       total_work_units: this.schedule.totalWorkUnits,

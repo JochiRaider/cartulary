@@ -33,7 +33,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
 const supportedSchemaID = "cartulary.check_schedule.v6";
-const schedulerEventSchemaID = "cartulary.check_scheduler_event.v4";
+const schedulerEventSchemaID = "cartulary.check_scheduler_event.v5";
 const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v5";
 
 function usage() {
@@ -441,7 +441,9 @@ class NestedSchedulerProgressReader {
     return {
       work_unit: this.workUnit,
       nested_target: this.nestedTarget,
-      timestamp: typeof event.timestamp === "string" ? event.timestamp : "",
+      event_sequence: Number.isInteger(event.event_sequence) ? event.event_sequence : 0,
+      monotonic_ms: integerOrZero(event.monotonic_ms),
+      wall_timestamp: typeof event.wall_timestamp === "string" ? event.wall_timestamp : "",
       completed: integerOrZero(event.completed),
       total_work_units: integerOrZero(event.total_work_units),
       running: integerOrZero(event.running),
@@ -508,7 +510,9 @@ function createNestedProgressSupport(schedule) {
             const key = JSON.stringify({
               work_unit: progress.work_unit,
               nested_target: progress.nested_target,
-              timestamp: progress.timestamp,
+              event_sequence: progress.event_sequence,
+              monotonic_ms: progress.monotonic_ms,
+              wall_timestamp: progress.wall_timestamp,
               completed: progress.completed,
               running: progress.running,
               pending: progress.pending,

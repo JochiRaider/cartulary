@@ -453,6 +453,9 @@ go-test-duration-baseline-drift:
 browser-e2e-duration-baseline-drift:
 	$(Q)results_dir="$(RESULTS_DIR)"; if [ -z "$$results_dir" ]; then results_dir="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)"; fi; node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/lib/browser-shard-plan.mjs check-baseline-drift $(if $(BASELINE_FILE),--baseline-file "$(BASELINE_FILE)") "$$results_dir"
 
+scheduler-event-order-drift:
+	$(Q)results_dir="$(RESULTS_DIR)"; if [ -z "$$results_dir" ]; then results_dir="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)"; fi; node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; args=(); if [ -n "$(TARGET)" ]; then args+=(--target "$(TARGET)"); fi; "$$node_cmd" ./scripts/check-scheduler-event-order-drift.mjs "$${args[@]}" "$$results_dir"
+
 frontend-unit: export CARTULARY_TEST_TARGET := frontend-unit
 
 frontend-typecheck: export CARTULARY_TEST_TARGET := frontend-typecheck

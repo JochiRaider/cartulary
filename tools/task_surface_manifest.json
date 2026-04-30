@@ -91,7 +91,8 @@
         { "target": "go-test-duration-baselines", "description": "RESULTS_DIR=<dir> refresh Go test duration baselines" },
         { "target": "go-test-duration-baseline-coverage", "description": "verify Go shard baseline coverage" },
         { "target": "go-test-duration-baseline-drift", "description": "RESULTS_DIR=<dir> verify Go shard baseline freshness" },
-        { "target": "browser-e2e-duration-baseline-drift", "description": "RESULTS_DIR=<dir> verify browser spec baseline freshness" }
+        { "target": "browser-e2e-duration-baseline-drift", "description": "RESULTS_DIR=<dir> verify browser spec baseline freshness" },
+        { "target": "scheduler-event-order-drift", "description": "RESULTS_DIR=<dir> verify scheduler event stream ordering" }
       ]
     },
     {
@@ -647,6 +648,7 @@
     { "name": "go-test-duration-baseline-coverage", "classification": "public", "included_in": ["check"], "backing_scripts": ["scripts/check-go-test-duration-baseline-coverage.mjs"] },
     { "name": "go-test-duration-baseline-drift", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/check-go-test-duration-baseline-drift.mjs"] },
     { "name": "browser-e2e-duration-baseline-drift", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/lib/browser-shard-plan.mjs"] },
+    { "name": "scheduler-event-order-drift", "classification": "public", "included_in": ["helper_only"], "backing_scripts": ["scripts/check-scheduler-event-order-drift.mjs", "scripts/lib/scheduler/event-order.mjs"] },
     { "name": "backend-task-surface-check", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/check-backend-task-surface.sh"] },
     { "name": "service-backed-unit-check", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/check-service-backed-unit-tests.sh"] },
     { "name": "test-service-images", "classification": "helper_only", "included_in": ["helper_only"] },

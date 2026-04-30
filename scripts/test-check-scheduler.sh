@@ -173,9 +173,26 @@ if (!fs.statSync(schedulerLogsDir).isDirectory()) {
 if (events.length === 0) {
   throw new Error("scheduler events must not be empty");
 }
-if (!events.every((event) => event.schema_id === "cartulary.check_scheduler_event.v4")) {
+if (!events.every((event) => event.schema_id === "cartulary.check_scheduler_event.v5")) {
   throw new Error("unexpected scheduler event schema");
 }
+events.forEach((event, index) => {
+  if (event.event_sequence !== index + 1) {
+    throw new Error(`event ${index} sequence got ${event.event_sequence} want ${index + 1}`);
+  }
+  if (!Number.isInteger(event.monotonic_ms) || event.monotonic_ms < 0) {
+    throw new Error(`event ${index} missing monotonic_ms`);
+  }
+  if (index > 0 && event.monotonic_ms < events[index - 1].monotonic_ms) {
+    throw new Error(`event ${index} monotonic_ms regressed`);
+  }
+  if (typeof event.wall_timestamp !== "string" || Number.isNaN(Date.parse(event.wall_timestamp))) {
+    throw new Error(`event ${index} missing wall_timestamp`);
+  }
+  if (Object.hasOwn(event, "timestamp")) {
+    throw new Error(`event ${index} must not emit legacy timestamp`);
+  }
+});
 if (expectedEvent !== "-" && !events.some((event) => event.event === expectedEvent)) {
   throw new Error(`missing scheduler event ${expectedEvent}`);
 }
@@ -312,12 +329,12 @@ write_nested_scheduler_progress() {
   local nested_dir="${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}"
   mkdir -p "$nested_dir"
   if [[ "$target" == "partial-service" ]]; then
-    printf '{"schema_id":"cartulary.service_backed_scheduler_event.v4","target":"partial-service","event":"progress"' >"${nested_dir}/scheduler-events.jsonl"
+    printf '{"schema_id":"cartulary.service_backed_scheduler_event.v5","target":"partial-service","event":"progress","event_sequence":1,"monotonic_ms":1,"wall_timestamp":"2026-01-01T00:00:00.001Z"' >"${nested_dir}/scheduler-events.jsonl"
     return 0
   fi
   {
     printf 'not-json-diagnostic\n'
-    printf '%s\n' '{"schema_id":"cartulary.service_backed_scheduler_event.v4","target":"service","event":"progress","timestamp":"2026-01-01T00:00:00Z","pending":2,"running":1,"total_work_units":6,"blocked":2,"completed":3,"pending_finalizers":0,"running_finalizers":0,"blocked_reason":"resources","blocked_resources":["go_io"],"waiting_on":["backend-store"],"blocked_units":[],"active_resource_claims":{"go_cpu":1},"resource_limits":{"go_cpu":1,"go_io":1},"active_groups":{"backend-integration":1},"blocked_by":["go_io"],"unblocks_after":"backend-integration/shard-a","slowest_running":{"label":"backend-integration/shard-a","duration_ms":1234}}'
+    printf '%s\n' '{"schema_id":"cartulary.service_backed_scheduler_event.v5","target":"service","event":"progress","event_sequence":1,"monotonic_ms":1,"wall_timestamp":"2026-01-01T00:00:00.001Z","pending":2,"running":1,"total_work_units":6,"blocked":2,"completed":3,"pending_finalizers":0,"running_finalizers":0,"blocked_reason":"resources","blocked_resources":["go_io"],"waiting_on":["backend-store"],"blocked_units":[],"active_resource_claims":{"go_cpu":1},"resource_limits":{"go_cpu":1,"go_io":1},"active_groups":{"backend-integration":1},"blocked_by":["go_io"],"unblocks_after":"backend-integration/shard-a","slowest_running":{"label":"backend-integration/shard-a","duration_ms":1234}}'
   } >"${nested_dir}/scheduler-events.jsonl"
 }
 
@@ -425,6 +442,47 @@ if (forwarding.forwardedResourceLimits.get("go_cpu") !== 3 || forwarding.forward
   fail("forwarded service-backed limits were not resolved from host claims");
 }
 EOF
+
+event_order_dir="$(mktemp -d "${ROOT_DIR}/tmp/scheduler-event-order.XXXXXX")"
+cleanup_paths+=("$event_order_dir")
+mkdir -p "${event_order_dir}/valid/check" "${event_order_dir}/sequence/check" "${event_order_dir}/monotonic/check" "${event_order_dir}/wall/check" "${event_order_dir}/skew/check"
+cat >"${event_order_dir}/valid/check/scheduler-events.jsonl" <<'JSONL'
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"start","event_sequence":1,"monotonic_ms":0,"wall_timestamp":"2026-01-01T00:00:00.000Z"}
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"finish","event_sequence":2,"monotonic_ms":5,"wall_timestamp":"2026-01-01T00:00:00.005Z"}
+JSONL
+cat >"${event_order_dir}/sequence/check/scheduler-events.jsonl" <<'JSONL'
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"start","event_sequence":1,"monotonic_ms":0,"wall_timestamp":"2026-01-01T00:00:00.000Z"}
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"finish","event_sequence":3,"monotonic_ms":5,"wall_timestamp":"2026-01-01T00:00:00.005Z"}
+JSONL
+cat >"${event_order_dir}/monotonic/check/scheduler-events.jsonl" <<'JSONL'
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"start","event_sequence":1,"monotonic_ms":10,"wall_timestamp":"2026-01-01T00:00:00.010Z"}
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"finish","event_sequence":2,"monotonic_ms":5,"wall_timestamp":"2026-01-01T00:00:00.005Z"}
+JSONL
+cat >"${event_order_dir}/wall/check/scheduler-events.jsonl" <<'JSONL'
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"start","event_sequence":1,"monotonic_ms":0,"wall_timestamp":"2026-01-01T00:00:02.000Z"}
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"finish","event_sequence":2,"monotonic_ms":5,"wall_timestamp":"2026-01-01T00:00:01.000Z"}
+JSONL
+cat >"${event_order_dir}/skew/check/scheduler-events.jsonl" <<'JSONL'
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"start","event_sequence":1,"monotonic_ms":0,"wall_timestamp":"2026-01-01T00:00:02.000Z"}
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"clock-skew","event_sequence":2,"monotonic_ms":1,"wall_timestamp":"2026-01-01T00:00:03.000Z"}
+{"schema_id":"cartulary.check_scheduler_event.v5","target":"check","event":"finish","event_sequence":3,"monotonic_ms":5,"wall_timestamp":"2026-01-01T00:00:01.000Z"}
+JSONL
+assert_contains "$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-event-order-drift.mjs" "${event_order_dir}/valid" 2>&1)" "scheduler event order verified" "valid scheduler event order drift fixture"
+set +e
+sequence_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-event-order-drift.mjs" "${event_order_dir}/sequence" 2>&1)"
+sequence_status=$?
+monotonic_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-event-order-drift.mjs" "${event_order_dir}/monotonic" 2>&1)"
+monotonic_status=$?
+wall_output="$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-event-order-drift.mjs" "${event_order_dir}/wall" 2>&1)"
+wall_status=$?
+set -e
+assert_equals "$sequence_status" "1" "event sequence drift fixture status"
+assert_contains "$sequence_output" "event_sequence got 3, want 2" "event sequence drift fixture output"
+assert_equals "$monotonic_status" "1" "monotonic drift fixture status"
+assert_contains "$monotonic_output" "monotonic_ms regressed" "monotonic drift fixture output"
+assert_equals "$wall_status" "1" "wall drift fixture status"
+assert_contains "$wall_output" "wall_timestamp regressed without preceding clock-skew marker" "wall drift fixture output"
+assert_contains "$("$NODE_BIN" "$ROOT_DIR/scripts/check-scheduler-event-order-drift.mjs" "${event_order_dir}/skew" 2>&1)" "scheduler event order verified" "clock skew marker drift fixture"
 
 success_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-success.XXXXXX")"
 cleanup_paths+=("$success_dir")

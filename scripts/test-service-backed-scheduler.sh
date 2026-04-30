@@ -147,9 +147,26 @@ if (expectedBlocked !== "-") {
 if (events.length === 0) {
   throw new Error("scheduler events must not be empty");
 }
-if (!events.every((event) => event.schema_id === "cartulary.service_backed_scheduler_event.v4")) {
+if (!events.every((event) => event.schema_id === "cartulary.service_backed_scheduler_event.v5")) {
   throw new Error("unexpected scheduler event schema");
 }
+events.forEach((event, index) => {
+  if (event.event_sequence !== index + 1) {
+    throw new Error(`event ${index} sequence got ${event.event_sequence} want ${index + 1}`);
+  }
+  if (!Number.isInteger(event.monotonic_ms) || event.monotonic_ms < 0) {
+    throw new Error(`event ${index} missing monotonic_ms`);
+  }
+  if (index > 0 && event.monotonic_ms < events[index - 1].monotonic_ms) {
+    throw new Error(`event ${index} monotonic_ms regressed`);
+  }
+  if (typeof event.wall_timestamp !== "string" || Number.isNaN(Date.parse(event.wall_timestamp))) {
+    throw new Error(`event ${index} missing wall_timestamp`);
+  }
+  if (Object.hasOwn(event, "timestamp")) {
+    throw new Error(`event ${index} must not emit legacy timestamp`);
+  }
+});
 if (expectedEvent !== "-" && !events.some((event) => event.event === expectedEvent)) {
   throw new Error(`missing scheduler event ${expectedEvent}`);
 }
