@@ -232,6 +232,85 @@ func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndSc
 	}
 }
 
+func TestPhase2_U_2_14_StoreIncidentPatchReturnsTypedVersionConflictDetails(t *testing.T) {
+	harness := phase2storetest.StartStore(t, "phase2-u-2-14")
+	store := incidents.NewStore(harness.DB)
+	admin := phase2storetest.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"phase2-u214-admin@example.test",
+		"Phase 2 U214 Admin",
+		"Phase2U214AdminPass!",
+		false,
+		false,
+		true,
+	)
+
+	incidentResult := phase2storetest.CreateIncidentInStore(t, harness.DB, admin, incidents.CreateIncidentRequest{
+		ClientTxnID: "txn-phase2-u-2-14-incident",
+		IncidentKey: "IR-U214",
+		Title:       "Phase 2 U-2-14",
+	})
+	ctx := context.Background()
+	tlp := "amber"
+	updated, changed, err := store.UpdateIncident(
+		ctx,
+		admin,
+		incidentResult.Incident.ID,
+		incidents.IncidentPatchRequest{
+			BaseIncidentVersion: incidentResult.Incident.IncidentVersion,
+			TLP:                 incidents.OptionalNullableString{Present: true, Value: &tlp},
+		},
+		"req-phase2-u-2-14-update",
+		time.Now().UTC(),
+	)
+	if err != nil {
+		t.Fatalf("update incident before stale patch: %v", err)
+	}
+	if !changed || updated.IncidentVersion != incidentResult.Incident.IncidentVersion+1 {
+		t.Fatalf("expected material update to advance incident version: changed=%v updated=%#v", changed, updated)
+	}
+
+	staleTLP := "green"
+	_, _, err = store.UpdateIncident(
+		ctx,
+		admin,
+		incidentResult.Incident.ID,
+		incidents.IncidentPatchRequest{
+			BaseIncidentVersion: incidentResult.Incident.IncidentVersion,
+			TLP:                 incidents.OptionalNullableString{Present: true, Value: &staleTLP},
+		},
+		"req-phase2-u-2-14-stale",
+		time.Now().UTC(),
+	)
+	if !errors.Is(err, incidents.ErrIncidentVersionConflict) {
+		t.Fatalf("stale incident patch must reject with version conflict: %v", err)
+	}
+	var conflict *incidents.IncidentVersionConflictError
+	if !errors.As(err, &conflict) {
+		t.Fatalf("stale incident patch must return typed version conflict: %T %[1]v", err)
+	}
+	if conflict.IncidentID != incidentResult.Incident.ID ||
+		conflict.BaseIncidentVersion != incidentResult.Incident.IncidentVersion ||
+		conflict.CurrentIncidentVersion != updated.IncidentVersion {
+		t.Fatalf("unexpected incident version conflict: %#v", conflict)
+	}
+	details := conflict.Details()
+	if details["incident_id"] != incidentResult.Incident.ID.String() ||
+		details["base_incident_version"] != incidentResult.Incident.IncidentVersion ||
+		details["current_incident_version"] != updated.IncidentVersion {
+		t.Fatalf("unexpected incident version conflict details: %#v", details)
+	}
+
+	current, err := store.GetVisibleIncident(ctx, incidentResult.Incident.ID, admin.ID)
+	if err != nil {
+		t.Fatalf("lookup incident after stale patch: %v", err)
+	}
+	if current.IncidentVersion != updated.IncidentVersion || current.TLP == nil || *current.TLP != tlp {
+		t.Fatalf("stale incident patch must not mutate incident state: before=%#v after=%#v", updated, current)
+	}
+}
+
 func TestPhase2_U_2_07_StoreMembershipPatchAndDeleteRejectStaleBaseVersion(t *testing.T) {
 	harness := phase2storetest.StartStore(t, "phase2-u-2-07")
 	store := incidents.NewStore(harness.DB)

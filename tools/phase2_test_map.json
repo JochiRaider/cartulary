@@ -57,6 +57,7 @@
     "U-2-11",
     "U-2-12",
     "U-2-13",
+    "U-2-14",
     "I-2-01",
     "I-2-02",
     "I-2-03",
@@ -332,6 +333,20 @@
       "evidence_layer": "component",
       "claim": "The ordinary incident shell emits the expected membership mutation payloads, includes versioned patch or delete bodies, and refreshes the session-visible incident role after each mutation.",
       "out_of_scope": "Real browser mutation flow remains `E-2-03`."
+    },
+    {
+      "id": "U-2-14",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/incidents",
+      "file": "internal/modules/incidents/phase2_store_test.go",
+      "symbol": "TestPhase2_U_2_14_StoreIncidentPatchReturnsTypedVersionConflictDetails",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "store_domain",
+      "claim": "Store.UpdateIncident returns a typed IncidentVersionConflictError with incident_id, base_incident_version, and current_incident_version details for stale base versions, without mutating durable incident state.",
+      "out_of_scope": "HTTP envelope mapping, authorization, CSRF, and promoted-field persistence remain integration evidence under I-2-04.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase2 authoritative"
     }
   ],
   "integration": [

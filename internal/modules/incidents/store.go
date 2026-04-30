@@ -32,6 +32,30 @@ type Store struct {
 	hooks     StoreHooks
 }
 
+// IncidentVersionConflictError carries the optimistic-concurrency values needed
+// for clients to reconcile a stale incident metadata patch.
+type IncidentVersionConflictError struct {
+	IncidentID             uuid.UUID
+	BaseIncidentVersion    int64
+	CurrentIncidentVersion int64
+}
+
+func (e *IncidentVersionConflictError) Error() string {
+	return ErrIncidentVersionConflict.Error()
+}
+
+func (e *IncidentVersionConflictError) Unwrap() error {
+	return ErrIncidentVersionConflict
+}
+
+func (e *IncidentVersionConflictError) Details() map[string]any {
+	return map[string]any{
+		"incident_id":              e.IncidentID.String(),
+		"base_incident_version":    e.BaseIncidentVersion,
+		"current_incident_version": e.CurrentIncidentVersion,
+	}
+}
+
 type IncidentRecord struct {
 	ID                     uuid.UUID
 	IncidentKey            string
@@ -406,7 +430,11 @@ SELECT id, incident_key, title, description, status, severity, tlp, current_phas
 		return IncidentRecord{}, false, fmt.Errorf("query incident for patch: %w", err)
 	}
 	if current.IncidentVersion != request.BaseIncidentVersion {
-		return IncidentRecord{}, false, ErrIncidentVersionConflict
+		return IncidentRecord{}, false, &IncidentVersionConflictError{
+			IncidentID:             incidentID,
+			BaseIncidentVersion:    request.BaseIncidentVersion,
+			CurrentIncidentVersion: current.IncidentVersion,
+		}
 	}
 
 	next, changed := ApplyIncidentPatch(current, request, actor.ID, now)

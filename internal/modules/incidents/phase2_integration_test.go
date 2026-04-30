@@ -518,10 +518,16 @@ func TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMater
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
-	httptestx.RequireErrorEnvelope(t, stale, http.StatusConflict, "incident_version_conflict")
+	staleBody := httptestx.RequireErrorEnvelope(t, stale, http.StatusConflict, "incident_version_conflict")
+	staleDetails := staleBody["error"].(map[string]any)["details"].(map[string]any)
+	if staleDetails["incident_id"] != incidentID ||
+		staleDetails["base_incident_version"] != float64(1) ||
+		staleDetails["current_incident_version"] != float64(2) {
+		t.Fatalf("unexpected incident version conflict details: %#v", staleDetails)
+	}
 
 	row := harness.DB.QueryRow(`
-SELECT title, description, severity, tlp, current_phase, primary_external_case_ref, incident_version
+	SELECT title, description, severity, tlp, current_phase, primary_external_case_ref, incident_version
   FROM incidents
  WHERE id::text = $1
 `, incidentID)

@@ -470,8 +470,8 @@ func incidentKeyConflictError(incidentKeyCanonical string) *auth.APIError {
 	}
 }
 
-func incidentVersionConflictError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "incident_version_conflict", Details: map[string]any{}}
+func incidentVersionConflictError(conflict *IncidentVersionConflictError) *auth.APIError {
+	return &auth.APIError{Status: http.StatusConflict, Code: "incident_version_conflict", Details: conflict.Details()}
 }
 
 func membershipNotFoundError() *auth.APIError {

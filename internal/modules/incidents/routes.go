@@ -263,12 +263,13 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 			record, _, err := s.store.UpdateIncident(r.Context(), principal.User, incidentID, request, httpapi.RequestIDFromContext(r.Context()), s.now())
+			var versionConflict *IncidentVersionConflictError
 			switch {
 			case errors.Is(err, ErrIncidentNotFound):
 				writeAPIError(w, r, incidentNotFoundError())
 				return
-			case errors.Is(err, ErrIncidentVersionConflict):
-				writeAPIError(w, r, incidentVersionConflictError())
+			case errors.As(err, &versionConflict):
+				writeAPIError(w, r, incidentVersionConflictError(versionConflict))
 				return
 			case err != nil:
 				writeAPIError(w, r, internalAPIError(err))
