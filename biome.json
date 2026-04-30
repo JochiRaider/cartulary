@@ -1,4 +1,19 @@
 {
+  "files": {
+    "includes": [
+      "apps/web/src/**",
+      "apps/web/e2e/**",
+      "apps/web/vite.config.ts",
+      "apps/web/playwright.config.ts",
+      "apps/web/playwright.shared.config.ts",
+      "apps/web/playwright.webserver-backed.config.ts",
+      "packages/grid-adapter/src/**",
+      "packages/view-contracts/src/**",
+      "packages/test-utils/src/**",
+      "packages/protocol-ts/src/**",
+      "!packages/protocol-ts/src/generated"
+    ]
+  },
   "formatter": {
     "enabled": true,
     "indentStyle": "space"
@@ -10,4 +25,3 @@
     }
   }
 }
-

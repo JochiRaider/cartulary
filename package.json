@@ -9,5 +9,8 @@
   "scripts": {
     "build": "pnpm --dir apps/web build",
     "test": "pnpm --dir apps/web test --run"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.12"
   }
 }

@@ -214,6 +214,35 @@ lint_biome_block="$(extract_target_block lint-biome)"
 if ! printf '%s\n' "$lint_biome_block" | grep -Fq 'run make format to apply the authoritative frontend Biome scope'; then
   fail "lint-biome must tell developers to run make format"
 fi
+"$node_bin" - "$repo_root/biome.json" <<'EOF'
+const fs = require("node:fs");
+const [configPath] = process.argv.slice(2);
+const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+const includes = config.files?.includes;
+if (!Array.isArray(includes)) {
+  throw new Error("biome.json must define files.includes for the curated authored frontend scope");
+}
+const requiredIncludes = [
+  "apps/web/src/**",
+  "apps/web/e2e/**",
+  "apps/web/vite.config.ts",
+  "apps/web/playwright.config.ts",
+  "apps/web/playwright.shared.config.ts",
+  "apps/web/playwright.webserver-backed.config.ts",
+  "packages/grid-adapter/src/**",
+  "packages/view-contracts/src/**",
+  "packages/test-utils/src/**",
+  "packages/protocol-ts/src/**",
+];
+for (const required of requiredIncludes) {
+  if (!includes.includes(required)) {
+    throw new Error(`biome.json curated scope is missing ${required}`);
+  }
+}
+if (!includes.includes("!packages/protocol-ts/src/generated")) {
+  throw new Error("biome.json must exclude generated protocol TypeScript from the curated scope");
+}
+EOF
 
 test_fast_block="$(extract_target_block test-fast)"
 if [[ -z "$test_fast_block" ]]; then

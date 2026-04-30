@@ -30,23 +30,25 @@ function normalizeFunctionalMatch(file: string) {
     .replace(/^e2e\//u, "");
 }
 
-export default defineConfig(webE2EBaseConfig({
-  projects: [
-    {
-      name: "functional",
-      grep: new RegExp(functionalGrep),
-      testMatch: functionalFiles
-        .split(/\r?\n/u)
-        .map(normalizeFunctionalMatch)
-        .filter((file) => file.length > 0),
-    },
-    {
-      name: "support",
-      grep: new RegExp(supportGrep),
-      testMatch: supportFiles
-        .split(/\r?\n/u)
-        .map(normalizeFunctionalMatch)
-        .filter((file) => file.length > 0),
-    },
-  ],
-}));
+export default defineConfig(
+  webE2EBaseConfig({
+    projects: [
+      {
+        name: "functional",
+        grep: new RegExp(functionalGrep),
+        testMatch: functionalFiles
+          .split(/\r?\n/u)
+          .map(normalizeFunctionalMatch)
+          .filter((file) => file.length > 0),
+      },
+      {
+        name: "support",
+        grep: new RegExp(supportGrep),
+        testMatch: supportFiles
+          .split(/\r?\n/u)
+          .map(normalizeFunctionalMatch)
+          .filter((file) => file.length > 0),
+      },
+    ],
+  }),
+);

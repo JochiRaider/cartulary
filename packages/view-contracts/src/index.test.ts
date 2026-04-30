@@ -44,9 +44,9 @@ describe("view-contracts", () => {
     expect(
       assessments.fieldMap["assessment.assessment_state"]?.enumValues,
     ).toEqual(["unknown", "suspected", "confirmed", "disproven", "cleared"]);
-    expect(assessments.fieldMap["assessment.confidence_band"]?.enumValues).toEqual(
-      ["unset", "low", "medium", "high"],
-    );
+    expect(
+      assessments.fieldMap["assessment.confidence_band"]?.enumValues,
+    ).toEqual(["unset", "low", "medium", "high"]);
   });
 
   it("exposes mutation metadata needed by workbook controls", () => {
@@ -55,11 +55,12 @@ describe("view-contracts", () => {
     expect(evidence.fieldMap["evidence.title"]?.stringContractId).toBe(
       "single_line_title_v1",
     );
-    expect(evidence.fieldMap["evidence.requested_at"]?.directScalarContractId).toBe(
-      "timestamp_instant_v1",
-    );
     expect(
-      evidence.fieldMap["evidence.collector_party_id"]?.directReferenceContractId,
+      evidence.fieldMap["evidence.requested_at"]?.directScalarContractId,
+    ).toBe("timestamp_instant_v1");
+    expect(
+      evidence.fieldMap["evidence.collector_party_id"]
+        ?.directReferenceContractId,
     ).toBe("same_incident_party_ref_v1");
     expect(evidence.fieldMap["evidence.lifecycle_state"]?.enumValues).toEqual([
       "requested",

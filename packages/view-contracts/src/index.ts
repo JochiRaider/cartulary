@@ -132,10 +132,9 @@ function parseContract(json: string): ViewContract {
     ),
   );
   const fieldMap = Object.freeze(
-    Object.fromEntries(fields.map((field) => [field.fieldKey, field])) as Record<
-      string,
-      ViewFieldContract
-    >,
+    Object.fromEntries(
+      fields.map((field) => [field.fieldKey, field]),
+    ) as Record<string, ViewFieldContract>,
   );
   const defaultSort = Object.freeze(
     (raw.default_sort ?? []).map(
@@ -145,8 +144,12 @@ function parseContract(json: string): ViewContract {
       }),
     ),
   );
-  const defaultVisibleFields = Object.freeze([...(raw.default_visible_fields ?? [])]);
-  const defaultHiddenFields = Object.freeze([...(raw.default_hidden_fields ?? [])]);
+  const defaultVisibleFields = Object.freeze([
+    ...(raw.default_visible_fields ?? []),
+  ]);
+  const defaultHiddenFields = Object.freeze([
+    ...(raw.default_hidden_fields ?? []),
+  ]);
   const sortFields = Object.freeze([...(raw.sort_fields ?? [])]);
   const filterFields = Object.freeze([...(raw.filter_fields ?? [])]);
   const groupingFields = Object.freeze([...(raw.grouping_fields ?? [])]);
@@ -227,7 +230,9 @@ export function fieldCapability(
   };
 }
 
-export function visibleFields(contract: ViewContract): readonly ViewFieldContract[] {
+export function visibleFields(
+  contract: ViewContract,
+): readonly ViewFieldContract[] {
   return contract.defaultVisibleFields
     .map((fieldKey) => contract.fieldMap[fieldKey])
     .filter((field): field is ViewFieldContract => field !== undefined);

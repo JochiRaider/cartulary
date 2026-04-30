@@ -28,17 +28,12 @@ fi
 
 path_prefix="${NODE_RUNTIME_DIR}/bin:${PATH}"
 corepack_home="${NODE_RUNTIME_DIR}/corepack"
-scope=(
-  "src"
-  "e2e"
-  "vite.config.ts"
-  "playwright.config.ts"
-)
+scope=(".")
 
 if [[ "${mode}" == "format" || "${mode}" == "write" ]]; then
-  command=("${PNPM_BIN}" --dir "${ROOT_DIR}/apps/web" exec biome check --write)
+  command=("${PNPM_BIN}" --dir "${ROOT_DIR}" exec biome check --write)
 else
-  command=("${PNPM_BIN}" --dir "${ROOT_DIR}/apps/web" exec biome check)
+  command=("${PNPM_BIN}" --dir "${ROOT_DIR}" exec biome check)
 fi
 
 if [[ "${mode}" == "check" && "$#" -eq 0 ]]; then
