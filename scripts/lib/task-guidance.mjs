@@ -311,20 +311,30 @@ function newestTargetArtifact(target, root = repoRoot) {
     return { latest: null, expected };
   }
   const candidates = [];
+  const matchingArtifact = (file, field) => {
+    try {
+      return readJSON(file)?.[field] === target;
+    } catch {
+      return false;
+    }
+  };
   for (const entry of readdirSync(resultsRoot, { withFileTypes: true })) {
     if (!entry.isDirectory()) {
       continue;
     }
     const runDir = path.join(resultsRoot, entry.name);
     const artifactFiles = [
-      path.join(runDir, target, "target-summary.json"),
-      path.join(runDir, target, "scheduler-summary.json"),
+      { file: path.join(runDir, target, "target-summary.json"), field: "target" },
+      { file: path.join(runDir, target, "scheduler-summary.json"), field: "target" },
     ];
     if (["test", "test-fast", "check", "ci", "release-check"].includes(target)) {
-      artifactFiles.push(path.join(runDir, "run-summary.json"));
+      artifactFiles.push({ file: path.join(runDir, "run-summary.json"), field: "label" });
     }
-    for (const file of artifactFiles) {
+    for (const { file, field } of artifactFiles) {
       if (!existsSync(file)) {
+        continue;
+      }
+      if (!matchingArtifact(file, field)) {
         continue;
       }
       const stats = statSync(file);

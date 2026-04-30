@@ -372,6 +372,9 @@ assert_count "$(line_count '^RUN_SERVICE_BACKED_SCHEDULE_SCRIPT :=')" "1" "servi
 assert_count "$(line_count '^RUN_CHECK_SCHEDULE_SCRIPT :=')" "1" "check scheduler helper declaration"
 
 test_block="$(make_target_block test)"
+test_fast_block="$(make_target_block test-fast)"
+ci_block="$(make_target_block ci)"
+release_check_block="$(make_target_block release-check)"
 check_block="$(make_target_block check)"
 run_harness_smoke_fast_block="$(make_target_block run-harness-smoke-fast)"
 run_harness_smoke_extended_block="$(make_target_block run-harness-smoke-extended)"
@@ -382,6 +385,13 @@ test_fast_service_backed_block="$(make_target_block test-fast-service-backed)"
 check_service_backed_block="$(make_target_block check-service-backed)"
 assert_contains "${test_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "make test helper invocation"
 assert_contains "${test_block}" "--sequence test" "make test manifest sequence"
+assert_contains "${test_fast_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "make test-fast helper invocation"
+assert_contains "${test_fast_block}" "--sequence test-fast" "make test-fast manifest sequence"
+assert_contains "${ci_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "make ci helper invocation"
+assert_contains "${ci_block}" "--sequence ci" "make ci manifest sequence"
+assert_contains "${ci_block}" "ci: export CI := 1" "make ci exports CI"
+assert_contains "${release_check_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "make release-check helper invocation"
+assert_contains "${release_check_block}" "--sequence release-check" "make release-check manifest sequence"
 assert_not_contains "${test_block}" "--summary-profile test" "make test no inline summary profile"
 assert_not_contains "${test_block}" "--parallel-step test-local:3 --step test-service-backed" "make test no inline sequence"
 assert_not_contains "${test_block}" "--step browser-e2e" "make test no final serial browser step"
@@ -438,6 +448,24 @@ const expectedBrowser = [
 if (JSON.stringify(browser?.summaryTargets) !== JSON.stringify(expectedBrowser)) {
   throw new Error("test browser summary group must derive browser leaves from schedules");
 }
+const testFastTargets = manifest.sequences["test-fast"].steps.flatMap((step) => step.produces_summary_targets ?? []);
+for (const target of ["backend-unit", "frontend-typecheck", "frontend-unit", "test-fast-service-backed"]) {
+  if (!testFastTargets.includes(target)) {
+    throw new Error(`test-fast sequence must produce ${target}`);
+  }
+}
+const ciTargets = manifest.sequences.ci.steps.flatMap((step) => step.produces_summary_targets ?? []);
+for (const target of ["check", "run-harness-smoke-extended"]) {
+  if (!ciTargets.includes(target)) {
+    throw new Error(`ci sequence must produce ${target}`);
+  }
+}
+const releaseTargets = manifest.sequences["release-check"].steps.flatMap((step) => step.produces_summary_targets ?? []);
+for (const target of ["check", "run-harness-smoke-extended"]) {
+  if (!releaseTargets.includes(target)) {
+    throw new Error(`release-check sequence must produce ${target}`);
+  }
+}
 EOF
 assert_contains "${manifest_content}" "\"harness_checks\"" "manifest logical harness checks"
 assert_contains "${manifest_content}" "harness-smoke-run-make-sequence-fast" "harness smoke fast make sequence check"
@@ -453,7 +481,7 @@ assert_not_contains "${makefile_content}" "RUN_SUMMARY =" "unused run summary he
 assert_not_contains "${makefile_content}" "RUN_SUMMARY_CMD =" "unused run summary command variable"
 assert_not_contains "${makefile_content}" "bash -lc './scripts/test-check-toolchain-pins.sh &&" "old serialized harness smoke chain"
 
-for target in test run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-full; do
+for target in test-fast test ci release-check run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-full; do
   make_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-make-n-${target}.XXXXXX")"
   cleanup_paths+=("${make_dry_run_dir}")
   make_dry_run_output="$(

@@ -571,6 +571,7 @@ run_scheduler() {
   FAKE_GO_FINALIZER_FAILURE_STATUS="${FAKE_GO_FINALIZER_FAILURE_STATUS:-}" \
   VERBOSE="${VERBOSE:-}" \
   CI_VERBOSE="${CI_VERBOSE:-}" \
+  CARTULARY_OUTPUT_MODE="${CARTULARY_OUTPUT_MODE:-}" \
   CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT= \
   CARTULARY_SERVICE_BACKED_GO_IO_LIMIT= \
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT="${CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT:-}" \
@@ -626,10 +627,19 @@ write_manifest "$resource_block_manifest" test-fast-service-backed \
   'make_target|backend-store|9|"postgres": 1, "minio": 1, "go_cpu": 3, "go_io": 1' \
   'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 2, "go_io": 1, "process": 1'
 resource_block_output="$(run_scheduler "$resource_block_dir" "$resource_block_manifest" test-fast-service-backed resource-block 2>&1)"
-assert_contains "$resource_block_output" "blocked_by=go_cpu unblocks_after=backend-integration" "scheduler go_cpu-blocked progress"
+assert_contains "$resource_block_output" "[PROGRESS] test-fast-service-backed 0/3: test-fast-service-backed 0/3, running backend-integration" "scheduler go_cpu-blocked human progress"
+assert_contains "$resource_block_output" "blocked by go_cpu, unblocks after backend-integration" "scheduler go_cpu-blocked human progress explains blocker"
+assert_not_contains "$resource_block_output" "[SCHEDULER] test-fast-service-backed progress completed_work_units=" "quiet scheduler hides key/value progress"
+assert_not_contains "$resource_block_output" "blocked_by=go_cpu" "quiet scheduler hides key/value blocked progress"
+assert_not_contains "$resource_block_output" "unblocks_after=backend-integration" "quiet scheduler hides key/value unblock progress"
 assert_not_contains "$resource_block_output" "blocked_resources=go_cpu" "default go_cpu-blocked output hides raw blocked resources"
 assert_not_contains "$resource_block_output" "active_resource_claims=" "default blocked output hides raw active resources"
 assert_scheduler_artifacts "$resource_block_dir" resource-block test-fast-service-backed pass go_cpu blocked
+
+resource_block_machine_output="$(CARTULARY_OUTPUT_MODE=machine run_scheduler "$resource_block_dir" "$resource_block_manifest" test-fast-service-backed resource-block-machine 2>&1)"
+assert_contains "$resource_block_machine_output" "[SCHEDULER] test-fast-service-backed progress completed_work_units=0/3" "machine scheduler prints key/value progress"
+assert_contains "$resource_block_machine_output" "blocked_by=go_cpu unblocks_after=backend-integration" "machine scheduler prints key/value blocked progress"
+assert_not_contains "$resource_block_machine_output" "[PROGRESS] test-fast-service-backed" "machine scheduler does not print human progress"
 
 backend_capacity_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-backend-capacity.XXXXXX")"
 cleanup_paths+=("$backend_capacity_dir")
@@ -652,7 +662,8 @@ write_manifest "$io_block_manifest" test-fast-service-backed \
   'make_target|backend-store|9|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 3' \
   'make_target|backend-process|8|"postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 2, "process": 1'
 io_block_output="$(run_scheduler "$io_block_dir" "$io_block_manifest" test-fast-service-backed host_io-block 2>&1)"
-assert_contains "$io_block_output" "blocked_by=go_io unblocks_after=backend-integration" "scheduler go_io-blocked progress"
+assert_contains "$io_block_output" "[PROGRESS] test-fast-service-backed 0/3: test-fast-service-backed 0/3, running backend-integration" "scheduler go_io-blocked human progress"
+assert_contains "$io_block_output" "blocked by go_io, unblocks after backend-integration" "scheduler go_io-blocked human progress explains blocker"
 
 browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-browser.XXXXXX")"
 cleanup_paths+=("$browser_dir")
@@ -823,7 +834,7 @@ dependency_order_output="$(
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.01 \
     run_scheduler "$dependency_order_dir" "$dependency_order_manifest" check-service-backed dependency-order 2>&1
 )"
-assert_contains "$dependency_order_output" "blocked_by=dependencies waiting_on=backend-process,browser-e2e-webserver-backed unblocks_after=backend-process" "dependency-blocked browser progress"
+assert_contains "$dependency_order_output" "blocked by dependencies, waiting on backend-process,browser-e2e-webserver-backed, unblocks after backend-process" "dependency-blocked browser human progress"
 assert_scheduler_artifacts "$dependency_order_dir" dependency-order check-service-backed pass - blocked
 "$NODE_BIN" - "${dependency_order_dir}/results/dependency-order/check-service-backed/scheduler-events.jsonl" "${dependency_order_dir}/results/dependency-order/check-service-backed/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");
@@ -897,7 +908,7 @@ go_dependency_order_output="$(
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E_WEBSERVER_BACKED=0.01 \
     run_scheduler "$go_dependency_order_dir" "$go_dependency_order_manifest" check-service-backed go-dependency-order 2>&1
 )"
-assert_contains "$go_dependency_order_output" "blocked_by=dependencies waiting_on=backend-store unblocks_after=backend-store" "go dependency waits for finalizer"
+assert_contains "$go_dependency_order_output" "blocked by dependencies, waiting on backend-store, unblocks after backend-store" "go dependency waits for finalizer"
 "$NODE_BIN" - "${go_dependency_order_dir}/make.log" <<'EOF'
 const fs = require("node:fs");
 const [logFile] = process.argv.slice(2);
@@ -962,7 +973,7 @@ browser_stack_lane_output="$(
   FAKE_SCHEDULER_SLEEP_BROWSER_E2E=0.05 \
     run_scheduler "$browser_stack_lane_dir" "$browser_stack_lane_manifest" check-service-backed browser-stack-lane 2>&1
 )"
-assert_contains "$browser_stack_lane_output" "blocked_by=browser_stack unblocks_after=browser-e2e-webserver-backed" "shared browser stack blocks overlapping browser stages"
+assert_contains "$browser_stack_lane_output" "blocked by browser_stack, unblocks after browser-e2e-webserver-backed" "shared browser stack blocks overlapping browser stages"
 
 same_browser_lane_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-same-browser-lane.XXXXXX")"
 cleanup_paths+=("$same_browser_lane_dir")
@@ -977,7 +988,7 @@ same_browser_lane_output="$(
   FAKE_SCHEDULER_SLEEP_BACKEND_STORE=0.05 \
     run_scheduler "$same_browser_lane_dir" "$same_browser_lane_manifest" test-fast-service-backed same-browser-lane 2>&1
 )"
-assert_contains "$same_browser_lane_output" "blocked_by=browser_stage_isolated unblocks_after=backend-process" "same browser stage lane blocks overlapping work"
+assert_contains "$same_browser_lane_output" "blocked by browser_stage_isolated, unblocks after backend-process" "same browser stage lane blocks overlapping work"
 "$NODE_BIN" - "${same_browser_lane_dir}/make.log" <<'EOF'
 const fs = require("node:fs");
 const [logFile] = process.argv.slice(2);

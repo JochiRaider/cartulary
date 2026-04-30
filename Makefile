@@ -399,10 +399,6 @@ test-service-images: $(TEST_SERVICES_BIN)
 
 test-local: backend-unit frontend-typecheck frontend-unit
 
-test-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(TEST_SERVICES_BIN)
-	$(Q)$(MAKE) --no-print-directory --output-sync=target -j3 test-local
-	$(Q)$(MAKE) --no-print-directory test-fast-service-backed
-
 target-plan:
 	$(Q)node_cmd="$(NODE_BIN)"; if [ ! -x "$$node_cmd" ]; then node_cmd=node; fi; "$$node_cmd" ./scripts/print-target-plan.mjs
 
@@ -519,11 +515,6 @@ check-local-product: migration-drift lint-go frontend-typecheck backend-unit dep
 check-frontend-unit: frontend-unit
 
 check-meta-validation: check-static-validation check-harness-smoke
-
-ci:
-	$(Q)./scripts/ci/verify.sh
-
-release-check: check run-harness-smoke-extended license-report sbom build
 
 license-report:
 	$(RUN_PHASE) "license-report" -- ./scripts/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"

@@ -799,9 +799,19 @@ test_fast_block="$(extract_target_block test-fast)"
 if [[ -z "$test_fast_block" ]]; then
   fail "Makefile must define a non-empty test-fast block"
 fi
-if ! printf '%s\n' "$test_fast_block" | rg -q '(^|[[:space:]])test-fast-service-backed($|[[:space:]])'; then
-  fail "test-fast must invoke test-fast-service-backed"
+if ! printf '%s\n' "$test_fast_block" | grep -Fq '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence test-fast'; then
+  fail "test-fast must use the manifest-backed sequence runner"
 fi
+"$node_bin" - "$repo_root/tools/task_surface_manifest.json" <<'EOF'
+const fs = require("node:fs");
+const [manifestPath] = process.argv.slice(2);
+const sequence = JSON.parse(fs.readFileSync(manifestPath, "utf8")).sequences?.["test-fast"];
+const stepTargets = (sequence?.steps ?? []).map((step) => step.target);
+if (!stepTargets.includes("test-fast-service-backed")) {
+  console.error("test-fast sequence must invoke test-fast-service-backed");
+  process.exit(1);
+}
+EOF
 
 require_service_backed_schedule_target test-fast-service-backed "test-fast service-backed" 0
 

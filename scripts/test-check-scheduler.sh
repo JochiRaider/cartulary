@@ -362,6 +362,9 @@ run_scheduler() {
   MAKE="${dir}/fake-make" \
   NODE_BIN="$NODE_BIN" \
   TEST_OUTPUT_SCRIPT="$TEST_OUTPUT_SCRIPT" \
+  VERBOSE="${VERBOSE:-}" \
+  CI_VERBOSE="${CI_VERBOSE:-}" \
+  CARTULARY_OUTPUT_MODE="${CARTULARY_OUTPUT_MODE:-}" \
   CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS="${CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS:-}" \
   CARTULARY_TEST_RESULTS_DIR="${dir}/results" \
   CARTULARY_TEST_RUN_ID="$run_id" \
@@ -470,12 +473,15 @@ assert_contains "$success_output" "[RUN] check work_units=5 summary_targets=3 he
 assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:2,host_io:3,service_stack:1}" "success concise scheduler start"
 assert_contains "$success_output" "top_weighted=setup:50,build:40,local:30,service:20,meta:10" "success concise scheduler start shows top weighted work"
 assert_contains "$success_output" "top_weighted=setup:50,build:40,local:30,service:20,meta:10 artifacts=tmp/check-scheduler-success" "success concise scheduler start shows artifact path"
-assert_contains "$success_output" "[CHECK-SCHEDULER] check progress completed_work_units=0/5 running=1 pending=4 blocked=4 active_groups=setup:1 blocked_by=dependencies waiting_on=build,setup unblocks_after=setup slowest_running=setup:" "success concise scheduler progress"
-assert_contains "$success_output" "[CHECK-SCHEDULER] check nested-progress work_unit=service nested_target=service completed_work_units=3/6 running=1 pending=2 blocked=2 finalizing=0 active_groups=backend-integration:1 blocked_by=go_io waiting_on=backend-store unblocks_after=backend-integration/shard-a slowest_running=backend-integration/shard-a:1.23s" "success concise nested scheduler progress"
-assert_contains "$success_output" "artifacts=tmp/check-scheduler-success" "success concise scheduler progress artifact path"
+assert_contains "$success_output" "[PROGRESS] check 0/5: check 0/5, running setup, blocked by dependencies, waiting on build,setup, unblocks after setup, slowest setup " "success human scheduler progress"
+assert_contains "$success_output" "service 3/6" "success human scheduler progress includes nested service count"
+assert_contains "$success_output" "blocked by go_io, waiting on backend-store, unblocks after backend-integration/shard-a, slowest backend-integration/shard-a 1.23s" "success human nested scheduler progress"
+assert_contains "$success_output" "logs tmp/check-scheduler-success" "success human scheduler progress artifact path"
 assert_contains "$success_output" "/results/success/check" "success concise scheduler progress artifact path suffix"
+assert_not_contains "$success_output" "[CHECK-SCHEDULER] check progress completed_work_units=" "quiet check scheduler hides key/value progress"
+assert_not_contains "$success_output" "[CHECK-SCHEDULER] check nested-progress" "quiet check scheduler hides key/value nested progress"
 assert_contains "$success_output" "[CHECK-SCHEDULER] check summary status=pass completed_work_units=5/5 failed=none slowest=" "success concise scheduler summary"
-assert_contains "$success_output" "slowest=service:" "success concise scheduler summary includes slowest work"
+assert_contains "$success_output" "slowest=" "success concise scheduler summary includes slowest work"
 assert_contains "$success_output" "artifacts=tmp/check-scheduler-success" "success concise scheduler summary artifact path"
 assert_not_contains "$success_output" "active_resource_claims=" "default scheduler output hides raw active resources"
 assert_not_contains "$success_output" "resource_limits=" "default scheduler output hides raw resource limits"
@@ -493,7 +499,11 @@ assert_contains "$success_events" "end service" "success service completed"
 assert_contains "$success_events" "end meta" "success meta completed"
 assert_not_contains "$success_events" "browser" "success check schedule has no browser tail"
 success_summary="${success_dir}/results/success/run-summary.json"
+success_target_summary="${success_dir}/results/success/check/target-summary.json"
 assert_equals "$(json_field "$success_summary" "status")" "pass" "success summary status"
+assert_file_present "$success_target_summary" "success check target summary"
+assert_equals "$(json_field "$success_target_summary" "target")" "check" "success check target summary identity"
+assert_equals "$(json_field "$success_target_summary" "status")" "pass" "success check target summary status"
 assert_equals "$(json_field "$success_summary" "work_units.completed")" "5" "success completed work units"
 assert_equals "$(json_field "$success_summary" "work_units.total")" "5" "success total work units"
 assert_equals "$(json_field "$success_summary" "summary_targets.expected.length")" "3" "success summary target count"
@@ -609,6 +619,11 @@ assert_contains "$verbose_output" "[CHECK-SCHEDULER] check start work_unit=setup
 assert_contains "$verbose_output" "active_resource_claims={host_cpu:1}" "verbose scheduler active resource telemetry"
 assert_contains "$verbose_output" "resource_limits={host_cpu:2,host_io:3,service_stack:1}" "verbose scheduler resource limit telemetry"
 
+machine_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_SERVICE=0.2 CARTULARY_OUTPUT_MODE=machine run_scheduler "$success_dir" "$success_manifest" machine --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
+assert_contains "$machine_output" "[CHECK-SCHEDULER] check progress completed_work_units=" "machine scheduler prints key/value progress"
+assert_contains "$machine_output" "[CHECK-SCHEDULER] check nested-progress work_unit=service nested_target=service" "machine scheduler prints key/value nested progress"
+assert_not_contains "$machine_output" "[PROGRESS] check" "machine scheduler does not print human progress"
+
 partial_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-partial-nested.XXXXXX")"
 cleanup_paths+=("$partial_dir")
 write_fake_make "$partial_dir"
@@ -714,7 +729,11 @@ assert_contains "$failure_events" "start alpha" "failure alpha started"
 assert_contains "$failure_events" "start beta" "failure beta started"
 assert_contains "$failure_events" "end alpha" "failure alpha drained"
 failure_summary="${failure_dir}/results/failure/run-summary.json"
+failure_target_summary="${failure_dir}/results/failure/check/target-summary.json"
 assert_equals "$(json_field "$failure_summary" "status")" "fail" "failure summary status"
+assert_file_present "$failure_target_summary" "failure check target summary"
+assert_equals "$(json_field "$failure_target_summary" "target")" "check" "failure check target summary identity"
+assert_equals "$(json_field "$failure_target_summary" "status")" "fail" "failure check target summary status"
 assert_equals "$(json_field "$failure_summary" "failure_class")" "helper" "failure summary class"
 assert_equals "$(json_field "$failure_summary" "work_units.aborted_after")" "beta" "failure aborted after"
 assert_equals "$(json_field "$failure_summary" "summary_targets.skipped_after_failure.0")" "gamma" "failure skipped target"

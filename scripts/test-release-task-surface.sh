@@ -53,7 +53,7 @@ assert_equals() {
 make_target_block() {
   local target="$1"
 
-  awk -v target="$target" '
+  cat "$ROOT_DIR/tools/task_surface.generated.mk" "$ROOT_DIR/Makefile" | awk -v target="$target" '
     $0 ~ "^" target ":" {
       in_target = 1
       print
@@ -65,7 +65,7 @@ make_target_block() {
     in_target {
       print
     }
-  ' "$ROOT_DIR/Makefile"
+  '
 }
 
 assert_make_fails() {
@@ -107,7 +107,7 @@ help_all_output="$(make --no-print-directory help-all)"
 
 assert_contains "$makefile_content" " test-fast " "release phony target group"
 assert_contains "$makefile_content" " release-check license-report sbom" "release phony targets"
-assert_contains "$release_check_block" "release-check: check run-harness-smoke-extended license-report sbom build" "release-check dependencies"
+assert_contains "$release_check_block" '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence release-check' "release-check sequence runner"
 assert_contains "$license_report_block" './scripts/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"' "license-report validation command"
 assert_contains "$sbom_block" './scripts/check-release-artifact.sh "SBOM" "$(SBOM_ARTIFACT)"' "sbom validation command"
 assert_not_contains "$help_output" "make release-check" "compact help omits release-check documentation"

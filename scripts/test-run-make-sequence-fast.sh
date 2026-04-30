@@ -58,6 +58,30 @@ assert_file_absent() {
   fi
 }
 
+assert_file_present() {
+  local path="$1"
+  local label="$2"
+
+  if [[ ! -f "${path}" ]]; then
+    fail "${label}: expected ${path} to exist"
+  fi
+}
+
+json_field() {
+  local file="$1"
+  local path="$2"
+
+  "${NODE_BIN:-node}" -e '
+const fs = require("node:fs");
+const [file, path] = process.argv.slice(1);
+const value = path.split(".").reduce((current, key) => current?.[key], JSON.parse(fs.readFileSync(file, "utf8")));
+if (value === undefined || value === null) {
+  process.exit(1);
+}
+process.stdout.write(String(value));
+' "${file}" "${path}"
+}
+
 make_target_block() {
   local target="$1"
 
@@ -87,10 +111,12 @@ echo "$*" >>"${FAKE_MAKE_LOG}"
 
 target="${@: -1}"
 if [[ -n "${CARTULARY_TEST_RESULTS_DIR:-}" && -n "${CARTULARY_TEST_RUN_ID:-}" ]]; then
-  mkdir -p "${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}"
-  cat >"${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}/target-summary.json" <<JSON
+  write_summary() {
+    local summary_target="$1"
+    mkdir -p "${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${summary_target}"
+    cat >"${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${summary_target}/target-summary.json" <<JSON
 {
-  "target": "${target}",
+  "target": "${summary_target}",
   "status": "pass",
   "start_time": "2026-01-01T00:00:00Z",
   "end_time": "2026-01-01T00:00:01Z",
@@ -117,6 +143,30 @@ if [[ -n "${CARTULARY_TEST_RESULTS_DIR:-}" && -n "${CARTULARY_TEST_RUN_ID:-}" ]]
   }
 }
 JSON
+  }
+  case "${target}" in
+    test-local)
+      write_summary backend-unit
+      write_summary frontend-typecheck
+      write_summary frontend-unit
+      ;;
+    test-fast-service-backed)
+      write_summary backend-integration
+      write_summary backend-integration-support
+      write_summary backend-store
+      write_summary backend-process
+      write_summary test-fast-service-backed
+      ;;
+    check)
+      write_summary check
+      ;;
+    run-harness-smoke-extended)
+      write_summary run-harness-smoke-extended
+      ;;
+    *)
+      write_summary "${target}"
+      ;;
+  esac
 fi
 EOF
   chmod +x "${dir}/fake-make"
@@ -170,7 +220,31 @@ assert_contains "${success_output}" "[RUN] smoke work_units=2 summary_targets=2 
 assert_contains "${success_output}" "[STEP] smoke 1/2 alpha mode=serial jobs=1" "success serial step output"
 assert_contains "${success_output}" "[STEP] smoke 2/2 beta mode=parallel jobs=3" "success parallel step output"
 assert_contains "${success_output}" "[PASS] smoke" "success run summary output"
+assert_file_present "${success_dir}/results/success/smoke/target-summary.json" "success target summary"
+assert_equals "$(json_field "${success_dir}/results/success/smoke/target-summary.json" "target")" "smoke" "success target summary identity"
 assert_contains "$(cat "${success_dir}/make.log")" "--output-sync=target -j3 beta" "parallel make invocation"
+
+for aggregate_sequence in test-fast ci release-check; do
+  aggregate_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-${aggregate_sequence}.XXXXXX")"
+  cleanup_paths+=("${aggregate_dir}")
+  write_fake_make "${aggregate_dir}"
+  aggregate_output="$(
+    VERBOSE= \
+    CI_VERBOSE= \
+    CARTULARY_OUTPUT_MODE= \
+    MAKE="${aggregate_dir}/fake-make" \
+    FAKE_MAKE_LOG="${aggregate_dir}/make.log" \
+    CARTULARY_TEST_RESULTS_DIR="${aggregate_dir}/results" \
+    CARTULARY_TEST_RUN_ID="${aggregate_sequence}" \
+    TASK_SURFACE_MANIFEST="${ROOT_DIR}/tools/task_surface_manifest.json" \
+      "${SCRIPT}" --sequence "${aggregate_sequence}" \
+      2>&1
+  )"
+  assert_contains "${aggregate_output}" "[PASS] ${aggregate_sequence}" "${aggregate_sequence} run summary output"
+  assert_file_present "${aggregate_dir}/results/${aggregate_sequence}/${aggregate_sequence}/target-summary.json" "${aggregate_sequence} target summary"
+  assert_equals "$(json_field "${aggregate_dir}/results/${aggregate_sequence}/${aggregate_sequence}/target-summary.json" "target")" "${aggregate_sequence}" "${aggregate_sequence} target summary identity"
+  assert_equals "$(json_field "${aggregate_dir}/results/${aggregate_sequence}/run-summary.json" "label")" "${aggregate_sequence}" "${aggregate_sequence} run summary identity"
+done
 
 dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-dry-run.XXXXXX")"
 cleanup_paths+=("${dry_run_dir}")
@@ -308,15 +382,16 @@ run_full_block="$(make_target_block run-harness-smoke-full)"
 check_harness_smoke_block="$(make_target_block check-harness-smoke)"
 release_check_block="$(make_target_block release-check)"
 ci_script="$(cat "${ROOT_DIR}/scripts/ci/verify.sh")"
+test_fast_block="$(make_target_block test-fast)"
 
+assert_contains "${test_fast_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence test-fast' "test-fast sequence runner"
 assert_contains "${run_fast_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier fast --jobs "$(HARNESS_SMOKE_JOBS)"' "fast harness manifest runner"
 assert_contains "${run_extended_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier extended --jobs "$(HARNESS_SMOKE_JOBS)"' "extended harness manifest runner"
 assert_contains "${run_full_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier full --jobs "$(HARNESS_SMOKE_JOBS)"' "full harness manifest runner"
 assert_contains "${check_harness_smoke_block}" "run-harness-smoke-fast" "check harness fast tier"
 assert_contains "${check_harness_smoke_block}" "--projection check-harness-smoke" "check harness summary projection"
-assert_contains "${ci_script}" "make --no-print-directory check" "CI check invocation"
-assert_contains "${ci_script}" "make --no-print-directory run-harness-smoke-extended" "CI extended harness invocation"
-assert_contains "${release_check_block}" "release-check: check run-harness-smoke-extended license-report sbom build" "release-check extended harness dependency"
+assert_contains "${ci_script}" "exec make --no-print-directory ci" "CI script delegates to canonical target"
+assert_contains "${release_check_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence release-check' "release-check sequence runner"
 assert_contains "$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")" "scripts/test-run-make-sequence-fast.sh" "fast make-sequence smoke backing script"
 assert_contains "$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")" "scripts/test-run-go-target-fast.sh" "fast run-go-target smoke backing script"
 

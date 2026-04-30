@@ -215,11 +215,24 @@ test_fast_block="$(extract_target_block test-fast)"
 if [[ -z "$test_fast_block" ]]; then
   fail "Makefile must define a non-empty test-fast block"
 fi
-assert_target_recipe_invokes test-fast test-local "test-fast must route local frontend checks through test-local"
+if ! printf '%s\n' "$test_fast_block" | grep -Fq '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence test-fast'; then
+  fail "test-fast must use the manifest-backed sequence runner"
+fi
 assert_target_prereq test-local backend-unit "test-fast must route local checks through test-local, and test-local must include backend-unit"
 assert_target_prereq test-local frontend-typecheck "test-fast must route local frontend checks through test-local, and test-local must include frontend-typecheck"
 assert_target_prereq test-local frontend-unit "test-fast must route local frontend checks through test-local, and test-local must include frontend-unit"
-assert_target_recipe_invokes test-fast test-fast-service-backed "test-fast must invoke test-fast-service-backed"
+"$node_bin" - "$repo_root/tools/task_surface_manifest.json" <<'EOF'
+const fs = require("node:fs");
+const [manifestPath] = process.argv.slice(2);
+const sequence = JSON.parse(fs.readFileSync(manifestPath, "utf8")).sequences?.["test-fast"];
+const stepTargets = (sequence?.steps ?? []).map((step) => step.target);
+for (const target of ["test-local", "test-fast-service-backed"]) {
+  if (!stepTargets.includes(target)) {
+    console.error(`test-fast sequence must invoke ${target}`);
+    process.exit(1);
+  }
+}
+EOF
 
 check_local_product_prereqs="$(extract_target_prereqs check-local-product)"
 if [[ -z "$check_local_product_prereqs" ]]; then

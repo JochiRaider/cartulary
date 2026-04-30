@@ -5,10 +5,12 @@ import path from "node:path";
 import {
   formatResourceList,
   formatResourceMap,
+  machineSchedulerOutput,
   relToRepo as relToRepoPath,
   resourceMapToObject,
   schedulerActiveGroups,
   schedulerDryRunLine,
+  schedulerHumanProgressLine,
   schedulerLogDir,
   schedulerProgressEventFields,
   schedulerProgressIntervalMs,
@@ -97,6 +99,7 @@ class SchedulerReporter {
     this.eventsPath = path.join(targetDir, "scheduler-events.jsonl");
     this.summaryPath = path.join(targetDir, "scheduler-summary.json");
     this.events = createWriteStream(this.eventsPath, { flags: "w" });
+    this.machine = machineSchedulerOutput();
     this.startedAt = new Map();
     this.completedWork = [];
     this.completedLogFilesByTarget = new Map();
@@ -370,25 +373,35 @@ class SchedulerReporter {
       ...schedulerProgressEventFields(progress),
       ...(extra.eventDetail ?? {}),
     });
-    process.stdout.write(
-      schedulerProgressLine({
-        prefix: this.schedule.prefix,
-        target: this.schedule.target,
-        completed: this.completedCount,
-        total: this.schedule.totalWorkUnits,
-        running: visibleRunningCount(state.running),
-        pending: visiblePendingCount(state.pending),
-        blocked: state.blockedCount ?? 0,
-        finalizing: this.schedule.showFinalizing ? runningFinalizerCount(state.running) : null,
-        activeGroups: progress.activeGroups,
-        blockedBy: progress.blockedBy,
-        waitingOn,
-        unblocksAfter: progress.unblocksAfter,
-        slowestRunning: progress.slowestRunning,
-        artifacts: relToRepo(this.repoRoot, this.targetDir),
-      }),
-    );
-    if (extra.writeLines) {
+    const nestedProgress = extra.eventDetail?.nested_scheduler_progress ?? [];
+    const progressLine = {
+      prefix: this.schedule.prefix,
+      target: this.schedule.target,
+      completed: this.completedCount,
+      total: this.schedule.totalWorkUnits,
+      running: visibleRunningCount(state.running),
+      pending: visiblePendingCount(state.pending),
+      blocked: state.blockedCount ?? 0,
+      finalizing: this.schedule.showFinalizing ? runningFinalizerCount(state.running) : null,
+      activeGroups: progress.activeGroups,
+      runningLabels: runningUnits.map((unit) => unit.label),
+      blockedBy: progress.blockedBy,
+      waitingOn,
+      unblocksAfter: progress.unblocksAfter,
+      slowestRunning: progress.slowestRunning,
+      artifacts: relToRepo(this.repoRoot, this.targetDir),
+    };
+    if (this.verbose || this.machine) {
+      process.stdout.write(schedulerProgressLine(progressLine));
+    } else {
+      process.stdout.write(
+        schedulerHumanProgressLine({
+          ...progressLine,
+          nestedProgress,
+        }),
+      );
+    }
+    if ((this.verbose || this.machine) && extra.writeLines) {
       extra.writeLines();
     }
   }

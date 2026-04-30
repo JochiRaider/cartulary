@@ -65,6 +65,12 @@ cleanup_paths+=("$tmp_dir")
 results_dir="$tmp_dir/results"
 mkdir -p "$results_dir/run-a/backend-store"
 printf '{"target":"backend-store","status":"pass"}\n' >"$results_dir/run-a/backend-store/target-summary.json"
+mkdir -p "$results_dir/run-b" "$results_dir/run-c" "$results_dir/run-d/frontend-unit" "$results_dir/run-e/frontend-unit"
+printf '{"label":"check","status":"pass"}\n' >"$results_dir/run-b/run-summary.json"
+printf '{"label":"ci","status":"pass"}\n' >"$results_dir/run-c/run-summary.json"
+printf '{"target":"not-frontend-unit","status":"pass"}\n' >"$results_dir/run-d/frontend-unit/target-summary.json"
+printf '{"target":"frontend-unit","status":"pass"}\n' >"$results_dir/run-e/frontend-unit/target-summary.json"
+expected_results_files="$(find "$results_dir" -type f | wc -l | tr -d '[:space:]')"
 
 default_output="$(CARTULARY_TEST_RESULTS_DIR="$results_dir" "$NODE_BIN" "$TASK_GUIDE")"
 assert_contains "$default_output" "Cartulary task guide" "default task-guide header"
@@ -118,6 +124,19 @@ frontend_output="$("$NODE_BIN" "$EXPLAIN_TARGET" --target frontend-unit)"
 assert_contains "$frontend_output" "Cartulary target guidance: frontend-unit" "frontend-unit explain-target"
 assert_contains "$frontend_output" "phase_coverage:" "frontend-unit phase coverage"
 
+frontend_identity_output="$(CARTULARY_TEST_RESULTS_DIR="$results_dir" "$NODE_BIN" "$EXPLAIN_TARGET" --target frontend-unit)"
+assert_contains "$frontend_identity_output" "latest_artifact: tmp/task-guidance" "matching target summary latest artifact"
+assert_not_contains "$frontend_identity_output" "run-d/frontend-unit/target-summary.json" "mismatched target summary ignored"
+
+test_fast_mismatch_output="$(CARTULARY_TEST_RESULTS_DIR="$results_dir" "$NODE_BIN" "$EXPLAIN_TARGET" --target test-fast)"
+assert_contains "$test_fast_mismatch_output" "latest_artifact: none" "mismatched check run summary ignored for test-fast"
+
+release_mismatch_output="$(CARTULARY_TEST_RESULTS_DIR="$results_dir" "$NODE_BIN" "$EXPLAIN_TARGET" --target release-check)"
+assert_contains "$release_mismatch_output" "latest_artifact: none" "mismatched check run summary ignored for release-check"
+
+ci_match_output="$(CARTULARY_TEST_RESULTS_DIR="$results_dir" "$NODE_BIN" "$EXPLAIN_TARGET" --target ci)"
+assert_contains "$ci_match_output" "run-c/run-summary.json" "matching ci run summary accepted"
+
 browser_output="$("$NODE_BIN" "$EXPLAIN_TARGET" --target browser-e2e-webserver-backed)"
 assert_contains "$browser_output" "browser stack" "browser explain-target service requirements"
 assert_contains "$browser_output" "webserver-backed browser batch" "browser explain-target scheduler"
@@ -152,6 +171,6 @@ assert_contains "$make_target" "U-1-05" "make explain-target rows"
 detail_zero_output="$(assert_fails "obsolete DETAIL=0" "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" explain-target TARGET=backend-store DETAIL=0)"
 assert_contains "$detail_zero_output" "usage: print-explain-target.mjs" "DETAIL=0 rejected"
 
-if [[ -d "$results_dir" ]] && [[ "$(find "$results_dir" -type f | wc -l | tr -d '[:space:]')" != "1" ]]; then
+if [[ -d "$results_dir" ]] && [[ "$(find "$results_dir" -type f | wc -l | tr -d '[:space:]')" != "$expected_results_files" ]]; then
   fail "guidance commands must not create test report artifacts"
 fi

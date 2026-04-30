@@ -19,8 +19,22 @@ function configuredProgressIntervalMs() {
 
 export const schedulerProgressIntervalMs = configuredProgressIntervalMs();
 
+export function schedulerOutputMode() {
+  if (process.env.CARTULARY_OUTPUT_MODE === "machine") {
+    return "machine";
+  }
+  if (process.env.VERBOSE === "1" || process.env.CI_VERBOSE === "1") {
+    return "normal";
+  }
+  return process.env.CARTULARY_OUTPUT_MODE || "quiet";
+}
+
 export function verboseSchedulerOutput() {
   return process.env.VERBOSE === "1" || process.env.CI_VERBOSE === "1";
+}
+
+export function machineSchedulerOutput() {
+  return schedulerOutputMode() === "machine";
 }
 
 export function normalizePath(value) {
@@ -209,6 +223,13 @@ export function formatSlowestRunning(value) {
   return `${value.label}:${formatDurationMs(value.duration_ms)}`;
 }
 
+export function formatHumanSlowestRunning(value) {
+  if (!value) {
+    return "none";
+  }
+  return `${value.label} ${formatDurationMs(value.duration_ms)}`;
+}
+
 export function schedulerProgressSnapshot({
   runningUnits,
   startedAt,
@@ -334,6 +355,96 @@ export function schedulerProgressLine({
     `slowest_running=${formatSlowestRunning(slowestRunning)}`,
     artifacts ? `artifacts=${artifacts}` : null,
   ]);
+}
+
+function schedulerHumanProgressSegment(progress) {
+  return `${progress.label} ${progress.completed}/${progress.total}`;
+}
+
+function schedulerHumanProgressSegments({ target, completed, total, nestedProgress = [], limit = 3 }) {
+  const nestedSegments = nestedProgress
+    .map((progress) => ({
+      label: progress.work_unit ?? progress.nested_target ?? target,
+      completed: progress.completed ?? 0,
+      total: progress.total_work_units ?? progress.total ?? 0,
+    }))
+    .sort((left, right) => left.label.localeCompare(right.label));
+  const segments = nestedSegments.length > 0 ? nestedSegments : [{ label: target, completed, total }];
+  const displayed = segments.slice(0, limit).map(schedulerHumanProgressSegment);
+  if (segments.length > limit) {
+    displayed.push(`+${segments.length - limit} more`);
+  }
+  return displayed.join("; ");
+}
+
+function humanProgressLabels({ activeGroups, runningLabels = [], waitingOn, blockedBy, unblocksAfter, slowestRunning }) {
+  const fields = [];
+  const running = runningLabels.length > 0
+    ? sortedUnique(runningLabels)
+    : countMapEntries(activeGroups)
+      .filter(([, count]) => Number(count) > 0)
+      .map(([label]) => label)
+      .sort((left, right) => left.localeCompare(right));
+  if (running.length > 0) {
+    fields.push(`running ${formatLabelList(running)}`);
+  }
+  if (blockedBy.length > 0) {
+    fields.push(`blocked by ${formatLabelList(blockedBy)}`);
+  }
+  if (waitingOn.length > 0) {
+    fields.push(`waiting on ${formatLabelList(waitingOn)}`);
+  }
+  if (unblocksAfter) {
+    fields.push(`unblocks after ${unblocksAfter}`);
+  }
+  if (slowestRunning) {
+    fields.push(`slowest ${formatHumanSlowestRunning(slowestRunning)}`);
+  }
+  return fields;
+}
+
+function nestedProgressForHuman(nestedProgress = []) {
+  if (nestedProgress.length === 0) {
+    return null;
+  }
+  const ordered = [...nestedProgress].sort((left, right) =>
+    (left.work_unit ?? left.nested_target ?? "").localeCompare(right.work_unit ?? right.nested_target ?? ""),
+  );
+  return ordered.find((progress) => progress.blocked_by?.length > 0 || progress.waiting_on?.length > 0) ?? ordered[0];
+}
+
+export function schedulerHumanProgressLine({
+  target,
+  completed,
+  total,
+  activeGroups = new Map(),
+  runningLabels = [],
+  blockedBy = [],
+  waitingOn = [],
+  unblocksAfter = null,
+  slowestRunning = null,
+  nestedProgress = [],
+  artifacts = "",
+}) {
+  const focus = nestedProgressForHuman(nestedProgress);
+  const fields = humanProgressLabels({
+    activeGroups: focus?.active_groups ?? activeGroups,
+    runningLabels: focus ? [] : runningLabels,
+    blockedBy: focus?.blocked_by ?? blockedBy,
+    waitingOn: focus?.waiting_on ?? waitingOn,
+    unblocksAfter: focus?.unblocks_after ?? unblocksAfter,
+    slowestRunning: focus?.slowest_running ?? slowestRunning,
+  });
+  if (artifacts) {
+    fields.push(`logs ${artifacts}`);
+  }
+  const suffix = fields.length > 0 ? `, ${fields.join(", ")}` : "";
+  return `[PROGRESS] ${target} ${completed}/${total}: ${schedulerHumanProgressSegments({
+    target,
+    completed,
+    total,
+    nestedProgress,
+  })}${suffix}\n`;
 }
 
 export function schedulerNestedProgressLine({

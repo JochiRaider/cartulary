@@ -183,10 +183,18 @@ async function main() {
   summaryArgs.push("--quiet-success");
   summaryArgs.push(...summaryTargets);
   const summaryStatus = await emitTestOutput(summaryArgs);
+  const targetSummaryStatus = await emitTestOutput([
+    "target-summary",
+    label,
+    failure ? "fail" : "pass",
+    "--children",
+    summaryTargets.join(","),
+    "--quiet-success",
+  ]);
   if (failure) {
     process.exit(failure.status);
   }
-  process.exit(summaryStatus);
+  process.exit(summaryStatus === 0 ? targetSummaryStatus : summaryStatus);
 }
 
 main().catch((error) => {

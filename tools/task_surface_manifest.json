@@ -108,6 +108,16 @@
     }
   ],
   "sequences": {
+    "test-fast": {
+      "summary_groups": [
+        { "name": "local", "summary_targets": ["backend-unit", "frontend-typecheck", "frontend-unit"] },
+        { "name": "backend-service-backed", "source": { "type": "service_backed_schedule", "target": "test-fast-service-backed", "class": "backend" } }
+      ],
+      "steps": [
+        { "type": "parallel", "target": "test-local", "jobs": 3, "produces_summary_targets": ["backend-unit", "frontend-typecheck", "frontend-unit"] },
+        { "type": "step", "target": "test-fast-service-backed", "produces_summary_targets": ["test-fast-service-backed"] }
+      ]
+    },
     "test": {
       "summary_groups": [
         { "name": "backend-service-backed", "source": { "type": "service_backed_schedule", "target": "test-service-backed", "class": "backend" } },
@@ -117,9 +127,41 @@
         { "type": "parallel", "target": "test-local", "jobs": 3, "produces_summary_targets": ["backend-unit", "frontend-typecheck", "frontend-unit"] },
         { "type": "step", "target": "test-service-backed", "produces_summary_targets": ["test-service-backed"] }
       ]
+    },
+    "ci": {
+      "summary_groups": [
+        { "name": "developer-gate", "summary_targets": ["check"] },
+        { "name": "extended-harness", "summary_targets": ["run-harness-smoke-extended"] }
+      ],
+      "steps": [
+        { "type": "step", "target": "check", "produces_summary_targets": ["check"] },
+        { "type": "step", "target": "run-harness-smoke-extended", "produces_summary_targets": ["run-harness-smoke-extended"] }
+      ]
+    },
+    "release-check": {
+      "summary_groups": [
+        { "name": "developer-gate", "summary_targets": ["check"] },
+        { "name": "extended-harness", "summary_targets": ["run-harness-smoke-extended"] }
+      ],
+      "steps": [
+        { "type": "step", "target": "check", "produces_summary_targets": ["check"] },
+        { "type": "step", "target": "run-harness-smoke-extended", "produces_summary_targets": ["run-harness-smoke-extended"] },
+        { "type": "step", "target": "license-report" },
+        { "type": "step", "target": "sbom" },
+        { "type": "step", "target": "build" }
+      ]
     }
   },
   "make_recipes": {
+      "test-fast": {
+          "type": "sequence",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)",
+              "$(TEST_SERVICES_BIN)"
+          ],
+          "sequence": "test-fast"
+      },
       "test": {
           "type": "sequence",
           "prerequisites": [
@@ -127,6 +169,25 @@
               "$(FRONTEND_INSTALL_STAMP)"
           ],
           "sequence": "test"
+      },
+      "ci": {
+          "type": "sequence",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)"
+          ],
+          "exports": {
+              "CI": "1"
+          },
+          "sequence": "ci"
+      },
+      "release-check": {
+          "type": "sequence",
+          "prerequisites": [
+              "$(NODE_BIN)",
+              "$(FRONTEND_INSTALL_STAMP)"
+          ],
+          "sequence": "release-check"
       },
       "check": {
           "type": "check_schedule",
@@ -626,8 +687,8 @@
     { "name": "check-frontend-unit", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-meta-validation", "classification": "check_internal", "included_in": ["check"] },
     { "name": "check-service-backed", "classification": "check_internal", "included_in": ["check"], "backing_scripts": ["scripts/cartulary-runner.mjs", "scripts/run-service-backed-schedule.mjs"] },
-    { "name": "ci", "classification": "public", "included_in": ["ci"], "backing_scripts": ["scripts/ci/verify.sh"] },
-    { "name": "release-check", "classification": "public", "included_in": ["release-check"] },
+    { "name": "ci", "classification": "public", "included_in": ["ci"], "backing_scripts": ["scripts/run-make-sequence.sh"] },
+    { "name": "release-check", "classification": "public", "included_in": ["release-check"], "backing_scripts": ["scripts/run-make-sequence.sh"] },
     { "name": "license-report", "classification": "helper_only", "included_in": ["release-check"], "backing_scripts": ["scripts/check-release-artifact.sh"] },
     { "name": "sbom", "classification": "helper_only", "included_in": ["release-check"], "backing_scripts": ["scripts/check-release-artifact.sh"] },
     { "name": "build", "classification": "public", "included_in": ["helper_only"] },

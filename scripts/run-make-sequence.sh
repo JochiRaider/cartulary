@@ -205,6 +205,17 @@ run_summary() {
     "${summary_args[@]}" "${summary_targets[@]}"
 }
 
+target_summary() {
+  local status="$1"
+
+  if [[ "${dry_run}" -eq 1 ]]; then
+    return 0
+  fi
+
+  emit_test_output target-summary \
+    "${label}" "${status}" --children "${summary_targets_csv}"
+}
+
 run_step() {
   local encoded="$1"
   local kind="${encoded%%:*}"
@@ -257,7 +268,9 @@ for index in "${!steps[@]}"; do
   fi
 
   run_summary fail "${step_target}" || true
+  target_summary fail || true
   exit "${status}"
 done
 
 run_summary pass -
+target_summary pass

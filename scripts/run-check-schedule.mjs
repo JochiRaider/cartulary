@@ -664,6 +664,14 @@ function attachRuntime(schedule, { makeBin, testOutputScript, summaryTargets, su
           throw error;
         }
       });
+      await runLifecycle(repoRoot, testOutputScript, [
+        "target-summary",
+        schedule.target,
+        requestedStatus,
+        "--children",
+        summaryTargets.join(","),
+        "--quiet-success",
+      ]);
     },
   };
 }
