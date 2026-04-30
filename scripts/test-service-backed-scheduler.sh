@@ -88,8 +88,11 @@ const fs = require("node:fs");
 const [summaryFile, eventsFile, expectedStatus, expectedBlocked, expectedEvent] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
-if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v4") {
+if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v5") {
   throw new Error(`unexpected summary schema ${summary.schema_id}`);
+}
+if (summary.scheduler_kind !== "service-backed") {
+  throw new Error(`summary scheduler_kind got ${summary.scheduler_kind} want service-backed`);
 }
 if (summary.status !== expectedStatus) {
   throw new Error(`summary status got ${summary.status} want ${expectedStatus}`);
@@ -103,11 +106,35 @@ if (expectedStatus === "pass" && summary.failure_class !== null) {
 if (!Array.isArray(summary.slowest_work_units) || summary.slowest_work_units.length === 0) {
   throw new Error("summary must record slowest work");
 }
+if (!summary.resource_limits || Object.keys(summary.resource_limits).length === 0) {
+  throw new Error("summary must record resource limits");
+}
+if (!Number.isInteger(summary.max_running_work_units) || summary.max_running_work_units < 1) {
+  throw new Error(`summary max_running_work_units got ${summary.max_running_work_units}`);
+}
 if (!summary.artifacts?.events_jsonl || !summary.artifacts?.scheduler_logs_dir) {
   throw new Error("summary must record scheduler artifact paths");
 }
 if (!Number.isInteger(summary.max_running_groups) || summary.max_running_groups < 1) {
   throw new Error(`summary max_running_groups got ${summary.max_running_groups}`);
+}
+if (!summary.max_active_resource_claims || Object.keys(summary.max_active_resource_claims).length === 0) {
+  throw new Error("summary must record max active resource claims");
+}
+if (!Array.isArray(summary.blocked_reasons_seen)) {
+  throw new Error("summary must record blocked reasons");
+}
+if (!Array.isArray(summary.nested_scheduler_limits) || summary.nested_scheduler_limits.length !== 0) {
+  throw new Error("service-backed summary must record empty nested scheduler limits");
+}
+if (!Array.isArray(summary.nested_scheduler_observations) || summary.nested_scheduler_observations.length !== 0) {
+  throw new Error("service-backed summary must record empty nested scheduler observations");
+}
+if (!Number.isInteger(summary.finalizer_count) || !Number.isInteger(summary.finalizer_failures)) {
+  throw new Error("summary must record finalizer counts");
+}
+if (!Array.isArray(summary.finalizer_timings)) {
+  throw new Error("summary must record finalizer timings");
 }
 if (expectedBlocked !== "-") {
   if (!summary.blocked_resources_seen.includes(expectedBlocked)) {
@@ -1023,6 +1050,22 @@ const [summaryFile] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 if (summary.finalizer_failures !== 1) {
   throw new Error(`expected one finalizer failure, got ${summary.finalizer_failures}`);
+}
+if (summary.finalizer_count !== 1) {
+  throw new Error(`expected one finalizer, got ${summary.finalizer_count}`);
+}
+const timing = summary.finalizer_timings?.find((entry) => entry.id === "finalize:backend-store");
+if (!timing) {
+  throw new Error("expected failed backend-store finalizer timing");
+}
+if (timing.label !== "finalize/backend-store" || timing.status !== 9) {
+  throw new Error(`unexpected finalizer timing ${JSON.stringify(timing)}`);
+}
+if (!Number.isInteger(timing.duration_ms) || timing.duration_ms < 0) {
+  throw new Error(`finalizer duration must be non-negative integer, got ${timing.duration_ms}`);
+}
+if (!timing.log_file || timing.log_file.startsWith("/")) {
+  throw new Error(`finalizer log path must be repo-relative, got ${timing.log_file}`);
 }
 EOF
 

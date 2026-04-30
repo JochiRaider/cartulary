@@ -30,7 +30,7 @@ const defaultManifestPath = path.join(repoRoot, "tools", "service_backed_schedul
 const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
 const supportedSchemaID = "cartulary.service_backed_schedule.v8";
 const schedulerEventSchemaID = "cartulary.service_backed_scheduler_event.v4";
-const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v4";
+const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v5";
 const goCPUResource = "go_cpu";
 const goIOResource = "go_io";
 const postgresResetResource = "postgres_reset";
@@ -681,11 +681,8 @@ function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTa
       const status = await runPostgresFixtureBudgetCheck(schedule.backendChildren);
       return status === 0 ? null : { status, label: "postgres-fixture-budget" };
     },
-    summaryExtra: ({ reporter, started }) => ({
+    summaryExtra: ({ started }) => ({
       started_count: started,
-      finalizer_count: schedule.finalizerCount,
-      finalizer_failures: reporter.finalizerFailures,
-      max_running_groups: reporter.maxRunningGroups,
     }),
     afterSummary: async ({ requestedStatus }) => {
       if (deferSummary) {

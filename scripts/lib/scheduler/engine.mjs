@@ -75,6 +75,18 @@ function slowestWork(completedWork) {
     .slice(0, 5);
 }
 
+function finalizerTimings(completedWork) {
+  return completedWork
+    .filter((record) => record.kind === "finalizer")
+    .map((record) => ({
+      label: record.label,
+      id: record.id,
+      status: record.status,
+      duration_ms: record.duration_ms,
+      log_file: record.log_file,
+    }));
+}
+
 class SchedulerReporter {
   constructor(repoRoot, schedule, targetDir, logDir) {
     this.repoRoot = repoRoot;
@@ -460,11 +472,19 @@ class SchedulerReporter {
       target: this.schedule.target,
       status,
       ...failureFields,
+      scheduler_kind: this.schedule.kind,
       total_work_units: this.schedule.totalWorkUnits,
       completed_work_units: this.completedCount,
       skipped_work_units: this.skippedWork,
       failed_work_unit: failed,
+      resource_limits: resourceMapToObject(this.schedule.resourceLimits),
       resource_limit_sources: resourceLimitSourcesToObject(this.schedule.resourceLimitSources),
+      max_running_work_units: this.maxRunningWorkUnits,
+      max_running_groups: this.maxRunningGroups,
+      max_active_resource_claims: resourceMapToObject(this.maxActiveResourceClaims),
+      blocked_reasons_seen: Array.from(this.blockedReasonsSeen).sort((left, right) =>
+        left.localeCompare(right),
+      ),
       blocked_resources_seen: Array.from(this.blockedResourcesSeen).sort((left, right) =>
         left.localeCompare(right),
       ),
@@ -473,6 +493,15 @@ class SchedulerReporter {
       ),
       waiting_on_seen: Array.from(this.waitingOnSeen).sort((left, right) => left.localeCompare(right)),
       slowest_work_units: slowest,
+      nested_scheduler_limits: this.schedule.nestedSchedulerLimits
+        ? this.schedule.nestedSchedulerLimits({ reporter: this })
+        : [],
+      nested_scheduler_observations: this.schedule.nestedSchedulerObservations
+        ? this.schedule.nestedSchedulerObservations({ reporter: this })
+        : [],
+      finalizer_count: this.schedule.finalizerCount ?? 0,
+      finalizer_failures: this.finalizerFailures,
+      finalizer_timings: finalizerTimings(this.completedWork),
       artifacts: {
         events_jsonl: relToRepo(this.repoRoot, this.eventsPath),
         scheduler_logs_dir: relToRepo(this.repoRoot, this.logDir),

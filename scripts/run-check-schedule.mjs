@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url";
 import {
   formatResourceMap,
   relToRepo as relToRepoPath,
-  resourceMapToObject,
   schedulerNestedProgressLine,
   schedulerTargetDir,
 } from "./lib/scheduler-reporting.mjs";
@@ -35,7 +34,7 @@ const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
 const supportedSchemaID = "cartulary.check_schedule.v6";
 const schedulerEventSchemaID = "cartulary.check_scheduler_event.v4";
-const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v4";
+const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v5";
 
 function usage() {
   process.stderr.write(
@@ -224,7 +223,7 @@ function nestedSchedulerDetail(unit) {
     manifest: unit.nestedScheduler.manifest,
     forwarding: unit.nestedScheduler.profile,
     forwarding_mappings: unit.nestedScheduler.forwardingMappings,
-    forwarded_limits: resourceMapToObject(nestedSchedulerForwardedLimits(unit)),
+    forwarded_limits: schedulerResourceMapToObject(nestedSchedulerForwardedLimits(unit)),
     forwarded_resource_limits: schedulerResourceMapToObject(unit.nestedScheduler.forwardedResourceLimits),
   };
 }
@@ -612,21 +611,14 @@ function attachRuntime(schedule, { makeBin, testOutputScript, summaryTargets, su
         String(unit.makeJobs),
       ]);
     },
-    summaryExtra: ({ reporter }) => ({
-      max_running_work_units: reporter.maxRunningWorkUnits,
-      max_running_groups: reporter.maxRunningGroups,
-      max_active_resource_claims: resourceMapToObject(reporter.maxActiveResourceClaims),
-      nested_scheduler_limits: schedule.workUnits
+    nestedSchedulerLimits: () =>
+      schedule.workUnits
         .filter((unit) => unit.nestedScheduler)
         .map((unit) => ({
           work_unit: unit.label,
           ...nestedSchedulerDetail(unit),
         })),
-      nested_scheduler_observations: nestedProgress.summaryRecords(),
-      blocked_reasons_seen: Array.from(reporter.blockedReasonsSeen).sort((left, right) =>
-        left.localeCompare(right),
-      ),
-    }),
+    nestedSchedulerObservations: () => nestedProgress.summaryRecords(),
     afterSummary: async ({ reporter, requestedStatus, completedKeys, firstFailureLabel }) => {
       const summaryArgs = [
         "run-summary",
