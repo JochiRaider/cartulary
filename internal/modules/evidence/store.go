@@ -549,35 +549,83 @@ SELECT e.record_id, r.row_version,
  WHERE e.record_id = $1
    AND r.deleted_at IS NULL
 `, recordID)
-	values := make([]any, 15)
-	targets := make([]any, len(values))
-	for index := range values {
-		targets[index] = &values[index]
-	}
-	if err := row.Scan(targets...); err != nil {
+	var data evidenceRowData
+	if err := row.Scan(
+		&data.RecordID,
+		&data.RowVersion,
+		&data.Title,
+		&data.LifecycleState,
+		&data.RequestedAt,
+		&data.ReceivedAt,
+		&data.StorageRef,
+		&data.BlobHash,
+		&data.CollectorPartyText,
+		&data.CollectorPartyID,
+		&data.SourcePartyText,
+		&data.SourcePartyID,
+		&data.UploadState,
+		&data.LinkedRecordCount,
+		&data.EditedAt,
+	); err != nil {
 		return nil, err
 	}
-	return evidenceRowFromValues(values)
+	return evidenceRowFromData(data)
 }
 
-func evidenceRowFromValues(values []any) (map[string]any, error) {
-	recordID, err := uuidFromDBValue(values[0])
+type evidenceRowData struct {
+	RecordID           any
+	RowVersion         any
+	Title              any
+	LifecycleState     any
+	RequestedAt        any
+	ReceivedAt         any
+	StorageRef         any
+	BlobHash           any
+	CollectorPartyText any
+	CollectorPartyID   any
+	SourcePartyText    any
+	SourcePartyID      any
+	UploadState        any
+	LinkedRecordCount  any
+	EditedAt           any
+}
+
+type evidenceFieldCell struct {
+	key   string
+	value any
+}
+
+func (row evidenceRowData) fieldCells() []evidenceFieldCell {
+	return []evidenceFieldCell{
+		{key: "evidence.title", value: row.Title},
+		{key: "evidence.lifecycle_state", value: row.LifecycleState},
+		{key: "evidence.requested_at", value: row.RequestedAt},
+		{key: "evidence.received_at", value: row.ReceivedAt},
+		{key: "evidence.storage_ref", value: row.StorageRef},
+		{key: "evidence.blob_hash", value: row.BlobHash},
+		{key: "evidence.collector_party_text", value: row.CollectorPartyText},
+		{key: "evidence.collector_party_id", value: row.CollectorPartyID},
+		{key: "evidence.source_party_text", value: row.SourcePartyText},
+		{key: "evidence.source_party_id", value: row.SourcePartyID},
+		{key: "evidence.upload_state", value: row.UploadState},
+		{key: "evidence.linked_record_count", value: row.LinkedRecordCount},
+		{key: "evidence.edited_at", value: row.EditedAt},
+	}
+}
+
+func evidenceRowFromData(data evidenceRowData) (map[string]any, error) {
+	recordID, err := uuidFromDBValue(data.RecordID)
 	if err != nil {
 		return nil, err
 	}
-	keys := []string{
-		"evidence.title", "evidence.lifecycle_state", "evidence.requested_at", "evidence.received_at",
-		"evidence.storage_ref", "evidence.blob_hash", "evidence.collector_party_text", "evidence.collector_party_id",
-		"evidence.source_party_text", "evidence.source_party_id", "evidence.upload_state",
-		"evidence.linked_record_count", "evidence.edited_at",
-	}
-	cells := make(map[string]any, len(keys))
-	for index, key := range keys {
-		cells[key] = map[string]any{"value": publicCellValue(values[index+2])}
+	fieldCells := data.fieldCells()
+	cells := make(map[string]any, len(fieldCells))
+	for _, cell := range fieldCells {
+		cells[cell.key] = map[string]any{"value": publicCellValue(cell.value)}
 	}
 	return map[string]any{
 		"record_id":    recordID.String(),
-		"row_version":  values[1],
+		"row_version":  data.RowVersion,
 		"cells":        cells,
 		"group_values": map[string]any{},
 	}, nil

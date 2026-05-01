@@ -491,6 +491,8 @@ for scheduled_target in \
   backend-unit \
   frontend-typecheck \
   lint-go \
+  go-vulncheck \
+  go-gosec-targeted \
   check-frontend-unit \
   check-harness-smoke \
   lint-biome \

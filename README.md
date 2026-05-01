@@ -19,6 +19,7 @@ Pinned repo-control toolchain and Go tool versions for the current bootstrap bas
 - pnpm `10.33.0`
 - Staticcheck `v0.7.0`
 - Govulncheck `v1.3.0`
+- Gosec `v2.26.1`
 
 The default local development loop is:
 

@@ -157,6 +157,10 @@ mutate_govulncheck_tool() {
   replace_text "$1/Makefile" 'GOVULNCHECK_TOOL := golang.org/x/vuln/cmd/govulncheck@v1.3.0' 'GOVULNCHECK_TOOL := golang.org/x/vuln/cmd/govulncheck@v1.3.1'
 }
 
+mutate_gosec_tool() {
+  replace_text "$1/Makefile" 'GOSEC_TOOL := github.com/securego/gosec/v2/cmd/gosec@v2.26.1' 'GOSEC_TOOL := github.com/securego/gosec/v2/cmd/gosec@v2.26.2'
+}
+
 mutate_readme_node() {
   replace_text "$1/README.md" '- Node.js `24.15.0`' '- Node.js `24.16.0`'
 }
@@ -169,8 +173,16 @@ mutate_readme_govulncheck() {
   replace_text "$1/README.md" '- Govulncheck `v1.3.0`' '- Govulncheck `v1.3.1`'
 }
 
+mutate_readme_gosec() {
+  replace_text "$1/README.md" '- Gosec `v2.26.1`' '- Gosec `v2.26.2`'
+}
+
 mutate_agents_govulncheck() {
   replace_text "$1/AGENTS.md" 'golang.org/x/vuln/cmd/govulncheck@v1.3.0' 'golang.org/x/vuln/cmd/govulncheck@v1.3.1'
+}
+
+mutate_agents_gosec() {
+  replace_text "$1/AGENTS.md" 'github.com/securego/gosec/v2/cmd/gosec@v2.26.1' 'github.com/securego/gosec/v2/cmd/gosec@v2.26.2'
 }
 
 mkdir -p "${ROOT_DIR}/tmp"
@@ -200,6 +212,10 @@ expect_drift "govulncheck-tool" \
   "Makefile: GOVULNCHECK_TOOL mismatch: expected golang.org/x/vuln/cmd/govulncheck@v1.3.0, got golang.org/x/vuln/cmd/govulncheck@v1.3.1" \
   mutate_govulncheck_tool
 
+expect_drift "gosec-tool" \
+  "Makefile: GOSEC_TOOL mismatch: expected github.com/securego/gosec/v2/cmd/gosec@v2.26.1, got github.com/securego/gosec/v2/cmd/gosec@v2.26.2" \
+  mutate_gosec_tool
+
 expect_drift "readme-node" \
   "README.md: Node.js pin line mismatch: expected - Node.js \`24.15.0\`, got - Node.js \`24.16.0\`" \
   mutate_readme_node
@@ -212,9 +228,17 @@ expect_drift "readme-govulncheck" \
   "README.md: Govulncheck pin line mismatch: expected - Govulncheck \`v1.3.0\`, got - Govulncheck \`v1.3.1\`" \
   mutate_readme_govulncheck
 
+expect_drift "readme-gosec" \
+  "README.md: Gosec pin line mismatch: expected - Gosec \`v2.26.1\`, got - Gosec \`v2.26.2\`" \
+  mutate_readme_gosec
+
 expect_drift "agents-govulncheck" \
   "AGENTS.md: Pinned bootstrap tools line mismatch" \
   mutate_agents_govulncheck
+
+expect_drift "agents-gosec" \
+  "AGENTS.md: Pinned bootstrap tools line mismatch" \
+  mutate_agents_gosec
 
 preflight_dir="$(mktemp -d "${ROOT_DIR}/tmp/toolchain-pins-preflight.XXXXXX")"
 cleanup_paths+=("${preflight_dir}")

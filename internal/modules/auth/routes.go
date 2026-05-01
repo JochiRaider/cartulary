@@ -1185,7 +1185,7 @@ func (s *Service) setAuthCookies(w http.ResponseWriter, sessionToken string) {
 		SameSite: http.SameSiteLaxMode,
 		Secure:   true,
 	})
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ // #nosec G124 -- CSRF double-submit cookie must stay browser-readable; session cookie is HttpOnly and both cookies remain Secure/SameSite/Path.
 		Name:     authn.CSRFCookieName,
 		Value:    csrfToken,
 		Path:     "/",
@@ -1205,7 +1205,7 @@ func (s *Service) clearAuthCookies(w http.ResponseWriter) {
 		Secure:   true,
 		MaxAge:   -1,
 	})
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ // #nosec G124 -- CSRF double-submit cookie must stay browser-readable; session cookie is HttpOnly and both cookies remain Secure/SameSite/Path.
 		Name:     authn.CSRFCookieName,
 		Value:    "",
 		Path:     "/",

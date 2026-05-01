@@ -5,7 +5,7 @@
 - Normative behavior is owned by the Cartulary normative core under `docs/spec/00_document_set_status_and_precedence.md` through Core 04. The guides under `docs/guides/` are implementation-support inputs, not independent behavior owners.
 - The canonical Go module path is `github.com/JochiRaider/cartulary`.
 - Supported toolchain baseline: `Go 1.26` with `toolchain go1.26.2`, `Node 24.15.0`, and `pnpm 10.33.0`.
-- Pinned bootstrap tools: `github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0`, `github.com/pressly/goose/v3/cmd/goose@v3.27.0`, `honnef.co/go/tools/cmd/staticcheck@v0.7.0`, `golang.org/x/vuln/cmd/govulncheck@v1.3.0`, and `github.com/testcontainers/testcontainers-go v0.42.0`.
+- Pinned bootstrap tools: `github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0`, `github.com/pressly/goose/v3/cmd/goose@v3.27.0`, `honnef.co/go/tools/cmd/staticcheck@v0.7.0`, `golang.org/x/vuln/cmd/govulncheck@v1.3.0`, `github.com/securego/gosec/v2/cmd/gosec@v2.26.1`, and `github.com/testcontainers/testcontainers-go v0.42.0`.
 
 ## Repo map and path conventions
 
@@ -30,7 +30,7 @@
 - Phase slices: `make phase-slice PHASE=phaseN`, `make service-backed-slice PHASE=phaseN`.
 - Exhaustive workflow help: `make help-all`.
 - Local dev: `make doctor`, `make bootstrap`, `make bootstrap-node-runtime`, `make frontend-toolchain`, `make frontend-install`, `make playwright-install`, `make db-up`, `make db-reset`, `make services-up`, `make minio-init`, `make dev`, `make generate`, `make format`, `make clean`.
-- Fast verification: `make test-fast`, `make phase-slice PHASE=phaseN`, `make service-backed-slice PHASE=phaseN`, `make backend-unit`, `make backend-store`, `make backend-integration`, `make backend-process`, `make frontend-typecheck`, `make frontend-unit`, `make lint`, `make lint-biome`, `make lint-scripts`, `make go-vulncheck`.
+- Fast verification: `make test-fast`, `make phase-slice PHASE=phaseN`, `make service-backed-slice PHASE=phaseN`, `make backend-unit`, `make backend-store`, `make backend-integration`, `make backend-process`, `make frontend-typecheck`, `make frontend-unit`, `make lint`, `make lint-biome`, `make lint-scripts`, `make go-vulncheck`, `make go-gosec-targeted`.
 - Full gates: `make test`, `make check`, `make browser-e2e`, `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make browser-e2e-measurement`, `make browser-e2e-visual`.
 - Investigate a run: `make task-guide [ROLE=<role>] [PHASE=phaseN]`, `make task-surface-report`, `make target-plan`, `make target-plan-json`, `make explain-phase PHASE=phaseN`, `make explain-target TARGET=<target> [DETAIL=summary|rows|artifacts]`, `make explain-run RESULTS_DIR=<root|run-dir>`, `make fixture-report RESULTS_DIR=<root|run-dir>`.
 - Phase maintenance: `make generate-drift`, `make toolchain-drift`, `make migration-drift`, `make phase-ledgers`, `make phase-ledger-drift`, `make phase-schedules`, `make phase-schedule-drift`, `make benchmark-claim-check`, `make go-test-duration-baselines RESULTS_DIR=<dir>`, `make go-test-duration-baseline-coverage`, `make go-test-duration-baseline-drift RESULTS_DIR=<dir>`, `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>`, `make scheduler-event-order-drift RESULTS_DIR=<dir> [TARGET=<target>]`.
@@ -58,6 +58,7 @@
 - `make doctor` verifies required local tools and pinned toolchain versions without installing them.
 - `make bootstrap` installs the pinned Go CLI tools and workspace dependencies.
 - `make go-vulncheck` runs pinned Govulncheck against Go source and tests using the default `./...` package pattern.
+- `make go-gosec-targeted` runs pinned Gosec with the focused `G602,G124` rule set against authored Go source.
 - `make phase-ledgers` regenerates the committed phase coverage ledgers from `tools/phase*_test_map.json`.
 - `make phase-ledger-drift` verifies committed phase coverage ledgers match the phase manifests without requiring Docker or service-backed tests.
 - `make backend-store` runs the service-backed store-domain `U-*` backend slice that keeps unit-layer phase IDs while using real Postgres.

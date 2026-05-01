@@ -250,6 +250,26 @@ if (Array.isArray(value)) {
 EOF
 }
 
+check_schedule_targets() {
+  "$node_bin" - "$check_schedule_manifest" <<'EOF'
+const fs = require("node:fs");
+
+const [manifestFile] = process.argv.slice(2);
+const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+if (manifest.schema_id !== "cartulary.check_schedule.v6") {
+  throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v6");
+}
+const schedules = manifest.schedules.filter((entry) => entry.target === "check");
+if (schedules.length !== 1) {
+  throw new Error(`expected exactly one check schedule, found ${schedules.length}`);
+}
+const targets = (schedules[0].work_units ?? []).map((entry) => entry.target);
+if (targets.length > 0) {
+  process.stdout.write(`${targets.join("\n")}\n`);
+}
+EOF
+}
+
 schedule_child_array() {
   local schedule_target="$1"
   local child_target="$2"
@@ -381,6 +401,27 @@ fi
 if ! printf '%s\n' "$lint_go_staticcheck_block" | grep -Fq 'STATICCHECK_CHECKS="$(STATICCHECK_CHECKS)"'; then
   fail "lint-go-staticcheck must pass the configured Staticcheck check set"
 fi
+go_security_prereqs="$(extract_target_prereqs go-security-toolchain)"
+if ! printf '%s\n' "$go_security_prereqs" | rg -q '(^|[[:space:]])\$\((GOVULNCHECK_BIN)\)($|[[:space:]])'; then
+  fail "go-security-toolchain must prepare the pinned Govulncheck binary"
+fi
+if ! printf '%s\n' "$go_security_prereqs" | rg -q '(^|[[:space:]])\$\((GOSEC_BIN)\)($|[[:space:]])'; then
+  fail "go-security-toolchain must prepare the pinned Gosec binary"
+fi
+go_gosec_prereqs="$(extract_target_prereqs go-gosec-targeted)"
+if ! printf '%s\n' "$go_gosec_prereqs" | rg -q '(^|[[:space:]])go-security-toolchain($|[[:space:]])'; then
+  fail "go-gosec-targeted must prepare the pinned Go security toolchain"
+fi
+go_gosec_block="$(extract_target_block go-gosec-targeted)"
+if ! printf '%s\n' "$go_gosec_block" | grep -Fq 'scripts/run-go-gosec-targeted.sh'; then
+  fail "go-gosec-targeted must run the curated targeted Gosec wrapper"
+fi
+if ! printf '%s\n' "$go_gosec_block" | grep -Fq 'GOSEC_RULES="$(GOSEC_RULES)"'; then
+  fail "go-gosec-targeted must pass the configured Gosec rule set"
+fi
+if ! printf '%s\n' "$go_gosec_block" | grep -Fq 'GOSEC_PATTERNS="$(GOSEC_PATTERNS)"'; then
+  fail "go-gosec-targeted must pass the configured Gosec package patterns"
+fi
 for scheduled_target in \
   check-setup-blockers \
   check-build-prereqs \
@@ -393,6 +434,8 @@ for scheduled_target in \
   backend-unit \
   frontend-typecheck \
   lint-go \
+  go-vulncheck \
+  go-gosec-targeted \
   check-frontend-unit \
   check-harness-smoke \
   lint-biome \
@@ -502,6 +545,8 @@ for scheduled_target in \
   backend-unit \
   frontend-typecheck \
   lint-go \
+  go-vulncheck \
+  go-gosec-targeted \
   check-frontend-unit \
   check-harness-smoke \
   lint-biome \

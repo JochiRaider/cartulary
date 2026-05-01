@@ -31,10 +31,14 @@ SQLC_BIN ?= $(TOOLBIN_DIR)/sqlc-v1.30.0
 GOOSE_BIN ?= $(TOOLBIN_DIR)/goose-v3.27.0
 STATICCHECK_BIN ?= $(TOOLBIN_DIR)/staticcheck-v0.7.0
 GOVULNCHECK_BIN ?= $(TOOLBIN_DIR)/govulncheck-v1.3.0
+GOSEC_BIN ?= $(TOOLBIN_DIR)/gosec-v2.26.1
 STATICCHECK_CHECKS ?= SA*
 GOVULNCHECK_FLAGS ?= -test
 GOVULNCHECK_PATTERNS ?= ./...
 GOVULNCHECK_DB ?=
+GOSEC_RULES ?= G602,G124
+GOSEC_FLAGS ?= -exclude-generated
+GOSEC_PATTERNS ?= ./cmd/... ./internal/... ./db/... ./tools/...
 TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
 SERVICE_BACKED_SCHEDULE_MANIFEST ?= $(CURDIR)/tools/service_backed_schedule_manifest.json
 EXECUTION_TOPOLOGY_MANIFEST ?= $(CURDIR)/tools/execution_topology_manifest.json
@@ -117,6 +121,7 @@ SQLC_TOOL := github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
 GOOSE_TOOL := github.com/pressly/goose/v3/cmd/goose@v3.27.0
 STATICCHECK_TOOL := honnef.co/go/tools/cmd/staticcheck@v0.7.0
 GOVULNCHECK_TOOL := golang.org/x/vuln/cmd/govulncheck@v1.3.0
+GOSEC_TOOL := github.com/securego/gosec/v2/cmd/gosec@v2.26.1
 TESTCONTAINERS_GO_VERSION := v0.42.0
 
 FRONTEND_INSTALL_INPUTS := package.json pnpm-lock.yaml pnpm-workspace.yaml apps/web/package.json $(wildcard packages/*/package.json)
@@ -317,6 +322,12 @@ $(GOVULNCHECK_BIN):
 	$(RUN_PHASE) "bootstrap govulncheck tool" -- env GOBIN=$(TOOLBIN_DIR) $(GO_RUN_ENV) $(GO) install $(GOVULNCHECK_TOOL)
 	$(Q)mv $(TOOLBIN_DIR)/govulncheck $(GOVULNCHECK_BIN)
 
+$(GOSEC_BIN):
+	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
+	$(Q)rm -f $(TOOLBIN_DIR)/gosec $(GOSEC_BIN)
+	$(RUN_PHASE) "bootstrap gosec tool" -- env GOBIN=$(TOOLBIN_DIR) $(GO_RUN_ENV) $(GO) install $(GOSEC_TOOL)
+	$(Q)mv $(TOOLBIN_DIR)/gosec $(GOSEC_BIN)
+
 $(TEST_SERVICES_BIN): $$(TEST_SERVICES_BUILD_INPUTS)
 	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "build testservices" -- $(GO_ENV) $(GO) build -o $(TEST_SERVICES_BIN) ./tools/testservices
@@ -326,7 +337,7 @@ $(PLAYWRIGHT_INSTALL_STAMP): $(FRONTEND_INSTALL_STAMP) $(FRONTEND_TOOLCHAIN_STAM
 	$(RUN_PHASE) "playwright-install" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec playwright install chromium
 	$(Q)printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\n' "$(NODE_BIN)" "$(NODE_VERSION)" "$(PNPM)" "$(PNPM_VERSION)" > $(PLAYWRIGHT_INSTALL_STAMP)
 
-bootstrap: $(SQLC_BIN) $(GOOSE_BIN) $(STATICCHECK_BIN) $(GOVULNCHECK_BIN) frontend-install playwright-install
+bootstrap: $(SQLC_BIN) $(GOOSE_BIN) $(STATICCHECK_BIN) $(GOVULNCHECK_BIN) $(GOSEC_BIN) frontend-install playwright-install
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 
 playwright-install: $(PLAYWRIGHT_INSTALL_STAMP)
@@ -365,7 +376,7 @@ codegen-toolchain: $(SQLC_BIN)
 
 go-lint-toolchain: $(STATICCHECK_BIN)
 
-go-security-toolchain: $(GOVULNCHECK_BIN)
+go-security-toolchain: $(GOVULNCHECK_BIN) $(GOSEC_BIN)
 
 generate: codegen-toolchain
 	$(Q)$(MAKE) --no-print-directory generate-artifacts
@@ -442,6 +453,10 @@ lint-go-staticcheck: go-lint-toolchain
 go-vulncheck: go-security-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "go vulncheck" -- env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) GOVULNCHECK_BIN=$(GOVULNCHECK_BIN) GOVULNCHECK_FLAGS="$(GOVULNCHECK_FLAGS)" GOVULNCHECK_PATTERNS="$(GOVULNCHECK_PATTERNS)" GOVULNCHECK_DB="$(GOVULNCHECK_DB)" bash ./scripts/run-go-govulncheck.sh
+
+go-gosec-targeted: go-security-toolchain
+	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
+	$(RUN_PHASE) "go gosec targeted" -- env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) GOSEC_BIN=$(GOSEC_BIN) GOSEC_RULES="$(GOSEC_RULES)" GOSEC_FLAGS="$(GOSEC_FLAGS)" GOSEC_PATTERNS="$(GOSEC_PATTERNS)" bash ./scripts/run-go-gosec-targeted.sh
 
 format: format-go format-frontend
 

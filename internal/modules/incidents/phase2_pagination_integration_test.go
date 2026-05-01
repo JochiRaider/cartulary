@@ -67,13 +67,14 @@ func TestSupportPhase2_IncidentListContinuationUsesSnapshotStableRows(t *testing
 	})
 	firstID := first["incident_id"].(string)
 
-	time.Sleep(20 * time.Millisecond)
+	httptestx.SetClockAfter(t, harness.Server, mustParseTimestamp(t, first["updated_at"]), time.Second)
 	second := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-support-phase2-incidents-second",
 		"incident_key":  "IR-PAGINATION-SECOND",
 		"title":         "Second Incident",
 	})
 	secondID := second["incident_id"].(string)
+	httptestx.SetClockAfter(t, harness.Server, mustParseTimestamp(t, second["updated_at"]), time.Second)
 
 	firstPage := phase2test.DoJSON(
 		t,
@@ -237,6 +238,19 @@ func createMembership(
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+}
+
+func mustParseTimestamp(t testing.TB, value any) time.Time {
+	t.Helper()
+	text, ok := value.(string)
+	if !ok {
+		t.Fatalf("timestamp value got %T want string", value)
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, text)
+	if err != nil {
+		t.Fatalf("parse timestamp %q: %v", text, err)
+	}
+	return parsed
 }
 
 func requireNextCursor(t testing.TB, envelope map[string]any) string {

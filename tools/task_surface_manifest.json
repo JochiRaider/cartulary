@@ -176,6 +176,10 @@
         {
           "target": "go-vulncheck",
           "description": "run Go vulnerability scanning"
+        },
+        {
+          "target": "go-gosec-targeted",
+          "description": "run targeted Go security static analysis"
         }
       ]
     },
@@ -1920,6 +1924,16 @@
       ]
     },
     {
+      "name": "go-gosec-targeted",
+      "classification": "public",
+      "included_in": [
+        "check"
+      ],
+      "backing_scripts": [
+        "scripts/run-go-gosec-targeted.sh"
+      ]
+    },
+    {
       "name": "check",
       "classification": "public",
       "included_in": [
@@ -2089,6 +2103,7 @@
         "harness-smoke-build-input-discovery",
         "harness-smoke-check-migrations",
         "harness-smoke-generate-drift",
+        "harness-smoke-run-go-gosec-targeted",
         "harness-smoke-run-make-sequence-fast",
         "harness-smoke-release-task-surface",
         "harness-smoke-benchmark-claim-check",
@@ -2134,6 +2149,7 @@
         "harness-smoke-build-input-discovery",
         "harness-smoke-check-migrations",
         "harness-smoke-generate-drift",
+        "harness-smoke-run-go-gosec-targeted",
         "harness-smoke-run-make-sequence-fast",
         "harness-smoke-release-task-surface",
         "harness-smoke-benchmark-claim-check",
@@ -2195,6 +2211,12 @@
       "backing_scripts": [
         "scripts/test-generate-drift.sh",
         "scripts/check-generate-drift.sh"
+      ]
+    },
+    {
+      "name": "harness-smoke-run-go-gosec-targeted",
+      "backing_scripts": [
+        "scripts/test-run-go-gosec-targeted.sh"
       ]
     },
     {
