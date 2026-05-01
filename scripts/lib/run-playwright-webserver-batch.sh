@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=scripts/lib/run-phase-common.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/run-phase-common.sh"
 
 usage() {
@@ -202,7 +203,7 @@ run_functional_shard() {
   if [[ "$output_mode" == "quiet" ]]; then
     run_command=("${command[@]}" --reporter=json --output "$shard_output_dir" --project functional)
   else
-    run_command=("${command[@]}" --reporter=dot,json --output "$shard_output_dir" --project functional)
+    run_command=("${command[@]}" "--reporter=dot,json" --output "$shard_output_dir" --project functional)
   fi
 
   set +e
@@ -267,7 +268,7 @@ support_status=0
 if [[ "$mode" == "webserver-backed" || "$mode" == "support" ]]; then
   support_run_command=("${command[@]}" --reporter=json --output "${output_dir}/support" --project support)
   if [[ "$output_mode" != "quiet" ]]; then
-    support_run_command=("${command[@]}" --reporter=dot,json --output "${output_dir}/support" --project support)
+    support_run_command=("${command[@]}" "--reporter=dot,json" --output "${output_dir}/support" --project support)
   fi
 
   set +e

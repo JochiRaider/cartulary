@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 __cartulary_harness_default_repo_root() {
-  CDPATH= cd -- "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P
+  unset CDPATH && cd -- "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P
 }
 
 __cartulary_harness_realpath() {

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 HELPER="$ROOT_DIR/scripts/lib/run-phase.sh"
 GO_HELPER="$ROOT_DIR/scripts/lib/run-go-phase.sh"
 GO_MANIFEST_HELPER="$ROOT_DIR/scripts/lib/run-go-manifest-phase.sh"

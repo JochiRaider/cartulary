@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=scripts/lib/run-phase-common.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/run-phase-common.sh"
 
 usage() {
@@ -39,7 +40,7 @@ fi
 if [[ "$output_mode" == "quiet" ]]; then
   run_command=("${command[@]}" --reporter=json --output "$output_dir")
 else
-  run_command=("${command[@]}" --reporter=dot,json --output "$output_dir")
+  run_command=("${command[@]}" "--reporter=dot,json" --output "$output_dir")
 fi
 
 command_text="$(render_command "${run_command[@]}")"

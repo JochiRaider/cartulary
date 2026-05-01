@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 GO_TARGET_RUNNER="$ROOT_DIR/scripts/cartulary-runner.mjs"
 GO_TARGET_PLAN_COVERAGE_HELPER="$ROOT_DIR/scripts/check-go-target-plan-coverage.mjs"
 node_bin="${NODE_BIN:-node}"

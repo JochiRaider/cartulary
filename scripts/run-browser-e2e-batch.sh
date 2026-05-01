@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 source "$ROOT_DIR/scripts/lib/playwright-owned-stack.sh"
 
 MANIFEST="${BROWSER_E2E_BATCH_MANIFEST:-$ROOT_DIR/tools/browser_e2e_batch_manifest.json}"
@@ -148,7 +148,7 @@ else
 fi
 
 for group_row in "${stage_groups[@]}"; do
-  IFS=$'\t' read -r group_name target kind workers reset_before coverage execution_dependency stage_schedule_tags stage_dependency_policy <<<"$group_row"
+  IFS=$'\t' read -r _group_name target kind workers reset_before coverage execution_dependency _stage_schedule_tags _stage_dependency_policy <<<"$group_row"
 
   if [[ -n "$reset_before" ]]; then
     env CARTULARY_TEST_TARGET="${CARTULARY_TEST_TARGET:-$stage_target}" \

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+# Single-quoted literals below intentionally assert Make/shell text without expansion.
+# shellcheck disable=SC2016
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 cleanup_paths=()
 
 cd "$ROOT_DIR"

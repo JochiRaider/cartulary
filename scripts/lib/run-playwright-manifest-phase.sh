@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=scripts/lib/run-phase-common.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/run-phase-common.sh"
 
 usage() {
@@ -56,7 +57,7 @@ list_command=("${command[@]}" --list --reporter=json -g "$grep_pattern" "${manif
 if [[ "$output_mode" == "quiet" ]]; then
   run_command=("${command[@]}" --reporter=json --output "$output_dir" -g "$grep_pattern" "${manifest_files[@]}")
 else
-  run_command=("${command[@]}" --reporter=dot,json --output "$output_dir" -g "$grep_pattern" "${manifest_files[@]}")
+  run_command=("${command[@]}" "--reporter=dot,json" --output "$output_dir" -g "$grep_pattern" "${manifest_files[@]}")
 fi
 list_command_text="$(render_command "${list_command[@]}")"
 run_command_text="$(render_command "${run_command[@]}")"

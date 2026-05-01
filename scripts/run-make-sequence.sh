@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 TEST_OUTPUT_SCRIPT="${TEST_OUTPUT_SCRIPT:-${ROOT_DIR}/scripts/lib/test-output.mjs}"
 
 emit_test_output() {
@@ -99,7 +99,7 @@ fi
 summary_targets=()
 IFS=',' read -r -a summary_targets <<<"${summary_targets_csv}"
 for i in "${!summary_targets[@]}"; do
-  summary_targets[$i]="${summary_targets[$i]//[[:space:]]/}"
+  summary_targets[i]="${summary_targets[i]//[[:space:]]/}"
 done
 
 dry_run=0

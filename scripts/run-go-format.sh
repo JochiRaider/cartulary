@@ -16,7 +16,7 @@ case "$mode" in
   *) usage ;;
 esac
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 GOFMT_BIN="${GOFMT:-gofmt}"
 
 cd "$ROOT_DIR"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
 REPORTER="$ROOT_DIR/scripts/print-task-surface-report.mjs"
 cleanup_paths=()
@@ -228,9 +228,7 @@ assert_contains "$duplicate_compact_help_output" "compact_help.entries[2] contai
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
 cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
-for index in 1; do
-  printf '\n.PHONY: cap-target-%s\ncap-target-%s:\n\t@true\n' "$index" "$index" >>"$makefile_copy"
-done
+printf '\n.PHONY: cap-target-1\ncap-target-1:\n\t@true\n' >>"$makefile_copy"
 "$NODE_BIN" - "$manifest_copy" <<'EOF'
 const { readFileSync, writeFileSync } = require("node:fs");
 const manifestPath = process.argv[2];

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 SCRIPT="${ROOT_DIR}/scripts/run-check-schedule.mjs"
 TEST_OUTPUT_SCRIPT="${ROOT_DIR}/scripts/lib/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
@@ -417,6 +417,7 @@ run_scheduler() {
   local run_id="$3"
   shift 3
 
+  env \
   FAKE_CHECK_SCHEDULER_LOCK="${dir}/lock" \
   FAKE_CHECK_SCHEDULER_ACTIVE="${dir}/active" \
   FAKE_CHECK_SCHEDULER_MAX="${dir}/max" \

@@ -268,6 +268,7 @@ run_vitest_command_with_watchdog() {
   start_ms="$(phase_now_monotonic_ms)"
 
   if command -v setsid >/dev/null 2>&1; then
+    # shellcheck disable=SC2016
     setsid bash -c '
       set -euo pipefail
       output_mode="$1"

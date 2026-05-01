@@ -155,22 +155,25 @@ wait_for_process_status() {
 
 resolve_backend_command() {
   local outvar="$1"
-  local -n command_ref="$outvar"
+  local -n backend_command_ref="$outvar"
 
   if [[ -n "${CARTULARY_DEV_STACK_BACKEND_COMMAND:-}" ]]; then
-    command_ref=(bash -lc "${CARTULARY_DEV_STACK_BACKEND_COMMAND}")
+    # shellcheck disable=SC2034
+    backend_command_ref=(bash -lc "${CARTULARY_DEV_STACK_BACKEND_COMMAND}")
     return 0
   fi
 
-  command_ref=("${GO_BIN}" run ./cmd/server)
+  # shellcheck disable=SC2034
+  backend_command_ref=("${GO_BIN}" run ./cmd/server)
 }
 
 resolve_frontend_command() {
   local outvar="$1"
-  local -n command_ref="$outvar"
+  local -n frontend_command_ref="$outvar"
 
   if [[ -n "${CARTULARY_DEV_STACK_FRONTEND_COMMAND:-}" ]]; then
-    command_ref=(bash -lc "${CARTULARY_DEV_STACK_FRONTEND_COMMAND}")
+    # shellcheck disable=SC2034
+    frontend_command_ref=(bash -lc "${CARTULARY_DEV_STACK_FRONTEND_COMMAND}")
     return 0
   fi
 
@@ -179,7 +182,8 @@ resolve_frontend_command() {
     return 1
   fi
 
-  command_ref=("${PNPM_BIN}" --dir apps/web dev --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort)
+  # shellcheck disable=SC2034
+  frontend_command_ref=("${PNPM_BIN}" --dir apps/web dev --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort)
 }
 
 dev_wait_backend_ready() {

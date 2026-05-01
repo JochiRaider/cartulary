@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
+# Single-quoted literals below intentionally assert Make/shell text without expansion.
+# shellcheck disable=SC2016
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 makefile="$repo_root/Makefile"
 generated_make="$repo_root/tools/task_surface.generated.mk"
 cartulary_runner_script="$repo_root/scripts/cartulary-runner.mjs"
-go_runner_script="$repo_root/scripts/run-go-target.mjs"
 go_runner_module="$repo_root/scripts/lib/go-target-runner.mjs"
 go_target_plan_coverage_helper="$repo_root/scripts/check-go-target-plan-coverage.mjs"
 schedule_manifest="$repo_root/tools/service_backed_schedule_manifest.json"
 execution_topology_manifest="$repo_root/tools/execution_topology_manifest.json"
-browser_batch_manifest="$repo_root/tools/browser_e2e_batch_manifest.json"
 schedule_topology_helper="$repo_root/scripts/lib/service-backed-schedule-topology.mjs"
 check_schedule_manifest="$repo_root/tools/check_schedule_manifest.json"
 node_bin="${NODE_BIN:-node}"
@@ -791,12 +791,11 @@ for expected in TestPhase0_ TestPhase1_ TestPhase2_; do
   fi
 done
 
-for target in backend-process; do
-  prereqs="$(extract_target_prereqs "$target")"
-  if [[ -z "$prereqs" || "$prereqs" != *build-server* ]]; then
-    fail "$target must depend on build-server"
-  fi
-done
+target="backend-process"
+prereqs="$(extract_target_prereqs "$target")"
+if [[ -z "$prereqs" || "$prereqs" != *build-server* ]]; then
+  fail "$target must depend on build-server"
+fi
 
 test_service_images_block="$(extract_target_block test-service-images)"
 if [[ -z "$test_service_images_block" ]]; then

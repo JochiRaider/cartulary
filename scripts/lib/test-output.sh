@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(unset CDPATH && cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NODE_CANDIDATE="${NODE_BIN:-}"
 
 if [[ -n "${NODE_CANDIDATE}" && -x "${NODE_CANDIDATE}" ]]; then

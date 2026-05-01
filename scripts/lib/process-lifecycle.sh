@@ -74,6 +74,7 @@ start_process_group() {
   fi
 
   group_id="$!"
+  # shellcheck disable=SC2016
   setsid bash -c '
     parent_pid="$1"
     group_id="$2"

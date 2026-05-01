@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Single-quoted literals below intentionally assert Make/shell text without expansion.
+# shellcheck disable=SC2016
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

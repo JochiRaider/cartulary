@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
 
 mapfile -t phases < <(cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" list-phases)

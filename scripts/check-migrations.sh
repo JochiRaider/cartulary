@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 COMPOSE_FILE="${CARTULARY_COMPOSE_FILE:-$ROOT_DIR/docker-compose.dev.yml}"
 DEV_SERVICES_SCRIPT="${CARTULARY_DEV_SERVICES_SCRIPT:-$ROOT_DIR/scripts/dev-services.sh}"
 MIGRATIONS_DIR="${CARTULARY_MIGRATIONS_DIR:-$ROOT_DIR/db/migrations}"
@@ -45,7 +45,7 @@ migration_version_at_index() {
 }
 
 previous_migration_version_before_anchor() {
-  local anchor_pattern="$1"
+  local anchor_glob="$1"
   local boundary_name="$2"
   local anchor_index="-1"
   local match_count="0"
@@ -54,20 +54,22 @@ previous_migration_version_before_anchor() {
 
   for index in "${!MIGRATION_FILES[@]}"; do
     name="$(basename "${MIGRATION_FILES[$index]}")"
-    if [[ "$name" == $anchor_pattern ]]; then
+    # anchor_glob is an intentional migration filename glob, not a literal.
+    # shellcheck disable=SC2053
+    if [[ "$name" == $anchor_glob ]]; then
       anchor_index="$index"
       match_count=$((match_count + 1))
     fi
   done
 
   if ((match_count == 0)); then
-    fail "missing migration anchor for ${boundary_name}: ${anchor_pattern}"
+    fail "missing migration anchor for ${boundary_name}: ${anchor_glob}"
   fi
   if ((match_count > 1)); then
-    fail "multiple migration anchors for ${boundary_name}: ${anchor_pattern}"
+    fail "multiple migration anchors for ${boundary_name}: ${anchor_glob}"
   fi
   if ((anchor_index == 0)); then
-    fail "migration anchor for ${boundary_name} has no preceding migration: ${anchor_pattern}"
+    fail "migration anchor for ${boundary_name} has no preceding migration: ${anchor_glob}"
   fi
 
   migration_version_at_index "$((anchor_index - 1))"

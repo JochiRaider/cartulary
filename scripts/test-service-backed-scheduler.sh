@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 SCRIPT="${ROOT_DIR}/scripts/run-service-backed-schedule.mjs"
 TEST_OUTPUT_SCRIPT="${ROOT_DIR}/scripts/lib/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
@@ -567,6 +567,7 @@ run_scheduler() {
     go_target_runner="${dir}/fake-go-target"
   fi
 
+  env \
   FAKE_SCHEDULER_LOCK="${dir}/lock" \
   FAKE_SCHEDULER_ACTIVE="${dir}/active" \
   FAKE_SCHEDULER_MAX="${dir}/max" \
@@ -589,8 +590,8 @@ run_scheduler() {
   VERBOSE="${VERBOSE:-}" \
   CI_VERBOSE="${CI_VERBOSE:-}" \
   CARTULARY_OUTPUT_MODE="${CARTULARY_OUTPUT_MODE:-}" \
-  CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT= \
-  CARTULARY_SERVICE_BACKED_GO_IO_LIMIT= \
+  CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT="" \
+  CARTULARY_SERVICE_BACKED_GO_IO_LIMIT="" \
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT="${CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT:-}" \
   MAKE="${dir}/fake-make" \
   CARTULARY_TEST_GO_TARGET_RUNNER="${go_target_runner}" \
@@ -1416,6 +1417,7 @@ write_manifest "$jobs_manifest" test-fast-service-backed \
   'make_target|backend-integration|10|"postgres": 1, "minio": 1'
 set +e
 jobs_output="$(
+  env \
   FAKE_SCHEDULER_LOCK="${jobs_dir}/lock" \
   FAKE_SCHEDULER_ACTIVE="${jobs_dir}/active" \
   FAKE_SCHEDULER_MAX="${jobs_dir}/max" \

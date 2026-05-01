@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../.." && pwd)"
 ALLOWED_RUNTIME_DIRS=("server" "migrate")
 EMBEDDED_WEB_DIR="internal/platform/httpapi/webassets/dist"
 

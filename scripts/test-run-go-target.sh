@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 GO_PHASE_HELPER="$ROOT_DIR/scripts/lib/run-go-phase.sh"
 GO_TARGET_HELPER="$ROOT_DIR/scripts/run-go-target.mjs"
 GO_TARGET_PLAN_COVERAGE_HELPER="$ROOT_DIR/scripts/check-go-target-plan-coverage.mjs"
@@ -164,6 +164,9 @@ printf '%s\n' "1200" >"$shared_report_dir/duration_ms.txt"
 printf '%s\n' "0" >"$shared_report_dir/exit_status.txt"
 
 duration_artifacts_root="$duration_results_dir/results"
+# These fixture env vars are intentionally scoped to the subshell that emits
+# phase summaries.
+# shellcheck disable=SC2030,SC2031
 (
   export CARTULARY_TEST_RESULTS_DIR="$duration_artifacts_root"
   export CARTULARY_TEST_RUN_ID="duration-smoke"
@@ -176,7 +179,10 @@ duration_artifacts_root="$duration_results_dir/results"
     local wall_duration_ms="$4"
     local start_time="${5:-$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)}"
     local end_time="${6:-$start_time}"
-    local phase_dir="$duration_artifacts_root/duration-smoke/backend-unit-smoke/$(printf '%s' "$label" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+    local phase_slug
+    local phase_dir
+    phase_slug="$(printf '%s' "$label" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+    phase_dir="$duration_artifacts_root/duration-smoke/backend-unit-smoke/$phase_slug"
     mkdir -p "$phase_dir"
     CARTULARY_PHASE_LABEL="$label" \
     CARTULARY_PHASE_DIR="$phase_dir" \
@@ -289,6 +295,9 @@ printf '%s\n' "2000-01-01T00:00:00Z" >"$raw_failure_report_dir/start_time.txt"
 printf '%s\n' "2000-01-01T00:00:00Z" >"$raw_failure_report_dir/end_time.txt"
 printf '%s\n' "100" >"$raw_failure_report_dir/duration_ms.txt"
 printf '%s\n' "1" >"$raw_failure_report_dir/exit_status.txt"
+# These fixture env vars are intentionally scoped to the subshell that emits
+# phase summaries.
+# shellcheck disable=SC2030,SC2031
 (
   export CARTULARY_TEST_RESULTS_DIR="$raw_failure_results_dir/results"
   export CARTULARY_TEST_RUN_ID="raw-failure"
@@ -329,6 +338,9 @@ printf '%s\n' "2000-01-01T00:00:00Z" >"$reused_window_report_dir/start_time.txt"
 printf '%s\n' "2000-01-01T00:00:10Z" >"$reused_window_report_dir/end_time.txt"
 printf '%s\n' "10000" >"$reused_window_report_dir/duration_ms.txt"
 printf '%s\n' "0" >"$reused_window_report_dir/exit_status.txt"
+# These fixture env vars are intentionally scoped to the subshell that emits
+# phase summaries.
+# shellcheck disable=SC2030,SC2031
 (
   export CARTULARY_TEST_RESULTS_DIR="$reused_window_results_dir/results"
   export CARTULARY_TEST_RUN_ID="reused-window"

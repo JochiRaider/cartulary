@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 LIFECYCLE_HELPER="$ROOT_DIR/scripts/lib/web-e2e-lifecycle.sh"
 cleanup_paths=()
 
-cleanup() {
+cleanup_test_paths() {
   local path
   for path in "${cleanup_paths[@]}"; do
     rm -rf "$path"
   done
 }
 
-trap cleanup EXIT
+trap cleanup_test_paths EXIT
 
 fail() {
   echo "$*" >&2
@@ -378,6 +378,7 @@ chmod +x "$cleanup_failure_runner"
 
 single_stop_pid_file="$tmp_dir/single-stop.pid"
 single_stop_term_file="$tmp_dir/single-stop.term"
+# shellcheck source=scripts/lib/web-e2e-lifecycle.sh
 source "$LIFECYCLE_HELPER"
 lifecycle_reset_shutdown_state
 single_stop_group=""
@@ -574,7 +575,7 @@ if ! grep -Fq "is not executable" "$missing_override_stderr"; then
   fail "missing explicit backend override must explain the executable requirement"
 fi
 
-CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES=1
+export CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES=1
 resolve_runtime_command resolved_command "backend" "$repo_server_artifact" "$repo_server_artifact" ./cmd/server
 assert_equals "${resolved_command[*]}" "$repo_server_artifact" "repo-root backend artifact opt-in honored"
 resolve_runtime_command resolved_command "migration" "$repo_migrate_artifact" "$repo_migrate_artifact" ./cmd/migrate

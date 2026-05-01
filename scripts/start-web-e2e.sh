@@ -136,6 +136,7 @@ allocate_available_port() {
       ss -ltnp "sport = :${configured_port}" >&2 || true
       return 1
     fi
+    # shellcheck disable=SC2034
     port_ref="${configured_port}"
     return 0
   fi
@@ -153,6 +154,7 @@ allocate_available_port() {
       continue
     fi
     if ! port_in_use "${candidate}"; then
+      # shellcheck disable=SC2034
       port_ref="${candidate}"
       return 0
     fi
@@ -260,10 +262,12 @@ resolve_runtime_command() {
   fi
 
   if [[ -n "${configured_path}" ]]; then
+    # shellcheck disable=SC2034
     resolved_ref=("${configured_path}")
     return 0
   fi
 
+  # shellcheck disable=SC2034
   resolved_ref=("${GO_BIN}" run "$@")
 }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
 CHECKER="$ROOT_DIR/scripts/check-phase-test-names.mjs"
 cleanup_paths=()

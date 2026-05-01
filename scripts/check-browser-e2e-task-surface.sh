@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Single-quoted literals below intentionally assert Make/shell text without expansion.
+# shellcheck disable=SC2016
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -615,7 +617,7 @@ if ! [[ -f "$browser_batch_manifest_helper" ]]; then
   fail "missing scripts/lib/browser-batch-manifest.mjs"
 fi
 "$node_bin" "$browser_batch_manifest_helper" validate "$browser_batch_manifest"
-while IFS=$'\t' read -r stage_name group_name group_target group_kind group_coverage group_execution_dependency stage_schedule_tags stage_dependency_policy; do
+while IFS=$'\t' read -r stage_name group_name group_target _group_kind group_coverage group_execution_dependency _stage_schedule_tags _stage_dependency_policy; do
   if [[ "$group_coverage" == "raw" || -z "$group_coverage" ]]; then
     continue
   fi

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+# Single-quoted literals below intentionally assert text containing shell/Markdown metacharacters.
+# shellcheck disable=SC2016
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
 if command -v "${NODE_BIN}" >/dev/null 2>&1; then
   NODE_BIN="$(command -v "${NODE_BIN}")"

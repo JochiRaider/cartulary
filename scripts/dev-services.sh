@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 COMPOSE_FILE="${CARTULARY_COMPOSE_FILE:-$ROOT_DIR/docker-compose.dev.yml}"
 POSTGRES_READY_TIMEOUT_SECONDS="${CARTULARY_POSTGRES_READY_TIMEOUT_SECONDS:-180}"
 MINIO_READY_TIMEOUT_SECONDS="${CARTULARY_MINIO_READY_TIMEOUT_SECONDS:-120}"
@@ -53,6 +53,7 @@ wait_postgres() {
   return 1
 }
 
+# shellcheck disable=SC2016
 minio_ready_command='mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null 2>&1 && mc ready local >/dev/null 2>&1'
 
 wait_minio() {
@@ -82,6 +83,7 @@ wait_minio() {
 
 init_minio() {
   wait_minio
+  # shellcheck disable=SC2016
   compose exec -T -e MINIO_BUCKET="$MINIO_BUCKET" minio sh -c '
     set -e
     mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null

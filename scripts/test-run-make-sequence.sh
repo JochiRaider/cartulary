@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+# Single-quoted literals below intentionally assert Make/shell text without expansion.
+# shellcheck disable=SC2016
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 SCRIPT="${ROOT_DIR}/scripts/run-make-sequence.sh"
 cleanup_paths=()
 
@@ -219,9 +221,9 @@ cleanup_paths+=("${success_dir}")
 write_fake_make "${success_dir}"
 success_results="${success_dir}/results"
 success_output="$(
-  VERBOSE= \
-  CI_VERBOSE= \
-  CARTULARY_OUTPUT_MODE= \
+  VERBOSE="" \
+  CI_VERBOSE="" \
+  CARTULARY_OUTPUT_MODE="" \
   MAKE="${success_dir}/fake-make" \
   FAKE_MAKE_LOG="${success_dir}/make.log" \
   CARTULARY_TEST_RESULTS_DIR="${success_results}" \
@@ -257,9 +259,9 @@ write_fake_make "${aggregate_missing_dir}"
 aggregate_missing_results="${aggregate_missing_dir}/results"
 set +e
 aggregate_missing_output="$(
-  VERBOSE= \
-  CI_VERBOSE= \
-  CARTULARY_OUTPUT_MODE= \
+  VERBOSE="" \
+  CI_VERBOSE="" \
+  CARTULARY_OUTPUT_MODE="" \
   MAKE="${aggregate_missing_dir}/fake-make" \
   FAKE_MAKE_LOG="${aggregate_missing_dir}/make.log" \
   CARTULARY_TEST_RESULTS_DIR="${aggregate_missing_results}" \
@@ -284,9 +286,9 @@ write_fake_make "${failure_dir}"
 failure_results="${failure_dir}/results"
 set +e
 failure_output="$(
-  VERBOSE= \
-  CI_VERBOSE= \
-  CARTULARY_OUTPUT_MODE= \
+  VERBOSE="" \
+  CI_VERBOSE="" \
+  CARTULARY_OUTPUT_MODE="" \
   MAKE="${failure_dir}/fake-make" \
   FAKE_MAKE_LOG="${failure_dir}/make.log" \
   CARTULARY_TEST_RESULTS_DIR="${failure_results}" \
@@ -315,9 +317,9 @@ dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-dry-run.XXXXXX")"
 cleanup_paths+=("${dry_run_dir}")
 write_fake_make "${dry_run_dir}"
 dry_run_output="$(
-  VERBOSE= \
-  CI_VERBOSE= \
-  CARTULARY_OUTPUT_MODE= \
+  VERBOSE="" \
+  CI_VERBOSE="" \
+  CARTULARY_OUTPUT_MODE="" \
   MAKEFLAGS="n" \
   MAKE="${dry_run_dir}/fake-make" \
   FAKE_MAKE_LOG="${dry_run_dir}/make.log" \
@@ -427,7 +429,7 @@ assert_not_contains "${fixture_report_block}" 'ROLE="$(ROLE)"' "fixture-report o
 assert_contains "${go_test_duration_baseline_drift_block}" '$(call RUN_MAKE_NODE_TOOL,go-test-duration-baseline-drift,BASELINE_FILE="$(BASELINE_FILE)" RESULTS_DIR="$(RESULTS_DIR)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")' "go duration drift node-tool current-run env"
 assert_not_contains "${manifest_content}" "\"summary_profiles\"" "manifest copied summary profiles"
 assert_not_contains "${manifest_content}" "\"summary_projection\"" "manifest copied summary projections"
-NODE_BIN="${NODE_BIN:-node}" "${NODE_BIN:-node}" --input-type=module - "${ROOT_DIR}/tools/task_surface_manifest.json" "${ROOT_DIR}/tools/service_backed_schedule_manifest.json" "${ROOT_DIR}/tools/browser_e2e_batch_manifest.json" <<'EOF'
+env NODE_BIN="${NODE_BIN:-node}" "${NODE_BIN:-node}" --input-type=module - "${ROOT_DIR}/tools/task_surface_manifest.json" "${ROOT_DIR}/tools/service_backed_schedule_manifest.json" "${ROOT_DIR}/tools/browser_e2e_batch_manifest.json" <<'EOF'
 import fs from "node:fs";
 import { loadSummaryTopologyContext, resolveSummaryGroups } from "./scripts/lib/summary-topology.mjs";
 import { loadBrowserBatchStages } from "./scripts/lib/browser-batch-manifest.mjs";

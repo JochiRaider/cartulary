@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+# Single-quoted literals below intentionally assert Make/shell text without expansion.
+# shellcheck disable=SC2016
 set -euo pipefail
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 SCRIPT="${ROOT_DIR}/scripts/run-make-sequence.sh"
 cleanup_paths=()
 
@@ -205,9 +207,9 @@ success_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-success.XXXXXX"
 cleanup_paths+=("${success_dir}")
 write_fake_make "${success_dir}"
 success_output="$(
-  VERBOSE= \
-  CI_VERBOSE= \
-  CARTULARY_OUTPUT_MODE= \
+  VERBOSE="" \
+  CI_VERBOSE="" \
+  CARTULARY_OUTPUT_MODE="" \
   MAKE="${success_dir}/fake-make" \
   FAKE_MAKE_LOG="${success_dir}/make.log" \
   CARTULARY_TEST_RESULTS_DIR="${success_dir}/results" \
@@ -229,9 +231,9 @@ for aggregate_sequence in test-fast ci release-check; do
   cleanup_paths+=("${aggregate_dir}")
   write_fake_make "${aggregate_dir}"
   aggregate_output="$(
-    VERBOSE= \
-    CI_VERBOSE= \
-    CARTULARY_OUTPUT_MODE= \
+    VERBOSE="" \
+    CI_VERBOSE="" \
+    CARTULARY_OUTPUT_MODE="" \
     MAKE="${aggregate_dir}/fake-make" \
     FAKE_MAKE_LOG="${aggregate_dir}/make.log" \
     CARTULARY_TEST_RESULTS_DIR="${aggregate_dir}/results" \
@@ -250,9 +252,9 @@ dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-dry-run.XXXXXX"
 cleanup_paths+=("${dry_run_dir}")
 write_fake_make "${dry_run_dir}"
 dry_run_output="$(
-  VERBOSE= \
-  CI_VERBOSE= \
-  CARTULARY_OUTPUT_MODE= \
+  VERBOSE="" \
+  CI_VERBOSE="" \
+  CARTULARY_OUTPUT_MODE="" \
   MAKEFLAGS="n" \
   MAKE="${dry_run_dir}/fake-make" \
   FAKE_MAKE_LOG="${dry_run_dir}/make.log" \
@@ -282,7 +284,7 @@ exit 0
 EOF
 chmod +x "${harness_quiet_dir}/scripts/check-a.sh" "${harness_quiet_dir}/scripts/check-b.sh"
 harness_manifest="${harness_quiet_dir}/manifest.json"
-"${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" "${harness_manifest}" "${harness_quiet_dir#${ROOT_DIR}/}/scripts" <<'EOF'
+"${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" "${harness_manifest}" "${harness_quiet_dir#"${ROOT_DIR}"/}/scripts" <<'EOF'
 const fs = require("node:fs");
 const [source, destination, scriptDir] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
@@ -295,8 +297,8 @@ manifest.harness_checks.push(
 fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 harness_quiet_output="$(
-  VERBOSE= \
-  CI_VERBOSE= \
+  VERBOSE="" \
+  CI_VERBOSE="" \
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_TEST_RESULTS_DIR="${harness_quiet_dir}/results" \
   CARTULARY_TEST_RUN_ID="quiet" \
@@ -306,8 +308,8 @@ harness_quiet_output="$(
 )"
 assert_equals "${harness_quiet_output}" "" "quiet harness internal success output"
 check_harness_quiet_output="$(
-  VERBOSE= \
-  CI_VERBOSE= \
+  VERBOSE="" \
+  CI_VERBOSE="" \
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_TEST_RESULTS_DIR="${harness_quiet_dir}/results" \
   CARTULARY_TEST_RUN_ID="quiet" \
@@ -333,7 +335,7 @@ exit 0
 EOF
 chmod +x "${harness_failure_dir}/scripts/check-fail.sh" "${harness_failure_dir}/scripts/check-skipped.sh"
 harness_failure_manifest="${harness_failure_dir}/manifest.json"
-"${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" "${harness_failure_manifest}" "${harness_failure_dir#${ROOT_DIR}/}/scripts" <<'EOF'
+"${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" "${harness_failure_manifest}" "${harness_failure_dir#"${ROOT_DIR}"/}/scripts" <<'EOF'
 const fs = require("node:fs");
 const [source, destination, scriptDir] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(source, "utf8"));
@@ -347,8 +349,8 @@ fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 set +e
 harness_failure_output="$(
-  VERBOSE= \
-  CI_VERBOSE= \
+  VERBOSE="" \
+  CI_VERBOSE="" \
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_TEST_RESULTS_DIR="${harness_failure_dir}/results" \
   CARTULARY_TEST_RUN_ID="failure" \
@@ -403,7 +405,7 @@ fi
 assert_contains "${invalid_output}" "usage: run-make-sequence.sh --sequence <name>" "invalid usage output"
 assert_file_absent "${invalid_dir}/make.log" "invalid usage child make log"
 
-NODE_BIN="${NODE_BIN:-node}" "${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" <<'EOF'
+env NODE_BIN="${NODE_BIN:-node}" "${NODE_BIN:-node}" - "${ROOT_DIR}/tools/task_surface_manifest.json" <<'EOF'
 const fs = require("node:fs");
 
 const [manifestPath] = process.argv.slice(2);
@@ -442,7 +444,6 @@ for (const target of ["harness-smoke-run-make-sequence-fast", "harness-smoke-run
 }
 EOF
 
-makefile_content="$(cat "${ROOT_DIR}/Makefile")"
 run_fast_block="$(make_target_block run-harness-smoke-fast)"
 run_extended_block="$(make_target_block run-harness-smoke-extended)"
 run_full_block="$(make_target_block run-harness-smoke-full)"
