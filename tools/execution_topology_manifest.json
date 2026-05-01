@@ -1437,6 +1437,9 @@
         "included_in": [
           "check"
         ],
+        "service_requirements": [
+          "postgres"
+        ],
         "backing_scripts": [
           "scripts/check-migrations.sh"
         ]
@@ -2846,7 +2849,8 @@
           ],
           "resource_claims": {
             "host_cpu": 1,
-            "host_io": 1
+            "host_io": 1,
+            "service_stack": 1
           },
           "make_jobs": "host_cpu"
         },

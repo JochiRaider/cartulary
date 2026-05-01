@@ -22,6 +22,7 @@ export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v9";
 
 const validClassifications = new Set(["public", "check_internal", "helper_only"]);
 const validInclusions = new Set(["test", "check", "ci", "release-check", "helper_only"]);
+const validServiceRequirements = new Set(["postgres", "minio", "browser_stack", "vite"]);
 const validMakeRecipeTypes = new Set([
   "sequence",
   "check_schedule",
@@ -185,6 +186,27 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
           } else if (!existsSync(path.join(repoRoot, script))) {
             errors.push(`${entry.name} backing script missing: ${script}`);
           }
+        }
+      }
+    }
+    if (entry.service_requirements !== undefined) {
+      if (!Array.isArray(entry.service_requirements)) {
+        errors.push(`${entry.name}.service_requirements must be an array`);
+      } else {
+        const seenRequirements = new Set();
+        for (const [requirementIndex, requirement] of entry.service_requirements.entries()) {
+          const label = `${entry.name}.service_requirements[${requirementIndex + 1}]`;
+          if (typeof requirement !== "string" || requirement.trim() === "") {
+            errors.push(`${label} must be a non-empty string`);
+            continue;
+          }
+          if (!validServiceRequirements.has(requirement)) {
+            errors.push(`${label} has invalid service requirement ${JSON.stringify(requirement)}`);
+          }
+          if (seenRequirements.has(requirement)) {
+            errors.push(`${entry.name}.service_requirements contains duplicate ${requirement}`);
+          }
+          seenRequirements.add(requirement);
         }
       }
     }

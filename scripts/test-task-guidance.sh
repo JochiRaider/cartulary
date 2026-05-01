@@ -271,6 +271,7 @@ ci_match_output="$(CARTULARY_TEST_RESULTS_DIR="$results_dir" "$NODE_BIN" "$EXPLA
 assert_contains "$ci_match_output" "run-c/run-summary.json" "matching ci run summary accepted"
 
 migration_output="$(CARTULARY_TEST_RESULTS_DIR="$results_dir" "$NODE_BIN" "$EXPLAIN_TARGET" --target migration-drift)"
+assert_contains "$migration_output" "services: Postgres" "migration-drift service requirements"
 assert_contains "$migration_output" "latest_artifact: tmp/task-guidance" "helper phase summary latest artifact"
 assert_contains "$migration_output" "run-f/migration-drift/migration-drift/phase-summary.json" "helper phase summary artifact path"
 

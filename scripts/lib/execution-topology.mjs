@@ -33,6 +33,7 @@ const validBrowserDependencyPolicies = new Set([
   "after_prior_browser",
   "after_backend_and_prior_browser",
 ]);
+const serviceRequirementsRequiringCheckServiceStack = new Set(["postgres", "minio", "browser_stack"]);
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -269,6 +270,14 @@ function targetNamesFromTaskSurface(topology) {
   return targets;
 }
 
+function targetEntriesFromTaskSurface(topology) {
+  const targets = new Map();
+  for (const entry of requireNonEmptyArray(topology.task_surface?.targets, "task_surface.targets")) {
+    targets.set(requireString(entry?.name, "task_surface.targets[].name"), entry);
+  }
+  return targets;
+}
+
 function validateExecutionDependencyTargets(dependencies, taskTargets) {
   for (const dependency of dependencies) {
     if (!taskTargets.has(dependency.target)) {
@@ -322,7 +331,20 @@ function validateBrowserBatch(topology, dependencyByID, taskTargets) {
   }
 }
 
-function validateCheckSchedules(topology, taskTargets) {
+function serviceRequirementsForTaskEntry(entry) {
+  if (!Array.isArray(entry?.service_requirements)) {
+    return [];
+  }
+  return entry.service_requirements.map((value) => String(value).trim()).filter(Boolean);
+}
+
+function requiresCheckServiceStack(entry) {
+  return serviceRequirementsForTaskEntry(entry).some((requirement) =>
+    serviceRequirementsRequiringCheckServiceStack.has(requirement),
+  );
+}
+
+function validateCheckSchedules(topology, taskTargets, taskTargetEntries) {
   for (const [scheduleIndex, schedule] of requireNonEmptyArray(
     topology.check_schedules,
     "check_schedules",
@@ -347,7 +369,7 @@ function validateCheckSchedules(topology, taskTargets) {
         throw new Error(`${label} contains duplicate work unit ${unitTarget}`);
       }
       unitTargets.add(unitTarget);
-      normalizeResourceClaims(unit.resource_claims ?? {}, unitLabel, resourceLimits, {
+      const claims = normalizeResourceClaims(unit.resource_claims ?? {}, unitLabel, resourceLimits, {
         scheduler: "check",
         allowBounded: true,
       });
@@ -355,6 +377,18 @@ function validateCheckSchedules(topology, taskTargets) {
         assertKnownResource("service_stack", `${unitLabel}.resource_claims.service_stack`, {
           scheduler: "check",
         });
+        if (!claims.has("service_stack")) {
+          throw new Error(`${unitLabel}.nested_scheduler forwarding must claim service_stack`);
+        }
+      }
+      if (
+        requiresCheckServiceStack(taskTargetEntries.get(unitTarget)) &&
+        !claims.has("service_stack") &&
+        unit.nested_scheduler?.type !== "service_backed"
+      ) {
+        throw new Error(
+          `${unitLabel}.target ${unitTarget} declares service_requirements and must claim service_stack or use a nested service-backed scheduler`,
+        );
       }
     }
     assertAcyclicUnits(target, units);
@@ -427,11 +461,12 @@ function normalizeTopology(raw, root, manifestPath) {
   validateOutputPaths(root, raw.generated_outputs);
   requireObject(raw.task_surface, "task_surface");
   const taskTargets = targetNamesFromTaskSurface(raw);
+  const taskTargetEntries = targetEntriesFromTaskSurface(raw);
   const { dependencies, byID: dependencyByID } = normalizeExecutionDependencies(raw);
   validateExecutionDependencyTargets(dependencies, taskTargets);
   const goTargets = normalizeGoTargets(raw, dependencyByID);
   validateBrowserBatch(raw, dependencyByID, taskTargets);
-  validateCheckSchedules(raw, taskTargets);
+  validateCheckSchedules(raw, taskTargets, taskTargetEntries);
   validateServiceBackedSchedules(manifestPath, raw, taskTargets);
   return {
     root,

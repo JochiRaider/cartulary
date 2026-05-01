@@ -610,6 +610,9 @@ fi
 if [[ "$(check_schedule_field check-service-backed resource_claims)" != "host_cpu,host_io,service_stack" ]]; then
   fail "check-service-backed must claim host_cpu, host_io, and service_stack resources in the check schedule"
 fi
+if [[ "$(check_schedule_field migration-drift resource_claims)" != "host_cpu,host_io,service_stack" ]]; then
+  fail "migration-drift must claim host_cpu, host_io, and service_stack resources in the check schedule"
+fi
 
 if grep -Fq 'rg --files' "$makefile"; then
   fail "Makefile must not use parse-time rg --files for build input discovery"

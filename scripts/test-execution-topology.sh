@@ -48,6 +48,11 @@ const renderedTaskSurfaceErrors = taskSurfaceModule.collectTaskSurfaceManifestEr
   serviceBackedScheduleManifest: renderedServiceBacked,
 });
 assert.deepEqual(renderedTaskSurfaceErrors, [], "rendered task surface must satisfy task-surface validation");
+assert.deepEqual(
+  renderedTaskSurface.targets.find((target) => target.name === "migration-drift")?.service_requirements,
+  ["postgres"],
+  "migration-drift must declare its Postgres service requirement",
+);
 
 const invalidHarnessReference = JSON.parse(JSON.stringify(renderedTaskSurface));
 invalidHarnessReference.harness_tiers.fast.checks.push("harness-smoke-missing");
@@ -77,6 +82,21 @@ assert.match(
     .join("\n"),
   /harness-smoke-missing-script backing script missing: scripts\/missing-harness-smoke\.sh/,
   "task-surface validation must reject harness checks with missing backing scripts",
+);
+
+const invalidServiceRequirement = JSON.parse(JSON.stringify(renderedTaskSurface));
+invalidServiceRequirement.targets
+  .find((target) => target.name === "migration-drift")
+  .service_requirements.push("legacy-db");
+assert.match(
+  taskSurfaceModule
+    .collectTaskSurfaceManifestErrors(invalidServiceRequirement, {
+      browserBatchManifest: renderedBrowserBatch,
+      serviceBackedScheduleManifest: renderedServiceBacked,
+    })
+    .join("\n"),
+  /migration-drift\.service_requirements\[2\] has invalid service requirement "legacy-db"/,
+  "task-surface validation must reject unknown service requirements",
 );
 
 const serialize = (value) => `${JSON.stringify(value, null, 2)}\n`;
@@ -133,5 +153,20 @@ assert.throws(
   () => loadExecutionTopology({ manifestPath: invalidTopologyPath }),
   /duplicate execution dependency/,
   "topology validation must reject duplicate execution dependency IDs",
+);
+
+const serviceStackTopologyPath = path.join(tempDir, "missing-service-stack-topology.json");
+const missingServiceStackTopology = JSON.parse(
+  readFileSync(path.join(root, "tools/execution_topology_manifest.json"), "utf8"),
+);
+const migrationDriftUnit = missingServiceStackTopology.check_schedules[0].work_units.find(
+  (unit) => unit.target === "migration-drift",
+);
+delete migrationDriftUnit.resource_claims.service_stack;
+writeFileSync(serviceStackTopologyPath, `${JSON.stringify(missingServiceStackTopology, null, 2)}\n`);
+assert.throws(
+  () => loadExecutionTopology({ manifestPath: serviceStackTopologyPath }),
+  /migration-drift declares service_requirements and must claim service_stack/,
+  "topology validation must require service_stack for service-backed check work units",
 );
 EOF

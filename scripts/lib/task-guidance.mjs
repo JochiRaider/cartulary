@@ -179,33 +179,51 @@ function helpTierByTarget(manifest) {
   return result;
 }
 
-function serviceRequirementsForTarget(target, targetRows = []) {
+const serviceRequirementDisplayNames = new Map([
+  ["postgres", "Postgres"],
+  ["minio", "MinIO"],
+  ["browser_stack", "browser stack"],
+  ["vite", "Vite"],
+]);
+
+function addServiceRequirement(requirements, value) {
+  requirements.add(serviceRequirementDisplayNames.get(value) ?? value);
+}
+
+function addServiceRequirements(requirements, values = []) {
+  for (const value of values) {
+    addServiceRequirement(requirements, value);
+  }
+}
+
+function serviceRequirementsForTarget(target, targetRows = [], declaredRequirements = []) {
   const requirements = new Set();
+  addServiceRequirements(requirements, declaredRequirements);
   const goDescriptor = findTargetDescriptor(target, repoRoot);
   if (goDescriptor?.serviceBacked) {
-    requirements.add("Postgres");
-    requirements.add("MinIO");
+    addServiceRequirement(requirements, "postgres");
+    addServiceRequirement(requirements, "minio");
   }
   if (target.startsWith("browser-e2e")) {
-    requirements.add("Postgres");
-    requirements.add("MinIO");
-    requirements.add("browser stack");
+    addServiceRequirement(requirements, "postgres");
+    addServiceRequirement(requirements, "minio");
+    addServiceRequirement(requirements, "browser_stack");
   }
   if (target === "db-up" || target === "services-up" || target === "minio-init") {
-    requirements.add("Postgres");
-    requirements.add("MinIO");
+    addServiceRequirement(requirements, "postgres");
+    addServiceRequirement(requirements, "minio");
   }
   if (target === "dev") {
-    requirements.add("Postgres");
-    requirements.add("MinIO");
-    requirements.add("Vite");
+    addServiceRequirement(requirements, "postgres");
+    addServiceRequirement(requirements, "minio");
+    addServiceRequirement(requirements, "vite");
   }
   if (["test", "test-fast", "check", "ci", "release-check"].includes(target)) {
-    requirements.add("Postgres");
-    requirements.add("MinIO");
+    addServiceRequirement(requirements, "postgres");
+    addServiceRequirement(requirements, "minio");
   }
   if (targetRows.some((row) => row.target.startsWith("browser-e2e"))) {
-    requirements.add("browser stack");
+    addServiceRequirement(requirements, "browser_stack");
   }
   return Array.from(requirements);
 }
@@ -370,7 +388,7 @@ export function targetGuidance(target, { root = repoRoot } = {}) {
     help_tier: tiers.get(target) ?? null,
     backing_scripts: entry.backing_scripts ?? [],
     scheduler_owner: schedulerOwnerForTarget(target, manifest, root),
-    service_requirements: serviceRequirementsForTarget(target, targetRows),
+    service_requirements: serviceRequirementsForTarget(target, targetRows, entry.service_requirements),
     artifact: artifacts,
     phase_coverage: summarizeRows(targetRows),
     rows: targetRows,

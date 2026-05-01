@@ -1243,6 +1243,9 @@
       "included_in": [
         "check"
       ],
+      "service_requirements": [
+        "postgres"
+      ],
       "backing_scripts": [
         "scripts/check-migrations.sh"
       ]
