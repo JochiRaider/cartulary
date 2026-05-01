@@ -880,37 +880,6 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 	}, nil
 }
 
-func loadHostByHostnameTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, hostname string) (HostRecord, error) {
-	record, err := scanHostRecord(tx.QueryRow(ctx, `
-SELECT
-    h.record_id,
-    h.incident_id,
-    h.display_name,
-    h.aad_device_id,
-    h.fqdn,
-    h.hostname,
-    h.host_state,
-    h.merged_into_record_id,
-    h.entity_origin,
-    h.seed_entity_mention_id,
-    r.row_version,
-    r.created_at,
-    r.updated_at,
-    r.created_by_user_id,
-    r.updated_by_user_id
-  FROM hosts h
-  JOIN records r
-    ON r.record_id = h.record_id
- WHERE h.incident_id = $1
-   AND h.hostname = $2
-   AND h.host_state IN ('stub', 'canonical')
- ORDER BY r.updated_at DESC, h.record_id DESC
- LIMIT 1
- FOR UPDATE OF h, r
-`, incidentID, hostname))
-	return record, err
-}
-
 func insertHostTx(ctx context.Context, tx pgx.Tx, record *HostRecord) error {
 	return tx.QueryRow(ctx, `
 INSERT INTO hosts (
@@ -985,39 +954,6 @@ SET incident_id = EXCLUDED.incident_id,
 		return fmt.Errorf("upsert host projection: %w", err)
 	}
 	return nil
-}
-
-func loadIdentityByEmailTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, email string) (IdentityRecord, error) {
-	record, err := scanIdentityRecord(tx.QueryRow(ctx, `
-SELECT
-    i.record_id,
-    i.incident_id,
-    i.display_name,
-    i.aad_object_id,
-    i.sid,
-    i.upn,
-    i.email::text,
-    i.sam_account_name,
-    i.identity_state,
-    i.merged_into_record_id,
-    i.entity_origin,
-    i.seed_entity_mention_id,
-    r.row_version,
-    r.created_at,
-    r.updated_at,
-    r.created_by_user_id,
-    r.updated_by_user_id
-  FROM identities i
-  JOIN records r
-    ON r.record_id = i.record_id
- WHERE i.incident_id = $1
-   AND i.email = $2
-   AND i.identity_state IN ('stub', 'canonical')
- ORDER BY r.updated_at DESC, i.record_id DESC
- LIMIT 1
- FOR UPDATE OF i, r
-`, incidentID, email))
-	return record, err
 }
 
 func insertIdentityTx(ctx context.Context, tx pgx.Tx, record *IdentityRecord) error {

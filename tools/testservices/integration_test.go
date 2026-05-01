@@ -119,17 +119,6 @@ func assertNoPostgresDatabaseResets(t testing.TB, scope suiteservices.ServiceSco
 	}
 }
 
-func assertPostgresDatabaseResets(t testing.TB, scope suiteservices.ServiceScope) {
-	t.Helper()
-
-	for _, activity := range scope.Fixture.ByStrategy {
-		if activity.Service == suiteservices.ServicePostgres && activity.Operation == "database-reset" {
-			return
-		}
-	}
-	t.Fatalf("expected postgres database reset activity, got %#v", scope.Fixture.ByStrategy)
-}
-
 func assertPostgresPackageResetsLimitedToHarnessPolicy(t testing.TB, scope suiteservices.ServiceScope) {
 	t.Helper()
 
@@ -173,13 +162,6 @@ func TestMakeMigrationDriftDoesNotEmitSuiteServiceArtifacts(t *testing.T) {
 	if len(matches) != 0 {
 		t.Fatalf("migration-drift must not use suite template services, found %v", matches)
 	}
-}
-
-func runMakeAndLoadSingleScope(t testing.TB, runID string, extraEnv map[string]string, target string) suiteservices.ServiceScope {
-	t.Helper()
-
-	scope, _ := runMakeAndLoadScopeWithEvents(t, runID, extraEnv, target)
-	return scope
 }
 
 func runMakeAndLoadScopeWithEvents(t testing.TB, runID string, extraEnv map[string]string, target string) (suiteservices.ServiceScope, []suiteservices.Event) {

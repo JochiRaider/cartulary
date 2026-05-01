@@ -186,10 +186,6 @@ func StopShared(ctx context.Context) error {
 	return container.Terminate(ctx)
 }
 
-func startHarness(ctx context.Context, labels map[string]string) (*Harness, error) {
-	return startHarnessWithOptions(ctx, StartOptions{Labels: labels})
-}
-
 func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harness, error) {
 	req := testcontainers.ContainerRequest{
 		Image:        postgresImage,

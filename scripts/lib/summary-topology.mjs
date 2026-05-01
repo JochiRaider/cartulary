@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadBrowserBatchStages } from "./browser-batch-manifest.mjs";
+import { loadBrowserBatchStages, normalizeBrowserBatchStages } from "./browser-batch-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..");
@@ -68,7 +68,11 @@ export function loadSummaryTopologyContext(options = {}) {
   const browserBatchManifestPath = resolveRepoPath(
     configuredPath(options.browserBatchManifestPath, defaultBrowserBatchManifestPath),
   );
-  const browserStages = loadBrowserBatchStages(browserBatchManifestPath);
+  const browserStages =
+    options.browserStages ??
+    (options.browserBatchManifest
+      ? normalizeBrowserBatchStages(options.browserBatchManifest)
+      : loadBrowserBatchStages(browserBatchManifestPath));
   return {
     taskSurfaceManifest,
     serviceBackedScheduleManifest,

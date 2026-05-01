@@ -2106,10 +2106,6 @@ func extractUUIDFromPayload(payload map[string]any, path ...string) (uuid.UUID, 
 	return parsed, nil
 }
 
-func jsonMarshal(value any) ([]byte, error) {
-	return json.Marshal(value)
-}
-
 func cloneStringPointer(value *string) *string {
 	if value == nil {
 		return nil

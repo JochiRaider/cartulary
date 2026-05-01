@@ -2324,6 +2324,7 @@
           "harness-smoke-build-input-discovery",
           "harness-smoke-check-migrations",
           "harness-smoke-generate-drift",
+          "harness-smoke-run-go-staticcheck",
           "harness-smoke-run-go-gosec-targeted",
           "harness-smoke-run-make-sequence-fast",
           "harness-smoke-release-task-surface",
@@ -2371,6 +2372,7 @@
           "harness-smoke-build-input-discovery",
           "harness-smoke-check-migrations",
           "harness-smoke-generate-drift",
+          "harness-smoke-run-go-staticcheck",
           "harness-smoke-run-go-gosec-targeted",
           "harness-smoke-run-make-sequence-fast",
           "harness-smoke-release-task-surface",
@@ -2434,6 +2436,12 @@
         "backing_scripts": [
           "scripts/test-generate-drift.sh",
           "scripts/check-generate-drift.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-run-go-staticcheck",
+        "backing_scripts": [
+          "scripts/test-run-go-staticcheck.sh"
         ]
       },
       {

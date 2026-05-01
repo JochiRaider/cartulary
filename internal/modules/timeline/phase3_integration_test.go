@@ -1480,41 +1480,6 @@ func mustUUID(t testing.TB, raw string) uuid.UUID {
 	return phase3test.MustUUID(t, raw)
 }
 
-func requireBootstrapLogin(t testing.TB, server *httptestx.Server, username string, password string) string {
-	t.Helper()
-
-	login := phase3test.RequireBootstrapLogin(t, server, username, password)
-	return login
-}
-
-func beginTOTPEnrollment(t testing.TB, server *httptestx.Server, bootstrapToken string, body map[string]any) map[string]any {
-	t.Helper()
-
-	return phase3test.BeginTOTPEnrollment(t, server, bootstrapToken, body)
-}
-
-func completeInitialEnrollment(t testing.TB, server *httptestx.Server, bootstrapToken string, enrollmentID string, secretBase32 string, clientTxnID string) {
-	t.Helper()
-
-	phase3test.CompleteInitialEnrollment(t, server, bootstrapToken, enrollmentID, secretBase32, clientTxnID)
-}
-
-func loginLocalUserWithSecondFactor(t testing.TB, server *httptestx.Server, username string, password string, code string) loginResult {
-	t.Helper()
-
-	login := phase3test.LoginLocalUserWithSecondFactor(t, server, username, password, code)
-	return loginResult{
-		sessionCookie: login.SessionCookie,
-		csrfCookie:    login.CSRFCookie,
-	}
-}
-
-func generateTOTPCode(t testing.TB, secretBase32 string) string {
-	t.Helper()
-
-	return phase3test.GenerateTOTPCode(t, secretBase32)
-}
-
 func doPhase3JSON(t testing.TB, method string, url string, body any, options ...func(*http.Request)) *http.Response {
 	t.Helper()
 

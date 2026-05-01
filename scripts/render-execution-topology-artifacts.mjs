@@ -10,7 +10,7 @@ import {
   renderCheckScheduleManifest,
   renderTaskSurfaceManifest,
 } from "./lib/execution-topology.mjs";
-import { renderTaskSurfaceMake } from "./lib/task-surface.mjs";
+import { collectTaskSurfaceManifestErrors, renderTaskSurfaceMake } from "./lib/task-surface.mjs";
 import { renderServiceBackedScheduleManifest } from "./render-service-backed-schedule-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -64,6 +64,20 @@ function outputEntry(file, content) {
 function renderArtifacts(options) {
   const topology = loadExecutionTopology({ manifestPath: options.topology });
   const taskSurfaceManifest = renderTaskSurfaceManifest(topology);
+  const browserBatchManifest = renderBrowserBatchManifest(topology);
+  const serviceBackedScheduleManifest = renderServiceBackedScheduleManifest({
+    topology: options.topology,
+    topologyObject: topology,
+  });
+  const taskSurfaceErrors = collectTaskSurfaceManifestErrors(taskSurfaceManifest, {
+    browserBatchManifest,
+    serviceBackedScheduleManifest,
+  });
+  if (taskSurfaceErrors.length > 0) {
+    throw new Error(
+      `rendered task surface is invalid:\n${taskSurfaceErrors.map((error) => `  - ${error}`).join("\n")}`,
+    );
+  }
   return [
     outputEntry(topology.generatedOutputs.task_surface_manifest, serializeJSON(taskSurfaceManifest)),
     outputEntry(
@@ -72,16 +86,11 @@ function renderArtifacts(options) {
     ),
     outputEntry(
       topology.generatedOutputs.browser_e2e_batch_manifest,
-      serializeJSON(renderBrowserBatchManifest(topology)),
+      serializeJSON(browserBatchManifest),
     ),
     outputEntry(
       topology.generatedOutputs.service_backed_schedule_manifest,
-      serializeJSON(
-        renderServiceBackedScheduleManifest({
-          topology: options.topology,
-          topologyObject: topology,
-        }),
-      ),
+      serializeJSON(serviceBackedScheduleManifest),
     ),
     outputEntry(topology.generatedOutputs.task_surface_make, renderTaskSurfaceMake(taskSurfaceManifest)),
   ];

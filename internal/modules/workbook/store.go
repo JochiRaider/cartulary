@@ -448,8 +448,6 @@ func collectionItemsFromValue(value any) ([]map[string]any, bool) {
 	return items, true
 }
 
-var emptyCollectionExpr = "NULL::text"
-
 var genericSurfaces = map[string]genericSurface{
 	AssessmentsViewSchemaID: {
 		viewSchemaID: AssessmentsViewSchemaID,

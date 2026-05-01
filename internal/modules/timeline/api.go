@@ -2,7 +2,6 @@ package timeline
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -527,20 +526,6 @@ func rowVersionConflictError(details ...map[string]any) *auth.APIError {
 	return &auth.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: payload}
 }
 
-func sameFieldConflictError(err *SameFieldConflictError) *auth.APIError {
-	conflict := any(nil)
-	if err != nil {
-		conflict = err.Conflict
-	}
-	return &auth.APIError{
-		Status:   http.StatusConflict,
-		Code:     "same_field_conflict",
-		Message:  "same field conflict",
-		Details:  map[string]any{},
-		Conflict: conflict,
-	}
-}
-
 func illegalTransitionError(reasonCode string) *auth.APIError {
 	details := map[string]any{}
 	if reasonCode != "" {
@@ -550,27 +535,6 @@ func illegalTransitionError(reasonCode string) *auth.APIError {
 		Status:  http.StatusConflict,
 		Code:    "illegal_transition",
 		Message: "illegal transition",
-		Details: details,
-	}
-}
-
-func entityMatchConflictError(entityType string, identifierClass string, candidateRecordIDs []uuid.UUID) *auth.APIError {
-	details := map[string]any{
-		"reason_code":      "merge_required",
-		"entity_type":      entityType,
-		"identifier_class": identifierClass,
-	}
-	if len(candidateRecordIDs) > 0 {
-		ids := make([]string, 0, len(candidateRecordIDs))
-		for _, recordID := range candidateRecordIDs {
-			ids = append(ids, recordID.String())
-		}
-		details["candidate_record_ids"] = ids
-	}
-	return &auth.APIError{
-		Status:  http.StatusConflict,
-		Code:    "entity_match_conflict",
-		Message: "entity match conflict",
 		Details: details,
 	}
 }
@@ -1108,12 +1072,4 @@ func derefString(value *string) any {
 		return nil
 	}
 	return *value
-}
-
-func encodeCursor(value any) (string, error) {
-	payload, err := json.Marshal(value)
-	if err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(payload), nil
 }

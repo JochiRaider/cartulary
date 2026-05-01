@@ -37,6 +37,48 @@ assert.ok(summary.go_targets >= 5);
 assert.ok(summary.check_schedules >= 1);
 assert.ok(summary.service_backed_schedules >= 3);
 
+const renderedTaskSurface = renderTaskSurfaceManifest(topology);
+const renderedBrowserBatch = renderBrowserBatchManifest(topology);
+const renderedServiceBacked = serviceRendererModule.renderServiceBackedScheduleManifest({
+  topology: "tools/execution_topology_manifest.json",
+  topologyObject: topology,
+});
+const renderedTaskSurfaceErrors = taskSurfaceModule.collectTaskSurfaceManifestErrors(renderedTaskSurface, {
+  browserBatchManifest: renderedBrowserBatch,
+  serviceBackedScheduleManifest: renderedServiceBacked,
+});
+assert.deepEqual(renderedTaskSurfaceErrors, [], "rendered task surface must satisfy task-surface validation");
+
+const invalidHarnessReference = JSON.parse(JSON.stringify(renderedTaskSurface));
+invalidHarnessReference.harness_tiers.fast.checks.push("harness-smoke-missing");
+assert.match(
+  taskSurfaceModule
+    .collectTaskSurfaceManifestErrors(invalidHarnessReference, {
+      browserBatchManifest: renderedBrowserBatch,
+      serviceBackedScheduleManifest: renderedServiceBacked,
+    })
+    .join("\n"),
+  /harness_tiers\.fast\.checks references unknown harness check harness-smoke-missing/,
+  "task-surface validation must reject harness tiers that reference unknown checks",
+);
+
+const invalidHarnessBackingScript = JSON.parse(JSON.stringify(renderedTaskSurface));
+invalidHarnessBackingScript.harness_checks.push({
+  name: "harness-smoke-missing-script",
+  backing_scripts: ["scripts/missing-harness-smoke.sh"],
+});
+invalidHarnessBackingScript.harness_tiers.fast.checks.push("harness-smoke-missing-script");
+assert.match(
+  taskSurfaceModule
+    .collectTaskSurfaceManifestErrors(invalidHarnessBackingScript, {
+      browserBatchManifest: renderedBrowserBatch,
+      serviceBackedScheduleManifest: renderedServiceBacked,
+    })
+    .join("\n"),
+  /harness-smoke-missing-script backing script missing: scripts\/missing-harness-smoke\.sh/,
+  "task-surface validation must reject harness checks with missing backing scripts",
+);
+
 const serialize = (value) => `${JSON.stringify(value, null, 2)}\n`;
 const artifactSnapshot = () => ({
   taskSurface: serialize(renderTaskSurfaceManifest(topology)),

@@ -137,7 +137,7 @@ function validateTaskSurfaceManifest(manifest, manifestPath) {
   }
 }
 
-export function collectTaskSurfaceManifestErrors(manifest) {
+export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
   const errors = [];
   if (manifest.schema_id !== taskSurfaceSchemaID) {
     errors.push(`schema_id must be ${taskSurfaceSchemaID}`);
@@ -228,7 +228,14 @@ export function collectTaskSurfaceManifestErrors(manifest) {
   }
 
   const summaryEntries = new Map([...targets, ...harnessChecks]);
-  const topologyContext = loadSummaryTopologyContext({ taskSurfaceManifest: manifest });
+  const topologyContext =
+    options.summaryTopologyContext ??
+    loadSummaryTopologyContext({
+      taskSurfaceManifest: manifest,
+      browserBatchManifest: options.browserBatchManifest,
+      browserStages: options.browserStages,
+      serviceBackedScheduleManifest: options.serviceBackedScheduleManifest,
+    });
   errors.push(...collectExplicitSummaryProjectionErrors(manifest, topologyContext));
 
   validateCompactHelp(errors, targets, manifest.compact_help);

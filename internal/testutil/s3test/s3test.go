@@ -602,11 +602,6 @@ func sanitizeBucket(prefix string) string {
 	return result
 }
 
-func repoRoot() string {
-	_, file, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(file), "..", "..", "..")
-}
-
 func resolveSuiteHash() string {
 	if hash := suiteservices.SuiteHash(nil); hash != "" {
 		return hash

@@ -6,7 +6,7 @@ GO_BIN="${GO:-go}"
 GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
 STATICCHECK_BIN="${STATICCHECK_BIN:-$ROOT_DIR/tmp/toolbin/staticcheck-v0.7.0}"
-STATICCHECK_CHECKS="${STATICCHECK_CHECKS:-SA*}"
+STATICCHECK_CHECKS="${STATICCHECK_CHECKS:-}"
 
 if [[ "$STATICCHECK_BIN" != */* ]] && command -v "$STATICCHECK_BIN" >/dev/null 2>&1; then
   STATICCHECK_BIN="$(command -v "$STATICCHECK_BIN")"
@@ -25,7 +25,13 @@ cd "$ROOT_DIR"
 mapfile -t packages < <(
   GOCACHE="$GO_CACHE_DIR" \
   GOMODCACHE="$GO_MOD_CACHE_DIR" \
-    "$GO_BIN" list ./cmd/... ./internal/... ./db/... ./tools/...
+    "$GO_BIN" list ./cmd/... ./internal/... ./db/... ./tools/... |
+    while IFS= read -r package; do
+      case "$package" in
+        */internal/gen | */internal/gen/*) continue ;;
+      esac
+      printf '%s\n' "$package"
+    done
 )
 
 if [[ "${#packages[@]}" -eq 0 ]]; then
@@ -33,6 +39,11 @@ if [[ "${#packages[@]}" -eq 0 ]]; then
   exit 1
 fi
 
+staticcheck_args=()
+if [[ -n "$STATICCHECK_CHECKS" ]]; then
+  staticcheck_args+=("-checks=$STATICCHECK_CHECKS")
+fi
+
 env GOCACHE="$GO_CACHE_DIR" \
   GOMODCACHE="$GO_MOD_CACHE_DIR" \
-  "$STATICCHECK_BIN" -checks="$STATICCHECK_CHECKS" "${packages[@]}"
+  "$STATICCHECK_BIN" "${staticcheck_args[@]}" "${packages[@]}"

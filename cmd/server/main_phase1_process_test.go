@@ -497,11 +497,6 @@ func phase1DoJSON(t testing.TB, server *processtest.Server, method string, path 
 	return phase1test.DoJSON(t, method, phase1ServerURL(server)+path, body, options...)
 }
 
-func phase1LoginLocalUser(t testing.TB, server *processtest.Server, username string, password string) (*http.Cookie, *http.Cookie) {
-	t.Helper()
-	return phase1test.LoginLocalUser(t, phase1ServerURL(server), username, password, nil)
-}
-
 func phase1LoginLocalUserWithSecondFactor(t testing.TB, server *processtest.Server, username string, password string, code string) loginResult {
 	t.Helper()
 	if code == "" {

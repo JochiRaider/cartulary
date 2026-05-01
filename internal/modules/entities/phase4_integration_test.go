@@ -3,7 +3,6 @@ package entities_test
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -16,7 +15,6 @@ import (
 	entities "github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/assertx"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/golden"
@@ -1647,14 +1645,6 @@ type indicatorObservationRow struct {
 	RowVersion                int64
 }
 
-type indicatorLifecycleIntervalRow struct {
-	IntervalID     uuid.UUID
-	IndicatorID    uuid.UUID
-	LifecycleState string
-	ValidFrom      time.Time
-	ValidTo        *time.Time
-}
-
 func provisionBootstrapAdmin(t testing.TB, server *httptestx.Server) (loginResult, uuid.UUID) {
 	t.Helper()
 
@@ -2111,47 +2101,6 @@ SELECT subject_record_id::text
 	return mustUUID(t, subjectID)
 }
 
-func collectRecordChanges(t testing.TB, changes <-chan platformws.RecordChange, want int, timeout time.Duration) []platformws.RecordChange {
-	t.Helper()
-
-	deadline := time.After(timeout)
-	collected := make([]platformws.RecordChange, 0, want)
-	for len(collected) < want {
-		select {
-		case change := <-changes:
-			collected = append(collected, change)
-		case <-deadline:
-			t.Fatalf("timed out waiting for %d record changes, got %#v", want, collected)
-		}
-	}
-	return collected
-}
-
-func requireRecordChange(t testing.TB, changes []platformws.RecordChange, recordID uuid.UUID, viewSchemaID string) {
-	t.Helper()
-
-	for _, change := range changes {
-		if change.RecordID == recordID && change.ViewSchemaID == viewSchemaID {
-			return
-		}
-	}
-	payload, _ := json.Marshal(changes)
-	t.Fatalf("expected record change for record=%s view=%s, got %s", recordID, viewSchemaID, string(payload))
-}
-
-func httptestSuccess(t testing.TB, resp *http.Response, wantStatus int) map[string]any {
-	t.Helper()
-	if resp.StatusCode != wantStatus {
-		t.Fatalf("unexpected status: got %d want %d body=%#v", resp.StatusCode, wantStatus, httptestx.ReadJSONBody(t, resp))
-	}
-	return httptestx.RequireSuccessEnvelope(t, resp, wantStatus)["data"].(map[string]any)
-}
-
-func httptestError(t testing.TB, resp *http.Response, wantStatus int, wantCode string) map[string]any {
-	t.Helper()
-	return httptestx.RequireErrorEnvelope(t, resp, wantStatus, wantCode)
-}
-
 func requirePhase4ViewRowFieldSurface(t testing.TB, testID string, row map[string]any, viewSchemaID string) {
 	t.Helper()
 
@@ -2160,18 +2109,6 @@ func requirePhase4ViewRowFieldSurface(t testing.TB, testID string, row map[strin
 		phase4test.SortedRowFieldKeys(t, row),
 		phase4test.AllowedFieldKeys(t, testID, viewSchemaID),
 	)
-}
-
-func requireIndicatorCellValue(t testing.TB, row map[string]any, fieldKey string, want any) {
-	t.Helper()
-	cells := row["cells"].(map[string]any)
-	cell, ok := cells[fieldKey].(map[string]any)
-	if !ok {
-		t.Fatalf("missing indicator cell %s in %#v", fieldKey, row)
-	}
-	if got := cell["value"]; got != want {
-		t.Fatalf("unexpected indicator cell %s: got %#v want %#v", fieldKey, got, want)
-	}
 }
 
 func lookupIndicatorRecord(t testing.TB, db *sql.DB, recordID uuid.UUID) indicatorRecordRow {
@@ -2392,33 +2329,6 @@ SELECT
 	return result
 }
 
-func lookupIndicatorLifecycleInterval(t testing.TB, db *sql.DB, intervalID uuid.UUID) indicatorLifecycleIntervalRow {
-	t.Helper()
-
-	var (
-		row            indicatorLifecycleIntervalRow
-		intervalIDRaw  string
-		indicatorIDRaw string
-		validTo        sql.NullTime
-	)
-	if err := db.QueryRowContext(context.Background(), `
-SELECT
-    indicator_state_interval_id::text,
-    indicator_record_id::text,
-    lifecycle_state,
-    valid_from,
-    valid_to
-  FROM indicator_state_intervals
- WHERE indicator_state_interval_id = $1
-`, intervalID).Scan(&intervalIDRaw, &indicatorIDRaw, &row.LifecycleState, &row.ValidFrom, &validTo); err != nil {
-		t.Fatalf("lookup indicator lifecycle interval: %v", err)
-	}
-	row.IntervalID = mustUUID(t, intervalIDRaw)
-	row.IndicatorID = mustUUID(t, indicatorIDRaw)
-	row.ValidTo = nullTimePointer(validTo)
-	return row
-}
-
 func queryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 	t.Helper()
 
@@ -2477,11 +2387,4 @@ func nullTimePointer(value sql.NullTime) *time.Time {
 	}
 	utc := value.Time.UTC()
 	return &utc
-}
-
-func derefStringPointer(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
 }

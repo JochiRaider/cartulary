@@ -1276,15 +1276,6 @@ func recordWebE2EFixtureReclaimedEvent(deps dependencies, env map[string]string,
 	})
 }
 
-func cleanupRetiredWebE2EFixtures(ctx context.Context, deps dependencies, env map[string]string) error {
-	scope, ok, err := suiteservices.Summarize(env)
-	if err != nil || !ok {
-		return err
-	}
-
-	return cleanupWebE2EFixtures(ctx, deps, env, pendingWebE2EFixtures(scope))
-}
-
 func pendingRetiredWebE2EFixtures(env map[string]string) ([]webE2EMetadata, error) {
 	scope, ok, err := suiteservices.Summarize(env)
 	if err != nil || !ok {

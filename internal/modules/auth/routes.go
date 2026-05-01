@@ -1141,7 +1141,7 @@ func (s *Service) authenticateSessionToken(r *http.Request, authSource AuthSourc
 	if err != nil {
 		return SessionPrincipal{}, internalAPIError(err)
 	}
-	if user.IsActive == false {
+	if !user.IsActive {
 		return SessionPrincipal{}, &APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
 	}
 	if session.RevokedAt != nil {

@@ -3,7 +3,6 @@ package timeline_test
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -1138,25 +1137,6 @@ SELECT record_link_id::text, incident_id::text, src_record_id::text, dst_record_
 		link.DeletedAt = &value
 	}
 	return link
-}
-
-func serializeActiveLinkRead(t testing.TB, link fixtures.LinkFixture) map[string]any {
-	t.Helper()
-
-	data, err := json.Marshal(map[string]any{
-		"record_link_id": link.RecordLinkID.String(),
-		"provenance":     link.Provenance,
-		"confidence":     link.Confidence,
-	})
-	if err != nil {
-		t.Fatalf("marshal active link helper read: %v", err)
-	}
-
-	var payload map[string]any
-	if err := json.Unmarshal(data, &payload); err != nil {
-		t.Fatalf("unmarshal active link helper read: %v", err)
-	}
-	return payload
 }
 
 func requireSuccessEnvelopeWithBody(t testing.TB, resp *http.Response, wantStatus int) map[string]any {

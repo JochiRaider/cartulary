@@ -2296,15 +2296,6 @@ func callStub2Ptr[Arg1 any, Arg2 any, Result any](fn func(context.Context, Arg1,
 	return fn(ctx, arg1, arg2)
 }
 
-func callStub2Result2[Arg1 any, Arg2 any, Result1 any, Result2 any](fn func(context.Context, Arg1, Arg2) (Result1, Result2, error), ctx context.Context, arg1 Arg1, arg2 Arg2) (Result1, Result2, error) {
-	if fn == nil {
-		var zero1 Result1
-		var zero2 Result2
-		return zero1, zero2, errors.New("unexpected authStoreStub call")
-	}
-	return fn(ctx, arg1, arg2)
-}
-
 func callStub3[Arg1 any, Arg2 any, Arg3 any, Result any](fn func(context.Context, Arg1, Arg2, Arg3) (Result, error), ctx context.Context, arg1 Arg1, arg2 Arg2, arg3 Arg3) (Result, error) {
 	if fn == nil {
 		var zero Result
@@ -2370,13 +2361,6 @@ func callStub10Result2[Arg1 any, Arg2 any, Arg3 any, Arg4 any, Arg5 any, Arg6 an
 		return zero1, zero2, errors.New("unexpected authStoreStub call")
 	}
 	return fn(ctx, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
-}
-
-func callStubNoResult2[Arg1 any, Arg2 any](fn func(context.Context, Arg1, Arg2) error, ctx context.Context, arg1 Arg1, arg2 Arg2) error {
-	if fn == nil {
-		return errors.New("unexpected authStoreStub call")
-	}
-	return fn(ctx, arg1, arg2)
 }
 
 func callStubNoResult3[Arg1 any, Arg2 any, Arg3 any](fn func(context.Context, Arg1, Arg2, Arg3) error, ctx context.Context, arg1 Arg1, arg2 Arg2, arg3 Arg3) error {
