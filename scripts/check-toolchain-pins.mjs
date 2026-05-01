@@ -9,6 +9,7 @@ const expected = {
   pnpmVersion: "10.33.0",
   sqlcTool: "github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0",
   gooseTool: "github.com/pressly/goose/v3/cmd/goose@v3.27.0",
+  staticcheckTool: "honnef.co/go/tools/cmd/staticcheck@v0.7.0",
   testcontainersGoVersion: "v0.42.0",
 };
 
@@ -99,6 +100,13 @@ function checkMakefile(root, mismatches) {
   checkEqual(
     mismatches,
     file,
+    "STATICCHECK_TOOL",
+    expected.staticcheckTool,
+    parseMakeVariable(makefile, "STATICCHECK_TOOL"),
+  );
+  checkEqual(
+    mismatches,
+    file,
     "TESTCONTAINERS_GO_VERSION",
     expected.testcontainersGoVersion,
     parseMakeVariable(makefile, "TESTCONTAINERS_GO_VERSION"),
@@ -182,6 +190,7 @@ function checkReadme(root, mismatches) {
   const goLine = `- Go \`${expected.goVersion}\` with toolchain \`${expected.goToolchain}\``;
   const nodeLine = `- Node.js \`${expected.nodeVersion}\``;
   const pnpmLine = `- pnpm \`${expected.pnpmVersion}\``;
+  const staticcheckLine = `- Staticcheck \`${expected.staticcheckTool.split("@")[1]}\``;
   checkEqual(
     mismatches,
     file,
@@ -202,6 +211,13 @@ function checkReadme(root, mismatches) {
     "pnpm pin line",
     pnpmLine,
     readme.split("\n").find((line) => line.startsWith("- pnpm `")),
+  );
+  checkEqual(
+    mismatches,
+    file,
+    "Staticcheck pin line",
+    staticcheckLine,
+    readme.split("\n").find((line) => line.startsWith("- Staticcheck `")),
   );
 }
 

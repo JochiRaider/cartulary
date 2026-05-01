@@ -112,6 +112,7 @@ if ! rg -q '^toolchain-drift:' "$makefile"; then
   fail "Makefile must define toolchain-drift"
 fi
 assert_target_prereq codegen-toolchain '$(SQLC_BIN)' "codegen-toolchain must own pinned SQLC_BIN readiness"
+assert_target_prereq go-lint-toolchain '$(STATICCHECK_BIN)' "go-lint-toolchain must own pinned Staticcheck readiness"
 assert_target_prereq generate codegen-toolchain "generate must prepare the codegen toolchain before generating artifacts"
 assert_target_recipe_invokes generate generate-artifacts "generate must delegate to generate-artifacts"
 generate_artifacts_block="$(extract_target_block generate-artifacts)"
@@ -135,11 +136,15 @@ fi
 if ! printf '%s\n' "$check_setup_block" | rg -q 'codegen-toolchain'; then
   fail "check-setup-blockers must prepare the codegen toolchain after toolchain drift"
 fi
+if ! printf '%s\n' "$check_setup_block" | rg -q 'go-lint-toolchain'; then
+  fail "check-setup-blockers must prepare the Go lint toolchain after codegen readiness"
+fi
 if ! printf '%s\n' "$check_setup_block" | rg -q 'frontend-install'; then
   fail "check-setup-blockers must invoke frontend install after toolchain drift"
 fi
 assert_text_order "check-setup-blockers recipe" "$check_setup_block" "toolchain-drift" "codegen-toolchain" "check-setup-blockers must prepare codegen after toolchain drift"
-assert_text_order "check-setup-blockers recipe" "$check_setup_block" "codegen-toolchain" "frontend-install" "check-setup-blockers must install frontend dependencies after codegen readiness"
+assert_text_order "check-setup-blockers recipe" "$check_setup_block" "codegen-toolchain" "go-lint-toolchain" "check-setup-blockers must prepare Go lint tooling after codegen readiness"
+assert_text_order "check-setup-blockers recipe" "$check_setup_block" "go-lint-toolchain" "frontend-install" "check-setup-blockers must install frontend dependencies after Go lint tooling readiness"
 if printf '%s\n' "$check_setup_block" | rg -q 'frontend-task-surface-check|phase-ledger-drift|run-phase-smoke|generate-drift|lint-biome|lint-scripts'; then
   fail "check-setup-blockers must not include static validation or harness smoke work"
 fi

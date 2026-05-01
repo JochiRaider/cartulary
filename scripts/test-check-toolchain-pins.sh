@@ -148,8 +148,16 @@ mutate_go_testcontainers() {
   replace_text "$1/go.mod" 'github.com/testcontainers/testcontainers-go v0.42.0' 'github.com/testcontainers/testcontainers-go v0.43.0'
 }
 
+mutate_staticcheck_tool() {
+  replace_text "$1/Makefile" 'STATICCHECK_TOOL := honnef.co/go/tools/cmd/staticcheck@v0.7.0' 'STATICCHECK_TOOL := honnef.co/go/tools/cmd/staticcheck@v0.7.1'
+}
+
 mutate_readme_node() {
   replace_text "$1/README.md" '- Node.js `24.15.0`' '- Node.js `24.16.0`'
+}
+
+mutate_readme_staticcheck() {
+  replace_text "$1/README.md" '- Staticcheck `v0.7.0`' '- Staticcheck `v0.7.1`'
 }
 
 mkdir -p "${ROOT_DIR}/tmp"
@@ -171,9 +179,17 @@ expect_drift "go-testcontainers" \
   "go.mod: github.com/testcontainers/testcontainers-go mismatch: expected v0.42.0, got v0.43.0" \
   mutate_go_testcontainers
 
+expect_drift "staticcheck-tool" \
+  "Makefile: STATICCHECK_TOOL mismatch: expected honnef.co/go/tools/cmd/staticcheck@v0.7.0, got honnef.co/go/tools/cmd/staticcheck@v0.7.1" \
+  mutate_staticcheck_tool
+
 expect_drift "readme-node" \
   "README.md: Node.js pin line mismatch: expected - Node.js \`24.15.0\`, got - Node.js \`24.16.0\`" \
   mutate_readme_node
+
+expect_drift "readme-staticcheck" \
+  "README.md: Staticcheck pin line mismatch: expected - Staticcheck \`v0.7.0\`, got - Staticcheck \`v0.7.1\`" \
+  mutate_readme_staticcheck
 
 preflight_dir="$(mktemp -d "${ROOT_DIR}/tmp/toolchain-pins-preflight.XXXXXX")"
 cleanup_paths+=("${preflight_dir}")

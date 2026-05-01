@@ -511,13 +511,12 @@ SELECT entity_type, incident_id, record_id
 	defer rows.Close()
 
 	var target *mentionTargetRecord
-	for rows.Next() {
+	if rows.Next() {
 		var record mentionTargetRecord
 		if err := rows.Scan(&record.EntityType, &record.IncidentID, &record.RecordID); err != nil {
 			return nil, fmt.Errorf("scan mention resolved target: %w", err)
 		}
 		target = &record
-		break
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate mention resolved target: %w", err)

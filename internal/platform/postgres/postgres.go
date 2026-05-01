@@ -190,7 +190,7 @@ func migrationFSEmpty(fsys fs.FS, directory string) (bool, error) {
 
 func runGoose(command string, db *sql.DB, source MigrationSource, args ...string) error {
 	if source.BaseFS == nil {
-		return goose.Run(command, db, source.Path, args...)
+		return goose.RunContext(context.Background(), command, db, source.Path, args...)
 	}
 
 	// goose stores the migration filesystem in package-global state, so embedded
@@ -201,7 +201,7 @@ func runGoose(command string, db *sql.DB, source MigrationSource, args ...string
 	goose.SetBaseFS(source.BaseFS)
 	defer goose.SetBaseFS(nil)
 
-	return goose.Run(command, db, source.Path, args...)
+	return goose.RunContext(context.Background(), command, db, source.Path, args...)
 }
 
 func lookupEnv(env map[string]string, key string) (string, bool) {

@@ -1101,6 +1101,7 @@ func (c *phase1SupportRouteContext) requireWritableStringNormalization(
 		normalizedReason := authn.NormalizeReasonNote(&rawReason)
 		if normalizedReason == nil {
 			t.Fatalf("expected normalized reason note for %q", rawReason)
+			return
 		}
 		httptestx.RequireWritableStringNormalization(t, *normalizedReason, "Support reason normalization")
 

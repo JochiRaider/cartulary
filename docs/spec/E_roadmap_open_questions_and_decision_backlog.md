@@ -106,6 +106,10 @@ Until those conventions are supplied, the gate contract is:
 
 This gate is corpus-maintenance support only. It does not define implementation conformance.
 
+### E.1.4 Implementation-maintenance backlog
+
+- Add a caller-owned `context.Context` migration path, such as `postgres.MigrateContext(ctx, ...)`, when migration cancellation becomes useful for runtime or operator workflows. The current `postgres.Migrate(...)` helper may remain a compatibility wrapper until callers have a reason to pass explicit cancellation.
+
 ## E.2 Source roadmap extract
 
 ## 15. Recommended MVP and phased roadmap
@@ -263,4 +267,3 @@ A future proposal to widen the base-profile whitelist is eligible only if all of
 - the candidate key uses a stable closed vocabulary or deterministic bucketization, not raw imported labels
 - analyst testing shows that sort, filter, saved views, or dedicated derived views are materially worse for the target task
 - the added key preserves the sort, filter, and grouping interaction envelope defined in Core 04
-

@@ -356,6 +356,9 @@ fi
 if ! printf '%s\n' "$lint_go_prereqs" | rg -q '(^|[[:space:]])lint-go-vet($|[[:space:]])'; then
   fail "lint-go must delegate to lint-go-vet"
 fi
+if ! printf '%s\n' "$lint_go_prereqs" | rg -q '(^|[[:space:]])lint-go-staticcheck($|[[:space:]])'; then
+  fail "lint-go must delegate to lint-go-staticcheck"
+fi
 lint_go_format_block="$(extract_target_block lint-go-format)"
 if ! printf '%s\n' "$lint_go_format_block" | grep -Fq 'scripts/run-go-format.sh --check'; then
   fail "lint-go-format must run the curated Go formatter wrapper in check mode"
@@ -366,6 +369,17 @@ fi
 lint_go_vet_block="$(extract_target_block lint-go-vet)"
 if ! printf '%s\n' "$lint_go_vet_block" | grep -Fq 'scripts/run-go-vet.sh'; then
   fail "lint-go-vet must run the curated Go vet wrapper"
+fi
+lint_go_staticcheck_prereqs="$(extract_target_prereqs lint-go-staticcheck)"
+if ! printf '%s\n' "$lint_go_staticcheck_prereqs" | rg -q '(^|[[:space:]])go-lint-toolchain($|[[:space:]])'; then
+  fail "lint-go-staticcheck must prepare the pinned Go lint toolchain"
+fi
+lint_go_staticcheck_block="$(extract_target_block lint-go-staticcheck)"
+if ! printf '%s\n' "$lint_go_staticcheck_block" | grep -Fq 'scripts/run-go-staticcheck.sh'; then
+  fail "lint-go-staticcheck must run the curated Staticcheck wrapper"
+fi
+if ! printf '%s\n' "$lint_go_staticcheck_block" | grep -Fq 'STATICCHECK_CHECKS="$(STATICCHECK_CHECKS)"'; then
+  fail "lint-go-staticcheck must pass the configured Staticcheck check set"
 fi
 for scheduled_target in \
   check-setup-blockers \
@@ -397,7 +411,7 @@ for scheduled_target in \
 do
   check_schedule_field "$scheduled_target" target >/dev/null
 done
-if check_schedule_targets | rg -q '^(lint-go-format|lint-go-vet)$'; then
+if check_schedule_targets | rg -q '^(lint-go-format|lint-go-vet|lint-go-staticcheck)$'; then
   fail "check schedule must keep lint-go as the scheduler-visible Go lint work unit"
 fi
 "$node_bin" - "$check_schedule_manifest" <<'EOF'

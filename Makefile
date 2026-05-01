@@ -29,6 +29,8 @@ MIGRATE_BIN ?= $(CURDIR)/migrate
 TOOLBIN_DIR ?= $(CURDIR)/tmp/toolbin
 SQLC_BIN ?= $(TOOLBIN_DIR)/sqlc-v1.30.0
 GOOSE_BIN ?= $(TOOLBIN_DIR)/goose-v3.27.0
+STATICCHECK_BIN ?= $(TOOLBIN_DIR)/staticcheck-v0.7.0
+STATICCHECK_CHECKS ?= SA*
 TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
 SERVICE_BACKED_SCHEDULE_MANIFEST ?= $(CURDIR)/tools/service_backed_schedule_manifest.json
 EXECUTION_TOPOLOGY_MANIFEST ?= $(CURDIR)/tools/execution_topology_manifest.json
@@ -109,6 +111,7 @@ endif
 
 SQLC_TOOL := github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
 GOOSE_TOOL := github.com/pressly/goose/v3/cmd/goose@v3.27.0
+STATICCHECK_TOOL := honnef.co/go/tools/cmd/staticcheck@v0.7.0
 TESTCONTAINERS_GO_VERSION := v0.42.0
 
 FRONTEND_INSTALL_INPUTS := package.json pnpm-lock.yaml pnpm-workspace.yaml apps/web/package.json $(wildcard packages/*/package.json)
@@ -297,6 +300,12 @@ $(GOOSE_BIN):
 	$(RUN_PHASE) "bootstrap goose tool" -- env GOBIN=$(TOOLBIN_DIR) $(GO_RUN_ENV) $(GO) install $(GOOSE_TOOL)
 	$(Q)mv $(TOOLBIN_DIR)/goose $(GOOSE_BIN)
 
+$(STATICCHECK_BIN):
+	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
+	$(Q)rm -f $(TOOLBIN_DIR)/staticcheck $(STATICCHECK_BIN)
+	$(RUN_PHASE) "bootstrap staticcheck tool" -- env GOBIN=$(TOOLBIN_DIR) $(GO_RUN_ENV) $(GO) install $(STATICCHECK_TOOL)
+	$(Q)mv $(TOOLBIN_DIR)/staticcheck $(STATICCHECK_BIN)
+
 $(TEST_SERVICES_BIN): $$(TEST_SERVICES_BUILD_INPUTS)
 	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "build testservices" -- $(GO_ENV) $(GO) build -o $(TEST_SERVICES_BIN) ./tools/testservices
@@ -306,7 +315,7 @@ $(PLAYWRIGHT_INSTALL_STAMP): $(FRONTEND_INSTALL_STAMP) $(FRONTEND_TOOLCHAIN_STAM
 	$(RUN_PHASE) "playwright-install" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec playwright install chromium
 	$(Q)printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\n' "$(NODE_BIN)" "$(NODE_VERSION)" "$(PNPM)" "$(PNPM_VERSION)" > $(PLAYWRIGHT_INSTALL_STAMP)
 
-bootstrap: $(SQLC_BIN) $(GOOSE_BIN) frontend-install playwright-install
+bootstrap: $(SQLC_BIN) $(GOOSE_BIN) $(STATICCHECK_BIN) frontend-install playwright-install
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 
 playwright-install: $(PLAYWRIGHT_INSTALL_STAMP)
@@ -342,6 +351,8 @@ dev: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)env GO=$(GO) CONFIG_FILE=$(CONFIG_FILE) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) PNPM=$(PNPM) ./scripts/dev-stack.sh
 
 codegen-toolchain: $(SQLC_BIN)
+
+go-lint-toolchain: $(STATICCHECK_BIN)
 
 generate: codegen-toolchain
 	$(Q)$(MAKE) --no-print-directory generate-artifacts
@@ -402,7 +413,7 @@ frontend-unit: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 
 lint: lint-go lint-biome lint-scripts frontend-typecheck
 
-lint-go: lint-go-format lint-go-vet
+lint-go: lint-go-format lint-go-vet lint-go-staticcheck
 
 lint-go-format:
 	$(Q)CARTULARY_PHASE_FAILURE_NOTE="run make format to apply authored Go formatting" $(RUN_PHASE_SCRIPT) "lint gofmt" -- bash ./scripts/run-go-format.sh --check
@@ -410,6 +421,10 @@ lint-go-format:
 lint-go-vet:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "lint go-vet" -- bash ./scripts/run-go-vet.sh
+
+lint-go-staticcheck: go-lint-toolchain
+	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
+	$(RUN_PHASE) "lint staticcheck" -- env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) STATICCHECK_BIN=$(STATICCHECK_BIN) STATICCHECK_CHECKS="$(STATICCHECK_CHECKS)" bash ./scripts/run-go-staticcheck.sh
 
 format: format-go format-frontend
 
@@ -428,6 +443,7 @@ lint-scripts: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 check-setup-blockers: $(NODE_BIN)
 	$(Q)$(MAKE) --no-print-directory toolchain-drift
 	$(Q)$(MAKE) --no-print-directory codegen-toolchain
+	$(Q)$(MAKE) --no-print-directory go-lint-toolchain
 	$(Q)if [ "$(CI)" = "1" ]; then \
 		$(MAKE) --no-print-directory frontend-install-ci; \
 	else \

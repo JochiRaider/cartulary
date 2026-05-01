@@ -179,6 +179,7 @@ func requireAPIError(t testing.TB, apiErr *APIError, wantStatus int, wantCode st
 	t.Helper()
 	if apiErr == nil {
 		t.Fatal("expected api error")
+		return
 	}
 	if apiErr.Status != wantStatus {
 		t.Fatalf("unexpected status: got %d want %d", apiErr.Status, wantStatus)

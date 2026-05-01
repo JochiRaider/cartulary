@@ -507,6 +507,7 @@ func requireAPIError(t testing.TB, apiErr *auth.APIError, wantStatus int, wantCo
 	t.Helper()
 	if apiErr == nil {
 		t.Fatal("expected api error")
+		return
 	}
 	requireErrorContract(t, wantCode, wantStatus)
 	if apiErr.Status != wantStatus {
@@ -531,6 +532,7 @@ func requireClosedVocabularyRejected(t testing.TB, apiErr *auth.APIError, wantFi
 	t.Helper()
 	if apiErr == nil {
 		t.Fatal("expected api error")
+		return
 	}
 	if apiErr.Code != "invalid_mutation_payload" && apiErr.Code != "invalid_view_query" {
 		t.Fatalf("unexpected closed-vocabulary rejection code: %q", apiErr.Code)

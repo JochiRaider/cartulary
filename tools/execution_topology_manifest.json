@@ -1344,6 +1344,13 @@
         ]
       },
       {
+        "name": "go-lint-toolchain",
+        "classification": "helper_only",
+        "included_in": [
+          "helper_only"
+        ]
+      },
+      {
         "name": "generate",
         "classification": "public",
         "included_in": [
@@ -2051,7 +2058,8 @@
         ],
         "backing_scripts": [
           "scripts/run-go-format.sh",
-          "scripts/run-go-vet.sh"
+          "scripts/run-go-vet.sh",
+          "scripts/run-go-staticcheck.sh"
         ]
       },
       {
@@ -2072,6 +2080,16 @@
         ],
         "backing_scripts": [
           "scripts/run-go-vet.sh"
+        ]
+      },
+      {
+        "name": "lint-go-staticcheck",
+        "classification": "helper_only",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/run-go-staticcheck.sh"
         ]
       },
       {

@@ -127,6 +127,7 @@ func RequireBootstrapTokenRejected(t testing.TB, serverURL string, incidentID st
 	}
 	if resp == nil {
 		t.Fatalf("expected HTTP rejection response for bootstrap-token canonical incident websocket dial, err=%v", err)
+		return
 	}
 	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "credential_bootstrap_rejected")
 	details := body["error"].(map[string]any)["details"].(map[string]any)
@@ -144,6 +145,7 @@ func RequireDialErrorEnvelope(t testing.TB, serverURL string, incidentID string,
 	}
 	if resp == nil {
 		t.Fatalf("expected HTTP rejection response for canonical incident websocket dial, err=%v", err)
+		return
 	}
 	httptestx.RequireErrorEnvelope(t, resp, status, code)
 }
@@ -157,6 +159,7 @@ func RequireDialRejectedStatus(t testing.TB, serverURL string, incidentID string
 	}
 	if resp == nil {
 		t.Fatalf("expected HTTP rejection response for canonical incident websocket dial, err=%v", err)
+		return
 	}
 	if resp.StatusCode != status {
 		t.Fatalf("unexpected canonical incident websocket rejection status: got %d want %d", resp.StatusCode, status)

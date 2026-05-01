@@ -12,11 +12,12 @@ The repository now includes a bounded bootstrap shell:
 
 This is still bootstrap infrastructure, not product behavior. Domain routes, workbook features, generated contracts, migrations beyond stubs, and extension-profile behavior remain intentionally unimplemented at this step.
 
-Pinned repo-control toolchain versions for the current bootstrap baseline are:
+Pinned repo-control toolchain and lint-tool versions for the current bootstrap baseline are:
 
 - Go `1.26` with toolchain `go1.26.2`
 - Node.js `24.15.0`
 - pnpm `10.33.0`
+- Staticcheck `v0.7.0`
 
 The default local development loop is:
 
