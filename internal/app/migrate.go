@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"flag"
@@ -17,7 +18,7 @@ type migrateRunner struct {
 	stderr     io.Writer
 	loadConfig func() (config.Config, error)
 	openSQL    func(config.Config) (*sql.DB, error)
-	migrate    func(*sql.DB, postgres.MigrationSource, string, ...string) (postgres.MigrationStatus, error)
+	migrate    func(context.Context, *sql.DB, postgres.MigrationSource, string, ...string) (postgres.MigrationStatus, error)
 	source     postgres.MigrationSource
 }
 
@@ -34,8 +35,14 @@ type migrateCommandFlag struct {
 }
 
 func RunMigrateCLI(args []string, stderr io.Writer) int {
-	return newMigrateRunner(stderr).runCLI(args)
+	return RunMigrateCLIContext(context.Background(), args, stderr)
 }
+
+func RunMigrateCLIContext(ctx context.Context, args []string, stderr io.Writer) int {
+	return newMigrateRunnerForCLI(stderr).runCLI(ctx, args)
+}
+
+var newMigrateRunnerForCLI = newMigrateRunner
 
 func newMigrateRunner(stderr io.Writer) migrateRunner {
 	return migrateRunner{
@@ -47,13 +54,13 @@ func newMigrateRunner(stderr io.Writer) migrateRunner {
 	}
 }
 
-func (runner migrateRunner) runCLI(args []string) int {
+func (runner migrateRunner) runCLI(ctx context.Context, args []string) int {
 	parsed := parseMigrateCLIArgs(args, runner.stderr)
 	if parsed.stop {
 		return parsed.exitCode
 	}
 
-	if err := runner.run(parsed.command, parsed.args); err != nil {
+	if err := runner.run(ctx, parsed.command, parsed.args); err != nil {
 		runner.logger().Error("migrate failed", "error", err)
 		return 1
 	}
@@ -61,7 +68,7 @@ func (runner migrateRunner) runCLI(args []string) int {
 	return 0
 }
 
-func (runner migrateRunner) run(command string, args []string) error {
+func (runner migrateRunner) run(ctx context.Context, command string, args []string) error {
 	cfg, err := runner.loadConfig()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -75,7 +82,7 @@ func (runner migrateRunner) run(command string, args []string) error {
 		defer db.Close()
 	}
 
-	_, err = runner.migrate(db, runner.source, command, args...)
+	_, err = runner.migrate(ctx, db, runner.source, command, args...)
 	return err
 }
 

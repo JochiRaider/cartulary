@@ -24,7 +24,7 @@ func TestAssessmentsMigrationCore02(t *testing.T) {
 		db := postgresHarness.MigrationDatabaseT(t, "assessments-core02-ok", "up-to", dbmigrations.PreAssessmentsCore02Version)
 		fixture := seedLegacyAssessmentRows(t, db, "compromised")
 
-		if _, err := postgres.Migrate(db, dbmigrations.Source(), "up"); err != nil {
+		if _, err := postgres.Migrate(context.Background(), db, dbmigrations.Source(), "up"); err != nil {
 			t.Fatalf("migrate assessments core02: %v", err)
 		}
 
@@ -52,7 +52,7 @@ VALUES ($1, $2, $3, 'supported_by', 'manual', $4, $4)
 		db := postgresHarness.MigrationDatabaseT(t, "assessments-core02-bad", "up-to", dbmigrations.PreAssessmentsCore02Version)
 		seedLegacyAssessmentRows(t, db, "contained")
 
-		if _, err := postgres.Migrate(db, dbmigrations.Source(), "up"); err == nil {
+		if _, err := postgres.Migrate(context.Background(), db, dbmigrations.Source(), "up"); err == nil {
 			t.Fatal("expected unknown legacy assessment state to fail migration")
 		}
 	})

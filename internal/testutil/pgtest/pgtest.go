@@ -104,6 +104,7 @@ type fixtureAttribution struct {
 	TestName              string
 	CallerFile            string
 	CallerPackage         string
+	HarnessPackage        string
 	PostgresFixturePolicy string
 	PostgresResetTables   []string
 }
@@ -479,7 +480,7 @@ func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope
 	defer db.Close()
 
 	migrateStart := time.Now()
-	status, err := migrateDatabaseFn(db, dbmigrations.Source(), "up")
+	status, err := migrateDatabaseFn(ctx, db, dbmigrations.Source(), "up")
 	if err != nil {
 		return nil, postgres.MigrationStatus{}, err
 	}
@@ -552,7 +553,7 @@ func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string, command string
 	db = openedDB
 
 	migrateStart := time.Now()
-	if _, err := migrateDatabaseFn(db, dbmigrations.Source(), command, args...); err != nil {
+	if _, err := migrateDatabaseFn(context.Background(), db, dbmigrations.Source(), command, args...); err != nil {
 		t.Fatalf("migrate scratch database: %v", err)
 	}
 	recordSuiteEvent(suiteservices.Event{
@@ -1165,8 +1166,12 @@ func postgresFixtureDetails(strategy string, reuseScope string, attribution fixt
 	if attribution.CallerFile != "" {
 		details["caller_file"] = attribution.CallerFile
 	}
-	if attribution.CallerPackage != "" {
-		details["caller_package"] = attribution.CallerPackage
+	callerPackage := attribution.CallerPackage
+	if callerPackage == "" && attribution.HarnessPackage != "" {
+		callerPackage = "internal/testutil/" + attribution.HarnessPackage
+	}
+	if callerPackage != "" {
+		details["caller_package"] = callerPackage
 	}
 	if attribution.PostgresFixturePolicy != "" {
 		details["fixture_policy"] = attribution.PostgresFixturePolicy
@@ -1289,7 +1294,7 @@ func normalizePostgresFixturePolicy(value string) string {
 func fixtureAttributionFor(t testing.TB, harnessPackage string) fixtureAttribution {
 	t.Helper()
 
-	attribution := fixtureAttribution{TestName: t.Name()}
+	attribution := fixtureAttribution{TestName: t.Name(), HarnessPackage: harnessPackage}
 	file := callerFile(harnessPackage)
 	attribution.CallerFile = repoRelativePath(file)
 	attribution.CallerPackage = callerPackage(attribution.CallerFile)

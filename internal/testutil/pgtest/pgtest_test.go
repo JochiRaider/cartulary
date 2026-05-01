@@ -324,7 +324,7 @@ func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
 	}
 
 	migrateCalls := 0
-	migrateDatabaseFn = func(db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
 		migrateCalls++
 		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
 	}
@@ -678,7 +678,7 @@ func TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase(t *testing.T) {
 		dropped = append(dropped, name)
 		return nil
 	}
-	migrateDatabaseFn = func(db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
 		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
 	}
 
@@ -725,7 +725,7 @@ func TestMigrationDatabaseTCleanupRetainsAttachedSuiteScratchDatabase(t *testing
 		dropCalls++
 		return nil
 	}
-	migrateDatabaseFn = func(db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
 		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
 	}
 

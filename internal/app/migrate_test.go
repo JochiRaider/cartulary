@@ -2,8 +2,10 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 
@@ -18,13 +20,13 @@ func TestMigrateRunnerParsesPositionalCommandAndArgs(t *testing.T) {
 	var gotArgs []string
 
 	runner := newTestMigrateRunner(t)
-	runner.migrate = func(db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+	runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
 		gotCommand = command
 		gotArgs = append([]string(nil), args...)
 		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
 	}
 
-	if exitCode := runner.runCLI([]string{"up-to", "5"}); exitCode != 0 {
+	if exitCode := runner.runCLI(context.Background(), []string{"up-to", "5"}); exitCode != 0 {
 		t.Fatalf("unexpected exit code: got %d want 0", exitCode)
 	}
 	if gotCommand != "up-to" {
@@ -40,13 +42,13 @@ func TestMigrateRunnerParsesCommandFlagAndArgs(t *testing.T) {
 	var gotArgs []string
 
 	runner := newTestMigrateRunner(t)
-	runner.migrate = func(db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+	runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
 		gotCommand = command
 		gotArgs = append([]string(nil), args...)
 		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
 	}
 
-	if exitCode := runner.runCLI([]string{"-command", "up-to", "7"}); exitCode != 0 {
+	if exitCode := runner.runCLI(context.Background(), []string{"-command", "up-to", "7"}); exitCode != 0 {
 		t.Fatalf("unexpected exit code: got %d want 0", exitCode)
 	}
 	if gotCommand != "up-to" {
@@ -72,12 +74,12 @@ func TestMigrateRunnerConfigLoadFailure(t *testing.T) {
 	}
 
 	migrateCalled := false
-	runner.migrate = func(db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+	runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
 		migrateCalled = true
 		return postgres.MigrationStatus{}, nil
 	}
 
-	if exitCode := runner.runCLI(nil); exitCode != 1 {
+	if exitCode := runner.runCLI(context.Background(), nil); exitCode != 1 {
 		t.Fatalf("unexpected exit code: got %d want 1", exitCode)
 	}
 	if openCalled {
@@ -100,12 +102,12 @@ func TestMigrateRunnerDBOpenFailure(t *testing.T) {
 	runner.openSQL = func(cfg config.Config) (*sql.DB, error) {
 		return nil, errors.New("dsn rejected")
 	}
-	runner.migrate = func(db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+	runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
 		migrateCalled = true
 		return postgres.MigrationStatus{}, nil
 	}
 
-	if exitCode := runner.runCLI(nil); exitCode != 1 {
+	if exitCode := runner.runCLI(context.Background(), nil); exitCode != 1 {
 		t.Fatalf("unexpected exit code: got %d want 1", exitCode)
 	}
 	if migrateCalled {
@@ -113,6 +115,62 @@ func TestMigrateRunnerDBOpenFailure(t *testing.T) {
 	}
 	if output := stderr.String(); !strings.Contains(output, "open postgres: dsn rejected") {
 		t.Fatalf("expected db-open failure in stderr, got %q", output)
+	}
+}
+
+type migrateContextMarkerKey struct{}
+
+func TestMigrateRunnerRunPassesContextToMigration(t *testing.T) {
+	runner := newTestMigrateRunner(t)
+	ctx := context.WithValue(context.Background(), migrateContextMarkerKey{}, "marker")
+
+	var gotMarker any
+	runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+		gotMarker = ctx.Value(migrateContextMarkerKey{})
+		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
+	}
+
+	if err := runner.run(ctx, "up", nil); err != nil {
+		t.Fatalf("run migration: %v", err)
+	}
+	if gotMarker != "marker" {
+		t.Fatalf("migration did not receive caller context marker: got %#v", gotMarker)
+	}
+}
+
+func TestRunMigrateCLICompatibilityWrapperInvokesMigration(t *testing.T) {
+	oldFactory := newMigrateRunnerForCLI
+	t.Cleanup(func() {
+		newMigrateRunnerForCLI = oldFactory
+	})
+
+	var gotCommand string
+	var gotArgs []string
+	migrateCalls := 0
+	newMigrateRunnerForCLI = func(stderr io.Writer) migrateRunner {
+		runner := newTestMigrateRunner(t)
+		runner.stderr = stderr
+		runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+			migrateCalls++
+			gotCommand = command
+			gotArgs = append([]string(nil), args...)
+			return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
+		}
+		return runner
+	}
+
+	stderr := &bytes.Buffer{}
+	if exitCode := RunMigrateCLI([]string{"-command", "up-to", "7"}, stderr); exitCode != 0 {
+		t.Fatalf("unexpected exit code: got %d want 0; stderr=%q", exitCode, stderr.String())
+	}
+	if migrateCalls != 1 {
+		t.Fatalf("expected one migration call, got %d", migrateCalls)
+	}
+	if gotCommand != "up-to" {
+		t.Fatalf("unexpected command: got %q want %q", gotCommand, "up-to")
+	}
+	if len(gotArgs) != 1 || gotArgs[0] != "7" {
+		t.Fatalf("unexpected command args: got %#v want %#v", gotArgs, []string{"7"})
 	}
 }
 
@@ -135,7 +193,7 @@ func newTestMigrateRunner(t testing.TB) migrateRunner {
 		openSQL: func(cfg config.Config) (*sql.DB, error) {
 			return db, nil
 		},
-		migrate: func(db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+		migrate: func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
 			return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
 		},
 		source: postgres.MigrationSource{

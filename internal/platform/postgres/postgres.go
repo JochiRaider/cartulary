@@ -3,11 +3,11 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -18,7 +18,12 @@ import (
 
 const PostgresDSNEnv = "CARTULARY_POSTGRES_DSN"
 
-var gooseBaseFSMu sync.Mutex
+var (
+	errNilMigrateContext = errors.New("postgres migrate: nil context")
+	gooseBaseFSSem       = make(chan struct{}, 1)
+	gooseRunContext      = goose.RunContext
+	gooseSetBaseFS       = goose.SetBaseFS
+)
 
 type Settings struct {
 	DSN string
@@ -94,7 +99,7 @@ func OpenSQLWithEnv(cfg config.Config, env map[string]string) (*sql.DB, error) {
 	return db, nil
 }
 
-func Migrate(db *sql.DB, source MigrationSource, command string, args ...string) (MigrationStatus, error) {
+func Migrate(ctx context.Context, db *sql.DB, source MigrationSource, command string, args ...string) (MigrationStatus, error) {
 	source = normalizeMigrationSource(source)
 
 	status := MigrationStatus{
@@ -102,16 +107,26 @@ func Migrate(db *sql.DB, source MigrationSource, command string, args ...string)
 		Directory: source.displayName(),
 	}
 
+	if ctx == nil {
+		return status, errNilMigrateContext
+	}
+	if err := ctx.Err(); err != nil {
+		return status, err
+	}
+
 	empty, err := migrationSourceEmpty(source)
 	if err != nil {
 		return status, fmt.Errorf("inspect migration directory: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return status, err
 	}
 	if empty {
 		status.Empty = true
 		return status, nil
 	}
 
-	if err := runGoose(command, db, source, args...); err != nil {
+	if err := runGoose(ctx, command, db, source, args...); err != nil {
 		return status, fmt.Errorf("run goose %q: %w", command, err)
 	}
 
@@ -188,20 +203,54 @@ func migrationFSEmpty(fsys fs.FS, directory string) (bool, error) {
 	return !found, nil
 }
 
-func runGoose(command string, db *sql.DB, source MigrationSource, args ...string) error {
+func runGoose(ctx context.Context, command string, db *sql.DB, source MigrationSource, args ...string) error {
+	if ctx == nil {
+		return errNilMigrateContext
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	if source.BaseFS == nil {
-		return goose.RunContext(context.Background(), command, db, source.Path, args...)
+		return gooseRunContext(ctx, command, db, source.Path, args...)
 	}
 
 	// goose stores the migration filesystem in package-global state, so embedded
 	// runs are serialized to keep concurrent callers from trampling each other.
-	gooseBaseFSMu.Lock()
-	defer gooseBaseFSMu.Unlock()
+	release, err := acquireGooseBaseFS(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
 
-	goose.SetBaseFS(source.BaseFS)
-	defer goose.SetBaseFS(nil)
+	gooseSetBaseFS(source.BaseFS)
+	defer gooseSetBaseFS(nil)
 
-	return goose.RunContext(context.Background(), command, db, source.Path, args...)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	return gooseRunContext(ctx, command, db, source.Path, args...)
+}
+
+func acquireGooseBaseFS(ctx context.Context) (func(), error) {
+	if ctx == nil {
+		return nil, errNilMigrateContext
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	select {
+	case gooseBaseFSSem <- struct{}{}:
+		if err := ctx.Err(); err != nil {
+			<-gooseBaseFSSem
+			return nil, err
+		}
+		return func() { <-gooseBaseFSSem }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 func lookupEnv(env map[string]string, key string) (string, bool) {

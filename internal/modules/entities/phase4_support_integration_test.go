@@ -188,7 +188,7 @@ func TestSupportPhase4Integration_RecordEnvelopeBackfill(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	db := postgresHarness.MigrationDatabaseT(t, "phase4-records-backfill", "up-to", dbmigrations.PreRecordEnvelopeVersion)
 	fixture := seedPreEnvelopeRows(t, db)
-	if _, err := postgres.Migrate(db, dbmigrations.Source(), "up"); err != nil {
+	if _, err := postgres.Migrate(context.Background(), db, dbmigrations.Source(), "up"); err != nil {
 		t.Fatalf("migrate backfill database to latest: %v", err)
 	}
 
