@@ -31,7 +31,7 @@ const {
 
 const topology = loadExecutionTopology();
 const summary = topologySummary(topology);
-assert.equal(summary.schema_id, "cartulary.execution_topology.v1");
+assert.equal(summary.schema_id, "cartulary.execution_topology.v2");
 assert.ok(summary.execution_dependencies >= 10);
 assert.ok(summary.go_targets >= 5);
 assert.ok(summary.check_schedules >= 1);
@@ -114,6 +114,48 @@ const artifactSnapshot = () => ({
 });
 assert.deepEqual(artifactSnapshot(), artifactSnapshot(), "topology artifact rendering must be deterministic");
 
+const renderedCheckSchedule = renderCheckScheduleManifest(topology);
+const checkSchedule = renderedCheckSchedule.schedules.find((schedule) => schedule.target === "check");
+assert.ok(checkSchedule, "rendered check schedule must include check");
+assert.equal(checkSchedule.work_units.length, 31, "check schedule must render the current check work-unit set");
+assert.deepEqual(
+  checkSchedule.work_units.map((unit) => [unit.target, unit.weight]),
+  [
+    ["check-setup-blockers", 50000],
+    ["check-build-prereqs", 40000],
+    ["check-service-backed", 30000],
+    ["check-go-test-duration-baseline-drift", 29000],
+    ["check-browser-e2e-duration-baseline-drift", 28000],
+    ["check-service-backed-make-target-duration-baseline-drift", 27900],
+    ["migration-drift", 27000],
+    ["deployable-shape", 26000],
+    ["backend-unit", 25000],
+    ["frontend-typecheck", 24000],
+    ["lint-go", 23000],
+    ["go-vulncheck", 22000],
+    ["go-gosec-targeted", 21900],
+    ["go-gosec-audit", 21800],
+    ["check-frontend-unit", 15000],
+    ["check-harness-smoke", 14000],
+    ["lint-biome", 13000],
+    ["frontend-import-boundary-check", 12950],
+    ["lint-scripts", 12900],
+    ["lint-shell", 12850],
+    ["phase-test-name-check", 12000],
+    ["task-surface-check", 11900],
+    ["browser-e2e-task-surface-check", 11800],
+    ["frontend-task-surface-check", 11700],
+    ["backend-task-surface-check", 11600],
+    ["phase-map-check", 11500],
+    ["go-test-duration-baseline-coverage", 11400],
+    ["phase-ledger-drift", 11300],
+    ["phase-schedule-drift", 11200],
+    ["service-backed-unit-check", 11100],
+    ["generate-drift", 11000],
+  ],
+  "profile-expanded check schedule must preserve the existing DAG priority order",
+);
+
 const rows = targetPlanModule.collectTargetPlanRows(root);
 const scheduledBackendTargets = (rowsToUse) =>
   Array.from(
@@ -141,32 +183,88 @@ assert.deepEqual(
 );
 
 const tempDir = mkdtempSync(path.join(os.tmpdir(), "cartulary-topology-test-"));
-const invalidTopologyPath = path.join(tempDir, "invalid-topology.json");
 copyFileSync(
   path.join(root, "tools/service_backed_make_target_duration_baselines.json"),
   path.join(tempDir, "service_backed_make_target_duration_baselines.json"),
 );
-const invalidTopology = JSON.parse(readFileSync(path.join(root, "tools/execution_topology_manifest.json"), "utf8"));
+const topologyFixture = () => JSON.parse(readFileSync(path.join(root, "tools/execution_topology_manifest.json"), "utf8"));
+const writeTopologyFixture = (name, value) => {
+  const fixturePath = path.join(tempDir, name);
+  writeFileSync(fixturePath, `${JSON.stringify(value, null, 2)}\n`);
+  return fixturePath;
+};
+
+const invalidTopology = topologyFixture();
 invalidTopology.execution_dependencies.push({ ...invalidTopology.execution_dependencies[0] });
-writeFileSync(invalidTopologyPath, `${JSON.stringify(invalidTopology, null, 2)}\n`);
 assert.throws(
-  () => loadExecutionTopology({ manifestPath: invalidTopologyPath }),
+  () => loadExecutionTopology({ manifestPath: writeTopologyFixture("invalid-topology.json", invalidTopology) }),
   /duplicate execution dependency/,
   "topology validation must reject duplicate execution dependency IDs",
 );
 
-const serviceStackTopologyPath = path.join(tempDir, "missing-service-stack-topology.json");
-const missingServiceStackTopology = JSON.parse(
-  readFileSync(path.join(root, "tools/execution_topology_manifest.json"), "utf8"),
-);
-const migrationDriftUnit = missingServiceStackTopology.check_schedules[0].work_units.find(
-  (unit) => unit.target === "migration-drift",
-);
-delete migrationDriftUnit.resource_claims.service_stack;
-writeFileSync(serviceStackTopologyPath, `${JSON.stringify(missingServiceStackTopology, null, 2)}\n`);
+const legacyFlatTopology = topologyFixture();
+legacyFlatTopology.check_schedules = renderedCheckSchedule.schedules;
 assert.throws(
-  () => loadExecutionTopology({ manifestPath: serviceStackTopologyPath }),
-  /migration-drift declares service_requirements and must claim service_stack/,
-  "topology validation must require service_stack for service-backed check work units",
+  () => loadExecutionTopology({ manifestPath: writeTopologyFixture("legacy-flat-topology.json", legacyFlatTopology) }),
+  /flat check_schedules\[\] work_units are no longer supported/,
+  "topology validation must reject the obsolete flat check schedule source shape",
+);
+
+const unknownProfileTopology = topologyFixture();
+unknownProfileTopology.task_surface.targets.find((target) => target.name === "generate-drift").check_schedule.profile =
+  "missing_profile";
+assert.throws(
+  () =>
+    loadExecutionTopology({
+      manifestPath: writeTopologyFixture("unknown-check-profile-topology.json", unknownProfileTopology),
+    }),
+  /generate-drift\.check_schedule\.profile references unknown profile missing_profile/,
+  "topology validation must reject unknown check schedule profiles",
+);
+
+const duplicateOrderTopology = topologyFixture();
+duplicateOrderTopology.task_surface.targets.find((target) => target.name === "phase-schedule-drift").check_schedule.order =
+  0;
+assert.throws(
+  () =>
+    loadExecutionTopology({
+      manifestPath: writeTopologyFixture("duplicate-check-order-topology.json", duplicateOrderTopology),
+    }),
+  /duplicate priority order drift_validation:0/,
+  "topology validation must reject duplicate check schedule priority orders within a band",
+);
+
+const missingServiceStackTopology = topologyFixture();
+delete missingServiceStackTopology.check_schedules.defaults.resource_profiles.post_build_service_stack.resource_claims
+  .service_stack;
+assert.throws(
+  () =>
+    loadExecutionTopology({
+      manifestPath: writeTopologyFixture("missing-service-stack-topology.json", missingServiceStackTopology),
+    }),
+  /migration-drift\.check_schedule target declares service_requirements and must claim service_stack/,
+  "topology validation must require service_stack for service-backed check schedule profiles",
+);
+
+const futureCheckTargetTopology = topologyFixture();
+futureCheckTargetTopology.task_surface.targets.push({
+  name: "future-phase-check-leaf",
+  classification: "check_internal",
+  included_in: ["check"],
+  check_schedule: {
+    schedules: ["check"],
+    profile: "after_setup_cpu",
+    priority_band: "phase_validation",
+    order: 700,
+  },
+});
+const futureCheckSchedule = renderCheckScheduleManifest(
+  loadExecutionTopology({
+    manifestPath: writeTopologyFixture("future-check-target-topology.json", futureCheckTargetTopology),
+  }),
+).schedules.find((schedule) => schedule.target === "check");
+assert.ok(
+  futureCheckSchedule.work_units.some((unit) => unit.target === "future-phase-check-leaf"),
+  "new check-scheduled targets must be included through metadata without adding flat work units",
 );
 EOF

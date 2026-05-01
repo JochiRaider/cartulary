@@ -7,6 +7,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 makefile="$repo_root/Makefile"
 generated_make="$repo_root/tools/task_surface.generated.mk"
 check_schedule_manifest="$repo_root/tools/check_schedule_manifest.json"
+execution_topology_manifest="$repo_root/tools/execution_topology_manifest.json"
 runner_script="$repo_root/scripts/run-frontend-unit.sh"
 frontend_biome_script="$repo_root/scripts/run-frontend-biome.sh"
 frontend_import_boundary_script="$repo_root/scripts/check-frontend-import-boundaries.mjs"
@@ -169,10 +170,24 @@ check_prereqs="$(extract_target_prereqs check)"
 if printf '%s\n' "$check_prereqs" | rg -q 'FRONTEND_INSTALL_STAMP'; then
   fail "check must not depend directly on FRONTEND_INSTALL_STAMP"
 fi
-"$node_bin" - "$check_schedule_manifest" <<'EOF'
+"$node_bin" - "$check_schedule_manifest" "$execution_topology_manifest" <<'EOF'
 const fs = require("node:fs");
-const [manifestFile] = process.argv.slice(2);
+const [manifestFile, topologyFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+const topology = JSON.parse(fs.readFileSync(topologyFile, "utf8"));
+if (topology.schema_id !== "cartulary.execution_topology.v2") {
+  throw new Error("execution topology must declare schema_id=cartulary.execution_topology.v2");
+}
+if (Array.isArray(topology.check_schedules)) {
+  throw new Error("execution topology must own check schedule profiles, not flat schedules");
+}
+const topologyTargets = new Map((topology.task_surface?.targets ?? []).map((entry) => [entry.name, entry]));
+for (const required of ["frontend-typecheck", "frontend-task-surface-check", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "lint-shell", "check-frontend-unit"]) {
+  const metadata = topologyTargets.get(required)?.check_schedule;
+  if (!metadata?.schedules?.includes("check")) {
+    throw new Error(`execution topology must schedule ${required} through check_schedule metadata`);
+  }
+}
 const schedule = (manifest.schedules ?? []).find((entry) => entry.target === "check");
 if (!schedule) {
   throw new Error("missing check schedule");

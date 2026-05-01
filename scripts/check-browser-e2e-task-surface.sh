@@ -526,11 +526,29 @@ done
 if printf '%s\n' "$check_schedule_text" | rg -q '^browser-e2e$'; then
   fail "browser-e2e must be service-backed scheduler work, not a top-level check work unit"
 fi
-"$node_bin" - "$check_schedule_manifest" <<'EOF'
+"$node_bin" - "$check_schedule_manifest" "$execution_topology_manifest" <<'EOF'
 const fs = require("node:fs");
 
-const [manifestFile] = process.argv.slice(2);
+const [manifestFile, topologyFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+const topology = JSON.parse(fs.readFileSync(topologyFile, "utf8"));
+if (topology.schema_id !== "cartulary.execution_topology.v2") {
+  throw new Error("execution topology must declare schema_id=cartulary.execution_topology.v2");
+}
+if (Array.isArray(topology.check_schedules)) {
+  throw new Error("execution topology must own check schedule profiles, not flat schedules");
+}
+const topologyTargets = new Map((topology.task_surface?.targets ?? []).map((entry) => [entry.name, entry]));
+for (const [target, profile] of [
+  ["check-service-backed", "nested_service_backed_scheduler"],
+  ["check-browser-e2e-duration-baseline-drift", "post_service_duration_check"],
+  ["browser-e2e-task-surface-check", "after_setup_cpu"],
+]) {
+  const metadata = topologyTargets.get(target)?.check_schedule;
+  if (!metadata?.schedules?.includes("check") || metadata.profile !== profile) {
+    throw new Error(`execution topology must schedule ${target} through ${profile} profile metadata`);
+  }
+}
 const schedule = (manifest.schedules ?? []).find((entry) => entry.target === "check");
 if (!schedule) {
   throw new Error("missing check schedule");

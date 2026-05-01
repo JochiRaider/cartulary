@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.execution_topology.v1",
+  "schema_id": "cartulary.execution_topology.v2",
   "generated_outputs": {
     "task_surface_manifest": "tools/task_surface_manifest.json",
     "task_surface_make": "tools/task_surface.generated.mk",
@@ -1419,7 +1419,15 @@
         ],
         "backing_scripts": [
           "scripts/check-generate-drift.sh"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu_io",
+          "priority_band": "drift_validation",
+          "order": 300
+        }
       },
       {
         "name": "toolchain-drift",
@@ -1442,7 +1450,15 @@
         ],
         "backing_scripts": [
           "scripts/check-migrations.sh"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "post_build_service_stack",
+          "priority_band": "post_build",
+          "order": 0
+        }
       },
       {
         "name": "deployable-shape",
@@ -1452,7 +1468,15 @@
         ],
         "backing_scripts": [
           "scripts/ci/check-deployable-shape.sh"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "post_build_cpu_io",
+          "priority_band": "post_build",
+          "order": 1000
+        }
       },
       {
         "name": "phase-map-check",
@@ -1462,7 +1486,15 @@
         ],
         "backing_scripts": [
           "scripts/check-phase-maps.sh"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu",
+          "priority_band": "phase_validation",
+          "order": 500
+        }
       },
       {
         "name": "phase-ledgers",
@@ -1482,7 +1514,15 @@
         ],
         "backing_scripts": [
           "scripts/check-phase-ledger-drift.mjs"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu_io",
+          "priority_band": "drift_validation",
+          "order": 0
+        }
       },
       {
         "name": "phase-schedules",
@@ -1502,7 +1542,15 @@
         ],
         "backing_scripts": [
           "scripts/render-execution-topology-artifacts.mjs"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu_io",
+          "priority_band": "drift_validation",
+          "order": 100
+        }
       },
       {
         "name": "benchmark-claim-check",
@@ -1567,7 +1615,15 @@
         "backing_scripts": [
           "scripts/print-task-surface-report.mjs",
           "scripts/render-task-surface-make.mjs"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu",
+          "priority_band": "phase_validation",
+          "order": 100
+        }
       },
       {
         "name": "backend-unit",
@@ -1580,7 +1636,18 @@
         "backing_scripts": [
           "scripts/cartulary-runner.mjs",
           "scripts/run-go-target.mjs"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu",
+          "priority_band": "local_evidence",
+          "order": 0,
+          "produces_summary_targets": [
+            "backend-unit"
+          ]
+        }
       },
       {
         "name": "backend-store",
@@ -1716,7 +1783,15 @@
         ],
         "backing_scripts": [
           "scripts/check-go-test-duration-baseline-coverage.mjs"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu",
+          "priority_band": "phase_validation",
+          "order": 600
+        }
       },
       {
         "name": "go-test-duration-baseline-drift",
@@ -1777,7 +1852,15 @@
         ],
         "backing_scripts": [
           "scripts/check-backend-task-surface.sh"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu",
+          "priority_band": "phase_validation",
+          "order": 400
+        }
       },
       {
         "name": "service-backed-unit-check",
@@ -1787,7 +1870,15 @@
         ],
         "backing_scripts": [
           "scripts/check-service-backed-unit-tests.sh"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu",
+          "priority_band": "drift_validation",
+          "order": 200
+        }
       },
       {
         "name": "test-service-images",
@@ -1834,7 +1925,15 @@
         ],
         "backing_scripts": [
           "scripts/check-phase-test-names.mjs"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu",
+          "priority_band": "phase_validation",
+          "order": 0
+        }
       },
       {
         "name": "frontend-typecheck",
@@ -1843,7 +1942,18 @@
           "test",
           "check",
           "ci"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu",
+          "priority_band": "local_evidence",
+          "order": 1000,
+          "produces_summary_targets": [
+            "frontend-typecheck"
+          ]
+        }
       },
       {
         "name": "frontend-unit",
@@ -1865,7 +1975,15 @@
         ],
         "backing_scripts": [
           "scripts/check-frontend-task-surface.sh"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu",
+          "priority_band": "phase_validation",
+          "order": 300
+        }
       },
       {
         "name": "frontend-import-boundary-check",
@@ -1875,14 +1993,30 @@
         ],
         "backing_scripts": [
           "scripts/check-frontend-import-boundaries.mjs"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu_io",
+          "priority_band": "static_validation",
+          "order": 50
+        }
       },
       {
         "name": "lint-biome",
         "classification": "public",
         "included_in": [
           "check"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu_io",
+          "priority_band": "static_validation",
+          "order": 0
+        }
       },
       {
         "name": "lint-scripts",
@@ -1892,7 +2026,15 @@
         ],
         "backing_scripts": [
           "scripts/run-scripts-biome.sh"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu_io",
+          "priority_band": "static_validation",
+          "order": 100
+        }
       },
       {
         "name": "lint-shell",
@@ -1902,7 +2044,15 @@
         ],
         "backing_scripts": [
           "scripts/run-shellcheck.sh"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu_io",
+          "priority_band": "static_validation",
+          "order": 150
+        }
       },
       {
         "name": "format",
@@ -2060,7 +2210,15 @@
         ],
         "backing_scripts": [
           "scripts/check-browser-e2e-task-surface.sh"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu",
+          "priority_band": "phase_validation",
+          "order": 200
+        }
       },
       {
         "name": "test-local",
@@ -2130,7 +2288,15 @@
           "scripts/run-go-format.sh",
           "scripts/run-go-vet.sh",
           "scripts/run-go-staticcheck.sh"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu",
+          "priority_band": "local_evidence",
+          "order": 2000
+        }
       },
       {
         "name": "lint-go-format",
@@ -2170,7 +2336,15 @@
         ],
         "backing_scripts": [
           "scripts/run-go-govulncheck.sh"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu_io",
+          "priority_band": "local_evidence",
+          "order": 3000
+        }
       },
       {
         "name": "go-gosec-targeted",
@@ -2180,7 +2354,15 @@
         ],
         "backing_scripts": [
           "scripts/run-go-gosec-targeted.sh"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu_io",
+          "priority_band": "local_evidence",
+          "order": 3100
+        }
       },
       {
         "name": "go-gosec-audit",
@@ -2190,7 +2372,15 @@
         ],
         "backing_scripts": [
           "scripts/run-go-gosec-audit.sh"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu_io",
+          "priority_band": "local_evidence",
+          "order": 3200
+        }
       },
       {
         "name": "check",
@@ -2207,21 +2397,48 @@
         "classification": "check_internal",
         "included_in": [
           "check"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "setup_blocker",
+          "priority_band": "setup",
+          "order": 0
+        }
       },
       {
         "name": "check-harness-smoke",
         "classification": "check_internal",
         "included_in": [
           "check"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu",
+          "priority_band": "harness_evidence",
+          "order": 1000,
+          "produces_summary_targets": [
+            "check-harness-smoke"
+          ]
+        }
       },
       {
         "name": "check-build-prereqs",
         "classification": "check_internal",
         "included_in": [
           "check"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "build_readiness_gate",
+          "priority_band": "build_readiness",
+          "order": 0
+        }
       },
       {
         "name": "check-go-test-duration-baseline-drift",
@@ -2231,7 +2448,18 @@
         ],
         "backing_scripts": [
           "scripts/check-go-test-duration-baseline-drift.mjs"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "post_service_duration_check",
+          "priority_band": "duration_baseline",
+          "order": 0,
+          "produces_summary_targets": [
+            "check-go-test-duration-baseline-drift"
+          ]
+        }
       },
       {
         "name": "check-browser-e2e-duration-baseline-drift",
@@ -2241,7 +2469,18 @@
         ],
         "backing_scripts": [
           "scripts/lib/browser-shard-plan.mjs"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "post_service_duration_check",
+          "priority_band": "duration_baseline",
+          "order": 1000,
+          "produces_summary_targets": [
+            "check-browser-e2e-duration-baseline-drift"
+          ]
+        }
       },
       {
         "name": "check-service-backed-make-target-duration-baseline-drift",
@@ -2251,14 +2490,36 @@
         ],
         "backing_scripts": [
           "scripts/service-backed-make-target-durations.mjs"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "post_service_duration_check",
+          "priority_band": "duration_baseline",
+          "order": 1100,
+          "produces_summary_targets": [
+            "check-service-backed-make-target-duration-baseline-drift"
+          ]
+        }
       },
       {
         "name": "check-frontend-unit",
         "classification": "check_internal",
         "included_in": [
           "check"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu",
+          "priority_band": "harness_evidence",
+          "order": 0,
+          "produces_summary_targets": [
+            "frontend-unit"
+          ]
+        }
       },
       {
         "name": "check-service-backed",
@@ -2269,7 +2530,24 @@
         "backing_scripts": [
           "scripts/cartulary-runner.mjs",
           "scripts/run-service-backed-schedule.mjs"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "nested_service_backed_scheduler",
+          "priority_band": "service_backed",
+          "order": 0,
+          "produces_summary_targets": [
+            "check-service-backed"
+          ],
+          "nested_scheduler": {
+            "type": "service_backed",
+            "target": "check-service-backed",
+            "manifest": "tools/service_backed_schedule_manifest.json",
+            "forwarding": "check_host_to_service_backed_go"
+          }
+        }
       },
       {
         "name": "ci",
@@ -2701,59 +2979,17 @@
       }
     ]
   },
-  "check_schedules": [
-    {
-      "target": "check",
-      "resource_limits": {
-        "host_cpu": 12,
-        "host_io": 12,
-        "service_stack": 1
-      },
-      "summary_groups": [
-        {
-          "name": "backend-service-backed",
-          "source": {
-            "type": "service_backed_schedule",
-            "target": "check-service-backed",
-            "class": "backend"
-          }
-        },
-        {
-          "name": "browser",
-          "source": {
-            "type": "service_backed_schedule",
-            "target": "check-service-backed",
-            "class": "browser_leaves"
-          }
-        },
-        {
-          "name": "duration-baselines",
-          "summary_targets": [
-            "check-go-test-duration-baseline-drift",
-            "check-browser-e2e-duration-baseline-drift",
-            "check-service-backed-make-target-duration-baseline-drift"
-          ]
-        },
-        {
-          "name": "harness",
-          "summary_targets": [
-            "check-harness-smoke"
-          ]
-        }
-      ],
-      "work_units": [
-        {
-          "target": "check-setup-blockers",
-          "weight": 50000,
+  "check_schedules": {
+    "defaults": {
+      "resource_profiles": {
+        "setup_blocker": {
           "needs": [],
           "resource_claims": {
             "host_cpu": 1
           },
           "make_jobs": "host_cpu"
         },
-        {
-          "target": "check-build-prereqs",
-          "weight": 40000,
+        "build_readiness_gate": {
           "needs": [
             "check-setup-blockers"
           ],
@@ -2767,14 +3003,9 @@
           },
           "make_jobs": "host_cpu"
         },
-        {
-          "target": "check-service-backed",
-          "weight": 30000,
+        "nested_service_backed_scheduler": {
           "needs": [
             "check-build-prereqs"
-          ],
-          "produces_summary_targets": [
-            "check-service-backed"
           ],
           "resource_claims": {
             "host_cpu": {
@@ -2791,59 +3022,18 @@
             },
             "service_stack": 1
           },
-          "make_jobs": "host_cpu",
-          "nested_scheduler": {
-            "type": "service_backed",
-            "target": "check-service-backed",
-            "manifest": "tools/service_backed_schedule_manifest.json",
-            "forwarding": "check_host_to_service_backed_go"
-          }
+          "make_jobs": "host_cpu"
         },
-        {
-          "target": "check-go-test-duration-baseline-drift",
-          "weight": 29000,
+        "post_service_duration_check": {
           "needs": [
             "check-service-backed"
-          ],
-          "produces_summary_targets": [
-            "check-go-test-duration-baseline-drift"
           ],
           "resource_claims": {
             "host_cpu": 1
           },
           "make_jobs": "host_cpu"
         },
-        {
-          "target": "check-browser-e2e-duration-baseline-drift",
-          "weight": 28000,
-          "needs": [
-            "check-service-backed"
-          ],
-          "produces_summary_targets": [
-            "check-browser-e2e-duration-baseline-drift"
-          ],
-          "resource_claims": {
-            "host_cpu": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "check-service-backed-make-target-duration-baseline-drift",
-          "weight": 27900,
-          "needs": [
-            "check-service-backed"
-          ],
-          "produces_summary_targets": [
-            "check-service-backed-make-target-duration-baseline-drift"
-          ],
-          "resource_claims": {
-            "host_cpu": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "migration-drift",
-          "weight": 27000,
+        "post_build_service_stack": {
           "needs": [
             "check-build-prereqs"
           ],
@@ -2854,9 +3044,7 @@
           },
           "make_jobs": "host_cpu"
         },
-        {
-          "target": "deployable-shape",
-          "weight": 26000,
+        "post_build_cpu_io": {
           "needs": [
             "check-build-prereqs"
           ],
@@ -2866,37 +3054,7 @@
           },
           "make_jobs": "host_cpu"
         },
-        {
-          "target": "backend-unit",
-          "weight": 25000,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "produces_summary_targets": [
-            "backend-unit"
-          ],
-          "resource_claims": {
-            "host_cpu": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "frontend-typecheck",
-          "weight": 24000,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "produces_summary_targets": [
-            "frontend-typecheck"
-          ],
-          "resource_claims": {
-            "host_cpu": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "lint-go",
-          "weight": 23000,
+        "after_setup_cpu": {
           "needs": [
             "check-setup-blockers"
           ],
@@ -2905,233 +3063,7 @@
           },
           "make_jobs": "host_cpu"
         },
-        {
-          "target": "go-vulncheck",
-          "weight": 22000,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "go-gosec-targeted",
-          "weight": 21900,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "go-gosec-audit",
-          "weight": 21800,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "check-frontend-unit",
-          "weight": 15000,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "produces_summary_targets": [
-            "frontend-unit"
-          ],
-          "resource_claims": {
-            "host_cpu": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "check-harness-smoke",
-          "weight": 14000,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "produces_summary_targets": [
-            "check-harness-smoke"
-          ],
-          "resource_claims": {
-            "host_cpu": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "lint-biome",
-          "weight": 13000,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "frontend-import-boundary-check",
-          "weight": 12950,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "lint-scripts",
-          "weight": 12900,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "lint-shell",
-          "weight": 12850,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "phase-test-name-check",
-          "weight": 12000,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "task-surface-check",
-          "weight": 11900,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "browser-e2e-task-surface-check",
-          "weight": 11800,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "frontend-task-surface-check",
-          "weight": 11700,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "backend-task-surface-check",
-          "weight": 11600,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "phase-map-check",
-          "weight": 11500,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "go-test-duration-baseline-coverage",
-          "weight": 11400,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "phase-ledger-drift",
-          "weight": 11300,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "phase-schedule-drift",
-          "weight": 11200,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "service-backed-unit-check",
-          "weight": 11100,
-          "needs": [
-            "check-setup-blockers"
-          ],
-          "resource_claims": {
-            "host_cpu": 1
-          },
-          "make_jobs": "host_cpu"
-        },
-        {
-          "target": "generate-drift",
-          "weight": 11000,
+        "after_setup_cpu_io": {
           "needs": [
             "check-setup-blockers"
           ],
@@ -3141,9 +3073,63 @@
           },
           "make_jobs": "host_cpu"
         }
-      ]
-    }
-  ],
+      },
+      "priority_bands": {
+        "setup": 50000,
+        "build_readiness": 40000,
+        "service_backed": 30000,
+        "duration_baseline": 29000,
+        "post_build": 27000,
+        "local_evidence": 25000,
+        "harness_evidence": 15000,
+        "static_validation": 13000,
+        "phase_validation": 12000,
+        "drift_validation": 11300
+      }
+    },
+    "schedules": [
+      {
+        "target": "check",
+        "resource_limits": {
+          "host_cpu": 12,
+          "host_io": 12,
+          "service_stack": 1
+        },
+        "summary_groups": [
+          {
+            "name": "backend-service-backed",
+            "source": {
+              "type": "service_backed_schedule",
+              "target": "check-service-backed",
+              "class": "backend"
+            }
+          },
+          {
+            "name": "browser",
+            "source": {
+              "type": "service_backed_schedule",
+              "target": "check-service-backed",
+              "class": "browser_leaves"
+            }
+          },
+          {
+            "name": "duration-baselines",
+            "summary_targets": [
+              "check-go-test-duration-baseline-drift",
+              "check-browser-e2e-duration-baseline-drift",
+              "check-service-backed-make-target-duration-baseline-drift"
+            ]
+          },
+          {
+            "name": "harness",
+            "summary_targets": [
+              "check-harness-smoke"
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "service_backed_schedules": {
     "defaults": {
       "go_shards_resource_claims": {

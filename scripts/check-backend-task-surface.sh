@@ -485,11 +485,37 @@ done
 if check_schedule_targets | rg -q '^(lint-go-format|lint-go-vet|lint-go-staticcheck)$'; then
   fail "check schedule must keep lint-go as the scheduler-visible Go lint work unit"
 fi
-"$node_bin" - "$check_schedule_manifest" <<'EOF'
+"$node_bin" - "$check_schedule_manifest" "$execution_topology_manifest" <<'EOF'
 const fs = require("node:fs");
 
-const [manifestFile] = process.argv.slice(2);
+const [manifestFile, topologyFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+const topology = JSON.parse(fs.readFileSync(topologyFile, "utf8"));
+if (topology.schema_id !== "cartulary.execution_topology.v2") {
+  throw new Error("execution topology must declare schema_id=cartulary.execution_topology.v2");
+}
+if (Array.isArray(topology.check_schedules)) {
+  throw new Error("execution topology must own check schedule profiles, not flat schedules");
+}
+const profiles = topology.check_schedules?.defaults?.resource_profiles ?? {};
+for (const requiredProfile of ["setup_blocker", "build_readiness_gate", "nested_service_backed_scheduler", "post_build_service_stack", "after_setup_cpu", "after_setup_cpu_io"]) {
+  if (!profiles[requiredProfile]) {
+    throw new Error(`execution topology must declare ${requiredProfile} check schedule profile`);
+  }
+}
+const topologyTargets = new Map((topology.task_surface?.targets ?? []).map((entry) => [entry.name, entry]));
+const assertCheckMetadata = (target, profile) => {
+  const metadata = topologyTargets.get(target)?.check_schedule;
+  if (!metadata?.schedules?.includes("check") || metadata.profile !== profile) {
+    throw new Error(`execution topology must schedule ${target} through ${profile} profile metadata`);
+  }
+};
+assertCheckMetadata("check-setup-blockers", "setup_blocker");
+assertCheckMetadata("check-build-prereqs", "build_readiness_gate");
+assertCheckMetadata("check-service-backed", "nested_service_backed_scheduler");
+assertCheckMetadata("migration-drift", "post_build_service_stack");
+assertCheckMetadata("backend-unit", "after_setup_cpu");
+assertCheckMetadata("go-vulncheck", "after_setup_cpu_io");
 if (manifest.schema_id !== "cartulary.check_schedule.v6") {
   throw new Error("check schedule manifest must declare schema_id=cartulary.check_schedule.v6");
 }

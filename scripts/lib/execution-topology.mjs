@@ -6,11 +6,12 @@ import {
   assertKnownResource,
   normalizeResourceClaims,
   normalizeResourceLimits,
+  resolveForwardingProfile,
 } from "./scheduler-resources.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..");
-export const executionTopologySchemaID = "cartulary.execution_topology.v1";
+export const executionTopologySchemaID = "cartulary.execution_topology.v2";
 export const defaultExecutionTopologyManifestPath = path.join(
   repoRoot,
   "tools",
@@ -34,6 +35,15 @@ const validBrowserDependencyPolicies = new Set([
   "after_backend_and_prior_browser",
 ]);
 const serviceRequirementsRequiringCheckServiceStack = new Set(["postgres", "minio", "browser_stack"]);
+const checkScheduleProfileKeys = new Set(["needs", "resource_claims", "make_jobs"]);
+const checkScheduleTargetKeys = new Set([
+  "schedules",
+  "profile",
+  "priority_band",
+  "order",
+  "produces_summary_targets",
+  "nested_scheduler",
+]);
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -100,9 +110,31 @@ function requireStringArray(value, label, { required = true } = {}) {
   return result;
 }
 
+function requireNonNegativeInteger(value, label) {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${label} must be a non-negative integer`);
+  }
+  return value;
+}
+
+function requirePositiveInteger(value, label) {
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${label} must be a positive integer`);
+  }
+  return value;
+}
+
 function requireSchema(manifest, schemaID, label) {
   if (manifest.schema_id !== schemaID) {
     throw new Error(`${label} must declare schema_id ${schemaID}`);
+  }
+}
+
+function validateAllowedKeys(value, allowed, label) {
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) {
+      throw new Error(`${label} has unknown key ${key}`);
+    }
   }
 }
 
@@ -344,55 +376,246 @@ function requiresCheckServiceStack(entry) {
   );
 }
 
-function validateCheckSchedules(topology, taskTargets, taskTargetEntries) {
-  for (const [scheduleIndex, schedule] of requireNonEmptyArray(
-    topology.check_schedules,
-    "check_schedules",
-  ).entries()) {
-    const label = `check_schedules[${scheduleIndex + 1}]`;
+function normalizeCheckScheduleRoot(topology, taskTargets) {
+  if (Array.isArray(topology.check_schedules)) {
+    throw new Error(
+      "check_schedules must be a profile object; flat check_schedules[] work_units are no longer supported",
+    );
+  }
+  const root = requireObject(topology.check_schedules, "check_schedules");
+  const defaults = requireObject(root.defaults, "check_schedules.defaults");
+  const rawProfiles = requireObject(
+    defaults.resource_profiles,
+    "check_schedules.defaults.resource_profiles",
+  );
+  const rawPriorityBands = requireObject(
+    defaults.priority_bands,
+    "check_schedules.defaults.priority_bands",
+  );
+  const schedules = requireNonEmptyArray(root.schedules, "check_schedules.schedules");
+  if (Object.keys(rawProfiles).length === 0) {
+    throw new Error("check_schedules.defaults.resource_profiles must not be empty");
+  }
+  if (Object.keys(rawPriorityBands).length === 0) {
+    throw new Error("check_schedules.defaults.priority_bands must not be empty");
+  }
+
+  const resourceProfiles = new Map();
+  for (const [name, value] of Object.entries(rawProfiles)) {
+    const profileName = requireString(name, "check_schedules.defaults.resource_profiles key");
+    const label = `check_schedules.defaults.resource_profiles.${profileName}`;
+    const profile = requireObject(value, label);
+    validateAllowedKeys(profile, checkScheduleProfileKeys, label);
+    resourceProfiles.set(profileName, {
+      name: profileName,
+      needs: requireStringArray(profile.needs ?? [], `${label}.needs`),
+      resourceClaims: clone(requireObject(profile.resource_claims, `${label}.resource_claims`)),
+      makeJobs: profile.make_jobs,
+    });
+    if (profile.make_jobs === undefined) {
+      throw new Error(`${label}.make_jobs must be declared by the reusable profile`);
+    }
+  }
+
+  const priorityBands = new Map();
+  for (const [name, weight] of Object.entries(rawPriorityBands)) {
+    const bandName = requireString(name, "check_schedules.defaults.priority_bands key");
+    priorityBands.set(
+      bandName,
+      requirePositiveInteger(weight, `check_schedules.defaults.priority_bands.${bandName}`),
+    );
+  }
+
+  const normalizedSchedules = [];
+  const seenScheduleTargets = new Set();
+  for (const [index, schedule] of schedules.entries()) {
+    const label = `check_schedules.schedules[${index + 1}]`;
     const target = requireString(schedule?.target, `${label}.target`);
+    if (seenScheduleTargets.has(target)) {
+      throw new Error(`check_schedules.schedules contains duplicate schedule ${target}`);
+    }
+    seenScheduleTargets.add(target);
     if (!taskTargets.has(target)) {
       throw new Error(`${label}.target ${target} is missing from task_surface.targets`);
     }
-    const resourceLimits = normalizeResourceLimits(schedule.resource_limits, label, {
+    if (schedule.work_units !== undefined) {
+      throw new Error(`${label}.work_units is obsolete; add per-target check_schedule metadata`);
+    }
+    normalizedSchedules.push({
+      target,
+      resourceLimits: clone(requireObject(schedule.resource_limits, `${label}.resource_limits`)),
+      summaryGroups: clone(schedule.summary_groups ?? []),
+    });
+  }
+
+  return {
+    resourceProfiles,
+    priorityBands,
+    schedules: normalizedSchedules,
+    scheduleTargets: seenScheduleTargets,
+  };
+}
+
+function normalizeCheckScheduleMetadata(entry, label, scheduleTargets) {
+  if (entry.check_schedule === undefined) {
+    return null;
+  }
+  const raw = requireObject(entry.check_schedule, `${label}.check_schedule`);
+  validateAllowedKeys(raw, checkScheduleTargetKeys, `${label}.check_schedule`);
+  const schedules = requireStringArray(raw.schedules, `${label}.check_schedule.schedules`);
+  if (schedules.length === 0) {
+    throw new Error(`${label}.check_schedule.schedules must not be empty`);
+  }
+  for (const schedule of schedules) {
+    if (!scheduleTargets.has(schedule)) {
+      throw new Error(`${label}.check_schedule.schedules references unknown check schedule ${schedule}`);
+    }
+    if (!Array.isArray(entry.included_in) || !entry.included_in.includes(schedule)) {
+      throw new Error(`${label}.check_schedule includes ${schedule} but target is not included_in ${schedule}`);
+    }
+  }
+  return {
+    schedules,
+    profile: requireString(raw.profile, `${label}.check_schedule.profile`),
+    priorityBand: requireString(raw.priority_band, `${label}.check_schedule.priority_band`),
+    order: requireNonNegativeInteger(raw.order, `${label}.check_schedule.order`),
+    producesSummaryTargets: requireStringArray(
+      raw.produces_summary_targets ?? [],
+      `${label}.check_schedule.produces_summary_targets`,
+    ),
+    nestedScheduler: raw.nested_scheduler === undefined ? null : clone(raw.nested_scheduler),
+  };
+}
+
+function normalizeCheckMakeJobs(value, label, claims) {
+  if (typeof value === "string") {
+    const resource = assertKnownResource(value, `${label}.make_jobs`, { scheduler: "check" });
+    if (!claims.has(resource)) {
+      throw new Error(`${label}.make_jobs resource ${resource} must be claimed by the profile`);
+    }
+    return resource;
+  }
+  return requirePositiveInteger(value, `${label}.make_jobs`);
+}
+
+function normalizeCheckNestedScheduler(value, label, unitTarget, claims) {
+  if (value === null) {
+    return null;
+  }
+  const nested = requireObject(value, `${label}.nested_scheduler`);
+  const allowedKeys = new Set(["type", "target", "manifest", "forwarding"]);
+  validateAllowedKeys(nested, allowedKeys, `${label}.nested_scheduler`);
+  if (nested.type !== "service_backed") {
+    throw new Error(`${label}.nested_scheduler.type must be service_backed`);
+  }
+  if (requireString(nested.target, `${label}.nested_scheduler.target`) !== unitTarget) {
+    throw new Error(`${label}.nested_scheduler.target must match work unit target ${unitTarget}`);
+  }
+  requireString(nested.manifest, `${label}.nested_scheduler.manifest`);
+  if (nested.forwarding === undefined) {
+    throw new Error(`${label}.nested_scheduler.forwarding must be declared`);
+  }
+  if (!claims.has("service_stack")) {
+    throw new Error(`${label}.nested_scheduler forwarding must claim service_stack`);
+  }
+  resolveForwardingProfile(nested.forwarding, claims, `${label}.nested_scheduler`);
+  return clone(nested);
+}
+
+function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntries) {
+  const root = normalizeCheckScheduleRoot(topology, taskTargets);
+  const targetMetadata = [];
+  for (const [target, entry] of taskTargetEntries.entries()) {
+    const metadata = normalizeCheckScheduleMetadata(entry, `task_surface.targets.${target}`, root.scheduleTargets);
+    if (metadata) {
+      targetMetadata.push({ target, entry, metadata });
+    }
+  }
+
+  return root.schedules.map((schedule) => {
+    const label = `check_schedules.schedules.${schedule.target}`;
+    const resourceLimits = normalizeResourceLimits(schedule.resourceLimits, label, {
       scheduler: "check",
     }).limits;
-    const units = requireNonEmptyArray(schedule.work_units, `${label}.work_units`);
-    const unitTargets = new Set();
-    for (const [unitIndex, unit] of units.entries()) {
-      const unitLabel = `${label}.work_units[${unitIndex + 1}]`;
-      const unitTarget = requireString(unit?.target, `${unitLabel}.target`);
-      if (!taskTargets.has(unitTarget)) {
-        throw new Error(`${unitLabel}.target ${unitTarget} is missing from task_surface.targets`);
+    const usedTargets = new Set();
+    const usedOrders = new Map();
+    const units = [];
+    for (const { target, entry, metadata } of targetMetadata) {
+      if (!metadata.schedules.includes(schedule.target)) {
+        continue;
       }
-      if (unitTargets.has(unitTarget)) {
-        throw new Error(`${label} contains duplicate work unit ${unitTarget}`);
+      if (usedTargets.has(target)) {
+        throw new Error(`${label} contains duplicate generated work unit ${target}`);
       }
-      unitTargets.add(unitTarget);
-      const claims = normalizeResourceClaims(unit.resource_claims ?? {}, unitLabel, resourceLimits, {
+      usedTargets.add(target);
+      const profile = root.resourceProfiles.get(metadata.profile);
+      if (!profile) {
+        throw new Error(`${target}.check_schedule.profile references unknown profile ${metadata.profile}`);
+      }
+      const priorityBase = root.priorityBands.get(metadata.priorityBand);
+      if (priorityBase === undefined) {
+        throw new Error(
+          `${target}.check_schedule.priority_band references unknown priority band ${metadata.priorityBand}`,
+        );
+      }
+      const orderKey = `${metadata.priorityBand}:${metadata.order}`;
+      if (usedOrders.has(orderKey)) {
+        throw new Error(
+          `${label} has duplicate priority order ${orderKey} for ${usedOrders.get(orderKey)} and ${target}`,
+        );
+      }
+      usedOrders.set(orderKey, target);
+      const weight = priorityBase - metadata.order;
+      if (weight < 1) {
+        throw new Error(`${target}.check_schedule order ${metadata.order} exhausts ${metadata.priorityBand} weight`);
+      }
+      const claims = normalizeResourceClaims(profile.resourceClaims, `${target}.check_schedule profile ${profile.name}`, resourceLimits, {
         scheduler: "check",
         allowBounded: true,
       });
-      if (unit.nested_scheduler?.forwarding) {
-        assertKnownResource("service_stack", `${unitLabel}.resource_claims.service_stack`, {
-          scheduler: "check",
-        });
-        if (!claims.has("service_stack")) {
-          throw new Error(`${unitLabel}.nested_scheduler forwarding must claim service_stack`);
-        }
-      }
+      const nestedScheduler = normalizeCheckNestedScheduler(
+        metadata.nestedScheduler,
+        `${target}.check_schedule`,
+        target,
+        claims,
+      );
       if (
-        requiresCheckServiceStack(taskTargetEntries.get(unitTarget)) &&
+        requiresCheckServiceStack(entry) &&
         !claims.has("service_stack") &&
-        unit.nested_scheduler?.type !== "service_backed"
+        nestedScheduler?.type !== "service_backed"
       ) {
         throw new Error(
-          `${unitLabel}.target ${unitTarget} declares service_requirements and must claim service_stack or use a nested service-backed scheduler`,
+          `${target}.check_schedule target declares service_requirements and must claim service_stack or use a nested service-backed scheduler`,
         );
       }
+      const unit = {
+        target,
+        weight,
+        needs: clone(profile.needs),
+        ...(metadata.producesSummaryTargets.length > 0
+          ? { produces_summary_targets: clone(metadata.producesSummaryTargets) }
+          : {}),
+        resource_claims: clone(profile.resourceClaims),
+        make_jobs: normalizeCheckMakeJobs(profile.makeJobs, `${target}.check_schedule profile ${profile.name}`, claims),
+        ...(nestedScheduler ? { nested_scheduler: nestedScheduler } : {}),
+      };
+      units.push({ ...unit, order: metadata.order });
     }
-    assertAcyclicUnits(target, units);
-  }
+    if (units.length === 0) {
+      throw new Error(`${label} must produce at least one work unit`);
+    }
+    assertAcyclicUnits(schedule.target, units);
+    units.sort(
+      (left, right) =>
+        right.weight - left.weight || left.order - right.order || left.target.localeCompare(right.target),
+    );
+    return {
+      target: schedule.target,
+      resource_limits: clone(schedule.resourceLimits),
+      summary_groups: clone(schedule.summaryGroups),
+      work_units: units.map(({ order: _order, ...unit }) => unit),
+    };
+  });
 }
 
 function assertAcyclicUnits(scheduleTarget, units) {
@@ -466,7 +689,7 @@ function normalizeTopology(raw, root, manifestPath) {
   validateExecutionDependencyTargets(dependencies, taskTargets);
   const goTargets = normalizeGoTargets(raw, dependencyByID);
   validateBrowserBatch(raw, dependencyByID, taskTargets);
-  validateCheckSchedules(raw, taskTargets, taskTargetEntries);
+  const checkSchedules = renderCheckSchedulesFromTopology(raw, taskTargets, taskTargetEntries);
   validateServiceBackedSchedules(manifestPath, raw, taskTargets);
   return {
     root,
@@ -477,7 +700,8 @@ function normalizeTopology(raw, root, manifestPath) {
     executionDependencyByID: dependencyByID,
     goTargets,
     taskSurface: clone(raw.task_surface),
-    checkSchedules: clone(raw.check_schedules),
+    checkScheduleProfile: clone(raw.check_schedules),
+    checkSchedules,
     serviceBackedSchedules: clone(raw.service_backed_schedules),
     browserBatch: clone(raw.browser_e2e_batch),
   };
@@ -494,9 +718,11 @@ export function loadExecutionTopology(options = {}) {
 }
 
 export function renderTaskSurfaceManifest(topology) {
+  const taskSurface = clone(topology.taskSurface);
+  taskSurface.targets = taskSurface.targets.map(({ check_schedule: _checkSchedule, ...target }) => target);
   return {
     schema_id: taskSurfaceSchemaID,
-    ...clone(topology.taskSurface),
+    ...taskSurface,
   };
 }
 
