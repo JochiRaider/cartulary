@@ -402,11 +402,19 @@ frontend-unit: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 
 lint: lint-go lint-biome lint-scripts frontend-typecheck
 
-lint-go:
+lint-go: lint-go-format lint-go-vet
+
+lint-go-format:
+	$(Q)CARTULARY_PHASE_FAILURE_NOTE="run make format to apply authored Go formatting" $(RUN_PHASE_SCRIPT) "lint gofmt" -- bash ./scripts/run-go-format.sh --check
+
+lint-go-vet:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "lint go-vet" -- bash ./scripts/run-go-vet.sh
 
-format: format-frontend
+format: format-go format-frontend
+
+format-go:
+	$(Q)$(RUN_PHASE_SCRIPT) "format go" -- bash ./scripts/run-go-format.sh --write
 
 format-frontend: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT) "format frontend" -- bash $(RUN_FRONTEND_BIOME_SCRIPT) format

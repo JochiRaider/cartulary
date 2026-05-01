@@ -349,6 +349,24 @@ fi
 if printf '%s\n' "$check_block" | grep -Fq -- '--step browser-e2e'; then
   fail "check must not run browser-e2e as a final serial step"
 fi
+lint_go_prereqs="$(extract_target_prereqs lint-go)"
+if ! printf '%s\n' "$lint_go_prereqs" | rg -q '(^|[[:space:]])lint-go-format($|[[:space:]])'; then
+  fail "lint-go must delegate to lint-go-format"
+fi
+if ! printf '%s\n' "$lint_go_prereqs" | rg -q '(^|[[:space:]])lint-go-vet($|[[:space:]])'; then
+  fail "lint-go must delegate to lint-go-vet"
+fi
+lint_go_format_block="$(extract_target_block lint-go-format)"
+if ! printf '%s\n' "$lint_go_format_block" | grep -Fq 'scripts/run-go-format.sh --check'; then
+  fail "lint-go-format must run the curated Go formatter wrapper in check mode"
+fi
+if ! printf '%s\n' "$lint_go_format_block" | grep -Fq 'run make format to apply authored Go formatting'; then
+  fail "lint-go-format must tell developers to run make format"
+fi
+lint_go_vet_block="$(extract_target_block lint-go-vet)"
+if ! printf '%s\n' "$lint_go_vet_block" | grep -Fq 'scripts/run-go-vet.sh'; then
+  fail "lint-go-vet must run the curated Go vet wrapper"
+fi
 for scheduled_target in \
   check-setup-blockers \
   check-build-prereqs \
@@ -379,6 +397,9 @@ for scheduled_target in \
 do
   check_schedule_field "$scheduled_target" target >/dev/null
 done
+if check_schedule_targets | rg -q '^(lint-go-format|lint-go-vet)$'; then
+  fail "check schedule must keep lint-go as the scheduler-visible Go lint work unit"
+fi
 "$node_bin" - "$check_schedule_manifest" <<'EOF'
 const fs = require("node:fs");
 

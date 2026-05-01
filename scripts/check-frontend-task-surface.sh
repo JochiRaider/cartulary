@@ -259,8 +259,12 @@ if rg -q '^lint-typecheck:' "$makefile"; then
   fail "lint-typecheck must not remain as a legacy alias; use frontend-typecheck"
 fi
 
-if ! rg -q '^format:[[:space:]]+format-frontend$$' "$makefile"; then
-  fail "format must delegate to format-frontend"
+if ! rg -q '^format:[[:space:]]+format-go[[:space:]]+format-frontend$$' "$makefile"; then
+  fail "format must delegate to format-go and format-frontend"
+fi
+format_go_block="$(extract_target_block format-go)"
+if ! printf '%s\n' "$format_go_block" | grep -Fq 'scripts/run-go-format.sh --write'; then
+  fail "format-go must run the curated Go formatter wrapper in write mode"
 fi
 format_frontend_prereqs="$(extract_target_prereqs format-frontend)"
 if ! printf '%s\n' "$format_frontend_prereqs" | rg -q '(^|[[:space:]])\$\(NODE_BIN\)($|[[:space:]])'; then

@@ -36,7 +36,7 @@
       },
       {
         "target": "format",
-        "description": "format authored frontend sources"
+        "description": "format authored Go and frontend sources"
       },
       {
         "target": "test-fast",
@@ -114,7 +114,7 @@
         },
         {
           "target": "format",
-          "description": "format authored frontend sources"
+          "description": "format authored Go and frontend sources"
         },
         {
           "target": "clean",
@@ -1641,6 +1641,16 @@
       ]
     },
     {
+      "name": "format-go",
+      "classification": "helper_only",
+      "included_in": [
+        "helper_only"
+      ],
+      "backing_scripts": [
+        "scripts/run-go-format.sh"
+      ]
+    },
+    {
       "name": "format-frontend",
       "classification": "helper_only",
       "included_in": [
@@ -1844,6 +1854,27 @@
       "classification": "helper_only",
       "included_in": [
         "check"
+      ],
+      "backing_scripts": [
+        "scripts/run-go-format.sh",
+        "scripts/run-go-vet.sh"
+      ]
+    },
+    {
+      "name": "lint-go-format",
+      "classification": "helper_only",
+      "included_in": [
+        "helper_only"
+      ],
+      "backing_scripts": [
+        "scripts/run-go-format.sh"
+      ]
+    },
+    {
+      "name": "lint-go-vet",
+      "classification": "helper_only",
+      "included_in": [
+        "helper_only"
       ],
       "backing_scripts": [
         "scripts/run-go-vet.sh"

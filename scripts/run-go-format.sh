@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "usage: run-go-format.sh --check|--write" >&2
+  exit 2
+}
+
+if [[ "$#" -ne 1 ]]; then
+  usage
+fi
+
+mode="$1"
+case "$mode" in
+  --check | --write) ;;
+  *) usage ;;
+esac
+
+ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+GOFMT_BIN="${GOFMT:-gofmt}"
+
+cd "$ROOT_DIR"
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "go format check must run inside a git work tree" >&2
+  exit 1
+fi
+
+if ! command -v "$GOFMT_BIN" >/dev/null 2>&1; then
+  echo "missing gofmt: install Go and ensure gofmt is on PATH, or set GOFMT" >&2
+  exit 1
+fi
+
+is_generated_go_path() {
+  local path="$1"
+  case "$path" in
+    internal/gen/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+has_generated_go_marker() {
+  local path="$1"
+  sed -n '1,20p' -- "$path" | grep -Eq '^// Code generated .* DO NOT EDIT\.$'
+}
+
+is_authored_go_file() {
+  local path="$1"
+  if [[ ! -f "$path" ]]; then
+    return 1
+  fi
+  if is_generated_go_path "$path"; then
+    return 1
+  fi
+  if has_generated_go_marker "$path"; then
+    return 1
+  fi
+  return 0
+}
+
+declare -A seen=()
+go_files=()
+
+append_go_files() {
+  local path
+  while IFS= read -r -d '' path; do
+    if [[ -n "${seen[$path]:-}" ]]; then
+      continue
+    fi
+    seen[$path]=1
+    if is_authored_go_file "$path"; then
+      go_files+=("$path")
+    fi
+  done
+}
+
+append_go_files < <(git ls-files -z -- '*.go')
+append_go_files < <(git ls-files -z --others --exclude-standard -- '*.go')
+
+if [[ "${#go_files[@]}" -eq 0 ]]; then
+  exit 0
+fi
+
+case "$mode" in
+  --check)
+    unformatted="$("$GOFMT_BIN" -l -- "${go_files[@]}")"
+    if [[ -n "$unformatted" ]]; then
+      echo "gofmt required for authored Go files:" >&2
+      printf '%s\n' "$unformatted" >&2
+      echo "run make format to rewrite authored Go and frontend sources." >&2
+      exit 1
+    fi
+    ;;
+  --write)
+    "$GOFMT_BIN" -w -- "${go_files[@]}"
+    ;;
+esac
