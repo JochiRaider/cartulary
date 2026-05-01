@@ -41,7 +41,7 @@
     },
     {
       "id": "frontend-generated-protocol-boundary",
-      "level": "warning",
+      "level": "error",
       "message": "Import generated protocol artifacts only through the @cartulary/protocol-ts facade.",
       "allowed_importers": [
         "packages/protocol-ts/src/index.ts"

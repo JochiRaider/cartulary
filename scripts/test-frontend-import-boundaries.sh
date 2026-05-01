@@ -102,7 +102,7 @@ write_config() {
     },
     {
       "id": "frontend-generated-protocol-boundary",
-      "level": "warning",
+      "level": "error",
       "message": "Import generated protocol artifacts only through the @cartulary/protocol-ts facade.",
       "allowed_importers": [
         "packages/protocol-ts/src/index.ts"
@@ -116,6 +116,19 @@ write_config() {
         {
           "kind": "path_prefix",
           "path": "packages/protocol-ts/src/generated"
+        }
+      ]
+    },
+    {
+      "id": "frontend-synthetic-warning-boundary",
+      "level": "warning",
+      "message": "Synthetic warning-only import boundary fixture.",
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "package",
+          "name": "cartulary-warning-only-fixture",
+          "include_subpaths": true
         }
       ]
     }
@@ -174,10 +187,8 @@ import { contractArtifactIndex } from "@cartulary/protocol-ts/generated";
 
 export const contracts = contractArtifactIndex;
 TS
-generated_package_output="$(assert_passes "generated package warning" run_checker "$generated_package_root")"
-assert_contains "$generated_package_output" "warning: frontend-generated-protocol-boundary" "generated package warning"
-generated_package_error_output="$(assert_fails "generated warning as error" run_checker "$generated_package_root" --warnings-as-errors)"
-assert_contains "$generated_package_error_output" "error: frontend-generated-protocol-boundary" "generated warning promoted to error"
+generated_package_output="$(assert_fails "generated package error" run_checker "$generated_package_root")"
+assert_contains "$generated_package_output" "error: frontend-generated-protocol-boundary" "generated package error"
 
 generated_relative_root="$(prepare_case_root generated-relative)"
 cat >"$generated_relative_root/apps/web/e2e/support.ts" <<'TS'
@@ -185,9 +196,20 @@ import { contractArtifactIndex } from "../../../packages/protocol-ts/src/generat
 
 export const contracts = contractArtifactIndex;
 TS
-generated_relative_output="$(assert_passes "generated relative warning" run_checker "$generated_relative_root")"
-assert_contains "$generated_relative_output" "warning: frontend-generated-protocol-boundary" "generated relative warning"
+generated_relative_output="$(assert_fails "generated relative error" run_checker "$generated_relative_root")"
+assert_contains "$generated_relative_output" "error: frontend-generated-protocol-boundary" "generated relative error"
 assert_contains "$generated_relative_output" "apps/web/e2e/support.ts" "generated relative file"
+
+warning_fixture_root="$(prepare_case_root warning-fixture)"
+cat >"$warning_fixture_root/apps/web/src/warningFixture.ts" <<'TS'
+import { fixture } from "cartulary-warning-only-fixture/subpath";
+
+export const warningFixture = fixture;
+TS
+warning_fixture_output="$(assert_passes "synthetic warning" run_checker "$warning_fixture_root")"
+assert_contains "$warning_fixture_output" "warning: frontend-synthetic-warning-boundary" "synthetic warning"
+warning_fixture_error_output="$(assert_fails "synthetic warning as error" run_checker "$warning_fixture_root" --warnings-as-errors)"
+assert_contains "$warning_fixture_error_output" "error: frontend-synthetic-warning-boundary" "synthetic warning promoted to error"
 
 facade_root="$(prepare_case_root facade)"
 cat >"$facade_root/apps/web/src/contracts.ts" <<'TS'

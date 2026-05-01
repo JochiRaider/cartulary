@@ -368,8 +368,8 @@ if (!JSON.stringify(gridRule.restricted_imports ?? []).includes('"react-data-gri
   throw new Error("frontend-grid-vendor-boundary must restrict react-data-grid");
 }
 const generatedRule = rules.get("frontend-generated-protocol-boundary");
-if (!generatedRule || generatedRule.level !== "warning") {
-  throw new Error("frontend-generated-protocol-boundary must remain warning-only during migration");
+if (!generatedRule || generatedRule.level !== "error") {
+  throw new Error("frontend-generated-protocol-boundary must be enforced as an error");
 }
 if (!(generatedRule.allowed_importers ?? []).includes("packages/protocol-ts/src/index.ts")) {
   throw new Error("frontend-generated-protocol-boundary must allow the protocol-ts facade");
