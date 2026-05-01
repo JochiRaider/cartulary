@@ -332,6 +332,29 @@ assert_equals "$(json_field "$success_target_summary" "kind")" "leaf" "batch tar
 assert_equals "$(json_field "$success_target_summary" "totals.accounting_modes.actual")" "4" "batch target actual phase count"
 assert_equals "$(json_field "$success_target_summary" "totals.accounting_modes.derived")" "2" "batch target derived phase count"
 
+phase_filter_invocations="$tmp_dir/batch-phase-filter-invocations.log"
+phase_filter_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_PHASE_SLICE_PHASE=phase4 \
+  CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
+  CARTULARY_TEST_RUN_ID="batch-phase-filter" \
+  NODE_BIN="${NODE:-node}" \
+  FAKE_PLAYWRIGHT_INVOCATIONS="$phase_filter_invocations" \
+    "$HELPER" webserver-backed -- "$fake_playwright"
+)"
+assert_empty "$phase_filter_output" "playwright webserver batch phase-filter success"
+assert_contains "$(cat "$phase_filter_invocations")" "phase4.workbook.spec.ts" "phase-filter functional shard includes phase4 file"
+assert_not_contains "$(cat "$phase_filter_invocations")" "phase2.spec.ts" "phase-filter functional shard excludes phase2 file"
+phase_filter_root="$tmp_dir/results/batch-phase-filter/adhoc"
+phase_filter_phase4_summary="$phase_filter_root/browser-e2e-functional-phase4-authoritative/phase-summary.json"
+assert_equals "$(json_field "$phase_filter_phase4_summary" "status")" "pass" "phase-filter phase4 functional status"
+if [[ -e "$phase_filter_root/browser-e2e-functional-phase2-authoritative/phase-summary.json" ]]; then
+  fail "phase-filtered browser batch must not emit phase2 functional summary"
+fi
+if [[ -e "$phase_filter_root/browser-e2e-support-phase2-supplemental/phase-summary.json" ]]; then
+  fail "phase-filtered browser batch must not emit phase2 support summary"
+fi
+
 set +e
 support_failure_output="$(
   CARTULARY_OUTPUT_MODE=quiet \

@@ -124,10 +124,15 @@ function normalizePostgresFixturePolicy(value) {
     : "";
 }
 
-function buildExecutionItems(root) {
+function buildExecutionItems(root, { phase = "" } = {}) {
   const modulePath = loadGoModulePath(root);
   const baselines = readGoDurationBaselineMaps(root, "", { allowMissing: true });
-  const rows = collectTargetPlanRows(root);
+  const rows = collectTargetPlanRows(root).filter((row) => {
+    if (!phase) {
+      return true;
+    }
+    return row.manifest_phase === phase;
+  });
   const aggregates = new Map();
   const executableItems = [];
 
@@ -360,8 +365,9 @@ function publicAggregateTarget(aggregate) {
   return publicAggregateTargetForMode(aggregate.mode);
 }
 
-function shardName(aggregateName, index) {
-  return `${aggregateName}-shard-${String(index + 1).padStart(2, "0")}`;
+function shardName(aggregateName, index, phase = "") {
+  const phasePrefix = phase ? `${phase}-` : "";
+  return `${phasePrefix}${aggregateName}-shard-${String(index + 1).padStart(2, "0")}`;
 }
 
 function schedulerProfileForShard(items, weightMs) {
@@ -387,11 +393,12 @@ function schedulerProfileForShard(items, weightMs) {
 }
 
 export function collectGoShardPlan(root = process.cwd(), options = {}) {
+  const phase = typeof options.phase === "string" ? options.phase.trim() : "";
   const requestedTargetMs = normalizePositiveInteger(
     options.targetMs,
     Number.NaN,
   );
-  const { baselines, aggregates, executableItems } = buildExecutionItems(root);
+  const { baselines, aggregates, executableItems } = buildExecutionItems(root, { phase });
   const itemsByAggregate = new Map();
   for (const item of executableItems) {
     if (!itemsByAggregate.has(item.aggregate_name)) {
@@ -427,7 +434,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
         }
       }
       shards.push({
-        name: shardName(aggregateName, index),
+        name: shardName(aggregateName, index, phase),
         target: targets.size === 1 ? Array.from(targets)[0] : Array.from(targets).sort(compareStrings).join(","),
         aggregate_name: aggregateName,
         shard_target_ms: targetMs,
@@ -509,6 +516,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
 
   return {
     schema_id: "cartulary.go_shard_plan.v3",
+    phase: phase || "",
     default_shard_target_ms: baselines.defaultShardTargetMs,
     shard_target_ms_by_target: Object.fromEntries(
       [...baselines.shardTargetMsByTarget.entries()].sort(([left], [right]) =>
@@ -585,8 +593,8 @@ function targetAggregates(plan, target) {
   return plan.aggregates.filter((aggregate) => targetOwnsAggregate(target, aggregate));
 }
 
-export function collectGoShardsForTarget(root = process.cwd(), target) {
-  const plan = collectGoShardPlan(root);
+export function collectGoShardsForTarget(root = process.cwd(), target, options = {}) {
+  const plan = collectGoShardPlan(root, options);
   return targetShards(plan, target);
 }
 
@@ -611,8 +619,18 @@ function printLines(lines) {
 }
 
 function main(argv) {
-  const [command, target, name] = argv;
-  const plan = collectGoShardPlan(process.cwd());
+  const args = [...argv];
+  let phase = "";
+  for (let index = 0; index < args.length;) {
+    if (args[index] === "--phase") {
+      phase = args[index + 1] ?? "";
+      args.splice(index, 2);
+      continue;
+    }
+    index += 1;
+  }
+  const [command, target, name] = args;
+  const plan = collectGoShardPlan(process.cwd(), { phase });
   switch (command) {
     case "json":
       process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
@@ -646,7 +664,7 @@ function main(argv) {
       return;
     }
     case "shard-field": {
-      const field = argv[3];
+      const field = args[3];
       const shard = findShard(plan, target, name);
       const value = shard[field] ?? "";
       process.stdout.write(`${String(value)}\n`);
@@ -666,7 +684,7 @@ function main(argv) {
       return;
     }
     case "aggregate-field": {
-      const field = argv[3];
+      const field = args[3];
       const aggregate = findAggregate(plan, target, name);
       const value = aggregate[field] ?? "";
       process.stdout.write(`${String(value)}\n`);

@@ -180,6 +180,13 @@ assert_equals "$(json_field "$tmp_dir/plan.json" "shards.0.files")" "apps/web/e2
 assert_equals "$(json_field "$tmp_dir/plan.json" "shards.0.entries.0.id")" "E-1-01" "duplicate spec keeps first row"
 assert_equals "$(json_field "$tmp_dir/plan.json" "shards.0.entries.1.id")" "E-1-02" "duplicate spec keeps second row"
 
+CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+  "$node_cmd" "$PLANNER" plan --phase phase2 --baseline-file "$tmp_dir/baseline.json" --max-shards 3 >"$tmp_dir/phase2-plan.json"
+assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "phase")" "phase2" "phase-filtered plan records selected phase"
+assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "spec_count")" "1" "phase-filtered plan keeps only selected functional specs"
+assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "specs.0.file")" "apps/web/e2e/gamma.spec.ts" "phase-filtered plan selects phase2 functional file"
+assert_equals "$(json_field "$tmp_dir/phase2-plan.json" "shards.0.entries.0.id")" "E-2-01" "phase-filtered plan selects phase2 row"
+
 "$node_cmd" -e '
 const fs = require("node:fs");
 const plan = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));

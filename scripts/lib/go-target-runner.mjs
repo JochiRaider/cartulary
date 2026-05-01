@@ -147,6 +147,7 @@ export function createGoTargetContext(options = {}) {
       repoRoot,
       env.TEST_OUTPUT_SCRIPT || path.join("scripts", "lib", "test-output.mjs"),
     ),
+    phaseSelection: env.CARTULARY_GO_TARGET_PHASE || "",
     invocation: null,
     targetPlanRows: null,
     shardPlan: null,
@@ -178,14 +179,19 @@ export function prepareSharedArtifactDir(ctx, name) {
 
 function targetRows(ctx) {
   if (!ctx.targetPlanRows) {
-    ctx.targetPlanRows = collectTargetPlanRows(ctx.repoRoot);
+    ctx.targetPlanRows = collectTargetPlanRows(ctx.repoRoot).filter((row) => {
+      if (!ctx.phaseSelection) {
+        return true;
+      }
+      return row.manifest_phase === ctx.phaseSelection;
+    });
   }
   return ctx.targetPlanRows;
 }
 
 function shardPlan(ctx) {
   if (!ctx.shardPlan) {
-    ctx.shardPlan = collectGoShardPlan(ctx.repoRoot);
+    ctx.shardPlan = collectGoShardPlan(ctx.repoRoot, { phase: ctx.phaseSelection });
   }
   return ctx.shardPlan;
 }

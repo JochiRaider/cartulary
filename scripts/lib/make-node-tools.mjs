@@ -62,6 +62,36 @@ export class UsageError extends Error {
   }
 }
 
+const phaseSliceRuntimeEnv = [
+  "MAKE",
+  "TEST_OUTPUT_SCRIPT",
+  "CARTULARY_TEST_RESULTS_DIR",
+  "CARTULARY_TEST_RUN_ID",
+  "TEST_SERVICES_BIN",
+  "NODE_BIN",
+  "NODE_RUNTIME_DIR",
+  "PNPM",
+  "SERVER_BIN",
+  "MIGRATE_BIN",
+  "GO",
+  "GO_CACHE_DIR",
+  "GO_MOD_CACHE_DIR",
+  "GO_TEST_SERVICE_PACKAGE_PARALLELISM",
+  "BACKEND_STORE_GO_TEST_P",
+  "BACKEND_INTEGRATION_GO_TEST_P",
+  "BACKEND_INTEGRATION_SHARD_JOBS",
+  "PLAYWRIGHT_WORKERS",
+  "VITEST_FLAGS",
+  "VITEST_MAX_WORKERS",
+  "TASK_SURFACE_MANIFEST",
+  "SERVICE_BACKED_SCHEDULE_MANIFEST",
+  "BROWSER_E2E_BATCH_MANIFEST",
+  "CARTULARY_RUNNER_SCRIPT",
+  "RUN_PHASE_SCRIPT",
+  "RUN_GO_TARGET_SCRIPT",
+  "RUN_SERVICE_BACKED_SCHEDULE_SCRIPT",
+];
+
 export const makeNodeTools = {
   "task-surface-report": {
     inputs: ["TASK_SURFACE_REPORT_ARGS"],
@@ -85,37 +115,31 @@ export const makeNodeTools = {
     },
   },
   "phase-slice": {
-    inputs: ["PHASE"],
-    runtimeEnv: [
-      "MAKE",
-      "TEST_OUTPUT_SCRIPT",
-      "CARTULARY_TEST_RESULTS_DIR",
-      "CARTULARY_TEST_RUN_ID",
-    ],
+    inputs: ["PHASE", "JSON"],
+    runtimeEnv: phaseSliceRuntimeEnv,
     script: "./scripts/run-phase-slice.mjs",
     usage: "usage: make phase-slice PHASE=<phaseN>",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
         throw new UsageError("PHASE is required", "usage: make phase-slice PHASE=<phaseN>");
       }
-      return ["--phase", value(env, "PHASE"), "--mode", "phase"];
+      const args = ["--phase", value(env, "PHASE"), "--mode", "phase"];
+      jsonFlag(args, env);
+      return args;
     },
   },
   "service-backed-slice": {
-    inputs: ["PHASE"],
-    runtimeEnv: [
-      "MAKE",
-      "TEST_OUTPUT_SCRIPT",
-      "CARTULARY_TEST_RESULTS_DIR",
-      "CARTULARY_TEST_RUN_ID",
-    ],
+    inputs: ["PHASE", "JSON"],
+    runtimeEnv: phaseSliceRuntimeEnv,
     script: "./scripts/run-phase-slice.mjs",
     usage: "usage: make service-backed-slice PHASE=<phaseN>",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
         throw new UsageError("PHASE is required", "usage: make service-backed-slice PHASE=<phaseN>");
       }
-      return ["--phase", value(env, "PHASE"), "--mode", "service-backed"];
+      const args = ["--phase", value(env, "PHASE"), "--mode", "service-backed"];
+      jsonFlag(args, env);
+      return args;
     },
   },
   "target-plan": {

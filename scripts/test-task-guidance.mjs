@@ -283,11 +283,12 @@ function scenarioTaskGuideRoles(fixture) {
 function scenarioTaskGuidePhaseSlices(fixture) {
   const resultsEnv = { CARTULARY_TEST_RESULTS_DIR: fixture.resultsDir };
   const phase4FeatureOutput = nodeScript(taskGuide, ["--role", "feature-dev", "--phase", "phase4"], resultsEnv);
-  assertContains(phase4FeatureOutput, "minimal phase slice: direct targets that cover phase4", "phase4 feature-dev minimal tier");
-  assertContains(phase4FeatureOutput, "service-backed slice: service-backed targets that cover phase4", "phase4 feature-dev service tier");
+  assertContains(phase4FeatureOutput, "minimal phase slice: manifest rows that cover phase4", "phase4 feature-dev minimal tier");
+  assertContains(phase4FeatureOutput, "service-backed slice: service-backed manifest rows that cover phase4", "phase4 feature-dev service tier");
   assertContains(phase4FeatureOutput, "general hygiene: useful non-phase checks", "phase4 feature-dev hygiene tier");
-  assertContains(phase4FeatureOutput, "make phase-slice PHASE=phase4 | selected phase target slice | phase_relevance=phase_slice", "phase4 public phase slice");
-  assertContains(phase4FeatureOutput, "make service-backed-slice PHASE=phase4 | selected phase service-backed target slice | phase_relevance=service_backed_slice", "phase4 public service-backed slice");
+  assertContains(phase4FeatureOutput, "make phase-slice PHASE=phase4 | selected phase manifest-row slice | phase_relevance=phase_slice", "phase4 public phase slice");
+  assertContains(phase4FeatureOutput, "make service-backed-slice PHASE=phase4 | selected phase service-backed manifest-row slice | phase_relevance=service_backed_slice", "phase4 public service-backed slice");
+  assertContains(phase4FeatureOutput, "scheduler=Make node_tool;phase scheduler", "phase4 public phase scheduler owner");
   assertNotContains(phase4FeatureOutput, "make backend-unit | selected phase execution dependency | phase_relevance=phase_slice", "phase4 backend-unit not direct phase slice");
   assertNotContains(phase4FeatureOutput, "make backend-store | selected phase execution dependency | phase_relevance=phase_slice", "phase4 backend-store not direct phase slice");
   assertNotContains(phase4FeatureOutput, "make backend-integration | selected phase execution dependency | phase_relevance=phase_slice", "phase4 backend-integration not direct phase slice");

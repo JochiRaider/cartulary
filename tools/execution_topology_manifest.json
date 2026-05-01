@@ -326,12 +326,12 @@
           {
             "target": "phase-slice",
             "usage": "PHASE=phaseN",
-            "description": "run the selected phase target slice"
+            "description": "run the selected phase manifest-row slice"
           },
           {
             "target": "service-backed-slice",
             "usage": "PHASE=phaseN",
-            "description": "run the selected phase service-backed slice"
+            "description": "run the selected phase service-backed manifest-row slice"
           },
           {
             "target": "backend-unit",
@@ -1629,6 +1629,7 @@
         ],
         "backing_scripts": [
           "scripts/run-phase-slice.mjs",
+          "scripts/lib/phase-slice-plan.mjs",
           "scripts/lib/task-guidance.mjs"
         ]
       },
@@ -1640,6 +1641,7 @@
         ],
         "backing_scripts": [
           "scripts/run-phase-slice.mjs",
+          "scripts/lib/phase-slice-plan.mjs",
           "scripts/lib/task-guidance.mjs"
         ]
       },
@@ -2741,6 +2743,7 @@
           "harness-smoke-phase-slice",
           "harness-smoke-go-test-duration-baselines",
           "harness-smoke-service-backed-make-target-duration-baselines",
+          "harness-smoke-harness-duration-baselines",
           "harness-smoke-browser-shard-plan",
           "harness-smoke-phase-test-names",
           "harness-smoke-run-phase",
@@ -2797,6 +2800,7 @@
           "harness-smoke-phase-slice",
           "harness-smoke-go-test-duration-baselines",
           "harness-smoke-service-backed-make-target-duration-baselines",
+          "harness-smoke-harness-duration-baselines",
           "harness-smoke-browser-shard-plan",
           "harness-smoke-phase-test-names",
           "harness-smoke-run-phase",
@@ -3013,6 +3017,13 @@
         "name": "harness-smoke-service-backed-make-target-duration-baselines",
         "backing_scripts": [
           "scripts/test-service-backed-make-target-duration-baselines.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-harness-duration-baselines",
+        "backing_scripts": [
+          "scripts/test-harness-smoke-duration-baselines.sh",
+          "scripts/harness-smoke-durations.mjs"
         ]
       },
       {

@@ -49,31 +49,52 @@ support_stdout_log="${batch_dir}/support-stdout.log"
 support_stderr_log="${batch_dir}/support-stderr.log"
 output_dir="${batch_dir}/playwright-output"
 shard_plan="${batch_dir}/functional-shards.json"
+phase_filter="${CARTULARY_PHASE_SLICE_PHASE:-}"
 
 playwright_parallelism="${PLAYWRIGHT_WORKERS:-2}"
 if [[ ! "$playwright_parallelism" =~ ^[0-9]+$ ]] || (( playwright_parallelism < 1 )); then
   playwright_parallelism=1
 fi
 
-"$node_bin" "$shard_plan_script" plan --max-shards "$playwright_parallelism" >"$shard_plan"
+if [[ "$mode" != "support" ]]; then
+  shard_plan_command=("$node_bin" "$shard_plan_script" plan --max-shards "$playwright_parallelism")
+  if [[ -n "$phase_filter" ]]; then
+    shard_plan_command+=(--phase "$phase_filter")
+  fi
+  "${shard_plan_command[@]}" >"$shard_plan"
+else
+  cat >"$shard_plan" <<JSON
+{
+  "schema_id": "cartulary.browser_e2e_shard_plan.v1",
+  "phase": "${phase_filter}",
+  "specs": [],
+  "shards": []
+}
+JSON
+fi
 
-mapfile -t shard_names < <(
-  "$node_bin" - "$shard_plan" <<'EOF'
+shard_names=()
+if [[ "$mode" != "support" ]]; then
+  mapfile -t shard_names < <(
+    "$node_bin" - "$shard_plan" <<'EOF'
 const fs = require("node:fs");
 const plan = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 for (const shard of plan.shards ?? []) {
   process.stdout.write(`${shard.name}\n`);
 }
 EOF
-)
+  )
+fi
 
-if [[ "${#shard_names[@]}" -eq 0 ]]; then
+if [[ "$mode" != "support" && "${#shard_names[@]}" -eq 0 ]]; then
   echo "browser functional shard plan produced no shards" >&2
   exit 1
 fi
 
-mapfile -t functional_phases < <(
-  "$node_bin" - "$shard_plan" <<'EOF'
+functional_phases=()
+if [[ "$mode" != "support" ]]; then
+  mapfile -t functional_phases < <(
+    "$node_bin" - "$shard_plan" <<'EOF'
 const fs = require("node:fs");
 const plan = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const phases = new Set();
@@ -86,19 +107,30 @@ for (const phase of [...phases].sort((left, right) => left.localeCompare(right, 
   process.stdout.write(`${phase}\n`);
 }
 EOF
-)
+  )
+fi
 
-mapfile -t support_phases < <(
-  "$node_bin" "$manifest_script" playwright-phases supplemental browser_support 2>/dev/null || true
-)
+if [[ -n "$phase_filter" ]]; then
+  support_count="$("$node_bin" "$manifest_script" playwright-count "$phase_filter" supplemental browser_support)"
+  if [[ "$support_count" != "0" ]]; then
+    support_phases=("$phase_filter")
+  else
+    support_phases=()
+  fi
+else
+  mapfile -t support_phases < <(
+    "$node_bin" "$manifest_script" playwright-phases supplemental browser_support 2>/dev/null || true
+  )
+fi
 
 support_selection_specs=()
 for support_phase in "${support_phases[@]}"; do
   support_selection_specs+=("${support_phase}:supplemental:browser_support")
 done
 
-all_functional_grep="$(
-  "$node_bin" - "$shard_plan" <<'EOF'
+if [[ "$mode" != "support" ]]; then
+  all_functional_grep="$(
+    "$node_bin" - "$shard_plan" <<'EOF'
 const fs = require("node:fs");
 const plan = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const escapeRegex = (value) => value.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
@@ -110,9 +142,9 @@ for (const shard of plan.shards ?? []) {
 }
 process.stdout.write(`^(?:${titles.map(escapeRegex).join("|")})$`);
 EOF
-)"
-all_functional_files="$(
-  "$node_bin" - "$shard_plan" <<'EOF'
+  )"
+  all_functional_files="$(
+    "$node_bin" - "$shard_plan" <<'EOF'
 const fs = require("node:fs");
 const plan = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const files = new Set();
@@ -121,7 +153,11 @@ for (const spec of plan.specs ?? []) {
 }
 process.stdout.write(`${[...files].sort().join("\n")}\n`);
 EOF
-)"
+  )"
+else
+  all_functional_grep="(?!)"
+  all_functional_files="__no_browser_functional__.spec.ts"
+fi
 if [[ "${#support_selection_specs[@]}" -gt 0 ]]; then
   all_support_grep="$("$node_bin" "$manifest_script" playwright-grep-many "${support_selection_specs[@]}")"
   all_support_files="$("$node_bin" "$manifest_script" playwright-files-many "${support_selection_specs[@]}")"
@@ -265,7 +301,7 @@ else
 fi
 
 support_status=0
-if [[ "$mode" == "webserver-backed" || "$mode" == "support" ]]; then
+if [[ ("$mode" == "webserver-backed" || "$mode" == "support") && "${#support_selection_specs[@]}" -gt 0 ]]; then
   support_run_command=("${command[@]}" --reporter=json --output "${output_dir}/support" --project support)
   if [[ "$output_mode" != "quiet" ]]; then
     support_run_command=("${command[@]}" "--reporter=dot,json" --output "${output_dir}/support" --project support)

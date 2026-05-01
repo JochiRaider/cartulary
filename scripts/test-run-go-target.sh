@@ -619,11 +619,22 @@ assert_contains "$backend_unit_aggregates" "backend-unit-configtest" "backend-un
 
 backend_store_shards="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-store)"
 assert_contains "$backend_store_shards" "backend-store-shard-" "backend-store captures planned shards"
+phase4_backend_store_shards="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" --phase phase4 list-shards backend-store)"
+assert_contains "$phase4_backend_store_shards" "phase4-backend-store-shard-" "phase-filtered backend-store shards carry phase prefix"
+phase4_backend_store_first_shard="$(printf '%s\n' "$phase4_backend_store_shards" | head -n 1)"
+phase4_backend_store_shard_target="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" --phase phase4 shard-field backend-store "$phase4_backend_store_first_shard" target)"
+assert_contains "$phase4_backend_store_shard_target" "backend-store" "phase-filtered shard-field keeps shifted field argument"
+phase4_backend_store_aggregate="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" --phase phase4 list-aggregates backend-store | head -n 1)"
+phase4_backend_store_aggregate_phase="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" --phase phase4 aggregate-field backend-store "$phase4_backend_store_aggregate" phase)"
+assert_contains "$phase4_backend_store_aggregate_phase" "phase4" "phase-filtered aggregate-field keeps shifted field argument"
 
 backend_integration_shards="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration)"
 assert_contains "$backend_integration_shards" "backend-integration-entities-shard-" "backend-integration captures entity shards"
 assert_contains "$backend_integration_shards" "$phase2_incidents_shard" "backend-integration captures planned phase2 incident shard"
 assert_contains "$backend_integration_shards" "backend-integration-testutil-shard-01" "backend-integration captures raw testutil shard"
+phase4_backend_integration_shards="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" --phase phase4 list-shards backend-integration)"
+assert_contains "$phase4_backend_integration_shards" "phase4-backend-integration-entities-shard-" "phase-filtered backend-integration captures phase4 entities shard"
+assert_not_contains "$phase4_backend_integration_shards" "$phase2_incidents_shard" "phase-filtered backend-integration excludes phase2 shard"
 first_backend_integration_shard="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration | head -n 1)"
 assert_contains "$backend_integration_shards" "$first_backend_integration_shard" "backend-integration weighted shard order starts with heaviest shard"
 

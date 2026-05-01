@@ -282,6 +282,9 @@ function browserStageOwners(root = repoRoot) {
 
 function schedulerOwnerForTarget(target, manifest, root = repoRoot) {
   const values = [];
+  if (target === "phase-slice" || target === "service-backed-slice") {
+    values.push("phase scheduler");
+  }
   const recipes = new Map(makeRecipeEntries(manifest).map((recipe) => [recipe.target, recipe]));
   const recipe = recipes.get(target);
   if (recipe?.type === "sequence") {
@@ -566,14 +569,14 @@ function featureDevPhaseRecommendationTiers(definition, phaseInfo, { root = repo
     recommendationForPhaseSlice(phaseSlice(phaseInfo.phase, { root }), {
       root,
       phaseRelevance: "phase_slice",
-      summaryOverride: "selected phase target slice",
+      summaryOverride: "selected phase manifest-row slice",
     }),
   ];
   const serviceBackedRecommendations = [
     recommendationForPhaseSlice(phaseSlice(phaseInfo.phase, { root, serviceBackedOnly: true }), {
       root,
       phaseRelevance: "service_backed_slice",
-      summaryOverride: "selected phase service-backed target slice",
+      summaryOverride: "selected phase service-backed manifest-row slice",
     }),
   ];
   const fullLocalGateRecommendations = fullLocalGateTargets.map((target) =>
@@ -594,12 +597,12 @@ function featureDevPhaseRecommendationTiers(definition, phaseInfo, { root = repo
   return [
     {
       name: "minimal phase slice",
-      summary: `direct targets that cover ${phaseInfo.phase}`,
+      summary: `manifest rows that cover ${phaseInfo.phase}`,
       recommendations: phaseRecommendations,
     },
     {
       name: "service-backed slice",
-      summary: `service-backed targets that cover ${phaseInfo.phase}`,
+      summary: `service-backed manifest rows that cover ${phaseInfo.phase}`,
       recommendations: serviceBackedRecommendations,
     },
     {

@@ -93,9 +93,12 @@ function positiveIntegerOrDefault(value, fallback) {
   return Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
-function browserFunctionalEntries(root) {
+function browserFunctionalEntries(root, { phase: phaseFilter = "" } = {}) {
   const entries = [];
   for (const phase of phaseManifestNames(root)) {
+    if (phaseFilter && phase !== phaseFilter) {
+      continue;
+    }
     const { manifest } = loadManifest(root, phase);
     for (const entry of collectEntries(manifest)) {
       if (
@@ -124,9 +127,9 @@ function browserFunctionalEntries(root) {
   });
 }
 
-function collectSpecRows(root, baseline) {
+function collectSpecRows(root, baseline, { phase = "" } = {}) {
   const specs = new Map();
-  for (const entry of browserFunctionalEntries(root)) {
+  for (const entry of browserFunctionalEntries(root, { phase })) {
     if (!specs.has(entry.file)) {
       specs.set(entry.file, {
         file: entry.file,
@@ -159,11 +162,15 @@ function planShardCount(specs, baseline, maxShards) {
   return Math.max(1, Math.min(specs.length, maxShards, targetShards));
 }
 
-function createPlan({ baselineFile, maxShards }) {
+function createPlan({ baselineFile, maxShards, phase = "" }) {
   const baseline = readBaseline(baselineFile);
-  const specs = collectSpecRows(repoRoot, baseline);
+  const specs = collectSpecRows(repoRoot, baseline, { phase });
   if (specs.length === 0) {
-    throw new Error("no authoritative browser_functional Playwright rows found");
+    throw new Error(
+      phase
+        ? `no authoritative browser_functional Playwright rows found for ${phase}`
+        : "no authoritative browser_functional Playwright rows found",
+    );
   }
   const shardCount = planShardCount(specs, baseline, maxShards);
   const shards = Array.from({ length: shardCount }, (_, index) => ({
@@ -191,6 +198,7 @@ function createPlan({ baselineFile, maxShards }) {
 
   return {
     schema_id: "cartulary.browser_e2e_shard_plan.v1",
+    phase,
     generated_at: new Date().toISOString(),
     baseline_file: path.relative(repoRoot, baselineFile),
     max_shards: maxShards,
@@ -242,6 +250,7 @@ function parsePlanArgs(argv) {
   const options = {
     baselineFile: defaultBaselineFile,
     maxShards: 1,
+    phase: "",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -257,6 +266,14 @@ function parsePlanArgs(argv) {
       options.maxShards = Number.parseInt(argv[index + 1] ?? "", 10);
       index += 1;
       if (!Number.isInteger(options.maxShards) || options.maxShards < 1) {
+        usage();
+      }
+      continue;
+    }
+    if (arg === "--phase") {
+      options.phase = argv[index + 1] ?? "";
+      index += 1;
+      if (!/^phase[0-9]+$/.test(options.phase)) {
         usage();
       }
       continue;

@@ -10,6 +10,7 @@ import {
   renderCheckScheduleManifest,
   renderTaskSurfaceManifest,
 } from "./lib/execution-topology.mjs";
+import { validateAllPhaseSlicePlans } from "./lib/phase-slice-plan.mjs";
 import { collectTaskSurfaceManifestErrors, renderTaskSurfaceMake } from "./lib/task-surface.mjs";
 import { renderServiceBackedScheduleManifest } from "./render-service-backed-schedule-manifest.mjs";
 
@@ -63,6 +64,7 @@ function outputEntry(file, content) {
 
 function renderArtifacts(options) {
   const topology = loadExecutionTopology({ manifestPath: options.topology });
+  validateAllPhaseSlicePlans({ root: repoRoot });
   const taskSurfaceManifest = renderTaskSurfaceManifest(topology);
   const browserBatchManifest = renderBrowserBatchManifest(topology);
   const serviceBackedScheduleManifest = renderServiceBackedScheduleManifest({

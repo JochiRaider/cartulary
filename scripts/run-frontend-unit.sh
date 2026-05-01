@@ -33,6 +33,26 @@ if [[ -n "${VITEST_FLAGS_STRING}" ]]; then
 fi
 command+=(--maxWorkers="${VITEST_MAX_WORKERS}")
 
+if [[ -n "${CARTULARY_PHASE_SLICE_PHASE:-}" ]]; then
+  phase_status=0
+  phase_label="frontend-unit ${CARTULARY_PHASE_SLICE_PHASE} authoritative"
+  if ! "${ROOT_DIR}/scripts/lib/run-vitest-manifest-phase.sh" \
+    "${phase_label}" \
+    "${CARTULARY_PHASE_SLICE_PHASE}" \
+    authoritative \
+    frontend_unit \
+    -- \
+    env PATH="${path_prefix}" COREPACK_HOME="${corepack_home}" "${command[@]}"; then
+    phase_status=1
+  fi
+  if [[ "${phase_status}" -eq 0 ]]; then
+    emit_target_summary pass
+    exit 0
+  fi
+  emit_target_summary fail || true
+  exit "${phase_status}"
+fi
+
 if [[ "${output_mode}" == "quiet" ]]; then
   run_command=("${command[@]}" --reporter=json --outputFile="${run_report}")
 else

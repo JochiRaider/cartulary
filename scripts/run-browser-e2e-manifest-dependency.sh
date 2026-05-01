@@ -29,11 +29,25 @@ fi
 
 resolve_playwright_owned_stack_env "$ROOT_DIR"
 
-mapfile -t phases < <(
-  NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
-    "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" \
-      playwright-phases "$coverage" "$execution_dependency"
-)
+phase_filter="${CARTULARY_PHASE_SLICE_PHASE:-}"
+if [[ -n "$phase_filter" ]]; then
+  phase_count="$(
+    NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
+      "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" \
+        playwright-count "$phase_filter" "$coverage" "$execution_dependency"
+  )"
+  if [[ "$phase_count" == "0" ]]; then
+    echo "no $coverage Playwright rows found for $phase_filter $execution_dependency" >&2
+    exit 1
+  fi
+  phases=("$phase_filter")
+else
+  mapfile -t phases < <(
+    NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
+      "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" \
+        playwright-phases "$coverage" "$execution_dependency"
+  )
+fi
 
 if [[ "${#phases[@]}" -eq 0 ]]; then
   echo "no $coverage Playwright phases found for $execution_dependency" >&2
