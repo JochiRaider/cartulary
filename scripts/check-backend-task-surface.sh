@@ -422,6 +422,20 @@ fi
 if ! printf '%s\n' "$go_gosec_block" | grep -Fq 'GOSEC_PATTERNS="$(GOSEC_PATTERNS)"'; then
   fail "go-gosec-targeted must pass the configured Gosec package patterns"
 fi
+go_gosec_audit_prereqs="$(extract_target_prereqs go-gosec-audit)"
+if ! printf '%s\n' "$go_gosec_audit_prereqs" | rg -q '(^|[[:space:]])go-security-toolchain($|[[:space:]])'; then
+  fail "go-gosec-audit must prepare the pinned Go security toolchain"
+fi
+go_gosec_audit_block="$(extract_target_block go-gosec-audit)"
+if ! printf '%s\n' "$go_gosec_audit_block" | grep -Fq 'scripts/run-go-gosec-audit.sh'; then
+  fail "go-gosec-audit must run the curated warning-only Gosec audit wrapper"
+fi
+if ! printf '%s\n' "$go_gosec_audit_block" | grep -Fq 'GOSEC_AUDIT_RUNTIME_RULES="$(GOSEC_AUDIT_RUNTIME_RULES)"'; then
+  fail "go-gosec-audit must pass the configured runtime Gosec audit rule set"
+fi
+if ! printf '%s\n' "$go_gosec_audit_block" | grep -Fq 'GOSEC_AUDIT_SUPPORT_PATTERNS="$(GOSEC_AUDIT_SUPPORT_PATTERNS)"'; then
+  fail "go-gosec-audit must pass the configured support Gosec audit package patterns"
+fi
 for scheduled_target in \
   check-setup-blockers \
   check-build-prereqs \
@@ -436,6 +450,7 @@ for scheduled_target in \
   lint-go \
   go-vulncheck \
   go-gosec-targeted \
+  go-gosec-audit \
   check-frontend-unit \
   check-harness-smoke \
   lint-biome \
@@ -548,6 +563,7 @@ for scheduled_target in \
   lint-go \
   go-vulncheck \
   go-gosec-targeted \
+  go-gosec-audit \
   check-frontend-unit \
   check-harness-smoke \
   lint-biome \

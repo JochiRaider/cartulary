@@ -63,7 +63,7 @@ GO="$fake_go" \
   GO_CACHE_DIR="$scratch/go-cache" \
   GO_MOD_CACHE_DIR="$scratch/go-mod-cache" \
   GOSEC_BIN="$fake_gosec" \
-  GOSEC_RULES="G602,G124" \
+  GOSEC_RULES="G602,G124,G112,G114" \
   GOSEC_FLAGS="-exclude-generated -quiet" \
   GOSEC_PATTERNS="./cmd/... ./internal/..." \
   FAKE_GOSEC_ARGS_LOG="$args_log" \
@@ -71,7 +71,7 @@ GO="$fake_go" \
   "$SCRIPT"
 
 args="$(cat "$args_log")"
-assert_contains "$args" "-include=G602,G124" "gosec include rules"
+assert_contains "$args" "-include=G602,G124,G112,G114" "gosec include rules"
 assert_contains "$args" "-exclude-generated" "gosec generated exclusion"
 assert_contains "$args" "-quiet" "gosec passthrough flags"
 assert_contains "$args" "./cmd/..." "gosec cmd package pattern"

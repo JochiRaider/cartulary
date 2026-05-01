@@ -228,6 +228,18 @@
           "make_jobs": "host_cpu"
         },
         {
+          "target": "go-gosec-audit",
+          "weight": 21800,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
           "target": "check-frontend-unit",
           "weight": 15000,
           "needs": [

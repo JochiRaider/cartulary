@@ -493,6 +493,7 @@ for scheduled_target in \
   lint-go \
   go-vulncheck \
   go-gosec-targeted \
+  go-gosec-audit \
   check-frontend-unit \
   check-harness-smoke \
   lint-biome \

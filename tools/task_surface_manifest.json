@@ -184,6 +184,10 @@
         {
           "target": "go-gosec-targeted",
           "description": "run targeted Go security static analysis"
+        },
+        {
+          "target": "go-gosec-audit",
+          "description": "run warning-only Go security audit profiles"
         }
       ]
     },
@@ -1961,6 +1965,16 @@
       ]
     },
     {
+      "name": "go-gosec-audit",
+      "classification": "public",
+      "included_in": [
+        "check"
+      ],
+      "backing_scripts": [
+        "scripts/run-go-gosec-audit.sh"
+      ]
+    },
+    {
       "name": "check",
       "classification": "public",
       "included_in": [
@@ -2132,6 +2146,7 @@
         "harness-smoke-generate-drift",
         "harness-smoke-run-go-staticcheck",
         "harness-smoke-run-go-gosec-targeted",
+        "harness-smoke-run-go-gosec-audit",
         "harness-smoke-run-make-sequence-fast",
         "harness-smoke-release-task-surface",
         "harness-smoke-benchmark-claim-check",
@@ -2180,6 +2195,7 @@
         "harness-smoke-generate-drift",
         "harness-smoke-run-go-staticcheck",
         "harness-smoke-run-go-gosec-targeted",
+        "harness-smoke-run-go-gosec-audit",
         "harness-smoke-run-make-sequence-fast",
         "harness-smoke-release-task-surface",
         "harness-smoke-benchmark-claim-check",
@@ -2254,6 +2270,12 @@
       "name": "harness-smoke-run-go-gosec-targeted",
       "backing_scripts": [
         "scripts/test-run-go-gosec-targeted.sh"
+      ]
+    },
+    {
+      "name": "harness-smoke-run-go-gosec-audit",
+      "backing_scripts": [
+        "scripts/test-run-go-gosec-audit.sh"
       ]
     },
     {

@@ -6,7 +6,7 @@ GO_BIN="${GO:-go}"
 GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
 GOSEC_BIN="${GOSEC_BIN:-$ROOT_DIR/tmp/toolbin/gosec-v2.26.1}"
-GOSEC_RULES="${GOSEC_RULES:-G602,G124}"
+GOSEC_RULES="${GOSEC_RULES:-G602,G124,G112,G114}"
 GOSEC_FLAGS="${GOSEC_FLAGS:--exclude-generated}"
 GOSEC_PATTERNS="${GOSEC_PATTERNS:-./cmd/... ./internal/... ./db/... ./tools/...}"
 

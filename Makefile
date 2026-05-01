@@ -35,9 +35,15 @@ GOSEC_BIN ?= $(TOOLBIN_DIR)/gosec-v2.26.1
 GOVULNCHECK_FLAGS ?= -test
 GOVULNCHECK_PATTERNS ?= ./...
 GOVULNCHECK_DB ?=
-GOSEC_RULES ?= G602,G124
+GOSEC_RULES ?= G602,G124,G112,G114
 GOSEC_FLAGS ?= -exclude-generated
 GOSEC_PATTERNS ?= ./cmd/... ./internal/... ./db/... ./tools/...
+GOSEC_AUDIT_RUNTIME_RULES ?= G118,G304,G122,G301,G302,G306,G307
+GOSEC_AUDIT_RUNTIME_FLAGS ?= -exclude-generated -no-fail -quiet -exclude-dir=internal/testutil
+GOSEC_AUDIT_RUNTIME_PATTERNS ?= ./cmd/... ./internal/...
+GOSEC_AUDIT_SUPPORT_RULES ?= G304,G122,G301,G302,G306,G307
+GOSEC_AUDIT_SUPPORT_FLAGS ?= -exclude-generated -no-fail -quiet
+GOSEC_AUDIT_SUPPORT_PATTERNS ?= ./internal/testutil/... ./tools/...
 TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
 SERVICE_BACKED_SCHEDULE_MANIFEST ?= $(CURDIR)/tools/service_backed_schedule_manifest.json
 EXECUTION_TOPOLOGY_MANIFEST ?= $(CURDIR)/tools/execution_topology_manifest.json
@@ -456,6 +462,10 @@ go-vulncheck: go-security-toolchain
 go-gosec-targeted: go-security-toolchain
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "go gosec targeted" -- env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) GOSEC_BIN=$(GOSEC_BIN) GOSEC_RULES="$(GOSEC_RULES)" GOSEC_FLAGS="$(GOSEC_FLAGS)" GOSEC_PATTERNS="$(GOSEC_PATTERNS)" bash ./scripts/run-go-gosec-targeted.sh
+
+go-gosec-audit: go-security-toolchain
+	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
+	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "go gosec audit" -- env GO=$(GO) GO_CACHE_DIR=$(GO_CACHE_DIR) GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR) GOSEC_BIN=$(GOSEC_BIN) GOSEC_AUDIT_RUNTIME_RULES="$(GOSEC_AUDIT_RUNTIME_RULES)" GOSEC_AUDIT_RUNTIME_FLAGS="$(GOSEC_AUDIT_RUNTIME_FLAGS)" GOSEC_AUDIT_RUNTIME_PATTERNS="$(GOSEC_AUDIT_RUNTIME_PATTERNS)" GOSEC_AUDIT_SUPPORT_RULES="$(GOSEC_AUDIT_SUPPORT_RULES)" GOSEC_AUDIT_SUPPORT_FLAGS="$(GOSEC_AUDIT_SUPPORT_FLAGS)" GOSEC_AUDIT_SUPPORT_PATTERNS="$(GOSEC_AUDIT_SUPPORT_PATTERNS)" bash ./scripts/run-go-gosec-audit.sh
 
 format: format-go format-frontend
 
