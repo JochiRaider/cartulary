@@ -13,6 +13,7 @@ SCRATCH_CONTROL_INPUTS=(
   "go.mod"
   "go.sum"
   "scripts/list-build-inputs.sh"
+  "scripts/generate-artifacts.sh"
   "scripts/lib"
   "tools/execution_topology_manifest.json"
   "tools/scheduler_resource_registry.json"

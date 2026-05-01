@@ -17,7 +17,7 @@ export const defaultExecutionTopologyManifestPath = path.join(
   "tools",
   "execution_topology_manifest.json",
 );
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v10";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v11";
 export const checkScheduleSchemaID = "cartulary.check_schedule.v6";
 export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule.v8";
 export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v4";
@@ -460,6 +460,7 @@ function normalizeCheckScheduleMetadata(entry, label, scheduleTargets) {
   if (entry.check_schedule === undefined) {
     return null;
   }
+  const ownerTarget = requireString(entry.name, `${label}.name`);
   const raw = requireObject(entry.check_schedule, `${label}.check_schedule`);
   validateAllowedKeys(raw, checkScheduleTargetKeys, `${label}.check_schedule`);
   const schedules = requireStringArray(raw.schedules, `${label}.check_schedule.schedules`);
@@ -474,15 +475,21 @@ function normalizeCheckScheduleMetadata(entry, label, scheduleTargets) {
       throw new Error(`${label}.check_schedule includes ${schedule} but target is not included_in ${schedule}`);
     }
   }
+  const producesSummaryTargets = requireStringArray(
+    raw.produces_summary_targets ?? [],
+    `${label}.check_schedule.produces_summary_targets`,
+  );
+  if (producesSummaryTargets.length > 0 && !producesSummaryTargets.includes(ownerTarget)) {
+    throw new Error(
+      `${label}.check_schedule.produces_summary_targets must include owning target ${ownerTarget}`,
+    );
+  }
   return {
     schedules,
     profile: requireString(raw.profile, `${label}.check_schedule.profile`),
     priorityBand: requireString(raw.priority_band, `${label}.check_schedule.priority_band`),
     order: requireNonNegativeInteger(raw.order, `${label}.check_schedule.order`),
-    producesSummaryTargets: requireStringArray(
-      raw.produces_summary_targets ?? [],
-      `${label}.check_schedule.produces_summary_targets`,
-    ),
+    producesSummaryTargets,
     nestedScheduler: raw.nested_scheduler === undefined ? null : clone(raw.nested_scheduler),
   };
 }

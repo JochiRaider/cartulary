@@ -79,6 +79,98 @@ text_has_token() {
   ' <<<"$text"
 }
 
+task_surface_check_files() {
+  local files=()
+
+  if [[ -n "${generated_make:-}" ]]; then
+    files+=("$generated_make")
+  fi
+  if [[ -n "${makefile:-}" ]]; then
+    files+=("$makefile")
+  fi
+  if [[ "${#files[@]}" -eq 0 ]]; then
+    fail "task-surface check must configure generated_make and makefile"
+  fi
+
+  printf '%s\n' "${files[@]}"
+}
+
+extract_target_block() {
+  local target="$1"
+  local files=()
+  mapfile -t files < <(task_surface_check_files)
+
+  awk -v target="$target" '
+    $0 ~ "^" target ":[[:space:]]+export[[:space:]]" { next }
+    $0 ~ "^" target ":" { in_block=1; next }
+    in_block && /^[^[:space:]].*:/ { exit }
+    in_block { print }
+  ' "${files[@]}"
+}
+
+extract_target_prereqs() {
+  local target="$1"
+  local files=()
+  mapfile -t files < <(task_surface_check_files)
+
+  awk -v target="$target" '
+    $0 ~ "^" target ":" && $0 !~ "^" target ":[[:space:]]+export[[:space:]]" {
+      sub("^" target ":[[:space:]]*", "", $0)
+      print
+      exit
+    }
+  ' "${files[@]}"
+}
+
+target_exists() {
+  local target="$1"
+  local files=()
+  mapfile -t files < <(task_surface_check_files)
+
+  awk -v target="$target" '
+    $0 ~ "^" target ":" && $0 !~ "^" target ":[[:space:]]+export[[:space:]]" {
+      found=1
+      exit
+    }
+    END { exit found ? 0 : 1 }
+  ' "${files[@]}"
+}
+
+assert_target_exists() {
+  local target="$1"
+  local message="${2:-Makefile must define $target}"
+
+  if ! target_exists "$target"; then
+    fail "$message"
+  fi
+}
+
+assert_target_absent() {
+  local target="$1"
+  local message="${2:-Makefile must not define $target}"
+
+  if target_exists "$target"; then
+    fail "$message"
+  fi
+}
+
+assert_target_exports_self() {
+  local target="$1"
+  local message="${2:-$target must export CARTULARY_TEST_TARGET}"
+  local files=()
+  mapfile -t files < <(task_surface_check_files)
+
+  if ! awk -v target="$target" '
+    $0 == target ": export CARTULARY_TEST_TARGET ?= " target {
+      found=1
+      exit
+    }
+    END { exit found ? 0 : 1 }
+  ' "${files[@]}"; then
+    fail "$message"
+  fi
+}
+
 assert_text_has_token() {
   local label="$1"
   local text="$2"

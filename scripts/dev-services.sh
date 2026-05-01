@@ -8,7 +8,7 @@ MINIO_READY_TIMEOUT_SECONDS="${CARTULARY_MINIO_READY_TIMEOUT_SECONDS:-120}"
 MINIO_BUCKET="${MINIO_BUCKET:-cartulary}"
 
 usage() {
-  echo "usage: dev-services.sh wait-postgres|wait-minio|wait|init-minio" >&2
+  echo "usage: dev-services.sh up|wait-postgres|wait-minio|wait|init-minio|db-up|db-reset" >&2
 }
 
 compose() {
@@ -91,7 +91,37 @@ init_minio() {
   '
 }
 
+services_up() {
+  compose up -d postgres minio
+  wait_postgres
+  wait_minio
+}
+
+db_up() {
+  services_up
+  init_minio
+}
+
+db_reset() {
+  local go_bin="${GO:-go}"
+  local config_file="${CONFIG_FILE:-$ROOT_DIR/configs/dev/config.toml}"
+  local go_cache="${GOCACHE:-${GO_CACHE_DIR:-/tmp/cartulary-go-build}}"
+  local go_mod_cache="${GOMODCACHE:-${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}}"
+
+  compose up -d postgres
+  wait_postgres
+  printf '%s\n' 'db-reset: database reset only; MinIO/object storage is not reset.'
+  compose exec -T postgres psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS cartulary;"
+  compose exec -T postgres psql -U cartulary -d postgres -c "CREATE DATABASE cartulary;"
+  cd "$ROOT_DIR"
+  env CARTULARY_CONFIG_FILE="$config_file" GOCACHE="$go_cache" GOMODCACHE="$go_mod_cache" \
+    "$go_bin" run ./cmd/migrate up
+}
+
 case "${1:-}" in
+  up)
+    services_up
+    ;;
   wait-postgres)
     wait_postgres
     ;;
@@ -104,6 +134,12 @@ case "${1:-}" in
     ;;
   init-minio)
     init_minio
+    ;;
+  db-up)
+    db_up
+    ;;
+  db-reset)
+    db_reset
     ;;
   *)
     usage

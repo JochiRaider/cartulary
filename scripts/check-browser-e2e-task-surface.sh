@@ -495,7 +495,7 @@ for scheduled_target in \
   go-vulncheck \
   go-gosec-targeted \
   go-gosec-audit \
-  check-frontend-unit \
+  frontend-unit \
   check-harness-smoke \
   lint-biome \
   frontend-import-boundary-check \

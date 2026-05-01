@@ -738,6 +738,425 @@
       }
     },
     "make_recipes": {
+      "help": {
+        "prerequisites": [],
+        "type": "print_help",
+        "scope": "compact"
+      },
+      "help-all": {
+        "prerequisites": [],
+        "type": "print_help",
+        "scope": "all"
+      },
+      "doctor": {
+        "prerequisites": [],
+        "type": "phase_command",
+        "mode": "command",
+        "env": {
+          "GO": "$(GO)",
+          "NODE_BIN": "$(NODE_BIN)",
+          "NODE_VERSION": "$(NODE_VERSION)",
+          "PNPM": "$(PNPM)",
+          "PNPM_VERSION": "$(PNPM_VERSION)",
+          "NODE_RUNTIME_DIR": "$(NODE_RUNTIME_DIR)",
+          "SHELLCHECK_BIN": "$(SHELLCHECK_BIN)",
+          "SHELLCHECK_VERSION": "$(SHELLCHECK_VERSION)"
+        },
+        "command": [
+          "bash",
+          "./scripts/check-doctor.sh"
+        ]
+      },
+      "bootstrap": {
+        "prerequisites": [
+          "$(SQLC_BIN)",
+          "$(GOOSE_BIN)",
+          "$(STATICCHECK_BIN)",
+          "$(GOVULNCHECK_BIN)",
+          "$(GOSEC_BIN)",
+          "$(SHELLCHECK_BIN)",
+          "frontend-install",
+          "playwright-install"
+        ],
+        "type": "phase_command",
+        "mode": "command",
+        "command": [
+          "mkdir",
+          "-p",
+          "$(GO_CACHE_DIR)",
+          "$(GO_MOD_CACHE_DIR)"
+        ]
+      },
+      "bootstrap-node-runtime": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "alias"
+      },
+      "frontend-toolchain": {
+        "prerequisites": [
+          "$(FRONTEND_TOOLCHAIN_STAMP)"
+        ],
+        "type": "phase_command",
+        "mode": "command",
+        "env": {
+          "FRONTEND_TOOLCHAIN_STAMP": "$(FRONTEND_TOOLCHAIN_STAMP)",
+          "CARTULARY_FRONTEND_TOOLCHAIN_QUIET": "$(CARTULARY_FRONTEND_TOOLCHAIN_QUIET)"
+        },
+        "command": [
+          "bash",
+          "./scripts/print-frontend-toolchain.sh"
+        ]
+      },
+      "frontend-install": {
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "type": "alias",
+        "test_target": "self"
+      },
+      "frontend-install-ci": {
+        "prerequisites": [
+          "$(FRONTEND_TOOLCHAIN_STAMP)"
+        ],
+        "type": "phase_command",
+        "mode": "command",
+        "env": {
+          "PATH": "$(NODE_RUNTIME_DIR)/bin:$$PATH",
+          "COREPACK_HOME": "$(NODE_RUNTIME_DIR)/corepack",
+          "FRONTEND_INSTALL_STAMP": "$(FRONTEND_INSTALL_STAMP)",
+          "RUN_PHASE_SCRIPT": "$(RUN_PHASE_SCRIPT)",
+          "PNPM": "$(PNPM)",
+          "PNPM_INSTALL_FLAGS": "$(PNPM_INSTALL_FLAGS)",
+          "NODE_BIN": "$(NODE_BIN)",
+          "NODE_VERSION": "$(NODE_VERSION)",
+          "PNPM_VERSION": "$(PNPM_VERSION)"
+        },
+        "command": [
+          "bash",
+          "./scripts/frontend-install-ci.sh"
+        ],
+        "test_target": "self"
+      },
+      "playwright-install": {
+        "prerequisites": [
+          "$(PLAYWRIGHT_INSTALL_STAMP)"
+        ],
+        "type": "alias"
+      },
+      "db-up": {
+        "prerequisites": [],
+        "type": "phase_command",
+        "mode": "command",
+        "command": [
+          "bash",
+          "./scripts/dev-services.sh",
+          "db-up"
+        ]
+      },
+      "db-reset": {
+        "prerequisites": [],
+        "type": "phase_command",
+        "mode": "command",
+        "env": {
+          "GO": "$(GO)",
+          "CONFIG_FILE": "$(CONFIG_FILE)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)"
+        },
+        "command": [
+          "bash",
+          "./scripts/dev-services.sh",
+          "db-reset"
+        ]
+      },
+      "services-up": {
+        "prerequisites": [],
+        "type": "phase_command",
+        "mode": "command",
+        "command": [
+          "bash",
+          "./scripts/dev-services.sh",
+          "up"
+        ]
+      },
+      "services-wait": {
+        "prerequisites": [
+          "postgres-wait",
+          "minio-wait"
+        ],
+        "type": "alias"
+      },
+      "postgres-wait": {
+        "prerequisites": [],
+        "type": "phase_command",
+        "mode": "command",
+        "command": [
+          "bash",
+          "./scripts/dev-services.sh",
+          "wait-postgres"
+        ]
+      },
+      "minio-wait": {
+        "prerequisites": [],
+        "type": "phase_command",
+        "mode": "command",
+        "command": [
+          "bash",
+          "./scripts/dev-services.sh",
+          "wait-minio"
+        ]
+      },
+      "minio-init": {
+        "prerequisites": [
+          "services-wait"
+        ],
+        "type": "phase_command",
+        "mode": "command",
+        "env": {
+          "MINIO_BUCKET": "$(MINIO_BUCKET)"
+        },
+        "command": [
+          "bash",
+          "./scripts/dev-services.sh",
+          "init-minio"
+        ]
+      },
+      "dev": {
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "type": "phase_command",
+        "mode": "command",
+        "env": {
+          "GO": "$(GO)",
+          "CONFIG_FILE": "$(CONFIG_FILE)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "NODE_RUNTIME_DIR": "$(NODE_RUNTIME_DIR)",
+          "PNPM": "$(PNPM)"
+        },
+        "command": [
+          "bash",
+          "./scripts/dev-stack.sh"
+        ]
+      },
+      "codegen-toolchain": {
+        "prerequisites": [
+          "$(SQLC_BIN)"
+        ],
+        "type": "alias",
+        "test_target": "self"
+      },
+      "go-lint-toolchain": {
+        "prerequisites": [
+          "$(STATICCHECK_BIN)"
+        ],
+        "type": "alias",
+        "test_target": "self"
+      },
+      "go-security-toolchain": {
+        "prerequisites": [
+          "$(GOVULNCHECK_BIN)",
+          "$(GOSEC_BIN)"
+        ],
+        "type": "alias",
+        "test_target": "self"
+      },
+      "shell-lint-toolchain": {
+        "prerequisites": [
+          "$(SHELLCHECK_BIN)"
+        ],
+        "type": "alias",
+        "test_target": "self"
+      },
+      "generate": {
+        "prerequisites": [
+          "codegen-toolchain"
+        ],
+        "type": "phase_command",
+        "mode": "command",
+        "command": [
+          "$(MAKE)",
+          "--no-print-directory",
+          "generate-artifacts"
+        ]
+      },
+      "generate-artifacts": {
+        "prerequisites": [],
+        "type": "phase_command",
+        "mode": "command",
+        "env": {
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "RUN_PHASE_SCRIPT": "$(RUN_PHASE_SCRIPT)",
+          "SQLC_BIN": "$(SQLC_BIN)"
+        },
+        "command": [
+          "bash",
+          "./scripts/generate-artifacts.sh"
+        ],
+        "test_target": "self"
+      },
+      "generate-drift": {
+        "prerequisites": [
+          "codegen-toolchain"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "generate-drift",
+        "command": [
+          "./scripts/check-generate-drift.sh"
+        ],
+        "test_target": "self"
+      },
+      "toolchain-drift": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "phase_command",
+        "mode": "command",
+        "command": [
+          "$(NODE_BIN)",
+          "./scripts/check-toolchain-pins.mjs"
+        ]
+      },
+      "migration-drift": {
+        "prerequisites": [
+          "build-migrate"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "migration-drift",
+        "env": {
+          "GO": "$(GO)",
+          "CONFIG_FILE": "$(CONFIG_FILE)",
+          "GOCACHE": "$(GO_CACHE_DIR)",
+          "GOMODCACHE": "$(GO_MOD_CACHE_DIR)",
+          "CARTULARY_MIGRATE_BIN": "$(MIGRATE_BIN)"
+        },
+        "command": [
+          "./scripts/check-migrations.sh"
+        ],
+        "test_target": "self"
+      },
+      "deployable-shape": {
+        "prerequisites": [
+          "build-server",
+          "build-migrate"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "deployable-shape",
+        "command": [
+          "./scripts/ci/check-deployable-shape.sh"
+        ],
+        "test_target": "self",
+        "allow_success_log": true
+      },
+      "phase-map-check": {
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "phase-map-check",
+        "env": {
+          "PATH": "$(NODE_RUNTIME_DIR)/bin:$$PATH",
+          "COREPACK_HOME": "$(NODE_RUNTIME_DIR)/corepack",
+          "NODE_BIN": "$(NODE_BIN)"
+        },
+        "command": [
+          "./scripts/check-phase-maps.sh"
+        ],
+        "test_target": "self"
+      },
+      "phase-ledgers": {
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "phase-ledgers",
+        "env": {
+          "PATH": "$(NODE_RUNTIME_DIR)/bin:$$PATH",
+          "COREPACK_HOME": "$(NODE_RUNTIME_DIR)/corepack",
+          "NODE_BIN": "$(NODE_BIN)"
+        },
+        "command": [
+          "$(NODE_BIN)",
+          "./scripts/render-phase-ledgers.mjs"
+        ],
+        "test_target": "self"
+      },
+      "phase-ledger-drift": {
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "phase-ledger-drift",
+        "env": {
+          "PATH": "$(NODE_RUNTIME_DIR)/bin:$$PATH",
+          "COREPACK_HOME": "$(NODE_RUNTIME_DIR)/corepack",
+          "NODE_BIN": "$(NODE_BIN)"
+        },
+        "command": [
+          "$(NODE_BIN)",
+          "./scripts/check-phase-ledger-drift.mjs"
+        ],
+        "test_target": "self"
+      },
+      "phase-schedules": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "phase-schedules",
+        "command": [
+          "$(NODE_BIN)",
+          "./scripts/render-execution-topology-artifacts.mjs",
+          "--topology",
+          "\"$(EXECUTION_TOPOLOGY_MANIFEST)\""
+        ],
+        "test_target": "self"
+      },
+      "phase-schedule-drift": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "phase-schedule-drift",
+        "command": [
+          "$(NODE_BIN)",
+          "./scripts/render-execution-topology-artifacts.mjs",
+          "--check",
+          "--topology",
+          "\"$(EXECUTION_TOPOLOGY_MANIFEST)\""
+        ],
+        "test_target": "self"
+      },
+      "benchmark-claim-check": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "benchmark-claim-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./scripts/check-benchmark-claim.mjs",
+          "\"$(BENCHMARK_MANIFEST)\""
+        ],
+        "test_target": "self"
+      },
       "task-surface-report": {
         "type": "node_tool",
         "prerequisites": []
@@ -753,6 +1172,83 @@
       "service-backed-slice": {
         "type": "node_tool",
         "prerequisites": []
+      },
+      "task-surface-check": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_phase",
+        "phase_label": "task-surface-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./scripts/print-task-surface-report.mjs"
+        ],
+        "args": [
+          "--check"
+        ],
+        "test_target": "self"
+      },
+      "backend-unit": {
+        "type": "go_target",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "test_target": "self"
+      },
+      "backend-store": {
+        "type": "service_backed_target",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(TEST_SERVICES_BIN)",
+          "test-service-images"
+        ],
+        "env": {
+          "GO_TEST_PACKAGE_PARALLELISM": "$(EFFECTIVE_BACKEND_STORE_GO_TEST_P)"
+        },
+        "test_target": "self"
+      },
+      "backend-integration": {
+        "type": "service_backed_target",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(TEST_SERVICES_BIN)",
+          "test-service-images"
+        ],
+        "env": {
+          "GO_TEST_PACKAGE_PARALLELISM": "$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P)",
+          "BACKEND_INTEGRATION_SHARD_JOBS": "$(BACKEND_INTEGRATION_SHARD_JOBS)"
+        },
+        "test_target": "self"
+      },
+      "backend-integration-support": {
+        "type": "service_backed_target",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(TEST_SERVICES_BIN)",
+          "test-service-images"
+        ],
+        "env": {
+          "GO_TEST_PACKAGE_PARALLELISM": "$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P)",
+          "BACKEND_INTEGRATION_SHARD_JOBS": "$(BACKEND_INTEGRATION_SHARD_JOBS)"
+        },
+        "test_target": "self"
+      },
+      "backend-process": {
+        "type": "service_backed_target",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "build-server",
+          "$(TEST_SERVICES_BIN)",
+          "test-service-images"
+        ],
+        "comments": [
+          "Phase 0 process evidence is part of the developer gate and must never be direct-run only."
+        ],
+        "env": {
+          "CARTULARY_SERVER_BIN": "$(SERVER_BIN)"
+        },
+        "test_target": "self"
       },
       "target-plan": {
         "type": "node_tool",
@@ -814,6 +1310,416 @@
         "type": "node_tool",
         "prerequisites": []
       },
+      "backend-task-surface-check": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_phase",
+        "phase_label": "backend-task-surface-check",
+        "command": [
+          "env",
+          "NODE_BIN=$(NODE_BIN)",
+          "./scripts/check-backend-task-surface.sh"
+        ],
+        "test_target": "self"
+      },
+      "service-backed-unit-check": {
+        "type": "phase_command",
+        "prerequisites": [],
+        "mode": "run_phase",
+        "phase_label": "service-backed-unit-check",
+        "command": [
+          "./scripts/check-service-backed-unit-tests.sh"
+        ],
+        "test_target": "self"
+      },
+      "test-service-images": {
+        "prerequisites": [
+          "$(TEST_SERVICES_BIN)"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "warm test service images",
+        "command": [
+          "$(TEST_SERVICES_BIN)",
+          "warm-images"
+        ],
+        "test_target": "self"
+      },
+      "run-harness-smoke-fast": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "mode": "node",
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)",
+          "TEST_OUTPUT_SCRIPT": "$(TEST_OUTPUT_SCRIPT)",
+          "TASK_SURFACE_MANIFEST": "$(TASK_SURFACE_MANIFEST)"
+        },
+        "script": "$(RUN_HARNESS_SMOKE_SCRIPT)",
+        "args": [
+          "--tier",
+          "fast",
+          "--jobs",
+          "\"$(HARNESS_SMOKE_JOBS)\""
+        ],
+        "test_target": "self"
+      },
+      "run-harness-smoke-extended": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "mode": "node",
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)",
+          "TEST_OUTPUT_SCRIPT": "$(TEST_OUTPUT_SCRIPT)",
+          "TASK_SURFACE_MANIFEST": "$(TASK_SURFACE_MANIFEST)"
+        },
+        "script": "$(RUN_HARNESS_SMOKE_SCRIPT)",
+        "args": [
+          "--tier",
+          "extended",
+          "--jobs",
+          "\"$(HARNESS_SMOKE_JOBS)\""
+        ],
+        "test_target": "self"
+      },
+      "run-harness-smoke-full": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "mode": "node",
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)",
+          "TEST_OUTPUT_SCRIPT": "$(TEST_OUTPUT_SCRIPT)",
+          "TASK_SURFACE_MANIFEST": "$(TASK_SURFACE_MANIFEST)"
+        },
+        "script": "$(RUN_HARNESS_SMOKE_SCRIPT)",
+        "args": [
+          "--tier",
+          "full",
+          "--jobs",
+          "\"$(HARNESS_SMOKE_JOBS)\""
+        ],
+        "test_target": "self"
+      },
+      "phase-test-name-check": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_phase",
+        "phase_label": "phase-test-name-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./scripts/check-phase-test-names.mjs"
+        ],
+        "test_target": "self"
+      },
+      "frontend-typecheck": {
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "frontend typecheck",
+        "env": {
+          "PATH": "$(NODE_RUNTIME_DIR)/bin:$$PATH",
+          "COREPACK_HOME": "$(NODE_RUNTIME_DIR)/corepack"
+        },
+        "command": [
+          "$(PNPM)",
+          "typecheck"
+        ],
+        "test_target": "self",
+        "allow_success_log": true,
+        "success_summary": true
+      },
+      "frontend-unit": {
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "type": "phase_command",
+        "mode": "command",
+        "env": {
+          "PNPM": "$(PNPM)",
+          "NODE_RUNTIME_DIR": "$(NODE_RUNTIME_DIR)",
+          "NODE_BIN": "$(NODE_BIN)",
+          "VITEST_FLAGS": "$(VITEST_FLAGS)",
+          "VITEST_MAX_WORKERS": "$(VITEST_MAX_WORKERS)"
+        },
+        "command": [
+          "./scripts/run-frontend-unit.sh"
+        ],
+        "test_target": "self"
+      },
+      "frontend-task-surface-check": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_phase",
+        "phase_label": "frontend-task-surface-check",
+        "command": [
+          "env",
+          "NODE_BIN=$(NODE_BIN)",
+          "./scripts/check-frontend-task-surface.sh"
+        ],
+        "test_target": "self"
+      },
+      "frontend-import-boundary-check": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "mode": "run_phase",
+        "phase_label": "frontend-import-boundary-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./scripts/check-frontend-import-boundaries.mjs"
+        ],
+        "test_target": "self"
+      },
+      "lint-biome": {
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "lint biome",
+        "command": [
+          "bash",
+          "./scripts/run-frontend-biome.sh",
+          "check",
+          "$(BIOME_CHECK_FLAGS)"
+        ],
+        "test_target": "self",
+        "allow_success_log": true,
+        "failure_note": "inspect Biome diagnostics; run make format only for formatting/style diagnostics"
+      },
+      "lint-scripts": {
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "lint scripts",
+        "command": [
+          "bash",
+          "./scripts/run-scripts-biome.sh",
+          "$(BIOME_SCRIPT_CHECK_FLAGS)"
+        ],
+        "test_target": "self",
+        "allow_success_log": true
+      },
+      "lint-shell": {
+        "prerequisites": [
+          "shell-lint-toolchain"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "lint shell",
+        "env": {
+          "SHELLCHECK_BIN": "$(SHELLCHECK_BIN)",
+          "LINT_SHELL_STRICT": "$(LINT_SHELL_STRICT)"
+        },
+        "command": [
+          "./scripts/run-shellcheck.sh"
+        ],
+        "test_target": "self",
+        "allow_success_log": true
+      },
+      "format": {
+        "prerequisites": [
+          "format-go",
+          "format-frontend"
+        ],
+        "type": "alias"
+      },
+      "format-go": {
+        "prerequisites": [],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "format go",
+        "command": [
+          "bash",
+          "./scripts/run-go-format.sh",
+          "--write"
+        ],
+        "test_target": "self"
+      },
+      "format-frontend": {
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "format frontend",
+        "command": [
+          "bash",
+          "./scripts/run-frontend-biome.sh",
+          "format"
+        ],
+        "test_target": "self",
+        "allow_success_log": true
+      },
+      "browser-e2e": {
+        "type": "browser_batch",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate",
+          "$(TEST_SERVICES_BIN)",
+          "test-service-images"
+        ],
+        "stage": "isolated",
+        "workers": "1",
+        "service_wrapper": "test-services",
+        "test_target": "self"
+      },
+      "browser-e2e-webserver-backed": {
+        "type": "browser_batch",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate"
+        ],
+        "stage": "webserver-backed",
+        "workers": "$(PLAYWRIGHT_WORKERS)",
+        "service_wrapper": "direct",
+        "test_target": "self"
+      },
+      "browser-e2e-functional": {
+        "type": "browser_batch",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate"
+        ],
+        "stage": "functional",
+        "workers": "$(PLAYWRIGHT_WORKERS)",
+        "service_wrapper": "direct",
+        "test_target": "self"
+      },
+      "browser-e2e-support": {
+        "type": "browser_batch",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate"
+        ],
+        "stage": "support",
+        "workers": "$(PLAYWRIGHT_WORKERS)",
+        "service_wrapper": "direct",
+        "test_target": "self"
+      },
+      "browser-e2e-stateful": {
+        "type": "browser_batch",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate"
+        ],
+        "comments": [
+          "Browser evidence that mutates process-global backend state belongs here."
+        ],
+        "stage": "stateful",
+        "workers": "1",
+        "service_wrapper": "direct",
+        "test_target": "self"
+      },
+      "browser-e2e-resettable": {
+        "type": "browser_batch",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate"
+        ],
+        "stage": "resettable",
+        "workers": "1",
+        "service_wrapper": "direct",
+        "test_target": "self"
+      },
+      "browser-e2e-measurement": {
+        "type": "browser_batch",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate"
+        ],
+        "comments": [
+          "Ordinary implementation/regression measurement; not claim-bearing Core 05 publication evidence."
+        ],
+        "stage": "measurement",
+        "workers": "1",
+        "service_wrapper": "direct",
+        "test_target": "self"
+      },
+      "browser-e2e-visual": {
+        "type": "browser_batch",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate"
+        ],
+        "stage": "visual",
+        "workers": "1",
+        "service_wrapper": "direct",
+        "test_target": "self"
+      },
+      "browser-e2e-task-surface-check": {
+        "type": "phase_command",
+        "prerequisites": [],
+        "mode": "run_phase",
+        "phase_label": "browser-e2e-task-surface-check",
+        "command": [
+          "./scripts/check-browser-e2e-task-surface.sh"
+        ],
+        "test_target": "self"
+      },
+      "test-local": {
+        "prerequisites": [
+          "backend-unit",
+          "frontend-typecheck",
+          "frontend-unit"
+        ],
+        "type": "alias"
+      },
+      "test-service-backed": {
+        "type": "service_backed_schedule",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "build-migrate",
+          "$(TEST_SERVICES_BIN)",
+          "test-service-images"
+        ],
+        "phase_label": "test service-backed",
+        "service_wrapper": "test-services",
+        "test_target": "self"
+      },
       "test-fast": {
         "type": "sequence",
         "prerequisites": [
@@ -823,6 +1729,19 @@
         ],
         "sequence": "test-fast"
       },
+      "test-fast-service-backed": {
+        "type": "service_backed_schedule",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "build-server",
+          "$(TEST_SERVICES_BIN)",
+          "test-service-images"
+        ],
+        "phase_label": "test-fast service-backed",
+        "service_wrapper": "test-services",
+        "test_target": "self"
+      },
       "test": {
         "type": "sequence",
         "prerequisites": [
@@ -831,24 +1750,138 @@
         ],
         "sequence": "test"
       },
-      "ci": {
-        "type": "sequence",
+      "lint": {
         "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)"
+          "lint-go",
+          "lint-biome",
+          "frontend-import-boundary-check",
+          "lint-scripts",
+          "lint-shell",
+          "frontend-typecheck"
         ],
-        "exports": {
-          "CI": "1"
-        },
-        "sequence": "ci"
+        "type": "alias"
       },
-      "release-check": {
-        "type": "sequence",
+      "lint-go": {
         "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)"
+          "lint-go-format",
+          "lint-go-vet",
+          "lint-go-staticcheck"
         ],
-        "sequence": "release-check"
+        "type": "alias"
+      },
+      "lint-go-format": {
+        "prerequisites": [],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "lint gofmt",
+        "command": [
+          "bash",
+          "./scripts/run-go-format.sh",
+          "--check"
+        ],
+        "test_target": "self",
+        "failure_note": "run make format to apply authored Go formatting"
+      },
+      "lint-go-vet": {
+        "prerequisites": [],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "lint go-vet",
+        "command": [
+          "bash",
+          "./scripts/run-go-vet.sh"
+        ],
+        "test_target": "self"
+      },
+      "lint-go-staticcheck": {
+        "prerequisites": [
+          "go-lint-toolchain"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "lint staticcheck",
+        "env": {
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "STATICCHECK_BIN": "$(STATICCHECK_BIN)",
+          "STATICCHECK_CHECKS": "$(STATICCHECK_CHECKS)"
+        },
+        "command": [
+          "bash",
+          "./scripts/run-go-staticcheck.sh"
+        ],
+        "test_target": "self"
+      },
+      "go-vulncheck": {
+        "prerequisites": [
+          "go-security-toolchain"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "go vulncheck",
+        "env": {
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GOVULNCHECK_BIN": "$(GOVULNCHECK_BIN)",
+          "GOVULNCHECK_FLAGS": "$(GOVULNCHECK_FLAGS)",
+          "GOVULNCHECK_PATTERNS": "$(GOVULNCHECK_PATTERNS)",
+          "GOVULNCHECK_DB": "$(GOVULNCHECK_DB)"
+        },
+        "command": [
+          "bash",
+          "./scripts/run-go-govulncheck.sh"
+        ],
+        "test_target": "self"
+      },
+      "go-gosec-targeted": {
+        "prerequisites": [
+          "go-security-toolchain"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "go gosec targeted",
+        "env": {
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GOSEC_BIN": "$(GOSEC_BIN)",
+          "GOSEC_RULES": "$(GOSEC_RULES)",
+          "GOSEC_FLAGS": "$(GOSEC_FLAGS)",
+          "GOSEC_PATTERNS": "$(GOSEC_PATTERNS)"
+        },
+        "command": [
+          "bash",
+          "./scripts/run-go-gosec-targeted.sh"
+        ],
+        "test_target": "self"
+      },
+      "go-gosec-audit": {
+        "prerequisites": [
+          "go-security-toolchain"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "go gosec audit",
+        "env": {
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GOSEC_BIN": "$(GOSEC_BIN)",
+          "GOSEC_AUDIT_RUNTIME_RULES": "$(GOSEC_AUDIT_RUNTIME_RULES)",
+          "GOSEC_AUDIT_RUNTIME_FLAGS": "$(GOSEC_AUDIT_RUNTIME_FLAGS)",
+          "GOSEC_AUDIT_RUNTIME_PATTERNS": "$(GOSEC_AUDIT_RUNTIME_PATTERNS)",
+          "GOSEC_AUDIT_SUPPORT_RULES": "$(GOSEC_AUDIT_SUPPORT_RULES)",
+          "GOSEC_AUDIT_SUPPORT_FLAGS": "$(GOSEC_AUDIT_SUPPORT_FLAGS)",
+          "GOSEC_AUDIT_SUPPORT_PATTERNS": "$(GOSEC_AUDIT_SUPPORT_PATTERNS)"
+        },
+        "command": [
+          "bash",
+          "./scripts/run-go-gosec-audit.sh"
+        ],
+        "test_target": "self",
+        "allow_success_log": true
       },
       "check": {
         "type": "check_schedule",
@@ -869,388 +1902,65 @@
           }
         ]
       },
-      "run-harness-smoke-fast": {
-        "type": "phase_command",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)"
-        ],
-        "mode": "node",
-        "env": {
-          "NODE_BIN": "$(NODE_BIN)",
-          "TEST_OUTPUT_SCRIPT": "$(TEST_OUTPUT_SCRIPT)",
-          "TASK_SURFACE_MANIFEST": "$(TASK_SURFACE_MANIFEST)"
-        },
-        "script": "$(RUN_HARNESS_SMOKE_SCRIPT)",
-        "args": [
-          "--tier",
-          "fast",
-          "--jobs",
-          "\"$(HARNESS_SMOKE_JOBS)\""
-        ]
-      },
-      "run-harness-smoke-extended": {
-        "type": "phase_command",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)"
-        ],
-        "mode": "node",
-        "env": {
-          "NODE_BIN": "$(NODE_BIN)",
-          "TEST_OUTPUT_SCRIPT": "$(TEST_OUTPUT_SCRIPT)",
-          "TASK_SURFACE_MANIFEST": "$(TASK_SURFACE_MANIFEST)"
-        },
-        "script": "$(RUN_HARNESS_SMOKE_SCRIPT)",
-        "args": [
-          "--tier",
-          "extended",
-          "--jobs",
-          "\"$(HARNESS_SMOKE_JOBS)\""
-        ]
-      },
-      "run-harness-smoke-full": {
-        "type": "phase_command",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)"
-        ],
-        "mode": "node",
-        "env": {
-          "NODE_BIN": "$(NODE_BIN)",
-          "TEST_OUTPUT_SCRIPT": "$(TEST_OUTPUT_SCRIPT)",
-          "TASK_SURFACE_MANIFEST": "$(TASK_SURFACE_MANIFEST)"
-        },
-        "script": "$(RUN_HARNESS_SMOKE_SCRIPT)",
-        "args": [
-          "--tier",
-          "full",
-          "--jobs",
-          "\"$(HARNESS_SMOKE_JOBS)\""
-        ]
-      },
-      "phase-test-name-check": {
-        "type": "phase_command",
+      "check-setup-blockers": {
         "prerequisites": [
           "$(NODE_BIN)"
         ],
-        "mode": "run_phase",
-        "phase_label": "phase-test-name-check",
+        "type": "phase_command",
+        "mode": "command",
+        "env": {
+          "MAKE_BIN": "$(MAKE)",
+          "CI": "$(CI)"
+        },
         "command": [
-          "$(NODE_BIN)",
-          "./scripts/check-phase-test-names.mjs"
+          "bash",
+          "./scripts/check-setup-blockers.sh"
         ]
       },
-      "browser-e2e-task-surface-check": {
-        "type": "phase_command",
+      "check-harness-smoke": {
         "prerequisites": [],
-        "mode": "run_phase",
-        "phase_label": "browser-e2e-task-surface-check",
-        "command": [
-          "./scripts/check-browser-e2e-task-surface.sh"
-        ]
+        "type": "summary_target",
+        "child_target": "run-harness-smoke-fast",
+        "status": "pass",
+        "phase_label": "check-harness-smoke",
+        "projection": "check-harness-smoke",
+        "test_target": "self"
       },
-      "frontend-task-surface-check": {
-        "type": "phase_command",
+      "check-build-prereqs": {
         "prerequisites": [
-          "$(NODE_BIN)"
-        ],
-        "mode": "run_phase",
-        "phase_label": "frontend-task-surface-check",
-        "command": [
-          "env",
-          "NODE_BIN=$(NODE_BIN)",
-          "./scripts/check-frontend-task-surface.sh"
-        ]
-      },
-      "frontend-import-boundary-check": {
-        "type": "phase_command",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)"
-        ],
-        "mode": "run_phase",
-        "phase_label": "frontend-import-boundary-check",
-        "command": [
-          "$(NODE_BIN)",
-          "./scripts/check-frontend-import-boundaries.mjs"
-        ]
-      },
-      "backend-task-surface-check": {
-        "type": "phase_command",
-        "prerequisites": [
-          "$(NODE_BIN)"
-        ],
-        "mode": "run_phase",
-        "phase_label": "backend-task-surface-check",
-        "command": [
-          "env",
-          "NODE_BIN=$(NODE_BIN)",
-          "./scripts/check-backend-task-surface.sh"
-        ]
-      },
-      "service-backed-unit-check": {
-        "type": "phase_command",
-        "prerequisites": [],
-        "mode": "run_phase",
-        "phase_label": "service-backed-unit-check",
-        "command": [
-          "./scripts/check-service-backed-unit-tests.sh"
-        ]
-      },
-      "test-fast-service-backed": {
-        "type": "service_backed_schedule",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)",
-          "build-server",
-          "$(TEST_SERVICES_BIN)",
-          "test-service-images"
-        ],
-        "exports": {
-          "CARTULARY_TEST_TARGET": "test-fast-service-backed"
-        },
-        "phase_label": "test-fast service-backed",
-        "service_wrapper": "test-services"
-      },
-      "test-service-backed": {
-        "type": "service_backed_schedule",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)",
           "build-server",
           "build-migrate",
-          "$(TEST_SERVICES_BIN)",
           "test-service-images"
         ],
-        "exports": {
-          "CARTULARY_TEST_TARGET": "test-service-backed"
-        },
-        "phase_label": "test service-backed",
-        "service_wrapper": "test-services"
-      },
-      "backend-unit": {
-        "type": "go_target",
-        "prerequisites": [
-          "$(NODE_BIN)"
-        ],
-        "exports": {
-          "CARTULARY_TEST_TARGET": "backend-unit"
-        }
-      },
-      "backend-store": {
-        "type": "service_backed_target",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(TEST_SERVICES_BIN)",
-          "test-service-images"
-        ],
-        "exports": {
-          "CARTULARY_TEST_TARGET": "backend-store"
-        },
-        "env": {
-          "GO_TEST_PACKAGE_PARALLELISM": "$(EFFECTIVE_BACKEND_STORE_GO_TEST_P)"
-        }
-      },
-      "backend-integration": {
-        "type": "service_backed_target",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(TEST_SERVICES_BIN)",
-          "test-service-images"
-        ],
-        "exports": {
-          "CARTULARY_TEST_TARGET": "backend-integration"
-        },
-        "env": {
-          "GO_TEST_PACKAGE_PARALLELISM": "$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P)",
-          "BACKEND_INTEGRATION_SHARD_JOBS": "$(BACKEND_INTEGRATION_SHARD_JOBS)"
-        }
-      },
-      "backend-integration-support": {
-        "type": "service_backed_target",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(TEST_SERVICES_BIN)",
-          "test-service-images"
-        ],
-        "exports": {
-          "CARTULARY_TEST_TARGET": "backend-integration-support"
-        },
-        "env": {
-          "GO_TEST_PACKAGE_PARALLELISM": "$(EFFECTIVE_BACKEND_INTEGRATION_GO_TEST_P)",
-          "BACKEND_INTEGRATION_SHARD_JOBS": "$(BACKEND_INTEGRATION_SHARD_JOBS)"
-        }
-      },
-      "backend-process": {
-        "type": "service_backed_target",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "build-server",
-          "$(TEST_SERVICES_BIN)",
-          "test-service-images"
-        ],
-        "comments": [
-          "Phase 0 process evidence is part of the developer gate and must never be direct-run only."
-        ],
-        "exports": {
-          "CARTULARY_TEST_TARGET": "backend-process"
-        },
-        "env": {
-          "CARTULARY_SERVER_BIN": "$(SERVER_BIN)"
-        }
-      },
-      "browser-e2e": {
-        "type": "browser_batch",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)",
-          "build-server",
-          "build-migrate",
-          "$(TEST_SERVICES_BIN)",
-          "test-service-images"
-        ],
-        "exports": {
-          "CARTULARY_TEST_TARGET": "browser-e2e"
-        },
-        "stage": "isolated",
-        "workers": "1",
-        "service_wrapper": "test-services"
-      },
-      "browser-e2e-webserver-backed": {
-        "type": "browser_batch",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)",
-          "build-server",
-          "build-migrate"
-        ],
-        "exports": {
-          "CARTULARY_TEST_TARGET": "browser-e2e-webserver-backed"
-        },
-        "stage": "webserver-backed",
-        "workers": "$(PLAYWRIGHT_WORKERS)",
-        "service_wrapper": "direct"
-      },
-      "browser-e2e-functional": {
-        "type": "browser_batch",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)",
-          "build-server",
-          "build-migrate"
-        ],
-        "exports": {
-          "CARTULARY_TEST_TARGET": "browser-e2e-functional"
-        },
-        "stage": "functional",
-        "workers": "$(PLAYWRIGHT_WORKERS)",
-        "service_wrapper": "direct"
-      },
-      "browser-e2e-support": {
-        "type": "browser_batch",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)",
-          "build-server",
-          "build-migrate"
-        ],
-        "exports": {
-          "CARTULARY_TEST_TARGET": "browser-e2e-support"
-        },
-        "stage": "support",
-        "workers": "$(PLAYWRIGHT_WORKERS)",
-        "service_wrapper": "direct"
-      },
-      "browser-e2e-stateful": {
-        "type": "browser_batch",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)",
-          "build-server",
-          "build-migrate"
-        ],
-        "comments": [
-          "Browser evidence that mutates process-global backend state belongs here."
-        ],
-        "exports": {
-          "CARTULARY_TEST_TARGET": "browser-e2e-stateful"
-        },
-        "stage": "stateful",
-        "workers": "1",
-        "service_wrapper": "direct"
-      },
-      "browser-e2e-resettable": {
-        "type": "browser_batch",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)",
-          "build-server",
-          "build-migrate"
-        ],
-        "exports": {
-          "CARTULARY_TEST_TARGET": "browser-e2e-resettable"
-        },
-        "stage": "resettable",
-        "workers": "1",
-        "service_wrapper": "direct"
-      },
-      "browser-e2e-measurement": {
-        "type": "browser_batch",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)",
-          "build-server",
-          "build-migrate"
-        ],
-        "comments": [
-          "Ordinary implementation/regression measurement; not claim-bearing Core 05 publication evidence."
-        ],
-        "exports": {
-          "CARTULARY_TEST_TARGET": "browser-e2e-measurement"
-        },
-        "stage": "measurement",
-        "workers": "1",
-        "service_wrapper": "direct"
-      },
-      "browser-e2e-visual": {
-        "type": "browser_batch",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)",
-          "build-server",
-          "build-migrate"
-        ],
-        "exports": {
-          "CARTULARY_TEST_TARGET": "browser-e2e-visual"
-        },
-        "stage": "visual",
-        "workers": "1",
-        "service_wrapper": "direct"
+        "type": "alias"
       },
       "check-go-test-duration-baseline-drift": {
         "type": "summary_target",
         "prerequisites": [],
         "child_target": "go-test-duration-baseline-drift",
-        "status": "pass"
+        "status": "pass",
+        "test_target": "self"
       },
       "check-browser-e2e-duration-baseline-drift": {
         "type": "summary_target",
         "prerequisites": [],
         "child_target": "browser-e2e-duration-baseline-drift",
-        "status": "pass"
+        "status": "pass",
+        "test_target": "self"
       },
       "check-service-backed-make-target-duration-baseline-drift": {
         "type": "summary_target",
         "prerequisites": [],
         "child_target": "service-backed-make-target-duration-baseline-drift",
-        "status": "pass"
+        "status": "pass",
+        "test_target": "self"
       },
       "check-harness-smoke-duration-baseline-drift": {
         "type": "summary_target",
         "prerequisites": [],
         "child_target": "harness-smoke-duration-baseline-drift",
-        "status": "pass"
+        "status": "pass",
+        "test_target": "self"
       },
       "check-service-backed": {
         "type": "service_backed_schedule",
@@ -1261,26 +1971,90 @@
           "build-migrate",
           "test-service-images"
         ],
-        "exports": {
-          "CARTULARY_TEST_TARGET": "check-service-backed"
-        },
         "phase_label": "check service-backed",
-        "service_wrapper": "test-services"
+        "service_wrapper": "test-services",
+        "test_target": "self"
       },
-      "task-surface-check": {
-        "type": "phase_command",
+      "ci": {
+        "type": "sequence",
         "prerequisites": [
-          "$(NODE_BIN)"
-        ],
-        "mode": "run_phase",
-        "phase_label": "task-surface-check",
-        "command": [
           "$(NODE_BIN)",
-          "./scripts/print-task-surface-report.mjs"
+          "$(FRONTEND_INSTALL_STAMP)"
         ],
-        "args": [
-          "--check"
-        ]
+        "exports": {
+          "CI": "1"
+        },
+        "sequence": "ci"
+      },
+      "release-check": {
+        "type": "sequence",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "sequence": "release-check"
+      },
+      "license-report": {
+        "prerequisites": [],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "license-report",
+        "command": [
+          "./scripts/check-release-artifact.sh",
+          "\"license report\"",
+          "\"$(LICENSE_REPORT_ARTIFACT)\""
+        ],
+        "test_target": "self"
+      },
+      "sbom": {
+        "prerequisites": [],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "sbom",
+        "command": [
+          "./scripts/check-release-artifact.sh",
+          "\"SBOM\"",
+          "\"$(SBOM_ARTIFACT)\""
+        ],
+        "test_target": "self"
+      },
+      "build": {
+        "prerequisites": [
+          "build-server",
+          "build-migrate"
+        ],
+        "type": "alias"
+      },
+      "build-server": {
+        "prerequisites": [
+          "$(SERVER_BIN)"
+        ],
+        "type": "alias",
+        "test_target": "self"
+      },
+      "build-migrate": {
+        "prerequisites": [
+          "$(MIGRATE_BIN)"
+        ],
+        "type": "alias",
+        "test_target": "self"
+      },
+      "build-web": {
+        "prerequisites": [
+          "$(CURDIR)/apps/web/dist/index.html"
+        ],
+        "type": "alias",
+        "test_target": "self"
+      },
+      "clean": {
+        "prerequisites": [],
+        "type": "cleanup",
+        "scope": "clean"
+      },
+      "distclean": {
+        "prerequisites": [],
+        "type": "cleanup",
+        "scope": "distclean"
       }
     },
     "targets": [
@@ -1303,6 +2077,9 @@
         "classification": "public",
         "included_in": [
           "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/check-doctor.sh"
         ]
       },
       {
@@ -1324,6 +2101,9 @@
         "classification": "public",
         "included_in": [
           "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/print-frontend-toolchain.sh"
         ]
       },
       {
@@ -1338,6 +2118,9 @@
         "classification": "helper_only",
         "included_in": [
           "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/frontend-install-ci.sh"
         ]
       },
       {
@@ -1352,6 +2135,9 @@
         "classification": "public",
         "included_in": [
           "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/dev-services.sh"
         ]
       },
       {
@@ -1359,6 +2145,9 @@
         "classification": "public",
         "included_in": [
           "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/dev-services.sh"
         ]
       },
       {
@@ -1366,6 +2155,9 @@
         "classification": "public",
         "included_in": [
           "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/dev-services.sh"
         ]
       },
       {
@@ -1380,6 +2172,9 @@
         "classification": "helper_only",
         "included_in": [
           "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/dev-services.sh"
         ]
       },
       {
@@ -1387,6 +2182,9 @@
         "classification": "helper_only",
         "included_in": [
           "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/dev-services.sh"
         ]
       },
       {
@@ -1394,6 +2192,9 @@
         "classification": "public",
         "included_in": [
           "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/dev-services.sh"
         ]
       },
       {
@@ -1446,6 +2247,9 @@
         "classification": "helper_only",
         "included_in": [
           "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/generate-artifacts.sh"
         ]
       },
       {
@@ -2025,7 +2829,18 @@
         ],
         "backing_scripts": [
           "scripts/run-frontend-unit.sh"
-        ]
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu",
+          "priority_band": "harness_evidence",
+          "order": 0,
+          "produces_summary_targets": [
+            "frontend-unit"
+          ]
+        }
       },
       {
         "name": "frontend-task-surface-check",
@@ -2077,7 +2892,10 @@
           "profile": "after_setup_cpu_io",
           "priority_band": "static_validation",
           "order": 0
-        }
+        },
+        "backing_scripts": [
+          "scripts/run-frontend-biome.sh"
+        ]
       },
       {
         "name": "lint-scripts",
@@ -2137,6 +2955,9 @@
         "classification": "helper_only",
         "included_in": [
           "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/run-frontend-biome.sh"
         ]
       },
       {
@@ -2467,7 +3288,10 @@
           "profile": "setup_blocker",
           "priority_band": "setup",
           "order": 0
-        }
+        },
+        "backing_scripts": [
+          "scripts/check-setup-blockers.sh"
+        ]
       },
       {
         "name": "check-harness-smoke",
@@ -2583,24 +3407,6 @@
           "order": 1010,
           "produces_summary_targets": [
             "check-harness-smoke-duration-baseline-drift"
-          ]
-        }
-      },
-      {
-        "name": "check-frontend-unit",
-        "classification": "check_internal",
-        "included_in": [
-          "check"
-        ],
-        "check_schedule": {
-          "schedules": [
-            "check"
-          ],
-          "profile": "after_setup_cpu",
-          "priority_band": "harness_evidence",
-          "order": 0,
-          "produces_summary_targets": [
-            "frontend-unit"
           ]
         }
       },

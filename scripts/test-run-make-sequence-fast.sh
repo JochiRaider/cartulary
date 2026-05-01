@@ -185,6 +185,7 @@ for (const name of ["alpha", "beta", "smoke", "dry-run"]) {
   if (!manifest.targets.some((target) => target.name === name)) {
     manifest.targets.push({ name, classification: "helper_only", included_in: ["helper_only"] });
   }
+  manifest.make_recipes[name] = { type: "alias", prerequisites: [] };
 }
 manifest.sequences.smoke = {
   summary_groups: [
@@ -196,10 +197,12 @@ manifest.sequences.smoke = {
     { type: "parallel", target: "beta", jobs: 3, produces_summary_targets: ["beta"] },
   ],
 };
+manifest.make_recipes.smoke = { type: "sequence", prerequisites: [], sequence: "smoke" };
 manifest.sequences["dry-run"] = {
   summary_groups: [],
   steps: [{ type: "step", target: "alpha", produces_summary_targets: ["alpha"] }],
 };
+manifest.make_recipes["dry-run"] = { type: "sequence", prerequisites: [], sequence: "dry-run" };
 fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 

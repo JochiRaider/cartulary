@@ -34,6 +34,9 @@ const validClassifications = new Set(["public", "check_internal", "helper_only"]
 const validInclusions = new Set(["test", "check", "ci", "release-check", "helper_only"]);
 const retiredRootRunnerHelperPattern =
   /^\s*(RUN_(?:GO|PLAYWRIGHT|VITEST)(?:_MANIFEST)?_PHASE(?:_SCRIPT)?)\s*(?::=|\?=|\+=|=)/;
+const targetOwnedPhaseTargetsPattern = /^\s*TARGET_OWNED_PHASE_TARGETS\s*(?::=|\?=|\+=|=)/;
+const targetSpecificTestTargetExportPattern =
+  /^\s*([A-Za-z0-9_.-]+)\s*:\s*export\s+CARTULARY_TEST_TARGET\b/;
 
 function main() {
   const generatedMake = readFileSync(generatedMakePath, "utf8");
@@ -163,6 +166,30 @@ function collectRetiredRootRunnerHelpers(source) {
   return helpers;
 }
 
+function collectForbiddenMakeOwnership(source) {
+  const violations = [];
+  const lines = source.split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (targetOwnedPhaseTargetsPattern.test(line)) {
+      violations.push({
+        line: index + 1,
+        message:
+          "Makefile must not define TARGET_OWNED_PHASE_TARGETS; use task_surface.make_recipes[].test_target",
+      });
+      continue;
+    }
+    const exportMatch = targetSpecificTestTargetExportPattern.exec(line);
+    if (exportMatch) {
+      violations.push({
+        line: index + 1,
+        message: `Makefile must not define target-specific CARTULARY_TEST_TARGET for ${exportMatch[1]}; use task_surface.make_recipes[].test_target`,
+      });
+    }
+  }
+  return violations;
+}
+
 function collectPhaseDependencies() {
   const rows = [];
 
@@ -204,6 +231,9 @@ function validateTaskSurface({
     errors.push(
       `Makefile must not define retired runner-specific helper ${helper.name} on line ${helper.line}; use generic RUN_PHASE or script-local helpers`,
     );
+  }
+  for (const violation of collectForbiddenMakeOwnership(authoredMake)) {
+    errors.push(`${violation.message} on line ${violation.line}`);
   }
 
   if (manifest.schema_id !== taskSurfaceSchemaID) {

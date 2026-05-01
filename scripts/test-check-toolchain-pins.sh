@@ -78,6 +78,7 @@ copy_minimal_repo() {
   cp "${ROOT_DIR}/scripts/list-build-inputs.sh" "${dest}/scripts/list-build-inputs.sh"
   cp "${ROOT_DIR}/scripts/bootstrap-node-runtime.sh" "${dest}/scripts/bootstrap-node-runtime.sh"
   cp "${ROOT_DIR}/scripts/bootstrap-shellcheck.sh" "${dest}/scripts/bootstrap-shellcheck.sh"
+  cp "${ROOT_DIR}/scripts/check-setup-blockers.sh" "${dest}/scripts/check-setup-blockers.sh"
   cp "${ROOT_DIR}/scripts/check-toolchain-pins.mjs" "${dest}/scripts/check-toolchain-pins.mjs"
   mkdir -p \
     "${dest}/apps/web" \

@@ -135,7 +135,7 @@ assert.deepEqual(
     ["go-vulncheck", 22000],
     ["go-gosec-targeted", 21900],
     ["go-gosec-audit", 21800],
-    ["check-frontend-unit", 15000],
+    ["frontend-unit", 15000],
     ["check-harness-smoke", 14000],
     ["check-harness-smoke-duration-baseline-drift", 13990],
     ["lint-biome", 13000],
@@ -233,6 +233,19 @@ assert.throws(
     }),
   /duplicate priority order drift_validation:0/,
   "topology validation must reject duplicate check schedule priority orders within a band",
+);
+
+const mismatchedSummaryTargetTopology = topologyFixture();
+mismatchedSummaryTargetTopology.task_surface.targets.find(
+  (target) => target.name === "frontend-unit",
+).check_schedule.produces_summary_targets = ["frontend-typecheck"];
+assert.throws(
+  () =>
+    loadExecutionTopology({
+      manifestPath: writeTopologyFixture("mismatched-summary-target-topology.json", mismatchedSummaryTargetTopology),
+    }),
+  /frontend-unit\.check_schedule\.produces_summary_targets must include owning target frontend-unit/,
+  "topology validation must reject check work units that omit their own summary target",
 );
 
 const missingServiceStackTopology = topologyFixture();

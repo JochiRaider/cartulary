@@ -88,6 +88,8 @@ done
 assert_not_contains "$valid_output" "public Make targets:" "current report compact output omits public target list"
 assert_not_contains "$valid_output" "browser-e2e-measurement" "current report compact output omits target rows"
 assert_contains "$valid_output" "use --all to print public targets" "current report compact output hint"
+assert_not_contains "$(cat "$ROOT_DIR/Makefile")" "TARGET_OWNED_PHASE_TARGETS" "Makefile must not keep target ownership list"
+assert_not_contains "$(cat "$ROOT_DIR/Makefile")" "export CARTULARY_TEST_TARGET" "Makefile must not keep target-specific test-target exports"
 
 valid_all_output="$(assert_passes "current exhaustive task-surface report" "$NODE_BIN" "$REPORTER" --check --all)"
 assert_contains "$valid_all_output" "public Make targets:" "current exhaustive report public target section"
@@ -104,7 +106,38 @@ import { pathToFileURL } from "node:url";
 
 const [root] = process.argv.slice(2);
 const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
-const { helpAllLines } = await import(pathToFileURL(path.join(root, "scripts/lib/task-surface.mjs")));
+const { helpAllLines, renderTaskSurfaceMake } = await import(pathToFileURL(path.join(root, "scripts/lib/task-surface.mjs")));
+assert.equal(manifest.schema_id, "cartulary.task_surface_manifest.v11", "task surface schema must be v11");
+assert.deepEqual(
+  manifest.targets.map((target) => target.name).filter((target) => !manifest.make_recipes[target]),
+  [],
+  "every Make target must have a generated recipe",
+);
+assert.equal(manifest.make_recipes.help.type, "print_help", "help must be generated as print_help");
+assert.equal(manifest.make_recipes["help-all"].scope, "all", "help-all must print exhaustive help");
+assert.equal(manifest.make_recipes["frontend-install"].type, "alias", "frontend-install must be a generated alias");
+assert.equal(
+  manifest.make_recipes["frontend-install"].test_target,
+  "self",
+  "target-owned exports must use test_target self",
+);
+assert.equal(
+  manifest.make_recipes["frontend-typecheck"].success_summary,
+  true,
+  "frontend-typecheck must keep its explicit pass summary",
+);
+const renderedMake = renderTaskSurfaceMake(manifest);
+assert.match(renderedMake, /^help:\n\t\$\([Q]\)printf '%s\\n' \$\(TASK_SURFACE_HELP_LINES\)$/m, "help recipe must be generated");
+assert.match(
+  renderedMake,
+  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install: \$\(FRONTEND_INSTALL_STAMP\)/,
+  "test_target self must render target-specific export",
+);
+assert.match(
+  renderedMake,
+  /\$\(call RUN_TARGET_SUMMARY,frontend-typecheck,pass\)/,
+  "success_summary must render an explicit pass summary",
+);
 const longTarget = "synthetic-help-target-name-longer-than-command-column";
 const usageTarget = "synthetic-help-usage";
 manifest.targets.push(
@@ -356,6 +389,33 @@ writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 undeclared_script_output="$(assert_fails "undeclared script reference" run_report_copy)"
 assert_contains "$undeclared_script_output" "references scripts/check-toolchain-pins.mjs" "undeclared script reference output"
+
+cp "$ROOT_DIR/Makefile" "$makefile_copy"
+cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
+cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
+printf '\nTARGET_OWNED_PHASE_TARGETS := frontend-install\n' >>"$makefile_copy"
+target_owned_output="$(assert_fails "target ownership list drift" run_report_copy)"
+assert_contains "$target_owned_output" "Makefile must not define TARGET_OWNED_PHASE_TARGETS" "target ownership list output"
+
+cp "$ROOT_DIR/Makefile" "$makefile_copy"
+cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
+cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
+printf '\nfrontend-install: export CARTULARY_TEST_TARGET ?= frontend-install\n' >>"$makefile_copy"
+target_export_output="$(assert_fails "target-specific test target export drift" run_report_copy)"
+assert_contains "$target_export_output" "Makefile must not define target-specific CARTULARY_TEST_TARGET for frontend-install" "target-specific test target output"
+
+cp "$ROOT_DIR/Makefile" "$makefile_copy"
+cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
+cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
+"$NODE_BIN" - "$manifest_copy" <<'EOF'
+const { readFileSync, writeFileSync } = require("node:fs");
+const manifestPath = process.argv[2];
+const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+delete manifest.make_recipes.help;
+writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
+missing_recipe_output="$(assert_fails "missing generated recipe" run_report_copy)"
+assert_contains "$missing_recipe_output" "make_recipes is missing target help" "missing generated recipe output"
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"

@@ -590,7 +590,10 @@ function attachRuntime(schedule, { makeBin, testOutputScript, deferSummary, goTa
       unit.command = () => ({
         command: makeBin,
         args: ["--no-print-directory", "--output-sync=target", "-j1", unit.target],
-        env: makeChildEnv(process.env),
+        env: {
+          ...makeChildEnv(process.env),
+          CARTULARY_TEST_TARGET: unit.target,
+        },
       });
       continue;
     }

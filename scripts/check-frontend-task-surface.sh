@@ -19,27 +19,6 @@ frontend_import_boundary_config="$repo_root/tools/frontend_import_boundaries.jso
 scripts_biome_script="$repo_root/scripts/run-scripts-biome.sh"
 node_bin="${NODE_BIN:-node}"
 
-extract_target_block() {
-  local target="$1"
-  awk -v target="$target" '
-    $0 ~ "^" target ":[[:space:]]+export[[:space:]]" { next }
-    $0 ~ "^" target ":" { in_block=1; next }
-    in_block && /^[^[:space:]].*:/ { exit }
-    in_block { print }
-  ' "$generated_make" "$makefile"
-}
-
-extract_target_prereqs() {
-  local target="$1"
-  awk -v target="$target" '
-    $0 ~ "^" target ":" && $0 !~ "^" target ":[[:space:]]+export[[:space:]]" {
-      sub("^" target ":[[:space:]]*", "", $0)
-      print
-      exit
-    }
-  ' "$generated_make" "$makefile"
-}
-
 assert_target_recipe_invokes() {
   local target="$1"
   local invoked_target="$2"
@@ -69,12 +48,8 @@ assert_text_order() {
   fi
 }
 
-if ! rg -q '^frontend-task-surface-check:' "$generated_make" "$makefile"; then
-  fail "Makefile must define frontend-task-surface-check"
-fi
-if ! rg -q '^frontend-import-boundary-check:' "$generated_make" "$makefile"; then
-  fail "Makefile must define frontend-import-boundary-check"
-fi
+assert_target_exists frontend-task-surface-check "Makefile must define frontend-task-surface-check"
+assert_target_exists frontend-import-boundary-check "Makefile must define frontend-import-boundary-check"
 if [[ ! -f "$frontend_import_boundary_script" ]]; then
   fail "missing scripts/check-frontend-import-boundaries.mjs"
 fi
@@ -87,9 +62,7 @@ if ! text_contains "$frontend_unit_block" './scripts/run-frontend-unit.sh'; then
   fail "frontend-unit must delegate to scripts/run-frontend-unit.sh"
 fi
 
-if ! rg -q '^toolchain-drift:' "$makefile"; then
-  fail "Makefile must define toolchain-drift"
-fi
+assert_target_exists toolchain-drift "Makefile must define toolchain-drift"
 assert_target_prereq codegen-toolchain '$(SQLC_BIN)' "codegen-toolchain must own pinned SQLC_BIN readiness"
 assert_target_prereq go-lint-toolchain '$(STATICCHECK_BIN)' "go-lint-toolchain must own pinned Staticcheck readiness"
 assert_target_prereq shell-lint-toolchain '$(SHELLCHECK_BIN)' "shell-lint-toolchain must own pinned ShellCheck readiness"
@@ -99,37 +72,42 @@ generate_artifacts_block="$(extract_target_block generate-artifacts)"
 if [[ -z "$generate_artifacts_block" ]]; then
   fail "Makefile must define a non-empty generate-artifacts block"
 fi
-if ! text_matches "$generate_artifacts_block" 'generate sqlc'; then
-  fail "generate-artifacts must run sqlc generation"
+if ! text_contains "$generate_artifacts_block" './scripts/generate-artifacts.sh'; then
+  fail "generate-artifacts must delegate to scripts/generate-artifacts.sh"
+fi
+if ! grep -Fq '"generate sqlc"' "$repo_root/scripts/generate-artifacts.sh"; then
+  fail "scripts/generate-artifacts.sh must run sqlc generation"
 fi
 assert_target_prereq generate-drift codegen-toolchain "generate-drift must prepare the codegen toolchain outside the drift body"
-if rg -q '^check-preflight:' "$makefile"; then
-  fail "check-preflight must not remain as a legacy alias; use check-setup-blockers"
-fi
+assert_target_absent check-preflight "check-preflight must not remain as a legacy alias; use check-setup-blockers"
 check_setup_block="$(extract_target_block check-setup-blockers)"
 if [[ -z "$check_setup_block" ]]; then
   fail "Makefile must define a non-empty check-setup-blockers block"
 fi
-if ! text_matches "$check_setup_block" 'toolchain-drift'; then
+if ! text_contains "$check_setup_block" './scripts/check-setup-blockers.sh'; then
+  fail "check-setup-blockers must delegate to scripts/check-setup-blockers.sh"
+fi
+check_setup_body="$(cat "$repo_root/scripts/check-setup-blockers.sh")"
+if ! text_matches "$check_setup_body" 'toolchain-drift'; then
   fail "check-setup-blockers must invoke toolchain-drift"
 fi
-if ! text_matches "$check_setup_block" 'codegen-toolchain'; then
+if ! text_matches "$check_setup_body" 'codegen-toolchain'; then
   fail "check-setup-blockers must prepare the codegen toolchain after toolchain drift"
 fi
-if ! text_matches "$check_setup_block" 'go-lint-toolchain'; then
+if ! text_matches "$check_setup_body" 'go-lint-toolchain'; then
   fail "check-setup-blockers must prepare the Go lint toolchain after codegen readiness"
 fi
-if ! text_matches "$check_setup_block" 'shell-lint-toolchain'; then
+if ! text_matches "$check_setup_body" 'shell-lint-toolchain'; then
   fail "check-setup-blockers must prepare ShellCheck after Go lint tooling"
 fi
-if ! text_matches "$check_setup_block" 'frontend-install'; then
+if ! text_matches "$check_setup_body" 'frontend-install'; then
   fail "check-setup-blockers must invoke frontend install after toolchain drift"
 fi
-assert_text_order "check-setup-blockers recipe" "$check_setup_block" "toolchain-drift" "codegen-toolchain" "check-setup-blockers must prepare codegen after toolchain drift"
-assert_text_order "check-setup-blockers recipe" "$check_setup_block" "codegen-toolchain" "go-lint-toolchain" "check-setup-blockers must prepare Go lint tooling after codegen readiness"
-assert_text_order "check-setup-blockers recipe" "$check_setup_block" "go-lint-toolchain" "shell-lint-toolchain" "check-setup-blockers must prepare ShellCheck after Go lint tooling"
-assert_text_order "check-setup-blockers recipe" "$check_setup_block" "go-lint-toolchain" "frontend-install" "check-setup-blockers must install frontend dependencies after Go lint tooling readiness"
-if text_matches "$check_setup_block" 'frontend-task-surface-check|frontend-import-boundary-check|phase-ledger-drift|run-phase-smoke|generate-drift|lint-biome|lint-scripts'; then
+assert_text_order "check-setup-blockers script" "$check_setup_body" "toolchain-drift" "codegen-toolchain" "check-setup-blockers must prepare codegen after toolchain drift"
+assert_text_order "check-setup-blockers script" "$check_setup_body" "codegen-toolchain" "go-lint-toolchain" "check-setup-blockers must prepare Go lint tooling after codegen readiness"
+assert_text_order "check-setup-blockers script" "$check_setup_body" "go-lint-toolchain" "shell-lint-toolchain" "check-setup-blockers must prepare ShellCheck after Go lint tooling"
+assert_text_order "check-setup-blockers script" "$check_setup_body" "go-lint-toolchain" "frontend-install" "check-setup-blockers must install frontend dependencies after Go lint tooling readiness"
+if text_matches "$check_setup_body" 'frontend-task-surface-check|frontend-import-boundary-check|phase-ledger-drift|run-phase-smoke|generate-drift|lint-biome|lint-scripts'; then
   fail "check-setup-blockers must not include static validation or harness smoke work"
 fi
 check_prereqs="$(extract_target_prereqs check)"
@@ -148,7 +126,7 @@ if (Array.isArray(topology.check_schedules)) {
   throw new Error("execution topology must own check schedule profiles, not flat schedules");
 }
 const topologyTargets = new Map((topology.task_surface?.targets ?? []).map((entry) => [entry.name, entry]));
-for (const required of ["frontend-typecheck", "frontend-task-surface-check", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "lint-shell", "check-frontend-unit"]) {
+for (const required of ["frontend-typecheck", "frontend-unit", "frontend-task-surface-check", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "lint-shell"]) {
   const metadata = topologyTargets.get(required)?.check_schedule;
   if (!metadata?.schedules?.includes("check")) {
     throw new Error(`execution topology must schedule ${required} through check_schedule metadata`);
@@ -164,18 +142,14 @@ for (const removed of ["check-static-validation", "check-local-product", "check-
     throw new Error(`${removed} must not remain scheduled after leaf check expansion`);
   }
 }
-for (const required of ["frontend-typecheck", "frontend-task-surface-check", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "lint-shell", "check-harness-smoke"]) {
+for (const required of ["frontend-typecheck", "frontend-unit", "frontend-task-surface-check", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "lint-shell", "check-harness-smoke"]) {
   if (!targets.has(required)) {
     throw new Error(`check schedule must include ${required}`);
   }
 }
 EOF
-if ! rg -q '^phase-ledgers:' "$makefile"; then
-  fail "Makefile must define phase-ledgers"
-fi
-if ! rg -q '^phase-ledger-drift:' "$makefile"; then
-  fail "Makefile must define phase-ledger-drift"
-fi
+assert_target_exists phase-ledgers "Makefile must define phase-ledgers"
+assert_target_exists phase-ledger-drift "Makefile must define phase-ledger-drift"
 
 if ! [[ -f "$runner_script" ]]; then
   fail "missing scripts/run-frontend-unit.sh"
@@ -185,9 +159,7 @@ frontend_typecheck_block="$(extract_target_block frontend-typecheck)"
 if [[ -z "$frontend_typecheck_block" ]]; then
   fail "Makefile must define a non-empty frontend-typecheck block"
 fi
-if ! rg -q '^frontend-typecheck:[[:space:]]+export CARTULARY_TEST_TARGET := frontend-typecheck$' "$makefile"; then
-  fail "frontend-typecheck must export CARTULARY_TEST_TARGET"
-fi
+assert_target_exports_self frontend-typecheck "frontend-typecheck must export CARTULARY_TEST_TARGET"
 if ! text_contains "$frontend_typecheck_block" '$(PNPM) typecheck'; then
   fail "frontend-typecheck must run the root workspace TypeScript typecheck script"
 fi
@@ -254,15 +226,14 @@ EOF
 if text_contains "$frontend_typecheck_block" '--dir apps/web exec tsc'; then
   fail "frontend-typecheck must not remain app-only"
 fi
-if ! text_contains "$frontend_typecheck_block" '$(TARGET_SUMMARY) frontend-typecheck pass'; then
+if ! text_contains "$frontend_typecheck_block" '$(call RUN_TARGET_SUMMARY,frontend-typecheck,pass)'; then
   fail "frontend-typecheck must emit a target summary"
 fi
 
-if rg -q '^lint-typecheck:' "$makefile"; then
-  fail "lint-typecheck must not remain as a legacy alias; use frontend-typecheck"
-fi
+assert_target_absent lint-typecheck "lint-typecheck must not remain as a legacy alias; use frontend-typecheck"
 
-if ! rg -q '^format:[[:space:]]+format-go[[:space:]]+format-frontend$$' "$makefile"; then
+format_prereqs="$(extract_target_prereqs format)"
+if ! text_has_token "$format_prereqs" format-go || ! text_has_token "$format_prereqs" format-frontend; then
   fail "format must delegate to format-go and format-frontend"
 fi
 format_go_block="$(extract_target_block format-go)"
@@ -277,7 +248,7 @@ if ! text_matches "$format_frontend_prereqs" '(^|[[:space:]])\$\(FRONTEND_INSTAL
   fail "format-frontend must depend on FRONTEND_INSTALL_STAMP"
 fi
 format_frontend_block="$(extract_target_block format-frontend)"
-if ! text_contains "$format_frontend_block" '$(RUN_FRONTEND_BIOME_SCRIPT) format'; then
+if ! text_contains "$format_frontend_block" './scripts/run-frontend-biome.sh format'; then
   fail "format-frontend must run the curated frontend Biome formatter"
 fi
 lint_biome_block="$(extract_target_block lint-biome)"
@@ -305,7 +276,7 @@ if ! grep -Fq -- '--vcs-root "${ROOT_DIR}"' "$frontend_biome_script"; then
   fail "frontend Biome wrapper must set the repo VCS root explicitly"
 fi
 lint_scripts_block="$(extract_target_block lint-scripts)"
-if ! text_contains "$lint_scripts_block" '$(RUN_SCRIPTS_BIOME_SCRIPT)'; then
+if ! text_contains "$lint_scripts_block" './scripts/run-scripts-biome.sh'; then
   fail "lint-scripts must run the curated scripts Biome wrapper"
 fi
 lint_shell_block="$(extract_target_block lint-shell)"

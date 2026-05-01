@@ -18,12 +18,15 @@ export const defaultTaskSurfaceManifestPath = path.join(
   "task_surface_manifest.json",
 );
 export const defaultGeneratedMakePath = path.join(repoRoot, "tools", "task_surface.generated.mk");
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v10";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v11";
 
 const validClassifications = new Set(["public", "check_internal", "helper_only"]);
 const validInclusions = new Set(["test", "check", "ci", "release-check", "helper_only"]);
 const validServiceRequirements = new Set(["postgres", "minio", "browser_stack", "vite"]);
 const validMakeRecipeTypes = new Set([
+  "alias",
+  "cleanup",
+  "print_help",
   "sequence",
   "check_schedule",
   "go_target",
@@ -40,9 +43,9 @@ const helpDescriptionIndent = " ".repeat(2 + "make ".length + helpTargetColumnWi
 const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const makeResourcePattern = /^[A-Za-z0-9_.-]+$/;
-const makePrerequisitePattern = /^(?:[A-Za-z0-9_./-]+|\$\([A-Z][A-Z0-9_]*\))$/;
-const makeValuePattern = /^[A-Za-z0-9_.$()/:, -]+$/;
-const makeTokenPattern = /^[A-Za-z0-9_.$()/:,="./-]+$/;
+const makePrerequisitePattern = /^[A-Za-z0-9_.$()/:,/-]+$/;
+const makeValuePattern = /^[A-Za-z0-9_.$()/:,;="' -]+$/;
+const makeTokenPattern = /^[A-Za-z0-9_.$()/:,="./ -]+$/;
 const repoJSONPathPattern = /^[A-Za-z0-9_./-]+\.json$/;
 
 export function resolveRepoPath(value) {
@@ -317,6 +320,12 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
     return;
   }
 
+  for (const target of targets.keys()) {
+    if (!Object.hasOwn(recipes, target)) {
+      errors.push(`make_recipes is missing target ${target}`);
+    }
+  }
+
   for (const [target, recipe] of Object.entries(recipes)) {
     const label = `make_recipes.${target}`;
     if (!makeTargetPattern.test(target)) {
@@ -342,8 +351,35 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
       errors.push(`${label}.type must be one of ${Array.from(validMakeRecipeTypes).join(", ")}`);
       continue;
     }
+    if (recipe.test_target !== undefined && recipe.test_target !== "self") {
+      errors.push(`${label}.test_target must be self when present`);
+    }
+    if (recipe.success_summary !== undefined && typeof recipe.success_summary !== "boolean") {
+      errors.push(`${label}.success_summary must be a boolean`);
+    }
     validateMakeExports(errors, recipe.exports, `${label}.exports`);
+    if (recipe.exports?.CARTULARY_TEST_TARGET !== undefined) {
+      errors.push(`${label}.exports.CARTULARY_TEST_TARGET is obsolete; use test_target: "self"`);
+    }
     validateMakeComments(errors, recipe.comments, `${label}.comments`);
+
+    if (recipe.type === "alias") {
+      continue;
+    }
+
+    if (recipe.type === "cleanup") {
+      if (!["clean", "distclean"].includes(recipe.scope)) {
+        errors.push(`${label}.scope must be clean or distclean`);
+      }
+      continue;
+    }
+
+    if (recipe.type === "print_help") {
+      if (!["compact", "all"].includes(recipe.scope)) {
+        errors.push(`${label}.scope must be compact or all`);
+      }
+      continue;
+    }
 
     if (recipe.type === "sequence") {
       if (typeof recipe.sequence !== "string" || !sequences?.[recipe.sequence]) {
@@ -438,6 +474,19 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
     if (recipe.type === "phase_command") {
       if (!["run_phase", "node", "command"].includes(recipe.mode)) {
         errors.push(`${label}.mode must be run_phase, node, or command`);
+      }
+      if (recipe.allow_success_log !== undefined && typeof recipe.allow_success_log !== "boolean") {
+        errors.push(`${label}.allow_success_log must be a boolean`);
+      }
+      if (
+        recipe.failure_note !== undefined &&
+        (
+          typeof recipe.failure_note !== "string" ||
+          !makeValuePattern.test(recipe.failure_note) ||
+          recipe.failure_note.trim() === ""
+        )
+      ) {
+        errors.push(`${label}.failure_note must be a safe non-empty Make value`);
       }
       validateEnvEntries(errors, recipe.env, `${label}.env`);
       validateCommandTokens(errors, recipe.command, `${label}.command`, { required: recipe.mode !== "node" });
@@ -768,7 +817,11 @@ export function renderTaskSurfaceMake(manifest) {
   }
   lines.push("\t''");
   lines.push("");
+  lines.push('TASK_SURFACE_RUN_ENV = NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)"');
+  lines.push('TASK_SURFACE_GO_ENV = GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_BIN="$(NODE_BIN)"');
+  lines.push('TASK_SURFACE_SERVICE_SCHEDULE_ENV = $(TASK_SURFACE_RUN_ENV) TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)" SERVICE_BACKED_SCHEDULE_MANIFEST="$(SERVICE_BACKED_SCHEDULE_MANIFEST)" CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)"');
   lines.push('RUN_MAKE_NODE_TOOL = env NODE_BIN="$(NODE_BIN)" $(2) ./scripts/run-make-node-tool.sh $(1)');
+  lines.push('RUN_TARGET_SUMMARY = $(Q)env $(TASK_SURFACE_RUN_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) target-summary $(1) $(2)');
   lines.push("");
   for (const recipe of makeRecipeEntries(manifest)) {
     lines.push(...renderMakeRecipe(recipe, manifest));
@@ -781,6 +834,57 @@ function renderMakeRecipe(recipe, manifest) {
   const prerequisites = (recipe.prerequisites ?? []).join(" ");
   const header = prerequisites ? `${recipe.target}: ${prerequisites}` : `${recipe.target}:`;
   const prefix = renderRecipePrefix(recipe);
+  if (recipe.type === "alias") {
+    return [...prefix, header];
+  }
+  if (recipe.type === "cleanup") {
+    if (recipe.scope === "distclean") {
+      return [
+        ...prefix,
+        header,
+        "\t$(Q)printf '%s\\n' \\",
+        "\t\t'The following repo-local artifacts will be removed when present:' \\",
+        "\t\t'  $(SERVER_BIN)' \\",
+        "\t\t'  $(MIGRATE_BIN)' \\",
+        "\t\t'  $(CURDIR)/apps/web/dist' \\",
+        "\t\t'  $(EMBEDDED_WEB_ASSET_STAMP)' \\",
+        "\t\t'  $(CARTULARY_TEST_RESULTS_DIR)' \\",
+        "\t\t'  $(RELEASE_ARTIFACT_DIR)' \\",
+        "\t\t'  $(CURDIR)/apps/web/test-results' \\",
+        "\t\t'  $(CURDIR)/tmp/dev-stack' \\",
+        "\t\t'  $(CURDIR)/tmp/dev-stack-lifecycle-smoke.*' \\",
+        "\t\t'  $(CURDIR)/tmp/web-e2e-lifecycle-smoke.*' \\",
+        "\t\t'  $(CURDIR)/tmp/vitest-json-sample.*' \\",
+        "\t\t'  $(NODE_RUNTIME_DIR)' \\",
+        "\t\t'  $(TOOLBIN_DIR)' \\",
+        "\t\t'  $(SHELLCHECK_ARCHIVE_DIR)' \\",
+        "\t\t'  $(CURDIR)/tmp/frontend-install' \\",
+        "\t\t'  $(CURDIR)/tmp/frontend-toolchain' \\",
+        "\t\t'  $(CURDIR)/tmp/playwright' \\",
+        "\t\t'  $(CURDIR)/tmp/frontend-embed' \\",
+        "\t\t'  $(CURDIR)/.cache' \\",
+        "\t\t'  $(CURDIR)/.pnpm-store' \\",
+        "\t\t'  $(CURDIR)/apps/web/.vite' \\",
+        "\t\t'  $(CURDIR)/playwright-report' \\",
+        "\t\t'  $(CURDIR)/apps/web/playwright-report' \\",
+        "\t\t'  $(CURDIR)/coverage' \\",
+        "\t\t'  $(CURDIR)/apps/web/coverage' \\",
+        "\t\t'  generated embedded web assets under $(EMBEDDED_WEB_ASSET_DIR), preserving .keep'",
+        "\t$(Q)$(call guarded_remove_paths,$(DISTCLEAN_PATHS))",
+        "\t$(Q)$(clean_embedded_web_assets)",
+      ];
+    }
+    return [
+      ...prefix,
+      header,
+      "\t$(Q)$(call guarded_remove_paths,$(CLEAN_PATHS))",
+      "\t$(Q)$(clean_embedded_web_assets)",
+    ];
+  }
+  if (recipe.type === "print_help") {
+    const variable = recipe.scope === "all" ? "TASK_SURFACE_HELP_ALL_LINES" : "TASK_SURFACE_HELP_LINES";
+    return [...prefix, header, `\t$(Q)printf '%s\\n' $(${variable})`];
+  }
   if (recipe.type === "sequence") {
     const sequence = sequenceDefinition(manifest, recipe.sequence);
     const env = [
@@ -807,7 +911,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
-      `\t$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target ${recipe.target} --manifest "$(${recipe.manifest_variable})"${resourceArgs}`,
+      `\t$(Q)env MAKE="$(MAKE)" $(TASK_SURFACE_RUN_ENV) $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target ${recipe.target} --manifest "$(${recipe.manifest_variable})"${resourceArgs}`,
     ];
   }
   if (recipe.type === "go_target") {
@@ -825,20 +929,10 @@ function renderMakeRecipe(recipe, manifest) {
     ];
   }
   if (recipe.type === "service_backed_schedule") {
-    const env = [
-      'NODE_BIN="$(NODE_BIN)"',
-      'TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)"',
-      'TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)"',
-      'TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)"',
-      'RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)"',
-      'RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)"',
-      'SERVICE_BACKED_SCHEDULE_MANIFEST="$(SERVICE_BACKED_SCHEDULE_MANIFEST)"',
-      'CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)"',
-    ];
     return [
       ...prefix,
       header,
-      `\t$(Q)env ${env.join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target ${recipe.target} --phase-label "${recipe.phase_label}" --service-wrapper ${recipe.service_wrapper}`,
+      `\t$(Q)env $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target ${recipe.target} --phase-label "${recipe.phase_label}" --service-wrapper ${recipe.service_wrapper}`,
     ];
   }
   if (recipe.type === "browser_batch") {
@@ -850,7 +944,11 @@ function renderMakeRecipe(recipe, manifest) {
     ];
   }
   if (recipe.type === "phase_command") {
-    return [...prefix, header, ...renderPhaseCommandRecipe(recipe)];
+    const lines = [...prefix, header, ...renderPhaseCommandRecipe(recipe)];
+    if (recipe.success_summary === true) {
+      lines.push(`\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
+    }
+    return lines;
   }
   if (recipe.type === "summary_target") {
     const status = recipe.status ?? "pass";
@@ -887,7 +985,7 @@ function renderRecipePrefix(recipe) {
   for (const comment of recipe.comments ?? []) {
     lines.push(`# ${comment}`);
   }
-  if (["phase_command", "summary_target"].includes(recipe.type) && !("CARTULARY_TEST_TARGET" in (recipe.exports ?? {}))) {
+  if (recipe.test_target === "self") {
     lines.push(`${recipe.target}: export CARTULARY_TEST_TARGET ?= ${recipe.target}`);
   }
   for (const [name, value] of Object.entries(recipe.exports ?? {})) {
@@ -898,22 +996,28 @@ function renderRecipePrefix(recipe) {
 
 function goTargetEnv(recipe) {
   return [
-    "GO=$(GO)",
-    "GO_CACHE_DIR=$(GO_CACHE_DIR)",
-    "GO_MOD_CACHE_DIR=$(GO_MOD_CACHE_DIR)",
-    "NODE_BIN=$(NODE_BIN)",
-    ...Object.entries(recipe.env ?? {}).map(([name, value]) => `${name}=${value}`),
-    "GO_TEST_SERVICE_PACKAGE_PARALLELISM=$(GO_TEST_SERVICE_PACKAGE_PARALLELISM)",
+    "$(TASK_SURFACE_GO_ENV)",
+    ...Object.entries(recipe.env ?? {}).map(([name, value]) => `${name}="${value}"`),
+    'GO_TEST_SERVICE_PACKAGE_PARALLELISM="$(GO_TEST_SERVICE_PACKAGE_PARALLELISM)"',
   ];
 }
 
 function renderPhaseCommandRecipe(recipe) {
-  const env = Object.entries(recipe.env ?? {}).map(([name, value]) => `${name}=${value}`);
+  const env = Object.entries(recipe.env ?? {}).map(([name, value]) => `${name}="${value}"`);
   const envPrefix = env.length > 0 ? `${env.join(" ")} ` : "";
   const args = (recipe.args ?? []).join(" ");
   const argsSuffix = args ? ` ${args}` : "";
   if (recipe.mode === "run_phase") {
-    return [`\t$(RUN_PHASE) "${recipe.phase_label}" -- ${envPrefix}${recipe.command.join(" ")}${argsSuffix}`];
+    const runnerEnv = [];
+    if (recipe.allow_success_log === true) {
+      runnerEnv.push("CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1");
+    }
+    if (recipe.failure_note) {
+      runnerEnv.push(`CARTULARY_PHASE_FAILURE_NOTE="${recipe.failure_note}"`);
+    }
+    const runnerPrefix = runnerEnv.length > 0 ? `${runnerEnv.join(" ")} ` : "";
+    const childPrefix = env.length > 0 ? `env ${env.join(" ")} ` : "";
+    return [`\t$(Q)${runnerPrefix}$(RUN_PHASE_SCRIPT) "${recipe.phase_label}" -- ${childPrefix}${recipe.command.join(" ")}${argsSuffix}`];
   }
   if (recipe.mode === "node") {
     return [`\t$(Q)${envPrefix}$(NODE_BIN) ${recipe.script}${argsSuffix}`];

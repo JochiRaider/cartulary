@@ -336,12 +336,12 @@ mapfile -t target_plan_service_backed_unsafe_targets < <(list_target_plan_servic
 
 "$node_bin" "$schedule_topology_helper" validate "$schedule_manifest" "$execution_topology_manifest"
 
-check_build_prereqs_line="$(sed -n 's/^check-build-prereqs:[[:space:]]*//p' "$makefile" | head -n 1)"
+check_build_prereqs_line="$(extract_target_prereqs check-build-prereqs)"
 if [[ -z "$check_build_prereqs_line" ]]; then
   fail "Makefile must define check-build-prereqs prerequisites"
 fi
 for removed_check_bundle in check-static-validation check-local-product check-meta-validation; do
-  if rg -q "^${removed_check_bundle}:" "$generated_make" "$makefile"; then
+  if target_exists "$removed_check_bundle"; then
     fail "$removed_check_bundle must not remain as a scheduled check bundle target"
   fi
 done
@@ -461,7 +461,7 @@ for scheduled_target in \
   go-vulncheck \
   go-gosec-targeted \
   go-gosec-audit \
-  check-frontend-unit \
+  frontend-unit \
   check-harness-smoke \
   lint-biome \
   frontend-import-boundary-check \
@@ -604,7 +604,7 @@ for scheduled_target in \
   go-vulncheck \
   go-gosec-targeted \
   go-gosec-audit \
-  check-frontend-unit \
+  frontend-unit \
   check-harness-smoke \
   lint-biome \
   frontend-import-boundary-check \
@@ -650,7 +650,7 @@ if ! grep -Fq 'scripts/list-build-inputs.sh' "$makefile"; then
 fi
 
 for target in services-up services-wait postgres-wait minio-wait minio-init; do
-  if ! rg -q "^${target}:" "$makefile"; then
+  if ! target_exists "$target"; then
     fail "Makefile must define $target"
   fi
 done
@@ -662,27 +662,37 @@ for target in postgres-wait minio-wait; do
   fi
 done
 
+dev_services_body="$(cat "$repo_root/scripts/dev-services.sh")"
 services_up_block="$(extract_target_block services-up)"
-if ! text_contains "$services_up_block" 'up -d postgres minio'; then
+if ! text_contains "$services_up_block" './scripts/dev-services.sh up'; then
+  fail "services-up must delegate to scripts/dev-services.sh"
+fi
+if ! text_contains "$dev_services_body" 'compose up -d postgres minio'; then
   fail "services-up must start postgres and minio"
 fi
-if ! text_contains "$services_up_block" 'services-wait'; then
+if ! text_contains "$dev_services_body" 'wait_postgres' || ! text_contains "$dev_services_body" 'wait_minio'; then
   fail "services-up must wait for service readiness"
 fi
 
 db_up_block="$(extract_target_block db-up)"
-if ! text_contains "$db_up_block" 'services-up'; then
+if ! text_contains "$db_up_block" './scripts/dev-services.sh db-up'; then
+  fail "db-up must delegate to scripts/dev-services.sh"
+fi
+if ! text_contains "$dev_services_body" 'services_up'; then
   fail "db-up must delegate service startup to services-up"
 fi
-if ! text_contains "$db_up_block" 'minio-init'; then
+if ! text_contains "$dev_services_body" 'init_minio'; then
   fail "db-up must initialize the default MinIO bucket"
 fi
 
 db_reset_block="$(extract_target_block db-reset)"
-if ! text_contains "$db_reset_block" 'postgres-wait'; then
+if ! text_contains "$db_reset_block" './scripts/dev-services.sh db-reset'; then
+  fail "db-reset must delegate to scripts/dev-services.sh"
+fi
+if ! text_contains "$dev_services_body" 'wait_postgres'; then
   fail "db-reset must wait for postgres before resetting the database"
 fi
-if ! text_contains "$db_reset_block" 'MinIO/object storage is not reset'; then
+if ! text_contains "$dev_services_body" 'MinIO/object storage is not reset'; then
   fail "db-reset must explicitly report that object storage is not reset"
 fi
 
@@ -812,8 +822,8 @@ fi
 if ! text_contains "$backend_process_block" '$(TEST_SERVICES_BIN) run --'; then
   fail "backend-process must run through $(TEST_SERVICES_BIN) for suite-scoped services"
 fi
-if ! text_contains "$backend_process_block" 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
-  fail "backend-process must export CARTULARY_SERVER_BIN=$(SERVER_BIN)"
+if ! text_contains "$backend_process_block" 'CARTULARY_SERVER_BIN="$(SERVER_BIN)"'; then
+  fail 'backend-process must export CARTULARY_SERVER_BIN="$(SERVER_BIN)"'
 fi
 backend_process_command="$(inspect_shared_command backend-process backend-process)"
 for expected in TestPhase0_ TestPhase1_ TestPhase2_; do

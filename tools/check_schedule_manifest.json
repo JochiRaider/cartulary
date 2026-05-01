@@ -242,7 +242,7 @@
           "make_jobs": "host_cpu"
         },
         {
-          "target": "check-frontend-unit",
+          "target": "frontend-unit",
           "weight": 15000,
           "needs": [
             "check-setup-blockers"
