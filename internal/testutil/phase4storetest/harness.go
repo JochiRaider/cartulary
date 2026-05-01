@@ -83,7 +83,7 @@ func RequireMigrationTables(t testing.TB, testID string, tables ...string) {
 	}
 	contents := make([]string, 0, len(migrationFiles))
 	for _, path := range migrationFiles {
-		data, readErr := os.ReadFile(path)
+		data, readErr := os.ReadFile(path) // #nosec G304 -- migration paths come from a repo-local db/migrations glob.
 		if readErr != nil {
 			t.Fatalf("Phase 4 %s failed to read migration %s: %v", testID, path, readErr)
 		}

@@ -172,7 +172,7 @@ func loadBackendStoreUnitTests(repoRoot string) (map[string]struct{}, error) {
 
 	allowed := make(map[string]struct{})
 	for _, manifestPath := range paths {
-		raw, err := os.ReadFile(manifestPath)
+		raw, err := os.ReadFile(manifestPath) // #nosec G304 -- phase manifest paths come from a repo-local glob or explicit manifest root override.
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", manifestPath, err)
 		}

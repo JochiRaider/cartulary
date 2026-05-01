@@ -101,7 +101,7 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 	incidentRevocations, unregisterIncident := s.hub.RegisterIncidentSession(incidentID, principal.Session.ID)
 	defer unregisterIncident()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
 	connectionID := uuid.New()
@@ -335,7 +335,7 @@ func readFirstMessage(ctx context.Context, conn *websocket.Conn) (platformws.Mes
 func readLoop(ctx context.Context, conn *websocket.Conn, incoming chan<- platformws.Message, errors chan<- error) {
 	for {
 		var message platformws.Message
-		if err := platformws.ReadJSON(context.Background(), conn, &message); err != nil {
+		if err := platformws.ReadJSON(ctx, conn, &message); err != nil {
 			select {
 			case errors <- err:
 			default:

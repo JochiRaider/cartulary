@@ -245,7 +245,7 @@ func RecordEvent(env map[string]string, event Event) error {
 	event = sanitizeEvent(event)
 
 	eventsDir := filepath.Join(suiteDir, "events")
-	if err := os.MkdirAll(eventsDir, 0o755); err != nil {
+	if err := os.MkdirAll(eventsDir, 0o700); err != nil {
 		return fmt.Errorf("create suite-service events dir: %w", err)
 	}
 
@@ -256,7 +256,7 @@ func RecordEvent(env map[string]string, event Event) error {
 	if err != nil {
 		return fmt.Errorf("encode suite-service event: %w", err)
 	}
-	if err := os.WriteFile(eventPath, append(payload, '\n'), 0o644); err != nil {
+	if err := os.WriteFile(eventPath, append(payload, '\n'), 0o600); err != nil {
 		return fmt.Errorf("write suite-service event: %w", err)
 	}
 
@@ -274,7 +274,7 @@ func RefreshSummary(env map[string]string) error {
 		return err
 	}
 
-	if err := os.MkdirAll(suiteDir, 0o755); err != nil {
+	if err := os.MkdirAll(suiteDir, 0o700); err != nil {
 		return fmt.Errorf("create suite-service artifact dir: %w", err)
 	}
 
@@ -282,7 +282,7 @@ func RefreshSummary(env map[string]string) error {
 	if err != nil {
 		return fmt.Errorf("encode suite-service summary: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(suiteDir, "service-scope.json"), append(payload, '\n'), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(suiteDir, "service-scope.json"), append(payload, '\n'), 0o600); err != nil {
 		return fmt.Errorf("write suite-service summary: %w", err)
 	}
 	return nil
@@ -320,7 +320,7 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 	slowestFixtures := make([]FixtureActivity, 0)
 
 	for _, eventPath := range eventFiles {
-		raw, err := os.ReadFile(eventPath)
+		raw, err := os.ReadFile(eventPath) // #nosec G304 -- event paths come from a suite artifact glob rooted by ResolveSuiteArtifactDir.
 		if err != nil {
 			return ServiceScope{}, true, fmt.Errorf("read suite-service event %s: %w", eventPath, err)
 		}

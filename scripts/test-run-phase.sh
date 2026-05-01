@@ -937,6 +937,46 @@ assert_equals "$(json_field "$explicit_skipped_child_summary" "children.skipped.
 assert_equals "$(json_field "$explicit_skipped_child_summary" "children.missing.length")" "0" "explicit skipped child not missing"
 assert_equals "$(json_field "$explicit_skipped_child_summary" "own.counts.non_test_failed")" "0" "explicit skipped child does not create artifact failure"
 
+mkdir -p "$skipped_child_run/projected-child-source"
+cat >"$skipped_child_run/projected-child-source/target-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.test_target_summary.v4",
+  "target": "projected-child-source",
+  "kind": "aggregate",
+  "status": "fail",
+  "children": {
+    "skipped": [
+      {
+        "target": "imported-skipped",
+        "work_unit": "imported-work-unit",
+        "reason": "schedule_stopped_after_failure",
+        "failed_dependency": "failed-backend"
+      }
+    ]
+  }
+}
+JSON
+imported_skipped_child_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$skipped_child_results" \
+  CARTULARY_TEST_RUN_ID="skipped-child" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-with-imported-skipped fail \
+      --children failed-backend,imported-skipped \
+      --skipped-from-child projected-child-source \
+    2>&1
+)"
+assert_contains "$imported_skipped_child_output" "[FAIL] parent-with-imported-skipped" "imported skipped child parent output"
+assert_contains "$imported_skipped_child_output" "[CHILD] parent-with-imported-skipped failed-backend status=fail failure_class=test" "imported skipped child failed dependency output"
+assert_contains "$imported_skipped_child_output" "[CHILD-SKIPPED] parent-with-imported-skipped imported-skipped reason=schedule_stopped_after_failure failed_dependency=failed-backend work_unit=imported-work-unit" "imported skipped child output"
+assert_not_contains "$imported_skipped_child_output" "[CHILD-MISSING] parent-with-imported-skipped imported-skipped" "imported skipped child is not missing output"
+assert_not_contains "$imported_skipped_child_output" "missing child target summary: imported-skipped" "imported skipped child avoids artifact failure"
+imported_skipped_child_summary="$skipped_child_run/parent-with-imported-skipped/target-summary.json"
+assert_equals "$(json_field "$imported_skipped_child_summary" "children.failed_targets.0")" "failed-backend" "imported skipped child failed target"
+assert_equals "$(json_field "$imported_skipped_child_summary" "children.skipped.0.target")" "imported-skipped" "imported skipped child summary target"
+assert_equals "$(json_field "$imported_skipped_child_summary" "children.skipped.0.work_unit")" "imported-work-unit" "imported skipped child work unit"
+assert_equals "$(json_field "$imported_skipped_child_summary" "children.skipped.0.failed_dependency")" "failed-backend" "imported skipped child dependency"
+assert_equals "$(json_field "$imported_skipped_child_summary" "children.missing.length")" "0" "imported skipped child not missing"
+assert_equals "$(json_field "$imported_skipped_child_summary" "own.counts.non_test_failed")" "0" "imported skipped child does not create artifact failure"
+
 verbose_override_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   VERBOSE=1 \

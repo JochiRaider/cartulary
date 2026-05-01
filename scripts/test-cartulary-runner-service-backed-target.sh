@@ -278,4 +278,4 @@ TEST_OUTPUT_SCRIPT="$projection_test_output" \
 TASK_SURFACE_MANIFEST="$ROOT_DIR/tools/task_surface_manifest.json" \
   "$node_bin" "$HELPER" summary-target --target check-summary-projection --child-target child-pass --status pass --phase-label "summary projection child" --projection check-harness-smoke
 assert_contains "$(cat "$projection_log")" "projection child=child-pass target=check-summary-projection" "summary projection child"
-assert_contains "$(cat "$projection_log")" "projection-summary args=target-summary check-summary-projection pass --projection check-harness-smoke" "summary projection args"
+assert_contains "$(cat "$projection_log")" "projection-summary args=target-summary check-summary-projection pass --projection check-harness-smoke --skipped-from-child child-pass" "summary projection args"

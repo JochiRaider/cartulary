@@ -1686,13 +1686,14 @@ function parseTargetList(value) {
 function parseTargetSummaryArgs(args) {
   const [target, ...rest] = args;
   if (!target) {
-    throw new Error("usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>] [--projection <target>] [--skipped-after-failure <target,target>] [--failed-dependency <target>] [--quiet-success]");
+    throw new Error("usage: test-output.mjs target-summary <target> [pass|fail] [--children <target,target,...>] [--projection <target>] [--skipped-from-child <target>] [--skipped-after-failure <target,target>] [--failed-dependency <target>] [--quiet-success]");
   }
 
   let requestedStatus = "pass";
   let projectionTarget = "";
   let quietSuccess = false;
   let skippedAfterFailure = [];
+  let skippedFromChildTargets = [];
   let failedDependency = "";
   const remaining = [...rest];
   if (remaining.length > 0 && !remaining[0].startsWith("--")) {
@@ -1721,6 +1722,14 @@ function parseTargetSummaryArgs(args) {
       skippedAfterFailure = skippedAfterFailure.concat(parseTargetList(value));
       continue;
     }
+    if (option === "--skipped-from-child") {
+      const value = remaining.shift();
+      if (value === undefined) {
+        throw new Error("--skipped-from-child requires <target>");
+      }
+      skippedFromChildTargets = skippedFromChildTargets.concat(parseTargetList(value));
+      continue;
+    }
     if (option === "--failed-dependency") {
       failedDependency = remaining.shift() ?? "";
       if (failedDependency === "") {
@@ -1747,7 +1756,7 @@ function parseTargetSummaryArgs(args) {
     childTargetNames.push(...summaryProjectionChildren(context, projectionTarget));
   }
 
-  return { target, requestedStatus, childTargetNames, skippedAfterFailure, failedDependency, quietSuccess };
+  return { target, requestedStatus, childTargetNames, skippedAfterFailure, skippedFromChildTargets, failedDependency, quietSuccess };
 }
 
 function targetSummaryPath(target) {
@@ -1919,6 +1928,7 @@ function skippedChildTargetSummaries(
   parentTarget,
   missingChildTargetSummaries,
   explicitSkippedAfterFailure = [],
+  skippedFromChildTargets = [],
   explicitFailedDependency = "",
 ) {
   const missing = new Set(missingChildTargetSummaries);
@@ -1938,6 +1948,25 @@ function skippedChildTargetSummaries(
         work_unit: skipped.label ?? childTarget,
         reason: skipped.reason ?? "unknown",
         failed_dependency: skipped.failed_dependency ?? schedulerSummary.failed_work_unit ?? "",
+      });
+    }
+  }
+  for (const sourceTarget of skippedFromChildTargets) {
+    const sourceSummary = loadTargetSummary(sourceTarget);
+    const skippedChildren = sourceSummary?.children?.skipped;
+    if (!Array.isArray(skippedChildren)) {
+      continue;
+    }
+    for (const skipped of skippedChildren) {
+      const childTarget = typeof skipped?.target === "string" ? skipped.target : "";
+      if (!missing.has(childTarget) || skippedByTarget.has(childTarget)) {
+        continue;
+      }
+      skippedByTarget.set(childTarget, {
+        target: childTarget,
+        work_unit: typeof skipped.work_unit === "string" && skipped.work_unit ? skipped.work_unit : childTarget,
+        reason: typeof skipped.reason === "string" && skipped.reason ? skipped.reason : "unknown",
+        failed_dependency: typeof skipped.failed_dependency === "string" ? skipped.failed_dependency : "",
       });
     }
   }
@@ -2084,7 +2113,7 @@ function writeSkippedChildTargetLines(stream, parentTarget, skippedChildTargets)
 function handleTargetSummary(args) {
   const reportCollationStartMs = Date.now();
   const reportCollationStartTime = new Date(reportCollationStartMs).toISOString();
-  const { target, requestedStatus, childTargetNames, skippedAfterFailure, failedDependency, quietSuccess } = parseTargetSummaryArgs(args);
+  const { target, requestedStatus, childTargetNames, skippedAfterFailure, skippedFromChildTargets, failedDependency, quietSuccess } = parseTargetSummaryArgs(args);
   const summary = summarizeTargetDir(target);
   const lifecycleSpans = lifecycleTimingSpans(target, summary.targetDir);
   const timingFailures = timingFailuresFromSpans(lifecycleSpans);
@@ -2095,6 +2124,7 @@ function handleTargetSummary(args) {
     target,
     missingChildTargetSummaries,
     skippedAfterFailure,
+    skippedFromChildTargets,
     failedDependency,
   );
   const skippedChildTargetNames = new Set(skippedChildTargets.map((child) => child.target));

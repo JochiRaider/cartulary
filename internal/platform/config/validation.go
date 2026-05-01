@@ -505,7 +505,7 @@ func writeFileWithinFilesystemRoot(root string, relativePath string, data []byte
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(resolvedPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(resolvedPath), 0o700); err != nil {
 		return fmt.Errorf("create parent directories within filesystem root: %w", err)
 	}
 	if err := os.WriteFile(resolvedPath, data, perm); err != nil {

@@ -638,7 +638,7 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, minio
 	if !ok {
 		return "", errors.New("suite service lease requires an active suite artifact directory")
 	}
-	if err := os.MkdirAll(suiteDir, 0o755); err != nil {
+	if err := os.MkdirAll(suiteDir, 0o700); err != nil {
 		return "", fmt.Errorf("create suite service artifact dir: %w", err)
 	}
 
@@ -670,14 +670,14 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, minio
 		return "", fmt.Errorf("encode suite service lease: %w", err)
 	}
 	leasePath := filepath.Join(suiteDir, "service-lease.json")
-	if err := os.WriteFile(leasePath, append(payload, '\n'), 0o644); err != nil {
+	if err := os.WriteFile(leasePath, append(payload, '\n'), 0o600); err != nil {
 		return "", fmt.Errorf("write suite service lease: %w", err)
 	}
 	return leasePath, nil
 }
 
 func readServiceLease(path string) (serviceLease, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- lease paths are produced by ResolveSuiteArtifactDir or explicit terminate-suite CLI input.
 	if err != nil {
 		return serviceLease{}, err
 	}
@@ -1133,7 +1133,7 @@ func detectWebE2EFixtureLeaks(ctx context.Context, fixtures []webE2EMetadata, en
 }
 
 func writeWebE2EEnv(path string, fixture webE2EFixture) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
 	lines := []string{
@@ -1158,7 +1158,7 @@ func shellQuote(value string) string {
 }
 
 func writeWebE2EMetadata(path string, metadata webE2EMetadata) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
 	payload, err := json.MarshalIndent(metadata, "", "  ")
@@ -1169,7 +1169,7 @@ func writeWebE2EMetadata(path string, metadata webE2EMetadata) error {
 }
 
 func readWebE2EMetadata(path string) (webE2EMetadata, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- web E2E metadata paths are generated under the suite artifact directory.
 	if err != nil {
 		return webE2EMetadata{}, err
 	}
@@ -1362,11 +1362,18 @@ func cleanupStaleWebE2EFixtures(ctx context.Context, deps dependencies, env map[
 }
 
 func staleWebE2EFixtures(env map[string]string) ([]webE2EMetadata, error) {
-	resultsRoot, err := suiteservices.ResolveResultsRoot(env)
+	servicesRoot, err := resolveTestServicesRoot(env)
 	if err != nil {
 		return nil, err
 	}
-	servicesRoot := filepath.Join(resultsRoot, suiteservices.ResolveRunID(env), "_shared", "test-services")
+	servicesRootFS, err := os.OpenRoot(servicesRoot)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer servicesRootFS.Close()
 
 	completed := make(map[string]struct{})
 	retired := make(map[string]webE2EMetadata)
@@ -1377,7 +1384,21 @@ func staleWebE2EFixtures(env map[string]string) ([]webE2EMetadata, error) {
 		if entry.IsDir() || entry.Name() != "service-scope.json" {
 			return nil
 		}
-		raw, err := os.ReadFile(path)
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+		if !pathWithinRoot(servicesRoot, path) {
+			return fmt.Errorf("service scope path %s escapes %s", path, servicesRoot)
+		}
+		relativeScopePath, err := filepath.Rel(servicesRoot, path)
+		if err != nil {
+			return err
+		}
+		raw, err := servicesRootFS.ReadFile(relativeScopePath)
 		if err != nil {
 			return err
 		}
@@ -1440,6 +1461,28 @@ func staleWebE2EFixtures(env map[string]string) ([]webE2EMetadata, error) {
 		fixtures = fixtures[:staleFixtureMaxCandidates]
 	}
 	return fixtures, nil
+}
+
+func resolveTestServicesRoot(env map[string]string) (string, error) {
+	resultsRoot, err := suiteservices.ResolveResultsRoot(env)
+	if err != nil {
+		return "", err
+	}
+	servicesRoot := filepath.Join(resultsRoot, suiteservices.ResolveRunID(env), "_shared", "test-services")
+	if !pathWithinRoot(resultsRoot, servicesRoot) {
+		return "", fmt.Errorf("test services root %s escapes results root %s", servicesRoot, resultsRoot)
+	}
+	return servicesRoot, nil
+}
+
+func pathWithinRoot(root string, target string) bool {
+	cleanRoot := filepath.Clean(root)
+	cleanTarget := filepath.Clean(target)
+	relative, err := filepath.Rel(cleanRoot, cleanTarget)
+	if err != nil {
+		return false
+	}
+	return relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
 func generatedWebE2EFixture(metadata webE2EMetadata) bool {
@@ -2020,7 +2063,7 @@ func startDetachedSuiteReaper(leasePath string, env map[string]string) error {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	logPath := filepath.Join(filepath.Dir(leasePath), "service-reaper.log")
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304 -- the reaper log is colocated with an already resolved suite lease path.
 	if err != nil {
 		return fmt.Errorf("open service reaper log: %w", err)
 	}

@@ -71,7 +71,7 @@ func (osBootstrapManifestFS) Stat(name string) (fs.FileInfo, error) {
 }
 
 func (osBootstrapManifestFS) ReadFile(name string) ([]byte, error) {
-	return os.ReadFile(name)
+	return os.ReadFile(name) // #nosec G304 -- bootstrap manifests are operator-configured absolute paths validated before use.
 }
 
 func bootstrapPreflight(ctx context.Context, cfg config.Config, store bootstrapStore, manifestFS bootstrapManifestFS, hashPassword func(string) (string, error)) error {

@@ -160,7 +160,7 @@ func openInput(path string) (io.Reader, func(), error) {
 		return os.Stdin, func() {}, nil
 	}
 
-	file, err := os.Open(path)
+	file, err := os.Open(path) // #nosec G304 -- gotestinventory intentionally accepts an explicit go test JSON log path or stdin.
 	if err != nil {
 		return nil, nil, fmt.Errorf("open go test json log %q: %w", path, err)
 	}

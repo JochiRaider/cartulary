@@ -217,7 +217,7 @@ func (s *Service) handleRecordChangeSocket(w http.ResponseWriter, r *http.Reques
 	}
 	defer conn.CloseNow()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
 	changes, unsubscribe := s.hub.SubscribeRecordChanges(16)
@@ -234,7 +234,7 @@ func (s *Service) handleRecordChangeSocket(w http.ResponseWriter, r *http.Reques
 		defer cancel()
 		for {
 			var message platformws.Message
-			if err := platformws.ReadJSON(context.Background(), conn, &message); err != nil {
+			if err := platformws.ReadJSON(ctx, conn, &message); err != nil {
 				return
 			}
 		}

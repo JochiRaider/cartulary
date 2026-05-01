@@ -19,7 +19,7 @@ func WriteBootstrapManifest(t testing.TB, content string) string {
 	t.Helper()
 
 	path := filepath.Join(t.TempDir(), "bootstrap-admin.json")
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write bootstrap manifest: %v", err)
 	}
 	return path
@@ -73,7 +73,7 @@ func WriteUnreadableBootstrapManifest(t testing.TB) string {
 		t.Fatalf("chmod unreadable bootstrap manifest: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = os.Chmod(path, 0o644)
+		_ = os.Chmod(path, 0o600)
 	})
 
 	return path

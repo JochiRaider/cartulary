@@ -368,6 +368,22 @@ assert_equals "$(json_field "${harness_failure_summary}" "children.skipped.0.tar
 assert_equals "$(json_field "${harness_failure_summary}" "children.skipped.0.reason")" "schedule_stopped_after_failure" "failing harness skipped child reason"
 assert_equals "$(json_field "${harness_failure_summary}" "children.skipped.0.failed_dependency")" "harness-fail-a" "failing harness skipped child dependency"
 assert_equals "$(json_field "${harness_failure_summary}" "children.failed_targets.0")" "harness-fail-a" "failing harness failed child"
+check_harness_failure_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="${harness_failure_dir}/results" \
+  CARTULARY_TEST_RUN_ID="failure" \
+  TASK_SURFACE_MANIFEST="${harness_failure_manifest}" \
+    "${ROOT_DIR}/scripts/lib/test-output.sh" target-summary check-harness-smoke fail \
+      --projection check-harness-smoke \
+      --skipped-from-child run-harness-smoke-fast \
+    2>&1
+)"
+assert_contains "${check_harness_failure_output}" "[CHILD-SKIPPED] check-harness-smoke harness-skipped-b reason=schedule_stopped_after_failure failed_dependency=harness-fail-a" "projected check harness imports skipped child"
+assert_not_contains "${check_harness_failure_output}" "[CHILD-MISSING] check-harness-smoke harness-skipped-b" "projected check harness does not report skipped child missing"
+assert_not_contains "${check_harness_failure_output}" "missing child target summary: harness-skipped-b" "projected check harness avoids skipped child artifact failure"
+check_harness_failure_summary="${harness_failure_dir}/results/failure/check-harness-smoke/target-summary.json"
+assert_equals "$(json_field "${check_harness_failure_summary}" "children.skipped.0.target")" "harness-skipped-b" "projected check harness skipped child target"
+assert_equals "$(json_field "${check_harness_failure_summary}" "children.missing.length")" "0" "projected check harness skipped child missing list"
 
 invalid_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-invalid.XXXXXX")"
 cleanup_paths+=("${invalid_dir}")

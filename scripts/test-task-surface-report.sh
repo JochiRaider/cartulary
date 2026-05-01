@@ -73,13 +73,18 @@ assert_contains "$valid_output" "Cartulary task-surface report" "current report 
 assert_contains "$valid_output" "classification counts:" "current report classification summary"
 assert_contains "$valid_output" "compact help count:" "current report compact help summary"
 assert_contains "$valid_output" "help tier counts:" "current report help tier summary"
-assert_contains "$valid_output" "compact: 12" "current report compact help count"
-assert_contains "$valid_output" "local dev: 16" "current report local dev help tier count"
-assert_contains "$valid_output" "fast verification: 15" "current report fast verification help tier count"
-assert_contains "$valid_output" "full gates: 7" "current report full gates help tier count"
-assert_contains "$valid_output" "investigate a run: 8" "current report investigation help tier count"
-assert_contains "$valid_output" "phase maintenance: 15" "current report phase maintenance help tier count"
-assert_contains "$valid_output" "release: 7" "current report release help tier count"
+mapfile -t expected_count_lines < <("$NODE_BIN" - "$ROOT_DIR/tools/task_surface_manifest.json" <<'EOF'
+const { readFileSync } = require("node:fs");
+const manifest = JSON.parse(readFileSync(process.argv[2], "utf8"));
+console.log(`compact: ${manifest.compact_help.entries.length}`);
+for (const tier of manifest.help_tiers) {
+  console.log(`${tier.name}: ${tier.entries.length}`);
+}
+EOF
+)
+for expected_count_line in "${expected_count_lines[@]}"; do
+  assert_contains "$valid_output" "$expected_count_line" "current report manifest-derived count"
+done
 assert_not_contains "$valid_output" "public Make targets:" "current report compact output omits public target list"
 assert_not_contains "$valid_output" "browser-e2e-measurement" "current report compact output omits target rows"
 assert_contains "$valid_output" "use --all to print public targets" "current report compact output hint"

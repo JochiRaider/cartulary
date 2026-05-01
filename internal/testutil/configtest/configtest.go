@@ -104,7 +104,7 @@ func SetupTempRoots(t testing.TB) TempRoots {
 	}
 
 	for _, path := range paths {
-		if err := os.MkdirAll(path, 0o755); err != nil {
+		if err := os.MkdirAll(path, 0o700); err != nil {
 			t.Fatalf("create temp root %s: %v", path, err)
 		}
 	}

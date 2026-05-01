@@ -167,6 +167,7 @@ function summaryTarget(context, argv) {
   ];
   if (projection) {
     summaryArgs.push("--projection", projection);
+    summaryArgs.push("--skipped-from-child", childTarget);
   }
   const summaryStatus = runTargetSummary(context, summaryArgs);
   return childStatus === 0 ? summaryStatus : childStatus;

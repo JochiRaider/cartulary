@@ -112,7 +112,30 @@ func ResolveSuiteArtifactDir(env map[string]string) (string, bool, error) {
 		return "", false, err
 	}
 
-	return filepath.Join(resultsRoot, ResolveRunID(env), "_shared", "test-services", suiteID), true, nil
+	artifactDir, err := resultsRootSubdir(resultsRoot, ResolveRunID(env), "_shared", "test-services", suiteID)
+	if err != nil {
+		return "", false, err
+	}
+
+	return artifactDir, true, nil
+}
+
+func resultsRootSubdir(resultsRoot string, parts ...string) (string, error) {
+	cleanRoot := filepath.Clean(resultsRoot)
+	for _, part := range parts {
+		if filepath.IsAbs(part) {
+			return "", fmt.Errorf("results artifact path component %q must be relative", part)
+		}
+	}
+	target := filepath.Join(append([]string{cleanRoot}, parts...)...)
+	relative, err := filepath.Rel(cleanRoot, target)
+	if err != nil {
+		return "", fmt.Errorf("resolve results artifact path: %w", err)
+	}
+	if relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("results artifact path %q escapes results root %q", target, cleanRoot)
+	}
+	return target, nil
 }
 
 func FindRepoRoot() (string, error) {
