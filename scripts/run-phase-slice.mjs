@@ -100,7 +100,12 @@ function targetSummaryStatus(target) {
 
 function runMakeTarget(target) {
   const makeBin = process.env.MAKE || "make";
-  return runWithContext(makeBin, ["--no-print-directory", target]);
+  return runWithContext(makeBin, ["--no-print-directory", target], {
+    env: {
+      ...process.env,
+      CARTULARY_TEST_TARGET: target,
+    },
+  });
 }
 
 function main() {

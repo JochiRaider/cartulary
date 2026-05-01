@@ -1,7 +1,8 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { newestTargetArtifact as discoverNewestTargetArtifact } from "./artifact-discovery.mjs";
 import { loadBrowserBatchStages } from "./browser-batch-manifest.mjs";
 import {
   compareExecutionDependencies,
@@ -75,14 +76,6 @@ function relToRepo(value, root = repoRoot) {
     return relative === "" ? "." : relative;
   }
   return value.replaceAll("\\", "/");
-}
-
-function resolveResultsRoot(root = repoRoot) {
-  const configured = process.env.CARTULARY_TEST_RESULTS_DIR ?? "";
-  if (configured) {
-    return path.isAbsolute(configured) ? configured : path.join(root, configured);
-  }
-  return path.join(root, ".cartulary", "test-results");
 }
 
 function targetForEntry(entry) {
@@ -296,59 +289,6 @@ function schedulerOwnerForTarget(target, manifest, root = repoRoot) {
   return uniqueSorted(values);
 }
 
-function newestTargetArtifact(target, root = repoRoot) {
-  const resultsRoot = resolveResultsRoot(root);
-  const expected = [
-    relToRepo(path.join(resultsRoot, "<run-id>", target, "target-summary.json"), root),
-    relToRepo(path.join(resultsRoot, "<run-id>", target, "scheduler-summary.json"), root),
-  ];
-  if (["test", "test-fast", "check", "ci", "release-check"].includes(target)) {
-    expected.push(relToRepo(path.join(resultsRoot, "<run-id>", "run-summary.json"), root));
-  }
-  if (!existsSync(resultsRoot)) {
-    return { latest: null, expected };
-  }
-  const candidates = [];
-  const matchingArtifact = (file, field) => {
-    try {
-      return readJSON(file)?.[field] === target;
-    } catch {
-      return false;
-    }
-  };
-  for (const entry of readdirSync(resultsRoot, { withFileTypes: true })) {
-    if (!entry.isDirectory()) {
-      continue;
-    }
-    const runDir = path.join(resultsRoot, entry.name);
-    const artifactFiles = [
-      { file: path.join(runDir, target, "target-summary.json"), field: "target" },
-      { file: path.join(runDir, target, "scheduler-summary.json"), field: "target" },
-    ];
-    if (["test", "test-fast", "check", "ci", "release-check"].includes(target)) {
-      artifactFiles.push({ file: path.join(runDir, "run-summary.json"), field: "label" });
-    }
-    for (const { file, field } of artifactFiles) {
-      if (!existsSync(file)) {
-        continue;
-      }
-      if (!matchingArtifact(file, field)) {
-        continue;
-      }
-      const stats = statSync(file);
-      candidates.push({
-        path: relToRepo(file, root),
-        mtime_ms: stats.mtimeMs,
-      });
-    }
-  }
-  candidates.sort((left, right) => right.mtime_ms - left.mtime_ms || left.path.localeCompare(right.path));
-  return {
-    latest: candidates[0] ?? null,
-    expected,
-  };
-}
-
 function phaseRowsForTarget(target, rows) {
   if (target === "test-fast") {
     return rows.filter(
@@ -422,7 +362,7 @@ export function targetGuidance(target, { root = repoRoot } = {}) {
   const goRows = collectTargetNames(root).includes(target)
     ? collectTargetPlanRows(root).filter((row) => row.target === target)
     : [];
-  const artifacts = newestTargetArtifact(target, root);
+  const artifacts = discoverNewestTargetArtifact(target, { root });
   return {
     target,
     classification: entry.classification,

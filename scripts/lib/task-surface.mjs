@@ -850,6 +850,9 @@ function renderRecipePrefix(recipe) {
   for (const comment of recipe.comments ?? []) {
     lines.push(`# ${comment}`);
   }
+  if (["phase_command", "summary_target"].includes(recipe.type) && !("CARTULARY_TEST_TARGET" in (recipe.exports ?? {}))) {
+    lines.push(`${recipe.target}: export CARTULARY_TEST_TARGET ?= ${recipe.target}`);
+  }
   for (const [name, value] of Object.entries(recipe.exports ?? {})) {
     lines.push(`${recipe.target}: export ${name} := ${value}`);
   }

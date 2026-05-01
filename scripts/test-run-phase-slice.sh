@@ -74,6 +74,9 @@ set -euo pipefail
 echo "$*" >>"${FAKE_MAKE_LOG}"
 
 target="${@: -1}"
+if [[ -n "${FAKE_MAKE_ENV_LOG:-}" ]]; then
+  printf 'target=%s test_target=%s\n' "$target" "${CARTULARY_TEST_TARGET:-}" >>"${FAKE_MAKE_ENV_LOG}"
+fi
 if [[ -n "${CARTULARY_TEST_RESULTS_DIR:-}" && -n "${CARTULARY_TEST_RUN_ID:-}" ]]; then
   mkdir -p "${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}"
   cat >"${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}/target-summary.json" <<JSON
@@ -117,6 +120,7 @@ phase4_results="${phase4_dir}/results"
 phase4_output="$(
   MAKE="${phase4_dir}/fake-make" \
   FAKE_MAKE_LOG="${phase4_dir}/make.log" \
+  FAKE_MAKE_ENV_LOG="${phase4_dir}/make-env.log" \
   CARTULARY_TEST_RESULTS_DIR="$phase4_results" \
   CARTULARY_TEST_RUN_ID="phase4" \
     "$NODE_BIN" "$SCRIPT" --phase phase4 --mode phase \
@@ -129,6 +133,7 @@ assert_equals "$(cat "${phase4_dir}/make.log")" "$(printf '%s\n%s\n%s\n%s\n%s' \
   "--no-print-directory backend-integration" \
   "--no-print-directory backend-integration-support" \
   "--no-print-directory browser-e2e-webserver-backed")" "phase4 phase-slice child order"
+assert_contains "$(cat "${phase4_dir}/make-env.log")" "target=backend-integration-support test_target=backend-integration-support" "phase-slice internal support target ownership"
 phase4_summary="${phase4_results}/phase4/phase-slice/target-summary.json"
 assert_equals "$(json_field "$phase4_summary" "status")" "pass" "phase4 phase-slice status"
 assert_equals "$(json_field "$phase4_summary" "children.expected.3")" "backend-integration-support" "phase4 phase-slice support child"
@@ -140,6 +145,7 @@ service_results="${service_dir}/results"
 service_output="$(
   MAKE="${service_dir}/fake-make" \
   FAKE_MAKE_LOG="${service_dir}/make.log" \
+  FAKE_MAKE_ENV_LOG="${service_dir}/make-env.log" \
   CARTULARY_TEST_RESULTS_DIR="$service_results" \
   CARTULARY_TEST_RUN_ID="phase4-service" \
     "$NODE_BIN" "$SCRIPT" --phase phase4 --mode service-backed \
@@ -151,6 +157,7 @@ assert_equals "$(cat "${service_dir}/make.log")" "$(printf '%s\n%s\n%s\n%s' \
   "--no-print-directory backend-integration" \
   "--no-print-directory backend-integration-support" \
   "--no-print-directory browser-e2e-webserver-backed")" "phase4 service-backed-slice child order"
+assert_contains "$(cat "${service_dir}/make-env.log")" "target=browser-e2e-webserver-backed test_target=browser-e2e-webserver-backed" "service-backed-slice browser target ownership"
 
 phase_root="$(mktemp -d "${ROOT_DIR}/tmp/phase-slice-root.XXXXXX")"
 cleanup_paths+=("$phase_root")
@@ -197,6 +204,7 @@ write_fake_make "$future_dir"
 future_output="$(
   MAKE="${future_dir}/fake-make" \
   FAKE_MAKE_LOG="${future_dir}/make.log" \
+  FAKE_MAKE_ENV_LOG="${future_dir}/make-env.log" \
   CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" \
   CARTULARY_TEST_RESULTS_DIR="${future_dir}/results" \
   CARTULARY_TEST_RUN_ID="future-support" \
@@ -205,6 +213,7 @@ future_output="$(
 )"
 assert_contains "$future_output" "[PASS] service-backed-slice kind=aggregate children=1/1" "future support-only service-backed summary"
 assert_equals "$(cat "${future_dir}/make.log")" "--no-print-directory backend-integration-support" "future support-only child target"
+assert_contains "$(cat "${future_dir}/make-env.log")" "target=backend-integration-support test_target=backend-integration-support" "future support-only target ownership"
 
 noop_dir="$(mktemp -d "${ROOT_DIR}/tmp/phase-slice-noop.XXXXXX")"
 cleanup_paths+=("$noop_dir")
@@ -212,6 +221,7 @@ write_fake_make "$noop_dir"
 noop_output="$(
   MAKE="${noop_dir}/fake-make" \
   FAKE_MAKE_LOG="${noop_dir}/make.log" \
+  FAKE_MAKE_ENV_LOG="${noop_dir}/make-env.log" \
   CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" \
   CARTULARY_TEST_RESULTS_DIR="${noop_dir}/results" \
   CARTULARY_TEST_RUN_ID="noop" \

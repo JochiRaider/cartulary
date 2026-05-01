@@ -12,6 +12,7 @@ import {
 import path from "node:path";
 
 import { collectEntries, loadManifest, phaseManifestNames } from "../phase-manifest.mjs";
+import { helperArtifactReferences } from "../artifact-discovery.mjs";
 import { collectTargetPlanRows, findTargetDescriptor } from "../target-plan.mjs";
 import {
   combineFixtureSummaries,
@@ -2722,6 +2723,7 @@ function handleRunSummary(args) {
     total: helperUnits.length,
     completed: completedHelperUnits.length,
     names: helperUnits,
+    artifacts: helperArtifactReferences(helperUnits, { root: repoRoot, runId }),
   };
   const expectedEvidenceTargetCount = Math.max(0, summaryTargets.length - skippedAfterFailure.length);
 

@@ -178,30 +178,39 @@ release-check: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 check: $(NODE_BIN)
 	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target check --manifest "$(CHECK_SCHEDULE_MANIFEST)" --resource-limit host_cpu=$(CHECK_HOST_CPU_JOBS) --resource-limit host_io=$(CHECK_HOST_IO_JOBS)
 
+run-harness-smoke-fast: export CARTULARY_TEST_TARGET ?= run-harness-smoke-fast
 run-harness-smoke-fast: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)NODE_BIN=$(NODE_BIN) TEST_OUTPUT_SCRIPT=$(TEST_OUTPUT_SCRIPT) TASK_SURFACE_MANIFEST=$(TASK_SURFACE_MANIFEST) $(NODE_BIN) $(RUN_HARNESS_SMOKE_SCRIPT) --tier fast --jobs "$(HARNESS_SMOKE_JOBS)"
 
+run-harness-smoke-extended: export CARTULARY_TEST_TARGET ?= run-harness-smoke-extended
 run-harness-smoke-extended: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)NODE_BIN=$(NODE_BIN) TEST_OUTPUT_SCRIPT=$(TEST_OUTPUT_SCRIPT) TASK_SURFACE_MANIFEST=$(TASK_SURFACE_MANIFEST) $(NODE_BIN) $(RUN_HARNESS_SMOKE_SCRIPT) --tier extended --jobs "$(HARNESS_SMOKE_JOBS)"
 
+run-harness-smoke-full: export CARTULARY_TEST_TARGET ?= run-harness-smoke-full
 run-harness-smoke-full: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)NODE_BIN=$(NODE_BIN) TEST_OUTPUT_SCRIPT=$(TEST_OUTPUT_SCRIPT) TASK_SURFACE_MANIFEST=$(TASK_SURFACE_MANIFEST) $(NODE_BIN) $(RUN_HARNESS_SMOKE_SCRIPT) --tier full --jobs "$(HARNESS_SMOKE_JOBS)"
 
+phase-test-name-check: export CARTULARY_TEST_TARGET ?= phase-test-name-check
 phase-test-name-check: $(NODE_BIN)
 	$(RUN_PHASE) "phase-test-name-check" -- $(NODE_BIN) ./scripts/check-phase-test-names.mjs
 
+browser-e2e-task-surface-check: export CARTULARY_TEST_TARGET ?= browser-e2e-task-surface-check
 browser-e2e-task-surface-check:
 	$(RUN_PHASE) "browser-e2e-task-surface-check" -- ./scripts/check-browser-e2e-task-surface.sh
 
+frontend-task-surface-check: export CARTULARY_TEST_TARGET ?= frontend-task-surface-check
 frontend-task-surface-check: $(NODE_BIN)
 	$(RUN_PHASE) "frontend-task-surface-check" -- env NODE_BIN=$(NODE_BIN) ./scripts/check-frontend-task-surface.sh
 
+frontend-import-boundary-check: export CARTULARY_TEST_TARGET ?= frontend-import-boundary-check
 frontend-import-boundary-check: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(RUN_PHASE) "frontend-import-boundary-check" -- $(NODE_BIN) ./scripts/check-frontend-import-boundaries.mjs
 
+backend-task-surface-check: export CARTULARY_TEST_TARGET ?= backend-task-surface-check
 backend-task-surface-check: $(NODE_BIN)
 	$(RUN_PHASE) "backend-task-surface-check" -- env NODE_BIN=$(NODE_BIN) ./scripts/check-backend-task-surface.sh
 
+service-backed-unit-check: export CARTULARY_TEST_TARGET ?= service-backed-unit-check
 service-backed-unit-check:
 	$(RUN_PHASE) "service-backed-unit-check" -- ./scripts/check-service-backed-unit-tests.sh
 
@@ -268,12 +277,15 @@ browser-e2e-visual: export CARTULARY_TEST_TARGET := browser-e2e-visual
 browser-e2e-visual: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate
 	$(Q)env $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=1 ./scripts/run-browser-e2e-target.sh visual
 
+check-go-test-duration-baseline-drift: export CARTULARY_TEST_TARGET ?= check-go-test-duration-baseline-drift
 check-go-test-duration-baseline-drift:
 	$(Q)env MAKE_BIN="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target check-go-test-duration-baseline-drift --child-target go-test-duration-baseline-drift --status pass --phase-label "check-go-test-duration-baseline-drift child go-test-duration-baseline-drift"
 
+check-browser-e2e-duration-baseline-drift: export CARTULARY_TEST_TARGET ?= check-browser-e2e-duration-baseline-drift
 check-browser-e2e-duration-baseline-drift:
 	$(Q)env MAKE_BIN="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target check-browser-e2e-duration-baseline-drift --child-target browser-e2e-duration-baseline-drift --status pass --phase-label "check-browser-e2e-duration-baseline-drift child browser-e2e-duration-baseline-drift"
 
+check-service-backed-make-target-duration-baseline-drift: export CARTULARY_TEST_TARGET ?= check-service-backed-make-target-duration-baseline-drift
 check-service-backed-make-target-duration-baseline-drift:
 	$(Q)env MAKE_BIN="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target check-service-backed-make-target-duration-baseline-drift --child-target service-backed-make-target-duration-baseline-drift --status pass --phase-label "check-service-backed-make-target-duration-baseline-drift child service-backed-make-target-duration-baseline-drift"
 
@@ -281,6 +293,7 @@ check-service-backed: export CARTULARY_TEST_TARGET := check-service-backed
 check-service-backed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) build-server build-migrate test-service-images
 	$(Q)env NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)" SERVICE_BACKED_SCHEDULE_MANIFEST="$(SERVICE_BACKED_SCHEDULE_MANIFEST)" CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)" $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target check-service-backed --phase-label "check service-backed" --service-wrapper test-services
 
+task-surface-check: export CARTULARY_TEST_TARGET ?= task-surface-check
 task-surface-check: $(NODE_BIN)
 	$(RUN_PHASE) "task-surface-check" -- $(NODE_BIN) ./scripts/print-task-surface-report.mjs --check
 

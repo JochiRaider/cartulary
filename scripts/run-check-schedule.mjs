@@ -571,7 +571,10 @@ function attachRuntime(schedule, { makeBin, testOutputScript, summaryTargets, su
     unit.command = () => ({
       command: makeBin,
       args: ["--no-print-directory", "--output-sync=target", `-j${unit.makeJobs}`, unit.target],
-      env: makeChildEnv(nestedSchedulerEnv(unit)),
+      env: makeChildEnv({
+        ...nestedSchedulerEnv(unit),
+        CARTULARY_TEST_TARGET: unit.target,
+      }),
     });
   }
   return {

@@ -232,6 +232,30 @@ function writeSchedulerSummary(summary) {
   writeFailureHeadline(summary.target, summary);
 }
 
+function helperArtifacts(runSummary, target = "") {
+  const helpers = runSummary?.helper_units?.artifacts ?? [];
+  if (!target) {
+    return helpers;
+  }
+  return helpers.filter((entry) => entry.target === target);
+}
+
+function writeHelperLines(runSummary, target = "") {
+  const helpers = helperArtifacts(runSummary, target);
+  for (const helper of helpers) {
+    const phaseSummaries = helper.phase_summaries ?? [];
+    const failed = phaseSummaries.some((summary) => summary.status && summary.status !== "pass");
+    process.stdout.write(
+      `[HELPER] ${helper.target} status=${failed ? "fail" : "pass"} phases=${phaseSummaries.length} latest=${helper.latest || "none"}\n`,
+    );
+    for (const phase of phaseSummaries) {
+      process.stdout.write(
+        `[HELPER-PHASE] ${helper.target} label=${phase.label || "unknown"} status=${phase.status || "unknown"} artifact=${phase.artifact}\n`,
+      );
+    }
+  }
+}
+
 function writeChildren(targetSummary) {
   const children = targetSummary?.children?.present ?? [];
   const skipped = targetSummary?.children?.skipped ?? [];
@@ -257,39 +281,63 @@ function writeChildren(targetSummary) {
 function writeRunChildren(runSummary) {
   const targets = runSummary?.evidence_targets?.summaries ?? [];
   if (targets.length === 0) {
-    process.stdout.write("[CHILDREN] none\n");
-    return;
+    if (helperArtifacts(runSummary).length === 0) {
+      process.stdout.write("[CHILDREN] none\n");
+      return;
+    }
+  } else {
+    for (const summary of targets) {
+      const totals = summary.totals ?? summary;
+      const c = counts(totals);
+      process.stdout.write(
+        `[TARGET] ${summary.target} status=${summary.status}${failureClassField(summary)} tests=${c.tests ?? 0} failed=${c.failed ?? 0} ${coverageCounts(totals)} duration=${duration(totals)} artifacts=${summary.own?.artifacts?.dir ?? summary.artifacts?.dir ?? ""}\n`,
+      );
+      writeFailureHeadline(summary.target, summary);
+    }
   }
-  for (const summary of targets) {
-    const totals = summary.totals ?? summary;
-    const c = counts(totals);
-    process.stdout.write(
-      `[TARGET] ${summary.target} status=${summary.status}${failureClassField(summary)} tests=${c.tests ?? 0} failed=${c.failed ?? 0} ${coverageCounts(totals)} duration=${duration(totals)} artifacts=${summary.own?.artifacts?.dir ?? summary.artifacts?.dir ?? ""}\n`,
-    );
-    writeFailureHeadline(summary.target, summary);
-  }
+  writeHelperLines(runSummary);
 }
 
-function writeLogs(runDir, target) {
+function absoluteArtifactPath(value) {
+  if (!value) {
+    return "";
+  }
+  return path.isAbsolute(value) ? value : path.join(repoRoot, value);
+}
+
+function writeLogFile(target, file) {
+  const absolute = absoluteArtifactPath(file);
+  if (!absolute || !existsSync(absolute)) {
+    return false;
+  }
+  const content = readFileSync(absolute, "utf8");
+  process.stdout.write(`[LOG] ${target} ${relToRepo(absolute)}\n`);
+  process.stdout.write(content);
+  if (!content.endsWith("\n")) {
+    process.stdout.write("\n");
+  }
+  return true;
+}
+
+function writeLogs(runDir, target, runSummary) {
   const logDir = path.join(runDir, target, "scheduler-logs");
-  if (!existsSync(logDir)) {
-    throw new Error(`no scheduler logs found for ${target}: ${logDir}`);
-  }
-  const files = readdirSync(logDir)
-    .filter((name) => name.endsWith(".log"))
-    .sort((left, right) => left.localeCompare(right));
-  if (files.length === 0) {
-    process.stdout.write(`[LOGS] ${target} none\n`);
-    return;
-  }
-  for (const name of files) {
-    const file = path.join(logDir, name);
-    const content = readFileSync(file, "utf8");
-    process.stdout.write(`[LOG] ${target} ${relToRepo(file)}\n`);
-    process.stdout.write(content);
-    if (!content.endsWith("\n")) {
-      process.stdout.write("\n");
+  let wrote = false;
+  if (existsSync(logDir)) {
+    const files = readdirSync(logDir)
+      .filter((name) => name.endsWith(".log"))
+      .sort((left, right) => left.localeCompare(right));
+    for (const name of files) {
+      wrote = writeLogFile(target, path.join(logDir, name)) || wrote;
     }
+  }
+  for (const helper of helperArtifacts(runSummary, target)) {
+    for (const phase of helper.phase_summaries ?? []) {
+      wrote = writeLogFile(target, phase.stdout_log) || wrote;
+      wrote = writeLogFile(target, phase.stderr_log) || wrote;
+    }
+  }
+  if (!wrote) {
+    process.stdout.write(`[LOGS] ${target} none\n`);
   }
 }
 
@@ -304,6 +352,7 @@ function main() {
     writeRunSummary(runDir, runSummary);
     writeTargetSummary(runDir, targetSummary);
     writeSchedulerSummary(schedulerSummary);
+    writeHelperLines(runSummary, options.target);
     return;
   }
   if (options.detail === "children") {
@@ -314,7 +363,7 @@ function main() {
     }
     return;
   }
-  writeLogs(runDir, options.target);
+  writeLogs(runDir, options.target, runSummary);
 }
 
 try {

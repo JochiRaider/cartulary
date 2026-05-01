@@ -311,6 +311,7 @@ if [[ -n "${CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT:-}" || -n "${CARTULARY_SERVICE
   printf 'env %s go_cpu=%s go_io=%s\n' "$target" "${CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT:-}" "${CARTULARY_SERVICE_BACKED_GO_IO_LIMIT:-}" >>"$event_log"
 fi
 printf 'envflags %s MAKEFLAGS=%s MFLAGS=%s\n' "$target" "${MAKEFLAGS-}" "${MFLAGS-}" >>"$event_log"
+printf 'test-target %s %s\n' "$target" "${CARTULARY_TEST_TARGET:-}" >>"$event_log"
 
 change_active() {
   local delta="$1"
@@ -371,6 +372,48 @@ write_summary() {
 JSON
 }
 
+write_phase_summary() {
+  if [[ -z "${CARTULARY_TEST_RESULTS_DIR:-}" || -z "${CARTULARY_TEST_RUN_ID:-}" ]]; then
+    return 0
+  fi
+  local artifact_target="${CARTULARY_TEST_TARGET:-adhoc}"
+  local phase_dir="${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${artifact_target}/${target}"
+  mkdir -p "$phase_dir"
+  printf 'phase stdout for %s\n' "$target" >"${phase_dir}/stdout.log"
+  printf 'phase stderr for %s\n' "$target" >"${phase_dir}/stderr.log"
+  cat >"${phase_dir}/phase-summary.json" <<JSON
+{
+  "schema_id": "cartulary.test_phase_summary.v3",
+  "label": "${target}",
+  "target": "${artifact_target}",
+  "runner": "shell",
+  "status": "pass",
+  "start_time": "2026-01-01T00:00:00Z",
+  "end_time": "2026-01-01T00:00:01Z",
+  "wall_duration_ms": 1,
+  "critical_path_wall_duration_ms": 1,
+  "counts": {
+    "phases": 1,
+    "tests": 0,
+    "failed": 0,
+    "authoritative": 0,
+    "support": 0,
+    "raw": 0,
+    "tooling_support": 0,
+    "unowned_regression": 0,
+    "unmapped": 0,
+    "non_test": 0,
+    "non_test_failed": 0,
+    "packages": 0
+  },
+  "artifacts": {
+    "stdout_log": "${phase_dir}/stdout.log",
+    "stderr_log": "${phase_dir}/stderr.log"
+  }
+}
+JSON
+}
+
 write_nested_scheduler_progress() {
   if [[ "$target" != "service" && "$target" != "partial-service" ]]; then
     return 0
@@ -406,6 +449,7 @@ fi
 change_active -1
 
 echo "fake pass for $target"
+write_phase_summary
 write_summary
 EOF
   chmod +x "${dir}/fake-make"
@@ -611,9 +655,13 @@ assert_contains "$success_events" "env service go_cpu=1 go_io=1" "success servic
 assert_contains "$success_events" "end service" "success service completed"
 assert_contains "$success_events" "end meta" "success meta completed"
 assert_not_contains "$success_events" "browser" "success check schedule has no browser tail"
+assert_contains "$success_events" "test-target setup setup" "success setup receives target-owned identity"
+assert_file_present "${success_dir}/results/success/setup/setup/phase-summary.json" "success setup target-owned helper phase summary"
+assert_file_absent "${success_dir}/results/success/adhoc/setup/phase-summary.json" "success setup helper is not adhoc-owned"
 success_summary="${success_dir}/results/success/run-summary.json"
 success_target_summary="${success_dir}/results/success/check/target-summary.json"
 assert_equals "$(json_field "$success_summary" "status")" "pass" "success summary status"
+assert_equals "$(json_field "$success_summary" "schema_id")" "cartulary.test_run_summary.v6" "success run summary schema"
 assert_file_present "$success_target_summary" "success check target summary"
 assert_equals "$(json_field "$success_target_summary" "target")" "check" "success check target summary identity"
 assert_equals "$(json_field "$success_target_summary" "status")" "pass" "success check target summary status"
@@ -622,6 +670,8 @@ assert_equals "$(json_field "$success_summary" "work_units.total")" "5" "success
 assert_equals "$(json_field "$success_summary" "summary_targets.expected.length")" "3" "success summary target count"
 assert_equals "$(json_field "$success_summary" "evidence_targets.present.length")" "3" "success evidence target count"
 assert_equals "$(json_field "$success_summary" "helper_units.total")" "2" "success helper unit count"
+assert_equals "$(json_field "$success_summary" "helper_units.artifacts.0.target")" "setup" "success helper artifact target"
+assert_contains "$(json_field "$success_summary" "helper_units.artifacts.0.phase_summaries.0.artifact")" "/setup/setup/phase-summary.json" "success helper artifact phase summary path"
 success_scheduler_summary="${success_dir}/results/success/check/scheduler-summary.json"
 success_scheduler_events="${success_dir}/results/success/check/scheduler-events.jsonl"
 assert_check_scheduler_artifacts "$success_dir" success check pass - 5 finish

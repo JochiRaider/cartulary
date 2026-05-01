@@ -133,6 +133,9 @@ set -euo pipefail
 echo "$*" >>"${FAKE_MAKE_LOG}"
 
 target="${@: -1}"
+if [[ -n "${FAKE_MAKE_ENV_LOG:-}" ]]; then
+  printf 'target=%s test_target=%s\n' "$target" "${CARTULARY_TEST_TARGET:-}" >>"${FAKE_MAKE_ENV_LOG}"
+fi
 case "${target}" in
   fail-step)
     exit 7
@@ -226,6 +229,7 @@ success_output="$(
   CARTULARY_OUTPUT_MODE="" \
   MAKE="${success_dir}/fake-make" \
   FAKE_MAKE_LOG="${success_dir}/make.log" \
+  FAKE_MAKE_ENV_LOG="${success_dir}/make-env.log" \
   CARTULARY_TEST_RESULTS_DIR="${success_results}" \
   CARTULARY_TEST_RUN_ID="success" \
   TASK_SURFACE_MANIFEST="${sequence_manifest}" \
@@ -252,6 +256,8 @@ assert_equals "$(json_field "${success_summary}" "summary_groups.0.teardown_dura
 assert_json_field_absent "${success_summary}" "duration_ms" "success legacy run duration"
 assert_json_field_absent "${success_summary}" "summary_groups.0.duration_ms" "success legacy group duration"
 assert_contains "$(cat "${success_dir}/make.log")" "--output-sync=target -j3 beta" "parallel make invocation"
+assert_contains "$(cat "${success_dir}/make-env.log")" "target=alpha test_target=alpha" "sequence serial target ownership"
+assert_contains "$(cat "${success_dir}/make-env.log")" "target=beta test_target=beta" "sequence parallel target ownership"
 
 aggregate_missing_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-aggregate-missing.XXXXXX")"
 cleanup_paths+=("${aggregate_missing_dir}")
@@ -264,6 +270,7 @@ aggregate_missing_output="$(
   CARTULARY_OUTPUT_MODE="" \
   MAKE="${aggregate_missing_dir}/fake-make" \
   FAKE_MAKE_LOG="${aggregate_missing_dir}/make.log" \
+  FAKE_MAKE_ENV_LOG="${aggregate_missing_dir}/make-env.log" \
   CARTULARY_TEST_RESULTS_DIR="${aggregate_missing_results}" \
   CARTULARY_TEST_RUN_ID="aggregate-missing" \
   TASK_SURFACE_MANIFEST="${sequence_manifest}" \
@@ -291,6 +298,7 @@ failure_output="$(
   CARTULARY_OUTPUT_MODE="" \
   MAKE="${failure_dir}/fake-make" \
   FAKE_MAKE_LOG="${failure_dir}/make.log" \
+  FAKE_MAKE_ENV_LOG="${failure_dir}/make-env.log" \
   CARTULARY_TEST_RESULTS_DIR="${failure_results}" \
   CARTULARY_TEST_RUN_ID="failure" \
   TASK_SURFACE_MANIFEST="${sequence_manifest}" \
@@ -312,6 +320,7 @@ assert_equals "$(json_field "${failure_summary}" "work_units.aborted_after")" "f
 assert_equals "$(json_field "${failure_summary}" "counts.non_test_failed")" "1" "failure non-test count"
 assert_equals "$(json_field "${failure_summary}" "failure_class")" "helper" "failure class"
 assert_equals "$(json_field "${failure_summary}" "failure_classes.helper")" "1" "failure helper count"
+assert_contains "$(cat "${failure_dir}/make-env.log")" "target=fail-step test_target=fail-step" "sequence failing helper target ownership"
 
 dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-dry-run.XXXXXX")"
 cleanup_paths+=("${dry_run_dir}")
@@ -323,6 +332,7 @@ dry_run_output="$(
   MAKEFLAGS="n" \
   MAKE="${dry_run_dir}/fake-make" \
   FAKE_MAKE_LOG="${dry_run_dir}/make.log" \
+  FAKE_MAKE_ENV_LOG="${dry_run_dir}/make-env.log" \
   CARTULARY_TEST_RESULTS_DIR="${dry_run_dir}/results" \
   CARTULARY_TEST_RUN_ID="dry-run" \
   TASK_SURFACE_MANIFEST="${sequence_manifest}" \
@@ -333,6 +343,7 @@ assert_not_contains "${dry_run_output}" "[RUN]" "script dry-run run start output
 assert_not_contains "${dry_run_output}" "[STEP]" "script dry-run step output"
 assert_file_absent "${dry_run_dir}/results/dry-run/run-summary.json" "script dry-run summary"
 assert_contains "$(cat "${dry_run_dir}/make.log")" "--no-print-directory alpha" "script dry-run child make"
+assert_contains "$(cat "${dry_run_dir}/make-env.log")" "target=alpha test_target=alpha" "script dry-run target ownership"
 
 invalid_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-invalid.XXXXXX")"
 cleanup_paths+=("${invalid_dir}")

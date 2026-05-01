@@ -184,6 +184,45 @@ endef
 
 include tools/task_surface.generated.mk
 
+TARGET_OWNED_PHASE_TARGETS := \
+	frontend-install \
+	frontend-install-ci \
+	codegen-toolchain \
+	go-lint-toolchain \
+	go-security-toolchain \
+	shell-lint-toolchain \
+	generate-artifacts \
+	generate-drift \
+	migration-drift \
+	deployable-shape \
+	phase-map-check \
+	phase-ledgers \
+	phase-ledger-drift \
+	phase-schedules \
+	phase-schedule-drift \
+	benchmark-claim-check \
+	test-service-images \
+	frontend-typecheck \
+	lint-go-format \
+	lint-go-vet \
+	lint-go-staticcheck \
+	go-vulncheck \
+	go-gosec-targeted \
+	go-gosec-audit \
+	format-go \
+	format-frontend \
+	lint-biome \
+	lint-scripts \
+	lint-shell \
+	check-harness-smoke \
+	license-report \
+	sbom \
+	build-server \
+	build-migrate \
+	build-web
+
+$(TARGET_OWNED_PHASE_TARGETS): export CARTULARY_TEST_TARGET ?= $@
+
 help:
 	$(Q)printf '%s\n' $(TASK_SURFACE_HELP_LINES)
 

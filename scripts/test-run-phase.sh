@@ -580,6 +580,33 @@ set -e
 assert_equals "$explain_run_logs_status" "1" "explain-run logs requires target status"
 assert_contains "$explain_run_logs_output" "DETAIL=logs requires TARGET=<target>" "explain-run logs requires target output"
 
+helper_run_results="$(mktemp -d "$ROOT_DIR/tmp/explain-run-helper.XXXXXX")"
+cleanup_paths+=("$helper_run_results")
+CARTULARY_OUTPUT_MODE=quiet \
+CARTULARY_TEST_RESULTS_DIR="$helper_run_results" \
+CARTULARY_TEST_RUN_ID="helper-run" \
+CARTULARY_TEST_TARGET="helper-target" \
+  "$HELPER" "helper-target" -- bash -lc 'printf "helper stdout\n"; printf "helper stderr\n" >&2' >/dev/null
+CARTULARY_TEST_RESULTS_DIR="$helper_run_results" \
+CARTULARY_TEST_RUN_ID="helper-run" \
+  "$ROOT_DIR/scripts/lib/test-output.sh" run-summary check pass 1 1 - \
+    --helper-units helper-target --completed-helper-units helper-target >/dev/null
+helper_run_summary="$helper_run_results/helper-run/run-summary.json"
+assert_equals "$(json_field "$helper_run_summary" "schema_id")" "cartulary.test_run_summary.v6" "helper run summary schema"
+assert_equals "$(json_field "$helper_run_summary" "helper_units.artifacts.0.target")" "helper-target" "helper run summary helper artifact target"
+explain_helper_summary="$(
+  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$helper_run_results/helper-run" \
+    2>&1
+)"
+assert_contains "$explain_helper_summary" "[HELPER] helper-target status=pass phases=1" "explain-run helper summary line"
+assert_contains "$explain_helper_summary" "[HELPER-PHASE] helper-target label=helper-target status=pass" "explain-run helper phase line"
+explain_helper_logs="$(
+  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$helper_run_results/helper-run" --target helper-target --detail logs \
+    2>&1
+)"
+assert_contains "$explain_helper_logs" "helper stdout" "explain-run helper stdout log"
+assert_contains "$explain_helper_logs" "helper stderr" "explain-run helper stderr log"
+
 fixture_results="$(mktemp -d "$ROOT_DIR/tmp/fixture-reporting.XXXXXX")"
 cleanup_paths+=("$fixture_results")
 write_fixture_event "$fixture_results" "fixture-run" "fixture-suite" "01" "postgres-db-reset" "fixture-target" 20000 "package_reset" "package-reused" "internal/modules/auth" "TestSlowB"

@@ -70,6 +70,9 @@ printf '{"label":"check","status":"pass"}\n' >"$results_dir/run-b/run-summary.js
 printf '{"label":"ci","status":"pass"}\n' >"$results_dir/run-c/run-summary.json"
 printf '{"target":"not-frontend-unit","status":"pass"}\n' >"$results_dir/run-d/frontend-unit/target-summary.json"
 printf '{"target":"frontend-unit","status":"pass"}\n' >"$results_dir/run-e/frontend-unit/target-summary.json"
+mkdir -p "$results_dir/run-f/migration-drift/migration-drift" "$results_dir/run-g/generate-drift/generate-drift"
+printf '{"target":"migration-drift","label":"migration-drift","status":"pass"}\n' >"$results_dir/run-f/migration-drift/migration-drift/phase-summary.json"
+printf '{"target":"not-generate-drift","label":"generate-drift","status":"pass"}\n' >"$results_dir/run-g/generate-drift/generate-drift/phase-summary.json"
 expected_results_files="$(find "$results_dir" -type f | wc -l | tr -d '[:space:]')"
 
 default_output="$(CARTULARY_TEST_RESULTS_DIR="$results_dir" "$NODE_BIN" "$TASK_GUIDE")"
@@ -267,6 +270,14 @@ assert_contains "$release_mismatch_output" "latest_artifact: none" "mismatched c
 ci_match_output="$(CARTULARY_TEST_RESULTS_DIR="$results_dir" "$NODE_BIN" "$EXPLAIN_TARGET" --target ci)"
 assert_contains "$ci_match_output" "run-c/run-summary.json" "matching ci run summary accepted"
 
+migration_output="$(CARTULARY_TEST_RESULTS_DIR="$results_dir" "$NODE_BIN" "$EXPLAIN_TARGET" --target migration-drift)"
+assert_contains "$migration_output" "latest_artifact: tmp/task-guidance" "helper phase summary latest artifact"
+assert_contains "$migration_output" "run-f/migration-drift/migration-drift/phase-summary.json" "helper phase summary artifact path"
+
+generate_mismatch_output="$(CARTULARY_TEST_RESULTS_DIR="$results_dir" "$NODE_BIN" "$EXPLAIN_TARGET" --target generate-drift)"
+assert_contains "$generate_mismatch_output" "latest_artifact: none" "mismatched helper phase summary ignored"
+assert_not_contains "$generate_mismatch_output" "run-g/generate-drift/generate-drift/phase-summary.json" "mismatched helper phase summary path ignored"
+
 browser_output="$("$NODE_BIN" "$EXPLAIN_TARGET" --target browser-e2e-webserver-backed)"
 assert_contains "$browser_output" "browser stack" "browser explain-target service requirements"
 assert_contains "$browser_output" "webserver-backed browser batch" "browser explain-target scheduler"
@@ -278,6 +289,10 @@ assert_contains "$check_output" "phase_coverage:" "check explain-target phase co
 target_artifacts="$("$NODE_BIN" "$EXPLAIN_TARGET" --target backend-store --detail artifacts)"
 assert_contains "$target_artifacts" "expected:" "target artifact expected paths"
 assert_contains "$target_artifacts" "<run-id>/backend-store/target-summary.json" "target artifact expected summary"
+
+helper_artifacts="$(CARTULARY_TEST_RESULTS_DIR="$results_dir" "$NODE_BIN" "$EXPLAIN_TARGET" --target migration-drift --detail artifacts)"
+assert_contains "$helper_artifacts" "phase_summary: tmp/task-guidance" "target artifact discovered phase summary"
+assert_contains "$helper_artifacts" "<phase-label>/phase-summary.json" "target artifact expected phase summary"
 
 target_json="$tmp_dir/explain-target.json"
 "$NODE_BIN" "$EXPLAIN_TARGET" --target browser-e2e-webserver-backed --json >"$target_json"

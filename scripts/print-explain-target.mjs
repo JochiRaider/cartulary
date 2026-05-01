@@ -80,6 +80,17 @@ function renderRows(guidance) {
 function renderArtifacts(guidance) {
   const lines = [...renderSummary(guidance), "", "artifacts:"];
   lines.push(`  latest: ${guidance.artifact.latest?.path ?? "none"}`);
+  lines.push("  discovered:");
+  const candidates = guidance.artifact.candidates ?? [];
+  if (candidates.length === 0) {
+    lines.push("    none");
+  } else {
+    for (const artifact of candidates.slice(0, 10)) {
+      const label = artifact.label ? ` label=${artifact.label}` : "";
+      const status = artifact.status ? ` status=${artifact.status}` : "";
+      lines.push(`    ${artifact.kind}: ${artifact.path}${label}${status}`);
+    }
+  }
   lines.push("  expected:");
   for (const artifact of guidance.artifact.expected) {
     lines.push(`    ${artifact}`);

@@ -7,7 +7,7 @@ export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 export const phaseSummarySchemaID = "cartulary.test_phase_summary.v3";
 export const targetTimingSchemaID = "cartulary.test_target_timing.v1";
 export const targetSummarySchemaID = "cartulary.test_target_summary.v4";
-export const runSummarySchemaID = "cartulary.test_run_summary.v5";
+export const runSummarySchemaID = "cartulary.test_run_summary.v6";
 export const sharedExecutionGroupSchemaID = "cartulary.test_shared_execution_group.v1";
 export const testAccountingClassificationSchemaID = "cartulary.test_accounting_classification.v1";
 
