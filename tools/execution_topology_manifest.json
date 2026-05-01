@@ -364,6 +364,10 @@
             "description": "run authored frontend Biome checks"
           },
           {
+            "target": "frontend-import-boundary-check",
+            "description": "enforce frontend import ownership boundaries"
+          },
+          {
             "target": "lint-scripts",
             "description": "run JavaScript orchestration script Biome checks"
           },
@@ -918,6 +922,19 @@
           "env",
           "NODE_BIN=$(NODE_BIN)",
           "./scripts/check-frontend-task-surface.sh"
+        ]
+      },
+      "frontend-import-boundary-check": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "mode": "run_phase",
+        "phase_label": "frontend-import-boundary-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./scripts/check-frontend-import-boundaries.mjs"
         ]
       },
       "backend-task-surface-check": {
@@ -1833,6 +1850,16 @@
         ]
       },
       {
+        "name": "frontend-import-boundary-check",
+        "classification": "public",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/check-frontend-import-boundaries.mjs"
+        ]
+      },
+      {
         "name": "lint-biome",
         "classification": "public",
         "included_in": [
@@ -2321,7 +2348,8 @@
           "harness-smoke-run-playwright-webserver-batch",
           "harness-smoke-run-vitest-phase",
           "harness-smoke-run-vitest-manifest-phase",
-          "harness-smoke-run-frontend-unit"
+          "harness-smoke-run-frontend-unit",
+          "harness-smoke-frontend-import-boundaries"
         ]
       },
       "extended": {
@@ -2368,6 +2396,7 @@
           "harness-smoke-run-vitest-phase",
           "harness-smoke-run-vitest-manifest-phase",
           "harness-smoke-run-frontend-unit",
+          "harness-smoke-frontend-import-boundaries",
           "harness-smoke-run-make-sequence",
           "harness-smoke-run-go-target",
           "harness-smoke-web-e2e-lifecycle",
@@ -2578,6 +2607,12 @@
         "name": "harness-smoke-run-frontend-unit",
         "backing_scripts": [
           "scripts/test-run-frontend-unit.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-frontend-import-boundaries",
+        "backing_scripts": [
+          "scripts/test-frontend-import-boundaries.sh"
         ]
       },
       {
@@ -2852,6 +2887,18 @@
         {
           "target": "lint-biome",
           "weight": 13000,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "frontend-import-boundary-check",
+          "weight": 12950,
           "needs": [
             "check-setup-blockers"
           ],

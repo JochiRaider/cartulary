@@ -7,6 +7,8 @@ generated_make="$repo_root/tools/task_surface.generated.mk"
 check_schedule_manifest="$repo_root/tools/check_schedule_manifest.json"
 runner_script="$repo_root/scripts/run-frontend-unit.sh"
 frontend_biome_script="$repo_root/scripts/run-frontend-biome.sh"
+frontend_import_boundary_script="$repo_root/scripts/check-frontend-import-boundaries.mjs"
+frontend_import_boundary_config="$repo_root/tools/frontend_import_boundaries.json"
 scripts_biome_script="$repo_root/scripts/run-scripts-biome.sh"
 node_bin="${NODE_BIN:-node}"
 
@@ -101,6 +103,12 @@ assert_text_order() {
 if ! rg -q '^frontend-task-surface-check:' "$generated_make" "$makefile"; then
   fail "Makefile must define frontend-task-surface-check"
 fi
+if ! rg -q '^frontend-import-boundary-check:' "$generated_make" "$makefile"; then
+  fail "Makefile must define frontend-import-boundary-check"
+fi
+if [[ ! -f "$frontend_import_boundary_script" ]]; then
+  fail "missing scripts/check-frontend-import-boundaries.mjs"
+fi
 
 frontend_unit_block="$(extract_target_block frontend-unit)"
 if [[ -z "$frontend_unit_block" ]]; then
@@ -147,7 +155,7 @@ fi
 assert_text_order "check-setup-blockers recipe" "$check_setup_block" "toolchain-drift" "codegen-toolchain" "check-setup-blockers must prepare codegen after toolchain drift"
 assert_text_order "check-setup-blockers recipe" "$check_setup_block" "codegen-toolchain" "go-lint-toolchain" "check-setup-blockers must prepare Go lint tooling after codegen readiness"
 assert_text_order "check-setup-blockers recipe" "$check_setup_block" "go-lint-toolchain" "frontend-install" "check-setup-blockers must install frontend dependencies after Go lint tooling readiness"
-if printf '%s\n' "$check_setup_block" | rg -q 'frontend-task-surface-check|phase-ledger-drift|run-phase-smoke|generate-drift|lint-biome|lint-scripts'; then
+if printf '%s\n' "$check_setup_block" | rg -q 'frontend-task-surface-check|frontend-import-boundary-check|phase-ledger-drift|run-phase-smoke|generate-drift|lint-biome|lint-scripts'; then
   fail "check-setup-blockers must not include static validation or harness smoke work"
 fi
 check_prereqs="$(extract_target_prereqs check)"
@@ -168,7 +176,7 @@ for (const removed of ["check-static-validation", "check-local-product", "check-
     throw new Error(`${removed} must not remain scheduled after leaf check expansion`);
   }
 }
-for (const required of ["frontend-typecheck", "frontend-task-surface-check", "lint-biome", "lint-scripts", "check-harness-smoke"]) {
+for (const required of ["frontend-typecheck", "frontend-task-surface-check", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "check-harness-smoke"]) {
   if (!targets.has(required)) {
     throw new Error(`check schedule must include ${required}`);
   }
@@ -288,6 +296,16 @@ lint_biome_block="$(extract_target_block lint-biome)"
 if ! printf '%s\n' "$lint_biome_block" | grep -Fq 'inspect Biome diagnostics; run make format only for formatting/style diagnostics'; then
   fail "lint-biome must tell developers to inspect diagnostics before using make format"
 fi
+frontend_import_boundary_block="$(extract_target_block frontend-import-boundary-check)"
+if [[ -z "$frontend_import_boundary_block" ]]; then
+  fail "Makefile must define a non-empty frontend-import-boundary-check block"
+fi
+if ! printf '%s\n' "$frontend_import_boundary_block" | grep -Fq './scripts/check-frontend-import-boundaries.mjs'; then
+  fail "frontend-import-boundary-check must run the repo-local import boundary checker"
+fi
+assert_target_prereq frontend-import-boundary-check '$(NODE_BIN)' "frontend-import-boundary-check must depend on NODE_BIN"
+assert_target_prereq frontend-import-boundary-check '$(FRONTEND_INSTALL_STAMP)' "frontend-import-boundary-check must depend on frontend install"
+assert_target_prereq lint frontend-import-boundary-check "lint must include frontend-import-boundary-check"
 if ! grep -Fq 'exec biome check --error-on-warnings' "$frontend_biome_script"; then
   fail "frontend Biome check mode must fail on warnings"
 fi
@@ -310,6 +328,44 @@ fi
 if ! grep -Fq -- '--vcs-root "${ROOT_DIR}"' "$scripts_biome_script"; then
   fail "scripts Biome wrapper must set the repo VCS root explicitly"
 fi
+"$node_bin" - "$frontend_import_boundary_config" <<'EOF'
+const fs = require("node:fs");
+const [configPath] = process.argv.slice(2);
+const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+if (config.schema_id !== "cartulary.frontend_import_boundaries.v1") {
+  throw new Error("frontend import boundary config must declare schema_id=cartulary.frontend_import_boundaries.v1");
+}
+const scanRoots = new Set(config.scan_roots ?? []);
+for (const required of ["apps/web/src", "apps/web/e2e", "packages/grid-adapter/src", "packages/protocol-ts/src"]) {
+  if (!scanRoots.has(required)) {
+    throw new Error(`frontend import boundary scan roots missing ${required}`);
+  }
+}
+const rules = new Map((config.rules ?? []).map((rule) => [rule.id, rule]));
+const gridRule = rules.get("frontend-grid-vendor-boundary");
+if (!gridRule || gridRule.level !== "error") {
+  throw new Error("frontend-grid-vendor-boundary must be enforced as an error");
+}
+if (!(gridRule.allowed_importers ?? []).includes("packages/grid-adapter/src/**")) {
+  throw new Error("frontend-grid-vendor-boundary must allow only packages/grid-adapter/src/**");
+}
+if (!JSON.stringify(gridRule.restricted_imports ?? []).includes('"react-data-grid"')) {
+  throw new Error("frontend-grid-vendor-boundary must restrict react-data-grid");
+}
+const generatedRule = rules.get("frontend-generated-protocol-boundary");
+if (!generatedRule || generatedRule.level !== "warning") {
+  throw new Error("frontend-generated-protocol-boundary must remain warning-only during migration");
+}
+if (!(generatedRule.allowed_importers ?? []).includes("packages/protocol-ts/src/index.ts")) {
+  throw new Error("frontend-generated-protocol-boundary must allow the protocol-ts facade");
+}
+const generatedRestrictions = JSON.stringify(generatedRule.restricted_imports ?? []);
+for (const required of ["@cartulary/protocol-ts/generated", "packages/protocol-ts/src/generated"]) {
+  if (!generatedRestrictions.includes(required)) {
+    throw new Error(`frontend-generated-protocol-boundary must restrict ${required}`);
+  }
+}
+EOF
 "$node_bin" - "$repo_root/biome.json" <<'EOF'
 const fs = require("node:fs");
 const [configPath] = process.argv.slice(2);

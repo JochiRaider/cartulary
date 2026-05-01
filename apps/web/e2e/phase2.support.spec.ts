@@ -1,6 +1,6 @@
+import { parseContractArtifact } from "@cartulary/protocol-ts";
 import type { APIResponse } from "@playwright/test";
 
-import { contractArtifactIndex } from "../../../packages/protocol-ts/src/generated/contracts";
 import { expect, test } from "./fixtures";
 import {
   apiBase,
@@ -225,11 +225,9 @@ async function expectAPIError(
 }
 
 function errorContract(code: string): ErrorContract {
-  const registry = JSON.parse(
-    contractArtifactJSON("contracts/errors/index.json"),
-  ) as {
+  const registry = parseContractArtifact<{
     errors: ErrorContract[];
-  };
+  }>("contracts/errors/index.json");
   const match = registry.errors.find((candidate) => candidate.code === code);
   if (!match) {
     throw new Error(`missing error contract for ${code}`);
@@ -238,11 +236,9 @@ function errorContract(code: string): ErrorContract {
 }
 
 function extensionRegistry(): ExtensionProfileContract[] {
-  return (
-    JSON.parse(contractArtifactJSON("contracts/extensions/index.json")) as {
-      profiles: ExtensionProfileContract[];
-    }
-  ).profiles;
+  return parseContractArtifact<{
+    profiles: ExtensionProfileContract[];
+  }>("contracts/extensions/index.json").profiles;
 }
 
 function extensionProfile(profileID: string): ExtensionProfileContract {
@@ -263,12 +259,4 @@ function routeFamily(profile: ExtensionProfileContract) {
     );
   }
   return route;
-}
-
-function contractArtifactJSON(path: string) {
-  const artifact = contractArtifactIndex[path];
-  if (!artifact) {
-    throw new Error(`missing contract artifact ${path}`);
-  }
-  return artifact.json;
 }

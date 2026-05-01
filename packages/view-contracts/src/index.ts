@@ -1,4 +1,4 @@
-import { viewSchemaArtifacts } from "@cartulary/protocol-ts/generated";
+import { listViewSchemaArtifacts } from "@cartulary/protocol-ts";
 
 export type SortEntry = {
   readonly fieldKey: string;
@@ -177,7 +177,7 @@ function parseContract(json: string): ViewContract {
 }
 
 const contracts = Object.freeze(
-  viewSchemaArtifacts
+  listViewSchemaArtifacts()
     .filter((artifact) => !artifact.path.endsWith("/index.json"))
     .map((artifact) => parseContract(artifact.json)),
 );

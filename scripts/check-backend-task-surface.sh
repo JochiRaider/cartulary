@@ -439,6 +439,7 @@ for scheduled_target in \
   check-frontend-unit \
   check-harness-smoke \
   lint-biome \
+  frontend-import-boundary-check \
   lint-scripts \
   phase-test-name-check \
   task-surface-check \
@@ -550,6 +551,7 @@ for scheduled_target in \
   check-frontend-unit \
   check-harness-smoke \
   lint-biome \
+  frontend-import-boundary-check \
   lint-scripts \
   phase-test-name-check \
   task-surface-check \

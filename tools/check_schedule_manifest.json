@@ -268,6 +268,18 @@
           "make_jobs": "host_cpu"
         },
         {
+          "target": "frontend-import-boundary-check",
+          "weight": 12950,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
           "target": "lint-scripts",
           "weight": 12900,
           "needs": [

@@ -75,7 +75,7 @@ assert_contains "$valid_output" "compact help count:" "current report compact he
 assert_contains "$valid_output" "help tier counts:" "current report help tier summary"
 assert_contains "$valid_output" "compact: 12" "current report compact help count"
 assert_contains "$valid_output" "local dev: 16" "current report local dev help tier count"
-assert_contains "$valid_output" "fast verification: 14" "current report fast verification help tier count"
+assert_contains "$valid_output" "fast verification: 15" "current report fast verification help tier count"
 assert_contains "$valid_output" "full gates: 7" "current report full gates help tier count"
 assert_contains "$valid_output" "investigate a run: 8" "current report investigation help tier count"
 assert_contains "$valid_output" "phase maintenance: 15" "current report phase maintenance help tier count"

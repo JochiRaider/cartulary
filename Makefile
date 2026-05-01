@@ -435,7 +435,7 @@ frontend-typecheck: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 frontend-unit: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)env PNPM=$(PNPM) NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) VITEST_FLAGS="$(VITEST_FLAGS)" VITEST_MAX_WORKERS=$(VITEST_MAX_WORKERS) ./scripts/run-frontend-unit.sh
 
-lint: lint-go lint-biome lint-scripts frontend-typecheck
+lint: lint-go lint-biome frontend-import-boundary-check lint-scripts frontend-typecheck
 
 lint-go: lint-go-format lint-go-vet lint-go-staticcheck
 

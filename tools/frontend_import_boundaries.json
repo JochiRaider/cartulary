@@ -1,0 +1,62 @@
+{
+  "schema_id": "cartulary.frontend_import_boundaries.v1",
+  "scan_roots": [
+    "apps/web/src",
+    "apps/web/e2e",
+    "apps/web/vite.config.ts",
+    "apps/web/playwright.config.ts",
+    "apps/web/playwright.shared.config.ts",
+    "apps/web/playwright.webserver-backed.config.ts",
+    "packages/grid-adapter/src",
+    "packages/view-contracts/src",
+    "packages/test-utils/src",
+    "packages/protocol-ts/src"
+  ],
+  "scan_excludes": [
+    "packages/protocol-ts/src/generated/**",
+    "apps/web/dist/**",
+    "apps/web/test-results/**",
+    "apps/web/playwright-report/**",
+    "apps/web/coverage/**",
+    "node_modules/**",
+    "tmp/**",
+    ".cache/**",
+    ".pnpm-store/**"
+  ],
+  "rules": [
+    {
+      "id": "frontend-grid-vendor-boundary",
+      "level": "error",
+      "message": "Import react-data-grid only through @cartulary/grid-adapter.",
+      "allowed_importers": [
+        "packages/grid-adapter/src/**"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "package",
+          "name": "react-data-grid",
+          "include_subpaths": true
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-boundary",
+      "level": "warning",
+      "message": "Import generated protocol artifacts only through the @cartulary/protocol-ts facade.",
+      "allowed_importers": [
+        "packages/protocol-ts/src/index.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "package",
+          "name": "@cartulary/protocol-ts/generated",
+          "include_subpaths": true
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated"
+        }
+      ]
+    }
+  ]
+}
