@@ -172,6 +172,10 @@
         {
           "target": "lint-scripts",
           "description": "run JavaScript orchestration script Biome checks"
+        },
+        {
+          "target": "go-vulncheck",
+          "description": "run Go vulnerability scanning"
         }
       ]
     },
@@ -1157,6 +1161,13 @@
       ]
     },
     {
+      "name": "go-security-toolchain",
+      "classification": "helper_only",
+      "included_in": [
+        "helper_only"
+      ]
+    },
+    {
       "name": "generate",
       "classification": "public",
       "included_in": [
@@ -1896,6 +1907,16 @@
       ],
       "backing_scripts": [
         "scripts/run-go-staticcheck.sh"
+      ]
+    },
+    {
+      "name": "go-vulncheck",
+      "classification": "public",
+      "included_in": [
+        "check"
+      ],
+      "backing_scripts": [
+        "scripts/run-go-govulncheck.sh"
       ]
     },
     {

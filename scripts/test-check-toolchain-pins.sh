@@ -51,6 +51,7 @@ copy_minimal_repo() {
   cp "${ROOT_DIR}/package.json" "${dest}/package.json"
   cp "${ROOT_DIR}/go.mod" "${dest}/go.mod"
   cp "${ROOT_DIR}/README.md" "${dest}/README.md"
+  cp "${ROOT_DIR}/AGENTS.md" "${dest}/AGENTS.md"
   cp "${ROOT_DIR}/tools/task_surface.generated.mk" "${dest}/tools/task_surface.generated.mk"
   cp "${ROOT_DIR}/tools/task_surface_manifest.json" "${dest}/tools/task_surface_manifest.json"
   cp "${ROOT_DIR}/scripts/list-build-inputs.sh" "${dest}/scripts/list-build-inputs.sh"
@@ -152,12 +153,24 @@ mutate_staticcheck_tool() {
   replace_text "$1/Makefile" 'STATICCHECK_TOOL := honnef.co/go/tools/cmd/staticcheck@v0.7.0' 'STATICCHECK_TOOL := honnef.co/go/tools/cmd/staticcheck@v0.7.1'
 }
 
+mutate_govulncheck_tool() {
+  replace_text "$1/Makefile" 'GOVULNCHECK_TOOL := golang.org/x/vuln/cmd/govulncheck@v1.3.0' 'GOVULNCHECK_TOOL := golang.org/x/vuln/cmd/govulncheck@v1.3.1'
+}
+
 mutate_readme_node() {
   replace_text "$1/README.md" '- Node.js `24.15.0`' '- Node.js `24.16.0`'
 }
 
 mutate_readme_staticcheck() {
   replace_text "$1/README.md" '- Staticcheck `v0.7.0`' '- Staticcheck `v0.7.1`'
+}
+
+mutate_readme_govulncheck() {
+  replace_text "$1/README.md" '- Govulncheck `v1.3.0`' '- Govulncheck `v1.3.1`'
+}
+
+mutate_agents_govulncheck() {
+  replace_text "$1/AGENTS.md" 'golang.org/x/vuln/cmd/govulncheck@v1.3.0' 'golang.org/x/vuln/cmd/govulncheck@v1.3.1'
 }
 
 mkdir -p "${ROOT_DIR}/tmp"
@@ -183,6 +196,10 @@ expect_drift "staticcheck-tool" \
   "Makefile: STATICCHECK_TOOL mismatch: expected honnef.co/go/tools/cmd/staticcheck@v0.7.0, got honnef.co/go/tools/cmd/staticcheck@v0.7.1" \
   mutate_staticcheck_tool
 
+expect_drift "govulncheck-tool" \
+  "Makefile: GOVULNCHECK_TOOL mismatch: expected golang.org/x/vuln/cmd/govulncheck@v1.3.0, got golang.org/x/vuln/cmd/govulncheck@v1.3.1" \
+  mutate_govulncheck_tool
+
 expect_drift "readme-node" \
   "README.md: Node.js pin line mismatch: expected - Node.js \`24.15.0\`, got - Node.js \`24.16.0\`" \
   mutate_readme_node
@@ -190,6 +207,14 @@ expect_drift "readme-node" \
 expect_drift "readme-staticcheck" \
   "README.md: Staticcheck pin line mismatch: expected - Staticcheck \`v0.7.0\`, got - Staticcheck \`v0.7.1\`" \
   mutate_readme_staticcheck
+
+expect_drift "readme-govulncheck" \
+  "README.md: Govulncheck pin line mismatch: expected - Govulncheck \`v1.3.0\`, got - Govulncheck \`v1.3.1\`" \
+  mutate_readme_govulncheck
+
+expect_drift "agents-govulncheck" \
+  "AGENTS.md: Pinned bootstrap tools line mismatch" \
+  mutate_agents_govulncheck
 
 preflight_dir="$(mktemp -d "${ROOT_DIR}/tmp/toolchain-pins-preflight.XXXXXX")"
 cleanup_paths+=("${preflight_dir}")

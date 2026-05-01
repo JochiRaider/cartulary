@@ -10,6 +10,7 @@ const expected = {
   sqlcTool: "github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0",
   gooseTool: "github.com/pressly/goose/v3/cmd/goose@v3.27.0",
   staticcheckTool: "honnef.co/go/tools/cmd/staticcheck@v0.7.0",
+  govulncheckTool: "golang.org/x/vuln/cmd/govulncheck@v1.3.0",
   testcontainersGoVersion: "v0.42.0",
 };
 
@@ -107,6 +108,13 @@ function checkMakefile(root, mismatches) {
   checkEqual(
     mismatches,
     file,
+    "GOVULNCHECK_TOOL",
+    expected.govulncheckTool,
+    parseMakeVariable(makefile, "GOVULNCHECK_TOOL"),
+  );
+  checkEqual(
+    mismatches,
+    file,
     "TESTCONTAINERS_GO_VERSION",
     expected.testcontainersGoVersion,
     parseMakeVariable(makefile, "TESTCONTAINERS_GO_VERSION"),
@@ -191,6 +199,7 @@ function checkReadme(root, mismatches) {
   const nodeLine = `- Node.js \`${expected.nodeVersion}\``;
   const pnpmLine = `- pnpm \`${expected.pnpmVersion}\``;
   const staticcheckLine = `- Staticcheck \`${expected.staticcheckTool.split("@")[1]}\``;
+  const govulncheckLine = `- Govulncheck \`${expected.govulncheckTool.split("@")[1]}\``;
   checkEqual(
     mismatches,
     file,
@@ -219,6 +228,26 @@ function checkReadme(root, mismatches) {
     staticcheckLine,
     readme.split("\n").find((line) => line.startsWith("- Staticcheck `")),
   );
+  checkEqual(
+    mismatches,
+    file,
+    "Govulncheck pin line",
+    govulncheckLine,
+    readme.split("\n").find((line) => line.startsWith("- Govulncheck `")),
+  );
+}
+
+function checkAgents(root, mismatches) {
+  const file = "AGENTS.md";
+  const agents = readRepoFile(root, file);
+  const pinnedToolsLine = `- Pinned bootstrap tools: \`${expected.sqlcTool}\`, \`${expected.gooseTool}\`, \`${expected.staticcheckTool}\`, \`${expected.govulncheckTool}\`, and \`github.com/testcontainers/testcontainers-go ${expected.testcontainersGoVersion}\`.`;
+  checkEqual(
+    mismatches,
+    file,
+    "Pinned bootstrap tools line",
+    pinnedToolsLine,
+    agents.split("\n").find((line) => line.startsWith("- Pinned bootstrap tools:")),
+  );
 }
 
 function main() {
@@ -230,6 +259,7 @@ function main() {
   checkGoMod(root, mismatches);
   checkBootstrapNodeRuntime(root, mismatches);
   checkReadme(root, mismatches);
+  checkAgents(root, mismatches);
 
   if (mismatches.length > 0) {
     for (const mismatch of mismatches) {
