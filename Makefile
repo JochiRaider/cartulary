@@ -52,6 +52,7 @@ RUN_PLAYWRIGHT_MANIFEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-playwright-man
 RUN_VITEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-vitest-phase.sh
 RUN_VITEST_MANIFEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-vitest-manifest-phase.sh
 RUN_FRONTEND_BIOME_SCRIPT := $(CURDIR)/scripts/run-frontend-biome.sh
+RUN_SCRIPTS_BIOME_SCRIPT := $(CURDIR)/scripts/run-scripts-biome.sh
 TEST_OUTPUT_SCRIPT := $(CURDIR)/scripts/lib/test-output.mjs
 CARTULARY_RUNNER_SCRIPT := $(CURDIR)/scripts/cartulary-runner.mjs
 TASK_SURFACE_MANIFEST ?= $(CURDIR)/tools/task_surface_manifest.json
@@ -399,7 +400,7 @@ frontend-typecheck: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 frontend-unit: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)env PNPM=$(PNPM) NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) VITEST_FLAGS="$(VITEST_FLAGS)" VITEST_MAX_WORKERS=$(VITEST_MAX_WORKERS) ./scripts/run-frontend-unit.sh
 
-lint: lint-go lint-biome frontend-typecheck
+lint: lint-go lint-biome lint-scripts frontend-typecheck
 
 lint-go:
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
@@ -412,6 +413,9 @@ format-frontend: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 
 lint-biome: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)CARTULARY_PHASE_FAILURE_NOTE="run make format to apply the authoritative frontend Biome scope" CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT) "lint biome" -- bash $(RUN_FRONTEND_BIOME_SCRIPT) check $(BIOME_CHECK_FLAGS)
+
+lint-scripts: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT) "lint scripts" -- bash $(RUN_SCRIPTS_BIOME_SCRIPT) $(BIOME_SCRIPT_CHECK_FLAGS)
 
 check-setup-blockers: $(NODE_BIN)
 	$(Q)$(MAKE) --no-print-directory toolchain-drift

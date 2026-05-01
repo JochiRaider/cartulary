@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
-  defaultShardTargetMsByTargetEntries,
   normalizePositiveInteger,
   rawAggregateBaselineKey,
   rawPackageBaselineKey,
@@ -14,7 +13,6 @@ const cpuHeavyShardWeightMs = 12_000;
 const ioHeavyFixturePolicies = new Set(["group_clone", "migration_scratch"]);
 const shardTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
 const executionTargets = new Set(["backend-store", "backend-integration", "backend-integration-support"]);
-const defaultShardTargetMsByTarget = new Map(defaultShardTargetMsByTargetEntries);
 
 function compareStrings(left, right) {
   return String(left).localeCompare(String(right));
@@ -410,7 +408,6 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
       const packages = new Set();
       const symbols = [];
       const targets = new Set();
-      let rawRegex = "";
       const rawRegexes = new Set();
       let hasAuthoritative = false;
       let hasSupport = false;

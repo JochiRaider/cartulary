@@ -103,7 +103,7 @@ function collectPhonyTargets(makefile) {
 function collectHelpEntries(makefile) {
   const entries = new Map();
   for (const line of makefile.split(/\r?\n/)) {
-    const match = /^\s*'  make ([A-Za-z0-9_.-]+)(?:\s+[^']*)?'/.exec(line);
+    const match = /^\s*' {2}make ([A-Za-z0-9_.-]+)(?:\s+[^']*)?'/.exec(line);
     if (!match) {
       continue;
     }
@@ -139,7 +139,7 @@ function collectTargetBlocks(makefile, targets) {
 
 function collectDirectScriptRefs(source) {
   const refs = new Set();
-  for (const match of source.matchAll(/(?:\.\/)?scripts\/[A-Za-z0-9_.\/-]+/g)) {
+  for (const match of source.matchAll(/(?:\.\/)?scripts\/[A-Za-z0-9_./-]+/g)) {
     refs.add(match[0].replace(/^\.\//, ""));
   }
   return Array.from(refs).sort();

@@ -20,7 +20,6 @@ import {
   findTargetDescriptor,
 } from "./target-plan.mjs";
 import {
-  defaultTaskSurfaceManifestPath,
   helpTiers,
   loadTaskSurfaceManifest,
   makeRecipeEntries,
@@ -168,7 +167,8 @@ function collectPhaseRows(root = repoRoot) {
 }
 
 function loadTaskSurface(root = repoRoot) {
-  const manifestFile = process.env.CARTULARY_TASK_SURFACE_MANIFEST ?? defaultTaskSurfaceManifestPath;
+  const manifestFile =
+    process.env.CARTULARY_TASK_SURFACE_MANIFEST ?? path.join(root, "tools", "task_surface_manifest.json");
   const { manifest } = loadTaskSurfaceManifest(manifestFile);
   return {
     manifest,

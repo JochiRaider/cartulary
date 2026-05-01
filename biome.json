@@ -11,7 +11,8 @@
       "packages/view-contracts/src/**",
       "packages/test-utils/src/**",
       "packages/protocol-ts/src/**",
-      "!packages/protocol-ts/src/generated"
+      "!packages/protocol-ts/src/generated",
+      "scripts/**/*.mjs"
     ]
   },
   "formatter": {

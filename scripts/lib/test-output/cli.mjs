@@ -536,14 +536,6 @@ function splitLogLines(file) {
   return readFileSync(file, "utf8").split(/\r?\n/);
 }
 
-function readNonEmptyFile(file) {
-  if (!file || !existsSync(file)) {
-    return "";
-  }
-  const value = readFileSync(file, "utf8");
-  return value;
-}
-
 function removeEmptyArtifact(file) {
   if (!file || !existsSync(file)) {
     return;
@@ -624,9 +616,9 @@ function loadManifestIndex() {
 function globToRegExp(pattern) {
   const escaped = String(pattern)
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replace(/\*\*/g, "\u0000")
-    .replace(/\*/g, "[^/]*")
-    .replace(/\u0000/g, ".*");
+    .replaceAll("**", "\u0000")
+    .replaceAll("*", "[^/]*")
+    .replaceAll("\u0000", ".*");
   return new RegExp(`^${escaped}$`);
 }
 
@@ -1202,8 +1194,8 @@ function disjointSpanDurationMs(spans) {
   }
   intervals.sort((left, right) => left[0] - right[0] || left[1] - right[1]);
   let total = fallbackDurationMs;
-  let currentStart = undefined;
-  let currentEnd = undefined;
+  let currentStart;
+  let currentEnd;
   for (const [startMs, endMs] of intervals) {
     if (currentStart === undefined) {
       currentStart = startMs;
@@ -4323,7 +4315,6 @@ function evaluatePlaywrightManifest(summary) {
   const coverage = requiredEnv("CARTULARY_MANIFEST_COVERAGE");
   const executionDependency = optionalEnv("CARTULARY_MANIFEST_EXECUTION_DEPENDENCY");
   const entries = selectPlaywrightManifestEntries(phase, coverage, executionDependency);
-  const expectedKeys = new Set(entries.map((entry) => `${entry.file}::${entry.title}`));
   const expectedCoverage = coverage === "authoritative" ? "authoritative" : "support";
   const executedKeys = new Set(
     summary.inventory

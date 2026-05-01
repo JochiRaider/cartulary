@@ -28,7 +28,18 @@ fi
 
 path_prefix="${NODE_RUNTIME_DIR}/bin:${PATH}"
 corepack_home="${NODE_RUNTIME_DIR}/corepack"
-scope=(".")
+scope=(
+  "apps/web/src"
+  "apps/web/e2e"
+  "apps/web/vite.config.ts"
+  "apps/web/playwright.config.ts"
+  "apps/web/playwright.shared.config.ts"
+  "apps/web/playwright.webserver-backed.config.ts"
+  "packages/grid-adapter/src"
+  "packages/view-contracts/src"
+  "packages/test-utils/src"
+  "packages/protocol-ts/src"
+)
 
 if [[ "${mode}" == "format" || "${mode}" == "write" ]]; then
   command=("${PNPM_BIN}" --dir "${ROOT_DIR}" exec biome check --write)

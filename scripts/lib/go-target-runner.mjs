@@ -402,14 +402,6 @@ function findShard(ctx, target, name) {
   return shard;
 }
 
-function findPlannedAggregate(ctx, target, name) {
-  const aggregate = targetAggregates(ctx, target).find((candidate) => candidate.name === name);
-  if (!aggregate) {
-    throw new Error(`unknown aggregate ${name} for ${target}`);
-  }
-  return aggregate;
-}
-
 function fixturePolicyAssignmentsForShard(shard, mode) {
   const assignments = [];
   for (const item of shard.items) {

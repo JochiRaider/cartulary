@@ -163,11 +163,15 @@
         },
         {
           "target": "lint",
-          "description": "run backend and frontend lint/type checks"
+          "description": "run backend, frontend, and script lint/type checks"
         },
         {
           "target": "lint-biome",
           "description": "run authored frontend Biome checks"
+        },
+        {
+          "target": "lint-scripts",
+          "description": "run JavaScript orchestration script Biome checks"
         }
       ]
     },
@@ -1617,6 +1621,16 @@
       "classification": "public",
       "included_in": [
         "check"
+      ]
+    },
+    {
+      "name": "lint-scripts",
+      "classification": "public",
+      "included_in": [
+        "check"
+      ],
+      "backing_scripts": [
+        "scripts/run-scripts-biome.sh"
       ]
     },
     {

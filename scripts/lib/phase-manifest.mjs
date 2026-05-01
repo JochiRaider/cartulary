@@ -912,7 +912,7 @@ export function validateManifest(root, phase) {
     let selectionPattern;
     try {
       selectionPattern = new RegExp(entry.selection_pattern);
-    } catch (error) {
+    } catch {
       throw new Error(
         `${supportGoEntryLabel(entry)} has invalid selection_pattern ${JSON.stringify(entry.selection_pattern)}`,
       );
@@ -1698,6 +1698,7 @@ function main(argv) {
         return;
       }
       process.exit(1);
+      return;
     }
 
     case "playwright-selection-report": {

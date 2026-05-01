@@ -86,7 +86,7 @@ function requireExecutionFamily(entry, label) {
   };
 }
 
-function manifestRows(root, phase, descriptor, entry) {
+function manifestRows(phase, descriptor, entry) {
   const family = requireExecutionFamily(entry, `manifest entry ${entry.id}`);
   return {
     ...rowBase(descriptor),
@@ -120,7 +120,7 @@ function supportID(phase, target, file, symbol) {
   return `SUPPORT-${normalized.replace(/^-|-$/g, "")}`;
 }
 
-function supportRows(root, phase, descriptor, entry) {
+function supportRows(phase, descriptor, entry) {
   const family = requireExecutionFamily(entry, `support_go_target ${entry.target} ${entry.file}`);
   return supportGoEntrySymbols(entry).map((symbol) => ({
     ...rowBase(descriptor),
@@ -188,14 +188,14 @@ export function collectTargetPlanRows(root = process.cwd()) {
       if (!descriptor) {
         continue;
       }
-      rows.push(manifestRows(root, phase, descriptor, entry));
+      rows.push(manifestRows(phase, descriptor, entry));
     }
     for (const entry of collectSupportGoEntries(manifest)) {
       const descriptor = config.supportTargets.get(entry.target);
       if (!descriptor) {
         continue;
       }
-      rows.push(...supportRows(root, phase, descriptor, entry));
+      rows.push(...supportRows(phase, descriptor, entry));
     }
   }
   for (const aggregate of config.rawAggregates) {

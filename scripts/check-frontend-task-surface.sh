@@ -140,7 +140,7 @@ if ! printf '%s\n' "$check_setup_block" | rg -q 'frontend-install'; then
 fi
 assert_text_order "check-setup-blockers recipe" "$check_setup_block" "toolchain-drift" "codegen-toolchain" "check-setup-blockers must prepare codegen after toolchain drift"
 assert_text_order "check-setup-blockers recipe" "$check_setup_block" "codegen-toolchain" "frontend-install" "check-setup-blockers must install frontend dependencies after codegen readiness"
-if printf '%s\n' "$check_setup_block" | rg -q 'frontend-task-surface-check|phase-ledger-drift|run-phase-smoke|generate-drift|lint-biome'; then
+if printf '%s\n' "$check_setup_block" | rg -q 'frontend-task-surface-check|phase-ledger-drift|run-phase-smoke|generate-drift|lint-biome|lint-scripts'; then
   fail "check-setup-blockers must not include static validation or harness smoke work"
 fi
 check_prereqs="$(extract_target_prereqs check)"
@@ -161,7 +161,7 @@ for (const removed of ["check-static-validation", "check-local-product", "check-
     throw new Error(`${removed} must not remain scheduled after leaf check expansion`);
   }
 }
-for (const required of ["frontend-typecheck", "frontend-task-surface-check", "lint-biome", "check-harness-smoke"]) {
+for (const required of ["frontend-typecheck", "frontend-task-surface-check", "lint-biome", "lint-scripts", "check-harness-smoke"]) {
   if (!targets.has(required)) {
     throw new Error(`check schedule must include ${required}`);
   }
@@ -277,13 +277,17 @@ lint_biome_block="$(extract_target_block lint-biome)"
 if ! printf '%s\n' "$lint_biome_block" | grep -Fq 'run make format to apply the authoritative frontend Biome scope'; then
   fail "lint-biome must tell developers to run make format"
 fi
+lint_scripts_block="$(extract_target_block lint-scripts)"
+if ! printf '%s\n' "$lint_scripts_block" | grep -Fq '$(RUN_SCRIPTS_BIOME_SCRIPT)'; then
+  fail "lint-scripts must run the curated scripts Biome wrapper"
+fi
 "$node_bin" - "$repo_root/biome.json" <<'EOF'
 const fs = require("node:fs");
 const [configPath] = process.argv.slice(2);
 const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 const includes = config.files?.includes;
 if (!Array.isArray(includes)) {
-  throw new Error("biome.json must define files.includes for the curated authored frontend scope");
+  throw new Error("biome.json must define files.includes for the curated Biome ownership scope");
 }
 const requiredIncludes = [
   "apps/web/src/**",
@@ -296,6 +300,7 @@ const requiredIncludes = [
   "packages/view-contracts/src/**",
   "packages/test-utils/src/**",
   "packages/protocol-ts/src/**",
+  "scripts/**/*.mjs",
 ];
 for (const required of requiredIncludes) {
   if (!includes.includes(required)) {

@@ -391,7 +391,7 @@ function assertAcyclicUnits(scheduleTarget, units) {
   }
 }
 
-function validateServiceBackedSchedules(root, manifestPath, topology, taskTargets) {
+function validateServiceBackedSchedules(manifestPath, topology, taskTargets) {
   const service = requireObject(topology.service_backed_schedules, "service_backed_schedules");
   const defaults = requireObject(service.defaults, "service_backed_schedules.defaults");
   const baselinePath = requireString(
@@ -432,7 +432,7 @@ function normalizeTopology(raw, root, manifestPath) {
   const goTargets = normalizeGoTargets(raw, dependencyByID);
   validateBrowserBatch(raw, dependencyByID, taskTargets);
   validateCheckSchedules(raw, taskTargets);
-  validateServiceBackedSchedules(root, manifestPath, raw, taskTargets);
+  validateServiceBackedSchedules(manifestPath, raw, taskTargets);
   return {
     root,
     manifestPath,

@@ -37,10 +37,10 @@ const compactHelpMaxEntries = 12;
 const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const makeResourcePattern = /^[A-Za-z0-9_.-]+$/;
-const makePrerequisitePattern = /^(?:[A-Za-z0-9_.\/-]+|\$\([A-Z][A-Z0-9_]*\))$/;
+const makePrerequisitePattern = /^(?:[A-Za-z0-9_./-]+|\$\([A-Z][A-Z0-9_]*\))$/;
 const makeValuePattern = /^[A-Za-z0-9_.$()/:, -]+$/;
 const makeTokenPattern = /^[A-Za-z0-9_.$()/:,="./-]+$/;
-const repoJSONPathPattern = /^[A-Za-z0-9_.\/-]+\.json$/;
+const repoJSONPathPattern = /^[A-Za-z0-9_./-]+\.json$/;
 
 export function resolveRepoPath(value) {
   return path.isAbsolute(value) ? value : path.join(repoRoot, value);

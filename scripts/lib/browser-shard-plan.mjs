@@ -36,10 +36,6 @@ function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
-function sortedObject(entries) {
-  return Object.fromEntries([...entries].sort(([left], [right]) => left.localeCompare(right)));
-}
-
 function normalizeManifestFile(file) {
   const normalized = String(file ?? "").replaceAll("\\", "/");
   if (normalized.startsWith("apps/web/e2e/")) {

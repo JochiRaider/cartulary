@@ -357,11 +357,15 @@
           },
           {
             "target": "lint",
-            "description": "run backend and frontend lint/type checks"
+            "description": "run backend, frontend, and script lint/type checks"
           },
           {
             "target": "lint-biome",
             "description": "run authored frontend Biome checks"
+          },
+          {
+            "target": "lint-scripts",
+            "description": "run JavaScript orchestration script Biome checks"
           }
         ]
       },
@@ -1814,6 +1818,16 @@
         ]
       },
       {
+        "name": "lint-scripts",
+        "classification": "public",
+        "included_in": [
+          "check"
+        ],
+        "backing_scripts": [
+          "scripts/run-scripts-biome.sh"
+        ]
+      },
+      {
         "name": "format",
         "classification": "public",
         "included_in": [
@@ -2722,6 +2736,18 @@
         {
           "target": "lint-biome",
           "weight": 13000,
+          "needs": [
+            "check-setup-blockers"
+          ],
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "lint-scripts",
+          "weight": 12900,
           "needs": [
             "check-setup-blockers"
           ],

@@ -494,6 +494,7 @@ for scheduled_target in \
   check-frontend-unit \
   check-harness-smoke \
   lint-biome \
+  lint-scripts \
   phase-test-name-check \
   task-surface-check \
   browser-e2e-task-surface-check \
