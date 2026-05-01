@@ -19,7 +19,10 @@ import {
   loadManifest,
   phaseManifestNames,
 } from "./lib/phase-manifest.mjs";
-import { browserStageResource } from "./lib/scheduler-resources.mjs";
+import {
+  browserStageResource,
+  resourceLimitsForCapacityProfile,
+} from "./lib/scheduler-resources.mjs";
 import { collectTargetPlanRows, findTargetDescriptor } from "./lib/target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -430,7 +433,15 @@ function selectedBrowserStages(scheduleProfile, browserStages) {
 
 function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   const target = requireString(scheduleProfile.target, "schedules[].target");
-  const resourceLimits = cloneObject(requireObject(scheduleProfile.resource_limits, `${target}.resource_limits`));
+  if (scheduleProfile.resource_limits !== undefined) {
+    throw new Error(`${target}.resource_limits is obsolete; use capacity_profile`);
+  }
+  const capacityProfile = requireString(scheduleProfile.capacity_profile, `${target}.capacity_profile`);
+  const profileLimits = resourceLimitsForCapacityProfile(capacityProfile, `${target}.capacity_profile`, {
+    scheduler: "service_backed",
+    allowAuto: true,
+  });
+  const resourceLimits = Object.fromEntries(profileLimits.limits.entries());
   const sources = [];
   for (const backendTarget of orderedServiceBackedBackendTargets(scheduleProfile)) {
     sources.push(backendSource(profile, timing, backendTarget));
@@ -453,6 +464,7 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   }
   return {
     target,
+    capacity_profile: capacityProfile,
     resource_limits: resourceLimits,
     work_unit_sources: sources,
   };

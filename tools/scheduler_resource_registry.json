@@ -1,73 +1,100 @@
 {
-  "schema_id": "cartulary.scheduler_resource_registry.v1",
+  "schema_id": "cartulary.scheduler_resource_registry.v2",
   "resources": [
     {
       "name": "host_cpu",
       "display_name": "host CPU",
       "schedulers": ["check"],
       "display_order": 10,
-      "make_variable": "CHECK_HOST_CPU_JOBS"
+      "capacity": {
+        "default_limit": 12,
+        "override_env": "CHECK_HOST_CPU_JOBS"
+      }
     },
     {
       "name": "host_io",
       "display_name": "host IO",
       "schedulers": ["check"],
       "display_order": 20,
-      "make_variable": "CHECK_HOST_IO_JOBS"
+      "capacity": {
+        "default_limit": 12,
+        "override_env": "CHECK_HOST_IO_JOBS"
+      }
     },
     {
       "name": "service_stack",
       "display_name": "service stack",
       "schedulers": ["check"],
-      "display_order": 30
+      "display_order": 30,
+      "capacity": {
+        "default_limit": 1
+      }
     },
     {
       "name": "go_cpu",
       "display_name": "Go CPU",
       "schedulers": ["service_backed"],
       "display_order": 110,
-      "auto_limit": true,
-      "env_variable": "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT"
+      "capacity": {
+        "auto_policy": "service_backed_go_cpu",
+        "override_env": "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT"
+      }
     },
     {
       "name": "go_io",
       "display_name": "Go IO",
       "schedulers": ["service_backed"],
       "display_order": 120,
-      "auto_limit": true,
-      "env_variable": "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT"
+      "capacity": {
+        "auto_policy": "service_backed_go_io",
+        "override_env": "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT"
+      }
     },
     {
       "name": "browser_stack",
       "display_name": "browser stack",
       "schedulers": ["service_backed"],
       "display_order": 130,
-      "auto_limit": true,
-      "env_variable": "CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT"
+      "capacity": {
+        "auto_policy": "service_backed_browser_stack",
+        "override_env": "CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT"
+      }
     },
     {
       "name": "process",
       "display_name": "process slots",
       "schedulers": ["service_backed"],
-      "display_order": 160
+      "display_order": 160,
+      "capacity": {
+        "default_limit": 4
+      }
     },
     {
       "name": "postgres",
       "display_name": "Postgres",
       "schedulers": ["service_backed"],
-      "display_order": 150
+      "display_order": 150,
+      "capacity": {
+        "default_limit": 32
+      }
     },
     {
       "name": "minio",
       "display_name": "MinIO",
       "schedulers": ["service_backed"],
-      "display_order": 140
+      "display_order": 140,
+      "capacity": {
+        "default_limit": 32
+      }
     },
     {
       "name": "postgres_reset",
       "display_name": "Postgres reset",
       "schedulers": ["service_backed"],
-      "display_order": 170
+      "display_order": 170,
+      "capacity": {
+        "default_limit": 1
+      }
     }
   ],
   "templates": [
@@ -77,6 +104,31 @@
       "display_name": "browser stage",
       "schedulers": ["service_backed"],
       "display_order": 135
+    }
+  ],
+  "capacity_profiles": [
+    {
+      "name": "check_default",
+      "scheduler": "check",
+      "resources": ["host_cpu", "host_io", "service_stack"]
+    },
+    {
+      "name": "service_backed_full",
+      "scheduler": "service_backed",
+      "resources": [
+        "postgres",
+        "minio",
+        "go_cpu",
+        "go_io",
+        "postgres_reset",
+        "process",
+        "browser_stack"
+      ]
+    },
+    {
+      "name": "service_backed_backend",
+      "scheduler": "service_backed",
+      "resources": ["postgres", "minio", "go_cpu", "go_io", "postgres_reset", "process"]
     }
   ],
   "forwarding_profiles": [

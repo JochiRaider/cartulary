@@ -157,6 +157,7 @@ function validateResourceShape(schedule) {
   const label = `service-backed schedule ${schedule.target}`;
   const normalized = normalizeResourceLimits(schedule.resource_limits, label, {
     scheduler: "service_backed",
+    capacityProfile: schedule.capacity_profile ?? null,
     allowAuto: true,
   });
   const resourceLimits = normalized.limits;

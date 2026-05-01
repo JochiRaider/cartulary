@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { assertKnownResource } from "./scheduler-resources.mjs";
+import { resourceOverrideEnvVariablesForScheduler } from "./scheduler-resources.mjs";
 import { hasMakeNodeTool, makeNodeToolMakeEnvVars } from "./make-node-tools.mjs";
 import {
   collectExplicitSummaryProjectionErrors,
@@ -42,7 +42,6 @@ const helpTargetColumnWidth = 30;
 const helpDescriptionIndent = " ".repeat(2 + "make ".length + helpTargetColumnWidth + 1);
 const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
-const makeResourcePattern = /^[A-Za-z0-9_.-]+$/;
 const makePrerequisitePattern = /^[A-Za-z0-9_.$()/:,/-]+$/;
 const makeValuePattern = /^[A-Za-z0-9_.$()/:,;="' -]+$/;
 const makeTokenPattern = /^[A-Za-z0-9_.$()/:,="./ -]+$/;
@@ -416,24 +415,8 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
           }
         }
       }
-      if (!Array.isArray(recipe.resource_limits)) {
-        errors.push(`${label}.resource_limits must be an array`);
-      } else {
-        for (const [index, limit] of recipe.resource_limits.entries()) {
-          const limitLabel = `${label}.resource_limits[${index + 1}]`;
-          if (typeof limit?.resource !== "string" || !makeResourcePattern.test(limit.resource)) {
-            errors.push(`${limitLabel}.resource must be a safe resource name`);
-          } else {
-            try {
-              assertKnownResource(limit.resource, `${limitLabel}.resource`, { scheduler: "check" });
-            } catch (error) {
-              errors.push(error.message);
-            }
-          }
-          if (typeof limit?.variable !== "string" || !makeVariablePattern.test(limit.variable)) {
-            errors.push(`${limitLabel}.variable must be a safe Make variable name`);
-          }
-        }
+      if (recipe.resource_limits !== undefined) {
+        errors.push(`${label}.resource_limits is obsolete; scheduler capacity overrides come from the resource registry`);
       }
       continue;
     }
@@ -820,6 +803,7 @@ export function renderTaskSurfaceMake(manifest) {
   lines.push('TASK_SURFACE_RUN_ENV = NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)"');
   lines.push('TASK_SURFACE_GO_ENV = GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_BIN="$(NODE_BIN)"');
   lines.push('TASK_SURFACE_SERVICE_SCHEDULE_ENV = $(TASK_SURFACE_RUN_ENV) TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)" SERVICE_BACKED_SCHEDULE_MANIFEST="$(SERVICE_BACKED_SCHEDULE_MANIFEST)" CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)"');
+  lines.push(`TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV = ${checkSchedulerOverrideEnvExpression()}`);
   lines.push('RUN_MAKE_NODE_TOOL = env NODE_BIN="$(NODE_BIN)" $(2) ./scripts/run-make-node-tool.sh $(1)');
   lines.push('RUN_TARGET_SUMMARY = $(Q)env $(TASK_SURFACE_RUN_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) target-summary $(1) $(2)');
   lines.push("");
@@ -828,6 +812,12 @@ export function renderTaskSurfaceMake(manifest) {
     lines.push("");
   }
   return `${lines.join("\n")}\n`;
+}
+
+function checkSchedulerOverrideEnvExpression() {
+  return resourceOverrideEnvVariablesForScheduler("check")
+    .map((name) => `$(if $(filter undefined,$(origin ${name})),,${name}="$(${name})")`)
+    .join(" ");
 }
 
 function renderMakeRecipe(recipe, manifest) {
@@ -905,13 +895,10 @@ function renderMakeRecipe(recipe, manifest) {
     ];
   }
   if (recipe.type === "check_schedule") {
-    const resourceArgs = (recipe.resource_limits ?? [])
-      .map((limit) => ` --resource-limit ${limit.resource}=$(${limit.variable})`)
-      .join("");
     return [
       ...prefix,
       header,
-      `\t$(Q)env MAKE="$(MAKE)" $(TASK_SURFACE_RUN_ENV) $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target ${recipe.target} --manifest "$(${recipe.manifest_variable})"${resourceArgs}`,
+      `\t$(Q)env MAKE="$(MAKE)" $(TASK_SURFACE_RUN_ENV) $(TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV) $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target ${recipe.target} --manifest "$(${recipe.manifest_variable})"`,
     ];
   }
   if (recipe.type === "go_target") {

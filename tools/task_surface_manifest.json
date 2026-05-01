@@ -1696,17 +1696,7 @@
       ],
       "target": "check",
       "schedule_manifest": "tools/check_schedule_manifest.json",
-      "manifest_variable": "CHECK_SCHEDULE_MANIFEST",
-      "resource_limits": [
-        {
-          "resource": "host_cpu",
-          "variable": "CHECK_HOST_CPU_JOBS"
-        },
-        {
-          "resource": "host_io",
-          "variable": "CHECK_HOST_IO_JOBS"
-        }
-      ]
+      "manifest_variable": "CHECK_SCHEDULE_MANIFEST"
     },
     "check-setup-blockers": {
       "prerequisites": [

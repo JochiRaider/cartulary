@@ -464,11 +464,11 @@ fi
 if ! text_contains "$check_block" '$(RUN_CHECK_SCHEDULE_SCRIPT)'; then
   fail "check must delegate to the check scheduler"
 fi
-if ! text_contains "$check_block" '--resource-limit host_cpu=$(CHECK_HOST_CPU_JOBS)'; then
-  fail "check must pass CHECK_HOST_CPU_JOBS as the check scheduler host_cpu resource limit"
+if ! text_contains "$check_block" '$(TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV)'; then
+  fail "check must forward registry-declared scheduler override env when explicitly set"
 fi
-if ! text_contains "$check_block" '--resource-limit host_io=$(CHECK_HOST_IO_JOBS)'; then
-  fail "check must pass CHECK_HOST_IO_JOBS as the check scheduler host_io resource limit"
+if text_contains "$check_block" '--resource-limit host_cpu=' || text_contains "$check_block" '--resource-limit host_io='; then
+  fail "check must not pass default host scheduler capacity as CLI resource-limit overrides"
 fi
 if text_contains "$check_block" '--step browser-e2e'; then
   fail "check must not run browser-e2e as a final serial step"
@@ -551,6 +551,9 @@ for (const [target, profile] of [
 const schedule = (manifest.schedules ?? []).find((entry) => entry.target === "check");
 if (!schedule) {
   throw new Error("missing check schedule");
+}
+if (schedule.capacity_profile !== "check_default") {
+  throw new Error("check schedule must resolve capacity through check_default");
 }
 const limits = schedule.resource_limits ?? {};
 if (limits.host_cpu !== 12 || limits.host_io !== 12 || limits.service_stack !== 1) {

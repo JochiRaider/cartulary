@@ -356,11 +356,11 @@ fi
 if ! text_contains "$check_block" '$(RUN_CHECK_SCHEDULE_SCRIPT)'; then
   fail "check must delegate to the check scheduler"
 fi
-if ! text_contains "$check_block" '--resource-limit host_cpu=$(CHECK_HOST_CPU_JOBS)'; then
-  fail "check must pass CHECK_HOST_CPU_JOBS as the check scheduler host_cpu resource limit"
+if ! text_contains "$check_block" '$(TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV)'; then
+  fail "check must forward registry-declared scheduler override env when explicitly set"
 fi
-if ! text_contains "$check_block" '--resource-limit host_io=$(CHECK_HOST_IO_JOBS)'; then
-  fail "check must pass CHECK_HOST_IO_JOBS as the check scheduler host_io resource limit"
+if text_contains "$check_block" '--resource-limit host_cpu=' || text_contains "$check_block" '--resource-limit host_io='; then
+  fail "check must not pass default host scheduler capacity as CLI resource-limit overrides"
 fi
 if text_contains "$check_block" '$(RUN_MAKE_SEQUENCE_SCRIPT)'; then
   fail "check must not use the serial make sequence runner"
@@ -526,6 +526,9 @@ if (schedules.length !== 1) {
   throw new Error(`expected exactly one check schedule, found ${schedules.length}`);
 }
 const schedule = schedules[0];
+if (schedule.capacity_profile !== "check_default") {
+  throw new Error("check schedule must resolve capacity through check_default");
+}
 if ((schedule.work_units ?? []).some((entry) => entry.target === "browser-e2e")) {
   throw new Error("browser-e2e must be service-backed scheduler work, not a top-level check work unit");
 }

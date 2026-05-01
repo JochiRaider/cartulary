@@ -538,12 +538,18 @@ run_scheduler() {
 }
 
 "$NODE_BIN" --input-type=module - "$ROOT_DIR" <<'EOF'
+import { mkdtempSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import {
   assertKnownResource,
   browserStageResource,
   isAutoLimitResource,
+  loadSchedulerResourceRegistry,
   normalizeResourceClaims,
   normalizeResourceLimits,
+  resourceLimitsForCapacityProfile,
+  resourceOverrideEnvVariablesForScheduler,
   preferredResourcesForScheduler,
   resolveForwardingProfile,
 } from "./scripts/lib/scheduler-resources.mjs";
@@ -558,6 +564,9 @@ if (browserStageResource("webserver-backed") !== "browser_stage_webserver_backed
 if (preferredResourcesForScheduler("check").join(",") !== "host_cpu,host_io,service_stack") {
   fail("check resource display order changed");
 }
+if (resourceOverrideEnvVariablesForScheduler("check").join(",") !== "CHECK_HOST_CPU_JOBS,CHECK_HOST_IO_JOBS") {
+  fail("check override env names changed");
+}
 if (!isAutoLimitResource("go_cpu") || !isAutoLimitResource("go_io") || !isAutoLimitResource("browser_stack")) {
   fail("service-backed auto-limit resources are incomplete");
 }
@@ -569,6 +578,68 @@ try {
   fail("retired cpu alias was accepted");
 } catch (error) {
   if (!String(error.message).includes("use host_cpu")) {
+    throw error;
+  }
+}
+const checkProfile = resourceLimitsForCapacityProfile("check_default", "registry test", { scheduler: "check" });
+if (checkProfile.limits.get("host_cpu") !== 12 || checkProfile.limits.get("host_io") !== 12 || checkProfile.limits.get("service_stack") !== 1) {
+  fail("check_default capacity profile changed");
+}
+if (checkProfile.sources.get("host_cpu") !== "registry:check_default") {
+  fail(`check_default source got ${checkProfile.sources.get("host_cpu")}`);
+}
+const serviceProfile = resourceLimitsForCapacityProfile("service_backed_full", "registry test", {
+  scheduler: "service_backed",
+  allowAuto: true,
+});
+if (serviceProfile.limits.get("go_cpu") !== "auto" || serviceProfile.limits.get("go_io") !== "auto" || serviceProfile.limits.get("browser_stack") !== "auto") {
+  fail("service_backed_full auto limits changed");
+}
+const envResolved = normalizeResourceLimits(
+  { host_cpu: 12, host_io: 12, service_stack: 1 },
+  "registry env test",
+  {
+    scheduler: "check",
+    capacityProfile: "check_default",
+    env: { CHECK_HOST_CPU_JOBS: "5" },
+  },
+);
+if (envResolved.limits.get("host_cpu") !== 5 || envResolved.sources.get("host_cpu") !== "env:CHECK_HOST_CPU_JOBS") {
+  fail("check host_cpu env override did not resolve from the registry");
+}
+const cliResolved = normalizeResourceLimits(
+  { host_cpu: 12, host_io: 12, service_stack: 1 },
+  "registry cli test",
+  {
+    scheduler: "check",
+    capacityProfile: "check_default",
+    env: { CHECK_HOST_CPU_JOBS: "5" },
+    overrides: new Map([["host_cpu", 4]]),
+  },
+);
+if (cliResolved.limits.get("host_cpu") !== 4 || cliResolved.sources.get("host_cpu") !== "cli") {
+  fail("check host_cpu CLI override must win over env override");
+}
+const invalidRegistryPath = path.join(mkdtempSync(path.join(os.tmpdir(), "cartulary-registry-test-")), "registry.json");
+writeFileSync(
+  invalidRegistryPath,
+  `${JSON.stringify({
+    schema_id: "cartulary.scheduler_resource_registry.v2",
+    resources: [
+      {
+        name: "bad",
+        display_name: "bad",
+        schedulers: ["check"],
+        capacity: { default_limit: 1, auto_policy: "bad_policy" },
+      },
+    ],
+  })}\n`,
+);
+try {
+  loadSchedulerResourceRegistry(invalidRegistryPath);
+  fail("invalid capacity descriptor was accepted");
+} catch (error) {
+  if (!String(error.message).includes("exactly one of default_limit or auto_policy")) {
     throw error;
   }
 }
@@ -643,6 +714,7 @@ cat >"$success_manifest" <<'JSON'
   "schedules": [
     {
       "target": "check",
+      "capacity_profile": "check_default",
       "resource_limits": { "host_cpu": 12, "host_io": 12, "service_stack": 1 },
       "summary_groups": [
         { "name": "check-work", "summary_targets": ["local", "service", "meta"] }
@@ -675,6 +747,32 @@ cat >"$success_manifest" <<'JSON'
   ]
 }
 JSON
+default_capacity_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.01 FAKE_SLEEP_SERVICE=0.01 run_scheduler "$success_dir" "$success_manifest" default-capacity 2>&1)"
+assert_contains "$default_capacity_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:12,host_io:12,service_stack:1}" "default capacity comes from registry"
+"$NODE_BIN" - "${success_dir}/results/default-capacity/check/scheduler-summary.json" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+if (summary.resource_limit_sources?.host_cpu !== "registry:check_default") {
+  throw new Error(`default host_cpu source got ${summary.resource_limit_sources?.host_cpu}`);
+}
+if (summary.resource_limit_sources?.host_io !== "registry:check_default") {
+  throw new Error(`default host_io source got ${summary.resource_limit_sources?.host_io}`);
+}
+EOF
+env_capacity_output="$(CHECK_HOST_CPU_JOBS=5 CHECK_HOST_IO_JOBS=4 CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.01 FAKE_SLEEP_SERVICE=0.01 run_scheduler "$success_dir" "$success_manifest" env-capacity 2>&1)"
+assert_contains "$env_capacity_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:5,host_io:4,service_stack:1}" "env capacity overrides registry default"
+"$NODE_BIN" - "${success_dir}/results/env-capacity/check/scheduler-summary.json" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+if (summary.resource_limit_sources?.host_cpu !== "env:CHECK_HOST_CPU_JOBS") {
+  throw new Error(`env host_cpu source got ${summary.resource_limit_sources?.host_cpu}`);
+}
+if (summary.resource_limit_sources?.host_io !== "env:CHECK_HOST_IO_JOBS") {
+  throw new Error(`env host_io source got ${summary.resource_limit_sources?.host_io}`);
+}
+EOF
 success_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.2 FAKE_SLEEP_SERVICE=0.2 run_scheduler "$success_dir" "$success_manifest" success --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
 assert_contains "$success_output" "[RUN] check work_units=5 summary_targets=3 helper_units=2 jobs=2 run_id=success" "success run start"
 assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:2,host_io:3,service_stack:1}" "success concise scheduler start"
@@ -737,6 +835,9 @@ if (!events.some((event) => event.active_resource_claims && Object.keys(event.ac
 }
 if (!events.some((event) => event.resource_limits?.host_cpu === 2 && event.resource_limits?.host_io === 3 && event.resource_limits?.service_stack === 1)) {
   throw new Error("scheduler events must preserve resource limits");
+}
+if (summary.resource_limit_sources?.host_cpu !== "cli" || summary.resource_limit_sources?.host_io !== "cli") {
+  throw new Error("scheduler summary must record CLI resource-limit override sources");
 }
 if (summary.max_running_work_units !== 2) {
   throw new Error(`max running work units got ${summary.max_running_work_units} want 2`);

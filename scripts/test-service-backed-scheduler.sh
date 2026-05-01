@@ -631,8 +631,8 @@ run_scheduler() {
   VERBOSE="${VERBOSE:-}" \
   CI_VERBOSE="${CI_VERBOSE:-}" \
   CARTULARY_OUTPUT_MODE="${CARTULARY_OUTPUT_MODE:-}" \
-  CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT="" \
-  CARTULARY_SERVICE_BACKED_GO_IO_LIMIT="" \
+  CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT="${CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT:-}" \
+  CARTULARY_SERVICE_BACKED_GO_IO_LIMIT="${CARTULARY_SERVICE_BACKED_GO_IO_LIMIT:-}" \
   CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT="${CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT:-}" \
   MAKE="${dir}/fake-make" \
   CARTULARY_TEST_GO_TARGET_RUNNER="${go_target_runner}" \
@@ -676,6 +676,76 @@ assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed
 assert_contains "$weighted_verbose_output" "resource_limits={go_cpu:6,go_io:6,browser_stack:" "verbose scheduler resource limit telemetry includes browser stack"
 assert_contains "$weighted_verbose_output" "[SCHEDULER] test-fast-service-backed finish work_unit=backend-process status=0" "verbose scheduler finish telemetry"
 assert_contains "$weighted_verbose_output" "fake pass for backend-store" "verbose scheduler replays successful child logs"
+
+auto_capacity_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-auto-capacity.XXXXXX")"
+cleanup_paths+=("$auto_capacity_dir")
+write_fake_make "$auto_capacity_dir"
+auto_capacity_manifest="${auto_capacity_dir}/manifest.json"
+cat >"$auto_capacity_manifest" <<'JSON'
+{
+  "schema_id": "cartulary.service_backed_schedule.v8",
+  "schedules": [
+    {
+      "target": "test-service-backed",
+      "capacity_profile": "service_backed_full",
+      "resource_limits": {
+        "postgres": 32,
+        "minio": 32,
+        "go_cpu": "auto",
+        "go_io": "auto",
+        "postgres_reset": 1,
+        "process": 4,
+        "browser_stack": "auto"
+      },
+      "work_unit_sources": [
+        { "type": "make_target", "class": "backend", "target": "backend-process", "weight": 1, "resource_claims": { "postgres": 1, "minio": 1, "go_cpu": 1, "go_io": 1, "process": 1 } }
+      ]
+    }
+  ]
+}
+JSON
+auto_capacity_output="$(run_scheduler "$auto_capacity_dir" "$auto_capacity_manifest" test-service-backed auto-capacity 2>&1)"
+assert_contains "$auto_capacity_output" "[SCHEDULER] test-service-backed start work_units=1 finalizers=0 capacity={go_cpu:1,go_io:1,browser_stack:1" "auto capacity resolves through registry policies"
+"$NODE_BIN" - "${auto_capacity_dir}/results/auto-capacity/test-service-backed/scheduler-summary.json" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+const sources = summary.resource_limit_sources ?? {};
+if (sources.go_cpu !== "auto:service_backed_go_cpu") {
+  throw new Error(`go_cpu auto source got ${sources.go_cpu}`);
+}
+if (sources.go_io !== "auto:service_backed_go_io") {
+  throw new Error(`go_io auto source got ${sources.go_io}`);
+}
+if (sources.browser_stack !== "auto:service_backed_browser_stack") {
+  throw new Error(`browser_stack auto source got ${sources.browser_stack}`);
+}
+if (sources.process !== "registry:service_backed_full") {
+  throw new Error(`process registry source got ${sources.process}`);
+}
+EOF
+env_capacity_output="$(
+  CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT=3 \
+  CARTULARY_SERVICE_BACKED_GO_IO_LIMIT=4 \
+  CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT=2 \
+    run_scheduler "$auto_capacity_dir" "$auto_capacity_manifest" test-service-backed env-capacity 2>&1
+)"
+assert_contains "$env_capacity_output" "[SCHEDULER] test-service-backed start work_units=1 finalizers=0 capacity={go_cpu:3,go_io:4,browser_stack:2" "service-backed env capacity overrides registry policies"
+"$NODE_BIN" - "${auto_capacity_dir}/results/env-capacity/test-service-backed/scheduler-summary.json" <<'EOF'
+const fs = require("node:fs");
+const [summaryFile] = process.argv.slice(2);
+const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
+const sources = summary.resource_limit_sources ?? {};
+if (sources.go_cpu !== "env:CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT") {
+  throw new Error(`go_cpu env source got ${sources.go_cpu}`);
+}
+if (sources.go_io !== "env:CARTULARY_SERVICE_BACKED_GO_IO_LIMIT") {
+  throw new Error(`go_io env source got ${sources.go_io}`);
+}
+if (sources.browser_stack !== "env:CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT") {
+  throw new Error(`browser_stack env source got ${sources.browser_stack}`);
+}
+EOF
 
 resource_block_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-resource-block.XXXXXX")"
 cleanup_paths+=("$resource_block_dir")

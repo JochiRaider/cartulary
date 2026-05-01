@@ -3,6 +3,7 @@
   "schedules": [
     {
       "target": "check",
+      "capacity_profile": "check_default",
       "resource_limits": {
         "host_cpu": 12,
         "host_io": 12,

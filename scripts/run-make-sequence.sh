@@ -226,7 +226,7 @@ run_step() {
   case "${kind}" in
     step)
       target="${rest}"
-      "${MAKE_BIN}" --no-print-directory "${target}"
+      CARTULARY_TEST_TARGET="${target}" "${MAKE_BIN}" --no-print-directory "${target}"
       ;;
     parallel)
       target="${rest%%:*}"
@@ -235,7 +235,7 @@ run_step() {
         echo "invalid parallel step ${rest}; expected <target>:<jobs>" >&2
         return 2
       fi
-      "${MAKE_BIN}" --no-print-directory --output-sync=target "-j${jobs}" "${target}"
+      CARTULARY_TEST_TARGET="${target}" "${MAKE_BIN}" --no-print-directory --output-sync=target "-j${jobs}" "${target}"
       ;;
     *)
       echo "unknown step kind ${kind}" >&2

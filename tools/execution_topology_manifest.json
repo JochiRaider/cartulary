@@ -1890,17 +1890,7 @@
         ],
         "target": "check",
         "schedule_manifest": "tools/check_schedule_manifest.json",
-        "manifest_variable": "CHECK_SCHEDULE_MANIFEST",
-        "resource_limits": [
-          {
-            "resource": "host_cpu",
-            "variable": "CHECK_HOST_CPU_JOBS"
-          },
-          {
-            "resource": "host_io",
-            "variable": "CHECK_HOST_IO_JOBS"
-          }
-        ]
+        "manifest_variable": "CHECK_SCHEDULE_MANIFEST"
       },
       "check-setup-blockers": {
         "prerequisites": [
@@ -4067,11 +4057,7 @@
     "schedules": [
       {
         "target": "check",
-        "resource_limits": {
-          "host_cpu": 12,
-          "host_io": 12,
-          "service_stack": 1
-        },
+        "capacity_profile": "check_default",
         "summary_groups": [
           {
             "name": "backend-service-backed",
@@ -4135,15 +4121,7 @@
     "schedules": [
       {
         "target": "test-service-backed",
-        "resource_limits": {
-          "postgres": 32,
-          "minio": 32,
-          "go_cpu": "auto",
-          "go_io": "auto",
-          "postgres_reset": 1,
-          "process": 4,
-          "browser_stack": "auto"
-        },
+        "capacity_profile": "service_backed_full",
         "selectors": {
           "backend": {
             "service_backed": true,
@@ -4158,14 +4136,7 @@
       },
       {
         "target": "test-fast-service-backed",
-        "resource_limits": {
-          "postgres": 32,
-          "minio": 32,
-          "go_cpu": "auto",
-          "go_io": "auto",
-          "postgres_reset": 1,
-          "process": 4
-        },
+        "capacity_profile": "service_backed_backend",
         "selectors": {
           "backend": {
             "service_backed": true,
@@ -4175,15 +4146,7 @@
       },
       {
         "target": "check-service-backed",
-        "resource_limits": {
-          "postgres": 32,
-          "minio": 32,
-          "go_cpu": "auto",
-          "go_io": "auto",
-          "postgres_reset": 1,
-          "process": 4,
-          "browser_stack": "auto"
-        },
+        "capacity_profile": "service_backed_full",
         "selectors": {
           "backend": {
             "service_backed": true,

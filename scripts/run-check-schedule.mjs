@@ -95,14 +95,6 @@ async function loadManifest(file) {
   return { manifest, manifestPath };
 }
 
-function normalizeResourceLimits(value, label, overrides) {
-  return normalizeSchedulerResourceLimits(value, label, {
-    scheduler: "check",
-    overrides,
-    allowAuto: false,
-  });
-}
-
 function normalizeResourceClaims(value, label, resourceLimits) {
   return normalizeSchedulerResourceClaims(value, label, resourceLimits, {
     scheduler: "check",
@@ -260,7 +252,13 @@ function findSchedule(manifest, target, overrides) {
   if (!Array.isArray(schedule.work_units) || schedule.work_units.length === 0) {
     throw new Error(`check schedule ${target} must declare work_units[]`);
   }
-  const normalizedLimits = normalizeResourceLimits(schedule.resource_limits, `check schedule ${target}`, overrides);
+  const normalizedLimits = normalizeSchedulerResourceLimits(schedule.resource_limits, `check schedule ${target}`, {
+    scheduler: "check",
+    capacityProfile: schedule.capacity_profile ?? null,
+    overrides,
+    allowAuto: false,
+    env: process.env,
+  });
   const resourceLimits = normalizedLimits.limits;
   const units = schedule.work_units.map((unit, index) => {
     const label = `check schedule ${target} work_units ${index + 1}`;

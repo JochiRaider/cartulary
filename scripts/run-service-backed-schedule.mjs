@@ -11,6 +11,7 @@ import { formatResourceMap } from "./lib/scheduler-reporting.mjs";
 import {
   normalizeResourceClaims as normalizeSchedulerResourceClaims,
   normalizeResourceLimits as normalizeSchedulerResourceLimits,
+  resolveAutoResourceLimits,
 } from "./lib/scheduler-resources.mjs";
 import {
   isDryRunFromMakeFlags,
@@ -34,17 +35,13 @@ const schedulerSummarySchemaID = "cartulary.service_backed_scheduler_summary.v6"
 const goCPUResource = "go_cpu";
 const goIOResource = "go_io";
 const postgresResetResource = "postgres_reset";
-const browserStackResource = "browser_stack";
-const goCPULimitEnv = "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT";
-const goIOLimitEnv = "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT";
-const browserStackLimitEnv = "CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
 const validSourceTypes = new Set(["go_shards", "make_target"]);
 const validSourceClasses = new Set(["backend", "browser"]);
 
 function usage() {
   process.stderr.write(
-    "usage: run-service-backed-schedule.mjs --target <target> [--manifest <path>] [--defer-summary]\n",
+    "usage: run-service-backed-schedule.mjs --target <target> [--manifest <path>] [--defer-summary] [--resource-limit <name=value>...]\n",
   );
   process.exit(2);
 }
@@ -54,6 +51,7 @@ function parseArgs(argv) {
     manifest: defaultManifestPath,
     target: "",
     deferSummary: false,
+    resourceLimitOverrides: new Map(),
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -69,6 +67,20 @@ function parseArgs(argv) {
     }
     if (arg === "--defer-summary") {
       options.deferSummary = true;
+      continue;
+    }
+    if (arg === "--resource-limit") {
+      const value = argv[index + 1] ?? "";
+      const [resource, amountText, extra] = value.split("=");
+      if (!resource || !amountText || extra !== undefined) {
+        throw new Error(`--resource-limit expects <name=value>, got ${value}`);
+      }
+      const amount = Number.parseInt(amountText, 10);
+      if (!Number.isInteger(amount) || amount < 1) {
+        throw new Error(`--resource-limit ${resource} must be a positive integer`);
+      }
+      options.resourceLimitOverrides.set(resource.trim(), amount);
+      index += 1;
       continue;
     }
     if (arg === "--jobs") {
@@ -98,10 +110,13 @@ async function loadBrowserBatchStages() {
   return loadBrowserBatchStagesFromManifest(defaultBrowserBatchManifestPath);
 }
 
-function normalizeResourceLimits(value, label) {
+function normalizeResourceLimits(value, label, capacityProfile, overrides) {
   return normalizeSchedulerResourceLimits(value, label, {
     scheduler: "service_backed",
+    capacityProfile,
+    overrides,
     allowAuto: true,
+    env: process.env,
   });
 }
 
@@ -245,7 +260,7 @@ function assertAcyclic(target, sources) {
   }
 }
 
-function findSchedule(manifest, target, browserStages) {
+function findSchedule(manifest, target, browserStages, overrides) {
   const matches = manifest.schedules.filter((schedule) => schedule?.target === target);
   if (matches.length !== 1) {
     throw new Error(`expected exactly one schedule for ${target}, found ${matches.length}`);
@@ -257,7 +272,12 @@ function findSchedule(manifest, target, browserStages) {
   if (schedule.children !== undefined) {
     throw new Error(`schedule ${target} must use work_unit_sources, not legacy children`);
   }
-  const normalizedLimits = normalizeResourceLimits(schedule.resource_limits, `schedule ${target}`);
+  const normalizedLimits = normalizeResourceLimits(
+    schedule.resource_limits,
+    `schedule ${target}`,
+    schedule.capacity_profile ?? null,
+    overrides,
+  );
   const resourceLimits = normalizedLimits.limits;
   const sources = schedule.work_unit_sources.map((source, index) =>
     validateSource(target, source, index, resourceLimits, browserStages),
@@ -444,18 +464,6 @@ function clampInteger(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function parsePositiveIntegerEnv(name) {
-  const raw = process.env[name];
-  if (raw === undefined || raw === "") {
-    return null;
-  }
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value < 1) {
-    throw new Error(`${name} must be a positive integer`);
-  }
-  return value;
-}
-
 function availableCPUCount() {
   if (typeof os.availableParallelism === "function") {
     return Math.max(1, os.availableParallelism());
@@ -510,36 +518,12 @@ function estimateBrowserStackLimit(workUnits) {
 
 function resolveResourceLimits(resourceLimits, resourceLimitSources, workUnits) {
   const goShardUnits = workUnits.filter((unit) => unit.kind === "go_shard");
-  const computedGoCPU = estimateGoCPULimit(goShardUnits);
-  const goCPUOverride = parsePositiveIntegerEnv(goCPULimitEnv);
-  const effectiveGoCPU = goCPUOverride ?? computedGoCPU;
-  const computedGoIO = estimateGoIOLimit(goShardUnits, effectiveGoCPU);
-  const goIOOverride = parsePositiveIntegerEnv(goIOLimitEnv);
-  const effectiveGoIO = goIOOverride ?? computedGoIO;
-  const computedBrowserStack = estimateBrowserStackLimit(workUnits);
-  const browserStackOverride = parsePositiveIntegerEnv(browserStackLimitEnv);
-  const effectiveBrowserStack = browserStackOverride ?? computedBrowserStack;
-  const resolved = new Map();
-  const sources = new Map(resourceLimitSources.entries());
-  for (const [resource, limit] of resourceLimits.entries()) {
-    if (resource === goCPUResource && (limit === "auto" || goCPUOverride !== null)) {
-      resolved.set(resource, effectiveGoCPU);
-      sources.set(resource, goCPUOverride === null ? "auto" : `env:${goCPULimitEnv}`);
-      continue;
-    }
-    if (resource === goIOResource && (limit === "auto" || goIOOverride !== null)) {
-      resolved.set(resource, effectiveGoIO);
-      sources.set(resource, goIOOverride === null ? "auto" : `env:${goIOLimitEnv}`);
-      continue;
-    }
-    if (resource === browserStackResource && (limit === "auto" || browserStackOverride !== null)) {
-      resolved.set(resource, effectiveBrowserStack);
-      sources.set(resource, browserStackOverride === null ? "auto" : `env:${browserStackLimitEnv}`);
-      continue;
-    }
-    resolved.set(resource, limit);
-  }
-  return { resourceLimits: resolved, resourceLimitSources: sources };
+  return resolveAutoResourceLimits(resourceLimits, resourceLimitSources, "service-backed schedule", {
+    service_backed_go_cpu: () => estimateGoCPULimit(goShardUnits),
+    service_backed_go_io: ({ resourceLimits: currentLimits }) =>
+      estimateGoIOLimit(goShardUnits, currentLimits.get(goCPUResource)),
+    service_backed_browser_stack: () => estimateBrowserStackLimit(workUnits),
+  });
 }
 
 function runPostgresFixtureBudgetCheck(targets) {
@@ -731,7 +715,9 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const { manifest, manifestPath } = await loadManifest(options.manifest);
   const browserStages = await loadBrowserBatchStages();
-  const schedule = expandSchedule(findSchedule(manifest, options.target, browserStages));
+  const schedule = expandSchedule(
+    findSchedule(manifest, options.target, browserStages, options.resourceLimitOverrides),
+  );
   const makeBin = process.env.MAKE || context.makeBin;
   const testOutputScript = process.env.TEST_OUTPUT_SCRIPT || context.testOutputScript;
 

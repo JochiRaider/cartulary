@@ -190,6 +190,10 @@ for (const name of ["alpha", "beta", "missing-target", "fail-step", "smoke", "ag
     manifest.targets.push({ name, classification: "helper_only", included_in: ["helper_only"] });
   }
 }
+manifest.make_recipes ??= {};
+for (const name of ["alpha", "beta", "missing-target", "fail-step", "smoke", "aggregate-missing", "fail-smoke", "dry-run"]) {
+  manifest.make_recipes[name] ??= { type: "alias", prerequisites: [] };
+}
 manifest.sequences.smoke = {
   summary_groups: [
     { name: "alpha-group", summary_targets: ["alpha"] },
@@ -419,8 +423,9 @@ assert_not_contains "${test_block}" "completed=" "make test inline completed cou
 assert_not_contains "${test_block}" "total=" "make test inline total counter"
 assert_contains "${check_block}" '$(RUN_CHECK_SCHEDULE_SCRIPT)' "make check scheduler invocation"
 assert_not_contains "${check_block}" "--summary-profile check" "make check no copied summary profile"
-assert_contains "${check_block}" '--resource-limit host_cpu=$(CHECK_HOST_CPU_JOBS)' "make check scheduler cpu resource"
-assert_contains "${check_block}" '--resource-limit host_io=$(CHECK_HOST_IO_JOBS)' "make check scheduler io resource"
+assert_contains "${check_block}" '$(TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV)' "make check scheduler override env forwarding"
+assert_not_contains "${check_block}" '--resource-limit host_cpu=' "make check no default cpu CLI resource override"
+assert_not_contains "${check_block}" '--resource-limit host_io=' "make check no default io CLI resource override"
 assert_not_contains "${check_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT)' "make check no longer uses serial sequence helper"
 assert_not_contains "${check_block}" "--step browser-e2e" "make check no final serial browser step"
 assert_not_contains "${check_block}" "--step check-isolated" "make check old split browser sequence"

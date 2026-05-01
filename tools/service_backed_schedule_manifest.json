@@ -9,6 +9,7 @@
   "schedules": [
     {
       "target": "test-service-backed",
+      "capacity_profile": "service_backed_full",
       "resource_limits": {
         "postgres": 32,
         "minio": 32,
@@ -100,6 +101,7 @@
     },
     {
       "target": "test-fast-service-backed",
+      "capacity_profile": "service_backed_backend",
       "resource_limits": {
         "postgres": 32,
         "minio": 32,
@@ -153,6 +155,7 @@
     },
     {
       "target": "check-service-backed",
+      "capacity_profile": "service_backed_full",
       "resource_limits": {
         "postgres": 32,
         "minio": 32,

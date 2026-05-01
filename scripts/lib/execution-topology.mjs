@@ -6,6 +6,7 @@ import {
   assertKnownResource,
   normalizeResourceClaims,
   normalizeResourceLimits,
+  resourceLimitsForCapacityProfile,
   resolveForwardingProfile,
 } from "./scheduler-resources.mjs";
 
@@ -441,9 +442,18 @@ function normalizeCheckScheduleRoot(topology, taskTargets) {
     if (schedule.work_units !== undefined) {
       throw new Error(`${label}.work_units is obsolete; add per-target check_schedule metadata`);
     }
+    if (schedule.resource_limits !== undefined) {
+      throw new Error(`${label}.resource_limits is obsolete; use capacity_profile`);
+    }
+    const capacityProfile = requireString(schedule.capacity_profile, `${label}.capacity_profile`);
+    const profileLimits = resourceLimitsForCapacityProfile(capacityProfile, label, {
+      scheduler: "check",
+      allowAuto: false,
+    });
     normalizedSchedules.push({
       target,
-      resourceLimits: clone(requireObject(schedule.resource_limits, `${label}.resource_limits`)),
+      capacityProfile,
+      resourceLimits: Object.fromEntries(profileLimits.limits.entries()),
       summaryGroups: clone(schedule.summary_groups ?? []),
     });
   }
@@ -543,6 +553,7 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
     const label = `check_schedules.schedules.${schedule.target}`;
     const resourceLimits = normalizeResourceLimits(schedule.resourceLimits, label, {
       scheduler: "check",
+      capacityProfile: schedule.capacityProfile,
     }).limits;
     const usedTargets = new Set();
     const usedOrders = new Map();
@@ -618,6 +629,7 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
     );
     return {
       target: schedule.target,
+      capacity_profile: schedule.capacityProfile,
       resource_limits: clone(schedule.resourceLimits),
       summary_groups: clone(schedule.summaryGroups),
       work_units: units.map(({ order: _order, ...unit }) => unit),
@@ -679,8 +691,12 @@ function validateServiceBackedSchedules(manifestPath, topology, taskTargets) {
     if (!taskTargets.has(target)) {
       throw new Error(`${label}.target ${target} is missing from task_surface.targets`);
     }
-    normalizeResourceLimits(schedule.resource_limits, label, {
+    if (schedule.resource_limits !== undefined) {
+      throw new Error(`${label}.resource_limits is obsolete; use capacity_profile`);
+    }
+    normalizeResourceLimits(undefined, label, {
       scheduler: "service_backed",
+      capacityProfile: requireString(schedule.capacity_profile, `${label}.capacity_profile`),
       allowAuto: true,
     });
   }
