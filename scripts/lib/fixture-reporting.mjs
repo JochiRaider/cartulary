@@ -542,6 +542,30 @@ function fixtureDisplayName(activity) {
   );
 }
 
+export function fixtureHotspotsText(summary, { top = defaultFixtureTop } = {}) {
+  const limit = Math.min(normalizeFixtureTop(top), 3);
+  const hotspots = [...(summary?.by_package ?? [])]
+    .filter((hotspot) => (hotspot.total_duration_ms ?? 0) > 0)
+    .sort(
+      (left, right) =>
+        (right.total_duration_ms ?? 0) - (left.total_duration_ms ?? 0) ||
+        (right.count ?? 0) - (left.count ?? 0) ||
+        fixtureSortKey(left).localeCompare(fixtureSortKey(right)),
+    )
+    .slice(0, limit)
+    .map((hotspot) => {
+      const label = [
+        formatFixtureComponent(hotspot.caller_package),
+        formatFixtureComponent(hotspot.service),
+        formatFixtureComponent(hotspot.operation),
+        formatFixtureComponent(hotspot.fixture_policy),
+        formatFixtureComponent(hotspot.reuse_scope),
+      ].join("/");
+      return `${label}(${formatDuration(hotspot.total_duration_ms ?? 0)},count=${hotspot.count ?? 0})`;
+    });
+  return hotspots.join(",") || "none";
+}
+
 export function fixtureSummaryLine(summary, { thresholdMs, top = defaultFixtureTop } = {}) {
   const threshold = normalizeFixtureThreshold(thresholdMs);
   if ((summary?.total_duration_ms ?? 0) < threshold) {
@@ -555,7 +579,7 @@ export function fixtureSummaryLine(summary, { thresholdMs, top = defaultFixtureT
     .slice(0, normalizeFixtureTop(top))
     .map((activity) => `${fixtureDisplayName(activity)}(${formatDuration(activity.duration_ms ?? activity.total_duration_ms ?? 0)})`)
     .join(",");
-  return `[FIXTURE] ${summary.target} total=${formatDuration(summary.total_duration_ms ?? 0)} count=${summary.total_count ?? 0} top_strategy=${topStrategyText} slowest=${slowest || "none"}`;
+  return `[FIXTURE] ${summary.target} total=${formatDuration(summary.total_duration_ms ?? 0)} count=${summary.total_count ?? 0} top_strategy=${topStrategyText} hotspots=${fixtureHotspotsText(summary, { top })} slowest=${slowest || "none"}`;
 }
 
 export function fixtureSummaryLines(summaries, options = {}) {

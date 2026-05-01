@@ -637,7 +637,7 @@ fixture_target_output="$(
     "$ROOT_DIR/scripts/lib/test-output.sh" target-summary fixture-target pass \
     2>&1
 )"
-assert_contains "$fixture_target_output" "[FIXTURE] fixture-target total=36.0s count=3 top_strategy=postgres/database-reset/package_reset/package-reused count=2 duration=35.0s slowest=TestSlowB(20.0s),TestSlowA(15.0s)" "fixture target threshold output"
+assert_contains "$fixture_target_output" "[FIXTURE] fixture-target total=36.0s count=3 top_strategy=postgres/database-reset/package_reset/package-reused count=2 duration=35.0s hotspots=internal/modules/auth/postgres/database-reset/package_reset/package-reused(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1) slowest=TestSlowB(20.0s),TestSlowA(15.0s)" "fixture target threshold output"
 assert_equals "$(json_field "$fixture_results/fixture-run/fixture-target/target-summary.json" "totals.fixture.total_duration_ms")" "36000" "fixture target summary duration"
 
 write_fixture_event "$fixture_results" "fixture-tie-run" "fixture-suite" "01" "postgres-db-reset" "fixture-tie" 10000 "package_reset" "package-reused" "internal/modules/auth" "TestResetA"
@@ -651,6 +651,22 @@ fixture_tie_output="$(
     2>&1
 )"
 assert_contains "$fixture_tie_output" "top_strategy=postgres/database-reset/package_reset/package-reused count=2 duration=20.0s" "fixture strategy tie prefers count"
+assert_contains "$fixture_tie_output" "hotspots=internal/modules/auth/postgres/database-reset/package_reset/package-reused(20.0s,count=2),internal/modules/auth/postgres/transaction/transaction/transaction(20.0s,count=1)" "fixture hotspot tie prefers count"
+
+write_fixture_event "$fixture_results" "fixture-hotspot-cap-run" "fixture-suite" "01" "postgres-db-reset" "fixture-hotspot-cap" 4000 "package_reset" "package-reused" "internal/modules/one" "TestOne"
+write_fixture_event "$fixture_results" "fixture-hotspot-cap-run" "fixture-suite" "02" "postgres-db-reset" "fixture-hotspot-cap" 3000 "package_reset" "package-reused" "internal/modules/two" "TestTwo"
+write_fixture_event "$fixture_results" "fixture-hotspot-cap-run" "fixture-suite" "03" "postgres-db-reset" "fixture-hotspot-cap" 2000 "package_reset" "package-reused" "internal/modules/three" "TestThree"
+write_fixture_event "$fixture_results" "fixture-hotspot-cap-run" "fixture-suite" "04" "postgres-db-reset" "fixture-hotspot-cap" 1000 "package_reset" "package-reused" "internal/modules/four" "TestFour"
+fixture_hotspot_cap_output="$(
+  FIXTURE_THRESHOLD_MS=1 \
+  FIXTURE_TOP=9 \
+  CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
+  CARTULARY_TEST_RUN_ID="fixture-hotspot-cap-run" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary fixture-hotspot-cap pass \
+    2>&1
+)"
+assert_contains "$fixture_hotspot_cap_output" "hotspots=internal/modules/one/postgres/database-reset/package_reset/package-reused(4.00s,count=1),internal/modules/two/postgres/database-reset/package_reset/package-reused(3.00s,count=1),internal/modules/three/postgres/database-reset/package_reset/package-reused(2.00s,count=1)" "fixture hotspots cap at three"
+assert_not_contains "$fixture_hotspot_cap_output" "internal/modules/four/postgres" "fixture hotspots omit fourth entry"
 
 fixture_run_output="$(
   FIXTURE_THRESHOLD_MS=30000 \
@@ -659,7 +675,7 @@ fixture_run_output="$(
     "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "fixture run" pass 1 1 - fixture-target \
     2>&1
 )"
-assert_contains "$fixture_run_output" "[FIXTURE] fixture run total=36.0s count=3 top_strategy=postgres/database-reset/package_reset/package-reused count=2 duration=35.0s" "fixture run summary output"
+assert_contains "$fixture_run_output" "[FIXTURE] fixture run total=36.0s count=3 top_strategy=postgres/database-reset/package_reset/package-reused count=2 duration=35.0s hotspots=internal/modules/auth/postgres/database-reset/package_reset/package-reused(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)" "fixture run summary output"
 
 mkdir -p "$fixture_results/older-run"
 touch -d '2026-01-01T00:00:00Z' "$fixture_results/older-run"
@@ -669,12 +685,14 @@ fixture_report_output="$(
     2>&1
 )"
 assert_contains "$fixture_report_output" "[FIXTURE] fixture run total=36.0s count=3" "fixture report newest run aggregate output"
+assert_contains "$fixture_report_output" "hotspots=internal/modules/auth/postgres/database-reset/package_reset/package-reused(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)" "fixture report newest run hotspots"
 assert_contains "$fixture_report_output" "[FIXTURE] fixture-target total=36.0s count=3" "fixture report newest run target output"
 fixture_report_concrete_output="$(
   "$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results/fixture-run" --threshold-ms 30000 --top 2 \
     2>&1
 )"
 assert_contains "$fixture_report_concrete_output" "[FIXTURE] fixture run total=36.0s count=3" "fixture report concrete run aggregate output"
+assert_contains "$fixture_report_concrete_output" "hotspots=internal/modules/auth/postgres/database-reset/package_reset/package-reused(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)" "fixture report concrete run hotspots"
 assert_contains "$fixture_report_concrete_output" "[FIXTURE] fixture-target total=36.0s count=3" "fixture report concrete run target output"
 if fixture_report_mismatch_output="$(
   "$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results/fixture-run" --run-id fixture-tie-run --threshold-ms 1 \
