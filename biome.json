@@ -43,21 +43,69 @@
     "enabled": true,
     "rules": {
       "recommended": true,
+      "a11y": {
+        "useButtonType": "error"
+      },
       "correctness": {
-        "noUndeclaredDependencies": "error"
+        "noUndeclaredDependencies": "error",
+        "useExhaustiveDependencies": "error",
+        "useHookAtTopLevel": "error",
+        "useJsxKeyInIterable": "error"
       },
       "nursery": {
         "noFloatingPromises": "error",
         "noMisusedPromises": "error"
       },
+      "security": {
+        "noDangerouslySetInnerHtml": "error",
+        "noGlobalEval": "error"
+      },
       "suspicious": {
+        "noArrayIndexKey": "error",
+        "noFocusedTests": "error",
         "noImportCycles": {
           "level": "error",
           "options": {
             "ignoreTypes": true
           }
+        },
+        "noSkippedTests": "error"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "apps/web/src/**",
+        "!apps/web/src/*.test.ts",
+        "!apps/web/src/*.test.tsx",
+        "!apps/web/src/**/*.test.ts",
+        "!apps/web/src/**/*.test.tsx",
+        "!apps/web/src/fetchMockTestSupport.ts",
+        "!apps/web/src/testSetup.ts",
+        "!apps/web/src/testSetup.dom.ts",
+        "!apps/web/src/timelineWorkbookTestSupport.ts",
+        "packages/grid-adapter/src/**",
+        "!packages/grid-adapter/src/*.test.ts",
+        "!packages/grid-adapter/src/*.test.tsx",
+        "!packages/grid-adapter/src/**/*.test.ts",
+        "!packages/grid-adapter/src/**/*.test.tsx",
+        "!packages/grid-adapter/src/test-support.tsx",
+        "packages/view-contracts/src/**",
+        "!packages/view-contracts/src/*.test.ts",
+        "!packages/view-contracts/src/*.test.tsx",
+        "!packages/view-contracts/src/**/*.test.ts",
+        "!packages/view-contracts/src/**/*.test.tsx",
+        "packages/protocol-ts/src/**",
+        "!packages/protocol-ts/src/generated/**"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "error"
+          }
         }
       }
     }
-  }
+  ]
 }
