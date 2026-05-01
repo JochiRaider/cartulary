@@ -690,6 +690,8 @@ manifest_smoke_file="${manifest_smoke_rel#./}/support_manifest_smoke_test.go"
 
 cat >"$manifest_smoke_tools/phase20_test_map.json" <<EOF
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase20",
   "expected_ids": ["U-20-01"],
   "support_go_targets": [
     {
@@ -725,6 +727,8 @@ CARTULARY_PHASE_MANIFEST_ROOT="$manifest_smoke_root" NODE_BIN="$node_bin" "$node
 
 cat >"$manifest_smoke_tools/phase21_test_map.json" <<EOF
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase21",
   "expected_ids": ["U-21-01"],
   "support_go_targets": [
     {
@@ -770,6 +774,8 @@ assert_contains "$phase21_output" "not found in" "phase21 missing support symbol
 
 cat >"$manifest_smoke_tools/phase22_test_map.json" <<EOF
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase22",
   "expected_ids": ["U-22-01"],
   "support_go_targets": [
     {
@@ -815,6 +821,8 @@ assert_contains "$phase22_output" "must declare target=backend_unit|backend_inte
 
 cat >"$manifest_smoke_tools/phase23_test_map.json" <<EOF
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase23",
   "expected_ids": ["U-23-01"],
   "support_go_targets": [
     {
@@ -860,6 +868,8 @@ assert_contains "$phase23_output" "selection_pattern does not match symbol" "pha
 
 cat >"$manifest_smoke_tools/phase24_test_map.json" <<EOF
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase24",
   "expected_ids": ["U-24-01"],
   "support_go_targets": [
     {

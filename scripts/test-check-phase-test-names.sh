@@ -63,6 +63,8 @@ write_phase5_manifest() {
   mkdir -p "$root/tools"
   cat >"$root/tools/phase5_test_map.json" <<'JSON'
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase5",
   "expected_ids": ["U-5-01"],
   "unit": [
     {

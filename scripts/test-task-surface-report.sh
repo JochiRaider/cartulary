@@ -101,6 +101,8 @@ cleanup_paths+=("$phase_root")
 mkdir -p "$phase_root/tools"
 cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase99",
   "expected_ids": ["U-99-01"],
   "unit": [
     {

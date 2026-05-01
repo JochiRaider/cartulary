@@ -1,4 +1,6 @@
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase3",
   "note": "Phase 3 authoritative execution manifest. Support-only helper, auth-matrix, and extra regression coverage stays outside this map.",
   "ledger": {
     "title": "Phase 3 Coverage Ledger",

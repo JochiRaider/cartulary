@@ -40,7 +40,7 @@ function renderExecution(entry) {
 }
 
 function phaseNumberFromKey(phase) {
-  const match = /^phase(\d+)$/.exec(phase);
+  const match = /^phase(0|[1-9]\d*)$/.exec(phase);
   if (!match) {
     throw new Error(`unsupported phase key ${phase}`);
   }

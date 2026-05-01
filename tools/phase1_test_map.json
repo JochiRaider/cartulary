@@ -1,4 +1,6 @@
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase1",
   "note": "Phase 1 authoritative execution manifest. Support-only harness and smoke coverage stays outside this map.",
   "ledger": {
     "title": "Phase 1 Coverage Ledger",

@@ -505,17 +505,30 @@ const path = require("path");
 
 const root = process.argv[2];
 const sections = ["unit", "integration", "e2e"];
+const phaseSchemaID = "cartulary.phase_test_map.v1";
 const phases = [];
 
 for (const entry of fs.readdirSync(path.join(root, "tools")).sort()) {
-  const match = /^(phase\d+)_test_map\.json$/.exec(entry);
-  if (!match) {
+  if (!/^phase\d+_test_map\.json$/.test(entry)) {
     continue;
   }
-  const phase = match[1];
+  const match = /^(phase(?:0|[1-9][0-9]*))_test_map\.json$/.exec(entry);
+  if (!match) {
+    console.error(`phase test map filename ${entry} must match phase0_test_map.json or phase[1-9][0-9]*_test_map.json`);
+    process.exit(1);
+  }
   const manifest = JSON.parse(
     fs.readFileSync(path.join(root, "tools", entry), "utf8"),
   );
+  if (manifest.schema_id !== phaseSchemaID) {
+    console.error(`${entry} must declare schema_id ${phaseSchemaID}`);
+    process.exit(1);
+  }
+  if (manifest.phase !== match[1]) {
+    console.error(`${entry} must declare phase ${match[1]}`);
+    process.exit(1);
+  }
+  const phase = manifest.phase;
   let ownsFrontendUnit = false;
   for (const section of sections) {
     for (const row of manifest[section] ?? []) {

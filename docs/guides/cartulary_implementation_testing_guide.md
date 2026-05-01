@@ -1189,7 +1189,7 @@ The current Base claim manifest is:
 
 The phase tables above are the authoritative **test-id to REQ / AC mapping**. This section adds the summary views needed to keep the guide from drifting again.
 
-Repository phase maps under `tools/phase*_test_map.json` own the generated coverage-ledger metadata consumed by `make phase-ledgers` and `make phase-ledger-drift`. Every authoritative manifest row in every numbered phase map must declare non-empty `claim` and `out_of_scope` text so future phases receive the same ledger guarantees without validator code changes.
+Repository phase maps under `tools/phase*_test_map.json` own the generated coverage-ledger metadata consumed by `make phase-ledgers` and `make phase-ledger-drift`. Each phase map is a self-identifying manifest: it must declare `schema_id="cartulary.phase_test_map.v1"` and a `phase` value matching `phase0` or `phase[1-9][0-9]*`, and that declared phase must match the `tools/phaseN_test_map.json` path convention. Filenames remain the storage convention, not the only identity source. Every authoritative manifest row in every numbered phase map must declare non-empty `claim` and `out_of_scope` text so future phases receive the same ledger guarantees without validator code changes.
 
 Execution topology is owned separately by `tools/execution_topology_manifest.json`, which renders the task surface, profile-expanded check schedule, service-backed schedules, and browser batch manifest. Future phase evidence should normally be added only to the phase maps; change the execution topology only when adding a new target class, scheduler resource, gate policy, check-scheduler profile, or browser stage/reset policy.
 

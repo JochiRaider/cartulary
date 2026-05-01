@@ -1,4 +1,6 @@
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase4",
   "note": "Phase 4 authoritative execution manifest. Support-only matrix harness and workbook helper coverage stay outside the authoritative row inventory.",
   "ledger": {
     "title": "Phase 4 Coverage Ledger",

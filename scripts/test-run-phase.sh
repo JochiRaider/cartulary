@@ -1161,6 +1161,8 @@ EOF
 go_manifest_rel="./${go_manifest_dir#"$ROOT_DIR"/}"
 cat >"$go_manifest_tools/phase9_test_map.json" <<EOF
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase9",
   "expected_ids": ["U-9-01"],
   "unit": [
     {
@@ -1180,6 +1182,8 @@ cat >"$go_manifest_tools/phase9_test_map.json" <<EOF
 EOF
 cat >"$go_manifest_tools/phase10_test_map.json" <<EOF
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase10",
   "expected_ids": ["U-10-01"],
   "unit": [
     {
@@ -1457,6 +1461,8 @@ EOF
 go_manifest_pkg_setup_rel="./${go_manifest_pkg_setup_dir#"$ROOT_DIR"/}"
 cat >"$go_manifest_tools/phase11_test_map.json" <<EOF
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase11",
   "expected_ids": ["U-11-01"],
   "unit": [
     {

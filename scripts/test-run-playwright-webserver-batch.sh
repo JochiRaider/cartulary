@@ -152,7 +152,20 @@ function fakeResult(status, extra = {}) {
 if (project === "functional") {
   const phases = fs.readdirSync(path.join(root, "tools"))
     .filter((entry) => /^phase\d+_test_map\.json$/.test(entry))
-    .map((entry) => entry.replace(/_test_map\.json$/, ""))
+    .map((entry) => {
+      const match = /^(phase(?:0|[1-9][0-9]*))_test_map\.json$/.exec(entry);
+      if (!match) {
+        throw new Error(`phase test map filename ${entry} must match phase0_test_map.json or phase[1-9][0-9]*_test_map.json`);
+      }
+      const manifest = JSON.parse(fs.readFileSync(path.join(root, "tools", entry), "utf8"));
+      if (manifest.schema_id !== "cartulary.phase_test_map.v1") {
+        throw new Error(`${entry} must declare schema_id cartulary.phase_test_map.v1`);
+      }
+      if (manifest.phase !== match[1]) {
+        throw new Error(`${entry} must declare phase ${match[1]}`);
+      }
+      return manifest.phase;
+    })
     .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
   for (const phase of phases) {
     const manifest = JSON.parse(

@@ -17,10 +17,14 @@ import (
 
 var (
 	phaseUnitTestPattern      = regexp.MustCompile(`^TestPhase([0-9]+)[A-Za-z0-9_]*_U_([0-9]+)_`)
+	phaseNamePattern          = regexp.MustCompile(`^phase(?:0|[1-9][0-9]*)$`)
+	phaseManifestFilePattern  = regexp.MustCompile(`^(phase(?:0|[1-9][0-9]*))_test_map\.json$`)
 	phaseHelperImportPattern  = regexp.MustCompile(`(?:^|/)internal/testutil/phase[0-9]+(?:store)?test$`)
 	serviceHelperImportSuffix = regexp.MustCompile(`(?:^|/)internal/testutil/(?:pgtest|s3test)$`)
 	startHelperPattern        = regexp.MustCompile(`^Start[A-Za-z0-9_]*$`)
 )
+
+const phaseTestMapSchemaID = "cartulary.phase_test_map.v1"
 
 type manifestEntry struct {
 	Coverage            string   `json:"coverage"`
@@ -31,7 +35,9 @@ type manifestEntry struct {
 }
 
 type phaseManifest struct {
-	Unit []manifestEntry `json:"unit"`
+	SchemaID string          `json:"schema_id"`
+	Phase    string          `json:"phase"`
+	Unit     []manifestEntry `json:"unit"`
 }
 
 type finding struct {
@@ -171,6 +177,7 @@ func loadBackendStoreUnitTests(repoRoot string) (map[string]struct{}, error) {
 	sort.Strings(paths)
 
 	allowed := make(map[string]struct{})
+	seenPhases := make(map[string]string)
 	for _, manifestPath := range paths {
 		raw, err := os.ReadFile(manifestPath) // #nosec G304 -- phase manifest paths come from a repo-local glob or explicit manifest root override.
 		if err != nil {
@@ -180,6 +187,9 @@ func loadBackendStoreUnitTests(repoRoot string) (map[string]struct{}, error) {
 		var manifest phaseManifest
 		if err := json.Unmarshal(raw, &manifest); err != nil {
 			return nil, fmt.Errorf("decode %s: %w", manifestPath, err)
+		}
+		if err := validatePhaseManifestIdentity(manifestPath, manifest, seenPhases); err != nil {
+			return nil, err
 		}
 
 		for _, entry := range manifest.Unit {
@@ -197,6 +207,30 @@ func loadBackendStoreUnitTests(repoRoot string) (map[string]struct{}, error) {
 		}
 	}
 	return allowed, nil
+}
+
+func validatePhaseManifestIdentity(manifestPath string, manifest phaseManifest, seenPhases map[string]string) error {
+	if manifest.SchemaID != phaseTestMapSchemaID {
+		return fmt.Errorf("manifest %s must declare schema_id %s", manifestPath, phaseTestMapSchemaID)
+	}
+	if manifest.Phase == "" {
+		return fmt.Errorf("manifest %s must declare phase", manifestPath)
+	}
+	if !phaseNamePattern.MatchString(manifest.Phase) {
+		return fmt.Errorf("invalid phase name %s; expected phase0 or phase[1-9][0-9]*", manifest.Phase)
+	}
+	match := phaseManifestFilePattern.FindStringSubmatch(filepath.Base(manifestPath))
+	if match == nil {
+		return fmt.Errorf("phase test map filename %s must match phase0_test_map.json or phase[1-9][0-9]*_test_map.json", filepath.Base(manifestPath))
+	}
+	if manifest.Phase != match[1] {
+		return fmt.Errorf("manifest %s declares phase %s but filename declares %s", manifestPath, manifest.Phase, match[1])
+	}
+	if previous, ok := seenPhases[manifest.Phase]; ok {
+		return fmt.Errorf("duplicate phase %s declared by %s and %s", manifest.Phase, previous, manifestPath)
+	}
+	seenPhases[manifest.Phase] = manifestPath
+	return nil
 }
 
 func isCanonicalPhaseUnitTest(name string) bool {

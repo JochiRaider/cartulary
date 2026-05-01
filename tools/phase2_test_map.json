@@ -1,4 +1,6 @@
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase2",
   "note": "Phase 2 authoritative execution manifest. Support-only unit decoder regressions, HTTP conformance, browser-request probes, smoke tests, and extra regressions stay outside this map.",
   "ledger": {
     "title": "Phase 2 Coverage Ledger",

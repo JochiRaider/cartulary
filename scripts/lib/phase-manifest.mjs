@@ -21,6 +21,7 @@ const implementationTestingGuidePath = path.join(
 
 const validCoverage = new Set(["authoritative", "supplemental"]);
 const validGoSections = new Set(["unit", "integration", "e2e"]);
+const phaseTestMapSchemaID = "cartulary.phase_test_map.v1";
 const phasePolicyExceptionsSchemaID = "cartulary.phase_policy_exceptions.v1";
 const validPhasePolicyExceptionTypes = new Set(["allowed_empty_go_manifest_selection"]);
 const postgresFixturePolicyTemplateClone = "template_clone";
@@ -450,9 +451,9 @@ function fixturePolicyAssignments(entries, symbolsForEntry, policyForEntry) {
 }
 
 function phaseNumberFromPhase(phase) {
-  const match = /^phase(\d+)$/.exec(phase);
+  const match = /^phase(0|[1-9]\d*)$/.exec(phase);
   if (!match) {
-    throw new Error(`invalid phase name ${phase}; expected phase<number>`);
+    throw new Error(`invalid phase name ${phase}; expected phase0 or phase[1-9][0-9]*`);
   }
   return match[1];
 }
@@ -562,27 +563,82 @@ function collectAuthoritativeGoTestFunctions(root, phaseNumber) {
   });
 }
 
-export function loadManifest(root, phase) {
-  const manifestRoot = process.env.CARTULARY_PHASE_MANIFEST_ROOT
+function phaseManifestRoot(root) {
+  return process.env.CARTULARY_PHASE_MANIFEST_ROOT
     ? path.resolve(process.env.CARTULARY_PHASE_MANIFEST_ROOT)
     : root;
+}
+
+function phaseFromManifestFilename(manifestPath) {
+  const filename = path.basename(manifestPath);
+  const match = /^(phase(?:0|[1-9]\d*))_test_map\.json$/.exec(filename);
+  if (!match) {
+    throw new Error(
+      `phase test map filename ${filename} must match phase0_test_map.json or phase[1-9][0-9]*_test_map.json`,
+    );
+  }
+  return match[1];
+}
+
+function validateManifestIdentity(manifestPath, manifest, requestedPhase = "") {
+  if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
+    throw new Error(`manifest ${manifestPath} must be a JSON object`);
+  }
+  if (manifest.schema_id !== phaseTestMapSchemaID) {
+    throw new Error(`manifest ${manifestPath} must declare schema_id ${phaseTestMapSchemaID}`);
+  }
+  if (typeof manifest.phase !== "string" || manifest.phase.trim() === "") {
+    throw new Error(`manifest ${manifestPath} must declare phase`);
+  }
+  phaseNumberFromPhase(manifest.phase);
+  const filenamePhase = phaseFromManifestFilename(manifestPath);
+  if (manifest.phase !== filenamePhase) {
+    throw new Error(
+      `manifest ${manifestPath} declares phase ${manifest.phase} but filename declares ${filenamePhase}`,
+    );
+  }
+  if (requestedPhase !== "" && manifest.phase !== requestedPhase) {
+    throw new Error(
+      `manifest ${manifestPath} declares phase ${manifest.phase} but was requested as ${requestedPhase}`,
+    );
+  }
+  return manifest.phase;
+}
+
+function comparePhases(left, right) {
+  const leftNumber = Number.parseInt(phaseNumberFromPhase(left), 10);
+  const rightNumber = Number.parseInt(phaseNumberFromPhase(right), 10);
+  return leftNumber - rightNumber || left.localeCompare(right);
+}
+
+export function loadManifest(root, phase) {
+  phaseNumberFromPhase(phase);
+  const manifestRoot = phaseManifestRoot(root);
   const manifestPath = path.join(manifestRoot, "tools", `${phase}_test_map.json`);
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  validateManifestIdentity(manifestPath, manifest, phase);
   return { manifestPath, manifest };
 }
 
 export function phaseManifestNames(root) {
-  const manifestRoot = process.env.CARTULARY_PHASE_MANIFEST_ROOT
-    ? path.resolve(process.env.CARTULARY_PHASE_MANIFEST_ROOT)
-    : root;
-  return readdirSync(path.join(manifestRoot, "tools"))
-    .filter((entry) => /^phase\d+_test_map\.json$/.test(entry))
-    .map((entry) => entry.replace(/_test_map\.json$/, ""))
-    .sort((left, right) => {
-      const leftNumber = Number.parseInt(left.replace(/^phase/, ""), 10);
-      const rightNumber = Number.parseInt(right.replace(/^phase/, ""), 10);
-      return leftNumber - rightNumber || left.localeCompare(right);
-    });
+  const manifestRoot = phaseManifestRoot(root);
+  const phases = [];
+  const seen = new Map();
+  for (const entry of readdirSync(path.join(manifestRoot, "tools"))
+    .filter((filename) => /^phase\d+_test_map\.json$/.test(filename))
+    .sort()) {
+    const manifestPath = path.join(manifestRoot, "tools", entry);
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    const phase = validateManifestIdentity(manifestPath, manifest);
+    if (seen.has(phase)) {
+      throw new Error(
+        `duplicate phase ${phase} declared by ${seen.get(phase)} and ${manifestPath}`,
+      );
+    }
+    seen.set(phase, manifestPath);
+    phases.push(phase);
+  }
+  return phases.sort(comparePhases);
 }
 
 function phasePolicyExceptionsPath(root) {
@@ -780,8 +836,9 @@ export function collectSupportGoEntries(manifest) {
 }
 
 export function validateManifest(root, phase) {
-  const phaseNumber = phaseNumberFromPhase(phase);
   const { manifestPath, manifest } = loadManifest(root, phase);
+  const phaseName = manifest.phase;
+  const phaseNumber = phaseNumberFromPhase(phaseName);
 
   if (!Array.isArray(manifest.expected_ids) || manifest.expected_ids.length === 0) {
     throw new Error(`manifest ${manifestPath} must define a non-empty expected_ids array`);
@@ -799,7 +856,7 @@ export function validateManifest(root, phase) {
         throw new Error(`manifest entry in ${section} has invalid id: ${JSON.stringify(entry)}`);
       }
       if (!phaseIDRegex(prefix, phaseNumber).test(entry.id)) {
-        throw new Error(`manifest entry ${entry.id} does not belong to ${phase}`);
+        throw new Error(`manifest entry ${entry.id} does not belong to ${phaseName}`);
       }
       if (typeof entry.coverage !== "string" || !validCoverage.has(entry.coverage)) {
         throw new Error(`manifest entry ${entry.id} must declare coverage=authoritative|supplemental`);
@@ -982,7 +1039,7 @@ export function validateManifest(root, phase) {
   const unexpected = authoritativeIDs.filter((id) => !expected.includes(id));
   if (missing.length > 0 || unexpected.length > 0) {
     throw new Error(
-      `${phase} manifest mismatch: missing=${missing.join(",") || "none"} unexpected=${unexpected.join(",") || "none"}`,
+      `${phaseName} manifest mismatch: missing=${missing.join(",") || "none"} unexpected=${unexpected.join(",") || "none"}`,
     );
   }
 
@@ -994,7 +1051,7 @@ export function validateManifest(root, phase) {
     const guideUnexpected = expected.filter((id) => !guideExpectedIDs.includes(id));
     if (guideMissing.length > 0 || guideUnexpected.length > 0) {
       throw new Error(
-        `${phase} guide mismatch: missing=${guideMissing.join(",") || "none"} unexpected=${guideUnexpected.join(",") || "none"}`,
+        `${phaseName} guide mismatch: missing=${guideMissing.join(",") || "none"} unexpected=${guideUnexpected.join(",") || "none"}`,
       );
     }
   }
@@ -1025,7 +1082,7 @@ export function validateManifest(root, phase) {
   ).filter((test) => !manifestedGoSymbols.has(test.symbol));
   if (unmanifestedAuthoritativeGoTests.length > 0) {
     throw new Error(
-      `${phase} has authoritative-looking Go tests missing from ${manifestPath}: ${unmanifestedAuthoritativeGoTests
+      `${phaseName} has authoritative-looking Go tests missing from ${manifestPath}: ${unmanifestedAuthoritativeGoTests
         .map((test) => `${test.file}::${test.symbol}`)
         .join(", ")}`,
     );
@@ -1046,7 +1103,7 @@ export function validateManifest(root, phase) {
     const claimedIDs = extractClaimedPhaseIDs(source, phaseNumber);
     if (claimedIDs.size > 0) {
       throw new Error(
-        `${target} must not claim ${phase} authoritative ids: ${Array.from(claimedIDs).sort().join(", ")}`,
+        `${target} must not claim ${phaseName} authoritative ids: ${Array.from(claimedIDs).sort().join(", ")}`,
       );
     }
   }

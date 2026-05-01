@@ -953,6 +953,7 @@ const fs = require("fs");
 const path = require("path");
 
 const root = process.argv[2];
+const phaseSchemaID = "cartulary.phase_test_map.v1";
 for (const phase of manifestPhases()) {
   const manifest = JSON.parse(
     fs.readFileSync(path.join(root, "tools", `${phase}_test_map.json`), "utf8"),
@@ -970,10 +971,25 @@ for (const phase of manifestPhases()) {
   }
 }
 function manifestPhases() {
-  return fs.readdirSync(path.join(root, "tools"))
-    .filter((entry) => /^phase\d+_test_map\.json$/.test(entry))
-    .map((entry) => entry.replace(/_test_map\.json$/, ""))
-    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+  const phases = [];
+  for (const entry of fs.readdirSync(path.join(root, "tools")).sort()) {
+    if (!/^phase\d+_test_map\.json$/.test(entry)) {
+      continue;
+    }
+    const match = /^(phase(?:0|[1-9][0-9]*))_test_map\.json$/.exec(entry);
+    if (!match) {
+      throw new Error(`phase test map filename ${entry} must match phase0_test_map.json or phase[1-9][0-9]*_test_map.json`);
+    }
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "tools", entry), "utf8"));
+    if (manifest.schema_id !== phaseSchemaID) {
+      throw new Error(`${entry} must declare schema_id ${phaseSchemaID}`);
+    }
+    if (manifest.phase !== match[1]) {
+      throw new Error(`${entry} must declare phase ${match[1]}`);
+    }
+    phases.push(manifest.phase);
+  }
+  return phases.sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
 }
 EOF
 then

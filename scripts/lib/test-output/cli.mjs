@@ -559,13 +559,7 @@ function loadManifestIndex() {
     forbiddenFilesByPhase: new Map(),
   };
 
-  const toolsDir = path.join(repoRoot, "tools");
-  const files = readdirSync(toolsDir)
-    .filter((entry) => /^phase\d+_test_map\.json$/.test(entry))
-    .sort();
-
-  for (const filename of files) {
-    const phase = filename.replace(/_test_map\.json$/, "");
+  for (const phase of phaseManifestNames(repoRoot)) {
     const { manifest } = loadManifest(repoRoot, phase);
     const entries = collectEntries(manifest);
     for (const forbidden of manifest.forbidden_id_files ?? []) {

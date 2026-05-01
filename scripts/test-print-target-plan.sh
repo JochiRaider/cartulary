@@ -201,6 +201,8 @@ mkdir -p "$phase_root/tools"
 cp "$ROOT_DIR"/tools/phase*_test_map.json "$phase_root/tools/"
 cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase99",
   "expected_ids": ["U-99-01"],
   "unit": [],
   "integration": [],
@@ -227,6 +229,8 @@ phase_map_discovery_root="$tmp_dir/phase-map-discovery-root"
 mkdir -p "$phase_map_discovery_root/tools"
 cat >"$phase_map_discovery_root/tools/phase5_test_map.json" <<'JSON'
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase5",
   "expected_ids": ["U-5-01"],
   "unit": [
     {
@@ -253,6 +257,84 @@ phase5_check_maps_output="$(
 )"
 assert_contains "$phase5_check_maps_output" "phase5 traceability map verified" "check-phase-maps discovers phase5"
 
+assert_phase_identity_rejected() {
+  local root="$1"
+  local phase="$2"
+  local expected="$3"
+  local label="$4"
+  local output
+  local status
+
+  set +e
+  output="$(
+    CARTULARY_PHASE_MANIFEST_ROOT="$root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" "$phase" 2>&1
+  )"
+  status=$?
+  set -e
+  if [[ "$status" -eq 0 ]]; then
+    fail "$label: expected phase manifest identity validation failure"
+  fi
+  assert_contains "$output" "$expected" "$label"
+}
+
+missing_schema_identity_root="$tmp_dir/identity-missing-schema-root"
+mkdir -p "$missing_schema_identity_root/tools"
+cat >"$missing_schema_identity_root/tools/phase99_test_map.json" <<'JSON'
+{
+  "phase": "phase99",
+  "expected_ids": ["U-99-01"],
+  "unit": []
+}
+JSON
+assert_phase_identity_rejected "$missing_schema_identity_root" "phase99" "must declare schema_id cartulary.phase_test_map.v1" "missing phase-map schema_id"
+
+wrong_schema_identity_root="$tmp_dir/identity-wrong-schema-root"
+mkdir -p "$wrong_schema_identity_root/tools"
+cat >"$wrong_schema_identity_root/tools/phase99_test_map.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_test_map.v0",
+  "phase": "phase99",
+  "expected_ids": ["U-99-01"],
+  "unit": []
+}
+JSON
+assert_phase_identity_rejected "$wrong_schema_identity_root" "phase99" "must declare schema_id cartulary.phase_test_map.v1" "wrong phase-map schema_id"
+
+missing_phase_identity_root="$tmp_dir/identity-missing-phase-root"
+mkdir -p "$missing_phase_identity_root/tools"
+cat >"$missing_phase_identity_root/tools/phase99_test_map.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_test_map.v1",
+  "expected_ids": ["U-99-01"],
+  "unit": []
+}
+JSON
+assert_phase_identity_rejected "$missing_phase_identity_root" "phase99" "must declare phase" "missing phase-map phase"
+
+mismatched_phase_identity_root="$tmp_dir/identity-mismatched-phase-root"
+mkdir -p "$mismatched_phase_identity_root/tools"
+cat >"$mismatched_phase_identity_root/tools/phase99_test_map.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase98",
+  "expected_ids": ["U-99-01"],
+  "unit": []
+}
+JSON
+assert_phase_identity_rejected "$mismatched_phase_identity_root" "phase99" "declares phase phase98 but filename declares phase99" "mismatched phase-map phase"
+
+leading_zero_identity_root="$tmp_dir/identity-leading-zero-root"
+mkdir -p "$leading_zero_identity_root/tools"
+cat >"$leading_zero_identity_root/tools/phase01_test_map.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase01",
+  "expected_ids": ["U-1-01"],
+  "unit": []
+}
+JSON
+assert_phase_identity_rejected "$leading_zero_identity_root" "phase01" "invalid phase name phase01" "leading-zero phase-map phase"
+
 phase99_plan="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" \
     "$NODE_HELPER" "$PLAN_SCRIPT" --json
@@ -270,6 +352,8 @@ invalid_phase_root="$tmp_dir/invalid-phase-root"
 mkdir -p "$invalid_phase_root/tools"
 cat >"$invalid_phase_root/tools/phase99_test_map.json" <<'JSON'
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase99",
   "expected_ids": ["U-99-01"],
   "unit": [
     {
@@ -299,6 +383,8 @@ missing_policy_root="$tmp_dir/missing-policy-root"
 mkdir -p "$missing_policy_root/tools"
 cat >"$missing_policy_root/tools/phase99_test_map.json" <<'JSON'
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase99",
   "expected_ids": ["U-99-01"],
   "unit": [
     {
@@ -327,6 +413,8 @@ missing_claim_root="$tmp_dir/missing-claim-root"
 mkdir -p "$missing_claim_root/tools"
 cat >"$missing_claim_root/tools/phase99_test_map.json" <<'JSON'
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase99",
   "expected_ids": ["U-99-01"],
   "unit": [
     {
@@ -361,6 +449,8 @@ missing_budget_root="$tmp_dir/missing-budget-root"
 mkdir -p "$missing_budget_root/tools"
 cat >"$missing_budget_root/tools/phase99_test_map.json" <<'JSON'
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase99",
   "expected_ids": ["I-99-01"],
   "integration": [
     {
@@ -390,6 +480,8 @@ invalid_budget_root="$tmp_dir/invalid-budget-root"
 mkdir -p "$invalid_budget_root/tools"
 cat >"$invalid_budget_root/tools/phase99_test_map.json" <<'JSON'
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase99",
   "expected_ids": ["I-99-01"],
   "integration": [
     {
@@ -426,6 +518,8 @@ missing_migration_reason_root="$tmp_dir/missing-migration-reason-root"
 mkdir -p "$missing_migration_reason_root/tools"
 cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase99",
   "expected_ids": ["U-99-01"],
   "support_go_targets": [
     {
@@ -477,6 +571,8 @@ func TestPhase99_Ledger_U_99_01() {}
 EOF
 cat >"$ledger_root/tools/phase99_test_map.json" <<'JSON'
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase99",
   "note": "Synthetic ledger phase.",
   "ledger": {
     "title": "Phase 99 Coverage Ledger",

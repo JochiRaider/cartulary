@@ -158,6 +158,103 @@ func TestPhase10_Runtime_I_10_01(t *testing.T) {
 	}
 }
 
+func TestScanRejectsInvalidPhaseManifestIdentity(t *testing.T) {
+	tests := []struct {
+		name     string
+		file     string
+		content  string
+		expected string
+	}{
+		{
+			name: "missing schema",
+			file: "phase10_test_map.json",
+			content: `{
+	"phase": "phase10",
+	"unit": []
+}
+`,
+			expected: "must declare schema_id cartulary.phase_test_map.v1",
+		},
+		{
+			name: "wrong schema",
+			file: "phase10_test_map.json",
+			content: `{
+	"schema_id": "cartulary.phase_test_map.v0",
+	"phase": "phase10",
+	"unit": []
+}
+`,
+			expected: "must declare schema_id cartulary.phase_test_map.v1",
+		},
+		{
+			name: "missing phase",
+			file: "phase10_test_map.json",
+			content: `{
+	"schema_id": "cartulary.phase_test_map.v1",
+	"unit": []
+}
+`,
+			expected: "must declare phase",
+		},
+		{
+			name: "mismatched phase",
+			file: "phase10_test_map.json",
+			content: `{
+	"schema_id": "cartulary.phase_test_map.v1",
+	"phase": "phase11",
+	"unit": []
+}
+`,
+			expected: "declares phase phase11 but filename declares phase10",
+		},
+		{
+			name: "leading zero phase",
+			file: "phase01_test_map.json",
+			content: `{
+	"schema_id": "cartulary.phase_test_map.v1",
+	"phase": "phase01",
+	"unit": []
+}
+`,
+			expected: "invalid phase name phase01",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := newFixtureRepo(t)
+			writeFixtureFile(t, root, filepath.Join("tools", test.file), test.content)
+			err := scanFixtureError(t, root)
+			if err == nil {
+				t.Fatalf("expected invalid manifest identity to fail")
+			}
+			if !strings.Contains(err.Error(), test.expected) {
+				t.Fatalf("expected error to contain %q, got %v", test.expected, err)
+			}
+		})
+	}
+}
+
+func TestValidatePhaseManifestIdentityRejectsDuplicateDeclaredPhase(t *testing.T) {
+	seen := make(map[string]string)
+	manifest := phaseManifest{
+		SchemaID: phaseTestMapSchemaID,
+		Phase:    "phase10",
+	}
+	first := filepath.Join("tools", "phase10_test_map.json")
+	if err := validatePhaseManifestIdentity(first, manifest, seen); err != nil {
+		t.Fatalf("first manifest identity validation failed: %v", err)
+	}
+	second := filepath.Join("other", "phase10_test_map.json")
+	err := validatePhaseManifestIdentity(second, manifest, seen)
+	if err == nil {
+		t.Fatalf("expected duplicate phase validation failure")
+	}
+	if !strings.Contains(err.Error(), "duplicate phase phase10") {
+		t.Fatalf("expected duplicate phase error, got %v", err)
+	}
+}
+
 func newFixtureRepo(t *testing.T) string {
 	t.Helper()
 
@@ -173,9 +270,11 @@ func writeFixtureManifest(t *testing.T, root, phase, unitEntries string) {
 	t.Helper()
 
 	writeFixtureFile(t, root, filepath.Join("tools", phase+"_test_map.json"), fmt.Sprintf(`{
+	"schema_id": "cartulary.phase_test_map.v1",
+	"phase": %q,
 	"unit": %s
 }
-`, unitEntries))
+`, phase, unitEntries))
 }
 
 func writeFixtureFile(t *testing.T, root, relativePath, content string) {
@@ -199,6 +298,14 @@ func scanFixture(t *testing.T, root string) []finding {
 		t.Fatalf("scan fixture: %v", err)
 	}
 	return findings
+}
+
+func scanFixtureError(t *testing.T, root string) error {
+	t.Helper()
+
+	t.Setenv("CARTULARY_PHASE_MANIFEST_ROOT", root)
+	_, err := scanRoot(root)
+	return err
 }
 
 func requireFinding(t *testing.T, findings []finding, testName, selector, importPath string) {

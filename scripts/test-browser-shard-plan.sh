@@ -60,6 +60,8 @@ mkdir -p "$tmp_dir/manifests/tools"
 
 cat >"$tmp_dir/manifests/tools/phase1_test_map.json" <<'JSON'
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase1",
   "expected_ids": ["E-1-01", "E-1-02", "E-1-03"],
   "e2e": [
     {
@@ -101,6 +103,8 @@ JSON
 
 cat >"$tmp_dir/manifests/tools/phase2_test_map.json" <<'JSON'
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase2",
   "expected_ids": ["E-2-01", "E-2-02"],
   "e2e": [
     {
@@ -131,6 +135,8 @@ JSON
 
 cat >"$tmp_dir/manifests/tools/phase12_test_map.json" <<'JSON'
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase12",
   "expected_ids": ["E-12-01"],
   "e2e": [
     {

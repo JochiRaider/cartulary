@@ -164,6 +164,8 @@ cleanup_paths+=("$phase_root")
 mkdir -p "${phase_root}/tools"
 cat >"${phase_root}/tools/phase99_test_map.json" <<'JSON'
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase99",
   "expected_ids": ["U-99-01"],
   "support_go_targets": [
     {
@@ -181,6 +183,8 @@ cat >"${phase_root}/tools/phase99_test_map.json" <<'JSON'
 JSON
 cat >"${phase_root}/tools/phase100_test_map.json" <<'JSON'
 {
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase100",
   "expected_ids": ["U-100-01"],
   "unit": [
     {
