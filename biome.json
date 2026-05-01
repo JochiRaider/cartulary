@@ -1,4 +1,10 @@
 {
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true,
+    "root": "."
+  },
   "files": {
     "includes": [
       "apps/web/src/**",
@@ -12,7 +18,21 @@
       "packages/test-utils/src/**",
       "packages/protocol-ts/src/**",
       "!packages/protocol-ts/src/generated",
-      "scripts/**/*.mjs"
+      "scripts/**/*.mjs",
+      "!tmp/**",
+      "!.cache/**",
+      "!.pnpm-store/**",
+      "!node_modules/**",
+      "!apps/web/dist/**",
+      "!apps/web/test-results/**",
+      "!apps/web/playwright-report/**",
+      "!apps/web/coverage/**",
+      "!coverage/**",
+      "!playwright-report/**",
+      "!test-results/**",
+      "!dist/**",
+      "!build/**",
+      "!out/**"
     ]
   },
   "formatter": {
@@ -22,7 +42,22 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": true,
+      "correctness": {
+        "noUndeclaredDependencies": "error"
+      },
+      "nursery": {
+        "noFloatingPromises": "error",
+        "noMisusedPromises": "error"
+      },
+      "suspicious": {
+        "noImportCycles": {
+          "level": "error",
+          "options": {
+            "ignoreTypes": true
+          }
+        }
+      }
     }
   }
 }

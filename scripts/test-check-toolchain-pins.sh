@@ -7,6 +7,7 @@ if command -v "${NODE_BIN}" >/dev/null 2>&1; then
   NODE_BIN="$(command -v "${NODE_BIN}")"
 fi
 SCRIPT="${ROOT_DIR}/scripts/check-toolchain-pins.mjs"
+source "${ROOT_DIR}/scripts/lib/harness-scratch.sh"
 cleanup_paths=()
 
 cleanup() {
@@ -41,6 +42,24 @@ assert_not_contains() {
   if [[ "${haystack}" == *"${needle}"* ]]; then
     fail "${label}: expected output not to contain [${needle}]"
   fi
+}
+
+assert_harness_scratch_rejects_repo_tmp() {
+  local output
+  local status
+
+  set +e
+  output="$(
+    CARTULARY_HARNESS_SCRATCH_ROOT="${ROOT_DIR}/tmp/toolchain-pins-invalid" \
+      cartulary_harness_mktemp_dir "toolchain-pins-invalid.XXXXXX" 2>&1
+  )"
+  status=$?
+  set -e
+
+  if [[ "${status}" -eq 0 ]]; then
+    fail "harness scratch root guard: expected repo-local scratch root failure"
+  fi
+  assert_contains "${output}" "CARTULARY_HARNESS_SCRATCH_ROOT must be outside the repository" "harness scratch root guard"
 }
 
 copy_minimal_repo() {
@@ -116,7 +135,7 @@ expect_drift() {
   local mutate="$3"
 
   local repo_dir
-  repo_dir="$(mktemp -d "${ROOT_DIR}/tmp/toolchain-pins-${label}.XXXXXX")"
+  repo_dir="$(cartulary_harness_mktemp_dir "toolchain-pins-${label}.XXXXXX")"
   cleanup_paths+=("${repo_dir}")
   copy_minimal_repo "${repo_dir}"
   "${mutate}" "${repo_dir}"
@@ -185,8 +204,8 @@ mutate_agents_gosec() {
   replace_text "$1/AGENTS.md" 'github.com/securego/gosec/v2/cmd/gosec@v2.26.1' 'github.com/securego/gosec/v2/cmd/gosec@v2.26.2'
 }
 
-mkdir -p "${ROOT_DIR}/tmp"
 "$NODE_BIN" "$SCRIPT" --root "${ROOT_DIR}" >/dev/null
+assert_harness_scratch_rejects_repo_tmp
 
 expect_drift "node-engine" \
   "package.json: engines.node mismatch: expected 24.15.0, got 24.16.0" \
@@ -240,7 +259,7 @@ expect_drift "agents-gosec" \
   "AGENTS.md: Pinned bootstrap tools line mismatch" \
   mutate_agents_gosec
 
-preflight_dir="$(mktemp -d "${ROOT_DIR}/tmp/toolchain-pins-preflight.XXXXXX")"
+preflight_dir="$(cartulary_harness_mktemp_dir "toolchain-pins-preflight.XXXXXX")"
 cleanup_paths+=("${preflight_dir}")
 copy_minimal_repo "${preflight_dir}"
 replace_text "${preflight_dir}/package.json" '"node": "24.15.0"' '"node": "24.16.0"'

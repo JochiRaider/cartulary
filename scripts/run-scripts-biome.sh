@@ -12,6 +12,13 @@ fi
 
 path_prefix="${NODE_RUNTIME_DIR}/bin:${PATH}"
 corepack_home="${NODE_RUNTIME_DIR}/corepack"
+biome_root_flags=(
+  --config-path "${ROOT_DIR}/biome.json"
+  --vcs-root "${ROOT_DIR}"
+  --vcs-enabled=true
+  --vcs-client-kind=git
+  --vcs-use-ignore-file=true
+)
 scope=("scripts")
 command=(
   "${PNPM_BIN}"
@@ -19,6 +26,7 @@ command=(
   exec
   biome
   check
+  "${biome_root_flags[@]}"
   --formatter-enabled=false
   --assist-enabled=false
   --reporter=summary

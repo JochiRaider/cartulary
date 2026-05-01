@@ -6,6 +6,8 @@ makefile="$repo_root/Makefile"
 generated_make="$repo_root/tools/task_surface.generated.mk"
 check_schedule_manifest="$repo_root/tools/check_schedule_manifest.json"
 runner_script="$repo_root/scripts/run-frontend-unit.sh"
+frontend_biome_script="$repo_root/scripts/run-frontend-biome.sh"
+scripts_biome_script="$repo_root/scripts/run-scripts-biome.sh"
 node_bin="${NODE_BIN:-node}"
 
 fail() {
@@ -283,12 +285,30 @@ if ! printf '%s\n' "$format_frontend_block" | grep -Fq '$(RUN_FRONTEND_BIOME_SCR
   fail "format-frontend must run the curated frontend Biome formatter"
 fi
 lint_biome_block="$(extract_target_block lint-biome)"
-if ! printf '%s\n' "$lint_biome_block" | grep -Fq 'run make format to apply the authoritative frontend Biome scope'; then
-  fail "lint-biome must tell developers to run make format"
+if ! printf '%s\n' "$lint_biome_block" | grep -Fq 'inspect Biome diagnostics; run make format only for formatting/style diagnostics'; then
+  fail "lint-biome must tell developers to inspect diagnostics before using make format"
+fi
+if ! grep -Fq 'exec biome check --error-on-warnings' "$frontend_biome_script"; then
+  fail "frontend Biome check mode must fail on warnings"
+fi
+if ! grep -Fq -- '--config-path "${ROOT_DIR}/biome.json"' "$frontend_biome_script"; then
+  fail "frontend Biome wrapper must use the repo root Biome config explicitly"
+fi
+if ! grep -Fq -- '--vcs-root "${ROOT_DIR}"' "$frontend_biome_script"; then
+  fail "frontend Biome wrapper must set the repo VCS root explicitly"
 fi
 lint_scripts_block="$(extract_target_block lint-scripts)"
 if ! printf '%s\n' "$lint_scripts_block" | grep -Fq '$(RUN_SCRIPTS_BIOME_SCRIPT)'; then
   fail "lint-scripts must run the curated scripts Biome wrapper"
+fi
+if ! grep -Fq -- '--error-on-warnings' "$scripts_biome_script"; then
+  fail "scripts Biome check mode must fail on warnings"
+fi
+if ! grep -Fq -- '--config-path "${ROOT_DIR}/biome.json"' "$scripts_biome_script"; then
+  fail "scripts Biome wrapper must use the repo root Biome config explicitly"
+fi
+if ! grep -Fq -- '--vcs-root "${ROOT_DIR}"' "$scripts_biome_script"; then
+  fail "scripts Biome wrapper must set the repo VCS root explicitly"
 fi
 "$node_bin" - "$repo_root/biome.json" <<'EOF'
 const fs = require("node:fs");
@@ -297,6 +317,14 @@ const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 const includes = config.files?.includes;
 if (!Array.isArray(includes)) {
   throw new Error("biome.json must define files.includes for the curated Biome ownership scope");
+}
+if (
+  config.vcs?.enabled !== true ||
+  config.vcs?.clientKind !== "git" ||
+  config.vcs?.useIgnoreFile !== true ||
+  config.vcs?.root !== "."
+) {
+  throw new Error("biome.json must enable Git ignore handling from the repo root");
 }
 const requiredIncludes = [
   "apps/web/src/**",
@@ -318,6 +346,47 @@ for (const required of requiredIncludes) {
 }
 if (!includes.includes("!packages/protocol-ts/src/generated")) {
   throw new Error("biome.json must exclude generated protocol TypeScript from the curated scope");
+}
+const requiredExcludes = [
+  "!tmp/**",
+  "!.cache/**",
+  "!.pnpm-store/**",
+  "!node_modules/**",
+  "!apps/web/dist/**",
+  "!apps/web/test-results/**",
+  "!apps/web/playwright-report/**",
+  "!apps/web/coverage/**",
+  "!coverage/**",
+  "!playwright-report/**",
+  "!test-results/**",
+  "!dist/**",
+  "!build/**",
+  "!out/**",
+];
+for (const excluded of requiredExcludes) {
+  if (!includes.includes(excluded)) {
+    throw new Error(`biome.json curated scope must exclude ${excluded}`);
+  }
+}
+const rules = config.linter?.rules;
+if (rules?.recommended !== true) {
+  throw new Error("biome.json must keep recommended Biome rules enabled");
+}
+const expectedRuleLevels = [
+  ["correctness", "noUndeclaredDependencies", "error"],
+  ["nursery", "noFloatingPromises", "error"],
+  ["nursery", "noMisusedPromises", "error"],
+  ["suspicious", "noImportCycles", "error"],
+];
+for (const [group, name, level] of expectedRuleLevels) {
+  const rule = rules?.[group]?.[name];
+  const actualLevel = typeof rule === "string" ? rule : rule?.level;
+  if (actualLevel !== level) {
+    throw new Error(`biome.json must enable ${group}.${name} at ${level} level`);
+  }
+}
+if (rules?.suspicious?.noImportCycles?.options?.ignoreTypes !== true) {
+  throw new Error("biome.json noImportCycles must ignore type-only imports");
 }
 EOF
 

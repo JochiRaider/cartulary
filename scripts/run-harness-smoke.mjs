@@ -136,14 +136,23 @@ async function runChecks(checks, jobs) {
         const check = checks[next];
         next += 1;
         active += 1;
-        runCheck(check).then((status) => {
+        const finishCheck = (status) => {
           active -= 1;
           if (status !== 0 && firstFailure === null) {
             firstFailure = { check: check.name, status };
           }
           schedule();
           finishIfDone();
-        });
+        };
+        void runCheck(check).then(
+          (status) => {
+            finishCheck(status);
+          },
+          (error) => {
+            console.error(`${check.name} failed: ${error instanceof Error ? error.message : String(error)}`);
+            finishCheck(1);
+          },
+        );
       }
       finishIfDone();
     };

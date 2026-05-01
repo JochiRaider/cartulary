@@ -467,7 +467,7 @@ format-frontend: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT) "format frontend" -- bash $(RUN_FRONTEND_BIOME_SCRIPT) format
 
 lint-biome: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)CARTULARY_PHASE_FAILURE_NOTE="run make format to apply the authoritative frontend Biome scope" CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT) "lint biome" -- bash $(RUN_FRONTEND_BIOME_SCRIPT) check $(BIOME_CHECK_FLAGS)
+	$(Q)CARTULARY_PHASE_FAILURE_NOTE="inspect Biome diagnostics; run make format only for formatting/style diagnostics" CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT) "lint biome" -- bash $(RUN_FRONTEND_BIOME_SCRIPT) check $(BIOME_CHECK_FLAGS)
 
 lint-scripts: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT) "lint scripts" -- bash $(RUN_SCRIPTS_BIOME_SCRIPT) $(BIOME_SCRIPT_CHECK_FLAGS)

@@ -28,6 +28,13 @@ fi
 
 path_prefix="${NODE_RUNTIME_DIR}/bin:${PATH}"
 corepack_home="${NODE_RUNTIME_DIR}/corepack"
+biome_root_flags=(
+  --config-path "${ROOT_DIR}/biome.json"
+  --vcs-root "${ROOT_DIR}"
+  --vcs-enabled=true
+  --vcs-client-kind=git
+  --vcs-use-ignore-file=true
+)
 scope=(
   "apps/web/src"
   "apps/web/e2e"
@@ -42,9 +49,9 @@ scope=(
 )
 
 if [[ "${mode}" == "format" || "${mode}" == "write" ]]; then
-  command=("${PNPM_BIN}" --dir "${ROOT_DIR}" exec biome check --write)
+  command=("${PNPM_BIN}" --dir "${ROOT_DIR}" exec biome check --write "${biome_root_flags[@]}")
 else
-  command=("${PNPM_BIN}" --dir "${ROOT_DIR}" exec biome check)
+  command=("${PNPM_BIN}" --dir "${ROOT_DIR}" exec biome check --error-on-warnings "${biome_root_flags[@]}")
 fi
 
 if [[ "${mode}" == "check" && "$#" -eq 0 ]]; then
