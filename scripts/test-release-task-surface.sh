@@ -4,6 +4,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib/harness-scratch.sh
+source "$ROOT_DIR/scripts/lib/harness-scratch.sh"
 cleanup_paths=()
 
 cd "$ROOT_DIR"
@@ -16,6 +18,9 @@ cleanup() {
 }
 
 trap cleanup EXIT
+
+probe_results_root="$(cartulary_harness_mktemp_dir "release-task-surface-results.XXXXXX")"
+cleanup_paths+=("$probe_results_root")
 
 fail() {
   echo "$*" >&2
@@ -52,6 +57,61 @@ assert_equals() {
   fi
 }
 
+assert_file_absent() {
+  local file="$1"
+  local label="$2"
+
+  if [[ -e "$file" ]]; then
+    fail "$label: expected file to be absent: $file"
+  fi
+}
+
+probe_run_id() {
+  local label="$1"
+  local slug
+
+  slug="$(printf '%s' "$label" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//; s/-+/-/g')"
+  if [[ -z "$slug" ]]; then
+    slug="probe"
+  fi
+  printf 'release-task-surface-%s\n' "$slug"
+}
+
+ambient_summary_path() {
+  local target="$1"
+  local results_root="${CARTULARY_TEST_RESULTS_DIR:-}"
+
+  if [[ -z "$results_root" || -z "${CARTULARY_TEST_RUN_ID:-}" ]]; then
+    return 1
+  fi
+  if [[ "$results_root" != /* ]]; then
+    results_root="$ROOT_DIR/$results_root"
+  fi
+  printf '%s/%s/%s/target-summary.json\n' "$results_root" "$CARTULARY_TEST_RUN_ID" "$target"
+}
+
+assert_no_ambient_summary() {
+  local target="$1"
+  local summary_path
+
+  if ! summary_path="$(ambient_summary_path "$target")"; then
+    return 0
+  fi
+  assert_file_absent "$summary_path" "ambient $target summary"
+}
+
+run_isolated_make_probe() {
+  local label="$1"
+  shift
+
+  local run_id
+  run_id="$(probe_run_id "$label")"
+  env -u CARTULARY_TEST_TARGET \
+    CARTULARY_TEST_RESULTS_DIR="$probe_results_root" \
+    CARTULARY_TEST_RUN_ID="$run_id" \
+    make --no-print-directory "$@"
+}
+
 make_target_block() {
   local target="$1"
 
@@ -77,7 +137,7 @@ assert_make_fails() {
   local output
   local status
   set +e
-  output="$(make --no-print-directory "$@" 2>&1)"
+  output="$(run_isolated_make_probe "$label" "$@" 2>&1)"
   status=$?
   set -e
 
@@ -93,7 +153,7 @@ assert_make_passes() {
   shift
 
   local output
-  if ! output="$(make --no-print-directory "$@" 2>&1)"; then
+  if ! output="$(run_isolated_make_probe "$label" "$@" 2>&1)"; then
     fail "$label: expected make to pass, got output: $output"
   fi
 
@@ -144,5 +204,8 @@ assert_contains "$sbom_empty_output" "SBOM artifact is empty" "empty SBOM failur
 
 printf '%s\n' '{"bomFormat":"CycloneDX"}' >"$valid_sbom"
 assert_make_passes "valid SBOM" SBOM_ARTIFACT="$valid_sbom" sbom >/dev/null
+
+assert_no_ambient_summary "license-report"
+assert_no_ambient_summary "sbom"
 
 assert_equals "$(make_target_block release-check | grep -c '^release-check:')" "1" "release-check target declaration"
