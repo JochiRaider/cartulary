@@ -123,6 +123,7 @@ if ! rg -q '^toolchain-drift:' "$makefile"; then
 fi
 assert_target_prereq codegen-toolchain '$(SQLC_BIN)' "codegen-toolchain must own pinned SQLC_BIN readiness"
 assert_target_prereq go-lint-toolchain '$(STATICCHECK_BIN)' "go-lint-toolchain must own pinned Staticcheck readiness"
+assert_target_prereq shell-lint-toolchain '$(SHELLCHECK_BIN)' "shell-lint-toolchain must own pinned ShellCheck readiness"
 assert_target_prereq generate codegen-toolchain "generate must prepare the codegen toolchain before generating artifacts"
 assert_target_recipe_invokes generate generate-artifacts "generate must delegate to generate-artifacts"
 generate_artifacts_block="$(extract_target_block generate-artifacts)"
@@ -149,11 +150,15 @@ fi
 if ! printf '%s\n' "$check_setup_block" | rg -q 'go-lint-toolchain'; then
   fail "check-setup-blockers must prepare the Go lint toolchain after codegen readiness"
 fi
+if ! printf '%s\n' "$check_setup_block" | rg -q 'shell-lint-toolchain'; then
+  fail "check-setup-blockers must prepare ShellCheck after Go lint tooling"
+fi
 if ! printf '%s\n' "$check_setup_block" | rg -q 'frontend-install'; then
   fail "check-setup-blockers must invoke frontend install after toolchain drift"
 fi
 assert_text_order "check-setup-blockers recipe" "$check_setup_block" "toolchain-drift" "codegen-toolchain" "check-setup-blockers must prepare codegen after toolchain drift"
 assert_text_order "check-setup-blockers recipe" "$check_setup_block" "codegen-toolchain" "go-lint-toolchain" "check-setup-blockers must prepare Go lint tooling after codegen readiness"
+assert_text_order "check-setup-blockers recipe" "$check_setup_block" "go-lint-toolchain" "shell-lint-toolchain" "check-setup-blockers must prepare ShellCheck after Go lint tooling"
 assert_text_order "check-setup-blockers recipe" "$check_setup_block" "go-lint-toolchain" "frontend-install" "check-setup-blockers must install frontend dependencies after Go lint tooling readiness"
 if printf '%s\n' "$check_setup_block" | rg -q 'frontend-task-surface-check|frontend-import-boundary-check|phase-ledger-drift|run-phase-smoke|generate-drift|lint-biome|lint-scripts'; then
   fail "check-setup-blockers must not include static validation or harness smoke work"
@@ -176,7 +181,7 @@ for (const removed of ["check-static-validation", "check-local-product", "check-
     throw new Error(`${removed} must not remain scheduled after leaf check expansion`);
   }
 }
-for (const required of ["frontend-typecheck", "frontend-task-surface-check", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "check-harness-smoke"]) {
+for (const required of ["frontend-typecheck", "frontend-task-surface-check", "frontend-import-boundary-check", "lint-biome", "lint-scripts", "lint-shell", "check-harness-smoke"]) {
   if (!targets.has(required)) {
     throw new Error(`check schedule must include ${required}`);
   }
@@ -306,6 +311,7 @@ fi
 assert_target_prereq frontend-import-boundary-check '$(NODE_BIN)' "frontend-import-boundary-check must depend on NODE_BIN"
 assert_target_prereq frontend-import-boundary-check '$(FRONTEND_INSTALL_STAMP)' "frontend-import-boundary-check must depend on frontend install"
 assert_target_prereq lint frontend-import-boundary-check "lint must include frontend-import-boundary-check"
+assert_target_prereq lint lint-shell "lint must include lint-shell"
 if ! grep -Fq 'exec biome check --error-on-warnings' "$frontend_biome_script"; then
   fail "frontend Biome check mode must fail on warnings"
 fi
@@ -318,6 +324,13 @@ fi
 lint_scripts_block="$(extract_target_block lint-scripts)"
 if ! printf '%s\n' "$lint_scripts_block" | grep -Fq '$(RUN_SCRIPTS_BIOME_SCRIPT)'; then
   fail "lint-scripts must run the curated scripts Biome wrapper"
+fi
+lint_shell_block="$(extract_target_block lint-shell)"
+if ! printf '%s\n' "$lint_shell_block" | grep -Fq 'scripts/run-shellcheck.sh'; then
+  fail "lint-shell must run the curated ShellCheck wrapper"
+fi
+if ! printf '%s\n' "$lint_shell_block" | grep -Fq 'LINT_SHELL_STRICT="$(LINT_SHELL_STRICT)"'; then
+  fail "lint-shell must expose strict-mode passthrough"
 fi
 if ! grep -Fq -- '--error-on-warnings' "$scripts_biome_script"; then
   fail "scripts Biome check mode must fail on warnings"

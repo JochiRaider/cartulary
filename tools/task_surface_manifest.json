@@ -163,7 +163,7 @@
         },
         {
           "target": "lint",
-          "description": "run backend, frontend, and script lint/type checks"
+          "description": "run backend, frontend, script, and shell lint/type checks"
         },
         {
           "target": "lint-biome",
@@ -176,6 +176,10 @@
         {
           "target": "lint-scripts",
           "description": "run JavaScript orchestration script Biome checks"
+        },
+        {
+          "target": "lint-shell",
+          "description": "run warning-only ShellCheck over tracked shell scripts"
         },
         {
           "target": "go-vulncheck",
@@ -1193,6 +1197,13 @@
       ]
     },
     {
+      "name": "shell-lint-toolchain",
+      "classification": "helper_only",
+      "included_in": [
+        "helper_only"
+      ]
+    },
+    {
       "name": "generate",
       "classification": "public",
       "included_in": [
@@ -1687,6 +1698,16 @@
       ]
     },
     {
+      "name": "lint-shell",
+      "classification": "public",
+      "included_in": [
+        "check"
+      ],
+      "backing_scripts": [
+        "scripts/run-shellcheck.sh"
+      ]
+    },
+    {
       "name": "format",
       "classification": "public",
       "included_in": [
@@ -2141,6 +2162,8 @@
       "checks": [
         "harness-smoke-toolchain-pins",
         "harness-smoke-bootstrap-node-runtime",
+        "harness-smoke-bootstrap-shellcheck",
+        "harness-smoke-lint-shell",
         "harness-smoke-build-input-discovery",
         "harness-smoke-check-migrations",
         "harness-smoke-generate-drift",
@@ -2190,6 +2213,8 @@
       "checks": [
         "harness-smoke-toolchain-pins",
         "harness-smoke-bootstrap-node-runtime",
+        "harness-smoke-bootstrap-shellcheck",
+        "harness-smoke-lint-shell",
         "harness-smoke-build-input-discovery",
         "harness-smoke-check-migrations",
         "harness-smoke-generate-drift",
@@ -2239,6 +2264,20 @@
       "name": "harness-smoke-bootstrap-node-runtime",
       "backing_scripts": [
         "scripts/test-bootstrap-node-runtime.sh"
+      ]
+    },
+    {
+      "name": "harness-smoke-bootstrap-shellcheck",
+      "backing_scripts": [
+        "scripts/test-bootstrap-shellcheck.sh",
+        "scripts/bootstrap-shellcheck.sh"
+      ]
+    },
+    {
+      "name": "harness-smoke-lint-shell",
+      "backing_scripts": [
+        "scripts/test-lint-shell.sh",
+        "scripts/run-shellcheck.sh"
       ]
     },
     {

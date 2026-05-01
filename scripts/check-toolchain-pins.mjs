@@ -12,6 +12,7 @@ const expected = {
   staticcheckTool: "honnef.co/go/tools/cmd/staticcheck@v0.7.0",
   govulncheckTool: "golang.org/x/vuln/cmd/govulncheck@v1.3.0",
   gosecTool: "github.com/securego/gosec/v2/cmd/gosec@v2.26.1",
+  shellcheckVersion: "0.11.0",
   testcontainersGoVersion: "v0.42.0",
 };
 
@@ -123,6 +124,13 @@ function checkMakefile(root, mismatches) {
   checkEqual(
     mismatches,
     file,
+    "SHELLCHECK_VERSION",
+    expected.shellcheckVersion,
+    parseMakeVariable(makefile, "SHELLCHECK_VERSION"),
+  );
+  checkEqual(
+    mismatches,
+    file,
     "TESTCONTAINERS_GO_VERSION",
     expected.testcontainersGoVersion,
     parseMakeVariable(makefile, "TESTCONTAINERS_GO_VERSION"),
@@ -200,6 +208,18 @@ function checkBootstrapNodeRuntime(root, mismatches) {
   );
 }
 
+function checkBootstrapShellcheck(root, mismatches) {
+  const file = "scripts/bootstrap-shellcheck.sh";
+  const script = readRepoFile(root, file);
+  checkEqual(
+    mismatches,
+    file,
+    "SHELLCHECK_VERSION default",
+    expected.shellcheckVersion,
+    matchLine(script, /^SHELLCHECK_VERSION="\$\{SHELLCHECK_VERSION:-(.+)\}"\s*$/m),
+  );
+}
+
 function checkReadme(root, mismatches) {
   const file = "README.md";
   const readme = readRepoFile(root, file);
@@ -209,6 +229,7 @@ function checkReadme(root, mismatches) {
   const staticcheckLine = `- Staticcheck \`${expected.staticcheckTool.split("@")[1]}\``;
   const govulncheckLine = `- Govulncheck \`${expected.govulncheckTool.split("@")[1]}\``;
   const gosecLine = `- Gosec \`${expected.gosecTool.split("@")[1]}\``;
+  const shellcheckLine = `- ShellCheck \`${expected.shellcheckVersion}\``;
   checkEqual(
     mismatches,
     file,
@@ -251,12 +272,19 @@ function checkReadme(root, mismatches) {
     gosecLine,
     readme.split("\n").find((line) => line.startsWith("- Gosec `")),
   );
+  checkEqual(
+    mismatches,
+    file,
+    "ShellCheck pin line",
+    shellcheckLine,
+    readme.split("\n").find((line) => line.startsWith("- ShellCheck `")),
+  );
 }
 
 function checkAgents(root, mismatches) {
   const file = "AGENTS.md";
   const agents = readRepoFile(root, file);
-  const pinnedToolsLine = `- Pinned bootstrap tools: \`${expected.sqlcTool}\`, \`${expected.gooseTool}\`, \`${expected.staticcheckTool}\`, \`${expected.govulncheckTool}\`, \`${expected.gosecTool}\`, and \`github.com/testcontainers/testcontainers-go ${expected.testcontainersGoVersion}\`.`;
+  const pinnedToolsLine = `- Pinned bootstrap tools: \`${expected.sqlcTool}\`, \`${expected.gooseTool}\`, \`${expected.staticcheckTool}\`, \`${expected.govulncheckTool}\`, \`${expected.gosecTool}\`, ShellCheck \`${expected.shellcheckVersion}\`, and \`github.com/testcontainers/testcontainers-go ${expected.testcontainersGoVersion}\`.`;
   checkEqual(
     mismatches,
     file,
@@ -274,6 +302,7 @@ function main() {
   checkPackageJson(root, mismatches);
   checkGoMod(root, mismatches);
   checkBootstrapNodeRuntime(root, mismatches);
+  checkBootstrapShellcheck(root, mismatches);
   checkReadme(root, mismatches);
   checkAgents(root, mismatches);
 

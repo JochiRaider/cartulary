@@ -75,6 +75,7 @@ copy_minimal_repo() {
   cp "${ROOT_DIR}/tools/task_surface_manifest.json" "${dest}/tools/task_surface_manifest.json"
   cp "${ROOT_DIR}/scripts/list-build-inputs.sh" "${dest}/scripts/list-build-inputs.sh"
   cp "${ROOT_DIR}/scripts/bootstrap-node-runtime.sh" "${dest}/scripts/bootstrap-node-runtime.sh"
+  cp "${ROOT_DIR}/scripts/bootstrap-shellcheck.sh" "${dest}/scripts/bootstrap-shellcheck.sh"
   cp "${ROOT_DIR}/scripts/check-toolchain-pins.mjs" "${dest}/scripts/check-toolchain-pins.mjs"
   mkdir -p \
     "${dest}/apps/web" \
@@ -180,6 +181,14 @@ mutate_gosec_tool() {
   replace_text "$1/Makefile" 'GOSEC_TOOL := github.com/securego/gosec/v2/cmd/gosec@v2.26.1' 'GOSEC_TOOL := github.com/securego/gosec/v2/cmd/gosec@v2.26.2'
 }
 
+mutate_shellcheck_version() {
+  replace_text "$1/Makefile" 'SHELLCHECK_VERSION ?= 0.11.0' 'SHELLCHECK_VERSION ?= 0.11.1'
+}
+
+mutate_bootstrap_shellcheck_version() {
+  replace_text "$1/scripts/bootstrap-shellcheck.sh" 'SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-0.11.0}"' 'SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-0.11.1}"'
+}
+
 mutate_readme_node() {
   replace_text "$1/README.md" '- Node.js `24.15.0`' '- Node.js `24.16.0`'
 }
@@ -196,12 +205,20 @@ mutate_readme_gosec() {
   replace_text "$1/README.md" '- Gosec `v2.26.1`' '- Gosec `v2.26.2`'
 }
 
+mutate_readme_shellcheck() {
+  replace_text "$1/README.md" '- ShellCheck `0.11.0`' '- ShellCheck `0.11.1`'
+}
+
 mutate_agents_govulncheck() {
   replace_text "$1/AGENTS.md" 'golang.org/x/vuln/cmd/govulncheck@v1.3.0' 'golang.org/x/vuln/cmd/govulncheck@v1.3.1'
 }
 
 mutate_agents_gosec() {
   replace_text "$1/AGENTS.md" 'github.com/securego/gosec/v2/cmd/gosec@v2.26.1' 'github.com/securego/gosec/v2/cmd/gosec@v2.26.2'
+}
+
+mutate_agents_shellcheck() {
+  replace_text "$1/AGENTS.md" 'ShellCheck `0.11.0`' 'ShellCheck `0.11.1`'
 }
 
 "$NODE_BIN" "$SCRIPT" --root "${ROOT_DIR}" >/dev/null
@@ -235,6 +252,14 @@ expect_drift "gosec-tool" \
   "Makefile: GOSEC_TOOL mismatch: expected github.com/securego/gosec/v2/cmd/gosec@v2.26.1, got github.com/securego/gosec/v2/cmd/gosec@v2.26.2" \
   mutate_gosec_tool
 
+expect_drift "shellcheck-version" \
+  "Makefile: SHELLCHECK_VERSION mismatch: expected 0.11.0, got 0.11.1" \
+  mutate_shellcheck_version
+
+expect_drift "bootstrap-shellcheck-version" \
+  "scripts/bootstrap-shellcheck.sh: SHELLCHECK_VERSION default mismatch: expected 0.11.0, got 0.11.1" \
+  mutate_bootstrap_shellcheck_version
+
 expect_drift "readme-node" \
   "README.md: Node.js pin line mismatch: expected - Node.js \`24.15.0\`, got - Node.js \`24.16.0\`" \
   mutate_readme_node
@@ -251,6 +276,10 @@ expect_drift "readme-gosec" \
   "README.md: Gosec pin line mismatch: expected - Gosec \`v2.26.1\`, got - Gosec \`v2.26.2\`" \
   mutate_readme_gosec
 
+expect_drift "readme-shellcheck" \
+  "README.md: ShellCheck pin line mismatch: expected - ShellCheck \`0.11.0\`, got - ShellCheck \`0.11.1\`" \
+  mutate_readme_shellcheck
+
 expect_drift "agents-govulncheck" \
   "AGENTS.md: Pinned bootstrap tools line mismatch" \
   mutate_agents_govulncheck
@@ -258,6 +287,10 @@ expect_drift "agents-govulncheck" \
 expect_drift "agents-gosec" \
   "AGENTS.md: Pinned bootstrap tools line mismatch" \
   mutate_agents_gosec
+
+expect_drift "agents-shellcheck" \
+  "AGENTS.md: Pinned bootstrap tools line mismatch" \
+  mutate_agents_shellcheck
 
 preflight_dir="$(cartulary_harness_mktemp_dir "toolchain-pins-preflight.XXXXXX")"
 cleanup_paths+=("${preflight_dir}")

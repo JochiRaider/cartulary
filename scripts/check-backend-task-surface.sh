@@ -436,6 +436,17 @@ fi
 if ! printf '%s\n' "$go_gosec_audit_block" | grep -Fq 'GOSEC_AUDIT_SUPPORT_PATTERNS="$(GOSEC_AUDIT_SUPPORT_PATTERNS)"'; then
   fail "go-gosec-audit must pass the configured support Gosec audit package patterns"
 fi
+shell_lint_prereqs="$(extract_target_prereqs lint-shell)"
+if ! printf '%s\n' "$shell_lint_prereqs" | rg -q '(^|[[:space:]])shell-lint-toolchain($|[[:space:]])'; then
+  fail "lint-shell must prepare the pinned ShellCheck toolchain"
+fi
+lint_shell_block="$(extract_target_block lint-shell)"
+if ! printf '%s\n' "$lint_shell_block" | grep -Fq 'scripts/run-shellcheck.sh'; then
+  fail "lint-shell must run the curated warning-only ShellCheck wrapper"
+fi
+if ! printf '%s\n' "$lint_shell_block" | grep -Fq 'LINT_SHELL_STRICT="$(LINT_SHELL_STRICT)"'; then
+  fail "lint-shell must expose LINT_SHELL_STRICT strict-mode passthrough"
+fi
 for scheduled_target in \
   check-setup-blockers \
   check-build-prereqs \
@@ -456,6 +467,7 @@ for scheduled_target in \
   lint-biome \
   frontend-import-boundary-check \
   lint-scripts \
+  lint-shell \
   phase-test-name-check \
   task-surface-check \
   browser-e2e-task-surface-check \
@@ -569,6 +581,7 @@ for scheduled_target in \
   lint-biome \
   frontend-import-boundary-check \
   lint-scripts \
+  lint-shell \
   phase-test-name-check \
   task-surface-check \
   browser-e2e-task-surface-check \

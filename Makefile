@@ -32,6 +32,9 @@ GOOSE_BIN ?= $(TOOLBIN_DIR)/goose-v3.27.0
 STATICCHECK_BIN ?= $(TOOLBIN_DIR)/staticcheck-v0.7.0
 GOVULNCHECK_BIN ?= $(TOOLBIN_DIR)/govulncheck-v1.3.0
 GOSEC_BIN ?= $(TOOLBIN_DIR)/gosec-v2.26.1
+SHELLCHECK_VERSION ?= 0.11.0
+SHELLCHECK_BIN ?= $(TOOLBIN_DIR)/shellcheck-v$(SHELLCHECK_VERSION)
+SHELLCHECK_ARCHIVE_DIR ?= $(CURDIR)/tmp/shellcheck-archives
 GOVULNCHECK_FLAGS ?= -test
 GOVULNCHECK_PATTERNS ?= ./...
 GOVULNCHECK_DB ?=
@@ -140,7 +143,7 @@ TEST_SERVICES_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,tools/te
 EMBEDDED_WEB_ASSET_DIR := $(CURDIR)/internal/platform/httpapi/webassets/dist
 EMBEDDED_WEB_ASSET_STAMP := $(CURDIR)/tmp/frontend-embed/web-assets.stamp
 CLEAN_PATHS := $(SERVER_BIN) $(MIGRATE_BIN) $(CURDIR)/apps/web/dist $(EMBEDDED_WEB_ASSET_STAMP) $(CARTULARY_TEST_RESULTS_DIR) $(RELEASE_ARTIFACT_DIR) $(CURDIR)/apps/web/test-results $(CURDIR)/tmp/dev-stack $(CURDIR)/tmp/dev-stack-lifecycle-smoke.* $(CURDIR)/tmp/web-e2e-lifecycle-smoke.* $(CURDIR)/tmp/vitest-json-sample.*
-DISTCLEAN_PATHS := $(CLEAN_PATHS) $(NODE_RUNTIME_DIR) $(TOOLBIN_DIR) $(CURDIR)/tmp/frontend-install $(CURDIR)/tmp/frontend-toolchain $(CURDIR)/tmp/playwright $(CURDIR)/tmp/frontend-embed $(CURDIR)/.cache $(CURDIR)/.pnpm-store $(CURDIR)/apps/web/.vite $(CURDIR)/playwright-report $(CURDIR)/apps/web/playwright-report $(CURDIR)/coverage $(CURDIR)/apps/web/coverage
+DISTCLEAN_PATHS := $(CLEAN_PATHS) $(NODE_RUNTIME_DIR) $(TOOLBIN_DIR) $(SHELLCHECK_ARCHIVE_DIR) $(CURDIR)/tmp/frontend-install $(CURDIR)/tmp/frontend-toolchain $(CURDIR)/tmp/playwright $(CURDIR)/tmp/frontend-embed $(CURDIR)/.cache $(CURDIR)/.pnpm-store $(CURDIR)/apps/web/.vite $(CURDIR)/playwright-report $(CURDIR)/apps/web/playwright-report $(CURDIR)/coverage $(CURDIR)/apps/web/coverage
 
 define guarded_remove_paths
 set -euo pipefail; \
@@ -238,6 +241,21 @@ doctor:
 	else \
 		print_missing pnpm "run make frontend-toolchain"; \
 	fi; \
+	shellcheck_path=""; \
+	if [ -x "$(SHELLCHECK_BIN)" ]; then \
+		shellcheck_path="$(SHELLCHECK_BIN)"; \
+	fi; \
+	if [ -n "$$shellcheck_path" ]; then \
+		shellcheck_version="$$("$$shellcheck_path" --version 2>/dev/null | awk -F': ' '$$1 == "version" { print $$2; exit }')"; \
+		if [ "$$shellcheck_version" = "$(SHELLCHECK_VERSION)" ]; then \
+			printf 'ok shellcheck: %s %s\n' "$$shellcheck_path" "$$shellcheck_version"; \
+		else \
+			printf 'missing shellcheck: expected %s, found %s at %s\n' "$(SHELLCHECK_VERSION)" "$${shellcheck_version:-unusable}" "$$shellcheck_path"; \
+			fail=1; \
+		fi; \
+	else \
+		print_missing shellcheck "run make shell-lint-toolchain"; \
+	fi; \
 	if command -v docker >/dev/null 2>&1; then \
 		docker_path="$$(command -v docker)"; \
 		compose_version="$$(docker compose version --short 2>/dev/null || docker compose version 2>/dev/null || true)"; \
@@ -333,6 +351,9 @@ $(GOSEC_BIN):
 	$(RUN_PHASE) "bootstrap gosec tool" -- env GOBIN=$(TOOLBIN_DIR) $(GO_RUN_ENV) $(GO) install $(GOSEC_TOOL)
 	$(Q)mv $(TOOLBIN_DIR)/gosec $(GOSEC_BIN)
 
+$(SHELLCHECK_BIN): scripts/bootstrap-shellcheck.sh Makefile
+	$(RUN_PHASE) "bootstrap shellcheck tool" -- env SHELLCHECK_VERSION=$(SHELLCHECK_VERSION) TOOLBIN_DIR=$(TOOLBIN_DIR) SHELLCHECK_BIN=$(SHELLCHECK_BIN) CARTULARY_SHELLCHECK_ARCHIVE_DIR=$(SHELLCHECK_ARCHIVE_DIR) ./scripts/bootstrap-shellcheck.sh
+
 $(TEST_SERVICES_BIN): $$(TEST_SERVICES_BUILD_INPUTS)
 	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 	$(RUN_PHASE) "build testservices" -- $(GO_ENV) $(GO) build -o $(TEST_SERVICES_BIN) ./tools/testservices
@@ -342,7 +363,7 @@ $(PLAYWRIGHT_INSTALL_STAMP): $(FRONTEND_INSTALL_STAMP) $(FRONTEND_TOOLCHAIN_STAM
 	$(RUN_PHASE) "playwright-install" -- $(PNPM_ENV) $(PNPM) --dir apps/web exec playwright install chromium
 	$(Q)printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\n' "$(NODE_BIN)" "$(NODE_VERSION)" "$(PNPM)" "$(PNPM_VERSION)" > $(PLAYWRIGHT_INSTALL_STAMP)
 
-bootstrap: $(SQLC_BIN) $(GOOSE_BIN) $(STATICCHECK_BIN) $(GOVULNCHECK_BIN) $(GOSEC_BIN) frontend-install playwright-install
+bootstrap: $(SQLC_BIN) $(GOOSE_BIN) $(STATICCHECK_BIN) $(GOVULNCHECK_BIN) $(GOSEC_BIN) $(SHELLCHECK_BIN) frontend-install playwright-install
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 
 playwright-install: $(PLAYWRIGHT_INSTALL_STAMP)
@@ -382,6 +403,8 @@ codegen-toolchain: $(SQLC_BIN)
 go-lint-toolchain: $(STATICCHECK_BIN)
 
 go-security-toolchain: $(GOVULNCHECK_BIN) $(GOSEC_BIN)
+
+shell-lint-toolchain: $(SHELLCHECK_BIN)
 
 generate: codegen-toolchain
 	$(Q)$(MAKE) --no-print-directory generate-artifacts
@@ -440,7 +463,7 @@ frontend-typecheck: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 frontend-unit: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)env PNPM=$(PNPM) NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) VITEST_FLAGS="$(VITEST_FLAGS)" VITEST_MAX_WORKERS=$(VITEST_MAX_WORKERS) ./scripts/run-frontend-unit.sh
 
-lint: lint-go lint-biome frontend-import-boundary-check lint-scripts frontend-typecheck
+lint: lint-go lint-biome frontend-import-boundary-check lint-scripts lint-shell frontend-typecheck
 
 lint-go: lint-go-format lint-go-vet lint-go-staticcheck
 
@@ -481,10 +504,14 @@ lint-biome: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 lint-scripts: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 $(RUN_PHASE_SCRIPT) "lint scripts" -- bash $(RUN_SCRIPTS_BIOME_SCRIPT) $(BIOME_SCRIPT_CHECK_FLAGS)
 
+lint-shell: shell-lint-toolchain
+	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "lint shell" -- env SHELLCHECK_BIN=$(SHELLCHECK_BIN) LINT_SHELL_STRICT="$(LINT_SHELL_STRICT)" ./scripts/run-shellcheck.sh
+
 check-setup-blockers: $(NODE_BIN)
 	$(Q)$(MAKE) --no-print-directory toolchain-drift
 	$(Q)$(MAKE) --no-print-directory codegen-toolchain
 	$(Q)$(MAKE) --no-print-directory go-lint-toolchain
+	$(Q)$(MAKE) --no-print-directory shell-lint-toolchain
 	$(Q)$(MAKE) --no-print-directory go-security-toolchain
 	$(Q)if [ "$(CI)" = "1" ]; then \
 		$(MAKE) --no-print-directory frontend-install-ci; \
@@ -553,6 +580,7 @@ distclean:
 		'  $(CURDIR)/tmp/vitest-json-sample.*' \
 		'  $(NODE_RUNTIME_DIR)' \
 		'  $(TOOLBIN_DIR)' \
+		'  $(SHELLCHECK_ARCHIVE_DIR)' \
 		'  $(CURDIR)/tmp/frontend-install' \
 		'  $(CURDIR)/tmp/frontend-toolchain' \
 		'  $(CURDIR)/tmp/playwright' \

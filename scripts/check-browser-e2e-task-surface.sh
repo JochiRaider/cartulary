@@ -499,6 +499,7 @@ for scheduled_target in \
   lint-biome \
   frontend-import-boundary-check \
   lint-scripts \
+  lint-shell \
   phase-test-name-check \
   task-surface-check \
   browser-e2e-task-surface-check \

@@ -5,7 +5,7 @@
 - Normative behavior is owned by the Cartulary normative core under `docs/spec/00_document_set_status_and_precedence.md` through Core 04. The guides under `docs/guides/` are implementation-support inputs, not independent behavior owners.
 - The canonical Go module path is `github.com/JochiRaider/cartulary`.
 - Supported toolchain baseline: `Go 1.26` with `toolchain go1.26.2`, `Node 24.15.0`, and `pnpm 10.33.0`.
-- Pinned bootstrap tools: `github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0`, `github.com/pressly/goose/v3/cmd/goose@v3.27.0`, `honnef.co/go/tools/cmd/staticcheck@v0.7.0`, `golang.org/x/vuln/cmd/govulncheck@v1.3.0`, `github.com/securego/gosec/v2/cmd/gosec@v2.26.1`, and `github.com/testcontainers/testcontainers-go v0.42.0`.
+- Pinned bootstrap tools: `github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0`, `github.com/pressly/goose/v3/cmd/goose@v3.27.0`, `honnef.co/go/tools/cmd/staticcheck@v0.7.0`, `golang.org/x/vuln/cmd/govulncheck@v1.3.0`, `github.com/securego/gosec/v2/cmd/gosec@v2.26.1`, ShellCheck `0.11.0`, and `github.com/testcontainers/testcontainers-go v0.42.0`.
 
 ## Repo map and path conventions
 
@@ -30,7 +30,7 @@
 - Phase slices: `make phase-slice PHASE=phaseN`, `make service-backed-slice PHASE=phaseN`.
 - Exhaustive workflow help: `make help-all`.
 - Local dev: `make doctor`, `make bootstrap`, `make bootstrap-node-runtime`, `make frontend-toolchain`, `make frontend-install`, `make playwright-install`, `make db-up`, `make db-reset`, `make services-up`, `make minio-init`, `make dev`, `make generate`, `make format`, `make clean`.
-- Fast verification: `make test-fast`, `make phase-slice PHASE=phaseN`, `make service-backed-slice PHASE=phaseN`, `make backend-unit`, `make backend-store`, `make backend-integration`, `make backend-process`, `make frontend-typecheck`, `make frontend-unit`, `make lint`, `make lint-biome`, `make lint-scripts`, `make go-vulncheck`, `make go-gosec-targeted`, `make go-gosec-audit`.
+- Fast verification: `make test-fast`, `make phase-slice PHASE=phaseN`, `make service-backed-slice PHASE=phaseN`, `make backend-unit`, `make backend-store`, `make backend-integration`, `make backend-process`, `make frontend-typecheck`, `make frontend-unit`, `make lint`, `make lint-biome`, `make lint-scripts`, `make lint-shell`, `make go-vulncheck`, `make go-gosec-targeted`, `make go-gosec-audit`.
 - Full gates: `make test`, `make check`, `make browser-e2e`, `make browser-e2e-webserver-backed`, `make browser-e2e-stateful`, `make browser-e2e-measurement`, `make browser-e2e-visual`.
 - Investigate a run: `make task-guide [ROLE=<role>] [PHASE=phaseN]`, `make task-surface-report`, `make target-plan`, `make target-plan-json`, `make explain-phase PHASE=phaseN`, `make explain-target TARGET=<target> [DETAIL=summary|rows|artifacts]`, `make explain-run RESULTS_DIR=<root|run-dir>`, `make fixture-report RESULTS_DIR=<root|run-dir>`.
 - Phase maintenance: `make generate-drift`, `make toolchain-drift`, `make migration-drift`, `make phase-ledgers`, `make phase-ledger-drift`, `make phase-schedules`, `make phase-schedule-drift`, `make benchmark-claim-check`, `make go-test-duration-baselines RESULTS_DIR=<dir>`, `make go-test-duration-baseline-coverage`, `make go-test-duration-baseline-drift RESULTS_DIR=<dir>`, `make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir>`, `make scheduler-event-order-drift RESULTS_DIR=<dir> [TARGET=<target>]`.
@@ -56,10 +56,11 @@
 - `make help-all` prints the exhaustive public workflow-tiered task surface without bootstrapping Node or pnpm.
 - `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all` prints public targets plus private/check-internal task-surface diagnostics.
 - `make doctor` verifies required local tools and pinned toolchain versions without installing them.
-- `make bootstrap` installs the pinned Go CLI tools and workspace dependencies.
+- `make bootstrap` installs the pinned Go CLI tools, pinned ShellCheck, and workspace dependencies.
 - `make go-vulncheck` runs pinned Govulncheck against Go source and tests using the default `./...` package pattern.
 - `make go-gosec-targeted` runs pinned Gosec with the focused `G602,G124,G112,G114` rule set against authored Go source.
 - `make go-gosec-audit` runs pinned Gosec warning-only audit profiles for `G118` and scoped file/path rules across runtime and support code.
+- `make lint-shell` runs pinned ShellCheck warning-only over the deterministic tracked shell-script inventory; set `LINT_SHELL_STRICT=1` to fail on findings.
 - `make phase-ledgers` regenerates the committed phase coverage ledgers from `tools/phase*_test_map.json`.
 - `make phase-ledger-drift` verifies committed phase coverage ledgers match the phase manifests without requiring Docker or service-backed tests.
 - `make backend-store` runs the service-backed store-domain `U-*` backend slice that keeps unit-layer phase IDs while using real Postgres.
@@ -76,7 +77,7 @@
 - `make scheduler-event-order-drift RESULTS_DIR=<dir> [TARGET=<target>]` verifies retained scheduler event streams have strict sequence ordering, monotonic timing, and display timestamp regressions only when explicitly marked by clock-skew diagnostics.
 - `make test-fast` runs the pure backend unit slice, the service-backed backend store and integration slices, the backend process or E2E slice, frontend type-checking, and the frontend unit suite for the narrower local loop.
 - `make test` is the authoritative full-corpus test surface. It runs pure backend unit, frontend type-check, and frontend unit work first, then shares one service-backed scheduler stage across backend service-backed work, `browser-e2e-webserver-backed`, and the isolated `browser-e2e` batch with explicit reset boundaries. The Phase 0 process evidence under `cmd/server` is part of this surface and is not a direct-only command.
-- `make check` is the developer verification gate. Toolchain drift and frontend install are early setup blockers. After setup, `tools/check_schedule_manifest.json` schedules the readiness gate and independent check work by declared resources. The gate runs service-backed backend work, shared-stack browser verification, and the isolated `browser-e2e` aggregate through one capacity-aware service-backed scheduler stage with browser-stage resource claims, while static validation, harness smoke, migration verification, backend lint, Go vulnerability scanning and tests, frontend type-check and tests, plus backend and frontend builds remain explicit scheduler work.
+- `make check` is the developer verification gate. Toolchain drift and frontend install are early setup blockers. After setup, `tools/check_schedule_manifest.json` schedules the readiness gate and independent check work by declared resources. The gate runs service-backed backend work, shared-stack browser verification, and the isolated `browser-e2e` aggregate through one capacity-aware service-backed scheduler stage with browser-stage resource claims, while static validation, harness smoke, migration verification, backend lint, warning-only shell lint, Go vulnerability scanning and tests, frontend type-check and tests, plus backend and frontend builds remain explicit scheduler work.
 - Apply authored Go and frontend formatting with `make format`.
 - `make ci` is the provider-neutral CI enforcement entrypoint. It composes the canonical repo task surface and fails on codegen drift, phase coverage ledger drift, migration failures, and deployable-shape drift.
 - `make release-check` is the release verification gate. It runs the developer gate plus license report verification, SBOM verification, and build verification; until generators are chosen, the license and SBOM targets fail if their configured artifacts are missing or empty.
