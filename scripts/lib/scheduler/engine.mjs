@@ -32,6 +32,7 @@ import {
 } from "../failure-taxonomy.mjs";
 import { SchedulerClock } from "./clock.mjs";
 import { replayLog, runCommand, sanitizeLogName } from "./process-executor.mjs";
+import { SchedulerProgressRecorder } from "./progress-recorder.mjs";
 import {
   addResourceClaims,
   blockedSnapshot,
@@ -99,7 +100,9 @@ class SchedulerReporter {
     this.verbose = verboseSchedulerOutput();
     this.eventsPath = path.join(targetDir, "scheduler-events.jsonl");
     this.summaryPath = path.join(targetDir, "scheduler-summary.json");
+    this.progressSummaryPath = path.join(targetDir, "progress-summary.log");
     this.events = createWriteStream(this.eventsPath, { flags: "w" });
+    this.progressRecorder = new SchedulerProgressRecorder(this.progressSummaryPath);
     this.clock = new SchedulerClock();
     this.machine = machineSchedulerOutput();
     this.startedAt = new Map();
@@ -124,18 +127,18 @@ class SchedulerReporter {
   }
 
   start() {
-    process.stdout.write(
-      schedulerStartLine({
-        prefix: this.schedule.prefix,
-        target: this.schedule.target,
-        workUnitCount: this.schedule.totalWorkUnits,
-        finalizerCount: this.schedule.finalizerCount ?? null,
-        resourceLimits: this.schedule.resourceLimits,
-        preferredResources: preferredResourcesForScheduler(this.schedule.resourceScheduler),
-        workUnits: this.schedule.workUnits.filter(counted),
-        artifacts: relToRepo(this.repoRoot, this.targetDir),
-      }),
-    );
+    const line = schedulerStartLine({
+      prefix: this.schedule.prefix,
+      target: this.schedule.target,
+      workUnitCount: this.schedule.totalWorkUnits,
+      finalizerCount: this.schedule.finalizerCount ?? null,
+      resourceLimits: this.schedule.resourceLimits,
+      preferredResources: preferredResourcesForScheduler(this.schedule.resourceScheduler),
+      workUnits: this.schedule.workUnits.filter(counted),
+      artifacts: relToRepo(this.repoRoot, this.targetDir),
+    });
+    process.stdout.write(line);
+    this.progressRecorder.recordStart(line);
   }
 
   runningDisplayUnits(state) {
@@ -397,15 +400,33 @@ class SchedulerReporter {
       slowestRunning: progress.slowestRunning,
       artifacts: relToRepo(this.repoRoot, this.targetDir),
     };
+    const humanProgressLine = schedulerHumanProgressLine({
+      ...progressLine,
+      nestedProgress,
+    });
+    this.progressRecorder.recordProgress({
+      line: humanProgressLine,
+      eventSequence: this.lastEventSequence,
+      monotonicMs: this.lastEventMonotonicMs,
+      wallTimestamp: this.clock.wallTimestamp(this.lastEventMonotonicMs),
+      completed: progressLine.completed,
+      total: progressLine.total,
+      running: progressLine.running,
+      pending: progressLine.pending,
+      blocked: progressLine.blocked,
+      finalizing: progressLine.finalizing,
+      activeGroups: progressLine.activeGroups,
+      runningLabels: progressLine.runningLabels,
+      blockedBy: progressLine.blockedBy,
+      waitingOn: progressLine.waitingOn,
+      unblocksAfter: progressLine.unblocksAfter,
+      slowestRunning: progressLine.slowestRunning,
+      nestedProgress,
+    });
     if (this.verbose || this.machine) {
       process.stdout.write(schedulerProgressLine(progressLine));
     } else {
-      process.stdout.write(
-        schedulerHumanProgressLine({
-          ...progressLine,
-          nestedProgress,
-        }),
-      );
+      process.stdout.write(humanProgressLine);
     }
     if ((this.verbose || this.machine) && extra.writeLines) {
       extra.writeLines();
@@ -471,21 +492,21 @@ class SchedulerReporter {
             },
           ],
     );
-    process.stdout.write(
-      schedulerSummaryLine({
-        prefix: this.schedule.prefix,
-        target: this.schedule.target,
-        status,
-        completed: this.completedCount,
-        total: this.schedule.totalWorkUnits,
-        failed,
-        failureClass,
-        skipped,
-        finalizerFailures: this.finalizerFailures,
-        slowest,
-        artifacts: relToRepo(this.repoRoot, this.targetDir),
-      }),
-    );
+    const summaryLine = schedulerSummaryLine({
+      prefix: this.schedule.prefix,
+      target: this.schedule.target,
+      status,
+      completed: this.completedCount,
+      total: this.schedule.totalWorkUnits,
+      failed,
+      failureClass,
+      skipped,
+      finalizerFailures: this.finalizerFailures,
+      slowest,
+      artifacts: relToRepo(this.repoRoot, this.targetDir),
+    });
+    process.stdout.write(summaryLine);
+    this.progressRecorder.recordSummary(summaryLine);
     const baseSummary = {
       schema_id: this.schedule.summarySchemaID,
       target: this.schedule.target,
@@ -521,9 +542,11 @@ class SchedulerReporter {
       finalizer_count: this.schedule.finalizerCount ?? 0,
       finalizer_failures: this.finalizerFailures,
       finalizer_timings: finalizerTimings(this.completedWork),
+      ...this.progressRecorder.summaryFields(),
       artifacts: {
         events_jsonl: relToRepo(this.repoRoot, this.eventsPath),
         scheduler_logs_dir: relToRepo(this.repoRoot, this.logDir),
+        progress_summary_log: relToRepo(this.repoRoot, this.progressSummaryPath),
       },
     };
     const extra = this.schedule.summaryExtra ? this.schedule.summaryExtra({ reporter: this, started }) : {};
@@ -595,10 +618,11 @@ class SchedulerReporter {
   }
 
   close() {
-    return new Promise((resolve, reject) => {
+    const closeEvents = new Promise((resolve, reject) => {
       this.events.on("error", reject);
       this.events.end(resolve);
     });
+    return Promise.all([closeEvents, this.progressRecorder.close()]);
   }
 }
 

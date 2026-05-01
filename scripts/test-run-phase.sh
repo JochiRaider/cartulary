@@ -579,6 +579,15 @@ explain_run_logs_status=$?
 set -e
 assert_equals "$explain_run_logs_status" "1" "explain-run logs requires target status"
 assert_contains "$explain_run_logs_output" "DETAIL=logs requires TARGET=<target>" "explain-run logs requires target output"
+set +e
+explain_run_progress_output="$(
+  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$child_summary_results/child-summary" --detail progress \
+    2>&1
+)"
+explain_run_progress_status=$?
+set -e
+assert_equals "$explain_run_progress_status" "1" "explain-run progress requires target status"
+assert_contains "$explain_run_progress_output" "DETAIL=progress requires TARGET=<target>" "explain-run progress requires target output"
 
 helper_run_results="$(mktemp -d "$ROOT_DIR/tmp/explain-run-helper.XXXXXX")"
 cleanup_paths+=("$helper_run_results")

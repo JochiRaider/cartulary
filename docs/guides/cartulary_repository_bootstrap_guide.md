@@ -292,7 +292,7 @@ Repository-local recommended meanings:
 - `make dev`: run the Go server and, once present, the Vite dev server.
 - `make generate`: regenerate `sqlc` outputs and contract-derived outputs.
 - `make help-all` remains the exhaustive public catalog grouped by operator workflow: local dev, fast verification, full gates, investigate a run, phase maintenance, and release.
-- `make task-guide`, `make task-surface-report`, `make target-plan`, `make target-plan-json`, `make explain-phase`, `make explain-target`, `make explain-run`, and `make fixture-report` are investigation commands for role or phase guidance, existing task-surface, target-plan, phase-manifest, run-summary, scheduler-log, and fixture-cost artifacts.
+- `make task-guide`, `make task-surface-report`, `make target-plan`, `make target-plan-json`, `make explain-phase`, `make explain-target`, `make explain-run`, and `make fixture-report` are investigation commands for role or phase guidance, existing task-surface, target-plan, phase-manifest, run-summary, scheduler-progress, scheduler-log, and fixture-cost artifacts.
 - Duration-baseline refresh and drift commands belong to phase maintenance with generated-artifact, toolchain, migration, phase-ledger, phase-schedule, and benchmark-claim checks.
 - `make backend-store`: run the service-backed store-domain `U-*` backend slice that preserves unit-layer phase IDs while using real Postgres.
 - `make test-fast`: run the pure backend unit slice, the service-backed backend store and integration slices, explicit support integration and process-smoke coverage, frontend type-checking, and frontend unit tests.

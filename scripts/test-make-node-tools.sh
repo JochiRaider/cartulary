@@ -180,6 +180,14 @@ assertArgs("explain-target", { TARGET: "backend-store", DETAIL: "rows", JSON: "1
   "rows",
   "--json",
 ]);
+assertArgs("explain-run", { RESULTS_DIR: "/tmp/cartulary-results/run-a", TARGET: "check", DETAIL: "progress" }, [
+  "--results-dir",
+  "/tmp/cartulary-results/run-a",
+  "--detail",
+  "progress",
+  "--target",
+  "check",
+]);
 assertArgs(
   "fixture-report",
   { CARTULARY_TEST_RESULTS_DIR: "/tmp/cartulary-results", FIXTURE_THRESHOLD_MS: "4000", FIXTURE_TOP: "9" },

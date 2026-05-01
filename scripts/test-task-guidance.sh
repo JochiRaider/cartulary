@@ -7,6 +7,7 @@ MAKE_HELPER="${MAKE:-make}"
 TASK_GUIDE="$ROOT_DIR/scripts/print-task-guide.mjs"
 EXPLAIN_PHASE="$ROOT_DIR/scripts/print-explain-phase.mjs"
 EXPLAIN_TARGET="$ROOT_DIR/scripts/print-explain-target.mjs"
+EXPLAIN_RUN="$ROOT_DIR/scripts/print-explain-run.mjs"
 cleanup_paths=()
 
 cleanup() {
@@ -73,6 +74,53 @@ printf '{"target":"frontend-unit","status":"pass"}\n' >"$results_dir/run-e/front
 mkdir -p "$results_dir/run-f/migration-drift/migration-drift" "$results_dir/run-g/generate-drift/generate-drift"
 printf '{"target":"migration-drift","label":"migration-drift","status":"pass"}\n' >"$results_dir/run-f/migration-drift/migration-drift/phase-summary.json"
 printf '{"target":"not-generate-drift","label":"generate-drift","status":"pass"}\n' >"$results_dir/run-g/generate-drift/generate-drift/phase-summary.json"
+mkdir -p "$results_dir/run-h/check"
+check_progress_rel="${tmp_dir#"$ROOT_DIR"/}/results/run-h/check/progress-summary.log"
+check_logs_rel="${tmp_dir#"$ROOT_DIR"/}/results/run-h/check/scheduler-logs"
+printf '{"label":"check","status":"pass","counts":{"tests":0},"work_units":{"completed":2,"total":2},"summary_targets":{"expected":[]},"evidence_targets":{"present":[]},"helper_units":{"total":0},"artifacts":{"dir":"tmp/task-guidance/run-h"}}\n' >"$results_dir/run-h/run-summary.json"
+cat >"$results_dir/run-h/check/scheduler-summary.json" <<JSON
+{
+  "schema_id": "cartulary.check_scheduler_summary.v6",
+  "target": "check",
+  "status": "pass",
+  "scheduler_kind": "check",
+  "completed_work_units": 2,
+  "total_work_units": 2,
+  "failed_work_unit": null,
+  "slowest_work_units": [
+    { "label": "check-service-backed", "duration_ms": 60700 }
+  ],
+  "progress_snapshots": [
+    {
+      "completed": 1,
+      "total_work_units": 2,
+      "running": 1,
+      "pending": 0,
+      "blocked": 0,
+      "slowest_running": { "label": "check-service-backed", "duration_ms": 60700 },
+      "line": "[PROGRESS] check 1/2: check-service-backed 4/6, running check-service-backed, slowest check-service-backed 60.70s"
+    }
+  ],
+  "slowest_running_observations": [
+    {
+      "source": "nested",
+      "work_unit": "check-service-backed",
+      "nested_target": "check-service-backed",
+      "label": "backend-store",
+      "duration_ms": 45000
+    }
+  ],
+  "artifacts": {
+    "scheduler_logs_dir": "$check_logs_rel",
+    "progress_summary_log": "$check_progress_rel"
+  }
+}
+JSON
+cat >"$results_dir/run-h/check/progress-summary.log" <<'LOG'
+[CHECK-SCHEDULER] check start work_units=2 capacity={host_cpu:2}
+[PROGRESS] check 1/2: check-service-backed 4/6, running check-service-backed, slowest check-service-backed 60.70s
+[CHECK-SCHEDULER] check summary status=pass completed_work_units=2/2 failed=none slowest=check-service-backed:60.70s
+LOG
 expected_results_files="$(find "$results_dir" -type f | wc -l | tr -d '[:space:]')"
 
 default_output="$(CARTULARY_TEST_RESULTS_DIR="$results_dir" "$NODE_BIN" "$TASK_GUIDE")"
@@ -278,6 +326,16 @@ assert_contains "$migration_output" "run-f/migration-drift/migration-drift/phase
 generate_mismatch_output="$(CARTULARY_TEST_RESULTS_DIR="$results_dir" "$NODE_BIN" "$EXPLAIN_TARGET" --target generate-drift)"
 assert_contains "$generate_mismatch_output" "latest_artifact: none" "mismatched helper phase summary ignored"
 assert_not_contains "$generate_mismatch_output" "run-g/generate-drift/generate-drift/phase-summary.json" "mismatched helper phase summary path ignored"
+
+explain_run_progress_summary="$("$NODE_BIN" "$EXPLAIN_RUN" --results-dir "$results_dir/run-h" --target check)"
+assert_contains "$explain_run_progress_summary" "[PROGRESS-LOG] check $check_progress_rel" "explain-run summary progress artifact"
+assert_contains "$explain_run_progress_summary" "[PROGRESS-SNAPSHOT] [PROGRESS] check 1/2" "explain-run summary retained progress snapshot"
+assert_contains "$explain_run_progress_summary" "[SLOWEST-RUNNING] check check-service-backed:backend-store(45.00s)" "explain-run summary slowest retained running"
+
+explain_run_progress="$("$NODE_BIN" "$EXPLAIN_RUN" --results-dir "$results_dir/run-h" --target check --detail progress)"
+assert_contains "$explain_run_progress" "[PROGRESS-LOG] check $check_progress_rel" "explain-run progress artifact header"
+assert_contains "$explain_run_progress" "[PROGRESS] check 1/2" "explain-run progress retained human progress"
+assert_not_contains "$explain_run_progress" "[LOG] check" "explain-run progress does not print child logs"
 
 browser_output="$("$NODE_BIN" "$EXPLAIN_TARGET" --target browser-e2e-webserver-backed)"
 assert_contains "$browser_output" "browser stack" "browser explain-target service requirements"

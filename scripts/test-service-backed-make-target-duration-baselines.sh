@@ -29,7 +29,7 @@ mkdir -p "$results_dir/run-a/check-service-backed" "$results_dir/run-b/test-serv
 
 cat >"$results_dir/run-a/check-service-backed/scheduler-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_scheduler_summary.v5",
+  "schema_id": "cartulary.service_backed_scheduler_summary.v6",
   "target": "check-service-backed",
   "status": "pass",
   "scheduler_kind": "service-backed"
@@ -49,7 +49,7 @@ JSONL
 
 cat >"$results_dir/run-b/test-service-backed/scheduler-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_scheduler_summary.v5",
+  "schema_id": "cartulary.service_backed_scheduler_summary.v6",
   "target": "test-service-backed",
   "status": "pass",
   "scheduler_kind": "service-backed"
@@ -62,7 +62,7 @@ JSONL
 
 cat >"$results_dir/run-c/check-service-backed/scheduler-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_scheduler_summary.v5",
+  "schema_id": "cartulary.service_backed_scheduler_summary.v6",
   "target": "check-service-backed",
   "status": "fail",
   "scheduler_kind": "service-backed"

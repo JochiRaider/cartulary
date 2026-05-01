@@ -70,6 +70,7 @@ export function expectedTargetArtifacts(target, { root = repoRoot } = {}) {
   const expected = [
     relToRepo(path.join(resultsRoot, "<run-id>", target, "target-summary.json"), root),
     relToRepo(path.join(resultsRoot, "<run-id>", target, "scheduler-summary.json"), root),
+    relToRepo(path.join(resultsRoot, "<run-id>", target, "progress-summary.log"), root),
     relToRepo(path.join(resultsRoot, "<run-id>", target, "<phase-label>", "phase-summary.json"), root),
   ];
   if (["test", "test-fast", "check", "ci", "release-check"].includes(target)) {

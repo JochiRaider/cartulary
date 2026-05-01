@@ -80,15 +80,28 @@ assert_scheduler_artifacts() {
   local expected_event="$6"
   local summary_file="${dir}/results/${run_id}/${target}/scheduler-summary.json"
   local events_file="${dir}/results/${run_id}/${target}/scheduler-events.jsonl"
+  local progress_file="${dir}/results/${run_id}/${target}/progress-summary.log"
 
   assert_file_present "$summary_file" "$target scheduler summary"
   assert_file_present "$events_file" "$target scheduler events"
-  "$NODE_BIN" - "$summary_file" "$events_file" "$expected_status" "$expected_blocked" "$expected_event" <<'EOF'
+  assert_file_present "$progress_file" "$target progress summary"
+  "$NODE_BIN" - "$summary_file" "$events_file" "$progress_file" "$expected_status" "$expected_blocked" "$expected_event" "$ROOT_DIR" <<'EOF'
 const fs = require("node:fs");
-const [summaryFile, eventsFile, expectedStatus, expectedBlocked, expectedEvent] = process.argv.slice(2);
+const path = require("node:path");
+const [summaryFile, eventsFile, progressFile, expectedStatus, expectedBlocked, expectedEvent, repoRoot] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
 const events = fs.readFileSync(eventsFile, "utf8").trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
-if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v5") {
+const progressLog = fs.readFileSync(progressFile, "utf8");
+const resolveArtifact = (artifactPath) => path.resolve(repoRoot, artifactPath);
+const assertRepoRelativeArtifact = (artifactPath, label) => {
+  if (!artifactPath || typeof artifactPath !== "string") {
+    throw new Error(`${label} must be a non-empty string`);
+  }
+  if (path.isAbsolute(artifactPath)) {
+    throw new Error(`${label} must be repo-relative, got ${artifactPath}`);
+  }
+};
+if (summary.schema_id !== "cartulary.service_backed_scheduler_summary.v6") {
   throw new Error(`unexpected summary schema ${summary.schema_id}`);
 }
 if (summary.scheduler_kind !== "service-backed") {
@@ -112,8 +125,24 @@ if (!summary.resource_limits || Object.keys(summary.resource_limits).length === 
 if (!Number.isInteger(summary.max_running_work_units) || summary.max_running_work_units < 1) {
   throw new Error(`summary max_running_work_units got ${summary.max_running_work_units}`);
 }
-if (!summary.artifacts?.events_jsonl || !summary.artifacts?.scheduler_logs_dir) {
+if (!summary.artifacts?.events_jsonl || !summary.artifacts?.scheduler_logs_dir || !summary.artifacts?.progress_summary_log) {
   throw new Error("summary must record scheduler artifact paths");
+}
+assertRepoRelativeArtifact(summary.artifacts.progress_summary_log, "progress_summary_log");
+if (!fs.statSync(resolveArtifact(summary.artifacts.progress_summary_log)).isFile()) {
+  throw new Error(`progress summary artifact path must be an existing file: ${summary.artifacts.progress_summary_log}`);
+}
+if (!progressLog.includes(`[SCHEDULER] ${summary.target} start `)) {
+  throw new Error("progress summary log must retain scheduler start");
+}
+if (!progressLog.includes(`[SCHEDULER] ${summary.target} summary `)) {
+  throw new Error("progress summary log must retain scheduler summary");
+}
+if (!Array.isArray(summary.progress_snapshots) || summary.progress_snapshots.length > 8) {
+  throw new Error("summary must record capped progress snapshots");
+}
+if (!Array.isArray(summary.slowest_running_observations) || summary.slowest_running_observations.length > 5) {
+  throw new Error("summary must record capped slowest running observations");
 }
 if (!Number.isInteger(summary.max_running_groups) || summary.max_running_groups < 1) {
   throw new Error(`summary max_running_groups got ${summary.max_running_groups}`);
@@ -169,6 +198,18 @@ events.forEach((event, index) => {
 });
 if (expectedEvent !== "-" && !events.some((event) => event.event === expectedEvent)) {
   throw new Error(`missing scheduler event ${expectedEvent}`);
+}
+const progressEvents = events.filter((event) => event.event === "progress");
+if (progressEvents.length > 0) {
+  if (summary.progress_snapshots.length === 0) {
+    throw new Error("summary must retain progress snapshots when progress events were emitted");
+  }
+  if (!progressLog.includes(`[PROGRESS] ${summary.target} `)) {
+    throw new Error("progress summary log must retain human progress lines");
+  }
+  if (progressEvents.some((event) => event.slowest_running) && summary.slowest_running_observations.length === 0) {
+    throw new Error("summary must retain slowest running observations");
+  }
 }
 if (!events.some((event) => event.resource_limits && Object.keys(event.resource_limits).length > 0)) {
   throw new Error("events must include resource limits");

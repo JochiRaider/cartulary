@@ -34,7 +34,7 @@ const repoRoot = path.resolve(scriptDir, "..");
 const defaultManifestPath = path.join(repoRoot, "tools", "check_schedule_manifest.json");
 const supportedSchemaID = "cartulary.check_schedule.v6";
 const schedulerEventSchemaID = "cartulary.check_scheduler_event.v5";
-const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v5";
+const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v6";
 
 function usage() {
   process.stderr.write(

@@ -8,11 +8,11 @@ import { failureHeadlineForSummary } from "./lib/failure-taxonomy.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const validDetails = new Set(["summary", "children", "logs"]);
+const validDetails = new Set(["summary", "children", "logs", "progress"]);
 
 function usage() {
   process.stderr.write(
-    "usage: print-explain-run.mjs --results-dir <root|run-dir> [--run-id <id>] [--target <target>] [--detail summary|children|logs]\n",
+    "usage: print-explain-run.mjs --results-dir <root|run-dir> [--run-id <id>] [--target <target>] [--detail summary|children|logs|progress]\n",
   );
   process.exit(2);
 }
@@ -51,8 +51,8 @@ function parseArgs(argv) {
   if (!options.resultsDir || !validDetails.has(options.detail)) {
     usage();
   }
-  if (options.detail === "logs" && !options.target) {
-    throw new Error("DETAIL=logs requires TARGET=<target>");
+  if ((options.detail === "logs" || options.detail === "progress") && !options.target) {
+    throw new Error(`DETAIL=${options.detail} requires TARGET=<target>`);
   }
   return options;
 }
@@ -227,9 +227,38 @@ function writeSchedulerSummary(summary) {
     .map((entry) => `${entry.label}(${formatDuration(entry.duration_ms)})`)
     .join(",") || "none";
   process.stdout.write(
-    `[SCHEDULER] ${summary.target} status=${summary.status}${failureClassField(summary)} completed_work_units=${summary.completed_work_units}/${summary.total_work_units} failed=${summary.failed_work_unit ?? "none"} slowest=${slowest} logs=${summary.artifacts?.scheduler_logs_dir ?? ""}\n`,
+    `[SCHEDULER] ${summary.target} status=${summary.status}${failureClassField(summary)} completed_work_units=${summary.completed_work_units}/${summary.total_work_units} failed=${summary.failed_work_unit ?? "none"} slowest=${slowest} logs=${summary.artifacts?.scheduler_logs_dir ?? ""} progress=${summary.artifacts?.progress_summary_log ?? ""}\n`,
   );
   writeFailureHeadline(summary.target, summary);
+  writeSchedulerProgressDigest(summary);
+}
+
+function formatSlowestObservation(entry) {
+  const scope = entry.source === "nested"
+    ? `${entry.work_unit || entry.nested_target || "nested"}`
+    : entry.source || "outer";
+  return `${scope}:${entry.label}(${formatDuration(entry.duration_ms)})`;
+}
+
+function writeSchedulerProgressDigest(summary) {
+  const progressLog = summary.artifacts?.progress_summary_log ?? "";
+  if (progressLog) {
+    process.stdout.write(`[PROGRESS-LOG] ${summary.target} ${progressLog}\n`);
+  }
+  const snapshots = (summary.progress_snapshots ?? []).slice(-3);
+  for (const snapshot of snapshots) {
+    if (snapshot.line) {
+      process.stdout.write(`[PROGRESS-SNAPSHOT] ${snapshot.line}\n`);
+      continue;
+    }
+    process.stdout.write(
+      `[PROGRESS-SNAPSHOT] ${summary.target} completed=${snapshot.completed ?? 0}/${snapshot.total_work_units ?? 0} running=${snapshot.running ?? 0} pending=${snapshot.pending ?? 0} blocked=${snapshot.blocked ?? 0} slowest=${snapshot.slowest_running?.label ?? "none"}\n`,
+    );
+  }
+  const slowest = (summary.slowest_running_observations ?? []).map(formatSlowestObservation);
+  if (slowest.length > 0) {
+    process.stdout.write(`[SLOWEST-RUNNING] ${summary.target} ${slowest.join(",")}\n`);
+  }
 }
 
 function helperArtifacts(runSummary, target = "") {
@@ -341,6 +370,22 @@ function writeLogs(runDir, target, runSummary) {
   }
 }
 
+function writeProgress(runDir, target, schedulerSummary) {
+  const configured = schedulerSummary?.artifacts?.progress_summary_log ?? "";
+  const fallback = path.join(runDir, target, "progress-summary.log");
+  const file = configured ? absoluteArtifactPath(configured) : fallback;
+  if (!file || !existsSync(file)) {
+    process.stdout.write(`[PROGRESS-LOG] ${target} none\n`);
+    return;
+  }
+  const content = readFileSync(file, "utf8");
+  process.stdout.write(`[PROGRESS-LOG] ${target} ${relToRepo(file)}\n`);
+  process.stdout.write(content);
+  if (!content.endsWith("\n")) {
+    process.stdout.write("\n");
+  }
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const runDir = resolveRunDir(options);
@@ -361,6 +406,10 @@ function main() {
     } else {
       writeRunChildren(runSummary);
     }
+    return;
+  }
+  if (options.detail === "progress") {
+    writeProgress(runDir, options.target, schedulerSummary);
     return;
   }
   writeLogs(runDir, options.target, runSummary);
