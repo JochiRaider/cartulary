@@ -9,8 +9,8 @@ This ledger is generated from `tools/phase0_test_map.json`. Update the manifest 
 
 ## Authoritative Execution
 
-- `backend-unit` selects authoritative `U-0-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase0 unit authoritative backend_unit`.
-- `backend-integration` selects authoritative `I-0-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase0 integration authoritative backend_integration`.
+- `backend-unit` selects authoritative `U-0-*` rows through `cartulary-runner.mjs go-target backend-unit`, with target-plan selection constrained by the Phase 0 manifest and `backend_unit` execution dependency.
+- `backend-integration` selects authoritative `I-0-*` rows through `cartulary-runner.mjs go-target backend-integration`, with target-plan selection constrained by the Phase 0 manifest and `backend_integration` execution dependency.
 - `backend-process` selects authoritative `E-0-*` rows only through the manifest-owned `backend-process` execution family.
 
 ## Support-Only Execution

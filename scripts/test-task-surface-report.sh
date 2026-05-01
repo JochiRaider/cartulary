@@ -144,6 +144,15 @@ run_report_copy() {
     "$NODE_BIN" "$REPORTER" --check
 }
 
+# shellcheck disable=SC2016
+printf '\nRUN_GO_PHASE = @./scripts/lib/run-go-phase.sh\nRUN_PLAYWRIGHT_MANIFEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-playwright-manifest-phase.sh\n' >>"$makefile_copy"
+retired_helper_output="$(assert_fails "retired runner helper drift" run_report_copy)"
+assert_contains "$retired_helper_output" "retired runner-specific helper RUN_GO_PHASE" "retired runner helper output"
+assert_contains "$retired_helper_output" "retired runner-specific helper RUN_PLAYWRIGHT_MANIFEST_PHASE_SCRIPT" "retired runner script helper output"
+
+cp "$ROOT_DIR/Makefile" "$makefile_copy"
+cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
+cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
 printf '\n.PHONY: unclassified-target\nunclassified-target:\n\t@true\n' >>"$makefile_copy"
 unclassified_output="$(assert_fails "unclassified target drift" run_report_copy)"
 assert_contains "$unclassified_output" "unclassified-target is missing task-surface classification" "unclassified target output"

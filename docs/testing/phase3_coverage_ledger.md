@@ -10,9 +10,9 @@ This ledger is generated from `tools/phase3_test_map.json`. Update the manifest 
 
 ## Authoritative Execution
 
-- `backend-unit` selects authoritative `U-3-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase3 unit authoritative backend_unit`.
-- `backend-store` selects store-backed authoritative `U-3-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase3 unit authoritative backend_store`.
-- `backend-integration` selects authoritative `I-3-*` rows only through `RUN_GO_MANIFEST_PHASE ... phase3 integration authoritative backend_integration`.
+- `backend-unit` selects authoritative `U-3-*` rows through `cartulary-runner.mjs go-target backend-unit`, with target-plan selection constrained by the Phase 3 manifest and `backend_unit` execution dependency.
+- `backend-store` selects store-backed authoritative `U-3-*` rows through `cartulary-runner.mjs go-target backend-store`, with target-plan selection constrained by the Phase 3 manifest and `backend_store` execution dependency.
+- `backend-integration` selects authoritative `I-3-*` rows through `cartulary-runner.mjs go-target backend-integration`, with target-plan selection constrained by the Phase 3 manifest and `backend_integration` execution dependency.
 - `frontend-unit` selects authoritative `U-3-*` workbook rows only through the Phase 3 Vitest manifest for `frontend_unit`.
 - `tools/execution_topology_manifest.json` owns browser batch grouping and renders `tools/browser_e2e_batch_manifest.json` for Phase 3: `browser-e2e-webserver-backed` carries authoritative functional `E-3-*` rows through duration-balanced Playwright spec shards for `test` and `check`, while direct `browser-e2e-webserver-backed` and helper-only `browser-e2e-functional` select the same rows through manifest-driven `browser_functional` shard planning. The scheduler-visible `browser-e2e` aggregate is reserved for isolated stateful, measurement, and visual browser batches.
 - `tools/execution_topology_manifest.json` also keeps `browser-e2e-measurement` as the isolated Phase 3 browser batch for authoritative measurement `E-3-*` rows selected through the Phase 3 Playwright manifest for `browser_measurement`.

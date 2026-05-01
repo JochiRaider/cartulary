@@ -1893,7 +1893,8 @@
           "check"
         ],
         "backing_scripts": [
-          "scripts/check-backend-task-surface.sh"
+          "scripts/check-backend-task-surface.sh",
+          "scripts/lib/task-surface-check-common.sh"
         ],
         "check_schedule": {
           "schedules": [
@@ -2016,7 +2017,8 @@
           "check"
         ],
         "backing_scripts": [
-          "scripts/check-frontend-task-surface.sh"
+          "scripts/check-frontend-task-surface.sh",
+          "scripts/lib/task-surface-check-common.sh"
         ],
         "check_schedule": {
           "schedules": [
@@ -2251,7 +2253,8 @@
           "check"
         ],
         "backing_scripts": [
-          "scripts/check-browser-e2e-task-surface.sh"
+          "scripts/check-browser-e2e-task-surface.sh",
+          "scripts/lib/task-surface-check-common.sh"
         ],
         "check_schedule": {
           "schedules": [

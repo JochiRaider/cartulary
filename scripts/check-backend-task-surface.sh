@@ -4,6 +4,10 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/lib/task-surface-check-common.sh
+# shellcheck disable=SC1091
+source "$repo_root/scripts/lib/task-surface-check-common.sh"
+
 makefile="$repo_root/Makefile"
 generated_make="$repo_root/tools/task_surface.generated.mk"
 cartulary_runner_script="$repo_root/scripts/cartulary-runner.mjs"
@@ -14,11 +18,6 @@ execution_topology_manifest="$repo_root/tools/execution_topology_manifest.json"
 schedule_topology_helper="$repo_root/scripts/lib/service-backed-schedule-topology.mjs"
 check_schedule_manifest="$repo_root/tools/check_schedule_manifest.json"
 node_bin="${NODE_BIN:-node}"
-
-fail() {
-  echo "$*" >&2
-  exit 1
-}
 
 extract_target_block() {
   local target="$1"
@@ -51,32 +50,32 @@ require_service_backed_schedule_target() {
   if [[ -z "$block" ]]; then
     fail "Makefile must define a non-empty $target block"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq 'service-backed-target'; then
+  if ! text_contains "$block" 'service-backed-target'; then
     fail "$target must delegate through the canonical service-backed target runner"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq -- "--target $target"; then
+  if ! text_contains "$block" "--target $target"; then
     fail "$target must pass its target to the service-backed target runner"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq -- "--phase-label \"$phase_label\""; then
+  if ! text_contains "$block" "--phase-label \"$phase_label\""; then
     fail "$target must pass phase label=$phase_label to the service-backed target runner"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq -- "--service-wrapper test-services"; then
+  if ! text_contains "$block" "--service-wrapper test-services"; then
     fail "$target must run through the test-services service wrapper"
   fi
-  if printf '%s\n' "$block" | grep -Fq -- '--jobs'; then
+  if text_contains "$block" '--jobs'; then
     fail "$target must not pass a fixed scheduler job cap"
   fi
   prereqs="$(extract_target_prereqs "$target")"
-  if ! printf '%s\n' "$prereqs" | rg -q '(^|[[:space:]])test-service-images($|[[:space:]])'; then
+  if ! text_matches "$prereqs" '(^|[[:space:]])test-service-images($|[[:space:]])'; then
     fail "$target must depend on test-service-images for direct runs"
   fi
-  if ! printf '%s\n' "$prereqs" | rg -q '(^|[[:space:]])build-server($|[[:space:]])'; then
+  if ! text_matches "$prereqs" '(^|[[:space:]])build-server($|[[:space:]])'; then
     fail "$target must prebuild server before service-backed scheduling"
   fi
-  if [[ "$require_migrate" == "1" ]] && ! printf '%s\n' "$prereqs" | rg -q '(^|[[:space:]])build-migrate($|[[:space:]])'; then
+  if [[ "$require_migrate" == "1" ]] && ! text_matches "$prereqs" '(^|[[:space:]])build-migrate($|[[:space:]])'; then
     fail "$target must prebuild migrate before service-backed scheduling"
   fi
-  if [[ "$require_migrate" == "0" ]] && printf '%s\n' "$prereqs" | rg -q '(^|[[:space:]])build-migrate($|[[:space:]])'; then
+  if [[ "$require_migrate" == "0" ]] && text_matches "$prereqs" '(^|[[:space:]])build-migrate($|[[:space:]])'; then
     fail "$target must not require build-migrate"
   fi
 }
@@ -309,7 +308,7 @@ assert_text_contains_targets() {
 
   local target
   for target in "$@"; do
-    if ! printf '%s\n' "$text" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
+    if ! text_matches "$text" "(^|[[:space:]])$target($|[[:space:]])"; then
       fail "$label must include target-plan target $target"
     fi
   done
@@ -322,7 +321,7 @@ assert_text_excludes_targets() {
 
   local target
   for target in "$@"; do
-    if printf '%s\n' "$text" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
+    if text_matches "$text" "(^|[[:space:]])$target($|[[:space:]])"; then
       fail "$label must not include target-plan target $target"
     fi
   done
@@ -354,97 +353,97 @@ check_block="$(extract_target_block check)"
 if [[ -z "$check_block" ]]; then
   fail "Makefile must define a non-empty check block"
 fi
-if ! printf '%s\n' "$check_block" | grep -Fq '$(RUN_CHECK_SCHEDULE_SCRIPT)'; then
+if ! text_contains "$check_block" '$(RUN_CHECK_SCHEDULE_SCRIPT)'; then
   fail "check must delegate to the check scheduler"
 fi
-if ! printf '%s\n' "$check_block" | grep -Fq -- '--resource-limit host_cpu=$(CHECK_HOST_CPU_JOBS)'; then
+if ! text_contains "$check_block" '--resource-limit host_cpu=$(CHECK_HOST_CPU_JOBS)'; then
   fail "check must pass CHECK_HOST_CPU_JOBS as the check scheduler host_cpu resource limit"
 fi
-if ! printf '%s\n' "$check_block" | grep -Fq -- '--resource-limit host_io=$(CHECK_HOST_IO_JOBS)'; then
+if ! text_contains "$check_block" '--resource-limit host_io=$(CHECK_HOST_IO_JOBS)'; then
   fail "check must pass CHECK_HOST_IO_JOBS as the check scheduler host_io resource limit"
 fi
-if printf '%s\n' "$check_block" | grep -Fq '$(RUN_MAKE_SEQUENCE_SCRIPT)'; then
+if text_contains "$check_block" '$(RUN_MAKE_SEQUENCE_SCRIPT)'; then
   fail "check must not use the serial make sequence runner"
 fi
-if printf '%s\n' "$check_block" | grep -Fq -- '--step browser-e2e'; then
+if text_contains "$check_block" '--step browser-e2e'; then
   fail "check must not run browser-e2e as a final serial step"
 fi
 lint_go_prereqs="$(extract_target_prereqs lint-go)"
-if ! printf '%s\n' "$lint_go_prereqs" | rg -q '(^|[[:space:]])lint-go-format($|[[:space:]])'; then
+if ! text_matches "$lint_go_prereqs" '(^|[[:space:]])lint-go-format($|[[:space:]])'; then
   fail "lint-go must delegate to lint-go-format"
 fi
-if ! printf '%s\n' "$lint_go_prereqs" | rg -q '(^|[[:space:]])lint-go-vet($|[[:space:]])'; then
+if ! text_matches "$lint_go_prereqs" '(^|[[:space:]])lint-go-vet($|[[:space:]])'; then
   fail "lint-go must delegate to lint-go-vet"
 fi
-if ! printf '%s\n' "$lint_go_prereqs" | rg -q '(^|[[:space:]])lint-go-staticcheck($|[[:space:]])'; then
+if ! text_matches "$lint_go_prereqs" '(^|[[:space:]])lint-go-staticcheck($|[[:space:]])'; then
   fail "lint-go must delegate to lint-go-staticcheck"
 fi
 lint_go_format_block="$(extract_target_block lint-go-format)"
-if ! printf '%s\n' "$lint_go_format_block" | grep -Fq 'scripts/run-go-format.sh --check'; then
+if ! text_contains "$lint_go_format_block" 'scripts/run-go-format.sh --check'; then
   fail "lint-go-format must run the curated Go formatter wrapper in check mode"
 fi
-if ! printf '%s\n' "$lint_go_format_block" | grep -Fq 'run make format to apply authored Go formatting'; then
+if ! text_contains "$lint_go_format_block" 'run make format to apply authored Go formatting'; then
   fail "lint-go-format must tell developers to run make format"
 fi
 lint_go_vet_block="$(extract_target_block lint-go-vet)"
-if ! printf '%s\n' "$lint_go_vet_block" | grep -Fq 'scripts/run-go-vet.sh'; then
+if ! text_contains "$lint_go_vet_block" 'scripts/run-go-vet.sh'; then
   fail "lint-go-vet must run the curated Go vet wrapper"
 fi
 lint_go_staticcheck_prereqs="$(extract_target_prereqs lint-go-staticcheck)"
-if ! printf '%s\n' "$lint_go_staticcheck_prereqs" | rg -q '(^|[[:space:]])go-lint-toolchain($|[[:space:]])'; then
+if ! text_matches "$lint_go_staticcheck_prereqs" '(^|[[:space:]])go-lint-toolchain($|[[:space:]])'; then
   fail "lint-go-staticcheck must prepare the pinned Go lint toolchain"
 fi
 lint_go_staticcheck_block="$(extract_target_block lint-go-staticcheck)"
-if ! printf '%s\n' "$lint_go_staticcheck_block" | grep -Fq 'scripts/run-go-staticcheck.sh'; then
+if ! text_contains "$lint_go_staticcheck_block" 'scripts/run-go-staticcheck.sh'; then
   fail "lint-go-staticcheck must run the curated Staticcheck wrapper"
 fi
-if ! printf '%s\n' "$lint_go_staticcheck_block" | grep -Fq 'STATICCHECK_CHECKS="$(STATICCHECK_CHECKS)"'; then
+if ! text_contains "$lint_go_staticcheck_block" 'STATICCHECK_CHECKS="$(STATICCHECK_CHECKS)"'; then
   fail "lint-go-staticcheck must pass the configured Staticcheck check set"
 fi
 go_security_prereqs="$(extract_target_prereqs go-security-toolchain)"
-if ! printf '%s\n' "$go_security_prereqs" | rg -q '(^|[[:space:]])\$\((GOVULNCHECK_BIN)\)($|[[:space:]])'; then
+if ! text_matches "$go_security_prereqs" '(^|[[:space:]])\$\((GOVULNCHECK_BIN)\)($|[[:space:]])'; then
   fail "go-security-toolchain must prepare the pinned Govulncheck binary"
 fi
-if ! printf '%s\n' "$go_security_prereqs" | rg -q '(^|[[:space:]])\$\((GOSEC_BIN)\)($|[[:space:]])'; then
+if ! text_matches "$go_security_prereqs" '(^|[[:space:]])\$\((GOSEC_BIN)\)($|[[:space:]])'; then
   fail "go-security-toolchain must prepare the pinned Gosec binary"
 fi
 go_gosec_prereqs="$(extract_target_prereqs go-gosec-targeted)"
-if ! printf '%s\n' "$go_gosec_prereqs" | rg -q '(^|[[:space:]])go-security-toolchain($|[[:space:]])'; then
+if ! text_matches "$go_gosec_prereqs" '(^|[[:space:]])go-security-toolchain($|[[:space:]])'; then
   fail "go-gosec-targeted must prepare the pinned Go security toolchain"
 fi
 go_gosec_block="$(extract_target_block go-gosec-targeted)"
-if ! printf '%s\n' "$go_gosec_block" | grep -Fq 'scripts/run-go-gosec-targeted.sh'; then
+if ! text_contains "$go_gosec_block" 'scripts/run-go-gosec-targeted.sh'; then
   fail "go-gosec-targeted must run the curated targeted Gosec wrapper"
 fi
-if ! printf '%s\n' "$go_gosec_block" | grep -Fq 'GOSEC_RULES="$(GOSEC_RULES)"'; then
+if ! text_contains "$go_gosec_block" 'GOSEC_RULES="$(GOSEC_RULES)"'; then
   fail "go-gosec-targeted must pass the configured Gosec rule set"
 fi
-if ! printf '%s\n' "$go_gosec_block" | grep -Fq 'GOSEC_PATTERNS="$(GOSEC_PATTERNS)"'; then
+if ! text_contains "$go_gosec_block" 'GOSEC_PATTERNS="$(GOSEC_PATTERNS)"'; then
   fail "go-gosec-targeted must pass the configured Gosec package patterns"
 fi
 go_gosec_audit_prereqs="$(extract_target_prereqs go-gosec-audit)"
-if ! printf '%s\n' "$go_gosec_audit_prereqs" | rg -q '(^|[[:space:]])go-security-toolchain($|[[:space:]])'; then
+if ! text_matches "$go_gosec_audit_prereqs" '(^|[[:space:]])go-security-toolchain($|[[:space:]])'; then
   fail "go-gosec-audit must prepare the pinned Go security toolchain"
 fi
 go_gosec_audit_block="$(extract_target_block go-gosec-audit)"
-if ! printf '%s\n' "$go_gosec_audit_block" | grep -Fq 'scripts/run-go-gosec-audit.sh'; then
+if ! text_contains "$go_gosec_audit_block" 'scripts/run-go-gosec-audit.sh'; then
   fail "go-gosec-audit must run the curated warning-only Gosec audit wrapper"
 fi
-if ! printf '%s\n' "$go_gosec_audit_block" | grep -Fq 'GOSEC_AUDIT_RUNTIME_RULES="$(GOSEC_AUDIT_RUNTIME_RULES)"'; then
+if ! text_contains "$go_gosec_audit_block" 'GOSEC_AUDIT_RUNTIME_RULES="$(GOSEC_AUDIT_RUNTIME_RULES)"'; then
   fail "go-gosec-audit must pass the configured runtime Gosec audit rule set"
 fi
-if ! printf '%s\n' "$go_gosec_audit_block" | grep -Fq 'GOSEC_AUDIT_SUPPORT_PATTERNS="$(GOSEC_AUDIT_SUPPORT_PATTERNS)"'; then
+if ! text_contains "$go_gosec_audit_block" 'GOSEC_AUDIT_SUPPORT_PATTERNS="$(GOSEC_AUDIT_SUPPORT_PATTERNS)"'; then
   fail "go-gosec-audit must pass the configured support Gosec audit package patterns"
 fi
 shell_lint_prereqs="$(extract_target_prereqs lint-shell)"
-if ! printf '%s\n' "$shell_lint_prereqs" | rg -q '(^|[[:space:]])shell-lint-toolchain($|[[:space:]])'; then
+if ! text_matches "$shell_lint_prereqs" '(^|[[:space:]])shell-lint-toolchain($|[[:space:]])'; then
   fail "lint-shell must prepare the pinned ShellCheck toolchain"
 fi
 lint_shell_block="$(extract_target_block lint-shell)"
-if ! printf '%s\n' "$lint_shell_block" | grep -Fq 'scripts/run-shellcheck.sh'; then
+if ! text_contains "$lint_shell_block" 'scripts/run-shellcheck.sh'; then
   fail "lint-shell must run the curated warning-only ShellCheck wrapper"
 fi
-if ! printf '%s\n' "$lint_shell_block" | grep -Fq 'LINT_SHELL_STRICT="$(LINT_SHELL_STRICT)"'; then
+if ! text_contains "$lint_shell_block" 'LINT_SHELL_STRICT="$(LINT_SHELL_STRICT)"'; then
   fail "lint-shell must expose LINT_SHELL_STRICT strict-mode passthrough"
 fi
 for scheduled_target in \
@@ -482,9 +481,12 @@ for scheduled_target in \
 do
   check_schedule_field "$scheduled_target" target >/dev/null
 done
-if check_schedule_targets | rg -q '^(lint-go-format|lint-go-vet|lint-go-staticcheck)$'; then
-  fail "check schedule must keep lint-go as the scheduler-visible Go lint work unit"
-fi
+check_schedule_targets_text="$(check_schedule_targets)"
+for unscheduled_lint_leaf in lint-go-format lint-go-vet lint-go-staticcheck; do
+  if text_has_token "$check_schedule_targets_text" "$unscheduled_lint_leaf"; then
+    fail "check schedule must keep lint-go as the scheduler-visible Go lint work unit"
+  fi
+done
 "$node_bin" - "$check_schedule_manifest" "$execution_topology_manifest" <<'EOF'
 const fs = require("node:fs");
 
@@ -655,48 +657,48 @@ done
 
 services_wait_prereqs="$(extract_target_prereqs services-wait)"
 for target in postgres-wait minio-wait; do
-  if ! printf '%s\n' "$services_wait_prereqs" | rg -q "(^|[[:space:]])$target($|[[:space:]])"; then
+  if ! text_matches "$services_wait_prereqs" "(^|[[:space:]])$target($|[[:space:]])"; then
     fail "services-wait must depend on $target"
   fi
 done
 
 services_up_block="$(extract_target_block services-up)"
-if ! printf '%s\n' "$services_up_block" | grep -Fq 'up -d postgres minio'; then
+if ! text_contains "$services_up_block" 'up -d postgres minio'; then
   fail "services-up must start postgres and minio"
 fi
-if ! printf '%s\n' "$services_up_block" | grep -Fq 'services-wait'; then
+if ! text_contains "$services_up_block" 'services-wait'; then
   fail "services-up must wait for service readiness"
 fi
 
 db_up_block="$(extract_target_block db-up)"
-if ! printf '%s\n' "$db_up_block" | grep -Fq 'services-up'; then
+if ! text_contains "$db_up_block" 'services-up'; then
   fail "db-up must delegate service startup to services-up"
 fi
-if ! printf '%s\n' "$db_up_block" | grep -Fq 'minio-init'; then
+if ! text_contains "$db_up_block" 'minio-init'; then
   fail "db-up must initialize the default MinIO bucket"
 fi
 
 db_reset_block="$(extract_target_block db-reset)"
-if ! printf '%s\n' "$db_reset_block" | grep -Fq 'postgres-wait'; then
+if ! text_contains "$db_reset_block" 'postgres-wait'; then
   fail "db-reset must wait for postgres before resetting the database"
 fi
-if ! printf '%s\n' "$db_reset_block" | grep -Fq 'MinIO/object storage is not reset'; then
+if ! text_contains "$db_reset_block" 'MinIO/object storage is not reset'; then
   fail "db-reset must explicitly report that object storage is not reset"
 fi
 
 minio_init_block="$(extract_target_block minio-init)"
-if ! printf '%s\n' "$minio_init_block" | grep -Fq 'MINIO_BUCKET="$(MINIO_BUCKET)"'; then
+if ! text_contains "$minio_init_block" 'MINIO_BUCKET="$(MINIO_BUCKET)"'; then
   fail "minio-init must pass the configured MINIO_BUCKET"
 fi
-if ! printf '%s\n' "$minio_init_block" | grep -Fq 'init-minio'; then
+if ! text_contains "$minio_init_block" 'init-minio'; then
   fail "minio-init must delegate bucket creation to dev-services.sh"
 fi
 
 help_text="$(cat "$generated_make")"
-if ! printf '%s\n' "$help_text" | grep -Fq 'make services-up'; then
+if ! text_contains "$help_text" 'make services-up'; then
   fail "help must document services-up"
 fi
-if ! printf '%s\n' "$help_text" | grep -Fq 'does not reset object storage'; then
+if ! text_contains "$help_text" 'does not reset object storage'; then
   fail "help must document db-reset object-storage scope"
 fi
 
@@ -710,7 +712,7 @@ then
 fi
 
 backend_unit_block="$(extract_target_block backend-unit)"
-if ! printf '%s\n' "$backend_unit_block" | grep -Fq '$(CARTULARY_RUNNER_SCRIPT) go-target backend-unit'; then
+if ! text_contains "$backend_unit_block" '$(CARTULARY_RUNNER_SCRIPT) go-target backend-unit'; then
   fail "backend-unit must delegate to cartulary-runner.mjs go-target backend-unit"
 fi
 for expected in \
@@ -742,20 +744,20 @@ for pattern in "${backend_unit_auth_support_patterns[@]}"; do
 done
 
 backend_store_block="$(extract_target_block backend-store)"
-if ! printf '%s\n' "$backend_store_block" | grep -Fq '$(CARTULARY_RUNNER_SCRIPT) go-target backend-store'; then
+if ! text_contains "$backend_store_block" '$(CARTULARY_RUNNER_SCRIPT) go-target backend-store'; then
   fail "backend-store must delegate to cartulary-runner.mjs go-target backend-store"
 fi
-if ! printf '%s\n' "$backend_store_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+if ! text_contains "$backend_store_block" '$(TEST_SERVICES_BIN) run --'; then
   fail "backend-store must run through $(TEST_SERVICES_BIN) for suite-scoped services"
 fi
 require_shared_command_contains backend-store backend-store "TestPhase"
 require_shared_command_contains backend-store backend-store "CARTULARY_POSTGRES_FIXTURE_POLICY_TESTS"
 
 backend_integration_block="$(extract_target_block backend-integration)"
-if ! printf '%s\n' "$backend_integration_block" | grep -Fq '$(CARTULARY_RUNNER_SCRIPT) go-target backend-integration'; then
+if ! text_contains "$backend_integration_block" '$(CARTULARY_RUNNER_SCRIPT) go-target backend-integration'; then
   fail "backend-integration must delegate to cartulary-runner.mjs go-target backend-integration"
 fi
-if ! printf '%s\n' "$backend_integration_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+if ! text_contains "$backend_integration_block" '$(TEST_SERVICES_BIN) run --'; then
   fail "backend-integration must run through $(TEST_SERVICES_BIN) for suite-scoped services"
 fi
 for expected in \
@@ -804,13 +806,13 @@ then
 fi
 
 backend_process_block="$(extract_target_block backend-process)"
-if ! printf '%s\n' "$backend_process_block" | grep -Fq '$(CARTULARY_RUNNER_SCRIPT) go-target backend-process'; then
+if ! text_contains "$backend_process_block" '$(CARTULARY_RUNNER_SCRIPT) go-target backend-process'; then
   fail "backend-process must delegate to cartulary-runner.mjs go-target backend-process"
 fi
-if ! printf '%s\n' "$backend_process_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+if ! text_contains "$backend_process_block" '$(TEST_SERVICES_BIN) run --'; then
   fail "backend-process must run through $(TEST_SERVICES_BIN) for suite-scoped services"
 fi
-if ! printf '%s\n' "$backend_process_block" | grep -Fq 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
+if ! text_contains "$backend_process_block" 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
   fail "backend-process must export CARTULARY_SERVER_BIN=$(SERVER_BIN)"
 fi
 backend_process_command="$(inspect_shared_command backend-process backend-process)"
@@ -830,12 +832,12 @@ test_service_images_block="$(extract_target_block test-service-images)"
 if [[ -z "$test_service_images_block" ]]; then
   fail "Makefile must define a non-empty test-service-images block"
 fi
-if ! printf '%s\n' "$test_service_images_block" | grep -Fq '$(TEST_SERVICES_BIN) warm-images'; then
+if ! text_contains "$test_service_images_block" '$(TEST_SERVICES_BIN) warm-images'; then
   fail "test-service-images must warm pinned service images through $(TEST_SERVICES_BIN)"
 fi
 
 check_build_prereqs="$(extract_target_prereqs check-build-prereqs)"
-if ! printf '%s\n' "$check_build_prereqs" | rg -q '(^|[[:space:]])test-service-images($|[[:space:]])'; then
+if ! text_matches "$check_build_prereqs" '(^|[[:space:]])test-service-images($|[[:space:]])'; then
   fail "check-build-prereqs must warm service images before pre-browser check work"
 fi
 
@@ -867,10 +869,10 @@ assert_text_contains_targets "check-service-backed schedule" "$check_service_bac
 assert_text_excludes_targets "check-service-backed schedule" "$check_service_backend_schedule_text" "${target_plan_check_heavy_targets[@]}" "${target_plan_service_backed_unsafe_targets[@]}"
 
 backend_integration_support_block="$(extract_target_block backend-integration-support)"
-if ! printf '%s\n' "$backend_integration_support_block" | grep -Fq '$(CARTULARY_RUNNER_SCRIPT) go-target backend-integration-support'; then
+if ! text_contains "$backend_integration_support_block" '$(CARTULARY_RUNNER_SCRIPT) go-target backend-integration-support'; then
   fail "backend-integration-support must delegate to cartulary-runner.mjs go-target backend-integration-support"
 fi
-if ! printf '%s\n' "$backend_integration_support_block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+if ! text_contains "$backend_integration_support_block" '$(TEST_SERVICES_BIN) run --'; then
   fail "backend-integration-support must run through $(TEST_SERVICES_BIN) for suite-scoped services"
 fi
 for shared_report in \
@@ -894,7 +896,7 @@ test_fast_block="$(extract_target_block test-fast)"
 if [[ -z "$test_fast_block" ]]; then
   fail "Makefile must define a non-empty test-fast block"
 fi
-if ! printf '%s\n' "$test_fast_block" | grep -Fq '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence test-fast'; then
+if ! text_contains "$test_fast_block" '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence test-fast'; then
   fail "test-fast must use the manifest-backed sequence runner"
 fi
 "$node_bin" - "$repo_root/tools/task_surface_manifest.json" <<'EOF'

@@ -32,6 +32,8 @@ const generatedMakePath = resolvePath(
 
 const validClassifications = new Set(["public", "check_internal", "helper_only"]);
 const validInclusions = new Set(["test", "check", "ci", "release-check", "helper_only"]);
+const retiredRootRunnerHelperPattern =
+  /^\s*(RUN_(?:GO|PLAYWRIGHT|VITEST)(?:_MANIFEST)?_PHASE(?:_SCRIPT)?)\s*(?::=|\?=|\+=|=)/;
 
 function main() {
   const generatedMake = readFileSync(generatedMakePath, "utf8");
@@ -49,6 +51,7 @@ function main() {
   );
   const phaseDependencies = collectPhaseDependencies();
   const errors = validateTaskSurface({
+    authoredMake,
     generatedMakePath,
     helpEntries,
     manifest,
@@ -145,6 +148,21 @@ function collectDirectScriptRefs(source) {
   return Array.from(refs).sort();
 }
 
+function collectRetiredRootRunnerHelpers(source) {
+  const helpers = [];
+  const lines = source.split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = retiredRootRunnerHelperPattern.exec(lines[index]);
+    if (match) {
+      helpers.push({
+        line: index + 1,
+        name: match[1],
+      });
+    }
+  }
+  return helpers;
+}
+
 function collectPhaseDependencies() {
   const rows = [];
 
@@ -171,6 +189,7 @@ function collectPhaseDependencies() {
 }
 
 function validateTaskSurface({
+  authoredMake,
   generatedMakePath,
   helpEntries,
   manifest,
@@ -180,6 +199,12 @@ function validateTaskSurface({
   targetScriptRefs,
 }) {
   const errors = [];
+
+  for (const helper of collectRetiredRootRunnerHelpers(authoredMake)) {
+    errors.push(
+      `Makefile must not define retired runner-specific helper ${helper.name} on line ${helper.line}; use generic RUN_PHASE or script-local helpers`,
+    );
+  }
 
   if (manifest.schema_id !== taskSurfaceSchemaID) {
     errors.push(`tools/task_surface_manifest.json must declare schema_id=${taskSurfaceSchemaID}`);

@@ -4,6 +4,10 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/lib/task-surface-check-common.sh
+# shellcheck disable=SC1091
+source "$repo_root/scripts/lib/task-surface-check-common.sh"
+
 makefile="$repo_root/Makefile"
 generated_make="$repo_root/tools/task_surface.generated.mk"
 functional_script="$repo_root/scripts/run-browser-e2e-functional.sh"
@@ -32,11 +36,6 @@ check_schedule_manifest="$repo_root/tools/check_schedule_manifest.json"
 task_surface_manifest="$repo_root/tools/task_surface_manifest.json"
 node_bin="${NODE_BIN:-node}"
 
-fail() {
-  echo "$*" >&2
-  exit 1
-}
-
 extract_target_block() {
   local target="$1"
   awk -v target="$target" '
@@ -54,10 +53,10 @@ require_browser_owned_stack_target_uses_built_binaries() {
   if [[ -z "$block" ]]; then
     fail "Makefile must define a non-empty $target block"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq 'build-server'; then
+  if ! text_contains "$block" 'build-server'; then
     fail "$target must depend on build-server"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq 'build-migrate'; then
+  if ! text_contains "$block" 'build-migrate'; then
     fail "$target must depend on build-migrate"
   fi
 }
@@ -75,22 +74,22 @@ require_browser_batch_target() {
   if [[ -z "$block" ]]; then
     fail "Makefile must define a non-empty $target block"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq './scripts/run-browser-e2e-target.sh'; then
+  if ! text_contains "$block" './scripts/run-browser-e2e-target.sh'; then
     fail "$target must delegate through the browser E2E target wrapper"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq "./scripts/run-browser-e2e-target.sh $stage"; then
+  if ! text_contains "$block" "./scripts/run-browser-e2e-target.sh $stage"; then
     fail "$target must pass stage=$stage to the browser E2E target wrapper"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq "PLAYWRIGHT_WORKERS=$workers"; then
+  if ! text_contains "$block" "PLAYWRIGHT_WORKERS=$workers"; then
     fail "$target must set PLAYWRIGHT_WORKERS=$workers"
   fi
-  if [[ "$service_wrapper" == "test-services" ]] && ! printf '%s\n' "$block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+  if [[ "$service_wrapper" == "test-services" ]] && ! text_contains "$block" '$(TEST_SERVICES_BIN) run --'; then
     fail "$target must wrap the browser target through test services"
   fi
-  if [[ "$service_wrapper" != "test-services" ]] && printf '%s\n' "$block" | grep -Fq '$(TEST_SERVICES_BIN) run --'; then
+  if [[ "$service_wrapper" != "test-services" ]] && text_contains "$block" '$(TEST_SERVICES_BIN) run --'; then
     fail "$target must not wrap direct browser target through test services"
   fi
-  if printf '%s\n' "$block" | grep -Fq '$(TEST_OUTPUT_SCRIPT) target-summary'; then
+  if text_contains "$block" '$(TEST_OUTPUT_SCRIPT) target-summary'; then
     fail "$target Make target must not emit a duplicate browser target summary"
   fi
 
@@ -125,31 +124,31 @@ require_service_backed_schedule_target() {
   if [[ -z "$block" ]]; then
     fail "Makefile must define a non-empty $target block"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq 'service-backed-target'; then
+  if ! text_contains "$block" 'service-backed-target'; then
     fail "$target must delegate through the service-backed target runner"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq -- "--target $target"; then
+  if ! text_contains "$block" "--target $target"; then
     fail "$target must pass target=$target to the service-backed target runner"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq -- "--phase-label \"$phase_label\""; then
+  if ! text_contains "$block" "--phase-label \"$phase_label\""; then
     fail "$target must pass phase label=$phase_label to the service-backed target runner"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq -- "--service-wrapper test-services"; then
+  if ! text_contains "$block" "--service-wrapper test-services"; then
     fail "$target must run through the test-services service wrapper"
   fi
-  if printf '%s\n' "$block" | grep -Fq -- '--jobs'; then
+  if text_contains "$block" '--jobs'; then
     fail "$target must not pass a fixed scheduler job cap"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq 'build-server'; then
+  if ! text_contains "$block" 'build-server'; then
     fail "$target must prebuild server before service-backed scheduling"
   fi
-  if ! printf '%s\n' "$block" | grep -Fq 'test-service-images'; then
+  if ! text_contains "$block" 'test-service-images'; then
     fail "$target must depend on test-service-images for direct runs"
   fi
-  if [[ "$require_migrate" == "1" ]] && ! printf '%s\n' "$block" | grep -Fq 'build-migrate'; then
+  if [[ "$require_migrate" == "1" ]] && ! text_contains "$block" 'build-migrate'; then
     fail "$target must prebuild migrate before service-backed scheduling"
   fi
-  if [[ "$require_migrate" == "0" ]] && printf '%s\n' "$block" | grep -Fq 'build-migrate'; then
+  if [[ "$require_migrate" == "0" ]] && text_contains "$block" 'build-migrate'; then
     fail "$target must not require build-migrate"
   fi
 }
@@ -317,16 +316,16 @@ browser_e2e_owned_stack_env="$(sed -n 's/^BROWSER_E2E_OWNED_STACK_ENV[[:space:]]
 if [[ -z "$browser_e2e_owned_stack_env" ]]; then
   fail "Makefile must define BROWSER_E2E_OWNED_STACK_ENV"
 fi
-if ! printf '%s\n' "$browser_e2e_owned_stack_env" | grep -Fq 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
+if ! text_contains "$browser_e2e_owned_stack_env" 'CARTULARY_SERVER_BIN=$(SERVER_BIN)'; then
   fail "BROWSER_E2E_OWNED_STACK_ENV must export CARTULARY_SERVER_BIN=$(SERVER_BIN)"
 fi
-if ! printf '%s\n' "$browser_e2e_owned_stack_env" | grep -Fq 'CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN)'; then
+if ! text_contains "$browser_e2e_owned_stack_env" 'CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN)'; then
   fail "BROWSER_E2E_OWNED_STACK_ENV must export CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN)"
 fi
-if ! printf '%s\n' "$browser_e2e_owned_stack_env" | grep -Fq 'CARTULARY_TEST_SERVICES_BIN=$(TEST_SERVICES_BIN)'; then
+if ! text_contains "$browser_e2e_owned_stack_env" 'CARTULARY_TEST_SERVICES_BIN=$(TEST_SERVICES_BIN)'; then
   fail "BROWSER_E2E_OWNED_STACK_ENV must export CARTULARY_TEST_SERVICES_BIN=$(TEST_SERVICES_BIN)"
 fi
-if ! printf '%s\n' "$browser_e2e_owned_stack_env" | grep -Fq 'CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES=1'; then
+if ! text_contains "$browser_e2e_owned_stack_env" 'CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES=1'; then
   fail "BROWSER_E2E_OWNED_STACK_ENV must opt Makefile-owned browser E2E into built repo-root binaries"
 fi
 for browser_owned_stack_target in \
@@ -352,7 +351,7 @@ if [[ -z "$browser_e2e_block" ]]; then
   fail "Makefile must define a non-empty browser-e2e block"
 fi
 require_browser_batch_target browser-e2e isolated 1 test-services
-if printf '%s\n' "$browser_e2e_block" | grep -Fq -- '-j$(BROWSER_E2E_JOBS)'; then
+if text_contains "$browser_e2e_block" '-j$(BROWSER_E2E_JOBS)'; then
   fail 'browser-e2e must not fan out aggregate browser children with -j$(BROWSER_E2E_JOBS)'
 fi
 require_service_backed_schedule_target test-service-backed "test service-backed" 1
@@ -438,13 +437,13 @@ test_block="$(extract_target_block test)"
 if [[ -z "$test_block" ]]; then
   fail "Makefile must define a non-empty test block"
 fi
-if ! printf '%s\n' "$test_block" | grep -Fq -- '--sequence test'; then
+if ! text_contains "$test_block" '--sequence test'; then
   fail "test must delegate to the manifest-owned test sequence"
 fi
-if printf '%s\n' "$test_block" | grep -Fq -- '--step browser-e2e'; then
+if text_contains "$test_block" '--step browser-e2e'; then
   fail "test must not run browser-e2e as a final serial step"
 fi
-if printf '%s\n' "$test_block" | grep -Fq 'test-isolated'; then
+if text_contains "$test_block" 'test-isolated'; then
   fail "test must not route browser evidence through test-isolated"
 fi
 "$node_bin" - "$task_surface_manifest" <<'EOF'
@@ -462,19 +461,19 @@ check_block="$(extract_target_block check)"
 if [[ -z "$check_block" ]]; then
   fail "Makefile must define a non-empty check block"
 fi
-if ! printf '%s\n' "$check_block" | grep -Fq '$(RUN_CHECK_SCHEDULE_SCRIPT)'; then
+if ! text_contains "$check_block" '$(RUN_CHECK_SCHEDULE_SCRIPT)'; then
   fail "check must delegate to the check scheduler"
 fi
-if ! printf '%s\n' "$check_block" | grep -Fq -- '--resource-limit host_cpu=$(CHECK_HOST_CPU_JOBS)'; then
+if ! text_contains "$check_block" '--resource-limit host_cpu=$(CHECK_HOST_CPU_JOBS)'; then
   fail "check must pass CHECK_HOST_CPU_JOBS as the check scheduler host_cpu resource limit"
 fi
-if ! printf '%s\n' "$check_block" | grep -Fq -- '--resource-limit host_io=$(CHECK_HOST_IO_JOBS)'; then
+if ! text_contains "$check_block" '--resource-limit host_io=$(CHECK_HOST_IO_JOBS)'; then
   fail "check must pass CHECK_HOST_IO_JOBS as the check scheduler host_io resource limit"
 fi
-if printf '%s\n' "$check_block" | grep -Fq -- '--step browser-e2e'; then
+if text_contains "$check_block" '--step browser-e2e'; then
   fail "check must not run browser-e2e as a final serial step"
 fi
-if printf '%s\n' "$check_block" | grep -Fq 'check-isolated'; then
+if text_contains "$check_block" 'check-isolated'; then
   fail "check must not route browser evidence through check-isolated"
 fi
 if ! [[ -f "$check_schedule_manifest" ]]; then
@@ -514,16 +513,16 @@ for scheduled_target in \
   service-backed-unit-check \
   generate-drift
 do
-  if ! printf '%s\n' "$check_schedule_text" | rg -q "^${scheduled_target}$"; then
+  if ! text_has_token "$check_schedule_text" "$scheduled_target"; then
     fail "check schedule must include $scheduled_target"
   fi
 done
 for removed_check_bundle in check-static-validation check-local-product check-meta-validation; do
-  if printf '%s\n' "$check_schedule_text" | rg -q "^${removed_check_bundle}$"; then
+  if text_has_token "$check_schedule_text" "$removed_check_bundle"; then
     fail "check schedule must not include removed bundle $removed_check_bundle"
   fi
 done
-if printf '%s\n' "$check_schedule_text" | rg -q '^browser-e2e$'; then
+if text_has_token "$check_schedule_text" browser-e2e; then
   fail "browser-e2e must be service-backed scheduler work, not a top-level check work unit"
 fi
 "$node_bin" - "$check_schedule_manifest" "$execution_topology_manifest" <<'EOF'
@@ -618,7 +617,7 @@ require_browser_batch_target browser-e2e-resettable resettable 1 direct
 require_browser_batch_target browser-e2e-measurement measurement 1 direct
 require_browser_batch_target browser-e2e-visual visual 1 direct
 browser_measurement_block="$(extract_target_block browser-e2e-measurement)"
-if printf '%s\n' "$browser_measurement_block" | grep -Fq 'Core 05-bound timing evidence'; then
+if text_contains "$browser_measurement_block" 'Core 05-bound timing evidence'; then
   fail "browser-e2e-measurement must be labeled ordinary measurement, not Core 05-bound claim evidence"
 fi
 
@@ -801,7 +800,7 @@ fi
 if ! grep -Fq 'browser_functional' "$browser_shard_plan_script"; then
   fail "scripts/lib/browser-shard-plan.mjs must select authoritative browser_functional manifest rows"
 fi
-if grep -F 'playwright-grep-many' "$webserver_batch_script" | grep -Fq 'browser_functional'; then
+if awk 'index($0, "playwright-grep-many") && index($0, "browser_functional") { found = 1 } END { exit found ? 0 : 1 }' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must not keep the old all-phase functional Playwright grep batch"
 fi
 browser_functional_phases=()
@@ -820,9 +819,11 @@ mapfile -t expected_browser_functional_phases < <("$node_bin" "$repo_root/script
 if [[ "$(printf '%s\n' "${browser_functional_phases[@]}")" != "$(printf '%s\n' "${expected_browser_functional_phases[@]}")" ]]; then
   fail "authoritative browser_functional phases must be manifest-derived, found: ${browser_functional_phases[*]:-none}; expected: ${expected_browser_functional_phases[*]:-none}"
 fi
-if printf '%s\n' "${browser_functional_phases[@]}" | grep -Fxq phase0; then
-  fail "authoritative browser_functional manifest phases must skip phase0, found: ${browser_functional_phases[*]}"
-fi
+for browser_functional_phase in "${browser_functional_phases[@]}"; do
+  if [[ "$browser_functional_phase" == "phase0" ]]; then
+    fail "authoritative browser_functional manifest phases must skip phase0, found: ${browser_functional_phases[*]}"
+  fi
+done
 if ! grep -Fq 'CARTULARY_REPORT_SLICE=1' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must emit sliced Playwright summaries"
 fi
