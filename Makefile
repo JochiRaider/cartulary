@@ -51,6 +51,7 @@ TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
 SERVICE_BACKED_SCHEDULE_MANIFEST ?= $(CURDIR)/tools/service_backed_schedule_manifest.json
 EXECUTION_TOPOLOGY_MANIFEST ?= $(CURDIR)/tools/execution_topology_manifest.json
 SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE ?= $(CURDIR)/tools/service_backed_make_target_duration_baselines.json
+HARNESS_SMOKE_DURATION_BASELINE ?= $(CURDIR)/tools/harness_smoke_duration_baselines.json
 CHECK_SCHEDULE_MANIFEST ?= $(CURDIR)/tools/check_schedule_manifest.json
 MINIO_BUCKET ?= cartulary
 FRONTEND_INSTALL_STAMP ?= $(CURDIR)/tmp/frontend-install/node-v$(NODE_VERSION)-pnpm-v$(PNPM_VERSION).stamp

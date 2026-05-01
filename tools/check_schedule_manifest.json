@@ -36,7 +36,8 @@
         {
           "name": "harness",
           "summary_targets": [
-            "check-harness-smoke"
+            "check-harness-smoke",
+            "check-harness-smoke-duration-baseline-drift"
           ]
         }
       ],
@@ -262,6 +263,20 @@
           ],
           "produces_summary_targets": [
             "check-harness-smoke"
+          ],
+          "resource_claims": {
+            "host_cpu": 1
+          },
+          "make_jobs": "host_cpu"
+        },
+        {
+          "target": "check-harness-smoke-duration-baseline-drift",
+          "weight": 13990,
+          "needs": [
+            "check-harness-smoke"
+          ],
+          "produces_summary_targets": [
+            "check-harness-smoke-duration-baseline-drift"
           ],
           "resource_claims": {
             "host_cpu": 1

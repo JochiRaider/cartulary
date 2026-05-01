@@ -98,6 +98,18 @@ const expectedMakeEnvVars = {
     "BASELINE_FILE",
     "RESULTS_DIR",
   ],
+  "harness-smoke-duration-baseline-drift": [
+    "HARNESS_SMOKE_DURATION_BASELINE",
+    "TASK_SURFACE_MANIFEST",
+    "RESULTS_DIR",
+    "CARTULARY_TEST_RESULTS_DIR",
+    "CARTULARY_TEST_RUN_ID",
+  ],
+  "harness-smoke-duration-baselines": [
+    "HARNESS_SMOKE_DURATION_BASELINE",
+    "TASK_SURFACE_MANIFEST",
+    "RESULTS_DIR",
+  ],
   "phase-slice": [
     "PHASE",
     "MAKE",
@@ -255,6 +267,39 @@ assertArgs(
     "/tmp/cartulary-results/run-a",
   ],
 );
+assertArgs(
+  "harness-smoke-duration-baselines",
+  {
+    HARNESS_SMOKE_DURATION_BASELINE: "/tmp/harness-baseline.json",
+    RESULTS_DIR: "/tmp/cartulary-results/run-a",
+    TASK_SURFACE_MANIFEST: "/tmp/task-surface.json",
+  },
+  [
+    "update",
+    "--baseline-file",
+    "/tmp/harness-baseline.json",
+    "--manifest",
+    "/tmp/task-surface.json",
+    "/tmp/cartulary-results/run-a",
+  ],
+);
+assertArgs(
+  "harness-smoke-duration-baseline-drift",
+  {
+    CARTULARY_TEST_RESULTS_DIR: "/tmp/cartulary-results",
+    CARTULARY_TEST_RUN_ID: "run-a",
+    HARNESS_SMOKE_DURATION_BASELINE: "/tmp/harness-baseline.json",
+    TASK_SURFACE_MANIFEST: "/tmp/task-surface.json",
+  },
+  [
+    "check-drift",
+    "--baseline-file",
+    "/tmp/harness-baseline.json",
+    "--manifest",
+    "/tmp/task-surface.json",
+    "/tmp/cartulary-results/run-a",
+  ],
+);
 assertArgs("task-surface-report", { TASK_SURFACE_REPORT_ARGS: "--check --all" }, [
   "--check",
   "--all",
@@ -264,6 +309,7 @@ assertUsage("explain-run", {}, "make explain-run RESULTS_DIR=<root|run-dir>");
 assertUsage("phase-slice", {}, "make phase-slice PHASE=<phaseN>");
 assertUsage("service-backed-slice", {}, "make service-backed-slice PHASE=<phaseN>");
 assertUsage("go-test-duration-baselines", {}, "make go-test-duration-baselines RESULTS_DIR=<successful test results dir>");
+assertUsage("harness-smoke-duration-baselines", {}, "make harness-smoke-duration-baselines RESULTS_DIR=<successful harness results dir>");
 assertUsage("scheduler-event-order-drift", { CARTULARY_TEST_RESULTS_DIR: "/tmp/results" }, "make scheduler-event-order-drift");
 
 try {

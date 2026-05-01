@@ -97,7 +97,7 @@ function verboseOutput() {
 
 async function runCheck(check) {
   const runPhase = path.join(repoRoot, "scripts", "lib", "run-phase.sh");
-  const script = check.backing_scripts[0];
+  const command = resolveCheckCommand(check);
   const env = {
     ...process.env,
     CARTULARY_TEST_TARGET: check.name,
@@ -108,10 +108,23 @@ async function runCheck(check) {
     "env",
     "-u",
     "CARTULARY_TEST_TARGET",
-    `./${script}`,
+    ...command,
   ], env);
   const summaryStatus = await summarizeCheck(check.name, status);
   return status === 0 ? summaryStatus : status;
+}
+
+function resolveCheckCommand(check) {
+  const command = check.command?.length > 0 ? check.command : [`./${check.backing_scripts[0]}`];
+  return command.map((token) => {
+    if (token === "$(NODE_BIN)") {
+      return process.env.NODE_BIN || process.execPath;
+    }
+    if (token === "$(MAKE)") {
+      return process.env.MAKE || "make";
+    }
+    return token;
+  });
 }
 
 async function runChecks(checks, jobs) {

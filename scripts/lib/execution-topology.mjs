@@ -17,7 +17,7 @@ export const defaultExecutionTopologyManifestPath = path.join(
   "tools",
   "execution_topology_manifest.json",
 );
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v9";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v10";
 export const checkScheduleSchemaID = "cartulary.check_schedule.v6";
 export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule.v8";
 export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v4";

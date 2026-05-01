@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.task_surface_manifest.v9",
+  "schema_id": "cartulary.task_surface_manifest.v10",
   "compact_help": {
     "entries": [
       {
@@ -325,6 +325,14 @@
           "description": "RESULTS_DIR=<dir> verify service-backed make-target baseline freshness"
         },
         {
+          "target": "harness-smoke-duration-baselines",
+          "description": "RESULTS_DIR=<dir> refresh harness smoke duration baselines"
+        },
+        {
+          "target": "harness-smoke-duration-baseline-drift",
+          "description": "RESULTS_DIR=<dir> verify harness smoke baseline freshness"
+        },
+        {
           "target": "scheduler-event-order-drift",
           "description": "RESULTS_DIR=<dir> verify scheduler event stream ordering"
         }
@@ -582,6 +590,14 @@
       "prerequisites": []
     },
     "service-backed-make-target-duration-baseline-drift": {
+      "type": "node_tool",
+      "prerequisites": []
+    },
+    "harness-smoke-duration-baselines": {
+      "type": "node_tool",
+      "prerequisites": []
+    },
+    "harness-smoke-duration-baseline-drift": {
       "type": "node_tool",
       "prerequisites": []
     },
@@ -1019,6 +1035,12 @@
       "type": "summary_target",
       "prerequisites": [],
       "child_target": "service-backed-make-target-duration-baseline-drift",
+      "status": "pass"
+    },
+    "check-harness-smoke-duration-baseline-drift": {
+      "type": "summary_target",
+      "prerequisites": [],
+      "child_target": "harness-smoke-duration-baseline-drift",
       "status": "pass"
     },
     "check-service-backed": {
@@ -1565,6 +1587,26 @@
       ]
     },
     {
+      "name": "harness-smoke-duration-baselines",
+      "classification": "public",
+      "included_in": [
+        "helper_only"
+      ],
+      "backing_scripts": [
+        "scripts/harness-smoke-durations.mjs"
+      ]
+    },
+    {
+      "name": "harness-smoke-duration-baseline-drift",
+      "classification": "public",
+      "included_in": [
+        "helper_only"
+      ],
+      "backing_scripts": [
+        "scripts/harness-smoke-durations.mjs"
+      ]
+    },
+    {
       "name": "scheduler-event-order-drift",
       "classification": "public",
       "included_in": [
@@ -2060,6 +2102,16 @@
       ]
     },
     {
+      "name": "check-harness-smoke-duration-baseline-drift",
+      "classification": "check_internal",
+      "included_in": [
+        "check"
+      ],
+      "backing_scripts": [
+        "scripts/harness-smoke-durations.mjs"
+      ]
+    },
+    {
       "name": "check-frontend-unit",
       "classification": "check_internal",
       "included_in": [
@@ -2179,7 +2231,12 @@
         "harness-smoke-task-surface-report",
         "harness-smoke-make-node-tools",
         "harness-smoke-execution-topology",
-        "harness-smoke-task-guidance",
+        "harness-smoke-task-guide-roles",
+        "harness-smoke-task-guide-phase-slices",
+        "harness-smoke-explain-phase",
+        "harness-smoke-explain-target-artifacts",
+        "harness-smoke-explain-run-progress",
+        "harness-smoke-guidance-make-wrappers",
         "harness-smoke-phase-slice",
         "harness-smoke-go-test-duration-baselines",
         "harness-smoke-service-backed-make-target-duration-baselines",
@@ -2230,7 +2287,12 @@
         "harness-smoke-task-surface-report",
         "harness-smoke-make-node-tools",
         "harness-smoke-execution-topology",
-        "harness-smoke-task-guidance",
+        "harness-smoke-task-guide-roles",
+        "harness-smoke-task-guide-phase-slices",
+        "harness-smoke-explain-phase",
+        "harness-smoke-explain-target-artifacts",
+        "harness-smoke-explain-run-progress",
+        "harness-smoke-guidance-make-wrappers",
         "harness-smoke-phase-slice",
         "harness-smoke-go-test-duration-baselines",
         "harness-smoke-service-backed-make-target-duration-baselines",
@@ -2368,9 +2430,69 @@
       ]
     },
     {
-      "name": "harness-smoke-task-guidance",
+      "name": "harness-smoke-task-guide-roles",
       "backing_scripts": [
-        "scripts/test-task-guidance.sh"
+        "scripts/test-task-guidance.mjs"
+      ],
+      "command": [
+        "$(NODE_BIN)",
+        "scripts/test-task-guidance.mjs",
+        "task-guide-roles"
+      ]
+    },
+    {
+      "name": "harness-smoke-task-guide-phase-slices",
+      "backing_scripts": [
+        "scripts/test-task-guidance.mjs"
+      ],
+      "command": [
+        "$(NODE_BIN)",
+        "scripts/test-task-guidance.mjs",
+        "task-guide-phase-slices"
+      ]
+    },
+    {
+      "name": "harness-smoke-explain-phase",
+      "backing_scripts": [
+        "scripts/test-task-guidance.mjs"
+      ],
+      "command": [
+        "$(NODE_BIN)",
+        "scripts/test-task-guidance.mjs",
+        "explain-phase"
+      ]
+    },
+    {
+      "name": "harness-smoke-explain-target-artifacts",
+      "backing_scripts": [
+        "scripts/test-task-guidance.mjs"
+      ],
+      "command": [
+        "$(NODE_BIN)",
+        "scripts/test-task-guidance.mjs",
+        "explain-target-artifacts"
+      ]
+    },
+    {
+      "name": "harness-smoke-explain-run-progress",
+      "backing_scripts": [
+        "scripts/test-task-guidance.mjs"
+      ],
+      "command": [
+        "$(NODE_BIN)",
+        "scripts/test-task-guidance.mjs",
+        "explain-run-progress"
+      ]
+    },
+    {
+      "name": "harness-smoke-guidance-make-wrappers",
+      "backing_scripts": [
+        "scripts/test-task-guidance.mjs"
+      ],
+      "command": [
+        "$(NODE_BIN)",
+        "scripts/test-task-guidance.mjs",
+        "guidance-make-wrappers"
       ]
     },
     {

@@ -18,7 +18,7 @@ export const defaultTaskSurfaceManifestPath = path.join(
   "task_surface_manifest.json",
 );
 export const defaultGeneratedMakePath = path.join(repoRoot, "tools", "task_surface.generated.mk");
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v9";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v10";
 
 const validClassifications = new Set(["public", "check_internal", "helper_only"]);
 const validInclusions = new Set(["test", "check", "ci", "release-check", "helper_only"]);
@@ -102,6 +102,7 @@ export function harnessCheck(manifest, name) {
   return {
     name: check.name,
     backing_scripts: [...check.backing_scripts],
+    command: check.command === undefined ? null : [...check.command],
   };
 }
 
@@ -246,6 +247,7 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
           }
         }
       }
+      validateCommandTokens(errors, entry.command, `${entry.name}.command`, { required: false });
     }
   }
 

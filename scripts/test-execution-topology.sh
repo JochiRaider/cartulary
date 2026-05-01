@@ -117,7 +117,7 @@ assert.deepEqual(artifactSnapshot(), artifactSnapshot(), "topology artifact rend
 const renderedCheckSchedule = renderCheckScheduleManifest(topology);
 const checkSchedule = renderedCheckSchedule.schedules.find((schedule) => schedule.target === "check");
 assert.ok(checkSchedule, "rendered check schedule must include check");
-assert.equal(checkSchedule.work_units.length, 31, "check schedule must render the current check work-unit set");
+assert.equal(checkSchedule.work_units.length, 32, "check schedule must render the current check work-unit set");
 assert.deepEqual(
   checkSchedule.work_units.map((unit) => [unit.target, unit.weight]),
   [
@@ -137,6 +137,7 @@ assert.deepEqual(
     ["go-gosec-audit", 21800],
     ["check-frontend-unit", 15000],
     ["check-harness-smoke", 14000],
+    ["check-harness-smoke-duration-baseline-drift", 13990],
     ["lint-biome", 13000],
     ["frontend-import-boundary-check", 12950],
     ["lint-scripts", 12900],

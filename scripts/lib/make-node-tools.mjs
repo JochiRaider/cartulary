@@ -285,6 +285,31 @@ export const makeNodeTools = {
       return args;
     },
   },
+  "harness-smoke-duration-baselines": {
+    inputs: ["HARNESS_SMOKE_DURATION_BASELINE", "TASK_SURFACE_MANIFEST"],
+    script: "./scripts/harness-smoke-durations.mjs",
+    resultDir: { mode: "required", positional: true },
+    usage:
+      "usage: make harness-smoke-duration-baselines RESULTS_DIR=<successful harness results dir>",
+    buildArgs(env) {
+      const args = ["update"];
+      optionalFlag(args, env, "HARNESS_SMOKE_DURATION_BASELINE", "--baseline-file");
+      optionalFlag(args, env, "TASK_SURFACE_MANIFEST", "--manifest");
+      return args;
+    },
+  },
+  "harness-smoke-duration-baseline-drift": {
+    inputs: ["HARNESS_SMOKE_DURATION_BASELINE", "TASK_SURFACE_MANIFEST"],
+    script: "./scripts/harness-smoke-durations.mjs",
+    resultDir: { mode: "currentRunDefault", positional: true },
+    usage: "usage: make harness-smoke-duration-baseline-drift [RESULTS_DIR=<dir>]",
+    buildArgs(env) {
+      const args = ["check-drift"];
+      optionalFlag(args, env, "HARNESS_SMOKE_DURATION_BASELINE", "--baseline-file");
+      optionalFlag(args, env, "TASK_SURFACE_MANIFEST", "--manifest");
+      return args;
+    },
+  },
   "scheduler-event-order-drift": {
     inputs: ["TARGET"],
     script: "./scripts/check-scheduler-event-order-drift.mjs",
