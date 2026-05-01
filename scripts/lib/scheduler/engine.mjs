@@ -10,6 +10,7 @@ import {
   resourceMapToObject,
   schedulerActiveGroups,
   schedulerDryRunLine,
+  schedulerHumanNestedProgressKey,
   schedulerHumanProgressLine,
   schedulerLogDir,
   schedulerProgressEventFields,
@@ -121,6 +122,7 @@ class SchedulerReporter {
     this.lastEventSequence = 0;
     this.lastEventMonotonicMs = -1;
     this.lastBlockedKey = null;
+    this.lastHumanNestedProgressKey = null;
     this.maxRunningWorkUnits = 0;
     this.maxRunningGroups = 0;
     this.maxActiveResourceClaims = new Map();
@@ -400,9 +402,14 @@ class SchedulerReporter {
       slowestRunning: progress.slowestRunning,
       artifacts: relToRepo(this.repoRoot, this.targetDir),
     };
+    const humanNestedProgressKey = schedulerHumanNestedProgressKey(nestedProgress);
+    const humanNestedProgress = humanNestedProgressKey && humanNestedProgressKey !== this.lastHumanNestedProgressKey
+      ? nestedProgress
+      : [];
+    this.lastHumanNestedProgressKey = humanNestedProgressKey;
     const humanProgressLine = schedulerHumanProgressLine({
       ...progressLine,
-      nestedProgress,
+      nestedProgress: humanNestedProgress,
     });
     this.progressRecorder.recordProgress({
       line: humanProgressLine,

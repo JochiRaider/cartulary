@@ -170,7 +170,20 @@ function createFixture(scenario) {
         pending: 0,
         blocked: 0,
         slowest_running: { label: "check-service-backed", duration_ms: 60700 },
-        line: "[PROGRESS] check 1/2: check-service-backed 4/6, running check-service-backed, slowest check-service-backed 60.70s",
+        nested_scheduler_progress: [
+          {
+            work_unit: "check-service-backed",
+            nested_target: "check-service-backed",
+            completed: 4,
+            total_work_units: 6,
+            running: 1,
+            pending: 1,
+            blocked: 0,
+            active_groups: { "backend-store": 1 },
+            slowest_running: { label: "backend-store", duration_ms: 45000 },
+          },
+        ],
+        line: "[PROGRESS] check 1/2: check 1/2, running check-service-backed, slowest check-service-backed 60.70s, logs tmp/task-guidance/run-h/check; bottleneck check-service-backed 4/6, running backend-store, slowest backend-store 45.00s",
       },
     ],
     slowest_running_observations: [
@@ -191,7 +204,7 @@ function createFixture(scenario) {
     progressLog,
     [
       "[CHECK-SCHEDULER] check start work_units=2 capacity={host_cpu:2}",
-      "[PROGRESS] check 1/2: check-service-backed 4/6, running check-service-backed, slowest check-service-backed 60.70s",
+      "[PROGRESS] check 1/2: check 1/2, running check-service-backed, slowest check-service-backed 60.70s, logs tmp/task-guidance/run-h/check; bottleneck check-service-backed 4/6, running backend-store, slowest backend-store 45.00s",
       "[CHECK-SCHEDULER] check summary status=pass completed_work_units=2/2 failed=none slowest=check-service-backed:60.70s",
       "",
     ].join("\n"),

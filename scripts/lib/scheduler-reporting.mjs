@@ -357,26 +357,6 @@ export function schedulerProgressLine({
   ]);
 }
 
-function schedulerHumanProgressSegment(progress) {
-  return `${progress.label} ${progress.completed}/${progress.total}`;
-}
-
-function schedulerHumanProgressSegments({ target, completed, total, nestedProgress = [], limit = 3 }) {
-  const nestedSegments = nestedProgress
-    .map((progress) => ({
-      label: progress.work_unit ?? progress.nested_target ?? target,
-      completed: progress.completed ?? 0,
-      total: progress.total_work_units ?? progress.total ?? 0,
-    }))
-    .sort((left, right) => left.label.localeCompare(right.label));
-  const segments = nestedSegments.length > 0 ? nestedSegments : [{ label: target, completed, total }];
-  const displayed = segments.slice(0, limit).map(schedulerHumanProgressSegment);
-  if (segments.length > limit) {
-    displayed.push(`+${segments.length - limit} more`);
-  }
-  return displayed.join("; ");
-}
-
 function humanProgressLabels({ activeGroups, runningLabels = [], waitingOn, blockedBy, unblocksAfter, slowestRunning }) {
   const fields = [];
   const running = runningLabels.length > 0
@@ -403,14 +383,87 @@ function humanProgressLabels({ activeGroups, runningLabels = [], waitingOn, bloc
   return fields;
 }
 
-function nestedProgressForHuman(nestedProgress = []) {
+function progressCountSegment(label, completed, total) {
+  return `${label} ${completed ?? 0}/${total ?? 0}`;
+}
+
+function nestedProgressLabel(progress) {
+  return progress.work_unit ?? progress.nested_target ?? "nested";
+}
+
+function nestedProgressTotal(progress) {
+  return progress.total_work_units ?? progress.total ?? 0;
+}
+
+function nestedProgressHasBlocker(progress) {
+  return (progress.blocked_by?.length ?? 0) > 0 || (progress.waiting_on?.length ?? 0) > 0;
+}
+
+function nestedSlowestDuration(progress) {
+  const durationMs = Number(progress.slowest_running?.duration_ms);
+  return Number.isFinite(durationMs) ? durationMs : null;
+}
+
+export function schedulerHumanNestedProgressFocus(nestedProgress = []) {
   if (nestedProgress.length === 0) {
     return null;
   }
   const ordered = [...nestedProgress].sort((left, right) =>
-    (left.work_unit ?? left.nested_target ?? "").localeCompare(right.work_unit ?? right.nested_target ?? ""),
+    nestedProgressLabel(left).localeCompare(nestedProgressLabel(right)),
   );
-  return ordered.find((progress) => progress.blocked_by?.length > 0 || progress.waiting_on?.length > 0) ?? ordered[0];
+  const blocked = ordered.find(nestedProgressHasBlocker);
+  if (blocked) {
+    return blocked;
+  }
+  const slowest = ordered
+    .filter((progress) => nestedSlowestDuration(progress) !== null)
+    .sort((left, right) =>
+      nestedSlowestDuration(right) - nestedSlowestDuration(left) ||
+      nestedProgressLabel(left).localeCompare(nestedProgressLabel(right)),
+    )[0];
+  return slowest ?? ordered[0];
+}
+
+export function schedulerHumanNestedProgressKey(nestedProgress = []) {
+  const focus = schedulerHumanNestedProgressFocus(nestedProgress);
+  if (!focus) {
+    return null;
+  }
+  return JSON.stringify({
+    work_unit: focus.work_unit ?? null,
+    nested_target: focus.nested_target ?? null,
+    completed: focus.completed ?? 0,
+    total_work_units: nestedProgressTotal(focus),
+    running: focus.running ?? 0,
+    blocked: focus.blocked ?? 0,
+    finalizing: focus.finalizing ?? null,
+    blocked_by: sortedUnique(focus.blocked_by ?? []),
+    waiting_on: sortedUnique(focus.waiting_on ?? []),
+    unblocks_after: focus.unblocks_after ?? null,
+    slowest_label: focus.slowest_running?.label ?? null,
+  });
+}
+
+function schedulerHumanProgressSegment(label, completed, total, fields = []) {
+  const suffix = fields.length > 0 ? `, ${fields.join(", ")}` : "";
+  return `${progressCountSegment(label, completed, total)}${suffix}`;
+}
+
+function schedulerHumanNestedProgressSegment(progress) {
+  const fields = humanProgressLabels({
+    activeGroups: progress.active_groups ?? {},
+    runningLabels: [],
+    blockedBy: progress.blocked_by ?? [],
+    waitingOn: progress.waiting_on ?? [],
+    unblocksAfter: progress.unblocks_after ?? null,
+    slowestRunning: progress.slowest_running ?? null,
+  });
+  return `bottleneck ${schedulerHumanProgressSegment(
+    nestedProgressLabel(progress),
+    progress.completed ?? 0,
+    nestedProgressTotal(progress),
+    fields,
+  )}`;
 }
 
 export function schedulerHumanProgressLine({
@@ -426,25 +479,23 @@ export function schedulerHumanProgressLine({
   nestedProgress = [],
   artifacts = "",
 }) {
-  const focus = nestedProgressForHuman(nestedProgress);
-  const fields = humanProgressLabels({
-    activeGroups: focus?.active_groups ?? activeGroups,
-    runningLabels: focus ? [] : runningLabels,
-    blockedBy: focus?.blocked_by ?? blockedBy,
-    waitingOn: focus?.waiting_on ?? waitingOn,
-    unblocksAfter: focus?.unblocks_after ?? unblocksAfter,
-    slowestRunning: focus?.slowest_running ?? slowestRunning,
+  const outerFields = humanProgressLabels({
+    activeGroups,
+    runningLabels,
+    blockedBy,
+    waitingOn,
+    unblocksAfter,
+    slowestRunning,
   });
   if (artifacts) {
-    fields.push(`logs ${artifacts}`);
+    outerFields.push(`logs ${artifacts}`);
   }
-  const suffix = fields.length > 0 ? `, ${fields.join(", ")}` : "";
-  return `[PROGRESS] ${target} ${completed}/${total}: ${schedulerHumanProgressSegments({
-    target,
-    completed,
-    total,
-    nestedProgress,
-  })}${suffix}\n`;
+  const segments = [schedulerHumanProgressSegment(target, completed, total, outerFields)];
+  const focus = schedulerHumanNestedProgressFocus(nestedProgress);
+  if (focus) {
+    segments.push(schedulerHumanNestedProgressSegment(focus));
+  }
+  return `[PROGRESS] ${target} ${completed}/${total}: ${segments.join("; ")}\n`;
 }
 
 export function schedulerNestedProgressLine({

@@ -53,6 +53,22 @@ assert_not_contains() {
   fi
 }
 
+assert_occurrences() {
+  local haystack="$1"
+  local needle="$2"
+  local expected="$3"
+  local label="$4"
+  local remaining="$haystack"
+  local actual=0
+
+  while [[ "$remaining" == *"$needle"* ]]; do
+    remaining="${remaining#*"$needle"}"
+    actual=$((actual + 1))
+  done
+
+  assert_equals "$actual" "$expected" "$label"
+}
+
 assert_file_absent() {
   local path="$1"
   local label="$2"
@@ -665,8 +681,9 @@ assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=5 ca
 assert_contains "$success_output" "top_weighted=setup:50,build:40,local:30,service:20,meta:10" "success concise scheduler start shows top weighted work"
 assert_contains "$success_output" "top_weighted=setup:50,build:40,local:30,service:20,meta:10 artifacts=tmp/check-scheduler-success" "success concise scheduler start shows artifact path"
 assert_contains "$success_output" "[PROGRESS] check 0/5: check 0/5, running setup, blocked by dependencies, waiting on build,setup, unblocks after setup, slowest setup " "success human scheduler progress"
-assert_contains "$success_output" "service 3/6" "success human scheduler progress includes nested service count"
+assert_contains "$success_output" "; bottleneck service 3/6" "success human scheduler progress includes nested service bottleneck"
 assert_contains "$success_output" "blocked by go_io, waiting on backend-store, unblocks after backend-integration/shard-a, slowest backend-integration/shard-a 1.23s" "success human nested scheduler progress"
+assert_occurrences "$success_output" "bottleneck service 3/6" "1" "success human nested scheduler progress is material-change throttled"
 assert_contains "$success_output" "logs tmp/check-scheduler-success" "success human scheduler progress artifact path"
 assert_contains "$success_output" "/results/success/check" "success concise scheduler progress artifact path suffix"
 assert_not_contains "$success_output" "[CHECK-SCHEDULER] check progress completed_work_units=" "quiet check scheduler hides key/value progress"
