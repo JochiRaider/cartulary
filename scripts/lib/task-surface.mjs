@@ -35,6 +35,8 @@ const validMakeRecipeTypes = new Set([
   "node_tool",
 ]);
 const compactHelpMaxEntries = 12;
+const helpTargetColumnWidth = 30;
+const helpDescriptionIndent = " ".repeat(2 + "make ".length + helpTargetColumnWidth + 1);
 const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const makeResourcePattern = /^[A-Za-z0-9_.-]+$/;
@@ -661,9 +663,7 @@ function validateCompactHelp(errors, targets, compactHelp) {
     if (target.classification !== "public") {
       errors.push(`${helpEntry.target} appears in compact_help but is not classified public`);
     }
-    if (typeof helpEntry.description !== "string" || helpEntry.description.trim() === "") {
-      errors.push(`${label}.description must be a non-empty string`);
-    }
+    validateHelpEntryText(errors, helpEntry, label);
   }
 }
 
@@ -717,9 +717,7 @@ function validateHelpTiers(errors, targets, tiers) {
       targetPlacements.push(tierName ?? "unknown");
       placements.set(helpEntry.target, targetPlacements);
 
-      if (typeof helpEntry.description !== "string" || helpEntry.description.trim() === "") {
-        errors.push(`${label}.description must be a non-empty string`);
-      }
+      validateHelpEntryText(errors, helpEntry, label);
     }
   }
 
@@ -732,6 +730,21 @@ function validateHelpTiers(errors, targets, tiers) {
       errors.push(`public target ${target.name} is missing help tier placement`);
     } else if (targetPlacements.length > 1) {
       errors.push(`public target ${target.name} appears in multiple help tiers: ${targetPlacements.join(",")}`);
+    }
+  }
+}
+
+function validateHelpEntryText(errors, helpEntry, label) {
+  if (typeof helpEntry.description !== "string" || helpEntry.description.trim() === "") {
+    errors.push(`${label}.description must be a non-empty string`);
+  } else if (helpEntry.description.includes("\n")) {
+    errors.push(`${label}.description must be a single line`);
+  }
+  if (helpEntry.usage !== undefined) {
+    if (typeof helpEntry.usage !== "string" || helpEntry.usage.trim() === "") {
+      errors.push(`${label}.usage must be a non-empty string when present`);
+    } else if (helpEntry.usage.includes("\n")) {
+      errors.push(`${label}.usage must be a single line`);
     }
   }
 }
@@ -935,8 +948,19 @@ function appendHelpTierLines(lines, tier) {
   }
   lines.push(`${tier.name}:`);
   for (const entry of tier.entries) {
-    lines.push(`  make ${entry.target.padEnd(30)} ${entry.description}`);
+    lines.push(...renderHelpEntryLines(entry));
   }
+}
+
+function renderHelpEntryLines(entry) {
+  const command = `make ${entry.target}`;
+  const description = entry.description.trim();
+  const usage = typeof entry.usage === "string" ? entry.usage.trim() : "";
+  if (!usage && entry.target.length <= helpTargetColumnWidth) {
+    return [`  make ${entry.target.padEnd(helpTargetColumnWidth)} ${description}`];
+  }
+  const detail = usage ? `${usage} ${description}` : description;
+  return [`  ${command}`, `${helpDescriptionIndent}${detail}`];
 }
 
 function trimTrailingBlank(lines) {

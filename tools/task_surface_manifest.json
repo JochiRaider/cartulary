@@ -131,11 +131,13 @@
         },
         {
           "target": "phase-slice",
-          "description": "PHASE=phaseN run the selected phase target slice"
+          "usage": "PHASE=phaseN",
+          "description": "run the selected phase target slice"
         },
         {
           "target": "service-backed-slice",
-          "description": "PHASE=phaseN run the selected phase service-backed slice"
+          "usage": "PHASE=phaseN",
+          "description": "run the selected phase service-backed slice"
         },
         {
           "target": "backend-unit",
@@ -233,7 +235,8 @@
       "entries": [
         {
           "target": "task-guide",
-          "description": "ROLE=feature-dev PHASE=phase2 recommend what to run"
+          "usage": "ROLE=feature-dev PHASE=phase2",
+          "description": "recommend what to run"
         },
         {
           "target": "task-surface-report",
@@ -249,19 +252,23 @@
         },
         {
           "target": "explain-phase",
-          "description": "PHASE=phase2 explain phase evidence and target coverage"
+          "usage": "PHASE=phase2",
+          "description": "explain phase evidence and target coverage"
         },
         {
           "target": "explain-target",
-          "description": "TARGET=backend-store DETAIL=rows explain one target"
+          "usage": "TARGET=backend-store DETAIL=rows",
+          "description": "explain one target"
         },
         {
           "target": "explain-run",
-          "description": "RESULTS_DIR=<root|run-dir> inspect run summary artifacts"
+          "usage": "RESULTS_DIR=<root|run-dir>",
+          "description": "inspect run summary artifacts"
         },
         {
           "target": "fixture-report",
-          "description": "RESULTS_DIR=<root|run-dir> report fixture cost hotspots"
+          "usage": "RESULTS_DIR=<root|run-dir>",
+          "description": "report fixture cost hotspots"
         }
       ]
     },
@@ -302,7 +309,8 @@
         },
         {
           "target": "go-test-duration-baselines",
-          "description": "RESULTS_DIR=<dir> refresh Go test duration baselines"
+          "usage": "RESULTS_DIR=<dir>",
+          "description": "refresh Go test duration baselines"
         },
         {
           "target": "go-test-duration-baseline-coverage",
@@ -310,31 +318,38 @@
         },
         {
           "target": "go-test-duration-baseline-drift",
-          "description": "RESULTS_DIR=<dir> verify Go shard baseline freshness"
+          "usage": "RESULTS_DIR=<dir>",
+          "description": "verify Go shard baseline freshness"
         },
         {
           "target": "browser-e2e-duration-baseline-drift",
-          "description": "RESULTS_DIR=<dir> verify browser spec baseline freshness"
+          "usage": "RESULTS_DIR=<dir>",
+          "description": "verify browser spec baseline freshness"
         },
         {
           "target": "service-backed-make-target-duration-baselines",
-          "description": "RESULTS_DIR=<dir> refresh service-backed make-target baselines"
+          "usage": "RESULTS_DIR=<dir>",
+          "description": "refresh service-backed make-target baselines"
         },
         {
           "target": "service-backed-make-target-duration-baseline-drift",
-          "description": "RESULTS_DIR=<dir> verify service-backed make-target baseline freshness"
+          "usage": "RESULTS_DIR=<dir>",
+          "description": "verify service-backed make-target baseline freshness"
         },
         {
           "target": "harness-smoke-duration-baselines",
-          "description": "RESULTS_DIR=<dir> refresh harness smoke duration baselines"
+          "usage": "RESULTS_DIR=<dir>",
+          "description": "refresh harness smoke duration baselines"
         },
         {
           "target": "harness-smoke-duration-baseline-drift",
-          "description": "RESULTS_DIR=<dir> verify harness smoke baseline freshness"
+          "usage": "RESULTS_DIR=<dir>",
+          "description": "verify harness smoke baseline freshness"
         },
         {
           "target": "scheduler-event-order-drift",
-          "description": "RESULTS_DIR=<dir> verify scheduler event stream ordering"
+          "usage": "RESULTS_DIR=<dir>",
+          "description": "verify scheduler event stream ordering"
         }
       ]
     },

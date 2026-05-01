@@ -96,6 +96,63 @@ assert_contains "$valid_all_output" "task classifications:" "current exhaustive 
 assert_contains "$valid_all_output" "logical harness checks:" "current exhaustive report harness section"
 assert_contains "$valid_all_output" "phase-map execution dependencies:" "current exhaustive report phase dependency section"
 
+"$NODE_BIN" --input-type=module - "$ROOT_DIR" <<'EOF'
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+
+const [root] = process.argv.slice(2);
+const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
+const { helpAllLines } = await import(pathToFileURL(path.join(root, "scripts/lib/task-surface.mjs")));
+const longTarget = "synthetic-help-target-name-longer-than-command-column";
+const usageTarget = "synthetic-help-usage";
+manifest.targets.push(
+  {
+    name: longTarget,
+    classification: "public",
+    included_in: ["helper_only"],
+  },
+  {
+    name: usageTarget,
+    classification: "public",
+    included_in: ["helper_only"],
+  },
+);
+manifest.help_tiers[0].entries.push(
+  {
+    target: longTarget,
+    description: "synthetic long target description",
+  },
+  {
+    target: usageTarget,
+    usage: "RESULTS_DIR=<dir>",
+    description: "synthetic usage description",
+  },
+);
+
+const lines = helpAllLines(manifest);
+const continuationIndent = " ".repeat(38);
+const longIndex = lines.indexOf(`  make ${longTarget}`);
+assert.notEqual(longIndex, -1, "long target must render command on its own line");
+assert.equal(
+  lines[longIndex + 1],
+  `${continuationIndent}synthetic long target description`,
+  "long target description must render on an aligned continuation line",
+);
+const usageIndex = lines.indexOf(`  make ${usageTarget}`);
+assert.notEqual(usageIndex, -1, "usage target must render command on its own line");
+assert.equal(
+  lines[usageIndex + 1],
+  `${continuationIndent}RESULTS_DIR=<dir> synthetic usage description`,
+  "usage text and description must render on an aligned continuation line",
+);
+assert.ok(
+  !lines.some((line) => line.includes(`${longTarget} synthetic long target description`)),
+  "long target help must not concatenate target and description",
+);
+EOF
+
 phase_root="$(mktemp -d "$ROOT_DIR/tmp/task-surface-phase-root.XXXXXX")"
 cleanup_paths+=("$phase_root")
 mkdir -p "$phase_root/tools"

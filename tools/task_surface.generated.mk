@@ -46,8 +46,10 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'' \
 	'fast verification:' \
 	'  make test-fast                      run the narrower local verification loop' \
-	'  make phase-slice                    PHASE=phaseN run the selected phase target slice' \
-	'  make service-backed-slice           PHASE=phaseN run the selected phase service-backed slice' \
+	'  make phase-slice' \
+	'                                      PHASE=phaseN run the selected phase target slice' \
+	'  make service-backed-slice' \
+	'                                      PHASE=phaseN run the selected phase service-backed slice' \
 	'  make backend-unit                   run pure backend unit evidence' \
 	'  make backend-store                  run service-backed store-domain evidence' \
 	'  make backend-integration            run backend integration evidence' \
@@ -73,14 +75,19 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make browser-e2e-visual             run isolated visual browser E2E' \
 	'' \
 	'investigate a run:' \
-	'  make task-guide                     ROLE=feature-dev PHASE=phase2 recommend what to run' \
+	'  make task-guide' \
+	'                                      ROLE=feature-dev PHASE=phase2 recommend what to run' \
 	'  make task-surface-report            print the root Make task-surface inventory' \
 	'  make target-plan                    explain backend target execution families' \
 	'  make target-plan-json               emit deterministic backend target plan JSON' \
-	'  make explain-phase                  PHASE=phase2 explain phase evidence and target coverage' \
-	'  make explain-target                 TARGET=backend-store DETAIL=rows explain one target' \
-	'  make explain-run                    RESULTS_DIR=<root|run-dir> inspect run summary artifacts' \
-	'  make fixture-report                 RESULTS_DIR=<root|run-dir> report fixture cost hotspots' \
+	'  make explain-phase' \
+	'                                      PHASE=phase2 explain phase evidence and target coverage' \
+	'  make explain-target' \
+	'                                      TARGET=backend-store DETAIL=rows explain one target' \
+	'  make explain-run' \
+	'                                      RESULTS_DIR=<root|run-dir> inspect run summary artifacts' \
+	'  make fixture-report' \
+	'                                      RESULTS_DIR=<root|run-dir> report fixture cost hotspots' \
 	'' \
 	'phase maintenance:' \
 	'  make generate-drift                 fail on generated artifact drift' \
@@ -91,15 +98,24 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make phase-schedules                regenerate committed phase-derived schedules' \
 	'  make phase-schedule-drift           fail on phase-derived schedule drift' \
 	'  make benchmark-claim-check          validate retained Core 05 benchmark claim artifacts' \
-	'  make go-test-duration-baselines     RESULTS_DIR=<dir> refresh Go test duration baselines' \
-	'  make go-test-duration-baseline-coverage verify Go shard baseline coverage' \
-	'  make go-test-duration-baseline-drift RESULTS_DIR=<dir> verify Go shard baseline freshness' \
-	'  make browser-e2e-duration-baseline-drift RESULTS_DIR=<dir> verify browser spec baseline freshness' \
-	'  make service-backed-make-target-duration-baselines RESULTS_DIR=<dir> refresh service-backed make-target baselines' \
-	'  make service-backed-make-target-duration-baseline-drift RESULTS_DIR=<dir> verify service-backed make-target baseline freshness' \
-	'  make harness-smoke-duration-baselines RESULTS_DIR=<dir> refresh harness smoke duration baselines' \
-	'  make harness-smoke-duration-baseline-drift RESULTS_DIR=<dir> verify harness smoke baseline freshness' \
-	'  make scheduler-event-order-drift    RESULTS_DIR=<dir> verify scheduler event stream ordering' \
+	'  make go-test-duration-baselines' \
+	'                                      RESULTS_DIR=<dir> refresh Go test duration baselines' \
+	'  make go-test-duration-baseline-coverage' \
+	'                                      verify Go shard baseline coverage' \
+	'  make go-test-duration-baseline-drift' \
+	'                                      RESULTS_DIR=<dir> verify Go shard baseline freshness' \
+	'  make browser-e2e-duration-baseline-drift' \
+	'                                      RESULTS_DIR=<dir> verify browser spec baseline freshness' \
+	'  make service-backed-make-target-duration-baselines' \
+	'                                      RESULTS_DIR=<dir> refresh service-backed make-target baselines' \
+	'  make service-backed-make-target-duration-baseline-drift' \
+	'                                      RESULTS_DIR=<dir> verify service-backed make-target baseline freshness' \
+	'  make harness-smoke-duration-baselines' \
+	'                                      RESULTS_DIR=<dir> refresh harness smoke duration baselines' \
+	'  make harness-smoke-duration-baseline-drift' \
+	'                                      RESULTS_DIR=<dir> verify harness smoke baseline freshness' \
+	'  make scheduler-event-order-drift' \
+	'                                      RESULTS_DIR=<dir> verify scheduler event stream ordering' \
 	'' \
 	'release:' \
 	'  make ci                             run the provider-neutral CI entrypoint' \
