@@ -12,6 +12,8 @@ const expected = {
   staticcheckTool: "honnef.co/go/tools/cmd/staticcheck@v0.7.0",
   govulncheckTool: "golang.org/x/vuln/cmd/govulncheck@v1.3.0",
   gosecTool: "github.com/securego/gosec/v2/cmd/gosec@v2.26.1",
+  cyclonedxGomodTool: "github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0",
+  syftTool: "github.com/anchore/syft/cmd/syft@v1.44.0",
   shellcheckVersion: "0.11.0",
   testcontainersGoVersion: "v0.42.0",
 };
@@ -120,6 +122,20 @@ function checkMakefile(root, mismatches) {
     "GOSEC_TOOL",
     expected.gosecTool,
     parseMakeVariable(makefile, "GOSEC_TOOL"),
+  );
+  checkEqual(
+    mismatches,
+    file,
+    "CYCLONEDX_GOMOD_TOOL",
+    expected.cyclonedxGomodTool,
+    parseMakeVariable(makefile, "CYCLONEDX_GOMOD_TOOL"),
+  );
+  checkEqual(
+    mismatches,
+    file,
+    "SYFT_TOOL",
+    expected.syftTool,
+    parseMakeVariable(makefile, "SYFT_TOOL"),
   );
   checkEqual(
     mismatches,
@@ -284,7 +300,7 @@ function checkReadme(root, mismatches) {
 function checkAgents(root, mismatches) {
   const file = "AGENTS.md";
   const agents = readRepoFile(root, file);
-  const pinnedToolsLine = `- Pinned bootstrap tools: \`${expected.sqlcTool}\`, \`${expected.gooseTool}\`, \`${expected.staticcheckTool}\`, \`${expected.govulncheckTool}\`, \`${expected.gosecTool}\`, ShellCheck \`${expected.shellcheckVersion}\`, and \`github.com/testcontainers/testcontainers-go ${expected.testcontainersGoVersion}\`.`;
+  const pinnedToolsLine = `- Pinned bootstrap tools: \`${expected.sqlcTool}\`, \`${expected.gooseTool}\`, \`${expected.staticcheckTool}\`, \`${expected.govulncheckTool}\`, \`${expected.gosecTool}\`, \`${expected.cyclonedxGomodTool}\`, \`${expected.syftTool}\`, ShellCheck \`${expected.shellcheckVersion}\`, and \`github.com/testcontainers/testcontainers-go ${expected.testcontainersGoVersion}\`.`;
   checkEqual(
     mismatches,
     file,

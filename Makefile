@@ -30,6 +30,8 @@ GOOSE_BIN ?= $(TOOLBIN_DIR)/goose-v3.27.0
 STATICCHECK_BIN ?= $(TOOLBIN_DIR)/staticcheck-v0.7.0
 GOVULNCHECK_BIN ?= $(TOOLBIN_DIR)/govulncheck-v1.3.0
 GOSEC_BIN ?= $(TOOLBIN_DIR)/gosec-v2.26.1
+CYCLONEDX_GOMOD_BIN ?= $(TOOLBIN_DIR)/cyclonedx-gomod-v1.10.0
+SYFT_BIN ?= $(TOOLBIN_DIR)/syft-v1.44.0
 SHELLCHECK_VERSION ?= 0.11.0
 SHELLCHECK_BIN ?= $(TOOLBIN_DIR)/shellcheck-v$(SHELLCHECK_VERSION)
 SHELLCHECK_ARCHIVE_DIR ?= $(CURDIR)/tmp/shellcheck-archives
@@ -88,7 +90,7 @@ CARTULARY_TEST_RESULTS_DIR ?= $(CURDIR)/.cartulary/test-results
 CARTULARY_TEST_RUN_ID ?= $(shell if [ -x /usr/bin/date ]; then now="$$(/usr/bin/date -u +%Y%m%dT%H%M%SZ)"; elif command -v date >/dev/null 2>&1; then now="$$(date -u +%Y%m%dT%H%M%SZ)"; else now="unknown-time"; fi; printf '%s-p%s' "$$now" "$$$$")
 RELEASE_ARTIFACT_DIR ?= $(CURDIR)/.cartulary/release-artifacts
 LICENSE_REPORT_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/license-report.json
-SBOM_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/sbom.cdx.json
+SBOM_ARTIFACT ?= $(RELEASE_ARTIFACT_DIR)/sbom.cyclonedx.json
 BENCHMARK_MANIFEST ?= $(CURDIR)/.cartulary/benchmark/benchmark_manifest.json
 export CARTULARY_OUTPUT_MODE VERBOSE CI_VERBOSE CARTULARY_TEST_RESULTS_DIR CARTULARY_TEST_RUN_ID CARTULARY_TEST_INVENTORY
 
@@ -115,6 +117,8 @@ GOOSE_TOOL := github.com/pressly/goose/v3/cmd/goose@v3.27.0
 STATICCHECK_TOOL := honnef.co/go/tools/cmd/staticcheck@v0.7.0
 GOVULNCHECK_TOOL := golang.org/x/vuln/cmd/govulncheck@v1.3.0
 GOSEC_TOOL := github.com/securego/gosec/v2/cmd/gosec@v2.26.1
+CYCLONEDX_GOMOD_TOOL := github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0
+SYFT_TOOL := github.com/anchore/syft/cmd/syft@v1.44.0
 TESTCONTAINERS_GO_VERSION := v0.42.0
 
 FRONTEND_INSTALL_INPUTS := package.json pnpm-lock.yaml pnpm-workspace.yaml apps/web/package.json $(wildcard packages/*/package.json)
@@ -204,6 +208,10 @@ endef
 
 include tools/task_surface.generated.mk
 
+$(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT): $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(CYCLONEDX_GOMOD_BIN) $(SYFT_BIN) scripts/generate-sbom-license-evidence.mjs scripts/validate-cyclonedx.mjs go.mod go.sum package.json pnpm-lock.yaml pnpm-workspace.yaml docker-compose.dev.yml $(wildcard apps/web/package.json packages/*/package.json)
+	$(Q)mkdir -p $(RELEASE_ARTIFACT_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
+	$(RUN_PHASE_ALLOW_SUCCESS_LOG) "generate SBOM/license evidence" -- env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_BIN="$(NODE_BIN)" PNPM="$(PNPM)" CYCLONEDX_GOMOD_BIN="$(CYCLONEDX_GOMOD_BIN)" SYFT_BIN="$(SYFT_BIN)" RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)" LICENSE_REPORT_ARTIFACT="$(LICENSE_REPORT_ARTIFACT)" SBOM_ARTIFACT="$(SBOM_ARTIFACT)" $(NODE_BIN) ./scripts/generate-sbom-license-evidence.mjs
+
 $(NODE_BIN): scripts/bootstrap-node-runtime.sh Makefile
 	$(Q)NODE_VERSION="$(NODE_VERSION)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" ./scripts/bootstrap-node-runtime.sh
 
@@ -257,6 +265,18 @@ $(GOSEC_BIN):
 	$(Q)rm -f $(TOOLBIN_DIR)/gosec $(GOSEC_BIN)
 	$(RUN_PHASE) "bootstrap gosec tool" -- env GOBIN=$(TOOLBIN_DIR) $(GO_RUN_ENV) $(GO) install $(GOSEC_TOOL)
 	$(Q)mv $(TOOLBIN_DIR)/gosec $(GOSEC_BIN)
+
+$(CYCLONEDX_GOMOD_BIN):
+	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
+	$(Q)rm -f $(TOOLBIN_DIR)/cyclonedx-gomod $(CYCLONEDX_GOMOD_BIN)
+	$(RUN_PHASE) "bootstrap cyclonedx-gomod tool" -- bash -c 'cd "$$1" && env GOBIN="$$2" GOCACHE="$$3" GOMODCACHE="$$4" "$$5" install "$$6"' _ "$(GO_CACHE_DIR)" "$(TOOLBIN_DIR)" "$(GO_CACHE_DIR)" "$(GO_MOD_CACHE_DIR)" "$(GO)" "$(CYCLONEDX_GOMOD_TOOL)"
+	$(Q)mv $(TOOLBIN_DIR)/cyclonedx-gomod $(CYCLONEDX_GOMOD_BIN)
+
+$(SYFT_BIN):
+	$(Q)mkdir -p $(TOOLBIN_DIR) $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
+	$(Q)rm -f $(TOOLBIN_DIR)/syft $(SYFT_BIN)
+	$(RUN_PHASE) "bootstrap syft tool" -- bash -c 'cd "$$1" && env GOBIN="$$2" GOCACHE="$$3" GOMODCACHE="$$4" "$$5" install "$$6"' _ "$(GO_CACHE_DIR)" "$(TOOLBIN_DIR)" "$(GO_CACHE_DIR)" "$(GO_MOD_CACHE_DIR)" "$(GO)" "$(SYFT_TOOL)"
+	$(Q)mv $(TOOLBIN_DIR)/syft $(SYFT_BIN)
 
 $(SHELLCHECK_BIN): scripts/bootstrap-shellcheck.sh Makefile
 	$(RUN_PHASE) "bootstrap shellcheck tool" -- env SHELLCHECK_VERSION=$(SHELLCHECK_VERSION) TOOLBIN_DIR=$(TOOLBIN_DIR) SHELLCHECK_BIN=$(SHELLCHECK_BIN) CARTULARY_SHELLCHECK_ARCHIVE_DIR=$(SHELLCHECK_ARCHIVE_DIR) ./scripts/bootstrap-shellcheck.sh

@@ -593,6 +593,8 @@
         "$(STATICCHECK_BIN)",
         "$(GOVULNCHECK_BIN)",
         "$(GOSEC_BIN)",
+        "$(CYCLONEDX_GOMOD_BIN)",
+        "$(SYFT_BIN)",
         "$(SHELLCHECK_BIN)",
         "frontend-install",
         "playwright-install"
@@ -1834,7 +1836,9 @@
       "sequence": "release-check"
     },
     "license-report": {
-      "prerequisites": [],
+      "prerequisites": [
+        "$(LICENSE_REPORT_ARTIFACT)"
+      ],
       "type": "phase_command",
       "mode": "run_phase",
       "phase_label": "license-report",
@@ -1846,7 +1850,9 @@
       "test_target": "self"
     },
     "sbom": {
-      "prerequisites": [],
+      "prerequisites": [
+        "$(SBOM_ARTIFACT)"
+      ],
       "type": "phase_command",
       "mode": "run_phase",
       "phase_label": "sbom",
@@ -3056,6 +3062,8 @@
         "release-check"
       ],
       "backing_scripts": [
+        "scripts/generate-sbom-license-evidence.mjs",
+        "scripts/validate-cyclonedx.mjs",
         "scripts/check-release-artifact.sh"
       ]
     },
@@ -3066,6 +3074,8 @@
         "release-check"
       ],
       "backing_scripts": [
+        "scripts/generate-sbom-license-evidence.mjs",
+        "scripts/validate-cyclonedx.mjs",
         "scripts/check-release-artifact.sh"
       ]
     },
@@ -3129,6 +3139,7 @@
         "harness-smoke-run-go-gosec-audit",
         "harness-smoke-run-make-sequence-fast",
         "harness-smoke-release-task-surface",
+        "harness-smoke-sbom-license-evidence",
         "harness-smoke-benchmark-claim-check",
         "harness-smoke-task-surface-report",
         "harness-smoke-make-node-tools",
@@ -3188,6 +3199,7 @@
         "harness-smoke-run-go-gosec-audit",
         "harness-smoke-run-make-sequence-fast",
         "harness-smoke-release-task-surface",
+        "harness-smoke-sbom-license-evidence",
         "harness-smoke-benchmark-claim-check",
         "harness-smoke-task-surface-report",
         "harness-smoke-make-node-tools",
@@ -3320,6 +3332,18 @@
       "name": "harness-smoke-release-task-surface",
       "backing_scripts": [
         "scripts/test-release-task-surface.sh"
+      ]
+    },
+    {
+      "name": "harness-smoke-sbom-license-evidence",
+      "backing_scripts": [
+        "scripts/test-sbom-license-evidence.mjs",
+        "scripts/generate-sbom-license-evidence.mjs",
+        "scripts/validate-cyclonedx.mjs"
+      ],
+      "command": [
+        "$(NODE_BIN)",
+        "./scripts/test-sbom-license-evidence.mjs"
       ]
     },
     {

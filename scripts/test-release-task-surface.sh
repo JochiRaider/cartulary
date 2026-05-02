@@ -170,7 +170,11 @@ help_all_output="$(make --no-print-directory help-all)"
 assert_contains "$makefile_content" " test-fast " "release phony target group"
 assert_contains "$makefile_content" " release-check license-report sbom" "release phony targets"
 assert_contains "$release_check_block" '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence release-check' "release-check sequence runner"
+assert_contains "$makefile_content" '$(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT):' "SBOM/license artifact generation rule"
+assert_contains "$makefile_content" './scripts/generate-sbom-license-evidence.mjs' "SBOM/license generator command"
+assert_contains "$license_report_block" 'license-report: $(LICENSE_REPORT_ARTIFACT)' "license-report generation prerequisite"
 assert_contains "$license_report_block" './scripts/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"' "license-report validation command"
+assert_contains "$sbom_block" 'sbom: $(SBOM_ARTIFACT)' "sbom generation prerequisite"
 assert_contains "$sbom_block" './scripts/check-release-artifact.sh "SBOM" "$(SBOM_ARTIFACT)"' "sbom validation command"
 assert_not_contains "$help_output" "make release-check" "compact help omits release-check documentation"
 assert_contains "$help_all_output" "phase -> target -> scheduler work unit -> artifact" "help-all concept hierarchy"
@@ -179,32 +183,24 @@ assert_contains "$help_all_output" "extended harness" "help-all release-check ex
 
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/release-task-surface.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
-missing_license="$tmp_dir/missing-license.json"
 empty_license="$tmp_dir/empty-license.json"
 valid_license="$tmp_dir/license-report.json"
-missing_sbom="$tmp_dir/missing-sbom.cdx.json"
-empty_sbom="$tmp_dir/empty-sbom.cdx.json"
-valid_sbom="$tmp_dir/sbom.cdx.json"
-
-license_missing_output="$(assert_make_fails "missing license report" LICENSE_REPORT_ARTIFACT="$missing_license" license-report)"
-assert_contains "$license_missing_output" "license report artifact missing" "missing license report failure"
+empty_sbom="$tmp_dir/empty-sbom.cyclonedx.json"
+valid_sbom="$tmp_dir/sbom.cyclonedx.json"
 
 touch "$empty_license"
-license_empty_output="$(assert_make_fails "empty license report" LICENSE_REPORT_ARTIFACT="$empty_license" license-report)"
+license_empty_output="$(assert_make_fails "empty license report" CYCLONEDX_GOMOD_BIN=/bin/true SYFT_BIN=/bin/true LICENSE_REPORT_ARTIFACT="$empty_license" license-report)"
 assert_contains "$license_empty_output" "license report artifact is empty" "empty license report failure"
 
 printf '%s\n' '{"licenses":[]}' >"$valid_license"
-assert_make_passes "valid license report" LICENSE_REPORT_ARTIFACT="$valid_license" license-report >/dev/null
-
-sbom_missing_output="$(assert_make_fails "missing SBOM" SBOM_ARTIFACT="$missing_sbom" sbom)"
-assert_contains "$sbom_missing_output" "SBOM artifact missing" "missing SBOM failure"
+assert_make_passes "valid license report" CYCLONEDX_GOMOD_BIN=/bin/true SYFT_BIN=/bin/true LICENSE_REPORT_ARTIFACT="$valid_license" license-report >/dev/null
 
 touch "$empty_sbom"
-sbom_empty_output="$(assert_make_fails "empty SBOM" SBOM_ARTIFACT="$empty_sbom" sbom)"
+sbom_empty_output="$(assert_make_fails "empty SBOM" CYCLONEDX_GOMOD_BIN=/bin/true SYFT_BIN=/bin/true SBOM_ARTIFACT="$empty_sbom" sbom)"
 assert_contains "$sbom_empty_output" "SBOM artifact is empty" "empty SBOM failure"
 
 printf '%s\n' '{"bomFormat":"CycloneDX"}' >"$valid_sbom"
-assert_make_passes "valid SBOM" SBOM_ARTIFACT="$valid_sbom" sbom >/dev/null
+assert_make_passes "valid SBOM" CYCLONEDX_GOMOD_BIN=/bin/true SYFT_BIN=/bin/true SBOM_ARTIFACT="$valid_sbom" sbom >/dev/null
 
 assert_no_ambient_summary "license-report"
 assert_no_ambient_summary "sbom"

@@ -152,7 +152,7 @@ help-all:
 doctor:
 	$(Q)GO="$(GO)" NODE_BIN="$(NODE_BIN)" NODE_VERSION="$(NODE_VERSION)" PNPM="$(PNPM)" PNPM_VERSION="$(PNPM_VERSION)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" SHELLCHECK_BIN="$(SHELLCHECK_BIN)" SHELLCHECK_VERSION="$(SHELLCHECK_VERSION)" bash ./scripts/check-doctor.sh
 
-bootstrap: $(SQLC_BIN) $(GOOSE_BIN) $(STATICCHECK_BIN) $(GOVULNCHECK_BIN) $(GOSEC_BIN) $(SHELLCHECK_BIN) frontend-install playwright-install
+bootstrap: $(SQLC_BIN) $(GOOSE_BIN) $(STATICCHECK_BIN) $(GOVULNCHECK_BIN) $(GOSEC_BIN) $(CYCLONEDX_GOMOD_BIN) $(SYFT_BIN) $(SHELLCHECK_BIN) frontend-install playwright-install
 	$(Q)mkdir -p $(GO_CACHE_DIR) $(GO_MOD_CACHE_DIR)
 
 bootstrap-node-runtime: $(NODE_BIN)
@@ -532,11 +532,11 @@ release-check: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_MANIFEST)" $(RUN_MAKE_SEQUENCE_SCRIPT) --sequence release-check
 
 license-report: export CARTULARY_TEST_TARGET ?= license-report
-license-report:
+license-report: $(LICENSE_REPORT_ARTIFACT)
 	$(Q)$(RUN_PHASE_SCRIPT) "license-report" -- ./scripts/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"
 
 sbom: export CARTULARY_TEST_TARGET ?= sbom
-sbom:
+sbom: $(SBOM_ARTIFACT)
 	$(Q)$(RUN_PHASE_SCRIPT) "sbom" -- ./scripts/check-release-artifact.sh "SBOM" "$(SBOM_ARTIFACT)"
 
 build: build-server build-migrate
