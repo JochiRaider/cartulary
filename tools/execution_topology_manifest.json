@@ -516,6 +516,11 @@
             "description": "verify Go shard baseline freshness"
           },
           {
+            "target": "browser-e2e-duration-baselines",
+            "usage": "RESULTS_DIR=<dir>",
+            "description": "refresh browser spec duration baselines"
+          },
+          {
             "target": "browser-e2e-duration-baseline-drift",
             "usage": "RESULTS_DIR=<dir>",
             "description": "verify browser spec baseline freshness"
@@ -1283,6 +1288,10 @@
         "prerequisites": []
       },
       "go-test-duration-baseline-drift": {
+        "type": "node_tool",
+        "prerequisites": []
+      },
+      "browser-e2e-duration-baselines": {
         "type": "node_tool",
         "prerequisites": []
       },
@@ -2634,6 +2643,16 @@
         ],
         "backing_scripts": [
           "scripts/check-go-test-duration-baseline-drift.mjs"
+        ]
+      },
+      {
+        "name": "browser-e2e-duration-baselines",
+        "classification": "public",
+        "included_in": [
+          "helper_only"
+        ],
+        "backing_scripts": [
+          "scripts/lib/browser-shard-plan.mjs"
         ]
       },
       {

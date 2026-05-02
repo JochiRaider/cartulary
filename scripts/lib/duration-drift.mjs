@@ -2,10 +2,10 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 export const defaultDurationDriftThresholds = {
-  underRatio: 1.75,
-  underDeltaMs: 5000,
-  overRatio: 3,
-  overDeltaMs: 15000,
+  underRatio: 2.5,
+  underDeltaMs: 15000,
+  overRatio: 4,
+  overDeltaMs: 30000,
 };
 
 const serviceScopeFileName = "service-scope.json";

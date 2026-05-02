@@ -100,13 +100,13 @@ assert_contains "$update_output" "shard=backend-integration-auth-shard-02 go_mod
 write_empty_baseline "$tmp_dir/make-baseline.json"
 make_update_output="$(
   RESULTS_DIR="$results_dir" \
-  BASELINE_FILE="$tmp_dir/make-baseline.json" \
+  GO_TEST_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
   PRUNE_OBSERVED_PACKAGES=1 \
     "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" go-test-duration-baselines 2>&1
 )"
 assert_contains "$make_update_output" "skipped contaminated Go shard timing artifacts" "make contaminated refresh skip output"
 RESULTS_DIR="$results_dir" \
-BASELINE_FILE="$tmp_dir/make-baseline.json" \
+GO_TEST_DURATION_BASELINE="$tmp_dir/make-baseline.json" \
   "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" go-test-duration-baseline-drift >/dev/null 2>/dev/null
 
 "$NODE_BIN" - "$tmp_dir/baseline.json" <<'EOF'
@@ -173,7 +173,7 @@ EOF
 
 allowed_output="$(
   RESULTS_DIR="$results_dir" \
-  BASELINE_FILE="$tmp_dir/allowed-command-overhead.json" \
+  GO_TEST_DURATION_BASELINE="$tmp_dir/allowed-command-overhead.json" \
   ALLOW_COMMAND_OVERHEAD_DECREASE=1 \
     "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" go-test-duration-baselines 2>&1
 )"
@@ -190,9 +190,59 @@ EOF
 
 "$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/baseline.json" "$results_dir" >/dev/null 2>/dev/null
 
-drift_warning_output="$("$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/baseline.json" "$results_dir" 2>&1 >/dev/null)"
+cat >"$tmp_dir/contaminated-underplanned.json" <<'JSON'
+{
+  "schema_id": "cartulary.go_test_duration_baselines.v4",
+  "command_overheads_by_target": {
+    "backend-integration": 10000,
+    "backend-store": 1000
+  },
+  "package_overheads": {
+    "backend-integration::github.com/JochiRaider/cartulary/internal/modules/auth": 10000,
+    "backend-store::github.com/JochiRaider/cartulary/internal/modules/auth": 1000
+  },
+  "raw_aggregates": {
+    "backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/httptestx": 1000,
+    "backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/pgtest": 5000
+  },
+  "tests": {
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05": 20000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01": 1000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_UserAdminAudit_I_1_03": 1000
+  }
+}
+JSON
+drift_warning_output="$("$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/contaminated-underplanned.json" "$results_dir" 2>&1 >/dev/null)"
 assert_contains "$drift_warning_output" "ignored underplanned contaminated shard=backend-integration-auth-shard-02" "contaminated underplanned drift warning"
 assert_contains "$drift_warning_output" "go_module_downloads=2" "contaminated underplanned download count"
+
+cat >"$tmp_dir/tolerated-underplanned.json" <<'JSON'
+{
+  "schema_id": "cartulary.go_test_duration_baselines.v4",
+  "command_overheads_by_target": {
+    "backend-integration": 11000,
+    "backend-store": 1000
+  },
+  "package_overheads": {
+    "backend-integration::github.com/JochiRaider/cartulary/internal/modules/auth": 13000,
+    "backend-store::github.com/JochiRaider/cartulary/internal/modules/auth": 1000
+  },
+  "raw_aggregates": {
+    "backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/httptestx": 1000,
+    "backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/pgtest": 5000
+  },
+  "tests": {
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05": 20000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_LoginSessionLifecycle_I_1_01": 1000,
+    "github.com/JochiRaider/cartulary/internal/modules/auth::TestPhase1_UserAdminAudit_I_1_03": 1000
+  }
+}
+JSON
+"$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/tolerated-underplanned.json" "$results_dir" >/dev/null 2>/dev/null
+
+underplanned_raw_results="$tmp_dir/underplanned-raw-results"
+cp -R "$results_dir" "$underplanned_raw_results"
+printf '50000\n' >"$underplanned_raw_results/_shared/backend-integration-testutil-shard-01/duration_ms.txt"
 
 cat >"$tmp_dir/underplanned-raw.json" <<'JSON'
 {
@@ -218,7 +268,7 @@ cat >"$tmp_dir/underplanned-raw.json" <<'JSON'
 JSON
 
 set +e
-underplanned_raw_output="$("$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/underplanned-raw.json" "$results_dir" 2>&1)"
+underplanned_raw_output="$("$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/underplanned-raw.json" "$underplanned_raw_results" 2>&1)"
 underplanned_raw_status=$?
 set -e
 if [[ "$underplanned_raw_status" -eq 0 ]]; then
@@ -226,7 +276,7 @@ if [[ "$underplanned_raw_status" -eq 0 ]]; then
 fi
 assert_contains "$underplanned_raw_output" "underplanned shard=backend-integration-testutil-shard-01" "underplanned raw drift"
 assert_contains "$underplanned_raw_output" "raw_packages=[" "underplanned raw package detail"
-assert_contains "$underplanned_raw_output" "package=github.com/JochiRaider/cartulary/internal/testutil/pgtest planned_ms=100 actual_ms=5000 delta_ms=+4900 ratio=50.00" "underplanned raw pgtest detail"
+assert_contains "$underplanned_raw_output" "package=github.com/JochiRaider/cartulary/internal/testutil/pgtest planned_ms=100 actual_ms=41667 delta_ms=+41567 ratio=416.67" "underplanned raw pgtest detail"
 
 cat >"$tmp_dir/underplanned-components.json" <<'JSON'
 {

@@ -9,6 +9,10 @@ import {
   harnessTierChecks,
   loadTaskSurfaceManifest,
 } from "./lib/task-surface.mjs";
+import {
+  durationDriftDescription,
+  durationDriftKind,
+} from "./lib/duration-drift.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
@@ -16,10 +20,6 @@ const baselineSchemaID = "cartulary.harness_smoke_duration_baselines.v1";
 const defaultBaselineFile = path.join(repoRoot, "tools", "harness_smoke_duration_baselines.json");
 const baselineNote =
   "Harness smoke duration weights generated from successful fast-tier harness target summaries. Refresh with make harness-smoke-duration-baselines RESULTS_DIR=<dir>.";
-const underRatio = 1.75;
-const underDeltaMs = 5000;
-const overRatio = 3;
-const overDeltaMs = 15000;
 
 function usage() {
   process.stderr.write(
@@ -177,22 +177,15 @@ function loadFastChecks(manifestFile) {
   return harnessTierChecks(manifest, "fast");
 }
 
-function formatRatio(actual, planned) {
-  if (planned <= 0) {
-    return "inf";
-  }
-  return (actual / planned).toFixed(2);
-}
-
 function checkDrift(errors, target, actual, planned) {
-  if (actual > planned * underRatio && actual - planned > underDeltaMs) {
+  const kind = durationDriftKind(actual, planned);
+  if (kind) {
     errors.push(
-      `underplanned target=${target} planned_ms=${planned} actual_ms=${actual} ratio=${formatRatio(actual, planned)}`,
-    );
-  }
-  if (planned > actual * overRatio && planned - actual > overDeltaMs) {
-    errors.push(
-      `overplanned target=${target} planned_ms=${planned} actual_ms=${actual} ratio=${formatRatio(actual, planned)}`,
+      durationDriftDescription(kind, {
+        subject: `target=${target}`,
+        plannedMs: planned,
+        actualMs: actual,
+      }),
     );
   }
 }

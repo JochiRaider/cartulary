@@ -254,3 +254,200 @@ future_count="$(
     "$node_cmd" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" playwright-count-all authoritative browser_functional
 )"
 assert_equals "$future_count" "5" "future phase browser row count discovery"
+
+browser_results="$tmp_dir/browser-results"
+timing_dir="$browser_results/browser-e2e-webserver-backed/browser-e2e-functional-authoritative"
+failed_timing_dir="$browser_results/browser-e2e-webserver-backed/browser-e2e-functional-failed"
+mkdir -p "$timing_dir" "$failed_timing_dir"
+cat >"$timing_dir/phase-summary.json" <<'JSON'
+{
+  "target": "browser-e2e-webserver-backed",
+  "runner": "playwright",
+  "status": "pass"
+}
+JSON
+cat >"$timing_dir/playwright-timing.json" <<'JSON'
+{
+  "files": [
+    {
+      "file": "apps/web/e2e/alpha.spec.ts",
+      "wall_duration_ms": 32000
+    },
+    {
+      "file": "e2e/beta.spec.ts",
+      "wall_duration_ms": 9000
+    },
+    {
+      "file": "apps/web/e2e/future.spec.ts",
+      "wall_duration_ms": 11000
+    },
+    {
+      "file": "apps/web/e2e/gamma.spec.ts",
+      "wall_duration_ms": 7000
+    }
+  ]
+}
+JSON
+cat >"$failed_timing_dir/phase-summary.json" <<'JSON'
+{
+  "target": "browser-e2e-webserver-backed",
+  "runner": "playwright",
+  "status": "fail"
+}
+JSON
+cat >"$failed_timing_dir/playwright-timing.json" <<'JSON'
+{
+  "files": [
+    {
+      "file": "apps/web/e2e/alpha.spec.ts",
+      "wall_duration_ms": 99999
+    }
+  ]
+}
+JSON
+
+cat >"$tmp_dir/browser-refresh-baseline.json" <<'JSON'
+{
+  "schema_id": "cartulary.browser_e2e_duration_baselines.v1",
+  "note": "old note",
+  "default_spec_weight_ms": 7000,
+  "shard_target_ms": 8000,
+  "retained_metadata": {
+    "owner": "browser"
+  },
+  "specs": {
+    "apps/web/e2e/retired.spec.ts": 1234
+  }
+}
+JSON
+refresh_output="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+    "$node_cmd" "$PLANNER" update-baselines --baseline-file "$tmp_dir/browser-refresh-baseline.json" "$browser_results"
+)"
+assert_contains "$refresh_output" "updated 4 browser E2E duration baselines" "browser baseline refresh output"
+"$node_cmd" - "$tmp_dir/browser-refresh-baseline.json" <<'EOF'
+const fs = require("node:fs");
+const [baselineFile] = process.argv.slice(2);
+const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
+const specKeys = Object.keys(baseline.specs);
+const expected = [
+  "apps/web/e2e/alpha.spec.ts",
+  "apps/web/e2e/beta.spec.ts",
+  "apps/web/e2e/future.spec.ts",
+  "apps/web/e2e/gamma.spec.ts",
+];
+if (JSON.stringify(specKeys) !== JSON.stringify(expected)) {
+  throw new Error(`expected sorted refreshed specs ${JSON.stringify(expected)}, got ${JSON.stringify(specKeys)}`);
+}
+if (baseline.specs["apps/web/e2e/alpha.spec.ts"] !== 32000) {
+  throw new Error(`failed timing artifact leaked into refresh, got alpha=${baseline.specs["apps/web/e2e/alpha.spec.ts"]}`);
+}
+if (baseline.default_spec_weight_ms !== 7000 || baseline.shard_target_ms !== 8000) {
+  throw new Error("baseline refresh must preserve durable weighting metadata");
+}
+if (baseline.retained_metadata?.owner !== "browser") {
+  throw new Error("baseline refresh must preserve unknown durable metadata");
+}
+if (!String(baseline.note).includes("make browser-e2e-duration-baselines RESULTS_DIR=<dir>")) {
+  throw new Error(`expected public refresh command in note, got ${baseline.note}`);
+}
+EOF
+
+cat >"$tmp_dir/browser-make-baseline.json" <<'JSON'
+{
+  "schema_id": "cartulary.browser_e2e_duration_baselines.v1",
+  "default_spec_weight_ms": 7000,
+  "shard_target_ms": 8000,
+  "specs": {}
+}
+JSON
+make_refresh_output="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+  BROWSER_E2E_DURATION_BASELINE="$tmp_dir/browser-make-baseline.json" \
+  RESULTS_DIR="$browser_results" \
+    "${MAKE:-make}" --no-print-directory -C "$ROOT_DIR" browser-e2e-duration-baselines 2>&1
+)"
+assert_contains "$make_refresh_output" "updated 4 browser E2E duration baselines" "make browser baseline refresh output"
+CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+  "$node_cmd" "$PLANNER" check-baseline-drift --baseline-file "$tmp_dir/browser-make-baseline.json" "$browser_results" >/dev/null
+
+tolerated_baseline="$tmp_dir/browser-tolerated-drift.json"
+cp "$tmp_dir/browser-make-baseline.json" "$tolerated_baseline"
+"$node_cmd" - "$tolerated_baseline" <<'EOF'
+const fs = require("node:fs");
+const [baselineFile] = process.argv.slice(2);
+const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
+baseline.specs["apps/web/e2e/alpha.spec.ts"] = 13000;
+fs.writeFileSync(baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
+EOF
+CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+  "$node_cmd" "$PLANNER" check-baseline-drift --baseline-file "$tolerated_baseline" "$browser_results" >/dev/null
+
+underplanned_baseline="$tmp_dir/browser-underplanned.json"
+cp "$tmp_dir/browser-make-baseline.json" "$underplanned_baseline"
+"$node_cmd" - "$underplanned_baseline" <<'EOF'
+const fs = require("node:fs");
+const [baselineFile] = process.argv.slice(2);
+const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
+baseline.specs["apps/web/e2e/alpha.spec.ts"] = 1000;
+fs.writeFileSync(baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
+EOF
+set +e
+underplanned_output="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+    "$node_cmd" "$PLANNER" check-baseline-drift --baseline-file "$underplanned_baseline" "$browser_results" 2>&1
+)"
+underplanned_status=$?
+set -e
+if [[ "$underplanned_status" -eq 0 ]]; then
+  fail "browser underplanned drift should fail"
+fi
+assert_contains "$underplanned_output" "underplanned file=apps/web/e2e/alpha.spec.ts" "browser underplanned drift"
+assert_contains "$underplanned_output" "make browser-e2e-duration-baselines RESULTS_DIR=" "browser drift refresh guidance"
+
+overplanned_baseline="$tmp_dir/browser-overplanned.json"
+cp "$tmp_dir/browser-make-baseline.json" "$overplanned_baseline"
+"$node_cmd" - "$overplanned_baseline" <<'EOF'
+const fs = require("node:fs");
+const [baselineFile] = process.argv.slice(2);
+const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
+baseline.specs["apps/web/e2e/gamma.spec.ts"] = 50000;
+fs.writeFileSync(baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
+EOF
+set +e
+overplanned_output="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+    "$node_cmd" "$PLANNER" check-baseline-drift --baseline-file "$overplanned_baseline" "$browser_results" 2>&1
+)"
+overplanned_status=$?
+set -e
+if [[ "$overplanned_status" -eq 0 ]]; then
+  fail "browser overplanned drift should fail"
+fi
+assert_contains "$overplanned_output" "overplanned file=apps/web/e2e/gamma.spec.ts" "browser overplanned drift"
+
+missing_results="$tmp_dir/browser-missing-results"
+missing_timing_dir="$missing_results/browser-e2e-webserver-backed/browser-e2e-functional-authoritative"
+mkdir -p "$missing_timing_dir"
+cp "$timing_dir/phase-summary.json" "$missing_timing_dir/phase-summary.json"
+cat >"$missing_timing_dir/playwright-timing.json" <<'JSON'
+{
+  "files": [
+    {
+      "file": "apps/web/e2e/alpha.spec.ts",
+      "wall_duration_ms": 32000
+    }
+  ]
+}
+JSON
+set +e
+missing_refresh_output="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+    "$node_cmd" "$PLANNER" update-baselines --baseline-file "$tmp_dir/browser-missing-refresh.json" "$missing_results" 2>&1
+)"
+missing_refresh_status=$?
+set -e
+if [[ "$missing_refresh_status" -eq 0 ]]; then
+  fail "browser baseline refresh should require all authoritative functional specs"
+fi
+assert_contains "$missing_refresh_output" "missing observed browser spec timings:" "browser missing observed refresh output"

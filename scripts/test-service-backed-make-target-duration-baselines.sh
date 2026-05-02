@@ -142,6 +142,18 @@ EXECUTION_TOPOLOGY_MANIFEST="$tmp_dir/topology.json" \
 SERVICE_BACKED_SCHEDULE_MANIFEST="$tmp_dir/schedule.json" \
   "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" service-backed-make-target-duration-baseline-drift >/dev/null
 
+cat >"$tmp_dir/tolerated-underplanned.json" <<'JSON'
+{
+  "schema_id": "cartulary.service_backed_make_target_duration_baselines.v1",
+  "default_make_target_weight_ms": 10000,
+  "targets": {
+    "backend-process": 9000,
+    "browser-e2e-webserver-backed": 12000
+  }
+}
+JSON
+"$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/tolerated-underplanned.json" --topology "$tmp_dir/topology.json" --schedule-manifest "$tmp_dir/schedule.json" "$results_dir" >/dev/null
+
 cat >"$tmp_dir/missing.json" <<'JSON'
 {
   "schema_id": "cartulary.service_backed_make_target_duration_baselines.v1",
@@ -165,8 +177,8 @@ cat >"$tmp_dir/underplanned.json" <<'JSON'
   "schema_id": "cartulary.service_backed_make_target_duration_baselines.v1",
   "default_make_target_weight_ms": 10000,
   "targets": {
-    "backend-process": 100,
-    "browser-e2e-webserver-backed": 27600
+    "backend-process": 9000,
+    "browser-e2e-webserver-backed": 100
   }
 }
 JSON
@@ -177,7 +189,7 @@ set -e
 if [[ "$underplanned_status" -eq 0 ]]; then
   fail "underplanned baseline drift should fail"
 fi
-assert_contains "$underplanned_output" "underplanned target=backend-process" "underplanned baseline drift"
+assert_contains "$underplanned_output" "underplanned target=browser-e2e-webserver-backed" "underplanned baseline drift"
 
 contaminated_results_dir="$tmp_dir/contaminated-results"
 cp -R "$results_dir" "$contaminated_results_dir"
@@ -216,7 +228,7 @@ assert_contains "$contaminated_update_output" "Refusing to refresh service-backe
 assert_contains "$contaminated_update_output" "service_startup_retry service=postgres retries=1" "contaminated service-backed refresh reason"
 
 contaminated_drift_output="$("$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/underplanned.json" --topology "$tmp_dir/topology.json" --schedule-manifest "$tmp_dir/schedule.json" "$contaminated_results_dir" 2>&1 >/dev/null)"
-assert_contains "$contaminated_drift_output" "ignored underplanned contaminated target=backend-process" "contaminated service-backed underplanned drift warning"
+assert_contains "$contaminated_drift_output" "ignored underplanned contaminated target=browser-e2e-webserver-backed" "contaminated service-backed underplanned drift warning"
 assert_contains "$contaminated_drift_output" "service_timing_contamination=[service_startup_retry service=postgres retries=1" "contaminated service-backed warning reason"
 
 cat >"$tmp_dir/overplanned.json" <<'JSON'
@@ -225,7 +237,7 @@ cat >"$tmp_dir/overplanned.json" <<'JSON'
   "default_make_target_weight_ms": 10000,
   "targets": {
     "backend-process": 9000,
-    "browser-e2e-webserver-backed": 100000
+    "browser-e2e-webserver-backed": 150000
   }
 }
 JSON

@@ -1,6 +1,6 @@
 {
   "schema_id": "cartulary.browser_e2e_duration_baselines.v1",
-  "note": "Advisory browser functional spec weights for duration-balanced Playwright sharding. Refresh from successful browser timing artifacts when observed spec durations drift.",
+  "note": "Advisory browser functional spec weights for duration-balanced Playwright sharding. Refresh with make browser-e2e-duration-baselines RESULTS_DIR=<dir>.",
   "default_spec_weight_ms": 10000,
   "shard_target_ms": 12000,
   "specs": {

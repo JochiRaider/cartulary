@@ -185,6 +185,28 @@ if [[ "$missing_baseline_status" -eq 0 ]]; then
 fi
 assert_contains "$missing_baseline_output" "missing harness smoke baseline target=harness-smoke-gamma" "missing baseline drift output"
 
+cat >"$tmp_dir/tolerated-underplanned.json" <<'JSON'
+{
+  "schema_id": "cartulary.harness_smoke_duration_baselines.v1",
+  "targets": {
+    "harness-smoke-alpha": 1200,
+    "harness-smoke-beta": 3300,
+    "harness-smoke-gamma": 3600
+  }
+}
+JSON
+"$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/tolerated-underplanned.json" --manifest "$manifest" "$results_dir" >/dev/null
+
+underplanned_results="$tmp_dir/underplanned-results"
+cp -R "$results_dir" "$underplanned_results"
+cat >"$underplanned_results/harness-smoke-beta/target-summary.json" <<'JSON'
+{
+  "target": "harness-smoke-beta",
+  "status": "pass",
+  "critical_path_wall_duration_ms": 40000
+}
+JSON
+
 cat >"$tmp_dir/underplanned.json" <<'JSON'
 {
   "schema_id": "cartulary.harness_smoke_duration_baselines.v1",
@@ -196,7 +218,7 @@ cat >"$tmp_dir/underplanned.json" <<'JSON'
 }
 JSON
 set +e
-underplanned_output="$("$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/underplanned.json" --manifest "$manifest" "$results_dir" 2>&1)"
+underplanned_output="$("$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/underplanned.json" --manifest "$manifest" "$underplanned_results" 2>&1)"
 underplanned_status=$?
 set -e
 if [[ "$underplanned_status" -eq 0 ]]; then
@@ -210,7 +232,7 @@ cat >"$tmp_dir/overplanned.json" <<'JSON'
   "targets": {
     "harness-smoke-alpha": 1200,
     "harness-smoke-beta": 8400,
-    "harness-smoke-gamma": 20000
+    "harness-smoke-gamma": 50000
   }
 }
 JSON

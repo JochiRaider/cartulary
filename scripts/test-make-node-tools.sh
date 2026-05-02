@@ -67,8 +67,12 @@ function assertUsage(name, env, usagePart) {
 
 assert(makeNodeToolNames().includes("task-guide"), "registry must list task-guide");
 const expectedMakeEnvVars = {
+  "browser-e2e-duration-baselines": [
+    "BROWSER_E2E_DURATION_BASELINE",
+    "RESULTS_DIR",
+  ],
   "browser-e2e-duration-baseline-drift": [
-    "BASELINE_FILE",
+    "BROWSER_E2E_DURATION_BASELINE",
     "RESULTS_DIR",
     "CARTULARY_TEST_RESULTS_DIR",
     "CARTULARY_TEST_RUN_ID",
@@ -85,9 +89,9 @@ const expectedMakeEnvVars = {
     "RESULTS_DIR",
     "CARTULARY_TEST_RESULTS_DIR",
   ],
-  "go-test-duration-baseline-coverage": ["BASELINE_FILE"],
+  "go-test-duration-baseline-coverage": ["GO_TEST_DURATION_BASELINE"],
   "go-test-duration-baseline-drift": [
-    "BASELINE_FILE",
+    "GO_TEST_DURATION_BASELINE",
     "RESULTS_DIR",
     "CARTULARY_TEST_RESULTS_DIR",
     "CARTULARY_TEST_RUN_ID",
@@ -95,7 +99,7 @@ const expectedMakeEnvVars = {
   "go-test-duration-baselines": [
     "PRUNE_OBSERVED_PACKAGES",
     "ALLOW_COMMAND_OVERHEAD_DECREASE",
-    "BASELINE_FILE",
+    "GO_TEST_DURATION_BASELINE",
     "RESULTS_DIR",
   ],
   "harness-smoke-duration-baseline-drift": [
@@ -304,7 +308,7 @@ assertArgs(
   "go-test-duration-baselines",
   {
     ALLOW_COMMAND_OVERHEAD_DECREASE: "1",
-    BASELINE_FILE: "/tmp/baseline.json",
+    GO_TEST_DURATION_BASELINE: "/tmp/baseline.json",
     PRUNE_OBSERVED_PACKAGES: "1",
     RESULTS_DIR: "/tmp/cartulary-results/run-a",
   },
@@ -319,11 +323,38 @@ assertArgs(
 assertArgs(
   "go-test-duration-baseline-drift",
   {
-    BASELINE_FILE: "/tmp/baseline.json",
+    GO_TEST_DURATION_BASELINE: "/tmp/baseline.json",
     CARTULARY_TEST_RESULTS_DIR: "/tmp/cartulary-results",
     CARTULARY_TEST_RUN_ID: "run-a",
   },
   ["--baseline-file", "/tmp/baseline.json", "/tmp/cartulary-results/run-a"],
+);
+assertArgs(
+  "browser-e2e-duration-baselines",
+  {
+    BROWSER_E2E_DURATION_BASELINE: "/tmp/browser-baseline.json",
+    RESULTS_DIR: "/tmp/cartulary-results/run-a",
+  },
+  [
+    "update-baselines",
+    "--baseline-file",
+    "/tmp/browser-baseline.json",
+    "/tmp/cartulary-results/run-a",
+  ],
+);
+assertArgs(
+  "browser-e2e-duration-baseline-drift",
+  {
+    BROWSER_E2E_DURATION_BASELINE: "/tmp/browser-baseline.json",
+    CARTULARY_TEST_RESULTS_DIR: "/tmp/cartulary-results",
+    CARTULARY_TEST_RUN_ID: "run-a",
+  },
+  [
+    "check-baseline-drift",
+    "--baseline-file",
+    "/tmp/browser-baseline.json",
+    "/tmp/cartulary-results/run-a",
+  ],
 );
 assertArgs(
   "service-backed-make-target-duration-baseline-drift",
@@ -387,6 +418,7 @@ assertUsage("explain-run", {}, "make explain-run RESULTS_DIR=<root|run-dir>");
 assertUsage("phase-slice", {}, "make phase-slice PHASE=<phaseN>");
 assertUsage("service-backed-slice", {}, "make service-backed-slice PHASE=<phaseN>");
 assertUsage("go-test-duration-baselines", {}, "make go-test-duration-baselines RESULTS_DIR=<successful test results dir>");
+assertUsage("browser-e2e-duration-baselines", {}, "make browser-e2e-duration-baselines RESULTS_DIR=<successful browser results dir>");
 assertUsage("harness-smoke-duration-baselines", {}, "make harness-smoke-duration-baselines RESULTS_DIR=<successful harness results dir>");
 assertUsage("scheduler-event-order-drift", { CARTULARY_TEST_RESULTS_DIR: "/tmp/results" }, "make scheduler-event-order-drift");
 

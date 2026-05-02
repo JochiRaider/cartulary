@@ -1,6 +1,6 @@
 {
   "schema_id": "cartulary.go_test_duration_baselines.v4",
-  "note": "Advisory backend service-backed shard weights with explicit test, package, command, and raw package timing components. Refresh from successful shard artifacts with scripts/update-go-test-durations.mjs <results-dir>.",
+  "note": "Advisory backend service-backed shard weights with explicit test, package, command, and raw package timing components. Refresh with make go-test-duration-baselines RESULTS_DIR=<dir> PRUNE_OBSERVED_PACKAGES=1.",
   "default_shard_target_ms": 30000,
   "shard_target_ms_by_target": {
     "backend-integration": 18000,

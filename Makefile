@@ -48,6 +48,8 @@ GOSEC_AUDIT_SUPPORT_PATTERNS ?= ./internal/testutil/... ./tools/...
 TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
 SERVICE_BACKED_SCHEDULE_MANIFEST ?= $(CURDIR)/tools/service_backed_schedule_manifest.json
 EXECUTION_TOPOLOGY_MANIFEST ?= $(CURDIR)/tools/execution_topology_manifest.json
+GO_TEST_DURATION_BASELINE ?= $(CURDIR)/tools/go_test_duration_baselines.json
+BROWSER_E2E_DURATION_BASELINE ?= $(CURDIR)/tools/browser_e2e_duration_baselines.json
 SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE ?= $(CURDIR)/tools/service_backed_make_target_duration_baselines.json
 HARNESS_SMOKE_DURATION_BASELINE ?= $(CURDIR)/tools/harness_smoke_duration_baselines.json
 CHECK_SCHEDULE_MANIFEST ?= $(CURDIR)/tools/check_schedule_manifest.json
@@ -125,8 +127,9 @@ WEB_BUILD_INPUTS = package.json pnpm-lock.yaml pnpm-workspace.yaml $(call discov
 TEST_SERVICES_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,tools/testservices internal/testutil/pgtest internal/testutil/s3test internal/testutil/suiteservices internal/platform/postgres db/migrations)
 EMBEDDED_WEB_ASSET_DIR := $(CURDIR)/internal/platform/httpapi/webassets/dist
 EMBEDDED_WEB_ASSET_STAMP := $(CURDIR)/tmp/frontend-embed/web-assets.stamp
-CLEAN_PATHS := $(SERVER_BIN) $(MIGRATE_BIN) $(CURDIR)/apps/web/dist $(EMBEDDED_WEB_ASSET_STAMP) $(CARTULARY_TEST_RESULTS_DIR) $(RELEASE_ARTIFACT_DIR) $(CURDIR)/apps/web/test-results $(CURDIR)/tmp/dev-stack $(CURDIR)/tmp/dev-stack-lifecycle-smoke.* $(CURDIR)/tmp/web-e2e-lifecycle-smoke.* $(CURDIR)/tmp/vitest-json-sample.*
-DISTCLEAN_PATHS := $(CLEAN_PATHS) $(NODE_RUNTIME_DIR) $(TOOLBIN_DIR) $(SHELLCHECK_ARCHIVE_DIR) $(CURDIR)/tmp/frontend-install $(CURDIR)/tmp/frontend-toolchain $(CURDIR)/tmp/playwright $(CURDIR)/tmp/frontend-embed $(CURDIR)/.cache $(CURDIR)/.pnpm-store $(CURDIR)/apps/web/.vite $(CURDIR)/playwright-report $(CURDIR)/apps/web/playwright-report $(CURDIR)/coverage $(CURDIR)/apps/web/coverage
+CLEAN_PATHS := $(SERVER_BIN) $(MIGRATE_BIN) $(CURDIR)/apps/web/dist $(EMBEDDED_WEB_ASSET_STAMP) $(CARTULARY_TEST_RESULTS_DIR) $(RELEASE_ARTIFACT_DIR) $(CURDIR)/test-results $(CURDIR)/apps/web/test-results $(CURDIR)/playwright-report $(CURDIR)/apps/web/playwright-report $(CURDIR)/coverage $(CURDIR)/apps/web/coverage $(CURDIR)/.vite $(CURDIR)/apps/web/.vite $(CURDIR)/node_modules/.vite* $(CURDIR)/apps/web/node_modules/.vite* $(CURDIR)/packages/*/node_modules/.vite*
+DISTCLEAN_PATHS := $(CLEAN_PATHS) $(NODE_RUNTIME_DIR) $(CURDIR)/tmp/node-archives $(TOOLBIN_DIR) $(SHELLCHECK_ARCHIVE_DIR) $(CURDIR)/tmp/frontend-install $(CURDIR)/tmp/frontend-toolchain $(CURDIR)/tmp/playwright $(CURDIR)/tmp/frontend-embed $(CURDIR)/.cache $(CURDIR)/.pnpm-store
+CLEAN_TMP_PRESERVE_NAMES := node-runtime node-archives toolbin shellcheck-archives frontend-install frontend-toolchain playwright frontend-embed
 
 define guarded_remove_paths
 set -euo pipefail; \
@@ -144,7 +147,41 @@ for path in $(1); do \
 		printf 'removing %s\n' "$${path#$$repo/}"; \
 		rm -rf -- "$$path"; \
 	fi; \
+	done
+endef
+
+define clean_tmp_scratch
+set -euo pipefail; \
+repo="$(CURDIR)"; \
+dir="$(CURDIR)/tmp"; \
+if [ ! -d "$$dir" ]; then \
+	exit 0; \
+fi; \
+case "$$dir" in \
+	"$$repo"/*) ;; \
+	*) echo "refusing tmp cleanup path outside repository: $$dir" >&2; exit 1 ;; \
+esac; \
+for path in "$$dir"/* "$$dir"/.[!.]* "$$dir"/..?*; do \
+	if [ ! -e "$$path" ] && [ ! -L "$$path" ]; then \
+		continue; \
+	fi; \
+	name="$${path##*/}"; \
+	case " $(CLEAN_TMP_PRESERVE_NAMES) " in \
+		*" $$name "*) continue ;; \
+	esac; \
+	printf 'removing %s\n' "$${path#$$repo/}"; \
+	rm -rf -- "$$path"; \
 done
+endef
+
+define print_cleanup_paths
+set -euo pipefail; \
+printf '%s\n' 'The following repo-local artifacts will be removed when present:'; \
+for path in $(1); do \
+	printf '  %s\n' "$$path"; \
+done; \
+printf '  %s\n' 'repo-local scratch directories under $(CURDIR)/tmp'; \
+printf '  %s\n' 'generated embedded web assets under $(EMBEDDED_WEB_ASSET_DIR), preserving .keep'
 endef
 
 define clean_embedded_web_assets

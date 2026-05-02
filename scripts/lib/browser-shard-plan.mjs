@@ -8,11 +8,17 @@ import {
   loadManifest,
   phaseManifestNames,
 } from "./phase-manifest.mjs";
+import {
+  durationDriftDescription,
+  durationDriftKind,
+} from "./duration-drift.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
 const baselineSchemaID = "cartulary.browser_e2e_duration_baselines.v1";
 const defaultBaselineFile = path.join(repoRoot, "tools", "browser_e2e_duration_baselines.json");
+const baselineNote =
+  "Advisory browser functional spec weights for duration-balanced Playwright sharding. Refresh with make browser-e2e-duration-baselines RESULTS_DIR=<dir>.";
 const defaultSpecWeightMs = 10000;
 const defaultShardTargetMs = 12000;
 
@@ -22,6 +28,7 @@ function usage() {
       "usage:",
       "  browser-shard-plan.mjs plan [--baseline-file <path>] [--max-shards <n>]",
       "  browser-shard-plan.mjs merge-reports <output-report> <input-report...>",
+      "  browser-shard-plan.mjs update-baselines [--baseline-file <path>] <results-dir>",
       "  browser-shard-plan.mjs check-baseline-drift [--baseline-file <path>] <results-dir>",
     ].join("\n") + "\n",
   );
@@ -34,6 +41,10 @@ function resolvePath(file) {
 
 function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
+}
+
+function sortedObject(entries) {
+  return Object.fromEntries([...entries].sort(([left], [right]) => left.localeCompare(right)));
 }
 
 function normalizeManifestFile(file) {
@@ -58,13 +69,22 @@ function normalizePlaywrightReportFile(file) {
   return `apps/web/e2e/${normalized.replace(/^\/+/, "")}`;
 }
 
-function readBaseline(file) {
+function defaultBaselineDocument() {
+  return {
+    schema_id: baselineSchemaID,
+    note: baselineNote,
+    default_spec_weight_ms: defaultSpecWeightMs,
+    shard_target_ms: defaultShardTargetMs,
+    specs: {},
+  };
+}
+
+function readBaselineDocument(file, { allowMissing = true } = {}) {
   if (!existsSync(file)) {
-    return {
-      defaultSpecWeightMs,
-      shardTargetMs: defaultShardTargetMs,
-      specs: new Map(),
-    };
+    if (allowMissing) {
+      return defaultBaselineDocument();
+    }
+    throw new Error(`${path.relative(repoRoot, file)} is missing`);
   }
   const baseline = readJSON(file);
   if (baseline.schema_id !== baselineSchemaID) {
@@ -74,6 +94,12 @@ function readBaseline(file) {
   if (!rawSpecs || typeof rawSpecs !== "object" || Array.isArray(rawSpecs)) {
     throw new Error(`${path.relative(repoRoot, file)} specs must be an object`);
   }
+  return baseline;
+}
+
+function readBaseline(file) {
+  const baseline = readBaselineDocument(file);
+  const rawSpecs = baseline.specs ?? {};
   return {
     defaultSpecWeightMs: positiveIntegerOrDefault(
       baseline.default_spec_weight_ms,
@@ -311,7 +337,20 @@ function mergeReports(outputFile, inputFiles) {
   );
 }
 
-function collectObservedBrowserSpecDurations(resultsDir) {
+function passingPlaywrightPhaseSummary(timingFile) {
+  const summaryFile = path.join(path.dirname(timingFile), "phase-summary.json");
+  if (!existsSync(summaryFile)) {
+    return false;
+  }
+  try {
+    const summary = readJSON(summaryFile);
+    return summary.status === "pass" && summary.runner === "playwright";
+  } catch {
+    return false;
+  }
+}
+
+function collectObservedBrowserSpecDurations(resultsDir, { requirePassingPhaseSummary = true } = {}) {
   const observed = new Map();
   const stack = [resultsDir];
   while (stack.length > 0) {
@@ -331,6 +370,9 @@ function collectObservedBrowserSpecDurations(resultsDir) {
       if (!entry.isFile() || entry.name !== "playwright-timing.json") {
         continue;
       }
+      if (requirePassingPhaseSummary && !passingPlaywrightPhaseSummary(next)) {
+        continue;
+      }
       const timing = readJSON(next);
       for (const fileTiming of timing.files ?? []) {
         const file = normalizePlaywrightReportFile(fileTiming.file);
@@ -347,7 +389,7 @@ function collectObservedBrowserSpecDurations(resultsDir) {
   return observed;
 }
 
-function checkBaselineDrift(argv) {
+function parseBaselineResultsArgs(argv) {
   let baselineFile = defaultBaselineFile;
   let resultsDir = "";
   for (let index = 0; index < argv.length; index += 1) {
@@ -369,15 +411,44 @@ function checkBaselineDrift(argv) {
   if (!resultsDir) {
     usage();
   }
+  return { baselineFile, resultsDir };
+}
+
+function updateBaselines(argv) {
+  const { baselineFile, resultsDir } = parseBaselineResultsArgs(argv);
+  const baseline = readBaselineDocument(baselineFile, { allowMissing: true });
+  const authoritativeSpecs = collectSpecRows(repoRoot, readBaseline(baselineFile)).map((spec) => spec.file);
+  const observed = collectObservedBrowserSpecDurations(resultsDir);
+  const missingObserved = authoritativeSpecs.filter((specFile) => !observed.has(specFile));
+  if (missingObserved.length > 0) {
+    throw new Error(
+      `missing observed browser spec timings: ${missingObserved.join(", ")}`,
+    );
+  }
+
+  baseline.schema_id = baselineSchemaID;
+  baseline.note = baselineNote;
+  baseline.default_spec_weight_ms = positiveIntegerOrDefault(
+    baseline.default_spec_weight_ms,
+    defaultSpecWeightMs,
+  );
+  baseline.shard_target_ms = positiveIntegerOrDefault(baseline.shard_target_ms, defaultShardTargetMs);
+  baseline.updated_at = new Date().toISOString();
+  baseline.specs = sortedObject(authoritativeSpecs.map((specFile) => [specFile, observed.get(specFile)]));
+
+  writeFileSync(baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
+  process.stdout.write(
+    `updated ${authoritativeSpecs.length} browser E2E duration baselines from ${path.relative(repoRoot, resultsDir)}\n`,
+  );
+}
+
+function checkBaselineDrift(argv) {
+  const { baselineFile, resultsDir } = parseBaselineResultsArgs(argv);
 
   const baseline = readBaseline(baselineFile);
   const observed = collectObservedBrowserSpecDurations(resultsDir);
   const authoritativeSpecs = new Set(collectSpecRows(repoRoot, baseline).map((spec) => spec.file));
   const errors = [];
-  const underRatio = 1.75;
-  const underDeltaMs = 5000;
-  const overRatio = 3;
-  const overDeltaMs = 15000;
 
   for (const specFile of authoritativeSpecs) {
     const actual = observed.get(specFile);
@@ -389,11 +460,15 @@ function checkBaselineDrift(argv) {
       errors.push(`missing browser spec baseline file=${specFile}`);
       continue;
     }
-    if (actual > planned * underRatio && actual - planned > underDeltaMs) {
-      errors.push(`underplanned file=${specFile} planned_ms=${planned} actual_ms=${actual}`);
-    }
-    if (planned > actual * overRatio && planned - actual > overDeltaMs) {
-      errors.push(`overplanned file=${specFile} planned_ms=${planned} actual_ms=${actual}`);
+    const kind = durationDriftKind(actual, planned);
+    if (kind) {
+      errors.push(
+        durationDriftDescription(kind, {
+          subject: `file=${specFile}`,
+          plannedMs: planned,
+          actualMs: actual,
+        }),
+      );
     }
   }
 
@@ -402,7 +477,9 @@ function checkBaselineDrift(argv) {
     for (const error of errors) {
       process.stderr.write(`- ${error}\n`);
     }
-    process.stderr.write(`Refresh tools/browser_e2e_duration_baselines.json from ${resultsDir}\n`);
+    process.stderr.write(
+      `Refresh from a successful browser run with: make browser-e2e-duration-baselines RESULTS_DIR=${resultsDir}\n`,
+    );
     process.exit(1);
   }
   process.stdout.write(`Browser E2E duration baselines match ${observed.size} observed spec timings\n`);
@@ -424,6 +501,9 @@ function main(argv) {
       mergeReports(resolvePath(outputFile), inputFiles.map(resolvePath));
       return;
     }
+    case "update-baselines":
+      updateBaselines(rest);
+      return;
     case "check-baseline-drift":
       checkBaselineDrift(rest);
       return;

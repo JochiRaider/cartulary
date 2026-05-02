@@ -220,7 +220,7 @@ export const makeNodeTools = {
     },
   },
   "go-test-duration-baselines": {
-    inputs: ["PRUNE_OBSERVED_PACKAGES", "ALLOW_COMMAND_OVERHEAD_DECREASE", "BASELINE_FILE"],
+    inputs: ["PRUNE_OBSERVED_PACKAGES", "ALLOW_COMMAND_OVERHEAD_DECREASE", "GO_TEST_DURATION_BASELINE"],
     script: "./scripts/update-go-test-durations.mjs",
     resultDir: { mode: "required", positional: true },
     usage: "usage: make go-test-duration-baselines RESULTS_DIR=<successful test results dir>",
@@ -232,40 +232,52 @@ export const makeNodeTools = {
       if (value(env, "ALLOW_COMMAND_OVERHEAD_DECREASE") === "1") {
         args.push("--allow-command-overhead-decrease");
       }
-      optionalFlag(args, env, "BASELINE_FILE", "--baseline-file");
+      optionalFlag(args, env, "GO_TEST_DURATION_BASELINE", "--baseline-file");
       return args;
     },
   },
   "go-test-duration-baseline-coverage": {
-    inputs: ["BASELINE_FILE"],
+    inputs: ["GO_TEST_DURATION_BASELINE"],
     script: "./scripts/check-go-test-duration-baseline-coverage.mjs",
-    usage: "usage: make go-test-duration-baseline-coverage [BASELINE_FILE=<path>]",
+    usage: "usage: make go-test-duration-baseline-coverage [GO_TEST_DURATION_BASELINE=<path>]",
     buildArgs(env) {
       const args = [];
-      optionalFlag(args, env, "BASELINE_FILE", "--baseline-file");
+      optionalFlag(args, env, "GO_TEST_DURATION_BASELINE", "--baseline-file");
       return args;
     },
   },
   "go-test-duration-baseline-drift": {
-    inputs: ["BASELINE_FILE"],
+    inputs: ["GO_TEST_DURATION_BASELINE"],
     script: "./scripts/check-go-test-duration-baseline-drift.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
-    usage: "usage: make go-test-duration-baseline-drift [RESULTS_DIR=<dir>] [BASELINE_FILE=<path>]",
+    usage:
+      "usage: make go-test-duration-baseline-drift [RESULTS_DIR=<dir>] [GO_TEST_DURATION_BASELINE=<path>]",
     buildArgs(env) {
       const args = [];
-      optionalFlag(args, env, "BASELINE_FILE", "--baseline-file");
+      optionalFlag(args, env, "GO_TEST_DURATION_BASELINE", "--baseline-file");
+      return args;
+    },
+  },
+  "browser-e2e-duration-baselines": {
+    inputs: ["BROWSER_E2E_DURATION_BASELINE"],
+    script: "./scripts/lib/browser-shard-plan.mjs",
+    resultDir: { mode: "required", positional: true },
+    usage: "usage: make browser-e2e-duration-baselines RESULTS_DIR=<successful browser results dir>",
+    buildArgs(env) {
+      const args = ["update-baselines"];
+      optionalFlag(args, env, "BROWSER_E2E_DURATION_BASELINE", "--baseline-file");
       return args;
     },
   },
   "browser-e2e-duration-baseline-drift": {
-    inputs: ["BASELINE_FILE"],
+    inputs: ["BROWSER_E2E_DURATION_BASELINE"],
     script: "./scripts/lib/browser-shard-plan.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
     usage:
-      "usage: make browser-e2e-duration-baseline-drift [RESULTS_DIR=<dir>] [BASELINE_FILE=<path>]",
+      "usage: make browser-e2e-duration-baseline-drift [RESULTS_DIR=<dir>] [BROWSER_E2E_DURATION_BASELINE=<path>]",
     buildArgs(env) {
       const args = ["check-baseline-drift"];
-      optionalFlag(args, env, "BASELINE_FILE", "--baseline-file");
+      optionalFlag(args, env, "BROWSER_E2E_DURATION_BASELINE", "--baseline-file");
       return args;
     },
   },
