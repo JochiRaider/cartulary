@@ -514,6 +514,37 @@ function scenarioExplainTargetArtifacts(fixture) {
   assertContains(checkOutput, "check scheduler", "check explain-target scheduler");
   assertContains(checkOutput, "phase_coverage:", "check explain-target phase coverage");
 
+  const serviceBackedOutput = nodeScript(explainTarget, ["--target", "test-service-backed"]);
+  assertContains(
+    serviceBackedOutput,
+    "services: Postgres,MinIO,browser stack",
+    "test-service-backed service requirements",
+  );
+
+  const fastServiceBackedOutput = nodeScript(explainTarget, ["--target", "test-fast-service-backed"]);
+  assertContains(
+    fastServiceBackedOutput,
+    "services: Postgres,MinIO",
+    "test-fast-service-backed service requirements",
+  );
+  assertNotContains(
+    fastServiceBackedOutput,
+    "browser stack",
+    "test-fast-service-backed does not require browser stack",
+  );
+
+  const testArtifacts = nodeScript(explainTarget, ["--target", "test", "--detail", "artifacts"]);
+  assertContains(testArtifacts, "<run-id>/test/target-summary.json", "test sequence expected target summary");
+  assertContains(testArtifacts, "<run-id>/run-summary.json", "test sequence expected run summary");
+  assertNotContains(testArtifacts, "<run-id>/test/scheduler-summary.json", "test sequence no scheduler summary");
+  assertNotContains(testArtifacts, "<run-id>/test/progress-summary.log", "test sequence no progress summary");
+
+  const checkArtifacts = nodeScript(explainTarget, ["--target", "check", "--detail", "artifacts"]);
+  assertContains(checkArtifacts, "<run-id>/check/target-summary.json", "check expected target summary");
+  assertContains(checkArtifacts, "<run-id>/check/scheduler-summary.json", "check expected scheduler summary");
+  assertContains(checkArtifacts, "<run-id>/check/progress-summary.log", "check expected progress summary");
+  assertContains(checkArtifacts, "<run-id>/run-summary.json", "check expected run summary");
+
   const targetArtifacts = nodeScript(explainTarget, ["--target", "backend-store", "--detail", "artifacts"]);
   assertContains(targetArtifacts, "expected:", "target artifact expected paths");
   assertContains(targetArtifacts, "<run-id>/backend-store/target-summary.json", "target artifact expected summary");

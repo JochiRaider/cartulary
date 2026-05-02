@@ -443,6 +443,14 @@
     "test": {
       "summary_groups": [
         {
+          "name": "local",
+          "summary_targets": [
+            "backend-unit",
+            "frontend-typecheck",
+            "frontend-unit"
+          ]
+        },
+        {
           "name": "backend-service-backed",
           "source": {
             "type": "service_backed_schedule",

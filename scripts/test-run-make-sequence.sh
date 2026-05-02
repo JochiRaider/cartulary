@@ -260,8 +260,8 @@ assert_equals "$(json_field "${success_summary}" "summary_groups.0.teardown_dura
 assert_json_field_absent "${success_summary}" "duration_ms" "success legacy run duration"
 assert_json_field_absent "${success_summary}" "summary_groups.0.duration_ms" "success legacy group duration"
 assert_contains "$(cat "${success_dir}/make.log")" "--output-sync=target -j3 beta" "parallel make invocation"
-assert_contains "$(cat "${success_dir}/make-env.log")" "target=alpha test_target=alpha" "sequence serial target ownership"
-assert_contains "$(cat "${success_dir}/make-env.log")" "target=beta test_target=beta" "sequence parallel target ownership"
+assert_contains "$(cat "${success_dir}/make-env.log")" "target=alpha test_target=" "sequence serial target env not forwarded"
+assert_contains "$(cat "${success_dir}/make-env.log")" "target=beta test_target=" "sequence parallel target env not forwarded"
 
 aggregate_missing_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-aggregate-missing.XXXXXX")"
 cleanup_paths+=("${aggregate_missing_dir}")
@@ -324,7 +324,7 @@ assert_equals "$(json_field "${failure_summary}" "work_units.aborted_after")" "f
 assert_equals "$(json_field "${failure_summary}" "counts.non_test_failed")" "1" "failure non-test count"
 assert_equals "$(json_field "${failure_summary}" "failure_class")" "helper" "failure class"
 assert_equals "$(json_field "${failure_summary}" "failure_classes.helper")" "1" "failure helper count"
-assert_contains "$(cat "${failure_dir}/make-env.log")" "target=fail-step test_target=fail-step" "sequence failing helper target ownership"
+assert_contains "$(cat "${failure_dir}/make-env.log")" "target=fail-step test_target=" "sequence failing helper target env not forwarded"
 
 dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-dry-run.XXXXXX")"
 cleanup_paths+=("${dry_run_dir}")
@@ -347,7 +347,7 @@ assert_not_contains "${dry_run_output}" "[RUN]" "script dry-run run start output
 assert_not_contains "${dry_run_output}" "[STEP]" "script dry-run step output"
 assert_file_absent "${dry_run_dir}/results/dry-run/run-summary.json" "script dry-run summary"
 assert_contains "$(cat "${dry_run_dir}/make.log")" "--no-print-directory alpha" "script dry-run child make"
-assert_contains "$(cat "${dry_run_dir}/make-env.log")" "target=alpha test_target=alpha" "script dry-run target ownership"
+assert_contains "$(cat "${dry_run_dir}/make-env.log")" "target=alpha test_target=" "script dry-run target env not forwarded"
 
 invalid_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-invalid.XXXXXX")"
 cleanup_paths+=("${invalid_dir}")
@@ -467,6 +467,11 @@ for (const target of ["backend-unit", "frontend-typecheck", "frontend-unit", "te
   }
 }
 const groups = resolveSummaryGroups(context, sequence.summary_groups);
+const local = groups.find((group) => group.name === "local");
+const expectedLocal = ["backend-unit", "frontend-typecheck", "frontend-unit"];
+if (JSON.stringify(local?.summaryTargets) !== JSON.stringify(expectedLocal)) {
+  throw new Error("test local summary group must include local leaf targets");
+}
 const browser = groups.find((group) => group.name === "browser");
 const browserStages = loadBrowserBatchStages(browserManifest);
 const webserverBackedStage = browserStages.get("webserver-backed");

@@ -169,9 +169,34 @@ function addServiceRequirements(requirements, values = []) {
   }
 }
 
+function serviceBackedScheduleForTarget(target, root = repoRoot) {
+  const manifestPath = path.join(root, "tools", "service_backed_schedule_manifest.json");
+  if (!existsSync(manifestPath)) {
+    return null;
+  }
+  const manifest = readJSON(manifestPath);
+  return (manifest.schedules ?? []).find((schedule) => schedule?.target === target) ?? null;
+}
+
+function addServiceBackedScheduleRequirements(requirements, schedule) {
+  if (!schedule) {
+    return;
+  }
+  addServiceRequirement(requirements, "postgres");
+  addServiceRequirement(requirements, "minio");
+  const sources = Array.isArray(schedule.work_unit_sources) ? schedule.work_unit_sources : [];
+  if (
+    sources.some((source) => source?.class === "browser" || source?.browser_stage) ||
+    Object.hasOwn(schedule.resource_limits ?? {}, "browser_stack")
+  ) {
+    addServiceRequirement(requirements, "browser_stack");
+  }
+}
+
 export function serviceRequirementsForTarget(target, targetRows = [], declaredRequirements = [], root = repoRoot) {
   const requirements = new Set();
   addServiceRequirements(requirements, declaredRequirements);
+  addServiceBackedScheduleRequirements(requirements, serviceBackedScheduleForTarget(target, root));
   const goDescriptor = findTargetDescriptor(target, root);
   if (goDescriptor?.serviceBacked) {
     addServiceRequirement(requirements, "postgres");

@@ -2,8 +2,14 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  loadTaskSurfaceManifest,
+  makeRecipeEntries,
+} from "./task-surface.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..");
+const aggregateRunSummaryTargets = new Set(["test", "test-fast", "check", "ci", "release-check"]);
 
 export function relToRepo(value, root = repoRoot) {
   const relative = path.relative(root, value).replaceAll("\\", "/");
@@ -65,15 +71,38 @@ function walkPhaseSummaries(targetDir) {
   return files.sort((left, right) => left.localeCompare(right));
 }
 
+function targetRecipe(target, root = repoRoot) {
+  const manifestPath =
+    process.env.CARTULARY_TASK_SURFACE_MANIFEST ?? path.join(root, "tools", "task_surface_manifest.json");
+  try {
+    const { manifest } = loadTaskSurfaceManifest(manifestPath);
+    return makeRecipeEntries(manifest).find((recipe) => recipe.target === target) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function targetHasRunSummary(target, recipe) {
+  return recipe?.type === "sequence" || recipe?.type === "check_schedule" || aggregateRunSummaryTargets.has(target);
+}
+
 export function expectedTargetArtifacts(target, { root = repoRoot } = {}) {
   const resultsRoot = resolveResultsRoot(root);
+  const recipe = targetRecipe(target, root);
+  const recipeType = recipe?.type ?? "";
   const expected = [
     relToRepo(path.join(resultsRoot, "<run-id>", target, "target-summary.json"), root),
-    relToRepo(path.join(resultsRoot, "<run-id>", target, "scheduler-summary.json"), root),
-    relToRepo(path.join(resultsRoot, "<run-id>", target, "progress-summary.log"), root),
-    relToRepo(path.join(resultsRoot, "<run-id>", target, "<phase-label>", "phase-summary.json"), root),
   ];
-  if (["test", "test-fast", "check", "ci", "release-check"].includes(target)) {
+  if (recipeType === "check_schedule" || recipeType === "service_backed_schedule") {
+    expected.push(
+      relToRepo(path.join(resultsRoot, "<run-id>", target, "scheduler-summary.json"), root),
+      relToRepo(path.join(resultsRoot, "<run-id>", target, "progress-summary.log"), root),
+    );
+  }
+  if (!["sequence", "check_schedule", "service_backed_schedule"].includes(recipeType)) {
+    expected.push(relToRepo(path.join(resultsRoot, "<run-id>", target, "<phase-label>", "phase-summary.json"), root));
+  }
+  if (targetHasRunSummary(target, recipe)) {
     expected.push(relToRepo(path.join(resultsRoot, "<run-id>", "run-summary.json"), root));
   }
   return expected;
@@ -84,6 +113,8 @@ export function targetArtifactCandidates(target, { root = repoRoot } = {}) {
   if (!existsSync(resultsRoot)) {
     return [];
   }
+  const recipe = targetRecipe(target, root);
+  const hasRunSummary = targetHasRunSummary(target, recipe);
   const candidates = [];
   for (const entry of readdirSync(resultsRoot, { withFileTypes: true })) {
     if (!entry.isDirectory()) {
@@ -100,7 +131,7 @@ export function targetArtifactCandidates(target, { root = repoRoot } = {}) {
     if (existsSync(schedulerSummary) && safeReadJSON(schedulerSummary)?.target === target) {
       candidates.push(artifactRecord(schedulerSummary, "scheduler_summary", runID, root));
     }
-    if (["test", "test-fast", "check", "ci", "release-check"].includes(target)) {
+    if (hasRunSummary) {
       const runSummary = path.join(runDir, "run-summary.json");
       if (existsSync(runSummary) && safeReadJSON(runSummary)?.label === target) {
         candidates.push(artifactRecord(runSummary, "run_summary", runID, root));
