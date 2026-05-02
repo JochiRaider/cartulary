@@ -798,6 +798,42 @@ function firstActionableLine(lines) {
   return "";
 }
 
+function firstKnownToolDiagnosticLine(lines) {
+  return firstShellCheckDiagnosticLine(lines);
+}
+
+function firstShellCheckDiagnosticLine(lines) {
+  let pendingLocation = null;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (line === "") {
+      continue;
+    }
+
+    const locationMatch = line.match(/^In (.+) line ([0-9]+):$/);
+    if (locationMatch) {
+      pendingLocation = {
+        file: locationMatch[1],
+        line: locationMatch[2],
+      };
+      continue;
+    }
+
+    const humanDiagnosticMatch = line.match(/^(?:\^--\s*)?(SC[0-9]+)\s+\([^)]+\):\s*(.+)$/);
+    if (humanDiagnosticMatch && pendingLocation) {
+      return `ShellCheck ${humanDiagnosticMatch[1]} at ${pendingLocation.file}:${pendingLocation.line}: ${humanDiagnosticMatch[2]}`;
+    }
+
+    const gccDiagnosticMatch = line.match(/^(.+?):([0-9]+):[0-9]+:\s+[^:]+:\s+(.+?)\s+\[(SC[0-9]+)\]$/);
+    if (gccDiagnosticMatch) {
+      return `ShellCheck ${gccDiagnosticMatch[4]} at ${gccDiagnosticMatch[1]}:${gccDiagnosticMatch[2]}: ${gccDiagnosticMatch[3]}`;
+    }
+  }
+
+  return "";
+}
+
 function isShellOrchestrationLine(line) {
   return /^\[TARGET\]\s+start\s+\S+\s/.test(line);
 }
@@ -2859,9 +2895,13 @@ function handleShellPhase() {
     });
   }
 
+  const stderrLines = splitLogLines(stderrLog);
+  const stdoutLines = splitLogLines(stdoutLog);
   const messageBase =
-    firstActionableLine(splitLogLines(stderrLog)) ||
-    firstActionableLine(splitLogLines(stdoutLog)) ||
+    firstKnownToolDiagnosticLine(stderrLines) ||
+    firstKnownToolDiagnosticLine(stdoutLines) ||
+    firstActionableLine(stderrLines) ||
+    firstActionableLine(stdoutLines) ||
     `command exited with status ${context.exitStatus}`;
   const failureNote = optionalEnv("CARTULARY_PHASE_FAILURE_NOTE");
   const message =

@@ -185,6 +185,47 @@ write_valid_bootstrap_admin() {
 JSON
 }
 
+mutate_json_fixture() {
+  local mutation="$1"
+  local file="$2"
+
+  "$NODE_BIN" - "$mutation" "$file" <<'JS'
+const fs = require("node:fs");
+
+const mutation = process.argv[2];
+const file = process.argv[3];
+const value = JSON.parse(fs.readFileSync(file, "utf8"));
+const mutations = {
+  "bootstrap-admin-bad-email": (fixture) => {
+    fixture.email = "not-an-email";
+  },
+  "check-schedule-schema-v6": (fixture) => {
+    fixture.schema_id = "cartulary.check_schedule.v6";
+  },
+  "execution-topology-duplicate-target": (fixture) => {
+    fixture.task_surface.targets.push({ name: "backend-unit" });
+  },
+  "phase-map-missing-unit": (fixture) => {
+    delete fixture.unit;
+  },
+  "phase-map-unknown-legacy-key": (fixture) => {
+    fixture.legacy_manifest_key = true;
+  },
+  "phase-registry-schema-v0": (fixture) => {
+    fixture.schema_id = "cartulary.phase_registry.v0";
+  },
+};
+
+const applyMutation = mutations[mutation];
+if (!applyMutation) {
+  throw new Error(`unknown JSON fixture mutation ${mutation}`);
+}
+
+applyMutation(value);
+fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
+JS
+}
+
 mkdir -p "$ROOT_DIR/tmp"
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/json-shapes.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
@@ -197,13 +238,7 @@ assert_contains "$(assert_passes "valid phase registry" run_shape_check phase-re
 
 bad_schema_registry="$tmp_dir/phase_registry_bad_schema.json"
 write_valid_phase_registry "$bad_schema_registry"
-"$NODE_BIN" -e '
-const fs = require("node:fs");
-const file = process.argv[1];
-const value = JSON.parse(fs.readFileSync(file, "utf8"));
-value.schema_id = "cartulary.phase_registry.v0";
-fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
-' "$bad_schema_registry"
+mutate_json_fixture phase-registry-schema-v0 "$bad_schema_registry"
 bad_schema_output="$(assert_fails "malformed registry schema_id" run_shape_check phase-registry "$bad_schema_registry")"
 assert_contains "$bad_schema_output" "must declare schema_id cartulary.phase_registry.v1" "malformed schema_id"
 
@@ -246,49 +281,25 @@ assert_contains "$(assert_passes "valid phase map" run_shape_check phase-map "$p
 
 unknown_phase_key="$tmp_dir/phase9_test_map_unknown_key.json"
 write_valid_phase_map "$unknown_phase_key"
-"$NODE_BIN" -e '
-const fs = require("node:fs");
-const file = process.argv[1];
-const value = JSON.parse(fs.readFileSync(file, "utf8"));
-value.legacy_manifest_key = true;
-fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
-' "$unknown_phase_key"
+mutate_json_fixture phase-map-unknown-legacy-key "$unknown_phase_key"
 unknown_key_output="$(assert_fails "unknown phase manifest key" run_shape_check phase-map "$unknown_phase_key")"
 assert_contains "$unknown_key_output" "unknown key legacy_manifest_key" "unknown manifest key"
 
 missing_section="$tmp_dir/phase9_test_map_missing_unit.json"
 write_valid_phase_map "$missing_section"
-"$NODE_BIN" -e '
-const fs = require("node:fs");
-const file = process.argv[1];
-const value = JSON.parse(fs.readFileSync(file, "utf8"));
-delete value.unit;
-fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
-' "$missing_section"
+mutate_json_fixture phase-map-missing-unit "$missing_section"
 missing_section_output="$(assert_fails "missing phase manifest section" run_shape_check phase-map "$missing_section")"
 assert_contains "$missing_section_output" ".unit is required" "missing manifest section"
 
 duplicate_target_topology="$tmp_dir/execution_topology_duplicate_target.json"
 write_valid_execution_topology "$duplicate_target_topology"
-"$NODE_BIN" -e '
-const fs = require("node:fs");
-const file = process.argv[1];
-const value = JSON.parse(fs.readFileSync(file, "utf8"));
-value.task_surface.targets.push({ name: "backend-unit" });
-fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
-' "$duplicate_target_topology"
+mutate_json_fixture execution-topology-duplicate-target "$duplicate_target_topology"
 duplicate_target_output="$(assert_fails "duplicate target identifiers" run_shape_check execution-topology "$duplicate_target_topology")"
 assert_contains "$duplicate_target_output" "task_surface.targets.name contains duplicate backend-unit" "duplicate target identifiers"
 
 stale_schedule="$tmp_dir/check_schedule_stale.json"
 write_valid_check_schedule "$stale_schedule"
-"$NODE_BIN" -e '
-const fs = require("node:fs");
-const file = process.argv[1];
-const value = JSON.parse(fs.readFileSync(file, "utf8"));
-value.schema_id = "cartulary.check_schedule.v6";
-fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
-' "$stale_schedule"
+mutate_json_fixture check-schedule-schema-v6 "$stale_schedule"
 stale_schedule_output="$(assert_fails "stale generated schedule shape" run_shape_check check-schedule "$stale_schedule")"
 assert_contains "$stale_schedule_output" "must declare schema_id cartulary.check_schedule.v7" "stale generated schedule shape"
 
@@ -300,13 +311,7 @@ assert_contains "$(assert_passes "valid bootstrap admin" run_shape_check bootstr
 
 bad_bootstrap_admin="$tmp_dir/bootstrap-admin-bad-email.json"
 write_valid_bootstrap_admin "$bad_bootstrap_admin"
-"$NODE_BIN" -e '
-const fs = require("node:fs");
-const file = process.argv[1];
-const value = JSON.parse(fs.readFileSync(file, "utf8"));
-value.email = "not-an-email";
-fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
-' "$bad_bootstrap_admin"
+mutate_json_fixture bootstrap-admin-bad-email "$bad_bootstrap_admin"
 bad_bootstrap_output="$(assert_fails "invalid bootstrap admin JSON" run_shape_check bootstrap-admin "$bad_bootstrap_admin")"
 assert_contains "$bad_bootstrap_output" "email has invalid value" "invalid bootstrap-admin JSON"
 

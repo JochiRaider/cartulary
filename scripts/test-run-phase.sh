@@ -327,6 +327,26 @@ assert_contains "$shell_progress_failure_output" "message=real-shell-failure" "s
 shell_progress_failure_summary="$shell_progress_failure_results/shell-progress-failure/adhoc/shell-progress-failure/phase-summary.json"
 assert_equals "$(json_field "$shell_progress_failure_summary" "dossiers.0.message")" "real-shell-failure" "shell progress failure summary message"
 
+shellcheck_stdout_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-phase-shellcheck-results.XXXXXX")"
+cleanup_paths+=("$shellcheck_stdout_failure_results")
+set +e
+shellcheck_stdout_failure_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$shellcheck_stdout_failure_results" \
+  CARTULARY_TEST_RUN_ID="shellcheck-stdout-failure" \
+    "$HELPER" "shellcheck stdout failure" -- bash -lc 'printf "%s\n" "scripts/bootstrap-node-runtime.sh" "In scripts/test-json-shapes.sh line 200:" "               ^-- SC2016 (info): Expressions don'\''t expand in single quotes, use double quotes for that."; exit 11' \
+    2>&1
+)"
+shellcheck_stdout_failure_status=$?
+set -e
+if [[ "$shellcheck_stdout_failure_status" -ne 11 ]]; then
+  fail "shellcheck stdout failure: expected exit status 11, got $shellcheck_stdout_failure_status"
+fi
+shellcheck_message="ShellCheck SC2016 at scripts/test-json-shapes.sh:200: Expressions don't expand in single quotes, use double quotes for that."
+assert_contains "$shellcheck_stdout_failure_output" "message=$shellcheck_message" "shellcheck stdout failure message"
+shellcheck_stdout_failure_summary="$shellcheck_stdout_failure_results/shellcheck-stdout-failure/adhoc/shellcheck-stdout-failure/phase-summary.json"
+assert_equals "$(json_field "$shellcheck_stdout_failure_summary" "dossiers.0.message")" "$shellcheck_message" "shellcheck stdout failure summary message"
+
 single_span_results="$(mktemp -d "$ROOT_DIR/tmp/single-span-duration.XXXXXX")"
 cleanup_paths+=("$single_span_results")
 single_span_phase_dir="$single_span_results/single-span/short-target/short-phase"
