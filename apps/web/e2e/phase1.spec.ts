@@ -459,6 +459,9 @@ test("E-1-08 keeps deployment-user administration on deployment-admin sessions a
   await restoreTrackedStorageState(page, workerAdmin.storageState);
   await phase1.goto();
   await phase1.loadTargetUser(targetUser.user_id);
+  await expect(page.getByTestId("admin-target-user-version")).toHaveText(
+    String(targetUserVersion),
+  );
   await page.getByTestId("admin-new-password").fill("Phase1E108Changed!");
   await page.getByTestId("admin-reason").fill("deployment admin action");
 
@@ -466,13 +469,22 @@ test("E-1-08 keeps deployment-user administration on deployment-admin sessions a
   await expect(page.getByTestId("admin-status")).toHaveText(
     "Reset user password",
   );
+  await expect(page.getByTestId("admin-target-user-version")).toHaveText(
+    String(targetUserVersion + 1),
+  );
 
   await page.getByTestId("admin-totp-reset").click();
   await expect(page.getByTestId("admin-status")).toHaveText("Reset user TOTP");
+  await expect(page.getByTestId("admin-target-user-version")).toHaveText(
+    String(targetUserVersion + 2),
+  );
 
   await page.getByTestId("admin-revoke-all").click();
   await expect(page.getByTestId("admin-status")).toHaveText(
     "Revoked every user session",
+  );
+  await expect(page.getByTestId("admin-target-user-version")).toHaveText(
+    String(targetUserVersion + 2),
   );
 
   await clearBrowserSession(page);

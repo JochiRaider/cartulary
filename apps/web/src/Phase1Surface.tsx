@@ -1,4 +1,4 @@
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, useRef, useState } from "react";
 
 import { type APIError, extractError } from "./browserApi";
 import {
@@ -39,6 +39,8 @@ type Phase1AdminPanelProps = {
   onRefreshShell: (options?: RefreshOptions) => Promise<void> | void;
   session: SessionData;
 };
+
+type TargetAdminOperation = "loading" | "mutating";
 
 export function Phase1AuthSurface({
   isCheckingSession,
@@ -694,13 +696,78 @@ export function Phase1AdminPanel({
   const [createIsDeploymentAdmin, setCreateIsDeploymentAdmin] = useState(false);
 
   const [targetUserId, setTargetUserId] = useState("");
-  const [targetBaseVersion, setTargetBaseVersion] = useState("1");
+  const [targetBaseVersion, setTargetBaseVersion] = useState("");
   const [patchDisplayName, setPatchDisplayName] = useState("");
   const [patchMfaRequired, setPatchMfaRequired] = useState(true);
   const [patchIsActive, setPatchIsActive] = useState(true);
   const [patchIsDeploymentAdmin, setPatchIsDeploymentAdmin] = useState(false);
   const [adminNewPassword, setAdminNewPassword] = useState("");
   const [adminReason, setAdminReason] = useState("ordinary admin action");
+  const [targetAdminOperation, setTargetAdminOperation] =
+    useState<TargetAdminOperation | null>(null);
+  const targetAdminOperationRef = useRef<{
+    id: number;
+    kind: TargetAdminOperation;
+  } | null>(null);
+  const nextTargetAdminOperationID = useRef(0);
+
+  const targetOperationPending = targetAdminOperation !== null;
+  const loadedTargetIsCurrent =
+    selectedUser !== null && targetUserId.trim() === selectedUser.user_id;
+  const trimmedTargetBaseVersion = targetBaseVersion.trim();
+  const targetBaseVersionIsValid = /^[1-9]\d*$/.test(trimmedTargetBaseVersion);
+  const parsedTargetBaseVersion = Number.parseInt(trimmedTargetBaseVersion, 10);
+  const canLoadTargetUser =
+    !targetOperationPending && targetUserId.trim() !== "";
+  const canSubmitTargetAction =
+    !targetOperationPending && loadedTargetIsCurrent;
+  const canSubmitVersionedTargetAction =
+    canSubmitTargetAction && targetBaseVersionIsValid;
+
+  function beginTargetAdminOperation(kind: TargetAdminOperation) {
+    if (targetAdminOperationRef.current !== null) {
+      return null;
+    }
+    const operation = {
+      id: nextTargetAdminOperationID.current + 1,
+      kind,
+    };
+    nextTargetAdminOperationID.current = operation.id;
+    targetAdminOperationRef.current = operation;
+    setTargetAdminOperation(kind);
+    return operation.id;
+  }
+
+  function isCurrentTargetAdminOperation(operationID: number) {
+    return targetAdminOperationRef.current?.id === operationID;
+  }
+
+  function finishTargetAdminOperation(operationID: number) {
+    if (!isCurrentTargetAdminOperation(operationID)) {
+      return;
+    }
+    targetAdminOperationRef.current = null;
+    setTargetAdminOperation(null);
+  }
+
+  function clearSelectedUser() {
+    setSelectedUser(null);
+    setTargetBaseVersion("");
+    setPatchDisplayName("");
+    setPatchMfaRequired(true);
+    setPatchIsActive(true);
+    setPatchIsDeploymentAdmin(false);
+  }
+
+  function applySelectedUser(user: UserResource) {
+    setSelectedUser(user);
+    setTargetUserId(user.user_id);
+    setTargetBaseVersion(String(user.user_version));
+    setPatchDisplayName(user.display_name);
+    setPatchMfaRequired(user.mfa_required);
+    setPatchIsActive(user.is_active);
+    setPatchIsDeploymentAdmin(user.is_deployment_admin);
+  }
 
   async function loadSelectedUser(
     userId: string,
@@ -708,145 +775,238 @@ export function Phase1AdminPanel({
       preserveStatus?: boolean;
     },
   ) {
-    if (userId.trim() === "") {
-      setSelectedUser(null);
+    const targetUserID = userId.trim();
+    if (targetUserID === "") {
+      clearSelectedUser();
       return;
     }
 
-    const result = await loadUser({ userId });
-    const nextError = extractError(result.payload);
-    setError(nextError);
-    if (!result.ok) {
-      if (!options?.preserveStatus) {
-        setStatusText("Load target user failed");
-      }
-      setSelectedUser(null);
+    const operationID = beginTargetAdminOperation("loading");
+    if (operationID === null) {
       return;
     }
-
-    const user = (result.payload as { data: UserResource }).data;
-    setSelectedUser(user);
-    setTargetUserId(user.user_id);
-    setTargetBaseVersion(String(user.user_version));
-    setPatchDisplayName(user.display_name);
-    setPatchMfaRequired(user.mfa_required);
-    setPatchIsActive(user.is_active);
-    setPatchIsDeploymentAdmin(user.is_deployment_admin);
-    if (!options?.preserveStatus) {
-      setStatusText("Loaded target user");
-    }
+    setStatusText("Loading target user");
     setError(null);
+
+    try {
+      const result = await loadUser({ userId: targetUserID });
+      if (!isCurrentTargetAdminOperation(operationID)) {
+        return;
+      }
+
+      const nextError = extractError(result.payload);
+      setError(nextError);
+      if (!result.ok) {
+        if (!options?.preserveStatus) {
+          setStatusText("Load target user failed");
+        }
+        clearSelectedUser();
+        return;
+      }
+
+      const user = (result.payload as { data: UserResource }).data;
+      applySelectedUser(user);
+      if (!options?.preserveStatus) {
+        setStatusText("Loaded target user");
+      }
+      setError(null);
+    } finally {
+      finishTargetAdminOperation(operationID);
+    }
   }
 
   async function handleCreateUser() {
-    setStatusText("Creating local user");
-    const result = await createLocalUser({
-      email: createEmail,
-      displayName: createDisplayName,
-      initialPassword: createInitialPassword,
-      mfaRequired: createMfaRequired,
-      isDeploymentAdmin: createIsDeploymentAdmin,
-    });
-    const nextError = extractError(result.payload);
-    setError(nextError);
-    if (!result.ok) {
-      setStatusText("Create local user failed");
+    const operationID = beginTargetAdminOperation("mutating");
+    if (operationID === null) {
       return;
     }
-
-    const user = (result.payload as { data: UserResource }).data;
-    setSelectedUser(user);
-    setTargetUserId(user.user_id);
-    setTargetBaseVersion(String(user.user_version));
-    setPatchDisplayName(user.display_name);
-    setPatchMfaRequired(user.mfa_required);
-    setPatchIsActive(user.is_active);
-    setPatchIsDeploymentAdmin(user.is_deployment_admin);
-    setStatusText("Created local user");
+    setStatusText("Creating local user");
     setError(null);
-    await onRefreshShell();
+
+    try {
+      const result = await createLocalUser({
+        email: createEmail,
+        displayName: createDisplayName,
+        initialPassword: createInitialPassword,
+        mfaRequired: createMfaRequired,
+        isDeploymentAdmin: createIsDeploymentAdmin,
+      });
+      if (!isCurrentTargetAdminOperation(operationID)) {
+        return;
+      }
+
+      const nextError = extractError(result.payload);
+      setError(nextError);
+      if (!result.ok) {
+        setStatusText("Create local user failed");
+        return;
+      }
+
+      const user = (result.payload as { data: UserResource }).data;
+      applySelectedUser(user);
+      setStatusText("Created local user");
+      setError(null);
+      await onRefreshShell();
+    } finally {
+      finishTargetAdminOperation(operationID);
+    }
   }
 
   async function handlePatchUser() {
-    setStatusText("Patching local user");
-    const result = await patchLocalUser({
-      userId: targetUserId,
-      baseUserVersion: Number.parseInt(targetBaseVersion, 10),
-      displayName: patchDisplayName,
-      mfaRequired: patchMfaRequired,
-      isActive: patchIsActive,
-      isDeploymentAdmin: patchIsDeploymentAdmin,
-    });
-    const nextError = extractError(result.payload);
-    setError(nextError);
-    if (!result.ok) {
-      setStatusText("Patch local user failed");
+    if (!canSubmitVersionedTargetAction || selectedUser === null) {
       return;
     }
-
-    setStatusText("Patched local user");
+    const operationID = beginTargetAdminOperation("mutating");
+    if (operationID === null) {
+      return;
+    }
+    const targetUserID = selectedUser.user_id;
+    setStatusText("Patching local user");
     setError(null);
-    await loadSelectedUser(targetUserId, { preserveStatus: true });
-    await onRefreshShell();
+
+    try {
+      const result = await patchLocalUser({
+        userId: targetUserID,
+        baseUserVersion: parsedTargetBaseVersion,
+        displayName: patchDisplayName,
+        mfaRequired: patchMfaRequired,
+        isActive: patchIsActive,
+        isDeploymentAdmin: patchIsDeploymentAdmin,
+      });
+      if (!isCurrentTargetAdminOperation(operationID)) {
+        return;
+      }
+
+      const nextError = extractError(result.payload);
+      setError(nextError);
+      if (!result.ok) {
+        setStatusText("Patch local user failed");
+        return;
+      }
+
+      const user = (result.payload as { data: UserResource }).data;
+      applySelectedUser(user);
+      setStatusText("Patched local user");
+      setError(null);
+      await onRefreshShell();
+    } finally {
+      finishTargetAdminOperation(operationID);
+    }
   }
 
   async function handleAdminPasswordReset() {
-    setStatusText("Resetting user password");
-    const result = await adminResetPassword({
-      userId: targetUserId,
-      baseUserVersion: Number.parseInt(targetBaseVersion, 10),
-      newPassword: adminNewPassword,
-      reason: adminReason,
-    });
-    const nextError = extractError(result.payload);
-    setError(nextError);
-    if (!result.ok) {
-      setStatusText("Reset user password failed");
+    if (!canSubmitVersionedTargetAction || selectedUser === null) {
       return;
     }
-
-    setStatusText("Reset user password");
+    const operationID = beginTargetAdminOperation("mutating");
+    if (operationID === null) {
+      return;
+    }
+    const targetUserID = selectedUser.user_id;
+    setStatusText("Resetting user password");
     setError(null);
-    await loadSelectedUser(targetUserId, { preserveStatus: true });
-    await onRefreshShell();
+
+    try {
+      const result = await adminResetPassword({
+        userId: targetUserID,
+        baseUserVersion: parsedTargetBaseVersion,
+        newPassword: adminNewPassword,
+        reason: adminReason,
+      });
+      if (!isCurrentTargetAdminOperation(operationID)) {
+        return;
+      }
+
+      const nextError = extractError(result.payload);
+      setError(nextError);
+      if (!result.ok) {
+        setStatusText("Reset user password failed");
+        return;
+      }
+
+      const user = (result.payload as { data: UserResource }).data;
+      applySelectedUser(user);
+      setStatusText("Reset user password");
+      setError(null);
+      await onRefreshShell();
+    } finally {
+      finishTargetAdminOperation(operationID);
+    }
   }
 
   async function handleAdminTotpReset() {
-    setStatusText("Resetting user TOTP");
-    const result = await adminResetTotp({
-      userId: targetUserId,
-      baseUserVersion: Number.parseInt(targetBaseVersion, 10),
-      reason: adminReason,
-    });
-    const nextError = extractError(result.payload);
-    setError(nextError);
-    if (!result.ok) {
-      setStatusText("Reset user TOTP failed");
+    if (!canSubmitVersionedTargetAction || selectedUser === null) {
       return;
     }
-
-    setStatusText("Reset user TOTP");
+    const operationID = beginTargetAdminOperation("mutating");
+    if (operationID === null) {
+      return;
+    }
+    const targetUserID = selectedUser.user_id;
+    setStatusText("Resetting user TOTP");
     setError(null);
-    await loadSelectedUser(targetUserId, { preserveStatus: true });
-    await onRefreshShell();
+
+    try {
+      const result = await adminResetTotp({
+        userId: targetUserID,
+        baseUserVersion: parsedTargetBaseVersion,
+        reason: adminReason,
+      });
+      if (!isCurrentTargetAdminOperation(operationID)) {
+        return;
+      }
+
+      const nextError = extractError(result.payload);
+      setError(nextError);
+      if (!result.ok) {
+        setStatusText("Reset user TOTP failed");
+        return;
+      }
+
+      const user = (result.payload as { data: UserResource }).data;
+      applySelectedUser(user);
+      setStatusText("Reset user TOTP");
+      setError(null);
+      await onRefreshShell();
+    } finally {
+      finishTargetAdminOperation(operationID);
+    }
   }
 
   async function handleAdminRevokeAll() {
-    setStatusText("Revoking every user session");
-    const result = await adminRevokeAllSessions({
-      userId: targetUserId,
-      reason: adminReason,
-    });
-    const nextError = extractError(result.payload);
-    setError(nextError);
-    if (!result.ok) {
-      setStatusText("Revoke-all failed");
+    if (!canSubmitTargetAction || selectedUser === null) {
       return;
     }
-
-    setStatusText("Revoked every user session");
+    const operationID = beginTargetAdminOperation("mutating");
+    if (operationID === null) {
+      return;
+    }
+    const targetUserID = selectedUser.user_id;
+    setStatusText("Revoking every user session");
     setError(null);
-    await onRefreshShell();
+
+    try {
+      const result = await adminRevokeAllSessions({
+        userId: targetUserID,
+        reason: adminReason,
+      });
+      if (!isCurrentTargetAdminOperation(operationID)) {
+        return;
+      }
+
+      const nextError = extractError(result.payload);
+      setError(nextError);
+      if (!result.ok) {
+        setStatusText("Revoke-all failed");
+        return;
+      }
+
+      setStatusText("Revoked every user session");
+      setError(null);
+      await onRefreshShell();
+    } finally {
+      finishTargetAdminOperation(operationID);
+    }
   }
 
   if (!session.is_deployment_admin) {
@@ -885,6 +1045,7 @@ export function Phase1AdminPanel({
           <input
             data-testid="admin-create-email"
             id="admin-create-email"
+            disabled={targetOperationPending}
             style={inputStyle}
             value={createEmail}
             onChange={(event) => {
@@ -897,6 +1058,7 @@ export function Phase1AdminPanel({
           <input
             data-testid="admin-create-display-name"
             id="admin-create-display-name"
+            disabled={targetOperationPending}
             style={inputStyle}
             value={createDisplayName}
             onChange={(event) => {
@@ -909,6 +1071,7 @@ export function Phase1AdminPanel({
           <input
             data-testid="admin-create-password"
             id="admin-create-password"
+            disabled={targetOperationPending}
             style={inputStyle}
             type="password"
             value={createInitialPassword}
@@ -922,6 +1085,7 @@ export function Phase1AdminPanel({
             <input
               data-testid="admin-create-mfa-required"
               type="checkbox"
+              disabled={targetOperationPending}
               checked={createMfaRequired}
               onChange={(event) => {
                 setCreateMfaRequired(event.target.checked);
@@ -933,6 +1097,7 @@ export function Phase1AdminPanel({
             <input
               data-testid="admin-create-is-deployment-admin"
               type="checkbox"
+              disabled={targetOperationPending}
               checked={createIsDeploymentAdmin}
               onChange={(event) => {
                 setCreateIsDeploymentAdmin(event.target.checked);
@@ -944,6 +1109,7 @@ export function Phase1AdminPanel({
         <div style={buttonRowStyle}>
           <button
             data-testid="admin-create-user"
+            disabled={targetOperationPending}
             style={buttonStyle}
             type="button"
             onClick={() => {
@@ -964,6 +1130,7 @@ export function Phase1AdminPanel({
           <input
             data-testid="admin-target-user-id-input"
             id="admin-target-user-id-input"
+            disabled={targetOperationPending}
             style={inputStyle}
             value={targetUserId}
             onChange={(event) => {
@@ -974,6 +1141,7 @@ export function Phase1AdminPanel({
         <div style={buttonRowStyle}>
           <button
             data-testid="admin-load-user"
+            disabled={!canLoadTargetUser}
             style={secondaryButtonStyle}
             type="button"
             onClick={() => {
@@ -1020,6 +1188,7 @@ export function Phase1AdminPanel({
           <input
             data-testid="admin-patch-base-version"
             id="admin-patch-base-version"
+            disabled={!canSubmitTargetAction}
             style={inputStyle}
             value={targetBaseVersion}
             onChange={(event) => {
@@ -1032,6 +1201,7 @@ export function Phase1AdminPanel({
           <input
             data-testid="admin-patch-display-name"
             id="admin-patch-display-name"
+            disabled={!canSubmitTargetAction}
             style={inputStyle}
             value={patchDisplayName}
             onChange={(event) => {
@@ -1044,6 +1214,7 @@ export function Phase1AdminPanel({
             <input
               data-testid="admin-patch-mfa-required"
               type="checkbox"
+              disabled={!canSubmitTargetAction}
               checked={patchMfaRequired}
               onChange={(event) => {
                 setPatchMfaRequired(event.target.checked);
@@ -1055,6 +1226,7 @@ export function Phase1AdminPanel({
             <input
               data-testid="admin-patch-is-active"
               type="checkbox"
+              disabled={!canSubmitTargetAction}
               checked={patchIsActive}
               onChange={(event) => {
                 setPatchIsActive(event.target.checked);
@@ -1066,6 +1238,7 @@ export function Phase1AdminPanel({
             <input
               data-testid="admin-patch-is-deployment-admin"
               type="checkbox"
+              disabled={!canSubmitTargetAction}
               checked={patchIsDeploymentAdmin}
               onChange={(event) => {
                 setPatchIsDeploymentAdmin(event.target.checked);
@@ -1077,6 +1250,7 @@ export function Phase1AdminPanel({
         <div style={buttonRowStyle}>
           <button
             data-testid="admin-patch-user"
+            disabled={!canSubmitVersionedTargetAction}
             style={buttonStyle}
             type="button"
             onClick={() => {
@@ -1120,6 +1294,7 @@ export function Phase1AdminPanel({
         <div style={buttonRowStyle}>
           <button
             data-testid="admin-password-reset"
+            disabled={!canSubmitVersionedTargetAction}
             style={buttonStyle}
             type="button"
             onClick={() => {
@@ -1130,6 +1305,7 @@ export function Phase1AdminPanel({
           </button>
           <button
             data-testid="admin-totp-reset"
+            disabled={!canSubmitVersionedTargetAction}
             style={buttonStyle}
             type="button"
             onClick={() => {
@@ -1140,6 +1316,7 @@ export function Phase1AdminPanel({
           </button>
           <button
             data-testid="admin-revoke-all"
+            disabled={!canSubmitTargetAction}
             style={buttonStyle}
             type="button"
             onClick={() => {

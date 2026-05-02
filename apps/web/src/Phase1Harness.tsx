@@ -1,4 +1,10 @@
-import { type CSSProperties, useCallback, useEffect, useState } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { type APIError, extractError } from "./browserApi";
 import {
@@ -24,6 +30,8 @@ type ProbeResult = {
   status: number;
   body: unknown;
 };
+
+type TargetAdminOperation = "loading" | "mutating";
 
 function prettyJSON(value: unknown): string {
   return JSON.stringify(value, null, 2);
@@ -68,7 +76,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
   const [createIsDeploymentAdmin, setCreateIsDeploymentAdmin] = useState(false);
 
   const [targetUserID, setTargetUserID] = useState("");
-  const [targetBaseVersion, setTargetBaseVersion] = useState("1");
+  const [targetBaseVersion, setTargetBaseVersion] = useState("");
   const [patchDisplayName, setPatchDisplayName] = useState("");
   const [patchMFARequired, setPatchMFARequired] = useState(true);
   const [patchIsActive, setPatchIsActive] = useState(true);
@@ -76,6 +84,71 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
   const [adminNewPassword, setAdminNewPassword] = useState("");
   const [adminReason, setAdminReason] = useState("phase1 harness action");
   const [selectedUser, setSelectedUser] = useState<UserResource | null>(null);
+  const [targetAdminOperation, setTargetAdminOperation] =
+    useState<TargetAdminOperation | null>(null);
+  const targetAdminOperationRef = useRef<{
+    id: number;
+    kind: TargetAdminOperation;
+  } | null>(null);
+  const nextTargetAdminOperationID = useRef(0);
+
+  const targetOperationPending = targetAdminOperation !== null;
+  const loadedTargetIsCurrent =
+    selectedUser !== null && targetUserID.trim() === selectedUser.user_id;
+  const trimmedTargetBaseVersion = targetBaseVersion.trim();
+  const targetBaseVersionIsValid = /^[1-9]\d*$/.test(trimmedTargetBaseVersion);
+  const parsedTargetBaseVersion = Number.parseInt(trimmedTargetBaseVersion, 10);
+  const canLoadTargetUser =
+    !targetOperationPending && targetUserID.trim() !== "";
+  const canSubmitTargetAction =
+    !targetOperationPending && loadedTargetIsCurrent;
+  const canSubmitVersionedTargetAction =
+    canSubmitTargetAction && targetBaseVersionIsValid;
+
+  function beginTargetAdminOperation(kind: TargetAdminOperation) {
+    if (targetAdminOperationRef.current !== null) {
+      return null;
+    }
+    const operation = {
+      id: nextTargetAdminOperationID.current + 1,
+      kind,
+    };
+    nextTargetAdminOperationID.current = operation.id;
+    targetAdminOperationRef.current = operation;
+    setTargetAdminOperation(kind);
+    return operation.id;
+  }
+
+  function isCurrentTargetAdminOperation(operationID: number) {
+    return targetAdminOperationRef.current?.id === operationID;
+  }
+
+  function finishTargetAdminOperation(operationID: number) {
+    if (!isCurrentTargetAdminOperation(operationID)) {
+      return;
+    }
+    targetAdminOperationRef.current = null;
+    setTargetAdminOperation(null);
+  }
+
+  function clearSelectedUser() {
+    setSelectedUser(null);
+    setTargetBaseVersion("");
+    setPatchDisplayName("");
+    setPatchMFARequired(true);
+    setPatchIsActive(true);
+    setPatchIsDeploymentAdmin(false);
+  }
+
+  function applySelectedUser(user: UserResource) {
+    setSelectedUser(user);
+    setTargetUserID(user.user_id);
+    setTargetBaseVersion(String(user.user_version));
+    setPatchDisplayName(user.display_name);
+    setPatchMFARequired(user.mfa_required);
+    setPatchIsActive(user.is_active);
+    setPatchIsDeploymentAdmin(user.is_deployment_admin);
+  }
 
   const updateProbe = useCallback(
     (
@@ -121,22 +194,36 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
     return null;
   }, [apiBase]);
 
-  const loadUser = useCallback(
-    async (
-      userID: string,
-      options?: {
-        updateProbe?: boolean;
-      },
-    ) => {
-      const updateProbeOutput = options?.updateProbe ?? true;
-      if (userID.trim() === "") {
-        if (updateProbeOutput) {
-          setSelectedUser(null);
-        }
+  async function loadUser(
+    userID: string,
+    options?: {
+      updateProbe?: boolean;
+    },
+  ) {
+    const updateProbeOutput = options?.updateProbe ?? true;
+    const targetUserID = userID.trim();
+    if (targetUserID === "") {
+      if (updateProbeOutput) {
+        clearSelectedUser();
+      }
+      return null;
+    }
+
+    const operationID = beginTargetAdminOperation("loading");
+    if (operationID === null) {
+      return null;
+    }
+    if (updateProbeOutput) {
+      setStatusText("Loading target user");
+      setLastError(null);
+    }
+
+    try {
+      const result = await loadUserRequest({ apiBase, userId: targetUserID });
+      if (!isCurrentTargetAdminOperation(operationID)) {
         return null;
       }
 
-      const result = await loadUserRequest({ apiBase, userId: userID });
       if (updateProbeOutput) {
         updateProbe(
           result.status,
@@ -147,23 +234,18 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
       }
       if (!result.ok) {
         if (updateProbeOutput) {
-          setSelectedUser(null);
+          clearSelectedUser();
         }
         return null;
       }
 
       const user = (result.payload as { data: UserResource }).data;
-      setSelectedUser(user);
-      setTargetUserID(user.user_id);
-      setTargetBaseVersion(String(user.user_version));
-      setPatchDisplayName(user.display_name);
-      setPatchMFARequired(user.mfa_required);
-      setPatchIsActive(user.is_active);
-      setPatchIsDeploymentAdmin(user.is_deployment_admin);
+      applySelectedUser(user);
       return user;
-    },
-    [apiBase, updateProbe],
-  );
+    } finally {
+      finishTargetAdminOperation(operationID);
+    }
+  }
 
   useEffect(() => {
     void loadSession();
@@ -275,120 +357,198 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
   }
 
   async function handleCreateUser() {
-    setStatusText("Creating local user");
-    const result = await createLocalUser({
-      apiBase,
-      email: createEmail,
-      displayName: createDisplayName,
-      initialPassword: createInitialPassword,
-      mfaRequired: createMFARequired,
-      isDeploymentAdmin: createIsDeploymentAdmin,
-    });
-    updateProbe(
-      result.status,
-      result.payload,
-      "Created local user",
-      "Create local user failed",
-    );
-    if (!result.ok) {
+    const operationID = beginTargetAdminOperation("mutating");
+    if (operationID === null) {
       return;
     }
+    setStatusText("Creating local user");
+    setLastError(null);
 
-    const user = (result.payload as { data: UserResource }).data;
-    setSelectedUser(user);
-    setTargetUserID(user.user_id);
-    setTargetBaseVersion(String(user.user_version));
-    setPatchDisplayName(user.display_name);
-    setPatchMFARequired(user.mfa_required);
-    setPatchIsActive(user.is_active);
-    setPatchIsDeploymentAdmin(user.is_deployment_admin);
+    try {
+      const result = await createLocalUser({
+        apiBase,
+        email: createEmail,
+        displayName: createDisplayName,
+        initialPassword: createInitialPassword,
+        mfaRequired: createMFARequired,
+        isDeploymentAdmin: createIsDeploymentAdmin,
+      });
+      if (!isCurrentTargetAdminOperation(operationID)) {
+        return;
+      }
+
+      updateProbe(
+        result.status,
+        result.payload,
+        "Created local user",
+        "Create local user failed",
+      );
+      if (!result.ok) {
+        return;
+      }
+
+      const user = (result.payload as { data: UserResource }).data;
+      applySelectedUser(user);
+    } finally {
+      finishTargetAdminOperation(operationID);
+    }
   }
 
   async function handlePatchUser() {
-    setStatusText("Patching local user");
-    const result = await patchLocalUser({
-      apiBase,
-      userId: targetUserID,
-      baseUserVersion: Number.parseInt(targetBaseVersion, 10),
-      displayName: patchDisplayName,
-      mfaRequired: patchMFARequired,
-      isActive: patchIsActive,
-      isDeploymentAdmin: patchIsDeploymentAdmin,
-    });
-    updateProbe(
-      result.status,
-      result.payload,
-      "Patched local user",
-      "Patch local user failed",
-    );
-    if (!result.ok) {
+    if (!canSubmitVersionedTargetAction || selectedUser === null) {
       return;
     }
+    const operationID = beginTargetAdminOperation("mutating");
+    if (operationID === null) {
+      return;
+    }
+    const targetUserID = selectedUser.user_id;
+    setStatusText("Patching local user");
+    setLastError(null);
 
-    await loadUser(targetUserID, { updateProbe: false });
+    try {
+      const result = await patchLocalUser({
+        apiBase,
+        userId: targetUserID,
+        baseUserVersion: parsedTargetBaseVersion,
+        displayName: patchDisplayName,
+        mfaRequired: patchMFARequired,
+        isActive: patchIsActive,
+        isDeploymentAdmin: patchIsDeploymentAdmin,
+      });
+      if (!isCurrentTargetAdminOperation(operationID)) {
+        return;
+      }
+
+      updateProbe(
+        result.status,
+        result.payload,
+        "Patched local user",
+        "Patch local user failed",
+      );
+      if (!result.ok) {
+        return;
+      }
+
+      const user = (result.payload as { data: UserResource }).data;
+      applySelectedUser(user);
+    } finally {
+      finishTargetAdminOperation(operationID);
+    }
   }
 
   async function handleAdminPasswordReset() {
-    setStatusText("Resetting user password");
-    const result = await adminResetPassword({
-      apiBase,
-      userId: targetUserID,
-      baseUserVersion: Number.parseInt(targetBaseVersion, 10),
-      newPassword: adminNewPassword,
-      reason: adminReason,
-    });
-    updateProbe(
-      result.status,
-      result.payload,
-      "Reset user password",
-      "Reset user password failed",
-    );
-    if (!result.ok) {
+    if (!canSubmitVersionedTargetAction || selectedUser === null) {
       return;
     }
+    const operationID = beginTargetAdminOperation("mutating");
+    if (operationID === null) {
+      return;
+    }
+    const targetUserID = selectedUser.user_id;
+    setStatusText("Resetting user password");
+    setLastError(null);
 
-    await loadUser(targetUserID, { updateProbe: false });
+    try {
+      const result = await adminResetPassword({
+        apiBase,
+        userId: targetUserID,
+        baseUserVersion: parsedTargetBaseVersion,
+        newPassword: adminNewPassword,
+        reason: adminReason,
+      });
+      if (!isCurrentTargetAdminOperation(operationID)) {
+        return;
+      }
+
+      updateProbe(
+        result.status,
+        result.payload,
+        "Reset user password",
+        "Reset user password failed",
+      );
+      if (!result.ok) {
+        return;
+      }
+
+      const user = (result.payload as { data: UserResource }).data;
+      applySelectedUser(user);
+    } finally {
+      finishTargetAdminOperation(operationID);
+    }
   }
 
   async function handleAdminTOTPReset() {
-    setStatusText("Resetting user TOTP");
-    const result = await adminResetTotp({
-      apiBase,
-      userId: targetUserID,
-      baseUserVersion: Number.parseInt(targetBaseVersion, 10),
-      reason: adminReason,
-    });
-    updateProbe(
-      result.status,
-      result.payload,
-      "Reset user TOTP",
-      "Reset user TOTP failed",
-    );
-    if (!result.ok) {
+    if (!canSubmitVersionedTargetAction || selectedUser === null) {
       return;
     }
+    const operationID = beginTargetAdminOperation("mutating");
+    if (operationID === null) {
+      return;
+    }
+    const targetUserID = selectedUser.user_id;
+    setStatusText("Resetting user TOTP");
+    setLastError(null);
 
-    await loadUser(targetUserID, { updateProbe: false });
+    try {
+      const result = await adminResetTotp({
+        apiBase,
+        userId: targetUserID,
+        baseUserVersion: parsedTargetBaseVersion,
+        reason: adminReason,
+      });
+      if (!isCurrentTargetAdminOperation(operationID)) {
+        return;
+      }
+
+      updateProbe(
+        result.status,
+        result.payload,
+        "Reset user TOTP",
+        "Reset user TOTP failed",
+      );
+      if (!result.ok) {
+        return;
+      }
+
+      const user = (result.payload as { data: UserResource }).data;
+      applySelectedUser(user);
+    } finally {
+      finishTargetAdminOperation(operationID);
+    }
   }
 
   async function handleAdminRevokeAll() {
-    setStatusText("Revoking every user session");
-    const result = await adminRevokeAllSessions({
-      apiBase,
-      userId: targetUserID,
-      reason: adminReason,
-    });
-    updateProbe(
-      result.status,
-      result.payload,
-      "Revoked every user session",
-      "Revoke-all failed",
-    );
-    if (!result.ok) {
+    if (!canSubmitTargetAction || selectedUser === null) {
       return;
     }
+    const operationID = beginTargetAdminOperation("mutating");
+    if (operationID === null) {
+      return;
+    }
+    const targetUserID = selectedUser.user_id;
+    setStatusText("Revoking every user session");
+    setLastError(null);
 
-    await loadUser(targetUserID, { updateProbe: false });
+    try {
+      const result = await adminRevokeAllSessions({
+        apiBase,
+        userId: targetUserID,
+        reason: adminReason,
+      });
+      if (!isCurrentTargetAdminOperation(operationID)) {
+        return;
+      }
+
+      updateProbe(
+        result.status,
+        result.payload,
+        "Revoked every user session",
+        "Revoke-all failed",
+      );
+    } finally {
+      finishTargetAdminOperation(operationID);
+    }
   }
 
   return (
@@ -771,6 +931,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             <div style={stackStyle}>
               <input
                 data-testid="phase1-admin-create-email"
+                disabled={targetOperationPending}
                 placeholder="new.user@example.test"
                 style={inputStyle}
                 type="text"
@@ -781,6 +942,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
               />
               <input
                 data-testid="phase1-admin-create-display-name"
+                disabled={targetOperationPending}
                 placeholder="Display name"
                 style={inputStyle}
                 type="text"
@@ -791,6 +953,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
               />
               <input
                 data-testid="phase1-admin-create-password"
+                disabled={targetOperationPending}
                 placeholder="Initial password"
                 style={inputStyle}
                 type="password"
@@ -803,6 +966,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                 <input
                   data-testid="phase1-admin-create-mfa-required"
                   checked={createMFARequired}
+                  disabled={targetOperationPending}
                   type="checkbox"
                   onChange={(event) => {
                     setCreateMFARequired(event.target.checked);
@@ -814,6 +978,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                 <input
                   data-testid="phase1-admin-create-is-deployment-admin"
                   checked={createIsDeploymentAdmin}
+                  disabled={targetOperationPending}
                   type="checkbox"
                   onChange={(event) => {
                     setCreateIsDeploymentAdmin(event.target.checked);
@@ -823,6 +988,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
               </label>
               <button
                 data-testid="phase1-admin-create-user"
+                disabled={targetOperationPending}
                 style={buttonStyle}
                 type="button"
                 onClick={() => {
@@ -839,6 +1005,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             <div style={stackStyle}>
               <input
                 data-testid="phase1-admin-target-user-id-input"
+                disabled={targetOperationPending}
                 placeholder="Target user UUID"
                 style={inputStyle}
                 type="text"
@@ -849,6 +1016,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
               />
               <button
                 data-testid="phase1-admin-load-user"
+                disabled={!canLoadTargetUser}
                 style={secondaryButtonStyle}
                 type="button"
                 onClick={() => {
@@ -880,6 +1048,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
             <div style={stackStyle}>
               <input
                 data-testid="phase1-admin-patch-base-version"
+                disabled={!canSubmitTargetAction}
                 placeholder="Base user version"
                 style={narrowInputStyle}
                 type="number"
@@ -890,6 +1059,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
               />
               <input
                 data-testid="phase1-admin-patch-display-name"
+                disabled={!canSubmitTargetAction}
                 placeholder="Display name"
                 style={inputStyle}
                 type="text"
@@ -902,6 +1072,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                 <input
                   data-testid="phase1-admin-patch-mfa-required"
                   checked={patchMFARequired}
+                  disabled={!canSubmitTargetAction}
                   type="checkbox"
                   onChange={(event) => {
                     setPatchMFARequired(event.target.checked);
@@ -913,6 +1084,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                 <input
                   data-testid="phase1-admin-patch-is-active"
                   checked={patchIsActive}
+                  disabled={!canSubmitTargetAction}
                   type="checkbox"
                   onChange={(event) => {
                     setPatchIsActive(event.target.checked);
@@ -924,6 +1096,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                 <input
                   data-testid="phase1-admin-patch-is-deployment-admin"
                   checked={patchIsDeploymentAdmin}
+                  disabled={!canSubmitTargetAction}
                   type="checkbox"
                   onChange={(event) => {
                     setPatchIsDeploymentAdmin(event.target.checked);
@@ -933,6 +1106,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
               </label>
               <button
                 data-testid="phase1-admin-patch-user"
+                disabled={!canSubmitVersionedTargetAction}
                 style={buttonStyle}
                 type="button"
                 onClick={() => {
@@ -970,6 +1144,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
               <div style={formRowStyle}>
                 <button
                   data-testid="phase1-admin-password-reset"
+                  disabled={!canSubmitVersionedTargetAction}
                   style={buttonStyle}
                   type="button"
                   onClick={() => {
@@ -980,6 +1155,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                 </button>
                 <button
                   data-testid="phase1-admin-totp-reset"
+                  disabled={!canSubmitVersionedTargetAction}
                   style={secondaryButtonStyle}
                   type="button"
                   onClick={() => {
@@ -990,6 +1166,7 @@ export function Phase1Harness({ apiBase }: { apiBase?: string }) {
                 </button>
                 <button
                   data-testid="phase1-admin-revoke-all"
+                  disabled={!canSubmitTargetAction}
                   style={secondaryButtonStyle}
                   type="button"
                   onClick={() => {

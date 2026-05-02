@@ -569,6 +569,132 @@ describe("Phase 1 ordinary app shell", () => {
     );
     await expectStableFetchCount(fetchMock, 11);
   });
+
+  it("keeps deployment-admin target actions disabled until a target load completes and leaves version-conflict status stable", async () => {
+    const loadedUser = userResource({
+      user_id: "user-2",
+      email: "loaded-target@example.test",
+      display_name: "Loaded Target",
+      user_version: 7,
+    });
+    const pendingLoad = deferred<Response>();
+
+    fetchMock.mockImplementation((input, init) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+
+      if (url === "/api/v1/auth/session") {
+        return Promise.resolve(
+          jsonResponse({
+            data: sessionResource({
+              display_name: "Deployment Admin",
+              is_deployment_admin: true,
+            }),
+          }),
+        );
+      }
+      if (url === "/api/v1/auth/credential-state") {
+        return Promise.resolve(
+          jsonResponse({
+            data: credentialStateResource(),
+          }),
+        );
+      }
+      if (url === "/api/v1/incidents") {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              incidents: [],
+            },
+          }),
+        );
+      }
+      if (url === "/api/v1/users/user-2" && method === "GET") {
+        return pendingLoad.promise;
+      }
+      if (url === "/api/v1/users/user-2" && method === "PATCH") {
+        return Promise.resolve(errorResponse("user_version_conflict", 409));
+      }
+      throw new Error(`unexpected fetch: ${method} ${url}`);
+    });
+
+    renderApp();
+
+    await screen.findByTestId("landing-current-user");
+    expect(
+      (screen.getByTestId("admin-patch-user") as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByTestId("admin-password-reset") as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+
+    fireEvent.change(screen.getByTestId("admin-target-user-id-input"), {
+      target: { value: "user-2" },
+    });
+    fireEvent.click(screen.getByTestId("admin-load-user"));
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-status").textContent).toBe(
+        "Loading target user",
+      );
+    });
+
+    expect(
+      (screen.getByTestId("admin-patch-user") as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByTestId("admin-password-reset") as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    fireEvent.click(screen.getByTestId("admin-password-reset"));
+    fireEvent.click(screen.getByTestId("admin-patch-user"));
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/users/user-2/password/reset", "POST"),
+    ).toHaveLength(0);
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/users/user-2", "PATCH"),
+    ).toHaveLength(0);
+
+    pendingLoad.resolve(jsonResponse({ data: loadedUser }));
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-target-user-version").textContent).toBe(
+        "7",
+      );
+    });
+    expect(screen.getByTestId("admin-status").textContent).toBe(
+      "Loaded target user",
+    );
+    expect(
+      (screen.getByTestId("admin-patch-user") as HTMLButtonElement).disabled,
+    ).toBe(false);
+
+    fireEvent.change(screen.getByTestId("admin-patch-base-version"), {
+      target: { value: "1" },
+    });
+    fireEvent.click(screen.getByTestId("admin-patch-user"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-error-code").textContent).toBe(
+        "user_version_conflict",
+      );
+    });
+    expect(screen.getByTestId("admin-status").textContent).toBe(
+      "Patch local user failed",
+    );
+    const patchRequest = requireJSONRequest(
+      fetchMock,
+      "/api/v1/users/user-2",
+      "PATCH",
+    );
+    expect(patchRequest.body.base_user_version).toBe(1);
+    await expectStableFetchCount(fetchMock, 5);
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/users/user-2", "GET"),
+    ).toHaveLength(1);
+    expect(screen.getByTestId("admin-status").textContent).toBe(
+      "Patch local user failed",
+    );
+  });
 });
 
 function renderApp() {
@@ -658,6 +784,16 @@ async function expectStableFetchCount(
 async function flushMicrotasks() {
   await Promise.resolve();
   await Promise.resolve();
+}
+
+function deferred<T>() {
+  let resolve: (value: T) => void = () => {};
+  let reject: (reason?: unknown) => void = () => {};
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, reject, resolve };
 }
 
 function errorResponse(

@@ -93,8 +93,23 @@ export class Phase1Page {
   }
 
   async loadTargetUser(userId: string) {
+    const targetPath = `/api/v1/users/${userId}`;
     await this.page.getByTestId("admin-target-user-id-input").fill(userId);
-    await this.page.getByTestId("admin-load-user").click();
+    const [response] = await Promise.all([
+      this.page.waitForResponse((candidate) => {
+        const method = candidate.request().method().toUpperCase();
+        if (method !== "GET") {
+          return false;
+        }
+        return new URL(candidate.url()).pathname === targetPath;
+      }),
+      this.page.getByTestId("admin-load-user").click(),
+    ]);
+    expect(response.ok()).toBeTruthy();
+    await expect(this.page.getByTestId("admin-target-user-id")).toHaveText(
+      userId,
+    );
+    await this.requireText("admin-target-user-version");
   }
 
   async patchTargetUser() {
