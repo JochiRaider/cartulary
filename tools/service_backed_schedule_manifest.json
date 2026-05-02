@@ -53,7 +53,7 @@
           "type": "make_target",
           "class": "backend",
           "target": "backend-process",
-          "weight": 7400,
+          "weight": 14504,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -67,7 +67,7 @@
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
-          "weight": 27600,
+          "weight": 45961,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -88,7 +88,7 @@
             "backend-process",
             "browser-e2e-webserver-backed"
           ],
-          "weight": 21700,
+          "weight": 22608,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -142,7 +142,7 @@
           "type": "make_target",
           "class": "backend",
           "target": "backend-process",
-          "weight": 7400,
+          "weight": 14504,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -199,7 +199,7 @@
           "type": "make_target",
           "class": "backend",
           "target": "backend-process",
-          "weight": 7400,
+          "weight": 14504,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -213,7 +213,7 @@
           "class": "browser",
           "target": "browser-e2e-webserver-backed",
           "browser_stage": "webserver-backed",
-          "weight": 27600,
+          "weight": 45961,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,
@@ -234,7 +234,7 @@
             "backend-process",
             "browser-e2e-webserver-backed"
           ],
-          "weight": 21700,
+          "weight": 22608,
           "resource_claims": {
             "postgres": 1,
             "minio": 1,

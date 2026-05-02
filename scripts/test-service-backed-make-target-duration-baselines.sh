@@ -179,6 +179,46 @@ if [[ "$underplanned_status" -eq 0 ]]; then
 fi
 assert_contains "$underplanned_output" "underplanned target=backend-process" "underplanned baseline drift"
 
+contaminated_results_dir="$tmp_dir/contaminated-results"
+cp -R "$results_dir" "$contaminated_results_dir"
+mkdir -p "$contaminated_results_dir/run-a/_shared/test-services/suite-retry"
+cat >"$contaminated_results_dir/run-a/_shared/test-services/suite-retry/service-scope.json" <<'JSON'
+{
+  "postgres": {
+    "startup": {
+      "retry_count": 1,
+      "final_status": "pass"
+    }
+  },
+  "minio": {
+    "startup": {
+      "retry_count": 0,
+      "final_status": "pass"
+    }
+  }
+}
+JSON
+cat >"$tmp_dir/contaminated-update-baseline.json" <<'JSON'
+{
+  "schema_id": "cartulary.service_backed_make_target_duration_baselines.v1",
+  "default_make_target_weight_ms": 10000,
+  "targets": {}
+}
+JSON
+set +e
+contaminated_update_output="$("$NODE_BIN" "$SCRIPT" update --baseline-file "$tmp_dir/contaminated-update-baseline.json" "$contaminated_results_dir" 2>&1)"
+contaminated_update_status=$?
+set -e
+if [[ "$contaminated_update_status" -eq 0 ]]; then
+  fail "contaminated service-backed baseline refresh should fail"
+fi
+assert_contains "$contaminated_update_output" "Refusing to refresh service-backed make-target duration baselines from contaminated service timing evidence" "contaminated service-backed refresh output"
+assert_contains "$contaminated_update_output" "service_startup_retry service=postgres retries=1" "contaminated service-backed refresh reason"
+
+contaminated_drift_output="$("$NODE_BIN" "$SCRIPT" check-drift --baseline-file "$tmp_dir/underplanned.json" --topology "$tmp_dir/topology.json" --schedule-manifest "$tmp_dir/schedule.json" "$contaminated_results_dir" 2>&1 >/dev/null)"
+assert_contains "$contaminated_drift_output" "ignored underplanned contaminated target=backend-process" "contaminated service-backed underplanned drift warning"
+assert_contains "$contaminated_drift_output" "service_timing_contamination=[service_startup_retry service=postgres retries=1" "contaminated service-backed warning reason"
+
 cat >"$tmp_dir/overplanned.json" <<'JSON'
 {
   "schema_id": "cartulary.service_backed_make_target_duration_baselines.v1",

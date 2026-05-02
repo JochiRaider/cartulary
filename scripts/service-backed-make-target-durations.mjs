@@ -8,6 +8,13 @@ import {
   loadExecutionTopology,
   renderServiceBackedScheduleProfile,
 } from "./lib/execution-topology.mjs";
+import {
+  collectServiceTimingContamination,
+  durationDriftDescription,
+  durationDriftKind,
+  formatContaminationReasons,
+  printContaminationReasons,
+} from "./lib/duration-drift.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
@@ -23,10 +30,6 @@ const defaultScheduleManifestFile = path.join(repoRoot, "tools", "service_backed
 const baselineNote =
   "Service-backed scheduler make-target duration weights generated from successful scheduler artifacts. Refresh with make service-backed-make-target-duration-baselines RESULTS_DIR=<dir>.";
 const defaultMakeTargetWeightMs = 10000;
-const underRatio = 1.75;
-const underDeltaMs = 5000;
-const overRatio = 3;
-const overDeltaMs = 15000;
 
 function usage() {
   process.stderr.write(
@@ -278,15 +281,16 @@ function plannedWeight(target, baseline, overrides) {
   return null;
 }
 
-function formatRatio(actual, planned) {
-  if (planned <= 0) {
-    return "inf";
-  }
-  return (actual / planned).toFixed(2);
-}
-
 function update(argv) {
   const options = parseCommonArgs(argv);
+  const serviceContamination = collectServiceTimingContamination(repoRoot, options.resultsDir);
+  if (serviceContamination.contaminated) {
+    process.stderr.write("Refusing to refresh service-backed make-target duration baselines from contaminated service timing evidence:\n");
+    printContaminationReasons(process.stderr, serviceContamination);
+    process.stderr.write(`Inspect fixture costs with: make fixture-report RESULTS_DIR=${options.resultsDir}\n`);
+    process.stderr.write("Rerun check-shaped evidence with: make check\n");
+    process.exit(1);
+  }
   const baseline = readBaseline(options.baselineFile, { allowMissing: true });
   const { observed, passedSchedulerCount } = collectObservedMakeTargetDurations(options.resultsDir);
   baseline.schema_id = baselineSchemaID;
@@ -313,31 +317,68 @@ function checkDrift(argv) {
   const profile = readTopologyProfile(options.topologyFile);
   const scheduledTargets = readScheduleMakeTargets(options.scheduleManifestFile);
   const { overrides, errors } = validatedOverrides(profile, scheduledTargets);
+  const missingBaselines = [];
+  const driftErrors = [];
+  const warnings = [];
+  const serviceContamination = collectServiceTimingContamination(repoRoot, options.resultsDir);
   const { observed, passedSchedulerCount } = collectObservedMakeTargetDurations(options.resultsDir);
 
   for (const [target, actual] of observed.entries()) {
     const planned = plannedWeight(target, baseline, overrides);
     if (!planned) {
-      errors.push(`missing make-target baseline target=${target} actual_ms=${actual}`);
+      missingBaselines.push(`missing make-target baseline target=${target} actual_ms=${actual}`);
       continue;
     }
-    if (actual > planned * underRatio && actual - planned > underDeltaMs) {
-      errors.push(
-        `underplanned target=${target} planned_ms=${planned} actual_ms=${actual} ratio=${formatRatio(actual, planned)}`,
-      );
+    const kind = durationDriftKind(actual, planned);
+    if (!kind) {
+      continue;
     }
-    if (planned > actual * overRatio && planned - actual > overDeltaMs) {
-      errors.push(
-        `overplanned target=${target} planned_ms=${planned} actual_ms=${actual} ratio=${formatRatio(actual, planned)}`,
+    const description = durationDriftDescription(kind, {
+      subject: `target=${target}`,
+      plannedMs: planned,
+      actualMs: actual,
+    });
+    if (kind === "underplanned" && serviceContamination.contaminated) {
+      warnings.push(
+        `ignored ${description.replace(`${kind} `, `${kind} contaminated `)} service_timing_contamination=[${formatContaminationReasons(serviceContamination)}]`,
       );
+      continue;
     }
+    driftErrors.push(description);
   }
 
-  if (errors.length > 0) {
-    process.stderr.write("Service-backed make-target duration baseline drift detected:\n");
-    for (const error of errors) {
-      process.stderr.write(`- ${error}\n`);
+  if (warnings.length > 0) {
+    process.stderr.write("Service-backed make-target duration baseline drift ignored contaminated timing evidence:\n");
+    for (const warning of warnings) {
+      process.stderr.write(`- ${warning}\n`);
     }
+    process.stderr.write("Service timing contamination detected:\n");
+    printContaminationReasons(process.stderr, serviceContamination);
+    process.stderr.write("Rerun after clean service timing evidence; do not refresh baselines from contaminated timing evidence.\n");
+  }
+
+  if (errors.length > 0 || missingBaselines.length > 0 || driftErrors.length > 0) {
+    process.stderr.write("Service-backed make-target duration baseline drift detected:\n");
+    if (errors.length > 0) {
+      process.stderr.write("Configuration errors:\n");
+      for (const error of errors) {
+        process.stderr.write(`- ${error}\n`);
+      }
+    }
+    if (missingBaselines.length > 0) {
+      process.stderr.write("Missing baseline components:\n");
+      for (const error of missingBaselines) {
+        process.stderr.write(`- ${error}\n`);
+      }
+    }
+    if (driftErrors.length > 0) {
+      process.stderr.write("Observed timing drift:\n");
+      for (const error of driftErrors) {
+        process.stderr.write(`- ${error}\n`);
+      }
+    }
+    process.stderr.write(`Inspect fixture costs with: make fixture-report RESULTS_DIR=${options.resultsDir}\n`);
+    process.stderr.write("Rerun check-shaped evidence with: make check\n");
     process.stderr.write(
       `Refresh from a successful service-backed run with: make service-backed-make-target-duration-baselines RESULTS_DIR=${options.resultsDir}\n`,
     );

@@ -1,11 +1,11 @@
 {
   "schema_id": "cartulary.service_backed_make_target_duration_baselines.v1",
   "note": "Service-backed scheduler make-target duration weights generated from successful scheduler artifacts. Refresh with make service-backed-make-target-duration-baselines RESULTS_DIR=<dir>.",
-  "updated_at": "2026-04-30T00:00:00.000Z",
+  "updated_at": "2026-05-02T00:20:45.339Z",
   "default_make_target_weight_ms": 10000,
   "targets": {
-    "backend-process": 7400,
-    "browser-e2e": 21700,
-    "browser-e2e-webserver-backed": 27600
+    "backend-process": 14504,
+    "browser-e2e": 22608,
+    "browser-e2e-webserver-backed": 45961
   }
 }

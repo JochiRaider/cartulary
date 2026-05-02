@@ -2,6 +2,15 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  collectServiceTimingContamination,
+  durationDriftDescription,
+  durationDriftKind,
+  formatContaminationReasons,
+  formatRatio,
+  formatSignedMs,
+  printContaminationReasons,
+} from "./lib/duration-drift.mjs";
 import { collectObservedGoShardArtifacts } from "./lib/go-duration-artifacts.mjs";
 import {
   readGoDurationBaselineMaps,
@@ -12,10 +21,6 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const underRatio = 1.75;
-const underDeltaMs = 5000;
-const overRatio = 3;
-const overDeltaMs = 15000;
 const rawPackageDetailLimit = 5;
 
 function usage() {
@@ -52,22 +57,21 @@ function parseArgs(argv) {
   return options;
 }
 
-function formatRatio(actual, planned) {
-  if (planned <= 0) {
-    return "inf";
-  }
-  return (actual / planned).toFixed(2);
-}
-
 function suggestedRefresh(resultsDir) {
   return `make go-test-duration-baselines RESULTS_DIR=${resultsDir} PRUNE_OBSERVED_PACKAGES=1`;
 }
 
-function contaminationDescription(artifact) {
-  if (!artifact.timingContaminationReasons?.includes("go-module-download")) {
-    return "";
+function contaminationDescription(artifact, serviceContamination) {
+  const descriptions = [];
+  if (artifact.timingContaminationReasons?.includes("go-module-download")) {
+    descriptions.push(`go_module_downloads=${artifact.moduleDownloadCount}`);
   }
-  return `go_module_downloads=${artifact.moduleDownloadCount}`;
+  if (serviceContamination.contaminated) {
+    descriptions.push(
+      `service_timing_contamination=[${formatContaminationReasons(serviceContamination)}]`,
+    );
+  }
+  return descriptions.join(" ");
 }
 
 function componentDescription(components) {
@@ -85,10 +89,6 @@ function componentDescription(components) {
     `planned_command_overhead_ms=${components.plannedCommandOverheadMs}`,
     `actual_command_overhead_ms=${components.actualCommandOverheadMs}`,
   ].join(" ");
-}
-
-function formatSignedMs(value) {
-  return value > 0 ? `+${value}` : String(value);
 }
 
 function rawPackageComponentDescription(components) {
@@ -119,37 +119,39 @@ function rawPackageComponentDescription(components) {
   return `raw_packages=[${details}]${omitted > 0 ? ` raw_package_omitted=${omitted}` : ""}`;
 }
 
-function checkShardDrift(errors, warnings, artifact, planned, components = null) {
+function checkShardDrift(driftErrors, warnings, artifact, planned, serviceContamination, components = null) {
   const details = componentDescription(components);
-  const componentDetails = details ? ` ${details}` : "";
-  if (artifact.durationMs > planned * underRatio && artifact.durationMs - planned > underDeltaMs) {
-    const contamination = contaminationDescription(artifact);
+  const kind = durationDriftKind(artifact.durationMs, planned);
+  if (!kind) {
+    return;
+  }
+  const description = durationDriftDescription(kind, {
+    subject: `shard=${artifact.shardName}`,
+    plannedMs: planned,
+    actualMs: artifact.durationMs,
+    details,
+  });
+  if (kind === "underplanned") {
+    const contamination = contaminationDescription(artifact, serviceContamination);
     if (contamination) {
-      warnings.push(
-        `ignored underplanned contaminated shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)}${componentDetails} ${contamination}`,
-      );
+      warnings.push(`ignored ${description.replace(`${kind} `, `${kind} contaminated `)} ${contamination}`);
       return;
     }
-    errors.push(
-      `underplanned shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)}${componentDetails}`,
-    );
   }
-  if (planned > artifact.durationMs * overRatio && planned - artifact.durationMs > overDeltaMs) {
-    errors.push(
-      `overplanned shard=${artifact.shardName} planned_ms=${planned} actual_ms=${artifact.durationMs} ratio=${formatRatio(artifact.durationMs, planned)}${componentDetails}`,
-    );
-  }
+  driftErrors.push(description);
 }
 
 function main(argv) {
   const options = parseArgs(argv);
   const baselineFile = resolveGoDurationBaselineFile(repoRoot, options.baselineFile);
   const baseline = readGoDurationBaselineMaps(repoRoot, baselineFile);
+  const serviceContamination = collectServiceTimingContamination(repoRoot, options.resultsDir);
   const artifacts = withGoDurationBaselineFile(repoRoot, baselineFile, () =>
     collectObservedGoShardArtifacts(repoRoot, options.resultsDir),
   );
 
-  const errors = [];
+  const missingBaselines = [];
+  const driftErrors = [];
   const warnings = [];
   for (const artifact of artifacts) {
     if (artifact.observedRawPackages?.length > 0) {
@@ -170,12 +172,12 @@ function main(argv) {
         });
       }
       for (const key of missing) {
-        errors.push(`missing ${key} shard=${artifact.shardName}`);
+        missingBaselines.push(`missing ${key} shard=${artifact.shardName}`);
       }
       if (planned <= 0 || missing.length > 0) {
         continue;
       }
-      checkShardDrift(errors, warnings, artifact, planned, {
+      checkShardDrift(driftErrors, warnings, artifact, planned, serviceContamination, {
         rawPackages: rawPackageComponents,
       });
       continue;
@@ -184,12 +186,12 @@ function main(argv) {
     if (artifact.rawAggregateKey) {
       const planned = baseline.rawAggregates.get(artifact.rawAggregateKey);
       if (!validBaselineValue(planned)) {
-        errors.push(
+        missingBaselines.push(
           `missing raw aggregate baseline key=${artifact.rawAggregateKey} shard=${artifact.shardName}`,
         );
         continue;
       }
-      checkShardDrift(errors, warnings, artifact, planned);
+      checkShardDrift(driftErrors, warnings, artifact, planned, serviceContamination);
       continue;
     }
 
@@ -230,12 +232,12 @@ function main(argv) {
       planned += commandOverhead;
     }
     for (const key of missing) {
-      errors.push(`missing ${key} shard=${artifact.shardName}`);
+      missingBaselines.push(`missing ${key} shard=${artifact.shardName}`);
     }
     if (planned <= 0 || missing.length > 0) {
       continue;
     }
-    checkShardDrift(errors, warnings, artifact, planned, {
+    checkShardDrift(driftErrors, warnings, artifact, planned, serviceContamination, {
       plannedTestsMs,
       actualTestsMs,
       plannedPackageOverheadMs,
@@ -250,14 +252,29 @@ function main(argv) {
     for (const warning of warnings) {
       process.stderr.write(`- ${warning}\n`);
     }
-    process.stderr.write("Rerun after Go module cache warm-up; do not refresh baselines from contaminated timing evidence.\n");
+    if (serviceContamination.contaminated) {
+      process.stderr.write("Service timing contamination detected:\n");
+      printContaminationReasons(process.stderr, serviceContamination);
+    }
+    process.stderr.write("Rerun after Go module cache warm-up and clean service timing evidence; do not refresh baselines from contaminated timing evidence.\n");
   }
 
-  if (errors.length > 0) {
+  if (missingBaselines.length > 0 || driftErrors.length > 0) {
     process.stderr.write("Go test duration baseline drift detected:\n");
-    for (const error of errors) {
-      process.stderr.write(`- ${error}\n`);
+    if (missingBaselines.length > 0) {
+      process.stderr.write("Missing baseline components:\n");
+      for (const error of missingBaselines) {
+        process.stderr.write(`- ${error}\n`);
+      }
     }
+    if (driftErrors.length > 0) {
+      process.stderr.write("Observed timing drift:\n");
+      for (const error of driftErrors) {
+        process.stderr.write(`- ${error}\n`);
+      }
+    }
+    process.stderr.write(`Inspect fixture costs with: make fixture-report RESULTS_DIR=${options.resultsDir}\n`);
+    process.stderr.write("Rerun check-shaped evidence with: make check\n");
     process.stderr.write(`Refresh from an uncontaminated successful run with: ${suggestedRefresh(options.resultsDir)}\n`);
     process.exit(1);
   }

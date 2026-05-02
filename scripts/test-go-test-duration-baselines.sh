@@ -265,6 +265,39 @@ assert_contains "$underplanned_components_output" "actual_tests_ms=" "underplann
 assert_contains "$underplanned_components_output" "planned_package_overhead_ms=" "underplanned component planned package detail"
 assert_contains "$underplanned_components_output" "actual_command_overhead_ms=" "underplanned component actual command detail"
 
+service_contaminated_results="$tmp_dir/service-contaminated-results"
+cp -R "$results_dir" "$service_contaminated_results"
+mkdir -p "$service_contaminated_results/run-a/_shared/test-services/suite-retry"
+cat >"$service_contaminated_results/run-a/_shared/test-services/suite-retry/service-scope.json" <<'JSON'
+{
+  "postgres": {
+    "startup": {
+      "retry_count": 1,
+      "final_status": "pass"
+    }
+  },
+  "minio": {
+    "startup": {
+      "retry_count": 0,
+      "final_status": "pass"
+    }
+  }
+}
+JSON
+set +e
+service_contaminated_update_output="$("$NODE_BIN" "$UPDATE_SCRIPT" --baseline-file "$tmp_dir/service-contaminated-update.json" "$service_contaminated_results" 2>&1)"
+service_contaminated_update_status=$?
+set -e
+if [[ "$service_contaminated_update_status" -eq 0 ]]; then
+  fail "contaminated Go duration baseline refresh should fail"
+fi
+assert_contains "$service_contaminated_update_output" "Refusing to refresh Go test duration baselines from contaminated service timing evidence" "contaminated Go refresh output"
+assert_contains "$service_contaminated_update_output" "service_startup_retry service=postgres retries=1" "contaminated Go refresh reason"
+
+service_contaminated_drift_output="$("$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/underplanned-components.json" "$service_contaminated_results" 2>&1 >/dev/null)"
+assert_contains "$service_contaminated_drift_output" "ignored underplanned contaminated shard=backend-integration-auth-shard-01" "contaminated service timing underplanned shard warning"
+assert_contains "$service_contaminated_drift_output" "service_timing_contamination=[service_startup_retry service=postgres retries=1" "contaminated service timing reason"
+
 cat >"$tmp_dir/overplanned.json" <<'JSON'
 {
   "schema_id": "cartulary.go_test_duration_baselines.v4",

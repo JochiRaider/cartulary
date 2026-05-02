@@ -195,8 +195,7 @@ func loadBackendStoreUnitTests(repoRoot string) (map[string]struct{}, error) {
 		if registryEntry.Status != "active" {
 			continue
 		}
-		manifestPath := filepath.Join(root, filepath.FromSlash(registryEntry.ManifestPath))
-		raw, err := os.ReadFile(manifestPath) // #nosec G304 -- phase manifest paths come from the repo-local phase registry or explicit manifest root override.
+		raw, manifestPath, err := readTrustedRepoFile(root, registryEntry.ManifestPath)
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", manifestPath, err)
 		}
@@ -230,8 +229,7 @@ func loadBackendStoreUnitTests(repoRoot string) (map[string]struct{}, error) {
 }
 
 func loadPhaseRegistry(root string) ([]phaseRegistryEntry, error) {
-	registryPath := filepath.Join(root, "tools", "phase_registry.json")
-	raw, err := os.ReadFile(registryPath)
+	raw, registryPath, err := readTrustedRepoFile(root, "tools/phase_registry.json")
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", registryPath, err)
 	}
@@ -293,6 +291,54 @@ func loadPhaseRegistry(root string) ([]phaseRegistryEntry, error) {
 		return registry.Phases[i].Phase < registry.Phases[j].Phase
 	})
 	return registry.Phases, nil
+}
+
+func readTrustedRepoFile(root string, repoRelativePath string) ([]byte, string, error) {
+	resolvedPath, err := trustedRepoFilePath(root, repoRelativePath)
+	if err != nil {
+		return nil, resolvedPath, err
+	}
+	raw, err := os.ReadFile(resolvedPath) // #nosec G304 -- resolvedPath is a normalized repo-relative path under the configured repository or manifest root.
+	return raw, resolvedPath, err
+}
+
+func trustedRepoFilePath(root string, repoRelativePath string) (string, error) {
+	clean, err := normalizedRepoRelativePath(repoRelativePath)
+	if err != nil {
+		return filepath.Join(root, filepath.FromSlash(repoRelativePath)), err
+	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", fmt.Errorf("resolve repository root %s: %w", root, err)
+	}
+	resolvedPath := filepath.Join(absRoot, filepath.FromSlash(clean))
+	relative, err := filepath.Rel(absRoot, resolvedPath)
+	if err != nil {
+		return resolvedPath, fmt.Errorf("resolve repository-relative path %s: %w", repoRelativePath, err)
+	}
+	relative = filepath.ToSlash(relative)
+	if relative == ".." || strings.HasPrefix(relative, "../") {
+		return resolvedPath, fmt.Errorf("%s must not escape the repository root", repoRelativePath)
+	}
+	return resolvedPath, nil
+}
+
+func normalizedRepoRelativePath(repoRelativePath string) (string, error) {
+	if strings.TrimSpace(repoRelativePath) == "" {
+		return "", fmt.Errorf("repo-relative path must be non-empty")
+	}
+	if filepath.IsAbs(repoRelativePath) {
+		return "", fmt.Errorf("%s must be repo-relative", repoRelativePath)
+	}
+	slashed := strings.ReplaceAll(repoRelativePath, "\\", "/")
+	clean := path.Clean(slashed)
+	if clean == "." || strings.HasPrefix(clean, "../") || strings.Contains(clean, "/../") {
+		return "", fmt.Errorf("%s must not escape the repository root", repoRelativePath)
+	}
+	if clean != slashed {
+		return "", fmt.Errorf("%s must be normalized", repoRelativePath)
+	}
+	return clean, nil
 }
 
 func validatePhaseManifestIdentity(manifestPath string, manifest phaseManifest, seenPhases map[string]string) error {

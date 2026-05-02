@@ -4,6 +4,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  collectServiceTimingContamination,
+  printContaminationReasons,
+} from "./lib/duration-drift.mjs";
+import {
   collectObservedGoShardArtifacts,
   sortedObject,
 } from "./lib/go-duration-artifacts.mjs";
@@ -83,6 +87,14 @@ function isSuspiciousCommandOverheadDecrease(existingMs, observedMs) {
 function main(argv) {
   const options = parseArgs(argv);
   const baselineFile = resolveGoDurationBaselineFile(repoRoot, options.baselineFile);
+  const serviceContamination = collectServiceTimingContamination(repoRoot, options.resultsDir);
+  if (serviceContamination.contaminated) {
+    process.stderr.write("Refusing to refresh Go test duration baselines from contaminated service timing evidence:\n");
+    printContaminationReasons(process.stderr, serviceContamination);
+    process.stderr.write(`Inspect fixture costs with: make fixture-report RESULTS_DIR=${options.resultsDir}\n`);
+    process.stderr.write("Rerun check-shaped evidence with: make check\n");
+    process.exit(1);
+  }
   const artifacts = withGoDurationBaselineFile(repoRoot, baselineFile, () =>
     collectObservedGoShardArtifacts(repoRoot, options.resultsDir),
   );
