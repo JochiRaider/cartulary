@@ -3,6 +3,7 @@
   "references": [
     { "path": "./packages/protocol-ts" },
     { "path": "./packages/view-contracts" },
+    { "path": "./packages/ui-contracts" },
     { "path": "./packages/test-utils" },
     { "path": "./packages/grid-adapter" },
     { "path": "./apps/web" },

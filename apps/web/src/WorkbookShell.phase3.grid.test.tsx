@@ -4,7 +4,7 @@ import {
   gridFilterValueTestId,
   gridShellTestId,
   gridSortHeaderTestId,
-} from "@cartulary/test-utils";
+} from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
 import {
   fireEvent,

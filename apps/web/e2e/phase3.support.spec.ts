@@ -1,9 +1,9 @@
 import {
   applyFilterChip,
   changeGrouping,
-  gridGroupRowTestId,
   sortByHeader,
 } from "@cartulary/test-utils";
+import { gridGroupRowTestId } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";

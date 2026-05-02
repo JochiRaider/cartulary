@@ -1,4 +1,4 @@
-import { gridDraftRowSelector, gridShellTestId } from "@cartulary/test-utils";
+import { gridDraftRowSelector, gridShellTestId } from "@cartulary/ui-contracts";
 import {
   act,
   fireEvent,

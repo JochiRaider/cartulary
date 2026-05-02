@@ -5,7 +5,7 @@ import {
   gridFilterValueTestId,
   gridGroupingSelectTestId,
   type WorkbookSurface,
-} from "@cartulary/test-utils";
+} from "@cartulary/ui-contracts";
 
 import type { ViewContract } from "@cartulary/view-contracts";
 import type { ChangeEvent } from "react";

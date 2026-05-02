@@ -1,8 +1,5 @@
-import {
-  applyFilterChip,
-  removeFilterChip,
-  rowCellTestId,
-} from "@cartulary/test-utils";
+import { applyFilterChip, removeFilterChip } from "@cartulary/test-utils";
+import { rowCellTestId } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";

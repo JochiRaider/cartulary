@@ -1,4 +1,7 @@
-import { rowCellTestId, rowInspectorFieldTestId } from "@cartulary/test-utils";
+import {
+  rowCellTestId,
+  rowInspectorFieldTestId,
+} from "@cartulary/ui-contracts";
 import type { Route } from "@playwright/test";
 
 import { expect, test } from "./fixtures";

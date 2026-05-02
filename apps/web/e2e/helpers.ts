@@ -5,7 +5,7 @@ import {
   gridSavedRowsSelector,
   gridShellTestId,
   type WorkbookSurface,
-} from "@cartulary/test-utils";
+} from "@cartulary/ui-contracts";
 import {
   type APIRequestContext,
   type APIResponse,

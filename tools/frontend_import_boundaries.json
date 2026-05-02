@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.frontend_import_boundaries.v1",
+  "schema_id": "cartulary.frontend_import_boundaries.v2",
   "scan_roots": [
     "apps/web/src",
     "apps/web/e2e",
@@ -8,6 +8,7 @@
     "apps/web/playwright.shared.config.ts",
     "apps/web/playwright.webserver-backed.config.ts",
     "packages/grid-adapter/src",
+    "packages/ui-contracts/src",
     "packages/view-contracts/src",
     "packages/test-utils/src",
     "packages/protocol-ts/src"
@@ -28,6 +29,10 @@
       "id": "frontend-grid-vendor-boundary",
       "level": "error",
       "message": "Import react-data-grid only through @cartulary/grid-adapter.",
+      "applies_to": {
+        "include": ["**"],
+        "exclude": []
+      },
       "allowed_importers": [
         "packages/grid-adapter/src/**"
       ],
@@ -43,6 +48,10 @@
       "id": "frontend-generated-protocol-boundary",
       "level": "error",
       "message": "Import generated protocol artifacts only through the @cartulary/protocol-ts facade.",
+      "applies_to": {
+        "include": ["**"],
+        "exclude": []
+      },
       "allowed_importers": [
         "packages/protocol-ts/src/index.ts"
       ],
@@ -55,6 +64,170 @@
         {
           "kind": "path_prefix",
           "path": "packages/protocol-ts/src/generated"
+        }
+      ]
+    },
+    {
+      "id": "frontend-runtime-node-boundary",
+      "level": "error",
+      "message": "Browser runtime code must not import Node builtins.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/**",
+          "packages/grid-adapter/src/**",
+          "packages/protocol-ts/src/**",
+          "packages/ui-contracts/src/**",
+          "packages/view-contracts/src/**"
+        ],
+        "exclude": [
+          "apps/web/src/*.test.ts",
+          "apps/web/src/*.test.tsx",
+          "apps/web/src/**/*.test.ts",
+          "apps/web/src/**/*.test.tsx",
+          "apps/web/src/*TestSupport.ts",
+          "apps/web/src/*TestSupport.tsx",
+          "apps/web/src/fetchMockTestSupport.ts",
+          "apps/web/src/testSetup.ts",
+          "apps/web/src/testSetup.dom.ts",
+          "apps/web/src/timelineWorkbookTestSupport.ts",
+          "packages/grid-adapter/src/*.test.ts",
+          "packages/grid-adapter/src/*.test.tsx",
+          "packages/grid-adapter/src/**/*.test.ts",
+          "packages/grid-adapter/src/**/*.test.tsx",
+          "packages/grid-adapter/src/test-support.tsx",
+          "packages/protocol-ts/src/*.test.ts",
+          "packages/protocol-ts/src/*.test.tsx",
+          "packages/protocol-ts/src/**/*.test.ts",
+          "packages/protocol-ts/src/**/*.test.tsx",
+          "packages/ui-contracts/src/*.test.ts",
+          "packages/ui-contracts/src/*.test.tsx",
+          "packages/ui-contracts/src/**/*.test.ts",
+          "packages/ui-contracts/src/**/*.test.tsx",
+          "packages/view-contracts/src/*.test.ts",
+          "packages/view-contracts/src/*.test.tsx",
+          "packages/view-contracts/src/**/*.test.ts",
+          "packages/view-contracts/src/**/*.test.tsx"
+        ]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "node_builtin",
+          "names": ["*"]
+        }
+      ]
+    },
+    {
+      "id": "frontend-workspace-package-facade-boundary",
+      "level": "error",
+      "message": "Import workspace packages only through package names and declared package.json exports.",
+      "applies_to": {
+        "include": ["**"],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "workspace_package_facade",
+          "package_roots": [
+            "packages/grid-adapter",
+            "packages/protocol-ts",
+            "packages/test-utils",
+            "packages/ui-contracts",
+            "packages/view-contracts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "frontend-runtime-test-helper-boundary",
+      "level": "error",
+      "message": "Browser runtime code must not import test, e2e, or harness helper surfaces.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/**",
+          "packages/grid-adapter/src/**",
+          "packages/protocol-ts/src/**",
+          "packages/ui-contracts/src/**",
+          "packages/view-contracts/src/**"
+        ],
+        "exclude": [
+          "apps/web/src/*.test.ts",
+          "apps/web/src/*.test.tsx",
+          "apps/web/src/**/*.test.ts",
+          "apps/web/src/**/*.test.tsx",
+          "apps/web/src/*TestSupport.ts",
+          "apps/web/src/*TestSupport.tsx",
+          "apps/web/src/fetchMockTestSupport.ts",
+          "apps/web/src/testSetup.ts",
+          "apps/web/src/testSetup.dom.ts",
+          "apps/web/src/timelineWorkbookTestSupport.ts",
+          "packages/grid-adapter/src/*.test.ts",
+          "packages/grid-adapter/src/*.test.tsx",
+          "packages/grid-adapter/src/**/*.test.ts",
+          "packages/grid-adapter/src/**/*.test.tsx",
+          "packages/grid-adapter/src/test-support.tsx",
+          "packages/protocol-ts/src/*.test.ts",
+          "packages/protocol-ts/src/*.test.tsx",
+          "packages/protocol-ts/src/**/*.test.ts",
+          "packages/protocol-ts/src/**/*.test.tsx",
+          "packages/ui-contracts/src/*.test.ts",
+          "packages/ui-contracts/src/*.test.tsx",
+          "packages/ui-contracts/src/**/*.test.ts",
+          "packages/ui-contracts/src/**/*.test.tsx",
+          "packages/view-contracts/src/*.test.ts",
+          "packages/view-contracts/src/*.test.tsx",
+          "packages/view-contracts/src/**/*.test.ts",
+          "packages/view-contracts/src/**/*.test.tsx"
+        ]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "package",
+          "name": "@cartulary/test-utils",
+          "include_subpaths": true
+        },
+        {
+          "kind": "package",
+          "name": "@cartulary/grid-adapter/test-support",
+          "include_subpaths": true
+        },
+        {
+          "kind": "package",
+          "name": "@playwright/test",
+          "include_subpaths": true
+        },
+        {
+          "kind": "package",
+          "name": "@testing-library/dom",
+          "include_subpaths": true
+        },
+        {
+          "kind": "package",
+          "name": "@testing-library/react",
+          "include_subpaths": true
+        },
+        {
+          "kind": "package",
+          "name": "vitest",
+          "include_subpaths": true
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/fetchMockTestSupport"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/testSetup"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/testSetup.dom"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/timelineWorkbookTestSupport"
         }
       ]
     }

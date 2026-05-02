@@ -156,7 +156,7 @@ EOF
 JSON
   cat >"$repo/tools/frontend_import_boundaries.json" <<'JSON'
 {
-  "schema_id": "cartulary.frontend_import_boundaries.v1",
+  "schema_id": "cartulary.frontend_import_boundaries.v2",
   "scan_excludes": ["packages/protocol-ts/src/generated/**"],
   "rules": [
     {

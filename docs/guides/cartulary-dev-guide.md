@@ -208,7 +208,8 @@ The repo-local package boundary around that grid stack is fixed:
 
 - `/packages/view-contracts` parses generated contract artifacts and exposes TypeScript-consumable surface, field, sort, filter, grouping, and capability metadata.
 - `/packages/grid-adapter` owns direct `react-data-grid` imports, stylesheet ownership, vendor-event translation, row-identity assertions, and presentation-only group-row or header behavior.
-- `/packages/test-utils` owns shared selector builders and browser helpers for sort, filter, grouping, scroll, paste, and anchor assertions reused across functional and visual suites.
+- `/packages/ui-contracts` owns runtime-safe selector and test-id builders shared by workbook runtime code, unit tests, and browser suites.
+- `/packages/test-utils` owns browser helper choreography for sort, filter, grouping, scroll, paste, and anchor assertions reused across functional and visual suites.
 - `/apps/web` owns workbook controllers, query state, HTTP mutation submission, pending replay, and WebSocket refresh behavior. Tests that target those controllers MUST import the workbook or controller modules directly rather than routing through `App.tsx` re-exports.
 
 ### 2.4 Frontend dev and build tools
@@ -343,7 +344,8 @@ The path tree below is an intended baseline shape, not an independently verified
     /grid-adapter                    # Cartulary-owned adapter over react-data-grid
     /protocol-ts                     # Generated TypeScript protocol types
     /view-contracts                  # TypeScript-consumable adapters around view-schema contracts
-    /test-utils                      # Shared frontend and protocol test helpers
+    /ui-contracts                    # Runtime-safe UI selector and test-id contracts
+    /test-utils                      # Shared frontend test helper choreography
 
   /scripts                           # CI and helper scripts
   /tools                             # Pinned auxiliary Go tools
@@ -618,7 +620,8 @@ If a referenced saved view or view schema is missing, invisible, or invalid beca
 | `/packages/grid-adapter`   | Cartulary-owned `react-data-grid` adapter that maps rows, columns, renderers, editors, vendor events, focus, selection, sorting, paste, fill, grouping, and imperative APIs to Cartulary `record_id`, `row_version`, `field_key`, `view_schema_id`, and sync-engine contracts |
 | `/packages/protocol-ts`    | Generated protocol types and helpers derived from `/contracts/*`                                                                                                                                                                                                              |
 | `/packages/view-contracts` | TypeScript-consumable adapters over `/contracts/view-schemas/*`                                                                                                                                                                                                               |
-| `/packages/test-utils`     | Shared protocol and UI test helpers, including mock WebSocket servers and row fixtures                                                                                                                                                                                        |
+| `/packages/ui-contracts`   | Runtime-safe selector and test-id contracts shared by frontend runtime code and test harnesses                                                                                                                                                                                |
+| `/packages/test-utils`     | Shared browser test helper choreography, including sort, filter, grouping, scroll, paste, and anchor assertions                                                                                                                                                               |
 
 ### 6.5 Frontend configuration
 
@@ -705,7 +708,7 @@ The base implementation MUST NOT design ordinary workflows around disabled virtu
 - The controlled-state mapping table in §6.6 defines owner, default, persistence boundary, and failure behavior for every listed RDG-facing surface.
 - Every grid-editable field resolves to an explicit editor adapter, and `editable=true` alone does not make a cell editable.
 - The frontend imports the RDG stylesheet exactly once before workbook grid rendering.
-- Frontend lint, type-check, and unit targets include `/packages/grid-adapter`, `/packages/view-contracts`, and `/packages/test-utils`, not only `/apps/web`.
+- Frontend lint, type-check, and unit targets include `/packages/grid-adapter`, `/packages/view-contracts`, `/packages/ui-contracts`, and `/packages/test-utils`, not only `/apps/web`.
 - Sparse patch reducers preserve unchanged row object references and never use visible row index as identity.
 - Grid changes in the fragility trigger list run the grid-adapter harness, focused browser tests, and visual-regression fixtures.
 
@@ -859,7 +862,7 @@ Production packaging MUST embed the built frontend assets into the application d
 - startup-surface fallback,
 - evidence preview blocked-state handling,
 - workbook visual screenshots for the exposed grid states under the owned Playwright stack,
-- reuse of shared browser helpers from `/packages/test-utils` rather than app-local duplicated selector choreography.
+- reuse of stable selectors from `/packages/ui-contracts` and browser helpers from `/packages/test-utils` rather than app-local duplicated selector choreography.
 
 ### Verification
 

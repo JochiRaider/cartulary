@@ -187,6 +187,7 @@ for (const required of [
   "./packages/grid-adapter",
   "./packages/protocol-ts",
   "./packages/test-utils",
+  "./packages/ui-contracts",
   "./packages/view-contracts",
 ]) {
   if (!references.has(required)) {
@@ -295,15 +296,18 @@ fi
 if ! grep -Fq -- '--vcs-root "${ROOT_DIR}"' "$scripts_biome_script"; then
   fail "scripts Biome wrapper must set the repo VCS root explicitly"
 fi
+if ! grep -Fq -- '"packages/ui-contracts/src"' "$frontend_biome_script"; then
+  fail "frontend Biome wrapper must include packages/ui-contracts/src"
+fi
 "$node_bin" - "$frontend_import_boundary_config" <<'EOF'
 const fs = require("node:fs");
 const [configPath] = process.argv.slice(2);
 const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-if (config.schema_id !== "cartulary.frontend_import_boundaries.v1") {
-  throw new Error("frontend import boundary config must declare schema_id=cartulary.frontend_import_boundaries.v1");
+if (config.schema_id !== "cartulary.frontend_import_boundaries.v2") {
+  throw new Error("frontend import boundary config must declare schema_id=cartulary.frontend_import_boundaries.v2");
 }
 const scanRoots = new Set(config.scan_roots ?? []);
-for (const required of ["apps/web/src", "apps/web/e2e", "packages/grid-adapter/src", "packages/protocol-ts/src"]) {
+for (const required of ["apps/web/src", "apps/web/e2e", "packages/grid-adapter/src", "packages/protocol-ts/src", "packages/ui-contracts/src"]) {
   if (!scanRoots.has(required)) {
     throw new Error(`frontend import boundary scan roots missing ${required}`);
   }
@@ -332,6 +336,30 @@ for (const required of ["@cartulary/protocol-ts/generated", "packages/protocol-t
     throw new Error(`frontend-generated-protocol-boundary must restrict ${required}`);
   }
 }
+const nodeRule = rules.get("frontend-runtime-node-boundary");
+if (!nodeRule || nodeRule.level !== "error") {
+  throw new Error("frontend-runtime-node-boundary must be enforced as an error");
+}
+if (!JSON.stringify(nodeRule.restricted_imports ?? []).includes('"node_builtin"')) {
+  throw new Error("frontend-runtime-node-boundary must restrict Node builtins");
+}
+const workspaceRule = rules.get("frontend-workspace-package-facade-boundary");
+if (!workspaceRule || workspaceRule.level !== "error") {
+  throw new Error("frontend-workspace-package-facade-boundary must be enforced as an error");
+}
+if (!JSON.stringify(workspaceRule.restricted_imports ?? []).includes('"workspace_package_facade"')) {
+  throw new Error("frontend-workspace-package-facade-boundary must restrict workspace package facade bypasses");
+}
+const testHelperRule = rules.get("frontend-runtime-test-helper-boundary");
+if (!testHelperRule || testHelperRule.level !== "error") {
+  throw new Error("frontend-runtime-test-helper-boundary must be enforced as an error");
+}
+const testHelperRestrictions = JSON.stringify(testHelperRule.restricted_imports ?? []);
+for (const required of ["@cartulary/test-utils", "@cartulary/grid-adapter/test-support", "vitest", "@testing-library/react", "@playwright/test"]) {
+  if (!testHelperRestrictions.includes(required)) {
+    throw new Error(`frontend-runtime-test-helper-boundary must restrict ${required}`);
+  }
+}
 EOF
 "$node_bin" - "$repo_root/biome.json" <<'EOF'
 const fs = require("node:fs");
@@ -357,6 +385,7 @@ const requiredIncludes = [
   "apps/web/playwright.shared.config.ts",
   "apps/web/playwright.webserver-backed.config.ts",
   "packages/grid-adapter/src/**",
+  "packages/ui-contracts/src/**",
   "packages/view-contracts/src/**",
   "packages/test-utils/src/**",
   "packages/protocol-ts/src/**",

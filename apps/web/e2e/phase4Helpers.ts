@@ -1,9 +1,9 @@
+import { assertGridFocusContinuity } from "@cartulary/test-utils";
 import {
-  assertGridFocusContinuity,
   gridSavedRowsSelector,
   gridShellTestId,
   rowInspectButtonTestId,
-} from "@cartulary/test-utils";
+} from "@cartulary/ui-contracts";
 import type { Page, Response } from "@playwright/test";
 
 import { expect } from "./fixtures";

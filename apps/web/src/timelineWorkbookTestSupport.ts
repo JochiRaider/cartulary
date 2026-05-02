@@ -1,4 +1,4 @@
-import { gridSavedRowsSelector, rowCellTestId } from "@cartulary/test-utils";
+import { gridSavedRowsSelector, rowCellTestId } from "@cartulary/ui-contracts";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { vi } from "vitest";
 

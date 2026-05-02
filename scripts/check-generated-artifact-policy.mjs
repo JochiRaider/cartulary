@@ -250,6 +250,9 @@ function checkFrontendBoundaryScope(root, check, failures) {
   }
   const relPath = repoPath(check.path, "lint_scope_checks.frontend_import_boundaries.path");
   const config = readJSON(path.join(root, relPath));
+  if (config.schema_id !== "cartulary.frontend_import_boundaries.v2") {
+    failures.push(`${relPath}: must declare schema_id cartulary.frontend_import_boundaries.v2`);
+  }
   const scanExcludes = config.scan_excludes ?? [];
   for (const required of stringArray(check.required_scan_excludes ?? [], `${relPath}.required_scan_excludes`)) {
     if (!scanExcludes.includes(required)) {

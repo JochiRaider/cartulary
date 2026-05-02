@@ -26,9 +26,9 @@ importers:
       '@cartulary/grid-adapter':
         specifier: workspace:*
         version: link:../../packages/grid-adapter
-      '@cartulary/test-utils':
+      '@cartulary/ui-contracts':
         specifier: workspace:*
-        version: link:../../packages/test-utils
+        version: link:../../packages/ui-contracts
       '@cartulary/view-contracts':
         specifier: workspace:*
         version: link:../../packages/view-contracts
@@ -42,6 +42,9 @@ importers:
       '@cartulary/protocol-ts':
         specifier: workspace:*
         version: link:../../packages/protocol-ts
+      '@cartulary/test-utils':
+        specifier: workspace:*
+        version: link:../../packages/test-utils
       '@playwright/test':
         specifier: 1.59.1
         version: 1.59.1
@@ -104,6 +107,16 @@ importers:
   packages/protocol-ts: {}
 
   packages/test-utils:
+    dependencies:
+      '@cartulary/ui-contracts':
+        specifier: workspace:*
+        version: link:../ui-contracts
+    devDependencies:
+      vitest:
+        specifier: 4.1.4
+        version: 4.1.4(@types/node@24.10.0)(jsdom@26.1.0)(vite@8.0.8(@types/node@24.10.0)(yaml@2.8.3))
+
+  packages/ui-contracts:
     devDependencies:
       vitest:
         specifier: 4.1.4

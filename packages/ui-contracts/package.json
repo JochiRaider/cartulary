@@ -1,11 +1,8 @@
 {
-  "name": "@cartulary/test-utils",
+  "name": "@cartulary/ui-contracts",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "dependencies": {
-    "@cartulary/ui-contracts": "workspace:*"
-  },
   "exports": {
     ".": "./src/index.ts"
   },

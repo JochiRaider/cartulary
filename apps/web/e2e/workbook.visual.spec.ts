@@ -1,4 +1,5 @@
-import { changeGrouping, gridGroupRowTestId } from "@cartulary/test-utils";
+import { changeGrouping } from "@cartulary/test-utils";
+import { gridGroupRowTestId } from "@cartulary/ui-contracts";
 import type { Page, TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";

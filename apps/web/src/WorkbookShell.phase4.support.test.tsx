@@ -1,4 +1,7 @@
-import { gridShellTestId, rowInspectButtonTestId } from "@cartulary/test-utils";
+import {
+  gridShellTestId,
+  rowInspectButtonTestId,
+} from "@cartulary/ui-contracts";
 import {
   cleanup,
   fireEvent,

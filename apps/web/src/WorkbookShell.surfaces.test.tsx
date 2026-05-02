@@ -1,4 +1,4 @@
-import { gridShellTestId } from "@cartulary/test-utils";
+import { gridShellTestId } from "@cartulary/ui-contracts";
 import {
   requireViewContract,
   type ViewContract,

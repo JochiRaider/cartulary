@@ -60,7 +60,7 @@ const repoRoot = path.resolve(scriptDir, "..");
 const phaseTestMapSchemaID = "cartulary.phase_test_map.v1";
 const phasePolicyExceptionsSchemaID = "cartulary.phase_policy_exceptions.v1";
 const generatedArtifactPolicySchemaID = "cartulary.generated_artifact_policy.v1";
-const frontendImportBoundariesSchemaID = "cartulary.frontend_import_boundaries.v1";
+const frontendImportBoundariesSchemaID = "cartulary.frontend_import_boundaries.v2";
 const schedulerResourceRegistrySchemaID = "cartulary.scheduler_resource_registry.v3";
 const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
 const serviceBackedMakeTargetBaselineSchemaID =
@@ -247,7 +247,23 @@ const lintFrontendBoundaryKeys = new Set([
   "required_scan_excludes",
   "required_restricted_paths",
 ]);
-const restrictedImportKeys = new Set(["kind", "name", "path", "include_subpaths"]);
+const frontendBoundaryRuleKeys = new Set([
+  "id",
+  "level",
+  "message",
+  "applies_to",
+  "allowed_importers",
+  "restricted_imports",
+]);
+const frontendBoundaryAppliesToKeys = new Set(["include", "exclude"]);
+const restrictedImportKeys = new Set([
+  "kind",
+  "name",
+  "names",
+  "path",
+  "package_roots",
+  "include_subpaths",
+]);
 const schedulerResourceKeys = new Set([
   "name",
   "display_name",
@@ -650,10 +666,14 @@ function validateFrontendImportBoundariesShape(file) {
   requireStringArray(config.scan_excludes ?? [], `${file}.scan_excludes`);
   for (const [index, rule] of requireObjectArray(config.rules, `${file}.rules`, { nonEmpty: true }).entries()) {
     const label = `${file}.rules[${index + 1}]`;
-    assertObjectKeys(rule, new Set(["id", "level", "message", "allowed_importers", "restricted_imports"]), label);
+    assertObjectKeys(rule, frontendBoundaryRuleKeys, label);
     requireString(rule.id, `${label}.id`);
     requireEnum(rule.level, `${label}.level`, new Set(["error", "warning"]));
     requireString(rule.message, `${label}.message`);
+    const appliesTo = requireObject(rule.applies_to, `${label}.applies_to`);
+    assertObjectKeys(appliesTo, frontendBoundaryAppliesToKeys, `${label}.applies_to`);
+    requireStringArray(appliesTo.include, `${label}.applies_to.include`, { nonEmpty: true });
+    requireStringArray(appliesTo.exclude ?? [], `${label}.applies_to.exclude`);
     requireStringArray(rule.allowed_importers, `${label}.allowed_importers`);
     for (const [importIndex, restrictedImport] of requireObjectArray(
       rule.restricted_imports,
@@ -665,13 +685,25 @@ function validateFrontendImportBoundariesShape(file) {
       const kind = requireEnum(
         restrictedImport.kind,
         `${importLabel}.kind`,
-        new Set(["package", "path_prefix"]),
+        new Set(["package", "path_prefix", "node_builtin", "workspace_package_facade"]),
       );
       if (kind === "package") {
         requireString(restrictedImport.name, `${importLabel}.name`);
       }
       if (kind === "path_prefix") {
         requireRepoRelativePath(restrictedImport.path, `${importLabel}.path`);
+      }
+      if (kind === "node_builtin") {
+        requireStringArray(restrictedImport.names ?? [], `${importLabel}.names`);
+      }
+      if (kind === "workspace_package_facade") {
+        for (const [rootIndex, packageRoot] of requireStringArray(
+          restrictedImport.package_roots,
+          `${importLabel}.package_roots`,
+          { nonEmpty: true },
+        ).entries()) {
+          requireRepoRelativePath(packageRoot, `${importLabel}.package_roots[${rootIndex + 1}]`);
+        }
       }
       if (restrictedImport.include_subpaths !== undefined && typeof restrictedImport.include_subpaths !== "boolean") {
         throw new Error(`${importLabel}.include_subpaths must be a boolean`);

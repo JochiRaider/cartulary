@@ -15,7 +15,7 @@ import {
   rowCellTestId,
   rowInspectButtonTestId,
   type WorkbookSurface,
-} from "@cartulary/test-utils";
+} from "@cartulary/ui-contracts";
 import {
   listViewContracts,
   requireViewContract,

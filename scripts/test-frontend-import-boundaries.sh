@@ -74,12 +74,15 @@ write_config() {
   mkdir -p "$case_root/tools"
   cat >"$case_root/tools/frontend_import_boundaries.json" <<'JSON'
 {
-  "schema_id": "cartulary.frontend_import_boundaries.v1",
+  "schema_id": "cartulary.frontend_import_boundaries.v2",
   "scan_roots": [
     "apps/web/src",
     "apps/web/e2e",
     "packages/grid-adapter/src",
-    "packages/protocol-ts/src"
+    "packages/protocol-ts/src",
+    "packages/test-utils/src",
+    "packages/ui-contracts/src",
+    "packages/view-contracts/src"
   ],
   "scan_excludes": [
     "packages/protocol-ts/src/generated/**"
@@ -89,6 +92,10 @@ write_config() {
       "id": "frontend-grid-vendor-boundary",
       "level": "error",
       "message": "Import react-data-grid only through @cartulary/grid-adapter.",
+      "applies_to": {
+        "include": ["**"],
+        "exclude": []
+      },
       "allowed_importers": [
         "packages/grid-adapter/src/**"
       ],
@@ -104,6 +111,10 @@ write_config() {
       "id": "frontend-generated-protocol-boundary",
       "level": "error",
       "message": "Import generated protocol artifacts only through the @cartulary/protocol-ts facade.",
+      "applies_to": {
+        "include": ["**"],
+        "exclude": []
+      },
       "allowed_importers": [
         "packages/protocol-ts/src/index.ts"
       ],
@@ -120,9 +131,96 @@ write_config() {
       ]
     },
     {
+      "id": "frontend-runtime-node-boundary",
+      "level": "error",
+      "message": "Browser runtime code must not import Node builtins.",
+      "applies_to": {
+        "include": ["apps/web/src/**", "packages/grid-adapter/src/**", "packages/protocol-ts/src/**", "packages/ui-contracts/src/**", "packages/view-contracts/src/**"],
+        "exclude": ["apps/web/src/*.test.ts", "apps/web/src/*.test.tsx", "apps/web/src/**/*.test.ts", "apps/web/src/**/*.test.tsx", "apps/web/src/*TestSupport.ts", "packages/grid-adapter/src/*.test.tsx", "packages/grid-adapter/src/**/*.test.tsx", "packages/grid-adapter/src/test-support.tsx", "packages/ui-contracts/src/*.test.ts", "packages/ui-contracts/src/**/*.test.ts", "packages/view-contracts/src/*.test.ts", "packages/view-contracts/src/**/*.test.ts"]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "node_builtin",
+          "names": ["*"]
+        }
+      ]
+    },
+    {
+      "id": "frontend-workspace-package-facade-boundary",
+      "level": "error",
+      "message": "Import workspace packages only through package names and declared package.json exports.",
+      "applies_to": {
+        "include": ["**"],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "workspace_package_facade",
+          "package_roots": [
+            "packages/grid-adapter",
+            "packages/protocol-ts",
+            "packages/test-utils",
+            "packages/ui-contracts",
+            "packages/view-contracts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "frontend-runtime-test-helper-boundary",
+      "level": "error",
+      "message": "Browser runtime code must not import test, e2e, or harness helper surfaces.",
+      "applies_to": {
+        "include": ["apps/web/src/**", "packages/grid-adapter/src/**", "packages/protocol-ts/src/**", "packages/ui-contracts/src/**", "packages/view-contracts/src/**"],
+        "exclude": ["apps/web/src/*.test.ts", "apps/web/src/*.test.tsx", "apps/web/src/**/*.test.ts", "apps/web/src/**/*.test.tsx", "apps/web/src/*TestSupport.ts", "apps/web/src/fetchMockTestSupport.ts", "apps/web/src/timelineWorkbookTestSupport.ts", "packages/grid-adapter/src/*.test.tsx", "packages/grid-adapter/src/**/*.test.tsx", "packages/grid-adapter/src/test-support.tsx", "packages/ui-contracts/src/*.test.ts", "packages/ui-contracts/src/**/*.test.ts", "packages/view-contracts/src/*.test.ts", "packages/view-contracts/src/**/*.test.ts"]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "package",
+          "name": "@cartulary/test-utils",
+          "include_subpaths": true
+        },
+        {
+          "kind": "package",
+          "name": "@cartulary/grid-adapter/test-support",
+          "include_subpaths": true
+        },
+        {
+          "kind": "package",
+          "name": "@playwright/test",
+          "include_subpaths": true
+        },
+        {
+          "kind": "package",
+          "name": "@testing-library/react",
+          "include_subpaths": true
+        },
+        {
+          "kind": "package",
+          "name": "vitest",
+          "include_subpaths": true
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/fetchMockTestSupport"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/timelineWorkbookTestSupport"
+        }
+      ]
+    },
+    {
       "id": "frontend-synthetic-warning-boundary",
       "level": "warning",
       "message": "Synthetic warning-only import boundary fixture.",
+      "applies_to": {
+        "include": ["**"],
+        "exclude": []
+      },
       "allowed_importers": [],
       "restricted_imports": [
         {
@@ -145,7 +243,51 @@ prepare_case_root() {
     "$case_root/apps/web/src" \
     "$case_root/apps/web/e2e" \
     "$case_root/packages/grid-adapter/src" \
-    "$case_root/packages/protocol-ts/src/generated"
+    "$case_root/packages/protocol-ts/src/generated" \
+    "$case_root/packages/test-utils/src" \
+    "$case_root/packages/ui-contracts/src" \
+    "$case_root/packages/view-contracts/src"
+  cat >"$case_root/packages/grid-adapter/package.json" <<'JSON'
+{
+  "name": "@cartulary/grid-adapter",
+  "exports": {
+    ".": "./src/index.tsx",
+    "./test-support": "./src/test-support.tsx"
+  }
+}
+JSON
+  cat >"$case_root/packages/protocol-ts/package.json" <<'JSON'
+{
+  "name": "@cartulary/protocol-ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
+JSON
+  cat >"$case_root/packages/test-utils/package.json" <<'JSON'
+{
+  "name": "@cartulary/test-utils",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
+JSON
+  cat >"$case_root/packages/ui-contracts/package.json" <<'JSON'
+{
+  "name": "@cartulary/ui-contracts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
+JSON
+  cat >"$case_root/packages/view-contracts/package.json" <<'JSON'
+{
+  "name": "@cartulary/view-contracts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
+JSON
   write_config "$case_root"
   printf '%s\n' "$case_root"
 }
@@ -229,3 +371,90 @@ export const contracts = contractArtifactIndex;
 TS
 protocol_owner_output="$(assert_passes "protocol facade generated import" run_checker "$protocol_owner_root")"
 assert_contains "$protocol_owner_output" "frontend import boundaries verified" "protocol owner generated import output"
+
+node_runtime_root="$(prepare_case_root node-runtime)"
+cat >"$node_runtime_root/apps/web/src/nodeRuntimeLeak.ts" <<'TS'
+import path from "node:path";
+
+export const joined = path.join("browser", "runtime");
+TS
+node_runtime_output="$(assert_fails "node builtin runtime error" run_checker "$node_runtime_root")"
+assert_contains "$node_runtime_output" "frontend-runtime-node-boundary" "node builtin runtime rule"
+assert_contains "$node_runtime_output" "node:path" "node builtin runtime specifier"
+
+node_e2e_root="$(prepare_case_root node-e2e)"
+cat >"$node_e2e_root/apps/web/e2e/nodeHarness.ts" <<'TS'
+import path from "node:path";
+
+export const joined = path.join("e2e", "harness");
+TS
+node_e2e_output="$(assert_passes "node builtin e2e allowed" run_checker "$node_e2e_root")"
+assert_contains "$node_e2e_output" "frontend import boundaries verified" "node builtin e2e output"
+
+package_subpath_root="$(prepare_case_root package-subpath)"
+cat >"$package_subpath_root/apps/web/src/viewContractBypass.ts" <<'TS'
+import { internal } from "@cartulary/view-contracts/src/index";
+
+export const leaked = internal;
+TS
+package_subpath_output="$(assert_fails "workspace package subpath error" run_checker "$package_subpath_root")"
+assert_contains "$package_subpath_output" "frontend-workspace-package-facade-boundary" "workspace package subpath rule"
+assert_contains "$package_subpath_output" "@cartulary/view-contracts/src/index" "workspace package subpath specifier"
+
+relative_package_root="$(prepare_case_root relative-package)"
+cat >"$relative_package_root/apps/web/src/viewContractRelativeBypass.ts" <<'TS'
+import { internal } from "../../../packages/view-contracts/src/index";
+
+export const leaked = internal;
+TS
+relative_package_output="$(assert_fails "workspace relative source error" run_checker "$relative_package_root")"
+assert_contains "$relative_package_output" "frontend-workspace-package-facade-boundary" "workspace relative source rule"
+assert_contains "$relative_package_output" "apps/web/src/viewContractRelativeBypass.ts" "workspace relative source file"
+
+declared_package_export_root="$(prepare_case_root declared-package-export)"
+cat >"$declared_package_export_root/apps/web/src/GridAdapter.test.tsx" <<'TS'
+import { GridTable } from "@cartulary/grid-adapter/test-support";
+import { render } from "@testing-library/react";
+import { it } from "vitest";
+
+export const testGrid = { GridTable, render, it };
+TS
+declared_package_export_output="$(assert_passes "declared package export in test allowed" run_checker "$declared_package_export_root")"
+assert_contains "$declared_package_export_output" "frontend import boundaries verified" "declared package export output"
+
+test_helper_runtime_root="$(prepare_case_root test-helper-runtime)"
+cat >"$test_helper_runtime_root/apps/web/src/timelineWorkbookTestSupport.ts" <<'TS'
+export const support = true;
+TS
+cat >"$test_helper_runtime_root/apps/web/src/runtimeHelperLeak.tsx" <<'TS'
+import { helper } from "@cartulary/test-utils";
+import { GridTable } from "@cartulary/grid-adapter/test-support";
+import { test } from "@playwright/test";
+import { render } from "@testing-library/react";
+import { describe } from "vitest";
+import { support } from "./timelineWorkbookTestSupport";
+
+export const leaked = { GridTable, describe, helper, render, support, test };
+TS
+test_helper_runtime_output="$(assert_fails "runtime test helper error" run_checker "$test_helper_runtime_root")"
+assert_contains "$test_helper_runtime_output" "frontend-runtime-test-helper-boundary" "runtime test helper rule"
+for specifier in "@cartulary/test-utils" "@cartulary/grid-adapter/test-support" "@playwright/test" "@testing-library/react" "vitest" "./timelineWorkbookTestSupport"; do
+  assert_contains "$test_helper_runtime_output" "$specifier" "runtime test helper specifier $specifier"
+done
+
+test_helper_allowed_root="$(prepare_case_root test-helper-allowed)"
+cat >"$test_helper_allowed_root/apps/web/src/runtimeHelperAllowed.test.tsx" <<'TS'
+import { helper } from "@cartulary/test-utils";
+import { render } from "@testing-library/react";
+import { describe } from "vitest";
+
+export const allowed = { describe, helper, render };
+TS
+cat >"$test_helper_allowed_root/apps/web/e2e/runtimeHarness.ts" <<'TS'
+import { test } from "@playwright/test";
+import { helper } from "@cartulary/test-utils";
+
+export const allowed = { helper, test };
+TS
+test_helper_allowed_output="$(assert_passes "test helper imports allowed in tests" run_checker "$test_helper_allowed_root")"
+assert_contains "$test_helper_allowed_output" "frontend import boundaries verified" "test helper allowed output"

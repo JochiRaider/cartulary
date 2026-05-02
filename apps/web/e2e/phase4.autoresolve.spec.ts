@@ -1,7 +1,5 @@
-import {
-  rowInspectButtonTestId,
-  scrollGridToBottom,
-} from "@cartulary/test-utils";
+import { scrollGridToBottom } from "@cartulary/test-utils";
+import { rowInspectButtonTestId } from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
 import {

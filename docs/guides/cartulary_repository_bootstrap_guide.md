@@ -74,7 +74,7 @@ mkdir -p \
   internal/gen/contracts internal/gen/sql \
   db/migrations db/queries \
   contracts/openapi contracts/ws contracts/view-schemas contracts/errors \
-  apps/web packages/ui packages/grid-adapter packages/protocol-ts/src/generated packages/view-contracts packages/test-utils \
+  apps/web packages/ui packages/grid-adapter packages/protocol-ts/src/generated packages/view-contracts packages/ui-contracts packages/test-utils \
   scripts tools docs configs/dev internal/testutil/configtest internal/testutil/pgtest \
   internal/testutil/s3test internal/testutil/httptestx internal/testutil/wstest \
   internal/testutil/fixtures internal/testutil/golden
@@ -151,6 +151,7 @@ Use this tree as the initial repository shape:
     /grid-adapter
     /protocol-ts
     /view-contracts
+    /ui-contracts
     /test-utils
 
   /scripts
@@ -162,7 +163,7 @@ This structure matches the intended baseline in the development guide and keeps 
 
 `/packages/grid-adapter` owns the direct `react-data-grid` integration. `/apps/web` must consume Cartulary adapter components and types from `/packages/grid-adapter` rather than importing `react-data-grid` directly. `/packages/ui` remains presentational and must not own workbook state, grid mutation semantics, or vendor-coordinate translation.[^25]
 
-`/packages/view-contracts` and `/packages/test-utils` must also be real workspace packages with their own package manifests, TS config, and source exports. They should follow the same source-export pattern used by `/packages/protocol-ts`: `/packages/view-contracts` stays a thin parser or adapter over generated contract artifacts, while `/packages/test-utils` owns shared selector factories and browser helpers reused by both functional and visual workbook suites.
+`/packages/view-contracts`, `/packages/ui-contracts`, and `/packages/test-utils` must also be real workspace packages with their own package manifests, TS config, and source exports. They should follow the same source-export pattern used by `/packages/protocol-ts`: `/packages/view-contracts` stays a thin parser or adapter over generated contract artifacts, `/packages/ui-contracts` owns runtime-safe UI selector and test-id contracts, and `/packages/test-utils` owns browser helper choreography reused by functional and visual workbook suites.
 
 Two rules matter immediately:
 

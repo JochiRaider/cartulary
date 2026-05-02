@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { builtinModules } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -7,8 +8,16 @@ import ts from "typescript";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "..");
-const schemaID = "cartulary.frontend_import_boundaries.v1";
+const schemaID = "cartulary.frontend_import_boundaries.v2";
 const sourceExtensions = new Set([".ts", ".tsx", ".mts", ".cts"]);
+const knownNodeBuiltins = new Set(
+  builtinModules.flatMap((moduleName) => {
+    const withoutProtocol = moduleName.startsWith("node:")
+      ? moduleName.slice("node:".length)
+      : moduleName;
+    return [moduleName, withoutProtocol, withoutProtocol.split("/")[0]];
+  }),
+);
 const ignoredDirectoryNames = new Set([
   ".cache",
   ".git",
@@ -89,6 +98,13 @@ function requireStringArray(value, label) {
   return value.map((entry, index) => requireString(entry, `${label}[${index + 1}]`));
 }
 
+function requireOptionalStringArray(value, label) {
+  if (value === undefined) {
+    return [];
+  }
+  return requireStringArray(value, label);
+}
+
 function normalizeConfig(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw new Error("config must be an object");
@@ -99,10 +115,12 @@ function normalizeConfig(raw) {
   const rules = [];
   for (const [ruleIndex, rule] of requireArray(raw.rules, "rules").entries()) {
     const label = `rules[${ruleIndex + 1}]`;
+    const appliesTo = normalizeAppliesTo(rule?.applies_to, `${label}.applies_to`);
     const normalized = {
       id: requireString(rule?.id, `${label}.id`),
       level: requireString(rule.level, `${label}.level`),
       message: requireString(rule.message, `${label}.message`),
+      appliesTo,
       allowedImporters: (rule.allowed_importers ?? []).map((entry, index) =>
         requireString(entry, `${label}.allowed_importers[${index + 1}]`),
       ),
@@ -132,7 +150,27 @@ function normalizeConfig(raw) {
         });
         continue;
       }
-      throw new Error(`${restrictionLabel}.kind must be package or path_prefix`);
+      if (kind === "node_builtin") {
+        normalized.restrictedImports.push({
+          kind,
+          names: requireOptionalStringArray(restriction.names, `${restrictionLabel}.names`),
+        });
+        continue;
+      }
+      if (kind === "workspace_package_facade") {
+        normalized.restrictedImports.push({
+          kind,
+          packageRoots: requireStringArray(
+            restriction.package_roots,
+            `${restrictionLabel}.package_roots`,
+          ).map(normalizePath),
+          workspacePackages: [],
+        });
+        continue;
+      }
+      throw new Error(
+        `${restrictionLabel}.kind must be package, path_prefix, node_builtin, or workspace_package_facade`,
+      );
     }
     rules.push(normalized);
   }
@@ -142,6 +180,20 @@ function normalizeConfig(raw) {
       requireString(entry, `scan_excludes[${index + 1}]`),
     ),
     rules,
+  };
+}
+
+function normalizeAppliesTo(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  const include = requireStringArray(value.include, `${label}.include`);
+  if (include.length === 0) {
+    throw new Error(`${label}.include must not be empty`);
+  }
+  return {
+    exclude: requireOptionalStringArray(value.exclude, `${label}.exclude`),
+    include,
   };
 }
 
@@ -179,6 +231,13 @@ function matchesGlob(pattern, value) {
 
 function isAllowedImporter(rule, importerPath) {
   return rule.allowedImporters.some((pattern) => matchesGlob(pattern, importerPath));
+}
+
+function isRuleApplicable(rule, importerPath) {
+  return (
+    rule.appliesTo.include.some((pattern) => matchesGlob(pattern, importerPath)) &&
+    !rule.appliesTo.exclude.some((pattern) => matchesGlob(pattern, importerPath))
+  );
 }
 
 function shouldExclude(config, relativePath) {
@@ -291,9 +350,168 @@ function resolvedRelativeImport(root, importerFile, specifier) {
   return "";
 }
 
+function parsePackageSpecifier(specifier) {
+  if (
+    specifier.startsWith(".") ||
+    specifier.startsWith("/") ||
+    specifier.startsWith("node:")
+  ) {
+    return null;
+  }
+  const parts = specifier.split("/");
+  if (specifier.startsWith("@")) {
+    if (parts.length < 2) {
+      return null;
+    }
+    return {
+      name: `${parts[0]}/${parts[1]}`,
+      subpath: parts.slice(2).join("/"),
+    };
+  }
+  return {
+    name: parts[0],
+    subpath: parts.slice(1).join("/"),
+  };
+}
+
+function normalizeExportKeys(exportsValue) {
+  if (exportsValue === undefined) {
+    return new Set(["."]);
+  }
+  if (typeof exportsValue === "string" || Array.isArray(exportsValue)) {
+    return new Set(["."]);
+  }
+  if (!exportsValue || typeof exportsValue !== "object") {
+    return new Set();
+  }
+  const keys = Object.keys(exportsValue);
+  if (keys.some((key) => key === "." || key.startsWith("./"))) {
+    return new Set(keys.filter((key) => key === "." || key.startsWith("./")));
+  }
+  return new Set(["."]);
+}
+
+function exportKeyForSubpath(subpath) {
+  return subpath === "" ? "." : `./${subpath}`;
+}
+
+function matchesExportPattern(pattern, exportKey) {
+  if (!pattern.includes("*")) {
+    return pattern === exportKey;
+  }
+  const source = `^${pattern
+    .split("*")
+    .map((part) => part.replace(/[.+^${}()|[\]\\]/g, "\\$&"))
+    .join(".*")}$`;
+  return new RegExp(source).test(exportKey);
+}
+
+function isDeclaredPackageExport(workspacePackage, subpath) {
+  const exportKey = exportKeyForSubpath(subpath);
+  return [...workspacePackage.exportKeys].some((key) =>
+    matchesExportPattern(key, exportKey),
+  );
+}
+
+function hydrateWorkspacePackageRestrictions(root, config) {
+  const cache = new Map();
+  const readWorkspacePackages = (packageRoots) =>
+    packageRoots.map((packageRoot) => {
+      if (cache.has(packageRoot)) {
+        return cache.get(packageRoot);
+      }
+      const packageJSONPath = path.join(root, packageRoot, "package.json");
+      if (!existsSync(packageJSONPath)) {
+        throw new Error(`${packageRoot}/package.json is missing`);
+      }
+      const manifest = JSON.parse(readFileSync(packageJSONPath, "utf8"));
+      const workspacePackage = {
+        exportKeys: normalizeExportKeys(manifest.exports),
+        name: requireString(manifest.name, `${packageRoot}/package.json.name`),
+        root: packageRoot,
+        sourceRoot: `${packageRoot}/src`,
+      };
+      cache.set(packageRoot, workspacePackage);
+      return workspacePackage;
+    });
+
+  for (const rule of config.rules) {
+    for (const restriction of rule.restrictedImports) {
+      if (restriction.kind === "workspace_package_facade") {
+        restriction.workspacePackages = readWorkspacePackages(restriction.packageRoots);
+      }
+    }
+  }
+  return config;
+}
+
 function isPathPrefixRestricted(root, importerFile, restriction, specifier) {
   const resolved = resolvedRelativeImport(root, importerFile, specifier);
   return resolved === restriction.path || resolved.startsWith(`${restriction.path}/`);
+}
+
+function isNodeBuiltinRestricted(restriction, specifier) {
+  const withoutProtocol = specifier.startsWith("node:")
+    ? specifier.slice("node:".length)
+    : specifier;
+  const rootName = withoutProtocol.split("/")[0];
+  if (
+    !knownNodeBuiltins.has(specifier) &&
+    !knownNodeBuiltins.has(withoutProtocol) &&
+    !knownNodeBuiltins.has(rootName)
+  ) {
+    return false;
+  }
+  if (restriction.names.length === 0 || restriction.names.includes("*")) {
+    return true;
+  }
+  return restriction.names.some((name) => {
+    const normalizedName = name.startsWith("node:")
+      ? name.slice("node:".length)
+      : name;
+    return normalizedName === withoutProtocol || normalizedName === rootName;
+  });
+}
+
+function workspacePackageForPath(workspacePackages, relativePath) {
+  return workspacePackages.find(
+    (workspacePackage) =>
+      relativePath === workspacePackage.root ||
+      relativePath.startsWith(`${workspacePackage.root}/`),
+  );
+}
+
+function isWorkspacePackageFacadeRestricted(root, importerFile, restriction, specifier) {
+  const parsedPackage = parsePackageSpecifier(specifier);
+  if (parsedPackage !== null) {
+    const workspacePackage = restriction.workspacePackages.find(
+      (candidate) => candidate.name === parsedPackage.name,
+    );
+    return (
+      workspacePackage !== undefined &&
+      !isDeclaredPackageExport(workspacePackage, parsedPackage.subpath)
+    );
+  }
+
+  const resolved = resolvedRelativeImport(root, importerFile, specifier);
+  if (!resolved) {
+    return false;
+  }
+  const importerPath = repoRelative(root, importerFile);
+  const importerPackage = workspacePackageForPath(
+    restriction.workspacePackages,
+    importerPath,
+  );
+  const targetPackage = workspacePackageForPath(
+    restriction.workspacePackages,
+    resolved,
+  );
+  return (
+    targetPackage !== undefined &&
+    targetPackage !== importerPackage &&
+    (resolved === targetPackage.sourceRoot ||
+      resolved.startsWith(`${targetPackage.sourceRoot}/`))
+  );
 }
 
 function matchesRestriction(root, importerFile, restriction, specifier) {
@@ -302,6 +520,12 @@ function matchesRestriction(root, importerFile, restriction, specifier) {
   }
   if (restriction.kind === "path_prefix") {
     return isPathPrefixRestricted(root, importerFile, restriction, specifier);
+  }
+  if (restriction.kind === "node_builtin") {
+    return isNodeBuiltinRestricted(restriction, specifier);
+  }
+  if (restriction.kind === "workspace_package_facade") {
+    return isWorkspacePackageFacadeRestricted(root, importerFile, restriction, specifier);
   }
   return false;
 }
@@ -319,7 +543,7 @@ function evaluateFile(root, config, file) {
   const diagnostics = [];
   for (const imported of collectImports(sourceFile)) {
     for (const rule of config.rules) {
-      if (isAllowedImporter(rule, relativeFile)) {
+      if (!isRuleApplicable(rule, relativeFile) || isAllowedImporter(rule, relativeFile)) {
         continue;
       }
       const restricted = rule.restrictedImports.some((restriction) =>
@@ -352,7 +576,10 @@ function formatDiagnostic(diagnostic, warningsAsErrors) {
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const root = path.resolve(options.root);
-  const config = normalizeConfig(readJSON(root, options.config));
+  const config = hydrateWorkspacePackageRestrictions(
+    root,
+    normalizeConfig(readJSON(root, options.config)),
+  );
   const files = collectSourceFiles(root, config);
   const diagnostics = files.flatMap((file) => evaluateFile(root, config, file));
   const errorCount = diagnostics.filter((diagnostic) => diagnostic.level === "error").length;

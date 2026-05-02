@@ -5,13 +5,14 @@
   "type": "module",
   "dependencies": {
     "@cartulary/grid-adapter": "workspace:*",
-    "@cartulary/test-utils": "workspace:*",
+    "@cartulary/ui-contracts": "workspace:*",
     "@cartulary/view-contracts": "workspace:*",
     "react": "19.2.5",
     "react-dom": "19.2.5"
   },
   "devDependencies": {
     "@cartulary/protocol-ts": "workspace:*",
+    "@cartulary/test-utils": "workspace:*",
     "@playwright/test": "1.59.1",
     "@testing-library/dom": "10.4.1",
     "@testing-library/react": "16.3.2",

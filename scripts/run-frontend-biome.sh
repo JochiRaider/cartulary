@@ -43,6 +43,7 @@ scope=(
   "apps/web/playwright.shared.config.ts"
   "apps/web/playwright.webserver-backed.config.ts"
   "packages/grid-adapter/src"
+  "packages/ui-contracts/src"
   "packages/view-contracts/src"
   "packages/test-utils/src"
   "packages/protocol-ts/src"

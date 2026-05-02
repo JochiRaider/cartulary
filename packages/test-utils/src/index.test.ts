@@ -1,59 +1,15 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-
 import {
-  assertGridFocusContinuity,
-  gridDraftRowSelector,
-  gridSavedRowsSelector,
   gridShellTestId,
   rowInspectButtonTestId,
-  rowInspectorFieldTestId,
-} from "./index";
+} from "@cartulary/ui-contracts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { assertGridFocusContinuity } from "./index";
 
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   document.body.innerHTML = "";
-});
-
-describe("@cartulary/test-utils workbook row selectors", () => {
-  it("derives inspector field ids from the stable row cell id", () => {
-    expect(rowInspectorFieldTestId("record-1", "details")).toBe(
-      "row-record-1-details-inspector",
-    );
-  });
-
-  it("targets saved and draft workbook rows when scoped through the grid shell", () => {
-    document.body.innerHTML = `
-      <div data-testid="${gridShellTestId("timeline")}">
-        <div role="row">header row</div>
-        <div role="row" data-grid-record-id="record-1">saved row</div>
-        <div role="row" data-grid-record-id="">draft row</div>
-      </div>
-      <div data-testid="${gridShellTestId("hosts")}">
-        <div role="row" data-grid-record-id="host-1">host row</div>
-      </div>
-    `;
-
-    const timelineShell = document.querySelector(
-      `[data-testid="${gridShellTestId("timeline")}"]`,
-    );
-    const hostsShell = document.querySelector(
-      `[data-testid="${gridShellTestId("hosts")}"]`,
-    );
-
-    expect(
-      timelineShell?.querySelectorAll(gridSavedRowsSelector()),
-    ).toHaveLength(1);
-    expect(
-      timelineShell?.querySelectorAll(gridDraftRowSelector()),
-    ).toHaveLength(1);
-    expect(hostsShell?.querySelectorAll(gridSavedRowsSelector())).toHaveLength(
-      1,
-    );
-    expect(hostsShell?.querySelectorAll(gridDraftRowSelector())).toHaveLength(
-      0,
-    );
-  });
 });
 
 describe("@cartulary/test-utils grid continuity", () => {
