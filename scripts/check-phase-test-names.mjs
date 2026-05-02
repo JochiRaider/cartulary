@@ -64,7 +64,7 @@ function validatePhaseTestNames(root) {
   for (const test of collectPhaseTests(root)) {
     const fragments = fragmentsByPhase.get(test.phase);
     if (!fragments) {
-      invalid.push({ ...test, reason: `no ${test.phase}_test_map.json manifest exists` });
+      invalid.push({ ...test, reason: `no active phase registry entry exists for ${test.phase}` });
       continue;
     }
     const matched = fragments.some((fragment) => test.symbol.includes(`_${fragment}`));

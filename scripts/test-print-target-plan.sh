@@ -32,6 +32,44 @@ assert_contains() {
   fi
 }
 
+write_phase_registry() {
+  local root="$1"
+  shift
+
+  mkdir -p "$root/tools"
+  {
+    printf '{\n  "schema_id": "cartulary.phase_registry.v1",\n  "phases": [\n'
+    local first=1
+    local phase
+    for phase in "$@"; do
+      local phase_number="${phase#phase}"
+      if [[ "$first" -eq 0 ]]; then
+        printf ',\n'
+      fi
+      first=0
+      printf '    {\n'
+      printf '      "phase": "%s",\n' "$phase"
+      printf '      "order": %s,\n' "$phase_number"
+      printf '      "status": "active",\n'
+      printf '      "label": "Phase %s",\n' "$phase_number"
+      printf '      "manifest_path": "tools/%s_test_map.json",\n' "$phase"
+      printf '      "ledger_path": "docs/testing/%s_coverage_ledger.md",\n' "$phase"
+      printf '      "scope": "synthetic %s scope.",\n' "$phase"
+      printf '      "normative_owners": "Synthetic owner."\n'
+      printf '    }'
+    done
+    printf '\n  ]\n}\n'
+  } >"$root/tools/phase_registry.json"
+}
+
+write_phase_ledger_stub() {
+  local root="$1"
+  local phase="$2"
+
+  mkdir -p "$root/docs/testing"
+  printf '# %s\n' "$phase" >"$root/docs/testing/${phase}_coverage_ledger.md"
+}
+
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/target-plan-smoke.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 
@@ -199,6 +237,7 @@ make_target_plan_json="$tmp_dir/make-target-plan.json"
 phase_root="$tmp_dir/phase-root"
 mkdir -p "$phase_root/tools"
 cp "$ROOT_DIR"/tools/phase*_test_map.json "$phase_root/tools/"
+write_phase_registry "$phase_root" phase0 phase1 phase2 phase3 phase4 phase99
 cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -223,10 +262,12 @@ cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
 JSON
 
 discovered_phases="$(CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" "$NODE_HELPER" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" list-phases)"
-assert_contains "$discovered_phases" "phase99" "phase manifest discovery includes phase99"
+assert_contains "$discovered_phases" "phase99" "phase registry discovery includes phase99"
 
 phase_map_discovery_root="$tmp_dir/phase-map-discovery-root"
 mkdir -p "$phase_map_discovery_root/tools"
+write_phase_registry "$phase_map_discovery_root" phase5
+write_phase_ledger_stub "$phase_map_discovery_root" phase5
 cat >"$phase_map_discovery_root/tools/phase5_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -255,7 +296,180 @@ phase5_check_maps_output="$(
   NODE_BIN="$NODE_HELPER" \
     "$ROOT_DIR/scripts/check-phase-maps.sh"
 )"
-assert_contains "$phase5_check_maps_output" "phase5 traceability map verified" "check-phase-maps discovers phase5"
+assert_contains "$phase5_check_maps_output" "phase5 traceability map verified" "check-phase-maps validates registry phase5"
+
+registry_order_root="$tmp_dir/registry-order-root"
+mkdir -p "$registry_order_root/tools"
+cat >"$registry_order_root/tools/phase_registry.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_registry.v1",
+  "phases": [
+    {
+      "phase": "phase12",
+      "order": 2,
+      "status": "active",
+      "label": "Phase 12",
+      "manifest_path": "tools/phase12_test_map.json",
+      "ledger_path": "docs/testing/phase12_coverage_ledger.md",
+      "scope": "synthetic phase12 scope.",
+      "normative_owners": "Synthetic owner."
+    },
+    {
+      "phase": "phase2",
+      "order": 1,
+      "status": "active",
+      "label": "Phase 2",
+      "manifest_path": "tools/phase2_test_map.json",
+      "ledger_path": "docs/testing/phase2_coverage_ledger.md",
+      "scope": "synthetic phase2 scope.",
+      "normative_owners": "Synthetic owner."
+    },
+    {
+      "phase": "phase99",
+      "order": 99,
+      "status": "planned",
+      "label": "Phase 99",
+      "manifest_path": "tools/phase99_test_map.json",
+      "ledger_path": "docs/testing/phase99_coverage_ledger.md",
+      "scope": "synthetic planned scope.",
+      "normative_owners": "Synthetic owner."
+    }
+  ]
+}
+JSON
+ordered_phases="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" list-phases)"
+if [[ "$ordered_phases" != $'phase2\nphase12' ]]; then
+  fail "phase registry order/status: expected active order phase2 then phase12, got [$ordered_phases]"
+fi
+planned_explain="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/scripts/print-explain-phase.mjs" --phase phase99
+)"
+assert_contains "$planned_explain" "Cartulary phase guidance: phase99" "planned phase explain"
+set +e
+planned_slice_output="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/scripts/run-phase-slice.mjs" --phase phase99 --mode phase --json 2>&1
+)"
+planned_slice_status=$?
+set -e
+if [[ "$planned_slice_status" -eq 0 ]]; then
+  fail "planned phase slice must fail"
+fi
+assert_contains "$planned_slice_output" "phase phase99 is planned and is not executable" "planned phase slice output"
+
+registry_bad_schema_root="$tmp_dir/registry-bad-schema-root"
+mkdir -p "$registry_bad_schema_root/tools"
+cat >"$registry_bad_schema_root/tools/phase_registry.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_registry.v0",
+  "phases": []
+}
+JSON
+set +e
+bad_schema_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_bad_schema_root" "$NODE_HELPER" "$ROOT_DIR/scripts/lib/phase-registry.mjs" validate 2>&1)"
+bad_schema_status=$?
+set -e
+if [[ "$bad_schema_status" -eq 0 ]]; then
+  fail "phase registry validation must reject wrong schema"
+fi
+assert_contains "$bad_schema_output" "must declare schema_id cartulary.phase_registry.v1" "bad registry schema output"
+
+registry_bad_path_root="$tmp_dir/registry-bad-path-root"
+mkdir -p "$registry_bad_path_root/tools"
+cat >"$registry_bad_path_root/tools/phase_registry.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_registry.v1",
+  "phases": [
+    {
+      "phase": "phase1",
+      "order": 1,
+      "status": "active",
+      "label": "Phase 1",
+      "manifest_path": "../phase1_test_map.json",
+      "ledger_path": "docs/testing/phase1_coverage_ledger.md",
+      "scope": "synthetic phase1 scope.",
+      "normative_owners": "Synthetic owner."
+    }
+  ]
+}
+JSON
+set +e
+bad_path_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_bad_path_root" "$NODE_HELPER" "$ROOT_DIR/scripts/lib/phase-registry.mjs" validate 2>&1)"
+bad_path_status=$?
+set -e
+if [[ "$bad_path_status" -eq 0 ]]; then
+  fail "phase registry validation must reject path traversal"
+fi
+assert_contains "$bad_path_output" "manifest_path must not escape the repository root" "bad registry path output"
+
+registry_orphan_root="$tmp_dir/registry-orphan-root"
+mkdir -p "$registry_orphan_root/tools" "$registry_orphan_root/docs/testing"
+write_phase_registry "$registry_orphan_root" phase1
+write_phase_ledger_stub "$registry_orphan_root" phase1
+cat >"$registry_orphan_root/tools/phase1_test_map.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase1",
+  "expected_ids": ["U-1-01"],
+  "unit": []
+}
+JSON
+cat >"$registry_orphan_root/tools/phase2_test_map.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_test_map.v1",
+  "phase": "phase2",
+  "expected_ids": ["U-2-01"],
+  "unit": []
+}
+JSON
+set +e
+orphan_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_orphan_root" "$NODE_HELPER" "$ROOT_DIR/scripts/lib/phase-registry.mjs" validate 2>&1)"
+orphan_status=$?
+set -e
+if [[ "$orphan_status" -eq 0 ]]; then
+  fail "phase registry validation must reject unregistered phase maps"
+fi
+assert_contains "$orphan_output" "unregistered phase test map: tools/phase2_test_map.json" "orphan phase map output"
+
+registry_missing_active_root="$tmp_dir/registry-missing-active-root"
+mkdir -p "$registry_missing_active_root/tools"
+write_phase_registry "$registry_missing_active_root" phase1
+set +e
+missing_active_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_missing_active_root" "$NODE_HELPER" "$ROOT_DIR/scripts/lib/phase-registry.mjs" validate 2>&1)"
+missing_active_status=$?
+set -e
+if [[ "$missing_active_status" -eq 0 ]]; then
+  fail "phase registry validation must reject missing active artifacts"
+fi
+assert_contains "$missing_active_output" "active phase1 manifest missing" "missing active manifest output"
+
+registry_retired_root="$tmp_dir/registry-retired-root"
+mkdir -p "$registry_retired_root/tools"
+cat >"$registry_retired_root/tools/phase_registry.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_registry.v1",
+  "phases": [
+    {
+      "phase": "phase7",
+      "order": 7,
+      "status": "retired",
+      "label": "Phase 7",
+      "manifest_path": "tools/phase7_test_map.json",
+      "ledger_path": "docs/testing/phase7_coverage_ledger.md",
+      "scope": "synthetic retired scope.",
+      "normative_owners": "Synthetic owner.",
+      "retired_reason": "synthetic retirement smoke"
+    }
+  ]
+}
+JSON
+set +e
+retired_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_retired_root" "$NODE_HELPER" "$ROOT_DIR/scripts/lib/phase-registry.mjs" validate 2>&1)"
+retired_status=$?
+set -e
+if [[ "$retired_status" -eq 0 ]]; then
+  fail "phase registry validation must reject retired phases without retained artifacts"
+fi
+assert_contains "$retired_output" "retained_artifacts must be a non-empty array for retired phases" "retired registry output"
 
 assert_phase_identity_rejected() {
   local root="$1"
@@ -279,6 +493,7 @@ assert_phase_identity_rejected() {
 
 missing_schema_identity_root="$tmp_dir/identity-missing-schema-root"
 mkdir -p "$missing_schema_identity_root/tools"
+write_phase_registry "$missing_schema_identity_root" phase99
 cat >"$missing_schema_identity_root/tools/phase99_test_map.json" <<'JSON'
 {
   "phase": "phase99",
@@ -290,6 +505,7 @@ assert_phase_identity_rejected "$missing_schema_identity_root" "phase99" "must d
 
 wrong_schema_identity_root="$tmp_dir/identity-wrong-schema-root"
 mkdir -p "$wrong_schema_identity_root/tools"
+write_phase_registry "$wrong_schema_identity_root" phase99
 cat >"$wrong_schema_identity_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v0",
@@ -302,6 +518,7 @@ assert_phase_identity_rejected "$wrong_schema_identity_root" "phase99" "must dec
 
 missing_phase_identity_root="$tmp_dir/identity-missing-phase-root"
 mkdir -p "$missing_phase_identity_root/tools"
+write_phase_registry "$missing_phase_identity_root" phase99
 cat >"$missing_phase_identity_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -313,6 +530,7 @@ assert_phase_identity_rejected "$missing_phase_identity_root" "phase99" "must de
 
 mismatched_phase_identity_root="$tmp_dir/identity-mismatched-phase-root"
 mkdir -p "$mismatched_phase_identity_root/tools"
+write_phase_registry "$mismatched_phase_identity_root" phase99
 cat >"$mismatched_phase_identity_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -325,6 +543,23 @@ assert_phase_identity_rejected "$mismatched_phase_identity_root" "phase99" "decl
 
 leading_zero_identity_root="$tmp_dir/identity-leading-zero-root"
 mkdir -p "$leading_zero_identity_root/tools"
+cat >"$leading_zero_identity_root/tools/phase_registry.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_registry.v1",
+  "phases": [
+    {
+      "phase": "phase01",
+      "order": 1,
+      "status": "active",
+      "label": "Phase 01",
+      "manifest_path": "tools/phase01_test_map.json",
+      "ledger_path": "docs/testing/phase01_coverage_ledger.md",
+      "scope": "synthetic phase01 scope.",
+      "normative_owners": "Synthetic owner."
+    }
+  ]
+}
+JSON
 cat >"$leading_zero_identity_root/tools/phase01_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -339,17 +574,18 @@ phase99_plan="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" \
     "$NODE_HELPER" "$PLAN_SCRIPT" --json
 )"
-assert_contains "$phase99_plan" '"manifest_phase": "phase99"' "target-plan support rows include discovered phase"
+assert_contains "$phase99_plan" '"manifest_phase": "phase99"' "target-plan support rows include registry phase"
 
 phase99_shared_command="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" \
   NODE_BIN="$NODE_HELPER" \
     "$NODE_HELPER" "$ROOT_DIR/scripts/cartulary-runner.mjs" go-target inspect-aggregate-command backend-unit backend-unit-auth
 )"
-assert_contains "$phase99_shared_command" "TestSupportPhase5_Discovered" "run-go-target support selection includes discovered phase"
+assert_contains "$phase99_shared_command" "TestSupportPhase5_Discovered" "run-go-target support selection includes registry phase"
 
 invalid_phase_root="$tmp_dir/invalid-phase-root"
 mkdir -p "$invalid_phase_root/tools"
+write_phase_registry "$invalid_phase_root" phase99
 cat >"$invalid_phase_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -381,6 +617,7 @@ fi
 
 missing_policy_root="$tmp_dir/missing-policy-root"
 mkdir -p "$missing_policy_root/tools"
+write_phase_registry "$missing_policy_root" phase99
 cat >"$missing_policy_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -411,6 +648,7 @@ fi
 
 missing_claim_root="$tmp_dir/missing-claim-root"
 mkdir -p "$missing_claim_root/tools"
+write_phase_registry "$missing_claim_root" phase99
 cat >"$missing_claim_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -447,6 +685,7 @@ assert_contains "$missing_claim_output" "must declare a non-empty claim" "missin
 
 missing_budget_root="$tmp_dir/missing-budget-root"
 mkdir -p "$missing_budget_root/tools"
+write_phase_registry "$missing_budget_root" phase99
 cat >"$missing_budget_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -478,6 +717,7 @@ fi
 
 invalid_budget_root="$tmp_dir/invalid-budget-root"
 mkdir -p "$invalid_budget_root/tools"
+write_phase_registry "$invalid_budget_root" phase99
 cat >"$invalid_budget_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -516,6 +756,7 @@ fi
 
 missing_migration_reason_root="$tmp_dir/missing-migration-reason-root"
 mkdir -p "$missing_migration_reason_root/tools"
+write_phase_registry "$missing_migration_reason_root" phase99
 cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -564,6 +805,7 @@ fi
 
 ledger_root="$tmp_dir/ledger-root"
 mkdir -p "$ledger_root/tools" "$ledger_root/internal/modules/auth" "$ledger_root/cmd/server"
+write_phase_registry "$ledger_root" phase99
 cat >"$ledger_root/internal/modules/auth/phase99_test.go" <<'EOF'
 package auth
 

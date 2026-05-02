@@ -76,7 +76,7 @@ function main() {
   const guide = taskGuide(options);
   if (!guide) {
     throw new Error(
-      `unknown task-guide filter; roles=${knownRoles().join(", ")} phase must match tools/phase*_test_map.json`,
+      `unknown task-guide filter; roles=${knownRoles().join(", ")} phase must be registered in tools/phase_registry.json`,
     );
   }
   if (options.json) {

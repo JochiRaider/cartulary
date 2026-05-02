@@ -61,6 +61,23 @@ write_phase5_manifest() {
   local root="$1"
 
   mkdir -p "$root/tools"
+  cat >"$root/tools/phase_registry.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_registry.v1",
+  "phases": [
+    {
+      "phase": "phase5",
+      "order": 5,
+      "status": "active",
+      "label": "Phase 5",
+      "manifest_path": "tools/phase5_test_map.json",
+      "ledger_path": "docs/testing/phase5_coverage_ledger.md",
+      "scope": "synthetic phase5 scope.",
+      "normative_owners": "Synthetic owner."
+    }
+  ]
+}
+JSON
   cat >"$root/tools/phase5_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -136,7 +153,7 @@ import "testing"
 func TestPhase6_Create_U_6_01(t *testing.T) {}
 '
 unknown_output="$(assert_fails "unknown phase" run_checker "$unknown_root" "$manifest_root")"
-assert_contains "$unknown_output" "no phase6_test_map.json manifest exists" "unknown phase output"
+assert_contains "$unknown_output" "no active phase registry entry exists for phase6" "unknown phase output"
 
 undeclared_root="$tmp_dir/undeclared"
 write_case "$undeclared_root" "internal/modules/future" 'package future

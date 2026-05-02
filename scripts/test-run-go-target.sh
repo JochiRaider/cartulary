@@ -675,6 +675,63 @@ manifest_smoke_root="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-support-manifests.
 manifest_smoke_tools="$manifest_smoke_root/tools"
 mkdir -p "$manifest_smoke_tools"
 cp "$ROOT_DIR"/tools/phase*_test_map.json "$manifest_smoke_tools"/
+cat >"$manifest_smoke_tools/phase_registry.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_registry.v1",
+  "phases": [
+    {
+      "phase": "phase20",
+      "order": 20,
+      "status": "active",
+      "label": "Phase 20",
+      "manifest_path": "tools/phase20_test_map.json",
+      "ledger_path": "docs/testing/phase20_coverage_ledger.md",
+      "scope": "synthetic phase20 scope.",
+      "normative_owners": "Synthetic owner."
+    },
+    {
+      "phase": "phase21",
+      "order": 21,
+      "status": "active",
+      "label": "Phase 21",
+      "manifest_path": "tools/phase21_test_map.json",
+      "ledger_path": "docs/testing/phase21_coverage_ledger.md",
+      "scope": "synthetic phase21 scope.",
+      "normative_owners": "Synthetic owner."
+    },
+    {
+      "phase": "phase22",
+      "order": 22,
+      "status": "active",
+      "label": "Phase 22",
+      "manifest_path": "tools/phase22_test_map.json",
+      "ledger_path": "docs/testing/phase22_coverage_ledger.md",
+      "scope": "synthetic phase22 scope.",
+      "normative_owners": "Synthetic owner."
+    },
+    {
+      "phase": "phase23",
+      "order": 23,
+      "status": "active",
+      "label": "Phase 23",
+      "manifest_path": "tools/phase23_test_map.json",
+      "ledger_path": "docs/testing/phase23_coverage_ledger.md",
+      "scope": "synthetic phase23 scope.",
+      "normative_owners": "Synthetic owner."
+    },
+    {
+      "phase": "phase24",
+      "order": 24,
+      "status": "active",
+      "label": "Phase 24",
+      "manifest_path": "tools/phase24_test_map.json",
+      "ledger_path": "docs/testing/phase24_coverage_ledger.md",
+      "scope": "synthetic phase24 scope.",
+      "normative_owners": "Synthetic owner."
+    }
+  ]
+}
+JSON
 cleanup_paths+=(
   "$manifest_smoke_dir"
   "$manifest_smoke_root"

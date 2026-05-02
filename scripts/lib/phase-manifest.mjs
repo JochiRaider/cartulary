@@ -7,6 +7,12 @@ import {
   validExecutionDependencies,
   validSupportTargets,
 } from "./execution-dependencies.mjs";
+import {
+  activePhaseRegistryEntries,
+  activePhaseRegistryEntry,
+  phaseManifestRoot,
+  phaseRegistryEntries,
+} from "./phase-registry.mjs";
 
 const sectionDefinitions = [
   ["unit", "U-"],
@@ -563,12 +569,6 @@ function collectAuthoritativeGoTestFunctions(root, phaseNumber) {
   });
 }
 
-function phaseManifestRoot(root) {
-  return process.env.CARTULARY_PHASE_MANIFEST_ROOT
-    ? path.resolve(process.env.CARTULARY_PHASE_MANIFEST_ROOT)
-    : root;
-}
-
 function phaseFromManifestFilename(manifestPath) {
   const filename = path.basename(manifestPath);
   const match = /^(phase(?:0|[1-9]\d*))_test_map\.json$/.exec(filename);
@@ -605,40 +605,26 @@ function validateManifestIdentity(manifestPath, manifest, requestedPhase = "") {
   return manifest.phase;
 }
 
-function comparePhases(left, right) {
-  const leftNumber = Number.parseInt(phaseNumberFromPhase(left), 10);
-  const rightNumber = Number.parseInt(phaseNumberFromPhase(right), 10);
-  return leftNumber - rightNumber || left.localeCompare(right);
-}
-
 export function loadManifest(root, phase) {
   phaseNumberFromPhase(phase);
   const manifestRoot = phaseManifestRoot(root);
-  const manifestPath = path.join(manifestRoot, "tools", `${phase}_test_map.json`);
+  const registryEntry = activePhaseRegistryEntry(root, phase);
+  if (!registryEntry) {
+    const known = activePhaseRegistryEntries(root).map((entry) => entry.phase);
+    const registered = phaseRegistryEntries(root).find((entry) => entry.phase === phase);
+    const inactiveStatus = registered ? ` (${registered.status})` : "";
+    throw new Error(
+      `unknown active phase ${phase}${inactiveStatus}; expected one of ${known.join(", ") || "none"}`,
+    );
+  }
+  const manifestPath = path.join(manifestRoot, registryEntry.manifest_path);
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   validateManifestIdentity(manifestPath, manifest, phase);
-  return { manifestPath, manifest };
+  return { manifestPath, manifest, registryEntry };
 }
 
 export function phaseManifestNames(root) {
-  const manifestRoot = phaseManifestRoot(root);
-  const phases = [];
-  const seen = new Map();
-  for (const entry of readdirSync(path.join(manifestRoot, "tools"))
-    .filter((filename) => /^phase\d+_test_map\.json$/.test(filename))
-    .sort()) {
-    const manifestPath = path.join(manifestRoot, "tools", entry);
-    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-    const phase = validateManifestIdentity(manifestPath, manifest);
-    if (seen.has(phase)) {
-      throw new Error(
-        `duplicate phase ${phase} declared by ${seen.get(phase)} and ${manifestPath}`,
-      );
-    }
-    seen.set(phase, manifestPath);
-    phases.push(phase);
-  }
-  return phases.sort(comparePhases);
+  return activePhaseRegistryEntries(root).map((entry) => entry.phase);
 }
 
 function phasePolicyExceptionsPath(root) {
@@ -646,7 +632,7 @@ function phasePolicyExceptionsPath(root) {
     return path.resolve(process.env.CARTULARY_PHASE_POLICY_EXCEPTIONS);
   }
   const manifestRoot = process.env.CARTULARY_PHASE_MANIFEST_ROOT
-    ? path.resolve(process.env.CARTULARY_PHASE_MANIFEST_ROOT)
+    ? phaseManifestRoot(root)
     : root;
   return path.join(manifestRoot, "tools", "phase_policy_exceptions.json");
 }
@@ -659,8 +645,8 @@ function requireNonEmptyString(value, label) {
 }
 
 function maxKnownPhaseNumber(root) {
-  const phaseNumbers = phaseManifestNames(root).map((phase) =>
-    Number.parseInt(phase.replace(/^phase/, ""), 10),
+  const phaseNumbers = phaseRegistryEntries(root).map((entry) =>
+    Number.parseInt(entry.phase.replace(/^phase/, ""), 10),
   );
   return phaseNumbers.length === 0 ? -1 : Math.max(...phaseNumbers);
 }

@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 )
 
 var (
@@ -25,6 +26,7 @@ var (
 )
 
 const phaseTestMapSchemaID = "cartulary.phase_test_map.v1"
+const phaseRegistrySchemaID = "cartulary.phase_registry.v1"
 
 type manifestEntry struct {
 	Coverage            string   `json:"coverage"`
@@ -38,6 +40,18 @@ type phaseManifest struct {
 	SchemaID string          `json:"schema_id"`
 	Phase    string          `json:"phase"`
 	Unit     []manifestEntry `json:"unit"`
+}
+
+type phaseRegistry struct {
+	SchemaID string               `json:"schema_id"`
+	Phases   []phaseRegistryEntry `json:"phases"`
+}
+
+type phaseRegistryEntry struct {
+	Phase        string `json:"phase"`
+	Order        int    `json:"order"`
+	Status       string `json:"status"`
+	ManifestPath string `json:"manifest_path"`
 }
 
 type finding struct {
@@ -170,16 +184,19 @@ func loadBackendStoreUnitTests(repoRoot string) (map[string]struct{}, error) {
 	if override := os.Getenv("CARTULARY_PHASE_MANIFEST_ROOT"); override != "" {
 		root = override
 	}
-	paths, err := filepath.Glob(filepath.Join(root, "tools", "phase*_test_map.json"))
+	entries, err := loadPhaseRegistry(root)
 	if err != nil {
-		return nil, fmt.Errorf("glob phase manifests: %w", err)
+		return nil, err
 	}
-	sort.Strings(paths)
 
 	allowed := make(map[string]struct{})
 	seenPhases := make(map[string]string)
-	for _, manifestPath := range paths {
-		raw, err := os.ReadFile(manifestPath) // #nosec G304 -- phase manifest paths come from a repo-local glob or explicit manifest root override.
+	for _, registryEntry := range entries {
+		if registryEntry.Status != "active" {
+			continue
+		}
+		manifestPath := filepath.Join(root, filepath.FromSlash(registryEntry.ManifestPath))
+		raw, err := os.ReadFile(manifestPath) // #nosec G304 -- phase manifest paths come from the repo-local phase registry or explicit manifest root override.
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", manifestPath, err)
 		}
@@ -190,6 +207,9 @@ func loadBackendStoreUnitTests(repoRoot string) (map[string]struct{}, error) {
 		}
 		if err := validatePhaseManifestIdentity(manifestPath, manifest, seenPhases); err != nil {
 			return nil, err
+		}
+		if manifest.Phase != registryEntry.Phase {
+			return nil, fmt.Errorf("registry phase %s points at manifest declaring %s", registryEntry.Phase, manifest.Phase)
 		}
 
 		for _, entry := range manifest.Unit {
@@ -207,6 +227,72 @@ func loadBackendStoreUnitTests(repoRoot string) (map[string]struct{}, error) {
 		}
 	}
 	return allowed, nil
+}
+
+func loadPhaseRegistry(root string) ([]phaseRegistryEntry, error) {
+	registryPath := filepath.Join(root, "tools", "phase_registry.json")
+	raw, err := os.ReadFile(registryPath)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", registryPath, err)
+	}
+	var registry phaseRegistry
+	if err := json.Unmarshal(raw, &registry); err != nil {
+		return nil, fmt.Errorf("decode %s: %w", registryPath, err)
+	}
+	if registry.SchemaID != phaseRegistrySchemaID {
+		return nil, fmt.Errorf("%s must declare schema_id %s", registryPath, phaseRegistrySchemaID)
+	}
+	if len(registry.Phases) == 0 {
+		return nil, fmt.Errorf("%s phases must be non-empty", registryPath)
+	}
+	seenPhases := make(map[string]struct{})
+	seenOrders := make(map[int]string)
+	for index, entry := range registry.Phases {
+		label := fmt.Sprintf("%s phases[%d]", registryPath, index)
+		if !phaseNamePattern.MatchString(entry.Phase) {
+			return nil, fmt.Errorf("%s phase must match phase0 or phase[1-9][0-9]*", label)
+		}
+		switch entry.Status {
+		case "active", "planned", "retired":
+		default:
+			return nil, fmt.Errorf("%s status must be active|planned|retired", label)
+		}
+		if entry.ManifestPath == "" {
+			return nil, fmt.Errorf("%s manifest_path must be non-empty", label)
+		}
+		if filepath.IsAbs(entry.ManifestPath) {
+			return nil, fmt.Errorf("%s manifest_path must be repo-relative", label)
+		}
+		clean := path.Clean(strings.ReplaceAll(entry.ManifestPath, "\\", "/"))
+		if clean == "." || strings.HasPrefix(clean, "../") || strings.Contains(clean, "/../") {
+			return nil, fmt.Errorf("%s manifest_path must not escape the repository root", label)
+		}
+		if clean != strings.ReplaceAll(entry.ManifestPath, "\\", "/") {
+			return nil, fmt.Errorf("%s manifest_path must be normalized", label)
+		}
+		match := phaseManifestFilePattern.FindStringSubmatch(path.Base(clean))
+		if match == nil {
+			return nil, fmt.Errorf("%s manifest_path must end with phaseN_test_map.json", label)
+		}
+		if match[1] != entry.Phase {
+			return nil, fmt.Errorf("%s manifest_path declares %s but phase is %s", label, match[1], entry.Phase)
+		}
+		if _, ok := seenPhases[entry.Phase]; ok {
+			return nil, fmt.Errorf("%s declares duplicate phase %s", registryPath, entry.Phase)
+		}
+		if previous, ok := seenOrders[entry.Order]; ok {
+			return nil, fmt.Errorf("%s declares duplicate order %d for %s and %s", registryPath, entry.Order, previous, entry.Phase)
+		}
+		seenPhases[entry.Phase] = struct{}{}
+		seenOrders[entry.Order] = entry.Phase
+	}
+	sort.SliceStable(registry.Phases, func(i, j int) bool {
+		if registry.Phases[i].Order != registry.Phases[j].Order {
+			return registry.Phases[i].Order < registry.Phases[j].Order
+		}
+		return registry.Phases[i].Phase < registry.Phases[j].Phase
+	})
+	return registry.Phases, nil
 }
 
 func validatePhaseManifestIdentity(manifestPath string, manifest phaseManifest, seenPhases map[string]string) error {

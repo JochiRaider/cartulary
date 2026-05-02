@@ -58,6 +58,44 @@ tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/browser-shard-plan.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 mkdir -p "$tmp_dir/manifests/tools"
 
+cat >"$tmp_dir/manifests/tools/phase_registry.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_registry.v1",
+  "phases": [
+    {
+      "phase": "phase1",
+      "order": 1,
+      "status": "active",
+      "label": "Phase 1",
+      "manifest_path": "tools/phase1_test_map.json",
+      "ledger_path": "docs/testing/phase1_coverage_ledger.md",
+      "scope": "synthetic phase1 scope.",
+      "normative_owners": "Synthetic owner."
+    },
+    {
+      "phase": "phase2",
+      "order": 2,
+      "status": "active",
+      "label": "Phase 2",
+      "manifest_path": "tools/phase2_test_map.json",
+      "ledger_path": "docs/testing/phase2_coverage_ledger.md",
+      "scope": "synthetic phase2 scope.",
+      "normative_owners": "Synthetic owner."
+    },
+    {
+      "phase": "phase12",
+      "order": 12,
+      "status": "active",
+      "label": "Phase 12",
+      "manifest_path": "tools/phase12_test_map.json",
+      "ledger_path": "docs/testing/phase12_coverage_ledger.md",
+      "scope": "synthetic phase12 scope.",
+      "normative_owners": "Synthetic owner."
+    }
+  ]
+}
+JSON
+
 cat >"$tmp_dir/manifests/tools/phase1_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",
@@ -202,7 +240,7 @@ future_phases="$(
 )"
 case "$future_phases" in
   *phase12*) ;;
-  *) fail "future phase browser rows must be discovered from phase manifests, got [$future_phases]" ;;
+  *) fail "future phase browser rows must be selected from registry phase manifests, got [$future_phases]" ;;
 esac
 
 future_files="$(

@@ -16,6 +16,12 @@ import {
   phaseManifestNames,
 } from "./phase-manifest.mjs";
 import {
+  activePhaseStatus,
+  phaseManifestRoot,
+  phaseRegistryEntries,
+  phaseRegistryEntry,
+} from "./phase-registry.mjs";
+import {
   collectTargetNames,
   collectTargetPlanRows,
   findTargetDescriptor,
@@ -130,7 +136,7 @@ function collectPhaseRows(root = repoRoot) {
         file: entry.file ?? "",
         package: entry.package ?? "",
         title: entry.title ?? "",
-        manifest_path: relToRepo(manifestPath, root),
+        manifest_path: relToRepo(manifestPath, phaseManifestRoot(root)),
       });
     }
     for (const entry of collectSupportGoEntries(manifest)) {
@@ -145,7 +151,7 @@ function collectPhaseRows(root = repoRoot) {
         file: entry.file ?? "",
         package: entry.package ?? "",
         title: entry.selection_pattern ?? "",
-        manifest_path: relToRepo(manifestPath, root),
+        manifest_path: relToRepo(manifestPath, phaseManifestRoot(root)),
       });
     }
   }
@@ -405,11 +411,34 @@ export function allTargetNames({ root = repoRoot } = {}) {
 }
 
 export function phaseGuidance(phase, { root = repoRoot } = {}) {
-  const known = phaseManifestNames(root);
-  if (!known.includes(phase)) {
+  const registryEntry = phaseRegistryEntry(root, phase);
+  if (!registryEntry) {
     return null;
   }
-  const { manifest, manifestPath } = loadManifest(root, phase);
+  const known = phaseRegistryEntries(root).map((entry) => entry.phase);
+  if (registryEntry.status !== activePhaseStatus) {
+    return {
+      phase,
+      status: registryEntry.status,
+      label: registryEntry.label,
+      manifest_path: registryEntry.manifest_path,
+      ledger_path: registryEntry.ledger_path,
+      scope: registryEntry.scope,
+      normative_owners: registryEntry.normative_owners,
+      authoritative: 0,
+      supplemental: 0,
+      support: 0,
+      raw: 0,
+      total: 0,
+      counts: { authoritative: 0, supplemental: 0, support: 0, raw: 0, total: 0 },
+      phases: [phase],
+      known_phases: known,
+      execution_dependencies: [],
+      targets: [],
+      rows: [],
+    };
+  }
+  const { manifestPath } = loadManifest(root, phase);
   const rows = collectPhaseRows(root).filter((row) => row.phase === phase);
   const counts = sectionCounts(rows);
   const byTarget = uniqueSorted(rows.map((row) => row.target));
@@ -433,10 +462,12 @@ export function phaseGuidance(phase, { root = repoRoot } = {}) {
   }).sort(comparePhaseTargets);
   return {
     phase,
-    manifest_path: relToRepo(manifestPath, root),
-    ledger_path: `docs/testing/${phase}_coverage_ledger.md`,
-    scope: manifest.ledger?.scope ?? "",
-    normative_owners: manifest.ledger?.normative_owners ?? "",
+    status: registryEntry.status,
+    label: registryEntry.label,
+    manifest_path: relToRepo(manifestPath, phaseManifestRoot(root)),
+    ledger_path: registryEntry.ledger_path,
+    scope: registryEntry.scope,
+    normative_owners: registryEntry.normative_owners,
     ...counts,
     counts,
     phases: [phase],

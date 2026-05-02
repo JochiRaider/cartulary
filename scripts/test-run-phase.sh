@@ -1172,6 +1172,33 @@ go_manifest_root="$(mktemp -d "$ROOT_DIR/tmp/run-go-manifest-phase-manifests.XXX
 go_manifest_tools="$go_manifest_root/tools"
 mkdir -p "$go_manifest_tools"
 cp "$ROOT_DIR"/tools/phase*_test_map.json "$go_manifest_tools"/
+cat >"$go_manifest_tools/phase_registry.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_registry.v1",
+  "phases": [
+    {
+      "phase": "phase9",
+      "order": 9,
+      "status": "active",
+      "label": "Phase 9",
+      "manifest_path": "tools/phase9_test_map.json",
+      "ledger_path": "docs/testing/phase9_coverage_ledger.md",
+      "scope": "synthetic phase9 scope.",
+      "normative_owners": "Synthetic owner."
+    },
+    {
+      "phase": "phase10",
+      "order": 10,
+      "status": "active",
+      "label": "Phase 10",
+      "manifest_path": "tools/phase10_test_map.json",
+      "ledger_path": "docs/testing/phase10_coverage_ledger.md",
+      "scope": "synthetic phase10 scope.",
+      "normative_owners": "Synthetic owner."
+    }
+  ]
+}
+JSON
 cleanup_paths+=("$go_manifest_dir" "$go_manifest_root")
 cat >"$go_manifest_dir/run_go_manifest_phase_smoke_test.go" <<'EOF'
 package rungomanifestphasesmoke
@@ -1507,6 +1534,43 @@ cat >"$go_manifest_tools/phase11_test_map.json" <<EOF
   ]
 }
 EOF
+cat >"$go_manifest_tools/phase_registry.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_registry.v1",
+  "phases": [
+    {
+      "phase": "phase9",
+      "order": 9,
+      "status": "active",
+      "label": "Phase 9",
+      "manifest_path": "tools/phase9_test_map.json",
+      "ledger_path": "docs/testing/phase9_coverage_ledger.md",
+      "scope": "synthetic phase9 scope.",
+      "normative_owners": "Synthetic owner."
+    },
+    {
+      "phase": "phase10",
+      "order": 10,
+      "status": "active",
+      "label": "Phase 10",
+      "manifest_path": "tools/phase10_test_map.json",
+      "ledger_path": "docs/testing/phase10_coverage_ledger.md",
+      "scope": "synthetic phase10 scope.",
+      "normative_owners": "Synthetic owner."
+    },
+    {
+      "phase": "phase11",
+      "order": 11,
+      "status": "active",
+      "label": "Phase 11",
+      "manifest_path": "tools/phase11_test_map.json",
+      "ledger_path": "docs/testing/phase11_coverage_ledger.md",
+      "scope": "synthetic phase11 scope.",
+      "normative_owners": "Synthetic owner."
+    }
+  ]
+}
+JSON
 
 set +e
 go_manifest_pkg_setup_output="$(

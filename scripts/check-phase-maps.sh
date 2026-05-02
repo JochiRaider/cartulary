@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
 
+(cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/scripts/lib/phase-registry.mjs" validate)
+
 mapfile -t phases < <(cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" list-phases)
 
 (cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" phase-policy-exceptions-validate)

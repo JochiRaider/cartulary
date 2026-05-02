@@ -4,8 +4,6 @@
   "note": "Phase 4 authoritative execution manifest. Support-only matrix harness and workbook helper coverage stay outside the authoritative row inventory.",
   "ledger": {
     "title": "Phase 4 Coverage Ledger",
-    "scope": "entity mentions, resolve and merge routes, entity-origin Host and Identity creation, indicator create and query surfaces, Parties and coordination workbook surfaces, object-blob creation, evidence handle issuance, Timeline auto-resolution and manual relationship HTTP behavior, and the owned Phase 4 browser inspector flows.",
-    "normative_owners": "Core 01 `§3.3.5`; Core 02 `§6` through `§10`, `§13`, `§19`; Core 03 `§8.4`, `§9`, `§16`, `§20`; Core 04 `AC-017`, `AC-019` through `AC-023`, `AC-077` through `AC-079`, `AC-128`, `AC-186`, `AC-188` through `AC-190`, `AC-205`, `AC-209`, `AC-221` through `AC-225`, `AC-251`, `AC-277`, `AC-281` through `AC-284`, `AC-388` through `AC-397`.",
     "notes": [
       "Binding-mode note: contract-derived binding-mode, row-field, and projection-determinism assertions are absorbed into the owning authoritative rows instead of creating separate helper-only completion evidence."
     ],

@@ -421,6 +421,11 @@ function scenarioExplainPhase() {
     fail("explain-phase JSON must expose phase1 targets");
   }
 
+  const plannedJSON = parseJSON(nodeScript(explainPhase, ["--phase", "phase5", "--json"]), "planned explain-phase JSON");
+  if (plannedJSON.phase !== "phase5" || plannedJSON.status !== "planned" || plannedJSON.targets.length !== 0) {
+    fail("planned explain-phase JSON must expose registered metadata without executable targets");
+  }
+
   const unknownPhaseOutput = nodeScriptFails(explainPhase, ["--phase", "phase99"]);
   assertContains(unknownPhaseOutput, "unknown phase phase99", "unknown phase error");
 }

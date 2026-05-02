@@ -53,6 +53,32 @@ function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
+function writePhaseRegistry(root, phase) {
+  const phaseNumber = phase.replace(/^phase/, "");
+  writeFileSync(
+    path.join(root, "tools/phase_registry.json"),
+    `${JSON.stringify(
+      {
+        schema_id: "cartulary.phase_registry.v1",
+        phases: [
+          {
+            phase,
+            order: Number.parseInt(phaseNumber, 10),
+            status: "active",
+            label: `Phase ${phaseNumber}`,
+            manifest_path: `tools/${phase}_test_map.json`,
+            ledger_path: `docs/testing/${phase}_coverage_ledger.md`,
+            scope: `synthetic ${phase} scope.`,
+            normative_owners: "Synthetic owner.",
+          },
+        ],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+}
+
 const phase4 = plan("phase4", "phase");
 assert.equal(phase4.schema_id, "cartulary.phase_slice_plan.v1");
 assert.equal(phase4.target, "phase-slice");
@@ -115,6 +141,7 @@ assert.ok(workTargets(phase3, "frontend_unit").has("frontend-unit"), "phase3 mus
 const tempRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-phase-slice-test-"));
 try {
   mkdirSync(path.join(tempRoot, "tools"), { recursive: true });
+  writePhaseRegistry(tempRoot, "phase100");
   writeFileSync(
     path.join(tempRoot, "tools/phase100_test_map.json"),
     `${JSON.stringify(

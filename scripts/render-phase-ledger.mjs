@@ -1,4 +1,8 @@
-import { collectEntries, collectSupportGoEntries, loadManifest, phaseManifestNames } from "./lib/phase-manifest.mjs";
+import { collectEntries, collectSupportGoEntries, loadManifest } from "./lib/phase-manifest.mjs";
+import {
+  activePhaseRegistryEntries,
+  activePhaseRegistryEntry,
+} from "./lib/phase-registry.mjs";
 
 const supportTargetDisplay = new Map([
   ["backend_unit", "backend-unit"],
@@ -14,12 +18,13 @@ export function phaseLedgerOutputPath(phase) {
 }
 
 export function phaseLedgerOutputs(root = process.cwd()) {
-  return phaseManifestNames(root).map((phase) => {
+  return activePhaseRegistryEntries(root).map((entry) => {
+    const phase = entry.phase;
     const { manifestPath, manifest } = loadManifest(root, phase);
     if (manifest.ledger === undefined) {
       throw new Error(`${manifestPath} must declare ledger metadata for phase ledger rendering`);
     }
-    return { phase, outputPath: phaseLedgerOutputPath(phase) };
+    return { phase, outputPath: entry.ledger_path };
   });
 }
 
@@ -87,7 +92,7 @@ function requireLedgerStringArray(ledger, field, phase) {
   return value;
 }
 
-function ledgerConfig(manifest, phase) {
+function ledgerConfig(manifest, phase, registryEntry) {
   const ledger = manifest.ledger;
   if (ledger === null || Array.isArray(ledger) || typeof ledger !== "object") {
     throw new Error(`${phase} manifest must declare ledger metadata object`);
@@ -110,8 +115,9 @@ function ledgerConfig(manifest, phase) {
 
   return {
     title: requireLedgerString(ledger, "title", phase),
-    scope: requireLedgerString(ledger, "scope", phase),
-    normativeOwners: requireLedgerString(ledger, "normative_owners", phase),
+    manifestPath: registryEntry.manifest_path,
+    scope: requireLedgerString(registryEntry, "scope", phase),
+    normativeOwners: requireLedgerString(registryEntry, "normative_owners", phase),
     notes: optionalLedgerStringArray(ledger, "notes", phase),
     authoritativeExecution: requireLedgerStringArray(ledger, "authoritative_execution", phase),
     supportExecutionExtras: optionalLedgerStringArray(ledger, "support_execution_extras", phase),
@@ -128,7 +134,7 @@ function renderBulletLines(lines) {
 function renderIntroduction(phase, config) {
   const phaseLabel = phase.replace(/^phase/, "Phase ");
   return [
-    `This ledger is generated from \`tools/${phase}_test_map.json\`. Update the manifest row metadata first, then regenerate this file.`,
+    `This ledger is generated from \`${config.manifestPath}\`. Update the manifest row metadata first, then regenerate this file.`,
     "",
     `- Scope: ${config.scope}`,
     `- Normative owners: ${config.normativeOwners}`,
@@ -182,7 +188,11 @@ function renderSection(title, entries) {
 
 export function renderPhaseLedger(root, phase) {
   const { manifest } = loadManifest(root, phase);
-  const config = ledgerConfig(manifest, phase);
+  const registryEntry = activePhaseRegistryEntry(root, phase);
+  if (!registryEntry) {
+    throw new Error(`unknown active phase ${phase}`);
+  }
+  const config = ledgerConfig(manifest, phase, registryEntry);
   const entries = collectEntries(manifest).filter(
     (entry) => entry.coverage === "authoritative",
   );

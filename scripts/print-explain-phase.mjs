@@ -68,7 +68,7 @@ function main() {
   const options = parseArgs(process.argv.slice(2));
   const phase = phaseGuidance(options.phase);
   if (!phase) {
-    throw new Error(`unknown phase ${options.phase}; expected one of tools/phase*_test_map.json`);
+    throw new Error(`unknown phase ${options.phase}; expected one of tools/phase_registry.json`);
   }
   if (options.json) {
     process.stdout.write(`${JSON.stringify(phase, null, 2)}\n`);

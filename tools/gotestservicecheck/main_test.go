@@ -93,6 +93,39 @@ func TestPhase10_ArrayAllowed_U_10_02(t *testing.T) {
 	}
 }
 
+func TestScanIgnoresInactiveRegistryManifestSymbols(t *testing.T) {
+	root := newFixtureRepo(t)
+	writeFixtureFile(t, root, "internal/modules/future/phase10_store_test.go", `package future
+
+import (
+	"testing"
+
+	store "github.com/JochiRaider/cartulary/internal/testutil/phase10storetest"
+)
+
+func TestPhase10_PlannedStore_U_10_03(t *testing.T) {
+	store.StartStore(t, "phase10")
+}
+`)
+	writeFixtureFile(t, root, "tools/phase10_test_map.json", `{
+	"schema_id": "cartulary.phase_test_map.v1",
+	"phase": "phase10",
+	"unit": [
+		{
+			"coverage": "authoritative",
+			"runner": "go_test",
+			"execution_dependency": "backend_store",
+			"symbol": "TestPhase10_PlannedStore_U_10_03"
+		}
+	]
+}
+`)
+	writeFixtureRegistry(t, root, "phase10", "planned")
+
+	findings := scanFixture(t, root)
+	requireFinding(t, findings, "TestPhase10_PlannedStore_U_10_03", "store.StartStore", testModulePath+"/internal/testutil/phase10storetest")
+}
+
 func TestScanBlocksAliasedFutureRuntimeHelper(t *testing.T) {
 	root := newFixtureRepo(t)
 	writeFixtureFile(t, root, "internal/modules/future/phase12_runtime_test.go", `package future
@@ -216,7 +249,7 @@ func TestScanRejectsInvalidPhaseManifestIdentity(t *testing.T) {
 	"unit": []
 }
 `,
-			expected: "invalid phase name phase01",
+			expected: "phase must match phase0 or phase[1-9][0-9]*",
 		},
 	}
 
@@ -224,6 +257,8 @@ func TestScanRejectsInvalidPhaseManifestIdentity(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			root := newFixtureRepo(t)
 			writeFixtureFile(t, root, filepath.Join("tools", test.file), test.content)
+			registryPhase := strings.TrimSuffix(test.file, "_test_map.json")
+			writeFixtureRegistry(t, root, registryPhase, "active")
 			err := scanFixtureError(t, root)
 			if err == nil {
 				t.Fatalf("expected invalid manifest identity to fail")
@@ -263,6 +298,7 @@ func newFixtureRepo(t *testing.T) string {
 	if err := os.MkdirAll(filepath.Join(root, "tools"), 0o755); err != nil {
 		t.Fatalf("create tools dir: %v", err)
 	}
+	writeFixtureRegistry(t, root, "phase10", "planned")
 	return root
 }
 
@@ -275,6 +311,24 @@ func writeFixtureManifest(t *testing.T, root, phase, unitEntries string) {
 	"unit": %s
 }
 `, phase, unitEntries))
+	writeFixtureRegistry(t, root, phase, "active")
+}
+
+func writeFixtureRegistry(t *testing.T, root, phase, status string) {
+	t.Helper()
+
+	writeFixtureFile(t, root, filepath.Join("tools", "phase_registry.json"), fmt.Sprintf(`{
+	"schema_id": "cartulary.phase_registry.v1",
+	"phases": [
+		{
+			"phase": %q,
+			"order": 10,
+			"status": %q,
+			"manifest_path": "tools/%s_test_map.json"
+		}
+	]
+}
+`, phase, status, phase))
 }
 
 func writeFixtureFile(t *testing.T, root, relativePath, content string) {

@@ -4,8 +4,6 @@
   "note": "Phase 0 authoritative execution manifest. Support-only harness and smoke coverage stays outside this map.",
   "ledger": {
     "title": "Phase 0 Coverage Ledger",
-    "scope": "infrastructure, deployment configuration, runtime roots, schema bootstrap, bootstrap-admin preflight, object-store reachability, and fail-closed startup only.",
-    "normative_owners": "Core 01 `§1`; Core 01 `§3.3.5.1`; Core 04 `§5–§8`; Core 04 `§12`; Core 04 `§9.0.1`.",
     "notes": [
       "Browser E2E note: no Phase 0 browser-visible surface exists under `apps/web`, so authoritative `E-*` evidence lives on the real `cmd/server` process boundary."
     ],

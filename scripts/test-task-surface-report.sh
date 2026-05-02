@@ -68,6 +68,31 @@ assert_fails() {
   printf '%s' "$output"
 }
 
+write_phase_registry() {
+  local root="$1"
+  local phase="$2"
+  local phase_number="${phase#phase}"
+
+  mkdir -p "$root/tools"
+  cat >"$root/tools/phase_registry.json" <<JSON
+{
+  "schema_id": "cartulary.phase_registry.v1",
+  "phases": [
+    {
+      "phase": "$phase",
+      "order": $phase_number,
+      "status": "active",
+      "label": "Phase $phase_number",
+      "manifest_path": "tools/${phase}_test_map.json",
+      "ledger_path": "docs/testing/${phase}_coverage_ledger.md",
+      "scope": "synthetic $phase scope.",
+      "normative_owners": "Synthetic owner."
+    }
+  ]
+}
+JSON
+}
+
 valid_output="$(assert_passes "current task-surface report" "$NODE_BIN" "$REPORTER" --check)"
 assert_contains "$valid_output" "Cartulary task-surface report" "current report header"
 assert_contains "$valid_output" "classification counts:" "current report classification summary"
@@ -189,6 +214,7 @@ EOF
 phase_root="$(mktemp -d "$ROOT_DIR/tmp/task-surface-phase-root.XXXXXX")"
 cleanup_paths+=("$phase_root")
 mkdir -p "$phase_root/tools"
+write_phase_registry "$phase_root" phase99
 cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
 {
   "schema_id": "cartulary.phase_test_map.v1",

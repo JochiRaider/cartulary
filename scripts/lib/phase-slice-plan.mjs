@@ -8,6 +8,7 @@ import {
   executionDependencyInfo,
 } from "./execution-dependencies.mjs";
 import { phaseManifestNames } from "./phase-manifest.mjs";
+import { activePhaseRegistryEntry, phaseRegistryEntry } from "./phase-registry.mjs";
 import { collectGoShardsForTarget } from "./go-shard-plan.mjs";
 import { browserStageResource } from "./scheduler-resources.mjs";
 import { phaseGuidance, phaseSlice as guidancePhaseSlice } from "./task-guidance.mjs";
@@ -46,9 +47,16 @@ function resolveBrowserStageByTarget(root = repoRoot) {
 }
 
 function phaseRows(phase, mode, root = repoRoot) {
+  const registryEntry = phaseRegistryEntry(root, phase);
+  if (!registryEntry) {
+    throw new Error(`unknown phase ${phase}; expected one of tools/phase_registry.json`);
+  }
+  if (!activePhaseRegistryEntry(root, phase)) {
+    throw new Error(`phase ${phase} is ${registryEntry.status} and is not executable`);
+  }
   const info = phaseGuidance(phase, { root });
   if (!info) {
-    throw new Error(`unknown phase ${phase}; expected one of tools/phase*_test_map.json`);
+    throw new Error(`unknown phase ${phase}; expected one of tools/phase_registry.json`);
   }
   if (mode === "phase") {
     return info.rows;

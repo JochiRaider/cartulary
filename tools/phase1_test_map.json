@@ -4,8 +4,6 @@
   "note": "Phase 1 authoritative execution manifest. Support-only harness and smoke coverage stays outside this map.",
   "ledger": {
     "title": "Phase 1 Coverage Ledger",
-    "scope": "local authentication, session lifecycle, TOTP bootstrap or replacement, deployment-local user administration, and deployment-admin credential actions only.",
-    "normative_owners": "Core 01 `§3.3.2`, `§3.3.2.2`, `§3.3.5.1`, `§3.3.10`; Core 04 `§1`, `§3`.",
     "notes": [
       "Explicit `N/A`: view-schema field-key conformance, projection-rebuild determinism, and measurement or timed-completion validation under claim-bearing timing criteria."
     ],

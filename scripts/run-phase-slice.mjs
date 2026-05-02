@@ -316,7 +316,7 @@ async function runScheduler(plan, context) {
       writeSchedulerDryRun({
         repoRoot,
         schedule: runtimeSchedule,
-        manifestPath: path.join(repoRoot, "tools", "phase*_test_map.json"),
+        manifestPath: path.join(repoRoot, "tools", "phase_registry.json"),
         verboseUnitLine(unit) {
           if (unit.countInTotal === false) {
             return "";

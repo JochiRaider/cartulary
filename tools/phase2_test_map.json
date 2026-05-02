@@ -4,8 +4,6 @@
   "note": "Phase 2 authoritative execution manifest. Support-only unit decoder regressions, HTTP conformance, browser-request probes, smoke tests, and extra regressions stay outside this map.",
   "ledger": {
     "title": "Phase 2 Coverage Ledger",
-    "scope": "incident create or list or get or patch, bootstrap membership and workbook preferences, incident membership administration, incident-scoped authorization, extension discovery and reserved-family dispatch, plus the ordinary landing and incident-shell Phase 2 UI.",
-    "normative_owners": "Core 01 `§3.3.1`, `§3.3.3`, `§3.3.5.1`, `§3.3.5.2`, `§3.3.5.3`; Core 02 `§4.5`; Core 04 `§2`, `§3`.",
     "notes": [],
     "authoritative_execution": [
       "`backend-unit` selects authoritative `U-2-*` rows through `cartulary-runner.mjs go-target backend-unit`, with target-plan selection constrained by the Phase 2 manifest and `backend_unit` execution dependency.",

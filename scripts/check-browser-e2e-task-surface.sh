@@ -958,9 +958,9 @@ const path = require("path");
 
 const root = process.argv[2];
 const phaseSchemaID = "cartulary.phase_test_map.v1";
-for (const phase of manifestPhases()) {
+for (const phaseEntry of manifestPhases()) {
   const manifest = JSON.parse(
-    fs.readFileSync(path.join(root, "tools", `${phase}_test_map.json`), "utf8"),
+    fs.readFileSync(path.join(root, phaseEntry.manifest_path), "utf8"),
   );
   for (const entry of manifest.e2e ?? []) {
     if (entry.coverage !== "authoritative" || entry.runner !== "playwright") {
@@ -968,32 +968,31 @@ for (const phase of manifestPhases()) {
     }
     if (!["browser_functional", "browser_stateful", "browser_measurement"].includes(entry.execution_dependency)) {
       console.error(
-        `${phase} authoritative e2e row ${entry.id} must declare a canonical browser execution_dependency`,
+        `${phaseEntry.phase} authoritative e2e row ${entry.id} must declare a canonical browser execution_dependency`,
       );
       process.exit(1);
     }
   }
 }
 function manifestPhases() {
-  const phases = [];
-  for (const entry of fs.readdirSync(path.join(root, "tools")).sort()) {
-    if (!/^phase\d+_test_map\.json$/.test(entry)) {
-      continue;
-    }
-    const match = /^(phase(?:0|[1-9][0-9]*))_test_map\.json$/.exec(entry);
-    if (!match) {
-      throw new Error(`phase test map filename ${entry} must match phase0_test_map.json or phase[1-9][0-9]*_test_map.json`);
-    }
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, "tools", entry), "utf8"));
-    if (manifest.schema_id !== phaseSchemaID) {
-      throw new Error(`${entry} must declare schema_id ${phaseSchemaID}`);
-    }
-    if (manifest.phase !== match[1]) {
-      throw new Error(`${entry} must declare phase ${match[1]}`);
-    }
-    phases.push(manifest.phase);
+  const registrySchemaID = "cartulary.phase_registry.v1";
+  const registry = JSON.parse(fs.readFileSync(path.join(root, "tools", "phase_registry.json"), "utf8"));
+  if (registry.schema_id !== registrySchemaID) {
+    throw new Error(`tools/phase_registry.json must declare schema_id ${registrySchemaID}`);
   }
-  return phases.sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+  return (registry.phases ?? [])
+    .filter((entry) => entry.status === "active")
+    .sort((left, right) => left.order - right.order || left.phase.localeCompare(right.phase))
+    .map((entry) => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, entry.manifest_path), "utf8"));
+    if (manifest.schema_id !== phaseSchemaID) {
+      throw new Error(`${entry.manifest_path} must declare schema_id ${phaseSchemaID}`);
+    }
+    if (manifest.phase !== entry.phase) {
+      throw new Error(`${entry.manifest_path} must declare phase ${entry.phase}`);
+    }
+    return entry;
+  });
 }
 EOF
 then
