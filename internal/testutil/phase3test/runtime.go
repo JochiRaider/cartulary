@@ -1,6 +1,7 @@
 package phase3test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"net/http"
@@ -31,6 +32,20 @@ func DoJSON(t testing.TB, method string, url string, body any, options ...func(*
 	t.Helper()
 
 	req := httptestx.NewJSONRequest(t, method, url, body)
+	for _, option := range options {
+		option(req)
+	}
+	return httptestx.Do(t, http.DefaultClient, req)
+}
+
+func DoRawJSON(t testing.TB, method string, url string, body string, options ...func(*http.Request)) *http.Response {
+	t.Helper()
+
+	req, err := http.NewRequest(method, url, bytes.NewBufferString(body))
+	if err != nil {
+		t.Fatalf("create raw JSON request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
 	for _, option := range options {
 		option(req)
 	}

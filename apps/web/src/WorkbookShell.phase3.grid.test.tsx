@@ -1,3 +1,4 @@
+import { gridAdapterVendor } from "@cartulary/grid-adapter";
 import {
   gridFilterApplyTestId,
   gridFilterFieldTestId,
@@ -13,7 +14,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { requireFetchCall } from "./fetchMockTestSupport";
 import {
   changeInputValue,
@@ -25,21 +26,17 @@ import {
   requiredGridRow,
   setInputValueWithoutEvent,
   successEnvelope,
+  type TimelineWorkbookFetchMock,
   timelineRow,
   timelineViewSchemaId,
   visibleGridRows,
 } from "./timelineWorkbookTestSupport";
 import { TimelineWorkbook } from "./WorkbookShell";
 
-vi.mock(
-  "@cartulary/grid-adapter",
-  async () => import("@cartulary/grid-adapter/test-support"),
-);
-
 const timelineContract = requireViewContract(timelineViewSchemaId);
 
 describe("Phase 3 Timeline workbook grid coverage", () => {
-  let fetchMock: ReturnType<typeof vi.fn>;
+  let fetchMock: TimelineWorkbookFetchMock;
 
   beforeEach(() => {
     fetchMock = installTimelineWorkbookTestGlobals();
@@ -50,6 +47,8 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
   });
 
   it("Phase 3 U-3-GRID-01 binds Timeline grid columns from the active view_schema and commits writable cells by field_key", async () => {
+    expect(gridAdapterVendor).toBe("react-data-grid");
+
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -135,6 +134,8 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
   });
 
   it("Phase 3 U-3-GRID-02 binds saved rows by record_id and row_version instead of visible row index", async () => {
+    expect(gridAdapterVendor).toBe("react-data-grid");
+
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",
@@ -206,6 +207,8 @@ describe("Phase 3 Timeline workbook grid coverage", () => {
   });
 
   it("Phase 3 U-3-GRID-03 keeps sorted and filtered local edits bound to the original record_id, base_row_version, and field_key", async () => {
+    expect(gridAdapterVendor).toBe("react-data-grid");
+
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "incident-1",

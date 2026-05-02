@@ -224,6 +224,44 @@ func RequireErrorEnvelope(t testing.TB, resp *http.Response, wantStatus int, wan
 	return body
 }
 
+func RequireErrorDetails(t testing.TB, body map[string]any) map[string]any {
+	t.Helper()
+	errorValue, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object, got %T", body["error"])
+	}
+	details, ok := errorValue["details"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error details object, got %T", errorValue["details"])
+	}
+	return details
+}
+
+func RequireErrorDetail(t testing.TB, body map[string]any, key string, want any) {
+	t.Helper()
+	details := RequireErrorDetails(t, body)
+	if got := details[key]; got != want {
+		t.Fatalf("unexpected error.details.%s: got %#v want %#v in %#v", key, got, want, details)
+	}
+}
+
+func RequireErrorDetailStrings(t testing.TB, body map[string]any, key string, want []string) {
+	t.Helper()
+	details := RequireErrorDetails(t, body)
+	raw, ok := details[key].([]any)
+	if !ok {
+		t.Fatalf("expected error.details.%s array, got %T in %#v", key, details[key], details)
+	}
+	if len(raw) != len(want) {
+		t.Fatalf("unexpected error.details.%s length: got %#v want %#v", key, raw, want)
+	}
+	for index, value := range raw {
+		if value != want[index] {
+			t.Fatalf("unexpected error.details.%s[%d]: got %#v want %#v in %#v", key, index, value, want[index], raw)
+		}
+	}
+}
+
 func RequireAuthCookies(t testing.TB, cookies []*http.Cookie) AuthCookies {
 	t.Helper()
 	return authcookietest.RequireAuthCookies(t, cookies)

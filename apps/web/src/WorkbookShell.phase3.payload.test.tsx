@@ -14,6 +14,7 @@ import {
   extractTimelineJSONBody,
   installTimelineWorkbookTestGlobals,
   successEnvelope,
+  type TimelineWorkbookFetchMock,
   timelineRow,
   timelineViewSchemaId,
   visibleGridRows,
@@ -30,7 +31,7 @@ vi.mock(
 );
 
 describe("Phase 3 Timeline workbook payload coverage", () => {
-  let fetchMock: ReturnType<typeof vi.fn>;
+  let fetchMock: TimelineWorkbookFetchMock;
 
   beforeEach(() => {
     fetchMock = installTimelineWorkbookTestGlobals();

@@ -106,7 +106,7 @@ func (s *Service) handleMarkReviewed(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, rowVersionConflictError())
 		return
 	case errors.Is(err, ErrIllegalTransition):
-		writeAPIError(w, r, illegalTransitionError("mark_reviewed_not_allowed"))
+		writeAPIError(w, r, illegalTransitionError("mark_reviewed_not_allowed", err))
 		return
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))
@@ -155,7 +155,7 @@ func (s *Service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, rowVersionConflictError())
 		return
 	case errors.Is(err, ErrIllegalTransition):
-		writeAPIError(w, r, illegalTransitionError("supersede_not_allowed"))
+		writeAPIError(w, r, illegalTransitionError("supersede_not_allowed", err))
 		return
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))

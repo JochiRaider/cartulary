@@ -450,6 +450,16 @@ func TestPhase3_CreateAndPatchWriteHistory_U_3_09(t *testing.T) {
 		t.Fatalf("create row: %v", err)
 	}
 	requirePhase3MutationRecorded(t, harness.DB, created.ChangeSetID.String(), created.RecordID.String(), actor.ID.String(), "timeline.rows.create", createRequest.ClientTxnID, 1, 1)
+	timelinestoretest.RequireTimelineRecordMutation(t, harness.DB, created.ChangeSetID.String(), timelinestoretest.TimelineRecordMutationExpectation{
+		SequenceNo:      1,
+		RecordID:        created.RecordID.String(),
+		OperationKind:   "create",
+		AfterRowVersion: timelinestoretest.RowVersion(1),
+		AfterCells: map[string]any{
+			"timeline.summary":       "history row",
+			"timeline.capture_state": "rough",
+		},
+	})
 
 	patch := timeline.PatchRequest{
 		ViewSchemaID:   timeline.TimelineViewSchemaID,
@@ -464,6 +474,21 @@ func TestPhase3_CreateAndPatchWriteHistory_U_3_09(t *testing.T) {
 		t.Fatalf("patch row: %v", err)
 	}
 	requirePhase3MutationRecorded(t, harness.DB, patched.ChangeSetID.String(), created.RecordID.String(), actor.ID.String(), "timeline.records.patch", patch.ClientTxnID, 1, 2)
+	timelinestoretest.RequireTimelineRecordMutation(t, harness.DB, patched.ChangeSetID.String(), timelinestoretest.TimelineRecordMutationExpectation{
+		SequenceNo:       1,
+		RecordID:         created.RecordID.String(),
+		OperationKind:    "patch",
+		BeforeRowVersion: timelinestoretest.RowVersion(1),
+		AfterRowVersion:  timelinestoretest.RowVersion(2),
+		BeforeCells: map[string]any{
+			"timeline.details":       nil,
+			"timeline.capture_state": "rough",
+		},
+		AfterCells: map[string]any{
+			"timeline.details":       "patched",
+			"timeline.capture_state": "enriched",
+		},
+	})
 }
 
 func TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10(t *testing.T) {
@@ -475,6 +500,25 @@ func TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10(t *testing.T) {
 		row := createReviewedTimelineRow(t, store, actor, incidentID, "txn-phase3-u-3-10-row", "row", phase3BaseTime())
 		replacement := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-10-replacement", "replacement", phase3BaseTime().Add(time.Minute))
 		crossIncidentReplacement := createTimelineSummaryRow(t, store, actor, otherIncident.ID, "txn-phase3-u-3-10-cross", "cross", phase3BaseTime().Add(2*time.Minute))
+		supersededReplacement := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-10-superseded-replacement", "superseded replacement", phase3BaseTime().Add(3*time.Minute))
+		supersededReplacementNext := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-10-superseded-replacement-next", "replacement for superseded replacement", phase3BaseTime().Add(4*time.Minute))
+		supersedeReplacement := timeline.SupersedeRequest{
+			BaseRowVersion:      supersededReplacement.RowVersion,
+			ClientTxnID:         "txn-phase3-u-3-10-supersede-replacement",
+			Reason:              "make replacement superseded",
+			ReplacementRecordID: &supersededReplacementNext.RecordID,
+		}
+		if _, err := store.Supersede(context.Background(), actor, supersededReplacement.RecordID, supersedeReplacement, timeline.TimelineActionRequestHash(supersedeReplacement.BaseRowVersion, supersedeReplacement.ClientTxnID, &supersedeReplacement.Reason, supersedeReplacement.ReplacementRecordID), "req-phase3-u-3-10-supersede-replacement", phase3BaseTime().Add(5*time.Minute)); err != nil {
+			t.Fatalf("supersede replacement fixture: %v", err)
+		}
+		activeTarget := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-10-active-target", "target with active incoming replacement", phase3BaseTime().Add(6*time.Minute))
+		activeIncomingReplacement := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-10-active-incoming-replacement", "active incoming replacement", phase3BaseTime().Add(7*time.Minute))
+		if _, err := harness.DB.Exec(context.Background(), `
+INSERT INTO record_links (incident_id, src_record_id, dst_record_id, link_type, provenance, owner_user_id, created_by_user_id)
+VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
+`, incidentID, activeIncomingReplacement.RecordID, activeTarget.RecordID, actor.ID); err != nil {
+			t.Fatalf("seed active incoming supersedes link: %v", err)
+		}
 
 		self := timeline.SupersedeRequest{
 			BaseRowVersion:      row.RowVersion,
@@ -482,9 +526,7 @@ func TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10(t *testing.T) {
 			Reason:              "self replacement",
 			ReplacementRecordID: &row.RecordID,
 		}
-		if _, err := store.Supersede(context.Background(), actor, row.RecordID, self, timeline.TimelineActionRequestHash(self.BaseRowVersion, self.ClientTxnID, &self.Reason, self.ReplacementRecordID), "req-phase3-u-3-10-self", phase3BaseTime().Add(3*time.Minute)); !errors.Is(err, timeline.ErrIllegalTransition) {
-			t.Fatalf("expected self supersede to fail, got %v", err)
-		}
+		requireSupersedeRejectedWithGuards(t, harness.DB, store, actor, incidentID, row.RecordID, self, "req-phase3-u-3-10-self", "reviewed", "superseded", []string{"replacement_must_be_different_timeline_record"}, phase3BaseTime().Add(8*time.Minute))
 
 		crossIncident := timeline.SupersedeRequest{
 			BaseRowVersion:      row.RowVersion,
@@ -492,9 +534,32 @@ func TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10(t *testing.T) {
 			Reason:              "cross incident replacement",
 			ReplacementRecordID: &crossIncidentReplacement.RecordID,
 		}
-		if _, err := store.Supersede(context.Background(), actor, row.RecordID, crossIncident, timeline.TimelineActionRequestHash(crossIncident.BaseRowVersion, crossIncident.ClientTxnID, &crossIncident.Reason, crossIncident.ReplacementRecordID), "req-phase3-u-3-10-cross-incident", phase3BaseTime().Add(4*time.Minute)); !errors.Is(err, timeline.ErrIllegalTransition) {
-			t.Fatalf("expected cross-incident supersede to fail, got %v", err)
+		requireSupersedeRejectedWithGuards(t, harness.DB, store, actor, incidentID, row.RecordID, crossIncident, "req-phase3-u-3-10-cross-incident", "reviewed", "superseded", []string{"replacement_must_be_visible_active_same_incident_timeline_record"}, phase3BaseTime().Add(9*time.Minute))
+
+		alreadySuperseded := timeline.SupersedeRequest{
+			BaseRowVersion:      row.RowVersion,
+			ClientTxnID:         "txn-phase3-u-3-10-already-superseded",
+			Reason:              "replacement already superseded",
+			ReplacementRecordID: &supersededReplacement.RecordID,
 		}
+		requireSupersedeRejectedWithGuards(t, harness.DB, store, actor, incidentID, row.RecordID, alreadySuperseded, "req-phase3-u-3-10-already-superseded", "reviewed", "superseded", []string{"replacement_must_not_be_superseded"}, phase3BaseTime().Add(10*time.Minute))
+
+		randomReplacementID := uuid.New()
+		notVisible := timeline.SupersedeRequest{
+			BaseRowVersion:      row.RowVersion,
+			ClientTxnID:         "txn-phase3-u-3-10-not-visible",
+			Reason:              "replacement not visible",
+			ReplacementRecordID: &randomReplacementID,
+		}
+		requireSupersedeRejectedWithGuards(t, harness.DB, store, actor, incidentID, row.RecordID, notVisible, "req-phase3-u-3-10-not-visible", "reviewed", "superseded", []string{"replacement_must_be_visible_active_same_incident_timeline_record"}, phase3BaseTime().Add(11*time.Minute))
+
+		activeIncoming := timeline.SupersedeRequest{
+			BaseRowVersion:      activeTarget.RowVersion,
+			ClientTxnID:         "txn-phase3-u-3-10-active-incoming",
+			Reason:              "target already replaced",
+			ReplacementRecordID: &replacement.RecordID,
+		}
+		requireSupersedeRejectedWithGuards(t, harness.DB, store, actor, incidentID, activeTarget.RecordID, activeIncoming, "req-phase3-u-3-10-active-incoming", "rough", "superseded", []string{"target_must_not_have_active_replacement"}, phase3BaseTime().Add(12*time.Minute))
 
 		supersede := timeline.SupersedeRequest{
 			BaseRowVersion:      row.RowVersion,
@@ -502,7 +567,7 @@ func TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10(t *testing.T) {
 			Reason:              "superseded by a better row",
 			ReplacementRecordID: &replacement.RecordID,
 		}
-		first, err := store.Supersede(context.Background(), actor, row.RecordID, supersede, timeline.TimelineActionRequestHash(supersede.BaseRowVersion, supersede.ClientTxnID, &supersede.Reason, supersede.ReplacementRecordID), "req-phase3-u-3-10-supersede", phase3BaseTime().Add(5*time.Minute))
+		first, err := store.Supersede(context.Background(), actor, row.RecordID, supersede, timeline.TimelineActionRequestHash(supersede.BaseRowVersion, supersede.ClientTxnID, &supersede.Reason, supersede.ReplacementRecordID), "req-phase3-u-3-10-supersede", phase3BaseTime().Add(13*time.Minute))
 		if err != nil {
 			t.Fatalf("supersede row: %v", err)
 		}
@@ -512,7 +577,7 @@ func TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10(t *testing.T) {
 		}
 		beforeReplay := timelinestoretest.SnapshotCounters(t, harness.DB, incidentID.String(), row.RecordID.String())
 
-		replay, err := store.Supersede(context.Background(), actor, row.RecordID, supersede, timeline.TimelineActionRequestHash(supersede.BaseRowVersion, supersede.ClientTxnID, &supersede.Reason, supersede.ReplacementRecordID), "req-phase3-u-3-10-supersede-replay", phase3BaseTime().Add(6*time.Minute))
+		replay, err := store.Supersede(context.Background(), actor, row.RecordID, supersede, timeline.TimelineActionRequestHash(supersede.BaseRowVersion, supersede.ClientTxnID, &supersede.Reason, supersede.ReplacementRecordID), "req-phase3-u-3-10-supersede-replay", phase3BaseTime().Add(14*time.Minute))
 		if err != nil {
 			t.Fatalf("replay supersede: %v", err)
 		}
@@ -529,7 +594,7 @@ func TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10(t *testing.T) {
 
 		divergent := supersede
 		divergent.ReplacementRecordID = &crossIncidentReplacement.RecordID
-		if _, err := store.Supersede(context.Background(), actor, row.RecordID, divergent, timeline.TimelineActionRequestHash(divergent.BaseRowVersion, divergent.ClientTxnID, &divergent.Reason, divergent.ReplacementRecordID), "req-phase3-u-3-10-divergent", phase3BaseTime().Add(7*time.Minute)); !errors.Is(err, authn.ErrClientTxnConflict) {
+		if _, err := store.Supersede(context.Background(), actor, row.RecordID, divergent, timeline.TimelineActionRequestHash(divergent.BaseRowVersion, divergent.ClientTxnID, &divergent.Reason, divergent.ReplacementRecordID), "req-phase3-u-3-10-divergent", phase3BaseTime().Add(15*time.Minute)); !errors.Is(err, authn.ErrClientTxnConflict) {
 			t.Fatalf("expected divergent supersede replay conflict, got %v", err)
 		}
 	})
@@ -629,6 +694,35 @@ func requirePhase3MutationRecorded(t testing.TB, db postgres.DB, changeSetID str
 	}
 	if got := timelinestoretest.CountRecordRevisions(t, db, recordID); got != wantRevisions {
 		t.Fatalf("unexpected record revision count for %s: got %d want %d", recordID, got, wantRevisions)
+	}
+}
+
+func requireSupersedeRejectedWithGuards(t testing.TB, db postgres.DB, store *timeline.Store, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, request timeline.SupersedeRequest, requestID string, wantFrom string, wantTo string, wantGuards []string, now time.Time) {
+	t.Helper()
+
+	before := timelinestoretest.SnapshotCounters(t, db, incidentID.String(), recordID.String())
+	_, err := store.Supersede(context.Background(), actor, recordID, request, timeline.TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), requestID, now)
+	if !errors.Is(err, timeline.ErrIllegalTransition) {
+		t.Fatalf("expected supersede to fail with illegal transition, got %v", err)
+	}
+	var transitionErr *timeline.IllegalTransitionError
+	if !errors.As(err, &transitionErr) {
+		t.Fatalf("expected typed illegal transition details, got %T %v", err, err)
+	}
+	if transitionErr.FromStatus != wantFrom || transitionErr.ToStatus != wantTo {
+		t.Fatalf("unexpected transition status details: got %s -> %s want %s -> %s", transitionErr.FromStatus, transitionErr.ToStatus, wantFrom, wantTo)
+	}
+	if len(transitionErr.ViolatedGuards) != len(wantGuards) {
+		t.Fatalf("unexpected guard count: got %#v want %#v", transitionErr.ViolatedGuards, wantGuards)
+	}
+	for index, want := range wantGuards {
+		if transitionErr.ViolatedGuards[index] != want {
+			t.Fatalf("unexpected guard at %d: got %#v want %#v in %#v", index, transitionErr.ViolatedGuards[index], want, transitionErr.ViolatedGuards)
+		}
+	}
+	after := timelinestoretest.SnapshotCounters(t, db, incidentID.String(), recordID.String())
+	if before != after {
+		t.Fatalf("rejected supersede must not write history or projection rows: before=%#v after=%#v", before, after)
 	}
 }
 

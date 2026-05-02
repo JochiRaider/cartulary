@@ -3,6 +3,7 @@ package timeline
 import (
 	"bytes"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -195,9 +196,25 @@ func TestSupportPhase3Unit_SupersedeGuardAndHashHelpers(t *testing.T) {
 
 	if err := ValidateSupersedeReplacement(recordID, incidentID, &recordID, &incidentID); !errors.Is(err, ErrIllegalTransition) {
 		t.Fatalf("self replacement must be rejected, got %v", err)
+	} else {
+		var transitionErr *IllegalTransitionError
+		if !errors.As(err, &transitionErr) {
+			t.Fatalf("expected typed illegal transition, got %T", err)
+		}
+		if !slices.Equal(transitionErr.ViolatedGuards, []string{supersedeGuardReplacementDifferent}) {
+			t.Fatalf("unexpected guard tokens: got %#v", transitionErr.ViolatedGuards)
+		}
 	}
 	if err := ValidateSupersedeReplacement(recordID, incidentID, &otherRecordID, &otherIncidentID); !errors.Is(err, ErrIllegalTransition) {
 		t.Fatalf("cross-incident replacement must be rejected, got %v", err)
+	} else {
+		var transitionErr *IllegalTransitionError
+		if !errors.As(err, &transitionErr) {
+			t.Fatalf("expected typed illegal transition, got %T", err)
+		}
+		if !slices.Equal(transitionErr.ViolatedGuards, []string{supersedeGuardReplacementVisibleActiveSameIncident}) {
+			t.Fatalf("unexpected guard tokens: got %#v", transitionErr.ViolatedGuards)
+		}
 	}
 	if err := ValidateSupersedeReplacement(recordID, incidentID, &otherRecordID, &incidentID); err != nil {
 		t.Fatalf("legal replacement should be allowed, got %v", err)

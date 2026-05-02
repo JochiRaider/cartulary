@@ -294,11 +294,12 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, pr
 	}
 	result, err := s.store.timelineStore.PatchRow(r.Context(), principal.User, recordID, request, timeline.TimelinePatchRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
 	var (
-		entityConflict       *entities.ExactMatchConflictError
-		mentionTransitionErr *entities.MentionTransitionError
-		mentionTargetErr     *entities.MentionTargetValidationError
-		rowConflict          *timeline.RowVersionConflictError
-		sameFieldConflict    *timeline.SameFieldConflictError
+		entityConflict        *entities.ExactMatchConflictError
+		mentionTransitionErr  *entities.MentionTransitionError
+		mentionTargetErr      *entities.MentionTargetValidationError
+		timelineTransitionErr *timeline.IllegalTransitionError
+		rowConflict           *timeline.RowVersionConflictError
+		sameFieldConflict     *timeline.SameFieldConflictError
 	)
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
@@ -315,6 +316,22 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, pr
 		return
 	case errors.Is(err, timeline.ErrRowVersionConflict):
 		writeAPIError(w, r, rowVersionConflictError(map[string]any{}))
+		return
+	case errors.As(err, &timelineTransitionErr):
+		details := map[string]any{
+			"from_status":     timelineTransitionErr.FromStatus,
+			"to_status":       timelineTransitionErr.ToStatus,
+			"violated_guards": append([]string{}, timelineTransitionErr.ViolatedGuards...),
+		}
+		if timelineTransitionErr.ReasonCode != "" {
+			details["reason_code"] = timelineTransitionErr.ReasonCode
+		}
+		writeAPIError(w, r, &auth.APIError{
+			Status:  http.StatusConflict,
+			Code:    "illegal_transition",
+			Message: "illegal transition",
+			Details: details,
+		})
 		return
 	case errors.Is(err, timeline.ErrIllegalTransition):
 		writeAPIError(w, r, &auth.APIError{

@@ -11,7 +11,7 @@ type WebSocketLike = {
   onmessage: ((event: MessageEvent) => void) | null;
 };
 
-type FetchMock = ReturnType<typeof vi.fn>;
+export type TimelineWorkbookFetchMock = ReturnType<typeof vi.fn>;
 
 type TimelineRowOptions = {
   recordId: string;
@@ -54,7 +54,7 @@ export function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-export function installTimelineWorkbookTestGlobals() {
+export function installTimelineWorkbookTestGlobals(): TimelineWorkbookFetchMock {
   const fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
   vi.stubGlobal(
@@ -251,14 +251,20 @@ export function setInputValueWithoutEvent(
   valueSetter?.call(input, value);
 }
 
-export function extractTimelinePatchBody(fetchSpy: FetchMock, index: number) {
+export function extractTimelinePatchBody(
+  fetchSpy: TimelineWorkbookFetchMock,
+  index: number,
+) {
   return requireJSONBodyAt<{
     base_row_version: number;
     changes: Array<{ field_key: string; value: string | null }>;
   }>(fetchSpy, index, `timeline request body at index ${index}`);
 }
 
-export function extractTimelineJSONBody(fetchSpy: FetchMock, index: number) {
+export function extractTimelineJSONBody(
+  fetchSpy: TimelineWorkbookFetchMock,
+  index: number,
+) {
   return requireJSONBodyAt<Record<string, unknown>>(
     fetchSpy,
     index,

@@ -9,6 +9,37 @@ const (
 	captureStateSuperseded = "superseded"
 )
 
+const (
+	supersedeGuardReplacementDifferent                 = "replacement_must_be_different_timeline_record"
+	supersedeGuardReplacementVisibleActiveSameIncident = "replacement_must_be_visible_active_same_incident_timeline_record"
+	supersedeGuardReplacementNotSuperseded             = "replacement_must_not_be_superseded"
+	supersedeGuardTargetMustNotHaveActiveReplacement   = "target_must_not_have_active_replacement"
+)
+
+type IllegalTransitionError struct {
+	ReasonCode     string
+	FromStatus     string
+	ToStatus       string
+	ViolatedGuards []string
+}
+
+func (e *IllegalTransitionError) Error() string {
+	return ErrIllegalTransition.Error()
+}
+
+func (e *IllegalTransitionError) Unwrap() error {
+	return ErrIllegalTransition
+}
+
+func newIllegalTransitionError(reasonCode string, fromStatus string, toStatus string, guards ...string) *IllegalTransitionError {
+	return &IllegalTransitionError{
+		ReasonCode:     reasonCode,
+		FromStatus:     fromStatus,
+		ToStatus:       toStatus,
+		ViolatedGuards: append([]string{}, guards...),
+	}
+}
+
 var captureStateVocabulary = map[string]struct{}{
 	captureStateRough:      {},
 	captureStateEnriched:   {},
@@ -58,11 +89,15 @@ func ValidateSupersedeReplacement(currentRecordID uuid.UUID, currentIncidentID u
 	if replacementRecordID == nil {
 		return nil
 	}
+	guards := make([]string, 0, 2)
 	if *replacementRecordID == currentRecordID {
-		return ErrIllegalTransition
+		guards = append(guards, supersedeGuardReplacementDifferent)
 	}
 	if replacementIncidentID != nil && *replacementIncidentID != currentIncidentID {
-		return ErrIllegalTransition
+		guards = append(guards, supersedeGuardReplacementVisibleActiveSameIncident)
+	}
+	if len(guards) > 0 {
+		return newIllegalTransitionError("supersede_not_allowed", "", captureStateSuperseded, guards...)
 	}
 	return nil
 }

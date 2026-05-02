@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -41,6 +43,28 @@ type ProjectionRow struct {
 	RowVersion          int64
 	CaptureState        string
 	ReplacementRecordID *string
+}
+
+type TimelineRecordMutationExpectation struct {
+	SequenceNo       int
+	RecordID         string
+	OperationKind    string
+	BeforeRowVersion *int64
+	AfterRowVersion  *int64
+	BeforeCells      map[string]any
+	AfterCells       map[string]any
+}
+
+type RecordLinkMutationExpectation struct {
+	SequenceNo          int
+	IncidentID          string
+	SourceRecordID      string
+	DestinationRecordID string
+	LinkType            string
+}
+
+func RowVersion(value int64) *int64 {
+	return &value
 }
 
 func SnapshotCounters(t testing.TB, db postgres.DB, incidentID string, recordID string) Counters {
@@ -122,6 +146,51 @@ ORDER BY sequence_no ASC
 	return mutations
 }
 
+func RequireTimelineRecordMutation(t testing.TB, db postgres.DB, changeSetID string, expectation TimelineRecordMutationExpectation) ChangeSetMutationRow {
+	t.Helper()
+
+	mutation := requireMutationAtSequence(t, LookupChangeSetMutations(t, db, changeSetID), expectation.SequenceNo)
+	if mutation.TargetKind != "timeline_record" || mutation.TargetID != expectation.RecordID || mutation.OperationKind != expectation.OperationKind {
+		t.Fatalf("unexpected timeline mutation identity: %#v", mutation)
+	}
+	requireVersionID(t, "before_version_id", mutation.BeforeVersionID, expectation.RecordID, expectation.BeforeRowVersion)
+	requireVersionID(t, "after_version_id", mutation.AfterVersionID, expectation.RecordID, expectation.AfterRowVersion)
+	requireRowVersionValue(t, "before_value", mutation.BeforeValue, expectation.BeforeRowVersion)
+	requireRowVersionValue(t, "after_value", mutation.AfterValue, expectation.AfterRowVersion)
+	requireCellValues(t, "before_value", mutation.BeforeValue, expectation.BeforeCells)
+	requireCellValues(t, "after_value", mutation.AfterValue, expectation.AfterCells)
+	return mutation
+}
+
+func RequireRecordLinkCreateMutation(t testing.TB, db postgres.DB, changeSetID string, expectation RecordLinkMutationExpectation) ChangeSetMutationRow {
+	t.Helper()
+
+	mutation := requireMutationAtSequence(t, LookupChangeSetMutations(t, db, changeSetID), expectation.SequenceNo)
+	if mutation.TargetKind != "record_link" || mutation.OperationKind != "create" || mutation.TargetID == "" {
+		t.Fatalf("unexpected record-link mutation identity: %#v", mutation)
+	}
+	if mutation.BeforeVersionID != nil || mutation.BeforeValue != nil {
+		t.Fatalf("record-link create mutation must not have before state: %#v", mutation)
+	}
+	wants := map[string]any{
+		"src_record_id": expectation.SourceRecordID,
+		"dst_record_id": expectation.DestinationRecordID,
+		"link_type":     expectation.LinkType,
+	}
+	if expectation.IncidentID != "" {
+		wants["incident_id"] = expectation.IncidentID
+	}
+	for key, want := range wants {
+		if got := mutation.AfterValue[key]; got != want {
+			t.Fatalf("unexpected record-link mutation %s: got %#v want %#v in %#v", key, got, want, mutation.AfterValue)
+		}
+	}
+	if _, ok := mutation.AfterValue["record_link_id"].(string); !ok {
+		t.Fatalf("record-link mutation missing record_link_id: %#v", mutation.AfterValue)
+	}
+	return mutation
+}
+
 func RequireSupersedeCoupledChangeSet(t testing.TB, db postgres.DB, changeSetID string, recordID string, replacementRecordID string, wantRowVersion int64) {
 	t.Helper()
 
@@ -130,32 +199,20 @@ func RequireSupersedeCoupledChangeSet(t testing.TB, db postgres.DB, changeSetID 
 		t.Fatalf("expected supersede change set %s to write exactly two mutations, got %#v", changeSetID, mutations)
 	}
 
-	recordMutation := mutations[0]
-	if recordMutation.SequenceNo != 1 || recordMutation.TargetKind != "timeline_record" || recordMutation.TargetID != recordID || recordMutation.OperationKind != "patch" {
-		t.Fatalf("unexpected primary supersede mutation: %#v", recordMutation)
-	}
-	if recordMutation.AfterValue["record_id"] != recordID {
-		t.Fatalf("expected supersede mutation row record_id %q, got %#v", recordID, recordMutation.AfterValue)
-	}
-	if got := recordMutation.AfterValue["row_version"]; got != float64(wantRowVersion) {
-		t.Fatalf("expected supersede mutation row_version %d, got %#v", wantRowVersion, recordMutation.AfterValue)
-	}
-	cells, ok := recordMutation.AfterValue["cells"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected supersede mutation cells map, got %#v", recordMutation.AfterValue)
-	}
-	captureStateCell, ok := cells["timeline.capture_state"].(map[string]any)
-	if !ok || captureStateCell["value"] != "superseded" {
-		t.Fatalf("expected supersede mutation capture_state cell, got %#v", recordMutation.AfterValue)
-	}
-
-	linkMutation := mutations[1]
-	if linkMutation.SequenceNo != 2 || linkMutation.TargetKind != "record_link" || linkMutation.OperationKind != "create" {
-		t.Fatalf("unexpected supersede link mutation: %#v", linkMutation)
-	}
-	if linkMutation.AfterValue["src_record_id"] != replacementRecordID || linkMutation.AfterValue["dst_record_id"] != recordID || linkMutation.AfterValue["link_type"] != "supersedes" {
-		t.Fatalf("unexpected supersede link mutation payload: %#v", linkMutation.AfterValue)
-	}
+	RequireTimelineRecordMutation(t, db, changeSetID, TimelineRecordMutationExpectation{
+		SequenceNo:       1,
+		RecordID:         recordID,
+		OperationKind:    "patch",
+		BeforeRowVersion: RowVersion(wantRowVersion - 1),
+		AfterRowVersion:  RowVersion(wantRowVersion),
+		AfterCells:       map[string]any{"timeline.capture_state": "superseded", "timeline.replacement_record_id": replacementRecordID},
+	})
+	RequireRecordLinkCreateMutation(t, db, changeSetID, RecordLinkMutationExpectation{
+		SequenceNo:          2,
+		SourceRecordID:      replacementRecordID,
+		DestinationRecordID: recordID,
+		LinkType:            "supersedes",
+	})
 }
 
 func CountRecordRevisions(t testing.TB, db postgres.DB, recordID string) int {
@@ -242,4 +299,85 @@ func decodeJSONMap(t testing.TB, payload []byte) map[string]any {
 		t.Fatalf("decode json map: %v", err)
 	}
 	return decoded
+}
+
+func requireMutationAtSequence(t testing.TB, mutations []ChangeSetMutationRow, sequenceNo int) ChangeSetMutationRow {
+	t.Helper()
+	for _, mutation := range mutations {
+		if mutation.SequenceNo == sequenceNo {
+			return mutation
+		}
+	}
+	t.Fatalf("mutation sequence %d not found in %#v", sequenceNo, mutations)
+	return ChangeSetMutationRow{}
+}
+
+func requireVersionID(t testing.TB, field string, got *string, recordID string, wantVersion *int64) {
+	t.Helper()
+	if wantVersion == nil {
+		if got != nil {
+			t.Fatalf("expected nil %s, got %q", field, *got)
+		}
+		return
+	}
+	want := "timeline:" + recordID + ":" + strconv.FormatInt(*wantVersion, 10)
+	if got == nil || *got != want {
+		var gotValue any
+		if got != nil {
+			gotValue = *got
+		}
+		t.Fatalf("unexpected %s: got %v want %s", field, gotValue, want)
+	}
+}
+
+func requireRowVersionValue(t testing.TB, field string, row map[string]any, wantVersion *int64) {
+	t.Helper()
+	if wantVersion == nil {
+		if row != nil {
+			t.Fatalf("expected nil %s row, got %#v", field, row)
+		}
+		return
+	}
+	if row == nil {
+		t.Fatalf("expected %s row_version %d, got nil row", field, *wantVersion)
+	}
+	if got, ok := numberAsInt64(row["row_version"]); !ok || got != *wantVersion {
+		t.Fatalf("unexpected %s row_version: got %#v want %d in %#v", field, row["row_version"], *wantVersion, row)
+	}
+}
+
+func requireCellValues(t testing.TB, field string, row map[string]any, wants map[string]any) {
+	t.Helper()
+	if len(wants) == 0 {
+		return
+	}
+	if row == nil {
+		t.Fatalf("expected %s row with cells %#v, got nil", field, wants)
+	}
+	cells, ok := row["cells"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected %s cells object, got %#v", field, row)
+	}
+	for fieldKey, want := range wants {
+		cell, ok := cells[fieldKey].(map[string]any)
+		if !ok {
+			t.Fatalf("expected %s cell %s, got %#v", field, fieldKey, cells[fieldKey])
+		}
+		if got := cell["value"]; !reflect.DeepEqual(got, want) {
+			t.Fatalf("unexpected %s cell %s: got %#v want %#v", field, fieldKey, got, want)
+		}
+	}
+}
+
+func numberAsInt64(value any) (int64, bool) {
+	switch typed := value.(type) {
+	case int64:
+		return typed, true
+	case int:
+		return int64(typed), true
+	case float64:
+		return int64(typed), typed == float64(int64(typed))
+	default:
+		return 0, false
+	}
 }

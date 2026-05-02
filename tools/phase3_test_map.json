@@ -57,6 +57,8 @@
     "I-3-03",
     "I-3-04",
     "I-3-05",
+    "I-3-06",
+    "I-3-07",
     "E-3-01",
     "E-3-02",
     "E-3-03",
@@ -354,7 +356,7 @@
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Incident-role authorization, review and supersede legality, replay semantics, replacement-target guards, and supersede change-set shape all hold on the live route surface.",
-      "out_of_scope": "Systematic route-matrix inventory remains support-only evidence.",
+      "out_of_scope": "Malformed route-envelope matrix coverage is owned by `I-3-06`.",
       "execution_family": "backend-integration-timeline",
       "execution_label": "backend-integration phase3 authoritative timeline"
     },
@@ -383,6 +385,34 @@
       "evidence_layer": "integration",
       "claim": "The canonical incident WebSocket route proves hello, hello_ack, presence_snapshot ordering, membership-gated acceptance, browser-origin rejection, and incident-access revocation while preserving access to other authorized incidents.",
       "out_of_scope": "Session-wide logout and concurrency revocation consequences remain Phase 1 evidence.",
+      "execution_family": "backend-integration-timeline",
+      "execution_label": "backend-integration phase3 authoritative timeline"
+    },
+    {
+      "id": "I-3-06",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/timeline",
+      "file": "internal/modules/timeline/phase3_integration_test.go",
+      "symbol": "TestPhase3_RouteEnvelopeMatrix_I_3_06",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "integration",
+      "claim": "Create, patch, mark-reviewed, supersede, query, and WebSocket pre-upgrade failure paths return common error envelopes with route-specific details and no malformed-request writes.",
+      "out_of_scope": "Untrusted WebSocket origin remains AC-131 status-only rejection unless the owner spec adds a public JSON error code.",
+      "execution_family": "backend-integration-timeline",
+      "execution_label": "backend-integration phase3 authoritative timeline"
+    },
+    {
+      "id": "I-3-07",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/timeline",
+      "file": "internal/modules/timeline/phase3_integration_test.go",
+      "symbol": "TestPhase3_RoughUncertainCapturePreservation_I_3_07",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "integration",
+      "claim": "Rough and uncertain Timeline capture preserves null structured fields, raw details, source text, and unresolved mention text through later explicit resolution.",
+      "out_of_scope": "Entity merge lineage and browser-visible resolution workflows remain Phase 4 evidence.",
       "execution_family": "backend-integration-timeline",
       "execution_label": "backend-integration phase3 authoritative timeline"
     }

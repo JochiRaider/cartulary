@@ -3,6 +3,7 @@ package timeline
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"reflect"
@@ -526,8 +527,22 @@ func rowVersionConflictError(details ...map[string]any) *auth.APIError {
 	return &auth.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: payload}
 }
 
-func illegalTransitionError(reasonCode string) *auth.APIError {
+func illegalTransitionError(reasonCode string, sourceErr ...error) *auth.APIError {
 	details := map[string]any{}
+	var transitionErr *IllegalTransitionError
+	for _, err := range sourceErr {
+		if errors.As(err, &transitionErr) {
+			break
+		}
+	}
+	if transitionErr != nil {
+		if transitionErr.ReasonCode != "" {
+			reasonCode = transitionErr.ReasonCode
+		}
+		details["from_status"] = transitionErr.FromStatus
+		details["to_status"] = transitionErr.ToStatus
+		details["violated_guards"] = append([]string{}, transitionErr.ViolatedGuards...)
+	}
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
 	}

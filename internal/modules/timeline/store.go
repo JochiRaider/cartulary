@@ -463,7 +463,7 @@ func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID u
 		}
 	}
 	if current.CaptureState == "superseded" {
-		return MutationResult{}, ErrIllegalTransition
+		return MutationResult{}, newIllegalTransitionError("superseded_terminal", current.CaptureState, captureStateEnriched)
 	}
 
 	next := current
@@ -961,7 +961,7 @@ func collectionSortKey(item map[string]any) string {
 func (s *Store) MarkReviewed(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request ActionRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	return s.applyAction(ctx, actor, reviewRouteKey, recordID, request.BaseRowVersion, request.ClientTxnID, requestHash, requestID, now, request.Reason, nil, func(current sourceRecord) (sourceRecord, *links.SupersedesLink, *string, error) {
 		if !CaptureStateAllowsMarkReviewed(current.CaptureState) {
-			return sourceRecord{}, nil, nil, ErrIllegalTransition
+			return sourceRecord{}, nil, nil, newIllegalTransitionError("mark_reviewed_not_allowed", current.CaptureState, captureStateReviewed)
 		}
 		next := current
 		next.CaptureState = captureStateReviewed
@@ -978,10 +978,7 @@ func (s *Store) MarkReviewed(ctx context.Context, actor authn.UserRecord, record
 func (s *Store) Supersede(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request SupersedeRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	return s.applyAction(ctx, actor, supersedeRouteKey, recordID, request.BaseRowVersion, request.ClientTxnID, requestHash, requestID, now, &request.Reason, request.ReplacementRecordID, func(current sourceRecord) (sourceRecord, *links.SupersedesLink, *string, error) {
 		if !CaptureStateAllowsSupersede(current.CaptureState) {
-			return sourceRecord{}, nil, nil, ErrIllegalTransition
-		}
-		if err := ValidateSupersedeReplacement(current.RecordID, current.IncidentID, request.ReplacementRecordID, nil); err != nil {
-			return sourceRecord{}, nil, nil, err
+			return sourceRecord{}, nil, nil, newIllegalTransitionError("supersede_not_allowed", current.CaptureState, captureStateSuperseded)
 		}
 
 		next := current
@@ -1050,23 +1047,23 @@ func (s *Store) applyAction(
 		return MutationResult{}, ErrRowVersionConflict
 	}
 
-	var validatedReplacementID *uuid.UUID
-	if replacementRecordID != nil {
-		replacementRecord, err := loadSourceRecordTx(ctx, tx, *replacementRecordID)
-		if err != nil {
-			return MutationResult{}, err
-		}
-		replacementID := replacementRecord.RecordID
-		replacementIncidentID := replacementRecord.IncidentID
-		if err := ValidateSupersedeReplacement(current.RecordID, current.IncidentID, &replacementID, &replacementIncidentID); err != nil {
-			return MutationResult{}, ErrIllegalTransition
-		}
-		validatedReplacementID = &replacementID
-	}
-
 	next, _, effectiveReason, err := prepare(current)
 	if err != nil {
 		return MutationResult{}, err
+	}
+
+	var validatedReplacementID *uuid.UUID
+	if routeKey == supersedeRouteKey {
+		if err := validateSupersedeReplacementTx(ctx, tx, current, replacementRecordID); err != nil {
+			return MutationResult{}, err
+		}
+		if replacementRecordID != nil {
+			replacementID := *replacementRecordID
+			validatedReplacementID = &replacementID
+		}
+	} else if replacementRecordID != nil {
+		replacementID := *replacementRecordID
+		validatedReplacementID = &replacementID
 	}
 	next.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
 	if err != nil {
@@ -1098,7 +1095,7 @@ RETURNING recorded_at
 		link, err := s.linkStore.InsertSupersedesTx(ctx, tx, current.IncidentID, *validatedReplacementID, current.RecordID, actor.ID, now.UTC())
 		if err != nil {
 			if isRecordLinkConflict(err) {
-				return MutationResult{}, ErrIllegalTransition
+				return MutationResult{}, newIllegalTransitionError("supersede_not_allowed", current.CaptureState, captureStateSuperseded, supersedeGuardTargetMustNotHaveActiveReplacement)
 			}
 			return MutationResult{}, err
 		}
@@ -1198,6 +1195,67 @@ RETURNING recorded_at
 	}, nil
 }
 
+func validateSupersedeReplacementTx(ctx context.Context, tx pgx.Tx, current sourceRecord, replacementRecordID *uuid.UUID) error {
+	if replacementRecordID == nil {
+		return nil
+	}
+
+	guards := make([]string, 0, 3)
+	if *replacementRecordID == current.RecordID {
+		guards = append(guards, supersedeGuardReplacementDifferent)
+	}
+
+	targetHasActiveReplacement, err := hasActiveIncomingSupersedesLinkTx(ctx, tx, current.IncidentID, current.RecordID)
+	if err != nil {
+		return err
+	}
+	if targetHasActiveReplacement {
+		guards = append(guards, supersedeGuardTargetMustNotHaveActiveReplacement)
+	}
+
+	if *replacementRecordID != current.RecordID {
+		replacement, err := loadSourceRecordTx(ctx, tx, *replacementRecordID)
+		if errors.Is(err, ErrRecordNotFound) {
+			guards = append(guards, supersedeGuardReplacementVisibleActiveSameIncident)
+		} else if err != nil {
+			return err
+		} else {
+			if replacement.IncidentID != current.IncidentID {
+				guards = append(guards, supersedeGuardReplacementVisibleActiveSameIncident)
+			}
+			if replacement.CaptureState == captureStateSuperseded {
+				guards = append(guards, supersedeGuardReplacementNotSuperseded)
+			}
+		}
+	}
+
+	if len(guards) > 0 {
+		return newIllegalTransitionError("supersede_not_allowed", current.CaptureState, captureStateSuperseded, guards...)
+	}
+	return nil
+}
+
+func hasActiveIncomingSupersedesLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (bool, error) {
+	var linkID uuid.UUID
+	if err := tx.QueryRow(ctx, `
+SELECT record_link_id
+  FROM record_links
+ WHERE incident_id = $1
+   AND dst_record_id = $2
+   AND link_type = 'supersedes'
+   AND deleted_at IS NULL
+ ORDER BY created_at DESC, record_link_id DESC
+ LIMIT 1
+ FOR UPDATE
+`, incidentID, recordID).Scan(&linkID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("query active incoming supersedes link: %w", err)
+	}
+	return true, nil
+}
+
 func loadSourceRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (sourceRecord, error) {
 	row := tx.QueryRow(ctx, `
 SELECT
@@ -1218,7 +1276,10 @@ SELECT
     e.superseded_by_user_id,
     e.superseded_at
 FROM timeline_events e
-JOIN records r ON r.record_id = e.record_id
+JOIN records r
+  ON r.record_id = e.record_id
+ AND r.record_type = 'timeline_event'
+ AND r.deleted_at IS NULL
 WHERE e.record_id = $1
 FOR UPDATE OF e, r
 `, recordID)

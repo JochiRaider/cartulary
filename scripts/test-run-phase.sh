@@ -505,6 +505,45 @@ assert_equals "$(json_field "$infra_timing_summary" "failure_class")" "infra" "i
 assert_equals "$(json_field "$infra_timing_summary" "failure_classes.infra")" "1" "infra timing JSON class count"
 assert_equals "$(json_field "$infra_timing_summary" "failures.0.kind")" "timing" "infra timing JSON failure kind"
 
+retry_timing_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-retry-timing.XXXXXX")"
+cleanup_paths+=("$retry_timing_results")
+retry_service_dir="$retry_timing_results/retry-timing/_shared/test-services/suite/events"
+mkdir -p "$retry_service_dir"
+cat >"$retry_service_dir/001.json" <<'JSON'
+{
+  "type": "timing-span",
+  "timestamp": "2026-01-01T00:00:02Z",
+  "details": {
+    "target": "retry-target",
+    "bucket": "service_wait",
+    "label": "test-services start minio attempt 1",
+    "start_time": "2026-01-01T00:00:01Z",
+    "end_time": "2026-01-01T00:00:02Z",
+    "duration_ms": 1000,
+    "status": "fail",
+    "service": "minio",
+    "startup_attempt": true,
+    "attempt": 1,
+    "max_attempts": 2,
+    "retryable": true,
+    "retry_scheduled": true,
+    "retry_blocked_by_context": false
+  }
+}
+JSON
+retry_timing_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$retry_timing_results" \
+  CARTULARY_TEST_RUN_ID="retry-timing" \
+    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary retry-target pass \
+    2>&1
+)"
+assert_contains "$retry_timing_output" "[PASS] retry-target" "retry-scheduled startup target status"
+retry_timing_summary="$retry_timing_results/retry-timing/retry-target/target-summary.json"
+assert_equals "$(json_field "$retry_timing_summary" "status")" "pass" "retry-scheduled startup JSON status"
+assert_equals "$(json_field "$retry_timing_summary" "failures.length")" "0" "retry-scheduled startup failure count"
+assert_equals "$(json_field "$retry_timing_summary" "own.timing_failures.length")" "0" "retry-scheduled startup timing failure count"
+assert_equals "$(json_field "$retry_timing_summary" "totals.counts.failed")" "0" "retry-scheduled startup total failed count"
+
 skipped_after_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-summary-skipped-after-failure.XXXXXX")"
 cleanup_paths+=("$skipped_after_failure_results")
 CARTULARY_TEST_RESULTS_DIR="$skipped_after_failure_results" \

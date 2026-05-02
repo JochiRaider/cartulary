@@ -1161,6 +1161,12 @@ function loadServiceTimingSpans(target) {
         duration_ms: clampDurationMs(details.duration_ms ?? 0),
         status: details.status ?? event.status ?? "",
         janitorial: details.janitorial === true,
+        startup_attempt: details.startup_attempt === true,
+        service: details.service ?? event.service ?? "",
+        attempt: details.attempt ?? 0,
+        max_attempts: details.max_attempts ?? 0,
+        retry_scheduled: details.retry_scheduled === true,
+        retry_blocked_by_context: details.retry_blocked_by_context === true,
         artifact: relToRepo(path.dirname(path.dirname(next))),
       });
     }
@@ -1342,8 +1348,18 @@ function timingFailureReference(span) {
   };
 }
 
+function retryScheduledStartupAttempt(span) {
+  return (
+    span?.startup_attempt === true &&
+    span?.retry_scheduled === true &&
+    span?.retry_blocked_by_context !== true
+  );
+}
+
 function timingFailuresFromSpans(spans) {
-  return spans.filter((span) => timingStatusFailed(span.status)).map(timingFailureReference);
+  return spans
+    .filter((span) => timingStatusFailed(span.status) && !retryScheduledStartupAttempt(span))
+    .map(timingFailureReference);
 }
 
 function teardownStatus(teardownDurationMs, teardownFailures) {

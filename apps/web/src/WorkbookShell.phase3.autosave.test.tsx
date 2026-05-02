@@ -14,6 +14,7 @@ import {
   extractTimelinePatchBody,
   installTimelineWorkbookTestGlobals,
   successEnvelope,
+  type TimelineWorkbookFetchMock,
   timelineRow,
   timelineViewSchemaId,
 } from "./timelineWorkbookTestSupport";
@@ -30,7 +31,7 @@ vi.mock(
 );
 
 describe("Phase 3 Timeline workbook autosave coverage", () => {
-  let fetchMock: ReturnType<typeof vi.fn>;
+  let fetchMock: TimelineWorkbookFetchMock;
 
   beforeEach(() => {
     fetchMock = installTimelineWorkbookTestGlobals();

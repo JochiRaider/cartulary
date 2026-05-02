@@ -66,6 +66,16 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 		requireTimelineSocketChange(t, socket, recordID, 1)
 		timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second)
 		requireMutationRecorded(t, db, createData["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-i-3-01-row-create-zero", 1, 1)
+		timelinetest.RequireTimelineRecordMutation(t, db, createData["change_set_id"].(string), timelinetest.TimelineRecordMutationExpectation{
+			SequenceNo:      1,
+			RecordID:        recordID,
+			OperationKind:   "create",
+			AfterRowVersion: timelinetest.RowVersion(1),
+			AfterCells: map[string]any{
+				"timeline.summary":       nil,
+				"timeline.capture_state": "rough",
+			},
+		})
 		projection := timelinetest.LookupProjectionRow(t, db, recordID)
 		if projection.CaptureState != "rough" || projection.ReplacementRecordID != nil {
 			t.Fatalf("unexpected zero-field projection row: %#v", projection)
@@ -154,6 +164,23 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 		requireTimelineSocketChange(t, socket, recordID, 2)
 		timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second)
 		requireMutationRecorded(t, db, patchData["change_set_id"].(string), recordID, adminID, "timeline.records.patch", "txn-i-3-01-row-patch", 1, 2)
+		timelinetest.RequireTimelineRecordMutation(t, db, patchData["change_set_id"].(string), timelinetest.TimelineRecordMutationExpectation{
+			SequenceNo:       1,
+			RecordID:         recordID,
+			OperationKind:    "patch",
+			BeforeRowVersion: timelinetest.RowVersion(1),
+			AfterRowVersion:  timelinetest.RowVersion(2),
+			BeforeCells: map[string]any{
+				"timeline.summary":       nil,
+				"timeline.details":       nil,
+				"timeline.capture_state": "rough",
+			},
+			AfterCells: map[string]any{
+				"timeline.summary":       "Enriched capture",
+				"timeline.details":       "Details from patch",
+				"timeline.capture_state": "enriched",
+			},
+		})
 		projection = timelinetest.LookupProjectionRow(t, db, recordID)
 		if projection.CaptureState != "enriched" {
 			t.Fatalf("expected projection to reflect enriched patch state, got %#v", projection)
@@ -236,6 +263,15 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 		requireTimelineSocketChange(t, socket, recordID, 3)
 		timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second)
 		requireMutationRecorded(t, db, reviewData["change_set_id"].(string), recordID, adminID, "timeline.records.mark_reviewed", "txn-i-3-01-row-review", 1, 3)
+		timelinetest.RequireTimelineRecordMutation(t, db, reviewData["change_set_id"].(string), timelinetest.TimelineRecordMutationExpectation{
+			SequenceNo:       1,
+			RecordID:         recordID,
+			OperationKind:    "patch",
+			BeforeRowVersion: timelinetest.RowVersion(2),
+			AfterRowVersion:  timelinetest.RowVersion(3),
+			BeforeCells:      map[string]any{"timeline.capture_state": "enriched"},
+			AfterCells:       map[string]any{"timeline.capture_state": "reviewed"},
+		})
 		projection = timelinetest.LookupProjectionRow(t, db, recordID)
 		if projection.CaptureState != "reviewed" {
 			t.Fatalf("expected reviewed projection state, got %#v", projection)
@@ -312,6 +348,14 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 		requireTimelineSocketChange(t, socket, recordID, 4)
 		timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second)
 		requireMutationRecorded(t, db, supersedeData["change_set_id"].(string), recordID, adminID, "timeline.records.supersede", "txn-i-3-01-row-supersede", 2, 4)
+		timelinetest.RequireSupersedeCoupledChangeSet(t, db, supersedeData["change_set_id"].(string), recordID, replacementID, 4)
+		timelinetest.RequireRecordLinkCreateMutation(t, db, supersedeData["change_set_id"].(string), timelinetest.RecordLinkMutationExpectation{
+			SequenceNo:          2,
+			IncidentID:          incidentID,
+			SourceRecordID:      replacementID,
+			DestinationRecordID: recordID,
+			LinkType:            "supersedes",
+		})
 		if got := timelinetest.CountActiveSupersedesLinks(t, db, incidentID, replacementID, recordID); got != 1 {
 			t.Fatalf("expected one active supersedes link, got %d", got)
 		}
@@ -675,6 +719,243 @@ SELECT COUNT(*)
 	}
 }
 
+func TestPhase3_RouteEnvelopeMatrix_I_3_06(t *testing.T) {
+	runtime := phase3test.StartRuntime(t)
+	server, db := startPhase3Server(t, runtime, "phase3-i-3-06-envelope-matrix")
+	defer db.Close()
+
+	adminLogin, _ := provisionBootstrapAdmin(t, server)
+	incident := createIncident(t, server, adminLogin, map[string]any{
+		"client_txn_id": "txn-i-3-06-incident",
+		"incident_key":  "IR-I306",
+		"title":         "Malformed envelope matrix",
+	})
+	incidentID := incident["incident_id"].(string)
+	created := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
+		"client_txn_id":    "txn-i-3-06-row",
+		"timeline.summary": "Envelope row",
+	})
+	recordID := created["row"].(map[string]any)["record_id"].(string)
+	replacement := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
+		"client_txn_id":    "txn-i-3-06-replacement",
+		"timeline.summary": "Envelope replacement",
+	})
+	replacementID := replacement["row"].(map[string]any)["record_id"].(string)
+
+	authOptions := []func(*http.Request){
+		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+	}
+	queryOptions := []func(*http.Request){withCookies(adminLogin.sessionCookie)}
+	cases := []struct {
+		name       string
+		method     string
+		url        string
+		body       string
+		options    []func(*http.Request)
+		status     int
+		code       string
+		detailWant map[string]any
+		mutating   bool
+	}{
+		{
+			name:       "create malformed JSON",
+			method:     http.MethodPost,
+			url:        server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/views/" + timeline.TimelineViewSchemaID + "/rows",
+			body:       `{"client_txn_id":`,
+			options:    authOptions,
+			status:     http.StatusBadRequest,
+			code:       "invalid_mutation_payload",
+			detailWant: map[string]any{"reason_code": "request_not_object"},
+			mutating:   true,
+		},
+		{
+			name:       "create unknown field",
+			method:     http.MethodPost,
+			url:        server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/views/" + timeline.TimelineViewSchemaID + "/rows",
+			body:       `{"client_txn_id":"txn-i-3-06-create-unknown","timeline.summary":"x","timeline.unknown":true}`,
+			options:    authOptions,
+			status:     http.StatusBadRequest,
+			code:       "invalid_mutation_payload",
+			detailWant: map[string]any{"field": "timeline.unknown", "reason_code": "unknown_field"},
+			mutating:   true,
+		},
+		{
+			name:       "patch malformed JSON",
+			method:     http.MethodPatch,
+			url:        server.HTTP.URL + "/api/v1/records/" + recordID,
+			body:       `{"view_schema_id":"` + timeline.TimelineViewSchemaID + `",`,
+			options:    authOptions,
+			status:     http.StatusBadRequest,
+			code:       "invalid_mutation_payload",
+			detailWant: map[string]any{"reason_code": "request_not_object"},
+			mutating:   true,
+		},
+		{
+			name:       "patch missing changes",
+			method:     http.MethodPatch,
+			url:        server.HTTP.URL + "/api/v1/records/" + recordID,
+			body:       `{"view_schema_id":"` + timeline.TimelineViewSchemaID + `","base_row_version":1,"client_txn_id":"txn-i-3-06-patch-missing"}`,
+			options:    authOptions,
+			status:     http.StatusBadRequest,
+			code:       "invalid_mutation_payload",
+			detailWant: map[string]any{"field": "changes", "reason_code": "missing_required_field"},
+			mutating:   true,
+		},
+		{
+			name:       "mark reviewed malformed JSON",
+			method:     http.MethodPost,
+			url:        server.HTTP.URL + "/api/v1/records/" + recordID + "/mark-reviewed",
+			body:       `[`,
+			options:    authOptions,
+			status:     http.StatusBadRequest,
+			code:       "invalid_mutation_payload",
+			detailWant: map[string]any{"reason_code": "request_not_object"},
+			mutating:   true,
+		},
+		{
+			name:       "supersede invalid reason",
+			method:     http.MethodPost,
+			url:        server.HTTP.URL + "/api/v1/records/" + recordID + "/supersede",
+			body:       `{"base_row_version":1,"client_txn_id":"txn-i-3-06-supersede-invalid","reason":5,"replacement_record_id":"` + replacementID + `"}`,
+			options:    authOptions,
+			status:     http.StatusBadRequest,
+			code:       "invalid_mutation_payload",
+			detailWant: map[string]any{"field": "reason", "reason_code": "invalid_value"},
+			mutating:   true,
+		},
+		{
+			name:       "query malformed JSON",
+			method:     http.MethodPost,
+			url:        server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/views/" + timeline.TimelineViewSchemaID + "/query",
+			body:       `[`,
+			options:    queryOptions,
+			status:     http.StatusBadRequest,
+			code:       "invalid_view_query",
+			detailWant: map[string]any{"reason_code": "request_not_object"},
+		},
+		{
+			name:       "query unknown member",
+			method:     http.MethodPost,
+			url:        server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/views/" + timeline.TimelineViewSchemaID + "/query",
+			body:       `{"unknown":true}`,
+			options:    queryOptions,
+			status:     http.StatusBadRequest,
+			code:       "invalid_view_query",
+			detailWant: map[string]any{"field": "unknown", "reason_code": "unknown_field"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var before timelinetest.Counters
+			if tc.mutating {
+				before = timelinetest.SnapshotCounters(t, db, incidentID, recordID)
+			}
+			resp := doPhase3RawJSON(t, tc.method, tc.url, tc.body, tc.options...)
+			body := httptestx.RequireErrorEnvelope(t, resp, tc.status, tc.code)
+			for key, want := range tc.detailWant {
+				httptestx.RequireErrorDetail(t, body, key, want)
+			}
+			if tc.mutating {
+				after := timelinetest.SnapshotCounters(t, db, incidentID, recordID)
+				if before != after {
+					t.Fatalf("malformed route request must not mutate history: before=%#v after=%#v", before, after)
+				}
+			}
+		})
+	}
+
+	incidentwstest.RequireDialErrorEnvelope(t, server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{}, http.StatusUnauthorized, "session_required")
+}
+
+func TestPhase3_RoughUncertainCapturePreservation_I_3_07(t *testing.T) {
+	runtime := phase3test.StartRuntime(t)
+	server, db := startPhase3Server(t, runtime, "phase3-i-3-07-rough-preservation")
+	defer db.Close()
+
+	adminLogin, adminID := provisionBootstrapAdmin(t, server)
+	incident := createIncident(t, server, adminLogin, map[string]any{
+		"client_txn_id": "txn-i-3-07-incident",
+		"incident_key":  "IR-I307",
+		"title":         "Rough uncertainty preservation",
+	})
+	incidentID := incident["incident_id"].(string)
+	details := "Analyst pasted partial notes: maybe gateway, owner unknown."
+	sourceText := "raw paste: host?  vpn   gateway ; acct maybe pending"
+	rawHostText := " vpn   gateway "
+	created := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
+		"client_txn_id":        "txn-i-3-07-rough-row",
+		"timeline.details":     details,
+		"timeline.source_text": sourceText,
+		"timeline.host_refs": map[string]any{
+			"kind": "collection_actions_v1",
+			"actions": []map[string]any{
+				{"op": "add_token", "raw_text": rawHostText},
+			},
+		},
+	})
+	row := created["row"].(map[string]any)
+	recordID := row["record_id"].(string)
+	cells := row["cells"].(map[string]any)
+	if cells["timeline.occurred_at"].(map[string]any)["value"] != nil ||
+		cells["timeline.summary"].(map[string]any)["value"] != nil ||
+		cells["timeline.details"].(map[string]any)["value"] != details ||
+		cells["timeline.source_text"].(map[string]any)["value"] != sourceText {
+		t.Fatalf("rough create did not preserve uncertain/null capture fields: %#v", row)
+	}
+	if cells["timeline.has_unresolved_mentions"].(map[string]any)["value"] != true {
+		t.Fatalf("rough create should surface unresolved mention state, got %#v", cells["timeline.has_unresolved_mentions"])
+	}
+	hostItem := requireSingleCollectionItem(t, row, "timeline.host_refs")
+	if hostItem["item_kind"] != "unresolved_mention" || hostItem["raw_text"] != rawHostText {
+		t.Fatalf("expected unresolved host mention with raw text preserved, got %#v", hostItem)
+	}
+	mentionID := mentionIDFromItemRef(t, hostItem["item_ref"].(string))
+	mentionBefore := lookupMention(t, db, mentionID)
+	if mentionBefore.RawText != rawHostText || mentionBefore.ResolutionStatus != "unresolved" || mentionBefore.RowVersion != 1 {
+		t.Fatalf("unexpected rough mention before resolution: %#v", mentionBefore)
+	}
+
+	hostID := uuid.New()
+	seedHostRecord(t, db, mustUUID(t, incidentID), mustUUID(t, adminID), hostID, "VPN Gateway", "vpn-gateway")
+	resolveResp := doPhase3JSON(
+		t,
+		http.MethodPost,
+		server.HTTP.URL+"/api/v1/entity-mentions/"+mentionID.String()+"/resolve",
+		map[string]any{
+			"base_mention_row_version": 1,
+			"client_txn_id":            "txn-i-3-07-resolve-host",
+			"action":                   "resolve_item",
+			"resolved_record_id":       hostID.String(),
+		},
+		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+	)
+	resolveData := httptestx.RequireSuccessEnvelope(t, resolveResp, http.StatusOK)["data"].(map[string]any)
+	if resolveData["source_record"].(map[string]any)["row_version"] != float64(2) {
+		t.Fatalf("expected mention resolution to advance source row_version, got %#v", resolveData)
+	}
+
+	mentionAfter := lookupMention(t, db, mentionID)
+	if mentionAfter.RawText != rawHostText || mentionAfter.ResolutionStatus != "resolved" || mentionAfter.ResolvedRecordID == nil || *mentionAfter.ResolvedRecordID != hostID {
+		t.Fatalf("mention resolution must preserve raw text while resolving target, got %#v", mentionAfter)
+	}
+	refreshed := findRow(t, queryTimelineRows(t, server, incidentID, adminLogin), recordID)
+	refreshedCells := refreshed["cells"].(map[string]any)
+	if refreshedCells["timeline.details"].(map[string]any)["value"] != details ||
+		refreshedCells["timeline.source_text"].(map[string]any)["value"] != sourceText ||
+		refreshedCells["timeline.summary"].(map[string]any)["value"] != nil {
+		t.Fatalf("resolution must not overwrite original rough capture fields, got %#v", refreshed)
+	}
+	refreshedHostItem := requireSingleCollectionItem(t, refreshed, "timeline.host_refs")
+	if refreshedHostItem["item_kind"] != "resolved_ref" ||
+		refreshedHostItem["raw_text"] != rawHostText ||
+		refreshedHostItem["resolved_record_id"] != hostID.String() {
+		t.Fatalf("resolved row must preserve original host token lineage, got %#v", refreshedHostItem)
+	}
+}
+
 func TestPhase3_I_3_02_ProjectionQueryUsesDeterministicRebuild(t *testing.T) {
 	runtime := phase3test.StartRuntime(t)
 
@@ -821,7 +1102,7 @@ func TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions(t *testing.
 		server, db := startPhase3Server(t, runtime, "phase3-i-3-03")
 		defer db.Close()
 
-		adminLogin, _ := provisionBootstrapAdmin(t, server)
+		adminLogin, adminID := provisionBootstrapAdmin(t, server)
 		reviewerID := seedLocalUserFlags(t, db, "reviewer-target@example.test", "Reviewer Target", "ReviewerTargetPass1!", false, false, true)
 
 		incident := createIncident(t, server, adminLogin, map[string]any{
@@ -859,6 +1140,46 @@ func TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions(t *testing.
 			"timeline.summary": "Cross incident replacement",
 		})
 		otherReplacementID := otherReplacement["row"].(map[string]any)["record_id"].(string)
+		supersededReplacement := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
+			"client_txn_id":    "txn-i-3-03-superseded-replacement",
+			"timeline.summary": "Superseded replacement row",
+		})
+		supersededReplacementID := supersededReplacement["row"].(map[string]any)["record_id"].(string)
+		supersededReplacementNext := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
+			"client_txn_id":    "txn-i-3-03-superseded-replacement-next",
+			"timeline.summary": "Replacement for superseded replacement",
+		})
+		supersededReplacementNextID := supersededReplacementNext["row"].(map[string]any)["record_id"].(string)
+		supersedeReplacementFixture := doPhase3JSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/records/"+supersededReplacementID+"/supersede",
+			map[string]any{
+				"base_row_version":      1,
+				"client_txn_id":         "txn-i-3-03-supersede-replacement-fixture",
+				"reason":                "make replacement superseded",
+				"replacement_record_id": supersededReplacementNextID,
+			},
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		httptestx.RequireSuccessEnvelope(t, supersedeReplacementFixture, http.StatusOK)
+		activeIncomingTarget := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
+			"client_txn_id":    "txn-i-3-03-active-incoming-target",
+			"timeline.summary": "Target with incoming replacement",
+		})
+		activeIncomingTargetID := activeIncomingTarget["row"].(map[string]any)["record_id"].(string)
+		activeIncomingReplacement := createTimelineRow(t, server, incidentID, adminLogin, map[string]any{
+			"client_txn_id":    "txn-i-3-03-active-incoming-replacement",
+			"timeline.summary": "Existing incoming replacement",
+		})
+		activeIncomingReplacementID := activeIncomingReplacement["row"].(map[string]any)["record_id"].(string)
+		if _, err := db.ExecContext(context.Background(), `
+INSERT INTO record_links (incident_id, src_record_id, dst_record_id, link_type, provenance, owner_user_id, created_by_user_id)
+VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
+`, incidentID, activeIncomingReplacementID, activeIncomingTargetID, adminID); err != nil {
+			t.Fatalf("seed active incoming supersedes link: %v", err)
+		}
 
 		reviewerSession, reviewerCSRF := loginLocalUser(t, server, "reviewer-target@example.test", "ReviewerTargetPass1!")
 		reviewerLogin := loginResult{sessionCookie: reviewerSession, csrfCookie: reviewerCSRF}
@@ -981,7 +1302,18 @@ func TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions(t *testing.
 		}
 		requireTimelineSocketChange(t, socket, recordID, 3)
 		timelinetest.AwaitRecordChange(t, hubChanges, 5*time.Second)
+		requireMutationRecorded(t, db, demoted["change_set_id"].(string), recordID, reviewerID, "timeline.records.patch", "txn-i-3-03-demote", 1, 3)
+		timelinetest.RequireTimelineRecordMutation(t, db, demoted["change_set_id"].(string), timelinetest.TimelineRecordMutationExpectation{
+			SequenceNo:       1,
+			RecordID:         recordID,
+			OperationKind:    "patch",
+			BeforeRowVersion: timelinetest.RowVersion(2),
+			AfterRowVersion:  timelinetest.RowVersion(3),
+			BeforeCells:      map[string]any{"timeline.capture_state": "reviewed", "timeline.details": nil},
+			AfterCells:       map[string]any{"timeline.capture_state": "enriched", "timeline.details": "Material edit after review"},
+		})
 
+		selfBefore := timelinetest.SnapshotCounters(t, db, incidentID, recordID)
 		selfSupersede := doPhase3JSON(
 			t,
 			http.MethodPost,
@@ -995,9 +1327,10 @@ func TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions(t *testing.
 			withCookies(reviewerSession, reviewerCSRF),
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
-		httptestx.RequireErrorEnvelope(t, selfSupersede, http.StatusConflict, "illegal_transition")
+		requireRejectedMutationStable(t, db, incidentID, recordID, selfBefore, selfSupersede, "enriched", "superseded", []string{"replacement_must_be_different_timeline_record"})
 		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
 
+		crossBefore := timelinetest.SnapshotCounters(t, db, incidentID, recordID)
 		crossIncidentSupersede := doPhase3JSON(
 			t,
 			http.MethodPost,
@@ -1011,7 +1344,59 @@ func TestPhase3_I_3_03_AuthorizationLifecycleAndSupersedeTransitions(t *testing.
 			withCookies(reviewerSession, reviewerCSRF),
 			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
 		)
-		httptestx.RequireErrorEnvelope(t, crossIncidentSupersede, http.StatusConflict, "illegal_transition")
+		requireRejectedMutationStable(t, db, incidentID, recordID, crossBefore, crossIncidentSupersede, "enriched", "superseded", []string{"replacement_must_be_visible_active_same_incident_timeline_record"})
+		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+
+		supersededReplacementBefore := timelinetest.SnapshotCounters(t, db, incidentID, recordID)
+		supersededReplacementResp := doPhase3JSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/records/"+recordID+"/supersede",
+			map[string]any{
+				"base_row_version":      3,
+				"client_txn_id":         "txn-i-3-03-superseded-replacement-target",
+				"reason":                "superseded replacement must fail",
+				"replacement_record_id": supersededReplacementID,
+			},
+			withCookies(reviewerSession, reviewerCSRF),
+			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+		)
+		requireRejectedMutationStable(t, db, incidentID, recordID, supersededReplacementBefore, supersededReplacementResp, "enriched", "superseded", []string{"replacement_must_not_be_superseded"})
+		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+
+		missingReplacementID := uuid.New().String()
+		missingReplacementBefore := timelinetest.SnapshotCounters(t, db, incidentID, recordID)
+		missingReplacementResp := doPhase3JSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/records/"+recordID+"/supersede",
+			map[string]any{
+				"base_row_version":      3,
+				"client_txn_id":         "txn-i-3-03-missing-replacement-target",
+				"reason":                "missing replacement must fail",
+				"replacement_record_id": missingReplacementID,
+			},
+			withCookies(reviewerSession, reviewerCSRF),
+			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+		)
+		requireRejectedMutationStable(t, db, incidentID, recordID, missingReplacementBefore, missingReplacementResp, "enriched", "superseded", []string{"replacement_must_be_visible_active_same_incident_timeline_record"})
+		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
+
+		activeIncomingBefore := timelinetest.SnapshotCounters(t, db, incidentID, activeIncomingTargetID)
+		activeIncomingResp := doPhase3JSON(
+			t,
+			http.MethodPost,
+			server.HTTP.URL+"/api/v1/records/"+activeIncomingTargetID+"/supersede",
+			map[string]any{
+				"base_row_version":      1,
+				"client_txn_id":         "txn-i-3-03-active-incoming-target",
+				"reason":                "target already has replacement",
+				"replacement_record_id": replacementID,
+			},
+			withCookies(reviewerSession, reviewerCSRF),
+			withHeader(authn.CSRFHeaderName, reviewerCSRF.Value),
+		)
+		requireRejectedMutationStable(t, db, incidentID, activeIncomingTargetID, activeIncomingBefore, activeIncomingResp, "rough", "superseded", []string{"target_must_not_have_active_replacement"})
 		requireNoTimelineCollaborationEmission(t, socket, hubChanges)
 
 		supersede := doPhase3JSON(
@@ -1456,6 +1841,19 @@ func requireNoTimelineCollaborationEmission(t testing.TB, client *timelineSocket
 	phase3test.RequireNoTimelineCollaborationEmission(t, client, changes)
 }
 
+func requireRejectedMutationStable(t testing.TB, db *sql.DB, incidentID string, recordID string, before timelinetest.Counters, resp *http.Response, wantFrom string, wantTo string, wantGuards []string) {
+	t.Helper()
+
+	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "illegal_transition")
+	httptestx.RequireErrorDetail(t, body, "from_status", wantFrom)
+	httptestx.RequireErrorDetail(t, body, "to_status", wantTo)
+	httptestx.RequireErrorDetailStrings(t, body, "violated_guards", wantGuards)
+	after := timelinetest.SnapshotCounters(t, db, incidentID, recordID)
+	if before != after {
+		t.Fatalf("rejected mutation must not write history or projection rows: before=%#v after=%#v", before, after)
+	}
+}
+
 func queryTimelineEnvelope(t testing.TB, server *httptestx.Server, incidentID string, login loginResult, body map[string]any) map[string]any {
 	t.Helper()
 
@@ -1484,6 +1882,12 @@ func doPhase3JSON(t testing.TB, method string, url string, body any, options ...
 	t.Helper()
 
 	return phase3test.DoJSON(t, method, url, body, options...)
+}
+
+func doPhase3RawJSON(t testing.TB, method string, url string, body string, options ...func(*http.Request)) *http.Response {
+	t.Helper()
+
+	return phase3test.DoRawJSON(t, method, url, body, options...)
 }
 
 func withCookies(cookies ...*http.Cookie) func(*http.Request) {
