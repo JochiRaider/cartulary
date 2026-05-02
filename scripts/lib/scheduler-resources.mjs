@@ -5,8 +5,15 @@ import { fileURLToPath } from "node:url";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
 const defaultRegistryPath = path.join(repoRoot, "tools", "scheduler_resource_registry.json");
-const registrySchemaID = "cartulary.scheduler_resource_registry.v2";
+const registrySchemaID = "cartulary.scheduler_resource_registry.v3";
 const envVariablePattern = /^[A-Z][A-Z0-9_]*$/;
+const registryTopLevelKeys = new Set([
+  "schema_id",
+  "resources",
+  "templates",
+  "capacity_profiles",
+  "forwarding_profiles",
+]);
 
 let cachedRegistry = null;
 
@@ -41,6 +48,21 @@ function requirePositiveInteger(value, label) {
     throw new Error(`${label} must be a positive integer`);
   }
   return value;
+}
+
+function requirePlainObject(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  return value;
+}
+
+function assertKnownObjectKeys(value, label, allowedKeys) {
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) {
+      throw new Error(`${label} has unknown key ${key}`);
+    }
+  }
 }
 
 function normalizeOverrideEnv(value, label) {
@@ -82,10 +104,11 @@ function normalizeCapacity(value, label) {
 }
 
 function loadRawRegistry(file = defaultRegistryPath) {
-  const registry = JSON.parse(readFileSync(file, "utf8"));
+  const registry = requirePlainObject(JSON.parse(readFileSync(file, "utf8")), "scheduler resource registry");
   if (registry.schema_id !== registrySchemaID) {
     throw new Error(`${file} must declare schema_id ${registrySchemaID}`);
   }
+  assertKnownObjectKeys(registry, "scheduler resource registry", registryTopLevelKeys);
   return registry;
 }
 
@@ -141,13 +164,6 @@ function buildRegistry(file = defaultRegistryPath) {
     }
     capacityProfiles.set(name, { name, scheduler, resources: profileResources });
   }
-  const retiredAliases = new Map();
-  for (const alias of raw.retired_aliases ?? []) {
-    retiredAliases.set(requireString(alias.name, "retired_aliases[].name"), {
-      replacement: typeof alias.replacement === "string" && alias.replacement ? alias.replacement : null,
-      reason: typeof alias.reason === "string" ? alias.reason : "",
-    });
-  }
   const forwardingProfiles = new Map();
   for (const [index, profile] of (raw.forwarding_profiles ?? []).entries()) {
     const label = `forwarding_profiles[${index + 1}]`;
@@ -159,7 +175,7 @@ function buildRegistry(file = defaultRegistryPath) {
     }));
     forwardingProfiles.set(name, { name, mappings });
   }
-  return { resources, templates, capacityProfiles, retiredAliases, forwardingProfiles };
+  return { resources, templates, capacityProfiles, forwardingProfiles };
 }
 
 export function schedulerResourceRegistry() {
@@ -183,10 +199,6 @@ export function browserStageResource(stageName) {
 export function isBrowserStageResource(resource) {
   const template = browserStageTemplate();
   return typeof resource === "string" && resource.startsWith(template.prefix) && resource.length > template.prefix.length;
-}
-
-export function retiredResourceAlias(resource) {
-  return schedulerResourceRegistry().retiredAliases.get(resource) ?? null;
 }
 
 export function resourceDescriptor(resource) {
@@ -225,11 +237,6 @@ export function resourceDescriptor(resource) {
 
 export function assertKnownResource(resource, label, { scheduler = null } = {}) {
   const normalized = requireString(resource, label);
-  const retired = retiredResourceAlias(normalized);
-  if (retired) {
-    const replacement = retired.replacement ? `; use ${retired.replacement}` : "";
-    throw new Error(`${label} uses retired resource ${normalized}${replacement}`);
-  }
   const descriptor = resourceDescriptor(normalized);
   if (!descriptor) {
     throw new Error(`${label} uses undeclared scheduler resource ${normalized}`);

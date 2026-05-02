@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.scheduler_resource_registry.v2",
+  "schema_id": "cartulary.scheduler_resource_registry.v3",
   "resources": [
     {
       "name": "host_cpu",
@@ -146,28 +146,6 @@
           "env_variable": "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT"
         }
       ]
-    }
-  ],
-  "retired_aliases": [
-    {
-      "name": "cpu",
-      "replacement": "host_cpu",
-      "reason": "top-level check scheduler CPU capacity is now explicit host_cpu"
-    },
-    {
-      "name": "io",
-      "replacement": "host_io",
-      "reason": "top-level check scheduler IO capacity is now explicit host_io"
-    },
-    {
-      "name": "backend",
-      "replacement": null,
-      "reason": "generic backend lanes were replaced by typed Go, process, and service resources"
-    },
-    {
-      "name": "browser",
-      "replacement": null,
-      "reason": "generic browser lanes were replaced by browser_stack and browser_stage lanes"
     }
   ]
 }

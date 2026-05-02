@@ -1456,19 +1456,6 @@ set -e
 assert_equals "$cycle_dependency_status" "1" "cycle dependency manifest status"
 assert_contains "$cycle_dependency_output" "has a dependency cycle" "cycle dependency manifest output"
 
-removed_backend_resource_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-removed-backend-resource.XXXXXX")"
-cleanup_paths+=("$removed_backend_resource_dir")
-write_fake_make "$removed_backend_resource_dir"
-removed_backend_resource_manifest="${removed_backend_resource_dir}/manifest.json"
-write_manifest "$removed_backend_resource_manifest" test-fast-service-backed \
-  'make_target|backend-integration|10|"postgres": 1, "backend": 1'
-set +e
-removed_backend_resource_output="$(run_scheduler "$removed_backend_resource_dir" "$removed_backend_resource_manifest" test-fast-service-backed removed-backend-resource 2>&1)"
-removed_backend_resource_status=$?
-set -e
-assert_equals "$removed_backend_resource_status" "1" "removed backend resource manifest status"
-assert_contains "$removed_backend_resource_output" "uses retired resource backend" "removed backend resource manifest output"
-
 invalid_browser_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-invalid-browser.XXXXXX")"
 cleanup_paths+=("$invalid_browser_dir")
 write_fake_make "$invalid_browser_dir"
@@ -1495,19 +1482,6 @@ set -e
 assert_equals "$invalid_browser_target_status" "1" "invalid browser target manifest status"
 assert_contains "$invalid_browser_target_output" "must match browser_stage webserver-backed aggregate target browser-e2e-webserver-backed" "invalid browser target manifest output"
 
-obsolete_browser_resource_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-obsolete-browser-resource.XXXXXX")"
-cleanup_paths+=("$obsolete_browser_resource_dir")
-write_fake_make "$obsolete_browser_resource_dir"
-obsolete_browser_resource_manifest="${obsolete_browser_resource_dir}/manifest.json"
-write_manifest "$obsolete_browser_resource_manifest" test-service-backed \
-  'make_target|browser-e2e-webserver-backed|10|"postgres": 1, "minio": 1, "browser": 1|browser|webserver-backed'
-set +e
-obsolete_browser_resource_output="$(run_scheduler "$obsolete_browser_resource_dir" "$obsolete_browser_resource_manifest" test-service-backed obsolete-browser-resource 2>&1)"
-obsolete_browser_resource_status=$?
-set -e
-assert_equals "$obsolete_browser_resource_status" "1" "obsolete browser resource manifest status"
-assert_contains "$obsolete_browser_resource_output" "uses retired resource browser" "obsolete browser resource manifest output"
-
 legacy_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-legacy.XXXXXX")"
 cleanup_paths+=("$legacy_dir")
 write_fake_make "$legacy_dir"
@@ -1520,27 +1494,27 @@ set -e
 assert_equals "$legacy_status" "1" "legacy manifest status"
 assert_contains "$legacy_output" "must declare schema_id cartulary.service_backed_schedule.v8" "legacy manifest output"
 
-jobs_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-jobs.XXXXXX")"
-cleanup_paths+=("$jobs_dir")
-write_fake_make "$jobs_dir"
-jobs_manifest="${jobs_dir}/manifest.json"
-write_manifest "$jobs_manifest" test-fast-service-backed \
+unknown_option_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-unknown-option.XXXXXX")"
+cleanup_paths+=("$unknown_option_dir")
+write_fake_make "$unknown_option_dir"
+unknown_option_manifest="${unknown_option_dir}/manifest.json"
+write_manifest "$unknown_option_manifest" test-fast-service-backed \
   'make_target|backend-integration|10|"postgres": 1, "minio": 1'
 set +e
-jobs_output="$(
+unknown_option_output="$(
   env \
-  FAKE_SCHEDULER_LOCK="${jobs_dir}/lock" \
-  FAKE_SCHEDULER_ACTIVE="${jobs_dir}/active" \
-  FAKE_SCHEDULER_MAX="${jobs_dir}/max" \
-  FAKE_SCHEDULER_LOG="${jobs_dir}/make.log" \
-  MAKE="${jobs_dir}/fake-make" \
+  FAKE_SCHEDULER_LOCK="${unknown_option_dir}/lock" \
+  FAKE_SCHEDULER_ACTIVE="${unknown_option_dir}/active" \
+  FAKE_SCHEDULER_MAX="${unknown_option_dir}/max" \
+  FAKE_SCHEDULER_LOG="${unknown_option_dir}/make.log" \
+  MAKE="${unknown_option_dir}/fake-make" \
   NODE_BIN="$NODE_BIN" \
   TEST_OUTPUT_SCRIPT="$TEST_OUTPUT_SCRIPT" \
-  CARTULARY_TEST_RESULTS_DIR="${jobs_dir}/results" \
-  CARTULARY_TEST_RUN_ID="jobs" \
-    "$NODE_BIN" "$SCRIPT" --target test-fast-service-backed --jobs 1 --manifest "$jobs_manifest" 2>&1
+  CARTULARY_TEST_RESULTS_DIR="${unknown_option_dir}/results" \
+  CARTULARY_TEST_RUN_ID="unknown-option" \
+    "$NODE_BIN" "$SCRIPT" --target test-fast-service-backed --unknown-option --manifest "$unknown_option_manifest" 2>&1
 )"
-jobs_status=$?
+unknown_option_status=$?
 set -e
-assert_equals "$jobs_status" "1" "obsolete jobs flag status"
-assert_contains "$jobs_output" "--jobs is obsolete" "obsolete jobs flag output"
+assert_equals "$unknown_option_status" "2" "unknown option status"
+assert_contains "$unknown_option_output" "usage: run-service-backed-schedule.mjs" "unknown option output"

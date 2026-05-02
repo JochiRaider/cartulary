@@ -83,9 +83,6 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
-    if (arg === "--jobs") {
-      throw new Error("--jobs is obsolete for v7 service-backed schedules; use resource_limits");
-    }
     usage();
   }
   if (!options.target || !options.manifest) {

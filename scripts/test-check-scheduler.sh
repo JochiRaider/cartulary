@@ -542,7 +542,6 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
-  assertKnownResource,
   browserStageResource,
   isAutoLimitResource,
   loadSchedulerResourceRegistry,
@@ -572,14 +571,6 @@ if (!isAutoLimitResource("go_cpu") || !isAutoLimitResource("go_io") || !isAutoLi
 }
 if (isAutoLimitResource("host_cpu")) {
   fail("host_cpu must not be an auto-limit resource");
-}
-try {
-  assertKnownResource("cpu", "registry test", { scheduler: "check" });
-  fail("retired cpu alias was accepted");
-} catch (error) {
-  if (!String(error.message).includes("use host_cpu")) {
-    throw error;
-  }
 }
 const checkProfile = resourceLimitsForCapacityProfile("check_default", "registry test", { scheduler: "check" });
 if (checkProfile.limits.get("host_cpu") !== 12 || checkProfile.limits.get("host_io") !== 12 || checkProfile.limits.get("service_stack") !== 1) {
@@ -624,7 +615,7 @@ const invalidRegistryPath = path.join(mkdtempSync(path.join(os.tmpdir(), "cartul
 writeFileSync(
   invalidRegistryPath,
   `${JSON.stringify({
-    schema_id: "cartulary.scheduler_resource_registry.v2",
+    schema_id: "cartulary.scheduler_resource_registry.v3",
     resources: [
       {
         name: "bad",
@@ -640,6 +631,23 @@ try {
   fail("invalid capacity descriptor was accepted");
 } catch (error) {
   if (!String(error.message).includes("exactly one of default_limit or auto_policy")) {
+    throw error;
+  }
+}
+const unknownRegistryKeyPath = path.join(mkdtempSync(path.join(os.tmpdir(), "cartulary-registry-key-test-")), "registry.json");
+writeFileSync(
+  unknownRegistryKeyPath,
+  `${JSON.stringify({
+    schema_id: "cartulary.scheduler_resource_registry.v3",
+    resources: [],
+    retired_aliases: [],
+  })}\n`,
+);
+try {
+  loadSchedulerResourceRegistry(unknownRegistryKeyPath);
+  fail("unknown registry top-level key was accepted");
+} catch (error) {
+  if (!String(error.message).includes("unknown key retired_aliases")) {
     throw error;
   }
 }
