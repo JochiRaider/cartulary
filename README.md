@@ -229,6 +229,8 @@ Supporting appendices preserve rationale, diagrams, schema reference material, w
 - `G_source_archive_exploratory_design_artifact.md`
 - `H_operating_model_supporting_guidance.md`
 
+The project-wide domain vocabulary and concept reference lives at `docs/domain.md`. Use it to interpret Cartulary terms and find the relevant owner sections; it does not replace the normative core or define new implementation-conformance behavior.
+
 The current core also defines bounded extension profiles for:
 
 - **Import** — file-based structured import from spreadsheet and CSV sources through a session-based contract.

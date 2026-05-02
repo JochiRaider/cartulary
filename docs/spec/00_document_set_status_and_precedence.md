@@ -96,6 +96,8 @@ This reservation also includes local-account WebAuthn or passkey support, includ
 - **Core 04** defines authoritative security, deployment, trust boundaries, and acceptance criteria.
 - **Core 05** defines authoritative claim publication and benchmark reproducibility for public timed or fixture-sensitive claims. It is normative companion material and is not part of Base Profile or extension-profile implementation conformance.
 
+`docs/domain.md` is a first-class domain vocabulary and concept-reference document for repository terminology and owner-section navigation. It does not replace Core 00 through Core 05, appendices, or owner sections, and it does not add implementation-conformance behavior. If `docs/domain.md` and an owner section differ, the owner section governs and the difference is documentation drift.
+
 ### 5.1 Contract-owner matrix
 
 **REQ-00-005**

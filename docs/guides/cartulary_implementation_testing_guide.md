@@ -11,6 +11,8 @@
 
 This guide is a **derived implementation-planning artifact**, not an independent source of contract truth. Core 00 through Core 04 are authoritative for implementation conformance. Core 05 is authoritative for claim-bearing publication of timed or fixture-sensitive criteria only. Appendix F is the traceability aid. When this guide and an owner section diverge, the owner section governs and this guide must be repaired.[^precedence][^claim-publication]
 
+Use `docs/domain.md` for project-wide domain vocabulary and concept boundaries while planning or reviewing phase work. It is a navigation and terminology aid; it does not replace the owner sections or Appendix F traceability.
+
 This guide preserves the phased implementation shape because it is useful for delivery planning, but the phase order is an **implementation aid**, not a parallel specification. A phase may group work for sequencing convenience. It does not change requirement ownership, route semantics, data-model rules, or conformance scope.[^precedence][^traceability]
 
 Phase headers therefore name **primary owner sections**, not broad REQ blocks. The phase tables carry the exact REQ and AC identifiers for each planned test. Use the phase header to find the owner section. Use the row-level mappings to build the test and to prove traceability.[^precedence][^traceability]

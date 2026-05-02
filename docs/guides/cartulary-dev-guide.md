@@ -43,6 +43,8 @@ Unless a narrower banner is stated for a subsection, this guide is written for t
 
 ### Terminology used by this guide
 
+Use `docs/domain.md` as the project-wide domain vocabulary and concept reference when terminology is ambiguous. The table below is a guide-local summary for implementation-support language; owner sections still govern behavior.
+
 | Term                                    | Required meaning in this guide                                                                                                                               |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `implementation guide`                  | This document. It is not a sole behavioral authority.                                                                                                        |

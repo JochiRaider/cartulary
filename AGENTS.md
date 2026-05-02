@@ -3,6 +3,7 @@
 ## Authority and placeholders
 
 - Normative behavior is owned by the Cartulary normative core under `docs/spec/00_document_set_status_and_precedence.md` through Core 04. The guides under `docs/guides/` are implementation-support inputs, not independent behavior owners.
+- Consult `docs/domain.md` before domain-facing changes, terminology-sensitive changes, view-schema work, record-model work, workbook-surface work, or documentation edits that touch project vocabulary. It is a vocabulary and concept reference, not a replacement for owner specs.
 - The canonical Go module path is `github.com/JochiRaider/cartulary`.
 - Supported toolchain baseline: `Go 1.26` with `toolchain go1.26.2`, `Node 24.15.0`, and `pnpm 10.33.0`.
 - Pinned bootstrap tools: `github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0`, `github.com/pressly/goose/v3/cmd/goose@v3.27.0`, `honnef.co/go/tools/cmd/staticcheck@v0.7.0`, `golang.org/x/vuln/cmd/govulncheck@v1.3.0`, `github.com/securego/gosec/v2/cmd/gosec@v2.26.1`, ShellCheck `0.11.0`, and `github.com/testcontainers/testcontainers-go v0.42.0`.
